@@ -1,5 +1,5 @@
 /**
- * File-system envelope sink — writes envelope JSONL to disk.
+ * Append-only JSON-lines artifact storage backed by the platform filesystem.
  *
  * @since 0.1.0
  */
@@ -14,7 +14,14 @@ const ENVELOPE_FILE_NAME = "envelopes.jsonl"
 const ArtifactEnvelopeJsonSchema = Schema.parseJson(ArtifactEnvelopeSchema)
 
 /**
- * File-system sink layer — writes each envelope as a JSON line.
+ * Builds an artifact sink that appends one encoded envelope per line to
+ * `envelopes.jsonl` under the supplied directory.
+ *
+ * @remarks
+ * Layer construction requires platform filesystem and path services and attempts
+ * recursive directory creation. Directory, encoding, and append failures are discarded,
+ * so successful `emit` completion does not prove that data reached disk. The sink does
+ * not encrypt, redact, sign, or verify envelope contents.
  *
  * @since 0.1.0
  * @category layers

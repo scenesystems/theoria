@@ -1,9 +1,0 @@
-{
-  "name": "special-gamma-stable",
-  "input": {
-    "x": 5
-  },
-  "expected": {
-    "result": 24
-  }
-}

@@ -4,22 +4,36 @@ import { Effect, Number as EffectNumber, Option, Schema } from "effect"
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
+  abs,
   argmaxIndex,
   argmaxValidated,
   between,
+  ceil,
   clamp,
+  cos,
   expm1,
   expm1WithPolicies,
+  floor,
+  isFinite,
   log,
+  log10,
   log1p,
   log1pWithPolicies,
   logValidated,
+  max,
+  min,
+  pi,
+  pow,
+  round,
   safeDivide,
   safeDivideFinite,
   safeDivideValidated,
+  sin,
+  sqrt,
   sum,
   sumValidated,
   sumWithPolicies,
+  truncate,
   unsafeDivide,
   unsafeDivideValidated
 } from "../../src/Numeric/operations.js"
@@ -84,6 +98,59 @@ describe("Numeric / safeDivideFinite", () => {
   it.effect("returns Some for valid finite division", () =>
     Effect.gen(function*() {
       expect(Option.getOrThrow(safeDivideFinite(10, 4))).toStrictEqual(2.5)
+    }))
+})
+
+describe("Numeric / scalar boundaries", () => {
+  it.effect("identifies finite values", () =>
+    Effect.gen(function*() {
+      expect(isFinite(-1.25)).toStrictEqual(true)
+      expect(isFinite(Infinity)).toStrictEqual(false)
+      expect(isFinite(-Infinity)).toStrictEqual(false)
+      expect(isFinite(NaN)).toStrictEqual(false)
+    }))
+
+  it.effect("selects pairwise extrema", () =>
+    Effect.gen(function*() {
+      expect(min(2, 3)).toStrictEqual(2)
+      expect(max(2, 3)).toStrictEqual(3)
+      expect(min(3)(2)).toStrictEqual(2)
+      expect(max(3)(2)).toStrictEqual(3)
+    }))
+
+  it.effect("computes scalar magnitudes and square roots", () =>
+    Effect.gen(function*() {
+      expect(abs(-2.5)).toStrictEqual(2.5)
+      expect(Object.is(abs(-0), 0)).toStrictEqual(true)
+      expect(sqrt(9)).toStrictEqual(3)
+      expect(Number.isNaN(sqrt(-1))).toStrictEqual(true)
+    }))
+
+  it.effect("computes scalar trigonometry, powers, logarithms, and precision rounding", () =>
+    Effect.gen(function*() {
+      expect(sin(pi / 2)).toBeCloseTo(1)
+      expect(cos(pi)).toBeCloseTo(-1)
+      expect(log10(1_000)).toStrictEqual(3)
+      expect(pow(3, 4)).toStrictEqual(81)
+      expect(round(1.2345, 2)).toStrictEqual(1.23)
+      expect(round(2)(1.235)).toStrictEqual(1.24)
+    }))
+
+  it.effect("rounds to integer boundaries", () =>
+    Effect.gen(function*() {
+      expect(floor(2.75)).toStrictEqual(2)
+      expect(floor(-2.25)).toStrictEqual(-3)
+      expect(ceil(2.25)).toStrictEqual(3)
+      expect(ceil(-2.75)).toStrictEqual(-2)
+      expect(truncate(2.75)).toStrictEqual(2)
+      expect(truncate(-2.75)).toStrictEqual(-2)
+    }))
+
+  it.effect("retains non-finite values at integer boundaries", () =>
+    Effect.gen(function*() {
+      expect(floor(Infinity)).toStrictEqual(Infinity)
+      expect(ceil(-Infinity)).toStrictEqual(-Infinity)
+      expect(Number.isNaN(truncate(NaN))).toStrictEqual(true)
     }))
 })
 

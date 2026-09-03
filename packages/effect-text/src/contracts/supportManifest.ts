@@ -1,5 +1,5 @@
 /**
- * Checked-in release support manifest for the shipped `effect-text` envelope.
+ * Machine-readable runtime policies, browser fixtures, and benchmark budgets.
  *
  * @since 0.2.0
  */
@@ -23,25 +23,33 @@ const NonEmptyOverflowBreakArray = Schema.Array(OverflowBreakKind).pipe(Schema.m
 const NonEmptyMirrorPairArray = Schema.Array(Schema.Tuple(Schema.String, Schema.String)).pipe(Schema.minItems(1))
 
 /**
- * Checked-in support envelope used by docs, harnesses, and proof scripts.
+ * Decodes the package's browser, hyphenation, overflow, bidi, benchmark, and
+ * namespace-lane declarations.
  *
  * @since 0.2.0
  * @category schemas
  */
 export const EffectTextSupportManifestSchema = Schema.Struct({
+  /** Browser measurement profiles and synthetic scenario coverage. */
   browser: BrowserSupportManifestSchema,
+  /** Bundled dictionaries and locale fallback policy. */
   hyphenation: Schema.Struct({
+    /** Lookup order that tries an exact locale before its base language. */
     localeFallback: Schema.Literal("exact-or-base-language"),
+    /** Locale tags with a bundled hyphenation dictionary. */
     locales: Schema.Array(Schema.String).pipe(Schema.minItems(1))
   }),
+  /** Break ordering and single-grapheme overflow policy. */
   overflow: Schema.Struct({
     breakPrecedence: NonEmptyOverflowBreakArray,
     maxWidthPolicy: Schema.Literal("allow-overflow-only-when-single-grapheme-exceeds-width")
   }),
+  /** Mirrored punctuation data and unsupported-control behavior. */
   bidi: Schema.Struct({
     mirroredPairs: NonEmptyMirrorPairArray,
     unsupportedControlPolicy: Schema.Literal("prepare-time-detect-and-decline")
   }),
+  /** Iteration counts and slowdown bound used by package benchmarks. */
   benchmarks: Schema.Struct({
     walkerKernel: Schema.Struct({ iterations: PositiveInt }),
     calibrationScoring: Schema.Struct({
@@ -49,6 +57,7 @@ export const EffectTextSupportManifestSchema = Schema.Struct({
       maxSlowdownRatio: PositiveNumber
     })
   }),
+  /** Compatibility status of each public namespace. */
   stability: Schema.Struct({
     Browser: Schema.Literal("provisional"),
     Contracts: Schema.Literal("stable"),
@@ -60,7 +69,7 @@ export const EffectTextSupportManifestSchema = Schema.Struct({
 })
 
 /**
- * Checked-in support envelope type.
+ * Decoded package support manifest.
  *
  * @since 0.2.0
  * @category models
@@ -68,7 +77,7 @@ export const EffectTextSupportManifestSchema = Schema.Struct({
 export type EffectTextSupportManifestType = typeof EffectTextSupportManifestSchema.Type
 
 /**
- * Checked-in support envelope for the shipped `v0.2` surface.
+ * Runtime policies and verification budgets consumed by package harnesses.
  *
  * @since 0.2.0
  * @category manifests

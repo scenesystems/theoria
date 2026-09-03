@@ -1,5 +1,5 @@
 /**
- * Pareto dominance operators.
+ * Direction-aware comparison of objective vectors.
  *
  * @since 0.1.0
  */
@@ -32,10 +32,9 @@ const normalizeCoordinate = (value: number, direction: Direction): number =>
   )
 
 /**
- * Normalize a single objective vector into minimization space.
- *
- * Each coordinate is sanitized through {@link finiteOrInfinity} and then
- * negated when its corresponding direction is `"maximize"`.
+ * Converts objective coordinates to minimization values for internal comparison.
+ * Missing directions default to `"minimize"`. Non-finite coordinates become
+ * positive infinity before maximize coordinates are negated.
  *
  * @since 0.1.0
  * @category normalization
@@ -48,10 +47,7 @@ export const normalizePoint = (point: ObjectiveVector, directions: ReadonlyArray
     ))
 
 /**
- * Normalize an entire matrix of objective vectors into minimization space.
- *
- * Applies {@link normalizePoint} to every row so that downstream hot-path
- * functions (e.g. {@link dominatesNormalized}) can skip per-call normalization.
+ * Converts every row to the minimization representation used by Pareto comparison.
  *
  * @since 0.1.0
  * @category normalization
@@ -62,10 +58,7 @@ export const normalizeMatrix = (
 ): ReadonlyArray<ObjectiveVector> => Arr.map(points, (point) => normalizePoint(point, directions))
 
 /**
- * Validate that all vectors in a matrix share the same length.
- *
- * Returns `true` when the array is empty or every vector has the same
- * dimensionality as the first vector.
+ * Reports whether every row has the first row's arity. An empty matrix is rectangular.
  *
  * @since 0.1.0
  * @category validation
@@ -109,11 +102,11 @@ const dominatesWithEpsilon = (
   )
 
 /**
- * Hot-path dominance check on pre-normalized vectors.
+ * Compares equal-length vectors that are already expressed as minimization values.
  *
- * Assumes both vectors are already in minimization space (via {@link normalizePoint}
- * or {@link normalizeMatrix}). Skips normalization entirely so that callers who
- * pre-normalize a matrix once can amortize the cost across O(n²) comparisons.
+ * A finite positive `epsilon` requires the left coordinate to improve on every
+ * right coordinate by at least that margin. Other epsilon values use ordinary
+ * Pareto dominance. Different vector lengths return `false`.
  *
  * @since 0.1.0
  * @category dominance
@@ -137,28 +130,38 @@ export const dominatesNormalized = (
   )
 
 /**
- * Tests whether `left` Pareto-dominates `right` after objective direction normalization.
+ * Reports whether `left` Pareto-dominates `right` under the supplied directions.
  *
- * Dominance requires `left` to be no worse on every objective and strictly better on
- * at least one. When `epsilon` is positive, strict margin mode is used instead: `left`
- * must exceed `right` by at least `epsilon` in every coordinate (no partial improvement
- * required).
+ * @remarks
+ * Ordinary dominance requires the left candidate to be no worse on every coordinate
+ * and better on at least one. A finite positive `epsilon` instead requires an
+ * improvement of at least that amount on every coordinate. Missing directions default
+ * to `"minimize"`; excess directions are ignored. Different vector lengths return
+ * `false`.
  *
- * Returns `false` when `left` and `right` have different lengths — mismatched
- * dimensionality is treated as incomparable rather than as an error.
+ * Non-finite coordinates are converted to positive infinity before direction
+ * normalization. Callers that use maximize directions should reject non-finite
+ * objective values before comparison because negating that sentinel produces
+ * negative infinity.
  *
  * @example
  * ```ts
+ * import { Effect } from "effect"
  * import { Pareto } from "@scenesystems/effect-search"
  *
- * Pareto.dominates([0.2, 0.8], [0.3, 0.7], ["minimize", "maximize"])
- * // => true
+ * export const program = Effect.sync(() =>
+ *   Pareto.dominates(
+ *     [0.2, 0.8],
+ *     [0.3, 0.7],
+ *     ["minimize", "maximize"]
+ *   )
+ * ).pipe(
+ *   Effect.filterOrFail(
+ *     (preferred) => preferred,
+ *     () => "ExpectedDominance"
+ *   )
+ * )
  * ```
- *
- * @see {@link ObjectiveVector} from `./model` — input vector type
- * @see {@link Direction} from `../contracts/Direction` — per-coordinate optimization sense
- * @see {@link nonDominatedIndices} from `./frontier` — uses this to extract frontier sets
- * @see {@link nonDominatedSort} from `./frontier` — iterative front peeling built on dominance
  *
  * @since 0.1.0
  * @category dominance

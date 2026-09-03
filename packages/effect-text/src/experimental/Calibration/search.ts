@@ -1,5 +1,5 @@
 /**
- * effect-search-backed calibration helpers for experimental engine-profile tuning.
+ * Effect Search studies that tune engine profiles against weighted layout error.
  *
  * @since 0.2.0
  */
@@ -29,7 +29,8 @@ import type {
 } from "./schema.js"
 
 /**
- * Default experimental score policy for profile optimization.
+ * Weighted-sum objective with multipliers 10,000 for line mismatches, 1,000 for
+ * absolute line-count error, and 1 for absolute maximum-width error.
  *
  * @since 0.2.0
  * @category search
@@ -37,7 +38,9 @@ import type {
 export const DefaultCalibrationObjective = defaultObjectiveMetadata
 
 /**
- * Default search-descriptor authority for engine-profile tuning.
+ * Search dimensions covering fit epsilon from 0 through 0.05 in 0.001 steps,
+ * tab width from 2 through 8, both base directions, and both values of each
+ * break preference.
  *
  * @since 0.2.0
  * @category search
@@ -45,8 +48,11 @@ export const DefaultCalibrationObjective = defaultObjectiveMetadata
 export const DefaultCalibrationSearchDescriptor = defaultSearchDescriptor
 
 /**
- * Compiles the experimental engine-profile descriptor into an `effect-search`
- * search space.
+ * Compiles engine-profile dimensions into an Effect Search configuration space.
+ * Invalid ordering or distribution metadata fails with `InvalidSearchSpace`.
+ *
+ * @param searchDescriptor - Sampling dimensions; omission uses `DefaultCalibrationSearchDescriptor`.
+ * @returns A space whose decoded configuration is an `EngineProfile` candidate.
  *
  * @since 0.2.0
  * @category search
@@ -73,24 +79,45 @@ export const makeProfileSearchSpace = (
   })
 
 /**
- * Runs an experimental `effect-search` study over candidate engine profiles.
+ * Runs an Effect Search study and selects the engine profile with the lowest
+ * weighted calibration loss.
  *
- * The runtime hot path stays unchanged: candidate profiles are evaluated by
- * reusing `evaluateProfile`, which itself composes on top of `Text.prepare`
- * plus the pure layout plane.
+ * @remarks
+ * A supplied snapshot makes `trials` an additional-trial budget; without one it
+ * is the fresh-study budget. The count must be a non-negative integer, and a
+ * fresh study needs a successful trial before a best profile exists. Omission
+ * of `sampler` selects a seed-zero TPE sampler.
+ *
+ * Candidate measurement failures become trial failures. If no trial succeeds,
+ * the Effect fails with `NoSuccessfulTrials`. Search-space, sampler, snapshot,
+ * and study validation failures remain in the Effect Search error channel. The
+ * final evaluation of the selected profile can fail with `MeasurementFailed`.
+ * The returned event log contains this invocation's events; the snapshot holds
+ * cumulative state for resumption.
+ *
+ * @returns The selected profile, its report, the Effect Search result, and persistable study artifacts.
  *
  * @since 0.2.0
  * @category search
  */
 export const optimizeProfile = (options: {
+  /** Calibration corpus evaluated for every candidate. */
   readonly cases: ReadonlyArray<CalibrationCaseType>
+  /** Segmentation and measurement-cache layer acquired for candidate evaluation. */
   readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
+  /** Fresh or additional trial budget; must be a non-negative integer. */
   readonly trials: number
+  /** Weighted minimization policy; defaults to `DefaultCalibrationObjective`. */
   readonly objective?: CalibrationObjectiveMetadataType
+  /** Candidate sampler; defaults to seed-zero TPE. */
   readonly sampler?: Sampler.Sampler
+  /** Preferred engine-profile dimension descriptor. */
   readonly searchDescriptor?: CalibrationSearchDescriptorType
+  /** Compatibility option used only when `searchDescriptor` is absent. */
   readonly searchSpaceSpec?: CalibrationSearchSpaceSpecType
+  /** Prior checkpoint whose completed trials seed the resumed study. */
   readonly snapshot?: Study.StudySnapshot
+  /** Optional Effect Search persistence service for trial logs and checkpoints. */
   readonly studyStorage?: Study.StudyStorageApi
 }) =>
   Effect.gen(function*() {

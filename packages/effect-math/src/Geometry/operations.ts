@@ -1,8 +1,6 @@
 /**
- * Geometry operation surface — pure kernel re-exports over immutable
- * `Chunk` carriers, Schema-validated variants with boundary input checking,
- * and policy-aware operations that respect `PrecisionPolicyService`
- * and `DiagnosticsPolicyService`.
+ * Distances and point aggregates over `Chunk` coordinates, with validated
+ * and policy-aware variants for untrusted inputs.
  *
  * @since 0.1.0
  * @category operations
@@ -16,8 +14,7 @@ import { GeometryDomainModel } from "./model.js"
 import { CentroidInput, DistanceInput, MidpointInput } from "./schema.js"
 
 /**
- * Lifts the static `GeometryDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Yields the immutable descriptor used to register Geometry capabilities.
  *
  * @since 0.1.0
  * @category operations
@@ -25,49 +22,23 @@ import { CentroidInput, DistanceInput, MidpointInput } from "./schema.js"
 export const loadGeometryDomain = Effect.succeed(GeometryDomainModel)
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — operate on Chunk<number>
+// Pure operations over Chunk<number>
 // ---------------------------------------------------------------------------
 
 /**
- * Euclidean (L2) distance — `√(Σ (aᵢ − bᵢ)²)`. Both chunks must have the
- * same length; no runtime guard is applied.
- *
- * @example
- * ```ts
- * import { Chunk } from "effect"
- * import { Geometry } from "@scenesystems/effect-math"
- *
- * Geometry.euclideanDistance(
- *   Chunk.fromIterable([0, 0]),
- *   Chunk.fromIterable([3, 4])
- * ) // 5
- * ```
- *
- * @see {@link distanceValidated} for Schema-validated boundary input with shape checking
- * @see {@link distanceWithPolicies} for policy-aware variant
+ * Computes Euclidean distance as `√(Σ (aᵢ - bᵢ)²)`. Both chunks must have the
+ * same length. Because `Chunk.zipWith` truncates, unequal pure inputs use
+ * only their shared prefix; use {@link distanceValidated} to reject that case.
  * @since 0.1.0
  * @category operations
  */
 export const euclideanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Metric.euclideanDistance
 
 /**
- * Squared Euclidean distance — `Σ (aᵢ − bᵢ)²` without the square root.
- * Useful for optimization kernels where only relative distances matter.
- * Both chunks must have the same length; no runtime guard is applied.
- *
- * @example
- * ```ts
- * import { Chunk } from "effect"
- * import { Geometry } from "@scenesystems/effect-math"
- *
- * Geometry.squaredEuclideanDistance(
- *   Chunk.fromIterable([0, 0]),
- *   Chunk.fromIterable([3, 4])
- * ) // 25
- * ```
- *
- * @see {@link euclideanDistance} for the rooted L2 metric
- * @see {@link distanceValidated} for Schema-validated boundary input
+ * Computes squared Euclidean distance as `Σ (aᵢ - bᵢ)²`, avoiding the square
+ * root when a caller only compares distances.
+ * Unequal pure inputs use only their shared prefix; use
+ * {@link distanceValidated} to reject that case.
  * @since 0.1.0
  * @category operations
  */
@@ -75,45 +46,25 @@ export const squaredEuclideanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<n
   Metric.squaredEuclideanDistance
 
 /**
- * Manhattan (L1 / taxicab) distance — `Σ |aᵢ − bᵢ|`. Both chunks must have
- * the same length; no runtime guard is applied.
- *
- * @see {@link distanceValidated} for Schema-validated boundary input with metric dispatch
- * @see {@link distanceWithPolicies} for policy-aware variant
+ * Computes Manhattan distance as `Σ |aᵢ - bᵢ|`. Both chunks must have
+ * the same length. Unequal pure inputs use only their shared prefix.
  * @since 0.1.0
  * @category operations
  */
 export const manhattanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Metric.manhattanDistance
 
 /**
- * Chebyshev (L∞) distance — `max |aᵢ − bᵢ|`. Both chunks must have the
- * same length; no runtime guard is applied.
- *
- * @see {@link distanceValidated} for Schema-validated boundary input with metric dispatch
- * @see {@link distanceWithPolicies} for policy-aware variant
+ * Computes Chebyshev distance as `max |aᵢ - bᵢ|`. Both chunks must have the
+ * same length. Unequal pure inputs use only their shared prefix.
  * @since 0.1.0
  * @category operations
  */
 export const chebyshevDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Metric.chebyshevDistance
 
 /**
- * Elementwise midpoint — `mᵢ = (aᵢ + bᵢ) / 2`. Returns a new `Chunk`; the
- * inputs are not mutated. Both chunks must have the same length.
- *
- * @example
- * ```ts
- * import { Chunk } from "effect"
- * import { Geometry } from "@scenesystems/effect-math"
- *
- * Chunk.toReadonlyArray(
- *   Geometry.midpoint(
- *     Chunk.fromIterable([0, 0]),
- *     Chunk.fromIterable([4, 6])
- *   )
- * ) // [2, 3]
- * ```
- *
- * @see {@link midpointValidated} for Schema-validated boundary input
+ * Computes the elementwise midpoint `mᵢ = (aᵢ + bᵢ) / 2`. Returns a new `Chunk`; the
+ * inputs are not mutated. Unequal pure inputs use only their shared prefix;
+ * {@link midpointValidated} rejects unequal dimensions.
  * @since 0.1.0
  * @category operations
  */
@@ -127,28 +78,9 @@ export const midpoint: (
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated distance — decodes `input` through `DistanceInput`,
- * validates equal-length points, and dispatches to the correct metric kernel
- * (euclidean, manhattan, chebyshev) via `Match.exhaustive`. Fails with
- * `GeometryDecodeError` for malformed input or `GeometryShapeMismatchError`
- * for mismatched point dimensions.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Geometry } from "@scenesystems/effect-math"
- *
- * const program = Geometry.distanceValidated({
- *   a: [0, 0], b: [3, 4], metric: "euclidean"
- * }).pipe(
- *   Effect.catchTag("GeometryShapeMismatchError", (e) =>
- *     Effect.succeed(`dimension error: ${e.message}`)
- *   )
- * )
- * ```
- *
- * @see {@link euclideanDistance} / {@link manhattanDistance} / {@link chebyshevDistance} for pure kernels
- * @see {@link distanceWithPolicies} for policy-aware variant
+ * Decodes two finite points and computes the selected distance. Malformed or
+ * excess input fails with `GeometryDecodeError`; unequal dimensions fail with
+ * `GeometryShapeMismatchError`.
  * @since 0.1.0
  * @category operations
  */
@@ -189,20 +121,10 @@ export const distanceValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated midpoint — decodes `input` through `MidpointInput`,
- * validates equal-length points, and computes `mᵢ = (aᵢ + bᵢ) / 2`.
- * Returns the result as `ReadonlyArray<number>`.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Geometry } from "@scenesystems/effect-math"
- *
- * const program = Geometry.midpointValidated({ a: [0, 0], b: [4, 6] })
- * // Effect succeeds with [2, 3]
- * ```
- *
- * @see {@link midpoint} for the pure kernel (no validation overhead)
+ * Decodes two finite points with equal dimensions and returns their midpoint
+ * as an immutable array. Malformed or excess input fails with
+ * `GeometryDecodeError`; unequal dimensions fail with
+ * `GeometryShapeMismatchError`.
  * @since 0.1.0
  * @category operations
  */
@@ -237,22 +159,10 @@ export const midpointValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated centroid — decodes `input` through `CentroidInput`,
- * validates that all points share the same dimensionality, and computes the
- * componentwise arithmetic mean. Returns `ReadonlyArray<number>`.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Geometry } from "@scenesystems/effect-math"
- *
- * const program = Geometry.centroidValidated({
- *   points: [[0, 0], [4, 6], [2, 3]]
- * })
- * // Effect succeeds with [2, 3]
- * ```
- *
- * @see {@link midpointValidated} for the two-point special case
+ * Decodes a non-empty collection of finite points and returns their
+ * componentwise arithmetic mean. Malformed or excess input fails with
+ * `GeometryDecodeError`; mixed dimensions fail with
+ * `GeometryShapeMismatchError`.
  * @since 0.1.0
  * @category operations
  */
@@ -296,11 +206,14 @@ export const centroidValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware distance computation that reads two runtime services from
- * context:
+ * Computes the selected distance under the configured finite-result policy.
  *
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `GeometryDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with metric, precision, dimensionality, and elapsed time
+ * @remarks
+ * Strict precision rejects a non-finite result with
+ * `GeometryDomainViolationError`; relaxed precision passes it through.
+ * Enabled diagnostics logs the metric, precision, dimensionality, and elapsed
+ * milliseconds. This variant does not reject unequal dimensions; the selected
+ * pure operation uses the shared prefix.
  *
  * @example
  * ```ts
@@ -316,16 +229,19 @@ export const centroidValidated = (input: unknown) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = Geometry.distanceWithPolicies(
+ * export const program = Geometry.distanceWithPolicies(
  *   Chunk.fromIterable([0, 0]),
  *   Chunk.fromIterable([3, 4]),
  *   "euclidean"
- * ).pipe(Effect.provide(policies))
+ * ).pipe(
+ *   Effect.provide(policies),
+ *   Effect.filterOrFail(
+ *     (distance) => distance === 5,
+ *     () => "UnexpectedDistance"
+ *   )
+ * )
  * ```
  *
- * @see {@link euclideanDistance} / {@link manhattanDistance} / {@link chebyshevDistance} for pure kernels
- * @see {@link PrecisionPolicyService}
- * @see {@link DiagnosticsPolicyService}
  * @since 0.1.0
  * @category operations
  */

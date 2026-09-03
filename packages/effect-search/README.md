@@ -1,10 +1,10 @@
 # @scenesystems/effect-search
 
-Black-box optimization for TypeScript programs built with [Effect](https://effect.website). Use it when a configuration can be evaluated but its quality cannot be expressed as a differentiable or closed-form function. Typical objectives include benchmark results, model quality, operating cost, and experiment outcomes.
+`@scenesystems/effect-search` is black-box optimization for programs built with [Effect](https://effect.website). Use it when you can evaluate a configuration but cannot express its quality as a closed-form or differentiable function: benchmark scores, model quality, operating cost, or the outcome of an experiment.
 
-A typed `SearchSpace` describes valid configurations. A `Study` asks a `Sampler` for a configuration, runs the Effect objective, records the resulting observation, and returns that history to the sampler before later suggestions. The study retains trial states, sampler checkpoints, search-space identity, and sequencing metadata so the optimization can be inspected, snapshotted, and resumed.
+A `SearchSpace` describes the valid configurations and infers their TypeScript type. A `Study` asks a `Sampler` for a configuration, runs your Effect objective, records the resulting `Trial`, and returns that history to the sampler before its next suggestion. Because the study owns trial states, sampler checkpoints, and search-space identity, an optimization can be inspected, snapshotted, and resumed.
 
-[`@scenesystems/effect-math`](../effect-math/README.md) supplies the numerical operations used by the samplers. [`@scenesystems/digest`](../digest/README.md) gives cached inputs and study artifacts stable content identities.
+The samplers compute with [`@scenesystems/effect-math`](../effect-math/README.md). Cached objective inputs and study artifacts get stable content identities from [`@scenesystems/digest`](../digest/README.md). [`@scenesystems/effect-dsp`](../effect-dsp/README.md) builds its prompt optimizers on this package.
 
 ## Installation
 
@@ -12,22 +12,17 @@ A typed `SearchSpace` describes valid configurations. A `Study` asks a `Sampler`
 npm install @scenesystems/effect-search effect @effect/platform @effect/experimental
 ```
 
-The exact peer ranges for version 0.4.1 are:
+Effect `^3.22.1` is a required peer dependency, together with `@effect/platform` and `@effect/experimental`. `@effect/sql` is an optional peer that is needed only for the SQL-backed cache layers.
 
-- `effect`: `^3.22.1`
-- `@effect/platform`: `^0.97.1`
-- `@effect/experimental`: `^0.61.1`
-- `@effect/sql`: `>=0.52.1`, optional and required only for the SQL-backed `SchemaCacheSql` and `StudyObjectiveCacheSql` layers
+## Basic use
 
-## Minimal study
-
-This study minimizes a two-dimensional objective. `SearchSpace.make` validates the definition and preserves the inferred configuration type through the objective and result.
+The study below minimizes a two-dimensional function. `SearchSpace.make` validates the definition and carries the inferred configuration type through the objective and the result.
 
 ```ts typecheck
 import { Effect, Match } from "effect"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
-const program = Effect.gen(function* () {
+export const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
     x: SearchSpace.float(-5, 5),
     y: SearchSpace.float(-5, 5)
@@ -36,105 +31,215 @@ const program = Effect.gen(function* () {
   const result = yield* Study.minimize({
     space,
     sampler: Sampler.tpe({ seed: 42 }),
-    objective: (config) => Effect.succeed((config.x - 2) ** 2 + (config.y + 1) ** 2),
+    objective: ({ x, y }) => Effect.succeed((x - 2) ** 2 + (y + 1) ** 2),
     trials: 50
   })
 
   yield* Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial }) =>
-      Effect.log("Best trial", {
-        value: bestTrial.state.value,
-        config: bestTrial.config
-      })
+      Effect.log("Best trial", { value: bestTrial.state.value, config: bestTrial.config })
     ),
     Match.tag("MultiObjective", () => Effect.void),
     Match.exhaustive
   )
 })
-
-Effect.runPromise(program)
 ```
 
-An objective may use any services and typed failures supported by Effect. A trial records its configuration and lifecycle state as running, completed, failed, pruned, or cancelled. For multiple objectives, `Study.optimize` accepts `directions` and returns a Pareto front instead of one best trial.
+The objective is an ordinary Effect, so it can use services, fail with typed errors, and run concurrently. Each trial records its configuration and a lifecycle state: running, completed, failed, pruned, or cancelled. The result is a tagged union because the same study machinery returns a Pareto front when there are several objectives.
 
-## Sampler selection
+## Search spaces
 
-| Sampler or scheduler    | Suitable space                           | Use case                                                          |
-| ----------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| `Sampler.random()`      | Mixed or conditional                     | Baselines, broad exploration, and inexpensive evaluations         |
-| `Sampler.grid()`        | Small finite spaces                      | Exhaustive enumeration                                            |
-| `Sampler.tpe()`         | Mixed, categorical, or conditional       | Sequential model-guided search; also supports multi-objective TPE |
-| `Sampler.cmaEs()`       | Continuous and integer, single objective | Evolutionary search and local refinement                          |
-| `Sampler.gpBo()`        | Continuous and integer, single objective | Surrogate-guided Bayesian optimization                            |
-| `Scheduler.hyperband()` | Space with a fidelity dimension          | Successive-halving allocation across budgets                      |
-| `Scheduler.bohb()`      | Space with a fidelity dimension          | HyperBand scheduling with TPE-based suggestions                   |
+A space is a record of dimensions. `SearchSpace.float` takes bounds, an optional `step`, and an optional `scale: "log"` for parameters that vary over orders of magnitude. `SearchSpace.int` takes bounds and an optional `step`. `SearchSpace.categorical` takes a list of literals, `SearchSpace.boolean` is a two-value shortcut, and `SearchSpace.fidelity` marks the budget dimension that HyperBand and BOHB schedule over.
 
-TPE is a practical starting point for mixed spaces. Compare it with random search on the same objective and budget. Grid search is appropriate only when the finite product is tractable. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require an explicit `SearchSpace.fidelity` dimension.
+Conditional spaces branch on a categorical value. `SearchSpace.makeConditional` combines shared dimensions with a `SearchSpace.switch` over `SearchSpace.when` branches, and the inferred type is a discriminated union that `Match` can exhaust.
 
-Seeded samplers reproduce suggestions when they receive the same ordered trial history and compatible checkpoint state. Reproducibility also depends on the objective, clock, external services, scheduling, and observation order. Arbitrary concurrent effects can change completion order and results, so a seed alone does not guarantee identical studies under all concurrency settings.
+```ts typecheck
+import { Effect, Match } from "effect"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
-## Study capabilities
+export const program = Effect.gen(function* () {
+  const linear = yield* SearchSpace.make({
+    learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
+    regularization: SearchSpace.float(0, 1)
+  })
+  const tree = yield* SearchSpace.make({
+    maxDepth: SearchSpace.int(2, 12),
+    minSamplesLeaf: SearchSpace.int(1, 6)
+  })
+  const space = yield* SearchSpace.makeConditional(
+    { model: SearchSpace.categorical(["linear", "tree"]) },
+    SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
+  )
 
-`Study.minimize` and `Study.maximize` cover single-objective runs. `Study.optimize` adds explicit single- or multi-objective directions and scheduler-based plans. Study options include:
+  return yield* Study.minimize({
+    space,
+    sampler: Sampler.tpe({ seed: 17 }),
+    trials: 45,
+    objective: (config) =>
+      Match.value(config).pipe(
+        Match.when({ model: "linear" }, ({ learningRate }) => Effect.succeed(Math.log10(learningRate) ** 2)),
+        Match.when({ model: "tree" }, ({ maxDepth }) => Effect.succeed(((maxDepth - 7) / 7) ** 2)),
+        Match.exhaustive
+      )
+  })
+})
+```
 
-- bounded trial count, duration, total reported cost, target value, and no-improvement stopping
-- concurrent evaluation with pending-trial imputation
-- prior trials for warm starts and re-evaluation support for noisy objectives
-- per-trial timeout, Effect schedules for retries, pruning, and early stopping
-- conditional and composed spaces containing float, integer, categorical, boolean, and fidelity dimensions
-- Pareto-front results and hypervolume utilities for multi-objective work
-- objective caches backed by memory, the Effect file-system services, or an optional SQL client
+`SearchSpace.Type<typeof space>` names the configuration type when you need it outside the study. `SearchSpace.extend` composes an existing space with additional dimensions.
 
-The [examples directory](./examples/) contains focused programs for each option instead of duplicating their setup here.
+## Samplers and schedulers
 
-## Persistence and orchestration
+| Constructor             | Suitable space                           | Use it for                                               |
+| ----------------------- | ---------------------------------------- | -------------------------------------------------------- |
+| `Sampler.random()`      | Any, including conditional               | Baselines, broad exploration, and cheap objectives       |
+| `Sampler.grid()`        | Small finite spaces                      | Exhaustive enumeration                                   |
+| `Sampler.tpe()`         | Mixed, categorical, or conditional       | Sequential model-guided search; also multi-objective TPE |
+| `Sampler.cmaEs()`       | Continuous and integer, single objective | Evolutionary search and local refinement                 |
+| `Sampler.gpBo()`        | Continuous and integer, single objective | Gaussian-process Bayesian optimization                   |
+| `Scheduler.hyperband()` | Spaces with a fidelity dimension         | Successive halving across budgets                        |
+| `Scheduler.bohb()`      | Spaces with a fidelity dimension         | HyperBand allocation with TPE suggestions                |
 
-### Snapshots and storage
+Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Study.optimize` as the `scheduler` option in place of a `sampler`.
 
-`Study.snapshot` captures trials, the next trial number, sampler state, and compatibility metadata. Encode and store the snapshot with Effect Schema, then continue with `Study.resume`. Resumption validates the supplied space and study settings against the saved state.
+A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The study as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
 
-`StudyStorage` provides an append-only trial log with atomic snapshots, along with `resumeFromStorage` and `resumeFromStorageStream`. Applications supply the required platform services and choose the storage location. Objective caching is separate from study persistence: it avoids repeating an evaluation for the same durable input while storage preserves the study lifecycle.
+## Running studies
 
-### Ask and tell
+`Study.minimize` and `Study.maximize` run a single-objective study to completion. `Study.optimize` takes an explicit `direction` or a `directions` array and accepts a `scheduler`. All three share the same options:
 
-`Study.open` creates a scoped study handle. `Study.ask` reserves the next typed configuration for an external worker, and `Study.tell`, `Study.fail`, or `Study.cancel` completes that reservation. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and final results. This protocol fits queues and remote evaluators where `Study.optimize` cannot own execution directly.
+- Stopping: `trials`, `maxDuration`, `maxCost`, `targetValue`, or `noImprovementWindow`, combined by `stopMode`.
+- Concurrency: `concurrency` runs trials in parallel while the sampler keeps suggesting from imputed pending results.
+- Robustness: `trialTimeout`, a `retrySchedule`, and a `pruningPolicy`.
+- Warm starts: `priorTrials` and `priorWeight` seed the history; `evaluationsPerTrial` averages noisy objectives.
 
-### Streaming
+With several `directions`, the objective returns a vector and the result is `MultiObjective` with a `paretoFront`. The `Pareto` module provides dominance checks, front extraction, and two-dimensional hypervolume for comparing runs.
 
-`Study.optimizeStream` emits typed `StudyEvent` values for trial and study lifecycle changes. `Study.resumeStream` and `resumeFromStorageStream` provide the corresponding resume paths. Consumers can fold, filter, or publish the stream with standard Effect `Stream` operators without changing optimization semantics.
+```ts typecheck
+import { Effect, Match } from "effect"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+
+export const program = Effect.gen(function* () {
+  const space = yield* SearchSpace.make({
+    replicas: SearchSpace.int(1, 8),
+    cacheMb: SearchSpace.int(64, 1024, { step: 64 })
+  })
+
+  const result = yield* Study.optimize({
+    space,
+    sampler: Sampler.tpe({ seed: 919 }),
+    directions: ["minimize", "minimize"],
+    trials: 40,
+    objective: ({ replicas, cacheMb }) => {
+      const latency = 100 / replicas + 2000 / cacheMb
+      const cost = replicas * 1.5 + cacheMb / 256
+      return Effect.succeed([latency, cost])
+    }
+  })
+
+  return Match.value(result).pipe(
+    Match.tag("MultiObjective", ({ paretoFront }) => paretoFront.length),
+    Match.tag("SingleObjective", () => 1),
+    Match.exhaustive
+  )
+})
+```
+
+`Study.optimizeStream` runs the same study but emits typed `StudyEvent` values for every trial and study lifecycle change. Fold, filter, or publish the stream with ordinary `Stream` operators; `Study.tapTerminalProgress()` is a ready-made progress sink.
+
+## Persistence and resumption
+
+`Study.snapshot` captures the trials, the next trial number, the sampler checkpoint, and compatibility metadata from a result or an open handle. `Study.StudySnapshot` is a Schema, so encode it for storage and decode it later. `Study.resume` validates the space and settings against the snapshot before continuing.
+
+```ts typecheck
+import { Effect, Schema } from "effect"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+
+export const program = Effect.gen(function* () {
+  const space = yield* SearchSpace.make({ x: SearchSpace.float(-5, 5) })
+  const objective = ({ x }: SearchSpace.Type<typeof space>) => Effect.succeed((x - 1.25) ** 2)
+
+  const firstLeg = yield* Study.minimize({ space, sampler: Sampler.tpe({ seed: 404 }), trials: 20, objective })
+  const stored = yield* Schema.encode(Study.StudySnapshot)(yield* Study.snapshot(firstLeg))
+
+  const snapshot = yield* Schema.decode(Study.StudySnapshot)(stored)
+  return yield* Study.resume({
+    space,
+    sampler: Sampler.tpe({ seed: 404 }),
+    snapshot,
+    direction: "minimize",
+    trials: 20,
+    objective
+  })
+})
+```
+
+For long-running work, `Study.StudyStorageLive` keeps an append-only trial log with atomic snapshots in a directory you choose, and `Study.resumeFromStorage` or `Study.resumeFromStorageStream` continue from it. Storage needs the platform `FileSystem` service, which `@effect/platform-bun` or `@effect/platform-node` provide.
+
+Objective caching is a separate concern. A cache avoids re-running the objective for an input that was already evaluated, keyed by a content digest of that input, while storage preserves the study lifecycle. `Cache.SchemaCacheMemory`, `Cache.SchemaCacheFileSystem`, and `Cache.SchemaCacheSql` provide the backends; `Study.StudyObjectiveCacheMemory`, `Study.StudyObjectiveCacheFileSystem`, and `Study.StudyObjectiveCacheSql` wire them to studies.
+
+## Ask and tell
+
+When another process owns evaluation, such as a job queue or a remote worker, the study can hand out configurations instead of running the objective itself. `Study.open` creates a scoped handle. `Study.ask` reserves the next typed configuration, and `Study.tell`, `Study.fail`, or `Study.cancel` completes that reservation. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Study.result`.
+
+```ts typecheck
+import { Effect } from "effect"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+
+const evaluateRemotely = (config: { readonly x: number }) => Effect.succeed(config.x ** 2)
+
+export const program = Effect.scoped(
+  Effect.gen(function* () {
+    const space = yield* SearchSpace.make({ x: SearchSpace.float(-4, 4) })
+    const handle = yield* Study.open({
+      space,
+      sampler: Sampler.random({ seed: 25 }),
+      direction: "minimize",
+      trials: 4,
+      objective: evaluateRemotely
+    })
+
+    const asked = yield* Study.ask(handle)
+    const value = yield* evaluateRemotely(asked.config)
+    yield* Study.tell(handle, asked.trialNumber, value)
+
+    return yield* Study.result(handle)
+  })
+)
+```
 
 ## Public surface
 
-Imports are available from the package root as namespaces and from the documented subpaths.
+Every module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-search/Study`.
 
-| Module                | Scope                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `SearchSpace`         | Dimensions, conditional branches, composition, validation, and inferred configuration types |
-| `Study`               | Optimization, ask/tell handles, snapshots, storage, caching, streaming, and result types    |
-| `Sampler`             | Sampler constructors, options, checkpoints, and the sampler extension contract              |
-| `Scheduler`           | HyperBand and BOHB plans                                                                    |
-| `Trial`, `StudyEvent` | Trial state and typed lifecycle events                                                      |
-| `Pareto`              | Dominance, fronts, weights, and two-dimensional hypervolume                                 |
-| `Cache`               | Schema-aware cache descriptors and memory, file-system, or SQL layers                       |
-| `Contracts`, `Errors` | Shared schemas, identities, objective contracts, and typed errors                           |
-| `Experimental`        | Unstable APIs described below                                                               |
+| Module                                        | Scope                                                                                         |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [`SearchSpace`](./src/SearchSpace/index.ts)   | Dimensions, conditional branches, composition, validation, and inferred configuration types   |
+| [`Study`](./src/Study/index.ts)               | Optimization, ask/tell handles, snapshots, storage, objective caching, streaming, and results |
+| [`Sampler`](./src/Sampler/index.ts)           | Sampler constructors, options, checkpoints, and the sampler extension contract                |
+| [`Scheduler`](./src/Scheduler/index.ts)       | HyperBand and BOHB plans                                                                      |
+| [`Trial`](./src/Trial/index.ts)               | Trial records and lifecycle states                                                            |
+| [`StudyEvent`](./src/StudyEvent/index.ts)     | Typed lifecycle events emitted by streaming studies                                           |
+| [`Pareto`](./src/Pareto/index.ts)             | Dominance, fronts, weights, and two-dimensional hypervolume                                   |
+| [`Cache`](./src/Cache/index.ts)               | Schema-aware cache descriptors with memory, file-system, and SQL layers                       |
+| [`Contracts`](./src/contracts/index.ts)       | Shared schemas, identities, and objective contracts                                           |
+| [`Errors`](./src/Errors/index.ts)             | Typed errors for spaces, studies, samplers, and trials                                        |
+| [`Experimental`](./src/experimental/index.ts) | Unstable APIs that may change outside semver guarantees                                       |
 
-The export map also provides case-sensitive subpaths such as `@scenesystems/effect-search/Study`. Lowercase `contracts` and `experimental` aliases are retained. Paths under `internal` are blocked from consumers. Consult the [generated API documentation](https://scenesystems.github.io/theoria/effect/effect-search/) for individual symbols and signatures.
+Paths under `internal` are not exported.
 
-## Examples and reference
+## Errors and boundaries
 
-- [Quick start](./examples/01-quick-start.ts)
-- [Conditional spaces](./examples/07-conditional-spaces.ts) and [space composition](./examples/18-space-composition.ts)
-- [Snapshot resume](./examples/10-snapshot-resume.ts), [storage resume](./examples/11-storage-resume.ts), and [ask/tell](./examples/25-ask-tell.ts)
-- [Streaming events](./examples/03-streaming-events.ts) and [parallel evaluation](./examples/21-parallel-evaluation.ts)
-- [Multi-objective optimization](./examples/04-multi-objective.ts), [HyperBand and BOHB](./examples/14-hyperband-bohb.ts), and [constrained optimization](./examples/15-constrained-optimization.ts)
-- [Sampler comparison](./examples/06-sampler-comparison.ts) and [acquisition strategies](./examples/26-acquisition-strategies.ts)
+Failures surface in the Effect error channel as `Schema.TaggedError` values, so `Effect.catchTag` and `Effect.catchTags` work on them directly. `InvalidSearchSpace` and `InvalidStudyConfig` reject definitions before any trial runs. `InvalidSamplerConfig`, `SamplerSearchSpaceUnsupported`, and `SamplerObjectiveUnsupported` report a sampler that cannot serve the space or the objective shape. `TrialError` wraps an objective failure with its trial number, `NoSuccessfulTrials` means a completed study has no best trial to report, and `SamplerExhausted` means a finite sampler has nothing left to suggest.
 
-See the complete [example index](./examples/) and [API documentation](https://scenesystems.github.io/theoria/effect/effect-search/). Repository source and issue tracking are on [GitHub](https://github.com/scenesystems/theoria).
+The package owns the search loop and its state. It does not own the objective's resources, retries beyond the schedule you pass, or the durability of the directory or database behind storage and caches. Reproducibility of the objective itself remains your responsibility.
 
-## Status and stability
+## Examples
 
-The package is pre-1.0. Minor releases may change public APIs; pin a compatible version and review release notes when upgrading. The `Experimental` namespace is explicitly unstable and includes APIs that may change or be removed with less migration support than the main modules. Fixture-backed tests do not make those APIs stable.
+The [examples directory](./examples/) contains one runnable program per capability. Start with the [quick start](./examples/01-quick-start.ts), then follow the topic you need: [conditional spaces](./examples/07-conditional-spaces.ts) and [space composition](./examples/18-space-composition.ts); [multi-objective optimization](./examples/04-multi-objective.ts), [constrained optimization](./examples/15-constrained-optimization.ts), and [HyperBand and BOHB](./examples/14-hyperband-bohb.ts); [snapshot resume](./examples/10-snapshot-resume.ts), [storage resume](./examples/11-storage-resume.ts), and [trial caching](./examples/12-trial-cache.ts); [ask and tell](./examples/25-ask-tell.ts), [streaming events](./examples/03-streaming-events.ts), and [parallel evaluation](./examples/21-parallel-evaluation.ts); [sampler comparison](./examples/06-sampler-comparison.ts) and [acquisition strategies](./examples/26-acquisition-strategies.ts).
+
+## Status
+
+This package is pre-1.0. Minor releases may change public APIs; pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading. The `Experimental` module may change or be removed with less migration support than the other modules.
 
 ## Contributing and support
 
@@ -142,8 +247,8 @@ Read the repository [contributing guide](../../CONTRIBUTING.md) before opening a
 
 ## Attribution
 
-The sampler behavior and numerical fixtures draw on ideas and reference results from [Optuna](https://optuna.org/), including TPE, multi-objective TPE, and study orchestration concepts. Optuna is distributed under the [MIT License](https://github.com/optuna/optuna/blob/master/LICENSE).
+The sampler behavior and numerical fixtures draw on ideas and reference results from [Optuna](https://optuna.org/), including TPE, multi-objective TPE, and study orchestration. Optuna is distributed under the [MIT License](https://github.com/optuna/optuna/blob/master/LICENSE).
 
 ## License
 
-`@scenesystems/effect-search` is released under the [MIT License](./LICENSE). Copyright 2026 Scene Systems.
+[MIT](./LICENSE). Copyright 2026 Scene Systems.

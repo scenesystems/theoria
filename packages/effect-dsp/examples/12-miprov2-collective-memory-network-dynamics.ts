@@ -1,19 +1,10 @@
 /**
- * MIPROv2 live optimization for collective-memory experiment design.
+ * Optimizes a live collective-memory protocol panel with BootstrapFewShot and
+ * MIPROv2. The analyst diagnoses reinforcement, suppression, and network-distance
+ * signals before the planner selects topology, sequencing, and convergence
+ * expectations under a fixed interaction budget.
  *
- * Inspired by PNAS 10.1073/pnas.1525569113, this example optimizes
- * protocol decisions for laboratory-created conversational networks:
- *
- * - clustered vs nonclustered interaction topology
- * - conversation sequencing policy under fixed interaction budgets
- * - expected mnemonic convergence from pre- to post-conversation recall
- *
- * The panel mirrors the paper's micro→macro framing:
- * 1) a dynamics analyst diagnoses sociocognitive signals (reinforcement,
- *    suppression, degree-of-separation effects), then
- * 2) a protocol planner proposes the strongest experimental method.
- *
- * The composed panel is then optimized with BootstrapFewShot + MIPROv2.
+ * Experimental context: PNAS DOI 10.1073/pnas.1525569113.
  *
  * Required env:
  *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)
@@ -26,6 +17,7 @@
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
 import {
   makeStandardEvents,
@@ -282,7 +274,7 @@ const STOP_WORDS = Arr.make(
   "with"
 )
 
-const clampUnitScore = (score: number): number => Math.max(0, Math.min(1, score))
+const clampUnitScore = (score: number): number => Numeric.clamp(score, { minimum: 0, maximum: 1 })
 
 const averageScore = (scores: ReadonlyArray<number>): number =>
   scores.length === 0
@@ -444,7 +436,7 @@ const protocolMetric = Metric.fromEffect("collectiveMemoryProtocolFit", (predict
 const program = Effect.gen(function*() {
   const artifacts = yield* createExampleArtifacts(EXAMPLE_NAME)
 
-  // Stage 1 — role signatures for a two-step analytic pipeline.
+  // Define role signatures for the two-step analytic pipeline.
   const dynamicsSignature = yield* Signature.make(
     "Diagnose how conversational network structure and dyadic memory dynamics shape collective-memory convergence.",
     {
@@ -523,7 +515,7 @@ const program = Effect.gen(function*() {
     }
   )
 
-  // Stage 2 — module construction.
+  // Construct the modules.
   // The theorist (teacher-layered) diagnoses memory dynamics;
   // the planner consumes that diagnosis and emits protocol decisions.
   const dynamicsAnalyst = yield* Module.chainOfThought(
@@ -536,7 +528,7 @@ const program = Effect.gen(function*() {
   )
   const teacherLayer = liveLanguageModelLayer().pipe(Layer.orDie)
 
-  // Stage 3 — compose analyst -> planner into one optimizable panel.
+  // Compose the analyst and planner into one optimizable panel.
   const protocolPanel = yield* Module.compose({
     name: "collective-memory-methods-panel",
     signature: panelSignature,
@@ -585,7 +577,7 @@ const program = Effect.gen(function*() {
     protocolAdjustment: demonstrationTurn.protocolAdjustment
   })
 
-  // Stage 4 — baseline evaluation.
+  // Evaluate the baseline.
   yield* logExampleStage("baseline-evaluation-started", {
     evalExampleCount: evalset.length
   })
@@ -597,7 +589,7 @@ const program = Effect.gen(function*() {
     concurrency: 1
   })
 
-  // Stage 5 — teacher bootstrapping seeds demonstrations.
+  // Seed demonstrations through teacher bootstrapping.
   yield* logExampleStage("bootstrap-warm-start-started", {
     trainExampleCount: trainset.length,
     maxRounds: 2,
@@ -640,7 +632,7 @@ const program = Effect.gen(function*() {
     roundsUsed: bootstrapSummary.roundsUsed
   })
 
-  // Stage 6 — MIPROv2 co-optimizes instructions + demo usage.
+  // Co-optimize instructions and demonstration use with MIPROv2.
   yield* logExampleStage("miprov2-stream-started", {
     numCandidates: 4,
     numInstructions: 4,

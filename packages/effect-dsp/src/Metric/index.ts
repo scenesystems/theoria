@@ -1,34 +1,17 @@
 /**
- * Scoring metrics for evaluating module predictions.
+ * Scores predicted records against expected records during evaluation and optimization.
+ *
+ * @remarks
+ * Metrics return normalized score records and may carry their own Effect error
+ * and service channels. Composition controls weighting and failure behavior.
  *
  * @since 0.1.0
  */
 
-/**
- * Core `Metric` class and `Result` model.
- *
- * @since 0.1.0
- */
 export * from "./model.js"
 
-/**
- * Constructors — `make` for pure scoring functions, `fromEffect` for
- * effectful ones.
- *
- * @since 0.1.0
- */
 export * from "./constructors.js"
 
-/**
- * Built-in metrics — `exactMatch`, `f1`, and `contains`.
- *
- * @since 0.1.0
- */
 export * from "./builtins.js"
 
-/**
- * Composition — `compose` multiple metrics into one averaged metric.
- *
- * @since 0.1.0
- */
 export * from "./compose.js"

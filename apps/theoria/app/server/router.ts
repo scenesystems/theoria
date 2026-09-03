@@ -2,10 +2,8 @@ import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { Clock, Effect, Match } from "effect"
 
 import { RuntimeInfo } from "./config/runtime.js"
-import { capabilitiesRoute } from "./routes/capabilities.js"
-import { demoRoute } from "./routes/demos.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
-import { packageVersionsRoute } from "./routes/package-versions.js"
+import { imaginedPlacePath, imaginedPlaceRoute } from "./routes/imagined-place.js"
 import { sitemapRoute } from "./routes/sitemap.js"
 import { staticResponse } from "./routes/static.js"
 import { versionRoute } from "./routes/version.js"
@@ -48,12 +46,10 @@ export const app = Effect.gen(function*() {
   const pathname = requestPathname(request.url)
   const requestId = crypto.randomUUID()
   const routeEffect = Match.value(pathname).pipe(
-    Match.when((value) => value.startsWith("/api/demos/"), () => demoRoute(request, requestId)),
     Match.when("/api/health/live", () => liveRoute(requestId)),
     Match.when("/api/health/ready", () => readyRoute(requestId)),
     Match.when("/api/version", () => versionRoute(requestId)),
-    Match.when("/api/versions/packages", () => packageVersionsRoute(requestId)),
-    Match.when("/api/capabilities", () => capabilitiesRoute(requestId)),
+    Match.when(imaginedPlacePath, () => imaginedPlaceRoute(request, requestId)),
     Match.when("/sitemap.xml", () => sitemapRoute),
     Match.when((value) => value.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
     Match.orElse(() => staticResponse(pathname))

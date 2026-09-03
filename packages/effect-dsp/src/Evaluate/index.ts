@@ -1,6 +1,10 @@
 /**
- * Dataset evaluation runtime — run a module against labeled examples with
- * composable metrics.
+ * Runs modules against labeled examples and aggregates metric scores.
+ *
+ * @remarks
+ * Each example becomes a report entry instead of failing the whole evaluation
+ * for an expected module, decode, or metric error. Use `run` for the report and
+ * `stream` for buffered lifecycle events after evaluation completes.
  *
  * @since 0.1.0
  */
@@ -9,48 +13,38 @@ import type { Schema } from "effect"
 import type { EvaluationEventType } from "./events.js"
 import { evaluateKernel, type EvaluateOptions, noEvents } from "./runtime/kernel.js"
 
-/**
- * Report types — `Report`, `ExampleResult`, and `ExampleFailure`.
- *
- * @since 0.1.0
- */
 export * from "./report.js"
 
-/**
- * Lifecycle events — `EvaluationEvent` schema, constructors, and type.
- *
- * @since 0.1.0
- */
 export * from "./events.js"
 
-export {
-  /**
-   * Configuration for an evaluation run: module, examples, metrics, and
-   * optional concurrency.
-   *
-   * @since 0.1.0
-   * @category models
-   * @see {@link run}
-   * @see {@link stream}
-   */
-  type EvaluateOptions
-} from "./runtime/kernel.js"
+export { type EvaluateOptions } from "./runtime/kernel.js"
 
 const appendEvent =
   (eventsRef: Ref.Ref<ReadonlyArray<EvaluationEventType>>) => (event: EvaluationEventType): Effect.Effect<void> =>
     Ref.update(eventsRef, (events) => Arr.append(events, event))
 
 /**
- * Evaluate a module against a labeled dataset and return an aggregate report.
+ * Evaluates a module against labeled examples and returns their report.
  *
- * Each example is scored by all provided metrics. Failures are caught and
- * collected — they do not abort the run.
+ * @remarks
+ * Examples run with the requested concurrency, while returned results retain
+ * input order. Metrics run sequentially in name-sorted order. A module,
+ * decoding, or metric failure is stored on that example and does not fail the
+ * returned Effect. Overall metric scores average successful examples only;
+ * an empty successful set scores `0`.
+ *
+ * Defects and interruption remain in the Effect cause and are not converted to
+ * example failures.
+ *
+ * @param options - Module, labeled examples, metrics, and example concurrency.
+ * @returns A report containing every input position and aggregate scores.
+ * @typeParam I - Input fields accepted by the evaluated module.
+ * @typeParam O - Output fields returned by the evaluated module.
+ * @typeParam ME - Expected failure from the configured metrics.
+ * @typeParam MR - Services required by the configured metrics.
  *
  * @since 0.1.0
- * @category constructors
- * @see {@link stream}
- * @see {@link Report}
- * @see {@link EvaluateOptions}
+ * @category operations
  */
 export const run = <
   I extends Schema.Struct.Fields,
@@ -62,16 +56,26 @@ export const run = <
 ) => evaluateKernel(options, noEvents)
 
 /**
- * Evaluate a dataset and project lifecycle events (started, completed, failed)
- * as an Effect Stream.
+ * Evaluates labeled examples and returns the buffered lifecycle events.
  *
- * Shares the same runtime kernel as {@link run}.
+ * @remarks
+ * Evaluation completes before the Stream emits. With concurrent examples,
+ * start and terminal events follow execution timing; `EvaluationCompleted` is
+ * last. The report itself is not emitted.
+ *
+ * Expected per-example failures become `ExampleFailed` values. Defects and
+ * interruption fail the Stream. The module and metrics retain their service
+ * requirements.
+ *
+ * @param options - Module, labeled examples, metrics, and example concurrency.
+ * @returns A finite Stream backed by the events buffered during evaluation.
+ * @typeParam I - Input fields accepted by the evaluated module.
+ * @typeParam O - Output fields returned by the evaluated module.
+ * @typeParam ME - Expected failure from the configured metrics.
+ * @typeParam MR - Services required by the configured metrics.
  *
  * @since 0.1.0
- * @category constructors
- * @see {@link run}
- * @see {@link Report}
- * @see {@link EvaluateOptions}
+ * @category operations
  */
 export const stream = <
   I extends Schema.Struct.Fields,

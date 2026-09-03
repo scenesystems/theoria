@@ -15,15 +15,12 @@ packages/*/test/**/*.js
 .tsbuildinfo/
 *.tsbuildinfo
 
-# Generated documentation (@effect/docgen output per-package)
-packages/*/docs/
+# Generated semantic API-reference dataset
+/api-reference/
+/apps/theoria/public/docs-data/
 
-# Aggregated docs site (generated content excluded, infrastructure tracked)
-/docs/_effect/
-/docs/_scenesystems/
-/docs/index.md
-/docs/_site/
-/docs/.jekyll-cache/
+# Generated Theoria runtime data (demo program sources)
+/apps/theoria/public/runtime-data/
 
 # Cloudflare Wrangler state, dry-run bundles, and local secrets
 .wrangler/
@@ -34,6 +31,10 @@ packages/*/docs/
 # Code coverage
 coverage/
 *.lcov
+
+# Playwright failure artifacts
+test-results/
+playwright-report/
 
 # Environment variables
 .env
@@ -56,6 +57,7 @@ __pycache__/
 
 # Scratch files
 .tmp/
+.amp/portals/
 
 # PR-scoped specs (ephemeral tracking — not committed)
 .specs/*

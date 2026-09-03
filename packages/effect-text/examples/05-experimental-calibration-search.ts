@@ -1,16 +1,8 @@
 /**
- * Experimental Calibration Search — optimize an engine profile with effect-search.
+ * Runs a seeded calibration study over a checked expected-layout corpus and
+ * reports the selected profile with its resumable snapshot.
  *
- * What this shows: `Experimental.Calibration.optimizeProfile` composes the
- * calibration corpus with `effect-search` while keeping the core Text APIs
- * unchanged.
- *
- * Feature Type Links:
- * - {@link Experimental.Calibration.optimizeProfile}
- * - {@link Experimental.Calibration.CalibrationReportType}
- * - {@link Sampler.Sampler}
- *
- * Run: bun run packages/effect-text/examples/05-experimental-calibration-search.ts
+ * Run with `bun run packages/effect-text/examples/05-experimental-calibration-search.ts`.
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"

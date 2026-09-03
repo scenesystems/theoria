@@ -1,79 +1,108 @@
 /**
- * @scenesystems/effect-math root entrypoint.
+ * Exposes Theoria's mathematical domains and their shared Effect contracts.
  *
- * Domain-first mathematics substrate for Effect.
+ * @remarks
+ * Domain namespaces contain the numerical APIs. Shared Schemas, policy
+ * services, Layers, and computation-planning metadata are also importable from
+ * `@scenesystems/effect-math/contracts`.
  *
  * @since 0.1.0
  * @module
  */
 
 /**
+ * Scalar numeric operations and validated numeric boundaries.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Numeric from "./Numeric/index.js"
 
 /**
+ * Integer, factorial, and polynomial operations.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Algebra from "./Algebra/index.js"
 
 /**
+ * Dense vector and matrix operations.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as LinearAlgebra from "./LinearAlgebra/index.js"
 
 /**
+ * Numerical differentiation and integration operations.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Calculus from "./Calculus/index.js"
 
 /**
+ * Special functions and their validated boundaries.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Special from "./Special/index.js"
 
 /**
+ * Probability functions and distribution contracts.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Probability from "./Probability/index.js"
 
 /**
+ * Descriptive statistics and estimators.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Statistics from "./Statistics/index.js"
 
 /**
+ * Root-finding and scalar minimization operations.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Optimization from "./Optimization/index.js"
 
 /**
+ * Metric and point-set geometry operations.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Geometry from "./Geometry/index.js"
 
 /**
+ * Complex-number schemas and arithmetic.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Complex from "./Complex/index.js"
 
 /**
+ * Probability-distribution models and operations.
+ *
  * @since 0.1.0
  * @category domains
  */
 export * as Distribution from "./Distribution/index.js"
 
 /**
+ * Shared validation, policy, and computation-planning contracts.
+ *
+ * The same exports are available from `@scenesystems/effect-math/contracts`.
+ *
  * @since 0.1.0
  * @category contracts
  */

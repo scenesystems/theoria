@@ -7,7 +7,7 @@ import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Typography contract", () => {
   it("every role has weight, tracking, and family", () => {
-    expect(textSemantics.length).toBe(14)
+    expect(textSemantics.length).toBe(15)
 
     Arr.forEach(textSemantics, (semantics) => {
       expect(semantics.weight).toBeDefined()

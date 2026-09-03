@@ -1,9 +1,6 @@
 /**
- * Sign and Verify — Ed25519 digital signature workflow.
- *
- * What this shows: the simplest signing round-trip. Generate an Ed25519 key pair,
- * sign a message, verify it succeeds, then show that a tampered message fails.
- * The signature carries an algorithm tag so `verify` knows which verifier to use.
+ * Generates an Ed25519 key pair, signs a message, and verifies both the original
+ * and a tampered message through the signature's algorithm tag.
  *
  * Run: bun run examples/01-sign-verify.ts
  */

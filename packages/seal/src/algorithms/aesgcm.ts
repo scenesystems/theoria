@@ -1,31 +1,5 @@
 /**
- * AES-256-GCM authenticated encryption.
- *
- * Widely deployed AEAD for compatibility with existing systems.
- * NIST-approved, hardware-accelerated on most platforms via AES-NI.
- * Use when interoperability with non-Theoria systems is required.
- *
- * Wraps `@noble/ciphers/aes` — audited, zero-dependency. Uses
- * `managedNonce(gcm)` for automatic 12-byte nonce prepending
- * on encrypt and extraction on decrypt.
- *
- * Security properties:
- * - **96-bit nonce**: 12 bytes, randomly generated
- * - **Key wear-out**: 2^32 invocations per key — a hard limit
- *   after which nonce collision probability becomes dangerous.
- *   Rotate keys or use XChaCha20-Poly1305 for high-volume.
- * - **NOT nonce-misuse resistant**: nonce reuse is catastrophic
- *   (reveals plaintext XOR). Use AES-256-GCM-SIV if nonce
- *   management cannot be guaranteed.
- *
- * ⚠️  Prefer {@link xchacha20} unless external compatibility
- * requires AES-GCM specifically.
- *
- * @see {@link keyValidation} — key size constraints
- * @see {@link encoding} — wire format (nonce ‖ ciphertext ‖ tag)
- * @see {@link xchacha20} — recommended default
- * @see {@link aesgcmsiv} — nonce-misuse resistant variant
- * @see {@link seal} — unified pipeline with algorithm selection
+ * Direct AES-256-GCM operations with generated 12-byte nonces.
  *
  * @since 0.1.0
  * @category algorithms
@@ -38,10 +12,17 @@ import { validateKey } from "../internal/keyValidation.js"
 import { DecryptionFailed, type InvalidKey } from "../schemas/errors.js"
 
 /**
- * Encrypt `plaintext` using AES-256-GCM.
+ * Encrypts with AES-256-GCM using a fresh generated nonce and returns
+ * `12-byte nonce ‖ ciphertext ‖ 16-byte tag`.
  *
- * Returns `nonce ‖ ciphertext ‖ tag` via `managedNonce` — the
- * 12-byte nonce is prepended automatically.
+ * @remarks
+ * Nonces come from the runtime cryptographic random source. This operation has no AAD parameter,
+ * so it authenticates only the ciphertext. It does not mutate `key` or `plaintext` and returns a
+ * newly allocated array. AES-GCM does not tolerate nonce reuse under one key.
+ *
+ * @param key - Caller-owned 32-byte, non-zero key.
+ * @param plaintext - Bytes to encrypt.
+ * @returns Fresh nonce-prefixed ciphertext, or {@link InvalidKey}.
  *
  * @since 0.1.0
  * @category algorithms
@@ -56,11 +37,16 @@ export const aesgcmEncrypt = (
   })
 
 /**
- * Decrypt `ciphertext` using AES-256-GCM.
+ * Authenticates and decrypts bytes produced by {@link aesgcmEncrypt}.
  *
- * Expects `nonce ‖ ciphertext ‖ tag` as produced by
- * {@link aesgcmEncrypt}. The 12-byte nonce is extracted
- * automatically by `managedNonce`.
+ * @remarks
+ * This operation has no AAD parameter. It does not mutate either input and returns newly
+ * allocated plaintext.
+ *
+ * @param key - Caller-owned 32-byte, non-zero key.
+ * @param ciphertext - `12-byte nonce ‖ ciphertext ‖ 16-byte tag`.
+ * @returns Fresh plaintext, or {@link InvalidKey}; wrong keys and malformed or modified
+ * input fail with {@link DecryptionFailed} reason `authentication failed`.
  *
  * @since 0.1.0
  * @category algorithms

@@ -5,6 +5,7 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Match, Option, Predicate, Record } from "effect"
 import type { MetricResult } from "../../contracts/MetricResult.js"
 import { ReflectiveExample } from "./model.js"
@@ -13,15 +14,17 @@ import type { ReflectiveDatasetSample } from "./model.js"
 const EMPTY_FEEDBACK = ""
 const NON_SCALAR_FALLBACK = "[non-scalar]"
 
-const normalizeIteration = (iteration: number): number =>
-  Match.value(
-    Number.isFinite(iteration)
-      ? Math.trunc(iteration)
-      : 0
-  ).pipe(
+const normalizeIteration = (iteration: number): number => {
+  const finiteIteration = Match.value(iteration).pipe(
+    Match.when(Numeric.isFinite, Numeric.truncate),
+    Match.orElse(() => 0)
+  )
+
+  return Match.value(finiteIteration).pipe(
     Match.when((value) => value < 0, () => 0),
     Match.orElse((value) => value)
   )
+}
 
 const renderUnknown = (value: unknown): string =>
   Match.value(value).pipe(

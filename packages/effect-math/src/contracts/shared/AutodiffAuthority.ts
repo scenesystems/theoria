@@ -1,5 +1,5 @@
 /**
- * Autodiff authority contracts for advanced differential routing.
+ * Defines autodiff capability metadata and fallback selection for computation planning.
  *
  * @since 0.1.0
  * @category contracts
@@ -9,7 +9,10 @@ import { Context, Effect, Layer, Match, Option, Schema } from "effect"
 import { AutodiffUnavailableError } from "./AdvancedComputationErrors.js"
 
 /**
- * Autodiff mode authority.
+ * Accepts forward- and reverse-mode routing labels.
+ *
+ * @remarks
+ * A mode label does not supply an autodiff implementation.
  *
  * @since 0.1.0
  * @category contracts
@@ -17,7 +20,7 @@ import { AutodiffUnavailableError } from "./AdvancedComputationErrors.js"
 export const AutodiffMode = Schema.Literal("forward", "reverse")
 
 /**
- * Autodiff mode type.
+ * A decoded autodiff mode used in planning metadata.
  *
  * @since 0.1.0
  * @category models
@@ -25,7 +28,11 @@ export const AutodiffMode = Schema.Literal("forward", "reverse")
 export type AutodiffModeType = typeof AutodiffMode.Type
 
 /**
- * Autodiff capability contract.
+ * Describes whether a mode may be selected and its optional input-size limit.
+ *
+ * @remarks
+ * {@link resolveAutodiffMode} consults `mode` and `available`; it does not
+ * inspect `maxInputDimension` because its request has no input dimension.
  *
  * @since 0.1.0
  * @category contracts
@@ -37,7 +44,7 @@ export const AutodiffCapability = Schema.Struct({
 })
 
 /**
- * Autodiff capability type.
+ * Decoded capability metadata for one autodiff mode.
  *
  * @since 0.1.0
  * @category models
@@ -45,7 +52,7 @@ export const AutodiffCapability = Schema.Struct({
 export type AutodiffCapabilityType = typeof AutodiffCapability.Type
 
 /**
- * Resolved differentiation method.
+ * Accepts planner results for autodiff or finite-difference execution.
  *
  * @since 0.1.0
  * @category contracts
@@ -53,7 +60,7 @@ export type AutodiffCapabilityType = typeof AutodiffCapability.Type
 export const AutodiffResolutionMethod = Schema.Literal("autodiff", "finite-difference")
 
 /**
- * Resolved differentiation method type.
+ * The differentiation method selected during planning.
  *
  * @since 0.1.0
  * @category models
@@ -67,7 +74,12 @@ const dedupeModes = (modes: ReadonlyArray<AutodiffModeType>): ReadonlyArray<Auto
   modes.filter((mode, index, all) => all.findIndex((candidate) => candidate === mode) === index)
 
 /**
- * Resolved autodiff authority decision.
+ * Describes the differentiation method and fallback provenance selected by a resolver.
+ *
+ * @remarks
+ * The Schema does not couple `method`, optional `mode`, and
+ * `usedFiniteDifferenceFallback`. {@link resolveAutodiffMode} establishes the
+ * consistent combinations.
  *
  * @since 0.1.0
  * @category contracts
@@ -79,7 +91,7 @@ export const AutodiffResolution = Schema.Struct({
 })
 
 /**
- * Resolved autodiff authority decision type.
+ * A decoded differentiation selection result.
  *
  * @since 0.1.0
  * @category models
@@ -87,7 +99,7 @@ export const AutodiffResolution = Schema.Struct({
 export type AutodiffResolutionType = typeof AutodiffResolution.Type
 
 /**
- * Autodiff selection policy contract.
+ * Orders candidate modes and controls finite-difference fallback.
  *
  * @since 0.1.0
  * @category contracts
@@ -98,7 +110,7 @@ export const AutodiffSelectionPolicy = Schema.Struct({
 })
 
 /**
- * Autodiff selection policy type.
+ * Decoded autodiff selection policy.
  *
  * @since 0.1.0
  * @category models
@@ -106,7 +118,11 @@ export const AutodiffSelectionPolicy = Schema.Struct({
 export type AutodiffSelectionPolicyType = typeof AutodiffSelectionPolicy.Type
 
 /**
- * Autodiff authority state contract.
+ * Combines autodiff selection policy with a non-empty capability table.
+ *
+ * @remarks
+ * The Schema permits duplicate modes and does not require policy modes to
+ * appear in the capability table.
  *
  * @since 0.1.0
  * @category contracts
@@ -117,7 +133,7 @@ export const AutodiffAuthorityState = Schema.Struct({
 })
 
 /**
- * Autodiff authority state type.
+ * Decoded state consumed by autodiff selection.
  *
  * @since 0.1.0
  * @category models
@@ -125,7 +141,7 @@ export const AutodiffAuthorityState = Schema.Struct({
 export type AutodiffAuthorityStateType = typeof AutodiffAuthorityState.Type
 
 /**
- * Autodiff authority service seam.
+ * Supplies autodiff policy and capabilities to computation planning.
  *
  * @since 0.1.0
  * @category contracts
@@ -136,7 +152,11 @@ export class AutodiffAuthorityService extends Context.Tag("effect-math/contracts
 >() {}
 
 /**
- * Baseline autodiff authority used for RED-first contract execution.
+ * Prefers reverse mode, then forward mode, and permits finite-difference fallback.
+ *
+ * @remarks
+ * Both autodiff modes are marked available for planning. This value does not
+ * install differentiation engines.
  *
  * @since 0.1.0
  * @category contracts
@@ -156,7 +176,10 @@ export const DefaultAutodiffAuthority: AutodiffAuthorityStateType = {
 }
 
 /**
- * Live autodiff authority layer.
+ * Supplies {@link DefaultAutodiffAuthority} as {@link AutodiffAuthorityService}.
+ *
+ * @remarks
+ * The Layer acquires no resources and cannot fail.
  *
  * @since 0.1.0
  * @category contracts
@@ -164,12 +187,16 @@ export const DefaultAutodiffAuthority: AutodiffAuthorityStateType = {
 export const AutodiffAuthorityLive = Layer.succeed(AutodiffAuthorityService, DefaultAutodiffAuthority)
 
 /**
- * Resolves autodiff mode from authority capabilities and policy.
+ * Selects the first available autodiff mode or the configured finite-difference fallback.
  *
- * **Details**
- * Caller preference is evaluated first, then policy order.
- * When no lane is available, `allowFiniteDifferenceFallback` decides whether
- * dispatch degrades to finite-difference or fails with a typed contract error.
+ * @remarks
+ * A caller preference precedes policy order, and duplicate modes retain their
+ * first position. Capability input-dimension limits are not consulted. The
+ * result is planning metadata and does not execute differentiation.
+ *
+ * @param request - Operation identity and optional preferred autodiff mode.
+ * @returns The selected mode, or a finite-difference result with no mode.
+ * @throws {@link AutodiffUnavailableError} in the Effect error channel when no mode is available and fallback is disabled.
  *
  * @since 0.1.0
  * @category contracts

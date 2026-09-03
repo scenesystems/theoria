@@ -1,5 +1,11 @@
 /**
- * Typed package-owned inference errors.
+ * Classifies invalid runtime configuration, unmet model capabilities,
+ * unsupported routes, and resolver implementations that are unavailable.
+ *
+ * @remarks
+ * Each variant is a tagged Schema error for recovery in the Effect failure
+ * channel. `InferenceErrorSchema` decodes the complete package-owned union at
+ * serialization boundaries.
  *
  * @since 0.1.0
  */
@@ -39,7 +45,9 @@ export const InferenceErrorSchema = Schema.Union(
 )
 
 /**
- * Extracted inference error union.
+ * Typed Effect failure channel for package-owned configuration, capability,
+ * route-support, and resolver-availability failures. Provider transport and
+ * model-response failures remain in their adapter channels.
  *
  * @since 0.1.0
  * @category type-level

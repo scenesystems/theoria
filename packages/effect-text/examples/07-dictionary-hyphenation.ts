@@ -1,18 +1,8 @@
 /**
- * Dictionary Hyphenation - official public contract surface.
+ * Compares bundled dictionary breaks, a caller-supplied dictionary, and the
+ * explicit no-dictionary fallback for one locale-aware input.
  *
- * What this shows: `hyphenationLocale` requests locale-aware breaks during
- * preparation, `HyphenationDictionaryLive` provides Layer-owned dictionaries,
- * and `NoHyphenationDictionaryLive` forces deterministic fallback without
- * changing the pure layout APIs.
- *
- * Feature Type Links:
- * - {@link Contracts.HyphenationDictionary}
- * - {@link Text.HyphenationLocale}
- * - {@link Text.HyphenationDictionaryLive}
- * - {@link Text.NoHyphenationDictionaryLive}
- *
- * Run: bun run packages/effect-text/examples/07-dictionary-hyphenation.ts
+ * Run with `bun run packages/effect-text/examples/07-dictionary-hyphenation.ts`.
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"

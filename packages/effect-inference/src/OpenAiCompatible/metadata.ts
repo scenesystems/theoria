@@ -1,5 +1,5 @@
 /**
- * OpenAI-compatible route metadata helpers.
+ * Execution-route construction for OpenAI-compatible endpoints.
  *
  * @since 0.1.0
  */
@@ -7,7 +7,8 @@ import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
 import { defaultRouteFamily } from "../contracts/RouteFamily.js"
 
 /**
- * Creates a normalized OpenAI-compatible execution-route record.
+ * Records an OpenAI-compatible endpoint without validating the base URL or
+ * optional deployment identifiers.
  *
  * @since 0.1.0
  * @category constructors

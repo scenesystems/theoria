@@ -1,10 +1,6 @@
 /**
- * Canonical domain identifier for the Complex number domain.
- *
- * Used by `ComplexDomainSchema` and `ComplexDomainModel` to bind
- * schemas, operations, and errors to a single domain namespace.
- *
- * @see {@link ComplexDomainModel} — runtime model carrying this identifier
+ * Selects complex-number capabilities from domain discovery results. Its exact
+ * serialized value is `"Complex"`.
  *
  * @since 0.1.0
  * @category contracts

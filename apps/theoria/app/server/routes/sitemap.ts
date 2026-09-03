@@ -1,20 +1,34 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { cardsForReleaseStage } from "../../contracts/card.js"
+import type { DocsManifest } from "@theoria/docs-model"
 import { fullCanonicalUrl } from "../../contracts/metadata.js"
-import { serverReleaseStage } from "../config/release-stage.js"
+import { DocsCatalog } from "../config/docs-catalog.js"
 
 const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
 
-export const sitemapRoute = Effect.gen(function*() {
-  const stage = yield* serverReleaseStage
-  const visibleCards = cardsForReleaseStage(stage)
+export const docsSitemapPaths = (manifest: DocsManifest): ReadonlyArray<string> =>
+  Arr.prepend(
+    Arr.flatMap(manifest.packages, (docsPackage) => [
+      docsPackage.overview.path,
+      ...Arr.map(docsPackage.guides, (guide) => guide.path),
+      ...Arr.map(docsPackage.apiModules, (module) => module.path)
+    ]),
+    "/docs"
+  )
 
-  const urls = Arr.prepend(
-    Arr.map(visibleCards, (card) => urlEntry(fullCanonicalUrl(card.deepDivePath))),
-    urlEntry(fullCanonicalUrl("/"))
+export const sitemapRoute = Effect.gen(function*() {
+  const docsCatalog = yield* DocsCatalog
+  const docsManifest = yield* Effect.option(docsCatalog.manifest)
+  const docsPaths = Option.match(docsManifest, {
+    onNone: () => ["/docs"],
+    onSome: docsSitemapPaths
+  })
+
+  const urls = Arr.map(
+    ["/", ...docsPaths],
+    (path) => urlEntry(fullCanonicalUrl(path))
   )
 
   const xml = [

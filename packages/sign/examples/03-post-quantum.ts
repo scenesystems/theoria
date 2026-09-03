@@ -1,10 +1,6 @@
 /**
- * Post-Quantum Cryptography — ML-DSA signatures and XWing KEM.
- *
- * What this shows: ML-DSA-65 (FIPS 204) for post-quantum digital signatures and
- * XWing (X25519 + ML-KEM-768) for hybrid key encapsulation. Both operations are
- * fast enough for interactive use. SLH-DSA is omitted here because it takes 1–5
- * seconds per signing operation — see the test suite for coverage.
+ * Signs and verifies with ML-DSA-65, then confirms that XWing encapsulation and
+ * decapsulation derive the same hybrid shared secret.
  *
  * Run: bun run examples/03-post-quantum.ts
  */

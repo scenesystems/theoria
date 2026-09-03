@@ -1,5 +1,5 @@
 /**
- * Precision escalation contracts for deterministic scalar promotion.
+ * Defines convergence gates and scalar-lane escalation policy for computation planning.
  *
  * @since 0.1.0
  * @category contracts
@@ -13,7 +13,11 @@ const PositiveFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterT
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
 
 /**
- * Convergence gate contract used by escalation authority.
+ * Accepts positive error limits and a positive integer iteration ceiling.
+ *
+ * @remarks
+ * A convergence observation passes only when both errors and the completed
+ * iteration count are less than or equal to their limits.
  *
  * @since 0.1.0
  * @category contracts
@@ -25,7 +29,7 @@ export const ConvergenceGate = Schema.Struct({
 })
 
 /**
- * Convergence gate type.
+ * Decoded limits used to evaluate a convergence observation.
  *
  * @since 0.1.0
  * @category models
@@ -33,7 +37,7 @@ export const ConvergenceGate = Schema.Struct({
 export type ConvergenceGateType = typeof ConvergenceGate.Type
 
 /**
- * Convergence observation produced by runtime kernels.
+ * Accepts non-negative finite errors and a non-negative completed iteration count.
  *
  * @since 0.1.0
  * @category contracts
@@ -45,7 +49,7 @@ export const ConvergenceObservation = Schema.Struct({
 })
 
 /**
- * Convergence observation type.
+ * A decoded convergence observation reported by a kernel.
  *
  * @since 0.1.0
  * @category models
@@ -53,7 +57,7 @@ export const ConvergenceObservation = Schema.Struct({
 export type ConvergenceObservationType = typeof ConvergenceObservation.Type
 
 /**
- * Source for precision escalation decisions.
+ * Accepts provenance labels for retained and promoted scalar lanes.
  *
  * @since 0.1.0
  * @category contracts
@@ -61,7 +65,7 @@ export type ConvergenceObservationType = typeof ConvergenceObservation.Type
 export const PrecisionEscalationDecisionSource = Schema.Literal("none", "primary-kind", "escalation-order")
 
 /**
- * Source for precision escalation decisions.
+ * The policy branch that selected an escalation result.
  *
  * @since 0.1.0
  * @category models
@@ -73,7 +77,11 @@ const PRECISION_SOURCE_PRIMARY_KIND: PrecisionEscalationDecisionSourceType = "pr
 const PRECISION_SOURCE_ESCALATION_ORDER: PrecisionEscalationDecisionSourceType = "escalation-order"
 
 /**
- * Precision escalation decision contract.
+ * Describes a convergence result and its retained or promoted scalar lane.
+ *
+ * @remarks
+ * The Schema does not enforce relationships among `converged`, `escalated`,
+ * and `source`. {@link resolveEscalatedScalarKind} establishes those invariants.
  *
  * @since 0.1.0
  * @category contracts
@@ -86,7 +94,7 @@ export const PrecisionEscalationDecision = Schema.Struct({
 })
 
 /**
- * Precision escalation decision type.
+ * A decoded precision-escalation result.
  *
  * @since 0.1.0
  * @category models
@@ -94,7 +102,11 @@ export const PrecisionEscalationDecision = Schema.Struct({
 export type PrecisionEscalationDecisionType = typeof PrecisionEscalationDecision.Type
 
 /**
- * Precision escalation policy contract.
+ * Sets the convergence gate, scalar order, and failed-gate budget.
+ *
+ * @remarks
+ * The Schema permits duplicate lanes and permits the primary lane to be
+ * absent from `escalationOrder`.
  *
  * @since 0.1.0
  * @category contracts
@@ -107,7 +119,7 @@ export const PrecisionEscalationPolicy = Schema.Struct({
 })
 
 /**
- * Precision escalation policy type.
+ * Decoded scalar-escalation policy.
  *
  * @since 0.1.0
  * @category models
@@ -115,7 +127,7 @@ export const PrecisionEscalationPolicy = Schema.Struct({
 export type PrecisionEscalationPolicyType = typeof PrecisionEscalationPolicy.Type
 
 /**
- * Precision escalation service seam.
+ * Supplies convergence and scalar-escalation policy to computation planning.
  *
  * @since 0.1.0
  * @category contracts
@@ -125,7 +137,11 @@ export class PrecisionEscalationService extends Context.Tag(
 )<PrecisionEscalationService, PrecisionEscalationPolicyType>() {}
 
 /**
- * Baseline escalation policy used during RED-first execution.
+ * Starts with Float64 and permits promotion to BigDecimal after a failed convergence gate.
+ *
+ * @remarks
+ * The failed-gate budget is two. The gate requires absolute error at most
+ * `1e-10`, relative error at most `1e-8`, and no more than 16 iterations.
  *
  * @since 0.1.0
  * @category contracts
@@ -142,7 +158,10 @@ export const DefaultPrecisionEscalationPolicy: PrecisionEscalationPolicyType = {
 }
 
 /**
- * Live precision escalation layer.
+ * Supplies {@link DefaultPrecisionEscalationPolicy} as {@link PrecisionEscalationService}.
+ *
+ * @remarks
+ * The Layer acquires no resources and cannot fail.
  *
  * @since 0.1.0
  * @category contracts
@@ -174,12 +193,18 @@ const shouldPromoteToPrimaryKind = (
   && N.Equivalence(request.attempts, 0)
 
 /**
- * Resolves scalar lane escalation from convergence observations and policy.
+ * Retains a converged scalar lane or selects the next configured lane.
  *
- * **Details**
- * If convergence passes the gate, the current scalar lane is retained.
- * On failed convergence, policy-derived lanes can promote to `primaryKind`
- * on attempt zero; otherwise resolution follows `escalationOrder`.
+ * @remarks
+ * A passing observation returns the current lane. After a failed gate, a
+ * policy-selected non-primary lane first moves to `primaryKind` when
+ * `attempts` is zero. Other failures advance through the deduplicated order
+ * formed from the primary lane and `escalationOrder`. The resolver trusts the
+ * caller's attempt count and does not consult scalar capability metadata.
+ *
+ * @param request - Current lane, zero-based failed-gate count, convergence observation, and scalar-selection provenance.
+ * @returns A retained or promoted lane with convergence and policy provenance.
+ * @throws {@link PrecisionEscalationExhaustedError} in the Effect error channel when the budget is exhausted, the current lane is absent, or no later lane exists.
  *
  * @since 0.1.0
  * @category contracts

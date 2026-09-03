@@ -3,13 +3,19 @@
   "compilerOptions": {
     "noEmit": true,
     "types": ["@types/node", "bun-types"],
-    "tsBuildInfoFile": "../.tsbuildinfo/crypto-release-scripts.tsbuildinfo",
-    "allowImportingTsExtensions": true,
-    "paths": {
-      "@scenesystems/digest": ["../packages/digest/src/index.ts"],
-      "@scenesystems/sign": ["../packages/sign/src/index.ts"]
-    }
+    "tsBuildInfoFile": "../.tsbuildinfo/scripts.tsbuildinfo",
+    "allowImportingTsExtensions": true
   },
-  "include": ["crypto-release-check.ts", "crypto-release/**/*.ts", "../packages/digest/scripts/fixture-schemas.ts"],
-  "references": [{ "path": "../packages/digest/tsconfig.src.json" }, { "path": "../packages/sign/tsconfig.src.json" }]
+  "include": [
+    "api-reference.ts",
+    "api-reference-review.ts",
+    "api-reference-program.ts",
+    "api-reference/**/*.ts",
+    "ensure-docs-assets.ts",
+    "../packages/digest/scripts/fixture-schemas.ts"
+  ],
+  "references": [
+    { "path": "../packages/docs-model/tsconfig.src.json" },
+    { "path": "../packages/source-proof/tsconfig.src.json" }
+  ]
 }

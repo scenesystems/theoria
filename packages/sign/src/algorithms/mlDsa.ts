@@ -1,32 +1,13 @@
 /**
- * ML-DSA (Module-Lattice Digital Signature Algorithm) post-quantum signatures.
+ * Implements the ML-DSA-44, ML-DSA-65, and ML-DSA-87 FIPS 204 signature
+ * suites through `@noble/post-quantum`.
  *
- * Post-quantum signature algorithm standardized as FIPS-204 (formerly
- * known as CRYSTALS-Dilithium). Primary post-quantum signature scheme
- * for long-lived content provenance that must survive quantum computing.
- *
- * Wraps `@noble/post-quantum/ml-dsa` — audited, zero-dependency.
- * Lattice-based construction over Module-LWE (Learning with Errors).
- *
- * Three security levels:
- * - **ML-DSA-44** (NIST Level 2): 1312B pk, 2560B sk, 2420B sig
- * - **ML-DSA-65** (NIST Level 3): 1952B pk, 4032B sk, 3309B sig
- * - **ML-DSA-87** (NIST Level 5): 2592B pk, 4896B sk, 4627B sig
- *
- * ML-DSA-65 is recommended for most applications — it provides
- * 192-bit post-quantum security (NIST Level 3) with moderate key
- * and signature sizes.
- *
- * Security property: EUF-CMA under Module-LWE hardness assumption.
- * ML-DSA signing is hedged by default in Noble. This package's explicit
- * ML-DSA-65 operation requires 32 bytes of caller-supplied entropy so it never
- * reads ambient randomness. Signatures are larger than classical (~3.3KB vs
- * 64B for Ed25519) — this is the cost of quantum resistance.
- *
- * @see {@link slhDsa} — alternative post-quantum (hash-based, conservative)
- * @see {@link hybrid} — classical + post-quantum hybrid for transition
- * @see {@link ed25519} — classical alternative (faster, smaller, not quantum-safe)
- *
+ * @remarks
+ * ML-DSA-44 uses 1,312-byte public keys, 2,560-byte secret keys, and
+ * 2,420-byte signatures. ML-DSA-65 uses 1,952, 4,032, and 3,309 bytes.
+ * ML-DSA-87 uses 2,592, 4,896, and 4,627 bytes. The ML-DSA-44 and ML-DSA-87
+ * wrappers use Noble's default signing profile. ML-DSA-65 exposes separate
+ * deterministic and caller-hedged operations.
  * @since 0.1.0
  * @category algorithms
  */
@@ -58,35 +39,38 @@ const dsa65 = makePqOps("ml-dsa-65", {
 const dsa87 = makePqOps("ml-dsa-87", ml_dsa87)
 
 /**
- * Sign a message with ML-DSA-44.
- *
+ * Produces a 2,420-byte pure ML-DSA-44 signature with Noble's default hedged
+ * signing profile (empty context and ambient CSPRNG entropy).
  * @since 0.1.0
  * @category algorithms
  */
 export const mlDsa44Sign = dsa44.sign
 
 /**
- * Verify an ML-DSA-44 signature against a message and public key.
- *
+ * Checks a 2,420-byte pure ML-DSA-44 signature with a 1,312-byte public key and
+ * empty context. A cryptographic nonmatch returns `false`; malformed input or a
+ * backend exception fails with `VerificationFailed`.
  * @since 0.1.0
  * @category algorithms
  */
 export const mlDsa44Verify = dsa44.verify
 
 /**
- * Generate an ML-DSA-44 key pair.
- *
+ * Draws an ML-DSA-44 key pair from Noble's ambient CSPRNG (1,312-byte public
+ * key and 2,560-byte secret key).
  * @since 0.1.0
  * @category algorithms
  */
 export const mlDsa44Keygen = dsa44.keygen
 
 /**
- * Deterministically sign a message with ML-DSA-65 for conformance use.
+ * Signs with deterministic ML-DSA-65 for conformance use.
  *
- * This operation never reads ambient randomness. Production signing should use
- * `mlDsa65SignHedged` with fresh caller-supplied cryptographic entropy.
- *
+ * @remarks
+ * This operation never reads ambient randomness. Production signing should use `mlDsa65SignHedged`
+ * with fresh caller-supplied cryptographic entropy.
+ * Its three-argument signature uses the pure ML-DSA-65 empty-context profile and stores the
+ * supplied public key in the returned carrier.
  * @since 0.1.1
  * @category algorithms
  */
@@ -95,11 +79,13 @@ export const mlDsa65SignDeterministic = dsa65.sign
 /**
  * Legacy ML-DSA-65 signing entrypoint without explicit entropy.
  *
- * It now fails closed because its historical signature cannot supply explicit
- * hedging entropy. Use `mlDsa65SignHedged` for production signing or the
- * explicitly named `mlDsa65SignDeterministic` for conformance.
+ * @remarks
+ * It now fails closed because its historical signature cannot supply explicit hedging entropy. Use
+ * `mlDsa65SignHedged` for production signing or `mlDsa65SignDeterministic` for conformance.
  *
- * @deprecated Use an explicitly named signing mode.
+ * @deprecated Deprecated since 0.1.1. Use `mlDsa65SignHedged` for production
+ * signing or `mlDsa65SignDeterministic` for conformance; the legacy operation
+ * always fails because it cannot accept explicit entropy.
  * @since 0.1.0
  * @category algorithms
  */
@@ -111,11 +97,19 @@ export const mlDsa65Sign = (
   Effect.fail(new SigningFailed({ algorithm: "ml-dsa-65", reason: "explicit signing mode required" }))
 
 /**
- * Sign with pure ML-DSA-65 using exactly 32 bytes of caller-supplied entropy.
+ * Signs with pure ML-DSA-65 using exactly 32 bytes of caller-supplied entropy.
  *
- * The final argument is passed to Noble as `extraEntropy`; ambient randomness
- * is therefore never consulted. Inputs are detached before primitive execution.
+ * @remarks
+ * The final argument is passed to Noble as `extraEntropy`; ambient randomness is never
+ * consulted. Inputs are detached before primitive execution.
  *
+ * @param message - Protected message bytes, at most 8,192 bytes.
+ * @param secretKey - Exactly 4,032 ML-DSA-65 secret-key bytes.
+ * @param publicKey - Exactly 1,952 public-key bytes stored in the result.
+ * @param context - FIPS 204 context bytes, from 0 through 255 bytes.
+ * @param entropy32 - Exactly 32 fresh cryptographically random bytes.
+ * @returns An ML-DSA-65 `Signature`, or `SigningFailed`.
+ * The failure reason is limited to `invalid input` or `backend unavailable`.
  * @since 0.1.1
  * @category algorithms
  */
@@ -159,12 +153,23 @@ export const mlDsa65SignHedged = (
 }
 
 /**
- * Verify a detached pure ML-DSA-65 signature with an explicit FIPS 204 context.
+ * Verifies a detached pure ML-DSA-65 signature with an explicit FIPS 204 context.
  *
+ * @remarks
  * The key and signature sizes, context bound, and canonical hint encoding are
  * admitted before Noble executes. A structurally valid signature that does not
  * match returns `false`.
  *
+ * Inputs are copied when the Effect executes. Messages longer than 8,192 bytes and contexts longer
+ * than 255 bytes fail admission. A different context normally produces `false`.
+ *
+ * @param signature - Exactly 3,309 pure ML-DSA-65 signature bytes.
+ * @param message - Protected message bytes, at most 8,192 bytes.
+ * @param publicKey - Exactly 1,952 pure ML-DSA-65 public-key bytes.
+ * @param context - Explicit FIPS 204 context, at most 255 bytes.
+ * @returns `true` for a match, `false` for an admitted nonmatch, or a
+ * material-free typed admission or backend failure.
+ * @see https://doi.org/10.6028/NIST.FIPS.204
  * @since 0.1.0
  * @category algorithms
  */
@@ -194,15 +199,16 @@ export const mlDsa65Verify = (
 }
 
 /**
- * Generate an ML-DSA-65 key pair.
- *
+ * Draws an ML-DSA-65 key pair from Noble's ambient CSPRNG (1,952-byte public
+ * key and 4,032-byte secret key).
  * @since 0.1.0
  * @category algorithms
  */
 export const mlDsa65Keygen = dsa65.keygen
 
 /**
- * Sign a message with ML-DSA-87.
+ * Produces a 4,627-byte pure ML-DSA-87 signature with Noble's default hedged
+ * signing profile (empty context and ambient CSPRNG entropy).
  *
  * @since 0.1.0
  * @category algorithms
@@ -210,7 +216,9 @@ export const mlDsa65Keygen = dsa65.keygen
 export const mlDsa87Sign = dsa87.sign
 
 /**
- * Verify an ML-DSA-87 signature against a message and public key.
+ * Checks a 4,627-byte pure ML-DSA-87 signature with a 2,592-byte public key and
+ * empty context. A cryptographic nonmatch returns `false`; malformed input or a
+ * backend exception fails with `VerificationFailed`.
  *
  * @since 0.1.0
  * @category algorithms
@@ -218,8 +226,8 @@ export const mlDsa87Sign = dsa87.sign
 export const mlDsa87Verify = dsa87.verify
 
 /**
- * Generate an ML-DSA-87 key pair.
- *
+ * Draws an ML-DSA-87 key pair from Noble's ambient CSPRNG (2,592-byte public
+ * key and 4,896-byte secret key).
  * @since 0.1.0
  * @category algorithms
  */

@@ -15,8 +15,10 @@ export default defineConfig({
     include: [
       "packages/*/test/**/*.test.ts",
       "apps/*/test/**/*.test.ts",
-      "scripts/crypto-release/**/*.test.ts"
+      "scripts/api-reference/**/*.test.ts"
     ],
+    // Runs the built Worker in workerd; see apps/theoria/vitest.worker.config.ts.
+    exclude: ["apps/theoria/test/worker/**", "**/node_modules/**"],
     passWithNoTests: true,
     testTimeout: 30_000,
     hookTimeout: 30_000,

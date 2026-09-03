@@ -1,7 +1,5 @@
 /**
- * BootstrapRS optimizer — random-search variant that runs multiple independent
- * BootstrapFewShot restarts and selects the best configuration via
- * effect-search.
+ * Selects among baseline and seeded BootstrapFewShot parameter snapshots.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @since 0.1.0
@@ -19,7 +17,12 @@ import { buildCandidateStates, normalizeNonNegative, resolveSeeds } from "./runt
 import { scoreCandidates, selectBestCandidate } from "./runtime/search.js"
 
 /**
- * BootstrapRS constructor options.
+ * Configures seeded bootstrap candidates and their validation comparison.
+ *
+ * @typeParam I - Module input fields decoded during candidate evaluation.
+ * @typeParam O - Module output fields scored by the metric.
+ * @typeParam ME - Expected failure type of the metric.
+ * @typeParam MR - Services required by the metric.
  *
  * @since 0.1.0
  * @category models
@@ -30,18 +33,31 @@ export type BootstrapRSOptions<
   ME = never,
   MR = never
 > = Readonly<{
+  /** Module loaded with each candidate in turn, then left in the winning state. */
   readonly module: DspModule<I, O>
+  /** Bootstrap input; each seed deterministically rotates this sequence. */
   readonly trainset: ReadonlyArray<Example>
+  /** Candidate-scoring examples. Defaults to `trainset`. */
   readonly valset?: ReadonlyArray<Example>
+  /** Metric used by both bootstrapping and candidate evaluation. */
   readonly metric: Metric<ME, MR>
+  /** Bootstrap restart count; zero still evaluates uncompiled and labeled baselines. */
   readonly numCandidates: number
+  /** Bootstrap seeds; a supplied array shorter than the restart count reduces the candidate count. */
   readonly seeds?: ReadonlyArray<number>
+  /** Round cap forwarded to each bootstrap restart; defaults to `1`. */
   readonly maxRounds?: number
+  /** Trace-demo cap forwarded to each bootstrap restart; defaults to `1`. */
   readonly maxBootstrappedDemos?: number
+  /** Labeled prefix cap for bootstrap and labeled-baseline construction; defaults to `1`. */
   readonly maxLabeledDemos?: number
+  /** Acceptance threshold forwarded to BootstrapFewShot. */
   readonly threshold?: number
+  /** Enables labeled fallback inside each bootstrap restart. */
   readonly fallbackToLabeledFewShot?: boolean
+  /** Labeled fallback count forwarded to each bootstrap restart. */
   readonly fallbackLabeledDemoCount?: number
+  /** Language model Layer used during bootstrap trace collection. */
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
 }>
 
@@ -52,7 +68,27 @@ const noCandidateError = () =>
   })
 
 /**
- * Run BootstrapFewShot across candidate seeds and keep the best validation performer.
+ * Evaluates baseline and seeded bootstrap states and loads the highest score.
+ *
+ * @remarks
+ * Candidate construction starts with the initial state and one labeled
+ * few-shot state, followed by sequential BootstrapFewShot runs over seeded
+ * rotations of `trainset`. Failed bootstrap runs are dropped. Every remaining
+ * state is evaluated sequentially on `valset`, or `trainset` when omitted;
+ * evaluation failures are also dropped. The first highest-scoring state wins
+ * and is loaded into the supplied module.
+ *
+ * `AllTrialsFailed` means no candidate completed evaluation. Other setup and
+ * final-load failures retain their typed channels. Candidate evaluation mutates
+ * the module while states are compared, so concurrent use of that module is
+ * unsafe until this effect completes.
+ *
+ * @typeParam I - Module input fields decoded during evaluation.
+ * @typeParam O - Module output fields scored by the metric.
+ * @typeParam ME - Expected failure type of the metric.
+ * @typeParam MR - Services required by the metric.
+ * @param options - Candidate generation, validation, metric, and bootstrap settings.
+ * @returns The supplied module loaded with the selected parameter snapshot.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
  * @since 0.1.0

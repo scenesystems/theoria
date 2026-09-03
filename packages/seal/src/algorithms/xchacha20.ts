@@ -1,27 +1,5 @@
 /**
- * XChaCha20-Poly1305 authenticated encryption.
- *
- * Recommended default AEAD for all Theoria encryption use cases.
- * XChaCha20-Poly1305 extends ChaCha20-Poly1305 with a 192-bit
- * (24-byte) nonce — large enough for safe random generation without
- * nonce management infrastructure.
- *
- * Wraps `@noble/ciphers/chacha` — audited, zero-dependency. Uses
- * `managedNonce(xchacha20poly1305)` for automatic nonce prepending
- * on encrypt and extraction on decrypt.
- *
- * Security properties:
- * - **192-bit random nonce**: no counter needed, safe for
- *   `crypto.getRandomValues` — birthday bound at 2^96 messages
- * - **Unlimited key wear-out**: no practical message count limit
- *   (unlike AES-GCM's 2^32 invocations per key)
- * - **AEAD**: ciphertext integrity and authenticity guaranteed
- *
- * @see {@link keyValidation} — key size constraints
- * @see {@link encoding} — wire format (nonce ‖ ciphertext ‖ tag)
- * @see {@link aesgcmsiv} — nonce-misuse resistant alternative
- * @see {@link aesgcm} — compatibility alternative
- * @see {@link seal} — unified pipeline with algorithm selection
+ * Direct XChaCha20-Poly1305 operations with generated 24-byte nonces.
  *
  * @since 0.1.0
  * @category algorithms
@@ -34,10 +12,16 @@ import { validateKey } from "../internal/keyValidation.js"
 import { DecryptionFailed, type InvalidKey } from "../schemas/errors.js"
 
 /**
- * Encrypt `plaintext` using XChaCha20-Poly1305.
+ * Encrypts bytes and returns `24-byte nonce ‖ ciphertext ‖ 16-byte tag`.
  *
- * Returns `nonce ‖ ciphertext ‖ tag` via `managedNonce` — the
- * 24-byte nonce is prepended automatically.
+ * @remarks
+ * The 24-byte nonce comes from the runtime cryptographic random source. This operation has no
+ * AAD parameter, so it authenticates only the ciphertext. It does not mutate `key` or `plaintext`
+ * and returns a newly allocated array.
+ *
+ * @param key - Caller-owned 32-byte, non-zero key.
+ * @param plaintext - Bytes to encrypt.
+ * @returns Fresh nonce-prefixed ciphertext, or {@link InvalidKey}.
  *
  * @since 0.1.0
  * @category algorithms
@@ -52,11 +36,16 @@ export const xchacha20Encrypt = (
   })
 
 /**
- * Decrypt `ciphertext` using XChaCha20-Poly1305.
+ * Authenticates and decrypts bytes produced by {@link xchacha20Encrypt}.
  *
- * Expects `nonce ‖ ciphertext ‖ tag` as produced by
- * {@link xchacha20Encrypt}. The 24-byte nonce is extracted
- * automatically by `managedNonce`.
+ * @remarks
+ * This operation has no AAD parameter. It does not mutate either input and returns newly
+ * allocated plaintext.
+ *
+ * @param key - Caller-owned 32-byte, non-zero key.
+ * @param ciphertext - `24-byte nonce ‖ ciphertext ‖ 16-byte tag`.
+ * @returns Fresh plaintext, or {@link InvalidKey}; wrong keys and malformed or modified
+ * input fail with {@link DecryptionFailed} reason `authentication failed`.
  *
  * @since 0.1.0
  * @category algorithms

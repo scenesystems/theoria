@@ -1,16 +1,5 @@
 /**
- * Algorithm-tagged key pair as a Schema.Class.
- *
- * Runtime-validated key pair carrying the algorithm discriminant.
- * The `algorithm` field determines which operations are valid —
- * an Ed25519 key pair cannot be used with ML-DSA signing.
- *
- * Secret keys are `Uint8Array` — serialization to/from base64url
- * or hex is handled by {@link keyEncoding} in the internal layer.
- *
- * @see {@link SignatureAlgorithm} — algorithm discriminant
- * @see {@link Signature} — what this key pair produces
- * @see {@link generateKeyPair} — produces instances of this type
+ * Defines algorithm-tagged public and secret key bytes.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,7 +10,8 @@ import { KemAlgorithm } from "./KemAlgorithm.js"
 import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
 
 /**
- * Union of all supported cryptographic algorithm families.
+ * Admits every signature, agreement, and KEM discriminator implemented by the
+ * package.
  *
  * @since 0.1.0
  * @category schemas
@@ -29,13 +19,20 @@ import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
 export const CryptoAlgorithm = Schema.Union(SignatureAlgorithm, AgreementAlgorithm, KemAlgorithm)
 
 /**
- * Algorithm-tagged cryptographic key pair.
+ * Associates caller-owned key bytes with the suite that interprets them.
+ *
+ * @remarks
+ * The schema does not validate key lengths, derive the public key, or prove
+ * that the two keys form a pair.
  *
  * @since 0.1.0
  * @category schemas
  */
 export class KeyPair extends Schema.Class<KeyPair>("KeyPair")({
+  /** Selects the primitive and valid operations for these bytes. */
   algorithm: CryptoAlgorithm,
+  /** Public verification, agreement, or encapsulation key. */
   publicKey: Schema.Uint8ArrayFromSelf,
+  /** Caller-owned secret key; the class does not redact or destroy it. */
   secretKey: Schema.Uint8ArrayFromSelf
 }) {}

@@ -1,14 +1,5 @@
 /**
- * Nonce size constants per algorithm.
- *
- * Used by the encoding module to split `managedNonce` output into
- * nonce and ciphertext components. Nonce generation itself is
- * handled by `@noble/ciphers` `managedNonce` wrapper — no manual
- * nonce management needed.
- *
- * @see {@link xchacha20Encrypt} — 24-byte nonce (192-bit)
- * @see {@link aesgcmsivEncrypt} — 12-byte nonce (96-bit)
- * @see {@link aesgcmEncrypt} — 12-byte nonce (96-bit)
+ * Defines the nonce lengths used to split managed-cipher output.
  *
  * @internal
  */

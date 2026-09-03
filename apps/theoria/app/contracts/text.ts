@@ -25,9 +25,12 @@ export type FontFamily = typeof FontFamily.Type
 const entry = <K, V>(k: K, v: V): readonly [K, V] => [k, v]
 
 const fontFamilyStacks = HashMap.make(
-  entry<FontFamily, string>("body", "Inter, Avenir Next, Avenir, Segoe UI, Helvetica Neue, sans-serif"),
-  entry<FontFamily, string>("display", "Inter, Avenir Next, Avenir, Segoe UI, Helvetica Neue, sans-serif"),
-  entry<FontFamily, string>("mono", "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace")
+  entry<FontFamily, string>("body", `Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif`),
+  entry<FontFamily, string>("display", `Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif`),
+  entry<FontFamily, string>(
+    "mono",
+    `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
+  )
 )
 
 const fontFamilyVarNames = HashMap.make(
@@ -67,7 +70,8 @@ export const TextRole = Schema.Literal(
   "row-value",
   "code-meta",
   "code-block",
-  "button-label"
+  "button-label",
+  "marker-label"
 )
 
 export type TextRole = typeof TextRole.Type
@@ -276,6 +280,18 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     whiteSpace: "normal",
     lineHeight: 16,
     maxWidth: { compact: 170, expanded: 210 }
+  },
+  "marker-label": {
+    role: "marker-label",
+    family: "body",
+    fontSize: 12,
+    weight: "semibold",
+    tracking: 0.01,
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
+    whiteSpace: "normal",
+    lineHeight: 14,
+    maxWidth: { compact: 160, expanded: 200 }
   }
 }
 
@@ -294,7 +310,8 @@ export const textSemantics: ReadonlyArray<TextSemantics> = [
   textSemanticsByRole["row-value"],
   textSemanticsByRole["code-meta"],
   textSemanticsByRole["code-block"],
-  textSemanticsByRole["button-label"]
+  textSemanticsByRole["button-label"],
+  textSemanticsByRole["marker-label"]
 ]
 
 export const semanticsFor = (role: TextRole): TextSemantics => textSemanticsByRole[role]

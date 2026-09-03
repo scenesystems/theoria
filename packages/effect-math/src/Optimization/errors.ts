@@ -1,9 +1,5 @@
 /**
- * Typed error taxonomy for the Optimization domain. Each error is a
- * `Schema.TaggedError` so it round-trips through Effect channels and
- * can be pattern-matched by `_tag`. Errors are stratified into boundary
- * failures (decode/encode) and operation failures (decode, domain
- * violation, invalid parameters, convergence).
+ * Defines tagged failures for Optimization descriptor boundaries and operations.
  *
  * @since 0.1.0
  * @category errors
@@ -13,22 +9,28 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation.
+ * Identifies an invalid Optimization descriptor at a caller-defined domain boundary.
+ *
+ * @remarks
+ * Current public descriptor helpers use {@link BoundaryDecodeError} and
+ * {@link BoundaryEncodeError}; they do not emit this error class.
  *
  * @since 0.1.0
  * @category errors
  */
 export class OptimizationDomainBoundaryError
   extends Schema.TaggedError<OptimizationDomainBoundaryError>()("OptimizationDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input
- * contract (e.g. `BisectInput`, `GoldenSectionInput`). The `operation`
- * field names the failed operation for error-recovery branching.
+ * Reports that a validated optimization operation could not decode its settings.
+ *
+ * @remarks
+ * `operation` names the selected algorithm. `message` contains Effect Schema's
+ * report for missing, excess, or invalid fields.
  *
  * @since 0.1.0
  * @category errors
@@ -36,57 +38,74 @@ export class OptimizationDomainBoundaryError
 export class OptimizationDecodeError extends Schema.TaggedError<OptimizationDecodeError>()(
   "OptimizationDecodeError",
   {
+    /** Optimization algorithm whose settings failed decoding. */
     operation: Schema.String,
+    /** Effect Schema issue report for the rejected settings. */
     message: Schema.String
   }
 ) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces
- * a non-finite result (NaN or ±Infinity). Under `"relaxed"` precision
- * this error is never emitted.
+ * Reports a non-finite estimate rejected by strict precision.
+ *
+ * @remarks
+ * `operation` identifies the policy-aware algorithm. `message` records the
+ * rejected estimate. Relaxed precision does not emit this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class OptimizationDomainViolationError
   extends Schema.TaggedError<OptimizationDomainViolationError>()("OptimizationDomainViolationError", {
+    /** Strict-policy algorithm that produced a non-finite estimate. */
     operation: Schema.String,
+    /** Diagnostic containing the rejected estimate or finite-result requirement. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when mathematical parameters are invalid for the requested
- * operation — for example, bisect with f(a) and f(b) having the same sign.
+ * Describes an invalid algorithm parameter for callers extending the operation error union.
+ *
+ * @remarks
+ * Current public operations do not emit this error. Validated settings fail
+ * with {@link OptimizationDecodeError}.
  *
  * @since 0.1.0
  * @category errors
  */
 export class OptimizationParameterError
   extends Schema.TaggedError<OptimizationParameterError>()("OptimizationParameterError", {
+    /** Algorithm whose decoded settings violate a mathematical precondition. */
     operation: Schema.String,
+    /** Diagnostic identifying the failed parameter condition. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when an iterative solver fails to converge within the
- * allowed iteration budget.
+ * Describes iteration exhaustion for callers extending the operation error union.
+ *
+ * @remarks
+ * Current public operations return their latest midpoint at the iteration
+ * limit and do not emit this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class OptimizationConvergenceError
   extends Schema.TaggedError<OptimizationConvergenceError>()("OptimizationConvergenceError", {
+    /** Iterative algorithm that did not satisfy its stopping criterion. */
     operation: Schema.String,
+    /** Diagnostic recording the final convergence state. */
     message: Schema.String,
+    /** Iterations completed before termination. */
     iterations: Schema.Number
   })
 {}
 
 /**
- * Union of all boundary-level errors.
+ * Groups failures that can occur while decoding or encoding an Optimization descriptor.
  *
  * @since 0.1.0
  * @category errors
@@ -94,7 +113,7 @@ export class OptimizationConvergenceError
 export type OptimizationBoundaryError = OptimizationDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all operation-level errors.
+ * Groups typed failures declared for Optimization operations.
  *
  * @since 0.1.0
  * @category errors

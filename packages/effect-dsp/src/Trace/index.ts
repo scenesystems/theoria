@@ -1,33 +1,17 @@
 /**
- * Execution trace collection via FiberRef — zero contention, fiber-scoped.
+ * Collects module-call records and token usage in fiber-local scopes.
+ *
+ * @remarks
+ * Collection is disabled unless a scope combinator enables it. Child fibers
+ * inherit the active references according to Effect `FiberRef` semantics.
  *
  * @since 0.1.0
  */
 
-/**
- * Core `Entry` model and `noScore` constant.
- *
- * @since 0.1.0
- */
 export * from "./model.js"
 
-/**
- * FiberRef storage — `TraceRef`, `UsageRef`, and their opt-in markers.
- *
- * @since 0.1.0
- */
 export * from "./refs.js"
 
-/**
- * Append combinators — `append`, `appendUsage`, and `appendExecution`.
- *
- * @since 0.1.0
- */
 export * from "./append.js"
 
-/**
- * Scoping combinators — `withTracing`, `withUsageTracking`, and `get`.
- *
- * @since 0.1.0
- */
 export * from "./scope.js"

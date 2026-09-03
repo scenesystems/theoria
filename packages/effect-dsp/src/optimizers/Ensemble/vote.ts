@@ -61,13 +61,17 @@ const winningVote = <O extends Schema.Struct.Fields>(
   )
 
 /**
- * Reduce multiple sub-module outputs to the most common value for each field.
- * Ties are broken by first occurrence.
+ * Selects the most frequent complete output value.
  *
- * Uses structural equality via `Data.struct` so outputs with identical field
- * values are always grouped together regardless of reference identity.
+ * @remarks
+ * Structural equality groups outputs with equal field values regardless of
+ * object identity. Fields are not voted independently. A tie returns the output
+ * whose first occurrence has the lowest array index. An empty array fails with
+ * `AllTrialsFailed`.
  *
- * Fails with `AllTrialsFailed` when the output array is empty.
+ * @typeParam O - Field schemas represented by each decoded output.
+ * @param outputs - Candidate values in tie-break order.
+ * @returns One of the original output objects without copying it.
  *
  * @since 0.1.0
  * @category constructors

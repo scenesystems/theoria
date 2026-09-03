@@ -1,17 +1,6 @@
 /**
- * Live ReAct agent with traced multi-step tool use — real OpenAI calls.
- *
- * A research assistant that answers factual questions by calling a
- * KnowledgeBase lookup tool and a Calculator tool. Some questions
- * require chaining both tools (look up a fact, then compute with it).
- * Full execution traces are captured and inspected.
- *
- * What this shows:
- * - `Module.react` with multiple tools and real `@effect/ai-openai` LanguageModel
- * - Multi-iteration ReAct loops with heterogeneous tool calls
- * - `Trace.withTracing` capturing per-iteration traces with timing
- * - `Evaluate.run` with `Metric.exactMatch` for scored evaluation
- * - Config-driven provider wiring via shared runtime helper
+ * Runs a live ReAct research assistant that can chain a knowledge lookup and a
+ * calculation, records the resulting trace, and evaluates exact-match answers.
  *
  * Required env:
  *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)
@@ -25,7 +14,7 @@ import { Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesyste
 import { Array as Arr, Effect, Schema } from "effect"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
-// ── Tools ──────────────────────────────────────────────────────────
+// Tools
 
 const KnowledgeBase = Tool.make("KnowledgeBase", {
   description: "Look up a factual data point. Returns a concise string with the requested information.",
@@ -109,7 +98,7 @@ const toolkit: Toolkit.WithHandler<{
   }
 }
 
-// ── Dataset ────────────────────────────────────────────────────────
+// Dataset
 
 const evalset = Arr.make(
   new Example.Example({
@@ -126,7 +115,7 @@ const evalset = Arr.make(
   })
 )
 
-// ── Program ────────────────────────────────────────────────────────
+// Program
 
 const program = Effect.gen(function*() {
   const qaSignature = yield* Signature.make(
@@ -146,8 +135,8 @@ const program = Effect.gen(function*() {
     maxIterations: 5
   })
 
-  // 1. Single traced inference — multi-tool question
-  yield* Effect.log("─── Single traced inference ───")
+  // Run and inspect one multi-tool trace.
+  yield* Effect.log("Single traced inference")
 
   const [result, traces] = yield* Trace.withTracing(
     agent.forward({
@@ -166,7 +155,7 @@ const program = Effect.gen(function*() {
     }), { discard: true })
 
   // 2. Simple factual lookup
-  yield* Effect.log("─── Simple factual lookup ───")
+  yield* Effect.log("Simple factual lookup")
 
   const [factResult, factTraces] = yield* Trace.withTracing(
     agent.forward({ question: "What is the capital of Japan?" })
@@ -175,7 +164,7 @@ const program = Effect.gen(function*() {
   yield* Effect.log("Answer", { answer: factResult.answer, reactSteps: factTraces.length })
 
   // 3. Evaluate over the dataset
-  yield* Effect.log("─── Evaluation ───")
+  yield* Effect.log("Evaluation")
 
   const report = yield* Evaluate.run({
     module: agent,

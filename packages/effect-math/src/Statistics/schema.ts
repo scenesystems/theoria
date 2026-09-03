@@ -1,8 +1,5 @@
 /**
- * Schema authority for the Statistics domain — defines the canonical domain
- * discriminator, sample input contracts, and the `SummaryStatistics` tagged
- * class carrier. All schemas enforce finite-number validation at decode time,
- * so kernels can assume well-formed numeric input.
+ * Defines Statistics discovery, sample-input, and summary-result schemas.
  *
  * @since 0.1.0
  * @category schemas
@@ -14,7 +11,7 @@ import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/Bo
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
 /**
- * Statistics schema authority scaffold.
+ * Accepts the `"Statistics"` discriminator and a recognized stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -25,7 +22,10 @@ export const StatisticsDomainSchema = Schema.Struct({
 })
 
 /**
- * Decodes unknown boundary input into the canonical statistics domain model.
+ * Decodes Statistics discovery metadata and rejects excess fields.
+ *
+ * @throws {@link BoundaryDecodeError} in the Effect error channel when the
+ * discriminator, stability, or object shape is invalid.
  *
  * @since 0.1.0
  * @category schemas
@@ -46,7 +46,10 @@ export const decodeStatisticsDomain = (input: unknown) =>
   )
 
 /**
- * Encodes the canonical statistics domain model at the package boundary.
+ * Encodes validated Statistics discovery metadata.
+ *
+ * @throws {@link BoundaryEncodeError} in the Effect error channel when a
+ * value has been forged outside the `StatisticsDomain` type.
  *
  * @since 0.1.0
  * @category schemas
@@ -65,7 +68,7 @@ export const encodeStatisticsDomain = (domain: StatisticsDomain) =>
   )
 
 /**
- * Statistics boundary encode/decode errors.
+ * Identifies Statistics descriptor decode and encode failures.
  *
  * @since 0.1.0
  * @category errors
@@ -73,7 +76,7 @@ export const encodeStatisticsDomain = (domain: StatisticsDomain) =>
 export type StatisticsSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Statistics schema-derived type.
+ * Decoded Statistics discovery descriptor.
  *
  * @since 0.1.0
  * @category models
@@ -87,13 +90,15 @@ export type StatisticsDomain = typeof StatisticsDomainSchema.Type
 const FiniteNumber = Schema.Number.pipe(Schema.finite())
 
 // ---------------------------------------------------------------------------
-// Operation input schemas — boundary decode contracts
+// Operation input schemas
 // ---------------------------------------------------------------------------
 
 /**
- * Sample data input — non-empty array of finite numbers. Used as the
- * boundary decode contract for single-sample operations such as `mean`,
- * `variance`, and `summaryStatistics`.
+ * Accepts a non-empty finite numeric sample.
+ *
+ * @remarks
+ * Decoding rejects `NaN`, infinities, and excess fields. Operations that use
+ * Bessel's correction impose their two-observation minimum separately.
  *
  * @since 0.1.0
  * @category schemas
@@ -103,8 +108,11 @@ export const SampleInput = Schema.Struct({
 }).annotations({ identifier: "SampleInput" })
 
 /**
- * Two-sample input for comparison operations such as `covariance`.
- * Both `a` and `b` must be non-empty arrays of finite numbers.
+ * Accepts two non-empty finite numeric samples.
+ *
+ * @remarks
+ * Decoding rejects `NaN`, infinities, and excess fields. Equal lengths and
+ * minimum sample sizes are operation-level requirements.
  *
  * @since 0.1.0
  * @category schemas
@@ -115,17 +123,28 @@ export const TwoSampleInput = Schema.Struct({
 }).annotations({ identifier: "TwoSampleInput" })
 
 /**
- * Summary statistics result carrier — a `Schema.TaggedClass` holding
- * mean, variance, standard deviation, min, max, and count.
+ * Stores finite descriptive statistics for a non-empty sample.
+ *
+ * @remarks
+ * `variance` uses Bessel's correction when `count` exceeds one. A singleton
+ * summary records zero variance and zero standard deviation. The schema
+ * requires a positive integer `count` but cannot prove that it matches the
+ * sample from which the other fields were calculated.
  *
  * @since 0.1.0
  * @category schemas
  */
 export class SummaryStatistics extends Schema.TaggedClass<SummaryStatistics>()("SummaryStatistics", {
+  /** Arithmetic mean of the summarized observations. */
   mean: FiniteNumber,
+  /** Bessel-corrected sample variance, or zero for a singleton sample. */
   variance: FiniteNumber,
+  /** Non-negative square root of `variance`. */
   standardDeviation: FiniteNumber,
+  /** Smallest summarized observation. */
   min: FiniteNumber,
+  /** Largest summarized observation. */
   max: FiniteNumber,
+  /** Positive observation count recorded by the summary. */
   count: Schema.Number.pipe(Schema.finite(), Schema.int(), Schema.greaterThanOrEqualTo(1))
 }) {}

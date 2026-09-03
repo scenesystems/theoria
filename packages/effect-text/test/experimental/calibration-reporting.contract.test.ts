@@ -1,6 +1,7 @@
 import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts as SearchContracts, Sampler, Study } from "@scenesystems/effect-search"
 import { Effect, Layer, Option, Schema } from "effect"
 
@@ -16,13 +17,14 @@ const manualScore = (
   report: Experimental.Calibration.CalibrationReportType,
   objective: Experimental.Calibration.CalibrationObjectiveMetadataType
 ): number =>
-  report.results.reduce(
-    (total, result) =>
-      total +
-      (result.lineMismatchCount * objective.scoreWeights.lineMismatchCount) +
-      (Math.abs(result.lineCountDelta) * objective.scoreWeights.lineCountError) +
-      (Math.abs(result.maxLineWidthDelta) * objective.scoreWeights.maxLineWidthError),
-    0
+  Numeric.sum(
+    report.results.map((result) =>
+      Numeric.sum([
+        result.lineMismatchCount * objective.scoreWeights.lineMismatchCount,
+        Numeric.abs(result.lineCountDelta) * objective.scoreWeights.lineCountError,
+        Numeric.abs(result.maxLineWidthDelta) * objective.scoreWeights.maxLineWidthError
+      ])
+    )
   )
 
 const makeEnvelopeContextLayer = (options: {

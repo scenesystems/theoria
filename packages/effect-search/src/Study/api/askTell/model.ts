@@ -1,5 +1,5 @@
 /**
- * Data model for the ask/tell study handle and its lifecycle states.
+ * Opaque handle and reserved-trial values for manual ask/tell studies.
  *
  * @since 0.1.0
  */
@@ -31,10 +31,12 @@ export class HandleRuntime<Space extends SearchSpace.SearchSpace> extends Data.C
 }> {}
 
 /**
- * Opaque handle for manual study orchestration with `ask` / `tell` style workflows.
+ * Owns the mutable runtime and event queue for one in-process manual study. Use
+ * the ask/tell operations to access it. The handle cannot be serialized or
+ * reconstructed in another process, and its resources remain bound to the
+ * scope in which {@link open} created it.
  *
- * Consumers should treat this as an identity token and use Study combinators
- * (`ask`, `tell`, `fail`, `cancel`, `result`, `snapshot`, `events`) to interact with it.
+ * @typeParam Space - Search-space schema that determines each reserved configuration.
  *
  * @since 0.1.0
  * @category models
@@ -44,13 +46,18 @@ export class StudyHandle<Space extends SearchSpace.SearchSpace = SearchSpace.Sea
 }> {}
 
 /**
- * Reserved trial returned by `Study.ask`.
+ * Identifies a configuration reserved for external evaluation. The trial stays
+ * pending until the same number is passed to {@link tell} or {@link fail}.
+ *
+ * @typeParam Config - Decoded configuration reserved for evaluation.
  *
  * @since 0.1.0
  * @category models
  */
 export class AskedTrial<Config = unknown> extends Data.Class<{
+  /** Study-assigned key required by `tell` and `fail`. */
   readonly trialNumber: number
+  /** Decoded configuration to evaluate outside the study runtime. */
   readonly config: Config
 }> {}
 
@@ -77,7 +84,9 @@ export const stateOf = <Space extends SearchSpace.SearchSpace>(handle: StudyHand
   handle[StudyHandleTypeId]
 
 /**
- * Type guard for manual study handles.
+ * Checks for the package-global private handle symbol used by manual studies.
+ * The shallow check recognizes handles created by compatible package copies but
+ * does not inspect the enclosed runtime or its lifecycle.
  *
  * @since 0.1.0
  * @category guards

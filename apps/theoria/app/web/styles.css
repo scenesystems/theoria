@@ -37,6 +37,7 @@
   --color-code-string: var(--th-code-string);
   --color-code-number: var(--th-code-number);
   --color-code-type: var(--th-code-type);
+  --color-code-function: var(--th-code-function);
   --color-code-operator: var(--th-code-operator);
 
   --shadow-surface: var(--th-shadow-surface);
@@ -135,6 +136,7 @@
   --st-fs-code-meta: 12px;
   --st-fs-code-block: 12px;
   --st-fs-button-label: 12px;
+  --st-fs-marker-label: 12px;
 
   /* Typography: per-role line-height tokens (generated — do not edit) */
   --st-lh-hero-title: 44px;
@@ -151,6 +153,7 @@
   --st-lh-code-meta: 18px;
   --st-lh-code-block: 18px;
   --st-lh-button-label: 16px;
+  --st-lh-marker-label: 14px;
 
   /* Typography: per-role font-weight tokens (generated — do not edit) */
   --st-fw-hero-title: 600;
@@ -167,6 +170,7 @@
   --st-fw-code-meta: 400;
   --st-fw-code-block: 400;
   --st-fw-button-label: 600;
+  --st-fw-marker-label: 600;
 
   /* Typography: per-role tracking tokens (generated — do not edit) */
   --st-tr-hero-title: -0.02em;
@@ -183,6 +187,7 @@
   --st-tr-code-meta: 0;
   --st-tr-code-block: 0;
   --st-tr-button-label: 0.02em;
+  --st-tr-marker-label: 0.01em;
 
   /* Typography: per-role font-family tokens (generated — do not edit) */
   --st-ff-hero-title: var(--font-display);
@@ -199,6 +204,7 @@
   --st-ff-code-meta: var(--font-mono);
   --st-ff-code-block: var(--font-mono);
   --st-ff-button-label: var(--font-body);
+  --st-ff-marker-label: var(--font-body);
 
   /* Typography: per-role/variant max-width tokens (generated — do not edit) */
   --st-mw-hero-title-compact: 680px;
@@ -229,6 +235,8 @@
   --st-mw-code-block-expanded: 1800px;
   --st-mw-button-label-compact: 170px;
   --st-mw-button-label-expanded: 210px;
+  --st-mw-marker-label-compact: 160px;
+  --st-mw-marker-label-expanded: 200px;
 }
 
 @layer base {
@@ -265,11 +273,32 @@
     --th-code-string: #2e7d57;
     --th-code-number: #b07d2e;
     --th-code-type: #7b5ea7;
+    --th-code-function: #275f8f;
     --th-code-operator: #44546b;
 
     --th-shadow-surface: 0 28px 72px -54px rgb(11 19 38 / 30%);
     --th-shadow-hero: 0 42px 110px -72px rgb(23 35 57 / 34%);
     --th-shadow-chip: 0 16px 32px -26px rgb(11 19 38 / 24%);
+
+    /* Place discs — lit from the upper left; the lightest stop is the highlight in both themes */
+    --th-place-disc-sign: radial-gradient(
+      circle at 32% 28%,
+      var(--th-stage-0) 0%,
+      var(--color-tone-sign-100) 45%,
+      var(--color-tone-sign-200) 100%
+    );
+    --th-place-disc-seal: radial-gradient(
+      circle at 32% 28%,
+      var(--th-stage-0) 0%,
+      var(--color-tone-seal-100) 45%,
+      var(--color-tone-seal-200) 100%
+    );
+    --th-place-disc-dsp: radial-gradient(
+      circle at 32% 28%,
+      var(--th-stage-0) 0%,
+      var(--color-tone-dsp-100) 45%,
+      var(--color-tone-dsp-200) 100%
+    );
   }
 
   :root.dark {
@@ -376,11 +405,32 @@
     --th-code-string: #9cd7bb;
     --th-code-number: #e9c98b;
     --th-code-type: #d0bee8;
+    --th-code-function: #8fc8f4;
     --th-code-operator: #bed1ea;
 
     --th-shadow-surface: 0 28px 72px -54px rgb(0 0 0 / 50%);
     --th-shadow-hero: 0 42px 110px -72px rgb(0 0 0 / 55%);
     --th-shadow-chip: 0 16px 32px -26px rgb(0 0 0 / 40%);
+
+    /* Dark tone scales run the other way (100 nearest the background), so the highlight is the 300 stop */
+    --th-place-disc-sign: radial-gradient(
+      circle at 32% 28%,
+      var(--color-tone-sign-300) 0%,
+      var(--color-tone-sign-200) 45%,
+      var(--color-tone-sign-100) 100%
+    );
+    --th-place-disc-seal: radial-gradient(
+      circle at 32% 28%,
+      var(--color-tone-seal-300) 0%,
+      var(--color-tone-seal-200) 45%,
+      var(--color-tone-seal-100) 100%
+    );
+    --th-place-disc-dsp: radial-gradient(
+      circle at 32% 28%,
+      var(--color-tone-dsp-300) 0%,
+      var(--color-tone-dsp-200) 45%,
+      var(--color-tone-dsp-100) 100%
+    );
   }
 
   @media (max-width: 639px) {
@@ -435,5 +485,63 @@
 
   .evidence-section-enter {
     animation: fade-in-up 300ms ease-out both;
+  }
+
+  .docs-route-enter {
+    animation: fade-in-up 180ms ease-out both;
+  }
+
+  /* A value that just changed: a wash in the digest tone that settles to nothing. */
+  @keyframes value-changed {
+    from {
+      background-color: var(--color-tone-digest-200);
+      box-shadow: 0 0 0 4px var(--color-tone-digest-200);
+    }
+    to {
+      background-color: transparent;
+      box-shadow: 0 0 0 4px transparent;
+    }
+  }
+
+  .animate-value-changed {
+    border-radius: 0.25rem;
+    animation: value-changed 1200ms ease-out both;
+  }
+
+  /* A path that draws itself once, front to back; pathLength="1" normalises the offset. */
+  @keyframes path-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .animate-path-draw {
+    animation: path-draw 900ms ease-out both;
+  }
+
+  /* One feature on the imagined place's stage, coloured by who added it. */
+  .bg-place-disc-sign {
+    background-image: var(--th-place-disc-sign);
+  }
+
+  .bg-place-disc-seal {
+    background-image: var(--th-place-disc-seal);
+  }
+
+  .bg-place-disc-dsp {
+    background-image: var(--th-place-disc-dsp);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in-up,
+    .animate-path-draw,
+    .animate-value-changed,
+    .docs-route-enter,
+    .evidence-section-enter {
+      animation: none;
+    }
   }
 }

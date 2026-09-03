@@ -38,6 +38,7 @@ export const ChoicePills = ({
     return (
       <Button
         key={option.index}
+        aria-pressed={active}
         className={buttonClassName}
         disabled={disabled}
         onClick={() => {

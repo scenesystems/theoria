@@ -18,9 +18,12 @@ import {
 } from "./model.js"
 
 /**
- * Fiber-local array of module registrations. Populated during execution
- * by `registerRuntime` and drained by discovery combinators. Scoped via
- * `Effect.locally` for isolation.
+ * Stores discovery registrations in the current FiberRef lineage.
+ *
+ * @remarks
+ * The default value is empty. Prefer {@link discoverModules},
+ * {@link discoverModuleGraph}, or {@link withDiscoveryScope} over changing this
+ * ref directly because those combinators restore the enclosing value.
  *
  * @since 0.1.0
  * @category refs
@@ -87,8 +90,15 @@ const moduleSubModuleIds = (module: Module): ReadonlyArray<ModuleId> =>
   canonicalSubModuleIds(Arr.fromIterable(HashMap.keys(module.subModules)))
 
 /**
- * Append a module registration to the fiber-local registry. Detects
- * conflicts when two different modules share the same id.
+ * Adds a registration or verifies an identical registration already exists.
+ *
+ * @remarks
+ * Re-registering an id succeeds only when the parameter ref has the same
+ * identity, the signature strings match, and the canonical child ids match. A
+ * mismatch fails with `CompositionError` and leaves the registry unchanged.
+ *
+ * @param registration - Validated registration to merge into the current fiber.
+ * @returns Completion after the registry contains the canonical entry.
  *
  * @since 0.1.0
  * @category combinators
@@ -104,16 +114,27 @@ export const register = (
   })
 
 /**
- * Register module metadata from within a `forward` execution path.
- * Validates the module name as a `ModuleId` before appending.
+ * Validates a module name and records runtime discovery metadata.
+ *
+ * @remarks
+ * Missing `subModuleIds` becomes an empty array. An invalid name or a conflict
+ * with an existing registration fails with `CompositionError` before any model
+ * operation that follows this effect.
+ *
+ * @param options - Runtime identity, live parameters, prompt metadata, and children.
+ * @returns Completion after the registration is visible in the current fiber.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const registerRuntime = (options: {
+  /** Untrusted identity decoded with the public `ModuleId` schema. */
   readonly moduleName: string
+  /** Live parameter ref retained in the registration. */
   readonly params: Ref.Ref<ModuleParams>
+  /** Signature description and instructions retained for graph projection. */
   readonly signature: RegisteredSignature
+  /** Direct children; omission records no children. */
   readonly subModuleIds?: ReadonlyArray<ModuleId>
 }): Effect.Effect<void, CompositionError> =>
   Effect.gen(function*() {
@@ -130,7 +151,10 @@ export const registerRuntime = (options: {
   })
 
 /**
- * Register a fully constructed `Module` value for discovery.
+ * Records a module and the identities of its direct child nodes.
+ *
+ * @param module - Module whose live parameter and prompt metadata are retained.
+ * @returns Completion after validation and conflict checking.
  *
  * @since 0.1.0
  * @category combinators
@@ -147,7 +171,10 @@ export const registerModule = (module: Module): Effect.Effect<void, CompositionE
   })
 
 /**
- * Read and canonicalize the current registry state.
+ * Reads the current registry as new, identity-sorted registration values.
+ *
+ * @remarks
+ * The contained parameter refs remain live and retain their original identity.
  *
  * @since 0.1.0
  * @category combinators

@@ -1,6 +1,5 @@
 /**
- * Access-token-aware live runtime helpers for Hugging Face routed-provider and
- * dedicated-endpoint execution.
+ * Configured Hugging Face resolution and model-layer selection.
  *
  * @since 0.1.0
  */
@@ -33,9 +32,9 @@ const missingCapability = (capability: string, reason: string): CapabilityMismat
   new CapabilityMismatch({ capability, reason })
 
 /**
- * Resolves explicit Hugging Face live runtime options into the canonical
- * package-owned `RuntimeResolution`, including authenticated live layers and
- * stable route provenance.
+ * Builds route provenance and authenticated model layers from explicit
+ * Hugging Face options, then checks requested capabilities against the route's
+ * conservative capability matrix. This effect performs no provider request.
  *
  * @since 0.1.0
  * @category constructors
@@ -52,8 +51,8 @@ export const resolveLiveRuntime = (
   })
 
 /**
- * Resolves Hugging Face live runtime configuration from env-backed config plus
- * explicit overrides, then constructs the canonical runtime resolution.
+ * Decodes Hugging Face config with explicit options taking precedence over the
+ * selected `ConfigProvider`, then delegates to {@link resolveLiveRuntime}.
  *
  * @since 0.1.0
  * @category constructors
@@ -64,8 +63,8 @@ export const resolveLiveRuntimeFromConfig = (
   resolveLiveRuntimeConfig(options).pipe(Effect.flatMap(resolveLiveRuntime))
 
 /**
- * Extracts the authenticated live `LanguageModel` layer from a Hugging Face
- * runtime resolution.
+ * Selects the live `LanguageModel` layer admitted by a Hugging Face resolution.
+ * Fails with `CapabilityMismatch` when text generation was not exposed.
  *
  * @since 0.1.0
  * @category constructors
@@ -82,8 +81,8 @@ export const languageModelLayer = (
   })
 
 /**
- * Extracts the authenticated live `EmbeddingModel` layer from a Hugging Face
- * runtime resolution.
+ * Selects the live `EmbeddingModel` layer admitted by a Hugging Face resolution.
+ * Fails with `CapabilityMismatch` when embeddings were not exposed.
  *
  * @since 0.1.0
  * @category constructors

@@ -1,26 +1,19 @@
 /**
- * Cost Budget — optimize response quality under a fixed spend cap.
- *
- * Real use case: tune LLM generation settings while honoring API budget limits.
- *
- * What this shows: returning ObjectiveReport value plus cost and stopping automatically at a budget cap.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Tunes generation settings while each objective report contributes estimated
+ * cost toward the study's fixed spending limit.
  *
  * Run: bun run examples/08-cost-budget.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const qualityScore = (temperature: number, rerankDepth: number, maxTokens: number): number =>
-  (1 - Math.abs(temperature - 0.65))
-  + Math.min(rerankDepth / 30, 1)
-  + Math.min(maxTokens / 2048, 1) * 0.2
+  (1 - Numeric.abs(temperature - 0.65))
+  + Numeric.min(rerankDepth / 30, 1)
+  + Numeric.min(maxTokens / 2048, 1) * 0.2
 
 const estimatedCostUsd = (maxTokens: number, rerankDepth: number): number => maxTokens * 0.000004 + rerankDepth * 0.01
 

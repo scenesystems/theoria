@@ -1,5 +1,6 @@
 /**
- * Pareto dominance, frontier extraction, and 2D hypervolume utilities.
+ * Pareto comparison and ranking for multi-objective studies, including the
+ * two-dimensional hypervolume used by MOTPE weighting.
  *
  * @since 0.1.0
  */

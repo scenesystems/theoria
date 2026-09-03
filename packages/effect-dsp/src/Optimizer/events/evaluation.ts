@@ -9,7 +9,7 @@ export {
    * events.
    *
    * @since 0.1.0
-   * @category re-exports
+   * @category events
    */
   EvaluationEvent,
   /**
@@ -17,14 +17,14 @@ export {
    * `ExampleCompleted`, `ExampleFailed`, `EvaluationCompleted`.
    *
    * @since 0.1.0
-   * @category re-exports
+   * @category events
    */
   EvaluationEventSchema,
   /**
    * Discriminated union type for evaluation events.
    *
    * @since 0.1.0
-   * @category re-exports
+   * @category events
    */
   type EvaluationEventType
 } from "../../Evaluate/events.js"

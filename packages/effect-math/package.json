@@ -63,8 +63,6 @@
     "lint": "eslint --max-warnings=0 src test examples",
     "lint:fix": "eslint --max-warnings=0 --fix src test examples",
     "test": "vitest run --root ../.. packages/effect-math/test",
-    "publish:check": "bun run scripts/verify-publish-readiness.ts",
-    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:stamp": "bun run scripts/stamp-fixture-hashes.ts",
     "fixtures:generate": "uv run scripts/generate-scipy-fixtures.py",
@@ -73,8 +71,7 @@
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
     "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
-    "clean": "rm -rf build dist .tsbuildinfo",
-    "docgen": "docgen"
+    "clean": "rm -rf build dist .tsbuildinfo"
   },
   "devDependencies": {
     "@scenesystems/digest": "workspace:^"

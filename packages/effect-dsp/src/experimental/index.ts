@@ -1,10 +1,14 @@
 /**
- * Experimental extension points.
- *
- * These APIs are public but unstable and may change outside semver guarantees.
+ * Marks an entry point whose declarations may change without a major-version release.
  *
  * @since 0.1.0
  * @category experimental
  */
 
+/**
+ * Equals `true` when the experimental entry point loads successfully.
+ *
+ * @since 0.1.0
+ * @category experimental
+ */
 export const _experimental = true

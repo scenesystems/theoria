@@ -1,14 +1,13 @@
 /**
- * Algorithm-tagged digest pair for self-describing integrity checks.
+ * Schema for carrying a digest with the algorithm required to verify it.
  *
- * Combines a {@link DigestAlgorithm} with a {@link Digest256} value
- * into a portable, self-describing content digest. The tagged form
- * allows consumers to verify both the digest value and which
- * algorithm produced it without external metadata.
+ * @remarks
+ * The schema validates the algorithm identifier and encoded digest shape. It
+ * does not prove that the digest matches any content.
  *
- * @see {@link DigestAlgorithm} — the algorithm discriminant
- * @see {@link Digest256} — the digest value
- * @see {@link durableFingerprint} — produces these from structured values
+ * @see {@link DigestAlgorithm}
+ * @see {@link Digest256}
+ * @see {@link durableFingerprint}
  *
  * @since 0.1.0
  * @category schemas
@@ -18,12 +17,14 @@ import { Digest256 } from "./Digest256.js"
 import { DigestAlgorithm } from "./DigestAlgorithm.js"
 
 /**
- * Algorithm-tagged digest pair for self-describing integrity checks.
+ * A digest value paired with the algorithm needed for verification.
  *
  * @since 0.1.0
  * @category schemas
  */
 export class ContentDigest extends Schema.Class<ContentDigest>("ContentDigest")({
+  /** Algorithm needed to interpret and verify `digest`. */
   algorithm: DigestAlgorithm,
+  /** Unpadded base64url encoding of the 32 digest bytes. */
   digest: Digest256
 }) {}

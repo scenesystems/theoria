@@ -1,15 +1,13 @@
 /**
- * Branded identity types for the artifact provenance system.
+ * Validated identifiers and declared source locations used by artifact envelopes.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Branded ULID for execution session identity. Sortable, unique, temporal.
- *
- * @see {@link ArtifactId} — composite key that includes a RunId
- * @see {@link SourceRef} — locator for the producing package within a run
+ * Validates and brands a ULID string used to group artifacts from one execution.
+ * The brand establishes syntax, not uniqueness, issuance, or authenticity.
  *
  * @since 0.1.0
  * @category schemas
@@ -17,12 +15,7 @@ import { Schema } from "effect"
 export const RunId = Schema.ULID.pipe(Schema.brand("RunId"))
 
 /**
- * Branded string type extracted from the {@link RunId} schema — never
- * construct manually, always decode through the schema to guarantee
- * ULID validity.
- *
- * @see {@link RunId} — the schema used for validation
- * @see {@link ArtifactId} — pairs a RunId with a monotonic sequence
+ * ULID-shaped execution identifier whose brand records successful schema validation.
  *
  * @since 0.1.0
  * @category type-level
@@ -30,11 +23,8 @@ export const RunId = Schema.ULID.pipe(Schema.brand("RunId"))
 export type RunId = Schema.Schema.Type<typeof RunId>
 
 /**
- * Semver-validated package version. Requires a leading `MAJOR.MINOR.PATCH`
- * prefix but permits pre-release and build-metadata suffixes.
- *
- * @see {@link SourceRef} — embeds producer package identity
- * @see {@link ArtifactId} — artifact provenance includes producer version context
+ * Validates and brands a non-empty string beginning with `MAJOR.MINOR.PATCH` digits.
+ * Text after that prefix is unconstrained, so this schema does not validate full semver syntax.
  *
  * @since 0.1.0
  * @category schemas
@@ -45,10 +35,7 @@ export const PackageVersion = Schema.NonEmptyString.pipe(
 )
 
 /**
- * Branded string type extracted from the {@link PackageVersion} schema —
- * guarantees the value matches a semver prefix pattern.
- *
- * @see {@link PackageVersion} — the schema used for validation
+ * Declared producer version with a validated numeric triplet prefix.
  *
  * @since 0.1.0
  * @category type-level
@@ -56,11 +43,8 @@ export const PackageVersion = Schema.NonEmptyString.pipe(
 export type PackageVersion = Schema.Schema.Type<typeof PackageVersion>
 
 /**
- * Module location within the producing package. A non-empty array of
- * path segments (e.g. `['Study', 'snapshot']`) enabling hierarchical
- * grouping without filesystem assumptions.
- *
- * @see {@link SourceRef} — wraps a ComponentPath with origin and domain
+ * Validates a non-empty sequence of non-empty component names.
+ * The segments describe a logical package location and need not match filesystem paths.
  *
  * @since 0.1.0
  * @category schemas
@@ -68,11 +52,7 @@ export type PackageVersion = Schema.Schema.Type<typeof PackageVersion>
 export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString)
 
 /**
- * Non-empty array of non-empty strings representing a module path —
- * use the {@link ComponentPath} schema to validate input.
- *
- * @see {@link ComponentPath} — the schema used for validation
- * @see {@link SourceRef} — the model that consumes this path
+ * Logical package location represented by non-empty path segments.
  *
  * @since 0.1.0
  * @category type-level
@@ -80,46 +60,41 @@ export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString)
 export type ComponentPath = Schema.Schema.Type<typeof ComponentPath>
 
 /**
- * Structured locator for the source of an artifact. Combines a
- * system-of-origin discriminator, a domain namespace, and a
- * hierarchical path so that any artifact can be traced back to
- * the exact module that produced it.
+ * Records the producer family and its declared logical location.
  *
- * @see {@link ArtifactLineage} — lineage record that carries a SourceRef
- * @see {@link ArtifactProducerSchema} — tagged union of known producer systems
+ * @remarks
+ * `origin` identifies effect-search, effect-dsp, or an external producer. `domain`
+ * is the producer-defined namespace, and `segments` locates the component within it.
+ * These fields are assertions from the producer rather than authenticated evidence.
  *
  * @since 0.1.0
  * @category models
  */
 export class SourceRef extends Schema.Class<SourceRef>("SourceRef")({
+  /** Producer family that defines the domain and component path. */
   origin: Schema.Literal("effect-search", "effect-dsp", "external"),
+  /** Producer-defined namespace; the schema requires only a non-empty string. */
   domain: Schema.NonEmptyString,
+  /** Ordered logical path within the producer's domain. */
   segments: Schema.NonEmptyArray(Schema.NonEmptyString)
 }) {}
 
 /**
- * Unique artifact record identity — composite of run + monotonic sequence.
- * The `runId` scopes identity to an execution session while `sequence`
- * provides a total ordering within that session.
- *
- * @see {@link RunId} — the branded ULID that scopes this identity
- * @see {@link ArtifactLineage} — carries an ArtifactId alongside provenance
+ * Identifies an artifact by execution and a non-negative integer sequence.
+ * Decoding validates each field but cannot establish uniqueness or sequence monotonicity.
  *
  * @since 0.1.0
  * @category models
  */
 export class ArtifactId extends Schema.Class<ArtifactId>("ArtifactId")({
+  /** Execution group to which the artifact declares membership. */
   runId: RunId,
+  /** Non-negative position allocated within the run; uniqueness is not validated. */
   sequence: Schema.NonNegativeInt
 }) {}
 
 export {
   /**
-   * Re-export from `@scenesystems/digest` — algorithm-tagged digest pair
-   * for content-addressable integrity checks.
-   *
-   * @see {@link ArtifactLineage} — optional integrity field for content verification
-   *
    * @since 0.1.0
    * @category models
    */

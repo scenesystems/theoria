@@ -1,32 +1,19 @@
 /**
- * @scenesystems/digest — cryptographic content hashing and
- * canonicalization for Effect.
+ * Strict content hashing and RFC 8785 canonicalization for Effect programs.
  *
- * Two algorithms, one canonicalization strategy, one encoding. BLAKE3
- * context mode provides native domain separation — no manual salt
- * concatenation needed.
+ * @remarks
+ * Hashing functions accept bytes; text helpers reject unpaired UTF-16
+ * surrogates rather than replacing them. Structured-value helpers admit only
+ * the package's documented plain-data domain and report closed errors through
+ * the Effect error channel.
  *
- * @see {@link blake3Hash} — primary hash algorithm
- * @see {@link sha256} — secondary hash algorithm
- * @see {@link canonicalize} — RFC 8785 JCS canonicalization
- * @see {@link toBase64Url} — base64url encoding
- * @see {@link durableFingerprint} — canonical fingerprinting function
- * @see {@link Digest256} — branded digest value schema
- * @see {@link ContentDigest} — algorithm-tagged digest pair
- *
- * @example
- * ```ts
- * import { blake3Hash, canonicalize, digest, durableFingerprint, encodeUtf8 } from "@scenesystems/digest"
- * import { Effect } from "effect"
- *
- * const program = Effect.gen(function*() {
- *   const canonical = yield* canonicalize({ key: "value" })
- *   const bytes = yield* encodeUtf8(canonical)
- *   const hash = yield* blake3Hash(bytes)
- *   const tagged = yield* digest("blake3-256", { key: "value" })
- *   const key = yield* durableFingerprint({ question: "What is 2+2?" })
- * })
- * ```
+ * @see {@link blake3Hash}
+ * @see {@link sha256}
+ * @see {@link canonicalize}
+ * @see {@link toBase64Url}
+ * @see {@link durableFingerprint}
+ * @see {@link Digest256}
+ * @see {@link ContentDigest}
  *
  * @since 0.1.0
  * @module

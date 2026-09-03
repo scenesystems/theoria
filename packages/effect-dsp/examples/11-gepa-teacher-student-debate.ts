@@ -1,17 +1,7 @@
 /**
- * GEPA live optimization with teacher/student debate in a social-science setting.
- *
- * A teacher analyst and student analyst read the same observation and produce
- * competing recommendations. A judge module synthesizes the two positions into
- * a final intervention. GEPA then evolves the judge instructions using
- * feedback-rich metrics.
- *
- * This demonstrates:
- * - LLM-to-LLM interaction (teacher ↔ student ↔ judge)
- * - `Module.compose` for multi-agent orchestration
- * - Effectful metric feedback for GEPA reflection
- * - `Optimizer.gepaStream` event progression
- * - Baseline vs optimized evaluation on realistic intervention labels
+ * Uses GEPA to optimize a live judge module that receives separate teacher and
+ * student analyses. An effectful metric supplies reflection feedback, and the
+ * program compares baseline and optimized intervention labels.
  *
  * Required env:
  *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)

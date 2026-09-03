@@ -1,5 +1,5 @@
 /**
- * Schema-parameterized shared cache authority.
+ * Schema-encoded cache service with process-local lookup and per-key resolution locks.
  *
  * @since 0.1.0
  */
@@ -87,25 +87,43 @@ const failWithBackendError = (operation: string) => (cause: unknown): CacheBacke
   })
 
 /**
+ * Reads and writes typed values under canonical identities derived from encoded keys.
+ *
+ * @remarks
+ * `get` decodes stored JSON. `set` persists encoded JSON before updating local lookup,
+ * while `remove` removes the backing value before invalidating local lookup. `resolve`
+ * returns `[value, "hit"]` for a decoded entry. On a miss it runs `compute`, persists
+ * the value, and returns `[value, "miss"]`. A persistence failure after computation
+ * fails the resolution instead of returning the computed value.
+ *
+ * Resolution of the same persistence key is serialized within one service instance,
+ * including the computation. Other service instances and processes are not coordinated.
+ * Schema and fingerprint failures use `CacheCorrupt`; backing-store failures use
+ * `CacheBackendError`. Computation errors retain their original type and are not cached.
+ *
  * @since 0.1.0
  * @category services
  */
 export class SchemaCache extends Effect.Tag("effect-search/Cache/SchemaCache")<
   SchemaCache,
   {
+    /** Reads and decodes one entry, returning `None` when the key is absent. */
     readonly get: <Key, Value, EncodedKey = Key, EncodedValue = Value>(
       descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
       key: Key
     ) => Effect.Effect<Option.Option<Value>, CacheError>
+    /** Encodes and persists one value before updating the local lookup cache. */
     readonly set: <Key, Value, EncodedKey = Key, EncodedValue = Value>(
       descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
       key: Key,
       value: Value
     ) => Effect.Effect<void, CacheError>
+    /** Deletes one persisted entry before invalidating its local lookup state. */
     readonly remove: <Key, Value, EncodedKey = Key, EncodedValue = Value>(
       descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
       key: Key
     ) => Effect.Effect<void, CacheError>
+    /** Returns a decoded hit or serializes miss computation for this service instance. */
     readonly resolve: <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(args: {
       readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
       readonly key: Key
@@ -115,6 +133,9 @@ export class SchemaCache extends Effect.Tag("effect-search/Cache/SchemaCache")<
 >() {}
 
 /**
+ * Implementation contract for schema cache lookup, mutation, and single-key resolution.
+ * Generic computation errors and requirements flow through `resolve` unchanged.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -243,6 +264,14 @@ const resolveCached = <Value>(
 ): Option.Option<readonly [Value, CacheResolution]> => Option.map(cachedOption, (cached) => Tuple.make(cached, "hit"))
 
 /**
+ * Allocates local lookup and per-key locks over the required `KeyValueStore`.
+ *
+ * @remarks
+ * Lookup retains up to 1,024 encoded hits or misses for 24 hours. Calls through this
+ * service update or invalidate that local state; changes made directly to the backing
+ * store or through another service may remain invisible until eviction or expiry.
+ * Construction has no typed failure and does not require or notify `CacheObserver`.
+ *
  * @since 0.1.0
  * @category constructors
  */
@@ -340,18 +369,31 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
   })
 
 /**
+ * Builds one {@link SchemaCache} over the required key-value store.
+ * Each Layer instance owns its lookup entries and per-key locks; it has no release action.
+ *
  * @since 0.1.0
  * @category layers
  */
 export const SchemaCacheLive = Layer.effect(SchemaCache, makeSchemaCache())
 
 /**
+ * Stores cache entries and lookup state in the current process only.
+ * A fresh Layer instance starts empty and has no requirements or typed acquisition failure.
+ *
  * @since 0.1.0
  * @category layers
  */
 export const SchemaCacheMemory = Layer.provide(SchemaCacheLive, KeyValueStore.layerMemory)
 
 /**
+ * Persists cache entries through the platform filesystem store rooted at `directory`.
+ *
+ * @remarks
+ * The Layer requires platform filesystem and path services. Their acquisition or I/O
+ * errors remain platform errors; cache operations translate backing-store errors to
+ * `CacheBackendError`. Process-local lookup is not shared across Layer instances.
+ *
  * @since 0.1.0
  * @category layers
  */
@@ -359,10 +401,12 @@ export const SchemaCacheFileSystem = (directory: string) =>
   Layer.provide(SchemaCacheLive, KeyValueStore.layerFileSystem(directory))
 
 /**
- * SQLite-compatible SQL-backed shared cache layer. Accepts a `SqlClient`
- * layer from the consumer so callers can choose the runtime integration,
- * while the cache SQL itself remains pinned to the SQLite-compatible dialect
- * used by the shared key-value store implementation.
+ * Persists entries in the `effect_search_cache_entries` table using a supplied SQL client Layer.
+ *
+ * @remarks
+ * Layer construction creates the table when absent and may fail with `CacheBackendError`.
+ * The statements use SQLite-compatible `ON CONFLICT` syntax. The supplied Layer's resource
+ * lifecycle is retained, while cache lookup and same-key locking remain process-local.
  *
  * @since 0.1.0
  * @category layers

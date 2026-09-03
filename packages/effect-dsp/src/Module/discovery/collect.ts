@@ -36,8 +36,16 @@ const registrationEdges = (
   )
 
 /**
- * Convert a flat array of discovery registrations into a canonical module
- * graph. Fails if the root module id was not observed during execution.
+ * Projects registration metadata into a module graph rooted at an observed id.
+ *
+ * @remarks
+ * Registrations become nodes in their input order, and each declared child id
+ * becomes an edge. The operation checks only that `rootId` is present. It does
+ * not verify child endpoints, cycles, duplicate ids, or reachability.
+ *
+ * @param rootId - Identity that must occur in `registrations`.
+ * @param registrations - Registration snapshot used as graph source data.
+ * @returns A graph containing all supplied nodes and their declared edges.
  *
  * @since 0.1.0
  * @category combinators
@@ -62,9 +70,19 @@ export const registrationsToModuleGraph = (
     )
 
 /**
- * Run a program in a fresh discovery scope and return all module
- * registrations observed during execution. The scope is automatically
- * isolated via `Effect.locally`.
+ * Runs a program and returns registrations written to its local registry.
+ *
+ * @remarks
+ * The program's successful value is discarded. Failure, defects, and
+ * interruption propagate without a snapshot. The previous registry value is
+ * restored when the scope ends. Registrations made by detached child fibers do
+ * not join back into the parent FiberRef.
+ *
+ * @typeParam A - Successful program value, discarded after execution.
+ * @typeParam E - Program failure preserved by discovery.
+ * @typeParam R - Services required by the program.
+ * @param program - Effect whose module executions should be observed.
+ * @returns The successful scope's registrations sorted by module identity.
  *
  * @since 0.1.0
  * @category combinators
@@ -81,8 +99,19 @@ export const discoverModules = <A, E, R>(
   )
 
 /**
- * Run a program and project the discovered registrations into a canonical
- * module graph rooted at the given id.
+ * Runs a program and projects its registrations into a module graph.
+ *
+ * @remarks
+ * The program must register `rootId`; otherwise the resulting
+ * `CompositionError` identifies the missing root. Other graph invariants are
+ * not validated by this projection.
+ *
+ * @typeParam A - Successful program value, discarded after execution.
+ * @typeParam E - Program failure preserved in the result channel.
+ * @typeParam R - Services required by the program.
+ * @param rootId - Registration to use as `ModuleGraph.rootId`.
+ * @param program - Effect whose module executions should be observed.
+ * @returns A graph of the registrations present after successful execution.
  *
  * @since 0.1.0
  * @category combinators
@@ -96,8 +125,17 @@ export const discoverModuleGraph = <A, E, R>(
   )
 
 /**
- * Execute a program in a fresh discovery scope, returning only the
- * program result while discarding registrations.
+ * Isolates registry writes while preserving the program result.
+ *
+ * @remarks
+ * Use this when nested execution should not add registrations to an enclosing
+ * discovery scope. Program failures and requirements are unchanged.
+ *
+ * @typeParam A - Successful value returned unchanged.
+ * @typeParam E - Failure returned unchanged.
+ * @typeParam R - Service requirements returned unchanged.
+ * @param program - Effect to execute with an initially empty registry.
+ * @returns The original successful value after the local scope is restored.
  *
  * @since 0.1.0
  * @category combinators

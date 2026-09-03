@@ -1,14 +1,6 @@
 /**
- * Early Stopping — terminate studies on convergence and policy controls.
- *
- * Real use case: stop expensive campaigns when additional trials add no value.
- *
- * What this shows: stopping studies via target value, no-improvement windows, or max duration.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Runs separate studies that stop at a target value, after a no-improvement
+ * window, or when the maximum duration expires.
  *
  * Run: bun run examples/20-early-stopping.ts
  */

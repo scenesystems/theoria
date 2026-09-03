@@ -1,15 +1,19 @@
 /**
- * Predict runtime policy contracts.
+ * Text-output parse retries and diagnostic feedback policies.
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Match, Option } from "effect"
 import * as Schedule from "effect/Schedule"
 import type { ParseOutputError } from "../../Errors/module.js"
 
 /**
- * Factory that produces a retry schedule for text output parse failures,
- * parameterized by maximum retry count.
+ * Builds the Effect schedule applied after text-output parse failures.
+ *
+ * @param maxRetries - Retry count resolved by the predict policy. Custom
+ *   factories receive a non-negative integer.
+ * @returns A schedule whose recurrences and delays control parse retries.
  *
  * @since 0.1.0
  * @category models
@@ -19,10 +23,13 @@ export type ParseRetryScheduleFactory = (
 ) => Schedule.Schedule<unknown, unknown, never>
 
 /**
- * Formats a `ParseOutputError` into feedback text appended to the next
- * prompt attempt during parse retries.
+ * Formats one parse failure for the next text-generation prompt.
  *
- * @see {@link ParsePolicy}
+ * @remarks
+ * A synchronous exception in the callback becomes an Effect defect.
+ *
+ * @param error - Previous parse failure, including field diagnostics and retry count.
+ * @returns Prompt text appended to the next attempt.
  *
  * @since 0.1.0
  * @category models
@@ -30,63 +37,59 @@ export type ParseRetryScheduleFactory = (
 export type ParseFeedbackTemplate = (error: ParseOutputError) => string
 
 /**
- * Complete parse retry configuration: maximum retries, schedule factory,
- * and feedback template.
- *
- * @see {@link PredictPolicy}
+ * Fixes parse retry count, timing, and feedback rendering for a predictor.
  *
  * @since 0.1.0
  * @category models
  */
 export type ParsePolicy = Readonly<{
+  /** Maximum additional parse attempts as a non-negative integer. */
   readonly maxRetries: number
+  /** Factory invoked with `maxRetries` when a text parse operation begins. */
   readonly retrySchedule: ParseRetryScheduleFactory
+  /** Callback invoked to render diagnostics before each retry. */
   readonly feedbackTemplate: ParseFeedbackTemplate
 }>
 
 /**
- * Top-level policy for a predict module governing parse retry behavior.
- *
- * @see {@link makePredictPolicy}
- * @see {@link DEFAULT_PREDICT_POLICY}
+ * Fixes the parse policy applied by a predictor after option defaults resolve.
  *
  * @since 0.1.0
  * @category models
  */
 export type PredictPolicy = Readonly<{
+  /** Text-output parse policy. */
   readonly parse: ParsePolicy
 }>
 
 /**
- * Partial parse policy — any omitted fields fall back to built-in defaults
- * when resolved via `makePredictPolicy`.
- *
- * @see {@link ParsePolicy}
+ * Selectively replaces built-in text parse policy fields.
  *
  * @since 0.1.0
  * @category models
  */
 export type ParsePolicyOverrides = Readonly<{
+  /** Additional attempts; finite values round down, while invalid values become zero. */
   readonly maxRetries?: number
+  /** Complete replacement for the default exponential schedule factory. */
   readonly retrySchedule?: ParseRetryScheduleFactory
+  /** Complete replacement for field-diagnostic feedback rendering. */
   readonly feedbackTemplate?: ParseFeedbackTemplate
 }>
 
 /**
- * Partial predict policy — wraps `ParsePolicyOverrides` for the top-level
- * `predict` constructor.
- *
- * @see {@link PredictPolicy}
+ * Selectively replaces policies used by one predictor.
  *
  * @since 0.1.0
  * @category models
  */
 export type PredictPolicyOverrides = Readonly<{
+  /** Text-output parse overrides. */
   readonly parse?: ParsePolicyOverrides
 }>
 
 /**
- * Default maximum number of parse retries before giving up (3).
+ * Maximum additional parse attempts used when no override is supplied: `3`.
  *
  * @since 0.1.0
  * @category constants
@@ -94,7 +97,7 @@ export type PredictPolicyOverrides = Readonly<{
 export const DEFAULT_PARSE_MAX_RETRIES = 3
 
 /**
- * Initial backoff delay for parse retries (`"100 millis"`).
+ * Initial delay used by the default parse retry schedule: `"100 millis"`.
  *
  * @since 0.1.0
  * @category constants
@@ -102,7 +105,7 @@ export const DEFAULT_PARSE_MAX_RETRIES = 3
 export const DEFAULT_PARSE_INITIAL_DELAY = "100 millis"
 
 /**
- * Exponential backoff multiplier for parse retries (2×).
+ * Delay multiplier used by the default exponential parse schedule: `2`.
  *
  * @since 0.1.0
  * @category constants
@@ -114,15 +117,21 @@ const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
 
 const normalizeRetryCount = (value: number): number =>
   Match.value(value).pipe(
-    Match.when((candidate) => candidate < 0, () => 0),
-    Match.orElse((candidate) => candidate)
+    Match.when(Numeric.isFinite, (candidate) => Numeric.max(0, Numeric.floor(candidate))),
+    Match.orElse(() => 0)
   )
 
 /**
- * Default retry schedule — exponential backoff capped at `maxRetries`.
+ * Creates the default exponential parse retry schedule.
  *
- * @see {@link DEFAULT_PARSE_INITIAL_DELAY}
- * @see {@link DEFAULT_PARSE_BACKOFF_FACTOR}
+ * @remarks
+ * Finite counts are rounded down and normalized to at least zero. Non-finite
+ * counts become zero. The first delay is 100 milliseconds and each subsequent
+ * delay is twice the preceding delay. Recurrence stops after the normalized
+ * number of retries.
+ *
+ * @param maxRetries - Maximum schedule recurrences after normalization.
+ * @returns An exponential schedule intersected with the recurrence limit.
  *
  * @since 0.1.0
  * @category constructors
@@ -137,9 +146,15 @@ const formatFieldDiagnostic = (diagnostic: ParseOutputError["fieldDiagnostics"][
   `- ${diagnostic.field} (${diagnostic.issue}): ${diagnostic.message}`
 
 /**
- * Default feedback template — renders retry count, error message, and
- * per-field diagnostics into a multi-line string appended to the next
- * prompt attempt.
+ * Formats parse diagnostics for the next prompt attempt.
+ *
+ * @remarks
+ * The first line contains the retry count and error message. It is followed by
+ * a `Field diagnostics:` line and one line per diagnostic. An empty diagnostic
+ * array produces `- none`.
+ *
+ * @param error - Parse failure from the preceding attempt.
+ * @returns Newline-separated retry feedback without redaction.
  *
  * @since 0.1.0
  * @category constructors
@@ -177,11 +192,14 @@ const resolveParsePolicy = (overrides: ParsePolicyOverrides): ParsePolicy => ({
 })
 
 /**
- * Build a complete predict policy by merging optional overrides with
- * defaults. Missing fields fall back to built-in values.
+ * Resolves optional predictor policy fields against built-in defaults.
  *
- * @see {@link PredictPolicy}
- * @see {@link DEFAULT_PREDICT_POLICY}
+ * @remarks
+ * Retry counts become non-negative integers; non-finite values become zero.
+ * Custom schedule and feedback functions are retained by identity.
+ *
+ * @param overrides - Nested parse policy replacements.
+ * @returns A complete policy suitable for predictor construction.
  *
  * @since 0.1.0
  * @category constructors
@@ -198,10 +216,7 @@ export const makePredictPolicy = (
 })
 
 /**
- * Ready-to-use predict policy with 3 retries, exponential backoff, and
- * field-level diagnostic feedback.
- *
- * @see {@link makePredictPolicy}
+ * Uses three parse retries, exponential delays, and field-diagnostic feedback.
  *
  * @since 0.1.0
  * @category constants

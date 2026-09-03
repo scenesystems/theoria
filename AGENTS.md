@@ -72,7 +72,7 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced by `eslint.config.mjs` with `--max-warnings=0`. Use `it.effect()` in tests.
 
 - Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use `@effect/platform`, Bun platform services, or package-owned abstractions instead.
-- Governance, architecture, and export-boundary tests must prove source structure with AST-backed inspection or schema-decoded manifests. Do not scrape source files with regexes or superficial `includes()` assertions when a structural proof is required.
+- Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.
 
 | Banned                             | Use Instead                                          |
 | ---------------------------------- | ---------------------------------------------------- |
@@ -103,7 +103,7 @@ All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced 
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
 - **240 LOC limit**: Files over 240 LOC require decomposition rationale and split plan.
 - **Tests assert contracts**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests.
-- **Docgen**: Every public export carries `@since`, `@category`, examples where non-obvious.
+- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious.
 
 ---
 
@@ -144,7 +144,7 @@ bun run changeset:version      # Apply version bumps
 bun run changeset:publish      # Publish to npm
 ```
 
-Each package runs `publish:check` before release to enforce repository metadata, export boundaries, and keyword coverage.
+The release command runs the workspace type checks, lint, behavioral tests, and production build before Changesets publishes packages.
 
 ---
 
@@ -170,69 +170,33 @@ git commit -m "feat(effect-search): add TPE categorical sampler"
 
 ---
 
-## Deployment (Railway)
+## Deployment (Cloudflare Workers)
 
-The `apps/theoria` showcase application deploys to [Railway](https://railway.com) as a long-running Bun server. Configuration lives in `railway.json` at the repo root (required for monorepo workspace resolution).
+The `apps/theoria` site deploys as one Cloudflare Worker (`apps/theoria/worker.ts`) that serves the API, the HTML shell, and the built `dist/` bundle as static assets. Configuration lives in `apps/theoria/wrangler.jsonc`; the full runbook is `apps/theoria/DEPLOYMENT.md`.
 
-### Architecture
+### Targets
 
-| Concern        | Detail                                                           |
-| -------------- | ---------------------------------------------------------------- |
-| Builder        | RAILPACK (auto-detects Bun from `bun.lock`)                      |
-| Build command  | `bun run --filter @theoria/theoria-app build:web`                |
-| Start command  | `cd apps/theoria && bun run server.ts`                           |
-| Healthcheck    | `GET /api/health/live` (60s timeout)                             |
-| Restart policy | `ON_FAILURE`, max 5 retries                                      |
-| Port           | `$PORT` env var (Railway-injected), falls back to `3876` locally |
+| Target     | Worker            | Hostname                                 | Deployed by                                                   |
+| ---------- | ----------------- | ---------------------------------------- | ------------------------------------------------------------- |
+| preview    | `theoria-pr-<N>`  | `theoria-pr-<N>.staging.scenesystems.io` | `Theoria Preview` (`workflow_run` on `main`) per pull request |
+| staging    | `theoria-staging` | `theoria.staging.scenesystems.io`        | `Theoria` on every push to `main`                             |
+| production | `theoria`         | `theoria.scenesystems.io`                | `Theoria` after staging passes and `production` is approved   |
 
-### Environments
-
-| Environment     | Purpose                           | Secrets                               |
-| --------------- | --------------------------------- | ------------------------------------- |
-| **production**  | Live at `theoria.scenesystems.io` | Sealed API keys (not visible to CLI)  |
-| **staging**     | Persistent base for PR previews   | Non-sealed, rate-limited staging keys |
-| **PR previews** | Ephemeral per-PR environments     | Inherited from staging                |
-
-### Railway CLI
-
-All deployment debugging uses the Railway CLI. **Never use `npm`/`npx`** — the CLI is installed via `brew install railway`.
-
-```bash
-# Link to an environment (interactive — stored in .railway/)
-railway link
-
-# Check current link
-railway status
-
-# Switch environment for one command
-railway logs --environment staging
-
-# Key commands
-railway logs --build              # RAILPACK build output
-railway logs -n 200               # last 200 runtime log lines
-railway logs --since 1h           # time-windowed
-railway logs --filter "@level:error"  # filtered
-railway variable list --kv        # env vars (sealed vars hidden)
-railway ssh                       # shell into running container
-railway redeploy --yes            # redeploy same code (after var changes)
-railway restart --yes             # restart without rebuild (after crashes)
-railway up --verbose              # deploy local code
-railway deployment list           # deployment history
-```
+The build runs once per commit (`build:web`, `deploy:dry-run`, `test:worker`) and the same artifact is checked (`theoria-build-check`), deployed, and verified (`theoria-verify-deployment`) at each stage. Only `theoria.scenesystems.io` is indexable; every other hostname gets `X-Robots-Tag: noindex`.
 
 ### Deployment Protocol
 
-1. **Code changes** are deployed via git push → Railway auto-deploys from the linked branch.
-2. **Variable changes** require `railway redeploy --yes` (no code change needed).
-3. **Crash recovery** uses `railway restart --yes` (fastest — reuses existing image).
-4. **Debugging** always starts with `railway logs --build` (build failures) then `railway logs -n 200` (runtime failures).
-5. **Healthcheck** at `/api/health/live` must return 200 within 60s or Railway marks the deploy as failed.
+1. **Code changes** deploy by merging to `main`: staging deploys automatically, production waits for approval of the `production` environment in the workflow run.
+2. **Variables** are declared in `wrangler.jsonc` (`vars`) or passed as `--var` by the workflow (`BUILD_SHA`). Changing one is a code change.
+3. **Secrets** live in the GitHub `staging` and `production` environments (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`); the app itself needs none.
+4. **Debugging** starts with the failed workflow step, then `wrangler tail theoria` / `wrangler tail theoria-staging` (Workers Logs are enabled in `wrangler.jsonc`).
+5. **Verification** is the `theoria-verify-deployment` checklist: `/api/health/live` reports the deployed `buildSha`, the shell and docs routes answer, `POST /api/imagined-place/build` succeeds, and the indexing header matches the target.
 
 ### Anti-patterns
 
-- Setting Railway "Root Directory" to `/apps/theoria` — breaks monorepo workspace resolution. Keep it blank.
-- Using `node:fs`/`node:path` in server code — use `@effect/platform` `FileSystem`/`Path` services for container compatibility.
-- Forgetting the SSE heartbeat — Railway proxy kills idle connections after 60s. The 30s heartbeat in `routes/demos.ts` prevents this.
+- Editing `run_worker_first` in `wrangler.jsonc` without adding the matching `Match` arm in `app/server/router.ts` (or vice versa); `test/worker/site.test.ts` checks the routing through the real bundle.
+- Using `node:fs`/`node:path` or `process.env` in server code — the same code runs in workerd. Use `Config`, `StaticStore`, and `@effect/platform` services.
+- Running `wrangler deploy` by hand against production; the workflow is the release path.
 
 ---
 

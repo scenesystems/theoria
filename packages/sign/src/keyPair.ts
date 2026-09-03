@@ -1,25 +1,8 @@
 /**
- * Key generation and key pair management.
+ * Generates key pairs for the package's signature, agreement, and KEM suites.
  *
- * Generates cryptographic key pairs for all supported signature and
- * key agreement algorithms. Key generation uses the platform CSPRNG
- * (`crypto.getRandomValues`) via `@noble/curves` and
- * `@noble/post-quantum` internal randomness.
- *
- * Key pair structure:
- * - `algorithm` — which algorithm this key pair is for
- * - `publicKey` — the public verification/agreement key (Uint8Array)
- * - `secretKey` — the secret signing/agreement key (Uint8Array)
- *
- * Post-quantum keys are much larger than classical — this is the
- * fundamental tradeoff for quantum resistance.
- *
- * @see {@link ed25519} — Ed25519 key sizes and algorithm details
- * @see {@link secp256k1} — secp256k1 key sizes and algorithm details
- * @see {@link x25519} — X25519 key sizes and algorithm details
- * @see {@link mlDsa} — ML-DSA key sizes and algorithm details
- * @see {@link slhDsa} — SLH-DSA key sizes and algorithm details
- * @see {@link sign} — uses key pairs for signing operations
+ * @remarks
+ * The selected Noble primitive obtains randomness from the platform CSPRNG.
  *
  * @since 0.1.0
  * @category keys
@@ -43,7 +26,17 @@ import type { CryptoAlgorithm } from "./schemas/KeyPair.js"
 type CryptoAlgorithmType = typeof CryptoAlgorithm.Type
 
 /**
- * Generate a key pair for any supported algorithm.
+ * Generates a key pair for one supported suite.
+ *
+ * @remarks
+ * Randomness is obtained by the selected Noble primitive. The returned byte
+ * arrays are owned by the caller; this package does not store, wrap, redact, or
+ * destroy secret keys.
+ *
+ * @param algorithm - The exact signature, agreement, or KEM suite to generate.
+ * @returns A caller-owned, algorithm-tagged key pair. Backend failures
+ * are normalized to `KeyGenerationFailed` with an algorithm and diagnostic
+ * reason.
  *
  * @since 0.1.0
  * @category keys

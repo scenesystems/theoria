@@ -1,5 +1,5 @@
 /**
- * Producer identity — tagged union of package-specific contexts.
+ * Declared producer identity attached to artifact envelopes.
  *
  * @since 0.1.0
  */
@@ -8,14 +8,12 @@ import { Data, Schema } from "effect"
 import { ComponentPath, PackageVersion, RunId } from "./identity.js"
 
 /**
- * Codec for serializing and deserializing {@link ArtifactProducer} values.
+ * Decodes producer metadata for effect-search, effect-dsp, or an external system.
  *
- * Encodes the three-variant tagged union to JSON and back. Each variant
- * carries different metadata fields — use `Schema.decodeUnknown` at
- * ingestion boundaries.
- *
- * @see {@link ArtifactProducer} — the type this schema produces
- * @see {@link ArtifactRelationSchema} — companion schema for relation refs
+ * @remarks
+ * Package-owned variants validate a package version prefix, component path, and run
+ * ULID. The effect-dsp branch also requires non-empty optimizer, metric, and example
+ * names. External names and versions are non-empty strings without further validation.
  *
  * @since 0.1.0
  * @category schemas
@@ -41,14 +39,11 @@ export const ArtifactProducerSchema = Schema.Union(
 )
 
 /**
- * Tagged union of artifact producer variants.
+ * Producer-supplied origin metadata for an artifact.
  *
- * Each producer kind carries its own metadata — EffectSearch has study context,
- * EffectDsp has optimizer context, External has opaque identity.
- *
- * @see {@link ArtifactProducerSchema} — codec for serialization
- * @see {@link matchProducer} — exhaustive pattern match
- * @see {@link isProducer} — type guard
+ * @remarks
+ * The tagged variants preserve different producer-specific fields. The metadata is
+ * declarative and does not authenticate the named package, execution, or external system.
  *
  * @since 0.1.0
  * @category models
@@ -58,13 +53,7 @@ export type ArtifactProducer = Schema.Schema.Type<typeof ArtifactProducerSchema>
 const ArtifactProducers = Data.taggedEnum<ArtifactProducer>()
 
 /**
- * Marks an artifact as produced by effect-search study orchestration.
- *
- * Carries `packageVersion`, `component`, and `runId` to fully identify the
- * study pipeline and execution that generated the artifact.
- *
- * @see {@link ArtifactProducer} — parent union
- * @see {@link RunId} — the execution run within this producer
+ * Constructs effect-search provenance from a declared package version, component, and run.
  *
  * @since 0.1.0
  * @category constructors
@@ -72,14 +61,10 @@ const ArtifactProducers = Data.taggedEnum<ArtifactProducer>()
 export const EffectSearch = ArtifactProducers.EffectSearch
 
 /**
- * Marks an artifact as produced by effect-dsp optimizer pipelines.
+ * Constructs effect-dsp provenance with optimizer, metric, and example context.
  *
- * Extends the base fields with `optimizer`, `metricName`, and `exampleName`
- * to capture the specific optimization context — which optimizer ran, what
- * metric it targeted, and which example it evaluated.
- *
- * @see {@link ArtifactProducer} — parent union
- * @see {@link EffectSearch} — companion producer for study-level artifacts
+ * @remarks
+ * The constructor accepts already typed fields and performs no runtime schema decoding.
  *
  * @since 0.1.0
  * @category constructors
@@ -87,13 +72,11 @@ export const EffectSearch = ArtifactProducers.EffectSearch
 export const EffectDsp = ArtifactProducers.EffectDsp
 
 /**
- * Marks an artifact as produced by a third-party integration.
+ * Constructs external provenance from a producer name and version label.
  *
- * Carries only `name` and `version` — an opaque identity for systems
- * outside effect-search / effect-dsp (e.g. "mlflow", "optuna").
- *
- * @see {@link ArtifactProducer} — parent union
- * @see {@link ExternalRelation} — companion for external relation refs
+ * @remarks
+ * Both fields are opaque declarations. Use {@link ArtifactProducerSchema} at an
+ * untrusted boundary to enforce their non-empty constraint.
  *
  * @since 0.1.0
  * @category constructors
@@ -101,14 +84,9 @@ export const EffectDsp = ArtifactProducers.EffectDsp
 export const ExternalProducer = ArtifactProducers.External
 
 /**
- * Exhaustive pattern match on producer variants.
+ * Dispatches producer metadata to the handler for its tagged variant.
  *
- * Provide a handler for each of the three producer kinds. Adding a new
- * variant to {@link ArtifactProducer} causes a compile error at every
- * uncovered match site.
- *
- * @see {@link ArtifactProducer} — the union being matched
- * @see {@link isProducer} — non-exhaustive type guard alternative
+ * @typeParam Cases - Exhaustive handler record whose return values determine the result union.
  *
  * @since 0.1.0
  * @category pattern-matching
@@ -116,14 +94,9 @@ export const ExternalProducer = ArtifactProducers.External
 export const matchProducer = ArtifactProducers.$match
 
 /**
- * Type guard for narrowing a single producer variant by tag.
+ * Builds a predicate that narrows producer metadata by `_tag`.
  *
- * Returns a predicate that narrows {@link ArtifactProducer} to the
- * specified variant — useful in `Array.filter` and conditional branches
- * where exhaustive matching is unnecessary.
- *
- * @see {@link ArtifactProducer} — the union being narrowed
- * @see {@link matchProducer} — exhaustive alternative
+ * @typeParam Tag - Producer discriminator selected for narrowing.
  *
  * @since 0.1.0
  * @category guards

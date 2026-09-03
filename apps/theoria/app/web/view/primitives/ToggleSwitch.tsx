@@ -1,45 +1,25 @@
 import { Button } from "@base-ui-components/react/button"
 
 import { toggleTrackClassName, type ToneClasses } from "./designSystem.js"
-import { Cluster, Layer } from "./Layout.js"
+import { Layer, Rail } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
+/** A labelled switch that sizes to its content; the parent decides where it sits. */
 export const ToggleSwitch = ({
   checked,
-  description,
   disabled,
   label,
   onToggle,
   tone
 }: {
   readonly checked: boolean
-  readonly description?: string
   readonly disabled: boolean
   readonly label: string
   readonly onToggle: () => void
   readonly tone: ToneClasses
 }) => (
-  <Cluster className="w-full flex-nowrap items-center justify-between gap-3">
-    <Cluster className="min-w-0 flex-1 flex-nowrap items-center gap-2">
-      <SemanticText
-        as="span"
-        className="shrink-0 text-ink-700"
-        role="row-label"
-        text={label}
-        variant="expanded"
-      />
-      {description === undefined
-        ? null
-        : (
-          <SemanticText
-            as="p"
-            className="min-w-0 text-ink-700/78"
-            role="code-meta"
-            text={description}
-            variant="expanded"
-          />
-        )}
-    </Cluster>
+  <Rail className="gap-2.5">
+    <SemanticText as="span" className="shrink-0 text-ink-700" role="row-label" text={label} variant="expanded" />
     <Button
       aria-checked={checked}
       aria-label={label}
@@ -57,5 +37,5 @@ export const ToggleSwitch = ({
           : "block size-5 translate-x-[2px] rounded-full border border-stage-300/80 bg-stage-0 shadow-chip transition-transform duration-150"}
       />
     </Button>
-  </Cluster>
+  </Rail>
 )

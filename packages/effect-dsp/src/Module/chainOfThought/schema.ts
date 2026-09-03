@@ -1,5 +1,5 @@
 /**
- * Chain-of-thought signature transformation contracts.
+ * Signature transformations for reasoning-text predictors.
  *
  * @since 0.1.0
  */
@@ -17,9 +17,14 @@ const reasoningField = Signature.describe(Schema.String, REASONING_DESCRIPTION)
 const withReasoningInstructions = (instructions: string): string => `${instructions}\n\n${REASONING_INSTRUCTION}`
 
 /**
- * Output field contract that prepends a `reasoning: string` field to the
- * original output fields, capturing step-by-step reasoning before the
- * final answer.
+ * Adds a required `reasoning` string schema before an existing output field map.
+ *
+ * @remarks
+ * If `O` already contains `reasoning`, this type-level intersection does not
+ * report the runtime collision. {@link toChainOfThoughtSignature} rejects that
+ * case with `SignatureError`.
+ *
+ * @typeParam O - Original output fields retained after `reasoning`.
  *
  * @since 0.1.0
  * @category models
@@ -38,9 +43,17 @@ const chainOfThoughtOutputFields = <O extends Schema.Struct.Fields>(
 })
 
 /**
- * Extend a signature with a required `reasoning` output field and append
- * chain-of-thought instructions. Fails with `SignatureError` if the
- * output fields already contain a `reasoning` field.
+ * Prepends the required reasoning field and updates the generated instructions.
+ *
+ * @remarks
+ * The source signature remains unchanged. A `SignatureError` reports an
+ * existing output named `reasoning`; errors from rebuilding the signature use
+ * the same failure type.
+ *
+ * @typeParam I - Input fields preserved from the source signature.
+ * @typeParam O - Existing output fields placed after `reasoning`.
+ * @param signature - Source signature to copy and extend.
+ * @returns A new signature with the same inputs and an extended output schema.
  *
  * @since 0.1.0
  * @category combinators

@@ -1,9 +1,6 @@
 /**
- * Complex-number operation surface — pure kernel functions wrapping
- * raw `(re, im)` arithmetic as `Complex → Complex` operations,
- * Schema-validated boundary variants accepting `unknown` input,
- * and policy-aware variants reading `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from context.
+ * Applies arithmetic, trigonometric, polar, vector, and differentiation
+ * operations to complex values.
  *
  * @since 0.1.0
  * @category operations
@@ -23,8 +20,7 @@ import { ComplexBinaryInput, ComplexInput, ComplexStepInput } from "./schema.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Lifts the static `ComplexDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Yields the immutable descriptor used to register Complex capabilities.
  *
  * @since 0.1.0
  * @category operations
@@ -36,22 +32,8 @@ export const loadComplexDomain = Effect.succeed(ComplexDomainModel)
 // ---------------------------------------------------------------------------
 
 /**
- * Constructs a `Complex` from explicit real and imaginary parts.
- * Prefer this over `new Complex(...)` in application code for
- * consistency across the operation surface.
- *
- * @example
- * ```ts
- * import { of } from "@scenesystems/effect-math/Complex"
- *
- * const z = of(3, 4)
- * z.re  // 3
- * z.im  // 4
- * ```
- *
- * @see {@link fromReal} — shorthand when im = 0
- * @see {@link fromImaginary} — shorthand when re = 0
- * @see {@link fromPolar} — construct from (r, θ)
+ * Preserves caller-supplied real and imaginary components without finiteness
+ * checks or normalization.
  *
  * @since 0.1.0
  * @category constructors
@@ -59,11 +41,7 @@ export const loadComplexDomain = Effect.succeed(ComplexDomainModel)
 export const of = (re: number, im: number): Complex => new Complex({ re, im })
 
 /**
- * Constructs a purely real `Complex` (imaginary part = 0). Useful
- * when lifting real scalars into complex arithmetic pipelines.
- *
- * @see {@link of} — full (re, im) constructor
- * @see {@link fromRealChunk} — vectorised variant for `Chunk<number>`
+ * Constructs a complex value on the real axis.
  *
  * @since 0.1.0
  * @category constructors
@@ -71,10 +49,7 @@ export const of = (re: number, im: number): Complex => new Complex({ re, im })
 export const fromReal = (re: number): Complex => new Complex({ re, im: 0 })
 
 /**
- * Constructs a purely imaginary `Complex` (real part = 0).
- *
- * @see {@link of} — full (re, im) constructor
- * @see {@link i} — the unit imaginary constant
+ * Constructs a complex value on the imaginary axis.
  *
  * @since 0.1.0
  * @category constructors
@@ -98,9 +73,7 @@ export const zero: Complex = new Complex({ re: 0, im: 0 })
 export const one: Complex = new Complex({ re: 1, im: 0 })
 
 /**
- * Imaginary unit 0 + 1i. Satisfies i² = −1.
- *
- * @see {@link fromImaginary} — scale the imaginary axis
+ * Imaginary unit 0 + 1i. Satisfies i² = -1.
  *
  * @since 0.1.0
  * @category constants
@@ -108,22 +81,11 @@ export const one: Complex = new Complex({ re: 1, im: 0 })
 export const i: Complex = new Complex({ re: 0, im: 1 })
 
 // ---------------------------------------------------------------------------
-// Pure kernel operations — arithmetic
+// Pure arithmetic operations
 // ---------------------------------------------------------------------------
 
 /**
- * Complex addition: (a + bi) + (c + di).
- *
- * @example
- * ```ts
- * import { add, of } from "@scenesystems/effect-math/Complex"
- *
- * const z = add(of(1, 2), of(3, 4))
- * // z = 4 + 6i
- * ```
- *
- * @see {@link subtract} — inverse operation
- * @see {@link addValidated} — boundary-validated variant
+ * Adds the corresponding real and imaginary components.
  *
  * @since 0.1.0
  * @category operations
@@ -134,10 +96,7 @@ export const add = (a: Complex, b: Complex): Complex => {
 }
 
 /**
- * Complex subtraction: (a + bi) − (c + di).
- *
- * @see {@link add} — inverse operation
- * @see {@link subtractValidated} — boundary-validated variant
+ * Subtracts the corresponding real and imaginary components.
  *
  * @since 0.1.0
  * @category operations
@@ -151,9 +110,6 @@ export const subtract = (a: Complex, b: Complex): Complex => {
  * Complex multiplication using the standard (ac − bd) + (ad + bc)i
  * formula.
  *
- * @see {@link divide} — inverse operation
- * @see {@link multiplyValidated} — boundary-validated variant
- *
  * @since 0.1.0
  * @category operations
  */
@@ -164,11 +120,8 @@ export const multiply = (a: Complex, b: Complex): Complex => {
 
 /**
  * Complex division using the Smith method for overflow safety.
- * Returns `NaN` parts when dividing by zero — use
- * {@link divideValidated} for explicit error handling at boundaries.
- *
- * @see {@link multiply} — inverse operation
- * @see {@link divideValidated} — boundary-validated variant
+ * Returns `NaN` components when the divisor is zero. The validated variant
+ * checks component finiteness but preserves this zero-divisor behavior.
  *
  * @since 0.1.0
  * @category operations
@@ -179,10 +132,7 @@ export const divide = (a: Complex, b: Complex): Complex => {
 }
 
 /**
- * Complex conjugate: reflects across the real axis (negates the
- * imaginary part). Used in inner products and norm computations.
- *
- * @see {@link complexDot} — uses conjugate in the inner product
+ * Reflects a value across the real axis by negating its imaginary component.
  *
  * @since 0.1.0
  * @category operations
@@ -193,12 +143,7 @@ export const conjugate = (z: Complex): Complex => {
 }
 
 /**
- * Complex modulus |z| = √(re² + im²). Uses `Math.hypot` internally
- * for overflow-safe computation.
- *
- * @see {@link arg} — phase angle companion
- * @see {@link toPolar} — returns both modulus and argument
- * @see {@link absWithPolicies} — policy-aware variant
+ * Computes the modulus |z| with `Math.hypot` to avoid intermediate overflow.
  *
  * @since 0.1.0
  * @category operations
@@ -206,11 +151,7 @@ export const conjugate = (z: Complex): Complex => {
 export const abs = (z: Complex): number => Arith.abs(z.re, z.im)
 
 /**
- * Complex argument (phase angle) arg(z) = atan2(im, re) ∈ (−π, π].
- *
- * @see {@link abs} — modulus companion
- * @see {@link toPolar} — returns both modulus and argument
- * @see {@link argWithPolicies} — policy-aware variant
+ * Computes the principal phase angle `atan2(im, re)` in `(-π, π]`.
  *
  * @since 0.1.0
  * @category operations
@@ -218,11 +159,8 @@ export const abs = (z: Complex): number => Arith.abs(z.re, z.im)
 export const arg = (z: Complex): number => Arith.arg(z.re, z.im)
 
 /**
- * Complex exponential exp(a + bi) = eᵃ(cos b + i·sin b). Maps
+ * Computes `exp(a + bi) = exp(a)(cos(b) + i * sin(b))`. Maps
  * the left half-plane to the unit disk interior.
- *
- * @see {@link log} — inverse operation (principal branch)
- * @see {@link expValidated} — boundary-validated variant
  *
  * @since 0.1.0
  * @category operations
@@ -234,10 +172,7 @@ export const exp = (z: Complex): Complex => {
 
 /**
  * Complex natural logarithm (principal branch) with argument in
- * (−π, π]. Returns `[-Infinity, 0]` for z = 0.
- *
- * @see {@link exp} — inverse operation
- * @see {@link logValidated} — boundary-validated variant
+ * `(-π, π]`. Returns `[-Infinity, 0]` for zero.
  *
  * @since 0.1.0
  * @category operations
@@ -248,11 +183,8 @@ export const log = (z: Complex): Complex => {
 }
 
 /**
- * Complex power z^w = exp(w · log(z)). Returns 1 + 0i for 0^0
- * and 0 + 0i for 0^w (w ≠ 0).
- *
- * @see {@link sqrt} — special case for w = 0.5
- * @see {@link exp} — special case for base = e
+ * Computes `z^w = exp(w * log(z))`. Returns 1 + 0i for `0^0` and
+ * 0 + 0i for `0^w` when `w` is nonzero.
  *
  * @since 0.1.0
  * @category operations
@@ -264,10 +196,7 @@ export const pow = (base: Complex, exponent: Complex): Complex => {
 
 /**
  * Principal-branch square root. For negative real inputs, returns
- * a purely imaginary result (e.g., sqrt(−4) = 2i).
- *
- * @see {@link pow} — general complex exponentiation
- * @see {@link abs} — modulus used in computation
+ * a purely imaginary result; for example, `sqrt(-4) = 2i`.
  *
  * @since 0.1.0
  * @category operations
@@ -278,15 +207,11 @@ export const sqrt = (z: Complex): Complex => {
 }
 
 // ---------------------------------------------------------------------------
-// Pure kernel operations — polar conversion
+// Pure polar conversion operations
 // ---------------------------------------------------------------------------
 
 /**
- * Converts to polar form (r, θ) where r = |z| and θ = arg(z).
- *
- * @see {@link fromPolar} — inverse conversion
- * @see {@link abs} — modulus only
- * @see {@link arg} — argument only
+ * Converts a Cartesian value to `[modulus, principalArgument]`.
  *
  * @since 0.1.0
  * @category operations
@@ -294,10 +219,7 @@ export const sqrt = (z: Complex): Complex => {
 export const toPolar = (z: Complex): readonly [number, number] => Polar.toPolar(z.re, z.im)
 
 /**
- * Constructs a `Complex` from polar coordinates (r, θ).
- *
- * @see {@link toPolar} — inverse conversion
- * @see {@link of} — rectangular constructor
+ * Constructs a complex value from a modulus and angle in radians.
  *
  * @since 0.1.0
  * @category constructors
@@ -308,15 +230,12 @@ export const fromPolar = (r: number, theta: number): Complex => {
 }
 
 // ---------------------------------------------------------------------------
-// Pure kernel operations — trigonometric
+// Pure trigonometric operations
 // ---------------------------------------------------------------------------
 
 /**
- * Complex sine via Euler's formula:
- * sin(a + bi) = sin(a)cosh(b) + i·cos(a)sinh(b).
- *
- * @see {@link cos} — cosine companion
- * @see {@link sinh} — hyperbolic counterpart
+ * Extends sine to complex inputs, with an imaginary component that is odd in
+ * `b`: sin(a + bi) = sin(a)cosh(b) + i·cos(a)sinh(b).
  *
  * @since 0.1.0
  * @category operations
@@ -327,11 +246,8 @@ export const sin = (z: Complex): Complex => {
 }
 
 /**
- * Complex cosine via Euler's formula:
+ * Extends cosine to complex inputs, negating the imaginary cross term:
  * cos(a + bi) = cos(a)cosh(b) − i·sin(a)sinh(b).
- *
- * @see {@link sin} — sine companion
- * @see {@link cosh} — hyperbolic counterpart
  *
  * @since 0.1.0
  * @category operations
@@ -342,12 +258,8 @@ export const cos = (z: Complex): Complex => {
 }
 
 /**
- * Complex tangent: tan(z) = sin(z) / cos(z). Returns `NaN` parts
- * at poles where cos(z) = 0.
- *
- * @see {@link sin} — numerator
- * @see {@link cos} — denominator
- * @see {@link tanh} — hyperbolic counterpart
+ * Computes `tan(z) = sin(z) / cos(z)`. Poles where `cos(z) = 0`
+ * produce `NaN` components.
  *
  * @since 0.1.0
  * @category operations
@@ -361,9 +273,6 @@ export const tan = (z: Complex): Complex => {
  * Complex hyperbolic sine:
  * sinh(a + bi) = sinh(a)cos(b) + i·cosh(a)sin(b).
  *
- * @see {@link cosh} — hyperbolic cosine companion
- * @see {@link sin} — circular counterpart
- *
  * @since 0.1.0
  * @category operations
  */
@@ -376,9 +285,6 @@ export const sinh = (z: Complex): Complex => {
  * Complex hyperbolic cosine:
  * cosh(a + bi) = cosh(a)cos(b) + i·sinh(a)sin(b).
  *
- * @see {@link sinh} — hyperbolic sine companion
- * @see {@link cos} — circular counterpart
- *
  * @since 0.1.0
  * @category operations
  */
@@ -388,11 +294,7 @@ export const cosh = (z: Complex): Complex => {
 }
 
 /**
- * Complex hyperbolic tangent: tanh(z) = sinh(z) / cosh(z).
- *
- * @see {@link sinh} — numerator
- * @see {@link cosh} — denominator
- * @see {@link tan} — circular counterpart
+ * Computes `tanh(z) = sinh(z) / cosh(z)`.
  *
  * @since 0.1.0
  * @category operations
@@ -410,9 +312,6 @@ export const tanh = (z: Complex): Complex => {
  * Sesquilinear inner product Σ conj(aᵢ) · bᵢ for complex vectors.
  * Conjugate-linear in the first argument, linear in the second,
  * matching the physics convention.
- *
- * @see {@link complexNorm} — derived norm √(dot(x, x).re)
- * @see {@link conjugate} — conjugation applied per element
  *
  * @since 0.1.0
  * @category operations
@@ -435,9 +334,6 @@ export const complexDot = (a: Chunk.Chunk<Complex>, b: Chunk.Chunk<Complex>): Co
  * Euclidean norm of a complex vector: √(Σ |zᵢ|²). Returns a
  * non-negative real number.
  *
- * @see {@link complexDot} — inner product from which the norm derives
- * @see {@link abs} — per-element modulus
- *
  * @since 0.1.0
  * @category operations
  */
@@ -453,9 +349,6 @@ export const complexNorm = (xs: Chunk.Chunk<Complex>): number => {
 /**
  * Scales every element of a complex vector by a complex scalar.
  *
- * @see {@link complexDot} — inner product
- * @see {@link multiply} — scalar multiplication
- *
  * @since 0.1.0
  * @category operations
  */
@@ -470,10 +363,7 @@ export const complexScale = (xs: Chunk.Chunk<Complex>, scalar: Complex): Chunk.C
 // ---------------------------------------------------------------------------
 
 /**
- * Lifts a real vector into complex space — each real value becomes
- * the real part with imaginary part 0.
- *
- * @see {@link toRealChunk} — inverse projection
+ * Converts each real value to a complex value with an imaginary component of zero.
  *
  * @since 0.1.0
  * @category operations
@@ -485,9 +375,6 @@ export const fromRealChunk = (xs: Chunk.Chunk<number>): Chunk.Chunk<Complex> =>
  * Extracts the real parts from a complex vector, producing a
  * `Chunk<number>` compatible with `LinearAlgebra.dot`.
  *
- * @see {@link fromRealChunk} — inverse lifting
- * @see {@link toImaginaryChunk} — imaginary-part extraction
- *
  * @since 0.1.0
  * @category operations
  */
@@ -495,8 +382,6 @@ export const toRealChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> => Ch
 
 /**
  * Extracts the imaginary parts from a complex vector.
- *
- * @see {@link toRealChunk} — real-part extraction
  *
  * @since 0.1.0
  * @category operations
@@ -507,9 +392,6 @@ export const toImaginaryChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> 
  * Computes the modulus |z| for each element, producing a
  * `Chunk<number>` of magnitudes.
  *
- * @see {@link abs} — scalar modulus
- * @see {@link toPhaseChunk} — phase-angle extraction
- *
  * @since 0.1.0
  * @category operations
  */
@@ -517,11 +399,8 @@ export const toMagnitudeChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> 
   Chunk.map(xs, (z) => Arith.abs(z.re, z.im))
 
 /**
- * Computes the phase angle arg(z) for each element, producing a
- * `Chunk<number>` of arguments in (−π, π].
- *
- * @see {@link arg} — scalar phase
- * @see {@link toMagnitudeChunk} — magnitude extraction
+ * Computes the principal phase angle for each element. Every result lies in
+ * `(-π, π]`.
  *
  * @since 0.1.0
  * @category operations
@@ -534,26 +413,25 @@ export const toPhaseChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> =>
 // ---------------------------------------------------------------------------
 
 /**
- * Complex-step derivative (Squire & Trapp, 1998):
- *   f'(x) ≈ Im(f(x + ih)) / h
+ * Estimates `f'(x)` as `Im(f(x + ih)) / h`.
  *
- * Achieves machine-precision accuracy for analytic functions without
- * the cancellation error of finite differences. The default step size
- * h = 1e-20 is optimal for IEEE 754 float64.
- *
- * The function `f` must accept and return `Complex` values — it should
- * implement the analytic extension of the real function.
+ * @remarks
+ * This method avoids the subtraction used by finite differences. The callback
+ * must implement an analytic extension of the real function. The default step
+ * size is `1e-20`.
  *
  * @example
  * ```ts
  * import { complexDerivative, sin } from "@scenesystems/effect-math/Complex"
+ * import { Effect } from "effect"
  *
- * const sinDerivative = complexDerivative(sin, 0)
- * // ≈ 1.0 (cos(0))
+ * export const program = Effect.sync(() => complexDerivative(sin, 0)).pipe(
+ *   Effect.filterOrFail(
+ *     (derivative) => derivative > 0.999999 && derivative < 1.000001,
+ *     () => "UnexpectedDerivative"
+ *   )
+ * )
  * ```
- *
- * @see {@link complexDerivativeValidated} — boundary-validated variant
- * @see {@link complexDerivativeWithPolicies} — policy-aware variant
  *
  * @since 0.1.0
  * @category operations
@@ -573,10 +451,7 @@ export const complexDerivative = (
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated complex addition. Accepts `unknown` input, decodes
- * through `ComplexBinaryInput`, and returns the sum.
- *
- * @see {@link add} — pure kernel for pre-validated input
+ * Adds two complex values after decoding finite components and rejecting excess fields.
  *
  * @since 0.1.0
  * @category validated operations
@@ -598,9 +473,8 @@ export const addValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated complex subtraction.
- *
- * @see {@link subtract} — pure kernel for pre-validated input
+ * Subtracts the second decoded finite complex value from the first.
+ * Malformed or excess input fails with `ComplexDecodeError`.
  *
  * @since 0.1.0
  * @category validated operations
@@ -622,9 +496,8 @@ export const subtractValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated complex multiplication.
- *
- * @see {@link multiply} — pure kernel for pre-validated input
+ * Multiplies two decoded finite complex values. Malformed or excess input fails
+ * with `ComplexDecodeError`.
  *
  * @since 0.1.0
  * @category validated operations
@@ -646,9 +519,9 @@ export const multiplyValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated complex division.
- *
- * @see {@link divide} — pure kernel for pre-validated input
+ * Decodes finite components for two complex values and divides them. A zero
+ * divisor produces `NaN` components. Malformed or excess input fails with
+ * `ComplexDecodeError`.
  *
  * @since 0.1.0
  * @category validated operations
@@ -670,9 +543,8 @@ export const divideValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated complex exponential.
- *
- * @see {@link exp} — pure kernel for pre-validated input
+ * Decodes finite components and computes the complex exponential. Malformed
+ * or excess input fails with `ComplexDecodeError`.
  *
  * @since 0.1.0
  * @category validated operations
@@ -694,9 +566,8 @@ export const expValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated complex logarithm.
- *
- * @see {@link log} — pure kernel for pre-validated input
+ * Decodes finite components and computes the principal complex logarithm.
+ * Malformed or excess input fails with `ComplexDecodeError`.
  *
  * @since 0.1.0
  * @category validated operations
@@ -718,9 +589,9 @@ export const logValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated complex-step derivative.
- *
- * @see {@link complexDerivative} — pure kernel for pre-validated input
+ * Decodes a finite evaluation point and positive finite step before applying
+ * complex-step differentiation. Malformed or excess input fails with
+ * `ComplexDecodeError`. Exceptions from `f` remain defects.
  *
  * @since 0.1.0
  * @category validated operations
@@ -748,10 +619,8 @@ export const complexDerivativeValidated = (
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware complex absolute value reading `PrecisionPolicyService`
- * and `DiagnosticsPolicyService` from context.
- *
- * @see {@link abs} — pure kernel without policy seams
+ * Computes the modulus, rejecting a non-finite result under strict precision
+ * and logging the input and result when diagnostics are enabled.
  *
  * @since 0.1.0
  * @category operations
@@ -765,10 +634,8 @@ export const absWithPolicies = (z: Complex) =>
   })
 
 /**
- * Policy-aware complex argument reading `PrecisionPolicyService`
- * and `DiagnosticsPolicyService` from context.
- *
- * @see {@link arg} — pure kernel without policy seams
+ * Computes the principal phase angle, rejecting a non-finite result under
+ * strict precision and logging the input and result when diagnostics are enabled.
  *
  * @since 0.1.0
  * @category operations
@@ -782,10 +649,9 @@ export const argWithPolicies = (z: Complex) =>
   })
 
 /**
- * Policy-aware complex-step derivative reading `PrecisionPolicyService`
- * and `DiagnosticsPolicyService` from context.
- *
- * @see {@link complexDerivative} — pure kernel without policy seams
+ * Applies complex-step differentiation, rejecting a non-finite result under
+ * strict precision and logging the input, step, and result when diagnostics
+ * are enabled. Exceptions from `f` remain defects.
  *
  * @since 0.1.0
  * @category operations

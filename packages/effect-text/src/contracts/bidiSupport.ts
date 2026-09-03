@@ -1,11 +1,11 @@
 /**
- * Shared bidi support data used by the runtime kernel and release support manifest.
+ * Declares punctuation pairs mirrored by visual RTL materialization.
  *
  * @since 0.2.0
  */
 
 /**
- * Mirror-pair authority for the shipped bidi visual-order envelope.
+ * Directed source-to-rendered punctuation substitutions for odd bidi levels.
  *
  * @since 0.2.0
  * @category support

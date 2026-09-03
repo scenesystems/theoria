@@ -5,6 +5,7 @@
  * @since 0.1.0
  * @internal
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Option, Order, Record } from "effect"
 import type { ModuleParams } from "../../../contracts/ModuleParams.js"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
@@ -171,7 +172,7 @@ export const assemblePredictorCandidates = (options: {
     params: options.params,
     demos: options.demos,
     maxBootstrappedDemos: options.maxBootstrappedDemos,
-    required: Math.max(0, normalizedRequested - anchors.length),
+    required: Numeric.max(0, normalizedRequested - anchors.length),
     seed: options.seed
   })
 

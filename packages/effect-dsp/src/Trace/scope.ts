@@ -1,5 +1,5 @@
 /**
- * Trace + usage scoping combinators.
+ * Fiber-local collection scopes for invocation records and model usage.
  *
  * @since 0.1.0
  */
@@ -56,23 +56,21 @@ const freshUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effec
   )
 
 /**
- * Run a program with trace collection enabled and return the result paired
- * with all collected entries. Nested scopes return only entries added during
- * the inner run.
+ * Collects entries appended while a program runs.
  *
- * @example
- * ```ts
- * import { Trace } from "@scenesystems/effect-dsp"
- * import { Effect } from "effect"
+ * @remarks
+ * A top-level scope starts with an empty fiber-local collection. A nested
+ * scope shares its parent's collection but returns only entries appended
+ * during the nested program; those entries remain visible to the parent.
+ * Concurrent top-level scopes keep separate collections. If the program
+ * fails or is interrupted, its cause and requirements are preserved and no
+ * tuple is returned.
  *
- * const program = Effect.gen(function*() {
- *   // ... build and call a module ...
- *   return "done"
- * })
- *
- * // [result, traces] — traces contains all Entry records
- * const traced = Trace.withTracing(program)
- * ```
+ * @param program - Effect executed with trace collection enabled.
+ * @returns The program result paired with entries added by this scope.
+ * @typeParam A - Success value returned by the traced program.
+ * @typeParam E - Expected failure preserved from the traced program.
+ * @typeParam R - Services required by the traced program.
  *
  * @since 0.1.0
  * @category combinators
@@ -90,8 +88,19 @@ export const withTracing = <A, E, R>(
   })
 
 /**
- * Run a program with usage accounting enabled and return the result paired
- * with cumulative token usage. Nested scopes return usage deltas.
+ * Accumulates usage samples while a program runs.
+ *
+ * @remarks
+ * A top-level scope starts from zero. A nested scope returns the difference
+ * between usage before and after its program, while the parent retains the
+ * same additions. Program failure, interruption, and service requirements are
+ * preserved, and unsuccessful programs return no usage tuple.
+ *
+ * @param program - Effect executed with usage accumulation enabled.
+ * @returns The program result paired with usage added by this scope.
+ * @typeParam A - Success value returned by the tracked program.
+ * @typeParam E - Expected failure preserved from the tracked program.
+ * @typeParam R - Services required by the tracked program.
  *
  * @since 0.1.0
  * @category combinators
@@ -109,8 +118,8 @@ export const withUsageTracking = <A, E, R>(
   })
 
 /**
- * Read traces collected in the current scope. Returns an empty array when
- * tracing is not enabled.
+ * Reads all entries currently visible in this fiber's tracing scope.
+ * Returns an empty array outside a scope.
  *
  * @since 0.1.0
  * @category combinators

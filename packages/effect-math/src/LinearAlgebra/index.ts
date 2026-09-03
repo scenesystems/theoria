@@ -1,9 +1,10 @@
 /**
- * Dense linear algebra over immutable `Chunk` carriers — dot products,
- * norms (L1/L2/L∞), matrix-vector multiplication, transposition, and
- * Frobenius norm. Provides three tiers: pure kernel functions, Effect-wrapped
- * operations with Schema-validated boundary input, and policy-aware variants
- * that respect precision, backend, and diagnostics runtime services.
+ * Computes dense vector, matrix, decomposition, and linear-solve operations.
+ *
+ * @remarks
+ * Pure operations use immutable `Chunk` values and trust shape metadata.
+ * Selected operations expose Schema-decoded inputs or runtime precision and
+ * diagnostics policies. Matrix storage passed to operations is row-major.
  *
  * @since 0.1.0
  * @module

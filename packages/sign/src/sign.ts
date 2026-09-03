@@ -1,18 +1,5 @@
 /**
- * Unified sign/verify pipeline.
- *
- * Dispatches to the appropriate algorithm implementation based on
- * a {@link SignatureAlgorithm} discriminant, providing a single
- * API surface for all digital signature operations.
- *
- * Verification follows the inverse path — the algorithm tag on the
- * signature determines which verifier to use, ensuring signatures
- * are always verified with the correct algorithm.
- *
- * @see {@link SignatureAlgorithm} — supported algorithm literals (source of truth)
- * @see {@link agreement} — key agreement pipeline
- * @see {@link kem} — key encapsulation pipeline
- * @see {@link generateKeyPair} — key generation for all algorithms
+ * Dispatches signing and verification through the selected signature suite.
  *
  * @since 0.1.0
  * @category signing
@@ -50,7 +37,20 @@ import type { SignatureAlgorithm } from "./schemas/SignatureAlgorithm.js"
 type SignatureAlgorithmType = typeof SignatureAlgorithm.Type
 
 /**
- * Sign a message with the specified algorithm.
+ * Signs exact message bytes with the selected suite and attaches the supplied
+ * public key to the result.
+ *
+ * @remarks
+ * `publicKey` is stored in the returned carrier; signing uses `secretKey`.
+ * The function does not establish that those keys form a pair. The
+ * `"ml-dsa-65"` branch always fails closed: use `mlDsa65SignHedged` or
+ * `mlDsa65SignDeterministic` explicitly.
+ *
+ * @param algorithm - The signing suite and output algorithm tag.
+ * @param message - The exact bytes to sign; no framing or domain separation is added.
+ * @param secretKey - Secret key accepted by the selected primitive.
+ * @param publicKey - Public key attached to the returned `Signature`.
+ * @returns The algorithm-tagged signature carrier, or `SigningFailed`.
  *
  * @since 0.1.0
  * @category signing
@@ -76,10 +76,20 @@ export const sign = (
   )
 
 /**
- * Verify a self-describing signature against a message.
+ * Verifies exact message bytes using the suite and public key stored in the
+ * signature.
  *
- * Dispatches to the correct verifier based on the signature's
- * `algorithm` field.
+ * @remarks
+ * The verification key comes from `sig`; callers that authenticate or
+ * select a key independently should use an algorithm-specific verifier.
+ * A well-formed nonmatching signature returns `false`; primitive exceptions are
+ * represented by `VerificationFailed` (strict direct verifiers use their own
+ * redacted failure types).
+ *
+ * @param sig - Signature bytes, algorithm selection, and verification key.
+ * @param message - The exact bytes expected to have been signed.
+ * @returns `true` for a match, `false` for an admitted nonmatch, or
+ * `VerificationFailed` when the selected verifier cannot process its input.
  *
  * @since 0.1.0
  * @category signing

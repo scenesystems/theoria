@@ -1,6 +1,5 @@
 /**
- * Bridge between effect-dsp module parameters and effect-search black-box
- * optimization.
+ * Adapts effect-search studies for optimizer-owned parameter evaluation.
  *
  * @since 0.1.0
  */

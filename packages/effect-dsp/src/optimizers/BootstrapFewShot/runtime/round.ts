@@ -6,6 +6,7 @@
  * @internal
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
 import type * as Layer from "effect/Layer"
 import { MetricPayload } from "../../../contracts/MetricFn.js"
@@ -223,7 +224,7 @@ export const bootstrapRound = <
                 scoreSum: stats.scoreSum + evaluation.score,
                 bestScoreSeen: true,
                 bestScore: stats.bestScoreSeen
-                  ? Math.max(stats.bestScore, evaluation.score)
+                  ? Numeric.max(stats.bestScore, evaluation.score)
                   : evaluation.score
               })
             )
@@ -272,7 +273,7 @@ export const bootstrapRound = <
       scoreSum: options.state.scoreSum + roundEvaluation.scoreSum,
       bestScoreSeen: options.state.bestScoreSeen || roundEvaluation.bestScoreSeen,
       bestScore: options.state.bestScoreSeen && roundEvaluation.bestScoreSeen
-        ? Math.max(options.state.bestScore, roundEvaluation.bestScore)
+        ? Numeric.max(options.state.bestScore, roundEvaluation.bestScore)
         : options.state.bestScoreSeen
         ? options.state.bestScore
         : roundEvaluation.bestScore,

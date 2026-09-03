@@ -1,20 +1,13 @@
 /**
- * Parallel Evaluation — run multiple trials concurrently with bounded workers.
- *
- * Real use case: saturate available compute while keeping study semantics safe.
- *
- * What this shows: bounded parallel trial execution and measuring in-flight worker concurrency.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Executes trials with bounded concurrency and records the highest observed
+ * number of in-flight objectives.
  *
  * Run: bun run examples/21-parallel-evaluation.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Number as Num, Ref } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -35,7 +28,12 @@ const program = Effect.gen(function*() {
         Ref.updateAndGet(activeRef, Num.increment).pipe(
           Effect.tap((active) => Ref.update(maxActiveRef, (maxActive) => Num.max(maxActive, active)))
         ),
-        () => Effect.sleep("20 millis").pipe(Effect.as((config.x - 0.4) ** 2 + (config.y + 0.2) ** 2)),
+        () =>
+          Effect.sleep("20 millis").pipe(
+            Effect.as(
+              Numeric.pow(config.x - 0.4, 2) + Numeric.pow(config.y + 0.2, 2)
+            )
+          ),
         () => Ref.update(activeRef, Num.decrement)
       )
   })

@@ -5,6 +5,7 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Match, Option, Order, Tuple } from "effect"
 import type { ProgramCandidate } from "../model.js"
 
@@ -41,7 +42,7 @@ const commonAncestorOrder: Order.Order<CommonAncestorCandidate> = Order.mapInput
   Order.tuple(Order.number, Order.number, Order.number, Order.number, Order.string),
   (candidate) =>
     Tuple.make(
-      Math.max(candidate.parentADistance, candidate.parentBDistance),
+      Numeric.max(candidate.parentADistance, candidate.parentBDistance),
       candidate.parentADistance + candidate.parentBDistance,
       candidate.parentADistance,
       candidate.parentBDistance,

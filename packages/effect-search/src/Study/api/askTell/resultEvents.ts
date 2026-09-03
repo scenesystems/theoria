@@ -1,5 +1,5 @@
 /**
- * Result and event stream accessors for ask/tell study handles.
+ * Final result and live event access for manual studies.
  *
  * @since 0.1.0
  */
@@ -19,7 +19,12 @@ import { completeIfBudgetReached, invalid } from "./lifecycle.js"
 import { stateOf, type StudyHandle } from "./model.js"
 
 /**
- * Compute the final `StudyResult` from a completed or cancelled ask/tell handle.
+ * Builds the same single- or multi-objective result returned by {@link optimize}
+ * after a manual handle has completed or been cancelled. Calling it while work
+ * can still be reported fails with `InvalidStudyConfig`. Sampler checkpoint or
+ * result construction failures remain in `SearchError`.
+ *
+ * @typeParam Space - Search space supplying the result trial configuration.
  *
  * @since 0.1.0
  * @category combinators
@@ -57,9 +62,12 @@ export const result = <Space extends SearchSpace.SearchSpace>(
   })
 
 /**
- * Stream ask/tell lifecycle events for a manual orchestration handle.
+ * Consumes events emitted after the handle opened and completes when the handle
+ * is cancelled, exhausts its budget, or exhausts the search space. Events are
+ * not replayed. Calls share one queue, so concurrent consumers divide events
+ * between them instead of each receiving a copy.
  *
- * The stream completes automatically once the handle is cancelled or completed.
+ * @typeParam Space - Search space retained by the event source handle.
  *
  * @since 0.1.0
  * @category combinators

@@ -5,6 +5,7 @@
  * @since 0.1.0
  * @internal
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Study } from "@scenesystems/effect-search"
 import { Array as Arr, Data, Effect, Option, Ref } from "effect"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
@@ -217,7 +218,7 @@ export const evaluateTrial = <E, R>(options: {
       )
     })
 
-    yield* Ref.update(options.refs.bestScoreRef, (current) => Math.max(current, score))
+    yield* Ref.update(options.refs.bestScoreRef, (current) => Numeric.max(current, score))
     yield* Ref.update(options.refs.minibatchTrialsRef, (trials) => Arr.append(trials, trial))
     yield* options.emit(MIPROv2Event.TrialEvaluated({ trial, score }))
 
@@ -226,7 +227,7 @@ export const evaluateTrial = <E, R>(options: {
         options.evaluateOn(bestCheckpointCandidate.config, options.valset).pipe(
           Effect.flatMap((fullEvalScore) =>
             Ref.modify(options.refs.bestScoreRef, (current) => {
-              const next = Math.max(current, fullEvalScore)
+              const next = Numeric.max(current, fullEvalScore)
 
               return Data.tuple(next, next)
             }).pipe(

@@ -8,7 +8,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Effect, Layer, Ref, Schema } from "effect"
+import { Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -187,6 +187,99 @@ describe("Module.refine", () => {
 
       const paramsAfterSecond = yield* Ref.get(inner.params)
       expect(paramsAfterSecond.instructions).toBe(baseParams.instructions)
+    }))
+
+  it.effect("restores base params when refinement is interrupted", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence([
+          { answer: "First attempt" },
+          { answer: "Second attempt" }
+        ])
+      )
+      const inner = yield* Module.predict("qa", qa)
+      const baseParams = yield* Ref.get(inner.params)
+      const rewardCalls = yield* Ref.make(0)
+      const secondRewardStarted = yield* Deferred.make<void>()
+
+      const reward: Module.RewardFn<
+        { readonly question: typeof Schema.String },
+        { readonly answer: typeof Schema.String }
+      > = () =>
+        Ref.getAndUpdate(rewardCalls, (count) => count + 1).pipe(
+          Effect.flatMap((call) =>
+            call === 0
+              ? Effect.succeed(new MetricResult({ score: 0.2, feedback: "Try again" }))
+              : Deferred.succeed(secondRewardStarted, undefined).pipe(
+                Effect.zipRight(Effect.never)
+              )
+          )
+        )
+
+      const refined = yield* Module.refine({
+        name: "qa-interrupted-refine",
+        module: inner,
+        N: 2,
+        reward,
+        threshold: 0.9
+      })
+
+      const fiber = yield* refined.forward({ question: "Interrupt test" }).pipe(
+        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service)),
+        Effect.fork
+      )
+
+      yield* Deferred.await(secondRewardStarted)
+      yield* Fiber.interrupt(fiber)
+
+      const paramsAfterInterruption = yield* Ref.get(inner.params)
+      expect(paramsAfterInterruption).toEqual(baseParams)
+    }))
+
+  it.effect("serializes concurrent calls through the same wrapper", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence([
+          { answer: "First" },
+          { answer: "Second" }
+        ])
+      )
+      const inner = yield* Module.predict("qa", qa)
+      const activeRewards = yield* Ref.make(0)
+      const maximumActiveRewards = yield* Ref.make(0)
+
+      const reward: Module.RewardFn<
+        { readonly question: typeof Schema.String },
+        { readonly answer: typeof Schema.String }
+      > = () =>
+        Effect.acquireUseRelease(
+          Ref.updateAndGet(activeRewards, (count) => count + 1).pipe(
+            Effect.tap((count) => Ref.update(maximumActiveRewards, (maximum) => Math.max(maximum, count)))
+          ),
+          () =>
+            Effect.yieldNow().pipe(
+              Effect.as(new MetricResult({ score: 1 }))
+            ),
+          () => Ref.update(activeRewards, (count) => count - 1)
+        )
+
+      const refined = yield* Module.refine({
+        name: "qa-serialized-refine",
+        module: inner,
+        N: 1,
+        reward,
+        threshold: 0.9
+      })
+      const modelLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
+
+      yield* Effect.all([
+        refined.forward({ question: "First call" }),
+        refined.forward({ question: "Second call" })
+      ], { concurrency: "unbounded" }).pipe(Effect.provide(modelLayer))
+
+      expect(yield* Ref.get(maximumActiveRewards)).toBe(1)
     }))
 
   it.effect("returns best output across all attempts when threshold is never met", () =>

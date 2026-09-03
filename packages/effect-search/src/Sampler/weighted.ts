@@ -1,13 +1,5 @@
 /**
- * Deterministic weighted-index sampling helpers.
- *
- * Decomposition rationale: weighted single-draw selection, deterministic replay sampling,
- * and pair sampling share one seed-stepping kernel and fallback policy contract, so they
- * remain co-located for auditability.
- *
- * Follow-up decomposition plan: extract zero-weight fallback policy helpers into
- * `Sampler/weightedFallback.ts` and pair-specific orchestration into
- * `Sampler/weightedPair.ts` once sampler API stabilization work lands.
+ * Reproducible selection among weighted numeric identifiers.
  *
  * @since 0.1.0
  */
@@ -16,12 +8,13 @@ import { Array as Arr, Data, Match, Option, Order, Schema } from "effect"
 import { buildIndices, nextDeterministicSeed, normalizeDeterministicSeed } from "./deterministic.js"
 
 /**
- * Schema for a candidate entry pairing an integer index with a numeric weight.
- * Weights do not need to sum to 1 — they are treated as relative magnitudes
- * during cumulative-distribution selection.
+ * Decodes a numeric identifier and its relative selection weight.
  *
- * @see {@link WeightedIndex} for the inferred type
- * @see {@link selectWeightedIndex} consumes arrays of this shape
+ * @remarks
+ * The schema accepts fractional and non-finite numbers. Selection uses only
+ * entries whose weight is greater than zero, so callers that need finite
+ * integer identifiers or finite weights must enforce those constraints before
+ * decoding.
  * @since 0.1.0
  * @category schemas
  */
@@ -31,63 +24,54 @@ export const WeightedIndexSchema = Schema.Struct({
 })
 
 /**
- * Inferred type of a decoded {@link WeightedIndexSchema} value.
+ * Associates the numeric value returned on selection with its relative weight.
  *
- * @see {@link WeightedIndexSchema} for the runtime schema
+ * @remarks
+ * Candidate entries are sorted by `index` before drawing. Positive weights need
+ * not be normalized.
  * @since 0.1.0
  * @category models
  */
 export type WeightedIndex = typeof WeightedIndexSchema.Type
 
 /**
- * Schema for the zero-weight fallback strategy.
- * `"lowest-index"` always returns the smallest index in the candidate array.
- * `"seed-modulo"` hashes the current seed into the candidate array, providing
- * deterministic but distributed fallback selection across candidates.
+ * Decodes the fallback used when no candidate has positive weight.
  *
- * @see {@link WeightedZeroWeightFallback} for the inferred type
- * @see {@link selectWeightedIndexWithPolicy} applies this fallback
+ * @remarks
+ * `"lowest-index"` takes the first candidate after sorting by index.
+ * `"seed-modulo"` maps the stepped seed to a position in that sorted array.
+ * Both policies return `0` for an empty candidate array.
  * @since 0.1.0
  * @category schemas
  */
 export const WeightedZeroWeightFallbackSchema = Schema.Literal("lowest-index", "seed-modulo")
 
 /**
- * Inferred type of a decoded {@link WeightedZeroWeightFallbackSchema} value.
- *
- * @see {@link WeightedZeroWeightFallbackSchema} for the runtime schema
- * @see {@link SelectWeightedIndexOptions} where this type is consumed
+ * Chooses a deterministic result when all candidate weights are non-positive or invalid.
  * @since 0.1.0
  * @category models
  */
 export type WeightedZeroWeightFallback = typeof WeightedZeroWeightFallbackSchema.Type
 
 /**
- * Controls for single-index weighted selection. When `zeroWeightFallback`
- * is omitted, `"lowest-index"` is used as the default policy.
- *
- * @see {@link selectWeightedIndexWithPolicy} accepts these options
- * @see {@link WeightedZeroWeightFallback} for the available fallback strategies
+ * Configures the result chosen when no positive weight is available.
  * @since 0.1.0
  * @category models
  */
 export type SelectWeightedIndexOptions = Readonly<{
+  /** Defaults to `"lowest-index"`. */
   readonly zeroWeightFallback?: WeightedZeroWeightFallback
 }>
 
 /**
- * Controls for paired weighted selection. When `distinct` is true, the second
- * index is drawn from a candidate set that excludes the first selected index,
- * guaranteeing the pair contains two different values (unless only one
- * candidate exists). Defaults to `false`.
- *
- * @see {@link sampleWeightedPair} accepts these options
- * @see {@link WeightedZeroWeightFallback} for the available fallback strategies
+ * Configures repeated-index exclusion and zero-weight handling for a pair draw.
  * @since 0.1.0
  * @category models
  */
 export type SampleWeightedPairOptions = Readonly<{
+  /** Excludes every entry with the first selected index when another index exists. */
   readonly distinct?: boolean
+  /** Applies independently to each draw and defaults to `"lowest-index"`. */
   readonly zeroWeightFallback?: WeightedZeroWeightFallback
 }>
 
@@ -215,13 +199,16 @@ const normalizeDrawCount = (drawCount: number): number => {
 }
 
 /**
- * Select one index from weighted candidates using seeded determinism and the
- * default `"lowest-index"` zero-weight fallback. Prefer this over
- * {@link selectWeightedIndexWithPolicy} when the caller does not need to
- * control fallback behavior.
+ * Selects one numeric identifier according to positive relative weights.
  *
- * @see {@link selectWeightedIndexWithPolicy} for explicit fallback control
- * @see {@link sampleWeightedIndices} for drawing multiple indices
+ * @remarks
+ * The normalized seed is stepped once. Candidate order does not affect the
+ * result because entries are sorted by index. Non-positive and `NaN` weights do
+ * not participate. If no positive weight remains, the lowest sorted index is
+ * returned, or `0` when the input is empty.
+ *
+ * @param weights - Candidate identifiers and relative weights; the array is not modified.
+ * @param seed - Arbitrary numeric seed normalized before selection.
  * @since 0.1.0
  * @category combinators
  */
@@ -231,13 +218,15 @@ export const selectWeightedIndex = (
 ): number => selectWeightedIndexWithPolicy(weights, seed)
 
 /**
- * Select one index from weighted candidates with an explicit zero-weight
- * fallback policy. Use this instead of {@link selectWeightedIndex} when the
- * caller needs `"seed-modulo"` fallback to distribute zero-weight selections
- * across candidates rather than always returning the lowest index.
+ * Selects one numeric identifier with configurable all-non-positive handling.
  *
- * @see {@link selectWeightedIndex} simpler variant with default fallback
- * @see {@link WeightedZeroWeightFallback} for the available fallback strategies
+ * @remarks
+ * Positive-weight selection matches {@link selectWeightedIndex}. The fallback
+ * option is consulted only when no positive cumulative weight is available.
+ *
+ * @param weights - Candidate identifiers and relative weights; the array is not modified.
+ * @param seed - Arbitrary numeric seed normalized and stepped before selection.
+ * @param options - Uses `"lowest-index"` when omitted.
  * @since 0.1.0
  * @category combinators
  */
@@ -256,13 +245,16 @@ export const selectWeightedIndexWithPolicy = (
 }
 
 /**
- * Draw `drawCount` weighted indices using seeded determinism. Each draw
- * advances the LCG seed, making the full sequence reproducible for replay
- * and distribution-uniformity checks. Always uses the `"lowest-index"`
- * fallback policy for zero-weight candidates.
+ * Draws a reproducible sequence with replacement from positive relative weights.
  *
- * @see {@link selectWeightedIndex} single-draw variant
- * @see {@link sampleWeightedPair} for correlated two-draw sampling
+ * @remarks
+ * The normalized seed advances once per draw. The count is truncated;
+ * non-finite and negative counts produce an empty array. Each all-non-positive
+ * draw uses the `"lowest-index"` fallback.
+ *
+ * @param weights - Candidate identifiers and relative weights; the array is not modified.
+ * @param drawCount - Maximum number of returned identifiers after normalization.
+ * @param seed - Arbitrary numeric seed used for the sequence.
  * @since 0.1.0
  * @category combinators
  */
@@ -299,13 +291,16 @@ const weightsWithoutIndex = (
 }
 
 /**
- * Draw a correlated pair of weighted indices from two consecutive LCG steps.
- * When `distinct` is true the second draw excludes the first selected index,
- * preventing same-index pairs (falls back to the full candidate set when only
- * one candidate exists). Returns a structurally-equal `Data.tuple`.
+ * Draws two weighted identifiers from consecutive deterministic seed steps.
  *
- * @see {@link SampleWeightedPairOptions} for the `distinct` and fallback controls
- * @see {@link selectWeightedIndexWithPolicy} underlying single-draw primitive
+ * @remarks
+ * With `distinct: true`, the second draw excludes all candidates whose index
+ * equals the first result. If no different index exists, it draws from the full
+ * array again. An empty candidate array produces `[0, 0]`.
+ *
+ * @param weights - Candidate identifiers and relative weights; the array is not modified.
+ * @param seed - Arbitrary numeric seed normalized before the first draw.
+ * @param options - Repeated indices are allowed and `"lowest-index"` is used by default.
  * @since 0.1.0
  * @category combinators
  */

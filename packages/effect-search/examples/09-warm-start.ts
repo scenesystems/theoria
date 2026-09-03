@@ -1,20 +1,13 @@
 /**
- * Warm Start — seed optimization with historical trial results.
- *
- * Real use case: continue infrastructure tuning from last week's production runs.
- *
- * What this shows: seeding TPE with prior trials so optimization starts from historical signal.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Seeds TPE with measured infrastructure configurations before evaluating new
+ * trials in the same search space.
  *
  * Run: bun run examples/09-warm-start.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const latencyScore = (config: {
@@ -24,7 +17,7 @@ const latencyScore = (config: {
   readonly strategy: "least-conn" | "round-robin" | "queue-depth"
 }): number => {
   const workerTerm = 220 / config.workerCount
-  const batchPenalty = Math.abs(config.batchSize - 160) * 0.4
+  const batchPenalty = Numeric.abs(config.batchSize - 160) * 0.4
   const retryPenalty = config.retryDelayMillis * 0.2
   const strategyPenalty = Match.value(config.strategy).pipe(
     Match.when("least-conn", () => 0),

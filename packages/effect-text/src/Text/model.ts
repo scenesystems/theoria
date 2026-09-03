@@ -1,5 +1,5 @@
 /**
- * Prepared text model and provisional surface metadata.
+ * Opaque handles compiled once for repeated text-layout projections.
  *
  * @since 0.1.0
  */
@@ -97,7 +97,7 @@ const _PreparedTextWithSegmentsCoreSchema = Schema.Struct({
 })
 
 /**
- * Stability lane for the Text namespace.
+ * Marks prepared-handle representation and layout projection contracts as provisional.
  *
  * @since 0.1.0
  * @category stability
@@ -145,7 +145,7 @@ export type PreparedRuntimeTablesType = typeof PreparedRuntimeTablesSchema.Type
 export type PreparedTextMetaType = typeof PreparedTextMetaSchema.Type
 
 /**
- * Internal kernel authority used by the walker.
+ * Internal runtime tables and policies consumed by the line walker.
  *
  * @since 0.2.0
  * @category internals
@@ -194,14 +194,22 @@ const preparedTextCursorHints = (): PreparedTextCursorHints =>
   MutableRef.make(HashMap.empty<PreparedTextCursorHintKey, number>())
 
 /**
- * Prepared text handle returned by `Text.prepare`.
+ * Opaque summary-only result of `Text.prepare` and `Text.prepareUnknown`.
+ *
+ * @remarks
+ * The handle exposes no measured tables or text segments to callers. It can be
+ * reused by the pure `Text.layout` and `Text.measureNaturalWidth` projections,
+ * which need only the compiled summary kernel. It cannot materialize line
+ * text, ranges, cursors, or streams; request `PreparedTextWithSegments` via
+ * `Text.prepareWithSegments` for those projections. That richer handle extends
+ * this type, so it also supports both summary projections.
  *
  * @since 0.1.0
  * @category models
  */
 export class PreparedText {
   /**
-   * Opaque prepared representation used by pure layout projection.
+   * Non-enumerable compiled state reserved for package layout projections.
    *
    * @since 0.1.0
    * @category models
@@ -219,14 +227,18 @@ export class PreparedText {
 }
 
 /**
- * Rich prepared handle for manual layout, cursor stepping, and stream projection.
+ * Prepared handle retaining the logical segments needed to materialize visual
+ * lines and cursor ranges.
+ *
+ * @remarks
+ * This handle also supports the summary projections accepted by `PreparedText`.
  *
  * @since 0.1.0
  * @category models
  */
 export class PreparedTextWithSegments extends PreparedText {
   /**
-   * Opaque prepared representation used by visual materialization surfaces.
+   * Non-enumerable compiled state reserved for package materialization operations.
    *
    * @since 0.2.0
    * @category models
@@ -234,7 +246,7 @@ export class PreparedTextWithSegments extends PreparedText {
   declare readonly [preparedTextWithSegmentsCoreSymbol]: PreparedTextWithSegmentsCore
 
   /**
-   * Internal sequential-walk hint cache scoped to the prepared handle.
+   * Non-enumerable line-index hints populated by incremental walks.
    *
    * @since 0.2.0
    * @category models

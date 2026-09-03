@@ -1,39 +1,42 @@
 /**
- * Training and demonstration data types for optimization datasets.
+ * Defines labeled and input-only dataset rows used by evaluation and optimization.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
-// ---------------------------------------------------------------------------
-// Models
-// ---------------------------------------------------------------------------
-
 /**
- * A training example — an input/output pair for optimization datasets.
+ * Dataset row containing module input and an optional expected output.
  *
- * `output` is optional: unlabeled examples (input-only) are used in MIPROv2
- * Phase 2 for instruction proposal.
+ * @remarks
+ * Record values remain `unknown`; construction does not validate them against a
+ * module signature or establish label correctness. {@link Evaluate.run} reports
+ * input-only rows as failures, while optimizers may accept them as unlabeled data.
  *
  * @since 0.1.0
  * @category models
- * @see {@link Demo}
  */
 export class Example extends Schema.Class<Example>("Example")({
+  /** Fields passed to the evaluated module. */
   input: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  /** Expected fields used by metrics; absence marks an input-only example. */
   output: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 }) {}
 
 /**
- * A demonstration — a complete input/output pair used as a few-shot example.
+ * Input and expected output retained as a few-shot demonstration.
  *
- * Unlike `Example`, both input and output are required.
+ * @remarks
+ * Both records are required and their values remain `unknown`. Construction
+ * does not validate the records against a signature or establish provenance,
+ * correctness, or permission to send their contents to a model provider.
  *
  * @since 0.1.0
  * @category models
- * @see {@link Example}
  */
 export class Demo extends Schema.Class<Demo>("Demo")({
+  /** Input fields rendered into the few-shot example. */
   input: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  /** Expected output fields rendered into the few-shot example. */
   output: Schema.Record({ key: Schema.String, value: Schema.Unknown })
 }) {}

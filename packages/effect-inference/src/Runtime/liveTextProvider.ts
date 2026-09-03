@@ -1,5 +1,5 @@
 /**
- * Config-driven live text-runtime helpers for examples and consumers.
+ * Config-driven language-model layers for OpenAI, Anthropic, and OpenRouter.
  *
  * @since 0.1.0
  */
@@ -24,16 +24,21 @@ import {
 } from "./liveTextProviderConfig.js"
 
 /**
- * Resolved runtime configuration plus the package-owned requested descriptor and
- * live `LanguageModel` layer.
+ * Provider/model identity, requested-route evidence, and a fully provided live
+ * `LanguageModel` layer. Building this record performs config acquisition only;
+ * provider network failures occur when the layer is used.
  *
  * @since 0.1.0
  * @category models
  */
 export type ResolvedLiveTextProviderRuntime = Readonly<{
+  /** Provider adapter selected after configuration merging. */
   readonly provider: LiveTextProvider
+  /** Model identifier passed to the provider client. */
   readonly model: string
+  /** Caller intent and route recorded before any model request. */
   readonly desired: DesiredRuntimeDescriptor
+  /** Fully provided model layer; provider calls occur only when used. */
   readonly languageModelLayer: Layer.Layer<LanguageModel.LanguageModel, never, never>
 }>
 
@@ -91,8 +96,10 @@ const providerLayer = (
   )
 
 /**
- * Resolves the requested runtime descriptor and live `LanguageModel` layer from
- * a Config-driven provider surface.
+ * Acquires and validates provider configuration, then returns the requested
+ * descriptor and a fully provided `LanguageModel` layer for OpenAI, Anthropic,
+ * or OpenRouter. Missing or malformed config fails as `InvalidRuntimeConfig`;
+ * this effect makes no provider request.
  *
  * @since 0.1.0
  * @category constructors
@@ -110,7 +117,9 @@ export const resolveLiveTextProviderRuntime = (
   )
 
 /**
- * Constructs a live `LanguageModel` layer from the configured provider runtime.
+ * Acquires configuration when the layer is built, then installs a live
+ * `LanguageModel` and its fetch client. Configuration failure is exposed in the
+ * layer error channel; provider failures occur in model operations.
  *
  * @since 0.1.0
  * @category layers
@@ -121,7 +130,13 @@ export const liveTextProviderLayer = (
   Layer.unwrapEffect(resolveLiveTextProviderRuntime(options).pipe(Effect.map((runtime) => runtime.languageModelLayer)))
 
 /**
- * Provides the configured live `LanguageModel` to an Effect program.
+ * Supplies a configured live `LanguageModel` for the lifetime of `effect` and
+ * removes that service from its requirements. Configuration errors are added to
+ * the effect's error channel; model-operation failures are unchanged.
+ *
+ * @typeParam A - Success value returned by the supplied effect.
+ * @typeParam E - Expected failure already declared by the supplied effect.
+ * @typeParam R - Services required before the language model is supplied.
  *
  * @since 0.1.0
  * @category constructors

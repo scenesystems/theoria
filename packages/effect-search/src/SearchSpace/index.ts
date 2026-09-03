@@ -1,214 +1,73 @@
 /**
- * Search space definition, compilation, and conditional branching.
+ * Typed configuration spaces with sampler metadata and conditional branches.
+ *
+ * @remarks
+ * Dimension constructors attach sampling distributions to Effect Schemas.
+ * Compilation validates those distributions and produces the schema used to
+ * decode sampler output. Numeric bounds and steps govern sampling but are not
+ * added as decode refinements; use a separately refined schema when accepting
+ * configurations from an untrusted boundary.
  *
  * @since 0.1.0
  */
 
-export {
-  /**
-   * @since 0.1.0
-   * @category utils
-   */
-  activeParameters,
-  /**
-   * @since 0.1.0
-   * @category guards
-   */
-  isParameterActive
-} from "./activity.js"
+export { activeParameters, isParameterActive } from "./activity.js"
+
+export { fingerprint, make, makeConditional, unsafeMake, unsafeMakeConditional } from "./compile.js"
+
+export { extend, omit, pick } from "./compose.js"
 
 export {
-  /**
-   * @since 0.1.0
-   * @category utils
-   */
-  fingerprint,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  make,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  makeConditional,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  unsafeMake,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  unsafeMakeConditional
-} from "./compile.js"
-
-export {
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  extend,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  omit,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  pick
-} from "./compose.js"
-
-export {
-  /**
-   * @since 0.1.0
-   * @category models
-   */
   ConditionalGroup,
-  /**
-   * @since 0.1.0
-   * @category models
-   */
   ConditionalTracePartition,
-  /**
-   * @since 0.1.0
-   * @category models
-   */
   ConditionalTraceTrial,
-  /**
-   * @since 0.1.0
-   * @category utils
-   */
   decomposeConditionalGroups,
-  /**
-   * @since 0.1.0
-   * @category utils
-   */
   partitionTrialNumbersByRequiredParameters
 } from "./conditionalTrace.js"
 
-export {
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  boolean,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  categorical,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  fidelity,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  float,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
-  int
-} from "./dimensions.js"
+export { boolean, categorical, fidelity, float, int } from "./dimensions.js"
 
 export {
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
   switchOn,
   /**
+   * Builds a conditional branch union; shorthand for {@link switchOn}.
+   *
    * @since 0.1.0
    * @category constructors
    */
   switchOn as switch,
-  /**
-   * @since 0.1.0
-   * @category constructors
-   */
   when
 } from "./switch.js"
 
 export {
-  /**
-   * @since 0.1.0
-   * @category models
-   */
   ActivationCondition,
-  /**
-   * @since 0.1.0
-   * @category schemas
-   */
   FloatOptionsSchema,
-  /**
-   * @since 0.1.0
-   * @category schemas
-   */
   IntOptionsSchema,
-  /**
-   * @since 0.1.0
-   * @category models
-   */
   ParameterMetadata,
-  /**
-   * @since 0.1.0
-   * @category models
-   */
   SearchSpace,
   /**
+   * Names the compiled model when `SearchSpace` refers to the package namespace.
+   *
    * @since 0.1.0
    * @category models
    */
   SearchSpace as SearchSpaceDefinition,
-  /**
-   * @since 0.1.0
-   * @category models
-   */
   Switch,
   /**
+   * Names a conditional switch value with definition-oriented terminology.
+   *
    * @since 0.1.0
    * @category models
    */
   Switch as SwitchDefinition,
-  /**
-   * @since 0.1.0
-   * @category models
-   */
   SwitchCase,
   /**
+   * Names one conditional case with definition-oriented terminology.
+   *
    * @since 0.1.0
    * @category models
    */
   SwitchCase as SwitchCaseDefinition
 } from "./model.js"
 
-export type {
-  /**
-   * @since 0.1.0
-   * @category type-level
-   */
-  Encoded,
-  /**
-   * @since 0.1.0
-   * @category type-level
-   */
-  FloatOptions,
-  /**
-   * @since 0.1.0
-   * @category type-level
-   */
-  IntOptions,
-  /**
-   * @since 0.1.0
-   * @category type-level
-   */
-  Type
-} from "./model.js"
+export type { Encoded, FloatOptions, IntOptions, Type } from "./model.js"

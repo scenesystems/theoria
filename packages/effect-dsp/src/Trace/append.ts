@@ -1,5 +1,5 @@
 /**
- * Trace + usage append combinators.
+ * Recording operations used by traced module execution.
  *
  * @since 0.1.0
  */
@@ -9,8 +9,9 @@ import type { Entry } from "./model.js"
 import { TraceEnabledRef, TraceRef, UsageEnabledRef, UsageRef } from "./refs.js"
 
 /**
- * Append a trace entry to the fiber-local collection when tracing is enabled.
- * No-ops silently when `TraceEnabledRef` is `false`.
+ * Appends an entry to the current tracing scope, or does nothing outside one.
+ *
+ * @param entry - Complete invocation record added without copying or redaction.
  *
  * @since 0.1.0
  * @category combinators
@@ -26,8 +27,10 @@ export const append = (entry: Entry): Effect.Effect<void> =>
   })
 
 /**
- * Accumulate a usage sample into the fiber-local usage totals when tracking is
- * enabled.
+ * Adds a usage sample to the current usage scope, or does nothing outside one.
+ * Missing token counts contribute zero; every sample increments `callCount`.
+ *
+ * @param sample - Provider usage and cache status for one model call.
  *
  * @since 0.1.0
  * @category combinators
@@ -43,8 +46,13 @@ export const appendUsage = (sample: UsageSample): Effect.Effect<void> =>
   })
 
 /**
- * Append both a trace entry and a usage sample in one call — the canonical
- * path for module forward functions.
+ * Records an invocation and its usage sample in the active scopes.
+ *
+ * @remarks
+ * The trace entry is appended before usage is accumulated. Either operation is a
+ * no-op when its corresponding scope is disabled.
+ *
+ * @param options - Invocation record and usage sample from the same model call.
  *
  * @since 0.1.0
  * @category combinators

@@ -1,11 +1,10 @@
 /**
- * LabeledFewShot optimizer — select `k` demonstrations from labeled training
- * data using deterministic pseudo-random sampling, without any teacher model
- * calls.
+ * Copies a seeded subset of labeled examples into module parameters.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"
 import { Array as Arr, Data, Effect, Match, Option, Order, Ref } from "effect"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
@@ -27,16 +26,22 @@ class SamplingState extends Data.Class<{
 const scoredDemoOrder: Order.Order<ScoredDemo> = Order.mapInput(Order.number, (entry) => entry.score)
 
 /**
- * Configuration for LabeledFewShot — module, training set, number of demos
- * (`k`), and optional deterministic seed.
+ * Configures seeded demonstration replacement without model execution.
+ *
+ * @typeParam I - Root module input fields; examples remain unvalidated here.
+ * @typeParam O - Root module output fields; examples remain unvalidated here.
  *
  * @since 0.1.0
  * @category models
  */
 export type LabeledFewShotOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{
+  /** Module whose root and discovered submodule parameter refs are updated. */
   readonly module: Module<I, O>
+  /** Source examples; entries without `output` are ignored. */
   readonly trainset: ReadonlyArray<Example>
+  /** Selection cap, rounded down; negative and non-finite values select none. */
   readonly k: number
+  /** Pseudo-random selection seed. Defaults to `1`. */
   readonly seed?: number
 }>
 
@@ -52,8 +57,8 @@ const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<Demo> =>
 
 const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number): ReadonlyArray<Demo> => {
   const normalizedK = Match.value(k).pipe(
-    Match.when((value) => value < 0, () => 0),
-    Match.orElse((value) => value)
+    Match.when(Numeric.isFinite, (value) => Numeric.max(0, Numeric.floor(value))),
+    Match.orElse(() => 0)
   )
   const scored = Arr.reduce(
     demos,
@@ -75,9 +80,22 @@ const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number):
 }
 
 /**
- * Select `k` random labeled demonstrations from the training set and attach
- * them to all predictor refs in the module graph. Uses deterministic
- * pseudo-random scoring for reproducible selection.
+ * Replaces demonstrations across a module ownership tree with one labeled subset.
+ *
+ * @remarks
+ * Entries without `output` are ignored. The remaining examples receive seeded
+ * pseudo-random scores, are sorted by score, and are truncated to the normalized
+ * `k`. The same selected array replaces demonstrations on the root and every
+ * owned child parameter ref. Inputs and outputs are copied without Schema
+ * decoding.
+ *
+ * Ref updates run sequentially and are not rolled back on interruption. The
+ * operation performs no model or metric calls and returns the supplied module.
+ *
+ * @typeParam I - Root module input fields, used only to retain its type.
+ * @typeParam O - Root module output fields, used only to retain its type.
+ * @param options - Module tree, source examples, selection cap, and seed.
+ * @returns The supplied module after all reachable parameter refs are updated.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
  * @since 0.1.0

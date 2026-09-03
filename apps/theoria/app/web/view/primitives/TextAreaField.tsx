@@ -3,6 +3,10 @@ import type { ChangeEventHandler } from "react"
 import type { ToneClasses } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 
+/** Grows with its content where the browser supports `field-sizing`; `rows` is the floor everywhere. */
+const baseClassName =
+  "field-sizing-content min-h-28 w-full resize-none rounded-[1.25rem] border px-4 py-3 text-sm leading-relaxed text-ink-900 shadow-chip placeholder:text-ink-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+
 export const TextAreaField = ({
   active,
   disabled,
@@ -22,9 +26,9 @@ export const TextAreaField = ({
 }) => (
   <Layer>
     <textarea
-      className={active
-        ? `min-h-28 w-full resize-none rounded-[1.25rem] border px-4 py-3 text-sm leading-relaxed text-ink-900 placeholder:text-ink-400 shadow-chip focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${tone.border} bg-stage-0/94 ${tone.focusRing}`
-        : `min-h-28 w-full resize-none rounded-[1.25rem] border border-stage-200/95 bg-stage-0/74 px-4 py-3 text-sm leading-relaxed text-ink-900 placeholder:text-ink-400 shadow-chip focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${tone.focusRing}`}
+      className={`${baseClassName} ${
+        active ? `${tone.border} bg-stage-0/94` : "border-stage-200/95 bg-stage-0/74"
+      } ${tone.focusRing}`}
       disabled={disabled}
       onChange={onChange}
       placeholder={placeholder}

@@ -1,12 +1,13 @@
 /**
- * Runtime-flavor authority for self-hosted compatible engines.
+ * Serving-engine hints for compatible and dedicated runtimes.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Stable runtime flavors used to distinguish compatible serving engines.
+ * Accepts serving-engine identities used by capability policy and route
+ * provenance.
  *
  * @since 0.1.0
  * @category schemas
@@ -20,7 +21,9 @@ export const RuntimeFlavorSchema = Schema.Literal(
 )
 
 /**
- * Extracted runtime-flavor union.
+ * Identifies the compatible serving engine used for capability policy and
+ * provenance. `unknown` is the conservative value when resolution cannot
+ * establish an engine; it is not evidence that no engine exists.
  *
  * @since 0.1.0
  * @category type-level

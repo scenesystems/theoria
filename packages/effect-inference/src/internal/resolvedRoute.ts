@@ -1,5 +1,5 @@
 /**
- * Internal authority for resolved-route provenance metadata.
+ * Internal construction of resolved-route provenance metadata.
  *
  * @since 0.1.0
  */

@@ -2,6 +2,7 @@ import { Array as Arr, Option } from "effect"
 import * as ts from "typescript"
 
 import { PublicExportDoc, type PublicExportKind } from "./model.js"
+import { docSummary, docSummaryFromNodes, docTagValue, docTagValueFromNodes } from "./publicDoc.js"
 
 const hasModifier = (node: ts.Node, kind: ts.SyntaxKind): boolean =>
   ts.canHaveModifiers(node)
@@ -11,65 +12,6 @@ const isExported = (node: ts.Node): boolean => hasModifier(node, ts.SyntaxKind.E
 
 const isDefaultExport = (node: ts.Node): boolean => hasModifier(node, ts.SyntaxKind.DefaultKeyword)
 
-const renderJSDocComment = (comment: ts.JSDocTag["comment"]): Option.Option<string> =>
-  Option.fromNullable(comment).pipe(
-    Option.map((value) =>
-      typeof value === "string"
-        ? value
-        : Arr.fromIterable(value).map((part) => part.text).join("")
-    ),
-    Option.map((value) => value.trim()),
-    Option.filter((value) => value.length > 0)
-  )
-
-const leadingCommentTagValues = (node: ts.Node, tagName: string): ReadonlyArray<string> => {
-  const sourceText = node.getSourceFile().text
-  const pattern = new RegExp(`(?:^|\\n)@${tagName}(?:\\s+([^@\\n]+?))?(?=\\s+@|\\n|$)`, "g")
-
-  return Arr.flatMap(ts.getLeadingCommentRanges(sourceText, node.pos) ?? [], (range) => {
-    const comment = sourceText.slice(range.pos, range.end)
-
-    if (!comment.startsWith("/**")) {
-      return []
-    }
-
-    const normalizedComment = comment
-      .replace(/^\/\*\*/, "")
-      .replace(/\*\/$/, "")
-      .split(/\r?\n/u)
-      .map((line) => line.replace(/^\s*\*\s?/u, "").trim())
-      .join("\n")
-
-    return Arr.filterMap(
-      Arr.fromIterable(normalizedComment.matchAll(pattern)),
-      (match) =>
-        Option.fromNullable(match[1]).pipe(
-          Option.map((value) => value.trim()),
-          Option.filter((value) => value.length > 0)
-        )
-    )
-  })
-}
-
-const tagValues = (node: ts.Node, tagName: string): ReadonlyArray<string> => {
-  const jsDocTagValues = Arr.filterMap(ts.getJSDocTags(node), (tag) =>
-    tag.tagName.text === tagName
-      ? renderJSDocComment(tag.comment)
-      : Option.none<string>())
-
-  return jsDocTagValues.length > 0 ? jsDocTagValues : leadingCommentTagValues(node, tagName)
-}
-
-const firstTagValue = (node: ts.Node, tagName: string): string | null =>
-  Option.getOrNull(Option.fromNullable(tagValues(node, tagName)[0]))
-
-const firstTagValueFromNodes = (nodes: ReadonlyArray<ts.Node>, tagName: string): string | null =>
-  Option.getOrNull(
-    Arr.findFirst(nodes, (node) => tagValues(node, tagName).length > 0).pipe(
-      Option.flatMap((node) => Option.fromNullable(firstTagValue(node, tagName)))
-    )
-  )
-
 const makePublicExportDoc = (
   exportName: string,
   kind: PublicExportKind,
@@ -78,8 +20,9 @@ const makePublicExportDoc = (
   new PublicExportDoc({
     exportName,
     kind,
-    since: firstTagValue(node, "since"),
-    category: firstTagValue(node, "category")
+    summary: docSummary(node),
+    since: docTagValue(node, "since"),
+    category: docTagValue(node, "category")
   })
 
 const makePublicExportDocFromNodes = (
@@ -90,8 +33,9 @@ const makePublicExportDocFromNodes = (
   new PublicExportDoc({
     exportName,
     kind,
-    since: firstTagValueFromNodes(nodes, "since"),
-    category: firstTagValueFromNodes(nodes, "category")
+    summary: docSummaryFromNodes(nodes),
+    since: docTagValueFromNodes(nodes, "since"),
+    category: docTagValueFromNodes(nodes, "category")
   })
 
 const bindingElementDocNodes = (element: ts.BindingElement): ReadonlyArray<ts.Node> =>
@@ -189,19 +133,10 @@ const docsFromDeclaration = (
 }
 
 /**
- * Collects raw JSDoc tag values from a declaration or export statement.
- *
- * @since 0.0.0
- * @category queries
- */
-export const docTagValues = (node: ts.Node, tagName: string): ReadonlyArray<string> => tagValues(node, tagName)
-
-/**
  * Collects public-export documentation metadata from one source file.
  *
- * This is the syntax-level foundation for later package-wide release
- * governance. It covers direct exported declarations, default exports,
- * namespace exports, and named re-export declarations.
+ * Direct declarations, default exports, namespace exports, and named re-exports
+ * retain the JSDoc attached at their declaration site.
  *
  * @since 0.0.0
  * @category queries
@@ -233,15 +168,3 @@ export const publicExportDocs = (sourceFile: ts.SourceFile): ReadonlyArray<Publi
 
     return []
   })
-
-/**
- * Builds the stable identity key used by release-snapshot governance.
- *
- * @since 0.0.0
- * @category keys
- */
-export const releaseSinceSnapshotKey = (input: {
-  readonly subpath: string
-  readonly exportName: string
-  readonly kind: PublicExportKind
-}): string => `${input.subpath}::${input.exportName}::${input.kind}`

@@ -1,5 +1,9 @@
 /**
- * Pure calculus kernels.
+ * Runs numerical calculus operations on trusted synchronous functions and samples.
+ *
+ * @remarks
+ * These operations do not create typed failure channels. Callback exceptions
+ * escape synchronously, and non-finite calculations remain in the result.
  *
  * @since 0.1.0
  * @category operations
@@ -15,7 +19,7 @@ import { CalculusDomainModel } from "../model.js"
 import type { DerivativeLimitEstimate, RidderMethodInputType } from "../schema.js"
 
 /**
- * Lifts the static `CalculusDomainModel` into an Effect for runtime discovery.
+ * Returns the provisional Calculus descriptor without service requirements or failure.
  *
  * @since 0.1.0
  * @category operations
@@ -23,7 +27,26 @@ import type { DerivativeLimitEstimate, RidderMethodInputType } from "../schema.j
 export const loadCalculusDomain = Effect.succeed(CalculusDomainModel)
 
 /**
- * Ridder-method first-derivative estimate with convergence metadata.
+ * Estimates a first derivative by central differences and Ridder extrapolation.
+ *
+ * @returns The estimate with its absolute-error estimate, refinement count,
+ * and tolerance status. Exhausting the configured limits returns the best
+ * candidate with `converged: false`.
+ *
+ * @example
+ * ```ts
+ * import { Calculus, Numeric } from "@scenesystems/effect-math"
+ * import { Effect } from "effect"
+ *
+ * export const program = Effect.sync(() =>
+ *   Calculus.derivativeLimit((x) => Numeric.pow(x, 2), 2)
+ * ).pipe(
+ *   Effect.filterOrFail(
+ *     (estimate) => estimate.converged && Numeric.between(estimate.value, { minimum: 3.999, maximum: 4.001 }),
+ *     () => "DerivativeDidNotConverge"
+ *   )
+ * )
+ * ```
  *
  * @since 0.2.0
  * @category operations
@@ -35,7 +58,11 @@ export const derivativeLimit = (
 ): DerivativeLimitEstimate => RidderKernel.derivativeLimitRidder(f, x, config)
 
 /**
- * Ridder-method second-derivative estimate with convergence metadata.
+ * Estimates a second derivative by symmetric differences and Ridder extrapolation.
+ *
+ * @returns The estimate with its absolute-error estimate, refinement count,
+ * and tolerance status. Exhausting the configured limits returns the best
+ * candidate with `converged: false`.
  *
  * @since 0.2.0
  * @category operations
@@ -47,7 +74,7 @@ export const secondDerivativeLimit = (
 ): DerivativeLimitEstimate => RidderKernel.secondDerivativeLimitRidder(f, x, config)
 
 /**
- * First derivative value projected from `derivativeLimit`.
+ * Returns the selected first-derivative value and discards convergence metadata.
  *
  * @since 0.1.0
  * @category operations
@@ -56,7 +83,7 @@ export const derivative = (f: (x: number) => number, x: number, config?: RidderM
   derivativeLimit(f, x, config).value
 
 /**
- * Second derivative value projected from `secondDerivativeLimit`.
+ * Returns the selected second-derivative value and discards convergence metadata.
  *
  * @since 0.2.0
  * @category operations
@@ -68,7 +95,9 @@ export const secondDerivative = (
 ): number => secondDerivativeLimit(f, x, config).value
 
 /**
- * Composite trapezoidal integration over evenly-spaced samples.
+ * Integrates evenly spaced samples with the composite trapezoidal rule.
+ *
+ * @returns `NaN` for fewer than two samples. A negative `dx` reverses the sign.
  *
  * @since 0.1.0
  * @category operations
@@ -76,7 +105,12 @@ export const secondDerivative = (
 export const trapezoid = IntegrationKernel.trapezoidalRule
 
 /**
- * Composite Simpson integration over evenly-spaced samples.
+ * Integrates evenly spaced samples with composite Simpson quadrature.
+ *
+ * @remarks
+ * Two samples use the trapezoidal rule. With an odd number of intervals,
+ * Simpson's rule covers the largest even prefix and a final trapezoid covers
+ * the remaining interval. Fewer than two samples return `NaN`.
  *
  * @since 0.1.0
  * @category operations
@@ -84,7 +118,12 @@ export const trapezoid = IntegrationKernel.trapezoidalRule
 export const simpson = IntegrationKernel.simpsonsRule
 
 /**
- * Adaptive Simpson integration with configurable tolerance and recursion bounds.
+ * Integrates a synchronous scalar function with adaptive Simpson quadrature.
+ *
+ * @remarks
+ * Refinement stops at the local error target or depth limit. The result does
+ * not report which condition stopped recursion. Defaults are `1e-10` for both
+ * tolerances and `16` levels. Reversed bounds produce a signed integral.
  *
  * @since 0.2.0
  * @category operations
@@ -107,7 +146,9 @@ export const adaptiveSimpson = (
   )
 
 /**
- * Multivariate gradient evaluated via Ridder-limit directional probes.
+ * Estimates one partial derivative per input coordinate with Ridder extrapolation.
+ *
+ * @returns A newly allocated `Chunk` in input-coordinate order.
  *
  * @since 0.2.0
  * @category operations
@@ -119,7 +160,11 @@ export const gradient = (
 ): Chunk.Chunk<number> => MultivariateKernel.gradientLimit(f, point, config)
 
 /**
- * Multivariate Jacobian evaluated via Ridder-limit directional probes.
+ * Estimates a Jacobian with rows in output-component order and columns in input-coordinate order.
+ *
+ * @remarks
+ * The row count comes from the field's baseline output. Field evaluations are
+ * memoized for the duration of this call.
  *
  * @since 0.2.0
  * @category operations
@@ -131,7 +176,11 @@ export const jacobian = (
 ): Chunk.Chunk<Chunk.Chunk<number>> => MultivariateKernel.jacobianLimit(f, point, config)
 
 /**
- * Multivariate Hessian evaluated via Ridder-limit directional probes.
+ * Estimates a square Hessian in input-coordinate order.
+ *
+ * @remarks
+ * Mixed partials are computed once per coordinate pair and reused for the
+ * symmetric entry. The returned rows are newly allocated.
  *
  * @since 0.2.0
  * @category operations
@@ -143,7 +192,10 @@ export const hessian = (
 ): Chunk.Chunk<Chunk.Chunk<number>> => MultivariateKernel.hessianLimit(f, point, config)
 
 /**
- * Directional derivative along a supplied direction vector.
+ * Projects the estimated gradient onto the normalized direction vector.
+ *
+ * @returns `NaN` when the vectors have different lengths or the direction has
+ * zero Euclidean norm. Positive scaling of `direction` leaves the result unchanged.
  *
  * @since 0.2.0
  * @category operations
@@ -156,7 +208,9 @@ export const directionalDerivative = (
 ): number => MultivariateKernel.directionalDerivativeLimit(f, point, direction, config)
 
 /**
- * Vector-field divergence from component-wise directional derivatives.
+ * Sums the diagonal of a numerically estimated vector-field Jacobian.
+ *
+ * @returns `NaN` unless the field's output dimension equals the point dimension.
  *
  * @since 0.2.0
  * @category operations
@@ -168,7 +222,7 @@ export const divergence = (
 ): number => MultivariateKernel.divergenceLimit(f, point, config)
 
 /**
- * Scalar-field Laplacian from summed second partial derivatives.
+ * Sums the diagonal of a numerically estimated Hessian.
  *
  * @since 0.2.0
  * @category operations

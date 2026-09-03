@@ -1,14 +1,8 @@
 /**
- * Key length and strength validation.
+ * Rejects keys that cannot be used by the package's 256-bit ciphers.
  *
- * All three supported algorithms require 256-bit (32-byte) keys.
- * Validates key length and rejects weak all-zero keys before
- * passing to `@noble/ciphers`.
- *
- * Uses `equalBytes` from `@noble/ciphers` for constant-time
- * weak-key comparison — no timing side-channel on key material.
- *
- * @see {@link InvalidKey} — the error produced on validation failure
+ * Length is checked before the all-zero comparison. The comparison does not
+ * exit early based on key contents.
  *
  * @internal
  */
@@ -20,10 +14,9 @@ const KEY_BYTES = 32
 const ZERO_KEY = /* @__PURE__ */ new Uint8Array(KEY_BYTES)
 
 /**
- * Validate that `key` is exactly 32 bytes and not all-zero.
+ * Validates that `key` is exactly 32 bytes and not all zero.
  *
- * Returns `Effect.void` on success, fails with `InvalidKey`
- * on validation failure.
+ * Fails with `InvalidKey` when either condition is false.
  *
  * @internal
  */

@@ -1,5 +1,5 @@
 /**
- * Config decoding for the live text-provider lane.
+ * Configuration precedence and defaults for hosted text providers.
  *
  * @since 0.1.0
  */
@@ -9,7 +9,7 @@ import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescri
 import { InvalidRuntimeConfig } from "../Errors/Config.js"
 
 /**
- * Hosted and brokered text providers supported by the config-driven live lane.
+ * Providers accepted by the config-driven language-model layer.
  *
  * @since 0.1.0
  * @category models
@@ -17,35 +17,52 @@ import { InvalidRuntimeConfig } from "../Errors/Config.js"
 export type LiveTextProvider = "openai" | "anthropic" | "openrouter"
 
 /**
- * Override surface for config-driven live text runtime construction.
+ * Explicit overrides for hosted text-provider configuration. Present values
+ * take precedence over the selected `ConfigProvider`.
  *
  * @since 0.1.0
  * @category models
  */
 export type LiveTextProviderRuntimeOptions = Readonly<{
+  /** Provider adapter; defaults to `openai`. */
   readonly provider?: LiveTextProvider
+  /** Provider model identifier; defaults according to `provider`. */
   readonly model?: string
+  /** Required credential, retained as `Redacted`. */
   readonly apiKey?: Redacted.Redacted
+  /** Optional API base URL replacing the provider default. */
   readonly apiUrl?: string
+  /** Optional Anthropic API version header. */
   readonly anthropicVersion?: string
+  /** Optional OpenRouter HTTP referrer header. */
   readonly openrouterReferrer?: string
+  /** Optional OpenRouter application title header. */
   readonly openrouterTitle?: string
+  /** Configuration source used for values without explicit overrides. */
   readonly configProvider?: ConfigProvider.ConfigProvider
 }>
 
 /**
- * Fully resolved provider settings used to construct a live text runtime.
+ * Provider settings after defaults, configuration, and explicit overrides are
+ * merged. The API key is always present and remains redacted.
  *
  * @since 0.1.0
  * @category models
  */
 export type ResolvedLiveTextProviderConfig = Readonly<{
+  /** Selected provider adapter. */
   readonly provider: LiveTextProvider
+  /** Model identifier passed to the provider client. */
   readonly model: string
+  /** Credential passed to the provider client. */
   readonly apiKey: Redacted.Redacted
+  /** API base URL override, or `None` to use the client default. */
   readonly apiUrl: Option.Option<string>
+  /** Anthropic API version header, when configured. */
   readonly anthropicVersion: Option.Option<string>
+  /** OpenRouter referrer header, when configured. */
   readonly openrouterReferrer: Option.Option<string>
+  /** OpenRouter application title header, when configured. */
   readonly openrouterTitle: Option.Option<string>
 }>
 
@@ -198,7 +215,8 @@ const withOverrides = (
 })
 
 /**
- * Projects the requested runtime descriptor from resolved provider config.
+ * Maps hosted provider config to caller intent and an explicit execution route.
+ * Provider-specific base URLs are used when `apiUrl` is `None`.
  *
  * @since 0.1.0
  * @category constructors
@@ -251,8 +269,14 @@ export const descriptorForLiveTextProvider = (
   )
 
 /**
- * Resolves config-backed provider settings into one package-owned live runtime
- * config record.
+ * Resolves hosted text-provider configuration without contacting the provider.
+ *
+ * @remarks
+ * Resolves explicit overrides over environment-backed settings. Provider
+ * defaults to `openai`; model defaults are provider-specific. An API key is
+ * mandatory after merging (`DSP_PROVIDER_API_KEY` or the provider-specific
+ * key), and every Effect Config failure is wrapped as `InvalidRuntimeConfig`.
+ * Secrets remain `Redacted` in the result.
  *
  * @since 0.1.0
  * @category constructors

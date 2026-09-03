@@ -1,20 +1,13 @@
 /**
- * HyperBand + BOHB — compare random and Bayesian multi-fidelity scheduling.
- *
- * Real use case: tune expensive training loops with fidelity-aware promotion.
- *
- * What this shows: multi-fidelity scheduling and how HyperBand random sampling differs from BOHB TPE guidance.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Runs HyperBand and BOHB against the same fidelity-aware objective and logs
+ * each scheduler's best completed trial.
  *
  * Run: bun run examples/14-hyperband-bohb.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Option } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, Scheduler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -30,8 +23,8 @@ const program = Effect.gen(function*() {
   ) =>
     Effect.gen(function*() {
       const resource = yield* runtime.resource.pipe(Effect.map(Option.getOrElse(() => config.budget)))
-      const learningRateLoss = (Math.log10(config.learningRate) - Math.log10(0.01)) ** 2
-      const momentumLoss = (config.momentum - 0.9) ** 2
+      const learningRateLoss = Numeric.pow(Numeric.log10(config.learningRate) - Numeric.log10(0.01), 2)
+      const momentumLoss = Numeric.pow(config.momentum - 0.9, 2)
 
       return learningRateLoss + momentumLoss + 1 / resource
     })

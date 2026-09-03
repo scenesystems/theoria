@@ -1,38 +1,14 @@
 /**
- * HMAC message authentication codes.
+ * RFC 2104 HMAC-SHA256 and HMAC-SHA1 message authentication.
  *
- * Keyed-hash message authentication using `@noble/hashes/hmac.js`
- * per RFC 2104. Two variants match the ecosystem's needs:
+ * @remarks
+ * The operations accept raw key and message bytes and return tags only. A
+ * verifier must compare the received and computed tags with a constant-time
+ * byte comparison. HMAC-SHA1 is retained for protocols that require it.
  *
- * - **HMAC-SHA256** — webhook signature verification (Stripe,
- *   GitHub), API key derivation, and any context requiring a
- *   PRF keyed by a shared secret.
- * - **HMAC-SHA1** — protocols that explicitly specify SHA-1.
- *
- * Pure `Uint8Array` in/out — key and message are both byte arrays.
- * Callers use {@link encodeUtf8} for strict text encoding or the raw-byte
- * decoding APIs appropriate to their wire format.
- *
- * Output length matches the underlying hash: 32 bytes for SHA-256,
- * 20 bytes for SHA-1. Encode with {@link toBase64Url} or
- * `bytesToHex` as the consumer requires.
- *
- * @example
- * ```ts
- * import { encodeUtf8, hmacSha256, toBase64Url } from "@scenesystems/digest"
- * import { Effect } from "effect"
- *
- * const program = Effect.gen(function*() {
- *   const key = yield* encodeUtf8("webhook-secret")
- *   const message = yield* encodeUtf8('{"event":"charge.succeeded"}')
- *   const mac = yield* hmacSha256(key, message)
- *   const encoded = toBase64Url(mac)
- * })
- * ```
- *
- * @see {@link sha256} — underlying hash for HMAC-SHA256
- * @see {@link blake3Mac} — BLAKE3 keyed mode for non-legacy MACs
- * @see {@link toBase64Url} — encode output for transport
+ * @see {@link sha256}
+ * @see {@link blake3Mac}
+ * @see {@link toBase64Url}
  *
  * @since 0.1.0
  * @category authentication
@@ -45,10 +21,15 @@ import { Effect } from "effect"
 import { toBase64Url, toHex } from "./encoding.js"
 
 /**
- * Compute HMAC-SHA256 of `message` using `key`.
+ * Computes the 32-byte HMAC-SHA256 tag defined by RFC 2104.
  *
- * Key length is flexible per RFC 2104 — short keys are zero-padded
- * to block size, long keys are hashed to block size internally.
+ * @remarks
+ * RFC 2104 hashes keys longer than the SHA-256 block size and pads shorter
+ * keys during HMAC processing.
+ *
+ * @param key - Secret key bytes.
+ * @param message - Message bytes.
+ * @returns A newly allocated authentication tag.
  *
  * @since 0.1.0
  * @category authentication
@@ -59,9 +40,11 @@ export const hmacSha256 = (
 ): Effect.Effect<Uint8Array> => Effect.sync(() => hmac(nobleSha256, key, message))
 
 /**
- * Compute HMAC-SHA1 of `message` using `key`.
+ * Computes a 20-byte HMAC-SHA1 tag for protocols that still require it.
  *
- * Use when an external protocol explicitly specifies HMAC-SHA1.
+ * @param key - Secret key bytes.
+ * @param message - Message bytes.
+ * @returns A newly allocated authentication tag.
  *
  * @since 0.1.0
  * @category authentication
@@ -72,11 +55,15 @@ export const hmacSha1 = (
 ): Effect.Effect<Uint8Array> => Effect.sync(() => hmac(sha1, key, message))
 
 /**
- * Compute HMAC-SHA256 and encode as base64url (no padding).
+ * Computes HMAC-SHA256 and returns its unpadded base64url encoding.
  *
- * Convenience pipeline for webhook signature verification:
- * `hmacSha256(key, message)` → base64url encode. Returns
- * a 43-character string.
+ * @remarks
+ * The output is 43 unpadded base64url characters. Signature comparison remains
+ * the caller's responsibility.
+ *
+ * @param key - Secret key bytes.
+ * @param message - Message bytes.
+ * @returns The encoded HMAC-SHA256 tag.
  *
  * @since 0.1.0
  * @category authentication
@@ -87,10 +74,15 @@ export const hmacSha256Base64Url = (
 ): Effect.Effect<string> => Effect.map(hmacSha256(key, message), toBase64Url)
 
 /**
- * Compute HMAC-SHA1 and encode as lowercase hex.
+ * Computes HMAC-SHA1 and returns its lowercase hexadecimal encoding.
  *
+ * @remarks
  * Use when an external protocol specifies HMAC-SHA1 as lowercase hex.
  * Returns a 40-character string.
+ *
+ * @param key - Secret key bytes.
+ * @param message - Message bytes.
+ * @returns The lowercase hexadecimal HMAC-SHA1 tag.
  *
  * @since 0.1.0
  * @category authentication

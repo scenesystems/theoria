@@ -370,7 +370,7 @@ export const toggleTrackClassName = ({
   readonly tone: ToneClasses
 }): string =>
   checked
-    ? `${toggleTrackBaseClassName} border-stage-300/90 ${tone.border} ${tone.bgTinted} ${tone.focusRing}`
+    ? `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing}`
     : `${toggleTrackBaseClassName} border-stage-200/90 bg-stage-50/90 ${tone.focusRing}`
 
 export type ObstacleToneClasses = {
@@ -453,7 +453,7 @@ export const obstacleToneClassesFor = (tone: CardTone): ObstacleToneClasses =>
 
 export const appTheme = {
   root:
-    "relative min-h-screen overflow-x-hidden bg-stage-50 font-body text-ink-900 antialiased selection:bg-tone-text-200/60 selection:text-ink-950",
+    "relative min-h-screen overflow-x-clip bg-stage-50 font-body text-ink-900 antialiased selection:bg-tone-text-200/60 selection:text-ink-950",
   atmosphericGlowA: "pointer-events-none absolute -left-24 top-8 h-72 w-72 rounded-full bg-stage-0/85 blur-3xl",
   atmosphericGlowB:
     "pointer-events-none absolute -right-24 top-24 h-[21rem] w-[21rem] rounded-full bg-stage-100/90 blur-3xl",

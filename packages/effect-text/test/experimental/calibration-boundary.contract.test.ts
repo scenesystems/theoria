@@ -106,7 +106,7 @@ describe("Experimental.Calibration boundary contracts", () => {
       expect(secondRun.optimization.artifacts.eventLog).toEqual(firstRun.optimization.artifacts.eventLog)
     }))
 
-  it.effect("experimental calibration corpora can assert exact lines for bidi, CJK, browser parity, and hyphenation cases", () =>
+  it.effect("experimental calibration corpora can assert exact lines for bidi, CJK, tabs, and hyphenation", () =>
     Effect.gen(function*() {
       const report = yield* Experimental.Calibration.evaluateProfile(
         defaultCalibrationProfile,

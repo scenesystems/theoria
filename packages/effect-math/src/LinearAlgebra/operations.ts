@@ -1,8 +1,10 @@
 /**
- * LinearAlgebra operation surface — pure kernel re-exports over immutable
- * `Chunk` carriers, Schema-validated variants with boundary input checking,
- * and policy-aware operations that respect `PrecisionPolicyService`,
- * `BackendPolicyService`, and `DiagnosticsPolicyService`.
+ * Computes dense linear algebra over immutable `Chunk` values.
+ *
+ * @remarks
+ * Pure operations trust dimensions and storage. Validated operations decode
+ * finite data and check the shapes they consume. Policy-aware scalar operations
+ * reject non-finite results under strict precision and can emit diagnostics.
  *
  * @since 0.1.0
  * @category operations
@@ -19,8 +21,9 @@ import { LinearAlgebraDomainModel } from "./model.js"
 import { DotProductInput, MatvecInput, NormInput, TransposeInput } from "./schema.js"
 
 /**
- * Lifts the static `LinearAlgebraDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional dense-linear-algebra descriptor for
+ * registration or startup discovery, without service requirements or a
+ * failure channel.
  *
  * @since 0.1.0
  * @category operations
@@ -28,80 +31,46 @@ import { DotProductInput, MatvecInput, NormInput, TransposeInput } from "./schem
 export const loadLinearAlgebraDomain = Effect.succeed(LinearAlgebraDomainModel)
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — operate on Chunk<number>
+// Pure kernel re-exports
 // ---------------------------------------------------------------------------
 
 /**
- * Inner product `Σ aᵢ·bᵢ` — allocation-free over two immutable `Chunk`
- * carriers. Both chunks must have the same length; no runtime guard is
- * applied.
+ * Computes the sum of pairwise products over the shared vector prefix.
  *
- * @example
- * ```ts
- * import { Chunk } from "effect"
- * import { LinearAlgebra } from "@scenesystems/effect-math"
+ * @remarks
+ * Unequal lengths are accepted; components beyond the shorter `Chunk` are
+ * ignored. Two empty vectors produce `0`.
  *
- * const result = LinearAlgebra.dot(
- *   Chunk.fromIterable([1, 2, 3]),
- *   Chunk.fromIterable([4, 5, 6])
- * )
- * // result === 32  (1·4 + 2·5 + 3·6)
- * ```
- *
- * @see {@link dotValidated} for Schema-validated boundary input with shape checking
- * @see {@link dotWithPolicies} for policy-aware variant with precision and diagnostics
  * @since 0.1.0
  * @category operations
  */
 export const dot: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Vector.dot
 
 /**
- * Euclidean (L2) norm — `√(Σ xᵢ²)`. Pure function, allocation-free over an
- * immutable `Chunk` carrier.
- *
- * @example
- * ```ts
- * import { Chunk } from "effect"
- * import { LinearAlgebra } from "@scenesystems/effect-math"
- *
- * LinearAlgebra.normL2(Chunk.fromIterable([3, 4])) // 5
- * ```
- *
- * @see {@link normValidated} for Schema-validated boundary input with norm-kind dispatch
- * @see {@link normWithPolicies} for policy-aware variant with precision and diagnostics
+ * Computes the Euclidean norm, returning `0` for an empty vector.
  * @since 0.1.0
  * @category operations
  */
 export const normL2: (v: Chunk.Chunk<number>) => number = Vector.normL2
 
 /**
- * L1 (Manhattan / taxicab) norm — `Σ |xᵢ|`. Useful for sparsity-aware
- * regularization (LASSO). Pure function, allocation-free.
- *
- * @see {@link normValidated} for Schema-validated boundary input with norm-kind dispatch
- * @see {@link normWithPolicies} for policy-aware variant with precision and diagnostics
+ * Sums absolute component values, returning `0` for an empty vector.
  * @since 0.1.0
  * @category operations
  */
 export const normL1: (v: Chunk.Chunk<number>) => number = Vector.normL1
 
 /**
- * L∞ (Chebyshev) norm — `max |xᵢ|`. Returns the largest absolute component,
- * useful for worst-case error bounds.
- *
- * @see {@link normValidated} for Schema-validated boundary input with norm-kind dispatch
- * @see {@link normWithPolicies} for policy-aware variant with precision and diagnostics
+ * Returns the largest absolute component or `0` for an empty vector.
  * @since 0.1.0
  * @category operations
  */
 export const normLinf: (v: Chunk.Chunk<number>) => number = Vector.normLinf
 
 /**
- * Elementwise vector addition `cᵢ = aᵢ + bᵢ` via `Chunk.zipWith`. Returns a
- * new `Chunk` — the inputs are not mutated. Both chunks must have the same
- * length.
+ * Adds corresponding components over the shared vector prefix.
  *
- * @see {@link vectorScale} for scalar multiplication
+ * @returns A new `Chunk` whose length is the shorter input length.
  * @since 0.1.0
  * @category operations
  */
@@ -111,10 +80,7 @@ export const vectorAdd: (
 ) => Chunk.Chunk<number> = Vector.add
 
 /**
- * Scalar-vector multiplication `cᵢ = α · vᵢ` — scales every element of `v`
- * by `alpha`. Returns a new `Chunk`; the input is not mutated.
- *
- * @see {@link vectorAdd} for elementwise addition
+ * Multiplies every vector component by `alpha` and returns a new `Chunk`.
  * @since 0.1.0
  * @category operations
  */
@@ -124,26 +90,13 @@ export const vectorScale: (
 ) => Chunk.Chunk<number> = Vector.scale
 
 /**
- * Matrix-vector multiply `y = A · x` — returns a `Chunk` of length `rows`.
- * Assumes a contiguous row-major flat layout (`stride = cols`, `offset = 0`).
- * The vector `x` must have length equal to `cols`.
+ * Multiplies a contiguous row-major matrix by a vector.
  *
- * @example
- * ```ts
- * import { Chunk } from "effect"
- * import { LinearAlgebra } from "@scenesystems/effect-math"
+ * @remarks
+ * `rows` and `cols` are trusted. Missing matrix or vector components are read
+ * as zero, and excess components are ignored.
  *
- * // 2×2 identity matrix times [3, 7] → [3, 7]
- * const y = LinearAlgebra.matvec(
- *   Chunk.fromIterable([1, 0, 0, 1]),
- *   2,
- *   2,
- *   Chunk.fromIterable([3, 7])
- * )
- * ```
- *
- * @see {@link matvecValidated} for Schema-validated boundary input with shape checking
- * @see {@link transpose} for the transpose operation on the same layout
+ * @returns A new `Chunk` containing one value per declared row.
  * @since 0.1.0
  * @category operations
  */
@@ -155,13 +108,13 @@ export const matvec = (
 ): Chunk.Chunk<number> => Matrix.matvec(data, rows, cols, cols, 0, x)
 
 /**
- * Transposes a row-major matrix of shape `rows × cols` into a new `Chunk` of
- * shape `cols × rows`. Assumes contiguous layout (`stride = cols`,
- * `offset = 0`). Useful for converting between row-major and column-major
- * access patterns.
+ * Transposes a contiguous row-major matrix into row-major output.
  *
- * @see {@link transposeValidated} for Schema-validated boundary input with shape checking
- * @see {@link matvec} for matrix-vector multiply on the same layout
+ * @remarks
+ * Dimensions are trusted. Missing storage positions become zero, and storage
+ * beyond `rows * cols` is ignored.
+ *
+ * @returns A new flat `Chunk` with declared shape `cols` by `rows`.
  * @since 0.1.0
  * @category operations
  */
@@ -172,11 +125,11 @@ export const transpose = (
 ): Chunk.Chunk<number> => Matrix.transpose(data, rows, cols, cols, 0)
 
 /**
- * Frobenius norm — `√(Σᵢⱼ aᵢⱼ²)`, the matrix analog of the vector L2 norm.
- * Assumes contiguous row-major layout. Commonly used to measure matrix
- * magnitude or convergence distance between iterates.
+ * Computes the Frobenius norm of a contiguous row-major matrix.
  *
- * @see {@link normL2} for the vector equivalent
+ * @remarks
+ * Dimensions are trusted. Missing storage positions contribute zero, and
+ * storage beyond `rows * cols` is ignored.
  * @since 0.1.0
  * @category operations
  */
@@ -187,28 +140,37 @@ export const frobeniusNorm = (
 ): number => Matrix.frobeniusNorm(data, rows, cols, cols, 0)
 
 /**
- * Cholesky decomposition `A = L Lᵀ` for symmetric positive-definite matrices.
- * Input matrix is row-major dense with shape `size × size`. Returns the
- * row-major lower-triangular factor `L` (upper entries are zero) or
- * `Option.none()` when shape, symmetry, or definiteness preconditions fail.
+ * Computes a Cholesky factor for a row-major symmetric positive-definite matrix.
+ *
+ * @remarks
+ * Symmetry is accepted within `1e-12`. Every diagonal pivot must exceed
+ * `1e-12`.
+ *
+ * @returns The row-major lower-triangular factor with zero upper entries, or
+ * `Option.none()` for an invalid shape, asymmetry, or failed pivot.
  *
  * @example
  * ```ts
- * import { Chunk, Option } from "effect"
+ * import { Chunk, Effect, Match } from "effect"
  * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
- * const decomposed = LinearAlgebra.cholesky(
- *   Chunk.fromIterable([4, 2, 2, 3]),
- *   2
+ * const factor: Effect.Effect<ReadonlyArray<number>, string> = Match.value(
+ *   LinearAlgebra.cholesky(Chunk.fromIterable([4, 2, 2, 3]), 2)
+ * ).pipe(
+ *   Match.tag("None", () => Effect.fail("MatrixWasNotPositiveDefinite")),
+ *   Match.tag("Some", ({ value }) => Effect.succeed(Chunk.toReadonlyArray(value))),
+ *   Match.exhaustive
  * )
  *
- * if (Option.isSome(decomposed)) {
- *   // lower-triangular factor in row-major layout
- *   Chunk.toReadonlyArray(decomposed.value) // [2, 0, 1, sqrt(2)]
- * }
+ * export const program = factor.pipe(
+ *   Effect.filterOrFail(
+ *     (lower) => lower[0] === 2 && lower[1] === 0 &&
+ *       (lower[3] ?? 0) > 1.414 && (lower[3] ?? 0) < 1.415,
+ *     () => "UnexpectedCholeskyFactor"
+ *   )
+ * )
  * ```
  *
- * @see {@link solveSpd} for the complete SPD solve path
  * @since 0.1.0
  * @category operations
  */
@@ -218,25 +180,10 @@ export const cholesky = (
 ) => Solver.choleskySpd(matrix, size)
 
 /**
- * Forward substitution solve for lower-triangular systems `Lx = b`.
- * Expects `lower` to be square (`size × size`) and `rhs` length equal to
- * `size`; returns `Option.none()` for invalid shapes or near-zero pivots.
+ * Solves a row-major lower-triangular system by forward substitution.
  *
- * @example
- * ```ts
- * import { Chunk, Option } from "effect"
- * import { LinearAlgebra } from "@scenesystems/effect-math"
- *
- * const solved = LinearAlgebra.forwardSubstitutionLower(
- *   Chunk.fromIterable([2, 0, 1, 2]),
- *   2,
- *   Chunk.fromIterable([4, 5])
- * )
- *
- * Option.map(solved, Chunk.toReadonlyArray) // Some([2, 1.5])
- * ```
- *
- * @see {@link backwardSubstitutionUpper} for the corresponding upper-triangular solve
+ * @returns A new solution `Chunk`, or `Option.none()` when matrix or right-hand
+ * side lengths do not match `size` or a diagonal magnitude is at most `1e-12`.
  * @since 0.1.0
  * @category operations
  */
@@ -247,25 +194,10 @@ export const forwardSubstitutionLower = (
 ) => Solver.forwardSubstituteLower(lower, size, rhs)
 
 /**
- * Backward substitution solve for upper-triangular systems `Ux = b`.
- * Expects `upper` to be square (`size × size`) and `rhs` length equal to
- * `size`; returns `Option.none()` for invalid shapes or near-zero pivots.
+ * Solves a row-major upper-triangular system by backward substitution.
  *
- * @example
- * ```ts
- * import { Chunk, Option } from "effect"
- * import { LinearAlgebra } from "@scenesystems/effect-math"
- *
- * const solved = LinearAlgebra.backwardSubstitutionUpper(
- *   Chunk.fromIterable([2, 1, 0, 2]),
- *   2,
- *   Chunk.fromIterable([5, 4])
- * )
- *
- * Option.map(solved, Chunk.toReadonlyArray) // Some([1.5, 2])
- * ```
- *
- * @see {@link forwardSubstitutionLower} for the corresponding lower-triangular solve
+ * @returns A new solution `Chunk`, or `Option.none()` when matrix or right-hand
+ * side lengths do not match `size` or a diagonal magnitude is at most `1e-12`.
  * @since 0.1.0
  * @category operations
  */
@@ -276,26 +208,38 @@ export const backwardSubstitutionUpper = (
 ) => Solver.backwardSubstituteUpper(upper, size, rhs)
 
 /**
- * Solve symmetric positive-definite systems `Ax = b` via Cholesky +
- * triangular substitution. Returns `Option.none()` for invalid shapes or
- * non-SPD matrices. Prefer this over explicit matrix inversion for numerical
- * stability and lower computational cost.
+ * Solves a row-major symmetric positive-definite system through Cholesky factorization.
+ *
+ * @returns A new solution `Chunk`, or `Option.none()` when dimensions do not
+ * match, symmetry differs by more than `1e-12`, or factorization encounters a
+ * pivot at or below `1e-12`.
  *
  * @example
  * ```ts
- * import { Chunk, Option } from "effect"
+ * import { Chunk, Effect, Match } from "effect"
  * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
- * const solved = LinearAlgebra.solveSpd(
- *   Chunk.fromIterable([4, 1, 1, 3]),
- *   2,
- *   Chunk.fromIterable([1, 2])
+ * const solution: Effect.Effect<ReadonlyArray<number>, string> = Match.value(
+ *   LinearAlgebra.solveSpd(
+ *     Chunk.fromIterable([4, 1, 1, 3]),
+ *     2,
+ *     Chunk.fromIterable([1, 2])
+ *   )
+ * ).pipe(
+ *   Match.tag("None", () => Effect.fail("SystemCouldNotBeSolved")),
+ *   Match.tag("Some", ({ value }) => Effect.succeed(Chunk.toReadonlyArray(value))),
+ *   Match.exhaustive
  * )
  *
- * Option.map(solved, Chunk.toReadonlyArray) // Some([1/11, 7/11])
+ * export const program = solution.pipe(
+ *   Effect.filterOrFail(
+ *     (values) => (values[0] ?? 0) > 0.09 && (values[0] ?? 0) < 0.091 &&
+ *       (values[1] ?? 0) > 0.636 && (values[1] ?? 0) < 0.637,
+ *     () => "UnexpectedSolution"
+ *   )
+ * )
  * ```
  *
- * @see {@link cholesky} if you need the explicit factor `L`
  * @since 0.1.0
  * @category operations
  */
@@ -310,25 +254,12 @@ export const solveSpd = (
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated dot product — decodes `input` through `DotProductInput`,
- * verifies equal-length vectors, and computes `Σ aᵢ·bᵢ`. Fails with
- * `LinearAlgebraDecodeError` for malformed input or `ShapeMismatchError`
- * for mismatched vector lengths.
+ * Decodes finite, equal-length vectors before computing their dot product.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { LinearAlgebra } from "@scenesystems/effect-math"
- *
- * const program = LinearAlgebra.dotValidated({ a: [1, 2, 3], b: [4, 5, 6] }).pipe(
- *   Effect.catchTag("ShapeMismatchError", (e) =>
- *     Effect.succeed(`dimension error: ${e.message}`)
- *   )
- * )
- * ```
- *
- * @see {@link dot} for the pure kernel (no validation overhead)
- * @see {@link dotWithPolicies} for policy-aware variant
+ * @throws {@link LinearAlgebraDecodeError} in the Effect error channel for
+ * missing, non-finite, or excess fields.
+ * @throws {@link ShapeMismatchError} in the Effect error channel when the
+ * vectors have different lengths.
  * @since 0.1.0
  * @category operations
  */
@@ -361,21 +292,29 @@ export const dotValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated matrix-vector multiply `y = A · x`. Decodes through
- * `MatvecInput`, validates `data.length === rows × cols` and
- * `x.length === cols`, then returns `ReadonlyArray<number>` of length `rows`.
+ * Decodes a complete row-major matrix and compatible vector before multiplication.
+ *
+ * @returns A new readonly array containing one value per row.
+ * @throws {@link LinearAlgebraDecodeError} in the Effect error channel for
+ * missing, non-finite, or excess fields.
+ * @throws {@link ShapeMismatchError} in the Effect error channel when storage
+ * length differs from `rows * cols` or vector length differs from `cols`.
  *
  * @example
  * ```ts
  * import { Effect } from "effect"
  * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
- * const program = LinearAlgebra.matvecValidated({
+ * export const program = LinearAlgebra.matvecValidated({
  *   data: [1, 0, 0, 1], rows: 2, cols: 2, x: [3, 7]
- * })
+ * }).pipe(
+ *   Effect.filterOrFail(
+ *     (product) => product[0] === 3 && product[1] === 7,
+ *     () => "UnexpectedProduct"
+ *   )
+ * )
  * ```
  *
- * @see {@link matvec} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
@@ -429,21 +368,13 @@ export const matvecValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated vector norm — decodes through `NormInput` and dispatches
- * to L1, L2, or L∞ based on the `kind` discriminator. Fails with
- * `LinearAlgebraDecodeError` for malformed input.
+ * Decodes finite vector data and evaluates the selected norm.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { LinearAlgebra } from "@scenesystems/effect-math"
+ * @remarks
+ * `kind` accepts `"L1"`, `"L2"`, or `"Linf"`. An empty vector succeeds with `0`.
  *
- * const program = LinearAlgebra.normValidated({ values: [3, 4], kind: "L2" })
- * // Effect succeeds with 5
- * ```
- *
- * @see {@link normL1} / {@link normL2} / {@link normLinf} for pure kernel functions
- * @see {@link normWithPolicies} for policy-aware variant
+ * @throws {@link LinearAlgebraDecodeError} in the Effect error channel for
+ * an unknown norm kind or missing, non-finite, or excess fields.
  * @since 0.1.0
  * @category operations
  */
@@ -471,22 +402,13 @@ export const normValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated matrix transpose — decodes through `TransposeInput`,
- * validates `data.length === rows × cols`, and returns the transposed matrix
- * as `ReadonlyArray<number>` in row-major order with shape `cols × rows`.
+ * Decodes complete row-major matrix storage before transposition.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { LinearAlgebra } from "@scenesystems/effect-math"
- *
- * const program = LinearAlgebra.transposeValidated({
- *   data: [1, 2, 3, 4], rows: 2, cols: 2
- * })
- * // Effect succeeds with [1, 3, 2, 4]
- * ```
- *
- * @see {@link transpose} for the pure kernel (no validation overhead)
+ * @returns A new readonly row-major array with shape `cols` by `rows`.
+ * @throws {@link LinearAlgebraDecodeError} in the Effect error channel for
+ * missing, non-finite, or excess fields.
+ * @throws {@link ShapeMismatchError} in the Effect error channel when storage
+ * length differs from `rows * cols`.
  * @since 0.1.0
  * @category operations
  */
@@ -531,11 +453,14 @@ export const transposeValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware dot product that reads three runtime services from context:
+ * Computes a dot product under the configured precision and diagnostics policies.
  *
- * - **BackendPolicyService** — selects the execution strategy (`"typed-array"` or `"scalar"`)
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `LinearAlgebraDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with timing, backend, and vector-length metadata
+ * @remarks
+ * Unequal vectors are truncated to their shared prefix. Strict precision
+ * rejects a non-finite result. Enabled diagnostics emit one debug log with the
+ * configured backend label, first-vector length, result, and elapsed time.
+ * `BackendPolicyService` is required for that label; its value does not change
+ * the current computation.
  *
  * @example
  * ```ts
@@ -553,15 +478,20 @@ export const transposeValidated = (input: unknown) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = LinearAlgebra.dotWithPolicies(
+ * export const program = LinearAlgebra.dotWithPolicies(
  *   Chunk.fromIterable([1, 2]),
  *   Chunk.fromIterable([3, 4])
- * ).pipe(Effect.provide(policies))
+ * ).pipe(
+ *   Effect.provide(policies),
+ *   Effect.filterOrFail(
+ *     (result) => result === 11,
+ *     () => "UnexpectedDotProduct"
+ *   )
+ * )
  * ```
  *
- * @see {@link dot} for the pure kernel (no service requirements)
- * @see {@link PrecisionPolicyService}
- * @see {@link DiagnosticsPolicyService}
+ * @throws {@link LinearAlgebraDomainViolationError} in the Effect error channel
+ * when strict precision rejects the result.
  * @since 0.1.0
  * @category operations
  */
@@ -581,34 +511,15 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
   })
 
 /**
- * Policy-aware vector norm that reads two runtime services from context:
+ * Evaluates the selected vector norm under the configured runtime policies.
  *
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results (e.g. from overflow) with `LinearAlgebraDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with norm kind, precision policy, and vector length
+ * @remarks
+ * Inputs are not decoded. Strict precision rejects a non-finite result.
+ * Enabled diagnostics emit one debug log with the norm kind, vector length,
+ * result, precision mode, and elapsed time.
  *
- * @example
- * ```ts
- * import { Chunk, Effect, Layer } from "effect"
- * import {
- *   DiagnosticsPolicyService,
- *   LinearAlgebra,
- *   PrecisionPolicyService
- * } from "@scenesystems/effect-math"
- *
- * const policies = Layer.mergeAll(
- *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
- *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
- * )
- *
- * const program = LinearAlgebra.normWithPolicies(
- *   Chunk.fromIterable([3, 4]),
- *   "L2"
- * ).pipe(Effect.provide(policies))
- * ```
- *
- * @see {@link normL1} / {@link normL2} / {@link normLinf} for pure kernels
- * @see {@link PrecisionPolicyService}
- * @see {@link DiagnosticsPolicyService}
+ * @throws {@link LinearAlgebraDomainViolationError} in the Effect error channel
+ * when strict precision rejects the result.
  * @since 0.1.0
  * @category operations
  */

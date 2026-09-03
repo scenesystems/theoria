@@ -15,7 +15,9 @@ import { Schema } from "effect"
 export class CapabilityMismatch extends Schema.TaggedError<CapabilityMismatch>()(
   "effect-inference/CapabilityMismatch",
   {
+    /** Capability key that failed resolution. */
     capability: Schema.String,
+    /** Requested and available values rendered for diagnosis. */
     reason: Schema.String
   }
 ) {}

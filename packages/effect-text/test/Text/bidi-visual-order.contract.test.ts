@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Effect, Layer, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -114,7 +115,7 @@ describe("Text bidi visual ordering contracts", () => {
       const ranges = Text.walkLineRanges(prepared, request)
 
       expect(summary.lineCount).toBe(lines.length)
-      expect(summary.maxLineWidth).toBe(Arr.reduce(lines, 0, (maxWidth, line) => Math.max(maxWidth, line.width)))
+      expect(summary.maxLineWidth).toBe(Arr.reduce(lines, 0, (maxWidth, line) => Numeric.max(maxWidth, line.width)))
       expect(Arr.map(ranges, (range) => range.width)).toEqual(Arr.map(lines, (line) => line.width))
       expect(Arr.every(lines, (line) => line.order === "visual")).toBe(true)
     }))

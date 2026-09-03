@@ -1,12 +1,11 @@
 /**
- * GEPA streaming — project GEPA optimization events as an Effect Stream.
+ * Exposes GEPA execution as a lazy lifecycle-event stream.
  *
  * @since 0.1.0
  */
 export {
   /**
-   * Run the GEPA optimizer and project all lifecycle events as an Effect
-   * Stream.
+   * Drives GEPA through stream consumption and emits events in execution order.
    *
    * @since 0.1.0
    * @category constructors

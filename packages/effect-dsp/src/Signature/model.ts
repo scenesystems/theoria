@@ -1,42 +1,39 @@
 /**
- * Core Signature model — the typed I/O specification that every module
- * is built from.
+ * Runtime schemas and prompt metadata that define a module boundary.
  *
  * @since 0.1.0
  */
 import { Data, Schema } from "effect"
 
 /**
- * Metadata extracted from a single `Schema.Struct` property signature —
- * field name, optional human-readable description (set via
- * {@link describe}), and whether the field is optional. The
- * {@link Signature} constructor populates these automatically from
- * the input and output Schema fields.
+ * Records prompt metadata derived from one input or output field.
  *
- * @see {@link describe} — annotates a Schema field with a description
- * @see {@link Signature} — carries an array of FieldInfo
+ * @remarks
+ * {@link make} obtains optionality from the property signature and descriptions
+ * from {@link describe} annotations.
  *
  * @since 0.1.0
  * @category models
  */
 export class FieldInfo extends Schema.Class<FieldInfo>("FieldInfo")({
+  /** Property key rendered in the derived instructions. */
   name: Schema.String,
+  /** Caller-authored field meaning, when the field schema has a description annotation. */
   description: Schema.OptionFromSelf(Schema.String),
+  /** Whether the struct property may be omitted from decoded values. */
   isOptional: Schema.Boolean
 }) {}
 
 /**
- * Immutable, branded specification of a module's typed I/O contract.
- * A Signature pairs a `Schema.Struct` for inputs with a `Schema.Struct`
- * for outputs, a human-readable `description`, and auto-derived
- * `instructions` text. Modules receive their Signature at construction
- * time and never mutate it — optimizers change the module's `ModuleParams`,
- * not its Signature.
+ * Fixes the decoded input and output boundary used by a module.
  *
- * @see {@link make} — canonical constructor that validates and derives fields
- * @see {@link Input} — extracts the decoded input type
- * @see {@link Output} — extracts the decoded output type
- * @see {@link FieldInfo} — per-field metadata carried by the Signature
+ * @remarks
+ * Module execution decodes through the retained struct schemas. Optimizers may
+ * replace a module's instruction parameters, but they do not alter this value or
+ * its input and output types.
+ *
+ * @typeParam I - Input fields retained by `inputSchema` and {@link Input}.
+ * @typeParam O - Output fields retained by `outputSchema` and {@link Output}.
  *
  * @since 0.1.0
  * @category models
@@ -45,31 +42,38 @@ export class Signature<
   I extends Schema.Struct.Fields = Schema.Struct.Fields,
   O extends Schema.Struct.Fields = Schema.Struct.Fields
 > extends Data.TaggedClass("Signature")<{
+  /** Task description supplied to {@link make}. */
   readonly description: string
+  /** Default prompt derived from the task description and field metadata. */
   readonly instructions: string
+  /** Original input field record. */
   readonly inputFields: I
+  /** Original output field record. */
   readonly outputFields: O
+  /** Struct schema used to decode module inputs. */
   readonly inputSchema: Schema.Struct<I>
+  /** Struct schema used to decode module outputs. */
   readonly outputSchema: Schema.Struct<O>
+  /** Input metadata followed by output metadata, preserving field order. */
   readonly fields: ReadonlyArray<FieldInfo>
 }> {}
 
 /**
- * Extracts the decoded input type from a {@link Signature}.
+ * Selects the decoded input represented by a {@link Signature}.
  *
- * @see {@link Signature}
- * @see {@link Output} — the output counterpart
+ * @typeParam S - Value carrying the schema that decodes module inputs.
+ *
  * @since 0.1.0
  * @category type-level
  */
-export type Input<S extends Signature> = Schema.Schema.Type<S["inputSchema"]>
+export type Input<S extends { readonly inputSchema: Schema.Schema.Any }> = Schema.Schema.Type<S["inputSchema"]>
 
 /**
- * Extracts the decoded output type from a {@link Signature}.
+ * Selects the decoded output represented by a {@link Signature}.
  *
- * @see {@link Signature}
- * @see {@link Input} — the input counterpart
+ * @typeParam S - Value carrying the schema that decodes module outputs.
+ *
  * @since 0.1.0
  * @category type-level
  */
-export type Output<S extends Signature> = Schema.Schema.Type<S["outputSchema"]>
+export type Output<S extends { readonly outputSchema: Schema.Schema.Any }> = Schema.Schema.Type<S["outputSchema"]>

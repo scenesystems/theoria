@@ -1,5 +1,5 @@
 /**
- * OpenAI-compatible family live adapters and resolution helpers.
+ * Live language and embedding layers for OpenAI-compatible endpoints.
  *
  * @since 0.1.0
  */
@@ -59,8 +59,9 @@ const resolvedModelLayers = (options: {
   })
 
 /**
- * Canonical chat-completions adapter lane for brokered, dedicated, and
- * self-hosted OpenAI-compatible runtimes.
+ * Constructs a fully provided `LanguageModel` for OpenRouter-compatible chat
+ * completions at `baseUrl`. Layer construction is infallible; transport and
+ * provider failures occur when model operations run.
  *
  * @since 0.1.0
  * @category layers
@@ -71,8 +72,9 @@ export const OpenAiCompatibleLive = (options: {
 }): Layer.Layer<LanguageModel.LanguageModel, never, never> => compatibleLanguageLayer(options)
 
 /**
- * Canonical embeddings adapter lane for OpenAI-compatible runtimes whose
- * embedding surface follows the OpenAI schema.
+ * Constructs a fully provided `EmbeddingModel` for OpenAI-compatible batched
+ * requests at `baseUrl`. Layer construction is infallible; request failures
+ * remain in Effect AI's model-operation channel.
  *
  * @since 0.1.0
  * @category layers
@@ -83,8 +85,10 @@ export const OpenAiCompatibleEmbeddingsLive = (options: {
 }): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> => compatibleEmbeddingLayer(options)
 
 /**
- * Builds a live OpenAI-compatible runtime-resolution record around the shared
- * transport seam.
+ * Resolves a descriptor without network I/O. A missing route becomes an
+ * unauthenticated local `OpenAiCompatible` route at `baseUrl`; an existing
+ * route is retained, including its own base URL. Model layers are included only
+ * for capabilities declared by the package's conservative route matrix.
  *
  * @since 0.1.0
  * @category constructors

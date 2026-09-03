@@ -1,31 +1,34 @@
-import { HttpMiddleware, HttpServer } from "@effect/platform"
-import { BunFileSystem, BunHttpServer } from "@effect/platform-bun"
+import { HttpMiddleware } from "@effect/platform"
 import { Layer } from "effect"
 
-import { PackageVersionsLive } from "./config/package-versions.js"
+import { DocsCatalogLive } from "./config/docs-catalog.js"
+import { serverReleaseStage } from "./config/release-stage.js"
 import { RuntimeInfoLive } from "./config/runtime.js"
-import { DspProviderRuntimeLive } from "./demos/effect-dsp/provider.js"
-import { ExecutionPolicyLive } from "./demos/policy.js"
-import { DemoRateLimiterLive } from "./demos/rate-limiter.js"
+import { ParticipantsLive } from "./imagined-place/authority.js"
+import { indexingPolicy } from "./indexing-policy.js"
 import { app } from "./router.js"
 import { securityHeaders } from "./security-headers.js"
 
-const parsedPort = Number.parseInt(Bun.env.PORT ?? "3876", 10)
-const port = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3876
-
-const publicApp = app.pipe(
+/**
+ * The public HTTP application, independent of the hosting runtime.
+ *
+ * `apps/theoria/server.ts` serves it with Bun; `apps/theoria/worker.ts`
+ * serves it as a Cloudflare Worker. Both provide a `StaticStore` for the
+ * built web bundle and a `ConfigProvider` for deployment variables.
+ */
+export const publicApp = app.pipe(
+  // Innermost first: `indexingPolicy` reads the host after proxy headers apply.
+  indexingPolicy,
   HttpMiddleware.xForwardedHeaders,
   securityHeaders
 )
 
-export const HttpLive = HttpServer.serve(publicApp, HttpMiddleware.logger)
-  .pipe(
-    HttpServer.withLogAddress,
-    Layer.provide(ExecutionPolicyLive),
-    Layer.provide(DemoRateLimiterLive),
-    Layer.provide(DspProviderRuntimeLive),
-    Layer.provide(PackageVersionsLive),
-    Layer.provide(RuntimeInfoLive),
-    Layer.provide(BunFileSystem.layer),
-    Layer.provide(BunHttpServer.layer({ port, idleTimeout: 120 }))
-  )
+/** Fails layer construction when `RELEASE_STAGE` holds an unsupported value. */
+const ReleaseStageCheck = Layer.effectDiscard(serverReleaseStage)
+
+export const AppLayer = Layer.mergeAll(
+  ParticipantsLive,
+  DocsCatalogLive,
+  RuntimeInfoLive,
+  ReleaseStageCheck
+)

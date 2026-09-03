@@ -1,27 +1,20 @@
 /**
- * Conditional Spaces — tune branch-specific knobs in one study.
- *
- * Real use case: compare linear and tree models with different parameter sets.
- *
- * What this shows: tree-structured search where different model families activate different parameter branches.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Compares linear and tree models in one study while activating only the
+ * parameters that belong to the selected model family.
  *
  * Run: bun run examples/07-conditional-spaces.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const linearLoss = (learningRate: number, regularization: number): number =>
-  (Math.log10(learningRate) - Math.log10(0.02)) ** 2 + regularization * 0.4
+  Numeric.pow(Numeric.log10(learningRate) - Numeric.log10(0.02), 2) + regularization * 0.4
 
 const treeLoss = (maxDepth: number, minSamplesLeaf: number): number =>
-  ((maxDepth - 7) / 7) ** 2 + ((minSamplesLeaf - 2) / 4) ** 2 + 0.05
+  Numeric.pow((maxDepth - 7) / 7, 2) + Numeric.pow((minSamplesLeaf - 2) / 4, 2) + 0.05
 
 const program = Effect.gen(function*() {
   const linearBranch = yield* SearchSpace.make({

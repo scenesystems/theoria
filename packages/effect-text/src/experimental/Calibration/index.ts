@@ -1,5 +1,5 @@
 /**
- * Experimental calibration helpers for engine-profile work.
+ * Experimental comparison of candidate engine profiles against expected line geometry.
  *
  * These exports are intentionally unstable and may change outside semver guarantees.
  *
@@ -7,7 +7,7 @@
  */
 
 /**
- * Stability lane for the experimental calibration module.
+ * Marks calibration schemas, evaluation, and search as outside semver guarantees.
  *
  * @since 0.1.0
  * @category stability
@@ -15,7 +15,7 @@
 export const CalibrationStability = "unstable"
 
 /**
- * Public schemas and schema-derived types for calibration corpora and reports.
+ * Candidate profiles, expected line geometry, weighted losses, and resumable study artifacts.
  *
  * @since 0.2.0
  */
@@ -30,7 +30,7 @@ export * from "./evaluation.js"
 
 /**
  * effect-search-backed search-space construction, snapshot artifacts, and
- * profile optimization helpers.
+ * profile optimization runs.
  *
  * @since 0.2.0
  */

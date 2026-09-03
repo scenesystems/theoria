@@ -1,19 +1,8 @@
 /**
- * ReAct agent with tool use + BootstrapFewShot optimization — live LLM.
- *
- * A multi-step word-problem solver that reasons step-by-step and calls
- * Calculator and UnitConverter tools to derive answers. Some problems
- * require chaining two tool calls across separate ReAct iterations.
- * After a baseline evaluation, BootstrapFewShot generates teacher-traced
- * demonstrations to improve the student module.
- *
- * What this shows:
- * - `Module.react` with multiple tools in a single Toolkit
- * - Multi-iteration ReAct loops (tool-call → observation → tool-call → answer)
- * - `Trace.withTracing` for per-iteration trace inspection
- * - `Evaluate.run` with `Metric.exactMatch` for scored assessment
- * - `Optimizer.bootstrapFewShot` driving trace-based demo selection
- * - Config-driven live provider wiring (OpenAI, Anthropic, or OpenRouter)
+ * Evaluates a live ReAct word-problem solver, bootstraps demonstrations from
+ * teacher traces, and compares exact-match scores before and after optimization.
+ * The calculator and unit-conversion tools can be called across multiple ReAct
+ * iterations.
  *
  * Required env:
  *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)
@@ -28,10 +17,11 @@ import * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature, Trace } from "@scenesystems/effect-dsp"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Ref, Schema } from "effect"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
-// ── Tools ──────────────────────────────────────────────────────────
+// Tools
 
 const Calculator = Tool.make("Calculator", {
   description:
@@ -43,8 +33,7 @@ const Calculator = Tool.make("Calculator", {
 })
 
 const UnitConverter = Tool.make("UnitConverter", {
-  description:
-    "Convert a numeric value between units. Supports: miles↔km (1 mi = 1.60934 km), lbs↔kg (1 lb = 0.453592 kg), F↔C (C = (F-32)*5/9)",
+  description: "Convert miles and kilometers, pounds and kilograms, or Fahrenheit and Celsius",
   parameters: {
     value: Schema.Number,
     from: Schema.String,
@@ -75,12 +64,12 @@ const convertUnit = (value: number, from: string, to: string): string => {
   const fromLower = from.toLowerCase()
   const toLower = to.toLowerCase()
 
-  if (fromLower === "miles" && toLower === "km") return String(Math.round(value * 1.60934 * 100) / 100)
-  if (fromLower === "km" && toLower === "miles") return String(Math.round(value / 1.60934 * 100) / 100)
-  if (fromLower === "lbs" && toLower === "kg") return String(Math.round(value * 0.453592 * 100) / 100)
-  if (fromLower === "kg" && toLower === "lbs") return String(Math.round(value / 0.453592 * 100) / 100)
-  if (fromLower === "f" && toLower === "c") return String(Math.round((value - 32) * 5 / 9 * 100) / 100)
-  if (fromLower === "c" && toLower === "f") return String(Math.round((value * 9 / 5 + 32) * 100) / 100)
+  if (fromLower === "miles" && toLower === "km") return String(Numeric.round(value * 1.60934, 2))
+  if (fromLower === "km" && toLower === "miles") return String(Numeric.round(value / 1.60934, 2))
+  if (fromLower === "lbs" && toLower === "kg") return String(Numeric.round(value * 0.453592, 2))
+  if (fromLower === "kg" && toLower === "lbs") return String(Numeric.round(value / 0.453592, 2))
+  if (fromLower === "f" && toLower === "c") return String(Numeric.round((value - 32) * 5 / 9, 2))
+  if (fromLower === "c" && toLower === "f") return String(Numeric.round(value * 9 / 5 + 32, 2))
 
   return String(value)
 }
@@ -113,7 +102,7 @@ const toolkit: Toolkit.WithHandler<{
   }
 }
 
-// ── Datasets ───────────────────────────────────────────────────────
+// Datasets
 
 const trainset = Arr.make(
   new Example.Example({
@@ -149,7 +138,7 @@ const evalset = Arr.make(
   })
 )
 
-// ── Main program ──────────────────────────────────────────────────
+// Program
 
 const program = Effect.gen(function*() {
   // 1. Define signature
@@ -171,7 +160,7 @@ const program = Effect.gen(function*() {
     maxIterations: 5
   })
 
-  // 3. Single traced inference — inspect the ReAct loop
+  // Inspect one traced ReAct run.
   const [singleResult, singleTraces] = yield* Trace.withTracing(
     solver.forward({
       problem: "A car travels 65 miles per hour for 4 hours. How many kilometers is that? Round to 2 decimal places."

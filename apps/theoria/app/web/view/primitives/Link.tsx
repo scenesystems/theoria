@@ -1,24 +1,53 @@
-import type { ReactNode } from "react"
+import { useAtomSet } from "@effect-atom/atom-react"
+import type { AnchorHTMLAttributes, ComponentProps, MouseEvent, ReactNode } from "react"
+
+import { navigateAtom, shouldNavigateInBrowser } from "../../atoms/navigation.js"
+
+/** Anchor props including React 19's `ref` prop, so a caller can move focus to the link. */
+type InternalLinkProps = Omit<ComponentProps<"a">, "href"> & {
+  readonly href: string
+}
 
 /**
  * Internal (same-origin) navigation link.
  *
- * Renders a plain anchor for client-side navigation. Use for all internal
- * hrefs (e.g. `/demos/effect-text`).
+ * Preserves native anchor behavior while handling known application routes
+ * through the browser navigation atom.
  */
 export const InternalLink = ({
   children,
-  className,
-  href
-}: {
-  readonly children: ReactNode
-  readonly className?: string
-  readonly href: string
-}) => (
-  <a className={className} href={href}>
-    {children}
-  </a>
-)
+  href,
+  onClick,
+  ...props
+}: InternalLinkProps) => {
+  const navigate = useAtomSet(navigateAtom)
+
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    onClick?.(event)
+
+    if (
+      shouldNavigateInBrowser({
+        altKey: event.altKey,
+        button: event.button,
+        ctrlKey: event.ctrlKey,
+        defaultPrevented: event.defaultPrevented,
+        href,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        target: props.target ?? null
+      })
+    ) {
+      event.preventDefault()
+      navigate(href)
+    }
+  }
+
+  return (
+    <a {...props} href={href} onClick={handleClick}>
+      {children}
+    </a>
+  )
+}
 
 /**
  * External (cross-origin) navigation link.
@@ -28,14 +57,20 @@ export const InternalLink = ({
  */
 export const ExternalLink = ({
   children,
-  className,
-  href
-}: {
-  readonly children: ReactNode
-  readonly className?: string
+  href,
+  ...props
+}: InternalLinkProps) => (
+  <a {...props} href={href} rel="noopener noreferrer" target="_blank">
+    {children}
+  </a>
+)
+
+type AnchorLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
   readonly href: string
-}) => (
-  <a className={className} href={href} rel="noopener noreferrer" target="_blank">
+}
+
+export const AnchorLink = ({ children, href, ...props }: AnchorLinkProps) => (
+  <a {...props} href={href}>
     {children}
   </a>
 )
@@ -56,7 +91,7 @@ export const CardLink = ({
   readonly className?: string
   readonly href: string
 }) => (
-  <a className={`after:absolute after:inset-0 after:content-[''] ${className ?? ""}`} href={href}>
+  <InternalLink className={`after:absolute after:inset-0 after:content-[''] ${className ?? ""}`} href={href}>
     {children}
-  </a>
+  </InternalLink>
 )

@@ -29,6 +29,26 @@ export const Header = <E extends ElementType = "header">({
   return <Component {...props} className={classes("min-w-0", className)} />
 }
 
+export const Main = <E extends ElementType = "main">({
+  as,
+  className,
+  ...props
+}: SlotProps<E>) => {
+  const Component = as ?? "main"
+
+  return <Component {...props} className={classes("min-w-0", className)} />
+}
+
+export const Nav = <E extends ElementType = "nav">({
+  as,
+  className,
+  ...props
+}: SlotProps<E>) => {
+  const Component = as ?? "nav"
+
+  return <Component {...props} className={classes("min-w-0", className)} />
+}
+
 export const Section = <E extends ElementType = "section">({
   as,
   className,

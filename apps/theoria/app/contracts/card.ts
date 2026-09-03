@@ -1,9 +1,6 @@
-import { Match, Schema } from "effect"
-import * as Arr from "effect/Array"
-import * as Option from "effect/Option"
+import { Schema } from "effect"
 
 import { Id } from "./id.js"
-import type { ReleaseStage } from "./release-stage.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -20,47 +17,9 @@ export const PackageGroup = Schema.Literal("effect", "scenesystems")
 export type PackageGroup = typeof PackageGroup.Type
 
 /**
- * Display metadata for a package group on the home page.
- *
- * @since 0.1.0
- */
-export const PackageGroupMeta = Schema.Struct({
-  label: NonEmptyString,
-  description: NonEmptyString
-})
-
-export type PackageGroupMeta = typeof PackageGroupMeta.Type
-
-export const CardDemoState = Schema.Literal("live", "in-development")
-
-export type CardDemoState = typeof CardDemoState.Type
-
-/**
- * Resolved display metadata for each package group.
- *
- * @since 0.1.0
- */
-export const packageGroupMeta = (group: PackageGroup): PackageGroupMeta =>
-  Match.value(group).pipe(
-    Match.when("effect", () => ({
-      label: "Computation and model programs",
-      description:
-        "Calculations become reproducible studies and model programs that show how they ran. Text can be measured once and laid out as the available space changes."
-    })),
-    Match.when("scenesystems", () => ({
-      label: "Content and cryptography",
-      description:
-        "Digests give content a stable identity. Signatures authenticate it against a key, while encryption protects what should remain private."
-    })),
-    Match.exhaustive
-  )
-
-/**
- * Full card definition consumed by both the home catalog and deep-dive pages.
- *
- * The `version` field provides a static fallback. Live versions are resolved
- * at runtime from the `/api/versions/packages` endpoint which reads the
- * workspace `package.json` files on server startup.
+ * Identity and publication metadata for each package the site presents. The
+ * `version` field is the static fallback; the docs index shows the manifest
+ * version resolved at build time.
  *
  * @since 0.1.0
  */
@@ -69,17 +28,11 @@ export const Card = Schema.Struct({
   title: NonEmptyString,
   packageName: NonEmptyString,
   description: NonEmptyString,
-  useCase: NonEmptyString,
-  summary: NonEmptyString,
-  runLabel: NonEmptyString,
-  deepDivePath: NonEmptyString,
   group: PackageGroup,
-  demoState: CardDemoState,
   version: NonEmptyString,
   npmUrl: NonEmptyString,
   repoUrl: NonEmptyString,
-  license: NonEmptyString,
-  interactiveLabel: Schema.optional(NonEmptyString)
+  license: NonEmptyString
 })
 
 export type Card = typeof Card.Type
@@ -90,63 +43,40 @@ export const cards: ReadonlyArray<Card> = [
     title: "@scenesystems/effect-math",
     packageName: "@scenesystems/effect-math",
     description: "Numerical and statistical computing with typed errors and runtime policy.",
-    useCase: "Numerical analysis and statistical modeling inside application code.",
-    summary: "Explore how sample size, effect size, and target power trade off.",
-    runLabel: "Run Power Analysis",
-    deepDivePath: "/demos/effect-math",
     group: "effect",
-    demoState: "live",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-math",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
-    license: "MIT",
-    interactiveLabel: "Power Explorer"
+    license: "MIT"
   },
   {
     id: "effect-search",
     title: "@scenesystems/effect-search",
     packageName: "@scenesystems/effect-search",
     description: "Runs reproducible optimization studies with adaptive and seeded samplers.",
-    useCase: "Hyperparameter tuning, experiment design, and other expensive search problems.",
-    summary: "Compare TPE against seeded random search on the same trial budget.",
-    runLabel: "Run Optimizer Comparison",
-    deepDivePath: "/demos/effect-search",
     group: "effect",
-    demoState: "live",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-search",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-search",
-    license: "MIT",
-    interactiveLabel: "Live Optimization"
+    license: "MIT"
   },
   {
     id: "effect-dsp",
     title: "@scenesystems/effect-dsp",
     packageName: "@scenesystems/effect-dsp",
     description: "Builds typed language-model programs for evaluation and optimization.",
-    useCase: "Build, evaluate, and optimize LLM workflows as typed programs.",
-    summary: "Run a typed classifier and compare it with a heuristic baseline.",
-    runLabel: "Run Model Evaluation",
-    deepDivePath: "/demos/effect-dsp",
     group: "effect",
-    demoState: "live",
     version: "0.1.4",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-dsp",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp",
-    license: "MIT",
-    interactiveLabel: "Typed Evaluation"
+    license: "MIT"
   },
   {
     id: "effect-inference",
     title: "@scenesystems/effect-inference",
     packageName: "@scenesystems/effect-inference",
     description: "Resolves model requests across providers and records execution evidence.",
-    useCase: "Keep requested model intent, resolved route, and execution evidence separate.",
-    summary: "Resolve a descriptor, inspect the route, and collect runtime evidence.",
-    runLabel: "Run Runtime Resolution",
-    deepDivePath: "/demos/effect-inference",
     group: "effect",
-    demoState: "in-development",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-inference",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-inference",
@@ -157,29 +87,18 @@ export const cards: ReadonlyArray<Card> = [
     title: "@scenesystems/effect-text",
     packageName: "@scenesystems/effect-text",
     description: "Measures text once and reflows it as width or obstacle constraints change.",
-    useCase: "Prepare text once, then reflow it across widths and obstacles.",
-    summary: "Measure in the browser and reflow the same text as the container changes.",
-    runLabel: "Run Benchmark",
-    deepDivePath: "/demos/effect-text",
     group: "effect",
-    demoState: "live",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-text",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
-    license: "MIT",
-    interactiveLabel: "Live Reflow"
+    license: "MIT"
   },
   {
     id: "digest",
     title: "@scenesystems/digest",
     packageName: "@scenesystems/digest",
     description: "Creates stable cryptographic identifiers for structured data.",
-    useCase: "Stable fingerprints, integrity checks, and content addressing.",
-    summary: "Hash a structured value with BLAKE3-256 and SHA-256.",
-    runLabel: "Run Digest Demo",
-    deepDivePath: "/demos/digest",
     group: "scenesystems",
-    demoState: "live",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/digest",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/digest",
@@ -190,12 +109,7 @@ export const cards: ReadonlyArray<Card> = [
     title: "@scenesystems/sign",
     packageName: "@scenesystems/sign",
     description: "Signs messages and derives shared secrets with classical or post-quantum algorithms.",
-    useCase: "Switch between classical and post-quantum algorithms without changing the workflow.",
-    summary: "Generate Ed25519 keys, sign a message, and verify it.",
-    runLabel: "Run Signature Demo",
-    deepDivePath: "/demos/sign",
     group: "scenesystems",
-    demoState: "live",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/sign",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/sign",
@@ -206,38 +120,10 @@ export const cards: ReadonlyArray<Card> = [
     title: "@scenesystems/seal",
     packageName: "@scenesystems/seal",
     description: "Encrypts data in envelopes that carry their decryption parameters.",
-    useCase: "Encrypt data without tracking algorithm and nonce separately.",
-    summary: "Seal and unseal data with XChaCha20-Poly1305.",
-    runLabel: "Run Encryption Demo",
-    deepDivePath: "/demos/seal",
     group: "scenesystems",
-    demoState: "live",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/seal",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/seal",
     license: "MIT"
   }
 ]
-
-export const effectCards: ReadonlyArray<Card> = Arr.filter(cards, (c) => c.group === "effect")
-
-export const scenesystemsCards: ReadonlyArray<Card> = Arr.filter(cards, (c) => c.group === "scenesystems")
-
-export const liveDemoCards: ReadonlyArray<Card> = Arr.filter(cards, (card) => card.demoState === "live")
-
-export const cardById = (id: Card["id"]): Option.Option<Card> => Arr.findFirst(cards, (card) => card.id === id)
-
-export const cardVisibleInReleaseStage = (_card: Card, stage: ReleaseStage): boolean =>
-  Match.value(stage).pipe(
-    Match.when("preview", () => true),
-    Match.when("production", () => false),
-    Match.exhaustive
-  )
-
-export const cardsForReleaseStage = (stage: ReleaseStage): ReadonlyArray<Card> =>
-  Arr.filter(cards, (card) => cardVisibleInReleaseStage(card, stage))
-
-export const cardByIdForReleaseStage = (id: Card["id"], stage: ReleaseStage): Option.Option<Card> =>
-  cardById(id).pipe(
-    Option.filter((card) => cardVisibleInReleaseStage(card, stage))
-  )

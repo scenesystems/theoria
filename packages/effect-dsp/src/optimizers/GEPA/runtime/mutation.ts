@@ -4,6 +4,7 @@
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Option } from "effect"
 import type { Schema } from "effect"
 
@@ -113,7 +114,10 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
     )
 
     const mutatedEvaluation = yield* evaluateCandidate(options, mutationWithFallback)
-    const subsampleSize = Math.min(3, parentEvaluation.scores.length, mutatedEvaluation.scores.length)
+    const subsampleSize = Numeric.min(
+      Numeric.min(3, parentEvaluation.scores.length),
+      mutatedEvaluation.scores.length
+    )
     const acceptance = yield* evaluateMutationAcceptance({
       previousSubsampleScores: Arr.take(parentEvaluation.scores, subsampleSize),
       mutatedSubsampleScores: Arr.take(mutatedEvaluation.scores, subsampleSize),

@@ -52,17 +52,15 @@
     "lint": "eslint --max-warnings=0 src test benchmarks examples",
     "lint:fix": "eslint --max-warnings=0 --fix src test benchmarks examples",
     "test": "vitest run --root ../.. packages/effect-text/test",
-    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "bench": "bun benchmarks/run.ts",
-    "verify:browser-parity": "bun examples/live/browserAccuracyHarness.ts",
+    "verify:synthetic-regression": "bun examples/live/syntheticRegressionHarness.ts",
     "verify:calibration": "bun benchmarks/verifyCalibration.ts",
     "verify:support-manifest": "bun benchmarks/verifySupportManifest.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
     "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
-    "clean": "rm -rf build dist .tsbuildinfo",
-    "docgen": "docgen"
+    "clean": "rm -rf build dist .tsbuildinfo"
   },
   "peerDependencies": {
     "effect": "^3.22.1"

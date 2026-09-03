@@ -1,10 +1,7 @@
 /**
- * Content Hashing — core hashing workflows with @scenesystems/digest.
- *
- * What this shows: hash the same message with BLAKE3 and SHA-256, encode the output
- * as base64url and hex, then verify that `digestUtf8` produces identical results as
- * the manual bytes → hash → encode path. Different algorithms produce different
- * digests — this is expected and visible in the log output.
+ * Hashes the same UTF-8 message with BLAKE3 and SHA-256, compares the one-shot
+ * helper with the explicit byte pipeline, and logs base64url and hexadecimal
+ * encodings.
  *
  * Run: bun run examples/01-content-hashing.ts
  */

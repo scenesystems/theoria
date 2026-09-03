@@ -1,5 +1,5 @@
 /**
- * Calculus schema authority — domain model and operation boundary contracts.
+ * Defines discovery metadata and serializable settings for numerical calculus.
  *
  * @since 0.1.0
  * @category schemas
@@ -11,7 +11,7 @@ import { AbsoluteTolerance, IterationBudget, RelativeTolerance, StepSize } from 
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
 /**
- * Calculus domain model schema.
+ * Accepts only the `"Calculus"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -22,7 +22,7 @@ export const CalculusDomainSchema = Schema.Struct({
 })
 
 /**
- * Calculus schema-derived type.
+ * Decoded Calculus discovery descriptor.
  *
  * @since 0.1.0
  * @category models
@@ -30,7 +30,10 @@ export const CalculusDomainSchema = Schema.Struct({
 export type CalculusDomain = typeof CalculusDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical calculus domain model.
+ * Decodes Calculus discovery metadata and rejects excess fields.
+ *
+ * @throws {@link BoundaryDecodeError} in the Effect error channel when the
+ * discriminator, stability, or object shape is invalid.
  *
  * @since 0.1.0
  * @category schemas
@@ -51,7 +54,10 @@ export const decodeCalculusDomain = (input: unknown) =>
   )
 
 /**
- * Encodes the canonical calculus domain model at the package boundary.
+ * Encodes validated Calculus discovery metadata.
+ *
+ * @throws {@link BoundaryEncodeError} in the Effect error channel when a
+ * value has been forged outside the `CalculusDomain` type.
  *
  * @since 0.1.0
  * @category schemas
@@ -70,7 +76,7 @@ export const encodeCalculusDomain = (domain: CalculusDomain) =>
   )
 
 /**
- * Calculus boundary encode/decode errors.
+ * Identifies Calculus descriptor decode and encode failures.
  *
  * @since 0.1.0
  * @category errors
@@ -90,7 +96,13 @@ const RidderContractionFactor = GreaterThanOneFiniteNumber.pipe(Schema.brand("Ri
 const RidderSafetyFactor = GreaterThanOneFiniteNumber.pipe(Schema.brand("RidderSafetyFactor"))
 
 /**
- * Ridder-method tuning envelope shared across derivative-based operators.
+ * Accepts optional stopping and refinement controls for Ridder extrapolation.
+ *
+ * @remarks
+ * Defaults are `1e-2` for `initialStep`, `1.4` for `contractionFactor`, `12`
+ * iterations, `1e-12` absolute tolerance, `1e-10` relative tolerance,
+ * `1e-14` for `minimumStep`, and `2.5` for `safetyFactor`. Step sizes and
+ * tolerances must be positive. Contraction and safety factors must exceed `1`.
  *
  * @since 0.2.0
  * @category schemas
@@ -106,7 +118,7 @@ export const RidderMethodInput = Schema.Struct({
 }).annotations({ identifier: "RidderMethodInput" })
 
 /**
- * Ridder-method tuning envelope type.
+ * Decoded Ridder extrapolation controls with optional fields preserved.
  *
  * @since 0.2.0
  * @category models
@@ -114,7 +126,7 @@ export const RidderMethodInput = Schema.Struct({
 export type RidderMethodInputType = typeof RidderMethodInput.Type
 
 /**
- * First/second derivative limit estimate payload.
+ * Accepts a finite derivative estimate with finite error and positive iteration count.
  *
  * @since 0.2.0
  * @category schemas
@@ -127,7 +139,12 @@ export const DerivativeLimitEstimateSchema = Schema.Struct({
 }).annotations({ identifier: "DerivativeLimitEstimate" })
 
 /**
- * First/second derivative limit estimate type.
+ * Records the selected derivative estimate and its refinement status.
+ *
+ * @remarks
+ * Pure operations can return positive infinity for `absoluteError` when no
+ * finite refinement is available. Such a value does not decode through
+ * {@link DerivativeLimitEstimateSchema}.
  *
  * @since 0.2.0
  * @category models
@@ -135,7 +152,7 @@ export const DerivativeLimitEstimateSchema = Schema.Struct({
 export type DerivativeLimitEstimate = typeof DerivativeLimitEstimateSchema.Type
 
 /**
- * Univariate first-derivative input envelope.
+ * Accepts a finite point and optional Ridder controls for first differentiation.
  *
  * @since 0.1.0
  * @category schemas
@@ -146,7 +163,7 @@ export const DerivativeInput = Schema.extend(
 ).annotations({ identifier: "DerivativeInput" })
 
 /**
- * Univariate second-derivative input envelope.
+ * Accepts a finite point and optional Ridder controls for second differentiation.
  *
  * @since 0.2.0
  * @category schemas
@@ -157,7 +174,7 @@ export const SecondDerivativeInput = Schema.extend(
 ).annotations({ identifier: "SecondDerivativeInput" })
 
 /**
- * Trapezoidal-rule input envelope.
+ * Accepts finite samples and positive spacing for composite trapezoidal integration.
  *
  * @since 0.1.0
  * @category schemas
@@ -168,7 +185,7 @@ export const TrapezoidInput = Schema.Struct({
 }).annotations({ identifier: "TrapezoidInput" })
 
 /**
- * Simpson-rule input envelope.
+ * Accepts finite samples and positive spacing for Simpson integration with a final-interval fallback.
  *
  * @since 0.1.0
  * @category schemas
@@ -179,7 +196,11 @@ export const SimpsonInput = Schema.Struct({
 }).annotations({ identifier: "SimpsonInput" })
 
 /**
- * Adaptive-Simpson input with independent absolute and relative tolerances.
+ * Accepts finite integration bounds and optional positive adaptive-Simpson controls.
+ *
+ * @remarks
+ * Defaults are `1e-10` for both tolerances and `16` for `maxDepth`. Bound
+ * ordering is preserved, so reversing the bounds reverses the integral's sign.
  *
  * @since 0.2.0
  * @category schemas
@@ -203,7 +224,7 @@ const PointInput = Schema.Struct({
 })
 
 /**
- * Gradient input envelope.
+ * Accepts a non-empty finite point and optional Ridder controls for a gradient.
  *
  * @since 0.2.0
  * @category schemas
@@ -213,7 +234,7 @@ export const GradientInput = Schema.extend(PointInput, RidderMethodInput).annota
 })
 
 /**
- * Jacobian input envelope.
+ * Accepts a non-empty finite point and optional Ridder controls for a Jacobian.
  *
  * @since 0.2.0
  * @category schemas
@@ -223,7 +244,7 @@ export const JacobianInput = Schema.extend(PointInput, RidderMethodInput).annota
 })
 
 /**
- * Hessian input envelope.
+ * Accepts a non-empty finite point and optional Ridder controls for a Hessian.
  *
  * @since 0.2.0
  * @category schemas
@@ -233,7 +254,10 @@ export const HessianInput = Schema.extend(PointInput, RidderMethodInput).annotat
 })
 
 /**
- * Directional-derivative input envelope.
+ * Accepts non-empty finite point and direction vectors plus optional Ridder controls.
+ *
+ * @remarks
+ * The schema does not require equal vector lengths or a non-zero direction.
  *
  * @since 0.2.0
  * @category schemas
@@ -247,7 +271,7 @@ export const DirectionalDerivativeInput = Schema.extend(
 ).annotations({ identifier: "DirectionalDerivativeInput" })
 
 /**
- * Divergence input envelope.
+ * Accepts a non-empty finite point and optional Ridder controls for divergence.
  *
  * @since 0.2.0
  * @category schemas
@@ -257,7 +281,7 @@ export const DivergenceInput = Schema.extend(PointInput, RidderMethodInput).anno
 })
 
 /**
- * Laplacian input envelope.
+ * Accepts a non-empty finite point and optional Ridder controls for a Laplacian.
  *
  * @since 0.2.0
  * @category schemas

@@ -1,13 +1,12 @@
 /**
- * Shared acquisition strategy contracts used by multiple samplers.
+ * Names accepted when configuring a built-in Bayesian acquisition strategy.
  *
  * @since 0.1.0
  */
 import { Match, Schema } from "effect"
 
 /**
- * Schema that validates a string as one of the built-in acquisition
- * strategy names: `"ei"`, `"pi"`, or `"thompson"`.
+ * Decodes the built-in `"ei"`, `"pi"`, and `"thompson"` strategy names.
  *
  * @since 0.1.0
  * @category schemas
@@ -15,7 +14,7 @@ import { Match, Schema } from "effect"
 export const BuiltInAcquisitionNameSchema = Schema.Literal("ei", "pi", "thompson")
 
 /**
- * Literal union type of built-in acquisition strategy names.
+ * Selects one of the acquisition strategies implemented by the built-in samplers.
  *
  * @since 0.1.0
  * @category models
@@ -23,7 +22,7 @@ export const BuiltInAcquisitionNameSchema = Schema.Literal("ei", "pi", "thompson
 export type BuiltInAcquisitionName = Schema.Schema.Type<typeof BuiltInAcquisitionNameSchema>
 
 /**
- * Type guard that narrows an unknown value to a built-in acquisition name.
+ * Reports whether an unknown value names a built-in acquisition strategy.
  *
  * @since 0.1.0
  * @category guards

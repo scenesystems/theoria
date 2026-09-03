@@ -1,6 +1,5 @@
 /**
- * Special-functions schema authority — domain model and operation input
- * contracts.
+ * Runtime schemas for Special metadata and validated operation inputs.
  *
  * @since 0.1.0
  * @category schemas
@@ -15,7 +14,7 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Special-functions domain model schema.
+ * Accepts only the `"Special"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -26,7 +25,8 @@ export const SpecialDomainSchema = Schema.Struct({
 })
 
 /**
- * Special schema-derived type.
+ * Discovery metadata identifying special-function capabilities in a recognized
+ * stability lane.
  *
  * @since 0.1.0
  * @category models
@@ -34,8 +34,8 @@ export const SpecialDomainSchema = Schema.Struct({
 export type SpecialDomain = typeof SpecialDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical special-functions
- * domain model.
+ * Decodes a Special-functions discovery descriptor, rejecting unknown fields
+ * and mapping parse failures to {@link BoundaryDecodeError}.
  *
  * @since 0.1.0
  * @category schemas
@@ -76,7 +76,7 @@ export const encodeSpecialDomain = (domain: SpecialDomain) =>
   )
 
 /**
- * Special-functions boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Special descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -88,8 +88,8 @@ export type SpecialSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeErr
 // ---------------------------------------------------------------------------
 
 /**
- * Gamma function input — any finite number (reflection formula handles
- * x < 0.5; poles at non-positive integers produce Infinity).
+ * Accepts one finite gamma argument. Non-positive integer poles are not
+ * rejected by this schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -99,8 +99,7 @@ export const GammaInput = Schema.Struct({
 }).annotations({ identifier: "GammaInput" })
 
 /**
- * Log-gamma input — strictly positive finite scalar (lnΓ is undefined
- * for x ≤ 0).
+ * Accepts one positive finite log-gamma argument.
  *
  * @since 0.1.0
  * @category schemas
@@ -110,7 +109,7 @@ export const LnGammaInput = Schema.Struct({
 }).annotations({ identifier: "LnGammaInput" })
 
 /**
- * Beta function input — two strictly positive finite scalars.
+ * Accepts two positive finite beta arguments.
  *
  * @since 0.1.0
  * @category schemas
@@ -121,7 +120,7 @@ export const BetaInput = Schema.Struct({
 }).annotations({ identifier: "BetaInput" })
 
 /**
- * Error function input — any finite scalar.
+ * Accepts one finite error-function argument.
  *
  * @since 0.1.0
  * @category schemas
@@ -131,8 +130,7 @@ export const ErfInput = Schema.Struct({
 }).annotations({ identifier: "ErfInput" })
 
 /**
- * Digamma input — strictly positive finite scalar (ψ is undefined for
- * x ≤ 0 in this implementation).
+ * Accepts one positive finite digamma argument.
  *
  * @since 0.1.0
  * @category schemas
@@ -142,7 +140,7 @@ export const DigammaInput = Schema.Struct({
 }).annotations({ identifier: "DigammaInput" })
 
 /**
- * Inverse error function input — finite scalar in (-1, 1).
+ * Accepts a finite inverse-error argument strictly between `-1` and `1`.
  *
  * @since 0.1.0
  * @category schemas
@@ -152,7 +150,7 @@ export const ErfinvInput = Schema.Struct({
 }).annotations({ identifier: "ErfinvInput" })
 
 /**
- * Regularised incomplete gamma function input — a > 0, x ≥ 0.
+ * Accepts positive finite `a` and non-negative finite `x` for incomplete gamma.
  *
  * @since 0.1.0
  * @category schemas
@@ -163,7 +161,8 @@ export const GammaincInput = Schema.Struct({
 }).annotations({ identifier: "GammaincInput" })
 
 /**
- * Regularised incomplete beta function input — a > 0, b > 0, x ∈ [0, 1].
+ * Accepts positive finite shape arguments and finite `x` in `[0, 1]` for
+ * incomplete beta.
  *
  * @since 0.1.0
  * @category schemas
@@ -175,7 +174,7 @@ export const BetaincInput = Schema.Struct({
 }).annotations({ identifier: "BetaincInput" })
 
 /**
- * Polygamma function input — non-negative integer n and x > 0.
+ * Accepts a non-negative integer order and positive finite argument for polygamma.
  *
  * @since 0.1.0
  * @category schemas

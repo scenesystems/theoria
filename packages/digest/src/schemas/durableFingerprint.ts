@@ -1,32 +1,15 @@
 /**
- * Deterministic, durable fingerprint for cache key identity.
+ * BLAKE3-256 fingerprints for canonical structured-data identity.
  *
- * The canonical fingerprinting function consumed by `@scenesystems/effect-search/Cache`
- * and `@scenesystems/effect-dsp/Cache`. Composes three stages:
+ * @remarks
+ * Values must already be in the package's canonical plain-data domain. Encode
+ * richer values through their Schema before calling this operation. The result
+ * uses the wire form `"blake3-256:<base64url>"`.
  *
- * 1. **Canonicalize**: RFC 8785 JCS — sorted keys, ES2015 numbers
- * 2. **Hash**: BLAKE3-256 (via `@noble/hashes/blake3.js`)
- * 3. **Encode**: base64url, no padding (via Effect `Encoding`)
- *
- * Returns algorithm-tagged strings: `"blake3-256:<base64url>"`.
- *
- * The preimage must already be Schema-encoded into a portable JSON
- * shape — `Date`, `BigInt`, `Uint8Array`, and other non-JSON types
- * must be pre-encoded by the caller (typically via `Schema.encode`).
- *
- * @example
- * ```ts
- * import { durableFingerprint } from "@scenesystems/digest"
- * import { Effect } from "effect"
- *
- * const key = durableFingerprint({ question: "What is 2+2?" })
- * // Effect<string, CanonicalizationError>
- * ```
- *
- * @see {@link canonicalize} — stage 1: deterministic JSON serialization
- * @see {@link blake3Hash} — stage 2: primary hash algorithm
- * @see {@link CanonicalizationError} — closed strict-admission error union
- * @see {@link ContentDigest} — typed result schema
+ * @see {@link canonicalize}
+ * @see {@link blake3Hash}
+ * @see {@link CanonicalizationError}
+ * @see {@link ContentDigest}
  *
  * @since 0.1.0
  * @category fingerprint
@@ -37,10 +20,14 @@ import { digest } from "../digest.js"
 import type { CanonicalizationError } from "./errors.js"
 
 /**
- * Compute a durable, deterministic fingerprint of a structured value.
+ * Computes a BLAKE3-256 identity from a value's RFC 8785 encoding.
  *
- * Uses BLAKE3-256 as the digest algorithm. Returns an algorithm-tagged
- * string: `"blake3-256:<base64url>"`.
+ * @remarks
+ * The result uses `"blake3-256:<base64url>"` so stored keys retain their
+ * algorithm identifier.
+ *
+ * @param value - Schema-encoded value in the strict canonical plain-data domain.
+ * @returns The tagged fingerprint, or a canonicalization failure.
  *
  * @since 0.1.0
  * @category fingerprint

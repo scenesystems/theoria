@@ -1,8 +1,16 @@
 /**
- * Framework-thin React companion boundary for effect-text.
+ * Creates deterministic preparation cache identities and pure layout
+ * projections for React consumers.
+ *
+ * @remarks
+ * This module owns no React state or rendering. Include the browser support
+ * profile and font-readiness revision in an identity, cache the prepared
+ * handle in the application, and project lines without re-entering text
+ * measurement.
  *
  * @since 0.2.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
@@ -24,7 +32,7 @@ import {
 import { FontDescriptor, HyphenationLocale, WhiteSpaceMode } from "../Text/schema.js"
 
 /**
- * Stability lane for React companion helpers.
+ * Marks cache-key serialization and React projection helpers as provisional.
  *
  * @since 0.2.0
  * @category stability
@@ -38,17 +46,24 @@ export const ReactStability = "provisional"
  * @category schemas
  */
 export const PrepareIdentity = Schema.Struct({
+  /** Source text whose measurements are cached. */
   text: Schema.String,
+  /** Font whose measurements are cached. */
   font: FontDescriptor,
+  /** Whitespace policy captured during preparation. */
   whiteSpace: WhiteSpaceMode,
+  /** Dictionary locale captured during preparation. */
   hyphenationLocale: Schema.optional(HyphenationLocale),
+  /** Encoded engine settings captured during preparation. */
   engineProfileIdentity: Schema.String,
+  /** Browser support profile used for measurement. */
   supportProfileId: BrowserSupportProfileIdSchema,
+  /** Font-readiness generation used by the measurement cache. */
   fontReadinessRevision: FontReadinessRevision
 })
 
 /**
- * Prepare-time identity type.
+ * Inputs whose equality permits reuse of one measured prepared handle.
  *
  * @since 0.2.0
  * @category models
@@ -56,7 +71,8 @@ export const PrepareIdentity = Schema.Struct({
 export type PrepareIdentityType = typeof PrepareIdentity.Type
 
 /**
- * Stable cache key for a prepare-time identity.
+ * Accepts serialized preparation identity keys. Use `prepareIdentityKey` to
+ * construct values that `prepareIdentityFromKey` can decode safely.
  *
  * @since 0.2.0
  * @category schemas
@@ -64,7 +80,7 @@ export type PrepareIdentityType = typeof PrepareIdentity.Type
 export const PrepareIdentityKey = Schema.String
 
 /**
- * Stable cache key type for a prepare-time identity.
+ * Serialized cache identity produced from typed preparation inputs.
  *
  * @since 0.2.0
  * @category models
@@ -72,18 +88,20 @@ export const PrepareIdentityKey = Schema.String
 export type PrepareIdentityKeyType = typeof PrepareIdentityKey.Type
 
 /**
- * Pure summary-plus-lines projection over an already prepared handle.
+ * Layout geometry and visual lines projected without repeating measurement.
  *
  * @since 0.2.0
  * @category schemas
  */
 export const PreparedLayoutProjection = Schema.Struct({
+  /** Aggregate layout geometry. */
   summary: LayoutSummary,
+  /** Materialized lines in visual order. */
   lines: Schema.Array(LayoutLine)
 })
 
 /**
- * Pure summary-plus-lines projection type.
+ * Decoded geometry and visual lines produced from one prepared handle.
  *
  * @since 0.2.0
  * @category models
@@ -98,7 +116,9 @@ const supportProfileIdFrom = (value: string): BrowserSupportProfileIdType =>
   value === "canvas-system-ui" ? "canvas-system-ui" : "canvas-monospace"
 
 /**
- * Encodes one runtime engine profile into a stable identity string.
+ * Encodes every current engine-profile field in declaration order. The result
+ * is stable for equal typed profiles and is intended as one component of a
+ * preparation cache key.
  *
  * @since 0.2.0
  * @category identities
@@ -113,7 +133,9 @@ export const engineProfileIdentity = (profile: EngineProfileType): string =>
   ].map(encodePart).join("~")
 
 /**
- * Builds the full prepare-time identity from prepare input plus browser/runtime freshness.
+ * Captures typed preparation input, engine settings, browser profile, and font
+ * readiness as one cache identity. Values are copied by reference without
+ * Schema decoding.
  *
  * @since 0.2.0
  * @category identities
@@ -134,7 +156,9 @@ export const prepareIdentityFor = (options: {
 })
 
 /**
- * Encodes a prepare-time identity into a stable cache key.
+ * Encodes all identity fields with component escaping and unambiguous
+ * separators. A string containing an unpaired UTF-16 surrogate causes
+ * `encodeURIComponent` to throw synchronously.
  *
  * @since 0.2.0
  * @category identities
@@ -153,7 +177,11 @@ export const prepareIdentityKey = (identity: PrepareIdentityType): PrepareIdenti
   ].join("|")
 
 /**
- * Decodes a stable cache key back into the prepare-time identity payload.
+ * Decodes keys produced by `prepareIdentityKey` without Schema validation.
+ * Missing numeric fields become zero; other non-numeric fields become `NaN`.
+ * Unknown whitespace and profile values fall back to `normal` and
+ * `canvas-monospace`. Malformed percent escapes throw synchronously from
+ * `decodeURIComponent`.
  *
  * @since 0.2.0
  * @category identities
@@ -178,7 +206,8 @@ export const prepareIdentityFromKey = (key: PrepareIdentityKeyType): PrepareIden
 }
 
 /**
- * Summarizes already materialized lines without reopening preparation.
+ * Derives line count, `lines.length * lineHeight`, and maximum painted width.
+ * Empty input produces zero for all fields. Inputs are not Schema-decoded.
  *
  * @since 0.2.0
  * @category projection
@@ -189,11 +218,12 @@ export const layoutSummaryFromLines = (
 ): LayoutSummaryType => ({
   lineCount: lines.length,
   height: lines.length * lineHeight,
-  maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Math.max(maxWidth, line.width))
+  maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Numeric.max(maxWidth, line.width))
 })
 
 /**
- * Projects summary and lines from one prepared handle without re-entering `prepare`.
+ * Projects aggregate geometry and visual lines from one prepared handle in a
+ * single pure walk. The operation performs no measurement or service lookup.
  *
  * @since 0.2.0
  * @category projection

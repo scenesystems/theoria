@@ -1,38 +1,5 @@
 /**
- * Unified encrypt/decrypt pipeline.
- *
- * Composes the full authenticated encryption pipeline in a single
- * call with algorithm selection:
- *
- * ```
- * Plaintext (Uint8Array)
- *   → select algorithm
- *   → validate key
- *   → generate nonce
- *   → encrypt with AEAD (managedNonce handles nonce prepending)
- *   → encode as SealedEnvelope
- * ```
- *
- * Decryption reverses the process:
- *
- * ```
- * SealedEnvelope
- *   → decode envelope (extract algorithm, nonce, ciphertext + tag)
- *   → select algorithm
- *   → validate key
- *   → decrypt with AEAD (managedNonce extracts prepended nonce)
- *   → Plaintext (Uint8Array)
- * ```
- *
- * The `seal` function always produces a `SealedEnvelope` containing
- * the algorithm identifier, enabling `unseal` to select the correct
- * cipher automatically.
- *
- * @see {@link SealAlgorithm} — algorithm union schema
- * @see {@link xchacha20} — recommended AEAD algorithm
- * @see {@link aesgcmsiv} — nonce-misuse resistant alternative
- * @see {@link aesgcm} — compatibility alternative
- * @see {@link SealedEnvelope} — output envelope type
+ * Algorithm-dispatched encryption and decryption using {@link SealedEnvelope} values.
  *
  * @since 0.1.0
  * @category seal
@@ -48,10 +15,18 @@ import type { SealAlgorithm } from "./schemas/SealAlgorithm.js"
 import type { SealedEnvelope } from "./schemas/SealedEnvelope.js"
 
 /**
- * Encrypt `plaintext` and wrap in a self-describing envelope.
+ * Encrypts bytes with a generated nonce and returns a {@link SealedEnvelope}.
  *
- * Dispatches to the selected algorithm, then packs the raw
- * output (nonce ‖ ciphertext ‖ tag) into a {@link SealedEnvelope}.
+ * @remarks
+ * The caller supplies and retains the key. It must be exactly 32 bytes and not all zero.
+ * The returned `nonce` and `ciphertext` fields are unpadded base64url; the authentication
+ * tag is included in `ciphertext`. Nonces come from the runtime cryptographic random source.
+ * No supported operation accepts AAD. `key` and `plaintext` are not mutated.
+ *
+ * @param algorithm - Cipher to use and record in the envelope.
+ * @param key - Caller-owned 32-byte key; it is neither copied into nor retained by the envelope.
+ * @param plaintext - Bytes to encrypt.
+ * @returns A fresh encoded envelope, or {@link InvalidKey}.
  *
  * @since 0.1.0
  * @category seal
@@ -72,10 +47,18 @@ export const seal = (
   })
 
 /**
- * Decrypt a self-describing {@link SealedEnvelope}.
+ * Authenticates and decrypts a {@link SealedEnvelope} using its recorded algorithm.
  *
- * Reads the algorithm from the envelope, unpacks the raw bytes,
- * and dispatches to the correct algorithm for decryption.
+ * @remarks
+ * The caller must supply the same key used to seal the value. Invalid base64url fails with
+ * {@link DecryptionFailed} reason `invalid envelope encoding`; wrong keys, modified data,
+ * malformed nonce/ciphertext lengths, and authentication failures use reason
+ * `authentication failed`. These failures intentionally do not reveal which condition occurred.
+ * Neither input is mutated; successful decryption returns newly allocated plaintext.
+ *
+ * @param key - Caller-owned 32-byte key; it must not be all zero.
+ * @param envelope - Envelope whose algorithm, nonce, and ciphertext are used for decryption.
+ * @returns Fresh plaintext bytes, or {@link InvalidKey} or {@link DecryptionFailed}.
  *
  * @since 0.1.0
  * @category seal

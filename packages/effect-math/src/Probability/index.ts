@@ -1,12 +1,10 @@
 /**
- * Probability distribution evaluation and information-theoretic measures.
- * Provides normal (Gaussian) and uniform PDF/CDF kernels, and Shannon
- * entropy over discrete distributions. All kernels operate on scalar
- * arguments or `Chunk<number>` carriers using Effect primitives.
+ * Evaluates normal and uniform distributions and discrete Shannon entropy.
  *
- * Probability owns distribution contracts and measure-space primitives —
- * Statistics consumes these for estimation and inference but must not
- * redeclare them.
+ * @remarks
+ * Pure kernels accept decoded scalars or immutable probability collections.
+ * Validated variants decode unknown boundary input, and policy-aware variants
+ * read precision and diagnostics services from context.
  *
  * @since 0.1.0
  * @module

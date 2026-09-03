@@ -1,5 +1,5 @@
 /**
- * Suggestion context — trial history and reservation state for sampler invocation.
+ * Immutable trial history and reservation state supplied for one suggestion.
  *
  * @since 0.1.0
  */
@@ -14,82 +14,90 @@ const SuggestionEpsilonSchema = Schema.NonNegative.pipe(
 )
 
 /**
- * The sampler's view of a completed trial — config stored as an untyped record
- * so samplers remain search-space-agnostic. Carries the objective value, optional
- * observation weight, cost, variance, and constraint violations observed during
- * evaluation.
+ * Records one completed observation in the sampler's untyped configuration space.
  *
- * @see {@link makeSuggestCompletedTrial} factory that handles optional field elision
- * @see {@link SuggestContext} where completed trials are consumed
+ * @remarks
+ * Optional statistical fields are interpreted only by samplers that consume
+ * them. TPE uses observation weight, positive cost, non-negative variance, and
+ * constraint values; other built-in samplers may ignore those fields.
  * @since 0.1.0
  * @category models
  */
 export class SuggestCompletedTrial extends Schema.Class<SuggestCompletedTrial>("effect-search/SuggestCompletedTrial")({
+  /** Study-assigned identity used to preserve observation order. */
   trialNumber: Schema.Number,
+  /** Evaluated configuration keyed by search-space parameter name. */
   config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  /** Observed scalar objective or vector matching `objectiveSpec`. */
   value: ObjectiveValueSchema,
+  /** Relative contribution used when a sampler performs weighted fitting. */
   observationWeight: Schema.optional(Schema.Number),
+  /** Evaluation cost used by cost-aware acquisition when finite and positive. */
   cost: Schema.optional(Schema.Number),
+  /** Objective variance used by noise-aware fitting when finite and non-negative. */
   variance: Schema.optional(Schema.Number),
+  /** Constraint residuals; values at or below zero are feasible. */
   constraints: Schema.optional(Schema.Array(Schema.Number))
 }) {}
 
 /**
- * An in-flight trial that has been suggested but not yet evaluated. Samplers
- * should account for pending trials to avoid re-suggesting duplicate or
- * nearby configurations while evaluations are still running.
+ * Identifies a reserved configuration whose objective has not completed.
  *
- * @see {@link makeSuggestPendingTrial} factory constructor
- * @see {@link SuggestContext} where pending trials are surfaced to samplers
+ * @remarks
+ * The sampler's {@link PendingImputationPolicy} determines whether it also
+ * appears as a synthetic completed observation.
  * @since 0.1.0
  * @category models
  */
 export class SuggestPendingTrial extends Schema.Class<SuggestPendingTrial>("effect-search/SuggestPendingTrial")({
+  /** Study-assigned identity for the reservation. */
   trialNumber: Schema.Number,
+  /** Reserved configuration keyed by search-space parameter name. */
   config: Schema.Record({ key: Schema.String, value: Schema.Unknown })
 }) {}
 
 /**
- * Full observation context provided to a sampler when requesting the next
- * configuration to evaluate. Contains the history of completed trials, any
- * pending (in-flight) trials the sampler should be aware of, the objective
- * specification defining optimization direction(s), the next trial number to
- * assign, and the exploration epsilon controlling random-vs-model balance.
+ * Presents the history, objective contract, and next trial identity for a suggestion.
  *
- * @see {@link SuggestCompletedTrial} shape of each completed observation
- * @see {@link SuggestPendingTrial} shape of each pending observation
+ * @remarks
+ * Built-in samplers derive per-trial random state from `nextTrialNumber`.
+ * `epsilon` is a finite non-negative multi-objective dominance tolerance rather
+ * than an exploration probability. Construction and decoding reject invalid
+ * epsilon values; other numeric fields retain their schema values.
  * @since 0.1.0
  * @category models
  */
 export class SuggestContext extends Schema.Class<SuggestContext>("effect-search/SuggestContext")({
+  /** Real observations followed by any pending-trial imputations. */
   completed: Schema.Array(SuggestCompletedTrial),
+  /** Reservations still awaiting an objective result. */
   pending: Schema.Array(SuggestPendingTrial),
+  /** Objective directions and arity used to interpret observation values. */
   objectiveSpec: ObjectiveSpecSchema,
+  /** Identity assigned to the suggestion being requested. */
   nextTrialNumber: Schema.Number,
+  /** Inclusive improvement tolerance used in multi-objective comparisons. */
   epsilon: SuggestionEpsilonSchema
 }) {}
 
 /**
- * Pairs a newly assigned trial number with the configuration a sampler has
- * suggested. Returned from a sampler's `suggest` call so the caller can
- * register the trial and begin evaluation.
- *
- * @see {@link SuggestContext} the input context that produced this reservation
+ * Carries a suggested configuration with the trial identity reserved for it.
  * @since 0.1.0
  * @category models
  */
 export class SuggestionReservation extends Data.Class<{
+  /** Identity that the study must use when reporting the result. */
   readonly trialNumber: number
+  /** Suggested configuration retained until completion or cancellation. */
   readonly config: SamplerConfig
 }> {}
 
 /**
- * Constructs a {@link SuggestCompletedTrial} from positional arguments,
- * eliding optional fields (`observationWeight`, `cost`, `variance`,
- * `constraints`) when they are `undefined` rather than including them as
- * explicit `undefined` values.
+ * Creates a completed sampler observation and omits absent optional fields.
  *
- * @see {@link SuggestCompletedTrial} the resulting model
+ * @remarks
+ * The constraint array is copied. The configuration record and scalar fields
+ * are retained as supplied; this constructor performs no range or arity checks.
  * @since 0.1.0
  * @category constructors
  */
@@ -141,10 +149,7 @@ export const makeSuggestCompletedTrial = (
   })
 
 /**
- * Constructs a {@link SuggestPendingTrial} from a trial number and its
- * sampler-config record.
- *
- * @see {@link SuggestPendingTrial} the resulting model
+ * Creates a pending sampler observation without copying its configuration record.
  * @since 0.1.0
  * @category constructors
  */
@@ -158,11 +163,12 @@ export const makeSuggestPendingTrial = (
   })
 
 /**
- * Creates an empty {@link SuggestContext} with no completed or pending trials,
- * a single-objective spec, and zero epsilon. Useful for cold-start scenarios
- * where no prior observations exist, or as a baseline in tests.
+ * Creates a cold-start context for a minimizing scalar objective.
  *
- * @see {@link SuggestContext} the resulting model
+ * @remarks
+ * Completed and pending histories are empty and epsilon is zero.
+ *
+ * @param nextTrialNumber - Identity used to derive the suggestion; defaults to `0`.
  * @since 0.1.0
  * @category constructors
  */

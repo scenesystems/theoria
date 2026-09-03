@@ -1,8 +1,9 @@
 /**
- * Internal preparation helpers.
+ * Compilation of measured logical segments into immutable walker tables.
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Effect, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -207,7 +208,7 @@ const hyphenationRuns = (text: string): ReadonlyArray<HyphenationRun> =>
         onSome: (previousRun) =>
           previousRun.hyphenate === hyphenate
             ? Arr.append(
-              Arr.take(runs, Math.max(runs.length - 1, 0)),
+              Arr.take(runs, Numeric.max(runs.length - 1, 0)),
               {
                 hyphenate,
                 text: `${previousRun.text}${grapheme}`

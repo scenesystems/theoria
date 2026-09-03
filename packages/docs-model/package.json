@@ -1,0 +1,21 @@
+{
+  "name": "@theoria/docs-model",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared generated documentation contracts for Theoria",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "lint": "eslint --max-warnings=0 src",
+    "lint:fix": "eslint --max-warnings=0 --fix src",
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "rm -rf build .tsbuildinfo"
+  },
+  "dependencies": {
+    "@scenesystems/effect-math": "workspace:^",
+    "effect": "3.22.1"
+  }
+}

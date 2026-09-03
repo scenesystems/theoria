@@ -1,5 +1,12 @@
 /**
- * Provisional text preparation, prepared handles, pure layout, and live runtime layers.
+ * Compiles raw text into measured handles, then lays out lines, ranges,
+ * cursors, summaries, or streams without remeasuring.
+ *
+ * @remarks
+ * Preparation is effectful and requires segmentation, measurement-cache, and
+ * engine-profile services. Once preparation succeeds, layout operations are
+ * pure and the richer handle returned by `prepareWithSegments` supports line
+ * materialization and incremental traversal.
  *
  * @since 0.1.0
  */
@@ -19,7 +26,7 @@ export {
    */
   PreparedTextWithSegments,
   /**
-   * Stability lane for the Text namespace.
+   * Compatibility status for prepared handles and layout projections.
    *
    * @since 0.1.0
    * @category stability
@@ -28,7 +35,7 @@ export {
 } from "./model.js"
 
 /**
- * Public schemas and schema-derived types for preparation and layout.
+ * Decoders for prepare inputs and unit-consistent layout geometry.
  *
  * @since 0.1.0
  */

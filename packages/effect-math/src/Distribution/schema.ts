@@ -1,11 +1,10 @@
 /**
- * Schema authority for the Distribution domain — defines the canonical
- * domain discriminator, distribution parameter contracts, eval input
- * schemas, and quantile input schemas. All schemas enforce finite-number
- * validation at decode time, so kernels can assume well-formed numeric input.
+ * Defines serializable descriptors and numeric input boundaries for distribution operations.
  *
- * Covers 10 distribution families: Normal, LogNormal, Exponential, Uniform,
- * Beta, Gamma, StudentT, Categorical, Binomial, Poisson.
+ * @remarks
+ * The parameter and evaluation schemas reject non-finite numbers. They do not
+ * normalize categorical masses or enforce relationships between fields such
+ * as ordered uniform bounds.
  *
  * @since 0.1.0
  * @category schemas
@@ -20,9 +19,7 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical domain discriminator for Distribution. Consumers use this to
- * identify which domain produced a result when multiple domains coexist in
- * the same pipeline. The `stability` field tracks the domain's maturity level.
+ * Accepts the Distribution discovery discriminator and its stability classification.
  *
  * @since 0.1.0
  * @category schemas
@@ -33,8 +30,7 @@ export const DistributionDomainSchema = Schema.Struct({
 })
 
 /**
- * Extracted type of a decoded `DistributionDomainSchema` — use this in
- * function signatures that accept an already-validated domain descriptor.
+ * Decoded Distribution discovery descriptor.
  *
  * @since 0.1.0
  * @category models
@@ -42,10 +38,10 @@ export const DistributionDomainSchema = Schema.Struct({
 export type DistributionDomain = typeof DistributionDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical distribution domain model.
- * Uses strict excess-property checking — any properties beyond `domain` and
- * `stability` cause a `BoundaryDecodeError`. Use at package edges where
- * untrusted input enters the domain.
+ * Decodes a Distribution discovery descriptor and rejects unknown fields.
+ *
+ * @throws {@link BoundaryDecodeError} in the Effect error channel when the
+ * discriminator, stability, or object shape is invalid.
  *
  * @since 0.1.0
  * @category schemas
@@ -66,9 +62,10 @@ export const decodeDistributionDomain = (input: unknown) =>
   )
 
 /**
- * Encodes a validated `DistributionDomain` back to its serializable form at
- * the package boundary. Failures surface as `BoundaryEncodeError` — this
- * should only happen if the domain value was constructed outside of Schema.
+ * Encodes a validated Distribution discovery descriptor.
+ *
+ * @throws {@link BoundaryEncodeError} in the Effect error channel when a
+ * value has been forged outside the `DistributionDomain` type.
  *
  * @since 0.1.0
  * @category schemas
@@ -87,7 +84,7 @@ export const encodeDistributionDomain = (domain: DistributionDomain) =>
   )
 
 /**
- * Distribution boundary encode/decode errors.
+ * Identifies Distribution descriptor decode and encode failures.
  *
  * @since 0.1.0
  * @category errors
@@ -99,7 +96,7 @@ export type DistributionSchemaBoundaryError = BoundaryDecodeError | BoundaryEnco
 // ---------------------------------------------------------------------------
 
 /**
- * A finite number (excludes NaN and ±Infinity).
+ * Accepts finite JavaScript numbers and rejects `NaN` and infinities.
  *
  * @since 0.1.0
  * @category schemas
@@ -107,7 +104,7 @@ export type DistributionSchemaBoundaryError = BoundaryDecodeError | BoundaryEnco
 export const FiniteNumber = Schema.Number.pipe(Schema.finite())
 
 /**
- * A strictly positive finite number (> 0, excludes NaN and ±Infinity).
+ * Accepts finite JavaScript numbers greater than zero.
  *
  * @since 0.1.0
  * @category schemas
@@ -115,7 +112,7 @@ export const FiniteNumber = Schema.Number.pipe(Schema.finite())
 export const PositiveFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
 
 /**
- * A non-negative finite number (≥ 0, excludes NaN and ±Infinity).
+ * Accepts finite JavaScript numbers greater than or equal to zero.
  *
  * @since 0.1.0
  * @category schemas
@@ -126,7 +123,7 @@ export const NonNegativeFiniteNumber = Schema.Number.pipe(
 )
 
 /**
- * A number in the unit interval [0, 1].
+ * Accepts finite JavaScript numbers in the closed unit interval.
  *
  * @since 0.1.0
  * @category schemas
@@ -142,8 +139,7 @@ export const UnitIntervalNumber = Schema.Number.pipe(
 // ---------------------------------------------------------------------------
 
 /**
- * Normal distribution parameters: mean (mu) and standard deviation (sigma).
- * Sigma must be strictly positive and finite.
+ * Accepts a finite normal location and a positive finite scale.
  *
  * @since 0.1.0
  * @category schemas
@@ -154,8 +150,7 @@ export const NormalDistParams = Schema.Struct({
 }).annotations({ identifier: "NormalDistParams" })
 
 /**
- * Log-normal distribution parameters: location (mu) and scale (sigma).
- * Sigma must be strictly positive and finite.
+ * Accepts a finite log-space location and a positive finite log-space scale.
  *
  * @since 0.1.0
  * @category schemas
@@ -166,8 +161,7 @@ export const LogNormalDistParams = Schema.Struct({
 }).annotations({ identifier: "LogNormalDistParams" })
 
 /**
- * Exponential distribution parameter: rate (λ).
- * Rate must be strictly positive and finite.
+ * Accepts a positive finite exponential rate.
  *
  * @since 0.1.0
  * @category schemas
@@ -177,9 +171,11 @@ export const ExponentialDistParams = Schema.Struct({
 }).annotations({ identifier: "ExponentialDistParams" })
 
 /**
- * Uniform distribution parameters: lower and upper bounds.
- * Both must be finite. The `high > low` invariant is enforced at the
- * operation level, not at the schema level, to produce domain-specific errors.
+ * Accepts finite uniform bounds without requiring them to be ordered.
+ *
+ * @remarks
+ * {@link uniformPdfValidated} checks that `high > low`. The schema alone does
+ * not establish that invariant.
  *
  * @since 0.1.0
  * @category schemas
@@ -190,8 +186,7 @@ export const UniformDistParams = Schema.Struct({
 }).annotations({ identifier: "UniformDistParams" })
 
 /**
- * Beta distribution parameters: shape parameters alpha and beta.
- * Both must be strictly positive and finite.
+ * Accepts positive finite beta shape parameters.
  *
  * @since 0.1.0
  * @category schemas
@@ -202,8 +197,7 @@ export const BetaDistParams = Schema.Struct({
 }).annotations({ identifier: "BetaDistParams" })
 
 /**
- * Gamma distribution parameters: shape and scale.
- * Both must be strictly positive and finite.
+ * Accepts positive finite gamma shape and scale parameters.
  *
  * @since 0.1.0
  * @category schemas
@@ -214,8 +208,7 @@ export const GammaDistParams = Schema.Struct({
 }).annotations({ identifier: "GammaDistParams" })
 
 /**
- * Student's t-distribution parameter: degrees of freedom (df).
- * Must be strictly positive and finite.
+ * Accepts positive finite degrees of freedom for a Student's t distribution.
  *
  * @since 0.1.0
  * @category schemas
@@ -225,9 +218,11 @@ export const StudentTDistParams = Schema.Struct({
 }).annotations({ identifier: "StudentTDistParams" })
 
 /**
- * Categorical distribution parameters: probability vector.
- * A non-empty array of non-negative finite numbers. The sum-to-1
- * invariant is enforced at the operation level.
+ * Accepts a non-empty array of non-negative finite categorical masses.
+ *
+ * @remarks
+ * Decoding does not require the masses to sum to `1`, and current operations
+ * do not normalize or validate that sum.
  *
  * @since 0.1.0
  * @category schemas
@@ -237,8 +232,7 @@ export const CategoricalDistParams = Schema.Struct({
 }).annotations({ identifier: "CategoricalDistParams" })
 
 /**
- * Binomial distribution parameters: number of trials (n) and success
- * probability (p). n must be a non-negative integer, p in [0, 1].
+ * Accepts a non-negative integer trial count and a unit-interval success probability.
  *
  * @since 0.1.0
  * @category schemas
@@ -249,8 +243,7 @@ export const BinomialDistParams = Schema.Struct({
 }).annotations({ identifier: "BinomialDistParams" })
 
 /**
- * Poisson distribution parameter: mean (mu).
- * Must be strictly positive and finite.
+ * Accepts a positive finite Poisson rate.
  *
  * @since 0.1.0
  * @category schemas
@@ -264,7 +257,7 @@ export const PoissonDistParams = Schema.Struct({
 // ---------------------------------------------------------------------------
 
 /**
- * Point evaluation input for normal distribution PDF/CDF/logPDF.
+ * Accepts a finite evaluation point and location with a positive finite normal scale.
  *
  * @since 0.1.0
  * @category schemas
@@ -276,7 +269,11 @@ export const NormalDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "NormalDistEvalInput" })
 
 /**
- * Point evaluation input for log-normal distribution PDF/CDF/logPDF.
+ * Accepts a positive finite evaluation point, finite log-space location, and positive scale.
+ *
+ * @remarks
+ * This boundary excludes the zero and negative points that pure log-normal
+ * operations map to support sentinels.
  *
  * @since 0.1.0
  * @category schemas
@@ -288,7 +285,7 @@ export const LogNormalDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "LogNormalDistEvalInput" })
 
 /**
- * Point evaluation input for exponential distribution PDF/CDF/logPDF.
+ * Accepts a non-negative finite point and a positive finite exponential rate.
  *
  * @since 0.1.0
  * @category schemas
@@ -299,7 +296,10 @@ export const ExponentialDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "ExponentialDistEvalInput" })
 
 /**
- * Point evaluation input for uniform distribution PDF/CDF/logPDF.
+ * Accepts a finite evaluation point and finite uniform bounds in either order.
+ *
+ * @remarks
+ * {@link uniformPdfValidated} rejects unordered bounds after decoding.
  *
  * @since 0.1.0
  * @category schemas
@@ -311,7 +311,7 @@ export const UniformDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "UniformDistEvalInput" })
 
 /**
- * Point evaluation input for beta distribution PDF/CDF/logPDF.
+ * Accepts a unit-interval point and positive finite beta shape parameters.
  *
  * @since 0.1.0
  * @category schemas
@@ -323,7 +323,7 @@ export const BetaDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "BetaDistEvalInput" })
 
 /**
- * Point evaluation input for gamma distribution PDF/CDF/logPDF.
+ * Accepts a non-negative finite point with positive finite gamma shape and scale.
  *
  * @since 0.1.0
  * @category schemas
@@ -335,7 +335,7 @@ export const GammaDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "GammaDistEvalInput" })
 
 /**
- * Point evaluation input for Student's t-distribution PDF/CDF/logPDF.
+ * Accepts a finite point and positive finite Student's t degrees of freedom.
  *
  * @since 0.1.0
  * @category schemas
@@ -350,7 +350,10 @@ export const StudentTDistEvalInput = Schema.Struct({
 // ---------------------------------------------------------------------------
 
 /**
- * Point evaluation input for categorical distribution PMF.
+ * Accepts a non-negative integer index and non-empty, non-negative finite masses.
+ *
+ * @remarks
+ * The index may exceed the final category. The masses need not sum to `1`.
  *
  * @since 0.1.0
  * @category schemas
@@ -361,7 +364,11 @@ export const CategoricalDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "CategoricalDistEvalInput" })
 
 /**
- * Point evaluation input for binomial distribution PMF/CDF.
+ * Accepts non-negative integer counts and a unit-interval binomial probability.
+ *
+ * @remarks
+ * The success count may exceed the trial count. Binomial mass operations then
+ * return `0`, while the cumulative operation returns `1`.
  *
  * @since 0.1.0
  * @category schemas
@@ -373,7 +380,11 @@ export const BinomialDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "BinomialDistEvalInput" })
 
 /**
- * Point evaluation input for Poisson distribution PMF/CDF.
+ * Accepts a non-negative integer count and a positive finite Poisson rate.
+ *
+ * @remarks
+ * Pure Poisson operations define zero-rate behavior, but this boundary
+ * requires the rate to be positive.
  *
  * @since 0.1.0
  * @category schemas
@@ -388,7 +399,10 @@ export const PoissonDistEvalInput = Schema.Struct({
 // ---------------------------------------------------------------------------
 
 /**
- * Quantile input for normal distribution inverse CDF.
+ * Accepts a probability on `[0, 1]`, finite location, and positive scale for a normal quantile.
+ *
+ * @remarks
+ * Endpoint probabilities are accepted and produce infinite quantiles.
  *
  * @since 0.1.0
  * @category schemas
@@ -400,7 +414,10 @@ export const NormalQuantileInput = Schema.Struct({
 }).annotations({ identifier: "NormalQuantileInput" })
 
 /**
- * Quantile input for log-normal distribution inverse CDF.
+ * Accepts a probability on `[0, 1]` with finite log-space location and positive scale.
+ *
+ * @remarks
+ * Endpoint probabilities are accepted and produce `0` or positive infinity.
  *
  * @since 0.1.0
  * @category schemas
@@ -412,7 +429,10 @@ export const LogNormalQuantileInput = Schema.Struct({
 }).annotations({ identifier: "LogNormalQuantileInput" })
 
 /**
- * Quantile input for exponential distribution inverse CDF.
+ * Accepts a unit-interval probability and positive finite rate for exponential quantiles.
+ *
+ * @remarks
+ * Probability `1` is accepted and produces positive infinity.
  *
  * @since 0.1.0
  * @category schemas
@@ -423,7 +443,7 @@ export const ExponentialQuantileInput = Schema.Struct({
 }).annotations({ identifier: "ExponentialQuantileInput" })
 
 /**
- * Quantile input for uniform distribution inverse CDF.
+ * Accepts a unit-interval probability and finite uniform bounds in either order.
  *
  * @since 0.1.0
  * @category schemas
@@ -435,7 +455,11 @@ export const UniformQuantileInput = Schema.Struct({
 }).annotations({ identifier: "UniformQuantileInput" })
 
 /**
- * Quantile input for beta distribution inverse CDF.
+ * Accepts a unit-interval probability and positive finite beta shapes.
+ *
+ * @remarks
+ * Endpoint probabilities are accepted, but the quantile implementation clamps
+ * its estimate inside the open unit interval.
  *
  * @since 0.1.0
  * @category schemas
@@ -447,7 +471,10 @@ export const BetaQuantileInput = Schema.Struct({
 }).annotations({ identifier: "BetaQuantileInput" })
 
 /**
- * Quantile input for gamma distribution inverse CDF.
+ * Accepts a unit-interval probability and positive finite gamma shape and scale.
+ *
+ * @remarks
+ * The quantile implementation lower-bounds its estimate at `1e-15`.
  *
  * @since 0.1.0
  * @category schemas
@@ -459,7 +486,11 @@ export const GammaQuantileInput = Schema.Struct({
 }).annotations({ identifier: "GammaQuantileInput" })
 
 /**
- * Quantile input for Student's t-distribution inverse CDF.
+ * Accepts a unit-interval probability and positive finite Student's t degrees of freedom.
+ *
+ * @remarks
+ * Endpoint probabilities are accepted even though iterative evaluation may
+ * produce `NaN` from the infinite initial estimate.
  *
  * @since 0.1.0
  * @category schemas

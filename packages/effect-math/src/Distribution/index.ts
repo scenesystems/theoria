@@ -1,13 +1,10 @@
 /**
- * Full algebra of statistical distributions — 10 distribution families
- * (Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT,
- * Categorical, Binomial, Poisson) with PDF, CDF, logPDF, quantile, and
- * summary-statistic kernels. All kernels operate on scalar arguments
- * using Effect primitives with Schema-validated inputs.
+ * Evaluates scalar probability distributions and their descriptive moments.
  *
- * Distribution owns parameter contracts, eval input schemas, and quantile
- * input schemas — downstream domains consume these but must not redeclare
- * them.
+ * @remarks
+ * Pure operations accept trusted numbers. Selected operations also expose
+ * Schema-decoded boundaries or runtime-policy integration. Use the Probability
+ * domain for probability vectors, odds, Bayesian updates, and sampling helpers.
  *
  * @since 0.1.0
  * @module

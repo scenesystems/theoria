@@ -1,5 +1,5 @@
 /**
- * Partitions trial numbers into included and excluded sets based on whether trials satisfy required parameter activation conditions.
+ * Trial partitioning by parameter presence and conditional activation.
  *
  * @since 0.1.0
  */
@@ -71,10 +71,20 @@ const partitionByParameters = (
   )
 
 /**
- * Partition trial numbers by whether they satisfy the required parameters.
+ * Separates trial identities by the availability of required active parameters.
+ *
+ * @remarks
+ * A trial is included only when every requested name exists in the space, is
+ * active for that trial's primitive parameters, and is present in the trial.
+ * Input order is preserved in both arrays. An unknown required name excludes all
+ * trials; an empty required list includes all trials.
+ *
+ * @param space - Compiled metadata used to resolve names and activation paths.
+ * @param requiredParams - Parameter names that must be active and present.
+ * @param trials - Primitive trial records to partition in input order.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const partitionTrialNumbersByRequiredParameters = (
   space: SearchSpace,

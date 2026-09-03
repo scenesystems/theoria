@@ -1,7 +1,5 @@
 /**
- * Deterministic projection of `Evaluate.Report` results into the objective
- * values consumed by `effect-search` study APIs (single-scalar or
- * multi-objective vectors).
+ * Conversion of evaluation reports into effect-search objective values and telemetry.
  *
  * @since 0.1.0
  */
@@ -10,10 +8,7 @@ import { Array as Arr, Effect, Option, Order, Record, Schema } from "effect"
 import { ExampleFailure, type Report } from "../Evaluate/report.js"
 
 /**
- * Discriminant controlling whether the objective is projected as a single
- * scalar or a multi-objective vector.
- *
- * @see {@link projectObjective} — dispatches on this mode
+ * Decodes scalar (`"single"`) and vector (`"multi"`) projection modes.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,59 +16,62 @@ import { ExampleFailure, type Report } from "../Evaluate/report.js"
 export const ObjectiveProjectionMode = Schema.Literal("single", "multi")
 
 /**
- * One metric's name and its aggregated score, sorted deterministically by
- * name so objective vectors are stable across runs.
- *
- * @see {@link ObjectiveTelemetry} — carries an array of these
+ * Associates an evaluation metric name with its aggregate score.
  *
  * @since 0.1.0
  * @category models
  */
 export class ObjectiveMetricScore extends Schema.Class<ObjectiveMetricScore>("ObjectiveMetricScore")({
+  /** Key from `Report.overallScores`. */
   name: Schema.String,
+  /** Aggregate score copied without range or finiteness normalization. */
   score: Schema.Number
 }) {}
 
 /**
- * Summary statistics emitted alongside the objective value — metric
- * breakdowns, failure details, and timing. Enables optimizer UIs and
- * logging to display rich context without re-evaluating.
+ * Retains evaluation counts, failures, metric scores, and mean example duration.
  *
- * @see {@link ObjectiveProjection} — bundles telemetry with the objective
+ * @remarks
+ * Metric scores are sorted by name. Duration averages every result, including
+ * failed examples, and is `0` when the report has no results.
  *
  * @since 0.1.0
  * @category models
  */
 export class ObjectiveTelemetry extends Schema.Class<ObjectiveTelemetry>("ObjectiveTelemetry")({
+  /** Aggregate report scores in ascending metric-name order. */
   metricScores: Schema.Array(ObjectiveMetricScore),
+  /** Captured example failures copied from the report. */
   failures: Schema.Array(ExampleFailure),
+  /** Number of examples supplied to evaluation. */
   totalExamples: Schema.Number,
+  /** Number of examples scored by every metric. */
   successCount: Schema.Number,
+  /** Number of examples with a captured failure. */
   failureCount: Schema.Number,
+  /** Arithmetic mean of all per-example durations in milliseconds. */
   averageDurationMs: Schema.Number
 }) {}
 
 /**
- * Complete projection of an evaluation report into the shape consumed by
- * `effect-search` study APIs. `objective` is either a single scalar
- * (for single-metric optimization) or a numeric vector (for
- * multi-objective Pareto search).
+ * Couples a scalar or vector objective with the report telemetry used to derive it.
  *
- * @see {@link projectSingleObjective} — single-scalar projection
- * @see {@link projectMultiObjective} — vector projection
- * @see {@link ObjectiveTelemetry} — evaluation context carried alongside
+ * @remarks
+ * The schema accepts either objective shape independently of a projection mode;
+ * callers choose the shape through a projection function.
  *
  * @since 0.1.0
  * @category models
  */
 export class ObjectiveProjection extends Schema.Class<ObjectiveProjection>("ObjectiveProjection")({
+  /** Scalar metric score or ordered multi-metric vector. */
   objective: Schema.Union(Schema.Number, Schema.Array(Schema.Number)),
+  /** Evaluation context retained alongside the search objective. */
   telemetry: ObjectiveTelemetry
 }) {}
 
 /**
- * Re-export of the `effect-search` objective value type so downstream
- * consumers can reference it without importing `effect-search` directly.
+ * Uses the effect-search scalar-or-vector objective type at the DSP interop boundary.
  *
  * @since 0.1.0
  * @category type-level
@@ -109,12 +107,16 @@ const objectiveTelemetry = (report: Report): ObjectiveTelemetry =>
 const validateProjection = (payload: unknown) => Schema.decodeUnknown(ObjectiveProjection)(payload)
 
 /**
- * Project a single scalar objective from an evaluation report. Selects
- * the named metric (or the first metric alphabetically if omitted) and
- * bundles it with {@link ObjectiveTelemetry}.
+ * Selects one aggregate metric as a scalar search objective.
  *
- * @see {@link ObjectiveProjection} — the returned projection
- * @see {@link projectMultiObjective} — vector variant
+ * @remarks
+ * Omission selects the first metric name alphabetically. A missing selected
+ * metric and an empty score record both produce `0`. Projection validation can
+ * fail with `ParseResult.ParseError` when report values violate the output schema.
+ *
+ * @param report - Evaluation report supplying scores and telemetry.
+ * @param metricName - Aggregate score key; omission uses alphabetical order.
+ * @returns A validated scalar projection with telemetry for the whole report.
  *
  * @since 0.1.0
  * @category constructors
@@ -133,12 +135,17 @@ export const projectSingleObjective = (report: Report, metricName?: string) =>
   })
 
 /**
- * Project a multi-objective vector from an evaluation report. Each named
- * metric becomes one element in the objective array, ordered by the
- * supplied names (or alphabetically if omitted).
+ * Selects aggregate metrics as an ordered search objective vector.
  *
- * @see {@link ObjectiveProjection} — the returned projection
- * @see {@link projectSingleObjective} — scalar variant
+ * @remarks
+ * Values follow caller order, including duplicate names. Omission uses all
+ * report keys alphabetically. Missing names produce `0`, and an explicit empty
+ * array produces an empty vector. Projection validation can fail with
+ * `ParseResult.ParseError`.
+ *
+ * @param report - Evaluation report supplying scores and telemetry.
+ * @param metricNames - Ordered aggregate score keys; omission selects every key.
+ * @returns A validated vector projection with telemetry for the whole report.
  *
  * @since 0.1.0
  * @category constructors
@@ -154,12 +161,14 @@ export const projectMultiObjective = (report: Report, metricNames?: ReadonlyArra
   })
 
 /**
- * Dispatch to {@link projectSingleObjective} or
- * {@link projectMultiObjective} based on the provided
- * {@link ObjectiveProjectionMode}.
+ * Projects an evaluation report according to a scalar or vector mode.
  *
- * @see {@link ObjectiveProjectionMode} — the mode discriminant
- * @see {@link ObjectiveProjection} — the returned projection
+ * @remarks
+ * Single mode reads only the first supplied metric name and applies the scalar
+ * fallback when no name is present. Multi mode preserves the complete name list.
+ *
+ * @param options - Report, projection mode, and optional metric selection.
+ * @returns The selected validated objective projection.
  *
  * @since 0.1.0
  * @category constructors

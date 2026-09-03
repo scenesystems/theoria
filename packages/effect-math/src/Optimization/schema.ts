@@ -1,5 +1,5 @@
 /**
- * Optimization schema authority — domain model and boundary codec contracts.
+ * Defines discovery metadata and serializable settings for scalar optimization.
  *
  * @since 0.1.0
  * @category schemas
@@ -10,7 +10,7 @@ import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/Bo
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
 /**
- * Optimization domain model schema.
+ * Accepts only the `"Optimization"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,7 +21,10 @@ export const OptimizationDomainSchema = Schema.Struct({
 })
 
 /**
- * Decodes unknown boundary input into the canonical optimization domain model.
+ * Decodes Optimization discovery metadata and rejects excess fields.
+ *
+ * @throws {@link BoundaryDecodeError} in the Effect error channel when the
+ * discriminator, stability, or object shape is invalid.
  *
  * @since 0.1.0
  * @category schemas
@@ -42,7 +45,10 @@ export const decodeOptimizationDomain = (input: unknown) =>
   )
 
 /**
- * Encodes the canonical optimization domain model at the package boundary.
+ * Encodes validated Optimization discovery metadata.
+ *
+ * @throws {@link BoundaryEncodeError} in the Effect error channel when a
+ * value has been forged outside the `OptimizationDomain` type.
  *
  * @since 0.1.0
  * @category schemas
@@ -61,7 +67,7 @@ export const encodeOptimizationDomain = (domain: OptimizationDomain) =>
   )
 
 /**
- * Optimization boundary encode/decode errors.
+ * Identifies Optimization descriptor decode and encode failures.
  *
  * @since 0.1.0
  * @category errors
@@ -69,7 +75,7 @@ export const encodeOptimizationDomain = (domain: OptimizationDomain) =>
 export type OptimizationSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Optimization schema-derived type.
+ * Decoded Optimization discovery descriptor.
  *
  * @since 0.1.0
  * @category models
@@ -81,8 +87,11 @@ export type OptimizationDomain = typeof OptimizationDomainSchema.Type
 // ---------------------------------------------------------------------------
 
 /**
- * Bisection method input — two finite bracket endpoints with optional
- * tolerance and iteration budget.
+ * Accepts finite bisection endpoints and optional positive stopping settings.
+ *
+ * @remarks
+ * `maxIterations` must be an integer. Endpoint ordering and sign change are
+ * mathematical preconditions outside this schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -95,8 +104,11 @@ export const BisectInput = Schema.Struct({
 }).annotations({ identifier: "BisectInput" })
 
 /**
- * Golden section search input — two finite bracket endpoints with
- * optional tolerance and iteration budget.
+ * Accepts finite golden-section endpoints and optional positive stopping settings.
+ *
+ * @remarks
+ * `maxIterations` must be an integer. Endpoint ordering and objective
+ * unimodality are mathematical preconditions outside this schema.
  *
  * @since 0.1.0
  * @category schemas

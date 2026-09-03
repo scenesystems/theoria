@@ -9,9 +9,12 @@
   },
   "include": [
     "server.ts",
+    "worker.ts",
+    "scripts/**/*.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
     "vite.config.ts",
     "../../packages/effect-inference/src/**/*.ts"
-  ]
+  ],
+  "references": [{ "path": "../../packages/docs-model/tsconfig.src.json" }]
 }

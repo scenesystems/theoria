@@ -1,9 +1,10 @@
 /**
- * Private calibration-report helpers.
+ * Comparison of expected line geometry with actual prepared-layout output.
  *
  * @internal
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -42,7 +43,7 @@ const lineMismatchCount = (
       onNone: () => 0,
       onSome: (expectedLines) =>
         Arr.reduce(
-          Arr.makeBy(Math.max(expectedLines.length, actual.length), (index) => index),
+          Arr.makeBy(Numeric.max(expectedLines.length, actual.length), (index) => index),
           0,
           (mismatchCount, index) =>
             mismatchCount +

@@ -1,15 +1,7 @@
 /**
- * Cursor And Stream — pure incremental line walking.
+ * Compares cursor stepping with lazy stream projection over one prepared handle.
  *
- * What this shows: `initialCursor`, `layoutNextLine`, and `streamLines` over
- * a single prepared handle.
- *
- * Feature Type Links:
- * - {@link Text.LayoutCursorType}
- * - {@link Text.layoutNextLine}
- * - {@link Text.streamLines}
- *
- * Run: bun run packages/effect-text/examples/02-cursor-and-stream.ts
+ * Run with `bun run packages/effect-text/examples/02-cursor-and-stream.ts`.
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"

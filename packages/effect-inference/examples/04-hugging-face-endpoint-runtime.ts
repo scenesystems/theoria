@@ -1,9 +1,13 @@
+/**
+ * Resolves a dedicated Hugging Face endpoint, embeds two inputs, and records
+ * the deployment and observed embedding width as runtime evidence.
+ */
 import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect } from "effect"
 
-import * as HuggingFace from "../src/HuggingFace/index.js"
-import * as Runtime from "../src/Runtime/index.js"
+import * as HuggingFace from "@scenesystems/effect-inference/HuggingFace"
+import * as Runtime from "@scenesystems/effect-inference/Runtime"
 
 export const program = Effect.gen(function*() {
   const resolution = yield* HuggingFace.resolveLiveRuntimeFromConfig({

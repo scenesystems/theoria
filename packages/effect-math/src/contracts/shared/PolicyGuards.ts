@@ -1,15 +1,5 @@
 /**
- * Shared policy guard combinators that eliminate boilerplate in policy-aware
- * operations across all domains.
- *
- * Every policy-aware operation follows the same three-phase pattern:
- * 1. Optionally start a timer (diagnostics enabled)
- * 2. Validate the result (precision strict → reject non-finite)
- * 3. Optionally log diagnostics (diagnostics enabled)
- *
- * This module extracts that pattern into composable combinators so each
- * domain operation only specifies *what* it computes and *how* to describe
- * the result — not the policy wiring.
+ * Applies shared precision checks and diagnostic logging to synchronous computations.
  *
  * @since 0.1.0
  * @category contracts
@@ -19,17 +9,19 @@ import { Clock, Effect, Match, Number as N } from "effect"
 import { DiagnosticsPolicyService, PrecisionPolicyService } from "./RuntimePolicies.js"
 
 /**
- * Wraps a pure scalar computation with precision and diagnostics policy
- * guards. The caller provides:
+ * Evaluates a numeric computation under precision and diagnostics policies.
  *
- * - `operation` — the operation name for error messages and log labels
- * - `compute` — a thunk that produces the scalar result
- * - `makeError` — a factory that creates the domain-specific violation error
- * - `annotations` — a thunk that returns log annotation key-value pairs
+ * @remarks
+ * Strict precision rejects `NaN` and infinities through `makeError`. Relaxed
+ * precision returns them. Enabled diagnostics emit one debug log after a
+ * successful precision check, using `operation` as the message and adding
+ * precision, elapsed milliseconds, and caller annotations. Exceptions from
+ * any callback become Effect defects. The returned Effect requires
+ * {@link PrecisionPolicyService} and {@link DiagnosticsPolicyService}.
  *
- * The combinator reads `PrecisionPolicyService` and `DiagnosticsPolicyService`
- * from context, applies the three-phase pattern using `Match.exhaustive`,
- * and returns the result.
+ * @typeParam E - Typed failure produced when strict precision rejects the result.
+ * @param options - Synchronous computation, error constructor, log identity, and annotation builder.
+ * @returns The computed number when the active precision policy accepts it.
  *
  * @since 0.1.0
  * @category combinators
@@ -83,9 +75,19 @@ export const withScalarPolicyGuards = <E>(options: {
   })
 
 /**
- * Like {@link withScalarPolicyGuards} but accepts a custom predicate for
- * the strict-precision check. Use when the result is not a scalar (e.g.,
- * `Chunk<number>`) or when the finiteness check needs custom logic.
+ * Evaluates an arbitrary synchronous result under caller-defined strict validation.
+ *
+ * @remarks
+ * Strict precision calls `isValid` and uses `makeError` when it returns
+ * `false`. Relaxed precision skips `isValid`. Enabled diagnostics emit one
+ * debug log only after validation succeeds. Exceptions from callbacks become
+ * Effect defects. The returned Effect requires {@link PrecisionPolicyService}
+ * and {@link DiagnosticsPolicyService}.
+ *
+ * @typeParam A - Value produced by the synchronous computation.
+ * @typeParam E - Typed failure produced when strict validation rejects the value.
+ * @param options - Computation, strict predicate, error constructor, log identity, and annotation builder.
+ * @returns The computed value when the active precision policy accepts it.
  *
  * @since 0.1.0
  * @category combinators

@@ -19,7 +19,13 @@ import { RegisteredSignature, registerRuntime } from "../discovery/index.js"
 import type { Module } from "../model.js"
 
 /**
- * Compose-runtime callback context.
+ * Carries decoded input and validated ownership metadata into a composite callback.
+ *
+ * @remarks
+ * `subModuleNodes` contains direct child parameter and signature views. These
+ * views are not executable modules.
+ *
+ * @typeParam I - Root input fields decoded before the callback is invoked.
  *
  * @since 0.1.0
  * @category models
@@ -27,13 +33,25 @@ import type { Module } from "../model.js"
 export type ComposeForwardContext<
   I extends Schema.Struct.Fields
 > = Readonly<{
+  /** Decoded value passed to the composite module's `forward` operation. */
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
+  /** Live parameter views for direct children, keyed by module identity. */
   readonly subModuleNodes: HashMap.HashMap<ModuleId, ModuleNode>
+  /** Full root and descendant ownership graph fixed at construction. */
   readonly graph: ModuleGraph
 }>
 
 /**
- * Compose-runtime callback contract.
+ * Computes a composite module's output from decoded input and graph metadata.
+ *
+ * @remarks
+ * Composition does not decode the returned value or invoke child modules. AI
+ * provider and package failures from the callback remain in the Effect channel.
+ *
+ * @typeParam I - Input fields represented by `context.input`.
+ * @typeParam O - Output fields represented by the successful callback value.
+ * @param context - Per-call input and construction-time graph metadata.
+ * @returns The decoded output value expected by the root signature.
  *
  * @since 0.1.0
  * @category models

@@ -1,6 +1,5 @@
 /**
- * Validated constructors for building {@link Signature} instances from
- * `Schema.Struct` field declarations.
+ * Validated construction of module signatures from Effect Schema fields.
  *
  * @since 0.1.0
  */
@@ -40,14 +39,50 @@ const validateFieldCollections = (
   })
 
 /**
- * Build a validated {@link Signature} from a description string, input
- * fields, and output fields. Validates that both field sets are
- * non-empty and that no field name appears in both inputs and outputs.
- * Automatically derives the `instructions` text and extracts
- * {@link FieldInfo} metadata from each Schema property.
+ * Constructs a module signature and derives its initial instructions.
  *
- * @see {@link Signature} — the returned model
- * @see {@link describe} — annotate fields with human-readable descriptions
+ * @remarks
+ * Both field records must contain at least one field, and their names must be
+ * disjoint. Violations fail with `SignatureError`. Field descriptions and
+ * optionality are copied into {@link FieldInfo}; values are decoded only when a
+ * module executes.
+ *
+ * @typeParam I - Input fields retained for decoded-input inference.
+ * @typeParam O - Output fields retained for decoded-output inference.
+ * @param description - Task description used verbatim in the derived instructions.
+ * @param inputFields - Non-empty input field definitions.
+ * @param outputFields - Non-empty output field definitions with names distinct from `inputFields`.
+ * @returns A signature with struct schemas, field metadata, and derived instructions.
+ *
+ * @example
+ * ```ts
+ * import * as Signature from "@scenesystems/effect-dsp/Signature"
+ * import { Array as Arr, Effect, Option, Schema } from "effect"
+ *
+ * export const program = Effect.gen(function*() {
+ *   const signature = yield* Signature.make(
+ *     "Answer a question",
+ *     { question: Signature.describe(Schema.String, "Question supplied by the caller") },
+ *     { answer: Signature.describe(Schema.String, "Short factual answer") }
+ *   )
+ *
+ *   const input: Signature.Input<typeof signature> = { question: "What is 2 + 2?" }
+ *   const question = yield* Option.match(
+ *     Arr.findFirst(signature.fields, (field) => field.name === "question"),
+ *     {
+ *       onNone: () => Effect.fail("MissingQuestionField"),
+ *       onSome: Effect.succeed
+ *     }
+ *   )
+ *
+ *   return yield* Effect.succeed(input).pipe(
+ *     Effect.filterOrFail(
+ *       (current) => current.question === "What is 2 + 2?" && Option.isSome(question.description),
+ *       () => "UnexpectedSignatureMetadata"
+ *     )
+ *   )
+ * })
+ * ```
  *
  * @since 0.1.0
  * @category constructors

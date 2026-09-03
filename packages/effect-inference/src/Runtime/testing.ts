@@ -36,15 +36,18 @@ const defaultTestingUsage = () =>
   })
 
 /**
- * Constructs a deterministic requested-runtime fixture with one package-owned
- * source of truth for tests and examples.
+ * Constructs a desired descriptor, defaulting only `modelRef` to
+ * `testing/model`; omitted route and capability fields stay absent.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const makeDesiredRuntimeDescriptor = (options?: {
+  /** Requested model identity; defaults to `testing/model`. */
   readonly modelRef?: string
+  /** Route retained verbatim when present. */
   readonly route?: ExecutionRoute
+  /** Capability requirements retained verbatim when present. */
   readonly capabilities?: RuntimeCapabilities
 }): DesiredRuntimeDescriptor => ({
   artifact: {
@@ -72,13 +75,21 @@ export const makeDesiredRuntimeDescriptor = (options?: {
  * @category constructors
  */
 export const makeResolvedRouteDescriptor = (options?: {
+  /** Intent used to derive model and route defaults. */
   readonly desired?: DesiredRuntimeDescriptor
+  /** Route override; otherwise the desired route or in-memory route is used. */
   readonly route?: ExecutionRoute
+  /** Provider identity included only when present. */
   readonly selectedProvider?: string
+  /** Deployment identity included only when present. */
   readonly selectedDeployment?: string
+  /** Provider model; defaults to the requested model. */
   readonly providerModel?: string
+  /** Serving engine; defaults to the route hint when present. */
   readonly runtimeFlavor?: ResolvedRouteDescriptor["runtimeFlavor"]
+  /** Resolver diagnostic code; defaults to the package testing code. */
   readonly selectionReason?: string
+  /** Provenance version; defaults to the current package version. */
   readonly schemaVersion?: ResolvedRouteDescriptor["schemaVersion"]
 }): ResolvedRouteDescriptor => {
   const desired = options?.desired ?? makeDesiredRuntimeDescriptor()
@@ -122,14 +133,17 @@ export const makeResolvedRouteDescriptor = (options?: {
 }
 
 /**
- * Construct a deterministic runtime-resolution record for tests and examples.
+ * Constructs a deterministic pre-execution resolution with no model layers.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const makeRuntimeResolution = (options: {
+  /** Original caller intent. */
   readonly desired: DesiredRuntimeDescriptor
+  /** Route provenance override; derived from `desired` when omitted. */
   readonly resolvedRoute?: ResolvedRouteDescriptor
+  /** Capability policy override; derived from the resolved route when omitted. */
   readonly capabilities?: RuntimeCapabilities
 }): RuntimeResolution => {
   const resolvedRoute = options.resolvedRoute ?? makeResolvedRouteDescriptor({ desired: options.desired })
@@ -143,20 +157,28 @@ export const makeRuntimeResolution = (options: {
 }
 
 /**
- * Constructs deterministic post-execution runtime truth for tests that need
- * replay-safe evidence without a live provider call.
+ * Constructs caller-supplied post-execution fixture data without contacting or
+ * impersonating a provider. Only `responseModel` receives a default.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const makeResolvedRuntimeDescriptor = (options?: {
+  /** Provider-reported model identity; defaults to `testing/model`. */
   readonly responseModel?: string
+  /** Provider request or response identity. */
   readonly responseId?: string
+  /** Fixture start time in Unix milliseconds. */
   readonly startedAtMs?: number
+  /** Fixture completion time in Unix milliseconds. */
   readonly completedAtMs?: number
+  /** Normalized fixture finish reason. */
   readonly finishReason?: ResolvedRuntimeDescriptor["finishReason"]
+  /** Provider runtime fingerprint fixture. */
   readonly systemFingerprint?: string
+  /** Normalized usage fixture. */
   readonly usage?: ResolvedRuntimeDescriptor["usage"]
+  /** Provider-specific JSON fixture. */
   readonly providerMetadata?: ResolvedRuntimeDescriptor["providerMetadata"]
 }): ResolvedRuntimeDescriptor => {
   const responseId = Option.fromNullable(options?.responseId).pipe(
@@ -215,16 +237,20 @@ export const makeResolvedRuntimeDescriptor = (options?: {
 }
 
 /**
- * Constructs deterministic runtime evidence from package-owned requested,
- * resolved-route, and resolved-runtime fixtures.
+ * Combines the fixture resolution and response descriptor into a runtime
+ * evidence record; no Schema decoding or provenance verification is performed.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const makeRuntimeEvidenceFixture = (options: {
+  /** Original caller intent. */
   readonly desired: DesiredRuntimeDescriptor
+  /** Route provenance override. */
   readonly resolvedRoute?: ResolvedRouteDescriptor
+  /** Capability policy override. */
   readonly capabilities?: RuntimeCapabilities
+  /** Response observations; deterministic defaults are used when omitted. */
   readonly resolvedRuntime?: ResolvedRuntimeDescriptor
 }) =>
   makeRuntimeEvidence({
@@ -247,7 +273,7 @@ export const makeRuntimeEvidenceFixture = (options: {
   })
 
 /**
- * Layer that always resolves to the provided static runtime-resolution record.
+ * Installs a resolver that returns the same resolution for every descriptor.
  *
  * @since 0.1.0
  * @category layers
@@ -262,8 +288,7 @@ export const staticRuntimeResolver = (
   )
 
 /**
- * Returns an empty optional layer set for tests that only care about runtime
- * evidence and not live model execution.
+ * Creates the no-model layer set used by runtime-evidence tests.
  *
  * @since 0.1.0
  * @category constructors
@@ -271,8 +296,8 @@ export const staticRuntimeResolver = (
 export const emptyTestingLayers = () => emptyResolvedModelLayers()
 
 /**
- * Deterministic language-model layer for downstream contract tests that should
- * not depend on provider adapters.
+ * Emits one text part followed by a stop finish part for every generation
+ * request. Streaming completes without emitting parts.
  *
  * @since 0.1.0
  * @category layers
@@ -295,8 +320,7 @@ export const staticLanguageModel = (value = "testing-response") =>
   )
 
 /**
- * Deterministic embedding-model layer for downstream contract tests that only
- * need stable vectors.
+ * Returns a copy of `embedding` for each input while preserving input order.
  *
  * @since 0.1.0
  * @category layers

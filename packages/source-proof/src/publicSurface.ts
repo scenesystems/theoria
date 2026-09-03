@@ -5,9 +5,11 @@ import {
   type PackagePublicEntrypoint,
   PackagePublicExport,
   type PublicExportDoc,
-  type PublicExportKind
+  type PublicExportKind,
+  SourceFilePath
 } from "./model.js"
-import { docTagValues, publicExportDocs } from "./publicExports.js"
+import { docSummaryFromNodes, docTagValues } from "./publicDoc.js"
+import { publicExportDocs } from "./publicExports.js"
 
 const localDocFor = (
   docs: ReadonlyArray<PublicExportDoc>,
@@ -38,6 +40,21 @@ const firstPreferredDocTagValue = (input: {
       doc[input.field] ??
         firstDocTagValueFromDeclarations(input.exportDeclarations, input.field) ??
         firstDocTagValueFromDeclarations(input.resolvedDeclarations, input.field)
+  })
+
+const firstPreferredSummary = (input: {
+  readonly localDoc: Option.Option<PublicExportDoc>
+  readonly exportDeclarations: ReadonlyArray<ts.Declaration>
+  readonly resolvedDeclarations: ReadonlyArray<ts.Declaration>
+}): string | null =>
+  Option.match(input.localDoc, {
+    onNone: () =>
+      docSummaryFromNodes(input.exportDeclarations) ??
+        docSummaryFromNodes(input.resolvedDeclarations),
+    onSome: (doc) =>
+      doc.summary ??
+        docSummaryFromNodes(input.exportDeclarations) ??
+        docSummaryFromNodes(input.resolvedDeclarations)
   })
 
 const aliasedSymbol = (checker: ts.TypeChecker, symbol: ts.Symbol): ts.Symbol =>
@@ -71,6 +88,23 @@ const exportKindFromSymbol = (
     onSome: (doc) => doc.kind
   })
 
+const normalizedPath = (value: string): string => value.replaceAll("\\", "/")
+
+const declarationSourceFile = (
+  entrypoint: PackagePublicEntrypoint,
+  declarations: ReadonlyArray<ts.Declaration>
+): SourceFilePath => {
+  const entrypointAbsolute = normalizedPath(entrypoint.sourceFile.absolute)
+  const entrypointRelative = normalizedPath(entrypoint.sourceFile.relative)
+  const packageRoot = entrypointAbsolute.slice(0, -entrypointRelative.length)
+  const absolute = normalizedPath(declarations[0]?.getSourceFile().fileName ?? entrypointAbsolute)
+  const relative = absolute.startsWith(packageRoot)
+    ? absolute.slice(packageRoot.length)
+    : entrypointRelative
+
+  return new SourceFilePath({ absolute, relative })
+}
+
 const publicExportsFromEntrypoint = (
   checker: ts.TypeChecker,
   entrypoint: PackagePublicEntrypoint,
@@ -95,6 +129,12 @@ const publicExportsFromEntrypoint = (
           subpath: entrypoint.subpath,
           exportName,
           kind,
+          sourceFile: declarationSourceFile(entrypoint, resolvedDeclarations),
+          summary: firstPreferredSummary({
+            localDoc,
+            exportDeclarations,
+            resolvedDeclarations
+          }),
           since: firstPreferredDocTagValue({
             localDoc,
             exportDeclarations,

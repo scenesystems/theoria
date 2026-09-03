@@ -1,6 +1,5 @@
 /**
- * Ensemble — run multiple optimizers and select the parameter set with the
- * highest evaluation score.
+ * Runs a fixed seeded program subset concurrently and reduces its outputs.
  *
  * @since 0.1.0
  * @category constructors

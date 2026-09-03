@@ -1,5 +1,5 @@
 /**
- * Chain-of-thought module constructor.
+ * Predictors with an additional model-generated reasoning field.
  *
  * @since 0.1.0
  */
@@ -14,10 +14,24 @@ import type { ChainOfThoughtOutputFields } from "./schema.js"
 const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
 
 /**
- * Create a predictor module that prepends a required `reasoning` field to
- * the output schema, forcing the language model to show its work before
- * producing the final answer. Reuses the canonical `predict` runtime —
- * only the signature and instructions are transformed.
+ * Creates a predictor that requests reasoning text before the original outputs.
+ *
+ * @remarks
+ * The transformed signature prepends a required string field named `reasoning`
+ * and asks the model to populate it before the original fields. The field is
+ * ordinary model output. The module does not verify that it describes the
+ * model's internal reasoning or that it is factually sound.
+ *
+ * Forward execution otherwise follows {@link predict}, including output-mode
+ * selection and text parse retries. Construction fails with `SignatureError`
+ * when the supplied signature already has an output named `reasoning`.
+ *
+ * @typeParam I - Input fields inferred from `signature`.
+ * @typeParam O - Original output fields, retained after `reasoning`.
+ * @param name - Identity used for discovery and tracing.
+ * @param signature - Source contract, which remains unchanged.
+ * @param options - Text parse-policy overrides passed to {@link predict}.
+ * @returns A predictor with `reasoning` prepended to its output fields.
  *
  * @see {@link predict}
  * @see {@link ChainOfThoughtOutputFields}
@@ -40,8 +54,7 @@ export const chainOfThought = <
   })
 
 /**
- * Schema transformation — `ChainOfThoughtOutputFields` type and
- * `toChainOfThoughtSignature` combinator.
+ * Output-field and signature transformations used by {@link chainOfThought}.
  *
  * @since 0.1.0
  */

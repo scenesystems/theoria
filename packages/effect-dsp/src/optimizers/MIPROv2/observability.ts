@@ -1,34 +1,45 @@
 /**
- * MIPROv2 observability — search quality and retained gain projections for
- * diagnostic reporting.
+ * Projects search and retained scores relative to a caller-supplied baseline.
  *
  * @since 0.1.0
  */
 import type { MIPROv2EventSummary } from "./progress.js"
 
 /**
- * Semantic decomposition of MIPROv2 search quality versus retained gain.
+ * Compares the best reported search score with a separately evaluated final module.
  *
- * `searchGain` captures best trial quality above baseline. `retainedGain`
- * captures end-state quality above baseline after optimization is applied.
+ * @remarks
+ * When the event summary has no Phase 3 score, `searchBestScore` falls back to
+ * `optimizedScore`. All gain and gap fields are arithmetic differences; this
+ * type does not validate score scale or metric comparability.
  *
  * @since 0.1.0
  * @category models
  */
 export type MIPROv2OptimizationObservability = Readonly<{
+  /** Reference score supplied by the caller. */
   readonly baselineScore: number
+  /** Caller-evaluated score for the retained module state. */
   readonly optimizedScore: number
+  /** Whether the event summary contained any Phase 3 score. */
   readonly searchBestScoreSeen: boolean
+  /** Best event-derived score, or `optimizedScore` when none was observed. */
   readonly searchBestScore: number
+  /** `searchBestScore - baselineScore`. */
   readonly searchGain: number
+  /** `optimizedScore - baselineScore`. */
   readonly retainedGain: number
+  /** `searchBestScore - optimizedScore`. */
   readonly retainedVsSearchGap: number
+  /** True when search gain is positive and retained gain is zero or negative. */
   readonly searchImprovedButRetainedFlat: boolean
 }>
 
 /**
- * Build semantic MIPROv2 search observability from baseline/evaluation and
- * event-derived phase-3 best-trial signals.
+ * Computes score differences from event-derived and caller-evaluated values.
+ *
+ * @param options - Baseline score, retained score, and completed event summary.
+ * @returns A pure projection that preserves the supplied scores.
  *
  * @since 0.1.0
  * @category constructors

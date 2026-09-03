@@ -1,4 +1,6 @@
 /**
+ * Conditional branch construction from compiled case spaces.
+ *
  * @since 0.1.0
  */
 import { Array as Arr, Record as Rec, Schema } from "effect"
@@ -49,7 +51,16 @@ const branchSchema = <
 }
 
 /**
- * Create a switch case binding a value to a sub-space.
+ * Binds one categorical discriminant value to a compiled branch space.
+ *
+ * @remarks
+ * The case retains the branch schema and parameter metadata by reference. Case
+ * reachability and duplicate values are checked by {@link makeConditional}.
+ *
+ * @typeParam Choice - Literal value used to select this case.
+ * @typeParam SpaceSchema - Decoded and encoded contract for the branch fields.
+ * @param value - Primitive value present in the discriminant's categorical choices.
+ * @param space - Already compiled fields active for this case.
  *
  * @since 0.1.0
  * @category constructors
@@ -69,7 +80,17 @@ export const when = <
 }
 
 /**
- * Create a conditional switch over a discriminant dimension.
+ * Builds a union whose members combine a discriminant literal with one case schema.
+ *
+ * @remarks
+ * Case order determines union and metadata order. This operation does not check
+ * that the discriminant exists, is categorical, or can reach each case;
+ * {@link makeConditional} performs those checks.
+ *
+ * @typeParam Discriminant - Literal root parameter name selecting a case.
+ * @typeParam Cases - Non-empty tuple whose branch schemas form the union.
+ * @param discriminant - Root categorical parameter included in every union member.
+ * @param cases - Ordered compiled cases.
  *
  * @since 0.1.0
  * @category constructors
@@ -108,6 +129,8 @@ export const switchOn = <
 
 export {
   /**
+   * Builds a conditional branch union; shorthand for {@link switchOn}.
+   *
    * @since 0.1.0
    * @category constructors
    */

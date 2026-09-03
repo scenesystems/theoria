@@ -1,5 +1,5 @@
 /**
- * OpenAI-compatible descriptor helpers.
+ * Route construction and transport planning for OpenAI-compatible endpoints.
  *
  * @since 0.1.0
  */
@@ -10,32 +10,36 @@ import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
 import { makeOpenAiCompatibleRoute } from "./metadata.js"
 
 /**
- * Minimal transport information shared by compatible chat-completions style
- * runtimes.
+ * Client endpoint and authentication metadata projected from an execution route.
+ * No credential is retained.
  *
  * @since 0.1.0
  * @category models
  */
 export class CompatibleTransport extends Data.Class<{
+  /** Endpoint prefix passed to the Effect AI client. */
   readonly baseUrl: string
+  /** Credential mechanism recorded for the route; no secret is stored. */
   readonly authMethod: ExecutionRoute["authMethod"]
 }> {}
 
 /**
- * Future-proof transport planning record that preserves the original route
- * identity above the shared HTTP seam.
+ * Pairs an execution route with the base URL and authentication method needed
+ * by an OpenAI-compatible client.
  *
  * @since 0.1.0
  * @category models
  */
 export class CompatibleTransportPlan extends Data.Class<{
+  /** Complete provenance route retained by the plan. */
   readonly route: ExecutionRoute
+  /** Client settings projected from `route`. */
   readonly transport: CompatibleTransport
 }> {}
 
 /**
- * Adds a normalized OpenAI-compatible route hint to a desired runtime
- * descriptor.
+ * Replaces any existing route with an `OpenAiCompatible` route. Model intent,
+ * capability requirements, role, and tags retain their original identity.
  *
  * @since 0.1.0
  * @category constructors
@@ -55,8 +59,8 @@ export const withOpenAiCompatibleRoute = (descriptor: DesiredRuntimeDescriptor, 
 })
 
 /**
- * Projects a stable execution route onto the shared compatible transport seam
- * without collapsing route-family or deployment identity.
+ * Projects client transport settings while retaining the complete route for
+ * provenance. It performs no validation or I/O.
  *
  * @since 0.1.0
  * @category constructors

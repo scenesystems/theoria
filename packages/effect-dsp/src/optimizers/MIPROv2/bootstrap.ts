@@ -1,11 +1,11 @@
 /**
- * MIPROv2 Phase 1 — deterministic demo candidate generation by running the
- * module against training examples and collecting traces.
+ * Builds Phase 1 demonstration candidates from labeled examples.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
 import { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { Example } from "../../Example/index.js"
@@ -15,7 +15,11 @@ import { assemblePredictorCandidates, labeledDemos, sortDemos } from "./runtime/
 import { normalizeCount, normalizeSeed } from "./runtime/random.js"
 
 /**
- * Phase-1 demo candidate kind.
+ * Decodes the four demonstration layouts produced by Phase 1.
+ *
+ * @remarks
+ * The two `bootstrap-*` variants use labeled examples in original or seeded
+ * order. Phase 1 does not execute a teacher or collect module traces.
  *
  * @since 0.1.0
  * @category models
@@ -28,7 +32,8 @@ export const DemoCandidateKindSchema = Schema.Literal(
 )
 
 /**
- * Phase-1 demo candidate kind.
+ * Identifies the empty, labeled-prefix, original-order, or seeded-order
+ * demonstration layout carried by a candidate.
  *
  * @since 0.1.0
  * @category type-level
@@ -36,30 +41,43 @@ export const DemoCandidateKindSchema = Schema.Literal(
 export type DemoCandidateKind = Schema.Schema.Type<typeof DemoCandidateKindSchema>
 
 /**
- * MIPROv2 demo candidate for one predictor.
+ * Couples a predictor's parameter snapshot with its demonstration layout.
+ *
+ * @remarks
+ * `params` retains the predictor's non-demonstration settings and appends a
+ * Phase 1 marker to its instructions. Phase 3 replaces those marked
+ * instructions with an instruction candidate before evaluation.
  *
  * @since 0.1.0
  * @category models
  */
 export class DemoCandidate extends Schema.Class<DemoCandidate>("MIPROv2DemoCandidate")({
+  /** Exact parameter-ref name of the candidate's predictor. */
   predictorName: Schema.String,
+  /** Demonstration layout used to build this candidate. */
   kind: DemoCandidateKindSchema,
+  /** Predictor parameter snapshot containing the selected demonstrations. */
   params: ModuleParams
 }) {}
 
 /**
- * Phase-1 candidate set per predictor.
+ * Groups the ordered Phase 1 candidates for one predictor name.
  *
  * @since 0.1.0
  * @category models
  */
 export class PredictorDemoCandidates extends Schema.Class<PredictorDemoCandidates>("MIPROv2PredictorDemoCandidates")({
+  /** Exact parameter-ref name shared by every grouped candidate. */
   predictorName: Schema.String,
+  /** Candidates in Phase 1 search order. */
   candidates: Schema.Array(DemoCandidate)
 }) {}
 
 /**
- * Phase-1 generation options.
+ * Configures labeled demonstration selection for every owned predictor.
+ *
+ * @typeParam I - Input fields accepted by the module tree.
+ * @typeParam O - Output fields carried by labeled demonstrations.
  *
  * @since 0.1.0
  * @category models
@@ -68,16 +86,34 @@ export type GenerateDemoCandidatesOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 > = Readonly<{
+  /** Root whose parameter refs are read without mutation. */
   readonly module: DspModule<I, O>
+  /** Source examples; entries without `output` are excluded from every candidate. */
   readonly trainset: ReadonlyArray<Example>
+  /** Total candidates per predictor, normalized to a positive integer. */
   readonly numCandidates: number
+  /** Seed used to order shuffled candidates. Defaults to `1` after normalization. */
   readonly seed?: number
+  /** Maximum examples in the `labels-only` candidate. Invalid counts become one. */
   readonly maxLabeledDemos?: number
+  /** Maximum examples in each bootstrap-named candidate. Invalid counts become one. */
   readonly maxBootstrappedDemos?: number
 }>
 
 /**
- * Build deterministic Phase-1 demo candidates for every discovered predictor.
+ * Snapshots every owned predictor and builds its demonstration candidates.
+ *
+ * @remarks
+ * Labeled examples are sorted by total input and output field count. Candidate
+ * order begins with zero-shot, labels-only, and original-order bootstrap
+ * layouts, truncated when `numCandidates` is below three. Additional slots use
+ * seeded orderings and a seeded demonstration count. Inputs and outputs are
+ * copied without Schema decoding. The module parameter refs remain unchanged.
+ *
+ * @param options - Module tree, labeled-example source, candidate count, and limits.
+ * @returns Candidate sets in the module tree's parameter-ref order.
+ * @typeParam I - Input fields accepted by the module tree.
+ * @typeParam O - Output fields carried by labeled demonstrations.
  *
  * @since 0.1.0
  * @category constructors
@@ -95,13 +131,13 @@ export const generateDemoCandidates = <
     const maxLabeledDemos = normalizeCount(
       Option.getOrElse(
         Option.fromNullable(options.maxLabeledDemos),
-        () => Math.max(1, Math.min(4, allLabeled.length))
+        () => Numeric.max(1, Numeric.min(4, allLabeled.length))
       )
     )
     const maxBootstrappedDemos = normalizeCount(
       Option.getOrElse(
         Option.fromNullable(options.maxBootstrappedDemos),
-        () => Math.max(1, Math.min(4, allLabeled.length))
+        () => Numeric.max(1, Numeric.min(4, allLabeled.length))
       )
     )
     const seed = normalizeSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 1))

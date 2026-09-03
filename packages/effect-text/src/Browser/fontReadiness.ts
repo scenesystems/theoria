@@ -1,12 +1,12 @@
 /**
- * Browser font-readiness revision helpers.
+ * Monotonic cache generations for widths measured against changing browser fonts.
  *
  * @since 0.2.0
  */
 import { Schema } from "effect"
 
 /**
- * Font-readiness revision schema.
+ * Non-negative generation counter included in browser width-cache keys.
  *
  * @since 0.2.0
  * @category schemas
@@ -17,7 +17,7 @@ export const FontReadinessRevision = Schema.Number.pipe(
 )
 
 /**
- * Font-readiness revision type.
+ * Width-cache generation advanced after browser font availability changes.
  *
  * @since 0.2.0
  * @category models
@@ -33,10 +33,12 @@ export type FontReadinessRevisionType = typeof FontReadinessRevision.Type
 export const initialFontReadinessRevision = (): FontReadinessRevisionType => 0
 
 /**
- * Advances the browser font-readiness revision.
+ * Adds one to a browser font-readiness revision.
  *
+ * @remarks
  * Increment the revision when browser font readiness changes in a way that can
- * invalidate cached widths.
+ * invalidate cached widths. The result is not decoded; callers must keep the
+ * increment within the schema's non-negative integer domain.
  *
  * @since 0.2.0
  * @category freshness

@@ -1,5 +1,5 @@
 /**
- * Trial lifecycle transitions and duration computations.
+ * Pure constructors and state transitions for trial records.
  *
  * @since 0.1.0
  */
@@ -23,13 +23,11 @@ const durationFromState = (state: TrialState, now: number): number =>
   )
 
 /**
- * The sole entry point for trial creation. Produces a {@link Trial} in the
- * `Running` state with the given sampler-suggested configuration and start
- * timestamp. All subsequent state transitions flow through the other
- * lifecycle functions in this module.
+ * Creates a running trial whose elapsed duration is measured from `startedAt`.
+ * The default study clock supplies Unix time in milliseconds. This constructor
+ * stores the values without validating the trial number or timestamp.
  *
- * @see {@link Trial} for the returned record type
- * @see {@link Running} for the initial state constructor
+ * @typeParam Config - Decoded configuration retained by the new trial.
  *
  * @since 0.1.0
  * @category constructors
@@ -66,20 +64,21 @@ const completeWithMetadata = <Config>(
   })
 
 /**
- * Transitions a running trial to the `Completed` terminal state, recording
- * the objective value and computing elapsed duration from the `Running`
- * start time. Supports both data-first `complete(trial, value, now)` and
- * pipeable `pipe(trial, complete(value, now))` calling conventions.
+ * Records a successful objective value with a retry count of zero. A running
+ * input receives the duration `now - startedAt`; any terminal input receives a
+ * duration of zero. The function does not validate the current state or the
+ * ordering of the timestamps.
  *
- * @see {@link Trial} for the trial record
- * @see {@link Completed} for the target state constructor
- * @see {@link completeWithRetryCount} to also record retry metadata
+ * @remarks
+ * Supports `complete(trial, value, now)` and
+ * `pipe(trial, complete(value, now))`.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const complete: {
   (value: ObjectiveValue, now: number): <Config>(self: Trial<Config>) => Trial<Config>
+  /** @typeParam Config - Decoded configuration preserved from the input trial. */
   <Config>(self: Trial<Config>, value: ObjectiveValue, now: number): Trial<Config>
 } = dual(
   3,
@@ -88,18 +87,16 @@ export const complete: {
 )
 
 /**
- * Like {@link complete} but additionally records how many retries the
- * objective function required before succeeding. Useful for diagnosing
- * flaky evaluations or computing retry-adjusted cost.
- *
- * @see {@link complete} for the zero-retry convenience variant
- * @see {@link completeWithRetryCountAndCost} to also attach an evaluation cost
+ * Records a successful objective value and the number of retries performed
+ * before that value was obtained. Duration and calling conventions match
+ * {@link complete}. The retry count is stored without range validation.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const completeWithRetryCount: {
   (value: ObjectiveValue, now: number, retryCount: number): <Config>(self: Trial<Config>) => Trial<Config>
+  /** @typeParam Config - Decoded configuration preserved from the input trial. */
   <Config>(self: Trial<Config>, value: ObjectiveValue, now: number, retryCount: number): Trial<Config>
 } = dual(
   4,
@@ -108,14 +105,10 @@ export const completeWithRetryCount: {
 )
 
 /**
- * The most complete form of the completion transition — records the objective
- * value, retry count, and an optional monetary/compute cost for the
- * evaluation. When cost is `Option.none()`, no cost field is set on the
- * resulting trial.
- *
- * @see {@link complete} for the minimal convenience variant
- * @see {@link completeWithRetryCount} for completion without cost tracking
- * @see {@link Trial} for how the `cost` field is stored on the record
+ * Records a successful objective value, retry count, and optional evaluation
+ * cost. `Option.none()` omits `cost`; `Option.some(value)` stores the value on
+ * the trial without validating its unit, finiteness, or sign. Duration and
+ * calling conventions match {@link complete}.
  *
  * @since 0.1.0
  * @category combinators
@@ -124,6 +117,7 @@ export const completeWithRetryCountAndCost: {
   (value: ObjectiveValue, now: number, retryCount: number, cost: Option.Option<number>): <Config>(
     self: Trial<Config>
   ) => Trial<Config>
+  /** @typeParam Config - Decoded configuration preserved from the input trial. */
   <Config>(
     self: Trial<Config>,
     value: ObjectiveValue,
@@ -143,18 +137,19 @@ export const completeWithRetryCountAndCost: {
 )
 
 /**
- * Transitions a running trial to the `Failed` terminal state, capturing
- * the {@link TrialError} and elapsed duration. The error is preserved for
- * post-hoc diagnostics without affecting the study's other trials.
+ * Records a terminal {@link TrialError}. A running input receives the duration
+ * `now - startedAt`; any terminal input receives a duration of zero. The
+ * function does not validate the current state or timestamp ordering.
  *
- * @see {@link Trial} for the trial record
- * @see {@link Failed} for the target state constructor
+ * @remarks
+ * Supports `fail(trial, error, now)` and `pipe(trial, fail(error, now))`.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const fail: {
   (error: TrialError, now: number): <Config>(self: Trial<Config>) => Trial<Config>
+  /** @typeParam Config - Decoded configuration preserved from the input trial. */
   <Config>(self: Trial<Config>, error: TrialError, now: number): Trial<Config>
 } = dual(
   3,
@@ -169,20 +164,19 @@ export const fail: {
 )
 
 /**
- * Transitions a running trial to the `Pruned` terminal state when an
- * early-stopping policy (e.g. median pruner, percentile pruner) determines
- * the trial is unlikely to improve beyond the current best. Records the
- * intermediate step, a human-readable reason, and the policy name so
- * pruning decisions can be audited after the study completes.
+ * Records the pruning step, policy, and reason as a terminal state. A running
+ * input receives the duration `now - startedAt`; any terminal input receives a
+ * duration of zero. The metadata and timestamp are stored without validation.
  *
- * @see {@link Trial} for the trial record
- * @see {@link Pruned} for the target state constructor
+ * @remarks
+ * Supports data-first and pipeable calls.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const prune: {
   (step: number, reason: string, policy: string, now: number): <Config>(self: Trial<Config>) => Trial<Config>
+  /** @typeParam Config - Decoded configuration preserved from the input trial. */
   <Config>(self: Trial<Config>, step: number, reason: string, policy: string, now: number): Trial<Config>
 } = dual(
   5,
@@ -205,13 +199,10 @@ export const prune: {
 )
 
 /**
- * Transitions a running trial to the `Cancelled` terminal state. This
- * occurs on external interruption — user abort, timeout, or study-level
- * cancellation. Unlike {@link fail}, no error is captured because the
- * interruption is intentional and does not indicate a defect.
+ * Records cancellation without an error, timestamp, or duration. The function
+ * accepts any current state and returns a new trial record.
  *
- * @see {@link Trial} for the trial record
- * @see {@link Cancelled} for the target state constructor
+ * @typeParam Config - Decoded configuration preserved from the input trial.
  *
  * @since 0.1.0
  * @category combinators

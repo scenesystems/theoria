@@ -109,7 +109,39 @@ const prepareCore = (
   })
 
 /**
- * Compiles text into a prepared handle that retains segment-level manual layout metadata.
+ * Segments and measures text once, retaining the logical surface required for
+ * visually ordered lines, ranges, cursors, and streams.
+ *
+ * @remarks
+ * Requires `WordSegmenter`, `MeasurementCache`, and `EngineProfile`. An
+ * available `HyphenationDictionary` is used only with `hyphenationLocale`;
+ * otherwise preparation uses the non-dictionary break path.
+ *
+ * @example
+ * ```ts
+ * import { Array, Effect, Option } from "effect"
+ * import { Text } from "@scenesystems/effect-text"
+ *
+ * export const program = Effect.gen(function*() {
+ *   const prepared = yield* Text.prepareWithSegments({
+ *     text: "alpha beta",
+ *     font: { family: "Mono", size: 16 },
+ *     whiteSpace: "normal"
+ *   })
+ *   const lines = Text.layoutLines(prepared, { maxWidth: 160, lineHeight: 20 })
+ *   const first = yield* Option.match(Array.head(lines), {
+ *     onNone: () => Effect.fail("MissingLayoutLine"),
+ *     onSome: Effect.succeed
+ *   })
+ *
+ *   return yield* Effect.succeed(first).pipe(
+ *     Effect.filterOrFail(
+ *       ({ text }) => text === "alpha beta",
+ *       () => "UnexpectedLayoutText"
+ *     )
+ *   )
+ * }).pipe(Effect.provide(Text.TextLayoutLive))
+ * ```
  *
  * @since 0.1.0
  * @category constructors
@@ -129,7 +161,11 @@ export const prepareWithSegments = (
   )
 
 /**
- * Compiles text into an opaque prepared handle.
+ * Segments and measures text into an opaque summary-only handle.
+ *
+ * @remarks
+ * The result supports `layout` and `measureNaturalWidth`; use
+ * `prepareWithSegments` when line text or cursor bounds are needed.
  *
  * @since 0.1.0
  * @category constructors
@@ -140,7 +176,12 @@ export const prepare = (
   prepareCore(input).pipe(Effect.map((compilation) => preparedTextFromCore(compilation.core)))
 
 /**
- * Decodes unknown input, then compiles it into a prepared handle.
+ * Strictly decodes unknown input, then performs the same compilation as
+ * `prepare`.
+ *
+ * @remarks
+ * Invalid or excess fields fail with `TextLayoutDecodeError`; successful
+ * decoding can still fail with `MeasurementFailed`.
  *
  * @since 0.1.0
  * @category constructors

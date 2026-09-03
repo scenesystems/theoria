@@ -1,5 +1,5 @@
 /**
- * Leaf predictor module — the fundamental building block for LLM programs.
+ * Leaf modules that decode language-model output against a signature.
  *
  * @since 0.1.0
  */
@@ -16,15 +16,13 @@ import { makeForward } from "./runtime.js"
 const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
 
 /**
- * Optional overrides for parse retry behavior and feedback templates,
- * applied to a single `predict` module.
- *
- * @see {@link PredictPolicyOverrides}
+ * Configures text-output parsing for one predictor.
  *
  * @since 0.1.0
  * @category models
  */
 export type PredictOptions = Readonly<{
+  /** Overrides merged with {@link DEFAULT_PREDICT_POLICY}. */
   readonly policy?: PredictPolicyOverrides
 }>
 
@@ -42,12 +40,28 @@ const makeInitialParams = <
   })
 
 /**
- * Create a leaf predictor module that sends schema-validated input to a
- * language model and parses the response into schema-validated output.
- * Parse failures are retried according to the module's policy.
+ * Allocates a leaf module whose `forward` operation invokes `LanguageModel`.
  *
- * @see {@link Module}
- * @see {@link PredictOptions}
+ * @remarks
+ * Initial parameters use the signature instructions, no demonstrations,
+ * automatic output selection, and no generation overrides. Construction only
+ * allocates the parameter `Ref`.
+ *
+ * Each `forward` call snapshots the current parameters before model execution.
+ * Structured output delegates Schema decoding to the provider. Text output
+ * parses field markers and retries parse failures according to the resolved
+ * policy, adding the preceding diagnostics to the next prompt. Provider errors
+ * are not retried by the parse policy. Discovery registration occurs before the
+ * model call; trace and usage records are appended only after a successful call
+ * and trace projection.
+ *
+ * @typeParam I - Input fields inferred from the signature.
+ * @typeParam O - Output fields inferred from the signature.
+ * @param name - Module name. Construction does not validate the `ModuleId`
+ *   pattern; an invalid name fails during discovery registration on `forward`.
+ * @param signature - Input/output contract and initial instructions.
+ * @param options - Per-module text-parse policy overrides.
+ * @returns A module with an independent parameter `Ref` and no child nodes.
  *
  * @since 0.1.0
  * @category constructors

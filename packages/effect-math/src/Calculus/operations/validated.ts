@@ -1,5 +1,9 @@
 /**
- * Schema-decoded calculus operation boundaries.
+ * Decodes untrusted calculus inputs and captures synchronous kernel exceptions.
+ *
+ * @remarks
+ * Every boundary rejects excess fields with {@link CalculusDecodeError} and
+ * maps exceptions from caller functions to {@link KernelExecutionError}.
  *
  * @since 0.1.0
  * @category operations
@@ -35,7 +39,11 @@ import {
 import { decodeOperationInput, ensureParameters, executeKernel, matrixToReadonly, ridderConfigFrom } from "./shared.js"
 
 /**
- * Schema-decoded boundary for `derivativeLimit`.
+ * Decodes a finite point and Ridder controls before estimating a first derivative.
+ *
+ * @returns The selected estimate with error, iteration, and convergence metadata.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -47,7 +55,11 @@ export const derivativeLimitValidated = (f: (x: number) => number, input: unknow
   })
 
 /**
- * Schema-decoded boundary for `secondDerivativeLimit`.
+ * Decodes a finite point and Ridder controls before estimating a second derivative.
+ *
+ * @returns The selected estimate with error, iteration, and convergence metadata.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -60,7 +72,10 @@ export const secondDerivativeLimitValidated = (f: (x: number) => number, input: 
   })
 
 /**
- * Schema-decoded boundary for first derivative values.
+ * Decodes first-derivative input and returns only the selected estimate value.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.1.0
  * @category operations
@@ -69,7 +84,10 @@ export const derivativeValidated = (f: (x: number) => number, input: unknown) =>
   Effect.map(derivativeLimitValidated(f, input), (estimate) => estimate.value)
 
 /**
- * Schema-decoded boundary for second derivative values.
+ * Decodes second-derivative input and returns only the selected estimate value.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -78,7 +96,13 @@ export const secondDerivativeValidated = (f: (x: number) => number, input: unkno
   Effect.map(secondDerivativeLimitValidated(f, input), (estimate) => estimate.value)
 
 /**
- * Schema-decoded boundary for trapezoidal integration.
+ * Integrates decoded finite samples with the composite trapezoidal rule.
+ *
+ * @remarks
+ * The boundary requires at least two samples and a positive finite spacing.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when the synchronous kernel throws.
  *
  * @since 0.1.0
  * @category operations
@@ -90,7 +114,14 @@ export const trapezoidValidated = (input: unknown) =>
   })
 
 /**
- * Schema-decoded boundary for Simpson integration.
+ * Integrates decoded finite samples with composite Simpson quadrature.
+ *
+ * @remarks
+ * The boundary requires at least two samples and a positive finite spacing.
+ * An odd final interval uses the trapezoidal rule.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when the synchronous kernel throws.
  *
  * @since 0.1.0
  * @category operations
@@ -102,7 +133,14 @@ export const simpsonValidated = (input: unknown) =>
   })
 
 /**
- * Schema-decoded boundary for adaptive Simpson integration.
+ * Decodes finite bounds and positive recursion controls before adaptive Simpson integration.
+ *
+ * @remarks
+ * Exhausting `maxDepth` succeeds with the current estimate and does not expose
+ * convergence metadata.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -122,7 +160,11 @@ export const adaptiveSimpsonValidated = (f: (x: number) => number, input: unknow
   })
 
 /**
- * Schema-decoded boundary for gradient evaluation.
+ * Decodes a non-empty finite point before estimating one partial derivative per coordinate.
+ *
+ * @returns A new readonly array in input-coordinate order.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -135,7 +177,12 @@ export const gradientValidated = (f: (point: Chunk.Chunk<number>) => number, inp
   })
 
 /**
- * Schema-decoded boundary for Jacobian evaluation.
+ * Decodes a non-empty finite point before estimating a vector field's Jacobian.
+ *
+ * @returns New readonly rows in output-component order, with columns in
+ * input-coordinate order.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -151,7 +198,11 @@ export const jacobianValidated = (
   })
 
 /**
- * Schema-decoded boundary for Hessian evaluation.
+ * Decodes a non-empty finite point before estimating a scalar function's Hessian.
+ *
+ * @returns A new square readonly matrix in input-coordinate order.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -164,7 +215,14 @@ export const hessianValidated = (f: (point: Chunk.Chunk<number>) => number, inpu
   })
 
 /**
- * Schema-decoded boundary for directional derivative evaluation.
+ * Decodes equal-length point and direction vectors before estimating a directional derivative.
+ *
+ * @remarks
+ * The direction is normalized. A zero vector passes decoding and returns `NaN`.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link CalculusParameterError} when the vector lengths differ.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -193,7 +251,16 @@ export const directionalDerivativeValidated = (
   })
 
 /**
- * Schema-decoded boundary for divergence evaluation.
+ * Decodes a point and requires matching field dimensions before estimating divergence.
+ *
+ * @remarks
+ * The field is evaluated at `point` for the dimension check, then evaluated
+ * again by the differentiation kernel. Callers should supply a stable,
+ * side-effect-free function.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link CalculusParameterError} when the field output length differs from the point length.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -217,7 +284,10 @@ export const divergenceValidated = (
   })
 
 /**
- * Schema-decoded boundary for Laplacian evaluation.
+ * Decodes a non-empty finite point before estimating a scalar function's Laplacian.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations

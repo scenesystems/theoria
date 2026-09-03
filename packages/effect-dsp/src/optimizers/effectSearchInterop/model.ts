@@ -1,6 +1,5 @@
 /**
- * Stable contracts for the effect-dsp ↔ effect-search integration boundary —
- * trial payloads, result projections, and objective mappings.
+ * Defines study options and result projections at the DSP optimizer boundary.
  *
  * @since 0.1.0
  */
@@ -11,9 +10,7 @@ import * as StudyEvent from "@scenesystems/effect-search/StudyEvent"
 import { Option, Schema } from "effect"
 
 /**
- * Schema for the TPE acquisition strategies available through the adapter:
- * `"ei"` (expected improvement), `"pi"` (probability of improvement), or
- * `"thompson"` (Thompson sampling).
+ * Accepts expected improvement, probability of improvement, or Thompson sampling.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,7 +18,7 @@ import { Option, Schema } from "effect"
 export const EffectSearchAcquisitionStrategySchema = Schema.Literal("ei", "pi", "thompson")
 
 /**
- * One of the supported TPE acquisition strategies.
+ * Selects the acquisition calculation delegated to effect-search TPE.
  *
  * @see {@link EffectSearchAcquisitionStrategySchema}
  * @since 0.1.0
@@ -30,7 +27,7 @@ export const EffectSearchAcquisitionStrategySchema = Schema.Literal("ei", "pi", 
 export type EffectSearchAcquisitionStrategy = Schema.Schema.Type<typeof EffectSearchAcquisitionStrategySchema>
 
 /**
- * Resolved TPE sampler configuration after defaults have been applied.
+ * Stores explicit seed presence and fully resolved sampler choices.
  *
  * @see {@link EffectSearchTpeSamplerInput} for the user-facing input shape
  * @since 0.1.0
@@ -39,27 +36,31 @@ export type EffectSearchAcquisitionStrategy = Schema.Schema.Type<typeof EffectSe
 export class EffectSearchTpeSamplerOptions extends Schema.Class<EffectSearchTpeSamplerOptions>(
   "EffectSearchTpeSamplerOptions"
 )({
+  /** Fixed sampler seed when present. */
   seed: Schema.OptionFromSelf(Schema.Number),
+  /** Whether TPE models dimensions jointly. */
   multivariate: Schema.Boolean,
+  /** Acquisition calculation used to choose suggestions. */
   acquisition: EffectSearchAcquisitionStrategySchema
 }) {}
 
 /**
- * User-facing TPE sampler options — all fields are optional and fall back to
- * {@link defaultEffectSearchTpeSamplerOptions}.
+ * Overrides the adapter's default TPE sampler choices.
  *
  * @since 0.1.0
  * @category models
  */
 export type EffectSearchTpeSamplerInput = Readonly<{
+  /** Fixed seed for reproducible suggestions; omitted leaves the sampler unseeded. */
   readonly seed?: number
+  /** Whether TPE models dimensions jointly; defaults to `true`. */
   readonly multivariate?: boolean
+  /** Acquisition calculation; defaults to `"ei"`. */
   readonly acquisition?: EffectSearchAcquisitionStrategy
 }>
 
 /**
- * Default TPE sampler configuration: no fixed seed, multivariate enabled,
- * expected-improvement acquisition.
+ * Uses no fixed seed, multivariate modeling, and expected improvement.
  *
  * @since 0.1.0
  * @category constants
@@ -71,23 +72,28 @@ export const defaultEffectSearchTpeSamplerOptions = new EffectSearchTpeSamplerOp
 })
 
 /**
- * Options for opening a study handle — direction, search space, sampler,
- * trial budget, objective function, and optional concurrency cap.
+ * Configures a scoped manual study while retaining config inference from its space.
  *
  * @since 0.1.0
  * @category models
  */
 export type EffectSearchOpenOptions<Space extends SearchSpace.SearchSpace> = Readonly<{
+  /** Whether smaller or larger objective values rank higher. */
   readonly direction: "maximize" | "minimize"
+  /** Parameter definitions and conditional structure used for suggestions. */
   readonly space: Space
+  /** Stateful suggestion policy owned by the opened study. */
   readonly sampler: Sampler.Sampler
+  /** Maximum number of reserved trials. */
   readonly trials: number
+  /** Objective metadata used by the study contract; ask/tell callers evaluate externally. */
   readonly objective: Study.ObjectiveFunction<SearchSpace.Type<Space>>
+  /** Maximum concurrent objective evaluations recorded in study settings. */
   readonly concurrency?: number
 }>
 
 /**
- * Opaque handle for ask/tell orchestration over an effect-search study.
+ * Carries the scoped state of an effect-search manual study.
  *
  * @since 0.1.0
  * @category type-level
@@ -96,7 +102,7 @@ export type EffectSearchInteropHandle<Space extends SearchSpace.SearchSpace = Se
   Study.StudyHandle<Space>
 
 /**
- * A trial reserved by `ask` that carries a suggested parameter configuration.
+ * Carries a pending trial number and a configuration inferred from its search space.
  *
  * @since 0.1.0
  * @category type-level
@@ -104,8 +110,7 @@ export type EffectSearchInteropHandle<Space extends SearchSpace.SearchSpace = Se
 export type EffectSearchAskedTrial<Config = unknown> = Study.AskedTrial<Config>
 
 /**
- * Schema for study lifecycle events (trial started, completed, failed, etc.)
- * re-exported through the interop boundary.
+ * Decodes the effect-search lifecycle events forwarded by the adapter.
  *
  * @since 0.1.0
  * @category schemas
@@ -113,7 +118,7 @@ export type EffectSearchAskedTrial<Config = unknown> = Study.AskedTrial<Config>
 export const EffectSearchInteropEventSchema = StudyEvent.StudyEventSchema
 
 /**
- * A study lifecycle event emitted during ask/tell orchestration.
+ * Preserves an effect-search lifecycle event at the DSP optimizer boundary.
  *
  * @see {@link EffectSearchInteropEventSchema}
  * @since 0.1.0
@@ -122,7 +127,7 @@ export const EffectSearchInteropEventSchema = StudyEvent.StudyEventSchema
 export type EffectSearchInteropEvent = StudyEvent.StudyEvent
 
 /**
- * A single formatted line of terminal progress output from a running study.
+ * Preserves the destination stream and text selected by effect-search progress formatting.
  *
  * @since 0.1.0
  * @category type-level
@@ -130,7 +135,7 @@ export type EffectSearchInteropEvent = StudyEvent.StudyEvent
 export type EffectSearchProgressLine = Study.ProgressLine
 
 /**
- * Discriminator for single-objective vs multi-objective study results.
+ * Distinguishes scalar-incumbent results from Pareto-front results.
  *
  * @since 0.1.0
  * @category schemas
@@ -138,8 +143,7 @@ export type EffectSearchProgressLine = Study.ProgressLine
 export const EffectSearchResultKindSchema = Schema.Literal("SingleObjective", "MultiObjective")
 
 /**
- * `"SingleObjective"` or `"MultiObjective"` — indicates the shape of the
- * study result.
+ * Selects the populated fields in {@link EffectSearchResultSummary}.
  *
  * @see {@link EffectSearchResultKindSchema}
  * @since 0.1.0
@@ -148,16 +152,20 @@ export const EffectSearchResultKindSchema = Schema.Literal("SingleObjective", "M
 export type EffectSearchResultKind = Schema.Schema.Type<typeof EffectSearchResultKindSchema>
 
 /**
- * Portable summary of a completed study — trial count, best objective value,
- * and Pareto front size — insulated from upstream result-shape changes.
+ * Retains result kind, trial count, optional scalar incumbent, and Pareto size.
  *
  * @since 0.1.0
  * @category models
  */
 export class EffectSearchResultSummary extends Schema.Class<EffectSearchResultSummary>("EffectSearchResultSummary")({
+  /** Result shape selected by the study's objective count. */
   kind: EffectSearchResultKindSchema,
+  /** Number of terminal and non-terminal trials in the result. */
   trialCount: Schema.Number,
+  /** Scalar incumbent trial number; absent for multi-objective results. */
   bestTrialNumber: Schema.OptionFromSelf(Schema.Number),
+  /** Scalar incumbent value; absent for multi-objective results. */
   bestObjective: Schema.OptionFromSelf(Schema.Number),
+  /** Final frontier size, or one for a single-objective result. */
   paretoCount: Schema.NonNegative
 }) {}

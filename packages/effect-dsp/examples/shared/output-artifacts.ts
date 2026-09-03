@@ -20,7 +20,7 @@ import {
   RunId,
   SourceRef
 } from "@scenesystems/effect-search/Contracts"
-import { Clock, DateTime, Effect, Layer, Schema } from "effect"
+import { DateTime, Effect, Layer, Schema } from "effect"
 
 export type ExampleArtifacts = Readonly<{
   readonly runId: string
@@ -50,7 +50,8 @@ export const createExampleArtifacts = (exampleName: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const timestampMs = yield* Clock.currentTimeMillis
+    const now = yield* DateTime.now
+    const timestampMs = DateTime.toEpochMillis(now)
     const runId = `${timestampMs}`
     const exampleSegment = normalizeSegment(exampleName)
     const rootDir = path.join(
@@ -99,32 +100,32 @@ export const emitCustomEnvelope = (options: {
   readonly exampleName: string
   readonly payload: ArtifactPayload
 }) =>
-  EnvelopeContext.pipe(
-    Effect.flatMap((ctx) =>
-      ctx.nextArtifactId.pipe(
-        Effect.map((artifactId) =>
-          Custom({
-            schemaVersion: "artifact-envelope/v1",
-            producer: {
-              _tag: "EffectDsp",
-              packageVersion: ctx.packageVersion,
-              component: EXAMPLE_COMPONENT,
-              runId: ctx.runId,
-              optimizer: options.optimizer,
-              metricName: options.metricName,
-              exampleName: options.exampleName
-            },
-            lineage: new ArtifactLineage({
-              sourceRef: DSP_SOURCE_REF,
-              artifactId,
-              emittedAt: DateTime.unsafeNow()
-            }),
-            payload: options.payload
-          })
-        )
-      )
-    ),
-    Effect.flatMap(emit),
+  Effect.gen(function*() {
+    const ctx = yield* EnvelopeContext
+    const artifactId = yield* ctx.nextArtifactId
+    const emittedAt = yield* DateTime.now
+
+    yield* emit(
+      Custom({
+        schemaVersion: "artifact-envelope/v1",
+        producer: {
+          _tag: "EffectDsp",
+          packageVersion: ctx.packageVersion,
+          component: EXAMPLE_COMPONENT,
+          runId: ctx.runId,
+          optimizer: options.optimizer,
+          metricName: options.metricName,
+          exampleName: options.exampleName
+        },
+        lineage: new ArtifactLineage({
+          sourceRef: DSP_SOURCE_REF,
+          artifactId,
+          emittedAt
+        }),
+        payload: options.payload
+      })
+    )
+  }).pipe(
     Effect.catchAll(() => Effect.void)
   )
 

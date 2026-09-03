@@ -1,5 +1,6 @@
 /**
- * Smart constructors for creating StudyEvent instances.
+ * Plain-object constructors for study events. Each function adds its event tag
+ * and leaves validation to the corresponding schema.
  *
  * @since 0.1.0
  */
@@ -27,7 +28,12 @@ import type {
   TrialStartedSchema
 } from "./schemas.js"
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates the event emitted after reservation and before objective evaluation.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const TrialStarted = (fields: {
   readonly trialNumber: number
   readonly config: unknown
@@ -36,7 +42,12 @@ export const TrialStarted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event for an accepted intermediate value and its pruning decision.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const TrialReported = (fields: {
   readonly trialNumber: number
   readonly step: number
@@ -47,7 +58,12 @@ export const TrialReported = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates the terminal event for a successful objective evaluation.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const TrialCompleted = (fields: {
   readonly trialNumber: number
   readonly value: ObjectiveValue
@@ -56,7 +72,12 @@ export const TrialCompleted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event for one trial cost and the cumulative total that includes it.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const TrialCosted = (fields: {
   readonly trialNumber: number
   readonly cost: number
@@ -66,7 +87,12 @@ export const TrialCosted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates the terminal event for a trial stopped by its pruning policy.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const TrialPruned = (fields: {
   readonly trialNumber: number
   readonly step: number
@@ -77,7 +103,13 @@ export const TrialPruned = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event after a failed attempt is accepted for retry. `attempt`
+ * identifies the next attempt and starts at one.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const TrialRetried = (fields: {
   readonly trialNumber: number
   readonly attempt: number
@@ -87,7 +119,12 @@ export const TrialRetried = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates the terminal timeout event after objective interruption.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const TrialCancelled = (fields: {
   readonly trialNumber: number
   readonly reason: "timeout"
@@ -96,7 +133,12 @@ export const TrialCancelled = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates the terminal event for a trial error that will not be retried.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const TrialFailed = (fields: {
   readonly trialNumber: number
   readonly error: TrialError
@@ -105,7 +147,13 @@ export const TrialFailed = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event for a new scalar incumbent. Multi-objective studies use
+ * Pareto results and do not emit this event.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const BestUpdated = (fields: {
   readonly trialNumber: number
   readonly value: number
@@ -114,7 +162,13 @@ export const BestUpdated = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event for the trial-owned stop request currently selected by the
+ * study and its effect on active work.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const StudyStopRequested = (fields: {
   readonly mode: StopMode
   readonly reason: string
@@ -124,7 +178,12 @@ export const StudyStopRequested = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event before a bracket's initial configurations are suggested.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const BracketStarted = (fields: {
   readonly bracketIndex: number
   readonly configs: number
@@ -134,7 +193,12 @@ export const BracketStarted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event before a scheduler round evaluates its assigned configurations.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const RoundStarted = (fields: {
   readonly bracketIndex: number
   readonly roundIndex: number
@@ -145,7 +209,13 @@ export const RoundStarted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event after a round, including the number of scalar successful
+ * trials available for ranking.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const RoundCompleted = (fields: {
   readonly bracketIndex: number
   readonly roundIndex: number
@@ -157,7 +227,13 @@ export const RoundCompleted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates an event after all rounds in a bracket, with its scalar best when one
+ * was observed.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const BracketCompleted = (fields: {
   readonly bracketIndex: number
   readonly rounds: number
@@ -167,7 +243,12 @@ export const BracketCompleted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/**
+ * Creates the final event with the reason no further study work will be admitted.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const StudyCompleted = (fields: {
   readonly completionReason: CompletionReason
 }): Schema.Schema.Type<typeof StudyCompletedSchema> => ({

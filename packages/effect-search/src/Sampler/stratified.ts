@@ -1,5 +1,5 @@
 /**
- * Deterministic stratified round-robin sampling utilities.
+ * Reproducible round-robin selection from named buckets.
  *
  * @since 0.1.0
  */
@@ -10,12 +10,15 @@ import { buildIndices, nextDeterministicSeed, normalizeDeterministicSeed, shuffl
 type StratifiedBuckets<Bucket extends string, A> = Readonly<Record<Bucket, ReadonlyArray<A>>>
 
 /**
- * Controls for stratified round-robin sampling. `bucketOrder` determines the
- * round-robin visitation sequence and the per-bucket seed derivation order.
- * `targetSize` is clamped to the total available items across all buckets.
+ * Describes the buckets visible to a stratified draw and their visitation order.
  *
- * @see {@link sampleStratifiedRoundRobin} consumes these options
- * @see {@link shuffleBySeed} used internally to seed each bucket
+ * @remarks
+ * Only names in `bucketOrder` participate. Repeating a name gives that bucket
+ * additional turns. `targetSize` is truncated and capped by the entries visible
+ * through that order.
+ *
+ * @typeParam Bucket - String union used for bucket keys and order entries.
+ * @typeParam A - Value selected from each bucket.
  * @since 0.1.0
  * @category models
  */
@@ -119,13 +122,17 @@ const selectRoundRobin = <Bucket extends string, A>(
   )
 
 /**
- * Sample a deterministic stratified round-robin subset.
+ * Selects a seeded round-robin sequence from the ordered buckets.
  *
- * Buckets are independently seeded (in `bucketOrder`) and then sampled round-robin
- * while skipping empty buckets until `targetSize` items are selected.
+ * @remarks
+ * Each named bucket is shuffled with a seed derived in `bucketOrder`, then one
+ * value is taken per visit while empty buckets are skipped. The input arrays are
+ * not modified. An empty order or non-positive target returns an empty array.
+ * Non-finite targets are treated as zero.
  *
- * @see {@link StratifiedRoundRobinOptions} for the full option surface
- * @see {@link normalizeDeterministicSeed} seed normalization applied internally
+ * @typeParam Bucket - String union used for bucket keys and order entries.
+ * @typeParam A - Value selected from each bucket.
+ * @param options - Bucket contents, visible order, maximum result size, and seed.
  * @since 0.1.0
  * @category combinators
  */

@@ -1,5 +1,5 @@
 /**
- * Calculus domain model instance.
+ * Defines the Calculus descriptor used by domain discovery.
  *
  * @since 0.1.0
  * @category models
@@ -8,8 +8,7 @@ import { CalculusDomainContract } from "./contract.js"
 import type { CalculusDomain } from "./schema.js"
 
 /**
- * Calculus domain model instance — limit-accurate differential
- * operators and numerical quadrature kernels.
+ * Classifies the Calculus domain as provisional in discovery results.
  *
  * @since 0.1.0
  * @category models

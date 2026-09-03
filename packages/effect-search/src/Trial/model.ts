@@ -1,5 +1,5 @@
 /**
- * Immutable Trial data model pairing a sampled configuration with its lifecycle state.
+ * Immutable trial records and useful completed-trial refinements.
  *
  * @since 0.1.0
  */
@@ -8,35 +8,34 @@ import { Data, Match } from "effect"
 import type { CompletedState, TrialState } from "./state.js"
 
 /**
- * Immutable record pairing a sampler-suggested configuration with its
- * lifecycle state and sequential trial number. A trial progresses through
- * the {@link TrialState} state machine — beginning as `Running` and
- * transitioning exactly once to a terminal state via the lifecycle
- * functions in `Trial/lifecycle.ts`. Because `Trial` extends `Data.Class`,
- * instances use structural equality and are safe to store in `HashMap`.
+ * Stores one evaluated or pending configuration together with its study-assigned
+ * number and lifecycle state. Study execution replaces records as trials move
+ * between states; direct construction does not validate a transition or any
+ * numeric field.
  *
- * @see {@link TrialState} for the five lifecycle variants
- * @see {@link makeRunning} for the sole entry point that creates a running trial
+ * @typeParam Config - Decoded configuration evaluated by this trial.
  *
  * @since 0.1.0
  * @category models
  */
 export class Trial<Config> extends Data.Class<{
+  /** Sequence key assigned by the study. Warm-start trials may use negative values. */
   readonly trialNumber: number
+  /** Sampled or decoded configuration passed to the objective. */
   readonly config: Config
+  /** Current evaluation state and its outcome metadata. */
   readonly state: TrialState
+  /** Caller-defined evaluation cost, when the objective reports one. */
   readonly cost?: number
+  /** Set to `true` for warm-start history supplied before execution. */
   readonly prior?: true
 }> {}
 
 /**
- * Narrowed intersection of {@link Trial} whose state is guaranteed to be
- * `Completed`. Use this type to constrain function parameters to trials
- * that have finished evaluation, providing direct access to the objective
- * value and duration without a runtime guard.
+ * Refines a trial to a successful terminal result while preserving its
+ * configuration type.
  *
- * @see {@link CompletedState} for the underlying state type
- * @see {@link isNumericCompletedTrial} to further narrow to single-objective results
+ * @typeParam Config - Decoded configuration retained by the completed trial.
  *
  * @since 0.1.0
  * @category type-level
@@ -46,14 +45,10 @@ export type CompletedTrial<Config> = Trial<Config> & {
 }
 
 /**
- * Further narrowing of {@link CompletedTrial} where the objective value is a
- * single `number` rather than an {@link ObjectiveVector}. This distinction
- * matters for single-objective analysis paths (e.g. best-value tracking,
- * surrogate model fitting) that require a scalar, not a vector.
+ * Refines a completed trial to a scalar objective result. This distinction is
+ * used by single-objective ranking and scheduler promotion.
  *
- * @see {@link CompletedTrial} for the broader completed-trial type
- * @see {@link isNumericCompletedTrial} for the runtime guard
- * @see {@link ObjectiveValue} for the full numeric | vector union
+ * @typeParam Config - Decoded configuration retained by the completed trial.
  *
  * @since 0.1.0
  * @category type-level
@@ -70,13 +65,10 @@ export type NumericCompletedTrial<Config> = CompletedTrial<Config> & {
 }
 
 /**
- * Reports whether a completed trial's objective value is a single `number`
- * (as opposed to an {@link ObjectiveVector}). Use this guard to safely
- * narrow into {@link NumericCompletedTrial} before performing scalar
- * operations like comparison or surrogate model fitting.
+ * Narrows a completed trial when its objective value is a JavaScript number
+ * rather than a multi-objective vector. The guard does not test finiteness.
  *
- * @see {@link NumericCompletedTrial} for the narrowed type
- * @see {@link CompletedTrial} for the input type
+ * @typeParam Config - Decoded configuration retained through narrowing.
  *
  * @since 0.1.0
  * @category guards

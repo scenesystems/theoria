@@ -105,5 +105,6 @@ fi
 mkdir -p .tmp
 
 bun install --frozen-lockfile
+bunx playwright install --with-deps chromium webkit
 
 echo "theoria orb setup complete."

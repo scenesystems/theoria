@@ -5,6 +5,7 @@
  * @since 0.1.0
  * @internal
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Study } from "@scenesystems/effect-search"
 import { SearchSpace } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Match, Option, Predicate, Record } from "effect"
@@ -203,14 +204,13 @@ export const buildSearchDimensions = (bindings: ReadonlyArray<PredictorBinding>)
 export const maxCandidateCount = (
   bindings: ReadonlyArray<PredictorBinding>,
   countOf: (binding: PredictorBinding) => number
-): number => Arr.reduce(bindings, 1, (currentMax, binding) => Math.max(currentMax, countOf(binding)))
+): number => Arr.reduce(bindings, 1, (currentMax, binding) => Numeric.max(currentMax, countOf(binding)))
 
 /**
  * Extracts a scalar score from an objective value.
  *
- * MIPROv2 Phase 3 operates in single-objective mode. This function
- * succeeds when the value is already a number and fails with
- * `AllTrialsFailed` when it receives a multi-objective array.
+ * MIPROv2 Phase 3 operates in single-objective mode. Scalar values succeed;
+ * multi-objective arrays fail with `AllTrialsFailed`.
  *
  * @since 0.1.0
  * @category helpers

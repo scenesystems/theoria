@@ -1,7 +1,5 @@
 /**
- * Deterministic projections that bridge module parameters and traces into
- * the surfaces consumed by optimizer search loops — parameter snapshots,
- * search dimensions, and ownership declarations for `effect-search` primitives.
+ * Optimizer-facing aliases and projections for module state, traces, and graphs.
  *
  * @since 0.1.0
  */
@@ -11,10 +9,8 @@ import { OutputStrategySchema } from "./OutputStrategy.js"
 
 export {
   /**
-   * Per-call token/cache usage snapshot re-exported under an optimization-domain
-   * alias for objective function signatures.
+   * Uses {@link UsageSample} under the name expected by objective payloads.
    *
-   * @see {@link UsageSample}
    * @since 0.1.0
    * @category models
    */
@@ -23,16 +19,14 @@ export {
 
 export {
   /**
-   * Convert a runtime trace entry into a stable optimization objective payload.
+   * Projects a trace entry through {@link projectTraceObjectiveProjection}.
    *
-   * @see {@link TraceObjectiveProjection}
    * @since 0.1.0
    * @category combinators
    */
   projectTraceObjectiveProjection as projectOptimizationObjective,
   /**
-   * Deterministic trace-entry projection carrying the fields an optimizer's
-   * objective function needs — I/O, tokens, timing, and score.
+   * Exposes {@link TraceObjectiveProjection} under its optimizer-facing name.
    *
    * @since 0.1.0
    * @category models
@@ -42,19 +36,13 @@ export {
 
 export {
   /**
-   * Pre-computed traversal + lineage analysis of the module composition DAG,
-   * re-exported under an optimization-domain alias.
-   *
-   * @see {@link ModuleGraphProjection}
+   * Exposes {@link ModuleGraphProjection} under its optimizer-facing name.
    * @since 0.1.0
    * @category models
    */
   ModuleGraphProjection as OptimizationModuleGraphSurface,
   /**
-   * Project a module composition DAG into deterministic traversal order
-   * and root-to-node lineages.
-   *
-   * @see {@link ModuleGraphProjection}
+   * Projects a module graph through {@link projectModuleGraph}.
    * @since 0.1.0
    * @category combinators
    */
@@ -62,27 +50,26 @@ export {
 } from "./ModuleGraph.js"
 
 /**
- * Schema-level declaration that generic search primitives (traversal,
- * sampling, Pareto filtering) are sourced from `effect-search`. Serves
- * as a machine-readable provenance record — `effect-dsp` owns only the
- * domain-specific objective projections.
+ * Records `effect-search` as the source package for three search operations.
  *
- * @see {@link searchPrimitiveOwnership} — canonical instance
- * @see {@link EffectSearchInteropOwnership} — interop-specific variant
+ * @remarks
+ * Every field accepts only the literal `"effect-search"`; the value carries no
+ * service, implementation, or runtime capability.
  *
  * @since 0.1.0
  * @category models
  */
 export class SearchPrimitiveOwnership extends Schema.Class<SearchPrimitiveOwnership>("SearchPrimitiveOwnership")({
+  /** Package marker for traversal operations. */
   traversal: Schema.Literal("effect-search"),
+  /** Package marker for sampler operations. */
   sampler: Schema.Literal("effect-search"),
+  /** Package marker for Pareto operations. */
   pareto: Schema.Literal("effect-search")
 }) {}
 
 /**
- * Singleton {@link SearchPrimitiveOwnership} instance.
- *
- * @see {@link SearchPrimitiveOwnership}
+ * Preconstructed package markers for generic search operations.
  *
  * @since 0.1.0
  * @category constants
@@ -94,12 +81,11 @@ export const searchPrimitiveOwnership = new SearchPrimitiveOwnership({
 })
 
 /**
- * Schema-level declaration that ask/tell, Pareto, acquisition, and
- * progress-streaming capabilities are sourced from `effect-search`
- * interop APIs.
+ * Records `effect-search` as the source package for DSP search interop operations.
  *
- * @see {@link effectSearchInteropOwnership} — canonical instance
- * @see {@link SearchPrimitiveOwnership} — generic search variant
+ * @remarks
+ * Every field accepts only the literal `"effect-search"`; the value carries no
+ * service, implementation, or runtime capability.
  *
  * @since 0.1.0
  * @category models
@@ -107,16 +93,18 @@ export const searchPrimitiveOwnership = new SearchPrimitiveOwnership({
 export class EffectSearchInteropOwnership extends Schema.Class<EffectSearchInteropOwnership>(
   "EffectSearchInteropOwnership"
 )({
+  /** Package marker for ask/tell operations. */
   askTell: Schema.Literal("effect-search"),
+  /** Package marker for Pareto operations. */
   pareto: Schema.Literal("effect-search"),
+  /** Package marker for acquisition operations. */
   acquisition: Schema.Literal("effect-search"),
+  /** Package marker for progress streams. */
   progress: Schema.Literal("effect-search")
 }) {}
 
 /**
- * Singleton {@link EffectSearchInteropOwnership} instance.
- *
- * @see {@link EffectSearchInteropOwnership}
+ * Preconstructed package markers for DSP search interop operations.
  *
  * @since 0.1.0
  * @category constants
@@ -129,23 +117,26 @@ export const effectSearchInteropOwnership = new EffectSearchInteropOwnership({
 })
 
 /**
- * Snapshot of a module's learnable parameter state projected into scalar
- * dimensions for optimizer search space construction. Separates the
- * searchable surface from the mutable `Ref<ModuleParams>` so optimizers
- * can reason about parameter geometry without runtime references.
+ * Captures module parameters without demonstrations or mutable refs.
  *
- * @see {@link projectOptimizationParameters} — canonical projection function
- * @see {@link ModuleParams} — the source parameter bundle
+ * @remarks
+ * Demonstrations are represented only by their count. Optional generation
+ * settings use `Option`, which distinguishes omission from numeric zero.
  *
  * @since 0.1.0
  * @category models
  */
 export class OptimizationParameterSurface
   extends Schema.Class<OptimizationParameterSurface>("OptimizationParameterSurface")({
+    /** Instruction text copied from the module parameters. */
     instructions: Schema.String,
+    /** Number of demonstrations in the source parameters. */
     demoCount: Schema.Number,
+    /** Resolved parameter value, including the `"auto"` default. */
     outputStrategy: OutputStrategySchema,
+    /** Sampling temperature when configured. */
     temperature: Schema.OptionFromSelf(Schema.Number),
+    /** Output-token limit when configured. */
     maxTokens: Schema.OptionFromSelf(Schema.Number)
   })
 {}
@@ -153,18 +144,18 @@ export class OptimizationParameterSurface
 const OptimizationDimensionValue = Schema.Union(Schema.String, Schema.Number)
 
 /**
- * Named scalar value representing one axis of the optimizer's search
- * space. Each dimension captures either a string (e.g. instruction text)
- * or a number (e.g. demo count, temperature).
+ * Pairs a stable parameter name with its string or numeric value.
  *
- * @see {@link projectOptimizationDimensions} — produces these from ModuleParams
- * @see {@link OptimizationParameterSurface} — the parameter snapshot they derive from
+ * @remarks
+ * The schema does not restrict names to the built-in projection names.
  *
  * @since 0.1.0
  * @category models
  */
 export class OptimizationDimension extends Schema.Class<OptimizationDimension>("OptimizationDimension")({
+  /** Parameter name used by the flattened projection. */
   name: Schema.String,
+  /** String or number copied from module parameter state. */
   value: OptimizationDimensionValue
 }) {}
 
@@ -178,12 +169,14 @@ const optionalDimension = (
   })
 
 /**
- * Snapshot the current {@link ModuleParams} into an immutable
- * {@link OptimizationParameterSurface}. Resolves nullable fields into
- * `Option` so the surface is self-describing.
+ * Snapshots the optimizer-visible portion of module parameters.
  *
- * @see {@link OptimizationParameterSurface}
- * @see {@link ModuleParams}
+ * @remarks
+ * Demonstration contents are discarded after counting. Undefined generation
+ * settings become `Option.none()`, and an absent output strategy becomes `"auto"`.
+ *
+ * @param params - Parameter value to snapshot.
+ * @returns A detached scalar projection with no mutable refs.
  *
  * @since 0.1.0
  * @category combinators
@@ -198,12 +191,15 @@ export const projectOptimizationParameters = (params: ModuleParams): Optimizatio
   })
 
 /**
- * Decompose {@link ModuleParams} into an array of named
- * {@link OptimizationDimension} values — instructions, demo count,
- * output strategy, and optionally temperature and maxTokens.
+ * Flattens module parameters into ordered string and numeric dimensions.
  *
- * @see {@link OptimizationDimension}
- * @see {@link projectOptimizationParameters}
+ * @remarks
+ * The first entries are `instructions`, `demoCount`, and `outputStrategy`.
+ * Configured `temperature` and `maxTokens` entries follow in that order.
+ * Demonstration contents are not included.
+ *
+ * @param params - Parameter value to flatten.
+ * @returns Five or fewer dimensions in stable order.
  *
  * @since 0.1.0
  * @category combinators

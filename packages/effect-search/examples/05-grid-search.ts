@@ -1,22 +1,13 @@
 /**
- * Grid Search — exhaustive search over a small discrete space.
- *
- * When the parameter space is small enough, grid search guarantees
- * every combination is evaluated. Useful for finite categorical
- * and stepped integer spaces.
- *
- * What this shows: exhaustive search over a finite space when you need guaranteed coverage of all combinations.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Evaluates every point in a finite categorical, integer, and boolean search
+ * space with the grid sampler.
  *
  * Run: bun run examples/05-grid-search.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const simulatedAccuracy = (config: {
@@ -29,7 +20,7 @@ const simulatedAccuracy = (config: {
     Match.when("adam", () => 0.92),
     Match.orElse(() => 0.85)
   )
-  const batchPenalty = Math.abs(config.batchSize - 32) * 0.002
+  const batchPenalty = Numeric.abs(config.batchSize - 32) * 0.002
   const normBonus = config.useBatchNorm ? 0.03 : 0
   return optimizerScore - batchPenalty + normBonus
 }

@@ -1,17 +1,5 @@
 /**
- * Schema-validated signature algorithm literal.
- *
- * Ten digital signature algorithms across two families:
- * - **Classical**: Ed25519, secp256k1 (ECDSA + Schnorr)
- * - **Post-quantum**: ML-DSA (3 security levels), SLH-DSA (4 parameter sets)
- *
- * Key agreement and KEM algorithms are NOT included — they are
- * separate cryptographic families with different operations.
- *
- * @see {@link KeyPair} — key pair tagged by this algorithm
- * @see {@link Signature} — signature tagged by this algorithm
- * @see {@link AgreementAlgorithm} — key agreement algorithms (separate family)
- * @see {@link KemAlgorithm} — key encapsulation algorithms (separate family)
+ * Defines the algorithm discriminators accepted by signature operations.
  *
  * @since 0.1.0
  * @category schemas
@@ -19,7 +7,8 @@
 import { Schema } from "effect"
 
 /**
- * Supported digital signature algorithms.
+ * Restricts signature dispatch to the classical and post-quantum signing suites
+ * implemented by this package. Agreement and KEM tags fail schema decoding.
  *
  * @since 0.1.0
  * @category schemas

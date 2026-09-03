@@ -1,17 +1,17 @@
 /**
- * Recursive JSON-like value type and record schema used as the universal
- * payload carrier across module I/O, trace entries, and optimizer events.
+ * Recursive scalar, array, and record values used at serialized DSP boundaries.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Recursive union of JSON-compatible primitives, arrays, and objects.
- * This is the runtime representation — see the companion `FieldValue`
- * schema for validation.
+ * Restricts serialized DSP fields to recursive scalar, array, and record values.
  *
- * @see {@link FieldRecord} — record-shaped carrier built from FieldValue
+ * @remarks
+ * Numbers include every JavaScript number accepted by `Schema.Number`, including
+ * non-finite values. Consumers that require strict JSON must reject or normalize
+ * those values before serialization.
  *
  * @since 0.1.0
  * @category models
@@ -37,11 +37,12 @@ const FieldValueSchema: Schema.Schema<FieldValue, FieldValue, never> = Schema.su
 )
 
 /**
- * Recursive schema that validates arbitrary JSON-like values. Used
- * internally by {@link FieldRecord} and by trace/event serialization
- * to ensure payloads stay within the supported value space.
+ * Decodes recursively nested strings, numbers, booleans, nulls, arrays, and records.
  *
- * @see {@link FieldRecord} — the record-level schema built on this
+ * @remarks
+ * Primitive and array values are preserved. Record-like objects are rebuilt from
+ * their enumerable string keys, so prototypes are not retained and a `Date`
+ * decodes as an empty record. `undefined`, `bigint`, functions, and symbols fail.
  *
  * @since 0.1.0
  * @category schemas
@@ -49,12 +50,11 @@ const FieldValueSchema: Schema.Schema<FieldValue, FieldValue, never> = Schema.su
 export const FieldValue = FieldValueSchema
 
 /**
- * Schema-validated `Record<string, FieldValue>` — the universal payload
- * shape for module inputs, outputs, demonstrations, and optimizer event
- * data. Every public module API accepts and returns this shape.
+ * Decodes string-keyed records whose values satisfy {@link FieldValue}.
  *
- * @see {@link FieldValue} — the recursive value schema
- * @see {@link MetricPayload} — domain alias used by metric scorers
+ * @remarks
+ * Projection contracts use this shape for trace and optimizer event payloads.
+ * Encoding preserves the same recursive representation.
  *
  * @since 0.1.0
  * @category schemas
@@ -65,18 +65,18 @@ export const FieldRecord = Schema.Record({
 }).annotations({ identifier: "effect-dsp/FieldRecord" })
 
 /**
- * Inferred decoded type of {@link FieldRecord}.
- *
- * @see {@link FieldRecord}
+ * Selects the decoded record produced by the {@link FieldRecord} schema.
  * @since 0.1.0
  * @category type-level
  */
 export type FieldRecord = typeof FieldRecord.Type
 
 /**
- * Inferred encoded (wire-format) type of {@link FieldRecord}.
+ * Selects the encoded record accepted by {@link FieldRecord}.
  *
- * @see {@link FieldRecord}
+ * @remarks
+ * The field schemas apply no transformations, so decoded and encoded records
+ * have the same recursive shape.
  * @since 0.1.0
  * @category type-level
  */

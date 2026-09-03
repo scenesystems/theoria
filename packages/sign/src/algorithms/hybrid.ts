@@ -1,31 +1,11 @@
 /**
- * Classical + post-quantum hybrid algorithms.
+ * Implements the X-Wing KEM that combines X25519 with ML-KEM-768.
  *
- * Hybrid constructions combining classical and post-quantum primitives
- * for the transition period. Provides classical security today (in case
- * PQ algorithms have undiscovered weaknesses) plus quantum resistance
- * for long-lived content addresses.
- *
- * **XWing** (primary hybrid key agreement): combines X25519 (classical)
- * with ML-KEM-768 (post-quantum, FIPS-203/Kyber). Shared secret is
- * derived from both — an attacker must break both X25519 AND ML-KEM
- * to recover the shared secret. Follows the CG Framework for hybrid
- * key encapsulation.
- *
- * Wraps `@noble/post-quantum/ml-kem` for ML-KEM-768 and
- * `@noble/curves/ed25519` for X25519 — both audited, zero-dependency.
- *
- * Hybrid key agreement output:
- * - Combined shared secret: 32 bytes (KDF of X25519 ⊕ ML-KEM)
- * - Encapsulated ciphertext: X25519 public key + ML-KEM ciphertext
- *
- * Use hybrid when:
- * - Content addresses must survive quantum computing
- * - Defense-in-depth against undiscovered PQ algorithm weaknesses
- *
- * @see {@link x25519} — classical key agreement (component of XWing)
- * @see {@link mlDsa} — post-quantum signatures (standalone)
- * @see {@link ed25519} — classical signatures (standalone)
+ * @remarks
+ * Encapsulation returns a 1,120-byte ciphertext and a 32-byte raw shared
+ * secret. X-Wing keys use a 1,216-byte public key and 32-byte secret seed.
+ * These operations obtain key-generation and encapsulation randomness from
+ * Noble's ambient CSPRNG and do not authenticate either party.
  *
  * @since 0.1.0
  * @category algorithms
@@ -37,7 +17,10 @@ import { KemCiphertext } from "../schemas/KemCiphertext.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 
 /**
- * Encapsulate a shared secret for a recipient's XWing public key.
+ * Encapsulates for a 1,216-byte X-Wing recipient public key, drawing
+ * ephemeral X25519 and ML-KEM-768 randomness from Noble's ambient CSPRNG. The
+ * result contains a 1,120-byte ciphertext and 32-byte sender shared secret;
+ * only the ciphertext is sent to the recipient.
  *
  * @since 0.1.0
  * @category algorithms
@@ -58,7 +41,9 @@ export const xwingEncapsulate = (
   })
 
 /**
- * Decapsulate a ciphertext with the recipient's XWing secret key.
+ * Recovers the 32-byte X-Wing shared secret from a 1,120-byte ciphertext and
+ * the recipient's 32-byte secret seed. Rejected lengths or backend failures
+ * are reported as `KemFailed`; the operation does not authenticate the sender.
  *
  * @since 0.1.0
  * @category algorithms
@@ -73,7 +58,8 @@ export const xwingDecapsulate = (
   })
 
 /**
- * Generate an XWing key pair.
+ * Draws an X-Wing key pair from Noble's ambient CSPRNG, returning a 1,216-byte
+ * serialized X25519 + ML-KEM-768 public key and a 32-byte secret seed.
  *
  * @since 0.1.0
  * @category algorithms

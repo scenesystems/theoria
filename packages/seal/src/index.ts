@@ -1,28 +1,26 @@
 /**
- * @scenesystems/seal — authenticated encryption for Effect.
+ * Effect operations for authenticated encryption, envelope encoding, and byte utilities.
  *
- * Three AEAD algorithms are supported — see each algorithm module
- * for security properties, nonce sizes, and trade-offs.
- *
- * @see {@link xchacha20} — recommended default
- * @see {@link aesgcmsiv} — nonce-misuse resistant alternative
- * @see {@link aesgcm} — compatibility alternative
- * @see {@link seal} — encrypt pipeline
- * @see {@link unseal} — decrypt pipeline
- * @see {@link SealedEnvelope} — encrypted payload schema
- * @see {@link SealAlgorithm} — algorithm literal union
+ * @remarks
+ * Use {@link seal} and {@link unseal} when storing a self-describing
+ * {@link SealedEnvelope}. The direct algorithm operations instead exchange nonce-prefixed bytes.
  *
  * @example
  * ```ts
- * import { generateKey, seal, unseal, utf8ToBytes } from "@scenesystems/seal"
+ * import { generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
  * import { Effect } from "effect"
  *
- * const program = Effect.gen(function* () {
+ * export const program = Effect.gen(function* () {
  *   const key = yield* generateKey()
  *   const plaintext = utf8ToBytes("hello, world")
  *   const envelope = yield* seal("xchacha20-poly1305", key, plaintext)
  *   const recovered = yield* unseal(key, envelope)
- *   return recovered
+ *   return yield* Effect.succeed(utf8FromBytes(recovered)).pipe(
+ *     Effect.filterOrFail(
+ *       (text) => text === "hello, world",
+ *       () => "PlaintextDidNotRoundTrip"
+ *     )
+ *   )
  * })
  * ```
  *

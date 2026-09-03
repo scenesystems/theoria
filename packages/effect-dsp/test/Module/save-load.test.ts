@@ -144,8 +144,10 @@ describe("Module.save / Module.load", () => {
           }
         ]
       })
+      const originalRootParams = yield* Ref.get(root.params)
 
       const result = yield* Effect.either(Module.load(root, invalid))
+      const rootParamsAfterFailure = yield* Ref.get(root.params)
 
       expect(Either.isLeft(result)).toBe(true)
 
@@ -158,5 +160,7 @@ describe("Module.save / Module.load", () => {
           })
         )
       }
+
+      expect(rootParamsAfterFailure).toEqual(originalRootParams)
     }))
 })

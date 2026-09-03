@@ -1,5 +1,5 @@
 /**
- * Browser parity artifact schemas and package-owned harness helpers.
+ * Synthetic canvas scenarios and deterministic regression artifact rendering.
  *
  * @since 0.2.0
  */
@@ -22,7 +22,7 @@ import {
 import { type BrowserSupportProfileIdType, type BrowserSupportProfileType } from "./supportManifest.js"
 
 /**
- * Browser parity artifact case schema.
+ * Decoder for one synthetic scenario's prepare input and projected layout.
  *
  * @since 0.2.0
  * @category schemas
@@ -30,7 +30,7 @@ import { type BrowserSupportProfileIdType, type BrowserSupportProfileType } from
 export const BrowserParityArtifactCaseSchema = BrowserParityArtifactCaseSchemaInternal
 
 /**
- * Browser parity artifact JSON schema.
+ * JSON-string codec for complete synthetic regression artifacts.
  *
  * @since 0.2.0
  * @category schemas
@@ -38,7 +38,7 @@ export const BrowserParityArtifactCaseSchema = BrowserParityArtifactCaseSchemaIn
 export const BrowserParityArtifactJsonSchema = BrowserParityArtifactJsonSchemaInternal
 
 /**
- * Browser parity artifact schema.
+ * Decoder for a profile-specific collection of parity results.
  *
  * @since 0.2.0
  * @category schemas
@@ -46,7 +46,7 @@ export const BrowserParityArtifactJsonSchema = BrowserParityArtifactJsonSchemaIn
 export const BrowserParityArtifactSchema = BrowserParityArtifactSchemaInternal
 
 /**
- * Browser parity case identifier schema.
+ * Decoder for the package's checked-in parity scenario IDs.
  *
  * @since 0.2.0
  * @category schemas
@@ -54,7 +54,7 @@ export const BrowserParityArtifactSchema = BrowserParityArtifactSchemaInternal
 export const BrowserParityCaseIdSchema = BrowserParityCaseIdSchemaInternal
 
 /**
- * Browser parity artifact case type.
+ * Decoded prepare input and layout result for one parity scenario.
  *
  * @since 0.2.0
  * @category models
@@ -62,7 +62,7 @@ export const BrowserParityCaseIdSchema = BrowserParityCaseIdSchemaInternal
 export type BrowserParityArtifactCaseType = BrowserParityArtifactCaseTypeInternal
 
 /**
- * Browser parity artifact type.
+ * Decoded profile-specific synthetic regression artifact.
  *
  * @since 0.2.0
  * @category models
@@ -70,7 +70,7 @@ export type BrowserParityArtifactCaseType = BrowserParityArtifactCaseTypeInterna
 export type BrowserParityArtifactType = BrowserParityArtifactTypeInternal
 
 /**
- * Browser parity case identifier type.
+ * Identifier for one package-owned synthetic canvas scenario.
  *
  * @since 0.2.0
  * @category models
@@ -90,14 +90,17 @@ type BrowserParityCaseTemplate = Readonly<{
 type MeasurementOverride = readonly [text: string, width: number]
 
 /**
- * Resolved parity case inputs for one browser profile.
+ * Resolved synthetic scenario inputs for one browser profile.
  *
  * @since 0.2.0
  * @category models
  */
 export type BrowserParityResolvedCase = Readonly<{
+  /** Released scenario identifier. */
   caseId: BrowserParityCaseIdType
+  /** Profile-specific input prepared by the harness. */
   prepare: Text.PrepareInputType
+  /** Fixed geometry for the scenario. */
   request: {
     readonly lineHeight: number
     readonly maxWidth: number
@@ -185,7 +188,7 @@ class BrowserParityCanvasContext {
   }
 }
 /**
- * Ordered set of released browser parity cases.
+ * Ordered set of released synthetic canvas scenarios.
  *
  * @since 0.2.0
  * @category parity
@@ -195,7 +198,7 @@ export const browserParityCaseIds: ReadonlyArray<BrowserParityCaseIdType> = Arr.
   (template) => template.caseId
 )
 /**
- * Resolves the released parity cases for one browser support profile.
+ * Resolves the released synthetic scenarios for one browser support profile.
  *
  * @since 0.2.0
  * @category parity
@@ -214,7 +217,8 @@ export const browserParityCasesForProfile = (
   }))
 
 /**
- * Deterministic browser-style layer used by the parity artifact harness.
+ * Installs the synthetic canvas context used to reproduce checked-in parity
+ * artifacts. It does not measure with a browser's live canvas implementation.
  *
  * @since 0.2.0
  * @category parity
@@ -236,7 +240,7 @@ export const browserParityLayer = (profile: BrowserSupportProfileType) =>
     )
   )
 /**
- * Relative path for one checked-in parity artifact.
+ * Returns the repository-relative synthetic artifact path for a shipped profile.
  *
  * @since 0.2.0
  * @category parity
@@ -245,7 +249,8 @@ export const browserParityArtifactRelativePath = (profileId: BrowserSupportProfi
   `examples/live/artifacts/${profileId}.json`
 
 /**
- * Renders one machine-readable parity artifact for a support profile.
+ * Evaluates every released synthetic scenario and returns a serializable
+ * artifact. A profile missing any released case dies before preparation.
  *
  * @since 0.2.0
  * @category parity
@@ -255,7 +260,7 @@ export const renderBrowserParityArtifact = (
 ): Effect.Effect<BrowserParityArtifactType> =>
   Effect.gen(function*() {
     if (!Arr.every(browserParityCaseIds, (caseId) => profile.parityCases.includes(caseId))) {
-      return yield* Effect.dieMessage(`Browser parity case mismatch for profile: ${profile.id}`)
+      return yield* Effect.dieMessage(`Synthetic scenario mismatch for browser profile: ${profile.id}`)
     }
 
     return {

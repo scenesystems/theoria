@@ -1,5 +1,5 @@
 /**
- * Numeric schema authority — domain model and operation input contracts.
+ * Runtime schemas for Numeric metadata and validated operation inputs.
  *
  * @since 0.1.0
  * @category schemas
@@ -14,7 +14,7 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Numeric domain model schema.
+ * Accepts only the `"Numeric"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -25,7 +25,8 @@ export const NumericDomainSchema = Schema.Struct({
 })
 
 /**
- * Numeric schema-derived type.
+ * Discovery metadata identifying scalar and vector numeric primitives in a
+ * recognized stability lane.
  *
  * @since 0.1.0
  * @category models
@@ -33,7 +34,9 @@ export const NumericDomainSchema = Schema.Struct({
 export type NumericDomain = typeof NumericDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical numeric domain model.
+ * Establishes the `"Numeric"` discriminator and stability lane at an untrusted
+ * discovery boundary. Malformed or additional fields fail with
+ * {@link BoundaryDecodeError}.
  *
  * @since 0.1.0
  * @category schemas
@@ -73,7 +76,7 @@ export const encodeNumericDomain = (domain: NumericDomain) =>
   )
 
 /**
- * Numeric boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Numeric descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -81,11 +84,11 @@ export const encodeNumericDomain = (domain: NumericDomain) =>
 export type NumericSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
 // ---------------------------------------------------------------------------
-// Operation input schemas — branded scalar governance
+// Operation input schemas
 // ---------------------------------------------------------------------------
 
 /**
- * Finite scalar — any finite `number`.
+ * Accepts finite JavaScript numbers and brands the decoded value.
  *
  * @since 0.1.0
  * @category schemas
@@ -95,7 +98,7 @@ export const FiniteScalar = Schema.Number.pipe(Schema.finite()).annotations({
 }).pipe(Schema.brand("FiniteScalar"))
 
 /**
- * Finite positive scalar — finite `number > 0`.
+ * Accepts finite numbers greater than zero and brands the decoded value.
  *
  * @since 0.1.0
  * @category schemas
@@ -105,7 +108,7 @@ export const FinitePositiveScalar = Schema.Number.pipe(Schema.finite(), Schema.g
 }).pipe(Schema.brand("FinitePositiveScalar"))
 
 /**
- * Non-empty finite vector — `ReadonlyArray<FiniteScalar>` with at least one element.
+ * Accepts non-empty arrays containing only finite numbers.
  *
  * @since 0.1.0
  * @category schemas
@@ -115,7 +118,7 @@ export const FiniteVector = Schema.NonEmptyArray(Schema.Number.pipe(Schema.finit
 })
 
 /**
- * Positive finite vector — non-empty array of strictly positive finite numbers.
+ * Accepts non-empty arrays containing only positive finite numbers.
  *
  * @since 0.1.0
  * @category schemas
@@ -127,7 +130,7 @@ export const PositiveFiniteVector = Schema.NonEmptyArray(
 })
 
 /**
- * Division input contract.
+ * Two finite operands; zero-divisor handling remains the selected operation's boundary.
  *
  * @since 0.1.0
  * @category schemas
@@ -138,7 +141,7 @@ export const DivideInput = Schema.Struct({
 }).annotations({ identifier: "DivideInput" })
 
 /**
- * Log input contract — strictly positive finite scalar.
+ * Accepts the positive finite operand used by validated logarithms.
  *
  * @since 0.1.0
  * @category schemas
@@ -148,7 +151,7 @@ export const LogInput = Schema.Struct({
 }).annotations({ identifier: "LogInput" })
 
 /**
- * Reduction input contract — non-empty finite vector.
+ * Accepts the non-empty finite values used by validated reductions.
  *
  * @since 0.1.0
  * @category schemas
@@ -158,7 +161,7 @@ export const ReductionInput = Schema.Struct({
 }).annotations({ identifier: "ReductionInput" })
 
 /**
- * Argmax input contract — non-empty finite vector.
+ * Accepts the non-empty finite values used by validated maximum selection.
  *
  * @since 0.1.0
  * @category schemas
@@ -168,7 +171,7 @@ export const ArgmaxInput = Schema.Struct({
 }).annotations({ identifier: "ArgmaxInput" })
 
 /**
- * Log-add-exp input contract — two finite scalars.
+ * Accepts two finite log-space operands.
  *
  * @since 0.1.0
  * @category schemas
@@ -179,7 +182,7 @@ export const LogaddexpInput = Schema.Struct({
 }).annotations({ identifier: "LogaddexpInput" })
 
 /**
- * Log-sum-exp input contract — non-empty finite vector.
+ * Accepts a non-empty finite log-space vector.
  *
  * @since 0.2.0
  * @category schemas
@@ -189,7 +192,7 @@ export const LogSumExpInput = Schema.Struct({
 }).annotations({ identifier: "LogSumExpInput" })
 
 /**
- * xlogy input contract — finite x and strictly positive finite y.
+ * Accepts finite `x` and positive finite `y` for `x * log(y)`.
  *
  * @since 0.1.0
  * @category schemas
@@ -200,7 +203,7 @@ export const XlogyInput = Schema.Struct({
 }).annotations({ identifier: "XlogyInput" })
 
 /**
- * xlog1py input contract — finite x and finite y > -1.
+ * Accepts finite `x` and finite `y > -1` for `x * log1p(y)`.
  *
  * @since 0.1.0
  * @category schemas

@@ -1,6 +1,5 @@
 /**
- * BootstrapFewShot — collect high-scoring demonstrations by running a teacher
- * module and filtering by score threshold.
+ * Collects scored root traces as demonstrations, with optional labeled fallback.
  *
  * @since 0.1.0
  * @category constructors

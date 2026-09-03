@@ -1,5 +1,5 @@
 /**
- * Core Sampler data class defining the optimization algorithm contract for suggesting, checkpointing, and restoring state.
+ * Runtime contract for proposing configurations and validating sampler resumes.
  *
  * @since 0.1.0
  */
@@ -13,35 +13,31 @@ import type { PendingImputationPolicy } from "./PendingImputationPolicy.js"
 import type { SuggestContext } from "./SuggestContext.js"
 
 /**
- * The core abstraction for optimization algorithms in effect-search.
- *
- * Each algorithm (Random, Grid, TPE) implements this interface to suggest
- * configurations from a search space given trial history. The `checkpoint`
- * and `restore` fields enable snapshot persistence so a study can be paused
- * and resumed without losing algorithm-internal state.
- *
- * **Lifecycle** — `acquire`/`release` bracket algorithm-internal resources
- * (e.g. the TPE density estimator). When absent, acquisition is a no-op.
- *
- * @see {@link SearchSpace} for the dimension definitions passed to `suggest`
- * @see {@link SuggestContext} for the trial history and pending-trial context
- * @see {@link SamplerKind} for the tagged union identifying which algorithm is active
- * @see {@link checkpoint} combinator for extracting the checkpoint effect
- * @see {@link restoreCheckpoint} combinator for resuming from a persisted snapshot
+ * Couples a suggestion operation with serializable algorithm identity,
+ * checkpoint validation, pending-trial imputation, and optional lifecycle
+ * effects. The Study runtime invokes lifecycle effects; direct callers must use
+ * {@link acquireLifecycle} and {@link releaseLifecycle} themselves.
  *
  * @since 0.1.0
  * @category models
  */
 export class Sampler extends Data.Class<{
+  /** Algorithm tag and options retained in snapshots and diagnostics. */
   readonly kind: SamplerKind
+  /** Converts pending trials into observations before model-based suggestion. */
   readonly pendingImputationPolicy: PendingImputationPolicy
+  /** Runs before the sampler is used and may fail with a typed search error. */
   readonly acquire?: Effect.Effect<void, SearchError>
+  /** Runs when sampler use ends; failures can occur only as defects or interruption. */
   readonly release?: Effect.Effect<void>
+  /** Proposes one configuration from the supplied space and immutable trial context. */
   readonly suggest: (
     space: SearchSpace.SearchSpace,
     context: SuggestContext
   ) => Effect.Effect<unknown, SearchError>
+  /** Captures the algorithm state required to reject an incompatible resume. */
   readonly checkpoint: Effect.Effect<SamplerCheckpoint, SearchError>
+  /** Restores compatible state or reports the checkpoint mismatch. */
   readonly restore: (
     checkpoint: SamplerCheckpoint
   ) => Effect.Effect<void, InvalidStudyConfig>

@@ -6,16 +6,12 @@
 import { Match, Schema } from "effect"
 
 /**
- * Tri-state schema governing module output rendering:
+ * Decodes the three output-rendering policies accepted by module parameters.
  *
- * - **`"auto"`** (default) — text format with `[[ ## field ## ]]` delimiters
- *   when demonstrations are present (optimization context), provider-native
- *   `generateObject` otherwise (direct inference).
- * - **`"text"`** — always emit DSPy-compatible `[[ ## field ## ]]` delimiters.
- * - **`"structured"`** — always use `generateObject` with the output Schema.
- *
- * @see {@link resolveStrategy} — resolves `"auto"` into a concrete mode
- * @see {@link ModuleParams} — carries the active strategy per module
+ * @remarks
+ * `"text"` requests delimiter-based text generation and parsing. `"structured"`
+ * requests provider-native object generation with the output Schema. `"auto"`
+ * defers the choice until the module knows its demonstration count.
  *
  * @since 0.1.0
  * @category schemas
@@ -23,9 +19,7 @@ import { Match, Schema } from "effect"
 export const OutputStrategySchema = Schema.Literal("text", "structured", "auto")
 
 /**
- * Inferred runtime type of {@link OutputStrategySchema}.
- *
- * @see {@link OutputStrategySchema}
+ * Selects an output-rendering policy decoded by {@link OutputStrategySchema}.
  * @since 0.1.0
  * @category type-level
  */
@@ -39,16 +33,19 @@ const resolveAutoStrategy = (demoCount: number): "text" | "structured" =>
   )
 
 /**
- * Collapse the tri-state {@link OutputStrategy} into a concrete `"text"` or
- * `"structured"` mode. When the strategy is `"auto"`, the presence of
- * demonstrations (demoCount > 0) selects text mode so that few-shot examples
- * appear in the prompt; zero demos selects structured mode for schema-guided
- * generation.
+ * Resolves an output policy before a module invokes the language model.
  *
- * @see {@link OutputStrategySchema} — the source schema
+ * @remarks
+ * Explicit text and structured policies ignore `demoCount`. Automatic selection
+ * uses text when `demoCount` is greater than zero and structured output for zero
+ * or negative values.
+ *
+ * @param strategy - Configured rendering policy.
+ * @param demoCount - Number of demonstrations available to an automatic policy.
+ * @returns A concrete generation and parsing mode.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const resolveStrategy = (strategy: OutputStrategy, demoCount: number): "text" | "structured" =>
   Match.value(strategy).pipe(

@@ -1,6 +1,5 @@
 /**
- * Projection helpers that convert typed module payloads into the universal
- * {@link FieldRecord} shape consumed by traces, events, and optimizer state.
+ * Schema-based conversion into trace and optimizer payload records.
  *
  * @since 0.1.0
  */
@@ -8,13 +7,16 @@ import { Effect, Schema } from "effect"
 import { FieldRecord, type FieldRecord as FieldRecordType } from "./FieldValue.js"
 
 /**
- * Decode an unknown value into a validated {@link FieldRecord}. The caller
- * supplies `onError` to map parse failures into their domain error type.
- * Used by the forward runtime to normalize raw LM responses before they
- * enter the trace.
+ * Decodes an unknown value as a {@link FieldRecord} and maps parse failure.
  *
- * @see {@link FieldRecord} — the target schema
- * @see {@link encodeAndProjectFieldRecord} — encode-then-project variant
+ * @remarks
+ * Parse details are discarded before `onError` runs. If `onError` throws, the
+ * exception becomes an Effect defect.
+ *
+ * @typeParam E - Caller-defined typed failure.
+ * @param value - Untrusted value at a trace or event boundary.
+ * @param onError - Lazy error constructor invoked after decoding fails.
+ * @returns A newly decoded record, or the caller-defined failure.
  *
  * @since 0.1.0
  * @category combinators
@@ -28,13 +30,20 @@ export const projectFieldRecord = <E>(
   )
 
 /**
- * Encode a typed value through its Schema, then project the encoded form
- * into a {@link FieldRecord}. Composes Schema encoding with payload
- * projection in one step — useful for converting strongly-typed module
- * outputs into the generic record shape before trace emission.
+ * Encodes a typed value and decodes the encoded representation as a field record.
  *
- * @see {@link projectFieldRecord} — decode-only variant
- * @see {@link FieldRecord} — the target schema
+ * @remarks
+ * Schema encoding and field-record decoding failures both map to the same lazy
+ * error. Encoding retains the supplied schema's service requirements.
+ *
+ * @typeParam A - Decoded value accepted by the source schema.
+ * @typeParam I - Encoded representation produced by the source schema.
+ * @typeParam R - Services required while encoding.
+ * @typeParam E - Caller-defined typed failure.
+ * @param schema - Codec that defines the intermediate representation.
+ * @param value - Decoded value to encode and project.
+ * @param onError - Lazy error constructor used for either failed stage.
+ * @returns A field record decoded from the schema's encoded value.
  *
  * @since 0.1.0
  * @category combinators

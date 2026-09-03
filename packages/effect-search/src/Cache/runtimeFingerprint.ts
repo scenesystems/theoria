@@ -1,5 +1,5 @@
 /**
- * Runtime-only fingerprinting for in-memory identity checks.
+ * Process-local structural identity for values beyond the durable JSON key domain.
  *
  * @since 0.1.0
  */
@@ -11,7 +11,8 @@ import { Array as Arr, Chunk, Effect, Match, Option, Order, Predicate, Record as
 const RUNTIME_DIGEST_PREFIX = "runtime-blake3-256"
 
 /**
- * Closed rejection reasons for values outside runtime fingerprint identity.
+ * Rejects functions, symbols, and objects outside the supported runtime value set.
+ * `reason` distinguishes those three cases for caller recovery.
  *
  * @since 0.3.0
  * @category errors
@@ -19,6 +20,7 @@ const RUNTIME_DIGEST_PREFIX = "runtime-blake3-256"
 export class RuntimeFingerprintError extends Schema.TaggedError<RuntimeFingerprintError>()(
   "effect-search/RuntimeFingerprintError",
   {
+    /** Unsupported runtime value category encountered during structural traversal. */
     reason: Schema.Literal("function", "symbol", "unsupported-value")
   }
 ) {}
@@ -164,15 +166,22 @@ const digestTokens = (tokens: Chunk.Chunk<string>): Effect.Effect<string, Invali
   digestPayload(tokenPayload(tokens))
 
 /**
- * Deterministic runtime fingerprint string for unknown values.
+ * Computes a structural BLAKE3-256 fingerprint for supported runtime values.
  *
- * Runtime fingerprints are stable for in-memory identity checks but are not
- * the durable cache-key authority. Malformed text exposes digest's
- * `InvalidUnicode`; its code-unit index is relative to the internal canonical
- * token payload rather than the original runtime value.
+ * @remarks
+ * The representation distinguishes `undefined`, null, booleans, all numeric edge
+ * values, strings, bigints, dates, signed byte arrays, arrays, and plain records.
+ * Record keys are sorted; strings retain their original Unicode normalization.
+ * Functions and symbols fail with {@link RuntimeFingerprintError}; class instances
+ * and other unsupported objects use its `"unsupported-value"` reason.
+ *
+ * This format is for runtime identity and is separate from {@link durableFingerprint}.
+ * Malformed text fails with digest's `InvalidUnicode`; its `codeUnitIndex` refers to
+ * the internal token payload. Cyclic arrays and records are unsupported and may defect
+ * through unbounded recursion rather than producing a typed failure.
  *
  * @since 0.1.0
- * @category utils
+ * @category fingerprint
  */
 export const runtimeFingerprint = (
   value: unknown

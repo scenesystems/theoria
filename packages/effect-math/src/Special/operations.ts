@@ -1,7 +1,6 @@
 /**
- * Special-functions operation surface — pure kernel re-exports,
- * Schema-validated boundary variants, and policy-aware operations
- * reading `PrecisionPolicyService` and `DiagnosticsPolicyService`.
+ * Evaluates gamma, beta, error, and related special functions from decoded,
+ * untrusted, or policy-governed inputs.
  *
  * @since 0.1.0
  * @category operations
@@ -32,8 +31,7 @@ import {
 } from "./schema.js"
 
 /**
- * Lifts the static `SpecialDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Yields the immutable descriptor used to register Special capabilities.
  *
  * @since 0.1.0
  * @category operations
@@ -41,115 +39,58 @@ import {
 export const loadSpecialDomain = Effect.succeed(SpecialDomainModel)
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports
+// Pure operations
 // ---------------------------------------------------------------------------
 
 /**
- * Gamma function Γ(x) via Lanczos approximation with g = 7 and 9
- * coefficients. Uses the reflection formula Γ(x)·Γ(1−x) = π/sin(πx)
- * for x < 0.5. Returns `Infinity` at non-positive integer poles and
- * `NaN` for inputs where sin(πx) = 0.
- *
- * @example
- * ```ts
- * import { Special } from "@scenesystems/effect-math"
- *
- * Special.gamma(5)   // 24 (= 4!)
- * Special.gamma(0.5) // √π ≈ 1.7725
- * ```
- *
- * @see {@link lnGamma} — log-space variant for large arguments
- * @see {@link gammaValidated} — boundary-validated variant
- * @see {@link gammaWithPolicies} — policy-aware variant
+ * Approximates the gamma function using a nine-coefficient Lanczos formula
+ * and reflection below `0.5`. The implementation does not validate poles;
+ * floating-point evaluation at non-positive integers may return an infinity
+ * or a large finite artifact.
  * @since 0.1.0
  * @category operations
  */
 export const gamma: (x: number) => number = Gamma.gammaLanczos
 
 /**
- * Natural logarithm of the gamma function ln(Γ(x)) via Lanczos
- * approximation. Avoids the overflow that Γ(x) produces for large x.
- * Requires x > 0.
- *
- * @example
- * ```ts
- * import { Special } from "@scenesystems/effect-math"
- *
- * Special.lnGamma(1)   // 0  (= ln(1))
- * Special.lnGamma(100) // ≈ 359.13
- * ```
- *
- * @see {@link gamma} — direct Γ(x) for moderate arguments
- * @see {@link lnGammaValidated} — boundary-validated variant
+ * Approximates the natural logarithm of gamma without first computing gamma,
+ * avoiding gamma's earlier overflow for large positive arguments. The formula
+ * assumes `x > 0`; this pure operation does not validate it.
  * @since 0.1.0
  * @category operations
  */
 export const lnGamma: (x: number) => number = Gamma.lnGammaLanczos
 
 /**
- * Beta function B(a, b) = Γ(a)Γ(b)/Γ(a+b) computed in log-space to
- * avoid overflow. Requires a > 0 and b > 0.
- *
- * @example
- * ```ts
- * import { Special } from "@scenesystems/effect-math"
- *
- * Special.beta(1, 1)     // 1
- * Special.beta(0.5, 0.5) // π ≈ 3.14159
- * ```
- *
- * @see {@link gamma} — underlying gamma function
- * @see {@link betaValidated} — boundary-validated variant
+ * Computes beta as `exp(lnGamma(a) + lnGamma(b) - lnGamma(a + b))` to
+ * avoid intermediate gamma overflow. The formula assumes positive arguments;
+ * this pure operation does not validate them.
  * @since 0.1.0
  * @category operations
  */
 export const beta: (a: number, b: number) => number = Beta.betaFromGamma
 
 /**
- * Error function erf(x) via the Abramowitz & Stegun 7.1.26 rational
- * polynomial approximation. Odd function: erf(−x) = −erf(x).
- * Saturates to ±1 for |x| > ~3.5.
- *
- * @example
- * ```ts
- * import { Special } from "@scenesystems/effect-math"
- *
- * Special.erf(0) // 0
- * Special.erf(1) // ≈ 0.8427
- * ```
- *
- * @see {@link erfc} — complementary form 1 − erf(x)
- * @see {@link erfValidated} — boundary-validated variant
- * @see {@link erfWithPolicies} — policy-aware variant
+ * Approximates the error function with Cephes rational polynomials over
+ * multiple input regions. It preserves odd symmetry and maps positive and
+ * negative infinity to `1` and `-1` respectively.
  * @since 0.1.0
  * @category operations
  */
 export const erf: (x: number) => number = Erf.erfAbramowitzStegun
 
 /**
- * Complementary error function erfc(x) = 1 − erf(x).
- *
- * @see {@link erf} — the primary error function
- * @see {@link erfcValidated} — boundary-validated variant
+ * Computes the complementary error function directly in the positive tail,
+ * avoiding cancellation from `1 - erf(x)` for large `x`.
  * @since 0.1.0
  * @category operations
  */
 export const erfc: (x: number) => number = Erf.erfcAbramowitzStegun
 
 /**
- * Digamma (psi) function ψ(x) = d/dx ln(Γ(x)). Uses asymptotic
- * expansion for x ≥ 7 with recurrence shifting for smaller x.
- * Requires x > 0.
- *
- * @example
- * ```ts
- * import { Special } from "@scenesystems/effect-math"
- *
- * Special.digamma(1) // −γ ≈ −0.5772 (Euler–Mascheroni constant)
- * Special.digamma(2) // 1 − γ ≈ 0.4228
- * ```
- *
- * @see {@link digammaValidated} — boundary-validated variant
+ * Approximates the logarithmic derivative of gamma. Inputs below `7` are
+ * shifted by recurrence before evaluating an asymptotic expansion. The
+ * formula assumes `x > 0`; this pure operation does not validate it.
  * @since 0.1.0
  * @category operations
  */
@@ -160,10 +101,9 @@ export const digamma: (x: number) => number = Digamma.digammaKernel
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated gamma. Accepts `unknown` input, decodes through
- * `GammaInput` with `onExcessProperty: "error"`, and returns Γ(x).
- *
- * @see {@link gamma} — pure kernel for pre-validated `number` input
+ * Decodes one finite scalar and approximates gamma. Malformed or excess input
+ * fails with `SpecialDecodeError`; non-positive integer poles remain subject
+ * to the pure operation's floating-point behavior.
  * @since 0.1.0
  * @category validated operations
  */
@@ -183,10 +123,8 @@ export const gammaValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated log-gamma. Accepts `unknown` input, decodes through
- * `LnGammaInput`, and returns ln(Γ(x)).
- *
- * @see {@link lnGamma} — pure kernel for pre-validated input
+ * Decodes a positive finite scalar and approximates log-gamma. Malformed or
+ * excess input fails with `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -206,10 +144,8 @@ export const lnGammaValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated beta. Accepts `unknown` input, decodes through
- * `BetaInput`, and returns B(a, b).
- *
- * @see {@link beta} — pure kernel for pre-validated input
+ * Decodes two positive finite arguments and computes beta in log space.
+ * Malformed or excess input fails with `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -229,10 +165,8 @@ export const betaValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated erf. Accepts `unknown` input, decodes through
- * `ErfInput`, and returns erf(x).
- *
- * @see {@link erf} — pure kernel for pre-validated input
+ * Decodes one finite scalar and approximates the error function. Malformed or
+ * excess input fails with `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -252,10 +186,8 @@ export const erfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated erfc. Accepts `unknown` input, decodes through
- * `ErfInput`, and returns erfc(x).
- *
- * @see {@link erfc} — pure kernel for pre-validated input
+ * Decodes one finite scalar and computes the complementary error function.
+ * Malformed or excess input fails with `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -275,10 +207,8 @@ export const erfcValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated digamma. Accepts `unknown` input, decodes through
- * `DigammaInput`, and returns ψ(x).
- *
- * @see {@link digamma} — pure kernel for pre-validated input
+ * Decodes a positive finite scalar and approximates digamma. Malformed or
+ * excess input fails with `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -302,12 +232,13 @@ export const digammaValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware gamma reading two services from context:
+ * Approximates gamma under the configured finite-result and diagnostics policies.
  *
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
+ * @remarks
+ * Strict precision rejects a non-finite result with
+ * `SpecialDomainViolationError`. It does not identify finite pole artifacts.
+ * Enabled diagnostics emits one debug log with the input, result, precision
+ * policy, and elapsed milliseconds.
  *
  * @example
  * ```ts
@@ -323,11 +254,14 @@ export const digammaValidated = (input: unknown) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = Special.gammaWithPolicies(5).pipe(Effect.provide(layer))
+ * export const program = Special.gammaWithPolicies(5).pipe(
+ *   Effect.provide(layer),
+ *   Effect.filterOrFail(
+ *     (result) => result > 23.999 && result < 24.001,
+ *     () => "UnexpectedGammaResult"
+ *   )
+ * )
  * ```
- *
- * @see {@link gamma} — pure kernel without policy seams
- * @see {@link gammaValidated} — boundary-validated variant
  * @since 0.1.0
  * @category operations
  */
@@ -340,15 +274,13 @@ export const gammaWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware erf reading two services from context:
+ * Approximates the error function under the configured finite-result and
+ * diagnostics policies.
  *
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link erf} — pure kernel without policy seams
- * @see {@link erfValidated} — boundary-validated variant
+ * @remarks
+ * Strict precision rejects a non-finite result with
+ * `SpecialDomainViolationError`. Enabled diagnostics emits one debug log with
+ * the input, result, precision policy, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -361,15 +293,15 @@ export const erfWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware lnGamma reading two services from context:
+ * Approximates log-gamma under the configured finite-result and diagnostics
+ * policies, without first computing gamma.
  *
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link lnGamma} — pure kernel without policy seams
- * @see {@link lnGammaValidated} — boundary-validated variant
+ * @remarks
+ * Strict precision rejects a non-finite result with
+ * `SpecialDomainViolationError`. The policy does not validate `x > 0` when an
+ * invalid input happens to produce a finite value. Enabled diagnostics emits
+ * one debug log with the input, result, precision policy, and elapsed
+ * milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -382,15 +314,13 @@ export const lnGammaWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware beta reading two services from context:
+ * Computes beta in log space under the configured finite-result and diagnostics policies.
  *
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link beta} — pure kernel without policy seams
- * @see {@link betaValidated} — boundary-validated variant
+ * @remarks
+ * Strict precision rejects a non-finite result with
+ * `SpecialDomainViolationError`; it does not independently validate positive
+ * arguments. Enabled diagnostics emits one debug log with both arguments,
+ * the result, precision policy, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -403,15 +333,13 @@ export const betaWithPolicies = (a: number, b: number) =>
   })
 
 /**
- * Policy-aware erfc reading two services from context:
+ * Computes the complementary error function under the configured
+ * finite-result and diagnostics policies.
  *
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link erfc} — pure kernel without policy seams
- * @see {@link erfcValidated} — boundary-validated variant
+ * @remarks
+ * Strict precision rejects a non-finite result with
+ * `SpecialDomainViolationError`. Enabled diagnostics emits one debug log with
+ * the input, result, precision policy, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -424,15 +352,13 @@ export const erfcWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware digamma reading two services from context:
+ * Approximates digamma under the configured finite-result and diagnostics policies.
  *
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link digamma} — pure kernel without policy seams
- * @see {@link digammaValidated} — boundary-validated variant
+ * @remarks
+ * Strict precision rejects a non-finite result with
+ * `SpecialDomainViolationError`; it does not independently validate `x > 0`.
+ * Enabled diagnostics emits one debug log with the input, result, precision
+ * policy, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -445,22 +371,21 @@ export const digammaWithPolicies = (x: number) =>
   })
 
 // ---------------------------------------------------------------------------
-// Inverse & incomplete pure kernel re-exports
+// Inverse and incomplete pure operations
 // ---------------------------------------------------------------------------
 
 /**
- * Inverse error function erfinv(x) — returns y such that erf(y) = x.
- * Requires x ∈ (-1, 1).
- *
- * @see {@link erfinvValidated} — boundary-validated variant
- * @see {@link erfinvWithPolicies} — policy-aware variant
+ * Computes `y` such that `erf(y) = x` using piecewise rational
+ * approximations. It returns signed infinity at `x = -1` or `x = 1`, and
+ * `NaN` outside the closed interval.
  * @since 0.1.0
  * @category operations
  */
 export const erfinv: (x: number) => number = Erfinv.erfinvKernel
 
 /**
- * Inverse complementary error function erfcinv(x) = erfinv(1 - x).
+ * Computes inverse complementary error as `erfinv(1 - x)`. It returns
+ * infinities at `x = 0` and `x = 2`, and `NaN` outside `[0, 2]`.
  *
  * @since 0.1.0
  * @category operations
@@ -468,19 +393,18 @@ export const erfinv: (x: number) => number = Erfinv.erfinvKernel
 export const erfcinv: (x: number) => number = Erfinv.erfcinvKernel
 
 /**
- * Regularised lower incomplete gamma function P(a, x) = γ(a, x) / Γ(a).
- * Requires a > 0 and x ≥ 0.
- *
- * @see {@link gammaincValidated} — boundary-validated variant
- * @see {@link gammaincWithPolicies} — policy-aware variant
+ * Approximates the regularized lower incomplete gamma ratio `P(a, x)`. The
+ * formula assumes `a > 0` and `x >= 0`; this pure operation does not validate
+ * them.
  * @since 0.1.0
  * @category operations
  */
 export const gammainc: (a: number, x: number) => number = Gammainc.gammaincKernel
 
 /**
- * Regularised upper incomplete gamma function Q(a, x) = 1 - P(a, x).
- * Requires a > 0 and x ≥ 0.
+ * Approximates the regularized upper incomplete gamma ratio `Q(a, x)`. The
+ * formula assumes `a > 0` and `x >= 0`; this pure operation does not validate
+ * them.
  *
  * @since 0.1.0
  * @category operations
@@ -488,34 +412,30 @@ export const gammainc: (a: number, x: number) => number = Gammainc.gammaincKerne
 export const gammaincc: (a: number, x: number) => number = Gammainc.gammainccKernel
 
 /**
- * Regularised incomplete beta function I_x(a, b). Requires a > 0,
- * b > 0, and x ∈ [0, 1].
- *
- * @see {@link betaincValidated} — boundary-validated variant
+ * Approximates the regularized incomplete beta ratio `I_x(a, b)`. The formula
+ * assumes positive shape arguments and `x` in `[0, 1]`; this pure operation
+ * does not validate them.
  * @since 0.1.0
  * @category operations
  */
 export const betainc: (a: number, b: number, x: number) => number = Betainc.betaincKernel
 
 /**
- * Polygamma function ψ^(n)(x) — the n-th derivative of the digamma
- * function. Requires non-negative integer n and x > 0.
- *
- * @see {@link polygammaValidated} — boundary-validated variant
+ * Approximates the `n`th derivative of digamma by recurrence and asymptotic
+ * expansion. The formula assumes a non-negative integer `n` and `x > 0`;
+ * invalid `n` can cause a synchronous bounds defect.
  * @since 0.1.0
  * @category operations
  */
 export const polygamma: (n: number, x: number) => number = Polygamma.polygammaKernel
 
 // ---------------------------------------------------------------------------
-// Inverse & incomplete validated boundary operations
+// Inverse and incomplete validated operations
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated erfinv. Accepts `unknown` input, decodes through
- * `ErfinvInput`, and returns erfinv(x).
- *
- * @see {@link erfinv} — pure kernel for pre-validated input
+ * Decodes a finite scalar strictly between `-1` and `1`, then computes inverse
+ * error. Malformed, endpoint, or excess input fails with `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -535,10 +455,9 @@ export const erfinvValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated gammainc. Accepts `unknown` input, decodes through
- * `GammaincInput`, and returns P(a, x).
- *
- * @see {@link gammainc} — pure kernel for pre-validated input
+ * Decodes `a > 0` and `x >= 0`, then approximates the regularized lower
+ * incomplete gamma ratio. Malformed or excess input fails with
+ * `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -558,10 +477,9 @@ export const gammaincValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated betainc. Accepts `unknown` input, decodes through
- * `BetaincInput`, and returns I_x(a, b).
- *
- * @see {@link betainc} — pure kernel for pre-validated input
+ * Decodes positive shape arguments and `x` in `[0, 1]`, then approximates the
+ * regularized incomplete beta ratio. Malformed or excess input fails with
+ * `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -581,10 +499,9 @@ export const betaincValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated polygamma. Accepts `unknown` input, decodes through
- * `PolygammaInput`, and returns ψ^(n)(x).
- *
- * @see {@link polygamma} — pure kernel for pre-validated input
+ * Decodes a non-negative integer order and positive finite `x`, then
+ * approximates polygamma. Malformed or excess input fails with
+ * `SpecialDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -604,15 +521,14 @@ export const polygammaValidated = (input: unknown) =>
   })
 
 // ---------------------------------------------------------------------------
-// Inverse & incomplete policy-aware operations
+// Inverse and incomplete policy-aware operations
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware erfinv reading `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from context.
- *
- * @see {@link erfinv} — pure kernel without policy seams
- * @see {@link erfinvValidated} — boundary-validated variant
+ * Computes inverse error under the configured finite-result and diagnostics
+ * policies. Strict precision rejects endpoint infinities and out-of-range
+ * `NaN` results with `SpecialDomainViolationError`; enabled diagnostics emits
+ * one annotated debug log.
  * @since 0.1.0
  * @category operations
  */
@@ -625,11 +541,10 @@ export const erfinvWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware gammainc reading `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from context.
- *
- * @see {@link gammainc} — pure kernel without policy seams
- * @see {@link gammaincValidated} — boundary-validated variant
+ * Approximates the regularized lower incomplete gamma ratio under the
+ * configured finite-result and diagnostics policies. Strict precision rejects
+ * a non-finite result with `SpecialDomainViolationError`; it does not validate
+ * parameter ranges. Enabled diagnostics emits one annotated debug log.
  * @since 0.1.0
  * @category operations
  */

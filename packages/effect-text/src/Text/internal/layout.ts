@@ -1,8 +1,9 @@
 /**
- * Internal pure layout helpers.
+ * Pure prepared-table walker for line fitting, visual materialization, and cursor ranges.
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Data, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
@@ -689,14 +690,16 @@ const walkLineRecordArray = (
   Arr.unfold(
     { cursor, lineIndex },
     (state) =>
-      walkNextLineRecord(core, maxWidthAtLine(state.lineIndex), state.cursor).pipe(
-        Option.map((record) =>
-          unfoldStep(record, {
-            cursor: record.nextCursor,
-            lineIndex: state.lineIndex + 1
-          })
+      state.cursor.segmentIndex >= segmentCount(core)
+        ? Option.none()
+        : walkNextLineRecord(core, maxWidthAtLine(state.lineIndex), state.cursor).pipe(
+          Option.map((record) =>
+            unfoldStep(record, {
+              cursor: record.nextCursor,
+              lineIndex: state.lineIndex + 1
+            })
+          )
         )
-      )
   )
 
 const visualOrderUnitAtCursor = (
@@ -806,7 +809,7 @@ export const summarizeLines = (core: PreparedTextCore, request: LayoutRequestTyp
     (summary, record) => ({
       height: summary.height + request.lineHeight,
       lineCount: summary.lineCount + 1,
-      maxLineWidth: Math.max(summary.maxLineWidth, record.width)
+      maxLineWidth: Numeric.max(summary.maxLineWidth, record.width)
     })
   )
 
@@ -880,7 +883,7 @@ export const materializeLinesWithSummary = (
     summary: {
       height: records.length * request.lineHeight,
       lineCount: records.length,
-      maxLineWidth: Arr.reduce(records, 0, (maxWidth, record) => Math.max(maxWidth, record.width))
+      maxLineWidth: Arr.reduce(records, 0, (maxWidth, record) => Numeric.max(maxWidth, record.width))
     },
     lines
   }
@@ -946,5 +949,5 @@ export const measureNaturalWidth = (core: PreparedTextCore): number =>
     const consumedEndIndex = core.kernel.runtime.chunkConsumedEndIndices[chunkIndex] ?? segmentCount(core)
     const chunkWidth = measureChunkWidth(core, startSegmentIndex, consumedEndIndex)
 
-    return Math.max(maxWidth, chunkWidth)
+    return Numeric.max(maxWidth, chunkWidth)
   })

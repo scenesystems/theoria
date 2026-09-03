@@ -1,6 +1,5 @@
 /**
- * Complex domain schemas — domain model contract and operation input
- * validation schemas used by boundary-validated operations.
+ * Validates Complex discovery metadata and operation inputs at untrusted boundaries.
  *
  * @since 0.1.0
  * @category schemas
@@ -15,11 +14,7 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Schema for the Complex domain model — validates that a value carries
- * the `"Complex"` domain literal and a valid stability level.
- *
- * @see {@link decodeComplexDomain} — decode unknown input through this schema
- * @see {@link encodeComplexDomain} — encode for outbound serialization
+ * Accepts the `"Complex"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -30,7 +25,7 @@ export const ComplexDomainSchema = Schema.Struct({
 })
 
 /**
- * Decoded type of the Complex domain model schema.
+ * A validated `"Complex"` discovery descriptor and its declared stability.
  *
  * @since 0.1.0
  * @category models
@@ -41,9 +36,6 @@ export type ComplexDomain = typeof ComplexDomainSchema.Type
  * Decodes unknown boundary input into the canonical Complex domain
  * model, rejecting excess properties. Maps parse failures to
  * `BoundaryDecodeError` for uniform boundary error handling.
- *
- * @see {@link encodeComplexDomain} — inverse operation
- * @see {@link ComplexDomainSchema} — underlying schema
  *
  * @since 0.1.0
  * @category schemas
@@ -66,9 +58,6 @@ export const decodeComplexDomain = (input: unknown) =>
 /**
  * Encodes the canonical Complex domain model for outbound
  * serialization. Maps encode failures to `BoundaryEncodeError`.
- *
- * @see {@link decodeComplexDomain} — inverse operation
- * @see {@link ComplexDomainSchema} — underlying schema
  *
  * @since 0.1.0
  * @category schemas
@@ -100,10 +89,7 @@ export type ComplexSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeErr
 // ---------------------------------------------------------------------------
 
 /**
- * Input schema for unary complex operations. Requires finite real and
- * imaginary parts — rejects `NaN` and `±Infinity` at the boundary.
- *
- * @see {@link ComplexBinaryInput} — two-operand variant
+ * Accepts finite real and imaginary components for a unary operation.
  *
  * @since 0.1.0
  * @category schemas
@@ -114,11 +100,8 @@ export const ComplexInput = Schema.Struct({
 }).annotations({ identifier: "ComplexInput" })
 
 /**
- * Input schema for binary complex operations (add, subtract, multiply,
- * divide). Flattens two complex numbers into four finite fields to
- * allow Schema-level validation before kernel dispatch.
- *
- * @see {@link ComplexInput} — single-operand variant
+ * Accepts finite components for two complex operands. The flat representation
+ * keeps input independent of the `Complex` class.
  *
  * @since 0.1.0
  * @category schemas
@@ -131,11 +114,9 @@ export const ComplexBinaryInput = Schema.Struct({
 }).annotations({ identifier: "ComplexBinaryInput" })
 
 /**
- * Input schema for complex-step differentiation. Requires a finite
+ * Accepts complex-step differentiation input with a finite
  * evaluation point `x` and an optional positive step size `h`
- * (defaults to 1e-20, optimal for IEEE 754 float64).
- *
- * @see {@link ComplexInput} — standard complex input
+ * that defaults to `1e-20`.
  *
  * @since 0.1.0
  * @category schemas

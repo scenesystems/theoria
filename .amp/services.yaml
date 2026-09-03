@@ -1,0 +1,15 @@
+services:
+  theoria-api:
+    command: bun run server.ts
+    cwd: apps/theoria
+    port: 3876
+    health: /api/health/live
+
+  theoria-docs:
+    command: bun run dev:web -- --host 0.0.0.0 --port "$PORT"
+    cwd: apps/theoria
+    port: 5175
+    health: /
+    portal:
+      title: Theoria Docs
+      description: Visual review environment for the Theoria documentation application.

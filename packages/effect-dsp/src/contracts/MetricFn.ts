@@ -20,7 +20,9 @@ import type { MetricResult } from "./MetricResult.js"
 export const MetricPayload = FieldRecord
 
 /**
- * Inferred decoded type of {@link MetricPayload}.
+ * Validated prediction or expected-output payload passed to a metric. All
+ * nested values have already been restricted to the JSON-compatible field
+ * value space.
  *
  * @see {@link MetricPayload}
  * @since 0.1.0
@@ -29,7 +31,9 @@ export const MetricPayload = FieldRecord
 export type MetricPayload = typeof MetricPayload.Type
 
 /**
- * Inferred encoded (wire-format) type of {@link MetricPayload}.
+ * Metric payload representation used at serialization boundaries. It has the
+ * same recursive shape as the decoded payload because the underlying field
+ * schema performs validation without transforming values.
  *
  * @see {@link MetricPayload}
  * @since 0.1.0
@@ -38,9 +42,8 @@ export type MetricPayload = typeof MetricPayload.Type
 export type MetricPayloadEncoded = typeof MetricPayload.Encoded
 
 /**
- * Effectful scorer that compares a prediction against an expected output
- * and produces a {@link MetricResult}. The Effect signature allows scorers
- * to call external services (e.g. an LM-as-judge) or access context.
+ * Effectful scorer that compares a prediction with an expected output.
+ * `E` is the scorer's typed failure and `R` is its required Effect context.
  *
  * @see {@link PureMetricFn} — synchronous variant for simple scorers
  * @see {@link MetricResult} — the score + optional feedback returned
@@ -54,9 +57,7 @@ export type MetricFn<E = never, R = never> = (
 ) => Effect.Effect<MetricResult, E, R>
 
 /**
- * Synchronous scorer for metrics that need no effects — exact-match,
- * substring containment, numeric distance, etc. Automatically lifted
- * into {@link MetricFn} by the metric constructors.
+ * Synchronous scorer with no typed failure or Effect context.
  *
  * @see {@link MetricFn} — effectful variant for LM-as-judge scorers
  * @see {@link MetricResult} — the score + optional feedback returned

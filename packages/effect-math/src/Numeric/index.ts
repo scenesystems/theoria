@@ -1,5 +1,11 @@
 /**
- * Numeric domain public surface.
+ * Computes stable scalar transforms, log-space arithmetic, guarded division,
+ * reductions, and finite-boundary validation.
+ *
+ * @remarks
+ * Pure kernels retain their documented IEEE 754 behavior. Validated variants
+ * decode unknown input into finite schemas; policy-aware variants select
+ * strict or relaxed kernels and report diagnostics through Effect services.
  *
  * @since 0.1.0
  * @module

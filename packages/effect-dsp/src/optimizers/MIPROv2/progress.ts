@@ -1,21 +1,25 @@
 /**
- * MIPROv2 event progress formatting and summaries.
+ * Formats MIPROv2 events and folds them into progress summaries.
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Match, Stream } from "effect"
 import type { Effect } from "effect"
 import type { MIPROv2Event } from "./events.js"
 
 /**
- * Formatted MIPROv2 progress line.
+ * Carries a MIPROv2 event tag with progress text that omits complete instructions.
  *
  * @since 0.1.0
  * @category models
  */
 export type MIPROv2ProgressLine = Readonly<{
+  /** Original event discriminator. */
   readonly tag: MIPROv2Event["_tag"]
+  /** Space-separated key-value fields selected for display. */
   readonly details: string
+  /** Event tag followed by `details` when details are present. */
   readonly text: string
 }>
 
@@ -51,7 +55,14 @@ const detailsFromEvent = (event: MIPROv2Event): string =>
   )
 
 /**
- * Deterministically format a MIPROv2 event as one progress line.
+ * Formats an event without exposing full instruction text.
+ *
+ * @remarks
+ * `InstructionProposed` reports only instruction length. Numeric values use
+ * JavaScript string conversion and no locale-specific formatting.
+ *
+ * @param event - Lifecycle event to format.
+ * @returns A new line value containing the original tag.
  *
  * @since 0.1.0
  * @category formatters
@@ -60,7 +71,10 @@ export const formatMIPROv2ProgressEvent = (event: MIPROv2Event): MIPROv2Progress
   toProgressLine(event._tag, detailsFromEvent(event))
 
 /**
- * Progress sink for formatted MIPROv2 lines.
+ * Consumes one formatted MIPROv2 progress line with caller-defined Effect channels.
+ *
+ * @typeParam E - Expected failure from the progress sink.
+ * @typeParam R - Services required by the progress sink.
  *
  * @since 0.1.0
  * @category models
@@ -70,7 +84,16 @@ export type MIPROv2ProgressSink<E = never, R = never> = (
 ) => Effect.Effect<void, E, R>
 
 /**
- * Tap formatted MIPROv2 progress lines from an event stream.
+ * Invokes an effectful progress sink for every MIPROv2 event in a stream.
+ *
+ * @remarks
+ * Sink effects run in stream order. Their failures and requirements are added
+ * to the returned stream.
+ *
+ * @param onProgress - Sink invoked once per upstream event.
+ * @returns A stream transformation that preserves event values and ordering.
+ * @typeParam E - Expected failure added by the progress sink.
+ * @typeParam R - Services required by the progress sink.
  *
  * @since 0.1.0
  * @category combinators
@@ -83,22 +106,33 @@ export const tapMIPROv2Progress =
     )
 
 /**
- * Semantic summary projected from MIPROv2 events.
+ * Aggregates observed candidate, evaluation, and Phase 3 completion data.
  *
  * @since 0.1.0
  * @category models
  */
 export type MIPROv2EventSummary = Readonly<{
+  /** Number of input events across all tags. */
   readonly totalEvents: number
+  /** Number of `DemoCandidate` events. */
   readonly demoCandidateCount: number
+  /** Number of `InstructionProposed` events, including emitted baselines. */
   readonly instructionProposedCount: number
+  /** Number of minibatch `TrialEvaluated` events. */
   readonly trialEvaluatedCount: number
+  /** Number of `FullEvalCompleted` events. */
   readonly fullEvalCompletedCount: number
+  /** Whether a `Phase3Started` event was observed. */
   readonly phase3StartedSeen: boolean
+  /** Whether a `Phase3Completed` event was observed. */
   readonly phase3CompletedSeen: boolean
+  /** Trial count from the most recent `Phase3Started` event. */
   readonly phase3ConfiguredTrials: number
+  /** Trial count from the most recent `Phase3Completed` event. */
   readonly phase3CompletedTrials: number
+  /** Whether any trial, full-set, or completion score was observed. */
   readonly phase3BestScoreSeen: boolean
+  /** Maximum score across all observed Phase 3 score-bearing events. */
   readonly phase3BestScore: number
 }>
 
@@ -123,7 +157,7 @@ const withBestScore = (
   ...summary,
   phase3BestScoreSeen: true,
   phase3BestScore: summary.phase3BestScoreSeen
-    ? Math.max(summary.phase3BestScore, candidateScore)
+    ? Numeric.max(summary.phase3BestScore, candidateScore)
     : candidateScore
 })
 
@@ -184,7 +218,14 @@ const summarizeEvent = (
 }
 
 /**
- * Summarize MIPROv2 stream events into semantically meaningful counters.
+ * Counts MIPROv2 candidates and evaluations while retaining Phase 3 score state.
+ *
+ * @remarks
+ * Repeated phase boundaries overwrite their corresponding trial-count fields.
+ * Scores from minibatch, full-set, and completion events share one maximum.
+ *
+ * @param events - Events to fold in their supplied order.
+ * @returns Counters and the maximum observed Phase 3 score.
  *
  * @since 0.1.0
  * @category combinators

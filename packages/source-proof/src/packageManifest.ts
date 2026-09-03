@@ -12,6 +12,8 @@ import { PackagePublicEntrypoint, SourceFilePath } from "./model.js"
 export const PackageReleaseManifestSchema = Schema.Struct({
   name: Schema.String,
   version: Schema.String,
+  description: Schema.optional(Schema.String),
+  private: Schema.optional(Schema.Boolean),
   exports: Schema.Record({
     key: Schema.String,
     value: Schema.Unknown
@@ -46,8 +48,16 @@ const firstTypeScriptSourceTarget = (target: unknown): Option.Option<string> => 
       : Option.none()
   }
 
-  if (target === null || Arr.isArray(target) || typeof target !== "object") {
+  if (target === null || typeof target !== "object") {
     return Option.none()
+  }
+
+  if (Arr.isArray(target)) {
+    return Arr.reduce(target, Option.none<string>(), (accumulator, value) =>
+      Option.match(accumulator, {
+        onNone: () => firstTypeScriptSourceTarget(value),
+        onSome: () => accumulator
+      }))
   }
 
   return Arr.reduce(Rec.values(target), Option.none<string>(), (accumulator, value) =>

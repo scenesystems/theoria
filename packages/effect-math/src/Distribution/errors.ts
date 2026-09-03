@@ -1,8 +1,5 @@
 /**
- * Typed error taxonomy for the Distribution domain. Each error is a
- * `Schema.TaggedError` so it round-trips through Effect channels and
- * can be pattern-matched by `_tag`. Errors are stratified into boundary
- * failures (decode) and operation failures (domain violation, parameter).
+ * Defines tagged failures for Distribution descriptor boundaries and evaluated operations.
  *
  * @since 0.1.0
  * @category errors
@@ -12,66 +9,80 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation. Use this as a catch-all for validation
- * pipelines that span multiple operations within the domain.
+ * Identifies an invalid Distribution descriptor at a caller-defined domain boundary.
+ *
+ * @remarks
+ * Current public descriptor helpers report {@link BoundaryDecodeError} and
+ * {@link BoundaryEncodeError}; they do not emit this error class.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DistributionDomainBoundaryError
   extends Schema.TaggedError<DistributionDomainBoundaryError>()("DistributionDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input contract.
- * The `operation` field names the failed operation so callers can branch on
- * it in error-recovery logic.
+ * Reports that a validated operation could not decode its input.
+ *
+ * @remarks
+ * `operation` contains the public operation name. `message` contains Effect
+ * Schema's parse report, including missing, excess, or invalid fields.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DistributionDecodeError extends Schema.TaggedError<DistributionDecodeError>()("DistributionDecodeError", {
+  /** Public distribution operation whose input failed decoding. */
   operation: Schema.String,
+  /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces a
- * non-finite result (NaN or ±Infinity), or when a domain invariant is
- * violated (e.g. negative variance, probabilities outside [0,1]). Under
- * `"relaxed"` precision this error is never emitted for non-finite results.
+ * Reports a non-finite result rejected by a strict precision policy.
+ *
+ * @remarks
+ * `operation` identifies the policy-aware operation. `message` records the
+ * rejected result. Relaxed precision does not emit this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DistributionDomainViolationError
   extends Schema.TaggedError<DistributionDomainViolationError>()("DistributionDomainViolationError", {
+    /** Strict-policy operation that produced a non-finite result. */
     operation: Schema.String,
+    /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when distribution parameters are invalid — for example, sigma ≤ 0
- * for a normal distribution, or low ≥ high for a uniform distribution.
+ * Reports finite uniform bounds that are not strictly ordered.
+ *
+ * @remarks
+ * Current public operations emit this error only from
+ * {@link uniformPdfValidated}. Other validated parameter failures occur during
+ * schema decoding and use {@link DistributionDecodeError}.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DistributionParameterError
   extends Schema.TaggedError<DistributionParameterError>()("DistributionParameterError", {
+    /** Validated distribution operation whose bounds are not strictly ordered. */
     operation: Schema.String,
+    /** Diagnostic identifying the rejected bound relationship. */
     message: Schema.String
   })
 {}
 
 /**
- * Union of all boundary-level errors that can arise from domain validation,
- * Schema decode, or Schema encode at the package edge. Use as the error
- * channel type for boundary-crossing pipelines.
+ * Groups failures that can occur while decoding or encoding a Distribution descriptor.
  *
  * @since 0.1.0
  * @category errors
@@ -79,9 +90,7 @@ export class DistributionParameterError
 export type DistributionBoundaryError = DistributionDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all errors that can arise from within a distribution operation
- * (after boundary decode succeeds). Useful as a unified error channel type
- * for combinators that orchestrate multiple operations.
+ * Groups typed failures from validated and policy-aware Distribution operations.
  *
  * @since 0.1.0
  * @category errors

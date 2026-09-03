@@ -1,22 +1,13 @@
 /**
- * Acquisition Strategies (EI, PI, Thompson) — compare TPE acquisition modes.
- *
- * Real use case: choose exploration behavior for noisy or irregular objectives
- * without changing the rest of the optimization pipeline.
- *
- * What this shows: `Sampler.tpe({ acquisition: ... })` with built-in
- * `"ei"`, `"pi"`, and `"thompson"` strategies under identical settings.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Runs TPE with expected improvement, probability of improvement, and Thompson
+ * acquisition against identical spaces, seeds, and trial counts.
  *
  * Run: bun run examples/26-acquisition-strategies.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const trialCount = 45
@@ -26,9 +17,9 @@ const objective = (config: {
   readonly y: number
   readonly depth: number
 }): number =>
-  (config.x - 1.4) ** 2
-  + ((config.y + 0.8) ** 2) * 0.6
-  + ((config.depth - 4) / 4) ** 2 * 0.1
+  Numeric.pow(config.x - 1.4, 2)
+  + Numeric.pow(config.y + 0.8, 2) * 0.6
+  + Numeric.pow((config.depth - 4) / 4, 2) * 0.1
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({

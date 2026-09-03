@@ -1,5 +1,5 @@
 /**
- * Domain ownership matrix — declares which domain owns which mathematical concepts.
+ * Defines descriptive ownership metadata for nine mathematical domains.
  *
  * @since 0.1.0
  * @category contracts
@@ -7,7 +7,12 @@
 import { Schema } from "effect"
 
 /**
- * Domain ownership matrix authority.
+ * Accepts ownership notes for the domains represented by this fixed contract.
+ *
+ * @remarks
+ * The Schema requires a non-empty `owns` list for each named domain. It does
+ * not validate concept names, sharing symmetry, or package exports. Complex
+ * and Distribution are not represented in this contract.
  *
  * @since 0.1.0
  * @category contracts
@@ -61,7 +66,12 @@ export const DomainOwnershipMatrix = Schema.Struct({
 })
 
 /**
- * Default domain ownership matrix.
+ * Records the package's initial descriptive ownership assignments.
+ *
+ * @remarks
+ * Architecture tooling may read this metadata. Imports, dispatch, and
+ * dependency enforcement do not consult it. Construction performs no Schema
+ * decoding.
  *
  * @since 0.1.0
  * @category contracts
@@ -121,7 +131,7 @@ export const InitialDomainOwnershipMatrix = {
 }
 
 /**
- * Domain ownership matrix type.
+ * Ownership metadata decoded by {@link DomainOwnershipMatrix}.
  *
  * @since 0.1.0
  * @category models

@@ -1,21 +1,13 @@
 /**
- * Prompt Tuning — find the best prompt configuration for an LLM task.
- *
- * This example simulates scoring different prompt configurations.
- * In production, the objective would call an LLM and evaluate the response.
- *
- * What this shows: optimizing prompt knobs (temperature, style, few-shot count, token budget) with one quality score.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Searches a mixed prompt-configuration space against a deterministic scoring
+ * model and logs the highest-scoring trial.
  *
  * Run: bun run examples/02-prompt-tuning.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const promptQuality = (config: {
@@ -24,14 +16,14 @@ const promptQuality = (config: {
   readonly fewShotCount: number
   readonly maxTokens: number
 }): number => {
-  const tempScore = 1 - Math.abs(config.temperature - 0.7)
+  const tempScore = 1 - Numeric.abs(config.temperature - 0.7)
   const styleScore = Match.value(config.systemPrompt).pipe(
     Match.when("step-by-step", () => 0.9),
     Match.when("detailed", () => 0.7),
     Match.orElse(() => 0.5)
   )
-  const demoScore = Math.min(config.fewShotCount * 0.15, 0.6)
-  const tokenScore = Math.min(config.maxTokens / 2048, 1.0) * 0.3
+  const demoScore = Numeric.min(config.fewShotCount * 0.15, 0.6)
+  const tokenScore = Numeric.min(config.maxTokens / 2048, 1.0) * 0.3
   return tempScore + styleScore + demoScore + tokenScore
 }
 

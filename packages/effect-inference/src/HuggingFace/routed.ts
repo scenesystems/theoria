@@ -1,5 +1,5 @@
 /**
- * Hugging Face routed-provider live adapters and resolution helpers.
+ * Live model layers and resolution for the Hugging Face provider router.
  *
  * @since 0.1.0
  */
@@ -22,7 +22,8 @@ import { makeHuggingFaceRoutedRoute } from "./metadata.js"
 /**
  * Routed-provider text-generation lane for Hugging Face chat-completions
  * traffic. Selection policy is encoded in the provider-side model ref so the
- * route authority stays stable while the transport remains OpenAI compatible.
+ * execution route remains unchanged while the transport uses the OpenAI chat
+ * protocol.
  *
  * @since 0.1.0
  * @category layers
@@ -58,7 +59,9 @@ export const HuggingFaceRoutedEmbeddingsLive = (options: {
 }): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> => makeHuggingFaceEmbeddingLayer(options)
 
 /**
- * Builds a live runtime resolution for Hugging Face routed-provider lanes.
+ * Resolves a marketplace route without network I/O. The supplied `baseUrl`
+ * replaces any route URL; gateway and selection policy are retained from
+ * `descriptor`. Authentication is recorded as `hf-token`.
  *
  * @since 0.1.0
  * @category constructors

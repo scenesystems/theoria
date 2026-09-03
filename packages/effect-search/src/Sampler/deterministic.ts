@@ -1,5 +1,5 @@
 /**
- * Deterministic seed stepping and seeded sampling helpers.
+ * Seed normalization and reproducible sampling primitives.
  *
  * @since 0.1.0
  */
@@ -10,11 +10,11 @@ const LCG_INCREMENT = 1013904223
 const LCG_MODULUS = 4294967296
 
 /**
- * Normalize a user-provided seed into a positive deterministic integer.
- * Non-finite values (NaN, ±Infinity) collapse to 1, and zero is clamped
- * to 1 so downstream LCG arithmetic never degenerates.
+ * Converts a numeric seed to a positive integer.
  *
- * @see {@link nextDeterministicSeed} consumes the normalized seed
+ * @remarks
+ * Finite values are truncated after taking their absolute value. Zero,
+ * non-finite values, and results below 1 become `1`.
  * @since 0.1.0
  * @category combinators
  */
@@ -30,25 +30,24 @@ export const normalizeDeterministicSeed = (seed: number): number => {
 }
 
 /**
- * Advance one deterministic linear-congruential-generator step using
- * Knuth's LCG constants (multiplier 1664525, increment 1013904223,
- * modulus 2³²). The output is a 32-bit unsigned integer suitable for seeding
- * subsequent calls.
+ * Applies one linear-congruential step modulo `4294967296`.
  *
- * @see {@link normalizeDeterministicSeed} ensures the input seed is valid
- * @see {@link shuffleBySeed} uses repeated steps to assign sort keys
+ * @remarks
+ * This operation uses its argument directly. Call
+ * {@link normalizeDeterministicSeed} first when accepting an arbitrary numeric
+ * seed; negative, fractional, and non-finite inputs otherwise retain JavaScript
+ * remainder behavior.
  * @since 0.1.0
  * @category combinators
  */
 export const nextDeterministicSeed = (seed: number): number => ((seed * LCG_MULTIPLIER) + LCG_INCREMENT) % LCG_MODULUS
 
 /**
- * Normalize a count to a positive integer lower-bounded at 1. Non-finite
- * values default to 1 and fractional parts are truncated. Guarantees the
- * result is always ≥ 1, making it safe for use as an array length or
- * iteration bound.
+ * Converts a numeric count to an integer of at least `1`.
  *
- * @see {@link sampleBoundedCount} uses this for upper-bound normalization
+ * @remarks
+ * Fractional values are truncated. Non-finite and non-positive values become
+ * `1`.
  * @since 0.1.0
  * @category combinators
  */
@@ -75,11 +74,11 @@ const normalizeNonNegativeCount = (value: number): number => {
 }
 
 /**
- * Build the deterministic index range `[0, 1, ..., count - 1]`. Returns an
- * empty array when `count` is zero or negative. Used to generate candidate
- * indices that are subsequently shuffled or sliced by seeded sampling.
+ * Builds consecutive zero-based indices up to the normalized count.
  *
- * @see {@link shuffleBySeed} often applied to the output of this function
+ * @remarks
+ * Fractional counts are truncated. Non-finite, zero, and negative counts
+ * produce an empty array.
  * @since 0.1.0
  * @category combinators
  */
@@ -95,13 +94,15 @@ export const buildIndices = (count: number): ReadonlyArray<number> => {
 const scoredOrder = <A>(): Order.Order<readonly [number, A]> => Order.mapInput(Order.number, ([score]) => score)
 
 /**
- * Shuffle values deterministically by seed using a sort-by-score approach:
- * each element is paired with a pseudo-random score derived from successive
- * LCG steps, then the pairs are sorted by score. This produces a stable,
- * reproducible permutation for any given seed without mutating the input.
+ * Returns a reproducible permutation without modifying the input array.
  *
- * @see {@link nextDeterministicSeed} generates the per-element scores
- * @see {@link normalizeDeterministicSeed} sanitizes the initial seed
+ * @remarks
+ * The seed is normalized, stepped once per element, and each resulting value is
+ * used as that element's sort key. This is a deterministic ordering primitive;
+ * it does not implement an unbiased Fisher-Yates shuffle.
+ *
+ * @typeParam A - Element type retained by the returned permutation.
+ *
  * @since 0.1.0
  * @category combinators
  */
@@ -126,12 +127,11 @@ export const shuffleBySeed = <A>(values: ReadonlyArray<A>, seed: number): Readon
 }
 
 /**
- * Sample one deterministic count in the closed interval `[1, maxCount]`.
- * The seed is normalized and stepped once via the LCG, then mapped into
- * the target range with modular arithmetic. Always returns at least 1.
+ * Selects a reproducible integer from `1` through the normalized maximum, inclusive.
  *
- * @see {@link normalizePositiveCount} clamps `maxCount` to ≥ 1
- * @see {@link nextDeterministicSeed} the LCG step used internally
+ * @remarks
+ * The seed is normalized and stepped once. A fractional maximum is truncated;
+ * a non-finite or non-positive maximum yields `1`.
  * @since 0.1.0
  * @category combinators
  */

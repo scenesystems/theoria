@@ -1,5 +1,5 @@
 /**
- * Heartbeat decision types and objective trial runtime for in-trial stop/continue signaling.
+ * Cooperative stop decisions and objective-scoped study controls.
  *
  * @since 0.1.0
  */
@@ -12,6 +12,10 @@ import type { StopMode } from "./stopMode.js"
 import { StopModeSchema } from "./stopMode.js"
 
 /**
+ * Decodes the result of polling `ObjectiveTrialRuntime.heartbeat`. `Stop`
+ * includes the selected study request, but the objective remains responsible for
+ * ending its own work.
+ *
  * @since 0.1.0
  * @category schemas
  */
@@ -24,6 +28,8 @@ export const HeartbeatDecisionSchema = Schema.Union(
 )
 
 /**
+ * Tells a cooperative objective whether a study stop request is currently active.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -32,23 +38,32 @@ export type HeartbeatDecision = Schema.Schema.Type<typeof HeartbeatDecisionSchem
 const HeartbeatDecisions = Data.taggedEnum<HeartbeatDecision>()
 
 /**
- * Destructured constructors and pattern matcher for the {@link HeartbeatDecision} tagged union.
+ * Constructors and exhaustive matching for heartbeat decisions.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const {
   /**
+   * Indicates that no interrupting stop request is visible to the objective.
+   *
    * @since 0.1.0
    * @category constructors
    */
   Continue: ContinueHeartbeat,
   /**
+   * Carries the selected stop mode and reason to a cooperative objective. This
+   * value does not interrupt an Effect by itself.
+   *
    * @since 0.1.0
    * @category constructors
    */
   Stop: StopHeartbeat,
   /**
+   * Builds a function requiring branches for continue and stop decisions.
+   *
+   * @typeParam Cases - Exhaustive handler record whose return values determine the result union.
+   *
    * @since 0.1.0
    * @category pattern-matching
    */
@@ -56,12 +71,17 @@ export const {
 } = HeartbeatDecisions
 
 /**
+ * Attributes a request to stop admitting work to the trial that issued it.
+ *
  * @since 0.1.0
  * @category models
  */
 export class StopRequest extends Data.Class<{
+  /** Whether active objectives may finish or should stop cooperatively. */
   readonly mode: StopMode
+  /** Caller-supplied diagnostic text. */
   readonly reason: string
+  /** Trial used for deterministic request precedence. */
   readonly requestedByTrialNumber: number
 }> {}
 
@@ -73,10 +93,12 @@ const modeRank = (mode: StopMode): number =>
   )
 
 /**
- * Select the preferred stop request between two candidates.
+ * Selects the lower trial number. Requests from the same trial prefer
+ * `Interrupt` over `Drain`, then the lexicographically smaller reason. These
+ * rules make concurrent request resolution independent of arrival order.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const preferredStopRequest = (existing: StopRequest, candidate: StopRequest): StopRequest =>
   candidate.requestedByTrialNumber < existing.requestedByTrialNumber
@@ -92,14 +114,22 @@ export const preferredStopRequest = (existing: StopRequest, candidate: StopReque
     : existing
 
 /**
- * Runtime context provided to the objective function during evaluation.
+ * Gives an objective access to ordered intermediate reporting, cooperative stop
+ * polling, study-stop requests, and an optional scheduler resource level.
  *
  * @since 0.1.0
  * @category models
  */
 export class ObjectiveTrialRuntime extends Data.Class<{
+  /**
+   * Validates and records a finite value at a strictly increasing,
+   * non-negative integer step, then returns the pruning policy's decision.
+   */
   readonly report: (step: number, value: number) => Effect.Effect<PruneDecision, unknown>
+  /** Reads the selected stop request without waiting for one to appear. */
   readonly heartbeat: Effect.Effect<HeartbeatDecision>
+  /** Requests the configured stop mode, defaulting the reason to `"requested"`. */
   readonly requestStop: (reason?: string) => Effect.Effect<void>
+  /** Scheduled resource level, or `Option.none()` for a flat study. */
   readonly resource: Effect.Effect<Option.Option<number>>
 }> {}

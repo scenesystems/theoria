@@ -1,5 +1,5 @@
 /**
- * Pareto objective vector model definitions.
+ * Serializable objective vectors and the records produced by Pareto analysis.
  *
  * @since 0.1.0
  */
@@ -7,14 +7,11 @@
 import { Schema } from "effect"
 
 /**
- * Schema for a fixed-length numeric vector representing one candidate's objective values.
+ * Decodes the ordered objective coordinates for one candidate.
  *
- * All Pareto operators expect coordinates in the same positional order across candidates.
- * Direction interpretation (minimize/maximize) is handled by the consuming function, not
- * by this schema.
- *
- * @see {@link ObjectiveVector} Extracted type alias
- * @see {@link dominates} from `./dominance` — pairwise comparison over these vectors
+ * @remarks
+ * The schema accepts empty arrays and non-finite numbers. It does not establish
+ * the equal-length and finite-coordinate preconditions of Pareto operations.
  *
  * @since 0.1.0
  * @category schemas
@@ -22,13 +19,8 @@ import { Schema } from "effect"
 export const ObjectiveVectorSchema = Schema.Array(Schema.Number)
 
 /**
- * A single candidate's objective values as a positional numeric array.
- *
- * Index `i` corresponds to the `i`-th objective. All vectors in a comparison
- * must share the same length; mismatched lengths cause `dominates` to return `false`.
- *
- * @see {@link ObjectiveVectorSchema} Schema that produces this type
- * @see {@link dominates} from `./dominance` — pairwise dominance check
+ * Ordered objective coordinates for one candidate. Coordinate positions must
+ * match the corresponding direction vector and every other candidate under comparison.
  *
  * @since 0.1.0
  * @category models
@@ -36,17 +28,8 @@ export const ObjectiveVectorSchema = Schema.Array(Schema.Number)
 export type ObjectiveVector = Schema.Schema.Type<typeof ObjectiveVectorSchema>
 
 /**
- * Non-dominated point indices for a single objective coordinate.
- *
- * `holders` contains the indices of candidates that are non-dominated when
- * the objective matrix is projected onto the single coordinate at `objectiveIndex`.
- * `bestValue` is the best (direction-aware) value found among those holders.
- *
- * Produced by {@link objectiveFrontierHoldings} in `./frontier` and consumed by
- * weight-derivation helpers in `./weights`.
- *
- * @see {@link ObjectiveFrontierWeight} Aggregated weight per candidate across all holdings
- * @see {@link objectiveFrontierHoldings} from `./frontier` — produces these holdings
+ * Records the best value for one objective coordinate and the input indices
+ * whose coordinate equals that value.
  *
  * @since 0.1.0
  * @category models
@@ -54,20 +37,17 @@ export type ObjectiveVector = Schema.Schema.Type<typeof ObjectiveVectorSchema>
 export class ObjectiveFrontierHolding extends Schema.Class<ObjectiveFrontierHolding>(
   "effect-search/ParetoObjectiveFrontierHolding"
 )({
+  /** Zero-based coordinate position in the analyzed objective vectors. */
   objectiveIndex: Schema.Number,
+  /** Best coordinate value under the direction used for this analysis. */
   bestValue: Schema.Number,
+  /** Input candidate indices whose coordinate equals the best value. */
   holders: Schema.Array(Schema.Number)
 }) {}
 
 /**
- * Candidate-level weight derived from objective frontier holdings.
- *
- * Weight equals the number of per-objective frontiers where a candidate appears
- * as a holder. A candidate on all `k` objective frontiers receives weight `k`;
- * one on none receives `0`. Higher weight indicates broader Pareto competitiveness.
- *
- * @see {@link ObjectiveFrontierHolding} Per-objective holding that feeds this weight
- * @see {@link objectiveFrontierWeights} from `./weights` — produces these weights
+ * Associates an input candidate with the number of objective coordinates on
+ * which it holds the best value. The weight ranges from zero through the matrix arity.
  *
  * @since 0.1.0
  * @category models
@@ -75,25 +55,19 @@ export class ObjectiveFrontierHolding extends Schema.Class<ObjectiveFrontierHold
 export class ObjectiveFrontierWeight extends Schema.Class<ObjectiveFrontierWeight>(
   "effect-search/ParetoObjectiveFrontierWeight"
 )({
+  /** Zero-based position of the candidate in the analyzed input. */
   candidateIndex: Schema.Number,
+  /** Number of coordinates on which the candidate holds the best value. */
   weight: Schema.Number
 }) {}
 
 /**
- * Complete deterministic snapshot of a Pareto frontier analysis.
+ * Captures the first Pareto front, its input-order complement, and exact
+ * per-coordinate best-value holdings from one analysis.
  *
- * **Fields**
- * - `frontierIndices` — indices of non-dominated candidates (first front)
- * - `dominatedIndices` — complement set: indices dominated by at least one frontier member
- * - `objectiveHoldings` — per-objective holder sets (one entry per objective coordinate)
- * - `holdingWeights` — per-candidate weight derived from how many objective frontiers include them
- *
- * Built atomically by {@link frontierSnapshot} in `./weights` so all fields are consistent
- * with respect to the same input matrix and directions.
- *
- * @see {@link frontierSnapshot} from `./weights` — produces this snapshot
- * @see {@link ObjectiveFrontierHolding} Individual objective holding entry
- * @see {@link ObjectiveFrontierWeight} Per-candidate weight entry
+ * @remarks
+ * `holdingWeights` contains one entry for every input candidate. Its values count
+ * membership in `objectiveHoldings`, not membership in the multi-objective front.
  *
  * @since 0.1.0
  * @category models
@@ -101,8 +75,12 @@ export class ObjectiveFrontierWeight extends Schema.Class<ObjectiveFrontierWeigh
 export class FrontierSnapshot extends Schema.Class<FrontierSnapshot>(
   "effect-search/ParetoFrontierSnapshot"
 )({
+  /** Input indices in the first non-dominated front, preserving input order. */
   frontierIndices: Schema.Array(Schema.Number),
+  /** Input indices outside the first front, preserving input order. */
   dominatedIndices: Schema.Array(Schema.Number),
+  /** Best value and exact holders for each objective coordinate. */
   objectiveHoldings: Schema.Array(ObjectiveFrontierHolding),
+  /** One coordinate-holding count for every input candidate. */
   holdingWeights: Schema.Array(ObjectiveFrontierWeight)
 }) {}

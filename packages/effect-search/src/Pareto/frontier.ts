@@ -1,5 +1,5 @@
 /**
- * Pareto frontier extraction and ranking.
+ * Stable extraction and ranking of non-dominated candidates.
  *
  * @since 0.1.0
  */
@@ -45,15 +45,13 @@ const isBetter = (a: number, b: number, d: Direction): boolean =>
   )
 
 /**
- * Returns the index set of candidates that belong to the first non-dominated frontier.
+ * Selects the input indices that no other candidate dominates.
  *
- * A candidate is non-dominated when no other candidate in `points` Pareto-dominates it.
- * The returned indices are a subset of `[0, points.length)` and are stable (preserve
- * input order). Pass `epsilon > 0` to require a strict margin for dominance.
- *
- * @see {@link dominates} from `./dominance` — pairwise test used internally
- * @see {@link nonDominatedSort} Iterative peeling that calls this repeatedly
- * @see {@link ObjectiveVector} from `./model` — input vector type
+ * @remarks
+ * Indices preserve input order, and equal candidates remain on the same front. A
+ * ragged matrix returns an empty array. Missing directions default to `"minimize"`.
+ * A finite positive `epsilon` requires a candidate to improve every coordinate by
+ * at least that margin before it dominates another candidate.
  *
  * @since 0.1.0
  * @category frontier
@@ -76,15 +74,12 @@ export const nonDominatedIndices = (
   )
 
 /**
- * Performs iterative front peeling (NSGA-II style) and returns front index groups in rank order.
+ * Partitions candidates into successive non-dominated fronts in input order.
  *
- * Each successive front is the non-dominated set of the remaining candidates after
- * removing all previously assigned fronts. `result[0]` is the Pareto-optimal front,
- * `result[1]` is the second front, and so on until all candidates are assigned.
- *
- * @see {@link nonDominatedIndices} Extracts a single front (used per peeling iteration)
- * @see {@link nonDominatedRanks} Flat per-candidate rank derived from this sort
- * @see {@link dominates} from `./dominance` — underlying pairwise dominance check
+ * @remarks
+ * The first array is the Pareto front. Removing it exposes the next front, and the
+ * process continues until every candidate is assigned. Empty and ragged matrices
+ * return an empty array.
  *
  * @since 0.1.0
  * @category frontier
@@ -152,14 +147,11 @@ export const nonDominatedSort = (
   )
 
 /**
- * Maps each candidate index to its non-dominated front rank (0-based).
+ * Assigns each candidate its zero-based position in successive non-dominated fronts.
  *
- * Rank `0` means the candidate is on the Pareto-optimal front, rank `1` is the
- * second front, etc. Returns `Infinity` for any index not found in the sort result,
- * which should not happen with well-formed input.
- *
- * @see {@link nonDominatedSort} Produces the front groups this flattens
- * @see {@link nonDominatedIndices} First front only (rank 0)
+ * @remarks
+ * Rank zero identifies the Pareto front. Every candidate in a ragged matrix receives
+ * positive infinity because the matrix cannot be sorted.
  *
  * @since 0.1.0
  * @category frontier
@@ -182,17 +174,12 @@ export const nonDominatedRanks = (
 }
 
 /**
- * Compute non-dominated holder sets independently per objective coordinate.
+ * Finds the best value and all exact holders independently for each objective coordinate.
  *
- * Projects the full objective matrix onto each coordinate in turn, runs single-objective
- * non-dominated extraction, and records which candidates are holders plus the best value.
- * This is the building block for Pareto-parent weighting strategies that count how often
- * each candidate appears on per-objective frontiers.
- *
- * @see {@link ObjectiveFrontierHolding} from `./model` — return element type
- * @see {@link ObjectiveFrontierWeight} from `./model` — downstream weight derived from these
- * @see {@link objectiveFrontierWeights} from `./weights` — aggregates holdings into weights
- * @see {@link nonDominatedIndices} Used internally per projected coordinate
+ * @remarks
+ * The first row determines the number of coordinates. Missing directions default to
+ * `"minimize"`. Empty and ragged matrices return no holdings. Holder membership uses
+ * exact numeric equality; the current `epsilon` argument does not admit near-equal values.
  *
  * @since 0.1.0
  * @category frontier

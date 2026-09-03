@@ -1,11 +1,6 @@
 /**
- * Typed errors for cryptographic operations.
- *
- * All errors are `Schema.TaggedError` — yieldable in `Effect.gen`,
- * catchable via `Effect.catchTag`, serializable via Schema.
- *
- * @see {@link sign} — signing operations that produce these errors
- * @see {@link verify} — verification operations that produce these errors
+ * Defines expected failures from signing, verification, key generation,
+ * agreement, and encapsulation.
  *
  * @since 0.1.0
  * @category errors
@@ -19,6 +14,7 @@ import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
 /**
  * A direct verifier received input outside its frozen suite profile.
  *
+ * @remarks
  * The error is deliberately material-free: it does not retain the algorithm,
  * verification key, signature, message, context, or a backend diagnostic.
  *
@@ -33,6 +29,7 @@ export class InvalidVerificationInput extends Schema.TaggedError<InvalidVerifica
 /**
  * A direct verifier could not execute its backend after input admission.
  *
+ * @remarks
  * The error is deliberately material-free and does not expose provider text
  * or an underlying exception.
  *
@@ -45,10 +42,12 @@ export class VerificationUnavailable extends Schema.TaggedError<VerificationUnav
 ) {}
 
 /**
- * Signing operation failed.
+ * A signer rejected key/message/entropy input or its backend threw.
  *
+ * @remarks
  * Carries `algorithm` (which signer was attempted) and `reason`
- * (human-readable explanation).
+ * (human-readable explanation). `reason` may contain backend diagnostics and
+ * is not redacted for an untrusted boundary.
  *
  * @since 0.1.0
  * @category errors
@@ -56,16 +55,19 @@ export class VerificationUnavailable extends Schema.TaggedError<VerificationUnav
 export class SigningFailed extends Schema.TaggedError<SigningFailed>()(
   "SigningFailed",
   {
+    /** Suite selected for the failed signing operation. */
     algorithm: SignatureAlgorithm,
+    /** Non-redacted package or backend diagnostic. */
     reason: Schema.String
   }
 ) {}
 
 /**
- * Signature verification did not pass.
+ * A general signature verifier could not process its input.
  *
- * The signature is well-formed but does not match the message
- * and public key. Carries `algorithm` and `reason`.
+ * @remarks
+ * A normal cryptographic nonmatch is returned as `false`, not this error.
+ * Carries `algorithm` and a potentially backend-derived, non-redacted `reason`.
  *
  * @since 0.1.0
  * @category errors
@@ -73,16 +75,21 @@ export class SigningFailed extends Schema.TaggedError<SigningFailed>()(
 export class VerificationFailed extends Schema.TaggedError<VerificationFailed>()(
   "VerificationFailed",
   {
+    /** Suite selected for the failed verification operation. */
     algorithm: SignatureAlgorithm,
+    /** Non-redacted package or backend diagnostic. */
     reason: Schema.String
   }
 ) {}
 
 /**
- * Signature data is malformed.
+ * Records malformed signature data detected by an application-defined
+ * validation boundary.
  *
- * Wrong length, invalid encoding, or corrupted bytes — the
- * signature cannot be parsed. Carries `algorithm` and `reason`.
+ * @remarks
+ * Carries `algorithm` and a non-redacted `reason`. Package verification
+ * operations use `InvalidVerificationInput`, `VerificationUnavailable`, or
+ * `VerificationFailed` instead; they do not emit this variant.
  *
  * @since 0.1.0
  * @category errors
@@ -90,16 +97,19 @@ export class VerificationFailed extends Schema.TaggedError<VerificationFailed>()
 export class InvalidSignature extends Schema.TaggedError<InvalidSignature>()(
   "InvalidSignature",
   {
+    /** Suite associated with the rejected signature data. */
     algorithm: SignatureAlgorithm,
+    /** Caller-supplied diagnostic; package verifiers do not produce this error. */
     reason: Schema.String
   }
 ) {}
 
 /**
- * Key pair generation failed.
+ * Unified key-generation dispatch could not obtain a key pair from its selected
+ * Noble primitive.
  *
- * Insufficient entropy, invalid parameters, or unsupported
- * algorithm. Carries `algorithm` and `reason`.
+ * @remarks
+ * Carries the selected `algorithm` and a non-redacted diagnostic `reason`.
  *
  * @since 0.1.0
  * @category errors
@@ -107,17 +117,21 @@ export class InvalidSignature extends Schema.TaggedError<InvalidSignature>()(
 export class KeyGenerationFailed extends Schema.TaggedError<KeyGenerationFailed>()(
   "KeyGenerationFailed",
   {
+    /** Suite whose key generation failed. */
     algorithm: CryptoAlgorithm,
+    /** Non-redacted diagnostic normalized by {@link generateKeyPair}. */
     reason: Schema.String
   }
 ) {}
 
 /**
- * Key agreement operation failed.
+ * X25519 rejected local or peer key material or could not compute its raw
+ * shared secret.
  *
+ * @remarks
  * Carries `algorithm` (which agreement was attempted) and `reason`
  * (human-readable explanation). Raised when ECDH fails due to
- * invalid key material.
+ * invalid key material. The reason may expose backend diagnostics.
  *
  * @since 0.1.0
  * @category errors
@@ -125,17 +139,21 @@ export class KeyGenerationFailed extends Schema.TaggedError<KeyGenerationFailed>
 export class AgreementFailed extends Schema.TaggedError<AgreementFailed>()(
   "AgreementFailed",
   {
+    /** Agreement suite selected for the failed operation. */
     algorithm: AgreementAlgorithm,
+    /** Non-redacted diagnostic from the X25519 boundary. */
     reason: Schema.String
   }
 ) {}
 
 /**
- * Key encapsulation operation failed.
+ * X-Wing rejected serialized key/ciphertext input or could not complete
+ * encapsulation or decapsulation.
  *
+ * @remarks
  * Carries `algorithm` (which KEM was attempted) and `reason`
  * (human-readable explanation). Raised when encapsulation or
- * decapsulation fails.
+ * decapsulation fails. The reason may expose backend diagnostics.
  *
  * @since 0.1.0
  * @category errors
@@ -143,7 +161,9 @@ export class AgreementFailed extends Schema.TaggedError<AgreementFailed>()(
 export class KemFailed extends Schema.TaggedError<KemFailed>()(
   "KemFailed",
   {
+    /** KEM suite selected for the failed operation. */
     algorithm: KemAlgorithm,
+    /** Non-redacted diagnostic from encapsulation or decapsulation. */
     reason: Schema.String
   }
 ) {}

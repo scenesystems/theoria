@@ -1,5 +1,12 @@
 /**
- * Optimization domain public surface.
+ * Approximates one-dimensional roots and scalar minima with bisection and
+ * golden-section search.
+ *
+ * @remarks
+ * These operations return the latest midpoint when their iteration budget is
+ * exhausted. Validated variants check option shapes and numeric bounds but do
+ * not prove a sign-changing bracket or objective unimodality; callers retain
+ * those mathematical preconditions.
  *
  * @since 0.1.0
  * @module

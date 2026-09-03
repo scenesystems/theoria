@@ -5,6 +5,7 @@
  * @since 0.1.0
  * @internal
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Option } from "effect"
 import type { Schema } from "effect"
 import type { Example } from "../../../Example/index.js"
@@ -55,7 +56,7 @@ export type MIPROOptionLike<
 const maxCandidateCount = <Candidate>(
   candidateSets: ReadonlyArray<Readonly<{ readonly candidates: ReadonlyArray<Candidate> }>>
 ): number =>
-  Arr.reduce(candidateSets, 1, (currentMax, candidateSet) => Math.max(currentMax, candidateSet.candidates.length))
+  Arr.reduce(candidateSets, 1, (currentMax, candidateSet) => Numeric.max(currentMax, candidateSet.candidates.length))
 
 /**
  * Returns the explicit validation set when provided, falling back to the

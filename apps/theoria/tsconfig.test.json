@@ -13,6 +13,7 @@
     "test/**/*.ts",
     "test/**/*.tsx",
     "vitest.config.ts",
+    "vitest.worker.config.ts",
     "../../packages/effect-inference/src/**/*.ts"
   ]
 }

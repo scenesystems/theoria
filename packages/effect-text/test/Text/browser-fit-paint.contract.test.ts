@@ -15,7 +15,7 @@ describe("Text browser fit-paint kernel contracts", () => {
     Effect.gen(function*() {
       const profile = Browser.browserSupportProfile("canvas-monospace")
       const entry = yield* Option.match(fitPaintCase(profile), {
-        onNone: () => Effect.dieMessage("Missing fit-paint browser accuracy case"),
+        onNone: () => Effect.dieMessage("Missing fit-paint synthetic regression case"),
         onSome: Effect.succeed
       })
       const prepared = yield* Text.prepareWithSegments(entry.prepare).pipe(

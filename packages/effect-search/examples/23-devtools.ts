@@ -1,14 +1,6 @@
 /**
- * DevTools Tracing — inspect optimization spans and fibers in real time.
- *
- * Real use case: diagnose orchestration and sampler behavior under load.
- *
- * What this shows: wiring DevTools so Study spans and fibers are visible while the run executes.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Supplies the Effect DevTools layer so study spans and fibers can be inspected
+ * during an optimization run.
  *
  * Run: bun run examples/23-devtools.ts
  */
@@ -16,6 +8,7 @@ import * as DevTools from "@effect/experimental/DevTools"
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -27,7 +20,7 @@ const program = Effect.gen(function*() {
     space,
     sampler: Sampler.tpe({ seed: 23 }),
     trials: 20,
-    objective: (config) => Effect.succeed((config.x - 1.5) ** 2)
+    objective: (config) => Effect.succeed(Numeric.pow(config.x - 1.5, 2))
   })
 
   yield* Match.value(result).pipe(

@@ -1,20 +1,6 @@
 /**
- * Statistics — mean, variance, standard deviation, covariance, and SummaryStatistics.
- *
- * Descriptive statistics are the first step in any data analysis pipeline.
- * Pure kernels return scalars from `Chunk` carriers; `summaryStatisticsValidated`
- * bundles all descriptors into a `SummaryStatistics` TaggedClass; `summaryStatisticsWithPolicies`
- * reads precision and diagnostics from the Effect context.
- *
- * What this shows: `mean`, `variance`, `standardDeviation`, `covariance`,
- * schema-validated `meanValidated` / `varianceValidated` / `covarianceValidated` /
- * `summaryStatisticsValidated`, and policy-aware `summaryStatisticsWithPolicies`.
- *
- * Feature Type Links:
- * - {@link SummaryStatistics}
- * - {@link Chunk}
- * - {@link Seed}
- * - {@link RuntimePolicies}
+ * Computes descriptive statistics from immutable chunks, decodes boundary
+ * arrays through Schema, and collects the policy-aware summary result.
  *
  * Run: bun run packages/effect-math/examples/05-statistics-summary.ts
  * @module
@@ -38,7 +24,7 @@ import {
 const program = Effect.gen(function*() {
   const data = Chunk.fromIterable([2, 4, 4, 4, 5, 5, 7, 9])
 
-  // ─── Pure kernels — Chunk in, scalar out ─────────────────────────
+  // Direct kernels
   yield* Console.log("mean:", mean(data))
   // Output: mean: 5
   yield* Console.log("variance:", variance(data))
@@ -49,7 +35,7 @@ const program = Effect.gen(function*() {
   yield* Console.log("covariance:", covariance(xs, ys))
   // Output: covariance: 1.5
 
-  // ─── Schema-validated — boundary input decoded via Schema ─────────
+  // Schema-validated boundary
   const meanV = yield* meanValidated({ values: [10, 20, 30] })
   yield* Console.log("meanValidated:", meanV)
 
@@ -70,7 +56,7 @@ const program = Effect.gen(function*() {
     count: summary.count
   })
 
-  // ─── Policy-aware — strict precision, diagnostics enabled ────────
+  // Strict precision with diagnostics
   const policies = makeDeterministicRuntimePoliciesLayer({
     seed: Seed.make(42),
     precision: "strict",

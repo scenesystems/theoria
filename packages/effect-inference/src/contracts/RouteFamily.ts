@@ -1,12 +1,12 @@
 /**
- * Route-family authority for stable inference transport categories.
+ * Stable and experimental inference protocol families.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Stable root route families that consumer code can depend on in `v0.1`.
+ * Accepts route families implemented by the stable runtime resolver.
  *
  * @since 0.1.0
  * @category schemas
@@ -19,8 +19,8 @@ export const StableRouteFamilySchema = Schema.Literal(
 )
 
 /**
- * Additive native route families reserved for explicit companion or
- * experimental lanes.
+ * Accepts native protocol families that have no adapter in the stable runtime
+ * resolver.
  *
  * @since 0.1.0
  * @category schemas
@@ -28,7 +28,7 @@ export const StableRouteFamilySchema = Schema.Literal(
 export const NativeRouteFamilySchema = Schema.Literal("TgiNative", "TeiNative", "OllamaNative")
 
 /**
- * Full route-family vocabulary.
+ * Accepts both stable adapter families and experimental native protocols.
  *
  * @since 0.1.0
  * @category schemas
@@ -36,8 +36,8 @@ export const NativeRouteFamilySchema = Schema.Literal("TgiNative", "TeiNative", 
 export const RouteFamilySchema = Schema.Union(StableRouteFamilySchema, NativeRouteFamilySchema)
 
 /**
- * Stable route-family discriminator extracted from
- * {@link StableRouteFamilySchema}.
+ * Canonical transport families accepted by persisted v0.1 descriptors and
+ * stable route resolution.
  *
  * @since 0.1.0
  * @category type-level
@@ -45,8 +45,8 @@ export const RouteFamilySchema = Schema.Union(StableRouteFamilySchema, NativeRou
 export type StableRouteFamily = Schema.Schema.Type<typeof StableRouteFamilySchema>
 
 /**
- * Experimental native route-family discriminator extracted from
- * {@link NativeRouteFamilySchema}.
+ * Opt-in native protocol families whose integration boundary is experimental
+ * and therefore excluded from canonical execution routes.
  *
  * @since 0.1.0
  * @category type-level
@@ -54,7 +54,7 @@ export type StableRouteFamily = Schema.Schema.Type<typeof StableRouteFamilySchem
 export type NativeRouteFamily = Schema.Schema.Type<typeof NativeRouteFamilySchema>
 
 /**
- * Route-family discriminator extracted from {@link RouteFamilySchema}.
+ * Stable and opt-in native protocol discriminator used by route contracts.
  *
  * @since 0.1.0
  * @category type-level

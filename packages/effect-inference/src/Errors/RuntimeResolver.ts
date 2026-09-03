@@ -15,14 +15,16 @@ import { Schema } from "effect"
 export class UnsupportedRoute extends Schema.TaggedError<UnsupportedRoute>()(
   "effect-inference/UnsupportedRoute",
   {
+    /** Rejected route family, when one was supplied. */
     family: Schema.optional(Schema.String),
+    /** Missing or unsupported route condition. */
     reason: Schema.String
   }
 ) {}
 
 /**
- * Placeholder failure used by the initial live skeleton until real adapter
- * layers are wired.
+ * Reports an operation omitted by a custom {@link RuntimeResolverApi}
+ * implementation.
  *
  * @since 0.1.0
  * @category errors
@@ -30,6 +32,7 @@ export class UnsupportedRoute extends Schema.TaggedError<UnsupportedRoute>()(
 export class RuntimeResolverNotImplemented extends Schema.TaggedError<RuntimeResolverNotImplemented>()(
   "effect-inference/RuntimeResolverNotImplemented",
   {
+    /** Resolver operation unavailable from the selected implementation. */
     feature: Schema.String
   }
 ) {}

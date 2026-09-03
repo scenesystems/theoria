@@ -1,13 +1,13 @@
 /**
- * Authentication-method authority for runtime routes.
+ * Credential transport identifiers stored in execution routes.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Normalized authentication modes across hosted, brokered, and self-hosted
- * runtimes.
+ * Accepts the credential transports understood by inference route adapters.
+ * Values identify a mechanism and never contain the credential.
  *
  * @since 0.1.0
  * @category schemas
@@ -22,7 +22,7 @@ export const AuthMethodSchema = Schema.Literal(
 )
 
 /**
- * Extracted authentication-method union.
+ * Identifies how a client authenticates to an inference route.
  *
  * @since 0.1.0
  * @category type-level

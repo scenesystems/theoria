@@ -1,8 +1,5 @@
 /**
- * Schema authority for the Geometry domain — defines the canonical domain
- * discriminator, operation input contracts, and boundary codec functions.
- * All schemas enforce finite-number validation at decode time, so kernels
- * can assume well-formed numeric input.
+ * Validates Geometry discovery metadata and operation inputs at untrusted boundaries.
  *
  * @since 0.1.0
  * @category schemas
@@ -17,9 +14,8 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical domain discriminator for Geometry. Consumers use this to
- * identify which domain produced a result when multiple domains coexist in
- * the same pipeline. The `stability` field tracks the domain's maturity level.
+ * Descriptor schema used to advertise metric and point-set Geometry support
+ * in domain-discovery results.
  *
  * @since 0.1.0
  * @category schemas
@@ -30,8 +26,7 @@ export const GeometryDomainSchema = Schema.Struct({
 })
 
 /**
- * Extracted type of a decoded `GeometryDomainSchema` — use this in
- * function signatures that accept an already-validated domain descriptor.
+ * Validated descriptor for metric and point-set Geometry support.
  *
  * @since 0.1.0
  * @category models
@@ -39,10 +34,7 @@ export const GeometryDomainSchema = Schema.Struct({
 export type GeometryDomain = typeof GeometryDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical geometry domain model.
- * Uses strict excess-property checking — any properties beyond `domain` and
- * `stability` cause a `BoundaryDecodeError`. Use at package edges where
- * untrusted input enters the domain.
+ * Decodes a Geometry discovery descriptor and rejects unknown fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -63,9 +55,7 @@ export const decodeGeometryDomain = (input: unknown) =>
   )
 
 /**
- * Encodes a validated `GeometryDomain` back to its serializable form at
- * the package boundary. Failures surface as `BoundaryEncodeError` — this
- * should only happen if the domain value was constructed outside of Schema.
+ * Encodes a validated Geometry discovery descriptor, failing for forged values.
  *
  * @since 0.1.0
  * @category schemas
@@ -84,10 +74,7 @@ export const encodeGeometryDomain = (domain: GeometryDomain) =>
   )
 
 /**
- * Union of all errors that can arise from boundary encode/decode operations
- * on the Geometry domain schema. Useful as a catch-all error channel type
- * in Effect pipelines that call `decodeGeometryDomain` or
- * `encodeGeometryDomain`.
+ * Error channel shared by Geometry descriptor ingestion and serialization.
  *
  * @since 0.1.0
  * @category errors
@@ -101,14 +88,13 @@ export type GeometrySchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeEr
 const FiniteNumber = Schema.Number.pipe(Schema.finite())
 
 // ---------------------------------------------------------------------------
-// Operation input schemas — boundary decode contracts
+// Operation input schemas
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary input contract for distance computation. Both `a` and `b` must
- * contain only finite numbers. The `metric` discriminator selects euclidean,
- * manhattan, or chebyshev distance. Decoded with strict excess-property
- * semantics — any extra fields cause a `GeometryDecodeError`.
+ * Accepts finite point coordinates and selects Euclidean, Manhattan, or
+ * Chebyshev distance. Equal dimensionality is checked by
+ * `distanceValidated`, not by this schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -120,9 +106,8 @@ export const DistanceInput = Schema.Struct({
 }).annotations({ identifier: "DistanceInput" })
 
 /**
- * Boundary input contract for midpoint computation. Both `a` and `b` must
- * contain only finite numbers. Decoded with strict excess-property
- * semantics — any extra fields cause a `GeometryDecodeError`.
+ * Accepts two points containing only finite coordinates. Equal dimensionality
+ * is checked by `midpointValidated`.
  *
  * @since 0.1.0
  * @category schemas
@@ -133,10 +118,8 @@ export const MidpointInput = Schema.Struct({
 }).annotations({ identifier: "MidpointInput" })
 
 /**
- * Boundary input contract for centroid computation. The `points` array must
- * be non-empty and each point must contain only finite numbers. Decoded with
- * strict excess-property semantics — any extra fields cause a
- * `GeometryDecodeError`.
+ * Accepts a non-empty point collection containing only finite coordinates.
+ * Equal dimensionality is checked by `centroidValidated`.
  *
  * @since 0.1.0
  * @category schemas

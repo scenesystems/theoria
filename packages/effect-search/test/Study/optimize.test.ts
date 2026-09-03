@@ -1,6 +1,6 @@
 import * as KeyValueStore from "@effect/platform/KeyValueStore"
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Either, Layer, Number as Num, Option, Schedule, Schema, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Either, Layer, Number as Num, Option, Schedule, Schema, Stream } from "effect"
 
 import * as Cache from "../../src/Cache/index.js"
 import { NoSuccessfulTrials, TrialError } from "../../src/Errors/index.js"
@@ -331,5 +331,32 @@ describe("Study.optimize", () => {
       expect(failedTrialEvent.error).toBeInstanceOf(TrialError)
       expect(failedTrialEvent.error.cause).toEqual(backendFailure)
       expect(failedTrialEvent.error.message).toBe("objective cache failure: effect-search/CacheBackendError")
+    }))
+
+  it.effect("rejects unsafe counts and objective-specific stopping options", () =>
+    Effect.gen(function*() {
+      const base = {
+        space: makeSpace(),
+        sampler: Sampler.random({ seed: 22 }),
+        objective: () => Effect.succeed(0)
+      }
+      const results = yield* Effect.all([
+        Effect.either(Study.optimize({ ...base, direction: "minimize", trials: 1.5 })),
+        Effect.either(Study.optimize({ ...base, direction: "minimize", trials: 1, concurrency: 1.5 })),
+        Effect.either(Study.optimize({
+          ...base,
+          directions: ["minimize", "maximize"],
+          trials: 1,
+          targetValue: 0
+        })),
+        Effect.either(Study.optimize({ ...base, direction: "minimize", trials: 1, epsilon: 0.1 }))
+      ])
+
+      Arr.forEach(results, (result) => {
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe("effect-search/InvalidStudyConfig")
+        }
+      })
     }))
 })

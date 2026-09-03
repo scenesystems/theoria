@@ -2,10 +2,10 @@
  * Complex number arithmetic, trigonometry, polar conversion, and
  * complex-step differentiation.
  *
- * Provides three tiers for every operation: a pure kernel operating
- * on `Complex` values, a Schema-validated boundary variant accepting
- * `unknown` input, and a policy-aware variant reading
- * `PrecisionPolicyService` and `DiagnosticsPolicyService` from context.
+ * @remarks
+ * Pure operations accept `Complex` values. Selected calculations also expose
+ * Schema-validated entry points for unknown input or policy-aware variants
+ * that read precision and diagnostics services from context.
  *
  * @since 0.1.0
  * @module @scenesystems/effect-math/Complex

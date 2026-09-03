@@ -1,5 +1,5 @@
 /**
- * Five-variant tagged union modeling a trial's lifecycle state machine.
+ * Runtime schema and tagged values for trial lifecycle state.
  *
  * @since 0.1.0
  */
@@ -9,16 +9,14 @@ import { ObjectiveValueSchema } from "../contracts/ObjectiveValue.js"
 import { TrialError } from "../Errors/index.js"
 
 /**
- * Schema for the five-variant tagged union that models a trial's lifecycle.
+ * Decodes running, completed, failed, pruned, and cancelled states used in
+ * snapshots and trial records.
  *
- * - **Running** — the trial is actively evaluating an objective function.
- * - **Completed** — evaluation finished and produced an {@link ObjectiveValueSchema} result.
- * - **Failed** — evaluation threw a {@link TrialError} before producing a value.
- * - **Pruned** — an early-stopping policy terminated the trial mid-evaluation.
- * - **Cancelled** — external interruption (user abort, timeout) stopped the trial.
- *
- * @see {@link TrialState} for the inferred type
- * @see {@link Trial} for the immutable record that carries this state
+ * Running timestamps and terminal durations use milliseconds under the default
+ * study clock. Completed states carry the objective result and retry metadata.
+ * Failed states retain a typed {@link TrialError}; pruned states retain the
+ * policy decision. Cancellation carries no timing or error information. The
+ * schema checks field types but does not constrain numeric ranges or finiteness.
  *
  * @since 0.1.0
  * @category schemas
@@ -50,13 +48,8 @@ export const TrialStateSchema = Schema.Union(
 )
 
 /**
- * Discriminated union representing the lifecycle state machine of a trial.
- * A trial begins as `Running` and transitions exactly once to a terminal
- * state — `Completed`, `Failed`, `Pruned`, or `Cancelled`. Transitions are
- * performed by the lifecycle functions in `Trial/lifecycle.ts`.
- *
- * @see {@link TrialStateSchema} for the underlying schema definition
- * @see {@link matchState} for exhaustive pattern matching over all variants
+ * Tracks a pending evaluation or one of its terminal outcomes. Lifecycle
+ * functions create new values without enforcing valid source-state transitions.
  *
  * @since 0.1.0
  * @category models
@@ -66,88 +59,77 @@ export type TrialState = Schema.Schema.Type<typeof TrialStateSchema>
 const TrialStateConstructors = Data.taggedEnum<TrialState>()
 
 /**
- * Destructured constructors, guards, and pattern matchers for the {@link TrialState} tagged union.
+ * Constructors and matching functions derived from the trial-state tagged union.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const {
   /**
-   * Constructs the initial lifecycle state, indicating the trial's objective
-   * function is currently being evaluated. Records `startedAt` to compute
-   * elapsed duration on transition to a terminal state.
-   *
-   * @see {@link makeRunning} for the primary trial creation entry point
+   * Creates a pending state whose millisecond timestamp is used for elapsed
+   * duration calculations. The value is not validated against the clock.
    *
    * @since 0.1.0
    * @category constructors
    */
   Running,
   /**
-   * Constructs the terminal state reached when the objective function returns
-   * a value successfully. Carries the objective value, elapsed duration,
-   * retry count, and optional evaluation/variance metadata.
-   *
-   * @see {@link CompletedState} for the narrowed type
-   * @see {@link complete} for the lifecycle transition function
+   * Creates a successful terminal state with objective, elapsed-time, retry,
+   * and optional repeated-evaluation metadata. It does not validate those
+   * values against an objective specification.
    *
    * @since 0.1.0
    * @category constructors
    */
   Completed,
   /**
-   * Constructs the terminal state reached when the objective function throws
-   * or returns an unrecoverable error. Captures the {@link TrialError} and
-   * elapsed duration for post-hoc diagnostics.
-   *
-   * @see {@link fail} for the lifecycle transition function
+   * Creates a terminal failure with the diagnostic error and elapsed duration.
    *
    * @since 0.1.0
    * @category constructors
    */
   Failed,
   /**
-   * Constructs the terminal state reached when an early-stopping policy
-   * (e.g. median pruner) decides the trial is unlikely to improve. Records
-   * the step at which pruning occurred, a human-readable reason, and the
-   * policy name for auditability.
-   *
-   * @see {@link prune} for the lifecycle transition function
+   * Creates a terminal pruning result from a policy's step and explanation.
    *
    * @since 0.1.0
    * @category constructors
    */
   Pruned,
   /**
-   * Constructs the terminal state reached when a trial is stopped by
-   * external interruption — user abort, timeout, or study-level cancellation.
-   * Unlike Failed, no error is recorded because the interruption is intentional.
-   *
-   * @see {@link cancel} for the lifecycle transition function
+   * Creates a terminal cancellation state with no error or elapsed duration.
    *
    * @since 0.1.0
    * @category constructors
    */
   Cancelled,
   /**
-   * Reports whether a trial state matches a specific variant tag. Accepts the
-   * tag string and returns a type-narrowing predicate. Supports data-first
-   * usage: `isState("Completed")(trial.state)`.
+   * Builds a predicate that narrows a state to the selected tag.
    *
-   * @see {@link TrialState} for the full set of variant tags
-   * @see {@link matchState} for exhaustive branching instead of single-variant checks
+   * @typeParam Tag - State discriminator selected for narrowing.
+   *
+   * @example
+   * ```ts
+   * import { Effect } from "effect"
+   * import { isState, makeRunning } from "@scenesystems/effect-search/Trial"
+   *
+   * const trial = makeRunning(0, { rate: 0.1 }, 1_000)
+   * export const program = Effect.succeed(trial.state).pipe(
+   *   Effect.filterOrFail(isState("Running"), () => "ExpectedRunningState"),
+   *   Effect.map(({ startedAt }) => startedAt),
+   *   Effect.filterOrFail((startedAt) => startedAt === 1_000, () => "UnexpectedStartTime")
+   * )
+   * ```
    *
    * @since 0.1.0
    * @category guards
    */
   $is: isState,
   /**
-   * Exhaustive pattern match over all five {@link TrialState} variants.
-   * The compiler enforces that every branch is handled, preventing silent
-   * omissions when new states are added.
+   * Builds a function that requires one branch per trial-state variant and
+   * returns a common result type.
    *
-   * @see {@link TrialState} for the variant definitions
-   * @see {@link isState} for single-variant narrowing
+   * @typeParam Cases - Exhaustive handler record whose return values determine the result union.
    *
    * @since 0.1.0
    * @category pattern-matching
@@ -156,13 +138,8 @@ export const {
 } = TrialStateConstructors
 
 /**
- * Narrowed intersection of {@link TrialState} where `_tag` is `"Completed"`.
- * Use this type to accept only trials that have finished successfully,
- * giving access to `value`, `duration`, and `retryCount` without requiring
- * a runtime check at the call site.
- *
- * @see {@link Completed} for the constructor
- * @see {@link CompletedTrial} for the full trial record narrowed to this state
+ * Selects the successful terminal variant, including objective, duration, and
+ * evaluation metadata.
  *
  * @since 0.1.0
  * @category type-level

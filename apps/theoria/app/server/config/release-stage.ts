@@ -1,14 +1,15 @@
-import { Config, Effect } from "effect"
-import * as Option from "effect/Option"
+import { Config, Effect, Schema } from "effect"
 
-import { type ReleaseStage, releaseStageFromEnvironment } from "../../contracts/release-stage.js"
+import { ReleaseStage } from "../../contracts/release-stage.js"
 
-export const serverReleaseStage: Effect.Effect<ReleaseStage> = Effect.gen(function*() {
-  const railwayEnvironmentName = yield* Config.withDefault(Config.string("RAILWAY_ENVIRONMENT_NAME"), "")
-  const nodeEnv = yield* Config.withDefault(Config.string("NODE_ENV"), "")
+/**
+ * Release stage configuration. Each Wrangler target sets `RELEASE_STAGE`
+ * explicitly (see `wrangler.jsonc`); an unset value means a local run and is
+ * treated as `preview`. An invalid value is a configuration error and the
+ * server refuses to start (see `AppLayer`).
+ */
+export const releaseStageConfig: Config.Config<ReleaseStage> = Schema.Config("RELEASE_STAGE", ReleaseStage).pipe(
+  Config.withDefault<ReleaseStage>("preview")
+)
 
-  return releaseStageFromEnvironment({
-    railwayEnvironmentName: Option.some(railwayEnvironmentName),
-    nodeEnv: Option.some(nodeEnv)
-  })
-}).pipe(Effect.orDie)
+export const serverReleaseStage: Effect.Effect<ReleaseStage> = Effect.orDie(releaseStageConfig)

@@ -1,13 +1,8 @@
-import { Effect, Layer } from "effect"
+import { Layer } from "effect"
 
-import { Contracts, Text } from "../../src/index.js"
-import type { Experimental } from "../../src/index.js"
+import { type Experimental, Text } from "@scenesystems/effect-text"
 
-const advanceForFamily = (family: string): number => family === "system-ui" ? 10 : 5
-
-export const calibrationTextMeasurerLayer = Layer.succeed(Contracts.TextMeasurer, {
-  measure: (font: Text.FontDescriptorType, text: string) => Effect.succeed(text.length * advanceForFamily(font.family))
-})
+export const calibrationTextMeasurerLayer = Text.TextMeasurerLive
 
 export const calibrationServices = Layer.mergeAll(
   Text.WordSegmenterLive,
@@ -29,7 +24,7 @@ export const defaultCalibrationProfile: Experimental.Calibration.CalibrationProf
 
 export const canonicalCalibrationCases: ReadonlyArray<Experimental.Calibration.CalibrationCaseType> = [
   {
-    name: "browser-parity-tab-advances",
+    name: "tab-advances",
     prepare: {
       text: "a\tb",
       font: { family: "system-ui", size: 10 },
@@ -38,8 +33,8 @@ export const canonicalCalibrationCases: ReadonlyArray<Experimental.Calibration.C
     layout: { maxWidth: 100, lineHeight: 12 },
     expected: {
       lineCount: 1,
-      maxLineWidth: 50,
-      lines: [{ text: "a\tb", width: 50 }]
+      maxLineWidth: 19,
+      lines: [{ text: "a\tb", width: 19 }]
     }
   },
   {
@@ -49,13 +44,13 @@ export const canonicalCalibrationCases: ReadonlyArray<Experimental.Calibration.C
       font: { family: "Mono", size: 10 },
       whiteSpace: "normal"
     },
-    layout: { maxWidth: 30, lineHeight: 12 },
+    layout: { maxWidth: 35, lineHeight: 12 },
     expected: {
       lineCount: 2,
-      maxLineWidth: 30,
+      maxLineWidth: 34.8,
       lines: [
-        { text: "alpha-", width: 30 },
-        { text: "beta", width: 20 }
+        { text: "alpha-", width: 34.8 },
+        { text: "beta", width: 23.2 }
       ]
     }
   },
@@ -68,15 +63,17 @@ export const canonicalCalibrationCases: ReadonlyArray<Experimental.Calibration.C
     },
     layout: { maxWidth: 25, lineHeight: 12 },
     expected: {
-      lineCount: 6,
-      maxLineWidth: 25,
+      lineCount: 8,
+      maxLineWidth: 23.8,
       lines: [
-        { text: "https", width: 25 },
-        { text: "://ex", width: 25 },
-        { text: "ample", width: 25 },
-        { text: ".com/", width: 25 },
-        { text: "a-b?x", width: 25 },
-        { text: "=1,2", width: 20 }
+        { text: "http", width: 23.2 },
+        { text: "s://", width: 23.2 },
+        { text: "exam", width: 23.2 },
+        { text: "ple.", width: 23.2 },
+        { text: "com/", width: 23.2 },
+        { text: "a-b?", width: 23.2 },
+        { text: "x=1,", width: 23.8 },
+        { text: "2", width: 6.4 }
       ]
     }
   },
@@ -89,16 +86,17 @@ export const canonicalCalibrationCases: ReadonlyArray<Experimental.Calibration.C
     },
     layout: { maxWidth: 15, lineHeight: 12 },
     expected: {
-      lineCount: 2,
-      maxLineWidth: 15,
+      lineCount: 3,
+      maxLineWidth: 11.6,
       lines: [
-        { text: "你好世", width: 15 },
-        { text: "界你好", width: 15 }
+        { text: "你好", width: 11.6 },
+        { text: "世界", width: 11.6 },
+        { text: "你好", width: 11.6 }
       ]
     }
   },
   {
-    name: "mixed-direction-browser-case",
+    name: "mixed-direction-case",
     prepare: {
       text: "(שלום) hello",
       font: { family: "system-ui", size: 10 },
@@ -107,8 +105,8 @@ export const canonicalCalibrationCases: ReadonlyArray<Experimental.Calibration.C
     layout: { maxWidth: 200, lineHeight: 12 },
     expected: {
       lineCount: 1,
-      maxLineWidth: 120,
-      lines: [{ text: "hello (םולש)", width: 120 }]
+      maxLineWidth: 67.09999999999998,
+      lines: [{ text: "hello (םולש)", width: 67.09999999999998 }]
     }
   },
   {
@@ -122,11 +120,11 @@ export const canonicalCalibrationCases: ReadonlyArray<Experimental.Calibration.C
     layout: { maxWidth: 30, lineHeight: 12 },
     expected: {
       lineCount: 3,
-      maxLineWidth: 25,
+      maxLineWidth: 29,
       lines: [
-        { text: "hy-", width: 15 },
-        { text: "phen-", width: 25 },
-        { text: "ation", width: 25 }
+        { text: "hy-", width: 17.4 },
+        { text: "phen-", width: 29 },
+        { text: "ation", width: 29 }
       ]
     }
   }

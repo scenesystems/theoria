@@ -1,69 +1,17 @@
 /**
- * Shared cache authority surface — thin DSP adapter over `@scenesystems/effect-search/Cache`.
+ * Memoizes language-model results by module state, input, and rollout identity.
+ *
+ * @remarks
+ * Module execution consumes `DspCache`. Its base Layer requires an effect-search
+ * `SchemaCache`; the specialized Layers select in-memory, filesystem, or
+ * SQLite-compatible storage. `withRollout` partitions otherwise identical calls
+ * during repeated sampling.
  *
  * @since 0.1.0
  */
 
-export {
-  /**
-   * Fiber-local rollout index for cache key diversity.
-   *
-   * @since 0.1.0
-   */
-  RolloutRef,
-  /**
-   * Scoped rollout identity combinator.
-   *
-   * @since 0.1.0
-   */
-  withRollout
-} from "./refs.js"
+export { RolloutRef, withRollout } from "./refs.js"
 
-export {
-  /**
-   * DSP cache key projection — constructed automatically by `DspCache.resolve`.
-   *
-   * @since 0.1.0
-   */
-  buildDspCacheKey,
-  /**
-   * DSP cache service tag for module-level LM call memoization.
-   *
-   * @since 0.1.0
-   */
-  DspCache,
-  /**
-   * Composite memoization key combining module identity, content hashes,
-   * and optional rollout index.
-   *
-   * @since 0.1.0
-   */
-  DspCacheKey
-} from "./model.js"
+export { buildDspCacheKey, DspCache, DspCacheKey } from "./model.js"
 
-export {
-  /**
-   * File-system-backed DspCache layer.
-   *
-   * @since 0.1.0
-   */
-  DspCacheFileSystem,
-  /**
-   * Live DspCache layer requiring a `SchemaCache` service.
-   *
-   * @since 0.1.0
-   */
-  DspCacheLive,
-  /**
-   * In-memory DspCache layer for tests.
-   *
-   * @since 0.1.0
-   */
-  DspCacheMemory,
-  /**
-   * SQLite-backed DspCache layer.
-   *
-   * @since 0.1.4
-   */
-  DspCacheSql
-} from "./layer.js"
+export { DspCacheFileSystem, DspCacheLive, DspCacheMemory, DspCacheSql } from "./layer.js"

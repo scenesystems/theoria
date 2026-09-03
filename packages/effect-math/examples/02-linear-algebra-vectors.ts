@@ -1,18 +1,6 @@
 /**
- * Linear Algebra — dot product, norms, vector ops, and matrix-vector multiply.
- *
- * Vectors live in immutable `Chunk` carriers. Pure kernels accept and return
- * Chunks directly; schema-validated variants decode boundary input; policy-aware
- * variants read precision and backend from the Effect context.
- *
- * What this shows: `dot`, `normL1`/`normL2`/`normLinf`, `vectorAdd`, `vectorScale`,
- * `matvec`, `transpose`, `frobeniusNorm`, schema-validated `dotValidated`,
- * and policy-aware `dotWithPolicies` / `normWithPolicies`.
- *
- * Feature Type Links:
- * - {@link Chunk}
- * - {@link Seed}
- * - {@link RuntimePolicies}
+ * Computes vector norms, vector arithmetic, and matrix operations with immutable
+ * chunks, then exercises validated and runtime-policy variants.
  *
  * Run: bun run packages/effect-math/examples/02-linear-algebra-vectors.ts
  * @module
@@ -40,7 +28,7 @@ const program = Effect.gen(function*() {
   const a = Chunk.fromIterable([1, 2, 3])
   const b = Chunk.fromIterable([4, 5, 6])
 
-  // ─── Pure kernels — Chunk in, scalar/Chunk out ───────────────────
+  // Direct kernels
   yield* Console.log("dot([1,2,3], [4,5,6]):", dot(a, b))
   // Output: dot([1,2,3], [4,5,6]): 32
   yield* Console.log("normL1([1,2,3]):", normL1(a))
@@ -66,11 +54,11 @@ const program = Effect.gen(function*() {
   const frob = frobeniusNorm(Chunk.fromIterable([1, 2, 3, 4]), 2, 2)
   yield* Console.log("frobeniusNorm(2×2):", frob)
 
-  // ─── Schema-validated — boundary input decoded via Schema ─────────
+  // Schema-validated boundary
   const dotVal = yield* dotValidated({ a: [1, 2, 3], b: [4, 5, 6] })
   yield* Console.log("dotValidated:", dotVal)
 
-  // ─── Policy-aware — reads runtime services from context ──────────
+  // Runtime policies
   const policies = makeDeterministicRuntimePoliciesLayer({
     seed: Seed.make(42),
     precision: "strict",

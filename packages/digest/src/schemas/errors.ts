@@ -1,11 +1,11 @@
 /**
- * Typed errors for digest operations.
+ * Closed error schemas for strict text encoding, canonicalization, and bounded hashing.
  *
- * All errors are `Schema.TaggedError` — yieldable in `Effect.gen`,
- * catchable via `Effect.catchTag`, serializable via Schema.
+ * @remarks
+ * Each variant omits rejected input text and preimage data from its fields.
  *
- * @see {@link durableFingerprint} — canonical fingerprinting with closed errors
- * @see {@link blake3Mac} — the operation that produces InvalidKeyLength
+ * @see {@link durableFingerprint}
+ * @see {@link blake3Mac}
  *
  * @since 0.1.0
  * @category errors
@@ -13,10 +13,11 @@
 import { Schema } from "effect"
 
 /**
- * Raised when a MAC key does not meet the required byte length.
+ * Reports a BLAKE3 keyed-mode key whose length is not 32 bytes.
  *
- * BLAKE3 keyed mode requires exactly 32 bytes. This error captures
- * the expected and actual lengths for diagnostics.
+ * @remarks
+ * Authentication does not begin when this error is returned. `expected` is 32,
+ * and `actual` is the supplied key length.
  *
  * @since 0.1.0
  * @category errors
@@ -24,14 +25,17 @@ import { Schema } from "effect"
 export class InvalidKeyLength extends Schema.TaggedError<InvalidKeyLength>()(
   "InvalidKeyLength",
   {
+    /** Required key length in bytes. */
     expected: Schema.Number,
+    /** Supplied key length in bytes. */
     actual: Schema.Number
   }
 ) {}
 
 /**
- * Raised when text contains an unpaired UTF-16 surrogate.
+ * Identifies the first unpaired UTF-16 surrogate without retaining input text.
  *
+ * @remarks
  * Diagnostics contain only the surrogate kind and absolute code-unit index;
  * rejected text is never retained.
  *
@@ -41,7 +45,9 @@ export class InvalidKeyLength extends Schema.TaggedError<InvalidKeyLength>()(
 export class InvalidUnicode extends Schema.TaggedError<InvalidUnicode>()(
   "InvalidUnicode",
   {
+    /** Whether the unpaired code unit was a high or low surrogate. */
     kind: Schema.Literal("lone-high-surrogate", "lone-low-surrogate"),
+    /** Zero-based UTF-16 code-unit index in the logical input. */
     codeUnitIndex: Schema.Number.pipe(
       Schema.int(),
       Schema.greaterThanOrEqualTo(0)
@@ -50,9 +56,9 @@ export class InvalidUnicode extends Schema.TaggedError<InvalidUnicode>()(
 ) {}
 
 /**
- * Raised when canonicalization encounters a value outside the supported
- * plain-data domain.
+ * Classifies why a value is outside the canonical plain-data domain.
  *
+ * @remarks
  * Diagnostics contain only a closed structural reason; rejected values, keys,
  * paths, and preimages are never retained.
  *
@@ -62,6 +68,7 @@ export class InvalidUnicode extends Schema.TaggedError<InvalidUnicode>()(
 export class UnsupportedValue extends Schema.TaggedError<UnsupportedValue>()(
   "UnsupportedValue",
   {
+    /** Closed structural reason; no rejected input data is included. */
     reason: Schema.Literal(
       "undefined",
       "nan",
@@ -88,8 +95,9 @@ export class UnsupportedValue extends Schema.TaggedError<UnsupportedValue>()(
 ) {}
 
 /**
- * Raised when canonicalization encounters a cyclic object graph.
+ * Signals that canonicalization cannot represent a cyclic object graph.
  *
+ * @remarks
  * No object identity or traversal path is retained.
  *
  * @since 0.3.0
@@ -101,8 +109,9 @@ export class CyclicValue extends Schema.TaggedError<CyclicValue>()(
 ) {}
 
 /**
- * Raised when canonical UTF-8 bytes exceed a caller's inclusive byte limit.
+ * Signals that canonical UTF-8 output crossed the caller's inclusive limit.
  *
+ * @remarks
  * The error is intentionally fieldless: canonical byte lengths, limits, and
  * preimage material are not retained in diagnostics.
  *
@@ -115,8 +124,9 @@ export class CanonicalByteLimitExceeded extends Schema.TaggedError<CanonicalByte
 ) {}
 
 /**
- * Raised when a canonical byte limit is not a non-negative safe integer.
+ * Rejects a byte limit that is not a non-negative safe integer.
  *
+ * @remarks
  * The error is intentionally fieldless: the rejected limit is not retained in
  * diagnostics.
  *
@@ -129,7 +139,7 @@ export class InvalidCanonicalByteLimit extends Schema.TaggedError<InvalidCanonic
 ) {}
 
 /**
- * Closed error schema for canonical byte-limit validation and excess.
+ * Schema for distinguishing invalid limits from admitted values that exceed one.
  *
  * @since 0.3.4
  * @category errors
@@ -140,7 +150,7 @@ export const CanonicalByteLimitError = Schema.Union(
 )
 
 /**
- * Closed error type for canonical byte limits.
+ * Distinguishes an invalid limit from a canonical preimage that exceeds a valid limit.
  *
  * @since 0.3.4
  * @category errors
@@ -148,7 +158,7 @@ export const CanonicalByteLimitError = Schema.Union(
 export type CanonicalByteLimitError = Schema.Schema.Type<typeof CanonicalByteLimitError>
 
 /**
- * Closed error schema for strict canonicalization.
+ * Schema for exhaustive handling of Unicode, domain-admission, and cycle failures.
  *
  * @since 0.3.0
  * @category errors
@@ -160,7 +170,7 @@ export const CanonicalizationError = Schema.Union(
 )
 
 /**
- * Closed error type for strict canonicalization.
+ * Distinguishes malformed Unicode, unsupported structures, and cyclic input.
  *
  * @since 0.3.0
  * @category errors

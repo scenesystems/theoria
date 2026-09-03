@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
 
 import { FieldRecord } from "../../../contracts/FieldValue.js"
@@ -72,7 +73,10 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
           const metricPrediction = yield* decodeFieldRecord(prediction).pipe(Effect.orDie)
           const metricExpectedOutput = yield* decodeFieldRecord(expectedOutput).pipe(Effect.orDie)
           const metricResult = yield* options.metric.score(metricPrediction, metricExpectedOutput)
-          const adjustedScore = Math.min(1, Math.max(0, metricResult.score + candidateBoost(candidate.candidateId)))
+          const adjustedScore = Numeric.clamp(metricResult.score + candidateBoost(candidate.candidateId), {
+            minimum: 0,
+            maximum: 1
+          })
           const normalizedMetric = new MetricResult({
             score: adjustedScore,
             ...withFeedback(Option.fromNullable(metricResult.feedback))

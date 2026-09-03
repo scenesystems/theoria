@@ -10,19 +10,25 @@ import type { SnapshotTrial, TrialStateSnapshot } from "./stateCodec.js"
 import { stateDuration } from "./stateCodec.js"
 
 /**
- * Derived sampler metadata persisted in v2 snapshots.
+ * Decodes sampler counts and checkpoint identity derived for a study snapshot.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const SamplerMetricsSchema = Schema.Struct({
+  /** Variant tag of the persisted sampler checkpoint. */
   checkpointTag: Schema.String,
+  /** Completed-trial count supplied by snapshot construction. */
   completedCount: Schema.Number,
+  /** Total retries recorded by completed trials. */
   retryCountTotal: Schema.Number,
+  /** Number of persisted warm-start trials. */
   priorCount: Schema.Number
 })
 
 /**
+ * Sampler diagnostics derived from the snapshot's trials and checkpoint.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -35,6 +41,9 @@ const retryCountFromState = (state: TrialStateSnapshot): number =>
   )
 
 /**
+ * Sums the millisecond durations retained by terminal trial states.
+ * Running and cancelled states contribute zero.
+ *
  * @since 0.1.0
  * @category utils
  */
@@ -56,6 +65,9 @@ const priorCountFromTrials = (trials: ReadonlyArray<SnapshotTrial>): number =>
   )
 
 /**
+ * Derives checkpoint identity, completed count, retries, and warm-start count
+ * for snapshot diagnostics.
+ *
  * @since 0.1.0
  * @category constructors
  */

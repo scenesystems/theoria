@@ -1,5 +1,5 @@
 /**
- * Core `Module` class and `SavedState` envelope for parameter persistence.
+ * Executable module nodes and their parameter snapshot envelope.
  *
  * @since 0.1.0
  */
@@ -14,34 +14,49 @@ import type { DspError } from "../Errors/union.js"
 import type { Signature } from "../Signature/model.js"
 
 /**
- * Serialized program state capturing version, per-module parameters, and
- * optional metadata. Use with `Module.save` and `Module.load` to persist
- * and restore learned parameters across runs.
+ * Captures module parameter values in the version 1 persistence envelope.
  *
- * @see {@link Module}
+ * @remarks
+ * Schema decoding accepts only version `1`. {@link load} additionally requires
+ * exactly one entry for each name in the target parameter tree and rejects
+ * duplicate, missing, or unknown names. Metadata is preserved by the schema but
+ * ignored by `load`; `save` omits it.
  *
  * @since 0.1.0
  * @category models
  */
 export class SavedState extends Schema.Class<SavedState>("ProgramParams")({
+  /** Envelope format version; only `1` is accepted. */
   version: Schema.Literal(1),
-  modules: Schema.Array(Schema.Struct({
-    name: Schema.String,
-    params: ModuleParams
-  })),
+  /** Parameter entries matched to a target module tree by exact name. */
+  modules: Schema.Array(
+    Schema.Struct({
+      /** Module name used by persistence matching. */
+      name: Schema.String,
+      /** Complete parameter value restored into the module ref. */
+      params: ModuleParams
+    })
+  ),
+  /** Caller-defined envelope metadata ignored by module restoration. */
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 }) {}
 
 /**
- * The core runtime contract for a learnable LLM program. Each module owns
- * a typed `forward` function that transforms schema-validated input into
- * schema-validated output via a language model. Module parameters
- * (instructions and demonstrations) are mutable via `Ref` and can be
- * tuned by optimizers.
+ * Binds a decoded signature to mutable parameters and an executable operation.
  *
- * @see {@link Signature}
- * @see {@link ModuleParams}
- * @see {@link SavedState}
+ * @remarks
+ * The signature determines compile-time input and output types. `forward` does
+ * not promise to decode untrusted input before execution; callers crossing an
+ * untyped boundary must decode with `signature.inputSchema`. Each implementation
+ * may use a language-model service and any Schema context, and may fail with an
+ * AI provider error or package-owned `DspError`.
+ *
+ * Parameters remain mutable through a `Ref`. The child map records owned nodes
+ * for composition, discovery, and persistence, but operational wrappers do not
+ * necessarily expose the module they invoke as a child.
+ *
+ * @typeParam I - Fields defining decoded input and input Schema requirements.
+ * @typeParam O - Fields defining decoded output and output Schema requirements.
  *
  * @since 0.1.0
  * @category models
@@ -50,10 +65,15 @@ export class Module<
   I extends Schema.Struct.Fields = Schema.Struct.Fields,
   O extends Schema.Struct.Fields = Schema.Struct.Fields
 > extends Data.TaggedClass("Module")<{
+  /** Name used by discovery, tracing, and parameter persistence. */
   readonly name: string
+  /** Runtime schemas and prompt metadata for this module boundary. */
   readonly signature: Signature<I, O>
+  /** Mutable instruction, demonstration, rendering, and generation state. */
   readonly params: Ref.Ref<ModuleParams>
+  /** Child nodes owned for composition and parameter persistence. */
   readonly subModules: HashMap.HashMap<ModuleId, ModuleNode>
+  /** Executes the module for one already-decoded input value. */
   readonly forward: (
     input: Schema.Schema.Type<Schema.Struct<I>>
   ) => Effect.Effect<

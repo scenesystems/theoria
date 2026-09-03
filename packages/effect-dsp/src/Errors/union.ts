@@ -1,5 +1,5 @@
 /**
- * Cross-domain error union.
+ * Schema union for package-owned serializable errors.
  *
  * @since 0.1.0
  */
@@ -12,8 +12,12 @@ import { SignatureError } from "./signature.js"
 import { TraceError } from "./trace.js"
 
 /**
- * Union schema covering all effect-dsp error types. Useful for top-level error
- * handling when you want to catch any library error.
+ * Decodes package-owned failures across signatures, modules, optimizers,
+ * evaluation, tracing, and persistence.
+ *
+ * @remarks
+ * Provider, platform, dependency, Schema parse, and user callback errors remain
+ * outside this union when public operations expose them separately.
  *
  * @since 0.1.0
  * @category errors
@@ -33,8 +37,7 @@ export const DspError = Schema.Union(
 )
 
 /**
- * Discriminated union type of all effect-dsp errors, extracted from
- * {@link DspError} schema.
+ * Selects the tagged error values decoded by the {@link DspError} schema.
  *
  * @since 0.1.0
  * @category errors

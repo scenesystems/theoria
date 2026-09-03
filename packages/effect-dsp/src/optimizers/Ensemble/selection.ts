@@ -4,6 +4,7 @@
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Match, Option, Order } from "effect"
 import type { Schema } from "effect"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
@@ -34,9 +35,10 @@ export const resolveSelectionSize = (programCount: number, requested: Option.Opt
         onNone: () => count,
         onSome: (size) =>
           Match.value(size).pipe(
+            Match.when((value) => !Numeric.isFinite(value), () => 1),
             Match.when((value) => value <= 0, () => 1),
             Match.when((value) => value >= count, () => count),
-            Match.orElse((value) => value)
+            Match.orElse(Numeric.floor)
           )
       })
     )

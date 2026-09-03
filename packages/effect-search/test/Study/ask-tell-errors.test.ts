@@ -58,4 +58,37 @@ describe("Study ask-tell typed transition errors", () => {
         }
       })
     ))
+
+  it.effect("rejects non-finite single-objective values", () =>
+    Effect.scoped(
+      Effect.gen(function*() {
+        const handle = yield* Study.open({
+          space: makeSpace(),
+          sampler: Sampler.random({ seed: 223 }),
+          direction: "minimize",
+          trials: 2,
+          objective: () => Effect.succeed(0)
+        })
+
+        const first = yield* Study.ask(handle)
+        const nanResult = yield* Effect.either(Study.tell(handle, first.trialNumber, Number.NaN))
+        expect(Either.isLeft(nanResult)).toBe(true)
+
+        if (Either.isLeft(nanResult)) {
+          expect(nanResult.left._tag).toBe("effect-search/InvalidObjectiveValue")
+        }
+
+        yield* Study.fail(handle, first.trialNumber, "discard invalid result")
+
+        const second = yield* Study.ask(handle)
+        const infinityResult = yield* Effect.either(
+          Study.tell(handle, second.trialNumber, Number.POSITIVE_INFINITY)
+        )
+        expect(Either.isLeft(infinityResult)).toBe(true)
+
+        if (Either.isLeft(infinityResult)) {
+          expect(infinityResult.left._tag).toBe("effect-search/InvalidObjectiveValue")
+        }
+      })
+    ))
 })

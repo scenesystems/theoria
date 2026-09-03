@@ -23,7 +23,7 @@ const boolWord = (value: boolean): string =>
     ? "yes"
     : "no"
 
-const objectString = (value: unknown): string => Schema.encodeSync(Schema.parseJson(Schema.Unknown))(value)
+const encodeArtifactJson = Schema.encode(Schema.parseJson(Schema.Unknown))
 
 const scoreDelta = (baselineScore: number, optimizedScore: number): number => optimizedScore - baselineScore
 
@@ -347,10 +347,8 @@ const writeReportMarkdown = (directory: string, summary: StandardExampleSummary)
 /**
  * Writes standard artifacts for optimization examples.
  *
- * Envelopes emitted via `emitCustomEnvelope` are the authority — the raw file
- * writes (report.md, summary.json, events.json, module-state.json) are derived
- * convenience for interactive development. Remove raw writes when envelope
- * reader infrastructure is available.
+ * Emits canonical envelopes and writes report, summary, event, and module-state
+ * files as local copies for interactive inspection.
  *
  * @since 0.0.0
  * @category utils
@@ -367,20 +365,23 @@ export const writeStandardArtifacts = (options: {
       metricName: options.summary.metricName,
       exampleName: options.summary.exampleName
     }
+    const summaryJson = yield* encodeArtifactJson(options.summary)
+    const eventsJson = yield* encodeArtifactJson(options.events)
+    const moduleStateJson = yield* encodeArtifactJson(options.moduleState)
 
     yield* emitCustomEnvelope({
       ...envelopeBase,
-      payload: { kind: "summary", data: objectString(options.summary) }
+      payload: { kind: "summary", data: summaryJson }
     })
 
     yield* emitCustomEnvelope({
       ...envelopeBase,
-      payload: { kind: "events", data: objectString(options.events) }
+      payload: { kind: "events", data: eventsJson }
     })
 
     yield* emitCustomEnvelope({
       ...envelopeBase,
-      payload: { kind: "module-state", data: objectString(options.moduleState) }
+      payload: { kind: "module-state", data: moduleStateJson }
     })
 
     const fileSystem = yield* FileSystem.FileSystem
@@ -394,13 +395,13 @@ export const writeStandardArtifacts = (options: {
     const reportPath = yield* writeReportMarkdown(reportsDir, options.summary)
 
     const summaryPath = path.join(reportsDir, SUMMARY_FILE_NAME)
-    yield* fileSystem.writeFileString(summaryPath, objectString(options.summary))
+    yield* fileSystem.writeFileString(summaryPath, summaryJson)
 
     const eventsPath = path.join(reportsDir, EVENTS_FILE_NAME)
-    yield* fileSystem.writeFileString(eventsPath, objectString(options.events))
+    yield* fileSystem.writeFileString(eventsPath, eventsJson)
 
     const moduleStatePath = path.join(reportsDir, MODULE_STATE_FILE_NAME)
-    yield* fileSystem.writeFileString(moduleStatePath, objectString(options.moduleState))
+    yield* fileSystem.writeFileString(moduleStatePath, moduleStateJson)
 
     return Arr.make(reportPath, summaryPath, eventsPath, moduleStatePath)
   })

@@ -1,7 +1,5 @@
 /**
- * Annotation primitives for attaching human-readable descriptions to
- * Schema fields. These descriptions appear in derived module instructions
- * and in the {@link FieldInfo} metadata.
+ * Field descriptions used to derive signature metadata and default instructions.
  *
  * @since 0.1.0
  */
@@ -9,12 +7,11 @@ import { Schema } from "effect"
 import { dual } from "effect/Function"
 
 /**
- * Symbol key stored in Schema annotations to carry a field-level
- * description string. Read by {@link fieldsToInfoArray} during
- * Signature construction.
+ * Stores a field description in a Schema annotation.
  *
- * @see {@link describe} — annotates a Schema with this symbol
- * @see {@link FieldInfo} — consumes the annotation at construction time
+ * @remarks
+ * {@link make} reads this annotation from each input and output field. Consumers
+ * that inspect annotations directly can use the same symbol as a lookup key.
  *
  * @since 0.1.0
  * @category annotations
@@ -22,19 +19,22 @@ import { dual } from "effect/Function"
 export const FieldDescriptionId: unique symbol = Symbol.for("effect-dsp/FieldDescription")
 
 /**
- * Attach a human-readable description to a Schema field. The description
- * is embedded as an annotation under {@link FieldDescriptionId} and
- * appears in the derived module instructions and {@link FieldInfo} metadata.
- * Supports both pipeable and direct call styles.
+ * Attaches descriptive text to a signature field schema.
  *
- * @see {@link FieldDescriptionId} — the annotation symbol
- * @see {@link Signature} — where descriptions surface in instructions
+ * @remarks
+ * {@link make} copies the text into {@link FieldInfo} and includes it in the
+ * derived instructions. Direct and pipeable calls preserve every schema facet.
+ *
+ * @param schema - Field schema in the direct-call form.
+ * @param description - Caller-facing field meaning included in generated instructions.
+ * @returns A copy of the schema with the description annotation.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const describe: {
   (description: string): <S extends Schema.Annotable.All>(schema: S) => Schema.Annotable.Self<S>
+  /** @typeParam S - Schema whose decoded, encoded, and context types are retained. */
   <S extends Schema.Annotable.All>(schema: S, description: string): Schema.Annotable.Self<S>
 } = dual(
   2,

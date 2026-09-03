@@ -1,8 +1,5 @@
 /**
- * Schema authority for the LinearAlgebra domain — defines the canonical
- * carrier types (`DenseVector`, `DenseMatrix`), operation input contracts,
- * and boundary codec functions. All schemas enforce finite-number validation
- * at decode time, so kernels can assume well-formed numeric input.
+ * Defines discovery metadata and serializable dense linear-algebra inputs.
  *
  * @since 0.1.0
  * @category schemas
@@ -18,9 +15,7 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical domain discriminator for LinearAlgebra. Consumers use this to
- * identify which domain produced a result when multiple domains coexist in
- * the same pipeline. The `stability` field tracks the domain's maturity level.
+ * Accepts the LinearAlgebra discovery discriminator and its stability classification.
  *
  * @since 0.1.0
  * @category schemas
@@ -31,8 +26,7 @@ export const LinearAlgebraDomainSchema = Schema.Struct({
 })
 
 /**
- * Extracted type of a decoded `LinearAlgebraDomainSchema` — use this in
- * function signatures that accept an already-validated domain descriptor.
+ * Decoded LinearAlgebra discovery descriptor.
  *
  * @since 0.1.0
  * @category models
@@ -40,10 +34,10 @@ export const LinearAlgebraDomainSchema = Schema.Struct({
 export type LinearAlgebraDomain = typeof LinearAlgebraDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical linear-algebra domain model.
- * Uses strict excess-property checking — any properties beyond `domain` and
- * `stability` cause a `BoundaryDecodeError`. Use at package edges where
- * untrusted input enters the domain.
+ * Decodes a LinearAlgebra discovery descriptor and rejects unknown fields.
+ *
+ * @throws {@link BoundaryDecodeError} in the Effect error channel when the
+ * discriminator, stability, or object shape is invalid.
  *
  * @since 0.1.0
  * @category schemas
@@ -64,9 +58,10 @@ export const decodeLinearAlgebraDomain = (input: unknown) =>
   )
 
 /**
- * Encodes a validated `LinearAlgebraDomain` back to its serializable form at
- * the package boundary. Failures surface as `BoundaryEncodeError` — this
- * should only happen if the domain value was constructed outside of Schema.
+ * Encodes validated LinearAlgebra discovery metadata.
+ *
+ * @throws {@link BoundaryEncodeError} in the Effect error channel when a
+ * value has been forged outside the `LinearAlgebraDomain` type.
  *
  * @since 0.1.0
  * @category schemas
@@ -85,10 +80,7 @@ export const encodeLinearAlgebraDomain = (domain: LinearAlgebraDomain) =>
   )
 
 /**
- * Union of all errors that can arise from boundary encode/decode operations
- * on the LinearAlgebra domain schema. Useful as a catch-all error channel
- * type in Effect pipelines that call `decodeLinearAlgebraDomain` or
- * `encodeLinearAlgebraDomain`.
+ * Identifies LinearAlgebra descriptor decode and encode failures.
  *
  * @since 0.1.0
  * @category errors
@@ -102,14 +94,15 @@ export type LinearAlgebraSchemaBoundaryError = BoundaryDecodeError | BoundaryEnc
 const FiniteNumber = Schema.Number.pipe(Schema.finite())
 
 // ---------------------------------------------------------------------------
-// Dense carrier schemas — Schema.TaggedClass
+// Dense carrier schemas
 // ---------------------------------------------------------------------------
 
 /**
- * Memory layout discriminator for dense matrices. `"row-major"` (the default
- * throughout this package) stores consecutive row elements contiguously.
- * `"column-major"` is provided for interop with BLAS/LAPACK-style libraries
- * that expect Fortran-order storage.
+ * Records whether consecutive matrix elements belong to rows or columns.
+ *
+ * @remarks
+ * Current public matrix operations accept row-major storage directly and do
+ * not dispatch on this metadata.
  *
  * @since 0.1.0
  * @category schemas
@@ -119,71 +112,58 @@ export const StorageOrder = Schema.Literal("row-major", "column-major").annotati
 })
 
 /**
- * Immutable dense vector carrier backed by a flat array of finite scalars.
- * The `data` array holds the vector elements, and `length` is a branded
- * `Dimension` that must equal `data.length` — this invariant is enforced
- * at Schema decode time, not by a runtime assertion.
+ * Stores finite vector data with a positive declared length.
  *
- * @example
- * ```ts
- * import { Schema } from "effect"
- * import { DenseVector } from "./schema.js"
- *
- * const v = new DenseVector({ data: [1, 2, 3], length: 3 as any })
- * ```
+ * @remarks
+ * Decoding does not require the declared length to equal `data.length`.
  *
  * @since 0.1.0
  * @category schemas
  */
 export class DenseVector extends Schema.TaggedClass<DenseVector>()("DenseVector", {
+  /** Finite elements in vector-coordinate order. */
   data: Schema.Array(FiniteNumber),
+  /** Positive declared dimension, which decoding does not compare with `data.length`. */
   length: Dimension
 }) {}
 
 /**
- * Immutable dense matrix carrier stored as a flat array of finite scalars in
- * row-major order. Element `(i, j)` is located at `data[offset + i * stride + j]`.
+ * Stores finite dense matrix data with explicit shape and layout metadata.
  *
- * For a contiguous M×N matrix, set `stride = N` and `offset = 0`. Non-zero
- * offsets and strides wider than `cols` support sub-matrix views without copying.
- *
- * @example
- * ```ts
- * import { DenseMatrix } from "./schema.js"
- *
- * // A contiguous 2×3 matrix [[1,2,3],[4,5,6]]
- * const m = new DenseMatrix({
- *   data: [1, 2, 3, 4, 5, 6],
- *   rows: 2 as any,
- *   cols: 3 as any,
- *   stride: 3 as any,
- *   offset: 0,
- *   order: "row-major"
- * })
- * ```
+ * @remarks
+ * Decoding does not prove that storage covers the declared shape. In row-major
+ * storage, element `(i, j)` has index `offset + i * stride + j`. `offset` may
+ * be any non-negative finite number; this schema does not require an integer.
  *
  * @since 0.1.0
  * @category schemas
  */
 export class DenseMatrix extends Schema.TaggedClass<DenseMatrix>()("DenseMatrix", {
+  /** Finite elements in the layout described by the remaining fields. */
   data: Schema.Array(FiniteNumber),
+  /** Positive declared row count. */
   rows: Dimension,
+  /** Positive declared column count. */
   cols: Dimension,
+  /** Positive element distance between consecutive rows in row-major storage. */
   stride: Dimension,
+  /** Non-negative starting index for the matrix view. */
   offset: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)).annotations({
     identifier: "MatrixOffset"
   }),
+  /** Declared storage order; current matrix operations consume row-major data. */
   order: StorageOrder
 }) {}
 
 // ---------------------------------------------------------------------------
-// Operation input schemas — boundary decode contracts
+// Operation input schemas
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary input contract for the dot product operation. Both `a` and `b`
- * must contain only finite numbers. Decoded with strict excess-property
- * semantics — any extra fields cause a `LinearAlgebraDecodeError`.
+ * Accepts finite vector data for a validated dot product.
+ *
+ * @remarks
+ * Equal lengths are checked by {@link dotValidated} after decoding.
  *
  * @since 0.1.0
  * @category schemas
@@ -194,10 +174,10 @@ export const DotProductInput = Schema.Struct({
 }).annotations({ identifier: "DotProductInput" })
 
 /**
- * Boundary input contract for matrix-vector multiplication. The `data` array
- * represents a row-major matrix of shape `rows × cols`, and `x` is the
- * right-hand-side vector. All numeric values must be finite. Excess
- * properties are rejected at decode time.
+ * Accepts positive matrix dimensions and finite row-major matrix-vector data.
+ *
+ * @remarks
+ * Storage and vector lengths are checked by {@link matvecValidated} after decoding.
  *
  * @since 0.1.0
  * @category schemas
@@ -210,10 +190,10 @@ export const MatvecInput = Schema.Struct({
 }).annotations({ identifier: "MatvecInput" })
 
 /**
- * Boundary input contract for vector norm computation. The `kind`
- * discriminator selects L1 (Manhattan), L2 (Euclidean), or Linf (Chebyshev)
- * norm. All values in the `values` array must be finite. Excess properties
- * are rejected at decode time.
+ * Accepts finite vector data and selects the L1, L2, or infinity norm.
+ *
+ * @remarks
+ * Empty vectors are accepted and have norm `0` under each supported kind.
  *
  * @since 0.1.0
  * @category schemas
@@ -224,10 +204,10 @@ export const NormInput = Schema.Struct({
 }).annotations({ identifier: "NormInput" })
 
 /**
- * Boundary input contract for matrix transposition. The `data` array is a
- * row-major matrix of shape `rows × cols` whose length must equal
- * `rows * cols`. All numeric values must be finite. Excess properties are
- * rejected at decode time.
+ * Accepts positive dimensions and finite row-major data for transposition.
+ *
+ * @remarks
+ * Storage length is checked by {@link transposeValidated} after decoding.
  *
  * @since 0.1.0
  * @category schemas

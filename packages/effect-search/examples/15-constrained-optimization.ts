@@ -1,20 +1,13 @@
 /**
- * Constrained Optimization — c-TPE suggestions under feasibility bounds.
- *
- * Real use case: tune a model where latency + cost must stay within limits.
- *
- * What this shows: adding feasibility constraints (<= 0) so TPE steers suggestions toward valid regions.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Applies latency and cost constraints to TPE, where values less than or equal
+ * to zero mark feasible configurations.
  *
  * Run: bun run examples/15-constrained-optimization.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Either, Match, Schema } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -42,7 +35,10 @@ const program = Effect.gen(function*() {
       constraints: [feasibilityConstraint]
     }),
     trials: 60,
-    objective: (config) => Effect.succeed((config.x - 0.65) ** 2 + (config.y - 0.25) ** 2)
+    objective: (config) =>
+      Effect.succeed(
+        Numeric.pow(config.x - 0.65, 2) + Numeric.pow(config.y - 0.25, 2)
+      )
   })
 
   yield* Match.value(result).pipe(

@@ -1,8 +1,9 @@
 /**
- * Internal bidi visual-order helpers.
+ * Line-local bidi level reordering, punctuation mirroring, and visual text materialization.
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Arr from "effect/Array"
 
 import {
@@ -81,7 +82,7 @@ const scanLevelBounds = (units: ReadonlyArray<VisualOrderUnit>): LevelBounds =>
     units,
     { maxLevel: 0, minimumOddLevel: noOddLevel },
     (bounds, unit) => ({
-      maxLevel: Math.max(bounds.maxLevel, unit.level),
+      maxLevel: Numeric.max(bounds.maxLevel, unit.level),
       minimumOddLevel:
         unit.level % 2 === 1 && (bounds.minimumOddLevel === noOddLevel || unit.level < bounds.minimumOddLevel)
           ? unit.level

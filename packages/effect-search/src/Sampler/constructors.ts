@@ -1,5 +1,5 @@
 /**
- * Constructor functions for creating sampler instances (random, grid, and TPE) with default imputation policies.
+ * Constructors for built-in sampling strategies.
  *
  * @since 0.1.0
  */
@@ -17,13 +17,13 @@ import type { Sampler } from "./model.js"
 import { pendingAsZeroImputationPolicy } from "./PendingImputationPolicy.js"
 
 /**
- * Uniform random configuration sampling with optional seed for deterministic
- * replay. Best for initial exploration, baselines, and small search spaces.
+ * Draws each active dimension from its declared distribution.
  *
- * @see {@link Sampler}
- * @see {@link RandomOptions}
- * @see {@link SearchSpace}
+ * @remarks
+ * Suggestions are derived from the seed and `SuggestContext.nextTrialNumber`.
+ * Repeating both against the same search space produces the same configuration.
  *
+ * @param options - Uses seed `0` when omitted.
  * @since 0.1.0
  * @category constructors
  */
@@ -31,28 +31,32 @@ export const random = (options: RandomOptions = {}): Sampler =>
   RandomSampler.make(options, pendingAsZeroImputationPolicy)
 
 /**
- * Exhaustive grid search over the Cartesian product of dimension values.
- * Optionally shuffled for randomized traversal order, which can improve
- * early-stopping quality by avoiding correlated sweeps.
+ * Enumerates the Cartesian product of a finite search space without recycling entries.
  *
- * @see {@link Sampler}
- * @see {@link GridOptions}
- * @see {@link SearchSpace}
+ * @remarks
+ * Categorical, boolean, and stepped integer dimensions are finite. Unsupported
+ * dimensions fail with `GridIncompatible`; a trial number beyond the final
+ * combination fails with `SamplerExhausted`. Shuffling changes traversal order
+ * without changing the set of configurations.
  *
+ * @param options - Defaults to ordered traversal with seed `0`.
  * @since 0.1.0
  * @category constructors
  */
 export const grid = (options: GridOptions = {}): Sampler => GridSampler.make(options, pendingAsZeroImputationPolicy)
 
 /**
- * Tree-structured Parzen Estimator — Bayesian optimization that models the
- * density ratio of promising vs unpromising configurations. Falls back to
- * random sampling during the startup phase (`nStartupTrials`).
+ * Uses random startup suggestions followed by Tree-structured Parzen Estimator scoring.
  *
- * @see {@link Sampler}
- * @see {@link TpeRuntimeOptions}
- * @see {@link SearchSpace}
+ * @remarks
+ * Float, integer, categorical, conditional, single-objective, and
+ * multi-objective searches are accepted. Runtime acquisition implementations
+ * and constraint evaluators remain live functions and are excluded from the
+ * sampler checkpoint; the number of constraints is retained in `kind.options`.
+ * Invalid numeric options fail with `InvalidSamplerConfig` when `suggest` runs.
  *
+ * @param options - Defaults to 10 startup trials, 24 scored candidates, seed
+ * `0`, expected improvement, and independent noise-unaware models.
  * @since 0.1.0
  * @category constructors
  */
@@ -60,9 +64,16 @@ export const tpe = (options: TpeRuntimeOptions = {}): Sampler =>
   TpeSampler.make(options, constantLiarPendingImputationPolicy)
 
 /**
- * Covariance Matrix Adaptation Evolution Strategy for continuous
- * single-objective optimization.
+ * Adapts a diagonal CMA-ES model to an unconditional continuous search space.
  *
+ * @remarks
+ * Suggestions reconstruct model state from complete generations in the trial
+ * history. Unsupported dimensions fail with `SamplerSearchSpaceUnsupported`,
+ * multi-objective contexts fail with `SamplerObjectiveUnsupported`, and invalid
+ * numeric options fail with `InvalidSamplerConfig` when `suggest` runs.
+ *
+ * @param options - Defaults to seed `0`, initial sigma `0.35`, and population
+ * size `12`.
  * @since 0.1.0
  * @category constructors
  */
@@ -70,9 +81,16 @@ export const cmaEs = (options: CmaEsRuntimeOptions = {}): Sampler =>
   CmaEsSampler.make(options, constantLiarPendingImputationPolicy)
 
 /**
- * Gaussian-process-inspired Bayesian optimization for continuous
- * single-objective optimization with TPE-compatible acquisition labels.
+ * Fits a Gaussian process over an unconditional continuous search space.
  *
+ * @remarks
+ * Suggestions are random until the startup observation count is reached. Later
+ * suggestions score seeded candidates and the current incumbent with the
+ * configured acquisition. Unsupported dimensions, unsupported objective shape,
+ * and invalid numeric options use the typed search error channel.
+ *
+ * @param options - Defaults to seed `0`, 8 startup trials, 32 candidates,
+ * length scale `0.25`, diagonal noise `0.01`, and `"ei"` acquisition.
  * @since 0.1.0
  * @category constructors
  */

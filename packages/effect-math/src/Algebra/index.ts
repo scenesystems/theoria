@@ -1,5 +1,11 @@
 /**
- * Algebra domain public surface.
+ * Evaluates and differentiates polynomials and computes factorials, greatest
+ * common divisors, and least common multiples.
+ *
+ * @remarks
+ * Pure operations accept decoded values. Validated variants decode unknown
+ * boundary input, while policy-aware variants read precision and diagnostics
+ * services from the Effect context.
  *
  * @since 0.1.0
  * @module

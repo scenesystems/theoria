@@ -1,9 +1,5 @@
 /**
- * Typed error taxonomy for the LinearAlgebra domain. Each error is a
- * `Schema.TaggedError` so it round-trips through Effect channels and
- * can be pattern-matched by `_tag`. Errors are stratified into boundary
- * failures (decode/encode) and operation failures (shape, singularity,
- * decomposition, domain violation).
+ * Defines tagged failures for LinearAlgebra descriptor boundaries and operations.
  *
  * @since 0.1.0
  * @category errors
@@ -13,98 +9,116 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation. Use this as a catch-all for validation
- * pipelines that span multiple operations within the domain.
+ * Identifies an invalid LinearAlgebra descriptor at a caller-defined domain boundary.
+ *
+ * @remarks
+ * Current public descriptor helpers use {@link BoundaryDecodeError} and
+ * {@link BoundaryEncodeError}; they do not emit this error class.
  *
  * @since 0.1.0
  * @category errors
  */
 export class LinearAlgebraDomainBoundaryError
   extends Schema.TaggedError<LinearAlgebraDomainBoundaryError>()("LinearAlgebraDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input contract
- * (e.g. `DotProductInput`, `MatvecInput`). The `operation` field names the
- * failed operation so callers can branch on it in error-recovery logic.
+ * Reports that a validated linear-algebra operation could not decode its input.
+ *
+ * @remarks
+ * `operation` identifies the requested calculation. `message` contains Effect
+ * Schema's report for missing, excess, or invalid fields.
  *
  * @since 0.1.0
  * @category errors
  */
 export class LinearAlgebraDecodeError
   extends Schema.TaggedError<LinearAlgebraDecodeError>()("LinearAlgebraDecodeError", {
+    /** Public linear-algebra operation whose input failed decoding. */
     operation: Schema.String,
+    /** Effect Schema issue report for the rejected input. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when operand dimensions are incompatible — for example, a dot product
- * of vectors with different lengths, or a matvec where the vector length does
- * not equal the column count. The `expected` and `actual` fields carry
- * human-readable dimension strings (e.g. `"length 3"` vs `"length 5"`) for
- * diagnostic messages.
+ * Reports incompatible linear-algebra operand dimensions.
+ *
+ * @remarks
+ * Validated dot, matvec, and transpose operations emit this error after
+ * successful decoding. `expected` and `actual` contain human-readable shape
+ * descriptions suitable for diagnostics.
  *
  * @since 0.1.0
  * @category errors
  */
 export class ShapeMismatchError extends Schema.TaggedError<ShapeMismatchError>()("ShapeMismatchError", {
+  /** Linear-algebra operation that compared incompatible dimensions. */
   operation: Schema.String,
+  /** Required operand shape or dimensionality. */
   expected: Schema.String,
+  /** Shape or dimensionality found in the rejected operand. */
   actual: Schema.String,
+  /** Diagnostic combining the operation and shape details. */
   message: Schema.String
 }) {}
 
 /**
- * Raised when an operation requires an invertible matrix but the input is
- * rank-deficient (determinant ≈ 0). Typical triggers include matrix inversion
- * and LU decomposition with a zero pivot.
+ * Describes a singular solve for callers extending the operation error union.
+ *
+ * @remarks
+ * Current public solve operations return `Option.none()` and do not emit this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class SingularMatrixError extends Schema.TaggedError<SingularMatrixError>()("SingularMatrixError", {
+  /** Solve operation that encountered the singular matrix. */
   operation: Schema.String,
+  /** Diagnostic describing the failed solve condition. */
   message: Schema.String
 }) {}
 
 /**
- * Catch-all for matrix factorization failures beyond singularity — covers
- * LU, QR, SVD, and Cholesky decompositions. Raised when a factorization
- * cannot complete due to numerical issues such as loss of orthogonality
- * (QR) or a non-positive-definite input (Cholesky).
+ * Describes a failed matrix decomposition for callers extending the operation error union.
+ *
+ * @remarks
+ * Current public decomposition and solve operations return `Option.none()` and
+ * do not emit this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DecompositionError extends Schema.TaggedError<DecompositionError>()("DecompositionError", {
+  /** Matrix operation whose decomposition failed. */
   operation: Schema.String,
+  /** Diagnostic describing the failed decomposition condition. */
   message: Schema.String
 }) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces a
- * non-finite result (NaN or ±Infinity). Under `"relaxed"` precision this
- * error is never emitted. Use it to enforce IEEE 754 finite-value guarantees
- * in safety-critical pipelines.
+ * Reports a non-finite dot product or norm rejected by strict precision.
+ *
+ * @remarks
+ * Relaxed precision returns the non-finite value without this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class LinearAlgebraDomainViolationError
   extends Schema.TaggedError<LinearAlgebraDomainViolationError>()("LinearAlgebraDomainViolationError", {
+    /** Strict-policy operation that produced a non-finite result. */
     operation: Schema.String,
+    /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })
 {}
 
 /**
- * Union of all boundary-level errors that can arise from domain validation,
- * Schema decode, or Schema encode at the package edge. Use as the error
- * channel type for boundary-crossing pipelines.
+ * Groups failures that can occur while decoding or encoding a LinearAlgebra descriptor.
  *
  * @since 0.1.0
  * @category errors
@@ -112,9 +126,7 @@ export class LinearAlgebraDomainViolationError
 export type LinearAlgebraBoundaryError = LinearAlgebraDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all errors that can arise from within a linear-algebra operation
- * (after boundary decode succeeds). Useful as a unified error channel type
- * for combinators that orchestrate multiple operations.
+ * Groups typed failures declared for LinearAlgebra operations.
  *
  * @since 0.1.0
  * @category errors

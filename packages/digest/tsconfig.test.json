@@ -5,12 +5,6 @@
     "types": ["@types/node", "@effect/vitest", "vitest/globals"],
     "tsBuildInfoFile": ".tsbuildinfo/test.tsbuildinfo"
   },
-  "include": [
-    "test",
-    "benchmark",
-    "scripts/fixture-contract.ts",
-    "scripts/fixture-schemas.ts",
-    "scripts/verify-publish-readiness.ts"
-  ],
+  "include": ["test", "benchmark", "scripts/fixture-contract.ts", "scripts/fixture-schemas.ts"],
   "references": [{ "path": "./tsconfig.src.json" }]
 }

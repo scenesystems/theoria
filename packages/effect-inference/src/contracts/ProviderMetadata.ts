@@ -1,12 +1,12 @@
 /**
- * Provider-namespaced metadata escape hatch for replay-safe evidence.
+ * JSON-safe provider extensions retained with runtime evidence.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * JSON-safe metadata value for provider-specific request and response details.
+ * Recursive JSON value accepted in provider-specific response metadata.
  *
  * @since 0.1.0
  * @category models
@@ -35,7 +35,7 @@ const providerMetadataValueSchema: Schema.Schema<
 )
 
 /**
- * Recursive schema for provider-specific metadata payloads.
+ * Decodes recursively JSON-safe values without assigning normalized semantics.
  *
  * @since 0.1.0
  * @category schemas
@@ -43,7 +43,8 @@ const providerMetadataValueSchema: Schema.Schema<
 export const ProviderMetadataValueSchema = providerMetadataValueSchema
 
 /**
- * Provider-namespaced metadata record.
+ * Decodes provider-keyed extension records separately from normalized evidence
+ * fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -54,7 +55,9 @@ export const ProviderMetadataSchema = Schema.Record({
 })
 
 /**
- * Extracted provider-metadata record.
+ * Provider-owned response details retained for replay without promoting them
+ * to normalized evidence. Decoding establishes JSON shape, not authenticity
+ * or cross-provider semantics.
  *
  * @since 0.1.0
  * @category type-level

@@ -12,6 +12,7 @@ import { Chunk, Number as N } from "effect"
 /**
  * Composite trapezoidal rule for evenly-spaced samples.
  *
+ * @remarks
  * ∫ ≈ dx · (y₀/2 + y₁ + y₂ + ... + y_{n−1} + yₙ/2)
  *
  * @since 0.1.0
@@ -44,6 +45,7 @@ export const trapezoidalRule = (values: Chunk.Chunk<number>, dx: number): number
 /**
  * Composite Simpson's 1/3 rule for evenly-spaced samples.
  *
+ * @remarks
  * Requires an odd number of points (even number of intervals) for
  * pure Simpson's. When the number of intervals is odd, the last
  * interval is handled with the trapezoidal rule.

@@ -254,9 +254,11 @@ const visitChildNode = (options: {
   })
 
 /**
- * Sub-module declaration map keyed by local alias. Each entry is a
- * `ComposableModule` projection — the alias is discarded after graph
- * construction.
+ * Declares direct child modules under caller-local aliases.
+ *
+ * @remarks
+ * Graph identities come from each value's `name`. Keys affect deterministic
+ * traversal and error context but are not retained in the resulting graph.
  *
  * @since 0.1.0
  * @category models
@@ -387,8 +389,18 @@ export const buildCompositionGraph = <
   })
 
 /**
- * Build and return only the graph contract from a composition declaration,
- * discarding the sub-module node map.
+ * Validates a module ownership declaration and returns its graph value.
+ *
+ * @remarks
+ * This performs the same graph traversal as {@link compose}, but does not
+ * allocate root parameters or a `forward` operation. A `CompositionError`
+ * reports invalid module ids, cycles, direct identity collisions, or declared
+ * child ids that disagree with their node names.
+ *
+ * @typeParam I - Input fields used only for the root signature metadata.
+ * @typeParam O - Output fields used only for the root signature metadata.
+ * @param options - Root identity, signature metadata, and direct children.
+ * @returns The validated root and descendant ownership graph.
  *
  * @since 0.1.0
  * @category constructors
@@ -397,8 +409,11 @@ export const composeGraph = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(options: {
+  /** Root identity encoded into `ModuleGraph.rootId`. */
   readonly name: string
+  /** Source for the root node's description and instructions. */
   readonly signature: Signature<I, O>
+  /** Direct child declarations traversed recursively. */
   readonly subModules: ComposeSubModules
 }): Effect.Effect<ModuleGraph, CompositionError> =>
   buildCompositionGraph(options).pipe(

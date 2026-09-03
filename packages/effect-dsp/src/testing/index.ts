@@ -1,13 +1,11 @@
 /**
- * Test utilities for effect-dsp consumers — deterministic language model mocks.
+ * Supplies scripted language-model responses for module tests.
+ *
+ * @remarks
+ * The mock service records requests and returns caller-provided results without
+ * network access. It is intended for tests, not production model execution.
  *
  * @since 0.1.0
  */
 
-/**
- * `MockLanguageModel` — deterministic `LanguageModel` service for unit testing
- * modules without real LLM calls.
- *
- * @since 0.1.0
- */
 export * from "./MockLanguageModel.js"

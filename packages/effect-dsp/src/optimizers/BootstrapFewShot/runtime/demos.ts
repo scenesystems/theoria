@@ -5,14 +5,15 @@
  * @since 0.1.0
  * @internal
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Data, Equal, Match, Option } from "effect"
 import type { Demo, Example } from "../../../Example/index.js"
 import { DemoMerge } from "./model.js"
 
 export const normalizeNonNegative = (value: number): number =>
   Match.value(value).pipe(
-    Match.when((candidate) => candidate < 0, () => 0),
-    Match.orElse((candidate) => candidate)
+    Match.when(Numeric.isFinite, (candidate) => Numeric.max(0, Numeric.floor(candidate))),
+    Match.orElse(() => 0)
   )
 
 const stableFieldRecordEquals = (

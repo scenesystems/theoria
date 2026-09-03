@@ -1,20 +1,13 @@
 /**
- * Noise-Aware TPE — robust suggestions for stochastic objectives.
- *
- * Real use case: tune LLM prompts where repeated evaluations vary in score.
- *
- * What this shows: noise-aware TPE with repeated evaluations per trial for stochastic objectives.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Evaluates each trial three times and uses noise-aware TPE to model the
+ * resulting variance.
  *
  * Run: bun run examples/16-noise-aware.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Number as Num, Ref } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -27,8 +20,8 @@ const program = Effect.gen(function*() {
   const noisyObjective = (config: SearchSpace.Type<typeof space>) =>
     Ref.updateAndGet(objectiveCallsRef, Num.increment).pipe(
       Effect.map((callIndex) => {
-        const stableTerm = (config.learningRate - 0.03) ** 2 + (config.dropout - 0.15) ** 2
-        const deterministicNoise = Math.sin(callIndex * 0.7) * 0.05 + Math.cos(callIndex * 0.3) * 0.03
+        const stableTerm = Numeric.pow(config.learningRate - 0.03, 2) + Numeric.pow(config.dropout - 0.15, 2)
+        const deterministicNoise = Numeric.sin(callIndex * 0.7) * 0.05 + Numeric.cos(callIndex * 0.3) * 0.03
 
         return stableTerm + deterministicNoise
       })

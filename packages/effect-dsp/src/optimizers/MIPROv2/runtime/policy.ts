@@ -4,6 +4,7 @@
  * @since 0.1.0
  * @internal
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Option } from "effect"
 import { buildIndices, normalizeCount, normalizeSeed } from "./random.js"
 
@@ -52,7 +53,7 @@ export const resolveSeed = (seed?: number): number =>
  * @category helpers
  */
 export const proposalIndices = (requestedInstructionCount: number): ReadonlyArray<number> =>
-  buildIndices(Math.max(0, normalizeInstructionCount(requestedInstructionCount) - 1))
+  buildIndices(Numeric.max(0, normalizeInstructionCount(requestedInstructionCount) - 1))
 
 /**
  * Returns the provided tip vocabulary when non-empty, otherwise falls back

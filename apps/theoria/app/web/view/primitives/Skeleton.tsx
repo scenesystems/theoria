@@ -10,8 +10,8 @@ import { SemanticText } from "./SemanticText.js"
 // A single animated bar that mimics a line of content.
 // ---------------------------------------------------------------------------
 
-export const ShimmerLine = ({ width }: { readonly width: string }) => (
-  <Layer className={`h-3 animate-pulse rounded bg-stage-200/60 ${width}`} />
+export const ShimmerLine = ({ className = "", width }: { readonly className?: string; readonly width: string }) => (
+  <Layer className={`h-3 animate-pulse rounded bg-stage-200/60 motion-reduce:animate-none ${width} ${className}`} />
 )
 
 // ---------------------------------------------------------------------------

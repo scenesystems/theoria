@@ -25,7 +25,9 @@ import type {
 } from "./schema.js"
 
 /**
- * Resolves the maximum width available for a projected line index.
+ * Supplies a positive finite width for each zero-based output line. Whole-layout
+ * projections call the resolver once per emitted line in traversal order. The
+ * returned value is used without Schema decoding.
  *
  * @since 0.1.0
  * @category models
@@ -33,7 +35,7 @@ import type {
 export type LineWidthResolver = (lineIndex: number) => number
 
 /**
- * Creates the first cursor for incremental line walking.
+ * Creates the zero position accepted by `layoutNextLine`.
  *
  * @since 0.1.0
  * @category constructors
@@ -41,8 +43,10 @@ export type LineWidthResolver = (lineIndex: number) => number
 export const initialCursor = (): LayoutCursorType => makeInitialCursor({ segmentIndex: 0, graphemeIndex: 0 })
 
 /**
- * Materializes all lines for the supplied width.
+ * Materializes every line at `request.maxWidth` in output order, with each
+ * line's text arranged in visual order.
  *
+ * @remarks
  * Requires `PreparedTextWithSegments` because visual text materialization needs
  * retained logical-surface data in addition to the compiled summary kernel.
  *
@@ -55,13 +59,12 @@ export const layoutLines = (
 ): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextWithSegmentsCore(prepared), request)
 
 /**
- * Materializes lines while allowing the caller to vary max width per line.
+ * Materializes lines using the width returned for each zero-based line index.
  *
- * This keeps `prepare` effectful and `layout` pure while letting downstream
- * projections reuse the prepared handle for staged or obstacle-aware layout.
- *
- * Requires `PreparedTextWithSegments` because obstacle-aware materialization
- * still projects full visual line text.
+ * @remarks
+ * The resolver runs synchronously once per emitted line. Its result is not
+ * decoded; return a positive finite value in the measurement service's units.
+ * The prepared measurements are reused.
  *
  * @since 0.1.0
  * @category layout
@@ -73,10 +76,13 @@ export const layoutLinesWith = (
 ): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextWithSegmentsCore(prepared), request, resolveMaxWidth)
 
 /**
- * Walks laid out line ranges without materializing line text.
+ * Computes line widths and half-open logical cursor bounds without constructing
+ * visual line strings.
  *
+ * @remarks
  * Requires `PreparedTextWithSegments` because logical cursor bounds are walked
- * against retained logical-surface data.
+ * against retained logical-surface data. The width resolver follows the same
+ * invocation and input contract as `layoutLinesWith`.
  *
  * @since 0.2.0
  * @category layout
@@ -89,7 +95,8 @@ export const walkLineRanges = (
   walkLineRangesFromCore(preparedTextWithSegmentsCore(prepared), request, resolveMaxWidth)
 
 /**
- * Measures the widest forced line produced by hard breaks in the prepared handle.
+ * Returns the painted width of the widest hard-break-delimited chunk without
+ * applying wrapping or a layout width. Empty text returns zero.
  *
  * @since 0.2.0
  * @category layout
@@ -98,7 +105,7 @@ export const measureNaturalWidth = (prepared: PreparedText): number =>
   measureNaturalWidthFromCore(preparedTextCore(prepared))
 
 /**
- * Materializes lines and derives summary from one walk pass.
+ * Materializes visual lines and derives their aggregate geometry in one walk.
  *
  * @since 0.2.0
  * @category layout
@@ -110,7 +117,8 @@ export const layoutLinesWithSummary = (
   materializeLinesWithSummary(preparedTextWithSegmentsCore(prepared), request)
 
 /**
- * Computes line count and height without exposing line text.
+ * Computes line count, `lineCount * lineHeight`, and maximum painted width from
+ * the summary-only prepared kernel. Empty text yields zero for all fields.
  *
  * @since 0.1.0
  * @category layout
@@ -119,7 +127,14 @@ export const layout = (prepared: PreparedText, request: LayoutRequestType): Layo
   summarizeLines(preparedTextCore(prepared), request)
 
 /**
- * Returns the next line for a cursor, if one exists.
+ * Materializes the line beginning at `cursor` and pairs it with the next logical
+ * cursor. The terminal cursor and positions beyond the prepared text return
+ * `Option.none`.
+ *
+ * @remarks
+ * Cursors should originate from `initialCursor` or an earlier call for the same
+ * prepared handle. Reusing a cursor with a different width recomputes its output
+ * line index.
  *
  * @since 0.1.0
  * @category layout
@@ -134,7 +149,9 @@ export const layoutNextLine = (
   )
 
 /**
- * Streams laid out lines as a pure `Stream` projection.
+ * Lazily unfolds visual lines from the initial cursor. Each run starts at the
+ * first line. Pulling stops computation at the requested prefix, and the stream
+ * has no failure or service channel after preparation succeeds.
  *
  * @since 0.1.0
  * @category layout

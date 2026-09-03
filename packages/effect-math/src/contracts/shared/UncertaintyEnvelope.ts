@@ -1,5 +1,5 @@
 /**
- * Uncertainty envelope contracts for advanced computation outputs.
+ * Defines scalar-specific intervals, error envelopes, and uncertainty requirements.
  *
  * @since 0.1.0
  * @category contracts
@@ -16,7 +16,7 @@ const NonNegativeBigDecimal = Schema.BigDecimalFromSelf.pipe(
 )
 
 /**
- * Float64 interval contract.
+ * Accepts finite Float64 interval bounds with `lower <= upper`.
  *
  * @since 0.1.0
  * @category contracts
@@ -27,7 +27,7 @@ export const Float64Interval = Schema.Struct({
 }).pipe(Schema.filter((interval) => N.lessThanOrEqualTo(interval.lower, interval.upper) || "Expected lower <= upper"))
 
 /**
- * BigDecimal interval contract.
+ * Accepts BigDecimal interval bounds with `lower <= upper`.
  *
  * @since 0.1.0
  * @category contracts
@@ -42,7 +42,11 @@ export const BigDecimalInterval = Schema.Struct({
 )
 
 /**
- * Float64 uncertainty envelope contract.
+ * Accepts a finite Float64 estimate with non-negative finite error bounds.
+ *
+ * @remarks
+ * The optional interval must be ordered. The Schema does not require it to
+ * contain `value` or agree with either error field.
  *
  * @since 0.1.0
  * @category contracts
@@ -56,7 +60,11 @@ export const Float64UncertaintyEnvelope = Schema.Struct({
 })
 
 /**
- * BigDecimal uncertainty envelope contract.
+ * Accepts a BigDecimal estimate with non-negative BigDecimal error bounds.
+ *
+ * @remarks
+ * The optional interval must be ordered. The Schema does not require it to
+ * contain `value` or agree with either error field.
  *
  * @since 0.1.0
  * @category contracts
@@ -70,7 +78,7 @@ export const BigDecimalUncertaintyEnvelope = Schema.Struct({
 })
 
 /**
- * Unified uncertainty envelope authority.
+ * Accepts a Float64 or BigDecimal envelope selected by `scalarKind`.
  *
  * @since 0.1.0
  * @category contracts
@@ -78,7 +86,7 @@ export const BigDecimalUncertaintyEnvelope = Schema.Struct({
 export const UncertaintyEnvelope = Schema.Union(Float64UncertaintyEnvelope, BigDecimalUncertaintyEnvelope)
 
 /**
- * Unified uncertainty envelope type.
+ * A decoded estimate whose value, errors, and interval use one scalar representation.
  *
  * @since 0.1.0
  * @category models
@@ -86,7 +94,11 @@ export const UncertaintyEnvelope = Schema.Union(Float64UncertaintyEnvelope, BigD
 export type UncertaintyEnvelopeType = typeof UncertaintyEnvelope.Type
 
 /**
- * Contract indicating whether an operation requires uncertainty propagation.
+ * Records whether a computation plan requires uncertainty propagation for a scalar lane.
+ *
+ * @remarks
+ * This Schema records a requirement; it does not enforce that a result carries
+ * an {@link UncertaintyEnvelope}.
  *
  * @since 0.1.0
  * @category contracts
@@ -97,7 +109,7 @@ export const UncertaintyRequirement = Schema.Struct({
 })
 
 /**
- * Uncertainty requirement type.
+ * A decoded uncertainty requirement used during computation planning.
  *
  * @since 0.1.0
  * @category models

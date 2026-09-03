@@ -1,5 +1,5 @@
 /**
- * Internal segmentation helpers.
+ * Grapheme segmentation, whitespace classification, direction detection, and break markers.
  *
  * @since 0.1.0
  */

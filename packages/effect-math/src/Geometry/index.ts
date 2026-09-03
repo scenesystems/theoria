@@ -1,12 +1,11 @@
 /**
- * Metric-space geometry over immutable `Chunk` carriers — Euclidean,
- * Manhattan, and Chebyshev distances, midpoint computation, and centroid
- * of point sets. Provides three tiers: pure kernel functions, Effect-wrapped
- * operations with Schema-validated boundary input, and policy-aware variants
- * that respect precision and diagnostics runtime services.
+ * Computes metric distances, midpoints, and centroids over immutable point
+ * collections.
  *
- * Geometry is a first-wave stable domain — its API surface is fixed and
- * breaking changes follow semver.
+ * @remarks
+ * Pure kernels accept decoded values. Boundary variants decode unknown input,
+ * while policy-aware variants read precision and diagnostics services from
+ * context.
  *
  * @since 0.1.0
  * @module

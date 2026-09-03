@@ -5,6 +5,7 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Option } from "effect"
 import { findNearestCommonAncestor, resolveMergeInputs } from "./merge/ancestor.js"
 import { mergePredictorInstructions } from "./merge/instructions.js"
@@ -115,5 +116,5 @@ export const recordAcceptedMerge = (
 ): MergeState =>
   new MergeState({
     candidates: Arr.append(state.candidates, mergedCandidate),
-    mergeBudgetRemaining: Math.max(0, state.mergeBudgetRemaining - 1)
+    mergeBudgetRemaining: Numeric.max(0, state.mergeBudgetRemaining - 1)
   })

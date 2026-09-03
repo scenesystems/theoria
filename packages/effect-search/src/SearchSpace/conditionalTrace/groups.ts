@@ -1,5 +1,5 @@
 /**
- * Decomposes conditional search spaces into canonical independent dimension groups for per-group sampling.
+ * Conditional dimension grouping for per-group sampler models.
  *
  * @since 0.1.0
  */
@@ -141,10 +141,19 @@ const canonicalConditionalGroups = (
     )
 
 /**
- * Decompose a conditional search space into canonical independent groups.
+ * Partitions dimensions according to overlap among root and branch additions.
+ *
+ * @remarks
+ * Each first-level branch contributes its discriminant and parameters; nested
+ * parameters remain associated with their outermost condition. Repeated names
+ * are removed. Dimensions within a group and the groups themselves use lexical
+ * order, and each key joins its dimension names with `"|"`. An empty space
+ * produces no groups.
+ *
+ * @param space - Compiled metadata whose activation paths are decomposed.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const decomposeConditionalGroups = (space: SearchSpace): Array<ConditionalGroup> =>
   canonicalConditionalGroups(decomposedGroups(conditionalAdditions(space)))

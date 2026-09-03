@@ -1,5 +1,6 @@
-import { Effect, Schema } from "effect"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, Study } from "@scenesystems/effect-search"
+import { Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { Experimental } from "../src/index.js"
@@ -84,8 +85,8 @@ const manualCaseLoss = (
   objective: Experimental.Calibration.CalibrationObjectiveMetadataType
 ): number =>
   (result.lineMismatchCount * objective.scoreWeights.lineMismatchCount) +
-  (Math.abs(result.lineCountDelta) * objective.scoreWeights.lineCountError) +
-  (Math.abs(result.maxLineWidthDelta) * objective.scoreWeights.maxLineWidthError)
+  (Numeric.abs(result.lineCountDelta) * objective.scoreWeights.lineCountError) +
+  (Numeric.abs(result.maxLineWidthDelta) * objective.scoreWeights.maxLineWidthError)
 
 const manualSummary = (values: ReadonlyArray<number>): Experimental.Calibration.CalibrationLossSummaryType => {
   if (values.length <= 0) {
@@ -99,8 +100,8 @@ const manualSummary = (values: ReadonlyArray<number>): Experimental.Calibration.
   const count = values.length
   const total = values.reduce((sum, value) => sum + value, 0)
   const mean = total / count
-  const minimum = values.reduce((current, value) => Math.min(current, value), values[0] ?? 0)
-  const maximum = values.reduce((current, value) => Math.max(current, value), values[0] ?? 0)
+  const minimum = values.reduce((current, value) => Numeric.min(current, value), values[0] ?? 0)
+  const maximum = values.reduce((current, value) => Numeric.max(current, value), values[0] ?? 0)
   const squaredDistanceTotal = values.reduce((sum, value) => {
     const distance = value - mean
     return sum + (distance * distance)
@@ -113,7 +114,7 @@ const manualSummary = (values: ReadonlyArray<number>): Experimental.Calibration.
     minimum,
     maximum,
     variance,
-    standardDeviation: Math.sqrt(variance)
+    standardDeviation: Numeric.sqrt(variance)
   }
 }
 

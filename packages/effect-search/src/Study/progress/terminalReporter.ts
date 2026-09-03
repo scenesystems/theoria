@@ -1,5 +1,5 @@
 /**
- * Terminal progress reporter that pipes study event streams to formatted console output.
+ * Writes formatted study events to a terminal sink.
  *
  * @since 0.1.0
  */
@@ -10,20 +10,7 @@ import { formatTerminalProgressEvent, type TerminalRenderMode } from "./formatte
 import { defaultTerminalSink, type TerminalSink, writeProgressLines } from "./terminalSink.js"
 
 /**
- * Effectful reporter callback used by stream combinators and manual pipelines.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { makeTerminalReporter } from "@scenesystems/effect-search/Study"
- * import type { StudyEvent } from "@scenesystems/effect-search/StudyEvent"
- *
- * declare const event: StudyEvent
- * Effect.gen(function*() {
- *   const report = yield* makeTerminalReporter()
- *   yield* report(event)
- * })
- * ```
+ * Writes one study event using the render mode selected for a terminal sink.
  *
  * @since 0.1.0
  * @category type-level
@@ -48,27 +35,17 @@ const resolveRenderMode = (sink: TerminalSink): Effect.Effect<TerminalRenderMode
   )
 
 /**
- * Create a terminal reporter that resolves sink capabilities once and reuses
- * them for every event in the stream.
+ * Creates a reporter after checking whether the sink accepts ANSI text.
  *
- * @example
- * ```ts
- * import { Effect, Stream } from "effect"
- * import { makeTerminalReporter, makeTerminalSink } from "@scenesystems/effect-search/Study"
- * import type { StudyEvent } from "@scenesystems/effect-search/StudyEvent"
- *
- * declare const stream: Stream.Stream<StudyEvent>
- * const sink = makeTerminalSink()
- * Effect.gen(function*() {
- *   const report = yield* makeTerminalReporter({ sink })
- *   yield* Stream.runForEach(stream, report)
- * })
- * ```
+ * @remarks
+ * The capability check runs once. A typed failure from that check selects plain
+ * text. Writer defects remain defects in the returned reporter.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const makeTerminalReporter = (options?: {
+  /** Destination for rendered lines; defaults to {@link defaultTerminalSink}. */
   readonly sink?: TerminalSink
 }): Effect.Effect<TerminalProgressReporter> =>
   Effect.gen(function*() {
@@ -79,25 +56,11 @@ export const makeTerminalReporter = (options?: {
   })
 
 /**
- * Render and emit a single study event to a terminal sink.
+ * Formats and writes one study event to a terminal sink.
  *
- * Useful for one-shot reporting in manual ask/tell orchestration or adapter
- * boundaries that already hold a concrete `StudyEvent` value.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { reportTerminalProgress, makeTerminalSink } from "@scenesystems/effect-search/Study"
- * import { StudyCompleted } from "@scenesystems/effect-search/StudyEvent"
- *
- * const sink = makeTerminalSink()
- * Effect.gen(function*() {
- *   yield* reportTerminalProgress(
- *     StudyCompleted({ completionReason: "budgetExhausted" }),
- *     { sink }
- *   )
- * })
- * ```
+ * @remarks
+ * ANSI support is checked for each call. Use {@link makeTerminalReporter} when
+ * reporting several events through the same sink.
  *
  * @since 0.1.0
  * @category combinators
@@ -105,6 +68,7 @@ export const makeTerminalReporter = (options?: {
 export const reportTerminalProgress = (
   event: StudyEvent.StudyEvent,
   options?: {
+    /** Destination for the rendered line; defaults to {@link defaultTerminalSink}. */
     readonly sink?: TerminalSink
   }
 ): Effect.Effect<void> =>
@@ -113,24 +77,18 @@ export const reportTerminalProgress = (
   )
 
 /**
- * Stream combinator that taps study events into the terminal reporter without
- * mutating optimization behavior.
+ * Writes each study event as it passes through a stream.
  *
- * @example
- * ```ts
- * import { Stream } from "effect"
- * import { tapTerminalProgress, makeTerminalSink } from "@scenesystems/effect-search/Study"
- * import type { StudyEvent } from "@scenesystems/effect-search/StudyEvent"
- *
- * const sink = makeTerminalSink()
- * const tap = <E, R>(stream: Stream.Stream<StudyEvent, E, R>) =>
- *   stream.pipe(tapTerminalProgress({ sink }))
- * ```
+ * @remarks
+ * Event values and order are preserved. The sink's ANSI capability is checked
+ * once when the resulting stream starts. Writer defects terminate stream
+ * execution as defects.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const tapTerminalProgress = (options?: {
+  /** Destination for rendered lines; defaults to {@link defaultTerminalSink}. */
   readonly sink?: TerminalSink
 }) =>
 <E, R>(stream: Stream.Stream<StudyEvent.StudyEvent, E, R>): Stream.Stream<StudyEvent.StudyEvent, E, R> =>

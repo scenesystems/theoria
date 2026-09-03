@@ -1,40 +1,14 @@
 /**
- * Advanced Applications / 03 — Product Rollout Policy Tuning.
- *
- * Plain-English goal:
- * Grow adoption without crossing safety limits for churn risk or latency.
- *
- * Use case:
- * You are choosing rollout %, onboarding style, notification behavior,
- * ranking model, and support automation settings for a release.
- *
- * Why `effect-search`:
- * This is a mixed categorical + numeric policy problem with hard constraints.
- * `effect-search` can optimize lift while keeping explicit guardrails.
- *
- * Objective semantics:
- * - Main score (higher is better): `businessLift`.
- * - Guardrail 1: `churnRisk` must stay <= `0.24`.
- * - Guardrail 2: `p95LatencyMs` must stay <= `260`.
- *
- * What to expect in output:
- * A best configuration, plus explicit `feasible`/metrics logging so you can see
- * whether the chosen policy is truly safe to ship.
- *
- * How to use the result:
- * Use the suggested policy for canary or staged rollout planning first,
- * then validate with real production telemetry.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Maximizes a modeled rollout-lift score while constrained TPE rejects
+ * configurations whose churn risk exceeds 0.24 or whose modeled p95 latency
+ * exceeds 260 milliseconds.
  *
  * Run: bun run examples/applications/03-product-rollout-policy.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Either, Match, Schema } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const ADOPTION_LIFT: Readonly<Record<string, number>> = {
@@ -82,15 +56,15 @@ const businessLiftScore = (config: {
   const cadenceLift = ADOPTION_LIFT[config.notificationCadence] ?? 0
   const rankingLift = ADOPTION_LIFT[config.rankingModel] ?? 0
 
-  const churnViolation = Math.max(0, churnRisk(config) - 0.24)
-  const latencyViolation = Math.max(0, p95LatencyMs(config) - 260) / 220
+  const churnViolation = Numeric.max(0, churnRisk(config) - 0.24)
+  const latencyViolation = Numeric.max(0, p95LatencyMs(config) - 260) / 220
 
   return 0.45
     + onboardingLift
     + cadenceLift
     + rankingLift
     + (config.supportAutomation ? 0.03 : 0)
-    - Math.abs(config.rolloutPercent - 65) / 420
+    - Numeric.abs(config.rolloutPercent - 65) / 420
     - churnViolation * 2.2
     - latencyViolation
 }

@@ -27,10 +27,9 @@ const APP_SRC_FILES = [
 ]
 const APP_TEST_FILES = ["apps/*/test/**/*.ts", "apps/*/test/**/*.mts", "apps/*/test/**/*.cts"]
 const FIXTURE_FILES = ["packages/*/test/fixtures/**/*.ts"]
-const CRYPTO_RELEASE_FILES = ["scripts/crypto-release-check.ts", "scripts/crypto-release/**/*.ts"]
 const PACKAGE_FILES = [...SRC_FILES, ...TEST_FILES, ...EXAMPLE_FILES]
 const APP_FILES = [...APP_SRC_FILES, ...APP_TEST_FILES]
-const EFFECT_FILES = [...PACKAGE_FILES, ...APP_FILES, ...CRYPTO_RELEASE_FILES]
+const EFFECT_FILES = [...PACKAGE_FILES, ...APP_FILES]
 
 // ─── Effect Anti-Pattern Rules ────────────────────────────────────────────────
 // Full Effect-native discipline. Applied to src/, test/, and examples/.
@@ -218,8 +217,9 @@ export default [
     ignores: [
       "**/dist/**",
       "**/build/**",
-      "**/docs/**",
       "**/node_modules/**",
+      "**/.wrangler/**",
+      "**/.wrangler-out/**",
       "**/__snapshots__/**",
       "**/fixtures/**/*.json",
       "*.config.mjs",
@@ -337,7 +337,7 @@ export default [
   //    for src-only or test-only rules in the future.
   {
     name: "theoria/effect-rules",
-    files: [...PACKAGE_FILES, ...CRYPTO_RELEASE_FILES],
+    files: PACKAGE_FILES,
     rules: {
       "no-restricted-syntax": ["error", ...EFFECT_RULES]
     }

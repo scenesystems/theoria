@@ -1,9 +1,0 @@
-{
-  "name": "statistics-mean-stable",
-  "input": {
-    "values": [2, 4, 6, 8, 10]
-  },
-  "expected": {
-    "result": 6
-  }
-}

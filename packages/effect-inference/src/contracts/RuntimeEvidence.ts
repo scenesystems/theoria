@@ -1,5 +1,5 @@
 /**
- * Stable runtime-evidence projection consumed by sibling packages.
+ * Serializable record separating intent, route decisions, and response data.
  *
  * @since 0.1.0
  */
@@ -11,21 +11,28 @@ import { ResolvedRuntimeDescriptorSchema } from "./ResolvedRuntimeDescriptor.js"
 import { RuntimeCapabilitiesSchema } from "./RuntimeCapabilities.js"
 
 /**
- * Schema bundling requested runtime intent, route resolution, and post-execution
- * runtime truth into one replay-safe record.
+ * Serializable envelope preserving requested intent, pre-execution route and
+ * capability decisions, and caller-recorded post-execution observations as
+ * separate fields. Decoding proves shape only, not provider authenticity.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const RuntimeEvidenceSchema = Schema.Struct({
+  /** Original model intent supplied to resolution. */
   desired: DesiredRuntimeDescriptorSchema,
+  /** Resolver decision recorded before provider execution. */
   resolvedRoute: ResolvedRouteDescriptorSchema,
+  /** Observations recorded from the completed provider response. */
   resolvedRuntime: ResolvedRuntimeDescriptorSchema,
+  /** Capability policy used when the route was resolved. */
   capabilities: RuntimeCapabilitiesSchema
 })
 
 /**
- * Extracted runtime-evidence type.
+ * Replay-oriented envelope that keeps caller intent, resolver decisions,
+ * capability policy, and response observations in distinct channels. Its
+ * decoded shape does not authenticate the provider or attest the contents.
  *
  * @since 0.1.0
  * @category type-level
