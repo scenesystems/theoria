@@ -234,6 +234,19 @@ export default [
     ...js.configs.recommended
   },
 
+  // ── 2b. Static browser scripts served verbatim from an app's public/ ────
+  {
+    name: "theoria/public-browser-scripts",
+    files: ["apps/*/public/**/*.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: {
+        window: "readonly",
+        document: "readonly"
+      }
+    }
+  },
+
   // ── 3. TypeScript ───────────────────────────────────────────────────────
   {
     name: "theoria/typescript",
