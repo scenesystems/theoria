@@ -1,5 +1,21 @@
 # effect-dsp
 
+## 0.2.3
+
+### Patch Changes
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - - `Module.load` validates every saved entry before writing and applies the ref updates uninterruptibly, so a failure or interruption during validation leaves the module tree unchanged.
+  - `Module.refine` serializes concurrent `forward` calls and restores the inner module parameters through `acquireUseRelease`, so an interrupted refinement no longer leaves accumulated feedback in the inner module.
+  - Count options (`bestOfN.N`, `refine.N`, `react.maxIterations`, parse `maxRetries`, few-shot `k`/`maxBootstrappedDemos`, GEPA `maxIterations`/`maxMergeInvocations`, Ensemble `size`, MIPROv2 budgets and cadence) floor fractional values and fall back to their minimum for non-finite input instead of iterating a fractional or `NaN` count.
+  - `Signature.Input` and `Signature.Output` accept any carrier with an `inputSchema` or `outputSchema` field, so they derive types from `Signature` subclasses and structural stand-ins.
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Rewrite the package README as a set of consistent documentation guides: overview, getting started, topic guides with typechecked examples, public surface, errors and boundaries, and runnable examples.
+
+- Updated dependencies [[`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87), [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87), [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87)]:
+  - @scenesystems/effect-math@0.3.2
+  - @scenesystems/digest@0.5.2
+  - @scenesystems/effect-search@0.4.3
+
 ## 0.2.2
 
 ### Patch Changes

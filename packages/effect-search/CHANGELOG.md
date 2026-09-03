@@ -1,5 +1,22 @@
 # effect-search
 
+## 0.4.3
+
+### Patch Changes
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Rewrite the package README as a set of consistent documentation guides: overview, getting started, topic guides with typechecked examples, public surface, errors and boundaries, and runnable examples.
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Reject configurations that previously passed validation:
+  - `Study.optimize` requires `trials` and `concurrency` to be integers, rejects a non-zero `epsilon` for single-objective studies, and rejects `targetValue` and `noImprovementWindow` for multi-objective studies.
+  - Single-objective `tell` fails with `InvalidObjectiveValue` for non-finite numbers.
+  - `Scheduler.hyperband` and `Scheduler.bohb` reject non-finite `maxResource`, `reductionFactor`, and `explorationRatio`.
+  - The TPE sampler requires `nStartupTrials` and `nEiCandidates` to be finite integers.
+  - The experimental scenario schemas declare `maxDepth`, `minSamplesLeaf`, `depth`, and `batchSize` as `Schema.Int`.
+
+- Updated dependencies [[`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87), [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87)]:
+  - @scenesystems/effect-math@0.3.2
+  - @scenesystems/digest@0.5.2
+
 ## 0.4.2
 
 ### Patch Changes
