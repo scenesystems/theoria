@@ -111,17 +111,46 @@ const canvas = (width: number, height: number, color: string): ReadonlyArray<str
   `xc:${color}`
 ]
 
-const png8 = (output: string): ReadonlyArray<string> => ["-depth", "8", `PNG24:${output}`]
+/** 8-bit PNG without timestamp chunks, so re-running the generator is byte-for-byte reproducible. */
+const png8 = (output: string): ReadonlyArray<string> => [
+  "-depth",
+  "8",
+  "-define",
+  "png:exclude-chunks=date,time",
+  `PNG24:${output}`
+]
 
 const margin = 80
 const contentWidth = shareCardSize.width - margin * 2
 
-/** The site card: mark, wordmark, tagline, hostname. */
+/**
+ * The same proportions as `TheoriaLogo`: a mark `0.85em` tall, a `0.25em` gap,
+ * and the mark centered on the wordmark's line box. Figtree's ascender (950)
+ * and descender (-250) put that center 0.35em above the baseline, which is also
+ * the midpoint of its 700-unit cap height.
+ */
+const lockup = {
+  markHeight: 0.85,
+  gap: 0.25,
+  center: 0.35
+}
+
+/** The mark-and-wordmark lockup at `fontSize`, with the wordmark baseline at (`x`, `baseline`). */
+const logoLockup = (mark: Mark, fonts: Fonts, x: number, baseline: number, fontSize: number): ReadonlyArray<string> => {
+  const markHeight = fontSize * lockup.markHeight
+  const markWidth = markHeight * (mark.viewBox.width / mark.viewBox.height)
+  const markTop = baseline - fontSize * lockup.center - markHeight / 2
+  return [
+    ...drawMark(mark, palette.ink, x, markTop, markHeight),
+    ...annotate(fonts.sansSemiBold, fontSize, palette.ink, x + markWidth + fontSize * lockup.gap, baseline, "Theoria")
+  ]
+}
+
+/** The site card: logo lockup, a one-line tagline, hostname. */
 export const siteCard = (mark: Mark, fonts: Fonts, tagline: string, host: string, output: string): ReadonlyArray<string> => [
   ...canvas(shareCardSize.width, shareCardSize.height, palette.stage),
-  ...drawMark(mark, palette.ink, 100, 66, 180),
-  ...annotate(fonts.sansSemiBold, 120, palette.ink, 350, 205, "Theoria"),
-  ...paragraph(fonts.sans, 38, palette.inkMuted, margin, 330, contentWidth, 160, tagline),
+  ...logoLockup(mark, fonts, margin, 296, 128),
+  ...annotate(fonts.sans, 44, palette.inkMuted, margin, 384, tagline),
   ...annotate(fonts.mono, 26, palette.inkFaint, margin, 560, host),
   ...png8(output)
 ]
@@ -136,8 +165,7 @@ export const packageCard = (
   output: string
 ): ReadonlyArray<string> => [
   ...canvas(shareCardSize.width, shareCardSize.height, palette.stage),
-  ...drawMark(mark, palette.ink, margin, margin, 56),
-  ...annotate(fonts.sansSemiBold, 40, palette.ink, 156, 122, "Theoria"),
+  ...logoLockup(mark, fonts, margin, 122, 40),
   ...annotate(fonts.mono, 54, palette.ink, margin, 300, packageName),
   ...paragraph(fonts.sans, 36, palette.inkMuted, margin, 340, contentWidth, 150, description),
   ...annotate(fonts.mono, 26, palette.inkFaint, margin, 560, docsUrl),

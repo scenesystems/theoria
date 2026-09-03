@@ -24,6 +24,8 @@ export const SiteMetadata = Schema.Struct({
   siteUrl: Schema.Literal("https://theoria.scenesystems.io"),
   defaultTitle: Schema.Literal("Theoria — Scene Systems"),
   defaultDescription: NonEmptyString,
+  /** One short line for the site share image; the description carries the detail. */
+  tagline: NonEmptyString,
   twitterHandle: Schema.Literal("@scenesystems"),
   locale: Schema.Literal("en_US"),
   repositoryUrl: Schema.Literal("https://github.com/scenesystems/theoria")
@@ -42,6 +44,7 @@ export const siteMetadata: SiteMetadata = {
   defaultTitle: "Theoria — Scene Systems",
   defaultDescription:
     "Open-source TypeScript libraries for numerics, optimization, language-model programming, text layout, and cryptography, built with Effect.",
+  tagline: "Composable TypeScript libraries, built with Effect.",
   twitterHandle: "@scenesystems",
   locale: "en_US",
   repositoryUrl: "https://github.com/scenesystems/theoria"
