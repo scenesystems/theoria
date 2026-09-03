@@ -7,9 +7,6 @@ import { ExternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 import { TheoriaLogo } from "./TheoriaLogo.js"
 
-// eslint-disable-next-line no-restricted-syntax -- static render-time constant, not a side effect
-const COPYRIGHT_YEAR = new Date().getFullYear()
-
 type FooterDestination = {
   readonly href: string
   readonly label: string
@@ -83,7 +80,7 @@ export const SiteFooter = () => (
         as="p"
         className="text-center text-ink-500 md:text-left"
         role="status"
-        text={`© ${COPYRIGHT_YEAR} Scene Systems`}
+        text={`© ${String(siteMetadata.copyrightYear)} Scene Systems`}
         variant="compact"
       />
     </Stack>

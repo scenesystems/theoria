@@ -58,7 +58,7 @@ const parseMark = (svg: string): Effect.Effect<Mark> =>
       const [x = 0, y = 0, width = 1, height = 1] = numbers(viewBox)
       return Effect.succeed({
         viewBox: { x, y, width, height },
-        faces: Arr.map(Array.from(svg.matchAll(polygonPattern)), parseFace)
+        faces: Arr.map(Arr.fromIterable(svg.matchAll(polygonPattern)), parseFace)
       })
     }
   })

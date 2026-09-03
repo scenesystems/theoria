@@ -1,6 +1,7 @@
+import type { Atom } from "@effect-atom/atom"
 import { RegistryProvider } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, type Layer } from "effect"
 import * as Schema from "effect/Schema"
 import type { ReactNode } from "react"
 import { createRoot } from "react-dom/client"
@@ -13,17 +14,45 @@ import {
   GuidePageJson
 } from "@theoria/docs-model"
 import { docsApiRoute, docsIndexRoute, docsOverviewRoute } from "../../app/contracts/docs.js"
+import { docsRuntime } from "../../app/web/atoms/docs-data.js"
+import type { DocsClient } from "../../app/web/services/DocsClient.js"
 import { DocsPage } from "../../app/web/view/docs/DocsPage.js"
 import { SiteHeader } from "../../app/web/view/primitives/SiteHeader.js"
 import { docsApiExportPageFixture, docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
 import { docsManifestFixture, docsSearchIndexFixture, guidePageFixture } from "../helpers/docs-fixtures.js"
+import { staticDocsClient } from "../helpers/docs-http.js"
+
+const manifestJson = Schema.encodeSync(DocsManifestJson)(docsManifestFixture)
+const searchIndexJson = Schema.encodeSync(DocsSearchIndexJson)(docsSearchIndexFixture)
+const guidePageJson = Schema.encodeSync(GuidePageJson)(guidePageFixture)
+const apiModuleIndexJson = Schema.encodeSync(DocsApiModuleIndexJson)(docsApiModuleIndexFixture)
+const apiExportJson = Schema.encodeSync(DocsApiExportPageJson)(docsApiExportPageFixture(0))
+
+const docsBody = (path: string): string =>
+  path.endsWith("manifest.json")
+    ? manifestJson
+    : path.endsWith("search-index.json")
+    ? searchIndexJson
+    : path.endsWith("pages/Study.json")
+    ? apiModuleIndexJson
+    : path.endsWith("api-runStudy.json")
+    ? apiExportJson
+    : guidePageJson
+
+// The documentation atoms build their runtime from `docsRuntime.layer`; seeding
+// that atom swaps the production fetch-backed client for in-memory data.
+const registryInitialValues: ReadonlyArray<readonly [Atom.Atom<Layer.Layer<DocsClient>>, Layer.Layer<DocsClient>]> = [
+  [docsRuntime.layer, staticDocsClient(docsBody)]
+]
 
 const render = (node: ReactNode) => {
   const container = document.createElement("div")
   document.body.appendChild(container)
   const root = createRoot(container)
 
-  root.render(<RegistryProvider defaultIdleTTL={0}>{node}</RegistryProvider>)
+  root.render(
+    <RegistryProvider defaultIdleTTL={0} initialValues={registryInitialValues}>{node}</RegistryProvider>
+  )
 
   return { container, root }
 }
@@ -35,49 +64,9 @@ const waitFor = (predicate: () => boolean): Effect.Effect<void> =>
     )
   ).pipe(Effect.asVoid, Effect.orDie)
 
-const manifestJson = Schema.encodeSync(DocsManifestJson)(docsManifestFixture)
-const searchIndexJson = Schema.encodeSync(DocsSearchIndexJson)(docsSearchIndexFixture)
-const guidePageJson = Schema.encodeSync(GuidePageJson)(guidePageFixture)
-const apiModuleIndexJson = Schema.encodeSync(DocsApiModuleIndexJson)(docsApiModuleIndexFixture)
-const apiExportJson = Schema.encodeSync(DocsApiExportPageJson)(docsApiExportPageFixture(0))
-
-const response = (content: string) => ({
-  ok: true,
-  status: 200,
-  text: () => Promise.resolve(content)
-})
-
-const docsResponse = (input: string | URL | Request) => {
-  const path = String(input)
-  return path.endsWith("manifest.json")
-    ? response(manifestJson)
-    : path.endsWith("search-index.json")
-    ? response(searchIndexJson)
-    : path.endsWith("pages/Study.json")
-    ? response(apiModuleIndexJson)
-    : path.endsWith("api-runStudy.json")
-    ? response(apiExportJson)
-    : response(guidePageJson)
-}
-
-function withDocsFetch<A>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> {
-  const previousFetch = globalThis.fetch
-
-  return Effect.gen(function*() {
-    yield* Effect.sync(() => {
-      Reflect.set(globalThis, "fetch", (input: string | URL | Request) => Promise.resolve(docsResponse(input)))
-    })
-    return yield* effect
-  }).pipe(
-    Effect.ensuring(Effect.sync(() => {
-      Reflect.set(globalThis, "fetch", previousFetch)
-    }))
-  )
-}
-
 describe("documentation shell", () => {
   it.effect("renders generated package navigation and guide content", () =>
-    withDocsFetch(Effect.gen(function*() {
+    Effect.gen(function*() {
       const { container, root } = render(<DocsPage route={docsOverviewRoute("effect-search")} />)
 
       yield* Effect.ensuring(
@@ -117,10 +106,10 @@ describe("documentation shell", () => {
           container.remove()
         })
       )
-    })))
+    }))
 
   it.effect("renders the generated package index at /docs", () =>
-    withDocsFetch(Effect.gen(function*() {
+    Effect.gen(function*() {
       const { container, root } = render(<DocsPage route={docsIndexRoute()} />)
 
       yield* Effect.ensuring(
@@ -134,10 +123,10 @@ describe("documentation shell", () => {
           container.remove()
         })
       )
-    })))
+    }))
 
   it.effect("loads focused API detail after the module index", () =>
-    withDocsFetch(Effect.gen(function*() {
+    Effect.gen(function*() {
       globalThis.history.replaceState(null, "", "/docs/effect-search/api/Study#api-runStudy")
       const { container, root } = render(<DocsPage route={docsApiRoute("effect-search", "Study")} />)
 
@@ -155,7 +144,7 @@ describe("documentation shell", () => {
           globalThis.history.replaceState(null, "", "/")
         })
       )
-    })))
+    }))
 
   it.effect("links the landing page to the separate documentation surface", () =>
     Effect.gen(function*() {

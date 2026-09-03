@@ -28,7 +28,9 @@ export const SiteMetadata = Schema.Struct({
   tagline: NonEmptyString,
   twitterHandle: Schema.Literal("@scenesystems"),
   locale: Schema.Literal("en_US"),
-  repositoryUrl: Schema.Literal("https://github.com/scenesystems/theoria")
+  repositoryUrl: Schema.Literal("https://github.com/scenesystems/theoria"),
+  /** Year of first publication, matching the repository LICENSE. */
+  copyrightYear: Schema.Int.pipe(Schema.greaterThanOrEqualTo(2026))
 })
 
 export type SiteMetadata = typeof SiteMetadata.Type
@@ -47,7 +49,8 @@ export const siteMetadata: SiteMetadata = {
   tagline: "Observation that produces knowledge",
   twitterHandle: "@scenesystems",
   locale: "en_US",
-  repositoryUrl: "https://github.com/scenesystems/theoria"
+  repositoryUrl: "https://github.com/scenesystems/theoria",
+  copyrightYear: 2026
 }
 
 /**

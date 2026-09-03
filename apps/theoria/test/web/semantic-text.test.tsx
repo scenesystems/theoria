@@ -1,6 +1,7 @@
 import { RegistryProvider } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
+import * as Arr from "effect/Array"
 import { createRoot } from "react-dom/client"
 
 import { SemanticText } from "../../app/web/view/primitives/SemanticText.js"
@@ -34,7 +35,7 @@ function withMockClientWidth<A>(
 }
 
 const renderedLineSpans = (container: HTMLDivElement): ReadonlyArray<HTMLSpanElement> =>
-  Array.from(container.querySelectorAll("p > span, h3 > span")).flatMap((element) =>
+  Arr.fromIterable(container.querySelectorAll("p > span, h3 > span")).flatMap((element) =>
     element instanceof HTMLSpanElement ? [element] : []
   )
 
