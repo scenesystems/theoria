@@ -1,5 +1,5 @@
 ---
-"@scenesystems/effect-search": minor
+"@scenesystems/effect-search": patch
 ---
 
 Reject configurations that previously passed validation:
