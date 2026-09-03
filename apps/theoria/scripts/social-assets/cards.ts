@@ -146,11 +146,19 @@ const logoLockup = (mark: Mark, fonts: Fonts, x: number, baseline: number, fontS
   ]
 }
 
-/** The site card: logo lockup, a one-line tagline, hostname. */
-export const siteCard = (mark: Mark, fonts: Fonts, tagline: string, host: string, output: string): ReadonlyArray<string> => [
+/** The site card: logo lockup, tagline, what the project is, hostname. */
+export const siteCard = (
+  mark: Mark,
+  fonts: Fonts,
+  tagline: string,
+  shortDescription: string,
+  host: string,
+  output: string
+): ReadonlyArray<string> => [
   ...canvas(shareCardSize.width, shareCardSize.height, palette.stage),
-  ...logoLockup(mark, fonts, margin, 296, 128),
-  ...annotate(fonts.sans, 40, palette.inkMuted, margin, 382, tagline),
+  ...logoLockup(mark, fonts, margin, 272, 128),
+  ...annotate(fonts.sans, 40, palette.inkMuted, margin, 356, tagline),
+  ...annotate(fonts.sans, 32, palette.inkFaint, margin, 412, shortDescription),
   ...annotate(fonts.mono, 26, palette.inkFaint, margin, 560, host),
   ...png8(output)
 ]
