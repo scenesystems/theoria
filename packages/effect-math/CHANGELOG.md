@@ -1,5 +1,13 @@
 # @scenesystems/effect-math
 
+## 0.3.2
+
+### Patch Changes
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add scalar helpers to `Numeric`: `isFinite`, `min`, `max`, `abs`, `sqrt`, `pi`, `sin`, `cos`, `log10`, `pow`, `round`, `floor`, `ceil`, and `truncate`. `floor`, `ceil`, and `truncate` compute through `BigDecimal` for finite inputs and return non-finite inputs unchanged.
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Rewrite the package README as a set of consistent documentation guides: overview, getting started, topic guides with typechecked examples, public surface, errors and boundaries, and runnable examples.
+
 ## 0.3.1
 
 ### Patch Changes

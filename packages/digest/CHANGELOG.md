@@ -1,5 +1,11 @@
 # @scenesystems/digest
 
+## 0.5.2
+
+### Patch Changes
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Rewrite the package README as a set of consistent documentation guides: overview, getting started, topic guides with typechecked examples, public surface, errors and boundaries, and runnable examples.
+
 ## 0.5.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@scenesystems/effect-math",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "description": "Foundational numerics, linear algebra, statistics, and optimization for Effect",
   "license": "MIT",

@@ -1,5 +1,18 @@
 # effect-text
 
+## 0.3.2
+
+### Patch Changes
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Rewrite the package README as a set of consistent documentation guides: overview, getting started, topic guides with typechecked examples, public surface, errors and boundaries, and runnable examples.
+
+- [#69](https://github.com/scenesystems/theoria/pull/69) [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - - Line layout stops when the cursor reaches the end of the prepared segments instead of asking the line walker for a record past the input.
+  - `Calibration` report totals sum the per-case losses directly instead of multiplying the mean by the count.
+  - The browser support manifest caveats describe the synthetic regression context instead of claiming browser parity; the live harness is now `examples/live/syntheticRegressionHarness.ts` (`verify:synthetic-regression`).
+- Updated dependencies [[`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87), [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87), [`002cb72`](https://github.com/scenesystems/theoria/commit/002cb725c94adfde2587526166a1a4ab7632dc87)]:
+  - @scenesystems/effect-math@0.3.2
+  - @scenesystems/effect-search@0.4.3
+
 ## 0.3.1
 
 ### Patch Changes
