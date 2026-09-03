@@ -166,10 +166,11 @@ jobs:
             deploy .wrangler-out/worker.js --no-bundle --env=""
             --var BUILD_SHA:${{ needs.build.outputs.build-sha }}
 
-      # Wrangler runs without a TTY here, so it replaces any existing DNS record
-      # for the hostname with the Worker's Custom Domain (this is how the site
-      # moved off its previous host). The verify action waits up to ten minutes
-      # for the record and, on a first deploy, the certificate.
+      # Cloudflare creates the hostname's DNS record for the Custom Domain, but
+      # refuses while a hand-made record for the hostname exists (API error
+      # 100117); see "Taking over a hostname" in apps/theoria/DEPLOYMENT.md. The
+      # verify action waits up to ten minutes for the record and, on a first
+      # deploy, the certificate.
       - uses: ./.github/actions/theoria-verify-deployment
         with:
           url: https://theoria.scenesystems.io

@@ -242,19 +242,34 @@ Actions tab.
 ## Taking over a hostname
 
 The Worker claims `theoria.scenesystems.io` through the Custom Domain in
-`wrangler.jsonc`. In the workflow Wrangler runs without a TTY and therefore
-sends `override_existing_dns_record` and `override_existing_origin` with the
-Custom Domain request, so an existing DNS record for the hostname (for example
-a CNAME to a previous host) is replaced by the Worker's record in one API call
-and there is no gap without a record. Every verify step polls `/api/health/live`
-for up to ten minutes until the hostname reports the deployed `buildSha`. That
-covers certificate issuance for a new hostname and the zone's wildcard record:
-a resolver that answered for the hostname before Wrangler created its record
-keeps the wildcard answer for the wildcard's 300-second TTL, and the runner
-cannot bypass its resolver.
+`wrangler.jsonc`. Cloudflare creates the DNS record for a Custom Domain itself
+and refuses to create one while the hostname has a DNS record that Cloudflare
+did not create (an A or CNAME record added by hand, for example one pointing at
+a previous host). Wrangler sends `override_existing_dns_record` with the
+request when it runs without a TTY, but that only covers records Cloudflare
+manages; the API still rejects a hand-made record with
+`already has externally managed DNS records [code: 100117]`. When that happens
+the Worker and its assets are already uploaded, the deploy step fails, and the
+hostname keeps serving the previous host.
 
-That is the whole cutover from a previous host: merge, let staging deploy and
-verify, approve `production`, and let the verify step pass. Afterwards:
+Cutting over from a previous host is therefore a manual DNS step followed by a
+deploy:
+
+1. In the Cloudflare dashboard open **DNS → Records** for the zone and delete
+   the `theoria` record that points at the previous host. Until the next step
+   finishes, the hostname is answered by the zone's wildcard record, if any.
+2. Attach the hostname to the Worker right away, either by opening
+   **Workers & Pages → theoria → Settings → Domains & Routes → Add → Custom
+   Domain** and entering `theoria.scenesystems.io` (the already uploaded Worker
+   serves immediately), or by rerunning the failed `Production` job, whose
+   `wrangler deploy` now creates the Custom Domain and its record.
+3. Approve `production` if the run asks again and let the verify step pass. It
+   polls `/api/health/live` for up to ten minutes until the hostname reports the
+   deployed `buildSha`; that covers certificate issuance for the new hostname
+   and resolvers that cached the wildcard answer for its 300-second TTL, which
+   the runner cannot bypass.
+
+Afterwards:
 
 1. Confirm in the Cloudflare dashboard that `theoria.scenesystems.io` is now a
    Workers Custom Domain (DNS → Records shows it managed by the Worker).
