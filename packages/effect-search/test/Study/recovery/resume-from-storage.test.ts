@@ -31,8 +31,7 @@ describe("recovery resume-from-storage", () => {
       })
       const storageOptions = Study.studyStorageOptions(directory)
       const storage = yield* Study.makeStudyStorage(storageOptions).pipe(
-        Effect.provide(fileSystemSink(directory)),
-        Effect.provide(makeTestEnvelopeContextLayer)
+        Effect.provide(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
       )
 
       const seed = 2301
@@ -83,9 +82,11 @@ describe("recovery resume-from-storage", () => {
         trials: resumedTrials,
         objective: singleObjective
       }).pipe(
-        Effect.provide(Study.StudyStorageLive(storageOptions)),
-        Effect.provide(fileSystemSink(directory)),
-        Effect.provide(makeTestEnvelopeContextLayer)
+        Effect.provide(
+          Study.StudyStorageLive(storageOptions).pipe(
+            Layer.provideMerge(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+          )
+        )
       )
 
       const resumedSingle = asSingleObjective(resumedResult)

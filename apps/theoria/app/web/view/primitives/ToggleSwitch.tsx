@@ -1,4 +1,4 @@
-import { Button } from "@base-ui-components/react/button"
+import { Button } from "@base-ui/react/button"
 
 import { toggleTrackClassName, type ToneClasses } from "./designSystem.js"
 import { Layer, Rail } from "./Layout.js"

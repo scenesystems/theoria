@@ -5,42 +5,33 @@ import { defineConfig } from "vite"
 const apiPort = process.env.THEORIA_PORT ?? "3876"
 const vitePort = 5175
 
-const manualChunkNameFor = (id: string): string | undefined => {
-  if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/") || id.includes("/node_modules/scheduler/")) {
-    return "react-vendor"
-  }
-
-  if (id.includes("/node_modules/effect/") || id.includes("/node_modules/@effect/") || id.includes("/node_modules/@effect-atom/")) {
-    return "effect-core"
-  }
-
-  if (id.includes("/packages/effect-text/") || id.includes("/node_modules/@scenesystems/effect-text/")) {
-    return "effect-text"
-  }
-
-  if (id.includes("/packages/effect-search/") || id.includes("/node_modules/@scenesystems/effect-search/")) {
-    return "effect-search"
-  }
-
-  if (id.includes("/packages/effect-math/") || id.includes("/node_modules/@scenesystems/effect-math/")) {
-    return "effect-math"
-  }
-
-  if (id.includes("/node_modules/@base-ui-components/") || id.includes("/node_modules/@heroicons/")) {
-    return "ui-vendor"
-  }
-
-  return undefined
-}
+/**
+ * Chunk groups. Rolldown evaluates `priority` before order. Vendor groups
+ * outrank the workspace groups because Bun's isolated install links `effect`
+ * and the UI vendors beneath each workspace package
+ * (`packages/effect-text/node_modules/effect/...`), so a workspace regex would
+ * otherwise claim the Effect runtime for itself. The workspace packages live
+ * under `packages/` in dev and `node_modules/@scenesystems/` once built.
+ */
+const chunkGroups = [
+  { name: "react-vendor", test: /\/node_modules\/(?:react|react-dom|scheduler)\//, priority: 40 },
+  { name: "effect-core", test: /\/node_modules\/(?:effect|@effect|@effect-atom)\//, priority: 30 },
+  { name: "ui-vendor", test: /\/node_modules\/(?:@base-ui|@heroicons|motion|framer-motion)\//, priority: 30 },
+  { name: "effect-text", test: /\/(?:packages|node_modules\/@scenesystems)\/effect-text\//, priority: 20 },
+  { name: "effect-search", test: /\/(?:packages|node_modules\/@scenesystems)\/effect-search\//, priority: 20 },
+  { name: "effect-math", test: /\/(?:packages|node_modules\/@scenesystems)\/effect-math\//, priority: 20 }
+]
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     outDir: "dist",
     sourcemap: false,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: manualChunkNameFor
+        codeSplitting: {
+          groups: chunkGroups
+        }
       }
     }
   },

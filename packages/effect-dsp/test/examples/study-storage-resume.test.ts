@@ -187,8 +187,7 @@ describe("examples/07-miprov2-resume-from-storage", () => {
       )
 
       const storage = yield* Study.makeStudyStorage(Study.studyStorageOptions(directory)).pipe(
-        Effect.provide(Contracts.fileSystemSink(directory)),
-        Effect.provide(envelopeContextLayer)
+        Effect.provide(Layer.merge(Contracts.fileSystemSink(directory), envelopeContextLayer))
       )
       const snapshotOption = yield* storage.loadSnapshot()
       const trialLog = yield* storage.loadTrialLog()

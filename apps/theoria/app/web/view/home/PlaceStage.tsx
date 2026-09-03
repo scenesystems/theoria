@@ -1,4 +1,4 @@
-import { ScrollArea } from "@base-ui-components/react/scroll-area"
+import { ScrollArea } from "@base-ui/react/scroll-area"
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"

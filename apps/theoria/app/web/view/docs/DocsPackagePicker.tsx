@@ -1,4 +1,4 @@
-import { Menu } from "@base-ui-components/react/menu"
+import { Menu } from "@base-ui/react/menu"
 import { CheckIcon, ChevronDownIcon } from "@heroicons/react/20/solid"
 import * as Arr from "effect/Array"
 

@@ -52,10 +52,7 @@
     "clean": "rm -rf build dist .tsbuildinfo"
   },
   "dependencies": {
-    "@noble/hashes": "2.0.1"
-  },
-  "devDependencies": {
-    "@theoria/source-proof": "workspace:*"
+    "@noble/hashes": "2.4.0"
   },
   "peerDependencies": {
     "effect": "^3.22.1"

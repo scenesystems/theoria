@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Logger, type LogLevel, MutableRef, Option, Runtime } from "effect"
+import { Effect, Layer, Logger, type LogLevel, MutableRef, Option, Runtime } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceBuildLimiter } from "../../app/server/config/place-build-limiter.js"
@@ -40,8 +40,7 @@ describe("server/platform/workers-rate-limit", () => {
     Effect.gen(function*() {
       const seen = MutableRef.make<ReadonlyArray<Entry>>([])
       const admissions = yield* Effect.all([admit("203.0.113.7"), admit("203.0.113.7")]).pipe(
-        Effect.provide(layerFromEnv(Option.none())),
-        Effect.provide(collecting(seen))
+        Effect.provide(layerFromEnv(Option.none()).pipe(Layer.provideMerge(collecting(seen))))
       )
       expect(admissions).toEqual([{ _tag: "Admitted" }, { _tag: "Admitted" }])
       const warnings = Arr.filter(MutableRef.get(seen), (entry) => entry.level._tag === "Warning")

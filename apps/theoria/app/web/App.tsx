@@ -1,4 +1,4 @@
-import { Tooltip } from "@base-ui-components/react/tooltip"
+import { Tooltip } from "@base-ui/react/tooltip"
 import { RegistryProvider, useAtomSubscribe, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 

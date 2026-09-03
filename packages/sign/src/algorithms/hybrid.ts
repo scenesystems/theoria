@@ -10,7 +10,7 @@
  * @since 0.1.0
  * @category algorithms
  */
-import { XWing } from "@noble/post-quantum/hybrid.js"
+import { ml_kem768_x25519 } from "@noble/post-quantum/hybrid.js"
 import { Effect } from "effect"
 import { KemFailed } from "../schemas/errors.js"
 import { KemCiphertext } from "../schemas/KemCiphertext.js"
@@ -30,7 +30,7 @@ export const xwingEncapsulate = (
 ): Effect.Effect<KemCiphertext, KemFailed> =>
   Effect.try({
     try: () => {
-      const result = XWing.encapsulate(publicKey)
+      const result = ml_kem768_x25519.encapsulate(publicKey)
       return new KemCiphertext({
         algorithm: "xwing",
         ciphertext: result.cipherText,
@@ -53,7 +53,7 @@ export const xwingDecapsulate = (
   secretKey: Uint8Array
 ): Effect.Effect<Uint8Array, KemFailed> =>
   Effect.try({
-    try: () => XWing.decapsulate(cipherText, secretKey),
+    try: () => ml_kem768_x25519.decapsulate(cipherText, secretKey),
     catch: (error) => new KemFailed({ algorithm: "xwing", reason: String(error) })
   })
 
@@ -66,6 +66,6 @@ export const xwingDecapsulate = (
  */
 export const xwingKeygen = (): Effect.Effect<KeyPair> =>
   Effect.sync(() => {
-    const { secretKey, publicKey } = XWing.keygen()
+    const { secretKey, publicKey } = ml_kem768_x25519.keygen()
     return new KeyPair({ algorithm: "xwing", publicKey, secretKey })
   })

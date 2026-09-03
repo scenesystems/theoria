@@ -1,4 +1,4 @@
-import { Slider } from "@base-ui-components/react/slider"
+import { Slider } from "@base-ui/react/slider"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"

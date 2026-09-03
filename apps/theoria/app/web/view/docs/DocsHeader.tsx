@@ -1,4 +1,4 @@
-import { Button } from "@base-ui-components/react/button"
+import { Button } from "@base-ui/react/button"
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Bars3Icon } from "@heroicons/react/20/solid"
 

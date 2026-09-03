@@ -1,4 +1,4 @@
-import { Collapsible } from "@base-ui-components/react/collapsible"
+import { Collapsible } from "@base-ui/react/collapsible"
 import { ChevronRightIcon } from "@heroicons/react/20/solid"
 import * as Arr from "effect/Array"
 
