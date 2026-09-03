@@ -19,14 +19,13 @@ export type Container =
 
 export const Container = Data.taggedEnum<Container>()
 
-// Descriptor snapshots are private indexed-buffer records, not domain carriers.
-// eslint-disable-next-line no-restricted-syntax
-export type Snapshot = {
+/** One own-property descriptor read, captured once for the admission machine. */
+export class Snapshot extends Data.Class<{
   readonly key: string
   readonly accessor: boolean
   readonly enumerable: boolean
   readonly value: unknown
-}
+}> {}
 
 const unsupported = (reason: UnsupportedValue["reason"]): Unsupported => new Unsupported({ reason })
 
@@ -87,11 +86,12 @@ export const descriptorShape = (identity: object, key: PropertyKey) =>
   }))
 
 export const snapshot = (identity: object, key: string): Either.Either<Snapshot, Unsupported> =>
-  Either.map(ownDescriptor(identity, key), (descriptor) => ({
-    key,
-    accessor: !("value" in descriptor),
-    enumerable: descriptor.enumerable === true,
-    value: "value" in descriptor ? descriptor.value : undefined
-  }))
+  Either.map(ownDescriptor(identity, key), (descriptor) =>
+    new Snapshot({
+      key,
+      accessor: !("value" in descriptor),
+      enumerable: descriptor.enumerable === true,
+      value: "value" in descriptor ? descriptor.value : undefined
+    }))
 
 export const rejection = unsupported

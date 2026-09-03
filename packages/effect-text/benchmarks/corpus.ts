@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 
 import { EffectTextSupportManifest } from "../src/contracts/supportManifest.js"
-import { LayoutRequest, type LayoutRequestType, PrepareInput, type PrepareInputType } from "../src/Text/schema.js"
+import { LayoutRequest, PrepareInput } from "../src/Text/schema.js"
 
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
@@ -9,17 +9,13 @@ const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqua
 const BenchmarkReportNameSchema = Schema.Literal("effect-text-materialize-baseline", "effect-text-walker-kernel")
 const BenchmarkMetricStatusSchema = Schema.Literal("recorded", "missing-api")
 
-export type BenchmarkCorpusCase = {
-  readonly name: string
-  readonly prepare: PrepareInputType
-  readonly request: LayoutRequestType
-}
-
 export const BenchmarkCorpusCaseSchema = Schema.Struct({
   name: Schema.String,
   prepare: PrepareInput,
   request: LayoutRequest
 })
+
+export type BenchmarkCorpusCase = typeof BenchmarkCorpusCaseSchema.Type
 
 export const BenchmarkMetricSampleSchema = Schema.Struct({
   segmentCount: Schema.optional(NonNegativeInt),

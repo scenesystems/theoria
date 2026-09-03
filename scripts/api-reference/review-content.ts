@@ -1,5 +1,5 @@
-import type { ApiDocumentation, ApiExport, DocsSearchEntry } from "@theoria/docs-model"
-import { Array as Arr, HashMap, Option } from "effect"
+import { type ApiDocumentation, type ApiExport, type DocsSearchEntry, DocsSearchEntrySchema } from "@theoria/docs-model"
+import { Array as Arr, HashMap, Option, Tuple } from "effect"
 import type { HashSet } from "effect"
 
 import type { Counts, Example } from "./review-model.js"
@@ -153,17 +153,16 @@ export const documentationDiagnostics = (
     ]
   }))
 
-export type ExpectedSearchEntry = Pick<
-  DocsSearchEntry,
-  "id" | "package" | "packageSlug" | "name" | "qualifiedName" | "category" | "summary" | "path" | "anchor"
->
+const ExpectedSearchEntrySchema = DocsSearchEntrySchema.omit("kind")
+
+export type ExpectedSearchEntry = typeof ExpectedSearchEntrySchema.Type
 
 export const searchIndexDiagnostics = (
   expected: ReadonlyArray<ExpectedSearchEntry>,
   entries: ReadonlyArray<DocsSearchEntry>
 ): ReadonlyArray<string> => {
   const symbols = Arr.filter(entries, (_) => _.kind === "symbol")
-  const symbolsById = HashMap.fromIterable(Arr.map(symbols, (_) => [_.id, _] as const))
+  const symbolsById = HashMap.fromIterable(Arr.map(symbols, (_) => Tuple.make(_.id, _)))
   return [
     ...(symbols.length !== expected.length ? ["search index symbol count mismatch"] : []),
     ...Arr.flatMap(expected, (entry) =>

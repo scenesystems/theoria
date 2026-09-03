@@ -69,7 +69,14 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced by `eslint.config.mjs` (`--max-warnings=0`), `.oxlintrc.json` (`--deny-warnings`), `.dprint.json` formatting, and Effect diagnostics inside `tsc` via `@effect/tsgo`. Use `it.effect()` in tests.
+Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+
+Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
+
+- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline: AST selectors parsed with `@babel/eslint-parser` and applied in scopes. `packages/**` (src, test, examples, scripts, benchmarks) gets the full set (core, type modeling, Option discipline); `apps/**/*.ts` gets core plus Option discipline; `apps/**/*.tsx` views get core minus the `Omit<>` ban; root `scripts/**` gets core because the TypeDoc reflection boundary is nullable-typed. Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
+- `.oxlintrc.json` owns TypeScript-aware correctness rules, the Node builtin ban (`import/no-nodejs-modules`), and the `@ts-*` directive ban. Warnings fail the run (`denyWarnings`). Three rules are intentionally off: `require-yield` (an `Effect.gen` body without `yield*` is a legitimate idiom), `typescript/prefer-as-const` (conflicts with the `as` ban), and `unicorn/no-new-array` only inside `packages/digest/src/internal/**` (preallocated buffers).
+- `.dprint.json` owns formatting.
+- `@effect/tsgo` adds Effect diagnostics inside `tsc`.
 
 - Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use `@effect/platform`, Bun platform services, or package-owned abstractions instead.
 - Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.

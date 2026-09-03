@@ -31,7 +31,9 @@ const program = Effect.gen(function*() {
     })
     const encoded = yield* Schema.encode(ReviewRecordJson)(record)
     yield* fs.writeFileString("scripts/api-reference/review-record.json", `${encoded}\n`)
-    yield* Effect.log(`accepted ${record.units.length} API module hashes; duplicate exceptions require explicit review`)
+    yield* Effect.log("accepted API module hashes; duplicate exceptions require explicit review").pipe(
+      Effect.annotateLogs("acceptedUnits", record.units.length)
+    )
     return
   }
   const stale = Arr.filter(

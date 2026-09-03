@@ -49,25 +49,24 @@ const program = Effect.gen(function*() {
       const manifestRaw = yield* fs.readFileString(manifestPath)
       const manifest = yield* decodeJsonManifest(manifestRaw)
 
-      let updated = false
+      const stamped = yield* Effect.forEach(manifest.fixtures, (fixture) =>
+        Effect.gen(function*() {
+          const fixturePath = path.join(cwd, fixture.path)
+          const fixtureRaw = yield* fs.readFileString(fixturePath)
+          const fixtureValue = yield* decodeJsonUnknown(fixtureRaw)
+          const hash = yield* digest("blake3-256", fixtureValue)
 
-      for (const fixture of manifest.fixtures) {
-        const fixturePath = path.join(cwd, fixture.path)
-        const fixtureRaw = yield* fs.readFileString(fixturePath)
-        const fixtureValue = yield* decodeJsonUnknown(fixtureRaw)
-        const hash = yield* digest("blake3-256", fixtureValue)
-
-        if (fixture.hash !== hash) {
+          if (fixture.hash === hash) {
+            yield* Console.log(`  ${fixture.name}: ${hash} (unchanged)`)
+            return fixture
+          }
           yield* Console.log(`  ${fixture.name}: ${fixture.hash} → ${hash}`)
-          fixture.hash = hash
-          updated = true
-        } else {
-          yield* Console.log(`  ${fixture.name}: ${hash} (unchanged)`)
-        }
-      }
+          return { ...fixture, hash }
+        }))
+      const updated = stamped.some((fixture, index) => fixture !== manifest.fixtures[index])
 
       if (updated) {
-        const encoded = yield* encodeManifestJson(manifest)
+        const encoded = yield* encodeManifestJson({ ...manifest, fixtures: stamped })
         yield* fs.writeFileString(manifestPath, encoded + "\n")
         yield* Console.log(`  ✓ ${manifestFile} updated\n`)
       } else {

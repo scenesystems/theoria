@@ -1,5 +1,5 @@
 import type { ApiDocPart, ApiExport } from "@theoria/docs-model"
-import { Array as Arr, HashMap, HashSet, Order, String as Str } from "effect"
+import { Array as Arr, HashMap, HashSet, Order, String as Str, Tuple } from "effect"
 
 const PUBLIC_CATEGORIES = HashSet.make(
   "agreement",
@@ -160,10 +160,10 @@ export const unprojectedDuplicateGroups = (
     Arr.map(
       entries,
       (entry) =>
-        [
+        Tuple.make(
           entry.owner,
           Arr.dedupe(Arr.sort(Arr.filter(entry.sources, Str.isNonEmpty), Str.Order)).join("\u0000")
-        ] as const
+        )
     )
   )
   return Arr.filter(duplicateGroups(entries), (group) => {

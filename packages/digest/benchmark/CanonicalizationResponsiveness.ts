@@ -1,4 +1,5 @@
-import { Array as Arr, Data, Effect, Number as Num } from "effect"
+import { BunRuntime } from "@effect/platform-bun"
+import { Array as Arr, Console, Data, Effect, Number as Num, Option, Schema } from "effect"
 
 import { canonicalJsonBytes } from "../src/convenience.js"
 
@@ -60,42 +61,74 @@ const observe = Effect.acquireUseRelease(
   ({ handle }) => Effect.sync(() => clearInterval(handle))
 )
 
-const distribution = (values: ReadonlyArray<number>) => {
+const distribution = (values: Arr.NonEmptyReadonlyArray<number>) => {
   const sorted = Arr.sort(values, Num.Order)
   const percentile = (fraction: number): number =>
-    sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)]!
+    Option.getOrElse(
+      Arr.get(sorted, Math.ceil(sorted.length * fraction) - 1),
+      () => Arr.lastNonEmpty(sorted)
+    )
   return {
-    min: sorted[0],
+    min: Arr.headNonEmpty(sorted),
     p50: percentile(0.5),
     p95: percentile(0.95),
-    max: sorted[sorted.length - 1],
-    mean: Arr.reduce(sorted, 0, (total, value) => total + value) / sorted.length
+    max: Arr.lastNonEmpty(sorted),
+    mean: Num.sumAll(sorted) / sorted.length
   }
 }
+
+const Distribution = Schema.Struct({
+  min: Schema.Number,
+  p50: Schema.Number,
+  p95: Schema.Number,
+  max: Schema.Number,
+  mean: Schema.Number
+})
+
+const Report = Schema.parseJson(
+  Schema.Struct({
+    runtime: Schema.String,
+    workload: Schema.Struct({
+      pointCount: Schema.Number,
+      warmupSamples: Schema.Number,
+      measuredSamples: Schema.Number,
+      timerDurationMs: Schema.Number
+    }),
+    samples: Schema.Array(
+      Schema.Struct({
+        wallMs: Schema.Number,
+        schedulerDelayMs: Schema.Number,
+        peakRssMiB: Schema.Number,
+        bytes: Schema.Number
+      })
+    ),
+    wallMs: Distribution,
+    schedulerDelayMs: Distribution,
+    peakRssMiB: Schema.Number
+  }),
+  { space: 2 }
+)
 
 const program = Effect.gen(function*() {
   yield* Effect.forEach(Arr.makeBy(WARMUP_SAMPLES, (index) => index), () => observe, { discard: true })
   const samples = yield* Effect.forEach(Arr.makeBy(MEASURED_SAMPLES, (index) => index), () => observe)
-  const bunVersion = Reflect.get(process.versions, "bun")
-  yield* Effect.sync(() =>
-    console.log(JSON.stringify(
-      {
-        runtime: typeof bunVersion === "string" ? `bun ${bunVersion}` : `node ${process.version}`,
-        workload: {
-          pointCount: POINT_COUNT,
-          warmupSamples: WARMUP_SAMPLES,
-          measuredSamples: MEASURED_SAMPLES,
-          timerDurationMs: TIMER_DURATION_MS
-        },
-        samples,
-        wallMs: distribution(Arr.map(samples, ({ wallMs }) => wallMs)),
-        schedulerDelayMs: distribution(Arr.map(samples, ({ schedulerDelayMs }) => schedulerDelayMs)),
-        peakRssMiB: Math.max(...Arr.map(samples, ({ peakRssMiB }) => peakRssMiB))
-      },
-      null,
-      2
-    ))
-  )
+  const report = yield* Schema.encode(Report)({
+    runtime: Option.match(Option.fromNullable(process.versions.bun), {
+      onNone: () => "bun",
+      onSome: (version) => `bun ${version}`
+    }),
+    workload: {
+      pointCount: POINT_COUNT,
+      warmupSamples: WARMUP_SAMPLES,
+      measuredSamples: MEASURED_SAMPLES,
+      timerDurationMs: TIMER_DURATION_MS
+    },
+    samples,
+    wallMs: distribution(Arr.map(samples, ({ wallMs }) => wallMs)),
+    schedulerDelayMs: distribution(Arr.map(samples, ({ schedulerDelayMs }) => schedulerDelayMs)),
+    peakRssMiB: Arr.max(Arr.map(samples, ({ peakRssMiB }) => peakRssMiB), Num.Order)
+  })
+  yield* Console.log(report)
 })
 
-Effect.runPromise(program)
+BunRuntime.runMain(program)

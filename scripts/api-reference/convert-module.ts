@@ -1,6 +1,6 @@
 import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect, Option } from "effect"
-import { type Application } from "typedoc"
+import { type Application, type DocumentationEntryPoint } from "typedoc"
 
 import { attachLeadingModuleComment, hasCommentSummary, hasCommentTag, moduleReflection } from "./comments.js"
 import { type ApiConvertedModule } from "./converted.js"
@@ -14,7 +14,7 @@ const typeDocFailure = (packageName: string, detail: string): ApiReferenceGenera
 
 export const convertApiModule = (input: {
   readonly app: Application
-  readonly entrypoints: NonNullable<ReturnType<Application["getEntryPoints"]>>
+  readonly entrypoints: ReadonlyArray<DocumentationEntryPoint>
   readonly sourcePackage: ApiSourcePackage
   readonly module: ApiSourceModule
 }): Effect.Effect<ApiConvertedModule, ApiReferenceGenerationError, FileSystem.FileSystem | Path.Path> =>

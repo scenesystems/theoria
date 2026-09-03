@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
+import type { ApiDocumentation } from "@theoria/docs-model"
 import { Effect, HashSet } from "effect"
-import { documentationDiagnostics, searchIndexDiagnostics } from "./review-content.js"
+import { documentationDiagnostics, type ExpectedSearchEntry, searchIndexDiagnostics } from "./review-content.js"
 import {
   categoryDiagnostic,
   duplicateGroups,
@@ -78,11 +79,11 @@ describe("API review rules", () => {
 
   it.effect("separates summaries from remarks and qualifies deprecations", () =>
     Effect.sync(() => {
-      const docs = (summary: string, deprecated: string | null) => ({
-        summary: [{ kind: "text" as const, text: summary }],
+      const docs = (summary: string, deprecated: string | null): ApiDocumentation => ({
+        summary: [{ kind: "text", text: summary }],
         remarks: [],
         examples: [],
-        deprecated: deprecated === null ? null : [{ kind: "text" as const, text: deprecated }],
+        deprecated: deprecated === null ? null : [{ kind: "text", text: deprecated }],
         see: []
       })
       expect(documentationDiagnostics([
@@ -98,7 +99,7 @@ describe("API review rules", () => {
 
   it.effect("requires search entries to match canonical presentation metadata", () =>
     Effect.sync(() => {
-      const expected = {
+      const expected: ExpectedSearchEntry = {
         id: "pkg#value",
         package: "@scope/pkg",
         packageSlug: "pkg",
@@ -108,7 +109,7 @@ describe("API review rules", () => {
         summary: "Identifies the value.",
         path: "/docs/pkg/api",
         anchor: "api-value"
-      } as const
+      }
       expect(searchIndexDiagnostics([expected], [{ ...expected, kind: "symbol" }])).toHaveLength(0)
       expect(searchIndexDiagnostics([expected], [{ ...expected, kind: "symbol", summary: "Stale." }]))
         .toContain("pkg#value: search index mismatch")

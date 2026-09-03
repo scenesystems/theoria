@@ -75,10 +75,9 @@ const program = Effect.gen(function*() {
     return
   }
 
-  const encoded = yield* Effect.try({
-    try: () => JSON.stringify(updatedManifest, null, 2),
-    catch: () => new FixtureStampError(manifestPath, "manifest encode failed")
-  })
+  const encoded = yield* Schema.encode(FixtureManifestSchema)(updatedManifest).pipe(
+    Effect.mapError(() => new FixtureStampError(manifestPath, "manifest encode failed"))
+  )
 
   yield* fileSystem.writeFileString(manifestPath, `${encoded}\n`).pipe(
     Effect.mapError(() => new FixtureStampError(manifestPath, "failed to write manifest"))

@@ -2,10 +2,12 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "oxc", "unicorn", "import"],
   "options": {
+    "denyWarnings": true,
     "reportUnusedDisableDirectives": "error",
     "respectEslintDisableDirectives": false
   },
   "rules": {
+    "import/no-nodejs-modules": "error",
     "no-unused-expressions": "error",
     "no-unused-vars": [
       "error",
@@ -15,6 +17,15 @@
       }
     ],
     "require-yield": "off",
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-check": true,
+        "ts-expect-error": true,
+        "ts-ignore": true,
+        "ts-nocheck": true
+      }
+    ],
     "typescript/array-type": [
       "warn",
       {
@@ -37,15 +48,13 @@
     "typescript/no-wrapper-object-types": "error",
     "typescript/prefer-as-const": "off",
     "typescript/prefer-namespace-keyword": "error",
-    "typescript/triple-slash-reference": "error",
-    "unicorn/no-new-array": "off"
+    "typescript/triple-slash-reference": "error"
   },
   "overrides": [
     {
-      "files": ["**/*.d.ts", "packages/*/test/fixtures/**/*.ts"],
+      "files": ["packages/digest/src/internal/**/*.ts"],
       "rules": {
-        "no-unused-vars": "off",
-        "typescript/no-explicit-any": "off"
+        "unicorn/no-new-array": "off"
       }
     }
   ],

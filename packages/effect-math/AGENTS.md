@@ -15,7 +15,7 @@ Every change must pass all five gates clean — no bypasses, no suppressions:
 ```bash
 bun run check        # Type check source
 bun run check:tests  # Type check tests
-bun run lint         # ESLint with Effect rules
+bun run lint         # oxlint + ESLint Effect rules + dprint
 bun run test         # Vitest contract tests
 bun run build        # ESM + CJS + annotate-pure-calls
 ```

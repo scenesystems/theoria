@@ -26,7 +26,9 @@ const program = Effect.gen(function*() {
     onTrue: () =>
       fileSystem.writeFileString(artifactPath, `${encodedComputed}\n`).pipe(
         Effect.orDie,
-        Effect.zipRight(Effect.log(`Wrote calibration verification artifact: ${artifactPath}`))
+        Effect.zipRight(
+          Effect.log("Wrote calibration verification artifact").pipe(Effect.annotateLogs("artifactPath", artifactPath))
+        )
       ),
     onFalse: () =>
       fileSystem.readFileString(artifactPath).pipe(
@@ -48,7 +50,11 @@ const program = Effect.gen(function*() {
                 existingArtifact.scoringBenchmark.maxSlowdownRatio
               )
             ),
-            Effect.zipRight(Effect.log(`Verified calibration verification artifact: ${artifactPath}`))
+            Effect.zipRight(
+              Effect.log("Verified calibration verification artifact").pipe(
+                Effect.annotateLogs("artifactPath", artifactPath)
+              )
+            )
           )
         )
       )
