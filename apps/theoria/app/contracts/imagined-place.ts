@@ -15,7 +15,7 @@ export const placeScenarios: ReadonlyArray<PlaceScenario> = PlaceScenario.litera
 
 /**
  * What the visitor sees of a pattern before anything is built: its name and
- * the brief the recorded composition was made for. The server catalog uses the
+ * the brief the recorded composition was made for. The server scenarios use the
  * same brief, so editing it is the visible difference between "recorded for
  * this brief" and "your brief".
  *

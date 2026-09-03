@@ -7,9 +7,9 @@ import { ed25519Verify, utf8ToBytes } from "@scenesystems/sign"
 import { description, renderTrials } from "../../app/contracts/demo/imagined-place-arrangement.js"
 import { type PlaceBuildRequest, placeFeatures, placeScenarios } from "../../app/contracts/imagined-place.js"
 import { Participants, ParticipantsLive } from "../../app/server/imagined-place/authority.js"
-import { scenarioById } from "../../app/server/imagined-place/catalog.js"
 import { render } from "../../app/server/imagined-place/render.js"
 import { buildPlace } from "../../app/server/imagined-place/run.js"
+import { scenarioById } from "../../app/server/imagined-place/scenarios.js"
 
 const request: PlaceBuildRequest = {
   scenario: "unfinished-light",

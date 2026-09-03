@@ -159,7 +159,7 @@ export const PlaceHowItsBuilt = () => {
             <SemanticText
               as="h3"
               className="text-ink-900"
-              role="catalog-title"
+              role="subsection-title"
               text="How it's built"
               variant="expanded"
             />

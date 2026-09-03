@@ -8,7 +8,7 @@ import * as InferenceTesting from "@scenesystems/effect-inference/Testing"
 import type { InferenceEvidence } from "../../contracts/imagined-place-result.js"
 import { PlaceBuildError, PlaceComposition, ProposedFeature } from "../../contracts/imagined-place.js"
 
-import type { PlaceScenarioDefinition } from "./catalog.js"
+import type { PlaceScenarioDefinition } from "./scenarios.js"
 
 export const composerProgram = "theoria-place-composer"
 export const proposerProgram = "theoria-place-proposer"

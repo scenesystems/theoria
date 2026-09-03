@@ -82,7 +82,7 @@ export type Breadcrumb = typeof Breadcrumb.Type
  */
 export const PageKind = Schema.Union(
   Schema.TaggedStruct("Home", {}),
-  Schema.TaggedStruct("Catalog", {}),
+  Schema.TaggedStruct("DocsIndex", {}),
   Schema.TaggedStruct("Package", {
     packageName: NonEmptyString,
     version: NonEmptyString,
@@ -127,7 +127,7 @@ const packageImage = (docsPackage: DocsPackageSummary): ShareImage => ({
   alt: `${docsPackage.name} — ${docsPackage.description}`
 })
 
-const catalogCrumb: Breadcrumb = { name: "Packages", path: "/docs" }
+const docsIndexCrumb: Breadcrumb = { name: "Packages", path: "/docs" }
 
 /**
  * Page metadata for the home page.
@@ -145,15 +145,15 @@ export const metadataForHome = (): PageMetadata => ({
   kind: { _tag: "Home" }
 })
 
-const catalogMetadata: PageMetadata = {
+const docsIndexMetadata: PageMetadata = {
   title: "Packages — Theoria",
   description: siteMetadata.defaultDescription,
   canonicalPath: "/docs",
   ogType: "website",
   image: siteImage,
   indexable: true,
-  breadcrumbs: [catalogCrumb],
-  kind: { _tag: "Catalog" }
+  breadcrumbs: [docsIndexCrumb],
+  kind: { _tag: "DocsIndex" }
 }
 
 const missingMetadata: PageMetadata = {
@@ -163,7 +163,7 @@ const missingMetadata: PageMetadata = {
   ogType: "website",
   image: siteImage,
   indexable: false,
-  breadcrumbs: [catalogCrumb],
+  breadcrumbs: [docsIndexCrumb],
   kind: { _tag: "Missing" }
 }
 
@@ -174,7 +174,7 @@ const packageMetadata = (docsPackage: DocsPackageSummary): PageMetadata => ({
   ogType: "article",
   image: packageImage(docsPackage),
   indexable: true,
-  breadcrumbs: [catalogCrumb, { name: docsPackage.name, path: docsPackage.overview.path }],
+  breadcrumbs: [docsIndexCrumb, { name: docsPackage.name, path: docsPackage.overview.path }],
   kind: {
     _tag: "Package",
     packageName: docsPackage.name,
@@ -196,7 +196,7 @@ const articleMetadata = (
   ogType: "article",
   image: packageImage(docsPackage),
   indexable: true,
-  breadcrumbs: [catalogCrumb, { name: docsPackage.name, path: docsPackage.overview.path }, { name: headline, path }],
+  breadcrumbs: [docsIndexCrumb, { name: docsPackage.name, path: docsPackage.overview.path }, { name: headline, path }],
   kind: { _tag: "Article", headline, packageName: docsPackage.name, packagePath: docsPackage.overview.path }
 })
 
@@ -222,10 +222,10 @@ const packageContainingDocsPath = (manifest: DocsManifest, pathname: string) =>
       Option.isSome(moduleAt(docsPackage, pathname))
   )
 
-const isCatalogPath = (pathname: string): boolean => pathname === "/docs" || pathname === "/docs/"
+const isDocsIndexPath = (pathname: string): boolean => pathname === "/docs" || pathname === "/docs/"
 
 export const docsPathExists = (manifest: DocsManifest, pathname: string): boolean =>
-  isCatalogPath(pathname) || Option.isSome(packageContainingDocsPath(manifest, pathname))
+  isDocsIndexPath(pathname) || Option.isSome(packageContainingDocsPath(manifest, pathname))
 
 const metadataWithinPackage = (docsPackage: DocsPackageSummary, pathname: string): PageMetadata =>
   Option.match(guideAt(docsPackage, pathname), {
@@ -238,8 +238,8 @@ const metadataWithinPackage = (docsPackage: DocsPackageSummary, pathname: string
   })
 
 export const metadataForDocs = (manifest: DocsManifest, pathname: string): PageMetadata =>
-  isCatalogPath(pathname)
-    ? catalogMetadata
+  isDocsIndexPath(pathname)
+    ? docsIndexMetadata
     : Option.match(packageContainingDocsPath(manifest, pathname), {
       onNone: () => missingMetadata,
       onSome: (docsPackage) => metadataWithinPackage(docsPackage, pathname)

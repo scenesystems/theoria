@@ -6,23 +6,23 @@ import { StaticStore } from "./static-store.js"
 
 const manifestPathname = "/docs-data/manifest.json"
 
-export class DocsCatalogError extends Schema.TaggedError<DocsCatalogError>()("DocsCatalogError", {
+export class DocsManifestError extends Schema.TaggedError<DocsManifestError>()("DocsManifestError", {
   message: Schema.String
 }) {}
 
-export class DocsCatalog extends Context.Tag("@theoria/app/server/config/DocsCatalog")<
-  DocsCatalog,
+export class DocsManifestStore extends Context.Tag("@theoria/app/server/config/DocsManifestStore")<
+  DocsManifestStore,
   {
-    readonly manifest: Effect.Effect<DocsManifest, DocsCatalogError>
+    readonly manifest: Effect.Effect<DocsManifest, DocsManifestError>
   }
 >() {}
 
-const makeDocsCatalog = Effect.gen(function*() {
+const makeDocsManifestStore = Effect.gen(function*() {
   const store = yield* StaticStore
   const cached = yield* Ref.make(Option.none<DocsManifest>())
   const load = store.text(manifestPathname).pipe(
     Effect.flatMap(Schema.decode(DocsManifestJson)),
-    Effect.mapError((cause) => new DocsCatalogError({ message: String(cause) })),
+    Effect.mapError((cause) => new DocsManifestError({ message: String(cause) })),
     Effect.tap((manifest) => Ref.set(cached, Option.some(manifest)))
   )
   const manifest = Ref.get(cached).pipe(
@@ -32,7 +32,10 @@ const makeDocsCatalog = Effect.gen(function*() {
     }))
   )
 
-  return DocsCatalog.of({ manifest })
+  return DocsManifestStore.of({ manifest })
 })
 
-export const DocsCatalogLive: Layer.Layer<DocsCatalog, never, StaticStore> = Layer.effect(DocsCatalog, makeDocsCatalog)
+export const DocsManifestStoreLive: Layer.Layer<DocsManifestStore, never, StaticStore> = Layer.effect(
+  DocsManifestStore,
+  makeDocsManifestStore
+)

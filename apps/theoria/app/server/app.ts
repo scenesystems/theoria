@@ -2,7 +2,7 @@ import { HttpMiddleware } from "@effect/platform"
 import { Layer } from "effect"
 
 import { AnalyticsLive } from "./config/analytics.js"
-import { DocsCatalogLive } from "./config/docs-catalog.js"
+import { DocsManifestStoreLive } from "./config/docs-manifest-store.js"
 import { serverReleaseStage } from "./config/release-stage.js"
 import { RuntimeInfoLive } from "./config/runtime.js"
 import { ParticipantsLive } from "./imagined-place/authority.js"
@@ -29,7 +29,7 @@ const ReleaseStageCheck = Layer.effectDiscard(serverReleaseStage)
 
 export const AppLayer = Layer.mergeAll(
   ParticipantsLive,
-  DocsCatalogLive,
+  DocsManifestStoreLive,
   RuntimeInfoLive,
   AnalyticsLive,
   ReleaseStageCheck

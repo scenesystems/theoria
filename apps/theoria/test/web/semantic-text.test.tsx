@@ -151,7 +151,7 @@ describe("SemanticText", () => {
               <SemanticText
                 as="h3"
                 className="text-ink-900"
-                role="catalog-title"
+                role="subsection-title"
                 text="@scenesystems/effect-inference"
                 variant="compact"
               />
@@ -165,7 +165,7 @@ describe("SemanticText", () => {
               Effect.sync(() => container.querySelector("h3")).pipe(
                 Effect.filterOrFail(
                   (node): node is HTMLHeadingElement => node instanceof HTMLHeadingElement,
-                  () => "waiting-for-catalog-title"
+                  () => "waiting-for-subsection-title"
                 )
               )
             ).pipe(Effect.orDie)

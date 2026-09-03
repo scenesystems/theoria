@@ -5,7 +5,7 @@ import type { DocsManifest } from "@theoria/docs-model"
 import { headEntries } from "../../contracts/head.js"
 import { docsPathExists, metadataForDocs, metadataForHome, type PageMetadata } from "../../contracts/metadata.js"
 import { injectAnalytics, requestAnalytics } from "../analytics.js"
-import { DocsCatalog } from "../config/docs-catalog.js"
+import { DocsManifestStore } from "../config/docs-manifest-store.js"
 import { contentTypeForPath, StaticStore } from "../config/static-store.js"
 import { renderHead } from "../render-head.js"
 
@@ -70,9 +70,9 @@ const htmlStatus = (pathname: string, manifest: Option.Option<DocsManifest>): 20
 const htmlResponse = (pathname: string) =>
   Effect.gen(function*() {
     const store = yield* StaticStore
-    const docsCatalog = yield* DocsCatalog
+    const docsManifestStore = yield* DocsManifestStore
     const docsManifest = isDocsPath(pathname)
-      ? yield* Effect.option(docsCatalog.manifest)
+      ? yield* Effect.option(docsManifestStore.manifest)
       : Option.none()
     const analytics = yield* requestAnalytics
     const html = yield* store.text(indexPathname)

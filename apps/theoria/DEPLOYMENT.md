@@ -41,7 +41,7 @@ Worker and get metadata, hashed assets come from the assets layer with the `_hea
 WebAssembly grammar engine requires `'wasm-unsafe-eval'`). `home.test.ts`,
 `docs.test.ts`, and `docs-routes.test.ts` drive Chromium (Playwright, from
 Effect) against that same server: the Imagined Place build through the real
-API, the docs catalog against the generated manifest, docs navigation and
+API, the package index against the generated manifest, docs navigation and
 search, syntax highlighting, clipboard copy, every generated route, and
 responsive layouts. The suite needs a build first (`bun run build:web && bun
 run deploy:dry-run`) and Chromium (`bunx playwright install chromium`), so it

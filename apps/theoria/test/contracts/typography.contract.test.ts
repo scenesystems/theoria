@@ -39,7 +39,7 @@ describe("Typography contract", () => {
   it("keeps scoped package titles on one line while broader surface titles may wrap", () => {
     expect(semanticsFor("selection-title").lineBreaks).toBe("nowrap")
     expect(semanticsFor("section-title").lineBreaks).toBe("wrap")
-    expect(semanticsFor("catalog-title").lineBreaks).toBe("nowrap")
+    expect(semanticsFor("subsection-title").lineBreaks).toBe("nowrap")
     expect(semanticsFor("card-title").lineBreaks).toBe("wrap")
     expect(semanticsFor("hero-title").lineBreaks).toBe("wrap")
   })
@@ -47,7 +47,7 @@ describe("Typography contract", () => {
   it("ordinary copy defaults to native browser flow while code blocks stay projected", () => {
     expect(semanticsFor("hero-title").wrapAuthority).toBe("native-browser")
     expect(semanticsFor("hero-body").wrapAuthority).toBe("native-browser")
-    expect(semanticsFor("catalog-title").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("subsection-title").wrapAuthority).toBe("native-browser")
     expect(semanticsFor("card-title").wrapAuthority).toBe("native-browser")
     expect(semanticsFor("card-summary").wrapAuthority).toBe("native-browser")
     expect(semanticsFor("status").wrapAuthority).toBe("native-browser")

@@ -32,7 +32,7 @@ const PackagePill = ({ id }: { readonly id: CardId }) => {
   )
 }
 
-/** Only packages the catalog knows get a pill, so a typo here cannot produce a dead link. */
+/** Only packages in the docs manifest get a pill, so a typo here cannot produce a dead link. */
 const packagePills = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
   Arr.filterMap(ids, (id) =>
     Option.map(

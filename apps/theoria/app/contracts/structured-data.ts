@@ -77,7 +77,7 @@ const pageNodes = (metadata: PageMetadata): ReadonlyArray<JsonValue> =>
   Match.value(metadata.kind).pipe(
     Match.tag("Home", (): ReadonlyArray<JsonValue> => []),
     Match.tag("Missing", (): ReadonlyArray<JsonValue> => []),
-    Match.tag("Catalog", (): ReadonlyArray<JsonValue> => [
+    Match.tag("DocsIndex", (): ReadonlyArray<JsonValue> => [
       { "@type": "CollectionPage", name: metadata.title, ...pageCommon(metadata) },
       breadcrumbList(metadata)
     ]),

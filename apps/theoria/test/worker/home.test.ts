@@ -119,13 +119,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the package catalog stays complete and unscrolled across responsive widths", () =>
+    it.scoped("the package index stays complete and unscrolled across responsive widths", () =>
       Effect.gen(function*() {
         const { manifest } = yield* Site
         const { failures, page } = yield* openPage({ viewport: { width: 320, height: 800 } })
 
         yield* goto(page, "/")
-        // The home page is the integrated demo; the package catalog lives on the docs landing page.
+        // The home page is the integrated demo; the package index lives at /docs.
         yield* visible(page.getByRole("region", { name: "Imagined place demo" }))
         yield* count(page.locator("a[href^=\"/demos/\"]"), 0)
 
@@ -136,11 +136,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(Arr.sort(Arr.map(manifest.packages, (docsPackage) => docsPackage.slug), Str.Order)).toEqual(
           Arr.sort(Arr.map(cards, (card) => card.id), Str.Order)
         )
-        const catalog = page.locator("main")
-        const packageCards = catalog.locator("[data-docs-package]")
+        const packageIndex = page.locator("main")
+        const packageCards = packageIndex.locator("[data-docs-package]")
         yield* count(packageCards, manifest.packages.length)
         yield* Effect.forEach(manifest.packages, (docsPackage) => {
-          const card = catalog.locator(`[data-docs-package="${docsPackage.slug}"]`)
+          const card = packageIndex.locator(`[data-docs-package="${docsPackage.slug}"]`)
           return Effect.all([
             visible(card.getByRole("link", { name: docsPackage.name })),
             attribute(card.getByRole("link", { name: docsPackage.name }), "href", docsPackage.overview.path),
