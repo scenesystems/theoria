@@ -156,16 +156,19 @@ In **Settings → Environments**, create `staging` and `production`. Add
 `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as environment secrets to
 both. Restrict both environments to the `main` deployment branch so a workflow
 edited on a pull request cannot request either environment's secrets. Leave
-`staging` without required reviewers so previews and merged changes deploy
-automatically; add required reviewers to `production` so every release waits
-for approval after staging has been verified.
+both environments without required reviewers: every push to `main` deploys to
+staging, the Staging job's verify step exercises the live staging site, and the
+Production job, which `needs` that job, deploys the same build unattended only
+after that verification passes. Staging is the gate, so a release (including a
+merged Version Packages pull request) reaches the website in one run with no
+manual step. Adding a required reviewer to `production` turns that into a
+manual gate; if you do, approve within seven days of the push, because the
+build artifact expires after that and the Production job can no longer
+download it.
 
-Two consequences of that setup: `workflow_dispatch` runs from any branch other
-than `main` fail when the Staging job requests the environment (pull request
-previews are the way to review a branch), and a production approval must happen
-within seven days of the push, because the build artifact expires after that
-and the Production job can no longer download it. Re-run the workflow for that
-commit to rebuild if an approval is late.
+One consequence of the branch restriction: `workflow_dispatch` runs from any
+branch other than `main` fail when the Staging job requests the environment;
+pull request previews are the way to review a branch.
 
 ### Manual deploy
 
@@ -263,11 +266,10 @@ deploy:
    Domain** and entering `theoria.scenesystems.io` (the already uploaded Worker
    serves immediately), or by rerunning the failed `Production` job, whose
    `wrangler deploy` now creates the Custom Domain and its record.
-3. Approve `production` if the run asks again and let the verify step pass. It
-   polls `/api/health/live` for up to ten minutes until the hostname reports the
-   deployed `buildSha`; that covers certificate issuance for the new hostname
-   and resolvers that cached the wildcard answer for its 300-second TTL, which
-   the runner cannot bypass.
+3. Let the verify step pass. It polls `/api/health/live` for up to ten minutes
+   until the hostname reports the deployed `buildSha`; that covers certificate
+   issuance for the new hostname and resolvers that cached the wildcard answer
+   for its 300-second TTL, which the runner cannot bypass.
 
 Afterwards:
 
