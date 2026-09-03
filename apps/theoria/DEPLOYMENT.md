@@ -64,6 +64,45 @@ Worker exposes every string binding to Effect `Config`, so any variable
 documented in [`.env.example`](../../.env.example) can be set as a Wrangler
 `var`.
 
+### Abuse protection
+
+`POST /api/imagined-place/build` is the only route that does real work per
+request, so it is the only one an anonymous client can use to burn CPU time.
+Each target in `wrangler.jsonc` declares a Workers
+[rate limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
+named `PLACE_BUILD_LIMITER` (30 requests per 60 seconds per client address).
+The route checks it after the method and origin checks and before it reads the
+body; a refused request gets `429` with `retry-after: 60` and the
+`rate-limited` error code, and never reaches the build.
+
+Facts about the binding that matter when operating it:
+
+- Counters live per Cloudflare data center and are eventually consistent, so a
+  client near the limit can get a few requests past it. The limit is a
+  backstop against runaway clients, not an exact quota.
+- The three targets use distinct `namespace_id`s (`1001` production, `1002`
+  staging, `1003` shared by every preview Worker), so load on one never
+  refuses the others. Wrangler does **not** inherit `ratelimits` into named
+  environments; a target without its own entry deploys with no binding, and
+  every build request then fails with `500` because `env.PLACE_BUILD_LIMITER`
+  is undefined. `test/server/wrangler-config.test.ts` asserts every target
+  declares exactly one.
+- The key is `cf-connecting-ip`. Clients behind one NAT share a budget; there
+  is no other identity for an anonymous request.
+- The Bun dev server (`bun run dev`) provides an unlimited stand-in, so local
+  work never hits the limit. `wrangler dev` and the workerd test suite use
+  Miniflare's implementation of the binding, and
+  `test/worker/place-build-limit.test.ts` drives it to a real `429`.
+
+To change the limit, edit all three `simple.limit` values (period must stay
+`60`, which the route reports in `retry-after`) and deploy; the change ships
+with the next version like any other binding. To see refusals in production,
+filter Workers Logs (or `wrangler tail theoria --method POST`) for `429`
+responses on `/api/imagined-place/build`. Sustained refusals from many
+addresses mean a broader control (a WAF rate limiting rule on the zone, or
+Turnstile in front of the build) is due; the binding alone is sized for a
+single misbehaving client.
+
 ### Local commands
 
 ```sh
@@ -178,9 +217,12 @@ never uploads earlier revisions):
 
 ```sh
 bun run build:web
-bunx wrangler deploy --env staging --var BUILD_SHA:"$(git rev-parse HEAD)"
-bunx wrangler deploy --env ""      --var BUILD_SHA:"$(git rev-parse HEAD)"
+bunx wrangler deploy --env staging --var BUILD_SHA:"$(git rev-parse HEAD)" --tag "$(git rev-parse HEAD)"
+bunx wrangler deploy --env ""      --var BUILD_SHA:"$(git rev-parse HEAD)" --tag "$(git rev-parse HEAD)"
 ```
+
+`--tag` records the commit on the Worker version so it can be found again for
+a [rollback](#rolling-back).
 
 The deploy commands change Cloudflare routing; run them only as an approved
 release action. Verify a deployment in this order:
@@ -192,6 +234,64 @@ release action. Verify a deployment in this order:
 4. `POST /api/imagined-place/build` with a valid request returns `200`.
 5. On staging and previews only, every response carries
    `X-Robots-Tag: noindex`.
+
+## Rolling back
+
+Every `wrangler deploy` creates a Worker version that captures the bundled
+code, the static assets, the bindings, and the vars (including `BUILD_SHA`), and
+Cloudflare keeps the last 100. A rollback promotes one of those versions to the
+active deployment for every route the Worker serves; nothing is rebuilt, so
+the site is back on the earlier commit within seconds and `/api/health/live`
+reports that commit's `meta.buildSha` again. The rate-limit counters are
+resources outside the version and are untouched.
+
+Two paths, chosen by how fast the site has to change:
+
+**Immediate: promote the previous version.** Use this when production is
+serving something broken now. It needs an account member with Workers edit
+access, either at a workstation after `wrangler login` or in the dashboard.
+
+```sh
+cd apps/theoria
+bunx wrangler versions list --env ""         # production; --env staging for staging
+bunx wrangler rollback <version-id> --env "" --message "revert <reason>"
+```
+
+The workflows tag every version with the commit it was built from
+(`--tag <sha>`), so the list shows a `Tag` column of commit SHAs: pick the
+newest version tagged with the last known-good commit. (A version deployed by
+hand without `--tag` shows its commit only through `wrangler versions view
+<version-id>`, under the `BUILD_SHA` var.) Afterwards run `wrangler deployments
+list --env ""` and confirm the newest deployment carries the chosen version. In
+the dashboard the same action is **Workers & Pages → theoria → Deployments → ⋯
+on the version → Rollback**. Then verify with the checklist under
+[Manual deploy](#manual-deploy), watching `meta.buildSha`.
+
+A rollback does not change `main`. The next push to `main` deploys whatever
+`main` then contains, so follow the rollback with the second path, or the bad
+commit comes back on the next merge.
+
+**Durable: revert on `main`.** Use this for anything that can wait for one CI
+run (recent runs took six to eighteen minutes from push to production, most of
+it the build and the two live verify steps), and always after an immediate
+rollback:
+
+```sh
+git revert --no-edit <bad-commit>            # or a range: <first>^..<last>
+gh pr create --base main --fill
+```
+
+Merge the pull request as usual. The Theoria workflow builds the reverted tree,
+deploys it to staging, verifies it, and only then deploys production, so the
+revert takes exactly the path a release does and cannot skip the staging gate.
+If the revert also needs a package change, add a patch changeset like any other
+fix; the website deploy does not depend on package versions.
+
+Previews never need a rollback: push a fix to the pull request or close it.
+
+What a rollback cannot fix: a broken route or Custom Domain (routing is not
+part of a version; fix `wrangler.jsonc` and deploy) and certificate or DNS
+problems (see [Taking over a hostname](#taking-over-a-hostname)).
 
 ## Previews are public, pull-request-controlled code
 

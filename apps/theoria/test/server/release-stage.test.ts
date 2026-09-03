@@ -18,7 +18,7 @@ it.effect("treats an unset RELEASE_STAGE as preview, whatever else the environme
     const stage = yield* serverReleaseStage
 
     expect(stage).toBe("preview")
-  }).pipe(Effect.provide(withEnvironment({ NODE_ENV: "production", RAILWAY_ENVIRONMENT_NAME: "production" }))))
+  }).pipe(Effect.provide(withEnvironment({ NODE_ENV: "production", DEPLOY_TARGET: "production" }))))
 
 it.effect("rejects an unsupported RELEASE_STAGE instead of silently degrading", () =>
   Effect.gen(function*() {

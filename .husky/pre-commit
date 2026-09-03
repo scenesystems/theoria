@@ -6,24 +6,33 @@ echo "════════════════════════�
 echo "  Theoria Pre-commit Quality Checks"
 echo "═══════════════════════════════════════════"
 
-# 1. Lint & Format staged files
+# 1. Secrets scan on staged files
 echo ""
-echo "[1/3] Linting and formatting staged files..."
+echo "[1/4] Scanning staged files for secrets..."
+if ! git diff --cached --name-only -z --diff-filter=ACMR | xargs -0 bunx secretlint --no-terminalLink --no-glob; then
+  echo "FAILED: Possible secret in staged files. Remove it before committing."
+  exit 1
+fi
+echo "Secrets scan passed"
+
+# 2. Lint & Format staged files
+echo ""
+echo "[2/4] Linting and formatting staged files..."
 bunx lint-staged
 echo "Lint and format passed"
 
-# 2. Type checking
+# 3. Type checking
 echo ""
-echo "[2/3] Type checking (src + tests)..."
+echo "[3/4] Type checking (src + tests)..."
 if ! bun run check:all; then
   echo "FAILED: Type errors found. Fix before committing."
   exit 1
 fi
 echo "Type check passed"
 
-# 3. Tests
+# 4. Tests
 echo ""
-echo "[3/3] Running tests..."
+echo "[4/4] Running tests..."
 if ! bun run test; then
   echo "FAILED: Test failures found. Fix before committing."
   exit 1

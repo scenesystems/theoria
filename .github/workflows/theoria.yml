@@ -122,6 +122,7 @@ jobs:
           command: >-
             deploy .wrangler-out/worker.js --no-bundle --env staging
             --var BUILD_SHA:${{ needs.build.outputs.build-sha }}
+            --tag ${{ needs.build.outputs.build-sha }}
 
       - uses: ./.github/actions/theoria-verify-deployment
         with:
@@ -165,6 +166,7 @@ jobs:
           command: >-
             deploy .wrangler-out/worker.js --no-bundle --env=""
             --var BUILD_SHA:${{ needs.build.outputs.build-sha }}
+            --tag ${{ needs.build.outputs.build-sha }}
 
       # Cloudflare creates the hostname's DNS record for the Custom Domain, but
       # refuses while a hand-made record for the hostname exists (API error

@@ -8,9 +8,17 @@
 //   staging     wrangler deploy --env staging     theoria.staging.scenesystems.io
 //   preview     wrangler deploy --env preview --name theoria-pr-<N> --domain theoria-pr-<N>.staging.scenesystems.io
 //
-// `vars` are not inherited by named environments, so each target declares
-// `RELEASE_STAGE` explicitly. `routes` are inherited, so non-production
-// environments override them to avoid claiming the production hostname.
+// `vars` and `ratelimits` are not inherited by named environments, so each
+// target declares `RELEASE_STAGE` and `PLACE_BUILD_LIMITER` explicitly. `routes`
+// are inherited, so non-production environments override them to avoid
+// claiming the production hostname.
+//
+// `PLACE_BUILD_LIMITER` guards `POST /api/imagined-place/build`, the only
+// CPU-bound request the site serves. The key is the client address, so the
+// limit is "builds per address per minute, per Cloudflare location". Each
+// target has its own `namespace_id` because bindings sharing one share their
+// counters account-wide. The binding holds no data and is safe on public
+// preview Workers.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "theoria",
@@ -44,6 +52,15 @@
   "vars": {
     "RELEASE_STAGE": "production"
   },
+  "ratelimits": [
+    {
+      "name": "PLACE_BUILD_LIMITER",
+      "namespace_id": "1001",
+      // `period` must be 10 or 60. `app/server/platform/workers-rate-limit.ts`
+      // reports the same window in `retry-after`.
+      "simple": { "limit": 30, "period": 60 }
+    }
+  ],
   "routes": [
     {
       "pattern": "theoria.scenesystems.io",
@@ -57,6 +74,13 @@
         // Staging mirrors the production surface so it is a faithful rehearsal.
         "RELEASE_STAGE": "production"
       },
+      "ratelimits": [
+        {
+          "name": "PLACE_BUILD_LIMITER",
+          "namespace_id": "1002",
+          "simple": { "limit": 30, "period": 60 }
+        }
+      ],
       "routes": [
         {
           "pattern": "theoria.staging.scenesystems.io",
@@ -69,6 +93,14 @@
       "vars": {
         "RELEASE_STAGE": "preview"
       },
+      // All preview Workers share these counters, keyed by client address.
+      "ratelimits": [
+        {
+          "name": "PLACE_BUILD_LIMITER",
+          "namespace_id": "1003",
+          "simple": { "limit": 30, "period": 60 }
+        }
+      ],
       "routes": []
     }
   }

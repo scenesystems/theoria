@@ -1,15 +1,26 @@
 import { Headers, HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Schema } from "effect"
+import { Effect, Layer, Ref, Schema } from "effect"
+import * as Arr from "effect/Array"
 
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
+import { PlaceBuildLimiter, refused, unlimited } from "../../app/server/config/place-build-limiter.js"
 import { RuntimeInfo } from "../../app/server/config/runtime.js"
 import { ParticipantsLive } from "../../app/server/imagined-place/authority.js"
 import { imaginedPlacePath, imaginedPlaceRoute } from "../../app/server/routes/imagined-place.js"
 
 const RuntimeInfoTest = Layer.succeed(RuntimeInfo, { buildSha: "test-sha", startedAtMs: 0 })
-const RouteLive = Layer.merge(RuntimeInfoTest, ParticipantsLive)
+const RouteLive = Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, unlimited)
+
+/** Refuses every build and records the actors it was asked about. */
+const refusing = (seen: Ref.Ref<ReadonlyArray<string>>) =>
+  Layer.succeed(
+    PlaceBuildLimiter,
+    PlaceBuildLimiter.of({
+      admit: (actor) => Ref.update(seen, Arr.append(actor)).pipe(Effect.as(refused(60)))
+    })
+  )
 
 const encodeRequest = Schema.encode(Schema.parseJson(PlaceBuildRequest))
 
@@ -22,15 +33,15 @@ const jsonBody = (body: string) => request({ method: "POST", body, headers: { "c
 const crossSite = (serverRequest: HttpServerRequest.HttpServerRequest) =>
   serverRequest.modify({ headers: Headers.set(serverRequest.headers, "sec-fetch-site", "cross-site") })
 
-const call = (serverRequest: HttpServerRequest.HttpServerRequest) =>
+const call = (serverRequest: HttpServerRequest.HttpServerRequest, layer: typeof RouteLive = RouteLive) =>
   imaginedPlaceRoute(serverRequest, "req-1").pipe(
     Effect.flatMap((response) =>
       Effect.promise(() => HttpServerResponse.toWeb(response).json()).pipe(
         Effect.flatMap(Schema.decodeUnknown(PlaceBuildEnvelope)),
-        Effect.map((envelope) => ({ status: response.status, envelope }))
+        Effect.map((envelope) => ({ status: response.status, headers: response.headers, envelope }))
       )
     ),
-    Effect.provide(RouteLive)
+    Effect.provide(layer)
   )
 
 describe("server/routes/imagined-place", () => {
@@ -91,5 +102,31 @@ describe("server/routes/imagined-place", () => {
       const { envelope, status } = yield* call(crossSite(jsonBody(body)))
       expect(status).toBe(403)
       expect(!envelope.ok && envelope.error.code).toBe("cross-site-request")
+    }))
+
+  it.effect("answers a refused admission with 429, retry-after, and the client address as the actor", () =>
+    Effect.gen(function*() {
+      const seen = yield* Ref.make<ReadonlyArray<string>>([])
+      const body = yield* encodeRequest({
+        scenario: "drowned-library",
+        brief: "A reading room.",
+        acceptNeighbor: true,
+        acceptProgram: true
+      })
+      const fromAddress = request({
+        method: "POST",
+        body,
+        headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.7" }
+      })
+
+      const { envelope, headers, status } = yield* call(
+        fromAddress,
+        Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, refusing(seen))
+      )
+      expect(status).toBe(429)
+      expect(headers["retry-after"]).toBe("60")
+      expect(!envelope.ok && envelope.error.code).toBe("rate-limited")
+      expect(!envelope.ok && envelope.error.retryable).toBe(true)
+      expect(yield* Ref.get(seen)).toEqual(["203.0.113.7"])
     }))
 })

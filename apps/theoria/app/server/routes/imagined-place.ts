@@ -5,6 +5,7 @@ import * as ParseResult from "effect/ParseResult"
 import type { ErrorModel } from "../../contracts/error.js"
 import type { PlaceBuild, PlaceBuildEnvelope } from "../../contracts/imagined-place-result.js"
 import { PlaceBuildError, PlaceBuildRequest } from "../../contracts/imagined-place.js"
+import { PlaceBuildLimiter } from "../config/place-build-limiter.js"
 import { RuntimeInfo } from "../config/runtime.js"
 import type { Participants } from "../imagined-place/authority.js"
 import { buildPlace } from "../imagined-place/run.js"
@@ -17,37 +18,54 @@ import { buildPlace } from "../imagined-place/run.js"
  * metrics, and nothing about presentation reaches the server, so a content ID
  * can never depend on a screen. What the server does own is the participants'
  * session keys, which is why signing and sealing stay on this side.
+ *
+ * The build is the only CPU-bound work the site does, and it is anonymous, so
+ * each request first asks the `PlaceBuildLimiter` for admission by client
+ * address. A refusal is `429` with `retry-after`; the request body is not read.
  */
 export const imaginedPlacePath = "/api/imagined-place/build"
+
+/** Set by Cloudflare on every request; absent only when the app runs outside the edge. */
+const clientAddressHeader = "cf-connecting-ip"
 
 const statusFor = (code: ErrorModel["code"]): number =>
   Match.value(code).pipe(
     Match.when("invalid-request", () => 400),
     Match.when("method-not-allowed", () => 405),
     Match.when("cross-site-request", () => 403),
+    Match.when("rate-limited", () => 429),
     Match.orElse(() => 500)
   )
 
-const respond = (envelope: PlaceBuildEnvelope) =>
+type Rejection = {
+  readonly error: ErrorModel
+  readonly headers: Record<string, string>
+}
+
+const respond = (envelope: PlaceBuildEnvelope, headers: Record<string, string>) =>
   HttpServerResponse.json(envelope, {
     status: envelope.ok ? 200 : statusFor(envelope.error.code),
-    headers: {
-      "cache-control": "no-store",
-      ...(!envelope.ok && envelope.error.code === "method-not-allowed" ? { allow: "POST" } : {})
-    }
+    headers: { "cache-control": "no-store", ...headers }
   })
 
-const methodRejection: ErrorModel = {
-  code: "method-not-allowed",
-  message: "Place builds must use POST.",
-  retryable: false
+const methodRejection: Rejection = {
+  error: { code: "method-not-allowed", message: "Place builds must use POST.", retryable: false },
+  headers: { allow: "POST" }
 }
 
-const crossSiteRejection: ErrorModel = {
-  code: "cross-site-request",
-  message: "Cross-site place builds are not allowed.",
-  retryable: false
+const crossSiteRejection: Rejection = {
+  error: { code: "cross-site-request", message: "Cross-site place builds are not allowed.", retryable: false },
+  headers: {}
 }
+
+const rateLimitRejection = (retryAfterSeconds: number): Rejection => ({
+  error: {
+    code: "rate-limited",
+    message: `Too many place builds from this address. Try again in ${String(retryAfterSeconds)} seconds.`,
+    retryable: true
+  },
+  headers: { "retry-after": String(retryAfterSeconds) }
+})
 
 const unreadableBody: ErrorModel = {
   code: "invalid-request",
@@ -55,12 +73,21 @@ const unreadableBody: ErrorModel = {
   retryable: false
 }
 
-const accessRejection = (request: HttpServerRequest.HttpServerRequest): Option.Option<ErrorModel> =>
+const accessRejection = (request: HttpServerRequest.HttpServerRequest): Option.Option<Rejection> =>
   request.method !== "POST"
     ? Option.some(methodRejection)
     : request.headers["sec-fetch-site"] === "cross-site"
     ? Option.some(crossSiteRejection)
     : Option.none()
+
+/** Asks the limiter for admission; requests without a client address share one bucket. */
+const admission = (request: HttpServerRequest.HttpServerRequest) =>
+  Effect.gen(function*() {
+    const limiter = yield* PlaceBuildLimiter
+    const actor = request.headers[clientAddressHeader] ?? "unknown-client"
+    const decision = yield* limiter.admit(actor)
+    return decision._tag === "Admitted" ? Option.none() : Option.some(rateLimitRejection(decision.retryAfterSeconds))
+  })
 
 const failureModel = (
   error: PlaceBuildError | ParseResult.ParseError | HttpServerError.RequestError
@@ -97,18 +124,20 @@ export const imaginedPlaceRoute = (request: HttpServerRequest.HttpServerRequest,
     const startedAtMs = yield* Clock.currentTimeMillis
     const runtimeInfo = yield* RuntimeInfo
 
-    const outcome = yield* Option.match(accessRejection(request), {
-      onNone: () => build(request),
-      onSome: (rejection) => Effect.succeed(Either.left(rejection))
+    const rejection = yield* Option.match(accessRejection(request), {
+      onNone: () => admission(request),
+      onSome: (rejected) => Effect.succeed(Option.some(rejected))
+    })
+    const outcome = yield* Option.match(rejection, {
+      onNone: () => build(request).pipe(Effect.map(Either.mapLeft((error): Rejection => ({ error, headers: {} })))),
+      onSome: (rejected) => Effect.succeed(Either.left(rejected))
     })
 
     const endedAtMs = yield* Clock.currentTimeMillis
     const meta = { requestId, buildSha: runtimeInfo.buildSha, durationMs: endedAtMs - startedAtMs }
 
-    return yield* respond(
-      Either.match(outcome, {
-        onLeft: (error): PlaceBuildEnvelope => ({ ok: false, meta, error }),
-        onRight: (data): PlaceBuildEnvelope => ({ ok: true, meta, data })
-      })
-    )
+    return yield* Either.match(outcome, {
+      onLeft: ({ error, headers }) => respond({ ok: false, meta, error }, headers),
+      onRight: (data) => respond({ ok: true, meta, data }, {})
+    })
   })
