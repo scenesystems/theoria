@@ -1,35 +1,44 @@
-import { Option } from "effect"
+import { Match, Option } from "effect"
+import * as Arr from "effect/Array"
 
-import { fullCanonicalUrl, type PageMetadata } from "../../contracts/metadata.js"
+import { headEntries, type HeadEntry, structuredDataElementId } from "../../contracts/head.js"
+import type { PageMetadata } from "../../contracts/metadata.js"
 
-const setContent = (selector: string, content: string): void => {
-  Option.fromNullable(document.head.querySelector<HTMLMetaElement>(selector)).pipe(
+/**
+ * Updates the `<head>` after client-side navigation so the document matches
+ * what the Worker would have served for the new route. Only elements that
+ * already exist in the shell are touched; the Worker owns their creation.
+ */
+
+const setAttribute = (selector: string, attribute: string, value: string): void => {
+  Option.fromNullable(document.head.querySelector<HTMLElement>(selector)).pipe(
     Option.match({
       onNone: () => undefined,
-      onSome: (element) => element.setAttribute("content", content)
+      onSome: (element) => element.setAttribute(attribute, value)
     })
   )
 }
 
-const setCanonicalUrl = (canonicalPath: string): void => {
-  Option.fromNullable(document.head.querySelector<HTMLLinkElement>("link[rel=\"canonical\"]")).pipe(
-    Option.match({
-      onNone: () => undefined,
-      onSome: (element) => element.setAttribute("href", fullCanonicalUrl(canonicalPath))
-    })
+const applyEntry = (entry: HeadEntry): void =>
+  Match.value(entry).pipe(
+    Match.tag("Title", ({ text }) => {
+      document.title = text
+    }),
+    Match.tag("Meta", ({ attribute, content, key }) => setAttribute(`meta[${attribute}="${key}"]`, "content", content)),
+    Match.tag("Canonical", ({ href }) => setAttribute("link[rel=\"canonical\"]", "href", href)),
+    Match.tag("StructuredData", ({ json }) => {
+      Option.fromNullable(document.getElementById(structuredDataElementId)).pipe(
+        Option.match({
+          onNone: () => undefined,
+          onSome: (element) => {
+            element.textContent = json
+          }
+        })
+      )
+    }),
+    Match.exhaustive
   )
-}
 
 export const applyBrowserMetadata = (metadata: PageMetadata): void => {
-  const canonicalUrl = fullCanonicalUrl(metadata.canonicalPath)
-
-  document.title = metadata.title
-  setContent("meta[name=\"description\"]", metadata.description)
-  setContent("meta[property=\"og:title\"]", metadata.title)
-  setContent("meta[property=\"og:description\"]", metadata.description)
-  setContent("meta[property=\"og:url\"]", canonicalUrl)
-  setContent("meta[property=\"og:type\"]", metadata.ogType)
-  setContent("meta[name=\"twitter:title\"]", metadata.title)
-  setContent("meta[name=\"twitter:description\"]", metadata.description)
-  setCanonicalUrl(metadata.canonicalPath)
+  Arr.forEach(headEntries(metadata), applyEntry)
 }

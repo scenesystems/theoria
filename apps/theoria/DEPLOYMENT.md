@@ -140,6 +140,54 @@ addresses mean a broader control (a WAF rate limiting rule on the zone, or
 Turnstile in front of the build) is due; the binding alone is sized for a
 single misbehaving client.
 
+### Analytics
+
+Two providers are supported, each switched on by a public identifier declared
+in the production `vars` of `wrangler.jsonc` (`app/server/config/analytics.ts`
+reads them; an empty value disables that provider, a malformed one stops the
+Worker from starting):
+
+| Variable                 | Provider                 | Where to find the value                                                                                             |
+| ------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `GA_MEASUREMENT_ID`      | Google Analytics 4       | GA4 Admin → Data streams → the web stream's Measurement ID (`G-…`).                                                 |
+| `CF_WEB_ANALYTICS_TOKEN` | Cloudflare Web Analytics | Cloudflare dashboard → Web Analytics → add the site with **manual** setup and copy the `token` from the JS snippet. |
+
+The Worker emits the tags into the HTML shell only for requests on
+`theoria.scenesystems.io`, so staging and previews never report traffic even
+though they run the same bundle, and the Content Security Policy widens by
+exactly the hosts each configured provider needs (`app/server/security-headers.ts`).
+Nothing is inline: Google's `gtag.js` is bootstrapped by
+[`public/analytics/gtag-init.js`](./public/analytics/gtag-init.js), which sets
+Consent Mode v2 defaults to _denied_. GA4 therefore receives cookieless pings
+(`gcs=G100`) and stores nothing on the visitor's device; granting storage later
+only needs a consent UI that calls `gtag("consent", "update", …)`. Cloudflare
+Web Analytics is cookieless by design. In-app navigation is a `pushState`, which
+GA4 reports through enhanced measurement ("Page changes based on browser
+history events", on by default for the web stream); do not add manual
+`page_view` events or pages count twice. Turn off Cloudflare's automatic
+JavaScript injection for the zone if it is enabled: the strict CSP blocks the
+auto-injected snippet, and the manual tag already covers it.
+
+### Search and sharing metadata
+
+Every HTML response carries per-route metadata derived from one contract,
+`app/contracts/metadata.ts`: title, description, canonical URL, `robots`
+(`noindex` for unknown docs paths, which also return 404), Open Graph and
+Twitter cards with a 1200×630 share image, and JSON-LD (`WebSite` and the
+Scene `Organization` everywhere; `SoftwareSourceCode` on package pages;
+`TechArticle` on guides and API modules; `BreadcrumbList` on both). The Worker
+rewrites the placeholders in `index.html` (`app/server/render-head.ts`) and the
+browser applies the same entries after client-side navigation. `/sitemap.xml`
+lists the home page and every docs page from the shipped manifest;
+`/robots.txt` and `/llms.txt` are static.
+
+Share images and icons under `public/` (`social/*.png`, `apple-touch-icon.png`,
+`icon-*.png`, `favicon.ico`, `manifest.webmanifest`) are committed files
+rendered from `public/favicon.svg` by `bun run gen:social-assets`, which needs
+ImageMagick 7 (`magick`) on the machine that runs it. Re-run it after changing
+the mark, the site description, or a package's `package.json` description, and
+commit the output.
+
 ### Local commands
 
 ```sh

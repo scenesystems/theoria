@@ -2,9 +2,12 @@ import { HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
 
 import type { DocsManifest } from "@theoria/docs-model"
-import { docsPathExists, fullCanonicalUrl, metadataForDocs, metadataForHome } from "../../contracts/metadata.js"
+import { headEntries } from "../../contracts/head.js"
+import { docsPathExists, metadataForDocs, metadataForHome, type PageMetadata } from "../../contracts/metadata.js"
+import { injectAnalytics, requestAnalytics } from "../analytics.js"
 import { DocsCatalog } from "../config/docs-catalog.js"
 import { contentTypeForPath, StaticStore } from "../config/static-store.js"
+import { renderHead } from "../render-head.js"
 
 const indexPathname = "/index.html"
 
@@ -47,57 +50,16 @@ export const notFoundResponse = () =>
 /** Pathnames the public server refuses to serve even when a matching asset exists. */
 const isPrivatePath = (pathname: string): boolean => pathname.startsWith("/api/")
 
-const titlePattern = /<title>[^<]*<\/title>/u
-const metaPattern = (nameOrProperty: string): RegExp =>
-  new RegExp(`<meta\\s+(name|property)="${nameOrProperty}"\\s+content="[^"]*"\\s*/?>`, "u")
-const canonicalPattern = /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/u
+const metadataForPath = (pathname: string, docsManifest: Option.Option<DocsManifest>): PageMetadata =>
+  isDocsPath(pathname)
+    ? Option.match(docsManifest, {
+      onNone: metadataForHome,
+      onSome: (manifest) => metadataForDocs(manifest, pathname)
+    })
+    : metadataForHome()
 
-const escaped = (value: string): string =>
-  value.replace(/[&<>"']/gu, (character) =>
-    Match.value(character).pipe(
-      Match.when("&", () => "&amp;"),
-      Match.when("<", () => "&lt;"),
-      Match.when(">", () => "&gt;"),
-      Match.when("\"", () => "&quot;"),
-      Match.orElse(() => "&#39;")
-    ))
-
-const injectMetadata = (
-  html: string,
-  pathname: string,
-  docsManifest: Option.Option<DocsManifest>
-): string => {
-  const metadata = Match.value(pathname).pipe(
-    Match.when("/", () => metadataForHome()),
-    Match.when(indexPathname, () => metadataForHome()),
-    Match.orElse((value) =>
-      isDocsPath(value)
-        ? Option.match(docsManifest, {
-          onNone: metadataForHome,
-          onSome: (manifest) => metadataForDocs(manifest, value)
-        })
-        : metadataForHome()
-    )
-  )
-
-  const canonicalUrl = escaped(fullCanonicalUrl(metadata.canonicalPath))
-  const title = escaped(metadata.title)
-  const description = escaped(metadata.description)
-
-  return html
-    .replace(titlePattern, `<title>${title}</title>`)
-    .replace(metaPattern("description"), `<meta name="description" content="${description}" />`)
-    .replace(metaPattern("og:title"), `<meta property="og:title" content="${title}" />`)
-    .replace(metaPattern("og:description"), `<meta property="og:description" content="${description}" />`)
-    .replace(metaPattern("og:url"), `<meta property="og:url" content="${canonicalUrl}" />`)
-    .replace(metaPattern("og:type"), `<meta property="og:type" content="${metadata.ogType}" />`)
-    .replace(metaPattern("twitter:title"), `<meta name="twitter:title" content="${title}" />`)
-    .replace(
-      metaPattern("twitter:description"),
-      `<meta name="twitter:description" content="${description}" />`
-    )
-    .replace(canonicalPattern, `<link rel="canonical" href="${canonicalUrl}" />`)
-}
+const injectMetadata = (html: string, pathname: string, docsManifest: Option.Option<DocsManifest>): string =>
+  renderHead(html, headEntries(metadataForPath(pathname, docsManifest)))
 
 const htmlStatus = (pathname: string, manifest: Option.Option<DocsManifest>): 200 | 404 =>
   isDocsPath(pathname)
@@ -112,9 +74,10 @@ const htmlResponse = (pathname: string) =>
     const docsManifest = isDocsPath(pathname)
       ? yield* Effect.option(docsCatalog.manifest)
       : Option.none()
+    const analytics = yield* requestAnalytics
     const html = yield* store.text(indexPathname)
 
-    return HttpServerResponse.text(injectMetadata(html, pathname, docsManifest), {
+    return HttpServerResponse.text(injectAnalytics(injectMetadata(html, pathname, docsManifest), analytics), {
       status: htmlStatus(pathname, docsManifest),
       headers: {
         ...responseHeaders(indexPathname),

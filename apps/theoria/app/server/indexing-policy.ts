@@ -1,9 +1,7 @@
-import { Headers, HttpMiddleware, HttpServerRequest, HttpServerResponse } from "@effect/platform"
-import { Effect, Option } from "effect"
+import { HttpMiddleware, HttpServerResponse } from "@effect/platform"
+import { Effect } from "effect"
 
-import { siteMetadata } from "../contracts/metadata.js"
-
-const canonicalHost = new URL(siteMetadata.siteUrl).host
+import { requestIsCanonical } from "./canonical-host.js"
 
 /**
  * Keeps every hostname other than the canonical site out of search indexes.
@@ -15,11 +13,9 @@ const canonicalHost = new URL(siteMetadata.siteUrl).host
  */
 export const indexingPolicy = HttpMiddleware.make((app) =>
   Effect.gen(function*() {
-    const request = yield* HttpServerRequest.HttpServerRequest
+    const canonical = yield* requestIsCanonical
     const response = yield* app
 
-    return Option.exists(Headers.get(request.headers, "host"), (host) => host === canonicalHost)
-      ? response
-      : HttpServerResponse.setHeader(response, "x-robots-tag", "noindex")
+    return canonical ? response : HttpServerResponse.setHeader(response, "x-robots-tag", "noindex")
   })
 )

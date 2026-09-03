@@ -1,6 +1,6 @@
 # Theoria — Scene Systems
 
-> Interactive demonstrations of typed, composable libraries for scientific computing, optimization, and language model programming built with Effect.
+> Open-source TypeScript libraries for numerics, optimization, language-model programming, text layout, and cryptography, built with Effect.
 
 ## Packages
 
@@ -8,10 +8,15 @@
 - @scenesystems/effect-search: Effect-native black-box optimization for TypeScript
 - @scenesystems/effect-dsp: Effect-native DSPy — programming, not prompting, language models
 - @scenesystems/effect-text: Effect-native text preparation, measurement, and greedy multiline layout
-- @scenesystems/effect-inference: Provider-blind runtime descriptors, route resolution, and replay-safe runtime evidence
+- @scenesystems/effect-inference: Effect-native provider-blind inference runtime descriptors and resolution
+- @scenesystems/digest: Cryptographic content hashing and canonicalization for Effect
+- @scenesystems/seal: Authenticated encryption for Effect
+- @scenesystems/sign: Digital signatures, key agreement, and key encapsulation for Effect
 
 ## Links
 
 - Home: https://theoria.scenesystems.io
+- Documentation: https://theoria.scenesystems.io/docs
+- Sitemap: https://theoria.scenesystems.io/sitemap.xml
 - Source: https://github.com/scenesystems/theoria
 - Organization: https://scenesystems.io

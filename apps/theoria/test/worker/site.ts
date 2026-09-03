@@ -18,6 +18,9 @@ import { type DocsManifest, DocsManifestJson } from "@theoria/docs-model"
  */
 
 export const buildSha = "worker-test-sha"
+/** Analytics identifiers the harness configures; the Worker must emit them on the production host only. */
+export const testMeasurementId = "G-WORKERTEST"
+export const testBeaconToken = "0123456789abcdef0123456789abcdef"
 export const productionHost = "https://theoria.scenesystems.io"
 export const stagingHost = "https://theoria.staging.scenesystems.io"
 export const previewHost = "https://theoria-pr-7.staging.scenesystems.io"
@@ -95,7 +98,11 @@ export const SiteLive = Layer.scoped(
           workers: [{
             configPath: "./wrangler.jsonc",
             prebuiltWorkerDir: "./.wrangler-out",
-            vars: { BUILD_SHA: buildSha }
+            vars: {
+              BUILD_SHA: buildSha,
+              GA_MEASUREMENT_ID: testMeasurementId,
+              CF_WEB_ANALYTICS_TOKEN: testBeaconToken
+            }
           }]
         })
       ),
