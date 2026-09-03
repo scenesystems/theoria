@@ -75,6 +75,38 @@ The route checks it after the method and origin checks and before it reads the
 body; a refused request gets `429` with `retry-after: 60` and the
 `rate-limited` error code, and never reaches the build.
 
+**Status (2026-09-03): the binding is deployed but Cloudflare was not observed
+enforcing it.** After the first production deploy with the binding, 55 empty
+`POST`s over 52 seconds inside one window from one address at one location
+(`SEA`) against staging, and 40 against production, were all admitted; the
+same bundle in workerd (Miniflare) refuses the 31st. The deploy output lists
+`env.PLACE_BUILD_LIMITER (30 requests/60s)` for both targets and no request
+failed, so the binding is present and callable. A Cloudflare Community report
+from 2026-08-28 ("Workers Rate Limiting binding always returns success=true for
+the same key and colo") describes the same behaviour and is unresolved. Until
+that changes, treat the binding as defence in depth and put the enforced limit
+in the zone WAF:
+
+1. Dashboard → `scenesystems.io` → **Security → WAF → Rate limiting rules →
+   Create rule** (the API needs a token with **Zone → Zone WAF → Edit**; the
+   deploy token does not have it).
+2. Expression: `(http.request.uri.path eq "/api/imagined-place/build")`.
+   Method and hostname fields need the Business plan; on Free and Pro the
+   path applies to every hostname on the zone, which is fine because only this
+   Worker serves it.
+3. Characteristics `IP`; period `10 seconds` (the only period on Free); rate
+   `10 requests`; action `Block`; duration `10 seconds`. That is 60 per minute
+   sustained, with a 10-second block on bursts.
+4. Re-run the probe: from one address, 15 empty `POST`s within 10 seconds
+   should turn to `429` (Cloudflare's block page, not the Worker's envelope)
+   part-way through.
+
+Re-test the binding after Cloudflare answers the report. With both in place
+the WAF rule, evaluated before the Worker runs, stops bursts, and the binding
+caps a client that stays just under the WAF rate across a minute; the
+`test/worker/place-build-limit.test.ts` suite keeps the Worker side honest
+whichever way the platform behaves.
+
 Facts about the binding that matter when operating it:
 
 - Counters live per Cloudflare data center and are eventually consistent, so a
