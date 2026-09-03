@@ -3,9 +3,9 @@ name: Theoria
 # Builds the Theoria site once per commit and deploys that exact build to
 # Cloudflare Workers. Pull requests only build; `theoria-preview.yml` deploys the
 # uploaded build to a per-PR Worker with credentials the PR itself never sees.
-# Pushes to `main` deploy to staging and then to production. Production is a
-# GitHub environment, so its protection rules (required reviewers) gate the
-# final step. See `apps/theoria/DEPLOYMENT.md`.
+# Pushes to `main` deploy to staging and then to production. The Staging job's
+# verify step is the gate: Production needs it and runs unattended once staging
+# serves the build and its checks pass. See `apps/theoria/DEPLOYMENT.md`.
 
 on:
   workflow_dispatch:
