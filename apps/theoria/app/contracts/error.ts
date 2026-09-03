@@ -4,6 +4,7 @@ export const ErrorCode = Schema.Literal(
   "invalid-request",
   "method-not-allowed",
   "cross-site-request",
+  "rate-limited",
   "execution-failed",
   "route-not-found"
 )

@@ -4,6 +4,16 @@ import { Application, EntryPointStrategy } from "typedoc"
 import { ApiReferenceGenerationError } from "./model.js"
 import { type ApiSourcePackage } from "./source.js"
 
+const repositoryUrl = "https://github.com/scenesystems/theoria"
+
+/**
+ * Source links are pinned to the revision being documented. The template is
+ * supplied directly instead of letting TypeDoc discover it from git: TypeDoc
+ * only recognises a `.git` directory, so discovery fails in git worktrees, and
+ * the repository URL is fixed anyway.
+ */
+const sourceLinkTemplate = `${repositoryUrl}/blob/{gitRevision}/{path}#L{line}`
+
 export const bootstrapTypeDoc = (
   repositoryRoot: string,
   revision: string,
@@ -18,6 +28,8 @@ export const bootstrapTypeDoc = (
       basePath: repositoryRoot,
       displayBasePath: repositoryRoot,
       gitRevision: revision,
+      disableGit: true,
+      sourceLinkTemplate,
       alwaysCreateEntryPointModule: true,
       excludeInternal: true,
       excludePrivate: true,

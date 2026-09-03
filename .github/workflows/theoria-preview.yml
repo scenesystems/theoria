@@ -166,6 +166,7 @@ jobs:
             --name theoria-pr-${{ env.PR_NUMBER }}
             --domain theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io
             --var BUILD_SHA:${{ env.HEAD_SHA }}
+            --tag ${{ env.HEAD_SHA }}
 
       # The first deploy of a pull request creates a new Custom Domain; the verify
       # action waits up to ten minutes for its record and certificate.

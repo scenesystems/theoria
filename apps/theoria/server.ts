@@ -12,6 +12,7 @@ import { BunHttpServer, BunRuntime } from "@effect/platform-bun"
 import { Config, Effect, Layer } from "effect"
 
 import { AppLayer, publicApp } from "./app/server/app.js"
+import { unlimited as UnlimitedPlaceBuilds } from "./app/server/config/place-build-limiter.js"
 import * as BunStaticStore from "./app/server/platform/bun-static-store.js"
 
 const distRoot = decodeURIComponent(new URL("./dist/", import.meta.url).pathname)
@@ -28,6 +29,8 @@ const HttpLive = HttpServer.serve(publicApp, HttpMiddleware.logger).pipe(
   HttpServer.withLogAddress,
   Layer.provide(AppLayer),
   Layer.provideMerge(BunStaticStore.layer([distRoot, publicRoot])),
+  // Local development has no edge in front of it; abuse protection is a deployment concern.
+  Layer.provideMerge(UnlimitedPlaceBuilds),
   Layer.provide(ServerLive)
 )
 

@@ -62,3 +62,18 @@ it.effect("gives every deployment target an explicit release stage and hostname"
       expect(config.preview_urls).toBe(false)
     })
   }))
+
+it.effect("gives every deployment target its own place-build limiter (the binding is not inherited)", () =>
+  Effect.gen(function*() {
+    const configs = [yield* production, yield* staging, yield* preview]
+
+    const limiters = Arr.map(
+      configs,
+      (config) => Arr.filter(config.ratelimits, (limit) => limit.name === "PLACE_BUILD_LIMITER")
+    )
+    Arr.forEach(limiters, (found) => {
+      expect(found).toHaveLength(1)
+    })
+    const namespaces = Arr.flatMap(limiters, Arr.map((limit) => limit.namespace_id))
+    expect(Arr.dedupe(namespaces)).toHaveLength(configs.length)
+  }))
