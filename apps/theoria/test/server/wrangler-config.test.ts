@@ -1,7 +1,7 @@
 // @vitest-environment node
+import { Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { resolveRootFrom } from "@theoria/source-proof"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type Unstable_Config, unstable_readConfig } from "wrangler"
@@ -10,7 +10,9 @@ const projectRootUrl = new URL("../../", import.meta.url)
 
 /** Loads `wrangler.jsonc` through Wrangler itself so environment inheritance matches deploy time. */
 const readConfig = (env: Option.Option<string>): Effect.Effect<Unstable_Config> =>
-  resolveRootFrom(projectRootUrl).pipe(
+  Path.Path.pipe(
+    Effect.flatMap((path) => path.fromFileUrl(projectRootUrl)),
+    Effect.orDie,
     Effect.map((projectRoot) =>
       Option.match(env, {
         onNone: () => unstable_readConfig({ config: `${projectRoot}/wrangler.jsonc` }, { hideWarnings: true }),

@@ -70,8 +70,7 @@
     "@scenesystems/effect-math": "workspace:^"
   },
   "devDependencies": {
-    "@scenesystems/effect-inference": "workspace:^",
-    "@theoria/source-proof": "workspace:*"
+    "@scenesystems/effect-inference": "workspace:^"
   },
   "peerDependencies": {
     "@effect/experimental": "^0.61.1",

@@ -68,8 +68,5 @@
   "dependencies": {
     "@scenesystems/effect-math": "workspace:^",
     "@scenesystems/effect-search": "workspace:^"
-  },
-  "devDependencies": {
-    "@theoria/source-proof": "workspace:*"
   }
 }

@@ -1,7 +1,7 @@
 // @vitest-environment node
+import { Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, layer } from "@effect/vitest"
-import { resolveRootFrom } from "@theoria/source-proof"
 import { Clock, Duration, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type Unstable_Config, unstable_readConfig } from "wrangler"
@@ -17,7 +17,9 @@ const placeBuildLimiter = (config: Unstable_Config): Option.Option<Limiter> =>
  * The production limit, read through Wrangler so the test follows
  * `wrangler.jsonc` rather than restating it.
  */
-const configuredLimit = resolveRootFrom(new URL("../../", import.meta.url)).pipe(
+const configuredLimit = Path.Path.pipe(
+  Effect.flatMap((path) => path.fromFileUrl(new URL("../../", import.meta.url))),
+  Effect.orDie,
   Effect.map((projectRoot) => unstable_readConfig({ config: `${projectRoot}/wrangler.jsonc` }, { hideWarnings: true })),
   Effect.flatMap((config) =>
     Option.match(placeBuildLimiter(config), {

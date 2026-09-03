@@ -1,9 +1,9 @@
+import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import * as Browser from "../../src/Browser/index.js"
 
-import { readProjectFile } from "@theoria/source-proof"
 import {
   BrowserParityArtifactJsonSchema,
   browserParityArtifactRelativePath,
@@ -16,10 +16,13 @@ import { Text } from "../../src/index.js"
 const packageRootUrl = new URL("../../", import.meta.url)
 
 const readSyntheticRegressionArtifact = (profileId: Browser.BrowserSupportProfileIdType) =>
-  readProjectFile(packageRootUrl, browserParityArtifactRelativePath(profileId)).pipe(
-    Effect.flatMap((content) => Schema.decode(BrowserParityArtifactJsonSchema)(content).pipe(Effect.orDie)),
-    Effect.provide(BunContext.layer)
-  )
+  Effect.gen(function*() {
+    const fileSystem = yield* FileSystem.FileSystem
+    const content = yield* fileSystem.readFileString(
+      new URL(browserParityArtifactRelativePath(profileId), packageRootUrl).pathname
+    )
+    return yield* Schema.decode(BrowserParityArtifactJsonSchema)(content)
+  }).pipe(Effect.orDie, Effect.provide(BunContext.layer))
 
 describe("Text synthetic browser regression contracts", () => {
   it.effect("matches the checked-in synthetic artifacts for every shipped browser profile", () =>

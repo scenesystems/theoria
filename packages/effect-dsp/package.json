@@ -63,8 +63,7 @@
     "@scenesystems/effect-search": "workspace:^"
   },
   "devDependencies": {
-    "@scenesystems/effect-inference": "workspace:^",
-    "@theoria/source-proof": "workspace:*"
+    "@scenesystems/effect-inference": "workspace:^"
   },
   "peerDependencies": {
     "@effect/ai": ">=0.37.0",
