@@ -130,7 +130,7 @@ const program = Effect.gen(function*() {
   yield* fileSystem.makeDirectory(path.join(publicRoot, "social"), { recursive: true })
 
   const jobs: ReadonlyArray<ReadonlyArray<string>> = [
-    siteCard(mark, fonts, siteMetadata.tagline, siteMetadata.shortDescription, host, "social/theoria.png"),
+    siteCard(mark, fonts, `${siteMetadata.tagline}, built with Effect.`, host, "social/theoria.png"),
     ...Arr.map(packages, (published) =>
       packageCard(
         mark,

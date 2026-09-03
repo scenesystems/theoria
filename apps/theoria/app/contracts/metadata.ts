@@ -26,8 +26,6 @@ export const SiteMetadata = Schema.Struct({
   defaultDescription: NonEmptyString,
   /** The meaning of θεωρία, shown under the wordmark in the footer and on the site share image. */
   tagline: NonEmptyString,
-  /** What the project is, in one line, for the site share image. */
-  shortDescription: NonEmptyString,
   twitterHandle: Schema.Literal("@scenesystems"),
   locale: Schema.Literal("en_US"),
   repositoryUrl: Schema.Literal("https://github.com/scenesystems/theoria")
@@ -47,7 +45,6 @@ export const siteMetadata: SiteMetadata = {
   defaultDescription:
     "Open-source TypeScript libraries for numerics, optimization, language-model programming, text layout, and cryptography, built with Effect.",
   tagline: "Observation that produces knowledge",
-  shortDescription: "Open-source TypeScript libraries for Effect",
   twitterHandle: "@scenesystems",
   locale: "en_US",
   repositoryUrl: "https://github.com/scenesystems/theoria"
