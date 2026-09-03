@@ -167,15 +167,14 @@ jobs:
             --domain theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io
             --var BUILD_SHA:${{ env.HEAD_SHA }}
 
-      # The first deploy of a pull request creates a new Custom Domain, and its
-      # certificate can take several minutes to issue; allow up to ten.
+      # The first deploy of a pull request creates a new Custom Domain; the verify
+      # action waits up to ten minutes for its record and certificate.
       - uses: ./.github/actions/theoria-verify-deployment
         if: steps.current.outputs.deploy == 'true'
         with:
           url: https://theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io
           build-sha: ${{ env.HEAD_SHA }}
           noindex: "true"
-          attempts: "60"
 
       # The `staging` deployment above is recorded against `main`, not the pull
       # request's head, so GitHub does not surface its URL on the pull request.

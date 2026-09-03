@@ -14,8 +14,13 @@ inputs:
     description: Whether every response must carry the noindex robots header (`true` for staging and previews)
     required: true
   attempts:
-    description: How many times to poll `/api/health/live` before giving up
-    default: "30"
+    description: >
+      How many times to poll `/api/health/live` before giving up. The default
+      covers ten minutes: the first deployment to a hostname waits for Cloudflare
+      to issue its certificate, and a resolver that answered for the hostname
+      before the record existed keeps the zone's wildcard answer for that record's
+      TTL (300 seconds), which the runner cannot bypass.
+    default: "60"
   delay-seconds:
     description: Seconds to wait between polls
     default: "10"
@@ -34,13 +39,18 @@ runs:
         set -euo pipefail
         base="${BASE_URL%/}"
 
+        body=$(mktemp)
+
         for attempt in $(seq 1 "$ATTEMPTS"); do
-          served=$(curl --silent --max-time 20 "$base/api/health/live" | jq -r '.meta.buildSha // empty' 2>/dev/null || true)
+          : > "$body"
+          # `outcome` is the HTTP status, or curl's error message when no response arrived.
+          outcome=$(curl --silent --show-error --max-time 20 --output "$body" --write-out '%{http_code}' "$base/api/health/live" 2>&1 | tr -s '\r\n' ' ' || true)
+          served=$(jq -r '.meta.buildSha // empty' "$body" 2>/dev/null || true)
           if [ "$served" = "$BUILD_SHA" ]; then
             echo "$base serves build $BUILD_SHA (attempt $attempt)"
             exit 0
           fi
-          echo "Attempt $attempt/$ATTEMPTS: $base serves '${served:-<unreachable>}', waiting for $BUILD_SHA"
+          echo "Attempt $attempt/$ATTEMPTS: $base answered '${outcome}' with build '${served:-<none>}', waiting for $BUILD_SHA"
           sleep "$DELAY_SECONDS"
         done
 
