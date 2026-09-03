@@ -69,7 +69,7 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced by `eslint.config.mjs` with `--max-warnings=0`. Use `it.effect()` in tests.
+All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced by `eslint.config.mjs` (`--max-warnings=0`), `.oxlintrc.json` (`--deny-warnings`), `.dprint.json` formatting, and Effect diagnostics inside `tsc` via `@effect/tsgo`. Use `it.effect()` in tests.
 
 - Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use `@effect/platform`, Bun platform services, or package-owned abstractions instead.
 - Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.

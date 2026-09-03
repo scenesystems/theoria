@@ -2,14 +2,16 @@
  * ESLint Configuration for theoria monorepo
  *
  * Enforces Effect-native discipline across all packages.
- * TS formatting is handled by @effect/eslint-plugin (dprint), not prettier.
+ * TypeScript is parsed with @babel/eslint-parser: TypeScript 7 ships no
+ * JavaScript compiler API, so typescript-eslint cannot run against it.
+ * TypeScript-aware rules (unused vars, type imports, array-type, no-explicit-any)
+ * live in .oxlintrc.json; Effect diagnostics run inside `tsc` via @effect/tsgo.
+ * TS formatting is handled by the dprint CLI (.dprint.json), not prettier.
  * Prettier handles markdown/json/yaml only (see .prettierignore).
  */
 
+import babelParser from "@babel/eslint-parser"
 import js from "@eslint/js"
-import tseslint from "@typescript-eslint/eslint-plugin"
-import tsParser from "@typescript-eslint/parser"
-import * as effectEslint from "@effect/eslint-plugin"
 
 // ─── File Patterns ────────────────────────────────────────────────────────────
 // Shared constants for consistent targeting across config blocks.
@@ -29,7 +31,6 @@ const APP_TEST_FILES = ["apps/*/test/**/*.ts", "apps/*/test/**/*.mts", "apps/*/t
 const FIXTURE_FILES = ["packages/*/test/fixtures/**/*.ts"]
 const PACKAGE_FILES = [...SRC_FILES, ...TEST_FILES, ...EXAMPLE_FILES]
 const APP_FILES = [...APP_SRC_FILES, ...APP_TEST_FILES]
-const EFFECT_FILES = [...PACKAGE_FILES, ...APP_FILES]
 
 // ─── Effect Anti-Pattern Rules ────────────────────────────────────────────────
 // Full Effect-native discipline. Applied to src/, test/, and examples/.
@@ -248,16 +249,39 @@ export default [
   },
 
   // ── 3. TypeScript ───────────────────────────────────────────────────────
+  //    Babel parses TypeScript syntax; oxlint owns the TypeScript-aware rules.
+  //    The `jsx` parser plugin is enabled only for .tsx: with it on, Babel
+  //    reads generic arrows such as `<A>(x) => x` in .ts files as JSX.
+  {
+    name: "theoria/typescript-parser",
+    files: ["**/*.ts", "**/*.mts", "**/*.cts"],
+    languageOptions: {
+      parser: babelParser,
+      parserOptions: {
+        sourceType: "module",
+        requireConfigFile: false,
+        babelOptions: { babelrc: false, configFile: false, parserOpts: { plugins: ["typescript"] } }
+      }
+    }
+  },
+  {
+    name: "theoria/tsx-parser",
+    files: ["**/*.tsx"],
+    languageOptions: {
+      parser: babelParser,
+      parserOptions: {
+        sourceType: "module",
+        requireConfigFile: false,
+        babelOptions: { babelrc: false, configFile: false, parserOpts: { plugins: ["typescript", "jsx"] } }
+      }
+    }
+  },
   {
     name: "theoria/typescript",
     files: TS_FILES,
     languageOptions: {
-      parser: tsParser,
       ecmaVersion: 2024,
       sourceType: "module",
-      parserOptions: {
-        jsx: true
-      },
       globals: {
         console: "readonly",
         process: "readonly",
@@ -271,30 +295,34 @@ export default [
         vi: "readonly"
       }
     },
-    plugins: {
-      "@typescript-eslint": tseslint
-    },
     rules: {
-      // Disable base rules that conflict with TS
-      "no-undef": "off",
-      "no-unused-vars": "off",
-      "no-redeclare": "off",
+      // TypeScript reports these with TypeScript-aware semantics.
+      "constructor-super": "off",
+      "getter-return": "off",
+      "no-class-assign": "off",
+      "no-const-assign": "off",
+      "no-dupe-args": "off",
+      "no-dupe-class-members": "off",
+      "no-dupe-keys": "off",
       "no-fallthrough": "off",
+      "no-func-assign": "off",
+      "no-import-assign": "off",
       "no-irregular-whitespace": "off",
+      "no-new-native-nonconstructor": "off",
+      "no-obj-calls": "off",
+      "no-redeclare": "off",
+      "no-setter-return": "off",
+      "no-this-before-super": "off",
+      "no-undef": "off",
+      "no-unreachable": "off",
+      "no-unsafe-negation": "off",
+      "no-with": "off",
       "require-yield": "off",
 
-      // TypeScript rules
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
-      "@typescript-eslint/consistent-type-imports": "warn",
-      "@typescript-eslint/no-non-null-assertion": "off",
-      "@typescript-eslint/ban-types": "off",
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-empty-interface": "off",
-      "@typescript-eslint/ban-ts-comment": "off",
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/explicit-module-boundary-types": "off",
-      "@typescript-eslint/no-namespace": "off",
-      "@typescript-eslint/array-type": ["warn", { default: "generic", readonly: "generic" }],
+      // Owned by oxlint, which has TypeScript scope analysis.
+      "no-unused-vars": "off",
+      "no-unused-expressions": "off",
+
       "no-restricted-imports": [
         "error",
         {
@@ -306,7 +334,7 @@ export default [
           ],
           patterns: [
             {
-              group: ["node:*"] ,
+              group: ["node:*"],
               message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins."
             }
           ]
@@ -319,33 +347,7 @@ export default [
     }
   },
 
-  // ── 4. dprint formatting (Effect ecosystem convention) ──────────────────
-  {
-    name: "theoria/dprint",
-    files: EFFECT_FILES,
-    plugins: {
-      "@effect": effectEslint
-    },
-    rules: {
-      "@effect/dprint": [
-        "error",
-        {
-          config: {
-            useTabs: false,
-            indentWidth: 2,
-            lineWidth: 120,
-            semiColons: "asi",
-            quoteStyle: "alwaysDouble",
-            trailingCommas: "never",
-            operatorPosition: "maintain",
-            "arrowFunction.useParentheses": "force"
-          }
-        }
-      ]
-    }
-  },
-
-  // ── 5. Effect anti-pattern rules (src + test + examples) ─────────────────
+  // ── 4. Effect anti-pattern rules (src + test + examples) ─────────────────
   //    Split into named constants above so individual blocks can override
   //    for src-only or test-only rules in the future.
   {
@@ -364,7 +366,7 @@ export default [
     }
   },
 
-  // ── 5b. TSX relaxation — React props use `| undefined` inherently ──────
+  // ── 4b. TSX relaxation — React props use `| undefined` inherently ──────
   {
     name: "theoria/app-tsx-rules",
     files: ["apps/*/app/**/*.tsx"],
@@ -373,7 +375,7 @@ export default [
     }
   },
 
-  // ── 6. Fixture files (relaxed) ──────────────────────────────────────────
+  // ── 5. Fixture files (relaxed) ──────────────────────────────────────────
   {
     name: "theoria/fixtures",
     files: FIXTURE_FILES,
@@ -382,7 +384,7 @@ export default [
     }
   },
 
-  // ── 7. Declaration files ────────────────────────────────────────────────
+  // ── 6. Declaration files ────────────────────────────────────────────────
   {
     name: "theoria/declarations",
     files: ["**/*.d.ts"],

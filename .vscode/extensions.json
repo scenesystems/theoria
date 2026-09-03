@@ -1,6 +1,8 @@
 {
   "recommendations": [
     "dbaeumer.vscode-eslint",
+    "dprint.dprint",
+    "oxc.oxc-vscode",
     "esbenp.prettier-vscode",
     "effectful-tech.effect-vscode",
     "vitest.explorer"
