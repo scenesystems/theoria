@@ -41,7 +41,7 @@ runs:
         while IFS= read -r -d '' file; do
           case "${file#"$BUILD_ROOT/"}" in
             dist/_headers) ;;
-            dist/*.html|dist/*.css|dist/*.js|dist/*.json|dist/*.svg|dist/*.txt|dist/*.xml) ;;
+            dist/*.html|dist/*.css|dist/*.js|dist/*.json|dist/*.svg|dist/*.txt|dist/*.xml|dist/*.webmanifest) ;;
             dist/*.ico|dist/*.png|dist/*.webp|dist/*.woff|dist/*.woff2|dist/*.wasm) ;;
             .wrangler-out/worker.js|.wrangler-out/worker.js.map|.wrangler-out/*.wasm|.wrangler-out/README.md) ;;
             *)
