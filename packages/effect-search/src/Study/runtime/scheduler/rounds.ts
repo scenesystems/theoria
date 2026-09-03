@@ -3,7 +3,4 @@
  *
  * @since 0.1.0
  */
-export {
-  /** @since 0.1.0 */
-  runBrackets
-} from "./rounds/brackets.js"
+export { runBrackets } from "./rounds/brackets.js"

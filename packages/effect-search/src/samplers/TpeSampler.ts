@@ -3,12 +3,4 @@
  *
  * @since 0.1.0
  */
-export {
-  /**
-   * Construct a TPE sampler from runtime options.
-   *
-   * @since 0.1.0
-   * @category constructors
-   */
-  make
-} from "./Tpe/sampler.js"
+export { make } from "./Tpe/sampler.js"

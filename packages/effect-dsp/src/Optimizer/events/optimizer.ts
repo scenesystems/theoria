@@ -12,15 +12,7 @@ import { EvaluationEventSchema } from "./evaluation.js"
 import { type GEPAEvent as GEPAEventType, GEPAEventSchema } from "./gepa.js"
 import { type MIPROv2Event as MIPROv2EventType, MIPROv2EventSchema } from "./miprov2.js"
 
-export {
-  /**
-   * Decodes effect-search study events carried by the optimizer union.
-   *
-   * @since 0.1.4
-   * @category events
-   */
-  StudyEventSchema as EffectSearchInteropEventSchema
-} from "@scenesystems/effect-search/StudyEvent"
+export { StudyEventSchema as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
 
 /**
  * Decodes a tagged wrapper around one domain-specific event.

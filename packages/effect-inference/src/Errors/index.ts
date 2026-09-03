@@ -11,20 +11,9 @@
  */
 import { Schema } from "effect"
 
-export {
-  /** @since 0.1.0 */
-  CapabilityMismatch
-} from "./Capability.js"
-export {
-  /** @since 0.1.0 */
-  InvalidRuntimeConfig
-} from "./Config.js"
-export {
-  /** @since 0.1.0 */
-  RuntimeResolverNotImplemented,
-  /** @since 0.1.0 */
-  UnsupportedRoute
-} from "./RuntimeResolver.js"
+export { CapabilityMismatch } from "./Capability.js"
+export { InvalidRuntimeConfig } from "./Config.js"
+export { RuntimeResolverNotImplemented, UnsupportedRoute } from "./RuntimeResolver.js"
 
 import { CapabilityMismatch } from "./Capability.js"
 import { InvalidRuntimeConfig } from "./Config.js"

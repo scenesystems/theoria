@@ -10,24 +10,9 @@ import type { StudyState } from "../state.js"
 import { runtimeMutation, RuntimeState, type StudyRuntime } from "./bootstrap.js"
 import { canTransitionLifecycle, type StudyLifecycle } from "./lifecycle.js"
 
-export {
-  /** @since 0.1.0 */
-  RuntimeState,
-  /** @since 0.1.0 */
-  type StudyRuntime
-} from "./bootstrap.js"
-export {
-  /** @since 0.1.0 */
-  initializeRuntime,
-  /** @since 0.1.0 */
-  restoreRuntime,
-  /** @since 0.1.0 */
-  type RuntimeActor
-} from "./bootstrap.js"
-export type {
-  /** @since 0.1.0 */
-  StudyLifecycle
-} from "./lifecycle.js"
+export { RuntimeState, type StudyRuntime } from "./bootstrap.js"
+export { initializeRuntime, restoreRuntime, type RuntimeActor } from "./bootstrap.js"
+export type { StudyLifecycle } from "./lifecycle.js"
 
 /**
  * Supplies millisecond timestamps for trial start, duration, and completion

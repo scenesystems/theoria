@@ -93,10 +93,4 @@ export class ArtifactId extends Schema.Class<ArtifactId>("ArtifactId")({
   sequence: Schema.NonNegativeInt
 }) {}
 
-export {
-  /**
-   * @since 0.1.0
-   * @category models
-   */
-  ContentDigest
-} from "@scenesystems/digest"
+export { ContentDigest } from "@scenesystems/digest"

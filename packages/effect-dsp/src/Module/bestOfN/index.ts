@@ -113,19 +113,4 @@ export const bestOfN = <
     })
   })
 
-export {
-  /**
-   * Scores one output in the context of the input that produced it.
-   *
-   * The callback may perform Effect operations that require no service and
-   * have no typed failure. Defects and interruption retain normal Effect
-   * behavior. `bestOfN` uses the score; `refine` also uses the feedback.
-   *
-   * @see {@link MetricResult} for the score and optional feedback.
-   * @see {@link bestOfN} for the primary consumer.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  type RewardFn
-} from "./runtime.js"
+export { type RewardFn } from "./runtime.js"

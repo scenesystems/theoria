@@ -127,12 +127,4 @@ export const switchOn = <
   })
 }
 
-export {
-  /**
-   * Builds a conditional branch union; shorthand for {@link switchOn}.
-   *
-   * @since 0.1.0
-   * @category constructors
-   */
-  switchOn as switch
-}
+export { switchOn as switch }

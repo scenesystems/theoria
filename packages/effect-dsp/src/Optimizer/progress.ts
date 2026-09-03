@@ -50,56 +50,11 @@ export const formatBootstrapEvent = formatBootstrapProgressEvent
  */
 export const formatGEPAEvent = formatGEPAProgressEvent
 
-export {
-  /**
-   * Folds MIPROv2 events into progress counters and best observed scores.
-   *
-   * @since 0.1.0
-   * @category combinators
-   */
-  summarizeMIPROv2Events,
-  /**
-   * Runs an effectful formatter sink without changing MIPROv2 stream elements.
-   *
-   * @since 0.1.0
-   * @category combinators
-   */
-  tapMIPROv2Progress
-} from "../optimizers/MIPROv2/progress.js"
+export { summarizeMIPROv2Events, tapMIPROv2Progress } from "../optimizers/MIPROv2/progress.js"
 
-export {
-  /**
-   * Folds BootstrapFewShot events into round, trace, fallback, and completion data.
-   *
-   * @since 0.1.0
-   * @category combinators
-   */
-  summarizeBootstrapEvents,
-  /**
-   * Runs an effectful formatter sink without changing bootstrap stream elements.
-   *
-   * @since 0.1.0
-   * @category combinators
-   */
-  tapBootstrapProgress
-} from "../optimizers/BootstrapFewShot/progress.js"
+export { summarizeBootstrapEvents, tapBootstrapProgress } from "../optimizers/BootstrapFewShot/progress.js"
 
-export {
-  /**
-   * Folds GEPA events into lifecycle counts, frontier sizes, and completion data.
-   *
-   * @since 0.1.0
-   * @category combinators
-   */
-  summarizeGEPAEvents,
-  /**
-   * Runs an effectful formatter sink without changing GEPA stream elements.
-   *
-   * @since 0.1.0
-   * @category combinators
-   */
-  tapGEPAProgress
-} from "../optimizers/GEPA/progress.js"
+export { summarizeGEPAEvents, tapGEPAProgress } from "../optimizers/GEPA/progress.js"
 
 /**
  * Compares caller-evaluated exact-match scores and demonstration counts.
@@ -227,73 +182,17 @@ export const progress = {
   summarizeGEPAOutcome
 }
 
-export {
-  /**
-   * Compares MIPROv2 search and retained scores with a baseline.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  type MIPROv2OptimizationObservability
-} from "../optimizers/MIPROv2/observability.js"
+export { type MIPROv2OptimizationObservability } from "../optimizers/MIPROv2/observability.js"
+
+export { type MIPROv2ProgressLine, type MIPROv2ProgressSink } from "../optimizers/MIPROv2/progress.js"
 
 export {
-  /**
-   * Carries a MIPROv2 event tag and display text without complete instructions.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  type MIPROv2ProgressLine,
-  /**
-   * Consumes formatted MIPROv2 progress with custom Effect channels.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  type MIPROv2ProgressSink
-} from "../optimizers/MIPROv2/progress.js"
-
-export {
-  /**
-   * Aggregates bootstrap round, trace, fallback, and completion data.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   type BootstrapEventSummary,
-  /**
-   * Carries a BootstrapFewShot event tag and its complete formatted fields.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   type BootstrapProgressLine,
-  /**
-   * Consumes formatted bootstrap progress with custom Effect channels.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   type BootstrapProgressSink
 } from "../optimizers/BootstrapFewShot/progress.js"
 
-export {
-  /**
-   * Carries a GEPA event tag and display text with reduced frontier data.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  type GEPAProgressLine,
-  /**
-   * Consumes formatted GEPA progress with custom Effect channels.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  type GEPAProgressSink
-} from "../optimizers/GEPA/progress.js"
+export { type GEPAProgressLine, type GEPAProgressSink } from "../optimizers/GEPA/progress.js"
 
 const noOpProgressEffect = Effect.void
 

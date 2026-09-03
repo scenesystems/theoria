@@ -19,40 +19,10 @@ import { piAcquisition } from "./pi.js"
 import { thompsonAcquisition } from "./thompson.js"
 
 export {
-  /**
-   * Log-density and cost context passed to acquisition scoring functions.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   type AcquisitionContext,
-  /**
-   * Callable acquisition strategy with a name and scoring function.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   type AcquisitionImplementation,
-  /**
-   * Union of built-in acquisition names and custom implementations.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   type AcquisitionOption,
-  /**
-   * Literal union of built-in acquisition strategy names.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   type BuiltInAcquisitionName,
-  /**
-   * Schema for validating built-in acquisition strategy name literals.
-   *
-   * @since 0.1.0
-   * @category schemas
-   */
   BuiltInAcquisitionNameSchema
 } from "./model.js"
 
