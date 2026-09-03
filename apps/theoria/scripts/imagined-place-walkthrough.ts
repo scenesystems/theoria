@@ -11,7 +11,7 @@ import * as Arr from "effect/Array"
 import { type PlaceBuildRequest, placeFeatures } from "../app/contracts/imagined-place.js"
 import { type PlaceBuild, type PlaceRendering } from "../app/contracts/imagined-place-result.js"
 import { ParticipantsLive } from "../app/server/imagined-place/authority.js"
-import { scenarioById } from "../app/server/imagined-place/catalog.js"
+import { scenarioById } from "../app/server/imagined-place/scenarios.js"
 import { render } from "../app/server/imagined-place/render.js"
 import { buildPlace } from "../app/server/imagined-place/run.js"
 

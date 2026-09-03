@@ -5,7 +5,7 @@ import { Id } from "./id.js"
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
 /**
- * Package grouping for the home page catalog.
+ * Package grouping shared by the package index and the demo cards.
  *
  * - `effect`: scientific computing and model-program packages
  * - `scenesystems`: content and cryptography packages

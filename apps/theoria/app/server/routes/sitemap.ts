@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import type { DocsManifest } from "@theoria/docs-model"
 import { fullCanonicalUrl } from "../../contracts/metadata.js"
-import { DocsCatalog } from "../config/docs-catalog.js"
+import { DocsManifestStore } from "../config/docs-manifest-store.js"
 
 const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
 
@@ -19,8 +19,8 @@ export const docsSitemapPaths = (manifest: DocsManifest): ReadonlyArray<string> 
   )
 
 export const sitemapRoute = Effect.gen(function*() {
-  const docsCatalog = yield* DocsCatalog
-  const docsManifest = yield* Effect.option(docsCatalog.manifest)
+  const docsManifestStore = yield* DocsManifestStore
+  const docsManifest = yield* Effect.option(docsManifestStore.manifest)
   const docsPaths = Option.match(docsManifest, {
     onNone: () => ["/docs"],
     onSome: docsSitemapPaths

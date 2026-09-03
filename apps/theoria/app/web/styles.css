@@ -124,7 +124,7 @@
   /* Typography: per-role font-size tokens (generated — do not edit) */
   --st-fs-hero-title: 38px;
   --st-fs-hero-body: 18px;
-  --st-fs-catalog-title: 22px;
+  --st-fs-subsection-title: 22px;
   --st-fs-card-title: 24px;
   --st-fs-card-summary: 16px;
   --st-fs-status: 14px;
@@ -141,7 +141,7 @@
   /* Typography: per-role line-height tokens (generated — do not edit) */
   --st-lh-hero-title: 44px;
   --st-lh-hero-body: 30px;
-  --st-lh-catalog-title: 30px;
+  --st-lh-subsection-title: 30px;
   --st-lh-card-title: 32px;
   --st-lh-card-summary: 26px;
   --st-lh-status: 22px;
@@ -158,7 +158,7 @@
   /* Typography: per-role font-weight tokens (generated — do not edit) */
   --st-fw-hero-title: 600;
   --st-fw-hero-body: 400;
-  --st-fw-catalog-title: 600;
+  --st-fw-subsection-title: 600;
   --st-fw-card-title: 600;
   --st-fw-card-summary: 400;
   --st-fw-status: 400;
@@ -175,7 +175,7 @@
   /* Typography: per-role tracking tokens (generated — do not edit) */
   --st-tr-hero-title: -0.02em;
   --st-tr-hero-body: 0;
-  --st-tr-catalog-title: -0.01em;
+  --st-tr-subsection-title: -0.01em;
   --st-tr-card-title: -0.01em;
   --st-tr-card-summary: 0;
   --st-tr-status: 0;
@@ -192,7 +192,7 @@
   /* Typography: per-role font-family tokens (generated — do not edit) */
   --st-ff-hero-title: var(--font-display);
   --st-ff-hero-body: var(--font-body);
-  --st-ff-catalog-title: var(--font-display);
+  --st-ff-subsection-title: var(--font-display);
   --st-ff-card-title: var(--font-display);
   --st-ff-card-summary: var(--font-body);
   --st-ff-status: var(--font-body);
@@ -211,8 +211,8 @@
   --st-mw-hero-title-expanded: 920px;
   --st-mw-hero-body-compact: 600px;
   --st-mw-hero-body-expanded: 880px;
-  --st-mw-catalog-title-compact: 520px;
-  --st-mw-catalog-title-expanded: 1120px;
+  --st-mw-subsection-title-compact: 520px;
+  --st-mw-subsection-title-expanded: 1120px;
   --st-mw-card-title-compact: 520px;
   --st-mw-card-title-expanded: 1120px;
   --st-mw-card-summary-compact: 720px;
@@ -439,8 +439,8 @@
       --st-lh-hero-title: 38px;
       --st-fs-hero-body: 16px;
       --st-lh-hero-body: 24px;
-      --st-fs-catalog-title: clamp(14px, 4.6vw, 18px);
-      --st-lh-catalog-title: 24px;
+      --st-fs-subsection-title: clamp(14px, 4.6vw, 18px);
+      --st-lh-subsection-title: 24px;
       --st-fs-card-summary: 15px;
       --st-lh-card-summary: 22px;
       --st-fs-section-title: 21px;

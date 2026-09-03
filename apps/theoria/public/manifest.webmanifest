@@ -1,0 +1,23 @@
+{
+  "name": "Theoria",
+  "short_name": "Theoria",
+  "description": "Open-source TypeScript libraries for numerics, optimization, language-model programming, text layout, and cryptography, built with Effect.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#0b1326",
+  "theme_color": "#0b1326",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

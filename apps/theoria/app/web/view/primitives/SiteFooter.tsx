@@ -1,6 +1,7 @@
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
 import * as Arr from "effect/Array"
 
+import { siteMetadata } from "../../../contracts/metadata.js"
 import { Cluster, Section, Stack } from "./Layout.js"
 import { ExternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
@@ -49,7 +50,7 @@ export const SiteFooter = () => (
             as="p"
             className="hidden text-ink-500 md:block"
             role="status"
-            text="Observation that produces knowledge"
+            text={siteMetadata.tagline}
             variant="compact"
             wrapAuthority="native-browser"
           />
@@ -66,7 +67,7 @@ export const SiteFooter = () => (
         as="p"
         className="text-ink-500 md:hidden"
         role="status"
-        text="Observation that produces knowledge"
+        text={siteMetadata.tagline}
         variant="compact"
         wrapAuthority="native-browser"
       />

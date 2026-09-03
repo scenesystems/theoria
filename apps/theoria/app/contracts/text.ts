@@ -59,7 +59,7 @@ export const fontFamilyThemeTokens: ReadonlyArray<readonly [string, string]> = H
 export const TextRole = Schema.Literal(
   "hero-title",
   "hero-body",
-  "catalog-title",
+  "subsection-title",
   "card-title",
   "card-summary",
   "status",
@@ -137,8 +137,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineHeight: 30,
     maxWidth: { compact: 600, expanded: 880 }
   },
-  "catalog-title": {
-    role: "catalog-title",
+  "subsection-title": {
+    role: "subsection-title",
     family: "display",
     fontSize: 22,
     weight: "semibold",
@@ -298,7 +298,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
 export const textSemantics: ReadonlyArray<TextSemantics> = [
   textSemanticsByRole["hero-title"],
   textSemanticsByRole["hero-body"],
-  textSemanticsByRole["catalog-title"],
+  textSemanticsByRole["subsection-title"],
   textSemanticsByRole["card-title"],
   textSemanticsByRole["card-summary"],
 

@@ -50,7 +50,12 @@
     "run_worker_first": ["/", "/index.html", "/api/*", "/docs", "/docs/*", "/sitemap.xml"]
   },
   "vars": {
-    "RELEASE_STAGE": "production"
+    "RELEASE_STAGE": "production",
+    // Analytics identifiers are public (they ship in the HTML). The Worker emits
+    // the tags only on the canonical hostname, and an empty value disables that
+    // provider (see app/server/config/analytics.ts and DEPLOYMENT.md).
+    "GA_MEASUREMENT_ID": "G-SMK8QFW04J",
+    "CF_WEB_ANALYTICS_TOKEN": "de23599e871148f486778e8089909aa5"
   },
   "ratelimits": [
     {

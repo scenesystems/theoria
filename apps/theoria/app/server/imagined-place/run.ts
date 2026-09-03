@@ -6,9 +6,9 @@ import type { PlaceArtifact, PlaceBuildRequest, Proposal } from "../../contracts
 import { type PlaceBuildError, placeFeatures } from "../../contracts/imagined-place.js"
 
 import { type Participants, proposalId, signAs, versionId } from "./authority.js"
-import { scenarioById } from "./catalog.js"
 import { compose, propose } from "./compose.js"
 import { sendSealedNote } from "./note.js"
+import { scenarioById } from "./scenarios.js"
 
 /**
  * The whole demo behind the home page.

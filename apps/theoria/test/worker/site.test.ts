@@ -8,7 +8,18 @@ import * as Str from "effect/String"
 
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
-import { buildSha, json, previewHost, productionHost, Site, SiteLive, stagingHost, text } from "./site.js"
+import {
+  buildSha,
+  json,
+  previewHost,
+  productionHost,
+  Site,
+  SiteLive,
+  stagingHost,
+  testBeaconToken,
+  testMeasurementId,
+  text
+} from "./site.js"
 
 const PartialRequest = PlaceBuildRequest.pick("scenario")
 
@@ -49,7 +60,15 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(home.status).toBe(200)
       expect(home.headers.get("content-type")).toBe("text/html; charset=utf-8")
       expect(home.headers.get("cache-control")).toBe("no-cache")
-      expect(yield* text(home)).toContain(`<link rel="canonical" href="${productionHost}/" />`)
+      const homeHtml = yield* text(home)
+      expect(homeHtml).toContain(`<link rel="canonical" href="${productionHost}/" />`)
+      expect(homeHtml).toContain(`<meta property="og:image" content="${productionHost}/social/theoria.png" />`)
+      expect(homeHtml).toContain(`<meta name="twitter:card" content="summary_large_image" />`)
+      expect(homeHtml).toContain(`<meta name="robots" content="index, follow, max-image-preview:large" />`)
+      expect(homeHtml).toContain(
+        `<script type="application/ld+json" id="structured-data">{"@context":"https://schema.org"`
+      )
+      expect(homeHtml).toContain(`"@type":"WebSite"`)
 
       // `/index.html` exists as an asset; `run_worker_first` must still hand it to the Worker.
       const shell = yield* site.fetch(`${productionHost}/index.html`)
@@ -58,11 +77,18 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
 
       const overview = yield* site.fetch(`${productionHost}${firstPackage.overview.path}`)
       expect(overview.status).toBe(200)
-      expect(yield* text(overview)).toContain(`<title>${firstPackage.overview.title}`)
+      const overviewHtml = yield* text(overview)
+      expect(overviewHtml).toContain(`<title>${firstPackage.overview.title}`)
+      expect(overviewHtml).toContain(
+        `<meta property="og:image" content="${productionHost}/social/${firstPackage.slug}.png" />`
+      )
+      expect(overviewHtml).toContain(`"@type":"SoftwareSourceCode"`)
+      expect((yield* site.fetch(`/social/${firstPackage.slug}.png`)).headers.get("content-type")).toBe("image/png")
 
       const missingDocs = yield* site.fetch(`${productionHost}/docs/${firstPackage.slug}/no-such-guide`)
       expect(missingDocs.status).toBe(404)
       expect(missingDocs.headers.get("content-type")).toBe("text/html; charset=utf-8")
+      expect(yield* text(missingDocs)).toContain(`<meta name="robots" content="noindex, follow" />`)
 
       expect((yield* site.fetch(`${productionHost}/no-such-file.js`)).status).toBe(404)
     }))
@@ -106,6 +132,29 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
 
       expect((yield* site.fetch(`${previewHost}/api/health/live`)).headers.get("x-robots-tag")).toBe("noindex")
       expect((yield* site.fetch(`${previewHost}${site.hashedScript}`)).headers.get("x-robots-tag")).toBe("noindex")
+    }))
+
+  it.effect("reports analytics from the production hostname only, with a matching policy", () =>
+    Effect.gen(function*() {
+      const site = yield* Site
+
+      const production = yield* site.fetch(`${productionHost}/docs`)
+      const productionHtml = yield* text(production)
+      expect(productionHtml).toContain(`https://www.googletagmanager.com/gtag/js?id=${testMeasurementId}`)
+      expect(productionHtml).toContain(`data-measurement-id="${testMeasurementId}"`)
+      expect(productionHtml).toContain(`data-cf-beacon='{"token":"${testBeaconToken}"}'`)
+      expect(production.headers.get("content-security-policy")).toContain("https://www.googletagmanager.com")
+      expect(production.headers.get("content-security-policy")).toContain("https://static.cloudflareinsights.com")
+      expect((yield* site.fetch("/analytics/gtag-init.js")).status).toBe(200)
+
+      const staging = yield* site.fetch(`${stagingHost}/docs`)
+      const stagingHtml = yield* text(staging)
+      expect(stagingHtml).not.toContain("googletagmanager")
+      expect(stagingHtml).not.toContain("cloudflareinsights")
+      expect(staging.headers.get("content-security-policy")).toBe(
+        (yield* site.fetch(`${previewHost}/api/health/live`)).headers.get("content-security-policy")
+      )
+      expect(staging.headers.get("content-security-policy")).not.toContain("googletagmanager")
     }))
 
   it.effect("builds the sitemap from the shipped docs manifest", () =>

@@ -1,7 +1,8 @@
 import { HttpMiddleware } from "@effect/platform"
 import { Layer } from "effect"
 
-import { DocsCatalogLive } from "./config/docs-catalog.js"
+import { AnalyticsLive } from "./config/analytics.js"
+import { DocsManifestStoreLive } from "./config/docs-manifest-store.js"
 import { serverReleaseStage } from "./config/release-stage.js"
 import { RuntimeInfoLive } from "./config/runtime.js"
 import { ParticipantsLive } from "./imagined-place/authority.js"
@@ -17,10 +18,10 @@ import { securityHeaders } from "./security-headers.js"
  * built web bundle and a `ConfigProvider` for deployment variables.
  */
 export const publicApp = app.pipe(
-  // Innermost first: `indexingPolicy` reads the host after proxy headers apply.
+  // Innermost first: both policies read the host after proxy headers apply.
   indexingPolicy,
-  HttpMiddleware.xForwardedHeaders,
-  securityHeaders
+  securityHeaders,
+  HttpMiddleware.xForwardedHeaders
 )
 
 /** Fails layer construction when `RELEASE_STAGE` holds an unsupported value. */
@@ -28,7 +29,8 @@ const ReleaseStageCheck = Layer.effectDiscard(serverReleaseStage)
 
 export const AppLayer = Layer.mergeAll(
   ParticipantsLive,
-  DocsCatalogLive,
+  DocsManifestStoreLive,
   RuntimeInfoLive,
+  AnalyticsLive,
   ReleaseStageCheck
 )

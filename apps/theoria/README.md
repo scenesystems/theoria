@@ -40,7 +40,7 @@ session. The frontend development server uses port `5175`.
 - `server.ts` serves the app with Bun; `worker.ts` serves the same app as a
   Cloudflare Worker.
 - `app/contracts` defines the schemas shared by the server and browser: the
-  package catalog, docs routes, the Imagined Place request and result, the
+  package cards, docs routes, the Imagined Place request and result, the
   response envelope, and the text and theme tokens.
 - `app/server` serves static assets and the typed API: health, version,
   sitemap, and `POST /api/imagined-place/build`.
