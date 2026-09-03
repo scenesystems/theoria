@@ -44,7 +44,7 @@ export const siteMetadata: SiteMetadata = {
   defaultTitle: "Theoria — Scene Systems",
   defaultDescription:
     "Open-source TypeScript libraries for numerics, optimization, language-model programming, text layout, and cryptography, built with Effect.",
-  tagline: "Composable TypeScript libraries, built with Effect.",
+  tagline: "Reproducible results. Retained evidence. Visible effects.",
   twitterHandle: "@scenesystems",
   locale: "en_US",
   repositoryUrl: "https://github.com/scenesystems/theoria"

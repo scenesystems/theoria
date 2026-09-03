@@ -150,7 +150,7 @@ const logoLockup = (mark: Mark, fonts: Fonts, x: number, baseline: number, fontS
 export const siteCard = (mark: Mark, fonts: Fonts, tagline: string, host: string, output: string): ReadonlyArray<string> => [
   ...canvas(shareCardSize.width, shareCardSize.height, palette.stage),
   ...logoLockup(mark, fonts, margin, 296, 128),
-  ...annotate(fonts.sans, 44, palette.inkMuted, margin, 384, tagline),
+  ...annotate(fonts.sans, 40, palette.inkMuted, margin, 382, tagline),
   ...annotate(fonts.mono, 26, palette.inkFaint, margin, 560, host),
   ...png8(output)
 ]
