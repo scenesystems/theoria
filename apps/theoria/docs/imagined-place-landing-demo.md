@@ -142,6 +142,19 @@ size, the version chain, the line count at the stage width, the closest-marker
 distance, the running trial count), and the files that ran, linked to GitHub at
 the build's commit (`meta.buildSha`; `HEAD` when running locally).
 
+Every link into the docs on this page — a symbol in the code, a row under `In
+the reference`, a package pill on a step — is a `DocsLink`. A plain press does
+not leave the walkthrough: it opens a preview popover (`Popover`, non-modal)
+showing the package and version, the destination's own summary read from the
+manifest (an export's summary from its module index, fetched when the preview
+first opens), the page path, and the real `Open` link. `docsLinkTarget.ts`
+resolves the href against `docsManifestAtom`; an href the manifest does not
+know, or a manifest not yet loaded, renders an ordinary `InternalLink`. The
+trigger stays an `<a href>`, so copy link, middle-click and modifier presses
+keep their native meaning and never open the preview. Keyboard: `Enter` opens
+with focus on `Open`, `Enter` again navigates, `Escape` returns focus to the
+link. External GitHub source and commit links are unchanged.
+
 Text goes through `SemanticText` roles only; layout through `Layer`, `Stack`,
 `Cluster`, `Section`; state through effect-atom (`placeControlsAtom`,
 `placeBuildAtom`, `placeVersionChangeAtom`, `placeStageWidthAtom`,

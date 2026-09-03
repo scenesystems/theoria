@@ -1,8 +1,8 @@
 import type { Option } from "effect"
 import * as Arr from "effect/Array"
 
+import { DocsLink } from "../DocsLink.js"
 import { Layer } from "../Layout.js"
-import { InternalLink } from "../Link.js"
 import { SemanticText } from "../SemanticText.js"
 
 import { type CodeLink, type LineSegment, segmentLine } from "./codeLinks.js"
@@ -37,9 +37,14 @@ const Segment = ({ segment }: { readonly segment: LineSegment }) =>
   segment._tag === "Tokens"
     ? <Tokens tokens={segment.tokens} />
     : (
-      <InternalLink className={linkClassName} data-code-link={segment.link.text} href={segment.link.href}>
+      <DocsLink
+        className={linkClassName}
+        data-code-link={segment.link.text}
+        href={segment.link.href}
+        title={segment.link.text}
+      >
         <Tokens tokens={segment.tokens} />
-      </InternalLink>
+      </DocsLink>
     )
 
 /**

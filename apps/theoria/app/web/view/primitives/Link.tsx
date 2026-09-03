@@ -1,9 +1,10 @@
 import { useAtomSet } from "@effect-atom/atom-react"
-import type { AnchorHTMLAttributes, MouseEvent, ReactNode } from "react"
+import type { AnchorHTMLAttributes, ComponentProps, MouseEvent, ReactNode } from "react"
 
 import { navigateAtom, shouldNavigateInBrowser } from "../../atoms/navigation.js"
 
-type InternalLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
+/** Anchor props including React 19's `ref` prop, so a caller can move focus to the link. */
+type InternalLinkProps = Omit<ComponentProps<"a">, "href"> & {
   readonly href: string
 }
 

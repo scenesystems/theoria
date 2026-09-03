@@ -18,11 +18,13 @@ import {
   fitsViewport,
   focus,
   goto,
+  hidden,
   hover,
   openPage,
   overflowingElements,
   press,
   setViewport,
+  urlMatches,
   visible
 } from "./browser.js"
 import { SiteLive } from "./site.js"
@@ -156,6 +158,44 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* goto(page, href)
             yield* attached(page.locator(`#${href.slice(href.indexOf("#") + 1)}`))
           }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a docs link previews its destination on a plain press and only the preview's own link leaves the page", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* setViewport(page, { width: 390, height: 844 })
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+
+        const section = page.locator("[data-place-how-its-built]")
+        const reference = section.locator("[data-place-reference]").first()
+        const href = Option.getOrThrow(Option.fromNullable(yield* act(() => reference.getAttribute("href"))))
+        const preview = page.locator(`[data-docs-link-preview='${href}']`)
+
+        yield* click(reference)
+        yield* visible(preview)
+        yield* urlMatches(page, /\/$/u)
+        yield* containsText(preview, /v\d+\.\d+\.\d+/u)
+        yield* containsText(preview, href.slice(1, href.indexOf("#")))
+        yield* eventually(
+          () => preview.evaluate((popup) => popup.getBoundingClientRect().right <= window.innerWidth),
+          true
+        )
+
+        yield* press(page, "Escape")
+        yield* hidden(preview)
+        yield* eventually(() => reference.evaluate((link) => link === document.activeElement), true)
+
+        yield* press(page, "Enter")
+        yield* visible(preview)
+        yield* eventually(
+          () => page.evaluate(() => document.activeElement?.hasAttribute("data-docs-link-open") ?? false),
+          true
+        )
+        yield* press(page, "Enter")
+        yield* eventually(() => page.evaluate(() => location.pathname + location.hash), href)
+        yield* attached(page.locator(`#${href.slice(href.indexOf("#") + 1)}`))
         expect(yield* failures).toEqual([])
       }))
   }

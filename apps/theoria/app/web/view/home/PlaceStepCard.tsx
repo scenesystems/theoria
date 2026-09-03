@@ -9,8 +9,8 @@ import type { Id as CardId } from "../../../contracts/id.js"
 import { toneForCard } from "../../../contracts/theme.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
+import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
-import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 import { type PlaceStep, placeStepDefinition } from "./placeSteps.js"
@@ -22,12 +22,13 @@ const packagePillClassName =
 const PackagePill = ({ id }: { readonly id: CardId }) => {
   const tone = toneClassesFor(toneForCard(id))
   return (
-    <InternalLink
+    <DocsLink
       className={`${packagePillClassName} ${tone.borderSubtle} ${tone.bgTinted} ${tone.focusRing}`}
       href={`/docs/${id}`}
+      title={id}
     >
       <SemanticText as="span" className={tone.text} role="code-meta" text={id} />
-    </InternalLink>
+    </DocsLink>
   )
 }
 

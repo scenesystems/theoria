@@ -10,8 +10,9 @@ import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildAtom, placeBuildShaAtom, placeStepAtom } from "../../atoms/imagined-place.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
+import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
-import { ExternalLink, InternalLink } from "../primitives/Link.js"
+import { ExternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { TabBar, TabButton } from "../primitives/TabBar.js"
 
@@ -46,10 +47,15 @@ const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => 
   const tone = toneClassesFor(toneForCard(reference.package))
   return (
     <Layer as="li">
-      <InternalLink className={rowLinkClassName} data-place-reference={reference.text} href={reference.href}>
+      <DocsLink
+        className={rowLinkClassName}
+        data-place-reference={reference.text}
+        href={reference.href}
+        title={reference.text}
+      >
         <SemanticText as="code" className="text-ink-900" role="code-meta" text={reference.text} />
         <SemanticText as="span" className={`shrink-0 ${tone.text}`} role="code-meta" text={reference.package} />
-      </InternalLink>
+      </DocsLink>
     </Layer>
   )
 }
