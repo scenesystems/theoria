@@ -41,6 +41,7 @@ export const CodeBlock = ({
   source
 }: {
   readonly annotations?: ReadonlyArray<CodeAnnotation>
+  /** A short title for the header's single fixed-height line ("Signature", "Example 2", a step name). */
   readonly label: string
   readonly language?: CodeLanguage
   readonly links?: ReadonlyArray<CodeLink>
@@ -53,15 +54,14 @@ export const CodeBlock = ({
 
   return (
     <Section aria-label={`${label} code example`} className={docsTheme.code}>
-      <Cluster className="justify-between gap-3 border-b border-stage-200/78 bg-stage-50/60 px-4 py-2.5 sm:px-5">
-        <Layer className="min-w-0 flex-1 basis-48">
+      <Cluster className="flex-nowrap justify-between gap-3 border-b border-stage-200/78 bg-stage-50/60 px-4 py-2.5 sm:px-5">
+        <Layer className="min-w-0 flex-1">
           <SemanticText
-            as="p"
-            className="text-ink-600"
+            as="code"
+            className="block truncate text-ink-600"
             role="code-meta"
             text={label}
             variant="expanded"
-            wrapAuthority="native-browser"
           />
         </Layer>
         <Cluster className="shrink-0 gap-2">

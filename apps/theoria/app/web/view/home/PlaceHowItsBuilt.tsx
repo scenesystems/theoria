@@ -77,10 +77,6 @@ const CommitLink = ({ sha }: { readonly sha: string }) => (
   </ExternalLink>
 )
 
-/** Package names keep their hyphens when the label wraps: a non-breaking hyphen (U+2011) instead of a break opportunity. */
-const codeLabel = (name: string, packages: ReadonlyArray<string>): string =>
-  `${name} · ${Arr.join(Arr.map(packages, (id) => id.replaceAll("-", "\u2011")), ", ")}`
-
 const StepTabs = ({ step }: { readonly step: PlaceStep }) => {
   const setStep = useAtomSet(placeStepAtom)
   return (
@@ -102,7 +98,8 @@ const StepTabs = ({ step }: { readonly step: PlaceStep }) => {
 /**
  * The step's code with two things a listing cannot show: every API name links
  * to its reference page, and beside the lines that produced them are the
- * values from the build on this page.
+ * values from the build on this page. The header names only the step; which
+ * package each call comes from is beside that call in the reference rail.
  */
 const StepCode = ({ step }: { readonly step: PlaceStep }) => {
   const build = Result.value(useAtomValue(placeBuildAtom))
@@ -113,7 +110,7 @@ const StepCode = ({ step }: { readonly step: PlaceStep }) => {
     <Layer data-place-code-step={step} key={placeStepIndex(step)}>
       <CodeBlock
         annotations={placeLiveValues(step, build, frame)}
-        label={codeLabel(definition.name, definition.packages)}
+        label={definition.name}
         links={referenceLinks(step)}
         source={definition.code}
       />
