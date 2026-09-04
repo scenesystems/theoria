@@ -2,6 +2,8 @@ import { Command, Path } from "@effect/platform"
 import { Console, Effect } from "effect"
 
 import { checkApiReferenceConsistency } from "./api-reference/consistency.js"
+import { loadDocsData } from "./api-reference/docs-data.js"
+import { checkApiExamples } from "./api-reference/examples.js"
 import { generateApiReference } from "./api-reference/generate.js"
 import { discoverApiSourcePackages } from "./api-reference/source.js"
 
@@ -25,8 +27,16 @@ export const apiReferenceProgram = Effect.gen(function*() {
     revision,
     sourcePackages
   })
-  const symbolCount = yield* checkApiReferenceConsistency({ manifest, browserOutputRoot }).pipe(
+  const docsData = yield* loadDocsData(browserOutputRoot)
+  const symbolCount = yield* checkApiReferenceConsistency(manifest, docsData).pipe(
     Effect.tapError((error) => Effect.forEach(error.diagnostics, (diagnostic) => Console.error(diagnostic)))
+  )
+  const exampleCount = yield* checkApiExamples(repositoryRoot, docsData.pages).pipe(
+    Effect.tapError((error) =>
+      error._tag === "ApiExampleError"
+        ? Effect.forEach(error.diagnostics, (diagnostic) => Console.error(diagnostic))
+        : Console.error(error.message)
+    )
   )
   const moduleCount = manifest.packages.reduce((count, apiPackage) => count + apiPackage.modules.length, 0)
   const routeCount = manifest.packages.reduce(
@@ -37,6 +47,8 @@ export const apiReferenceProgram = Effect.gen(function*() {
   yield* Console.log(
     `Semantic API reference complete: ${String(manifest.packages.length)} packages, ${String(moduleCount)} modules, ${
       String(routeCount)
-    } public routes, ${String(symbolCount)} search symbols verified -> api-reference/`
+    } public routes, ${String(symbolCount)} search symbols and ${
+      String(exampleCount)
+    } authored examples verified -> api-reference/`
   )
 })

@@ -12,6 +12,7 @@
     "api-reference/**/*.ts",
     "check-readme-examples.ts",
     "readme-examples/**/*.ts",
+    "typecheck/**/*.ts",
     "ensure-docs-assets.ts",
     "resolve-workspace-deps.ts",
     "../packages/digest/scripts/fixture-schemas.ts"

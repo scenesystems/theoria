@@ -92,7 +92,7 @@ Effect 4 exists only as release candidates and is out of scope. The published
 **TypeScript 7 ships no JavaScript compiler API.** The `typescript` package at
 7.0.2 exports `tsc` and a `version` string. The AST and program API used by
 `typedoc` (peer `typescript 5.x || 6.0.x`) and, for now, by
-`scripts/api-reference/{comments,review-examples}.ts` is not there.
+`scripts/api-reference/comments.ts` is not there.
 
 TypeScript's own migration notes suggest installing the 6.0 API under the name
 `typescript` via the `@typescript/typescript6` shim and the native compiler
@@ -270,8 +270,9 @@ whose `typescript` link points at 6.0.2.
   0.28 requires it. `scripts/api-reference/comments.ts` still parses leading
   module comments with that API only because most entrypoint files lack a
   `@module` or `@packageDocumentation` tag; adding the tags lets TypeDoc's
-  `reflection.comment` replace the parser. `review-examples.ts` can compile
-  examples by spawning `tsc` as `scripts/check-readme-examples.ts` does.
+  `reflection.comment` replace the parser. Authored `@example` blocks are
+  already compiled by spawning `tsc` through `scripts/typecheck/snippets.ts`,
+  shared with `scripts/check-readme-examples.ts`.
 - Effect warnings fail `tsc`; suggestions do not.
 - Vitest stops at 4.1, not 5.0, as requested; `.node-version` 22.23.1 already
   satisfies Vitest 5's Node floor.

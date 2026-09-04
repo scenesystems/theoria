@@ -6,59 +6,16 @@
  * mirrors the presented symbols.
  */
 
-import { FileSystem, Path } from "@effect/platform"
-import {
-  type ApiExport,
-  DocsApiExportPageJson,
-  type DocsApiModuleIndex,
-  DocsApiModuleIndexJson,
-  type DocsApiModuleSummary,
-  type DocsManifest,
-  DocsManifestJson,
-  DocsSearchIndexJson
-} from "@theoria/docs-model"
 import { Array as Arr, Effect, HashSet, Option, Schema, String as Str } from "effect"
 
 import { documentationLinkDiagnostics, documentationRecords, searchIndexDiagnostics } from "./consistency-rules.js"
+import type { DocsData, DocsPage } from "./docs-data.js"
 import type { ApiReferenceManifest, ApiReferenceModule, ApiReferenceRoute } from "./model.js"
 
 export class ApiReferenceConsistencyError extends Schema.TaggedError<ApiReferenceConsistencyError>()(
   "ApiReferenceConsistencyError",
   { diagnostics: Schema.Array(Schema.String) }
 ) {}
-
-const decodeFile = <A, I>(schema: Schema.Schema<A, I>, file: string) =>
-  Effect.flatMap(
-    FileSystem.FileSystem,
-    (fs) => fs.readFileString(file).pipe(Effect.flatMap(Schema.decodeUnknown(schema)), Effect.orDie)
-  )
-
-type LoadedPage = {
-  readonly pkg: DocsManifest["packages"][number]
-  readonly summary: DocsApiModuleSummary
-  readonly index: DocsApiModuleIndex
-  readonly exports: ReadonlyArray<ApiExport>
-}
-
-const loadPages = (browserOutputRoot: string) =>
-  Effect.gen(function*() {
-    const path = yield* Path.Path
-    const docsManifest = yield* decodeFile(DocsManifestJson, path.join(browserOutputRoot, "manifest.json"))
-    const assetFile = (asset: string) => path.join(browserOutputRoot, asset.replace(/^\/docs-data\//u, ""))
-    const searchIndex = yield* decodeFile(DocsSearchIndexJson, assetFile(docsManifest.searchIndexAsset))
-    const pages: ReadonlyArray<LoadedPage> = yield* Effect.forEach(docsManifest.packages, (pkg) =>
-      Effect.forEach(pkg.apiModules, (summary) =>
-        Effect.gen(function*() {
-          const index = yield* decodeFile(DocsApiModuleIndexJson, assetFile(summary.asset))
-          const exports = yield* Effect.forEach(
-            index.exports,
-            (entry) =>
-              decodeFile(DocsApiExportPageJson, assetFile(entry.asset)).pipe(Effect.map((_) => _.export))
-          )
-          return { pkg, summary, index, exports }
-        }), { concurrency: 8 }), { concurrency: 8 }).pipe(Effect.map(Arr.flatten))
-    return { searchIndex, pages }
-  })
 
 const modulesOf = (manifest: ApiReferenceManifest, packageName: string): ReadonlyArray<ApiReferenceModule> =>
   Option.match(Arr.findFirst(manifest.packages, (_) => _.name === packageName), {
@@ -72,7 +29,7 @@ const routesOf = (manifest: ApiReferenceManifest, packageName: string): Readonly
 const entrypointDiagnostics = (
   manifest: ApiReferenceManifest,
   targets: HashSet.HashSet<string>,
-  { pkg, summary, index, exports }: LoadedPage
+  { pkg, summary, index, exports }: DocsPage
 ): ReadonlyArray<string> => {
   const owner = `${pkg.name}/${summary.subpath}`
   const routes = routesOf(manifest, pkg.name)
@@ -124,7 +81,7 @@ const entrypointDiagnostics = (
 const sourceDiagnostics = (
   manifest: ApiReferenceManifest,
   targets: HashSet.HashSet<string>,
-  { pkg, summary, index }: LoadedPage
+  { pkg, summary, index }: DocsPage
 ): ReadonlyArray<string> => {
   const owner = `${pkg.name}/${summary.source}`
   const canonical = Arr.findFirst(routesOf(manifest, pkg.name), (_) => _.canonical && _.subpath === summary.subpath)
@@ -145,45 +102,43 @@ const sourceDiagnostics = (
   ])
 }
 
-export const checkApiReferenceConsistency = (input: {
-  readonly manifest: ApiReferenceManifest
-  readonly browserOutputRoot: string
-}): Effect.Effect<number, ApiReferenceConsistencyError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
-    const { pages, searchIndex } = yield* loadPages(input.browserOutputRoot)
-    const entrypoints = Arr.filter(pages, ({ summary }) => summary.kind === "entrypoint")
-    const sources = Arr.filter(pages, ({ summary }) => summary.kind === "source")
-    const targets = HashSet.fromIterable(Arr.flatMap(pages, ({ index }) =>
+export const checkApiReferenceConsistency = (
+  manifest: ApiReferenceManifest,
+  { pages, searchIndex }: DocsData
+): Effect.Effect<number, ApiReferenceConsistencyError> => {
+  const entrypoints = Arr.filter(pages, ({ summary }) => summary.kind === "entrypoint")
+  const sources = Arr.filter(pages, ({ summary }) => summary.kind === "source")
+  const targets = HashSet.fromIterable(
+    Arr.flatMap(pages, ({ index }) =>
       Arr.flatMap([index.path, ...index.aliases], (route) => [
         route,
         ...Arr.map(index.exports, (entry) => `${route}#${entry.anchor}`)
-      ])))
-    const expectedSearch = Arr.flatMap(entrypoints, ({ index, pkg, summary }) =>
-      Arr.map(index.exports, (entry) => {
-        const projected = Arr.findFirst(sources, (candidate) =>
-          candidate.pkg.name === pkg.name && Arr.some(candidate.index.exports, (_) =>
-            _.id === entry.id))
-        return {
-          id: entry.id,
-          package: pkg.name,
-          packageSlug: pkg.slug,
-          name: entry.name,
-          qualifiedName: `${
-            summary.subpath === "." ? pkg.name : `${pkg.name}/${summary.subpath.slice(2)}`
-          }.${entry.name}`,
-          category: entry.category,
-          summary: entry.summary,
-          path: Option.match(projected, { onNone: () => index.path, onSome: (_) => _.index.path }),
-          anchor: entry.anchor
-        }
-      }))
-    const diagnostics = [
-      ...Arr.flatMap(entrypoints, (page) => entrypointDiagnostics(input.manifest, targets, page)),
-      ...Arr.flatMap(sources, (page) => sourceDiagnostics(input.manifest, targets, page)),
-      ...searchIndexDiagnostics(expectedSearch, searchIndex.entries)
-    ]
-    if (Arr.isNonEmptyReadonlyArray(diagnostics)) {
-      return yield* new ApiReferenceConsistencyError({ diagnostics })
-    }
-    return expectedSearch.length
-  })
+      ]))
+  )
+  const expectedSearch = Arr.flatMap(entrypoints, ({ index, pkg, summary }) =>
+    Arr.map(index.exports, (entry) => {
+      const projected = Arr.findFirst(sources, (candidate) =>
+        candidate.pkg.name === pkg.name && Arr.some(candidate.index.exports, (_) => _.id === entry.id))
+      return {
+        id: entry.id,
+        package: pkg.name,
+        packageSlug: pkg.slug,
+        name: entry.name,
+        qualifiedName: `${
+          summary.subpath === "." ? pkg.name : `${pkg.name}/${summary.subpath.slice(2)}`
+        }.${entry.name}`,
+        category: entry.category,
+        summary: entry.summary,
+        path: Option.match(projected, { onNone: () => index.path, onSome: (_) => _.index.path }),
+        anchor: entry.anchor
+      }
+    }))
+  const diagnostics = [
+    ...Arr.flatMap(entrypoints, (page) => entrypointDiagnostics(manifest, targets, page)),
+    ...Arr.flatMap(sources, (page) => sourceDiagnostics(manifest, targets, page)),
+    ...searchIndexDiagnostics(expectedSearch, searchIndex.entries)
+  ]
+  return Arr.isNonEmptyReadonlyArray(diagnostics)
+    ? Effect.fail(new ApiReferenceConsistencyError({ diagnostics }))
+    : Effect.succeed(expectedSearch.length)
+}
