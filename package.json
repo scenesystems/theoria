@@ -74,7 +74,6 @@
     "@effect/tsgo": "0.40.0",
     "@effect/vitest": "0.30.0",
     "@effect/workflow": "0.19.1",
-    "@eslint/js": "^10.0.1",
     "@scenesystems/effect-search": "workspace:*",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
     "@theoria/docs-model": "workspace:*",

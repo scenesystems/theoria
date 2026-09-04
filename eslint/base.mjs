@@ -1,18 +1,25 @@
 /**
- * Base ESLint configuration: ignores, JavaScript recommended rules, globals and
- * the inline-configuration policy. Applied first.
+ * Base ESLint configuration: ignores and the inline-configuration policy.
+ * Applied first.
+ *
+ * Generic JavaScript and TypeScript diagnostics are owned by oxlint
+ * (.oxlintrc.json). ESLint carries only the Effect discipline that needs
+ * `no-restricted-syntax` selectors over the TypeScript AST.
  *
  * @module eslint/base
  */
 
-import js from "@eslint/js"
-
 /**
  * Framework configuration is infrastructure, not Effect orchestration. Generic
- * ESLint and oxlint policy still applies; Effect discipline does not.
+ * oxlint policy still applies; Effect discipline does not.
  */
 export const FRAMEWORK_CONFIG_PATTERNS = ["**/*.config.{ts,tsx,mts,cts}"]
 
+/**
+ * Kept identical to `ignorePatterns` in .oxlintrc.json so both linters see the
+ * same tree. `apps/*\/public/**` holds static browser scripts served verbatim;
+ * they are not authored Effect code.
+ */
 export const GLOBAL_IGNORES = [
   "**/dist/**",
   "**/build/**",
@@ -22,19 +29,9 @@ export const GLOBAL_IGNORES = [
   "**/__snapshots__/**",
   "**/fixtures/**/*.json",
   ".vendor/**",
-  ".tmp/**"
+  ".tmp/**",
+  "apps/*/public/**"
 ]
-
-const TEST_GLOBALS = {
-  describe: "readonly",
-  it: "readonly",
-  expect: "readonly",
-  beforeEach: "readonly",
-  afterEach: "readonly",
-  beforeAll: "readonly",
-  afterAll: "readonly",
-  vi: "readonly"
-}
 
 /**
  * @returns {import('eslint').Linter.Config[]}
@@ -58,35 +55,6 @@ export const base = () => [
         "error",
         { terms: ["eslint-disable", "oxlint-disable"], location: "anywhere" }
       ]
-    }
-  },
-  {
-    name: "theoria/base/js-recommended",
-    ...js.configs.recommended
-  },
-  {
-    name: "theoria/base/globals",
-    files: ["**/*.{ts,tsx,mts,cts}"],
-    languageOptions: {
-      ecmaVersion: 2024,
-      sourceType: "module",
-      globals: {
-        console: "readonly",
-        process: "readonly",
-        ...TEST_GLOBALS
-      }
-    }
-  },
-  {
-    // Static browser scripts served verbatim from an app's public/ directory.
-    name: "theoria/base/public-browser-scripts",
-    files: ["apps/*/public/**/*.js"],
-    languageOptions: {
-      sourceType: "script",
-      globals: {
-        window: "readonly",
-        document: "readonly"
-      }
     }
   }
 ]

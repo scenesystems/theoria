@@ -3,9 +3,12 @@
  *
  * Order matters in flat config: later entries override earlier ones.
  *
- * 1. base       → ignores, inline-configuration policy, JS recommended, globals
- * 2. typescript → Babel TypeScript parsers, TypeScript-safe rule adjustments
- * 3. scopes     → Effect discipline per repository area
+ * 1. base       → ignores, inline-configuration policy
+ * 2. typescript → Babel TypeScript parsers
+ * 3. scopes     → Effect discipline for every TypeScript file
+ *
+ * Generic JavaScript and TypeScript rules are owned by oxlint (.oxlintrc.json);
+ * the two linters do not overlap.
  *
  * @module eslint
  */

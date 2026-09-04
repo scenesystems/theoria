@@ -1,12 +1,10 @@
 /**
- * TypeScript parsing and TypeScript-safe rule adjustments.
+ * TypeScript parsing.
  *
  * TypeScript 7 ships no JavaScript compiler API, so typescript-eslint cannot
  * run against it. @babel/eslint-parser produces the ESTree + TS AST that the
- * `no-restricted-syntax` selectors need. TypeScript-aware lint policy (unused
- * variables, type imports, array types, explicit any, Node builtin imports)
- * is owned by .oxlintrc.json; Effect diagnostics run inside `tsc` via
- * @effect/tsgo.
+ * `no-restricted-syntax` selectors need. Every generic rule is owned by
+ * .oxlintrc.json, so this module configures parsers and nothing else.
  *
  * @module eslint/typescript
  */
@@ -34,40 +32,5 @@ export const typescript = () => [
     name: "theoria/typescript/tsx-parser",
     files: ["**/*.tsx"],
     languageOptions: { parser: babelParser, parserOptions: parserOptions(["typescript", "jsx"]) }
-  },
-  {
-    name: "theoria/typescript/rules",
-    files: ["**/*.{ts,tsx,mts,cts}"],
-    rules: {
-      // TypeScript reports these with TypeScript-aware semantics.
-      "constructor-super": "off",
-      "getter-return": "off",
-      "no-class-assign": "off",
-      "no-const-assign": "off",
-      "no-dupe-args": "off",
-      "no-dupe-class-members": "off",
-      "no-dupe-keys": "off",
-      "no-func-assign": "off",
-      "no-import-assign": "off",
-      "no-new-native-nonconstructor": "off",
-      "no-obj-calls": "off",
-      "no-redeclare": "off",
-      "no-setter-return": "off",
-      "no-this-before-super": "off",
-      "no-undef": "off",
-      "no-unreachable": "off",
-      "no-unsafe-negation": "off",
-      "no-with": "off",
-
-      // `Effect.gen(function*() { ... })` without `yield*` is a valid Effect.
-      "require-yield": "off",
-
-      // Owned by oxlint, which has TypeScript scope analysis.
-      "no-unused-vars": "off",
-      "no-unused-expressions": "off",
-
-      "object-shorthand": "error",
-      "sort-imports": "off"
-    }
   }
 ]

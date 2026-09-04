@@ -1,13 +1,9 @@
 /**
- * Effect discipline rule sets.
+ * Effect discipline rule set.
  *
  * Every array is a list of `no-restricted-syntax` entries. ESLint flat config
  * replaces (never merges) `no-restricted-syntax` when several blocks match one
- * file, so each scope in `../scopes.mjs` receives one fully composed array.
- *
- * - CORE_RULES apply to every TypeScript file in the repository.
- * - TYPE_MODELING_RULES add schema-first modeling; only library code carries them.
- * - OPTION_DISCIPLINE_RULES ban `| undefined` bridges; React props are exempt.
+ * file, so `../scopes.mjs` receives one fully composed array.
  *
  * @module eslint/effect
  */
@@ -46,12 +42,12 @@ import {
   UTILITY_TYPE_RULES
 } from "./types.mjs"
 
-export { OPTION_DISCIPLINE_RULES, TYPE_MODELING_RULES }
-
 /**
- * Effect discipline shared by library, application and tooling code.
+ * Effect discipline for every TypeScript file: no async/throw/let/loops/console
+ * or mutable builtins, no type assertions or utility types, schema-first type
+ * modeling and Option instead of `undefined` bridges.
  */
-export const CORE_RULES = [
+export const EFFECT_RULES = [
   ...NO_ASYNC_RULES,
   ...PROMISE_CHAINING_RULES,
   ...NO_THROW_TRY_RULES,
@@ -74,24 +70,7 @@ export const CORE_RULES = [
   ...TYPE_ASSERTION_RULES,
   ...UTILITY_TYPE_RULES,
   ...MODULE_STUB_RULES,
-  ...TACIT_USAGE_RULES
+  ...TACIT_USAGE_RULES,
+  ...TYPE_MODELING_RULES,
+  ...OPTION_DISCIPLINE_RULES
 ]
-
-/**
- * Library code: core discipline plus schema-first modeling and Option discipline.
- */
-export const LIBRARY_RULES = [...CORE_RULES, ...TYPE_MODELING_RULES, ...OPTION_DISCIPLINE_RULES]
-
-/**
- * Application `.ts` code: core discipline plus Option discipline. Application
- * modules may declare plain type aliases and interfaces for view models.
- */
-export const APPLICATION_RULES = [...CORE_RULES, ...OPTION_DISCIPLINE_RULES]
-
-const OMIT_SELECTOR = "TSTypeReference[typeName.name='Omit']"
-
-/**
- * React view code: core discipline only. Component props inherently use
- * `| undefined`, `=== undefined` and `Omit<>` over upstream prop types.
- */
-export const VIEW_RULES = CORE_RULES.filter((rule) => rule.selector !== OMIT_SELECTOR)
