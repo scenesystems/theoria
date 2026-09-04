@@ -26,7 +26,7 @@ import type {
 } from "../schema.js"
 import { projectVisualText, type VisualOrderUnit } from "./bidi.js"
 
-type BreakCandidate = Readonly<{
+class BreakCandidate extends Data.Class<{
   kind: "dictionary-hyphen" | "explicit" | "soft-hyphen"
   end: LayoutCursorType
   nextCursor: LayoutCursorType
@@ -34,9 +34,9 @@ type BreakCandidate = Readonly<{
   insertedText: string
   insertedWidth: number
   paintWidth: number
-}>
+}> {}
 
-type InternalLineRecord = Readonly<{
+class InternalLineRecord extends Data.Class<{
   baseDirection: LayoutLineRangeType["baseDirection"]
   end: LayoutCursorType
   fitWidth: number
@@ -46,9 +46,9 @@ type InternalLineRecord = Readonly<{
   paintWidth: number
   start: LayoutCursorType
   width: number
-}>
+}> {}
 
-type LineScanState = Readonly<{
+class LineScanState extends Data.Class<{
   breakCandidates: ReadonlyArray<BreakCandidate>
   end: LayoutCursorType
   fitWidth: number
@@ -56,22 +56,22 @@ type LineScanState = Readonly<{
   pendingEnd: LayoutCursorType
   pendingFitWidth: number
   pendingPaintWidth: number
-  pendingStart: LayoutCursorType | null
+  pendingStart: Option.Option<LayoutCursorType>
   start: LayoutCursorType
-}>
+}> {}
 
-type LineWalkFrame = Readonly<{
+class LineWalkFrame extends Data.Class<{
   cursor: LayoutCursorType
   maxWidth: number
-  record: InternalLineRecord | null
+  record: Option.Option<InternalLineRecord>
   scan: LineScanState
   segmentLimit: number
-}>
+}> {}
 
-type VisualUnitCursorState = Readonly<{
+class VisualUnitCursorState extends Data.Class<{
   cursor: LayoutCursorType
   logicalIndex: number
-}>
+}> {}
 
 type CursorHintKey = readonly [number, number, number]
 
@@ -95,7 +95,7 @@ const emptyState: LineScanState = {
   pendingEnd: zeroCursor,
   pendingFitWidth: 0,
   pendingPaintWidth: 0,
-  pendingStart: null,
+  pendingStart: Option.none(),
   start: zeroCursor
 }
 
@@ -118,7 +118,7 @@ const resolveTabAdvance = (currentWidth: number, tabStopAdvance: number): number
 const segmentAt = (
   core: PreparedTextWithSegmentsCore,
   segmentIndex: number
-) => core.logicalSurface.segments[segmentIndex] ?? null
+) => Arr.get(core.logicalSurface.segments, segmentIndex)
 
 const breakKindAt = (core: PreparedTextCore, segmentIndex: number): PreparedBreakKindType =>
   core.kernel.runtime.breakKinds[segmentIndex] ?? "text"
@@ -292,22 +292,20 @@ const chooseBreakCandidate = (
   maxWidth: number,
   lineFitEpsilon: number,
   preferEarlySoftHyphenBreak: boolean
-): BreakCandidate | null => {
+): Option.Option<BreakCandidate> => {
   const fittingCandidates = Arr.filter(
     candidates,
     (candidate) => candidate.fitWidth + candidate.insertedWidth <= maxWidth + lineFitEpsilon
   )
 
   if (fittingCandidates.length === 0) {
-    return null
+    return Option.none()
   }
 
   const softHyphenCandidates = Arr.filter(fittingCandidates, (candidate) => candidate.kind === "soft-hyphen")
 
   if (softHyphenCandidates.length > 0) {
-    return preferEarlySoftHyphenBreak
-      ? softHyphenCandidates[0] ?? null
-      : softHyphenCandidates[softHyphenCandidates.length - 1] ?? null
+    return preferEarlySoftHyphenBreak ? Arr.head(softHyphenCandidates) : Arr.last(softHyphenCandidates)
   }
 
   const dictionaryHyphenCandidates = Arr.filter(
@@ -316,18 +314,18 @@ const chooseBreakCandidate = (
   )
 
   if (dictionaryHyphenCandidates.length > 0) {
-    return dictionaryHyphenCandidates[dictionaryHyphenCandidates.length - 1] ?? null
+    return Arr.last(dictionaryHyphenCandidates)
   }
 
   const explicitBreakCandidates = Arr.filter(fittingCandidates, (candidate) => candidate.kind === "explicit")
 
-  return explicitBreakCandidates[explicitBreakCandidates.length - 1] ?? null
+  return Arr.last(explicitBreakCandidates)
 }
 
 const lineHasCommittedContent = (state: LineScanState): boolean =>
   state.paintWidth > 0 || !cursorEquals(state.start, state.end)
 
-const hasPendingWhitespace = (state: LineScanState): boolean => state.pendingStart !== null
+const hasPendingWhitespace = (state: LineScanState): boolean => Option.isSome(state.pendingStart)
 
 const initialLineScanState = (cursor: LayoutCursorType): LineScanState => ({
   ...emptyState,
@@ -356,11 +354,11 @@ const emitInternalLineRecord = (
   width: paintWidth
 })
 
-type ResolvedPendingState = Readonly<{
+class ResolvedPendingState extends Data.Class<{
   end: LayoutCursorType
   fitWidth: number
   paintWidth: number
-}>
+}> {}
 
 const resolvePendingState = (
   core: PreparedTextCore,
@@ -419,10 +417,8 @@ const finalizeBeforePending = (
     core,
     state.start,
     state.end,
-    state.pendingStart === null
-      ? currentCursor
-      : core.kernel.whiteSpace === "pre-wrap"
-      ? state.pendingStart
+    core.kernel.whiteSpace === "pre-wrap"
+      ? Option.getOrElse(state.pendingStart, () => currentCursor)
       : currentCursor,
     state.fitWidth,
     state.paintWidth
@@ -458,7 +454,7 @@ const appendPendingWhitespace = (
     pendingEnd: nextCursor,
     pendingFitWidth: state.pendingFitWidth + fitAdvance,
     pendingPaintWidth: state.pendingPaintWidth + paintAdvance,
-    pendingStart: state.pendingStart ?? currentCursor
+    pendingStart: Option.orElse(state.pendingStart, () => Option.some(currentCursor))
   }
 }
 
@@ -482,7 +478,7 @@ const startLineWithSegment = (
     pendingEnd: nextCursor,
     pendingFitWidth: 0,
     pendingPaintWidth: 0,
-    pendingStart: null
+    pendingStart: Option.none()
   }
 }
 
@@ -513,7 +509,7 @@ const appendCommittedSegment = (
     pendingEnd: nextCursor,
     pendingFitWidth: 0,
     pendingPaintWidth: 0,
-    pendingStart: null
+    pendingStart: Option.none()
   }
 }
 
@@ -547,7 +543,7 @@ const segmentLimitForCursor = (core: PreparedTextCore, cursor: LayoutCursorType)
   core.kernel.runtime.chunkConsumedEndIndices[chunkIndexForCursor(core, cursor)] ?? segmentCount(core)
 
 const lineFrameIsComplete = (core: PreparedTextCore, frame: LineWalkFrame): boolean =>
-  frame.record !== null || frame.cursor.segmentIndex >= segmentCount(core) ||
+  Option.isSome(frame.record) || frame.cursor.segmentIndex >= segmentCount(core) ||
   frame.cursor.segmentIndex >= frame.segmentLimit
 
 const advanceLineFrame = (core: PreparedTextCore, frame: LineWalkFrame): LineWalkFrame => {
@@ -559,7 +555,7 @@ const advanceLineFrame = (core: PreparedTextCore, frame: LineWalkFrame): LineWal
     return {
       ...frame,
       cursor: nextCursor,
-      record: finalizeAtHardBreak(core, frame.scan, nextCursor)
+      record: Option.some(finalizeAtHardBreak(core, frame.scan, nextCursor))
     }
   }
 
@@ -629,7 +625,7 @@ const advanceLineFrame = (core: PreparedTextCore, frame: LineWalkFrame): LineWal
   if (hasPendingWhitespace(frame.scan)) {
     return {
       ...frame,
-      record: finalizeBeforePending(core, frame.scan, currentCursor)
+      record: Option.some(finalizeBeforePending(core, frame.scan, currentCursor))
     }
   }
 
@@ -642,9 +638,10 @@ const advanceLineFrame = (core: PreparedTextCore, frame: LineWalkFrame): LineWal
 
   return {
     ...frame,
-    record: breakCandidate === null
-      ? finalizeBeforeCurrent(core, frame.scan, currentCursor)
-      : finalizeBreakCandidate(core, breakCandidate, frame.scan.start)
+    record: Option.match(breakCandidate, {
+      onNone: () => Option.some(finalizeBeforeCurrent(core, frame.scan, currentCursor)),
+      onSome: (candidate) => Option.some(finalizeBreakCandidate(core, candidate, frame.scan.start))
+    })
   }
 }
 
@@ -660,7 +657,7 @@ const walkNextLineRecord = (
   const initial: LineWalkFrame = {
     cursor,
     maxWidth,
-    record: null,
+    record: Option.none(),
     scan: initialLineScanState(cursor),
     segmentLimit: segmentLimitForCursor(core, cursor)
   }
@@ -678,7 +675,7 @@ const walkNextLineRecord = (
     (_previous, current) => current
   )
 
-  return terminalFrame.record !== null ? Option.some(terminalFrame.record) : finalizeAtEnd(core, terminalFrame.scan)
+  return Option.orElse(terminalFrame.record, () => finalizeAtEnd(core, terminalFrame.scan))
 }
 
 const walkLineRecordArray = (
@@ -712,25 +709,25 @@ const visualOrderUnitAtCursor = (
   const graphemeBidiLevels = graphemeBidiLevelsAt(core, cursor.segmentIndex)
   const mirroredGraphemes = mirroredGraphemesAt(core, cursor.segmentIndex)
 
-  return segment === null
+  return Option.isNone(segment)
     ? {
       level: fallbackLevel,
       logicalIndex,
       mirroredText: "",
       text: ""
     }
-    : segment.kind === "text"
+    : segment.value.kind === "text"
     ? {
-      level: graphemeBidiLevels[cursor.graphemeIndex] ?? segment.bidiLevel,
+      level: graphemeBidiLevels[cursor.graphemeIndex] ?? segment.value.bidiLevel,
       logicalIndex,
-      mirroredText: mirroredGraphemes[cursor.graphemeIndex] ?? segment.graphemes[cursor.graphemeIndex] ?? "",
-      text: segment.graphemes[cursor.graphemeIndex] ?? ""
+      mirroredText: mirroredGraphemes[cursor.graphemeIndex] ?? segment.value.graphemes[cursor.graphemeIndex] ?? "",
+      text: segment.value.graphemes[cursor.graphemeIndex] ?? ""
     }
     : {
-      level: segment.bidiLevel,
+      level: segment.value.bidiLevel,
       logicalIndex,
-      mirroredText: segment.text,
-      text: segment.text
+      mirroredText: segment.value.text,
+      text: segment.value.text
     }
 }
 

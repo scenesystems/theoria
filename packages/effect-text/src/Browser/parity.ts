@@ -3,7 +3,7 @@
  *
  * @since 0.2.0
  */
-import { Effect, Layer } from "effect"
+import { Data, Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import { EngineProfile } from "../contracts/index.js"
@@ -78,7 +78,7 @@ export type BrowserParityArtifactType = BrowserParityArtifactTypeInternal
 export type BrowserParityCaseIdType = BrowserParityCaseIdTypeInternal
 
 const baseFontSize = 10
-type BrowserParityCaseTemplate = Readonly<{
+class BrowserParityCaseTemplate extends Data.Class<{
   caseId: BrowserParityCaseIdType
   request: {
     readonly lineHeight: number
@@ -86,7 +86,7 @@ type BrowserParityCaseTemplate = Readonly<{
   }
   text: string
   whiteSpace: Text.WhiteSpaceModeType
-}>
+}> {}
 type MeasurementOverride = readonly [text: string, width: number]
 
 /**
@@ -95,7 +95,7 @@ type MeasurementOverride = readonly [text: string, width: number]
  * @since 0.2.0
  * @category models
  */
-export type BrowserParityResolvedCase = Readonly<{
+export class BrowserParityResolvedCase extends Data.Class<{
   /** Released scenario identifier. */
   caseId: BrowserParityCaseIdType
   /** Profile-specific input prepared by the harness. */
@@ -105,7 +105,7 @@ export type BrowserParityResolvedCase = Readonly<{
     readonly lineHeight: number
     readonly maxWidth: number
   }
-}>
+}> {}
 const browserParityCaseTemplates: ReadonlyArray<BrowserParityCaseTemplate> = [
   {
     caseId: "white-space-normal",

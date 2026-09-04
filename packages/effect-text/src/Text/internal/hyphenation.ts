@@ -4,7 +4,7 @@
  * @since 0.2.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Order } from "effect"
+import { Data, Order } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import * as Rec from "effect/Record"
@@ -33,10 +33,10 @@ export type HyphenationBreakOpportunity = "dictionary-hyphen" | "none" | "soft-h
  * @since 0.2.0
  * @category internals
  */
-export type HyphenatedPiece = Readonly<{
+export class HyphenatedPiece extends Data.Class<{
   breakOpportunity: HyphenationBreakOpportunity
   text: string
-}>
+}> {}
 
 /**
  * Internal explicit word-to-break-point dictionary source.
@@ -52,14 +52,14 @@ export type HyphenationWordBreakDictionary = Readonly<Record<string, ReadonlyArr
  * @since 0.2.0
  * @category internals
  */
-export type HyphenationPatternSource = Readonly<{
+export class HyphenationPatternSource extends Data.Class<{
   id: string | ReadonlyArray<string>
   leftmin: number
   rightmin: number
   patterns: Readonly<Record<string, string>>
   charSubstitution?: Readonly<Record<string, string>>
   exceptions?: string
-}>
+}> {}
 
 /**
  * Internal union of the supported hyphenation source formats.
@@ -75,35 +75,35 @@ export type HyphenationDictionarySource = HyphenationPatternSource | Hyphenation
  * @since 0.2.0
  * @category internals
  */
-export type CompiledHyphenationDictionary = Readonly<{
+export class CompiledHyphenationDictionary extends Data.Class<{
   hyphenateWord: (word: string) => ReadonlyArray<number>
-}>
+}> {}
 
-type ParsedHyphenationPattern = Readonly<{
+class ParsedHyphenationPattern extends Data.Class<{
   letters: string
   points: ReadonlyArray<number>
-}>
+}> {}
 
 type IndexedHyphenationPatterns = Readonly<Record<string, ReadonlyArray<ParsedHyphenationPattern>>>
 
-type CompiledHyphenationPatternSource = Readonly<{
+class CompiledHyphenationPatternSource extends Data.Class<{
   charSubstitution: Readonly<Record<string, string>>
   exceptions: Readonly<Record<string, ReadonlyArray<number>>>
   leftMin: number
   patternIndex: IndexedHyphenationPatterns
   rightMin: number
-}>
+}> {}
 
-type NormalizedHyphenationWord = Readonly<{
+class NormalizedHyphenationWord extends Data.Class<{
   boundaryMap: ReadonlyArray<number>
   original: string
   value: string
-}>
+}> {}
 
-type ShippedHyphenationSupport = Readonly<{
+class ShippedHyphenationSupport extends Data.Class<{
   localeFallback: "exact-or-base-language"
   locales: ReadonlyArray<string>
-}>
+}> {}
 
 const hyphenationBoundaryMarker = "_"
 const hyphenationDigitPattern = /^[0-9]$/u

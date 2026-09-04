@@ -4,7 +4,7 @@
  * @since 0.2.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Cache, Effect, Layer, Option } from "effect"
+import { Cache, Data, Effect, Layer, Option } from "effect"
 
 import { MeasurementCache, TextMeasurer } from "../contracts/index.js"
 import type { FontDescriptorType } from "../Text/schema.js"
@@ -73,7 +73,7 @@ const makeBrowserMeasurementCache = (options: {
     }
   })
 
-type CanvasTextMeasurerOptions = Readonly<{
+class CanvasTextMeasurerOptions extends Data.Class<{
   /** Mutable canvas-like context retained for the layer lifetime. */
   context: CanvasMeasurementContext
   /** Direction assigned before each measurement. */
@@ -82,7 +82,7 @@ type CanvasTextMeasurerOptions = Readonly<{
   emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
   /** Baseline assigned before each measurement. */
   textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-}>
+}> {}
 
 const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
   Effect.gen(function*() {

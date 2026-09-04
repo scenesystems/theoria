@@ -5,6 +5,8 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Arr from "effect/Array"
+import * as Data from "effect/Data"
+import * as Option from "effect/Option"
 
 import {
   containsMirroredCharacters,
@@ -14,10 +16,10 @@ import {
 
 type LevelSpan = readonly [number, number]
 
-type LevelBounds = Readonly<{
+class LevelBounds extends Data.Class<{
   maxLevel: number
   minimumOddLevel: number
-}>
+}> {}
 
 const noOddLevel = -1
 
@@ -27,12 +29,12 @@ const noOddLevel = -1
  * @since 0.2.0
  * @category internals
  */
-export type VisualOrderUnit = Readonly<{
+export class VisualOrderUnit extends Data.Class<{
   text: string
   mirroredText: string
   level: number
   logicalIndex: number
-}>
+}> {}
 
 /**
  * Internal visual run after line-local reordering.
@@ -40,10 +42,10 @@ export type VisualOrderUnit = Readonly<{
  * @since 0.2.0
  * @category internals
  */
-export type VisualRun = Readonly<{
+export class VisualRun extends Data.Class<{
   level: number
   units: ReadonlyArray<VisualOrderUnit>
-}>
+}> {}
 
 /**
  * Internal visual-order projection for a walked line.
@@ -51,10 +53,10 @@ export type VisualRun = Readonly<{
  * @since 0.2.0
  * @category internals
  */
-export type VisualOrderProjection = Readonly<{
+export class VisualOrderProjection extends Data.Class<{
   permutation: ReadonlyArray<number>
   text: string
-}>
+}> {}
 
 const levelSpan = (start: number, end: number): LevelSpan => [start, end]
 
@@ -153,13 +155,13 @@ const appendInsertedTextUnits = (
 
 const groupVisualRuns = (units: ReadonlyArray<VisualOrderUnit>): ReadonlyArray<VisualRun> =>
   Arr.reduce(units, Arr.empty<VisualRun>(), (runs, unit) => {
-    const lastRun = runs[runs.length - 1] ?? null
+    const lastRun = Arr.last(runs)
 
-    return lastRun === null || lastRun.level !== unit.level
+    return Option.isNone(lastRun) || lastRun.value.level !== unit.level
       ? Arr.append(runs, { level: unit.level, units: Arr.make(unit) })
       : Arr.append(
         runs.slice(0, runs.length - 1),
-        { level: lastRun.level, units: Arr.append(lastRun.units, unit) }
+        { level: lastRun.value.level, units: Arr.append(lastRun.value.units, unit) }
       )
   })
 

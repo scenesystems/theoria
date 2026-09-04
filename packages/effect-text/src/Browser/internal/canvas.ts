@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Effect, Match, Option } from "effect"
+import { Effect, Match, Option, Predicate } from "effect"
 import * as Arr from "effect/Array"
 import * as Data from "effect/Data"
 import type * as Types from "effect/Types"
@@ -16,12 +16,12 @@ type CanvasTextDirection = "ltr" | "rtl" | "inherit"
 type CanvasTextBaseline = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
 type ContextSnapshot = readonly [font: string, direction: CanvasTextDirection, textBaseline: CanvasTextBaseline]
 
-type CanvasMeasurementContextReadonly = Readonly<{
+class CanvasMeasurementContextReadonly extends Data.Class<{
   direction: CanvasTextDirection
   font: string
   textBaseline: CanvasTextBaseline
   measureText: (text: string) => { readonly width: number }
-}>
+}> {}
 
 /**
  * Mutable canvas rendering context used by measurement helpers.
@@ -34,7 +34,7 @@ export type CanvasMeasurementContext = Types.Mutable<CanvasMeasurementContextRea
 type NormalizedEmojiCorrection = readonly [probe: string, minimumAdvanceMultiplier: number]
 
 const EMOJI_PATTERN = /\p{Extended_Pictographic}/u
-const Segmenter = typeof Intl === "undefined" ? undefined : Reflect.get(Intl, "Segmenter")
+const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
 const makeNormalizedEmojiCorrection = (probe: string, minimumAdvanceMultiplier: number): NormalizedEmojiCorrection =>
   Data.tuple(probe, minimumAdvanceMultiplier)
@@ -50,13 +50,10 @@ const resolveEmojiAdvanceMultiplier = (value: object): number => {
 }
 
 const emojiCorrectionObject = (value: unknown): Option.Option<object> =>
-  typeof value === "object" && value !== null ? Option.some(value) : Option.none()
+  Predicate.isObject(value) ? Option.some(value) : Option.none()
 
 const graphemeClusters = (text: string): ReadonlyArray<string> =>
-  typeof Segmenter === "function"
-    ? Arr.map(Arr.fromIterable(new Segmenter(undefined, { granularity: "grapheme" }).segment(text)), (part) =>
-      part.segment)
-    : Arr.fromIterable(text)
+  Arr.map(Arr.fromIterable(segmenter.segment(text)), (part) => part.segment)
 
 const containsEmoji = (text: string): boolean => EMOJI_PATTERN.test(text)
 
