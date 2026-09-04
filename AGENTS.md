@@ -83,25 +83,28 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use `@effect/platform`, Bun platform services, or package-owned abstractions instead.
 - Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.
 
-| Banned                             | Use Instead                                          |
-| ---------------------------------- | ---------------------------------------------------- |
-| `async/await`                      | `Effect.gen` with `yield*`                           |
-| `throw`, `try/catch`               | `Data.TaggedError`, `Schema.TaggedError`             |
-| `new Error()`                      | `Data.TaggedError` or `Schema.TaggedError`           |
-| `console.*`                        | `Effect.log`, `Effect.logError`, `Effect.logWarning` |
-| `let`                              | `const`. Mutable state: `Ref`                        |
-| `for`, `while`, `do...while`       | `Arr.map`, `Effect.forEach`, `Effect.iterate`        |
-| `switch`                           | `Match` from effect                                  |
-| `new Map()` / `new Set()`          | `HashMap` / `HashSet` from effect                    |
-| `Date.now()`, `Math.random()`      | `Clock.currentTimeMillis`, `Random` from effect      |
-| `as` assertions, `satisfies`       | `Schema.decodeUnknown`, `Schema.is`                  |
-| `JSON.parse/stringify`             | `Schema.decode` / `Schema.encode`                    |
-| `Object.keys/entries/values`       | `Record` module from effect                          |
-| `Array.push`                       | `Arr.append` / `Arr.appendAll`                       |
-| `Promise.*`, `.then()`, `.catch()` | `Effect.all`, `Effect.map`, `Effect.catchAll`        |
-| `Effect.runPromise/runSync`        | `Runtime.runMain` at entry points only               |
-| TypeScript `interface`             | `Schema.Class`, `Data.TaggedClass`                   |
-| `Partial<>`, `Pick<>`, `Omit<>`    | `Schema.partial`, `Schema.pick`, `Schema.omit`       |
+| Banned                                                            | Use Instead                                                                                                                         |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                          |
+| `throw`, `try/catch`                                              | `Data.TaggedError`, `Schema.TaggedError`                                                                                            |
+| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError`                                                                                          |
+| `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                |
+| `let`                                                             | `const`. Mutable state: `Ref`                                                                                                       |
+| `for`, `while`, `do...while`                                      | `Arr.map`, `Effect.forEach`, `Effect.iterate`                                                                                       |
+| `switch`                                                          | `Match` from effect                                                                                                                 |
+| `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                   |
+| `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                     |
+| `as` assertions, `satisfies`                                      | `Schema.decodeUnknown`, `Schema.is`                                                                                                 |
+| `JSON.parse/stringify`                                            | `Schema.decode` / `Schema.encode`                                                                                                   |
+| `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                         |
+| `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                      |
+| `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                       |
+| `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                              |
+| TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                  |
+| `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                      |
+| `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                           |
+| `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                    |
+| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields |
 
 ---
 

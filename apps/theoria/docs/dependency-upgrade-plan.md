@@ -255,6 +255,60 @@ API changed.
 `packages/sign/src/algorithms/hybrid.ts` now imports `ml_kem768_x25519`. The
 `sign`, `seal` and `digest` known-answer tests pass on noble 2.4.
 
+## Records and absence are Effect-native
+
+The upgrade left the packages type-checking under TypeScript 7 but still
+describing their data the way TypeScript alone would: 119 `Readonly<{ … }>`
+record wrappers, 27 `| null` annotations, five `typeof x === "undefined"` probes,
+and `Option.getOrUndefined` / `onNone: () => undefined` bridges where an
+`Option` met a field that wanted `undefined`. None of these were caught, because
+the ESLint Effect rules had no selectors for them.
+
+Every one is gone, and `eslint/effect/types.mjs` now rejects the patterns so
+they cannot return:
+
+- **Records.** Data-only shapes are `Schema.Struct` with `type X = typeof
+X.Type`. Shapes that carry functions, Effects, Layers, generics or internal
+  state are `class X extends Data.Class<{ … }> {}`; the instance type is
+  `Readonly<Fields>`, plain literals stay assignable, and `X & { … }` becomes
+  `Data.Class<X & { … }>`. The banned forms are `Readonly<{ … }>`,
+  `type X = { … }` and `type X = A & { … }` (including the `{ … } & {}`
+  spelling). React component props are annotated inline on the parameter.
+- **Absence.** `| null` and `| undefined` in annotations, `=== null`,
+  `?? null`, and `typeof x === "undefined"` are out; the value is an
+  `Option<A>`. Where the wire format carries `null` (the docs manifest, the
+  API reference model) the schema field is `Schema.OptionFromNullOr`, so
+  producers and consumers both see `Option` and only the encoded JSON sees
+  `null`. Public signatures changed accordingly: `docsApiRoute(pkg, moduleSlug:
+Option<DocsModuleSlug>)`, `DocsApiRoute.moduleSlug`, `DocsHeader` and
+  `DocsSearchDialog` active-package props, effect-dsp's
+  `projectSingleObjective(report, Option<string>)`, and effect-text's
+  `BrowserParityResolvedCase`. The four recursive JSON value aliases
+  (`FieldValue`, `ArtifactPayload`, `ProviderMetadataValue`,
+  `StudyObjectiveCacheKey`) keep `| null` as a top-level alias member: that
+  is JSON's `null`, not absence.
+- **Bridges.** `Option.getOrNull`, `Option.getOrUndefined`,
+  `Option.getOrElse(() => undefined)` and `onNone: () => undefined` are
+  banned. A third-party optional field takes a conditional spread,
+  `...Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })`.
+  A React 19 callback ref lifts its argument with `Option.fromNullable`
+  (`observeOnMount` in `apps/theoria/app/web/atoms/element-observation.ts`).
+- **Browser globals.** The app never renders on a server, so
+  `typeof window === "undefined"` guards were dead branches; they are gone. The
+  one genuinely optional capability, a 2D canvas for text measurement, is
+  `Option.fromNullable(globalThis.document)` flat-mapped into the context.
+- **Layout slots.** `Layout.tsx` had a polymorphic `as` generic over
+  `ElementType`, unsound in the case TypeScript 7 could not even express
+  (`keyof JSX.IntrinsicElements` hits TS2590). The slots are now one factory
+  over a closed `LayoutTag` union with `HTMLAttributes<HTMLElement>` and a
+  callback ref over `HTMLElement`: the callback is contravariant, so a single
+  ref type is sound for every tag; an object ref would pin one element type.
+
+Where the migration found absence that was only standing in for a derivable
+value, it derived the value instead: `maxWidth: number | null` in the text
+authority meant "use the contract's width", so `projectText` now defaults
+`maxWidth` to `maxWidthFor(role, variant)` and no `Option` is needed.
+
 ## Verification
 
 Every gate ran green on the upgraded tree:

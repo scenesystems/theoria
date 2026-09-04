@@ -87,6 +87,16 @@ export const TYPE_MODELING_RULES = [
       "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeReference'][typeAnnotation.typeName.type='TSQualifiedName'][typeAnnotation.typeName.left.name='Data'][typeAnnotation.typeName.right.name='TaggedEnum']",
     message:
       "Do not define event contracts as type aliases over Data.TaggedEnum. Use schema-backed runtime models or tagged class values."
+  },
+  {
+    selector: "TSTypeReference[typeName.name='Readonly'] > TSTypeParameterInstantiation > TSTypeLiteral",
+    message:
+      "Do not wrap object literals in Readonly<{}>. Model records with Schema.Struct (type X = typeof X.Type) or Data.Class."
+  },
+  {
+    selector: "TSTypeAliasDeclaration > TSIntersectionType > TSTypeLiteral",
+    message:
+      "Do not intersect object literals into a type alias. Extend the Schema.Struct or Data.Class that owns the record."
   }
 ]
 
@@ -97,9 +107,9 @@ export const OPTION_DISCIPLINE_RULES = [
       "Do not model optionality with '| undefined'. Use Option<A> in runtime and Schema.optional/Schema.OptionFromSelf in schemas."
   },
   {
-    selector: "CallExpression[callee.object.name='Option'][callee.property.name='getOrUndefined']",
+    selector: "MemberExpression[object.name=/^(Option|Either)$/][property.name=/^getOr(Null|Undefined)$/]",
     message:
-      "Do not bridge Option to undefined. Stay in Option space with Option.match, Option.getOrElse, or Option.map."
+      "Do not bridge Option or Either to null/undefined. Stay in Option/Either space with match, map, or getOrElse; encode absence at JSON boundaries with Schema.OptionFromNullOr."
   },
   {
     selector: "BinaryExpression[operator='==='][left.type='Identifier'][left.name='undefined']",
@@ -116,5 +126,44 @@ export const OPTION_DISCIPLINE_RULES = [
   {
     selector: "BinaryExpression[operator='!=='][right.type='Identifier'][right.name='undefined']",
     message: "Do not compare with undefined. Model absence with Option and pattern-match instead."
+  },
+  {
+    selector:
+      "BinaryExpression[left.type='UnaryExpression'][left.operator='typeof'] > Literal.right[value='undefined']",
+    message:
+      "Do not probe with typeof x === 'undefined'. Provide the capability as a service or lift it with Option.fromNullable."
+  },
+  {
+    selector:
+      "BinaryExpression[right.type='UnaryExpression'][right.operator='typeof'] > Literal.left[value='undefined']",
+    message:
+      "Do not probe with 'undefined' === typeof x. Provide the capability as a service or lift it with Option.fromNullable."
+  },
+  {
+    selector: "TSTypeAnnotation > TSUnionType > TSNullKeyword",
+    message:
+      "Do not model absence with '| null'. Use Option<A>; at JSON boundaries decode with Schema.OptionFromNullOr."
+  },
+  {
+    selector: "TSTypeParameterInstantiation > TSUnionType > TSNullKeyword",
+    message:
+      "Do not model absence with '| null'. Use Option<A>; at JSON boundaries decode with Schema.OptionFromNullOr."
+  },
+  {
+    selector: "BinaryExpression[operator=/^[!=]==$/] > Literal[raw='null']",
+    message: "Do not compare with null. Lift the value with Option.fromNullable or test it with Predicate.isNull."
+  },
+  {
+    selector: "LogicalExpression[operator='??'] > Literal.right[raw='null']",
+    message: "Do not default to null with '?? null'. Lift the value with Option.fromNullable."
+  },
+  {
+    selector: "Property[key.name='onNone'] > ArrowFunctionExpression[body.type='Identifier'][body.name='undefined']",
+    message: "Do not bridge Option to undefined in onNone. Keep the Option or accept Option<A> in the callee."
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name='Option'][callee.property.name='getOrElse'] > ArrowFunctionExpression[body.type='Identifier'][body.name='undefined']",
+    message: "Do not bridge Option to undefined with getOrElse. Keep the Option or accept Option<A> in the callee."
   }
 ]
