@@ -11,21 +11,34 @@ import * as Arr from "effect/Array"
  * touches a filesystem directly; it asks the store for an asset by its
  * absolute URL pathname (`/index.html`, `/docs-data/manifest.json`).
  */
+/**
+ * Why an asset read failed. `NotFound` and `InvalidPathname` describe the
+ * request; `Unreadable` describes the store: the asset should be servable but
+ * the filesystem or assets binding could not deliver it, which is a server
+ * fault and never a 404.
+ */
+export const StaticStoreFailureReason = Schema.Literal("NotFound", "InvalidPathname", "Unreadable")
+
 export class StaticStoreError extends Schema.TaggedError<StaticStoreError>()("StaticStoreError", {
   pathname: Schema.String,
-  message: Schema.String
+  reason: StaticStoreFailureReason,
+  /** Diagnostic from the platform or transport; empty for request-side reasons. */
+  detail: Schema.String
 }) {}
 
 export class StaticStore extends Context.Tag("@theoria/app/server/config/StaticStore")<
   StaticStore,
   {
-    /** Read an asset as UTF-8 text. Fails when the asset does not exist. */
+    /** Read an asset as UTF-8 text. Fails when the asset does not exist or cannot be read. */
     readonly text: (pathname: string) => Effect.Effect<string, StaticStoreError>
     /**
      * Stream an asset as an HTTP response carrying `content-type`.
-     * Resolves to `None` when the asset does not exist.
+     * Resolves to `None` when there is no such servable asset; fails with
+     * reason `Unreadable` when the asset exists but the store cannot deliver it.
      */
-    readonly response: (pathname: string) => Effect.Effect<Option.Option<HttpServerResponse.HttpServerResponse>>
+    readonly response: (
+      pathname: string
+    ) => Effect.Effect<Option.Option<HttpServerResponse.HttpServerResponse>, StaticStoreError>
   }
 >() {}
 

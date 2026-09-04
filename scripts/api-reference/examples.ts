@@ -10,6 +10,7 @@
  */
 
 import { type CommandExecutor, type FileSystem, Path } from "@effect/platform"
+import type { PlatformError } from "@effect/platform/Error"
 import type { ApiDocumentation, ApiExample, ApiMember } from "@theoria/docs-model"
 import { Array as Arr, Data, Effect, Option, Schema } from "effect"
 
@@ -89,7 +90,7 @@ export const checkApiExamples = (
   pages: ReadonlyArray<DocsPage>
 ): Effect.Effect<
   number,
-  ApiExampleError | SnippetTypecheckError,
+  ApiExampleError | SnippetTypecheckError | PlatformError,
   CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function*() {

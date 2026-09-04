@@ -155,14 +155,14 @@ export const loadApiSourcePackage = (packagesRoot: string, directoryName: string
     const path = yield* Path.Path
     const root = path.join(packagesRoot, directoryName)
     const manifestPath = path.join(root, "package.json")
-    const rootStat = yield* fileSystem.stat(root).pipe(Effect.orDie)
+    const rootStat = yield* fileSystem.stat(root)
 
-    if (rootStat.type !== "Directory" || !(yield* fileSystem.exists(manifestPath).pipe(Effect.orDie))) {
+    if (rootStat.type !== "Directory" || !(yield* fileSystem.exists(manifestPath))) {
       return Option.none<ApiSourcePackage>()
     }
 
-    const manifestJson = yield* fileSystem.readFileString(manifestPath).pipe(Effect.orDie)
-    const manifest = yield* Schema.decodeUnknown(PackageManifestJson)(manifestJson).pipe(Effect.orDie)
+    const manifestJson = yield* fileSystem.readFileString(manifestPath)
+    const manifest = yield* Schema.decodeUnknown(PackageManifestJson)(manifestJson)
 
     if (manifest.private === true) {
       return Option.none<ApiSourcePackage>()
@@ -208,7 +208,7 @@ export const loadApiSourcePackage = (packagesRoot: string, directoryName: string
 export const discoverApiSourcePackages = (packagesRoot: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const directoryNames = yield* fileSystem.readDirectory(packagesRoot).pipe(Effect.orDie)
+    const directoryNames = yield* fileSystem.readDirectory(packagesRoot)
     const packages = yield* Effect.forEach(
       directoryNames.sort((left, right) => left.localeCompare(right)),
       (directoryName) => loadApiSourcePackage(packagesRoot, directoryName),

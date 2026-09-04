@@ -1,4 +1,4 @@
-import { Text } from "@scenesystems/effect-text"
+import { type Errors, Text } from "@scenesystems/effect-text"
 import * as TextReact from "@scenesystems/effect-text/react"
 import { Effect, Option } from "effect"
 
@@ -42,13 +42,14 @@ export const prepareIdentityForTextProjection = ({ role, text }: TextPrepareRequ
 
 export const prepareTextProjection = (
   identity: TextReact.PrepareIdentityType
-): Effect.Effect<Text.PreparedTextWithSegments, unknown, BrowserTextLayout> =>
+): Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout> =>
   prepareBrowserText(prepareInputFromIdentity(identity))
 
 /** Prepares text against the runtime's layout services; `browserTextLayoutLayer` provides them. */
 export const prepareBrowserText = (
   prepare: Text.PrepareInputType
-): Effect.Effect<Text.PreparedTextWithSegments, unknown, BrowserTextLayout> => Text.prepareWithSegments(prepare)
+): Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout> =>
+  Text.prepareWithSegments(prepare)
 
 export const projectPreparedText = ({
   maxWidth,

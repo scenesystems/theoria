@@ -57,6 +57,69 @@ describe("contracts/artifact storage failures", () => {
       expectStorageError(outcome, "read")
     }).pipe(Effect.provide(BunContext.layer)))
 
+  it.scoped("a torn final line is crash residue and the envelopes before it still read", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-search-artifact-torn-" })
+      const logPath = path.join(directory, "envelopes.jsonl")
+
+      yield* Study.optimize({
+        space: SearchSpace.unsafeMake({ choice: SearchSpace.categorical(["only"]) }),
+        sampler: Sampler.random({ seed: 7 }),
+        direction: "minimize",
+        trials: 2,
+        concurrency: 1,
+        objective: () => Effect.succeed(1)
+      }).pipe(
+        Effect.provide(
+          Study.StudyStorageLive(Study.studyStorageOptions(directory)).pipe(
+            Layer.provideMerge(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+          )
+        )
+      )
+      const intact = yield* readEnvelopeLog(logPath).pipe(Stream.runCollect)
+      yield* fileSystem.writeFileString(logPath, "{\"trialNumber\":", { flag: "a" })
+
+      const withTornTail = yield* readEnvelopeLog(logPath).pipe(Stream.runCollect)
+
+      expect(Chunk.size(withTornTail)).toBe(Chunk.size(intact))
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.scoped("an undecodable line before the end is corruption and fails with the line number", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-search-artifact-corrupt-" })
+      const logPath = path.join(directory, "envelopes.jsonl")
+
+      yield* Study.optimize({
+        space: SearchSpace.unsafeMake({ choice: SearchSpace.categorical(["only"]) }),
+        sampler: Sampler.random({ seed: 7 }),
+        direction: "minimize",
+        trials: 1,
+        concurrency: 1,
+        objective: () => Effect.succeed(1)
+      }).pipe(
+        Effect.provide(
+          Study.StudyStorageLive(Study.studyStorageOptions(directory)).pipe(
+            Layer.provideMerge(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+          )
+        )
+      )
+      const intact = yield* fileSystem.readFileString(logPath)
+      yield* fileSystem.writeFileString(logPath, `${intact}not an envelope\n\n${intact}`)
+
+      const outcome = yield* readEnvelopeLog(logPath).pipe(Stream.runCollect, Effect.either)
+
+      expectStorageError(outcome, "read")
+      if (Either.isLeft(outcome) && outcome.left instanceof ArtifactStorageError) {
+        const corruptLineNumber = intact.split("\n").length
+        expect(outcome.left.detail).toContain(`line ${corruptLineNumber} is not an artifact envelope`)
+        expect(outcome.left.path).toBe(logPath)
+      }
+    }).pipe(Effect.provide(BunContext.layer)))
+
   it.scoped("a sink whose log path is a directory fails emit with a typed write error", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem

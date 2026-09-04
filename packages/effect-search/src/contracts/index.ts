@@ -54,9 +54,10 @@ import { readEnvelopeLog as _readEnvelopeLog } from "./sinks/reader.js"
 export const fileSystemSink = _fileSystemSink
 
 /**
- * Streams valid envelopes from a UTF-8 JSON-lines file and skips torn or blank lines.
- * A missing file is an empty stream; a file that cannot be read fails the stream with
- * an `ArtifactStorageError`.
+ * Streams envelopes from a UTF-8 JSON-lines file, skipping blank lines and a torn
+ * final line. A missing file is an empty stream; a file that cannot be read, or that
+ * holds an undecodable line before its end, fails the stream with an
+ * `ArtifactStorageError`.
  *
  * @since 0.1.0
  * @category readers

@@ -95,25 +95,24 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
       currentInstruction,
       examples: buildReflectiveDataset(parentEvaluation.samples)
     })
-    const mutatedInstruction = yield* generateText(reflectivePrompt).pipe(
-      Effect.map((response) =>
+    const mutatedInstruction = yield* Effect.map(
+      generateText(reflectivePrompt),
+      (response) =>
         extractInstruction(response, currentInstruction)
-      ),
-      Effect.orElseSucceed(() => currentInstruction)
     )
-    const mutationWithFallback = buildMutationCandidate(parentCandidate, predictorName, mutatedInstruction, iteration)
+    const mutatedCandidate = buildMutationCandidate(parentCandidate, predictorName, mutatedInstruction, iteration)
 
     yield* emit(
       GEPAEvent.MutationProposed({
         iteration,
         parentId: parentCandidate.candidateId,
-        mutatedCandidateId: mutationWithFallback.candidateId,
+        mutatedCandidateId: mutatedCandidate.candidateId,
         predictorName,
         instruction: mutatedInstruction
       })
     )
 
-    const mutatedEvaluation = yield* evaluateCandidate(options, mutationWithFallback)
+    const mutatedEvaluation = yield* evaluateCandidate(options, mutatedCandidate)
     const subsampleSize = Numeric.min(
       Numeric.min(3, parentEvaluation.scores.length),
       mutatedEvaluation.scores.length
@@ -127,7 +126,7 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
     const stateAfterAcceptance = new GEPAState({
       ...stateAfterMerge,
       candidates: accepted
-        ? Arr.append(stateAfterMerge.candidates, mutationWithFallback)
+        ? Arr.append(stateAfterMerge.candidates, mutatedCandidate)
         : stateAfterMerge.candidates,
       scoreVectors: accepted
         ? Arr.append(

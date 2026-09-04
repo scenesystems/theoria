@@ -14,8 +14,12 @@ import type { ProgressLine } from "./formatter.js"
  * @category models
  */
 export class TerminalSink extends Data.Class<{
-  /** Determines whether reporters should format text with ANSI color sequences. */
-  readonly supportsAnsi: Effect.Effect<boolean, unknown>
+  /**
+   * Determines whether reporters should format text with ANSI color sequences.
+   * Capability probing that can fail is the caller's decision to resolve before
+   * it reaches the sink.
+   */
+  readonly supportsAnsi: Effect.Effect<boolean>
   /** Receives stdout text without a trailing newline. */
   readonly writeStdout: (line: string) => Effect.Effect<void>
   /** Receives stderr text without a trailing newline. */
@@ -66,7 +70,7 @@ export class TerminalSink extends Data.Class<{
  */
 export const makeTerminalSink = (options?: {
   /** Capability check; defaults to plain text, since only the caller knows whether its output is a colour terminal. */
-  readonly supportsAnsi?: Effect.Effect<boolean, unknown>
+  readonly supportsAnsi?: Effect.Effect<boolean>
   /** Stdout writer; defaults to the fiber's `Console` service. */
   readonly writeStdout?: (line: string) => Effect.Effect<void>
   /** Stderr writer; defaults to the fiber's `Console` service. */

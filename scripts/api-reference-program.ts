@@ -9,13 +9,13 @@ import { discoverApiSourcePackages } from "./api-reference/source.js"
 
 export const apiReferenceProgram = Effect.gen(function*() {
   const path = yield* Path.Path
-  const repositoryRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl).pipe(
-    Effect.orDie
+  const repositoryRoot = yield* Effect.flatMap(
+    Url.fromString("../", import.meta.url).pipe(Effect.orDie),
+    path.fromFileUrl
   )
   const revision = yield* Command.make("git", "rev-parse", "HEAD").pipe(
     Command.workingDirectory(repositoryRoot),
     Command.string,
-    Effect.orDie,
     Effect.map((output) => output.trim())
   )
   const sourcePackages = yield* discoverApiSourcePackages(path.join(repositoryRoot, "packages"))

@@ -1,5 +1,6 @@
 import { FileSystem, Path } from "@effect/platform"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import type { PlatformError } from "@effect/platform/Error"
+import { Context, Effect, Layer, Option, type ParseResult, Schema } from "effect"
 import { Application, FileRegistry, normalizePath, type ProjectReflection } from "typedoc"
 
 import { type ConvertedModule } from "./conversion.js"
@@ -56,8 +57,8 @@ const readProject = (packageName: string, absolutePath: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const reflections = yield* TypeDocReflections
-    const text = yield* fileSystem.readFileString(absolutePath).pipe(Effect.orDie)
-    const project = yield* Schema.decode(TypeDocProjectJsonText)(text).pipe(Effect.orDie)
+    const text = yield* fileSystem.readFileString(absolutePath)
+    const project = yield* Schema.decode(TypeDocProjectJsonText)(text)
     return yield* reflections.revive(packageName, project)
   })
 
@@ -68,7 +69,7 @@ export const reviveConvertedModule = (input: {
   readonly module: ConvertedModule
 }): Effect.Effect<
   ApiConvertedModule,
-  ApiReferenceGenerationError,
+  ApiReferenceGenerationError | ParseResult.ParseError | PlatformError,
   FileSystem.FileSystem | Path.Path | TypeDocReflections
 > =>
   Effect.gen(function*() {

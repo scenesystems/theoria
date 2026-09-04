@@ -49,6 +49,11 @@ const assetsClient = (assets: AssetsFetcher): HttpClient.HttpClient =>
 const isOk = (response: HttpClientResponse.HttpClientResponse): boolean =>
   response.status >= 200 && response.status < 300
 
+const storeFailure = (pathname: string) => (cause: HttpClientError.HttpClientError): StaticStoreError =>
+  cause._tag === "ResponseError" && cause.response.status === 404
+    ? new StaticStoreError({ pathname, reason: "NotFound", detail: "" })
+    : new StaticStoreError({ pathname, reason: "Unreadable", detail: cause.message })
+
 export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
   const client = assetsClient(assets)
   const okClient = HttpClient.filterStatusOk(client)
@@ -56,7 +61,7 @@ export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
     text: (pathname) =>
       okClient.get(pathname).pipe(
         Effect.flatMap((response) => response.text),
-        Effect.mapError((cause) => new StaticStoreError({ pathname, message: cause.message }))
+        Effect.mapError(storeFailure(pathname))
       ),
     response: (pathname) =>
       client.get(pathname).pipe(
@@ -67,7 +72,7 @@ export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
             )
             : Option.none()
         ),
-        Effect.catchAll(() => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()))
+        Effect.mapError(storeFailure(pathname))
       )
   })
 }

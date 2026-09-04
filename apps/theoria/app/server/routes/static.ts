@@ -72,7 +72,7 @@ const htmlResponse = (pathname: string) =>
     const store = yield* StaticStore
     const docsManifestStore = yield* DocsManifestStore
     const docsManifest = isDocsPath(pathname)
-      ? yield* Effect.option(docsManifestStore.manifest)
+      ? Option.some(yield* docsManifestStore.manifest)
       : Option.none()
     const analytics = yield* requestAnalytics
     const html = yield* store.text(indexPathname)
@@ -84,7 +84,7 @@ const htmlResponse = (pathname: string) =>
         "content-type": htmlContentType
       }
     })
-  }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))
+  })
 
 const assetResponse = (pathname: string) =>
   Effect.gen(function*() {

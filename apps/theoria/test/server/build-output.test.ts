@@ -5,7 +5,11 @@ import { expect, it } from "@effect/vitest"
 import { Effect, Either } from "effect"
 import * as Arr from "effect/Array"
 
-import { checkBuildOutput } from "../../app/server/config/build-output.js"
+import {
+  type BuildOutputError,
+  type BuildOutputSummary,
+  checkBuildOutput
+} from "../../app/server/config/build-output.js"
 
 /**
  * The smallest deployable layout, written literally so the test does not
@@ -23,10 +27,14 @@ const checkLayout = (mutate: (root: string) => Effect.Effect<void, unknown, File
     yield* fileSystem.writeFileString(`${root}/dist/docs-data/manifest.json`, "{}")
     yield* fileSystem.writeFileString(`${root}/.wrangler-out/worker.js`, "export default {}")
     yield* mutate(root)
-    return yield* Effect.either(checkBuildOutput(root))
+    // Only a verdict is an outcome; a filesystem the check could not examine fails the test.
+    return yield* checkBuildOutput(root).pipe(
+      Effect.map(Either.right),
+      Effect.catchTag("BuildOutputError", (error) => Effect.succeed(Either.left(error)))
+    )
   }).pipe(Effect.scoped, Effect.provide(BunContext.layer))
 
-const problemsOf = (result: Either.Either<{ readonly assets: number }, { readonly problems: ReadonlyArray<string> }>) =>
+const problemsOf = (result: Either.Either<BuildOutputSummary, BuildOutputError>) =>
   Either.match(result, { onLeft: (error) => error.problems, onRight: () => Arr.empty<string>() })
 
 it.effect("accepts a build whose every asset has a served content type", () =>

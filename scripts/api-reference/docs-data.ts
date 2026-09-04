@@ -4,6 +4,7 @@
  */
 
 import { FileSystem, Path } from "@effect/platform"
+import type { PlatformError } from "@effect/platform/Error"
 import {
   type ApiExport,
   DocsApiExportPageJson,
@@ -15,7 +16,7 @@ import {
   type DocsSearchIndex,
   DocsSearchIndexJson
 } from "@theoria/docs-model"
-import { Array as Arr, Data, Effect, Schema } from "effect"
+import { Array as Arr, Data, Effect, type ParseResult, Schema } from "effect"
 
 export class DocsPage extends Data.Class<{
   readonly pkg: DocsManifest["packages"][number]
@@ -32,27 +33,30 @@ export class DocsData extends Data.Class<{
 const decodeFile = <A, I>(schema: Schema.Schema<A, I>, file: string) =>
   Effect.flatMap(
     FileSystem.FileSystem,
-    (fs) => fs.readFileString(file).pipe(Effect.flatMap(Schema.decodeUnknown(schema)), Effect.orDie)
+    (fs) => fs.readFileString(file).pipe(Effect.flatMap(Schema.decodeUnknown(schema)))
   )
 
 export const loadDocsData = (
   browserOutputRoot: string
-): Effect.Effect<DocsData, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<DocsData, ParseResult.ParseError | PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
     const docsManifest = yield* decodeFile(DocsManifestJson, path.join(browserOutputRoot, "manifest.json"))
     const assetFile = (asset: string) => path.join(browserOutputRoot, asset.replace(/^\/docs-data\//u, ""))
     const searchIndex = yield* decodeFile(DocsSearchIndexJson, assetFile(docsManifest.searchIndexAsset))
-    const pages: ReadonlyArray<DocsPage> = yield* Effect.forEach(docsManifest.packages, (pkg) =>
-      Effect.forEach(pkg.apiModules, (summary) =>
-        Effect.gen(function*() {
-          const index = yield* decodeFile(DocsApiModuleIndexJson, assetFile(summary.asset))
-          const exports = yield* Effect.forEach(
-            index.exports,
-            (entry) =>
-              decodeFile(DocsApiExportPageJson, assetFile(entry.asset)).pipe(Effect.map((_) => _.export))
-          )
-          return new DocsPage({ pkg, summary, index, exports })
-        }), { concurrency: 8 }), { concurrency: 8 }).pipe(Effect.map(Arr.flatten))
+    const pages: ReadonlyArray<DocsPage> = yield* Effect.forEach(
+      docsManifest.packages,
+      (pkg) =>
+        Effect.forEach(pkg.apiModules, (summary) =>
+          Effect.gen(function*() {
+            const index = yield* decodeFile(DocsApiModuleIndexJson, assetFile(summary.asset))
+            const exports = yield* Effect.forEach(
+              index.exports,
+              (entry) => decodeFile(DocsApiExportPageJson, assetFile(entry.asset)).pipe(Effect.map((_) => _.export))
+            )
+            return new DocsPage({ pkg, summary, index, exports })
+          }), { concurrency: 8 }),
+      { concurrency: 8 }
+    ).pipe(Effect.map(Arr.flatten))
     return new DocsData({ searchIndex, pages })
   })

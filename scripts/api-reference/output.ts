@@ -1,4 +1,5 @@
 import { FileSystem, Path } from "@effect/platform"
+import type { PlatformError } from "@effect/platform/Error"
 import { digestBytesHex } from "@scenesystems/digest"
 import { Array as Arr, Context, Effect, HashSet, Layer, Ref, Schema } from "effect"
 
@@ -22,7 +23,7 @@ import { type TypeDocProjectJson, TypeDocProjectJsonText } from "./typedoc-json.
 export const sha256File = (filePath: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const bytes = yield* fileSystem.readFile(filePath).pipe(Effect.orDie)
+    const bytes = yield* fileSystem.readFile(filePath)
 
     return yield* digestBytesHex("sha256", bytes)
   })
@@ -54,13 +55,13 @@ const writeJson = <A>(
     const outputs = yield* GeneratedOutputs
     const absoluteOutput = path.join(outputRoot, relativeOutput)
     const outputDirectory = path.dirname(absoluteOutput)
-    const json = yield* Schema.encode(schema)(value).pipe(Effect.orDie)
-    yield* fileSystem.makeDirectory(outputDirectory, { recursive: true }).pipe(Effect.orDie)
+    const json = yield* Schema.encode(schema)(value)
+    yield* fileSystem.makeDirectory(outputDirectory, { recursive: true })
     // Written beside its destination so the final rename stays on one filesystem and is atomic.
     const temporaryOutput = yield* fileSystem.makeTempFileScoped({ directory: outputDirectory, prefix: ".writing-" })
-      .pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(temporaryOutput, `${json}\n`).pipe(Effect.orDie)
-    yield* fileSystem.rename(temporaryOutput, absoluteOutput).pipe(Effect.orDie)
+
+    yield* fileSystem.writeFileString(temporaryOutput, `${json}\n`)
+    yield* fileSystem.rename(temporaryOutput, absoluteOutput)
     yield* Ref.update(outputs, HashSet.add(absoluteOutput))
   }).pipe(Effect.scoped)
 
@@ -73,7 +74,7 @@ const writeJson = <A>(
 const pruneDirectory = (
   directory: string,
   keep: HashSet.HashSet<string>
-): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<boolean, PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -92,7 +93,7 @@ const pruneDirectory = (
         return false
       }))
     return !Arr.some(kept, (value) => value)
-  }).pipe(Effect.orDie)
+  })
 
 export const pruneStaleOutputs = (root: string) =>
   Effect.gen(function*() {

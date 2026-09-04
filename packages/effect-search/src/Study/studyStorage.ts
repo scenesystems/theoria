@@ -54,8 +54,9 @@ export const studyStorageOptions = (directory: string): StudyStorageOptions => d
  * @remarks
  * Write completion has the durability semantics of the installed artifact sink, and a
  * sink that cannot accept an envelope fails the write with an {@link ArtifactStorageError}.
- * Loads fail the same way when the log cannot be read; a log that does not exist yet
- * loads as empty, and torn or schema-invalid lines are skipped as crash residue.
+ * Loads fail the same way when the log cannot be read or holds an undecodable line
+ * before its end; a log that does not exist yet loads as empty, and a torn final line
+ * is skipped as crash residue.
  *
  * @since 0.1.0
  * @category services

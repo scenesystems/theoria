@@ -31,19 +31,17 @@ export const generateApiReference = (input: {
     // The committed `api-reference/` tree is fully regenerated. The browser root under `public/` is
     // written in place and pruned afterwards so a running Vite dev server
     // keeps serving it; see `GeneratedOutputs` in ./output.ts.
-    yield* fileSystem.remove(input.outputRoot, { recursive: true, force: true }).pipe(Effect.orDie)
+    yield* fileSystem.remove(input.outputRoot, { recursive: true, force: true })
     yield* Effect.forEach(
       [input.outputRoot, browserVersionRoot],
-      (directory) => fileSystem.makeDirectory(directory, { recursive: true }).pipe(Effect.orDie),
+      (directory) => fileSystem.makeDirectory(directory, { recursive: true }),
       { discard: true }
     )
 
     // Each package is converted by a process of its own (see ./conversion.ts);
     // the serialized reflections are handed back through a temporary directory
     // that lives for the rest of the generation.
-    const conversionRoot = yield* fileSystem.makeTempDirectoryScoped({ prefix: "theoria-api-reference-" }).pipe(
-      Effect.orDie
-    )
+    const conversionRoot = yield* fileSystem.makeTempDirectoryScoped({ prefix: "theoria-api-reference-" })
     const convertedPackages = yield* convertApiPackages({ ...input, conversionRoot })
     const links = makeApiDocLinks(convertedPackages)
     const generatedPackages = yield* Effect.forEach(

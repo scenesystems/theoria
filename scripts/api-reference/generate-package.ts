@@ -45,9 +45,8 @@ export const generateApiPackage = (input: {
         (module) => generateApiModule({ ...input, packageSlug, sourcePackage, module })
       ))
     const modules = Arr.map(generatedModules, (generated) => generated.module)
-    const markdown = yield* fileSystem.readFileString(`${sourcePackage.root}/README.md`).pipe(Effect.orDie)
+    const markdown = yield* fileSystem.readFileString(`${sourcePackage.root}/README.md`)
     const exampleFiles = yield* fileSystem.readDirectory(`${sourcePackage.root}/examples`).pipe(
-      Effect.orDie,
       Effect.map((entries) => Arr.sort(Arr.filter(entries, (entry) => entry.endsWith(".ts")), Order.string))
     )
     const exampleFile = yield* Option.match(Arr.head(exampleFiles), {
@@ -58,9 +57,7 @@ export const generateApiPackage = (input: {
         }),
       onSome: Effect.succeed
     })
-    const source = yield* fileSystem.readFileString(`${sourcePackage.root}/examples/${exampleFile}`).pipe(
-      Effect.orDie
-    )
+    const source = yield* fileSystem.readFileString(`${sourcePackage.root}/examples/${exampleFile}`)
     const example: PackageGuideExample = { source: exampleSource(source), title: exampleTitle(exampleFile) }
     const guideData = buildPackageGuides({ ...input, sourcePackage, example: Option.some(example), markdown })
     yield* writeBrowserGuides({ ...input, ...guideData })

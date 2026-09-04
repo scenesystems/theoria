@@ -43,9 +43,9 @@ const toPosixPath = (pathService: Path.Path, value: string): string => value.spl
 
 export const projectRoot = Effect.gen(function*() {
   const pathService = yield* Path.Path
-  const rootUrl = yield* Url.fromString("../../", import.meta.url)
+  const rootUrl = yield* Url.fromString("../../", import.meta.url).pipe(Effect.orDie)
   return yield* pathService.fromFileUrl(rootUrl)
-}).pipe(Effect.orDie)
+})
 
 const supportedLanguage = (token: Option.Option<string>): Option.Option<SnippetLanguage> =>
   Option.flatMap(token, (value) =>
@@ -64,7 +64,7 @@ const existingReadme = (root: string, directory: string) =>
     const fileSystem = yield* FileSystem.FileSystem
     const pathService = yield* Path.Path
     const readmePath = pathService.join(directory, "README.md")
-    const exists = yield* fileSystem.exists(readmePath).pipe(Effect.orDie)
+    const exists = yield* fileSystem.exists(readmePath)
     return exists ? Option.some(readmeTarget(root, pathService, readmePath)) : Option.none()
   })
 
@@ -73,14 +73,13 @@ const listWorkspaceReadmes = (root: string, directoryName: string) =>
     const fileSystem = yield* FileSystem.FileSystem
     const pathService = yield* Path.Path
     const workspaceRoot = pathService.join(root, directoryName)
-    const exists = yield* fileSystem.exists(workspaceRoot).pipe(Effect.orDie)
+    const exists = yield* fileSystem.exists(workspaceRoot)
     if (!exists) return Arr.empty<ReadmeTarget>()
-    const entries = yield* fileSystem.readDirectory(workspaceRoot).pipe(Effect.orDie)
+    const entries = yield* fileSystem.readDirectory(workspaceRoot)
     const directories = yield* Effect.filter(
       entries,
       (entry) =>
         fileSystem.stat(pathService.join(workspaceRoot, entry)).pipe(
-          Effect.orDie,
           Effect.map((stat) => stat.type === "Directory")
         )
     )
@@ -157,7 +156,6 @@ export const loadReadmeSnippets = Effect.gen(function*() {
     targets,
     (readme) =>
       fileSystem.readFileString(readme.absolutePath).pipe(
-        Effect.orDie,
         Effect.flatMap((content) => parseReadmeSnippets(readme, content))
       ),
     { concurrency: "unbounded" }

@@ -1,4 +1,4 @@
-import { Text } from "@scenesystems/effect-text"
+import { type Errors, Text } from "@scenesystems/effect-text"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
@@ -69,7 +69,7 @@ export const labelWidthFor = (
 export const markerLabelWidths = (
   artifact: PlaceArtifact,
   stage: Stage
-): Effect.Effect<MarkerLabelWidths, unknown, BrowserTextLayout> =>
+): Effect.Effect<MarkerLabelWidths, Errors.MeasurementFailed, BrowserTextLayout> =>
   Effect.map(
     Effect.forEach(placeFeatures(artifact), (feature) =>
       Effect.map(

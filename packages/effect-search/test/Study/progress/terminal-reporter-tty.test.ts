@@ -61,21 +61,4 @@ describe("terminal reporter tty behavior", () => {
       expect(stderr.length).toBe(1)
       expect(stderr[0]?.includes("\u001b[")).toBe(true)
     }))
-
-  it.effect("falls back to plain rendering when ANSI capability probing fails", () =>
-    Effect.gen(function*() {
-      const stdout = yield* Ref.make<ReadonlyArray<string>>([])
-      const sink = Study.makeTerminalSink({
-        supportsAnsi: Effect.fail("probe-unavailable"),
-        writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line))
-      })
-      const completed = StudyEvent.TrialCompleted({ trialNumber: 5, value: 0.125 })
-
-      yield* Study.reportTerminalProgress(completed, { sink })
-
-      const lines = yield* Ref.get(stdout)
-
-      expect(lines.length).toBe(1)
-      expect(lines[0]?.includes("\u001b[")).toBe(false)
-    }))
 })

@@ -6,7 +6,7 @@
 import { Data, Effect, Layer, Option } from "effect"
 
 import type { ObjectiveSpec } from "../contracts/ObjectiveSpec.js"
-import type { InvalidStudyConfig, SearchError } from "../Errors/index.js"
+import type { ArtifactStorageError, InvalidStudyConfig, SearchError } from "../Errors/index.js"
 import {
   checkpoint,
   restoreCheckpoint,
@@ -127,8 +127,8 @@ export class ExecuteRequest<
   readonly seed: Option.Option<ExecuteSeed<Config>>
   /** Event destination; `None` suppresses lifecycle events outside persistence. */
   readonly eventPublisher: Option.Option<EventPublisher>
-  /** Called with recovery state when execution fails or is interrupted. */
-  readonly interruptionSnapshotSink?: (snapshot: StudySnapshot) => Effect.Effect<void>
+  /** Called with recovery state when execution fails or is interrupted; a sink that cannot persist it fails with its storage error. */
+  readonly interruptionSnapshotSink?: (snapshot: StudySnapshot) => Effect.Effect<void, ArtifactStorageError>
 }> {}
 
 /**

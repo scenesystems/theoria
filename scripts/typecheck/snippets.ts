@@ -38,17 +38,15 @@ const COMPILER_FLAGS = Str.split(
 const materialize = (
   prefix: string,
   snippet: Snippet
-): Effect.Effect<TempSnippet, never, FileSystem.FileSystem | Scope.Scope> =>
+): Effect.Effect<TempSnippet, PlatformError, FileSystem.FileSystem | Scope.Scope> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const tempPath = yield* fileSystem.makeTempFileScoped({
       directory: snippet.directory,
       prefix,
       suffix: `.${snippet.language}`
-    }).pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(tempPath, `// Extracted from ${snippet.location}\n${snippet.code}`).pipe(
-      Effect.orDie
-    )
+    })
+    yield* fileSystem.writeFileString(tempPath, `// Extracted from ${snippet.location}\n${snippet.code}`)
     return new TempSnippet({ snippet, tempPath })
   })
 
@@ -74,11 +72,11 @@ const runCompiler = (root: string, snippets: ReadonlyArray<TempSnippet>) =>
       Command.stdout("pipe"),
       Command.stderr("pipe")
     )
-    const running = yield* Command.start(command).pipe(Effect.orDie)
+    const running = yield* Command.start(command)
     const [exitCode, stdout, stderr] = yield* Effect.all(
       [running.exitCode, collectText(running.stdout), collectText(running.stderr)],
       { concurrency: "unbounded" }
-    ).pipe(Effect.orDie)
+    )
     if (Number(exitCode) === 0) return
     const compilerOutput = rewriteCompilerOutput(root, pathService, `${stdout}${stderr}`, snippets).trim()
     return yield* new SnippetTypecheckError({
@@ -96,7 +94,11 @@ export const typecheckSnippets = (
   root: string,
   prefix: string,
   snippets: ReadonlyArray<Snippet>
-): Effect.Effect<void, SnippetTypecheckError, CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  void,
+  SnippetTypecheckError | PlatformError,
+  CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function*() {
     const materialized = yield* Effect.forEach(snippets, (snippet) => materialize(prefix, snippet), {
       concurrency: "unbounded"

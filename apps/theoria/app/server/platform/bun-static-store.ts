@@ -1,4 +1,5 @@
 import { FileSystem, HttpPlatform, HttpServerResponse } from "@effect/platform"
+import type { PlatformError } from "@effect/platform/Error"
 import { Effect, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
@@ -28,47 +29,54 @@ const make = (roots: ReadonlyArray<string>) =>
     const platform = yield* HttpPlatform.HttpPlatform
     const searchRoots = Arr.map(roots, trimTrailingSlash)
 
-    const exists = (path: string) => fileSystem.exists(path).pipe(Effect.catchAll(() => Effect.succeed(false)))
+    const unreadable = (pathname: string) => (cause: PlatformError): StaticStoreError =>
+      new StaticStoreError({ pathname, reason: "Unreadable", detail: cause.message })
+
+    const candidatePaths = (pathname: string): ReadonlyArray<string> =>
+      Arr.map(searchRoots, (root) => `${root}${pathname}`)
 
     /** The first root that holds `pathname`, or none when no root does. */
-    const locate = (pathname: string): Effect.Effect<Option.Option<string>> =>
+    const locate = (pathname: string): Effect.Effect<Option.Option<string>, StaticStoreError> =>
       isAssetPathname(pathname)
-        ? Effect.findFirst(Arr.map(searchRoots, (root) => `${root}${pathname}`), exists)
-        : Effect.succeed(Option.none())
+        ? Effect.findFirst(candidatePaths(pathname), (path) => fileSystem.exists(path)).pipe(
+          Effect.mapError(unreadable(pathname))
+        )
+        : Effect.succeedNone
 
-    const text = (pathname: string) =>
+    const text = (pathname: string): Effect.Effect<string, StaticStoreError> =>
       isAssetPathname(pathname)
         ? locate(pathname).pipe(
           Effect.flatMap(
             Option.match({
-              onNone: () => Effect.fail(new StaticStoreError({ pathname, message: "Asset not found." })),
-              onSome: (path) =>
-                fileSystem.readFileString(path).pipe(
-                  Effect.mapError((cause) => new StaticStoreError({ pathname, message: String(cause) }))
-                )
+              onNone: () => new StaticStoreError({ pathname, reason: "NotFound", detail: "" }),
+              onSome: (path) => fileSystem.readFileString(path).pipe(Effect.mapError(unreadable(pathname)))
             })
           )
         )
-        : Effect.fail(new StaticStoreError({ pathname, message: "Invalid asset pathname." }))
+        : new StaticStoreError({ pathname, reason: "InvalidPathname", detail: "" })
 
     // A file without a registered content type is not a servable asset. The
     // build gate keeps such files out of `dist/`; `public/` in development is
     // not gated, so the store answers "absent" rather than guessing a type.
-    const fileResponse = (pathname: string, path: string) =>
+    const fileResponse = (
+      pathname: string,
+      path: string
+    ): Effect.Effect<Option.Option<HttpServerResponse.HttpServerResponse>, StaticStoreError> =>
       Option.match(contentTypeForPath(pathname), {
-        onNone: () => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()),
+        onNone: () => Effect.succeedNone,
         onSome: (contentType) =>
-          HttpServerResponse.file(path, { headers: { "content-type": contentType } }).pipe(Effect.map(Option.some))
-      }).pipe(
-        Effect.provideService(HttpPlatform.HttpPlatform, platform),
-        Effect.catchAll(() => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()))
-      )
+          HttpServerResponse.file(path, { headers: { "content-type": contentType } }).pipe(
+            Effect.provideService(HttpPlatform.HttpPlatform, platform),
+            Effect.mapError(unreadable(pathname)),
+            Effect.asSome
+          )
+      })
 
     const response = (pathname: string) =>
       locate(pathname).pipe(
         Effect.flatMap(
           Option.match({
-            onNone: () => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()),
+            onNone: () => Effect.succeedNone,
             onSome: (path) => fileResponse(pathname, path)
           })
         )

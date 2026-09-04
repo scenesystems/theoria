@@ -1,5 +1,6 @@
 import { Command, type CommandExecutor, FileSystem, Path, Url } from "@effect/platform"
-import { Effect, Schema } from "effect"
+import type { PlatformError } from "@effect/platform/Error"
+import { Effect, type ParseResult, Schema } from "effect"
 
 import {
   conversionEnvironment,
@@ -18,23 +19,23 @@ import { type ApiSourcePackage } from "./source.js"
 const conversionConcurrency = 3
 
 const conversionScript = Effect.flatMap(
-  Url.fromString("../api-reference-convert.ts", import.meta.url),
+  Url.fromString("../api-reference-convert.ts", import.meta.url).pipe(Effect.orDie),
   (url) => Effect.flatMap(Path.Path, (path) => path.fromFileUrl(url))
-).pipe(Effect.orDie)
+)
 
 const runConversion = (request: ConversionRequest, packageName: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const script = yield* conversionScript
-    const encodedRequest = yield* encodeConversionRequest(request).pipe(Effect.orDie)
+    const encodedRequest = yield* encodeConversionRequest(request)
     const command = Command.make("bun", script).pipe(
       Command.workingDirectory(request.repositoryRoot),
       Command.env(conversionEnvironment(encodedRequest)),
       Command.stdout("inherit"),
       Command.stderr("inherit")
     )
-    const exitCode = yield* Command.exitCode(command).pipe(Effect.orDie)
+    const exitCode = yield* Command.exitCode(command)
 
     if (Number(exitCode) !== 0) {
       return yield* new ApiReferenceGenerationError({
@@ -45,8 +46,8 @@ const runConversion = (request: ConversionRequest, packageName: string) =>
 
     const text = yield* fileSystem.readFileString(
       path.join(request.outputDirectory, convertedPackagePath(path, request.packageDirectory))
-    ).pipe(Effect.orDie)
-    return yield* Schema.decode(ConvertedPackageText)(text).pipe(Effect.orDie)
+    )
+    return yield* Schema.decode(ConvertedPackageText)(text)
   })
 
 /** Converts every package in its own process; each summary points at the reflections written under `conversionRoot`. */
@@ -57,7 +58,7 @@ export const convertApiPackages = (input: {
   readonly sourcePackages: ReadonlyArray<ApiSourcePackage>
 }): Effect.Effect<
   ReadonlyArray<ConvertedPackage>,
-  ApiReferenceGenerationError,
+  ApiReferenceGenerationError | ParseResult.ParseError | PlatformError,
   CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path
 > =>
   Effect.forEach(

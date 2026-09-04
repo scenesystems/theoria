@@ -1,16 +1,25 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
+import type { PlatformError } from "@effect/platform/Error"
 import { Array as Arr, Console, Effect, Schema } from "effect"
 
 import { DocsManifestJson } from "@theoria/docs-model"
 
 const docsAssetPrefix = "/docs-data/"
 
+const isNotFound = (error: PlatformError): boolean => error._tag === "SystemError" && error.reason === "NotFound"
+
+/**
+ * Whether every asset the manifest names is on disk. A manifest that is absent
+ * or no longer decodes as the current schema means the assets need regenerating;
+ * a filesystem that cannot be read is a failure of this script.
+ */
 const docsAssetsAreCurrent = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const repositoryRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl).pipe(
-    Effect.orDie
+  const repositoryRoot = yield* Effect.flatMap(
+    Url.fromString("../", import.meta.url).pipe(Effect.orDie),
+    path.fromFileUrl
   )
   const outputRoot = path.join(repositoryRoot, "apps", "theoria", "public", "docs-data")
   const manifestText = yield* fileSystem.readFileString(path.join(outputRoot, "manifest.json"))
@@ -30,7 +39,10 @@ const docsAssetsAreCurrent = Effect.gen(function*() {
   )
 
   return Arr.every(existing, (exists) => exists)
-}).pipe(Effect.catchAll(() => Effect.succeed(false)))
+}).pipe(
+  Effect.catchTag("ParseError", () => Effect.succeed(false)),
+  Effect.catchIf(isNotFound, () => Effect.succeed(false))
+)
 
 const program = Effect.flatMap(docsAssetsAreCurrent, (current) =>
   current

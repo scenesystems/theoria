@@ -11,6 +11,7 @@ import type { Layer } from "effect"
 import * as Arr from "effect/Array"
 
 import type { MeasurementCache, WordSegmenter } from "../../../contracts/index.js"
+import type { MeasurementFailed } from "../../../Errors/index.js"
 import type { EngineProfileType } from "../../../Text/schema.js"
 import { evaluateProfile } from "../evaluation.js"
 import type { CalibrationCaseType, CalibrationObjectiveMetadataType } from "../schema.js"
@@ -20,7 +21,7 @@ import { calibrationProfile } from "./search.js"
 type CalibrationObjective = (
   engineProfile: EngineProfileType,
   runtime: EffectSearch.Study.ObjectiveTrialRuntime
-) => Effect.Effect<number, unknown>
+) => Effect.Effect<number, MeasurementFailed>
 
 const asSingleObjectiveResult = <Config>(
   result: Study.StudyResult<Config>

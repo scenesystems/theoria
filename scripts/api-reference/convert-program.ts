@@ -32,9 +32,9 @@ const writeProject = (input: {
     const path = yield* Path.Path
     const absoluteOutput = path.join(input.outputDirectory, input.relativeOutput)
     const serialized = input.app.serializer.projectToObject(input.project, normalizePath(input.repositoryRoot))
-    const text = yield* Schema.encode(TypeDocProjectJsonText)(serialized).pipe(Effect.orDie)
-    yield* fileSystem.makeDirectory(path.dirname(absoluteOutput), { recursive: true }).pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(absoluteOutput, text).pipe(Effect.orDie)
+    const text = yield* Schema.encode(TypeDocProjectJsonText)(serialized)
+    yield* fileSystem.makeDirectory(path.dirname(absoluteOutput), { recursive: true })
+    yield* fileSystem.writeFileString(absoluteOutput, text)
     return input.relativeOutput
   })
 
@@ -109,9 +109,9 @@ export const convertPackageProgram = Effect.gen(function*() {
       module
     }))
   const converted: ConvertedPackage = { sourcePackage, modules }
-  const text = yield* Schema.encode(ConvertedPackageText)(converted).pipe(Effect.orDie)
+  const text = yield* Schema.encode(ConvertedPackageText)(converted)
   yield* fileSystem.writeFileString(
     path.join(request.outputDirectory, convertedPackagePath(path, sourcePackage.directoryName)),
     text
-  ).pipe(Effect.orDie)
+  )
 })

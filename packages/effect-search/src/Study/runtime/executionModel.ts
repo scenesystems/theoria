@@ -6,6 +6,7 @@
 import { Data, Effect } from "effect"
 
 import { type ObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
+import type { ArtifactStorageError } from "../../Errors/Artifact.js"
 import type * as Scheduler from "../../Scheduler/index.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import type * as StudyEvent from "../../StudyEvent/index.js"
@@ -78,7 +79,7 @@ export type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<
  * @since 0.1.0
  * @category type-level
  */
-export type InterruptionSnapshotSink = (snapshot: StudySnapshot) => Effect.Effect<void>
+export type InterruptionSnapshotSink = (snapshot: StudySnapshot) => Effect.Effect<void, ArtifactStorageError>
 
 /**
  * @since 0.1.0

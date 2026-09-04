@@ -7,7 +7,8 @@
 
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Effect, HashMap, Match, Option, Record, Schema, Tuple } from "effect"
+import type { PlatformError } from "@effect/platform/Error"
+import { Array as Arr, Console, Effect, HashMap, Match, Option, type ParseResult, Record, Schema, Tuple } from "effect"
 
 class WorkspaceDependencyResolutionError
   extends Schema.TaggedError<WorkspaceDependencyResolutionError>()("WorkspaceDependencyResolutionError", {
@@ -29,19 +30,19 @@ const readManifest = (manifestPath: string) =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     return yield* fs.readFileString(manifestPath).pipe(Effect.flatMap(Schema.decode(ManifestJson)))
-  }).pipe(Effect.orDie)
+  })
 
 const readOptionalManifest = (manifestPath: string) =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
-    const exists = yield* fs.exists(manifestPath).pipe(Effect.orDie)
+    const exists = yield* fs.exists(manifestPath)
     return yield* exists ? Effect.map(readManifest(manifestPath), Option.some) : Effect.succeedNone
   })
 
 const packageDirectories = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const root = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
+  const root = yield* Effect.flatMap(Url.fromString("../", import.meta.url).pipe(Effect.orDie), path.fromFileUrl)
   const packagesDir = path.join(root, "packages")
   const entries = yield* fs.readDirectory(packagesDir)
   const directories = yield* Effect.filter(
@@ -49,11 +50,11 @@ const packageDirectories = Effect.gen(function*() {
     (entry) => fs.stat(path.join(packagesDir, entry)).pipe(Effect.map((stat) => stat.type === "Directory"))
   )
   return Arr.map(directories, (entry) => path.join(packagesDir, entry))
-}).pipe(Effect.orDie)
+})
 
 const workspaceVersions = (
   directories: ReadonlyArray<string>
-): Effect.Effect<Versions, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Versions, ParseResult.ParseError | PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
     const manifests = yield* Effect.forEach(
@@ -135,8 +136,8 @@ const processPackage = (directory: string, versions: Versions) =>
           if (resolved === 0) return 0
           const packageName = Option.getOrElse(decodeString(current.name), () => directory)
           const next = yield* resolveManifest(current, versions)
-          const encoded = yield* Schema.encode(ManifestJson)(next).pipe(Effect.orDie)
-          yield* fs.writeFileString(distManifestPath, `${encoded}\n`).pipe(Effect.orDie)
+          const encoded = yield* Schema.encode(ManifestJson)(next)
+          yield* fs.writeFileString(distManifestPath, `${encoded}\n`)
           yield* Console.log(`  ✓ ${packageName}: resolved ${resolved} workspace dep(s)`)
           return resolved
         })
