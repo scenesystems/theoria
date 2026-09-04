@@ -3,7 +3,7 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Chunk, Clock, Console, Effect, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
-import { Text } from "../src/index.js"
+import { type Errors, Text } from "../src/index.js"
 import { preparedTextWithSegmentsCore } from "../src/Text/model.js"
 import {
   type BenchmarkCaseReportType,
@@ -28,11 +28,11 @@ const BenchmarkComparisonReportJsonSchema = Schema.parseJson(BenchmarkComparison
 
 const meanDuration = (totalDurationMs: number, iterations: number): number => totalDurationMs / iterations
 
-const measureEffect = <A>(
+const measureEffect = <A, E>(
   iterations: number,
-  run: () => Effect.Effect<A>,
+  run: () => Effect.Effect<A, E>,
   summarize: (value: A) => BenchmarkMetricSampleType
-): Effect.Effect<BenchmarkMetricType> =>
+): Effect.Effect<BenchmarkMetricType, E> =>
   Effect.gen(function*() {
     const startedAt = yield* Clock.currentTimeMillis
 
@@ -84,7 +84,9 @@ const collectCursorLines = (
     onSome: ([line, nextCursor]) => [line, ...collectCursorLines(prepared, request, nextCursor)]
   })
 
-const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<BenchmarkCaseReportType> =>
+const benchmarkCase = (
+  corpusCase: BenchmarkCorpusCase
+): Effect.Effect<BenchmarkCaseReportType, Errors.MeasurementFailed> =>
   Effect.gen(function*() {
     const prepared = yield* Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive))
 

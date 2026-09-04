@@ -43,7 +43,7 @@ const CalibrationVerificationArtifact = Schema.Struct({
 
 export const CalibrationVerificationArtifactJson = Schema.parseJson(CalibrationVerificationArtifact)
 
-const benchmarkProfiles: ReadonlyArray<Experimental.Calibration.CalibrationProfileType> = Arr.make(
+const benchmarkProfiles: ReadonlyArray<Experimental.Calibration.CalibrationProfileType> = [
   defaultCalibrationProfile,
   {
     name: "narrow-tabs",
@@ -60,7 +60,7 @@ const benchmarkProfiles: ReadonlyArray<Experimental.Calibration.CalibrationProfi
       preferEarlySoftHyphenBreak: true
     }
   }
-)
+]
 
 const zeroSummary = (): Experimental.Calibration.CalibrationLossSummaryType => ({
   count: 0,

@@ -26,7 +26,7 @@ The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal
 ## Rules
 
 1. **USE `bun` ONLY.** Never `npm`, `npx`, `yarn`, `pnpm`. Use `bunx` for CLI tools.
-2. **FIVE GATES.** `bun run check && bun run check:tests && bun run lint && bun run test && bun run build` — all green before work is complete.
+2. **FOUR GATES.** `bun run check:all && bun run lint && bun run test && bun run build` — all green before work is complete. `check:all` type-checks sources, tests, examples, scripts, and benchmarks.
 3. **YOU OWN ALL ERRORS.** You see it, you own it, you fix it.
 4. **NEVER USE `git stash`.** Ask the user how to proceed.
 5. **RUN CLI COMMANDS.** VS Code diagnostics are insufficient.
@@ -35,20 +35,22 @@ The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal
 
 ## Commands
 
-| Task              | Command               |
-| ----------------- | --------------------- |
-| Type check (src)  | `bun run check`       |
-| Type check (test) | `bun run check:tests` |
-| Lint              | `bun run lint`        |
-| Test              | `bun run test`        |
-| Build             | `bun run build`       |
-| Clean             | `bun run clean`       |
+| Task                                            | Command                  |
+| ----------------------------------------------- | ------------------------ |
+| Type check (src + scripts)                      | `bun run check`          |
+| Type check (test)                               | `bun run check:tests`    |
+| Type check (examples, package scripts, benches) | `bun run check:examples` |
+| Type check (everything)                         | `bun run check:all`      |
+| Lint                                            | `bun run lint`           |
+| Test                                            | `bun run test`           |
+| Build                                           | `bun run build`          |
+| Clean                                           | `bun run clean`          |
 
 Per-package: `bun run --filter '@scenesystems/effect-math' check`
 
 **CRITICAL:** The `--filter` flag goes after `run`, NOT before it. The pattern matches package names from `package.json`, not directory paths. Glob patterns work: `bun run --filter '@scenesystems/*' build`.
 
-Before committing: `bun run check && bun run check:tests && bun run lint && bun run test`
+Before committing: `bun run check:all && bun run lint && bun run test`
 
 For `apps/theoria` dev work, use the checked-in runbook: `bun run app:theoria:tmux`. Treat the frontend dev server port as fixed at `5175`; do not improvise alternate Vite ports unless the user explicitly asks for a config change.
 

@@ -365,5 +365,5 @@ const program = Effect.gen(function*() {
 })
 
 BunRuntime.runMain(
-  withLiveLanguageModel(program).pipe(Effect.provide(noopArtifactSinkLayer), Effect.provide(BunContext.layer))
+  withLiveLanguageModel(program).pipe(Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer)))
 )
