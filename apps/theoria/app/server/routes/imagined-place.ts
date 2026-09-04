@@ -5,7 +5,7 @@ import * as ParseResult from "effect/ParseResult"
 import { ErrorModel } from "../../contracts/error.js"
 import type { PlaceBuild, PlaceBuildEnvelope } from "../../contracts/imagined-place-result.js"
 import { PlaceBuildError, PlaceBuildRequest } from "../../contracts/imagined-place.js"
-import { PlaceBuildLimiter } from "../config/place-build-limiter.js"
+import { PlaceBuildLimiter, type PlaceBuildLimiterError } from "../config/place-build-limiter.js"
 import { RuntimeInfo } from "../config/runtime.js"
 import type { Participants } from "../imagined-place/authority.js"
 import { buildPlace } from "../imagined-place/run.js"
@@ -68,6 +68,12 @@ const rateLimitRejection = (retryAfterSeconds: number): Rejection => ({
   headers: { "retry-after": String(retryAfterSeconds) }
 })
 
+/** The limiter is a backstop for anonymous CPU work; when it cannot decide, the build is not attempted. */
+const undecidedAdmission = (failure: PlaceBuildLimiterError): Rejection => ({
+  error: { code: "execution-failed", message: `Place build admission failed: ${failure.detail}`, retryable: true },
+  headers: {}
+})
+
 const unreadableBody: ErrorModel = {
   code: "invalid-request",
   message: "Place build request body could not be read.",
@@ -82,13 +88,17 @@ const accessRejection = (request: HttpServerRequest.HttpServerRequest): Option.O
     : Option.none()
 
 /** Asks the limiter for admission; requests without a client address share one bucket. */
-const admission = (request: HttpServerRequest.HttpServerRequest) =>
+const admission = (
+  request: HttpServerRequest.HttpServerRequest
+): Effect.Effect<Option.Option<Rejection>, never, PlaceBuildLimiter> =>
   Effect.gen(function*() {
     const limiter = yield* PlaceBuildLimiter
     const actor = request.headers[clientAddressHeader] ?? "unknown-client"
     const decision = yield* limiter.admit(actor)
     return decision._tag === "Admitted" ? Option.none() : Option.some(rateLimitRejection(decision.retryAfterSeconds))
-  })
+  }).pipe(
+    Effect.catchTag("PlaceBuildLimiterError", (failure) => Effect.succeed(Option.some(undecidedAdmission(failure))))
+  )
 
 const failureModel = (
   error: PlaceBuildError | ParseResult.ParseError | HttpServerError.RequestError

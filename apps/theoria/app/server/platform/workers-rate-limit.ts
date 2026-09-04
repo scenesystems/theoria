@@ -1,6 +1,12 @@
 import { Effect, Layer, Option, Predicate, Schema } from "effect"
 
-import { admitted, PlaceBuildLimiter, refused, unlimited } from "../config/place-build-limiter.js"
+import {
+  admitted,
+  PlaceBuildLimiter,
+  PlaceBuildLimiterError,
+  refused,
+  unlimited
+} from "../config/place-build-limiter.js"
 
 /**
  * `PlaceBuildLimiter` backed by a Cloudflare Workers rate-limiting binding.
@@ -35,9 +41,10 @@ export const windowSeconds = 60
 export const make = (binding: RateLimitBinding) =>
   PlaceBuildLimiter.of({
     admit: (actor) =>
-      Effect.promise(() => binding.limit({ key: actor })).pipe(
-        Effect.map(({ success }) => success ? admitted : refused(windowSeconds))
-      )
+      Effect.tryPromise({
+        try: () => binding.limit({ key: actor }),
+        catch: (cause) => new PlaceBuildLimiterError({ detail: `rate-limit binding failed: ${String(cause)}` })
+      }).pipe(Effect.map(({ success }) => success ? admitted : refused(windowSeconds)))
   })
 
 export const layer = (binding: RateLimitBinding): Layer.Layer<PlaceBuildLimiter> =>

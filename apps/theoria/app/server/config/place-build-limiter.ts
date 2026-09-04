@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 /**
  * Admission control for `POST /api/imagined-place/build`.
@@ -15,10 +15,15 @@ export type Admission =
   | { readonly _tag: "Admitted" }
   | { readonly _tag: "Refused"; readonly retryAfterSeconds: number }
 
+/** The limiter could not decide: its backing store failed. The request is not refused; it is not decided. */
+export class PlaceBuildLimiterError extends Schema.TaggedError<PlaceBuildLimiterError>()("PlaceBuildLimiterError", {
+  detail: Schema.String
+}) {}
+
 export class PlaceBuildLimiter extends Context.Tag("@theoria/app/server/config/PlaceBuildLimiter")<
   PlaceBuildLimiter,
   {
-    readonly admit: (actor: string) => Effect.Effect<Admission>
+    readonly admit: (actor: string) => Effect.Effect<Admission, PlaceBuildLimiterError>
   }
 >() {}
 

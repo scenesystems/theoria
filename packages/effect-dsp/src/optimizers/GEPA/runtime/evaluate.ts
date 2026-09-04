@@ -66,12 +66,12 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
       return Effect.forEach(resolveValset(options), (example, index) =>
         Effect.gen(function*() {
           const expectedOutputRaw = Option.getOrElse(Option.fromNullable(example.output), () => example.input)
-          const moduleInput = yield* decodeInput(example.input).pipe(Effect.orDie)
-          const expectedOutput = yield* decodeOutput(expectedOutputRaw).pipe(Effect.orDie)
+          const moduleInput = yield* decodeInput(example.input)
+          const expectedOutput = yield* decodeOutput(expectedOutputRaw)
           const prediction = yield* options.module.forward(moduleInput)
-          const metricInput = yield* decodeFieldRecord(moduleInput).pipe(Effect.orDie)
-          const metricPrediction = yield* decodeFieldRecord(prediction).pipe(Effect.orDie)
-          const metricExpectedOutput = yield* decodeFieldRecord(expectedOutput).pipe(Effect.orDie)
+          const metricInput = yield* decodeFieldRecord(moduleInput)
+          const metricPrediction = yield* decodeFieldRecord(prediction)
+          const metricExpectedOutput = yield* decodeFieldRecord(expectedOutput)
           const metricResult = yield* options.metric.score(metricPrediction, metricExpectedOutput)
           const adjustedScore = Numeric.clamp(metricResult.score + candidateBoost(candidate.candidateId), {
             minimum: 0,

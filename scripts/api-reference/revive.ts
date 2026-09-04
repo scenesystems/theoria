@@ -4,7 +4,7 @@ import { Application, FileRegistry, normalizePath, type ProjectReflection } from
 
 import { type ConvertedModule } from "./conversion.js"
 import { ApiConvertedModule, ApiSourceComment } from "./converted.js"
-import { ApiReferenceGenerationError } from "./model.js"
+import { ApiReferenceGenerationError, ApiReferenceToolchainError } from "./model.js"
 import { moduleReflection } from "./module-comment.js"
 import { type TypeDocProjectJson, TypeDocProjectJsonText } from "./typedoc-json.js"
 
@@ -29,9 +29,10 @@ export const typeDocReflectionsLayer = (repositoryRoot: string) =>
   Layer.effect(
     TypeDocReflections,
     Effect.gen(function*() {
-      const app = yield* Effect.promise(() =>
-        Application.bootstrap({ disableGit: true, pretty: false, readme: "none" })
-      )
+      const app = yield* Effect.tryPromise({
+        try: () => Application.bootstrap({ disableGit: true, pretty: false, readme: "none" }),
+        catch: (cause) => new ApiReferenceToolchainError({ detail: `TypeDoc initialization failed: ${String(cause)}` })
+      })
       const projectRoot = normalizePath(repositoryRoot)
 
       return TypeDocReflections.of({

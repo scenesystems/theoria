@@ -61,6 +61,12 @@ export class ApiReferenceGenerationError extends Schema.TaggedError<ApiReference
   }
 ) {}
 
+/** TypeDoc itself could not be set up; no package is at fault. */
+export class ApiReferenceToolchainError extends Schema.TaggedError<ApiReferenceToolchainError>()(
+  "ApiReferenceToolchainError",
+  { detail: Schema.String }
+) {}
+
 export type ApiImportKind = typeof ApiImportKindSchema.Type
 export type ApiReferenceFacet = typeof ApiReferenceFacetSchema.Type
 export type ApiReferenceImport = typeof ApiReferenceImportSchema.Type
