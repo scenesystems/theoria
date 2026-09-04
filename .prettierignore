@@ -7,9 +7,6 @@ dist
 build
 *.tsbuildinfo
 
-# Coverage
-coverage
-
 # Git
 .git
 

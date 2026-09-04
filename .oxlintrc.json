@@ -68,7 +68,6 @@
     "**/fixtures/**/*.json",
     ".vendor/**",
     ".tmp/**",
-    "apps/*/public/**",
-    "coverage/**"
+    "apps/*/public/**"
   ]
 }

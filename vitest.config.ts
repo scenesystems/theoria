@@ -14,27 +14,9 @@ export default defineConfig({
     ],
     // Runs the built Worker in workerd; see apps/theoria/vitest.worker.config.ts.
     exclude: ["apps/theoria/test/worker/**", "**/node_modules/**"],
-    passWithNoTests: true,
+    passWithNoTests: false,
     testTimeout: 30_000,
     hookTimeout: 30_000,
-    teardownTimeout: 30_000,
-
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "lcov", "html"],
-      reportsDirectory: "coverage",
-      include: [
-        "packages/*/src/**/*.ts",
-        "apps/*/app/**/*.ts",
-        "apps/*/app/**/*.tsx",
-        "apps/*/server.ts"
-      ],
-      exclude: [
-        "**/*.test.ts",
-        "**/*.d.ts",
-        "**/dist/**",
-        "**/.tsbuild/**"
-      ]
-    }
+    teardownTimeout: 30_000
   }
 })
