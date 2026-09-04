@@ -13,13 +13,14 @@ const HINT_ENDPOINT_BYTES = 6
 /**
  * True when the ML-DSA-65 hint block is malformed: an endpoint out of range or
  * decreasing, a segment whose indices are not strictly increasing, or non-zero
- * padding. A signature shorter than the six endpoint bytes is malformed too.
+ * padding. A signature that does not carry all six endpoint bytes is malformed
+ * too; a partial endpoint block is never inspected.
  */
 export const hasInvalidMlDsa65HintEncoding = (signature: Uint8Array): boolean => {
   const endpoints = Arr.fromIterable(
     signature.subarray(HINT_ENDPOINT_OFFSET, HINT_ENDPOINT_OFFSET + HINT_ENDPOINT_BYTES)
   )
-  return Option.match(Arr.last(endpoints), {
+  return endpoints.length !== HINT_ENDPOINT_BYTES || Option.match(Arr.last(endpoints), {
     onNone: () => true,
     onSome: (lastEndpoint) => {
       // Each hint segment runs from the previous endpoint (0 for the first) to its own endpoint.

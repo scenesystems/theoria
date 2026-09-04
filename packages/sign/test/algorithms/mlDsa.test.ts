@@ -13,6 +13,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
+import * as Arr from "effect/Array"
 import {
   mlDsa44Keygen,
   mlDsa44Sign,
@@ -25,6 +26,7 @@ import {
   mlDsa87Sign,
   mlDsa87Verify
 } from "../../src/algorithms/mlDsa.js"
+import { hasInvalidMlDsa65HintEncoding } from "../../src/internal/mlDsa65.js"
 
 const message = new TextEncoder().encode("post-quantum hello")
 const EMPTY_CONTEXT = new Uint8Array(0)
@@ -118,6 +120,21 @@ describe("ML-DSA-65 — algorithm contracts", () => {
       const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 0 ? byte ^ 0xff : byte)
       const valid = yield* mlDsa65Verify(tampered, message, kp.publicKey, EMPTY_CONTEXT)
       expect(valid).toBe(false)
+    }))
+
+  it.effect("a hint block is invalid unless all six endpoint bytes are present", () =>
+    Effect.gen(function*() {
+      const kp = yield* mlDsa65Keygen()
+      const sig = yield* mlDsa65SignDeterministic(message, kp.secretKey, kp.publicKey)
+      const endpointOffset = 3_303
+
+      // A well-formed block: a real signature, and the canonical empty hint (all zero).
+      expect(hasInvalidMlDsa65HintEncoding(sig.signature)).toBe(false)
+      expect(hasInvalidMlDsa65HintEncoding(new Uint8Array(endpointOffset + 6))).toBe(false)
+      // Zero-filled bytes would pass every per-endpoint check; only the missing bytes can reject them.
+      expect(
+        Arr.map(Arr.range(0, 5), (present) => hasInvalidMlDsa65HintEncoding(new Uint8Array(endpointOffset + present)))
+      ).toEqual(Arr.replicate(true, 6))
     }))
 
   it.effect("fails the legacy signing entrypoint closed instead of selecting a default mode", () =>
