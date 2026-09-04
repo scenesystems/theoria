@@ -62,6 +62,7 @@ Ranges as written in `package.json` files after the upgrade.
 | ----------------------------------- | ----------- | ----------------------------------- |
 | `@base-ui-components/react`         | ^1.0.0-rc.0 | replaced by `@base-ui/react` ^1.7.0 |
 | `motion`                            | —           | ^13.2.0                             |
+| `@effect/platform-browser`          | —           | ^0.77.1                             |
 | `@effect-atom/atom` / `atom-react`  | ^0.5.3      | ^0.7.0                              |
 | `@shikijs/*`                        | ^3.23       | ^4.4.3                              |
 | `react` / `react-dom`               | ^19.2.4     | ^19.2.8                             |
@@ -161,8 +162,8 @@ warnings that had been editor-only; all were fixed rather than downgraded:
   `Effect.fn("name")(inner)(args)` immediately-invoked wrappers became the
   body piped through `Effect.withSpan("name")`, preserving the span names.
 - One `unknownInEffectCatch` in `apps/theoria/app/web/atoms/docs.ts`: the
-  clipboard `Effect.tryPromise` now fails with a `ClipboardWriteError`
-  (`Schema.TaggedError`) instead of `unknown`.
+  clipboard call (since replaced by `Clipboard.writeString` from
+  `@effect/platform-browser`) failed with a typed error instead of `unknown`.
 - Twelve `multipleEffectProvide` in tests: chained `Effect.provide(A),
 Effect.provide(B)` became a single `Effect.provide(Layer.merge(A, B))`
   where the layers are independent, or `A.pipe(Layer.provideMerge(B))` where
@@ -309,6 +310,65 @@ value, it derived the value instead: `maxWidth: number | null` in the text
 authority meant "use the contract's width", so `projectText` now defaults
 `maxWidth` to `maxWidthFor(role, variant)` and no `Option` is needed.
 
+## Host globals are services
+
+The last plain-JavaScript layer was the one under the app and the scripts: 37
+`globalThis` reads, `window`/`document`/`localStorage`/`navigator` used from
+atoms and views, `fetch` in the clients, `new URL` in 40 files, host timers and
+`requestAnimationFrame` in animation and measurement code, `process.*` and
+`Bun.CryptoHasher` in package scripts, `crypto.randomUUID` as the server's
+request id. Each is now an Effect service or an Effect module, and the ESLint
+`HOST_GLOBAL_RULES` (`eslint/effect/builtins.mjs`) reject the globals so they
+cannot return. `window`/`document` may be named only inside
+`apps/theoria/app/web/platform/`.
+
+- **Browser.** `apps/theoria/app/web/platform/` defines `BrowserWindow` and
+  `BrowserDocument` tags acquired once in a `Layer.sync`, plus
+  `AnimationFrame` and `ElementSize` (`ResizeObserver`) wrappers. `browser.ts`
+  merges them with `BrowserKeyValueStore.layerLocalStorage`, `Clipboard.layer`
+  and `FetchHttpClient.layer` into `BrowserLive`; `appRuntime = Atom.runtime(BrowserLive)`.
+  `main.tsx` starts through `BrowserRuntime.runMain`. Theme preference is an
+  `Atom.kvs` over the key-value store with a tri-state `ColorModePreference`
+  (`system` / `light` / `dark`) under the key `theoria/color-mode-preference`;
+  the old `theoria-color-mode` key is not migrated. `ImaginedPlaceClient` and
+  `DocsClient` send through `HttpClient`; navigation reads and writes history
+  through `BrowserWindow`.
+- **Base UI and Motion.** Every control that Base UI provides is composed from
+  it rather than hand-written: `TabGroup`/`TabBar`/`Tab`/`TabPanel` over
+  `Tabs` (the tabs now carry `tablist`/`tab` roles), `ChoicePills` over
+  `RadioGroup`, `ToggleSwitch` over `Switch`, `TextAreaField` with
+  `FieldGroup`/`FieldLabel`/`FieldDescription` over `Field`, the docs
+  navigation drawer over `Drawer`, and the layout primitives take Base UI's
+  `render` prop. The wordmark morph animates with Motion (`motion/react`,
+  `MotionConfig` at the app root) instead of a hand-rolled frame loop.
+- **Server.** `router.ts` takes the request id from the tracer span
+  (`Effect.currentSpan`, guaranteed by `HttpApp.toHandled`'s tracer middleware)
+  instead of `crypto.randomUUID()`, and returns 400 for a URL it cannot parse.
+  The Workers `StaticStore` builds an `HttpClient` from the `ASSETS` binding
+  with `HttpClient.make`, so asset reads are ordinary traced client requests.
+- **Scripts and tests.** Package scripts resolve their root from
+  `import.meta.url` through `Url.fromString` + `Path.fromFileUrl` rather than
+  `process.cwd()`, hash with `@scenesystems/digest` rather than
+  `Bun.CryptoHasher`, and exit through `BunRuntime.runMain` (exit code 1 on any
+  failure) rather than `process.exit`; the bespoke `exitCode` fields are gone.
+  Fixture registries take a `rootDirectory` string. Timer-based tests use a
+  forked `Effect.sleep` fiber instead of `setInterval`. `@scenesystems/sign`
+  gained `generateEntropy` so hedged signing has a CSPRNG source that is not
+  Effect's seedable `Random`.
+- **Web interop stays where Effect puts it.** `HttpServerRequest.fromWeb` and
+  `HttpClientResponse.fromWeb` take web `Request`/`Response` values by design,
+  and Effect's own tests build fixtures with `new Request`/`new Response` at
+  that seam, so those constructors are not banned. Vitest runs on Node, so
+  `BunHttpServer.layerTest` is not available to app tests.
+- **Removed as governance rather than migrated.** `effect-search`'s TPE
+  wall-clock budget test, `effect-text`'s synthetic-regression harness (the
+  `browser-parity.contract.test.ts` already compares the committed artifacts
+  against real output) and its `verifySupportManifest` self-consistency script.
+- **Vitest projects.** The root `vitest.config.ts` now declares two projects:
+  `packages` (Node) and the app's own `vitest.config.ts` (happy-dom). Before,
+  the root run also matched `apps/*/test/**/*.test.ts` in Node without a DOM,
+  so app files ran twice under different environments.
+
 ## Verification
 
 Every gate ran green on the upgraded tree:
@@ -320,8 +380,9 @@ bun run check:examples # tsconfig.examples.json: package examples, fixture scrip
 bun run check:all      # the three above; this is what CI and the pre-commit hook run
 bun run check:apps
 bun run lint           # oxlint --deny-warnings && eslint --max-warnings=0 && dprint check
-bun run test           # vitest 4: 360 files, 1988 tests
-bun run test:apps      # vitest 4 + happy-dom: 26 files, 90 tests
+bun run test           # vitest 4 projects: 365 files, 2001 tests (packages in Node, app in happy-dom)
+bun run test:apps      # the app project alone: 26 files, 93 tests
+bun run test:worker    # after deploy:dry-run — the built Worker in workerd + Chromium: 6 files, 23 tests
 bun run build          # tsc -b, Babel 8 CJS/ESM, typedoc on TS 6, Vite 8 web build
 ```
 

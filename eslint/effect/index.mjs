@@ -12,6 +12,7 @@ import {
   ARRAY_BUILTINS_RULES,
   ARRAY_MUTATION_RULES,
   COLLECTIONS_RULES,
+  HOST_GLOBAL_RULES,
   JSON_BUILTINS_RULES,
   OBJECT_BUILTINS_RULES,
   TIME_RANDOMNESS_RULES
@@ -43,9 +44,9 @@ import {
 } from "./types.mjs"
 
 /**
- * Effect discipline for every TypeScript file: no async/throw/let/loops/console
- * or mutable builtins, no type assertions or utility types, schema-first type
- * modeling and Option instead of `undefined` bridges.
+ * Effect discipline for every TypeScript file: no async/throw/let/loops/console,
+ * mutable builtins or host globals, no type assertions or utility types,
+ * schema-first type modeling and Option instead of `undefined` bridges.
  */
 export const EFFECT_RULES = [
   ...NO_ASYNC_RULES,
@@ -67,6 +68,7 @@ export const EFFECT_RULES = [
   ...OBJECT_BUILTINS_RULES,
   ...ARRAY_MUTATION_RULES,
   ...ARRAY_BUILTINS_RULES,
+  ...HOST_GLOBAL_RULES,
   ...TYPE_ASSERTION_RULES,
   ...UTILITY_TYPE_RULES,
   ...MODULE_STUB_RULES,

@@ -1,6 +1,6 @@
 /**
  * Built-in replacement discipline: Effect collections, Clock/Random, Schema
- * codecs, Record helpers and immutable Array operations.
+ * codecs, Record helpers, immutable Array operations and host globals.
  *
  * @module eslint/effect/builtins
  */
@@ -96,5 +96,60 @@ export const ARRAY_BUILTINS_RULES = [
   {
     selector: "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
     message: "Do not use Array.isArray(). Use Arr.isArray or Predicate.isArray from effect."
+  }
+]
+
+/**
+ * Host globals that Effect or `@effect/platform*` already model as services.
+ * The only sanctioned host reads are the `window`/`document` acquisitions in
+ * `apps/theoria/app/web/platform/`, which the rest of the app consumes through
+ * `BrowserWindow`/`BrowserDocument`. Web `Request`/`Response` construction is
+ * not banned: `HttpServerRequest.fromWeb` and `HttpClientResponse.fromWeb` are
+ * Effect's designed interop seam and its own tests build fixtures this way.
+ */
+export const HOST_GLOBAL_RULES = [
+  {
+    selector: "Identifier[name='globalThis']",
+    message:
+      "Do not read 'globalThis'. Provide the capability as an Effect service (@effect/platform, @effect/platform-browser)."
+  },
+  {
+    selector: "NewExpression[callee.name='URL']",
+    message: "Do not use 'new URL()'. Use Url.fromString from '@effect/platform'."
+  },
+  {
+    selector: "CallExpression[callee.type='Identifier'][callee.name='fetch']",
+    message: "Do not call 'fetch()'. Use HttpClient from '@effect/platform'."
+  },
+  {
+    selector:
+      "CallExpression[callee.type='Identifier'][callee.name=/^(setTimeout|setInterval|clearTimeout|clearInterval)$/]",
+    message: "Do not use host timers. Use Effect.sleep, Effect.repeat and Schedule from 'effect'."
+  },
+  {
+    selector: "CallExpression[callee.type='Identifier'][callee.name=/^(requestAnimationFrame|cancelAnimationFrame)$/]",
+    message: "Do not call requestAnimationFrame directly. Use the AnimationFrame service or Motion's frame scheduler."
+  },
+  {
+    selector: "MemberExpression[object.name='performance']",
+    message: "Do not read 'performance'. Use Clock.currentTimeNanos from 'effect'."
+  },
+  {
+    selector: "MemberExpression[object.name='process'][property.name=/^(env|argv|exit|cwd|stdout|stderr|stdin)$/]",
+    message:
+      "Do not read 'process'. Use Config for environment, Console for output, Path/import.meta.url for locations and BunRuntime.runMain for exit codes."
+  },
+  {
+    selector: "MemberExpression[object.name='Bun']",
+    message: "Do not use the 'Bun' global. Use BunContext, BunHttpServer and BunRuntime from '@effect/platform-bun'."
+  },
+  {
+    selector: "MemberExpression[object.name='crypto']",
+    message:
+      "Do not use the 'crypto' global. Use @scenesystems/digest for hashing and generateEntropy from @scenesystems/sign for CSPRNG bytes."
+  },
+  {
+    selector: "Identifier[name=/^(localStorage|sessionStorage)$/]",
+    message: "Do not use Web Storage directly. Use BrowserKeyValueStore from '@effect/platform-browser'."
   }
 ]
