@@ -2,8 +2,6 @@
  * GEPA orchestration contracts.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
-import { FileSystem, Path } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -95,19 +93,4 @@ describe("Optimizer.gepa orchestration", () => {
         })
       ).toBe(true)
     }))
-
-  it.effect("stores GEPA state in Ref<GEPAState> without SynchronizedRef", () =>
-    Effect.gen(function*() {
-      const fileSystem = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const sourcePath = yield* path.fromFileUrl(new URL("../../../src/optimizers/GEPA/index.ts", import.meta.url))
-        .pipe(
-          Effect.orDie
-        )
-      const source = yield* fileSystem.readFileString(sourcePath).pipe(Effect.orDie)
-
-      expect(source.includes("Ref.make(")).toBe(true)
-      expect(source.includes("GEPAState")).toBe(true)
-      expect(source.includes("SynchronizedRef")).toBe(false)
-    }).pipe(Effect.provide(BunContext.layer)))
 })

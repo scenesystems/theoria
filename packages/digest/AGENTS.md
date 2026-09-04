@@ -17,7 +17,7 @@ Strict canonicalization and cryptographic digest primitives for Effect.
 | Example typecheck                  | `bun run check:examples`  |
 | Lint                               | `bun run lint`            |
 | Behavioral and conformance tests   | `bun run test`            |
-| Fixture governance and conformance | `bun run fixtures:verify` |
+| Fixture provenance and conformance | `bun run fixtures:verify` |
 | Build                              | `bun run build`           |
 
 Use the smallest targeted check while developing, then run every relevant package and workspace gate before committing. Tests must prove behavior. Do not add tests or harnesses that inspect package assets, source inventories, export maps, or generated distribution layout.
