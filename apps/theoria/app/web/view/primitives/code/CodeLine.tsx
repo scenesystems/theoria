@@ -54,11 +54,11 @@ const Segment = ({ segment }: { readonly segment: LineSegment }) =>
  */
 export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
   <Layer
-    as="span"
+    render={<span />}
     className="my-1 inline-flex items-center gap-1.5 rounded-md border border-stage-300/85 bg-stage-50/95 px-2 py-0.5 shadow-chip"
     data-code-annotation
   >
-    <Layer aria-hidden as="span" className="inline-block size-1.5 rounded-full bg-ink-500" />
+    <Layer aria-hidden render={<span />} className="inline-block size-1.5 rounded-full bg-ink-500" />
     <SemanticText as="span" className="text-ink-700" role="code-meta" text={text} />
   </Layer>
 )

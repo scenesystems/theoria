@@ -57,6 +57,7 @@ const StagePresets = () => {
         activeIndex={activeIndex}
         className="gap-1.5"
         disabled={false}
+        label="Stage width"
         onSelect={(index) => {
           // The last preset is the whole column: keep following it if the column changes.
           setRequested(

@@ -32,9 +32,11 @@ export const docsTheme = {
   dialogViewport: "fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto px-3 py-[10dvh] sm:px-6",
   searchDialog:
     "w-full max-w-[42rem] overflow-hidden rounded-[1.65rem] border border-stage-300/90 bg-stage-0/98 shadow-hero ring-1 ring-stage-0/70 transition-[opacity,transform] duration-150 data-[starting-style]:translate-y-[-0.5rem] data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 data-[ending-style]:translate-y-[-0.5rem] data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0",
+  drawerBackdrop:
+    "fixed inset-0 z-[80] min-h-dvh bg-ink-950 backdrop-blur-sm opacity-[calc(0.25*(1-var(--drawer-swipe-progress)))] transition-opacity duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[starting-style]:opacity-0 data-[ending-style]:opacity-0 data-[swiping]:duration-0 data-[ending-style]:duration-[calc(var(--drawer-swipe-strength)*300ms)]",
   drawerViewport: "fixed inset-0 z-[90] flex justify-start",
   drawer:
-    "h-full w-[min(22rem,88vw)] overflow-y-auto border-r border-stage-300/90 bg-stage-0/98 shadow-hero transition-transform duration-150 data-[starting-style]:translate-x-[-100%] data-[ending-style]:translate-x-[-100%]",
+    "h-full w-[min(22rem,88vw)] translate-x-[var(--drawer-swipe-movement-x)] touch-auto overflow-y-auto overscroll-contain border-r border-stage-300/90 bg-stage-0/98 shadow-hero outline-none transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform data-[starting-style]:-translate-x-full data-[ending-style]:-translate-x-full data-[ending-style]:duration-[calc(var(--drawer-swipe-strength)*300ms)] data-[swiping]:select-none",
   code: "overflow-hidden rounded-[1.35rem] border border-stage-200/90 bg-stage-0/92 shadow-chip",
   codeAction:
     "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-stage-200/90 bg-stage-0/78 px-3 text-ink-600 transition-colors hover:border-stage-300 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"

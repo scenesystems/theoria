@@ -139,7 +139,7 @@ const Legend = ({ markers }: { readonly markers: ReadonlyArray<PlaceMarker> }) =
       const tone = markerTone(marker)
       return (
         <Cluster className="items-center gap-1.5" key={marker.name}>
-          <Layer as="span" className={`inline-flex size-2 shrink-0 rounded-full ${tone.dot}`} />
+          <Layer render={<span />} className={`inline-flex size-2 shrink-0 rounded-full ${tone.dot}`} />
           <SemanticText
             as="span"
             className="text-ink-700"

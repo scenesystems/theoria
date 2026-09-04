@@ -40,7 +40,7 @@ const FooterLink = ({ destination }: { readonly destination: FooterDestination }
 )
 
 export const SiteFooter = () => (
-  <Section as="footer" className="mt-10 border-t border-stage-200/90 pb-3 pt-4 md:pt-5">
+  <Section render={<footer />} className="mt-10 border-t border-stage-200/90 pb-3 pt-4 md:pt-5">
     <Stack className="items-center gap-2 md:items-stretch">
       <Cluster className="items-baseline justify-center gap-x-3 gap-y-2 md:justify-between">
         <Cluster className="items-baseline gap-3">
@@ -54,7 +54,7 @@ export const SiteFooter = () => (
             wrapAuthority="native-browser"
           />
         </Cluster>
-        <Cluster as="nav" className="hidden gap-x-4 gap-y-2 md:flex">
+        <Cluster render={<nav />} className="hidden gap-x-4 gap-y-2 md:flex">
           {Arr.map(
             footerDestinations,
             (destination) => <FooterLink destination={destination} key={destination.href} />
@@ -71,7 +71,7 @@ export const SiteFooter = () => (
         wrapAuthority="native-browser"
       />
 
-      <Cluster as="nav" className="justify-center gap-x-4 gap-y-2 md:hidden">
+      <Cluster render={<nav />} className="justify-center gap-x-4 gap-y-2 md:hidden">
         {Arr.map(
           footerDestinations,
           (destination) => <FooterLink destination={destination} key={destination.href} />

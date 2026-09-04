@@ -25,7 +25,7 @@ export const DocsPackageShell = ({
   <Layer className={docsTheme.root}>
     <DocsHeader activePackage={Option.some(docsPackage)} packages={manifest.packages} />
     <Layer className={docsTheme.workbench}>
-      <Section aria-label="Documentation navigation" as="aside" className={docsTheme.sidebar}>
+      <Section aria-label="Documentation navigation" render={<aside />} className={docsTheme.sidebar}>
         <Stack className={docsTheme.sidebarSticky} key={docsPackage.slug}>
           <DocsNavigation docsPackage={docsPackage} route={route} />
         </Stack>
@@ -50,7 +50,7 @@ export const DocsResourceFrame = ({
     <Main className={`${docsTheme.main} outline-none`} data-route-focus tabIndex={-1}>
       <Layer className={`${docsTheme.article} docs-route-enter`} key={docsPathFor(route)}>{children}</Layer>
     </Main>
-    <Section aria-label="Page outline" as="aside" className={docsTheme.toc}>
+    <Section aria-label="Page outline" render={<aside />} className={docsTheme.toc}>
       <Layer className={docsTheme.tocSticky}>
         <DocsOnThisPage anchors={anchors} />
       </Layer>

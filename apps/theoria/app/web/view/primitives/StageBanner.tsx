@@ -31,7 +31,7 @@ export const StageBanner = ({
       <Cluster className="items-center gap-1.5">
         <Layer
           aria-hidden
-          as="span"
+          render={<span />}
           className={`inline-flex size-1.5 shrink-0 rounded-full ${dotClassName(tone)}`}
         />
         <SemanticText as="span" className={textClassName(tone)} role="code-meta" text={text} variant="expanded" />

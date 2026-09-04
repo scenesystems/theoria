@@ -59,7 +59,7 @@ export const LegendItem = ({
       <Layer className={className ?? "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1"}>
         <Layer
           aria-hidden
-          as="span"
+          render={<span />}
           className={`${swatchClassName({ swatch: theme.swatch, shape })} ${
             Option.isSome(resolvedValue) ? "row-span-2" : "row-span-1"
           } mt-0.5`}
@@ -78,7 +78,7 @@ export const LegendItem = ({
     )
     : (
       <Layer className={className ?? "inline-flex items-center gap-1.5"}>
-        <Layer aria-hidden as="span" className={swatchClassName({ swatch: theme.swatch, shape })} />
+        <Layer aria-hidden render={<span />} className={swatchClassName({ swatch: theme.swatch, shape })} />
         <SemanticText
           as="span"
           className={theme.label}

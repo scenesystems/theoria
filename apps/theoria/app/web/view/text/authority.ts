@@ -7,7 +7,7 @@ import {
   browserEngineProfile,
   browserFontReadinessRevision,
   browserSupportProfileId,
-  browserTextLayoutLayer
+  type BrowserTextLayout
 } from "../../text/browserTextLayout.js"
 
 const TextPrepareRequest = TextProjectionRequest.pick("role", "text")
@@ -42,13 +42,13 @@ export const prepareIdentityForTextProjection = ({ role, text }: TextPrepareRequ
 
 export const prepareTextProjection = (
   identity: TextReact.PrepareIdentityType
-): Effect.Effect<Text.PreparedTextWithSegments, unknown, never> =>
+): Effect.Effect<Text.PreparedTextWithSegments, unknown, BrowserTextLayout> =>
   prepareBrowserText(prepareInputFromIdentity(identity))
 
+/** Prepares text against the runtime's layout services; `browserTextLayoutLayer` provides them. */
 export const prepareBrowserText = (
   prepare: Text.PrepareInputType
-): Effect.Effect<Text.PreparedTextWithSegments, unknown, never> =>
-  Text.prepareWithSegments(prepare).pipe(Effect.provide(browserTextLayoutLayer))
+): Effect.Effect<Text.PreparedTextWithSegments, unknown, BrowserTextLayout> => Text.prepareWithSegments(prepare)
 
 export const projectPreparedText = ({
   maxWidth,

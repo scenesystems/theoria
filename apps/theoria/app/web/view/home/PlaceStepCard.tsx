@@ -55,14 +55,14 @@ export const PlaceStepCard = ({ children, step }: { readonly children: ReactNode
 
   return (
     <Layer
-      as="article"
+      render={<article />}
       className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-x-3.5"
       data-place-step={step}
       data-place-step-active={active ? "true" : "false"}
     >
       <Layer aria-hidden className="hidden w-3 justify-center pt-2 lg:flex">
         <Layer
-          as="span"
+          render={<span />}
           className={`inline-flex size-2.5 shrink-0 rounded-full border transition-colors duration-150 ${
             active ? "border-ink-900 bg-ink-900" : "border-stage-400 bg-stage-0"
           }`}

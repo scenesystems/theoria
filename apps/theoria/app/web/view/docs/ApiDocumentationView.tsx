@@ -60,7 +60,7 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
       : (
         <Stack className="gap-2">
           <SemanticContent as="h4" className="text-ink-900" role="selection-title">See also</SemanticContent>
-          <Stack as="ul" className="ml-5 list-disc gap-1.5 text-ink-700">
+          <Stack render={<ul />} className="ml-5 list-disc gap-1.5 text-ink-700">
             {Arr.map(docs.see, (parts, index) => (
               <li className="pl-1" key={`see:${String(index)}`}>
                 <SemanticContent as="span" role="row-value">

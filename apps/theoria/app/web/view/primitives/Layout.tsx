@@ -1,48 +1,31 @@
-import type { HTMLAttributes, RefCallback } from "react"
+import { useRender } from "@base-ui/react/use-render"
+import type { JSX } from "react"
 
 import { classNames } from "./classNames.js"
 
 /**
- * The elements a layout slot may render as. Every slot accepts the same
- * generic HTML attributes and a callback ref over `HTMLElement`, so any tag
- * here is sound for any slot; element-specific attributes (`href`, `type`)
- * belong on the element itself, not on a layout slot.
+ * Props shared by every layout slot: the generic HTML attributes of the
+ * default element plus Base UI's `render` prop, which swaps the rendered
+ * element for another tag or composes the slot with another component
+ * (`render={<ul />}`, `render={<motion.div />}`). Base UI merges the slot's
+ * classes, handlers and refs into whatever `render` supplies.
  */
-export type LayoutTag =
-  | "article"
-  | "aside"
-  | "blockquote"
-  | "dd"
-  | "div"
-  | "dl"
-  | "dt"
-  | "figcaption"
-  | "figure"
-  | "footer"
-  | "header"
-  | "li"
-  | "main"
-  | "nav"
-  | "ol"
-  | "p"
-  | "pre"
-  | "section"
-  | "span"
-  | "ul"
+type LayoutSlotProps = useRender.ComponentProps<"div">
 
 /**
- * A layout slot: a semantic element with the slot's base classes and a
- * caller-chosen tag. The ref is a callback so the slot can hand any element
- * in {@link LayoutTag} to an observer; an object ref would pin one element type.
+ * A layout slot: a semantic element with the slot's base classes, rendered
+ * through Base UI's {@link useRender} so the element is chosen the same way it
+ * is for every other Base UI component in the app.
  */
-const layoutSlot = (defaultTag: LayoutTag, baseClassName: string) =>
-({
-  as: Component = defaultTag,
-  className = "",
-  ...props
-}: HTMLAttributes<HTMLElement> & { readonly as?: LayoutTag; readonly ref?: RefCallback<HTMLElement> }) => (
-  <Component {...props} className={classNames(baseClassName, className)} />
-)
+const layoutSlot =
+  (defaultTagName: keyof JSX.IntrinsicElements, baseClassName: string) =>
+  ({ className, ref, render, ...props }: LayoutSlotProps) =>
+    useRender({
+      defaultTagName,
+      props: { ...props, className: classNames(baseClassName, className ?? "") },
+      ref,
+      render
+    })
 
 export const Layer = layoutSlot("div", "min-w-0")
 export const Header = layoutSlot("header", "min-w-0")

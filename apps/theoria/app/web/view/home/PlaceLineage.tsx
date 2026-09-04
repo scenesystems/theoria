@@ -45,8 +45,8 @@ const VersionNode = ({ build, last, version }: {
   return (
     <Layer className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3" data-place-version={String(version.version)}>
       <Layer aria-hidden className="flex flex-col items-center pt-1">
-        <Layer as="span" className={nodeClassName(current)} />
-        {last ? null : <Layer as="span" className={`mt-1 w-px flex-1 ${digestTone.bg} opacity-40`} />}
+        <Layer render={<span />} className={nodeClassName(current)} />
+        {last ? null : <Layer render={<span />} className={`mt-1 w-px flex-1 ${digestTone.bg} opacity-40`} />}
       </Layer>
       <Stack className={`min-w-0 gap-1.5 ${last ? "" : "pb-4"}`}>
         <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3">

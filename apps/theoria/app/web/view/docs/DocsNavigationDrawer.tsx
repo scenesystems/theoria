@@ -1,4 +1,4 @@
-import { Dialog } from "@base-ui/react/dialog"
+import { Drawer } from "@base-ui/react/drawer"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { XMarkIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
@@ -25,21 +25,21 @@ export const DocsNavigationDrawer = ({
   const setOpen = useAtomSet(setDocsNavigationOpenAtom)
 
   return (
-    <Dialog.Root onOpenChange={setOpen} open={open}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className={docsTheme.dialogBackdrop} />
-        <Dialog.Viewport className={docsTheme.drawerViewport}>
-          <Dialog.Popup className={docsTheme.drawer}>
+    <Drawer.Root onOpenChange={setOpen} open={open} swipeDirection="left">
+      <Drawer.Portal>
+        <Drawer.Backdrop className={docsTheme.drawerBackdrop} />
+        <Drawer.Viewport className={docsTheme.drawerViewport}>
+          <Drawer.Popup className={docsTheme.drawer}>
             <Stack className="gap-6 p-5">
               <Cluster className="justify-between gap-4">
-                <Dialog.Title
+                <Drawer.Title
                   render={<SemanticText as="h2" className="text-ink-900" role="section-title" text="Menu" />}
                 />
-                <Dialog.Close aria-label="Close navigation" className={docsTheme.iconButton}>
+                <Drawer.Close aria-label="Close navigation" className={docsTheme.iconButton}>
                   <XMarkIcon aria-hidden className="h-5 w-5" />
-                </Dialog.Close>
+                </Drawer.Close>
               </Cluster>
-              <Dialog.Description
+              <Drawer.Description
                 render={
                   <SemanticText
                     as="p"
@@ -60,9 +60,9 @@ export const DocsNavigationDrawer = ({
                 route={route}
               />
             </Stack>
-          </Dialog.Popup>
-        </Dialog.Viewport>
-      </Dialog.Portal>
-    </Dialog.Root>
+          </Drawer.Popup>
+        </Drawer.Viewport>
+      </Drawer.Portal>
+    </Drawer.Root>
   )
 }

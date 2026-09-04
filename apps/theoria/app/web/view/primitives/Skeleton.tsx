@@ -79,7 +79,7 @@ export const LoadingIndicator = ({
   readonly tone: ToneClasses
 }) => (
   <Cluster className={`gap-1.5 transition-opacity duration-150 ${active ? "opacity-100" : "invisible"}`}>
-    <Layer aria-hidden as="span" className={`inline-flex size-1.5 animate-pulse rounded-full ${tone.dot}`} />
+    <Layer aria-hidden render={<span />} className={`inline-flex size-1.5 animate-pulse rounded-full ${tone.dot}`} />
     <SemanticText as="span" className="text-ink-700" role="code-meta" text={text} variant="expanded" />
   </Cluster>
 )
@@ -91,7 +91,7 @@ export const LoadingIndicator = ({
 export const RunningState = ({ text }: { readonly text?: string }) => (
   <Stack className="gap-4 py-4">
     <Cluster className="gap-2">
-      <Layer aria-hidden as="span" className="inline-flex size-2 animate-pulse rounded-full bg-ink-400" />
+      <Layer aria-hidden render={<span />} className="inline-flex size-2 animate-pulse rounded-full bg-ink-400" />
       <SemanticText
         as="span"
         className="text-ink-600"
@@ -115,7 +115,7 @@ export const FailureState = ({
     <Layer className={`${surfaceMaterials.calloutError} p-4`}>
       <Stack className="gap-3">
         <Cluster className="gap-2">
-          <Layer aria-hidden as="span" className="inline-flex size-2 rounded-full bg-danger-500" />
+          <Layer aria-hidden render={<span />} className="inline-flex size-2 rounded-full bg-danger-500" />
           <SemanticText as="span" className="text-danger-700" role="status" text={description} variant="expanded" />
         </Cluster>
         {action}

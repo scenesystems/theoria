@@ -44,7 +44,7 @@ const ApiCategoryIndex = ({
   <Section className="scroll-mt-28" id={apiCategoryAnchor(category.name)}>
     <Stack className="gap-4">
       <SemanticText as="h2" className="capitalize text-ink-950" role="section-title" text={category.name} />
-      <Stack as="ul" className="divide-y divide-stage-200/80 border-y border-stage-200/80 py-1">
+      <Stack render={<ul />} className="divide-y divide-stage-200/80 border-y border-stage-200/80 py-1">
         {Arr.filterMap(category.exportIds, (id) =>
           Option.map(
             exportFor(page, id),

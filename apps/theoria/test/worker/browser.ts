@@ -7,7 +7,7 @@ import {
   type Page,
   type Response
 } from "@playwright/test"
-import { Chunk, Context, Data, Effect, Layer, Option, Queue, Schema, type Scope } from "effect"
+import { Chunk, Context, Data, Effect, Layer, Queue, Schema, type Scope } from "effect"
 
 import { Site } from "./site.js"
 
@@ -122,15 +122,9 @@ export const overflowingElements = (page: Page) =>
       const scrolls = (element: HTMLElement) =>
         ["auto", "scroll", "hidden"].includes(getComputedStyle(element).overflowX)
       const clippedByAncestor = (element: HTMLElement): boolean => {
-        const parent = element.parentElement
-        return Option.match(Option.fromNullable(parent), {
-          onNone: () => false,
-          onSome: (ancestor) => {
-            if (ancestor === document.body) return false
-            if (scrolls(ancestor) && ancestor.getBoundingClientRect().right <= limit) return true
-            return clippedByAncestor(ancestor)
-          }
-        })
+        const ancestor = element.parentElement
+        return ancestor instanceof HTMLElement && ancestor !== document.body &&
+          ((scrolls(ancestor) && ancestor.getBoundingClientRect().right <= limit) || clippedByAncestor(ancestor))
       }
       return [...document.querySelectorAll<HTMLElement>("body *")]
         .filter((element) => !element.classList.contains("pointer-events-none"))

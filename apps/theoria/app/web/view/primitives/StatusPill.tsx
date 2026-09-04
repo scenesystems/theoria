@@ -17,7 +17,7 @@ export const StatusPill = ({
   readonly label: string
 }) => (
   <Layer
-    as="span"
+    render={<span />}
     className={`inline-flex shrink-0 items-center justify-center rounded-full px-2.5 py-0.5 leading-none ${className}`}
   >
     <SemanticText as="span" role="tab-label" text={label} variant="compact" />

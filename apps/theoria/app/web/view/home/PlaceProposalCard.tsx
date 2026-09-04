@@ -32,7 +32,7 @@ const Field = ({ children, label }: { readonly children: ReactNode; readonly lab
       text={label}
       variant="compact"
     />
-    <Layer as="dd" className="min-w-0">{children}</Layer>
+    <Layer render={<dd />} className="min-w-0">{children}</Layer>
   </>
 )
 
@@ -102,7 +102,7 @@ export const PlaceProposalCard = ({
       {...cardTone}
       {...pending}
     >
-      <Cluster as="header" className="items-center justify-between gap-x-3 gap-y-1.5">
+      <Cluster render={<header />} className="items-center justify-between gap-x-3 gap-y-1.5">
         <Cluster className="items-center gap-2">
           <TagBadge name={participantLabel(role)} tone={tone} />
           {record.accepted
@@ -110,7 +110,14 @@ export const PlaceProposalCard = ({
             : null}
         </Cluster>
         <Layer className="ml-auto">
-          <ToggleSwitch checked={accepted} disabled={false} label="Merge" onToggle={onToggle} tone={tone} />
+          <ToggleSwitch
+            checked={accepted}
+            disabled={false}
+            label="Merge"
+            onToggle={onToggle}
+            subject={record.proposal.feature.name}
+            tone={tone}
+          />
         </Layer>
       </Cluster>
 
@@ -124,7 +131,7 @@ export const PlaceProposalCard = ({
       />
 
       <Layer
-        as="dl"
+        render={<dl />}
         className="grid gap-y-1 sm:grid-cols-[2.75rem_minmax(0,1fr)] sm:items-baseline sm:gap-x-3 sm:gap-y-2.5"
       >
         <Field label="Adds">
@@ -157,7 +164,7 @@ export const PlaceProposalCard = ({
         })}
       </Layer>
 
-      <Cluster as="footer" className="items-center gap-x-2.5 gap-y-1">
+      <Cluster render={<footer />} className="items-center gap-x-2.5 gap-y-1">
         <StatusPill
           className={signaturePillClassName(record.signature.valid)}
           label={signatureLabel(record.signature)}

@@ -138,7 +138,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         const targets = yield* Effect.forEach(placeStepDefinitions, (step) =>
           Effect.gen(function*() {
-            yield* click(section.getByRole("navigation").getByRole("button", { name: step.name }))
+            yield* click(section.getByRole("tab", { name: step.name }))
             yield* visible(section.locator(`[data-place-code-step='${step.id}']`))
             yield* visible(section.locator("[data-code-annotation]").first())
             yield* attribute(

@@ -7,7 +7,7 @@ import { HomeHero } from "./HomeHero.js"
 import { ImaginedPlaceDemo } from "./ImaginedPlaceDemo.js"
 
 export const HomePage = () => (
-  <Layer as="main" className={appTheme.root}>
+  <Layer render={<main />} className={appTheme.root}>
     <Layer aria-hidden className={appTheme.atmosphericGlowA} />
     <Layer aria-hidden className={appTheme.atmosphericGlowB} />
 

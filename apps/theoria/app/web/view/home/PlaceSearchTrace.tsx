@@ -74,7 +74,7 @@ const TraceChart = ({ best, losses, shown }: {
       </svg>
       {Arr.map(points, (point, index) => (
         <Layer
-          as="span"
+          render={<span />}
           className={dotClassName(index === shown ? "shown" : index === best ? "best" : "tried")}
           data-place-trial={String(index)}
           key={index}
@@ -131,7 +131,7 @@ export const PlaceSearchTrace = ({ frame }: { readonly frame: PlaceRenderFrame }
           getAriaLabel={() => "Trial drawn on the stage"}
           getAriaValueText={(_, value) => trialValueText(frame, value)}
         >
-          <Layer as="span" className={thumbLineClassName} />
+          <Layer render={<span />} className={thumbLineClassName} />
         </Slider.Thumb>
       </Slider.Control>
     </Slider.Root>

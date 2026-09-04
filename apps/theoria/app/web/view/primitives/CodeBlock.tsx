@@ -90,7 +90,7 @@ export const CodeBlock = ({
       <ScrollArea.Root className="overflow-hidden">
         <ScrollArea.Viewport className="max-h-[32rem] w-full">
           <ScrollArea.Content>
-            <Layer as="pre" className="m-0 min-w-max px-4 py-5 sm:px-5">
+            <Layer render={<pre />} className="m-0 min-w-max px-4 py-5 sm:px-5">
               <HighlightedCode
                 annotations={annotations}
                 language={language}

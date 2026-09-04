@@ -95,6 +95,3 @@ export const placeStepDefinitions: ReadonlyArray<PlaceStepDefinition> = Arr.map(
 
 export const placeStepIndex = (step: PlaceStep): number =>
   Option.getOrElse(Arr.findFirstIndex(placeSteps, (candidate) => candidate === step), () => 0)
-
-export const placeStepAt = (index: number): PlaceStep =>
-  Option.getOrElse(Arr.get(placeSteps, index), (): PlaceStep => "compose")
