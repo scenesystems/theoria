@@ -38,16 +38,20 @@ export const generateApiReference = (input: {
       { discard: true }
     )
 
+    // Both phases run one package at a time on purpose. TypeDoc conversion and
+    // reflection serialization are synchronous work on the single JavaScript
+    // thread, so running packages concurrently gains no parallelism; it only
+    // keeps several TypeScript programs (and later several serialized
+    // reflection trees) resident at once, and peak heap is what pushes the
+    // process toward the kernel's memory-mapping limit (see ./host-limits.ts).
     const convertedPackages = yield* Effect.forEach(
       input.sourcePackages,
-      (sourcePackage) => convertApiPackage({ ...input, sourcePackage }),
-      { concurrency: 4 }
+      (sourcePackage) => convertApiPackage({ ...input, sourcePackage })
     )
     const links = makeApiDocLinks(convertedPackages)
     const generatedPackages = yield* Effect.forEach(
       convertedPackages,
-      (converted) => generateApiPackage({ ...input, browserVersionRoot, links, converted }),
-      { concurrency: 4 }
+      (converted) => generateApiPackage({ ...input, browserVersionRoot, links, converted })
     )
     const packages = Arr.map(generatedPackages, (generated) => generated.package)
     const manifest: ApiReferenceManifest = {

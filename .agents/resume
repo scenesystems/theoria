@@ -24,11 +24,11 @@ if [ -x "$bun_binary" ]; then
   ln -sfn "$bun_binary" "$HOME/.local/bin/bun"
 fi
 
-required_node_major="$(tr -d '[:space:]' < .node-version)"
-current_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+required_node_version="$(tr -d '[:space:]' < .node-version)"
+current_node_version="$(node --version 2>/dev/null | sed 's/^v//' || true)"
 
-if [ "$current_node_major" != "$required_node_major" ]; then
-  node_binary="$(find "$HOME/.local/share/theoria-node" -mindepth 3 -maxdepth 3 -type f -path '*/bin/node' -perm -u+x -print 2>/dev/null | sort -V | tail -n 1)"
+if [ "$current_node_version" != "$required_node_version" ]; then
+  node_binary="$(find "$HOME/.local/share/theoria-node" -mindepth 3 -maxdepth 3 -type f -path "*/node-v$required_node_version-*/bin/node" -perm -u+x -print 2>/dev/null | head -n 1)"
 
   if [ -z "$node_binary" ]; then
     echo "Pinned Node runtime is missing; rerun .agents/setup." >&2
@@ -37,6 +37,12 @@ if [ "$current_node_major" != "$required_node_major" ]; then
 
   mkdir -p "$HOME/.local/bin"
   ln -sfn "$node_binary" "$HOME/.local/bin/node"
+fi
+
+# See .agents/setup: the API reference generator needs this headroom on Bun 1.3.9.
+required_map_count=262144
+if [ -r /proc/sys/vm/max_map_count ] && [ "$(cat /proc/sys/vm/max_map_count)" -lt "$required_map_count" ]; then
+  echo "$required_map_count" | sudo -n tee /proc/sys/vm/max_map_count > /dev/null
 fi
 
 if [ ! -d node_modules ]; then

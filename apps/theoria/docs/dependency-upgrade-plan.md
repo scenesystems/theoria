@@ -409,6 +409,14 @@ whose `typescript` link points at 6.0.2.
   carries a `@module` header), and authored `@example` blocks are compiled by
   spawning `tsc` through `scripts/typecheck/snippets.ts`, shared with
   `scripts/check-readme-examples.ts`.
+- Bun stays at 1.3.9. Its JavaScriptCore fragments TypeDoc's multi-gigabyte
+  heap into 65-85k kernel memory mappings and, at Linux's default
+  `vm.max_map_count` of 65,530, retries `madvise` forever with no JavaScript
+  running, so `bun run build` stalled on roughly every other run. `.agents/setup`,
+  `.agents/resume` and `.github/actions/setup` raise the limit to 262,144, and
+  the generator refuses to start below it (`scripts/api-reference/host-limits.ts`)
+  rather than hang. Bun 1.4.1's allocator peaks near 160 mappings for the same
+  workload; the limit handling leaves with the Bun pin.
 - Effect warnings fail `tsc`; suggestions do not.
 - Vitest stops at 4.1, not 5.0, as requested; `.node-version` 22.23.1 already
   satisfies Vitest 5's Node floor.

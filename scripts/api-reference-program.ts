@@ -5,9 +5,11 @@ import { checkApiReferenceConsistency } from "./api-reference/consistency.js"
 import { loadDocsData } from "./api-reference/docs-data.js"
 import { checkApiExamples } from "./api-reference/examples.js"
 import { generateApiReference } from "./api-reference/generate.js"
+import { checkHostLimits } from "./api-reference/host-limits.js"
 import { discoverApiSourcePackages } from "./api-reference/source.js"
 
 export const apiReferenceProgram = Effect.gen(function*() {
+  yield* checkHostLimits
   const path = yield* Path.Path
   const repositoryRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl).pipe(
     Effect.orDie
