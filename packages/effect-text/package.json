@@ -54,7 +54,6 @@
     "test": "vitest run --root ../.. packages/effect-text/test",
     "bench": "bun benchmarks/run.ts",
     "verify:synthetic-regression": "bun examples/live/syntheticRegressionHarness.ts",
-    "verify:calibration": "bun benchmarks/verifyCalibration.ts",
     "verify:support-manifest": "bun benchmarks/verifySupportManifest.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
