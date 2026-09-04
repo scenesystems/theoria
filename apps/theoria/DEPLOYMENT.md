@@ -158,10 +158,16 @@ though they run the same bundle, and the Content Security Policy widens by
 exactly the hosts each configured provider needs (`app/server/security-headers.ts`).
 Nothing is inline: Google's `gtag.js` is bootstrapped by
 [`public/analytics/gtag-init.js`](./public/analytics/gtag-init.js), which sets
-Consent Mode v2 defaults to _denied_. GA4 therefore receives cookieless pings
-(`gcs=G100`) and stores nothing on the visitor's device; granting storage later
-only needs a consent UI that calls `gtag("consent", "update", …)`. Cloudflare
-Web Analytics is cookieless by design. In-app navigation is a `pushState`, which
+region-scoped Consent Mode v2 defaults: advertising storage is _denied_
+everywhere (the site runs no ads), and analytics storage is _granted_ everywhere
+except the EEA, the United Kingdom, and Switzerland, where it is _denied_.
+Outside those regions GA4 sets its first-party cookie and reports observed
+pageviews and users (`gcs=G101`); inside them it receives cookieless pings only
+(`gcs=G100`), which GA4 uses for modeling, not reporting, so those visitors
+appear in Cloudflare Web Analytics but not in GA4. Do not default analytics
+storage to _denied_ globally without a consent UI: GA4 then reports nothing at
+all, because behavioral modeling needs thousands of consented users to train.
+Cloudflare Web Analytics is cookieless by design. In-app navigation is a `pushState`, which
 GA4 reports through enhanced measurement ("Page changes based on browser
 history events", on by default for the web stream); do not add manual
 `page_view` events or pages count twice. Turn off Cloudflare's automatic
