@@ -187,7 +187,7 @@ browser applies the same entries after client-side navigation. `/sitemap.xml`
 lists the home page and every docs page from the shipped manifest, and
 `/llms.txt` (`app/server/routes/llms.ts`) renders the llmstxt.org v2 file from
 the same manifest: each package links its README as raw markdown at the
-documented revision, its docs pages, and its npm page. HTML responses carry
+documented revision and its docs overview page. HTML responses carry
 `Link: </llms.txt>; rel="describedby"`. `/robots.txt` is static.
 
 Share images and icons under `public/` (`social/*.png`, `apple-touch-icon.png`,
