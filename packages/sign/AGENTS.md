@@ -112,4 +112,3 @@ Private implementation. Blocked from consumers via exports map.
 
 - `internal/*` blocked from consumers via exports map
 - No `@noble/curves` or `@noble/post-quantum` types leak through public surface
-- 240 LOC file-size limit applies

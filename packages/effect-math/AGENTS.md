@@ -8,13 +8,12 @@ alwaysApply: true
 
 Effect-native mathematical and statistical foundations — numerics, linear algebra, geometry, probability, statistics, and optimization with typed errors, schema-validated inputs, and configurable runtime policies.
 
-## Five Gates (Mandatory)
+## Four Gates (Mandatory)
 
-Every change must pass all five gates clean — no bypasses, no suppressions:
+Every change must pass all four gates clean, run from the repository root — no bypasses, no suppressions:
 
 ```bash
-bun run check        # Type check source
-bun run check:tests  # Type check tests
+bun run check:all    # Type check sources, tests and examples
 bun run lint         # oxlint + ESLint Effect rules + dprint
 bun run test         # Vitest contract tests
 bun run build        # ESM + CJS + annotate-pure-calls
