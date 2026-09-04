@@ -116,7 +116,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ## Governance
 
-- `internal/*` blocked from consumers via exports map. Enforced by governance tests.
+- `internal/*` blocked from consumers via the `exports` map in each `package.json`; the type checker rejects deep imports.
 - Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
 - All randomness through Effect `Random` with seeded generators.

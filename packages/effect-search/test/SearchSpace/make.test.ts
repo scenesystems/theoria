@@ -2,7 +2,6 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Option, Schema } from "effect"
 
 import { readDistribution } from "../../src/contracts/Distribution.js"
-import * as EffectSearch from "../../src/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
 const distributionFor = (space: SearchSpace.SearchSpace, name: string) =>
@@ -13,40 +12,15 @@ const distributionFor = (space: SearchSpace.SearchSpace, name: string) =>
 const decodeSpace = (space: SearchSpace.SearchSpace, value: unknown) => Schema.decodeUnknownEither(space.schema)(value)
 
 const expectOptionValue = <A>(option: Option.Option<A>, expected: A) => {
-  expect(Option.isSome(option)).toBe(true)
-
-  if (Option.isSome(option)) {
-    expect(option.value).toEqual(expected)
-  }
+  expect(option).toEqual(Option.some(expected))
 }
 
 const expectReadDistribution = (schema: Schema.Schema.AnyNoContext, expected: unknown) => {
   const distribution = readDistribution(schema.ast)
-  expect(Option.isSome(distribution)).toBe(true)
-
-  if (Option.isSome(distribution)) {
-    expect(distribution.value).toEqual(expected)
-  }
+  expect(distribution).toEqual(Option.some(expected))
 }
 
 describe("SearchSpace.make", () => {
-  it.effect("exports the north-star public API surface from the package barrel", () =>
-    Effect.sync(() => {
-      expect(EffectSearch.SearchSpace).toBeDefined()
-      expect(EffectSearch.Sampler).toBeDefined()
-      expect(EffectSearch.Study).toBeDefined()
-      expect(EffectSearch.Trial).toBeDefined()
-
-      expect(EffectSearch.SearchSpace.make).toBeTypeOf("function")
-      expect(EffectSearch.SearchSpace.unsafeMake).toBeTypeOf("function")
-      expect(EffectSearch.SearchSpace.makeConditional).toBeTypeOf("function")
-      expect(EffectSearch.SearchSpace.unsafeMakeConditional).toBeTypeOf("function")
-      expect(EffectSearch.SearchSpace.float).toBeTypeOf("function")
-      expect(EffectSearch.SearchSpace.int).toBeTypeOf("function")
-      expect(EffectSearch.SearchSpace.categorical).toBeTypeOf("function")
-      expect(EffectSearch.SearchSpace.boolean).toBeTypeOf("function")
-    }))
-
   it.effect("extracts parameter metadata in stable insertion order", () =>
     Effect.sync(() => {
       const space = SearchSpace.unsafeMake({

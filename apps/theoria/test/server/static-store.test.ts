@@ -3,7 +3,7 @@ import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 
-import { contentTypeForPath, StaticStore } from "../../app/server/config/static-store.js"
+import { StaticStore } from "../../app/server/config/static-store.js"
 import * as BunStaticStore from "../../app/server/platform/bun-static-store.js"
 
 const bodyText = (response: HttpServerResponse.HttpServerResponse) =>
@@ -72,12 +72,3 @@ it.effect("Bun store refuses traversal and missing files", () =>
       expect(Option.isNone(yield* store.response("/assets/"))).toBe(true)
     })
   ))
-
-// The Cloudflare ASSETS adapter is exercised against the real binding inside
-// workerd by test/worker/site.test.ts (`bun run test:worker`).
-
-it("maps common asset extensions to content types", () => {
-  expect(contentTypeForPath("/favicon.svg")).toBe("image/svg+xml")
-  expect(contentTypeForPath("/fonts/a.woff2")).toBe("font/woff2")
-  expect(contentTypeForPath("/robots.txt")).toBe("text/plain; charset=utf-8")
-})

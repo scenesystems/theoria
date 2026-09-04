@@ -91,18 +91,14 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = parzen.kernels[kernelIndex]
-
-                  yield* Effect.sync(() => {
-                    expect(actualKernel).toBeDefined()
-                  })
+                  const actualKernel = yield* Option.fromNullable(parzen.kernels[kernelIndex])
 
                   yield* Effect.forEach(
                     expectedKernel,
                     (expectedValue, valueIndex) =>
                       Effect.sync(() => {
                         expectWithinTolerance(
-                          numberAt(actualKernel?.probabilities ?? Arr.empty<number>(), valueIndex),
+                          numberAt(actualKernel.probabilities, valueIndex),
                           expectedValue,
                           PROBABILITY_TOLERANCE
                         )
@@ -183,14 +179,12 @@ describe("fixture-backed parity", () => {
             yield* Effect.forEach(
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
-                Effect.sync(() => {
-                  const actualKernel = parzen.kernels[kernelIndex]
+                Effect.gen(function*() {
+                  const actualKernel = yield* Option.fromNullable(parzen.kernels[kernelIndex])
 
-                  expect(actualKernel).toBeDefined()
-
-                  expectWithinTolerance(actualKernel?.mean ?? Number.NaN, expectedKernel.mean, SCORE_TOLERANCE)
-                  expectWithinTolerance(actualKernel?.sigma ?? Number.NaN, expectedKernel.sigma, SIGMA_TOLERANCE)
-                  expectWithinTolerance(actualKernel?.weight ?? Number.NaN, expectedKernel.weight, SCORE_TOLERANCE)
+                  expectWithinTolerance(actualKernel.mean, expectedKernel.mean, SCORE_TOLERANCE)
+                  expectWithinTolerance(actualKernel.sigma, expectedKernel.sigma, SIGMA_TOLERANCE)
+                  expectWithinTolerance(actualKernel.weight, expectedKernel.weight, SCORE_TOLERANCE)
                 }),
               { discard: true }
             )

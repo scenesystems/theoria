@@ -13,15 +13,10 @@ describe("HuggingFace/live-runtime", () => {
         accessToken: Redacted.make("hf_test_token"),
         selectionPolicy: Contracts.explicitProviderSelection("together")
       })
-      const languageModelLayer = yield* HuggingFace.languageModelLayer(resolution)
-      const embeddingModelLayer = yield* HuggingFace.embeddingModelLayer(resolution)
-
       expect(resolution.desired.route?.family).toBe("HuggingFace")
       expect(resolution.desired.route?.serveMode).toBe("routed-marketplace")
       expect(resolution.desired.route?.authMethod).toBe("hf-token")
       expect(resolution.resolvedRoute.selectedProvider).toBe("together")
-      expect(languageModelLayer).toBeDefined()
-      expect(embeddingModelLayer).toBeDefined()
     }))
 
   it.effect("resolves dedicated-endpoint auth, endpoint identity, and embeddings through one package-owned helper", () =>
@@ -34,14 +29,11 @@ describe("HuggingFace/live-runtime", () => {
         endpointId: "mini-lm-prod",
         deploymentId: "endpoint-1"
       })
-      const embeddingModelLayer = yield* HuggingFace.embeddingModelLayer(resolution)
-
       expect(resolution.desired.route?.family).toBe("HuggingFace")
       expect(resolution.desired.route?.serveMode).toBe("dedicated-endpoint")
       expect(resolution.desired.route?.authMethod).toBe("hf-token")
       expect(resolution.resolvedRoute.route.endpointId).toBe("mini-lm-prod")
       expect(resolution.resolvedRoute.selectedDeployment).toBe("endpoint-1")
-      expect(embeddingModelLayer).toBeDefined()
     }))
 
   it.effect("resolves routed-provider auth and live layers from env-backed config helpers", () =>
@@ -57,6 +49,6 @@ describe("HuggingFace/live-runtime", () => {
 
       expect(resolution.desired.route?.serveMode).toBe("routed-marketplace")
       expect(resolution.desired.route?.authMethod).toBe("hf-token")
-      expect(resolution.resolvedRoute.selectionReason).toBeDefined()
+      expect(resolution.resolvedRoute.selectionReason).toBe("hugging-face-routed-live")
     }))
 })

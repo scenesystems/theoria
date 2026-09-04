@@ -137,7 +137,6 @@ describe("Trace usage", () => {
         expect(entry.prompt.length > 0).toBe(true)
         expect(entry.rawResponse.length > 0).toBe(true)
         expect(typeof entry.durationMs).toBe("number")
-        expect(Option.isSome(entry.outputTokens) || Option.isNone(entry.outputTokens)).toBe(true)
       }
     }))
 })

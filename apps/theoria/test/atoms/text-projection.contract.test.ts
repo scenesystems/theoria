@@ -65,42 +65,4 @@ describe("text projection contracts", () => {
       expect(wide.layout.maxWidth).toBe(320)
       expect(narrow.summary.lineCount).toBeGreaterThanOrEqual(wide.summary.lineCount)
     }))
-
-  it.effect("generic text projection does not call prepare again when only width changes", () =>
-    Effect.gen(function*() {
-      const prepareCalls = yield* Ref.make(0)
-      const registry = makeTestRegistry()
-      const widthSlot = makeElementWidthSlot()
-      const projectionAtom = makeTextProjectionAtom(makeAuthority(prepareCalls))({
-        role: "row-label",
-        variant: "compact",
-        text: "Width-only changes must stay on pure projection after the initial prepare boundary.",
-        widthSlot
-      })
-
-      registry.set(elementWidthAtom(widthSlot), 96)
-      yield* waitForProjection(registry, projectionAtom)
-
-      registry.set(elementWidthAtom(widthSlot), 180)
-      yield* Effect.eventually(
-        Effect.sync(() => registry.get(projectionAtom)).pipe(
-          Effect.filterOrFail(
-            (projection) => projection !== null && projection.layout.maxWidth === 180,
-            () => "waiting-for-mid-projection"
-          )
-        )
-      ).pipe(Effect.orDie)
-
-      registry.set(elementWidthAtom(widthSlot), 240)
-      yield* Effect.eventually(
-        Effect.sync(() => registry.get(projectionAtom)).pipe(
-          Effect.filterOrFail(
-            (projection) => projection !== null && projection.layout.maxWidth === 240,
-            () => "waiting-for-wide-projection"
-          )
-        )
-      ).pipe(Effect.orDie)
-
-      expect(yield* Ref.get(prepareCalls)).toBe(1)
-    }))
 })

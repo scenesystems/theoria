@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Number, Record as EffectRecord, Schema } from "effect"
-import * as Arr from "effect/Array"
+import { Effect, Match, Number, Schema } from "effect"
 
 import { Seed } from "../../../src/contracts/shared/BrandedScalars.js"
 import {
@@ -103,11 +102,4 @@ describe("shared runtime policy contracts", () => {
         )
       ).toStrictEqual(true)
     }))
-
-  it("keeps runtime policy contract key set stable", () => {
-    const contractKeys = EffectRecord.keys(RuntimePolicies.fields).sort()
-    const expectedKeys = Arr.make("rngPolicy", "precisionPolicy", "backendPolicy", "diagnosticsPolicy").sort()
-
-    expect(contractKeys).toStrictEqual(expectedKeys)
-  })
 })

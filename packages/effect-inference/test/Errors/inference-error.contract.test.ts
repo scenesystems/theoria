@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 
-import { CapabilityMismatch, InferenceErrorSchema } from "../../src/Errors/index.js"
+import { CapabilityMismatch } from "../../src/Errors/index.js"
 
 describe("Errors/inference-error", () => {
   it("creates a tagged capability mismatch error", () => {
@@ -10,6 +10,7 @@ describe("Errors/inference-error", () => {
     })
 
     expect(error._tag).toBe("effect-inference/CapabilityMismatch")
-    expect(InferenceErrorSchema).toBeDefined()
+    expect(error.capability).toBe("embeddings")
+    expect(error.reason).toBe("route does not expose embeddings")
   })
 })

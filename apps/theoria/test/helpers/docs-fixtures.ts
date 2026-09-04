@@ -1,4 +1,4 @@
-import type { ApiDocumentation, ApiPage, DocsManifest, DocsSearchIndex, GuidePage } from "@theoria/docs-model"
+import type { ApiDocumentation, ApiPage, DocsManifest, DocsSearchIndex } from "@theoria/docs-model"
 
 const revision = "0123456789abcdef0123456789abcdef01234567"
 const packageRoot = `/docs-data/${revision}/packages/effect-search`
@@ -57,38 +57,6 @@ export const docsManifestFixture: DocsManifest = {
       categories: ["studies", "models"]
     }]
   }]
-}
-
-export const guidePageFixture: GuidePage = {
-  schemaVersion: 1,
-  kind: "guide",
-  path: "/docs/effect-search",
-  package: {
-    name: "@scenesystems/effect-search",
-    version: "1.2.3",
-    slug: "effect-search",
-    description: "Effect-native optimization studies."
-  },
-  title: "@scenesystems/effect-search",
-  summary: "Effect-native optimization studies.",
-  sourceUrl,
-  blocks: [{
-    kind: "paragraph",
-    parts: [{ kind: "text", text: "Build reproducible optimization studies with " }, { kind: "code", text: "Effect" }, {
-      kind: "text",
-      text: "."
-    }]
-  }, {
-    kind: "heading",
-    depth: 2,
-    id: "install",
-    text: "Install"
-  }, {
-    kind: "code",
-    language: "sh",
-    source: "bun add @scenesystems/effect-search"
-  }],
-  anchors: [{ id: "install", label: "Install", depth: 2 }]
 }
 
 const emptyDocs: ApiDocumentation = {

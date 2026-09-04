@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Number as Num } from "effect"
+import { Array as Arr, Effect, Number as Num, Option } from "effect"
 
 import * as Float64 from "../../../src/internal/float64.js"
 import {
@@ -13,16 +13,10 @@ import { logPdf as truncatedLogPdf, TruncatedNormalParams } from "../../../src/i
 
 describe("tpe continuous parzen", () => {
   it.effect("injects a prior kernel at the midpoint of the support with normalized weights", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const parzen = buildContinuousParzen([0.1, 0.3, 0.8], 0, 1)
-      const priorKernel = parzen.kernels[parzen.kernels.length - 1]
+      const priorKernel = yield* Option.fromNullable(parzen.kernels[parzen.kernels.length - 1])
       const weightSum = parzen.kernels.reduce((total, kernel) => total + kernel.weight, 0)
-
-      expect(priorKernel).toBeDefined()
-
-      if (!priorKernel) {
-        return
-      }
 
       expect(priorKernel.mean).toBeCloseTo(0.5, 12)
       expect(priorKernel.sigma).toBeCloseTo(1, 12)

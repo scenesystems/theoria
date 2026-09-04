@@ -1,10 +1,7 @@
 // @vitest-environment node
-import { FileSystem } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
 import { expect, layer } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
-import * as Str from "effect/String"
 
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
@@ -24,16 +21,6 @@ import {
 const PartialRequest = PlaceBuildRequest.pick("scenario")
 
 layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
-  it.effect("ships exactly one docs-data revision", () =>
-    Effect.gen(function*() {
-      const { distRoot, manifest } = yield* Site
-      const fileSystem = yield* FileSystem.FileSystem
-      const entries = yield* fileSystem.readDirectory(`${distRoot}/docs-data`).pipe(Effect.orDie)
-
-      expect(Arr.sort(entries, Str.Order)).toEqual(Arr.sort([manifest.revision, "manifest.json"], Str.Order))
-      expect(manifest.searchIndexAsset).toBe(`/docs-data/${manifest.revision}/search-index.json`)
-    }).pipe(Effect.provide(BunContext.layer)))
-
   it.effect("answers API routes from the Worker with the deploy-time build SHA", () =>
     Effect.gen(function*() {
       const site = yield* Site

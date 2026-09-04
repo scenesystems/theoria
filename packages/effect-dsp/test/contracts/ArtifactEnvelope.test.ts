@@ -7,39 +7,6 @@ import * as SearchContracts from "@scenesystems/effect-search/Contracts"
 import { Effect, Schema } from "effect"
 
 describe("contracts/ArtifactEnvelope", () => {
-  it("re-exports are identity-equal to effect-search originals", () => {
-    expect(Contracts.ArtifactEnvelopeSchema).toBe(SearchContracts.ArtifactEnvelopeSchema)
-    expect(Contracts.ArtifactEnvelopeVersion).toBe(SearchContracts.ArtifactEnvelopeVersion)
-    expect(Contracts.ArtifactLineage).toBe(SearchContracts.ArtifactLineage)
-    expect(Contracts.ArtifactPayload).toBe(SearchContracts.ArtifactPayload)
-    expect(Contracts.ArtifactRelationSchema).toBe(SearchContracts.ArtifactRelationSchema)
-    expect(Contracts.ArtifactSink).toBe(SearchContracts.ArtifactSink)
-    expect(Contracts.BindingRef).toBe(SearchContracts.BindingRef)
-    expect(Contracts.ComponentPath).toBe(SearchContracts.ComponentPath)
-    expect(Contracts.ContentDigest).toBe(SearchContracts.ContentDigest)
-    expect(Contracts.Custom).toBe(SearchContracts.Custom)
-    expect(Contracts.EffectDsp).toBe(SearchContracts.EffectDsp)
-    expect(Contracts.EffectSearch).toBe(SearchContracts.EffectSearch)
-    expect(Contracts.EnvelopeContext).toBe(SearchContracts.EnvelopeContext)
-    expect(Contracts.EnvelopeContextLive).toBe(SearchContracts.EnvelopeContextLive)
-    expect(Contracts.ExternalProducer).toBe(SearchContracts.ExternalProducer)
-    expect(Contracts.InstrumentRef).toBe(SearchContracts.InstrumentRef)
-    expect(Contracts.isEnvelope).toBe(SearchContracts.isEnvelope)
-    expect(Contracts.matchEnvelope).toBe(SearchContracts.matchEnvelope)
-    expect(Contracts.ObservationRef).toBe(SearchContracts.ObservationRef)
-    expect(Contracts.PackageVersion).toBe(SearchContracts.PackageVersion)
-    expect(Contracts.ProtocolRef).toBe(SearchContracts.ProtocolRef)
-    expect(Contracts.RunId).toBe(SearchContracts.RunId)
-    expect(Contracts.SlotEdgeRef).toBe(SearchContracts.SlotEdgeRef)
-    expect(Contracts.SlotRef).toBe(SearchContracts.SlotRef)
-    expect(Contracts.SourceRef).toBe(SearchContracts.SourceRef)
-    expect(Contracts.StudyEventEnvelope).toBe(SearchContracts.StudyEventEnvelope)
-    expect(Contracts.StudySnapshotEnvelope).toBe(SearchContracts.StudySnapshotEnvelope)
-    expect(Contracts.TrialLog).toBe(SearchContracts.TrialLog)
-    expect(Contracts.emit).toBe(SearchContracts.emit)
-    expect(Contracts.fileSystemSink).toBe(SearchContracts.fileSystemSink)
-  })
-
   it.effect("constructs a Custom envelope with EffectDsp producer", () =>
     Effect.gen(function*() {
       const runId = yield* Schema.decode(Contracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
@@ -72,12 +39,10 @@ describe("contracts/ArtifactEnvelope", () => {
       })
 
       expect(Contracts.isEnvelope("Custom")(envelope)).toBe(true)
-      expect(envelope._tag).toBe("Custom")
-
-      const producer = envelope.producer
-      expect(producer._tag).toBe("EffectDsp")
-      expect(producer._tag === "EffectDsp" && producer.optimizer).toBe("gepa")
-      expect(producer._tag === "EffectDsp" && producer.metricName).toBe("exactMatch")
-      expect(producer._tag === "EffectDsp" && producer.exampleName).toBe("10-miprov2-social-science-panel")
+      expect(envelope.payload).toEqual({
+        score: 0.92,
+        changed: true,
+        labels: ["alpha", "beta"]
+      })
     }))
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as Study from "../../../src/Study/index.js"
@@ -35,17 +35,12 @@ describe("Study snapshot-resume metadata and replay parity", () => {
         objective: singleObjective
       })
 
-      const initialSingle = asSingleObjective(initialResult)
-      expect(Option.isSome(initialSingle)).toBe(true)
+      const initialSingle = yield* asSingleObjective(initialResult)
 
-      if (Option.isNone(initialSingle)) {
-        return
-      }
-
-      const snapshot = yield* Study.snapshot(initialSingle.value)
+      const snapshot = yield* Study.snapshot(initialSingle)
 
       expect(snapshot.snapshotFormatVersion).toBe(1)
-      expect(snapshot.spaceFingerprint).toBeDefined()
+      expect(snapshot.spaceFingerprint.length).toBeGreaterThan(0)
       expect(snapshot.objectiveSpec._tag).toBe("Single")
       expect(snapshot.stopMode).toBe("Drain")
       expect(snapshot.samplerKind._tag).toBe("Random")
@@ -71,16 +66,11 @@ describe("Study snapshot-resume metadata and replay parity", () => {
         objective: singleObjective
       })
 
-      const resumedSingle = asSingleObjective(resumedResult)
-      expect(Option.isSome(resumedSingle)).toBe(true)
+      const resumedSingle = yield* asSingleObjective(resumedResult)
 
-      if (Option.isNone(resumedSingle)) {
-        return
-      }
-
-      expect(resumedSingle.value.trials).toHaveLength(10)
-      expect(resumedSingle.value.trials.map((trial) => trial.trialNumber)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-      expect(resumedSingle.value.bestTrial.state.value).toBeLessThanOrEqual(initialSingle.value.bestTrial.state.value)
+      expect(resumedSingle.trials).toHaveLength(10)
+      expect(resumedSingle.trials.map((trial) => trial.trialNumber)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+      expect(resumedSingle.bestTrial.state.value).toBeLessThanOrEqual(initialSingle.bestTrial.state.value)
     }))
 
   it.effect("proves deterministic parity for random sampler N+M replay", () =>
@@ -104,16 +94,10 @@ describe("Study snapshot-resume metadata and replay parity", () => {
         objective: singleObjective
       })
 
-      const baselineSingle = asSingleObjective(baselineResult)
-      const firstLegSingle = asSingleObjective(firstLegResult)
-      expect(Option.isSome(baselineSingle)).toBe(true)
-      expect(Option.isSome(firstLegSingle)).toBe(true)
+      const baselineSingle = yield* asSingleObjective(baselineResult)
+      const firstLegSingle = yield* asSingleObjective(firstLegResult)
 
-      if (Option.isNone(baselineSingle) || Option.isNone(firstLegSingle)) {
-        return
-      }
-
-      const snapshot = yield* Study.snapshot(firstLegSingle.value)
+      const snapshot = yield* Study.snapshot(firstLegSingle)
       const resumedResult = yield* Study.resume({
         space: makeSpace(),
         sampler: Sampler.random({ seed }),
@@ -122,21 +106,16 @@ describe("Study snapshot-resume metadata and replay parity", () => {
         trials: secondLegTrials,
         objective: singleObjective
       })
-      const resumedSingle = asSingleObjective(resumedResult)
-      expect(Option.isSome(resumedSingle)).toBe(true)
+      const resumedSingle = yield* asSingleObjective(resumedResult)
 
-      if (Option.isNone(resumedSingle)) {
-        return
-      }
-
-      expect(encodeConfigTrace(singleConfigTrace(resumedSingle.value))).toBe(
-        encodeConfigTrace(singleConfigTrace(baselineSingle.value))
+      expect(encodeConfigTrace(singleConfigTrace(resumedSingle))).toBe(
+        encodeConfigTrace(singleConfigTrace(baselineSingle))
       )
-      expect(encodeNumericTrace(singleValueTrace(resumedSingle.value))).toBe(
-        encodeNumericTrace(singleValueTrace(baselineSingle.value))
+      expect(encodeNumericTrace(singleValueTrace(resumedSingle))).toBe(
+        encodeNumericTrace(singleValueTrace(baselineSingle))
       )
-      expect(resumedSingle.value.bestTrial.trialNumber).toBe(baselineSingle.value.bestTrial.trialNumber)
-      expect(resumedSingle.value.bestTrial.state.value).toBe(baselineSingle.value.bestTrial.state.value)
+      expect(resumedSingle.bestTrial.trialNumber).toBe(baselineSingle.bestTrial.trialNumber)
+      expect(resumedSingle.bestTrial.state.value).toBe(baselineSingle.bestTrial.state.value)
     }))
 
   it.effect("proves deterministic parity for single-objective TPE N+M replay", () =>
@@ -164,16 +143,10 @@ describe("Study snapshot-resume metadata and replay parity", () => {
         objective: singleObjective
       })
 
-      const baselineSingle = asSingleObjective(baselineResult)
-      const firstLegSingle = asSingleObjective(firstLegResult)
-      expect(Option.isSome(baselineSingle)).toBe(true)
-      expect(Option.isSome(firstLegSingle)).toBe(true)
+      const baselineSingle = yield* asSingleObjective(baselineResult)
+      const firstLegSingle = yield* asSingleObjective(firstLegResult)
 
-      if (Option.isNone(baselineSingle) || Option.isNone(firstLegSingle)) {
-        return
-      }
-
-      const snapshot = yield* Study.snapshot(firstLegSingle.value)
+      const snapshot = yield* Study.snapshot(firstLegSingle)
       const resumedResult = yield* Study.resume({
         space: makeSpace(),
         sampler: Sampler.tpe(options),
@@ -182,21 +155,16 @@ describe("Study snapshot-resume metadata and replay parity", () => {
         trials: secondLegTrials,
         objective: singleObjective
       })
-      const resumedSingle = asSingleObjective(resumedResult)
-      expect(Option.isSome(resumedSingle)).toBe(true)
+      const resumedSingle = yield* asSingleObjective(resumedResult)
 
-      if (Option.isNone(resumedSingle)) {
-        return
-      }
-
-      expect(encodeConfigTrace(singleConfigTrace(resumedSingle.value))).toBe(
-        encodeConfigTrace(singleConfigTrace(baselineSingle.value))
+      expect(encodeConfigTrace(singleConfigTrace(resumedSingle))).toBe(
+        encodeConfigTrace(singleConfigTrace(baselineSingle))
       )
-      expect(encodeNumericTrace(singleValueTrace(resumedSingle.value))).toBe(
-        encodeNumericTrace(singleValueTrace(baselineSingle.value))
+      expect(encodeNumericTrace(singleValueTrace(resumedSingle))).toBe(
+        encodeNumericTrace(singleValueTrace(baselineSingle))
       )
-      expect(resumedSingle.value.bestTrial.trialNumber).toBe(baselineSingle.value.bestTrial.trialNumber)
-      expect(resumedSingle.value.bestTrial.state.value).toBe(baselineSingle.value.bestTrial.state.value)
+      expect(resumedSingle.bestTrial.trialNumber).toBe(baselineSingle.bestTrial.trialNumber)
+      expect(resumedSingle.bestTrial.state.value).toBe(baselineSingle.bestTrial.state.value)
     }))
 
   it.effect("proves deterministic parity for multi-objective TPE N+M replay", () =>
@@ -224,16 +192,10 @@ describe("Study snapshot-resume metadata and replay parity", () => {
         objective: objectiveVector
       })
 
-      const baselineMulti = asMultiObjective(baselineResult)
-      const firstLegMulti = asMultiObjective(firstLegResult)
-      expect(Option.isSome(baselineMulti)).toBe(true)
-      expect(Option.isSome(firstLegMulti)).toBe(true)
+      const baselineMulti = yield* asMultiObjective(baselineResult)
+      const firstLegMulti = yield* asMultiObjective(firstLegResult)
 
-      if (Option.isNone(baselineMulti) || Option.isNone(firstLegMulti)) {
-        return
-      }
-
-      const snapshot = yield* Study.snapshot(firstLegMulti.value)
+      const snapshot = yield* Study.snapshot(firstLegMulti)
       const resumedResult = yield* Study.resume({
         space: makeMultiSpace(),
         sampler: Sampler.tpe(options),
@@ -242,24 +204,19 @@ describe("Study snapshot-resume metadata and replay parity", () => {
         trials: secondLegTrials,
         objective: objectiveVector
       })
-      const resumedMulti = asMultiObjective(resumedResult)
-      expect(Option.isSome(resumedMulti)).toBe(true)
+      const resumedMulti = yield* asMultiObjective(resumedResult)
 
-      if (Option.isNone(resumedMulti)) {
-        return
-      }
-
-      expect(encodeMultiConfigTrace(multiConfigTrace(resumedMulti.value))).toBe(
-        encodeMultiConfigTrace(multiConfigTrace(baselineMulti.value))
+      expect(encodeMultiConfigTrace(multiConfigTrace(resumedMulti))).toBe(
+        encodeMultiConfigTrace(multiConfigTrace(baselineMulti))
       )
-      expect(encodeObjectiveVectorTrace(multiValueTrace(resumedMulti.value))).toBe(
-        encodeObjectiveVectorTrace(multiValueTrace(baselineMulti.value))
+      expect(encodeObjectiveVectorTrace(multiValueTrace(resumedMulti))).toBe(
+        encodeObjectiveVectorTrace(multiValueTrace(baselineMulti))
       )
-      expect(resumedMulti.value.paretoFront.map((trial) => trial.trialNumber)).toEqual(
-        baselineMulti.value.paretoFront.map((trial) => trial.trialNumber)
+      expect(resumedMulti.paretoFront.map((trial) => trial.trialNumber)).toEqual(
+        baselineMulti.paretoFront.map((trial) => trial.trialNumber)
       )
-      expect(encodeObjectiveVectorTrace(multiParetoValueTrace(resumedMulti.value))).toBe(
-        encodeObjectiveVectorTrace(multiParetoValueTrace(baselineMulti.value))
+      expect(encodeObjectiveVectorTrace(multiParetoValueTrace(resumedMulti))).toBe(
+        encodeObjectiveVectorTrace(multiParetoValueTrace(baselineMulti))
       )
     }))
 })

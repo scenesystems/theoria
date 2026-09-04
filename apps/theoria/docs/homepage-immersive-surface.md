@@ -262,8 +262,8 @@ derived.
 - [ ] `ArtifactStage.tsx`: `frame: "none" | "instrument"`; home uses `"none"`.
 - [ ] `SiteHeader.tsx`, `HeaderChrome.tsx`: text links, icon-only theme
       toggle; `headerChromeSurfaceClassName` removed.
-- [ ] `test/contracts/theme.contract.test.ts`: `canvas` has no `border`,
-      `rounded` or `shadow` class; every role has exactly one `bg-` class.
+- [ ] `test/worker/home.test.ts`: the rendered `canvas` role has no border,
+      radius or box shadow in computed style; every role paints one background.
 - [ ] `test/worker/home.test.ts` — _draws no box inside a box_: bordered
       ancestors ≤ 2 for every element in `main` at 1440 and 390; ≤ 4 elements
       carry a `shadow-*` class.
@@ -335,7 +335,7 @@ derived.
       line writes `placeFocusAtom`; a focused mark highlights its line.
 - [ ] `styles.css`: `--th-world-{unfinished-light,lost-market,drowned-library}-*`
       for light and dark; `:root[data-world]` selects them; contrast checked
-      per world per theme in `theme.contract.test.ts`.
+      per world per theme against rendered colors in `test/worker/home.test.ts`.
 - [ ] `test/worker/home-demo.test.ts` — _every mark answers_: for each
       `[data-provenance]` in `main`, hover shows an overlay naming a package;
       the count of marks without provenance is zero. _The world changes the
