@@ -274,8 +274,7 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const lines = Text.layoutLines(prepared, { maxWidth: 45, lineHeight: 12 })
-      expect(lines.length).toBe(1)
-      expect(lines[0]!.text).toBe("abcd efgh")
+      expect(Arr.map(lines, (line) => line.text)).toEqual(["abcd efgh"])
     }))
 
   it.effect("handles multiple consecutive spaces in pre-wrap mode", () =>
@@ -288,8 +287,7 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const lines = Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })
-      expect(lines.length).toBe(1)
-      expect(lines[0]!.text).toBe("a   b")
+      expect(Arr.map(lines, (line) => line.text)).toEqual(["a   b"])
     }))
 
   it.effect("handles multiple newlines in pre-wrap mode", () =>

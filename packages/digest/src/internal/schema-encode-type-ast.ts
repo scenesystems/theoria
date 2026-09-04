@@ -2,7 +2,7 @@
 
 import { Array as Arr, Effect, MutableHashMap, MutableHashSet, MutableRef, Option, SchemaAST } from "effect"
 
-import { appendMutable, cooperate, type EncodeState, scan } from "./schema-encode-model.js"
+import { appendMutable, cooperate, type EncodeState, scan, scanItems } from "./schema-encode-model.js"
 import { projectDeclaration, projectRecord, projectTuple, projectUnion } from "./schema-encode-type-ast-structure.js"
 
 const preservedTransformationAnnotations = [
@@ -80,67 +80,52 @@ export class TypeAstProjector {
       const pending: Array<SchemaAST.AST> = [ast]
       const visited = MutableHashSet.empty<SchemaAST.AST>()
       const append = (child: SchemaAST.AST): void => appendMutable(pending, child)
-      return scan(this.#cooperation, 0, (index) => index < pending.length, (index) =>
-        Effect.suspend(() => {
-          const current = pending[index]!
-          if (MutableHashSet.has(visited, current)) return Effect.void
-          MutableHashSet.add(visited, current)
-          if (SchemaAST.isSuspend(current)) {
-            return Option.match(MutableHashMap.get(this.#suspensions, current), {
+      const children = (items: ReadonlyArray<SchemaAST.AST>): Effect.Effect<void> =>
+        scanItems(this.#cooperation, items, (child) => Effect.sync(() => append(child)))
+      const visit = (current: SchemaAST.AST): Effect.Effect<void> => {
+        if (MutableHashSet.has(visited, current)) return Effect.void
+        MutableHashSet.add(visited, current)
+        if (SchemaAST.isSuspend(current)) {
+          return Option.match(MutableHashMap.get(this.#suspensions, current), {
+            onNone: () => Effect.void,
+            onSome: () => Effect.map(this.resolve(current), append)
+          })
+        }
+        if (SchemaAST.isDeclaration(current)) return children(current.typeParameters)
+        if (SchemaAST.isUnion(current)) return children(current.types)
+        if (SchemaAST.isTupleType(current)) {
+          return Effect.zipRight(
+            children(Arr.map(current.elements, (element) => element.type)),
+            children(Arr.map(current.rest, (type) => type.type))
+          )
+        }
+        if (SchemaAST.isTypeLiteral(current)) {
+          return Effect.zipRight(
+            children(Arr.map(current.propertySignatures, (property) => property.type)),
+            children(Arr.map(current.indexSignatures, (signature) => signature.type))
+          )
+        }
+        if (SchemaAST.isRefinement(current)) {
+          append(current.from)
+        } else if (SchemaAST.isTransformation(current)) {
+          append(current.from)
+          append(current.to)
+        }
+        return Effect.void
+      }
+      // `pending` grows while it is scanned, so the traversal stays index-driven.
+      return scan(
+        this.#cooperation,
+        0,
+        (index) => index < pending.length,
+        (index) =>
+          Effect.suspend(() =>
+            Option.match(Arr.get(pending, index), {
               onNone: () => Effect.void,
-              onSome: () => Effect.map(this.resolve(current), append)
+              onSome: visit
             })
-          }
-          if (SchemaAST.isDeclaration(current)) {
-            return scan(this.#cooperation, 0, (child) =>
-              child < current.typeParameters.length, (child) =>
-              Effect.sync(() =>
-                append(current.typeParameters[child]!)
-              ))
-          }
-          if (SchemaAST.isUnion(current)) {
-            return scan(this.#cooperation, 0, (child) =>
-              child < current.types.length, (child) =>
-              Effect.sync(() =>
-                append(current.types[child]!)
-              ))
-          }
-          if (SchemaAST.isTupleType(current)) {
-            return Effect.zipRight(
-              scan(this.#cooperation, 0, (child) =>
-                child < current.elements.length, (child) =>
-                Effect.sync(() =>
-                  append(current.elements[child]!.type)
-                )),
-              scan(this.#cooperation, 0, (child) =>
-                child < current.rest.length, (child) =>
-                Effect.sync(() =>
-                  append(current.rest[child]!.type)
-                ))
-            )
-          }
-          if (SchemaAST.isTypeLiteral(current)) {
-            return Effect.zipRight(
-              scan(this.#cooperation, 0, (child) =>
-                child < current.propertySignatures.length, (child) =>
-                Effect.sync(() =>
-                  append(current.propertySignatures[child]!.type)
-                )),
-              scan(this.#cooperation, 0, (child) =>
-                child < current.indexSignatures.length, (child) =>
-                Effect.sync(() =>
-                  append(current.indexSignatures[child]!.type)
-                ))
-            )
-          }
-          if (SchemaAST.isRefinement(current)) {
-            append(current.from)
-          } else if (SchemaAST.isTransformation(current)) {
-            append(current.from)
-            append(current.to)
-          }
-          return Effect.void
-        }))
+          )
+      )
     })
   }
 

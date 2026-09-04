@@ -1,4 +1,4 @@
-import { Array as Arr } from "effect"
+import { Array as Arr, Option } from "effect"
 
 export const ML_DSA_65_PUBLIC_KEY_BYTES = 1_952
 export const ML_DSA_65_SECRET_KEY_BYTES = 4_032
@@ -14,16 +14,14 @@ export const hasInvalidMlDsa65HintEncoding = (signature: Uint8Array): boolean =>
   const endpoints = Arr.fromIterable(
     signature.subarray(HINT_ENDPOINT_OFFSET, HINT_ENDPOINT_OFFSET + HINT_ENDPOINT_BYTES)
   )
-  const boundaries = [0, ...endpoints]
-  const invalidEndpoint = endpoints.some((endpoint, index) =>
-    endpoint > HINT_INDEX_BYTES || endpoint < boundaries[index]!
-  )
-  const invalidSegment = endpoints.some((endpoint, index) => {
-    const start = boundaries[index]!
-    return Arr.makeBy(endpoint - start, (offset) => HINT_OFFSET + start + offset)
-      .some((position, offset) => offset > 0 && signature[position]! <= signature[position - 1]!)
+  // Each hint segment runs from the previous endpoint (0 for the first) to its own endpoint.
+  const segments = Arr.zip([0, ...Arr.dropRight(endpoints, 1)], endpoints)
+  const invalidEndpoint = segments.some(([start, endpoint]) => endpoint > HINT_INDEX_BYTES || endpoint < start)
+  const invalidSegment = segments.some(([start, endpoint]) => {
+    const segment = Arr.fromIterable(signature.subarray(HINT_OFFSET + start, HINT_OFFSET + endpoint))
+    return Arr.zip(segment, Arr.drop(segment, 1)).some(([previous, next]) => next <= previous)
   })
-  const paddingStart = HINT_OFFSET + endpoints[HINT_ENDPOINT_BYTES - 1]!
+  const paddingStart = HINT_OFFSET + Option.getOrElse(Arr.last(endpoints), () => 0)
   const invalidPadding = Arr.fromIterable(signature.subarray(paddingStart, HINT_ENDPOINT_OFFSET))
     .some((value) => value !== 0)
 

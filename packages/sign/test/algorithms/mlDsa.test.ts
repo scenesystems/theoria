@@ -115,8 +115,7 @@ describe("ML-DSA-65 — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* mlDsa65Keygen()
       const sig = yield* mlDsa65SignDeterministic(message, kp.secretKey, kp.publicKey)
-      const tampered = new Uint8Array(sig.signature)
-      tampered[0] = tampered[0]! ^ 0xff
+      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 0 ? byte ^ 0xff : byte)
       const valid = yield* mlDsa65Verify(tampered, message, kp.publicKey, EMPTY_CONTEXT)
       expect(valid).toBe(false)
     }))

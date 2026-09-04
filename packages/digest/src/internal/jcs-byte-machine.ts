@@ -1,6 +1,6 @@
 /** Cooperative canonical UTF-8 segment assembly. @internal */
 
-import { Array as Arr, Chunk, Effect, MutableList, MutableRef } from "effect"
+import { Array as Arr, Chunk, Effect, MutableList, MutableRef, Option } from "effect"
 
 import { encodeUtf8Unchecked } from "./unicode.js"
 
@@ -50,13 +50,17 @@ export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.E
             body: (copied) =>
               Effect.flatMap(
                 Effect.sync(() =>
-                  Arr.reduce(CONTROL_TOKENS, copied, (next) => {
-                    if (next === Chunk.size(segments)) return next
-                    const bytes = MutableList.shift(encoded)!
-                    output.set(bytes, MutableRef.get(offset))
-                    MutableRef.update(offset, (at) => at + bytes.length)
-                    return next + 1
-                  })
+                  Arr.reduce(CONTROL_TOKENS, copied, (next) =>
+                    next === Chunk.size(segments)
+                      ? next
+                      : Option.match(Option.fromNullable(MutableList.shift(encoded)), {
+                        onNone: () => Chunk.size(segments),
+                        onSome: (bytes) => {
+                          output.set(bytes, MutableRef.get(offset))
+                          MutableRef.update(offset, (at) => at + bytes.length)
+                          return next + 1
+                        }
+                      }))
                 ),
                 (next) => next < Chunk.size(segments) ? Effect.as(cooperate(copyBatches), next) : Effect.succeed(next)
               )

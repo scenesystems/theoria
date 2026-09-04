@@ -1,6 +1,6 @@
 /** Shared state and helpers for cooperative Schema encoding. @internal */
 
-import { Effect, Either, MutableRef, Option, ParseResult, Record, SchemaAST } from "effect"
+import { Array as Arr, Effect, Either, MutableRef, Option, ParseResult, Record, SchemaAST } from "effect"
 
 export const ENCODE_BATCH = 512
 export const ENCODE_HOST_YIELD_BATCHES = 16
@@ -61,6 +61,14 @@ export const scan = <E, R>(
     }),
     undefined
   )
+
+/** Cooperative sequential traversal of `items`; the body sees each element and its index. */
+export const scanItems = <A, E, R>(
+  state: EncodeState,
+  items: ReadonlyArray<A>,
+  body: (item: A, index: number) => Effect.Effect<void, E, R>
+): Effect.Effect<void, E, R> =>
+  Effect.forEach(items, (item, index) => Effect.zipRight(cooperate(state), body(item, index)), { discard: true })
 
 export const runAnnotatedTasks = <A, E, R>(
   ast: SchemaAST.AST,
@@ -135,7 +143,9 @@ export const compactEffect = <A>(
     return Effect.as(
       scan(state, 0, (index) => index < sparse.length, (index) =>
         Effect.sync(() => {
-          if (Object.prototype.hasOwnProperty.call(sparse, index)) appendMutable(output, sparse[index]!)
+          if (Object.prototype.hasOwnProperty.call(sparse, index)) {
+            Option.map(Arr.get(sparse, index), (value) => appendMutable(output, value))
+          }
         })),
       output
     )

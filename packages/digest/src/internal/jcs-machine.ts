@@ -54,11 +54,15 @@ const makeState = (
   })
 
 const processBatch = (state: State): State => {
-  CONTROL_TOKENS.some(() => {
-    if (stopped(state)) return true
-    process(state, MutableList.shift(state.stack)!)
-    return false
-  })
+  CONTROL_TOKENS.some(() =>
+    stopped(state) || Option.match(Option.fromNullable(MutableList.shift(state.stack)), {
+      onNone: () => true,
+      onSome: (frame) => {
+        process(state, frame)
+        return false
+      }
+    })
+  )
   return state
 }
 

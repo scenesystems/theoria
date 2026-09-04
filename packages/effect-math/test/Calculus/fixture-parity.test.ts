@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Number as N, Schema } from "effect"
+import { Array as Arr, Chunk, Data, Effect, Match, Number as N, Option, Record, Schema } from "effect"
 
 import {
   adaptiveSimpson,
@@ -15,6 +15,11 @@ import {
   trapezoid
 } from "../../src/Calculus/operations.js"
 import { CalculusNumericalParityFixtureSchema, FixtureRegistryLive, loadFixture } from "../helpers/fixtures/index.js"
+
+class UnknownFixtureFunction extends Data.TaggedError("UnknownFixtureFunction")<{ readonly name: string }> {}
+
+const lookup = <F>(registry: Record<string, F>, name: string): F =>
+  Option.getOrThrowWith(Record.get(registry, name), () => new UnknownFixtureFunction({ name }))
 
 const testFunctions: Record<string, (x: number) => number> = {
   x_squared: (x) => N.multiply(x, x),
@@ -94,7 +99,7 @@ describe("Calculus SciPy fixture parity", () => {
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "derivative" }, (v) => {
-              const fn = testFunctions[v.input.function]!
+              const fn = lookup(testFunctions, v.input.function)
               expectParity(
                 derivative(fn, v.input.x),
                 v.expected,
@@ -103,7 +108,7 @@ describe("Calculus SciPy fixture parity", () => {
               )
             }),
             Match.when({ operation: "secondDerivative" }, (v) => {
-              const fn = testFunctions[v.input.function]!
+              const fn = lookup(testFunctions, v.input.function)
               expectParity(
                 secondDerivative(fn, v.input.x),
                 v.expected,
@@ -112,7 +117,7 @@ describe("Calculus SciPy fixture parity", () => {
               )
             }),
             Match.when({ operation: "directionalDerivative" }, (v) => {
-              const fn = scalarSurfaceFunctions[v.input.function]!
+              const fn = lookup(scalarSurfaceFunctions, v.input.function)
               expectParity(
                 directionalDerivative(fn, Chunk.fromIterable(v.input.point), Chunk.fromIterable(v.input.direction)),
                 v.expected,
@@ -135,7 +140,7 @@ describe("Calculus SciPy fixture parity", () => {
                 v.assertion.relativeTolerance
               )),
             Match.when({ operation: "adaptiveSimpson" }, (v) => {
-              const fn = testFunctions[v.input.function]!
+              const fn = lookup(testFunctions, v.input.function)
               expectParity(
                 adaptiveSimpson(
                   fn,
@@ -151,7 +156,7 @@ describe("Calculus SciPy fixture parity", () => {
               )
             }),
             Match.when({ operation: "gradient" }, (v) => {
-              const fn = scalarSurfaceFunctions[v.input.function]!
+              const fn = lookup(scalarSurfaceFunctions, v.input.function)
               expectVectorParity(
                 Chunk.toReadonlyArray(gradient(fn, Chunk.fromIterable(v.input.point))),
                 v.expected,
@@ -160,7 +165,7 @@ describe("Calculus SciPy fixture parity", () => {
               )
             }),
             Match.when({ operation: "jacobian" }, (v) => {
-              const fn = vectorFieldFunctions[v.input.function]!
+              const fn = lookup(vectorFieldFunctions, v.input.function)
               expectMatrixParity(
                 chunkMatrixToReadonly(jacobian(fn, Chunk.fromIterable(v.input.point))),
                 v.expected,
@@ -169,7 +174,7 @@ describe("Calculus SciPy fixture parity", () => {
               )
             }),
             Match.when({ operation: "hessian" }, (v) => {
-              const fn = scalarSurfaceFunctions[v.input.function]!
+              const fn = lookup(scalarSurfaceFunctions, v.input.function)
               expectMatrixParity(
                 chunkMatrixToReadonly(hessian(fn, Chunk.fromIterable(v.input.point))),
                 v.expected,
@@ -178,7 +183,7 @@ describe("Calculus SciPy fixture parity", () => {
               )
             }),
             Match.when({ operation: "divergence" }, (v) => {
-              const fn = vectorFieldFunctions[v.input.function]!
+              const fn = lookup(vectorFieldFunctions, v.input.function)
               expectParity(
                 divergence(fn, Chunk.fromIterable(v.input.point)),
                 v.expected,
@@ -187,7 +192,7 @@ describe("Calculus SciPy fixture parity", () => {
               )
             }),
             Match.when({ operation: "laplacian" }, (v) => {
-              const fn = scalarSurfaceFunctions[v.input.function]!
+              const fn = lookup(scalarSurfaceFunctions, v.input.function)
               expectParity(
                 laplacian(fn, Chunk.fromIterable(v.input.point)),
                 v.expected,
