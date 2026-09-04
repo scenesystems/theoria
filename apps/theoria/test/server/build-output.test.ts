@@ -1,24 +1,33 @@
-import { FileSystem, Path } from "@effect/platform"
+import type { Path } from "@effect/platform"
+import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Either } from "effect"
+import * as Arr from "effect/Array"
 
-import { checkBuildOutput, requiredBuildFiles } from "../../app/server/config/build-output.js"
+import { checkBuildOutput } from "../../app/server/config/build-output.js"
 
-/** A minimal deployable layout, then `mutate` it before the check runs. */
+/**
+ * The smallest deployable layout, written literally so the test does not
+ * inherit its expectations from the code under test; `mutate` then edits it.
+ */
 const checkLayout = (mutate: (root: string) => Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path>) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
     const root = yield* fileSystem.makeTempDirectoryScoped()
-    yield* Effect.forEach(requiredBuildFiles, (file) =>
-      Effect.zipRight(
-        fileSystem.makeDirectory(path.dirname(path.join(root, file)), { recursive: true }),
-        fileSystem.writeFileString(path.join(root, file), file)
-      ))
+    yield* fileSystem.makeDirectory(`${root}/dist/docs-data`, { recursive: true })
+    yield* fileSystem.makeDirectory(`${root}/.wrangler-out`)
+    yield* fileSystem.writeFileString(`${root}/dist/index.html`, "<title>x</title>")
+    yield* fileSystem.writeFileString(`${root}/dist/_headers`, "/*\n  X-Frame-Options: DENY\n")
+    yield* fileSystem.writeFileString(`${root}/dist/robots.txt`, "User-agent: *\n")
+    yield* fileSystem.writeFileString(`${root}/dist/docs-data/manifest.json`, "{}")
+    yield* fileSystem.writeFileString(`${root}/.wrangler-out/worker.js`, "export default {}")
     yield* mutate(root)
     return yield* Effect.either(checkBuildOutput(root))
   }).pipe(Effect.scoped, Effect.provide(BunContext.layer))
+
+const problemsOf = (result: Either.Either<{ readonly assets: number }, { readonly problems: ReadonlyArray<string> }>) =>
+  Either.match(result, { onLeft: (error) => error.problems, onRight: () => Arr.empty<string>() })
 
 it.effect("accepts a build whose every asset has a served content type", () =>
   Effect.gen(function*() {
@@ -33,8 +42,7 @@ it.effect("accepts a build whose every asset has a served content type", () =>
         yield* fileSystem.writeFileString(`${root}/.wrangler-out/abc-tiktoken_bg.wasm`, "")
       })
     )
-    expect(result._tag).toBe("Right")
-    if (result._tag === "Right") expect(result.right.assets).toBe(6)
+    expect(Either.map(result, (summary) => summary.assets)).toEqual(Either.right(6))
   }))
 
 it.effect("rejects an asset the server cannot type, naming it", () =>
@@ -42,27 +50,29 @@ it.effect("rejects an asset the server cannot type, naming it", () =>
     const result = yield* checkLayout((root) =>
       Effect.flatMap(FileSystem.FileSystem, (fileSystem) => fileSystem.writeFileString(`${root}/dist/hero.avif`, ""))
     )
-    expect(result._tag).toBe("Left")
-    if (result._tag === "Left") {
-      expect(result.left.problems).toEqual(["dist/hero.avif: the server has no content type for this file"])
-    }
+    expect(problemsOf(result)).toEqual(["dist/hero.avif: the server has no content type for this file"])
   }))
 
-it.effect("rejects stray Worker output and missing required files", () =>
+it.effect("rejects symbolic links even when they point at a typed file", () =>
   Effect.gen(function*() {
-    const stray = yield* checkLayout((root) =>
+    const result = yield* checkLayout((root) =>
       Effect.flatMap(FileSystem.FileSystem, (fileSystem) =>
-        fileSystem.writeFileString(`${root}/.wrangler-out/index.js`, ""))
+        fileSystem.symlink(`${root}/dist/index.html`, `${root}/dist/alias.html`))
     )
-    expect(stray._tag).toBe("Left")
-    if (stray._tag === "Left") {
-      expect(stray.left.problems[0]).toMatch(/^\.wrangler-out\/index\.js: only the Worker bundle/)
-    }
+    expect(problemsOf(result)).toEqual(["dist/alias.html: is a SymbolicLink, not a regular file"])
+  }))
 
-    const missing = yield* checkLayout((root) =>
+it.effect("reports every problem in one run: missing files and stray Worker output", () =>
+  Effect.gen(function*() {
+    const result = yield* checkLayout((root) =>
       Effect.flatMap(FileSystem.FileSystem, (fileSystem) =>
-        fileSystem.remove(`${root}/dist/robots.txt`))
+        Effect.zipRight(
+          fileSystem.remove(`${root}/dist/robots.txt`),
+          fileSystem.writeFileString(`${root}/.wrangler-out/index.js`, "")
+        ))
     )
-    expect(missing._tag).toBe("Left")
-    if (missing._tag === "Left") expect(missing.left.problems).toEqual(["dist/robots.txt: missing"])
+    expect(problemsOf(result)).toEqual([
+      "dist/robots.txt: missing",
+      ".wrangler-out/index.js: only the Worker bundle, its source map, README and wasm modules ship"
+    ])
   }))

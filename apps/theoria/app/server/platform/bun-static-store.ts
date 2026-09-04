@@ -51,15 +51,16 @@ const make = (roots: ReadonlyArray<string>) =>
         )
         : Effect.fail(new StaticStoreError({ pathname, message: "Invalid asset pathname." }))
 
-    // Every file the build may contain has a registered type (`checkBuildOutput`
-    // gates the deploy on it), so a missing type is an invariant violation.
+    // A file without a registered content type is not a servable asset. The
+    // build gate keeps such files out of `dist/`; `public/` in development is
+    // not gated, so the store answers "absent" rather than guessing a type.
     const fileResponse = (pathname: string, path: string) =>
       Option.match(contentTypeForPath(pathname), {
-        onNone: () => Effect.dieMessage(`No content type is registered for ${pathname}.`),
-        onSome: (contentType) => HttpServerResponse.file(path, { headers: { "content-type": contentType } })
+        onNone: () => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()),
+        onSome: (contentType) =>
+          HttpServerResponse.file(path, { headers: { "content-type": contentType } }).pipe(Effect.map(Option.some))
       }).pipe(
         Effect.provideService(HttpPlatform.HttpPlatform, platform),
-        Effect.map(Option.some),
         Effect.catchAll(() => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()))
       )
 

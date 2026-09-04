@@ -1,5 +1,5 @@
 import { FileSystem, Path } from "@effect/platform"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Either, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { contentTypeForPath } from "./static-store.js"
@@ -24,11 +24,12 @@ export class BuildOutputError extends Schema.TaggedError<BuildOutputError>()("Bu
   }
 }
 
-export interface BuildOutputSummary {
-  readonly root: string
-  readonly assets: number
-  readonly workerBytes: number
-}
+export const BuildOutputSummary = Schema.Struct({
+  root: Schema.String,
+  assets: Schema.Number,
+  workerBytes: Schema.Number
+})
+export type BuildOutputSummary = typeof BuildOutputSummary.Type
 
 export const requiredBuildFiles: ReadonlyArray<string> = [
   "dist/index.html",
@@ -66,43 +67,56 @@ const fileProblem = (entry: string, type: FileSystem.File.Type): Option.Option<s
   return Option.some(`${entry}: is a ${type}, not a regular file`)
 }
 
+/** Every problem is collected before failing so one run reports the whole build. */
 export const checkBuildOutput = (
   root: string
 ): Effect.Effect<BuildOutputSummary, BuildOutputError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const fail = (problems: ReadonlyArray<string>) => new BuildOutputError({ root, problems })
 
-    const isFile = (relativePath: string) =>
-      fileSystem.stat(path.join(root, relativePath)).pipe(
-        Effect.map((info) => info.type === "File"),
-        Effect.orElseSucceed(() => false)
+    // `stat` follows links, so a link is detected first: a link into or out of
+    // the artifact must never pass as the regular file it points at.
+    const kindOf = (relativePath: string): Effect.Effect<Option.Option<FileSystem.File.Type>> =>
+      fileSystem.readLink(path.join(root, relativePath)).pipe(
+        Effect.as<FileSystem.File.Type>("SymbolicLink"),
+        Effect.orElse(() => Effect.map(fileSystem.stat(path.join(root, relativePath)), (info) => info.type)),
+        Effect.option
       )
-    const missing = yield* Effect.filter(requiredBuildFiles, (file) => Effect.map(isFile(file), (present) => !present))
-    if (Arr.isNonEmptyReadonlyArray(missing)) {
-      return yield* fail(Arr.map(missing, (file) => `${file}: missing`))
-    }
 
-    const entries = yield* Effect.forEach(buildDirectories, (directory) =>
+    const required = yield* Effect.forEach(requiredBuildFiles, (file) =>
+      Effect.map(kindOf(file), (kind) => ({ file, kind })))
+    const missing: ReadonlyArray<string> = Arr.filterMap(required, ({ file, kind }) =>
+      Option.exists(kind, (type) =>
+          type === "File")
+        ? Option.none()
+        : Option.some(`${file}: missing`))
+
+    const listed = yield* Effect.forEach(buildDirectories, (directory) =>
       fileSystem.readDirectory(path.join(root, directory), { recursive: true }).pipe(
-        Effect.map(Arr.map((entry) =>
-          `${directory}/${entry}`
-        ))
-      )).pipe(
-        Effect.map(Arr.flatten),
-        Effect.mapError((cause) => fail([String(cause)]))
-      )
-    const files = yield* Effect.forEach(entries, (entry) =>
-      fileSystem.stat(path.join(root, entry)).pipe(
-        Effect.map((info) => ({ entry, type: info.type }))
-      )).pipe(Effect.mapError((cause) => fail([String(cause)])))
-    const problems = Arr.filterMap(files, (file) => fileProblem(file.entry, file.type))
-    if (Arr.isNonEmptyReadonlyArray(problems)) return yield* fail(problems)
+        Effect.map((entries) =>
+          Either.right(Arr.map(entries, (entry) =>
+            `${directory}/${entry}`))
+        ),
+        Effect.orElseSucceed(() =>
+          Either.left(`${directory}/: missing directory`)
+        )
+      ))
+    const entries: ReadonlyArray<string> = Arr.flatten(Arr.getRights(listed))
+    const kinds = yield* Effect.forEach(entries, (entry) =>
+      Effect.map(kindOf(entry), (kind) => ({ entry, kind })))
+    const entryProblems: ReadonlyArray<string> = Arr.filterMap(kinds, ({ entry, kind }) =>
+      Option.match(kind, {
+        onNone: () => Option.some(`${entry}: vanished during the check`),
+        onSome: (type) => fileProblem(entry, type)
+      }))
+    const problems: ReadonlyArray<string> = [...missing, ...Arr.getLefts(listed), ...entryProblems]
+    if (Arr.isNonEmptyReadonlyArray(problems)) return yield* new BuildOutputError({ root, problems })
 
     const worker = yield* fileSystem.stat(path.join(root, ".wrangler-out/worker.js")).pipe(
-      Effect.mapError((cause) => fail([String(cause)]))
+      Effect.mapError((cause) => new BuildOutputError({ root, problems: [String(cause)] }))
     )
-    const assets = Arr.filter(files, (file) => file.type === "File" && file.entry.startsWith("dist/")).length
+    const assets = Arr.filter(kinds, ({ entry, kind }) =>
+      entry.startsWith("dist/") && Option.exists(kind, (type) => type === "File")).length
     return { root, assets, workerBytes: Number(worker.size) }
   })
