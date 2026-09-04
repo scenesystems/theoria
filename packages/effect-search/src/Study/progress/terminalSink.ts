@@ -3,68 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Data, Effect, Match, Option, pipe, Predicate } from "effect"
+import { Console, Data, Effect, Match, Option } from "effect"
 
 import type { ProgressLine } from "./formatter.js"
-
-type ProcessWriter = (chunk: string) => boolean
-
-/** Safely extract a bound stream writer from globalThis.process via Option chains. */
-const resolveProcessWriter = (stream: "stdout" | "stderr"): Option.Option<ProcessWriter> =>
-  pipe(
-    Option.liftPredicate(globalThis, Predicate.hasProperty("process")),
-    Option.map((g) => g.process),
-    Option.filter(Predicate.isRecord),
-    Option.flatMap((proc) => Option.fromNullable(proc[stream])),
-    Option.filter(Predicate.isRecord),
-    Option.map((io) =>
-      Option.fromNullable(io["write"]).pipe(
-        Option.filter(Predicate.isFunction),
-        Option.map((write) => (chunk: string) => write.call(io, chunk))
-      )
-    ),
-    Option.flatten
-  )
-
-const processStdoutWriter: Option.Option<ProcessWriter> = resolveProcessWriter("stdout")
-
-const processStderrWriter: Option.Option<ProcessWriter> = resolveProcessWriter("stderr")
-
-const writeProcessLine = (
-  write: Option.Option<ProcessWriter>,
-  line: string
-): Effect.Effect<void> =>
-  Option.match(write, {
-    onNone: () => Effect.void,
-    onSome: (writer) =>
-      Effect.sync(() => {
-        writer(`${line}\n`)
-      })
-  })
-
-const processSupportsAnsi: Effect.Effect<boolean> = Effect.sync(() =>
-  pipe(
-    Option.liftPredicate(globalThis, Predicate.hasProperty("process")),
-    Option.map((g) => g.process),
-    Option.filter(Predicate.isRecord),
-    Option.map((proc) => {
-      const isTTY = (key: string): boolean =>
-        pipe(
-          Option.fromNullable(proc[key]),
-          Option.filter(Predicate.isRecord),
-          Option.flatMap((io) => Option.fromNullable(io["isTTY"])),
-          Option.map(Boolean),
-          Option.getOrElse(() => false)
-        )
-      return isTTY("stdout") || isTTY("stderr")
-    }),
-    Option.getOrElse(() => false)
-  )
-)
-
-const writeProcessStdout = (line: string): Effect.Effect<void> => writeProcessLine(processStdoutWriter, line)
-
-const writeProcessStderr = (line: string): Effect.Effect<void> => writeProcessLine(processStderrWriter, line)
 
 /**
  * Defines terminal capability detection and line writers for progress output.
@@ -124,26 +65,28 @@ export class TerminalSink extends Data.Class<{
  * @category constructors
  */
 export const makeTerminalSink = (options?: {
-  /** Capability check; defaults to detecting a TTY on process stdout or stderr. */
+  /** Capability check; defaults to plain text, since only the caller knows whether its output is a colour terminal. */
   readonly supportsAnsi?: Effect.Effect<boolean, unknown>
-  /** Stdout writer; defaults to process stdout when available. */
+  /** Stdout writer; defaults to the fiber's `Console` service. */
   readonly writeStdout?: (line: string) => Effect.Effect<void>
-  /** Stderr writer; defaults to process stderr when available. */
+  /** Stderr writer; defaults to the fiber's `Console` service. */
   readonly writeStderr?: (line: string) => Effect.Effect<void>
 }): TerminalSink =>
   new TerminalSink({
-    supportsAnsi: Option.fromNullable(options?.supportsAnsi).pipe(Option.getOrElse(() => processSupportsAnsi)),
-    writeStdout: Option.fromNullable(options?.writeStdout).pipe(Option.getOrElse(() => writeProcessStdout)),
-    writeStderr: Option.fromNullable(options?.writeStderr).pipe(Option.getOrElse(() => writeProcessStderr))
+    supportsAnsi: Option.fromNullable(options?.supportsAnsi).pipe(Option.getOrElse(() => Effect.succeed(false))),
+    writeStdout: Option.fromNullable(options?.writeStdout).pipe(Option.getOrElse(() => Console.log)),
+    writeStderr: Option.fromNullable(options?.writeStderr).pipe(Option.getOrElse(() => Console.error))
   })
 
 /**
- * Writes to process stdout and stderr when those streams are available.
+ * Writes through Effect's `Console` service: stdout lines with `Console.log`,
+ * stderr lines with `Console.error`, and no ANSI colour.
  *
  * @remarks
- * The writers are captured when this module loads. Each write appends a newline
- * and ignores the process writer's backpressure result. Missing process streams
- * discard their corresponding lines.
+ * The `Console` service is resolved when each line is written, so a program
+ * redirects the sink with `Console.withConsole` or `Console.setConsole` the
+ * same way it redirects any other console output. Callers that know their
+ * output is a colour terminal pass `supportsAnsi` to {@link makeTerminalSink}.
  *
  * @since 0.1.0
  * @category constructors

@@ -5,7 +5,7 @@
  * fixture data consumed by Effect-native conformance tests.
  */
 
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { Array as Arr, Effect, Schema } from "effect"
 import { FixtureKindSchema, FixtureManifestSchema, FixtureSourceSchema } from "../../../scripts/fixture-schemas.js"
 
@@ -17,12 +17,10 @@ export type ExternalFixtureKind = Schema.Schema.Type<typeof ExternalFixtureKindS
 export type ExternalFixtureSource = Schema.Schema.Type<typeof ExternalFixtureSourceSchema>
 export type ExternalFixtureManifest = Schema.Schema.Type<typeof ExternalFixtureManifestSchema>
 
-const fixtureRootUrl = new URL("../../fixtures/external/", import.meta.url)
-
 const resolveFixtureRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
   const path = yield* Path.Path
-  return yield* path.fromFileUrl(fixtureRootUrl).pipe(Effect.orDie)
-})
+  return yield* path.fromFileUrl(yield* Url.fromString("../../fixtures/external/", import.meta.url))
+}).pipe(Effect.orDie)
 
 export const readExternalFixture = (
   relativePath: string

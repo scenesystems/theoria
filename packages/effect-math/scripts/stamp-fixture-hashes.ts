@@ -9,7 +9,7 @@
  *
  * Usage: bun run scripts/stamp-fixture-hashes.ts
  */
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { digest } from "@scenesystems/digest"
 import { Console, Effect, Schema } from "effect"
@@ -35,8 +35,11 @@ const encodeManifestJson = Schema.encode(Schema.parseJson(ManifestSchema))
 const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const cwd = yield* Effect.sync(() => process.cwd())
-  const fixturesDir = path.join(cwd, FIXTURES_DIR)
+  const packageRoot = yield* Url.fromString("../", import.meta.url).pipe(
+    Effect.flatMap((url) => path.fromFileUrl(url)),
+    Effect.orDie
+  )
+  const fixturesDir = path.join(packageRoot, FIXTURES_DIR)
 
   const entries = yield* fs.readDirectory(fixturesDir)
   const manifestFiles = entries.filter((e) => e.endsWith(".fixture-manifest.json"))
@@ -51,7 +54,7 @@ const program = Effect.gen(function*() {
 
       const stamped = yield* Effect.forEach(manifest.fixtures, (fixture) =>
         Effect.gen(function*() {
-          const fixturePath = path.join(cwd, fixture.path)
+          const fixturePath = path.join(packageRoot, fixture.path)
           const fixtureRaw = yield* fs.readFileString(fixturePath)
           const fixtureValue = yield* decodeJsonUnknown(fixtureRaw)
           const hash = yield* digest("blake3-256", fixtureValue)
@@ -77,13 +80,4 @@ const program = Effect.gen(function*() {
   yield* Console.log("Done — all manifests stamped with canonical BLAKE3-256 hashes.")
 })
 
-BunRuntime.runMain(
-  program.pipe(
-    Effect.catchAll((err) =>
-      Console.error(`FATAL: ${String(err)}`).pipe(
-        Effect.andThen(Effect.sync(() => process.exit(1)))
-      )
-    ),
-    Effect.provide(BunContext.layer)
-  )
-)
+BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

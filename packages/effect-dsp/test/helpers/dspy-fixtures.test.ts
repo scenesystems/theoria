@@ -3,7 +3,7 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
-import { ChatPromptFixtureSchema, makeFixtureRegistry } from "./dspy-fixtures/index.js"
+import { ChatPromptFixtureSchema, loadFixture, makeFixtureRegistry } from "./dspy-fixtures/index.js"
 
 const manifestGenerator =
   "\"generator\":{\"script\":\"test\",\"generatorVersion\":\"1\",\"upstream\":\"dspy\",\"upstreamVersion\":\"1\",\"pythonVersion\":\"3\",\"generatedAt\":\"2026-01-01T00:00:00Z\"}"
@@ -11,7 +11,7 @@ const manifestGenerator =
 describe("DSPy fixture registry", () => {
   it.effect("loads and decodes a fixture", () =>
     Effect.gen(function*() {
-      const fixture = yield* makeFixtureRegistry().load("dspy.chat.qa-basic")
+      const fixture = yield* loadFixture("dspy.chat.qa-basic")
       const decoded = yield* Schema.decodeUnknown(ChatPromptFixtureSchema)(fixture)
 
       expect(decoded.payload.messages.length).toBeGreaterThan(0)
@@ -25,7 +25,7 @@ describe("DSPy fixture registry", () => {
         `${directory}/manifest.json`,
         `{"schemaVersion":"1.0.0",${manifestGenerator},"fixtures":[]}`
       )
-      const registry = makeFixtureRegistry({ rootUrl: new URL(`file://${directory}/`) })
+      const registry = makeFixtureRegistry({ rootDirectory: directory })
       const missing = yield* registry.load("dspy.chat.qa-basic").pipe(
         Effect.catchTag("FixtureNotFoundError", (error) => Effect.succeed(error.fixture))
       )
@@ -42,7 +42,7 @@ describe("DSPy fixture registry", () => {
         `{"schemaVersion":"1.0.0",${manifestGenerator},"fixtures":[{"name":"dspy.chat.qa-basic","file":"malformed.json"}]}`
       )
       yield* fileSystem.writeFileString(`${directory}/malformed.json`, "{")
-      const registry = makeFixtureRegistry({ rootUrl: new URL(`file://${directory}/`) })
+      const registry = makeFixtureRegistry({ rootDirectory: directory })
       const malformed = yield* registry.load("dspy.chat.qa-basic").pipe(
         Effect.catchTag("FixtureMalformedJsonError", () => Effect.succeed(true))
       )

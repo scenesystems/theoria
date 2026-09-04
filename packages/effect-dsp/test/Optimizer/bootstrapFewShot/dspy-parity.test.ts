@@ -11,7 +11,7 @@ import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
 import {
   BootstrapDemoBudgetFixtureSchema,
   BootstrapThresholdFilteringFixtureSchema,
-  makeFixtureRegistry
+  loadFixture
 } from "../../helpers/dspy-fixtures/index.js"
 
 const makeQaSignature = () =>
@@ -57,8 +57,7 @@ const toTrainset = (
 describe("Optimizer.bootstrapFewShot DSPy parity", () => {
   it.effect("matches demo budget contracts from committed fixture", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.bootstrap.demo-budget.basic")
+      const rawFixture = yield* loadFixture("dspy.bootstrap.demo-budget.basic")
       const fixture = yield* Schema.decodeUnknown(BootstrapDemoBudgetFixtureSchema)(rawFixture)
 
       const signature = yield* makeQaSignature()
@@ -91,8 +90,7 @@ describe("Optimizer.bootstrapFewShot DSPy parity", () => {
 
   it.effect("matches threshold filtering contracts from committed fixture", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.bootstrap.threshold-filtering.basic")
+      const rawFixture = yield* loadFixture("dspy.bootstrap.threshold-filtering.basic")
       const fixture = yield* Schema.decodeUnknown(BootstrapThresholdFilteringFixtureSchema)(rawFixture)
 
       const signature = yield* makeQaSignature()

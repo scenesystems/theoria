@@ -9,7 +9,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
 
-import { BootstrapRSCandidateCatalogFixtureSchema, makeFixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
+import { BootstrapRSCandidateCatalogFixtureSchema, loadFixture } from "../../helpers/dspy-fixtures/index.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -35,8 +35,7 @@ const toExamples = (entries: ReadonlyArray<{ readonly question: string; readonly
 describe("Optimizer.bootstrapRS DSPy parity", () => {
   it.effect("matches fixture-backed candidate catalog and best-candidate selection contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.bootstraprs.candidate-catalog.seed-9")
+      const rawFixture = yield* loadFixture("dspy.bootstraprs.candidate-catalog.seed-9")
       const fixture = yield* Schema.decodeUnknown(BootstrapRSCandidateCatalogFixtureSchema)(rawFixture)
 
       const signature = yield* makeQaSignature()

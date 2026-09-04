@@ -7,7 +7,7 @@ import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Layer, Option, Record, Schema } from "effect"
 
 import {
-  makeFixtureRegistry,
+  loadFixture,
   TraceEntryShapeFixtureSchema,
   TraceFiberIsolationFixtureSchema
 } from "../helpers/dspy-fixtures/index.js"
@@ -26,9 +26,8 @@ const makeQaSignature = () =>
 describe("Trace DSPy contracts", () => {
   it.effect("matches entry-shape and isolation fixture contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawEntryFixture = yield* registry.load("dspy.trace.entry-shape.basic")
-      const rawIsolationFixture = yield* registry.load("dspy.trace.fiber-isolation.seed-0")
+      const rawEntryFixture = yield* loadFixture("dspy.trace.entry-shape.basic")
+      const rawIsolationFixture = yield* loadFixture("dspy.trace.fiber-isolation.seed-0")
       const entryFixture = yield* Schema.decodeUnknown(TraceEntryShapeFixtureSchema)(rawEntryFixture)
       const isolationFixture = yield* Schema.decodeUnknown(TraceFiberIsolationFixtureSchema)(rawIsolationFixture)
 

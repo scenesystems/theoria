@@ -7,7 +7,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Option, Record as Rec, Ref, Schema } from "effect"
 
-import { EnsembleMajorityVoteFixtureSchema, makeFixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
+import { EnsembleMajorityVoteFixtureSchema, loadFixture } from "../../helpers/dspy-fixtures/index.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -43,8 +43,7 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
 describe("Optimizer.ensemble DSPy parity", () => {
   it.effect("matches fixture-backed majority vote and tie-break contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.ensemble.majority-vote.basic")
+      const rawFixture = yield* loadFixture("dspy.ensemble.majority-vote.basic")
       const fixture = yield* Schema.decodeUnknown(EnsembleMajorityVoteFixtureSchema)(rawFixture)
 
       yield* Effect.forEach(

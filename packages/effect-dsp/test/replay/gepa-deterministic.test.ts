@@ -11,7 +11,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Option, Schema, Stream } from "effect"
 
-import { GepaReplaySeedContractFixtureSchema, makeFixtureRegistry } from "../helpers/dspy-fixtures/index.js"
+import { GepaReplaySeedContractFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
 const encodeSavedStateJson = Schema.encode(Schema.parseJson(Module.SavedState))
 const ParetoSnapshotSchema = Schema.Struct({
@@ -92,8 +92,7 @@ describe("GEPA deterministic replay", () => {
     "replays seeded runs with byte-stable outputs",
     () =>
       Effect.gen(function*() {
-        const fixtureRegistry = makeFixtureRegistry()
-        const rawReplayContract = yield* fixtureRegistry.load("dspy.gepa.replay.seed-0.contract")
+        const rawReplayContract = yield* loadFixture("dspy.gepa.replay.seed-0.contract")
         const replayContract = yield* Schema.decodeUnknown(GepaReplaySeedContractFixtureSchema)(
           rawReplayContract
         )

@@ -5,7 +5,7 @@
  * semver ranges after `build-utils pack-v3`.
  */
 
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Console, Effect, HashMap, Match, Option, Record, Schema, Tuple } from "effect"
 
@@ -22,7 +22,6 @@ const decodeString = Schema.decodeUnknownOption(Schema.String)
 
 const WORKSPACE_PROTOCOL = "workspace:"
 const dependencyFields = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]
-const rootUrl = new URL("../", import.meta.url)
 
 type Versions = HashMap.HashMap<string, string>
 
@@ -42,7 +41,7 @@ const readOptionalManifest = (manifestPath: string) =>
 const packageDirectories = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const root = yield* path.fromFileUrl(rootUrl)
+  const root = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
   const packagesDir = path.join(root, "packages")
   const entries = yield* fs.readDirectory(packagesDir)
   const directories = yield* Effect.filter(

@@ -1,16 +1,17 @@
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Console, Effect, Schema } from "effect"
 
 import { DocsManifestJson } from "@theoria/docs-model"
 
-const repositoryRootUrl = new URL("../", import.meta.url)
 const docsAssetPrefix = "/docs-data/"
 
 const docsAssetsAreCurrent = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const repositoryRoot = yield* path.fromFileUrl(repositoryRootUrl).pipe(Effect.orDie)
+  const repositoryRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl).pipe(
+    Effect.orDie
+  )
   const outputRoot = path.join(repositoryRoot, "apps", "theoria", "public", "docs-data")
   const manifestText = yield* fileSystem.readFileString(path.join(outputRoot, "manifest.json"))
   const manifest = yield* Schema.decode(DocsManifestJson)(manifestText)

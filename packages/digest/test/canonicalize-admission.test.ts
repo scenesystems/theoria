@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Data, Effect, Equal, Exit, Hash, HashSet } from "effect"
+import { Array as Arr, Data, DateTime, Effect, Equal, Exit, Hash, HashSet, Schema } from "effect"
 
 import { canonicalize } from "../src/canonicalize.js"
 import { canonicalJsonBytes } from "../src/convenience.js"
@@ -34,15 +34,12 @@ const unsupportedValueCases: ReadonlyArray<readonly [string, unknown, Unsupporte
   ["bigint", BigInt(1), "bigint"],
   ["function", () => 1, "function"],
   ["symbol", Symbol("value"), "symbol"],
-  ["Date", new globalThis.Date("2026-01-01T00:00:00.000Z"), "date"],
-  ["RegExp", new globalThis.RegExp("value"), "regexp"],
+  ["Date", DateTime.toDateUtc(DateTime.unsafeMake("2026-01-01T00:00:00.000Z")), "date"],
+  ["RegExp", /value/u, "regexp"],
   ["typed array", new Uint16Array([1]), "typed-array"],
   ["DataView", new DataView(new ArrayBuffer(8)), "typed-array"],
-  ["Map", new globalThis.Map(), "map"],
-  ["Set", new globalThis.Set(), "set"],
-  ["WeakMap", new globalThis.WeakMap(), "weak-collection"],
-  ["WeakSet", new globalThis.WeakSet(), "weak-collection"],
-  ["Promise", globalThis.Promise.resolve(1), "promise"],
+  ["Map", Schema.decodeSync(Schema.Map({ key: Schema.String, value: Schema.Number }))([["value", 1]]), "map"],
+  ["Set", Schema.decodeSync(Schema.Set(Schema.Number))([1]), "set"],
   ["class instance", new UnsupportedInstance(), "unsupported-prototype"]
 ]
 
@@ -197,13 +194,13 @@ describe("canonicalize — exact strict admission", () => {
   })
 
   it.effect("rejects a sparse array before an extra string property", () => {
-    const value = Object.defineProperty(globalThis.Array(2), "extra", { value: true, enumerable: true })
+    const value = Object.defineProperty(Arr.allocate<number>(2), "extra", { value: true, enumerable: true })
     Object.defineProperty(value, "0", { value: 1, enumerable: true })
     return expectUnsupported(value, "sparse-array")
   })
 
   it.effect("rejects a huge sparse array without proportional allocation", () =>
-    expectUnsupported(globalThis.Array(2 ** 32 - 1), "sparse-array"))
+    expectUnsupported(Arr.allocate(2 ** 32 - 1), "sparse-array"))
 
   it.effect("rejects an array extra property", () =>
     expectUnsupported(

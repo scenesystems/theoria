@@ -3,12 +3,11 @@
  * marked `typecheck` for compilation.
  */
 
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { Array as Arr, Data, Effect, Match, Option, String as Str } from "effect"
 
 export class ReadmeExampleCheckError extends Data.TaggedError("ReadmeExampleCheckError")<{
   readonly message: string
-  readonly exitCode: number
 }> {}
 
 type SnippetLanguage = "ts" | "tsx"
@@ -37,15 +36,16 @@ class ParseState extends Data.Class<{
   readonly open: Option.Option<OpenFence>
 }> {}
 
-const rootUrl = new URL("../../", import.meta.url)
 const FENCE = "```"
 const TYPECHECK_TOKEN = "typecheck"
 
 const toPosixPath = (pathService: Path.Path, value: string): string => value.split(pathService.sep).join("/")
 
-export const projectRoot = Effect.flatMap(Path.Path, (pathService) => pathService.fromFileUrl(rootUrl)).pipe(
-  Effect.orDie
-)
+export const projectRoot = Effect.gen(function*() {
+  const pathService = yield* Path.Path
+  const rootUrl = yield* Url.fromString("../../", import.meta.url)
+  return yield* pathService.fromFileUrl(rootUrl)
+}).pipe(Effect.orDie)
 
 const supportedLanguage = (token: Option.Option<string>): Option.Option<SnippetLanguage> =>
   Option.flatMap(token, (value) =>
@@ -145,8 +145,7 @@ const parseReadmeSnippets = (
     onNone: () => Effect.succeed(final.snippets),
     onSome: (fence) =>
       new ReadmeExampleCheckError({
-        message: `Unclosed code fence in ${readme.relativePath}:${String(fence.startLine)}`,
-        exitCode: 1
+        message: `Unclosed code fence in ${readme.relativePath}:${String(fence.startLine)}`
       })
   })
 }

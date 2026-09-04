@@ -193,8 +193,7 @@ const makeHyphenationDictionary = (options?: {
   })
 
 /**
- * Segments text with `Intl.Segmenter` when available and the package fallback
- * otherwise. Both paths apply the same whitespace policy.
+ * Segments text with `Intl.Segmenter` and applies the whitespace policy.
  *
  * @since 0.1.0
  * @category layers

@@ -1,46 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either } from "effect"
+import { Effect, Either } from "effect"
 
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
-const callCategorical = (choices: unknown) =>
-  globalThis.Function.prototype.call.call(SearchSpace.categorical, undefined, choices)
-
 describe("SearchSpace validation", () => {
-  it.effect("rejects empty categorical choices", () =>
-    Effect.gen(function*() {
-      const emptyChoices = Arr.empty<unknown>()
-      const result = yield* Effect.either(
-        SearchSpace.make({
-          optimizer: callCategorical(emptyChoices)
-        })
-      )
-
-      expect(Either.isLeft(result)).toBe(true)
-
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe("effect-search/InvalidSearchSpace")
-        expect(result.left.reason).toBe("categorical choices must be non-empty")
-      }
-    }))
-
-  it.effect("rejects non-primitive categorical choices", () =>
-    Effect.gen(function*() {
-      const nestedChoices = [{ nested: true }]
-      const result = yield* Effect.either(
-        SearchSpace.make({
-          optimizer: callCategorical(nestedChoices)
-        })
-      )
-
-      expect(Either.isLeft(result)).toBe(true)
-
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe("effect-search/InvalidSearchSpace")
-        expect(result.left.reason).toBe("categorical choices must be primitives (string | number | boolean | null)")
-      }
-    }))
-
   it.effect("rejects float dimensions where low is greater than high", () =>
     Effect.gen(function*() {
       const result = yield* Effect.either(

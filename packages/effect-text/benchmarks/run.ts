@@ -1,4 +1,4 @@
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Chunk, Clock, Console, Effect, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
@@ -20,9 +20,12 @@ import {
   type BenchmarkReportType
 } from "./corpus.js"
 
-const baselineOutputUrl = new URL("./results/materialize-baseline.json", import.meta.url)
-const walkerOutputUrl = new URL("./results/walker-kernel.json", import.meta.url)
-const comparisonOutputUrl = new URL("./results/walker-vs-materialize.json", import.meta.url)
+const resultPath = (fileName: string): Effect.Effect<string, never, Path.Path> =>
+  Effect.gen(function*() {
+    const pathService = yield* Path.Path
+    const url = yield* Url.fromString(`./results/${fileName}`, import.meta.url)
+    return yield* pathService.fromFileUrl(url)
+  }).pipe(Effect.orDie)
 const BenchmarkReportJsonSchema = Schema.parseJson(BenchmarkReportSchema)
 const BenchmarkComparisonReportJsonSchema = Schema.parseJson(BenchmarkComparisonReportSchema)
 
@@ -194,9 +197,9 @@ const findBaselineCase = (
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const pathService = yield* Path.Path
-  const baselinePath = yield* pathService.fromFileUrl(baselineOutputUrl).pipe(Effect.orDie)
-  const walkerPath = yield* pathService.fromFileUrl(walkerOutputUrl).pipe(Effect.orDie)
-  const comparisonPath = yield* pathService.fromFileUrl(comparisonOutputUrl).pipe(Effect.orDie)
+  const baselinePath = yield* resultPath("materialize-baseline.json")
+  const walkerPath = yield* resultPath("walker-kernel.json")
+  const comparisonPath = yield* resultPath("walker-vs-materialize.json")
   const outputDirectory = pathService.dirname(walkerPath)
   const walkerReport: BenchmarkReportType = {
     benchmark: "effect-text-walker-kernel",

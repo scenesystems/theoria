@@ -1,4 +1,4 @@
-import { Command, Path } from "@effect/platform"
+import { Command, Path, Url } from "@effect/platform"
 import { Console, Effect } from "effect"
 
 import { checkApiReferenceConsistency } from "./api-reference/consistency.js"
@@ -7,11 +7,11 @@ import { checkApiExamples } from "./api-reference/examples.js"
 import { generateApiReference } from "./api-reference/generate.js"
 import { discoverApiSourcePackages } from "./api-reference/source.js"
 
-const repositoryRootUrl = new URL("../", import.meta.url)
-
 export const apiReferenceProgram = Effect.gen(function*() {
   const path = yield* Path.Path
-  const repositoryRoot = yield* path.fromFileUrl(repositoryRootUrl).pipe(Effect.orDie)
+  const repositoryRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl).pipe(
+    Effect.orDie
+  )
   const revision = yield* Command.make("git", "rev-parse", "HEAD").pipe(
     Command.workingDirectory(repositoryRoot),
     Command.string,

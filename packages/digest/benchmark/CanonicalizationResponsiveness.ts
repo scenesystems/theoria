@@ -1,5 +1,5 @@
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Data, Effect, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Clock, Console, Data, Effect, Number as Num, Option, Ref, Schema } from "effect"
 
 import { canonicalJsonBytes } from "../src/convenience.js"
 
@@ -26,39 +26,45 @@ const maximumValid = {
   children: []
 }
 
+/**
+ * Resident set size in MiB. Effect exposes no process-memory service, so this
+ * benchmark reads the host figure directly; it is the only host access here.
+ */
 const rssMiB = (): number => process.memoryUsage().rss / 1024 / 1024
 
-const observe = Effect.acquireUseRelease(
-  Effect.sync(() => {
-    const probe = { active: false, previous: 0, delay: 0, peakRssMiB: rssMiB() }
-    const handle = setInterval(() => {
-      if (!probe.active) return
-      const now = performance.now()
-      probe.delay = Math.max(probe.delay, now - probe.previous - TIMER_DURATION_MS)
-      probe.previous = now
-      probe.peakRssMiB = Math.max(probe.peakRssMiB, rssMiB())
-    }, TIMER_DURATION_MS)
-    return { handle, probe }
-  }),
-  ({ probe }) =>
-    Effect.gen(function*() {
-      yield* Effect.sleep(5)
-      probe.active = true
-      probe.previous = performance.now()
-      const started = probe.previous
-      const bytes = yield* canonicalJsonBytes(maximumValid)
-      const finished = performance.now()
-      probe.delay = Math.max(probe.delay, finished - probe.previous - TIMER_DURATION_MS)
-      probe.peakRssMiB = Math.max(probe.peakRssMiB, rssMiB())
-      probe.active = false
-      return new Sample({
-        wallMs: finished - started,
-        schedulerDelayMs: probe.delay,
-        peakRssMiB: probe.peakRssMiB,
-        bytes: bytes.length
-      })
-    }),
-  ({ handle }) => Effect.sync(() => clearInterval(handle))
+const nowMillis: Effect.Effect<number> = Effect.map(Clock.currentTimeNanos, (nanos) => Number(nanos) / 1_000_000)
+
+/**
+ * Samples one canonicalization while a one-millisecond sleeper fiber runs
+ * beside it. Each time the sleeper wakes it records how late it was and the
+ * process's resident size, so the sample captures the worst scheduler delay
+ * the canonicalization imposed on other timers.
+ */
+const observe: Effect.Effect<Sample> = Effect.scoped(
+  Effect.gen(function*() {
+    const probe = yield* Ref.make({ delay: 0, peakRssMiB: rssMiB(), previous: 0 })
+    const tick = Effect.gen(function*() {
+      yield* Effect.sleep(TIMER_DURATION_MS)
+      const now = yield* nowMillis
+      yield* Ref.update(probe, (state) => ({
+        delay: Math.max(state.delay, now - state.previous - TIMER_DURATION_MS),
+        peakRssMiB: Math.max(state.peakRssMiB, rssMiB()),
+        previous: now
+      }))
+    })
+    const started = yield* nowMillis
+    yield* Ref.update(probe, (state) => ({ ...state, previous: started }))
+    yield* Effect.forkScoped(Effect.forever(tick))
+    const bytes = yield* Effect.orDie(canonicalJsonBytes(maximumValid))
+    const finished = yield* nowMillis
+    const final = yield* Ref.get(probe)
+    return new Sample({
+      wallMs: finished - started,
+      schedulerDelayMs: Math.max(final.delay, finished - final.previous - TIMER_DURATION_MS),
+      peakRssMiB: Math.max(final.peakRssMiB, rssMiB()),
+      bytes: bytes.length
+    })
+  })
 )
 
 const distribution = (values: Arr.NonEmptyReadonlyArray<number>) => {

@@ -1,4 +1,5 @@
 import { FileSystem, Path } from "@effect/platform"
+import { digestBytesHex } from "@scenesystems/digest"
 import { Array as Arr, Context, Effect, HashSet, Layer, Ref, Schema } from "effect"
 
 import {
@@ -22,7 +23,7 @@ export const sha256File = (filePath: string) =>
     const fileSystem = yield* FileSystem.FileSystem
     const bytes = yield* fileSystem.readFile(filePath).pipe(Effect.orDie)
 
-    return yield* Effect.sync(() => new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
+    return yield* digestBytesHex("sha256", bytes)
   })
 
 /**
@@ -51,13 +52,16 @@ const writeJson = <A>(
     const path = yield* Path.Path
     const outputs = yield* GeneratedOutputs
     const absoluteOutput = path.join(outputRoot, relativeOutput)
-    const temporaryOutput = `${absoluteOutput}.${crypto.randomUUID()}.tmp`
+    const outputDirectory = path.dirname(absoluteOutput)
     const json = yield* Schema.encode(schema)(value).pipe(Effect.orDie)
-    yield* fileSystem.makeDirectory(path.dirname(absoluteOutput), { recursive: true }).pipe(Effect.orDie)
+    yield* fileSystem.makeDirectory(outputDirectory, { recursive: true }).pipe(Effect.orDie)
+    // Written beside its destination so the final rename stays on one filesystem and is atomic.
+    const temporaryOutput = yield* fileSystem.makeTempFileScoped({ directory: outputDirectory, prefix: ".writing-" })
+      .pipe(Effect.orDie)
     yield* fileSystem.writeFileString(temporaryOutput, `${json}\n`).pipe(Effect.orDie)
     yield* fileSystem.rename(temporaryOutput, absoluteOutput).pipe(Effect.orDie)
     yield* Ref.update(outputs, HashSet.add(absoluteOutput))
-  })
+  }).pipe(Effect.scoped)
 
 /**
  * Removes every file under `root` that this run did not write, then removes

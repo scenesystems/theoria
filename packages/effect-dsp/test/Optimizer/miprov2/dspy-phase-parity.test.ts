@@ -19,7 +19,7 @@ import {
 } from "../../../src/optimizers/MIPROv2/runtime/policy.js"
 import { phase3TrialBudget } from "../../../src/optimizers/MIPROv2/search.js"
 import {
-  makeFixtureRegistry,
+  loadFixture,
   MiproPhaseConfigFixtureSchema,
   MiproTipsVocabularyFixtureSchema,
   MiproTrialBudgetCasesFixtureSchema
@@ -68,8 +68,7 @@ const materializeTemplate = (
 describe("MIPROv2 DSPy phase parity", () => {
   it.effect("matches fixture-defined phase defaults and orchestration order", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.mipro.phase-config")
+      const rawFixture = yield* loadFixture("dspy.mipro.phase-config")
       const fixture = yield* Schema.decodeUnknown(MiproPhaseConfigFixtureSchema)(rawFixture)
 
       const cadence = resolvePhase3Cadence({})
@@ -134,8 +133,7 @@ describe("MIPROv2 DSPy phase parity", () => {
 
   it.effect("matches fixture-defined tip vocabulary and marker template", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.mipro.tips-vocabulary")
+      const rawFixture = yield* loadFixture("dspy.mipro.tips-vocabulary")
       const fixture = yield* Schema.decodeUnknown(MiproTipsVocabularyFixtureSchema)(rawFixture)
 
       const expectedMarker = materializeTemplate(
@@ -153,8 +151,7 @@ describe("MIPROv2 DSPy phase parity", () => {
 
   it.effect("matches fixture-defined trial budget cases", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.mipro.trial-budget-cases")
+      const rawFixture = yield* loadFixture("dspy.mipro.trial-budget-cases")
       const fixture = yield* Schema.decodeUnknown(MiproTrialBudgetCasesFixtureSchema)(rawFixture)
 
       expect(fixture.payload.cases.length).toBeGreaterThan(0)

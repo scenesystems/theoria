@@ -40,8 +40,7 @@ const program = Effect.gen(function*() {
   const snippets = yield* loadReadmeSnippets
   if (!Arr.isNonEmptyReadonlyArray(snippets)) {
     return yield* new ReadmeExampleCheckError({
-      message: "No README code fences marked with 'typecheck' were found.",
-      exitCode: 1
+      message: "No README code fences marked with 'typecheck' were found."
     })
   }
   yield* typecheckSnippets(root, ".readme-typecheck-", Arr.map(snippets, (snippet) => toSnippet(pathService, snippet)))
@@ -53,14 +52,6 @@ const program = Effect.gen(function*() {
   )
 })
 
-const main = program.pipe(
-  Effect.catchTags({
-    ReadmeExampleCheckError: (error) =>
-      Console.error(error.message).pipe(Effect.andThen(Effect.sync(() => process.exit(error.exitCode)))),
-    SnippetTypecheckError: (error) =>
-      Console.error(error.message).pipe(Effect.andThen(Effect.sync(() => process.exit(error.exitCode))))
-  }),
-  Effect.provide(BunContext.layer)
-)
+const main = program.pipe(Effect.provide(BunContext.layer))
 
 BunRuntime.runMain(main)

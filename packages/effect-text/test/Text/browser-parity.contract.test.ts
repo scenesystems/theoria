@@ -1,4 +1,4 @@
-import { FileSystem } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
@@ -13,13 +13,13 @@ import {
 } from "../../src/Browser/index.js"
 import { Text } from "../../src/index.js"
 
-const packageRootUrl = new URL("../../", import.meta.url)
-
 const readSyntheticRegressionArtifact = (profileId: Browser.BrowserSupportProfileIdType) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const packageRoot = yield* path.fromFileUrl(yield* Url.fromString("../../", import.meta.url))
     const content = yield* fileSystem.readFileString(
-      new URL(browserParityArtifactRelativePath(profileId), packageRootUrl).pathname
+      path.join(packageRoot, browserParityArtifactRelativePath(profileId))
     )
     return yield* Schema.decode(BrowserParityArtifactJsonSchema)(content)
   }).pipe(Effect.orDie, Effect.provide(BunContext.layer))

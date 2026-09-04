@@ -11,7 +11,7 @@ import { Array as Arr, Chunk, Effect, Layer, Option, Schema, Stream } from "effe
 import {
   EvaluateEventOrderFixtureSchema,
   EvaluateReportShapeFixtureSchema,
-  makeFixtureRegistry
+  loadFixture
 } from "../helpers/dspy-fixtures/index.js"
 
 const makeQaSignature = () =>
@@ -50,9 +50,8 @@ const projectedEvent = (event: Evaluate.EvaluationEventType) =>
 describe("Evaluate DSPy parity", () => {
   it.effect("matches fixture-backed report and event-order contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawReportFixture = yield* registry.load("dspy.evaluate.report-shape.basic")
-      const rawEventFixture = yield* registry.load("dspy.evaluate.event-order.basic")
+      const rawReportFixture = yield* loadFixture("dspy.evaluate.report-shape.basic")
+      const rawEventFixture = yield* loadFixture("dspy.evaluate.event-order.basic")
       const reportFixture = yield* Schema.decodeUnknown(EvaluateReportShapeFixtureSchema)(rawReportFixture)
       const eventFixture = yield* Schema.decodeUnknown(EvaluateEventOrderFixtureSchema)(rawEventFixture)
 

@@ -21,7 +21,6 @@ export class Snippet extends Data.Class<{
 
 export class SnippetTypecheckError extends Data.TaggedError("SnippetTypecheckError")<{
   readonly message: string
-  readonly exitCode: number
 }> {}
 
 class TempSnippet extends Data.Class<{
@@ -83,8 +82,7 @@ const runCompiler = (root: string, snippets: ReadonlyArray<TempSnippet>) =>
     if (Number(exitCode) === 0) return
     const compilerOutput = rewriteCompilerOutput(root, pathService, `${stdout}${stderr}`, snippets).trim()
     return yield* new SnippetTypecheckError({
-      message: Str.isNonEmpty(compilerOutput) ? compilerOutput : "Snippet typecheck failed with no compiler output",
-      exitCode: Number(exitCode)
+      message: Str.isNonEmpty(compilerOutput) ? compilerOutput : "Snippet typecheck failed with no compiler output"
     })
   })
 

@@ -3,15 +3,14 @@ import { Array as Arr, Effect, Option, Record, Schema } from "effect"
 
 import { parseTextOutput } from "../../src/internal/parse/decode.js"
 import { extractMarkedRecord } from "../../src/internal/parse/protocol.js"
-import { ChatParseSectionsFixtureSchema, makeFixtureRegistry } from "../helpers/dspy-fixtures/index.js"
+import { ChatParseSectionsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
 const AnswerSchema = Schema.Struct({ answer: Schema.String })
 
 describe("internal/parse DSPy contract parity", () => {
   it.effect("matches DSPy section extraction + parsed field contract", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.chat.parse-sections.basic")
+      const rawFixture = yield* loadFixture("dspy.chat.parse-sections.basic")
       const fixture = yield* Schema.decodeUnknown(ChatParseSectionsFixtureSchema)(rawFixture)
 
       const parsed = yield* parseTextOutput("qa", AnswerSchema, fixture.payload.completion)

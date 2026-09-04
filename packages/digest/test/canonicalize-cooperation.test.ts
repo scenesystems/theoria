@@ -1,5 +1,16 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Exit, Fiber, MutableList, MutableRef, Record as Rec, Scheduler } from "effect"
+import {
+  Array as Arr,
+  Chunk,
+  Effect,
+  Exit,
+  Fiber,
+  MutableList,
+  MutableRef,
+  Record as Rec,
+  Ref,
+  Scheduler
+} from "effect"
 
 import { canonicalize } from "../src/canonicalize.js"
 import { canonicalJsonBytes } from "../src/convenience.js"
@@ -17,17 +28,21 @@ const wideRecord = (): Readonly<Record<string, number>> =>
     Arr.makeBy(WIDTH, (index): readonly [string, number] => [`key-${String(index).padStart(5, "0")}`, index])
   )
 
+/**
+ * Counts how often a one-millisecond sleeper fiber wakes while `effect`
+ * runs. A traversal that never yields starves the sleeper, so a positive
+ * count shows the operation hands control back to the runtime's timers.
+ */
 const hostTimerTicksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<number, E> =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => {
-      const probe = { ticks: 0 }
-      const handle = setInterval(() => {
-        probe.ticks += 1
-      }, 1)
-      return { handle, probe }
-    }),
-    ({ probe }) => Effect.as(effect, probe).pipe(Effect.map(({ ticks }) => ticks)),
-    ({ handle }) => Effect.sync(() => clearInterval(handle))
+  Effect.scoped(
+    Effect.gen(function*() {
+      const ticks = yield* Ref.make(0)
+      yield* Effect.forkScoped(
+        Effect.forever(Effect.zipRight(Effect.sleep("1 millis"), Ref.update(ticks, (n) => n + 1)))
+      )
+      yield* effect
+      return yield* Ref.get(ticks)
+    })
   )
 
 const scheduledTasksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<number, E> =>
