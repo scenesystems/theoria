@@ -191,7 +191,7 @@ The `apps/theoria` site deploys as one Cloudflare Worker (`apps/theoria/worker.t
 | staging    | `theoria-staging` | `theoria.staging.scenesystems.io`        | `Theoria` on every push to `main`                             |
 | production | `theoria`         | `theoria.scenesystems.io`                | `Theoria` after staging passes and `production` is approved   |
 
-The build runs once per commit (`build:web`, `deploy:dry-run`, `test:worker`) and the same artifact is checked (`theoria-build-check`), deployed, and verified (`theoria-verify-deployment`) at each stage. Only `theoria.scenesystems.io` is indexable; every other hostname gets `X-Robots-Tag: noindex`.
+The build runs once per commit (`build:web`, `deploy:dry-run`, `test:worker`) and the same artifact is checked (`theoria-build-check` runs `apps/theoria/scripts/check-build-output.ts`: every `dist/` file must have a content type in `app/server/config/static-store.ts`, the single MIME table the Bun server also uses), deployed, and verified (`theoria-verify-deployment`) at each stage. Only `theoria.scenesystems.io` is indexable; every other hostname gets `X-Robots-Tag: noindex`.
 
 ### Deployment Protocol
 

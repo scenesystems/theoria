@@ -15,6 +15,7 @@
     "test:worker": "vitest run --config vitest.worker.config.ts",
     "build:web": "bun run docs:assets && vite build",
     "build": "bun run check:all && bun run build:web",
+    "build:check": "bun scripts/check-build-output.ts",
     "preview:worker": "bun run build:web && wrangler dev --env=\"\"",
     "deploy:dry-run": "wrangler deploy --env=\"\" --dry-run --outdir .wrangler-out",
     "gen:text-tokens": "bun scripts/generate-text-tokens.ts",
