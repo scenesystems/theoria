@@ -36,14 +36,12 @@ const publicHref = (
   context: ApiDocContext,
   packageName: string,
   names: ReadonlyArray<string>
-): string | null =>
-  Option.getOrNull(
-    Arr.findFirst(context.links, ([candidatePackage, candidateName]) =>
-      candidatePackage === packageName && Arr.contains(names, candidateName)).pipe(
-        Option.map(([, , href]) =>
-          href
-        )
-      )
+): Option.Option<string> =>
+  Arr.findFirst(
+    context.links,
+    ([candidatePackage, candidateName]) => candidatePackage === packageName && Arr.contains(names, candidateName)
+  ).pipe(
+    Option.map(([, , href]) => href)
   )
 
 const finalIdentifier = /(?:^|[.)])([$\p{ID_Start}_][$\p{ID_Continue}_]*)$/u
@@ -60,20 +58,21 @@ const textNames = (text: string): ReadonlyArray<string> => {
   )
 }
 
-const uniqueHref = (context: ApiDocContext, names: ReadonlyArray<string>): string | null => {
+const uniqueHref = (context: ApiDocContext, names: ReadonlyArray<string>): Option.Option<string> => {
   const matches = Arr.dedupe(
     Arr.filterMap(context.links, ([, name, href]) => Arr.contains(names, name) ? Option.some(href) : Option.none())
   )
-  return matches.length === 1 ? matches[0] ?? null : null
+  return matches.length === 1 ? Arr.head(matches) : Option.none()
 }
 
 const resolvedHref = (
   context: ApiDocContext,
   packageName: string,
   names: ReadonlyArray<string>
-): string | null => publicHref(context, packageName, names) ?? uniqueHref(context, names)
+): Option.Option<string> =>
+  publicHref(context, packageName, names).pipe(Option.orElse(() => uniqueHref(context, names)))
 
-const reflectionHref = (context: ApiDocContext, target: Reflection, text: string): string | null => {
+const reflectionHref = (context: ApiDocContext, target: Reflection, text: string): Option.Option<string> => {
   const publicTarget = publicReflection(target)
 
   return Option.match(
@@ -86,13 +85,13 @@ const reflectionHref = (context: ApiDocContext, target: Reflection, text: string
         publicTarget.kindOf(ReflectionKind.Module) && (
             publicTarget.name.endsWith(context.route.subpath.slice(1))
           )
-          ? context.route.path
+          ? Option.some(context.route.path)
           : resolvedHref(
             context,
             publicTarget.project.packageName ?? context.packageName,
             Arr.append(textNames(text), publicTarget.name)
           ),
-      onSome: (entry) => `${context.route.path}#${apiExportAnchor(entry.name)}`
+      onSome: (entry) => Option.some(`${context.route.path}#${apiExportAnchor(entry.name)}`)
     }
   )
 }
@@ -128,7 +127,7 @@ export const docParts = (parts: ReadonlyArray<CommentDisplayPart>, context: ApiD
       kind: "link",
       text: part.text,
       href: typeof part.target === "string"
-        ? part.target
+        ? Option.some(part.target)
         : part.target instanceof Reflection
         ? reflectionHref(context, part.target, part.text)
         : part.target instanceof ReflectionSymbolId
@@ -180,12 +179,12 @@ const exampleModel = (parts: ReadonlyArray<ApiDocPart>): ApiExample =>
     Option.flatMap((match) =>
       Option.map(Arr.get(match, 2), (code) => ({
         code,
-        language: Arr.get(match, 1).pipe(Option.map(Str.trim), Option.filter(Str.isNonEmpty), Option.getOrNull)
+        language: Arr.get(match, 1).pipe(Option.map(Str.trim), Option.filter(Str.isNonEmpty))
       }))
     ),
     Option.match({
-      onNone: () => ({ language: null, code: null, parts }),
-      onSome: ({ code, language }) => ({ language, code, parts: [] })
+      onNone: () => ({ language: Option.none(), code: Option.none(), parts }),
+      onSome: ({ code, language }) => ({ language, code: Option.some(code), parts: [] })
     })
   )
 
@@ -212,10 +211,7 @@ export const documentation = (comment: Option.Option<Comment>, context: ApiDocCo
   summary: Option.match(comment, { onNone: Arr.empty, onSome: (present) => docParts(present.summary, context) }),
   remarks: tagParts(comment, "@remarks", context),
   examples: Arr.map(commentTags(comment, "@example"), (tag) => exampleModel(docParts(tag.content, context))),
-  deprecated: Option.match(commentTag(comment, "@deprecated"), {
-    onNone: () => null,
-    onSome: (tag) => docParts(tag.content, context)
-  }),
+  deprecated: Option.map(commentTag(comment, "@deprecated"), (tag) => docParts(tag.content, context)),
   see: Arr.flatMap(
     commentTags(comment, "@see"),
     (tag) => Arr.map(seeItems(tag.content), (parts) => docParts(parts, context))
@@ -245,10 +241,9 @@ export const typeParameters = (
 ): ReadonlyArray<ApiTypeParameter> =>
   Arr.map(parameters, (parameter) => ({
     name: parameter.name,
-    constraint: Option.fromNullable(parameter.type).pipe(Option.map((type) => type.toString()), Option.getOrNull),
+    constraint: Option.fromNullable(parameter.type).pipe(Option.map((type) => type.toString())),
     default: Option.fromNullable(parameter.default).pipe(
-      Option.map((fallback) => fallback.toString()),
-      Option.getOrNull
+      Option.map((fallback) => fallback.toString())
     ),
     description: Option.match(typeParameterSummary(parameter, ownerComment), {
       onNone: Arr.empty,

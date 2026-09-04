@@ -1,3 +1,4 @@
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { ApiParameter, ApiSignature, ApiTypeParameter } from "@theoria/docs-model"
@@ -10,9 +11,9 @@ import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { DocsRichText } from "./DocsRichText.js"
 
 const typeParameterValue = (parameter: ApiTypeParameter): string =>
-  `${parameter.name}${parameter.constraint === null ? "" : ` extends ${parameter.constraint}`}${
-    parameter.default === null ? "" : ` = ${parameter.default}`
-  }`
+  `${parameter.name}${
+    Option.match(parameter.constraint, { onNone: () => "", onSome: (value) => ` extends ${value}` })
+  }${Option.match(parameter.default, { onNone: () => "", onSome: (value) => ` = ${value}` })}`
 
 export const ApiTypeParametersView = ({
   headingAs = "h3",
@@ -62,7 +63,7 @@ export const ApiTypeParametersView = ({
 
 const parameterValue = (parameter: ApiParameter): string =>
   `${parameter.rest ? "..." : ""}${parameter.name}${parameter.optional ? "?" : ""}: ${parameter.type}${
-    parameter.defaultValue === null ? "" : ` = ${parameter.defaultValue}`
+    Option.match(parameter.defaultValue, { onNone: () => "", onSome: (value) => ` = ${value}` })
   }`
 
 const Parameters = ({

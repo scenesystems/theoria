@@ -52,7 +52,7 @@ describe("TypeDoc presentation adapter", () => {
       expect(snapshotExport?.facets[0]?.signatures).toHaveLength(2)
       expect(snapshotExport?.facets[0]?.signatures[0]).toMatchObject({
         code: "snapshot<Config = unknown>(result: StudyResult<Config>): Effect<StudySnapshot>",
-        typeParameters: [{ name: "Config", constraint: null, default: "unknown" }],
+        typeParameters: [{ name: "Config", constraint: Option.none(), default: Option.some("unknown") }],
         parameters: [{ name: "result", type: "StudyResult<Config>", optional: false }],
         returns: { type: "Effect<StudySnapshot>" },
         sourceUrl: `${sourceUrl}#L20`
@@ -63,14 +63,18 @@ describe("TypeDoc presentation adapter", () => {
         { kind: "text", text: " study result." }
       ])
       expect(snapshotExport?.facets[0]?.signatures[0]?.docs.examples[0]).toEqual({
-        language: "ts",
-        code: "const encoded = snapshot(result)",
+        language: Option.some("ts"),
+        code: Option.some("const encoded = snapshot(result)"),
         parts: []
       })
       expect(snapshotExport?.facets[0]?.signatures[0]?.docs.see).toEqual([
-        [{ kind: "link", text: "snapshot", href: "/docs/example/api/Study#api-snapshot" }],
-        [{ kind: "link", text: "Scheduler", href: "/docs/example/api/Scheduler" }],
-        [{ kind: "link", text: "import(\"./Report.js\").Report", href: "/docs/example/api/Report#api-Report" }]
+        [{ kind: "link", text: "snapshot", href: Option.some("/docs/example/api/Study#api-snapshot") }],
+        [{ kind: "link", text: "Scheduler", href: Option.some("/docs/example/api/Scheduler") }],
+        [{
+          kind: "link",
+          text: "import(\"./Report.js\").Report",
+          href: Option.some("/docs/example/api/Report#api-Report")
+        }]
       ])
       expect(snapshotExport?.facets[0]?.signatures[1]?.code).toBe(
         "snapshot(handle?: StudyHandle): Effect<StudySnapshot, SnapshotError>"
@@ -79,7 +83,7 @@ describe("TypeDoc presentation adapter", () => {
       expect(outcomeExport?.facets[0]).toMatchObject({
         kind: "interface",
         declaration: "interface ExecuteOutcome<Config = unknown>",
-        typeParameters: [{ name: "Config", constraint: null, default: "unknown" }],
+        typeParameters: [{ name: "Config", constraint: Option.none(), default: Option.some("unknown") }],
         members: [{
           name: "trials",
           kind: "property",
@@ -94,14 +98,20 @@ describe("TypeDoc presentation adapter", () => {
         path,
         anchor
       ])).toEqual([
-        ["example/Study", "module", "Study", "/docs/example/api/Study", null],
-        ["example/Study#snapshot", "symbol", "snapshot", "/docs/example/api/Study", "api-snapshot"],
-        ["example/Study#ExecuteOutcome", "symbol", "ExecuteOutcome", "/docs/example/api/Study", "api-ExecuteOutcome"]
+        ["example/Study", "module", "Study", "/docs/example/api/Study", Option.none()],
+        ["example/Study#snapshot", "symbol", "snapshot", "/docs/example/api/Study", Option.some("api-snapshot")],
+        [
+          "example/Study#ExecuteOutcome",
+          "symbol",
+          "ExecuteOutcome",
+          "/docs/example/api/Study",
+          Option.some("api-ExecuteOutcome")
+        ]
       ])
       expect(presentation.searchEntries[1]).toMatchObject({
         package: "@scenesystems/example",
         qualifiedName: "@scenesystems/example/Study.snapshot",
-        category: "persistence",
+        category: Option.some("persistence"),
         summary: "Snapshot a completed study result."
       })
 

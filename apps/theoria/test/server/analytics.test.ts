@@ -30,7 +30,7 @@ describe("analytics configuration", () => {
     Effect.gen(function*() {
       const settings = yield* analyticsConfig
 
-      expect(Option.getOrNull(settings.googleMeasurementId)).toBe(measurementId)
+      expect(settings.googleMeasurementId).toEqual(Option.some(measurementId))
       expect(Option.isNone(settings.cloudflareBeaconToken)).toBe(true)
     }).pipe(Effect.provide(withEnvironment({ GA_MEASUREMENT_ID: measurementId }))))
 

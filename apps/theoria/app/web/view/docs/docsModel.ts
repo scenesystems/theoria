@@ -64,11 +64,13 @@ export const docsApiModuleFor = (
     Match.tag("DocsApiRoute", ({ moduleSlug }) => {
       const routePath = docsPathFor(route)
       return Arr.findFirst(docsPackage.apiModules, (module) =>
-        module.slug === (moduleSlug ?? "") || Arr.contains(module.aliases, routePath))
+        Option.match(moduleSlug, {
+          onNone: () => module.slug.length === 0,
+          onSome: (slug) => module.slug === slug
+        })
+        || Arr.contains(module.aliases, routePath))
     }),
-    Match.orElse(() =>
-      Option.none()
-    )
+    Match.orElse(() => Option.none())
   )
 
 const apiDestination = (module: DocsApiModuleSummary): DocsDestination => ({

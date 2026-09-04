@@ -1,3 +1,5 @@
+import { Option } from "effect"
+
 import type { ApiDocumentation, ApiPage, DocsManifest, DocsSearchIndex } from "@theoria/docs-model"
 
 const revision = "0123456789abcdef0123456789abcdef01234567"
@@ -63,7 +65,7 @@ const emptyDocs: ApiDocumentation = {
   summary: [],
   remarks: [],
   examples: [],
-  deprecated: null,
+  deprecated: Option.none(),
   see: []
 }
 
@@ -109,7 +111,7 @@ export const apiPageFixture: ApiPage = {
     facets: [{
       kind: "function",
       declaration: "runStudy<A>(input: A): Effect<StudyResult<A>>",
-      type: null,
+      type: Option.none(),
       typeParameters: [],
       extends: [],
       implements: [],
@@ -119,8 +121,8 @@ export const apiPageFixture: ApiPage = {
         code: "runStudy<A>(input: A): Effect<StudyResult<A>>",
         typeParameters: [{
           name: "A",
-          constraint: null,
-          default: null,
+          constraint: Option.none(),
+          default: Option.none(),
           description: [{ kind: "text", text: "Study input." }]
         }],
         parameters: [{
@@ -128,7 +130,7 @@ export const apiPageFixture: ApiPage = {
           type: "A",
           optional: false,
           rest: false,
-          defaultValue: null,
+          defaultValue: Option.none(),
           description: [{ kind: "text", text: "Input configuration." }]
         }],
         returns: {
@@ -138,7 +140,11 @@ export const apiPageFixture: ApiPage = {
         docs: {
           ...emptyDocs,
           summary: [{ kind: "text", text: "Run a study." }],
-          examples: [{ language: "ts", code: "const result = yield* runStudy(input)", parts: [] }]
+          examples: [{
+            language: Option.some("ts"),
+            code: Option.some("const result = yield* runStudy(input)"),
+            parts: []
+          }]
         },
         sourceUrl: `${sourceUrl}#L20`
       }],
@@ -156,8 +162,8 @@ export const apiPageFixture: ApiPage = {
     facets: [{
       kind: "interface",
       declaration: "interface StudyResult<A>",
-      type: null,
-      typeParameters: [{ name: "A", constraint: null, default: null, description: [] }],
+      type: Option.none(),
+      typeParameters: [{ name: "A", constraint: Option.none(), default: Option.none(), description: [] }],
       extends: [],
       implements: [],
       docs: {
@@ -170,7 +176,7 @@ export const apiPageFixture: ApiPage = {
         anchor: "api-StudyResult-value",
         kind: "property",
         declaration: "readonly value: A",
-        type: "A",
+        type: Option.some("A"),
         optional: false,
         readonly: true,
         static: false,
@@ -196,10 +202,10 @@ export const docsSearchIndexFixture: DocsSearchIndex = {
     packageSlug: "effect-search",
     name: "@scenesystems/effect-search",
     qualifiedName: "@scenesystems/effect-search",
-    category: null,
+    category: Option.none(),
     summary: "Effect-native optimization studies.",
     path: "/docs/effect-search",
-    anchor: null
+    anchor: Option.none()
   }, {
     id: "effect-search/Study#runStudy",
     kind: "symbol",
@@ -207,9 +213,9 @@ export const docsSearchIndexFixture: DocsSearchIndex = {
     packageSlug: "effect-search",
     name: "runStudy",
     qualifiedName: "@scenesystems/effect-search/Study.runStudy",
-    category: "studies",
+    category: Option.some("studies"),
     summary: "Run a study.",
     path: "/docs/effect-search/api/Study",
-    anchor: "api-runStudy"
+    anchor: Option.some("api-runStudy")
   }]
 }

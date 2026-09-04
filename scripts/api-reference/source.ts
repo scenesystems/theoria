@@ -1,5 +1,5 @@
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Effect, Option, Record as Rec, Schema, String as Str } from "effect"
+import { Array as Arr, Effect, Option, Predicate, Record as Rec, Schema, String as Str } from "effect"
 
 import { ApiReferenceGenerationError } from "./model.js"
 
@@ -51,7 +51,7 @@ const firstTypeScriptSourceTarget = (target: unknown): Option.Option<string> => 
     return isTypeScriptSourceTarget(target) ? Option.some(target) : Option.none()
   }
 
-  if (target === null || typeof target !== "object") {
+  if (!Predicate.isRecord(target)) {
     return Option.none()
   }
 

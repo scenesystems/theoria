@@ -34,7 +34,7 @@ export class SiteRequest extends Data.Class<{
 /** Response shape the tests read; satisfied by both DOM and workers-types responses. */
 export class SiteResponse extends Data.Class<{
   readonly status: number
-  readonly headers: { readonly get: (name: string) => string | null }
+  readonly headers: { readonly get: Headers["get"] }
   readonly text: () => Promise<string>
   readonly json: () => Promise<unknown>
 }> {}

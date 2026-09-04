@@ -142,10 +142,10 @@ export const checkApiReferenceConsistency = (
         qualifiedName: `${
           summary.subpath === "." ? pkg.name : `${pkg.name}/${summary.subpath.slice(2)}`
         }.${entry.name}`,
-        category: entry.category,
+        category: Option.some(entry.category),
         summary: entry.summary,
         path: Option.match(projected, { onNone: () => index.path, onSome: (_) => _.index.path }),
-        anchor: entry.anchor
+        anchor: Option.some(entry.anchor)
       }
     }))
   const diagnostics = [

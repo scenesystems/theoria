@@ -1,5 +1,6 @@
 import { Menu } from "@base-ui/react/menu"
 import { CheckIcon, ChevronDownIcon } from "@heroicons/react/20/solid"
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
@@ -12,7 +13,7 @@ export const DocsPackagePicker = ({
   onNavigate,
   packages
 }: {
-  readonly activePackage: DocsPackageSummary | null
+  readonly activePackage: Option.Option<DocsPackageSummary>
   readonly onNavigate?: () => void
   readonly packages: ReadonlyArray<DocsPackageSummary>
 }) => (
@@ -25,7 +26,7 @@ export const DocsPackagePicker = ({
         as="span"
         className="min-w-0 truncate text-ink-900"
         role="button-label"
-        text={activePackage?.name ?? "Packages"}
+        text={Option.match(activePackage, { onNone: () => "Packages", onSome: (value) => value.name })}
         variant="compact"
       />
       <ChevronDownIcon aria-hidden className="h-4 w-4 shrink-0 text-ink-500" />
@@ -40,7 +41,7 @@ export const DocsPackagePicker = ({
       >
         <Menu.Popup className="max-h-[min(32rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] origin-[var(--transform-origin)] overflow-y-auto overscroll-contain rounded-2xl border border-stage-300/90 bg-stage-0 p-2 shadow-hero ring-1 ring-stage-0/70 transition-[opacity,transform] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
           {Arr.map(packages, (docsPackage) => {
-            const active = docsPackage.slug === activePackage?.slug
+            const active = Option.exists(activePackage, (value) => docsPackage.slug === value.slug)
 
             return (
               <Menu.Item

@@ -19,8 +19,10 @@ import {
 
 export const firstSourceUrl = (
   reflection: DeclarationReflection | SignatureReflection
-): string | null =>
-  Option.getOrNull(Arr.findFirst(reflection.sources ?? [], (source) => Option.fromNullable(source.url)))
+): Option.Option<string> =>
+  Arr.findFirst(reflection.sources ?? [], (source) => Option.isSome(Option.fromNullable(source.url))).pipe(
+    Option.flatMap((source) => Option.fromNullable(source.url))
+  )
 
 // A parameter is documented either on itself or through the signature's
 // `@param <name>` tag.
@@ -47,7 +49,7 @@ const parameterModel = (
   type: parameter.type?.toString() ?? "unknown",
   optional: parameter.flags.isOptional,
   rest: parameter.flags.isRest,
-  defaultValue: parameter.defaultValue ?? null,
+  defaultValue: Option.fromNullable(parameter.defaultValue),
   description: Option.match(parameterSummary(parameter, signature), {
     onNone: Arr.empty,
     onSome: (summary) => docParts(summary, context)
@@ -76,8 +78,10 @@ const signatureModel = (
     parameters,
     (parameter) =>
       `${parameter.rest ? "..." : ""}${parameter.name}${
-        parameter.optional && parameter.defaultValue === null ? "?" : ""
-      }: ${parameter.type}${parameter.defaultValue === null ? "" : ` = ${parameter.defaultValue}`}`
+        parameter.optional && Option.isNone(parameter.defaultValue) ? "?" : ""
+      }: ${parameter.type}${
+        Option.match(parameter.defaultValue, { onNone: () => "", onSome: (value) => ` = ${value}` })
+      }`
   ).join(", ")
   const genericCode = (signature.typeParameters?.length ?? 0) === 0
     ? ""
@@ -101,7 +105,7 @@ const signatureModel = (
     parameters,
     returns: { type: returns, description: tagParts(Option.fromNullable(signature.comment), "@returns", context) },
     docs: documentation(Option.fromNullable(signature.comment), context),
-    sourceUrl: firstSourceUrl(signature) ?? fallbackSourceUrl
+    sourceUrl: Option.getOrElse(firstSourceUrl(signature), () => fallbackSourceUrl)
   }
 }
 

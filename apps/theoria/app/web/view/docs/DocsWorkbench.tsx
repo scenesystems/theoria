@@ -1,3 +1,4 @@
+import { Option } from "effect"
 import type { ReactNode } from "react"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
@@ -22,7 +23,7 @@ export const DocsPackageShell = ({
   readonly route: DocsRoute
 }) => (
   <Layer className={docsTheme.root}>
-    <DocsHeader activePackage={docsPackage} packages={manifest.packages} />
+    <DocsHeader activePackage={Option.some(docsPackage)} packages={manifest.packages} />
     <Layer className={docsTheme.workbench}>
       <Section aria-label="Documentation navigation" as="aside" className={docsTheme.sidebar}>
         <Stack className={docsTheme.sidebarSticky} key={docsPackage.slug}>
@@ -32,7 +33,7 @@ export const DocsPackageShell = ({
       {children}
     </Layer>
     <DocsNavigationDrawer docsPackage={docsPackage} manifest={manifest} route={route} />
-    <DocsSearchDialog activePackageSlug={docsPackage.slug} manifest={manifest} />
+    <DocsSearchDialog activePackageSlug={Option.some(docsPackage.slug)} manifest={manifest} />
   </Layer>
 )
 

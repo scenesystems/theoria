@@ -69,13 +69,13 @@ const repositoryPath = (sourceUrl: string): string =>
   })
 
 const toSnippet = (root: string, pathService: Path.Path, authored: Authored): Option.Option<Snippet> =>
-  authored.example.language === "ts" && authored.example.code !== null
+  Option.exists(authored.example.language, (language) => language === "ts") && Option.isSome(authored.example.code)
     ? Option.some(
       new Snippet({
         directory: pathService.join(root, "packages", authored.slug),
         location: `${repositoryPath(authored.sourceUrl)} @example (${authored.owner})`,
         language: "ts",
-        code: authored.example.code
+        code: authored.example.code.value
       })
     )
     : Option.none()
@@ -96,11 +96,15 @@ export const checkApiExamples = (
     const pathService = yield* Path.Path
     const authored = Arr.filter(Arr.flatMap(pages, collectAuthored), (_) => authoredHere(_.sourceUrl))
     const unfenced = Arr.filterMap(authored, (_) =>
-      _.example.language === "ts" && _.example.code !== null
+      Option.exists(_.example.language, (language) =>
+          language === "ts") && Option.isSome(_.example.code)
         ? Option.none()
         : Option.some(`${repositoryPath(_.sourceUrl)} (${_.owner}): @example must be a fenced TypeScript block`))
-    if (Arr.isNonEmptyReadonlyArray(unfenced)) return yield* new ApiExampleError({ diagnostics: unfenced })
-    const compilable = Arr.filterMap(authored, (_) => toSnippet(root, pathService, _))
+    if (Arr.isNonEmptyReadonlyArray(unfenced)) {
+      return yield* new ApiExampleError({ diagnostics: unfenced })
+    }
+    const compilable = Arr.filterMap(authored, (_) =>
+      toSnippet(root, pathService, _))
     const snippets = Arr.dedupeWith(
       compilable,
       (left, right) => left.directory === right.directory && left.code === right.code

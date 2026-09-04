@@ -1,4 +1,4 @@
-import { Array as Arr } from "effect"
+import { Array as Arr, Option } from "effect"
 
 import {
   type ApiCategory,
@@ -58,10 +58,10 @@ const moduleSearchEntry = (input: {
   packageSlug: input.packageSlug,
   name: moduleName(input.packageName, input.route.slug),
   qualifiedName: qualifiedModuleName(input.packageName, input.route.slug),
-  category: null,
+  category: Option.none(),
   summary: input.moduleSummary,
   path: input.route.path,
-  anchor: null
+  anchor: Option.none()
 })
 
 const symbolSearchEntries = (input: {
@@ -77,10 +77,10 @@ const symbolSearchEntries = (input: {
     packageSlug: input.packageSlug,
     name: apiExport.name,
     qualifiedName: `${qualifiedModuleName(input.packageName, input.route.slug)}.${apiExport.name}`,
-    category: apiExport.category,
+    category: Option.some(apiExport.category),
     summary: apiExport.summary,
     path: input.route.path,
-    anchor: apiExport.anchor
+    anchor: Option.some(apiExport.anchor)
   }))
 
 export const buildApiPresentation = (input: {

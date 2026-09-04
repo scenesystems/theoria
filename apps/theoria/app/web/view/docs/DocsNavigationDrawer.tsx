@@ -1,6 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { XMarkIcon } from "@heroicons/react/20/solid"
+import { Option } from "effect"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
@@ -49,7 +50,7 @@ export const DocsNavigationDrawer = ({
                 }
               />
               <DocsPackagePicker
-                activePackage={docsPackage}
+                activePackage={Option.some(docsPackage)}
                 onNavigate={() => setOpen(false)}
                 packages={manifest.packages}
               />

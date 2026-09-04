@@ -5,7 +5,7 @@ import {
   type DocsSearchEntry,
   DocsSearchEntrySchema
 } from "@theoria/docs-model"
-import { Array as Arr, Data, HashMap, HashSet, Option, Tuple } from "effect"
+import { Array as Arr, Data, Equal, HashMap, HashSet, Option, Tuple } from "effect"
 
 export class DocumentationRecord extends Data.Class<{
   readonly owner: string
@@ -16,7 +16,7 @@ const docsParts = (docs: ApiDocumentation): ReadonlyArray<ApiDocPart> =>
   Arr.flatten([
     docs.summary,
     docs.remarks,
-    ...(docs.deprecated === null ? [] : [docs.deprecated]),
+    ...Option.match(docs.deprecated, { onNone: Arr.empty, onSome: (parts) => [parts] }),
     ...docs.see,
     ...Arr.map(docs.examples, (_) => _.parts)
   ])
@@ -46,10 +46,17 @@ export const linkDiagnostics = (
 ): ReadonlyArray<string> =>
   Arr.flatMap(parts, (part) => {
     if (part.kind !== "link") return []
-    if (part.href === null) return [`${owner}: authored link has no target`]
-    if (/^https?:\/\//u.test(part.href)) return []
-    if (!part.href.startsWith("/docs/")) return [`${owner}: unsupported link target ${part.href}`]
-    return HashSet.has(targets, part.href) ? [] : [`${owner}: unresolved link ${part.href}`]
+    return Option.match(part.href, {
+      onNone: () => [`${owner}: authored link has no target`],
+      onSome: (href) =>
+        /^https?:\/\//u.test(href)
+          ? []
+          : !href.startsWith("/docs/")
+          ? [`${owner}: unsupported link target ${href}`]
+          : HashSet.has(targets, href)
+          ? []
+          : [`${owner}: unresolved link ${href}`]
+    })
   })
 
 export const documentationLinkDiagnostics = (
@@ -75,8 +82,8 @@ export const searchIndexDiagnostics = (
         Option.filter((actual) =>
           actual.package === entry.package && actual.packageSlug === entry.packageSlug &&
           actual.name === entry.name && actual.qualifiedName === entry.qualifiedName &&
-          actual.category === entry.category && actual.summary === entry.summary &&
-          actual.path === entry.path && actual.anchor === entry.anchor
+          Equal.equals(actual.category, entry.category) && actual.summary === entry.summary &&
+          actual.path === entry.path && Equal.equals(actual.anchor, entry.anchor)
         ),
         Option.match({
           onNone: () => [`${entry.id}: search index mismatch`],

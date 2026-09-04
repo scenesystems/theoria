@@ -20,7 +20,7 @@ const membersOf = (reflection: DeclarationReflection): ReadonlyArray<Declaration
     : []
   return Arr.filter(candidates, (member) =>
     !member.flags.isPrivate && !member.flags.isProtected && (
-      firstSourceUrl(member) !== null || (!member.flags.isInherited && !member.flags.isExternal)
+      Option.isSome(firstSourceUrl(member)) || (!member.flags.isInherited && !member.flags.isExternal)
     ))
 }
 
@@ -31,13 +31,13 @@ const memberModel = (
   fallbackSourceUrl: string
 ): ApiMember => {
   const sourceUrl = firstSourceUrl(member)
-  const signatures = signatureModels(member, member.name, context, sourceUrl ?? fallbackSourceUrl)
-  const type = member.type?.toString() ?? null
+  const signatures = signatureModels(member, member.name, context, Option.getOrElse(sourceUrl, () => fallbackSourceUrl))
+  const type = Option.fromNullable(member.type).pipe(Option.map((value) => value.toString()))
   const declaration = signatures.length > 0 ?
     Arr.map(signatures, (signature) => signature.code).join("\n")
     : `${member.flags.isStatic ? "static " : ""}${member.flags.isReadonly ? "readonly " : ""}${member.name}${
       member.flags.isOptional ? "?" : ""
-    }${type === null ? "" : `: ${type}`}${
+    }${Option.match(type, { onNone: () => "", onSome: (value) => `: ${value}` })}${
       Option.match(Option.fromNullable(member.defaultValue), { onNone: () => "", onSome: (value) => ` = ${value}` })
     }`
 
@@ -53,7 +53,7 @@ const memberModel = (
     inherited: member.flags.isInherited,
     docs: documentation(Option.fromNullable(member.comment), context),
     signatures,
-    sourceUrl: sourceUrl ?? fallbackSourceUrl
+    sourceUrl: Option.getOrElse(sourceUrl, () => fallbackSourceUrl)
   }
 }
 
@@ -97,7 +97,7 @@ const facetModel = (
   return {
     kind: reflectionKind(reflection),
     declaration: declarationCode(reflection, signatures),
-    type: reflection.type?.toString() ?? null,
+    type: Option.fromNullable(reflection.type).pipe(Option.map((value) => value.toString())),
     typeParameters: typeParameters(reflection.typeParameters ?? [], Option.fromNullable(reflection.comment), context),
     extends: Arr.map(reflection.extendedTypes ?? [], (type) => type.toString()),
     implements: Arr.map(reflection.implementedTypes ?? [], (type) => type.toString()),

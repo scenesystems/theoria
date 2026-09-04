@@ -4,6 +4,7 @@ import { Dialog } from "@base-ui/react/dialog"
 import { Result } from "@effect-atom/atom"
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/20/solid"
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { type DocsManifest, type DocsSearchEntry, searchDocs } from "@theoria/docs-model"
@@ -38,13 +39,14 @@ export const DocsSearchTrigger = () => {
   )
 }
 
-const resultHref = (entry: DocsSearchEntry): string => `${entry.path}${entry.anchor === null ? "" : `#${entry.anchor}`}`
+const resultHref = (entry: DocsSearchEntry): string =>
+  `${entry.path}${Option.match(entry.anchor, { onNone: () => "", onSome: (anchor) => `#${anchor}` })}`
 
 const SearchCombobox = ({
   activePackageSlug,
   manifest
 }: {
-  readonly activePackageSlug: string | null
+  readonly activePackageSlug: Option.Option<string>
   readonly manifest: DocsManifest
 }) => {
   const query = useAtomValue(docsSearchQueryAtom)
@@ -73,10 +75,12 @@ const SearchCombobox = ({
       items={results}
       onInputValueChange={setQuery}
       onValueChange={(entry) => {
-        if (entry !== null) {
-          navigate(resultHref(entry))
-          setOpen(false)
-        }
+        Option.fromNullable(entry).pipe(
+          Option.map((value) => {
+            navigate(resultHref(value))
+            setOpen(false)
+          })
+        )
       }}
     >
       <Cluster className="gap-3 border-b border-stage-200/90 p-3 sm:p-4">
@@ -162,7 +166,7 @@ export const DocsSearchDialog = ({
   activePackageSlug,
   manifest
 }: {
-  readonly activePackageSlug: string | null
+  readonly activePackageSlug: Option.Option<string>
   readonly manifest: DocsManifest
 }) => {
   const open = useAtomValue(docsSearchOpenAtom)

@@ -20,18 +20,19 @@ const RichParagraph = ({ parts }: { readonly parts: ApiDocumentation["summary"] 
 export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation }) => (
   <Stack className="gap-5">
     <RichParagraph parts={docs.summary} />
-    {docs.deprecated === null
-      ? null
-      : (
+    {Option.match(docs.deprecated, {
+      onNone: () => null,
+      onSome: (deprecated) => (
         <Layer className="rounded-xl border border-tone-search-300/70 bg-tone-search-100/45 px-4 py-3">
           <Stack className="gap-1.5">
             <SemanticText as="p" className="text-tone-search-900" role="row-label" text="Deprecated" />
             <SemanticContent as="p" className="text-tone-search-900" role="row-value">
-              <DocsRichText parts={docs.deprecated} />
+              <DocsRichText parts={deprecated} />
             </SemanticContent>
           </Stack>
         </Layer>
-      )}
+      )
+    })}
     {docs.remarks.length === 0
       ? null
       : (
@@ -42,15 +43,16 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
       )}
     {Arr.map(docs.examples, (example, index) => (
       <Layer key={`example:${String(index)}`}>
-        {example.code === null
-          ? <RichParagraph parts={example.parts} />
-          : (
+        {Option.match(example.code, {
+          onNone: () => <RichParagraph parts={example.parts} />,
+          onSome: (code) => (
             <CodeBlock
               label={docs.examples.length === 1 ? "Example" : `Example ${String(index + 1)}`}
-              language={codeLanguageFor(Option.getOrElse(Option.fromNullable(example.language), () => "text"))}
-              source={example.code}
+              language={codeLanguageFor(Option.getOrElse(example.language, () => "text"))}
+              source={code}
             />
-          )}
+          )
+        })}
       </Layer>
     ))}
     {docs.see.length === 0

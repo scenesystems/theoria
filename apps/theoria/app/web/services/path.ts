@@ -33,9 +33,9 @@ const packageCapture = (matches: RegExpExecArray): Option.Option<DocsPackageSlug
 const docsApiPageRoute = (pathname: string): Option.Option<PageRoute> =>
   Option.fromNullable(docsApiPattern.exec(pathname)).pipe(
     Option.flatMap((matches) => {
-      const moduleSlug = matches[2] ?? null
+      const moduleSlug = Arr.get(matches, 2).pipe(Option.flatMap(Option.fromNullable))
       return packageCapture(matches).pipe(
-        Option.filter(() => moduleSlug === null || isDocsModuleSlug(moduleSlug)),
+        Option.filter(() => Option.isNone(moduleSlug) || Option.exists(moduleSlug, isDocsModuleSlug)),
         Option.map((packageSlug) => docsApiRoute(packageSlug, moduleSlug))
       )
     })

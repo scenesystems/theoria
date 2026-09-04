@@ -8,7 +8,7 @@ import { docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
 import { docsManifestFixture, docsSearchIndexFixture } from "../helpers/docs-fixtures.js"
 
 const searchIndex = prepareDocsSearchIndex(docsSearchIndexFixture.entries)
-const search = (query: string, packageSlug: string | null) =>
+const search = (query: string, packageSlug: Option.Option<string>) =>
   searchDocs(searchIndex, query, {
     limit: 20,
     packageSlug
@@ -18,7 +18,7 @@ describe("documentation view model", () => {
   it("resolves aliases to their canonical API asset", () => {
     const docsPackage = Option.getOrThrow(Option.fromNullable(docsManifestFixture.packages[0]))
 
-    const module = docsApiModuleFor(docsPackage, docsApiRoute("effect-search", "study"))
+    const module = docsApiModuleFor(docsPackage, docsApiRoute("effect-search", Option.some("study")))
     expect(Option.getOrThrow(module).path).toBe("/docs/effect-search/api/Study")
   })
 
@@ -74,13 +74,13 @@ describe("documentation view model", () => {
   })
 
   it("ranks exact symbol matches ahead of package summaries", () => {
-    const results = search("runStudy", "effect-search")
+    const results = search("runStudy", Option.some("effect-search"))
     expect(results[0]?.id).toBe("effect-search/Study#runStudy")
   })
 
   it("finds relevant documentation through spacing and typing errors", () => {
-    const symbolResults = search("run stduy", "effect-search")
-    const packageResults = search("effect native optimiztion", null)
+    const symbolResults = search("run stduy", Option.some("effect-search"))
+    const packageResults = search("effect native optimiztion", Option.none())
 
     expect(symbolResults[0]?.id).toBe("effect-search/Study#runStudy")
     expect(packageResults[0]?.id).toBe("effect-search")

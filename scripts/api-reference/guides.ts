@@ -159,10 +159,10 @@ const searchEntry = (page: GuidePage, slug: string): DocsSearchEntry => ({
   packageSlug: page.package.slug,
   name: page.title,
   qualifiedName: slug.length === 0 ? page.package.name : `${page.package.name} / ${page.title}`,
-  category: slug.length === 0 ? null : "guide",
+  category: slug.length === 0 ? Option.none() : Option.some("guide"),
   summary: page.summary,
   path: page.path,
-  anchor: null
+  anchor: Option.none()
 })
 
 export const buildPackageGuides = (input: {

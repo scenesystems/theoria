@@ -6,13 +6,13 @@ export const ApiDocPartSchema = Schema.Union(
   Schema.Struct({
     kind: Schema.Literal("link"),
     text: Schema.String,
-    href: Schema.NullOr(Schema.String)
+    href: Schema.OptionFromNullOr(Schema.String)
   })
 )
 
 export const ApiExampleSchema = Schema.Struct({
-  language: Schema.NullOr(Schema.String),
-  code: Schema.NullOr(Schema.String),
+  language: Schema.OptionFromNullOr(Schema.String),
+  code: Schema.OptionFromNullOr(Schema.String),
   parts: Schema.Array(ApiDocPartSchema)
 })
 
@@ -20,14 +20,14 @@ export const ApiDocumentationSchema = Schema.Struct({
   summary: Schema.Array(ApiDocPartSchema),
   remarks: Schema.Array(ApiDocPartSchema),
   examples: Schema.Array(ApiExampleSchema),
-  deprecated: Schema.NullOr(Schema.Array(ApiDocPartSchema)),
+  deprecated: Schema.OptionFromNullOr(Schema.Array(ApiDocPartSchema)),
   see: Schema.Array(Schema.Array(ApiDocPartSchema))
 })
 
 export const ApiTypeParameterSchema = Schema.Struct({
   name: Schema.String,
-  constraint: Schema.NullOr(Schema.String),
-  default: Schema.NullOr(Schema.String),
+  constraint: Schema.OptionFromNullOr(Schema.String),
+  default: Schema.OptionFromNullOr(Schema.String),
   description: Schema.Array(ApiDocPartSchema)
 })
 
@@ -36,7 +36,7 @@ export const ApiParameterSchema = Schema.Struct({
   type: Schema.String,
   optional: Schema.Boolean,
   rest: Schema.Boolean,
-  defaultValue: Schema.NullOr(Schema.String),
+  defaultValue: Schema.OptionFromNullOr(Schema.String),
   description: Schema.Array(ApiDocPartSchema)
 })
 
@@ -60,7 +60,7 @@ export const ApiMemberSchema = Schema.Struct({
   anchor: Schema.String,
   kind: Schema.String,
   declaration: Schema.String,
-  type: Schema.NullOr(Schema.String),
+  type: Schema.OptionFromNullOr(Schema.String),
   optional: Schema.Boolean,
   readonly: Schema.Boolean,
   static: Schema.Boolean,
@@ -73,7 +73,7 @@ export const ApiMemberSchema = Schema.Struct({
 export const ApiFacetSchema = Schema.Struct({
   kind: Schema.String,
   declaration: Schema.String,
-  type: Schema.NullOr(Schema.String),
+  type: Schema.OptionFromNullOr(Schema.String),
   typeParameters: Schema.Array(ApiTypeParameterSchema),
   extends: Schema.Array(Schema.String),
   implements: Schema.Array(Schema.String),

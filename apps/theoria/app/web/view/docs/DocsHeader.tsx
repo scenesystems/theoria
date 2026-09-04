@@ -1,6 +1,7 @@
 import { Button } from "@base-ui/react/button"
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Bars3Icon } from "@heroicons/react/20/solid"
+import { Option } from "effect"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
 import { setDocsNavigationOpenAtom } from "../../atoms/docs.js"
@@ -19,7 +20,7 @@ export const DocsHeader = ({
   loading = false,
   packages
 }: {
-  readonly activePackage: DocsPackageSummary | null
+  readonly activePackage: Option.Option<DocsPackageSummary>
   readonly loading?: boolean
   readonly packages: ReadonlyArray<DocsPackageSummary>
 }) => {
@@ -29,9 +30,9 @@ export const DocsHeader = ({
     <Header className={docsTheme.header}>
       <Cluster className={docsTheme.headerContent}>
         <Cluster className="min-w-0 shrink-0 gap-3">
-          {activePackage === null
-            ? null
-            : (
+          {Option.match(activePackage, {
+            onNone: () => null,
+            onSome: () => (
               <Button
                 aria-label="Open navigation"
                 className={`${docsTheme.iconButton} lg:hidden`}
@@ -40,7 +41,8 @@ export const DocsHeader = ({
               >
                 <Bars3Icon aria-hidden className="h-5 w-5" />
               </Button>
-            )}
+            )
+          })}
           <InternalLink
             aria-label="Theoria home"
             className="inline-flex min-w-0 items-baseline text-ink-900 outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
