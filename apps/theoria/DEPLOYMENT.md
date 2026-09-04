@@ -184,8 +184,11 @@ Scene `Organization` everywhere; `SoftwareSourceCode` on package pages;
 `TechArticle` on guides and API modules; `BreadcrumbList` on both). The Worker
 rewrites the placeholders in `index.html` (`app/server/render-head.ts`) and the
 browser applies the same entries after client-side navigation. `/sitemap.xml`
-lists the home page and every docs page from the shipped manifest;
-`/robots.txt` and `/llms.txt` are static.
+lists the home page and every docs page from the shipped manifest, and
+`/llms.txt` (`app/server/routes/llms.ts`) renders the llmstxt.org v2 file from
+the same manifest: each package links its README as raw markdown at the
+documented revision, its docs pages, and its npm page. HTML responses carry
+`Link: </llms.txt>; rel="describedby"`. `/robots.txt` is static.
 
 Share images and icons under `public/` (`social/*.png`, `apple-touch-icon.png`,
 `icon-*.png`, `favicon.ico`, `manifest.webmanifest`) are committed files

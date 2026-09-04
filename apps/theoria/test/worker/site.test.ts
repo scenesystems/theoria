@@ -120,6 +120,30 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect((yield* site.fetch("/robots.txt")).status).toBe(200)
     }))
 
+  it.effect("serves a spec-shaped llms.txt from the shipped docs manifest", () =>
+    Effect.gen(function*() {
+      const site = yield* Site
+
+      const response = yield* site.fetch("/llms.txt")
+      expect(response.status).toBe(200)
+      expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8")
+
+      const lines = Str.split(yield* text(response), "\n")
+      expect(lines[0]).toBe("# Theoria")
+      expect(lines[2]?.startsWith("> ")).toBe(true)
+      // llmstxt.org: every list entry under an H2 is a hyperlink, optionally followed by notes.
+      const listEntries = Arr.filter(lines, Str.startsWith("- "))
+      expect(listEntries.length).toBeGreaterThan(0)
+      Arr.forEach(listEntries, (line) => expect(line).toMatch(/^- \[[^\]]+\]\(https:\/\/[^)\s]+\)(: \S.*)?$/u))
+      Arr.forEach(site.manifest.packages, (docsPackage) => {
+        expect(listEntries).toContainEqual(expect.stringContaining(
+          `[${docsPackage.name} ${docsPackage.version}](https://raw.githubusercontent.com/scenesystems/theoria/${site.manifest.revision}/packages/${docsPackage.slug}/README.md)`
+        ))
+      })
+
+      expect((yield* site.fetch("/")).headers.get("link")).toBe(`</llms.txt>; rel="describedby"`)
+    }))
+
   it.effect("keeps non-production hostnames out of search indexes", () =>
     Effect.gen(function*() {
       const site = yield* Site
