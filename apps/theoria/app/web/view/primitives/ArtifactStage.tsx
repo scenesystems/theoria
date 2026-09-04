@@ -1,4 +1,4 @@
-import type { ComponentPropsWithRef, CSSProperties, ReactNode } from "react"
+import type { CSSProperties, ReactNode, RefCallback } from "react"
 
 import { classNames } from "./classNames.js"
 import { Layer } from "./Layout.js"
@@ -21,7 +21,7 @@ export const ArtifactStage = ({
   readonly className?: string
   readonly frameStyle?: CSSProperties
   readonly viewportClassName?: string
-  readonly viewportRef?: ComponentPropsWithRef<"div">["ref"]
+  readonly viewportRef: RefCallback<HTMLElement>
 }) => (
   <Layer className={classNames(viewportClassName, extraViewportClassName)} ref={viewportRef}>
     <Layer className={classNames(frameClassName, className)} style={frameStyle}>

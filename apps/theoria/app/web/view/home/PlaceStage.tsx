@@ -178,16 +178,17 @@ export const PlaceStage = () => {
     Result.value(useAtomValue(placeRenderFrameAtom)),
     (kept) => kept.rendering.projection.stageHeight
   )
-  const frameWidth = Option.match(latest, {
-    onNone: () => undefined,
-    onSome: (value) => `${value.rendering.projection.stageWidth + stageFrameBorderPx * 2}px`
+  // The frame is cut to the drawn stage; before a frame exists, the placeholder sizes it.
+  const frameStyle = Option.match(latest, {
+    onNone: () => ({}),
+    onSome: (value) => ({ width: `${value.rendering.projection.stageWidth + stageFrameBorderPx * 2}px` })
   })
 
   return (
     <Stack className="gap-3">
       <Layer>
         <ArtifactStage
-          frameStyle={{ width: frameWidth }}
+          frameStyle={frameStyle}
           viewportClassName="justify-center"
           viewportRef={reportContainerWidth}
         >

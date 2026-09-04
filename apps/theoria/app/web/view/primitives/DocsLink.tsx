@@ -23,15 +23,6 @@ import { Cluster, Layer, Rail, Stack } from "./Layout.js"
 import { InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 
-type DocsLinkProps = ComponentProps<"a"> & {
-  readonly href: string
-  /** The destination as the visitor knows it here: the symbol, the package, the guide. */
-  readonly title: string
-  readonly children: ReactNode
-  /** The press belongs to the preview; a caller cannot take it over. */
-  readonly onClick?: never
-}
-
 const popupClassName = [
   "w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-stage-200/90 bg-stage-0/97 shadow-chip outline-none backdrop-blur-sm",
   "origin-[var(--transform-origin)] transition-[opacity,transform] duration-150",
@@ -141,8 +132,11 @@ const Preview = ({ destination, href, title }: {
   )
 }
 
-const PreviewLink = ({ children, className, destination, href, title, ...props }: DocsLinkProps & {
+const PreviewLink = ({ children, className, destination, href, title, ...props }: ComponentProps<"a"> & {
+  readonly children: ReactNode
   readonly destination: DocsLinkTarget
+  readonly href: string
+  readonly title: string
 }) => {
   const keepForPreview = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!isModifiedPress(event.nativeEvent)) event.preventDefault()
@@ -180,7 +174,19 @@ const PreviewLink = ({ children, className, destination, href, title, ...props }
  * manifest does not know, or a manifest not yet loaded, leaves an ordinary
  * link.
  */
-export const DocsLink = ({ children, href, title, ...props }: DocsLinkProps) => {
+/**
+ * A documentation link with a hover preview of its destination.
+ *
+ * `title` is the destination as the visitor knows it here: the symbol, the
+ * package, the guide. The press belongs to the preview, so a caller cannot
+ * supply `onClick`.
+ */
+export const DocsLink = ({ children, href, title, ...props }: ComponentProps<"a"> & {
+  readonly children: ReactNode
+  readonly href: string
+  readonly onClick?: never
+  readonly title: string
+}) => {
   const manifest = Result.value(useAtomValue(docsManifestAtom))
   const target = Option.flatMap(manifest, (loaded) => docsLinkTarget(loaded, href))
 

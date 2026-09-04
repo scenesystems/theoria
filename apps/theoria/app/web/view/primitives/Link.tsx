@@ -1,27 +1,24 @@
 import { useAtomSet } from "@effect-atom/atom-react"
-import type { AnchorHTMLAttributes, ComponentProps, MouseEvent, ReactNode } from "react"
+import { Option } from "effect"
+import type { ComponentProps, MouseEvent, ReactNode } from "react"
 
 import { navigateAtom, shouldNavigateInBrowser } from "../../atoms/navigation.js"
 
 import { classNames } from "./classNames.js"
 
-/** Anchor props including React 19's `ref` prop, so a caller can move focus to the link. */
-type InternalLinkProps = ComponentProps<"a"> & {
-  readonly href: string
-}
-
 /**
  * Internal (same-origin) navigation link.
  *
  * Preserves native anchor behavior while handling known application routes
- * through the browser navigation atom.
+ * through the browser navigation atom. Accepts React 19's `ref` prop so a
+ * caller can move focus to the link.
  */
 export const InternalLink = ({
   children,
   href,
   onClick,
   ...props
-}: InternalLinkProps) => {
+}: ComponentProps<"a"> & { readonly href: string }) => {
   const navigate = useAtomSet(navigateAtom)
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -36,7 +33,7 @@ export const InternalLink = ({
         href,
         metaKey: event.metaKey,
         shiftKey: event.shiftKey,
-        target: props.target ?? null
+        target: Option.fromNullable(props.target)
       })
     ) {
       event.preventDefault()
@@ -61,17 +58,14 @@ export const ExternalLink = ({
   children,
   href,
   ...props
-}: InternalLinkProps) => (
+}: ComponentProps<"a"> & { readonly href: string }) => (
   <a {...props} href={href} rel="noopener noreferrer" target="_blank">
     {children}
   </a>
 )
 
-type AnchorLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
-  readonly href: string
-}
-
-export const AnchorLink = ({ children, href, ...props }: AnchorLinkProps) => (
+/** Same-document anchor (`#fragment`) link; native scrolling, no router involvement. */
+export const AnchorLink = ({ children, href, ...props }: ComponentProps<"a"> & { readonly href: string }) => (
   <a {...props} href={href}>
     {children}
   </a>

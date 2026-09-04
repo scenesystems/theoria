@@ -180,38 +180,38 @@ const ProjectedWrappedBlockText = ({
   const leading = `leading-(${lineHeightVar(role)})`
   const maxWidthClass = maxWidthClassName(role, variant)
 
-  if (projection !== null) {
-    const projected = `${glyph} ${leading} ${maxWidthClass}`
-    const visibleLines = limitedProjectionLines({ maxLines, projection })
+  return Option.match(projection, {
+    onNone: () => (
+      <BrowserWrappedBlockText
+        as={as}
+        className={className}
+        maxLines={maxLines}
+        reserveLines={reserveLines}
+        role={role}
+        text={text}
+        variant={variant}
+      />
+    ),
+    onSome: (projection) => {
+      const visibleLines = limitedProjectionLines({ maxLines, projection })
 
-    return (
-      <Component
-        ref={ref}
-        className={classNames(className, projected)}
-        data-lines={visibleLines.length}
-        data-height={visibleLines.length * semantics.lineHeight}
-        data-max-line-width={projection.summary.maxLineWidth}
-        style={reservedLineStyle(role, reserveLines)}
-      >
-        <ProjectedLines
-          preserveWhitespace={semantics.whiteSpace === "pre-wrap"}
-          projection={{ ...projection, lines: visibleLines }}
-        />
-      </Component>
-    )
-  }
-
-  return (
-    <BrowserWrappedBlockText
-      as={as}
-      className={className}
-      maxLines={maxLines}
-      reserveLines={reserveLines}
-      role={role}
-      text={text}
-      variant={variant}
-    />
-  )
+      return (
+        <Component
+          ref={ref}
+          className={classNames(className, `${glyph} ${leading} ${maxWidthClass}`)}
+          data-lines={visibleLines.length}
+          data-height={visibleLines.length * semantics.lineHeight}
+          data-max-line-width={projection.summary.maxLineWidth}
+          style={reservedLineStyle(role, reserveLines)}
+        >
+          <ProjectedLines
+            preserveWhitespace={semantics.whiteSpace === "pre-wrap"}
+            projection={{ ...projection, lines: visibleLines }}
+          />
+        </Component>
+      )
+    }
+  })
 }
 
 export const SemanticText = ({

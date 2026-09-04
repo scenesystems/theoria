@@ -1,6 +1,6 @@
 import { RegistryProvider, useAtomValue } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import { createRoot } from "react-dom/client"
 
 import { browserNavigationMountAtom, pageRouteAtom, shouldNavigateInBrowser } from "../../app/web/atoms/navigation.js"
@@ -72,7 +72,7 @@ describe("browser navigation", () => {
         href: "/docs",
         metaKey: false,
         shiftKey: false,
-        target: null
+        target: Option.none()
       })).toBe(false)
       expect(shouldNavigateInBrowser({
         altKey: false,
@@ -82,7 +82,7 @@ describe("browser navigation", () => {
         href: "https://example.com/docs",
         metaKey: false,
         shiftKey: false,
-        target: null
+        target: Option.none()
       })).toBe(false)
     }))
 })

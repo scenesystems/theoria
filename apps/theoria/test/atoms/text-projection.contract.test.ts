@@ -1,7 +1,7 @@
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Ref } from "effect"
+import { Effect, Option, Ref } from "effect"
 import type { TextProjection } from "../../app/contracts/text.js"
 
 import { elementWidthAtom, makeElementWidthSlot } from "../../app/web/atoms/element-observation.js"
@@ -15,16 +15,15 @@ const makeTestRegistry = (): Registry.Registry =>
     }
   })
 
+/** Polls the atom until a projection satisfying `isReady` is present. */
 const waitForProjection = (
   registry: Registry.Registry,
-  atom: AtomType.Atom<TextProjection | null>
+  atom: AtomType.Atom<Option.Option<TextProjection>>,
+  isReady: (projection: TextProjection) => boolean = () => true
 ): Effect.Effect<TextProjection, never, never> =>
   Effect.eventually(
-    Effect.sync(() => registry.get(atom)).pipe(
-      Effect.filterOrFail((projection): projection is TextProjection => projection !== null, () =>
-        "waiting-for-projection")
-    )
-  ).pipe(Effect.orDie)
+    Effect.sync(() => registry.get(atom)).pipe(Effect.flatMap(Option.filter(isReady)))
+  )
 
 const makeAuthority = (prepareCalls: Ref.Ref<number>): TextProjectionAuthority =>
   new TextProjectionAuthority({
@@ -52,14 +51,11 @@ describe("text projection contracts", () => {
       const narrow = yield* waitForProjection(registry, projectionAtom)
 
       registry.set(elementWidthAtom(widthSlot), 320)
-      const wide = yield* Effect.eventually(
-        Effect.sync(() => registry.get(projectionAtom)).pipe(
-          Effect.filterOrFail(
-            (projection): projection is TextProjection => projection !== null && projection.layout.maxWidth === 320,
-            () => "waiting-for-wide-projection"
-          )
-        )
-      ).pipe(Effect.orDie)
+      const wide = yield* waitForProjection(
+        registry,
+        projectionAtom,
+        (projection) => projection.layout.maxWidth === 320
+      )
 
       expect(yield* Ref.get(prepareCalls)).toBe(1)
       expect(narrow.layout.maxWidth).toBe(120)

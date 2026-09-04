@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import { createRoot } from "react-dom/client"
 
 import { neutralToneClasses } from "../../app/web/view/primitives/designSystem.js"
@@ -22,6 +22,10 @@ const waitFor = (predicate: () => boolean): Effect.Effect<void, never, never> =>
     Effect.orDie
   )
 
+/** Polls the query until the element has rendered. */
+const waitForElement = <E extends Element>(query: () => Option.Option<E>): Effect.Effect<E, never, never> =>
+  Effect.eventually(Effect.suspend(query))
+
 describe("public-site accessibility", () => {
   it.effect("labels the toggle switch for assistive technology", () =>
     Effect.gen(function*() {
@@ -37,9 +41,9 @@ describe("public-site accessibility", () => {
 
       yield* Effect.ensuring(
         Effect.gen(function*() {
-          yield* waitFor(() => container.querySelector("[role=\"switch\"]") !== null)
-          expect(container.querySelector("[role=\"switch\"]")?.getAttribute("aria-label")).toBe("Obstacles")
-          expect(container.querySelector("[role=\"switch\"]")?.getAttribute("aria-checked")).toBe("false")
+          const toggle = yield* waitForElement(() => Option.fromNullable(container.querySelector("[role=\"switch\"]")))
+          expect(toggle.getAttribute("aria-label")).toBe("Obstacles")
+          expect(toggle.getAttribute("aria-checked")).toBe("false")
         }),
         Effect.sync(() => {
           root.unmount()

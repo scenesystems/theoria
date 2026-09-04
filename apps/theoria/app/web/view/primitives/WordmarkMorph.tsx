@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { memo, useCallback, useRef } from "react"
+import { memo, useMemo, useRef } from "react"
 
+import { observeOnMount } from "../../atoms/element-observation.js"
 import { segmentProgress, setWordmarkMountedAtom, wordmarkFrameAtom } from "../../atoms/wordmark.js"
 
 /**
@@ -87,17 +88,17 @@ export const WordmarkMorph = () => {
 
   setMountedRef.current = setMounted
 
-  const refCallback = useCallback((el: HTMLSpanElement | null) => {
-    if (el === null) {
-      return
-    }
+  const refCallback = useMemo(
+    () =>
+      observeOnMount<HTMLSpanElement>(() => {
+        setMountedRef.current(true)
 
-    setMountedRef.current(true)
-
-    return () => {
-      setMountedRef.current(false)
-    }
-  }, [])
+        return () => {
+          setMountedRef.current(false)
+        }
+      }),
+    []
+  )
 
   return (
     <span

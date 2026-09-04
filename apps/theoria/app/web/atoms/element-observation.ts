@@ -52,62 +52,66 @@ const activeAnchor = (ids: ReadonlyArray<string>): string => {
   )
 }
 
+/**
+ * A React 19 ref callback from an observer over a mounted element. React hands
+ * `null` on legacy detach; the mounted branch returns the cleanup React runs
+ * on unmount, so an absent element has nothing to observe and nothing to undo.
+ */
+export const observeOnMount =
+  <E extends HTMLElement>(observe: (element: E) => () => void): RefCallback<E> => (element) =>
+    Option.match(Option.fromNullable(element), {
+      onNone: () => {},
+      onSome: observe
+    })
+
 const makeActiveAnchorObserver = (
   key: string,
   setter: (value: string) => void
 ): RefCallback<HTMLElement> =>
-(element) => {
-  if (element === null) {
-    return
-  }
+  observeOnMount(() => {
+    const ids = anchorIdsFromKey(key)
+    const update = () => setter(activeAnchor(ids))
 
-  const ids = anchorIdsFromKey(key)
-  const update = () => setter(activeAnchor(ids))
+    globalThis.addEventListener("scroll", update, { passive: true })
+    globalThis.addEventListener("resize", update)
+    globalThis.addEventListener("hashchange", update)
+    const initialFrame = globalThis.requestAnimationFrame(update)
 
-  globalThis.addEventListener("scroll", update, { passive: true })
-  globalThis.addEventListener("resize", update)
-  globalThis.addEventListener("hashchange", update)
-  const initialFrame = globalThis.requestAnimationFrame(update)
-
-  return () => {
-    globalThis.cancelAnimationFrame(initialFrame)
-    globalThis.removeEventListener("scroll", update)
-    globalThis.removeEventListener("resize", update)
-    globalThis.removeEventListener("hashchange", update)
-  }
-}
+    return () => {
+      globalThis.cancelAnimationFrame(initialFrame)
+      globalThis.removeEventListener("scroll", update)
+      globalThis.removeEventListener("resize", update)
+      globalThis.removeEventListener("hashchange", update)
+    }
+  })
 
 export const makeWidthObserver = <E extends HTMLElement>(
   setter: (value: number) => void
 ): RefCallback<E> =>
-(element) => {
-  if (element === null) {
-    return
-  }
+  observeOnMount((element) => {
+    const width = element.clientWidth
+    if (width > 0) {
+      setter(width)
+    }
 
-  const width = element.clientWidth
-  if (width > 0) {
-    setter(width)
-  }
-
-  const observer = new ResizeObserver((entries) => {
-    Option.match(Option.fromNullable(entries.at(0)), {
-      onNone: () => {},
-      onSome: (entry) => {
-        const observedWidth = Math.floor(entry.contentRect.width)
-        if (observedWidth > 0) {
-          setter(observedWidth)
+    const observer = new ResizeObserver((entries) => {
+      Option.match(Option.fromNullable(entries.at(0)), {
+        onNone: () => {},
+        onSome: (entry) => {
+          const observedWidth = Math.floor(entry.contentRect.width)
+          if (observedWidth > 0) {
+            setter(observedWidth)
+          }
         }
-      }
+      })
     })
+
+    observer.observe(element)
+
+    return () => {
+      observer.disconnect()
+    }
   })
-
-  observer.observe(element)
-
-  return () => {
-    observer.disconnect()
-  }
-}
 
 export const useElementWidthReporter = <E extends HTMLElement>(
   onWidth: (width: number) => void

@@ -27,8 +27,9 @@ export const TextProjectionRequest = Schema.Struct({
 })
 export type TextProjectionRequest = typeof TextProjectionRequest.Type
 
+/** The projection once the text is prepared; until then the surface renders the browser's own wrapping. */
 export class TextProjectionHandle extends Data.Class<{
-  readonly projection: TextProjection | null
+  readonly projection: Option.Option<TextProjection>
   readonly ref: ElementWidthHandle["ref"]
 }> {}
 
@@ -42,7 +43,7 @@ export class TextProjectionAuthority extends Data.Class<{
   readonly project: (options: {
     readonly prepared: Text.PreparedTextWithSegments
     readonly request: TextProjectionAuthorityRequest
-    readonly maxWidth: number | null
+    readonly maxWidth: number
   }) => TextProjection
 }> {}
 
@@ -52,9 +53,6 @@ const makeTextProjectionRequest = ({
   variant,
   widthSlot
 }: TextProjectionRequest): TextProjectionRequest => ({ role, text, variant, widthSlot })
-
-const isTextRole = Schema.is(TextRole)
-const isSurfaceVariant = Schema.is(SurfaceVariant)
 
 const textRuntime = Atom.runtime(Layer.empty)
 
@@ -70,19 +68,12 @@ const textProjectionPrepareKey = ({
 
 export const makeTextProjectionAtom = (
   authority: TextProjectionAuthority = defaultTextProjectionAuthority
-): (request: TextProjectionRequest) => AtomType.Atom<TextProjection | null> => {
+): (request: TextProjectionRequest) => AtomType.Atom<Option.Option<TextProjection>> => {
   const preparedResultAtom = Atom.family((prepareKey: string) =>
-    textRuntime.atom(
-      () => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)),
-      { initialValue: null }
-    )
+    textRuntime.atom(() => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)))
   )
 
   return Atom.family((request: TextProjectionRequest) => {
-    if (!isTextRole(request.role) || !isSurfaceVariant(request.variant)) {
-      return Atom.make(() => null)
-    }
-
     const contractMax = maxWidthFor(request.role, request.variant)
     const prepareKey = textProjectionPrepareKey(request)
 
@@ -96,7 +87,6 @@ export const makeTextProjectionAtom = (
       const preparedResult = get(preparedResultAtom(prepareKey))
 
       return Result.value(preparedResult).pipe(
-        Option.flatMap(Option.fromNullable),
         Option.map((prepared) =>
           authority.project({
             prepared,
@@ -107,8 +97,7 @@ export const makeTextProjectionAtom = (
             },
             maxWidth: effectiveWidth
           })
-        ),
-        Option.getOrElse(() => null)
+        )
       )
     })
   })

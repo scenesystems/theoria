@@ -3,13 +3,11 @@ import * as Browser from "@scenesystems/effect-text/browser"
 import * as Contracts from "@scenesystems/effect-text/contracts"
 import { Layer, Option } from "effect"
 
-const makeCanvasContext = (): Option.Option<CanvasRenderingContext2D> => {
-  if (typeof document === "undefined") {
-    return Option.none()
-  }
-
-  return Option.fromNullable(document.createElement("canvas").getContext("2d"))
-}
+/** A 2D canvas when the host provides one; headless hosts fall back to the deterministic measurer. */
+const makeCanvasContext = (): Option.Option<CanvasRenderingContext2D> =>
+  Option.fromNullable(globalThis.document).pipe(
+    Option.flatMap((document) => Option.fromNullable(document.createElement("canvas").getContext("2d")))
+  )
 
 export const browserSupportProfile = Browser.DefaultBrowserSupportProfile
 export const browserSupportProfileId = browserSupportProfile.id

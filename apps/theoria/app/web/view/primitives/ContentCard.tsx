@@ -1,6 +1,6 @@
 import { Match } from "effect"
 import * as Option from "effect/Option"
-import type { ComponentPropsWithRef, ReactNode } from "react"
+import type { HTMLAttributes, ReactNode } from "react"
 
 import type { ContentCardDensity, ContentCardShape } from "../../../contracts/layout.js"
 
@@ -36,7 +36,7 @@ export const ContentCard = ({
   shape = "rounded",
   tone,
   ...rest
-}: ComponentPropsWithRef<"div"> & {
+}: HTMLAttributes<HTMLElement> & {
   readonly children: ReactNode
   readonly className?: string
   readonly density: ContentCardDensity

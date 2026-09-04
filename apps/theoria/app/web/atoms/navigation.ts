@@ -31,7 +31,7 @@ const browserMetadataAtom = Atom.make((ctx) =>
 
 export const browserMetadataMountAtom = Atom.make((ctx) => {
   Option.match(ctx(browserMetadataAtom), {
-    onNone: () => undefined,
+    onNone: () => {},
     onSome: applyBrowserMetadata
   })
 
@@ -104,9 +104,12 @@ export const shouldNavigateInBrowser = ({
   readonly href: string
   readonly metaKey: boolean
   readonly shiftKey: boolean
-  readonly target: string | null
+  readonly target: Option.Option<string>
 }): boolean => {
-  if (defaultPrevented || button !== 0 || metaKey || ctrlKey || shiftKey || altKey || target === "_blank") {
+  if (
+    defaultPrevented || button !== 0 || metaKey || ctrlKey || shiftKey || altKey
+    || Option.contains(target, "_blank")
+  ) {
     return false
   }
 
