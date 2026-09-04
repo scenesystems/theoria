@@ -2,6 +2,7 @@
  * Terminal progress reporter utilities for streaming study events.
  *
  * @since 0.1.0
+ * @module
  */
 
 export {

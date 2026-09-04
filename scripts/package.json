@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Repository automation scripts. Owns the TypeScript 6 compiler API and typedoc so they resolve independently of the TypeScript 7 toolchain used for type-checking.",
+  "description": "Repository automation scripts. Pins typedoc and its TypeScript 6 peer so they resolve independently of the TypeScript 7 toolchain used for type-checking.",
   "dependencies": {
     "typedoc": "0.28.20",
     "typescript": "6.0.2"

@@ -2,6 +2,7 @@
  * TPE trial splitting — partitions completed trials into above/below groups by objective direction.
  *
  * @since 0.1.0
+ * @module
  */
 import { matchObjectiveSpec, type ObjectiveSpec } from "../../../contracts/ObjectiveSpec.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"

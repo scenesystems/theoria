@@ -11,6 +11,7 @@
  * {@link cmaEs}, or {@link gpBo}, then pass it to the Study APIs.
  *
  * @since 0.1.0
+ * @module
  */
 export * from "./checkpoints.js"
 export * from "./combinators.js"

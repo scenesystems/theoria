@@ -10,6 +10,7 @@
  * deterministic and caller-hedged operations.
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 import { ml_dsa44, ml_dsa65, ml_dsa87 } from "@noble/post-quantum/ml-dsa.js"
 import { Effect } from "effect"

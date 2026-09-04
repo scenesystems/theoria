@@ -9,6 +9,7 @@
  * measurement.
  *
  * @since 0.2.0
+ * @module
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Schema } from "effect"

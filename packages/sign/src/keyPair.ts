@@ -6,6 +6,7 @@
  *
  * @since 0.1.0
  * @category keys
+ * @module
  */
 import { Effect, Match } from "effect"
 import { ed25519Keygen } from "./algorithms/ed25519.js"

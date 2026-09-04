@@ -9,6 +9,7 @@
  * materialization and incremental traversal.
  *
  * @since 0.1.0
+ * @module
  */
 export { PreparedText, PreparedTextWithSegments, TextStability } from "./model.js"
 

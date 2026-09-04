@@ -10,8 +10,9 @@ begins. Where a choice was made on the reader's behalf it is listed at the end.
 
 The short version: TypeScript 7 (the native compiler) is the only `tsc`,
 patched by `@effect/tsgo` so Effect diagnostics run inside type-checking and
-fail it. TypeScript 6 is installed only as a library, in the two places that
-still call the JavaScript compiler API. typescript-eslint is gone; oxlint owns
+fail it. TypeScript 6 is installed only as `typedoc`'s peer library inside
+`scripts/`; no repository code imports the compiler API. typescript-eslint is
+gone; oxlint owns
 the TypeScript-aware rules, ESLint 10 on the Babel 8 parser owns the Effect
 `no-restricted-syntax` discipline, and the `dprint` CLI owns formatting.
 Vitest is 4, Vite is 8 on Rolldown, and the app's UI stack is `@base-ui/react`
@@ -90,9 +91,12 @@ Effect 4 exists only as release candidates and is out of scope. The published
 ## The constraints that shaped the layout
 
 **TypeScript 7 ships no JavaScript compiler API.** The `typescript` package at
-7.0.2 exports `tsc` and a `version` string. The AST and program API used by
-`typedoc` (peer `typescript 5.x || 6.0.x`) and, for now, by
-`scripts/api-reference/comments.ts` is not there.
+7.0.2 exports `tsc` and a `version` string. The AST and program API that
+`typedoc` (peer `typescript 5.x || 6.0.x`) is built on is not there, and no
+repository code calls it: module and source-file documentation comes from
+TypeDoc's own `reflection.comment`, which requires every entrypoint and every
+source file that becomes a documentation page to open with a `/** … @module */`
+header.
 
 TypeScript's own migration notes suggest installing the 6.0 API under the name
 `typescript` via the `@typescript/typescript6` shim and the native compiler
@@ -105,16 +109,14 @@ file that imports `typescript`. An `overrides` entry does not break the cycle.
 
 The layout used instead keeps `typescript` at the root as the real 7.0.2
 package, so `tsc` is TypeScript 7 everywhere and nothing is aliased. The only
-consumer of the compiler API is the documentation toolchain: `scripts/` is a
-private workspace (`@theoria/scripts`) declaring `typedoc: 0.28.20` and
-`typescript: 6.0.2`. Module resolution from `scripts/api-reference/*.ts` finds
-`scripts/node_modules/typescript` (6.0.2), and typedoc's `typescript` peer
-resolves to the same 6.0.2 rather than the root's 7.0.2. `bun run docs:api`
-and the app's `docs:assets` step are unchanged.
+consumer of the compiler API is `typedoc`: `scripts/` is a private workspace
+(`@theoria/scripts`) declaring `typedoc: 0.28.20` and `typescript: 6.0.2`, so
+typedoc's `typescript` peer resolves to 6.0.2 rather than the root's 7.0.2.
+`bun run docs:api` and the app's `docs:assets` step are unchanged.
 
 Type-checking happens from the root (`tsc -b tsconfig.json`), so TypeScript 7
-checks every project including `scripts`; only the runtime
-`import "typescript"` inside `scripts/` resolves to 6.0.2.
+checks every project including `scripts`; only typedoc's own runtime
+`import "typescript"` resolves to 6.0.2.
 
 **`packages/source-proof` is gone.** It wrapped the TypeScript compiler API to
 "prove" facts about source text: which module specifiers a file imports, which
@@ -266,13 +268,13 @@ whose `typescript` link points at 6.0.2.
 
 ## Decisions to revisit
 
-- TypeScript 6 remains installed as a library in `scripts/` because `typedoc`
-  0.28 requires it. `scripts/api-reference/comments.ts` still parses leading
-  module comments with that API only because most entrypoint files lack a
-  `@module` or `@packageDocumentation` tag; adding the tags lets TypeDoc's
-  `reflection.comment` replace the parser. Authored `@example` blocks are
-  already compiled by spawning `tsc` through `scripts/typecheck/snippets.ts`,
-  shared with `scripts/check-readme-examples.ts`.
+- TypeScript 6 remains installed as a library in `scripts/` only because
+  `typedoc` 0.28 requires it; it leaves with the first typedoc release that
+  supports TypeScript 7. Nothing else depends on it: module comments come from
+  TypeDoc's `reflection.comment` (every entrypoint and documented source file
+  carries a `@module` header), and authored `@example` blocks are compiled by
+  spawning `tsc` through `scripts/typecheck/snippets.ts`, shared with
+  `scripts/check-readme-examples.ts`.
 - Effect warnings fail `tsc`; suggestions do not.
 - Vitest stops at 4.1, not 5.0, as requested; `.node-version` 22.23.1 already
   satisfies Vitest 5's Node floor.

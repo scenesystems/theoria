@@ -12,6 +12,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 
 import { blake3 } from "@noble/hashes/blake3.js"

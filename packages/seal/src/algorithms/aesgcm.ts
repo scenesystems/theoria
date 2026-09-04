@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 
 import { gcm } from "@noble/ciphers/aes.js"

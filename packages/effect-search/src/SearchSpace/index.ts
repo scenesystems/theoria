@@ -9,6 +9,7 @@
  * configurations from an untrusted boundary.
  *
  * @since 0.1.0
+ * @module
  */
 
 export { activeParameters, isParameterActive } from "./activity.js"

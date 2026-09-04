@@ -8,6 +8,7 @@
  * breaks should replace the deterministic no-dictionary path.
  *
  * @since 0.1.0
+ * @module
  */
 import { Context } from "effect"
 import type { Effect } from "effect"

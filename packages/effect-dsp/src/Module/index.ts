@@ -8,6 +8,7 @@
  * on the same module identities and parameter references.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./model.js"

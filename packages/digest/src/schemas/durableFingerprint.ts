@@ -13,6 +13,7 @@
  *
  * @since 0.1.0
  * @category fingerprint
+ * @module
  */
 
 import type { Effect } from "effect"

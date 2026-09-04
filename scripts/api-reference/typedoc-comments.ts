@@ -138,6 +138,24 @@ const exampleModel = (parts: ReadonlyArray<ApiDocPart>): ApiExample => {
     }
 }
 
+// TypeDoc folds several `@see` tags into one markdown list (" - item\n" per
+// tag). The page model keeps one entry per reference, so unfold it again.
+const isMarker = (part: CommentDisplayPart, text: string): boolean => part.kind === "text" && part.text === text
+
+const seeItems = (parts: ReadonlyArray<CommentDisplayPart>): ReadonlyArray<ReadonlyArray<CommentDisplayPart>> =>
+  parts[0] !== undefined && isMarker(parts[0], " - ")
+    ? Arr.reduce(
+      parts,
+      Arr.empty<ReadonlyArray<CommentDisplayPart>>(),
+      (items, part) =>
+        isMarker(part, " - ")
+          ? Arr.append(items, [])
+          : isMarker(part, "\n")
+          ? items
+          : Arr.modify(items, items.length - 1, (item) => Arr.append(item, part))
+    )
+    : [parts]
+
 export const documentation = (
   comment: Comment | undefined,
   context: ApiDocContext
@@ -149,7 +167,10 @@ export const documentation = (
     onNone: () => null,
     onSome: (tag) => docParts(tag.content, context)
   }),
-  see: Arr.map(comment?.getTags("@see") ?? [], (tag) => docParts(tag.content, context))
+  see: Arr.flatMap(
+    comment?.getTags("@see") ?? [],
+    (tag) => Arr.map(seeItems(tag.content), (parts) => docParts(parts, context))
+  )
 })
 
 export const typeParameters = (

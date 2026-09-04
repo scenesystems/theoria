@@ -6,6 +6,7 @@
  * failures owned by one subsystem; `SearchErrorSchema` accepts every public search error.
  *
  * @since 0.1.0
+ * @module
  */
 import { Predicate, Schema } from "effect"
 

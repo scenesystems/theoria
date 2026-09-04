@@ -7,6 +7,7 @@
  * leaves computation failures in the caller's error channel without caching them.
  *
  * @since 0.1.0
+ * @module
  */
 
 export { CacheDescriptor, makeDescriptor } from "./descriptor.js"

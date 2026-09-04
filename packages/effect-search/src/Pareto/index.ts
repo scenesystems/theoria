@@ -3,6 +3,7 @@
  * two-dimensional hypervolume used by MOTPE weighting.
  *
  * @since 0.1.0
+ * @module
  */
 
 export { FrontierSnapshot, ObjectiveFrontierHolding, ObjectiveFrontierWeight, ObjectiveVectorSchema } from "./model.js"

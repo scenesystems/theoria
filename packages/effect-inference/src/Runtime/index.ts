@@ -8,6 +8,7 @@
  * assembled separately through `makeRuntimeEvidence(...)`.
  *
  * @since 0.1.0
+ * @module
  */
 
 /** @since 0.1.0 */

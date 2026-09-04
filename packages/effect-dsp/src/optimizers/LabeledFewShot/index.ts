@@ -3,6 +3,7 @@
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @since 0.1.0
+ * @module
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"

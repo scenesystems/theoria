@@ -8,6 +8,7 @@
  * serialization boundaries.
  *
  * @since 0.1.0
+ * @module
  */
 import { Schema } from "effect"
 

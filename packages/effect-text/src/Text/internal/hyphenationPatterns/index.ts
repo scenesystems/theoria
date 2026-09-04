@@ -2,6 +2,7 @@
  * Checked-in hyphenation pattern sources.
  *
  * @since 0.2.0
+ * @module
  */
 import { deHyphenationPatternSource as deHyphenationPatternSourceData } from "./de.js"
 import { enGbHyphenationPatternSource as enGbHyphenationPatternSourceData } from "./enGb.js"

@@ -4,6 +4,7 @@
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
+ * @module
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Match, Option, Ref } from "effect"

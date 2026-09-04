@@ -10,6 +10,7 @@
  *
  * @since 0.1.0
  * @category key-derivation
+ * @module
  */
 
 import { hkdf } from "@noble/hashes/hkdf.js"

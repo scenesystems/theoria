@@ -9,6 +9,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 import { ml_kem768_x25519 } from "@noble/post-quantum/hybrid.js"
 import { Effect } from "effect"

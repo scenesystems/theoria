@@ -7,6 +7,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"

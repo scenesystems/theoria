@@ -2,6 +2,7 @@
  * Acquisition function registry — resolves built-in and custom acquisition strategies for TPE.
  *
  * @since 0.1.0
+ * @module
  */
 import { Match, Option } from "effect"
 

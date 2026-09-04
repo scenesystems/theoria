@@ -64,7 +64,6 @@ export const generateApiModule = (input: {
     )
     const [canonicalRoute, canonicalPage] = canonical
     const sourcePages = yield* makeSourceDocumentationPages({
-      app: input.app,
       revision: input.revision,
       links: input.links,
       sourcePackage: input.sourcePackage,

@@ -1,11 +1,13 @@
-import { FileSystem } from "@effect/platform"
-import { Array as Arr, Effect, Option, Order } from "effect"
-import { type Application, Comment } from "typedoc"
+import { Array as Arr, Effect, Option } from "effect"
+import { Comment } from "typedoc"
 
 import { type ApiPage } from "@theoria/docs-model"
-import { leadingModuleComment } from "./comments.js"
 import { type ApiConvertedModule } from "./converted.js"
-import { hasSourceDocumentationPages, sourceDocumentationSlug } from "./documentation-routes.js"
+import {
+  hasSourceDocumentationPages,
+  sourceDocumentationFiles,
+  sourceDocumentationSlug
+} from "./documentation-routes.js"
 import { type ApiDocLink } from "./links.js"
 import { ApiReferenceGenerationError, type ApiReferenceRoute } from "./model.js"
 import { categoriesForExports } from "./presentation.js"
@@ -27,7 +29,6 @@ const duplicateSlug = (sources: ReadonlyArray<string>): Option.Option<string> =>
   )
 
 export const makeSourceDocumentationPages = (input: {
-  readonly app: Application
   readonly revision: string
   readonly links: ReadonlyArray<ApiDocLink>
   readonly sourcePackage: ApiSourcePackage
@@ -40,7 +41,6 @@ export const makeSourceDocumentationPages = (input: {
   }
 
   return Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
     const sourceRoute = yield* Option.match(
       Arr.findFirst(input.module.routes, (candidate) => candidate.entrypoint.subpath === input.route.subpath),
       {
@@ -52,12 +52,9 @@ export const makeSourceDocumentationPages = (input: {
         onSome: Effect.succeed
       }
     )
-    const sources = Arr.sort(
-      Arr.dedupe(Arr.map(
-        Arr.filter(sourceRoute.publicExports, (entry) => entry.sourceFile.relative !== input.module.source.relative),
-        (entry) => entry.sourceFile.relative
-      )),
-      Order.string
+    const sources = Arr.map(
+      sourceDocumentationFiles(input.module.source, sourceRoute.publicExports),
+      (sourceFile) => sourceFile.relative
     )
     const collision = duplicateSlug(sources)
 
@@ -82,44 +79,20 @@ export const makeSourceDocumentationPages = (input: {
           )
         }
 
-        const sourceFile = yield* Option.match(Arr.head(publicExports), {
-          onNone: () =>
-            Effect.fail(generationError(
-              input.sourcePackage.manifest.name,
-              `${source} has no public exports`
-            )),
-          onSome: (entry) =>
-            Effect.succeed(entry.sourceFile)
-        })
-        const sourceText = yield* fileSystem.readFileString(sourceFile.absolute).pipe(Effect.orDie)
+        const slug = sourceDocumentationSlug(source)
         const comment = yield* Option.match(
-          leadingModuleComment({
-            app: input.app,
-            project: input.module.project,
-            reflection: input.module.reflection,
-            source: sourceText,
-            sourcePath: sourceFile.absolute
-          }),
+          Arr.findFirst(input.module.sourceComments, (candidate) =>
+            candidate.source === source),
           {
             onNone: () =>
               Effect.fail(generationError(
                 input.sourcePackage.manifest.name,
-                `${source} is missing a leading module comment`
+                `${source} was not converted for source documentation`
               )),
-            onSome: Effect.succeed
+            onSome: (converted) => Effect.succeed(converted.comment)
           }
         )
-        const summary = Comment.combineDisplayParts(comment.summary).trim()
         const since = Comment.combineDisplayParts(comment.getTag("@since")?.content).trim()
-
-        if (summary.length === 0 || since.length === 0) {
-          return yield* generationError(
-            input.sourcePackage.manifest.name,
-            `${source} is missing module ${summary.length === 0 ? "summary" : "@since"}`
-          )
-        }
-
-        const slug = sourceDocumentationSlug(source)
         const path = apiPagePath(input.sourcePackage.directoryName, slug)
         const sourceUrl =
           `${repositoryUrl}/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/${source}`
@@ -151,6 +124,6 @@ export const makeSourceDocumentationPages = (input: {
         }
 
         return page
-      }), { concurrency: 8 })
+      }))
   })
 }

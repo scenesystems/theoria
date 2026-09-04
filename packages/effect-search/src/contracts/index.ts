@@ -6,6 +6,7 @@
  * versioned artifact records without depending on a study implementation.
  *
  * @since 0.1.0
+ * @module
  */
 
 /**

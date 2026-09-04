@@ -2,6 +2,7 @@
  * Sequential output refinement driven by score feedback.
  *
  * @since 0.1.0
+ * @module
  */
 import type { Schema } from "effect"
 import { Effect, HashMap, Ref } from "effect"

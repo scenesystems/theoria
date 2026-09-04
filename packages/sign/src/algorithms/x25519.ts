@@ -4,6 +4,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 import { x25519 } from "@noble/curves/ed25519.js"
 import { Effect } from "effect"

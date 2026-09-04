@@ -2,6 +2,7 @@
  * Score-based selection over repeated module calls.
  *
  * @since 0.1.0
+ * @module
  */
 import type { Schema } from "effect"
 import { Effect, HashMap, Option, Ref } from "effect"

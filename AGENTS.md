@@ -110,7 +110,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
 - **240 LOC limit**: Files over 240 LOC require decomposition rationale and split plan.
 - **Tests assert contracts**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests.
-- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious.
+- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every entrypoint `index.ts` (and every source file that becomes a docs page) opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
 
 ---
 

@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  * @category schemas
+ * @module
  */
 import { Schema } from "effect"
 

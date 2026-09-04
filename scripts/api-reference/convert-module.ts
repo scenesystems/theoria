@@ -1,10 +1,15 @@
-import { FileSystem, Path } from "@effect/platform"
+import { Path } from "@effect/platform"
 import { Array as Arr, Effect, Option } from "effect"
 import { type Application, type DocumentationEntryPoint } from "typedoc"
 
-import { attachLeadingModuleComment, hasCommentSummary, hasCommentTag, moduleReflection } from "./comments.js"
-import { type ApiConvertedModule } from "./converted.js"
+import { type ApiConvertedModule, type ApiConvertedRoute, type ApiSourceComment } from "./converted.js"
+import {
+  hasSourceDocumentationPages,
+  sourceDocumentationFiles,
+  sourceDocumentationSlug
+} from "./documentation-routes.js"
 import { ApiReferenceGenerationError } from "./model.js"
+import { moduleReflection, requireModuleComment, sourceFileModuleComment } from "./module-comment.js"
 import { publicExportsFromReflection } from "./public-exports.js"
 import { moduleDisplayName } from "./reflections.js"
 import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
@@ -12,14 +17,41 @@ import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
 const typeDocFailure = (packageName: string, detail: string): ApiReferenceGenerationError =>
   new ApiReferenceGenerationError({ packageName, detail })
 
+// Source files that get their own page are converted while the module's
+// TypeScript program is still needed anyway; only their comments are kept.
+const convertSourceComments = (input: {
+  readonly app: Application
+  readonly entrypoint: DocumentationEntryPoint
+  readonly sourcePackage: ApiSourcePackage
+  readonly module: ApiSourceModule
+  readonly routes: ReadonlyArray<ApiConvertedRoute>
+}): Effect.Effect<ReadonlyArray<ApiSourceComment>, ApiReferenceGenerationError> => {
+  if (!hasSourceDocumentationPages(input.sourcePackage, input.module)) {
+    return Effect.succeed([])
+  }
+
+  const publicExports = Arr.flatMap(input.routes, (route) => route.publicExports)
+
+  return Effect.forEach(sourceDocumentationFiles(input.module, publicExports), (sourceFile) =>
+    Effect.map(
+      sourceFileModuleComment({
+        app: input.app,
+        entrypoint: input.entrypoint,
+        packageName: input.sourcePackage.manifest.name,
+        displayName: sourceDocumentationSlug(sourceFile.relative),
+        sourceFile
+      }),
+      (comment): ApiSourceComment => ({ source: sourceFile.relative, comment })
+    ))
+}
+
 export const convertApiModule = (input: {
   readonly app: Application
   readonly entrypoints: ReadonlyArray<DocumentationEntryPoint>
   readonly sourcePackage: ApiSourcePackage
   readonly module: ApiSourceModule
-}): Effect.Effect<ApiConvertedModule, ApiReferenceGenerationError, FileSystem.FileSystem | Path.Path> =>
+}): Effect.Effect<ApiConvertedModule, ApiReferenceGenerationError, Path.Path> =>
   Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const packageName = input.sourcePackage.manifest.name
     const entrypoint = Arr.findFirst(
@@ -53,21 +85,7 @@ export const convertApiModule = (input: {
       )
     }
 
-    const source = yield* fileSystem.readFileString(input.module.absolute).pipe(Effect.orDie)
-    attachLeadingModuleComment({
-      app: input.app,
-      project,
-      reflection: reflection.value,
-      source,
-      sourcePath: input.module.absolute
-    })
-
-    if (!hasCommentSummary(reflection.value) || !hasCommentTag(reflection.value, "@since")) {
-      return yield* typeDocFailure(
-        packageName,
-        `${input.module.relative} is missing module ${hasCommentSummary(reflection.value) ? "@since" : "summary"}`
-      )
-    }
+    yield* requireModuleComment({ packageName, relative: input.module.relative, reflection: reflection.value })
 
     input.app.validate(project)
 
@@ -84,8 +102,15 @@ export const convertApiModule = (input: {
           entrypoint: routeEntrypoint,
           reflection: reflection.value
         }),
-        (publicExports) => ({ entrypoint: routeEntrypoint, publicExports })
+        (publicExports): ApiConvertedRoute => ({ entrypoint: routeEntrypoint, publicExports })
       ))
+    const sourceComments = yield* convertSourceComments({
+      app: input.app,
+      entrypoint: entrypoint.value,
+      sourcePackage: input.sourcePackage,
+      module: input.module,
+      routes
+    })
 
-    return { source: input.module, project, reflection: reflection.value, routes }
+    return { source: input.module, project, reflection: reflection.value, routes, sourceComments }
   })

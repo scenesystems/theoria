@@ -3,6 +3,7 @@
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @since 0.1.0
+ * @module
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { streamFromEmitter } from "@scenesystems/effect-search/Study"
