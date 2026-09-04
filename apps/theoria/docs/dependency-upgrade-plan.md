@@ -236,9 +236,10 @@ With the fix the production build emits:
 | `shellscript`  | 41 kB      | 6 kB   | shiki grammar (lazy)             |
 | `dist-*` (two) | 118 kB     | 38 kB  | shiki core (lazy)                |
 
-`motion` is installed and routed to `ui-vendor` by the chunk regex, but no
-component imports it yet, so it is absent from the production bundle until the
-redesign uses it.
+`motion` is installed and routed to `ui-vendor` by the chunk regex. The root
+`MotionConfig` in `App.tsx`, the `AnimationFrame` service and the wordmark morph
+import it, so the runtime is in the production bundle; the redesign builds on
+that footprint rather than adding a second animation runtime.
 
 **Vitest 4 removed the options the root config set.** `poolOptions` became
 top-level `maxWorkers: process.env.CI ? 2 : 4`. The root `coverage` block had
@@ -296,8 +297,10 @@ Option<DocsModuleSlug>)`, `DocsApiRoute.moduleSlug`, `DocsHeader` and
   (`observeOnMount` in `apps/theoria/app/web/atoms/element-observation.ts`).
 - **Browser globals.** The app never renders on a server, so
   `typeof window === "undefined"` guards were dead branches; they are gone. The
-  one genuinely optional capability, a 2D canvas for text measurement, is
-  `Option.fromNullable(globalThis.document)` flat-mapped into the context.
+  document is a service, `BrowserDocument` in `app/web/platform`, provided once
+  in `main.tsx`; the one genuinely optional capability, a 2D canvas for text
+  measurement, is `BrowserDocument.canvasContext2d`, an `Option` the text
+  layout layer matches on (`browserTextLayout.ts`).
 - **Layout slots.** `Layout.tsx` had a polymorphic `as` generic over
   `ElementType`, unsound in the case TypeScript 7 could not even express
   (`keyof JSX.IntrinsicElements` hits TS2590). The slots are now one factory
@@ -418,7 +421,8 @@ whose `typescript` link points at 6.0.2.
   of its own (`scripts/api-reference-convert.ts`, driven by
   `scripts/api-reference/convert-packages.ts`) and revives the serialized
   reflections one module at a time in the generator, so the largest process
-  stays near 34k mappings and 2 GB under the stock limit. This is also TypeDoc's
+  measured 22.5k mappings and 2.2 GB under the stock limit (the parent 22k and
+  1.7 GB), with the whole reference finishing in about 46 seconds. This is also TypeDoc's
   own multi-package pattern (`packages` entry point strategy: convert
   separately, merge the JSON) and does not depend on the Bun version.
 - Effect warnings fail `tsc`; suggestions do not.

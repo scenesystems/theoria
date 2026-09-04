@@ -135,9 +135,9 @@ export const HOST_GLOBAL_RULES = [
     message: "Do not read 'performance'. Use Clock.currentTimeNanos from 'effect'."
   },
   {
-    selector: "MemberExpression[object.name='process'][property.name=/^(env|argv|exit|cwd|stdout|stderr|stdin)$/]",
+    selector: "MemberExpression[object.name='process']",
     message:
-      "Do not read 'process'. Use Config for environment, Console for output, Path/import.meta.url for locations and BunRuntime.runMain for exit codes."
+      "Do not read 'process'. Use Config for environment, Console for output, Path/import.meta.url for locations, Clock for time and BunRuntime.runMain for exit codes."
   },
   {
     selector: "MemberExpression[object.name='Bun']",

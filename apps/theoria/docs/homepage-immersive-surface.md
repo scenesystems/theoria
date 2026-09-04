@@ -60,12 +60,14 @@ two materials still in use, `raisedCard` and `calloutError`, are the card
 vocabulary of the package catalog `/` replaced, and every new element still
 reaches for them.
 
-Two more findings. Base UI is installed but the code tabs are plain `Button`s
-without `tablist` semantics, the scenario chooser is `aria-pressed` buttons and
-the merge switch is a `Button role="switch"`; `Tabs`, `RadioGroup`,
-`ToggleGroup` and `Switch` are unused. Motion is CSS only, so merging a
-proposal makes a disc appear on the stage with no continuity from the proposal
-that offered it — the one causal moment the demo exists to show.
+Two more findings, the first now resolved by the toolchain branch. The code
+tabs were plain `Button`s without `tablist` semantics, the scenario chooser was
+`aria-pressed` buttons and the merge switch a `Button role="switch"`; they are
+now Base UI `Tabs`, `RadioGroup` and `Switch` (`TabBar.tsx`, `ChoicePills.tsx`,
+`ToggleSwitch.tsx`), so the redesign changes their appearance, not their
+semantics. The second stands: motion is still CSS only, so merging a proposal
+makes a disc appear on the stage with no continuity from the proposal that
+offered it — the one causal moment the demo exists to show.
 
 ## What the page should be
 
@@ -265,10 +267,11 @@ derived.
 - [ ] `SiteHeader.tsx`, `HeaderChrome.tsx`: text links, icon-only theme
       toggle; `headerChromeSurfaceClassName` removed.
 - [ ] `test/worker/home.test.ts`: the rendered `canvas` role has no border,
-      radius or box shadow in computed style; every role paints one background.
-- [ ] `test/worker/home.test.ts` — _draws no box inside a box_: bordered
-      ancestors ≤ 2 for every element in `main` at 1440 and 390; ≤ 4 elements
-      carry a `shadow-*` class.
+      radius or box shadow in computed style. Verification of the de-carding
+      itself is visual — screenshots at 1440 and 390 inspected in review — not
+      a test that counts bordered ancestors or `shadow-*` classes; a
+      structure-counting test pins today's markup and is exactly the kind of
+      governance test this repository removed.
 
 ### Act 1 — The place is the page
 
@@ -298,9 +301,10 @@ derived.
       would add (`placeViewModel` exposes the anchor line index).
 - [ ] `PlaceLineage.tsx` → `PlaceStrand.tsx`: strand and knots; IDs in
       technical type; the wash on version change stays.
-- [ ] `ToggleSwitch` on Base UI `Switch`; `ChoicePills` → `ChoiceGroup` on
-      `RadioGroup` with `appearance: "pill" | "segment"`; `TabBar` → `Tabs`
-      with a 2 px indicator.
+- [x] `ToggleSwitch` on Base UI `Switch`; `ChoicePills` on `RadioGroup` with
+      `appearance: "pill" | "segment"`; `TabBar` on `Tabs` (done on the
+      toolchain branch).
+- [ ] `TabBar`: the 2 px indicator; `ChoicePills` → `ChoiceGroup` rename.
 - [ ] `test/worker/home-demo.test.ts` — _keyboard reaches every control_:
       scenario radio (arrows rebuild) → textarea → merge switch (Space) →
       tabs (arrows change the panel) → trace slider, asserting active roles
@@ -308,8 +312,10 @@ derived.
 
 ### Act 3 — Motion
 
-- [ ] `package.json`: `motion` 13.x; `App.tsx`: `MotionConfig` and
-      `LazyMotion` at the root; motion tokens in `styles.css`.
+- [x] `package.json`: `motion` 13.x; `App.tsx`: `MotionConfig
+    reducedMotion="user"` at the root (done on the toolchain branch).
+- [ ] `App.tsx`: `LazyMotion strict` with the theme's enter transition; motion
+      tokens in `styles.css`.
 - [ ] `PlaceMarker.tsx`: `m.button` with `layout` and
       `layoutId="place-feature:<name>"`; `layout={false}` while
       `placeTrialPreviewAtom` is `Some`.

@@ -11,7 +11,6 @@ const TIMER_DURATION_MS = 1
 class Sample extends Data.Class<{
   readonly wallMs: number
   readonly schedulerDelayMs: number
-  readonly peakRssMiB: number
   readonly bytes: number
 }> {}
 
@@ -26,29 +25,22 @@ const maximumValid = {
   children: []
 }
 
-/**
- * Resident set size in MiB. Effect exposes no process-memory service, so this
- * benchmark reads the host figure directly; it is the only host access here.
- */
-const rssMiB = (): number => process.memoryUsage().rss / 1024 / 1024
-
 const nowMillis: Effect.Effect<number> = Effect.map(Clock.currentTimeNanos, (nanos) => Number(nanos) / 1_000_000)
 
 /**
  * Samples one canonicalization while a one-millisecond sleeper fiber runs
- * beside it. Each time the sleeper wakes it records how late it was and the
- * process's resident size, so the sample captures the worst scheduler delay
- * the canonicalization imposed on other timers.
+ * beside it. Each time the sleeper wakes it records how late it was, so the
+ * sample captures the worst scheduler delay the canonicalization imposed on
+ * other timers.
  */
 const observe: Effect.Effect<Sample> = Effect.scoped(
   Effect.gen(function*() {
-    const probe = yield* Ref.make({ delay: 0, peakRssMiB: rssMiB(), previous: 0 })
+    const probe = yield* Ref.make({ delay: 0, previous: 0 })
     const tick = Effect.gen(function*() {
       yield* Effect.sleep(TIMER_DURATION_MS)
       const now = yield* nowMillis
       yield* Ref.update(probe, (state) => ({
         delay: Math.max(state.delay, now - state.previous - TIMER_DURATION_MS),
-        peakRssMiB: Math.max(state.peakRssMiB, rssMiB()),
         previous: now
       }))
     })
@@ -61,7 +53,6 @@ const observe: Effect.Effect<Sample> = Effect.scoped(
     return new Sample({
       wallMs: finished - started,
       schedulerDelayMs: Math.max(final.delay, finished - final.previous - TIMER_DURATION_MS),
-      peakRssMiB: Math.max(final.peakRssMiB, rssMiB()),
       bytes: bytes.length
     })
   })
@@ -93,7 +84,6 @@ const Distribution = Schema.Struct({
 
 const Report = Schema.parseJson(
   Schema.Struct({
-    runtime: Schema.String,
     workload: Schema.Struct({
       pointCount: Schema.Number,
       warmupSamples: Schema.Number,
@@ -104,13 +94,11 @@ const Report = Schema.parseJson(
       Schema.Struct({
         wallMs: Schema.Number,
         schedulerDelayMs: Schema.Number,
-        peakRssMiB: Schema.Number,
         bytes: Schema.Number
       })
     ),
     wallMs: Distribution,
-    schedulerDelayMs: Distribution,
-    peakRssMiB: Schema.Number
+    schedulerDelayMs: Distribution
   }),
   { space: 2 }
 )
@@ -119,10 +107,6 @@ const program = Effect.gen(function*() {
   yield* Effect.forEach(Arr.makeBy(WARMUP_SAMPLES, (index) => index), () => observe, { discard: true })
   const samples = yield* Effect.forEach(Arr.makeBy(MEASURED_SAMPLES, (index) => index), () => observe)
   const report = yield* Schema.encode(Report)({
-    runtime: Option.match(Option.fromNullable(process.versions.bun), {
-      onNone: () => "bun",
-      onSome: (version) => `bun ${version}`
-    }),
     workload: {
       pointCount: POINT_COUNT,
       warmupSamples: WARMUP_SAMPLES,
@@ -131,8 +115,7 @@ const program = Effect.gen(function*() {
     },
     samples,
     wallMs: distribution(Arr.map(samples, ({ wallMs }) => wallMs)),
-    schedulerDelayMs: distribution(Arr.map(samples, ({ schedulerDelayMs }) => schedulerDelayMs)),
-    peakRssMiB: Arr.max(Arr.map(samples, ({ peakRssMiB }) => peakRssMiB), Num.Order)
+    schedulerDelayMs: distribution(Arr.map(samples, ({ schedulerDelayMs }) => schedulerDelayMs))
   })
   yield* Console.log(report)
 })
