@@ -47,7 +47,8 @@ Ranges as written in `package.json` files after the upgrade.
 | `@effect/eslint-plugin`          | ^0.3.2        | removed; it depends on typescript-eslint |
 | `dprint`                         | in the plugin | 0.55.2 CLI with `.dprint.json`           |
 | `@babel/cli`, `@babel/core`, `…` | 7.29          | 8.0.x                                    |
-| `vitest` / `@vitest/coverage-v8` | ^3.2.7        | ^4.1.10                                  |
+| `vitest`                         | ^3.2.7        | ^4.1.10                                  |
+| `@vitest/coverage-v8`            | ^3.2.7        | removed; coverage was never wired up     |
 | `@effect/vitest`                 | 0.30.0        | 0.30.0; peer `vitest ^3.2` warns, runs   |
 | `prettier`                       | 3.8.1         | 3.9.6                                    |
 | `@changesets/cli`                | ^2.31.1       | ^3.0.1; config schema 4.0.0              |
@@ -222,7 +223,7 @@ With the fix the production build emits:
 | -------------- | ---------- | ------ | -------------------------------- |
 | `index`        | 158 kB     | 45 kB  | application code                 |
 | `react-vendor` | 190 kB     | 60 kB  | react, react-dom, scheduler      |
-| `ui-vendor`    | 225 kB     | 74 kB  | @base-ui, @heroicons, motion     |
+| `ui-vendor`    | 225 kB     | 74 kB  | @base-ui, @heroicons             |
 | `effect-core`  | 326 kB     | 101 kB | effect, @effect/\*, @effect-atom |
 | `effect-text`  | 378 kB     | 162 kB | @scenesystems/effect-text        |
 | `wasm-inlined` | 622 kB     | 232 kB | shiki oniguruma (lazy)           |
@@ -230,13 +231,17 @@ With the fix the production build emits:
 | `shellscript`  | 41 kB      | 6 kB   | shiki grammar (lazy)             |
 | `dist-*` (two) | 118 kB     | 38 kB  | shiki core (lazy)                |
 
-`motion` is in the bundle but not yet imported by any component, so its cost
-is measured on its own before the redesign uses it.
+`motion` is installed and routed to `ui-vendor` by the chunk regex, but no
+component imports it yet, so it is absent from the production bundle until the
+redesign uses it.
 
 **Vitest 4 removed the options the root config set.** `poolOptions` became
-top-level `maxWorkers: process.env.CI ? 2 : 4`; `coverage` moved under `test`
-(it had been a sibling, where Vitest ignored it) and lost `all`. Root and app
-suites run unchanged.
+top-level `maxWorkers: process.env.CI ? 2 : 4`. The root `coverage` block had
+sat outside `test`, where Vitest ignored it, and nothing ran coverage; it and
+`@vitest/coverage-v8` were removed rather than migrated. Every config now sets
+`passWithNoTests: false`, and `bunfig.toml` (which pointed `bun test` at an
+empty directory so it exited 0) is gone: an empty run is a failure, and
+`bun test` fails on `@effect/vitest` instead of passing silently.
 
 **Base UI renamed its package at 1.0.0.** Twenty-four import sites moved from
 `@base-ui-components/react/<part>` to `@base-ui/react/<part>`; no component
@@ -252,14 +257,24 @@ Every gate ran green on the upgraded tree:
 
 ```
 bun run check          # tsc -b tsconfig.json, TS 7.0.2+effect-tsgo, ~6 s
-bun run check:tests
+bun run check:tests    # tsconfig.test.json: package and app tests, package scripts that import test helpers
+bun run check:examples # tsconfig.examples.json: package examples, fixture scripts, effect-text benchmarks
+bun run check:all      # the three above; this is what CI and the pre-commit hook run
 bun run check:apps
 bun run lint           # oxlint --deny-warnings && eslint --max-warnings=0 && dprint check
-bun run lint:apps
-bun run test           # vitest 4: 386 files, 2109 tests
-bun run test:apps      # vitest 4 + happy-dom: 30 files, 107 tests
+bun run test           # vitest 4: 363 files, 1991 tests
+bun run test:apps      # vitest 4 + happy-dom: 25 files, 86 tests
 bun run build          # tsc -b, Babel 8 CJS/ESM, typedoc on TS 6, Vite 8 web build
 ```
+
+`check:examples` is new. Before it, the eight per-package
+`tsconfig.examples.json` projects were only reachable through each package's
+own `check:examples` script, which nothing at the root or in CI invoked, and
+`packages/effect-text/benchmarks` belonged to no project at all. The first run
+found two real type errors in the benchmarks (an `Effect` whose
+`MeasurementFailed` failure had been erased by a `never` annotation, and a
+profile array widened to `string`) and ten `multipleEffectProvide` warnings in
+examples; all were fixed rather than excluded.
 
 A clean `rm -rf node_modules && bun install` reproduces the layout from the
 lockfile alone: `node_modules/.bun` contains exactly `typescript@6.0.2` (linked
@@ -282,7 +297,6 @@ whose `typescript` link points at 6.0.2.
   so the warning disappears on its own when a matching release appears.
 - `@changesets/cli` 3 exits 1 from `changeset version` when there is nothing
   to release; no release script in the repository assumes otherwise today.
-- `tsx` stays; it powers `packages/digest`'s Node benchmark script only.
 - The web build's two chunks above 500 kB (`wasm-inlined`, `effect-text`) are
   reported by Vite as a warning. Both are lazy-loaded; the redesign is the
   place to decide whether the text engine should split further.
