@@ -1,7 +1,6 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
-import { resolveRootFrom } from "@theoria/source-proof"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Data, Effect, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 import { createTestHarness } from "wrangler"
@@ -25,20 +24,20 @@ export const productionHost = "https://theoria.scenesystems.io"
 export const stagingHost = "https://theoria.staging.scenesystems.io"
 export const previewHost = "https://theoria-pr-7.staging.scenesystems.io"
 
-/** Request shape the tests need; keeps DOM and workers-types `Request` types apart. */
-export type SiteRequest = {
+/** Request shape the tests need. */
+export class SiteRequest extends Data.Class<{
   readonly method?: string
   readonly headers?: Record<string, string>
   readonly body?: string
-}
+}> {}
 
 /** Response shape the tests read; satisfied by both DOM and workers-types responses. */
-export type SiteResponse = {
+export class SiteResponse extends Data.Class<{
   readonly status: number
-  readonly headers: { get(name: string): string | null }
-  text(): Promise<string>
-  json(): Promise<unknown>
-}
+  readonly headers: { readonly get: (name: string) => string | null }
+  readonly text: () => Promise<string>
+  readonly json: () => Promise<unknown>
+}> {}
 
 export class Site extends Context.Tag("test/worker/Site")<Site, {
   /** Origin of the local server, without a trailing slash. */
@@ -68,7 +67,7 @@ export const SiteLive = Layer.scoped(
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const projectRoot = yield* resolveRootFrom(new URL("../../", import.meta.url))
+    const projectRoot = yield* path.fromFileUrl(new URL("../../", import.meta.url)).pipe(Effect.orDie)
     const distRoot = path.join(projectRoot, "dist")
     const workerDir = path.join(projectRoot, ".wrangler-out")
 
@@ -112,7 +111,17 @@ export const SiteLive = Layer.scoped(
 
     return Site.of({
       url: listening.url.origin,
-      fetch: (input, init) => Effect.promise(() => server.fetch(input, init)),
+      fetch: (input, init) =>
+        Effect.promise(() => server.fetch(input, init)).pipe(
+          Effect.map((response) =>
+            new SiteResponse({
+              status: response.status,
+              headers: { get: (name) => response.headers.get(name) },
+              text: () => response.text(),
+              json: () => response.json()
+            })
+          )
+        ),
       manifest,
       distRoot,
       hashedScript

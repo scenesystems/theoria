@@ -49,24 +49,8 @@ import { snapshotFromTrials } from "./snapshot/versioning.js"
 import { completedTrialsFromState, trialsFromState } from "./state.js"
 import { writeSnapshotIfAvailable } from "./studyStorage.js"
 
-export {
-  /** @since 0.1.0 */
-  defaultExecuteSeed,
-  /** @since 0.1.0 */
-  ExecuteOutcome,
-  /** @since 0.1.0 */
-  ExecuteSeed,
-  /** @since 0.1.0 */
-  noopInterruptionSnapshotSink,
-  /** @since 0.1.0 */
-  StudyClock
-}
-export type {
-  /** @since 0.1.0 */
-  InterruptionSnapshotSink,
-  /** @since 0.1.0 */
-  StudyRuntime
-}
+export { defaultExecuteSeed, ExecuteOutcome, ExecuteSeed, noopInterruptionSnapshotSink, StudyClock }
+export type { InterruptionSnapshotSink, StudyRuntime }
 
 const persistRuntimeCheckpoint = <Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<ConfigFor<Space>, Space>,

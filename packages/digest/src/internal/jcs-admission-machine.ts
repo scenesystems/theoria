@@ -1,6 +1,6 @@
 /** Cooperative descriptor admission and record sorting. @internal */
 
-import { Either, MutableHashSet, MutableRef, Option } from "effect"
+import { Array as Arr, Either, MutableHashSet, MutableRef, Option } from "effect"
 
 import { CyclicValue } from "../schemas/errors.js"
 import { classifyContainer, descriptorShape, ownKeys, reflect, rejection, snapshot } from "./admission.js"
@@ -15,26 +15,25 @@ export const startObject = (state: State, value: object): void => {
   push(state, { _tag: "Symbols", container: result.right, keys: keys.right, stringKeys: [], at: ref(0) })
 }
 
-export const processSymbols = (state: State, frame: Extract<Frame, { _tag: "Symbols" }>): void => {
-  const at = MutableRef.get(frame.at)
-  if (at === frame.keys.length) {
-    const cycle = reflect(() => MutableHashSet.has(state.active, frame.container.identity))
-    if (Either.isLeft(cycle)) return fail(state, cycle.left)
-    if (cycle.right) return fail(state, new CyclicValue())
-    const added = reflect(() => MutableHashSet.add(state.active, frame.container.identity))
-    if (Either.isLeft(added)) return fail(state, added.left)
-    return push(state, {
-      _tag: "Descriptors",
-      container: frame.container,
-      keys: frame.stringKeys,
-      entries: [],
-      at: ref(0),
-      accessor: ref(false),
-      hidden: ref(false),
-      length: ref(Option.none())
-    })
-  }
-  const key = frame.keys[at]!
+const finishSymbols = (state: State, frame: Extract<Frame, { _tag: "Symbols" }>): void => {
+  const cycle = reflect(() => MutableHashSet.has(state.active, frame.container.identity))
+  if (Either.isLeft(cycle)) return fail(state, cycle.left)
+  if (cycle.right) return fail(state, new CyclicValue())
+  const added = reflect(() => MutableHashSet.add(state.active, frame.container.identity))
+  if (Either.isLeft(added)) return fail(state, added.left)
+  push(state, {
+    _tag: "Descriptors",
+    container: frame.container,
+    keys: frame.stringKeys,
+    entries: [],
+    at: ref(0),
+    accessor: ref(false),
+    hidden: ref(false),
+    length: ref(Option.none())
+  })
+}
+
+const admitSymbol = (state: State, frame: Extract<Frame, { _tag: "Symbols" }>, key: PropertyKey): void => {
   if (typeof key === "string") frame.stringKeys[frame.stringKeys.length] = key
   else {
     if (frame.container._tag === "Record") return fail(state, rejection("symbol-property"))
@@ -43,15 +42,21 @@ export const processSymbols = (state: State, frame: Extract<Frame, { _tag: "Symb
     if (result.right.accessor) return fail(state, rejection("accessor-property"))
     if (result.right.enumerable) return fail(state, rejection("symbol-property"))
   }
-  MutableRef.set(frame.at, at + 1)
+  MutableRef.update(frame.at, (at) => at + 1)
   push(state, frame)
 }
+
+export const processSymbols = (state: State, frame: Extract<Frame, { _tag: "Symbols" }>): void =>
+  Option.match(Arr.get(frame.keys, MutableRef.get(frame.at)), {
+    onNone: () => finishSymbols(state, frame),
+    onSome: (key) => admitSymbol(state, frame, key)
+  })
 
 const finishDescriptors = (state: State, frame: Extract<Frame, { _tag: "Descriptors" }>): void => {
   if (MutableRef.get(frame.accessor)) return fail(state, rejection("accessor-property"))
   if (frame.container._tag === "Record") {
     if (MutableRef.get(frame.hidden)) return fail(state, rejection("non-enumerable-property"))
-    const buffer = new Array(frame.entries.length)
+    const buffer = Arr.copy(frame.entries)
     return push(state, {
       _tag: "Sort",
       identity: frame.container.identity,
@@ -79,10 +84,8 @@ const finishDescriptors = (state: State, frame: Extract<Frame, { _tag: "Descript
   })
 }
 
-export const processDescriptors = (state: State, frame: Extract<Frame, { _tag: "Descriptors" }>): void => {
+const admitDescriptor = (state: State, frame: Extract<Frame, { _tag: "Descriptors" }>, key: string): void => {
   const at = MutableRef.get(frame.at)
-  if (at === frame.keys.length) return finishDescriptors(state, frame)
-  const key = frame.keys[at]!
   const result = snapshot(frame.container.identity, key)
   if (Either.isLeft(result)) return fail(state, result.left)
   frame.entries[at] = result.right
@@ -95,17 +98,13 @@ export const processDescriptors = (state: State, frame: Extract<Frame, { _tag: "
   push(state, frame)
 }
 
-export const processArrayCheck = (state: State, frame: Extract<Frame, { _tag: "ArrayCheck" }>): void => {
-  const at = MutableRef.get(frame.at)
-  if (at < frame.entries.length) {
-    const entry = frame.entries[at]!
-    if (indexBelow(entry.key, frame.length)) {
-      MutableRef.update(frame.count, (count) => count + 1)
-      if (!entry.enumerable) MutableRef.set(frame.hidden, true)
-    }
-    MutableRef.set(frame.at, at + 1)
-    return push(state, frame)
-  }
+export const processDescriptors = (state: State, frame: Extract<Frame, { _tag: "Descriptors" }>): void =>
+  Option.match(Arr.get(frame.keys, MutableRef.get(frame.at)), {
+    onNone: () => finishDescriptors(state, frame),
+    onSome: (key) => admitDescriptor(state, frame, key)
+  })
+
+const finishArrayCheck = (state: State, frame: Extract<Frame, { _tag: "ArrayCheck" }>): void => {
   if (MutableRef.get(frame.hidden)) return fail(state, rejection("non-enumerable-property"))
   if (MutableRef.get(frame.count) < frame.length) return fail(state, rejection("sparse-array"))
   if (frame.entries.length !== frame.length + 1) return fail(state, rejection("array-extra-property"))
@@ -113,23 +112,38 @@ export const processArrayCheck = (state: State, frame: Extract<Frame, { _tag: "A
     _tag: "ArrayFill",
     identity: frame.identity,
     entries: frame.entries,
-    values: new Array(frame.length),
+    // The sparse check above guarantees every index below `length` is assigned during fill.
+    values: [],
     length: frame.length,
     at: ref(0)
   })
 }
 
-export const processArrayFill = (state: State, frame: Extract<Frame, { _tag: "ArrayFill" }>): void => {
-  const at = MutableRef.get(frame.at)
-  if (at === frame.entries.length) {
-    if (!emit(state, "[")) return
-    return push(state, { _tag: "ArrayCursor", identity: frame.identity, values: frame.values, at: ref(0) })
-  }
-  const entry = frame.entries[at]!
-  if (indexBelow(entry.key, frame.length)) frame.values[Number(entry.key)] = entry.value
-  MutableRef.set(frame.at, at + 1)
-  push(state, frame)
-}
+export const processArrayCheck = (state: State, frame: Extract<Frame, { _tag: "ArrayCheck" }>): void =>
+  Option.match(Arr.get(frame.entries, MutableRef.get(frame.at)), {
+    onNone: () => finishArrayCheck(state, frame),
+    onSome: (entry) => {
+      if (indexBelow(entry.key, frame.length)) {
+        MutableRef.update(frame.count, (count) => count + 1)
+        if (!entry.enumerable) MutableRef.set(frame.hidden, true)
+      }
+      MutableRef.update(frame.at, (at) => at + 1)
+      push(state, frame)
+    }
+  })
+
+export const processArrayFill = (state: State, frame: Extract<Frame, { _tag: "ArrayFill" }>): void =>
+  Option.match(Arr.get(frame.entries, MutableRef.get(frame.at)), {
+    onNone: () => {
+      if (!emit(state, "[")) return
+      push(state, { _tag: "ArrayCursor", identity: frame.identity, values: frame.values, at: ref(0) })
+    },
+    onSome: (entry) => {
+      if (indexBelow(entry.key, frame.length)) frame.values[Number(entry.key)] = entry.value
+      MutableRef.update(frame.at, (at) => at + 1)
+      push(state, frame)
+    }
+  })
 
 export const processSort = (state: State, frame: Extract<Frame, { _tag: "Sort" }>): void => {
   const length = frame.entries.length, width = MutableRef.get(frame.width), left = MutableRef.get(frame.left)
@@ -156,12 +170,17 @@ export const processSort = (state: State, frame: Extract<Frame, { _tag: "Sort" }
   const middle = Math.min(left + width, length), right = Math.min(left + width * 2, length)
   const i = MutableRef.get(frame.i), j = MutableRef.get(frame.j), k = MutableRef.get(frame.k)
   if (k < right) {
-    const source = MutableRef.get(frame.source),
-      takeLeft = i < middle && (j >= right || source[i]!.key <= source[j]!.key)
-    MutableRef.get(frame.target)[k] = source[takeLeft ? i : j]!
-    MutableRef.set(takeLeft ? frame.i : frame.j, (takeLeft ? i : j) + 1)
-    MutableRef.set(frame.k, k + 1)
-    return push(state, frame)
+    const source = MutableRef.get(frame.source)
+    const fromLeft = i < middle ? Arr.get(source, i) : Option.none()
+    const fromRight = j < right ? Arr.get(source, j) : Option.none()
+    const takeLeft = Option.isSome(fromLeft) && (Option.isNone(fromRight) || fromLeft.value.key <= fromRight.value.key)
+    const picked = takeLeft ? fromLeft : fromRight
+    if (Option.isSome(picked)) {
+      MutableRef.get(frame.target)[k] = picked.value
+      MutableRef.set(takeLeft ? frame.i : frame.j, (takeLeft ? i : j) + 1)
+      MutableRef.set(frame.k, k + 1)
+      return push(state, frame)
+    }
   }
   MutableRef.set(frame.left, right)
   MutableRef.set(frame.i, right)

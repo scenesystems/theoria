@@ -48,8 +48,7 @@ const makeStudyStorage = (options: {
   readonly studyId: string
 }) =>
   Study.makeStudyStorage(Study.studyStorageOptions(options.directory)).pipe(
-    Effect.provide(SearchContracts.fileSystemSink(options.directory)),
-    Effect.provide(makeEnvelopeContextLayer(options))
+    Effect.provide(Layer.merge(SearchContracts.fileSystemSink(options.directory), makeEnvelopeContextLayer(options)))
   )
 
 describe("Experimental.Calibration reporting contracts", () => {

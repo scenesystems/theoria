@@ -50,8 +50,7 @@ export const withStudyRuntime = <A, E, R>(
   options: StudyRuntimeOptions
 ) =>
   effect.pipe(
-    Effect.provide(studyRuntimeLayer(options)),
-    Effect.provide(noopArtifactSinkLayer)
+    Effect.provide(studyRuntimeLayer(options).pipe(Layer.provideMerge(noopArtifactSinkLayer)))
   )
 
 const progressOptions = (options: StudyProgressOptions) =>

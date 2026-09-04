@@ -2,14 +2,14 @@ import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect } from "effect"
 import { Application } from "typedoc"
 
-import {
-  type DocsManifest,
-  type DocsSearchIndex
-} from "@theoria/docs-model"
+import { type DocsManifest, type DocsSearchIndex } from "@theoria/docs-model"
+import { convertApiPackage } from "./convert-package.js"
 import { generateApiPackage } from "./generate-package.js"
 import { makeApiDocLinks } from "./links.js"
 import { type ApiReferenceManifest } from "./model.js"
 import {
+  generatedOutputsLayer,
+  pruneStaleOutputs,
   writeApiManifest,
   writeApiSearchIndex,
   writeDocsManifest
@@ -26,25 +26,27 @@ export const generateApiReference = (input: {
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const links = makeApiDocLinks(input.sourcePackages)
     const browserVersionRoot = path.join(input.browserOutputRoot, input.revision)
-    // Both roots are fully regenerated. Clearing the browser root drops the
-    // `docs-data/<revision>/` trees of earlier builds, which would otherwise
-    // be copied into `dist/` and deployed as stale static assets.
+    // The committed `api-reference/` tree is fully regenerated (TypeDoc writes
+    // reflections into it directly). The browser root under `public/` is
+    // written in place and pruned afterwards so a running Vite dev server
+    // keeps serving it; see `GeneratedOutputs` in ./output.ts.
+    yield* fileSystem.remove(input.outputRoot, { recursive: true, force: true }).pipe(Effect.orDie)
     yield* Effect.forEach(
-      [input.outputRoot, input.browserOutputRoot],
-      (directory) => fileSystem.remove(directory, { recursive: true, force: true }).pipe(Effect.orDie),
-      { discard: true }
-    )
-    yield* Effect.forEach(
-      [input.outputRoot, input.browserOutputRoot, browserVersionRoot],
+      [input.outputRoot, browserVersionRoot],
       (directory) => fileSystem.makeDirectory(directory, { recursive: true }).pipe(Effect.orDie),
       { discard: true }
     )
 
-    const generatedPackages = yield* Effect.forEach(
+    const convertedPackages = yield* Effect.forEach(
       input.sourcePackages,
-      (sourcePackage) => generateApiPackage({ ...input, browserVersionRoot, links, sourcePackage }),
+      (sourcePackage) => convertApiPackage({ ...input, sourcePackage }),
+      { concurrency: 4 }
+    )
+    const links = makeApiDocLinks(convertedPackages)
+    const generatedPackages = yield* Effect.forEach(
+      convertedPackages,
+      (converted) => generateApiPackage({ ...input, browserVersionRoot, links, converted }),
       { concurrency: 4 }
     )
     const packages = Arr.map(generatedPackages, (generated) => generated.package)
@@ -68,6 +70,7 @@ export const generateApiReference = (input: {
     yield* writeApiSearchIndex(input.outputRoot, searchIndex)
     yield* writeApiSearchIndex(browserVersionRoot, searchIndex)
     yield* writeDocsManifest(input.browserOutputRoot, docsManifest)
+    yield* pruneStaleOutputs(input.browserOutputRoot)
 
     return manifest
-  })
+  }).pipe(Effect.provide(generatedOutputsLayer))

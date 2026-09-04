@@ -720,3 +720,14 @@ describe("Complex / complexDerivativeWithPolicies", () => {
       expectClose(result, 6, 1e-15)
     }).pipe(Effect.provide(strictTypedArrayLayer)))
 })
+
+describe("Complex / Schema", () => {
+  it.effect("encodes and decodes a Complex value through its Schema", () =>
+    Effect.gen(function*() {
+      const z = new Complex({ re: 3, im: 4 })
+      const encoded = yield* Schema.encode(Complex)(z)
+      const decoded = yield* Schema.decode(Complex)(encoded)
+      expect(decoded.re).toStrictEqual(3)
+      expect(decoded.im).toStrictEqual(4)
+    }))
+})

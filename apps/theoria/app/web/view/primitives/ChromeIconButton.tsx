@@ -5,7 +5,7 @@ export const chromeHeaderGlyphClassName =
 
 export const chromeIconButtonClassName = ({
   active,
-  className
+  className = ""
 }: {
   readonly active: boolean
   readonly className?: string

@@ -3,6 +3,7 @@
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @since 0.1.0
+ * @module
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { streamFromEmitter } from "@scenesystems/effect-search/Study"
@@ -88,15 +89,7 @@ export type BootstrapFewShotOptions<
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
 }>
 
-export type {
-  /**
-   * Receives each bootstrap event before optimization advances.
-   *
-   * @since 0.1.0
-   * @category type-level
-   */
-  BootstrapEventSink
-} from "./runtime/round.js"
+export type { BootstrapEventSink } from "./runtime/round.js"
 
 /**
  * Discards bootstrap events without adding failures or requirements.

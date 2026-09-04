@@ -18,10 +18,7 @@ import { aggregateObjectiveSamples } from "./trialEvaluation/aggregation.js"
 import { type CacheResolveAsTrialError, ObjectiveAttempt } from "./trialEvaluation/model.js"
 import { evaluateObjectiveWithRetry } from "./trialEvaluation/retry.js"
 
-export {
-  /** @since 0.1.0 */
-  ObjectiveAttempt
-}
+export { ObjectiveAttempt }
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 

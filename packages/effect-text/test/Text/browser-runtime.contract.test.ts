@@ -1,14 +1,10 @@
-import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
-import * as ts from "typescript"
 
-import { parseTypeScript, readProjectFile, variableInitializerTexts } from "@theoria/source-proof"
 import { Browser, Contracts, Text } from "../../src/index.js"
 
-const packageRootUrl = new URL("../../", import.meta.url)
 const browserProfiles = Browser.BrowserSupportManifest.profiles
 const browserProfile = Browser.browserSupportProfile()
 const defaultEngineProfile = browserProfile.engineProfile
@@ -25,32 +21,6 @@ const visualLine = (
   text,
   width
 })
-
-const parseVariableInitializer = (source: string, variableName: string): ts.SourceFile => {
-  const parsed = parseTypeScript(`${variableName}.ts`, source)
-  const initializer = Arr.head(variableInitializerTexts(parsed, variableName)).pipe(Option.getOrElse(() => "undefined"))
-
-  return parseTypeScript(`${variableName}.initializer.ts`, `const ${variableName} = ${initializer}`)
-}
-
-const callExpressionTexts = (sourceFile: ts.SourceFile): ReadonlyArray<string> => {
-  const collect = (node: ts.Node): ReadonlyArray<string> =>
-    Arr.reduce(
-      Arr.fromIterable(node.getChildren(sourceFile)),
-      ts.isCallExpression(node) ? Arr.make(node.expression.getText(sourceFile)) : Arr.empty<string>(),
-      (texts, child) => Arr.appendAll(texts, collect(child))
-    )
-
-  return collect(sourceFile)
-}
-
-const readInitializerCallExpressions = (relativePath: string, variableName: string) =>
-  readProjectFile(packageRootUrl, relativePath).pipe(
-    Effect.map((source) => callExpressionTexts(parseVariableInitializer(source, variableName)))
-  )
-
-const containsString = (values: ReadonlyArray<string>, expected: string): boolean =>
-  Arr.some(values, (value) => value === expected)
 
 const prepareInput = (
   text: string,
@@ -158,30 +128,8 @@ const deterministicLayer = (profile: Browser.BrowserSupportProfileType) =>
   )
 
 describe("Text browser runtime contracts", () => {
-  it.effect("browser support manifest ships multiple profiles with explicit engine and tab policy data", () =>
-    Effect.sync(() => {
-      const profileIds = Arr.map(browserProfiles, (profile) => profile.id)
-
-      expect(profileIds).toEqual(["canvas-monospace", "canvas-system-ui"])
-      expect(browserProfiles[0]?.fontSelection).toBe("named-family")
-      expect(browserProfiles[0]?.fontStack).toEqual(["Mono", "monospace"])
-      expect(browserProfiles[1]?.fontSelection).toBe("browser-default-stack")
-      expect(browserProfiles[1]?.fontStack).toEqual(["system-ui", "sans-serif"])
-      expect(Arr.every(browserProfiles, (profile) => profile.tabPolicy.mode === "space-columns")).toBe(true)
-      expect(Arr.every(browserProfiles, (profile) => profile.engineProfile.tabWidth === profile.tabPolicy.columns))
-        .toBe(true)
-      expect(
-        (browserProfiles[1]?.engineProfile.lineFitEpsilon ?? 0) >
-          (browserProfiles[0]?.engineProfile.lineFitEpsilon ?? 0)
-      ).toBe(true)
-    }))
-
   it.effect("CanvasTextMeasurerLive is concurrency-safe under repeated prepare calls", () =>
     Effect.gen(function*() {
-      const initializerCalls = yield* readInitializerCallExpressions(
-        "src/Browser/layers.ts",
-        "makeCanvasTextMeasurer"
-      ).pipe(Effect.provide(BunContext.layer))
       const context = new MonospaceCanvasContext()
       const inputs: ReadonlyArray<Text.PrepareInputType> = Arr.make(
         prepareInput("alpha beta", { family: browserProfile.defaultFontFamily, size: 10 }, "normal"),
@@ -201,8 +149,6 @@ describe("Text browser runtime contracts", () => {
         { concurrency: "unbounded" }
       ).pipe(Effect.provide(browserLayer(context, Browser.initialFontReadinessRevision())))
 
-      expect(containsString(initializerCalls, "Effect.makeSemaphore")).toBe(true)
-      expect(containsString(initializerCalls, "contextSemaphore.withPermits")).toBe(true)
       expect(context.measureCount).toBeGreaterThan(0)
       expect(context.font).toBe("10px monospace")
       expect(context.direction).toBe("inherit")

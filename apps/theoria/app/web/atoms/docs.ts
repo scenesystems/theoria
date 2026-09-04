@@ -1,5 +1,9 @@
 import { Atom } from "@effect-atom/atom"
-import { Effect, Option } from "effect"
+import { Effect, Option, Schema } from "effect"
+
+export class ClipboardWriteError extends Schema.TaggedError<ClipboardWriteError>()("ClipboardWriteError", {
+  cause: Schema.Defect
+}) {}
 
 export const docsSearchOpenAtom = Atom.make(false)
 export const docsSearchQueryAtom = Atom.make("")
@@ -11,7 +15,7 @@ export const docsCopyFailedCodeAtom = Atom.make(Option.none<string>())
 export const copyDocsCodeAtom = Atom.fn<string>()((source, ctx) =>
   Effect.tryPromise({
     try: () => globalThis.navigator.clipboard.writeText(source),
-    catch: (cause) => cause
+    catch: (cause) => new ClipboardWriteError({ cause })
   }).pipe(
     Effect.matchEffect({
       onFailure: () =>

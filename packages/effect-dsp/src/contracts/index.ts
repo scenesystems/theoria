@@ -7,6 +7,7 @@
  * for tracing, objective evaluation, artifact publication, and effect-search interop.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./MetricResult.js"

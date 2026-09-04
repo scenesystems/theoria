@@ -49,12 +49,11 @@
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
     "check:examples": "tsc -b tsconfig.examples.json",
-    "lint": "eslint --max-warnings=0 src test benchmarks examples",
-    "lint:fix": "eslint --max-warnings=0 --fix src test benchmarks examples",
+    "lint": "cd ../.. && oxlint packages/effect-text && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/effect-text && dprint check \"packages/effect-text/**\"",
+    "lint:fix": "cd ../.. && oxlint --fix packages/effect-text && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/effect-text && dprint fmt \"packages/effect-text/**\"",
     "test": "vitest run --root ../.. packages/effect-text/test",
     "bench": "bun benchmarks/run.ts",
     "verify:synthetic-regression": "bun examples/live/syntheticRegressionHarness.ts",
-    "verify:calibration": "bun benchmarks/verifyCalibration.ts",
     "verify:support-manifest": "bun benchmarks/verifySupportManifest.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
@@ -68,8 +67,5 @@
   "dependencies": {
     "@scenesystems/effect-math": "workspace:^",
     "@scenesystems/effect-search": "workspace:^"
-  },
-  "devDependencies": {
-    "@theoria/source-proof": "workspace:*"
   }
 }

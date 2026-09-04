@@ -12,6 +12,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 import {
   slh_dsa_sha2_128f,

@@ -3,6 +3,7 @@
  *
  * @since 0.1.1
  * @category algorithms
+ * @module
  */
 import { p256 } from "@noble/curves/nist.js"
 import { Effect } from "effect"

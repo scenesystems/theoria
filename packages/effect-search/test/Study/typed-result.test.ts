@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Chunk, Effect, Option, Stream } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
@@ -29,16 +29,16 @@ describe("Study typed results", () => {
       })
       const typedResult: Study.StudyResult<SearchSpace.Type<typeof space>> = optimized
 
-      expect(typedResult._tag).toBe("SingleObjective")
+      const singleObjective = yield* Option.fromNullable(
+        typedResult._tag === "SingleObjective" ? typedResult : undefined
+      )
+      const typedBestConfig = expectTypedConfig(singleObjective.bestTrial.config)
 
-      if (typedResult._tag === "SingleObjective") {
-        const typedBestConfig = expectTypedConfig(typedResult.bestTrial.config)
-        expect(typedBestConfig.lr).toBeGreaterThanOrEqual(0.001)
-      }
+      expect(typedBestConfig.lr).toBeGreaterThanOrEqual(0.001)
     }))
 
   it.effect("infers objective config for optimizeStream without explicit annotations", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const space = makeTypedSpace()
       const stream = Study.optimizeStream({
         space,
@@ -50,8 +50,14 @@ describe("Study typed results", () => {
           return Effect.succeed(typed.lr)
         }
       })
+      const events = Chunk.toReadonlyArray(yield* Stream.runCollect(stream))
 
-      expect(stream).toBeDefined()
+      expect(events.map((event) => event._tag)).toEqual([
+        "TrialStarted",
+        "TrialCompleted",
+        "BestUpdated",
+        "StudyCompleted"
+      ])
     }))
 
   it.effect("threads config type into MultiObjectiveResult.paretoFront", () =>
@@ -68,15 +74,10 @@ describe("Study typed results", () => {
         }
       })
 
-      expect(optimized._tag).toBe("MultiObjective")
+      const multiObjective = yield* Option.fromNullable(optimized._tag === "MultiObjective" ? optimized : undefined)
+      const firstPareto = yield* Option.fromNullable(multiObjective.paretoFront[0])
+      const typedParetoConfig = expectTypedConfig(firstPareto.config)
 
-      if (optimized._tag === "MultiObjective") {
-        Option.fromNullable(optimized.paretoFront[0]).pipe(
-          Option.map((firstPareto) => {
-            const typedParetoConfig = expectTypedConfig(firstPareto.config)
-            expect(typedParetoConfig.optimizer === "adam" || typedParetoConfig.optimizer === "sgd").toBe(true)
-          })
-        )
-      }
+      expect(typedParetoConfig.optimizer === "adam" || typedParetoConfig.optimizer === "sgd").toBe(true)
     }))
 })

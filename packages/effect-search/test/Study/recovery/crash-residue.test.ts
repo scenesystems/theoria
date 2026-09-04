@@ -78,8 +78,7 @@ describe("recovery crash residue", () => {
       })
       const storageOptions = Study.studyStorageOptions(directory)
       const storage = yield* Study.makeStudyStorage(storageOptions).pipe(
-        Effect.provide(fileSystemSink(directory)),
-        Effect.provide(makeTestEnvelopeContextLayer)
+        Effect.provide(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
       )
 
       const seed = 5519
@@ -140,9 +139,11 @@ describe("recovery crash residue", () => {
         trials: resumedTrials,
         objective: singleObjective
       }).pipe(
-        Effect.provide(Study.StudyStorageLive(storageOptions)),
-        Effect.provide(fileSystemSink(directory)),
-        Effect.provide(makeTestEnvelopeContextLayer)
+        Effect.provide(
+          Study.StudyStorageLive(storageOptions).pipe(
+            Layer.provideMerge(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+          )
+        )
       )
 
       const resumedSingle = asSingleObjective(resumedResult)
@@ -185,9 +186,11 @@ describe("recovery crash residue", () => {
           trials: 2,
           objective: singleObjective
         }).pipe(
-          Effect.provide(Study.StudyStorageLive(storageOptions)),
-          Effect.provide(NoopArtifactSink),
-          Effect.provide(makeTestEnvelopeContextLayer)
+          Effect.provide(
+            Study.StudyStorageLive(storageOptions).pipe(
+              Layer.provideMerge(Layer.merge(NoopArtifactSink, makeTestEnvelopeContextLayer))
+            )
+          )
         )
       )
 
@@ -214,9 +217,11 @@ describe("recovery crash residue", () => {
           trials: 2,
           objective: singleObjective
         }).pipe(
-          Effect.provide(Study.StudyStorageLive(storageOptions)),
-          Effect.provide(NoopArtifactSink),
-          Effect.provide(makeTestEnvelopeContextLayer)
+          Effect.provide(
+            Study.StudyStorageLive(storageOptions).pipe(
+              Layer.provideMerge(Layer.merge(NoopArtifactSink, makeTestEnvelopeContextLayer))
+            )
+          )
         )
       )
 

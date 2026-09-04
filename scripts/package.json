@@ -1,0 +1,11 @@
+{
+  "name": "@theoria/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Repository automation scripts. Pins typedoc and its TypeScript 6 peer so they resolve independently of the TypeScript 7 toolchain used for type-checking.",
+  "dependencies": {
+    "typedoc": "0.28.20",
+    "typescript": "6.0.2"
+  }
+}

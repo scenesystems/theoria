@@ -1,6 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Effect, Option } from "effect"
+import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -10,7 +10,7 @@ import type { PlaceBuild } from "../../contracts/imagined-place-result.js"
 import {
   type PlaceArtifact,
   type PlaceBuildRequest,
-  type PlaceScenario,
+  PlaceScenario,
   placeScenarioMeta
 } from "../../contracts/imagined-place.js"
 import type { SuccessEnvelopeData } from "../services/envelopeRequest.js"
@@ -91,10 +91,12 @@ export const placeArtifactAtom: AtomType.Atom<Option.Option<PlaceArtifact>> = At
  * arrival": no highlight, because nothing changed. Picking another pattern is
  * a different place, not a change to this one, so the count starts over.
  */
-export type PlaceVersionChange = {
-  readonly current: Option.Option<{ readonly scenario: PlaceScenario; readonly contentId: string }>
-  readonly changes: number
-}
+const PlaceVersion = Schema.Struct({ scenario: PlaceScenario, contentId: Schema.String })
+export const PlaceVersionChange = Schema.Struct({
+  current: Schema.OptionFromSelf(PlaceVersion),
+  changes: Schema.Number
+})
+export type PlaceVersionChange = typeof PlaceVersionChange.Type
 
 const sameVersion = Option.getEquivalence<{ readonly scenario: PlaceScenario; readonly contentId: string }>(
   (a, b) => a.scenario === b.scenario && Str.Equivalence(a.contentId, b.contentId)

@@ -1,90 +1,88 @@
-import type { ComponentPropsWithRef, ElementType, ReactNode } from "react"
+import type { ComponentPropsWithRef, ElementType } from "react"
 
-type SlotProps<E extends ElementType> = {
+import { classNames } from "./classNames.js"
+
+type SlotProps<E extends ElementType> = ComponentPropsWithRef<E> & {
   readonly as?: E
-  readonly children?: ReactNode
   readonly className?: string
-} & Omit<ComponentPropsWithRef<E>, "as" | "children" | "className">
-
-const classes = (base: string, value: string | undefined): string =>
-  [base, value ?? ""].filter((entry) => entry.length > 0).join(" ")
+}
 
 export const Layer = <E extends ElementType = "div">({
   as,
-  className,
+  className = "",
   ...props
 }: SlotProps<E>) => {
   const Component = as ?? "div"
 
-  return <Component {...props} className={classes("min-w-0", className)} />
+  return <Component {...props} className={classNames("min-w-0", className)} />
 }
 
 export const Header = <E extends ElementType = "header">({
   as,
-  className,
+  className = "",
   ...props
 }: SlotProps<E>) => {
   const Component = as ?? "header"
 
-  return <Component {...props} className={classes("min-w-0", className)} />
+  return <Component {...props} className={classNames("min-w-0", className)} />
 }
 
 export const Main = <E extends ElementType = "main">({
   as,
-  className,
+  className = "",
   ...props
 }: SlotProps<E>) => {
   const Component = as ?? "main"
 
-  return <Component {...props} className={classes("min-w-0", className)} />
+  return <Component {...props} className={classNames("min-w-0", className)} />
 }
 
 export const Nav = <E extends ElementType = "nav">({
   as,
-  className,
+  className = "",
   ...props
 }: SlotProps<E>) => {
   const Component = as ?? "nav"
 
-  return <Component {...props} className={classes("min-w-0", className)} />
+  return <Component {...props} className={classNames("min-w-0", className)} />
 }
 
 export const Section = <E extends ElementType = "section">({
   as,
-  className,
+  className = "",
   ...props
 }: SlotProps<E>) => {
   const Component = as ?? "section"
 
-  return <Component {...props} className={classes("min-w-0", className)} />
+  return <Component {...props} className={classNames("min-w-0", className)} />
 }
 
 export const Stack = <E extends ElementType = "div">({
   as,
-  className,
+  className = "",
   ...props
 }: SlotProps<E>) => {
   const Component = as ?? "div"
 
-  return <Component {...props} className={classes("flex min-w-0 flex-col", className)} />
+  return <Component {...props} className={classNames("flex min-w-0 flex-col", className)} />
 }
 
 export const Rail = <E extends ElementType = "div">({
   as,
-  className,
+  className = "",
   ...props
 }: SlotProps<E>) => {
   const Component = as ?? "div"
 
-  return <Component {...props} className={classes("flex min-w-0 items-center", className)} />
+  return <Component {...props} className={classNames("flex min-w-0 items-center", className)} />
 }
 
 export const Cluster = <E extends ElementType = "div">({
   as,
-  className,
+  className = "",
   ...props
 }: SlotProps<E>) => {
   const Component = as ?? "div"
 
-  return <Component {...props} className={classes("flex min-w-0 flex-wrap items-center", className)} />
+  return <Component {...props} className={classNames("flex min-w-0 flex-wrap items-center", className)} />
 }

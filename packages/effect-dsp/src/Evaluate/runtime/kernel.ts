@@ -44,15 +44,7 @@ export type EvaluateOptions<
   readonly concurrency?: number
 }>
 
-export {
-  /**
-   * Receives each evaluation lifecycle event.
-   *
-   * @since 0.1.0
-   * @category type-level
-   */
-  type EvaluationEventSink
-} from "./example.js"
+export { type EvaluationEventSink } from "./example.js"
 
 /**
  * Runs the evaluation kernel and sends lifecycle events to a sink.

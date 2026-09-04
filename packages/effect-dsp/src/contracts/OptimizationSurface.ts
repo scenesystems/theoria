@@ -7,45 +7,15 @@ import { Array as Arr, Option, Schema } from "effect"
 import type { ModuleParams } from "./ModuleParams.js"
 import { OutputStrategySchema } from "./OutputStrategy.js"
 
-export {
-  /**
-   * Uses {@link UsageSample} under the name expected by objective payloads.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  UsageSample as OptimizationObjectiveUsage
-} from "./Usage.js"
+export { UsageSample as OptimizationObjectiveUsage } from "./Usage.js"
 
 export {
-  /**
-   * Projects a trace entry through {@link projectTraceObjectiveProjection}.
-   *
-   * @since 0.1.0
-   * @category combinators
-   */
   projectTraceObjectiveProjection as projectOptimizationObjective,
-  /**
-   * Exposes {@link TraceObjectiveProjection} under its optimizer-facing name.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   TraceObjectiveProjection as OptimizationObjectiveSurface
 } from "./TraceProjection.js"
 
 export {
-  /**
-   * Exposes {@link ModuleGraphProjection} under its optimizer-facing name.
-   * @since 0.1.0
-   * @category models
-   */
   ModuleGraphProjection as OptimizationModuleGraphSurface,
-  /**
-   * Projects a module graph through {@link projectModuleGraph}.
-   * @since 0.1.0
-   * @category combinators
-   */
   projectModuleGraph as projectOptimizationModuleGraph
 } from "./ModuleGraph.js"
 

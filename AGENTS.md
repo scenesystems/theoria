@@ -26,7 +26,7 @@ The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal
 ## Rules
 
 1. **USE `bun` ONLY.** Never `npm`, `npx`, `yarn`, `pnpm`. Use `bunx` for CLI tools.
-2. **FIVE GATES.** `bun run check && bun run check:tests && bun run lint && bun run test && bun run build` — all green before work is complete.
+2. **FOUR GATES.** `bun run check:all && bun run lint && bun run test && bun run build` — all green before work is complete. `check:all` type-checks sources, tests, examples, scripts, and benchmarks.
 3. **YOU OWN ALL ERRORS.** You see it, you own it, you fix it.
 4. **NEVER USE `git stash`.** Ask the user how to proceed.
 5. **RUN CLI COMMANDS.** VS Code diagnostics are insufficient.
@@ -35,20 +35,22 @@ The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal
 
 ## Commands
 
-| Task              | Command               |
-| ----------------- | --------------------- |
-| Type check (src)  | `bun run check`       |
-| Type check (test) | `bun run check:tests` |
-| Lint              | `bun run lint`        |
-| Test              | `bun run test`        |
-| Build             | `bun run build`       |
-| Clean             | `bun run clean`       |
+| Task                                            | Command                  |
+| ----------------------------------------------- | ------------------------ |
+| Type check (src + scripts)                      | `bun run check`          |
+| Type check (test)                               | `bun run check:tests`    |
+| Type check (examples, package scripts, benches) | `bun run check:examples` |
+| Type check (everything)                         | `bun run check:all`      |
+| Lint                                            | `bun run lint`           |
+| Test                                            | `bun run test`           |
+| Build                                           | `bun run build`          |
+| Clean                                           | `bun run clean`          |
 
 Per-package: `bun run --filter '@scenesystems/effect-math' check`
 
 **CRITICAL:** The `--filter` flag goes after `run`, NOT before it. The pattern matches package names from `package.json`, not directory paths. Glob patterns work: `bun run --filter '@scenesystems/*' build`.
 
-Before committing: `bun run check && bun run check:tests && bun run lint && bun run test`
+Before committing: `bun run check:all && bun run lint && bun run test`
 
 For `apps/theoria` dev work, use the checked-in runbook: `bun run app:theoria:tmux`. Treat the frontend dev server port as fixed at `5175`; do not improvise alternate Vite ports unless the user explicitly asks for a config change.
 
@@ -69,7 +71,14 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced by `eslint.config.mjs` with `--max-warnings=0`. Use `it.effect()` in tests.
+Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+
+Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
+
+- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers; the only files outside the rules are framework configuration (`**/*.config.*`) and built assets (`apps/*/public/**`). Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
+- `.oxlintrc.json` owns every generic JavaScript and TypeScript rule: correctness, `no-unused-vars`, `no-explicit-any`, import hygiene, the Node builtin ban (`import/no-nodejs-modules`), and the `@ts-*` directive ban. It has no path overrides. Warnings fail the run (`denyWarnings`). Two rules are intentionally off: `require-yield` (an `Effect.gen` body without `yield*` is a legitimate idiom) and `typescript/prefer-as-const` (conflicts with the `as` ban). The two linters do not overlap.
+- `.dprint.json` owns formatting.
+- `@effect/tsgo` adds Effect diagnostics inside `tsc`.
 
 - Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use `@effect/platform`, Bun platform services, or package-owned abstractions instead.
 - Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.
@@ -101,15 +110,14 @@ All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced 
 - **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
-- **240 LOC limit**: Files over 240 LOC require decomposition rationale and split plan.
-- **Tests assert contracts**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests.
-- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious.
+- **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
+- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every entrypoint `index.ts` (and every source file that becomes a docs page) opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
 
 ---
 
 ## Governance
 
-- `internal/*` blocked from consumers via exports map. Enforced by governance tests.
+- `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
 - Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
 - All randomness through Effect `Random` with seeded generators.
@@ -182,7 +190,7 @@ The `apps/theoria` site deploys as one Cloudflare Worker (`apps/theoria/worker.t
 | staging    | `theoria-staging` | `theoria.staging.scenesystems.io`        | `Theoria` on every push to `main`                             |
 | production | `theoria`         | `theoria.scenesystems.io`                | `Theoria` after staging passes and `production` is approved   |
 
-The build runs once per commit (`build:web`, `deploy:dry-run`, `test:worker`) and the same artifact is checked (`theoria-build-check`), deployed, and verified (`theoria-verify-deployment`) at each stage. Only `theoria.scenesystems.io` is indexable; every other hostname gets `X-Robots-Tag: noindex`.
+The build runs once per commit (`build:web`, `deploy:dry-run`, `test:worker`) and the same artifact is checked (`theoria-build-check` runs `apps/theoria/scripts/check-build-output.ts`: every `dist/` file must have a content type in `app/server/config/static-store.ts`, the single MIME table the Bun server also uses), deployed, and verified (`theoria-verify-deployment`) at each stage. Only `theoria.scenesystems.io` is indexable; every other hostname gets `X-Robots-Tag: noindex`.
 
 ### Deployment Protocol
 

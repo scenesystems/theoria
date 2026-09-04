@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Either, Schema, Stream } from "effect"
+import { Chunk, Effect, Either, Option, Schema, Stream } from "effect"
 
 import { InvalidStudyConfig } from "../../src/Errors/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
@@ -41,12 +41,7 @@ describe("Study.resumeStream", () => {
         trials: 4,
         objective
       })
-      const single = asSingleObjective(baseline)
-      expect(single).toBeDefined()
-
-      if (!single) {
-        return
-      }
+      const single = yield* Option.fromNullable(asSingleObjective(baseline))
 
       const snapshot = yield* Study.snapshot(single)
       const eventsChunk = yield* Stream.runCollect(
@@ -78,12 +73,7 @@ describe("Study.resumeStream", () => {
         trials: 3,
         objective
       })
-      const single = asSingleObjective(baseline)
-      expect(single).toBeDefined()
-
-      if (!single) {
-        return
-      }
+      const single = yield* Option.fromNullable(asSingleObjective(baseline))
 
       const snapshot = yield* Study.snapshot(single)
       const resumed = yield* Effect.either(
@@ -100,12 +90,9 @@ describe("Study.resumeStream", () => {
       )
 
       expect(Either.isLeft(resumed)).toBe(true)
-
-      if (Either.isRight(resumed)) {
-        return
+      if (Either.isLeft(resumed)) {
+        expect(resumed.left).toBeInstanceOf(InvalidStudyConfig)
+        expect(resumed.left._tag).toBe("effect-search/InvalidStudyConfig")
       }
-
-      expect(resumed.left).toBeInstanceOf(InvalidStudyConfig)
-      expect(resumed.left._tag).toBe("effect-search/InvalidStudyConfig")
     }))
 })

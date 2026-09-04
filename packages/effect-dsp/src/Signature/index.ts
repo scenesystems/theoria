@@ -7,6 +7,7 @@
  * missing descriptions remain absent rather than being generated.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./annotations.js"

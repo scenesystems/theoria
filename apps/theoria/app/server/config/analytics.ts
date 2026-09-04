@@ -26,10 +26,11 @@ export const CloudflareBeaconToken = Schema.String.pipe(
 
 export type CloudflareBeaconToken = typeof CloudflareBeaconToken.Type
 
-export type AnalyticsSettings = {
-  readonly googleMeasurementId: Option.Option<GoogleMeasurementId>
-  readonly cloudflareBeaconToken: Option.Option<CloudflareBeaconToken>
-}
+export const AnalyticsSettings = Schema.Struct({
+  googleMeasurementId: Schema.OptionFromSelf(GoogleMeasurementId),
+  cloudflareBeaconToken: Schema.OptionFromSelf(CloudflareBeaconToken)
+})
+export type AnalyticsSettings = typeof AnalyticsSettings.Type
 
 export class Analytics extends Context.Tag("@theoria/app/server/config/Analytics")<Analytics, AnalyticsSettings>() {}
 

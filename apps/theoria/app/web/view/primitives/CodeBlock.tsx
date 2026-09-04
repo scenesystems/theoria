@@ -1,5 +1,5 @@
-import { Button } from "@base-ui-components/react/button"
-import { ScrollArea } from "@base-ui-components/react/scroll-area"
+import { Button } from "@base-ui/react/button"
+import { ScrollArea } from "@base-ui/react/scroll-area"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { CheckIcon, ClipboardDocumentIcon, ExclamationCircleIcon } from "@heroicons/react/20/solid"
 import { Match } from "effect"

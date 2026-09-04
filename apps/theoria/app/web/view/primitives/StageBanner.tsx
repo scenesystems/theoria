@@ -36,7 +36,7 @@ export const StageBanner = ({
         />
         <SemanticText as="span" className={textClassName(tone)} role="code-meta" text={text} variant="expanded" />
       </Cluster>
-      {action !== undefined ? action : null}
+      {action}
     </Cluster>
   </Layer>
 )

@@ -1,17 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Logger, type LogLevel, MutableRef, Option, Runtime } from "effect"
+import { Data, Effect, Layer, Logger, type LogLevel, MutableRef, Option, Runtime } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceBuildLimiter } from "../../app/server/config/place-build-limiter.js"
 import { layerFromEnv, windowSeconds } from "../../app/server/platform/workers-rate-limit.js"
 
-type Entry = { readonly level: LogLevel.LogLevel; readonly message: unknown }
+class Entry extends Data.Class<{ readonly level: LogLevel.LogLevel; readonly message: unknown }> {}
 
 /** Collects every log entry so a test can assert what the layer reported. */
 const collecting = (seen: MutableRef.MutableRef<ReadonlyArray<Entry>>) =>
   Logger.replace(
     Logger.defaultLogger,
-    Logger.make(({ logLevel, message }) => MutableRef.update(seen, Arr.append({ level: logLevel, message })))
+    Logger.make(({ logLevel, message }) => MutableRef.update(seen, Arr.append(new Entry({ level: logLevel, message }))))
   )
 
 const admit = (actor: string) => PlaceBuildLimiter.pipe(Effect.flatMap((limiter) => limiter.admit(actor)))
@@ -40,8 +40,7 @@ describe("server/platform/workers-rate-limit", () => {
     Effect.gen(function*() {
       const seen = MutableRef.make<ReadonlyArray<Entry>>([])
       const admissions = yield* Effect.all([admit("203.0.113.7"), admit("203.0.113.7")]).pipe(
-        Effect.provide(layerFromEnv(Option.none())),
-        Effect.provide(collecting(seen))
+        Effect.provide(layerFromEnv(Option.none()).pipe(Layer.provideMerge(collecting(seen))))
       )
       expect(admissions).toEqual([{ _tag: "Admitted" }, { _tag: "Admitted" }])
       const warnings = Arr.filter(MutableRef.get(seen), (entry) => entry.level._tag === "Warning")

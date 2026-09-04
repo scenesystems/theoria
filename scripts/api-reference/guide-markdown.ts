@@ -1,17 +1,7 @@
 import { Array as Arr, Option } from "effect"
-import type {
-  BlockContent,
-  DefinitionContent,
-  ListItem,
-  PhrasingContent,
-  RootContent,
-  TableCell
-} from "mdast"
+import type { BlockContent, DefinitionContent, ListItem, PhrasingContent, RootContent, TableCell } from "mdast"
 
-import {
-  type GuideBlock,
-  type GuideInline
-} from "@theoria/docs-model"
+import { type GuideBlock, type GuideInline } from "@theoria/docs-model"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
 
@@ -24,6 +14,9 @@ const crossPackageReadme = /^\.\.\/([^/]+)\/README\.md(?:#.*)?$/u
 const packageApiRoot = /^\.\/src\/index\.ts(?:#.*)?$/u
 const packageApiModule = /^\.\/src\/(.+)\/index\.ts(?:#.*)?$/u
 
+const captureGroup = (pattern: RegExp, text: string): Option.Option<string> =>
+  Option.fromNullable(pattern.exec(text)).pipe(Option.flatMap((match) => Arr.get(match, 1)))
+
 const guideHref = (input: {
   readonly href: string
   readonly packageSlug: string
@@ -33,23 +26,21 @@ const guideHref = (input: {
     return input.href
   }
 
-  const crossPackage = crossPackageReadme.exec(input.href)
-
-  if (crossPackage?.[1] !== undefined) {
-    return `/docs/${crossPackage[1]}`
-  }
-
   if (packageApiRoot.test(input.href)) {
     return `/docs/${input.packageSlug}/api`
   }
 
-  const apiModule = packageApiModule.exec(input.href)
-
-  if (apiModule?.[1] !== undefined) {
-    return `/docs/${input.packageSlug}/api/${apiModule[1]}`
-  }
-
-  return `${repositoryUrl}/blob/${input.revision}/packages/${input.packageSlug}/${input.href.replace(/^\.\//u, "")}`
+  return captureGroup(crossPackageReadme, input.href).pipe(
+    Option.map((slug) => `/docs/${slug}`),
+    Option.orElse(() =>
+      captureGroup(packageApiModule, input.href).pipe(
+        Option.map((module) => `/docs/${input.packageSlug}/api/${module}`)
+      )
+    ),
+    Option.getOrElse(() =>
+      `${repositoryUrl}/blob/${input.revision}/packages/${input.packageSlug}/${input.href.replace(/^\.\//u, "")}`
+    )
+  )
 }
 
 const inlinePart = (input: {
@@ -98,11 +89,9 @@ export const inlineParts = (
   children: ReadonlyArray<PhrasingContent>,
   packageSlug: string,
   revision: string
-): ReadonlyArray<GuideInline> =>
-  Arr.flatMap(children, (node) => inlinePart({ node, packageSlug, revision }))
+): ReadonlyArray<GuideInline> => Arr.flatMap(children, (node) => inlinePart({ node, packageSlug, revision }))
 
-export const inlineText = (parts: ReadonlyArray<GuideInline>): string =>
-  Arr.map(parts, (part) => part.text).join("")
+export const inlineText = (parts: ReadonlyArray<GuideInline>): string => Arr.map(parts, (part) => part.text).join("")
 
 const itemParts = (
   item: ListItem,
@@ -127,8 +116,7 @@ const blockquoteParts = (
   packageSlug: string,
   revision: string
 ): ReadonlyArray<GuideInline> =>
-  Arr.flatMap(children, (child) =>
-    child.type === "paragraph" ? inlineParts(child.children, packageSlug, revision) : [])
+  Arr.flatMap(children, (child) => child.type === "paragraph" ? inlineParts(child.children, packageSlug, revision) : [])
 
 export const guideBlock = (input: {
   readonly node: RootContent
@@ -165,8 +153,10 @@ export const guideBlock = (input: {
   }
 
   if (node.type === "table") {
-    const cells = Arr.map(node.children, (row) =>
-      Arr.map(row.children, (cell) => cellParts(cell, packageSlug, revision)))
+    const cells = Arr.map(
+      node.children,
+      (row) => Arr.map(row.children, (cell) => cellParts(cell, packageSlug, revision))
+    )
 
     return Option.some({
       kind: "table",

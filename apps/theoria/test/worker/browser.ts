@@ -7,7 +7,7 @@ import {
   type Page,
   type Response
 } from "@playwright/test"
-import { Chunk, Context, Effect, Layer, Queue, type Scope } from "effect"
+import { Chunk, Context, Data, Effect, Layer, Queue, Schema, type Scope } from "effect"
 
 import { Site } from "./site.js"
 
@@ -31,15 +31,16 @@ export const BrowserLive = Layer.scoped(
 /** Runs one Playwright call. */
 export const act = <A>(run: () => Promise<A>): Effect.Effect<A> => Effect.promise(run)
 
-export type Viewport = { readonly width: number; readonly height: number }
+export const Viewport = Schema.Struct({ width: Schema.Number, height: Schema.Number })
+export type Viewport = typeof Viewport.Type
 export const desktop: Viewport = { width: 1280, height: 800 }
 
-export type Session = {
+export class Session extends Data.Class<{
   readonly page: Page
   readonly context: BrowserContext
   /** Console errors and uncaught page errors seen so far; taking them clears the buffer. */
   readonly failures: Effect.Effect<ReadonlyArray<string>>
-}
+}> {}
 
 /** Opens an isolated browser context on the site for the rest of the scope. */
 export const openPage = (
@@ -63,7 +64,7 @@ export const openPage = (
       Queue.unsafeOffer(failures, error.message)
     })
 
-    return { page, context, failures: Queue.takeAll(failures).pipe(Effect.map(Chunk.toReadonlyArray)) }
+    return new Session({ page, context, failures: Queue.takeAll(failures).pipe(Effect.map(Chunk.toReadonlyArray)) })
   })
 
 /** Records the URL of every request that passes `keep`; taking them clears the buffer. */

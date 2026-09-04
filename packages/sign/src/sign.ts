@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  * @category signing
+ * @module
  */
 import { Effect, Match } from "effect"
 import { ed25519Sign, ed25519Verify } from "./algorithms/ed25519.js"

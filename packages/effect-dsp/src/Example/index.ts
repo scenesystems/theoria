@@ -2,6 +2,7 @@
  * Defines labeled and input-only dataset rows used by evaluation and optimization.
  *
  * @since 0.1.0
+ * @module
  */
 import { Schema } from "effect"
 

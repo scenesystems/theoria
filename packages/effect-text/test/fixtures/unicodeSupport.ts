@@ -1,4 +1,22 @@
-export const unicodeSegmentationFixtures = [
+import { Schema } from "effect"
+
+import { WhiteSpaceMode } from "../../src/Text/schema.js"
+
+const UnicodeSegmentationFixture = Schema.Struct({
+  expectedBreakKinds: Schema.Array(Schema.String),
+  expectedSegments: Schema.Array(Schema.String),
+  name: Schema.String,
+  text: Schema.String,
+  whiteSpace: WhiteSpaceMode
+})
+
+const UnicodeOverflowFixture = Schema.Struct({
+  maxWidth: Schema.Number,
+  name: Schema.String,
+  text: Schema.String
+})
+
+export const unicodeSegmentationFixtures: ReadonlyArray<typeof UnicodeSegmentationFixture.Type> = [
   {
     expectedBreakKinds: [
       "text",
@@ -46,9 +64,9 @@ export const unicodeSegmentationFixtures = [
     text: "\u300c\u4f60\u597d\u300d \u300e\u4e16\u754c\u300f",
     whiteSpace: "normal"
   }
-] as const
+]
 
-export const unicodeOverflowFixtures = [
+export const unicodeOverflowFixtures: ReadonlyArray<typeof UnicodeOverflowFixture.Type> = [
   {
     maxWidth: 25,
     name: "url-like-run",
@@ -69,4 +87,4 @@ export const unicodeOverflowFixtures = [
     name: "cjk-punctuation-pairs",
     text: "\u300c\u4f60\u597d\u300d \u300e\u4e16\u754c\u300f"
   }
-] as const
+]

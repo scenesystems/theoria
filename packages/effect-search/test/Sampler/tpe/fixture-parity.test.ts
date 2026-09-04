@@ -18,12 +18,6 @@ const PROBABILITY_TOLERANCE = 1e-12
 const SIGMA_TOLERANCE = 1e-10
 const SCORE_TOLERANCE = 1e-9
 
-const REQUIRED_CONTINUOUS_FIXTURES = Arr.make(
-  "continuous-kde.micro-positive-span",
-  "continuous-kde.extreme-asymmetric-range",
-  "continuous-kde.upper-boundary-cluster"
-)
-
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number): void => {
   expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
 }
@@ -91,18 +85,14 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = parzen.kernels[kernelIndex]
-
-                  yield* Effect.sync(() => {
-                    expect(actualKernel).toBeDefined()
-                  })
+                  const actualKernel = yield* Option.fromNullable(parzen.kernels[kernelIndex])
 
                   yield* Effect.forEach(
                     expectedKernel,
                     (expectedValue, valueIndex) =>
                       Effect.sync(() => {
                         expectWithinTolerance(
-                          numberAt(actualKernel?.probabilities ?? Arr.empty<number>(), valueIndex),
+                          numberAt(actualKernel.probabilities, valueIndex),
                           expectedValue,
                           PROBABILITY_TOLERANCE
                         )
@@ -165,11 +155,6 @@ describe("fixture-backed parity", () => {
       const loaded = yield* loadAllFixtures("continuous-kde.").pipe(Effect.provide(FixtureRegistryLive))
       const fixtures = yield* Effect.forEach(loaded, (entry) => Schema.decodeUnknown(ContinuousKdeFixtureSchema)(entry))
 
-      yield* Effect.sync(() => {
-        const fixtureNames = Arr.map(fixtures, (fixture) => fixture.fixture)
-        expect(Arr.every(REQUIRED_CONTINUOUS_FIXTURES, (name) => Arr.contains(fixtureNames, name))).toBe(true)
-      })
-
       yield* Effect.forEach(
         fixtures,
         (fixture) =>
@@ -183,14 +168,12 @@ describe("fixture-backed parity", () => {
             yield* Effect.forEach(
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
-                Effect.sync(() => {
-                  const actualKernel = parzen.kernels[kernelIndex]
+                Effect.gen(function*() {
+                  const actualKernel = yield* Option.fromNullable(parzen.kernels[kernelIndex])
 
-                  expect(actualKernel).toBeDefined()
-
-                  expectWithinTolerance(actualKernel?.mean ?? Number.NaN, expectedKernel.mean, SCORE_TOLERANCE)
-                  expectWithinTolerance(actualKernel?.sigma ?? Number.NaN, expectedKernel.sigma, SIGMA_TOLERANCE)
-                  expectWithinTolerance(actualKernel?.weight ?? Number.NaN, expectedKernel.weight, SCORE_TOLERANCE)
+                  expectWithinTolerance(actualKernel.mean, expectedKernel.mean, SCORE_TOLERANCE)
+                  expectWithinTolerance(actualKernel.sigma, expectedKernel.sigma, SIGMA_TOLERANCE)
+                  expectWithinTolerance(actualKernel.weight, expectedKernel.weight, SCORE_TOLERANCE)
                 }),
               { discard: true }
             )

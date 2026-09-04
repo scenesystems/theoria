@@ -1,16 +1,18 @@
-import { FileSystem } from "@effect/platform"
-import { Array as Arr, Effect, Option, Order } from "effect"
-import { type Application, Comment, type DeclarationReflection, type ProjectReflection } from "typedoc"
+import { Array as Arr, Effect, Option } from "effect"
 
 import { type ApiPage } from "@theoria/docs-model"
-import { leadingModuleComment } from "./comments.js"
-import { hasSourceDocumentationPages, sourceDocumentationSlug } from "./documentation-routes.js"
+import { type ApiConvertedModule } from "./converted.js"
+import {
+  hasSourceDocumentationPages,
+  sourceDocumentationFiles,
+  sourceDocumentationSlug
+} from "./documentation-routes.js"
 import { type ApiDocLink } from "./links.js"
 import { ApiReferenceGenerationError, type ApiReferenceRoute } from "./model.js"
 import { categoriesForExports } from "./presentation.js"
 import { apiPagePath } from "./reflections.js"
-import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
-import { documentation } from "./typedoc-comments.js"
+import { type ApiSourcePackage } from "./source.js"
+import { ApiDocContext, documentation, tagText } from "./typedoc-comments.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
 
@@ -18,43 +20,40 @@ const generationError = (packageName: string, detail: string): ApiReferenceGener
   new ApiReferenceGenerationError({ packageName, detail })
 
 const duplicateSlug = (sources: ReadonlyArray<string>): Option.Option<string> =>
-  Arr.findFirst(sources, (source, index) =>
-    Arr.some(sources.slice(index + 1), (candidate) =>
-      sourceDocumentationSlug(candidate) === sourceDocumentationSlug(source)))
+  Arr.findFirst(
+    sources,
+    (source, index) =>
+      Arr.some(sources.slice(index + 1), (candidate) =>
+        sourceDocumentationSlug(candidate) === sourceDocumentationSlug(source))
+  )
 
 export const makeSourceDocumentationPages = (input: {
-  readonly app: Application
-  readonly project: ProjectReflection
-  readonly reflection: DeclarationReflection
   readonly revision: string
   readonly links: ReadonlyArray<ApiDocLink>
   readonly sourcePackage: ApiSourcePackage
-  readonly module: ApiSourceModule
+  readonly module: ApiConvertedModule
   readonly route: ApiReferenceRoute
   readonly page: ApiPage
 }) => {
-  if (!hasSourceDocumentationPages(input.sourcePackage, input.module)) {
+  if (!hasSourceDocumentationPages(input.sourcePackage, input.module.source)) {
     return Effect.succeed<ReadonlyArray<ApiPage>>([])
   }
 
   return Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
     const sourceRoute = yield* Option.match(
       Arr.findFirst(input.module.routes, (candidate) => candidate.entrypoint.subpath === input.route.subpath),
       {
-        onNone: () => Effect.fail(generationError(
-          input.sourcePackage.manifest.name,
-          `${input.route.subpath} has no source route`
-        )),
+        onNone: () =>
+          Effect.fail(generationError(
+            input.sourcePackage.manifest.name,
+            `${input.route.subpath} has no source route`
+          )),
         onSome: Effect.succeed
       }
     )
-    const sources = Arr.sort(
-      Arr.dedupe(Arr.map(
-        Arr.filter(sourceRoute.publicExports, (entry) => entry.sourceFile.relative !== input.module.relative),
-        (entry) => entry.sourceFile.relative
-      )),
-      Order.string
+    const sources = Arr.map(
+      sourceDocumentationFiles(input.module.source, sourceRoute.publicExports),
+      (sourceFile) => sourceFile.relative
     )
     const collision = duplicateSlug(sources)
 
@@ -79,42 +78,23 @@ export const makeSourceDocumentationPages = (input: {
           )
         }
 
-        const sourceFile = yield* Option.match(Arr.head(publicExports), {
-          onNone: () => Effect.fail(generationError(
-            input.sourcePackage.manifest.name,
-            `${source} has no public exports`
-          )),
-          onSome: (entry) => Effect.succeed(entry.sourceFile)
-        })
-        const sourceText = yield* fileSystem.readFileString(sourceFile.absolute).pipe(Effect.orDie)
-        const comment = yield* Option.match(leadingModuleComment({
-          app: input.app,
-          project: input.project,
-          reflection: input.reflection,
-          source: sourceText,
-          sourcePath: sourceFile.absolute
-        }), {
-          onNone: () => Effect.fail(generationError(
-            input.sourcePackage.manifest.name,
-            `${source} is missing a leading module comment`
-          )),
-          onSome: Effect.succeed
-        })
-        const summary = Comment.combineDisplayParts(comment.summary).trim()
-        const since = Comment.combineDisplayParts(comment.getTag("@since")?.content).trim()
-
-        if (summary.length === 0 || since.length === 0) {
-          return yield* generationError(
-            input.sourcePackage.manifest.name,
-            `${source} is missing module ${summary.length === 0 ? "summary" : "@since"}`
-          )
-        }
-
         const slug = sourceDocumentationSlug(source)
+        const comment = yield* Option.match(
+          Arr.findFirst(input.module.sourceComments, (candidate) =>
+            candidate.source === source),
+          {
+            onNone: () =>
+              Effect.fail(generationError(
+                input.sourcePackage.manifest.name,
+                `${source} was not converted for source documentation`
+              )),
+            onSome: (converted) => Effect.succeed(converted.comment)
+          }
+        )
+        const since = tagText(Option.some(comment), "@since")
         const path = apiPagePath(input.sourcePackage.directoryName, slug)
-        const sourceUrl = `${repositoryUrl}/blob/${input.revision}/packages/${
-          input.sourcePackage.directoryName
-        }/${source}`
+        const sourceUrl =
+          `${repositoryUrl}/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/${source}`
 
         const page: ApiPage = {
           schemaVersion: 2,
@@ -130,11 +110,14 @@ export const makeSourceDocumentationPages = (input: {
             subpath: input.route.subpath,
             slug,
             source,
-            docs: documentation(comment, {
-              packageName: input.sourcePackage.manifest.name,
-              route: input.route,
-              links: input.links
-            }),
+            docs: documentation(
+              Option.some(comment),
+              new ApiDocContext({
+                packageName: input.sourcePackage.manifest.name,
+                route: input.route,
+                links: input.links
+              })
+            ),
             since,
             sourceUrl
           },
@@ -143,8 +126,6 @@ export const makeSourceDocumentationPages = (input: {
         }
 
         return page
-      }),
-      { concurrency: 8 }
-    )
+      }))
   })
 }

@@ -6,7 +6,7 @@
  */
 import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match, Number as Num, Ref } from "effect"
+import { Effect, Layer, Match, Number as Num, Ref } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -75,8 +75,5 @@ const program = Effect.gen(function*() {
 })
 
 BunRuntime.runMain(
-  program.pipe(
-    Effect.provide(RateLimiter.layer),
-    Effect.provide(RateLimiter.layerStoreMemory)
-  )
+  program.pipe(Effect.provide(RateLimiter.layer.pipe(Layer.provide(RateLimiter.layerStoreMemory))))
 )

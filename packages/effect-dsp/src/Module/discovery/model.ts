@@ -24,15 +24,7 @@ const uniqueSortedModuleIds = (moduleIds: ReadonlyArray<ModuleId>): ReadonlyArra
     }))
 }
 
-export {
-  /**
-   * Projects signature prompt metadata without retaining field schemas.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  ModuleNodeSignature as RegisteredSignature
-} from "../../contracts/ModuleNode.js"
+export { ModuleNodeSignature as RegisteredSignature } from "../../contracts/ModuleNode.js"
 
 /**
  * Records one executed module for runtime discovery.

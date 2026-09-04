@@ -9,8 +9,8 @@
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
-    "lint": "eslint --max-warnings=0 src",
-    "lint:fix": "eslint --max-warnings=0 --fix src",
+    "lint": "cd ../.. && oxlint packages/docs-model && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/docs-model && dprint check \"packages/docs-model/**\"",
+    "lint:fix": "cd ../.. && oxlint --fix packages/docs-model && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/docs-model && dprint fmt \"packages/docs-model/**\"",
     "build": "tsc -b tsconfig.build.json",
     "clean": "rm -rf build .tsbuildinfo"
   },

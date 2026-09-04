@@ -7,24 +7,8 @@ import { Schema } from "effect"
 
 import { BuiltInAcquisitionNameSchema } from "../contracts/Acquisition.js"
 
-export {
-  /**
-   * Decodes the `"ei"`, `"pi"`, and `"thompson"` acquisition names accepted by TPE and GP-BO.
-   *
-   * @since 0.1.0
-   * @category schemas
-   */
-  BuiltInAcquisitionNameSchema
-} from "../contracts/Acquisition.js"
-export {
-  /**
-   * Names a built-in acquisition rule accepted by TPE and GP-BO.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  type BuiltInAcquisitionName
-} from "../contracts/Acquisition.js"
+export { BuiltInAcquisitionNameSchema } from "../contracts/Acquisition.js"
+export { type BuiltInAcquisitionName } from "../contracts/Acquisition.js"
 
 /**
  * Decodes an optional numeric seed for random sampling.

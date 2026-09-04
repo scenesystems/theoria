@@ -1,13 +1,13 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Study } from "@scenesystems/effect-search"
-import { Duration, Effect, Layer, Option, Ref, Stream } from "effect"
+import { Data, Duration, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { DemoExecutionError } from "../../contracts/demo-error.js"
 import {
   arrange,
-  type Arrangement,
+  Arrangement,
   descriptionInput,
   meanderSpace,
   renderingFor,
@@ -30,7 +30,7 @@ import { placeArtifactAtom, placeStageWidthAtom } from "./imagined-place.js"
  * `Study.ask`/`Study.tell` so the page can show the arrangement improving.
  * Every frame is the best arrangement found so far.
  */
-export type PlaceRenderFrame = {
+export class PlaceRenderFrame extends Data.Class<{
   readonly phase: "running" | "complete"
   readonly trial: number
   readonly stage: Stage
@@ -41,7 +41,7 @@ export type PlaceRenderFrame = {
   readonly rendering: PlaceRendering
   /** The discs that carry their names at this stage width, and how wide each name wraps. */
   readonly labels: MarkerLabelWidths
-}
+}> {}
 
 /** The loss of every trial so far: the trace of the search. */
 export const frameLosses = (frame: PlaceRenderFrame): ReadonlyArray<number> =>
@@ -51,15 +51,16 @@ export const frameLosses = (frame: PlaceRenderFrame): ReadonlyArray<number> =>
 export const frameShowing = (frame: PlaceRenderFrame, index: Option.Option<number>): PlaceRenderFrame =>
   Option.match(Option.flatMap(index, (value) => Arr.get(frame.tried, value)), {
     onNone: () => frame,
-    onSome: (arrangement) => ({
-      ...frame,
-      rendering: renderingFor({
-        arrangement,
-        bestLoss: frame.rendering.evidence.bestLoss,
-        stage: frame.stage,
-        trials: frame.trial
+    onSome: (arrangement) =>
+      new PlaceRenderFrame({
+        ...frame,
+        rendering: renderingFor({
+          arrangement,
+          bestLoss: frame.rendering.evidence.bestLoss,
+          stage: frame.stage,
+          trials: frame.trial
+        })
       })
-    })
   })
 
 const renderRuntime = Atom.runtime(Layer.empty)
@@ -67,10 +68,11 @@ const renderRuntime = Atom.runtime(Layer.empty)
 /** Long enough to see the markers settle, short enough that 36 trials finish in about a second. */
 const frameDelay = Duration.millis(28)
 
-type Progress = {
-  readonly tried: Arr.NonEmptyReadonlyArray<Arrangement>
-  readonly bestIndex: number
-}
+const Progress = Schema.Struct({
+  tried: Schema.NonEmptyArray(Arrangement),
+  bestIndex: Schema.Number
+})
+type Progress = typeof Progress.Type
 
 const bestOf = (progress: Progress): Arrangement => Arr.unsafeGet(progress.tried, progress.bestIndex)
 
@@ -80,20 +82,21 @@ const frame = (
   labels: MarkerLabelWidths,
   trial: number,
   phase: PlaceRenderFrame["phase"]
-): PlaceRenderFrame => ({
-  phase,
-  trial,
-  stage,
-  labels,
-  tried: progress.tried,
-  bestIndex: progress.bestIndex,
-  rendering: renderingFor({
-    arrangement: bestOf(progress),
-    bestLoss: bestOf(progress).quality.loss,
+): PlaceRenderFrame =>
+  new PlaceRenderFrame({
+    phase,
+    trial,
     stage,
-    trials: trial
+    labels,
+    tried: progress.tried,
+    bestIndex: progress.bestIndex,
+    rendering: renderingFor({
+      arrangement: bestOf(progress),
+      bestLoss: bestOf(progress).quality.loss,
+      stage,
+      trials: trial
+    })
   })
-})
 
 const advance = (current: Option.Option<Progress>, arrangement: Arrangement): Progress =>
   Option.match(current, {

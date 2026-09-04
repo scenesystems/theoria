@@ -181,9 +181,4 @@ export const StudyServicesLive = Layer.mergeAll(
   StudyKernelLive
 )
 
-export {
-  /** @since 0.1.0 */
-  ObjectiveEvaluator,
-  /** @since 0.1.0 */
-  ObjectiveEvaluatorLive
-}
+export { ObjectiveEvaluator, ObjectiveEvaluatorLive }

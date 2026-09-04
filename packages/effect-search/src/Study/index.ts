@@ -8,6 +8,7 @@
  * lifecycle events, or `open` when an external worker evaluates asked trials.
  *
  * @since 0.1.0
+ * @module
  */
 export {
   ask,

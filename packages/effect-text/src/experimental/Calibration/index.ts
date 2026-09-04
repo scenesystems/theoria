@@ -4,6 +4,7 @@
  * These exports are intentionally unstable and may change outside semver guarantees.
  *
  * @since 0.2.0
+ * @module
  */
 
 /**

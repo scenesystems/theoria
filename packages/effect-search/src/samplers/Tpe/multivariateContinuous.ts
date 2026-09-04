@@ -25,15 +25,7 @@ import {
 import { drawMultivariateRolls, statsByDimension, uniformWeights, valueAt } from "./multivariateContinuous/kernels.js"
 import { MultivariateContinuousTrace } from "./multivariateContinuous/model.js"
 
-export {
-  /**
-   * Trace record capturing candidate configs, log-densities, and scores for multivariate continuous parameters.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  MultivariateContinuousTrace
-}
+export { MultivariateContinuousTrace }
 
 /**
  * Builds a candidate trace for correlated continuous dimensions by fitting

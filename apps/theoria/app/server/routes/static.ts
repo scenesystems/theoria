@@ -6,7 +6,7 @@ import { headEntries } from "../../contracts/head.js"
 import { docsPathExists, metadataForDocs, metadataForHome, type PageMetadata } from "../../contracts/metadata.js"
 import { injectAnalytics, requestAnalytics } from "../analytics.js"
 import { DocsManifestStore } from "../config/docs-manifest-store.js"
-import { contentTypeForPath, StaticStore } from "../config/static-store.js"
+import { htmlContentType, StaticStore, textContentType } from "../config/static-store.js"
 import { renderHead } from "../render-head.js"
 
 const indexPathname = "/index.html"
@@ -43,7 +43,7 @@ export const notFoundResponse = () =>
     status: 404,
     headers: {
       ...responseHeaders("/not-found.txt"),
-      "content-type": contentTypeForPath("/not-found.txt")
+      "content-type": textContentType
     }
   })
 
@@ -81,7 +81,7 @@ const htmlResponse = (pathname: string) =>
       status: htmlStatus(pathname, docsManifest),
       headers: {
         ...responseHeaders(indexPathname),
-        "content-type": contentTypeForPath(indexPathname)
+        "content-type": htmlContentType
       }
     })
   }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))

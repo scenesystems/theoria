@@ -9,6 +9,7 @@
  * result.
  *
  * @since 0.1.0
+ * @module
  */
 export * from "./constructors.js"
 export * from "./model.js"

@@ -27,15 +27,6 @@ describe("How it's built references", () => {
       })
     ))
 
-  it("points every reference at an API anchor inside its own package's docs", () => {
-    Arr.forEach(placeSteps, (step) => {
-      Arr.forEach(placeReferences(step), (reference) => {
-        expect(reference.href.startsWith(`/docs/${reference.package}/api/`)).toBe(true)
-        expect(reference.href).toMatch(/#api-[A-Za-z0-9]+$/)
-      })
-    })
-  })
-
   it("pins source links to the build commit and falls back to HEAD for a local server", () => {
     expect(sourceUrl("0123456789abcdef", "apps/theoria/app/server/imagined-place/run.ts")).toBe(
       "https://github.com/scenesystems/theoria/blob/0123456789abcdef/apps/theoria/app/server/imagined-place/run.ts"

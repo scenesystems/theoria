@@ -43,8 +43,7 @@ describe("Ed25519 — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* ed25519Keygen()
       const sig = yield* ed25519Sign(message, kp.secretKey, kp.publicKey)
-      const tampered = new Uint8Array(sig.signature)
-      tampered[32] = tampered[32]! ^ 0x01
+      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 32 ? byte ^ 0x01 : byte)
       const valid = yield* ed25519Verify(tampered, message, kp.publicKey)
       expect(valid).toBe(false)
     }))

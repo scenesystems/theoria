@@ -4,6 +4,7 @@
  * the input trial is running.
  *
  * @since 0.1.0
+ * @module
  */
 
 export {

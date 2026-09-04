@@ -6,6 +6,7 @@
  * and service channels. Composition controls weighting and failure behavior.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./model.js"

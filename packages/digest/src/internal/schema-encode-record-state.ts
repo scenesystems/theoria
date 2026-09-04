@@ -9,6 +9,7 @@ import {
   type EncodeState,
   type Parse,
   scan,
+  scanItems,
   type SemanticResult
 } from "./schema-encode-model.js"
 
@@ -142,15 +143,13 @@ export const orderedRecordOutput = (
     const present: Record<PropertyKey, null> = {}
     return Effect.as(
       Effect.zipRight(
-        scan(cooperation, 0, (index) => index < inputKeys.length, (index) =>
+        scanItems(cooperation, inputKeys, (key) =>
           Effect.sync(() => {
-            const key = inputKeys[index]!
             Object.defineProperty(present, key, { configurable: true, value: null })
             if (Object.prototype.hasOwnProperty.call(output, key)) ordered[key] = output[key]
           })),
-        scan(cooperation, 0, (index) => index < expectedKeys.length, (index) =>
+        scanItems(cooperation, expectedKeys, (key) =>
           Effect.sync(() => {
-            const key = expectedKeys[index]!
             if (
               !Object.prototype.hasOwnProperty.call(present, key) &&
               Object.prototype.hasOwnProperty.call(output, key)

@@ -5,6 +5,7 @@
  * These APIs are public but unstable and may change outside semver guarantees.
  *
  * @since 0.1.0
+ * @module
  */
 import * as Arr from "effect/Array"
 

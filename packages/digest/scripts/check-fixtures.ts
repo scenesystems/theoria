@@ -30,8 +30,7 @@ const toText = (bytes: Uint8Array): string => new TextDecoder().decode(bytes)
 const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
   Effect.sync(() => new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
 
-const normalizeRelativePath = (pathService: Path.Path, value: string): string =>
-  value.split(pathService.sep).join("/")
+const normalizeRelativePath = (pathService: Path.Path, value: string): string => value.split(pathService.sep).join("/")
 
 const readJsonContent = (
   absolutePath: string
@@ -120,8 +119,9 @@ const program = Effect.gen(function*() {
       return null
     }).pipe(Effect.catchAll((error) => Effect.succeed(error))))
 
-  const expectedFixturePaths = Arr.map(manifest.sources, (source) =>
-    normalizeRelativePath(pathService, pathService.normalize(source.fixturePath))
+  const expectedFixturePaths = Arr.map(
+    manifest.sources,
+    (source) => normalizeRelativePath(pathService, pathService.normalize(source.fixturePath))
   )
 
   const externalJsonFiles = yield* findJsonFiles(fileSystem, pathService, externalRoot, "")
@@ -130,20 +130,23 @@ const program = Effect.gen(function*() {
     (file) => file !== MANIFEST_FILE
   )
 
-  const orphanErrors = Arr.filterMap(scannedFixturePaths, (fixturePath) =>
-    Arr.some(expectedFixturePaths, (expected) => expected === fixturePath)
-      ? Option.none<FixtureCheckError>()
-      : Option.some(
-        new FixtureCheckError(
-          "orphan",
-          fixturePath,
-          "fixture file exists on disk but is not declared in sources.manifest.json"
+  const orphanErrors = Arr.filterMap(
+    scannedFixturePaths,
+    (fixturePath) =>
+      Arr.some(expectedFixturePaths, (expected) => expected === fixturePath)
+        ? Option.none<FixtureCheckError>()
+        : Option.some(
+          new FixtureCheckError(
+            "orphan",
+            fixturePath,
+            "fixture file exists on disk but is not declared in sources.manifest.json"
+          )
         )
-      )
   )
 
-  const resultErrors = Arr.filterMap(fixtureResults, (result) =>
-    result === null ? Option.none<FixtureCheckError>() : Option.some(result)
+  const resultErrors = Arr.filterMap(
+    fixtureResults,
+    (result) => result === null ? Option.none<FixtureCheckError>() : Option.some(result)
   )
   const allErrors = [...resultErrors, ...orphanErrors]
 

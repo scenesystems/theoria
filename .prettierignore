@@ -7,9 +7,6 @@ dist
 build
 *.tsbuildinfo
 
-# Coverage
-coverage
-
 # Git
 .git
 
@@ -33,7 +30,7 @@ logs
 # Vendored source
 .vendor
 
-# TypeScript (formatter handles these via eslint)
+# TypeScript (formatted by dprint, see .dprint.json)
 *.ts
 *.tsx
 *.mts

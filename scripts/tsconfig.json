@@ -8,14 +8,14 @@
   },
   "include": [
     "api-reference.ts",
-    "api-reference-review.ts",
     "api-reference-program.ts",
     "api-reference/**/*.ts",
+    "check-readme-examples.ts",
+    "readme-examples/**/*.ts",
+    "typecheck/**/*.ts",
     "ensure-docs-assets.ts",
+    "resolve-workspace-deps.ts",
     "../packages/digest/scripts/fixture-schemas.ts"
   ],
-  "references": [
-    { "path": "../packages/docs-model/tsconfig.src.json" },
-    { "path": "../packages/source-proof/tsconfig.src.json" }
-  ]
+  "references": [{ "path": "../packages/docs-model/tsconfig.src.json" }]
 }

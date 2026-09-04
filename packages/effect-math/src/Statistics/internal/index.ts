@@ -4,5 +4,6 @@
  *
  * @since 0.1.0
  * @category internal
+ * @module
  */
 export * as Estimators from "./estimators.js"

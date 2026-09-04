@@ -2,6 +2,7 @@
  * Leaf modules that decode language-model output against a signature.
  *
  * @since 0.1.0
+ * @module
  */
 import type { Schema } from "effect"
 import { Effect, HashMap, Option, Ref } from "effect"

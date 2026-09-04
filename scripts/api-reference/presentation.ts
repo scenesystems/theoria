@@ -1,6 +1,5 @@
 import { Array as Arr } from "effect"
 
-import { type ApiReferenceRoute } from "./model.js"
 import {
   type ApiCategory,
   type ApiDocumentation,
@@ -8,6 +7,7 @@ import {
   type ApiPage,
   type DocsSearchEntry
 } from "@theoria/docs-model"
+import { type ApiReferenceRoute } from "./model.js"
 
 export const apiExportAnchor = (name: string): string => `api-${encodeURIComponent(name)}`
 
@@ -129,20 +129,23 @@ export const buildApiPresentation = (input: {
   }))
   const searchEntries = Arr.flatMap(
     Arr.zip(input.routes, input.exportsByRoute),
-    ([route, exports]): ReadonlyArray<DocsSearchEntry> => route.canonical ? [
-      moduleSearchEntry({
-        packageName: input.packageName,
-        packageSlug: input.packageSlug,
-        route,
-        moduleSummary: input.moduleSummary
-      }),
-      ...symbolSearchEntries({
-        packageName: input.packageName,
-        packageSlug: input.packageSlug,
-        route,
-        exports
-      })
-    ] : []
+    ([route, exports]): ReadonlyArray<DocsSearchEntry> =>
+      route.canonical ?
+        [
+          moduleSearchEntry({
+            packageName: input.packageName,
+            packageSlug: input.packageSlug,
+            route,
+            moduleSummary: input.moduleSummary
+          }),
+          ...symbolSearchEntries({
+            packageName: input.packageName,
+            packageSlug: input.packageSlug,
+            route,
+            exports
+          })
+        ] :
+        []
   )
 
   return { pages, searchEntries }

@@ -1,4 +1,5 @@
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
+import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { siteMetadata } from "../../../contracts/metadata.js"
@@ -7,13 +8,11 @@ import { ExternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 import { TheoriaLogo } from "./TheoriaLogo.js"
 
-// eslint-disable-next-line no-restricted-syntax -- static render-time constant, not a side effect
-const COPYRIGHT_YEAR = new Date().getFullYear()
-
-type FooterDestination = {
-  readonly href: string
-  readonly label: string
-}
+const FooterDestination = Schema.Struct({
+  href: Schema.String,
+  label: Schema.String
+})
+type FooterDestination = typeof FooterDestination.Type
 
 const footerDestinations: ReadonlyArray<FooterDestination> = [
   {
@@ -83,7 +82,7 @@ export const SiteFooter = () => (
         as="p"
         className="text-center text-ink-500 md:text-left"
         role="status"
-        text={`© ${COPYRIGHT_YEAR} Scene Systems`}
+        text={`© ${String(siteMetadata.copyrightYear)} Scene Systems`}
         variant="compact"
       />
     </Stack>

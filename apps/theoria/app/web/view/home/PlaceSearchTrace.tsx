@@ -1,6 +1,6 @@
-import { Slider } from "@base-ui-components/react/slider"
+import { Slider } from "@base-ui/react/slider"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
@@ -13,10 +13,8 @@ import { shownTrialIndex, trialValueText } from "./placeViewModel.js"
 
 const searchTone = toneClassesFor("search")
 
-type Point = {
-  readonly x: number
-  readonly y: number
-}
+const Point = Schema.Struct({ x: Schema.Number, y: Schema.Number })
+type Point = typeof Point.Type
 
 /** A running minimum: the loss the search would report after each trial. */
 const runningBest = (losses: ReadonlyArray<number>): ReadonlyArray<number> =>

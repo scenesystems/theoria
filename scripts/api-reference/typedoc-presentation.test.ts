@@ -88,7 +88,11 @@ describe("TypeDoc presentation adapter", () => {
         }]
       })
       expect(presentation.searchEntries.map(({ id, kind, name, path, anchor }) => [
-        id, kind, name, path, anchor
+        id,
+        kind,
+        name,
+        path,
+        anchor
       ])).toEqual([
         ["example/Study", "module", "Study", "/docs/example/api/Study", null],
         ["example/Study#snapshot", "symbol", "snapshot", "/docs/example/api/Study", "api-snapshot"],

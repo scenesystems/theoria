@@ -2,6 +2,7 @@
  * Text-generation loops that can execute a handled toolkit.
  *
  * @since 0.1.0
+ * @module
  */
 import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"

@@ -1,6 +1,6 @@
 /** Cooperative JCS value, key, and string serialization. @internal */
 
-import { Either, MutableHashSet, MutableRef, Option } from "effect"
+import { Array as Arr, Either, MutableHashSet, MutableRef, Option, Record } from "effect"
 
 import { classifyPrimitive, reflect } from "./admission.js"
 import { startObject } from "./jcs-admission-machine.js"
@@ -16,27 +16,23 @@ const SHORT_ESCAPES: Readonly<Record<string, string>> = {
   "\r": "\\r"
 }
 const escapeUnit = (text: string, at: number): string => {
-  const character = text[at]!
+  const character = text.charAt(at)
   if (character === "\"") return "\\\""
   if (character === "\\") return "\\\\"
-  if (Object.hasOwn(SHORT_ESCAPES, character)) return SHORT_ESCAPES[character]!
-  const code = text.charCodeAt(at)
-  return code < 0x20 ? `\\u${code.toString(16).padStart(4, "0")}` : character
+  return Option.getOrElse(Record.get(SHORT_ESCAPES, character), () => {
+    const code = text.charCodeAt(at)
+    return code < 0x20 ? `\\u${code.toString(16).padStart(4, "0")}` : character
+  })
 }
 const scalarWidth = (text: string, at: number): number => {
   const code = text.charCodeAt(at)
   return code >= 0xd800 && code <= 0xdbff ? 2 : 1
 }
 
-export const processKeys = (state: State, frame: Extract<Frame, { _tag: "Keys" }>): void => {
-  const entry = MutableRef.get(frame.entry)
-  if (entry === frame.entries.length) {
-    if (!emit(state, "{")) return
-    return push(state, { _tag: "RecordCursor", identity: frame.identity, entries: frame.entries, at: ref(0) })
-  }
-  const key = frame.entries[entry]!.key, code = MutableRef.get(frame.code)
+const checkKey = (state: State, frame: Extract<Frame, { _tag: "Keys" }>, key: string): void => {
+  const code = MutableRef.get(frame.code)
   if (code === key.length) {
-    MutableRef.set(frame.entry, entry + 1)
+    MutableRef.update(frame.entry, (entry) => entry + 1)
     MutableRef.set(frame.code, 0)
     return push(state, frame)
   }
@@ -45,6 +41,15 @@ export const processKeys = (state: State, frame: Extract<Frame, { _tag: "Keys" }
   MutableRef.set(frame.code, code + scalarWidth(key, code))
   push(state, frame)
 }
+
+export const processKeys = (state: State, frame: Extract<Frame, { _tag: "Keys" }>): void =>
+  Option.match(Arr.get(frame.entries, MutableRef.get(frame.entry)), {
+    onNone: () => {
+      if (!emit(state, "{")) return
+      push(state, { _tag: "RecordCursor", identity: frame.identity, entries: frame.entries, at: ref(0) })
+    },
+    onSome: (entry) => checkKey(state, frame, entry.key)
+  })
 
 export const processString = (state: State, frame: Extract<Frame, { _tag: "String" }>): void => {
   const at = MutableRef.get(frame.at)
@@ -60,22 +65,38 @@ export const processString = (state: State, frame: Extract<Frame, { _tag: "Strin
   push(state, frame)
 }
 
-export const processCursor = (state: State, frame: Extract<Frame, { _tag: "ArrayCursor" | "RecordCursor" }>): void => {
-  const at = MutableRef.get(frame.at),
-    length = frame._tag === "ArrayCursor" ? frame.values.length : frame.entries.length
-  if (at === length) {
-    return push(state, { _tag: "Close", identity: frame.identity, token: frame._tag === "ArrayCursor" ? "]" : "}" })
-  }
-  if (at > 0 && !emit(state, ",")) return
+type Cursor = Extract<Frame, { _tag: "ArrayCursor" | "RecordCursor" }>
+
+const closeCursor = (state: State, frame: Cursor, token: "]" | "}"): void =>
+  push(state, { _tag: "Close", identity: frame.identity, token })
+
+/** Emits the separator and moves the cursor past `at`; `false` when the byte budget stopped the machine. */
+const advanceCursor = (state: State, frame: Cursor, at: number): boolean => {
+  if (at > 0 && !emit(state, ",")) return false
   MutableRef.set(frame.at, at + 1)
   push(state, frame)
-  if (frame._tag === "RecordCursor") {
-    const entry = frame.entries[at]!
-    if (!emit(state, "\"")) return
-    push(state, { _tag: "Visit", value: entry.value })
-    return push(state, { _tag: "String", text: entry.key, at: ref(0), suffix: ":" })
+  return true
+}
+
+export const processCursor = (state: State, frame: Cursor): void => {
+  const at = MutableRef.get(frame.at)
+  if (frame._tag === "ArrayCursor") {
+    return Option.match(Arr.get(frame.values, at), {
+      onNone: () => closeCursor(state, frame, "]"),
+      onSome: (value) => {
+        if (!advanceCursor(state, frame, at)) return
+        push(state, { _tag: "Visit", value })
+      }
+    })
   }
-  push(state, { _tag: "Visit", value: frame.values[at] })
+  Option.match(Arr.get(frame.entries, at), {
+    onNone: () => closeCursor(state, frame, "}"),
+    onSome: (entry) => {
+      if (!advanceCursor(state, frame, at) || !emit(state, "\"")) return
+      push(state, { _tag: "Visit", value: entry.value })
+      push(state, { _tag: "String", text: entry.key, at: ref(0), suffix: ":" })
+    }
+  })
 }
 
 export const processVisit = (state: State, frame: Extract<Frame, { _tag: "Visit" }>): void => {

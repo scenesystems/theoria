@@ -4,6 +4,7 @@
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
+ * @module
  */
 import { Array as Arr, Effect } from "effect"
 import type { Schema } from "effect"

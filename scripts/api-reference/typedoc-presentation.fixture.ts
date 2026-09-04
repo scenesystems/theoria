@@ -5,14 +5,14 @@ import {
   DeclarationReflection,
   FileRegistry,
   IntrinsicType,
+  normalizePath,
   ParameterReflection,
   ProjectReflection,
   ReflectionFlag,
   ReflectionKind,
   ReflectionSymbolId,
   SignatureReflection,
-  TypeParameterReflection,
-  normalizePath
+  TypeParameterReflection
 } from "typedoc"
 
 import { type ApiReferenceRoute } from "./model.js"
@@ -44,27 +44,27 @@ resultSignature.comment = new Comment(
       kind: "code",
       text: "```ts\nconst encoded = snapshot(result)\n```"
     }]),
-    new CommentTag("@see", [{
-      kind: "inline-tag",
-      tag: "@link",
-      text: "snapshot",
-      target: resultSignature
-    }]),
-    new CommentTag("@see", [{
-      kind: "inline-tag",
-      tag: "@link",
-      text: "Scheduler",
-      target: new ReflectionSymbolId({
-        packageName: "@scenesystems/example",
-        packagePath: normalizePath("src/Scheduler.ts"),
-        qualifiedName: "Scheduler"
-      })
-    }]),
-    new CommentTag("@see", [{
-      kind: "inline-tag",
-      tag: "@link",
-      text: "import(\"./Report.js\").Report"
-    }])
+    // TypeDoc folds several `@see` tags into one list-formatted tag.
+    new CommentTag("@see", [
+      { kind: "text", text: " - " },
+      { kind: "inline-tag", tag: "@link", text: "snapshot", target: resultSignature },
+      { kind: "text", text: "\n" },
+      { kind: "text", text: " - " },
+      {
+        kind: "inline-tag",
+        tag: "@link",
+        text: "Scheduler",
+        target: new ReflectionSymbolId({
+          packageName: "@scenesystems/example",
+          packagePath: normalizePath("src/Scheduler.ts"),
+          qualifiedName: "Scheduler"
+        })
+      },
+      { kind: "text", text: "\n" },
+      { kind: "text", text: " - " },
+      { kind: "inline-tag", tag: "@link", text: "import(\"./Report.js\").Report" },
+      { kind: "text", text: "\n" }
+    ])
   ]
 )
 const config = new TypeParameterReflection("Config", resultSignature, undefined)

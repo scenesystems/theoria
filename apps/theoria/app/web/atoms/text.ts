@@ -5,7 +5,7 @@ import { useAtomValue } from "@effect-atom/atom-react"
 import type { Text } from "@scenesystems/effect-text"
 import * as TextReact from "@scenesystems/effect-text/react"
 import type { Effect } from "effect"
-import { Layer, Option, Schema } from "effect"
+import { Data, Layer, Option, Schema } from "effect"
 import { useMemo } from "react"
 
 import { SurfaceVariant } from "../../contracts/presentation.js"
@@ -15,29 +15,27 @@ import { prepareIdentityForTextProjection, prepareTextProjection, projectPrepare
 import {
   elementWidthAtom,
   type ElementWidthHandle,
-  type ElementWidthSlot,
+  ElementWidthSlot,
   useElementWidthHandle
 } from "./element-observation.js"
 
-type TextProjectionRequest = {
-  readonly role: typeof TextRole.Type
-  readonly variant: typeof SurfaceVariant.Type
-  readonly text: string
-  readonly widthSlot: ElementWidthSlot
-}
+export const TextProjectionRequest = Schema.Struct({
+  role: TextRole,
+  variant: SurfaceVariant,
+  text: Schema.String,
+  widthSlot: ElementWidthSlot
+})
+export type TextProjectionRequest = typeof TextProjectionRequest.Type
 
-type TextProjectionHandle = {
+export class TextProjectionHandle extends Data.Class<{
   readonly projection: TextProjection | null
   readonly ref: ElementWidthHandle["ref"]
-}
+}> {}
 
-type TextProjectionAuthorityRequest = Readonly<{
-  readonly role: TextProjectionRequest["role"]
-  readonly variant: TextProjectionRequest["variant"]
-  readonly text: TextProjectionRequest["text"]
-}>
+export const TextProjectionAuthorityRequest = TextProjectionRequest.pick("role", "variant", "text")
+export type TextProjectionAuthorityRequest = typeof TextProjectionAuthorityRequest.Type
 
-export type TextProjectionAuthority = {
+export class TextProjectionAuthority extends Data.Class<{
   readonly prepare: (
     identity: TextReact.PrepareIdentityType
   ) => Effect.Effect<Text.PreparedTextWithSegments, unknown, never>
@@ -46,7 +44,7 @@ export type TextProjectionAuthority = {
     readonly request: TextProjectionAuthorityRequest
     readonly maxWidth: number | null
   }) => TextProjection
-}
+}> {}
 
 const makeTextProjectionRequest = ({
   role,
@@ -60,18 +58,15 @@ const isSurfaceVariant = Schema.is(SurfaceVariant)
 
 const textRuntime = Atom.runtime(Layer.empty)
 
-const defaultTextProjectionAuthority: TextProjectionAuthority = {
+const defaultTextProjectionAuthority: TextProjectionAuthority = new TextProjectionAuthority({
   prepare: prepareTextProjection,
   project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
-}
+})
 
 const textProjectionPrepareKey = ({
   role,
   text
-}: Readonly<{
-  readonly role: TextProjectionRequest["role"]
-  readonly text: TextProjectionRequest["text"]
-}>): string => TextReact.prepareIdentityKey(prepareIdentityForTextProjection({ role, text }))
+}: TextProjectionRequest): string => TextReact.prepareIdentityKey(prepareIdentityForTextProjection({ role, text }))
 
 export const makeTextProjectionAtom = (
   authority: TextProjectionAuthority = defaultTextProjectionAuthority
@@ -137,8 +132,8 @@ export const useTextProjection = ({
   )
   const projection = useAtomValue(textProjectionAtom(request))
 
-  return {
+  return new TextProjectionHandle({
     projection,
     ref: width.ref
-  }
+  })
 }

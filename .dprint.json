@@ -1,0 +1,25 @@
+{
+  "$schema": "https://dprint.dev/schemas/v0.json",
+  "includes": ["**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"],
+  "excludes": [
+    "**/dist/**",
+    "**/build/**",
+    "**/node_modules/**",
+    "**/.wrangler/**",
+    "**/.wrangler-out/**",
+    "**/__snapshots__/**",
+    ".vendor/**",
+    ".tmp/**"
+  ],
+  "plugins": ["https://plugins.dprint.dev/typescript-0.96.1.wasm"],
+  "typescript": {
+    "useTabs": false,
+    "indentWidth": 2,
+    "lineWidth": 120,
+    "semiColons": "asi",
+    "quoteStyle": "alwaysDouble",
+    "trailingCommas": "never",
+    "operatorPosition": "maintain",
+    "arrowFunction.useParentheses": "force"
+  }
+}

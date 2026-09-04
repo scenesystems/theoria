@@ -93,8 +93,7 @@ describe("SLH-DSA-SHA2-128s — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* slhDsaSha2128sKeygen()
       const sig = yield* slhDsaSha2128sSign(message, kp.secretKey, kp.publicKey)
-      const tampered = new Uint8Array(sig.signature)
-      tampered[0] = tampered[0]! ^ 0xff
+      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 0 ? byte ^ 0xff : byte)
       const valid = yield* slhDsaSha2128sVerify(tampered, message, kp.publicKey)
       expect(valid).toBe(false)
     }), { timeout: 30_000 })

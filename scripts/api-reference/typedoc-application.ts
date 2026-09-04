@@ -20,31 +20,33 @@ export const bootstrapTypeDoc = (
   sourcePackage: ApiSourcePackage
 ) =>
   Effect.tryPromise({
-    try: () => Application.bootstrap({
-      name: sourcePackage.manifest.name,
-      entryPoints: Arr.map(sourcePackage.modules, (module) => module.absolute),
-      entryPointStrategy: EntryPointStrategy.Resolve,
-      tsconfig: `${sourcePackage.root}/tsconfig.src.json`,
-      basePath: repositoryRoot,
-      displayBasePath: repositoryRoot,
-      gitRevision: revision,
-      disableGit: true,
-      sourceLinkTemplate,
-      alwaysCreateEntryPointModule: true,
-      excludeInternal: true,
-      excludePrivate: true,
-      excludeProtected: true,
-      pretty: false,
-      readme: "none",
-      validation: {
-        invalidLink: false,
-        notDocumented: false,
-        notExported: false
-      },
-      treatWarningsAsErrors: true
-    }),
-    catch: () => new ApiReferenceGenerationError({
-      packageName: sourcePackage.manifest.name,
-      detail: "TypeDoc initialization failed"
-    })
+    try: () =>
+      Application.bootstrap({
+        name: sourcePackage.manifest.name,
+        entryPoints: Arr.map(sourcePackage.modules, (module) => module.absolute),
+        entryPointStrategy: EntryPointStrategy.Resolve,
+        tsconfig: `${sourcePackage.root}/tsconfig.src.json`,
+        basePath: repositoryRoot,
+        displayBasePath: repositoryRoot,
+        gitRevision: revision,
+        disableGit: true,
+        sourceLinkTemplate,
+        alwaysCreateEntryPointModule: true,
+        excludeInternal: true,
+        excludePrivate: true,
+        excludeProtected: true,
+        pretty: false,
+        readme: "none",
+        validation: {
+          invalidLink: false,
+          notDocumented: false,
+          notExported: false
+        },
+        treatWarningsAsErrors: true
+      }),
+    catch: () =>
+      new ApiReferenceGenerationError({
+        packageName: sourcePackage.manifest.name,
+        detail: "TypeDoc initialization failed"
+      })
   })

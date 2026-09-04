@@ -1,4 +1,4 @@
-import { Collapsible } from "@base-ui-components/react/collapsible"
+import { Collapsible } from "@base-ui/react/collapsible"
 import { ChevronRightIcon } from "@heroicons/react/20/solid"
 import * as Arr from "effect/Array"
 
@@ -24,7 +24,7 @@ const NavigationLink = ({
   readonly active: boolean
   readonly child?: boolean
   readonly destination: DocsDestination
-  readonly onNavigate?: () => void
+  readonly onNavigate: () => void
 }) => (
   <InternalLink
     aria-current={active ? "page" : undefined}
@@ -44,7 +44,7 @@ const NavigationBranch = ({
   route
 }: {
   readonly branch: DocsNavigationBranch
-  readonly onNavigate?: () => void
+  readonly onNavigate: () => void
   readonly route: DocsRoute
 }) => {
   const active = destinationIsActive(branch.root, route) ||
@@ -57,7 +57,7 @@ const NavigationBranch = ({
           child
           destination={destination}
           key={destination.href}
-          {...(onNavigate === undefined ? {} : { onNavigate })}
+          onNavigate={onNavigate}
         />
       ))}
     </Stack>
@@ -71,7 +71,7 @@ const NavigationBranch = ({
           <NavigationLink
             active={destinationIsActive(branch.root, route)}
             destination={branch.root}
-            {...(onNavigate === undefined ? {} : { onNavigate })}
+            onNavigate={onNavigate}
           />
         ) :
         (
@@ -80,7 +80,7 @@ const NavigationBranch = ({
               <NavigationLink
                 active={destinationIsActive(branch.root, route)}
                 destination={branch.root}
-                {...(onNavigate === undefined ? {} : { onNavigate })}
+                onNavigate={onNavigate}
               />
               <Collapsible.Trigger
                 aria-label={`Toggle ${branch.label.toLocaleLowerCase("en-US")} navigation`}
@@ -103,7 +103,7 @@ const NavigationBranch = ({
 
 export const DocsNavigation = ({
   docsPackage,
-  onNavigate,
+  onNavigate = () => {},
   route
 }: {
   readonly docsPackage: DocsPackageSummary
@@ -120,7 +120,7 @@ export const DocsNavigation = ({
             branch={branch}
             key={branch.label}
             route={route}
-            {...(onNavigate === undefined ? {} : { onNavigate })}
+            onNavigate={onNavigate}
           />
         ))}
       </Stack>

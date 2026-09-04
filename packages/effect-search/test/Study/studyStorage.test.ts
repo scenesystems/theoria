@@ -36,8 +36,7 @@ describe("StudyStorage", () => {
       })
       const options = Study.studyStorageOptions(directory)
       const storage = yield* Study.makeStudyStorage(options).pipe(
-        Effect.provide(fileSystemSink(directory)),
-        Effect.provide(makeTestEnvelopeContextLayer)
+        Effect.provide(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
       )
 
       const result = yield* Study.optimize({
@@ -88,14 +87,15 @@ describe("StudyStorage", () => {
         concurrency: 1,
         objective: () => Effect.succeed(1)
       }).pipe(
-        Effect.provide(Study.StudyStorageLive(options)),
-        Effect.provide(fileSystemSink(directory)),
-        Effect.provide(makeTestEnvelopeContextLayer)
+        Effect.provide(
+          Study.StudyStorageLive(options).pipe(
+            Layer.provideMerge(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+          )
+        )
       )
 
       const storage = yield* Study.makeStudyStorage(options).pipe(
-        Effect.provide(fileSystemSink(directory)),
-        Effect.provide(makeTestEnvelopeContextLayer)
+        Effect.provide(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
       )
       const persistedTrials = yield* storage.loadTrialLog()
       const persistedSnapshot = yield* storage.loadSnapshot()

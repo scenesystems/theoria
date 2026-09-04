@@ -8,6 +8,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 import { schnorr, secp256k1 } from "@noble/curves/secp256k1.js"
 import { Effect } from "effect"

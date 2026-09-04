@@ -1,4 +1,4 @@
-import { Tooltip } from "@base-ui-components/react/tooltip"
+import { Tooltip } from "@base-ui/react/tooltip"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 
