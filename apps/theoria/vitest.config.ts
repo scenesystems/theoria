@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config"
 
 export default defineConfig({
   test: {
+    name: "theoria",
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
     // Needs a built Worker bundle; run with `bun run test:worker`.
     exclude: ["test/worker/**", "**/node_modules/**"],

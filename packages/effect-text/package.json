@@ -53,8 +53,6 @@
     "lint:fix": "cd ../.. && oxlint --fix packages/effect-text && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/effect-text && dprint fmt \"packages/effect-text/**\"",
     "test": "vitest run --root ../.. packages/effect-text/test",
     "bench": "bun benchmarks/run.ts",
-    "verify:synthetic-regression": "bun examples/live/syntheticRegressionHarness.ts",
-    "verify:support-manifest": "bun benchmarks/verifySupportManifest.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
