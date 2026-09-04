@@ -9,8 +9,9 @@ import { Analytics, type AnalyticsSettings, disabledAnalytics } from "./config/a
  * Analytics tags for the HTML shell.
  *
  * Google Analytics 4 loads `gtag.js` and a same-origin bootstrap
- * (`public/analytics/gtag-init.js`) that sets Consent Mode v2 defaults to
- * denied, so GA receives cookieless pings until a consent UI grants storage.
+ * (`public/analytics/gtag-init.js`) that sets region-scoped Consent Mode v2
+ * defaults: analytics storage granted except in the EEA, UK, and Switzerland,
+ * advertising storage denied everywhere.
  * Cloudflare Web Analytics loads its beacon, which is cookieless by design.
  * Neither snippet is inline, so the CSP needs no hashes or nonces.
  *
