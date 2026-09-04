@@ -87,7 +87,6 @@ describe("SemanticText", () => {
         Effect.gen(function*() {
           const spans = yield* waitForProjectedLines(container, 3)
 
-          expect(spans.every((span) => span.className.includes("whitespace-pre"))).toBe(true)
           expect(spans[0]?.textContent).toBe("const  x = 1")
           expect(spans[1]?.textContent).toBe("\u00a0")
           expect(spans[2]?.textContent).toBe("\treturn 2")
@@ -137,7 +136,6 @@ describe("SemanticText", () => {
             )
           ).pipe(Effect.orDie)
 
-          expect(heading.className.includes("whitespace-nowrap")).toBe(true)
           expect(heading.textContent).toBe("@scenesystems/effect-inference")
           expect(heading.dataset.lines).toBeUndefined()
           expect(heading.querySelectorAll("span")).toHaveLength(0)

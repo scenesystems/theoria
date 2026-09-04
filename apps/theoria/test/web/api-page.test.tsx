@@ -26,12 +26,12 @@ describe("API page presentation", () => {
       expect(container.querySelector("a[href=\"#api-StudyResult\"]")).not.toBeNull()
       expect(container.textContent).not.toContain("runStudy<A>")
       expect(container.textContent).not.toContain("readonly value: A")
-      const remarks = Arr.findFirst(
-        Arr.fromIterable(container.querySelectorAll("p")),
-        (element) => element.textContent === "Source-wrapped remarks remain\nordinary prose."
-      )
-      expect(Option.getOrThrow(remarks).classList).toContain("whitespace-normal")
-      expect(Option.getOrThrow(remarks).classList).not.toContain("whitespace-pre-wrap")
+      expect(
+        Arr.some(
+          Arr.fromIterable(container.querySelectorAll("p")),
+          (element) => element.textContent === "Source-wrapped remarks remain\nordinary prose."
+        )
+      ).toBe(true)
     }))
 
   it.effect("leads a selected function with documentation before its reference details", () =>

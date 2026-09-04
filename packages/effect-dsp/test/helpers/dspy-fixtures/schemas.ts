@@ -475,11 +475,6 @@ export const MiproTrialBudgetCasesFixtureSchema = Schema.Struct({
 
 export type MiproTrialBudgetCasesFixture = Schema.Schema.Type<typeof MiproTrialBudgetCasesFixtureSchema>
 
-const GepaCatalogFixtureEntrySchema = Schema.Struct({
-  name: Schema.String,
-  file: Schema.String
-})
-
 const GepaParentSelectionWeightSchema = Schema.Struct({
   candidateIndex: Schema.Number,
   weight: Schema.Number
@@ -805,49 +800,6 @@ export const GepaReplayParamsFixtureSchema = Schema.Struct({
 
 export type GepaReplayParamsFixture = Schema.Schema.Type<typeof GepaReplayParamsFixtureSchema>
 
-export const GepaGovernancePublicSeamsFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("dspy.gepa.governance.public-seams"),
-  metadata: FixtureMetadataSchema,
-  payload: Schema.Struct({
-    allowedEffectSearchImports: Schema.Array(Schema.String),
-    forbiddenEffectSearchImportPrefixes: Schema.Array(Schema.String),
-    allowedRuntimeImportOwners: Schema.Array(Schema.String),
-    expectedOptimizerIndexExports: Schema.Array(Schema.String),
-    expectedOptimizerEventsExports: Schema.Array(Schema.String)
-  })
-})
-
-export type GepaGovernancePublicSeamsFixture = Schema.Schema.Type<typeof GepaGovernancePublicSeamsFixtureSchema>
-
-export const GepaGovernanceOptimizerOptionsFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("dspy.gepa.governance.optimizer-options"),
-  metadata: FixtureMetadataSchema,
-  payload: Schema.Struct({
-    requiredOptionKeys: Schema.Array(Schema.String),
-    optionalOptionKeys: Schema.Array(Schema.String),
-    defaultMaxMergeInvocations: Schema.Number,
-    eventTags: Schema.Array(Schema.String)
-  })
-})
-
-export type GepaGovernanceOptimizerOptionsFixture = Schema.Schema.Type<
-  typeof GepaGovernanceOptimizerOptionsFixtureSchema
->
-
-export const GepaCatalogVersionedFixturesFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("dspy.gepa.catalog.versioned-fixtures"),
-  metadata: FixtureMetadataSchema,
-  payload: Schema.Struct({
-    fixtureSet: Schema.String,
-    version: Schema.Number,
-    fixtures: Schema.Array(GepaCatalogFixtureEntrySchema),
-    namespaces: Schema.Array(Schema.String),
-    requiredFixtureCount: Schema.Number
-  })
-})
-
-export type GepaCatalogVersionedFixturesFixture = Schema.Schema.Type<typeof GepaCatalogVersionedFixturesFixtureSchema>
-
 export const GepaReplaySeedContractFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.replay.seed-0.contract"),
   metadata: FixtureMetadataSchema,
@@ -899,9 +851,6 @@ export const FixtureNameSchema = Schema.Literal(
   "dspy.gepa.orchestration.state-transitions.basic",
   "dspy.gepa.replay.frontier-snapshots.seed-0",
   "dspy.gepa.replay.params.seed-0",
-  "dspy.gepa.governance.public-seams",
-  "dspy.gepa.governance.optimizer-options",
-  "dspy.gepa.catalog.versioned-fixtures",
   "dspy.gepa.replay.seed-0.contract"
 )
 
@@ -963,9 +912,6 @@ export const KnownFixtureSchema = Schema.Union(
   GepaOrchestrationStateTransitionsFixtureSchema,
   GepaReplayFrontierSnapshotsFixtureSchema,
   GepaReplayParamsFixtureSchema,
-  GepaGovernancePublicSeamsFixtureSchema,
-  GepaGovernanceOptimizerOptionsFixtureSchema,
-  GepaCatalogVersionedFixturesFixtureSchema,
   GepaReplaySeedContractFixtureSchema
 )
 

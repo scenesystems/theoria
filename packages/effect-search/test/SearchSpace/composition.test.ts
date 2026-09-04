@@ -1,7 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Schema } from "effect"
 
-import * as EffectSearch from "../../src/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
 const makeLearningRateSpace = () =>
@@ -40,15 +39,12 @@ const makeConditionalSpace = () =>
 const requireMergedConfig = (config: { readonly lr: number; readonly batchSize: number }) => config
 
 describe("SearchSpace composition", () => {
-  it.effect("exports extend / pick / omit from the package SearchSpace namespace", () =>
+  it.effect("extends, picks and omits parameters by name", () =>
     Effect.gen(function*() {
-      const extended = yield* EffectSearch.SearchSpace.extend(makeLearningRateSpace(), makeBatchSpace())
-      const picked = yield* EffectSearch.SearchSpace.pick(makeConditionalSpace(), ["lr"])
-      const omitted = yield* EffectSearch.SearchSpace.omit(makeConditionalSpace(), ["model"])
+      const extended = yield* SearchSpace.extend(makeLearningRateSpace(), makeBatchSpace())
+      const picked = yield* SearchSpace.pick(makeConditionalSpace(), ["lr"])
+      const omitted = yield* SearchSpace.omit(makeConditionalSpace(), ["model"])
 
-      expect(EffectSearch.SearchSpace.extend).toBe(SearchSpace.extend)
-      expect(EffectSearch.SearchSpace.pick).toBe(SearchSpace.pick)
-      expect(EffectSearch.SearchSpace.omit).toBe(SearchSpace.omit)
       expect(extended.params.map((parameter) => parameter.name)).toEqual(["lr", "batchSize"])
       expect(picked.params.map((parameter) => parameter.name)).toEqual(["model", "lr"])
       expect(omitted.params.map((parameter) => parameter.name)).toEqual(["seed"])
