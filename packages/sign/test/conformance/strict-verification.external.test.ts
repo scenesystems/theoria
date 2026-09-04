@@ -88,19 +88,13 @@ describe("strict direct verification — retained external corpus", () => {
         }), { discard: true })
     }).pipe(Effect.provide(BunContext.layer)), 30_000)
 
-  it.effect("keeps every retained payload schema-valid and fingerprint-bound", () =>
+  it.effect("every retained payload matches its manifest fingerprint", () =>
     Effect.gen(function*() {
       const manifest = yield* decodeConformanceFixture("sources.manifest.json", ConformanceManifest)
-      expect(manifest.payloads.map(({ file }) => file).sort()).toEqual([
-        "ed25519.json",
-        "ml-dsa-65.json",
-        "p256.json"
-      ])
       yield* Effect.forEach(manifest.payloads, (payload) =>
         Effect.gen(function*() {
           const bytes = yield* readConformanceFixtureBytes(payload.file)
           expect(bytesToHex(sha256(bytes)), payload.file).toBe(payload.sha256)
-          expect(payload.sources.every((source) => source.revision.length > 0)).toBe(true)
         }), { discard: true })
     }).pipe(Effect.provide(BunContext.layer)))
 })

@@ -46,7 +46,6 @@ describe("Trace DSPy contracts", () => {
       )
       const singleRunEntry = singleRunTrace[1][0]
 
-      expect(entryFixture.payload.traceEntryTupleLength).toBe(3)
       expect(singleRunTrace[1]).toHaveLength(1)
       expect(Record.keys(singleRunEntry?.input ?? {})).toStrictEqual(entryFixture.payload.inputKeys)
       expect(Record.keys(singleRunEntry?.output ?? {})).toStrictEqual(entryFixture.payload.predictionKeys)

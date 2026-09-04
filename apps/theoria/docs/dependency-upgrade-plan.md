@@ -266,7 +266,7 @@ bun run check:examples # tsconfig.examples.json: package examples, fixture scrip
 bun run check:all      # the three above; this is what CI and the pre-commit hook run
 bun run check:apps
 bun run lint           # oxlint --deny-warnings && eslint --max-warnings=0 && dprint check
-bun run test           # vitest 4: 360 files, 1987 tests
+bun run test           # vitest 4: 360 files, 1988 tests
 bun run test:apps      # vitest 4 + happy-dom: 26 files, 90 tests
 bun run build          # tsc -b, Babel 8 CJS/ESM, typedoc on TS 6, Vite 8 web build
 ```

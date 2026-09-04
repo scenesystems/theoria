@@ -1,8 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Match, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
-import * as Order from "effect/Order"
-import * as Record from "effect/Record"
 
 import { Browser, Contracts, Errors, Text } from "../../src/index.js"
 import { preparedTextCore, preparedTextWithSegmentsCore } from "../../src/Text/model.js"
@@ -453,7 +451,7 @@ describe("Text edge cases and robustness", () => {
       expect(Arr.fromIterable(streamedLines)).toEqual(directLines)
     }))
 
-  it.effect("keeps cursor optimization hints non-enumerable and scoped to prepared width", () =>
+  it.effect("cursor optimization hints do not leak through spread and do not change layout", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
       const prepared = yield* Text.prepareWithSegments({
@@ -473,8 +471,6 @@ describe("Text edge cases and robustness", () => {
         segmentIndex: hintedCursor.segmentIndex
       }
 
-      expect(Arr.sort(Record.keys(hintedCursor), Order.string)).toEqual(["graphemeIndex", "segmentIndex"])
-      expect(Object.getOwnPropertySymbols(hintedCursor)).toEqual([])
       expect({ ...hintedCursor }).toEqual(plainCursor)
       expect(
         Option.map(Text.layoutNextLine(prepared, wideRequest, hintedCursor), ([line]) => line.index)

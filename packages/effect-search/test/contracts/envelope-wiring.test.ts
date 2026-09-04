@@ -68,7 +68,6 @@ describe("contracts/envelope-wiring", () => {
       const envelopes = yield* Ref.get(collected)
       const envelope = getEnvelope(envelopes, 0)
 
-      expect(envelope.relations).toBeDefined()
       expect(envelope.relations).toHaveLength(1)
 
       const relation = Arr.get(envelope.relations ?? [], 0).pipe(

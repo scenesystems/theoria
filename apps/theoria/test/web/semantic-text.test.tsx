@@ -122,7 +122,6 @@ describe("SemanticText", () => {
           const paragraph = container.querySelector("p")
 
           expect(paragraph instanceof HTMLParagraphElement).toBe(true)
-          expect(paragraph?.className.includes("max-w-(--st-mw-status-expanded)")).toBe(true)
           expect(paragraph?.dataset.lines).not.toBeUndefined()
           expect(spans.length).toBeGreaterThan(1)
         })

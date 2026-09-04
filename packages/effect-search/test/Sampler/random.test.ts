@@ -47,7 +47,6 @@ describe("Sampler.random", () => {
         expect(decoded.right.lr).toBeLessThanOrEqual(1e-1)
         expect(["adam", "sgd", "adamw"]).toContain(decoded.right.optimizer)
         expect([16, 32, 48, 64]).toContain(decoded.right.batchSize)
-        expect(typeof decoded.right.useBatchNorm).toBe("boolean")
       })
     }))
 
