@@ -10,6 +10,7 @@ import {
   decapsulate,
   encapsulate,
   equalBytes,
+  generateEntropy,
   generateKeyPair,
   mlDsa65SignHedged,
   mlDsa65Verify,
@@ -26,7 +27,7 @@ const program = Effect.gen(function*() {
 
   const message = utf8ToBytes("quantum-resistant document signing")
   const context = new Uint8Array(0)
-  const entropy32 = crypto.getRandomValues(new Uint8Array(32))
+  const entropy32 = yield* generateEntropy()
   const sig = yield* mlDsa65SignHedged(message, sigKeys.secretKey, sigKeys.publicKey, context, entropy32)
   const valid = yield* mlDsa65Verify(sig.signature, message, sigKeys.publicKey, context)
   yield* Effect.log("ML-DSA-65 signature", {

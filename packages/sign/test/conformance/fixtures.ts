@@ -1,4 +1,4 @@
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { Effect, Schema } from "effect"
 
 const Hex = Schema.String.pipe(Schema.pattern(/^(?:[a-fA-F0-9]{2})*$/))
@@ -83,13 +83,12 @@ export const ConformanceManifest = Schema.parseJson(
   })
 )
 
-const fixtureRootUrl = new URL("../fixtures/conformance/", import.meta.url)
-
-const fixturePath = (file: string) =>
-  Path.Path.pipe(
-    Effect.flatMap((path) => path.fromFileUrl(fixtureRootUrl).pipe(Effect.map((root) => path.join(root, file)))),
-    Effect.orDie
-  )
+const fixturePath = (file: string): Effect.Effect<string, never, Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const root = yield* path.fromFileUrl(yield* Url.fromString("../fixtures/conformance/", import.meta.url))
+    return path.join(root, file)
+  }).pipe(Effect.orDie)
 
 export const readConformanceFixture = (file: string) =>
   Effect.gen(function*() {
