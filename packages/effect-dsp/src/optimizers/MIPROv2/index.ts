@@ -6,7 +6,7 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Data, Effect } from "effect"
 import type { Schema } from "effect"
 import type { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
@@ -35,12 +35,12 @@ import { runPhase3Search } from "./search.js"
  * @since 0.1.0
  * @category models
  */
-export type MIPROv2Options<
+export class MIPROv2Options<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
   MR = never
-> = Readonly<{
+> extends Data.Class<{
   /** Module tree mutated during evaluation and left with the selected configuration on success. */
   readonly module: DspModule<I, O>
   /** Examples used for proposal context; only entries with `output` become demonstrations. */
@@ -69,7 +69,7 @@ export type MIPROv2Options<
   readonly minibatchSize?: number
   /** Trial cadence for diagnostic full-set evaluations. Defaults to `5` and is normalized to a positive integer. */
   readonly fullEvalEvery?: number
-}>
+}> {}
 
 /**
  * Receives lifecycle events in execution order. The optimizer waits for each

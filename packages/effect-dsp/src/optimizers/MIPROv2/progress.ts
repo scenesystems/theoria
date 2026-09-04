@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Match, Stream } from "effect"
+import { Array as Arr, Data, Match, Stream } from "effect"
 import type { Effect } from "effect"
 import type { MIPROv2Event } from "./events.js"
 
@@ -14,14 +14,14 @@ import type { MIPROv2Event } from "./events.js"
  * @since 0.1.0
  * @category models
  */
-export type MIPROv2ProgressLine = Readonly<{
+export class MIPROv2ProgressLine extends Data.Class<{
   /** Original event discriminator. */
   readonly tag: MIPROv2Event["_tag"]
   /** Space-separated key-value fields selected for display. */
   readonly details: string
   /** Event tag followed by `details` when details are present. */
   readonly text: string
-}>
+}> {}
 
 const toProgressLine = (
   tag: MIPROv2ProgressLine["tag"],
@@ -111,7 +111,7 @@ export const tapMIPROv2Progress =
  * @since 0.1.0
  * @category models
  */
-export type MIPROv2EventSummary = Readonly<{
+export class MIPROv2EventSummary extends Data.Class<{
   /** Number of input events across all tags. */
   readonly totalEvents: number
   /** Number of `DemoCandidate` events. */
@@ -134,7 +134,7 @@ export type MIPROv2EventSummary = Readonly<{
   readonly phase3BestScoreSeen: boolean
   /** Maximum score across all observed Phase 3 score-bearing events. */
   readonly phase3BestScore: number
-}>
+}> {}
 
 const EMPTY_MIPROV2_EVENT_SUMMARY: MIPROv2EventSummary = {
   totalEvents: 0,

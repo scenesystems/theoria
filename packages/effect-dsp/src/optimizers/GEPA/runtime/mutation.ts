@@ -5,7 +5,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Data, Effect, Option } from "effect"
 import type { Schema } from "effect"
 
 import { extractInstruction, generateText } from "../../../Module/textGeneration.js"
@@ -25,10 +25,10 @@ import type { GEPAEventSink, GEPAOptions } from "./options.js"
  * @since 0.1.0
  * @category models
  */
-export type MutationPhaseResult = Readonly<{
+export class MutationPhaseResult extends Data.Class<{
   readonly stateAfterAcceptance: GEPAState
   readonly accepted: boolean
-}>
+}> {}
 
 const buildMutationCandidate = (
   parentCandidate: ProgramCandidate,

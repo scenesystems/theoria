@@ -8,7 +8,7 @@ import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"
-import { Effect, HashMap, Match, Ref } from "effect"
+import { Data, Effect, HashMap, Match, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { makeDefaultModuleParams, type ModuleParams } from "../../contracts/ModuleParams.js"
@@ -34,11 +34,11 @@ export const DEFAULT_REACT_MAX_ITERATIONS = 5
  * @since 0.1.0
  * @category models
  */
-export type ReactOptions<
+export class ReactOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   Tools extends Record<string, Tool.Any>
-> = Readonly<{
+> extends Data.Class<{
   /** Identity used for discovery, tracing, and failure diagnostics. */
   readonly name: string
   /** Prompt and parse contract for the loop. */
@@ -47,7 +47,7 @@ export type ReactOptions<
   readonly toolkit: Toolkit.WithHandler<Tools>
   /** Model-call cap; finite values are rounded down and normalized to at least one. */
   readonly maxIterations?: number
-}>
+}> {}
 
 const normalizeMaxIterations = (maxIterations: number): number =>
   Match.value(maxIterations).pipe(

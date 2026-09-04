@@ -7,7 +7,7 @@
  */
 import type * as AiError from "@effect/ai/AiError"
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { Effect } from "effect"
+import { Data, Effect } from "effect"
 import type { Effect as EffectType, HashMap, Ref, Schema } from "effect"
 import type { ModuleGraph } from "../../contracts/ModuleGraph.js"
 import type { ModuleId } from "../../contracts/ModuleId.js"
@@ -30,16 +30,16 @@ import type { Module } from "../model.js"
  * @since 0.1.0
  * @category models
  */
-export type ComposeForwardContext<
+export class ComposeForwardContext<
   I extends Schema.Struct.Fields
-> = Readonly<{
+> extends Data.Class<{
   /** Decoded value passed to the composite module's `forward` operation. */
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   /** Live parameter views for direct children, keyed by module identity. */
   readonly subModuleNodes: HashMap.HashMap<ModuleId, ModuleNode>
   /** Full root and descendant ownership graph fixed at construction. */
   readonly graph: ModuleGraph
-}>
+}> {}
 
 /**
  * Computes a composite module's output from decoded input and graph metadata.

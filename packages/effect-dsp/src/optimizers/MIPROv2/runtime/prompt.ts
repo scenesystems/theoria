@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr, Match, Option, Predicate, Record } from "effect"
+import { Array as Arr, Data, Match, Option, Predicate, Record } from "effect"
 import type { Example } from "../../../Example/index.js"
 
 /**
@@ -16,10 +16,10 @@ import type { Example } from "../../../Example/index.js"
  * @since 0.1.0
  * @category models
  */
-export type PromptDemo = Readonly<{
+export class PromptDemo extends Data.Class<{
   readonly input: Readonly<Record<string, unknown>>
   readonly output: Readonly<Record<string, unknown>>
-}>
+}> {}
 
 const renderUnknown = (value: unknown): string =>
   Match.value(value).pipe(
@@ -61,9 +61,7 @@ export const datasetSummary = (trainset: ReadonlyArray<Example>): string => {
  * @category constructors
  */
 export const promptDemosFromCandidate = (
-  demos: ReadonlyArray<
-    Readonly<{ readonly input: Readonly<Record<string, unknown>>; readonly output: Readonly<Record<string, unknown>> }>
-  >
+  demos: ReadonlyArray<PromptDemo>
 ): ReadonlyArray<PromptDemo> => Arr.map(demos, (demo) => ({ input: demo.input, output: demo.output }))
 
 /**

@@ -7,18 +7,18 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"
-import { Effect, Match, Option, Ref } from "effect"
+import { Data, Effect, Match, Option, Ref } from "effect"
 import { type ModuleParams, withModuleParamsInstructions } from "../../contracts/ModuleParams.js"
 import type { Signature } from "../../Signature/model.js"
 import type { RewardFn } from "../bestOfN/runtime.js"
 import type { Module } from "../model.js"
 
-type RefineLoopState<O> = Readonly<{
+class RefineLoopState<O> extends Data.Class<{
   readonly attempt: number
   readonly bestOutput: Option.Option<O>
   readonly bestScore: number
   readonly feedbackAccumulator: string
-}>
+}> {}
 
 const appendFeedback = (
   params: ModuleParams,

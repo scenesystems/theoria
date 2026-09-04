@@ -5,7 +5,7 @@
  * @module
  */
 import type { Schema } from "effect"
-import { Effect, HashMap, Ref } from "effect"
+import { Data, Effect, HashMap, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { makeDefaultModuleParams } from "../../contracts/ModuleParams.js"
@@ -32,10 +32,10 @@ import { makeRefineForward } from "./runtime.js"
  * @since 0.1.0
  * @category models
  */
-export type RefineOptions<
+export class RefineOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
-> = Readonly<{
+> extends Data.Class<{
   /** Identity of the composed module and its forward span. */
   readonly name: string
   /** Module rerun with accumulated feedback; its signature becomes the wrapper signature. */
@@ -46,7 +46,7 @@ export type RefineOptions<
   readonly reward: RewardFn<I, O>
   /** Score that ends refinement early when reached or exceeded. */
   readonly threshold: number
-}>
+}> {}
 
 /**
  * Creates an iterative wrapper that refines an inner module's output.

@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Match } from "effect"
+import { Array as Arr, Data, Match } from "effect"
 import type { GEPAEvent } from "./events.js"
 
 /**
@@ -13,7 +13,7 @@ import type { GEPAEvent } from "./events.js"
  * @since 0.1.0
  * @category models
  */
-export type GEPAEventSummary = Readonly<{
+export class GEPAEventSummary extends Data.Class<{
   /** Number of input events across all tags. */
   readonly totalEvents: number
   /** Number of `IterationStarted` events. */
@@ -52,7 +52,7 @@ export type GEPAEventSummary = Readonly<{
   readonly maxFrontierSize: number
   /** Total parent-weight rows across all frontier updates. */
   readonly parentWeightEntriesObserved: number
-}>
+}> {}
 
 const EMPTY_GEPA_EVENT_SUMMARY: GEPAEventSummary = {
   totalEvents: 0,

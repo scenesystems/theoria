@@ -6,7 +6,7 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Data, Option } from "effect"
 import type { Schema } from "effect"
 import type { Example } from "../../../Example/index.js"
 import type { Metric } from "../../../Metric/model.js"
@@ -31,12 +31,12 @@ import { phase3TrialBudget } from "./budget.js"
  * @see {@link toPhase2Options} — instruction-proposal projection
  * @see {@link toPhase3Options} — search projection
  */
-export type MIPROOptionLike<
+export class MIPROOptionLike<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
   MR
-> = Readonly<{
+> extends Data.Class<{
   readonly module: DspModule<I, O>
   readonly trainset: ReadonlyArray<Example>
   readonly valset?: ReadonlyArray<Example>
@@ -51,10 +51,14 @@ export type MIPROOptionLike<
   readonly trialBudget?: number
   readonly minibatchSize?: number
   readonly fullEvalEvery?: number
-}>
+}> {}
+
+class CandidateSet<Candidate> extends Data.Class<{
+  readonly candidates: ReadonlyArray<Candidate>
+}> {}
 
 const maxCandidateCount = <Candidate>(
-  candidateSets: ReadonlyArray<Readonly<{ readonly candidates: ReadonlyArray<Candidate> }>>
+  candidateSets: ReadonlyArray<CandidateSet<Candidate>>
 ): number =>
   Arr.reduce(candidateSets, 1, (currentMax, candidateSet) => Numeric.max(currentMax, candidateSet.candidates.length))
 

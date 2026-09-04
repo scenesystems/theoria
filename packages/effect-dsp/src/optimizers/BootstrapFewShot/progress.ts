@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type { Effect } from "effect"
-import { Array as Arr, Match, Stream } from "effect"
+import { Array as Arr, Data, Match, Stream } from "effect"
 import type { BootstrapEvent } from "../../Optimizer/events/bootstrap.js"
 
 /**
@@ -13,14 +13,14 @@ import type { BootstrapEvent } from "../../Optimizer/events/bootstrap.js"
  * @since 0.1.0
  * @category models
  */
-export type BootstrapProgressLine = Readonly<{
+export class BootstrapProgressLine extends Data.Class<{
   /** Original event discriminator. */
   readonly tag: BootstrapEvent["_tag"]
   /** Space-separated key-value fields selected for display. */
   readonly details: string
   /** Event tag followed by `details` when details are present. */
   readonly text: string
-}>
+}> {}
 
 const toProgressLine = (
   tag: BootstrapProgressLine["tag"],
@@ -122,7 +122,7 @@ export const tapBootstrapProgress =
  * @since 0.1.0
  * @category models
  */
-export type BootstrapEventSummary = Readonly<{
+export class BootstrapEventSummary extends Data.Class<{
   /** Number of input events across all tags. */
   readonly totalEvents: number
   /** Number of `RoundStarted` events. */
@@ -145,7 +145,7 @@ export type BootstrapEventSummary = Readonly<{
   readonly totalDemos: number
   /** Attempted round count from the most recent completion event. */
   readonly roundsUsed: number
-}>
+}> {}
 
 const EMPTY_BOOTSTRAP_EVENT_SUMMARY: BootstrapEventSummary = {
   totalEvents: 0,

@@ -39,8 +39,8 @@ const normalizeMetricCase = (raw: RawMetricCase) => {
   }
 }
 
-const optionalFeedback = (feedback: string | null): Readonly<Record<string, string>> =>
-  Option.match(Option.fromNullable(feedback), {
+const optionalFeedback = (feedback: Option.Option<string>): Readonly<Record<string, string>> =>
+  Option.match(feedback, {
     onNone: () => ({}),
     onSome: (value) => ({ feedback: value })
   })
@@ -62,7 +62,7 @@ describe("Metric.Result DSPy parity", () => {
               Effect.succeed(
                 new Metric.Result({
                   score: normalized.score,
-                  ...optionalFeedback(normalized.feedback)
+                  ...optionalFeedback(Option.fromNullable(normalized.feedback))
                 })
               ))
             const scored = yield* metric.score(

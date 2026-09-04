@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect } from "effect"
+import { Data, Effect } from "effect"
 import type { Schema } from "effect"
 import type { Example as ExampleModel } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
@@ -28,12 +28,12 @@ import { evaluateOutcome, type EvaluationEventSink, resolveConcurrency, sortedMe
  * @since 0.1.0
  * @category models
  */
-export type EvaluateOptions<
+export class EvaluateOptions<
   I extends Schema.Struct.Fields = Schema.Struct.Fields,
   O extends Schema.Struct.Fields = Schema.Struct.Fields,
   ME = never,
   MR = never
-> = Readonly<{
+> extends Data.Class<{
   /** Module invoked once for each example. */
   readonly module: Module<I, O>
   /** Labeled examples. An example without an output is reported as a failure. */
@@ -42,7 +42,7 @@ export type EvaluateOptions<
   readonly metrics: Readonly<Record<string, Metric<ME, MR>>>
   /** Maximum concurrent example evaluations passed to Effect; omitted values use `1`. */
   readonly concurrency?: number
-}>
+}> {}
 
 export { type EvaluationEventSink } from "./example.js"
 

@@ -30,10 +30,8 @@ const withReasoningInstructions = (instructions: string): string => `${instructi
  * @category models
  */
 export type ChainOfThoughtOutputFields<O extends Schema.Struct.Fields> =
-  & Readonly<{
-    readonly reasoning: typeof reasoningField
-  }>
   & O
+  & Record<"reasoning", typeof reasoningField>
 
 const chainOfThoughtOutputFields = <O extends Schema.Struct.Fields>(
   outputFields: O

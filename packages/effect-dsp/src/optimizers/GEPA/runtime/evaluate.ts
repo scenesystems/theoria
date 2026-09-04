@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
 
 import { FieldRecord } from "../../../contracts/FieldValue.js"
 import { MetricResult } from "../../../contracts/MetricResult.js"
@@ -23,10 +23,10 @@ import type { GEPAOptions } from "./options.js"
  * @since 0.1.0
  * @category models
  */
-export type CandidateEvaluation = Readonly<{
+export class CandidateEvaluation extends Data.Class<{
   readonly scores: CandidateScoreVector
   readonly samples: ReadonlyArray<ReflectiveDatasetSample>
-}>
+}> {}
 
 const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
   options: GEPAOptions<I, O, ME, MR>

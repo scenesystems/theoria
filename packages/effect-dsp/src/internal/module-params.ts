@@ -30,10 +30,10 @@ const sortedChildNodes = (subModules: ModuleNode["subModules"]): ReadonlyArray<M
  * @category models
  * @internal
  */
-export type ModuleParamRef = Readonly<{
+export class ModuleParamRef extends Data.Class<{
   readonly name: string
   readonly params: Ref.Ref<ModuleParams>
-}>
+}> {}
 
 class TraversalState extends Data.Class<{
   readonly seen: Record<string, true>

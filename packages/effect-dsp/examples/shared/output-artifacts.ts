@@ -20,16 +20,16 @@ import {
   RunId,
   SourceRef
 } from "@scenesystems/effect-search/Contracts"
-import { DateTime, Effect, Layer, Schema } from "effect"
+import { Data, DateTime, Effect, Layer, Schema } from "effect"
 
-export type ExampleArtifacts = Readonly<{
+export class ExampleArtifacts extends Data.Class<{
   readonly runId: string
   readonly rootDir: string
   readonly reportsDir: string
   readonly dataDir: string
   readonly storageDir: string
   readonly envelopeContextLayer: Layer.Layer<EnvelopeContext>
-}>
+}> {}
 
 const PACKAGE_VERSION = "0.1.0"
 const DSP_DOMAIN = "dsp"

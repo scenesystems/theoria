@@ -7,7 +7,7 @@
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { streamFromEmitter } from "@scenesystems/effect-search/Study"
-import { Array as Arr, Effect, Option, Ref } from "effect"
+import { Array as Arr, Data, Effect, Option, Ref } from "effect"
 import type { Schema, Stream } from "effect"
 import type * as Layer from "effect/Layer"
 import { withModuleParamsDemosAndInstructions } from "../../contracts/ModuleParams.js"
@@ -61,12 +61,12 @@ const bootstrapFailure = (options: {
  * @since 0.1.0
  * @category models
  */
-export type BootstrapFewShotOptions<
+export class BootstrapFewShotOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
   MR = never
-> = Readonly<{
+> extends Data.Class<{
   /** Module mutated in place and returned by the optimizer. */
   readonly module: Module<I, O>
   /** Training examples used for teacher runs and labeled fallback. */
@@ -87,7 +87,7 @@ export type BootstrapFewShotOptions<
   readonly fallbackLabeledDemoCount?: number
   /** Layer used only while running teacher traces; otherwise the ambient language model is used. */
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
-}>
+}> {}
 
 export type { BootstrapEventSink } from "./runtime/round.js"
 

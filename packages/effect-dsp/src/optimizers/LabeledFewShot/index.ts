@@ -35,7 +35,7 @@ const scoredDemoOrder: Order.Order<ScoredDemo> = Order.mapInput(Order.number, (e
  * @since 0.1.0
  * @category models
  */
-export type LabeledFewShotOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{
+export class LabeledFewShotOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   /** Module whose root and discovered submodule parameter refs are updated. */
   readonly module: Module<I, O>
   /** Source examples; entries without `output` are ignored. */
@@ -44,7 +44,7 @@ export type LabeledFewShotOptions<I extends Schema.Struct.Fields, O extends Sche
   readonly k: number
   /** Pseudo-random selection seed. Defaults to `1`. */
   readonly seed?: number
-}>
+}> {}
 
 const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<Demo> =>
   Arr.filterMap(

@@ -6,32 +6,32 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Match, Option, Order, Tuple } from "effect"
+import { Array as Arr, Data, Match, Option, Order, Tuple } from "effect"
 import type { ProgramCandidate } from "../model.js"
 
-export type ResolveMergeInputsOptions = Readonly<{
+export class ResolveMergeInputsOptions extends Data.Class<{
   readonly candidates: ReadonlyArray<ProgramCandidate>
   readonly parentAId: string
   readonly parentBId: string
-}>
+}> {}
 
-export type MergeInputs = Readonly<{
+export class MergeInputs extends Data.Class<{
   readonly commonAncestorId: string
   readonly ancestor: ProgramCandidate
   readonly parentA: ProgramCandidate
   readonly parentB: ProgramCandidate
-}>
+}> {}
 
-type AncestorDistance = Readonly<{
+class AncestorDistance extends Data.Class<{
   readonly candidateId: string
   readonly distance: number
-}>
+}> {}
 
-type CommonAncestorCandidate = Readonly<{
+class CommonAncestorCandidate extends Data.Class<{
   readonly candidateId: string
   readonly parentADistance: number
   readonly parentBDistance: number
-}>
+}> {}
 
 const makeAncestorDistance = (candidateId: string, distance: number): AncestorDistance => ({
   candidateId,

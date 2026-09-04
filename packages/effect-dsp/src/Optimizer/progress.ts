@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect } from "effect"
+import { Data, Effect } from "effect"
 import {
   type BootstrapProgressSink,
   formatBootstrapProgressEvent,
@@ -66,7 +66,7 @@ export { summarizeGEPAEvents, tapGEPAProgress } from "../optimizers/GEPA/progres
  * @since 0.1.0
  * @category models
  */
-export type MIPROv2OutcomeSummary = Readonly<{
+export class MIPROv2OutcomeSummary extends Data.Class<{
   /** Reference exact-match score supplied by the caller. */
   readonly baselineExactMatch: number
   /** Exact-match score supplied after optimization. */
@@ -81,7 +81,7 @@ export type MIPROv2OutcomeSummary = Readonly<{
   readonly demosLearnedDuringMIPROv2: number
   /** Independently folded lifecycle events. */
   readonly eventSummary: MIPROv2EventSummary
-}>
+}> {}
 
 /**
  * Compares caller-evaluated exact-match scores and instruction strings.
@@ -94,7 +94,7 @@ export type MIPROv2OutcomeSummary = Readonly<{
  * @since 0.1.0
  * @category models
  */
-export type GEPAOutcomeSummary = Readonly<{
+export class GEPAOutcomeSummary extends Data.Class<{
   /** Reference exact-match score supplied by the caller. */
   readonly baselineExactMatch: number
   /** Exact-match score supplied after optimization. */
@@ -109,7 +109,7 @@ export type GEPAOutcomeSummary = Readonly<{
   readonly instructionLengthAfterOptimization: number
   /** Independently folded lifecycle events. */
   readonly eventSummary: GEPAEventSummary
-}>
+}> {}
 
 /**
  * Computes MIPROv2 score and demonstration deltas from supplied observations.

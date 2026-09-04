@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Match, Option, Predicate, Record } from "effect"
+import { Array as Arr, Data, Match, Option, Predicate, Record } from "effect"
 import type { MetricPayload } from "../contracts/MetricFn.js"
 
 const normalize = (value: string): string => value.trim().toLowerCase()
@@ -62,10 +62,10 @@ const tokenCounts = (tokens: ReadonlyArray<string>): Readonly<Record<string, num
       )
     ))
 
-type OverlapState = Readonly<{
+class OverlapState extends Data.Class<{
   readonly overlap: number
   readonly rightCounts: Readonly<Record<string, number>>
-}>
+}> {}
 
 /**
  * Compute multiset token overlap between two token arrays — counts each token

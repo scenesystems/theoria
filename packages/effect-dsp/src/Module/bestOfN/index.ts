@@ -5,7 +5,7 @@
  * @module
  */
 import type { Schema } from "effect"
-import { Effect, HashMap, Option, Ref } from "effect"
+import { Data, Effect, HashMap, Option, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { makeDefaultModuleParams } from "../../contracts/ModuleParams.js"
@@ -30,10 +30,10 @@ import { makeBestOfNForward, type RewardFn } from "./runtime.js"
  * @since 0.1.0
  * @category models
  */
-export type BestOfNOptions<
+export class BestOfNOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
-> = Readonly<{
+> extends Data.Class<{
   /** Identity of the composed module and its forward span. */
   readonly name: string
   /** Module invoked once per rollout; its signature becomes the wrapper signature. */
@@ -47,7 +47,7 @@ export type BestOfNOptions<
    * candidate overall is still returned. Omission selects by score alone.
    */
   readonly threshold?: number
-}>
+}> {}
 
 /**
  * Creates a wrapper that selects the best of repeated inner-module runs.

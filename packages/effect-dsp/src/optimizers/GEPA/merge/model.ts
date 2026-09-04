@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Schema } from "effect"
+import { Data, Schema } from "effect"
 import { MergeComparison, ProgramCandidate } from "../model.js"
 
 /**
@@ -12,7 +12,7 @@ import { MergeComparison, ProgramCandidate } from "../model.js"
  * @since 0.1.0
  * @category models
  */
-export type PrepareCommonAncestorMergeOptions = Readonly<{
+export class PrepareCommonAncestorMergeOptions extends Data.Class<{
   readonly candidates: ReadonlyArray<ProgramCandidate>
   readonly parentAId: string
   readonly parentBId: string
@@ -22,7 +22,7 @@ export type PrepareCommonAncestorMergeOptions = Readonly<{
   readonly comparisons: ReadonlyArray<MergeComparison>
   readonly mergeBudgetRemaining: number
   readonly seed: number
-}>
+}> {}
 
 /**
  * Merge/crossover preparation event emitted before acceptance evaluation.

@@ -6,7 +6,7 @@
  * presentation written directly to disk.
  */
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Schema } from "effect"
 import { artifactDirectoryForExample, emitCustomEnvelope, type ExampleArtifacts } from "./output-artifacts.js"
 
 const REPORT_FILE_NAME = "report.md"
@@ -48,60 +48,70 @@ const lineForOptionalBoolean = (label: string, value?: boolean): string =>
 
 export type ExampleOptimizerKind = "miprov2" | "gepa" | "study"
 
-export type StandardExampleSummary = Readonly<{
+class ExampleDataset extends Data.Class<{
+  readonly trainsetSize?: number
+  readonly valsetSize?: number
+  readonly evalsetSize?: number
+}> {}
+
+class ExampleScores extends Data.Class<{
+  readonly baseline: number
+  readonly optimized: number
+  readonly delta: number
+}> {}
+
+class ExampleInstruction extends Data.Class<{
+  readonly changed?: boolean
+  readonly lengthBefore?: number
+  readonly lengthAfter?: number
+  readonly before?: string
+  readonly after?: string
+}> {}
+
+class ExampleDemos extends Data.Class<{
+  readonly countBefore?: number
+  readonly countAfter?: number
+  readonly learnedDuringOptimization?: number
+}> {}
+
+class ExampleOptimization extends Data.Class<{
+  readonly eventCount: number
+  readonly summary: Readonly<Record<string, unknown>>
+  readonly seed?: number
+  readonly config?: Readonly<Record<string, unknown>>
+}> {}
+
+class ExampleEventStream extends Data.Class<{
+  readonly name: string
+  readonly events: unknown
+}> {}
+
+export class StandardExampleSummary extends Data.Class<{
   readonly schemaVersion: "effect-dsp-example-report/v1"
   readonly exampleName: string
   readonly optimizer: ExampleOptimizerKind
   readonly metricName: string
-  readonly dataset: Readonly<{
-    readonly trainsetSize?: number
-    readonly valsetSize?: number
-    readonly evalsetSize?: number
-  }>
-  readonly scores: Readonly<{
-    readonly baseline: number
-    readonly optimized: number
-    readonly delta: number
-  }>
-  readonly instruction: Readonly<{
-    readonly changed?: boolean
-    readonly lengthBefore?: number
-    readonly lengthAfter?: number
-    readonly before?: string
-    readonly after?: string
-  }>
-  readonly demos: Readonly<{
-    readonly countBefore?: number
-    readonly countAfter?: number
-    readonly learnedDuringOptimization?: number
-  }>
-  readonly optimization: Readonly<{
-    readonly eventCount: number
-    readonly summary: Readonly<Record<string, unknown>>
-    readonly seed?: number
-    readonly config?: Readonly<Record<string, unknown>>
-  }>
+  readonly dataset: ExampleDataset
+  readonly scores: ExampleScores
+  readonly instruction: ExampleInstruction
+  readonly demos: ExampleDemos
+  readonly optimization: ExampleOptimization
   readonly extras: Readonly<Record<string, unknown>>
-}>
+}> {}
 
-export type StandardExampleEvents = Readonly<{
+export class StandardExampleEvents extends Data.Class<{
   readonly schemaVersion: "effect-dsp-example-events/v1"
   readonly exampleName: string
   readonly optimizer: ExampleOptimizerKind
-  readonly streams: ReadonlyArray<
-    Readonly<{
-      readonly name: string
-      readonly events: unknown
-    }>
-  >
-}>
+  readonly streams: ReadonlyArray<ExampleEventStream>
+}> {}
 
-export type StandardModuleState = Readonly<{
+export class StandardModuleState extends Data.Class<{
   readonly schemaVersion: "effect-dsp-module-state/v1"
   readonly exampleName: string
   readonly optimizer: ExampleOptimizerKind
   readonly state: unknown
-}>
+}> {}
 
 export const STANDARD_REPORT_FILE_NAME = REPORT_FILE_NAME
 
@@ -311,12 +321,7 @@ export const makeStandardReportMarkdown = (summary: StandardExampleSummary): str
 export const makeStandardEvents = (options: {
   readonly exampleName: string
   readonly optimizer: ExampleOptimizerKind
-  readonly streams: ReadonlyArray<
-    Readonly<{
-      readonly name: string
-      readonly events: unknown
-    }>
-  >
+  readonly streams: ReadonlyArray<ExampleEventStream>
 }): StandardExampleEvents => ({
   schemaVersion: "effect-dsp-example-events/v1",
   exampleName: options.exampleName,

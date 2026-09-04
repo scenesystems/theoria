@@ -3,20 +3,20 @@
  */
 import { Contracts, Study } from "@scenesystems/effect-search"
 import type * as StudyEvent from "@scenesystems/effect-search/StudyEvent"
-import { Effect, Layer, Option } from "effect"
+import { Data, Effect, Layer, Option } from "effect"
 import type { Stream } from "effect"
 
 const DEFAULT_CACHE_PREFIX = "effect-dsp/examples"
 
-export type StudyRuntimeOptions = Readonly<{
+export class StudyRuntimeOptions extends Data.Class<{
   readonly storageDirectory: string
   readonly envelopeContextLayer: Layer.Layer<Contracts.EnvelopeContext>
   readonly cachePrefix?: string
-}>
+}> {}
 
-export type StudyProgressOptions = Readonly<{
+export class StudyProgressOptions extends Data.Class<{
   readonly sink?: Study.TerminalSink
-}>
+}> {}
 
 const resolveCachePrefix = (options: StudyRuntimeOptions): string =>
   Option.getOrElse(Option.fromNullable(options.cachePrefix), () => DEFAULT_CACHE_PREFIX)
@@ -55,7 +55,7 @@ export const withStudyRuntime = <A, E, R>(
 
 const progressOptions = (options: StudyProgressOptions) =>
   Option.match(Option.fromNullable(options.sink), {
-    onNone: () => undefined,
+    onNone: () => ({}),
     onSome: (sink) => ({ sink })
   })
 

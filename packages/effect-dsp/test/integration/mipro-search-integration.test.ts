@@ -104,7 +104,7 @@ describe("MIPROv2/effect-search integration", () => {
         },
         concurrency: 1
       }).pipe(Effect.provide(layer))
-      const projected = yield* projectSingleObjective(report, "mipro")
+      const projected = yield* projectSingleObjective(report, Option.some("mipro"))
 
       const result = yield* runPhase3Search({
         module,

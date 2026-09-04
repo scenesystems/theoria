@@ -150,7 +150,7 @@ export const runPhase3Search = <
           },
           concurrency: 1
         }).pipe(Effect.provide(evaluationContext))
-        const projection = yield* projectSingleObjective(report, "miprov2")
+        const projection = yield* projectSingleObjective(report, Option.some("miprov2"))
 
         return yield* objectiveScore(projection.objective)
       })

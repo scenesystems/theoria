@@ -7,7 +7,7 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"
-import { Array as Arr, Effect, Match, Number as Num, Option, Order } from "effect"
+import { Array as Arr, Data, Effect, Match, Number as Num, Option, Order } from "effect"
 import { withRollout } from "../../Cache/refs.js"
 import type { MetricResult } from "../../contracts/MetricResult.js"
 import type { Signature } from "../../Signature/model.js"
@@ -44,11 +44,11 @@ const normalizeRunCount = (requested: number): number =>
     Match.orElse(() => 1)
   )
 
-type ScoredCandidate<O> = Readonly<{
+class ScoredCandidate<O> extends Data.Class<{
   readonly output: O
   readonly score: number
   readonly rolloutIndex: number
-}>
+}> {}
 
 const scoredCandidateOrder: Order.Order<ScoredCandidate<unknown>> = Order.combine(
   Order.reverse(Order.mapInput(Num.Order, (candidate: ScoredCandidate<unknown>) => candidate.score)),

@@ -6,7 +6,7 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Option, Order, Record } from "effect"
+import { Array as Arr, Data, Option, Order, Record } from "effect"
 import type { ModuleParams } from "../../../contracts/ModuleParams.js"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
 import { Demo, type Example } from "../../../Example/index.js"
@@ -36,10 +36,10 @@ export type Phase1CandidateKind = "zero-shot" | "labels-only" | "bootstrap-unshu
  * @category models
  * @see {@link Phase1CandidateKind}
  */
-export type CandidateAssembly = Readonly<{
+export class CandidateAssembly extends Data.Class<{
   readonly kind: Phase1CandidateKind
   readonly params: ModuleParams
-}>
+}> {}
 
 const demoOrder: Order.Order<Demo> = Order.mapInput(
   Order.number,

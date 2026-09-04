@@ -29,15 +29,17 @@ import type { Signature } from "../../Signature/model.js"
  * @since 0.1.0
  * @category models
  */
-export type ComposableModule = Readonly<{
+class ComposableSignature extends Data.Class<{
+  readonly description: string
+  readonly instructions: string
+}> {}
+
+export class ComposableModule extends Data.Class<{
   readonly name: string
-  readonly signature: Readonly<{
-    readonly description: string
-    readonly instructions: string
-  }>
+  readonly signature: ComposableSignature
   readonly params: Ref.Ref<ModuleParams>
   readonly subModules: HashMap.HashMap<ModuleId, ModuleNode>
-}>
+}> {}
 
 const moduleIdOrder: Order.Order<ModuleId> = Order.mapInput(Order.string, (moduleId: ModuleId) => moduleId)
 
@@ -66,11 +68,11 @@ const uniqueSortedModuleIds = (moduleIds: ReadonlyArray<ModuleId>): ReadonlyArra
 
 const edgeKey = (parentId: ModuleId, childId: ModuleId): string => `${parentId}->${childId}`
 
-type GraphBuildState = Readonly<{
+class GraphBuildState extends Data.Class<{
   readonly nodeById: HashMap.HashMap<ModuleId, ModuleGraphNode>
   readonly sourceById: HashMap.HashMap<ModuleId, ComposableModule>
   readonly edgeByKey: HashMap.HashMap<string, ModuleGraphEdge>
-}>
+}> {}
 
 const emptyGraphBuildState: GraphBuildState = {
   nodeById: HashMap.empty<ModuleId, ModuleGraphNode>(),

@@ -5,7 +5,7 @@
  * @module
  */
 import type { Schema } from "effect"
-import { Effect, HashMap, Option, Ref } from "effect"
+import { Data, Effect, HashMap, Option, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { ModuleParams } from "../../contracts/ModuleParams.js"
@@ -22,10 +22,10 @@ const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
  * @since 0.1.0
  * @category models
  */
-export type PredictOptions = Readonly<{
+export class PredictOptions extends Data.Class<{
   /** Overrides merged with {@link DEFAULT_PREDICT_POLICY}. */
   readonly policy?: PredictPolicyOverrides
-}>
+}> {}
 
 const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
 

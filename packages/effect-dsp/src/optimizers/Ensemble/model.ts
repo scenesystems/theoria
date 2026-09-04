@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { Data } from "effect"
 import type { Effect, Schema } from "effect"
 import type { DspError } from "../../Errors/union.js"
 import type { Module as DspModule } from "../../Module/model.js"
@@ -70,7 +71,7 @@ export type EnsembleReduceFn<I extends Schema.Struct.Fields, O extends Schema.St
  * @since 0.1.0
  * @category models
  */
-export type EnsembleOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{
+export class EnsembleOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   /** Candidate modules. The first supplies the ensemble signature; all are retained as sub-modules. */
   readonly programs: ReadonlyArray<DspModule<I, O>>
   /**
@@ -84,4 +85,4 @@ export type EnsembleOptions<I extends Schema.Struct.Fields, O extends Schema.Str
   readonly seed?: number
   /** Identity of the composed module and its forward span. Defaults to `"ensemble"`. */
   readonly name?: string
-}>
+}> {}

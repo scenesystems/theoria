@@ -70,11 +70,11 @@ export class TextCallResult extends Data.Class<{
   readonly toolResults: ReadonlyArray<TextToolResultSummary>
 }> {}
 
-type TextCallOptions<
+class TextCallOptions<
   Tools extends Record<string, Tool.Any> = Record<never, Tool.Any>
-> = Readonly<{
+> extends Data.Class<{
   readonly toolkit?: Toolkit.WithHandler<Tools>
-}>
+}> {}
 
 /**
  * Calls the language model in structured-object mode and returns the full

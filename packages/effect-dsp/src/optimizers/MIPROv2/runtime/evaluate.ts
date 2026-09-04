@@ -35,13 +35,13 @@ import { configIndex } from "./search-space.js"
  * @see {@link makePhase3TrialRefs} — constructor
  * @see {@link evaluateTrial} — primary consumer
  */
-export type Phase3TrialRefs = Readonly<{
+export class Phase3TrialRefs extends Data.Class<{
   readonly trialCounter: Ref.Ref<number>
   readonly bestScoreRef: Ref.Ref<number>
   readonly bestAveragingRef: Ref.Ref<Option.Option<BestAveragingCandidate>>
   readonly fullEvalTrialsRef: Ref.Ref<ReadonlyArray<number>>
   readonly minibatchTrialsRef: Ref.Ref<ReadonlyArray<number>>
-}>
+}> {}
 
 /**
  * Allocates a fresh set of `Ref` cells for a Phase 3 search run.

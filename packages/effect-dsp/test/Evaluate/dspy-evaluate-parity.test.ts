@@ -25,8 +25,8 @@ const makeQaSignature = () =>
     }
   )
 
-const exampleOutput = (expectedAnswer: string | null): Readonly<Record<string, unknown>> =>
-  Option.match(Option.fromNullable(expectedAnswer), {
+const exampleOutput = (expectedAnswer: Option.Option<string>): Readonly<Record<string, unknown>> =>
+  Option.match(expectedAnswer, {
     onNone: () => ({}),
     onSome: (answer) => ({
       output: {
@@ -80,7 +80,7 @@ describe("Evaluate DSPy parity", () => {
             input: {
               question: example.question
             },
-            ...exampleOutput(example.expectedAnswer)
+            ...exampleOutput(Option.fromNullable(example.expectedAnswer))
           })
       )
       const options = {

@@ -28,7 +28,7 @@ const toFieldValueRecord = (record: Readonly<Record<string, unknown>>) =>
     Record.fromEntries(
       Arr.map(Record.toEntries(record), ([key, value]) => [
         key,
-        Predicate.isString(value) || Predicate.isNumber(value) || Predicate.isBoolean(value) || value === null
+        Predicate.isString(value) || Predicate.isNumber(value) || Predicate.isBoolean(value) || Predicate.isNull(value)
           ? value
           : String(value)
       ])
