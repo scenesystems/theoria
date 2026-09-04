@@ -8,6 +8,13 @@
   },
   "rules": {
     "import/no-nodejs-modules": "error",
+    "no-array-constructor": "error",
+    "no-case-declarations": "error",
+    "no-empty": "error",
+    "no-fallthrough": "error",
+    "no-prototype-builtins": "error",
+    "no-regex-spaces": "error",
+    "no-unexpected-multiline": "error",
     "no-unused-expressions": "error",
     "no-unused-vars": [
       "error",
@@ -16,7 +23,17 @@
         "varsIgnorePattern": "^_"
       }
     ],
+    "no-useless-assignment": "error",
+    "object-shorthand": "error",
+    "preserve-caught-error": "error",
     "require-yield": "off",
+    "typescript/array-type": [
+      "warn",
+      {
+        "default": "generic",
+        "readonly": "generic"
+      }
+    ],
     "typescript/ban-ts-comment": [
       "error",
       {
@@ -24,13 +41,6 @@
         "ts-expect-error": true,
         "ts-ignore": true,
         "ts-nocheck": true
-      }
-    ],
-    "typescript/array-type": [
-      "warn",
-      {
-        "default": "generic",
-        "readonly": "generic"
       }
     ],
     "typescript/consistent-type-imports": "warn",
@@ -51,14 +61,6 @@
     "typescript/prefer-namespace-keyword": "error",
     "typescript/triple-slash-reference": "error"
   },
-  "overrides": [
-    {
-      "files": ["packages/digest/src/internal/**/*.ts"],
-      "rules": {
-        "unicorn/no-new-array": "off"
-      }
-    }
-  ],
   "ignorePatterns": [
     "**/dist/**",
     "**/build/**",

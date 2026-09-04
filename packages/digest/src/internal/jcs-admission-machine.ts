@@ -56,7 +56,7 @@ const finishDescriptors = (state: State, frame: Extract<Frame, { _tag: "Descript
   if (MutableRef.get(frame.accessor)) return fail(state, rejection("accessor-property"))
   if (frame.container._tag === "Record") {
     if (MutableRef.get(frame.hidden)) return fail(state, rejection("non-enumerable-property"))
-    const buffer = new Array(frame.entries.length)
+    const buffer = Arr.copy(frame.entries)
     return push(state, {
       _tag: "Sort",
       identity: frame.container.identity,
@@ -112,7 +112,8 @@ const finishArrayCheck = (state: State, frame: Extract<Frame, { _tag: "ArrayChec
     _tag: "ArrayFill",
     identity: frame.identity,
     entries: frame.entries,
-    values: new Array(frame.length),
+    // The sparse check above guarantees every index below `length` is assigned during fill.
+    values: [],
     length: frame.length,
     at: ref(0)
   })
