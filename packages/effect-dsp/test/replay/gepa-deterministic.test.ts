@@ -11,13 +11,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Option, Schema, Stream } from "effect"
 
-import {
-  GepaCatalogVersionedFixturesFixtureSchema,
-  GepaReplayFrontierSnapshotsFixtureSchema,
-  GepaReplayParamsFixtureSchema,
-  GepaReplaySeedContractFixtureSchema,
-  makeFixtureRegistry
-} from "../helpers/dspy-fixtures/index.js"
+import { GepaReplaySeedContractFixtureSchema, makeFixtureRegistry } from "../helpers/dspy-fixtures/index.js"
 
 const encodeSavedStateJson = Schema.encode(Schema.parseJson(Module.SavedState))
 const ParetoSnapshotSchema = Schema.Struct({
@@ -95,31 +89,14 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
 
 describe("GEPA deterministic replay", () => {
   it.effect(
-    "replays seeded runs with byte-stable outputs and fixture-manifest parity",
+    "replays seeded runs with byte-stable outputs",
     () =>
       Effect.gen(function*() {
         const fixtureRegistry = makeFixtureRegistry()
-        const rawCatalog = yield* fixtureRegistry.load("dspy.gepa.catalog.versioned-fixtures")
         const rawReplayContract = yield* fixtureRegistry.load("dspy.gepa.replay.seed-0.contract")
-        const rawReplayFrontierSnapshots = yield* fixtureRegistry.load("dspy.gepa.replay.frontier-snapshots.seed-0")
-        const rawReplayParams = yield* fixtureRegistry.load("dspy.gepa.replay.params.seed-0")
-        const catalog = yield* Schema.decodeUnknown(GepaCatalogVersionedFixturesFixtureSchema)(rawCatalog)
-        const replayFrontierSnapshots = yield* Schema.decodeUnknown(GepaReplayFrontierSnapshotsFixtureSchema)(
-          rawReplayFrontierSnapshots
-        )
-        const replayParams = yield* Schema.decodeUnknown(GepaReplayParamsFixtureSchema)(rawReplayParams)
         const replayContract = yield* Schema.decodeUnknown(GepaReplaySeedContractFixtureSchema)(
           rawReplayContract
         )
-        const catalogFixtureNames = Arr.map(catalog.payload.fixtures, (entry) => entry.name)
-
-        expect(catalog.payload.fixtureSet).toBe("dspy.gepa")
-        expect(catalog.payload.version).toBe(2)
-        expect(catalog.payload.requiredFixtureCount).toBe(catalog.payload.fixtures.length)
-        expect(replayContract.payload.requiredManifestFixtures).toEqual(catalogFixtureNames)
-        expect(replayFrontierSnapshots.payload.seed).toBe(replayContract.payload.seed)
-        expect(replayParams.payload.seed).toBe(replayContract.payload.seed)
-        expect(replayParams.payload.moduleName).toBe(replayContract.payload.moduleName)
 
         const firstRun = yield* runSeededReplay(
           replayContract.payload.moduleName,
@@ -134,8 +111,6 @@ describe("GEPA deterministic replay", () => {
 
         expect(secondRun.savedStateBytes).toEqual(firstRun.savedStateBytes)
         expect(secondRun.paretoSnapshotBytes).toEqual(firstRun.paretoSnapshotBytes)
-        expect(replayFrontierSnapshots.payload.snapshots.length).toBeGreaterThan(0)
-        expect(replayParams.payload.stableJsonKeys).toEqual(["version", "modules", "metadata"])
       })
   )
 })

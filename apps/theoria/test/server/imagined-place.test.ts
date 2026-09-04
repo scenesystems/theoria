@@ -80,10 +80,9 @@ describe("server/imagined-place", () => {
       const signers = Arr.map(result.evidence.signatures, (record) => record.signer)
       expect(signers).toEqual(["author", "author", "neighbor", "program"])
       const wrongKey = participants.author.signing.publicKey
-      const neighborRecord = result.evidence.signatures[2]
-      expect(neighborRecord).toBeDefined()
-      const neighborSignature = yield* Encoding.decodeHex(neighborRecord?.signatureHex ?? "")
-      expect(yield* ed25519Verify(neighborSignature, utf8ToBytes(neighborRecord?.subject ?? ""), wrongKey)).toBe(false)
+      const neighborRecord = yield* Arr.get(result.evidence.signatures, 2)
+      const neighborSignature = yield* Encoding.decodeHex(neighborRecord.signatureHex)
+      expect(yield* ed25519Verify(neighborSignature, utf8ToBytes(neighborRecord.subject), wrongKey)).toBe(false)
     }).pipe(Effect.provide(ParticipantsLive)))
 
   it.effect("seals the neighbor's note to the author and the author can open it", () =>

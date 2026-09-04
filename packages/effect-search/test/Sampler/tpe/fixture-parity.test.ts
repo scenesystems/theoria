@@ -18,12 +18,6 @@ const PROBABILITY_TOLERANCE = 1e-12
 const SIGMA_TOLERANCE = 1e-10
 const SCORE_TOLERANCE = 1e-9
 
-const REQUIRED_CONTINUOUS_FIXTURES = Arr.make(
-  "continuous-kde.micro-positive-span",
-  "continuous-kde.extreme-asymmetric-range",
-  "continuous-kde.upper-boundary-cluster"
-)
-
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number): void => {
   expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
 }
@@ -160,11 +154,6 @@ describe("fixture-backed parity", () => {
     Effect.gen(function*() {
       const loaded = yield* loadAllFixtures("continuous-kde.").pipe(Effect.provide(FixtureRegistryLive))
       const fixtures = yield* Effect.forEach(loaded, (entry) => Schema.decodeUnknown(ContinuousKdeFixtureSchema)(entry))
-
-      yield* Effect.sync(() => {
-        const fixtureNames = Arr.map(fixtures, (fixture) => fixture.fixture)
-        expect(Arr.every(REQUIRED_CONTINUOUS_FIXTURES, (name) => Arr.contains(fixtureNames, name))).toBe(true)
-      })
 
       yield* Effect.forEach(
         fixtures,

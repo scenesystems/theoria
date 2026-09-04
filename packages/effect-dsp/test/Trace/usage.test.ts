@@ -8,7 +8,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Option, Schema } from "effect"
 import fc from "fast-check"
 
 const makeQaSignature = () =>
@@ -129,14 +129,10 @@ describe("Trace usage", () => {
         )
       )
 
-      const entry = traced[1][0]
+      const entry = yield* Arr.head(traced[1])
 
-      expect(entry).toBeDefined()
-
-      if (entry) {
-        expect(entry.prompt.length > 0).toBe(true)
-        expect(entry.rawResponse.length > 0).toBe(true)
-        expect(typeof entry.durationMs).toBe("number")
-      }
+      expect(entry.prompt.length > 0).toBe(true)
+      expect(entry.rawResponse.length > 0).toBe(true)
+      expect(typeof entry.durationMs).toBe("number")
     }))
 })

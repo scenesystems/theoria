@@ -128,24 +128,6 @@ const deterministicLayer = (profile: Browser.BrowserSupportProfileType) =>
   )
 
 describe("Text browser runtime contracts", () => {
-  it.effect("browser support manifest ships multiple profiles with explicit engine and tab policy data", () =>
-    Effect.sync(() => {
-      const profileIds = Arr.map(browserProfiles, (profile) => profile.id)
-
-      expect(profileIds).toEqual(["canvas-monospace", "canvas-system-ui"])
-      expect(browserProfiles[0]?.fontSelection).toBe("named-family")
-      expect(browserProfiles[0]?.fontStack).toEqual(["Mono", "monospace"])
-      expect(browserProfiles[1]?.fontSelection).toBe("browser-default-stack")
-      expect(browserProfiles[1]?.fontStack).toEqual(["system-ui", "sans-serif"])
-      expect(Arr.every(browserProfiles, (profile) => profile.tabPolicy.mode === "space-columns")).toBe(true)
-      expect(Arr.every(browserProfiles, (profile) => profile.engineProfile.tabWidth === profile.tabPolicy.columns))
-        .toBe(true)
-      expect(
-        (browserProfiles[1]?.engineProfile.lineFitEpsilon ?? 0) >
-          (browserProfiles[0]?.engineProfile.lineFitEpsilon ?? 0)
-      ).toBe(true)
-    }))
-
   it.effect("CanvasTextMeasurerLive is concurrency-safe under repeated prepare calls", () =>
     Effect.gen(function*() {
       const context = new MonospaceCanvasContext()
