@@ -3,8 +3,10 @@ import type { AnchorHTMLAttributes, ComponentProps, MouseEvent, ReactNode } from
 
 import { navigateAtom, shouldNavigateInBrowser } from "../../atoms/navigation.js"
 
+import { classNames } from "./classNames.js"
+
 /** Anchor props including React 19's `ref` prop, so a caller can move focus to the link. */
-type InternalLinkProps = Omit<ComponentProps<"a">, "href"> & {
+type InternalLinkProps = ComponentProps<"a"> & {
   readonly href: string
 }
 
@@ -65,7 +67,7 @@ export const ExternalLink = ({
   </a>
 )
 
-type AnchorLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
+type AnchorLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   readonly href: string
 }
 
@@ -84,14 +86,14 @@ export const AnchorLink = ({ children, href, ...props }: AnchorLinkProps) => (
  */
 export const CardLink = ({
   children,
-  className,
+  className = "",
   href
 }: {
   readonly children: ReactNode
   readonly className?: string
   readonly href: string
 }) => (
-  <InternalLink className={`after:absolute after:inset-0 after:content-[''] ${className ?? ""}`} href={href}>
+  <InternalLink className={classNames("after:absolute after:inset-0 after:content-['']", className)} href={href}>
     {children}
   </InternalLink>
 )

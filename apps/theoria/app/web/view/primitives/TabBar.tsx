@@ -1,6 +1,7 @@
 import { Button } from "@base-ui/react/button"
 import type { ReactNode } from "react"
 
+import { classNames } from "./classNames.js"
 import { Cluster, Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -14,7 +15,7 @@ const tabInactiveClass =
 
 export const TabButton = ({
   active,
-  className,
+  className = "",
   icon,
   label,
   onClick
@@ -26,19 +27,19 @@ export const TabButton = ({
   readonly onClick: () => void
 }) => (
   <Button
-    className={`${active ? tabActiveClass : tabInactiveClass}${className !== undefined ? ` ${className}` : ""}`}
+    className={classNames(active ? tabActiveClass : tabInactiveClass, className)}
     onClick={onClick}
     type="button"
   >
     <Cluster className="gap-1.5 whitespace-nowrap">
-      {icon ?? null}
+      {icon}
       <SemanticText as="span" className="whitespace-nowrap" role="tab-label" text={label} variant="expanded" />
     </Cluster>
   </Button>
 )
 
 export const TabBar = ({
-  className,
+  className = "",
   children
 }: {
   readonly className?: string
@@ -46,9 +47,7 @@ export const TabBar = ({
 }) => (
   <Layer
     as="nav"
-    className={`flex gap-1 rounded-lg border border-stage-200/95 bg-stage-100/68 p-1${
-      className !== undefined ? ` ${className}` : ""
-    }`}
+    className={classNames("flex gap-1 rounded-lg border border-stage-200/95 bg-stage-100/68 p-1", className)}
   >
     {children}
   </Layer>

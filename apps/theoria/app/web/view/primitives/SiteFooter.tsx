@@ -1,4 +1,5 @@
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
+import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { siteMetadata } from "../../../contracts/metadata.js"
@@ -7,10 +8,11 @@ import { ExternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 import { TheoriaLogo } from "./TheoriaLogo.js"
 
-type FooterDestination = {
-  readonly href: string
-  readonly label: string
-}
+const FooterDestination = Schema.Struct({
+  href: Schema.String,
+  label: Schema.String
+})
+type FooterDestination = typeof FooterDestination.Type
 
 const footerDestinations: ReadonlyArray<FooterDestination> = [
   {

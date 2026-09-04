@@ -50,13 +50,15 @@ away. Under the sticky stage the right column is empty for most of the page.
 At 390 px the outer card is about twelve screens tall and its border and
 padding take about 8 % of the width.
 
-The vocabulary produces this. `view/primitives/designSystem.ts` declares
-seventeen `surfaceMaterials` with nine distinct radii; fifteen have no caller.
-`evidenceSectionThemeFor`, `obstacleToneClassesFor`, `surfaceThemeForCard`,
+The vocabulary produced this. `view/primitives/designSystem.ts` once
+declared seventeen `surfaceMaterials` with nine distinct radii, fifteen of
+them without a caller, beside a dozen zero-caller theme resolvers
+(`evidenceSectionThemeFor`, `obstacleToneClassesFor`, `surfaceThemeForCard`,
 `badgeThemeFromSurface`, `metricPillClassesFor`, `panelButtonClassName`,
-`appTheme.homeGrid` and `appTheme.compactNav` have none either. They are the
-card vocabulary of the package catalog `/` replaced, and every new element
-reaches for it.
+`appTheme.homeGrid`, `appTheme.compactNav`). That dead vocabulary is gone; the
+two materials still in use, `raisedCard` and `calloutError`, are the card
+vocabulary of the package catalog `/` replaced, and every new element still
+reaches for them.
 
 Two more findings. Base UI is installed but the code tabs are plain `Button`s
 without `tablist` semantics, the scenario chooser is `aria-pressed` buttons and
@@ -254,8 +256,8 @@ derived.
       `--radius-control: 0.5rem`, with `--th-*` values in `:root` and
       `:root.dark`.
 - [ ] `designSystem.ts`: `SurfaceRole` and `surfaceClassName(role)` via
-      `Match.exhaustive` replace `surfaceMaterials`; every zero-caller export
-      above is removed; `bun run check` proves nothing depended on them.
+      `Match.exhaustive` replace the two remaining `surfaceMaterials`
+      (the zero-caller exports are already removed).
 - [ ] `StatusPill` → `InlineStatus`; `TagBadge` → `ParticipantName`;
       `PackagePill` → `PackageName`; `ContentCard` removed from home and
       `DocsPage.tsx`; `ContentCardShape`/`ContentCardDensity` removed.

@@ -23,11 +23,13 @@ import { Cluster, Layer, Rail, Stack } from "./Layout.js"
 import { InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 
-type DocsLinkProps = Omit<ComponentProps<"a">, "href" | "onClick" | "title"> & {
+type DocsLinkProps = ComponentProps<"a"> & {
   readonly href: string
   /** The destination as the visitor knows it here: the symbol, the package, the guide. */
   readonly title: string
   readonly children: ReactNode
+  /** The press belongs to the preview; a caller cannot take it over. */
+  readonly onClick?: never
 }
 
 const popupClassName = [

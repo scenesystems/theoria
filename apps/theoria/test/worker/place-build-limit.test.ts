@@ -6,7 +6,7 @@ import { Clock, Duration, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type Unstable_Config, unstable_readConfig } from "wrangler"
 
-import { json, productionHost, Site, SiteLive } from "./site.js"
+import { json, productionHost, Site, SiteLive, SiteRequest } from "./site.js"
 
 type Limiter = Unstable_Config["ratelimits"][number]
 
@@ -60,11 +60,14 @@ layer(SiteLive, { timeout: "2 minutes" })("Place build rate limit in workerd", (
       // unread, and miniflare's internal keep-alive hop can drop the next
       // request when unread bytes remain on the connection.
       const attempt = (address: string) =>
-        site.fetch(`${productionHost}/api/imagined-place/build`, {
-          method: "POST",
-          headers: { "content-type": "application/json", "cf-connecting-ip": address },
-          body: ""
-        })
+        site.fetch(
+          `${productionHost}/api/imagined-place/build`,
+          new SiteRequest({
+            method: "POST",
+            headers: { "content-type": "application/json", "cf-connecting-ip": address },
+            body: ""
+          })
+        )
 
       const admitted = yield* Effect.forEach(Arr.replicate("198.51.100.10", limit), attempt)
       expect(Arr.map(admitted, (response) => response.status)).toEqual(Arr.replicate(400, limit))

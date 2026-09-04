@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 import { digestBytesHex, digestSchemaValue } from "@scenesystems/digest"
 import {
@@ -6,7 +6,7 @@ import {
   ed25519Sign,
   ed25519Verify,
   generateKeyPair,
-  type KeyPair,
+  KeyPair,
   toHex,
   utf8ToBytes
 } from "@scenesystems/sign"
@@ -23,10 +23,8 @@ import {
  * One participant's keys: an Ed25519 pair for signing and an X25519 pair for
  * agreeing on a sealing key with another participant.
  */
-export type ParticipantKeys = {
-  readonly signing: KeyPair
-  readonly agreement: KeyPair
-}
+export const ParticipantKeys = Schema.Struct({ signing: KeyPair, agreement: KeyPair })
+export type ParticipantKeys = typeof ParticipantKeys.Type
 
 export type ParticipantSet = {
   readonly [Role in ParticipantRole]: ParticipantKeys

@@ -1,4 +1,4 @@
-import type { Option } from "effect"
+import { type Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { DocsLink } from "../DocsLink.js"
@@ -12,10 +12,11 @@ import { type HighlightToken, tokenClassName } from "./highlighter.js"
  * A value from the running program, shown beside the line that produced it.
  * `match` is a substring unique to that line in the sample.
  */
-export type CodeAnnotation = {
-  readonly match: string
-  readonly text: string
-}
+export const CodeAnnotation = Schema.Struct({
+  match: Schema.String,
+  text: Schema.String
+})
+export type CodeAnnotation = typeof CodeAnnotation.Type
 
 const linkClassName =
   "rounded-[3px] underline decoration-dotted decoration-ink-500/70 underline-offset-[3px] transition-colors duration-150 hover:bg-stage-100 hover:decoration-solid hover:decoration-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"

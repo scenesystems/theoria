@@ -18,7 +18,7 @@ export const ActionButton = ({
   readonly onClick: () => void
 }) => (
   <Button className={primaryCta} disabled={disabled === true} onClick={onClick} type="button">
-    {icon !== undefined ? icon : null}
+    {icon}
     <SemanticText as="span" className="text-stage-0" role="button-label" text={label} variant="expanded" />
   </Button>
 )

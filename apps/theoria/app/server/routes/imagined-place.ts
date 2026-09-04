@@ -1,8 +1,8 @@
 import { type HttpServerError, HttpServerRequest, HttpServerResponse } from "@effect/platform"
-import { Clock, Effect, Either, Match, Option } from "effect"
+import { Clock, Effect, Either, Match, Option, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
-import type { ErrorModel } from "../../contracts/error.js"
+import { ErrorModel } from "../../contracts/error.js"
 import type { PlaceBuild, PlaceBuildEnvelope } from "../../contracts/imagined-place-result.js"
 import { PlaceBuildError, PlaceBuildRequest } from "../../contracts/imagined-place.js"
 import { PlaceBuildLimiter } from "../config/place-build-limiter.js"
@@ -37,10 +37,11 @@ const statusFor = (code: ErrorModel["code"]): number =>
     Match.orElse(() => 500)
   )
 
-type Rejection = {
-  readonly error: ErrorModel
-  readonly headers: Record<string, string>
-}
+const Rejection = Schema.Struct({
+  error: ErrorModel,
+  headers: Schema.Record({ key: Schema.String, value: Schema.String })
+})
+type Rejection = typeof Rejection.Type
 
 const respond = (envelope: PlaceBuildEnvelope, headers: Record<string, string>) =>
   HttpServerResponse.json(envelope, {

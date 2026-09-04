@@ -1,25 +1,28 @@
-import { Option, Order } from "effect"
+import { Option, Order, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import type { HighlightToken } from "./highlighter.js"
+import { HighlightToken } from "./highlighter.js"
 
 /**
  * A symbol in a code sample that links somewhere: `text` is matched in the
  * code exactly as written (`Study.open`, `seal`), `href` is where it goes.
  */
-export type CodeLink = {
-  readonly text: string
-  readonly href: string
-}
+export const CodeLink = Schema.Struct({
+  text: Schema.String,
+  href: Schema.String
+})
+export type CodeLink = typeof CodeLink.Type
 
 /** A run of tokens, either plain or wrapped in one link. */
 export type LineSegment =
   | { readonly _tag: "Tokens"; readonly tokens: ReadonlyArray<HighlightToken> }
   | { readonly _tag: "Link"; readonly link: CodeLink; readonly tokens: ReadonlyArray<HighlightToken> }
 
-type Positioned = { readonly token: HighlightToken; readonly start: number; readonly end: number }
+const Positioned = Schema.Struct({ token: HighlightToken, start: Schema.Number, end: Schema.Number })
+type Positioned = typeof Positioned.Type
 
-type Span = { readonly start: number; readonly end: number; readonly link: CodeLink }
+const Span = Schema.Struct({ start: Schema.Number, end: Schema.Number, link: CodeLink })
+type Span = typeof Span.Type
 
 const position = (tokens: ReadonlyArray<HighlightToken>): ReadonlyArray<Positioned> =>
   Arr.mapAccum(tokens, 0, (offset, token) => [
@@ -78,7 +81,8 @@ const cut = (p: Positioned, cuts: ReadonlyArray<number>): ReadonlyArray<Position
 const spanContaining = (spans: ReadonlyArray<Span>, p: Positioned): Option.Option<Span> =>
   Arr.findFirst(spans, (span) => p.start >= span.start && p.end <= span.end)
 
-type Piece = { readonly p: Positioned; readonly span: Option.Option<Span> }
+const Piece = Schema.Struct({ p: Positioned, span: Schema.OptionFromSelf(Span) })
+type Piece = typeof Piece.Type
 
 const sameSpan = Option.getEquivalence<Span>((a, b) => a.start === b.start)
 

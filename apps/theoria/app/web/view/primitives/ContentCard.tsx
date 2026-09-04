@@ -1,8 +1,10 @@
 import { Match } from "effect"
+import * as Option from "effect/Option"
 import type { ComponentPropsWithRef, ReactNode } from "react"
 
 import type { ContentCardDensity, ContentCardShape } from "../../../contracts/layout.js"
 
+import { classNames } from "./classNames.js"
 import type { ContentCardToneClasses } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 
@@ -29,21 +31,26 @@ const neutralClassName = "border-stage-200/95 bg-stage-0/74"
 
 export const ContentCard = ({
   children,
-  className,
+  className = "",
   density,
   shape = "rounded",
   tone,
   ...rest
-}: {
+}: ComponentPropsWithRef<"div"> & {
   readonly children: ReactNode
   readonly className?: string
   readonly density: ContentCardDensity
   readonly shape?: ContentCardShape
   readonly tone?: ContentCardToneClasses
-} & Omit<ComponentPropsWithRef<"div">, "children" | "className">) => {
-  const base = `${gapClassName(density)} ${shapeClassName(density, shape)}`
-  const surface = tone !== undefined ? `${tone.border} ${tone.bg}` : neutralClassName
-  const combined = className === undefined ? `${base} ${surface}` : `${base} ${surface} ${className}`
+}) => {
+  const surface = Option.match(Option.fromNullable(tone), {
+    onNone: () => neutralClassName,
+    onSome: (resolved) => `${resolved.border} ${resolved.bg}`
+  })
 
-  return <Layer {...rest} className={combined}>{children}</Layer>
+  return (
+    <Layer {...rest} className={classNames(gapClassName(density), shapeClassName(density, shape), surface, className)}>
+      {children}
+    </Layer>
+  )
 }

@@ -1,4 +1,4 @@
-import { Data } from "effect"
+import { Schema } from "effect"
 
 import { fullCanonicalUrl, type PageMetadata } from "./metadata.js"
 import { structuredDataJson } from "./structured-data.js"
@@ -10,20 +10,22 @@ import { structuredDataJson } from "./structured-data.js"
  * navigation (`app/web/services/browser-metadata.ts`). Both derive from the
  * same list, so the two renderings cannot drift apart.
  */
-export type HeadEntry = Data.TaggedEnum<{
-  Title: { readonly text: string }
-  Meta: { readonly attribute: "name" | "property"; readonly key: string; readonly content: string }
-  Canonical: { readonly href: string }
-  StructuredData: { readonly json: string }
-}>
-
-export const HeadEntry = Data.taggedEnum<HeadEntry>()
+export const HeadTitle = Schema.TaggedStruct("Title", { text: Schema.String })
+export const HeadMeta = Schema.TaggedStruct("Meta", {
+  attribute: Schema.Literal("name", "property"),
+  key: Schema.String,
+  content: Schema.String
+})
+export const HeadCanonical = Schema.TaggedStruct("Canonical", { href: Schema.String })
+export const HeadStructuredData = Schema.TaggedStruct("StructuredData", { json: Schema.String })
+export const HeadEntry = Schema.Union(HeadTitle, HeadMeta, HeadCanonical, HeadStructuredData)
+export type HeadEntry = typeof HeadEntry.Type
 
 /** The `id` of the JSON-LD placeholder in `index.html`. */
 export const structuredDataElementId = "structured-data"
 
-const named = (key: string, content: string): HeadEntry => HeadEntry.Meta({ attribute: "name", key, content })
-const property = (key: string, content: string): HeadEntry => HeadEntry.Meta({ attribute: "property", key, content })
+const named = (key: string, content: string): HeadEntry => HeadMeta.make({ attribute: "name", key, content })
+const property = (key: string, content: string): HeadEntry => HeadMeta.make({ attribute: "property", key, content })
 
 /** `max-image-preview:large` lets Google show the share image at full size in results. */
 const robotsDirective = (indexable: boolean): string =>
@@ -34,7 +36,7 @@ export const headEntries = (metadata: PageMetadata): ReadonlyArray<HeadEntry> =>
   const imageUrl = fullCanonicalUrl(metadata.image.path)
 
   return [
-    HeadEntry.Title({ text: metadata.title }),
+    HeadTitle.make({ text: metadata.title }),
     named("description", metadata.description),
     named("robots", robotsDirective(metadata.indexable)),
     property("og:title", metadata.title),
@@ -47,7 +49,7 @@ export const headEntries = (metadata: PageMetadata): ReadonlyArray<HeadEntry> =>
     named("twitter:description", metadata.description),
     named("twitter:image", imageUrl),
     named("twitter:image:alt", metadata.image.alt),
-    HeadEntry.Canonical({ href: canonicalUrl }),
-    HeadEntry.StructuredData({ json: structuredDataJson(metadata) })
+    HeadCanonical.make({ href: canonicalUrl }),
+    HeadStructuredData.make({ json: structuredDataJson(metadata) })
   ]
 }

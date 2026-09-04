@@ -2,6 +2,7 @@ import { RegistryProvider } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
+import * as Option from "effect/Option"
 import type { ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 
@@ -13,7 +14,7 @@ function withMockClientWidth<A>(
 ): Effect.Effect<A, never, never> {
   return Effect.acquireUseRelease(
     Effect.sync(() => {
-      const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth")
+      const descriptor = Option.fromNullable(Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth"))
 
       Reflect.defineProperty(HTMLElement.prototype, "clientWidth", {
         configurable: true,
@@ -24,14 +25,12 @@ function withMockClientWidth<A>(
     }),
     () => effect,
     (descriptor) =>
-      Effect.sync(() => {
-        if (descriptor === undefined) {
-          Reflect.deleteProperty(HTMLElement.prototype, "clientWidth")
-          return
-        }
-
-        Reflect.defineProperty(HTMLElement.prototype, "clientWidth", descriptor)
-      })
+      Effect.sync(() =>
+        Option.match(descriptor, {
+          onNone: () => Reflect.deleteProperty(HTMLElement.prototype, "clientWidth"),
+          onSome: (original) => Reflect.defineProperty(HTMLElement.prototype, "clientWidth", original)
+        })
+      )
   )
 }
 

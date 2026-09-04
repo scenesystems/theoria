@@ -1,4 +1,4 @@
-import { Effect, Option, Schema } from "effect"
+import { Data, Effect, Option, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
 import { DemoDecodeError, type DemoError, DemoExecutionError, DemoRequestError } from "../../contracts/demo-error.js"
@@ -8,10 +8,10 @@ import type { ErrorModel } from "../../contracts/error.js"
 export const formatParseError = (error: ParseResult.ParseError): string =>
   ParseResult.TreeFormatter.formatErrorSync(error)
 
-export type SuccessEnvelopeData<A> = {
+export class SuccessEnvelopeData<A> extends Data.Class<{
   readonly data: A
   readonly meta: Metadata
-}
+}> {}
 
 export type DecodedEnvelope<A> =
   | { readonly ok: true; readonly meta: Metadata; readonly data: A }
@@ -69,10 +69,12 @@ export const requestEnvelope = <A, I>(
   requestDecodedEnvelope(path, schema, method, body).pipe(
     Effect.flatMap((envelope) =>
       envelope.ok
-        ? Effect.succeed({
-          data: envelope.data,
-          meta: envelope.meta
-        })
+        ? Effect.succeed(
+          new SuccessEnvelopeData({
+            data: envelope.data,
+            meta: envelope.meta
+          })
+        )
         : Effect.fail(
           new DemoExecutionError({
             code: envelope.error.code,

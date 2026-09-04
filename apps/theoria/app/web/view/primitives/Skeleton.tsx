@@ -1,6 +1,7 @@
 import { Separator } from "@base-ui/react/separator"
 import type { ReactNode } from "react"
 
+import { classNames } from "./classNames.js"
 import { surfaceMaterials, type ToneClasses } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
@@ -44,8 +45,8 @@ export const SkeletonSection = () => (
 // The standard preview shape for empty and loading states.
 // ---------------------------------------------------------------------------
 
-export const SkeletonPreview = ({ className }: { readonly className?: string }) => (
-  <Stack className={className !== undefined ? `gap-0 ${className}` : "gap-0"}>
+export const SkeletonPreview = ({ className = "" }: { readonly className?: string }) => (
+  <Stack className={classNames("gap-0", className)}>
     <SkeletonSection />
     <Separator className="h-px bg-stage-200/80" />
     <SkeletonSection />
@@ -117,7 +118,7 @@ export const FailureState = ({
           <Layer aria-hidden as="span" className="inline-flex size-2 rounded-full bg-danger-500" />
           <SemanticText as="span" className="text-danger-700" role="status" text={description} variant="expanded" />
         </Cluster>
-        {action !== undefined ? action : null}
+        {action}
       </Stack>
     </Layer>
     <SkeletonPreview className="opacity-10" />
@@ -140,7 +141,7 @@ export const EmptyState = ({
     <SkeletonPreview className="pointer-events-none opacity-10" />
     <SkeletonPreview className="pointer-events-none opacity-5" />
     <Stack className="absolute inset-0 items-center justify-center gap-3">
-      {action !== undefined ? action : null}
+      {action}
       <SemanticText
         as="span"
         className="text-ink-500"

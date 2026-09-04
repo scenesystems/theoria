@@ -1,31 +1,29 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { useAtomSet } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Data, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import { type RefCallback, useMemo } from "react"
 
-export type ElementWidthSlot = {
-  readonly _tag: "ElementWidthSlot"
-}
+export const ElementWidthSlot = Schema.TaggedStruct("ElementWidthSlot", {})
+export type ElementWidthSlot = typeof ElementWidthSlot.Type
 
-export type ElementWidthHandle = {
+export class ElementWidthHandle extends Data.Class<{
   readonly ref: RefCallback<HTMLElement>
   readonly slot: ElementWidthSlot
-}
+}> {}
 
-export type ActiveAnchorSlot = {
-  readonly _tag: "ActiveAnchorSlot"
-}
+export const ActiveAnchorSlot = Schema.TaggedStruct("ActiveAnchorSlot", {})
+export type ActiveAnchorSlot = typeof ActiveAnchorSlot.Type
 
-export type ActiveAnchorHandle = {
+export class ActiveAnchorHandle extends Data.Class<{
   readonly ref: RefCallback<HTMLElement>
   readonly slot: ActiveAnchorSlot
-}
+}> {}
 
-export const makeElementWidthSlot = (): ElementWidthSlot => ({ _tag: "ElementWidthSlot" })
+export const makeElementWidthSlot = (): ElementWidthSlot => ElementWidthSlot.make({})
 
-export const makeActiveAnchorSlot = (): ActiveAnchorSlot => ({ _tag: "ActiveAnchorSlot" })
+export const makeActiveAnchorSlot = (): ActiveAnchorSlot => ActiveAnchorSlot.make({})
 
 export const elementWidthAtom: (slot: ElementWidthSlot) => AtomType.Writable<number> = Atom.family(
   (_slot: ElementWidthSlot) => Atom.make(0)
@@ -94,7 +92,7 @@ export const makeWidthObserver = <E extends HTMLElement>(
 
   const observer = new ResizeObserver((entries) => {
     Option.match(Option.fromNullable(entries.at(0)), {
-      onNone: () => undefined,
+      onNone: () => {},
       onSome: (entry) => {
         const observedWidth = Math.floor(entry.contentRect.width)
         if (observedWidth > 0) {
@@ -120,7 +118,7 @@ export const useElementWidthHandle = (): ElementWidthHandle => {
   const setWidth = useAtomSet(elementWidthAtom(slot))
   const ref = useMemo(() => makeWidthObserver(setWidth), [setWidth])
 
-  return { ref, slot }
+  return new ElementWidthHandle({ ref, slot })
 }
 
 export const useActiveAnchorHandle = (key: string): ActiveAnchorHandle => {
@@ -128,5 +126,5 @@ export const useActiveAnchorHandle = (key: string): ActiveAnchorHandle => {
   const setActiveAnchor = useAtomSet(activeAnchorAtom(slot))
   const ref = useMemo(() => makeActiveAnchorObserver(key, setActiveAnchor), [key, setActiveAnchor])
 
-  return { ref, slot }
+  return new ActiveAnchorHandle({ ref, slot })
 }

@@ -12,6 +12,7 @@ import {
   productionHost,
   Site,
   SiteLive,
+  SiteRequest,
   stagingHost,
   testBeaconToken,
   testMeasurementId,
@@ -162,11 +163,14 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
     Effect.gen(function*() {
       const site = yield* Site
       const post = (body: string) =>
-        site.fetch(`${productionHost}/api/imagined-place/build`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body
-        })
+        site.fetch(
+          `${productionHost}/api/imagined-place/build`,
+          new SiteRequest({
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body
+          })
+        )
 
       const built = yield* post(
         yield* Schema.encode(Schema.parseJson(PlaceBuildRequest))({

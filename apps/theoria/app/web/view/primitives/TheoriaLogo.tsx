@@ -1,6 +1,7 @@
 import { LinearAlgebra } from "@scenesystems/effect-math"
 import { Chunk } from "effect"
 
+import { classNames } from "./classNames.js"
 import { WordmarkMorph } from "./WordmarkMorph.js"
 
 type Vector3 = readonly [number, number, number]
@@ -116,16 +117,15 @@ const CubeMark = ({ className }: { readonly className?: string }) => (
  */
 export const TheoriaLogo = ({
   animation = "none",
-  className
+  className = ""
 }: {
   readonly animation?: "glossary" | "none"
   readonly className?: string
 }) => {
   const base = "inline-flex items-center gap-[0.25em] font-display font-semibold tracking-tight select-none"
-  const combined = className === undefined ? base : `${base} ${className}`
 
   return (
-    <span className={combined}>
+    <span className={classNames(base, className)}>
       <CubeMark className="h-[0.85em] shrink-0" />
       {animation === "none"
         ? <span className="text-ink-900">Theoria</span>

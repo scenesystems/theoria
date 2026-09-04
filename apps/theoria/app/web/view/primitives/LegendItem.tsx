@@ -1,4 +1,5 @@
 import { Match } from "effect"
+import * as Option from "effect/Option"
 
 import { type LegendTheme } from "./designSystem.js"
 import { Layer } from "./Layout.js"
@@ -20,6 +21,22 @@ const swatchClassName = ({
     Match.orElse(() => `inline-flex size-2.5 rounded-sm ${swatch}`)
   )
 
+const RailValue = ({ value }: { readonly value: Option.Option<string> }) =>
+  Option.match(value, {
+    onNone: () => null,
+    onSome: (text) => (
+      <Layer className="min-w-0">
+        <SemanticText
+          as="span"
+          className="block max-w-none whitespace-nowrap text-ink-600"
+          role="code-meta"
+          text={text}
+          variant="expanded"
+        />
+      </Layer>
+    )
+  })
+
 export const LegendItem = ({
   className,
   label,
@@ -34,15 +51,17 @@ export const LegendItem = ({
   readonly theme: LegendTheme
   readonly value?: string
   readonly variant?: LegendVariant
-}) =>
-  variant === "rail"
+}) => {
+  const resolvedValue = Option.fromNullable(value)
+
+  return variant === "rail"
     ? (
       <Layer className={className ?? "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1"}>
         <Layer
           aria-hidden
           as="span"
           className={`${swatchClassName({ swatch: theme.swatch, shape })} ${
-            value === undefined ? "row-span-1" : "row-span-2"
+            Option.isSome(resolvedValue) ? "row-span-2" : "row-span-1"
           } mt-0.5`}
         />
         <Layer className="min-w-0">
@@ -54,19 +73,7 @@ export const LegendItem = ({
             variant="expanded"
           />
         </Layer>
-        {value === undefined
-          ? null
-          : (
-            <Layer className="min-w-0">
-              <SemanticText
-                as="span"
-                className="block max-w-none whitespace-nowrap text-ink-600"
-                role="code-meta"
-                text={value}
-                variant="expanded"
-              />
-            </Layer>
-          )}
+        <RailValue value={resolvedValue} />
       </Layer>
     )
     : (
@@ -76,8 +83,12 @@ export const LegendItem = ({
           as="span"
           className={theme.label}
           role="code-meta"
-          text={value === undefined ? label : `${label} ${value}`}
+          text={Option.match(resolvedValue, {
+            onNone: () => label,
+            onSome: (text) => `${label} ${text}`
+          })}
           variant="expanded"
         />
       </Layer>
     )
+}

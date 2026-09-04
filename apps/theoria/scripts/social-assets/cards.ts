@@ -1,3 +1,4 @@
+import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
 /**
@@ -9,21 +10,24 @@ import * as Arr from "effect/Array"
  * `ink-*` in dark mode for the cards, light mode for the structured-data logo.
  */
 
-export type Face = {
-  readonly points: ReadonlyArray<readonly [number, number]>
-  readonly fillOpacity: number
-}
+export const Face = Schema.Struct({
+  points: Schema.Array(Schema.Tuple(Schema.Number, Schema.Number)),
+  fillOpacity: Schema.Number
+})
+export type Face = typeof Face.Type
 
-export type Mark = {
-  readonly viewBox: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
-  readonly faces: ReadonlyArray<Face>
-}
+export const Mark = Schema.Struct({
+  viewBox: Schema.Struct({ x: Schema.Number, y: Schema.Number, width: Schema.Number, height: Schema.Number }),
+  faces: Schema.Array(Face)
+})
+export type Mark = typeof Mark.Type
 
-export type Fonts = {
-  readonly sans: string
-  readonly sansSemiBold: string
-  readonly mono: string
-}
+export const Fonts = Schema.Struct({
+  sans: Schema.String,
+  sansSemiBold: Schema.String,
+  mono: Schema.String
+})
+export type Fonts = typeof Fonts.Type
 
 export const palette = {
   stage: "#0b1326",

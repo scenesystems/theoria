@@ -5,7 +5,7 @@ import { Effect, Ref } from "effect"
 import type { TextProjection } from "../../app/contracts/text.js"
 
 import { elementWidthAtom, makeElementWidthSlot } from "../../app/web/atoms/element-observation.js"
-import { makeTextProjectionAtom, type TextProjectionAuthority } from "../../app/web/atoms/text.js"
+import { makeTextProjectionAtom, TextProjectionAuthority } from "../../app/web/atoms/text.js"
 import { prepareTextProjection, projectPreparedText } from "../../app/web/view/text/authority.js"
 
 const makeTestRegistry = (): Registry.Registry =>
@@ -26,13 +26,14 @@ const waitForProjection = (
     )
   ).pipe(Effect.orDie)
 
-const makeAuthority = (prepareCalls: Ref.Ref<number>): TextProjectionAuthority => ({
-  prepare: (identity) =>
-    Ref.update(prepareCalls, (count) => count + 1).pipe(
-      Effect.zipRight(prepareTextProjection(identity))
-    ),
-  project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
-})
+const makeAuthority = (prepareCalls: Ref.Ref<number>): TextProjectionAuthority =>
+  new TextProjectionAuthority({
+    prepare: (identity) =>
+      Ref.update(prepareCalls, (count) => count + 1).pipe(
+        Effect.zipRight(prepareTextProjection(identity))
+      ),
+    project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
+  })
 
 describe("text projection contracts", () => {
   it.effect("generic text projection reuses a prepared handle across width changes", () =>

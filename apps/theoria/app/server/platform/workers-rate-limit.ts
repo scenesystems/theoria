@@ -1,4 +1,4 @@
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Predicate, Schema } from "effect"
 
 import { admitted, PlaceBuildLimiter, refused, unlimited } from "../config/place-build-limiter.js"
 
@@ -15,9 +15,15 @@ import { admitted, PlaceBuildLimiter, refused, unlimited } from "../config/place
  * The structural `RateLimitBinding` type keeps this module independent of
  * `@cloudflare/workers-types`; the generated `RateLimit` type is assignable.
  */
-export type RateLimitBinding = {
+export const RateLimitBinding = Schema.declare<{
   readonly limit: (options: { readonly key: string }) => Promise<{ readonly success: boolean }>
-}
+}>(
+  (input): input is {
+    readonly limit: (options: { readonly key: string }) => Promise<{ readonly success: boolean }>
+  } => Predicate.hasProperty(input, "limit") && Predicate.isFunction(input.limit),
+  { identifier: "RateLimitBinding" }
+)
+export type RateLimitBinding = typeof RateLimitBinding.Type
 
 /**
  * Length of the limiter window, matching `ratelimits[].simple.period` in

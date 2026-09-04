@@ -1,5 +1,5 @@
 import { HttpMiddleware, HttpServerResponse } from "@effect/platform"
-import { Effect, Option } from "effect"
+import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import {
@@ -17,11 +17,12 @@ import type { AnalyticsSettings } from "./config/analytics.js"
  * fallbacks; Cloudflare Web Analytics needs its beacon script and endpoint.
  */
 
-type Sources = {
-  readonly script: ReadonlyArray<string>
-  readonly connect: ReadonlyArray<string>
-  readonly img: ReadonlyArray<string>
-}
+const Sources = Schema.Struct({
+  script: Schema.Array(Schema.String),
+  connect: Schema.Array(Schema.String),
+  img: Schema.Array(Schema.String)
+})
+type Sources = typeof Sources.Type
 
 const none: Sources = { script: [], connect: [], img: [] }
 

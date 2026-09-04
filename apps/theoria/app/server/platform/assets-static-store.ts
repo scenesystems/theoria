@@ -1,5 +1,5 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Predicate, Schema } from "effect"
 
 import { StaticStore, StaticStoreError } from "../config/static-store.js"
 
@@ -14,9 +14,12 @@ import { StaticStore, StaticStoreError } from "../config/static-store.js"
  * The structural `AssetsFetcher` type keeps this module independent of
  * `@cloudflare/workers-types`; the generated `Fetcher` type is assignable.
  */
-export type AssetsFetcher = {
-  readonly fetch: (input: Request) => Promise<Response>
-}
+export const AssetsFetcher = Schema.declare<{ readonly fetch: (input: Request) => Promise<Response> }>(
+  (input): input is { readonly fetch: (input: Request) => Promise<Response> } =>
+    Predicate.hasProperty(input, "fetch") && Predicate.isFunction(input.fetch),
+  { identifier: "AssetsFetcher" }
+)
+export type AssetsFetcher = typeof AssetsFetcher.Type
 
 const assetsOrigin = "https://assets.local"
 

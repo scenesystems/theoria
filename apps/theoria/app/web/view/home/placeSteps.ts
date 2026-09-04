@@ -1,7 +1,7 @@
-import { Match, Option } from "effect"
+import { Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import type { Id as CardId } from "../../../contracts/id.js"
+import { Id as CardId } from "../../../contracts/id.js"
 
 /**
  * The demo's story in four steps. Each step is one thing the visitor can see
@@ -9,15 +9,17 @@ import type { Id as CardId } from "../../../contracts/id.js"
  * the server (`server/imagined-place/run.ts`) and in the browser
  * (`atoms/imagined-place-render.ts`).
  */
-export type PlaceStep = "compose" | "propose" | "record" | "arrange"
+export const PlaceStep = Schema.Literal("compose", "propose", "record", "arrange")
+export type PlaceStep = typeof PlaceStep.Type
 export const placeSteps: ReadonlyArray<PlaceStep> = ["compose", "propose", "record", "arrange"]
 
-export type PlaceStepDefinition = {
-  readonly id: PlaceStep
-  readonly name: string
-  readonly packages: ReadonlyArray<CardId>
-  readonly code: string
-}
+export const PlaceStepDefinition = Schema.Struct({
+  id: PlaceStep,
+  name: Schema.String,
+  packages: Schema.Array(CardId),
+  code: Schema.String
+})
+export type PlaceStepDefinition = typeof PlaceStepDefinition.Type
 
 const define = (
   id: PlaceStep,

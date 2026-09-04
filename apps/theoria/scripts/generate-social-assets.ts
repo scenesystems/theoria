@@ -8,7 +8,7 @@ import { siteMetadata } from "../app/contracts/metadata.js"
 import {
   type Face,
   favicon,
-  type Fonts,
+  Fonts,
   type Mark,
   packageCard,
   palette,
@@ -116,11 +116,11 @@ const program = Effect.gen(function*() {
   const repositoryRoot = path.join(appRoot, "..", "..")
   const publicRoot = path.join(appRoot, "public")
   const fontsRoot = path.join(appRoot, "scripts", "social-assets", "fonts")
-  const fonts: Fonts = {
+  const fonts: Fonts = Fonts.make({
     sans: path.join(fontsRoot, "Figtree-Regular.ttf"),
     sansSemiBold: path.join(fontsRoot, "Figtree-SemiBold.ttf"),
     mono: path.join(fontsRoot, "JetBrainsMono-Medium.ttf")
-  }
+  })
   const host = new URL(siteMetadata.siteUrl).host
 
   const mark = yield* fileSystem.readFileString(path.join(publicRoot, "favicon.svg")).pipe(Effect.flatMap(parseMark))

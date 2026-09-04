@@ -41,7 +41,7 @@ export const ActionButton = ({
     onClick={onClick}
     type="button"
   >
-    {icon !== undefined ? icon : null}
+    {icon}
     <SemanticText
       as="span"
       className="max-w-full whitespace-nowrap"
@@ -66,7 +66,7 @@ export const ActionLink = ({
   readonly variant: SurfaceVariant
 }) => (
   <InternalLink className={`${actionControlClassName(variant)} gap-1.5 ${className}`} href={href}>
-    {icon !== undefined ? icon : null}
+    {icon}
     <SemanticText
       as="span"
       className="max-w-full whitespace-nowrap"
@@ -91,7 +91,7 @@ export const ExternalActionLink = ({
   readonly variant: SurfaceVariant
 }) => (
   <ExternalLink className={`${actionControlClassName(variant)} gap-1.5 ${className}`} href={href}>
-    {icon !== undefined ? icon : null}
+    {icon}
     <SemanticText
       as="span"
       className="max-w-full whitespace-nowrap"
