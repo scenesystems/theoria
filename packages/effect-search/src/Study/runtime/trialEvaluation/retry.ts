@@ -5,7 +5,7 @@
  */
 import { Effect, Number as Num, Option, Ref, Schedule } from "effect"
 
-import type { TrialError } from "../../../Errors/index.js"
+import type { ArtifactStorageError, TrialError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import type * as Trial from "../../../Trial/index.js"
@@ -35,7 +35,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
   resolveCachedValue: CacheResolveAsTrialError
-): Effect.Effect<ObjectiveSample, TrialError, ObjectiveEvaluator> =>
+): Effect.Effect<ObjectiveSample, TrialError | ArtifactStorageError, ObjectiveEvaluator> =>
   Effect.gen(function*() {
     const objectiveEvaluator = yield* ObjectiveEvaluator
     const retryDriver = yield* Schedule.driver(settings.retrySchedule)
@@ -66,7 +66,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
       return Option.getOrElse(captured, () => new ObjectiveEvaluation({ value }))
     })
 
-    const retryLoop = (attempt: number): Effect.Effect<ObjectiveSample, TrialError> =>
+    const retryLoop = (attempt: number): Effect.Effect<ObjectiveSample, TrialError | ArtifactStorageError> =>
       evaluateWithCache.pipe(
         Effect.map((evaluation) =>
           new ObjectiveSample({

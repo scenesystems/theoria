@@ -5,7 +5,7 @@
  */
 import { Pareto, Sampler, Study } from "@scenesystems/effect-search"
 import type { ObjectiveValue } from "@scenesystems/effect-search/Contracts"
-import type { SearchError } from "@scenesystems/effect-search/Errors"
+import type { ArtifactStorageError, SearchError } from "@scenesystems/effect-search/Errors"
 import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import { type Effect, Match, Option } from "effect"
 import type * as Scope from "effect/Scope"
@@ -152,7 +152,8 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
  *
  * @remarks
  * Pending trials remain in their running state in later snapshots and results.
- * Repeated cancellation does not emit another completion event.
+ * Repeated cancellation does not emit another completion event. Publishing the
+ * completion event to a persistent sink can fail with `ArtifactStorageError`.
  *
  * @typeParam Space - Search-space schema retained by the study handle.
  *
@@ -161,7 +162,7 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
  */
 export const cancel = <Space extends SearchSpace.SearchSpace>(
   handle: EffectSearchInteropHandle<Space>
-): Effect.Effect<void> => Study.cancel(handle)
+): Effect.Effect<void, ArtifactStorageError> => Study.cancel(handle)
 
 /**
  * Captures the handle's current trials and compatibility metadata for resume.

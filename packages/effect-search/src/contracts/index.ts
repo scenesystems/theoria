@@ -44,9 +44,9 @@ import { readEnvelopeLog as _readEnvelopeLog } from "./sinks/reader.js"
  * Appends artifact envelopes to `envelopes.jsonl` under the supplied directory.
  *
  * @remarks
- * Requires platform filesystem and path services. Directory creation, encoding, and
- * append errors are discarded because {@link ArtifactSink} has no typed failure channel;
- * successful emission therefore does not confirm persistence.
+ * Requires platform filesystem and path services. A directory that cannot be created
+ * fails the layer, and an envelope that cannot be encoded or appended fails `emit`, each
+ * with an `ArtifactStorageError`.
  *
  * @since 0.1.0
  * @category sinks
@@ -54,9 +54,9 @@ import { readEnvelopeLog as _readEnvelopeLog } from "./sinks/reader.js"
 export const fileSystemSink = _fileSystemSink
 
 /**
- * Streams valid envelopes from a UTF-8 JSON-lines file and omits invalid lines.
- * Missing files and filesystem failures end as an empty or truncated stream rather
- * than a typed failure.
+ * Streams valid envelopes from a UTF-8 JSON-lines file and skips torn or blank lines.
+ * A missing file is an empty stream; a file that cannot be read fails the stream with
+ * an `ArtifactStorageError`.
  *
  * @since 0.1.0
  * @category readers

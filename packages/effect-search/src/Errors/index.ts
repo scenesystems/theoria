@@ -12,6 +12,7 @@ import { Predicate, Schema } from "effect"
 
 export { SearchErrorTypeId } from "./typeId.js"
 
+export { ArtifactStorageError } from "./Artifact.js"
 export {
   GridIncompatible,
   InvalidSamplerConfig,
@@ -30,6 +31,7 @@ export {
   TrialError
 } from "./Study.js"
 
+import { ArtifactStorageError } from "./Artifact.js"
 import {
   GridIncompatible,
   InvalidSamplerConfig,
@@ -88,8 +90,9 @@ export const SamplerErrorSchema = Schema.Union(
 export type SamplerError = Schema.Schema.Type<typeof SamplerErrorSchema>
 
 /**
- * Decodes failures owned by study orchestration, objective reporting, and
- * trial execution; search-space and sampler failures remain outside this union.
+ * Decodes failures owned by study orchestration, objective reporting, trial
+ * execution and artifact persistence; search-space and sampler failures remain
+ * outside this union.
  *
  * @since 0.1.0
  * @category schemas
@@ -101,7 +104,8 @@ export const StudyErrorSchema = Schema.Union(
   NoSuccessfulTrials,
   InvalidMathInput,
   NotImplemented,
-  TrialError
+  TrialError,
+  ArtifactStorageError
 )
 
 /**
@@ -131,7 +135,8 @@ export const SearchErrorSchema = Schema.Union(
   NoSuccessfulTrials,
   InvalidMathInput,
   NotImplemented,
-  TrialError
+  TrialError,
+  ArtifactStorageError
 )
 
 /**

@@ -10,7 +10,7 @@ import type * as Context from "effect/Context"
 import { ArtifactSink } from "../contracts/ArtifactSink.js"
 import { EnvelopeContext } from "../contracts/EnvelopeContext.js"
 import { readEnvelopeLog } from "../contracts/sinks/reader.js"
-import type { InvalidStudyConfig } from "../Errors/index.js"
+import { ArtifactStorageError } from "../Errors/Artifact.js"
 import type { SnapshotTrial } from "./snapshot/stateCodec.js"
 import type { StudySnapshot } from "./snapshot/versioning.js"
 import { makeSnapshotEnvelopeFrom, makeTrialLogEnvelopeFrom } from "./storageEnvelopes.js"
@@ -52,9 +52,10 @@ export const studyStorageOptions = (directory: string): StudyStorageOptions => d
  * Emits study records as artifact envelopes and reads them from a JSON-lines log.
  *
  * @remarks
- * Write completion has the durability semantics of the installed artifact sink.
- * The filesystem implementation returned by {@link makeStudyStorage} ignores
- * missing files, read errors, malformed JSON, and schema-invalid lines while loading.
+ * Write completion has the durability semantics of the installed artifact sink, and a
+ * sink that cannot accept an envelope fails the write with an {@link ArtifactStorageError}.
+ * Loads fail the same way when the log cannot be read; a log that does not exist yet
+ * loads as empty, and torn or schema-invalid lines are skipped as crash residue.
  *
  * @since 0.1.0
  * @category services
@@ -63,15 +64,15 @@ export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")
   StudyStorage,
   {
     /** Emits one trial-log envelope. */
-    readonly appendTrial: (trial: SnapshotTrial) => Effect.Effect<void>
+    readonly appendTrial: (trial: SnapshotTrial) => Effect.Effect<void, ArtifactStorageError>
     /** Emits one study-snapshot envelope. */
-    readonly writeSnapshot: (snapshot: StudySnapshot) => Effect.Effect<void>
-    /** Reads the last valid snapshot envelope, or `None` when none can be read. */
-    readonly loadSnapshot: () => Effect.Effect<Option.Option<StudySnapshot>, InvalidStudyConfig>
+    readonly writeSnapshot: (snapshot: StudySnapshot) => Effect.Effect<void, ArtifactStorageError>
+    /** Reads the last valid snapshot envelope, or `None` when the log holds none. */
+    readonly loadSnapshot: () => Effect.Effect<Option.Option<StudySnapshot>, ArtifactStorageError>
     /** Reads every valid trial-log envelope in file order. */
-    readonly loadTrialLog: () => Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig>
+    readonly loadTrialLog: () => Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError>
     /** Reads trial-log entries whose number is at least the last snapshot's next trial number. */
-    readonly replayTrialLog: () => Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig>
+    readonly replayTrialLog: () => Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError>
   }
 >() {}
 
@@ -88,10 +89,10 @@ export type StudyStorageApi = Context.Tag.Service<typeof StudyStorage>
  *
  * @remarks
  * The service requires filesystem and path services, an artifact sink, and an
- * {@link EnvelopeContext}. Directory-creation errors are ignored. Appends allocate
- * artifact IDs from the context and do not add locking beyond the selected sink.
- * Loads retain valid envelopes in file order and suppress filesystem and decoding
- * errors. Replay returns the full trial log when no snapshot exists; otherwise it
+ * {@link EnvelopeContext}. A directory that cannot be created fails construction with an
+ * {@link ArtifactStorageError}. Appends allocate artifact IDs from the context and do not
+ * add locking beyond the selected sink. Loads retain valid envelopes in file order and
+ * fail when the log cannot be read. Replay returns the full trial log when no snapshot exists; otherwise it
  * keeps trial numbers greater than or equal to the last snapshot's `nextTrialNumber`.
  * It does not sort or deduplicate trials. Snapshot and trial-log data are read
  * independently without excluding concurrent writes.
@@ -101,7 +102,11 @@ export type StudyStorageApi = Context.Tag.Service<typeof StudyStorage>
  */
 export const makeStudyStorage = (
   options: StudyStorageOptions
-): Effect.Effect<StudyStorageApi, never, FileSystem.FileSystem | Path.Path | ArtifactSink | EnvelopeContext> =>
+): Effect.Effect<
+  StudyStorageApi,
+  ArtifactStorageError,
+  FileSystem.FileSystem | Path.Path | ArtifactSink | EnvelopeContext
+> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -110,21 +115,21 @@ export const makeStudyStorage = (
     const envelopePath = path.join(options.directory, options.envelopeFileName)
 
     yield* fileSystem.makeDirectory(options.directory, { recursive: true }).pipe(
-      Effect.catchAll(() => Effect.void)
+      Effect.mapError((cause) =>
+        new ArtifactStorageError({ operation: "write", path: options.directory, detail: cause.message })
+      )
     )
 
-    const appendTrial = (trial: SnapshotTrial): Effect.Effect<void> =>
+    const appendTrial = (trial: SnapshotTrial): Effect.Effect<void, ArtifactStorageError> =>
       ctx.nextArtifactId.pipe(
         Effect.map((artifactId) => makeTrialLogEnvelopeFrom(ctx, artifactId, trial)),
-        Effect.flatMap((envelope) => sink.emit(envelope)),
-        Effect.catchAll(() => Effect.void)
+        Effect.flatMap((envelope) => sink.emit(envelope))
       )
 
-    const writeSnapshot = (snapshot: StudySnapshot): Effect.Effect<void> =>
+    const writeSnapshot = (snapshot: StudySnapshot): Effect.Effect<void, ArtifactStorageError> =>
       ctx.nextArtifactId.pipe(
         Effect.map((artifactId) => makeSnapshotEnvelopeFrom(ctx, artifactId, snapshot)),
-        Effect.flatMap((envelope) => sink.emit(envelope)),
-        Effect.catchAll(() => Effect.void)
+        Effect.flatMap((envelope) => sink.emit(envelope))
       )
 
     const loadEnvelopes = () =>
@@ -134,7 +139,7 @@ export const makeStudyStorage = (
         Effect.map(Chunk.toReadonlyArray)
       )
 
-    const loadSnapshot = (): Effect.Effect<Option.Option<StudySnapshot>, InvalidStudyConfig> =>
+    const loadSnapshot = (): Effect.Effect<Option.Option<StudySnapshot>, ArtifactStorageError> =>
       loadEnvelopes().pipe(
         Effect.map((envelopes) =>
           Arr.findLast(envelopes, (e) => e._tag === "StudySnapshot").pipe(
@@ -143,14 +148,14 @@ export const makeStudyStorage = (
         )
       )
 
-    const loadTrialLog = (): Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig> =>
+    const loadTrialLog = (): Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError> =>
       loadEnvelopes().pipe(
         Effect.map((envelopes) =>
           Arr.filterMap(envelopes, (e) => e._tag === "TrialLog" ? Option.some(e.trial) : Option.none())
         )
       )
 
-    const replayTrialLog = (): Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig> =>
+    const replayTrialLog = (): Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError> =>
       Effect.all([loadSnapshot(), loadTrialLog()]).pipe(
         Effect.map(([snapshotOption, trials]) =>
           Option.match(snapshotOption, {
@@ -174,8 +179,8 @@ export const makeStudyStorage = (
  * Builds one {@link StudyStorage} using the required platform and artifact services.
  *
  * @remarks
- * Layer acquisition has no typed failure because directory-creation errors are
- * ignored. The Layer does not acquire or release the supplied sink and context.
+ * Layer acquisition fails with an {@link ArtifactStorageError} when the log directory
+ * cannot be created. The Layer does not acquire or release the supplied sink and context.
  *
  * @since 0.1.0
  * @category layers
@@ -183,9 +188,9 @@ export const makeStudyStorage = (
 export const StudyStorageLive = (options: StudyStorageOptions) => Layer.effect(StudyStorage, makeStudyStorage(options))
 
 const withOptionalStorage = <A>(
-  onSome: (storage: StudyStorageApi) => Effect.Effect<A>,
+  onSome: (storage: StudyStorageApi) => Effect.Effect<A, ArtifactStorageError>,
   onNone: () => Effect.Effect<A>
-): Effect.Effect<A> =>
+): Effect.Effect<A, ArtifactStorageError> =>
   Effect.serviceOption(StudyStorage).pipe(
     Effect.flatMap(
       Option.match({
@@ -201,7 +206,7 @@ const withOptionalStorage = <A>(
  * @since 0.1.0
  * @category utils
  */
-export const appendTrialIfAvailable = (trial: SnapshotTrial): Effect.Effect<void> =>
+export const appendTrialIfAvailable = (trial: SnapshotTrial): Effect.Effect<void, ArtifactStorageError> =>
   withOptionalStorage(
     (storage) => storage.appendTrial(trial),
     () => Effect.void
@@ -213,7 +218,7 @@ export const appendTrialIfAvailable = (trial: SnapshotTrial): Effect.Effect<void
  * @since 0.1.0
  * @category utils
  */
-export const writeSnapshotIfAvailable = (snapshot: StudySnapshot): Effect.Effect<void> =>
+export const writeSnapshotIfAvailable = (snapshot: StudySnapshot): Effect.Effect<void, ArtifactStorageError> =>
   withOptionalStorage(
     (storage) => storage.writeSnapshot(snapshot),
     () => Effect.void

@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Schema } from "effect"
 
 import {
+  ArtifactStorageError,
   GridIncompatible,
   InvalidMathInput,
   InvalidObjectiveReport,
@@ -40,7 +41,8 @@ const errorSamples = Arr.make(
   new TrialError({ trialNumber: 1, message: "objective failed", cause: "boom" }),
   new NoSuccessfulTrials({ trialCount: 4 }),
   new InvalidMathInput({ operation: "logDensity", reason: "sigma <= 0" }),
-  new NotImplemented({ feature: "future-work" })
+  new NotImplemented({ feature: "future-work" }),
+  new ArtifactStorageError({ operation: "write", path: "/tmp/envelopes.jsonl", detail: "EACCES" })
 )
 
 describe("Errors / taxonomy", () => {

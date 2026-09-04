@@ -5,6 +5,7 @@
  */
 import { Effect, Match, Number as Num, Option } from "effect"
 
+import type { ArtifactStorageError } from "../../Errors/index.js"
 import * as StudyEvent from "../../StudyEvent/index.js"
 import type * as Trial from "../../Trial/index.js"
 import { appendEvent } from "../events.js"
@@ -66,7 +67,7 @@ export const emitTrialCostedAndMarkBudget = <Config>(
   settings: OptimizeSettings,
   runtime: StudyRuntime<Config>,
   trial: Trial.Trial<Config>
-): Effect.Effect<void> =>
+): Effect.Effect<void, ArtifactStorageError> =>
   maybeTrialCost(trial).pipe(
     Option.match({
       onNone: () => Effect.void,

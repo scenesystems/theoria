@@ -5,7 +5,7 @@
  */
 import { Effect, Match, Option, PubSub, Ref } from "effect"
 
-import { InvalidStudyConfig } from "../../../Errors/index.js"
+import { type ArtifactStorageError, InvalidStudyConfig } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import { appendEvent } from "../../events.js"
@@ -52,7 +52,7 @@ export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
   state: HandleRuntime<Space>,
   completionReason: StudyEvent.CompletionReason,
   lifecycle: "Completed" | "Cancelled"
-): Effect.Effect<void> =>
+): Effect.Effect<void, ArtifactStorageError> =>
   Effect.gen(function*() {
     yield* Ref.update(state.runtime.completionReasonRef, (current) =>
       Option.orElse(
@@ -80,7 +80,7 @@ export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
  */
 export const completeIfBudgetReached = <Space extends SearchSpace.SearchSpace>(
   state: HandleRuntime<Space>
-): Effect.Effect<void> =>
+): Effect.Effect<void, ArtifactStorageError> =>
   Effect.gen(function*() {
     const runtimeState = yield* readRuntimeState(state.runtime)
     const trialCount = trialCountFromState(runtimeState.studyState)

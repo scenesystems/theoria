@@ -7,7 +7,7 @@ import { Array as Arr, Effect, Match, Option } from "effect"
 
 import { matchObjectiveSpec } from "../../../contracts/ObjectiveSpec.js"
 import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
-import { InvalidObjectiveValue, type SearchError } from "../../../Errors/index.js"
+import { type ArtifactStorageError, InvalidObjectiveValue, type SearchError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import type * as Trial from "../../../Trial/index.js"
 import { emitLifecycleEvents } from "../../events.js"
@@ -78,7 +78,7 @@ export const pendingTrial = <Space extends SearchSpace.SearchSpace>(
 export const finalizeTrial = <Space extends SearchSpace.SearchSpace>(
   handle: StudyHandle<Space>,
   trial: Trial.Trial<SearchSpace.Type<Space>>
-): Effect.Effect<void> =>
+): Effect.Effect<void, ArtifactStorageError> =>
   Effect.gen(function*() {
     const state = stateOf(handle)
     yield* modifyStudyState(state.runtime, (studyState) =>

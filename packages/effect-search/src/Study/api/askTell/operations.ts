@@ -7,7 +7,7 @@ import { Effect, Option, Predicate, PubSub, Queue, Ref } from "effect"
 import type * as Scope from "effect/Scope"
 
 import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
-import { type SearchError, TrialError } from "../../../Errors/index.js"
+import { type ArtifactStorageError, type SearchError, TrialError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import * as Trial from "../../../Trial/index.js"
@@ -249,5 +249,6 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
  * @since 0.1.0
  * @category combinators
  */
-export const cancel = <Space extends SearchSpace.SearchSpace>(handle: StudyHandle<Space>): Effect.Effect<void> =>
-  publishCompletion(stateOf(handle), "interrupted", "Cancelled")
+export const cancel = <Space extends SearchSpace.SearchSpace>(
+  handle: StudyHandle<Space>
+): Effect.Effect<void, ArtifactStorageError> => publishCompletion(stateOf(handle), "interrupted", "Cancelled")

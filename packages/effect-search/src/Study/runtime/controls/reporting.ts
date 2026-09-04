@@ -5,7 +5,7 @@
  */
 import { Array as Arr, Effect, Match, Option, Ref } from "effect"
 
-import { InvalidObjectiveReport } from "../../../Errors/index.js"
+import { type ArtifactStorageError, InvalidObjectiveReport } from "../../../Errors/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import type { EventRuntime } from "../../events.js"
 import { appendEvent } from "../../events.js"
@@ -130,7 +130,7 @@ const recordIntermediateReportWithSpi = (
   trialNumber: number,
   step: number,
   value: number
-): Effect.Effect<PruneDecision, InvalidObjectiveReport, PruningPolicySpi> =>
+): Effect.Effect<PruneDecision, InvalidObjectiveReport | ArtifactStorageError, PruningPolicySpi> =>
   Effect.gen(function*() {
     const reports = yield* Ref.get(reportRefs.reportsRef)
     yield* validateStep(trialNumber, step)
@@ -168,7 +168,7 @@ export const recordIntermediateReport = (
   pruningPolicy: PruningPolicy,
   step: number,
   value: number
-): Effect.Effect<PruneDecision, InvalidObjectiveReport> =>
+): Effect.Effect<PruneDecision, InvalidObjectiveReport | ArtifactStorageError> =>
   recordIntermediateReportWithSpi(runtime, reportRefs, trialNumber, step, value).pipe(
     Effect.provide(PruningPolicySpiLayer(pruningPolicy))
   )
