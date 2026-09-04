@@ -8,6 +8,7 @@ import { renderTrials } from "../../app/contracts/demo/imagined-place-arrangemen
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import {
   act,
+  animationsSettled,
   attached,
   attribute,
   BrowserLive,
@@ -121,6 +122,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 900 })
             yield* visible(rendered(page))
+            yield* animationsSettled(page)
             expect(yield* overflowingElements(page)).toEqual([])
             expect(yield* fitsViewport(page)).toBe(true)
           }))

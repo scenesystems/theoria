@@ -111,6 +111,22 @@ export const fitsViewport = (page: Page) =>
   act(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
 
 /**
+ * Waits until every finite animation on the page (CSS animations and
+ * transitions, and Motion's Web Animations) has finished, so geometry is
+ * measured at rest rather than mid-flight after a viewport change.
+ */
+export const animationsSettled = (page: Page) =>
+  Effect.asVoid(
+    act(() =>
+      page.waitForFunction(() =>
+        document.getAnimations().every((animation) =>
+          animation.playState === "finished" || animation.effect?.getComputedTiming().iterations === Infinity
+        )
+      )
+    )
+  )
+
+/**
  * Elements that leak past the viewport. Content inside a horizontal scroller
  * that itself fits (code listings, tab strips) is reachable by scrolling, so
  * only the scroller counts. Runs in the page, so it is plain DOM code.
@@ -119,17 +135,20 @@ export const overflowingElements = (page: Page) =>
   act(() =>
     page.evaluate(() => {
       const limit = window.innerWidth + 1
-      const scrolls = (element: HTMLElement) =>
-        ["auto", "scroll", "hidden"].includes(getComputedStyle(element).overflowX)
-      const clippedByAncestor = (element: HTMLElement): boolean => {
+      const scrolls = (element: Element) => ["auto", "scroll", "hidden"].includes(getComputedStyle(element).overflowX)
+      const clippedByAncestor = (element: Element): boolean => {
         const ancestor = element.parentElement
-        return ancestor instanceof HTMLElement && ancestor !== document.body &&
+        return ancestor instanceof Element && ancestor !== document.body &&
           ((scrolls(ancestor) && ancestor.getBoundingClientRect().right <= limit) || clippedByAncestor(ancestor))
       }
-      return [...document.querySelectorAll<HTMLElement>("body *")]
+      const describe = (element: Element) =>
+        `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}@${
+          String(Math.round(element.getBoundingClientRect().right))
+        }`
+      return [...document.querySelectorAll("body *")]
         .filter((element) => !element.classList.contains("pointer-events-none"))
         .filter((element) => element.getBoundingClientRect().right > limit)
         .filter((element) => !clippedByAncestor(element))
-        .map((element) => `${element.tagName.toLowerCase()}.${element.className}`)
+        .map(describe)
     })
   )
