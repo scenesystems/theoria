@@ -17,6 +17,7 @@ import {
   GuidePageJson
 } from "@theoria/docs-model"
 import { type ApiReferenceManifest, ApiReferenceManifestJson } from "./model.js"
+import { type TypeDocProjectJson, TypeDocProjectJsonText } from "./typedoc-json.js"
 
 export const sha256File = (filePath: string) =>
   Effect.gen(function*() {
@@ -99,6 +100,9 @@ export const pruneStaleOutputs = (root: string) =>
     const written = yield* Ref.get(outputs)
     yield* pruneDirectory(root, written)
   })
+
+export const writeReflection = (outputRoot: string, relativeOutput: string, project: TypeDocProjectJson) =>
+  writeJson(outputRoot, relativeOutput, TypeDocProjectJsonText, project)
 
 export const writeApiPage = (outputRoot: string, relativeOutput: string, page: ApiPage) =>
   writeJson(outputRoot, relativeOutput, ApiPageJson, page)

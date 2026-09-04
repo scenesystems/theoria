@@ -3,11 +3,12 @@ import { Array as Arr, Console, Effect, Option, Order } from "effect"
 
 import { type DocsPackageSummary } from "@theoria/docs-model"
 import { writeBrowserGuides } from "./browser-output.js"
-import { type ApiConvertedPackage } from "./converted.js"
+import { type ConvertedPackage } from "./conversion.js"
 import { generateApiModule } from "./generate-module.js"
 import { buildPackageGuides, type PackageGuideExample } from "./guides.js"
 import { type ApiDocLink } from "./links.js"
 import { ApiReferenceGenerationError, type ApiReferencePackage } from "./model.js"
+import { reviveConvertedModule } from "./revive.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
 
@@ -28,17 +29,21 @@ export const generateApiPackage = (input: {
   readonly outputRoot: string
   readonly revision: string
   readonly links: ReadonlyArray<ApiDocLink>
-  readonly converted: ApiConvertedPackage
+  readonly conversionRoot: string
+  readonly converted: ConvertedPackage
 }) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const { app, sourcePackage } = input.converted
+    const { sourcePackage } = input.converted
+    const packageName = sourcePackage.manifest.name
     const packageSlug = sourcePackage.directoryName
-    const generatedModules = yield* Effect.forEach(
-      input.converted.modules,
-      (module) => generateApiModule({ ...input, app, packageSlug, sourcePackage, module }),
-      { concurrency: 1 }
-    )
+    // Modules are revived one at a time: only the module whose pages are being
+    // written has its reflections in memory.
+    const generatedModules = yield* Effect.forEach(input.converted.modules, (converted) =>
+      Effect.flatMap(
+        reviveConvertedModule({ conversionRoot: input.conversionRoot, packageName, module: converted }),
+        (module) => generateApiModule({ ...input, packageSlug, sourcePackage, module })
+      ))
     const modules = Arr.map(generatedModules, (generated) => generated.module)
     const markdown = yield* fileSystem.readFileString(`${sourcePackage.root}/README.md`).pipe(Effect.orDie)
     const exampleFiles = yield* fileSystem.readDirectory(`${sourcePackage.root}/examples`).pipe(

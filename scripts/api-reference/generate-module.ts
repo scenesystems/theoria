@@ -1,14 +1,14 @@
-import { FileSystem, Path } from "@effect/platform"
+import { Path } from "@effect/platform"
 import { Array as Arr, Effect, Option } from "effect"
-import { type Application } from "typedoc"
 
 import { writeBrowserApiModule } from "./browser-output.js"
 import { type ApiConvertedModule } from "./converted.js"
 import { documentationPathForExport } from "./documentation-routes.js"
 import { type ApiDocLink } from "./links.js"
 import { ApiReferenceGenerationError, type ApiReferenceModule } from "./model.js"
-import { sha256File, writeApiPage } from "./output.js"
+import { sha256File, writeApiPage, writeReflection } from "./output.js"
 import { makeRoutes, moduleOutputPath } from "./reflections.js"
+import { TypeDocReflections } from "./revive.js"
 import { makeSourceDocumentationPages } from "./source-documentation-pages.js"
 import { type ApiSourcePackage } from "./source.js"
 import { makeApiPresentation } from "./typedoc-presentation.js"
@@ -19,7 +19,6 @@ const typeDocFailure = (packageName: string, detail: string): ApiReferenceGenera
   new ApiReferenceGenerationError({ packageName, detail })
 
 export const generateApiModule = (input: {
-  readonly app: Application
   readonly browserVersionRoot: string
   readonly outputRoot: string
   readonly packageSlug: string
@@ -29,19 +28,14 @@ export const generateApiModule = (input: {
   readonly module: ApiConvertedModule
 }) =>
   Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
+    const reflections = yield* TypeDocReflections
     const packageName = input.sourcePackage.manifest.name
     const { project, reflection, source } = input.module
     const relativeOutput = moduleOutputPath(path, input.packageSlug, source.canonicalSubpath)
-    const absoluteOutput = path.join(input.outputRoot, relativeOutput)
-    yield* fileSystem.makeDirectory(path.dirname(absoluteOutput), { recursive: true }).pipe(Effect.orDie)
-    yield* Effect.tryPromise({
-      try: () => input.app.generateJson(project, absoluteOutput),
-      catch: () => typeDocFailure(packageName, `could not write reflection for ${source.relative}`)
-    })
+    yield* writeReflection(input.outputRoot, relativeOutput, reflections.serialize(project))
 
-    const reflectionSha256 = yield* sha256File(absoluteOutput)
+    const reflectionSha256 = yield* sha256File(path.join(input.outputRoot, relativeOutput))
     const sourceUrl = `${repositoryUrl}/blob/${input.revision}/packages/${input.packageSlug}/${source.relative}`
     const routes = yield* makeRoutes(input.sourcePackage, input.module)
     const presentation = yield* makeApiPresentation({

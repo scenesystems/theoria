@@ -9,6 +9,7 @@
   "include": [
     "api-reference.ts",
     "api-reference-program.ts",
+    "api-reference-convert.ts",
     "api-reference/**/*.ts",
     "check-readme-examples.ts",
     "readme-examples/**/*.ts",

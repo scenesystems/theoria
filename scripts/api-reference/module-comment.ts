@@ -49,13 +49,14 @@ export const requireModuleComment = (input: {
 
 // Converts one source file of an already-converted module as its own
 // entrypoint so its leading `@module` comment can document a source page.
-export const sourceFileModuleComment = (input: {
+// The whole project is kept: the comment's `{@link}` targets point into it.
+export const sourceFileModuleProject = (input: {
   readonly app: Application
   readonly entrypoint: DocumentationEntryPoint
   readonly packageName: string
   readonly displayName: string
   readonly sourceFile: { readonly absolute: string; readonly relative: string }
-}): Effect.Effect<Comment, ApiReferenceGenerationError> =>
+}): Effect.Effect<ProjectReflection, ApiReferenceGenerationError> =>
   Effect.gen(function*() {
     const failure = (detail: string) => new ApiReferenceGenerationError({ packageName: input.packageName, detail })
     const sourceFile = yield* Option.fromNullable(input.entrypoint.program.getSourceFile(input.sourceFile.absolute))
@@ -78,9 +79,11 @@ export const sourceFileModuleComment = (input: {
       onSome: Effect.succeed
     })
 
-    return yield* requireModuleComment({
+    yield* requireModuleComment({
       packageName: input.packageName,
       relative: input.sourceFile.relative,
       reflection
     })
+
+    return project
   })

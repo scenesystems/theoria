@@ -1,22 +1,38 @@
 import { Data } from "effect"
 import type { Application, Comment, DeclarationReflection, ProjectReflection } from "typedoc"
 
-import { type PackagePublicExport } from "./public-exports.js"
-import { type ApiSourceModule, type ApiSourcePackage, type PackagePublicEntrypoint } from "./source.js"
+import { type ConvertedRoute } from "./conversion.js"
+import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
 
-// Output of the conversion phase. Every package is converted before any page
-// is emitted because cross-package `{@link}` resolution needs the public
-// exports of every module first. Everything TypeDoc needs the TypeScript
-// program for happens here, so the programs of all packages never have to be
-// alive at once while pages are written.
+// Conversion output, alive only inside the process that converted the
+// package. Everything TypeDoc needs the TypeScript program for happens there:
+// public exports are read from the reflections and each source file with its
+// own page is converted as an entrypoint of its own. The projects are then
+// serialized (see ./conversion.ts) and the program is gone with the process.
 
-export class ApiConvertedRoute extends Data.Class<{
-  readonly entrypoint: PackagePublicEntrypoint
-  readonly publicExports: ReadonlyArray<PackagePublicExport>
+export class ApiSourceProject extends Data.Class<{
+  readonly source: string
+  readonly project: ProjectReflection
 }> {}
 
-// Leading module comment of a source file that gets its own documentation
-// page (see `hasSourceDocumentationPages`).
+export class ApiModuleConversion extends Data.Class<{
+  readonly source: ApiSourceModule
+  readonly project: ProjectReflection
+  readonly routes: ReadonlyArray<ConvertedRoute>
+  readonly sourceProjects: ReadonlyArray<ApiSourceProject>
+}> {}
+
+export class ApiPackageConversion extends Data.Class<{
+  readonly app: Application
+  readonly sourcePackage: ApiSourcePackage
+  readonly modules: ReadonlyArray<ApiModuleConversion>
+}> {}
+
+// A module revived from its serialized projects in the generator, one at a
+// time while its pages are written. Cross-package `{@link}` resolution needs
+// the public exports of every module first; those travel in the summaries,
+// so no reflection has to be alive before its own pages are generated.
+
 export class ApiSourceComment extends Data.Class<{
   readonly source: string
   readonly comment: Comment
@@ -26,12 +42,6 @@ export class ApiConvertedModule extends Data.Class<{
   readonly source: ApiSourceModule
   readonly project: ProjectReflection
   readonly reflection: DeclarationReflection
-  readonly routes: ReadonlyArray<ApiConvertedRoute>
+  readonly routes: ReadonlyArray<ConvertedRoute>
   readonly sourceComments: ReadonlyArray<ApiSourceComment>
-}> {}
-
-export class ApiConvertedPackage extends Data.Class<{
-  readonly app: Application
-  readonly sourcePackage: ApiSourcePackage
-  readonly modules: ReadonlyArray<ApiConvertedModule>
 }> {}

@@ -1,9 +1,9 @@
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Effect, Layer } from "effect"
 import { Application } from "typedoc"
 
 import { type DocsManifest, type DocsSearchIndex } from "@theoria/docs-model"
-import { convertApiPackage } from "./convert-package.js"
+import { convertApiPackages } from "./convert-packages.js"
 import { generateApiPackage } from "./generate-package.js"
 import { makeApiDocLinks } from "./links.js"
 import { type ApiReferenceManifest } from "./model.js"
@@ -14,6 +14,7 @@ import {
   writeApiSearchIndex,
   writeDocsManifest
 } from "./output.js"
+import { typeDocReflectionsLayer } from "./revive.js"
 import { type ApiSourcePackage } from "./source.js"
 
 export const generateApiReference = (input: {
@@ -27,8 +28,7 @@ export const generateApiReference = (input: {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const browserVersionRoot = path.join(input.browserOutputRoot, input.revision)
-    // The committed `api-reference/` tree is fully regenerated (TypeDoc writes
-    // reflections into it directly). The browser root under `public/` is
+    // The committed `api-reference/` tree is fully regenerated. The browser root under `public/` is
     // written in place and pruned afterwards so a running Vite dev server
     // keeps serving it; see `GeneratedOutputs` in ./output.ts.
     yield* fileSystem.remove(input.outputRoot, { recursive: true, force: true }).pipe(Effect.orDie)
@@ -38,20 +38,17 @@ export const generateApiReference = (input: {
       { discard: true }
     )
 
-    // Both phases run one package at a time on purpose. TypeDoc conversion and
-    // reflection serialization are synchronous work on the single JavaScript
-    // thread, so running packages concurrently gains no parallelism; it only
-    // keeps several TypeScript programs (and later several serialized
-    // reflection trees) resident at once, and peak heap is what pushes the
-    // process toward the kernel's memory-mapping limit (see ./host-limits.ts).
-    const convertedPackages = yield* Effect.forEach(
-      input.sourcePackages,
-      (sourcePackage) => convertApiPackage({ ...input, sourcePackage })
+    // Each package is converted by a process of its own (see ./conversion.ts);
+    // the serialized reflections are handed back through a temporary directory
+    // that lives for the rest of the generation.
+    const conversionRoot = yield* fileSystem.makeTempDirectoryScoped({ prefix: "theoria-api-reference-" }).pipe(
+      Effect.orDie
     )
+    const convertedPackages = yield* convertApiPackages({ ...input, conversionRoot })
     const links = makeApiDocLinks(convertedPackages)
     const generatedPackages = yield* Effect.forEach(
       convertedPackages,
-      (converted) => generateApiPackage({ ...input, browserVersionRoot, links, converted })
+      (converted) => generateApiPackage({ ...input, browserVersionRoot, conversionRoot, links, converted })
     )
     const packages = Arr.map(generatedPackages, (generated) => generated.package)
     const manifest: ApiReferenceManifest = {
@@ -77,4 +74,7 @@ export const generateApiReference = (input: {
     yield* pruneStaleOutputs(input.browserOutputRoot)
 
     return manifest
-  }).pipe(Effect.provide(generatedOutputsLayer))
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(Layer.merge(generatedOutputsLayer, typeDocReflectionsLayer(input.repositoryRoot)))
+  )

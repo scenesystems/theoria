@@ -39,12 +39,6 @@ if [ "$current_node_version" != "$required_node_version" ]; then
   ln -sfn "$node_binary" "$HOME/.local/bin/node"
 fi
 
-# See .agents/setup: the API reference generator needs this headroom on Bun 1.3.9.
-required_map_count=262144
-if [ -r /proc/sys/vm/max_map_count ] && [ "$(cat /proc/sys/vm/max_map_count)" -lt "$required_map_count" ]; then
-  echo "$required_map_count" | sudo -n tee /proc/sys/vm/max_map_count > /dev/null
-fi
-
 if [ ! -d node_modules ]; then
   echo "Bun dependencies are missing; rerun .agents/setup." >&2
   exit 1

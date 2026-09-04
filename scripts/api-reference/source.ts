@@ -148,7 +148,8 @@ const conflictingRoute = (modules: ReadonlyArray<ApiSourceModule>) => {
     ))
 }
 
-const loadSourcePackage = (packagesRoot: string, directoryName: string) =>
+/** The public package in `packagesRoot/directoryName`; none for private packages and non-package directories. */
+export const loadApiSourcePackage = (packagesRoot: string, directoryName: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -210,7 +211,7 @@ export const discoverApiSourcePackages = (packagesRoot: string) =>
     const directoryNames = yield* fileSystem.readDirectory(packagesRoot).pipe(Effect.orDie)
     const packages = yield* Effect.forEach(
       directoryNames.sort((left, right) => left.localeCompare(right)),
-      (directoryName) => loadSourcePackage(packagesRoot, directoryName),
+      (directoryName) => loadApiSourcePackage(packagesRoot, directoryName),
       { concurrency: "unbounded" }
     )
 

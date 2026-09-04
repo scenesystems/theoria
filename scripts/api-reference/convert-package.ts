@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 
 import { convertApiModule } from "./convert-module.js"
-import { ApiConvertedPackage } from "./converted.js"
+import { ApiPackageConversion } from "./converted.js"
 import { ApiReferenceGenerationError } from "./model.js"
 import { type ApiSourcePackage } from "./source.js"
 import { bootstrapTypeDoc } from "./typedoc-application.js"
@@ -36,10 +36,8 @@ export const convertApiPackage = (input: {
 
     const modules = yield* Effect.forEach(
       input.sourcePackage.modules,
-      (module) => convertApiModule({ app, entrypoints, sourcePackage: input.sourcePackage, module }),
-      { concurrency: 1 }
+      (module) => convertApiModule({ app, entrypoints, sourcePackage: input.sourcePackage, module })
     )
 
-    const converted = new ApiConvertedPackage({ app, sourcePackage: input.sourcePackage, modules })
-    return converted
+    return new ApiPackageConversion({ app, sourcePackage: input.sourcePackage, modules })
   })
