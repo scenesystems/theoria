@@ -1,10 +1,10 @@
 {
   "corpusCaseNames": [
-    "browser-parity-tab-advances",
+    "tab-advances",
     "soft-hyphen-wrap",
     "long-token-grapheme-fallback",
     "cjk-no-space-layout",
-    "mixed-direction-browser-case",
+    "mixed-direction-case",
     "dictionary-hyphenation"
   ],
   "scoringBenchmark": {
@@ -38,22 +38,22 @@
             "preferPrefixWidthsForBreakableRuns": true
           }
         },
-        "manualTotal": 10020,
-        "effectMathTotal": 10020,
+        "manualTotal": 10006.6,
+        "effectMathTotal": 10006.6,
         "manualSummary": {
-          "mean": 1670,
-          "variance": 16733400,
-          "standardDeviation": 4090.6478704479073,
+          "mean": 1667.7666666666667,
+          "variance": 16688673.926666666,
+          "standardDeviation": 4085.1773433556914,
           "min": 0,
-          "max": 10020,
+          "max": 10006.6,
           "count": 6
         },
         "effectMathSummary": {
-          "mean": 1670,
-          "variance": 16733400,
-          "standardDeviation": 4090.6478704479073,
+          "mean": 1667.7666666666669,
+          "variance": 16688673.926666668,
+          "standardDeviation": 4085.177343355692,
           "min": 0,
-          "max": 10020,
+          "max": 10006.6,
           "count": 6
         }
       },
@@ -100,16 +100,16 @@
       "caseCount": 6,
       "matchedCaseCount": 5,
       "totalLineCountError": 0,
-      "totalMaxLineWidthError": 20,
+      "totalMaxLineWidthError": 6.6,
       "totalLineMismatchCount": 1,
       "results": [
         {
-          "name": "browser-parity-tab-advances",
-          "expected": { "lineCount": 1, "maxLineWidth": 50, "lines": [{ "text": "a\tb", "width": 50 }] },
-          "actual": { "lineCount": 1, "height": 12, "maxLineWidth": 30 },
-          "actualLines": [{ "index": 0, "order": "visual", "baseDirection": "ltr", "text": "a\tb", "width": 30 }],
+          "name": "tab-advances",
+          "expected": { "lineCount": 1, "maxLineWidth": 19, "lines": [{ "text": "a\tb", "width": 19 }] },
+          "actual": { "lineCount": 1, "height": 12, "maxLineWidth": 12.4 },
+          "actualLines": [{ "index": 0, "order": "visual", "baseDirection": "ltr", "text": "a\tb", "width": 12.4 }],
           "lineCountDelta": 0,
-          "maxLineWidthDelta": -20,
+          "maxLineWidthDelta": -6.6,
           "lineMismatchCount": 1,
           "matched": false
         },
@@ -117,16 +117,16 @@
           "name": "soft-hyphen-wrap",
           "expected": {
             "lineCount": 2,
-            "maxLineWidth": 30,
+            "maxLineWidth": 34.8,
             "lines": [
-              { "text": "alpha-", "width": 30 },
-              { "text": "beta", "width": 20 }
+              { "text": "alpha-", "width": 34.8 },
+              { "text": "beta", "width": 23.2 }
             ]
           },
-          "actual": { "lineCount": 2, "height": 24, "maxLineWidth": 30 },
+          "actual": { "lineCount": 2, "height": 24, "maxLineWidth": 34.8 },
           "actualLines": [
-            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "alpha-", "width": 30 },
-            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "beta", "width": 20 }
+            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "alpha-", "width": 34.8 },
+            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "beta", "width": 23.2 }
           ],
           "lineCountDelta": 0,
           "maxLineWidthDelta": 0,
@@ -136,25 +136,29 @@
         {
           "name": "long-token-grapheme-fallback",
           "expected": {
-            "lineCount": 6,
-            "maxLineWidth": 25,
+            "lineCount": 8,
+            "maxLineWidth": 23.8,
             "lines": [
-              { "text": "https", "width": 25 },
-              { "text": "://ex", "width": 25 },
-              { "text": "ample", "width": 25 },
-              { "text": ".com/", "width": 25 },
-              { "text": "a-b?x", "width": 25 },
-              { "text": "=1,2", "width": 20 }
+              { "text": "http", "width": 23.2 },
+              { "text": "s://", "width": 23.2 },
+              { "text": "exam", "width": 23.2 },
+              { "text": "ple.", "width": 23.2 },
+              { "text": "com/", "width": 23.2 },
+              { "text": "a-b?", "width": 23.2 },
+              { "text": "x=1,", "width": 23.8 },
+              { "text": "2", "width": 6.4 }
             ]
           },
-          "actual": { "lineCount": 6, "height": 72, "maxLineWidth": 25 },
+          "actual": { "lineCount": 8, "height": 96, "maxLineWidth": 23.8 },
           "actualLines": [
-            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "https", "width": 25 },
-            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "://ex", "width": 25 },
-            { "index": 2, "order": "visual", "baseDirection": "ltr", "text": "ample", "width": 25 },
-            { "index": 3, "order": "visual", "baseDirection": "ltr", "text": ".com/", "width": 25 },
-            { "index": 4, "order": "visual", "baseDirection": "ltr", "text": "a-b?x", "width": 25 },
-            { "index": 5, "order": "visual", "baseDirection": "ltr", "text": "=1,2", "width": 20 }
+            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "http", "width": 23.2 },
+            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "s://", "width": 23.2 },
+            { "index": 2, "order": "visual", "baseDirection": "ltr", "text": "exam", "width": 23.2 },
+            { "index": 3, "order": "visual", "baseDirection": "ltr", "text": "ple.", "width": 23.2 },
+            { "index": 4, "order": "visual", "baseDirection": "ltr", "text": "com/", "width": 23.2 },
+            { "index": 5, "order": "visual", "baseDirection": "ltr", "text": "a-b?", "width": 23.2 },
+            { "index": 6, "order": "visual", "baseDirection": "ltr", "text": "x=1,", "width": 23.8 },
+            { "index": 7, "order": "visual", "baseDirection": "ltr", "text": "2", "width": 6.4 }
           ],
           "lineCountDelta": 0,
           "maxLineWidthDelta": 0,
@@ -164,17 +168,19 @@
         {
           "name": "cjk-no-space-layout",
           "expected": {
-            "lineCount": 2,
-            "maxLineWidth": 15,
+            "lineCount": 3,
+            "maxLineWidth": 11.6,
             "lines": [
-              { "text": "你好世", "width": 15 },
-              { "text": "界你好", "width": 15 }
+              { "text": "你好", "width": 11.6 },
+              { "text": "世界", "width": 11.6 },
+              { "text": "你好", "width": 11.6 }
             ]
           },
-          "actual": { "lineCount": 2, "height": 24, "maxLineWidth": 15 },
+          "actual": { "lineCount": 3, "height": 36, "maxLineWidth": 11.6 },
           "actualLines": [
-            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "你好世", "width": 15 },
-            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "界你好", "width": 15 }
+            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "你好", "width": 11.6 },
+            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "世界", "width": 11.6 },
+            { "index": 2, "order": "visual", "baseDirection": "ltr", "text": "你好", "width": 11.6 }
           ],
           "lineCountDelta": 0,
           "maxLineWidthDelta": 0,
@@ -182,11 +188,21 @@
           "matched": true
         },
         {
-          "name": "mixed-direction-browser-case",
-          "expected": { "lineCount": 1, "maxLineWidth": 120, "lines": [{ "text": "hello (םולש)", "width": 120 }] },
-          "actual": { "lineCount": 1, "height": 12, "maxLineWidth": 120 },
+          "name": "mixed-direction-case",
+          "expected": {
+            "lineCount": 1,
+            "maxLineWidth": 67.09999999999998,
+            "lines": [{ "text": "hello (םולש)", "width": 67.09999999999998 }]
+          },
+          "actual": { "lineCount": 1, "height": 12, "maxLineWidth": 67.09999999999998 },
           "actualLines": [
-            { "index": 0, "order": "visual", "baseDirection": "rtl", "text": "hello (םולש)", "width": 120 }
+            {
+              "index": 0,
+              "order": "visual",
+              "baseDirection": "rtl",
+              "text": "hello (םולש)",
+              "width": 67.09999999999998
+            }
           ],
           "lineCountDelta": 0,
           "maxLineWidthDelta": 0,
@@ -197,18 +213,18 @@
           "name": "dictionary-hyphenation",
           "expected": {
             "lineCount": 3,
-            "maxLineWidth": 25,
+            "maxLineWidth": 29,
             "lines": [
-              { "text": "hy-", "width": 15 },
-              { "text": "phen-", "width": 25 },
-              { "text": "ation", "width": 25 }
+              { "text": "hy-", "width": 17.4 },
+              { "text": "phen-", "width": 29 },
+              { "text": "ation", "width": 29 }
             ]
           },
-          "actual": { "lineCount": 3, "height": 36, "maxLineWidth": 25 },
+          "actual": { "lineCount": 3, "height": 36, "maxLineWidth": 29 },
           "actualLines": [
-            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "hy-", "width": 15 },
-            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "phen-", "width": 25 },
-            { "index": 2, "order": "visual", "baseDirection": "ltr", "text": "ation", "width": 25 }
+            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "hy-", "width": 17.4 },
+            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "phen-", "width": 29 },
+            { "index": 2, "order": "visual", "baseDirection": "ltr", "text": "ation", "width": 29 }
           ],
           "lineCountDelta": 0,
           "maxLineWidthDelta": 0,
@@ -235,13 +251,13 @@
         "preferPrefixWidthsForBreakableRuns": { "values": [true] }
       },
       "completionReason": "budgetExhausted",
-      "bestScore": 10020,
+      "bestScore": 10006.6,
       "bestLossSummary": {
-        "mean": 1670,
-        "variance": 16733400,
-        "standardDeviation": 4090.6478704479073,
+        "mean": 1667.7666666666669,
+        "variance": 16688673.926666668,
+        "standardDeviation": 4085.177343355692,
         "min": 0,
-        "max": 10020,
+        "max": 10006.6,
         "count": 6
       },
       "artifacts": {
@@ -265,7 +281,7 @@
               },
               "state": {
                 "_tag": "Completed",
-                "value": 10020,
+                "value": 10006.6,
                 "duration": 0,
                 "retryCount": 0,
                 "evaluationCount": 1,
@@ -283,7 +299,7 @@
               },
               "state": {
                 "_tag": "Completed",
-                "value": 10020,
+                "value": 10006.6,
                 "duration": 0,
                 "retryCount": 0,
                 "evaluationCount": 1,
@@ -301,7 +317,7 @@
               },
               "state": {
                 "_tag": "Completed",
-                "value": 10020,
+                "value": 10006.6,
                 "duration": 0,
                 "retryCount": 0,
                 "evaluationCount": 1,
@@ -319,7 +335,7 @@
               },
               "state": {
                 "_tag": "Completed",
-                "value": 10020,
+                "value": 10006.6,
                 "duration": 0,
                 "retryCount": 0,
                 "evaluationCount": 1,
@@ -343,8 +359,8 @@
               "preferPrefixWidthsForBreakableRuns": true
             }
           },
-          { "_tag": "TrialCompleted", "trialNumber": 0, "value": 10020 },
-          { "_tag": "BestUpdated", "trialNumber": 0, "value": 10020 },
+          { "_tag": "TrialCompleted", "trialNumber": 0, "value": 10006.6 },
+          { "_tag": "BestUpdated", "trialNumber": 0, "value": 10006.6 },
           {
             "_tag": "TrialStarted",
             "trialNumber": 1,
@@ -356,7 +372,7 @@
               "preferPrefixWidthsForBreakableRuns": true
             }
           },
-          { "_tag": "TrialCompleted", "trialNumber": 1, "value": 10020 },
+          { "_tag": "TrialCompleted", "trialNumber": 1, "value": 10006.6 },
           {
             "_tag": "TrialStarted",
             "trialNumber": 2,
@@ -368,7 +384,7 @@
               "preferPrefixWidthsForBreakableRuns": true
             }
           },
-          { "_tag": "TrialCompleted", "trialNumber": 2, "value": 10020 },
+          { "_tag": "TrialCompleted", "trialNumber": 2, "value": 10006.6 },
           {
             "_tag": "TrialStarted",
             "trialNumber": 3,
@@ -380,7 +396,7 @@
               "preferPrefixWidthsForBreakableRuns": true
             }
           },
-          { "_tag": "TrialCompleted", "trialNumber": 3, "value": 10020 },
+          { "_tag": "TrialCompleted", "trialNumber": 3, "value": 10006.6 },
           { "_tag": "StudyCompleted", "completionReason": "budgetExhausted" }
         ]
       }
