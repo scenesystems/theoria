@@ -4,6 +4,7 @@ import { Clock, Effect, Match } from "effect"
 import { RuntimeInfo } from "./config/runtime.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
 import { imaginedPlacePath, imaginedPlaceRoute } from "./routes/imagined-place.js"
+import { llmsTxtRoute } from "./routes/llms.js"
 import { sitemapRoute } from "./routes/sitemap.js"
 import { staticResponse } from "./routes/static.js"
 import { versionRoute } from "./routes/version.js"
@@ -51,6 +52,7 @@ export const app = Effect.gen(function*() {
     Match.when("/api/version", () => versionRoute(requestId)),
     Match.when(imaginedPlacePath, () => imaginedPlaceRoute(request, requestId)),
     Match.when("/sitemap.xml", () => sitemapRoute),
+    Match.when("/llms.txt", () => llmsTxtRoute),
     Match.when((value) => value.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
     Match.orElse(() => staticResponse(pathname))
   )

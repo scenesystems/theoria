@@ -81,7 +81,9 @@ const htmlResponse = (pathname: string) =>
       status: htmlStatus(pathname, docsManifest),
       headers: {
         ...responseHeaders(indexPathname),
-        "content-type": contentTypeForPath(indexPathname)
+        "content-type": contentTypeForPath(indexPathname),
+        // llmstxt.org: point agents at the file that describes every page.
+        link: `</llms.txt>; rel="describedby"`
       }
     })
   }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))
