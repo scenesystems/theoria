@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Match, Option, Record } from "effect"
+import { Array as Arr, Data, Match, Option, Record } from "effect"
 
 import { buildIndices, nextDeterministicSeed, normalizeDeterministicSeed, shuffleBySeed } from "./deterministic.js"
 
@@ -22,18 +22,18 @@ type StratifiedBuckets<Bucket extends string, A> = Readonly<Record<Bucket, Reado
  * @since 0.1.0
  * @category models
  */
-export type StratifiedRoundRobinOptions<Bucket extends string, A> = Readonly<{
+export class StratifiedRoundRobinOptions<Bucket extends string, A> extends Data.Class<{
   readonly buckets: StratifiedBuckets<Bucket, A>
   readonly bucketOrder: ReadonlyArray<Bucket>
   readonly targetSize: number
   readonly seed: number
-}>
+}> {}
 
-type SelectionState<Bucket extends string, A> = Readonly<{
+class SelectionState<Bucket extends string, A> extends Data.Class<{
   readonly buckets: StratifiedBuckets<Bucket, A>
   readonly selected: ReadonlyArray<A>
   readonly cursor: number
-}>
+}> {}
 
 const normalizeTargetSize = (targetSize: number): number => {
   const finite = Number.isFinite(targetSize)

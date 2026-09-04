@@ -191,10 +191,10 @@ describe("StudyObjectiveCache", () => {
       expect(recorded).toHaveLength(2)
 
       const first = Arr.get(recorded, 0).pipe(Either.fromOption(() => "expected first event"))
-      expect(Either.isRight(first) && Either.getOrNull(first)?._tag).toBe("Miss")
+      expect(Either.map(first, (result) => result._tag)).toEqual(Either.right("Miss"))
 
       const second = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected second event"))
-      expect(Either.isRight(second) && Either.getOrNull(second)?._tag).toBe("Hit")
+      expect(Either.map(second, (result) => result._tag)).toEqual(Either.right("Hit"))
     }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
 
   it.effect("CacheObserver receives Invalidation event on invalidate", () =>
@@ -215,7 +215,7 @@ describe("StudyObjectiveCache", () => {
       expect(recorded).toHaveLength(2)
 
       const invalidation = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected invalidation event"))
-      expect(Either.isRight(invalidation) && Either.getOrNull(invalidation)?._tag).toBe("Invalidation")
+      expect(Either.map(invalidation, (result) => result._tag)).toEqual(Either.right("Invalidation"))
     }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
 
   it.effect("fingerprints Schema and Data class configs by their stable encoded wire", () =>

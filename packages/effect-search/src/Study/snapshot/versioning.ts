@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as VariantSchema from "@effect/experimental/VariantSchema"
-import { Array as Arr, Effect, Number as Num, Schema } from "effect"
+import { Array as Arr, Data, Effect, Number as Num, Schema } from "effect"
 
 import type * as Trial from "../../Trial/index.js"
 import { isCompletedTrial } from "../best.js"
@@ -86,11 +86,13 @@ export class StudySnapshot extends Schema.Class<StudySnapshot>("effect-search/St
   samplerMetrics: SamplerMetricsSchema
 }) {}
 
-type SnapshotMaterialized = Schema.Schema.Type<typeof SnapshotMetadataSchema> & {
-  readonly nextTrialNumber: number
-  readonly trials: ReadonlyArray<SnapshotTrial>
-  readonly completedCount: number
-}
+class SnapshotMaterialized extends Data.Class<
+  Schema.Schema.Type<typeof SnapshotMetadataSchema> & {
+    readonly nextTrialNumber: number
+    readonly trials: ReadonlyArray<SnapshotTrial>
+    readonly completedCount: number
+  }
+> {}
 
 const toStudySnapshot = (snapshot: SnapshotMaterialized): StudySnapshot =>
   new StudySnapshot({

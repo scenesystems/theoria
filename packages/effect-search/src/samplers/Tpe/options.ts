@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Number as Num, Option } from "effect"
+import { Data, Effect, Number as Num, Option } from "effect"
 
 import { InvalidSamplerConfig } from "../../Errors/index.js"
 import { defaultNoiseBandwidthOptions, NoiseBandwidthOptions } from "../../internal/tpe/noiseEstimator.js"
@@ -42,10 +42,12 @@ export type TpeConstraintEvaluator = (config: unknown) => Effect.Effect<number, 
  * @since 0.1.0
  * @category models
  */
-export type TpeRuntimeOptions = TpeOptions & {
-  readonly constraints?: ReadonlyArray<TpeConstraintEvaluator>
-  readonly acquisition?: AcquisitionOption
-}
+export class TpeRuntimeOptions extends Data.Class<
+  TpeOptions & {
+    readonly constraints?: ReadonlyArray<TpeConstraintEvaluator>
+    readonly acquisition?: AcquisitionOption
+  }
+> {}
 
 /**
  * Resolves the acquisition function implementation from runtime options,

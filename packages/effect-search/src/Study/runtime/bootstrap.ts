@@ -30,10 +30,12 @@ export class RuntimeState<Config = unknown> extends Data.Class<{
   readonly studyState: StudyState<Config>
 }> {}
 
-type RuntimeMutationRequest<Config, A, E> = Request.Request<A, E> & {
-  readonly _tag: "effect-search/StudyRuntimeMutation"
-  readonly run: (state: RuntimeState<Config>) => Effect.Effect<readonly [A, RuntimeState<Config>], E, StudyClock>
-}
+class RuntimeMutationRequest<Config, A, E> extends Data.Class<
+  Request.Request<A, E> & {
+    readonly _tag: "effect-search/StudyRuntimeMutation"
+    readonly run: (state: RuntimeState<Config>) => Effect.Effect<readonly [A, RuntimeState<Config>], E, StudyClock>
+  }
+> {}
 
 type RuntimeMutationAny<Config> = RuntimeMutationRequest<Config, unknown, unknown>
 

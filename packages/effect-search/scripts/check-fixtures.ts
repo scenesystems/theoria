@@ -8,7 +8,7 @@
  */
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Effect, Either, Option, Schema } from "effect"
+import { Array as Arr, Console, Effect, Either, Option, Predicate, Schema } from "effect"
 
 import { FixtureManifestSchema, KnownFixtureSchema } from "../test/helpers/fixtures/schemas.js"
 
@@ -104,7 +104,7 @@ const program = Effect.gen(function*() {
 
   const passed = Arr.filterMap(
     manifest.fixtures,
-    (entry, index) => results[index] === null ? Option.some(entry.name) : Option.none()
+    (entry, index) => Predicate.isNull(results[index]) ? Option.some(entry.name) : Option.none()
   )
 
   const allErrors = [...errors, ...orphanErrors]

@@ -25,17 +25,20 @@ const expectWithinTolerance = (actual: number, expected: number, tolerance: numb
 const numberAt = (values: ReadonlyArray<number>, index: number): number =>
   Arr.get(values, index).pipe(Option.getOrElse(() => Number.NaN))
 
-const asDistanceInput = (value: string | number | boolean | null): number => {
-  return Match.value(value).pipe(
-    Match.when(Match.number, (numeric) => numeric),
-    Match.when(Match.boolean, (booleanValue) => (booleanValue ? 1 : 0)),
-    Match.when((candidate): candidate is null => candidate === null, () => 0),
-    Match.orElse((text) => text.length)
-  )
-}
+const asDistanceInput = (value: Option.Option<unknown>): number =>
+  Option.match(value, {
+    onNone: () => 0,
+    onSome: (present) =>
+      Match.value(present).pipe(
+        Match.when(Match.number, (numeric) => numeric),
+        Match.when(Match.boolean, (booleanValue) => (booleanValue ? 1 : 0)),
+        Match.when(Match.string, (text) => text.length),
+        Match.orElse(() => 0)
+      )
+  })
 
-const absoluteDistance = (left: string | number | boolean | null, right: string | number | boolean | null): number =>
-  Float64.abs(asDistanceInput(left) - asDistanceInput(right))
+const absoluteDistance = (left: unknown, right: unknown): number =>
+  Float64.abs(asDistanceInput(Option.fromNullable(left)) - asDistanceInput(Option.fromNullable(right)))
 
 describe("fixture-backed parity", () => {
   it.effect("replays categorical parzen probabilities, kernel weights, and candidate rolls", () =>

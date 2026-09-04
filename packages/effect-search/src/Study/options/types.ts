@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { Data } from "effect"
 import type { Duration } from "effect"
 
 import type { Direction } from "../../contracts/Direction.js"
@@ -36,10 +37,10 @@ import type { OptimizePlan, PriorTrial, RetrySchedule } from "./model.js"
  * @since 0.1.0
  * @category type-level
  */
-export type FlatOptimizeOptions<
+export class FlatOptimizeOptions<
   Config = unknown,
   Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> = {
+> extends Data.Class<{
   /** Compiled space used to decode sampler suggestions. */
   readonly space: Space
   /** Sampler asked for each fresh configuration. */
@@ -78,7 +79,7 @@ export type FlatOptimizeOptions<
   readonly retrySchedule?: RetrySchedule
   /** Time limit covering all objective samples and retries for one trial. */
   readonly trialTimeout?: Duration.DurationInput
-} & {}
+}> {}
 
 /**
  * Uses a {@link Scheduler} to choose the sampler, bracket topology, resource
@@ -92,10 +93,10 @@ export type FlatOptimizeOptions<
  * @since 0.1.0
  * @category type-level
  */
-export type ScheduledOptimizeOptions<
+export class ScheduledOptimizeOptions<
   Config = unknown,
   Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> = {
+> extends Data.Class<{
   /** Compiled space used to decode scheduler sampler suggestions. */
   readonly space: Space
   /** Bracket and resource schedule that selects the sampler and total trial count. */
@@ -132,7 +133,7 @@ export type ScheduledOptimizeOptions<
   readonly retrySchedule?: RetrySchedule
   /** Time limit covering all objective samples and retries for one trial. */
   readonly trialTimeout?: Duration.DurationInput
-} & {}
+}> {}
 
 /**
  * Selects direct sampler execution when `sampler` and `trials` are present, or
@@ -173,10 +174,10 @@ export type OptimizeOptionsFromSpace<Space extends SearchSpace.SearchSpace> = Op
  * @since 0.1.0
  * @category type-level
  */
-export type ResumeOptionFields<
+export class ResumeOptionFields<
   Config = unknown,
   Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> = {
+> extends Data.Class<{
   /** Compiled space checked against the recovered study metadata. */
   readonly space: Space
   /** Sampler restored from the saved checkpoint when one is present. */
@@ -211,7 +212,7 @@ export type ResumeOptionFields<
   readonly retrySchedule?: RetrySchedule
   /** Time limit covering all objective samples and retries for one new trial. */
   readonly trialTimeout?: Duration.DurationInput
-} & {}
+}> {}
 
 /**
  * Continues from an in-memory {@link StudySnapshot}. `trials` counts newly
@@ -223,13 +224,15 @@ export type ResumeOptionFields<
  * @since 0.1.0
  * @category type-level
  */
-export type ResumeOptions<
+export class ResumeOptions<
   Config = unknown,
   Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> = ResumeOptionFields<Config, Space> & {
-  /** In-memory history and continuation metadata used to seed execution. */
-  readonly snapshot: StudySnapshot
-}
+> extends Data.Class<
+  ResumeOptionFields<Config, Space> & {
+    /** In-memory history and continuation metadata used to seed execution. */
+    readonly snapshot: StudySnapshot
+  }
+> {}
 
 /**
  * Continues from the latest snapshot and replay tail loaded through
