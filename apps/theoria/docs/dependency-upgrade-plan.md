@@ -42,7 +42,7 @@ Ranges as written in `package.json` files after the upgrade.
 | -------------------------------- | ------------- | ---------------------------------------- |
 | `@typescript-eslint/*`           | ^8.68         | removed                                  |
 | `oxlint`                         | —             | 1.81.0 with `.oxlintrc.json`             |
-| `eslint` / `@eslint/js`          | ^9.39 / 9     | ^10.9.1 / ^10.0.1                        |
+| `eslint` / `@eslint/js`          | ^9.39 / 9     | ^10.9.1 / removed (no shared preset)     |
 | `@babel/eslint-parser`           | —             | ^8.0.1 (parses TS for ESLint)            |
 | `@effect/eslint-plugin`          | ^0.3.2        | removed; it depends on typescript-eslint |
 | `dprint`                         | in the plugin | 0.55.2 CLI with `.dprint.json`           |
@@ -180,16 +180,20 @@ replacement stack:
 - `oxlint` 1.81 (`.oxlintrc.json`) owns `no-unused-vars`,
   `no-unused-expressions`, `no-explicit-any`, `array-type` (generic),
   `consistent-type-imports` and the TypeScript correctness rules. `bun run
-lint` runs it with `--deny-warnings`. Three rules from its default
-  correctness category are off: `require-yield` (an `Effect.gen` body without
-  `yield*` is idiomatic and ESLint already had it off),
-  `typescript/prefer-as-const` (`eslint.config.mjs` bans every `as`
-  expression, `as const` included) and `unicorn/no-new-array` (`new Array(n)`
-  preallocation is deliberate in `packages/digest` hot paths).
+lint` runs it with `--deny-warnings`. It has no path overrides. Two rules
+  from its default correctness category are off: `require-yield` (an
+  `Effect.gen` body without `yield*` is idiomatic and ESLint already had it
+  off) and `typescript/prefer-as-const` (`eslint.config.mjs` bans every `as`
+  expression, `as const` included). `unicorn/no-new-array` is on; the
+  `packages/digest` buffers that used `new Array(n)` now copy or start
+  empty.
 - ESLint 10 with `@babel/eslint-parser` 8 owns the Effect
-  `no-restricted-syntax` selectors and the remaining core rules. The `jsx`
-  parser plugin is enabled only for `.tsx`; with it on for `.ts`, Babel reads
-  generic arrows such as `<A>(x) => x` as JSX and fails to parse.
+  `no-restricted-syntax` selectors and nothing else: one rule set (core, type
+  modeling, Option discipline) for every TypeScript file, with no directory
+  scopes and no weaker tier for apps or scripts. Only `**/*.config.*` and
+  `apps/*/public/**` are outside it. The `jsx` parser plugin is enabled only
+  for `.tsx`; with it on for `.ts`, Babel reads generic arrows such as
+  `<A>(x) => x` as JSX and fails to parse.
 - The `dprint` CLI (`.dprint.json`, typescript plugin 0.96.1, the same options
   the ESLint rule used) owns formatting for every tracked `.ts/.tsx/.mts/.cts`
   and `.js/.jsx/.mjs/.cjs` file, including `scripts/`, package `scripts/` and
@@ -262,8 +266,8 @@ bun run check:examples # tsconfig.examples.json: package examples, fixture scrip
 bun run check:all      # the three above; this is what CI and the pre-commit hook run
 bun run check:apps
 bun run lint           # oxlint --deny-warnings && eslint --max-warnings=0 && dprint check
-bun run test           # vitest 4: 363 files, 1991 tests
-bun run test:apps      # vitest 4 + happy-dom: 25 files, 86 tests
+bun run test           # vitest 4: 360 files, 1987 tests
+bun run test:apps      # vitest 4 + happy-dom: 26 files, 90 tests
 bun run build          # tsc -b, Babel 8 CJS/ESM, typedoc on TS 6, Vite 8 web build
 ```
 

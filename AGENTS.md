@@ -75,8 +75,8 @@ Every TypeScript file in the repository must be idiomatic Effect — packages, a
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
-- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline: AST selectors parsed with `@babel/eslint-parser` and applied in scopes. `packages/**` (src, test, examples, scripts, benchmarks) gets the full set (core, type modeling, Option discipline); `apps/**/*.ts` gets core plus Option discipline; `apps/**/*.tsx` views get core minus the `Omit<>` ban; root `scripts/**` gets core because the TypeDoc reflection boundary is nullable-typed. Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
-- `.oxlintrc.json` owns TypeScript-aware correctness rules, the Node builtin ban (`import/no-nodejs-modules`), and the `@ts-*` directive ban. Warnings fail the run (`denyWarnings`). Three rules are intentionally off: `require-yield` (an `Effect.gen` body without `yield*` is a legitimate idiom), `typescript/prefer-as-const` (conflicts with the `as` ban), and `unicorn/no-new-array` only inside `packages/digest/src/internal/**` (preallocated buffers).
+- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers; the only files outside the rules are framework configuration (`**/*.config.*`) and built assets (`apps/*/public/**`). Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
+- `.oxlintrc.json` owns every generic JavaScript and TypeScript rule: correctness, `no-unused-vars`, `no-explicit-any`, import hygiene, the Node builtin ban (`import/no-nodejs-modules`), and the `@ts-*` directive ban. It has no path overrides. Warnings fail the run (`denyWarnings`). Two rules are intentionally off: `require-yield` (an `Effect.gen` body without `yield*` is a legitimate idiom) and `typescript/prefer-as-const` (conflicts with the `as` ban). The two linters do not overlap.
 - `.dprint.json` owns formatting.
 - `@effect/tsgo` adds Effect diagnostics inside `tsc`.
 
@@ -110,15 +110,14 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
-- **240 LOC limit**: Files over 240 LOC require decomposition rationale and split plan.
-- **Tests assert contracts**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests.
+- **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
 - **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every entrypoint `index.ts` (and every source file that becomes a docs page) opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
 
 ---
 
 ## Governance
 
-- `internal/*` blocked from consumers via the `exports` map in each `package.json`; the type checker rejects deep imports.
+- `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
 - Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
 - All randomness through Effect `Random` with seeded generators.
