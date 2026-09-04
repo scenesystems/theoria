@@ -88,7 +88,7 @@ const inferenceClientForRoute = (
     : new InferenceClient(accessToken ? Redacted.value(accessToken) : undefined, { endpointUrl: route.baseUrl })
 
 const featureExtractionArgs = (options: {
-  readonly input: readonly [string, ...Array<string>]
+  readonly input: Arr.NonEmptyReadonlyArray<string>
   readonly model: string
   readonly route: ExecutionRoute
 }): FeatureExtractionArgs => {
@@ -120,14 +120,11 @@ export const makeHuggingFaceEmbeddingLayer = (options: {
       Effect.flatMap((client) =>
         EmbeddingModel.make({
           embedMany: (input) => {
-            const [first, ...rest] = input
-
-            return typeof first === "undefined"
-              ? Effect.succeed([])
-              : Effect.tryPromise({
+            return Arr.isNonEmptyReadonlyArray(input)
+              ? Effect.tryPromise({
                 try: () =>
                   client.featureExtraction(
-                    featureExtractionArgs({ input: [first, ...rest], model: options.model, route: options.route })
+                    featureExtractionArgs({ input, model: options.model, route: options.route })
                   ),
                 catch: (cause) =>
                   unknownError(
@@ -136,6 +133,7 @@ export const makeHuggingFaceEmbeddingLayer = (options: {
                     cause
                   )
               }).pipe(Effect.flatMap(normalizeEmbeddings))
+              : Effect.succeed([])
           }
         })
       )

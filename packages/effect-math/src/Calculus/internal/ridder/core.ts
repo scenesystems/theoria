@@ -59,18 +59,15 @@ const optionalField = (
     | "relativeTolerance"
     | "minimumStep"
     | "safetyFactor",
-  config?: RidderMethodInputType
-): Option.Option<number> => Option.fromNullable(config?.[field])
+  config: Option.Option<RidderMethodInputType>
+): Option.Option<number> => Option.flatMap(config, (resolved) => Option.fromNullable(resolved[field]))
 
 const decodeRidderMethodInput = Schema.decodeUnknownSync(RidderMethodInput, {
   onExcessProperty: "error"
 })
 
 const normalizeConfig = (config?: RidderMethodInputType): NormalizedRidderConfig => {
-  const decoded = Option.match(Option.fromNullable(config), {
-    onNone: () => undefined,
-    onSome: (candidate) => decodeRidderMethodInput(candidate)
-  })
+  const decoded = Option.map(Option.fromNullable(config), decodeRidderMethodInput)
 
   return new NormalizedRidderConfig({
     initialStep: selectOrDefault(

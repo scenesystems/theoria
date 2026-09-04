@@ -6,7 +6,7 @@
  */
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Effect, Option, Schema } from "effect"
+import { Array as Arr, Console, Effect, Option, Predicate, Schema } from "effect"
 import {
   decodeUnknownJson,
   EXTERNAL_FIXTURE_ROOT,
@@ -146,13 +146,13 @@ const program = Effect.gen(function*() {
 
   const resultErrors = Arr.filterMap(
     fixtureResults,
-    (result) => result === null ? Option.none<FixtureCheckError>() : Option.some(result)
+    (result) => Predicate.isNull(result) ? Option.none<FixtureCheckError>() : Option.some(result)
   )
   const allErrors = [...resultErrors, ...orphanErrors]
 
   const passedNames = Arr.filterMap(
     manifest.sources,
-    (source, index) => fixtureResults[index] === null ? Option.some(source.id) : Option.none()
+    (source, index) => Predicate.isNull(fixtureResults[index]) ? Option.some(source.id) : Option.none()
   )
 
   yield* Console.log(`Checking ${manifest.sources.length} fixture sources...`)

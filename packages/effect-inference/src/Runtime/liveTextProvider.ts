@@ -11,7 +11,7 @@ import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
-import { Effect, Layer, Match, Option } from "effect"
+import { Data, Effect, Layer, Match, Option } from "effect"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import type { InvalidRuntimeConfig } from "../Errors/Config.js"
@@ -31,7 +31,7 @@ import {
  * @since 0.1.0
  * @category models
  */
-export type ResolvedLiveTextProviderRuntime = Readonly<{
+export class ResolvedLiveTextProviderRuntime extends Data.Class<{
   /** Provider adapter selected after configuration merging. */
   readonly provider: LiveTextProvider
   /** Model identifier passed to the provider client. */
@@ -40,16 +40,16 @@ export type ResolvedLiveTextProviderRuntime = Readonly<{
   readonly desired: DesiredRuntimeDescriptor
   /** Fully provided model layer; provider calls occur only when used. */
   readonly languageModelLayer: Layer.Layer<LanguageModel.LanguageModel, never, never>
-}>
-
-const optionalValue = <A>(value: Option.Option<A>) =>
-  Option.match(value, { onNone: () => undefined, onSome: (resolved) => resolved })
+}> {}
 
 const openAiLayer = (config: ResolvedLiveTextProviderConfig): Layer.Layer<LanguageModel.LanguageModel, never, never> =>
   Layer.provide(
     Layer.provide(
       OpenAiLanguageModel.layer({ model: config.model }),
-      OpenAiClient.layer({ apiKey: config.apiKey, apiUrl: optionalValue(config.apiUrl) })
+      OpenAiClient.layer({
+        apiKey: config.apiKey,
+        ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) })
+      })
     ),
     FetchHttpClient.layer
   )
@@ -62,8 +62,11 @@ const anthropicLayer = (
       AnthropicLanguageModel.layer({ model: config.model }),
       AnthropicClient.layer({
         apiKey: config.apiKey,
-        apiUrl: optionalValue(config.apiUrl),
-        anthropicVersion: optionalValue(config.anthropicVersion)
+        ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) }),
+        ...Option.match(config.anthropicVersion, {
+          onNone: () => ({}),
+          onSome: (anthropicVersion) => ({ anthropicVersion })
+        })
       })
     ),
     FetchHttpClient.layer
@@ -77,9 +80,12 @@ const openRouterLayer = (
       OpenRouterLanguageModel.layer({ model: config.model }),
       OpenRouterClient.layer({
         apiKey: config.apiKey,
-        apiUrl: optionalValue(config.apiUrl),
-        referrer: optionalValue(config.openrouterReferrer),
-        title: optionalValue(config.openrouterTitle)
+        ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) }),
+        ...Option.match(config.openrouterReferrer, {
+          onNone: () => ({}),
+          onSome: (referrer) => ({ referrer })
+        }),
+        ...Option.match(config.openrouterTitle, { onNone: () => ({}), onSome: (title) => ({ title }) })
       })
     ),
     FetchHttpClient.layer

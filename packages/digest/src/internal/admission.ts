@@ -33,7 +33,7 @@ export const reflect = <A>(operation: () => A): Either.Either<A, Unsupported> =>
   Either.try({ try: operation, catch: () => unsupported("reflection-failure") })
 
 export const classifyPrimitive = (value: unknown): Either.Either<Primitive, Unsupported | InvalidUnicode> => {
-  if (value === null) return Either.right(Primitive.Null())
+  if (Predicate.isNull(value)) return Either.right(Primitive.Null())
   if (Predicate.isUndefined(value)) return Either.left(unsupported("undefined"))
   if (Predicate.isBoolean(value)) return Either.right(Primitive.Boolean({ value }))
   if (Predicate.isString(value)) return Either.right(Primitive.String({ value }))
@@ -62,7 +62,7 @@ export const classifyContainer = (value: object): Either.Either<Container, Unsup
     if (value instanceof Promise) return unsupported("promise")
     if (Arr.isArray(value)) return Container.Array({ identity: value })
     const prototype = Reflect.getPrototypeOf(value)
-    if (prototype !== Object.prototype && prototype !== null) return unsupported("unsupported-prototype")
+    if (prototype !== Object.prototype && !Predicate.isNull(prototype)) return unsupported("unsupported-prototype")
     return Container.Record({ identity: value })
   }).pipe(Either.flatMap((result) => result instanceof Unsupported ? Either.left(result) : Either.right(result)))
 

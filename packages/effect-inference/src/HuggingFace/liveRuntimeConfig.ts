@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Config, ConfigError, ConfigProvider, Effect, Match, Option } from "effect"
+import { Config, ConfigError, ConfigProvider, Data, Effect, Match, Option } from "effect"
 import type * as Redacted from "effect/Redacted"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
@@ -23,7 +23,7 @@ const explicitProviderPrefix = "provider:"
  * @since 0.1.0
  * @category models
  */
-export type RoutedLiveRuntimeOptions = Readonly<{
+export class RoutedLiveRuntimeOptions extends Data.Class<{
   /** Selects marketplace routing. */
   readonly serveMode: "routed-marketplace"
   /** Model repository or provider model reference. */
@@ -38,7 +38,7 @@ export type RoutedLiveRuntimeOptions = Readonly<{
   readonly selectionPolicy?: RouteSelectionPolicy
   /** Capability constraints checked before model layers are returned. */
   readonly capabilities?: DesiredRuntimeDescriptor["capabilities"]
-}>
+}> {}
 
 /**
  * Complete settings for one Hugging Face dedicated endpoint.
@@ -46,7 +46,7 @@ export type RoutedLiveRuntimeOptions = Readonly<{
  * @since 0.1.0
  * @category models
  */
-export type EndpointLiveRuntimeOptions = Readonly<{
+export class EndpointLiveRuntimeOptions extends Data.Class<{
   /** Selects dedicated-endpoint routing. */
   readonly serveMode: "dedicated-endpoint"
   /** Model identifier passed to endpoint adapters. */
@@ -63,7 +63,7 @@ export type EndpointLiveRuntimeOptions = Readonly<{
   readonly runtimeFlavorHint?: ExecutionRoute["runtimeFlavorHint"]
   /** Capability constraints checked before model layers are returned. */
   readonly capabilities?: DesiredRuntimeDescriptor["capabilities"]
-}>
+}> {}
 
 /**
  * Discriminated settings for marketplace routing or a dedicated endpoint.
@@ -80,7 +80,7 @@ export type LiveRuntimeOptions = RoutedLiveRuntimeOptions | EndpointLiveRuntimeO
  * @since 0.1.0
  * @category models
  */
-export type LiveRuntimeConfigOptions = Readonly<{
+export class LiveRuntimeConfigOptions extends Data.Class<{
   /** Runtime lane; defaults to `routed-marketplace`. */
   readonly serveMode?: LiveRuntimeOptions["serveMode"]
   /** Model identifier required after configuration merging. */
@@ -103,7 +103,7 @@ export type LiveRuntimeConfigOptions = Readonly<{
   readonly capabilities?: DesiredRuntimeDescriptor["capabilities"]
   /** Configuration source used for values without explicit overrides. */
   readonly configProvider?: ConfigProvider.ConfigProvider
-}>
+}> {}
 
 /**
  * Complete marketplace or endpoint settings after configuration merging.
@@ -120,11 +120,11 @@ export type ResolvedLiveRuntimeConfig = LiveRuntimeOptions
  * @since 0.1.0
  * @category models
  */
-export type LiveRuntimeDescriptor =
-  & DesiredRuntimeDescriptor
-  & Readonly<{
+export class LiveRuntimeDescriptor extends Data.Class<
+  DesiredRuntimeDescriptor & {
     readonly route: ExecutionRoute
-  }>
+  }
+> {}
 
 const optionalString = (name: string): Config.Config<Option.Option<string>> => Config.option(Config.string(name))
 
