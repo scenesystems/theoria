@@ -1,7 +1,12 @@
 import { Array as Arr, HashMap, Option } from "effect"
 import * as ts from "typescript"
 
-import type { Example } from "./review-model.js"
+export type Example = {
+  readonly owner: string
+  readonly package: string
+  readonly language: string | null
+  readonly code: string | null
+}
 
 const compilerOptions: ts.CompilerOptions = {
   allowJs: false,
