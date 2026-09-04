@@ -1,18 +1,15 @@
-import { RegistryProvider, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
-import { createRoot } from "react-dom/client"
+import { Effect, Layer, Option } from "effect"
 
 import { browserNavigationMountAtom, pageRouteAtom, shouldNavigateInBrowser } from "../../app/web/atoms/navigation.js"
+import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
+import * as BrowserWindow from "../../app/web/platform/BrowserWindow.js"
 import { pagePathFor } from "../../app/web/services/path.js"
 import { InternalLink } from "../../app/web/view/primitives/Link.js"
+import { mountWithRegistry, waitFor } from "../helpers/react-mount.js"
 
-const waitFor = (predicate: () => boolean): Effect.Effect<void> =>
-  Effect.eventually(
-    Effect.sync(predicate).pipe(
-      Effect.filterOrFail((ready) => ready, () => "waiting-for-browser-navigation")
-    )
-  ).pipe(Effect.asVoid, Effect.orDie)
+const BrowserTest = Layer.merge(BrowserWindow.layer, BrowserDocument.layer)
 
 const NavigationHarness = () => {
   useAtomValue(browserNavigationMountAtom)
@@ -26,63 +23,55 @@ const NavigationHarness = () => {
   )
 }
 
+/** Puts the test window on `path` for the duration of the scope, then returns it to the root. */
+const atPath = (path: string): Effect.Effect<void, never, BrowserWindow.BrowserWindow> =>
+  Effect.flatMap(BrowserWindow.BrowserWindow, (browserWindow) =>
+    Effect.sync(() => {
+      browserWindow.history.replaceState(null, "", path)
+    }))
+
+const plainClick = {
+  altKey: false,
+  button: 0,
+  ctrlKey: false,
+  defaultPrevented: false,
+  metaKey: false,
+  shiftKey: false,
+  target: Option.none<string>()
+}
+
 describe("browser navigation", () => {
   it.effect("moves between application routes without replacing the mounted document", () =>
     Effect.gen(function*() {
-      globalThis.history.replaceState(null, "", "/docs")
-      const container = document.createElement("div")
-      document.body.appendChild(container)
-      const root = createRoot(container)
-      root.render(
-        <RegistryProvider defaultIdleTTL={0}>
-          <NavigationHarness />
-        </RegistryProvider>
+      const browserWindow = yield* BrowserWindow.BrowserWindow
+      yield* Effect.acquireRelease(atPath("/docs"), () => atPath("/"))
+      const { container } = yield* mountWithRegistry(<NavigationHarness />)
+
+      yield* waitFor(() => container.querySelector("output")?.textContent === "/docs", "initial-route")
+      const mount = container.querySelector("main")
+      const link = container.querySelector("a")
+      const click = new MouseEvent("click", { bubbles: true, cancelable: true })
+
+      link?.dispatchEvent(click)
+      yield* waitFor(
+        () => container.querySelector("output")?.textContent === "/docs/effect-search/api/Study",
+        "navigated-route"
       )
 
-      yield* Effect.ensuring(
-        Effect.gen(function*() {
-          yield* waitFor(() => container.querySelector("output")?.textContent === "/docs")
-          const mount = container.querySelector("main")
-          const link = container.querySelector("a")
-          const click = new MouseEvent("click", { bubbles: true, cancelable: true })
+      expect(click.defaultPrevented).toBe(true)
+      expect(browserWindow.location.pathname).toBe("/docs/effect-search/api/Study")
+      expect(container.querySelector("main")).toBe(mount)
+    }).pipe(Effect.scoped, Effect.provide(BrowserTest)))
 
-          link?.dispatchEvent(click)
-          yield* waitFor(() => container.querySelector("output")?.textContent === "/docs/effect-search/api/Study")
-
-          expect(click.defaultPrevented).toBe(true)
-          expect(globalThis.location.pathname).toBe("/docs/effect-search/api/Study")
-          expect(container.querySelector("main")).toBe(mount)
-          expect(container.querySelector("output")?.textContent).toBe("/docs/effect-search/api/Study")
-        }),
-        Effect.sync(() => {
-          root.unmount()
-          container.remove()
-          globalThis.history.replaceState(null, "", "/")
-        })
-      )
-    }))
-
-  it.effect("preserves native behavior for modified and external links", () =>
-    Effect.gen(function*() {
-      expect(shouldNavigateInBrowser({
-        altKey: false,
-        button: 0,
-        ctrlKey: true,
-        defaultPrevented: false,
-        href: "/docs",
-        metaKey: false,
-        shiftKey: false,
-        target: Option.none()
-      })).toBe(false)
-      expect(shouldNavigateInBrowser({
-        altKey: false,
-        button: 0,
-        ctrlKey: false,
-        defaultPrevented: false,
-        href: "https://example.com/docs",
-        metaKey: false,
-        shiftKey: false,
-        target: Option.none()
-      })).toBe(false)
+  it.effect("leaves modified, secondary-button, new-tab and already-handled clicks to the browser", () =>
+    Effect.sync(() => {
+      expect(shouldNavigateInBrowser(plainClick)).toBe(true)
+      expect(shouldNavigateInBrowser({ ...plainClick, ctrlKey: true })).toBe(false)
+      expect(shouldNavigateInBrowser({ ...plainClick, metaKey: true })).toBe(false)
+      expect(shouldNavigateInBrowser({ ...plainClick, shiftKey: true })).toBe(false)
+      expect(shouldNavigateInBrowser({ ...plainClick, altKey: true })).toBe(false)
+      expect(shouldNavigateInBrowser({ ...plainClick, button: 1 })).toBe(false)
+      expect(shouldNavigateInBrowser({ ...plainClick, target: Option.some("_blank") })).toBe(false)
+      expect(shouldNavigateInBrowser({ ...plainClick, defaultPrevented: true })).toBe(false)
     }))
 })

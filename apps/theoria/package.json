@@ -27,6 +27,7 @@
     "@effect-atom/atom-react": "^0.7.0",
     "@effect/ai": "0.37.0",
     "@effect/platform": "0.97.1",
+    "@effect/platform-browser": "0.77.1",
     "@effect/platform-bun": "0.91.2",
     "@heroicons/react": "^2.2.0",
     "@scenesystems/digest": "workspace:^",

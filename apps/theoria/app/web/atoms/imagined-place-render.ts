@@ -1,7 +1,7 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Study } from "@scenesystems/effect-search"
-import { Data, Duration, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
+import { Data, Duration, Effect, Option, Ref, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { DemoExecutionError } from "../../contracts/demo-error.js"
@@ -17,6 +17,7 @@ import {
 import { type Stage, stageFor } from "../../contracts/demo/imagined-place-flow.js"
 import type { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../contracts/imagined-place.js"
+import { type BrowserTextLayout, browserTextLayoutLive } from "../text/browserTextLayout.js"
 import { type MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
@@ -63,7 +64,7 @@ export const frameShowing = (frame: PlaceRenderFrame, index: Option.Option<numbe
       })
   })
 
-const renderRuntime = Atom.runtime(Layer.empty)
+const renderRuntime = Atom.runtime(browserTextLayoutLive)
 
 /** Long enough to see the markers settle, short enough that 36 trials finish in about a second. */
 const frameDelay = Duration.millis(28)
@@ -112,8 +113,8 @@ const renderFailed = (message: string) => new DemoExecutionError({ code: "execut
 const renderStream = (
   artifact: PlaceArtifact,
   stageWidth: number
-): Stream.Stream<PlaceRenderFrame, DemoExecutionError> =>
-  Study.streamFromEmitter<PlaceRenderFrame, void, DemoExecutionError, never>((emit) =>
+): Stream.Stream<PlaceRenderFrame, DemoExecutionError, BrowserTextLayout> =>
+  Study.streamFromEmitter<PlaceRenderFrame, void, DemoExecutionError, BrowserTextLayout>((emit) =>
     Effect.scoped(
       Effect.gen(function*() {
         const stage = stageFor(stageWidth)

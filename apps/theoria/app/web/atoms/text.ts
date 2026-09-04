@@ -5,11 +5,12 @@ import { useAtomValue } from "@effect-atom/atom-react"
 import type { Text } from "@scenesystems/effect-text"
 import * as TextReact from "@scenesystems/effect-text/react"
 import type { Effect } from "effect"
-import { Data, Layer, Option, Schema } from "effect"
+import { Data, Option, Schema } from "effect"
 import { useMemo } from "react"
 
 import { SurfaceVariant } from "../../contracts/presentation.js"
 import { maxWidthFor, type TextProjection, TextRole } from "../../contracts/text.js"
+import { type BrowserTextLayout, browserTextLayoutLive } from "../text/browserTextLayout.js"
 import { prepareIdentityForTextProjection, prepareTextProjection, projectPreparedText } from "../view/text/authority.js"
 
 import {
@@ -39,7 +40,7 @@ export type TextProjectionAuthorityRequest = typeof TextProjectionAuthorityReque
 export class TextProjectionAuthority extends Data.Class<{
   readonly prepare: (
     identity: TextReact.PrepareIdentityType
-  ) => Effect.Effect<Text.PreparedTextWithSegments, unknown, never>
+  ) => Effect.Effect<Text.PreparedTextWithSegments, unknown, BrowserTextLayout>
   readonly project: (options: {
     readonly prepared: Text.PreparedTextWithSegments
     readonly request: TextProjectionAuthorityRequest
@@ -54,7 +55,7 @@ const makeTextProjectionRequest = ({
   widthSlot
 }: TextProjectionRequest): TextProjectionRequest => ({ role, text, variant, widthSlot })
 
-const textRuntime = Atom.runtime(Layer.empty)
+const textRuntime = Atom.runtime(browserTextLayoutLive)
 
 const defaultTextProjectionAuthority: TextProjectionAuthority = new TextProjectionAuthority({
   prepare: prepareTextProjection,

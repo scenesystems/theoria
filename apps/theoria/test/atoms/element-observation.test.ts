@@ -14,25 +14,15 @@ const makeTestRegistry = (): Registry.Registry =>
   })
 
 describe("element observation", () => {
-  it.effect("release mount-scoped width state once the last subscriber detaches", () =>
+  it.live("release mount-scoped width state once the last subscriber detaches", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const slot = makeElementWidthSlot()
       const remove = registry.subscribe(elementWidthAtom(slot), () => undefined)
-      const waitForTimeout = Effect.async<void, never, never>((resume) => {
-        const handle = setTimeout(() => {
-          resume(Effect.void)
-        }, 20)
-
-        return Effect.sync(() => {
-          clearTimeout(handle)
-        })
-      })
-
       expect(registry.getNodes().size).toBe(1)
 
       remove()
-      yield* waitForTimeout
+      yield* Effect.sleep("20 millis")
 
       expect(registry.getNodes().size).toBe(0)
     }))

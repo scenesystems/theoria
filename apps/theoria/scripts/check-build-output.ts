@@ -1,4 +1,4 @@
-import { Path } from "@effect/platform"
+import { Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Config, Console, Effect } from "effect"
 
@@ -16,7 +16,7 @@ import { checkBuildOutput } from "../app/server/config/build-output.js"
 
 const program = Effect.gen(function*() {
   const path = yield* Path.Path
-  const appRoot = yield* path.fromFileUrl(new URL("../", import.meta.url))
+  const appRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
   const root = yield* Config.string("BUILD_ROOT").pipe(
     Config.withDefault(appRoot),
     Config.map((value) => path.resolve(value))

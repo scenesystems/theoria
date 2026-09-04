@@ -1,9 +1,11 @@
 import { Atom } from "@effect-atom/atom"
-import { Effect, Option, Schema } from "effect"
+import type { Atom as AtomType, Result } from "@effect-atom/atom"
+import { Clipboard } from "@effect/platform-browser"
+import { Effect, Option, Stream } from "effect"
 
-export class ClipboardWriteError extends Schema.TaggedError<ClipboardWriteError>()("ClipboardWriteError", {
-  cause: Schema.Defect
-}) {}
+import * as BrowserDocument from "../platform/BrowserDocument.js"
+import * as BrowserWindow from "../platform/BrowserWindow.js"
+import { appRuntime } from "./runtime.js"
 
 export const docsSearchOpenAtom = Atom.make(false)
 export const docsSearchQueryAtom = Atom.make("")
@@ -12,11 +14,12 @@ export const docsLocationHashAtom = Atom.make("")
 export const docsCopiedCodeAtom = Atom.make(Option.none<string>())
 export const docsCopyFailedCodeAtom = Atom.make(Option.none<string>())
 
-export const copyDocsCodeAtom = Atom.fn<string>()((source, ctx) =>
-  Effect.tryPromise({
-    try: () => globalThis.navigator.clipboard.writeText(source),
-    catch: (cause) => new ClipboardWriteError({ cause })
-  }).pipe(
+/**
+ * Copies a code sample through the platform `Clipboard` and shows the outcome
+ * beside the source for two seconds, unless another copy has replaced it.
+ */
+export const copyDocsCodeAtom = appRuntime.fn<string>()((source, ctx) =>
+  Effect.flatMap(Clipboard.Clipboard, (clipboard) => clipboard.writeString(source)).pipe(
     Effect.matchEffect({
       onFailure: () =>
         Effect.sync(() => {
@@ -43,40 +46,43 @@ export const copyDocsCodeAtom = Atom.fn<string>()((source, ctx) =>
   )
 )
 
-export const docsLocationHashMountAtom = Atom.make((ctx) => {
-  const update = () => {
-    const hash = globalThis.location.hash
-    ctx.set(docsLocationHashAtom, hash)
+/** The document's fragment now and after every `hashchange`. */
+const locationHashes: Stream.Stream<string, never, BrowserWindow.BrowserWindow> = Stream.concat(
+  Stream.fromEffect(BrowserWindow.currentUrl),
+  Stream.mapEffect(BrowserWindow.events("hashchange"), () => BrowserWindow.currentUrl)
+).pipe(Stream.map((url) => url.hash))
 
-    if (hash.startsWith("#api-")) {
-      globalThis.scrollTo({ top: 0 })
-    }
-  }
+/**
+ * Mirrors the fragment into `docsLocationHashAtom` while a docs resource is
+ * mounted. API anchors select a page section rather than a position, so they
+ * scroll to the top instead of to an element.
+ */
+export const docsLocationHashMountAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+  Stream.runForEach(locationHashes, (hash) =>
+    Effect.gen(function*() {
+      get.set(docsLocationHashAtom, hash)
 
-  ctx.set(docsLocationHashAtom, globalThis.location.hash)
-  globalThis.addEventListener("hashchange", update)
-  ctx.addFinalizer(() => {
-    globalThis.removeEventListener("hashchange", update)
-  })
+      if (hash.startsWith("#api-")) {
+        yield* BrowserWindow.scrollToTop
+      }
+    }))
+)
 
-  return null
-})
+const isSearchShortcut = (event: KeyboardEvent): boolean =>
+  (event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k"
 
-export const docsKeyboardShortcutsAtom = Atom.make((ctx) => {
-  const onKeyDown = (event: KeyboardEvent) => {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
-      event.preventDefault()
-      ctx.set(docsSearchOpenAtom, true)
-    }
-  }
-
-  document.addEventListener("keydown", onKeyDown)
-  ctx.addFinalizer(() => {
-    document.removeEventListener("keydown", onKeyDown)
-  })
-
-  return null
-})
+/** ⌘K / Ctrl+K opens the docs search while the docs page is mounted. */
+export const docsKeyboardShortcutsAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+  BrowserDocument.events("keydown").pipe(
+    Stream.filter(isSearchShortcut),
+    Stream.runForEach((event) =>
+      Effect.sync(() => {
+        event.preventDefault()
+        get.set(docsSearchOpenAtom, true)
+      })
+    )
+  )
+)
 
 export const setDocsSearchOpenAtom = Atom.fnSync<boolean>()((open, ctx) => {
   ctx.set(docsSearchOpenAtom, open)

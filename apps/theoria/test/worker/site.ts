@@ -1,4 +1,4 @@
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { Context, Data, Effect, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
@@ -67,7 +67,10 @@ export const SiteLive = Layer.scoped(
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const projectRoot = yield* path.fromFileUrl(new URL("../../", import.meta.url)).pipe(Effect.orDie)
+    const projectRoot = yield* Url.fromString("../../", import.meta.url).pipe(
+      Effect.flatMap((url) => path.fromFileUrl(url)),
+      Effect.orDie
+    )
     const distRoot = path.join(projectRoot, "dist")
     const workerDir = path.join(projectRoot, ".wrangler-out")
 

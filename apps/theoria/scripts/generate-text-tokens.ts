@@ -1,3 +1,6 @@
+import { BunRuntime } from "@effect/platform-bun"
+import { Console } from "effect"
+
 import { fontFamilyCssVar, fontFamilyThemeTokens, fontWeightNumeric, textSemantics } from "../app/contracts/text.js"
 
 const fontFamilyThemeLines = fontFamilyThemeTokens.map(
@@ -52,4 +55,4 @@ const output = [
   ...maxWidthTokens
 ].join("\n")
 
-process.stdout.write(output + "\n")
+BunRuntime.runMain(Console.log(output))

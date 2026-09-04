@@ -3,7 +3,7 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { MoonIcon, SunIcon } from "@heroicons/react/20/solid"
 import { Match } from "effect"
 
-import { type ColorMode, colorModeAtom, persistColorMode } from "../../atoms/theme.js"
+import { type ColorMode, colorModeAtom, colorModePreferenceAtom } from "../../atoms/theme.js"
 
 import { chromeHeaderGlyphClassName, chromeIconButtonClassName } from "./ChromeIconButton.js"
 
@@ -14,15 +14,10 @@ const opposite = (mode: ColorMode): ColorMode =>
     Match.exhaustive
   )
 
+/** Flips the mode in effect and pins the result as the reader's preference. */
 export const ThemeToggle = () => {
   const mode = useAtomValue(colorModeAtom)
-  const setMode = useAtomSet(colorModeAtom)
-
-  const toggle = () => {
-    const next = opposite(mode)
-    setMode(next)
-    persistColorMode(next)
-  }
+  const setPreference = useAtomSet(colorModePreferenceAtom)
 
   return (
     <Button
@@ -32,7 +27,7 @@ export const ThemeToggle = () => {
         Match.exhaustive
       )}
       className={chromeIconButtonClassName({ active: false, className: "h-11 w-11 rounded-[1rem]" })}
-      onClick={toggle}
+      onClick={() => setPreference(opposite(mode))}
       type="button"
     >
       {Match.value(mode).pipe(

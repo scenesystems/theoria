@@ -1,4 +1,4 @@
-import { Command, FileSystem, Path } from "@effect/platform"
+import { Command, FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Console, Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
@@ -112,7 +112,7 @@ const webManifest = (description: string) =>
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const appRoot = yield* path.fromFileUrl(new URL("../", import.meta.url))
+  const appRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
   const repositoryRoot = path.join(appRoot, "..", "..")
   const publicRoot = path.join(appRoot, "public")
   const fontsRoot = path.join(appRoot, "scripts", "social-assets", "fonts")
@@ -121,7 +121,7 @@ const program = Effect.gen(function*() {
     sansSemiBold: path.join(fontsRoot, "Figtree-SemiBold.ttf"),
     mono: path.join(fontsRoot, "JetBrainsMono-Medium.ttf")
   })
-  const host = new URL(siteMetadata.siteUrl).host
+  const host = yield* Effect.map(Url.fromString(siteMetadata.siteUrl), (url) => url.host)
 
   const mark = yield* fileSystem.readFileString(path.join(publicRoot, "favicon.svg")).pipe(Effect.flatMap(parseMark))
 

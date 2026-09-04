@@ -1,18 +1,19 @@
 // @vitest-environment node
-import { Path } from "@effect/platform"
+import { Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type Unstable_Config, unstable_readConfig } from "wrangler"
 
-const projectRootUrl = new URL("../../", import.meta.url)
+const projectRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
+  const path = yield* Path.Path
+  return yield* path.fromFileUrl(yield* Url.fromString("../../", import.meta.url))
+}).pipe(Effect.orDie)
 
 /** Loads `wrangler.jsonc` through Wrangler itself so environment inheritance matches deploy time. */
 const readConfig = (env: Option.Option<string>): Effect.Effect<Unstable_Config> =>
-  Path.Path.pipe(
-    Effect.flatMap((path) => path.fromFileUrl(projectRootUrl)),
-    Effect.orDie,
+  projectRoot.pipe(
     Effect.map((projectRoot) =>
       Option.match(env, {
         onNone: () => unstable_readConfig({ config: `${projectRoot}/wrangler.jsonc` }, { hideWarnings: true }),

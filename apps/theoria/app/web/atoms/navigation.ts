@@ -1,16 +1,26 @@
 import { Atom, Result } from "@effect-atom/atom"
-import { Match, Option } from "effect"
+import type { Atom as AtomType } from "@effect-atom/atom"
+import { Effect, Match, Option, Stream } from "effect"
 
 import type { DocsManifest } from "@theoria/docs-model"
 import { metadataForDocs, metadataForHome, type PageMetadata } from "../../contracts/metadata.js"
+import { nextFrame } from "../platform/AnimationFrame.js"
+import * as BrowserDocument from "../platform/BrowserDocument.js"
+import * as BrowserWindow from "../platform/BrowserWindow.js"
 import { applyBrowserMetadata } from "../services/browser-metadata.js"
 import { isPagePath, pagePathFor, type PageRoute, parsePathname } from "../services/path.js"
 import { docsManifestAtom } from "./docs-data.js"
 import { docsLocationHashAtom } from "./docs.js"
+import { appRuntime } from "./runtime.js"
 
-const routeAtBrowserLocation = (): PageRoute => parsePathname(globalThis.location.pathname)
+const routeForUrl = (url: URL): PageRoute => parsePathname(url.pathname)
 
-export const pageRouteAtom = Atom.make(routeAtBrowserLocation())
+/**
+ * The route on screen. `browserNavigationMountAtom` sets it from the window
+ * before the first route renders and keeps it current through history
+ * traversal; `navigateAtom` sets it when the app pushes a new entry.
+ */
+export const pageRouteAtom: AtomType.Writable<PageRoute> = Atom.make(parsePathname("/"))
 
 const docsMetadataForRoute = (
   route: PageRoute,
@@ -22,97 +32,108 @@ const docsMetadataForRoute = (
     onSuccess: ({ value }) => Option.some(metadataForDocs(value, pagePathFor(route)))
   })
 
-const browserMetadataAtom = Atom.make((ctx) =>
-  Match.value(ctx(pageRouteAtom)).pipe(
+const browserMetadataAtom = Atom.make((get) =>
+  Match.value(get(pageRouteAtom)).pipe(
     Match.tag("HomeRoute", () => Option.some(metadataForHome())),
-    Match.orElse((route) => docsMetadataForRoute(route, ctx(docsManifestAtom)))
+    Match.orElse((route) => docsMetadataForRoute(route, get(docsManifestAtom)))
   )
 )
 
-export const browserMetadataMountAtom = Atom.make((ctx) => {
-  Option.match(ctx(browserMetadataAtom), {
-    onNone: () => {},
+/** Writes the current route's metadata into the shell's `<head>` whenever the route or manifest changes. */
+export const browserMetadataMountAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+  Option.match(get(browserMetadataAtom), {
+    onNone: () => Effect.void,
     onSome: applyBrowserMetadata
   })
+)
 
-  return null
-})
+/** The document URL now and after every history traversal. */
+const locationUrls: Stream.Stream<URL, never, BrowserWindow.BrowserWindow> = Stream.concat(
+  Stream.fromEffect(BrowserWindow.currentUrl),
+  Stream.mapEffect(BrowserWindow.events("popstate"), () => BrowserWindow.currentUrl)
+)
 
-const scrollAfterNavigation = (hash: string): void => {
-  globalThis.requestAnimationFrame(() => {
+/** Keeps `pageRouteAtom` and the docs fragment in step with the window while the app shell is mounted. */
+export const browserNavigationMountAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+  Stream.runForEach(locationUrls, (url) =>
+    Effect.sync(() => {
+      get.set(pageRouteAtom, routeForUrl(url))
+      get.set(docsLocationHashAtom, url.hash)
+    }))
+)
+
+/**
+ * After the new route has rendered: fragments scroll to their element, while
+ * plain routes and API anchors (which select a page, not a position) start at
+ * the top with focus on the route's landmark.
+ */
+const settleAfterNavigation = (
+  hash: string
+): Effect.Effect<void, never, BrowserWindow.BrowserWindow | BrowserDocument.BrowserDocument> =>
+  Effect.gen(function*() {
+    yield* nextFrame
+
     if (hash.length === 0 || hash.startsWith("#api-")) {
-      globalThis.scrollTo({ top: 0 })
-      document.querySelector<HTMLElement>("[data-route-focus]")?.focus({ preventScroll: true })
+      yield* BrowserWindow.scrollToTop
+      const landmark = yield* BrowserDocument.querySelector("[data-route-focus]")
+      Option.match(landmark, { onNone: () => {}, onSome: (element) => element.focus({ preventScroll: true }) })
       return
     }
 
-    document.getElementById(hash.slice(1))?.scrollIntoView()
-  })
-}
-
-export const browserNavigationMountAtom = Atom.make((ctx) => {
-  const updateLocationState = () => {
-    ctx.set(pageRouteAtom, routeAtBrowserLocation())
-    ctx.set(docsLocationHashAtom, globalThis.location.hash)
-  }
-
-  const onPopState = () => updateLocationState()
-
-  updateLocationState()
-  globalThis.addEventListener("popstate", onPopState)
-  ctx.addFinalizer(() => {
-    globalThis.removeEventListener("popstate", onPopState)
+    const anchor = yield* BrowserDocument.elementById(hash.slice(1))
+    Option.match(anchor, { onNone: () => {}, onSome: (element) => element.scrollIntoView() })
   })
 
-  return null
-})
+const relativeReference = (url: URL): string => `${url.pathname}${url.search}${url.hash}`
 
-export const navigateAtom = Atom.fnSync<string>()((href, ctx) => {
-  const destination = new URL(href, globalThis.location.href)
+const isAppDestination = (destination: URL, current: URL): boolean =>
+  destination.origin === current.origin && isPagePath(destination.pathname)
 
-  if (destination.origin !== globalThis.location.origin || !isPagePath(destination.pathname)) {
-    globalThis.location.assign(destination.href)
-    return
-  }
+/**
+ * Navigates to `href`. App routes on this origin become a history entry and a
+ * route change without a page load; anything else is a full navigation. An
+ * `href` that cannot resolve against the document is a programming error.
+ */
+export const navigateAtom = appRuntime.fn<string>()((href, ctx) =>
+  Effect.gen(function*() {
+    const current = yield* BrowserWindow.currentUrl
+    const destination = yield* Effect.orDie(BrowserWindow.resolveAgainst(href, current))
 
-  const current = `${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}`
-  const next = `${destination.pathname}${destination.search}${destination.hash}`
+    if (!isAppDestination(destination, current)) {
+      yield* BrowserWindow.assign(destination)
+      return
+    }
 
-  if (current !== next) {
-    globalThis.history.pushState(null, "", next)
-    ctx.set(pageRouteAtom, routeAtBrowserLocation())
-    ctx.set(docsLocationHashAtom, globalThis.location.hash)
-  }
+    if (relativeReference(destination) !== relativeReference(current)) {
+      yield* BrowserWindow.pushState(destination)
+      ctx.set(pageRouteAtom, routeForUrl(destination))
+      ctx.set(docsLocationHashAtom, destination.hash)
+    }
 
-  scrollAfterNavigation(destination.hash)
-})
+    yield* settleAfterNavigation(destination.hash)
+  })
+)
 
+/**
+ * Whether a click on an internal link should be handled by `navigateAtom`.
+ * Modified clicks, non-primary buttons, handled events and new-tab targets
+ * keep the browser's own behaviour.
+ */
 export const shouldNavigateInBrowser = ({
-  button,
-  defaultPrevented,
-  href,
-  metaKey,
-  ctrlKey,
-  shiftKey,
   altKey,
+  button,
+  ctrlKey,
+  defaultPrevented,
+  metaKey,
+  shiftKey,
   target
 }: {
   readonly altKey: boolean
   readonly button: number
   readonly ctrlKey: boolean
   readonly defaultPrevented: boolean
-  readonly href: string
   readonly metaKey: boolean
   readonly shiftKey: boolean
   readonly target: Option.Option<string>
-}): boolean => {
-  if (
-    defaultPrevented || button !== 0 || metaKey || ctrlKey || shiftKey || altKey
-    || Option.contains(target, "_blank")
-  ) {
-    return false
-  }
-
-  const destination = new URL(href, globalThis.location.href)
-  return destination.origin === globalThis.location.origin && isPagePath(destination.pathname)
-}
+}): boolean =>
+  !(defaultPrevented || button !== 0 || metaKey || ctrlKey || shiftKey || altKey || Option.contains(target, "_blank"))

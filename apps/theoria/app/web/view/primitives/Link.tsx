@@ -9,9 +9,10 @@ import { classNames } from "./classNames.js"
 /**
  * Internal (same-origin) navigation link.
  *
- * Preserves native anchor behavior while handling known application routes
- * through the browser navigation atom. Accepts React 19's `ref` prop so a
- * caller can move focus to the link.
+ * Plain clicks go through `navigateAtom`, which changes the route in place
+ * for application paths and performs a full navigation for anything else;
+ * modified clicks and new-tab targets keep the browser's own behaviour.
+ * Accepts React 19's `ref` prop so a caller can move focus to the link.
  */
 export const InternalLink = ({
   children,
@@ -30,7 +31,6 @@ export const InternalLink = ({
         button: event.button,
         ctrlKey: event.ctrlKey,
         defaultPrevented: event.defaultPrevented,
-        href,
         metaKey: event.metaKey,
         shiftKey: event.shiftKey,
         target: Option.fromNullable(props.target)

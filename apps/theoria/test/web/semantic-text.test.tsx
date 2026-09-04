@@ -1,12 +1,12 @@
-import { RegistryProvider } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import type { ReactNode } from "react"
-import { createRoot } from "react-dom/client"
 
+import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
 import { SemanticText } from "../../app/web/view/primitives/SemanticText.js"
+import { mountWithRegistry } from "../helpers/react-mount.js"
 
 function withMockClientWidth<A>(
   width: number,
@@ -66,20 +66,9 @@ function withRenderedSemanticText<A>(
 ): Effect.Effect<A, never, never> {
   return withMockClientWidth(
     width,
-    Effect.acquireUseRelease(
-      Effect.sync(() => {
-        const container = document.createElement("div")
-        document.body.appendChild(container)
-        const root = createRoot(container)
-        root.render(<RegistryProvider defaultIdleTTL={400}>{node}</RegistryProvider>)
-        return { container, root }
-      }),
-      ({ container }) => use(container),
-      ({ container, root }) =>
-        Effect.sync(() => {
-          root.unmount()
-          container.remove()
-        })
+    Effect.flatMap(mountWithRegistry(node, 400), ({ container }) => use(container)).pipe(
+      Effect.scoped,
+      Effect.provide(BrowserDocument.layer)
     )
   )
 }
