@@ -1,5 +1,11 @@
 import { Array as Arr, Option } from "effect"
-import { type DeclarationReflection, ReflectionKind, type SignatureReflection } from "typedoc"
+import {
+  type CommentDisplayPart,
+  type DeclarationReflection,
+  type ParameterReflection,
+  ReflectionKind,
+  type SignatureReflection
+} from "typedoc"
 
 import { type ApiParameter, type ApiSignature } from "@theoria/docs-model"
 import {
@@ -14,14 +20,26 @@ import {
 export const firstSourceUrl = (
   reflection: DeclarationReflection | SignatureReflection
 ): string | null =>
-  Option.getOrNull(
-    Arr.findFirst(reflection.sources ?? [], (source) => source.url !== undefined).pipe(
-      Option.flatMap((source) => Option.fromNullable(source.url))
+  Option.getOrNull(Arr.findFirst(reflection.sources ?? [], (source) => Option.fromNullable(source.url)))
+
+// A parameter is documented either on itself or through the signature's
+// `@param <name>` tag.
+const parameterSummary = (
+  parameter: ParameterReflection,
+  signature: SignatureReflection
+): Option.Option<ReadonlyArray<CommentDisplayPart>> =>
+  Option.fromNullable(parameter.comment).pipe(
+    Option.map((present) => present.summary),
+    Option.orElse(() =>
+      Option.fromNullable(signature.comment).pipe(
+        Option.flatMap((present) => Option.fromNullable(present.getIdentifiedTag(parameter.name, "@param"))),
+        Option.map((tag) => tag.content)
+      )
     )
   )
 
 const parameterModel = (
-  parameter: NonNullable<SignatureReflection["parameters"]>[number],
+  parameter: ParameterReflection,
   signature: SignatureReflection,
   context: ApiDocContext
 ): ApiParameter => ({
@@ -30,10 +48,10 @@ const parameterModel = (
   optional: parameter.flags.isOptional,
   rest: parameter.flags.isRest,
   defaultValue: parameter.defaultValue ?? null,
-  description: docParts(
-    parameter.comment?.summary ?? signature.comment?.getIdentifiedTag(parameter.name, "@param")?.content,
-    context
-  )
+  description: Option.match(parameterSummary(parameter, signature), {
+    onNone: Arr.empty,
+    onSome: (summary) => docParts(summary, context)
+  })
 })
 
 const signatureKind = (signature: SignatureReflection): ApiSignature["kind"] =>
@@ -79,10 +97,10 @@ const signatureModel = (
   return {
     kind,
     code,
-    typeParameters: typeParameters(signature.typeParameters, signature.comment, context),
+    typeParameters: typeParameters(signature.typeParameters ?? [], Option.fromNullable(signature.comment), context),
     parameters,
-    returns: { type: returns, description: tagParts(signature.comment, "@returns", context) },
-    docs: documentation(signature.comment, context),
+    returns: { type: returns, description: tagParts(Option.fromNullable(signature.comment), "@returns", context) },
+    docs: documentation(Option.fromNullable(signature.comment), context),
     sourceUrl: firstSourceUrl(signature) ?? fallbackSourceUrl
   }
 }

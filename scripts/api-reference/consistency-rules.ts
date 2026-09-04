@@ -5,12 +5,12 @@ import {
   type DocsSearchEntry,
   DocsSearchEntrySchema
 } from "@theoria/docs-model"
-import { Array as Arr, HashMap, HashSet, Option, Tuple } from "effect"
+import { Array as Arr, Data, HashMap, HashSet, Option, Tuple } from "effect"
 
-export type DocumentationRecord = {
+export class DocumentationRecord extends Data.Class<{
   readonly owner: string
   readonly docs: ApiDocumentation
-}
+}> {}
 
 const docsParts = (docs: ApiDocumentation): ReadonlyArray<ApiDocPart> =>
   Arr.flatten([
@@ -23,17 +23,19 @@ const docsParts = (docs: ApiDocumentation): ReadonlyArray<ApiDocPart> =>
 
 export const documentationRecords = (value: ApiExport): ReadonlyArray<DocumentationRecord> =>
   Arr.flatMap(value.facets, (facet, facetIndex) => [
-    { owner: `${value.id} facet ${String(facetIndex + 1)}`, docs: facet.docs },
-    ...Arr.map(facet.signatures, (signature, signatureIndex) => ({
-      owner: `${value.id} signature ${String(signatureIndex + 1)}`,
-      docs: signature.docs
-    })),
-    ...Arr.flatMap(facet.members, (member) => [
-      { owner: `${value.id}.${member.name}`, docs: member.docs },
-      ...Arr.map(member.signatures, (signature, signatureIndex) => ({
-        owner: `${value.id}.${member.name} signature ${String(signatureIndex + 1)}`,
+    new DocumentationRecord({ owner: `${value.id} facet ${String(facetIndex + 1)}`, docs: facet.docs }),
+    ...Arr.map(facet.signatures, (signature, signatureIndex) =>
+      new DocumentationRecord({
+        owner: `${value.id} signature ${String(signatureIndex + 1)}`,
         docs: signature.docs
-      }))
+      })),
+    ...Arr.flatMap(facet.members, (member) => [
+      new DocumentationRecord({ owner: `${value.id}.${member.name}`, docs: member.docs }),
+      ...Arr.map(member.signatures, (signature, signatureIndex) =>
+        new DocumentationRecord({
+          owner: `${value.id}.${member.name} signature ${String(signatureIndex + 1)}`,
+          docs: signature.docs
+        }))
     ])
   ])
 

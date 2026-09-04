@@ -1,7 +1,7 @@
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 
 import { convertApiModule } from "./convert-module.js"
-import { type ApiConvertedPackage } from "./converted.js"
+import { ApiConvertedPackage } from "./converted.js"
 import { ApiReferenceGenerationError } from "./model.js"
 import { type ApiSourcePackage } from "./source.js"
 import { bootstrapTypeDoc } from "./typedoc-application.js"
@@ -19,15 +19,15 @@ export const convertApiPackage = (input: {
       return yield* new ApiReferenceGenerationError({ packageName, detail: "TypeDoc initialization failed" })
     }
 
-    const entrypoints = app.getEntryPoints()
+    const resolvedEntrypoints = Option.fromNullable(app.getEntryPoints())
 
     if (app.logger.hasErrors()) {
       return yield* new ApiReferenceGenerationError({ packageName, detail: "TypeDoc entrypoint resolution failed" })
     }
 
-    if (entrypoints === undefined) {
-      return yield* new ApiReferenceGenerationError({ packageName, detail: "TypeDoc found no entrypoints" })
-    }
+    const entrypoints = yield* resolvedEntrypoints.pipe(
+      Effect.mapError(() => new ApiReferenceGenerationError({ packageName, detail: "TypeDoc found no entrypoints" }))
+    )
 
     yield* Effect.tryPromise({
       try: () => app.initializeRepositories(entrypoints),
@@ -40,6 +40,6 @@ export const convertApiPackage = (input: {
       { concurrency: 1 }
     )
 
-    const converted: ApiConvertedPackage = { app, sourcePackage: input.sourcePackage, modules }
+    const converted = new ApiConvertedPackage({ app, sourcePackage: input.sourcePackage, modules })
     return converted
   })

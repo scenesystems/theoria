@@ -1,4 +1,4 @@
-import { Array as Arr, Option, Schema } from "effect"
+import { Array as Arr, Data, Option, Schema } from "effect"
 import type { Heading, RootContent } from "mdast"
 import remarkGfm from "remark-gfm"
 import remarkParse from "remark-parse"
@@ -8,15 +8,15 @@ import { type DocsGuideSummary, type DocsSearchEntry, type GuideBlock, type Guid
 import { guideBlock, guideSlug, inlineParts, inlineText } from "./guide-markdown.js"
 import { type ApiSourcePackage } from "./source.js"
 
-type MarkdownSection = {
+class MarkdownSection extends Data.Class<{
   readonly title: string
   readonly nodes: ReadonlyArray<RootContent>
-}
+}> {}
 
-type SectionAccumulator = {
+class SectionAccumulator extends Data.Class<{
   readonly intro: ReadonlyArray<RootContent>
   readonly sections: ReadonlyArray<MarkdownSection>
-}
+}> {}
 
 export const PackageGuideExample = Schema.Struct({
   source: Schema.String,
@@ -33,15 +33,18 @@ const splitSections = (
   packageSlug: string,
   revision: string
 ): SectionAccumulator =>
-  Arr.reduce(nodes, { intro: [], sections: [] }, (acc: SectionAccumulator, node): SectionAccumulator => {
+  Arr.reduce(nodes, new SectionAccumulator({ intro: [], sections: [] }), (acc, node): SectionAccumulator => {
     if (node.type === "heading" && node.depth === 2) {
-      return {
+      return new SectionAccumulator({
         ...acc,
-        sections: Arr.append(acc.sections, {
-          title: headingText(node, packageSlug, revision),
-          nodes: []
-        })
-      }
+        sections: Arr.append(
+          acc.sections,
+          new MarkdownSection({
+            title: headingText(node, packageSlug, revision),
+            nodes: []
+          })
+        )
+      })
     }
 
     if (node.type === "heading" && node.depth === 1) {
@@ -51,14 +54,15 @@ const splitSections = (
     const last = Arr.last(acc.sections)
 
     return Option.match(last, {
-      onNone: () => ({ ...acc, intro: Arr.append(acc.intro, node) }),
-      onSome: (section) => ({
-        ...acc,
-        sections: [
-          ...acc.sections.slice(0, -1),
-          { ...section, nodes: Arr.append(section.nodes, node) }
-        ]
-      })
+      onNone: () => new SectionAccumulator({ ...acc, intro: Arr.append(acc.intro, node) }),
+      onSome: (section) =>
+        new SectionAccumulator({
+          ...acc,
+          sections: [
+            ...acc.sections.slice(0, -1),
+            new MarkdownSection({ ...section, nodes: Arr.append(section.nodes, node) })
+          ]
+        })
     })
   })
 

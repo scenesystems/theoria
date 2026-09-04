@@ -15,19 +15,19 @@ import {
   type DocsSearchIndex,
   DocsSearchIndexJson
 } from "@theoria/docs-model"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Data, Effect, Schema } from "effect"
 
-export type DocsPage = {
+export class DocsPage extends Data.Class<{
   readonly pkg: DocsManifest["packages"][number]
   readonly summary: DocsApiModuleSummary
   readonly index: DocsApiModuleIndex
   readonly exports: ReadonlyArray<ApiExport>
-}
+}> {}
 
-export type DocsData = {
+export class DocsData extends Data.Class<{
   readonly searchIndex: DocsSearchIndex
   readonly pages: ReadonlyArray<DocsPage>
-}
+}> {}
 
 const decodeFile = <A, I>(schema: Schema.Schema<A, I>, file: string) =>
   Effect.flatMap(
@@ -52,7 +52,7 @@ export const loadDocsData = (
             (entry) =>
               decodeFile(DocsApiExportPageJson, assetFile(entry.asset)).pipe(Effect.map((_) => _.export))
           )
-          return { pkg, summary, index, exports }
+          return new DocsPage({ pkg, summary, index, exports })
         }), { concurrency: 8 }), { concurrency: 8 }).pipe(Effect.map(Arr.flatten))
-    return { searchIndex, pages }
+    return new DocsData({ searchIndex, pages })
   })

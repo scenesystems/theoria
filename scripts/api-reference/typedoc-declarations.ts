@@ -37,7 +37,9 @@ const memberModel = (
     Arr.map(signatures, (signature) => signature.code).join("\n")
     : `${member.flags.isStatic ? "static " : ""}${member.flags.isReadonly ? "readonly " : ""}${member.name}${
       member.flags.isOptional ? "?" : ""
-    }${type === null ? "" : `: ${type}`}${member.defaultValue === undefined ? "" : ` = ${member.defaultValue}`}`
+    }${type === null ? "" : `: ${type}`}${
+      Option.match(Option.fromNullable(member.defaultValue), { onNone: () => "", onSome: (value) => ` = ${value}` })
+    }`
 
   return {
     name: member.name,
@@ -49,7 +51,7 @@ const memberModel = (
     readonly: member.flags.isReadonly,
     static: member.flags.isStatic,
     inherited: member.flags.isInherited,
-    docs: documentation(member.comment, context),
+    docs: documentation(Option.fromNullable(member.comment), context),
     signatures,
     sourceUrl: sourceUrl ?? fallbackSourceUrl
   }
@@ -96,10 +98,10 @@ const facetModel = (
     kind: reflectionKind(reflection),
     declaration: declarationCode(reflection, signatures),
     type: reflection.type?.toString() ?? null,
-    typeParameters: typeParameters(reflection.typeParameters, reflection.comment, context),
+    typeParameters: typeParameters(reflection.typeParameters ?? [], Option.fromNullable(reflection.comment), context),
     extends: Arr.map(reflection.extendedTypes ?? [], (type) => type.toString()),
     implements: Arr.map(reflection.implementedTypes ?? [], (type) => type.toString()),
-    docs: documentation(reflection.comment, context),
+    docs: documentation(Option.fromNullable(reflection.comment), context),
     signatures,
     members: Arr.map(membersOf(reflection), (member) => memberModel(member, reflection.name, context, sourceUrl)),
     sourceUrl
@@ -176,7 +178,7 @@ export const apiExports = (
   route: ApiReferenceRoute,
   context: ApiDocContext
 ) => {
-  const moduleSummary = summaryText(documentation(moduleReflection.comment, context).summary)
+  const moduleSummary = summaryText(documentation(Option.fromNullable(moduleReflection.comment), context).summary)
 
   return Effect.forEach(route.imports, (entry) =>
     exportModel(

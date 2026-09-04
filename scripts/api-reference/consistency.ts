@@ -8,7 +8,12 @@
 
 import { Array as Arr, Effect, HashSet, Option, Schema, String as Str } from "effect"
 
-import { documentationLinkDiagnostics, documentationRecords, searchIndexDiagnostics } from "./consistency-rules.js"
+import {
+  documentationLinkDiagnostics,
+  DocumentationRecord,
+  documentationRecords,
+  searchIndexDiagnostics
+} from "./consistency-rules.js"
 import type { DocsData, DocsPage } from "./docs-data.js"
 import type { ApiReferenceManifest, ApiReferenceModule, ApiReferenceRoute } from "./model.js"
 
@@ -43,7 +48,7 @@ const entrypointDiagnostics = (
     onSome: (_) => Arr.map(Arr.filter(_.routes, (route) => !route.canonical), (route) => route.path)
   })
   const exportDiagnostics = Arr.flatMap(index.exports, (entry, position) => {
-    const focused = exports[position]
+    const focused = Arr.get(exports, position)
     const reflected = Option.flatMap(
       canonical,
       (_) =>
@@ -53,18 +58,28 @@ const entrypointDiagnostics = (
         )
     )
     return [
-      ...(focused === undefined || entry.id !== focused.id || entry.name !== focused.name ||
-          entry.importKind !== focused.importKind || entry.category !== focused.category ||
-          entry.since !== focused.since || entry.summary !== focused.summary
-        ? [`${owner}#${entry.name}: focused page mismatch`]
-        : []),
-      ...(Option.isNone(reflected) || reflected.value.category !== entry.category ||
-          reflected.value.since !== entry.since || reflected.value.reflections.length !== focused?.facets.length
-        ? [`${owner}#${entry.name}: canonical reflection mismatch`]
-        : [])
+      ...(Option.exists(
+          focused,
+          (page) =>
+            entry.id === page.id && entry.name === page.name && entry.importKind === page.importKind &&
+            entry.category === page.category && entry.since === page.since && entry.summary === page.summary
+        )
+        ? []
+        : [`${owner}#${entry.name}: focused page mismatch`]),
+      ...(Option.exists(
+          reflected,
+          (candidate) =>
+            candidate.category === entry.category && candidate.since === entry.since &&
+            Option.exists(focused, (page) => candidate.reflections.length === page.facets.length)
+        )
+        ? []
+        : [`${owner}#${entry.name}: canonical reflection mismatch`])
     ]
   })
-  const records = [{ owner, docs: index.module.docs }, ...Arr.flatMap(exports, documentationRecords)]
+  const records = [
+    new DocumentationRecord({ owner, docs: index.module.docs }),
+    ...Arr.flatMap(exports, documentationRecords)
+  ]
   return Arr.dedupe([
     ...(Option.isNone(canonical) ? [`${owner}: canonical route is absent`] : []),
     ...(Option.isSome(canonical) && canonical.value.imports.length !== index.exports.length
@@ -98,7 +113,7 @@ const sourceDiagnostics = (
         ? []
         : [`${owner}#${entry.name}: source projection mismatch`]
     }),
-    ...documentationLinkDiagnostics([{ owner, docs: index.module.docs }], targets)
+    ...documentationLinkDiagnostics([new DocumentationRecord({ owner, docs: index.module.docs })], targets)
   ])
 }
 

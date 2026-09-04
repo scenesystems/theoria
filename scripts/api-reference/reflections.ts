@@ -31,9 +31,7 @@ export const moduleDisplayName = (packageName: string, subpath: string): string 
   subpath === "." ? packageName : `${packageName}/${subpath.replace(/^\.\//u, "")}`
 
 const firstSourceUrl = (reflection: DeclarationReflection): Option.Option<string> =>
-  Arr.findFirst(reflection.sources ?? [], (source) => source.url !== undefined).pipe(
-    Option.flatMap((source) => Option.fromNullable(source.url))
-  )
+  Arr.findFirst(reflection.sources ?? [], (source) => Option.fromNullable(source.url))
 
 const reflectionsForImport = (
   reflection: DeclarationReflection,

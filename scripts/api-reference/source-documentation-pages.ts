@@ -1,5 +1,4 @@
 import { Array as Arr, Effect, Option } from "effect"
-import { Comment } from "typedoc"
 
 import { type ApiPage } from "@theoria/docs-model"
 import { type ApiConvertedModule } from "./converted.js"
@@ -13,7 +12,7 @@ import { ApiReferenceGenerationError, type ApiReferenceRoute } from "./model.js"
 import { categoriesForExports } from "./presentation.js"
 import { apiPagePath } from "./reflections.js"
 import { type ApiSourcePackage } from "./source.js"
-import { documentation } from "./typedoc-comments.js"
+import { ApiDocContext, documentation, tagText } from "./typedoc-comments.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
 
@@ -92,7 +91,7 @@ export const makeSourceDocumentationPages = (input: {
             onSome: (converted) => Effect.succeed(converted.comment)
           }
         )
-        const since = Comment.combineDisplayParts(comment.getTag("@since")?.content).trim()
+        const since = tagText(Option.some(comment), "@since")
         const path = apiPagePath(input.sourcePackage.directoryName, slug)
         const sourceUrl =
           `${repositoryUrl}/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/${source}`
@@ -111,11 +110,14 @@ export const makeSourceDocumentationPages = (input: {
             subpath: input.route.subpath,
             slug,
             source,
-            docs: documentation(comment, {
-              packageName: input.sourcePackage.manifest.name,
-              route: input.route,
-              links: input.links
-            }),
+            docs: documentation(
+              Option.some(comment),
+              new ApiDocContext({
+                packageName: input.sourcePackage.manifest.name,
+                route: input.route,
+                links: input.links
+              })
+            ),
             since,
             sourceUrl
           },

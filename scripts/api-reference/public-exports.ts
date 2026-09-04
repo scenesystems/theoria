@@ -1,28 +1,31 @@
 import type { Path } from "@effect/platform"
-import { Array as Arr, Effect, Either, Option, Record } from "effect"
-import { Comment, type DeclarationReflection, type Reflection, ReflectionKind } from "typedoc"
+import { Array as Arr, Effect, Either, Option, Record, Schema } from "effect"
+import { Comment, type DeclarationReflection, ReflectionKind } from "typedoc"
 
-import { type ApiImportKind, ApiReferenceGenerationError } from "./model.js"
-import { type PackagePublicEntrypoint, type SourceFilePath, toForwardSlashes } from "./source.js"
+import { type ApiImportKind, ApiImportKindSchema, ApiReferenceGenerationError } from "./model.js"
+import { type PackagePublicEntrypoint, SourceFilePath, toForwardSlashes } from "./source.js"
 
-export type PackagePublicExport = {
-  readonly subpath: string
-  readonly exportName: string
-  readonly kind: ApiImportKind
-  readonly sourceFile: SourceFilePath
-  readonly summary: string
-  readonly since: string
-  readonly category: string
-}
+export const PackagePublicExport = Schema.Struct({
+  subpath: Schema.String,
+  exportName: Schema.String,
+  kind: ApiImportKindSchema,
+  sourceFile: SourceFilePath,
+  summary: Schema.String,
+  since: Schema.String,
+  category: Schema.String
+})
+export type PackagePublicExport = typeof PackagePublicExport.Type
 
 // A re-exported symbol that TypeDoc has already documented elsewhere in the
 // module appears as a Reference reflection; its documentation lives on the
 // target.
-const resolvedReflection = (reflection: DeclarationReflection): DeclarationReflection => {
-  if (!reflection.isReference()) return reflection
-  const target: Reflection | undefined = reflection.tryGetTargetReflectionDeep()
-  return target !== undefined && target.isDeclaration() ? target : reflection
-}
+const resolvedReflection = (reflection: DeclarationReflection): DeclarationReflection =>
+  reflection.isReference()
+    ? Option.fromNullable(reflection.tryGetTargetReflectionDeep()).pipe(
+      Option.filter((target): target is DeclarationReflection => target.isDeclaration()),
+      Option.getOrElse(() => reflection)
+    )
+    : reflection
 
 const typeOnlyKinds = ReflectionKind.Interface | ReflectionKind.TypeAlias
 

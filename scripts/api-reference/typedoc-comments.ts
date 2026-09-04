@@ -1,7 +1,9 @@
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Data, Option, String as Str } from "effect"
 import {
   type Comment,
+  Comment as CommentApi,
   type CommentDisplayPart,
+  type CommentTag,
   Reflection,
   ReflectionKind,
   ReflectionSymbolId,
@@ -13,17 +15,22 @@ import { type ApiDocLink } from "./links.js"
 import { type ApiReferenceRoute } from "./model.js"
 import { apiExportAnchor } from "./presentation.js"
 
-export type ApiDocContext = {
+export class ApiDocContext extends Data.Class<{
   readonly packageName: string
   readonly route: ApiReferenceRoute
   readonly links: ReadonlyArray<ApiDocLink>
-}
+}> {}
 
-const publicReflection = (target: Reflection): Reflection => {
-  if (target.kindOf(ReflectionKind.Module) || target.parent === undefined) return target
-  if (target.parent.kindOf(ReflectionKind.Module)) return target
-  return publicReflection(target.parent)
-}
+// TypeDoc leaves `parent` unset on the project root and marks the module level
+// with `ReflectionKind.Module`; the public reflection is the nearest ancestor
+// that is a direct child of a module.
+const publicReflection = (target: Reflection): Reflection =>
+  target.kindOf(ReflectionKind.Module)
+    ? target
+    : Option.match(Option.fromNullable(target.parent), {
+      onNone: () => target,
+      onSome: (parent) => parent.kindOf(ReflectionKind.Module) ? target : publicReflection(parent)
+    })
 
 const publicHref = (
   context: ApiDocContext,
@@ -39,10 +46,18 @@ const publicHref = (
       )
   )
 
+const finalIdentifier = /(?:^|[.)])([$\p{ID_Start}_][$\p{ID_Continue}_]*)$/u
+
 const textNames = (text: string): ReadonlyArray<string> => {
   const trimmed = text.trim()
-  const finalName = /(?:^|[.)])([$\p{ID_Start}_][$\p{ID_Continue}_]*)$/u.exec(trimmed)?.[1]
-  return finalName === undefined || finalName === trimmed ? [trimmed] : [trimmed, finalName]
+  return Option.fromNullable(finalIdentifier.exec(trimmed)).pipe(
+    Option.flatMap((match) => Arr.get(match, 1)),
+    Option.filter((finalName) => finalName !== trimmed),
+    Option.match({
+      onNone: () => [trimmed],
+      onSome: (finalName) => [trimmed, finalName]
+    })
+  )
 }
 
 const uniqueHref = (context: ApiDocContext, names: ReadonlyArray<string>): string | null => {
@@ -82,27 +97,29 @@ const reflectionHref = (context: ApiDocContext, target: Reflection, text: string
   )
 }
 
-const symbolHref = (context: ApiDocContext, target: ReflectionSymbolId, text: string) => {
-  const symbolName = target.qualifiedName.split(".").at(-1)
-  return resolvedHref(
+const symbolHref = (context: ApiDocContext, target: ReflectionSymbolId, text: string) =>
+  resolvedHref(
     context,
     target.packageName,
-    symbolName === undefined || symbolName.length === 0
-      ? textNames(text)
-      : Arr.append(textNames(text), symbolName)
+    Arr.last(target.qualifiedName.split(".")).pipe(
+      Option.filter(Str.isNonEmpty),
+      Option.match({
+        onNone: () => textNames(text),
+        onSome: (symbolName) => Arr.append(textNames(text), symbolName)
+      })
+    )
   )
-}
 
-const inlineCodeText = (text: string): string => {
-  const match = /^`([^`\n]+)`$/u.exec(text)
-  return match?.[1] ?? text
-}
+const inlineCode = /^`([^`\n]+)`$/u
 
-export const docParts = (
-  parts: ReadonlyArray<CommentDisplayPart> | undefined,
-  context: ApiDocContext
-): ReadonlyArray<ApiDocPart> =>
-  Arr.map(parts ?? [], (part): ApiDocPart => {
+const inlineCodeText = (text: string): string =>
+  Option.fromNullable(inlineCode.exec(text)).pipe(
+    Option.flatMap((match) => Arr.get(match, 1)),
+    Option.getOrElse(() => text)
+  )
+
+export const docParts = (parts: ReadonlyArray<CommentDisplayPart>, context: ApiDocContext): ReadonlyArray<ApiDocPart> =>
+  Arr.map(parts, (part): ApiDocPart => {
     if (part.kind === "text") return { kind: "text", text: part.text }
     if (part.kind === "code") return { kind: "code", text: inlineCodeText(part.text) }
     if (part.kind === "relative-link") return { kind: "text", text: part.text }
@@ -120,30 +137,64 @@ export const docParts = (
     }
   })
 
-export const tagParts = (comment: Comment | undefined, tag: `@${string}`, context: ApiDocContext) =>
-  docParts(comment?.getTag(tag)?.content, context)
+const commentTag = (comment: Option.Option<Comment>, tag: `@${string}`): Option.Option<CommentTag> =>
+  Option.flatMap(comment, (present) => Option.fromNullable(present.getTag(tag)))
+
+const commentTags = (comment: Option.Option<Comment>, tag: `@${string}`): ReadonlyArray<CommentTag> =>
+  Option.match(comment, { onNone: Arr.empty, onSome: (present) => present.getTags(tag) })
+
+/** Plain text of a comment's summary, empty when the comment is absent. */
+export const summaryText = (comment: Option.Option<Comment>): string =>
+  Option.match(comment, {
+    onNone: () => "",
+    onSome: (present) => CommentApi.combineDisplayParts(present.summary).trim()
+  })
+
+/** Plain text of a comment's first `tag`, empty when absent. */
+export const tagText = (comment: Option.Option<Comment>, tag: `@${string}`): string =>
+  Option.match(commentTag(comment, tag), {
+    onNone: () => "",
+    onSome: (present) => CommentApi.combineDisplayParts(present.content).trim()
+  })
+
+/** Rendered content of a comment's first `tag`, or nothing when absent. */
+export const tagParts = (
+  comment: Option.Option<Comment>,
+  tag: `@${string}`,
+  context: ApiDocContext
+): ReadonlyArray<ApiDocPart> =>
+  Option.match(commentTag(comment, tag), {
+    onNone: Arr.empty,
+    onSome: (present) => docParts(present.content, context)
+  })
 
 const fencedCode = /^```([^\n]*)\n([\s\S]*?)\n?```$/u
 
-const exampleModel = (parts: ReadonlyArray<ApiDocPart>): ApiExample => {
-  const onlyPart = parts.length === 1 ? parts[0] : undefined
-  const code = onlyPart?.kind === "code" ? fencedCode.exec(onlyPart.text.trim()) : null
-
-  return code?.[2] === undefined
-    ? { language: null, code: null, parts }
-    : {
-      language: code[1]?.trim() || null,
-      code: code[2],
-      parts: []
-    }
-}
+// An example that is exactly one fenced code block is rendered as code with
+// its language; anything else keeps its parts.
+const exampleModel = (parts: ReadonlyArray<ApiDocPart>): ApiExample =>
+  Arr.head(parts).pipe(
+    Option.filter(() => parts.length === 1),
+    Option.filter((only) => only.kind === "code"),
+    Option.flatMap((only) => Option.fromNullable(fencedCode.exec(only.text.trim()))),
+    Option.flatMap((match) =>
+      Option.map(Arr.get(match, 2), (code) => ({
+        code,
+        language: Arr.get(match, 1).pipe(Option.map(Str.trim), Option.filter(Str.isNonEmpty), Option.getOrNull)
+      }))
+    ),
+    Option.match({
+      onNone: () => ({ language: null, code: null, parts }),
+      onSome: ({ code, language }) => ({ language, code, parts: [] })
+    })
+  )
 
 // TypeDoc folds several `@see` tags into one markdown list (" - item\n" per
 // tag). The page model keeps one entry per reference, so unfold it again.
 const isMarker = (part: CommentDisplayPart, text: string): boolean => part.kind === "text" && part.text === text
 
 const seeItems = (parts: ReadonlyArray<CommentDisplayPart>): ReadonlyArray<ReadonlyArray<CommentDisplayPart>> =>
-  parts[0] !== undefined && isMarker(parts[0], " - ")
+  Option.exists(Arr.head(parts), (first) => isMarker(first, " - "))
     ? Arr.reduce(
       parts,
       Arr.empty<ReadonlyArray<CommentDisplayPart>>(),
@@ -156,39 +207,59 @@ const seeItems = (parts: ReadonlyArray<CommentDisplayPart>): ReadonlyArray<Reado
     )
     : [parts]
 
-export const documentation = (
-  comment: Comment | undefined,
-  context: ApiDocContext
-): ApiDocumentation => ({
-  summary: docParts(comment?.summary, context),
+/** Documentation of a reflection whose TypeDoc comment may be absent. */
+export const documentation = (comment: Option.Option<Comment>, context: ApiDocContext): ApiDocumentation => ({
+  summary: Option.match(comment, { onNone: Arr.empty, onSome: (present) => docParts(present.summary, context) }),
   remarks: tagParts(comment, "@remarks", context),
-  examples: Arr.map(comment?.getTags("@example") ?? [], (tag) => exampleModel(docParts(tag.content, context))),
-  deprecated: Option.match(Option.fromNullable(comment?.getTag("@deprecated")), {
+  examples: Arr.map(commentTags(comment, "@example"), (tag) => exampleModel(docParts(tag.content, context))),
+  deprecated: Option.match(commentTag(comment, "@deprecated"), {
     onNone: () => null,
     onSome: (tag) => docParts(tag.content, context)
   }),
   see: Arr.flatMap(
-    comment?.getTags("@see") ?? [],
+    commentTags(comment, "@see"),
     (tag) => Arr.map(seeItems(tag.content), (parts) => docParts(parts, context))
   )
 })
 
+// A type parameter is documented either on itself or through the owner's
+// `@typeParam <name>` tag.
+const typeParameterSummary = (
+  parameter: TypeParameterReflection,
+  ownerComment: Option.Option<Comment>
+): Option.Option<ReadonlyArray<CommentDisplayPart>> =>
+  Option.fromNullable(parameter.comment).pipe(
+    Option.map((present) => present.summary),
+    Option.orElse(() =>
+      Option.flatMap(
+        ownerComment,
+        (present) => Option.fromNullable(present.getIdentifiedTag(parameter.name, "@typeParam"))
+      ).pipe(Option.map((tag) => tag.content))
+    )
+  )
+
 export const typeParameters = (
-  parameters: ReadonlyArray<TypeParameterReflection> | undefined,
-  ownerComment: Comment | undefined,
+  parameters: ReadonlyArray<TypeParameterReflection>,
+  ownerComment: Option.Option<Comment>,
   context: ApiDocContext
 ): ReadonlyArray<ApiTypeParameter> =>
-  Arr.map(parameters ?? [], (parameter) => ({
+  Arr.map(parameters, (parameter) => ({
     name: parameter.name,
-    constraint: parameter.type?.toString() ?? null,
-    default: parameter.default?.toString() ?? null,
-    description: docParts(
-      parameter.comment?.summary ?? ownerComment?.getIdentifiedTag(parameter.name, "@typeParam")?.content,
-      context
-    )
+    constraint: Option.fromNullable(parameter.type).pipe(Option.map((type) => type.toString()), Option.getOrNull),
+    default: Option.fromNullable(parameter.default).pipe(
+      Option.map((fallback) => fallback.toString()),
+      Option.getOrNull
+    ),
+    description: Option.match(typeParameterSummary(parameter, ownerComment), {
+      onNone: Arr.empty,
+      onSome: (summary) => docParts(summary, context)
+    })
   }))
 
+const codeSegment = <A>(value: Option.Option<A>, render: (value: A) => string): string =>
+  Option.match(value, { onNone: () => "", onSome: render })
+
 export const typeParameterCode = (parameter: TypeParameterReflection): string =>
-  `${parameter.varianceModifier === undefined ? "" : `${parameter.varianceModifier} `}${parameter.name}${
-    parameter.type === undefined ? "" : ` extends ${parameter.type.toString()}`
-  }${parameter.default === undefined ? "" : ` = ${parameter.default.toString()}`}`
+  `${codeSegment(Option.fromNullable(parameter.varianceModifier), (modifier) => `${modifier} `)}${parameter.name}${
+    codeSegment(Option.fromNullable(parameter.type), (type) => ` extends ${type.toString()}`)
+  }${codeSegment(Option.fromNullable(parameter.default), (fallback) => ` = ${fallback.toString()}`)}`

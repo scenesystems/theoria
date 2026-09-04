@@ -14,6 +14,9 @@ const crossPackageReadme = /^\.\.\/([^/]+)\/README\.md(?:#.*)?$/u
 const packageApiRoot = /^\.\/src\/index\.ts(?:#.*)?$/u
 const packageApiModule = /^\.\/src\/(.+)\/index\.ts(?:#.*)?$/u
 
+const captureGroup = (pattern: RegExp, text: string): Option.Option<string> =>
+  Option.fromNullable(pattern.exec(text)).pipe(Option.flatMap((match) => Arr.get(match, 1)))
+
 const guideHref = (input: {
   readonly href: string
   readonly packageSlug: string
@@ -23,23 +26,21 @@ const guideHref = (input: {
     return input.href
   }
 
-  const crossPackage = crossPackageReadme.exec(input.href)
-
-  if (crossPackage?.[1] !== undefined) {
-    return `/docs/${crossPackage[1]}`
-  }
-
   if (packageApiRoot.test(input.href)) {
     return `/docs/${input.packageSlug}/api`
   }
 
-  const apiModule = packageApiModule.exec(input.href)
-
-  if (apiModule?.[1] !== undefined) {
-    return `/docs/${input.packageSlug}/api/${apiModule[1]}`
-  }
-
-  return `${repositoryUrl}/blob/${input.revision}/packages/${input.packageSlug}/${input.href.replace(/^\.\//u, "")}`
+  return captureGroup(crossPackageReadme, input.href).pipe(
+    Option.map((slug) => `/docs/${slug}`),
+    Option.orElse(() =>
+      captureGroup(packageApiModule, input.href).pipe(
+        Option.map((module) => `/docs/${input.packageSlug}/api/${module}`)
+      )
+    ),
+    Option.getOrElse(() =>
+      `${repositoryUrl}/blob/${input.revision}/packages/${input.packageSlug}/${input.href.replace(/^\.\//u, "")}`
+    )
+  )
 }
 
 const inlinePart = (input: {

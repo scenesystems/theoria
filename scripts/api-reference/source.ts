@@ -1,5 +1,5 @@
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Effect, Option, Record as Rec, Schema } from "effect"
+import { Array as Arr, Effect, Option, Record as Rec, Schema, String as Str } from "effect"
 
 import { ApiReferenceGenerationError } from "./model.js"
 
@@ -15,34 +15,31 @@ const PackageManifestJson = Schema.parseJson(PackageManifestSchema)
 
 export type PackageManifest = typeof PackageManifestSchema.Type
 
-export type SourceFilePath = {
-  readonly absolute: string
-  readonly relative: string
-}
+export const SourceFilePath = Schema.Struct({ absolute: Schema.String, relative: Schema.String })
+export type SourceFilePath = typeof SourceFilePath.Type
 
-export type PackagePublicEntrypoint = {
-  readonly subpath: string
-  readonly sourceFile: SourceFilePath
-}
+export const PackagePublicEntrypoint = Schema.Struct({ subpath: Schema.String, sourceFile: SourceFilePath })
+export type PackagePublicEntrypoint = typeof PackagePublicEntrypoint.Type
 
-export type ApiSourceRoute = {
-  readonly entrypoint: PackagePublicEntrypoint
-}
+export const ApiSourceRoute = Schema.Struct({ entrypoint: PackagePublicEntrypoint })
+export type ApiSourceRoute = typeof ApiSourceRoute.Type
 
-export type ApiSourceModule = {
-  readonly absolute: string
-  readonly relative: string
-  readonly canonicalSubpath: string
-  readonly routes: ReadonlyArray<ApiSourceRoute>
-}
+export const ApiSourceModule = Schema.Struct({
+  absolute: Schema.String,
+  relative: Schema.String,
+  canonicalSubpath: Schema.String,
+  routes: Schema.Array(ApiSourceRoute)
+})
+export type ApiSourceModule = typeof ApiSourceModule.Type
 
-export type ApiSourcePackage = {
-  readonly directoryName: string
-  readonly root: string
-  readonly description: string
-  readonly manifest: PackageManifest
-  readonly modules: ReadonlyArray<ApiSourceModule>
-}
+export const ApiSourcePackage = Schema.Struct({
+  directoryName: Schema.String,
+  root: Schema.String,
+  description: Schema.String,
+  manifest: PackageManifestSchema,
+  modules: Schema.Array(ApiSourceModule)
+})
+export type ApiSourcePackage = typeof ApiSourcePackage.Type
 
 export const toForwardSlashes = (path: Path.Path, value: string): string => value.split(path.sep).join("/")
 
@@ -170,14 +167,16 @@ const loadSourcePackage = (packagesRoot: string, directoryName: string) =>
       return Option.none<ApiSourcePackage>()
     }
 
-    const description = manifest.description?.trim()
-
-    if (description === undefined || description.length === 0) {
-      return yield* new ApiReferenceGenerationError({
-        packageName: manifest.name,
-        detail: "public package is missing a description"
-      })
-    }
+    const description = yield* Option.fromNullable(manifest.description).pipe(
+      Option.map(Str.trim),
+      Option.filter(Str.isNonEmpty),
+      Effect.mapError(() =>
+        new ApiReferenceGenerationError({
+          packageName: manifest.name,
+          detail: "public package is missing a description"
+        })
+      )
+    )
 
     const entrypoints = packagePublicEntrypoints(path, root, manifest)
     const internalEntrypoints = Arr.filter(

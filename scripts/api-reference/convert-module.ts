@@ -2,7 +2,7 @@ import { Path } from "@effect/platform"
 import { Array as Arr, Effect, Option } from "effect"
 import { type Application, type DocumentationEntryPoint } from "typedoc"
 
-import { type ApiConvertedModule, type ApiConvertedRoute, type ApiSourceComment } from "./converted.js"
+import { ApiConvertedModule, ApiConvertedRoute, ApiSourceComment } from "./converted.js"
 import {
   hasSourceDocumentationPages,
   sourceDocumentationFiles,
@@ -41,7 +41,7 @@ const convertSourceComments = (input: {
         displayName: sourceDocumentationSlug(sourceFile.relative),
         sourceFile
       }),
-      (comment): ApiSourceComment => ({ source: sourceFile.relative, comment })
+      (comment) => new ApiSourceComment({ source: sourceFile.relative, comment })
     ))
 }
 
@@ -102,7 +102,7 @@ export const convertApiModule = (input: {
           entrypoint: routeEntrypoint,
           reflection: reflection.value
         }),
-        (publicExports): ApiConvertedRoute => ({ entrypoint: routeEntrypoint, publicExports })
+        (publicExports) => new ApiConvertedRoute({ entrypoint: routeEntrypoint, publicExports })
       ))
     const sourceComments = yield* convertSourceComments({
       app: input.app,
@@ -112,5 +112,11 @@ export const convertApiModule = (input: {
       routes
     })
 
-    return { source: input.module, project, reflection: reflection.value, routes, sourceComments }
+    return new ApiConvertedModule({
+      source: input.module,
+      project,
+      reflection: reflection.value,
+      routes,
+      sourceComments
+    })
   })
