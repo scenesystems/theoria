@@ -23,9 +23,9 @@ echo "[2/3] Linting and formatting staged files..."
 bunx lint-staged
 echo "Lint and format passed"
 
-# 3. Type checking (src + tests). The full test suite runs in CI.
+# 3. Type checking (sources, tests, examples, scripts, benchmarks). The full test suite runs in CI.
 echo ""
-echo "[3/3] Type checking (src + tests)..."
+echo "[3/3] Type checking (check:all)..."
 if ! bun run check:all; then
   echo "FAILED: Type errors found. Fix before committing."
   exit 1

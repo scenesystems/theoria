@@ -36,7 +36,7 @@
     "docs": "bun run check:readmes && bun run docs:api",
     "changeset": "changeset",
     "changeset:version": "changeset version",
-    "release:check": "bun run check && bun run check:tests && bun run lint && bun run test && bun run build",
+    "release:check": "bun run check:all && bun run lint && bun run test && bun run build",
     "changeset:publish": "bun run release:check && changeset publish",
     "secrets:check": "git ls-files -z | xargs -0 bunx secretlint --no-terminalLink",
     "prettier": "prettier --cache --cache-location node_modules/.cache/.prettiercache --check \"**/*.{md,json,yml,yaml}\"",
@@ -123,7 +123,7 @@
   "lint-staged": {
     "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
       "oxlint --fix",
-      "eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix",
+      "eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --no-warn-ignored --fix",
       "dprint fmt"
     ],
     "*.{md,json,yml,yaml}": [
