@@ -7,7 +7,7 @@ import {
   type Page,
   type Response
 } from "@playwright/test"
-import { Chunk, Context, Data, Effect, Layer, Predicate, Queue, Schema, type Scope } from "effect"
+import { Chunk, Context, Data, Effect, Layer, Predicate, Queue, Schedule, Schema, type Scope } from "effect"
 
 import {
   distinctTextColours,
@@ -105,6 +105,8 @@ export const click = (locator: Locator) => act(() => locator.click())
 export const hover = (locator: Locator) => act(() => locator.hover())
 export const focus = (locator: Locator) => act(() => locator.focus())
 export const press = (page: Page, key: string) => act(() => page.keyboard.press(key))
+/** Turns the mouse wheel over whatever is under the pointer, the way a trackpad swipe does. */
+export const wheel = (page: Page, deltaX: number, deltaY: number) => act(() => page.mouse.wheel(deltaX, deltaY))
 export const fill = (locator: Locator, value: string) => act(() => locator.fill(value))
 export const setViewport = (page: Page, viewport: Viewport) => act(() => page.setViewportSize(viewport))
 
@@ -125,6 +127,20 @@ export const nextResponse = (page: Page, method: string, suffix: string): Effect
 
 export const attached = (locator: Locator) => act(() => inBrowser(locator).toBeAttached())
 export const eventually = <A>(read: () => Promise<A>, expected: A) => act(() => inBrowser.poll(read).toBe(expected))
+
+/**
+ * Re-reads `read` until `holds` accepts the value, for as long as Playwright's
+ * assertions wait. The last value read is the failure's cause.
+ */
+export const until = <A>(
+  read: Effect.Effect<A, BrowserError>,
+  holds: (value: A) => boolean,
+  description: string
+): Effect.Effect<A, BrowserError> =>
+  read.pipe(
+    Effect.filterOrFail(holds, (value) => new BrowserError({ message: `${description} did not hold`, cause: value })),
+    Effect.retry(Schedule.spaced("100 millis").pipe(Schedule.upTo("5 seconds")))
+  )
 
 /**
  * Syntax highlighting is visible: the code paints its tokens in more than one

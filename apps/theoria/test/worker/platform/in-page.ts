@@ -58,22 +58,25 @@ export const setRootFontSize = (size: string) => {
 }
 
 /**
- * For every horizontal scroller inside `region`, scrolls it to the end and
- * reports whether the end is reachable and the region stays inside the
- * viewport. An empty result means nothing inside the region scrolls.
+ * Where every horizontal scroller inside `region` stands: whether it has been
+ * scrolled to its end and whether the region stays inside the viewport. A
+ * scroller is an element a visitor can scroll sideways, so `overflow-x:
+ * hidden` does not count. Reads only; the test scrolls the way a visitor does.
+ * An empty result means nothing inside the region scrolls.
  */
-export const scrollersAtEnd = (
+export const horizontalScrollers = (
   region: Element
 ): ReadonlyArray<{ readonly atEnd: boolean; readonly contained: boolean }> =>
   [...region.querySelectorAll<HTMLElement>("*")]
-    .filter((element) => element.scrollWidth > element.clientWidth && getComputedStyle(element).overflowX !== "visible")
-    .map((scroller) => {
-      scroller.scrollLeft = scroller.scrollWidth
-      return {
-        atEnd: scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1,
-        contained: region.getBoundingClientRect().right <= document.documentElement.clientWidth
-      }
-    })
+    .filter(
+      (element) =>
+        element.scrollWidth > element.clientWidth
+        && ["auto", "scroll"].includes(getComputedStyle(element).overflowX)
+    )
+    .map((scroller) => ({
+      atEnd: scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1,
+      contained: region.getBoundingClientRect().right <= document.documentElement.clientWidth
+    }))
 
 /** Every marker's position relative to the place stage, so scrolling cannot move it. */
 export const markerPositionsInStage = (markers: ReadonlyArray<Element>) => {
@@ -84,6 +87,16 @@ export const markerPositionsInStage = (markers: ReadonlyArray<Element>) => {
       return `${String(Math.round(rect.x - (stage?.x ?? 0)))},${String(Math.round(rect.y - (stage?.y ?? 0)))}`
     })
     .join(" ")
+}
+
+/** The drawn stage's width against the column it is drawn into; the stage must never be wider than the visitor can see. */
+export const stageAndColumnWidths = () => {
+  const column = document.querySelector("[data-place-stage='column']")
+  const content = document.querySelector("[data-place-stage='content']")
+  return {
+    column: column?.clientWidth ?? -1,
+    stage: Number(content?.getAttribute("data-place-stage-width") ?? -1)
+  }
 }
 
 /** The sheet's height and the trace's top edge: the geometry that must not move while trials are swapped. */

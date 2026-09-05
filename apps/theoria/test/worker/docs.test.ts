@@ -17,13 +17,16 @@ import {
   goto,
   hidden,
   highlighted,
+  hover,
   observeRequests,
   openPage,
   setViewport,
+  until,
   urlMatches,
-  visible
+  visible,
+  wheel
 } from "./browser.js"
-import { clipboardText, scrollersAtEnd, setRootFontSize } from "./platform/in-page.js"
+import { clipboardText, horizontalScrollers, setRootFontSize } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
@@ -227,10 +230,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* setViewport(page, { width: 1440, height: 900 })
         yield* act(() => page.evaluate(setRootFontSize, "200%"))
         const signature = page.getByRole("region", { name: "Signature code example" })
-        const scrollers = yield* act(() => signature.evaluate(scrollersAtEnd))
-
+        const scrollers = yield* act(() => signature.evaluate(horizontalScrollers))
         expect(scrollers.length).toBeGreaterThan(0)
-        expect(Arr.every(scrollers, (scroller) => scroller.atEnd && scroller.contained)).toBe(true)
+
+        yield* hover(signature.locator("pre"))
+        yield* wheel(page, 4_000, 0)
+        yield* until(
+          act(() => signature.evaluate(horizontalScrollers)),
+          Arr.every((scroller) => scroller.atEnd && scroller.contained),
+          "signature scrollers reach their end inside the viewport"
+        )
         expect(yield* fitsViewport(page)).toBe(true)
         expect(yield* failures).toEqual([])
       }))
