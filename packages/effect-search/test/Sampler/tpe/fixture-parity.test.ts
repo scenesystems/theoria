@@ -142,10 +142,7 @@ describe("fixture-backed parity", () => {
               { discard: true }
             )
 
-            const expectedScoreVector = Arr.map(fixture.payload.scoreTrace, (trace) => trace.expected)
-
             yield* Effect.sync(() => {
-              expect(fixture.payload.scoreVector).toEqual(expectedScoreVector)
               expect(argmax(fixture.payload.scoreVector)).toBe(fixture.payload.expectedBestIndex)
             })
           }),

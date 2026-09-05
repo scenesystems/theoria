@@ -9,7 +9,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Array as Arr, Data, Effect, Layer, Option, Schema, Stream } from "effect"
 
 import { GepaReplaySeedContractFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -25,6 +25,8 @@ const ParetoSnapshotSchema = Schema.Struct({
   )
 })
 const encodeParetoSnapshotJson = Schema.encode(Schema.parseJson(ParetoSnapshotSchema))
+
+class MissingParetoUpdatedEvent extends Data.TaggedError("MissingParetoUpdatedEvent")<Record<never, never>> {}
 
 const makeQaSignature = () =>
   Signature.make(
@@ -72,7 +74,7 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
     const savedStateJson = yield* encodeSavedStateJson(savedState)
 
     return yield* Option.match(finalPareto, {
-      onNone: () => Effect.fail("GEPA replay failed: missing ParetoUpdated event"),
+      onNone: () => Effect.fail(new MissingParetoUpdatedEvent()),
       onSome: (event) =>
         encodeParetoSnapshotJson({
           frontierIndices: event.frontierIndices,

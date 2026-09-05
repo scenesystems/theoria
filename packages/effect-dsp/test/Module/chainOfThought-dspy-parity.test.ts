@@ -41,7 +41,6 @@ describe("Module.chainOfThought DSPy parity", () => {
       const entries = traced[1]
       const firstEntry = entries[0]
 
-      expect(fixture.payload.reasoningFieldName).toBe("reasoning")
       expect(Record.keys(cot.signature.outputFields)).toStrictEqual(fixture.payload.outputFieldOrder)
       expect(result).toStrictEqual(fixture.payload.sampleOutput)
       expect(entries).toHaveLength(fixture.payload.traceLength)

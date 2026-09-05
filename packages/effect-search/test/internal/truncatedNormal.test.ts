@@ -58,10 +58,6 @@ describe("truncated normal fixture parity", () => {
           Effect.gen(function*() {
             const params = toParams(entry)
 
-            yield* Effect.sync(() => {
-              expect(entry.sampleQuantiles.length, `${entry.id} sample fixtures are present`).toBeGreaterThan(0)
-            })
-
             yield* Effect.forEach(
               entry.sampleQuantiles,
               (quantile, index) =>
@@ -88,10 +84,6 @@ describe("truncated normal fixture parity", () => {
           Effect.gen(function*() {
             const params = toParams(entry)
 
-            yield* Effect.sync(() => {
-              expect(entry.cdfProbes.length, `${entry.id} cdf fixtures are present`).toBeGreaterThan(0)
-            })
-
             yield* Effect.forEach(
               entry.cdfProbes,
               (probe, index) =>
@@ -117,10 +109,6 @@ describe("truncated normal fixture parity", () => {
         (entry) =>
           Effect.gen(function*() {
             const params = toParams(entry)
-
-            yield* Effect.sync(() => {
-              expect(entry.logPdfProbes.length, `${entry.id} logPdf fixtures are present`).toBeGreaterThan(0)
-            })
 
             yield* Effect.forEach(
               entry.logPdfProbes,

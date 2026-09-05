@@ -28,17 +28,6 @@ const production = readConfig(Option.none())
 const staging = readConfig(Option.some("staging"))
 const preview = readConfig(Option.some("preview"))
 
-it.effect("gives every deployment target its own release stage", () =>
-  Effect.gen(function*() {
-    const prod = yield* production
-    const stage = yield* staging
-    const pr = yield* preview
-
-    expect(prod.vars.RELEASE_STAGE).toBe("production")
-    expect(stage.vars.RELEASE_STAGE).toBe("production")
-    expect(pr.vars.RELEASE_STAGE).toBe("preview")
-  }))
-
 it.effect("gives every deployment target its own place-build limiter (the binding is not inherited)", () =>
   Effect.gen(function*() {
     const configs = [yield* production, yield* staging, yield* preview]

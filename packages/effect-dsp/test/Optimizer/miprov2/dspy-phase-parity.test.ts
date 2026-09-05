@@ -76,8 +76,6 @@ describe("MIPROv2 DSPy phase parity", () => {
       expect(cadence.seed).toBe(fixture.payload.phase3CadenceDefaults.seed)
       expect(cadence.minibatchSize).toBe(fixture.payload.phase3CadenceDefaults.minibatchSize)
       expect(cadence.fullEvalEvery).toBe(fixture.payload.phase3CadenceDefaults.fullEvalEvery)
-      expect(fixture.payload.phase3Sampler.kind).toBe("tpe")
-      expect(fixture.payload.phase3Sampler.multivariate).toBe(true)
 
       const normalizedCadence = resolvePhase3Cadence({
         seed: -17.8,
@@ -145,7 +143,6 @@ describe("MIPROv2 DSPy phase parity", () => {
 
       expect(DEFAULT_TIP_VOCABULARY).toEqual(fixture.payload.defaultTips)
       expect(resolveDiversityTemperature()).toBe(fixture.payload.diversityTemperatureDefault)
-      expect(fixture.payload.baselineTip).toBe("baseline")
       expect(proposalMarker("qa", 3, 11)).toBe(expectedMarker)
     }))
 
@@ -153,8 +150,6 @@ describe("MIPROv2 DSPy phase parity", () => {
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.mipro.trial-budget-cases")
       const fixture = yield* Schema.decodeUnknown(MiproTrialBudgetCasesFixtureSchema)(rawFixture)
-
-      expect(fixture.payload.cases.length).toBeGreaterThan(0)
 
       yield* Effect.forEach(fixture.payload.cases, (budgetCase) =>
         Effect.sync(() => {

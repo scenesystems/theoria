@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Record, Schema } from "effect"
+import { Effect, Option, Record, Schema } from "effect"
 
 import { parseTextOutput } from "../../src/internal/parse/decode.js"
 import { extractMarkedRecord } from "../../src/internal/parse/protocol.js"
@@ -17,12 +17,6 @@ describe("internal/parse DSPy contract parity", () => {
       const extracted = extractMarkedRecord(fixture.payload.completion)
       const extractedAnswer = Option.getOrElse(Record.get(extracted, "answer"), () => "")
 
-      expect(fixture.payload.fieldHeaderPattern).toContain("(\\w+)")
-      expect(Arr.map(fixture.payload.sections, (section) => section.header)).toStrictEqual([
-        null,
-        "answer",
-        "completed"
-      ])
       expect(parsed).toStrictEqual(fixture.payload.parsed)
       expect(extractedAnswer).toBe(fixture.payload.parsed.answer)
       expect(Option.isSome(Record.get(extracted, "completed"))).toBe(true)

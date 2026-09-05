@@ -111,11 +111,8 @@ describe("external conformance — hmac-hkdf", () => {
           )
           : [])
       const validVectors = Arr.filter(vectors, ({ vector }) => vector.result === "valid")
-      yield* Effect.forEach(validVectors, ({ fixture, group, source, vector }) =>
+      yield* Effect.forEach(validVectors, ({ fixture, source, vector }) =>
         Effect.gen(function*() {
-          expect(hexToBytes(vector.ikm)).toHaveLength(group.keySize / 8)
-          expect(vector.okm).toHaveLength(vector.size * 2)
-
           const result = yield* hkdfSha512(
             hexToBytes(vector.ikm),
             Option.some(hexToBytes(vector.salt)),

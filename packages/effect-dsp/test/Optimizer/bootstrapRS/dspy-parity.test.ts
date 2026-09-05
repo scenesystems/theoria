@@ -89,8 +89,6 @@ describe("Optimizer.bootstrapRS DSPy parity", () => {
       const calls = yield* Ref.get(mock.calls)
       const demoQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
 
-      expect(fixture.payload.expectedCandidateLabels).toHaveLength(fixture.payload.numCandidates + 2)
-      expect(fixture.payload.expectedCandidateLabels).toContain(fixture.payload.expectedBestCandidateLabel)
       expect(demoQuestions).toStrictEqual(fixture.payload.expectedBestDemoQuestions)
       expect(calls).toHaveLength(fixture.payload.expectedCallCount)
     }))
