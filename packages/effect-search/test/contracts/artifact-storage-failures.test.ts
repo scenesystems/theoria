@@ -5,6 +5,7 @@ import {
   Cause,
   Chunk,
   Data,
+  type Duration,
   Effect,
   Either,
   Exit,
@@ -244,7 +245,8 @@ describe("contracts/artifact storage failures", () => {
   const runWithPublisherEffect = (
     publisher: Study.EventPublisher,
     objective: Study.ObjectiveFunction<{ readonly choice: "only" }>,
-    calls: Ref.Ref<number>
+    calls: Ref.Ref<number>,
+    trialTimeout: Option.Option<Duration.DurationInput> = Option.none()
   ) =>
     Effect.gen(function*() {
       const kernel = yield* Study.StudyKernel
@@ -255,6 +257,10 @@ describe("contracts/artifact storage failures", () => {
         trials: 2,
         concurrency: 1,
         retrySchedule: Schedule.recurs(3),
+        ...Option.match(trialTimeout, {
+          onNone: () => ({}),
+          onSome: (timeout) => ({ trialTimeout: timeout })
+        }),
         objective: (config, runtime) =>
           Ref.update(calls, Num.increment).pipe(Effect.zipRight(objective(config, runtime)))
       })
@@ -271,14 +277,25 @@ describe("contracts/artifact storage failures", () => {
   const runWithPublisher = (
     publisher: Study.EventPublisher,
     objective: Study.ObjectiveFunction<{ readonly choice: "only" }>,
-    calls: Ref.Ref<number>
-  ) => runWithPublisherEffect(publisher, objective, calls).pipe(Effect.either)
+    calls: Ref.Ref<number>,
+    trialTimeout: Option.Option<Duration.DurationInput> = Option.none()
+  ) => runWithPublisherEffect(publisher, objective, calls, trialTimeout).pipe(Effect.either)
 
   const runWithPublisherExit = (
     publisher: Study.EventPublisher,
     objective: Study.ObjectiveFunction<{ readonly choice: "only" }>,
-    calls: Ref.Ref<number>
-  ) => runWithPublisherEffect(publisher, objective, calls).pipe(Effect.exit)
+    calls: Ref.Ref<number>,
+    trialTimeout: Option.Option<Duration.DurationInput> = Option.none()
+  ) => runWithPublisherEffect(publisher, objective, calls, trialTimeout).pipe(Effect.exit)
+
+  const failedTrialErrors = (outcome: Study.ExecuteOutcome<{ readonly choice: "only" }>) =>
+    outcome.trials.flatMap((trial) => trial.state._tag === "Failed" ? [trial.state.error] : [])
+
+  const hasDefect = (cause: Cause.Cause<unknown>, isDefect: Predicate.Predicate<unknown>): boolean =>
+    Chunk.some(Cause.defects(cause), isDefect)
+
+  const isFinalizerDefect = Predicate.isTagged("TrialFinalizerDefect")
+  const isStorageError = Schema.is(ArtifactStorageError)
 
   it.effect("a sink that rejects TrialReported fails the study, without retrying the objective", () =>
     Effect.gen(function*() {
@@ -317,12 +334,7 @@ describe("contracts/artifact storage failures", () => {
             (failure) => failure instanceof ArtifactStorageError && failure.operation === "write"
           )
         ).toBe(true)
-        expect(
-          Chunk.some(
-            Cause.defects(exit.cause),
-            (causeDefect) => Predicate.hasProperty(causeDefect, "_tag") && causeDefect._tag === defect._tag
-          )
-        ).toBe(true)
+        expect(hasDefect(exit.cause, isFinalizerDefect)).toBe(true)
       }
     }))
 
@@ -352,5 +364,67 @@ describe("contracts/artifact storage failures", () => {
 
       expect(Either.isRight(outcome)).toBe(true)
       expect(yield* Ref.get(calls)).toBe(8)
+    }))
+
+  it.effect("an exhausted retry schedule records the last attempt's failure", () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+
+      const outcome = yield* runWithPublisher(
+        failingOn("Never", "envelopes.jsonl"),
+        () => Ref.get(calls).pipe(Effect.flatMap((attempt) => Effect.fail(`attempt ${attempt}`))),
+        calls
+      )
+
+      expect(Either.isRight(outcome)).toBe(true)
+      if (Either.isRight(outcome)) {
+        expect(failedTrialErrors(outcome.right).map((error) => error.message)).toEqual(["attempt 4", "attempt 8"])
+      }
+    }))
+
+  it.effect("an objective failure followed by a finalizer defect is not retried and keeps the defect", () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+      const defect = new TrialFinalizerDefect({ stage: "objective-finalizer" })
+
+      const outcome = yield* runWithPublisher(
+        failingOn("Never", "envelopes.jsonl"),
+        () => Effect.fail("objective broke").pipe(Effect.ensuring(Effect.die(defect))),
+        calls
+      )
+
+      expect(Either.isRight(outcome)).toBe(true)
+      expect(yield* Ref.get(calls)).toBe(2)
+      if (Either.isRight(outcome)) {
+        const errors = failedTrialErrors(outcome.right)
+        expect(errors.map((error) => error.message)).toEqual(["objective broke", "objective broke"])
+        expect(errors.every((error) => Cause.isCause(error.cause) && hasDefect(error.cause, isFinalizerDefect))).toBe(
+          true
+        )
+      }
+    }))
+
+  it.live("a rejected report escalated by a timed-out objective's cleanup fails the trial instead of cancelling it", () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+
+      const outcome = yield* runWithPublisher(
+        failingOn("TrialReported", "envelopes.jsonl"),
+        (_config, runtime) =>
+          Effect.sleep("1 second").pipe(
+            Effect.ensuring(runtime.report(1, 1).pipe(Effect.orDie)),
+            Effect.as(1)
+          ),
+        calls,
+        Option.some("10 millis")
+      )
+
+      expect(Either.isRight(outcome)).toBe(true)
+      expect(yield* Ref.get(calls)).toBe(2)
+      if (Either.isRight(outcome)) {
+        expect(outcome.right.trials.map((trial) => trial.state._tag)).toEqual(["Failed", "Failed"])
+        const errors = failedTrialErrors(outcome.right)
+        expect(errors.every((error) => Cause.isCause(error.cause) && hasDefect(error.cause, isStorageError))).toBe(true)
+      }
     }))
 })
