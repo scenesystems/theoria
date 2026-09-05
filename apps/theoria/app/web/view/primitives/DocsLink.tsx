@@ -3,7 +3,7 @@ import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowRightIcon } from "@heroicons/react/20/solid"
 import { Match, Option, Schema } from "effect"
-import type { ComponentProps, MouseEvent, ReactNode } from "react"
+import type { ComponentProps, MouseEvent as ReactMouseEvent, ReactNode } from "react"
 import { useRef } from "react"
 
 import { Id } from "../../../contracts/id.js"
@@ -34,11 +34,13 @@ const popupClassName = [
 const openLinkClassName =
   `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
 
-/** A press with a modifier or a non-primary button is the browser's: a new tab, a new window, the context menu. */
-const isModifiedPress = (event: Event): boolean =>
-  (event instanceof MouseEvent || event instanceof KeyboardEvent) &&
-  (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
-    (event instanceof MouseEvent && event.button !== 0))
+/**
+ * A press with a modifier or a non-primary button is the browser's: a new tab,
+ * a new window, the context menu. Base UI types a trigger press as one of these
+ * four events; only mouse and pointer events carry a button.
+ */
+const isModifiedPress = (event: MouseEvent | PointerEvent | TouchEvent | KeyboardEvent): boolean =>
+  event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || ("button" in event && event.button !== 0)
 
 const isCardId = Schema.is(Id)
 
@@ -138,7 +140,7 @@ const PreviewLink = ({ children, className, destination, href, title, ...props }
   readonly href: string
   readonly title: string
 }) => {
-  const keepForPreview = (event: MouseEvent<HTMLAnchorElement>) => {
+  const keepForPreview = (event: ReactMouseEvent<HTMLAnchorElement>) => {
     if (!isModifiedPress(event.nativeEvent)) event.preventDefault()
   }
 

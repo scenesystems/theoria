@@ -1,5 +1,5 @@
 import { RegistryProvider } from "@effect-atom/atom-react"
-import { Effect, type Scope } from "effect"
+import { Effect, Option, type Scope } from "effect"
 import type { ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
@@ -42,8 +42,11 @@ export const mountWithRegistry = (
   Scope.Scope | BrowserDocument.BrowserDocument
 > => mountReact(<RegistryProvider defaultIdleTTL={defaultIdleTTL}>{node}</RegistryProvider>)
 
+/** Reads until `read` yields a value; the surrounding test's timeout bounds the wait. */
+export function waitForValue<A>(read: () => Option.Option<A>): Effect.Effect<A> {
+  return Effect.eventually(Effect.suspend(read))
+}
+
 /** Retries `predicate` until it holds; the surrounding test's timeout bounds the wait. */
-export const waitFor = (predicate: () => boolean, label: string): Effect.Effect<void> =>
-  Effect.eventually(
-    Effect.sync(predicate).pipe(Effect.filterOrFail((ready) => ready, () => label))
-  ).pipe(Effect.asVoid, Effect.orDie)
+export const waitFor = (predicate: () => boolean): Effect.Effect<void> =>
+  waitForValue(() => Option.liftPredicate(undefined, predicate))

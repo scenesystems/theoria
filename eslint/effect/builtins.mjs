@@ -102,11 +102,24 @@ export const ARRAY_BUILTINS_RULES = [
 /**
  * The browser's own objects, for `no-restricted-globals`. Unlike the syntax
  * selectors below this rule is scope-aware: it reports a reference to the
- * global and not a local that happens to share the name. `../scopes.mjs`
- * applies it to shipped code outside `apps/*\/app/web/platform/`, the one
- * place that acquires `window` and `document` and offers them as the
- * `BrowserWindow`/`BrowserDocument` services.
+ * global and not a local that happens to share the name, and it leaves type
+ * annotations alone. `../scopes.mjs` applies it to shipped code outside
+ * `apps/*\/app/web/platform/`, the one place that acquires `window` and
+ * `document` and offers them as the `BrowserWindow`/`BrowserDocument`
+ * services; the DOM constructors and observers below are properties of that
+ * window, so code that needs one at runtime reaches it through the service.
+ *
+ * The parser's scope analysis records a type parameter declared on a `type`
+ * alias as a reference, so a type parameter may not share a name with one of
+ * these globals. That is no loss: a type parameter called `Event` or `Node`
+ * shadows the DOM type of the same name for every reader.
  */
+const windowMember = (name) => ({
+  name,
+  message:
+    `Do not read '${name}' from the global scope. Reach it through the BrowserWindow service from the platform module.`
+})
+
 export const BROWSER_GLOBALS = [
   {
     name: "window",
@@ -119,7 +132,37 @@ export const BROWSER_GLOBALS = [
   {
     name: "navigator",
     message: "Do not read 'navigator'. Offer the capability as a service from the platform module."
-  }
+  },
+  ...[
+    "location",
+    "history",
+    "localStorage",
+    "sessionStorage",
+    "matchMedia",
+    "getComputedStyle",
+    "requestAnimationFrame",
+    "cancelAnimationFrame",
+    "ResizeObserver",
+    "IntersectionObserver",
+    "MutationObserver",
+    "Node",
+    "Element",
+    "HTMLElement",
+    "HTMLAnchorElement",
+    "HTMLButtonElement",
+    "HTMLDivElement",
+    "HTMLHeadingElement",
+    "HTMLInputElement",
+    "HTMLParagraphElement",
+    "HTMLSpanElement",
+    "Event",
+    "CustomEvent",
+    "MouseEvent",
+    "PointerEvent",
+    "KeyboardEvent",
+    "TouchEvent",
+    "FocusEvent"
+  ].map(windowMember)
 ]
 
 /**

@@ -47,16 +47,13 @@ describe("browser navigation", () => {
       yield* Effect.acquireRelease(atPath("/docs"), () => atPath("/"))
       const { container } = yield* mountWithRegistry(<NavigationHarness />)
 
-      yield* waitFor(() => container.querySelector("output")?.textContent === "/docs", "initial-route")
+      yield* waitFor(() => container.querySelector("output")?.textContent === "/docs")
       const mount = container.querySelector("main")
       const link = container.querySelector("a")
-      const click = new MouseEvent("click", { bubbles: true, cancelable: true })
+      const click = new browserWindow.MouseEvent("click", { bubbles: true, cancelable: true })
 
       link?.dispatchEvent(click)
-      yield* waitFor(
-        () => container.querySelector("output")?.textContent === "/docs/effect-search/api/Study",
-        "navigated-route"
-      )
+      yield* waitFor(() => container.querySelector("output")?.textContent === "/docs/effect-search/api/Study")
 
       expect(click.defaultPrevented).toBe(true)
       expect(browserWindow.location.pathname).toBe("/docs/effect-search/api/Study")

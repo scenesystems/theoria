@@ -5,11 +5,7 @@ import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
 import { neutralToneClasses } from "../../app/web/view/primitives/designSystem.js"
 import { TheoriaLogo } from "../../app/web/view/primitives/TheoriaLogo.js"
 import { ToggleSwitch } from "../../app/web/view/primitives/ToggleSwitch.js"
-import { mountReact, waitFor } from "../helpers/react-mount.js"
-
-/** Polls the query until the element has rendered. */
-const waitForElement = <E extends Element>(query: () => Option.Option<E>): Effect.Effect<E> =>
-  Effect.eventually(Effect.suspend(query))
+import { mountReact, waitFor, waitForValue } from "../helpers/react-mount.js"
 
 describe("public-site accessibility", () => {
   it.effect("labels the toggle switch for assistive technology", () =>
@@ -24,7 +20,7 @@ describe("public-site accessibility", () => {
         />
       )
 
-      const toggle = yield* waitForElement(() => Option.fromNullable(container.querySelector("[role=\"switch\"]")))
+      const toggle = yield* waitForValue(() => Option.fromNullable(container.querySelector("[role=\"switch\"]")))
       expect(toggle.getAttribute("aria-label")).toBe("Obstacles")
       expect(toggle.getAttribute("aria-checked")).toBe("false")
     }).pipe(Effect.scoped, Effect.provide(BrowserDocument.layer)))
@@ -38,7 +34,7 @@ describe("public-site accessibility", () => {
         </>
       )
 
-      yield* waitFor(() => container.textContent?.includes("Theoria") === true, "waiting-for-logo")
+      yield* waitFor(() => container.textContent?.includes("Theoria") === true)
       expect(container.querySelector("span:not([role])[aria-label]")).toBeNull()
       expect(container.querySelector("[role=\"img\"]")?.getAttribute("aria-label")).toBe("Theoria")
     }).pipe(Effect.scoped, Effect.provide(BrowserDocument.layer)))

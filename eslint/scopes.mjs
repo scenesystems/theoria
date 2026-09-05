@@ -7,8 +7,10 @@
  *
  * No file may name the browser's globals except the platform modules:
  * `window`, `document` and `navigator` are acquired once in the app's platform
- * module and reach everything else as services, and the worker tests keep the
- * functions Playwright runs inside the page in their own platform module.
+ * module and reach everything else as services, the DOM constructors and
+ * observers are read from the window that service provides, and the worker
+ * tests keep the functions Playwright runs inside the page in their own
+ * platform module.
  *
  * @module eslint/scopes
  */

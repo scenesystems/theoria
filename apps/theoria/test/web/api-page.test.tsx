@@ -15,7 +15,7 @@ const withPage = (
 ): Effect.Effect<void> =>
   Effect.gen(function*() {
     const { container } = yield* mountWithRegistry(node)
-    yield* waitFor(() => container.textContent?.includes(settled) === true, "waiting-for-api-page")
+    yield* waitFor(() => container.textContent?.includes(settled) === true)
     use(container)
   }).pipe(Effect.scoped, Effect.provide(BrowserDocument.layer))
 

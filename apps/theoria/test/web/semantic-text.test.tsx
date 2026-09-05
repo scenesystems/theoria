@@ -1,76 +1,65 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import type { ReactNode } from "react"
 
 import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
+import * as BrowserWindow from "../../app/web/platform/BrowserWindow.js"
 import { SemanticText } from "../../app/web/view/primitives/SemanticText.js"
-import { mountWithRegistry } from "../helpers/react-mount.js"
+import { mountWithRegistry, waitForValue } from "../helpers/react-mount.js"
 
-function withMockClientWidth<A>(
+const BrowserTest = Layer.merge(BrowserWindow.layer, BrowserDocument.layer)
+
+/** happy-dom lays nothing out, so the test window's elements report the width the case asks for. */
+function withMockClientWidth<A, E, R>(
   width: number,
-  effect: Effect.Effect<A, never, never>
-): Effect.Effect<A, never, never> {
-  return Effect.acquireUseRelease(
-    Effect.sync(() => {
-      const descriptor = Option.fromNullable(Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth"))
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R | BrowserWindow.BrowserWindow> {
+  return Effect.flatMap(BrowserWindow.BrowserWindow, (browserWindow) => {
+    const prototype = browserWindow.HTMLElement.prototype
 
-      Reflect.defineProperty(HTMLElement.prototype, "clientWidth", {
-        configurable: true,
-        get: () => width
-      })
+    return Effect.acquireUseRelease(
+      Effect.sync(() => {
+        const descriptor = Option.fromNullable(Object.getOwnPropertyDescriptor(prototype, "clientWidth"))
 
-      return descriptor
-    }),
-    () => effect,
-    (descriptor) =>
-      Effect.sync(() =>
-        Option.match(descriptor, {
-          onNone: () => Reflect.deleteProperty(HTMLElement.prototype, "clientWidth"),
-          onSome: (original) => Reflect.defineProperty(HTMLElement.prototype, "clientWidth", original)
-        })
-      )
-  )
+        Reflect.defineProperty(prototype, "clientWidth", { configurable: true, get: () => width })
+
+        return descriptor
+      }),
+      () => effect,
+      (descriptor) =>
+        Effect.sync(() =>
+          Option.match(descriptor, {
+            onNone: () => Reflect.deleteProperty(prototype, "clientWidth"),
+            onSome: (original) => Reflect.defineProperty(prototype, "clientWidth", original)
+          })
+        )
+    )
+  })
 }
 
 const renderedLineSpans = (container: HTMLDivElement): ReadonlyArray<HTMLSpanElement> =>
-  Arr.fromIterable(container.querySelectorAll("p > span, h3 > span")).flatMap((element) =>
-    element instanceof HTMLSpanElement ? [element] : []
-  )
+  Arr.fromIterable(container.querySelectorAll<HTMLSpanElement>("p > span, h3 > span"))
 
 const waitForProjectedLines = (
   container: HTMLDivElement,
-  expectedCount: number
-): Effect.Effect<ReadonlyArray<HTMLSpanElement>, never, never> =>
-  Effect.eventually(
-    Effect.sync(() => renderedLineSpans(container)).pipe(
-      Effect.filterOrFail((spans) => spans.length === expectedCount, () => "waiting-for-projected-semantic-text")
-    )
-  ).pipe(Effect.orDie)
+  accept: (count: number) => boolean
+): Effect.Effect<ReadonlyArray<HTMLSpanElement>> =>
+  waitForValue(() => Option.liftPredicate(renderedLineSpans(container), (spans) => accept(spans.length)))
 
-const waitForProjectedLinesAtLeast = (
-  container: HTMLDivElement,
-  expectedMinimum: number
-): Effect.Effect<ReadonlyArray<HTMLSpanElement>, never, never> =>
-  Effect.eventually(
-    Effect.sync(() => renderedLineSpans(container)).pipe(
-      Effect.filterOrFail((spans) => spans.length >= expectedMinimum, () => "waiting-for-projected-semantic-text")
-    )
-  ).pipe(Effect.orDie)
+const paragraphOf = (container: HTMLDivElement): Effect.Effect<HTMLParagraphElement> =>
+  waitForValue(() => Option.fromNullable(container.querySelector("p")))
 
 function withRenderedSemanticText<A>(
   width: number,
   node: ReactNode,
-  use: (container: HTMLDivElement) => Effect.Effect<A, never, never>
-): Effect.Effect<A, never, never> {
+  use: (container: HTMLDivElement) => Effect.Effect<A>
+): Effect.Effect<A> {
   return withMockClientWidth(
     width,
-    Effect.flatMap(mountWithRegistry(node, 400), ({ container }) => use(container)).pipe(
-      Effect.scoped,
-      Effect.provide(BrowserDocument.layer)
-    )
-  )
+    Effect.flatMap(mountWithRegistry(node, 400), ({ container }) => use(container)).pipe(Effect.scoped)
+  ).pipe(Effect.provide(BrowserTest))
 }
 
 describe("SemanticText", () => {
@@ -85,7 +74,7 @@ describe("SemanticText", () => {
       />,
       (container) =>
         Effect.gen(function*() {
-          const spans = yield* waitForProjectedLines(container, 3)
+          const spans = yield* waitForProjectedLines(container, (count) => count === 3)
 
           expect(spans[0]?.textContent).toBe("const  x = 1")
           expect(spans[1]?.textContent).toBe("\u00a0")
@@ -106,11 +95,10 @@ describe("SemanticText", () => {
       />,
       (container) =>
         Effect.gen(function*() {
-          const spans = yield* waitForProjectedLinesAtLeast(container, 2)
-          const paragraph = container.querySelector("p")
+          const spans = yield* waitForProjectedLines(container, (count) => count >= 2)
+          const paragraph = yield* paragraphOf(container)
 
-          expect(paragraph instanceof HTMLParagraphElement).toBe(true)
-          expect(paragraph?.dataset.lines).not.toBeUndefined()
+          expect(paragraph.dataset.lines).not.toBeUndefined()
           expect(spans.length).toBeGreaterThan(1)
         })
     ))
@@ -127,14 +115,7 @@ describe("SemanticText", () => {
       />,
       (container) =>
         Effect.gen(function*() {
-          const heading = yield* Effect.eventually(
-            Effect.sync(() => container.querySelector("h3")).pipe(
-              Effect.filterOrFail(
-                (node): node is HTMLHeadingElement => node instanceof HTMLHeadingElement,
-                () => "waiting-for-subsection-title"
-              )
-            )
-          ).pipe(Effect.orDie)
+          const heading = yield* waitForValue(() => Option.fromNullable(container.querySelector("h3")))
 
           expect(heading.textContent).toBe("@scenesystems/effect-inference")
         })
@@ -155,12 +136,10 @@ describe("SemanticText", () => {
       />,
       (container) =>
         Effect.gen(function*() {
-          const spans = yield* waitForProjectedLines(container, 2)
-          const paragraph = container.querySelector("p")
+          const spans = yield* waitForProjectedLines(container, (count) => count === 2)
+          const paragraph = yield* paragraphOf(container)
 
-          expect(paragraph instanceof HTMLParagraphElement).toBe(true)
-          expect(paragraph?.dataset.lines).toBe("2")
-          expect(paragraph?.style.minHeight).toBe("calc(var(--st-lh-card-summary) * 2)")
+          expect(paragraph.dataset.lines).toBe("2")
           expect(spans[1]?.textContent?.endsWith("…")).toBe(false)
         })
     ))

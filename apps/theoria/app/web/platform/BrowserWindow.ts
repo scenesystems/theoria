@@ -4,13 +4,14 @@ import type { IllegalArgumentException } from "effect/Cause"
 
 /**
  * The window this page runs in, as a service. Everything the app needs from
- * the window — its location, history, scroll position, media queries and
- * events — is reached through this tag, so atoms and components never touch
- * the global themselves and tests can provide any window they like.
+ * the window — its location, history, scroll position, media queries, events
+ * and the DOM constructors it owns — is reached through this tag, so atoms,
+ * components and tests never touch the global themselves and tests can
+ * provide any window they like.
  *
  * @since 0.2.0
  */
-export class BrowserWindow extends Context.Tag("theoria/BrowserWindow")<BrowserWindow, Window>() {}
+export class BrowserWindow extends Context.Tag("theoria/BrowserWindow")<BrowserWindow, typeof window>() {}
 
 /** The ambient window. This is the one place the app reads the global. */
 export const layer: Layer.Layer<BrowserWindow> = Layer.sync(BrowserWindow, () => window)
