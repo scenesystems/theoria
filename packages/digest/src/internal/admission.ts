@@ -22,10 +22,15 @@ export const Container = Data.taggedEnum<Container>()
 /** One own-property descriptor read, captured once for the admission machine. */
 export class Snapshot extends Data.Class<{
   readonly key: string
-  readonly accessor: boolean
   readonly enumerable: boolean
   readonly value: unknown
 }> {}
+
+export type DescriptorSnapshot =
+  | { readonly _tag: "Accessor"; readonly enumerable: boolean }
+  | { readonly _tag: "Data"; readonly snapshot: Snapshot }
+
+export const DescriptorSnapshot = Data.taggedEnum<DescriptorSnapshot>()
 
 const unsupported = (reason: UnsupportedValue["reason"]): Unsupported => new Unsupported({ reason })
 
@@ -85,13 +90,12 @@ export const descriptorShape = (identity: object, key: PropertyKey) =>
     enumerable: descriptor.enumerable === true
   }))
 
-export const snapshot = (identity: object, key: string): Either.Either<Snapshot, Unsupported> =>
-  Either.map(ownDescriptor(identity, key), (descriptor) =>
-    new Snapshot({
-      key,
-      accessor: !("value" in descriptor),
-      enumerable: descriptor.enumerable === true,
-      value: "value" in descriptor ? descriptor.value : undefined
-    }))
+export const snapshot = (identity: object, key: string): Either.Either<DescriptorSnapshot, Unsupported> =>
+  Either.map(ownDescriptor(identity, key), (descriptor) => {
+    const enumerable = descriptor.enumerable === true
+    return "value" in descriptor
+      ? DescriptorSnapshot.Data({ snapshot: new Snapshot({ key, enumerable, value: descriptor.value }) })
+      : DescriptorSnapshot.Accessor({ enumerable })
+  })
 
 export const rejection = unsupported

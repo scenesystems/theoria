@@ -88,11 +88,14 @@ const admitDescriptor = (state: State, frame: Extract<Frame, { _tag: "Descriptor
   const at = MutableRef.get(frame.at)
   const result = snapshot(frame.container.identity, key)
   if (Either.isLeft(result)) return fail(state, result.left)
-  frame.entries[at] = result.right
-  if (result.right.accessor) MutableRef.set(frame.accessor, true)
-  if (frame.container._tag === "Record" && !result.right.enumerable) MutableRef.set(frame.hidden, true)
-  if (frame.container._tag === "Array" && key === "length" && typeof result.right.value === "number") {
-    MutableRef.set(frame.length, Option.some(result.right.value))
+  if (result.right._tag === "Accessor") MutableRef.set(frame.accessor, true)
+  else {
+    const snapshot = result.right.snapshot
+    frame.entries[frame.entries.length] = snapshot
+    if (frame.container._tag === "Record" && !snapshot.enumerable) MutableRef.set(frame.hidden, true)
+    if (frame.container._tag === "Array" && key === "length" && typeof snapshot.value === "number") {
+      MutableRef.set(frame.length, Option.some(snapshot.value))
+    }
   }
   MutableRef.set(frame.at, at + 1)
   push(state, frame)
