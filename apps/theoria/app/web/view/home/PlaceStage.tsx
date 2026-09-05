@@ -186,7 +186,7 @@ export const PlaceStage = () => {
 
   return (
     <Stack className="gap-3">
-      <Layer>
+      <Layer data-place-stage="column">
         <ArtifactStage
           frameStyle={frameStyle}
           viewportClassName="justify-center"

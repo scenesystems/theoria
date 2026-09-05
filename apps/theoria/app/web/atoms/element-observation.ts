@@ -1,9 +1,9 @@
-import { Atom } from "@effect-atom/atom"
-import type { Atom as AtomType, Result } from "@effect-atom/atom"
-import { useAtomMount, useAtomSet, useAtomSubscribe } from "@effect-atom/atom-react"
-import { Data, Effect, Option, Schema, Stream } from "effect"
+import { Atom, Result } from "@effect-atom/atom"
+import type { Atom as AtomType } from "@effect-atom/atom"
+import { useAtomSubscribe } from "@effect-atom/atom-react"
+import { Data, Effect, Option, Stream } from "effect"
 import * as Arr from "effect/Array"
-import { type RefCallback, useMemo } from "react"
+import { type RefCallback, useCallback, useMemo, useState } from "react"
 
 import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
@@ -11,44 +11,25 @@ import * as BrowserWindow from "../platform/BrowserWindow.js"
 import * as ElementSize from "../platform/ElementSize.js"
 import { appRuntime } from "./runtime.js"
 
-export const ElementWidthSlot = Schema.TaggedStruct("ElementWidthSlot", {})
-export type ElementWidthSlot = typeof ElementWidthSlot.Type
+/**
+ * The content width of a mounted element: initial until the element has a
+ * positive width, then every width the browser observes. Keyed by the element
+ * itself, so two surfaces measuring the same element share one observer, and
+ * the family lets go of the atom with the element. The observer disconnects
+ * when the last subscriber leaves.
+ */
+export const elementWidthAtom: (element: HTMLElement) => AtomType.Atom<Result.Result<number>> = Atom.family(
+  (element: HTMLElement) => Atom.make(ElementSize.contentWidths(element).pipe(Stream.filter((width) => width > 0)))
+)
 
+/** The width of an element that has not mounted: never measured. */
+const unmountedWidthAtom: AtomType.Atom<Result.Result<number>> = Atom.make(() => Result.initial<number>())
+
+/** The mount-scoped measure of an element: the ref that mounts it and the atom that follows its width. */
 export class ElementWidthHandle extends Data.Class<{
   readonly ref: RefCallback<HTMLElement>
-  readonly slot: ElementWidthSlot
+  readonly width: AtomType.Atom<Result.Result<number>>
 }> {}
-
-export const makeElementWidthSlot = (): ElementWidthSlot => ElementWidthSlot.make({})
-
-/** The element a slot is watching while it is mounted; the ref callback sets and clears it. */
-const observedElementAtom: (slot: ElementWidthSlot) => AtomType.Writable<Option.Option<HTMLElement>> = Atom.family(
-  (_slot: ElementWidthSlot) => Atom.make(Option.none<HTMLElement>())
-)
-
-/** The last positive content width reported for a slot; zero until its element has been measured. */
-export const elementWidthAtom: (slot: ElementWidthSlot) => AtomType.Writable<number> = Atom.family(
-  (_slot: ElementWidthSlot) => Atom.make(0)
-)
-
-/** Runs the size observation for a slot's element while mounted, writing positive widths into `elementWidthAtom`. */
-const elementWidthObservationAtom: (slot: ElementWidthSlot) => AtomType.Atom<Result.Result<void>> = Atom.family(
-  (slot: ElementWidthSlot) =>
-    appRuntime.atom((get) =>
-      Option.match(get(observedElementAtom(slot)), {
-        onNone: () => Effect.void,
-        onSome: (element) =>
-          ElementSize.contentWidths(element).pipe(
-            Stream.filter((width) => width > 0),
-            Stream.runForEach((width) =>
-              Effect.sync(() => {
-                get.set(elementWidthAtom(slot), width)
-              })
-            )
-          )
-      })
-    )
-)
 
 /**
  * A React 19 ref callback from an observer over a mounted element. React hands
@@ -62,29 +43,46 @@ export const observeOnMount =
       onSome: observe
     })
 
-export const useElementWidthHandle = (): ElementWidthHandle => {
-  const slot = useMemo(makeElementWidthSlot, [])
-  const setElement = useAtomSet(observedElementAtom(slot))
-  useAtomMount(elementWidthObservationAtom(slot))
+/**
+ * Follows the content width of the element the returned ref is attached to.
+ *
+ * The element exists only after React commits, so it reaches the component
+ * the way React measures DOM nodes: a callback ref into component state. It
+ * cannot go through a writable atom, because the registry drops an atom that
+ * is written before anything mounts it, and refs run in the commit phase
+ * while atom mounts run in passive effects. Once the element is in hand, the
+ * width is atom state like everything else.
+ */
+export const useElementWidth = (): ElementWidthHandle => {
+  const [element, setElement] = useState<Option.Option<HTMLElement>>(Option.none())
   const ref = useMemo(
     () =>
-      observeOnMount<HTMLElement>((element) => {
-        setElement(Option.some(element))
+      observeOnMount<HTMLElement>((mounted) => {
+        setElement(Option.some(mounted))
 
         return () => {
           setElement(Option.none())
         }
       }),
-    [setElement]
+    []
   )
 
-  return new ElementWidthHandle({ ref, slot })
+  return new ElementWidthHandle({
+    ref,
+    width: Option.match(element, { onNone: () => unmountedWidthAtom, onSome: elementWidthAtom })
+  })
 }
 
-/** Reports the mounted element's content width to `onWidth` instead of keeping it in a slot the caller reads. */
+const immediately: { readonly immediate: boolean } = { immediate: true }
+
+/** Reports every measured width of the mounted element to `onWidth`, starting with the current one. */
 export const useElementWidthReporter = (onWidth: (width: number) => void): RefCallback<HTMLElement> => {
-  const handle = useElementWidthHandle()
-  useAtomSubscribe(elementWidthAtom(handle.slot), onWidth)
+  const handle = useElementWidth()
+  const report = useCallback(
+    (width: Result.Result<number>) => Option.match(Result.value(width), { onNone: () => {}, onSome: onWidth }),
+    [onWidth]
+  )
+  useAtomSubscribe(handle.width, report, immediately)
 
   return handle.ref
 }

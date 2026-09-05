@@ -25,6 +25,7 @@ import {
   overflowingElements,
   press,
   setViewport,
+  until,
   urlMatches,
   visible
 } from "./browser.js"
@@ -34,6 +35,7 @@ import {
   insideViewportRight,
   isActiveElement,
   markerPositionsInStage,
+  stageAndColumnWidths,
   stageLayout
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
@@ -118,6 +120,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* animationsSettled(page)
             expect(yield* overflowingElements(page)).toEqual([])
             expect(yield* fitsViewport(page)).toBe(true)
+            // The stage is drawn for the column it has, so nothing is clipped or scrolled away.
+            yield* until(
+              act(() => page.evaluate(stageAndColumnWidths)),
+              ({ column, stage }) => stage > 0 && stage <= column,
+              `the stage fits its column at ${String(width)}px`
+            )
           }))
         expect(yield* failures).toEqual([])
       }))
