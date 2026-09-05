@@ -75,7 +75,7 @@ const program = Effect.gen(function*() {
       } else {
         yield* Console.log(`  ✓ ${manifestFile} already canonical\n`)
       }
-    }).pipe(Effect.orDie), { discard: true })
+    }), { discard: true })
 
   yield* Console.log("Done — all manifests stamped with canonical BLAKE3-256 hashes.")
 })

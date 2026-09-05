@@ -6,7 +6,7 @@
  */
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Data, Effect, Option, Predicate, Schema } from "effect"
+import { Array as Arr, Console, Data, Effect, Option, Schema } from "effect"
 
 import { digestBytesHex } from "../src/convenience.js"
 import {
@@ -107,29 +107,39 @@ const program = Effect.gen(function*() {
     Effect.gen(function*() {
       const absolutePath = pathService.normalize(pathService.join(externalRoot, source.fixturePath))
       const bytes = yield* fileSystem.readFile(absolutePath).pipe(
-        Effect.mapError(() =>
-          new FixtureCheckError({ name: source.id, file: source.fixturePath, reason: "fixture file not found" })
+        Effect.mapError((error) =>
+          new FixtureCheckError({
+            name: source.id,
+            file: source.fixturePath,
+            reason: `read failed: ${error.message}`
+          })
         )
       )
       const content = toText(bytes)
 
       yield* validateFixtureByKind(source.kind, content).pipe(
-        Effect.mapError(() =>
-          new FixtureCheckError({ name: source.id, file: source.fixturePath, reason: "schema decode failed" })
+        Effect.mapError((error) =>
+          new FixtureCheckError({
+            name: source.id,
+            file: source.fixturePath,
+            reason: `schema decode failed: ${error}`
+          })
         )
       )
 
       const actualSha256 = yield* toSha256Hex(bytes)
       if (actualSha256 !== source.contentSha256) {
-        return new FixtureCheckError({
-          name: source.id,
-          file: source.fixturePath,
-          reason: `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`
-        })
+        return yield* Effect.fail(
+          new FixtureCheckError({
+            name: source.id,
+            file: source.fixturePath,
+            reason: `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`
+          })
+        )
       }
 
-      return null
-    }).pipe(Effect.catchAll((error) => Effect.succeed(error))))
+      return source.id
+    }).pipe(Effect.either))
 
   const expectedFixturePaths = Arr.map(
     manifest.sources,
@@ -156,16 +166,8 @@ const program = Effect.gen(function*() {
         )
   )
 
-  const resultErrors = Arr.filterMap(
-    fixtureResults,
-    (result) => Predicate.isNull(result) ? Option.none<FixtureCheckError>() : Option.some(result)
-  )
+  const [resultErrors, passedNames] = Arr.separate(fixtureResults)
   const allErrors = [...resultErrors, ...orphanErrors]
-
-  const passedNames = Arr.filterMap(
-    manifest.sources,
-    (source, index) => Predicate.isNull(fixtureResults[index]) ? Option.some(source.id) : Option.none()
-  )
 
   yield* Console.log(`Checking ${manifest.sources.length} fixture sources...`)
   yield* Console.log()

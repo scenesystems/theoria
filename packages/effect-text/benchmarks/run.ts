@@ -206,8 +206,8 @@ const program = Effect.gen(function*() {
     iterations: benchmarkIterations,
     corpus: yield* Effect.forEach(benchmarkCorpus, benchmarkCase)
   }
-  const baselineText = yield* fileSystem.readFileString(baselinePath).pipe(Effect.orDie)
-  const baselineReport = yield* Schema.decode(BenchmarkReportJsonSchema)(baselineText).pipe(Effect.orDie)
+  const baselineText = yield* fileSystem.readFileString(baselinePath)
+  const baselineReport = yield* Schema.decode(BenchmarkReportJsonSchema)(baselineText)
   const comparisonReport: BenchmarkComparisonReportType = {
     baselineBenchmark: "effect-text-materialize-baseline",
     walkerBenchmark: "effect-text-walker-kernel",
@@ -223,9 +223,9 @@ const program = Effect.gen(function*() {
   const encodedWalkerReport = yield* Schema.encode(BenchmarkReportJsonSchema)(walkerReport)
   const encodedComparisonReport = yield* Schema.encode(BenchmarkComparisonReportJsonSchema)(comparisonReport)
 
-  yield* fileSystem.makeDirectory(outputDirectory, { recursive: true }).pipe(Effect.orDie)
-  yield* fileSystem.writeFileString(walkerPath, `${encodedWalkerReport}\n`).pipe(Effect.orDie)
-  yield* fileSystem.writeFileString(comparisonPath, `${encodedComparisonReport}\n`).pipe(Effect.orDie)
+  yield* fileSystem.makeDirectory(outputDirectory, { recursive: true })
+  yield* fileSystem.writeFileString(walkerPath, `${encodedWalkerReport}\n`)
+  yield* fileSystem.writeFileString(comparisonPath, `${encodedComparisonReport}\n`)
   yield* Console.log(`Wrote effect-text walker benchmark: ${walkerPath}`)
   yield* Console.log(`Wrote effect-text walker comparison: ${comparisonPath}`)
 })
