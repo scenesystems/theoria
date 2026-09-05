@@ -28,21 +28,20 @@ import {
   urlMatches,
   visible
 } from "./browser.js"
+import {
+  activeElementOpensDocsLink,
+  currentLocation,
+  insideViewportRight,
+  isActiveElement,
+  markerPositionsInStage,
+  stageLayout
+} from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
 
 /** Every disc's position relative to the stage, so scrolling cannot move it. */
-const markerPositions = (page: Page) => () =>
-  page.locator("[data-place-marker]").evaluateAll((markers) => {
-    const stage = document.querySelector("[data-place-stage='content']")?.getBoundingClientRect()
-    return markers
-      .map((marker) => {
-        const rect = marker.getBoundingClientRect()
-        return `${String(Math.round(rect.x - (stage?.x ?? 0)))},${String(Math.round(rect.y - (stage?.y ?? 0)))}`
-      })
-      .join(" ")
-  })
+const markerPositions = (page: Page) => () => page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
 
 const referenceTargets = (references: Locator) =>
   Effect.gen(function*() {
@@ -74,13 +73,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const kept = yield* act(positions)
         // The sheet and the slider under the pointer must not move while trials are swapped.
         const paper = page.locator("[data-place-stage='paper']")
-        const layout = () =>
-          page.evaluate(() => {
-            const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
-            const sheet = rect("[data-place-stage='paper']")
-            const trace = rect("[data-place-trace]")
-            return `${String(Math.round(sheet?.height ?? -1))} ${String(Math.round(trace?.top ?? -1))}`
-          })
+        const layout = () => page.evaluate(stageLayout)
         yield* focus(page.getByRole("slider", { name: "Trial drawn on the stage" }))
         // Focusing scrolls the slider into view; from here on nothing may move it.
         const atRest = yield* act(layout)
@@ -180,23 +173,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* urlMatches(page, /\/$/u)
         yield* containsText(preview, /v\d+\.\d+\.\d+/u)
         yield* containsText(preview, href.slice(1, href.indexOf("#")))
-        yield* eventually(
-          () => preview.evaluate((popup) => popup.getBoundingClientRect().right <= window.innerWidth),
-          true
-        )
+        yield* eventually(() => preview.evaluate(insideViewportRight), true)
 
         yield* press(page, "Escape")
         yield* hidden(preview)
-        yield* eventually(() => reference.evaluate((link) => link === document.activeElement), true)
+        yield* eventually(() => reference.evaluate(isActiveElement), true)
 
         yield* press(page, "Enter")
         yield* visible(preview)
-        yield* eventually(
-          () => page.evaluate(() => document.activeElement?.hasAttribute("data-docs-link-open") ?? false),
-          true
-        )
+        yield* eventually(() => page.evaluate(activeElementOpensDocsLink), true)
         yield* press(page, "Enter")
-        yield* eventually(() => page.evaluate(() => location.pathname + location.hash), href)
+        yield* eventually(() => page.evaluate(currentLocation), href)
         yield* attached(page.locator(`#${href.slice(href.indexOf("#") + 1)}`))
         expect(yield* failures).toEqual([])
       }))

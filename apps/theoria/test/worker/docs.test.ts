@@ -23,6 +23,7 @@ import {
   urlMatches,
   visible
 } from "./browser.js"
+import { clipboardText, scrollersAtEnd, setRootFontSize } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
@@ -186,7 +187,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* highlighted(page.locator("dt code").first())
         yield* click(signature.getByRole("button", { name: "Copy Signature" }))
         yield* visible(signature.getByRole("button", { name: "Copied Signature" }))
-        expect(yield* act(() => page.evaluate(() => navigator.clipboard.readText()))).toContain("ask")
+        expect(yield* act(() => page.evaluate(clipboardText))).toContain("ask")
         expect(yield* failures).toEqual([])
       }))
 
@@ -224,27 +225,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* fitsViewport(page)).toBe(true)
 
         yield* setViewport(page, { width: 1440, height: 900 })
-        yield* act(() =>
-          page.evaluate(() => {
-            document.documentElement.style.fontSize = "200%"
-          })
-        )
+        yield* act(() => page.evaluate(setRootFontSize, "200%"))
         const signature = page.getByRole("region", { name: "Signature code example" })
-        const overflow = yield* act(() =>
-          signature.evaluate((region) => {
-            const scroller = [...region.querySelectorAll<HTMLElement>("*")].find((element) =>
-              element.scrollWidth > element.clientWidth && getComputedStyle(element).overflowX !== "visible"
-            )
-            if (!scroller) return null
-            scroller.scrollLeft = scroller.scrollWidth
-            return {
-              atEnd: scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1,
-              contained: region.getBoundingClientRect().right <= document.documentElement.clientWidth
-            }
-          })
-        )
+        const scrollers = yield* act(() => signature.evaluate(scrollersAtEnd))
 
-        expect(overflow).toEqual({ atEnd: true, contained: true })
+        expect(scrollers.length).toBeGreaterThan(0)
+        expect(Arr.every(scrollers, (scroller) => scroller.atEnd && scroller.contained)).toBe(true)
         expect(yield* fitsViewport(page)).toBe(true)
         expect(yield* failures).toEqual([])
       }))

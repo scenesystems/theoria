@@ -325,11 +325,12 @@ atoms and views, `fetch` in the clients, `new URL` in 40 files, host timers and
 request id. Each is now an Effect service or an Effect module, and the ESLint
 `HOST_GLOBAL_RULES` (`eslint/effect/builtins.mjs`) reject the globals so they
 cannot return. `window`, `document` and `navigator` are covered by the
-scope-aware `no-restricted-globals` block in `eslint/scopes.mjs`, which applies
-to shipped code (`packages/*/src`, `apps/*/app`, `scripts`) outside
-`apps/*/app/web/platform/`, the one module that acquires them. Test code is
-outside that block because Playwright's `page.evaluate` callbacks run inside
-the page, where the DOM is the only API there is.
+`no-restricted-globals` block in `eslint/scopes.mjs`, which applies to every
+TypeScript file outside two platform modules: `apps/*/app/web/platform/`, which
+acquires them as services for the app, and `apps/*/test/worker/platform/`,
+which holds the functions Playwright serialises and runs inside the page. A
+worker test never names the DOM itself; it passes one of those functions to
+`page.evaluate`, `locator.evaluate` or `page.waitForFunction`.
 
 - **Browser.** `apps/theoria/app/web/platform/` defines `BrowserWindow` and
   `BrowserDocument` tags acquired once in a `Layer.sync`, plus

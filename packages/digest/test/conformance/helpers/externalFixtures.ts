@@ -24,16 +24,16 @@ const resolveFixtureRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(f
 
 export const readExternalFixture = (
   relativePath: string
-): Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> =>
+) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const root = yield* resolveFixtureRoot
-    return yield* fileSystem.readFileString(path.join(root, relativePath)).pipe(Effect.orDie)
+    return yield* fileSystem.readFileString(path.join(root, relativePath))
   })
 
 export const loadExternalFixtureManifest = readExternalFixture("sources.manifest.json").pipe(
-  Effect.flatMap((content) => Schema.decodeUnknown(ExternalFixtureManifestSchema)(content).pipe(Effect.orDie))
+  Effect.flatMap(Schema.decodeUnknown(ExternalFixtureManifestSchema))
 )
 
 export const selectExternalSourcesByKind = (

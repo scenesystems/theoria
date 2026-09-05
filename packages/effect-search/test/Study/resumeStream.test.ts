@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Either, Option, Schema, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Either, Schema, Stream } from "effect"
 
 import { InvalidStudyConfig } from "../../src/Errors/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
@@ -27,7 +27,8 @@ const objectiveFromSpace = (space: SearchSpace.SearchSpace) => {
   }
 }
 
-const asSingleObjective = (result: Study.StudyResult) => result._tag === "SingleObjective" ? result : undefined
+const asSingleObjective = (result: Study.StudyResult) =>
+  Arr.findFirst([result], (candidate) => candidate._tag === "SingleObjective")
 
 describe("Study.resumeStream", () => {
   it.effect("streams resumed lifecycle events and completes with StudyCompleted", () =>
@@ -41,7 +42,7 @@ describe("Study.resumeStream", () => {
         trials: 4,
         objective
       })
-      const single = yield* Option.fromNullable(asSingleObjective(baseline))
+      const single = yield* asSingleObjective(baseline)
 
       const snapshot = yield* Study.snapshot(single)
       const eventsChunk = yield* Stream.runCollect(
@@ -73,7 +74,7 @@ describe("Study.resumeStream", () => {
         trials: 3,
         objective
       })
-      const single = yield* Option.fromNullable(asSingleObjective(baseline))
+      const single = yield* asSingleObjective(baseline)
 
       const snapshot = yield* Study.snapshot(single)
       const resumed = yield* Effect.either(

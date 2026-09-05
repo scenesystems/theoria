@@ -9,6 +9,12 @@ import {
 } from "@playwright/test"
 import { Chunk, Context, Data, Effect, Layer, Predicate, Queue, Schema, type Scope } from "effect"
 
+import {
+  distinctTextColours,
+  documentFitsViewport,
+  elementsPastViewport,
+  finiteAnimationsFinished
+} from "./platform/in-page.js"
 import { Site } from "./site.js"
 
 /**
@@ -123,24 +129,13 @@ export const eventually = <A>(read: () => Promise<A>, expected: A) => act(() => 
 /**
  * Syntax highlighting is visible: the code paints its tokens in more than one
  * colour. The highlighter loads after first render, so this retries until the
- * colours appear or Playwright's assertion timeout elapses. The count runs in
- * the page, so it is plain DOM code.
+ * colours appear or Playwright's assertion timeout elapses.
  */
 export const highlighted = (code: Locator): Effect.Effect<void, BrowserError> =>
-  act(() =>
-    inBrowser.poll(() =>
-      code.evaluate((root) =>
-        [root, ...root.querySelectorAll("*")]
-          .map((element) => getComputedStyle(element).color)
-          .filter((colour, index, colours) => colours.indexOf(colour) === index)
-          .length
-      )
-    ).toBeGreaterThan(1)
-  )
+  act(() => inBrowser.poll(() => code.evaluate(distinctTextColours)).toBeGreaterThan(1))
 
 /** True when the document does not scroll horizontally at the current viewport. */
-export const fitsViewport = (page: Page) =>
-  act(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+export const fitsViewport = (page: Page) => act(() => page.evaluate(documentFitsViewport))
 
 /**
  * Waits until every finite animation on the page (CSS animations and
@@ -148,40 +143,7 @@ export const fitsViewport = (page: Page) =>
  * measured at rest rather than mid-flight after a viewport change.
  */
 export const animationsSettled = (page: Page) =>
-  Effect.asVoid(
-    act(() =>
-      page.waitForFunction(() =>
-        document.getAnimations().every((animation) =>
-          animation.playState === "finished" || animation.effect?.getComputedTiming().iterations === Infinity
-        )
-      )
-    )
-  )
+  Effect.asVoid(act(() => page.waitForFunction(finiteAnimationsFinished)))
 
-/**
- * Elements that leak past the viewport. Content inside an ancestor that itself
- * fits and scrolls (code listings, tab strips) or clips (`overflow: clip`
- * decoration) is not painted past the edge, so only the ancestor counts. Runs
- * in the page, so it is plain DOM code.
- */
-export const overflowingElements = (page: Page) =>
-  act(() =>
-    page.evaluate(() => {
-      const limit = window.innerWidth + 1
-      const clips = (element: Element) =>
-        ["auto", "scroll", "hidden", "clip"].includes(getComputedStyle(element).overflowX)
-      const clippedByAncestor = (element: Element): boolean => {
-        const ancestor = element.parentElement
-        return ancestor instanceof Element && ancestor !== document.body &&
-          ((clips(ancestor) && ancestor.getBoundingClientRect().right <= limit) || clippedByAncestor(ancestor))
-      }
-      const describe = (element: Element) =>
-        `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}@${
-          String(Math.round(element.getBoundingClientRect().right))
-        }`
-      return [...document.querySelectorAll("body *")]
-        .filter((element) => element.getBoundingClientRect().right > limit)
-        .filter((element) => !clippedByAncestor(element))
-        .map(describe)
-    })
-  )
+/** Elements that leak past the viewport; see `elementsPastViewport`. */
+export const overflowingElements = (page: Page) => act(() => page.evaluate(elementsPastViewport))

@@ -181,7 +181,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         })
       )
       expect(built.status).toBe(200)
-      const envelope = yield* Schema.decodeUnknown(PlaceBuildEnvelope)(yield* json(built)).pipe(Effect.orDie)
+      const envelope = yield* Schema.decodeUnknown(PlaceBuildEnvelope)(yield* json(built))
       expect(envelope.ok).toBe(true)
       expect(envelope.ok && envelope.data.artifact.scenario).toBe("lost-market")
       expect(envelope.ok && envelope.data.artifact.accepted).toHaveLength(2)

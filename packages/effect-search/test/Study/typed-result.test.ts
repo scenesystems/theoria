@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Option, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Option, Stream } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
@@ -29,8 +29,9 @@ describe("Study typed results", () => {
       })
       const typedResult: Study.StudyResult<SearchSpace.Type<typeof space>> = optimized
 
-      const singleObjective = yield* Option.fromNullable(
-        typedResult._tag === "SingleObjective" ? typedResult : undefined
+      const singleObjective = yield* Option.liftPredicate(
+        typedResult,
+        (result) => result._tag === "SingleObjective"
       )
       const typedBestConfig = expectTypedConfig(singleObjective.bestTrial.config)
 
@@ -74,8 +75,11 @@ describe("Study typed results", () => {
         }
       })
 
-      const multiObjective = yield* Option.fromNullable(optimized._tag === "MultiObjective" ? optimized : undefined)
-      const firstPareto = yield* Option.fromNullable(multiObjective.paretoFront[0])
+      const multiObjective = yield* Option.liftPredicate(
+        optimized,
+        (result) => result._tag === "MultiObjective"
+      )
+      const firstPareto = yield* Arr.last(multiObjective.paretoFront)
       const typedParetoConfig = expectTypedConfig(firstPareto.config)
 
       expect(typedParetoConfig.optimizer === "adam" || typedParetoConfig.optimizer === "sgd").toBe(true)

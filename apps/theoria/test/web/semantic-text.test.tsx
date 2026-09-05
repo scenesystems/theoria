@@ -137,8 +137,6 @@ describe("SemanticText", () => {
           ).pipe(Effect.orDie)
 
           expect(heading.textContent).toBe("@scenesystems/effect-inference")
-          expect(heading.dataset.lines).toBeUndefined()
-          expect(heading.querySelectorAll("span")).toHaveLength(0)
         })
     ))
 

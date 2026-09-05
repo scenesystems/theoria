@@ -24,7 +24,7 @@ const completedValues = (trials: Array<Trial.Trial<unknown>>): Array<number> =>
     Trial.matchState({
       Running: () => [],
       Completed: ({ value }) =>
-        Option.fromNullable(typeof value === "number" ? value : undefined).pipe(
+        Option.liftPredicate(value, (candidate): candidate is number => typeof candidate === "number").pipe(
           Option.match({
             onNone: () => [],
             onSome: (numericValue) => [numericValue]

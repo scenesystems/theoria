@@ -52,6 +52,9 @@ const harness = <A>(run: () => Promise<A>): Effect.Effect<A, SiteError> =>
     catch: (cause) => new SiteError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
   })
 
+const operationalError = (cause: unknown) =>
+  new SiteError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
+
 export class Site extends Context.Tag("test/worker/Site")<Site, {
   /** Origin of the local server, without a trailing slash. */
   readonly url: string
@@ -71,7 +74,7 @@ const missingBuild = (file: string) =>
 const requireFile = (file: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const exists = yield* fileSystem.exists(file).pipe(Effect.orDie)
+    const exists = yield* fileSystem.exists(file).pipe(Effect.mapError(operationalError))
     return yield* exists ? Effect.void : missingBuild(file)
   })
 
@@ -97,11 +100,11 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
 
     const manifest = yield* fileSystem.readFileString(path.join(distRoot, "docs-data", "manifest.json")).pipe(
       Effect.flatMap(Schema.decode(DocsManifestJson)),
-      Effect.orDie
+      Effect.mapError(operationalError)
     )
     const scripts = yield* fileSystem.readDirectory(path.join(distRoot, "assets")).pipe(
       Effect.map(Arr.filter(Str.endsWith(".js"))),
-      Effect.orDie
+      Effect.mapError(operationalError)
     )
     const hashedScript = yield* Arr.head(scripts).pipe(
       Option.match({

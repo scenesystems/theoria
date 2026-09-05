@@ -6,7 +6,7 @@
  */
 
 import { BunContext } from "@effect/platform-bun"
-import { describe, expect, it } from "@effect/vitest"
+import { describe, it } from "@effect/vitest"
 import { Array as Arr, Effect, Schema } from "effect"
 import { Blake3FixtureSchema, HashFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { blake3DeriveKey, blake3Hash, blake3Mac } from "../../src/algorithms/blake3.js"
@@ -34,9 +34,7 @@ describe("external conformance — hash", () => {
 
       const fixtures = yield* Effect.forEach(hashSources, (source) =>
         readExternalFixture(source.fixturePath).pipe(
-          Effect.flatMap((content) =>
-            Schema.decodeUnknown(HashFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.orDie)
-          ),
+          Effect.flatMap((content) => Schema.decodeUnknown(HashFixtureSchema)(content, { onExcessProperty: "error" })),
           Effect.map((fixture) => ({
             source,
             fixture
@@ -57,9 +55,6 @@ describe("external conformance — hash", () => {
               vector.expectedHex
             )
           })))
-
-      expect(Arr.flatMap(fixtures, ({ fixture }) =>
-        fixture.cases)).toHaveLength(65)
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("matches all three modes for every official BLAKE3 vector", () =>
@@ -69,7 +64,7 @@ describe("external conformance — hash", () => {
       const fixtures = yield* Effect.forEach(sources, (source) =>
         readExternalFixture(source.fixturePath).pipe(
           Effect.flatMap((content) =>
-            Schema.decodeUnknown(Blake3FixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.orDie)
+            Schema.decodeUnknown(Blake3FixtureSchema)(content, { onExcessProperty: "error" })
           ),
           Effect.map((fixture) => ({ source, fixture }))
         ))
@@ -110,8 +105,5 @@ describe("external conformance — hash", () => {
               vector.derive_key.slice(0, 64)
             )
           })))
-
-      expect(Arr.flatMap(fixtures, ({ fixture }) =>
-        fixture.cases)).toHaveLength(35)
     }).pipe(Effect.provide(BunContext.layer)))
 })

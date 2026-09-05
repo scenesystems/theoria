@@ -93,17 +93,16 @@ const fixturePath = (file: string): Effect.Effect<string, never, Path.Path> =>
 export const readConformanceFixture = (file: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    return yield* fileSystem.readFileString(yield* fixturePath(file)).pipe(Effect.orDie)
+    return yield* fileSystem.readFileString(yield* fixturePath(file))
   })
 
 export const readConformanceFixtureBytes = (file: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    return yield* fileSystem.readFile(yield* fixturePath(file)).pipe(Effect.orDie)
+    return yield* fileSystem.readFile(yield* fixturePath(file))
   })
 
 export const decodeConformanceFixture = <A, I>(file: string, schema: Schema.Schema<A, I>) =>
   readConformanceFixture(file).pipe(
-    Effect.flatMap(Schema.decodeUnknown(schema)),
-    Effect.orDie
+    Effect.flatMap(Schema.decodeUnknown(schema))
   )
