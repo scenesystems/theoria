@@ -7,6 +7,7 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Cache, Data, Effect, Layer, Option } from "effect"
 
 import { MeasurementCache, TextMeasurer } from "../contracts/index.js"
+import { getOrEvict } from "../Text/internal/cache.js"
 import type { FontDescriptorType } from "../Text/schema.js"
 import { type FontReadinessRevisionType, initialFontReadinessRevision } from "./fontReadiness.js"
 import {
@@ -60,7 +61,8 @@ const makeBrowserMeasurementCache = (options: {
 
     return {
       measure: (font: FontDescriptorType, text: string) =>
-        cache.get(
+        getOrEvict(
+          cache,
           encodeBrowserMeasurementKey(
             {
               fontReadinessRevision: options.fontReadinessRevision,
@@ -120,7 +122,7 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
               Option.match(emojiAdvanceCache, {
                 onNone: () => Effect.succeed(rawWidth),
                 onSome: (cache) =>
-                  cache.get(encodeFontKey(font)).pipe(
+                  getOrEvict(cache, encodeFontKey(font)).pipe(
                     Effect.flatMap((emojiAdvance) => {
                       const [strippedText] = stripEmojiClusters(text)
 
@@ -146,9 +148,10 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
  * @remarks
  * Optional emoji correction replaces under-reported emoji-cluster advances
  * using a per-font probe cache; non-emoji text keeps its raw canvas width. The
- * context is mutated during measurement, restored afterward, and must outlive
- * the layer. Concurrent calls are serialized. Context throws and non-finite or
- * negative widths fail as `MeasurementFailed`.
+ * context is mutated during measurement, restored afterward whether or not the
+ * measurement succeeded, and must outlive the layer. Concurrent calls are
+ * serialized. A `measureText` that throws and a non-finite or negative width
+ * fail as `MeasurementFailed`; a failed probe is not kept in the probe cache.
  *
  * @since 0.2.0
  * @category layers
@@ -164,6 +167,8 @@ export const CanvasTextMeasurerLive = (options: CanvasTextMeasurerOptions) =>
  * change measured widths or when browser support configuration differs by
  * profile. Rebuilding the layer with a new
  * `fontReadinessRevision` invalidates cached widths for the same font/text pair.
+ * Only successful measurements are kept: a failed one is evicted so the next
+ * request for the same text measures again.
  *
  * @since 0.2.0
  * @category layers

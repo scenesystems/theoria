@@ -180,13 +180,13 @@ export const measureCanvasText = (
     () =>
       text.length === 0
         ? Effect.succeed(0)
-        : Effect.sync(() => context.measureText(text).width).pipe(
+        : Effect.try({
+          try: () => context.measureText(text).width,
+          catch: (thrown) => measurementFailure(font, text, `measureText threw ${String(thrown)}`)
+        }).pipe(
           Effect.filterOrFail(
             (width) => Numeric.isFinite(width) && width >= 0,
             (width) => measurementFailure(font, text, `measureText returned ${String(width)}`)
-          ),
-          Effect.mapError((cause) =>
-            cause instanceof MeasurementFailed ? cause : measurementFailure(font, text, String(cause))
           )
         ),
     (snapshot) => restoreContext(context, snapshot)

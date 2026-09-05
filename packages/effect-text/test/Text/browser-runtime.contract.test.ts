@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect, Either, Layer, Ref } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
-import { Browser, Contracts, Text } from "../../src/index.js"
+import { Browser, Contracts, Errors, Text } from "../../src/index.js"
 
 const browserProfiles = Browser.BrowserSupportManifest.profiles
 const browserProfile = Browser.browserSupportProfile()
@@ -66,6 +66,20 @@ class EmojiCanvasContext {
     }
 
     return { width: text.length * 10 }
+  }
+}
+
+/**
+ * A host context whose `measureText` raises a `DOMException`, as a detached 2D
+ * context does. The host raises it: cloning a function is a `DataCloneError`.
+ */
+class DetachedCanvasContext {
+  direction: "ltr" | "rtl" | "inherit" = "inherit"
+  font = "10px monospace"
+  textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom" = "alphabetic"
+
+  measureText(text: string): { readonly width: number } {
+    return structuredClone({ width: text.length, detached: () => text })
   }
 }
 
@@ -327,5 +341,76 @@ describe("Text browser runtime contracts", () => {
         visualLine(1, "ef", 20)
       ])
       expect(result.largerSummary.maxLineWidth).toBe(72)
+    }))
+
+  it.effect("a throwing canvas context becomes a MeasurementFailed failure and the context is restored", () =>
+    Effect.gen(function*() {
+      const context = new DetachedCanvasContext()
+      const font: Text.FontDescriptorType = { family: browserProfile.defaultFontFamily, size: 10 }
+
+      const failure = yield* Effect.flip(
+        Text.prepare(prepareInput("alpha", font, "normal")).pipe(
+          Effect.provide(browserLayer(context, Browser.initialFontReadinessRevision()))
+        )
+      )
+
+      expect(failure).toBeInstanceOf(Errors.MeasurementFailed)
+      expect(failure.text).toBe("alpha")
+      expect(failure.reason).toContain("measureText threw DataCloneError")
+      expect(context.font).toBe("10px monospace")
+      expect(context.direction).toBe("inherit")
+      expect(context.textBaseline).toBe("alphabetic")
+    }))
+
+  it.effect("measurement caches evict failures so the next request measures again", () =>
+    Effect.gen(function*() {
+      const font: Text.FontDescriptorType = { family: browserProfile.defaultFontFamily, size: 10 }
+      const input = prepareInput("alpha", font, "normal")
+      const failingOnce = Layer.effect(
+        Contracts.TextMeasurer,
+        Effect.map(Ref.make(0), (calls) => ({
+          measure: (measuredFont: Text.FontDescriptorType, text: string) =>
+            Ref.updateAndGet(calls, (count) => count + 1).pipe(
+              Effect.flatMap((count) =>
+                count === 1
+                  ? Effect.fail(
+                    new Errors.MeasurementFailed({
+                      fontFamily: measuredFont.family,
+                      fontSize: measuredFont.size,
+                      text,
+                      reason: "font not ready"
+                    })
+                  )
+                  : Effect.succeed(text.length * 10)
+              )
+            )
+        }))
+      )
+      const cacheLayers: ReadonlyArray<Layer.Layer<Contracts.MeasurementCache>> = Arr.make(
+        Text.MeasurementCacheLive.pipe(Layer.provide(failingOnce)),
+        Browser.BrowserMeasurementCacheLive({
+          fontReadinessRevision: Browser.initialFontReadinessRevision(),
+          profileId: browserProfile.id
+        }).pipe(Layer.provide(failingOnce))
+      )
+
+      const outcomes = yield* Effect.forEach(cacheLayers, (cacheLayer) =>
+        Effect.gen(function*() {
+          const first = yield* Effect.either(Text.prepare(input))
+          const second = yield* Text.prepare(input)
+
+          return { first, second: Text.layout(second, { maxWidth: 100, lineHeight: 12 }).maxLineWidth }
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              Text.WordSegmenterLive,
+              Layer.succeed(Contracts.EngineProfile, defaultEngineProfile),
+              cacheLayer
+            )
+          )
+        ))
+
+      expect(Arr.map(outcomes, (outcome) => Either.isLeft(outcome.first))).toEqual([true, true])
+      expect(Arr.map(outcomes, (outcome) => outcome.second)).toEqual([50, 50])
     }))
 })

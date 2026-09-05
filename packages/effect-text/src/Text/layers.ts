@@ -19,6 +19,7 @@ import {
 import { EffectTextSupportManifest } from "../contracts/supportManifest.js"
 import { MeasurementFailed } from "../Errors/index.js"
 import { segmentText } from "./internal/analysis.js"
+import { getOrEvict } from "./internal/cache.js"
 import {
   type CompiledHyphenationDictionary,
   compileHyphenationDictionary,
@@ -69,7 +70,7 @@ const makeMeasurementCache = Effect.gen(function*() {
   })
 
   return {
-    measure: (font: FontDescriptorType, text: string) => cache.get(encodeMeasurementKey(font, text))
+    measure: (font: FontDescriptorType, text: string) => getOrEvict(cache, encodeMeasurementKey(font, text))
   }
 })
 
@@ -282,7 +283,8 @@ export const EngineProfileLive = Layer.succeed(EngineProfile, {
 /**
  * Acquires a 1,024-entry, 24-hour cache backed by the ambient `TextMeasurer`.
  * Cache identity includes font family, size, weight normalized to `400`, and
- * text. Measurement failures are retained in the `MeasurementFailed` channel.
+ * text. A failed measurement fails that read but is evicted, so the next
+ * request measures again instead of replaying the failure.
  *
  * @since 0.1.0
  * @category layers
