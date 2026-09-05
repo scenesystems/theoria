@@ -120,7 +120,7 @@ export class KeyGenerationFailed extends Schema.TaggedError<KeyGenerationFailed>
   {
     /** Suite whose key generation failed. */
     algorithm: CryptoAlgorithm,
-    /** Non-redacted diagnostic normalized by {@link generateKeyPair}. */
+    /** Non-redacted diagnostic reported by the selected key generator. */
     reason: Schema.String
   }
 ) {}

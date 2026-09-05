@@ -5,7 +5,7 @@
  * @internal
  */
 import { Effect } from "effect"
-import { SigningFailed, VerificationFailed } from "../schemas/errors.js"
+import { KeyGenerationFailed, SigningFailed, VerificationFailed } from "../schemas/errors.js"
 import type { CryptoAlgorithm } from "../schemas/KeyPair.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 import { Signature } from "../schemas/Signature.js"
@@ -44,8 +44,11 @@ export const makePqOps = (
       catch: (error) => new VerificationFailed({ algorithm, reason: String(error) })
     }),
   keygen: () =>
-    Effect.sync(() => {
-      const keys = primitive.keygen()
-      return new KeyPair({ algorithm, publicKey: keys.publicKey, secretKey: keys.secretKey })
+    Effect.try({
+      try: () => {
+        const keys = primitive.keygen()
+        return new KeyPair({ algorithm, publicKey: keys.publicKey, secretKey: keys.secretKey })
+      },
+      catch: (cause) => new KeyGenerationFailed({ algorithm, reason: String(cause) })
     })
 })

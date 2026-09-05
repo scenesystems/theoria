@@ -27,14 +27,12 @@ describe("generateEntropy", () => {
     }))
 
   it.effect("fails with EntropyGenerationFailed for a length the source rejects", () =>
-    Effect.gen(function*() {
-      yield* Effect.forEach([-1, 1.5, 65_537], (length) =>
-        Effect.map(Effect.either(generateEntropy(length)), (outcome) => {
-          expect(Either.isLeft(outcome)).toBe(true)
-          if (Either.isLeft(outcome)) {
-            expect(outcome.left).toBeInstanceOf(EntropyGenerationFailed)
-            expect(outcome.left.length).toBe(length)
-          }
-        }))
-    }))
+    Effect.forEach([-1, 1.5, 65_537], (length) =>
+      Effect.map(Effect.either(generateEntropy(length)), (outcome) => {
+        expect(Either.isLeft(outcome)).toBe(true)
+        if (Either.isLeft(outcome)) {
+          expect(outcome.left).toBeInstanceOf(EntropyGenerationFailed)
+          expect(outcome.left.length).toBe(length)
+        }
+      })))
 })

@@ -9,7 +9,12 @@
 import { ed25519 } from "@noble/curves/ed25519.js"
 import { Effect } from "effect"
 import { detachVerificationInputs } from "../internal/verificationInput.js"
-import { InvalidVerificationInput, SigningFailed, VerificationUnavailable } from "../schemas/errors.js"
+import {
+  InvalidVerificationInput,
+  KeyGenerationFailed,
+  SigningFailed,
+  VerificationUnavailable
+} from "../schemas/errors.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 import { Signature } from "../schemas/Signature.js"
 
@@ -102,13 +107,17 @@ export const ed25519Verify = (
 
 /**
  * Draws an Ed25519 key pair from Noble's ambient CSPRNG, returning a 32-byte
- * secret seed and its 32-byte compressed Edwards public key.
+ * secret seed and its 32-byte compressed Edwards public key. Fails with
+ * `KeyGenerationFailed` when the runtime CSPRNG is unavailable.
  *
  * @since 0.1.0
  * @category algorithms
  */
-export const ed25519Keygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = ed25519.keygen()
-    return new KeyPair({ algorithm: "ed25519", publicKey, secretKey })
+export const ed25519Keygen = (): Effect.Effect<KeyPair, KeyGenerationFailed> =>
+  Effect.try({
+    try: () => {
+      const { secretKey, publicKey } = ed25519.keygen()
+      return new KeyPair({ algorithm: "ed25519", publicKey, secretKey })
+    },
+    catch: (cause) => new KeyGenerationFailed({ algorithm: "ed25519", reason: String(cause) })
   })

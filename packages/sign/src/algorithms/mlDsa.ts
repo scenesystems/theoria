@@ -58,7 +58,8 @@ export const mlDsa44Verify = dsa44.verify
 
 /**
  * Draws an ML-DSA-44 key pair from Noble's ambient CSPRNG (1,312-byte public
- * key and 2,560-byte secret key).
+ * key and 2,560-byte secret key), failing with `KeyGenerationFailed` when the
+ * runtime CSPRNG is unavailable.
  * @since 0.1.0
  * @category algorithms
  */
@@ -201,7 +202,8 @@ export const mlDsa65Verify = (
 
 /**
  * Draws an ML-DSA-65 key pair from Noble's ambient CSPRNG (1,952-byte public
- * key and 4,032-byte secret key).
+ * key and 4,032-byte secret key), failing with `KeyGenerationFailed` when the
+ * runtime CSPRNG is unavailable.
  * @since 0.1.0
  * @category algorithms
  */
@@ -228,7 +230,8 @@ export const mlDsa87Verify = dsa87.verify
 
 /**
  * Draws an ML-DSA-87 key pair from Noble's ambient CSPRNG (2,592-byte public
- * key and 4,896-byte secret key).
+ * key and 4,896-byte secret key), failing with `KeyGenerationFailed` when the
+ * runtime CSPRNG is unavailable.
  * @since 0.1.0
  * @category algorithms
  */

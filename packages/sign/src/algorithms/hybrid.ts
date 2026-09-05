@@ -13,7 +13,7 @@
  */
 import { ml_kem768_x25519 } from "@noble/post-quantum/hybrid.js"
 import { Effect } from "effect"
-import { KemFailed } from "../schemas/errors.js"
+import { KemFailed, KeyGenerationFailed } from "../schemas/errors.js"
 import { KemCiphertext } from "../schemas/KemCiphertext.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 
@@ -60,13 +60,17 @@ export const xwingDecapsulate = (
 
 /**
  * Draws an X-Wing key pair from Noble's ambient CSPRNG, returning a 1,216-byte
- * serialized X25519 + ML-KEM-768 public key and a 32-byte secret seed.
+ * serialized X25519 + ML-KEM-768 public key and a 32-byte secret seed. Fails
+ * with `KeyGenerationFailed` when the runtime CSPRNG is unavailable.
  *
  * @since 0.1.0
  * @category algorithms
  */
-export const xwingKeygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = ml_kem768_x25519.keygen()
-    return new KeyPair({ algorithm: "xwing", publicKey, secretKey })
+export const xwingKeygen = (): Effect.Effect<KeyPair, KeyGenerationFailed> =>
+  Effect.try({
+    try: () => {
+      const { secretKey, publicKey } = ml_kem768_x25519.keygen()
+      return new KeyPair({ algorithm: "xwing", publicKey, secretKey })
+    },
+    catch: (cause) => new KeyGenerationFailed({ algorithm: "xwing", reason: String(cause) })
   })
