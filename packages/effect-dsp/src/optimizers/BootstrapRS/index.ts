@@ -147,7 +147,7 @@ export const bootstrapRS = <
     })
 
     if (allCandidates.length <= 0) {
-      return yield* Effect.fail(noCandidateError())
+      return yield* noCandidateError()
     }
 
     const scoredCandidates = yield* scoreCandidates({
@@ -158,7 +158,7 @@ export const bootstrapRS = <
     })
 
     if (scoredCandidates.length <= 0) {
-      return yield* Effect.fail(noCandidateError())
+      return yield* noCandidateError()
     }
 
     const selectedCandidate = yield* selectBestCandidate(scoredCandidates)

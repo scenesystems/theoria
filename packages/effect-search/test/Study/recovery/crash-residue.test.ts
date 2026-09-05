@@ -63,7 +63,7 @@ const storageLayerFromReplayTail = (
   Layer.succeed(Study.StudyStorage, {
     appendTrial: (_trial) => Effect.void,
     writeSnapshot: (_snapshot) => Effect.void,
-    loadSnapshot: () => Effect.succeed(Option.some(snapshot)),
+    loadSnapshot: () => Effect.succeedSome(snapshot),
     loadTrialLog: () => Effect.succeed(Arr.empty<Study.SnapshotTrial>()),
     replayTrialLog: () => Effect.succeed(Arr.fromIterable(replayTail))
   })

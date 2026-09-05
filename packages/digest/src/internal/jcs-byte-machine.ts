@@ -27,7 +27,7 @@ export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.E
       Effect.iterate(0, {
         while: (at) => at < Chunk.size(segments),
         body: (at) =>
-          Effect.flatMap(
+          Effect.filterOrElse(
             Effect.sync(() =>
               Arr.reduce(CONTROL_TOKENS, at, (next) => {
                 if (next === Chunk.size(segments)) return next
@@ -37,7 +37,8 @@ export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.E
                 return next + 1
               })
             ),
-            (next) => next < Chunk.size(segments) ? Effect.as(cooperate(encodeBatches), next) : Effect.succeed(next)
+            (next) => next >= Chunk.size(segments),
+            (next) => Effect.as(cooperate(encodeBatches), next)
           )
       }),
       () => {
@@ -48,7 +49,7 @@ export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.E
           Effect.iterate(0, {
             while: (copied) => copied < Chunk.size(segments),
             body: (copied) =>
-              Effect.flatMap(
+              Effect.filterOrElse(
                 Effect.sync(() =>
                   Arr.reduce(CONTROL_TOKENS, copied, (next) =>
                     next === Chunk.size(segments)
@@ -62,7 +63,8 @@ export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.E
                         }
                       }))
                 ),
-                (next) => next < Chunk.size(segments) ? Effect.as(cooperate(copyBatches), next) : Effect.succeed(next)
+                (next) => next >= Chunk.size(segments),
+                (next) => Effect.as(cooperate(copyBatches), next)
               )
           }),
           output

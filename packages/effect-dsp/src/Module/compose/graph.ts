@@ -212,11 +212,11 @@ const visitChildNode = (options: {
     const moduleId = yield* decodeModuleId(options.childNode.name, `composed module '${options.childNode.name}'`)
 
     if (moduleId === options.rootId) {
-      return yield* Effect.fail(rootCollisionError(moduleId))
+      return yield* rootCollisionError(moduleId)
     }
 
     if (options.stack.includes(moduleId)) {
-      return yield* Effect.fail(cycleError(options.stack, moduleId))
+      return yield* cycleError(options.stack, moduleId)
     }
 
     return yield* Option.match(HashMap.get(options.state.nodeById, moduleId), {

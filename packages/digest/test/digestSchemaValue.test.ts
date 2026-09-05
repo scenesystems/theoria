@@ -764,7 +764,7 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
       const parameter = Schema.suspend(() => Schema.NumberFromString)
       const declaration = Schema.OptionFromSelf(parameter).pipe(Schema.filter(() => true))
       const schema: Schema.Schema.AnyNoContext = Schema.transform(
-        Schema.Struct({ _tag: Schema.Literal("Some"), value: Schema.String }),
+        Schema.TaggedStruct("Some", { value: Schema.String }),
         declaration,
         {
           strict: true,

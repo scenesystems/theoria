@@ -89,9 +89,8 @@ describe("Sampler.grid", () => {
   it.effect("enumerates deterministic 3×4×2 cartesian order with no duplicates", () =>
     Effect.gen(function*() {
       const space = exhaustiveSpace()
-      const decode = Schema.decodeUnknownSync(space.schema)
       const candidates = yield* collectSuggestions(space, 24)
-      const decoded = Arr.map(candidates, (candidate) => decode(candidate))
+      const decoded = yield* Effect.forEach(candidates, (candidate) => Schema.decodeUnknown(space.schema)(candidate))
       const observedKeys = Arr.map(decoded, configKey)
       const alphaChoices = Arr.map(choicesFor(space, "alpha"), (choice) => String(choice))
       const betaChoices = Arr.map(choicesFor(space, "beta"), (choice) => String(choice))

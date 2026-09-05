@@ -28,7 +28,7 @@ export const liveRoute = (requestId: string) =>
     const runtimeInfo = yield* RuntimeInfo
     const meta = yield* responseMeta(requestId, runtimeInfo.buildSha, startedAtMs)
 
-    return jsonResponse({
+    return yield* jsonResponse({
       ok: true,
       meta,
       data: {
@@ -44,7 +44,7 @@ export const readyRoute = (requestId: string) =>
     const now = yield* Clock.currentTimeMillis
     const meta = yield* responseMeta(requestId, runtimeInfo.buildSha, startedAtMs)
 
-    return jsonResponse({
+    return yield* jsonResponse({
       ok: true,
       meta,
       data: {

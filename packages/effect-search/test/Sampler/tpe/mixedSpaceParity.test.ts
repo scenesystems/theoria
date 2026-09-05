@@ -93,7 +93,7 @@ const traceFromDimension = (
 
     if (dimension.kind === "categorical") {
       if (parameter.distribution.type !== "categorical") {
-        return yield* Effect.fail(new UnexpectedDistribution({ name: parameter.name, expected: "categorical" }))
+        return yield* new UnexpectedDistribution({ name: parameter.name, expected: "categorical" })
       }
 
       const trace = yield* categoricalCandidateTraceFromRolls(
@@ -118,7 +118,7 @@ const traceFromDimension = (
 
     if (dimension.kind === "float") {
       if (parameter.distribution.type !== "float") {
-        return yield* Effect.fail(new UnexpectedDistribution({ name: parameter.name, expected: "float" }))
+        return yield* new UnexpectedDistribution({ name: parameter.name, expected: "float" })
       }
 
       const trace = yield* floatCandidateTraceFromRolls(
@@ -148,7 +148,7 @@ const traceFromDimension = (
     }
 
     if (parameter.distribution.type !== "int") {
-      return yield* Effect.fail(new UnexpectedDistribution({ name: parameter.name, expected: "int" }))
+      return yield* new UnexpectedDistribution({ name: parameter.name, expected: "int" })
     }
 
     const trace = yield* intCandidateTraceFromRolls(

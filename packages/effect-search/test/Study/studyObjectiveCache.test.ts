@@ -159,7 +159,7 @@ describe("StudyObjectiveCache", () => {
         ) =>
           Effect.gen(function*() {
             yield* Ref.set(removed, true)
-            return yield* Effect.fail(backendFailure)
+            return yield* backendFailure
           })
       }
 

@@ -72,58 +72,54 @@ const configTrace = (result: Study.SingleObjectiveResult) => result.trials.map((
 
 describe("integration tpe acquisition strategies", () => {
   it.effect("replays deterministically for EI, PI, and Thompson with fixed seeds", () =>
-    Effect.gen(function*() {
-      yield* Effect.forEach(
-        acquisitionModes,
-        (acquisition) =>
-          Effect.gen(function*() {
-            const left = yield* optimizeWithAcquisition(acquisition, 61)
-            const right = yield* optimizeWithAcquisition(acquisition, 61)
-            const leftOption = asSingleObjective(left)
-            const rightOption = asSingleObjective(right)
+    Effect.forEach(
+      acquisitionModes,
+      (acquisition) =>
+        Effect.gen(function*() {
+          const left = yield* optimizeWithAcquisition(acquisition, 61)
+          const right = yield* optimizeWithAcquisition(acquisition, 61)
+          const leftOption = asSingleObjective(left)
+          const rightOption = asSingleObjective(right)
 
-            expect(Option.isSome(leftOption), acquisition).toBe(true)
-            expect(Option.isSome(rightOption), acquisition).toBe(true)
+          expect(Option.isSome(leftOption), acquisition).toBe(true)
+          expect(Option.isSome(rightOption), acquisition).toBe(true)
 
-            if (Option.isNone(leftOption) || Option.isNone(rightOption)) {
-              return
-            }
+          if (Option.isNone(leftOption) || Option.isNone(rightOption)) {
+            return
+          }
 
-            expect(configTrace(leftOption.value), acquisition).toEqual(configTrace(rightOption.value))
-            expect(leftOption.value.bestTrial.state.value, acquisition).toBe(rightOption.value.bestTrial.state.value)
-          }),
-        { discard: true }
-      )
-    }))
+          expect(configTrace(leftOption.value), acquisition).toEqual(configTrace(rightOption.value))
+          expect(leftOption.value.bestTrial.state.value, acquisition).toBe(rightOption.value.bestTrial.state.value)
+        }),
+      { discard: true }
+    ))
 
   it.effect(
     "stays competitive with random search while preserving finite convergence across built-ins",
     () =>
-      Effect.gen(function*() {
-        yield* Effect.forEach(
-          acquisitionModes,
-          (acquisition) =>
-            Effect.gen(function*() {
-              const optimized = yield* optimizeWithAcquisition(acquisition, 109)
-              const random = yield* optimizeRandom(109)
-              const optimizedOption = asSingleObjective(optimized)
-              const randomOption = asSingleObjective(random)
+      Effect.forEach(
+        acquisitionModes,
+        (acquisition) =>
+          Effect.gen(function*() {
+            const optimized = yield* optimizeWithAcquisition(acquisition, 109)
+            const random = yield* optimizeRandom(109)
+            const optimizedOption = asSingleObjective(optimized)
+            const randomOption = asSingleObjective(random)
 
-              expect(Option.isSome(optimizedOption), acquisition).toBe(true)
-              expect(Option.isSome(randomOption), acquisition).toBe(true)
+            expect(Option.isSome(optimizedOption), acquisition).toBe(true)
+            expect(Option.isSome(randomOption), acquisition).toBe(true)
 
-              if (Option.isNone(optimizedOption) || Option.isNone(randomOption)) {
-                return
-              }
+            if (Option.isNone(optimizedOption) || Option.isNone(randomOption)) {
+              return
+            }
 
-              expect(Number.isFinite(optimizedOption.value.bestTrial.state.value), acquisition).toBe(true)
-              expect(optimizedOption.value.bestTrial.state.value, acquisition).toBeLessThanOrEqual(0.85)
-              expect(optimizedOption.value.bestTrial.state.value, acquisition).toBeLessThanOrEqual(
-                randomOption.value.bestTrial.state.value + 0.2
-              )
-            }),
-          { discard: true }
-        )
-      })
+            expect(Number.isFinite(optimizedOption.value.bestTrial.state.value), acquisition).toBe(true)
+            expect(optimizedOption.value.bestTrial.state.value, acquisition).toBeLessThanOrEqual(0.85)
+            expect(optimizedOption.value.bestTrial.state.value, acquisition).toBeLessThanOrEqual(
+              randomOption.value.bestTrial.state.value + 0.2
+            )
+          }),
+        { discard: true }
+      )
   )
 })

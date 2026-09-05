@@ -215,13 +215,13 @@ export const runConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
     const skipTrial = skipNextTrial || skipByCost
 
     return yield* Match.value(skipTrial).pipe(
-      Match.when(true, () => Effect.succeed(Option.none())),
+      Match.when(true, () => Effect.succeedNone),
       Match.orElse(() =>
         reserveConfiguredTrial(config, trialNumber, runtime).pipe(
           Effect.flatMap((running) =>
             executeReservedTrial(options, settings, pruningPolicy, trialNumber, runtime, running, resource)
           ),
-          Effect.map(Option.some)
+          Effect.asSome
         )
       )
     )

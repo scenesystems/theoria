@@ -125,10 +125,9 @@ describe("examples/07-miprov2-resume-from-storage", () => {
       )
 
       const space = makeSpace()
-      const decode = Schema.decodeUnknownSync(space.schema)
       const objective = (raw: unknown) =>
         Effect.gen(function*() {
-          const config = decode(raw)
+          const config = yield* Schema.decodeUnknown(space.schema)(raw)
 
           yield* Ref.set(
             module.params,

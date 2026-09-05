@@ -25,13 +25,11 @@ const evidence = Runtime.makeRuntimeEvidence({
   }
 })
 
-export const program = Effect.gen(function*() {
-  yield* Effect.log({
-    requestedModel: evidence.desired.artifact.modelRef,
-    routeFamily: evidence.resolvedRoute.route.family,
-    baseUrl: evidence.resolvedRoute.route.baseUrl,
-    responseModel: evidence.resolvedRuntime.responseModel
-  })
+export const program = Effect.log({
+  requestedModel: evidence.desired.artifact.modelRef,
+  routeFamily: evidence.resolvedRoute.route.family,
+  baseUrl: evidence.resolvedRoute.route.baseUrl,
+  responseModel: evidence.resolvedRuntime.responseModel
 })
 
 if (import.meta.main) {

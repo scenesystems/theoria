@@ -50,14 +50,12 @@ export const decodeDistributionDomain = (input: unknown) =>
   Schema.decodeUnknown(DistributionDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Distribution",
-          contract: "DistributionDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Distribution",
+        contract: "DistributionDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -72,14 +70,12 @@ export const decodeDistributionDomain = (input: unknown) =>
  */
 export const encodeDistributionDomain = (domain: DistributionDomain) =>
   Schema.encode(DistributionDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Distribution",
-          contract: "DistributionDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Distribution",
+        contract: "DistributionDomainSchema",
+        message: error.message
+      })
     )
   )
 

@@ -104,14 +104,12 @@ const program = Effect.gen(function*() {
           )
         )
         if (!exists) {
-          return yield* Effect.fail(
-            new FixtureCheckError({
-              name: entry.name,
-              file: entry.file,
-              reason: "file does not exist",
-              cause: Option.none()
-            })
-          )
+          return yield* new FixtureCheckError({
+            name: entry.name,
+            file: entry.file,
+            reason: "file does not exist",
+            cause: Option.none()
+          })
         }
 
         const raw = yield* fs.readFileString(filePath).pipe(
@@ -147,14 +145,12 @@ const program = Effect.gen(function*() {
           )
         )
         if (fixture.fixture !== entry.name) {
-          return yield* Effect.fail(
-            new FixtureCheckError({
-              name: entry.name,
-              file: entry.file,
-              reason: `name mismatch: manifest says "${entry.name}" but fixture contains "${fixture.fixture}"`,
-              cause: Option.none()
-            })
-          )
+          return yield* new FixtureCheckError({
+            name: entry.name,
+            file: entry.file,
+            reason: `name mismatch: manifest says "${entry.name}" but fixture contains "${fixture.fixture}"`,
+            cause: Option.none()
+          })
         }
         return entry.name
       }).pipe(Effect.either)
@@ -194,14 +190,12 @@ const program = Effect.gen(function*() {
   yield* Console.log(`Results: ${passed.length} passed, ${allErrors.length} failed`)
 
   if (Arr.isNonEmptyArray(allErrors)) {
-    return yield* Effect.fail(
-      new FixtureCheckError({
-        name: "summary",
-        file: "",
-        reason: `${allErrors.length} fixture check failure(s)`,
-        cause: Option.none()
-      })
-    )
+    return yield* new FixtureCheckError({
+      name: "summary",
+      file: "",
+      reason: `${allErrors.length} fixture check failure(s)`,
+      cause: Option.none()
+    })
   }
 })
 

@@ -80,7 +80,7 @@ export const objectiveRuntime = new ObjectiveTrialRuntime({
         )
     ),
   resource: withCurrentTrialContext(
-    () => Effect.succeed(Option.none()),
+    () => Effect.succeedNone,
     (context) => Effect.succeed(context.resource)
   )
 })

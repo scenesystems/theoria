@@ -42,14 +42,12 @@ export const decodeCalculusDomain = (input: unknown) =>
   Schema.decodeUnknown(CalculusDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Calculus",
-          contract: "CalculusDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Calculus",
+        contract: "CalculusDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -64,14 +62,12 @@ export const decodeCalculusDomain = (input: unknown) =>
  */
 export const encodeCalculusDomain = (domain: CalculusDomain) =>
   Schema.encode(CalculusDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Calculus",
-          contract: "CalculusDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Calculus",
+        contract: "CalculusDomainSchema",
+        message: error.message
+      })
     )
   )
 

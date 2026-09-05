@@ -17,7 +17,7 @@ export const versionRoute = (requestId: string) =>
     const runtimeInfo = yield* RuntimeInfo
     const endedAtMs = yield* Clock.currentTimeMillis
 
-    return jsonResponse({
+    return yield* jsonResponse({
       ok: true,
       meta: {
         requestId,

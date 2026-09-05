@@ -36,7 +36,7 @@ const readOptionalManifest = (manifestPath: string) =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const exists = yield* fs.exists(manifestPath)
-    return yield* exists ? Effect.map(readManifest(manifestPath), Option.some) : Effect.succeedNone
+    return yield* exists ? Effect.asSome(readManifest(manifestPath)) : Effect.succeedNone
   })
 
 const packageDirectories = Effect.gen(function*() {

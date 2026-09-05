@@ -30,9 +30,9 @@ export const evaluateObjectiveWithTimeout = <A, E, R>(
     )
 
     const objectiveExitOption = yield* Deferred.await(objectiveCompletion).pipe(
-      Effect.map(Option.some),
+      Effect.asSome,
       Effect.timeout(trialTimeout),
-      Effect.catchTag("TimeoutException", () => Effect.succeed(Option.none()))
+      Effect.catchTag("TimeoutException", () => Effect.succeedNone)
     )
 
     yield* Effect.when(

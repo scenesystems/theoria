@@ -32,7 +32,7 @@ describe("Study.streamFromEmitter", () => {
         Study.streamFromEmitter<string, void, StreamBridgeFailure, never>((emit: Study.EmitterSink<string>) =>
           Effect.gen(function*() {
             yield* emit("first")
-            return yield* Effect.fail(new StreamBridgeFailure({ message: "boom" }))
+            return yield* new StreamBridgeFailure({ message: "boom" })
           })
         ).pipe(
           Stream.runForEach((event) => Ref.update(seenRef, (seen) => Arr.append(seen, event)))

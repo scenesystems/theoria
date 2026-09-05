@@ -93,7 +93,7 @@ export const parseRecord = (
           onSome: (mode) =>
             mode === "ignore"
               ? Effect.succeed(Option.none<ReadonlyArray<PropertyKey>>())
-              : Effect.map(ownKeysSnapshot(input), Option.some)
+              : ownKeysSnapshot(input).pipe(Effect.asSome)
         })
 
         yield* Option.match(inputKeys, {

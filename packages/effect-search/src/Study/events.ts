@@ -43,7 +43,7 @@ export class EventPublisher extends Data.Class<{
  * @category constructors
  */
 export const noopEventPublisher = new EventPublisher({
-  publish: () => Effect.succeed(undefined)
+  publish: () => Effect.void
 })
 
 /**
@@ -184,15 +184,15 @@ export const emitLifecycleEvents = <Config>(
 ): Effect.Effect<void, ArtifactStorageError> =>
   Effect.gen(function*() {
     yield* Option.match(eventFromFinalizedTrial(finalized), {
-      onNone: () => Effect.succeed(undefined),
+      onNone: () => Effect.void,
       onSome: (event) => appendEvent(runtime, event)
     })
 
     yield* Trial.matchState({
-      Running: () => Effect.succeed(undefined),
-      Pruned: () => Effect.succeed(undefined),
-      Failed: () => Effect.succeed(undefined),
-      Cancelled: () => Effect.succeed(undefined),
+      Running: () => Effect.void,
+      Pruned: () => Effect.void,
+      Failed: () => Effect.void,
+      Cancelled: () => Effect.void,
       Completed: ({ value }) =>
         matchObjectiveSpec({
           Single: ({ direction }) =>
@@ -214,9 +214,9 @@ export const emitLifecycleEvents = <Config>(
                   ),
                   Effect.asVoid
                 )),
-              Match.orElse(() => Effect.succeed(undefined))
+              Match.orElse(() => Effect.void)
             ),
-          Multi: () => Effect.succeed(undefined)
+          Multi: () => Effect.void
         })(objectiveSpec)
     })(finalized.state)
   })

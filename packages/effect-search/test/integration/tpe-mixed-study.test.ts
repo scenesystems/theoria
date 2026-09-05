@@ -62,49 +62,47 @@ describe("integration mixed-space tpe study", () => {
   it.effect(
     "matches random during startup and diverges post-startup across stress scenarios",
     () =>
-      Effect.gen(function*() {
-        yield* Effect.forEach(
-          stressScenarios,
-          (scenario) =>
-            Effect.gen(function*() {
-              const tpeResult = yield* optimizeWith(
-                Sampler.tpe({
-                  seed: scenario.seed,
-                  nStartupTrials: scenario.startupTrials,
-                  nEiCandidates: scenario.nEiCandidates
-                }),
-                scenario.trials
-              )
-              const randomResult = yield* optimizeWith(Sampler.random({ seed: scenario.seed }), scenario.trials)
-              const tpeOption = asSingleObjective(tpeResult)
-              const randomOption = asSingleObjective(randomResult)
+      Effect.forEach(
+        stressScenarios,
+        (scenario) =>
+          Effect.gen(function*() {
+            const tpeResult = yield* optimizeWith(
+              Sampler.tpe({
+                seed: scenario.seed,
+                nStartupTrials: scenario.startupTrials,
+                nEiCandidates: scenario.nEiCandidates
+              }),
+              scenario.trials
+            )
+            const randomResult = yield* optimizeWith(Sampler.random({ seed: scenario.seed }), scenario.trials)
+            const tpeOption = asSingleObjective(tpeResult)
+            const randomOption = asSingleObjective(randomResult)
 
-              expect(Option.isSome(tpeOption), scenario.label).toBe(true)
-              expect(Option.isSome(randomOption), scenario.label).toBe(true)
+            expect(Option.isSome(tpeOption), scenario.label).toBe(true)
+            expect(Option.isSome(randomOption), scenario.label).toBe(true)
 
-              if (Option.isNone(tpeOption) || Option.isNone(randomOption)) {
-                return
-              }
+            if (Option.isNone(tpeOption) || Option.isNone(randomOption)) {
+              return
+            }
 
-              const startupTpeConfigs = tpeOption.value.trials
-                .slice(0, scenario.startupTrials)
-                .map((trial) => trial.config)
-              const startupRandomConfigs = randomOption.value.trials
-                .slice(0, scenario.startupTrials)
-                .map((trial) => trial.config)
-              const postStartupTpeConfigs = tpeOption.value.trials
-                .slice(scenario.startupTrials)
-                .map((trial) => trial.config)
-              const postStartupRandomConfigs = randomOption.value.trials
-                .slice(scenario.startupTrials)
-                .map((trial) => trial.config)
+            const startupTpeConfigs = tpeOption.value.trials
+              .slice(0, scenario.startupTrials)
+              .map((trial) => trial.config)
+            const startupRandomConfigs = randomOption.value.trials
+              .slice(0, scenario.startupTrials)
+              .map((trial) => trial.config)
+            const postStartupTpeConfigs = tpeOption.value.trials
+              .slice(scenario.startupTrials)
+              .map((trial) => trial.config)
+            const postStartupRandomConfigs = randomOption.value.trials
+              .slice(scenario.startupTrials)
+              .map((trial) => trial.config)
 
-              expect(startupTpeConfigs, scenario.label).toEqual(startupRandomConfigs)
-              expect(postStartupTpeConfigs, scenario.label).not.toEqual(postStartupRandomConfigs)
-            }),
-          { discard: true }
-        )
-      })
+            expect(startupTpeConfigs, scenario.label).toEqual(startupRandomConfigs)
+            expect(postStartupTpeConfigs, scenario.label).not.toEqual(postStartupRandomConfigs)
+          }),
+        { discard: true }
+      )
   )
 
   it.effect(

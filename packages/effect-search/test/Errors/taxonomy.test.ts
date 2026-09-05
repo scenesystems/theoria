@@ -47,18 +47,16 @@ const errorSamples = Arr.make(
 
 describe("Errors / taxonomy", () => {
   it.effect("decodes every error variant through the root SearchError schema", () =>
-    Effect.gen(function*() {
-      yield* Effect.forEach(
-        errorSamples,
-        (sample) =>
-          Effect.sync(() => {
-            const decoded = Schema.decodeUnknownEither(SearchErrorSchema)(sample)
+    Effect.forEach(
+      errorSamples,
+      (sample) =>
+        Effect.sync(() => {
+          const decoded = Schema.decodeUnknownEither(SearchErrorSchema)(sample)
 
-            expect(Either.isRight(decoded)).toBe(true)
-          }),
-        { discard: true }
-      )
-    }))
+          expect(Either.isRight(decoded)).toBe(true)
+        }),
+      { discard: true }
+    ))
 
   it.effect("rejects non-error payloads at the root taxonomy boundary", () =>
     Effect.sync(() => {

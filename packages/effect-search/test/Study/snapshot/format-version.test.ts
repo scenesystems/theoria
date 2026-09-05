@@ -33,7 +33,7 @@ describe("snapshot format versioning", () => {
       }
 
       const snapshot = yield* Study.snapshot(single.value)
-      const decodedWithVariant = Schema.decodeUnknownSync(Study.StudySnapshotFormatVariantSchema)(snapshot)
+      const decodedWithVariant = yield* Schema.decodeUnknown(Study.StudySnapshotFormatVariantSchema)(snapshot)
 
       expect(snapshot.snapshotFormatVersion).toBe(1)
       expect(decodedWithVariant.snapshotFormatVersion).toBe(1)

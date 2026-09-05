@@ -146,9 +146,9 @@ export class TypeAstProjector {
       return Effect.succeed(projected)
     }
     if (SchemaAST.isTransformation(ast)) {
-      return Effect.flatMap(
+      return Effect.map(
         this.project(transformationTarget(ast)),
-        (projected) => Effect.succeed(this.#remember(ast, projected))
+        (projected) => this.#remember(ast, projected)
       )
     }
     if (SchemaAST.isRefinement(ast)) {

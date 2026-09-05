@@ -39,8 +39,10 @@ const program = Effect.gen(function*() {
   const envelope = yield* seal("xchacha20-poly1305", key, plaintext)
   const wrongKey = yield* generateKey(32)
   const wrongKeyResult = yield* unseal(wrongKey, envelope).pipe(
-    Effect.catchTag("DecryptionFailed", (e) => Effect.succeed(`caught DecryptionFailed: ${e.reason}`)),
-    Effect.catchTag("InvalidKey", (e) => Effect.succeed(`caught InvalidKey: expected ${e.expected}, got ${e.received}`))
+    Effect.catchTags({
+      DecryptionFailed: (e) => Effect.succeed(`caught DecryptionFailed: ${e.reason}`),
+      InvalidKey: (e) => Effect.succeed(`caught InvalidKey: expected ${e.expected}, got ${e.received}`)
+    })
   )
   yield* Effect.log("Wrong key", { result: wrongKeyResult })
 

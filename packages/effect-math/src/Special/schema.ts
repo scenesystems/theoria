@@ -44,14 +44,12 @@ export const decodeSpecialDomain = (input: unknown) =>
   Schema.decodeUnknown(SpecialDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Special",
-          contract: "SpecialDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Special",
+        contract: "SpecialDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -64,14 +62,12 @@ export const decodeSpecialDomain = (input: unknown) =>
  */
 export const encodeSpecialDomain = (domain: SpecialDomain) =>
   Schema.encode(SpecialDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Special",
-          contract: "SpecialDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Special",
+        contract: "SpecialDomainSchema",
+        message: error.message
+      })
     )
   )
 

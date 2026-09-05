@@ -228,22 +228,18 @@ export const EvaluateReportShapeFixtureSchema = Schema.Struct({
 export type EvaluateReportShapeFixture = Schema.Schema.Type<typeof EvaluateReportShapeFixtureSchema>
 
 const EvaluateEventFixtureSchema = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal("ExampleStarted"),
+  Schema.TaggedStruct("ExampleStarted", {
     index: Schema.Number,
     total: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("ExampleCompleted"),
+  Schema.TaggedStruct("ExampleCompleted", {
     index: Schema.Number,
     score: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("ExampleFailed"),
+  Schema.TaggedStruct("ExampleFailed", {
     index: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("EvaluationCompleted"),
+  Schema.TaggedStruct("EvaluationCompleted", {
     overallScore: Schema.Number,
     total: Schema.Number
   })
@@ -680,28 +676,24 @@ export const GepaMergeScheduleFixtureSchema = Schema.Struct({
 export type GepaMergeScheduleFixture = Schema.Schema.Type<typeof GepaMergeScheduleFixtureSchema>
 
 const GepaEventTimelineItemSchema = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal("IterationStarted"),
+  Schema.TaggedStruct("IterationStarted", {
     iteration: Schema.Number,
     frontierSize: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("MergeChecked"),
+  Schema.TaggedStruct("MergeChecked", {
     iteration: Schema.Number,
     attempted: Schema.Boolean,
     accepted: Schema.Boolean,
     mergeBudgetRemaining: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("MutationProposed"),
+  Schema.TaggedStruct("MutationProposed", {
     iteration: Schema.Number,
     parentId: Schema.String,
     mutatedCandidateId: Schema.String,
     predictorName: Schema.String,
     instruction: Schema.String
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("AcceptanceEvaluated"),
+  Schema.TaggedStruct("AcceptanceEvaluated", {
     iteration: Schema.Number,
     accepted: Schema.Boolean,
     gate1Passed: Schema.Boolean,
@@ -709,21 +701,18 @@ const GepaEventTimelineItemSchema = Schema.Union(
     previousSubsampleSum: Schema.Number,
     mutatedSubsampleSum: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("ParetoUpdated"),
+  Schema.TaggedStruct("ParetoUpdated", {
     iteration: Schema.Number,
     frontierIndices: Schema.Array(Schema.Number),
     dominatedIndices: Schema.Array(Schema.Number),
     parentWeights: Schema.Array(GepaParentSelectionWeightSchema)
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("IterationCompleted"),
+  Schema.TaggedStruct("IterationCompleted", {
     iteration: Schema.Number,
     acceptedCandidate: Schema.Boolean,
     frontierSize: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("OptimizationCompleted"),
+  Schema.TaggedStruct("OptimizationCompleted", {
     iterations: Schema.Number,
     bestCandidateId: Schema.String,
     frontierSize: Schema.Number

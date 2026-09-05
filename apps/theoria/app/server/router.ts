@@ -14,7 +14,7 @@ const apiNotFoundResponse = (requestId: string) =>
     const runtimeInfo = yield* RuntimeInfo
     const endedAtMs = yield* Clock.currentTimeMillis
 
-    return HttpServerResponse.json(
+    return yield* HttpServerResponse.json(
       {
         ok: false,
         meta: {
@@ -38,16 +38,14 @@ const apiNotFoundResponse = (requestId: string) =>
   })
 
 const route = (pathname: string, request: HttpServerRequest.HttpServerRequest, requestId: string) =>
-  Effect.flatten(
-    Match.value(pathname).pipe(
-      Match.when("/api/health/live", () => liveRoute(requestId)),
-      Match.when("/api/health/ready", () => readyRoute(requestId)),
-      Match.when("/api/version", () => versionRoute(requestId)),
-      Match.when(imaginedPlacePath, () => imaginedPlaceRoute(request, requestId)),
-      Match.when("/sitemap.xml", () => sitemapRoute),
-      Match.when((value) => value.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
-      Match.orElse(() => staticResponse(pathname))
-    )
+  Match.value(pathname).pipe(
+    Match.when("/api/health/live", () => liveRoute(requestId)),
+    Match.when("/api/health/ready", () => readyRoute(requestId)),
+    Match.when("/api/version", () => versionRoute(requestId)),
+    Match.when(imaginedPlacePath, () => imaginedPlaceRoute(request, requestId)),
+    Match.when("/sitemap.xml", () => sitemapRoute),
+    Match.when((value) => value.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
+    Match.orElse(() => staticResponse(pathname))
   )
 
 /**

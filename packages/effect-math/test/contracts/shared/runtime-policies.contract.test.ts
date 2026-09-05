@@ -85,7 +85,7 @@ describe("shared runtime policy contracts", () => {
     Effect.gen(function*() {
       const withExcess = {
         policy: "nondeterministic",
-        seed: Schema.decodeUnknownSync(Seed)(7)
+        seed: yield* Schema.decodeUnknown(Seed)(7)
       }
 
       const result = yield* Effect.either(

@@ -176,10 +176,10 @@ const optionalSelectionPolicyFromConfig = (
   Option.match(override, {
     onNone: () =>
       Option.match(base, {
-        onNone: () => Effect.succeed(Option.none()),
-        onSome: (value) => selectionPolicyFromString(value).pipe(Effect.map(Option.some))
+        onNone: () => Effect.succeedNone,
+        onSome: (value) => selectionPolicyFromString(value).pipe(Effect.asSome)
       }),
-    onSome: (value) => Effect.succeed(Option.some(value))
+    onSome: (value) => Effect.succeedSome(value)
   })
 
 const routedBaseUrlFromConfig = (
@@ -408,5 +408,5 @@ export const resolveLiveRuntimeConfig = (
         : endpointConfig({ ...options, serveMode })
     ),
     Effect.withConfigProvider(options.configProvider ?? defaultConfigProvider),
-    Effect.catchAll((error) => Effect.fail(makeInvalidRuntimeConfig(error)))
+    Effect.mapError(makeInvalidRuntimeConfig)
   )

@@ -97,7 +97,7 @@ const admission = (
     const decision = yield* limiter.admit(actor)
     return decision._tag === "Admitted" ? Option.none() : Option.some(rateLimitRejection(decision.retryAfterSeconds))
   }).pipe(
-    Effect.catchTag("PlaceBuildLimiterError", (failure) => Effect.succeed(Option.some(undecidedAdmission(failure))))
+    Effect.catchTag("PlaceBuildLimiterError", (failure) => Effect.succeedSome(undecidedAdmission(failure)))
   )
 
 const failureModel = (
@@ -137,7 +137,7 @@ export const imaginedPlaceRoute = (request: HttpServerRequest.HttpServerRequest,
 
     const rejection = yield* Option.match(accessRejection(request), {
       onNone: () => admission(request),
-      onSome: (rejected) => Effect.succeed(Option.some(rejected))
+      onSome: (rejected) => Effect.succeedSome(rejected)
     })
     const outcome = yield* Option.match(rejection, {
       onNone: () => build(request).pipe(Effect.map(Either.mapLeft((error): Rejection => ({ error, headers: {} })))),

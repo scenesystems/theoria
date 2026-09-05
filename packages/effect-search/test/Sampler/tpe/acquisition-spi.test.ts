@@ -69,12 +69,10 @@ describe("tpe acquisition SPI", () => {
             acquisition: "pi",
             constraints: [
               (raw) =>
-                Effect.sync(() => {
-                  const decode = Schema.decodeUnknownSync(space.schema)
-                  const config = decode(raw)
-
-                  return config.x - 1.2
-                })
+                Schema.decodeUnknown(space.schema)(raw).pipe(
+                  Effect.orDie,
+                  Effect.map((config) => config.x - 1.2)
+                )
             ]
           }),
           direction: "minimize",

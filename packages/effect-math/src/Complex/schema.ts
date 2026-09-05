@@ -44,14 +44,12 @@ export const decodeComplexDomain = (input: unknown) =>
   Schema.decodeUnknown(ComplexDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Complex",
-          contract: "ComplexDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Complex",
+        contract: "ComplexDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -64,14 +62,12 @@ export const decodeComplexDomain = (input: unknown) =>
  */
 export const encodeComplexDomain = (domain: ComplexDomain) =>
   Schema.encode(ComplexDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Complex",
-          contract: "ComplexDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Complex",
+        contract: "ComplexDomainSchema",
+        message: error.message
+      })
     )
   )
 

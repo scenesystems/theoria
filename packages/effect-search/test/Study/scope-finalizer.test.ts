@@ -146,19 +146,18 @@ describe("Study scoped execution", () => {
     Effect.gen(function*() {
       const checkpointCallsRef = yield* Ref.make(0)
       const space = makeSpace()
-      const decode = Schema.decodeUnknownSync(space.schema)
       const result = yield* Study.optimize({
         space,
         sampler: trackedSampler(trackedRefs(checkpointCallsRef)),
         direction: "maximize",
         trials: 8,
         concurrency: 3,
-        objective: (raw) => {
-          const config = decode(raw)
-          const delay = config.slot === 0 ? "60 millis" : "5 millis"
-
-          return Effect.sleep(delay).pipe(Effect.as(config.slot))
-        }
+        objective: (raw) =>
+          Schema.decodeUnknown(space.schema)(raw).pipe(
+            Effect.flatMap((config) =>
+              Effect.sleep(config.slot === 0 ? "60 millis" : "5 millis").pipe(Effect.as(config.slot))
+            )
+          )
       })
       const single = result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 

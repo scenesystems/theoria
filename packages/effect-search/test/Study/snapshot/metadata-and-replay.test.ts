@@ -48,7 +48,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       expect(snapshot.nextTrialNumber).toBe(6)
       expect(snapshot.completedCount).toBe(6)
 
-      const metadata = Schema.decodeUnknownSync(Study.SnapshotMetadataSchema)({
+      const metadata = yield* Schema.decodeUnknown(Study.SnapshotMetadataSchema)({
         spaceFingerprint: snapshot.spaceFingerprint,
         objectiveSpec: snapshot.objectiveSpec,
         stopMode: snapshot.stopMode,

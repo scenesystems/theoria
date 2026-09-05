@@ -219,13 +219,11 @@ export const bootstrapFewShotWithEvents = <
         const paramsAfterFallback = yield* Ref.get(options.module.params)
 
         if (paramsAfterFallback.demos.length <= 0) {
-          return yield* Effect.fail(
-            bootstrapFailure({
-              message: "BootstrapFewShot produced zero accepted demos and labeled fallback yielded zero demos",
-              threshold,
-              state: finalState
-            })
-          )
+          return yield* bootstrapFailure({
+            message: "BootstrapFewShot produced zero accepted demos and labeled fallback yielded zero demos",
+            threshold,
+            state: finalState
+          })
         }
 
         yield* emit(
@@ -247,13 +245,11 @@ export const bootstrapFewShotWithEvents = <
         return optimized
       }
 
-      return yield* Effect.fail(
-        bootstrapFailure({
-          message: "BootstrapFewShot produced zero accepted demos",
-          threshold,
-          state: finalState
-        })
-      )
+      return yield* bootstrapFailure({
+        message: "BootstrapFewShot produced zero accepted demos",
+        threshold,
+        state: finalState
+      })
     }
 
     yield* emit(

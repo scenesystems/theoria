@@ -101,16 +101,14 @@ const decodeFixture = (
           cause
         })
     ),
-    Effect.flatMap((fixture) =>
-      fixture.fixture === fixtureName
-        ? Effect.succeed(fixture)
-        : Effect.fail(
-          new FixtureSchemaDecodeError({
-            fixture: fixtureName,
-            path,
-            cause: `Fixture name mismatch: expected ${fixtureName}, received ${fixture.fixture}`
-          })
-        )
+    Effect.filterOrFail(
+      (fixture) => fixture.fixture === fixtureName,
+      (fixture) =>
+        new FixtureSchemaDecodeError({
+          fixture: fixtureName,
+          path,
+          cause: `Fixture name mismatch: expected ${fixtureName}, received ${fixture.fixture}`
+        })
     )
   )
 

@@ -46,14 +46,12 @@ export const decodeLinearAlgebraDomain = (input: unknown) =>
   Schema.decodeUnknown(LinearAlgebraDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "LinearAlgebra",
-          contract: "LinearAlgebraDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "LinearAlgebra",
+        contract: "LinearAlgebraDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -68,14 +66,12 @@ export const decodeLinearAlgebraDomain = (input: unknown) =>
  */
 export const encodeLinearAlgebraDomain = (domain: LinearAlgebraDomain) =>
   Schema.encode(LinearAlgebraDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "LinearAlgebra",
-          contract: "LinearAlgebraDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "LinearAlgebra",
+        contract: "LinearAlgebraDomainSchema",
+        message: error.message
+      })
     )
   )
 

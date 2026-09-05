@@ -49,6 +49,7 @@ export const streamFromEmitter = <Emitted, A, E, R>(
           Effect.sync(() => {
             emit.end()
           })
-      })
-    ).pipe(Effect.forkScoped)
+      }),
+      Effect.forkScoped
+    )
   )

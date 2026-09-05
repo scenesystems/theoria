@@ -200,7 +200,7 @@ export const executeStudy = <Space extends SearchSpace.SearchSpace>(
                   ),
                 onSome: () =>
                   runSchedulerStudy(options, settings, runtime, pruningPolicy, runtimeSeed.startTrialNumber).pipe(
-                    Effect.map(Option.some)
+                    Effect.asSome
                   )
               })
             )

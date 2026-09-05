@@ -45,11 +45,11 @@ const multivariateTraceForGroup = (
   acquisition: AcquisitionOption
 ): Effect.Effect<Option.Option<MultivariateContinuousTrace>, InvalidSamplerConfig> =>
   Match.value(settings.multivariate).pipe(
-    Match.when(false, () => Effect.succeed(Option.none())),
+    Match.when(false, () => Effect.succeedNone),
     Match.orElse(() => {
       const continuous = Arr.filter(parameters, (parameter) => isContinuousParameter(parameter))
       return Match.value(continuous.length >= 2).pipe(
-        Match.when(false, () => Effect.succeed(Option.none())),
+        Match.when(false, () => Effect.succeedNone),
         Match.orElse(() => multivariateContinuousCandidateTrace(rng, nCandidates, continuous, split, acquisition))
       )
     })

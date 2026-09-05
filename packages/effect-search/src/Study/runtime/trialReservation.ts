@@ -114,7 +114,7 @@ export const reserveTrialOrMarkSpaceExhausted = <Space extends SearchSpace.Searc
   runtime: StudyRuntime<ConfigFor<Space>>
 ): Effect.Effect<Option.Option<Trial.Trial<ConfigFor<Space>>>, SearchError, StudyClock> =>
   reserveTrial(options, settings, trialNumber, runtime).pipe(
-    Effect.map(Option.some),
+    Effect.asSome,
     Effect.catchTag(
       "effect-search/SamplerExhausted",
       () => markSpaceExhausted(runtime.completionReasonRef).pipe(Effect.as(Option.none()))

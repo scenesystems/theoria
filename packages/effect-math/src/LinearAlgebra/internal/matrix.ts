@@ -51,18 +51,16 @@ export const matvec = (
   offset: number,
   x: Chunk.Chunk<number>
 ): Chunk.Chunk<number> =>
-  pipe(
-    Chunk.makeBy(rows, (i) =>
-      Chunk.reduce(
-        Chunk.makeBy(cols, (j) =>
-          N.multiply(
-            getOr0(data, stride, offset, i, j),
-            Option.getOrElse(Chunk.get(x, j), () => 0)
-          )),
-        0,
-        N.sum
-      ))
-  )
+  Chunk.makeBy(rows, (i) =>
+    Chunk.reduce(
+      Chunk.makeBy(cols, (j) =>
+        N.multiply(
+          getOr0(data, stride, offset, i, j),
+          Option.getOrElse(Chunk.get(x, j), () => 0)
+        )),
+      0,
+      N.sum
+    ))
 
 /**
  * Matrix transpose: returns new chunk with transposed layout.

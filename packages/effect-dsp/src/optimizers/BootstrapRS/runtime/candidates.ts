@@ -135,12 +135,10 @@ export const evaluateCandidate = <
     })
 
     if (report.successCount <= 0) {
-      return yield* Effect.fail(
-        new AllTrialsFailed({
-          message: `Candidate '${options.candidate.label}' produced zero successful evaluation examples`,
-          trialCount: 0
-        })
-      )
+      return yield* new AllTrialsFailed({
+        message: `Candidate '${options.candidate.label}' produced zero successful evaluation examples`,
+        trialCount: 0
+      })
     }
 
     return Option.getOrElse(Option.fromNullable(report.overallScores.bootstrapRS), () => 0)

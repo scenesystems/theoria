@@ -52,10 +52,10 @@ const traceFromResult = (
   result: Study.StudyResult
 ) =>
   Option.match(asMultiObjective(result), {
-    onNone: () => Effect.succeed(Option.none()),
+    onNone: () => Effect.succeedNone,
     onSome: (value) =>
       Effect.forEach(value.trials, (trial) => decodePromptCategoricalConfigEffect(trial.config)).pipe(
-        Effect.map((trace) => Option.some(trace))
+        Effect.asSome
       )
   })
 

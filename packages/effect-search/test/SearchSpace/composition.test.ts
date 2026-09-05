@@ -53,7 +53,7 @@ describe("SearchSpace composition", () => {
   it.effect("extends two spaces and preserves merged config typing", () =>
     Effect.gen(function*() {
       const extended = yield* SearchSpace.extend(makeLearningRateSpace(), makeBatchSpace())
-      const decoded = Schema.decodeUnknownSync(extended.schema)({ lr: 0.01, batchSize: 32 })
+      const decoded = yield* Schema.decodeUnknown(extended.schema)({ lr: 0.01, batchSize: 32 })
       const typed = requireMergedConfig(decoded)
 
       expect(typed.batchSize).toBe(32)

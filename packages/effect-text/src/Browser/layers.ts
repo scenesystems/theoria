@@ -90,7 +90,7 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
     const emojiCorrection = normalizeEmojiCorrection(options.emojiCorrection)
     const emojiAdvanceCache = yield* (
       Option.match(emojiCorrection, {
-        onNone: () => Effect.succeed(Option.none()),
+        onNone: () => Effect.succeedNone,
         onSome: (correction) =>
           Cache.make({
             capacity: 128,
@@ -108,7 +108,7 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
                 Effect.map((width) => Numeric.max(width, font.size * correction[1]))
               )
             }
-          }).pipe(Effect.map(Option.some))
+          }).pipe(Effect.asSome)
       })
     )
 

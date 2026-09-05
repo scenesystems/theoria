@@ -166,14 +166,12 @@ const program = Effect.gen(function*() {
 
       const actualSha256 = yield* toSha256Hex(bytes)
       if (actualSha256 !== source.contentSha256) {
-        return yield* Effect.fail(
-          new FixtureCheckError({
-            name: source.id,
-            file: source.fixturePath,
-            reason: `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`,
-            cause: Option.none()
-          })
-        )
+        return yield* new FixtureCheckError({
+          name: source.id,
+          file: source.fixturePath,
+          reason: `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`,
+          cause: Option.none()
+        })
       }
 
       return source.id
@@ -219,14 +217,12 @@ const program = Effect.gen(function*() {
   yield* Console.log(`Results: ${passedNames.length} passed, ${allErrors.length} failed`)
 
   if (Arr.isNonEmptyArray(allErrors)) {
-    return yield* Effect.fail(
-      new FixtureCheckError({
-        name: "summary",
-        file: "",
-        reason: `${allErrors.length} fixture check failure(s)`,
-        cause: Option.none()
-      })
-    )
+    return yield* new FixtureCheckError({
+      name: "summary",
+      file: "",
+      reason: `${allErrors.length} fixture check failure(s)`,
+      cause: Option.none()
+    })
   }
 })
 

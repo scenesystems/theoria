@@ -113,17 +113,14 @@ describe("integration advanced samplers", () => {
   it.effect("fails Study.optimize with typed sampler errors for unsupported multi-objective runs", () =>
     Effect.gen(function*() {
       const space = objectiveSpace()
-      const decode = Schema.decodeUnknownSync(space.schema)
       const outcome = yield* Effect.either(
         Study.optimize({
           space,
           sampler: Sampler.cmaEs({ seed: 19, sigma: 0.5, populationSize: 8 }),
           directions: ["minimize", "minimize"],
           trials: 4,
-          objective: (raw) => {
-            const config = decode(raw)
-            return Effect.succeed([config.x ** 2, config.y ** 2])
-          }
+          objective: (raw) =>
+            Schema.decodeUnknown(space.schema)(raw).pipe(Effect.map((config) => [config.x ** 2, config.y ** 2]))
         })
       )
 

@@ -110,13 +110,13 @@ export const evaluateObjectiveWithPolicy = <Space extends SearchSpace.SearchSpac
 
   return Option.fromNullable(settings.trialTimeout).pipe(
     Option.match({
-      onNone: () => objectiveEffect.pipe(Effect.exit, Effect.map(Option.some)),
+      onNone: () => objectiveEffect.pipe(Effect.exit, Effect.asSome),
       onSome: (trialTimeout) => evaluateObjectiveWithTimeout(objectiveEffect, trialTimeout)
     }),
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.succeed(Option.none()),
-        onSome: (exit) => liftStorageFailure(exit).pipe(Effect.map(Option.some))
+        onNone: () => Effect.succeedNone,
+        onSome: (exit) => liftStorageFailure(exit).pipe(Effect.asSome)
       })
     )
   )

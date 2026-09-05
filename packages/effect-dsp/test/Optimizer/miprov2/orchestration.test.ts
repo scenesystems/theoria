@@ -11,7 +11,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { ArtifactStorageError } from "@scenesystems/effect-search/Errors"
 import * as Study from "@scenesystems/effect-search/Study"
-import { Array as Arr, Effect, Either, Equal, Layer, Number as Num, Option, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Either, Equal, Layer, Number as Num, Ref, Schema } from "effect"
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
 
 const makeQaSignature = () =>
@@ -115,7 +115,7 @@ describe("MIPROv2 orchestration", () => {
                 Effect.zipRight(Effect.fail(storageError))
               ),
             writeSnapshot: () => Effect.void,
-            loadSnapshot: () => Effect.succeed(Option.none()),
+            loadSnapshot: () => Effect.succeedNone,
             loadTrialLog: () => Effect.succeed([]),
             replayTrialLog: () => Effect.succeed([])
           })
