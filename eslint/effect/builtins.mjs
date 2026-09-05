@@ -100,12 +100,33 @@ export const ARRAY_BUILTINS_RULES = [
 ]
 
 /**
+ * The browser's own objects, for `no-restricted-globals`. Unlike the syntax
+ * selectors below this rule is scope-aware: it reports a reference to the
+ * global and not a local that happens to share the name. `../scopes.mjs`
+ * applies it to shipped code outside `apps/*\/app/web/platform/`, the one
+ * place that acquires `window` and `document` and offers them as the
+ * `BrowserWindow`/`BrowserDocument` services.
+ */
+export const BROWSER_GLOBALS = [
+  {
+    name: "window",
+    message: "Do not read 'window'. Use the BrowserWindow service from the platform module."
+  },
+  {
+    name: "document",
+    message: "Do not read 'document'. Use the BrowserDocument service from the platform module."
+  },
+  {
+    name: "navigator",
+    message: "Do not read 'navigator'. Offer the capability as a service from the platform module."
+  }
+]
+
+/**
  * Host globals that Effect or `@effect/platform*` already model as services.
- * The only sanctioned host reads are the `window`/`document` acquisitions in
- * `apps/theoria/app/web/platform/`, which the rest of the app consumes through
- * `BrowserWindow`/`BrowserDocument`. Web `Request`/`Response` construction is
- * not banned: `HttpServerRequest.fromWeb` and `HttpClientResponse.fromWeb` are
- * Effect's designed interop seam and its own tests build fixtures this way.
+ * Web `Request`/`Response` construction is not banned:
+ * `HttpServerRequest.fromWeb` and `HttpClientResponse.fromWeb` are Effect's
+ * designed interop seam and its own tests build fixtures this way.
  */
 export const HOST_GLOBAL_RULES = [
   {

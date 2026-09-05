@@ -9,6 +9,8 @@
  * @module eslint/base
  */
 
+import { includeIgnoreFile } from "eslint/config"
+
 /**
  * Framework configuration is infrastructure, not Effect orchestration. Generic
  * oxlint policy still applies; Effect discipline does not.
@@ -16,30 +18,24 @@
 export const FRAMEWORK_CONFIG_PATTERNS = ["**/*.config.{ts,tsx,mts,cts}"]
 
 /**
- * Kept identical to `ignorePatterns` in .oxlintrc.json so both linters see the
- * same tree. `apps/*\/public/**` holds static browser scripts served verbatim;
- * they are not authored Effect code.
+ * Every tracked source file is linted. What Git does not track (build output,
+ * generated data, scratch, vendored references) is not; `.gitignore` is the
+ * single statement of that, read here and by oxlint (`--ignore-path`). The
+ * one authored exception is `apps/*\/public/**`: static browser scripts served
+ * verbatim, not Effect code.
  */
-export const GLOBAL_IGNORES = [
-  "**/dist/**",
-  "**/build/**",
-  "**/node_modules/**",
-  "**/.wrangler/**",
-  "**/.wrangler-out/**",
-  "**/__snapshots__/**",
-  "**/fixtures/**/*.json",
-  ".vendor/**",
-  ".tmp/**",
-  "apps/*/public/**"
-]
+export const AUTHORED_IGNORES = ["apps/*/public/**"]
+
+const gitignore = `${import.meta.dirname}/../.gitignore`
 
 /**
  * @returns {import('eslint').Linter.Config[]}
  */
 export const base = () => [
+  includeIgnoreFile(gitignore, { name: "theoria/base/gitignore" }),
   {
     name: "theoria/base/ignores",
-    ignores: GLOBAL_IGNORES
+    ignores: AUTHORED_IGNORES
   },
   {
     name: "theoria/base/inline-configuration",

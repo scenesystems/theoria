@@ -324,8 +324,12 @@ atoms and views, `fetch` in the clients, `new URL` in 40 files, host timers and
 `Bun.CryptoHasher` in package scripts, `crypto.randomUUID` as the server's
 request id. Each is now an Effect service or an Effect module, and the ESLint
 `HOST_GLOBAL_RULES` (`eslint/effect/builtins.mjs`) reject the globals so they
-cannot return. `window`/`document` may be named only inside
-`apps/theoria/app/web/platform/`.
+cannot return. `window`, `document` and `navigator` are covered by the
+scope-aware `no-restricted-globals` block in `eslint/scopes.mjs`, which applies
+to shipped code (`packages/*/src`, `apps/*/app`, `scripts`) outside
+`apps/*/app/web/platform/`, the one module that acquires them. Test code is
+outside that block because Playwright's `page.evaluate` callbacks run inside
+the page, where the DOM is the only API there is.
 
 - **Browser.** `apps/theoria/app/web/platform/` defines `BrowserWindow` and
   `BrowserDocument` tags acquired once in a `Layer.sync`, plus

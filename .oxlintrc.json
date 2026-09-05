@@ -61,16 +61,5 @@
     "typescript/prefer-namespace-keyword": "error",
     "typescript/triple-slash-reference": "error"
   },
-  "ignorePatterns": [
-    "**/dist/**",
-    "**/build/**",
-    "**/node_modules/**",
-    "**/.wrangler/**",
-    "**/.wrangler-out/**",
-    "**/__snapshots__/**",
-    "**/fixtures/**/*.json",
-    ".vendor/**",
-    ".tmp/**",
-    "apps/*/public/**"
-  ]
+  "ignorePatterns": ["apps/*/public/**"]
 }
