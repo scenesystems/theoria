@@ -145,9 +145,10 @@ const totalInstructionCandidates = (
  * module instance. Search evaluation mutates parameter refs as it runs, so a
  * failure or interruption can leave the most recently applied configuration in
  * place. Instruction generation failures become `InstructionProposalFailed`.
- * Candidate mismatch, search-space, and study-completion failures become
- * `AllTrialsFailed`. Module, metric, Schema, and language-model failures that
- * occur before the study retain their declared error channels.
+ * Candidate mismatch and an absence of successful trials become
+ * `AllTrialsFailed`. Effect-search study failures retain their `SearchError`
+ * variants. Module, metric, Schema, and language-model failures retain their
+ * declared error channels.
  *
  * @param options - Candidate, proposal, validation, and search settings.
  * @param emit - Sink awaited once for each emitted lifecycle event.

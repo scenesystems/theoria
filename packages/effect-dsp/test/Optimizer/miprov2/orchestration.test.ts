@@ -9,7 +9,9 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { ArtifactStorageError } from "@scenesystems/effect-search/Errors"
+import * as Study from "@scenesystems/effect-search/Study"
+import { Array as Arr, Effect, Either, Layer, Ref, Schema } from "effect"
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
 
 const makeQaSignature = () =>
@@ -84,4 +86,46 @@ describe("MIPROv2 orchestration", () => {
       expect(tags.indexOf("Phase1Started")).toBeLessThan(tags.indexOf("Phase2Started"))
       expect(tags.indexOf("Phase2Started")).toBeLessThan(tags.indexOf("Phase3Started"))
     }))
+
+  it.effect(
+    "preserves an ArtifactStorageError raised by the Phase 3 study",
+    () =>
+      Effect.gen(function*() {
+        const signature = yield* makeQaSignature()
+        const module = yield* Module.predict("qa", signature)
+        const mock = yield* MockLanguageModel.make(
+          MockLanguageModel.map((prompt) =>
+            prompt.includes("[miprov2-proposal:")
+              ? "Use concise and factual answers"
+              : { answer: "Paris" }
+          )
+        )
+        const storageError = new ArtifactStorageError({
+          operation: "write",
+          path: "phase-3-study",
+          detail: "storage unavailable"
+        })
+        const storage = Layer.effect(Study.StudyStorage, Effect.fail(storageError))
+        const layer = Layer.merge(Layer.succeed(LanguageModel.LanguageModel, mock.service), storage)
+
+        const outcome = yield* miprov2WithEvents(
+          {
+            module,
+            trainset,
+            valset: trainset,
+            metric: Metric.exactMatch("answer"),
+            numCandidates: 2,
+            numInstructions: 2,
+            trialBudget: 2,
+            seed: 31
+          },
+          () => Effect.void
+        ).pipe(Effect.provide(layer), Effect.either)
+
+        expect(Either.isLeft(outcome)).toBe(true)
+        if (Either.isLeft(outcome)) {
+          expect(outcome.left._tag).toBe("effect-search/ArtifactStorageError")
+        }
+      })
+  )
 })

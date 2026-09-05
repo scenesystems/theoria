@@ -21,7 +21,7 @@ import {
   makeStandardSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
-import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
+import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 import { createExampleArtifacts, noopArtifactSinkLayer } from "./shared/output-artifacts.js"
 
 const EXAMPLE_NAME = "10-miprov2-social-science-panel"
@@ -155,7 +155,7 @@ const program = Effect.gen(function*() {
 
   const theorist = yield* Module.chainOfThought("qualitative-theorist", constructSignature)
   const planner = yield* Module.predict("intervention-planner", policySignature)
-  const teacherLayer = liveLanguageModelLayer().pipe(Layer.orDie)
+  const teacherLayer = yield* liveTeacherLayer()
 
   const collaborativeFieldNote =
     "In a city budgeting forum, residents said they would participate only if they knew neighbors were already attending."
@@ -357,5 +357,8 @@ const program = Effect.gen(function*() {
 })
 
 BunRuntime.runMain(
-  withLiveLanguageModel(program).pipe(Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer)))
+  withLiveLanguageModel(program).pipe(
+    Effect.scoped,
+    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer))
+  )
 )

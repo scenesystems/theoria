@@ -18,8 +18,8 @@ import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
-import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
+import { Array as Arr, Effect, Match, Option, Ref, Schema, Stream } from "effect"
+import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 /**
  * Labeled optimization training cases for GEPA.
@@ -561,7 +561,7 @@ const program = Effect.gen(function*() {
     "example14-conversational-recall-planner",
     plannerSignature
   )
-  const teacherLayer = liveLanguageModelLayer().pipe(Layer.orDie)
+  const teacherLayer = yield* liveTeacherLayer()
 
   // Compose the analyst and planner into one optimizable panel.
   const methodsPanel = yield* Module.compose({
@@ -1034,4 +1034,4 @@ const program = Effect.gen(function*() {
   })
 })
 
-BunRuntime.runMain(withLiveLanguageModel(program))
+BunRuntime.runMain(withLiveLanguageModel(program).pipe(Effect.scoped))

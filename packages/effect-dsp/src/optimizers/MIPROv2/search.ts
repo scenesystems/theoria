@@ -9,7 +9,6 @@ import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effe
 import { Array as Arr, Effect, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { projectSingleObjective } from "../../contracts/ObjectiveProjection.js"
-import { AllTrialsFailed } from "../../Errors/optimizer.js"
 import * as Evaluate from "../../Evaluate/index.js"
 import type { Example } from "../../Example/index.js"
 import { noPhase3Events, Phase3Diagnostics, type RunPhase3SearchOptions } from "./phase3-model.js"
@@ -66,9 +65,9 @@ export const phase3TrialBudget = phase3TrialBudgetFormula
  *
  * Missing candidate sets, unsupported dimension sizes, malformed sampled
  * indexes, and an empty winning result fail with `AllTrialsFailed`. Failures
- * raised inside the effect-search study are also mapped to `AllTrialsFailed`.
- * The baseline evaluation runs before that mapping and retains its metric,
- * module, Schema, and language-model error channels.
+ * raised inside the effect-search study retain the study's `SearchError`
+ * channel. Baseline evaluation also retains its metric, module, Schema, and
+ * language-model error channels.
  *
  * @param options - Module, validation set, candidate sets, metric, and search settings.
  * @returns The supplied module, raw study result, and a diagnostic snapshot.
@@ -178,15 +177,7 @@ export const runPhase3Search = <
         }),
       priorTrials: Arr.make(baselineResult.priorTrial),
       concurrency: 1
-    }).pipe(
-      Effect.mapError(
-        () =>
-          new AllTrialsFailed({
-            message: "MIPROv2 Phase 3 failed to complete effect-search study",
-            trialCount: trialBudget
-          })
-      )
-    )
+    })
 
     const bestConfig = yield* resolveBestConfig(studyResult, trialBudget)
 

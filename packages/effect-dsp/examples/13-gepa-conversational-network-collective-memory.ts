@@ -23,7 +23,7 @@ import {
   makeStandardSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
-import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
+import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 import { createExampleArtifacts, noopArtifactSinkLayer } from "./shared/output-artifacts.js"
 
 const EXAMPLE_NAME = "13-gepa-conversational-network-collective-memory"
@@ -396,7 +396,7 @@ const program = Effect.gen(function*() {
     "collective-memory-gepa-planner",
     plannerSignature
   )
-  const teacherLayer = liveLanguageModelLayer().pipe(Layer.orDie)
+  const teacherLayer = yield* liveTeacherLayer()
 
   const protocolPanel = yield* Module.compose({
     name: "collective-memory-gepa-panel",
@@ -577,5 +577,8 @@ const program = Effect.gen(function*() {
 })
 
 BunRuntime.runMain(
-  withLiveLanguageModel(program).pipe(Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer)))
+  withLiveLanguageModel(program).pipe(
+    Effect.scoped,
+    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer))
+  )
 )

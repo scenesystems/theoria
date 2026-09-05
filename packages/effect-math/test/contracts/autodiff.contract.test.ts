@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 
 import { type AutodiffAuthorityStateType } from "../../src/contracts/shared/AutodiffAuthority.js"
 import { ComputationDispatchLive, planAdvancedComputation } from "../../src/contracts/shared/ComputationDispatch.js"
@@ -40,7 +40,7 @@ describe("advanced autodiff authority contracts", () => {
       }).pipe(Effect.provide(ComputationDispatchLive))
 
       expect(plan.differentiationMethod).toStrictEqual("autodiff")
-      expect(plan.autodiffMode).toStrictEqual("reverse")
+      expect(plan.autodiffMode).toStrictEqual(Option.some("reverse"))
       expect(plan.finiteDifferenceFallback).toStrictEqual(false)
     }))
 
@@ -56,7 +56,7 @@ describe("advanced autodiff authority contracts", () => {
       }).pipe(Effect.provide(makeDispatcherLayer(true)))
 
       expect(plan.differentiationMethod).toStrictEqual("finite-difference")
-      expect(plan.autodiffMode).toStrictEqual(undefined)
+      expect(plan.autodiffMode).toStrictEqual(Option.none())
       expect(plan.finiteDifferenceFallback).toStrictEqual(true)
     }))
 

@@ -185,7 +185,7 @@ Every module is available as a namespace from the package root and as a subpath 
 
 ## Errors and boundaries
 
-Failures surface in the Effect error channel as `Schema.TaggedError` values. `SignatureError` rejects an invalid signature definition, `ParseOutputError` reports a model response that does not decode into the output schema, and `CompositionError` reports an invalid module graph. `MetricError`, `EvaluationFailed`, and `TraceError` cover scoring and observation. `BootstrapFailed`, `InstructionProposalFailed`, `AllTrialsFailed`, and `MergeRejected` come from the optimizers, and `SaveLoadError` from persistence. The `DspError` union names all of them.
+Failures surface in the Effect error channel as `Schema.TaggedError` values. `SignatureError` rejects an invalid signature definition, `ParseOutputError` reports a model response that does not decode into the output schema, and `CompositionError` reports an invalid module graph. `MetricError`, `EvaluationFailed`, and `TraceError` cover scoring and observation. `BootstrapFailed`, `InstructionProposalFailed`, `AllTrialsFailed`, and `MergeRejected` come from the optimizers, and `SaveLoadError` from persistence. MIPROv2 also preserves effect-search study failures such as `ArtifactStorageError` rather than replacing them with `AllTrialsFailed`. The `DspError` union names package-owned DSP failures.
 
 Transport, authentication, and rate-limit failures belong to the `LanguageModel` layer you provide and surface as that provider's errors. The package does not manage credentials, provider quotas, or the cost of the calls an optimizer makes.
 

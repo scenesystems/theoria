@@ -25,7 +25,7 @@ import {
   makeStandardSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
-import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
+import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 import { createExampleArtifacts, noopArtifactSinkLayer } from "./shared/output-artifacts.js"
 
 const EXAMPLE_NAME = "12-miprov2-collective-memory-network-dynamics"
@@ -526,7 +526,7 @@ const program = Effect.gen(function*() {
     "collective-memory-protocol-planner",
     plannerSignature
   )
-  const teacherLayer = liveLanguageModelLayer().pipe(Layer.orDie)
+  const teacherLayer = yield* liveTeacherLayer()
 
   // Compose the analyst and planner into one optimizable panel.
   const protocolPanel = yield* Module.compose({
@@ -783,5 +783,8 @@ const program = Effect.gen(function*() {
 })
 
 BunRuntime.runMain(
-  withLiveLanguageModel(program).pipe(Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer)))
+  withLiveLanguageModel(program).pipe(
+    Effect.scoped,
+    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer))
+  )
 )

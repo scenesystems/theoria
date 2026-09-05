@@ -21,7 +21,7 @@ import {
   makeStandardSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
-import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
+import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 import { createExampleArtifacts, noopArtifactSinkLayer } from "./shared/output-artifacts.js"
 
 const EXAMPLE_NAME = "11-gepa-teacher-student-debate"
@@ -195,7 +195,7 @@ const program = Effect.gen(function*() {
   const teacherAnalyst = yield* Module.chainOfThought("teacher-analyst", analystSignature)
   const studentAnalyst = yield* Module.chainOfThought("student-analyst", analystSignature)
   const judge = yield* Module.predict("debate-judge", judgeSignature)
-  const teacherLayer = liveLanguageModelLayer().pipe(Layer.orDie)
+  const teacherLayer = yield* liveTeacherLayer()
 
   const debateModule = yield* Module.compose({
     name: "intervention-debate-panel",
@@ -365,5 +365,8 @@ const program = Effect.gen(function*() {
 })
 
 BunRuntime.runMain(
-  withLiveLanguageModel(program).pipe(Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer)))
+  withLiveLanguageModel(program).pipe(
+    Effect.scoped,
+    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer))
+  )
 )
