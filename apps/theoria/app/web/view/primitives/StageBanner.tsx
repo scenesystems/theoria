@@ -3,12 +3,16 @@ import type { ReactNode } from "react"
 
 import { Cluster, Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { PulseLayer } from "./Skeleton.js"
 
-const dotClassName = (tone: "live" | "complete" | "error"): string =>
+const dotClassName = "inline-flex size-1.5 shrink-0 rounded-full"
+
+/** The banner's dot: pulsing while live, still once complete, danger-toned on error. */
+const Dot = ({ tone }: { readonly tone: "live" | "complete" | "error" }) =>
   Match.value(tone).pipe(
-    Match.when("live", () => "bg-ink-400 animate-pulse"),
-    Match.when("complete", () => "bg-ink-400"),
-    Match.orElse(() => "bg-danger-500")
+    Match.when("live", () => <PulseLayer ariaHidden className={`${dotClassName} bg-ink-400`} />),
+    Match.when("complete", () => <Layer aria-hidden render={<span />} className={`${dotClassName} bg-ink-400`} />),
+    Match.orElse(() => <Layer aria-hidden render={<span />} className={`${dotClassName} bg-danger-500`} />)
   )
 
 const textClassName = (tone: "live" | "complete" | "error"): string =>
@@ -29,11 +33,7 @@ export const StageBanner = ({
   <Layer className="py-1">
     <Cluster className="flex-wrap items-center gap-x-3 gap-y-1">
       <Cluster className="items-center gap-1.5">
-        <Layer
-          aria-hidden
-          render={<span />}
-          className={`inline-flex size-1.5 shrink-0 rounded-full ${dotClassName(tone)}`}
-        />
+        <Dot tone={tone} />
         <SemanticText as="span" className={textClassName(tone)} role="code-meta" text={text} variant="expanded" />
       </Cluster>
       {action}

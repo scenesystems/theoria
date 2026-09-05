@@ -1,4 +1,5 @@
 import { Option } from "effect"
+import { motion, useReducedMotion } from "motion/react"
 import type { ReactNode } from "react"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
@@ -10,6 +11,27 @@ import { DocsNavigation } from "./DocsNavigation.js"
 import { DocsNavigationDrawer } from "./DocsNavigationDrawer.js"
 import { DocsOnThisPage, type DocsPageAnchor } from "./DocsOnThisPage.js"
 import { DocsSearchDialog } from "./DocsSearchDialog.js"
+
+export const DocsRouteEntrance = (
+  { children, className }: { readonly children: ReactNode; readonly className: string }
+) => {
+  const reducedMotion = useReducedMotion()
+
+  return (
+    <Layer
+      className={className}
+      render={
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          initial={reducedMotion === true ? false : { opacity: 0, y: 6 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+        />
+      }
+    >
+      {children}
+    </Layer>
+  )
+}
 
 export const DocsPackageShell = ({
   children,
@@ -48,7 +70,7 @@ export const DocsResourceFrame = ({
 }) => (
   <>
     <Main className={`${docsTheme.main} outline-none`} data-route-focus tabIndex={-1}>
-      <Layer className={`${docsTheme.article} docs-route-enter`} key={docsPathFor(route)}>{children}</Layer>
+      <DocsRouteEntrance className={docsTheme.article} key={docsPathFor(route)}>{children}</DocsRouteEntrance>
     </Main>
     <Section aria-label="Page outline" render={<aside />} className={docsTheme.toc}>
       <Layer className={docsTheme.tocSticky}>

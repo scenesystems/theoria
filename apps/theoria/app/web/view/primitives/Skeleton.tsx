@@ -1,4 +1,5 @@
 import { Separator } from "@base-ui/react/separator"
+import { motion, useReducedMotion } from "motion/react"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
@@ -11,8 +12,33 @@ import { SemanticText } from "./SemanticText.js"
 // A single animated bar that mimics a line of content.
 // ---------------------------------------------------------------------------
 
+export const PulseLayer = ({
+  ariaHidden,
+  className
+}: {
+  readonly ariaHidden?: boolean
+  readonly className: string
+}) => {
+  const reducedMotion = useReducedMotion()
+
+  return (
+    <Layer
+      aria-hidden={ariaHidden}
+      className={className}
+      render={
+        <motion.div
+          animate={{ opacity: reducedMotion === true ? 1 : [1, 0.5, 1] }}
+          transition={reducedMotion === true
+            ? { duration: 0 }
+            : { duration: 2, ease: [0.4, 0, 0.6, 1], repeat: Infinity }}
+        />
+      }
+    />
+  )
+}
+
 export const ShimmerLine = ({ className = "", width }: { readonly className?: string; readonly width: string }) => (
-  <Layer className={`h-3 animate-pulse rounded bg-stage-200/60 motion-reduce:animate-none ${width} ${className}`} />
+  <PulseLayer className={`h-3 rounded bg-stage-200/60 ${width} ${className}`} />
 )
 
 // ---------------------------------------------------------------------------
@@ -79,7 +105,7 @@ export const LoadingIndicator = ({
   readonly tone: ToneClasses
 }) => (
   <Cluster className={`gap-1.5 transition-opacity duration-150 ${active ? "opacity-100" : "invisible"}`}>
-    <Layer aria-hidden render={<span />} className={`inline-flex size-1.5 animate-pulse rounded-full ${tone.dot}`} />
+    <PulseLayer ariaHidden className={`inline-flex size-1.5 rounded-full ${tone.dot}`} />
     <SemanticText as="span" className="text-ink-700" role="code-meta" text={text} variant="expanded" />
   </Cluster>
 )
@@ -91,7 +117,7 @@ export const LoadingIndicator = ({
 export const RunningState = ({ text }: { readonly text?: string }) => (
   <Stack className="gap-4 py-4">
     <Cluster className="gap-2">
-      <Layer aria-hidden render={<span />} className="inline-flex size-2 animate-pulse rounded-full bg-ink-400" />
+      <PulseLayer ariaHidden className="inline-flex size-2 rounded-full bg-ink-400" />
       <SemanticText
         as="span"
         className="text-ink-600"

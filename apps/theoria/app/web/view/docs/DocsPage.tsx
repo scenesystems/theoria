@@ -19,7 +19,7 @@ import { docsApiModuleFor, docsGuideFor, docsPackageFor } from "./docsModel.js"
 import { ApiResource, GuideResource } from "./DocsResourceView.js"
 import { DocsSearchDialog } from "./DocsSearchDialog.js"
 import { DocsStatus } from "./DocsStatus.js"
-import { DocsPackageShell, DocsResourceFrame } from "./DocsWorkbench.js"
+import { DocsPackageShell, DocsResourceFrame, DocsRouteEntrance } from "./DocsWorkbench.js"
 
 const isCardId = Schema.is(Id)
 
@@ -31,7 +31,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
       data-route-focus
       tabIndex={-1}
     >
-      <Stack className="docs-route-enter gap-8">
+      <DocsRouteEntrance className="flex min-w-0 flex-col gap-8">
         <SemanticText as="h1" className="text-ink-950" role="hero-title" text="Packages" />
         <Layer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Arr.map(
@@ -79,7 +79,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
             }
           )}
         </Layer>
-      </Stack>
+      </DocsRouteEntrance>
     </Main>
     <DocsSearchDialog activePackageSlug={Option.none()} manifest={manifest} />
   </Layer>
