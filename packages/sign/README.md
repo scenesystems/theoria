@@ -84,33 +84,33 @@ Direct verification admits messages up to 8,192 bytes and rejects longer input b
 Production ML-DSA-65 signing uses `mlDsa65SignHedged`, which requires exactly 32 bytes of fresh cryptographic entropy from the caller and an explicit FIPS 204 context of 0 through 255 bytes. Ambient randomness is never consulted, which keeps signing reproducible under test and auditable in production. `mlDsa65SignDeterministic` exists for conformance vectors, and both `mlDsa65Sign` and `sign("ml-dsa-65", ...)` fail with `SigningFailed` because those signatures have nowhere to accept the entropy.
 
 ```ts typecheck
-import { generateKeyPair, mlDsa65SignHedged, mlDsa65Verify, utf8ToBytes } from "@scenesystems/sign"
+import { generateEntropy, generateKeyPair, mlDsa65SignHedged, mlDsa65Verify, utf8ToBytes } from "@scenesystems/sign"
 import { Effect } from "effect"
 
-export const signDocument = (entropy32: Uint8Array) =>
-  Effect.gen(function* () {
-    const keys = yield* generateKeyPair("ml-dsa-65")
-    const message = utf8ToBytes("quantum-resistant document")
-    const context = utf8ToBytes("example.com/documents/v1")
-    const signature = yield* mlDsa65SignHedged(message, keys.secretKey, keys.publicKey, context, entropy32)
-    return yield* mlDsa65Verify(signature.signature, message, keys.publicKey, context)
-  })
+export const signDocument = Effect.gen(function* () {
+  const keys = yield* generateKeyPair("ml-dsa-65")
+  const message = utf8ToBytes("quantum-resistant document")
+  const context = utf8ToBytes("example.com/documents/v1")
+  const entropy32 = yield* generateEntropy()
+  const signature = yield* mlDsa65SignHedged(message, keys.secretKey, keys.publicKey, context, entropy32)
+  return yield* mlDsa65Verify(signature.signature, message, keys.publicKey, context)
+})
 ```
 
-Obtain `entropy32` from `crypto.getRandomValues(new Uint8Array(32))` or an equivalent operating-system source at the call site. XWing pairs X25519 with ML-KEM-768 so that the shared secret stays secure if either component is broken: `encapsulate("xwing", recipientPublicKey)` returns a `KemCiphertext` holding the ciphertext to send and the sender's copy of the shared secret, and `decapsulate("xwing", ciphertext, recipientSecretKey)` recovers the same secret on the receiving side.
+`generateEntropy` reads the runtime CSPRNG through Noble and fails with `EntropyGenerationFailed` when the runtime has no `crypto.getRandomValues` or the requested length is outside what one call may draw; it deliberately does not use Effect's seedable `Random` service. XWing pairs X25519 with ML-KEM-768 so that the shared secret stays secure if either component is broken: `encapsulate("xwing", recipientPublicKey)` returns a `KemCiphertext` holding the ciphertext to send and the sender's copy of the shared secret, and `decapsulate("xwing", ciphertext, recipientSecretKey)` recovers the same secret on the receiving side.
 
 ## Public surface
 
 The package exports plain functions and schemas from a single entrypoint.
 
-| Area                | Exports                                                                                                                                                                 |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Generic operations  | `generateKeyPair`, `sign`, `verify`, `deriveSharedSecret`, `encapsulate`, `decapsulate`                                                                                 |
-| Direct verification | `ed25519Verify`, `p256Sha256P1363LowSVerify`, `mlDsa65Verify`                                                                                                           |
-| Algorithm functions | `ed25519Sign`, `mlDsa65SignHedged`, `mlDsa65SignDeterministic`, `xwingEncapsulate`, `xwingDecapsulate`, and peers                                                       |
-| Schemas             | `KeyPair`, `Signature`, `SharedSecret`, `KemCiphertext`, `SignatureAlgorithm`, `AgreementAlgorithm`, `KemAlgorithm`                                                     |
-| Errors              | `SigningFailed`, `VerificationFailed`, `InvalidSignature`, `KeyGenerationFailed`, `AgreementFailed`, `KemFailed`, `InvalidVerificationInput`, `VerificationUnavailable` |
-| Bytes               | `utf8ToBytes`, `toHex`, `equalBytes`                                                                                                                                    |
+| Area                | Exports                                                                                                                                                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Generic operations  | `generateKeyPair`, `generateEntropy`, `sign`, `verify`, `deriveSharedSecret`, `encapsulate`, `decapsulate`                                                                                         |
+| Direct verification | `ed25519Verify`, `p256Sha256P1363LowSVerify`, `mlDsa65Verify`                                                                                                                                      |
+| Algorithm functions | `ed25519Sign`, `mlDsa65SignHedged`, `mlDsa65SignDeterministic`, `xwingEncapsulate`, `xwingDecapsulate`, and peers                                                                                  |
+| Schemas             | `KeyPair`, `Signature`, `SharedSecret`, `KemCiphertext`, `SignatureAlgorithm`, `AgreementAlgorithm`, `KemAlgorithm`                                                                                |
+| Errors              | `SigningFailed`, `VerificationFailed`, `InvalidSignature`, `KeyGenerationFailed`, `EntropyGenerationFailed`, `AgreementFailed`, `KemFailed`, `InvalidVerificationInput`, `VerificationUnavailable` |
+| Bytes               | `utf8ToBytes`, `toHex`, `equalBytes`                                                                                                                                                               |
 
 The full list with signatures is in the [API reference](./src/index.ts).
 

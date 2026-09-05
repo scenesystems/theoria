@@ -91,7 +91,7 @@ export * from "./kem.js"
 export * from "./keyPair.js"
 
 /**
- * @since 0.2.3
+ * @since 0.3.0
  * @category keys
  */
 export * from "./entropy.js"

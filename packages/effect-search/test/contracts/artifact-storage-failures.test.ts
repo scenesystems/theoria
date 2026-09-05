@@ -1,7 +1,7 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Cause, Chunk, Effect, Either, Exit, Layer, Schema, Stream } from "effect"
+import { Cause, Chunk, Effect, Either, Exit, Layer, Number as Num, Option, Ref, Schedule, Schema, Stream } from "effect"
 
 import {
   ArtifactSink,
@@ -57,7 +57,7 @@ describe("contracts/artifact storage failures", () => {
       expectStorageError(outcome, "read")
     }).pipe(Effect.provide(BunContext.layer)))
 
-  it.scoped("a torn final line is crash residue and the envelopes before it still read", () =>
+  it.scoped("a final line torn by an interrupted append fails the read instead of being skipped", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -78,12 +78,31 @@ describe("contracts/artifact storage failures", () => {
           )
         )
       )
-      const intact = yield* readEnvelopeLog(logPath).pipe(Stream.runCollect)
+      const intact = yield* fileSystem.readFileString(logPath)
       yield* fileSystem.writeFileString(logPath, "{\"trialNumber\":", { flag: "a" })
 
-      const withTornTail = yield* readEnvelopeLog(logPath).pipe(Stream.runCollect)
+      const outcome = yield* readEnvelopeLog(logPath).pipe(Stream.runCollect, Effect.either)
 
-      expect(Chunk.size(withTornTail)).toBe(Chunk.size(intact))
+      expectStorageError(outcome, "read")
+      if (Either.isLeft(outcome) && outcome.left instanceof ArtifactStorageError) {
+        expect(outcome.left.detail).toContain(`line ${intact.split("\n").length} is not an artifact envelope`)
+      }
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.scoped("a complete JSON value that is not an envelope fails the read even as the only line", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-search-artifact-shape-" })
+      const logPath = path.join(directory, "envelopes.jsonl")
+      yield* fileSystem.writeFileString(logPath, "{}\n")
+
+      const outcome = yield* readEnvelopeLog(logPath).pipe(Stream.runCollect, Effect.either)
+
+      expectStorageError(outcome, "read")
+      if (Either.isLeft(outcome) && outcome.left instanceof ArtifactStorageError) {
+        expect(outcome.left.detail).toContain("line 1 is not an artifact envelope")
+      }
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.scoped("an undecodable line before the end is corruption and fails with the line number", () =>
@@ -194,4 +213,81 @@ describe("contracts/artifact storage failures", () => {
 
       expectStorageError(outcome, "write")
     }).pipe(Effect.provide(BunContext.layer)))
+
+  const failingOn = (eventTag: string, path: string): Study.EventPublisher =>
+    new Study.EventPublisher({
+      publish: (event) =>
+        event._tag === eventTag
+          ? Effect.fail(new ArtifactStorageError({ operation: "write", path, detail: `${eventTag} rejected` }))
+          : Effect.void
+    })
+
+  const runWithPublisher = (
+    publisher: Study.EventPublisher,
+    objective: Study.ObjectiveFunction<{ readonly choice: "only" }>,
+    calls: Ref.Ref<number>
+  ) =>
+    Effect.gen(function*() {
+      const kernel = yield* Study.StudyKernel
+      const plan = yield* Study.optimizePlanFromOptions({
+        space: SearchSpace.unsafeMake({ choice: SearchSpace.categorical(["only"]) }),
+        sampler: Sampler.random({ seed: 7 }),
+        direction: "minimize",
+        trials: 2,
+        concurrency: 1,
+        retrySchedule: Schedule.recurs(3),
+        objective: (config, runtime) =>
+          Ref.update(calls, Num.increment).pipe(Effect.zipRight(objective(config, runtime)))
+      })
+      return yield* kernel.execute(
+        new Study.ExecuteRequest({
+          options: plan,
+          seed: Option.none(),
+          eventPublisher: Option.some(publisher),
+          interruptionSnapshotSink: () => Effect.void
+        })
+      ).pipe(Effect.either)
+    }).pipe(Effect.provide(Study.StudyServicesLive))
+
+  it.effect("a sink that rejects TrialReported fails the study, without retrying the objective", () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+
+      const outcome = yield* runWithPublisher(
+        failingOn("TrialReported", "envelopes.jsonl"),
+        (_config, runtime) => runtime.report(1, 1).pipe(Effect.as(1)),
+        calls
+      )
+
+      expectStorageError(outcome, "write")
+      expect(yield* Ref.get(calls)).toBe(1)
+    }))
+
+  it.effect("a sink that rejects StudyStopRequested fails the study, without retrying the objective", () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+
+      const outcome = yield* runWithPublisher(
+        failingOn("StudyStopRequested", "envelopes.jsonl"),
+        (_config, runtime) => runtime.requestStop("done").pipe(Effect.as(1)),
+        calls
+      )
+
+      expectStorageError(outcome, "write")
+      expect(yield* Ref.get(calls)).toBe(1)
+    }))
+
+  it.effect("an objective that fails on its own is retried and recorded as a failed trial", () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+
+      const outcome = yield* runWithPublisher(
+        failingOn("Never", "envelopes.jsonl"),
+        () => Effect.fail("objective broke"),
+        calls
+      )
+
+      expect(Either.isRight(outcome)).toBe(true)
+      expect(yield* Ref.get(calls)).toBe(8)
+    }))
 })

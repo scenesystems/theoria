@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Either } from "effect"
 import { mlDsa65SignHedged, mlDsa65Verify } from "../src/algorithms/mlDsa.js"
 import { equalBytes } from "../src/encoding.js"
 import { generateEntropy, HEDGED_SIGNING_ENTROPY_BYTES } from "../src/entropy.js"
 import { generateKeyPair } from "../src/keyPair.js"
+import { EntropyGenerationFailed } from "../src/schemas/errors.js"
 
 describe("generateEntropy", () => {
   it.effect("produces fresh bytes of the hedged-signing length by default", () =>
@@ -23,5 +24,17 @@ describe("generateEntropy", () => {
       const entropy = yield* generateEntropy()
       const signature = yield* mlDsa65SignHedged(message, keys.secretKey, keys.publicKey, context, entropy)
       expect(yield* mlDsa65Verify(signature.signature, message, keys.publicKey, context)).toBe(true)
+    }))
+
+  it.effect("fails with EntropyGenerationFailed for a length the source rejects", () =>
+    Effect.gen(function*() {
+      yield* Effect.forEach([-1, 1.5, 65_537], (length) =>
+        Effect.map(Effect.either(generateEntropy(length)), (outcome) => {
+          expect(Either.isLeft(outcome)).toBe(true)
+          if (Either.isLeft(outcome)) {
+            expect(outcome.left).toBeInstanceOf(EntropyGenerationFailed)
+            expect(outcome.left.length).toBe(length)
+          }
+        }))
     }))
 })

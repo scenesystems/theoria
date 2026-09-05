@@ -168,3 +168,25 @@ export class KemFailed extends Schema.TaggedError<KemFailed>()(
     reason: Schema.String
   }
 ) {}
+
+/**
+ * The runtime cryptographic random source could not supply the requested bytes.
+ *
+ * @remarks
+ * Raised by {@link generateEntropy} when the requested length is not a safe
+ * non-negative integer within the platform's per-call limit, or when the
+ * runtime exposes no `crypto.getRandomValues`. Carries the requested `length`
+ * and a diagnostic `reason` that never includes key or entropy material.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export class EntropyGenerationFailed extends Schema.TaggedError<EntropyGenerationFailed>()(
+  "EntropyGenerationFailed",
+  {
+    /** Number of bytes that were requested. */
+    length: Schema.Number,
+    /** Non-redacted diagnostic from the random source boundary. */
+    reason: Schema.String
+  }
+) {}

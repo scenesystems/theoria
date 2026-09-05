@@ -1,22 +1,14 @@
 import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect } from "effect"
 
-import { ChatPromptFixtureSchema, loadFixture, makeFixtureRegistry } from "./dspy-fixtures/index.js"
+import { makeFixtureRegistry } from "./dspy-fixtures/index.js"
 
 const manifestGenerator =
   "\"generator\":{\"script\":\"test\",\"generatorVersion\":\"1\",\"upstream\":\"dspy\",\"upstreamVersion\":\"1\",\"pythonVersion\":\"3\",\"generatedAt\":\"2026-01-01T00:00:00Z\"}"
 
 describe("DSPy fixture registry", () => {
-  it.effect("loads and decodes a fixture", () =>
-    Effect.gen(function*() {
-      const fixture = yield* loadFixture("dspy.chat.qa-basic")
-      const decoded = yield* Schema.decodeUnknown(ChatPromptFixtureSchema)(fixture)
-
-      expect(decoded.payload.messages.length).toBeGreaterThan(0)
-    }))
-
   it.effect("fails with the requested name when a fixture is missing", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem

@@ -30,7 +30,8 @@ export type ScoredCandidate = readonly [CandidateState, number]
  * Evaluates every candidate sequentially against the validation set and
  * pairs each with its metric score.
  *
- * Candidates that fail evaluation are silently excluded from the result.
+ * A candidate whose every validation trial fails (`AllTrialsFailed`) is excluded
+ * from the result; any other evaluation failure propagates.
  *
  * @since 0.1.0
  * @category constructors

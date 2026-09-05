@@ -9,7 +9,7 @@ import { Data } from "effect"
 import type { CacheError } from "../../../Cache/index.js"
 import type { CacheResolution } from "../../../Cache/index.js"
 import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
-import type { TrialError } from "../../../Errors/index.js"
+import type { ArtifactStorageError, TrialError } from "../../../Errors/index.js"
 import type { StudyObjectiveCacheKey } from "../../studyObjectiveCache.js"
 
 /**
@@ -51,7 +51,7 @@ export type CacheResolve = <E, Requirement>(args: {
  * @since 0.1.0
  * @category type-level
  */
-export type CacheResolveAsTrialError = <Requirement>(args: {
+export type CacheResolveForTrial = <Requirement>(args: {
   readonly config: StudyObjectiveCacheKey
-  readonly compute: Effect.Effect<ObjectiveValue, TrialError, Requirement>
-}) => Effect.Effect<readonly [ObjectiveValue, CacheResolution], TrialError, Requirement>
+  readonly compute: Effect.Effect<ObjectiveValue, TrialError | ArtifactStorageError, Requirement>
+}) => Effect.Effect<readonly [ObjectiveValue, CacheResolution], TrialError | ArtifactStorageError, Requirement>

@@ -177,4 +177,4 @@ export {
   studyStorageOptions
 } from "./studyStorage.js"
 
-export { envelopeEventPublisher } from "./events.js"
+export { envelopeEventPublisher, EventPublisher } from "./events.js"

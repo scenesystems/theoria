@@ -54,9 +54,9 @@ export const studyStorageOptions = (directory: string): StudyStorageOptions => d
  * @remarks
  * Write completion has the durability semantics of the installed artifact sink, and a
  * sink that cannot accept an envelope fails the write with an {@link ArtifactStorageError}.
- * Loads fail the same way when the log cannot be read or holds an undecodable line
- * before its end; a log that does not exist yet loads as empty, and a torn final line
- * is skipped as crash residue.
+ * Loads fail the same way when the log cannot be read or holds any undecodable line,
+ * including a tail torn by an interrupted append; a log that does not exist yet loads
+ * as empty.
  *
  * @since 0.1.0
  * @category services
@@ -68,9 +68,9 @@ export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")
     readonly appendTrial: (trial: SnapshotTrial) => Effect.Effect<void, ArtifactStorageError>
     /** Emits one study-snapshot envelope. */
     readonly writeSnapshot: (snapshot: StudySnapshot) => Effect.Effect<void, ArtifactStorageError>
-    /** Reads the last valid snapshot envelope, or `None` when the log holds none. */
+    /** Reads the last snapshot envelope, or `None` when the log holds none. */
     readonly loadSnapshot: () => Effect.Effect<Option.Option<StudySnapshot>, ArtifactStorageError>
-    /** Reads every valid trial-log envelope in file order. */
+    /** Reads every trial-log envelope in file order. */
     readonly loadTrialLog: () => Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError>
     /** Reads trial-log entries whose number is at least the last snapshot's next trial number. */
     readonly replayTrialLog: () => Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError>
@@ -92,7 +92,7 @@ export type StudyStorageApi = Context.Tag.Service<typeof StudyStorage>
  * The service requires filesystem and path services, an artifact sink, and an
  * {@link EnvelopeContext}. A directory that cannot be created fails construction with an
  * {@link ArtifactStorageError}. Appends allocate artifact IDs from the context and do not
- * add locking beyond the selected sink. Loads retain valid envelopes in file order and
+ * add locking beyond the selected sink. Loads return envelopes in file order and
  * fail when the log cannot be read. Replay returns the full trial log when no snapshot exists; otherwise it
  * keeps trial numbers greater than or equal to the last snapshot's `nextTrialNumber`.
  * It does not sort or deduplicate trials. Snapshot and trial-log data are read

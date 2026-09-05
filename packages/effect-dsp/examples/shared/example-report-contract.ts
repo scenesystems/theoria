@@ -393,9 +393,7 @@ export const writeStandardArtifacts = (options: {
     const path = yield* Path.Path
     const reportsDir = options.artifacts.reportsDir
 
-    yield* fileSystem.makeDirectory(reportsDir, { recursive: true }).pipe(
-      Effect.catchAll(() => Effect.void)
-    )
+    yield* fileSystem.makeDirectory(reportsDir, { recursive: true })
 
     const reportPath = yield* writeReportMarkdown(reportsDir, options.summary)
 

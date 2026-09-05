@@ -125,9 +125,7 @@ export const emitCustomEnvelope = (options: {
         payload: options.payload
       })
     )
-  }).pipe(
-    Effect.catchAll(() => Effect.void)
-  )
+  })
 
 export const exampleArtifactSinkLayer = (directory: string) => fileSystemSink(directory)
 

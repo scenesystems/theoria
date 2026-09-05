@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { FileSystem } from "@effect/platform"
-import { Effect, Option, ParseResult, Schema, Stream } from "effect"
+import { Effect, ParseResult, Schema, Stream } from "effect"
 
 import { ArtifactStorageError } from "../../Errors/Artifact.js"
 import { type ArtifactEnvelope, ArtifactEnvelopeSchema } from "../ArtifactEnvelope.js"
@@ -14,6 +14,12 @@ const ArtifactEnvelopeJsonSchema = Schema.parseJson(ArtifactEnvelopeSchema)
 const readFailure = (path: string) => (cause: { readonly message: string }): ArtifactStorageError =>
   new ArtifactStorageError({ operation: "read", path, detail: cause.message })
 
+/** Issue paths and messages only; the envelope schema itself is too large to repeat per line. */
+const describeIssues = (error: ParseResult.ParseError): string =>
+  ParseResult.ArrayFormatter.formatErrorSync(error)
+    .map((issue) => issue.path.length === 0 ? issue.message : `${issue.path.join(".")}: ${issue.message}`)
+    .join("; ")
+
 const corruptLine = (
   path: string,
   lineNumber: number,
@@ -22,23 +28,16 @@ const corruptLine = (
   new ArtifactStorageError({
     operation: "read",
     path,
-    detail: `line ${lineNumber} is not an artifact envelope: ${ParseResult.TreeFormatter.formatErrorSync(error)}`
+    detail: `line ${lineNumber} is not an artifact envelope: ${describeIssues(error)}`
   })
-
-/** A numbered non-blank line paired with whether another non-blank line follows it. */
-type PositionedLine = readonly [line: string, lineNumber: number, hasSuccessor: boolean]
 
 const decodeLine = (
   path: string,
-  [line, lineNumber, hasSuccessor]: PositionedLine
-): Effect.Effect<Option.Option<ArtifactEnvelope>, ArtifactStorageError> =>
+  line: string,
+  lineNumber: number
+): Effect.Effect<ArtifactEnvelope, ArtifactStorageError> =>
   Schema.decode(ArtifactEnvelopeJsonSchema)(line).pipe(
-    Effect.asSome,
-    Effect.catchAll((error) =>
-      hasSuccessor
-        ? Effect.fail(corruptLine(path, lineNumber, error))
-        : Effect.succeedNone
-    )
+    Effect.mapError((error) => corruptLine(path, lineNumber, error))
   )
 
 /**
@@ -47,12 +46,13 @@ const decodeLine = (
  * @remarks
  * A file that does not exist yields an empty stream: an absent log is the state before
  * the first write, not a failure. A file that cannot be examined or read fails the stream
- * with an {@link ArtifactStorageError}. Blank lines are skipped. The final non-blank line
- * may be torn, because an append-only log interrupted mid-write legitimately ends that
- * way and the envelopes before it remain valid; an undecodable line anywhere else means
- * the log was corrupted or written by something other than an artifact sink, and fails
- * the stream with an {@link ArtifactStorageError} naming the line. Decoding validates
- * structure but does not authenticate producers or verify lineage digests.
+ * with an {@link ArtifactStorageError}. Blank lines are skipped. Every other line must
+ * decode as an envelope; one that does not, including a final line torn by an interrupted
+ * append, fails the stream with an {@link ArtifactStorageError} naming the line. A torn
+ * tail is not skipped because the next append would land on the same line and corrupt a
+ * later envelope; repairing a log is an explicit operation, not a side effect of reading
+ * it. Decoding validates structure but does not authenticate producers or verify lineage
+ * digests.
  *
  * @since 0.1.0
  * @category readers
@@ -71,9 +71,7 @@ export const readEnvelopeLog = (
           Stream.splitLines,
           Stream.zipWithIndex,
           Stream.filter(([line]) => line.trim().length > 0),
-          Stream.zipWithNext,
-          Stream.mapEffect(([[line, index], next]) => decodeLine(filePath, [line, index + 1, Option.isSome(next)])),
-          Stream.filterMap((option) => option)
+          Stream.mapEffect(([line, index]) => decodeLine(filePath, line, index + 1))
         )
         : Stream.empty
     })

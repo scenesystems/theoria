@@ -420,112 +420,12 @@ REPLAY_PARAMS = {
 }
 
 
-GOVERNANCE_PUBLIC_SEAMS = {
-    "allowedEffectSearchImports": [
-        "@scenesystems/effect-search/Pareto",
-        "@scenesystems/effect-search/Sampler",
-        "@scenesystems/effect-search/Study",
-    ],
-    "forbiddenEffectSearchImportPrefixes": ["@scenesystems/effect-search/internal/"],
-    "allowedRuntimeImportOwners": [
-        "src/contracts/DeterministicSeed.ts",
-        "src/optimizers/GEPA/pareto.ts",
-        "src/optimizers/GEPA/sampling.ts",
-        "src/optimizers/GEPA/runtime/stream.ts",
-    ],
-    "expectedOptimizerIndexExports": ["./gepa.js", "./gepaStream.js"],
-    "expectedOptimizerEventsExports": ["./gepa.js"],
-}
-
-
-GOVERNANCE_OPTIMIZER_OPTIONS = {
-    "requiredOptionKeys": ["module", "trainset", "metric", "maxIterations"],
-    "optionalOptionKeys": ["valset", "maxMergeInvocations", "seed"],
-    "defaultMaxMergeInvocations": 5,
-    "eventTags": [
-        "IterationStarted",
-        "MergeChecked",
-        "MutationProposed",
-        "AcceptanceEvaluated",
-        "ParetoUpdated",
-        "IterationCompleted",
-        "OptimizationCompleted",
-    ],
-}
-
-
-CONCRETE_FIXTURE_ENTRIES = [
-    {"name": "dspy.gepa.pareto.score-matrix.basic", "file": "gepa/pareto/score-matrix.basic.json"},
-    {"name": "dspy.gepa.pareto.score-matrix.ties", "file": "gepa/pareto/score-matrix.ties.json"},
-    {"name": "dspy.gepa.selection.weights.seed-42", "file": "gepa/selection/weights.seed-42.json"},
-    {"name": "dspy.gepa.reflect.dataset-shape", "file": "gepa/reflect/dataset-shape.json"},
-    {"name": "dspy.gepa.reflect.prompt-template.basic", "file": "gepa/reflect/prompt-template.basic.json"},
-    {
-        "name": "dspy.gepa.reflect.format-failure-feedback",
-        "file": "gepa/reflect/format-failure-feedback.json",
-    },
-    {"name": "dspy.gepa.accept.mutation-strict-greater", "file": "gepa/accept/mutation-strict-greater.json"},
-    {"name": "dspy.gepa.accept.merge-non-strict", "file": "gepa/accept/merge-non-strict.json"},
-    {"name": "dspy.gepa.merge.common-ancestor-cases", "file": "gepa/merge/common-ancestor-cases.json"},
-    {
-        "name": "dspy.gepa.merge.schedule.max-merge-invocations",
-        "file": "gepa/merge/schedule.max-merge-invocations.json",
-    },
-    {
-        "name": "dspy.gepa.orchestration.event-order.seed-0",
-        "file": "gepa/orchestration/event-order.seed-0.json",
-    },
-    {
-        "name": "dspy.gepa.orchestration.state-transitions.basic",
-        "file": "gepa/orchestration/state-transitions.basic.json",
-    },
-    {
-        "name": "dspy.gepa.replay.frontier-snapshots.seed-0",
-        "file": "gepa/replay/frontier-snapshots.seed-0.json",
-    },
-    {"name": "dspy.gepa.replay.params.seed-0", "file": "gepa/replay/params.seed-0.json"},
-    {"name": "dspy.gepa.governance.public-seams", "file": "gepa/governance/public-seams.json"},
-    {
-        "name": "dspy.gepa.governance.optimizer-options",
-        "file": "gepa/governance/optimizer-options.json",
-    },
-]
-
-
-def concrete_fixture_entries() -> list[dict[str, str]]:
-    return [dict(entry) for entry in CONCRETE_FIXTURE_ENTRIES]
-
-
-def _catalog_payload() -> dict[str, Any]:
-    namespaces = sorted(
-        {
-            ".".join(str(entry["name"]).split(".")[:3])
-            for entry in CONCRETE_FIXTURE_ENTRIES
-        }
-    )
-
-    return {
-        "fixtureSet": "dspy.gepa",
-        "version": 2,
-        "fixtures": concrete_fixture_entries(),
-        "namespaces": namespaces,
-        "requiredFixtureCount": len(CONCRETE_FIXTURE_ENTRIES),
-    }
-
-
 def _replay_contract_payload() -> dict[str, Any]:
     return {
         "seed": 0,
         "moduleName": "qa-replay",
         "maxIterations": 3,
         "trainsetSize": 3,
-        "requiredManifestFixtures": [entry["name"] for entry in CONCRETE_FIXTURE_ENTRIES],
-        "byteEqualityChecks": [
-            "savedStateBytes",
-            "frontierSnapshotBytes",
-            "eventTimelineBytes",
-            "paramsBytes",
-        ],
     }
 
 
@@ -603,24 +503,6 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
             "gepa/replay/params.seed-0.json",
             generated_at,
             REPLAY_PARAMS,
-        ),
-        _fixture_document(
-            "dspy.gepa.governance.public-seams",
-            "gepa/governance/public-seams.json",
-            generated_at,
-            GOVERNANCE_PUBLIC_SEAMS,
-        ),
-        _fixture_document(
-            "dspy.gepa.governance.optimizer-options",
-            "gepa/governance/optimizer-options.json",
-            generated_at,
-            GOVERNANCE_OPTIMIZER_OPTIONS,
-        ),
-        _fixture_document(
-            "dspy.gepa.catalog.versioned-fixtures",
-            "gepa/catalog/versioned-fixtures.json",
-            generated_at,
-            _catalog_payload(),
         ),
         _fixture_document(
             "dspy.gepa.replay.seed-0.contract",

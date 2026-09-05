@@ -807,9 +807,7 @@ export const GepaReplaySeedContractFixtureSchema = Schema.Struct({
     seed: Schema.Number,
     moduleName: Schema.String,
     maxIterations: Schema.Number,
-    trainsetSize: Schema.Number,
-    requiredManifestFixtures: Schema.Array(Schema.String),
-    byteEqualityChecks: Schema.Array(Schema.String)
+    trainsetSize: Schema.Number
   })
 })
 

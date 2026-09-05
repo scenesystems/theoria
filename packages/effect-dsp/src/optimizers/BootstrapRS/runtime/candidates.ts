@@ -7,7 +7,7 @@
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Option, Schema } from "effect"
 import type * as Layer from "effect/Layer"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
 import * as Evaluate from "../../../Evaluate/index.js"
@@ -155,8 +155,8 @@ export const evaluateCandidate = <
  * - One bootstrap-few-shot candidate per seed, each trained on a rotated
  *   view of the training set
  *
- * Bootstrap candidates that fail are silently dropped. The uncompiled and
- * labeled-few-shot baselines are always included.
+ * A bootstrap that fails to load, train or save fails candidate generation;
+ * the optimizer does not report a winner from a partially built pool.
  *
  * @since 0.1.0
  * @category constructors
@@ -202,54 +202,43 @@ export const buildCandidateStates = <
     const bootstrapCandidates = yield* Effect.forEach(
       options.seeds,
       (seed) =>
-        Effect.either(
-          Effect.gen(function*() {
-            yield* Module.load(options.module, options.initialState)
-            yield* bootstrapFewShot({
-              module: options.module,
-              trainset: rotateExamples(options.trainset, seed),
-              metric: options.metric,
-              maxRounds: options.maxRounds,
-              maxBootstrappedDemos: options.maxBootstrappedDemos,
-              ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
-                onNone: () => ({}),
-                onSome: (value) => ({ maxLabeledDemos: value })
-              }),
-              ...Option.match(Option.fromNullable(options.threshold), {
-                onNone: () => ({}),
-                onSome: (value) => ({ threshold: value })
-              }),
-              ...Option.match(Option.fromNullable(options.teacher), {
-                onNone: () => ({}),
-                onSome: (teacher) => ({ teacher })
-              }),
-              ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
-                onNone: () => ({ fallbackToLabeledFewShot: false }),
-                onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
-              }),
-              ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
-                onNone: () => ({}),
-                onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
-              })
-            })
-            const state = yield* Module.save(options.module)
-
-            return new CandidateState({
-              label: `bootstrap-${seed}`,
-              state
+        Effect.gen(function*() {
+          yield* Module.load(options.module, options.initialState)
+          yield* bootstrapFewShot({
+            module: options.module,
+            trainset: rotateExamples(options.trainset, seed),
+            metric: options.metric,
+            maxRounds: options.maxRounds,
+            maxBootstrappedDemos: options.maxBootstrappedDemos,
+            ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
+              onNone: () => ({}),
+              onSome: (value) => ({ maxLabeledDemos: value })
+            }),
+            ...Option.match(Option.fromNullable(options.threshold), {
+              onNone: () => ({}),
+              onSome: (value) => ({ threshold: value })
+            }),
+            ...Option.match(Option.fromNullable(options.teacher), {
+              onNone: () => ({}),
+              onSome: (teacher) => ({ teacher })
+            }),
+            ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
+              onNone: () => ({ fallbackToLabeledFewShot: false }),
+              onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
+            }),
+            ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
+              onNone: () => ({}),
+              onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
             })
           })
-        ).pipe(
-          Effect.map(
-            Either.match({
-              onLeft: () => Option.none<CandidateState>(),
-              onRight: (candidate) => Option.some(candidate)
-            })
-          )
-        ),
+          const state = yield* Module.save(options.module)
+
+          return new CandidateState({
+            label: `bootstrap-${seed}`,
+            state
+          })
+        }),
       { concurrency: 1 }
-    ).pipe(
-      Effect.map((candidates) => Arr.filterMap(candidates, (candidate) => candidate))
     )
 
     return Arr.appendAll(

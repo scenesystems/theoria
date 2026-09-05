@@ -22,6 +22,14 @@ import * as Trial from "../Trial/index.js"
 import { betterByDirection } from "./best.js"
 
 /**
+ * Delivers study events to their destination: a pub-sub for live subscribers, an
+ * artifact sink for persistence, or both through a fan-out.
+ *
+ * @remarks
+ * `ExecuteRequest.eventPublisher` accepts one; {@link envelopeEventPublisher}
+ * builds the persistent form. Publication to a persistent destination can fail
+ * with {@link ArtifactStorageError}, and that failure is the study's.
+ *
  * @since 0.1.0
  * @category models
  */

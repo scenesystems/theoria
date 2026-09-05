@@ -3,9 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Effect, Number as Num, Option, Ref, Schedule } from "effect"
+import { Effect, Number as Num, Option, Ref, Schedule, Schema } from "effect"
 
-import type { ArtifactStorageError, TrialError } from "../../../Errors/index.js"
+import { ArtifactStorageError, type TrialError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import type * as Trial from "../../../Trial/index.js"
@@ -17,12 +17,18 @@ import { objectiveFailure } from "../objective.js"
 import type { StudyRuntime } from "../runtimeState.js"
 import { CurrentTrialContext, type TrialContext } from "../trialContext.js"
 import { decodeObjectiveResult } from "./aggregation.js"
-import { type CacheResolveAsTrialError, ObjectiveSample } from "./model.js"
+import { type CacheResolveForTrial, ObjectiveSample } from "./model.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 
+const isArtifactStorageError = Schema.is(ArtifactStorageError)
+
 /**
  * Evaluates the objective function with schedule-driven retries, caching, and per-attempt event emission.
+ *
+ * An objective that fails because `runtime.report` or `runtime.requestStop` could not
+ * persist an envelope has not failed as an objective: the {@link ArtifactStorageError}
+ * passes through unwrapped and unretried so the study fails with it.
  *
  * @since 0.1.0
  * @category utils
@@ -34,7 +40,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
   runtime: StudyRuntime<ConfigFor<Space>>,
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
-  resolveCachedValue: CacheResolveAsTrialError
+  resolveCachedValue: CacheResolveForTrial
 ): Effect.Effect<ObjectiveSample, TrialError | ArtifactStorageError, ObjectiveEvaluator> =>
   Effect.gen(function*() {
     const objectiveEvaluator = yield* ObjectiveEvaluator
@@ -47,7 +53,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
         objectiveRuntime
       ).pipe(
         Effect.flatMap((result) => decodeObjectiveResult(trialNumber, result)),
-        Effect.mapError((cause) => objectiveFailure(trialNumber, cause))
+        Effect.mapError((cause) => isArtifactStorageError(cause) ? cause : objectiveFailure(trialNumber, cause))
       ),
       CurrentTrialContext,
       Option.some(trialContext)
@@ -80,7 +86,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
             )
           })
         ),
-        Effect.catchAll((error) =>
+        Effect.catchTag("effect-search/TrialError", (error) =>
           retryDriver.next(error).pipe(
             Effect.matchEffect({
               onFailure: () => Effect.fail(error),
@@ -94,8 +100,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
                   })
                 ).pipe(Effect.zipRight(retryLoop(Num.increment(attempt))))
             })
-          )
-        )
+          ))
       )
 
     return yield* retryLoop(0)

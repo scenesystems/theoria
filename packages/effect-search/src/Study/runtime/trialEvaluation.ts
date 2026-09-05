@@ -3,9 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Cause, Effect, Either, Exit, Match, Option } from "effect"
+import { Array as Arr, Cause, Chunk, Effect, Exit, Match, Option, Schema } from "effect"
 
-import type { ArtifactStorageError, TrialError } from "../../Errors/index.js"
+import { ArtifactStorageError, type TrialError } from "../../Errors/index.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import type * as Trial from "../../Trial/index.js"
 import type { ObjectiveEvaluator } from "../objectiveEvaluator.js"
@@ -14,12 +14,14 @@ import { evaluateObjectiveWithTimeout } from "./objectiveTimeout.js"
 import type { StudyRuntime } from "./runtimeState.js"
 import type { TrialContext } from "./trialContext.js"
 import { aggregateObjectiveSamples } from "./trialEvaluation/aggregation.js"
-import { type CacheResolveAsTrialError, ObjectiveAttempt } from "./trialEvaluation/model.js"
+import { type CacheResolveForTrial, ObjectiveAttempt } from "./trialEvaluation/model.js"
 import { evaluateObjectiveWithRetry } from "./trialEvaluation/retry.js"
 
 export { ObjectiveAttempt }
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
+
+const isArtifactStorageError = Schema.is(ArtifactStorageError)
 
 const evaluateObjectiveWithAveraging = <Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<ConfigFor<Space>, Space>,
@@ -28,7 +30,7 @@ const evaluateObjectiveWithAveraging = <Space extends SearchSpace.SearchSpace>(
   runtime: StudyRuntime<ConfigFor<Space>>,
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
-  resolveCachedValue: CacheResolveAsTrialError
+  resolveCachedValue: CacheResolveForTrial
 ): Effect.Effect<ObjectiveAttempt, TrialError | ArtifactStorageError, ObjectiveEvaluator> =>
   Effect.forEach(
     Arr.makeBy(settings.evaluationsPerTrial, (index) => index),
@@ -47,9 +49,10 @@ const evaluateObjectiveWithAveraging = <Space extends SearchSpace.SearchSpace>(
   )
 
 /**
- * A trial's exit records what the objective did. Failing to publish the trial's retry
- * events is the study's failure, not the trial's, so it leaves the exit and takes the
- * error channel.
+ * A trial's exit records what the objective did. Failing to persist an envelope during
+ * the trial is the study's failure, not the trial's, so it leaves the exit and takes the
+ * error channel; the rest of the cause (trial failures, defects, interruptions) is kept
+ * intact rather than rebuilt from its first failure.
  */
 const liftStorageFailure = (
   exit: Exit.Exit<ObjectiveAttempt, TrialError | ArtifactStorageError>
@@ -57,15 +60,23 @@ const liftStorageFailure = (
   Exit.match(exit, {
     onSuccess: (attempt) => Effect.succeed(Exit.succeed(attempt)),
     onFailure: (cause) =>
-      Either.match(Cause.failureOrCause(cause), {
-        onRight: (failureFree) => Effect.succeed(Exit.failCause(failureFree)),
-        onLeft: (error) =>
-          Match.value(error).pipe(
-            Match.tag("effect-search/ArtifactStorageError", (storage) => Effect.fail(storage)),
-            Match.tag("effect-search/TrialError", (trial) => Effect.succeed(Exit.fail(trial))),
-            Match.exhaustive
-          )
-      })
+      Chunk.findFirst(Cause.failures(cause), isArtifactStorageError).pipe(
+        Option.match({
+          onSome: (storage) => Effect.fail(storage),
+          onNone: () =>
+            Effect.succeed(
+              Exit.failCause(
+                Cause.flatMap(cause, (error) =>
+                  Match.value(error).pipe(
+                    Match.tag("effect-search/TrialError", (trial) => Cause.fail(trial)),
+                    // Unreachable: every ArtifactStorageError was found above.
+                    Match.tag("effect-search/ArtifactStorageError", (storage) => Cause.die(storage)),
+                    Match.exhaustive
+                  ))
+              )
+            )
+        })
+      )
   })
 
 /**
@@ -81,7 +92,7 @@ export const evaluateObjectiveWithPolicy = <Space extends SearchSpace.SearchSpac
   runtime: StudyRuntime<ConfigFor<Space>>,
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
-  resolveCachedValue: CacheResolveAsTrialError
+  resolveCachedValue: CacheResolveForTrial
 ): Effect.Effect<Option.Option<Exit.Exit<ObjectiveAttempt, TrialError>>, ArtifactStorageError, ObjectiveEvaluator> => {
   const objectiveEffect = evaluateObjectiveWithAveraging(
     options,
