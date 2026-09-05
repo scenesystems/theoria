@@ -1,11 +1,17 @@
 import { Button } from "@base-ui/react/button"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Result } from "@effect-atom/atom"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
+import type { DemoExecutionError } from "../../../contracts/demo-error.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../../contracts/imagined-place.js"
-import { type PlaceRenderFrame, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
+import {
+  type PlaceRenderFrame,
+  placeRenderFrameAtom,
+  placeTrialPreviewAtom
+} from "../../atoms/imagined-place-render.js"
 import {
   placeStageMaxDrawableAtom,
   placeStageMaxWidth,
@@ -14,12 +20,14 @@ import {
   placeStageWidthAtom,
   placeVersionChangeAtom
 } from "../../atoms/imagined-place.js"
+import { ActionButton } from "../primitives/ActionButton.js"
 import { ChangedValue } from "../primitives/ChangedValue.js"
 import { ChoicePills } from "../primitives/ChoicePills.js"
 import { legendThemeFor, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { StageBanner } from "../primitives/StageBanner.js"
 
 import { ContentId } from "./ContentId.js"
 import { PlaceSearchTrace } from "./PlaceSearchTrace.js"
@@ -165,6 +173,18 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
   )
 }
 
+/** The search that draws the place failed; the last frame it reached stays on the stage until it is run again. */
+const DrawFailed = () => {
+  const redraw = useAtomRefresh(placeRenderFrameAtom)
+  return (
+    <StageBanner
+      action={<ActionButton label="Draw again" onClick={redraw} />}
+      text="The place could not be drawn."
+      tone="error"
+    />
+  )
+}
+
 /**
  * The Arrange step: the place drawn for this screen, the search that arranged
  * it (every trial, any of which can be drawn), and who made what. Rows inside
@@ -176,7 +196,7 @@ export const PlaceArrangement = ({
   frame
 }: {
   readonly build: Option.Option<PlaceBuild>
-  readonly frame: Option.Option<PlaceRenderFrame>
+  readonly frame: Result.Result<PlaceRenderFrame, DemoExecutionError>
 }) => (
   <Stack className="@container gap-4">
     {Option.match(build, {
@@ -184,7 +204,8 @@ export const PlaceArrangement = ({
       onSome: (value) => <TitleRow build={value} />
     })}
     <PlaceStage />
-    {Option.match(frame, {
+    {Result.isFailure(frame) ? <DrawFailed /> : null}
+    {Option.match(Result.value(frame), {
       onNone: () => null,
       onSome: (value) => (
         <Stack className="gap-2">
