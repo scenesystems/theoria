@@ -1,7 +1,22 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Cause, Chunk, Effect, Either, Exit, Layer, Number as Num, Option, Ref, Schedule, Schema, Stream } from "effect"
+import {
+  Cause,
+  Chunk,
+  Data,
+  Effect,
+  Either,
+  Exit,
+  Layer,
+  Number as Num,
+  Option,
+  Predicate,
+  Ref,
+  Schedule,
+  Schema,
+  Stream
+} from "effect"
 
 import {
   ArtifactSink,
@@ -21,6 +36,10 @@ const makeTestEnvelopeContextLayer = Effect.gen(function*() {
   const packageVersion = yield* Schema.decode(PackageVersion)("0.1.0")
   return EnvelopeContextLive({ packageVersion, runId, studyId: "test-study" })
 }).pipe(Layer.unwrapEffect)
+
+class TrialFinalizerDefect extends Data.TaggedClass("TrialFinalizerDefect")<{
+  readonly stage: "objective-finalizer"
+}> {}
 
 const expectStorageError = (
   outcome: Either.Either<unknown, unknown>,
@@ -222,7 +241,7 @@ describe("contracts/artifact storage failures", () => {
           : Effect.void
     })
 
-  const runWithPublisher = (
+  const runWithPublisherEffect = (
     publisher: Study.EventPublisher,
     objective: Study.ObjectiveFunction<{ readonly choice: "only" }>,
     calls: Ref.Ref<number>
@@ -246,8 +265,20 @@ describe("contracts/artifact storage failures", () => {
           eventPublisher: Option.some(publisher),
           interruptionSnapshotSink: () => Effect.void
         })
-      ).pipe(Effect.either)
+      )
     }).pipe(Effect.provide(Study.StudyServicesLive))
+
+  const runWithPublisher = (
+    publisher: Study.EventPublisher,
+    objective: Study.ObjectiveFunction<{ readonly choice: "only" }>,
+    calls: Ref.Ref<number>
+  ) => runWithPublisherEffect(publisher, objective, calls).pipe(Effect.either)
+
+  const runWithPublisherExit = (
+    publisher: Study.EventPublisher,
+    objective: Study.ObjectiveFunction<{ readonly choice: "only" }>,
+    calls: Ref.Ref<number>
+  ) => runWithPublisherEffect(publisher, objective, calls).pipe(Effect.exit)
 
   it.effect("a sink that rejects TrialReported fails the study, without retrying the objective", () =>
     Effect.gen(function*() {
@@ -261,6 +292,38 @@ describe("contracts/artifact storage failures", () => {
 
       expectStorageError(outcome, "write")
       expect(yield* Ref.get(calls)).toBe(1)
+    }))
+
+  it.effect("a rejected TrialReported preserves a subsequent objective finalizer defect", () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+      const defect = new TrialFinalizerDefect({ stage: "objective-finalizer" })
+
+      const exit = yield* runWithPublisherExit(
+        failingOn("TrialReported", "envelopes.jsonl"),
+        (_config, runtime) =>
+          runtime.report(1, 1).pipe(
+            Effect.as(1),
+            Effect.ensuring(Effect.die(defect))
+          ),
+        calls
+      )
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(
+          Chunk.some(
+            Cause.failures(exit.cause),
+            (failure) => failure instanceof ArtifactStorageError && failure.operation === "write"
+          )
+        ).toBe(true)
+        expect(
+          Chunk.some(
+            Cause.defects(exit.cause),
+            (causeDefect) => Predicate.hasProperty(causeDefect, "_tag") && causeDefect._tag === defect._tag
+          )
+        ).toBe(true)
+      }
     }))
 
   it.effect("a sink that rejects StudyStopRequested fails the study, without retrying the objective", () =>

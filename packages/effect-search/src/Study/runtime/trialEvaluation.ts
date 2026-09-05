@@ -51,18 +51,18 @@ const evaluateObjectiveWithAveraging = <Space extends SearchSpace.SearchSpace>(
 /**
  * A trial's exit records what the objective did. Failing to persist an envelope during
  * the trial is the study's failure, not the trial's, so it leaves the exit and takes the
- * error channel; the rest of the cause (trial failures, defects, interruptions) is kept
- * intact rather than rebuilt from its first failure.
+ * error channel while preserving the complete cause, including any trial failures,
+ * defects, or interruptions.
  */
 const liftStorageFailure = (
   exit: Exit.Exit<ObjectiveAttempt, TrialError | ArtifactStorageError>
-): Effect.Effect<Exit.Exit<ObjectiveAttempt, TrialError>, ArtifactStorageError> =>
+): Effect.Effect<Exit.Exit<ObjectiveAttempt, TrialError>, TrialError | ArtifactStorageError> =>
   Exit.match(exit, {
     onSuccess: (attempt) => Effect.succeed(Exit.succeed(attempt)),
     onFailure: (cause) =>
       Chunk.findFirst(Cause.failures(cause), isArtifactStorageError).pipe(
         Option.match({
-          onSome: (storage) => Effect.fail(storage),
+          onSome: () => Effect.failCause(cause),
           onNone: () =>
             Effect.succeed(
               Exit.failCause(
@@ -93,7 +93,11 @@ export const evaluateObjectiveWithPolicy = <Space extends SearchSpace.SearchSpac
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
   resolveCachedValue: CacheResolveForTrial
-): Effect.Effect<Option.Option<Exit.Exit<ObjectiveAttempt, TrialError>>, ArtifactStorageError, ObjectiveEvaluator> => {
+): Effect.Effect<
+  Option.Option<Exit.Exit<ObjectiveAttempt, TrialError>>,
+  TrialError | ArtifactStorageError,
+  ObjectiveEvaluator
+> => {
   const objectiveEffect = evaluateObjectiveWithAveraging(
     options,
     settings,

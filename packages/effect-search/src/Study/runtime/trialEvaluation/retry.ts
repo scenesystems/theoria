@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Number as Num, Option, Ref, Schedule, Schema } from "effect"
+import { Cause, Effect, Number as Num, Option, Ref, Schedule, Schema } from "effect"
 
 import { ArtifactStorageError, type TrialError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
@@ -53,7 +53,9 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
         objectiveRuntime
       ).pipe(
         Effect.flatMap((result) => decodeObjectiveResult(trialNumber, result)),
-        Effect.mapError((cause) => isArtifactStorageError(cause) ? cause : objectiveFailure(trialNumber, cause))
+        Effect.mapErrorCause(
+          Cause.map((cause) => isArtifactStorageError(cause) ? cause : objectiveFailure(trialNumber, cause))
+        )
       ),
       CurrentTrialContext,
       Option.some(trialContext)
