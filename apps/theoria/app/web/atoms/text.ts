@@ -5,7 +5,7 @@ import { useAtomValue } from "@effect-atom/atom-react"
 import type { Errors, Text } from "@scenesystems/effect-text"
 import * as TextReact from "@scenesystems/effect-text/react"
 import type { Effect } from "effect"
-import { Data, Option, Schema } from "effect"
+import { Data, Schema } from "effect"
 import { useMemo } from "react"
 
 import { SurfaceVariant } from "../../contracts/presentation.js"
@@ -28,9 +28,14 @@ export const TextProjectionRequest = Schema.Struct({
 })
 export type TextProjectionRequest = typeof TextProjectionRequest.Type
 
-/** The projection once the text is prepared; until then the surface renders the browser's own wrapping. */
+/**
+ * The projection as the atom sees it: initial while the text is being
+ * prepared, a failure when measurement failed, and the projection once it is
+ * ready. The surface renders the browser's own wrapping for the first two and
+ * marks the failure so it is visible in the document rather than swallowed.
+ */
 export class TextProjectionHandle extends Data.Class<{
-  readonly projection: Option.Option<TextProjection>
+  readonly projection: Result.Result<TextProjection, Errors.MeasurementFailed>
   readonly ref: ElementWidthHandle["ref"]
 }> {}
 
@@ -69,7 +74,7 @@ const textProjectionPrepareKey = ({
 
 export const makeTextProjectionAtom = (
   authority: TextProjectionAuthority = defaultTextProjectionAuthority
-): (request: TextProjectionRequest) => AtomType.Atom<Option.Option<TextProjection>> => {
+): (request: TextProjectionRequest) => AtomType.Atom<Result.Result<TextProjection, Errors.MeasurementFailed>> => {
   const preparedResultAtom = Atom.family((prepareKey: string) =>
     textRuntime.atom(() => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)))
   )
@@ -87,19 +92,16 @@ export const makeTextProjectionAtom = (
       const effectiveWidth = get(effectiveWidthAtom)
       const preparedResult = get(preparedResultAtom(prepareKey))
 
-      return Result.value(preparedResult).pipe(
-        Option.map((prepared) =>
-          authority.project({
-            prepared,
-            request: {
-              role: request.role,
-              variant: request.variant,
-              text: request.text
-            },
-            maxWidth: effectiveWidth
-          })
-        )
-      )
+      return Result.map(preparedResult, (prepared) =>
+        authority.project({
+          prepared,
+          request: {
+            role: request.role,
+            variant: request.variant,
+            text: request.text
+          },
+          maxWidth: effectiveWidth
+        }))
     })
   })
 }

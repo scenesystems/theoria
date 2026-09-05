@@ -1,6 +1,6 @@
 import { Headers, HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Ref, Schema } from "effect"
+import { Data, Effect, Layer, Ref, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
@@ -23,6 +23,16 @@ const refusing = (seen: Ref.Ref<ReadonlyArray<string>>) =>
   )
 
 const encodeRequest = Schema.encode(Schema.parseJson(PlaceBuildRequest))
+const decodeEnvelope = Schema.decode(Schema.parseJson(PlaceBuildEnvelope))
+
+/** The response body could not be read as text. */
+class UnreadableBody extends Data.TaggedError("UnreadableBody")<{ readonly cause: unknown }> {}
+
+const responseText = (response: HttpServerResponse.HttpServerResponse) =>
+  Effect.tryPromise({
+    try: () => HttpServerResponse.toWeb(response).text(),
+    catch: (cause) => new UnreadableBody({ cause })
+  })
 
 const request = (init: RequestInit) =>
   HttpServerRequest.fromWeb(new Request(`http://127.0.0.1${imaginedPlacePath}`, init))
@@ -36,8 +46,8 @@ const crossSite = (serverRequest: HttpServerRequest.HttpServerRequest) =>
 const call = (serverRequest: HttpServerRequest.HttpServerRequest, layer: typeof RouteLive = RouteLive) =>
   imaginedPlaceRoute(serverRequest, "req-1").pipe(
     Effect.flatMap((response) =>
-      Effect.promise(() => HttpServerResponse.toWeb(response).json()).pipe(
-        Effect.flatMap(Schema.decodeUnknown(PlaceBuildEnvelope)),
+      responseText(response).pipe(
+        Effect.flatMap(decodeEnvelope),
         Effect.map((envelope) => ({ status: response.status, headers: response.headers, envelope }))
       )
     ),

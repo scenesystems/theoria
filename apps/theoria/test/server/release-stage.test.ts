@@ -1,21 +1,21 @@
 import { expect, it } from "@effect/vitest"
 import { ConfigError, ConfigProvider, Effect, Layer } from "effect"
 
-import { releaseStageConfig, serverReleaseStage } from "../../app/server/config/release-stage.js"
+import { releaseStageConfig } from "../../app/server/config/release-stage.js"
 
 const withEnvironment = (variables: Record<string, string>) =>
   Layer.setConfigProvider(ConfigProvider.fromJson(variables))
 
 it.effect("reads RELEASE_STAGE from the configured provider", () =>
   Effect.gen(function*() {
-    const stage = yield* serverReleaseStage
+    const stage = yield* releaseStageConfig
 
     expect(stage).toBe("production")
   }).pipe(Effect.provide(withEnvironment({ RELEASE_STAGE: "production" }))))
 
 it.effect("treats an unset RELEASE_STAGE as preview, whatever else the environment holds", () =>
   Effect.gen(function*() {
-    const stage = yield* serverReleaseStage
+    const stage = yield* releaseStageConfig
 
     expect(stage).toBe("preview")
   }).pipe(Effect.provide(withEnvironment({ NODE_ENV: "production", DEPLOY_TARGET: "production" }))))

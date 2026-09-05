@@ -1,6 +1,6 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
-import { Context, Data, Effect, Layer, Option, Schema } from "effect"
+import { Context, Data, Effect, Layer, Option, Predicate, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 import { createTestHarness } from "wrangler"
@@ -39,10 +39,23 @@ export class SiteResponse extends Data.Class<{
   readonly json: () => Promise<unknown>
 }> {}
 
+/** The workerd harness rejected: it failed to listen, a request failed in transit, or a body could not be read. */
+export class SiteError extends Data.TaggedError("test/worker/SiteError")<{
+  readonly message: string
+  readonly cause: unknown
+}> {}
+
+/** Runs one harness call. */
+const harness = <A>(run: () => Promise<A>): Effect.Effect<A, SiteError> =>
+  Effect.tryPromise({
+    try: run,
+    catch: (cause) => new SiteError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
+  })
+
 export class Site extends Context.Tag("test/worker/Site")<Site, {
   /** Origin of the local server, without a trailing slash. */
   readonly url: string
-  readonly fetch: (input: string, init?: SiteRequest) => Effect.Effect<SiteResponse>
+  readonly fetch: (input: string, init?: SiteRequest) => Effect.Effect<SiteResponse, SiteError>
   readonly manifest: DocsManifest
   readonly distRoot: string
   /** A content-hashed script from `dist/assets`, as a site path. */
@@ -62,7 +75,11 @@ const requireFile = (file: string) =>
     return yield* exists ? Effect.void : missingBuild(file)
   })
 
-export const SiteLive = Layer.scoped(
+/**
+ * The harness for the whole layer. Nothing in a test can respond to workerd
+ * failing to shut down, so that failure surfaces as a defect in the scope's exit.
+ */
+export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
   Site,
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -108,14 +125,14 @@ export const SiteLive = Layer.scoped(
           }]
         })
       ),
-      (harness) => Effect.promise(() => harness.close())
+      (running) => Effect.orDie(harness(() => running.close()))
     )
-    const listening = yield* Effect.promise(() => server.listen())
+    const listening = yield* harness(() => server.listen())
 
     return Site.of({
       url: listening.url.origin,
       fetch: (input, init) =>
-        Effect.promise(() => server.fetch(input, init)).pipe(
+        harness(() => server.fetch(input, init)).pipe(
           Effect.map((response) =>
             new SiteResponse({
               status: response.status,
@@ -132,5 +149,5 @@ export const SiteLive = Layer.scoped(
   })
 ).pipe(Layer.provide(BunContext.layer))
 
-export const text = (response: SiteResponse) => Effect.promise(() => response.text())
-export const json = (response: SiteResponse) => Effect.promise(() => response.json())
+export const text = (response: SiteResponse) => harness(() => response.text())
+export const json = (response: SiteResponse) => harness(() => response.json())

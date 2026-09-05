@@ -16,16 +16,14 @@ import {
   fitsViewport,
   goto,
   hidden,
+  highlighted,
   observeRequests,
   openPage,
   setViewport,
-  someCount,
   urlMatches,
   visible
 } from "./browser.js"
 import { SiteLive } from "./site.js"
-
-const codeTokens = "[class~=\"text-code-keyword\"], [class~=\"text-code-type\"]"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria docs in Chromium",
@@ -140,7 +138,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const guideCode = page.getByRole("region", { name: "ts code example" })
         yield* containsText(guideCode.locator("pre code > span:first-child > span:last-child"), /^import/u)
         yield* containsText(guideCode, "SearchSpace")
-        yield* someCount(guideCode.locator(codeTokens))
+        yield* highlighted(guideCode.locator("pre code"))
         yield* visible(guideCode.getByRole("button", { name: "Copy ts" }))
 
         yield* goto(page, "/docs/effect-math/domains")
@@ -184,8 +182,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* goto(page, "/docs/effect-search/api/Study#api-ask")
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
         const signature = page.getByRole("region", { name: "Signature code example" })
-        yield* someCount(signature.locator(codeTokens))
-        yield* someCount(page.locator("dt code").first().locator("[class^=\"text-code-\"], [class*=\" text-code-\"]"))
+        yield* highlighted(signature.locator("pre code"))
+        yield* highlighted(page.locator("dt code").first())
         yield* click(signature.getByRole("button", { name: "Copy Signature" }))
         yield* visible(signature.getByRole("button", { name: "Copied Signature" }))
         expect(yield* act(() => page.evaluate(() => navigator.clipboard.readText()))).toContain("ask")

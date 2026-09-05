@@ -1,6 +1,7 @@
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Registry } from "@effect-atom/atom"
+import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
+import { Errors } from "@scenesystems/effect-text"
 import { Effect, Option, Ref } from "effect"
 import type { TextProjection } from "../../app/contracts/text.js"
 
@@ -18,11 +19,11 @@ const makeTestRegistry = (): Registry.Registry =>
 /** Polls the atom until a projection satisfying `isReady` is present. */
 const waitForProjection = (
   registry: Registry.Registry,
-  atom: AtomType.Atom<Option.Option<TextProjection>>,
+  atom: AtomType.Atom<Result.Result<TextProjection, Errors.MeasurementFailed>>,
   isReady: (projection: TextProjection) => boolean = () => true
 ): Effect.Effect<TextProjection, never, never> =>
   Effect.eventually(
-    Effect.sync(() => registry.get(atom)).pipe(Effect.flatMap(Option.filter(isReady)))
+    Effect.sync(() => registry.get(atom)).pipe(Effect.flatMap((result) => Option.filter(Result.value(result), isReady)))
   )
 
 const makeAuthority = (prepareCalls: Ref.Ref<number>): TextProjectionAuthority =>
@@ -61,5 +62,29 @@ describe("text projection contracts", () => {
       expect(narrow.layout.maxWidth).toBe(120)
       expect(wide.layout.maxWidth).toBe(320)
       expect(narrow.summary.lineCount).toBeGreaterThanOrEqual(wide.summary.lineCount)
+    }))
+
+  it.effect("a measurement failure reaches the surface as the failure, not as an absent projection", () =>
+    Effect.gen(function*() {
+      const registry = makeTestRegistry()
+      const failing = new TextProjectionAuthority({
+        prepare: (identity) =>
+          Effect.fail(
+            new Errors.MeasurementFailed({ fontFamily: "test", fontSize: 16, text: identity.text, reason: "no canvas" })
+          ),
+        project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
+      })
+      const projectionAtom = makeTextProjectionAtom(failing)({
+        role: "row-label",
+        variant: "compact",
+        text: "Text that cannot be measured.",
+        widthSlot: makeElementWidthSlot()
+      })
+
+      const failure = yield* Effect.eventually(
+        Effect.sync(() => registry.get(projectionAtom)).pipe(Effect.flatMap(Result.error))
+      )
+
+      expect(failure.reason).toBe("no canvas")
     }))
 })

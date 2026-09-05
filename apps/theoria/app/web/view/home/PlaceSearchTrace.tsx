@@ -113,11 +113,6 @@ export const PlaceSearchTrace = ({ frame }: { readonly frame: PlaceRenderFrame }
       disabled={running}
       max={renderTrials - 1}
       min={0}
-      // On the root, not the thumb: Base UI 1.0.0-rc.0 drops the thumb's own onKeyDown.
-      onKeyDown={(event) => {
-        // Escape leaves the excursion: back to the trial the search kept.
-        if (event.key === "Escape") setPreview(Option.none())
-      }}
       onValueChange={(value) => {
         setPreview(value === frame.bestIndex ? Option.none() : Option.some(value))
       }}
@@ -130,6 +125,10 @@ export const PlaceSearchTrace = ({ frame }: { readonly frame: PlaceRenderFrame }
           className={thumbClassName}
           getAriaLabel={() => "Trial drawn on the stage"}
           getAriaValueText={(_, value) => trialValueText(frame, value)}
+          // Escape leaves the excursion: back to the trial the search kept.
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setPreview(Option.none())
+          }}
         >
           <Layer render={<span />} className={thumbLineClassName} />
         </Slider.Thumb>

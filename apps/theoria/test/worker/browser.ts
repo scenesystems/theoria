@@ -7,29 +7,44 @@ import {
   type Page,
   type Response
 } from "@playwright/test"
-import { Chunk, Context, Data, Effect, Layer, Queue, Schema, type Scope } from "effect"
+import { Chunk, Context, Data, Effect, Layer, Predicate, Queue, Schema, type Scope } from "effect"
 
 import { Site } from "./site.js"
 
 /**
- * Playwright, driven from Effect. Every browser call is one `Effect.promise`;
- * Playwright's own auto-retrying assertions are wrapped the same way, so a
- * failed expectation or timeout fails the test as a defect with Playwright's
+ * Playwright, driven from Effect. Every browser call is one `act`, which
+ * turns a rejected Playwright promise into a `BrowserError` carrying
+ * Playwright's message. Playwright's own auto-retrying assertions are wrapped
+ * the same way, so a failed expectation or timeout fails the test with the
  * message intact.
  */
 
-export class Browser extends Context.Tag("test/worker/Browser")<Browser, PlaywrightBrowser>() {}
-
-export const BrowserLive = Layer.scoped(
-  Browser,
-  Effect.acquireRelease(
-    Effect.promise(() => chromium.launch()),
-    (browser) => Effect.promise(() => browser.close())
-  )
-)
+/** A Playwright call that rejected: a failed assertion, a timeout, or a browser fault. */
+export class BrowserError extends Data.TaggedError("test/worker/BrowserError")<{
+  readonly message: string
+  readonly cause: unknown
+}> {}
 
 /** Runs one Playwright call. */
-export const act = <A>(run: () => Promise<A>): Effect.Effect<A> => Effect.promise(run)
+export const act = <A>(run: () => Promise<A>): Effect.Effect<A, BrowserError> =>
+  Effect.tryPromise({
+    try: run,
+    catch: (cause) => new BrowserError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
+  })
+
+export class Browser extends Context.Tag("test/worker/Browser")<Browser, PlaywrightBrowser>() {}
+
+/**
+ * Chromium for the whole layer. Nothing in a test can respond to the browser
+ * failing to close, so that failure surfaces as a defect in the scope's exit.
+ */
+export const BrowserLive: Layer.Layer<Browser, BrowserError> = Layer.scoped(
+  Browser,
+  Effect.acquireRelease(
+    act(() => chromium.launch()),
+    (browser) => Effect.orDie(act(() => browser.close()))
+  )
+)
 
 export const Viewport = Schema.Struct({ width: Schema.Number, height: Schema.Number })
 export type Viewport = typeof Viewport.Type
@@ -45,13 +60,13 @@ export class Session extends Data.Class<{
 /** Opens an isolated browser context on the site for the rest of the scope. */
 export const openPage = (
   options: { readonly viewport?: Viewport; readonly permissions?: ReadonlyArray<string> } = {}
-): Effect.Effect<Session, never, Browser | Site | Scope.Scope> =>
+): Effect.Effect<Session, BrowserError, Browser | Site | Scope.Scope> =>
   Effect.gen(function*() {
     const browser = yield* Browser
     const site = yield* Site
     const context = yield* Effect.acquireRelease(
       act(() => browser.newContext({ baseURL: site.url, viewport: options.viewport ?? desktop })),
-      (open) => act(() => open.close())
+      (open) => Effect.orDie(act(() => open.close()))
     )
     yield* act(() => context.grantPermissions([...(options.permissions ?? [])]))
     const page = yield* act(() => context.newPage())
@@ -90,7 +105,6 @@ export const setViewport = (page: Page, viewport: Viewport) => act(() => page.se
 export const visible = (locator: Locator) => act(() => inBrowser(locator).toBeVisible())
 export const hidden = (locator: Locator) => act(() => inBrowser(locator).toBeHidden())
 export const count = (locator: Locator, expected: number) => act(() => inBrowser(locator).toHaveCount(expected))
-export const someCount = (locator: Locator) => act(() => inBrowser(locator).not.toHaveCount(0))
 export const containsText = (locator: Locator, expected: string | RegExp) =>
   act(() => inBrowser(locator).toContainText(expected))
 export const attribute = (locator: Locator, name: string, expected: string | RegExp) =>
@@ -98,13 +112,31 @@ export const attribute = (locator: Locator, name: string, expected: string | Reg
 export const urlMatches = (page: Page, pattern: RegExp) => act(() => inBrowser(page).toHaveURL(pattern))
 
 /** Waits for the next response whose URL ends with `suffix` from a request with `method`. */
-export const nextResponse = (page: Page, method: string, suffix: string): Effect.Effect<Response> =>
+export const nextResponse = (page: Page, method: string, suffix: string): Effect.Effect<Response, BrowserError> =>
   act(() =>
     page.waitForResponse((response) => response.url().endsWith(suffix) && response.request().method() === method)
   )
 
 export const attached = (locator: Locator) => act(() => inBrowser(locator).toBeAttached())
 export const eventually = <A>(read: () => Promise<A>, expected: A) => act(() => inBrowser.poll(read).toBe(expected))
+
+/**
+ * Syntax highlighting is visible: the code paints its tokens in more than one
+ * colour. The highlighter loads after first render, so this retries until the
+ * colours appear or Playwright's assertion timeout elapses. The count runs in
+ * the page, so it is plain DOM code.
+ */
+export const highlighted = (code: Locator): Effect.Effect<void, BrowserError> =>
+  act(() =>
+    inBrowser.poll(() =>
+      code.evaluate((root) =>
+        [root, ...root.querySelectorAll("*")]
+          .map((element) => getComputedStyle(element).color)
+          .filter((colour, index, colours) => colours.indexOf(colour) === index)
+          .length
+      )
+    ).toBeGreaterThan(1)
+  )
 
 /** True when the document does not scroll horizontally at the current viewport. */
 export const fitsViewport = (page: Page) =>
@@ -127,26 +159,27 @@ export const animationsSettled = (page: Page) =>
   )
 
 /**
- * Elements that leak past the viewport. Content inside a horizontal scroller
- * that itself fits (code listings, tab strips) is reachable by scrolling, so
- * only the scroller counts. Runs in the page, so it is plain DOM code.
+ * Elements that leak past the viewport. Content inside an ancestor that itself
+ * fits and scrolls (code listings, tab strips) or clips (`overflow: clip`
+ * decoration) is not painted past the edge, so only the ancestor counts. Runs
+ * in the page, so it is plain DOM code.
  */
 export const overflowingElements = (page: Page) =>
   act(() =>
     page.evaluate(() => {
       const limit = window.innerWidth + 1
-      const scrolls = (element: Element) => ["auto", "scroll", "hidden"].includes(getComputedStyle(element).overflowX)
+      const clips = (element: Element) =>
+        ["auto", "scroll", "hidden", "clip"].includes(getComputedStyle(element).overflowX)
       const clippedByAncestor = (element: Element): boolean => {
         const ancestor = element.parentElement
         return ancestor instanceof Element && ancestor !== document.body &&
-          ((scrolls(ancestor) && ancestor.getBoundingClientRect().right <= limit) || clippedByAncestor(ancestor))
+          ((clips(ancestor) && ancestor.getBoundingClientRect().right <= limit) || clippedByAncestor(ancestor))
       }
       const describe = (element: Element) =>
         `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}@${
           String(Math.round(element.getBoundingClientRect().right))
         }`
       return [...document.querySelectorAll("body *")]
-        .filter((element) => !element.classList.contains("pointer-events-none"))
         .filter((element) => element.getBoundingClientRect().right > limit)
         .filter((element) => !clippedByAncestor(element))
         .map(describe)

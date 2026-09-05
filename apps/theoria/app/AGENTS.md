@@ -156,7 +156,6 @@ This applies to all concerns:
 - **Primitives are generic.** `ContentCard`, `CodeBlock`, `TabBar` know nothing about the home demo or the docs — they render whatever contracts give them.
 - **View models are the interface.** Components receive contract types or the pure projections in `home/placeViewModel.ts` and `docs/docsModel.ts` — never raw `Result`s from a client atom threaded through several layers.
 - **Flat composition over deep nesting.** Prefer composing primitives side-by-side over wrapping them in deep hierarchies. Parent components assemble children — they don't wrap-and-override.
-- **240 LOC limit.** Files over 240 lines require a decomposition plan. If a component grows, extract a primitive or a sub-component.
 
 ### Anti-patterns
 

@@ -1,3 +1,4 @@
+import { Result } from "@effect-atom/atom"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
@@ -14,6 +15,12 @@ type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "co
 type BlockElement = "p" | "h1" | "h2" | "h3" | "dt" | "dd"
 
 const isBlockElement = (el: SemanticTextElement): el is BlockElement => el !== "span" && el !== "code" && el !== "kbd"
+
+/**
+ * Why a block is wrapped by the browser rather than by a projection, exposed
+ * as `data-text-layout` so a measurement failure is visible in the document.
+ */
+type BrowserLayoutReason = "native" | "measuring" | "measurement-failed"
 
 const projectedLineWhitespaceClass = (preserveWhitespace: boolean): string =>
   preserveWhitespace ? "whitespace-pre" : "whitespace-nowrap"
@@ -121,6 +128,7 @@ const NoWrapBlockText = ({
 const BrowserWrappedBlockText = ({
   as,
   className,
+  layout,
   maxLines,
   reserveLines,
   role,
@@ -129,6 +137,7 @@ const BrowserWrappedBlockText = ({
 }: {
   readonly as: BlockElement
   readonly className: string
+  readonly layout: BrowserLayoutReason
   readonly maxLines: Option.Option<number>
   readonly reserveLines: Option.Option<number>
   readonly role: TextRole
@@ -149,6 +158,7 @@ const BrowserWrappedBlockText = ({
   return (
     <Component
       className={classNames(className, fallback)}
+      data-text-layout={layout}
       style={lineClampStyle({ maxLines, reserveLines, role })}
     >
       {text}
@@ -179,20 +189,23 @@ const ProjectedWrappedBlockText = ({
   const glyph = glyphClassName(role)
   const leading = `leading-(${lineHeightVar(role)})`
   const maxWidthClass = maxWidthClassName(role, variant)
+  const browserWrapped = (layout: BrowserLayoutReason) => (
+    <BrowserWrappedBlockText
+      as={as}
+      className={className}
+      layout={layout}
+      maxLines={maxLines}
+      reserveLines={reserveLines}
+      role={role}
+      text={text}
+      variant={variant}
+    />
+  )
 
-  return Option.match(projection, {
-    onNone: () => (
-      <BrowserWrappedBlockText
-        as={as}
-        className={className}
-        maxLines={maxLines}
-        reserveLines={reserveLines}
-        role={role}
-        text={text}
-        variant={variant}
-      />
-    ),
-    onSome: (projection) => {
+  return Result.match(projection, {
+    onInitial: () => browserWrapped("measuring"),
+    onFailure: () => browserWrapped("measurement-failed"),
+    onSuccess: ({ value: projection }) => {
       const visibleLines = limitedProjectionLines({ maxLines, projection })
 
       return (
@@ -252,6 +265,7 @@ export const SemanticText = ({
       <BrowserWrappedBlockText
         as={element}
         className={className}
+        layout="native"
         maxLines={maxLines}
         reserveLines={reserved}
         role={role}

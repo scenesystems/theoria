@@ -1,4 +1,4 @@
-import { Config, ConfigError, Context, Effect, Either, Layer, Option, Schema } from "effect"
+import { Config, ConfigError, Context, Either, Layer, Option, Schema } from "effect"
 
 /**
  * Analytics configuration. Both providers are optional and independent:
@@ -62,4 +62,5 @@ export const disabledAnalytics: AnalyticsSettings = {
   cloudflareBeaconToken: Option.none()
 }
 
-export const AnalyticsLive = Layer.effect(Analytics, Effect.orDie(analyticsConfig))
+/** Fails layer construction with the `ConfigError` when either identifier is malformed. */
+export const AnalyticsLive: Layer.Layer<Analytics, ConfigError.ConfigError> = Layer.effect(Analytics, analyticsConfig)

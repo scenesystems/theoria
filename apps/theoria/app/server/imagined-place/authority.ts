@@ -6,6 +6,7 @@ import {
   ed25519Sign,
   ed25519Verify,
   generateKeyPair,
+  type KeyGenerationFailed,
   KeyPair,
   toHex,
   utf8ToBytes
@@ -40,9 +41,9 @@ export class Participants extends Context.Tag("theoria/imagined-place/Participan
   ParticipantSet
 >() {}
 
-const participantKeys: Effect.Effect<ParticipantKeys> = Effect.all({
+const participantKeys: Effect.Effect<ParticipantKeys, KeyGenerationFailed> = Effect.all({
   signing: ed25519Keygen(),
-  agreement: generateKeyPair("x25519").pipe(Effect.orDie)
+  agreement: generateKeyPair("x25519")
 })
 
 export const ParticipantsLive = Layer.effect(

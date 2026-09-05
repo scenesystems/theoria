@@ -304,9 +304,11 @@ Option<DocsModuleSlug>)`, `DocsApiRoute.moduleSlug`, `DocsHeader` and
 - **Layout slots.** `Layout.tsx` had a polymorphic `as` generic over
   `ElementType`, unsound in the case TypeScript 7 could not even express
   (`keyof JSX.IntrinsicElements` hits TS2590). The slots are now one factory
-  over a closed `LayoutTag` union with `HTMLAttributes<HTMLElement>` and a
-  callback ref over `HTMLElement`: the callback is contravariant, so a single
-  ref type is sound for every tag; an object ref would pin one element type.
+  generic over a closed `LayoutTag` union, typed with Base UI's
+  `useRender.ComponentProps<Tag>`: `<Main>` accepts the attributes and ref of a
+  `<main>`, and the element is swapped or composed through Base UI's `render`
+  prop rather than an `as` prop, the same way every other Base UI component in
+  the app chooses its element.
 
 Where the migration found absence that was only standing in for a derivable
 value, it derived the value instead: `maxWidth: number | null` in the text

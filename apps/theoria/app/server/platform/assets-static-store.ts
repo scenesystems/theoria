@@ -42,13 +42,21 @@ const assetsClient = (assets: AssetsFetcher): HttpClient.HttpClient =>
   HttpClient.make((request, url, signal) =>
     Effect.tryPromise({
       try: () => assets.fetch(url, { method: request.method, headers: request.headers, signal }),
-      catch: (cause) => new HttpClientError.RequestError({ request, reason: "Transport", cause })
+      catch: (cause) =>
+        new HttpClientError.RequestError({
+          request,
+          reason: "Transport",
+          cause,
+          description: Predicate.isError(cause) ? cause.message : String(cause)
+        })
     }).pipe(Effect.map((response) => HttpClientResponse.fromWeb(request, response)))
   ).pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(assetsOrigin)))
 
-const isOk = (response: HttpClientResponse.HttpClientResponse): boolean =>
-  response.status >= 200 && response.status < 300
-
+/**
+ * One status policy for both operations: `404` is absence, every other non-2xx
+ * status and every transport failure is the store failing to deliver an asset
+ * that may well exist, so it is `Unreadable` and reaches the caller as a 500.
+ */
 const storeFailure = (pathname: string) => (cause: HttpClientError.HttpClientError): StaticStoreError =>
   cause._tag === "ResponseError" && cause.response.status === 404
     ? new StaticStoreError({ pathname, reason: "NotFound", detail: "" })
@@ -64,14 +72,14 @@ export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
         Effect.mapError(storeFailure(pathname))
       ),
     response: (pathname) =>
-      client.get(pathname).pipe(
+      okClient.get(pathname).pipe(
         Effect.map((response) =>
-          isOk(response)
-            ? Option.some(
-              HttpServerResponse.stream(response.stream, { status: response.status, headers: response.headers })
-            )
-            : Option.none()
+          Option.some(
+            HttpServerResponse.stream(response.stream, { status: response.status, headers: response.headers })
+          )
         ),
+        Effect.catchTag("ResponseError", (error) =>
+          error.response.status === 404 ? Effect.succeedNone : Effect.fail(error)),
         Effect.mapError(storeFailure(pathname))
       )
   })

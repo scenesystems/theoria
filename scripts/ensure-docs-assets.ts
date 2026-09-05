@@ -5,6 +5,8 @@ import { Array as Arr, Console, Effect, Schema } from "effect"
 
 import { DocsManifestJson } from "@theoria/docs-model"
 
+import { ApiReferenceToolchainError } from "./api-reference/model.js"
+
 const docsAssetPrefix = "/docs-data/"
 
 const isNotFound = (error: PlatformError): boolean => error._tag === "SystemError" && error.reason === "NotFound"
@@ -47,8 +49,11 @@ const docsAssetsAreCurrent = Effect.gen(function*() {
 const program = Effect.flatMap(docsAssetsAreCurrent, (current) =>
   current
     ? Console.log("Documentation assets are current.")
-    : Effect.promise(() => import("./api-reference-program.js")).pipe(
-      Effect.flatMap(({ apiReferenceProgram }) => apiReferenceProgram)
-    ))
+    : Effect.tryPromise({
+      // Loaded on demand so a current asset set never pays for TypeDoc's import graph.
+      try: () => import("./api-reference-program.js"),
+      catch: (cause) =>
+        new ApiReferenceToolchainError({ detail: `Loading the API reference generator failed: ${String(cause)}` })
+    }).pipe(Effect.flatMap(({ apiReferenceProgram }) => apiReferenceProgram)))
 
 BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

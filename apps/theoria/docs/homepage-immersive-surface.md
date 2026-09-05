@@ -313,7 +313,7 @@ derived.
 ### Act 3 — Motion
 
 - [x] `package.json`: `motion` 13.x; `App.tsx`: `MotionConfig
-    reducedMotion="user"` at the root (done on the toolchain branch).
+reducedMotion="user"` at the root (done on the toolchain branch).
 - [ ] `App.tsx`: `LazyMotion strict` with the theme's enter transition; motion
       tokens in `styles.css`.
 - [ ] `PlaceMarker.tsx`: `m.button` with `layout` and
@@ -380,8 +380,8 @@ derived.
 ## Done when
 
 ```bash
-bun run check && bun run check:tests && bun run lint && bun run test
-bun run --filter @theoria/theoria-app build && bun run --filter @theoria/theoria-app test:worker
+bun run check:all && bun run lint && bun run test && bun run build
+bun run check:apps && bun run test:apps && bun run --filter @theoria/theoria-app test:worker
 ```
 
 and a visitor at 390×844 with reduced motion on sees the place, a disc and the
