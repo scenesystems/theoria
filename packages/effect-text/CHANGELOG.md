@@ -1,5 +1,33 @@
 # effect-text
 
+## 0.4.0
+
+### Minor Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - `Experimental.Calibration.optimizeProfile` fails in the typed error channel when supplied study storage does not hold the calibration study. Storage that holds no snapshot after the study ran fails with the new `CalibrationSnapshotMissing`, carrying the retained trial-log length, and storage that resolves to a multi-objective study fails with the new `CalibrationStudyNotSingleObjective`. Previously both were defects.
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Exported records are `Data.Class` types instead of `Readonly<{ … }>` aliases, `HyphenationSupportManifest` is typed by the new `HyphenationSupportManifestType`, and `BrowserParityResolvedCase` is a `Data.Class` exported from the browser entrypoint. Layout internals model absence with `Option`.
+
+  Grapheme segmentation uses `Intl.Segmenter` unconditionally; the code-point fallback for runtimes without it is removed (every supported runtime — Bun, Node 22, Workers, evergreen browsers — ships it).
+
+  `React.PrepareIdentity` is a structural `Data.Class` (with `PrepareIdentityFont` and `PrepareIdentityEngineProfile`, absence as `Option`) that keys caches directly; the class replaces the `PrepareIdentityType` alias. The string codec (`PrepareIdentityKey`, `PrepareIdentityKeyType`, `prepareIdentityKey`, `prepareIdentityFromKey`, `engineProfileIdentity`) and its defaulting decode are removed, and `React.prepareInputFromIdentity` recovers the preparation input from an identity.
+
+  The measurement, browser-measurement, emoji-probe, and hyphenation caches key on structural records instead of `encodeURIComponent` strings, so text or font families containing unpaired surrogates measure instead of raising `URIError`.
+
+  Compatibility aliases are removed: `EngineProfileSchema` (use `EngineProfile`), `CalibrationSearchSpaceSpec`/`CalibrationSearchSpaceSpecType` (use `CalibrationSearchDescriptor`), and the `optimizeProfile` `searchSpaceSpec` option (use `searchDescriptor`).
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - `renderBrowserParityArtifact` fails in the typed error channel. A profile that does not declare every released synthetic scenario fails with the new `BrowserParityCasesMissing`, naming the profile and the scenarios it omits, and a scenario whose text cannot be measured fails with that measurement's `MeasurementFailed`. Previously both were defects.
+
+### Patch Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - A canvas context whose `measureText` raises now fails `CanvasTextMeasurerLive` with a `MeasurementFailed` in the typed error channel, carrying the raised value in `reason`; previously the raised value escaped as a defect. The context's `font`, `direction` and `textBaseline` are restored either way.
+
+  Measurement caches keep only successes. `MeasurementCacheLive`, `BrowserMeasurementCacheLive` and the emoji-probe cache evict a key whose lookup failed, so a measurement that failed once (a font that was not yet ready, a context that raised) fails that read and is measured again on the next request instead of replaying the failure for the cache's time to live.
+
+- Updated dependencies [[`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0), [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0), [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0), [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0)]:
+  - @scenesystems/effect-math@0.4.0
+  - @scenesystems/effect-search@0.5.0
+
 ## 0.3.2
 
 ### Patch Changes

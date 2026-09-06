@@ -1,5 +1,32 @@
 # effect-dsp
 
+## 0.3.0
+
+### Minor Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Every exported record is a `Data.Class` (or a `Schema.Struct` where it is pure data) instead of a `Readonly<{ … }>` alias, and absence is `Option` instead of `undefined`. Existing object literals remain assignable to the class instance types. `projectSingleObjective(report, metricName)` now takes `Option.Option<string>` for the metric instead of an optional string; pass `Option.none()` to project the report's first metric (or `score`).
+
+  The compatibility-only `contracts/CacheKey` schema is removed; the active cache service keys on `DspCacheKey` from `@scenesystems/effect-dsp/Cache`.
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - `Module.bestOfN` and `Module.refine` take their rollout/attempt count as the new branded `RolloutCount` (a positive integer schema exported from `@scenesystems/effect-dsp/contracts`) instead of a plain `number`. Invalid counts are rejected as a typed `ParseError` at construction (`RolloutCount.make(n)` or `Schema.decode(RolloutCount)`) rather than silently rounded or clamped to one, and neither wrapper can reach an internal defect for "no candidates produced" any more. `refine` always runs its first attempt and keeps that output when every later score is `NaN` or not greater than the current best.
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Optimizer failures are typed and carry their cause instead of being replaced or discarded.
+
+  - `EffectSearchInterop.cancel` carries `ArtifactStorageError` in its error channel, following `Study.cancel` in `@scenesystems/effect-search`: publishing the completion event to a persistent artifact sink can fail, and that failure is now typed.
+  - GEPA propagates the language-model error when the reflective mutation call fails, and the decoding errors of the reflection response are in its error channel. Previously the failure was swallowed and the parent instruction was re-proposed as if the model had returned it.
+  - GEPA candidate scores are the metric's own values. The `candidateBoost` that added a small increment per mutation step so that later candidates outranked equal earlier ones is removed; a candidate that does not improve the metric now fails the strict-improvement gate instead of being recorded as progress.
+  - BootstrapRS propagates a failure in bootstrap candidate generation instead of returning no candidates, and keeps a candidate out of the search only when it fails with `AllTrialsFailed` (zero successful evaluations); any other evaluation failure propagates. The final selection no longer replaces a study failure with a fabricated `AllTrialsFailed`.
+  - MIPROv2 preserves the effect-search study's own failure, such as `ArtifactStorageError`, instead of replacing it with `AllTrialsFailed`.
+
+  These widen public error types, which is a breaking change under 0.x semver, hence a minor release.
+
+### Patch Changes
+
+- Updated dependencies [[`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0), [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0), [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0), [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0), [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0)]:
+  - @scenesystems/effect-math@0.4.0
+  - @scenesystems/digest@0.5.3
+  - @scenesystems/effect-search@0.5.0
+
 ## 0.2.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @scenesystems/digest
 
+## 0.5.3
+
+### Patch Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Update `@noble/hashes` to 2.4.0.
+
 ## 0.5.2
 
 ### Patch Changes
