@@ -9,10 +9,12 @@ import { Data, Option } from "effect"
 
 import type { SurfaceVariant } from "../../contracts/presentation.js"
 import { maxWidthFor, type TextProjection, type TextProjectionRequest, type TextRole } from "../../contracts/text.js"
-import { type BrowserTextLayout, browserTextLayoutLive } from "../text/browserTextLayout.js"
+import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
+import type { BrowserTextLayout } from "../text/browserTextLayout.js"
 import { prepareIdentityForTextProjection, prepareTextProjection, projectPreparedText } from "../view/text/authority.js"
 
 import { type ElementWidthHandle, useElementWidth } from "./element-observation.js"
+import { textLayoutRuntime } from "./text-layout.js"
 
 /**
  * What a surface asks the projection for: the contract request and the width
@@ -26,6 +28,9 @@ export class TextProjectionKey extends Data.Class<{
   readonly maxWidth: number
 }> {}
 
+/** Why a projection is missing: the text could not be measured, or the document has no canvas to measure on. */
+export type TextProjectionError = Errors.MeasurementFailed | CanvasUnavailable
+
 /**
  * The projection as the atom sees it: initial while the text is being
  * prepared, a failure when measurement failed, and the projection once it is
@@ -33,7 +38,7 @@ export class TextProjectionKey extends Data.Class<{
  * marks the failure so it is visible in the document rather than swallowed.
  */
 export class TextProjectionHandle extends Data.Class<{
-  readonly projection: Result.Result<TextProjection, Errors.MeasurementFailed>
+  readonly projection: Result.Result<TextProjection, TextProjectionError>
   readonly ref: ElementWidthHandle["ref"]
 }> {}
 
@@ -48,8 +53,6 @@ export class TextProjectionAuthority extends Data.Class<{
   }) => TextProjection
 }> {}
 
-const textRuntime = Atom.runtime(browserTextLayoutLive)
-
 const defaultTextProjectionAuthority: TextProjectionAuthority = new TextProjectionAuthority({
   prepare: prepareTextProjection,
   project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
@@ -60,9 +63,9 @@ const textProjectionPrepareKey = ({ role, text }: TextProjectionKey): string =>
 
 export const makeTextProjectionAtom = (
   authority: TextProjectionAuthority = defaultTextProjectionAuthority
-): (key: TextProjectionKey) => AtomType.Atom<Result.Result<TextProjection, Errors.MeasurementFailed>> => {
+): (key: TextProjectionKey) => AtomType.Atom<Result.Result<TextProjection, TextProjectionError>> => {
   const preparedResultAtom = Atom.family((prepareKey: string) =>
-    textRuntime.atom(() => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)))
+    textLayoutRuntime.atom(() => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)))
   )
 
   return Atom.family((key: TextProjectionKey) => {

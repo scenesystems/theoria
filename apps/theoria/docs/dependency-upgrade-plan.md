@@ -298,9 +298,12 @@ Option<DocsModuleSlug>)`, `DocsApiRoute.moduleSlug`, `DocsHeader` and
 - **Browser globals.** The app never renders on a server, so
   `typeof window === "undefined"` guards were dead branches; they are gone. The
   document is a service, `BrowserDocument` in `app/web/platform`, provided once
-  in `main.tsx`; the one genuinely optional capability, a 2D canvas for text
-  measurement, is `BrowserDocument.canvasContext2d`, an `Option` the text
-  layout layer matches on (`browserTextLayout.ts`).
+  in `main.tsx`. A 2D canvas for text measurement is
+  `BrowserDocument.canvasContext2d`, which fails with `CanvasUnavailable`
+  when the document cannot supply one; the text layout layer
+  (`browserTextLayout.ts`) carries that failure rather than estimating widths
+  in its place, and headless test registries set `textLayoutLayerAtom` to the
+  deterministic layer explicitly.
 - **Layout slots.** `Layout.tsx` had a polymorphic `as` generic over
   `ElementType`, unsound in the case TypeScript 7 could not even express
   (`keyof JSX.IntrinsicElements` hits TS2590). The slots are now one factory

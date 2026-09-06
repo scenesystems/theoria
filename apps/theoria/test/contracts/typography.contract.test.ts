@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
-import { browserTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
+import { deterministicTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
 import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Typography contract", () => {
@@ -23,7 +23,7 @@ describe("Typography contract", () => {
         expect(line.width).toBeLessThanOrEqual(projection.layout.maxWidth)
         expect(line.width).toBeGreaterThan(0)
       })
-    }).pipe(Effect.provide(browserTextLayoutLive)))
+    }).pipe(Effect.provide(deterministicTextLayoutLive)))
 
   it.effect("projectText preserves explicit newlines in code blocks", () =>
     Effect.gen(function*() {
@@ -36,5 +36,5 @@ describe("Typography contract", () => {
       })
 
       expect(Arr.map(projection.lines, (line) => line.text)).toEqual(["const x = 1;", "const y = 2;"])
-    }).pipe(Effect.provide(browserTextLayoutLive)))
+    }).pipe(Effect.provide(deterministicTextLayoutLive)))
 })

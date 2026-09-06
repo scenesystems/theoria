@@ -4,10 +4,10 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-reac
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
-import type { DemoExecutionError } from "../../../contracts/demo-error.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../../contracts/imagined-place.js"
 import {
+  type PlaceRenderError,
   type PlaceRenderFrame,
   placeRenderFrameAtom,
   placeTrialPreviewAtom
@@ -173,13 +173,18 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
   )
 }
 
-/** The search that draws the place failed; the last frame it reached stays on the stage until it is run again. */
-const DrawFailed = () => {
+/**
+ * The search that draws the place failed; the last frame it reached stays on
+ * the stage until it is run again. While the run it asked for is under way
+ * the failure is still shown, `waiting`, and the button rests: another click
+ * would only cancel that run and start over.
+ */
+const DrawFailed = ({ frame }: { readonly frame: Result.Failure<PlaceRenderFrame, PlaceRenderError> }) => {
   const redraw = useAtomRefresh(placeRenderFrameAtom)
   return (
     <StageBanner
-      action={<ActionButton label="Draw again" onClick={redraw} />}
-      text="The place could not be drawn."
+      action={<ActionButton disabled={frame.waiting} label="Draw again" onClick={redraw} />}
+      text={frame.waiting ? "Drawing the place again." : "The place could not be drawn."}
       tone="error"
     />
   )
@@ -196,7 +201,7 @@ export const PlaceArrangement = ({
   frame
 }: {
   readonly build: Option.Option<PlaceBuild>
-  readonly frame: Result.Result<PlaceRenderFrame, DemoExecutionError>
+  readonly frame: Result.Result<PlaceRenderFrame, PlaceRenderError>
 }) => (
   <Stack className="@container gap-4">
     {Option.match(build, {
@@ -204,7 +209,7 @@ export const PlaceArrangement = ({
       onSome: (value) => <TitleRow build={value} />
     })}
     <PlaceStage />
-    {Result.isFailure(frame) ? <DrawFailed /> : null}
+    {Result.isFailure(frame) ? <DrawFailed frame={frame} /> : null}
     {Option.match(Result.value(frame), {
       onNone: () => null,
       onSome: (value) => (

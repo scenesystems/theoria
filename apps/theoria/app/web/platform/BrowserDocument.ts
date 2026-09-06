@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Stream } from "effect"
+import { Context, Effect, Layer, Option, Schema, Stream } from "effect"
 
 /**
  * The document this page renders into, as a service. The head, the root
@@ -52,9 +52,26 @@ export const events = <K extends keyof DocumentEventMap>(
       Stream.fromEventListener<DocumentEventMap[K]>(browserDocument, type, options))
   )
 
-/** A 2D canvas for text measurement; headless documents (tests under happy-dom) have none. */
-export const canvasContext2d: Effect.Effect<Option.Option<CanvasRenderingContext2D>, never, BrowserDocument> = Effect
-  .map(
+/**
+ * The document could not supply a 2D canvas: the host has no canvas support,
+ * refused the context, or is headless. Text measured against this document's
+ * fonts is impossible, and callers say so rather than estimate.
+ *
+ * @since 0.2.0
+ */
+export class CanvasUnavailable extends Schema.TaggedError<CanvasUnavailable>()("CanvasUnavailable", {
+  message: Schema.String
+}) {}
+
+/** A 2D canvas for text measurement in this document's fonts. */
+export const canvasContext2d: Effect.Effect<CanvasRenderingContext2D, CanvasUnavailable, BrowserDocument> = Effect
+  .flatMap(
     BrowserDocument,
-    (browserDocument) => Option.fromNullable(browserDocument.createElement("canvas").getContext("2d"))
+    (browserDocument) =>
+      Option.fromNullable(browserDocument.createElement("canvas").getContext("2d")).pipe(
+        Option.match({
+          onNone: () => new CanvasUnavailable({ message: "The document returned no 2D canvas context." }),
+          onSome: Effect.succeed
+        })
+      )
   )

@@ -1,7 +1,7 @@
 import { Text } from "@scenesystems/effect-text"
 import * as Browser from "@scenesystems/effect-text/browser"
 import * as Contracts from "@scenesystems/effect-text/contracts"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer } from "effect"
 
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 
@@ -13,7 +13,12 @@ export const browserEngineProfile = browserSupportProfile.engineProfile
 /** The text services every measurement and layout in the app runs against. */
 export type BrowserTextLayout = Contracts.WordSegmenter | Contracts.MeasurementCache | Contracts.EngineProfile
 
-const deterministicBrowserTextLayoutLayer: Layer.Layer<BrowserTextLayout> = Layer.mergeAll(
+/**
+ * Text layout measured by the deterministic estimator instead of a canvas.
+ * For hosts without a document, headless test documents among them; the
+ * app's runtime never falls back to it.
+ */
+export const deterministicTextLayoutLive: Layer.Layer<BrowserTextLayout> = Layer.mergeAll(
   Text.WordSegmenterLive,
   Text.HyphenationDictionaryLive(),
   Layer.succeed(Contracts.EngineProfile, browserEngineProfile),
@@ -21,7 +26,7 @@ const deterministicBrowserTextLayoutLayer: Layer.Layer<BrowserTextLayout> = Laye
   Text.MeasurementCacheLive.pipe(Layer.provide(Text.TextMeasurerLive))
 )
 
-const canvasBrowserTextLayoutLayer = (context: CanvasRenderingContext2D): Layer.Layer<BrowserTextLayout> => {
+const canvasTextLayoutLayer = (context: CanvasRenderingContext2D): Layer.Layer<BrowserTextLayout> => {
   const canvasMeasurer = Browser.CanvasTextMeasurerLive({ context })
 
   return Layer.mergeAll(
@@ -37,22 +42,17 @@ const canvasBrowserTextLayoutLayer = (context: CanvasRenderingContext2D): Layer.
 }
 
 /**
- * Text layout measured on a 2D canvas when the document provides one, and by
- * the deterministic measurer otherwise (headless hosts, tests). Build it once
- * per runtime so the measurement cache is shared across every layout.
+ * Text layout measured on the document's 2D canvas, in the document's own
+ * fonts. A document that cannot supply one fails the layer with
+ * `CanvasUnavailable`; nothing is estimated in its place. Build it once per
+ * runtime so the measurement cache is shared across every layout.
  */
-export const browserTextLayoutLayer: Layer.Layer<BrowserTextLayout, never, BrowserDocument.BrowserDocument> = Layer
-  .unwrapEffect(
-    Effect.map(
-      BrowserDocument.canvasContext2d,
-      Option.match({
-        onNone: () => deterministicBrowserTextLayoutLayer,
-        onSome: canvasBrowserTextLayoutLayer
-      })
-    )
-  )
+export const browserTextLayoutLayer: Layer.Layer<
+  BrowserTextLayout,
+  BrowserDocument.CanvasUnavailable,
+  BrowserDocument.BrowserDocument
+> = Layer.unwrapEffect(Effect.map(BrowserDocument.canvasContext2d, canvasTextLayoutLayer))
 
-/** The layout layer over the ambient document, for runtimes and tests. */
-export const browserTextLayoutLive: Layer.Layer<BrowserTextLayout> = browserTextLayoutLayer.pipe(
-  Layer.provide(BrowserDocument.layer)
-)
+/** The canvas layout layer over the ambient document. */
+export const browserTextLayoutLive: Layer.Layer<BrowserTextLayout, BrowserDocument.CanvasUnavailable> =
+  browserTextLayoutLayer.pipe(Layer.provide(BrowserDocument.layer))

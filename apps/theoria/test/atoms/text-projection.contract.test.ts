@@ -5,11 +5,20 @@ import { Errors } from "@scenesystems/effect-text"
 import { Effect, Ref } from "effect"
 import type { TextProjection } from "../../app/contracts/text.js"
 
-import { makeTextProjectionAtom, TextProjectionAuthority, TextProjectionKey } from "../../app/web/atoms/text.js"
+import { textLayoutLayerAtom } from "../../app/web/atoms/text-layout.js"
+import {
+  makeTextProjectionAtom,
+  TextProjectionAuthority,
+  type TextProjectionError,
+  TextProjectionKey
+} from "../../app/web/atoms/text.js"
+import { deterministicTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
 import { prepareTextProjection, projectPreparedText } from "../../app/web/view/text/authority.js"
 
+/** happy-dom has no canvas, so the registry measures with the deterministic layer. */
 const makeTestRegistry = (): Registry.Registry =>
   Registry.make({
+    initialValues: [[textLayoutLayerAtom, deterministicTextLayoutLive]],
     scheduleTask: (f) => {
       f()
     }
@@ -18,7 +27,7 @@ const makeTestRegistry = (): Registry.Registry =>
 /** Polls the atom until a projection is present. */
 const waitForProjection = (
   registry: Registry.Registry,
-  atom: AtomType.Atom<Result.Result<TextProjection, Errors.MeasurementFailed>>
+  atom: AtomType.Atom<Result.Result<TextProjection, TextProjectionError>>
 ): Effect.Effect<TextProjection, never, never> =>
   Effect.eventually(Effect.sync(() => registry.get(atom)).pipe(Effect.flatMap(Result.value)))
 
@@ -73,6 +82,7 @@ describe("text projection contracts", () => {
         Effect.sync(() => registry.get(projectionAtom)).pipe(Effect.flatMap(Result.error))
       )
 
-      expect(failure.reason).toBe("no canvas")
+      expect(failure).toBeInstanceOf(Errors.MeasurementFailed)
+      expect(failure).toMatchObject({ reason: "no canvas" })
     }))
 })

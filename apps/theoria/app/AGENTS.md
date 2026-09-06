@@ -85,6 +85,7 @@ React 19 + effect-atom + Tailwind CSS v4. All state flows through atoms, all ren
 | `navigation.ts`            | `pageRouteAtom`, browser history/metadata mount atoms, `navigateAtom`                                                                                                                              |
 | `element-observation.ts`   | Mount-scoped DOM observation primitives: width handles, ref-cleanup observers, ephemeral element slots                                                                                             |
 | `text.ts`                  | `makeTextProjectionAtom` / `useTextProjection`: `SemanticText` layout measurement through `effect-text`                                                                                            |
+| `text-layout.ts`           | `textLayoutLayerAtom`, the canvas-backed `effect-text` layer every measurement runs against (a headless test registry sets it to the deterministic layer), and `textLayoutRuntime` over it         |
 | `syntax-highlighting.ts`   | Shiki highlighter loaded once through `appRuntime`                                                                                                                                                 |
 | `theme.ts`                 | `colorModePreferenceAtom` (`Atom.kvs` over `BrowserKeyValueStore`, tri-state system/light/dark), derived `colorModeAtom`, and the mount atom that applies the root class                           |
 

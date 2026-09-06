@@ -3,7 +3,9 @@ import { Effect, Option, type Scope } from "effect"
 import type { ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
+import { textLayoutLayerAtom } from "../../app/web/atoms/text-layout.js"
 import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
+import { deterministicTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
 
 /**
  * Mounts a React tree into a fresh element of the test document and
@@ -32,7 +34,10 @@ export const mountReact = (
       })
   )
 
-/** `mountReact` inside an atom registry, for trees that read atoms. */
+/**
+ * `mountReact` inside an atom registry, for trees that read atoms. The test
+ * document has no canvas, so text in the tree is measured deterministically.
+ */
 export const mountWithRegistry = (
   node: ReactNode,
   defaultIdleTTL = 0
@@ -40,7 +45,15 @@ export const mountWithRegistry = (
   { readonly container: HTMLDivElement; readonly root: Root },
   never,
   Scope.Scope | BrowserDocument.BrowserDocument
-> => mountReact(<RegistryProvider defaultIdleTTL={defaultIdleTTL}>{node}</RegistryProvider>)
+> =>
+  mountReact(
+    <RegistryProvider
+      defaultIdleTTL={defaultIdleTTL}
+      initialValues={[[textLayoutLayerAtom, deterministicTextLayoutLive]]}
+    >
+      {node}
+    </RegistryProvider>
+  )
 
 /** Reads until `read` yields a value; the surrounding test's timeout bounds the wait. */
 export function waitForValue<A>(read: () => Option.Option<A>): Effect.Effect<A> {

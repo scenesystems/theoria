@@ -17,11 +17,13 @@ import {
 import { type Stage, stageFor } from "../../contracts/demo/imagined-place-flow.js"
 import type { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../contracts/imagined-place.js"
-import { type BrowserTextLayout, browserTextLayoutLive } from "../text/browserTextLayout.js"
+import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
+import type { BrowserTextLayout } from "../text/browserTextLayout.js"
 import { type MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
 import { placeArtifactAtom, placeStageWidthAtom } from "./imagined-place.js"
+import { textLayoutRuntime } from "./text-layout.js"
 
 /**
  * Draws the place in the browser with the browser's own font metrics.
@@ -63,8 +65,6 @@ export const frameShowing = (frame: PlaceRenderFrame, index: Option.Option<numbe
         })
       })
   })
-
-const renderRuntime = Atom.runtime(browserTextLayoutLive)
 
 /** Long enough to see the markers settle, short enough that 36 trials finish in about a second. */
 const frameDelay = Duration.millis(28)
@@ -164,12 +164,15 @@ const renderStream = (
  */
 export const placeTrialPreviewAtom: AtomType.Writable<Option.Option<number>> = Atom.make(Option.none<number>())
 
+/** Why there is no frame: the search failed, or the document has no canvas to measure the place's text on. */
+export type PlaceRenderError = DemoExecutionError | CanvasUnavailable
+
 /**
  * The latest frame for the current artifact at the current stage width. A new
  * artifact or a new width starts a new search; the previous frame is kept
  * while it runs so the stage never blanks.
  */
-export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, DemoExecutionError>> = renderRuntime
+export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = textLayoutRuntime
   .atom((get: AtomType.Context) => {
     const artifact = get(placeArtifactAtom)
     const stageWidth = get(placeStageWidthAtom)
@@ -182,7 +185,7 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
   })
 
 /** The frame the stage draws: the best arrangement, or the trial the visitor chose. */
-export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, DemoExecutionError>> = Atom.make(
+export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = Atom.make(
   (get: AtomType.Context) => {
     const preview = get(placeTrialPreviewAtom)
     return Result.map(get(placeRenderFrameAtom), (found) => frameShowing(found, preview))
