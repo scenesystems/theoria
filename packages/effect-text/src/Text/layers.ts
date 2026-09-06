@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Cache, Effect, Layer } from "effect"
+import { Cache, Data, Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import * as Rec from "effect/Record"
@@ -19,7 +19,7 @@ import {
 import { EffectTextSupportManifest } from "../contracts/supportManifest.js"
 import { MeasurementFailed } from "../Errors/index.js"
 import { segmentText } from "./internal/analysis.js"
-import { getOrEvict } from "./internal/cache.js"
+import { fontDescriptor, fontKey, getOrEvict, MeasurementKey } from "./internal/cache.js"
 import {
   type CompiledHyphenationDictionary,
   compileHyphenationDictionary,
@@ -38,14 +38,6 @@ const emptyHyphenationBreaks = Arr.empty<number>()
 const emptyLoadedHyphenationDictionary: LoadedHyphenationDictionary = {}
 const emptyCompiledHyphenationDictionary = compileHyphenationDictionary(emptyLoadedHyphenationDictionary)
 
-const encodeMeasurementKey = (font: FontDescriptorType, text: string): string =>
-  `${encodeURIComponent(font.family)}|${font.size}|${font.weight ?? 400}|${encodeURIComponent(text)}`
-
-const decodeMeasurementKey = (key: string): readonly [FontDescriptorType, string] => {
-  const [family = "", size = "0", weight = "400", text = ""] = key.split("|")
-  return [{ family: decodeURIComponent(family), size: Number(size), weight: Number(weight) }, decodeURIComponent(text)]
-}
-
 const weightScale = (weight: number): number => weight <= 400 ? 1 : 1 + (weight - 400) * 0.0003
 
 const approximateCharacterWidth = (font: FontDescriptorType, char: string): number => {
@@ -63,14 +55,12 @@ const makeMeasurementCache = Effect.gen(function*() {
   const cache = yield* Cache.make({
     capacity: 1024,
     timeToLive: "24 hours",
-    lookup: (key: string) => {
-      const [font, text] = decodeMeasurementKey(key)
-      return measurer.measure(font, text)
-    }
+    lookup: (key: MeasurementKey) => measurer.measure(fontDescriptor(key.font), key.text)
   })
 
   return {
-    measure: (font: FontDescriptorType, text: string) => getOrEvict(cache, encodeMeasurementKey(font, text))
+    measure: (font: FontDescriptorType, text: string) =>
+      getOrEvict(cache, new MeasurementKey({ font: fontKey(font), text }))
   }
 })
 
@@ -107,27 +97,18 @@ const compiledHyphenationDictionaryForLocale = (
         : Option.fromNullable(dictionaries[candidate])
   )
 
-const encodeHyphenationLocaleKey = (revision: number, locale: string): string =>
-  `${revision}|${encodeURIComponent(normalizeHyphenationLocale(locale))}`
+/** A loaded dictionary: the layer's generation and the normalized locale. */
+class HyphenationLocaleKey extends Data.Class<{
+  readonly revision: number
+  readonly locale: string
+}> {}
 
-const decodeHyphenationLocaleKey = (key: string): string => {
-  const [_revision, locale = ""] = key.split("|")
-
-  return decodeURIComponent(locale)
-}
-
-const encodeHyphenationWordKey = (revision: number, locale: string, word: string): string =>
-  [
-    revision,
-    encodeURIComponent(normalizeHyphenationLocale(locale)),
-    encodeURIComponent(word)
-  ].join("|")
-
-const decodeHyphenationWordKey = (key: string): readonly [string, string] => {
-  const [_revision, locale = "", word = ""] = key.split("|")
-
-  return [decodeURIComponent(locale), decodeURIComponent(word)]
-}
+/** One word's break opportunities in one locale and generation. */
+class HyphenationWordKey extends Data.Class<{
+  readonly revision: number
+  readonly locale: string
+  readonly word: string
+}> {}
 
 const noHyphenationDictionary = {
   hyphenateWord: () => Effect.succeed(emptyHyphenationBreaks),
@@ -161,28 +142,24 @@ const makeHyphenationDictionary = (options?: {
     const localeCache = yield* Cache.make({
       capacity: 32,
       timeToLive: "24 hours",
-      lookup: (key: string) =>
-        loadDictionary(decodeHyphenationLocaleKey(key)).pipe(
-          Effect.map(compiledHyphenationDictionary)
-        )
+      lookup: (key: HyphenationLocaleKey) => loadDictionary(key.locale).pipe(Effect.map(compiledHyphenationDictionary))
     })
     const hyphenationCache = yield* Cache.make({
       capacity: 2048,
       timeToLive: "24 hours",
-      lookup: (key: string) => {
-        const [locale, word] = decodeHyphenationWordKey(key)
-
-        return localeCache.get(encodeHyphenationLocaleKey(revision, locale)).pipe(
-          Effect.map((dictionary) => dictionary.hyphenateWord(word))
+      lookup: (key: HyphenationWordKey) =>
+        localeCache.get(new HyphenationLocaleKey({ revision: key.revision, locale: key.locale })).pipe(
+          Effect.map((dictionary) => dictionary.hyphenateWord(key.word))
         )
-      }
     })
 
     return {
       hyphenateWord: (locale: string, word: string) =>
         word.length === 0
           ? Effect.succeed(emptyHyphenationBreaks)
-          : hyphenationCache.get(encodeHyphenationWordKey(revision, locale, word)),
+          : hyphenationCache.get(
+            new HyphenationWordKey({ revision, locale: normalizeHyphenationLocale(locale), word })
+          ),
       supportsLocale: (locale: string) =>
         Option.fromNullable(options?.loadDictionary).pipe(
           Option.match({

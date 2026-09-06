@@ -4,7 +4,55 @@
  * @since 0.2.0
  */
 import type { Cache } from "effect"
-import { Effect } from "effect"
+import { Data, Effect } from "effect"
+
+import type { FontDescriptorType } from "../schema.js"
+
+/**
+ * Font as the measurement caches see it: an omitted weight is the normal
+ * weight, so descriptors that measure identically share one entry. Equality and
+ * hash are structural, so the key needs no serialization.
+ *
+ * @since 0.4.0
+ * @category internals
+ */
+export class FontKey extends Data.Class<{
+  readonly family: string
+  readonly size: number
+  readonly weight: number
+}> {}
+
+/**
+ * Normalizes a font descriptor into its cache key.
+ *
+ * @since 0.4.0
+ * @category internals
+ */
+export const fontKey = (font: FontDescriptorType): FontKey =>
+  new FontKey({ family: font.family, size: font.size, weight: font.weight ?? 400 })
+
+/**
+ * The descriptor a cache lookup measures with; the weight is always explicit.
+ *
+ * @since 0.4.0
+ * @category internals
+ */
+export const fontDescriptor = (key: FontKey): FontDescriptorType => ({
+  family: key.family,
+  size: key.size,
+  weight: key.weight
+})
+
+/**
+ * One measured string in one font.
+ *
+ * @since 0.4.0
+ * @category internals
+ */
+export class MeasurementKey extends Data.Class<{
+  readonly font: FontKey
+  readonly text: string
+}> {}
 
 /**
  * Reads `key`, evicting it when the lookup failed. `Cache` stores the lookup's

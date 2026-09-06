@@ -7,42 +7,25 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Cache, Data, Effect, Layer, Option } from "effect"
 
 import { MeasurementCache, TextMeasurer } from "../contracts/index.js"
-import { getOrEvict } from "../Text/internal/cache.js"
+import { fontDescriptor, type FontKey, fontKey, getOrEvict } from "../Text/internal/cache.js"
 import type { FontDescriptorType } from "../Text/schema.js"
 import { type FontReadinessRevisionType, initialFontReadinessRevision } from "./fontReadiness.js"
 import {
   type CanvasMeasurementContext,
   correctEmojiWidth,
-  decodeFontKey,
-  encodeFontKey,
   measureCanvasText,
   normalizeEmojiCorrection,
   stripEmojiClusters
 } from "./internal/canvas.js"
 import { BrowserSupportManifest, type BrowserSupportProfileIdType } from "./supportManifest.js"
 
-const encodeBrowserMeasurementKey = (
-  options: {
-    readonly fontReadinessRevision: FontReadinessRevisionType
-    readonly profileId: BrowserSupportProfileIdType
-  },
-  font: FontDescriptorType,
-  text: string
-): string =>
-  [
-    encodeURIComponent(options.profileId),
-    options.fontReadinessRevision,
-    encodeURIComponent(font.family),
-    font.size,
-    font.weight ?? 400,
-    encodeURIComponent(text)
-  ].join("|")
-
-const decodeBrowserMeasurementKey = (key: string): readonly [FontDescriptorType, string] => {
-  const [_profileId, _revision, family = "", size = "0", weight = "400", text = ""] = key.split("|")
-
-  return [{ family: decodeURIComponent(family), size: Number(size), weight: Number(weight) }, decodeURIComponent(text)]
-}
+/** One measured string in one font, under one support profile and font-readiness generation. */
+class BrowserMeasurementKey extends Data.Class<{
+  readonly profileId: BrowserSupportProfileIdType
+  readonly fontReadinessRevision: FontReadinessRevisionType
+  readonly font: FontKey
+  readonly text: string
+}> {}
 
 const makeBrowserMeasurementCache = (options: {
   readonly fontReadinessRevision: FontReadinessRevisionType
@@ -53,24 +36,19 @@ const makeBrowserMeasurementCache = (options: {
     const cache = yield* Cache.make({
       capacity: 1024,
       timeToLive: "24 hours",
-      lookup: (key: string) => {
-        const [font, text] = decodeBrowserMeasurementKey(key)
-        return measurer.measure(font, text)
-      }
+      lookup: (key: BrowserMeasurementKey) => measurer.measure(fontDescriptor(key.font), key.text)
     })
 
     return {
       measure: (font: FontDescriptorType, text: string) =>
         getOrEvict(
           cache,
-          encodeBrowserMeasurementKey(
-            {
-              fontReadinessRevision: options.fontReadinessRevision,
-              profileId: options.profileId
-            },
-            font,
+          new BrowserMeasurementKey({
+            profileId: options.profileId,
+            fontReadinessRevision: options.fontReadinessRevision,
+            font: fontKey(font),
             text
-          )
+          })
         )
     }
   })
@@ -97,8 +75,8 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
           Cache.make({
             capacity: 128,
             timeToLive: "24 hours",
-            lookup: (key: string) => {
-              const font = decodeFontKey(key)
+            lookup: (key: FontKey) => {
+              const font = fontDescriptor(key)
 
               return measureCanvasText(
                 options.context,
@@ -122,7 +100,7 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
               Option.match(emojiAdvanceCache, {
                 onNone: () => Effect.succeed(rawWidth),
                 onSome: (cache) =>
-                  getOrEvict(cache, encodeFontKey(font)).pipe(
+                  getOrEvict(cache, fontKey(font)).pipe(
                     Effect.flatMap((emojiAdvance) => {
                       const [strippedText] = stripEmojiClusters(text)
 

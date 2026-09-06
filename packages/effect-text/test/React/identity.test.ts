@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Equal, Hash, HashMap, Option } from "effect"
+import { Effect, Equal, Hash, HashMap, Option } from "effect"
 
 import * as Browser from "../../src/Browser/index.js"
 import * as TextReact from "../../src/React/index.js"
@@ -16,47 +16,50 @@ const identityFor = (prepare: Text.PrepareInputType, fontReadinessRevision = 0) 
   })
 
 describe("React preparation identities", () => {
-  it("equal preparation inputs produce identities that are equal and hash alike", () => {
-    const prepare: Text.PrepareInputType = {
-      text: "Structural identity",
-      font: { family: "serif", size: 18 },
-      whiteSpace: "normal"
-    }
+  it.effect("equal preparation inputs produce identities that are equal and hash alike", () =>
+    Effect.sync(() => {
+      const prepare: Text.PrepareInputType = {
+        text: "Structural identity",
+        font: { family: "serif", size: 18 },
+        whiteSpace: "normal"
+      }
 
-    const first = identityFor(prepare)
-    const second = identityFor({ ...prepare, font: { ...prepare.font } })
+      const first = identityFor(prepare)
+      const second = identityFor({ ...prepare, font: { ...prepare.font } })
 
-    expect(Equal.equals(first, second)).toBe(true)
-    expect(Hash.hash(first)).toBe(Hash.hash(second))
-    expect(HashMap.get(HashMap.make([first, "prepared"]), second)).toEqual(Option.some("prepared"))
-  })
+      expect(Equal.equals(first, second)).toBe(true)
+      expect(Hash.hash(first)).toBe(Hash.hash(second))
+      expect(HashMap.get(HashMap.make([first, "prepared"]), second)).toEqual(Option.some("prepared"))
+    }))
 
-  it("a font-readiness revision, weight, or locale change produces a different identity", () => {
-    const prepare: Text.PrepareInputType = {
-      text: "Structural identity",
-      font: { family: "serif", size: 18 },
-      whiteSpace: "normal"
-    }
-    const base = identityFor(prepare)
+  it.effect("a font-readiness revision, weight, or locale change produces a different identity", () =>
+    Effect.sync(() => {
+      const prepare: Text.PrepareInputType = {
+        text: "Structural identity",
+        font: { family: "serif", size: 18 },
+        whiteSpace: "normal"
+      }
+      const base = identityFor(prepare)
 
-    expect(Equal.equals(base, identityFor(prepare, 1))).toBe(false)
-    expect(Equal.equals(base, identityFor({ ...prepare, font: { ...prepare.font, weight: 400 } }))).toBe(false)
-    expect(Equal.equals(base, identityFor({ ...prepare, hyphenationLocale: "en-us" }))).toBe(false)
-  })
+      expect(Equal.equals(base, identityFor(prepare, 1))).toBe(false)
+      expect(Equal.equals(base, identityFor({ ...prepare, font: { ...prepare.font, weight: 400 } }))).toBe(false)
+      expect(Equal.equals(base, identityFor({ ...prepare, hyphenationLocale: "en-us" }))).toBe(false)
+    }))
 
-  it("recovers the preparation input, keeping omitted fields omitted", () => {
-    const minimal: Text.PrepareInputType = {
-      text: "Round trip \uD800 with a lone surrogate",
-      font: { family: "monospace", size: 14 },
-      whiteSpace: "pre-wrap"
-    }
-    const complete: Text.PrepareInputType = {
-      ...minimal,
-      font: { ...minimal.font, weight: 600 },
-      hyphenationLocale: "en-us"
-    }
+  it.effect("recovers the preparation input, keeping omitted fields omitted", () =>
+    Effect.sync(() => {
+      const minimal: Text.PrepareInputType = {
+        text: "Round trip \uD800 with a lone surrogate",
+        font: { family: "monospace", size: 14 },
+        whiteSpace: "pre-wrap"
+      }
+      const complete: Text.PrepareInputType = {
+        ...minimal,
+        font: { ...minimal.font, weight: 600 },
+        hyphenationLocale: "en-us"
+      }
 
-    expect(TextReact.prepareInputFromIdentity(identityFor(minimal))).toStrictEqual(minimal)
-    expect(TextReact.prepareInputFromIdentity(identityFor(complete))).toStrictEqual(complete)
-  })
+      expect(TextReact.prepareInputFromIdentity(identityFor(minimal))).toStrictEqual(minimal)
+      expect(TextReact.prepareInputFromIdentity(identityFor(complete))).toStrictEqual(complete)
+    }))
 })

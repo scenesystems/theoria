@@ -73,6 +73,34 @@ describe("Text operations", () => {
       expect(wide.lineCount).toBe(1)
     }))
 
+  it.effect("caches measurements by structure: lone surrogates measure, and an omitted weight is the normal weight", () =>
+    Effect.gen(function*() {
+      const { measurements, layer } = yield* makeTestContext
+      const text = "\uD800 unpaired"
+      const font = { family: "Mono \uDC00", size: 10 }
+      const browserLayer = Browser.BrowserMeasurementCacheLive().pipe(
+        Layer.provide(Layer.succeed(Contracts.TextMeasurer, {
+          measure: (_font, measured: string) =>
+            Ref.update(measurements, (count) => count + 1).pipe(Effect.as(measured.length * 5))
+        }))
+      )
+
+      const measure = (cacheLayer: Layer.Layer<Contracts.MeasurementCache>) =>
+        Effect.gen(function*() {
+          const cache = yield* Contracts.MeasurementCache
+          const omittedWeight = yield* cache.measure(font, text)
+          const explicitWeight = yield* cache.measure({ ...font, weight: 400 }, text)
+
+          expect(omittedWeight).toBe(text.length * 5)
+          expect(explicitWeight).toBe(omittedWeight)
+        }).pipe(Effect.provide(cacheLayer))
+
+      yield* measure(layer)
+      expect(yield* Ref.get(measurements)).toBe(1)
+      yield* measure(browserLayer)
+      expect(yield* Ref.get(measurements)).toBe(2)
+    }))
+
   it.effect("rejects excess properties at the prepare boundary", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext

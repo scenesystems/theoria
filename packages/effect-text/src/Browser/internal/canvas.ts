@@ -95,26 +95,6 @@ const measurementFailure = (font: FontDescriptorType, text: string, reason: stri
   })
 
 /**
- * Encodes a font descriptor into the cache key used by browser measurement helpers.
- *
- * @since 0.2.0
- * @category internals
- */
-export const encodeFontKey = (font: FontDescriptorType): string =>
-  `${encodeURIComponent(font.family)}|${font.size}|${font.weight ?? 400}`
-
-/**
- * Decodes a browser measurement cache key back into a font descriptor.
- *
- * @since 0.2.0
- * @category internals
- */
-export const decodeFontKey = (key: string): FontDescriptorType => {
-  const [family = "", size = "0", weight = "400"] = key.split("|")
-  return { family: decodeURIComponent(family), size: Number(size), weight: Number(weight) }
-}
-
-/**
  * Renders a `FontDescriptor` into the canvas `font` string expected by `measureText`.
  *
  * @since 0.2.0
