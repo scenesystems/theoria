@@ -81,7 +81,9 @@ const htmlResponse = (pathname: string) =>
       status: htmlStatus(pathname, docsManifest),
       headers: {
         ...responseHeaders(indexPathname),
-        "content-type": htmlContentType
+        "content-type": htmlContentType,
+        // llmstxt.org: point agents at the file that describes every page.
+        link: `</llms.txt>; rel="describedby"`
       }
     })
   })
