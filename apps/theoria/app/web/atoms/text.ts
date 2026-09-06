@@ -3,7 +3,7 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import type { Errors, Text } from "@scenesystems/effect-text"
-import * as TextReact from "@scenesystems/effect-text/react"
+import type * as TextReact from "@scenesystems/effect-text/react"
 import type { Effect } from "effect"
 import { Data, Option } from "effect"
 
@@ -44,7 +44,7 @@ export class TextProjectionHandle extends Data.Class<{
 
 export class TextProjectionAuthority extends Data.Class<{
   readonly prepare: (
-    identity: TextReact.PrepareIdentityType
+    identity: TextReact.PrepareIdentity
   ) => Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout>
   readonly project: (options: {
     readonly prepared: Text.PreparedTextWithSegments
@@ -58,21 +58,18 @@ const defaultTextProjectionAuthority: TextProjectionAuthority = new TextProjecti
   project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
 })
 
-const textProjectionPrepareKey = ({ role, text }: TextProjectionKey): string =>
-  TextReact.prepareIdentityKey(prepareIdentityForTextProjection({ role, text }))
-
 export const makeTextProjectionAtom = (
   authority: TextProjectionAuthority = defaultTextProjectionAuthority
 ): (key: TextProjectionKey) => AtomType.Atom<Result.Result<TextProjection, TextProjectionError>> => {
-  const preparedResultAtom = Atom.family((prepareKey: string) =>
-    textLayoutRuntime.atom(() => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)))
+  const preparedResultAtom = Atom.family((identity: TextReact.PrepareIdentity) =>
+    textLayoutRuntime.atom(() => authority.prepare(identity))
   )
 
   return Atom.family((key: TextProjectionKey) => {
-    const prepareKey = textProjectionPrepareKey(key)
+    const identity = prepareIdentityForTextProjection({ role: key.role, text: key.text })
 
     return Atom.make((get: AtomType.Context) =>
-      Result.map(get(preparedResultAtom(prepareKey)), (prepared) =>
+      Result.map(get(preparedResultAtom(identity)), (prepared) =>
         authority.project({
           prepared,
           request: { role: key.role, variant: key.variant, text: key.text },

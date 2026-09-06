@@ -170,7 +170,7 @@ export const program = Text.prepareWithSegments({
 
 The `React` module contains no components or hooks. It provides the two pieces that a React integration needs and that are easy to get wrong: a stable cache identity for prepared handles and a pure projection for render time.
 
-`React.prepareIdentityFor` combines the prepare input, engine profile, support-profile id, and font-readiness revision into a `PrepareIdentity`; `React.prepareIdentityKey` encodes it as a string suitable for a `Map` key or a query cache. Two inputs with the same key produce the same prepared handle, so the application can run preparation once per key and keep the handle in state. `React.projectPreparedLayout` is `Text.layoutLinesWithSummary` under a name that signals it is safe to call during render: it measures nothing and touches no services.
+`React.prepareIdentityFor` combines the prepare input, engine profile, support-profile id, and font-readiness revision into a `PrepareIdentity`, a structural `Data.Class` whose equality and hash follow its fields, so it is directly usable as a `HashMap` key or an `Atom.family` argument. Two inputs with equal identities produce the same prepared handle, so the application can run preparation once per identity and keep the handle in state; `React.prepareInputFromIdentity` recovers the prepare input on a cache miss. `React.projectPreparedLayout` is `Text.layoutLinesWithSummary` under a name that signals it is safe to call during render: it measures nothing and touches no services.
 
 The application owns the rest: running preparation effects, storing handles, bumping the font-readiness revision when `document.fonts` changes, and calling the projection in render or resize work.
 

@@ -1,6 +1,6 @@
 import { type Errors, Text } from "@scenesystems/effect-text"
 import * as TextReact from "@scenesystems/effect-text/react"
-import { Effect, Option } from "effect"
+import { Effect } from "effect"
 
 import { layoutRequestFor, maxWidthFor, prepareInputFor, TextProjectionRequest } from "../../../contracts/text.js"
 import {
@@ -13,18 +13,6 @@ import {
 const TextPrepareRequest = TextProjectionRequest.pick("role", "text")
 type TextPrepareRequest = typeof TextPrepareRequest.Type
 
-const prepareInputFromIdentity = (identity: TextReact.PrepareIdentityType): Text.PrepareInputType => ({
-  text: identity.text,
-  font: identity.font,
-  whiteSpace: identity.whiteSpace,
-  ...Option.fromNullable(identity.hyphenationLocale).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (hyphenationLocale) => ({ hyphenationLocale })
-    })
-  )
-})
-
 /** The contract's layout for the role and variant, narrowed to the measure the surface can actually offer. */
 const layoutRequestWithWidth = (request: TextProjectionRequest, maxWidth: number): Text.LayoutRequestType => {
   const contractLayout = layoutRequestFor(request.role, request.variant)
@@ -32,7 +20,7 @@ const layoutRequestWithWidth = (request: TextProjectionRequest, maxWidth: number
   return { ...contractLayout, maxWidth: Math.min(contractLayout.maxWidth, maxWidth) }
 }
 
-export const prepareIdentityForTextProjection = ({ role, text }: TextPrepareRequest): TextReact.PrepareIdentityType =>
+export const prepareIdentityForTextProjection = ({ role, text }: TextPrepareRequest): TextReact.PrepareIdentity =>
   TextReact.prepareIdentityFor({
     prepare: prepareInputFor(role, text),
     engineProfile: browserEngineProfile,
@@ -41,9 +29,9 @@ export const prepareIdentityForTextProjection = ({ role, text }: TextPrepareRequ
   })
 
 export const prepareTextProjection = (
-  identity: TextReact.PrepareIdentityType
+  identity: TextReact.PrepareIdentity
 ): Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout> =>
-  prepareBrowserText(prepareInputFromIdentity(identity))
+  prepareBrowserText(TextReact.prepareInputFromIdentity(identity))
 
 /** Prepares text against the runtime's layout services; `browserTextLayoutLayer` provides them. */
 export const prepareBrowserText = (
