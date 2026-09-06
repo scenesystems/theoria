@@ -1,6 +1,6 @@
 /**
  * Byte conversions for test vectors: hex golden vectors into `Uint8Array`,
- * fixture text into UTF-8 bytes, and UTF-8 bytes back into text through an
+ * fixture text into UTF-8 bytes, and the runtime's own UTF-8 bytes as an
  * oracle independent of the package's encoder.
  *
  * @internal
@@ -25,15 +25,22 @@ import { encodeUtf8Unchecked } from "../../src/internal/unicode.js"
 export const encodeFixtureUtf8 = (text: string): Uint8Array => encodeUtf8Unchecked(text)
 
 /**
- * Decode UTF-8 bytes with the runtime's decoder, reached through Effect's
- * `Stream.decodeText`. It is the oracle the encoder's round-trip laws are
- * checked against, so it deliberately does not go through the package.
+ * The runtime's own UTF-8 bytes for `text`, reached through Effect's
+ * `Stream.encodeText`. It is the oracle the package encoder's laws are checked
+ * against byte for byte, so it deliberately does not go through the package.
  *
  * @since 0.3.0
  * @category test-helpers
  */
-export const decodeUtf8 = (bytes: Uint8Array): Effect.Effect<string> =>
-  Stream.decodeText(Stream.make(bytes)).pipe(Stream.mkString)
+export const oracleUtf8 = (text: string): Effect.Effect<Uint8Array> =>
+  Stream.encodeText(Stream.make(text)).pipe(Stream.runFold(new Uint8Array(0), concatBytes))
+
+const concatBytes = (left: Uint8Array, right: Uint8Array): Uint8Array => {
+  const joined = new Uint8Array(left.byteLength + right.byteLength)
+  joined.set(left, 0)
+  joined.set(right, left.byteLength)
+  return joined
+}
 
 /**
  * Convert hex string to Uint8Array.

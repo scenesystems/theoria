@@ -26,7 +26,7 @@ import {
   toBase64Url,
   toHex
 } from "../src/index.js"
-import { decodeUtf8 } from "./helpers/bytes.js"
+import { oracleUtf8 } from "./helpers/bytes.js"
 
 type UnicodeOperation = readonly [string, Effect.Effect<unknown, unknown>]
 
@@ -79,9 +79,9 @@ describe("public text and canonicalization surface — generated Unicode laws", 
         const textHash = yield* digestUtf8("blake3-256", text)
         const textBase64Url = toBase64Url(textHash)
 
-        expect(yield* decodeUtf8(encodedText)).toBe(text)
+        expect(encodedText).toStrictEqual(yield* oracleUtf8(text))
         expect(decodedCanonical).toBe(text)
-        expect(yield* decodeUtf8(canonicalBytes)).toBe(canonical)
+        expect(canonicalBytes).toStrictEqual(yield* oracleUtf8(canonical))
         expect(yield* digestCanonicalJsonBytes("blake3-256", text)).toStrictEqual(canonicalHash)
         expect(yield* digestCanonicalJsonBase64Url("blake3-256", text)).toBe(canonicalBase64Url)
         expect(yield* digestCanonicalJsonHex("blake3-256", text)).toBe(toHex(canonicalHash))
