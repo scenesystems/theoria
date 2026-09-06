@@ -1,5 +1,15 @@
 # @scenesystems/effect-math
 
+## 0.4.0
+
+### Minor Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Decoded `AutodiffResolution.mode` and `ComputationDispatchPlan.autodiffMode` values now use `Option<AutodiffMode>` instead of optional properties. Their encoded JSON forms continue to omit the fields when no autodiff mode is selected.
+
+### Patch Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Pure Ridder derivative operations (`derivativeLimit`, `secondDerivativeLimit`, and the multivariate kernels built on them) no longer re-decode their typed `RidderMethodInput` config with a synchronous schema decoder. The pure API keeps its documented contract of never throwing for typed input; untrusted config is still rejected with `CalculusDecodeError` by the `*Validated` operations at the boundary.
+
 ## 0.3.2
 
 ### Patch Changes

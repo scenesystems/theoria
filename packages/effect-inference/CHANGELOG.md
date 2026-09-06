@@ -1,5 +1,15 @@
 # @scenesystems/effect-inference
 
+## 0.3.0
+
+### Minor Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Provider, runtime and evidence records are `Data.Class` types instead of `Readonly<{ … }>` aliases; optional provider fields are set only when present rather than assigned `undefined`. Existing object literals remain assignable.
+
+### Patch Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Update `@huggingface/inference` to 4.13.28.
+
 ## 0.2.2
 
 ### Patch Changes

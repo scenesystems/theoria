@@ -1,5 +1,23 @@
 # @scenesystems/sign
 
+## 0.3.0
+
+### Minor Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add `generateEntropy(length = 32)`, an Effect-native CSPRNG source for the 32 entropy bytes that `mlDsa65SignHedged` requires, the `HEDGED_SIGNING_ENTROPY_BYTES` constant, and `EntropyGenerationFailed`, the typed error it fails with when the runtime has no `crypto.getRandomValues` or the requested length is not a safe non-negative integer within the platform's per-call limit. The post-quantum example uses it instead of calling `crypto.getRandomValues` directly.
+
+  ML-DSA-65 verification rejects a signature whose hint endpoint block is truncated. Previously a signature carrying fewer than the six endpoint bytes passed the strict hint-encoding check and reached the primitive.
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - `sign` accepts a `KeyOnlySigningAlgorithm`, the new `SignatureAlgorithm` subset whose signing profile is complete with a key pair alone. `"ml-dsa-65"` is excluded at the type level: its signing needs caller-supplied entropy and a FIPS 204 context, so use `mlDsa65SignHedged` (production) or `mlDsa65SignDeterministic` (conformance) directly. The deprecated always-failing `mlDsa65Sign` entrypoint is removed. `verify` is unchanged and still checks every `SignatureAlgorithm`, including ML-DSA-65 with the empty context.
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - The per-algorithm key generators (`ed25519Keygen`, `secp256k1EcdsaKeygen`, `secp256k1SchnorrKeygen`, `x25519Keygen`, `xwingKeygen`, `mlDsa44Keygen`, `mlDsa65Keygen`, `mlDsa87Keygen`, `slhDsaSha2128fKeygen`, `slhDsaSha2128sKeygen`, `slhDsaSha2192fKeygen`, `slhDsaSha2256fKeygen`) now fail with `KeyGenerationFailed` when the underlying Noble primitive throws, such as in a runtime without `crypto.getRandomValues`, instead of dying. `generateKeyPair` already declared that error and now propagates it from the selected primitive rather than through a catch-all that could never run.
+
+### Patch Changes
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Update `@noble/curves` and `@noble/hashes` to 2.4.0 and `@noble/post-quantum` to 0.7.1. The hybrid KEM now imports `ml_kem768_x25519`, the name `@noble/post-quantum` 0.7 gives its X-Wing implementation (ML-KEM-768 + X25519); the algorithm, key, ciphertext, and shared-secret formats are unchanged.
+
+- [#85](https://github.com/scenesystems/theoria/pull/85) [`2d3993a`](https://github.com/scenesystems/theoria/commit/2d3993aa36a8c6b89e076376fbfcd80a96e3fef0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - `mlDsa65SignHedged` admits and copies its inputs when the Effect executes. An input that cannot be read — a detached `ArrayBuffer`, a proxy that raises on property access — fails with `SigningFailed` (`reason: "invalid input"`) instead of throwing while the Effect is being constructed, matching the direct verification functions.
+
 ## 0.2.2
 
 ### Patch Changes
