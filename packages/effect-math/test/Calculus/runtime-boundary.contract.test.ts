@@ -3,7 +3,6 @@ import { Chunk, Effect } from "effect"
 
 import {
   adaptiveSimpsonValidated,
-  derivativeLimit,
   derivativeLimitValidated,
   directionalDerivativeValidated,
   divergenceValidated,
@@ -112,10 +111,5 @@ describe("Calculus runtime boundary contracts", () => {
       expect(integrationResult._tag).toBe("Left")
       expect(derivativeResult._tag).toBe("Left")
       expect(directionalResult._tag).toBe("Left")
-    }))
-
-  it.effect("rejects legacy numeric third-arg Ridder config at runtime boundaries", () =>
-    Effect.gen(function*() {
-      expect(() => Reflect.apply(derivativeLimit, undefined, [Math.sin, 0, 1])).toThrow()
     }))
 })

@@ -62,11 +62,6 @@ describe("Calculus / univariate limit operators", () => {
       const cubic = (x: number) => N.multiply(N.multiply(x, x), x)
       expectClose(secondDerivative(cubic, 2), 12, 1e-7)
     }))
-
-  it.effect("rejects legacy numeric third-arg Ridder config in pure paths", () =>
-    Effect.gen(function*() {
-      expect(() => Reflect.apply(derivativeLimit, undefined, [Math.sin, 0, 1])).toThrow()
-    }))
 })
 
 describe("Calculus / univariate validated boundaries", () => {

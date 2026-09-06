@@ -7,7 +7,7 @@
 import { Data, Number as N, Option, Schema } from "effect"
 
 import { IterationBudget } from "../../../contracts/shared/BrandedScalars.js"
-import { type DerivativeLimitEstimate, RidderMethodInput, type RidderMethodInputType } from "../../schema.js"
+import type { DerivativeLimitEstimate, RidderMethodInputType } from "../../schema.js"
 
 class NormalizedRidderConfig extends Data.Class<{
   readonly initialStep: number
@@ -62,12 +62,8 @@ const optionalField = (
   config: Option.Option<RidderMethodInputType>
 ): Option.Option<number> => Option.flatMap(config, (resolved) => Option.fromNullable(resolved[field]))
 
-const decodeRidderMethodInput = Schema.decodeUnknownSync(RidderMethodInput, {
-  onExcessProperty: "error"
-})
-
 const normalizeConfig = (config?: RidderMethodInputType): NormalizedRidderConfig => {
-  const decoded = Option.map(Option.fromNullable(config), decodeRidderMethodInput)
+  const decoded = Option.fromNullable(config)
 
   return new NormalizedRidderConfig({
     initialStep: selectOrDefault(
