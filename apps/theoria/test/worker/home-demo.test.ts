@@ -50,20 +50,34 @@ const rendered = (page: Page) => page.locator("[data-place-render-phase='complet
 /** Every disc's position relative to the stage, so scrolling cannot move it. */
 const markerPositions = (page: Page) => () => page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
 
-const FeatureTransform = Schema.Struct({ name: Schema.String, transform: Schema.String })
+const FeatureTransform = Schema.Struct({ name: Schema.String, transform: Schema.String, onStage: Schema.Boolean })
 type FeatureTransform = typeof FeatureTransform.Type
 
-/** Every distinct transform each feature inside `region` was painted at, sampled a frame apart for `window`. */
-const featureTransformsWithin = (region: Locator, window: Duration.Duration) =>
+const landed = (sample: ReadonlyArray<FeatureTransform>, name: string): boolean =>
+  Arr.some(sample, (entry) => entry.name === name && entry.onStage && entry.transform === "none")
+
+/**
+ * Every distinct transform the feature `name` was painted at inside `region`,
+ * sampled a frame apart from now until its disc has landed on the stage, or
+ * for `atMost`.
+ */
+const transformsUntilLanded = (region: Locator, name: string, atMost: Duration.Duration) =>
   Effect.map(
     Effect.repeat(
       act(() => region.evaluate(featureTransforms)),
       Schedule.collectAllInputs<ReadonlyArray<FeatureTransform>>().pipe(
-        Schedule.intersect(Schedule.spaced("16 millis").pipe(Schedule.upTo(window)))
+        Schedule.intersect(Schedule.spaced("16 millis").pipe(Schedule.upTo(atMost))),
+        Schedule.intersect(Schedule.recurUntil((sample: ReadonlyArray<FeatureTransform>) => landed(sample, name)))
       )
     ),
     // `Data.struct` gives the samples value equality, so the set holds each distinct transform once.
-    ([samples]) => HashSet.fromIterable(Arr.map(Arr.flatten(Chunk.toReadonlyArray(samples)), Data.struct))
+    ([[samples]]) =>
+      HashSet.fromIterable(
+        Arr.map(
+          Arr.filter(Arr.flatten(Chunk.toReadonlyArray(samples)), (entry) => entry.transform !== "none"),
+          Data.struct
+        )
+      )
   )
 
 /** How many distinct transforms `name` was painted at. */
@@ -72,8 +86,10 @@ const distinctTransforms = (seen: HashSet.HashSet<FeatureTransform>, name: strin
 
 /**
  * Merges the declined program proposal and reports every transform painted
- * inside the demo while the merge lands. The feature's name is what travels:
- * it is the proposal's travelling element before, and the stage's disc after.
+ * inside the demo until the merge lands. While the search makes room for the
+ * feature, its name stays in the proposal, a ring marks the room on the
+ * stage, and the sheet holds its size; when the search settles, the name
+ * travels onto the stage and is the disc from then on.
  */
 const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
   Effect.gen(function*() {
@@ -87,14 +103,24 @@ const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     const name = yield* Option.fromNullable(yield* act(() => travelling.getAttribute("data-place-feature-travel")))
     const disc = demo.locator(`[data-place-marker][data-place-feature-travel="${name}"]`)
     yield* count(disc, 0)
+    const paper = page.locator("[data-place-stage='paper']")
+    const sheetHeight = () => paper.getAttribute("data-place-stage-height")
+    const keptHeight = yield* act(sheetHeight)
 
     const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
     yield* click(proposal.getByRole("switch"))
-    // Sample every frame for longer than the shift lasts, from the moment the merge is requested.
-    const painted = yield* Effect.fork(featureTransformsWithin(demo, Duration.millis(900)))
+    // Sample every frame from the moment the merge is requested until the disc has landed.
+    const painted = yield* Effect.fork(transformsUntilLanded(demo, name, Duration.seconds(12)))
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
+    const ring = demo.locator(`[data-place-marker-arriving="${name}"]`)
+    yield* visible(ring)
+    yield* count(travelling, 1)
+    yield* attribute(paper, "data-place-drawn", "sketch")
+    expect(yield* act(sheetHeight)).toBe(keptHeight)
     yield* count(travelling, 0)
     yield* visible(disc)
+    yield* count(ring, 0)
+    yield* attribute(paper, "data-place-drawn", "kept")
     const seen = yield* Fiber.join(painted)
     return { failures, name, travelled: distinctTransforms(seen, name) }
   })

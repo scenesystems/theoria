@@ -116,21 +116,22 @@ export const stageLayout = () => {
 
 /**
  * The `transform` painted right now on every element inside `region` that
- * carries a feature (`data-place-feature-travel`), by feature name. Motion
- * moves things by transform, so a feature sampled at several distinct
- * transforms over time travelled; one that is only ever seen at one (Motion
- * holds a layout node at its origin for a single frame before an instant
- * jump) did not.
+ * carries a feature (`data-place-feature-travel`), by feature name, and
+ * whether the element is the feature's disc on the stage. Motion moves things
+ * by transform, so a feature sampled at several distinct transforms over time
+ * travelled; one that is only ever seen at one (Motion holds a layout node at
+ * its origin for a single frame before an instant jump) did not. A disc on the
+ * stage with no transform has landed.
  */
 export const featureTransforms = (
   region: Element
-): ReadonlyArray<{ readonly name: string; readonly transform: string }> =>
+): ReadonlyArray<{ readonly name: string; readonly transform: string; readonly onStage: boolean }> =>
   [...region.querySelectorAll("[data-place-feature-travel]")]
     .map((element) => ({
       name: element.getAttribute("data-place-feature-travel") ?? "",
-      transform: getComputedStyle(element).transform
+      transform: getComputedStyle(element).transform,
+      onStage: element.hasAttribute("data-place-marker")
     }))
-    .filter(({ transform }) => transform !== "none")
 
 /** The element's right edge is inside the viewport. */
 export const insideViewportRight = (element: Element) => element.getBoundingClientRect().right <= window.innerWidth

@@ -10,7 +10,7 @@ import {
   MotionRelation,
   motionThemeTokens
 } from "../../app/contracts/motion.js"
-import { placeDrawnAtom, placeTrialPreviewAtom } from "../../app/web/atoms/imagined-place-render.js"
+import { placeDiscDrawnAtom, placeDrawnAtom, placeTrialPreviewAtom } from "../../app/web/atoms/imagined-place-render.js"
 import { motionConfigReducedMotion } from "../../app/web/atoms/motion.js"
 import { exitTransition, staggeredArrival, themeTransition } from "../../app/web/view/primitives/motion.js"
 
@@ -55,12 +55,15 @@ describe("motion contract", () => {
     expect(motionConfigReducedMotion("full")).toBe("never")
   })
 
-  it("draws the kept arrangement unless a trial is chosen from the trace", () => {
+  it("draws the search's sketch until it settles, and a trial while one is chosen from the trace", () => {
     const registry = Registry.make()
-    expect(registry.get(placeDrawnAtom)).toBe("kept")
+    // Nothing has settled yet: the stage follows the sketch, and every disc on it is Motion's.
+    expect(registry.get(placeDrawnAtom)).toBe("sketch")
+    expect(registry.get(placeDiscDrawnAtom("Causeway"))).toBe("settled")
     registry.set(placeTrialPreviewAtom, Option.some(2))
     expect(registry.get(placeDrawnAtom)).toBe("trial")
+    expect(registry.get(placeDiscDrawnAtom("Causeway"))).toBe("trial")
     registry.set(placeTrialPreviewAtom, Option.none())
-    expect(registry.get(placeDrawnAtom)).toBe("kept")
+    expect(registry.get(placeDrawnAtom)).toBe("sketch")
   })
 })

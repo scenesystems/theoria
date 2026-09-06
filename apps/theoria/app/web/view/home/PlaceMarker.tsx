@@ -1,10 +1,11 @@
 import { Popover } from "@base-ui/react/popover"
+import { useAtomValue } from "@effect-atom/atom-react"
 import { Match, Option } from "effect"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
-import type { PlaceDrawn } from "../../atoms/imagined-place-render.js"
+import { type PlaceDiscDrawn, placeDiscDrawnAtom } from "../../atoms/imagined-place-render.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -26,21 +27,13 @@ const markerStyle = (marker: Marker): CSSProperties => ({
 })
 
 /**
- * Every trial the search accepts moves a marker a little; that movement is
- * CSS, a short transition on `translate`, so a frame every few milliseconds
- * settles rather than restarts. Both stop under `prefers-reduced-motion`, and
- * while the trace is scrubbed, when whole arrangements are swapped outright.
+ * Where the search has put the marker, as the one thing that makes Motion
+ * measure a settled disc again. Every accepted trial moves a marker a little;
+ * each move is one layout animation from wherever the disc is on its way,
+ * so a frame every few milliseconds settles rather than restarts. Nothing
+ * else about the disc's render (its label, the paper resizing) starts one.
  */
-const motionClassName =
-  "transition-[translate,width,height,opacity,scale,box-shadow] duration-200 ease-out starting:scale-90 starting:opacity-0 motion-reduce:transition-none group-data-[place-scrubbing]/stage:transition-none"
-
-/**
- * Motion measures a kept disc only when it mounts or leaves: the hand-off
- * with its proposal's name. A constant dependency means no re-render of the
- * disc (the search moving it, the paper resizing) starts a layout animation,
- * so Motion never fights the CSS above for the disc's position.
- */
-const layoutOnHandOffOnly = "hand-off"
+const placement = (marker: Marker): string => `${marker.x.toFixed(1)}:${marker.y.toFixed(1)}`
 
 const triggerClassName =
   "absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0"
@@ -63,17 +56,22 @@ const popupClassName = [
   "motion-reduce:transition-none"
 ].join(" ")
 
-/** A kept disc is the Motion node the feature travels as; a trial's disc is a plain button, placed outright. */
-const discElement = (drawn: PlaceDrawn, name: string) =>
+/**
+ * A settled disc is the Motion node the feature travels as and the one
+ * Motion moves with the search; a trial's disc is a plain button, placed
+ * outright. Neither has a CSS transition on its position: one system moves
+ * each element.
+ */
+const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">, marker: Marker) =>
   Match.value(drawn).pipe(
     Match.when(
-      "kept",
+      "settled",
       () => (
         <m.button
-          data-place-feature-travel={name}
+          data-place-feature-travel={marker.name}
           layout="position"
-          layoutDependency={layoutOnHandOffOnly}
-          layoutId={featureLayoutId(name)}
+          layoutDependency={placement(marker)}
+          layoutId={featureLayoutId(marker.name)}
         />
       )
     ),
@@ -82,14 +80,25 @@ const discElement = (drawn: PlaceDrawn, name: string) =>
   )
 
 /**
- * One feature on the stage. The disc is a button: hover, focus or tap opens
- * the feature's description and who added it, so nothing about the place is
- * hover-only. Its accessible name is the same text the legend uses. The name
- * is drawn on the disc at the width it was measured to fit, wrapping as
- * measured; a disc too small for its name shows its number instead.
+ * The room the search is making for a feature just merged, while it runs:
+ * the ring follows the search's moves, and the feature's name travels into
+ * it when the search settles. Not a button, since the feature is not on the
+ * stage yet; the name in its proposal still is.
  */
-export const PlaceMarkerDisc = ({ drawn, index, labelWidth, marker }: {
-  readonly drawn: PlaceDrawn
+const ringClassName =
+  "pointer-events-none absolute left-0 top-0 rounded-full border-2 border-dashed opacity-70 transition-[translate] duration-200 ease-out motion-reduce:transition-none"
+
+const ArrivingRing = ({ marker }: { readonly marker: Marker }) => (
+  <Layer
+    aria-hidden
+    className={`${ringClassName} ${markerTone(marker).border}`}
+    data-place-marker-arriving={marker.name}
+    style={markerStyle(marker)}
+  />
+)
+
+const Disc = ({ drawn, index, labelWidth, marker }: {
+  readonly drawn: Exclude<PlaceDiscDrawn, "arriving">
   readonly index: number
   readonly labelWidth: Option.Option<number>
   readonly marker: Marker
@@ -102,14 +111,14 @@ export const PlaceMarkerDisc = ({ drawn, index, labelWidth, marker }: {
     <Popover.Root modal={false}>
       <Popover.Trigger
         aria-label={markerLabel(marker)}
-        className={`${triggerClassName} ${
-          named ? namedTriggerClassName : numberedTriggerClassName
-        } ${motionClassName} ${discClassName(role)} ${tone.focusRing}`}
+        className={`${triggerClassName} ${named ? namedTriggerClassName : numberedTriggerClassName} ${
+          discClassName(role)
+        } ${tone.focusRing}`}
         closeDelay={80}
         data-place-marker={marker.name}
         delay={120}
         openOnHover
-        render={discElement(drawn, marker.name)}
+        render={discElement(drawn, marker)}
         style={markerStyle(marker)}
       >
         {Option.match(labelWidth, {
@@ -161,5 +170,24 @@ export const PlaceMarkerDisc = ({ drawn, index, labelWidth, marker }: {
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
+  )
+}
+
+/**
+ * One feature on the stage. The disc is a button: hover, focus or tap opens
+ * the feature's description and who added it, so nothing about the place is
+ * hover-only. Its accessible name is the same text the legend uses. The name
+ * is drawn on the disc at the width it was measured to fit, wrapping as
+ * measured; a disc too small for its name shows its number instead.
+ */
+export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
+  readonly index: number
+  readonly labelWidth: Option.Option<number>
+  readonly marker: Marker
+}) => {
+  const drawn = useAtomValue(placeDiscDrawnAtom(marker.name))
+  return Match.value(drawn).pipe(
+    Match.when("arriving", () => <ArrivingRing marker={marker} />),
+    Match.orElse((present) => <Disc drawn={present} index={index} labelWidth={labelWidth} marker={marker} />)
   )
 }

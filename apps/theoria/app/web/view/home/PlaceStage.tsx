@@ -1,7 +1,7 @@
 import { ScrollArea } from "@base-ui/react/scroll-area"
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import { AnimatePresence } from "motion/react"
@@ -14,7 +14,8 @@ import {
   type PlaceDrawn,
   placeDrawnAtom,
   type PlaceRenderFrame,
-  placeRenderFrameAtom,
+  type PlaceSheet,
+  placeSheetAtom,
   placeShownFrameAtom,
   placeTrialPreviewAtom
 } from "../../atoms/imagined-place-render.js"
@@ -77,11 +78,10 @@ const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; re
 /**
  * The arrangement at its own size: the walk once the search settles, the discs
  * as buttons, the text above both. The discs are keyed by the trial drawn, so
- * swapping trials places them outright instead of sliding them, while the
- * search's own progress still moves them.
+ * swapping trials places them outright, while the search's own progress moves
+ * the same discs.
  */
-const Drawing = ({ drawn, frame, shown }: {
-  readonly drawn: PlaceDrawn
+const Drawing = ({ frame, shown }: {
   readonly frame: PlaceRenderFrame
   readonly shown: string
 }) => {
@@ -99,7 +99,6 @@ const Drawing = ({ drawn, frame, shown }: {
         : null}
       {Arr.map(projection.markers, (marker, index) => (
         <PlaceMarkerDisc
-          drawn={drawn}
           index={index}
           key={`${shown}:${marker.name}`}
           labelWidth={Record.get(frame.labels, marker.name)}
@@ -119,47 +118,57 @@ const scrollbarClassName =
   "flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/stage:opacity-100"
 
 /**
- * The stage is paper cut to the kept arrangement. The paper keeps that size
- * while another trial is drawn on it, so scrubbing the trace never moves the
- * trace: a trial that ran longer than the sheet is clipped with a fade and
- * scrolls, which is the same fact the search held against it.
+ * The kept arrangement fits the sheet, so the sheet's edge is not a clip:
+ * a disc travelling in from its proposal crosses it whole. Anything else
+ * drawn (the search's sketch, a trial from the trace) may run longer than
+ * the sheet and is cut at its edge with a fade, and scrolls. Base UI sets the
+ * viewport to scroll inline, so the kept case is set the same way.
+ */
+const viewportStyle = (drawn: PlaceDrawn): CSSProperties =>
+  Match.value(drawn).pipe(
+    Match.when("kept", (): CSSProperties => ({ overflow: "visible" })),
+    Match.when("sketch", (): CSSProperties => ({})),
+    Match.when("trial", (): CSSProperties => ({})),
+    Match.exhaustive
+  )
+
+/**
+ * The stage is paper cut to the kept arrangement (`placeSheetAtom`). The paper
+ * keeps that size while the next search runs and while another trial is
+ * drawn on it, so nothing around the stage moves until the arrangement is
+ * settled, and scrubbing the trace never moves the trace: a sketch or a trial
+ * that runs longer than the sheet is clipped with a fade and scrolls, which
+ * is the same fact the search holds against it.
  */
 const Paper = ({
   drawn,
   frame,
-  keptHeight,
-  preview
+  sheet,
+  shown
 }: {
   readonly drawn: PlaceDrawn
   readonly frame: PlaceRenderFrame
-  readonly keptHeight: number
-  readonly preview: Option.Option<number>
-}) => {
-  const projection = frame.rendering.projection
-  return (
-    <ScrollArea.Root
-      className={paperClassName}
-      data-place-scrubbing={Option.isSome(preview) ? "" : undefined}
-      data-place-stage="paper"
-      data-place-stage-height={String(keptHeight)}
-      style={{ height: `${keptHeight}px`, width: `${projection.stageWidth}px` }}
-    >
-      <ScrollArea.Viewport className="h-full w-full">
-        <ScrollArea.Content>
-          <Drawing
-            drawn={drawn}
-            frame={frame}
-            shown={Option.match(preview, { onNone: () => "kept", onSome: String })}
-          />
-        </ScrollArea.Content>
-      </ScrollArea.Viewport>
-      <Layer className={fadeClassName} data-place-stage-fade />
-      <ScrollArea.Scrollbar className={scrollbarClassName} orientation="vertical">
-        <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
-      </ScrollArea.Scrollbar>
-    </ScrollArea.Root>
-  )
-}
+  readonly sheet: PlaceSheet
+  readonly shown: string
+}) => (
+  <ScrollArea.Root
+    className={paperClassName}
+    data-place-drawn={drawn}
+    data-place-stage="paper"
+    data-place-stage-height={String(sheet.height)}
+    style={{ height: `${sheet.height}px`, width: `${sheet.width}px` }}
+  >
+    <ScrollArea.Viewport className="h-full w-full" style={viewportStyle(drawn)}>
+      <ScrollArea.Content>
+        <Drawing frame={frame} shown={shown} />
+      </ScrollArea.Content>
+    </ScrollArea.Viewport>
+    <Layer className={fadeClassName} data-place-stage-fade />
+    <ScrollArea.Scrollbar className={scrollbarClassName} orientation="vertical">
+      <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
+    </ScrollArea.Scrollbar>
+  </ScrollArea.Root>
+)
 
 /** Shown only when markers are too small to carry their names: numbers on the stage, names here. */
 const Legend = ({ markers }: { readonly markers: ReadonlyArray<PlaceMarker> }) => (
@@ -201,17 +210,13 @@ const numbered = (frame: PlaceRenderFrame): boolean => Record.isEmptyRecord(fram
 export const PlaceStage = () => {
   const preview = useAtomValue(placeTrialPreviewAtom)
   const drawn = useAtomValue(placeDrawnAtom)
+  const sheet = useAtomValue(placeSheetAtom)
   const reportContainerWidth = useElementWidthReporter(useAtomSet(placeStageContainerWidthAtom))
   const latest = Result.value(useAtomValue(placeShownFrameAtom))
-  // The paper is cut to the kept arrangement even while another trial is drawn on it.
-  const keptHeight = Option.map(
-    Result.value(useAtomValue(placeRenderFrameAtom)),
-    (kept) => kept.rendering.projection.stageHeight
-  )
-  // The frame is cut to the drawn stage; before a frame exists, the placeholder sizes it.
-  const frameStyle = Option.match(latest, {
+  // The frame is cut to the sheet; before a frame exists, the placeholder sizes it.
+  const frameStyle = Option.match(sheet, {
     onNone: () => ({}),
-    onSome: (value) => ({ width: `${value.rendering.projection.stageWidth + placeStageFrameBorderPx * 2}px` })
+    onSome: (value) => ({ width: `${value.width + placeStageFrameBorderPx * 2}px` })
   })
 
   return (
@@ -223,14 +228,14 @@ export const PlaceStage = () => {
           viewportClassName="justify-center"
           viewportRef={reportContainerWidth}
         >
-          {Option.match(latest, {
+          {Option.match(Option.all({ frame: latest, sheet }), {
             onNone: () => <Placeholder />,
             onSome: (value) => (
               <Paper
                 drawn={drawn}
-                frame={value}
-                keptHeight={Option.getOrElse(keptHeight, () => value.rendering.projection.stageHeight)}
-                preview={preview}
+                frame={value.frame}
+                sheet={value.sheet}
+                shown={Option.match(preview, { onNone: () => "kept", onSome: String })}
               />
             )
           })}

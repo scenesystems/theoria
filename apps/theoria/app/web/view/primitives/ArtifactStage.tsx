@@ -25,9 +25,32 @@ const frameSurfaceClassName = (frame: ArtifactStageFrame): string =>
     Match.exhaustive
   )
 
-const viewportClassName = "flex h-full min-h-0 w-full overflow-x-auto"
-const frameClassName = "relative flex min-h-full flex-col overflow-hidden"
-const bodyClassName = "relative box-border min-h-0 w-full flex-1 overflow-hidden"
+/**
+ * An instrument clips its contents to its rounded border and scrolls what is
+ * wider than it. On the canvas there is no edge to clip to: what is drawn
+ * there sizes itself, and anything travelling onto it from elsewhere on the
+ * page must not be cut where it crosses in.
+ */
+const viewportClassName = (frame: ArtifactStageFrame): string =>
+  Match.value(frame).pipe(
+    Match.when("none", () => "flex h-full min-h-0 w-full overflow-visible"),
+    Match.when("instrument", () => "flex h-full min-h-0 w-full overflow-x-auto"),
+    Match.exhaustive
+  )
+
+const frameClassName = (frame: ArtifactStageFrame): string =>
+  Match.value(frame).pipe(
+    Match.when("none", () => "relative flex min-h-full flex-col"),
+    Match.when("instrument", () => "relative flex min-h-full flex-col overflow-hidden"),
+    Match.exhaustive
+  )
+
+const bodyClassName = (frame: ArtifactStageFrame): string =>
+  Match.value(frame).pipe(
+    Match.when("none", () => "relative box-border min-h-0 w-full flex-1"),
+    Match.when("instrument", () => "relative box-border min-h-0 w-full flex-1 overflow-hidden"),
+    Match.exhaustive
+  )
 
 export const ArtifactStage = ({
   bodyStyle,
@@ -47,16 +70,16 @@ export const ArtifactStage = ({
   readonly viewportRef: RefCallback<HTMLElement>
 }) => (
   <Layer
-    className={classNames(viewportClassName, extraViewportClassName)}
+    className={classNames(viewportClassName(frame), extraViewportClassName)}
     data-artifact-stage="viewport"
     ref={viewportRef}
   >
     <Layer
-      className={classNames(frameClassName, frameSurfaceClassName(frame), className)}
+      className={classNames(frameClassName(frame), frameSurfaceClassName(frame), className)}
       data-artifact-stage="frame"
       style={{ borderWidth: artifactStageBorderPx(frame), ...frameStyle }}
     >
-      <Layer className={bodyClassName} data-artifact-stage="body" style={bodyStyle}>
+      <Layer className={bodyClassName(frame)} data-artifact-stage="body" style={bodyStyle}>
         {children}
       </Layer>
     </Layer>

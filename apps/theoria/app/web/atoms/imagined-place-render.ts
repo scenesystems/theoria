@@ -1,7 +1,7 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Study } from "@scenesystems/effect-search"
-import { Data, Duration, Effect, Option, Ref, Schema, Stream } from "effect"
+import { Data, Duration, Effect, Match, Option, Ref, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { DemoExecutionError } from "../../contracts/demo-error.js"
@@ -178,39 +178,123 @@ const renderStream = (
  */
 export const placeTrialPreviewAtom: AtomType.Writable<Option.Option<number>> = Atom.make(Option.none<number>())
 
+const settled = (frame: PlaceRenderFrame): boolean => frame.phase === "complete"
+
+const draws = (frame: PlaceRenderFrame, name: string): boolean =>
+  Arr.some(frame.rendering.projection.markers, (marker) => marker.name === name)
+
+const stageHeight = (frame: PlaceRenderFrame): number => frame.rendering.projection.stageHeight
+
 /**
- * What the stage is drawing: `kept`, the arrangement the search settled on,
- * or `trial`, one the visitor chose from the trace. A kept disc travels and
- * follows the search; a trial's discs are placed outright.
+ * What the stage is drawing. `kept`: the arrangement the search settled on,
+ * which the sheet fits exactly. `sketch`: the best arrangement so far of a
+ * search still running. `trial`: one the visitor chose from the trace. Only
+ * the kept arrangement is drawn unclipped; a sketch or a trial that runs
+ * longer than the sheet is cut with a fade and scrolls.
  */
-export const PlaceDrawn = Schema.Literal("kept", "trial")
+export const PlaceDrawn = Schema.Literal("kept", "sketch", "trial")
 
 export type PlaceDrawn = typeof PlaceDrawn.Type
 
 export const placeDrawnAtom: AtomType.Atom<PlaceDrawn> = Atom.make((get: AtomType.Context) =>
   Option.match(get(placeTrialPreviewAtom), {
-    onNone: (): PlaceDrawn => "kept",
-    onSome: (): PlaceDrawn => "trial"
+    onSome: (): PlaceDrawn => "trial",
+    onNone: () =>
+      Option.match(Result.value(get(placeRenderFrameAtom)), {
+        onNone: (): PlaceDrawn => "sketch",
+        onSome: (found): PlaceDrawn => settled(found) ? "kept" : "sketch"
+      })
   })
 )
 
 /**
- * Where a feature's name belongs: on the `stage` while the kept arrangement
- * draws the feature as a disc, in its `proposal` while it does not. A merge
- * or a decline changes the answer in the same frame the disc appears or
- * leaves, which is what lets the name and the disc hand off to each other.
- * Before anything is drawn there is nowhere to travel from or to.
+ * The arrangement the last search settled on, remembered while the next one
+ * runs: what the sheet is cut to and what the discs on it stand for until the
+ * new arrangement is settled in turn.
+ */
+export const placeKeptFrameAtom: AtomType.Atom<Option.Option<PlaceRenderFrame>> = Atom.make((get: AtomType.Context) =>
+  Option.orElse(
+    Option.filter(Result.value(get(placeRenderFrameAtom)), settled),
+    () => Option.flatten(get.self<Option.Option<PlaceRenderFrame>>())
+  )
+)
+
+/**
+ * The paper the stage draws on. Its width is the one the visitor chose and
+ * applies at once. Its height is the settled arrangement's at that width and
+ * holds while the next search runs and while trials are scrubbed, so nothing
+ * around the stage moves until the arrangement is settled; until a search has
+ * settled at this width, it follows the sketch.
+ */
+export const PlaceSheet = Schema.Struct({
+  width: Schema.Number,
+  height: Schema.Number
+})
+
+export type PlaceSheet = typeof PlaceSheet.Type
+
+export const placeSheetAtom: AtomType.Atom<Option.Option<PlaceSheet>> = Atom.make((get: AtomType.Context) => {
+  const kept = get(placeKeptFrameAtom)
+  return Option.map(Result.value(get(placeRenderFrameAtom)), (latest): PlaceSheet => {
+    const width = latest.stage.stageWidth
+    const settledHere = Option.filter(kept, (found) => found.stage.stageWidth === width)
+    return PlaceSheet.make({ width, height: stageHeight(Option.getOrElse(settledHere, () => latest)) })
+  })
+})
+
+/**
+ * Where a feature's name belongs: on the `stage` while the feature is drawn
+ * as a settled disc, in its `proposal` while it is not. A merged feature's
+ * name stays in the proposal while the search makes room for it and travels
+ * onto the paper when the search settles, so it lands where the feature
+ * stays; a declined feature's disc leaves the moment the next search starts,
+ * so the name arrives back from where the disc was. Both sides read this
+ * atom, so each hand-off happens in one commit. Before anything is drawn
+ * there is nowhere to travel from or to.
  */
 export const PlaceFeatureHome = Schema.Literal("stage", "proposal")
 
 export type PlaceFeatureHome = typeof PlaceFeatureHome.Type
 
 export const placeFeatureHomeAtom = Atom.family((name: string): AtomType.Atom<Option.Option<PlaceFeatureHome>> =>
-  Atom.make((get: AtomType.Context) =>
-    Option.map(
+  Atom.make((get: AtomType.Context) => {
+    const kept = get(placeKeptFrameAtom)
+    return Option.map(
       Result.value(get(placeRenderFrameAtom)),
-      (found): PlaceFeatureHome =>
-        Arr.some(found.rendering.projection.markers, (marker) => marker.name === name) ? "stage" : "proposal"
+      (latest): PlaceFeatureHome =>
+        draws(latest, name) && (settled(latest) || Option.exists(kept, (found) => draws(found, name)))
+          ? "stage"
+          : "proposal"
+    )
+  })
+)
+
+/**
+ * How one disc is drawn. `settled`: a Motion node that travels from its name
+ * and follows the search's moves. `arriving`: the search is making room for
+ * a feature just merged; a ring marks the room until the search settles and
+ * the name travels in. `trial`: placed outright, as the trace is scrubbed.
+ */
+export const PlaceDiscDrawn = Schema.Literal("settled", "arriving", "trial")
+
+export type PlaceDiscDrawn = typeof PlaceDiscDrawn.Type
+
+export const placeDiscDrawnAtom = Atom.family((name: string): AtomType.Atom<PlaceDiscDrawn> =>
+  Atom.make((get: AtomType.Context) =>
+    Match.value(get(placeDrawnAtom)).pipe(
+      Match.when("trial", (): PlaceDiscDrawn => "trial"),
+      Match.when("kept", (): PlaceDiscDrawn => "settled"),
+      Match.when("sketch", () =>
+        Option.match(get(placeFeatureHomeAtom(name)), {
+          onNone: (): PlaceDiscDrawn => "settled",
+          onSome: (home) =>
+            Match.value(home).pipe(
+              Match.when("stage", (): PlaceDiscDrawn => "settled"),
+              Match.when("proposal", (): PlaceDiscDrawn => "arriving"),
+              Match.exhaustive
+            )
+        })),
+      Match.exhaustive
     )
   )
 )

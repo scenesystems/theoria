@@ -344,29 +344,43 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `MotionConfig` by `primitives/motion.ts`. Reduced motion is an atom,
       `atoms/motion.ts` `motionPreferenceAtom`, from the platform's
       `BrowserWindow.mediaQuery`, and drives `MotionConfig reducedMotion`.
-- [x] `PlaceMarker.tsx`: a kept disc is `m.button layout="position"
-      layoutId="place-feature:<name>"`; a trial's disc is a plain button
-      (`placeDrawnAtom`). The disc's `layoutDependency` is constant, so Motion
-      measures it only when it mounts or leaves; the search's own moves stay
-      CSS `translate` transitions. (Motion re-measuring on every frame while
-      CSS also transitioned the disc produced restarts and lag.)
-- [x] `PlaceProposal.tsx`: the feature name carries the same `layoutId` while
-      the kept arrangement does not draw the feature (`placeFeatureHomeAtom`,
-      read by both sides), so the name leaves and the disc arrives in the
-      same commit. Motion clears layout snapshots the frame after an unmount;
-      a hand-off across separate commits never animates.
-- [x] `PlaceStage.tsx`: `AnimatePresence mode="wait"` on prose lines keyed by
-      the frame's prose (`mode="popLayout"` double-painted the crossfade);
+- [x] `atoms/imagined-place-render.ts`: what the stage draws is one atom,
+      `placeDrawnAtom` (`kept` | `sketch` | `trial`); the arrangement the last
+      search settled on is remembered across searches (`placeKeptFrameAtom`,
+      via `get.self`), and the paper is `placeSheetAtom`: the chosen width at
+      once, the settled height until the next search settles. So a running
+      search never resizes the paper, and the sticky stage column never
+      moves while the reader is near the end of the acts. Each disc's kind
+      is `placeDiscDrawnAtom(name)` (`settled` | `arriving` | `trial`).
+- [x] `PlaceMarker.tsx`: one system moves each element. A settled disc is
+      `m.button layout="position" layoutId="place-feature:<name>"` and
+      Motion owns every move it makes, with `layoutDependency` = the marker's
+      placement, so each accepted trial is one layout animation from wherever
+      the disc is; there is no CSS transition on its position. A trial's disc
+      is a plain button placed outright. A feature just merged is a dashed
+      ring in its proposer's tone while the search makes room for it.
+- [x] `PlaceProposal.tsx`: `placeFeatureHomeAtom` puts a merged feature's
+      name on the stage only when the search settles (the name travels to
+      where the feature stays, not to a first random trial), and a declined
+      feature's name back in its proposal the moment the next search starts
+      (the name is the traveller, and it is never inside the paper). Motion
+      clears layout snapshots the frame after an unmount; both sides read one
+      atom so each hand-off is one commit.
+- [x] `PlaceStage.tsx`: the paper is a `ScrollArea` whose viewport clips
+      only while a sketch or a trial is drawn; the kept arrangement fits the
+      sheet and is unclipped, so a disc arriving from its proposal crosses the
+      sheet's edge whole. `ArtifactStage` derives its clipping from the frame
+      kind: `none` (the canvas) clips nothing. `AnimatePresence mode="wait"`
+      on prose lines keyed by the frame's prose: replaced text fades through,
+      never two texts at once (`popLayout` double-painted the crossfade);
       stagger 20 ms, arrival ≤ 300 ms, exit 120 ms.
 - [x] `test/worker/home-demo.test.ts` — _a merged feature travels to the
-      stage_: the disc is painted at ≥ 3 distinct transforms on its way;
-      _under reduced motion the feature appears on the stage without
-      travelling_: ≤ 1 (Motion holds one frame at the origin before the
-      jump). `test/contracts/motion.contract.test.ts` pins the tokens.
-- Known: the disc's travel is clipped where it crosses the paper's edge
-  (the paper clips overflow for the scrolling trial). During a running
-  search the paper resizes per frame and the sticky stage column shifts;
-  pre-existing from Act 2, see Act 5.
+      stage_: while the search runs the name stays in its proposal, the ring
+      marks the room, the sheet holds its height and the paper is `sketch`;
+      once settled the disc is painted at ≥ 3 distinct transforms on its
+      way; _under reduced motion the feature appears on the stage without
+      travelling_: ≤ 1. `test/contracts/motion.contract.test.ts` pins the
+      tokens.
 
 ### Act 4 — Acts, provenance and weather
 
