@@ -287,15 +287,14 @@ was reversed — the page needs both.)
       below `sm`, 64/68 at `lg`); body as lead; one filled action
       (`Browse the packages`), one text action (`See the place it built`)
       that scrolls to the demonstration.
-- [x] `PlaceArrive.tsx`: the demonstration opens with one line of
-      orientation, the place's title as an `h2` in the page-title role and its
-      atmosphere as lead; the paper follows. `PlaceInvitation` carries the
-      one-sentence account of the acts and `Read how it's built`.
+- [x] `PlaceArrive.tsx`: the demonstration opens with the place's title as
+      an `h2` in the page-title role and its atmosphere as lead; the paper
+      follows. No orientation copy: the place speaks for itself.
 - [x] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`:
       `lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]` with the stage
-      `sticky top-6` in the second column beside the arrival, the invitation
-      and the acts; below `lg` the arrival leads, the paper follows at full
-      width, then the invitation and the acts.
+      `sticky top-6` in the second column beside the arrival and the acts;
+      below `lg` the arrival leads, the paper follows at full width, then the
+      acts.
 - [ ] `PlaceStage.tsx`: `placeStageWidthAtom` reads the content width;
       version knots rendered on the paper (Act 2, with the strand).
 - [ ] Below `lg`, the stage pins as a band (`sticky top-0`,

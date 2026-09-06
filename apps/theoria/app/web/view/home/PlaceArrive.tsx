@@ -1,10 +1,7 @@
-import { ArrowDownIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
-import { textActionClassName } from "../primitives/ActionButton.js"
-import { Cluster, Stack } from "../primitives/Layout.js"
-import { AnchorLink } from "../primitives/Link.js"
+import { Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { PulseLayer, ShimmerLine } from "../primitives/Skeleton.js"
 
@@ -44,48 +41,15 @@ const NamedPlace = ({ build }: { readonly build: PlaceBuild }) => (
 )
 
 /**
- * Arrival at the demonstration. One line says what this is; then the place
- * speaks for itself. Its title and atmosphere are the composer's output for
- * the brief, so the first words of the demo were already made by the pipeline
- * the acts explain.
+ * Arrival at the demonstration: the place speaks for itself. Its title and
+ * atmosphere are the composer's output for the brief, so the first words of
+ * the demo were already made by the pipeline the acts show.
  */
 export const PlaceArrive = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
   <Stack className="gap-4" data-place-arrive>
-    <SemanticText
-      as="p"
-      className="text-ink-600"
-      role="card-summary"
-      text="A place Theoria built from a one-line brief, drawn live by the API behind this page."
-      variant="compact"
-      wrapAuthority="native-browser"
-    />
     {Option.match(build, {
       onNone: () => <PendingPlace />,
       onSome: (value) => <NamedPlace build={value} />
     })}
-  </Stack>
-)
-
-/**
- * What follows the arrival, in one sentence, and the way in: the story of how
- * the place was built. Below `lg` this comes after the paper, so the place is
- * seen before it is explained.
- */
-export const PlaceInvitation = () => (
-  <Stack className="gap-3">
-    <SemanticText
-      as="p"
-      className="text-ink-600"
-      role="card-summary"
-      text="You brief it, a program composes it, a neighbor and a program propose, you decide what to merge, and the page draws the version you signed."
-      variant="compact"
-      wrapAuthority="native-browser"
-    />
-    <Cluster className="items-center">
-      <AnchorLink className={`${textActionClassName} -ml-2`} href="#how-its-built">
-        <SemanticText as="span" className="text-inherit" role="button-label" text="Read how it's built" />
-        <ArrowDownIcon aria-hidden className="size-4" />
-      </AnchorLink>
-    </Cluster>
   </Stack>
 )
