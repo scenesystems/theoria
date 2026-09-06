@@ -9,6 +9,7 @@ import {
   Effect,
   Either,
   Exit,
+  FiberId,
   Layer,
   Number as Num,
   Option,
@@ -401,6 +402,25 @@ describe("contracts/artifact storage failures", () => {
         expect(errors.every((error) => Cause.isCause(error.cause) && hasDefect(error.cause, isFinalizerDefect))).toBe(
           true
         )
+      }
+    }))
+
+  it.effect("an objective failure alongside an interruption is not retried and keeps the interruption", () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+
+      const outcome = yield* runWithPublisher(
+        failingOn("Never", "envelopes.jsonl"),
+        () => Effect.failCause(Cause.parallel(Cause.fail("objective broke"), Cause.interrupt(FiberId.none))),
+        calls
+      )
+
+      expect(Either.isRight(outcome)).toBe(true)
+      expect(yield* Ref.get(calls)).toBe(2)
+      if (Either.isRight(outcome)) {
+        const errors = failedTrialErrors(outcome.right)
+        expect(errors.map((error) => error.message)).toEqual(["objective broke", "objective broke"])
+        expect(errors.every((error) => Cause.isCause(error.cause) && Cause.isInterrupted(error.cause))).toBe(true)
       }
     }))
 

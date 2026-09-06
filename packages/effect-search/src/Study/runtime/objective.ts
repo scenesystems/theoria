@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type { Exit } from "effect"
-import { Cause, Chunk, Effect, Match, Option, Predicate, Schema } from "effect"
+import { Cause, Effect, Match, Option, Predicate, Schema } from "effect"
 
 import { matchObjectiveSpec, type ObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
 import { isFiniteObjectiveValue, objectiveDimensionCount, type ObjectiveValue } from "../../contracts/ObjectiveValue.js"
@@ -57,20 +57,19 @@ const isTrialError = Schema.is(TrialError)
 /**
  * The error a failed trial records. A cause that is exactly one trial failure is
  * that failure; anything else, such as a trial failure followed by a finalizer
- * defect or a defect on its own, is recorded whole so nothing the objective did
- * on its way out is lost.
+ * defect, alongside an interruption, or a defect on its own, is recorded whole
+ * so nothing the objective did on its way out is lost.
  */
 const trialErrorFromFailure = (trialNumber: number, cause: Cause.Cause<unknown>): TrialError =>
-  Cause.failureOption(cause).pipe(
-    Option.filter(isTrialError),
-    Option.match({
-      onNone: () => objectiveFailure(trialNumber, cause),
-      onSome: (error) =>
-        Chunk.isEmpty(Cause.defects(cause)) && Chunk.size(Cause.failures(cause)) === 1
-          ? error
-          : new TrialError({ trialNumber, message: error.message, cause })
-    })
-  )
+  Cause.isFailType(cause) && isTrialError(cause.error)
+    ? cause.error
+    : Cause.failureOption(cause).pipe(
+      Option.filter(isTrialError),
+      Option.match({
+        onNone: () => objectiveFailure(trialNumber, cause),
+        onSome: (error) => new TrialError({ trialNumber, message: error.message, cause })
+      })
+    )
 
 const withEvaluationMetadata = <Config>(
   trial: Trial.Trial<Config>,
