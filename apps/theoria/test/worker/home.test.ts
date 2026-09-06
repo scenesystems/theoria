@@ -7,6 +7,7 @@ import * as Str from "effect/String"
 import { cards } from "../../app/contracts/card.js"
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
+import { placeArriveText } from "../../app/web/view/home/PlaceArrive.js"
 import {
   act,
   attribute,
@@ -157,9 +158,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* act(() => placeTitle.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => demo.locator("[data-place-marker]").first().evaluate(topEdgeInViewport))).toBe(true)
+        // The arrival says what this is and how it works; the story stays on the paper.
+        const arrive = demo.locator("[data-place-arrive]")
+        yield* containsText(arrive, placeArriveText)
+        yield* count(arrive.getByText(/at high water the sea covers the causeway/u), 0)
 
         // Narrow: the hero, both actions and the place's own name fit the
-        // first screen; the paper follows directly under the atmosphere.
+        // first screen; the paper follows directly under the arrival.
         yield* setViewport(page, { width: 390, height: 844 })
         yield* act(() => page.evaluate(scrollToTop))
         expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)

@@ -177,7 +177,7 @@ highlights the line.
 ```
 main (canvas; world tone on :root via data-world)
 ├─ SiteHeader                wordmark · Docs · GitHub · theme icon — text, no chips
-├─ Arrive                    h1 (lead role) · place title (display) · atmosphere · brief
+├─ Arrive                    place title (h2) · what this is and how it works (lead)
 │  └─ PlaceStage             unframed paper, full content width; discs, walk, prose;
 │                            search trace as a strand beneath; presets; version knots
 ├─ Act: Compose              lg: pinned stage right, act left [1fr | minmax(28rem, 44rem)]
@@ -288,8 +288,9 @@ was reversed — the page needs both.)
       (`Browse the packages`), one text action (`See the place it built`)
       that scrolls to the demonstration.
 - [x] `PlaceArrive.tsx`: the demonstration opens with the place's title as
-      an `h2` in the page-title role and its atmosphere as lead; the paper
-      follows. No orientation copy: the place speaks for itself.
+      an `h2` in the page-title role, then one lead statement of what is being
+      looked at and how it works (`placeArriveText`, naming the acts in order).
+      The atmosphere is not repeated here: the story is already on the paper.
 - [x] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`:
       `lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]` with the stage
       `sticky top-6` in the second column beside the arrival and the acts;
