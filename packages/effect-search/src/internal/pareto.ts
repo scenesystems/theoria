@@ -17,12 +17,6 @@ export {
   ObjectiveFrontierWeight,
   ObjectiveVectorSchema
 } from "../Pareto/model.js"
-export {
-  dominatedIndices,
-  frontierSnapshot,
-  maximizeDirections,
-  objectiveFrontierWeights,
-  objectiveHoldingWeights
-} from "../Pareto/weights.js"
+export { dominatedIndices, frontierSnapshot, maximizeDirections, objectiveFrontierWeights } from "../Pareto/weights.js"
 
 export type { ObjectiveVector } from "../Pareto/model.js"

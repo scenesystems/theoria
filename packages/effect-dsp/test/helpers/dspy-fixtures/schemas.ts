@@ -228,22 +228,18 @@ export const EvaluateReportShapeFixtureSchema = Schema.Struct({
 export type EvaluateReportShapeFixture = Schema.Schema.Type<typeof EvaluateReportShapeFixtureSchema>
 
 const EvaluateEventFixtureSchema = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal("ExampleStarted"),
+  Schema.TaggedStruct("ExampleStarted", {
     index: Schema.Number,
     total: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("ExampleCompleted"),
+  Schema.TaggedStruct("ExampleCompleted", {
     index: Schema.Number,
     score: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("ExampleFailed"),
+  Schema.TaggedStruct("ExampleFailed", {
     index: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("EvaluationCompleted"),
+  Schema.TaggedStruct("EvaluationCompleted", {
     overallScore: Schema.Number,
     total: Schema.Number
   })
@@ -475,11 +471,6 @@ export const MiproTrialBudgetCasesFixtureSchema = Schema.Struct({
 
 export type MiproTrialBudgetCasesFixture = Schema.Schema.Type<typeof MiproTrialBudgetCasesFixtureSchema>
 
-const GepaCatalogFixtureEntrySchema = Schema.Struct({
-  name: Schema.String,
-  file: Schema.String
-})
-
 const GepaParentSelectionWeightSchema = Schema.Struct({
   candidateIndex: Schema.Number,
   weight: Schema.Number
@@ -685,28 +676,24 @@ export const GepaMergeScheduleFixtureSchema = Schema.Struct({
 export type GepaMergeScheduleFixture = Schema.Schema.Type<typeof GepaMergeScheduleFixtureSchema>
 
 const GepaEventTimelineItemSchema = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal("IterationStarted"),
+  Schema.TaggedStruct("IterationStarted", {
     iteration: Schema.Number,
     frontierSize: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("MergeChecked"),
+  Schema.TaggedStruct("MergeChecked", {
     iteration: Schema.Number,
     attempted: Schema.Boolean,
     accepted: Schema.Boolean,
     mergeBudgetRemaining: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("MutationProposed"),
+  Schema.TaggedStruct("MutationProposed", {
     iteration: Schema.Number,
     parentId: Schema.String,
     mutatedCandidateId: Schema.String,
     predictorName: Schema.String,
     instruction: Schema.String
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("AcceptanceEvaluated"),
+  Schema.TaggedStruct("AcceptanceEvaluated", {
     iteration: Schema.Number,
     accepted: Schema.Boolean,
     gate1Passed: Schema.Boolean,
@@ -714,21 +701,18 @@ const GepaEventTimelineItemSchema = Schema.Union(
     previousSubsampleSum: Schema.Number,
     mutatedSubsampleSum: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("ParetoUpdated"),
+  Schema.TaggedStruct("ParetoUpdated", {
     iteration: Schema.Number,
     frontierIndices: Schema.Array(Schema.Number),
     dominatedIndices: Schema.Array(Schema.Number),
     parentWeights: Schema.Array(GepaParentSelectionWeightSchema)
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("IterationCompleted"),
+  Schema.TaggedStruct("IterationCompleted", {
     iteration: Schema.Number,
     acceptedCandidate: Schema.Boolean,
     frontierSize: Schema.Number
   }),
-  Schema.Struct({
-    _tag: Schema.Literal("OptimizationCompleted"),
+  Schema.TaggedStruct("OptimizationCompleted", {
     iterations: Schema.Number,
     bestCandidateId: Schema.String,
     frontierSize: Schema.Number
@@ -742,7 +726,7 @@ export const GepaOrchestrationEventOrderFixtureSchema = Schema.Struct({
     seed: Schema.Number,
     maxIterations: Schema.Number,
     timeline: Schema.Array(GepaEventTimelineItemSchema),
-    expectedWithinIterationOrder: Schema.Array(Schema.String),
+    expectedWithinIterationOrder: Schema.NonEmptyArray(Schema.String),
     expectedTerminalTag: Schema.String
   })
 })
@@ -805,49 +789,6 @@ export const GepaReplayParamsFixtureSchema = Schema.Struct({
 
 export type GepaReplayParamsFixture = Schema.Schema.Type<typeof GepaReplayParamsFixtureSchema>
 
-export const GepaGovernancePublicSeamsFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("dspy.gepa.governance.public-seams"),
-  metadata: FixtureMetadataSchema,
-  payload: Schema.Struct({
-    allowedEffectSearchImports: Schema.Array(Schema.String),
-    forbiddenEffectSearchImportPrefixes: Schema.Array(Schema.String),
-    allowedRuntimeImportOwners: Schema.Array(Schema.String),
-    expectedOptimizerIndexExports: Schema.Array(Schema.String),
-    expectedOptimizerEventsExports: Schema.Array(Schema.String)
-  })
-})
-
-export type GepaGovernancePublicSeamsFixture = Schema.Schema.Type<typeof GepaGovernancePublicSeamsFixtureSchema>
-
-export const GepaGovernanceOptimizerOptionsFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("dspy.gepa.governance.optimizer-options"),
-  metadata: FixtureMetadataSchema,
-  payload: Schema.Struct({
-    requiredOptionKeys: Schema.Array(Schema.String),
-    optionalOptionKeys: Schema.Array(Schema.String),
-    defaultMaxMergeInvocations: Schema.Number,
-    eventTags: Schema.Array(Schema.String)
-  })
-})
-
-export type GepaGovernanceOptimizerOptionsFixture = Schema.Schema.Type<
-  typeof GepaGovernanceOptimizerOptionsFixtureSchema
->
-
-export const GepaCatalogVersionedFixturesFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("dspy.gepa.catalog.versioned-fixtures"),
-  metadata: FixtureMetadataSchema,
-  payload: Schema.Struct({
-    fixtureSet: Schema.String,
-    version: Schema.Number,
-    fixtures: Schema.Array(GepaCatalogFixtureEntrySchema),
-    namespaces: Schema.Array(Schema.String),
-    requiredFixtureCount: Schema.Number
-  })
-})
-
-export type GepaCatalogVersionedFixturesFixture = Schema.Schema.Type<typeof GepaCatalogVersionedFixturesFixtureSchema>
-
 export const GepaReplaySeedContractFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.replay.seed-0.contract"),
   metadata: FixtureMetadataSchema,
@@ -855,9 +796,7 @@ export const GepaReplaySeedContractFixtureSchema = Schema.Struct({
     seed: Schema.Number,
     moduleName: Schema.String,
     maxIterations: Schema.Number,
-    trainsetSize: Schema.Number,
-    requiredManifestFixtures: Schema.Array(Schema.String),
-    byteEqualityChecks: Schema.Array(Schema.String)
+    trainsetSize: Schema.Number
   })
 })
 
@@ -899,9 +838,6 @@ export const FixtureNameSchema = Schema.Literal(
   "dspy.gepa.orchestration.state-transitions.basic",
   "dspy.gepa.replay.frontier-snapshots.seed-0",
   "dspy.gepa.replay.params.seed-0",
-  "dspy.gepa.governance.public-seams",
-  "dspy.gepa.governance.optimizer-options",
-  "dspy.gepa.catalog.versioned-fixtures",
   "dspy.gepa.replay.seed-0.contract"
 )
 
@@ -963,9 +899,6 @@ export const KnownFixtureSchema = Schema.Union(
   GepaOrchestrationStateTransitionsFixtureSchema,
   GepaReplayFrontierSnapshotsFixtureSchema,
   GepaReplayParamsFixtureSchema,
-  GepaGovernancePublicSeamsFixtureSchema,
-  GepaGovernanceOptimizerOptionsFixtureSchema,
-  GepaCatalogVersionedFixturesFixtureSchema,
   GepaReplaySeedContractFixtureSchema
 )
 

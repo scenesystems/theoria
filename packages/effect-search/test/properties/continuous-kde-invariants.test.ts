@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Number as Num, Option } from "effect"
-import fc from "fast-check"
+import { Array as Arr, Effect, FastCheck as fc, Number as Num, Option } from "effect"
 
 import * as Float64 from "../../src/internal/float64.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../src/internal/tpe/continuousParzen.js"
@@ -119,131 +118,114 @@ const toBounds = (input: { readonly center: number; readonly span: number }): re
 const pointOnSupport = (low: number, high: number, quantile: number): number => low + quantile * (high - low)
 
 describe("continuous KDE invariants", () => {
-  it.effect("kernel simplex remains normalized with positive sigmas", () =>
+  it.effect.prop("kernel simplex remains normalized with positive sigmas", [
+    boundsInputArbitrary,
+    observationQuantilesArbitrary
+  ], ([boundsInput, quantiles]) =>
     Effect.sync(() => {
-      fc.assert(
-        fc.property(boundsInputArbitrary, observationQuantilesArbitrary, (boundsInput, quantiles) => {
-          const [low, high] = toBounds(boundsInput)
-          const observations = Arr.map(quantiles, (quantile) => pointOnSupport(low, high, quantile))
-          const parzen = buildContinuousParzen(observations, low, high)
-          const weightSum = Arr.reduce(parzen.kernels, 0, (total, kernel) => total + kernel.weight)
+      const [low, high] = toBounds(boundsInput)
+      const observations = Arr.map(quantiles, (quantile) => pointOnSupport(low, high, quantile))
+      const parzen = buildContinuousParzen(observations, low, high)
+      const weightSum = Arr.reduce(parzen.kernels, 0, (total, kernel) => total + kernel.weight)
 
-          expect(parzen.kernels.length).toBe(observations.length + 1)
-          expect(Float64.abs(weightSum - 1)).toBeLessThanOrEqual(WEIGHT_ABSOLUTE_TOLERANCE)
-          expect(Arr.every(parzen.kernels, (kernel) => Number.isFinite(kernel.weight) && kernel.weight >= 0)).toBe(true)
-          expect(Arr.every(parzen.kernels, (kernel) => Number.isFinite(kernel.sigma) && kernel.sigma > 0)).toBe(true)
-        })
-      )
+      expect(parzen.kernels.length).toBe(observations.length + 1)
+      expect(Float64.abs(weightSum - 1)).toBeLessThanOrEqual(WEIGHT_ABSOLUTE_TOLERANCE)
+      expect(Arr.every(parzen.kernels, (kernel) => Number.isFinite(kernel.weight) && kernel.weight >= 0)).toBe(true)
+      expect(Arr.every(parzen.kernels, (kernel) => Number.isFinite(kernel.sigma) && kernel.sigma > 0)).toBe(true)
     }))
 
-  it.effect("kernel means stay on support and prior kernel anchors midpoint", () =>
+  it.effect.prop("kernel means stay on support and prior kernel anchors midpoint", [
+    boundsInputArbitrary,
+    observationQuantilesArbitrary
+  ], ([boundsInput, quantiles]) =>
     Effect.sync(() => {
-      fc.assert(
-        fc.property(boundsInputArbitrary, observationQuantilesArbitrary, (boundsInput, quantiles) => {
-          const [low, high] = toBounds(boundsInput)
-          const observations = Arr.map(quantiles, (quantile) => pointOnSupport(low, high, quantile))
-          const parzen = buildContinuousParzen(observations, low, high)
-          const priorKernelOption = Arr.last(parzen.kernels)
+      const [low, high] = toBounds(boundsInput)
+      const observations = Arr.map(quantiles, (quantile) => pointOnSupport(low, high, quantile))
+      const parzen = buildContinuousParzen(observations, low, high)
+      const priorKernelOption = Arr.last(parzen.kernels)
 
-          expect(Arr.every(parzen.kernels, (kernel) => kernel.mean >= low && kernel.mean <= high)).toBe(true)
-          expect(Option.isSome(priorKernelOption)).toBe(true)
+      expect(Arr.every(parzen.kernels, (kernel) => kernel.mean >= low && kernel.mean <= high)).toBe(true)
+      expect(Option.isSome(priorKernelOption)).toBe(true)
 
-          const midpoint = (low + high) / 2
-          const priorMean = Option.match(priorKernelOption, {
-            onNone: () => Number.NaN,
-            onSome: (priorKernel) => priorKernel.mean
+      const midpoint = (low + high) / 2
+      const priorMean = Option.match(priorKernelOption, {
+        onNone: () => Number.NaN,
+        onSome: (priorKernel) => priorKernel.mean
+      })
+
+      expect(Float64.abs(priorMean - midpoint)).toBeLessThanOrEqual(MIDPOINT_ABSOLUTE_TOLERANCE)
+    }))
+
+  it.effect.prop("logDensity stays finite for support probes", [
+    boundsInputArbitrary,
+    observationQuantilesArbitrary,
+    probeQuantilesArbitrary
+  ], ([boundsInput, observationsRaw, probesRaw]) =>
+    Effect.sync(() => {
+      const [low, high] = toBounds(boundsInput)
+      const observations = Arr.map(observationsRaw, (quantile) => pointOnSupport(low, high, quantile))
+      const probes = Arr.map(probesRaw, (quantile) => pointOnSupport(low, high, quantile))
+      const parzen = buildContinuousParzen(observations, low, high)
+
+      expect(Arr.every(probes, (probe) => Number.isFinite(logDensity(parzen, probe)))).toBe(true)
+      expect(
+        Arr.every(probes, (probe) => Float64.abs(logDensity(parzen, probe) - logDensity(parzen, probe)) <= 0)
+      ).toBe(true)
+    }))
+
+  it.effect.prop("sampling remains bounded and deterministic for repeated roll traces", [
+    boundsInputArbitrary,
+    observationQuantilesArbitrary,
+    rollPairsArbitrary
+  ], ([boundsInput, observationsRaw, rollPairs]) =>
+    Effect.sync(() => {
+      const [low, high] = toBounds(boundsInput)
+      const observations = Arr.map(observationsRaw, (quantile) => pointOnSupport(low, high, quantile))
+      const parzen = buildContinuousParzen(observations, low, high)
+      const draws = Arr.map(
+        rollPairs,
+        ([kernelRoll, valueRoll]) => sampleFromParzen(parzen, kernelRoll, valueRoll)
+      )
+      const replay = Arr.map(
+        rollPairs,
+        ([kernelRoll, valueRoll]) => sampleFromParzen(parzen, kernelRoll, valueRoll)
+      )
+
+      expect(Arr.every(draws, (value) => value >= low && value <= high)).toBe(true)
+      expect(
+        Arr.every(draws, (value, index) => Float64.abs(value - (replay[index] ?? Number.NaN)) <= 0)
+      ).toBe(true)
+    }))
+
+  it.effect.prop("sampling matches clamped roll semantics", [
+    boundsInputArbitrary,
+    observationQuantilesArbitrary,
+    rollPairsArbitrary
+  ], ([boundsInput, observationsRaw, rollPairs]) =>
+    Effect.sync(() => {
+      const [low, high] = toBounds(boundsInput)
+      const observations = Arr.map(observationsRaw, (quantile) => pointOnSupport(low, high, quantile))
+      const parzen = buildContinuousParzen(observations, low, high)
+
+      expect(
+        Arr.every(rollPairs, ([kernelRoll, valueRoll]) => {
+          const clampedKernelRoll = Num.clamp(kernelRoll, {
+            minimum: 0,
+            maximum: 1
+          })
+          const clampedValueRoll = Num.clamp(valueRoll, {
+            minimum: 0,
+            maximum: 1
           })
 
-          expect(Float64.abs(priorMean - midpoint)).toBeLessThanOrEqual(MIDPOINT_ABSOLUTE_TOLERANCE)
+          return (
+            Float64.abs(
+              sampleFromParzen(parzen, kernelRoll, valueRoll) -
+                sampleFromParzen(parzen, clampedKernelRoll, clampedValueRoll)
+            ) <= 0
+          )
         })
-      )
-    }))
-
-  it.effect("logDensity stays finite for support probes", () =>
-    Effect.sync(() => {
-      fc.assert(
-        fc.property(
-          boundsInputArbitrary,
-          observationQuantilesArbitrary,
-          probeQuantilesArbitrary,
-          (boundsInput, observationsRaw, probesRaw) => {
-            const [low, high] = toBounds(boundsInput)
-            const observations = Arr.map(observationsRaw, (quantile) => pointOnSupport(low, high, quantile))
-            const probes = Arr.map(probesRaw, (quantile) => pointOnSupport(low, high, quantile))
-            const parzen = buildContinuousParzen(observations, low, high)
-
-            expect(Arr.every(probes, (probe) => Number.isFinite(logDensity(parzen, probe)))).toBe(true)
-            expect(
-              Arr.every(probes, (probe) => Float64.abs(logDensity(parzen, probe) - logDensity(parzen, probe)) <= 0)
-            ).toBe(true)
-          }
-        )
-      )
-    }))
-
-  it.effect("sampling remains bounded and deterministic for repeated roll traces", () =>
-    Effect.sync(() => {
-      fc.assert(
-        fc.property(
-          boundsInputArbitrary,
-          observationQuantilesArbitrary,
-          rollPairsArbitrary,
-          (boundsInput, observationsRaw, rollPairs) => {
-            const [low, high] = toBounds(boundsInput)
-            const observations = Arr.map(observationsRaw, (quantile) => pointOnSupport(low, high, quantile))
-            const parzen = buildContinuousParzen(observations, low, high)
-            const draws = Arr.map(
-              rollPairs,
-              ([kernelRoll, valueRoll]) => sampleFromParzen(parzen, kernelRoll, valueRoll)
-            )
-            const replay = Arr.map(
-              rollPairs,
-              ([kernelRoll, valueRoll]) => sampleFromParzen(parzen, kernelRoll, valueRoll)
-            )
-
-            expect(Arr.every(draws, (value) => value >= low && value <= high)).toBe(true)
-            expect(
-              Arr.every(draws, (value, index) => Float64.abs(value - (replay[index] ?? Number.NaN)) <= 0)
-            ).toBe(true)
-          }
-        )
-      )
-    }))
-
-  it.effect("sampling matches clamped roll semantics", () =>
-    Effect.sync(() => {
-      fc.assert(
-        fc.property(
-          boundsInputArbitrary,
-          observationQuantilesArbitrary,
-          rollPairsArbitrary,
-          (boundsInput, observationsRaw, rollPairs) => {
-            const [low, high] = toBounds(boundsInput)
-            const observations = Arr.map(observationsRaw, (quantile) => pointOnSupport(low, high, quantile))
-            const parzen = buildContinuousParzen(observations, low, high)
-
-            expect(
-              Arr.every(rollPairs, ([kernelRoll, valueRoll]) => {
-                const clampedKernelRoll = Num.clamp(kernelRoll, {
-                  minimum: 0,
-                  maximum: 1
-                })
-                const clampedValueRoll = Num.clamp(valueRoll, {
-                  minimum: 0,
-                  maximum: 1
-                })
-
-                return (
-                  Float64.abs(
-                    sampleFromParzen(parzen, kernelRoll, valueRoll) -
-                      sampleFromParzen(parzen, clampedKernelRoll, clampedValueRoll)
-                  ) <= 0
-                )
-              })
-            ).toBe(true)
-          }
-        )
-      )
+      ).toBe(true)
     }))
 
   it.effect("deterministic continuous edge scenarios keep finite densities and bounded sampling", () =>

@@ -11,29 +11,21 @@
  * {@link cmaEs}, or {@link gpBo}, then pass it to the Study APIs.
  *
  * @since 0.1.0
+ * @module
  */
 export * from "./checkpoints.js"
 export * from "./combinators.js"
 export * from "./constructors.js"
 export * from "./deterministic.js"
 export {
-  /** Identifies a CMA-ES sampler and retains its serializable options. @since 0.2.1 @category constructors */
   CmaEs,
-  /** Identifies a GP-BO sampler and retains its serializable options. @since 0.2.1 @category constructors */
   GpBo,
-  /** Identifies a grid sampler and retains its traversal options. @since 0.2.1 @category constructors */
   Grid,
-  /** Narrows a sampler kind to the specified algorithm tag. @since 0.2.1 @category guards */
   isSamplerKind,
-  /** Applies the handler associated with a sampler kind's algorithm tag. @since 0.2.1 @category pattern-matching */
   matchSamplerKind,
-  /** Identifies a random sampler and retains its seed option. @since 0.2.1 @category constructors */
   Random,
-  /** Serializable algorithm identity stored with a sampler. @since 0.1.0 @category type-level */
   type SamplerKind,
-  /** Decodes the algorithm identity and serializable options for a sampler. @since 0.1.0 @category schemas */
   SamplerKindSchema,
-  /** Identifies a TPE sampler and retains its serializable options. @since 0.2.1 @category constructors */
   Tpe
 } from "./kinds.js"
 export * from "./model.js"

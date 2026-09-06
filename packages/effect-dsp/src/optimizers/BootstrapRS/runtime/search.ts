@@ -6,7 +6,7 @@
  * @internal
  */
 import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Array as Arr, Data, Effect, Either, Match, Option } from "effect"
+import { Array as Arr, Data, Effect, Match, Option } from "effect"
 import type { Schema } from "effect"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
 import type { Example } from "../../../Example/index.js"
@@ -30,7 +30,8 @@ export type ScoredCandidate = readonly [CandidateState, number]
  * Evaluates every candidate sequentially against the validation set and
  * pairs each with its metric score.
  *
- * Candidates that fail evaluation are silently excluded from the result.
+ * A candidate whose every validation trial fails (`AllTrialsFailed`) is excluded
+ * from the result; any other evaluation failure propagates.
  *
  * @since 0.1.0
  * @category constructors
@@ -50,20 +51,16 @@ export const scoreCandidates = <
   Effect.forEach(
     options.candidates,
     (candidate) =>
-      Effect.either(
-        evaluateCandidate({
-          module: options.module,
-          candidate,
-          valset: options.valset,
-          metric: options.metric
-        })
-      ).pipe(
-        Effect.map(
-          Either.match({
-            onLeft: () => Option.none<ScoredCandidate>(),
-            onRight: (score) => Option.some(Data.tuple(candidate, score))
-          })
-        )
+      evaluateCandidate({
+        module: options.module,
+        candidate,
+        valset: options.valset,
+        metric: options.metric
+      }).pipe(
+        Effect.map((score) => Option.some(Data.tuple(candidate, score))),
+        // A candidate with zero successful evaluations has no score to rank; every
+        // other failure is a fault in the module, metric or model and propagates.
+        Effect.catchTag("AllTrialsFailed", () => Effect.succeedNone)
       ),
     { concurrency: 1 }
   ).pipe(
@@ -113,16 +110,7 @@ export const selectBestCandidate = (scoredCandidates: ReadonlyArray<ScoredCandid
         }),
       trials: scoredCandidates.length,
       concurrency: 1
-    }).pipe(
-      Effect.catchAll(() =>
-        Effect.fail(
-          missingCandidateError({
-            message: "BootstrapRS failed to evaluate any candidate",
-            trialCount: 0
-          })
-        )
-      )
-    )
+    })
 
     const selectedIndex = Match.value(result).pipe(
       Match.tag("SingleObjective", ({ bestTrial }) => bestTrial.config.candidateIndex),

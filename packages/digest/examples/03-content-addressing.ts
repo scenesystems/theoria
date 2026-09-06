@@ -23,9 +23,9 @@ const program = Effect.gen(function*() {
   })
 
   const malformed = yield* Effect.either(canonicalize({ value: "\uD800" }))
-  yield* Effect.log("Strict Unicode", {
-    rejected: Either.isLeft(malformed),
-    errorTag: Either.isLeft(malformed) ? malformed.left._tag : undefined
+  yield* Either.match(malformed, {
+    onLeft: (error) => Effect.log("Strict Unicode", { rejected: true, errorTag: error._tag }),
+    onRight: () => Effect.log("Strict Unicode", { rejected: false })
   })
 
   const tagged = yield* digest("blake3-256", { user: "alice", score: 42 })

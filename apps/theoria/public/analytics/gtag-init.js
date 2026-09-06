@@ -19,35 +19,63 @@
 // Google applies the most specific matching region regardless of order.
 // Page views after in-app navigation come from GA4 enhanced measurement
 // (browser history events).
-(function () {
-  var measurementId = document.currentScript.dataset.measurementId;
+;(function() {
+  var measurementId = document.currentScript.dataset.measurementId
   var consentRequiredRegions = [
     // European Economic Area: the 27 EU member states plus Iceland,
     // Liechtenstein, and Norway.
-    "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR",
-    "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK",
-    "SI", "ES", "SE", "IS", "LI", "NO",
+    "AT",
+    "BE",
+    "BG",
+    "HR",
+    "CY",
+    "CZ",
+    "DK",
+    "EE",
+    "FI",
+    "FR",
+    "DE",
+    "GR",
+    "HU",
+    "IE",
+    "IT",
+    "LV",
+    "LT",
+    "LU",
+    "MT",
+    "NL",
+    "PL",
+    "PT",
+    "RO",
+    "SK",
+    "SI",
+    "ES",
+    "SE",
+    "IS",
+    "LI",
+    "NO",
     // United Kingdom (UK GDPR and PECR) and Switzerland (revised FADP).
-    "GB", "CH"
-  ];
-  window.dataLayer = window.dataLayer || [];
+    "GB",
+    "CH"
+  ]
+  window.dataLayer = window.dataLayer || []
   function gtag() {
-    window.dataLayer.push(arguments);
+    window.dataLayer.push(arguments)
   }
-  window.gtag = gtag;
+  window.gtag = gtag
   gtag("consent", "default", {
     ad_storage: "denied",
     ad_user_data: "denied",
     ad_personalization: "denied",
     analytics_storage: "denied",
     region: consentRequiredRegions
-  });
+  })
   gtag("consent", "default", {
     ad_storage: "denied",
     ad_user_data: "denied",
     ad_personalization: "denied",
     analytics_storage: "granted"
-  });
-  gtag("js", new Date());
-  gtag("config", measurementId);
-})();
+  })
+  gtag("js", new Date())
+  gtag("config", measurementId)
+})()

@@ -7,7 +7,7 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Chunk, Console, Effect, Number as N, Option, Schema } from "effect"
+import { Array as Arr, Chunk, Console, Data, Effect, Number as N, Option, Schema } from "effect"
 
 import {
   adaptiveSimpson,
@@ -37,6 +37,8 @@ import {
   Seed
 } from "@scenesystems/effect-math/contracts"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+
+class UnexpectedZeroDivisor extends Data.TaggedError("UnexpectedZeroDivisor") {}
 
 const coordinateAt = (point: Chunk.Chunk<number>, index: number): number =>
   Option.getOrElse(Chunk.get(point, index), () => 0)
@@ -106,7 +108,7 @@ const program = Effect.gen(function*() {
   // Trapezoidal integration
   // Sample sin(x) at 11 evenly-spaced points over [0, π/2]
   const step = yield* Option.match(Numeric.safeDivide(Numeric.pi, 20), {
-    onNone: () => Effect.fail("UnexpectedZeroDivisor"),
+    onNone: () => Effect.fail(new UnexpectedZeroDivisor()),
     onSome: Effect.succeed
   })
   const sineValues = Chunk.fromIterable(

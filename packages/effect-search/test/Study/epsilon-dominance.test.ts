@@ -5,11 +5,11 @@ import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
-const space = SearchSpace.unsafeMake({
+const space = SearchSpace.make({
   variant: SearchSpace.int(0, 2)
 })
 
-const decodeConfig = Schema.decodeUnknownSync(space.schema)
+const decodeConfig = Schema.decodeUnknownSync(Schema.Struct({ variant: Schema.Number }))
 
 const point = (left: number, right: number): ReadonlyArray<number> => Arr.make(left, right)
 
@@ -34,42 +34,45 @@ const pointForVariant = (
   )
 
 const objectiveFromProfile =
-  (profile: ReadonlyArray<ReadonlyArray<number>>) => (raw: unknown): Effect.Effect<ReadonlyArray<number>> =>
-    Effect.sync(() => pointForVariant(profile, decodeConfig(raw).variant))
+  (profile: ReadonlyArray<ReadonlyArray<number>>) =>
+  (config: { readonly variant: number }): Effect.Effect<ReadonlyArray<number>> =>
+    Effect.succeed(pointForVariant(profile, config.variant))
 
 const optimizeWithProfile = (
   profile: ReadonlyArray<ReadonlyArray<number>>,
   epsilon: Option.Option<number> = Option.none()
 ) =>
-  Study.optimize({
-    space,
-    sampler: Sampler.grid({ shuffle: false }),
-    directions: ["minimize", "minimize"],
-    trials: 3,
-    objective: objectiveFromProfile(profile),
-    ...Option.match(epsilon, {
-      onNone: () => ({}),
-      onSome: (value) => ({ epsilon: value })
-    })
-  })
+  Effect.flatMap(space, (searchSpace) =>
+    Study.optimize({
+      space: searchSpace,
+      sampler: Sampler.grid({ shuffle: false }),
+      directions: ["minimize", "minimize"],
+      trials: 3,
+      objective: objectiveFromProfile(profile),
+      ...Option.match(epsilon, {
+        onNone: () => ({}),
+        onSome: (value) => ({ epsilon: value })
+      })
+    }))
 
 const resumeWithProfile = (
   snapshot: Study.StudySnapshot,
   profile: ReadonlyArray<ReadonlyArray<number>>,
   epsilon: Option.Option<number> = Option.none()
 ) =>
-  Study.resume({
-    space,
-    sampler: Sampler.grid({ shuffle: false }),
-    snapshot,
-    directions: ["minimize", "minimize"],
-    trials: 3,
-    objective: objectiveFromProfile(profile),
-    ...Option.match(epsilon, {
-      onNone: () => ({}),
-      onSome: (value) => ({ epsilon: value })
-    })
-  })
+  Effect.flatMap(space, (searchSpace) =>
+    Study.resume({
+      space: searchSpace,
+      sampler: Sampler.grid({ shuffle: false }),
+      snapshot,
+      directions: ["minimize", "minimize"],
+      trials: 3,
+      objective: objectiveFromProfile(profile),
+      ...Option.match(epsilon, {
+        onNone: () => ({}),
+        onSome: (value) => ({ epsilon: value })
+      })
+    }))
 
 const paretoVariantSignature = (
   result: Study.StudyResult

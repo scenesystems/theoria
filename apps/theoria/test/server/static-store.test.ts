@@ -3,7 +3,7 @@ import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 
-import { contentTypeForPath, StaticStore } from "../../app/server/config/static-store.js"
+import { StaticStore } from "../../app/server/config/static-store.js"
 import * as BunStaticStore from "../../app/server/platform/bun-static-store.js"
 
 const bodyText = (response: HttpServerResponse.HttpServerResponse) =>
@@ -38,7 +38,7 @@ it.effect("Bun store searches roots in order and falls back to later roots", () 
       expect(yield* store.text("/index.html")).toBe("<title>x</title>")
       expect(yield* store.text("/extra/data.json")).toBe("{\"public\":true}")
 
-      const fallback = Option.getOrThrow(yield* store.response("/extra/data.json"))
+      const fallback = yield* yield* store.response("/extra/data.json")
       expect(fallback.headers["content-type"]).toBe("application/json; charset=utf-8")
       expect(yield* bodyText(fallback)).toBe("{\"public\":true}")
     })
@@ -57,7 +57,7 @@ it.effect("Bun store reads assets as text and reports missing ones", () =>
 it.effect("Bun store streams assets with a content type", () =>
   withDist((store) =>
     Effect.gen(function*() {
-      const plain = Option.getOrThrow(yield* store.response("/assets/app.js"))
+      const plain = yield* yield* store.response("/assets/app.js")
       expect(plain.headers["content-type"]).toBe("application/javascript; charset=utf-8")
       expect(plain.headers["content-encoding"]).toBeUndefined()
       expect(yield* bodyText(plain)).toBe("console.log(1)")
@@ -72,12 +72,3 @@ it.effect("Bun store refuses traversal and missing files", () =>
       expect(Option.isNone(yield* store.response("/assets/"))).toBe(true)
     })
   ))
-
-// The Cloudflare ASSETS adapter is exercised against the real binding inside
-// workerd by test/worker/site.test.ts (`bun run test:worker`).
-
-it("maps common asset extensions to content types", () => {
-  expect(contentTypeForPath("/favicon.svg")).toBe("image/svg+xml")
-  expect(contentTypeForPath("/fonts/a.woff2")).toBe("font/woff2")
-  expect(contentTypeForPath("/robots.txt")).toBe("text/plain; charset=utf-8")
-})

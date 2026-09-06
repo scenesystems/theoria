@@ -3,8 +3,7 @@
  *
  * @since 0.1.0
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
 
 import { FieldRecord } from "../../../contracts/FieldValue.js"
 import { MetricResult } from "../../../contracts/MetricResult.js"
@@ -14,7 +13,7 @@ import type { Example } from "../../../Example/index.js"
 import { ReflectiveDatasetSample } from "../model.js"
 import type { CandidateScoreVector, ProgramCandidate } from "../model.js"
 
-import { candidateBoost, instructionForPredictor, withFeedback } from "./helpers.js"
+import { instructionForPredictor, withFeedback } from "./helpers.js"
 import type { GEPAOptions } from "./options.js"
 
 /**
@@ -23,10 +22,10 @@ import type { GEPAOptions } from "./options.js"
  * @since 0.1.0
  * @category models
  */
-export type CandidateEvaluation = Readonly<{
+export class CandidateEvaluation extends Data.Class<{
   readonly scores: CandidateScoreVector
   readonly samples: ReadonlyArray<ReflectiveDatasetSample>
-}>
+}> {}
 
 const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
   options: GEPAOptions<I, O, ME, MR>
@@ -66,24 +65,20 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
       return Effect.forEach(resolveValset(options), (example, index) =>
         Effect.gen(function*() {
           const expectedOutputRaw = Option.getOrElse(Option.fromNullable(example.output), () => example.input)
-          const moduleInput = yield* decodeInput(example.input).pipe(Effect.orDie)
-          const expectedOutput = yield* decodeOutput(expectedOutputRaw).pipe(Effect.orDie)
+          const moduleInput = yield* decodeInput(example.input)
+          const expectedOutput = yield* decodeOutput(expectedOutputRaw)
           const prediction = yield* options.module.forward(moduleInput)
-          const metricInput = yield* decodeFieldRecord(moduleInput).pipe(Effect.orDie)
-          const metricPrediction = yield* decodeFieldRecord(prediction).pipe(Effect.orDie)
-          const metricExpectedOutput = yield* decodeFieldRecord(expectedOutput).pipe(Effect.orDie)
+          const metricInput = yield* decodeFieldRecord(moduleInput)
+          const metricPrediction = yield* decodeFieldRecord(prediction)
+          const metricExpectedOutput = yield* decodeFieldRecord(expectedOutput)
           const metricResult = yield* options.metric.score(metricPrediction, metricExpectedOutput)
-          const adjustedScore = Numeric.clamp(metricResult.score + candidateBoost(candidate.candidateId), {
-            minimum: 0,
-            maximum: 1
-          })
           const normalizedMetric = new MetricResult({
-            score: adjustedScore,
+            score: metricResult.score,
             ...withFeedback(Option.fromNullable(metricResult.feedback))
           })
 
           return {
-            score: adjustedScore,
+            score: metricResult.score,
             sample: new ReflectiveDatasetSample({
               exampleId: `example-${index}`,
               predictorName: options.module.name,

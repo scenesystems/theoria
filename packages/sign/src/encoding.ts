@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  * @category encoding
+ * @module
  */
 
 import { equalBytes as _equalBytes } from "@noble/curves/utils.js"

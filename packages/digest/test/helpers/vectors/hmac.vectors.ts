@@ -8,6 +8,8 @@
  * @category test-helpers
  */
 
+import { encodeFixtureUtf8 } from "../bytes.js"
+
 /**
  * RFC 4231 HMAC-SHA256 test cases.
  *
@@ -18,13 +20,13 @@ export const hmacSha256Vectors = {
   /** Case 1: 20×0x0b key, "Hi There" */
   case1: {
     key: new Uint8Array(20).fill(0x0b),
-    data: new TextEncoder().encode("Hi There"),
+    data: encodeFixtureUtf8("Hi There"),
     expected: "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
   },
   /** Case 2: "Jefe" key, "what do ya want for nothing?" */
   case2: {
-    key: new TextEncoder().encode("Jefe"),
-    data: new TextEncoder().encode("what do ya want for nothing?"),
+    key: encodeFixtureUtf8("Jefe"),
+    data: encodeFixtureUtf8("what do ya want for nothing?"),
     expected: "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
   },
   /** Case 3: 20×0xaa key, 50×0xdd data */
@@ -51,13 +53,13 @@ export const hmacSha1Vectors = {
   /** Case 1: 20×0x0b key, "Hi There" */
   case1: {
     key: new Uint8Array(20).fill(0x0b),
-    data: new TextEncoder().encode("Hi There"),
+    data: encodeFixtureUtf8("Hi There"),
     expected: "b617318655057264e28bc0b6fb378c8ef146be00"
   },
   /** Case 2: "Jefe" key, "what do ya want for nothing?" */
   case2: {
-    key: new TextEncoder().encode("Jefe"),
-    data: new TextEncoder().encode("what do ya want for nothing?"),
+    key: encodeFixtureUtf8("Jefe"),
+    data: encodeFixtureUtf8("what do ya want for nothing?"),
     expected: "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79"
   }
 }

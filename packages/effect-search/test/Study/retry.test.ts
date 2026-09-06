@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
 
@@ -16,7 +16,7 @@ describe("Study objective retry", () => {
       const attemptsRef = yield* Ref.make(0)
       const events = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 7 }),
           direction: "minimize",
           trials: 1,
@@ -49,7 +49,7 @@ describe("Study objective retry", () => {
       const attemptsRef = yield* Ref.make(0)
 
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 7 }),
         direction: "minimize",
         trials: 1,
@@ -103,7 +103,7 @@ describe("Study objective retry", () => {
       expect(snapshotTrial.value.state.retryCount).toBe(2)
 
       const resumed = yield* Study.resume({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 7 }),
         snapshot,
         direction: "minimize",

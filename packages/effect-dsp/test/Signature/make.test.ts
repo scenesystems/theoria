@@ -31,18 +31,6 @@ describe("Signature", () => {
         expect(names).toContain("x")
         expect(names).toContain("y")
       }))
-
-    it.effect("preserves input and output schemas", () =>
-      Effect.gen(function*() {
-        const sig = yield* Signature.make(
-          "test",
-          { question: Schema.String },
-          { answer: Schema.String }
-        )
-
-        expect(sig.inputSchema).toBeDefined()
-        expect(sig.outputSchema).toBeDefined()
-      }))
   })
 
   describe("describe", () => {

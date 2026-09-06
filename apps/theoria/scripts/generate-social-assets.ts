@@ -1,11 +1,20 @@
-import { Command, FileSystem, Path } from "@effect/platform"
+import { Command, FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Console, Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import { siteMetadata } from "../app/contracts/metadata.js"
-import { type Face, favicon, type Fonts, type Mark, packageCard, palette, siteCard, solidIcon } from "./social-assets/cards.js"
+import {
+  type Face,
+  favicon,
+  Fonts,
+  type Mark,
+  packageCard,
+  palette,
+  siteCard,
+  solidIcon
+} from "./social-assets/cards.js"
 
 /**
  * Renders the committed share images and icons under `public/` from the
@@ -49,7 +58,7 @@ const parseMark = (svg: string): Effect.Effect<Mark> =>
       const [x = 0, y = 0, width = 1, height = 1] = numbers(viewBox)
       return Effect.succeed({
         viewBox: { x, y, width, height },
-        faces: Arr.map(Array.from(svg.matchAll(polygonPattern)), parseFace)
+        faces: Arr.map(Arr.fromIterable(svg.matchAll(polygonPattern)), parseFace)
       })
     }
   })
@@ -103,16 +112,16 @@ const webManifest = (description: string) =>
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const appRoot = yield* path.fromFileUrl(new URL("../", import.meta.url))
+  const appRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
   const repositoryRoot = path.join(appRoot, "..", "..")
   const publicRoot = path.join(appRoot, "public")
   const fontsRoot = path.join(appRoot, "scripts", "social-assets", "fonts")
-  const fonts: Fonts = {
+  const fonts: Fonts = Fonts.make({
     sans: path.join(fontsRoot, "Figtree-Regular.ttf"),
     sansSemiBold: path.join(fontsRoot, "Figtree-SemiBold.ttf"),
     mono: path.join(fontsRoot, "JetBrainsMono-Medium.ttf")
-  }
-  const host = new URL(siteMetadata.siteUrl).host
+  })
+  const host = yield* Effect.map(Url.fromString(siteMetadata.siteUrl), (url) => url.host)
 
   const mark = yield* fileSystem.readFileString(path.join(publicRoot, "favicon.svg")).pipe(Effect.flatMap(parseMark))
 

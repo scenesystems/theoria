@@ -3,10 +3,11 @@
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @since 0.1.0
+ * @module
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { streamFromEmitter } from "@scenesystems/effect-search/Study"
-import { Array as Arr, Effect, Option, Ref } from "effect"
+import { Array as Arr, Data, Effect, Option, Ref } from "effect"
 import type { Schema, Stream } from "effect"
 import type * as Layer from "effect/Layer"
 import { withModuleParamsDemosAndInstructions } from "../../contracts/ModuleParams.js"
@@ -60,12 +61,12 @@ const bootstrapFailure = (options: {
  * @since 0.1.0
  * @category models
  */
-export type BootstrapFewShotOptions<
+export class BootstrapFewShotOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
   MR = never
-> = Readonly<{
+> extends Data.Class<{
   /** Module mutated in place and returned by the optimizer. */
   readonly module: Module<I, O>
   /** Training examples used for teacher runs and labeled fallback. */
@@ -86,17 +87,9 @@ export type BootstrapFewShotOptions<
   readonly fallbackLabeledDemoCount?: number
   /** Layer used only while running teacher traces; otherwise the ambient language model is used. */
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
-}>
+}> {}
 
-export type {
-  /**
-   * Receives each bootstrap event before optimization advances.
-   *
-   * @since 0.1.0
-   * @category type-level
-   */
-  BootstrapEventSink
-} from "./runtime/round.js"
+export type { BootstrapEventSink } from "./runtime/round.js"
 
 /**
  * Discards bootstrap events without adding failures or requirements.
@@ -226,13 +219,11 @@ export const bootstrapFewShotWithEvents = <
         const paramsAfterFallback = yield* Ref.get(options.module.params)
 
         if (paramsAfterFallback.demos.length <= 0) {
-          return yield* Effect.fail(
-            bootstrapFailure({
-              message: "BootstrapFewShot produced zero accepted demos and labeled fallback yielded zero demos",
-              threshold,
-              state: finalState
-            })
-          )
+          return yield* bootstrapFailure({
+            message: "BootstrapFewShot produced zero accepted demos and labeled fallback yielded zero demos",
+            threshold,
+            state: finalState
+          })
         }
 
         yield* emit(
@@ -254,13 +245,11 @@ export const bootstrapFewShotWithEvents = <
         return optimized
       }
 
-      return yield* Effect.fail(
-        bootstrapFailure({
-          message: "BootstrapFewShot produced zero accepted demos",
-          threshold,
-          state: finalState
-        })
-      )
+      return yield* bootstrapFailure({
+        message: "BootstrapFewShot produced zero accepted demos",
+        threshold,
+        state: finalState
+      })
     }
 
     yield* emit(

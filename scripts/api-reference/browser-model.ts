@@ -1,11 +1,6 @@
 import { Array as Arr } from "effect"
 
-import type {
-  ApiExport,
-  ApiPage,
-  DocsApiExportPage,
-  DocsApiModuleIndex
-} from "@theoria/docs-model"
+import type { ApiExport, ApiPage, DocsApiExportPage, DocsApiModuleIndex } from "@theoria/docs-model"
 
 export const browserApiExportPath = (modulePath: string, anchor: string): string =>
   `${modulePath.replace(/\.json$/u, "")}/${anchor}.json`

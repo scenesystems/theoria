@@ -4,44 +4,28 @@
  * @since 0.2.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Cache, Effect, Layer, Option } from "effect"
+import { Cache, Data, Effect, Layer, Option } from "effect"
 
 import { MeasurementCache, TextMeasurer } from "../contracts/index.js"
+import { fontDescriptor, type FontKey, fontKey, getOrEvict } from "../Text/internal/cache.js"
 import type { FontDescriptorType } from "../Text/schema.js"
 import { type FontReadinessRevisionType, initialFontReadinessRevision } from "./fontReadiness.js"
 import {
   type CanvasMeasurementContext,
   correctEmojiWidth,
-  decodeFontKey,
-  encodeFontKey,
   measureCanvasText,
   normalizeEmojiCorrection,
   stripEmojiClusters
 } from "./internal/canvas.js"
 import { BrowserSupportManifest, type BrowserSupportProfileIdType } from "./supportManifest.js"
 
-const encodeBrowserMeasurementKey = (
-  options: {
-    readonly fontReadinessRevision: FontReadinessRevisionType
-    readonly profileId: BrowserSupportProfileIdType
-  },
-  font: FontDescriptorType,
-  text: string
-): string =>
-  [
-    encodeURIComponent(options.profileId),
-    options.fontReadinessRevision,
-    encodeURIComponent(font.family),
-    font.size,
-    font.weight ?? 400,
-    encodeURIComponent(text)
-  ].join("|")
-
-const decodeBrowserMeasurementKey = (key: string): readonly [FontDescriptorType, string] => {
-  const [_profileId, _revision, family = "", size = "0", weight = "400", text = ""] = key.split("|")
-
-  return [{ family: decodeURIComponent(family), size: Number(size), weight: Number(weight) }, decodeURIComponent(text)]
-}
+/** One measured string in one font, under one support profile and font-readiness generation. */
+class BrowserMeasurementKey extends Data.Class<{
+  readonly profileId: BrowserSupportProfileIdType
+  readonly fontReadinessRevision: FontReadinessRevisionType
+  readonly font: FontKey
+  readonly text: string
+}> {}
 
 const makeBrowserMeasurementCache = (options: {
   readonly fontReadinessRevision: FontReadinessRevisionType
@@ -52,28 +36,24 @@ const makeBrowserMeasurementCache = (options: {
     const cache = yield* Cache.make({
       capacity: 1024,
       timeToLive: "24 hours",
-      lookup: (key: string) => {
-        const [font, text] = decodeBrowserMeasurementKey(key)
-        return measurer.measure(font, text)
-      }
+      lookup: (key: BrowserMeasurementKey) => measurer.measure(fontDescriptor(key.font), key.text)
     })
 
     return {
       measure: (font: FontDescriptorType, text: string) =>
-        cache.get(
-          encodeBrowserMeasurementKey(
-            {
-              fontReadinessRevision: options.fontReadinessRevision,
-              profileId: options.profileId
-            },
-            font,
+        getOrEvict(
+          cache,
+          new BrowserMeasurementKey({
+            profileId: options.profileId,
+            fontReadinessRevision: options.fontReadinessRevision,
+            font: fontKey(font),
             text
-          )
+          })
         )
     }
   })
 
-type CanvasTextMeasurerOptions = Readonly<{
+class CanvasTextMeasurerOptions extends Data.Class<{
   /** Mutable canvas-like context retained for the layer lifetime. */
   context: CanvasMeasurementContext
   /** Direction assigned before each measurement. */
@@ -82,7 +62,7 @@ type CanvasTextMeasurerOptions = Readonly<{
   emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
   /** Baseline assigned before each measurement. */
   textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-}>
+}> {}
 
 const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
   Effect.gen(function*() {
@@ -90,13 +70,13 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
     const emojiCorrection = normalizeEmojiCorrection(options.emojiCorrection)
     const emojiAdvanceCache = yield* (
       Option.match(emojiCorrection, {
-        onNone: () => Effect.succeed(Option.none()),
+        onNone: () => Effect.succeedNone,
         onSome: (correction) =>
           Cache.make({
             capacity: 128,
             timeToLive: "24 hours",
-            lookup: (key: string) => {
-              const font = decodeFontKey(key)
+            lookup: (key: FontKey) => {
+              const font = fontDescriptor(key)
 
               return measureCanvasText(
                 options.context,
@@ -108,7 +88,7 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
                 Effect.map((width) => Numeric.max(width, font.size * correction[1]))
               )
             }
-          }).pipe(Effect.map(Option.some))
+          }).pipe(Effect.asSome)
       })
     )
 
@@ -120,7 +100,7 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
               Option.match(emojiAdvanceCache, {
                 onNone: () => Effect.succeed(rawWidth),
                 onSome: (cache) =>
-                  cache.get(encodeFontKey(font)).pipe(
+                  getOrEvict(cache, fontKey(font)).pipe(
                     Effect.flatMap((emojiAdvance) => {
                       const [strippedText] = stripEmojiClusters(text)
 
@@ -146,9 +126,10 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
  * @remarks
  * Optional emoji correction replaces under-reported emoji-cluster advances
  * using a per-font probe cache; non-emoji text keeps its raw canvas width. The
- * context is mutated during measurement, restored afterward, and must outlive
- * the layer. Concurrent calls are serialized. Context throws and non-finite or
- * negative widths fail as `MeasurementFailed`.
+ * context is mutated during measurement, restored afterward whether or not the
+ * measurement succeeded, and must outlive the layer. Concurrent calls are
+ * serialized. A `measureText` that throws and a non-finite or negative width
+ * fail as `MeasurementFailed`; a failed probe is not kept in the probe cache.
  *
  * @since 0.2.0
  * @category layers
@@ -164,6 +145,8 @@ export const CanvasTextMeasurerLive = (options: CanvasTextMeasurerOptions) =>
  * change measured widths or when browser support configuration differs by
  * profile. Rebuilding the layer with a new
  * `fontReadinessRevision` invalidates cached widths for the same font/text pair.
+ * Only successful measurements are kept: a failed one is evicted so the next
+ * request for the same text measures again.
  *
  * @since 0.2.0
  * @category layers

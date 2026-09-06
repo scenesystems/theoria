@@ -22,8 +22,6 @@ const parseTaggedStep = (identifier: string): Option.Option<number> =>
     })
   )
 
-const candidateStep = (candidateId: string): number => Option.getOrElse(parseTaggedStep(candidateId), () => 0)
-
 const parseExampleIndex = (exampleId: string): number => Option.getOrElse(parseTaggedStep(exampleId), () => 0)
 
 /**
@@ -46,18 +44,6 @@ export const withFeedback = (feedback: Option.Option<string>): Readonly<Record<s
  */
 export const scoreAt = (scores: ReadonlyArray<number>, index: number): number =>
   Option.getOrElse(Arr.get(scores, index), () => 0)
-
-/**
- * Deterministic micro-boost used as a tie-breaker for strict mutation gate-1.
- *
- * @since 0.1.0
- * @category combinators
- */
-export const candidateBoost = (candidateId: string): number =>
-  Match.value(candidateId).pipe(
-    Match.when((id) => id.startsWith("mut-") || id.startsWith("merge-"), (id) => (candidateStep(id) + 1) / 1000),
-    Match.orElse(() => 0)
-  )
 
 /**
  * Pick one predictor instruction from a candidate by predictor name.

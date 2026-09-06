@@ -40,9 +40,11 @@ export class Trial<Config> extends Data.Class<{
  * @since 0.1.0
  * @category type-level
  */
-export type CompletedTrial<Config> = Trial<Config> & {
-  readonly state: CompletedState
-}
+export class CompletedTrial<Config> extends Data.Class<
+  Trial<Config> & {
+    readonly state: CompletedState
+  }
+> {}
 
 /**
  * Refines a completed trial to a scalar objective result. This distinction is
@@ -53,16 +55,18 @@ export type CompletedTrial<Config> = Trial<Config> & {
  * @since 0.1.0
  * @category type-level
  */
-export type NumericCompletedTrial<Config> = CompletedTrial<Config> & {
-  readonly state: {
-    readonly _tag: "Completed"
-    readonly value: number
-    readonly duration: number
-    readonly retryCount: number
-    readonly evaluationCount?: number
-    readonly variance?: number
+export class NumericCompletedTrial<Config> extends Data.Class<
+  CompletedTrial<Config> & {
+    readonly state: {
+      readonly _tag: "Completed"
+      readonly value: number
+      readonly duration: number
+      readonly retryCount: number
+      readonly evaluationCount?: number
+      readonly variance?: number
+    }
   }
-}
+> {}
 
 /**
  * Narrows a completed trial when its objective value is a JavaScript number

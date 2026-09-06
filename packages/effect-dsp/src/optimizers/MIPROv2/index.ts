@@ -4,8 +4,9 @@
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
+ * @module
  */
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Data, Effect } from "effect"
 import type { Schema } from "effect"
 import type { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
@@ -34,12 +35,12 @@ import { runPhase3Search } from "./search.js"
  * @since 0.1.0
  * @category models
  */
-export type MIPROv2Options<
+export class MIPROv2Options<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
   MR = never
-> = Readonly<{
+> extends Data.Class<{
   /** Module tree mutated during evaluation and left with the selected configuration on success. */
   readonly module: DspModule<I, O>
   /** Examples used for proposal context; only entries with `output` become demonstrations. */
@@ -68,7 +69,7 @@ export type MIPROv2Options<
   readonly minibatchSize?: number
   /** Trial cadence for diagnostic full-set evaluations. Defaults to `5` and is normalized to a positive integer. */
   readonly fullEvalEvery?: number
-}>
+}> {}
 
 /**
  * Receives lifecycle events in execution order. The optimizer waits for each
@@ -144,9 +145,10 @@ const totalInstructionCandidates = (
  * module instance. Search evaluation mutates parameter refs as it runs, so a
  * failure or interruption can leave the most recently applied configuration in
  * place. Instruction generation failures become `InstructionProposalFailed`.
- * Candidate mismatch, search-space, and study-completion failures become
- * `AllTrialsFailed`. Module, metric, Schema, and language-model failures that
- * occur before the study retain their declared error channels.
+ * Candidate mismatch and an absence of successful trials become
+ * `AllTrialsFailed`. Effect-search study failures retain their `SearchError`
+ * variants. Module, metric, Schema, and language-model failures retain their
+ * declared error channels.
  *
  * @param options - Candidate, proposal, validation, and search settings.
  * @param emit - Sink awaited once for each emitted lifecycle event.

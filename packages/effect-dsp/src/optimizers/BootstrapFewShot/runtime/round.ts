@@ -34,6 +34,12 @@ const emptyRoundEvaluation = new RoundEvaluation({
   bestScore: 0
 })
 
+/**
+ * Receives each bootstrap event before optimization advances.
+ *
+ * @since 0.1.0
+ * @category type-level
+ */
 export type BootstrapEventSink = (event: BootstrapEventType) => Effect.Effect<void>
 
 const decodeMetricPayload = (payload: unknown) =>

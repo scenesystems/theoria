@@ -1,21 +1,26 @@
-import type { ComponentPropsWithRef, CSSProperties, ReactNode } from "react"
+import type { CSSProperties, ReactNode, RefCallback } from "react"
 
+import { classNames } from "./classNames.js"
 import { Layer } from "./Layout.js"
+
+/**
+ * The frame's border on each side. The frame is drawn with this value, and
+ * anything that budgets a column for the frame (the stage atoms) subtracts it,
+ * so the two can never disagree.
+ */
+export const artifactStageBorderPx = 1
 
 const viewportClassName = "flex h-full min-h-0 w-full overflow-x-auto"
 const frameClassName =
-  "relative flex min-h-full flex-col overflow-hidden rounded-lg border border-stage-200/80 bg-stage-0"
+  "relative flex min-h-full flex-col overflow-hidden rounded-lg border-solid border-stage-200/80 bg-stage-0"
 const bodyClassName = "relative box-border min-h-0 w-full flex-1 overflow-hidden"
-
-const withClassName = (base: string, extra: string | undefined): string =>
-  extra === undefined ? base : `${base} ${extra}`
 
 export const ArtifactStage = ({
   bodyStyle,
   children,
-  className,
+  className = "",
   frameStyle,
-  viewportClassName: extraViewportClassName,
+  viewportClassName: extraViewportClassName = "",
   viewportRef
 }: {
   readonly bodyStyle?: CSSProperties
@@ -23,11 +28,19 @@ export const ArtifactStage = ({
   readonly className?: string
   readonly frameStyle?: CSSProperties
   readonly viewportClassName?: string
-  readonly viewportRef?: ComponentPropsWithRef<"div">["ref"]
+  readonly viewportRef: RefCallback<HTMLElement>
 }) => (
-  <Layer className={withClassName(viewportClassName, extraViewportClassName)} ref={viewportRef}>
-    <Layer className={withClassName(frameClassName, className)} style={frameStyle}>
-      <Layer className={bodyClassName} style={bodyStyle}>
+  <Layer
+    className={classNames(viewportClassName, extraViewportClassName)}
+    data-artifact-stage="viewport"
+    ref={viewportRef}
+  >
+    <Layer
+      className={classNames(frameClassName, className)}
+      data-artifact-stage="frame"
+      style={{ borderWidth: artifactStageBorderPx, ...frameStyle }}
+    >
+      <Layer className={bodyClassName} data-artifact-stage="body" style={bodyStyle}>
         {children}
       </Layer>
     </Layer>

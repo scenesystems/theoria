@@ -6,6 +6,7 @@
  * inherit the active references according to Effect `FiberRef` semantics.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./model.js"

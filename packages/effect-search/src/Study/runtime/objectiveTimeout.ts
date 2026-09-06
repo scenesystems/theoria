@@ -3,15 +3,20 @@
  *
  * @since 0.1.0
  */
-import type { Exit } from "effect"
-import { Deferred, Effect, Fiber, Option } from "effect"
+import { Cause, Effect, Exit, Fiber, Option } from "effect"
 
 import type { OptimizeSettings } from "../options.js"
 
 type TrialTimeout = NonNullable<OptimizeSettings["trialTimeout"]>
 
 /**
- * Wraps an objective evaluation with a timeout, returning None and interrupting the fiber if the deadline elapses.
+ * Wraps an objective evaluation with a timeout. When the deadline elapses the
+ * objective's fiber is interrupted and its final exit is awaited: an exit that is
+ * nothing but that interruption is the ordinary cancellation and yields `None`,
+ * while anything else in it is kept as `Some` so the study sees it. The runtime
+ * strips typed failures from a fiber that is being interrupted, so what survives is
+ * what the objective died from on its way out, such as a rejected report a cleanup
+ * finalizer escalated with `orDie`.
  *
  * @since 0.1.0
  * @category utils
@@ -21,24 +26,19 @@ export const evaluateObjectiveWithTimeout = <A, E, R>(
   trialTimeout: TrialTimeout
 ): Effect.Effect<Option.Option<Exit.Exit<A, E>>, never, R> =>
   Effect.gen(function*() {
-    const objectiveCompletion = yield* Deferred.make<Exit.Exit<A, E>, never>()
-    const objectiveFiber = yield* objectiveEffect.pipe(
-      Effect.exit,
-      Effect.flatMap((exit) => Deferred.succeed(objectiveCompletion, exit)),
-      Effect.asVoid,
-      Effect.fork
-    )
+    const objectiveFiber = yield* Effect.fork(objectiveEffect)
+    const completed = yield* Fiber.await(objectiveFiber).pipe(Effect.timeoutOption(trialTimeout))
 
-    const objectiveExitOption = yield* Deferred.await(objectiveCompletion).pipe(
-      Effect.map(Option.some),
-      Effect.timeout(trialTimeout),
-      Effect.catchTag("TimeoutException", () => Effect.succeed(Option.none()))
-    )
-
-    yield* Effect.when(
-      Fiber.interrupt(objectiveFiber).pipe(Effect.asVoid),
-      () => Option.isNone(objectiveExitOption)
-    )
-
-    return objectiveExitOption
+    return yield* Option.match(completed, {
+      onSome: (exit) => Effect.succeedSome(exit),
+      onNone: () =>
+        Fiber.interrupt(objectiveFiber).pipe(
+          Effect.map(
+            Exit.match({
+              onSuccess: (value) => Option.some(Exit.succeed(value)),
+              onFailure: (cause) => Cause.isInterruptedOnly(cause) ? Option.none() : Option.some(Exit.failCause(cause))
+            })
+          )
+        )
+    })
   })

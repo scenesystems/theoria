@@ -1,3 +1,4 @@
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { ApiParameter, ApiSignature, ApiTypeParameter } from "@theoria/docs-model"
@@ -10,9 +11,9 @@ import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { DocsRichText } from "./DocsRichText.js"
 
 const typeParameterValue = (parameter: ApiTypeParameter): string =>
-  `${parameter.name}${parameter.constraint === null ? "" : ` extends ${parameter.constraint}`}${
-    parameter.default === null ? "" : ` = ${parameter.default}`
-  }`
+  `${parameter.name}${
+    Option.match(parameter.constraint, { onNone: () => "", onSome: (value) => ` extends ${value}` })
+  }${Option.match(parameter.default, { onNone: () => "", onSome: (value) => ` = ${value}` })}`
 
 export const ApiTypeParametersView = ({
   headingAs = "h3",
@@ -27,7 +28,7 @@ export const ApiTypeParametersView = ({
       <Stack className="gap-2">
         <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Type parameters</SemanticContent>
         <Stack
-          as="dl"
+          render={<dl />}
           className="divide-y divide-stage-200/75 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4"
         >
           {Arr.map(
@@ -42,7 +43,7 @@ export const ApiTypeParametersView = ({
                     : "py-3"}
                   key={parameter.name}
                 >
-                  <Layer as="dt" className="text-ink-900">
+                  <Layer render={<dt />} className="text-ink-900">
                     <InlineHighlightedCode source={typeParameterValue(parameter)} />
                   </Layer>
                   {documented
@@ -62,7 +63,7 @@ export const ApiTypeParametersView = ({
 
 const parameterValue = (parameter: ApiParameter): string =>
   `${parameter.rest ? "..." : ""}${parameter.name}${parameter.optional ? "?" : ""}: ${parameter.type}${
-    parameter.defaultValue === null ? "" : ` = ${parameter.defaultValue}`
+    Option.match(parameter.defaultValue, { onNone: () => "", onSome: (value) => ` = ${value}` })
   }`
 
 const Parameters = ({
@@ -78,7 +79,7 @@ const Parameters = ({
       <Stack className="gap-2">
         <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Parameters</SemanticContent>
         <Stack
-          as="dl"
+          render={<dl />}
           className="divide-y divide-stage-200/75 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4"
         >
           {Arr.map(
@@ -93,7 +94,7 @@ const Parameters = ({
                     : "py-3"}
                   key={parameter.name}
                 >
-                  <Layer as="dt" className="break-words text-ink-900">
+                  <Layer render={<dt />} className="break-words text-ink-900">
                     <InlineHighlightedCode source={parameterValue(parameter)} />
                   </Layer>
                   {documented

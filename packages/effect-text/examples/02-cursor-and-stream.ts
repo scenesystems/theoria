@@ -5,7 +5,7 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
-import { Chunk, Effect, Option, Stream } from "effect"
+import { Chunk, Effect, Layer, Option, Stream } from "effect"
 
 import { Text } from "@scenesystems/effect-text"
 
@@ -39,9 +39,6 @@ const program = Effect.gen(function*() {
     }),
     streamed
   })
-}).pipe(
-  Effect.provide(Text.TextLayoutLive),
-  Effect.provide(BunContext.layer)
-)
+}).pipe(Effect.provide(Layer.merge(Text.TextLayoutLive, BunContext.layer)))
 
 BunRuntime.runMain(program)

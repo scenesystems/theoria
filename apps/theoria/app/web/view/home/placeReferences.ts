@@ -1,7 +1,7 @@
-import { Match } from "effect"
+import { Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import type { Id as CardId } from "../../../contracts/id.js"
+import { Id as CardId } from "../../../contracts/id.js"
 import type { CodeLink } from "../primitives/code/codeLinks.js"
 
 import type { PlaceStep } from "./placeSteps.js"
@@ -10,11 +10,12 @@ import type { PlaceStep } from "./placeSteps.js"
  * One API symbol a step's code sample uses, and where its reference page is.
  * `text` must appear in that step's sample exactly; a unit test checks it.
  */
-export type PlaceReference = {
-  readonly text: string
-  readonly package: CardId
-  readonly href: string
-}
+export const PlaceReference = Schema.Struct({
+  text: Schema.String,
+  package: CardId,
+  href: Schema.String
+})
+export type PlaceReference = typeof PlaceReference.Type
 
 const ref = (pkg: CardId, page: string, text: string, anchor: string): PlaceReference => ({
   text,

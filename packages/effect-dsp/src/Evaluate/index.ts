@@ -7,6 +7,7 @@
  * `stream` for buffered lifecycle events after evaluation completes.
  *
  * @since 0.1.0
+ * @module
  */
 import { Array as Arr, Effect, Ref, Stream } from "effect"
 import type { Schema } from "effect"

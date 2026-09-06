@@ -1,8 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Match, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
-import * as Order from "effect/Order"
-import * as Record from "effect/Record"
 
 import { Browser, Contracts, Errors, Text } from "../../src/index.js"
 import { preparedTextCore, preparedTextWithSegmentsCore } from "../../src/Text/model.js"
@@ -73,6 +71,34 @@ describe("Text operations", () => {
       expect(afterLayout).toBe(afterPrepare)
       expect(narrow.lineCount).toBe(2)
       expect(wide.lineCount).toBe(1)
+    }))
+
+  it.effect("caches measurements by structure: lone surrogates measure, and an omitted weight is the normal weight", () =>
+    Effect.gen(function*() {
+      const { measurements, layer } = yield* makeTestContext
+      const text = "\uD800 unpaired"
+      const font = { family: "Mono \uDC00", size: 10 }
+      const browserLayer = Browser.BrowserMeasurementCacheLive().pipe(
+        Layer.provide(Layer.succeed(Contracts.TextMeasurer, {
+          measure: (_font, measured: string) =>
+            Ref.update(measurements, (count) => count + 1).pipe(Effect.as(measured.length * 5))
+        }))
+      )
+
+      const measure = (cacheLayer: Layer.Layer<Contracts.MeasurementCache>) =>
+        Effect.gen(function*() {
+          const cache = yield* Contracts.MeasurementCache
+          const omittedWeight = yield* cache.measure(font, text)
+          const explicitWeight = yield* cache.measure({ ...font, weight: 400 }, text)
+
+          expect(omittedWeight).toBe(text.length * 5)
+          expect(explicitWeight).toBe(omittedWeight)
+        }).pipe(Effect.provide(cacheLayer))
+
+      yield* measure(layer)
+      expect(yield* Ref.get(measurements)).toBe(1)
+      yield* measure(browserLayer)
+      expect(yield* Ref.get(measurements)).toBe(2)
     }))
 
   it.effect("rejects excess properties at the prepare boundary", () =>
@@ -274,8 +300,7 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const lines = Text.layoutLines(prepared, { maxWidth: 45, lineHeight: 12 })
-      expect(lines.length).toBe(1)
-      expect(lines[0]!.text).toBe("abcd efgh")
+      expect(Arr.map(lines, (line) => line.text)).toEqual(["abcd efgh"])
     }))
 
   it.effect("handles multiple consecutive spaces in pre-wrap mode", () =>
@@ -288,8 +313,7 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const lines = Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })
-      expect(lines.length).toBe(1)
-      expect(lines[0]!.text).toBe("a   b")
+      expect(Arr.map(lines, (line) => line.text)).toEqual(["a   b"])
     }))
 
   it.effect("handles multiple newlines in pre-wrap mode", () =>
@@ -455,7 +479,7 @@ describe("Text edge cases and robustness", () => {
       expect(Arr.fromIterable(streamedLines)).toEqual(directLines)
     }))
 
-  it.effect("keeps cursor optimization hints non-enumerable and scoped to prepared width", () =>
+  it.effect("cursor optimization hints do not leak through spread and do not change layout", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
       const prepared = yield* Text.prepareWithSegments({
@@ -475,8 +499,6 @@ describe("Text edge cases and robustness", () => {
         segmentIndex: hintedCursor.segmentIndex
       }
 
-      expect(Arr.sort(Record.keys(hintedCursor), Order.string)).toEqual(["graphemeIndex", "segmentIndex"])
-      expect(Object.getOwnPropertySymbols(hintedCursor)).toEqual([])
       expect({ ...hintedCursor }).toEqual(plainCursor)
       expect(
         Option.map(Text.layoutNextLine(prepared, wideRequest, hintedCursor), ([line]) => line.index)

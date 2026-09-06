@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect } from "effect"
+import { Data, Effect } from "effect"
 import type { Schema } from "effect"
 
 import type { Example } from "../../../Example/index.js"
@@ -23,12 +23,12 @@ import type { GEPAEvent as GEPAEventType } from "../events.js"
  * @since 0.1.0
  * @category models
  */
-export type GEPAOptions<
+export class GEPAOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
   MR = never
-> = Readonly<{
+> extends Data.Class<{
   /** Module whose instructions are replaced by the selected frontier candidate. */
   readonly module: DspModule<I, O>
   /** Default validation examples when `valset` is omitted. */
@@ -43,7 +43,7 @@ export type GEPAOptions<
   readonly maxMergeInvocations?: number
   /** Seed for deterministic parent selection and subsampling. Defaults to `1`. */
   readonly seed?: number
-}>
+}> {}
 
 /**
  * Receives each event before GEPA advances to the next lifecycle step.

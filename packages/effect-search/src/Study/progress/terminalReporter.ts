@@ -29,17 +29,14 @@ const renderModeFromAnsiSupport = (supportsAnsi: boolean): TerminalRenderMode =>
     : "plain"
 
 const resolveRenderMode = (sink: TerminalSink): Effect.Effect<TerminalRenderMode> =>
-  sink.supportsAnsi.pipe(
-    Effect.map(renderModeFromAnsiSupport),
-    Effect.catchAll(() => Effect.succeed(renderModeFromAnsiSupport(false)))
-  )
+  Effect.map(sink.supportsAnsi, renderModeFromAnsiSupport)
 
 /**
  * Creates a reporter after checking whether the sink accepts ANSI text.
  *
  * @remarks
- * The capability check runs once. A typed failure from that check selects plain
- * text. Writer defects remain defects in the returned reporter.
+ * The capability check runs once. Writer defects remain defects in the returned
+ * reporter.
  *
  * @since 0.1.0
  * @category constructors

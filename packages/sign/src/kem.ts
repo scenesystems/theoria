@@ -8,6 +8,7 @@
  *
  * @since 0.1.0
  * @category kem
+ * @module
  */
 import type { Effect } from "effect"
 import { Match } from "effect"

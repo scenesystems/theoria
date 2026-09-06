@@ -41,18 +41,16 @@ const makeExtensionSampler = (seed: number): Sampler.Sampler => ({
   suggest: (_space, context) => Effect.succeed({ slot: (context.nextTrialNumber + seed) % 17 })
 })
 
-const extensionObjective = (raw: unknown) => {
-  const config = decodeSlotConfig(raw)
-
-  return Effect.succeed(Float64.abs(config.slot - 3))
-}
+const extensionObjective = (raw: unknown) =>
+  decodeSlotConfig(raw).pipe(Effect.map((config) => Float64.abs(config.slot - 3)))
 
 describe("sampler extensibility debt-prevention gate", () => {
   it.effect("runs optimize and optimizeStream through sampler interface without study-internal specialization", () =>
     Effect.gen(function*() {
+      const space = yield* extensionSpace
       const sampler = makeExtensionSampler(5)
       const optimized = yield* Study.optimize({
-        space: extensionSpace,
+        space,
         sampler,
         direction: "minimize",
         trials: 12,
@@ -67,7 +65,10 @@ describe("sampler extensibility debt-prevention gate", () => {
       }
 
       const result = resultOption.value
-      const slots = result.trials.map((trial) => decodeSlotConfig(trial.config).slot)
+      const slots = yield* Effect.forEach(
+        result.trials,
+        (trial) => decodeSlotConfig(trial.config).pipe(Effect.map((config) => config.slot))
+      )
       const expectedSlots = result.trials.map((trial) => (trial.trialNumber + 5) % 17)
       const expectedBest = slots.reduce(
         (best, slot) => Num.min(best, Float64.abs(slot - 3)),
@@ -80,7 +81,7 @@ describe("sampler extensibility debt-prevention gate", () => {
 
       const streamed = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: extensionSpace,
+          space,
           sampler,
           direction: "minimize",
           trials: 12,
@@ -97,9 +98,10 @@ describe("sampler extensibility debt-prevention gate", () => {
 
   it.effect("supports snapshot/resume with sampler-owned checkpoint contracts", () =>
     Effect.gen(function*() {
+      const space = yield* extensionSpace
       const baseSampler = makeExtensionSampler(7)
       const firstLeg = yield* Study.optimize({
-        space: extensionSpace,
+        space,
         sampler: baseSampler,
         direction: "minimize",
         trials: 7,
@@ -114,7 +116,7 @@ describe("sampler extensibility debt-prevention gate", () => {
 
       const snapshot = yield* Study.snapshot(firstLegOption.value)
       const resumed = yield* Study.resume({
-        space: extensionSpace,
+        space,
         sampler: baseSampler,
         snapshot,
         direction: "minimize",
@@ -146,7 +148,7 @@ describe("sampler extensibility debt-prevention gate", () => {
 
       const mismatch = yield* Effect.either(
         Study.resume({
-          space: extensionSpace,
+          space,
           sampler: makeExtensionSampler(11),
           snapshot,
           direction: "minimize",

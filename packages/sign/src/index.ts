@@ -91,6 +91,12 @@ export * from "./kem.js"
 export * from "./keyPair.js"
 
 /**
+ * @since 0.3.0
+ * @category keys
+ */
+export * from "./entropy.js"
+
+/**
  * @since 0.1.0
  * @category schemas
  */

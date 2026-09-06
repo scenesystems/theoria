@@ -19,7 +19,7 @@ describe("machine snapshot", () => {
   it.effect("restores machine lifecycle and tracked trial state from snapshot", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const settings = makeSettings()
+        const settings = yield* makeSettings()
         const runtime = yield* initializeRuntime(settings).pipe(Effect.provide(StudyClockLayer))
 
         const running = Trial.makeRunning(0, { x: 0, depth: 1 }, 0)

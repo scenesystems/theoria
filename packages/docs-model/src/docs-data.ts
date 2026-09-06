@@ -131,10 +131,10 @@ export const DocsSearchEntrySchema = Schema.Struct({
   packageSlug: NonEmptyString,
   name: NonEmptyString,
   qualifiedName: NonEmptyString,
-  category: Schema.NullOr(Schema.String),
+  category: Schema.OptionFromNullOr(Schema.String),
   summary: Schema.String,
   path: NonEmptyString,
-  anchor: Schema.NullOr(Schema.String)
+  anchor: Schema.OptionFromNullOr(Schema.String)
 })
 
 export const DocsSearchIndexSchema = Schema.Struct({

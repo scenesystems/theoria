@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     depth: SearchSpace.int(1, 3)
   })
@@ -31,7 +31,7 @@ describe("Study ask-tell snapshot compatibility", () => {
   it.effect("emits snapshots that resume through existing snapshot codecs", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const space = makeSpace()
+        const space = yield* makeSpace()
         const handle = yield* Study.open({
           space,
           sampler: Sampler.random({ seed: 333 }),

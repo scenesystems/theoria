@@ -85,8 +85,8 @@ describe("pruning fixture replay contracts", () => {
       yield* Effect.forEach(
         fixture.payload.cases,
         (entry) =>
-          Effect.sync(() => {
-            const context = Schema.decodeUnknownSync(Study.PercentilePrunerContextSchema)({
+          Effect.gen(function*() {
+            const context = yield* Schema.decodeUnknown(Study.PercentilePrunerContextSchema)({
               direction: fixture.payload.direction,
               settings: entry.settings,
               trialNumber: entry.trialNumber,

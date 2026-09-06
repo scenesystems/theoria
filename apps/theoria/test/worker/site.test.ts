@@ -1,8 +1,6 @@
 // @vitest-environment node
-import { FileSystem } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
 import { expect, layer } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -15,6 +13,7 @@ import {
   productionHost,
   Site,
   SiteLive,
+  SiteRequest,
   stagingHost,
   testBeaconToken,
   testMeasurementId,
@@ -24,16 +23,6 @@ import {
 const PartialRequest = PlaceBuildRequest.pick("scenario")
 
 layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
-  it.effect("ships exactly one docs-data revision", () =>
-    Effect.gen(function*() {
-      const { distRoot, manifest } = yield* Site
-      const fileSystem = yield* FileSystem.FileSystem
-      const entries = yield* fileSystem.readDirectory(`${distRoot}/docs-data`).pipe(Effect.orDie)
-
-      expect(Arr.sort(entries, Str.Order)).toEqual(Arr.sort([manifest.revision, "manifest.json"], Str.Order))
-      expect(manifest.searchIndexAsset).toBe(`/docs-data/${manifest.revision}/search-index.json`)
-    }).pipe(Effect.provide(BunContext.layer)))
-
   it.effect("answers API routes from the Worker with the deploy-time build SHA", () =>
     Effect.gen(function*() {
       const site = yield* Site
@@ -54,7 +43,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
   it.effect("renders the HTML shell through the Worker with per-route metadata", () =>
     Effect.gen(function*() {
       const site = yield* Site
-      const firstPackage = Option.getOrThrow(Arr.head(site.manifest.packages))
+      const firstPackage = yield* Arr.head(site.manifest.packages)
 
       const home = yield* site.fetch(`${productionHost}/`)
       expect(home.status).toBe(200)
@@ -199,11 +188,14 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
     Effect.gen(function*() {
       const site = yield* Site
       const post = (body: string) =>
-        site.fetch(`${productionHost}/api/imagined-place/build`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body
-        })
+        site.fetch(
+          `${productionHost}/api/imagined-place/build`,
+          new SiteRequest({
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body
+          })
+        )
 
       const built = yield* post(
         yield* Schema.encode(Schema.parseJson(PlaceBuildRequest))({
@@ -214,7 +206,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         })
       )
       expect(built.status).toBe(200)
-      const envelope = yield* Schema.decodeUnknown(PlaceBuildEnvelope)(yield* json(built)).pipe(Effect.orDie)
+      const envelope = yield* Schema.decodeUnknown(PlaceBuildEnvelope)(yield* json(built))
       expect(envelope.ok).toBe(true)
       expect(envelope.ok && envelope.data.artifact.scenario).toBe("lost-market")
       expect(envelope.ok && envelope.data.artifact.accepted).toHaveLength(2)

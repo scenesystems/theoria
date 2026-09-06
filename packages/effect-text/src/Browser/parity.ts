@@ -3,10 +3,11 @@
  *
  * @since 0.2.0
  */
-import { Effect, Layer } from "effect"
+import { Data, Effect, Layer, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import { EngineProfile } from "../contracts/index.js"
+import type { MeasurementFailed } from "../Errors/index.js"
 import * as Text from "../Text/index.js"
 import { initialFontReadinessRevision } from "./fontReadiness.js"
 import { BrowserMeasurementCacheLive, CanvasTextMeasurerLive } from "./layers.js"
@@ -78,7 +79,7 @@ export type BrowserParityArtifactType = BrowserParityArtifactTypeInternal
 export type BrowserParityCaseIdType = BrowserParityCaseIdTypeInternal
 
 const baseFontSize = 10
-type BrowserParityCaseTemplate = Readonly<{
+class BrowserParityCaseTemplate extends Data.Class<{
   caseId: BrowserParityCaseIdType
   request: {
     readonly lineHeight: number
@@ -86,7 +87,7 @@ type BrowserParityCaseTemplate = Readonly<{
   }
   text: string
   whiteSpace: Text.WhiteSpaceModeType
-}>
+}> {}
 type MeasurementOverride = readonly [text: string, width: number]
 
 /**
@@ -95,7 +96,7 @@ type MeasurementOverride = readonly [text: string, width: number]
  * @since 0.2.0
  * @category models
  */
-export type BrowserParityResolvedCase = Readonly<{
+export class BrowserParityResolvedCase extends Data.Class<{
   /** Released scenario identifier. */
   caseId: BrowserParityCaseIdType
   /** Profile-specific input prepared by the harness. */
@@ -105,7 +106,7 @@ export type BrowserParityResolvedCase = Readonly<{
     readonly lineHeight: number
     readonly maxWidth: number
   }
-}>
+}> {}
 const browserParityCaseTemplates: ReadonlyArray<BrowserParityCaseTemplate> = [
   {
     caseId: "white-space-normal",
@@ -249,18 +250,38 @@ export const browserParityArtifactRelativePath = (profileId: BrowserSupportProfi
   `examples/live/artifacts/${profileId}.json`
 
 /**
+ * A browser profile does not declare every released synthetic scenario, so no
+ * artifact can be rendered for it.
+ *
+ * @since 0.4.0
+ * @category errors
+ */
+export class BrowserParityCasesMissing extends Schema.TaggedError<BrowserParityCasesMissing>()(
+  "BrowserParityCasesMissing",
+  {
+    /** The profile whose `parityCases` are incomplete. */
+    profileId: Schema.String,
+    /** Released scenarios the profile does not declare. */
+    missing: Schema.Array(BrowserParityCaseIdSchemaInternal)
+  }
+) {}
+
+/**
  * Evaluates every released synthetic scenario and returns a serializable
- * artifact. A profile missing any released case dies before preparation.
+ * artifact. A profile missing any released case fails with
+ * `BrowserParityCasesMissing` before preparation; a scenario whose text cannot
+ * be measured fails with that measurement's `MeasurementFailed`.
  *
  * @since 0.2.0
  * @category parity
  */
 export const renderBrowserParityArtifact = (
   profile: BrowserSupportProfileType
-): Effect.Effect<BrowserParityArtifactType> =>
+): Effect.Effect<BrowserParityArtifactType, BrowserParityCasesMissing | MeasurementFailed> =>
   Effect.gen(function*() {
-    if (!Arr.every(browserParityCaseIds, (caseId) => profile.parityCases.includes(caseId))) {
-      return yield* Effect.dieMessage(`Synthetic scenario mismatch for browser profile: ${profile.id}`)
+    const missing = Arr.filter(browserParityCaseIds, (caseId) => !profile.parityCases.includes(caseId))
+    if (Arr.isNonEmptyReadonlyArray(missing)) {
+      return yield* new BrowserParityCasesMissing({ profileId: profile.id, missing })
     }
 
     return {
@@ -280,8 +301,7 @@ export const renderBrowserParityArtifact = (
               request: entry.request,
               summary: Text.layout(prepared, entry.request),
               lines: Text.layoutLines(prepared, entry.request)
-            })),
-            Effect.orDie
+            }))
           )
       )
     }

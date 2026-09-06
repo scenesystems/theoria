@@ -15,15 +15,7 @@ import { activeGroupParameters, orderedGroups } from "./groupedMixed/groups.js"
 import { GroupedMixedSettings } from "./groupedMixed/model.js"
 import { mergeConfigs, suggestGroup } from "./groupedMixed/scoring.js"
 
-export {
-  /**
-   * Feature flags controlling multivariate and group-dimensions behavior.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  GroupedMixedSettings
-}
+export { GroupedMixedSettings }
 
 /**
  * Suggests a full configuration by sampling each conditional parameter

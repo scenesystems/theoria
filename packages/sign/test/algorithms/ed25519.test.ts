@@ -12,9 +12,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { ed25519Keygen, ed25519Sign, ed25519Verify } from "../../src/algorithms/ed25519.js"
+import { utf8ToBytes } from "../../src/encoding.js"
 
 describe("Ed25519 — algorithm contracts", () => {
-  const message = new TextEncoder().encode("hello noble")
+  const message = utf8ToBytes("hello noble")
 
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {
@@ -43,8 +44,7 @@ describe("Ed25519 — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* ed25519Keygen()
       const sig = yield* ed25519Sign(message, kp.secretKey, kp.publicKey)
-      const tampered = new Uint8Array(sig.signature)
-      tampered[32] = tampered[32]! ^ 0x01
+      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 32 ? byte ^ 0x01 : byte)
       const valid = yield* ed25519Verify(tampered, message, kp.publicKey)
       expect(valid).toBe(false)
     }))

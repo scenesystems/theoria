@@ -1,5 +1,5 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Effect, Option } from "effect"
+import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsManifest } from "@theoria/docs-model"
@@ -20,11 +20,7 @@ export const docsSitemapPaths = (manifest: DocsManifest): ReadonlyArray<string> 
 
 export const sitemapRoute = Effect.gen(function*() {
   const docsManifestStore = yield* DocsManifestStore
-  const docsManifest = yield* Effect.option(docsManifestStore.manifest)
-  const docsPaths = Option.match(docsManifest, {
-    onNone: () => ["/docs"],
-    onSome: docsSitemapPaths
-  })
+  const docsPaths = docsSitemapPaths(yield* docsManifestStore.manifest)
 
   const urls = Arr.map(
     ["/", ...docsPaths],

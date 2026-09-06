@@ -6,6 +6,7 @@
  * stable snapshot or project it into a `ModuleGraph`.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./model.js"

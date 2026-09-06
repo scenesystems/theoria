@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  * @category internal
+ * @module
  */
 export * as Logspace from "./logspace.js"
 export * as LogSumExp from "./logSumExp.js"

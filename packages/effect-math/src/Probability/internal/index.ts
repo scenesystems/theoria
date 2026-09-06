@@ -4,6 +4,7 @@
  *
  * @since 0.1.0
  * @category internal
+ * @module
  */
 export * as Distributions from "./distributions.js"
 export * as Entropy from "./entropy.js"

@@ -33,14 +33,12 @@ export const decodeOptimizationDomain = (input: unknown) =>
   Schema.decodeUnknown(OptimizationDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Optimization",
-          contract: "OptimizationDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Optimization",
+        contract: "OptimizationDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -55,14 +53,12 @@ export const decodeOptimizationDomain = (input: unknown) =>
  */
 export const encodeOptimizationDomain = (domain: OptimizationDomain) =>
   Schema.encode(OptimizationDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Optimization",
-          contract: "OptimizationDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Optimization",
+        contract: "OptimizationDomainSchema",
+        message: error.message
+      })
     )
   )
 

@@ -7,6 +7,7 @@ const testRunId = "01HZ0000000000000000000000"
 
 const makeTestLineage = Effect.gen(function*() {
   const runId = yield* Schema.decode(Contracts.RunId)(testRunId)
+  const emittedAt = yield* DateTime.make("2024-01-01T00:00:00Z")
   const sourceRef = new Contracts.SourceRef({
     origin: "effect-search",
     domain: "study",
@@ -19,7 +20,7 @@ const makeTestLineage = Effect.gen(function*() {
   return new Contracts.ArtifactLineage({
     sourceRef,
     artifactId,
-    emittedAt: DateTime.unsafeMake("2024-01-01T00:00:00Z")
+    emittedAt
   })
 })
 
@@ -67,7 +68,7 @@ describe("contracts/ArtifactEnvelope", () => {
         trial: {
           trialNumber: 0,
           config: {},
-          state: { _tag: "Completed", value: 1.0, duration: 100 }
+          state: { _tag: "Completed", value: 1.0, duration: 100, retryCount: 0 }
         }
       })
 

@@ -1,10 +1,11 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Effect, Option } from "effect"
+import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
 import { fullCanonicalUrl, siteMetadata } from "../../contracts/metadata.js"
 import { DocsManifestStore } from "../config/docs-manifest-store.js"
+import { textContentType } from "../config/static-store.js"
 
 /**
  * `/llms.txt` in the llmstxt.org v2 format: an H1, a blockquote summary,
@@ -64,29 +65,30 @@ const optionalEntries: ReadonlyArray<string> = [
   entry("Scene Systems", "https://scenesystems.io", "The organization behind Theoria.")
 ]
 
-export const renderLlmsTxt = (manifest: Option.Option<DocsManifest>): string => {
-  const packageSections = Option.match(manifest, {
-    onNone: (): ReadonlyArray<string> => [],
-    onSome: (docsManifest) => [
-      ...section(
-        "Packages",
-        Arr.map(docsManifest.packages, (docsPackage) => readmeEntry(docsManifest.revision, docsPackage))
-      ),
-      ...section("Documentation", Arr.map(docsManifest.packages, documentationEntry))
-    ]
-  })
+export const renderLlmsTxt = (docsManifest: DocsManifest): string =>
+  `${
+    Arr.join(
+      [
+        ...preamble,
+        ...section(
+          "Packages",
+          Arr.map(docsManifest.packages, (docsPackage) => readmeEntry(docsManifest.revision, docsPackage))
+        ),
+        ...section("Documentation", Arr.map(docsManifest.packages, documentationEntry)),
+        ...section("Optional", optionalEntries)
+      ],
+      "\n"
+    )
+  }\n`
 
-  return `${Arr.join([...preamble, ...packageSections, ...section("Optional", optionalEntries)], "\n")}\n`
-}
-
+/** The manifest is the source of every package entry; without it there is no llms.txt, and the failure says why. */
 export const llmsTxtRoute = Effect.gen(function*() {
   const docsManifestStore = yield* DocsManifestStore
-  const docsManifest = yield* Effect.option(docsManifestStore.manifest)
 
-  return HttpServerResponse.text(renderLlmsTxt(docsManifest), {
+  return HttpServerResponse.text(renderLlmsTxt(yield* docsManifestStore.manifest), {
     status: 200,
     headers: {
-      "content-type": "text/plain; charset=utf-8",
+      "content-type": textContentType,
       "cache-control": "public, max-age=3600"
     }
   })

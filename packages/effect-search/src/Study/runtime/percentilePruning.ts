@@ -22,27 +22,17 @@ import { percentileForDirection, percentileValue } from "./percentilePruningPerc
 import { canEvaluatePruningThreshold } from "./percentilePruningSchedule.js"
 
 export {
-  /** @since 0.1.0 */
   PercentilePrunerContextSchema,
-  /** @since 0.1.0 */
   PercentilePrunerHistoryTrialSchema,
-  /** @since 0.1.0 */
   PercentilePrunerReportSchema,
-  /** @since 0.1.0 */
   PercentilePrunerSettingsSchema,
-  /** @since 0.1.0 */
   PercentilePrunerTrialStateSchema
 }
 export type {
-  /** @since 0.1.0 */
   PercentilePrunerContext,
-  /** @since 0.1.0 */
   PercentilePrunerHistoryTrial,
-  /** @since 0.1.0 */
   PercentilePrunerReport,
-  /** @since 0.1.0 */
   PercentilePrunerSettings,
-  /** @since 0.1.0 */
   PercentilePrunerTrialState
 }
 

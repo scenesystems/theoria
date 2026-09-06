@@ -34,15 +34,16 @@ const stressScenarios = Schema.decodeUnknownSync(Schema.Array(ScenarioSchema))([
 const optimizerPenalty = (optimizer: "adam" | "sgd" | "adamw"): number =>
   optimizer === "adamw" ? 0 : optimizer === "adam" ? 0.2 : 0.65
 
-const objectiveValue = (raw: unknown): number => {
-  const config = decodeMixedOptimizerConfig(raw)
+const objectiveValue = (raw: unknown) =>
+  Effect.gen(function*() {
+    const config = yield* decodeMixedOptimizerConfig(raw)
 
-  return (
-    Float64.abs(Float64.log(config.lr) - Float64.log(0.02)) +
-    Float64.abs(config.depth - 5) * 0.25 +
-    optimizerPenalty(config.optimizer)
-  )
-}
+    return (
+      Float64.abs(Float64.log(config.lr) - Float64.log(0.02)) +
+      Float64.abs(config.depth - 5) * 0.25 +
+      optimizerPenalty(config.optimizer)
+    )
+  })
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
@@ -50,61 +51,62 @@ const asSingleObjective = (result: Study.StudyResult) =>
 const traceFor = (result: Study.SingleObjectiveResult) => result.trials.map((trial) => trial.config)
 
 const optimizeWith = (sampler: Sampler.Sampler, trials: number) =>
-  Study.optimize({
-    space: makeMixedOptimizerSpace(),
-    sampler,
-    direction: "minimize",
-    trials,
-    objective: (raw) => Effect.succeed(objectiveValue(raw))
+  Effect.gen(function*() {
+    const space = yield* makeMixedOptimizerSpace()
+    return yield* Study.optimize({
+      space,
+      sampler,
+      direction: "minimize",
+      trials,
+      objective: objectiveValue
+    })
   })
 
 describe("integration mixed-space tpe study", () => {
   it.effect(
     "matches random during startup and diverges post-startup across stress scenarios",
     () =>
-      Effect.gen(function*() {
-        yield* Effect.forEach(
-          stressScenarios,
-          (scenario) =>
-            Effect.gen(function*() {
-              const tpeResult = yield* optimizeWith(
-                Sampler.tpe({
-                  seed: scenario.seed,
-                  nStartupTrials: scenario.startupTrials,
-                  nEiCandidates: scenario.nEiCandidates
-                }),
-                scenario.trials
-              )
-              const randomResult = yield* optimizeWith(Sampler.random({ seed: scenario.seed }), scenario.trials)
-              const tpeOption = asSingleObjective(tpeResult)
-              const randomOption = asSingleObjective(randomResult)
+      Effect.forEach(
+        stressScenarios,
+        (scenario) =>
+          Effect.gen(function*() {
+            const tpeResult = yield* optimizeWith(
+              Sampler.tpe({
+                seed: scenario.seed,
+                nStartupTrials: scenario.startupTrials,
+                nEiCandidates: scenario.nEiCandidates
+              }),
+              scenario.trials
+            )
+            const randomResult = yield* optimizeWith(Sampler.random({ seed: scenario.seed }), scenario.trials)
+            const tpeOption = asSingleObjective(tpeResult)
+            const randomOption = asSingleObjective(randomResult)
 
-              expect(Option.isSome(tpeOption), scenario.label).toBe(true)
-              expect(Option.isSome(randomOption), scenario.label).toBe(true)
+            expect(Option.isSome(tpeOption), scenario.label).toBe(true)
+            expect(Option.isSome(randomOption), scenario.label).toBe(true)
 
-              if (Option.isNone(tpeOption) || Option.isNone(randomOption)) {
-                return
-              }
+            if (Option.isNone(tpeOption) || Option.isNone(randomOption)) {
+              return
+            }
 
-              const startupTpeConfigs = tpeOption.value.trials
-                .slice(0, scenario.startupTrials)
-                .map((trial) => trial.config)
-              const startupRandomConfigs = randomOption.value.trials
-                .slice(0, scenario.startupTrials)
-                .map((trial) => trial.config)
-              const postStartupTpeConfigs = tpeOption.value.trials
-                .slice(scenario.startupTrials)
-                .map((trial) => trial.config)
-              const postStartupRandomConfigs = randomOption.value.trials
-                .slice(scenario.startupTrials)
-                .map((trial) => trial.config)
+            const startupTpeConfigs = tpeOption.value.trials
+              .slice(0, scenario.startupTrials)
+              .map((trial) => trial.config)
+            const startupRandomConfigs = randomOption.value.trials
+              .slice(0, scenario.startupTrials)
+              .map((trial) => trial.config)
+            const postStartupTpeConfigs = tpeOption.value.trials
+              .slice(scenario.startupTrials)
+              .map((trial) => trial.config)
+            const postStartupRandomConfigs = randomOption.value.trials
+              .slice(scenario.startupTrials)
+              .map((trial) => trial.config)
 
-              expect(startupTpeConfigs, scenario.label).toEqual(startupRandomConfigs)
-              expect(postStartupTpeConfigs, scenario.label).not.toEqual(postStartupRandomConfigs)
-            }),
-          { discard: true }
-        )
-      })
+            expect(startupTpeConfigs, scenario.label).toEqual(startupRandomConfigs)
+            expect(postStartupTpeConfigs, scenario.label).not.toEqual(postStartupRandomConfigs)
+          }),
+        { discard: true }
+      )
   )
 
   it.effect(

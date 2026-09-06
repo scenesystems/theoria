@@ -8,6 +8,7 @@
  * lifecycle events, or `open` when an external worker evaluates asked trials.
  *
  * @since 0.1.0
+ * @module
  */
 export {
   ask,
@@ -176,4 +177,4 @@ export {
   studyStorageOptions
 } from "./studyStorage.js"
 
-export { envelopeEventPublisher } from "./events.js"
+export { envelopeEventPublisher, EventPublisher } from "./events.js"

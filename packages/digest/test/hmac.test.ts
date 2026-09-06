@@ -20,6 +20,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { hmacSha1, hmacSha256 } from "../src/hmac.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
+import { encodeFixtureUtf8 } from "./helpers/bytes.js"
 import { hmacSha1Vectors, hmacSha256Vectors } from "./helpers/vectors/hmac.vectors.js"
 
 describe("hmacSha256 — RFC 4231 vectors", () => {
@@ -93,14 +94,14 @@ describe("hmacSha256 — behavioral contracts", () => {
   it.effect("short key works — padded internally per RFC 2104", () =>
     Effect.gen(function*() {
       const shortKey = new Uint8Array(4).fill(0x0b)
-      const result = yield* hmacSha256(shortKey, new TextEncoder().encode("test"))
+      const result = yield* hmacSha256(shortKey, encodeFixtureUtf8("test"))
       expectByteLength(result, 32)
     }))
 
   it.effect("long key works — hashed internally per RFC 2104", () =>
     Effect.gen(function*() {
       const longKey = new Uint8Array(128).fill(0xaa)
-      const result = yield* hmacSha256(longKey, new TextEncoder().encode("test"))
+      const result = yield* hmacSha256(longKey, encodeFixtureUtf8("test"))
       expectByteLength(result, 32)
     }))
 })

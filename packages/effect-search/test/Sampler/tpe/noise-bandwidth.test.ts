@@ -76,7 +76,7 @@ describe("noise-aware bandwidth", () => {
 
   it.effect("threads noise settings into mixed float trace scoring", () =>
     Effect.gen(function*() {
-      const space = SearchSpace.unsafeMake({
+      const space = yield* SearchSpace.make({
         lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
         optimizer: SearchSpace.categorical(["adam", "sgd"])
       })

@@ -1,228 +1,168 @@
-import { RegistryProvider } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
-import { createRoot } from "react-dom/client"
+import { Effect, Layer } from "effect"
+import * as Arr from "effect/Array"
+import * as Option from "effect/Option"
+import type { ReactNode } from "react"
 
+import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
+import * as BrowserWindow from "../../app/web/platform/BrowserWindow.js"
 import { SemanticText } from "../../app/web/view/primitives/SemanticText.js"
+import { mountWithRegistry, waitForValue } from "../helpers/react-mount.js"
 
-const withMockClientWidth = <A,>(
+const BrowserTest = Layer.merge(BrowserWindow.layer, BrowserDocument.layer)
+
+/**
+ * happy-dom lays nothing out and its `ResizeObserver` never reports, so for the
+ * duration of the effect the test window's observer reports `width` as the
+ * content width of every element it is asked to observe, the way a browser
+ * delivers the first observation when observation starts.
+ */
+function withObservedContentWidth<A, E, R>(
   width: number,
-  effect: Effect.Effect<A, never, never>
-): Effect.Effect<A, never, never> =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => {
-      const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth")
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R | BrowserWindow.BrowserWindow> {
+  return Effect.flatMap(BrowserWindow.BrowserWindow, (browserWindow) => {
+    const size: ResizeObserverSize = { blockSize: 0, inlineSize: width }
+    class ReportingResizeObserver implements ResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
 
-      Reflect.defineProperty(HTMLElement.prototype, "clientWidth", {
-        configurable: true,
-        get: () => width
-      })
+      observe(target: Element): void {
+        this.callback(
+          [{
+            borderBoxSize: [size],
+            contentBoxSize: [size],
+            contentRect: new browserWindow.DOMRectReadOnly(0, 0, width, 0),
+            devicePixelContentBoxSize: [size],
+            target
+          }],
+          this
+        )
+      }
 
-      return descriptor
-    }),
-    () => effect,
-    (descriptor) =>
+      unobserve(): void {}
+
+      disconnect(): void {}
+    }
+
+    return Effect.acquireUseRelease(
       Effect.sync(() => {
-        if (descriptor === undefined) {
-          Reflect.deleteProperty(HTMLElement.prototype, "clientWidth")
-          return
-        }
+        const original = browserWindow.ResizeObserver
 
-        Reflect.defineProperty(HTMLElement.prototype, "clientWidth", descriptor)
-      })
-  )
+        Reflect.defineProperty(browserWindow, "ResizeObserver", { configurable: true, value: ReportingResizeObserver })
+
+        return original
+      }),
+      () => effect,
+      (original) =>
+        Effect.sync(() => {
+          Reflect.defineProperty(browserWindow, "ResizeObserver", { configurable: true, value: original })
+        })
+    )
+  })
+}
 
 const renderedLineSpans = (container: HTMLDivElement): ReadonlyArray<HTMLSpanElement> =>
-  Array.from(container.querySelectorAll("p > span, h3 > span")).flatMap((element) =>
-    element instanceof HTMLSpanElement ? [element] : []
-  )
+  Arr.fromIterable(container.querySelectorAll<HTMLSpanElement>("p > span, h3 > span"))
 
 const waitForProjectedLines = (
   container: HTMLDivElement,
-  expectedCount: number
-): Effect.Effect<ReadonlyArray<HTMLSpanElement>, never, never> =>
-  Effect.eventually(
-    Effect.sync(() => renderedLineSpans(container)).pipe(
-      Effect.filterOrFail((spans) => spans.length === expectedCount, () => "waiting-for-projected-semantic-text")
-    )
-  ).pipe(Effect.orDie)
+  accept: (count: number) => boolean
+): Effect.Effect<ReadonlyArray<HTMLSpanElement>> =>
+  waitForValue(() => Option.liftPredicate(renderedLineSpans(container), (spans) => accept(spans.length)))
 
-const waitForProjectedLinesAtLeast = (
-  container: HTMLDivElement,
-  expectedMinimum: number
-): Effect.Effect<ReadonlyArray<HTMLSpanElement>, never, never> =>
-  Effect.eventually(
-    Effect.sync(() => renderedLineSpans(container)).pipe(
-      Effect.filterOrFail((spans) => spans.length >= expectedMinimum, () => "waiting-for-projected-semantic-text")
-    )
-  ).pipe(Effect.orDie)
+const paragraphOf = (container: HTMLDivElement): Effect.Effect<HTMLParagraphElement> =>
+  waitForValue(() => Option.fromNullable(container.querySelector("p")))
+
+function withRenderedSemanticText<A>(
+  width: number,
+  node: ReactNode,
+  use: (container: HTMLDivElement) => Effect.Effect<A>
+): Effect.Effect<A> {
+  return withObservedContentWidth(
+    width,
+    Effect.flatMap(mountWithRegistry(node, 400), ({ container }) => use(container)).pipe(Effect.scoped)
+  ).pipe(Effect.provide(BrowserTest))
+}
 
 describe("SemanticText", () => {
   it.live("preserves pre-wrap whitespace and blank projected lines for code blocks", () =>
-    withMockClientWidth(
+    withRenderedSemanticText(
       240,
-      Effect.gen(function*() {
-        const container = document.createElement("div")
-        document.body.appendChild(container)
-        const root = createRoot(container)
+      <SemanticText
+        as="p"
+        role="code-block"
+        text={"const  x = 1\n\n\treturn 2"}
+        variant="expanded"
+      />,
+      (container) =>
+        Effect.gen(function*() {
+          const spans = yield* waitForProjectedLines(container, (count) => count === 3)
 
-        yield* Effect.sync(() => {
-          root.render(
-            <RegistryProvider defaultIdleTTL={400}>
-              <SemanticText
-                as="p"
-                role="code-block"
-                text={"const  x = 1\n\n\treturn 2"}
-                variant="expanded"
-              />
-            </RegistryProvider>
-          )
+          expect(spans[0]?.textContent).toBe("const  x = 1")
+          expect(spans[1]?.textContent).toBe("\u00a0")
+          expect(spans[2]?.textContent).toBe("\treturn 2")
         })
-
-        yield* Effect.ensuring(
-          Effect.gen(function*() {
-            const spans = yield* waitForProjectedLines(container, 3)
-
-            expect(spans.every((span) => span.className.includes("whitespace-pre"))).toBe(true)
-            expect(spans[0]?.textContent).toBe("const  x = 1")
-            expect(spans[1]?.textContent).toBe("\u00a0")
-            expect(spans[2]?.textContent).toBe("\treturn 2")
-          }),
-          Effect.sync(() => {
-            root.unmount()
-            container.remove()
-          })
-        )
-      })
     ))
 
   it.live("reapplies projected wrap rules even when callers ask for nowrap and unlimited width", () =>
-    withMockClientWidth(
+    withRenderedSemanticText(
       156,
-      Effect.gen(function*() {
-        const container = document.createElement("div")
-        document.body.appendChild(container)
-        const root = createRoot(container)
+      <SemanticText
+        as="p"
+        className="max-w-none whitespace-nowrap text-ink-700"
+        role="status"
+        text="Semantic text should keep reflowing from the prepared effect-text projection on narrow screens."
+        variant="expanded"
+        wrapAuthority="effect-text-projected"
+      />,
+      (container) =>
+        Effect.gen(function*() {
+          const spans = yield* waitForProjectedLines(container, (count) => count >= 2)
+          const paragraph = yield* paragraphOf(container)
 
-        yield* Effect.sync(() => {
-          root.render(
-            <RegistryProvider defaultIdleTTL={400}>
-              <SemanticText
-                as="p"
-                className="max-w-none whitespace-nowrap text-ink-700"
-                role="status"
-                text="Semantic text should keep reflowing from the prepared effect-text projection on narrow screens."
-                variant="expanded"
-                wrapAuthority="effect-text-projected"
-              />
-            </RegistryProvider>
-          )
+          expect(paragraph.dataset.lines).not.toBeUndefined()
+          expect(spans.length).toBeGreaterThan(1)
         })
-
-        yield* Effect.ensuring(
-          Effect.gen(function*() {
-            const spans = yield* waitForProjectedLinesAtLeast(container, 2)
-            const paragraph = container.querySelector("p")
-
-            expect(paragraph instanceof HTMLParagraphElement).toBe(true)
-            expect(paragraph?.className.includes("max-w-(--st-mw-status-expanded)")).toBe(true)
-            expect(paragraph?.dataset.lines).not.toBeUndefined()
-            expect(spans.length).toBeGreaterThan(1)
-          }),
-          Effect.sync(() => {
-            root.unmount()
-            container.remove()
-          })
-        )
-      })
     ))
 
   it.live("keeps scoped package titles on one native browser line", () =>
-    withMockClientWidth(
+    withRenderedSemanticText(
       220,
-      Effect.gen(function*() {
-        const container = document.createElement("div")
-        document.body.appendChild(container)
-        const root = createRoot(container)
+      <SemanticText
+        as="h3"
+        className="text-ink-900"
+        role="subsection-title"
+        text="@scenesystems/effect-inference"
+        variant="compact"
+      />,
+      (container) =>
+        Effect.gen(function*() {
+          const heading = yield* waitForValue(() => Option.fromNullable(container.querySelector("h3")))
 
-        yield* Effect.sync(() => {
-          root.render(
-            <RegistryProvider defaultIdleTTL={400}>
-              <SemanticText
-                as="h3"
-                className="text-ink-900"
-                role="subsection-title"
-                text="@scenesystems/effect-inference"
-                variant="compact"
-              />
-            </RegistryProvider>
-          )
+          expect(heading.textContent).toBe("@scenesystems/effect-inference")
         })
-
-        yield* Effect.ensuring(
-          Effect.gen(function*() {
-            const heading = yield* Effect.eventually(
-              Effect.sync(() => container.querySelector("h3")).pipe(
-                Effect.filterOrFail(
-                  (node): node is HTMLHeadingElement => node instanceof HTMLHeadingElement,
-                  () => "waiting-for-subsection-title"
-                )
-              )
-            ).pipe(Effect.orDie)
-
-            expect(heading.className.includes("whitespace-nowrap")).toBe(true)
-            expect(heading.textContent).toBe("@scenesystems/effect-inference")
-            expect(heading.dataset.lines).toBeUndefined()
-            expect(heading.querySelectorAll("span")).toHaveLength(0)
-          }),
-          Effect.sync(() => {
-            root.unmount()
-            container.remove()
-          })
-        )
-      })
     ))
 
   it.live("limits projected card summaries to two lines while reserving two-line height", () =>
-    withMockClientWidth(
+    withRenderedSemanticText(
       220,
-      Effect.gen(function*() {
-        const container = document.createElement("div")
-        document.body.appendChild(container)
-        const root = createRoot(container)
+      <SemanticText
+        as="p"
+        className="text-ink-700"
+        lineLimit={2}
+        reserveLines={2}
+        role="card-summary"
+        text="Prepare once, lay out many times across browser-backed text surfaces, obstacle-aware projections, and downstream calibration work."
+        variant="compact"
+        wrapAuthority="effect-text-projected"
+      />,
+      (container) =>
+        Effect.gen(function*() {
+          const spans = yield* waitForProjectedLines(container, (count) => count === 2)
+          const paragraph = yield* paragraphOf(container)
 
-        yield* Effect.sync(() => {
-          root.render(
-            <RegistryProvider defaultIdleTTL={400}>
-              <SemanticText
-                as="p"
-                className="text-ink-700"
-                lineLimit={2}
-                reserveLines={2}
-                role="card-summary"
-                text="Prepare once, lay out many times across browser-backed text surfaces, obstacle-aware projections, and downstream calibration work."
-                variant="compact"
-                wrapAuthority="effect-text-projected"
-              />
-            </RegistryProvider>
-          )
+          expect(paragraph.dataset.lines).toBe("2")
+          expect(spans[1]?.textContent?.endsWith("…")).toBe(false)
         })
-
-        yield* Effect.ensuring(
-          Effect.gen(function*() {
-            const spans = yield* waitForProjectedLines(container, 2)
-            const paragraph = container.querySelector("p")
-
-            expect(paragraph instanceof HTMLParagraphElement).toBe(true)
-            expect(paragraph?.dataset.lines).toBe("2")
-            expect(paragraph?.style.minHeight).toBe("calc(var(--st-lh-card-summary) * 2)")
-            expect(spans[1]?.textContent?.endsWith("…")).toBe(false)
-          }),
-          Effect.sync(() => {
-            root.unmount()
-            container.remove()
-          })
-        )
-      })
     ))
 })

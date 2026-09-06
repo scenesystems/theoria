@@ -2,6 +2,7 @@
  * Predictors with an additional model-generated reasoning field.
  *
  * @since 0.1.0
+ * @module
  */
 import type { Effect, Schema } from "effect"
 import type { SignatureError } from "../../Errors/signature.js"

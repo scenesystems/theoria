@@ -8,8 +8,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Effect, Layer, Option, Schema } from "effect"
-import fc from "fast-check"
+import { Array as Arr, Effect, FastCheck as fc, Layer, Option, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -78,41 +77,39 @@ describe("Trace usage", () => {
       expect(outerUsage.cachedCount).toBe(0)
     }))
 
-  it.effect("accumulates usage monotonically from canonical usage samples", () =>
-    Effect.sync(() =>
-      fc.assert(
-        fc.property(fc.array(usageSampleArbitrary, { maxLength: 32 }), (samples) => {
-          const folded = samples.reduce(
-            (state, sample) => {
-              const next = Contracts.accumulateUsage(
-                state.previous,
-                new Contracts.UsageSample({
-                  inputTokens: Option.fromNullable(sample.inputTokens),
-                  outputTokens: Option.fromNullable(sample.outputTokens),
-                  cached: sample.cached
-                })
-              )
-
-              return {
-                previous: next,
-                monotonic: state.monotonic &&
-                  next.inputTokens >= state.previous.inputTokens &&
-                  next.outputTokens >= state.previous.outputTokens &&
-                  next.callCount >= state.previous.callCount &&
-                  next.cachedCount >= state.previous.cachedCount
-              }
-            },
-            { previous: Contracts.emptyUsage, monotonic: true }
+  it.effect.prop("accumulates usage monotonically from canonical usage samples", [
+    fc.array(usageSampleArbitrary, { maxLength: 32 })
+  ], ([samples]) =>
+    Effect.sync(() => {
+      const folded = samples.reduce(
+        (state, sample) => {
+          const next = Contracts.accumulateUsage(
+            state.previous,
+            new Contracts.UsageSample({
+              inputTokens: Option.fromNullable(sample.inputTokens),
+              outputTokens: Option.fromNullable(sample.outputTokens),
+              cached: sample.cached
+            })
           )
 
-          return (
-            folded.monotonic &&
-            folded.previous.callCount === samples.length &&
-            folded.previous.cachedCount <= folded.previous.callCount
-          )
-        })
+          return {
+            previous: next,
+            monotonic: state.monotonic &&
+              next.inputTokens >= state.previous.inputTokens &&
+              next.outputTokens >= state.previous.outputTokens &&
+              next.callCount >= state.previous.callCount &&
+              next.cachedCount >= state.previous.cachedCount
+          }
+        },
+        { previous: Contracts.emptyUsage, monotonic: true }
       )
-    ))
+
+      return (
+        folded.monotonic &&
+        folded.previous.callCount === samples.length &&
+        folded.previous.cachedCount <= folded.previous.callCount
+      )
+    }))
 
   it.effect("records stable optimization fields on trace entries", () =>
     Effect.gen(function*() {
@@ -129,15 +126,10 @@ describe("Trace usage", () => {
         )
       )
 
-      const entry = traced[1][0]
+      const entry = yield* Arr.head(traced[1])
 
-      expect(entry).toBeDefined()
-
-      if (entry) {
-        expect(entry.prompt.length > 0).toBe(true)
-        expect(entry.rawResponse.length > 0).toBe(true)
-        expect(typeof entry.durationMs).toBe("number")
-        expect(Option.isSome(entry.outputTokens) || Option.isNone(entry.outputTokens)).toBe(true)
-      }
+      expect(entry.prompt.length > 0).toBe(true)
+      expect(entry.rawResponse.length > 0).toBe(true)
+      expect(entry.durationMs).toBeGreaterThanOrEqual(0)
     }))
 })

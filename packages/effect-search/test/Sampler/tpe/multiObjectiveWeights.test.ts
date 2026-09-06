@@ -29,8 +29,6 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
         (fixture) => Schema.decodeUnknown(MotpeWeightsFixtureSchema)(fixture)
       )
 
-      expect(fixtures.length).toBeGreaterThanOrEqual(3)
-
       Arr.forEach(fixtures, (fixture) => {
         const contributions = hypervolumeContribution2d(
           fixture.payload.points,

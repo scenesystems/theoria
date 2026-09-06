@@ -1,11 +1,17 @@
-import { Button } from "@base-ui-components/react/button"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Button } from "@base-ui/react/button"
+import { Result } from "@effect-atom/atom"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../../contracts/imagined-place.js"
-import { type PlaceRenderFrame, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
+import {
+  type PlaceRenderError,
+  type PlaceRenderFrame,
+  placeRenderFrameAtom,
+  placeTrialPreviewAtom
+} from "../../atoms/imagined-place-render.js"
 import {
   placeStageMaxDrawableAtom,
   placeStageMaxWidth,
@@ -14,12 +20,14 @@ import {
   placeStageWidthAtom,
   placeVersionChangeAtom
 } from "../../atoms/imagined-place.js"
+import { ActionButton } from "../primitives/ActionButton.js"
 import { ChangedValue } from "../primitives/ChangedValue.js"
 import { ChoicePills } from "../primitives/ChoicePills.js"
 import { legendThemeFor, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { StageBanner } from "../primitives/StageBanner.js"
 
 import { ContentId } from "./ContentId.js"
 import { PlaceSearchTrace } from "./PlaceSearchTrace.js"
@@ -57,6 +65,7 @@ const StagePresets = () => {
         activeIndex={activeIndex}
         className="gap-1.5"
         disabled={false}
+        label="Stage width"
         onSelect={(index) => {
           // The last preset is the whole column: keep following it if the column changes.
           setRequested(
@@ -165,6 +174,23 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
 }
 
 /**
+ * The search that draws the place failed; the last frame it reached stays on
+ * the stage until it is run again. While the run it asked for is under way
+ * the failure is still shown, `waiting`, and the button rests: another click
+ * would only cancel that run and start over.
+ */
+const DrawFailed = ({ frame }: { readonly frame: Result.Failure<PlaceRenderFrame, PlaceRenderError> }) => {
+  const redraw = useAtomRefresh(placeRenderFrameAtom)
+  return (
+    <StageBanner
+      action={<ActionButton disabled={frame.waiting} label="Draw again" onClick={redraw} />}
+      text={frame.waiting ? "Drawing the place again." : "The place could not be drawn."}
+      tone="error"
+    />
+  )
+}
+
+/**
  * The Arrange step: the place drawn for this screen, the search that arranged
  * it (every trial, any of which can be drawn), and who made what. Rows inside
  * decide their shape by this column's width, not the viewport's: the column
@@ -175,7 +201,7 @@ export const PlaceArrangement = ({
   frame
 }: {
   readonly build: Option.Option<PlaceBuild>
-  readonly frame: Option.Option<PlaceRenderFrame>
+  readonly frame: Result.Result<PlaceRenderFrame, PlaceRenderError>
 }) => (
   <Stack className="@container gap-4">
     {Option.match(build, {
@@ -183,7 +209,8 @@ export const PlaceArrangement = ({
       onSome: (value) => <TitleRow build={value} />
     })}
     <PlaceStage />
-    {Option.match(frame, {
+    {Result.isFailure(frame) ? <DrawFailed frame={frame} /> : null}
+    {Option.match(Result.value(frame), {
       onNone: () => null,
       onSome: (value) => (
         <Stack className="gap-2">

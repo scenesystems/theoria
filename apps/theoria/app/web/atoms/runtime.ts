@@ -1,9 +1,11 @@
 import { Atom } from "@effect-atom/atom"
-import { Layer } from "effect"
+
+import { BrowserLive } from "../platform/browser.js"
 
 /**
- * Effect runtime bridge for atoms that need no services of their own (the
- * wordmark loop, the syntax highlighter). Feature runtimes that do need a
- * client build their own, for example `placeRuntime` in `imagined-place.ts`.
+ * Effect runtime bridge for atoms that talk to the browser: the window and
+ * document services, the persisted preference store, the clipboard and the
+ * HTTP client. Feature runtimes that need a client of their own build it on
+ * top, for example `placeRuntime` in `imagined-place.ts`.
  */
-export const appRuntime = Atom.runtime(Layer.empty)
+export const appRuntime = Atom.runtime(BrowserLive)

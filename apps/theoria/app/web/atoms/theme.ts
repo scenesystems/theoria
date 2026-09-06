@@ -1,23 +1,46 @@
-import { Atom } from "@effect-atom/atom"
-import { Schema } from "effect"
+import { Atom, Result } from "@effect-atom/atom"
+import type { Atom as AtomType } from "@effect-atom/atom"
+import { Match, Schema, Stream } from "effect"
+
+import * as BrowserDocument from "../platform/BrowserDocument.js"
+import * as BrowserWindow from "../platform/BrowserWindow.js"
+import { appRuntime } from "./runtime.js"
 
 export const ColorMode = Schema.Literal("light", "dark")
 
 export type ColorMode = typeof ColorMode.Type
 
-const STORAGE_KEY = "theoria-color-mode"
+/** What the reader asked for: a fixed mode, or whatever the operating system says, followed live. */
+export const ColorModePreference = Schema.Literal("system", "light", "dark")
 
-const readStoredPreference = (): ColorMode => {
-  if (typeof window === "undefined") return "light"
-  const stored = window.localStorage.getItem(STORAGE_KEY)
-  if (Schema.is(ColorMode)(stored)) return stored
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-}
+export type ColorModePreference = typeof ColorModePreference.Type
 
-export const colorModeAtom = Atom.make<ColorMode>(readStoredPreference())
+/**
+ * The persisted preference, kept in the browser's local storage through the
+ * platform `KeyValueStore`. Readers who never chose follow the system.
+ */
+export const colorModePreferenceAtom: AtomType.Writable<ColorModePreference> = Atom.kvs({
+  runtime: appRuntime,
+  key: "theoria/color-mode-preference",
+  schema: ColorModePreference,
+  defaultValue: (): ColorModePreference => "system"
+})
 
-export const persistColorMode = (mode: ColorMode): void => {
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, mode)
-  }
-}
+const systemColorModeAtom: AtomType.Atom<Result.Result<ColorMode>> = appRuntime.atom(
+  BrowserWindow.mediaQuery("(prefers-color-scheme: dark)").pipe(
+    Stream.map((dark): ColorMode => dark ? "dark" : "light")
+  )
+)
+
+/** The mode in effect: the fixed preference, or the live system mode when the reader follows the system. */
+export const colorModeAtom: AtomType.Atom<ColorMode> = Atom.make((get) =>
+  Match.value(get(colorModePreferenceAtom)).pipe(
+    Match.when("system", () => Result.getOrElse(get(systemColorModeAtom), (): ColorMode => "light")),
+    Match.orElse((fixed) => fixed)
+  )
+)
+
+/** Keeps the `dark` class on `<html>` in step with the mode; mount once at the app root. */
+export const colorModeApplicationAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+  BrowserDocument.toggleRootClass("dark", get(colorModeAtom) === "dark")
+)

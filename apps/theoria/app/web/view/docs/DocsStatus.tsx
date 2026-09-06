@@ -5,7 +5,7 @@ import { ActionButton, ActionLink } from "../primitives/ActionControl.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { ShimmerLine } from "../primitives/Skeleton.js"
+import { PulseLayer, ShimmerLine } from "../primitives/Skeleton.js"
 
 export const DocsLoadingKind = Schema.Literal("index", "guide", "api")
 export type DocsLoadingKind = typeof DocsLoadingKind.Type
@@ -46,7 +46,7 @@ const GuideSkeleton = () => (
       <ShimmerLine className="h-7" width="w-2/5" />
       <ShimmerLine width="w-full" />
       <ShimmerLine width="w-11/12" />
-      <Layer className="mt-2 h-52 animate-pulse rounded-2xl border border-stage-300/70 bg-ink-950/90 motion-reduce:animate-none" />
+      <PulseLayer className="mt-2 h-52 rounded-2xl border border-stage-300/70 bg-ink-950/90" />
     </Stack>
   </Stack>
 )
@@ -63,7 +63,7 @@ const ApiSkeleton = () => (
       (index) => (
         <Stack className="gap-4 rounded-2xl border border-stage-200/80 bg-stage-0/70 p-5" key={index}>
           <ShimmerLine className="h-6" width="w-1/3" />
-          <Layer className="h-24 animate-pulse rounded-xl bg-ink-950/90 motion-reduce:animate-none" />
+          <PulseLayer className="h-24 rounded-xl bg-ink-950/90" />
           <ShimmerLine width="w-5/6" />
         </Stack>
       )

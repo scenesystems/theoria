@@ -4,7 +4,7 @@
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
 import { InstructionProposalFailed } from "../../Errors/optimizer.js"
 import type { Example } from "../../Example/index.js"
 import { collectModuleParamRefs } from "../../internal/module-params.js"
@@ -75,10 +75,10 @@ export class PredictorInstructionCandidates
  * @since 0.1.0
  * @category models
  */
-export type ProposeInstructionCandidatesOptions<
+export class ProposeInstructionCandidatesOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
-> = Readonly<{
+> extends Data.Class<{
   /** Root whose current instructions become index-zero baselines. */
   readonly module: DspModule<I, O>
   /** Dataset counts and module description rendered into proposal prompts. */
@@ -93,7 +93,7 @@ export type ProposeInstructionCandidatesOptions<
   readonly diversityTemperature?: number
   /** Prompt hints selected cyclically; an empty or omitted array uses the built-in vocabulary. */
   readonly tipVocabulary?: ReadonlyArray<string>
-}>
+}> {}
 
 const resolvePredictorCandidates = (
   predictorName: string,

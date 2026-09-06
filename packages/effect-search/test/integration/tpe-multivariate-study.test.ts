@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeCorrelatedSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-2, 2),
     y: SearchSpace.float(-2, 2)
   })
@@ -18,7 +18,7 @@ const correlatedObjective = (config: { readonly x: number; readonly y: number })
   )
 
 const oneDimensionalSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-2, 2)
   })
 
@@ -37,7 +37,7 @@ describe("integration correlated-space TPE baseline", () => {
     "keeps a deterministic correlated objective baseline ready for multivariate rollout",
     () =>
       Effect.gen(function*() {
-        const space = makeCorrelatedSpace()
+        const space = yield* makeCorrelatedSpace()
 
         const tpeResult = yield* Study.optimize({
           space,
@@ -72,7 +72,7 @@ describe("integration correlated-space TPE baseline", () => {
     "keeps multivariate correlated optimization deterministic for identical seeds",
     () =>
       Effect.gen(function*() {
-        const space = makeCorrelatedSpace()
+        const space = yield* makeCorrelatedSpace()
         const left = yield* Study.optimize({
           space,
           sampler: Sampler.tpe({
@@ -116,7 +116,7 @@ describe("integration correlated-space TPE baseline", () => {
 
   it.effect("falls back to univariate behavior for one-dimensional spaces", () =>
     Effect.gen(function*() {
-      const space = oneDimensionalSpace()
+      const space = yield* oneDimensionalSpace()
       const univariate = yield* Study.optimize({
         space,
         sampler: Sampler.tpe({

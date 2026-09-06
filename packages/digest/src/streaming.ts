@@ -13,6 +13,7 @@
  *
  * @since 0.2.0
  * @category digest
+ * @module
  */
 
 import { Data, Effect, Option, Stream } from "effect"

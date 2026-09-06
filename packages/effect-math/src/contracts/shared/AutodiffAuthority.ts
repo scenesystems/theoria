@@ -77,7 +77,8 @@ const dedupeModes = (modes: ReadonlyArray<AutodiffModeType>): ReadonlyArray<Auto
  * Describes the differentiation method and fallback provenance selected by a resolver.
  *
  * @remarks
- * The Schema does not couple `method`, optional `mode`, and
+ * The decoded `mode` is an `Option`; its encoded form omits the field when
+ * absent. The Schema does not couple `method`, `mode`, and
  * `usedFiniteDifferenceFallback`. {@link resolveAutodiffMode} establishes the
  * consistent combinations.
  *
@@ -86,7 +87,7 @@ const dedupeModes = (modes: ReadonlyArray<AutodiffModeType>): ReadonlyArray<Auto
  */
 export const AutodiffResolution = Schema.Struct({
   method: AutodiffResolutionMethod,
-  mode: Schema.optional(AutodiffMode),
+  mode: Schema.optionalWith(AutodiffMode, { as: "Option" }),
   usedFiniteDifferenceFallback: Schema.Boolean
 })
 
@@ -231,7 +232,7 @@ export const resolveAutodiffMode = (request: {
           Match.when(true, () =>
             Effect.succeed<AutodiffResolutionType>({
               method: FINITE_DIFFERENCE_METHOD,
-              mode: undefined,
+              mode: Option.none(),
               usedFiniteDifferenceFallback: true
             })),
           Match.when(false, () =>
@@ -248,7 +249,7 @@ export const resolveAutodiffMode = (request: {
       onSome: (mode) =>
         Effect.succeed<AutodiffResolutionType>({
           method: AUTODIFF_METHOD,
-          mode,
+          mode: Option.some(mode),
           usedFiniteDifferenceFallback: false
         })
     })

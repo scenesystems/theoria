@@ -5,17 +5,7 @@
  */
 import { Option } from "effect"
 
-export {
-  /**
-   * Send a prompt to the configured language model and return the raw text
-   * response. Adapter over the internal LM boundary — useful for
-   * optimizer-level LLM calls outside the predict runtime.
-   *
-   * @since 0.1.0
-   * @category combinators
-   */
-  callLmText as generateText
-} from "../internal/lm.js"
+export { callLmText as generateText } from "../internal/lm.js"
 
 /**
  * Extract an instruction block from an LLM response.

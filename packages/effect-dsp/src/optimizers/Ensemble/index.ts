@@ -3,6 +3,7 @@
  * run it concurrently for each input, then reduce the outputs.
  *
  * @since 0.1.0
+ * @module
  */
 
 /**

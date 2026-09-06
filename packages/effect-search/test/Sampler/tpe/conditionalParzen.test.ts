@@ -12,7 +12,7 @@ import * as Sampler from "../../../src/Sampler/index.js"
 import { numericValuesForParameter, primitiveValuesForParameter } from "../../../src/samplers/Tpe/dimensions/values.js"
 import type * as SearchSpace from "../../../src/SearchSpace/index.js"
 
-const makeConditionalSpace = () => makeLinearTreeConditionalSpace()
+const conditionalSpace = makeLinearTreeConditionalSpace()
 
 const splitHistory = () => [
   new CompletedTrialForSplit({
@@ -65,8 +65,8 @@ const parameterByName = (space: SearchSpace.SearchSpace, name: string) =>
 
 describe("TPE conditional branch-aware density behavior", () => {
   it.effect("filters branch-local observations from mixed trial history", () =>
-    Effect.sync(() => {
-      const space = makeConditionalSpace()
+    Effect.gen(function*() {
+      const space = yield* conditionalSpace
       const model = parameterByName(space, "model")
       const learningRate = parameterByName(space, "learningRate")
       const maxDepth = parameterByName(space, "maxDepth")
@@ -75,13 +75,11 @@ describe("TPE conditional branch-aware density behavior", () => {
       expect(Option.isSome(learningRate)).toBe(true)
       expect(Option.isSome(maxDepth)).toBe(true)
 
-      const tracked = Option.getOrThrow(
-        Option.all({
-          model,
-          learningRate,
-          maxDepth
-        })
-      )
+      const tracked = yield* Option.all({
+        model,
+        learningRate,
+        maxDepth
+      })
 
       const history = splitHistory()
 
@@ -92,7 +90,7 @@ describe("TPE conditional branch-aware density behavior", () => {
 
   it.effect("emits only branch-consistent conditional assignments in model-driven mode", () =>
     Effect.gen(function*() {
-      const space = makeConditionalSpace()
+      const space = yield* conditionalSpace
       const sampler = Sampler.tpe({ seed: 77, nStartupTrials: 0, nEiCandidates: 40 })
       const context = new SuggestContext({
         completed: completedHistory(),
@@ -107,7 +105,7 @@ describe("TPE conditional branch-aware density behavior", () => {
 
       expect(Either.isRight(decoded)).toBe(true)
 
-      const branchConfig = Either.getOrThrow(decoded)
+      const branchConfig = yield* decoded
 
       Match.value(branchConfig.model).pipe(
         Match.when("linear", () => {
@@ -128,7 +126,7 @@ describe("TPE conditional branch-aware density behavior", () => {
 
   it.effect("remains deterministic and decodable with sparse branch history", () =>
     Effect.gen(function*() {
-      const space = makeConditionalSpace()
+      const space = yield* conditionalSpace
       const sampler = Sampler.tpe({ seed: 91, nStartupTrials: 0, nEiCandidates: 32 })
       const context = new SuggestContext({
         completed: [

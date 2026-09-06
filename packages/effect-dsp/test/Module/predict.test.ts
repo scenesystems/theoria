@@ -40,7 +40,6 @@ describe("Module.predict", () => {
       expect(module.name).toBe("qa")
       expect(module.signature).toEqual(qa)
       expect(HashMap.size(module.subModules)).toBe(0)
-      expect(typeof module.forward).toBe("function")
     }))
 
   it.effect("uses structured path when outputStrategy is auto and demos are empty", () =>

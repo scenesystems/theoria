@@ -7,7 +7,7 @@
  * Run from repo root:
  * `bun run app:theoria`
  */
-import { HttpMiddleware, HttpServer } from "@effect/platform"
+import { HttpMiddleware, HttpServer, Path, Url } from "@effect/platform"
 import { BunHttpServer, BunRuntime } from "@effect/platform-bun"
 import { Config, Effect, Layer } from "effect"
 
@@ -15,8 +15,12 @@ import { AppLayer, publicApp } from "./app/server/app.js"
 import { unlimited as UnlimitedPlaceBuilds } from "./app/server/config/place-build-limiter.js"
 import * as BunStaticStore from "./app/server/platform/bun-static-store.js"
 
-const distRoot = decodeURIComponent(new URL("./dist/", import.meta.url).pathname)
-const publicRoot = decodeURIComponent(new URL("./public/", import.meta.url).pathname)
+/** `dist/` first so a web build wins; `public/` beneath it carries the docs data before `vite build` runs. */
+const staticRoots = Effect.gen(function*() {
+  const path = yield* Path.Path
+  const resolve = (relative: string) => Effect.flatMap(Url.fromString(relative, import.meta.url), path.fromFileUrl)
+  return [yield* resolve("./dist/"), yield* resolve("./public/")]
+})
 
 const ServerLive = Layer.unwrapEffect(
   Config.integer("PORT").pipe(
@@ -28,7 +32,7 @@ const ServerLive = Layer.unwrapEffect(
 const HttpLive = HttpServer.serve(publicApp, HttpMiddleware.logger).pipe(
   HttpServer.withLogAddress,
   Layer.provide(AppLayer),
-  Layer.provideMerge(BunStaticStore.layer([distRoot, publicRoot])),
+  Layer.provideMerge(Layer.unwrapEffect(Effect.map(staticRoots, BunStaticStore.layer))),
   // Local development has no edge in front of it; abuse protection is a deployment concern.
   Layer.provideMerge(UnlimitedPlaceBuilds),
   Layer.provide(ServerLive)

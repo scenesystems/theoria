@@ -28,10 +28,6 @@ packages/*/test/**/*.js
 .dev.vars
 .dev.vars.*
 
-# Code coverage
-coverage/
-*.lcov
-
 # Playwright failure artifacts
 test-results/
 playwright-report/

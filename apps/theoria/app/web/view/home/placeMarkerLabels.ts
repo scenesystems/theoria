@@ -1,4 +1,4 @@
-import { Text } from "@scenesystems/effect-text"
+import { type Errors, Text } from "@scenesystems/effect-text"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
@@ -6,6 +6,7 @@ import * as Record from "effect/Record"
 import { markerRadius, type Stage } from "../../../contracts/demo/imagined-place-flow.js"
 import { type PlaceArtifact, placeFeatures } from "../../../contracts/imagined-place.js"
 import { prepareInputFor, semanticsFor } from "../../../contracts/text.js"
+import type { BrowserTextLayout } from "../../text/browserTextLayout.js"
 import { prepareBrowserText } from "../text/authority.js"
 
 /**
@@ -68,7 +69,7 @@ export const labelWidthFor = (
 export const markerLabelWidths = (
   artifact: PlaceArtifact,
   stage: Stage
-): Effect.Effect<MarkerLabelWidths, unknown> =>
+): Effect.Effect<MarkerLabelWidths, Errors.MeasurementFailed, BrowserTextLayout> =>
   Effect.map(
     Effect.forEach(placeFeatures(artifact), (feature) =>
       Effect.map(

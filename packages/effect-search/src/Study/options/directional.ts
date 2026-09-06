@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type { Duration } from "effect"
-import { Effect, Predicate, Schema } from "effect"
+import { Data, Effect, Predicate, Schema } from "effect"
 
 import { type Direction } from "../../contracts/Direction.js"
 import { InvalidStudyConfig } from "../../Errors/index.js"
@@ -49,14 +49,13 @@ export const DirectionalOptimizeRequestSchema = Schema.Union(
  * @since 0.1.0
  * @category type-level
  */
-export type DirectionlessFlatOptions<
+export class DirectionlessFlatOptions<
   Config = unknown,
   Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> = {
+> extends Data.Class<{
   readonly space: Space
   readonly sampler: Sampler.Sampler
   readonly trials: number
-} & {
   readonly objective: ObjectiveFunction<Config>
   readonly pruningPolicy?: PruningPolicy
   readonly stopMode?: StopMode
@@ -71,7 +70,7 @@ export type DirectionlessFlatOptions<
   readonly epsilon?: number
   readonly retrySchedule?: RetrySchedule
   readonly trialTimeout?: Duration.DurationInput
-}
+}> {}
 
 /**
  * Configures scheduled sampling for a scalar study whose direction is selected
@@ -84,13 +83,12 @@ export type DirectionlessFlatOptions<
  * @since 0.1.0
  * @category type-level
  */
-export type DirectionlessScheduledOptions<
+export class DirectionlessScheduledOptions<
   Config = unknown,
   Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> = {
+> extends Data.Class<{
   readonly space: Space
   readonly scheduler: Scheduler.Scheduler
-} & {
   readonly objective: ObjectiveFunction<Config>
   readonly pruningPolicy?: PruningPolicy
   readonly stopMode?: StopMode
@@ -105,7 +103,7 @@ export type DirectionlessScheduledOptions<
   readonly epsilon?: number
   readonly retrySchedule?: RetrySchedule
   readonly trialTimeout?: Duration.DurationInput
-}
+}> {}
 
 /**
  * Omits objective-direction fields so {@link minimize} and {@link maximize} can

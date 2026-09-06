@@ -44,11 +44,9 @@ describe("SigningFailed — Schema.TaggedError", () => {
   it.effect("is yieldable in Effect.gen", () =>
     Effect.gen(function*() {
       const result = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new SigningFailed({
-            algorithm: "ed25519",
-            reason: "corrupt key"
-          })
+        new SigningFailed({
+          algorithm: "ed25519",
+          reason: "corrupt key"
         })
       )
       expect(result._tag).toBe("Failure")
@@ -96,11 +94,9 @@ describe("VerificationFailed — Schema.TaggedError", () => {
   it.effect("is yieldable in Effect.gen", () =>
     Effect.gen(function*() {
       const result = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new VerificationFailed({
-            algorithm: "ed25519",
-            reason: "signature mismatch"
-          })
+        new VerificationFailed({
+          algorithm: "ed25519",
+          reason: "signature mismatch"
         })
       )
       expect(result._tag).toBe("Failure")
@@ -138,11 +134,9 @@ describe("InvalidSignature — Schema.TaggedError", () => {
   it.effect("is yieldable in Effect.gen", () =>
     Effect.gen(function*() {
       const result = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new InvalidSignature({
-            algorithm: "ed25519",
-            reason: "wrong length"
-          })
+        new InvalidSignature({
+          algorithm: "ed25519",
+          reason: "wrong length"
         })
       )
       expect(result._tag).toBe("Failure")
@@ -180,11 +174,9 @@ describe("KeyGenerationFailed — Schema.TaggedError", () => {
   it.effect("is yieldable in Effect.gen", () =>
     Effect.gen(function*() {
       const result = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new KeyGenerationFailed({
-            algorithm: "xwing",
-            reason: "unsupported"
-          })
+        new KeyGenerationFailed({
+          algorithm: "xwing",
+          reason: "unsupported"
         })
       )
       expect(result._tag).toBe("Failure")

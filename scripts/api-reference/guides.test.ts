@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Option } from "effect"
+import { Effect, Option } from "effect"
 import type { Paragraph } from "mdast"
 
 import type { GuideBlock } from "@theoria/docs-model"
@@ -37,20 +37,21 @@ describe("documentation guide generation", () => {
     expect(blocks).toEqual([paragraph, code])
   })
 
-  it("routes public source indexes to the in-site API reference", () => {
-    const node: Paragraph = {
-      type: "paragraph",
-      children: [{
-        type: "link",
-        url: "./src/contracts/index.ts",
-        children: [{ type: "text", value: "contracts" }]
-      }]
-    }
-    const block = Option.getOrThrow(guideBlock({ node, packageSlug: "effect-math", revision: "revision" }))
+  it.effect("routes public source indexes to the in-site API reference", () =>
+    Effect.gen(function*() {
+      const node: Paragraph = {
+        type: "paragraph",
+        children: [{
+          type: "link",
+          url: "./src/contracts/index.ts",
+          children: [{ type: "text", value: "contracts" }]
+        }]
+      }
+      const block = yield* guideBlock({ node, packageSlug: "effect-math", revision: "revision" })
 
-    expect(block).toEqual({
-      kind: "paragraph",
-      parts: [{ kind: "link", text: "contracts", href: "/docs/effect-math/api/contracts" }]
-    })
-  })
+      expect(block).toEqual({
+        kind: "paragraph",
+        parts: [{ kind: "link", text: "contracts", href: "/docs/effect-math/api/contracts" }]
+      })
+    }))
 })

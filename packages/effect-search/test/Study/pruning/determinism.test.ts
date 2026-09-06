@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 
-import { decodeSlotConfig, makeSlotSpace } from "../../../src/experimental/scenarios/slot.js"
+import { decodeSlotConfig, makeSlotSpace, SlotConfigSchema } from "../../../src/experimental/scenarios/slot.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as Study from "../../../src/Study/index.js"
 import type * as Trial from "../../../src/Trial/index.js"
@@ -19,15 +19,15 @@ const runOptions = {
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
-const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(space.schema)))
+const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(SlotConfigSchema)))
 
 const encodeTrialConfigTrace = (
   trials: ReadonlyArray<Trial.Trial<unknown>>
-) => encodeConfigTrace(trials.map((trial) => decodeSlotConfig(trial.config)))
+) => Effect.forEach(trials, (trial) => decodeSlotConfig(trial.config)).pipe(Effect.map(encodeConfigTrace))
 
 const objective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
   Effect.gen(function*() {
-    const config = decodeSlotConfig(raw)
+    const config = yield* decodeSlotConfig(raw)
 
     yield* runtime.report(0, config.slot)
 
@@ -47,18 +47,20 @@ const pruningPolicy = new Study.PruningPolicy({
 })
 
 const optimizeWithPruning = (trials: number) =>
-  Study.optimize({
-    space,
-    sampler: Sampler.tpe({
-      seed: runOptions.seed,
-      nStartupTrials: runOptions.nStartupTrials,
-      nEiCandidates: runOptions.nEiCandidates
-    }),
-    direction: "minimize",
-    trials,
-    concurrency: runOptions.concurrency,
-    pruningPolicy,
-    objective
+  Effect.gen(function*() {
+    return yield* Study.optimize({
+      space: yield* space,
+      sampler: Sampler.tpe({
+        seed: runOptions.seed,
+        nStartupTrials: runOptions.nStartupTrials,
+        nEiCandidates: runOptions.nEiCandidates
+      }),
+      direction: "minimize",
+      trials,
+      concurrency: runOptions.concurrency,
+      pruningPolicy,
+      objective
+    })
   })
 
 const traceState = (result: Study.SingleObjectiveResult) =>
@@ -110,7 +112,7 @@ describe("constant-liar + pruning determinism", () => {
         const leftPrunedCount = left.trials.filter((trial) => trial.state._tag === "Pruned").length
         const rightPrunedCount = right.trials.filter((trial) => trial.state._tag === "Pruned").length
 
-        expect(encodeTrialConfigTrace(left.trials)).toBe(encodeTrialConfigTrace(right.trials))
+        expect(yield* encodeTrialConfigTrace(left.trials)).toBe(yield* encodeTrialConfigTrace(right.trials))
         expect(traceState(left)).toEqual(traceState(right))
         expect(leftPrunedCount).toBeGreaterThan(0)
         expect(rightPrunedCount).toBe(leftPrunedCount)
@@ -142,7 +144,7 @@ describe("constant-liar + pruning determinism", () => {
 
         const snapshot = yield* Study.snapshot(firstLegOption.value)
         const resumedResultA = yield* Study.resume({
-          space,
+          space: yield* space,
           sampler: Sampler.tpe({
             seed: runOptions.seed,
             nStartupTrials: runOptions.nStartupTrials,
@@ -156,7 +158,7 @@ describe("constant-liar + pruning determinism", () => {
           objective
         })
         const resumedResultB = yield* Study.resume({
-          space,
+          space: yield* space,
           sampler: Sampler.tpe({
             seed: runOptions.seed,
             nStartupTrials: runOptions.nStartupTrials,
@@ -185,7 +187,7 @@ describe("constant-liar + pruning determinism", () => {
         const firstLegComparable = comparableFirstLegSlice(firstLegOption.value.trials, firstLegTrials)
 
         expect(firstLegComparable).toHaveLength(firstLegTrials)
-        expect(encodeTrialConfigTrace(resumedA.trials)).toBe(encodeTrialConfigTrace(resumedB.trials))
+        expect(yield* encodeTrialConfigTrace(resumedA.trials)).toBe(yield* encodeTrialConfigTrace(resumedB.trials))
         expect(traceState(resumedA)).toEqual(traceState(resumedB))
         expect(resumedA.bestTrial.trialNumber).toBe(resumedB.bestTrial.trialNumber)
         expect(resumedA.bestTrial.state.value).toBe(resumedB.bestTrial.state.value)

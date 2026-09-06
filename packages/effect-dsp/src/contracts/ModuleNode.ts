@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type { HashMap, Ref } from "effect"
-import { Schema } from "effect"
+import { Data, Schema } from "effect"
 import type { ModuleId } from "./ModuleId.js"
 import type { ModuleParams } from "./ModuleParams.js"
 
@@ -35,7 +35,7 @@ export class ModuleNodeSignature extends Schema.Class<ModuleNodeSignature>("Modu
  * @since 0.1.0
  * @category models
  */
-export type ModuleNode = Readonly<{
+export class ModuleNode extends Data.Class<{
   /** Branded identity used as the node's graph key. */
   readonly moduleId: ModuleId
   /** Public module name retained for diagnostics and parameter persistence. */
@@ -46,7 +46,7 @@ export type ModuleNode = Readonly<{
   readonly params: Ref.Ref<ModuleParams>
   /** Immediate child nodes keyed by their branded identities. */
   readonly subModules: HashMap.HashMap<ModuleId, ModuleNode>
-}>
+}> {}
 
 /**
  * Retains the supplied live module-node references without copying or validation.

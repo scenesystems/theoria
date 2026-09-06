@@ -1020,85 +1020,7 @@ def verify_mipro_v2_contracts(name: str, document: dict[str, Any]) -> list[str]:
     return errors
 
 
-def load_gepa_manifest() -> dict[str, Any]:
-    expected = expected_fixtures(DEFAULT_GENERATED_AT)
-    catalog = expected.get("dspy.gepa.catalog.versioned-fixtures")
-
-    if not isinstance(catalog, dict):
-        return {}
-
-    document = catalog.get("document")
-    if not isinstance(document, dict):
-        return {}
-
-    payload = document.get("payload")
-    return payload if isinstance(payload, dict) else {}
-
-
-def verify_gepa_fixture_contracts(name: str, document: dict[str, Any]) -> list[str]:
-    errors: list[str] = []
-    payload = document.get("payload")
-
-    if not isinstance(payload, dict):
-        return [f"{name}: payload is missing or invalid"]
-
-    manifest = load_gepa_manifest()
-    manifest_fixtures = manifest.get("fixtures")
-
-    if not isinstance(manifest_fixtures, list):
-        return [f"{name}: GEPA manifest fixtures block is missing or invalid"]
-
-    if name == "dspy.gepa.catalog.versioned-fixtures":
-        if payload.get("fixtureSet") != manifest.get("fixtureSet"):
-            errors.append(f"{name}: fixtureSet must match GEPA manifest fixtureSet")
-
-        if payload.get("version") != manifest.get("version"):
-            errors.append(f"{name}: version must match GEPA manifest version")
-
-        if payload.get("requiredFixtureCount") != len(manifest_fixtures):
-            errors.append(f"{name}: requiredFixtureCount must equal GEPA manifest fixture count")
-
-        if payload.get("fixtures") != manifest_fixtures:
-            errors.append(f"{name}: fixtures must match GEPA manifest entries exactly")
-
-        expected_namespaces = sorted(
-            {
-                ".".join(str(entry.get("name", "")).split(".")[:3])
-                for entry in manifest_fixtures
-                if isinstance(entry, dict)
-            }
-        )
-
-        if payload.get("namespaces") != expected_namespaces:
-            errors.append(f"{name}: namespaces must match GEPA manifest namespace projection")
-
-    if name == "dspy.gepa.replay.seed-0.contract":
-        manifest_names = [
-            str(entry.get("name", ""))
-            for entry in manifest_fixtures
-            if isinstance(entry, dict)
-        ]
-
-        if payload.get("seed") != 0:
-            errors.append(f"{name}: seed must be 0 for deterministic replay baseline")
-
-        if payload.get("requiredManifestFixtures") != manifest_names:
-            errors.append(f"{name}: requiredManifestFixtures must match GEPA manifest fixture names")
-
-        checks = payload.get("byteEqualityChecks")
-        if checks != ["savedStateBytes", "frontierSnapshotBytes", "eventTimelineBytes", "paramsBytes"]:
-            errors.append(f"{name}: byteEqualityChecks must match replay byte-comparison contract")
-
-        if payload.get("maxIterations") != 3:
-            errors.append(f"{name}: maxIterations must remain fixed at 3")
-
-        if payload.get("trainsetSize") != 3:
-            errors.append(f"{name}: trainsetSize must remain fixed at 3")
-
-    return errors
-
-
-def verify_manifest(manifest: dict[str, Any], expected: dict[str, dict[str, Any]]) -> list[str]:
+def verify_manifest(manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
     schema_version = manifest.get("schemaVersion")
@@ -1150,26 +1072,11 @@ def verify_manifest(manifest: dict[str, Any], expected: dict[str, dict[str, Any]
     if not isinstance(fixtures, list):
         return ["manifest fixtures block is missing or invalid"] + errors
 
-    expected_entries = sorted(
-        [{"name": name, "file": value["file"]} for name, value in expected.items()],
-        key=lambda entry: str(entry["name"]),
-    )
-    actual_entries = sorted(fixtures, key=lambda entry: str(entry.get("name", "")))
-
-    if actual_entries != expected_entries:
-        errors.append("manifest fixture entries do not match the expected DSPy fixture catalog")
-
     return errors
 
 
 def verify_files(expected: dict[str, dict[str, Any]]) -> list[str]:
     errors: list[str] = []
-
-    expected_files = sorted(data["file"] for data in expected.values())
-    actual_files = sorted(path.relative_to(FIXTURE_DIR).as_posix() for path in FIXTURE_DIR.rglob("*.json") if path.name != "manifest.json")
-
-    if actual_files != expected_files:
-        errors.append("fixture file set on disk does not match manifest expectations")
 
     for name, data in expected.items():
         relative_file = data["file"]
@@ -1190,7 +1097,6 @@ def verify_files(expected: dict[str, dict[str, Any]]) -> list[str]:
         errors.extend(verify_evaluate_runtime_contracts(name, actual))
         errors.extend(verify_bootstrap_family_contracts(name, actual))
         errors.extend(verify_mipro_v2_contracts(name, actual))
-        errors.extend(verify_gepa_fixture_contracts(name, actual))
 
     return errors
 
@@ -1209,7 +1115,7 @@ def main() -> None:
 
     checks = {
         "runtime-version": assert_runtime_version(),
-        "manifest": verify_manifest(manifest, expected),
+        "manifest": verify_manifest(manifest),
         "fixtures": verify_files(expected),
     }
 

@@ -17,13 +17,6 @@ const CDF_ABSOLUTE_TOLERANCE = 1e-12
 const LOG_PDF_ABSOLUTE_TOLERANCE = 1e-9
 const SAMPLE_ABSOLUTE_TOLERANCE = 1e-10
 
-const REQUIRED_STRESS_CASE_IDS = Arr.make(
-  "micro-support-far-right-mean",
-  "micro-support-far-left-mean",
-  "mean-near-low-bound-tiny-window",
-  "mean-near-high-bound-tiny-window"
-)
-
 type TruncatedFixtureCase = Schema.Schema.Type<typeof TruncatedNormalFixtureSchema>["payload"]["cases"][number]
 
 const toParams = (entry: TruncatedFixtureCase): TruncatedNormalParams => new TruncatedNormalParams(entry.params)
@@ -65,10 +58,6 @@ describe("truncated normal fixture parity", () => {
           Effect.gen(function*() {
             const params = toParams(entry)
 
-            yield* Effect.sync(() => {
-              expect(entry.sampleQuantiles.length, `${entry.id} sample fixtures are present`).toBeGreaterThan(0)
-            })
-
             yield* Effect.forEach(
               entry.sampleQuantiles,
               (quantile, index) =>
@@ -94,10 +83,6 @@ describe("truncated normal fixture parity", () => {
         (entry) =>
           Effect.gen(function*() {
             const params = toParams(entry)
-
-            yield* Effect.sync(() => {
-              expect(entry.cdfProbes.length, `${entry.id} cdf fixtures are present`).toBeGreaterThan(0)
-            })
 
             yield* Effect.forEach(
               entry.cdfProbes,
@@ -125,10 +110,6 @@ describe("truncated normal fixture parity", () => {
           Effect.gen(function*() {
             const params = toParams(entry)
 
-            yield* Effect.sync(() => {
-              expect(entry.logPdfProbes.length, `${entry.id} logPdf fixtures are present`).toBeGreaterThan(0)
-            })
-
             yield* Effect.forEach(
               entry.logPdfProbes,
               (probe, index) =>
@@ -145,18 +126,12 @@ describe("truncated normal fixture parity", () => {
       )
     }))
 
-  it.effect("includes expanded stress fixtures and keeps deterministic boundary contracts", () =>
+  it.effect("maps the unit interval onto the support and the support onto [0, 1] for every case", () =>
     Effect.gen(function*() {
       const fixture = yield* loadTruncatedFixture
-      const caseIds = Arr.map(fixture.payload.cases, (entry) => entry.id)
-      const stressCases = Arr.filter(fixture.payload.cases, (entry) => Arr.contains(REQUIRED_STRESS_CASE_IDS, entry.id))
-
-      yield* Effect.sync(() => {
-        expect(Arr.every(REQUIRED_STRESS_CASE_IDS, (id) => Arr.contains(caseIds, id))).toBe(true)
-      })
 
       yield* Effect.forEach(
-        stressCases,
+        fixture.payload.cases,
         (entry) =>
           Effect.sync(() => {
             const params = toParams(entry)

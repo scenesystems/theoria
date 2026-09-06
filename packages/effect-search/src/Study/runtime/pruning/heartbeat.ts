@@ -7,6 +7,8 @@ import type { Effect } from "effect"
 import type { Option } from "effect"
 import { Data, Match, Schema } from "effect"
 
+import type { ArtifactStorageError } from "../../../Errors/Artifact.js"
+import type { InvalidObjectiveReport } from "../../../Errors/Study.js"
 import type { PruneDecision } from "./decision.js"
 import type { StopMode } from "./stopMode.js"
 import { StopModeSchema } from "./stopMode.js"
@@ -124,12 +126,17 @@ export class ObjectiveTrialRuntime extends Data.Class<{
   /**
    * Validates and records a finite value at a strictly increasing,
    * non-negative integer step, then returns the pruning policy's decision.
+   * Fails with {@link InvalidObjectiveReport} for a rejected report and with the
+   * event sink's {@link ArtifactStorageError} when the report cannot be published.
    */
-  readonly report: (step: number, value: number) => Effect.Effect<PruneDecision, unknown>
+  readonly report: (
+    step: number,
+    value: number
+  ) => Effect.Effect<PruneDecision, InvalidObjectiveReport | ArtifactStorageError>
   /** Reads the selected stop request without waiting for one to appear. */
   readonly heartbeat: Effect.Effect<HeartbeatDecision>
-  /** Requests the configured stop mode, defaulting the reason to `"requested"`. */
-  readonly requestStop: (reason?: string) => Effect.Effect<void>
+  /** Requests the configured stop mode, defaulting the reason to `"requested"`; publishing the request may fail with the event sink's error. */
+  readonly requestStop: (reason?: string) => Effect.Effect<void, ArtifactStorageError>
   /** Scheduled resource level, or `Option.none()` for a flat study. */
   readonly resource: Effect.Effect<Option.Option<number>>
 }> {}

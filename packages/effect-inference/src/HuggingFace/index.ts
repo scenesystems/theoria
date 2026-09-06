@@ -3,6 +3,7 @@
  * metadata, and live Effect AI model layers.
  *
  * @since 0.1.0
+ * @module
  */
 
 /** @since 0.1.0 */

@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Effect, Match, Option } from "effect"
+import { Data, Effect, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { MeasurementFailed } from "../../Errors/index.js"
@@ -39,7 +39,7 @@ import {
 type Measure = (text: string) => Effect.Effect<number, MeasurementFailed>
 type HyphenateWord = (word: string) => Effect.Effect<ReadonlyArray<number>>
 
-type PreparationContext = Readonly<{
+class PreparationContext extends Data.Class<{
   baseDirection: BaseTextDirectionType
   dictionaryHyphenationActive: boolean
   engineProfile: EngineProfileType
@@ -47,25 +47,25 @@ type PreparationContext = Readonly<{
   hyphenateWord: HyphenateWord
   measure: Measure
   tabStopAdvance: number
-}>
+}> {}
 
-type GraphemeMeasurement = Readonly<{
+class GraphemeMeasurement extends Data.Class<{
   fitPrefixWidths: ReadonlyArray<number>
   fitWidth: number
   graphemeAdvances: ReadonlyArray<number>
   graphemes: ReadonlyArray<string>
   paintWidth: number
-}>
+}> {}
 
-type PreparedBidiGraphemeData = Readonly<{
+class PreparedBidiGraphemeData extends Data.Class<{
   graphemeBidiLevels: ReadonlyArray<number>
   mirroredGraphemes: ReadonlyArray<string>
-}>
+}> {}
 
-type HyphenationRun = Readonly<{
+class HyphenationRun extends Data.Class<{
   hyphenate: boolean
   text: string
-}>
+}> {}
 
 const isZeroWidthControlText = (text: string): boolean => text === ZERO_WIDTH_SPACE || text === WORD_JOINER
 const preparedBreakKind = (value: PreparedBreakKindType): PreparedBreakKindType => value

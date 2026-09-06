@@ -1,4 +1,4 @@
-import { Match, Schema } from "effect"
+import { Match, Option, Schema } from "effect"
 
 const RouteSegment = Schema.String.pipe(
   Schema.minLength(1),
@@ -33,7 +33,7 @@ export const DocsGuideRoute = Schema.TaggedStruct("DocsGuideRoute", {
 
 export const DocsApiRoute = Schema.TaggedStruct("DocsApiRoute", {
   packageSlug: DocsPackageSlug,
-  moduleSlug: Schema.NullOr(DocsModuleSlug)
+  moduleSlug: Schema.OptionFromNullOr(DocsModuleSlug)
 })
 
 export const DocsNotFoundRoute = Schema.TaggedStruct("DocsNotFoundRoute", {})
@@ -61,7 +61,10 @@ export const docsGuideRoute = (packageSlug: DocsPackageSlug, guideSlug: DocsGuid
   guideSlug
 })
 
-export const docsApiRoute = (packageSlug: DocsPackageSlug, moduleSlug: DocsModuleSlug | null = null): DocsRoute => ({
+export const docsApiRoute = (
+  packageSlug: DocsPackageSlug,
+  moduleSlug: Option.Option<DocsModuleSlug> = Option.none()
+): DocsRoute => ({
   _tag: "DocsApiRoute",
   packageSlug,
   moduleSlug
@@ -85,8 +88,12 @@ export const docsPathFor = (route: DocsRoute): string =>
     Match.tag("DocsOverviewRoute", ({ packageSlug }) => `/docs/${packageSlug}`),
     Match.tag("DocsGuideRoute", ({ guideSlug, packageSlug }) => `/docs/${packageSlug}/${guideSlug}`),
     Match.tag("DocsApiRoute", ({ moduleSlug, packageSlug }) =>
-      `/docs/${packageSlug}/api${moduleSlug === null ? "" : `/${moduleSlug}`}`),
-    Match.tag("DocsNotFoundRoute", () =>
-      "/docs"),
+      `/docs/${packageSlug}/api${
+        Option.match(moduleSlug, {
+          onNone: () => "",
+          onSome: (slug) => `/${slug}`
+        })
+      }`),
+    Match.tag("DocsNotFoundRoute", () => "/docs"),
     Match.exhaustive
   )

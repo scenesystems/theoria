@@ -45,14 +45,12 @@ export const decodeNumericDomain = (input: unknown) =>
   Schema.decodeUnknown(NumericDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Numeric",
-          contract: "NumericDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Numeric",
+        contract: "NumericDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -64,14 +62,12 @@ export const decodeNumericDomain = (input: unknown) =>
  */
 export const encodeNumericDomain = (domain: NumericDomain) =>
   Schema.encode(NumericDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Numeric",
-          contract: "NumericDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Numeric",
+        contract: "NumericDomainSchema",
+        message: error.message
+      })
     )
   )
 

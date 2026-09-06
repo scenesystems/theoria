@@ -20,7 +20,7 @@ const inferenceTone = toneClassesFor("dsp")
 /** A feature the composer named; the same accent as its marker on the stage. */
 const FeatureChip = ({ feature }: { readonly feature: PlaceFeature }) => (
   <Layer
-    as="span"
+    render={<span />}
     className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 ${authorTone.borderSubtle} ${authorTone.bgSubtle}`}
   >
     <SemanticText as="span" className={`truncate ${authorTone.textStrong}`} role="tab-label" text={feature.name} />

@@ -1,3 +1,5 @@
+import * as Option from "effect/Option"
+
 import type { ToneClasses } from "./designSystem.js"
 import { Cluster } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
@@ -24,8 +26,9 @@ export const TagBadge = ({
     className={`min-w-0 items-baseline gap-1.5 rounded-md border px-2.5 py-1.5 ${tone.borderSubtle} bg-stage-100/60`}
   >
     <SemanticText as="span" className={tone.text} role="tab-label" text={name} />
-    {description !== undefined
-      ? <SemanticText as="span" className="text-ink-600" role="code-meta" text={description} />
-      : null}
+    {Option.match(Option.fromNullable(description), {
+      onNone: () => null,
+      onSome: (text) => <SemanticText as="span" className="text-ink-600" role="code-meta" text={text} />
+    })}
   </Cluster>
 )

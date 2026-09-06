@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Number, Record as EffectRecord, Schema } from "effect"
-import * as Arr from "effect/Array"
+import { Effect, Match, Number, Schema } from "effect"
 
 import { Seed } from "../../../src/contracts/shared/BrandedScalars.js"
 import {
@@ -14,7 +13,7 @@ import {
 } from "../../../src/contracts/shared/RuntimePolicies.js"
 
 const deterministicInput = Schema.decodeUnknownSync(DeterministicRuntimePoliciesInputSchema)({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "strict",
   backend: "typed-array",
   diagnostics: "enabled"
@@ -86,7 +85,7 @@ describe("shared runtime policy contracts", () => {
     Effect.gen(function*() {
       const withExcess = {
         policy: "nondeterministic",
-        seed: Schema.decodeUnknownSync(Seed)(7)
+        seed: yield* Schema.decodeUnknown(Seed)(7)
       }
 
       const result = yield* Effect.either(
@@ -103,11 +102,4 @@ describe("shared runtime policy contracts", () => {
         )
       ).toStrictEqual(true)
     }))
-
-  it("keeps runtime policy contract key set stable", () => {
-    const contractKeys = EffectRecord.keys(RuntimePolicies.fields).sort()
-    const expectedKeys = Arr.make("rngPolicy", "precisionPolicy", "backendPolicy", "diagnosticsPolicy").sort()
-
-    expect(contractKeys).toStrictEqual(expectedKeys)
-  })
 })

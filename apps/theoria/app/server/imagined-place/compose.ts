@@ -5,7 +5,7 @@ import { Module, Signature } from "@scenesystems/effect-dsp"
 import * as InferenceRuntime from "@scenesystems/effect-inference/Runtime"
 import * as InferenceTesting from "@scenesystems/effect-inference/Testing"
 
-import type { InferenceEvidence } from "../../contracts/imagined-place-result.js"
+import { InferenceEvidence } from "../../contracts/imagined-place-result.js"
 import { PlaceBuildError, PlaceComposition, ProposedFeature } from "../../contracts/imagined-place.js"
 
 import type { PlaceScenarioDefinition } from "./scenarios.js"
@@ -85,10 +85,8 @@ const recordedEvidence = (program: string, scenario: PlaceScenarioDefinition) =>
 const encodeComposition = Schema.encode(Schema.parseJson(PlaceComposition))
 const encodeProposal = Schema.encode(Schema.parseJson(ProposedFeature))
 
-export type Composed = {
-  readonly composition: PlaceComposition
-  readonly inference: InferenceEvidence
-}
+export const Composed = Schema.Struct({ composition: PlaceComposition, inference: InferenceEvidence })
+export type Composed = typeof Composed.Type
 
 /**
  * Runs the brief through the composer against the recorded model response.
@@ -113,10 +111,8 @@ export const compose = (
     Effect.mapError((cause) => new PlaceBuildError({ stage: "compose", message: String(cause) }))
   )
 
-export type Proposed = {
-  readonly feature: ProposedFeature
-  readonly inference: InferenceEvidence
-}
+export const Proposed = Schema.Struct({ feature: ProposedFeature, inference: InferenceEvidence })
+export type Proposed = typeof Proposed.Type
 
 /**
  * Shows the composed place to the proposer program and collects its one

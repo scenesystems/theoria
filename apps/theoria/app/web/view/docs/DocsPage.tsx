@@ -19,19 +19,19 @@ import { docsApiModuleFor, docsGuideFor, docsPackageFor } from "./docsModel.js"
 import { ApiResource, GuideResource } from "./DocsResourceView.js"
 import { DocsSearchDialog } from "./DocsSearchDialog.js"
 import { DocsStatus } from "./DocsStatus.js"
-import { DocsPackageShell, DocsResourceFrame } from "./DocsWorkbench.js"
+import { DocsPackageShell, DocsResourceFrame, DocsRouteEntrance } from "./DocsWorkbench.js"
 
 const isCardId = Schema.is(Id)
 
 const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
   <Layer className={docsTheme.root}>
-    <DocsHeader activePackage={null} packages={manifest.packages} />
+    <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
     <Main
       className="mx-auto w-full max-w-[82rem] px-5 py-10 outline-none sm:px-8 sm:py-14"
       data-route-focus
       tabIndex={-1}
     >
-      <Stack className="docs-route-enter gap-8">
+      <DocsRouteEntrance className="flex min-w-0 flex-col gap-8">
         <SemanticText as="h1" className="text-ink-950" role="hero-title" text="Packages" />
         <Layer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Arr.map(
@@ -79,19 +79,19 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
             }
           )}
         </Layer>
-      </Stack>
+      </DocsRouteEntrance>
     </Main>
-    <DocsSearchDialog activePackageSlug={null} manifest={manifest} />
+    <DocsSearchDialog activePackageSlug={Option.none()} manifest={manifest} />
   </Layer>
 )
 
 const MissingRoute = ({ manifest }: { readonly manifest: DocsManifest }) => (
   <Layer className={docsTheme.root}>
-    <DocsHeader activePackage={null} packages={manifest.packages} />
+    <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
     <Main className="mx-auto w-full max-w-3xl px-5 py-20 outline-none" data-route-focus tabIndex={-1}>
       <DocsStatus state="not-found" />
     </Main>
-    <DocsSearchDialog activePackageSlug={null} manifest={manifest} />
+    <DocsSearchDialog activePackageSlug={Option.none()} manifest={manifest} />
   </Layer>
 )
 
@@ -150,7 +150,7 @@ export const DocsPage = ({ route }: { readonly route: DocsRoute }) => {
   return Result.match(manifest, {
     onInitial: () => (
       <Layer className={docsTheme.root}>
-        <DocsHeader activePackage={null} loading packages={[]} />
+        <DocsHeader activePackage={Option.none()} loading packages={[]} />
         <Main className="mx-auto w-full max-w-[82rem] px-5 py-10 sm:px-8 sm:py-14">
           <DocsStatus kind="index" state="loading" />
         </Main>

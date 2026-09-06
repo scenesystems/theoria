@@ -22,7 +22,7 @@ Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. P
 | Lock fixture deps | `bun run fixtures:lock`     |
 | Verify fixtures   | `bun run fixtures:verify`   |
 
-All five gates (check, lint, test, build) must pass clean before any work is considered complete.
+The four repository gates (`check:all`, `lint`, `test`, `build`) must pass clean before any work is considered complete.
 
 ## Python Tooling (Fixture Generation Only)
 
@@ -38,7 +38,7 @@ Fixture generation uses [uv](https://docs.astral.sh/uv/) to run Python scripts w
 
 ## Effect-Native Code Only
 
-All code in `src/` and `test/` must be idiomatic Effect. No `async/await`, `throw/try-catch`, `new Error()`, `console.*`, `let`, `for/while`, `switch`, `Map/Set`, `Date.now()`, `Math.random()`, `JSON.parse/stringify`, `Promise.*`, or type assertions (`as`/`satisfies`). The local `eslint.config.mjs` enforces these with `--max-warnings=0`. Use `it.effect()` in tests.
+Every TypeScript file in the package (`src/`, `test/`, `examples/`, `scripts/`) must be idiomatic Effect. No `async/await`, `throw/try-catch`, `new Error()`, `console.*`, `let`, `for/while`, `switch`, `Map/Set`, `Date.now()`, `Math.random()`, `JSON.parse/stringify`, `Promise.*`, or type assertions (`as`/`satisfies`). The repository `eslint.config.mjs` enforces these uniformly with `--max-warnings=0`; there is no package-local lint configuration. Use `it.effect()` in tests.
 
 ## Conventions
 
@@ -56,4 +56,3 @@ All code in `src/` and `test/` must be idiomatic Effect. No `async/await`, `thro
 - **Scene dependency allowlist**: Runtime dependencies on `@scenesystems/*` are allowed only for boundary-authority packages that define cross-system cryptographic or provenance truth. Do not add dependencies on Scene domain, governance, registry, or app packages to `effect-search` runtime code.
 - **Public surface discipline**: Scene-branded authority types may appear in the public API only when they are semantically part of `effect-search`'s contract. Do not re-export Scene packages merely for convenience, and keep implementation-only authority details behind package-owned abstractions.
 - **Experimental surface rule**: New `src/experimental/**` exports require explicit instability docs and fixture-backed deterministic tests.
-- **File-size discipline**: Any `src/**/*.ts` file over 240 LOC must include a decomposition rationale and an explicit follow-up decomposition plan.

@@ -23,7 +23,7 @@ import {
   AutodiffResolutionMethod,
   resolveAutodiffMode
 } from "./AutodiffAuthority.js"
-import type { AutodiffAuthorityService } from "./AutodiffAuthority.js"
+import type { AutodiffAuthorityService, AutodiffModeType } from "./AutodiffAuthority.js"
 import { BackendKind, resolveBackendKind } from "./BackendAuthority.js"
 import {
   ConvergenceObservation,
@@ -45,11 +45,11 @@ import type { ScalarAuthorityService } from "./ScalarAuthority.js"
 const ComputationDifferentiationMethod = Schema.Union(Schema.Literal("none"), AutodiffResolutionMethod)
 const NO_AUTODIFF_RESOLUTION: {
   readonly method: "none"
-  readonly mode: undefined
+  readonly mode: Option.Option<AutodiffModeType>
   readonly usedFiniteDifferenceFallback: false
 } = {
   method: "none",
-  mode: undefined,
+  mode: Option.none(),
   usedFiniteDifferenceFallback: false
 }
 
@@ -90,9 +90,10 @@ export type ComputationDispatchRequestType = typeof ComputationDispatchRequest.T
  *
  * @remarks
  * The Schema validates each field independently. It does not enforce that an
- * autodiff method has a mode, that finite-difference fallback omits one, or
+ * autodiff method has a mode, that finite-difference fallback has `None`, or
  * that escalation and convergence flags agree. The exported planner
- * establishes those relationships.
+ * establishes those relationships. The decoded `autodiffMode` is an `Option`;
+ * its encoded form omits the field when absent.
  *
  * @since 0.1.0
  * @category contracts
@@ -102,7 +103,7 @@ export const ComputationDispatchPlan = Schema.Struct({
   scalarResolutionSource: ScalarResolutionSource,
   precisionEscalationSource: PrecisionEscalationDecisionSource,
   backendKind: BackendKind,
-  autodiffMode: Schema.optional(AutodiffMode),
+  autodiffMode: Schema.optionalWith(AutodiffMode, { as: "Option" }),
   differentiationMethod: ComputationDifferentiationMethod,
   finiteDifferenceFallback: Schema.Boolean,
   escalated: Schema.Boolean,
@@ -250,18 +251,17 @@ export const planComputationFromAuthorities = (request: ComputationDispatchReque
     const autodiffResolution = yield* Match.value(request.requiresAutodiff).pipe(
       Match.when(false, () => Effect.succeed(NO_AUTODIFF_RESOLUTION)),
       Match.when(true, () =>
-        Match.value(request.preferredAutodiff).pipe(
-          Match.when(undefined, () =>
+        Option.match(Option.fromNullable(request.preferredAutodiff), {
+          onNone: () =>
             resolveAutodiffMode({
               operation: request.operationName
-            })),
-          Match.orElse((preferredMode) =>
+            }),
+          onSome: (preferredMode) =>
             resolveAutodiffMode({
               operation: request.operationName,
               preferredMode
             })
-          )
-        )),
+        })),
       Match.exhaustive
     )
 

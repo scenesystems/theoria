@@ -7,7 +7,7 @@
  */
 import type * as Prompt from "@effect/ai/Prompt"
 import type { Schema } from "effect"
-import { Array as Arr, Effect, Match, Option, Predicate } from "effect"
+import { Array as Arr, Data, Effect, Match, Option, Predicate } from "effect"
 import type { FieldRecord } from "../../contracts/FieldValue.js"
 import { projectFieldRecord } from "../../contracts/PayloadProjection.js"
 import { UsageSample } from "../../contracts/Usage.js"
@@ -26,21 +26,21 @@ import { tracePayloadFromEncoded } from "../predict/trace.js"
  * @since 0.1.0
  * @category models
  */
-export type ReactLoopState<A> = Readonly<{
+export class ReactLoopState<A> extends Data.Class<{
   readonly iteration: number
   readonly feedbackHistory: ReadonlyArray<string>
   readonly output: Option.Option<A>
   readonly lastRawResponse: Option.Option<string>
   readonly lastDiagnostics: ReadonlyArray<ParseFieldDiagnostic>
   readonly lastTurnWasToolCall: boolean
-}>
+}> {}
 
 const renderUnknown = (value: unknown): string =>
   Match.value(value).pipe(
     Match.when(Predicate.isString, (text) => text),
     Match.when(Predicate.isNumber, (numberValue) => String(numberValue)),
     Match.when(Predicate.isBoolean, (booleanValue) => String(booleanValue)),
-    Match.when((candidate: unknown) => candidate === null, () => "null"),
+    Match.when(Predicate.isNull, () => "null"),
     Match.orElse(() => "[non-scalar]")
   )
 

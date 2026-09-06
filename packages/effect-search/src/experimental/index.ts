@@ -6,6 +6,7 @@
  * optimization uses the stable `Sampler`, `SearchSpace`, and `Study` entry points.
  *
  * @since 0.1.0
+ * @module
  */
 
 import { splitByObjectiveSpec as _splitTpeTrialsByObjectiveSpec } from "../samplers/Tpe/split/index.js"

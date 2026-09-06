@@ -8,10 +8,11 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 import { schnorr, secp256k1 } from "@noble/curves/secp256k1.js"
 import { Effect } from "effect"
-import { SigningFailed, VerificationFailed } from "../schemas/errors.js"
+import { KeyGenerationFailed, SigningFailed, VerificationFailed } from "../schemas/errors.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 import { Signature } from "../schemas/Signature.js"
 
@@ -59,15 +60,19 @@ export const secp256k1EcdsaVerify = (
 
 /**
  * Draws a secp256k1 ECDSA key pair from Noble's ambient CSPRNG, returning a
- * 32-byte secret scalar and 33-byte compressed SEC1 public key.
+ * 32-byte secret scalar and 33-byte compressed SEC1 public key. Fails with
+ * `KeyGenerationFailed` when the runtime CSPRNG is unavailable.
  *
  * @since 0.1.0
  * @category algorithms
  */
-export const secp256k1EcdsaKeygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = secp256k1.keygen()
-    return new KeyPair({ algorithm: "secp256k1-ecdsa", publicKey, secretKey })
+export const secp256k1EcdsaKeygen = (): Effect.Effect<KeyPair, KeyGenerationFailed> =>
+  Effect.try({
+    try: () => {
+      const { secretKey, publicKey } = secp256k1.keygen()
+      return new KeyPair({ algorithm: "secp256k1-ecdsa", publicKey, secretKey })
+    },
+    catch: (cause) => new KeyGenerationFailed({ algorithm: "secp256k1-ecdsa", reason: String(cause) })
   })
 
 /**
@@ -113,13 +118,17 @@ export const secp256k1SchnorrVerify = (
 
 /**
  * Draws a BIP-340 key pair from Noble's ambient CSPRNG, returning a 32-byte
- * secret scalar and 32-byte x-only public key.
+ * secret scalar and 32-byte x-only public key. Fails with
+ * `KeyGenerationFailed` when the runtime CSPRNG is unavailable.
  *
  * @since 0.1.0
  * @category algorithms
  */
-export const secp256k1SchnorrKeygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = schnorr.keygen()
-    return new KeyPair({ algorithm: "secp256k1-schnorr", publicKey, secretKey })
+export const secp256k1SchnorrKeygen = (): Effect.Effect<KeyPair, KeyGenerationFailed> =>
+  Effect.try({
+    try: () => {
+      const { secretKey, publicKey } = schnorr.keygen()
+      return new KeyPair({ algorithm: "secp256k1-schnorr", publicKey, secretKey })
+    },
+    catch: (cause) => new KeyGenerationFailed({ algorithm: "secp256k1-schnorr", reason: String(cause) })
   })

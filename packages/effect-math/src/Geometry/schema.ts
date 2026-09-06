@@ -43,14 +43,12 @@ export const decodeGeometryDomain = (input: unknown) =>
   Schema.decodeUnknown(GeometryDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Geometry",
-          contract: "GeometryDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Geometry",
+        contract: "GeometryDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -62,14 +60,12 @@ export const decodeGeometryDomain = (input: unknown) =>
  */
 export const encodeGeometryDomain = (domain: GeometryDomain) =>
   Schema.encode(GeometryDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Geometry",
-          contract: "GeometryDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Geometry",
+        contract: "GeometryDomainSchema",
+        message: error.message
+      })
     )
   )
 

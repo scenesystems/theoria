@@ -40,5 +40,4 @@ Optimizer implementations live in `src/optimizers/` (self-contained per optimize
 - `internal/*` blocked from consumers via exports map
 - `optimizers/*` blocked from consumers via exports map
 - Only `src/internal/lm.ts` imports `@effect/ai` at runtime — sole import site
-- 240 LOC file-size limit applies
 - Each optimizer under `src/optimizers/` is self-contained

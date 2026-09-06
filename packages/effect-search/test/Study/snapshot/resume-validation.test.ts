@@ -10,7 +10,7 @@ describe("Study snapshot-resume validation boundaries", () => {
   it.effect("fails resume when snapshot and runtime spaces have different fingerprints", () =>
     Effect.gen(function*() {
       const snapshotResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 712 }),
         direction: "minimize",
         trials: 3,
@@ -27,7 +27,7 @@ describe("Study snapshot-resume validation boundaries", () => {
       const snapshot = yield* Study.snapshot(single.value)
       const outcome = yield* Effect.either(
         Study.resume({
-          space: makeIncompatibleSpace(),
+          space: yield* makeIncompatibleSpace,
           sampler: Sampler.random({ seed: 712 }),
           snapshot,
           direction: "minimize",
@@ -55,7 +55,7 @@ describe("Study snapshot-resume validation boundaries", () => {
   it.effect("fails resume when sampler kind does not match snapshot sampler", () =>
     Effect.gen(function*() {
       const snapshotResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.tpe({ seed: 41, nStartupTrials: 2, nEiCandidates: 8 }),
         direction: "minimize",
         trials: 6,
@@ -72,7 +72,7 @@ describe("Study snapshot-resume validation boundaries", () => {
       const snapshot = yield* Study.snapshot(single.value)
       const outcome = yield* Effect.either(
         Study.resume({
-          space: makeSpace(),
+          space: yield* makeSpace,
           sampler: Sampler.random({ seed: 41 }),
           snapshot,
           direction: "minimize",
@@ -100,7 +100,7 @@ describe("Study snapshot-resume validation boundaries", () => {
   it.effect("fails resume when objective spec does not match snapshot objective spec", () =>
     Effect.gen(function*() {
       const snapshotResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 818 }),
         direction: "minimize",
         trials: 5,
@@ -117,7 +117,7 @@ describe("Study snapshot-resume validation boundaries", () => {
       const snapshot = yield* Study.snapshot(single.value)
       const outcome = yield* Effect.either(
         Study.resume({
-          space: makeSpace(),
+          space: yield* makeSpace,
           sampler: Sampler.random({ seed: 818 }),
           snapshot,
           directions: ["minimize", "minimize"],
@@ -145,7 +145,7 @@ describe("Study snapshot-resume validation boundaries", () => {
   it.effect("fails resume when stop mode does not match snapshot stop mode", () =>
     Effect.gen(function*() {
       const snapshotResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 907 }),
         direction: "minimize",
         trials: 4,
@@ -163,7 +163,7 @@ describe("Study snapshot-resume validation boundaries", () => {
       const snapshot = yield* Study.snapshot(single.value)
       const outcome = yield* Effect.either(
         Study.resume({
-          space: makeSpace(),
+          space: yield* makeSpace,
           sampler: Sampler.random({ seed: 907 }),
           snapshot,
           direction: "minimize",
@@ -192,7 +192,7 @@ describe("Study snapshot-resume validation boundaries", () => {
   it.effect("fails resume when sampler checkpoint payload mismatches runtime contract", () =>
     Effect.gen(function*() {
       const snapshotResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 52 }),
         direction: "minimize",
         trials: 4,
@@ -247,7 +247,7 @@ describe("Study snapshot-resume validation boundaries", () => {
 
       const outcome = yield* Effect.either(
         Study.resume({
-          space: makeSpace(),
+          space: yield* makeSpace,
           sampler: Sampler.random({ seed: 52 }),
           snapshot: corruptSnapshot,
           direction: "minimize",

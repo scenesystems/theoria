@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Option, ParseResult, Schema } from "effect"
+import { Data, Effect, Option, ParseResult, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import {
@@ -26,15 +26,15 @@ import type {
 import { preparedTextFromCore, preparedTextWithSegmentsFromCore } from "./model.js"
 import { PrepareInput, type PrepareInputType } from "./schema.js"
 
-type PreparedTextCompilation = Readonly<{
+class PreparedTextCompilation extends Data.Class<{
   core: PreparedTextCore
   logicalSurface: PreparedTextLogicalSurfaceType
-}>
+}> {}
 
-type HyphenationDictionaryCapabilities = Readonly<{
+class HyphenationDictionaryCapabilities extends Data.Class<{
   hyphenateWord: (locale: string, word: string) => Effect.Effect<ReadonlyArray<number>>
   supportsLocale?: (locale: string) => Effect.Effect<boolean>
-}>
+}> {}
 
 const hyphenationLocaleIsAvailable = (
   dictionary: HyphenationDictionaryCapabilities,
@@ -97,9 +97,9 @@ const prepareCore = (
         },
         meta: {
           font: normalizedFont,
-          hyphenationLocale: Option.match(hyphenationLocaleOption, {
-            onNone: () => undefined,
-            onSome: (hyphenationLocale) => hyphenationLocale
+          ...Option.match(hyphenationLocaleOption, {
+            onNone: () => ({}),
+            onSome: (hyphenationLocale) => ({ hyphenationLocale })
           }),
           text: input.text
         }

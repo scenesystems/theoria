@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Config, ConfigError, ConfigProvider, Effect, Match, Option, Redacted } from "effect"
+import { Config, ConfigError, ConfigProvider, Data, Effect, Match, Option, Redacted } from "effect"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import { InvalidRuntimeConfig } from "../Errors/Config.js"
@@ -23,7 +23,7 @@ export type LiveTextProvider = "openai" | "anthropic" | "openrouter"
  * @since 0.1.0
  * @category models
  */
-export type LiveTextProviderRuntimeOptions = Readonly<{
+export class LiveTextProviderRuntimeOptions extends Data.Class<{
   /** Provider adapter; defaults to `openai`. */
   readonly provider?: LiveTextProvider
   /** Provider model identifier; defaults according to `provider`. */
@@ -40,7 +40,7 @@ export type LiveTextProviderRuntimeOptions = Readonly<{
   readonly openrouterTitle?: string
   /** Configuration source used for values without explicit overrides. */
   readonly configProvider?: ConfigProvider.ConfigProvider
-}>
+}> {}
 
 /**
  * Provider settings after defaults, configuration, and explicit overrides are
@@ -49,7 +49,7 @@ export type LiveTextProviderRuntimeOptions = Readonly<{
  * @since 0.1.0
  * @category models
  */
-export type ResolvedLiveTextProviderConfig = Readonly<{
+export class ResolvedLiveTextProviderConfig extends Data.Class<{
   /** Selected provider adapter. */
   readonly provider: LiveTextProvider
   /** Model identifier passed to the provider client. */
@@ -64,9 +64,9 @@ export type ResolvedLiveTextProviderConfig = Readonly<{
   readonly openrouterReferrer: Option.Option<string>
   /** OpenRouter application title header, when configured. */
   readonly openrouterTitle: Option.Option<string>
-}>
+}> {}
 
-type DecodedLiveTextProviderConfig = Readonly<{
+class DecodedLiveTextProviderConfig extends Data.Class<{
   readonly provider: LiveTextProvider
   readonly model: string
   readonly apiKey: Option.Option<Redacted.Redacted>
@@ -74,9 +74,9 @@ type DecodedLiveTextProviderConfig = Readonly<{
   readonly anthropicVersion: Option.Option<string>
   readonly openrouterReferrer: Option.Option<string>
   readonly openrouterTitle: Option.Option<string>
-}>
+}> {}
 
-type ProviderOverrides = Readonly<{
+class ProviderOverrides extends Data.Class<{
   readonly provider: Option.Option<LiveTextProvider>
   readonly model: Option.Option<string>
   readonly apiKey: Option.Option<Redacted.Redacted>
@@ -84,7 +84,7 @@ type ProviderOverrides = Readonly<{
   readonly anthropicVersion: Option.Option<string>
   readonly openrouterReferrer: Option.Option<string>
   readonly openrouterTitle: Option.Option<string>
-}>
+}> {}
 
 const defaultConfigProvider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase)
 

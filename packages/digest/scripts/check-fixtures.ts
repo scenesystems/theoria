@@ -4,9 +4,13 @@
  *
  * Usage: bun run fixtures:check
  */
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Effect, Option, Schema } from "effect"
+import type * as PlatformError from "@effect/platform/Error"
+import type { ParseResult } from "effect"
+import { Array as Arr, Console, Data, Effect, Either, Option, Schema, Stream } from "effect"
+
+import { digestBytesHex } from "../src/convenience.js"
 import {
   decodeUnknownJson,
   EXTERNAL_FIXTURE_ROOT,
@@ -15,37 +19,49 @@ import {
   validateFixtureByKind
 } from "./fixture-contract.js"
 
-class FixtureCheckError {
-  readonly _tag = "FixtureCheckError"
-
-  constructor(
-    readonly name: string,
-    readonly file: string,
-    readonly reason: string
-  ) {}
+class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
+  readonly name: string
+  readonly file: string
+  readonly reason: string
+  readonly cause: Option.Option<PlatformError.PlatformError | ParseResult.ParseError>
+}> {
+  override get message() {
+    return `${this.name} (${this.file}): ${this.reason}${
+      Option.match(this.cause, {
+        onNone: () => "",
+        onSome: (cause) => `: ${cause.message}`
+      })
+    }`
+  }
 }
 
-const toText = (bytes: Uint8Array): string => new TextDecoder().decode(bytes)
+/** The fixture bytes as text; the same bytes are hashed, so the file is read once. */
+const toText = (bytes: Uint8Array): Effect.Effect<string> => Stream.decodeText(Stream.make(bytes)).pipe(Stream.mkString)
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
-  Effect.sync(() => new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => digestBytesHex("sha256", bytes)
 
-const normalizeRelativePath = (pathService: Path.Path, value: string): string =>
-  value.split(pathService.sep).join("/")
+const normalizeRelativePath = (pathService: Path.Path, value: string): string => value.split(pathService.sep).join("/")
 
 const readJsonContent = (
   absolutePath: string
 ): Effect.Effect<string, FixtureCheckError, FileSystem.FileSystem> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const bytes = yield* fileSystem.readFile(absolutePath).pipe(
-      Effect.mapError(() => new FixtureCheckError("read", absolutePath, "file not found"))
+    const content = yield* fileSystem.readFileString(absolutePath).pipe(
+      Effect.mapError((error) =>
+        new FixtureCheckError({
+          name: "read",
+          file: absolutePath,
+          reason: "could not read manifest",
+          cause: Option.some(error)
+        })
+      )
     )
 
-    const content = toText(bytes)
-
     yield* decodeUnknownJson(content).pipe(
-      Effect.mapError(() => new FixtureCheckError("json", absolutePath, "malformed JSON"))
+      Effect.mapError((error) =>
+        new FixtureCheckError({ name: "json", file: absolutePath, reason: "malformed JSON", cause: Option.some(error) })
+      )
     )
 
     return content
@@ -56,26 +72,42 @@ const findJsonFiles = (
   pathService: Path.Path,
   root: string,
   prefix: string
-): Effect.Effect<Array<string>, FixtureCheckError> =>
+): Effect.Effect<Array<Either.Either<string, FixtureCheckError>>, never> =>
   Effect.gen(function*() {
     const directory = prefix === "" ? root : pathService.join(root, prefix)
-    const entries = yield* fileSystem.readDirectory(directory).pipe(
-      Effect.mapError(() => new FixtureCheckError("scan", directory, "could not read directory"))
-    )
+    const entries = yield* Effect.either(fileSystem.readDirectory(directory))
+    if (Either.isLeft(entries)) {
+      return [Either.left(
+        new FixtureCheckError({
+          name: "scan",
+          file: directory,
+          reason: "could not read directory",
+          cause: Option.some(entries.left)
+        })
+      )]
+    }
 
-    const nested = yield* Effect.forEach(entries, (entry) =>
+    const nested = yield* Effect.forEach(entries.right, (entry) =>
       Effect.gen(function*() {
         const relative = prefix === "" ? entry : `${prefix}/${entry}`
         const absolute = pathService.join(root, relative)
-        const stat = yield* fileSystem.stat(absolute).pipe(
-          Effect.mapError(() => new FixtureCheckError("scan", absolute, "could not stat"))
-        )
+        const stat = yield* Effect.either(fileSystem.stat(absolute))
+        if (Either.isLeft(stat)) {
+          return [Either.left(
+            new FixtureCheckError({
+              name: "scan",
+              file: absolute,
+              reason: "could not stat",
+              cause: Option.some(stat.left)
+            })
+          )]
+        }
 
-        if (stat.type === "Directory") {
+        if (stat.right.type === "Directory") {
           return yield* findJsonFiles(fileSystem, pathService, root, relative)
         }
 
-        return entry.endsWith(".json") ? [relative] : Arr.empty<string>()
+        return entry.endsWith(".json") ? [Either.right(relative)] : Arr.empty()
       }))
 
     return Arr.flatten(nested)
@@ -84,95 +116,116 @@ const findJsonFiles = (
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const pathService = yield* Path.Path
-  const cwd = yield* Effect.sync(() => process.cwd())
+  const packageRoot = yield* Url.fromString("../", import.meta.url).pipe(
+    Effect.flatMap((url) => pathService.fromFileUrl(url)),
+    Effect.orDie
+  )
 
-  const externalRoot = pathService.join(cwd, EXTERNAL_FIXTURE_ROOT)
+  const externalRoot = pathService.join(packageRoot, EXTERNAL_FIXTURE_ROOT)
   const manifestPath = pathService.join(externalRoot, MANIFEST_FILE)
 
   const manifestContent = yield* readJsonContent(manifestPath)
   const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestContent, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.mapError(() => new FixtureCheckError("manifest", manifestPath, "manifest schema decode failed"))
+    Effect.mapError((error) =>
+      new FixtureCheckError({
+        name: "manifest",
+        file: manifestPath,
+        reason: "manifest schema decode failed",
+        cause: Option.some(error)
+      })
+    )
   )
 
   const fixtureResults = yield* Effect.forEach(manifest.sources, (source) =>
     Effect.gen(function*() {
       const absolutePath = pathService.normalize(pathService.join(externalRoot, source.fixturePath))
       const bytes = yield* fileSystem.readFile(absolutePath).pipe(
-        Effect.mapError(() => new FixtureCheckError(source.id, source.fixturePath, "fixture file not found"))
+        Effect.mapError((error) =>
+          new FixtureCheckError({
+            name: source.id,
+            file: source.fixturePath,
+            reason: "read failed",
+            cause: Option.some(error)
+          })
+        )
       )
-      const content = toText(bytes)
+      const content = yield* toText(bytes)
 
       yield* validateFixtureByKind(source.kind, content).pipe(
-        Effect.mapError(() => new FixtureCheckError(source.id, source.fixturePath, "schema decode failed"))
+        Effect.mapError((error) =>
+          new FixtureCheckError({
+            name: source.id,
+            file: source.fixturePath,
+            reason: "schema decode failed",
+            cause: Option.some(error)
+          })
+        )
       )
 
       const actualSha256 = yield* toSha256Hex(bytes)
       if (actualSha256 !== source.contentSha256) {
-        return new FixtureCheckError(
-          source.id,
-          source.fixturePath,
-          `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`
-        )
+        return yield* new FixtureCheckError({
+          name: source.id,
+          file: source.fixturePath,
+          reason: `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`,
+          cause: Option.none()
+        })
       }
 
-      return null
-    }).pipe(Effect.catchAll((error) => Effect.succeed(error))))
+      return source.id
+    }).pipe(Effect.either))
 
-  const expectedFixturePaths = Arr.map(manifest.sources, (source) =>
-    normalizeRelativePath(pathService, pathService.normalize(source.fixturePath))
+  const expectedFixturePaths = Arr.map(
+    manifest.sources,
+    (source) => normalizeRelativePath(pathService, pathService.normalize(source.fixturePath))
   )
 
   const externalJsonFiles = yield* findJsonFiles(fileSystem, pathService, externalRoot, "")
+  const [scanErrors, discoveredJsonFiles] = Arr.separate(externalJsonFiles)
   const scannedFixturePaths = Arr.filter(
-    Arr.map(externalJsonFiles, (file) => normalizeRelativePath(pathService, file)),
+    Arr.map(discoveredJsonFiles, (file) => normalizeRelativePath(pathService, file)),
     (file) => file !== MANIFEST_FILE
   )
 
-  const orphanErrors = Arr.filterMap(scannedFixturePaths, (fixturePath) =>
-    Arr.some(expectedFixturePaths, (expected) => expected === fixturePath)
-      ? Option.none<FixtureCheckError>()
-      : Option.some(
-        new FixtureCheckError(
-          "orphan",
-          fixturePath,
-          "fixture file exists on disk but is not declared in sources.manifest.json"
+  const orphanErrors = Arr.filterMap(
+    scannedFixturePaths,
+    (fixturePath) =>
+      Arr.some(expectedFixturePaths, (expected) => expected === fixturePath)
+        ? Option.none<FixtureCheckError>()
+        : Option.some(
+          new FixtureCheckError({
+            name: "orphan",
+            file: fixturePath,
+            reason: "fixture file exists on disk but is not declared in sources.manifest.json",
+            cause: Option.none()
+          })
         )
-      )
   )
 
-  const resultErrors = Arr.filterMap(fixtureResults, (result) =>
-    result === null ? Option.none<FixtureCheckError>() : Option.some(result)
-  )
-  const allErrors = [...resultErrors, ...orphanErrors]
-
-  const passedNames = Arr.filterMap(
-    manifest.sources,
-    (source, index) => fixtureResults[index] === null ? Option.some(source.id) : Option.none()
-  )
+  const [resultErrors, passedNames] = Arr.separate(fixtureResults)
+  const allErrors = [...resultErrors, ...scanErrors, ...orphanErrors]
 
   yield* Console.log(`Checking ${manifest.sources.length} fixture sources...`)
   yield* Console.log()
   yield* Effect.forEach(passedNames, (name) => Console.log(`✓ ${name}`), { discard: true })
-  yield* Effect.forEach(allErrors, (error) => Console.log(`✗ ${error.name} (${error.file}): ${error.reason}`), {
+  yield* Effect.forEach(allErrors, (error) => Console.log(`✗ ${error.message}`), {
     discard: true
   })
   yield* Console.log()
   yield* Console.log(`Results: ${passedNames.length} passed, ${allErrors.length} failed`)
 
   if (Arr.isNonEmptyArray(allErrors)) {
-    return yield* Effect.fail(new FixtureCheckError("summary", "", `${allErrors.length} fixture check failure(s)`))
+    return yield* new FixtureCheckError({
+      name: "summary",
+      file: "",
+      reason: `${allErrors.length} fixture check failure(s)`,
+      cause: Option.none()
+    })
   }
 })
 
-const main = program.pipe(
-  Effect.catchAll((error) =>
-    Console.error(`\nFATAL: ${error.reason}`).pipe(
-      Effect.andThen(Effect.sync(() => process.exit(1)))
-    )
-  ),
-  Effect.provide(BunContext.layer)
-)
+const main = program.pipe(Effect.provide(BunContext.layer))
 
 BunRuntime.runMain(main)

@@ -3,9 +3,9 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
     "noEmit": true,
-    "types": ["@types/node"],
+    "types": ["@types/node", "bun-types"],
     "tsBuildInfoFile": ".tsbuildinfo/examples.tsbuildinfo"
   },
-  "include": ["examples"],
+  "include": ["examples", "benchmarks"],
   "references": [{ "path": "./tsconfig.src.json" }]
 }

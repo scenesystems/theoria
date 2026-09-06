@@ -1,6 +1,6 @@
 import * as KeyValueStore from "@effect/platform/KeyValueStore"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Either, Layer, Number as Num, Option, Schedule, Schema, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Either, Layer, Number as Num, Option, Schedule, Stream } from "effect"
 
 import * as Cache from "../../src/Cache/index.js"
 import { NoSuccessfulTrials, TrialError } from "../../src/Errors/index.js"
@@ -11,20 +11,18 @@ import * as Study from "../../src/Study/index.js"
 import * as Trial from "../../src/Trial/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-2, 2),
     depth: SearchSpace.int(1, 5),
     optimizer: SearchSpace.categorical(["adam", "sgd"])
   })
-
-const decodeObjectiveConfig = Schema.decodeUnknownSync(makeSpace().schema)
 
 const completedValues = (trials: Array<Trial.Trial<unknown>>): Array<number> =>
   trials.flatMap((trial) =>
     Trial.matchState({
       Running: () => [],
       Completed: ({ value }) =>
-        Option.fromNullable(typeof value === "number" ? value : undefined).pipe(
+        Option.liftPredicate(value, (candidate): candidate is number => typeof candidate === "number").pipe(
           Option.match({
             onNone: () => [],
             onSome: (numericValue) => [numericValue]
@@ -78,12 +76,12 @@ describe("Study.optimize", () => {
   it.effect("optimizes with random sampling and returns a single-objective result", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 21 }),
         direction: "minimize",
         trials: 12,
         objective: (raw) => {
-          const config = decodeObjectiveConfig(raw)
+          const config = raw
           const optimizerPenalty = config.optimizer === "adam" ? 0 : 0.25
           const score = Float64.abs(config.x) + config.depth + optimizerPenalty
           return Effect.succeed(score)
@@ -114,23 +112,23 @@ describe("Study.optimize", () => {
   it.effect("honors optimization direction for minimize and maximize", () =>
     Effect.gen(function*() {
       const minimizeOptimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 55 }),
         direction: "minimize",
         trials: 15,
         objective: (raw) => {
-          const config = decodeObjectiveConfig(raw)
+          const config = raw
           return Effect.succeed(config.x)
         }
       })
 
       const maximizeOptimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 55 }),
         direction: "maximize",
         trials: 15,
         objective: (raw) => {
-          const config = decodeObjectiveConfig(raw)
+          const config = raw
           return Effect.succeed(config.x)
         }
       })
@@ -161,12 +159,12 @@ describe("Study.optimize", () => {
   it.effect("marks NaN objective values as failed while continuing the study", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 77 }),
         direction: "minimize",
         trials: 20,
         objective: (raw) => {
-          const config = decodeObjectiveConfig(raw)
+          const config = raw
           return Effect.succeed(config.x > 0 ? Number.NaN : Float64.abs(config.x))
         }
       })
@@ -187,12 +185,12 @@ describe("Study.optimize", () => {
   it.effect("marks Infinity objective values as failed while continuing the study", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 88 }),
         direction: "minimize",
         trials: 20,
         objective: (raw) => {
-          const config = decodeObjectiveConfig(raw)
+          const config = raw
           return Effect.succeed(config.x > 0 ? Number.POSITIVE_INFINITY : Float64.abs(config.x))
         }
       })
@@ -214,7 +212,7 @@ describe("Study.optimize", () => {
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
         Study.optimize({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 13 }),
           direction: "minimize",
           trials: 8,
@@ -254,13 +252,13 @@ describe("Study.optimize", () => {
 
       const result = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 21 }),
           direction: "minimize",
           trials: 1,
           retrySchedule: Schedule.recurs(0),
           objective: (raw) => {
-            const config = decodeObjectiveConfig(raw)
+            const config = raw
             return Effect.succeed(Float64.abs(config.x) + config.depth)
           }
         }).pipe(
@@ -305,13 +303,13 @@ describe("Study.optimize", () => {
 
       const result = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 21 }),
           direction: "minimize",
           trials: 1,
           retrySchedule: Schedule.recurs(0),
           objective: (raw) => {
-            const config = decodeObjectiveConfig(raw)
+            const config = raw
             return Effect.succeed(Float64.abs(config.x) + config.depth)
           }
         }).pipe(
@@ -336,7 +334,7 @@ describe("Study.optimize", () => {
   it.effect("rejects unsafe counts and objective-specific stopping options", () =>
     Effect.gen(function*() {
       const base = {
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 22 }),
         objective: () => Effect.succeed(0)
       }

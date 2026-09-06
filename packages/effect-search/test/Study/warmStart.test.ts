@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Ref, Schema } from "effect"
+import { Effect, Ref } from "effect"
 
 import { pendingAsZeroImputationPolicy, type SuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
@@ -7,11 +7,9 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
-
-const decodeConfig = Schema.decodeUnknownSync(makeSpace().schema)
 
 const captureSampler = (contextsRef: Ref.Ref<ReadonlyArray<SuggestContext>>): Sampler.Sampler =>
   new Sampler.Sampler({
@@ -27,9 +25,10 @@ describe("warm-starting", () => {
   it.effect("injects prior trials into sampler context and preserves trial-budget semantics", () =>
     Effect.gen(function*() {
       const capturedContextsRef = yield* Ref.make<ReadonlyArray<SuggestContext>>([])
+      const space = yield* makeSpace()
 
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space,
         sampler: captureSampler(capturedContextsRef),
         direction: "minimize",
         trials: 2,
@@ -45,7 +44,7 @@ describe("warm-starting", () => {
           }
         ],
         objective: (raw) => {
-          const config = decodeConfig(raw)
+          const config = raw
           return Effect.succeed(Math.abs(config.x))
         }
       })

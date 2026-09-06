@@ -11,17 +11,15 @@ import { emptySuggestContext, makeSuggestCompletedTrial, SuggestContext } from "
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
-const continuousSpace = () =>
-  SearchSpace.unsafeMake({
-    learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
-    dropout: SearchSpace.float(0, 0.6)
-  })
+const continuousSpace = SearchSpace.make({
+  learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
+  dropout: SearchSpace.float(0, 0.6)
+})
 
-const categoricalSpace = () =>
-  SearchSpace.unsafeMake({
-    optimizer: SearchSpace.categorical(["adam", "sgd"]),
-    learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
-  })
+const categoricalSpace = SearchSpace.make({
+  optimizer: SearchSpace.categorical(["adam", "sgd"]),
+  learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
+})
 
 const completedContext = (nextTrialNumber: number) =>
   new SuggestContext({
@@ -51,7 +49,7 @@ const multiObjectiveContext = (nextTrialNumber: number) =>
 describe("Sampler.gpBo", () => {
   it.effect("produces deterministic suggestions for the same seed", () =>
     Effect.gen(function*() {
-      const space = continuousSpace()
+      const space = yield* continuousSpace
       const leftSampler = Sampler.gpBo({ seed: 44, nStartupTrials: 2, nCandidates: 20 })
       const rightSampler = Sampler.gpBo({ seed: 44, nStartupTrials: 2, nCandidates: 20 })
       const left = yield* Sampler.suggest(leftSampler, space, completedContext(3))
@@ -62,7 +60,7 @@ describe("Sampler.gpBo", () => {
 
   it.effect("keeps acquisition strategy compatibility across EI/PI/Thompson options", () =>
     Effect.gen(function*() {
-      const space = continuousSpace()
+      const space = yield* continuousSpace
       const decode = Schema.decodeUnknownEither(space.schema)
       const acquisitions: ReadonlyArray<Sampler.BuiltInAcquisitionName> = ["ei", "pi", "thompson"]
 
@@ -82,7 +80,7 @@ describe("Sampler.gpBo", () => {
   it.effect("rejects search spaces containing unsupported dimensions with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.gpBo({ seed: 3 }), categoricalSpace(), emptySuggestContext(0))
+        Sampler.suggest(Sampler.gpBo({ seed: 3 }), yield* categoricalSpace, emptySuggestContext(0))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)
@@ -95,7 +93,7 @@ describe("Sampler.gpBo", () => {
   it.effect("rejects multi-objective suggestion contexts with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.gpBo({ seed: 3 }), continuousSpace(), multiObjectiveContext(2))
+        Sampler.suggest(Sampler.gpBo({ seed: 3 }), yield* continuousSpace, multiObjectiveContext(2))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)
@@ -159,7 +157,7 @@ describe("Sampler.gpBo", () => {
 
   it.effect("produces schema-decodable suggestions within declared bounds", () =>
     Effect.gen(function*() {
-      const space = continuousSpace()
+      const space = yield* continuousSpace
       const decode = Schema.decodeUnknownEither(space.schema)
       const candidate = yield* Sampler.suggest(
         Sampler.gpBo({ seed: 7, nStartupTrials: 0, nCandidates: 32 }),

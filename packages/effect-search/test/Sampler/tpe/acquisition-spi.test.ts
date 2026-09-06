@@ -7,10 +7,9 @@ import { scoreAcquisition } from "../../../src/samplers/Tpe/acquisition/index.js
 import * as SearchSpace from "../../../src/SearchSpace/index.js"
 import * as Study from "../../../src/Study/index.js"
 
-const makeSpiSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-2, 2)
-  })
+const spiSpace = SearchSpace.make({
+  x: SearchSpace.float(-2, 2)
+})
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
@@ -57,7 +56,7 @@ describe("tpe acquisition SPI", () => {
     "keeps constrained and multi-objective study paths compatible with acquisition selection",
     () =>
       Effect.gen(function*() {
-        const space = makeSpiSpace()
+        const space = yield* spiSpace
         const objective = objectiveForSpace(space)
 
         const constrained = yield* Study.optimize({
@@ -69,12 +68,10 @@ describe("tpe acquisition SPI", () => {
             acquisition: "pi",
             constraints: [
               (raw) =>
-                Effect.sync(() => {
-                  const decode = Schema.decodeUnknownSync(space.schema)
-                  const config = decode(raw)
-
-                  return config.x - 1.2
-                })
+                Schema.decodeUnknown(space.schema)(raw).pipe(
+                  Effect.orDie,
+                  Effect.map((config) => config.x - 1.2)
+                )
             ]
           }),
           direction: "minimize",

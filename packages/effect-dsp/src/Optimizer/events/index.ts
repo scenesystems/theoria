@@ -3,6 +3,7 @@
  * MIPROv2, GEPA, and wrapped optimizer streams.
  *
  * @since 0.1.0
+ * @module
  */
 
 /**

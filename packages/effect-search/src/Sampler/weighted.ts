@@ -58,22 +58,24 @@ export type WeightedZeroWeightFallback = typeof WeightedZeroWeightFallbackSchema
  * @since 0.1.0
  * @category models
  */
-export type SelectWeightedIndexOptions = Readonly<{
+export const SelectWeightedIndexOptions = Schema.Struct({
   /** Defaults to `"lowest-index"`. */
-  readonly zeroWeightFallback?: WeightedZeroWeightFallback
-}>
+  zeroWeightFallback: Schema.optional(WeightedZeroWeightFallbackSchema)
+})
+export type SelectWeightedIndexOptions = typeof SelectWeightedIndexOptions.Type
 
 /**
  * Configures repeated-index exclusion and zero-weight handling for a pair draw.
  * @since 0.1.0
  * @category models
  */
-export type SampleWeightedPairOptions = Readonly<{
+export const SampleWeightedPairOptions = Schema.Struct({
   /** Excludes every entry with the first selected index when another index exists. */
-  readonly distinct?: boolean
+  distinct: Schema.optional(Schema.Boolean),
   /** Applies independently to each draw and defaults to `"lowest-index"`. */
-  readonly zeroWeightFallback?: WeightedZeroWeightFallback
-}>
+  zeroWeightFallback: Schema.optional(WeightedZeroWeightFallbackSchema)
+})
+export type SampleWeightedPairOptions = typeof SampleWeightedPairOptions.Type
 
 class CumulativeWeight extends Data.Class<{
   readonly index: number

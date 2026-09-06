@@ -3,7 +3,7 @@ import { Layer } from "effect"
 
 import { AnalyticsLive } from "./config/analytics.js"
 import { DocsManifestStoreLive } from "./config/docs-manifest-store.js"
-import { serverReleaseStage } from "./config/release-stage.js"
+import { releaseStageConfig } from "./config/release-stage.js"
 import { RuntimeInfoLive } from "./config/runtime.js"
 import { ParticipantsLive } from "./imagined-place/authority.js"
 import { indexingPolicy } from "./indexing-policy.js"
@@ -25,7 +25,7 @@ export const publicApp = app.pipe(
 )
 
 /** Fails layer construction when `RELEASE_STAGE` holds an unsupported value. */
-const ReleaseStageCheck = Layer.effectDiscard(serverReleaseStage)
+const ReleaseStageCheck = Layer.effectDiscard(releaseStageConfig)
 
 export const AppLayer = Layer.mergeAll(
   ParticipantsLive,

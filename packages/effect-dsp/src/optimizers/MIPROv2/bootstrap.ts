@@ -6,7 +6,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
 import { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { Example } from "../../Example/index.js"
 import { collectModuleParamRefs } from "../../internal/module-params.js"
@@ -82,10 +82,10 @@ export class PredictorDemoCandidates extends Schema.Class<PredictorDemoCandidate
  * @since 0.1.0
  * @category models
  */
-export type GenerateDemoCandidatesOptions<
+export class GenerateDemoCandidatesOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
-> = Readonly<{
+> extends Data.Class<{
   /** Root whose parameter refs are read without mutation. */
   readonly module: DspModule<I, O>
   /** Source examples; entries without `output` are excluded from every candidate. */
@@ -98,7 +98,7 @@ export type GenerateDemoCandidatesOptions<
   readonly maxLabeledDemos?: number
   /** Maximum examples in each bootstrap-named candidate. Invalid counts become one. */
   readonly maxBootstrappedDemos?: number
-}>
+}> {}
 
 /**
  * Snapshots every owned predictor and builds its demonstration candidates.

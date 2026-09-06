@@ -9,6 +9,7 @@
  *
  * @since 0.1.0
  * @category errors
+ * @module
  */
 import { Schema } from "effect"
 

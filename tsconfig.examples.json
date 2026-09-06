@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": true,
+    "incremental": true,
+    "declaration": false,
+    "types": ["@types/node"]
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/digest/tsconfig.examples.json" },
+    { "path": "./packages/effect-dsp/tsconfig.examples.json" },
+    { "path": "./packages/effect-inference/tsconfig.examples.json" },
+    { "path": "./packages/effect-math/tsconfig.examples.json" },
+    { "path": "./packages/effect-search/tsconfig.examples.json" },
+    { "path": "./packages/effect-text/tsconfig.examples.json" },
+    { "path": "./packages/seal/tsconfig.examples.json" },
+    { "path": "./packages/sign/tsconfig.examples.json" }
+  ]
+}

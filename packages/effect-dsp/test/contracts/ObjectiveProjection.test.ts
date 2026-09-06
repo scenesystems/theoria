@@ -51,8 +51,8 @@ describe("contracts/ObjectiveProjection", () => {
   it.effect("projects deterministic single-objective payloads with telemetry", () =>
     Effect.gen(function*() {
       const report = makeReport()
-      const projectedA = yield* Contracts.projectSingleObjective(report)
-      const projectedB = yield* Contracts.projectSingleObjective(report)
+      const projectedA = yield* Contracts.projectSingleObjective(report, Option.none())
+      const projectedB = yield* Contracts.projectSingleObjective(report, Option.none())
 
       expect(projectedA).toEqual(projectedB)
       expect(projectedA.objective).toBe(0.8)

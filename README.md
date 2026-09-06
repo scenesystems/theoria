@@ -131,7 +131,7 @@ The repository is a [Bun](https://bun.sh) workspace. Clone it, install dependenc
 ```sh
 bun install
 bun run check      # type check every package
-bun run lint       # eslint
+bun run lint       # oxlint + eslint + dprint
 bun run test       # vitest
 bun run build      # build every package
 ```

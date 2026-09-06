@@ -1,7 +1,7 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
-import { Option } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
@@ -14,7 +14,7 @@ import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { TabBar, TabButton } from "../primitives/TabBar.js"
+import { Tab, TabBar, TabGroup, TabPanel } from "../primitives/TabBar.js"
 
 import { placeLiveValues } from "./placeLiveValues.js"
 import {
@@ -27,7 +27,7 @@ import {
   sourceRef,
   sourceUrl
 } from "./placeReferences.js"
-import { type PlaceStep, placeStepAt, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
+import { PlaceStep, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
 
 const rowLinkClassName =
   "-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
@@ -36,9 +36,9 @@ const sourceLinkClassName =
   "-mx-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
 
 const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly title: string }) => (
-  <Stack aria-label={title} as="section" className="gap-1.5">
+  <Stack aria-label={title} render={<section />} className="gap-1.5">
     <SemanticText as="span" className="text-ink-500" role="row-label" text={title} variant="compact" />
-    <Stack as="ul" className="gap-0.5">{children}</Stack>
+    <Stack render={<ul />} className="gap-0.5">{children}</Stack>
   </Stack>
 )
 
@@ -46,7 +46,7 @@ const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly
 const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => {
   const tone = toneClassesFor(toneForCard(reference.package))
   return (
-    <Layer as="li">
+    <Layer render={<li />}>
       <DocsLink
         className={rowLinkClassName}
         data-place-reference={reference.text}
@@ -62,7 +62,7 @@ const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => 
 
 /** The file in this repository that does what the sample shows, at the commit the server was built from. */
 const SourceRow = ({ path, sha }: { readonly path: string; readonly sha: string }) => (
-  <Layer as="li">
+  <Layer render={<li />}>
     <ExternalLink className={sourceLinkClassName} data-place-source={path} href={sourceUrl(sha, path)}>
       <SemanticText as="code" className="text-ink-800" role="code-meta" text={sourceLabel(path)} />
       <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 text-ink-400" />
@@ -83,23 +83,14 @@ const CommitLink = ({ sha }: { readonly sha: string }) => (
   </ExternalLink>
 )
 
-const StepTabs = ({ step }: { readonly step: PlaceStep }) => {
-  const setStep = useAtomSet(placeStepAtom)
-  return (
-    <TabBar className="w-fit max-w-full flex-wrap">
-      {Arr.map(placeStepDefinitions, (candidate, index) => (
-        <TabButton
-          active={candidate.id === step}
-          key={candidate.id}
-          label={candidate.name}
-          onClick={() => {
-            setStep(placeStepAt(index))
-          }}
-        />
-      ))}
-    </TabBar>
-  )
-}
+const StepTabs = () => (
+  <TabBar className="w-fit max-w-full flex-wrap">
+    {Arr.map(
+      placeStepDefinitions,
+      (candidate) => <Tab key={candidate.id} label={candidate.name} value={candidate.id} />
+    )}
+  </TabBar>
+)
 
 /**
  * The step's code with two things a listing cannot show: every API name links
@@ -144,6 +135,7 @@ const StepRail = ({ sha, step }: { readonly sha: string; readonly step: PlaceSte
  */
 export const PlaceHowItsBuilt = () => {
   const step = useAtomValue(placeStepAtom)
+  const setStep = useAtomSet(placeStepAtom)
   const sha = Option.getOrElse(useAtomValue(placeBuildShaAtom), () => "dev-local")
 
   return (
@@ -177,12 +169,18 @@ export const PlaceHowItsBuilt = () => {
           </Rail>
         </Cluster>
 
-        <StepTabs step={step} />
-
-        <Layer className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-x-8">
-          <StepCode step={step} />
-          <StepRail sha={sha} step={step} />
-        </Layer>
+        <TabGroup
+          className="flex flex-col gap-5"
+          decode={Schema.decodeUnknownOption(PlaceStep)}
+          onValueChange={setStep}
+          value={step}
+        >
+          <StepTabs />
+          <TabPanel className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-x-8" value={step}>
+            <StepCode step={step} />
+            <StepRail sha={sha} step={step} />
+          </TabPanel>
+        </TabGroup>
       </Stack>
     </Section>
   )

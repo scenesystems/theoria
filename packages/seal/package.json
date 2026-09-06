@@ -37,8 +37,8 @@
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
     "check:examples": "tsc -b tsconfig.examples.json",
-    "lint": "eslint --max-warnings=0 src test",
-    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "lint": "cd ../.. && oxlint packages/seal && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/seal && dprint check \"packages/seal/**\"",
+    "lint:fix": "cd ../.. && oxlint --fix packages/seal && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/seal && dprint fmt \"packages/seal/**\"",
     "test": "vitest run --root ../.. packages/seal/test",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
@@ -47,10 +47,7 @@
     "clean": "rm -rf build dist .tsbuildinfo"
   },
   "dependencies": {
-    "@noble/ciphers": "^2.0.0"
-  },
-  "devDependencies": {
-    "@theoria/source-proof": "workspace:*"
+    "@noble/ciphers": "^2.4.0"
   },
   "peerDependencies": {
     "effect": "^3.22.1"

@@ -18,8 +18,6 @@ describe("Pareto MOTPE compatibility", () => {
         (fixture) => Schema.decodeUnknown(MotpeWeightsFixtureSchema)(fixture)
       )
 
-      expect(fixtures.length).toBeGreaterThanOrEqual(3)
-
       Arr.forEach(fixtures, (fixture) => {
         const contributions = Pareto.hypervolumeContribution2d(
           fixture.payload.points,

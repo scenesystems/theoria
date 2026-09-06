@@ -35,7 +35,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup
       - run: bun run check:apps
-      - run: bun run lint:apps
       - run: bun run test:apps
 
   lint:

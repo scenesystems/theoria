@@ -6,7 +6,7 @@
  */
 import { FileSystem } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Effect, Match, Schema } from "effect"
+import { Effect, Layer, Match, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -27,7 +27,9 @@ const program = Effect.scoped(
       studyId: "example-study"
     })
     const artifactSinkLayer = Contracts.fileSystemSink(directory)
-    const storageLayer = Study.StudyStorageLive(Study.studyStorageOptions(directory))
+    const studyLayer = Study.StudyStorageLive(Study.studyStorageOptions(directory)).pipe(
+      Layer.provideMerge(Layer.merge(artifactSinkLayer, envelopeContextLayer))
+    )
 
     const space = yield* SearchSpace.make({
       x: SearchSpace.float(-3, 3),
@@ -41,7 +43,7 @@ const program = Effect.scoped(
       sampler: Sampler.tpe({ seed: 901 }),
       trials: 15,
       objective
-    }).pipe(Effect.provide(storageLayer), Effect.provide(artifactSinkLayer), Effect.provide(envelopeContextLayer))
+    }).pipe(Effect.provide(studyLayer))
 
     const resumed = yield* Study.resumeFromStorage({
       space,
@@ -49,7 +51,7 @@ const program = Effect.scoped(
       direction: "minimize",
       trials: 10,
       objective
-    }).pipe(Effect.provide(storageLayer), Effect.provide(artifactSinkLayer), Effect.provide(envelopeContextLayer))
+    }).pipe(Effect.provide(studyLayer))
 
     yield* Match.value(resumed).pipe(
       Match.tag("SingleObjective", ({ bestTrial, completionReason, trials }) =>

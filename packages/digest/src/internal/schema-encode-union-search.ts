@@ -1,8 +1,8 @@
 /** Effect Schema union discriminator search for cooperative encoding. @internal */
 
-import { Effect, MutableRef, Option, SchemaAST } from "effect"
+import { Array as Arr, Effect, MutableRef, Option, SchemaAST } from "effect"
 
-import { appendMutable, cooperate, type EncodeState, scan } from "./schema-encode-model.js"
+import { appendMutable, cooperate, type EncodeState, scan, scanItems } from "./schema-encode-model.js"
 import { projectLiteral, type TypeAstProjector } from "./schema-encode-type-ast.js"
 
 type Literal = readonly [PropertyKey, SchemaAST.Literal]
@@ -70,8 +70,7 @@ const literals = (
     const output: Array<Literal> = []
     if (SchemaAST.isTypeLiteral(unwrapped)) {
       return Effect.as(
-        scan(cooperation, 0, (index) => index < unwrapped.propertySignatures.length, (index) => {
-          const property = unwrapped.propertySignatures[index]!
+        scanItems(cooperation, unwrapped.propertySignatures, (property) => {
           if (property.isOptional) return Effect.void
           return Effect.map(projectLiteral(property.type, direction, cooperation), (literal) => {
             if (Option.isSome(literal)) appendMutable(output, [property.name, literal.value])
@@ -82,8 +81,7 @@ const literals = (
     }
     if (SchemaAST.isTupleType(unwrapped)) {
       return Effect.as(
-        scan(cooperation, 0, (index) => index < unwrapped.elements.length, (index) => {
-          const element = unwrapped.elements[index]!
+        scanItems(cooperation, unwrapped.elements, (element, index) => {
           if (element.isOptional) return Effect.void
           return Effect.map(projectLiteral(element.type, direction, cooperation), (literal) => {
             if (Option.isSome(literal)) appendMutable(output, [index, literal.value])
@@ -103,37 +101,41 @@ export const makeUnionSearchTree = (
 ): Effect.Effect<UnionSearchTree> => {
   const tree = new UnionSearchTree()
   return Effect.as(
-    scan(cooperation, 0, (index) => index < ast.types.length, (index) => {
-      const member = ast.types[index]!
-      return Effect.flatMap(literals(member, direction, cooperation, typeAst), (tags) => {
-        if (tags.length === 0) {
-          appendMutable(tree.otherwise, member)
-          return Effect.void
-        }
-        appendMutable(tree.candidates, member)
-        const selected = MutableRef.make(false)
-        return scan(
-          cooperation,
-          0,
-          (tagIndex) => tagIndex < tags.length && !MutableRef.get(selected),
-          (tagIndex) =>
-            Effect.sync(() => {
-              const [key, literal] = tags[tagIndex]!
-              const bucket = Option.getOrElse(getOwn(tree.keys, key), () => {
-                return setOwn(tree.keys, key, new UnionBucket())
+    scanItems(
+      cooperation,
+      ast.types,
+      (member) =>
+        Effect.flatMap(literals(member, direction, cooperation, typeAst), (tags) => {
+          if (tags.length === 0) {
+            appendMutable(tree.otherwise, member)
+            return Effect.void
+          }
+          appendMutable(tree.candidates, member)
+          const selected = MutableRef.make(false)
+          return scan(
+            cooperation,
+            0,
+            (tagIndex) => tagIndex < tags.length && !MutableRef.get(selected),
+            (tagIndex) =>
+              Effect.sync(() => {
+                const tag = Arr.get(tags, tagIndex)
+                if (Option.isNone(tag)) return
+                const [key, literal] = tag.value
+                const bucket = Option.getOrElse(getOwn(tree.keys, key), () => {
+                  return setOwn(tree.keys, key, new UnionBucket())
+                })
+                const hash = String(literal.literal)
+                const existing = getOwn(bucket.buckets, hash)
+                if (Option.isSome(existing) && tagIndex < tags.length - 1) return
+                if (Option.isSome(existing)) appendMutable(existing.value, member)
+                else setOwn(bucket.buckets, hash, [member])
+                appendMutable(bucket.literals, literal)
+                appendMutable(bucket.candidates, member)
+                MutableRef.set(selected, Option.isNone(existing))
               })
-              const hash = String(literal.literal)
-              const existing = getOwn(bucket.buckets, hash)
-              if (Option.isSome(existing) && tagIndex < tags.length - 1) return
-              if (Option.isSome(existing)) appendMutable(existing.value, member)
-              else setOwn(bucket.buckets, hash, [member])
-              appendMutable(bucket.literals, literal)
-              appendMutable(bucket.candidates, member)
-              MutableRef.set(selected, Option.isNone(existing))
-            })
-        )
-      })
-    }),
+          )
+        })
+    ),
     tree
   )
 }

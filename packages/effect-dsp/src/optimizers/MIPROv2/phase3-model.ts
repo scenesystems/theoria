@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type { Study } from "@scenesystems/effect-search"
-import { Effect, Schema } from "effect"
+import { Data, Effect, Schema } from "effect"
 import type { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
 import type { Module as DspModule } from "../../Module/model.js"
@@ -59,12 +59,12 @@ export class Phase3Diagnostics extends Schema.Class<Phase3Diagnostics>("MIPROv2P
  * @since 0.1.0
  * @category models
  */
-export type RunPhase3SearchOptions<
+export class RunPhase3SearchOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
   MR = never
-> = Readonly<{
+> extends Data.Class<{
   /** Module tree mutated during evaluation and left with the selected configuration. */
   readonly module: DspModule<I, O>
   /** Full evaluation set; trial objectives use its leading `minibatchSize` entries. */
@@ -85,7 +85,7 @@ export type RunPhase3SearchOptions<
   readonly seed?: number
   /** Sink awaited after each trial and full-set checkpoint event. */
   readonly emit?: Phase3EventSink
-}>
+}> {}
 
 /**
  * Pairs the mutated module with its raw search result and Phase 3 diagnostics.
@@ -96,17 +96,17 @@ export type RunPhase3SearchOptions<
  * @since 0.1.0
  * @category models
  */
-export type Phase3SearchResult<
+export class Phase3SearchResult<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
-> = Readonly<{
+> extends Data.Class<{
   /** Same module instance supplied to `runPhase3Search`. */
   readonly module: DspModule<I, O>
   /** Completed study including the prior baseline and new trials. */
   readonly studyResult: Study.StudyResult<Phase3Config>
   /** Search configuration and evaluation indexes observed during this run. */
   readonly diagnostics: Phase3Diagnostics
-}>
+}> {}
 
 /**
  * Receives trial and full-set events in evaluation order.

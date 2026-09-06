@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js"

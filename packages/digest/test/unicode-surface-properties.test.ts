@@ -26,12 +26,12 @@ import {
   toBase64Url,
   toHex
 } from "../src/index.js"
+import { oracleUtf8 } from "./helpers/bytes.js"
 
 type UnicodeOperation = readonly [string, Effect.Effect<unknown, unknown>]
 
 const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })
 const emptyBytes = new Uint8Array(0)
-const utf8Decoder = new TextDecoder("utf-8", { fatal: true })
 const JsonString = Schema.parseJson(Schema.String)
 
 const unicodeOperations = (text: string, chunks: ReadonlyArray<string>): ReadonlyArray<UnicodeOperation> => [
@@ -79,9 +79,9 @@ describe("public text and canonicalization surface — generated Unicode laws", 
         const textHash = yield* digestUtf8("blake3-256", text)
         const textBase64Url = toBase64Url(textHash)
 
-        expect(utf8Decoder.decode(encodedText)).toBe(text)
+        expect(encodedText).toStrictEqual(yield* oracleUtf8(text))
         expect(decodedCanonical).toBe(text)
-        expect(utf8Decoder.decode(canonicalBytes)).toBe(canonical)
+        expect(canonicalBytes).toStrictEqual(yield* oracleUtf8(canonical))
         expect(yield* digestCanonicalJsonBytes("blake3-256", text)).toStrictEqual(canonicalHash)
         expect(yield* digestCanonicalJsonBase64Url("blake3-256", text)).toBe(canonicalBase64Url)
         expect(yield* digestCanonicalJsonHex("blake3-256", text)).toBe(toHex(canonicalHash))

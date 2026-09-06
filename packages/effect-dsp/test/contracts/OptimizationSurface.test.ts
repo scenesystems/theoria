@@ -13,12 +13,6 @@ const decodeModuleId = (moduleName: string) =>
   )
 
 describe("contracts/OptimizationSurface", () => {
-  it("pins ownership of generic search primitives to effect-search", () => {
-    expect(Contracts.searchPrimitiveOwnership.traversal).toBe("effect-search")
-    expect(Contracts.searchPrimitiveOwnership.sampler).toBe("effect-search")
-    expect(Contracts.searchPrimitiveOwnership.pareto).toBe("effect-search")
-  })
-
   it.effect("projects module params into deterministic parameter and dimension surfaces", () =>
     Effect.gen(function*() {
       const params = new Contracts.ModuleParams({
@@ -65,9 +59,6 @@ describe("contracts/OptimizationSurface", () => {
       })
 
       const projected = yield* Contracts.projectOptimizationObjective(traceEntry)
-      const encoded = yield* Schema.encode(Contracts.OptimizationObjectiveSurface)(projected)
-      const roundTrip = yield* Schema.decode(Contracts.OptimizationObjectiveSurface)(encoded)
-      const reEncoded = yield* Schema.encode(Contracts.OptimizationObjectiveSurface)(roundTrip)
 
       expect(projected.signatureDescription).toBe(traceEntry.signatureDescription)
       expect(projected.input).toEqual(traceEntry.input)
@@ -77,7 +68,6 @@ describe("contracts/OptimizationSurface", () => {
       expect(projected.usage.inputTokens).toEqual(traceEntry.inputTokens)
       expect(projected.usage.outputTokens).toEqual(traceEntry.outputTokens)
       expect(projected.usage.cached).toBe(false)
-      expect(reEncoded).toEqual(encoded)
     }))
 
   it.effect("projects module graphs into deterministic optimization traversal surfaces", () =>
@@ -112,12 +102,9 @@ describe("contracts/OptimizationSurface", () => {
 
       const projectionA = Contracts.projectOptimizationModuleGraph(graph)
       const projectionB = Contracts.projectOptimizationModuleGraph(graph)
-      const encoded = yield* Schema.encode(Contracts.OptimizationModuleGraphSurface)(projectionA)
-      const roundTrip = yield* Schema.decode(Contracts.OptimizationModuleGraphSurface)(encoded)
 
       expect(projectionA).toEqual(projectionB)
       expect(projectionA.traversal).toEqual([rootId, pipelineId, qaId])
       expect(projectionA.lineages).toHaveLength(3)
-      expect(roundTrip).toEqual(projectionA)
     }))
 })

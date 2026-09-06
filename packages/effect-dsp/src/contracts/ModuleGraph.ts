@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, HashMap, Option, Order, Schema } from "effect"
+import { Array as Arr, Data, HashMap, Option, Order, Schema } from "effect"
 import { ModuleId } from "./ModuleId.js"
 import { ModuleNodeSignature } from "./ModuleNode.js"
 
@@ -29,10 +29,10 @@ const graphEdgeOrder: Order.Order<ModuleGraphEdge> = Order.mapInput(
   (edge) => `${edge.parentId}->${edge.childId}`
 )
 
-type TraversalState = Readonly<{
+class TraversalState extends Data.Class<{
   readonly order: ReadonlyArray<ModuleId>
   readonly visited: ReadonlyArray<ModuleId>
-}>
+}> {}
 
 const nodeLookup = (graph: ModuleGraph): HashMap.HashMap<ModuleId, ModuleGraphNode> =>
   Arr.reduce(

@@ -1,7 +1,6 @@
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
-import { resolveRootFrom } from "@theoria/source-proof"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Data, Effect, Layer, Option, Predicate, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 import { createTestHarness } from "wrangler"
@@ -25,25 +24,41 @@ export const productionHost = "https://theoria.scenesystems.io"
 export const stagingHost = "https://theoria.staging.scenesystems.io"
 export const previewHost = "https://theoria-pr-7.staging.scenesystems.io"
 
-/** Request shape the tests need; keeps DOM and workers-types `Request` types apart. */
-export type SiteRequest = {
+/** Request shape the tests need. */
+export class SiteRequest extends Data.Class<{
   readonly method?: string
   readonly headers?: Record<string, string>
   readonly body?: string
-}
+}> {}
 
 /** Response shape the tests read; satisfied by both DOM and workers-types responses. */
-export type SiteResponse = {
+export class SiteResponse extends Data.Class<{
   readonly status: number
-  readonly headers: { get(name: string): string | null }
-  text(): Promise<string>
-  json(): Promise<unknown>
-}
+  readonly headers: { readonly get: Headers["get"] }
+  readonly text: () => Promise<string>
+  readonly json: () => Promise<unknown>
+}> {}
+
+/** The workerd harness rejected: it failed to listen, a request failed in transit, or a body could not be read. */
+export class SiteError extends Data.TaggedError("test/worker/SiteError")<{
+  readonly message: string
+  readonly cause: unknown
+}> {}
+
+/** Runs one harness call. */
+const harness = <A>(run: () => Promise<A>): Effect.Effect<A, SiteError> =>
+  Effect.tryPromise({
+    try: run,
+    catch: (cause) => new SiteError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
+  })
+
+const operationalError = (cause: unknown) =>
+  new SiteError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
 
 export class Site extends Context.Tag("test/worker/Site")<Site, {
   /** Origin of the local server, without a trailing slash. */
   readonly url: string
-  readonly fetch: (input: string, init?: SiteRequest) => Effect.Effect<SiteResponse>
+  readonly fetch: (input: string, init?: SiteRequest) => Effect.Effect<SiteResponse, SiteError>
   readonly manifest: DocsManifest
   readonly distRoot: string
   /** A content-hashed script from `dist/assets`, as a site path. */
@@ -59,16 +74,23 @@ const missingBuild = (file: string) =>
 const requireFile = (file: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const exists = yield* fileSystem.exists(file).pipe(Effect.orDie)
+    const exists = yield* fileSystem.exists(file).pipe(Effect.mapError(operationalError))
     return yield* exists ? Effect.void : missingBuild(file)
   })
 
-export const SiteLive = Layer.scoped(
+/**
+ * The harness for the whole layer. Nothing in a test can respond to workerd
+ * failing to shut down, so that failure surfaces as a defect in the scope's exit.
+ */
+export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
   Site,
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const projectRoot = yield* resolveRootFrom(new URL("../../", import.meta.url))
+    const projectRoot = yield* Url.fromString("../../", import.meta.url).pipe(
+      Effect.flatMap((url) => path.fromFileUrl(url)),
+      Effect.orDie
+    )
     const distRoot = path.join(projectRoot, "dist")
     const workerDir = path.join(projectRoot, ".wrangler-out")
 
@@ -78,11 +100,11 @@ export const SiteLive = Layer.scoped(
 
     const manifest = yield* fileSystem.readFileString(path.join(distRoot, "docs-data", "manifest.json")).pipe(
       Effect.flatMap(Schema.decode(DocsManifestJson)),
-      Effect.orDie
+      Effect.mapError(operationalError)
     )
     const scripts = yield* fileSystem.readDirectory(path.join(distRoot, "assets")).pipe(
       Effect.map(Arr.filter(Str.endsWith(".js"))),
-      Effect.orDie
+      Effect.mapError(operationalError)
     )
     const hashedScript = yield* Arr.head(scripts).pipe(
       Option.match({
@@ -106,13 +128,23 @@ export const SiteLive = Layer.scoped(
           }]
         })
       ),
-      (harness) => Effect.promise(() => harness.close())
+      (running) => Effect.orDie(harness(() => running.close()))
     )
-    const listening = yield* Effect.promise(() => server.listen())
+    const listening = yield* harness(() => server.listen())
 
     return Site.of({
       url: listening.url.origin,
-      fetch: (input, init) => Effect.promise(() => server.fetch(input, init)),
+      fetch: (input, init) =>
+        harness(() => server.fetch(input, init)).pipe(
+          Effect.map((response) =>
+            new SiteResponse({
+              status: response.status,
+              headers: { get: (name) => response.headers.get(name) },
+              text: () => response.text(),
+              json: () => response.json()
+            })
+          )
+        ),
       manifest,
       distRoot,
       hashedScript
@@ -120,5 +152,5 @@ export const SiteLive = Layer.scoped(
   })
 ).pipe(Layer.provide(BunContext.layer))
 
-export const text = (response: SiteResponse) => Effect.promise(() => response.text())
-export const json = (response: SiteResponse) => Effect.promise(() => response.json())
+export const text = (response: SiteResponse) => harness(() => response.text())
+export const json = (response: SiteResponse) => harness(() => response.json())

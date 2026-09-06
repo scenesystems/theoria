@@ -130,11 +130,14 @@ export const computeTupleResult = (
 ): SemanticResult =>
   Effect.flatMap(
     compactEffect(state.errors, cooperation),
-    (errors) =>
-      Effect.flatMap(compactEffect(state.output, cooperation), (values) =>
-        Arr.isNonEmptyReadonlyArray(errors)
-          ? failResult(new ParseResult.Composite(ast, input, errors, values))
-          : Effect.succeed(values))
+    Arr.match({
+      onEmpty: () => compactEffect(state.output, cooperation),
+      onNonEmpty: (issues) =>
+        Effect.flatMap(
+          compactEffect(state.output, cooperation),
+          (values) => failResult(new ParseResult.Composite(ast, input, issues, values))
+        )
+    })
   )
 
 export const computeTupleFailure = (

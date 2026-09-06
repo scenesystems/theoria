@@ -19,14 +19,18 @@ export type Container =
 
 export const Container = Data.taggedEnum<Container>()
 
-// Descriptor snapshots are private indexed-buffer records, not domain carriers.
-// eslint-disable-next-line no-restricted-syntax
-export type Snapshot = {
+/** One own-property descriptor read, captured once for the admission machine. */
+export class Snapshot extends Data.Class<{
   readonly key: string
-  readonly accessor: boolean
   readonly enumerable: boolean
   readonly value: unknown
-}
+}> {}
+
+export type DescriptorSnapshot =
+  | { readonly _tag: "Accessor"; readonly enumerable: boolean }
+  | { readonly _tag: "Data"; readonly snapshot: Snapshot }
+
+export const DescriptorSnapshot = Data.taggedEnum<DescriptorSnapshot>()
 
 const unsupported = (reason: UnsupportedValue["reason"]): Unsupported => new Unsupported({ reason })
 
@@ -34,7 +38,7 @@ export const reflect = <A>(operation: () => A): Either.Either<A, Unsupported> =>
   Either.try({ try: operation, catch: () => unsupported("reflection-failure") })
 
 export const classifyPrimitive = (value: unknown): Either.Either<Primitive, Unsupported | InvalidUnicode> => {
-  if (value === null) return Either.right(Primitive.Null())
+  if (Predicate.isNull(value)) return Either.right(Primitive.Null())
   if (Predicate.isUndefined(value)) return Either.left(unsupported("undefined"))
   if (Predicate.isBoolean(value)) return Either.right(Primitive.Boolean({ value }))
   if (Predicate.isString(value)) return Either.right(Primitive.String({ value }))
@@ -63,7 +67,7 @@ export const classifyContainer = (value: object): Either.Either<Container, Unsup
     if (value instanceof Promise) return unsupported("promise")
     if (Arr.isArray(value)) return Container.Array({ identity: value })
     const prototype = Reflect.getPrototypeOf(value)
-    if (prototype !== Object.prototype && prototype !== null) return unsupported("unsupported-prototype")
+    if (prototype !== Object.prototype && !Predicate.isNull(prototype)) return unsupported("unsupported-prototype")
     return Container.Record({ identity: value })
   }).pipe(Either.flatMap((result) => result instanceof Unsupported ? Either.left(result) : Either.right(result)))
 
@@ -86,12 +90,12 @@ export const descriptorShape = (identity: object, key: PropertyKey) =>
     enumerable: descriptor.enumerable === true
   }))
 
-export const snapshot = (identity: object, key: string): Either.Either<Snapshot, Unsupported> =>
-  Either.map(ownDescriptor(identity, key), (descriptor) => ({
-    key,
-    accessor: !("value" in descriptor),
-    enumerable: descriptor.enumerable === true,
-    value: "value" in descriptor ? descriptor.value : undefined
-  }))
+export const snapshot = (identity: object, key: string): Either.Either<DescriptorSnapshot, Unsupported> =>
+  Either.map(ownDescriptor(identity, key), (descriptor) => {
+    const enumerable = descriptor.enumerable === true
+    return "value" in descriptor
+      ? DescriptorSnapshot.Data({ snapshot: new Snapshot({ key, enumerable, value: descriptor.value }) })
+      : DescriptorSnapshot.Accessor({ enumerable })
+  })
 
 export const rejection = unsupported

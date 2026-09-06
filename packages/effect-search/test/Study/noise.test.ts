@@ -8,7 +8,7 @@ import * as Study from "../../src/Study/index.js"
 import * as Trial from "../../src/Trial/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
 
@@ -36,7 +36,7 @@ describe("re-evaluation averaging + variance threading", () => {
     Effect.gen(function*() {
       const callsRef = yield* Ref.make(0)
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 19 }),
         direction: "minimize",
         trials: 2,
@@ -68,7 +68,7 @@ describe("re-evaluation averaging + variance threading", () => {
       const contextsRef = yield* Ref.make<ReadonlyArray<SuggestContext>>([])
 
       yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: capturedContextsSampler(contextsRef),
         direction: "minimize",
         trials: 2,

@@ -6,47 +6,32 @@
  * failures owned by one subsystem; `SearchErrorSchema` accepts every public search error.
  *
  * @since 0.1.0
+ * @module
  */
 import { Predicate, Schema } from "effect"
 
-export {
-  /** @since 0.1.0 */
-  SearchErrorTypeId
-} from "./typeId.js"
+export { SearchErrorTypeId } from "./typeId.js"
 
+export { ArtifactStorageError } from "./Artifact.js"
 export {
-  /** @since 0.1.0 */
   GridIncompatible,
-  /** @since 0.1.0 */
   InvalidSamplerConfig,
-  /** @since 0.1.0 */
   SamplerExhausted,
-  /** @since 0.1.0 */
   SamplerObjectiveUnsupported,
-  /** @since 0.1.0 */
   SamplerSearchSpaceUnsupported
 } from "./Sampler.js"
+export { InvalidSearchSpace } from "./SearchSpace.js"
 export {
-  /** @since 0.1.0 */
-  InvalidSearchSpace
-} from "./SearchSpace.js"
-export {
-  /** @since 0.1.0 */
   InvalidMathInput,
-  /** @since 0.1.0 */
   InvalidObjectiveReport,
-  /** @since 0.1.0 */
   InvalidObjectiveValue,
-  /** @since 0.1.0 */
   InvalidStudyConfig,
-  /** @since 0.1.0 */
   NoSuccessfulTrials,
-  /** @since 0.1.0 */
   NotImplemented,
-  /** @since 0.1.0 */
   TrialError
 } from "./Study.js"
 
+import { ArtifactStorageError } from "./Artifact.js"
 import {
   GridIncompatible,
   InvalidSamplerConfig,
@@ -105,8 +90,9 @@ export const SamplerErrorSchema = Schema.Union(
 export type SamplerError = Schema.Schema.Type<typeof SamplerErrorSchema>
 
 /**
- * Decodes failures owned by study orchestration, objective reporting, and
- * trial execution; search-space and sampler failures remain outside this union.
+ * Decodes failures owned by study orchestration, objective reporting, trial
+ * execution and artifact persistence; search-space and sampler failures remain
+ * outside this union.
  *
  * @since 0.1.0
  * @category schemas
@@ -118,7 +104,8 @@ export const StudyErrorSchema = Schema.Union(
   NoSuccessfulTrials,
   InvalidMathInput,
   NotImplemented,
-  TrialError
+  TrialError,
+  ArtifactStorageError
 )
 
 /**
@@ -148,7 +135,8 @@ export const SearchErrorSchema = Schema.Union(
   NoSuccessfulTrials,
   InvalidMathInput,
   NotImplemented,
-  TrialError
+  TrialError,
+  ArtifactStorageError
 )
 
 /**

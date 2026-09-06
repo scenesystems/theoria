@@ -7,10 +7,15 @@ import * as Sampler from "../../src/Sampler/index.js"
 
 const drawConfigs = (seed: number, count: number) => {
   const sampler = Sampler.random({ seed })
-  const space = makeRandomTrainingSpace(64, 1e-3)
   const draws = Arr.makeBy(count, (index) => index)
 
-  return Effect.forEach(draws, (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber)))
+  return Effect.gen(function*() {
+    const space = yield* makeRandomTrainingSpace(64, 1e-3)
+    return yield* Effect.forEach(
+      draws,
+      (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
+    )
+  })
 }
 
 describe("Sampler.random", () => {
@@ -33,7 +38,8 @@ describe("Sampler.random", () => {
   it.effect("generates values within declared space bounds", () =>
     Effect.gen(function*() {
       const candidates = yield* drawConfigs(7, 200)
-      const decode = Schema.decodeUnknownEither(makeRandomTrainingSpace(64, 1e-3).schema)
+      const space = yield* makeRandomTrainingSpace(64, 1e-3)
+      const decode = Schema.decodeUnknownEither(space.schema)
 
       candidates.forEach((candidate) => {
         const decoded = decode(candidate)
@@ -47,14 +53,13 @@ describe("Sampler.random", () => {
         expect(decoded.right.lr).toBeLessThanOrEqual(1e-1)
         expect(["adam", "sgd", "adamw"]).toContain(decoded.right.optimizer)
         expect([16, 32, 48, 64]).toContain(decoded.right.batchSize)
-        expect(typeof decoded.right.useBatchNorm).toBe("boolean")
       })
     }))
 
   it.effect("supports log-scale float sampling", () =>
     Effect.gen(function*() {
       const sampler = Sampler.random({ seed: 9 })
-      const space = makeLogLearningRateSpace()
+      const space = yield* makeLogLearningRateSpace()
       const decode = Schema.decodeUnknownEither(space.schema)
 
       const candidates = yield* Effect.forEach(

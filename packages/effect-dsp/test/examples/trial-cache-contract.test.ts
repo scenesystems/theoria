@@ -6,18 +6,18 @@ import { describe, expect, it } from "@effect/vitest"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 import { Effect, Number as Num, Ref } from "effect"
 
-const singleChoiceSpace = () =>
-  SearchSpace.unsafeMake({
-    choice: SearchSpace.categorical(["only"])
-  })
+const singleChoiceSpace = SearchSpace.make({
+  choice: SearchSpace.categorical(["only"])
+})
 
 describe("examples/trial-cache-contract", () => {
   it.effect("returns cached trial outcomes for repeated configs in example runtime", () =>
     Effect.gen(function*() {
       const invocations = yield* Ref.make(0)
+      const space = yield* singleChoiceSpace
 
       const result = yield* Study.optimize({
-        space: singleChoiceSpace(),
+        space,
         sampler: Sampler.random({ seed: 31 }),
         direction: "maximize",
         trials: 4,
@@ -43,9 +43,10 @@ describe("examples/trial-cache-contract", () => {
   it.effect("invokes objective on every trial when no cache layer is provided", () =>
     Effect.gen(function*() {
       const invocations = yield* Ref.make(0)
+      const space = yield* singleChoiceSpace
 
       yield* Study.optimize({
-        space: singleChoiceSpace(),
+        space,
         sampler: Sampler.random({ seed: 31 }),
         direction: "maximize",
         trials: 4,

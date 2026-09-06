@@ -17,7 +17,7 @@ Strict canonicalization and cryptographic digest primitives for Effect.
 | Example typecheck                  | `bun run check:examples`  |
 | Lint                               | `bun run lint`            |
 | Behavioral and conformance tests   | `bun run test`            |
-| Fixture governance and conformance | `bun run fixtures:verify` |
+| Fixture provenance and conformance | `bun run fixtures:verify` |
 | Build                              | `bun run build`           |
 
 Use the smallest targeted check while developing, then run every relevant package and workspace gate before committing. Tests must prove behavior. Do not add tests or harnesses that inspect package assets, source inventories, export maps, or generated distribution layout.
@@ -66,7 +66,6 @@ Do not create a second canonicalization law, text encoder, public subpath, mutab
 - Model expected fallibility with `Effect`; use `Schema.TaggedError` for closed public errors and `Match.exhaustive` for fixed algorithm dispatch.
 - Do not use `Effect.run*` in source or tests. Use `@effect/vitest`, `it.effect`, and `Effect.exit` for failure assertions.
 - Test observable laws and exact failure values. Property tests supplement independent known-answer vectors; provider round trips are not conformance evidence.
-- Keep production files within the repository's 240-line limit.
 - Never expose Noble-specific types from the public API.
 
 ## Fixture governance

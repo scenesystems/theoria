@@ -7,6 +7,7 @@
  * accept every package-owned error.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./metric.js"

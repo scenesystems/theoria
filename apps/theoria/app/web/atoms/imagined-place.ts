@@ -1,6 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Effect, Option } from "effect"
+import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -10,12 +10,13 @@ import type { PlaceBuild } from "../../contracts/imagined-place-result.js"
 import {
   type PlaceArtifact,
   type PlaceBuildRequest,
-  type PlaceScenario,
+  PlaceScenario,
   placeScenarioMeta
 } from "../../contracts/imagined-place.js"
 import type { SuccessEnvelopeData } from "../services/envelopeRequest.js"
 import { ImaginedPlaceClient } from "../services/ImaginedPlaceClient.js"
 import type { PlaceStep } from "../view/home/placeSteps.js"
+import { artifactStageBorderPx } from "../view/primitives/ArtifactStage.js"
 
 /**
  * State for the home-page demo.
@@ -91,10 +92,12 @@ export const placeArtifactAtom: AtomType.Atom<Option.Option<PlaceArtifact>> = At
  * arrival": no highlight, because nothing changed. Picking another pattern is
  * a different place, not a change to this one, so the count starts over.
  */
-export type PlaceVersionChange = {
-  readonly current: Option.Option<{ readonly scenario: PlaceScenario; readonly contentId: string }>
-  readonly changes: number
-}
+const PlaceVersion = Schema.Struct({ scenario: PlaceScenario, contentId: Schema.String })
+export const PlaceVersionChange = Schema.Struct({
+  current: Schema.OptionFromSelf(PlaceVersion),
+  changes: Schema.Number
+})
+export type PlaceVersionChange = typeof PlaceVersionChange.Type
 
 const sameVersion = Option.getEquivalence<{ readonly scenario: PlaceScenario; readonly contentId: string }>(
   (a, b) => a.scenario === b.scenario && Str.Equivalence(a.contentId, b.contentId)
@@ -144,10 +147,14 @@ export const placeStageRequestAtom: AtomType.Writable<number> = Atom.make(stageM
 /** The width the stage column actually has, reported by a resize observer. */
 export const placeStageContainerWidthAtom: AtomType.Writable<number> = Atom.make(0)
 
-/** The widest stage the column can show. */
+/** The stage frame's border, on each side; the drawing sits inside it, so the column must hold both. */
+export const placeStageFrameBorderPx = artifactStageBorderPx
+
+/** The widest stage the column can show once the frame's border has taken its share. */
 export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {
   const container = get(placeStageContainerWidthAtom)
-  return container > 0 ? Math.max(stageMinWidth, Math.min(stageMaxWidth, container)) : stageMaxWidth
+  const drawable = container - placeStageFrameBorderPx * 2
+  return container > 0 ? Math.max(stageMinWidth, Math.min(stageMaxWidth, drawable)) : stageMaxWidth
 })
 
 /** The stage width that is drawn: the request, cut to the column, clamped to the stage's range. */

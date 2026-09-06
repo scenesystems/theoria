@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import * as SearchSpace from "../../SearchSpace/index.js"
 
@@ -68,20 +68,12 @@ export const LinearTreeConditionalConfigSchema = Schema.Union(LinearConfigSchema
 export type LinearTreeConditionalConfig = Schema.Schema.Type<typeof LinearTreeConditionalConfigSchema>
 
 /**
- * Decodes an unknown fixture configuration and throws on a schema violation.
- *
- * @since 0.1.0
- * @category utils
- */
-export const decodeLinearTreeConditionalConfig = Schema.decodeUnknownSync(LinearTreeConditionalConfigSchema)
-
-/**
  * Decodes an unknown fixture configuration with schema violations in the Effect error channel.
  *
  * @since 0.1.0
  * @category utils
  */
-export const decodeLinearTreeConditionalConfigEffect = Schema.decodeUnknown(LinearTreeConditionalConfigSchema)
+export const decodeLinearTreeConditionalConfig = Schema.decodeUnknown(LinearTreeConditionalConfigSchema)
 
 /**
  * Builds a conditional space that samples only parameters for the selected model.
@@ -95,24 +87,20 @@ export const decodeLinearTreeConditionalConfigEffect = Schema.decodeUnknown(Line
  * @category constructors
  */
 export const makeLinearTreeConditionalSpace = () =>
-  SearchSpace.unsafeMakeConditional(
-    {
-      model: SearchSpace.categorical(LinearTreeModelChoices)
-    },
-    SearchSpace.switch("model", [
-      SearchSpace.when(
-        "linear",
-        SearchSpace.unsafeMake({
-          learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
-          regularization: SearchSpace.float(0, 1)
-        })
-      ),
-      SearchSpace.when(
-        "tree",
-        SearchSpace.unsafeMake({
-          maxDepth: SearchSpace.int(2, 12),
-          minSamplesLeaf: SearchSpace.int(1, 6)
-        })
-      )
-    ])
-  )
+  Effect.gen(function*() {
+    const linear = yield* SearchSpace.make({
+      learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
+      regularization: SearchSpace.float(0, 1)
+    })
+    const tree = yield* SearchSpace.make({
+      maxDepth: SearchSpace.int(2, 12),
+      minSamplesLeaf: SearchSpace.int(1, 6)
+    })
+
+    return yield* SearchSpace.makeConditional(
+      {
+        model: SearchSpace.categorical(LinearTreeModelChoices)
+      },
+      SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
+    )
+  })

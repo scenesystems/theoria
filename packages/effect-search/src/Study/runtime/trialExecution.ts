@@ -33,7 +33,7 @@ import { modifyStudyState, StudyClock, type StudyRuntime } from "./runtimeState.
 import { applyTrialStoppingPolicies } from "./stopping.js"
 import { TrialContext } from "./trialContext.js"
 import { evaluateObjectiveWithPolicy } from "./trialEvaluation.js"
-import type { CacheResolveAsTrialError } from "./trialEvaluation/model.js"
+import type { CacheResolveForTrial } from "./trialEvaluation/model.js"
 import { reserveTrialOrMarkSpaceExhausted } from "./trialReservation.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
@@ -77,7 +77,7 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
         resource
       })
       const objectiveCache = yield* Effect.serviceOption(StudyObjectiveCache.StudyObjectiveCache)
-      const resolveCachedValue: CacheResolveAsTrialError = Option.match(objectiveCache, {
+      const resolveCachedValue: CacheResolveForTrial = Option.match(objectiveCache, {
         onNone: () => ({ compute }) =>
           compute.pipe(
             Effect.map((value) => Tuple.make(value, "miss"))
@@ -215,13 +215,13 @@ export const runConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
     const skipTrial = skipNextTrial || skipByCost
 
     return yield* Match.value(skipTrial).pipe(
-      Match.when(true, () => Effect.succeed(Option.none())),
+      Match.when(true, () => Effect.succeedNone),
       Match.orElse(() =>
         reserveConfiguredTrial(config, trialNumber, runtime).pipe(
           Effect.flatMap((running) =>
             executeReservedTrial(options, settings, pruningPolicy, trialNumber, runtime, running, resource)
           ),
-          Effect.map(Option.some)
+          Effect.asSome
         )
       )
     )

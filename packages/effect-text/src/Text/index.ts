@@ -9,30 +9,9 @@
  * materialization and incremental traversal.
  *
  * @since 0.1.0
+ * @module
  */
-export {
-  /**
-   * Prepared text handle returned by `Text.prepare`.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  PreparedText,
-  /**
-   * Rich prepared handle returned by `Text.prepareWithSegments`.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  PreparedTextWithSegments,
-  /**
-   * Compatibility status for prepared handles and layout projections.
-   *
-   * @since 0.1.0
-   * @category stability
-   */
-  TextStability
-} from "./model.js"
+export { PreparedText, PreparedTextWithSegments, TextStability } from "./model.js"
 
 /**
  * Decoders for prepare inputs and unit-consistent layout geometry.

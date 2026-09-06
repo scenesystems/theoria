@@ -7,6 +7,7 @@
  * successfully prepared handle has no typed failure channel.
  *
  * @since 0.1.0
+ * @module
  */
 import { Schema } from "effect"
 

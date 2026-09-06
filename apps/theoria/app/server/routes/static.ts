@@ -6,7 +6,7 @@ import { headEntries } from "../../contracts/head.js"
 import { docsPathExists, metadataForDocs, metadataForHome, type PageMetadata } from "../../contracts/metadata.js"
 import { injectAnalytics, requestAnalytics } from "../analytics.js"
 import { DocsManifestStore } from "../config/docs-manifest-store.js"
-import { contentTypeForPath, StaticStore } from "../config/static-store.js"
+import { htmlContentType, StaticStore, textContentType } from "../config/static-store.js"
 import { renderHead } from "../render-head.js"
 
 const indexPathname = "/index.html"
@@ -43,7 +43,7 @@ export const notFoundResponse = () =>
     status: 404,
     headers: {
       ...responseHeaders("/not-found.txt"),
-      "content-type": contentTypeForPath("/not-found.txt")
+      "content-type": textContentType
     }
   })
 
@@ -72,7 +72,7 @@ const htmlResponse = (pathname: string) =>
     const store = yield* StaticStore
     const docsManifestStore = yield* DocsManifestStore
     const docsManifest = isDocsPath(pathname)
-      ? yield* Effect.option(docsManifestStore.manifest)
+      ? Option.some(yield* docsManifestStore.manifest)
       : Option.none()
     const analytics = yield* requestAnalytics
     const html = yield* store.text(indexPathname)
@@ -81,12 +81,12 @@ const htmlResponse = (pathname: string) =>
       status: htmlStatus(pathname, docsManifest),
       headers: {
         ...responseHeaders(indexPathname),
-        "content-type": contentTypeForPath(indexPathname),
+        "content-type": htmlContentType,
         // llmstxt.org: point agents at the file that describes every page.
         link: `</llms.txt>; rel="describedby"`
       }
     })
-  }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))
+  })
 
 const assetResponse = (pathname: string) =>
   Effect.gen(function*() {

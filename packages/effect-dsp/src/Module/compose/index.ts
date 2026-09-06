@@ -2,6 +2,7 @@
  * Validated ownership graphs for module programs.
  *
  * @since 0.1.0
+ * @module
  */
 import type { Schema } from "effect"
 import { Effect, Ref } from "effect"
@@ -88,36 +89,6 @@ export const compose = <
     })
   })
 
-export {
-  /**
-   * Validates a declared ownership graph without allocating a root module.
-   *
-   * @since 0.1.0
-   * @category constructors
-   */
-  composeGraph,
-  /**
-   * Associates caller-local aliases with direct child modules.
-   *
-   * @since 0.1.0
-   * @category type-level
-   */
-  type ComposeSubModules
-} from "./graph.js"
+export { composeGraph, type ComposeSubModules } from "./graph.js"
 
-export {
-  /**
-   * Computes one composite result from decoded input and graph metadata.
-   *
-   * @since 0.1.0
-   * @category type-level
-   */
-  type ComposeForward,
-  /**
-   * Exposes decoded input and the composition metadata built at construction.
-   *
-   * @since 0.1.0
-   * @category type-level
-   */
-  type ComposeForwardContext
-} from "./runtime.js"
+export { type ComposeForward, type ComposeForwardContext } from "./runtime.js"

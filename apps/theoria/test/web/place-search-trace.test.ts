@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import { stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
 import type { PlaceRendering } from "../../app/contracts/imagined-place-result.js"
-import { frameLosses, frameShowing, type PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
+import { frameLosses, frameShowing, PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
 import {
   keptTrialLabel,
   renderProgressText,
@@ -44,8 +44,22 @@ const rendering: PlaceRendering = {
   }
 }
 
-const complete: PlaceRenderFrame = { phase: "complete", trial: 3, stage, tried, bestIndex: 2, rendering, labels: {} }
-const running: PlaceRenderFrame = { ...complete, phase: "running", trial: 2, tried: Arr.take(tried, 2), bestIndex: 1 }
+const complete: PlaceRenderFrame = new PlaceRenderFrame({
+  phase: "complete",
+  trial: 3,
+  stage,
+  tried,
+  bestIndex: 2,
+  rendering,
+  labels: {}
+})
+const running: PlaceRenderFrame = new PlaceRenderFrame({
+  ...complete,
+  phase: "running",
+  trial: 2,
+  tried: Arr.take(tried, 2),
+  bestIndex: 1
+})
 
 describe("search trace", () => {
   it("derives the trace from the trials rather than storing it twice", () => {

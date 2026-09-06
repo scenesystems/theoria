@@ -76,98 +76,89 @@ export const restoreSnapshot = <Space extends SearchSpace.SearchSpace>(
   stopMode: StopMode,
   snapshot: StudySnapshot
 ): Effect.Effect<ExecuteSeed<SearchSpace.Type<Space>>, InvalidStudyConfig> =>
-  Effect.fn("effect-search/Study.restoreSnapshot")(
-    <CurrentSpace extends SearchSpace.SearchSpace>(
-      currentSpace: CurrentSpace,
-      currentSampler: Sampler.Sampler,
-      currentObjectiveSpec: ObjectiveSpec,
-      currentStopMode: StopMode,
-      currentSnapshot: StudySnapshot
-    ): Effect.Effect<ExecuteSeed<SearchSpace.Type<CurrentSpace>>, InvalidStudyConfig> =>
-      Effect.gen(function*() {
-        const decodedSnapshot = yield* decodeSnapshotPayload(currentSnapshot)
-        const runtimeSpaceFingerprint = SearchSpace.fingerprint(currentSpace)
-        const runtimeObjectiveSignature = objectiveSpecSignature(currentObjectiveSpec)
-        const snapshotObjectiveSignature = objectiveSpecSignature(decodedSnapshot.objectiveSpec)
-        const runtimeSamplerSignature = samplerKindSignature(currentSampler.kind)
-        const snapshotSamplerSignature = samplerKindSignature(decodedSnapshot.samplerKind)
+  Effect.gen(function*() {
+    const decodedSnapshot = yield* decodeSnapshotPayload(snapshot)
+    const runtimeSpaceFingerprint = SearchSpace.fingerprint(space)
+    const runtimeObjectiveSignature = objectiveSpecSignature(objectiveSpec)
+    const snapshotObjectiveSignature = objectiveSpecSignature(decodedSnapshot.objectiveSpec)
+    const runtimeSamplerSignature = samplerKindSignature(sampler.kind)
+    const snapshotSamplerSignature = samplerKindSignature(decodedSnapshot.samplerKind)
 
-        yield* Effect.when(
-          Effect.fail(
-            new InvalidStudyConfig({
-              reason: `Study.resume space fingerprint mismatch: expected ${decodedSnapshot.spaceFingerprint}, ` +
-                `received ${runtimeSpaceFingerprint}`
-            })
-          ),
-          () => !Equal.equals(decodedSnapshot.spaceFingerprint, runtimeSpaceFingerprint)
-        )
-
-        yield* Effect.when(
-          Effect.fail(
-            new InvalidStudyConfig({
-              reason: "Study.resume objective spec mismatch between snapshot and runtime options"
-            })
-          ),
-          () => !Equal.equals(runtimeObjectiveSignature, snapshotObjectiveSignature)
-        )
-
-        yield* Effect.when(
-          Effect.fail(
-            new InvalidStudyConfig({
-              reason:
-                `Study.resume stop mode mismatch: expected ${decodedSnapshot.stopMode}, received ${currentStopMode}`
-            })
-          ),
-          () => !Equal.equals(decodedSnapshot.stopMode, currentStopMode)
-        )
-
-        yield* Effect.when(
-          Effect.fail(
-            new InvalidStudyConfig({
-              reason: `Study.resume sampler kind mismatch: expected ${decodedSnapshot.samplerKind._tag}, ` +
-                `received ${currentSampler.kind._tag}`
-            })
-          ),
-          () => !Equal.equals(runtimeSamplerSignature, snapshotSamplerSignature)
-        )
-
-        yield* Sampler.SamplerSpi.pipe(
-          Effect.flatMap((service) => service.restore(decodedSnapshot.samplerCheckpoint)),
-          Effect.provide(Sampler.SamplerSpiLayer(currentSampler))
-        )
-
-        const restoredTrials = yield* Effect.forEach(decodedSnapshot.trials, (trial) =>
-          decodeSnapshotTrialConfig(currentSpace, trial).pipe(
-            Effect.map((config) => snapshotToTrial(trial, config))
-          ))
-
-        const computedNextTrialNumber = nextTrialNumberFromTrials(restoredTrials)
-        const computedCompletedCount = completedCountFromTrials(restoredTrials)
-
-        yield* Effect.when(
-          Effect.fail(
-            new InvalidStudyConfig({
-              reason:
-                `Study.resume snapshot nextTrialNumber mismatch: expected ${computedNextTrialNumber}, received ${decodedSnapshot.nextTrialNumber}`
-            })
-          ),
-          () =>
-            !Equal.equals(computedNextTrialNumber, decodedSnapshot.nextTrialNumber)
-        )
-
-        yield* Effect.when(
-          Effect.fail(
-            new InvalidStudyConfig({
-              reason:
-                `Study.resume snapshot completedCount mismatch: expected ${computedCompletedCount}, received ${decodedSnapshot.completedCount}`
-            })
-          ),
-          () => !Equal.equals(computedCompletedCount, decodedSnapshot.completedCount)
-        )
-
-        return new ExecuteSeed({
-          initialTrials: restoredTrials,
-          startTrialNumber: decodedSnapshot.nextTrialNumber
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidStudyConfig({
+          reason: `Study.resume space fingerprint mismatch: expected ${decodedSnapshot.spaceFingerprint}, ` +
+            `received ${runtimeSpaceFingerprint}`
         })
-      })
-  )(space, sampler, objectiveSpec, stopMode, snapshot)
+      ),
+      () => !Equal.equals(decodedSnapshot.spaceFingerprint, runtimeSpaceFingerprint)
+    )
+
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidStudyConfig({
+          reason: "Study.resume objective spec mismatch between snapshot and runtime options"
+        })
+      ),
+      () => !Equal.equals(runtimeObjectiveSignature, snapshotObjectiveSignature)
+    )
+
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidStudyConfig({
+          reason: `Study.resume stop mode mismatch: expected ${decodedSnapshot.stopMode}, received ${stopMode}`
+        })
+      ),
+      () => !Equal.equals(decodedSnapshot.stopMode, stopMode)
+    )
+
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidStudyConfig({
+          reason: `Study.resume sampler kind mismatch: expected ${decodedSnapshot.samplerKind._tag}, ` +
+            `received ${sampler.kind._tag}`
+        })
+      ),
+      () => !Equal.equals(runtimeSamplerSignature, snapshotSamplerSignature)
+    )
+
+    yield* Sampler.SamplerSpi.pipe(
+      Effect.flatMap((service) => service.restore(decodedSnapshot.samplerCheckpoint)),
+      Effect.provide(Sampler.SamplerSpiLayer(sampler))
+    )
+
+    const restoredTrials = yield* Effect.forEach(decodedSnapshot.trials, (trial) =>
+      decodeSnapshotTrialConfig(space, trial).pipe(
+        Effect.map((config) =>
+          snapshotToTrial(trial, config)
+        )
+      ))
+
+    const computedNextTrialNumber = nextTrialNumberFromTrials(restoredTrials)
+    const computedCompletedCount = completedCountFromTrials(restoredTrials)
+
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidStudyConfig({
+          reason:
+            `Study.resume snapshot nextTrialNumber mismatch: expected ${computedNextTrialNumber}, received ${decodedSnapshot.nextTrialNumber}`
+        })
+      ),
+      () => !Equal.equals(computedNextTrialNumber, decodedSnapshot.nextTrialNumber)
+    )
+
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidStudyConfig({
+          reason:
+            `Study.resume snapshot completedCount mismatch: expected ${computedCompletedCount}, received ${decodedSnapshot.completedCount}`
+        })
+      ),
+      () => !Equal.equals(computedCompletedCount, decodedSnapshot.completedCount)
+    )
+
+    return new ExecuteSeed({
+      initialTrials: restoredTrials,
+      startTrialNumber: decodedSnapshot.nextTrialNumber
+    })
+  }).pipe(Effect.withSpan("effect-search/Study.restoreSnapshot"))

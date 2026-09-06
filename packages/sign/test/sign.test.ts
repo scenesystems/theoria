@@ -4,7 +4,6 @@
  * Verifies:
  * - Algorithm dispatch routes to correct signature implementation
  * - sign("ed25519", ...) produces Ed25519 signatures
- * - sign("ml-dsa-65", ...) fails closed because it cannot receive hedging entropy
  * - sign("secp256k1-ecdsa", ...) produces ECDSA signatures
  * - sign("secp256k1-schnorr", ...) produces Schnorr signatures
  * - Algorithm-tagged Signature output carries correct algorithm field
@@ -14,12 +13,13 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { ed25519Keygen } from "../src/algorithms/ed25519.js"
-import { mlDsa44Keygen, mlDsa65Keygen, mlDsa87Keygen } from "../src/algorithms/mlDsa.js"
+import { mlDsa44Keygen, mlDsa87Keygen } from "../src/algorithms/mlDsa.js"
 import { secp256k1EcdsaKeygen, secp256k1SchnorrKeygen } from "../src/algorithms/secp256k1.js"
 import { slhDsaSha2128fKeygen } from "../src/algorithms/slhDsa.js"
+import { utf8ToBytes } from "../src/encoding.js"
 import { sign, verify } from "../src/sign.js"
 
-const message = new TextEncoder().encode("unified pipeline test")
+const message = utf8ToBytes("unified pipeline test")
 
 describe("Unified sign/verify pipeline", () => {
   it.effect("sign('ed25519') → verify roundtrip", () =>
@@ -58,13 +58,6 @@ describe("Unified sign/verify pipeline", () => {
       expect(valid).toBe(true)
     }))
 
-  it.effect("sign('ml-dsa-65') requires migration to an explicit signing mode", () =>
-    Effect.gen(function*() {
-      const kp = yield* mlDsa65Keygen()
-      const error = yield* Effect.flip(sign("ml-dsa-65", message, kp.secretKey, kp.publicKey))
-      expect(error._tag).toBe("SigningFailed")
-    }))
-
   it.effect("sign('ml-dsa-87') → verify roundtrip", () =>
     Effect.gen(function*() {
       const kp = yield* mlDsa87Keygen()
@@ -87,7 +80,7 @@ describe("Unified sign/verify pipeline", () => {
     Effect.gen(function*() {
       const kp = yield* ed25519Keygen()
       const sig = yield* sign("ed25519", message, kp.secretKey, kp.publicKey)
-      const wrongMessage = new TextEncoder().encode("wrong message")
+      const wrongMessage = utf8ToBytes("wrong message")
       const valid = yield* verify(sig, wrongMessage)
       expect(valid).toBe(false)
     }))

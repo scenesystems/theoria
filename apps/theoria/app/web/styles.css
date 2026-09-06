@@ -468,29 +468,6 @@
  * --------------------------------------------------------------------------- */
 
 @layer utilities {
-  @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-fade-in-up {
-    animation: fade-in-up 250ms ease-out both;
-  }
-
-  .evidence-section-enter {
-    animation: fade-in-up 300ms ease-out both;
-  }
-
-  .docs-route-enter {
-    animation: fade-in-up 180ms ease-out both;
-  }
-
   /* A value that just changed: a wash in the digest tone that settles to nothing. */
   @keyframes value-changed {
     from {
@@ -536,11 +513,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .animate-fade-in-up,
     .animate-path-draw,
-    .animate-value-changed,
-    .docs-route-enter,
-    .evidence-section-enter {
+    .animate-value-changed {
       animation: none;
     }
   }

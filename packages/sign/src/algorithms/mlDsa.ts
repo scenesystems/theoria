@@ -10,9 +10,10 @@
  * deterministic and caller-hedged operations.
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 import { ml_dsa44, ml_dsa65, ml_dsa87 } from "@noble/post-quantum/ml-dsa.js"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import {
   hasInvalidMlDsa65HintEncoding,
   ML_DSA_65_ENTROPY_BYTES,
@@ -57,7 +58,8 @@ export const mlDsa44Verify = dsa44.verify
 
 /**
  * Draws an ML-DSA-44 key pair from Noble's ambient CSPRNG (1,312-byte public
- * key and 2,560-byte secret key).
+ * key and 2,560-byte secret key), failing with `KeyGenerationFailed` when the
+ * runtime CSPRNG is unavailable.
  * @since 0.1.0
  * @category algorithms
  */
@@ -77,31 +79,13 @@ export const mlDsa44Keygen = dsa44.keygen
 export const mlDsa65SignDeterministic = dsa65.sign
 
 /**
- * Legacy ML-DSA-65 signing entrypoint without explicit entropy.
- *
- * @remarks
- * It now fails closed because its historical signature cannot supply explicit hedging entropy. Use
- * `mlDsa65SignHedged` for production signing or `mlDsa65SignDeterministic` for conformance.
- *
- * @deprecated Deprecated since 0.1.1. Use `mlDsa65SignHedged` for production
- * signing or `mlDsa65SignDeterministic` for conformance; the legacy operation
- * always fails because it cannot accept explicit entropy.
- * @since 0.1.0
- * @category algorithms
- */
-export const mlDsa65Sign = (
-  _message: Uint8Array,
-  _secretKey: Uint8Array,
-  _publicKey: Uint8Array
-): Effect.Effect<never, SigningFailed> =>
-  Effect.fail(new SigningFailed({ algorithm: "ml-dsa-65", reason: "explicit signing mode required" }))
-
-/**
  * Signs with pure ML-DSA-65 using exactly 32 bytes of caller-supplied entropy.
  *
  * @remarks
  * The final argument is passed to Noble as `extraEntropy`; ambient randomness is never
- * consulted. Inputs are detached before primitive execution.
+ * consulted. Inputs are admitted and copied when the Effect executes, so an
+ * input that cannot be read (a detached buffer, a hostile proxy) fails with
+ * `SigningFailed` rather than raising.
  *
  * @param message - Protected message bytes, at most 8,192 bytes.
  * @param secretKey - Exactly 4,032 ML-DSA-65 secret-key bytes.
@@ -119,38 +103,41 @@ export const mlDsa65SignHedged = (
   publicKey: Uint8Array,
   context: Uint8Array,
   entropy32: Uint8Array
-): Effect.Effect<Signature, SigningFailed> => {
-  if (
-    !(message instanceof Uint8Array) ||
-    !(secretKey instanceof Uint8Array) ||
-    !(publicKey instanceof Uint8Array) ||
-    !(context instanceof Uint8Array) ||
-    !(entropy32 instanceof Uint8Array) ||
-    message.length > DIRECT_VERIFICATION_MAX_MESSAGE_BYTES ||
-    secretKey.length !== ML_DSA_65_SECRET_KEY_BYTES ||
-    publicKey.length !== ML_DSA_65_PUBLIC_KEY_BYTES ||
-    context.length > ML_DSA_MAX_CONTEXT_BYTES ||
-    entropy32.length !== ML_DSA_65_ENTROPY_BYTES
-  ) {
-    return Effect.fail(new SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" }))
-  }
-
-  const detachedMessage = Uint8Array.from(message)
-  const detachedSecretKey = Uint8Array.from(secretKey)
-  const detachedPublicKey = Uint8Array.from(publicKey)
-  const detachedContext = Uint8Array.from(context)
-  const detachedEntropy = Uint8Array.from(entropy32)
-  return Effect.try({
+): Effect.Effect<Signature, SigningFailed> =>
+  Effect.try({
     try: () =>
-      ml_dsa65.sign(detachedMessage, detachedSecretKey, {
-        context: detachedContext,
-        extraEntropy: detachedEntropy
-      }),
-    catch: () => new SigningFailed({ algorithm: "ml-dsa-65", reason: "backend unavailable" })
+      !(message instanceof Uint8Array) ||
+        !(secretKey instanceof Uint8Array) ||
+        !(publicKey instanceof Uint8Array) ||
+        !(context instanceof Uint8Array) ||
+        !(entropy32 instanceof Uint8Array) ||
+        message.length > DIRECT_VERIFICATION_MAX_MESSAGE_BYTES ||
+        secretKey.length !== ML_DSA_65_SECRET_KEY_BYTES ||
+        publicKey.length !== ML_DSA_65_PUBLIC_KEY_BYTES ||
+        context.length > ML_DSA_MAX_CONTEXT_BYTES ||
+        entropy32.length !== ML_DSA_65_ENTROPY_BYTES
+        ? Option.none()
+        : Option.some({
+          message: Uint8Array.from(message),
+          secretKey: Uint8Array.from(secretKey),
+          publicKey: Uint8Array.from(publicKey),
+          context: Uint8Array.from(context),
+          entropy: Uint8Array.from(entropy32)
+        }),
+    catch: () => new SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" })
   }).pipe(
-    Effect.map((signature) => new Signature({ algorithm: "ml-dsa-65", signature, publicKey: detachedPublicKey }))
+    Effect.flatMap(Option.match({
+      onNone: () => Effect.fail(new SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" })),
+      onSome: (input) =>
+        Effect.try({
+          try: () =>
+            ml_dsa65.sign(input.message, input.secretKey, { context: input.context, extraEntropy: input.entropy }),
+          catch: () => new SigningFailed({ algorithm: "ml-dsa-65", reason: "backend unavailable" })
+        }).pipe(
+          Effect.map((signature) => new Signature({ algorithm: "ml-dsa-65", signature, publicKey: input.publicKey }))
+        )
+    }))
   )
-}
 
 /**
  * Verifies a detached pure ML-DSA-65 signature with an explicit FIPS 204 context.
@@ -200,7 +187,8 @@ export const mlDsa65Verify = (
 
 /**
  * Draws an ML-DSA-65 key pair from Noble's ambient CSPRNG (1,952-byte public
- * key and 4,032-byte secret key).
+ * key and 4,032-byte secret key), failing with `KeyGenerationFailed` when the
+ * runtime CSPRNG is unavailable.
  * @since 0.1.0
  * @category algorithms
  */
@@ -227,7 +215,8 @@ export const mlDsa87Verify = dsa87.verify
 
 /**
  * Draws an ML-DSA-87 key pair from Noble's ambient CSPRNG (2,592-byte public
- * key and 4,896-byte secret key).
+ * key and 4,896-byte secret key), failing with `KeyGenerationFailed` when the
+ * runtime CSPRNG is unavailable.
  * @since 0.1.0
  * @category algorithms
  */

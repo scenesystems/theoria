@@ -17,10 +17,10 @@ import * as Arr from "effect/Array"
 export const argmaxIndex = (values: ReadonlyArray<number>): Option.Option<number> =>
   pipe(
     Arr.head(values),
-    Option.map(() => {
+    Option.map((first) => {
       const { bestIdx } = Arr.reduce(
         Arr.drop(values, 1),
-        { index: 1, bestIdx: 0, bestVal: values[0]! },
+        { index: 1, bestIdx: 0, bestVal: first },
         (acc, val) =>
           EffectNumber.greaterThan(val, acc.bestVal)
             ? { index: acc.index + 1, bestIdx: acc.index, bestVal: val }

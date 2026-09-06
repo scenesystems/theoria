@@ -1,11 +1,6 @@
-import { Match } from "effect"
+import { Match, Schema } from "effect"
 
-import {
-  type PlaceComposition,
-  type PlaceScenario,
-  placeScenarioMeta,
-  type ProposedFeature
-} from "../../contracts/imagined-place.js"
+import { PlaceComposition, PlaceScenario, placeScenarioMeta, ProposedFeature } from "../../contracts/imagined-place.js"
 
 /**
  * One recorded scenario.
@@ -22,17 +17,15 @@ import {
  * `neighbor` is a second person's proposal and the note they sealed to the
  * author. Neither is model output. `name` completes "Neighbor · …" on the card.
  */
-export type PlaceScenarioDefinition = {
-  readonly id: PlaceScenario
-  readonly label: string
-  readonly brief: string
-  readonly recorded: PlaceComposition
-  readonly neighbor: {
-    readonly proposal: ProposedFeature
-    readonly note: string
-  }
-  readonly programProposal: ProposedFeature
-}
+export const PlaceScenarioDefinition = Schema.Struct({
+  id: PlaceScenario,
+  label: Schema.String,
+  brief: Schema.String,
+  recorded: PlaceComposition,
+  neighbor: Schema.Struct({ proposal: ProposedFeature, note: Schema.String }),
+  programProposal: ProposedFeature
+})
+export type PlaceScenarioDefinition = typeof PlaceScenarioDefinition.Type
 
 const unfinishedLight: PlaceScenarioDefinition = {
   id: "unfinished-light",

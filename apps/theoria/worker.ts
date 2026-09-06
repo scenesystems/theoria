@@ -6,11 +6,11 @@
  */
 import { MutableRef, Option } from "effect"
 
-import { makeWorkerHandler, type WorkerEnv, type WorkerHandler } from "./app/server/worker.js"
+import { makeWorkerHandler, type WorkerHandler } from "./app/server/worker.js"
 
 const cached = MutableRef.make(Option.none<WorkerHandler>())
 
-const handlerFor = (env: WorkerEnv): WorkerHandler =>
+const handlerFor = (env: unknown): WorkerHandler =>
   Option.getOrElse(MutableRef.get(cached), () => {
     const created = makeWorkerHandler(env)
     MutableRef.set(cached, Option.some(created))
@@ -18,5 +18,5 @@ const handlerFor = (env: WorkerEnv): WorkerHandler =>
   })
 
 export default {
-  fetch: (request: Request, env: WorkerEnv): Promise<Response> => handlerFor(env).handler(request)
+  fetch: (request: Request, env: unknown): Promise<Response> => handlerFor(env).handler(request)
 }

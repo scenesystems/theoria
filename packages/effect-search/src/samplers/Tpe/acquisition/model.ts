@@ -8,31 +8,8 @@ import { Data, Predicate } from "effect"
 
 import type { BuiltInAcquisitionName } from "../../../contracts/Acquisition.js"
 
-export {
-  /**
-   * Shared built-in acquisition strategy schema used by TPE and GP-BO.
-   *
-   * @since 0.1.0
-   * @category schemas
-   */
-  BuiltInAcquisitionNameSchema,
-  /**
-   * Shared built-in acquisition strategy type guard used by TPE and GP-BO.
-   *
-   * @since 0.1.0
-   * @category guards
-   */
-  isBuiltInAcquisitionName
-} from "../../../contracts/Acquisition.js"
-export {
-  /**
-   * Shared built-in acquisition strategy name union.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  type BuiltInAcquisitionName
-} from "../../../contracts/Acquisition.js"
+export { BuiltInAcquisitionNameSchema, isBuiltInAcquisitionName } from "../../../contracts/Acquisition.js"
+export { type BuiltInAcquisitionName } from "../../../contracts/Acquisition.js"
 
 /**
  * Immutable context record carrying the inputs needed by any acquisition

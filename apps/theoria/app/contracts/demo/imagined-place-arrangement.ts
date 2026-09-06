@@ -1,16 +1,16 @@
-import { Option } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { Sampler, SearchSpace } from "@scenesystems/effect-search"
 import type { Text } from "@scenesystems/effect-text"
 
-import type { PlaceLine, PlaceMarker, PlaceRendering } from "../imagined-place-result.js"
+import { PlaceLine, PlaceMarker, type PlaceRendering } from "../imagined-place-result.js"
 import { type ParticipantRole, type PlaceArtifact, placeFeatures } from "../imagined-place.js"
 import { prepareInputFor } from "../text.js"
 
 import {
   flowLines,
-  type FlowQuality,
+  FlowQuality,
   flowQuality,
   type Meander,
   meanderBounds,
@@ -69,11 +69,12 @@ export const meanderSpace = SearchSpace.make({
   step: SearchSpace.float(...meanderBounds.step)
 })
 
-export type Arrangement = {
-  readonly markers: ReadonlyArray<PlaceMarker>
-  readonly lines: ReadonlyArray<PlaceLine>
-  readonly quality: FlowQuality
-}
+export const Arrangement = Schema.Struct({
+  markers: Schema.Array(PlaceMarker),
+  lines: Schema.Array(PlaceLine),
+  quality: FlowQuality
+})
+export type Arrangement = typeof Arrangement.Type
 
 /**
  * One candidate: markers on the meander, the description flowed around them,

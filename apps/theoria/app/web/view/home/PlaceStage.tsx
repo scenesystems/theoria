@@ -1,4 +1,4 @@
-import { ScrollArea } from "@base-ui-components/react/scroll-area"
+import { ScrollArea } from "@base-ui/react/scroll-area"
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
@@ -14,7 +14,7 @@ import {
   placeShownFrameAtom,
   placeTrialPreviewAtom
 } from "../../atoms/imagined-place-render.js"
-import { placeStageContainerWidthAtom } from "../../atoms/imagined-place.js"
+import { placeStageContainerWidthAtom, placeStageFrameBorderPx } from "../../atoms/imagined-place.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -23,8 +23,6 @@ import { ShimmerLine } from "../primitives/Skeleton.js"
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
 import { markerLabel, markerTone } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
-
-const stageFrameBorderPx = 1
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
   left: `${padding}px`,
@@ -139,7 +137,7 @@ const Legend = ({ markers }: { readonly markers: ReadonlyArray<PlaceMarker> }) =
       const tone = markerTone(marker)
       return (
         <Cluster className="items-center gap-1.5" key={marker.name}>
-          <Layer as="span" className={`inline-flex size-2 shrink-0 rounded-full ${tone.dot}`} />
+          <Layer render={<span />} className={`inline-flex size-2 shrink-0 rounded-full ${tone.dot}`} />
           <SemanticText
             as="span"
             className="text-ink-700"
@@ -178,16 +176,17 @@ export const PlaceStage = () => {
     Result.value(useAtomValue(placeRenderFrameAtom)),
     (kept) => kept.rendering.projection.stageHeight
   )
-  const frameWidth = Option.match(latest, {
-    onNone: () => undefined,
-    onSome: (value) => `${value.rendering.projection.stageWidth + stageFrameBorderPx * 2}px`
+  // The frame is cut to the drawn stage; before a frame exists, the placeholder sizes it.
+  const frameStyle = Option.match(latest, {
+    onNone: () => ({}),
+    onSome: (value) => ({ width: `${value.rendering.projection.stageWidth + placeStageFrameBorderPx * 2}px` })
   })
 
   return (
     <Stack className="gap-3">
-      <Layer>
+      <Layer data-place-stage="column">
         <ArtifactStage
-          frameStyle={{ width: frameWidth }}
+          frameStyle={frameStyle}
           viewportClassName="justify-center"
           viewportRef={reportContainerWidth}
         >

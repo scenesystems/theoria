@@ -5,6 +5,7 @@
  */
 import { Effect, Equal, Match, Option, Ref, Tuple } from "effect"
 
+import type { ArtifactStorageError } from "../../../Errors/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import type { EventRuntime } from "../../events.js"
 import { appendEvent } from "../../events.js"
@@ -75,7 +76,7 @@ export const requestStudyStop = (
   mode: StopMode,
   trialNumber: number,
   reason: string
-): Effect.Effect<void> =>
+): Effect.Effect<void, ArtifactStorageError> =>
   Ref.modify(stopRef.ref, (current) => {
     const candidate = stopRequest(mode, trialNumber, reason)
 

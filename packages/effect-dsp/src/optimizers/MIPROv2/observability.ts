@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { Data } from "effect"
 import type { MIPROv2EventSummary } from "./progress.js"
 
 /**
@@ -16,7 +17,7 @@ import type { MIPROv2EventSummary } from "./progress.js"
  * @since 0.1.0
  * @category models
  */
-export type MIPROv2OptimizationObservability = Readonly<{
+export class MIPROv2OptimizationObservability extends Data.Class<{
   /** Reference score supplied by the caller. */
   readonly baselineScore: number
   /** Caller-evaluated score for the retained module state. */
@@ -33,7 +34,7 @@ export type MIPROv2OptimizationObservability = Readonly<{
   readonly retainedVsSearchGap: number
   /** True when search gain is positive and retained gain is zero or negative. */
   readonly searchImprovedButRetainedFlat: boolean
-}>
+}> {}
 
 /**
  * Computes score differences from event-derived and caller-evaluated values.

@@ -8,6 +8,7 @@
  * during repeated sampling.
  *
  * @since 0.1.0
+ * @module
  */
 
 export { RolloutRef, withRollout } from "./refs.js"

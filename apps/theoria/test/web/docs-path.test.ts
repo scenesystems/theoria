@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 
 import { docsPathFor } from "../../app/contracts/docs.js"
 import { parsePathname } from "../../app/web/services/path.js"
@@ -25,12 +25,12 @@ describe("documentation routes", () => {
       expect(parsePathname("/docs/effect-search/api")).toEqual({
         _tag: "DocsApiRoute",
         packageSlug: "effect-search",
-        moduleSlug: null
+        moduleSlug: Option.none()
       })
       expect(parsePathname("/docs/effect-search/api/Study/")).toEqual({
         _tag: "DocsApiRoute",
         packageSlug: "effect-search",
-        moduleSlug: "Study"
+        moduleSlug: Option.some("Study")
       })
     }))
 
@@ -39,7 +39,7 @@ describe("documentation routes", () => {
       expect(parsePathname("/docs/unknown-package/api/Module")).toEqual({
         _tag: "DocsApiRoute",
         packageSlug: "unknown-package",
-        moduleSlug: "Module"
+        moduleSlug: Option.some("Module")
       })
       expect(parsePathname("/docs/package/api/not%20valid")).toEqual({ _tag: "DocsNotFoundRoute" })
       expect(parsePathname("/docs/package/guide/extra")).toEqual({ _tag: "DocsNotFoundRoute" })
@@ -55,7 +55,7 @@ describe("documentation routes", () => {
         packageSlug: "effect-search",
         guideSlug: "getting-started"
       })).toBe("/docs/effect-search/getting-started")
-      expect(docsPathFor({ _tag: "DocsApiRoute", packageSlug: "effect-search", moduleSlug: "Study" }))
+      expect(docsPathFor({ _tag: "DocsApiRoute", packageSlug: "effect-search", moduleSlug: Option.some("Study") }))
         .toBe("/docs/effect-search/api/Study")
       expect(docsPathFor({ _tag: "DocsNotFoundRoute" })).toBe("/docs")
     }))

@@ -42,20 +42,12 @@ export const MixedOptimizerConfigSchema = Schema.Struct({
 export type MixedOptimizerConfig = Schema.Schema.Type<typeof MixedOptimizerConfigSchema>
 
 /**
- * Decodes an unknown mixed-optimizer configuration and throws on a schema violation.
- *
- * @since 0.1.0
- * @category utils
- */
-export const decodeMixedOptimizerConfig = Schema.decodeUnknownSync(MixedOptimizerConfigSchema)
-
-/**
  * Decodes an unknown mixed-optimizer configuration with schema violations in the Effect error channel.
  *
  * @since 0.1.0
  * @category utils
  */
-export const decodeMixedOptimizerConfigEffect = Schema.decodeUnknown(MixedOptimizerConfigSchema)
+export const decodeMixedOptimizerConfig = Schema.decodeUnknown(MixedOptimizerConfigSchema)
 
 /**
  * Builds a space with log-scaled learning rate from `0.0005` through `0.2`,
@@ -65,7 +57,7 @@ export const decodeMixedOptimizerConfigEffect = Schema.decodeUnknown(MixedOptimi
  * @category constructors
  */
 export const makeMixedOptimizerSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     lr: SearchSpace.float(0.0005, 0.2, { scale: "log" }),
     depth: SearchSpace.int(1, 8),
     optimizer: SearchSpace.categorical(MixedOptimizerChoices)

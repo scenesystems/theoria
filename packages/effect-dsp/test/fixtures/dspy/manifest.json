@@ -74,18 +74,6 @@
       "file": "gepa/accept/mutation-strict-greater.json"
     },
     {
-      "name": "dspy.gepa.catalog.versioned-fixtures",
-      "file": "gepa/catalog/versioned-fixtures.json"
-    },
-    {
-      "name": "dspy.gepa.governance.optimizer-options",
-      "file": "gepa/governance/optimizer-options.json"
-    },
-    {
-      "name": "dspy.gepa.governance.public-seams",
-      "file": "gepa/governance/public-seams.json"
-    },
-    {
       "name": "dspy.gepa.merge.common-ancestor-cases",
       "file": "gepa/merge/common-ancestor-cases.json"
     },

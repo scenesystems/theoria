@@ -65,9 +65,10 @@ describe("digestSchemaValueWithByteLimitSync", () => {
       const Strict = Schema.Struct({ count: Schema.Int })
       const value = { count: 1.5 }
 
-      expect(() => digestSchemaValueWithByteLimitSync(Strict, value, 64)).not.toThrow()
+      const synchronous = digestSchemaValueWithByteLimitSync(Strict, value, 64)
       const result = yield* parity(Strict, value, 64)
 
+      expect(Either.isLeft(synchronous) && synchronous.left._tag).toBe("ParseError")
       expect(Either.isLeft(result) && result.left._tag).toBe("ParseError")
     }))
 
@@ -76,9 +77,10 @@ describe("digestSchemaValueWithByteLimitSync", () => {
       const value: Array<unknown> = []
       value[0] = value
 
-      expect(() => digestSchemaValueWithByteLimitSync(Schema.Unknown, value, 64)).not.toThrow()
+      const synchronous = digestSchemaValueWithByteLimitSync(Schema.Unknown, value, 64)
       const result = yield* parity(Schema.Unknown, value, 64)
 
+      expect(synchronous).toStrictEqual(Either.left(new CyclicValue({})))
       expect(result).toStrictEqual(Either.left(new CyclicValue({})))
     }))
 
@@ -86,9 +88,12 @@ describe("digestSchemaValueWithByteLimitSync", () => {
     Effect.gen(function*() {
       const value = ["valid", "\uD800"]
 
-      expect(() => digestSchemaValueWithByteLimitSync(Schema.Unknown, value, 64)).not.toThrow()
+      const synchronous = digestSchemaValueWithByteLimitSync(Schema.Unknown, value, 64)
       const result = yield* parity(Schema.Unknown, value, 64)
 
+      expect(synchronous).toStrictEqual(
+        Either.left(new InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 0 }))
+      )
       expect(result).toStrictEqual(
         Either.left(new InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 0 }))
       )

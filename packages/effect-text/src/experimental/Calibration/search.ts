@@ -24,8 +24,7 @@ import { runFreshCalibrationStudy, runResumedCalibrationStudy } from "./internal
 import type {
   CalibrationCaseType,
   CalibrationObjectiveMetadataType,
-  CalibrationSearchDescriptorType,
-  CalibrationSearchSpaceSpecType
+  CalibrationSearchDescriptorType
 } from "./schema.js"
 
 /**
@@ -90,8 +89,11 @@ export const makeProfileSearchSpace = (
  *
  * Candidate measurement failures become trial failures. If no trial succeeds,
  * the Effect fails with `NoSuccessfulTrials`. Search-space, sampler, snapshot,
- * and study validation failures remain in the Effect Search error channel. The
- * final evaluation of the selected profile can fail with `MeasurementFailed`.
+ * and study validation failures remain in the Effect Search error channel.
+ * Supplied `studyStorage` that holds no snapshot after the study ran fails with
+ * `CalibrationSnapshotMissing`, and storage that resolves to a multi-objective
+ * study fails with `CalibrationStudyNotSingleObjective`. The final evaluation
+ * of the selected profile can fail with `MeasurementFailed`.
  * The returned event log contains this invocation's events; the snapshot holds
  * cumulative state for resumption.
  *
@@ -113,8 +115,6 @@ export const optimizeProfile = (options: {
   readonly sampler?: Sampler.Sampler
   /** Preferred engine-profile dimension descriptor. */
   readonly searchDescriptor?: CalibrationSearchDescriptorType
-  /** Compatibility option used only when `searchDescriptor` is absent. */
-  readonly searchSpaceSpec?: CalibrationSearchSpaceSpecType
   /** Prior checkpoint whose completed trials seed the resumed study. */
   readonly snapshot?: Study.StudySnapshot
   /** Optional Effect Search persistence service for trial logs and checkpoints. */
@@ -122,7 +122,7 @@ export const optimizeProfile = (options: {
 }) =>
   Effect.gen(function*() {
     const objective = options.objective ?? DefaultCalibrationObjective
-    const searchDescriptor = options.searchDescriptor ?? options.searchSpaceSpec ?? DefaultCalibrationSearchDescriptor
+    const searchDescriptor = options.searchDescriptor ?? DefaultCalibrationSearchDescriptor
     const sampler = options.sampler ?? Sampler.tpe({ seed: 0 })
     const space = yield* makeProfileSearchSpace(searchDescriptor)
     const study = yield* Option.fromNullable(options.snapshot).pipe(

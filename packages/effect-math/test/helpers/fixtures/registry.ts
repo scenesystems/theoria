@@ -1,10 +1,10 @@
 import { Context, Effect, Layer, Option } from "effect"
 
 import { FixtureNotFoundError, type FixtureRegistryError } from "./errors.js"
-import { findManifestEntry, loadFixtureByEntry, loadManifest } from "./io.js"
+import { directoryBeside, findManifestEntry, loadFixtureByEntry, loadManifest } from "./io.js"
 import type { FixtureName, KnownFixture } from "./schemas.js"
 
-const FIXTURE_ROOT_URL = new URL("../../fixtures/scipy/", import.meta.url)
+const defaultRootDirectory = directoryBeside(import.meta.url, "../../fixtures/scipy/")
 const DEFAULT_MANIFEST_FILE = "manifest.json"
 
 export class FixtureRegistry extends Context.Tag("effect-math/test/helpers/FixtureRegistry")<
@@ -19,16 +19,16 @@ export class FixtureRegistry extends Context.Tag("effect-math/test/helpers/Fixtu
 
 export const makeFixtureRegistry = (
   options: {
-    readonly rootUrl?: URL
+    readonly rootDirectory: string
     readonly manifestFileName?: string
-  } = {}
+  }
 ): Context.Tag.Service<FixtureRegistry> => {
-  const rootUrl = options.rootUrl ?? FIXTURE_ROOT_URL
+  const rootDirectory = options.rootDirectory
   const manifestFileName = options.manifestFileName ?? DEFAULT_MANIFEST_FILE
 
   const load = (name: FixtureName): Effect.Effect<KnownFixture, FixtureRegistryError> =>
     Effect.gen(function*() {
-      const manifest = yield* loadManifest(rootUrl, manifestFileName)
+      const manifest = yield* loadManifest(rootDirectory, manifestFileName)
       const entry = findManifestEntry(manifest, name)
 
       return yield* Option.match(entry, {
@@ -38,14 +38,14 @@ export const makeFixtureRegistry = (
               fixture: name
             })
           ),
-        onSome: (value) => loadFixtureByEntry(rootUrl, value)
+        onSome: (value) => loadFixtureByEntry(rootDirectory, value)
       })
     })
 
   const validateManifest = Effect.gen(function*() {
-    const manifest = yield* loadManifest(rootUrl, manifestFileName)
+    const manifest = yield* loadManifest(rootDirectory, manifestFileName)
     yield* Effect.forEach(manifest.fixtures, (entry) =>
-      loadFixtureByEntry(rootUrl, entry).pipe(
+      loadFixtureByEntry(rootDirectory, entry).pipe(
         Effect.asVoid
       ))
   })
@@ -56,7 +56,10 @@ export const makeFixtureRegistry = (
   }
 }
 
-export const FixtureRegistryLive = Layer.succeed(FixtureRegistry, makeFixtureRegistry())
+export const FixtureRegistryLive = Layer.effect(
+  FixtureRegistry,
+  Effect.map(defaultRootDirectory, (rootDirectory) => makeFixtureRegistry({ rootDirectory }))
+)
 
 export const loadFixture = (
   name: FixtureName

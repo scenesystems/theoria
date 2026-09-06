@@ -11,17 +11,15 @@ import { emptySuggestContext, makeSuggestCompletedTrial, SuggestContext } from "
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
-const continuousSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-4, 4),
-    y: SearchSpace.float(-2, 2)
-  })
+const continuousSpace = SearchSpace.make({
+  x: SearchSpace.float(-4, 4),
+  y: SearchSpace.float(-2, 2)
+})
 
-const categoricalSpace = () =>
-  SearchSpace.unsafeMake({
-    optimizer: SearchSpace.categorical(["adam", "sgd"]),
-    x: SearchSpace.float(-4, 4)
-  })
+const categoricalSpace = SearchSpace.make({
+  optimizer: SearchSpace.categorical(["adam", "sgd"]),
+  x: SearchSpace.float(-4, 4)
+})
 
 const multiObjectiveContext = (nextTrialNumber: number) =>
   new SuggestContext({
@@ -37,12 +35,13 @@ const multiObjectiveContext = (nextTrialNumber: number) =>
 
 const drawSequence = (seed: number, count: number) => {
   const sampler = Sampler.cmaEs({ seed, sigma: 0.6, populationSize: 8 })
-  const space = continuousSpace()
-
-  return Effect.forEach(
-    Arr.makeBy(count, (index) => index),
-    (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
-  )
+  return Effect.gen(function*() {
+    const space = yield* continuousSpace
+    return yield* Effect.forEach(
+      Arr.makeBy(count, (index) => index),
+      (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
+    )
+  })
 }
 
 describe("Sampler.cmaEs", () => {
@@ -57,7 +56,7 @@ describe("Sampler.cmaEs", () => {
   it.effect("rejects search spaces containing non-continuous dimensions with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.cmaEs({ seed: 11 }), categoricalSpace(), emptySuggestContext(0))
+        Sampler.suggest(Sampler.cmaEs({ seed: 11 }), yield* categoricalSpace, emptySuggestContext(0))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)
@@ -70,7 +69,7 @@ describe("Sampler.cmaEs", () => {
   it.effect("rejects multi-objective suggestion contexts with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.cmaEs({ seed: 17 }), continuousSpace(), multiObjectiveContext(2))
+        Sampler.suggest(Sampler.cmaEs({ seed: 17 }), yield* continuousSpace, multiObjectiveContext(2))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)
@@ -104,7 +103,7 @@ describe("Sampler.cmaEs", () => {
 
   it.effect("produces schema-decodable suggestions within declared bounds", () =>
     Effect.gen(function*() {
-      const space = continuousSpace()
+      const space = yield* continuousSpace
       const decode = Schema.decodeUnknownEither(space.schema)
       const candidate = yield* Sampler.suggest(
         Sampler.cmaEs({ seed: 13, sigma: 0.4, populationSize: 6 }),
@@ -128,7 +127,7 @@ describe("Sampler.cmaEs", () => {
   it.effect("tracks sampled improvements from completed history", () =>
     Effect.gen(function*() {
       const sampler = Sampler.cmaEs({ seed: 37, sigma: 0.5, populationSize: 8 })
-      const space = continuousSpace()
+      const space = yield* continuousSpace
       const completed = [
         makeSuggestCompletedTrial(0, { x: -2, y: -1 }, 12),
         makeSuggestCompletedTrial(1, { x: 1, y: 1 }, 2),

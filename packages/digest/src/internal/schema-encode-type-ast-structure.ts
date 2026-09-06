@@ -1,8 +1,8 @@
 /** Cooperative structural construction for projected Effect Schema ASTs. @internal */
 
-import { Effect, MutableRef, SchemaAST } from "effect"
+import { Array as Arr, Effect, SchemaAST } from "effect"
 
-import { appendMutable, type EncodeState, scan } from "./schema-encode-model.js"
+import { appendMutable, cooperate, type EncodeState, scanItems } from "./schema-encode-model.js"
 
 class ProjectedChildren {
   readonly children: ReadonlyArray<SchemaAST.AST>
@@ -15,25 +15,15 @@ class ProjectedChildren {
 }
 
 const mapChildren = (
-  length: number,
-  child: (index: number) => SchemaAST.AST,
+  sources: ReadonlyArray<SchemaAST.AST>,
   project: (ast: SchemaAST.AST) => Effect.Effect<SchemaAST.AST>,
   cooperation: EncodeState
 ): Effect.Effect<ProjectedChildren> =>
-  Effect.suspend(() => {
-    const output = new Array<SchemaAST.AST>(length)
-    const changed = MutableRef.make(false)
-    return Effect.map(
-      scan(cooperation, 0, (index) => index < length, (index) => {
-        const source = child(index)
-        return Effect.map(project(source), (projected) => {
-          output[index] = projected
-          if (projected !== source) MutableRef.set(changed, true)
-        })
-      }),
-      () => new ProjectedChildren(output, MutableRef.get(changed))
-    )
-  })
+  Effect.map(
+    Effect.forEach(sources, (source) => Effect.zipRight(cooperate(cooperation), project(source))),
+    (children) =>
+      new ProjectedChildren(children, Arr.some(Arr.zip(children, sources), ([child, source]) => child !== source))
+  )
 
 export const projectDeclaration = (
   ast: SchemaAST.Declaration,
@@ -41,7 +31,7 @@ export const projectDeclaration = (
   cooperation: EncodeState
 ): Effect.Effect<SchemaAST.AST> =>
   Effect.map(
-    mapChildren(ast.typeParameters.length, (index) => ast.typeParameters[index]!, project, cooperation),
+    mapChildren(ast.typeParameters, project, cooperation),
     ({ changed, children }) =>
       changed ? new SchemaAST.Declaration(children, ast.decodeUnknown, ast.encodeUnknown, ast.annotations) : ast
   )
@@ -52,7 +42,7 @@ export const projectUnion = (
   cooperation: EncodeState
 ): Effect.Effect<SchemaAST.AST> =>
   Effect.map(
-    mapChildren(ast.types.length, (index) => ast.types[index]!, project, cooperation),
+    mapChildren(ast.types, project, cooperation),
     ({ changed, children }) => changed ? SchemaAST.Union.make(children, ast.annotations) : ast
   )
 
@@ -63,31 +53,31 @@ export const projectTuple = (
 ): Effect.Effect<SchemaAST.AST> =>
   Effect.flatMap(
     mapChildren(
-      ast.elements.length + ast.rest.length,
-      (index) =>
-        index < ast.elements.length
-          ? ast.elements[index]!.type
-          : ast.rest[index - ast.elements.length]!.type,
+      Arr.appendAll(
+        Arr.map(ast.elements, (element) => element.type),
+        Arr.map(ast.rest, (type) => type.type)
+      ),
       project,
       cooperation
     ),
     ({ changed, children }) => {
       if (!changed) return Effect.succeed(ast)
+      const [elementChildren, restChildren] = Arr.splitAt(children, ast.elements.length)
       const elements: Array<SchemaAST.OptionalType> = []
       const rest: Array<SchemaAST.Type> = []
       return Effect.map(
         Effect.zipRight(
-          scan(cooperation, 0, (index) => index < ast.elements.length, (index) =>
-            Effect.sync(() => {
-              const element = ast.elements[index]!
-              appendMutable(elements, new SchemaAST.OptionalType(children[index]!, element.isOptional))
-            })),
-          scan(cooperation, 0, (index) => index < ast.rest.length, (index) =>
-            Effect.sync(() => {
-              appendMutable(rest, new SchemaAST.Type(children[ast.elements.length + index]!))
-            }))
+          scanItems(cooperation, Arr.zip(ast.elements, elementChildren), ([element, child]) =>
+            Effect.sync(() =>
+              appendMutable(elements, new SchemaAST.OptionalType(child, element.isOptional))
+            )),
+          scanItems(cooperation, restChildren, (child) =>
+            Effect.sync(() =>
+              appendMutable(rest, new SchemaAST.Type(child))
+            ))
         ),
-        () => new SchemaAST.TupleType(elements, rest, ast.isReadonly, ast.annotations)
+        () =>
+          new SchemaAST.TupleType(elements, rest, ast.isReadonly, ast.annotations)
       )
     }
   )
@@ -99,47 +89,34 @@ export const projectRecord = (
 ): Effect.Effect<SchemaAST.AST> =>
   Effect.flatMap(
     mapChildren(
-      ast.propertySignatures.length + ast.indexSignatures.length,
-      (index) =>
-        index < ast.propertySignatures.length
-          ? ast.propertySignatures[index]!.type
-          : ast.indexSignatures[index - ast.propertySignatures.length]!.type,
+      Arr.appendAll(
+        Arr.map(ast.propertySignatures, (property) => property.type),
+        Arr.map(ast.indexSignatures, (signature) => signature.type)
+      ),
       project,
       cooperation
     ),
     ({ changed, children }) => {
       if (!changed) return Effect.succeed(ast)
+      const [propertyChildren, signatureChildren] = Arr.splitAt(children, ast.propertySignatures.length)
       const properties: Array<SchemaAST.PropertySignature> = []
       const signatures: Array<SchemaAST.IndexSignature> = []
       return Effect.map(
         Effect.zipRight(
-          scan(cooperation, 0, (index) => index < ast.propertySignatures.length, (index) =>
-            Effect.sync(() => {
-              const property = ast.propertySignatures[index]!
+          scanItems(cooperation, Arr.zip(ast.propertySignatures, propertyChildren), ([property, child]) =>
+            Effect.sync(() =>
               appendMutable(
                 properties,
-                new SchemaAST.PropertySignature(
-                  property.name,
-                  children[index]!,
-                  property.isOptional,
-                  property.isReadonly
-                )
+                new SchemaAST.PropertySignature(property.name, child, property.isOptional, property.isReadonly)
               )
-            })),
-          scan(cooperation, 0, (index) => index < ast.indexSignatures.length, (index) =>
-            Effect.sync(() => {
-              const signature = ast.indexSignatures[index]!
-              appendMutable(
-                signatures,
-                new SchemaAST.IndexSignature(
-                  signature.parameter,
-                  children[ast.propertySignatures.length + index]!,
-                  signature.isReadonly
-                )
-              )
-            }))
+            )),
+          scanItems(cooperation, Arr.zip(ast.indexSignatures, signatureChildren), ([signature, child]) =>
+            Effect.sync(() =>
+              appendMutable(signatures, new SchemaAST.IndexSignature(signature.parameter, child, signature.isReadonly))
+            ))
         ),
-        () => new SchemaAST.TypeLiteral(properties, signatures, ast.annotations)
+        () =>
+          new SchemaAST.TypeLiteral(properties, signatures, ast.annotations)
       )
     }
   )

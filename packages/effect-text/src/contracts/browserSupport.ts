@@ -7,7 +7,7 @@ import { Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
-import { EngineProfileSchema, WhiteSpaceMode } from "../Text/schema.js"
+import { EngineProfile, WhiteSpaceMode } from "../Text/schema.js"
 
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
@@ -78,7 +78,7 @@ export const BrowserSupportProfileSchema = Schema.Struct({
   /** Whitespace policy used when a consumer does not choose one. */
   defaultWhiteSpaceMode: WhiteSpaceMode,
   /** Preparation settings paired with the measurement profile. */
-  engineProfile: EngineProfileSchema,
+  engineProfile: EngineProfile,
   /** Tab expansion policy used during preparation. */
   tabPolicy: BrowserTabPolicySchema,
   /** Synthetic regression scenarios exercised for this profile. */

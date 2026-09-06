@@ -7,6 +7,7 @@
  * for tracing, objective evaluation, artifact publication, and effect-search interop.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./MetricResult.js"
@@ -15,9 +16,9 @@ export * from "./OutputStrategy.js"
 
 export * from "./ModuleId.js"
 
-export * from "./OptimizerKind.js"
+export * from "./RolloutCount.js"
 
-export * from "./CacheKey.js"
+export * from "./OptimizerKind.js"
 
 export * from "./Usage.js"
 

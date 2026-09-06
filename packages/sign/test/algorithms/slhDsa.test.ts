@@ -21,8 +21,9 @@ import {
   slhDsaSha2128sSign,
   slhDsaSha2128sVerify
 } from "../../src/algorithms/slhDsa.js"
+import { utf8ToBytes } from "../../src/encoding.js"
 
-const message = new TextEncoder().encode("hash-based hello")
+const message = utf8ToBytes("hash-based hello")
 
 describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
   it.effect("sign → verify roundtrip", () =>
@@ -93,8 +94,7 @@ describe("SLH-DSA-SHA2-128s — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* slhDsaSha2128sKeygen()
       const sig = yield* slhDsaSha2128sSign(message, kp.secretKey, kp.publicKey)
-      const tampered = new Uint8Array(sig.signature)
-      tampered[0] = tampered[0]! ^ 0xff
+      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 0 ? byte ^ 0xff : byte)
       const valid = yield* slhDsaSha2128sVerify(tampered, message, kp.publicKey)
       expect(valid).toBe(false)
     }), { timeout: 30_000 })

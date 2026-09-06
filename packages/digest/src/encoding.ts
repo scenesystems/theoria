@@ -15,6 +15,7 @@
  *
  * @since 0.1.0
  * @category encoding
+ * @module
  */
 
 import { Effect, type Either, Encoding, Option } from "effect"

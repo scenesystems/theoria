@@ -25,26 +25,28 @@ const valuesFromTrials = (trials: Array<Trial.Trial<unknown>>) =>
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
-const runStudy = (seed: number, direction: "minimize" | "maximize") => {
-  const space = makeRandomTrainingSpace()
-  const decode = Schema.decodeUnknownSync(space.schema)
+const runStudy = (seed: number, direction: "minimize" | "maximize") =>
+  Effect.gen(function*() {
+    const space = yield* makeRandomTrainingSpace()
+    const decode = Schema.decodeUnknown(space.schema)
 
-  return Study.optimize({
-    space,
-    sampler: Sampler.random({ seed }),
-    direction,
-    trials: 18,
-    objective: (raw) => {
-      const config = decode(raw)
-      const lrPenalty = Float64.abs(config.lr - 0.02) * 100
-      const optimizerPenalty = config.optimizer === "adam" ? 0 : config.optimizer === "adamw" ? 0.15 : 0.35
-      const batchPenalty = Float64.abs(config.batchSize - 32) / 16
-      const normPenalty = config.useBatchNorm ? 0.05 : 0.2
+    return yield* Study.optimize({
+      space,
+      sampler: Sampler.random({ seed }),
+      direction,
+      trials: 18,
+      objective: (raw) =>
+        Effect.gen(function*() {
+          const config = yield* decode(raw)
+          const lrPenalty = Float64.abs(config.lr - 0.02) * 100
+          const optimizerPenalty = config.optimizer === "adam" ? 0 : config.optimizer === "adamw" ? 0.15 : 0.35
+          const batchPenalty = Float64.abs(config.batchSize - 32) / 16
+          const normPenalty = config.useBatchNorm ? 0.05 : 0.2
 
-      return Effect.succeed(lrPenalty + optimizerPenalty + batchPenalty + normPenalty)
-    }
+          return lrPenalty + optimizerPenalty + batchPenalty + normPenalty
+        })
+    })
   })
-}
 
 describe("integration random study", () => {
   it.effect("runs end-to-end from search space to result", () =>

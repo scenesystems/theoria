@@ -21,7 +21,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit } from "effect"
+import { DateTime, Effect, Exit } from "effect"
 import { durableFingerprint } from "../../src/schemas/durableFingerprint.js"
 import { UnsupportedValue } from "../../src/schemas/errors.js"
 
@@ -84,7 +84,7 @@ describe("durableFingerprint — rejection of non-JSON-safe values", () => {
 
   it.effect("rejects Date with UnsupportedValue", () =>
     Effect.gen(function*() {
-      const date = new globalThis.Date()
+      const date = DateTime.toDateUtc(yield* DateTime.now)
       const exit = yield* Effect.exit(durableFingerprint({ key: date }))
       expect(exit).toStrictEqual(Exit.fail(new UnsupportedValue({ reason: "date" })))
     }))

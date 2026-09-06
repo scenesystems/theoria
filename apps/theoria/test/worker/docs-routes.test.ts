@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -40,7 +40,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* goto(page, docsPackage.overview.path)
             yield* visible(page.locator("main h1"))
             yield* visible(sidebar.locator(`a[href="${docsPackage.overview.path}"]`))
-            const firstModule = Option.getOrThrow(Arr.head(docsPackage.apiModules))
+            const firstModule = yield* Arr.head(docsPackage.apiModules)
             yield* visible(sidebar.locator(`a[href="${firstModule.path}"]`))
 
             yield* Effect.forEach(

@@ -24,11 +24,9 @@ export const program = Effect.gen(function*() {
     resolvedRuntime: {
       responseModel: resolution.resolvedRoute.providerModel ?? resolution.desired.artifact.modelRef,
       providerMetadata: {
-        huggingface: {
-          ...((typeof embeddings[0]?.length === "number")
-            ? { embeddingDimensions: embeddings[0].length }
-            : {})
-        }
+        huggingface: typeof embeddings[0]?.length === "number"
+          ? { embeddingDimensions: embeddings[0].length }
+          : {}
       }
     }
   })

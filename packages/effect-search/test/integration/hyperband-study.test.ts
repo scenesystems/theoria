@@ -6,12 +6,11 @@ import * as Scheduler from "../../src/Scheduler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
-const space = () =>
-  SearchSpace.unsafeMake({
-    instructionWeight: SearchSpace.float(-1, 1),
-    demoWeight: SearchSpace.float(-1, 1),
-    budget: SearchSpace.fidelity(1, 9)
-  })
+const space = SearchSpace.make({
+  instructionWeight: SearchSpace.float(-1, 1),
+  demoWeight: SearchSpace.float(-1, 1),
+  budget: SearchSpace.fidelity(1, 9)
+})
 
 const objective = (
   config: {
@@ -32,13 +31,14 @@ const objective = (
 describe("integration hyperband study", () => {
   it.effect("executes bracketed multi-fidelity rounds with ordered resource escalation", () =>
     Effect.gen(function*() {
+      const resolvedSpace = yield* space
       const scheduler = yield* Scheduler.hyperband({
         maxResource: 9,
         reductionFactor: 3,
         sampler: Sampler.random({ seed: 42 })
       })
       const events = yield* Study.optimizeStream({
-        space: space(),
+        space: resolvedSpace,
         scheduler,
         direction: "minimize",
         objective
@@ -48,7 +48,7 @@ describe("integration hyperband study", () => {
       const bracketStartCount = allEvents.filter((event) => event._tag === "BracketStarted").length
       const bracketCompleteCount = allEvents.filter((event) => event._tag === "BracketCompleted").length
       const result = yield* Study.optimize({
-        space: space(),
+        space: resolvedSpace,
         scheduler,
         direction: "minimize",
         objective

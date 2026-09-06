@@ -69,10 +69,9 @@ const dependencyClosure = (
   names: ReadonlyArray<string>
 ): Effect.Effect<Array<string>, InvalidSearchSpace> =>
   expandDependencyClosure(operation, space, names).pipe(
-    Effect.flatMap((expanded) =>
-      expanded.length === names.length
-        ? Effect.succeed(expanded)
-        : dependencyClosure(operation, space, expanded)
+    Effect.filterOrElse(
+      (expanded) => expanded.length === names.length,
+      (expanded) => dependencyClosure(operation, space, expanded)
     )
   )
 

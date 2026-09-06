@@ -44,14 +44,12 @@ export const decodeProbabilityDomain = (input: unknown) =>
   Schema.decodeUnknown(ProbabilityDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Probability",
-          contract: "ProbabilityDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Probability",
+        contract: "ProbabilityDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -63,14 +61,12 @@ export const decodeProbabilityDomain = (input: unknown) =>
  */
 export const encodeProbabilityDomain = (domain: ProbabilityDomain) =>
   Schema.encode(ProbabilityDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Probability",
-          contract: "ProbabilityDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Probability",
+        contract: "ProbabilityDomainSchema",
+        message: error.message
+      })
     )
   )
 

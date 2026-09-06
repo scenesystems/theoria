@@ -123,10 +123,9 @@ export const continuousDimensionsFromSpace = (
         )
       )
   ).pipe(
-    Effect.flatMap((dimensions) =>
-      Num.greaterThan(dimensions.length, 0)
-        ? Effect.succeed(dimensions)
-        : unsupported(sampler, "requires at least one continuous dimension")
+    Effect.filterOrElse(
+      (dimensions) => Num.greaterThan(dimensions.length, 0),
+      () => unsupported(sampler, "requires at least one continuous dimension")
     )
   )
 

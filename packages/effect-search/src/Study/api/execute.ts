@@ -90,15 +90,11 @@ const executePlan = <Space extends SearchSpace.SearchSpace>(
 export const optimize = <Space extends SearchSpace.SearchSpace>(
   options: OptimizeOptionsFromSpace<Space>
 ): Effect.Effect<StudyResult<SearchSpace.Type<Space>>, SearchError> =>
-  Effect.fn("effect-search/Study.optimize")(
-    <CurrentSpace extends SearchSpace.SearchSpace>(
-      currentOptions: OptimizeOptionsFromSpace<CurrentSpace>
-    ): Effect.Effect<StudyResult<SearchSpace.Type<CurrentSpace>>, SearchError> =>
-      optimizePlanFromOptions(currentOptions).pipe(
-        Effect.flatMap((optimizePlan) => executePlan(optimizePlan, Option.none())),
-        Effect.provide(StudyServicesLive)
-      )
-  )(options)
+  optimizePlanFromOptions(options).pipe(
+    Effect.flatMap((optimizePlan) => executePlan(optimizePlan, Option.none())),
+    Effect.provide(StudyServicesLive),
+    Effect.withSpan("effect-search/Study.optimize")
+  )
 
 /**
  * Runs {@link optimize} with minimization fixed for a scalar objective.
@@ -114,15 +110,11 @@ export const optimize = <Space extends SearchSpace.SearchSpace>(
 export const minimize = <Space extends SearchSpace.SearchSpace>(
   options: MinimizeOptionsFromSpace<Space>
 ): Effect.Effect<StudyResult<SearchSpace.Type<Space>>, SearchError> =>
-  Effect.fn("effect-search/Study.minimize")(
-    <CurrentSpace extends SearchSpace.SearchSpace>(
-      currentOptions: MinimizeOptionsFromSpace<CurrentSpace>
-    ): Effect.Effect<StudyResult<SearchSpace.Type<CurrentSpace>>, SearchError> =>
-      minimizePlanFromOptions(currentOptions).pipe(
-        Effect.flatMap((optimizePlan) => executePlan(optimizePlan, Option.none())),
-        Effect.provide(StudyServicesLive)
-      )
-  )(options)
+  minimizePlanFromOptions(options).pipe(
+    Effect.flatMap((optimizePlan) => executePlan(optimizePlan, Option.none())),
+    Effect.provide(StudyServicesLive),
+    Effect.withSpan("effect-search/Study.minimize")
+  )
 
 /**
  * Runs a scalar-objective study that treats higher values as better.
@@ -138,15 +130,11 @@ export const minimize = <Space extends SearchSpace.SearchSpace>(
 export const maximize = <Space extends SearchSpace.SearchSpace>(
   options: MaximizeOptionsFromSpace<Space>
 ): Effect.Effect<StudyResult<SearchSpace.Type<Space>>, SearchError> =>
-  Effect.fn("effect-search/Study.maximize")(
-    <CurrentSpace extends SearchSpace.SearchSpace>(
-      currentOptions: MaximizeOptionsFromSpace<CurrentSpace>
-    ): Effect.Effect<StudyResult<SearchSpace.Type<CurrentSpace>>, SearchError> =>
-      maximizePlanFromOptions(currentOptions).pipe(
-        Effect.flatMap((optimizePlan) => executePlan(optimizePlan, Option.none())),
-        Effect.provide(StudyServicesLive)
-      )
-  )(options)
+  maximizePlanFromOptions(options).pipe(
+    Effect.flatMap((optimizePlan) => executePlan(optimizePlan, Option.none())),
+    Effect.provide(StudyServicesLive),
+    Effect.withSpan("effect-search/Study.maximize")
+  )
 
 /**
  * Converts an immutable result into the canonical replay snapshot. The result's
@@ -159,13 +147,10 @@ export const maximize = <Space extends SearchSpace.SearchSpace>(
  * @category combinators
  */
 export const snapshot = <Config>(result: StudyResult<Config>): Effect.Effect<StudySnapshot> =>
-  Effect.fn("effect-search/Study.snapshot")(
-    <CurrentConfig>(currentResult: StudyResult<CurrentConfig>): Effect.Effect<StudySnapshot> =>
-      Effect.gen(function*() {
-        const snapshotCodec = yield* SnapshotCodec
-        return snapshotCodec.snapshot(currentResult.trials, currentResult.snapshotMetadata)
-      }).pipe(Effect.provide(StudyServicesLive))
-  )(result)
+  Effect.gen(function*() {
+    const snapshotCodec = yield* SnapshotCodec
+    return snapshotCodec.snapshot(result.trials, result.snapshotMetadata)
+  }).pipe(Effect.provide(StudyServicesLive), Effect.withSpan("effect-search/Study.snapshot"))
 
 /**
  * Validates a snapshot against the requested search space, objective, stop mode,
@@ -184,15 +169,11 @@ export const snapshot = <Config>(result: StudyResult<Config>): Effect.Effect<Stu
 export const resume = <Space extends SearchSpace.SearchSpace>(
   options: ResumeOptionsFromSpace<Space>
 ): Effect.Effect<StudyResult<SearchSpace.Type<Space>>, SearchError> =>
-  Effect.fn("effect-search/Study.resume")(
-    <CurrentSpace extends SearchSpace.SearchSpace>(
-      currentOptions: ResumeOptionsFromSpace<CurrentSpace>
-    ): Effect.Effect<StudyResult<SearchSpace.Type<CurrentSpace>>, SearchError> =>
-      resumeExecutionSeedFromOptions(currentOptions).pipe(
-        Effect.flatMap(({ optimizePlan, seed }) => executePlan(optimizePlan, Option.some(seed))),
-        Effect.provide(StudyServicesLive)
-      )
-  )(options)
+  resumeExecutionSeedFromOptions(options).pipe(
+    Effect.flatMap(({ optimizePlan, seed }) => executePlan(optimizePlan, Option.some(seed))),
+    Effect.provide(StudyServicesLive),
+    Effect.withSpan("effect-search/Study.resume")
+  )
 
 /**
  * Loads the latest snapshot and replay tail from {@link StudyStorage}, validates
@@ -208,12 +189,8 @@ export const resume = <Space extends SearchSpace.SearchSpace>(
 export const resumeFromStorage = <Space extends SearchSpace.SearchSpace>(
   options: ResumeFromStorageOptionsFromSpace<Space>
 ): Effect.Effect<StudyResult<SearchSpace.Type<Space>>, SearchError, StudyStorage> =>
-  Effect.fn("effect-search/Study.resumeFromStorage")(
-    <CurrentSpace extends SearchSpace.SearchSpace>(
-      currentOptions: ResumeFromStorageOptionsFromSpace<CurrentSpace>
-    ): Effect.Effect<StudyResult<SearchSpace.Type<CurrentSpace>>, SearchError, StudyStorage> =>
-      resumeExecutionSeedFromStorageOptions(currentOptions).pipe(
-        Effect.flatMap(({ optimizePlan, seed }) => executePlan(optimizePlan, Option.some(seed))),
-        Effect.provide(StudyServicesLive)
-      )
-  )(options)
+  resumeExecutionSeedFromStorageOptions(options).pipe(
+    Effect.flatMap(({ optimizePlan, seed }) => executePlan(optimizePlan, Option.some(seed))),
+    Effect.provide(StudyServicesLive),
+    Effect.withSpan("effect-search/Study.resumeFromStorage")
+  )

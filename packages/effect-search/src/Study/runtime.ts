@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Cause, Effect, Match, Number as Num, Option, Queue, Ref } from "effect"
+import { Array as Arr, Cause, Effect, Number as Num, Option, Queue, Ref } from "effect"
 import type { Scope } from "effect"
 
 import type { SearchError } from "../Errors/index.js"
@@ -49,31 +49,15 @@ import { snapshotFromTrials } from "./snapshot/versioning.js"
 import { completedTrialsFromState, trialsFromState } from "./state.js"
 import { writeSnapshotIfAvailable } from "./studyStorage.js"
 
-export {
-  /** @since 0.1.0 */
-  defaultExecuteSeed,
-  /** @since 0.1.0 */
-  ExecuteOutcome,
-  /** @since 0.1.0 */
-  ExecuteSeed,
-  /** @since 0.1.0 */
-  noopInterruptionSnapshotSink,
-  /** @since 0.1.0 */
-  StudyClock
-}
-export type {
-  /** @since 0.1.0 */
-  InterruptionSnapshotSink,
-  /** @since 0.1.0 */
-  StudyRuntime
-}
+export { defaultExecuteSeed, ExecuteOutcome, ExecuteSeed, noopInterruptionSnapshotSink, StudyClock }
+export type { InterruptionSnapshotSink, StudyRuntime }
 
 const persistRuntimeCheckpoint = <Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<ConfigFor<Space>, Space>,
   settings: OptimizeSettings,
   runtime: StudyRuntime<ConfigFor<Space>>,
   interruptionSnapshotSink: InterruptionSnapshotSink
-): Effect.Effect<void> =>
+): Effect.Effect<void, SearchError> =>
   Effect.gen(function*() {
     const samplerCheckpoint = yield* Sampler.checkpoint(options.sampler)
     const finalState = yield* readStudyState(runtime)
@@ -81,10 +65,36 @@ const persistRuntimeCheckpoint = <Space extends SearchSpace.SearchSpace>(
     const snapshot = snapshotFromTrials(trialsFromState(finalState), metadata)
     yield* writeSnapshotIfAvailable(snapshot)
     yield* interruptionSnapshotSink(snapshot)
-  }).pipe(Effect.catchAll(() => Effect.void))
+  })
 
 const failureLifecycle = (cause: Cause.Cause<unknown>): "Cancelled" | "Failed" =>
   Cause.isInterruptedOnly(cause) ? "Cancelled" : "Failed"
+
+/**
+ * Runs the trial phase and, when it fails or is interrupted, records the lifecycle and
+ * persists a checkpoint before the failure continues. The checkpoint runs in the
+ * uninterruptible region a scope finalizer would have, but keeps a typed error
+ * channel: a checkpoint that cannot be written is sequenced after the original cause,
+ * so the caller's `Exit` shows both the study's failure and the lost recovery point,
+ * and typed handlers still see the study's failure first.
+ */
+const withRuntimeCheckpoint = <Space extends SearchSpace.SearchSpace, A, E, R>(
+  options: OptimizePlan<ConfigFor<Space>, Space>,
+  settings: OptimizeSettings,
+  runtime: StudyRuntime<ConfigFor<Space>>,
+  interruptionSnapshotSink: InterruptionSnapshotSink,
+  trials: Effect.Effect<A, E, R>
+): Effect.Effect<A, E | SearchError, R> =>
+  Effect.uninterruptibleMask((restore) =>
+    restore(trials).pipe(
+      Effect.tapErrorCause((cause) =>
+        setRuntimeLifecycle(runtime, failureLifecycle(cause)).pipe(
+          Effect.zipRight(persistRuntimeCheckpoint(options, settings, runtime, interruptionSnapshotSink)),
+          Effect.mapErrorCause((checkpointCause) => Cause.sequential(cause, checkpointCause))
+        )
+      )
+    )
+  )
 
 const withSamplerLifecycle = <Space extends SearchSpace.SearchSpace, A, E, R>(
   options: OptimizePlan<ConfigFor<Space>, Space>,
@@ -176,53 +186,50 @@ export const executeStudy = <Space extends SearchSpace.SearchSpace>(
         yield* setRuntimeLifecycle(runtime, "Running")
         yield* startDurationStopper(settings, runtime)
 
-        yield* Effect.addFinalizer((exit) =>
-          Match.value(exit).pipe(
-            Match.tag("Success", () => Effect.void),
-            Match.tag("Failure", ({ cause }) =>
-              setRuntimeLifecycle(runtime, failureLifecycle(cause)).pipe(
-                Effect.zipRight(persistRuntimeCheckpoint(options, settings, runtime, interruptionSnapshotSink))
-              )),
-            Match.exhaustive
-          )
-        )
+        return yield* withRuntimeCheckpoint(
+          options,
+          settings,
+          runtime,
+          interruptionSnapshotSink,
+          Effect.gen(function*() {
+            const schedulerSummary = yield* Option.fromNullable(options.scheduler).pipe(
+              Option.match({
+                onNone: () =>
+                  executeQueuedTrials(options, settings, runtime, pruningPolicy, runtimeSeed.startTrialNumber).pipe(
+                    Effect.as(Option.none<Scheduler.SchedulerSummary>())
+                  ),
+                onSome: () =>
+                  runSchedulerStudy(options, settings, runtime, pruningPolicy, runtimeSeed.startTrialNumber).pipe(
+                    Effect.asSome
+                  )
+              })
+            )
 
-        const schedulerSummary = yield* Option.fromNullable(options.scheduler).pipe(
-          Option.match({
-            onNone: () =>
-              executeQueuedTrials(options, settings, runtime, pruningPolicy, runtimeSeed.startTrialNumber).pipe(
-                Effect.as(Option.none<Scheduler.SchedulerSummary>())
-              ),
-            onSome: () =>
-              runSchedulerStudy(options, settings, runtime, pruningPolicy, runtimeSeed.startTrialNumber).pipe(
-                Effect.map(Option.some)
-              )
+            const finalState = yield* readStudyState(runtime)
+            const stopRequest = yield* Ref.get(runtime.stopRef.ref)
+            const completionReasonOverride = yield* Ref.get(runtime.completionReasonRef)
+            const trials = trialsFromState(finalState)
+            const completionReason = resolveCompletionReason(stopRequest, completionReasonOverride)
+            const completionSnapshot = snapshotFromTrials(trials, snapshotMetadata)
+
+            yield* setRuntimeLifecycle(runtime, "Completed")
+            yield* appendEvent(runtime, StudyEvent.StudyCompleted({ completionReason }))
+            yield* writeSnapshotIfAvailable(completionSnapshot)
+
+            return new ExecuteOutcome({
+              snapshotMetadata,
+              objectiveSpec: settings.objectiveSpec,
+              epsilon: settings.epsilon,
+              trials,
+              completed: completedTrialsFromState(finalState),
+              completionReason,
+              ...Option.match(schedulerSummary, {
+                onNone: () => ({}),
+                onSome: (summary) => ({ schedulerSummary: summary })
+              })
+            })
           })
         )
-
-        const finalState = yield* readStudyState(runtime)
-        const stopRequest = yield* Ref.get(runtime.stopRef.ref)
-        const completionReasonOverride = yield* Ref.get(runtime.completionReasonRef)
-        const trials = trialsFromState(finalState)
-        const completionReason = resolveCompletionReason(stopRequest, completionReasonOverride)
-        const completionSnapshot = snapshotFromTrials(trials, snapshotMetadata)
-
-        yield* setRuntimeLifecycle(runtime, "Completed")
-        yield* appendEvent(runtime, StudyEvent.StudyCompleted({ completionReason }))
-        yield* writeSnapshotIfAvailable(completionSnapshot)
-
-        return new ExecuteOutcome({
-          snapshotMetadata,
-          objectiveSpec: settings.objectiveSpec,
-          epsilon: settings.epsilon,
-          trials,
-          completed: completedTrialsFromState(finalState),
-          completionReason,
-          ...Option.match(schedulerSummary, {
-            onNone: () => ({}),
-            onSome: (summary) => ({ schedulerSummary: summary })
-          })
-        })
       }).pipe(Effect.provide(StudyClockLayer))
     )
   )

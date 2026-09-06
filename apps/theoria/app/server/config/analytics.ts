@@ -1,4 +1,4 @@
-import { Config, ConfigError, Context, Effect, Either, Layer, Option, Schema } from "effect"
+import { Config, ConfigError, Context, Either, Layer, Option, Schema } from "effect"
 
 /**
  * Analytics configuration. Both providers are optional and independent:
@@ -26,10 +26,11 @@ export const CloudflareBeaconToken = Schema.String.pipe(
 
 export type CloudflareBeaconToken = typeof CloudflareBeaconToken.Type
 
-export type AnalyticsSettings = {
-  readonly googleMeasurementId: Option.Option<GoogleMeasurementId>
-  readonly cloudflareBeaconToken: Option.Option<CloudflareBeaconToken>
-}
+export const AnalyticsSettings = Schema.Struct({
+  googleMeasurementId: Schema.OptionFromSelf(GoogleMeasurementId),
+  cloudflareBeaconToken: Schema.OptionFromSelf(CloudflareBeaconToken)
+})
+export type AnalyticsSettings = typeof AnalyticsSettings.Type
 
 export class Analytics extends Context.Tag("@theoria/app/server/config/Analytics")<Analytics, AnalyticsSettings>() {}
 
@@ -61,4 +62,5 @@ export const disabledAnalytics: AnalyticsSettings = {
   cloudflareBeaconToken: Option.none()
 }
 
-export const AnalyticsLive = Layer.effect(Analytics, Effect.orDie(analyticsConfig))
+/** Fails layer construction with the `ConfigError` when either identifier is malformed. */
+export const AnalyticsLive: Layer.Layer<Analytics, ConfigError.ConfigError> = Layer.effect(Analytics, analyticsConfig)

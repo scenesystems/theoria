@@ -1,6 +1,8 @@
-import type { PackagePublicExport } from "@theoria/source-proof"
+import { Array as Arr, Option, Order } from "effect"
+
+import { type PackagePublicExport } from "./public-exports.js"
 import { apiPagePath, routeSlug } from "./reflections.js"
-import { type ApiSourceModule, type ApiSourcePackage, sourceModuleSubpath } from "./source.js"
+import { type ApiSourceModule, type ApiSourcePackage, type SourceFilePath, sourceModuleSubpath } from "./source.js"
 
 export const hasSourceDocumentationPages = (
   sourcePackage: ApiSourcePackage,
@@ -14,6 +16,21 @@ export const hasSourceDocumentationPages = (
 export const sourceDocumentationSlug = (relativeSource: string): string =>
   routeSlug(sourceModuleSubpath(relativeSource))
 
+// Every source file other than the entrypoint that contributes a public export
+// gets its own page, in path order.
+export const sourceDocumentationFiles = (
+  module: ApiSourceModule,
+  publicExports: ReadonlyArray<PackagePublicExport>
+): ReadonlyArray<SourceFilePath> => {
+  const contributing: ReadonlyArray<SourceFilePath> = Arr.filterMap(
+    publicExports,
+    (entry) => entry.sourceFile.relative === module.relative ? Option.none() : Option.some(entry.sourceFile)
+  )
+  const distinct = Arr.dedupeWith(contributing, (left, right) => left.relative === right.relative)
+
+  return Arr.sort(distinct, Order.mapInput(Order.string, (file: SourceFilePath) => file.relative))
+}
+
 export const documentationPathForExport = (input: {
   readonly sourcePackage: ApiSourcePackage
   readonly module: ApiSourceModule
@@ -25,7 +42,7 @@ export const documentationPathForExport = (input: {
   )
 
   return hasSourceDocumentationPages(input.sourcePackage, input.module)
-    && input.publicExport.sourceFile.relative !== input.module.relative
+      && input.publicExport.sourceFile.relative !== input.module.relative
     ? apiPagePath(
       input.sourcePackage.directoryName,
       sourceDocumentationSlug(input.publicExport.sourceFile.relative)

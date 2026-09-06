@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Array as Arr, Chunk, Effect, Option, Stream } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeTypedSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     lr: SearchSpace.float(0.001, 0.1),
     optimizer: SearchSpace.categorical(["adam", "sgd"])
   })
@@ -16,7 +16,7 @@ const expectTypedConfig = (config: { readonly lr: number; readonly optimizer: "a
 describe("Study typed results", () => {
   it.effect("infers objective config and threads it into StudyResult.bestTrial.config", () =>
     Effect.gen(function*() {
-      const space = makeTypedSpace()
+      const space = yield* makeTypedSpace()
       const optimized = yield* Study.optimize({
         space,
         sampler: Sampler.random({ seed: 13 }),
@@ -29,17 +29,18 @@ describe("Study typed results", () => {
       })
       const typedResult: Study.StudyResult<SearchSpace.Type<typeof space>> = optimized
 
-      expect(typedResult._tag).toBe("SingleObjective")
+      const singleObjective = yield* Option.liftPredicate(
+        typedResult,
+        (result) => result._tag === "SingleObjective"
+      )
+      const typedBestConfig = expectTypedConfig(singleObjective.bestTrial.config)
 
-      if (typedResult._tag === "SingleObjective") {
-        const typedBestConfig = expectTypedConfig(typedResult.bestTrial.config)
-        expect(typedBestConfig.lr).toBeGreaterThanOrEqual(0.001)
-      }
+      expect(typedBestConfig.lr).toBeGreaterThanOrEqual(0.001)
     }))
 
   it.effect("infers objective config for optimizeStream without explicit annotations", () =>
-    Effect.sync(() => {
-      const space = makeTypedSpace()
+    Effect.gen(function*() {
+      const space = yield* makeTypedSpace()
       const stream = Study.optimizeStream({
         space,
         sampler: Sampler.random({ seed: 5 }),
@@ -50,13 +51,19 @@ describe("Study typed results", () => {
           return Effect.succeed(typed.lr)
         }
       })
+      const events = Chunk.toReadonlyArray(yield* Stream.runCollect(stream))
 
-      expect(stream).toBeDefined()
+      expect(events.map((event) => event._tag)).toEqual([
+        "TrialStarted",
+        "TrialCompleted",
+        "BestUpdated",
+        "StudyCompleted"
+      ])
     }))
 
   it.effect("threads config type into MultiObjectiveResult.paretoFront", () =>
     Effect.gen(function*() {
-      const space = makeTypedSpace()
+      const space = yield* makeTypedSpace()
       const optimized = yield* Study.optimize({
         space,
         sampler: Sampler.random({ seed: 21 }),
@@ -68,15 +75,13 @@ describe("Study typed results", () => {
         }
       })
 
-      expect(optimized._tag).toBe("MultiObjective")
+      const multiObjective = yield* Option.liftPredicate(
+        optimized,
+        (result) => result._tag === "MultiObjective"
+      )
+      const firstPareto = yield* Arr.last(multiObjective.paretoFront)
+      const typedParetoConfig = expectTypedConfig(firstPareto.config)
 
-      if (optimized._tag === "MultiObjective") {
-        Option.fromNullable(optimized.paretoFront[0]).pipe(
-          Option.map((firstPareto) => {
-            const typedParetoConfig = expectTypedConfig(firstPareto.config)
-            expect(typedParetoConfig.optimizer === "adam" || typedParetoConfig.optimizer === "sgd").toBe(true)
-          })
-        )
-      }
+      expect(typedParetoConfig.optimizer === "adam" || typedParetoConfig.optimizer === "sgd").toBe(true)
     }))
 })

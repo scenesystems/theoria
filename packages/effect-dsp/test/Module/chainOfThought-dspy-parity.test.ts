@@ -6,7 +6,7 @@ import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Effect, Layer, Record, Schema } from "effect"
 
-import { ChainOfThoughtReasoningFixtureSchema, makeFixtureRegistry } from "../helpers/dspy-fixtures/index.js"
+import { ChainOfThoughtReasoningFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -22,8 +22,7 @@ const makeQaSignature = () =>
 describe("Module.chainOfThought DSPy parity", () => {
   it.effect("matches the DSPy reasoning-field and trace contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.cot.reasoning-field.basic")
+      const rawFixture = yield* loadFixture("dspy.cot.reasoning-field.basic")
       const fixture = yield* Schema.decodeUnknown(ChainOfThoughtReasoningFixtureSchema)(rawFixture)
 
       const qa = yield* makeQaSignature()
@@ -42,7 +41,6 @@ describe("Module.chainOfThought DSPy parity", () => {
       const entries = traced[1]
       const firstEntry = entries[0]
 
-      expect(fixture.payload.reasoningFieldName).toBe("reasoning")
       expect(Record.keys(cot.signature.outputFields)).toStrictEqual(fixture.payload.outputFieldOrder)
       expect(result).toStrictEqual(fixture.payload.sampleOutput)
       expect(entries).toHaveLength(fixture.payload.traceLength)

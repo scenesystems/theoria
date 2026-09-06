@@ -1,13 +1,13 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Study } from "@scenesystems/effect-search"
-import { Duration, Effect, Layer, Option, Ref, Stream } from "effect"
+import { Data, Duration, Effect, Option, Ref, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { DemoExecutionError } from "../../contracts/demo-error.js"
 import {
   arrange,
-  type Arrangement,
+  Arrangement,
   descriptionInput,
   meanderSpace,
   renderingFor,
@@ -17,10 +17,13 @@ import {
 import { type Stage, stageFor } from "../../contracts/demo/imagined-place-flow.js"
 import type { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../contracts/imagined-place.js"
+import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
+import type { BrowserTextLayout } from "../text/browserTextLayout.js"
 import { type MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
 import { placeArtifactAtom, placeStageWidthAtom } from "./imagined-place.js"
+import { textLayoutRuntime } from "./text-layout.js"
 
 /**
  * Draws the place in the browser with the browser's own font metrics.
@@ -30,7 +33,7 @@ import { placeArtifactAtom, placeStageWidthAtom } from "./imagined-place.js"
  * `Study.ask`/`Study.tell` so the page can show the arrangement improving.
  * Every frame is the best arrangement found so far.
  */
-export type PlaceRenderFrame = {
+export class PlaceRenderFrame extends Data.Class<{
   readonly phase: "running" | "complete"
   readonly trial: number
   readonly stage: Stage
@@ -41,7 +44,7 @@ export type PlaceRenderFrame = {
   readonly rendering: PlaceRendering
   /** The discs that carry their names at this stage width, and how wide each name wraps. */
   readonly labels: MarkerLabelWidths
-}
+}> {}
 
 /** The loss of every trial so far: the trace of the search. */
 export const frameLosses = (frame: PlaceRenderFrame): ReadonlyArray<number> =>
@@ -51,26 +54,26 @@ export const frameLosses = (frame: PlaceRenderFrame): ReadonlyArray<number> =>
 export const frameShowing = (frame: PlaceRenderFrame, index: Option.Option<number>): PlaceRenderFrame =>
   Option.match(Option.flatMap(index, (value) => Arr.get(frame.tried, value)), {
     onNone: () => frame,
-    onSome: (arrangement) => ({
-      ...frame,
-      rendering: renderingFor({
-        arrangement,
-        bestLoss: frame.rendering.evidence.bestLoss,
-        stage: frame.stage,
-        trials: frame.trial
+    onSome: (arrangement) =>
+      new PlaceRenderFrame({
+        ...frame,
+        rendering: renderingFor({
+          arrangement,
+          bestLoss: frame.rendering.evidence.bestLoss,
+          stage: frame.stage,
+          trials: frame.trial
+        })
       })
-    })
   })
-
-const renderRuntime = Atom.runtime(Layer.empty)
 
 /** Long enough to see the markers settle, short enough that 36 trials finish in about a second. */
 const frameDelay = Duration.millis(28)
 
-type Progress = {
-  readonly tried: Arr.NonEmptyReadonlyArray<Arrangement>
-  readonly bestIndex: number
-}
+const Progress = Schema.Struct({
+  tried: Schema.NonEmptyArray(Arrangement),
+  bestIndex: Schema.Number
+})
+type Progress = typeof Progress.Type
 
 const bestOf = (progress: Progress): Arrangement => Arr.unsafeGet(progress.tried, progress.bestIndex)
 
@@ -80,20 +83,21 @@ const frame = (
   labels: MarkerLabelWidths,
   trial: number,
   phase: PlaceRenderFrame["phase"]
-): PlaceRenderFrame => ({
-  phase,
-  trial,
-  stage,
-  labels,
-  tried: progress.tried,
-  bestIndex: progress.bestIndex,
-  rendering: renderingFor({
-    arrangement: bestOf(progress),
-    bestLoss: bestOf(progress).quality.loss,
+): PlaceRenderFrame =>
+  new PlaceRenderFrame({
+    phase,
+    trial,
     stage,
-    trials: trial
+    labels,
+    tried: progress.tried,
+    bestIndex: progress.bestIndex,
+    rendering: renderingFor({
+      arrangement: bestOf(progress),
+      bestLoss: bestOf(progress).quality.loss,
+      stage,
+      trials: trial
+    })
   })
-})
 
 const advance = (current: Option.Option<Progress>, arrangement: Arrangement): Progress =>
   Option.match(current, {
@@ -109,8 +113,8 @@ const renderFailed = (message: string) => new DemoExecutionError({ code: "execut
 const renderStream = (
   artifact: PlaceArtifact,
   stageWidth: number
-): Stream.Stream<PlaceRenderFrame, DemoExecutionError> =>
-  Study.streamFromEmitter<PlaceRenderFrame, void, DemoExecutionError, never>((emit) =>
+): Stream.Stream<PlaceRenderFrame, DemoExecutionError, BrowserTextLayout> =>
+  Study.streamFromEmitter<PlaceRenderFrame, void, DemoExecutionError, BrowserTextLayout>((emit) =>
     Effect.scoped(
       Effect.gen(function*() {
         const stage = stageFor(stageWidth)
@@ -160,12 +164,15 @@ const renderStream = (
  */
 export const placeTrialPreviewAtom: AtomType.Writable<Option.Option<number>> = Atom.make(Option.none<number>())
 
+/** Why there is no frame: the search failed, or the document has no canvas to measure the place's text on. */
+export type PlaceRenderError = DemoExecutionError | CanvasUnavailable
+
 /**
  * The latest frame for the current artifact at the current stage width. A new
  * artifact or a new width starts a new search; the previous frame is kept
  * while it runs so the stage never blanks.
  */
-export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, DemoExecutionError>> = renderRuntime
+export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = textLayoutRuntime
   .atom((get: AtomType.Context) => {
     const artifact = get(placeArtifactAtom)
     const stageWidth = get(placeStageWidthAtom)
@@ -178,7 +185,7 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
   })
 
 /** The frame the stage draws: the best arrangement, or the trial the visitor chose. */
-export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, DemoExecutionError>> = Atom.make(
+export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = Atom.make(
   (get: AtomType.Context) => {
     const preview = get(placeTrialPreviewAtom)
     return Result.map(get(placeRenderFrameAtom), (found) => frameShowing(found, preview))

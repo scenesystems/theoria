@@ -26,13 +26,13 @@ export class RuntimeFingerprintError extends Schema.TaggedError<RuntimeFingerpri
 ) {}
 
 const isStruct = (input: unknown): input is Readonly<Record<string, unknown>> => {
-  if (typeof input !== "object" || input === null || Arr.isArray(input)) {
+  if (!Predicate.isObject(input) || Arr.isArray(input)) {
     return false
   }
 
   const prototype = Object.getPrototypeOf(input)
 
-  return prototype === Object.prototype || prototype === null
+  return prototype === Object.prototype || Predicate.isNull(prototype)
 }
 
 const isDate = (input: unknown): input is Date => input instanceof Date
@@ -130,7 +130,7 @@ const structTokens = (
 const canonicalTokens = (value: unknown): Effect.Effect<Chunk.Chunk<string>, RuntimeFingerprintError> =>
   Match.value(value).pipe(
     Match.when(Predicate.isUndefined, () => Effect.succeed(Chunk.of("undefined"))),
-    Match.when((input: unknown): input is null => input === null, () => Effect.succeed(Chunk.of("null"))),
+    Match.when(Predicate.isNull, () => Effect.succeed(Chunk.of("null"))),
     Match.when(Match.boolean, (boolean) => Effect.succeed(Chunk.of(`bool:${boolean ? 1 : 0}`))),
     Match.when(Match.number, (number) => Effect.succeed(Chunk.of(numberToken(number)))),
     Match.when(Match.string, (text) => Effect.succeed(Chunk.of(`str:${text}`))),

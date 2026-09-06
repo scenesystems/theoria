@@ -9,11 +9,11 @@ import type { Schema } from "effect"
 import { AllTrialsFailed } from "../../Errors/optimizer.js"
 import type { ProgramOutput } from "./model.js"
 
-type VoteBucket<O extends Schema.Struct.Fields> = Readonly<{
+class VoteBucket<O extends Schema.Struct.Fields> extends Data.Class<{
   readonly output: ProgramOutput<O>
   readonly count: number
   readonly firstIndex: number
-}>
+}> {}
 
 const stableOutputEquals = <O extends Schema.Struct.Fields>(
   left: ProgramOutput<O>,

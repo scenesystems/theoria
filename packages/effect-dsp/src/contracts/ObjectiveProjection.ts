@@ -121,10 +121,10 @@ const validateProjection = (payload: unknown) => Schema.decodeUnknown(ObjectiveP
  * @since 0.1.0
  * @category constructors
  */
-export const projectSingleObjective = (report: Report, metricName?: string) =>
+export const projectSingleObjective = (report: Report, metricName: Option.Option<string>) =>
   Effect.gen(function*() {
     const selectedMetricName = Option.getOrElse(
-      Option.fromNullable(metricName),
+      metricName,
       () => Option.getOrElse(Arr.head(stableMetricNames(report)), () => "score")
     )
 
@@ -181,9 +181,6 @@ export const projectObjective = (options: {
   options.mode === "single"
     ? projectSingleObjective(
       options.report,
-      Option.match(Option.flatMap(Option.fromNullable(options.metricNames), Arr.head), {
-        onNone: () => undefined,
-        onSome: (metricName) => metricName
-      })
+      Option.flatMap(Option.fromNullable(options.metricNames), Arr.head)
     )
     : projectMultiObjective(options.report, options.metricNames)

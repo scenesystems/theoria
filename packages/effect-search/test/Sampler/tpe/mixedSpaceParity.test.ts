@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Schema } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../src/Errors/index.js"
 import {
-  decodeMixedOptimizerConfigEffect,
+  decodeMixedOptimizerConfig,
   makeMixedOptimizerSpace
 } from "../../../src/experimental/scenarios/mixedOptimizer.js"
 import * as Float64 from "../../../src/internal/float64.js"
@@ -17,16 +17,25 @@ import { FixtureRegistryLive, loadAllFixtures, MixedSpaceJointTraceFixtureSchema
 
 const SCORE_TOLERANCE = 1e-9
 
+class MissingParameterMetadata extends Data.TaggedError("MissingParameterMetadata")<{
+  readonly name: string
+}> {}
+
+class UnexpectedDistribution extends Data.TaggedError("UnexpectedDistribution")<{
+  readonly name: string
+  readonly expected: "categorical" | "float" | "int"
+}> {}
+
 const numberAt = (values: ReadonlyArray<number>, index: number): number =>
   Option.fromNullable(values[index]).pipe(Option.getOrElse(() => Number.NaN))
 
 const parameterByName = (
   space: SearchSpace.SearchSpace,
   name: string
-): Effect.Effect<SearchSpace.ParameterMetadata, string> =>
+): Effect.Effect<SearchSpace.ParameterMetadata, MissingParameterMetadata> =>
   Option.fromNullable(space.params.find((parameter) => parameter.name === name)).pipe(
     Option.match({
-      onNone: () => Effect.fail(`missing parameter metadata for "${name}"`),
+      onNone: () => Effect.fail(new MissingParameterMetadata({ name })),
       onSome: Effect.succeed
     })
   )
@@ -75,13 +84,16 @@ const traceFromDimension = (
   space: SearchSpace.SearchSpace,
   split: TrialSplit,
   dimension: MixedSpaceDimension
-): Effect.Effect<NamedDimensionScoreTrace, string | InvalidSamplerConfig> =>
+): Effect.Effect<
+  NamedDimensionScoreTrace,
+  MissingParameterMetadata | UnexpectedDistribution | InvalidSamplerConfig
+> =>
   Effect.gen(function*() {
     const parameter = yield* parameterByName(space, dimension.name)
 
     if (dimension.kind === "categorical") {
       if (parameter.distribution.type !== "categorical") {
-        return yield* Effect.fail(`expected categorical distribution for parameter "${parameter.name}"`)
+        return yield* new UnexpectedDistribution({ name: parameter.name, expected: "categorical" })
       }
 
       const trace = yield* categoricalCandidateTraceFromRolls(
@@ -106,7 +118,7 @@ const traceFromDimension = (
 
     if (dimension.kind === "float") {
       if (parameter.distribution.type !== "float") {
-        return yield* Effect.fail(`expected float distribution for parameter "${parameter.name}"`)
+        return yield* new UnexpectedDistribution({ name: parameter.name, expected: "float" })
       }
 
       const trace = yield* floatCandidateTraceFromRolls(
@@ -136,7 +148,7 @@ const traceFromDimension = (
     }
 
     if (parameter.distribution.type !== "int") {
-      return yield* Effect.fail(`expected int distribution for parameter "${parameter.name}"`)
+      return yield* new UnexpectedDistribution({ name: parameter.name, expected: "int" })
     }
 
     const trace = yield* intCandidateTraceFromRolls(
@@ -161,7 +173,7 @@ const traceFromDimension = (
 
 const decodedConfigs = (
   configs: ReadonlyArray<unknown>
-) => Effect.forEach(configs, (config) => decodeMixedOptimizerConfigEffect(config))
+) => Effect.forEach(configs, (config) => decodeMixedOptimizerConfig(config))
 
 describe("mixed-space fixture parity", () => {
   it.effect("replays per-dimension rolls and joint EI argmax decisions from mixed-space fixtures", () =>
@@ -176,7 +188,7 @@ describe("mixed-space fixture parity", () => {
         fixtures,
         (fixture) =>
           Effect.gen(function*() {
-            const space = makeMixedOptimizerSpace()
+            const space = yield* makeMixedOptimizerSpace()
             const split = splitFromFixture(fixture.payload)
 
             const traces = yield* Effect.forEach(fixture.payload.dimensions, (dimension) =>
@@ -210,8 +222,8 @@ describe("mixed-space fixture parity", () => {
               SCORE_TOLERANCE
             )
 
-            const bestConfig = yield* decodeMixedOptimizerConfigEffect(selection.bestConfig)
-            const expectedBest = yield* decodeMixedOptimizerConfigEffect(fixture.payload.expected.expectedSuggestion)
+            const bestConfig = yield* decodeMixedOptimizerConfig(selection.bestConfig)
+            const expectedBest = yield* decodeMixedOptimizerConfig(fixture.payload.expected.expectedSuggestion)
 
             yield* Effect.sync(() => {
               expect(selection.bestIndex).toBe(fixture.payload.expected.expectedBestIndex)

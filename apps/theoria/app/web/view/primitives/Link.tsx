@@ -1,25 +1,25 @@
 import { useAtomSet } from "@effect-atom/atom-react"
-import type { AnchorHTMLAttributes, ComponentProps, MouseEvent, ReactNode } from "react"
+import { Option } from "effect"
+import type { ComponentProps, MouseEvent, ReactNode } from "react"
 
 import { navigateAtom, shouldNavigateInBrowser } from "../../atoms/navigation.js"
 
-/** Anchor props including React 19's `ref` prop, so a caller can move focus to the link. */
-type InternalLinkProps = Omit<ComponentProps<"a">, "href"> & {
-  readonly href: string
-}
+import { classNames } from "./classNames.js"
 
 /**
  * Internal (same-origin) navigation link.
  *
- * Preserves native anchor behavior while handling known application routes
- * through the browser navigation atom.
+ * Plain clicks go through `navigateAtom`, which changes the route in place
+ * for application paths and performs a full navigation for anything else;
+ * modified clicks and new-tab targets keep the browser's own behaviour.
+ * Accepts React 19's `ref` prop so a caller can move focus to the link.
  */
 export const InternalLink = ({
   children,
   href,
   onClick,
   ...props
-}: InternalLinkProps) => {
+}: ComponentProps<"a"> & { readonly href: string }) => {
   const navigate = useAtomSet(navigateAtom)
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -31,10 +31,9 @@ export const InternalLink = ({
         button: event.button,
         ctrlKey: event.ctrlKey,
         defaultPrevented: event.defaultPrevented,
-        href,
         metaKey: event.metaKey,
         shiftKey: event.shiftKey,
-        target: props.target ?? null
+        target: Option.fromNullable(props.target)
       })
     ) {
       event.preventDefault()
@@ -59,17 +58,14 @@ export const ExternalLink = ({
   children,
   href,
   ...props
-}: InternalLinkProps) => (
+}: ComponentProps<"a"> & { readonly href: string }) => (
   <a {...props} href={href} rel="noopener noreferrer" target="_blank">
     {children}
   </a>
 )
 
-type AnchorLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
-  readonly href: string
-}
-
-export const AnchorLink = ({ children, href, ...props }: AnchorLinkProps) => (
+/** Same-document anchor (`#fragment`) link; native scrolling, no router involvement. */
+export const AnchorLink = ({ children, href, ...props }: ComponentProps<"a"> & { readonly href: string }) => (
   <a {...props} href={href}>
     {children}
   </a>
@@ -84,14 +80,14 @@ export const AnchorLink = ({ children, href, ...props }: AnchorLinkProps) => (
  */
 export const CardLink = ({
   children,
-  className,
+  className = "",
   href
 }: {
   readonly children: ReactNode
   readonly className?: string
   readonly href: string
 }) => (
-  <InternalLink className={`after:absolute after:inset-0 after:content-[''] ${className ?? ""}`} href={href}>
+  <InternalLink className={classNames("after:absolute after:inset-0 after:content-['']", className)} href={href}>
     {children}
   </InternalLink>
 )

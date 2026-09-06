@@ -3,7 +3,7 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { MetricResult } from "@scenesystems/effect-dsp/contracts"
+import { MetricResult, RolloutCount } from "@scenesystems/effect-dsp/contracts"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
@@ -55,7 +55,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-refine",
         module: inner,
-        N: 3,
+        N: RolloutCount.make(3),
         reward,
         threshold: 0.8
       })
@@ -97,7 +97,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-early-stop",
         module: inner,
-        N: 5,
+        N: RolloutCount.make(5),
         reward,
         threshold: 0.9
       })
@@ -132,7 +132,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-traced-refine",
         module: inner,
-        N: 2,
+        N: RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -169,7 +169,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-drift-test",
         module: inner,
-        N: 2,
+        N: RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -220,7 +220,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-interrupted-refine",
         module: inner,
-        N: 2,
+        N: RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -268,7 +268,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-serialized-refine",
         module: inner,
-        N: 1,
+        N: RolloutCount.make(1),
         reward,
         threshold: 0.9
       })
@@ -310,7 +310,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-best-overall",
         module: inner,
-        N: 3,
+        N: RolloutCount.make(3),
         reward,
         threshold: 0.95
       })
@@ -322,5 +322,42 @@ describe("Module.refine", () => {
       )
 
       expect(result).toEqual({ answer: "Best so far" })
+    }))
+
+  it.effect("returns the first output when every score is NaN", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence([
+          { answer: "First" },
+          { answer: "Second" }
+        ])
+      )
+      const inner = yield* Module.predict("qa", qa)
+
+      const refined = yield* Module.refine({
+        name: "qa-nan-scores",
+        module: inner,
+        N: RolloutCount.make(2),
+        reward: () => Effect.succeed(new MetricResult({ score: Number.NaN })),
+        threshold: 0.5
+      })
+
+      const result = yield* refined.forward({
+        question: "NaN scores"
+      }).pipe(
+        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+      )
+
+      expect(result).toEqual({ answer: "First" })
+    }))
+
+  it.effect("rejects a non-positive attempt count at the RolloutCount boundary", () =>
+    Effect.gen(function*() {
+      const zero = yield* Schema.decodeUnknown(RolloutCount)(0).pipe(Effect.flip)
+      const fractional = yield* Schema.decodeUnknown(RolloutCount)(1.5).pipe(Effect.flip)
+
+      expect(zero._tag).toBe("ParseError")
+      expect(fractional._tag).toBe("ParseError")
     }))
 })

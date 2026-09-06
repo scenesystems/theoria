@@ -7,7 +7,7 @@ import type * as Sampler from "@scenesystems/effect-search/Sampler"
 import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import type * as Study from "@scenesystems/effect-search/Study"
 import * as StudyEvent from "@scenesystems/effect-search/StudyEvent"
-import { Option, Schema } from "effect"
+import { Data, Option, Schema } from "effect"
 
 /**
  * Accepts expected improvement, probability of improvement, or Thompson sampling.
@@ -50,14 +50,14 @@ export class EffectSearchTpeSamplerOptions extends Schema.Class<EffectSearchTpeS
  * @since 0.1.0
  * @category models
  */
-export type EffectSearchTpeSamplerInput = Readonly<{
+export class EffectSearchTpeSamplerInput extends Data.Class<{
   /** Fixed seed for reproducible suggestions; omitted leaves the sampler unseeded. */
   readonly seed?: number
   /** Whether TPE models dimensions jointly; defaults to `true`. */
   readonly multivariate?: boolean
   /** Acquisition calculation; defaults to `"ei"`. */
   readonly acquisition?: EffectSearchAcquisitionStrategy
-}>
+}> {}
 
 /**
  * Uses no fixed seed, multivariate modeling, and expected improvement.
@@ -77,7 +77,7 @@ export const defaultEffectSearchTpeSamplerOptions = new EffectSearchTpeSamplerOp
  * @since 0.1.0
  * @category models
  */
-export type EffectSearchOpenOptions<Space extends SearchSpace.SearchSpace> = Readonly<{
+export class EffectSearchOpenOptions<Space extends SearchSpace.SearchSpace> extends Data.Class<{
   /** Whether smaller or larger objective values rank higher. */
   readonly direction: "maximize" | "minimize"
   /** Parameter definitions and conditional structure used for suggestions. */
@@ -90,7 +90,7 @@ export type EffectSearchOpenOptions<Space extends SearchSpace.SearchSpace> = Rea
   readonly objective: Study.ObjectiveFunction<SearchSpace.Type<Space>>
   /** Maximum concurrent objective evaluations recorded in study settings. */
   readonly concurrency?: number
-}>
+}> {}
 
 /**
  * Carries the scoped state of an effect-search manual study.

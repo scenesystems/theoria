@@ -1,5 +1,11 @@
-import { HttpServerResponse } from "@effect/platform"
-import { Effect, Layer, Option } from "effect"
+import {
+  HttpClient,
+  HttpClientError,
+  HttpClientRequest,
+  HttpClientResponse,
+  HttpServerResponse
+} from "@effect/platform"
+import { Effect, Layer, Option, Predicate, Schema } from "effect"
 
 import { StaticStore, StaticStoreError } from "../config/static-store.js"
 
@@ -7,47 +13,76 @@ import { StaticStore, StaticStoreError } from "../config/static-store.js"
  * `StaticStore` backed by a Cloudflare Workers static-assets binding.
  *
  * The binding is configured in `wrangler.jsonc` (`assets.binding = "ASSETS"`)
- * and exposed to the Worker as `env.ASSETS`. Only the URL pathname is
- * meaningful to the binding; the host is a placeholder. With
- * `not_found_handling: "none"` a missing asset is a plain `404` response.
+ * and exposed to the Worker as `env.ASSETS`. Its `fetch` has the Fetch API
+ * signature, so it becomes the transport of an Effect `HttpClient` built with
+ * `HttpClient.make`; every asset read is then an ordinary traced client
+ * request. Only the URL pathname is meaningful to the binding; the host is a
+ * placeholder. With `not_found_handling: "none"` a missing asset is a plain
+ * `404` response.
  *
  * The structural `AssetsFetcher` type keeps this module independent of
  * `@cloudflare/workers-types`; the generated `Fetcher` type is assignable.
  */
-export type AssetsFetcher = {
-  readonly fetch: (input: Request) => Promise<Response>
-}
+type Fetch = (
+  input: URL,
+  init: { readonly method: string; readonly headers: Record<string, string>; readonly signal: AbortSignal }
+) => Promise<Response>
+
+export const AssetsFetcher = Schema.declare<{ readonly fetch: Fetch }>(
+  (input): input is { readonly fetch: Fetch } =>
+    Predicate.hasProperty(input, "fetch") && Predicate.isFunction(input.fetch),
+  { identifier: "AssetsFetcher" }
+)
+export type AssetsFetcher = typeof AssetsFetcher.Type
 
 const assetsOrigin = "https://assets.local"
 
-const assetRequest = (pathname: string): Request => new Request(new URL(pathname, assetsOrigin), { method: "GET" })
+/** An `HttpClient` whose transport is the assets binding. */
+const assetsClient = (assets: AssetsFetcher): HttpClient.HttpClient =>
+  HttpClient.make((request, url, signal) =>
+    Effect.tryPromise({
+      try: () => assets.fetch(url, { method: request.method, headers: request.headers, signal }),
+      catch: (cause) =>
+        new HttpClientError.RequestError({
+          request,
+          reason: "Transport",
+          cause,
+          description: Predicate.isError(cause) ? cause.message : String(cause)
+        })
+    }).pipe(Effect.map((response) => HttpClientResponse.fromWeb(request, response)))
+  ).pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(assetsOrigin)))
 
-const fetchAsset = (assets: AssetsFetcher, pathname: string) =>
-  Effect.tryPromise({
-    try: () => assets.fetch(assetRequest(pathname)),
-    catch: (cause) => new StaticStoreError({ pathname, message: String(cause) })
-  })
+/**
+ * One status policy for both operations: `404` is absence, every other non-2xx
+ * status and every transport failure is the store failing to deliver an asset
+ * that may well exist, so it is `Unreadable` and reaches the caller as a 500.
+ */
+const storeFailure = (pathname: string) => (cause: HttpClientError.HttpClientError): StaticStoreError =>
+  cause._tag === "ResponseError" && cause.response.status === 404
+    ? new StaticStoreError({ pathname, reason: "NotFound", detail: "" })
+    : new StaticStoreError({ pathname, reason: "Unreadable", detail: cause.message })
 
-export const make = (assets: AssetsFetcher) =>
-  StaticStore.of({
+export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
+  const client = assetsClient(assets)
+  const okClient = HttpClient.filterStatusOk(client)
+  return StaticStore.of({
     text: (pathname) =>
-      fetchAsset(assets, pathname).pipe(
-        Effect.flatMap((response) =>
-          response.ok
-            ? Effect.tryPromise({
-              try: () => response.text(),
-              catch: (cause) => new StaticStoreError({ pathname, message: String(cause) })
-            })
-            : Effect.fail(
-              new StaticStoreError({ pathname, message: `Asset responded with status ${String(response.status)}.` })
-            )
-        )
+      okClient.get(pathname).pipe(
+        Effect.flatMap((response) => response.text),
+        Effect.mapError(storeFailure(pathname))
       ),
     response: (pathname) =>
-      fetchAsset(assets, pathname).pipe(
-        Effect.map((response) => response.ok ? Option.some(HttpServerResponse.fromWeb(response)) : Option.none()),
-        Effect.catchAll(() => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()))
+      okClient.get(pathname).pipe(
+        Effect.map((response) =>
+          Option.some(
+            HttpServerResponse.stream(response.stream, { status: response.status, headers: response.headers })
+          )
+        ),
+        Effect.catchTag("ResponseError", (error) =>
+          error.response.status === 404 ? Effect.succeedNone : Effect.fail(error)),
+        Effect.mapError(storeFailure(pathname))
       )
   })
+}
 
 export const layer = (assets: AssetsFetcher): Layer.Layer<StaticStore> => Layer.succeed(StaticStore, make(assets))

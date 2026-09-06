@@ -12,6 +12,7 @@
  *
  * @since 0.1.0
  * @category digest
+ * @module
  */
 
 import { Effect, Either, type ParseResult, Schema } from "effect"

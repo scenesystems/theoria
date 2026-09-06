@@ -48,10 +48,10 @@ if [ "$current_bun_version" != "$required_bun_version" ]; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-required_node_major="$(tr -d '[:space:]' < .node-version)"
-current_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+required_node_version="$(tr -d '[:space:]' < .node-version)"
+current_node_version="$(node --version 2>/dev/null | sed 's/^v//' || true)"
 
-if [ "$current_node_major" != "$required_node_major" ]; then
+if [ "$current_node_version" != "$required_node_version" ]; then
   case "$(uname -s)-$(uname -m)" in
     Linux-x86_64)
       node_platform="linux-x64"
@@ -65,20 +65,8 @@ if [ "$current_node_major" != "$required_node_major" ]; then
       ;;
   esac
 
-  echo "Installing the latest Node $required_node_major release for theoria orb tools..."
-  node_version="$(
-    bun -e '
-const [major, platform] = process.argv.slice(1)
-const releases = await fetch("https://nodejs.org/dist/index.json").then((response) => response.json())
-const release = releases.find((entry) => entry.version.startsWith(`v${major}.`) && entry.files.includes(platform))
-
-if (!release) {
-  process.exit(1)
-}
-
-console.log(release.version)
-' "$required_node_major" "$node_platform"
-  )"
+  echo "Installing Node $required_node_version for theoria orb tools..."
+  node_version="v$required_node_version"
 
   node_install_root="$HOME/.local/share/theoria-node"
   node_release_dir="$node_install_root/node-$node_version-$node_platform"

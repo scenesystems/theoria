@@ -49,7 +49,8 @@ export const FixtureSourceSchema = Schema.Struct({
 export const FixtureManifestSchema = Schema.parseJson(
   Schema.Struct({
     sources: Schema.NonEmptyArray(FixtureSourceSchema)
-  })
+  }),
+  { space: 2 }
 )
 
 export const JcsFixtureSchema = Schema.parseJson(

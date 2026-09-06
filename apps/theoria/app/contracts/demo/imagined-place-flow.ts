@@ -1,4 +1,4 @@
-import { Chunk, Option } from "effect"
+import { Chunk, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import * as Geometry from "@scenesystems/effect-math/Geometry"
@@ -15,12 +15,13 @@ import { semanticsFor, type TextRole } from "../text.js"
  * trial without touching any service. Server and browser share it; only the
  * text measurer differs.
  */
-export type Stage = {
-  readonly stageWidth: number
-  readonly stageHeight: number
-  readonly padding: number
-  readonly lineHeight: number
-}
+export const Stage = Schema.Struct({
+  stageWidth: Schema.Number,
+  stageHeight: Schema.Number,
+  padding: Schema.Number,
+  lineHeight: Schema.Number
+})
+export type Stage = typeof Stage.Type
 
 /** The text role the description is set in; its line height shapes the stage. */
 export const placeTextRole: TextRole = "card-summary"
@@ -56,14 +57,15 @@ export const markerRadius = (stage: Stage, weight: number): number => stage.stag
  * search small; the text then has to flow around whatever curve is chosen.
  * All values are fractions of the stage width.
  */
-export type Meander = {
-  readonly edge: number
-  readonly swing: number
-  readonly phase: number
-  readonly turns: number
-  readonly top: number
-  readonly step: number
-}
+export const Meander = Schema.Struct({
+  edge: Schema.Number,
+  swing: Schema.Number,
+  phase: Schema.Number,
+  turns: Schema.Number,
+  top: Schema.Number,
+  step: Schema.Number
+})
+export type Meander = typeof Meander.Type
 
 type Bounds = readonly [low: number, high: number]
 
@@ -180,12 +182,13 @@ export const minimumSeparation = (stage: Stage, markers: ReadonlyArray<PlaceMark
     () => stage.stageWidth
   ) / stage.stageWidth
 
-export type FlowQuality = {
-  readonly loss: number
-  readonly lineCount: number
-  readonly narrowestLine: number
-  readonly raggedness: number
-}
+export const FlowQuality = Schema.Struct({
+  loss: Schema.Number,
+  lineCount: Schema.Number,
+  narrowestLine: Schema.Number,
+  raggedness: Schema.Number
+})
+export type FlowQuality = typeof FlowQuality.Type
 
 /**
  * How good an arrangement is. Markers pushed below the canvas, lines squeezed

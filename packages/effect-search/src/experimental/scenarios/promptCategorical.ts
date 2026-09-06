@@ -60,20 +60,12 @@ export const PromptCategoricalConfigSchema = Schema.Struct({
 export type PromptCategoricalConfig = Schema.Schema.Type<typeof PromptCategoricalConfigSchema>
 
 /**
- * Decodes an unknown prompt configuration and throws on a schema violation.
- *
- * @since 0.1.0
- * @category utils
- */
-export const decodePromptCategoricalConfig = Schema.decodeUnknownSync(PromptCategoricalConfigSchema)
-
-/**
  * Decodes an unknown prompt configuration with schema violations in the Effect error channel.
  *
  * @since 0.1.0
  * @category utils
  */
-export const decodePromptCategoricalConfigEffect = Schema.decodeUnknown(PromptCategoricalConfigSchema)
+export const decodePromptCategoricalConfig = Schema.decodeUnknown(PromptCategoricalConfigSchema)
 
 /**
  * Builds a categorical space from the exported instruction, demonstration, and scoring choices.
@@ -82,7 +74,7 @@ export const decodePromptCategoricalConfigEffect = Schema.decodeUnknown(PromptCa
  * @category constructors
  */
 export const makePromptCategoricalSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     instruction: SearchSpace.categorical(PromptInstructionChoices),
     demos: SearchSpace.categorical(PromptDemoChoices),
     scoring: SearchSpace.categorical(PromptScoringChoices)

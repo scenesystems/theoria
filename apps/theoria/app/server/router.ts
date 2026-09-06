@@ -1,7 +1,7 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
-import { Clock, Effect, Match } from "effect"
+import { Clock, Effect, Match, Option } from "effect"
 
-import { RuntimeInfo } from "./config/runtime.js"
+import { jsonResponse, responseMeta } from "./api-response.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
 import { imaginedPlacePath, imaginedPlaceRoute } from "./routes/imagined-place.js"
 import { llmsTxtRoute } from "./routes/llms.js"
@@ -9,44 +9,27 @@ import { sitemapRoute } from "./routes/sitemap.js"
 import { staticResponse } from "./routes/static.js"
 import { versionRoute } from "./routes/version.js"
 
-const requestUrlBase = "http://127.0.0.1"
-
-const requestPathname = (url: string): string => new URL(url, requestUrlBase).pathname
-
 const apiNotFoundResponse = (requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
-    const runtimeInfo = yield* RuntimeInfo
-    const endedAtMs = yield* Clock.currentTimeMillis
+    const meta = yield* responseMeta(requestId, startedAtMs)
 
-    return HttpServerResponse.json(
+    return yield* jsonResponse(
       {
         ok: false,
-        meta: {
-          requestId,
-          buildSha: runtimeInfo.buildSha,
-          durationMs: endedAtMs - startedAtMs
-        },
+        meta,
         error: {
           code: "route-not-found",
           message: "API route not found.",
           retryable: false
         }
       },
-      {
-        status: 404,
-        headers: {
-          "cache-control": "no-store"
-        }
-      }
+      { status: 404 }
     )
   })
 
-export const app = Effect.gen(function*() {
-  const request = yield* HttpServerRequest.HttpServerRequest
-  const pathname = requestPathname(request.url)
-  const requestId = crypto.randomUUID()
-  const routeEffect = Match.value(pathname).pipe(
+const route = (pathname: string, request: HttpServerRequest.HttpServerRequest, requestId: string) =>
+  Match.value(pathname).pipe(
     Match.when("/api/health/live", () => liveRoute(requestId)),
     Match.when("/api/health/ready", () => readyRoute(requestId)),
     Match.when("/api/version", () => versionRoute(requestId)),
@@ -57,5 +40,19 @@ export const app = Effect.gen(function*() {
     Match.orElse(() => staticResponse(pathname))
   )
 
-  return yield* Effect.flatten(routeEffect)
+/**
+ * Every request runs inside the `http.server` span the platform's tracer
+ * middleware opens (continuing an incoming `traceparent` when present), so
+ * that span's trace id is the request id clients see in response envelopes.
+ *
+ * A request whose URL cannot be parsed against its host has no route; it is
+ * a bad request, not a missing page.
+ */
+export const app = Effect.gen(function*() {
+  const request = yield* HttpServerRequest.HttpServerRequest
+  const { traceId: requestId } = yield* Effect.orDie(Effect.currentSpan)
+  return yield* Option.match(HttpServerRequest.toURL(request), {
+    onNone: () => Effect.succeed(HttpServerResponse.empty({ status: 400 })),
+    onSome: (url) => route(url.pathname, request, requestId)
+  })
 })

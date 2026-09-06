@@ -21,7 +21,7 @@ class DataConfig extends Data.Class<{
 }> {}
 
 const singleChoiceSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     choice: SearchSpace.categorical(["only"])
   })
 
@@ -31,7 +31,7 @@ describe("StudyObjectiveCache", () => {
       const invocations = yield* Ref.make(0)
 
       const result = yield* Study.optimize({
-        space: singleChoiceSpace(),
+        space: yield* singleChoiceSpace(),
         sampler: Sampler.random({ seed: 31 }),
         direction: "minimize",
         trials: 4,
@@ -51,7 +51,7 @@ describe("StudyObjectiveCache", () => {
       const invocations = yield* Ref.make(0)
 
       const result = yield* Study.optimize({
-        space: singleChoiceSpace(),
+        space: yield* singleChoiceSpace(),
         sampler: Sampler.random({ seed: 41 }),
         direction: "minimize",
         trials: 12,
@@ -75,11 +75,12 @@ describe("StudyObjectiveCache", () => {
       const fileSystem = yield* FileSystem.FileSystem
       const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-search-study-objective-cache-" })
       const invocations = yield* Ref.make(0)
+      const space = yield* singleChoiceSpace()
 
       const evaluate = () => Ref.updateAndGet(invocations, Num.increment)
       const runScoped = (scope: string) =>
         Study.optimize({
-          space: singleChoiceSpace(),
+          space,
           sampler: Sampler.random({ seed: 31 }),
           direction: "minimize",
           trials: 2,
@@ -99,7 +100,7 @@ describe("StudyObjectiveCache", () => {
       const invocations = yield* Ref.make(0)
 
       yield* Study.optimize({
-        space: singleChoiceSpace(),
+        space: yield* singleChoiceSpace(),
         sampler: Sampler.random({ seed: 31 }),
         direction: "minimize",
         trials: 4,
@@ -159,7 +160,7 @@ describe("StudyObjectiveCache", () => {
         ) =>
           Effect.gen(function*() {
             yield* Ref.set(removed, true)
-            return yield* Effect.fail(backendFailure)
+            return yield* backendFailure
           })
       }
 
@@ -191,10 +192,10 @@ describe("StudyObjectiveCache", () => {
       expect(recorded).toHaveLength(2)
 
       const first = Arr.get(recorded, 0).pipe(Either.fromOption(() => "expected first event"))
-      expect(Either.isRight(first) && Either.getOrNull(first)?._tag).toBe("Miss")
+      expect(Either.map(first, (result) => result._tag)).toEqual(Either.right("Miss"))
 
       const second = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected second event"))
-      expect(Either.isRight(second) && Either.getOrNull(second)?._tag).toBe("Hit")
+      expect(Either.map(second, (result) => result._tag)).toEqual(Either.right("Hit"))
     }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
 
   it.effect("CacheObserver receives Invalidation event on invalidate", () =>
@@ -215,7 +216,7 @@ describe("StudyObjectiveCache", () => {
       expect(recorded).toHaveLength(2)
 
       const invalidation = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected invalidation event"))
-      expect(Either.isRight(invalidation) && Either.getOrNull(invalidation)?._tag).toBe("Invalidation")
+      expect(Either.map(invalidation, (result) => result._tag)).toEqual(Either.right("Invalidation"))
     }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
 
   it.effect("fingerprints Schema and Data class configs by their stable encoded wire", () =>

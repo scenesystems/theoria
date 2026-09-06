@@ -44,7 +44,7 @@ Effect) against that same server: the Imagined Place build through the real
 API, the package index against the generated manifest, docs navigation and
 search, syntax highlighting, clipboard copy, every generated route, and
 responsive layouts. The suite needs a build first (`bun run build:web && bun
-run deploy:dry-run`) and Chromium (`bunx playwright install chromium`), so it
+run deploy:dry-run`) and Chromium (`bun run test:worker:browsers`), so it
 is not part of `bun run test`; the Build job runs it on the exact artifact it
 uploads. `test/server/wrangler-config.test.ts` reads the configuration through
 Wrangler and checks the per-target names, routes, and `RELEASE_STAGE` values.

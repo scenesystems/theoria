@@ -8,6 +8,7 @@
  * through an effect-search ask/tell study.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./events/index.js"

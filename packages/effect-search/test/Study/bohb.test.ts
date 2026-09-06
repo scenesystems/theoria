@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const space = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-2, 2),
     budget: SearchSpace.fidelity(1, 9)
   })
@@ -73,13 +73,13 @@ describe("bohb scheduler", () => {
         }
       })
       const left = yield* Study.optimize({
-        space: space(),
+        space: yield* space(),
         scheduler,
         direction: "minimize",
         objective
       })
       const right = yield* Study.optimize({
-        space: space(),
+        space: yield* space(),
         scheduler,
         direction: "minimize",
         objective

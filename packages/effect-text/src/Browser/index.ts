@@ -8,6 +8,7 @@
  * `Text` module and does not require browser services.
  *
  * @since 0.2.0
+ * @module
  */
 
 /**

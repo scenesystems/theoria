@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Match, Stream } from "effect"
+import { Data, Match, Stream } from "effect"
 import type { Effect } from "effect"
 import type { GEPAEvent } from "./events.js"
 
@@ -13,14 +13,14 @@ import type { GEPAEvent } from "./events.js"
  * @since 0.1.0
  * @category models
  */
-export type GEPAProgressLine = Readonly<{
+export class GEPAProgressLine extends Data.Class<{
   /** Original event discriminator. */
   readonly tag: GEPAEvent["_tag"]
   /** Space-separated key-value fields selected for display. */
   readonly details: string
   /** Event tag followed by `details` when details are present. */
   readonly text: string
-}>
+}> {}
 
 const toProgressLine = (
   tag: GEPAProgressLine["tag"],

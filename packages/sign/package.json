@@ -41,9 +41,10 @@
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
     "check:examples": "tsc -b tsconfig.examples.json",
-    "lint": "eslint --max-warnings=0 src test",
-    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "lint": "cd ../.. && oxlint packages/sign && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/sign && dprint check \"packages/sign/**\"",
+    "lint:fix": "cd ../.. && oxlint --fix packages/sign && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/sign && dprint fmt \"packages/sign/**\"",
     "test": "vitest run --root ../.. packages/sign/test",
+    "fixtures:check": "bun run scripts/check-fixtures.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
@@ -51,12 +52,9 @@
     "clean": "rm -rf build dist .tsbuildinfo"
   },
   "dependencies": {
-    "@noble/curves": "2.0.1",
-    "@noble/hashes": "2.0.1",
-    "@noble/post-quantum": "0.5.4"
-  },
-  "devDependencies": {
-    "@theoria/source-proof": "workspace:*"
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@noble/post-quantum": "0.7.1"
   },
   "peerDependencies": {
     "effect": "^3.22.1"

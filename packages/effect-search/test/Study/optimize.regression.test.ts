@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Number as Num, Option, Schedule, Schema } from "effect"
+import { Effect, Either, Number as Num, Option, Schedule } from "effect"
 
 import { NoSuccessfulTrials } from "../../src/Errors/index.js"
 import * as Float64 from "../../src/internal/float64.js"
@@ -8,13 +8,11 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-2, 2),
     depth: SearchSpace.int(1, 5),
     optimizer: SearchSpace.categorical(["adam", "sgd"])
   })
-
-const decodeConfig = Schema.decodeUnknownSync(makeSpace().schema)
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
@@ -29,9 +27,10 @@ const completedValues = (result: Study.SingleObjectiveResult): Array<number> =>
 describe("Study.optimize regression edge cases", () => {
   it.effect("fails with NoSuccessfulTrials when trials is zero", () =>
     Effect.gen(function*() {
+      const space = yield* makeSpace()
       const outcome = yield* Effect.either(
         Study.optimize({
-          space: makeSpace(),
+          space,
           sampler: Sampler.random({ seed: 301 }),
           direction: "minimize",
           trials: 0,
@@ -54,13 +53,14 @@ describe("Study.optimize regression edge cases", () => {
 
   it.effect("returns a deterministic single-trial result when trials is one", () =>
     Effect.gen(function*() {
+      const space = yield* makeSpace()
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space,
         sampler: Sampler.random({ seed: 302 }),
         direction: "minimize",
         trials: 1,
         objective: (raw) => {
-          const config = decodeConfig(raw)
+          const config = raw
           return Effect.succeed(Float64.abs(config.x) + config.depth)
         }
       })
@@ -83,7 +83,7 @@ describe("Study.optimize regression edge cases", () => {
   it.effect("keeps first completed trial as best when all objective values are identical", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 303 }),
         direction: "minimize",
         trials: 12,
@@ -110,9 +110,10 @@ describe("Study.optimize regression edge cases", () => {
 
   it.effect("fails with NoSuccessfulTrials when every trial fails via objective error channel", () =>
     Effect.gen(function*() {
+      const space = yield* makeSpace()
       const outcome = yield* Effect.either(
         Study.optimize({
-          space: makeSpace(),
+          space,
           sampler: Sampler.random({ seed: 304 }),
           direction: "minimize",
           trials: 6,

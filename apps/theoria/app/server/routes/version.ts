@@ -1,29 +1,17 @@
-import { HttpServerResponse } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
+import { jsonResponse, responseMeta } from "../api-response.js"
 import { RuntimeInfo } from "../config/runtime.js"
-
-const jsonResponse = (body: unknown) =>
-  HttpServerResponse.json(body, {
-    status: 200,
-    headers: {
-      "cache-control": "no-store"
-    }
-  })
 
 export const versionRoute = (requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
     const runtimeInfo = yield* RuntimeInfo
-    const endedAtMs = yield* Clock.currentTimeMillis
+    const meta = yield* responseMeta(requestId, startedAtMs)
 
-    return jsonResponse({
+    return yield* jsonResponse({
       ok: true,
-      meta: {
-        requestId,
-        buildSha: runtimeInfo.buildSha,
-        durationMs: endedAtMs - startedAtMs
-      },
+      meta,
       data: {
         service: "theoria",
         buildSha: runtimeInfo.buildSha,

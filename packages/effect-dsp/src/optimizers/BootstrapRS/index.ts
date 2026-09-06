@@ -3,9 +3,10 @@
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @since 0.1.0
+ * @module
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { Effect, Option } from "effect"
+import { Data, Effect, Option } from "effect"
 import type { Schema } from "effect"
 import type * as Layer from "effect/Layer"
 import { AllTrialsFailed } from "../../Errors/optimizer.js"
@@ -27,12 +28,12 @@ import { scoreCandidates, selectBestCandidate } from "./runtime/search.js"
  * @since 0.1.0
  * @category models
  */
-export type BootstrapRSOptions<
+export class BootstrapRSOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
   MR = never
-> = Readonly<{
+> extends Data.Class<{
   /** Module loaded with each candidate in turn, then left in the winning state. */
   readonly module: DspModule<I, O>
   /** Bootstrap input; each seed deterministically rotates this sequence. */
@@ -59,7 +60,7 @@ export type BootstrapRSOptions<
   readonly fallbackLabeledDemoCount?: number
   /** Language model Layer used during bootstrap trace collection. */
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
-}>
+}> {}
 
 const noCandidateError = () =>
   new AllTrialsFailed({
@@ -146,7 +147,7 @@ export const bootstrapRS = <
     })
 
     if (allCandidates.length <= 0) {
-      return yield* Effect.fail(noCandidateError())
+      return yield* noCandidateError()
     }
 
     const scoredCandidates = yield* scoreCandidates({
@@ -157,7 +158,7 @@ export const bootstrapRS = <
     })
 
     if (scoredCandidates.length <= 0) {
-      return yield* Effect.fail(noCandidateError())
+      return yield* noCandidateError()
     }
 
     const selectedCandidate = yield* selectBestCandidate(scoredCandidates)

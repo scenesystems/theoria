@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Exit, Number as N, Schema } from "effect"
+import { Chunk, Effect, Exit, Number as N } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
@@ -18,14 +18,14 @@ import {
 } from "../../src/Numeric/operations.js"
 
 const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "strict",
   backend: "typed-array",
   diagnostics: "enabled"
 })
 
 const relaxedScalarLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "relaxed",
   backend: "scalar",
   diagnostics: "disabled"

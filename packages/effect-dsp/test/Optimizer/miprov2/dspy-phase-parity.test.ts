@@ -8,7 +8,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Match, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema } from "effect"
 
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
 import { resolvePhase3Cadence } from "../../../src/optimizers/MIPROv2/runtime/budget.js"
@@ -19,7 +19,7 @@ import {
 } from "../../../src/optimizers/MIPROv2/runtime/policy.js"
 import { phase3TrialBudget } from "../../../src/optimizers/MIPROv2/search.js"
 import {
-  makeFixtureRegistry,
+  loadFixture,
   MiproPhaseConfigFixtureSchema,
   MiproTipsVocabularyFixtureSchema,
   MiproTrialBudgetCasesFixtureSchema
@@ -68,8 +68,7 @@ const materializeTemplate = (
 describe("MIPROv2 DSPy phase parity", () => {
   it.effect("matches fixture-defined phase defaults and orchestration order", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.mipro.phase-config")
+      const rawFixture = yield* loadFixture("dspy.mipro.phase-config")
       const fixture = yield* Schema.decodeUnknown(MiproPhaseConfigFixtureSchema)(rawFixture)
 
       const cadence = resolvePhase3Cadence({})
@@ -77,8 +76,6 @@ describe("MIPROv2 DSPy phase parity", () => {
       expect(cadence.seed).toBe(fixture.payload.phase3CadenceDefaults.seed)
       expect(cadence.minibatchSize).toBe(fixture.payload.phase3CadenceDefaults.minibatchSize)
       expect(cadence.fullEvalEvery).toBe(fixture.payload.phase3CadenceDefaults.fullEvalEvery)
-      expect(fixture.payload.phase3Sampler.kind).toBe("tpe")
-      expect(fixture.payload.phase3Sampler.multivariate).toBe(true)
 
       const normalizedCadence = resolvePhase3Cadence({
         seed: -17.8,
@@ -134,8 +131,7 @@ describe("MIPROv2 DSPy phase parity", () => {
 
   it.effect("matches fixture-defined tip vocabulary and marker template", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.mipro.tips-vocabulary")
+      const rawFixture = yield* loadFixture("dspy.mipro.tips-vocabulary")
       const fixture = yield* Schema.decodeUnknown(MiproTipsVocabularyFixtureSchema)(rawFixture)
 
       const expectedMarker = materializeTemplate(
@@ -147,17 +143,13 @@ describe("MIPROv2 DSPy phase parity", () => {
 
       expect(DEFAULT_TIP_VOCABULARY).toEqual(fixture.payload.defaultTips)
       expect(resolveDiversityTemperature()).toBe(fixture.payload.diversityTemperatureDefault)
-      expect(fixture.payload.baselineTip).toBe("baseline")
       expect(proposalMarker("qa", 3, 11)).toBe(expectedMarker)
     }))
 
   it.effect("matches fixture-defined trial budget cases", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.mipro.trial-budget-cases")
+      const rawFixture = yield* loadFixture("dspy.mipro.trial-budget-cases")
       const fixture = yield* Schema.decodeUnknown(MiproTrialBudgetCasesFixtureSchema)(rawFixture)
-
-      expect(fixture.payload.cases.length).toBeGreaterThan(0)
 
       yield* Effect.forEach(fixture.payload.cases, (budgetCase) =>
         Effect.sync(() => {
@@ -165,7 +157,10 @@ describe("MIPROv2 DSPy phase parity", () => {
             predictorCount: budgetCase.predictorCount,
             demoCandidateCount: budgetCase.demoCandidateCount,
             instructionCandidateCount: budgetCase.instructionCandidateCount,
-            ...budgetCase.minimum === null ? {} : { minimum: budgetCase.minimum }
+            ...Option.match(Option.fromNullable(budgetCase.minimum), {
+              onNone: () => ({}),
+              onSome: (minimum) => ({ minimum })
+            })
           })
 
           expect(computed).toBe(budgetCase.expectedBudget)

@@ -9,10 +9,11 @@ import {
   mlDsa65Verify
 } from "../../src/algorithms/mlDsa.js"
 import { p256Sha256P1363LowSVerify } from "../../src/algorithms/p256.js"
+import { utf8ToBytes } from "../../src/encoding.js"
 import type { InvalidVerificationInput, VerificationUnavailable } from "../../src/schemas/errors.js"
 
 const EMPTY_CONTEXT = new Uint8Array(0)
-const message = new TextEncoder().encode("strict direct verification")
+const message = utf8ToBytes("strict direct verification")
 
 const failureTag = <A>(effect: Effect.Effect<A, InvalidVerificationInput | VerificationUnavailable>) =>
   Effect.flip(effect).pipe(Effect.map((error) => error._tag))

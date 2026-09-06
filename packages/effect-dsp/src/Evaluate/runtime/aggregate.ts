@@ -5,7 +5,7 @@
  * @category internal
  * @internal
  */
-import { Array as Arr, Option, Record } from "effect"
+import { Array as Arr, Data, Option, Record } from "effect"
 import { averageNumbers } from "../../Metric/score.js"
 import { type ExampleFailure, Report } from "../report.js"
 import type { ExampleOutcome, MetricEntry } from "./example.js"
@@ -31,10 +31,10 @@ const outcomeFailure = (outcome: ExampleOutcome): Option.Option<ExampleFailure> 
  * @since 0.1.0
  * @internal
  */
-export type AggregateResult = Readonly<{
+export class AggregateResult extends Data.Class<{
   readonly report: Report
   readonly averageScore: number
-}>
+}> {}
 
 /**
  * @since 0.1.0

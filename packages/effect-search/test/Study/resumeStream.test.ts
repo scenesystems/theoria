@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Either, Schema, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Either, Schema, Stream } from "effect"
 
 import { InvalidStudyConfig } from "../../src/Errors/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
@@ -7,13 +7,13 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     depth: SearchSpace.int(1, 3)
   })
 
 const makeIncompatibleSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     width: SearchSpace.int(1, 3)
   })
@@ -27,12 +27,13 @@ const objectiveFromSpace = (space: SearchSpace.SearchSpace) => {
   }
 }
 
-const asSingleObjective = (result: Study.StudyResult) => result._tag === "SingleObjective" ? result : undefined
+const asSingleObjective = (result: Study.StudyResult) =>
+  Arr.findFirst([result], (candidate) => candidate._tag === "SingleObjective")
 
 describe("Study.resumeStream", () => {
   it.effect("streams resumed lifecycle events and completes with StudyCompleted", () =>
     Effect.gen(function*() {
-      const space = makeSpace()
+      const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
       const baseline = yield* Study.optimize({
         space,
@@ -41,12 +42,7 @@ describe("Study.resumeStream", () => {
         trials: 4,
         objective
       })
-      const single = asSingleObjective(baseline)
-      expect(single).toBeDefined()
-
-      if (!single) {
-        return
-      }
+      const single = yield* asSingleObjective(baseline)
 
       const snapshot = yield* Study.snapshot(single)
       const eventsChunk = yield* Stream.runCollect(
@@ -69,7 +65,7 @@ describe("Study.resumeStream", () => {
 
   it.effect("preserves resume snapshot validation failures", () =>
     Effect.gen(function*() {
-      const space = makeSpace()
+      const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
       const baseline = yield* Study.optimize({
         space,
@@ -78,34 +74,26 @@ describe("Study.resumeStream", () => {
         trials: 3,
         objective
       })
-      const single = asSingleObjective(baseline)
-      expect(single).toBeDefined()
-
-      if (!single) {
-        return
-      }
+      const single = yield* asSingleObjective(baseline)
 
       const snapshot = yield* Study.snapshot(single)
       const resumed = yield* Effect.either(
         Stream.runCollect(
           Study.resumeStream({
-            space: makeIncompatibleSpace(),
+            space: yield* makeIncompatibleSpace(),
             sampler: Sampler.random({ seed: 321 }),
             snapshot,
             direction: "minimize",
             trials: 2,
-            objective: objectiveFromSpace(makeIncompatibleSpace())
+            objective: objectiveFromSpace(yield* makeIncompatibleSpace())
           })
         )
       )
 
       expect(Either.isLeft(resumed)).toBe(true)
-
-      if (Either.isRight(resumed)) {
-        return
+      if (Either.isLeft(resumed)) {
+        expect(resumed.left).toBeInstanceOf(InvalidStudyConfig)
+        expect(resumed.left._tag).toBe("effect-search/InvalidStudyConfig")
       }
-
-      expect(resumed.left).toBeInstanceOf(InvalidStudyConfig)
-      expect(resumed.left._tag).toBe("effect-search/InvalidStudyConfig")
     }))
 })

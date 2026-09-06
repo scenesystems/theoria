@@ -6,12 +6,12 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeScalarSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-2, 2)
   })
 
 const makeTypedSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     lr: SearchSpace.float(0.0001, 0.1),
     optimizer: SearchSpace.categorical(["adam", "sgd"])
   })
@@ -21,7 +21,7 @@ const expectTypedConfig = (config: { readonly lr: number; readonly optimizer: "a
 describe("Study convenience combinators", () => {
   it.effect("Study.minimize matches Study.optimize with minimize direction", () =>
     Effect.gen(function*() {
-      const space = makeScalarSpace()
+      const space = yield* makeScalarSpace()
       const objective = (config: SearchSpace.Type<typeof space>) => Effect.succeed(config.x)
 
       const minimized = yield* Study.minimize({
@@ -52,7 +52,7 @@ describe("Study convenience combinators", () => {
 
   it.effect("Study.maximize matches Study.optimize with maximize direction", () =>
     Effect.gen(function*() {
-      const space = makeScalarSpace()
+      const space = yield* makeScalarSpace()
       const objective = (config: SearchSpace.Type<typeof space>) => Effect.succeed(config.x)
 
       const maximized = yield* Study.maximize({
@@ -83,7 +83,7 @@ describe("Study convenience combinators", () => {
 
   it.effect("infers typed objective config for Study.minimize and Study.maximize", () =>
     Effect.gen(function*() {
-      const space = makeTypedSpace()
+      const space = yield* makeTypedSpace()
       const score = (config: SearchSpace.Type<typeof space>) =>
         Effect.succeed(config.lr + (config.optimizer === "adam" ? 0 : 1))
 

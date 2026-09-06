@@ -3,9 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Effect, Number as Num, Option, Ref, Schedule } from "effect"
+import { Cause, Chunk, Effect, Number as Num, Option, Ref, Schedule, Schema } from "effect"
 
-import type { TrialError } from "../../../Errors/index.js"
+import { ArtifactStorageError, TrialError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import type * as Trial from "../../../Trial/index.js"
@@ -17,12 +17,38 @@ import { objectiveFailure } from "../objective.js"
 import type { StudyRuntime } from "../runtimeState.js"
 import { CurrentTrialContext, type TrialContext } from "../trialContext.js"
 import { decodeObjectiveResult } from "./aggregation.js"
-import { type CacheResolveAsTrialError, ObjectiveSample } from "./model.js"
+import { type CacheResolveForTrial, ObjectiveSample } from "./model.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 
+const isArtifactStorageError = Schema.is(ArtifactStorageError)
+const isTrialError = Schema.is(TrialError)
+
+/**
+ * The trial error an attempt may be retried for. Only a cause made of nothing but
+ * trial failures qualifies: a storage failure anywhere in it is the study's failure,
+ * a defect is a bug, and an interruption is a cancellation, and none of those is
+ * undone by evaluating the objective again.
+ */
+const retryableTrialError = (
+  cause: Cause.Cause<TrialError | ArtifactStorageError>
+): Option.Option<TrialError> => {
+  const failures = Cause.failures(cause)
+  return Chunk.isEmpty(Cause.defects(cause))
+      && !Cause.isInterrupted(cause)
+      && Chunk.every(failures, isTrialError)
+    ? Chunk.head(failures)
+    : Option.none()
+}
+
 /**
  * Evaluates the objective function with schedule-driven retries, caching, and per-attempt event emission.
+ *
+ * An objective that fails because `runtime.report` or `runtime.requestStop` could not
+ * persist an envelope has not failed as an objective: a cause carrying an
+ * {@link ArtifactStorageError} passes through whole and unretried so the study fails
+ * with it, and so does a cause carrying a defect or an interruption. When the retry
+ * schedule is exhausted the last attempt's cause is the result.
  *
  * @since 0.1.0
  * @category utils
@@ -34,8 +60,8 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
   runtime: StudyRuntime<ConfigFor<Space>>,
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
-  resolveCachedValue: CacheResolveAsTrialError
-): Effect.Effect<ObjectiveSample, TrialError, ObjectiveEvaluator> =>
+  resolveCachedValue: CacheResolveForTrial
+): Effect.Effect<ObjectiveSample, TrialError | ArtifactStorageError, ObjectiveEvaluator> =>
   Effect.gen(function*() {
     const objectiveEvaluator = yield* ObjectiveEvaluator
     const retryDriver = yield* Schedule.driver(settings.retrySchedule)
@@ -47,7 +73,9 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
         objectiveRuntime
       ).pipe(
         Effect.flatMap((result) => decodeObjectiveResult(trialNumber, result)),
-        Effect.mapError((cause) => objectiveFailure(trialNumber, cause))
+        Effect.mapErrorCause(
+          Cause.map((cause) => isArtifactStorageError(cause) ? cause : objectiveFailure(trialNumber, cause))
+        )
       ),
       CurrentTrialContext,
       Option.some(trialContext)
@@ -66,7 +94,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
       return Option.getOrElse(captured, () => new ObjectiveEvaluation({ value }))
     })
 
-    const retryLoop = (attempt: number): Effect.Effect<ObjectiveSample, TrialError> =>
+    const retryLoop = (attempt: number): Effect.Effect<ObjectiveSample, TrialError | ArtifactStorageError> =>
       evaluateWithCache.pipe(
         Effect.map((evaluation) =>
           new ObjectiveSample({
@@ -80,21 +108,25 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
             )
           })
         ),
-        Effect.catchAll((error) =>
-          retryDriver.next(error).pipe(
-            Effect.matchEffect({
-              onFailure: () => Effect.fail(error),
-              onSuccess: () =>
-                appendEvent(
-                  runtime,
-                  StudyEvent.TrialRetried({
-                    trialNumber,
-                    attempt: Num.increment(attempt),
-                    error
-                  })
-                ).pipe(Effect.zipRight(retryLoop(Num.increment(attempt))))
-            })
-          )
+        Effect.catchAllCause((cause) =>
+          Option.match(retryableTrialError(cause), {
+            onNone: () => Effect.failCause(cause),
+            onSome: (error) =>
+              retryDriver.next(error).pipe(
+                Effect.matchEffect({
+                  onFailure: () => Effect.failCause(cause),
+                  onSuccess: () =>
+                    appendEvent(
+                      runtime,
+                      StudyEvent.TrialRetried({
+                        trialNumber,
+                        attempt: Num.increment(attempt),
+                        error
+                      })
+                    ).pipe(Effect.zipRight(retryLoop(Num.increment(attempt))))
+                })
+              )
+          })
         )
       )
 

@@ -71,8 +71,8 @@ const scan = (
   whileScanning: () => boolean = () => true
 ): Effect.Effect<void> => scanBatches(cooperation, 0, (index) => index < length && whileScanning(), body)
 
-const propertyValue = (input: unknown, key: PropertyKey): unknown =>
-  Predicate.isRecord(input) || Arr.isArray(input) ? Reflect.get(input, key) : undefined
+const propertyValue = (input: ReadonlyArray<unknown> | Record<PropertyKey, unknown>, key: PropertyKey): unknown =>
+  Reflect.get(input, key)
 
 const selectCandidates = (
   ast: SchemaAST.Union,
@@ -89,6 +89,7 @@ const selectCandidates = (
       appendError(state, new ParseResult.Type(expected, input), nextKey(state))
     }
     if (Predicate.isRecord(input) || Arr.isArray(input)) {
+      const propertyInput = input
       yield* scan(keys.length, cooperation, (index) =>
         Effect.suspend(() => {
           const name = Arr.unsafeGet(keys, index)
@@ -110,7 +111,7 @@ const selectCandidates = (
             )
             return Effect.void
           }
-          const literal = String(propertyValue(input, name))
+          const literal = String(propertyValue(propertyInput, name))
           const candidates = Object.prototype.hasOwnProperty.call(bucket.buckets, literal)
             ? Option.fromNullable(bucket.buckets[literal])
             : Option.none()
@@ -129,7 +130,7 @@ const selectCandidates = (
                   new ParseResult.Pointer(
                     name,
                     input,
-                    new ParseResult.Type(expectedUnionDiscriminator(bucket), propertyValue(input, name))
+                    new ParseResult.Type(expectedUnionDiscriminator(bucket), propertyValue(propertyInput, name))
                   )
                 ),
                 nextKey(state)

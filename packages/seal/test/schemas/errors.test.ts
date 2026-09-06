@@ -22,11 +22,9 @@ describe("DecryptionFailed — Schema.TaggedError", () => {
   it.effect("is yieldable in Effect.gen", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new DecryptionFailed({
-            algorithm: "xchacha20-poly1305",
-            reason: "authentication failed"
-          })
+        new DecryptionFailed({
+          algorithm: "xchacha20-poly1305",
+          reason: "authentication failed"
         })
       )
       expect(Exit.isFailure(exit)).toBe(true)
@@ -34,11 +32,9 @@ describe("DecryptionFailed — Schema.TaggedError", () => {
 
   it.effect("is catchable via Effect.catchTag", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.gen(function*() {
-        return yield* new DecryptionFailed({
-          algorithm: "aes-256-gcm",
-          reason: "tampered"
-        })
+      const result = yield* new DecryptionFailed({
+        algorithm: "aes-256-gcm",
+        reason: "tampered"
       }).pipe(
         Effect.catchTag("DecryptionFailed", (e) => Effect.succeed(`caught:${e.algorithm}:${e.reason}`))
       )
@@ -48,11 +44,9 @@ describe("DecryptionFailed — Schema.TaggedError", () => {
   it.effect("carries algorithm and reason fields", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new DecryptionFailed({
-            algorithm: "aes-256-gcm-siv",
-            reason: "wrong key"
-          })
+        new DecryptionFailed({
+          algorithm: "aes-256-gcm-siv",
+          reason: "wrong key"
         })
       )
       expect(exit).toStrictEqual(
@@ -79,17 +73,17 @@ describe("InvalidKey — Schema.TaggedError", () => {
   it.effect("is yieldable in Effect.gen", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" })
-        })
+        new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" })
       )
       expect(Exit.isFailure(exit)).toBe(true)
     }))
 
   it.effect("is catchable via Effect.catchTag", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.gen(function*() {
-        return yield* new InvalidKey({ expected: 32, received: 64, reason: "key must be exactly 32 bytes, got 64" })
+      const result = yield* new InvalidKey({
+        expected: 32,
+        received: 64,
+        reason: "key must be exactly 32 bytes, got 64"
       }).pipe(
         Effect.catchTag("InvalidKey", (e) => Effect.succeed(`caught:${e.expected}:${e.received}`))
       )
@@ -99,9 +93,7 @@ describe("InvalidKey — Schema.TaggedError", () => {
   it.effect("carries expected and received fields", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new InvalidKey({ expected: 32, received: 0, reason: "key must be exactly 32 bytes, got 0" })
-        })
+        new InvalidKey({ expected: 32, received: 0, reason: "key must be exactly 32 bytes, got 0" })
       )
       expect(exit).toStrictEqual(
         Exit.fail(new InvalidKey({ expected: 32, received: 0, reason: "key must be exactly 32 bytes, got 0" }))

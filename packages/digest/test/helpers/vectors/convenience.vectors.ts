@@ -5,6 +5,8 @@
  * @category test-helpers
  */
 
+import { encodeFixtureUtf8 } from "../bytes.js"
+
 /**
  * digestBytes / digestUtf8 base64url golden vectors.
  *
@@ -34,13 +36,13 @@ export const hmacSha256Base64UrlVectors = {
   /** RFC 4231 case 1: 20×0x0b key, "Hi There" */
   case1: {
     key: new Uint8Array(20).fill(0x0b),
-    message: new TextEncoder().encode("Hi There"),
+    message: encodeFixtureUtf8("Hi There"),
     expected: "sDRMYdjbOFNcqK_OrwvxK4gdwgDJgz2nJuk3bC4yz_c"
   },
   /** Webhook scenario: "webhook-secret" key, JSON payload */
   webhook: {
-    key: new TextEncoder().encode("webhook-secret"),
-    message: new TextEncoder().encode("{\"event\":\"charge.succeeded\"}"),
+    key: encodeFixtureUtf8("webhook-secret"),
+    message: encodeFixtureUtf8("{\"event\":\"charge.succeeded\"}"),
     expected: "QKyLcVVtnNlI3gUbfE-hfsyvzPO3yUH0kx-3jKWqkfo"
   }
 }
@@ -55,13 +57,13 @@ export const hmacSha1HexVectors = {
   /** RFC 2202 case 1: 20×0x0b key, "Hi There" */
   case1: {
     key: new Uint8Array(20).fill(0x0b),
-    message: new TextEncoder().encode("Hi There"),
+    message: encodeFixtureUtf8("Hi There"),
     expected: "b617318655057264e28bc0b6fb378c8ef146be00"
   },
   /** RFC 2202 case 2: "Jefe" key, "what do ya want for nothing?" */
   case2: {
-    key: new TextEncoder().encode("Jefe"),
-    message: new TextEncoder().encode("what do ya want for nothing?"),
+    key: encodeFixtureUtf8("Jefe"),
+    message: encodeFixtureUtf8("what do ya want for nothing?"),
     expected: "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79"
   }
 }

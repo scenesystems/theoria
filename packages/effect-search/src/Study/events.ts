@@ -16,16 +16,26 @@ import {
   StudyEventEnvelope
 } from "../contracts/index.js"
 import { matchObjectiveSpec, type ObjectiveSpec } from "../contracts/ObjectiveSpec.js"
+import type { ArtifactStorageError } from "../Errors/Artifact.js"
 import * as StudyEvent from "../StudyEvent/index.js"
 import * as Trial from "../Trial/index.js"
 import { betterByDirection } from "./best.js"
 
 /**
+ * Delivers study events to their destination: a pub-sub for live subscribers, an
+ * artifact sink for persistence, or both through a fan-out.
+ *
+ * @remarks
+ * `ExecuteRequest.eventPublisher` accepts one; {@link envelopeEventPublisher}
+ * builds the persistent form. Publication to a persistent destination can fail
+ * with {@link ArtifactStorageError}, and that failure is the study's.
+ *
  * @since 0.1.0
  * @category models
  */
 export class EventPublisher extends Data.Class<{
-  readonly publish: (event: StudyEvent.StudyEvent) => Effect.Effect<void>
+  /** Delivers one event; a persistent destination that cannot accept it fails with {@link ArtifactStorageError}. */
+  readonly publish: (event: StudyEvent.StudyEvent) => Effect.Effect<void, ArtifactStorageError>
 }> {}
 
 /**
@@ -33,7 +43,7 @@ export class EventPublisher extends Data.Class<{
  * @category constructors
  */
 export const noopEventPublisher = new EventPublisher({
-  publish: () => Effect.succeed(undefined)
+  publish: () => Effect.void
 })
 
 /**
@@ -85,8 +95,8 @@ const EVENT_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study
  * Each call allocates the next artifact ID from the required {@link EnvelopeContext},
  * records the current wall-clock time, and relates the envelope to the context's
  * run ID. The envelope identifies `effect-search` as its origin and uses schema
- * version `artifact-envelope/v1`. Expected sink failures cannot enter the typed
- * channel; sink interruption or defects still interrupt or defect publication.
+ * version `artifact-envelope/v1`. A sink that cannot accept the envelope fails
+ * publication with the sink's {@link ArtifactStorageError}.
  *
  * @since 0.1.0
  * @category constructors
@@ -115,8 +125,7 @@ export const envelopeEventPublisher = (sink: ArtifactSinkApi): Effect.Effect<Eve
                 event
               })
             ),
-            Effect.flatMap((envelope) => sink.emit(envelope)),
-            Effect.catchAll(() => Effect.void)
+            Effect.flatMap((envelope) => sink.emit(envelope))
           )
       })
     )
@@ -126,8 +135,10 @@ export const envelopeEventPublisher = (sink: ArtifactSinkApi): Effect.Effect<Eve
  * @since 0.1.0
  * @category utils
  */
-export const appendEvent = (runtime: EventRuntime, event: StudyEvent.StudyEvent): Effect.Effect<void> =>
-  runtime.eventPublisher.publish(event)
+export const appendEvent = (
+  runtime: EventRuntime,
+  event: StudyEvent.StudyEvent
+): Effect.Effect<void, ArtifactStorageError> => runtime.eventPublisher.publish(event)
 
 const eventFromFinalizedTrial = <Config>(trial: Trial.Trial<Config>): Option.Option<StudyEvent.StudyEvent> =>
   Trial.matchState({
@@ -170,18 +181,18 @@ export const emitLifecycleEvents = <Config>(
   objectiveSpec: ObjectiveSpec,
   finalized: Trial.Trial<Config>,
   runtime: EventRuntime
-): Effect.Effect<void> =>
+): Effect.Effect<void, ArtifactStorageError> =>
   Effect.gen(function*() {
     yield* Option.match(eventFromFinalizedTrial(finalized), {
-      onNone: () => Effect.succeed(undefined),
+      onNone: () => Effect.void,
       onSome: (event) => appendEvent(runtime, event)
     })
 
     yield* Trial.matchState({
-      Running: () => Effect.succeed(undefined),
-      Pruned: () => Effect.succeed(undefined),
-      Failed: () => Effect.succeed(undefined),
-      Cancelled: () => Effect.succeed(undefined),
+      Running: () => Effect.void,
+      Pruned: () => Effect.void,
+      Failed: () => Effect.void,
+      Cancelled: () => Effect.void,
       Completed: ({ value }) =>
         matchObjectiveSpec({
           Single: ({ direction }) =>
@@ -203,9 +214,9 @@ export const emitLifecycleEvents = <Config>(
                   ),
                   Effect.asVoid
                 )),
-              Match.orElse(() => Effect.succeed(undefined))
+              Match.orElse(() => Effect.void)
             ),
-          Multi: () => Effect.succeed(undefined)
+          Multi: () => Effect.void
         })(objectiveSpec)
     })(finalized.state)
   })

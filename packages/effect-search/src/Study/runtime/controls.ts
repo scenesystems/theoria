@@ -13,19 +13,12 @@ import { ContinueHeartbeat, ObjectiveTrialRuntime } from "./pruning.js"
 import { CurrentTrialContext, type TrialContext } from "./trialContext.js"
 
 export {
-  /** @since 0.1.0 */
   heartbeatDecision,
-  /** @since 0.1.0 */
   makeReportRefs,
-  /** @since 0.1.0 */
   makeStopRef,
-  /** @since 0.1.0 */
   recordIntermediateReport,
-  /** @since 0.1.0 */
   ReportRefs,
-  /** @since 0.1.0 */
   requestStudyStop,
-  /** @since 0.1.0 */
   StopRef
 }
 
@@ -87,7 +80,7 @@ export const objectiveRuntime = new ObjectiveTrialRuntime({
         )
     ),
   resource: withCurrentTrialContext(
-    () => Effect.succeed(Option.none()),
+    () => Effect.succeedNone,
     (context) => Effect.succeed(context.resource)
   )
 })

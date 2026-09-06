@@ -11,6 +11,7 @@
  *
  * @since 0.1.0
  * @category schemas
+ * @module
  */
 import { Schema } from "effect"
 import { Digest256 } from "./Digest256.js"

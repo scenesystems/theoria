@@ -67,7 +67,7 @@ const Steps = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
 export const ImaginedPlaceDemo = () => {
   const result = useAtomValue(placeBuildAtom)
   const build = Result.value(result)
-  const frame = Result.value(useAtomValue(placeRenderFrameAtom))
+  const frame = useAtomValue(placeRenderFrameAtom)
 
   return (
     <Section aria-label="Imagined place demo" className={`${surfaceMaterials.raisedCard} p-4 sm:p-7 lg:p-8`}>

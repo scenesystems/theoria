@@ -6,6 +6,7 @@
  * network access. It is intended for tests, not production model execution.
  *
  * @since 0.1.0
+ * @module
  */
 
 export * from "./MockLanguageModel.js"

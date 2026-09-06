@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Number as N, Schema } from "effect"
+import { Array as Arr, Data, Effect, Match, Number as N, Option, Record, Schema } from "effect"
 
 import { bisect, goldenSection } from "../../src/Optimization/operations.js"
 import { FixtureRegistryLive, loadFixture, OptimizationSolverParityFixtureSchema } from "../helpers/fixtures/index.js"
@@ -9,6 +9,14 @@ const ABSOLUTE_TOLERANCE = 1e-6
 const expectParity = (actual: number, expected: number) => {
   expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(ABSOLUTE_TOLERANCE)
 }
+
+class UnknownFixtureFunction extends Data.TaggedError("UnknownFixtureFunction")<{ readonly name: string }> {}
+
+const lookup = <F>(registry: Record<string, F>, name: string): Effect.Effect<F, UnknownFixtureFunction> =>
+  Option.match(Record.get(registry, name), {
+    onNone: () => Effect.fail(new UnknownFixtureFunction({ name })),
+    onSome: Effect.succeed
+  })
 
 const rootFunctions: Record<string, (x: number) => number> = {
   x_squared_minus_2: (x) => N.subtract(N.multiply(x, x), 2),
@@ -39,18 +47,21 @@ describe("Optimization SciPy fixture parity", () => {
       )
 
       yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
-        Effect.sync(() =>
-          Match.value(c).pipe(
-            Match.when({ operation: "bisect" }, (v) => {
-              const fn = rootFunctions[v.input.function]!
-              expectParity(bisect(fn, v.input.a, v.input.b), v.expected)
-            }),
-            Match.when({ operation: "goldenSection" }, (v) => {
-              const fn = minimizeFunctions[v.input.function]!
-              expectParity(goldenSection(fn, v.input.a, v.input.b), v.expected)
-            }),
-            Match.exhaustive
-          )
+        Match.value(c).pipe(
+          Match.when({ operation: "bisect" }, (v) =>
+            Effect.map(
+              lookup(rootFunctions, v.input.function),
+              (fn) => expectParity(bisect(fn, v.input.a, v.input.b), v.expected)
+            )),
+          Match.when(
+            { operation: "goldenSection" },
+            (v) =>
+              Effect.map(
+                lookup(minimizeFunctions, v.input.function),
+                (fn) => expectParity(goldenSection(fn, v.input.a, v.input.b), v.expected)
+              )
+          ),
+          Match.exhaustive
         ))
     }).pipe(Effect.provide(FixtureRegistryLive)))
 })

@@ -7,7 +7,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const space = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-2, 2),
     budget: SearchSpace.fidelity(1, 9)
   })
@@ -76,14 +76,14 @@ describe("hyperband scheduler", () => {
         sampler: Sampler.random({ seed: 21 })
       })
       const events = yield* Study.optimizeStream({
-        space: space(),
+        space: yield* space(),
         scheduler,
         direction: "minimize",
         objective
       }).pipe(Stream.runCollect)
       const tags = Chunk.toReadonlyArray(events).map((event) => event._tag)
       const result = yield* Study.optimize({
-        space: space(),
+        space: yield* space(),
         scheduler,
         direction: "minimize",
         objective

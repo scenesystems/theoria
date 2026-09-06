@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Match, Option } from "effect"
+import { Array as Arr, Data, Match, Option } from "effect"
 import * as Schedule from "effect/Schedule"
 import type { ParseOutputError } from "../../Errors/module.js"
 
@@ -42,14 +42,14 @@ export type ParseFeedbackTemplate = (error: ParseOutputError) => string
  * @since 0.1.0
  * @category models
  */
-export type ParsePolicy = Readonly<{
+export class ParsePolicy extends Data.Class<{
   /** Maximum additional parse attempts as a non-negative integer. */
   readonly maxRetries: number
   /** Factory invoked with `maxRetries` when a text parse operation begins. */
   readonly retrySchedule: ParseRetryScheduleFactory
   /** Callback invoked to render diagnostics before each retry. */
   readonly feedbackTemplate: ParseFeedbackTemplate
-}>
+}> {}
 
 /**
  * Fixes the parse policy applied by a predictor after option defaults resolve.
@@ -57,10 +57,10 @@ export type ParsePolicy = Readonly<{
  * @since 0.1.0
  * @category models
  */
-export type PredictPolicy = Readonly<{
+export class PredictPolicy extends Data.Class<{
   /** Text-output parse policy. */
   readonly parse: ParsePolicy
-}>
+}> {}
 
 /**
  * Selectively replaces built-in text parse policy fields.
@@ -68,14 +68,14 @@ export type PredictPolicy = Readonly<{
  * @since 0.1.0
  * @category models
  */
-export type ParsePolicyOverrides = Readonly<{
+export class ParsePolicyOverrides extends Data.Class<{
   /** Additional attempts; finite values round down, while invalid values become zero. */
   readonly maxRetries?: number
   /** Complete replacement for the default exponential schedule factory. */
   readonly retrySchedule?: ParseRetryScheduleFactory
   /** Complete replacement for field-diagnostic feedback rendering. */
   readonly feedbackTemplate?: ParseFeedbackTemplate
-}>
+}> {}
 
 /**
  * Selectively replaces policies used by one predictor.
@@ -83,10 +83,10 @@ export type ParsePolicyOverrides = Readonly<{
  * @since 0.1.0
  * @category models
  */
-export type PredictPolicyOverrides = Readonly<{
+export class PredictPolicyOverrides extends Data.Class<{
   /** Text-output parse overrides. */
   readonly parse?: ParsePolicyOverrides
-}>
+}> {}
 
 /**
  * Maximum additional parse attempts used when no override is supplied: `3`.

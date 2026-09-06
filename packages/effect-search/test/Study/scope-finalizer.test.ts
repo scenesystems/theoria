@@ -7,7 +7,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     slot: SearchSpace.int(0, 100)
   })
 
@@ -57,7 +57,7 @@ describe("Study scoped execution", () => {
     Effect.gen(function*() {
       const checkpointCallsRef = yield* Ref.make(0)
       const interrupted = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: trackedSampler(trackedRefs(checkpointCallsRef)),
         direction: "minimize",
         trials: 40,
@@ -76,7 +76,7 @@ describe("Study scoped execution", () => {
       const acquireCallsRef = yield* Ref.make(0)
       const releaseCallsRef = yield* Ref.make(0)
       const interrupted = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: trackedSampler(
           trackedRefs(checkpointCallsRef, Option.some(acquireCallsRef), Option.some(releaseCallsRef))
         ),
@@ -98,7 +98,7 @@ describe("Study scoped execution", () => {
       const sampler = trackedSampler(trackedRefs(checkpointCallsRef))
       const studyKernel = yield* Study.StudyKernel
       const optimizePlan = yield* Study.optimizePlanFromOptions({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler,
         direction: "minimize",
         trials: 40,
@@ -124,7 +124,7 @@ describe("Study scoped execution", () => {
       }
 
       const resumed = yield* Study.resume({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler,
         snapshot: interruptionSnapshot.value,
         direction: "minimize",
@@ -145,20 +145,19 @@ describe("Study scoped execution", () => {
   it.live("drains heterogeneous trial durations without starvation", () =>
     Effect.gen(function*() {
       const checkpointCallsRef = yield* Ref.make(0)
-      const space = makeSpace()
-      const decode = Schema.decodeUnknownSync(space.schema)
+      const space = yield* makeSpace()
       const result = yield* Study.optimize({
         space,
         sampler: trackedSampler(trackedRefs(checkpointCallsRef)),
         direction: "maximize",
         trials: 8,
         concurrency: 3,
-        objective: (raw) => {
-          const config = decode(raw)
-          const delay = config.slot === 0 ? "60 millis" : "5 millis"
-
-          return Effect.sleep(delay).pipe(Effect.as(config.slot))
-        }
+        objective: (raw) =>
+          Schema.decodeUnknown(space.schema)(raw).pipe(
+            Effect.flatMap((config) =>
+              Effect.sleep(config.slot === 0 ? "60 millis" : "5 millis").pipe(Effect.as(config.slot))
+            )
+          )
       })
       const single = result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 

@@ -5,9 +5,13 @@
  * Run: bun run examples/17-trial-timeout-retry.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Effect, Match, Number as Num, Ref, Schedule, Stream } from "effect"
+import { Chunk, Data, Effect, Match, Number as Num, Ref, Schedule, Stream } from "effect"
 
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+
+class TransientFailure extends Data.TaggedError("TransientFailure")<{
+  readonly attempt: number
+}> {}
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -28,7 +32,7 @@ const program = Effect.gen(function*() {
           Ref.updateAndGet(attemptsRef, Num.increment).pipe(
             Effect.flatMap((attempt) =>
               attempt <= 2
-                ? Effect.fail(`transient-${attempt}`)
+                ? Effect.fail(new TransientFailure({ attempt }))
                 : Effect.succeed(0.25)
             )
           )),

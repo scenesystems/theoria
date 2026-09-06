@@ -5,6 +5,7 @@
  * tagged events.
  *
  * @since 0.1.0
+ * @module
  */
 export {
   BestUpdated,

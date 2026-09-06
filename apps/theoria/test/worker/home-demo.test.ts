@@ -1,13 +1,14 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Order } from "effect"
 import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-arrangement.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import {
   act,
+  animationsSettled,
   attached,
   attribute,
   BrowserLive,
@@ -24,24 +25,25 @@ import {
   overflowingElements,
   press,
   setViewport,
+  until,
   urlMatches,
   visible
 } from "./browser.js"
+import {
+  activeElementOpensDocsLink,
+  currentLocation,
+  insideViewportRight,
+  isActiveElement,
+  markerPositionsInStage,
+  stageAndColumnWidths,
+  stageLayout
+} from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
 
 /** Every disc's position relative to the stage, so scrolling cannot move it. */
-const markerPositions = (page: Page) => () =>
-  page.locator("[data-place-marker]").evaluateAll((markers) => {
-    const stage = document.querySelector("[data-place-stage='content']")?.getBoundingClientRect()
-    return markers
-      .map((marker) => {
-        const rect = marker.getBoundingClientRect()
-        return `${String(Math.round(rect.x - (stage?.x ?? 0)))},${String(Math.round(rect.y - (stage?.y ?? 0)))}`
-      })
-      .join(" ")
-  })
+const markerPositions = (page: Page) => () => page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
 
 const referenceTargets = (references: Locator) =>
   Effect.gen(function*() {
@@ -50,9 +52,9 @@ const referenceTargets = (references: Locator) =>
     return yield* Effect.forEach(Arr.range(0, total - 1), (index) =>
       Effect.gen(function*() {
         const reference = references.nth(index)
-        const text = Option.fromNullable(yield* act(() => reference.getAttribute("data-place-reference")))
-        const href = Option.fromNullable(yield* act(() => reference.getAttribute("href")))
-        return Option.getOrThrow(Option.all({ text, href }))
+        const text = yield* Option.fromNullable(yield* act(() => reference.getAttribute("data-place-reference")))
+        const href = yield* Option.fromNullable(yield* act(() => reference.getAttribute("href")))
+        return { text, href }
       }))
   })
 
@@ -73,13 +75,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const kept = yield* act(positions)
         // The sheet and the slider under the pointer must not move while trials are swapped.
         const paper = page.locator("[data-place-stage='paper']")
-        const layout = () =>
-          page.evaluate(() => {
-            const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
-            const sheet = rect("[data-place-stage='paper']")
-            const trace = rect("[data-place-trace]")
-            return `${String(Math.round(sheet?.height ?? -1))} ${String(Math.round(trace?.top ?? -1))}`
-          })
+        const layout = () => page.evaluate(stageLayout)
         yield* focus(page.getByRole("slider", { name: "Trial drawn on the stage" }))
         // Focusing scrolls the slider into view; from here on nothing may move it.
         const atRest = yield* act(layout)
@@ -117,13 +113,24 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
         yield* visible(rendered(page))
-        yield* Effect.forEach([320, 390, 820, 1280, 1680], (width) =>
+        // Shrinks to 320 first, then grows: the stage must follow the column both ways.
+        const stages = yield* Effect.forEach(Arr.make(320, 390, 820, 1280, 1680), (width) =>
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 900 })
             yield* visible(rendered(page))
+            yield* animationsSettled(page)
             expect(yield* overflowingElements(page)).toEqual([])
             expect(yield* fitsViewport(page)).toBe(true)
+            // The stage is drawn for exactly the width inside the frame's border, and the frame fits the column.
+            const widths = yield* until(
+              act(() => page.evaluate(stageAndColumnWidths)),
+              ({ column, drawable, frame, stage }) => stage > 0 && drawable === stage && frame <= column,
+              `the stage and its frame fit the column at ${String(width)}px`
+            )
+            return widths.stage
           }))
+        expect(stages).toEqual(Arr.sort(stages, Order.number))
+        expect(Arr.lastNonEmpty(stages)).toBeGreaterThan(Arr.headNonEmpty(stages))
         expect(yield* failures).toEqual([])
       }))
 
@@ -138,7 +145,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         const targets = yield* Effect.forEach(placeStepDefinitions, (step) =>
           Effect.gen(function*() {
-            yield* click(section.getByRole("navigation").getByRole("button", { name: step.name }))
+            yield* click(section.getByRole("tab", { name: step.name }))
             yield* visible(section.locator(`[data-place-code-step='${step.id}']`))
             yield* visible(section.locator("[data-code-annotation]").first())
             yield* attribute(
@@ -170,7 +177,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         const section = page.locator("[data-place-how-its-built]")
         const reference = section.locator("[data-place-reference]").first()
-        const href = Option.getOrThrow(Option.fromNullable(yield* act(() => reference.getAttribute("href"))))
+        const href = yield* Option.fromNullable(yield* act(() => reference.getAttribute("href")))
         const preview = page.locator(`[data-docs-link-preview='${href}']`)
 
         yield* click(reference)
@@ -178,23 +185,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* urlMatches(page, /\/$/u)
         yield* containsText(preview, /v\d+\.\d+\.\d+/u)
         yield* containsText(preview, href.slice(1, href.indexOf("#")))
-        yield* eventually(
-          () => preview.evaluate((popup) => popup.getBoundingClientRect().right <= window.innerWidth),
-          true
-        )
+        yield* eventually(() => preview.evaluate(insideViewportRight), true)
 
         yield* press(page, "Escape")
         yield* hidden(preview)
-        yield* eventually(() => reference.evaluate((link) => link === document.activeElement), true)
+        yield* eventually(() => reference.evaluate(isActiveElement), true)
 
         yield* press(page, "Enter")
         yield* visible(preview)
-        yield* eventually(
-          () => page.evaluate(() => document.activeElement?.hasAttribute("data-docs-link-open") ?? false),
-          true
-        )
+        yield* eventually(() => page.evaluate(activeElementOpensDocsLink), true)
         yield* press(page, "Enter")
-        yield* eventually(() => page.evaluate(() => location.pathname + location.hash), href)
+        yield* eventually(() => page.evaluate(currentLocation), href)
         yield* attached(page.locator(`#${href.slice(href.indexOf("#") + 1)}`))
         expect(yield* failures).toEqual([])
       }))

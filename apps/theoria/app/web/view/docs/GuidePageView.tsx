@@ -104,7 +104,7 @@ const GuideBlockView = ({ block, index }: { readonly block: GuideBlock; readonly
     <GuideList items={block.items} ordered={block.ordered} />
     : block.kind === "quote"
     ? (
-      <Layer as="blockquote" className="border-l-2 border-stage-400 pl-5">
+      <Layer render={<blockquote />} className="border-l-2 border-stage-400 pl-5">
         <SemanticContent as="p" className="text-ink-600" role="card-summary">
           <DocsRichText parts={block.parts} />
         </SemanticContent>

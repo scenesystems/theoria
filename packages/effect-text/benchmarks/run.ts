@@ -1,38 +1,41 @@
-import { FileSystem, Path } from "@effect/platform"
+import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Chunk, Clock, Console, Effect, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
-import { Text } from "../src/index.js"
+import { type Errors, Text } from "../src/index.js"
 import { preparedTextWithSegmentsCore } from "../src/Text/model.js"
 import {
-  BenchmarkComparisonReportSchema,
-  BenchmarkReportSchema,
-  benchmarkCorpus,
-  benchmarkIterations,
+  type BenchmarkCaseReportType,
   type BenchmarkComparisonCaseReportType,
   type BenchmarkComparisonMetricType,
+  BenchmarkComparisonReportSchema,
   type BenchmarkComparisonReportType,
+  benchmarkCorpus,
   type BenchmarkCorpusCase,
-  type BenchmarkCaseReportType,
+  benchmarkIterations,
   type BenchmarkMetricSampleType,
   type BenchmarkMetricType,
+  BenchmarkReportSchema,
   type BenchmarkReportType
 } from "./corpus.js"
 
-const baselineOutputUrl = new URL("./results/materialize-baseline.json", import.meta.url)
-const walkerOutputUrl = new URL("./results/walker-kernel.json", import.meta.url)
-const comparisonOutputUrl = new URL("./results/walker-vs-materialize.json", import.meta.url)
+const resultPath = (fileName: string): Effect.Effect<string, never, Path.Path> =>
+  Effect.gen(function*() {
+    const pathService = yield* Path.Path
+    const url = yield* Url.fromString(`./results/${fileName}`, import.meta.url)
+    return yield* pathService.fromFileUrl(url)
+  }).pipe(Effect.orDie)
 const BenchmarkReportJsonSchema = Schema.parseJson(BenchmarkReportSchema)
 const BenchmarkComparisonReportJsonSchema = Schema.parseJson(BenchmarkComparisonReportSchema)
 
 const meanDuration = (totalDurationMs: number, iterations: number): number => totalDurationMs / iterations
 
-const measureEffect = <A>(
+const measureEffect = <A, E>(
   iterations: number,
-  run: () => Effect.Effect<A>,
+  run: () => Effect.Effect<A, E>,
   summarize: (value: A) => BenchmarkMetricSampleType
-): Effect.Effect<BenchmarkMetricType> =>
+): Effect.Effect<BenchmarkMetricType, E> =>
   Effect.gen(function*() {
     const startedAt = yield* Clock.currentTimeMillis
 
@@ -84,7 +87,9 @@ const collectCursorLines = (
     onSome: ([line, nextCursor]) => [line, ...collectCursorLines(prepared, request, nextCursor)]
   })
 
-const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<BenchmarkCaseReportType> =>
+const benchmarkCase = (
+  corpusCase: BenchmarkCorpusCase
+): Effect.Effect<BenchmarkCaseReportType, Errors.MeasurementFailed> =>
   Effect.gen(function*() {
     const prepared = yield* Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive))
 
@@ -95,7 +100,9 @@ const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<Benchmark
         prepare: yield* measureEffect(
           benchmarkIterations,
           () => Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive)),
-          (preparedText) => ({ segmentCount: preparedTextWithSegmentsCore(preparedText).logicalSurface.segments.length })
+          (preparedText) => ({
+            segmentCount: preparedTextWithSegmentsCore(preparedText).logicalSurface.segments.length
+          })
         ),
         layout: yield* measurePure(
           benchmarkIterations,
@@ -114,10 +121,11 @@ const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<Benchmark
         ),
         streamLines: yield* measureEffect(
           benchmarkIterations,
-          () => Text.streamLines(prepared, corpusCase.request).pipe(
-            Stream.runCollect,
-            Effect.map(Chunk.toReadonlyArray)
-          ),
+          () =>
+            Text.streamLines(prepared, corpusCase.request).pipe(
+              Stream.runCollect,
+              Effect.map(Chunk.toReadonlyArray)
+            ),
           (lines) => ({ lineCount: lines.length })
         ),
         walkLineRanges: yield* measurePure(
@@ -189,33 +197,35 @@ const findBaselineCase = (
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const pathService = yield* Path.Path
-  const baselinePath = yield* pathService.fromFileUrl(baselineOutputUrl).pipe(Effect.orDie)
-  const walkerPath = yield* pathService.fromFileUrl(walkerOutputUrl).pipe(Effect.orDie)
-  const comparisonPath = yield* pathService.fromFileUrl(comparisonOutputUrl).pipe(Effect.orDie)
+  const baselinePath = yield* resultPath("materialize-baseline.json")
+  const walkerPath = yield* resultPath("walker-kernel.json")
+  const comparisonPath = yield* resultPath("walker-vs-materialize.json")
   const outputDirectory = pathService.dirname(walkerPath)
   const walkerReport: BenchmarkReportType = {
     benchmark: "effect-text-walker-kernel",
     iterations: benchmarkIterations,
     corpus: yield* Effect.forEach(benchmarkCorpus, benchmarkCase)
   }
-  const baselineText = yield* fileSystem.readFileString(baselinePath).pipe(Effect.orDie)
-  const baselineReport = yield* Schema.decode(BenchmarkReportJsonSchema)(baselineText).pipe(Effect.orDie)
+  const baselineText = yield* fileSystem.readFileString(baselinePath)
+  const baselineReport = yield* Schema.decode(BenchmarkReportJsonSchema)(baselineText)
   const comparisonReport: BenchmarkComparisonReportType = {
     baselineBenchmark: "effect-text-materialize-baseline",
     walkerBenchmark: "effect-text-walker-kernel",
     iterations: benchmarkIterations,
-    corpus: yield* Effect.forEach(walkerReport.corpus, (walkerCase) =>
-      findBaselineCase(baselineReport, walkerCase).pipe(
-        Effect.map((baselineCase) => compareCaseReports(baselineCase, walkerCase))
-      )
+    corpus: yield* Effect.forEach(
+      walkerReport.corpus,
+      (walkerCase) =>
+        findBaselineCase(baselineReport, walkerCase).pipe(
+          Effect.map((baselineCase) => compareCaseReports(baselineCase, walkerCase))
+        )
     )
   }
   const encodedWalkerReport = yield* Schema.encode(BenchmarkReportJsonSchema)(walkerReport)
   const encodedComparisonReport = yield* Schema.encode(BenchmarkComparisonReportJsonSchema)(comparisonReport)
 
-  yield* fileSystem.makeDirectory(outputDirectory, { recursive: true }).pipe(Effect.orDie)
-  yield* fileSystem.writeFileString(walkerPath, `${encodedWalkerReport}\n`).pipe(Effect.orDie)
-  yield* fileSystem.writeFileString(comparisonPath, `${encodedComparisonReport}\n`).pipe(Effect.orDie)
+  yield* fileSystem.makeDirectory(outputDirectory, { recursive: true })
+  yield* fileSystem.writeFileString(walkerPath, `${encodedWalkerReport}\n`)
+  yield* fileSystem.writeFileString(comparisonPath, `${encodedComparisonReport}\n`)
   yield* Console.log(`Wrote effect-text walker benchmark: ${walkerPath}`)
   yield* Console.log(`Wrote effect-text walker comparison: ${comparisonPath}`)
 })

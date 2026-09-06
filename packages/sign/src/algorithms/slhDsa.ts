@@ -12,6 +12,7 @@
  *
  * @since 0.1.0
  * @category algorithms
+ * @module
  */
 import {
   slh_dsa_sha2_128f,
@@ -49,7 +50,8 @@ export const slhDsaSha2128fVerify = sha2128f.verify
  * Generates a Level 1 fast SLH-DSA key pair with 32-byte public and 64-byte secret keys.
  *
  * @remarks
- * Key generation uses Noble's ambient CSPRNG.
+ * Key generation uses Noble's ambient CSPRNG and fails with
+ * `KeyGenerationFailed` when that source is unavailable.
  *
  * @since 0.1.0
  * @category algorithms
@@ -79,7 +81,8 @@ export const slhDsaSha2128sVerify = sha2128s.verify
  * Generates a Level 1 small-signature SLH-DSA key pair with 32-byte public and 64-byte secret keys.
  *
  * @remarks
- * Key generation uses Noble's ambient CSPRNG.
+ * Key generation uses Noble's ambient CSPRNG and fails with
+ * `KeyGenerationFailed` when that source is unavailable.
  *
  * @since 0.1.0
  * @category algorithms
@@ -109,7 +112,8 @@ export const slhDsaSha2192fVerify = sha2192f.verify
  * Generates a Level 3 fast SLH-DSA key pair with 48-byte public and 96-byte secret keys.
  *
  * @remarks
- * Key generation uses Noble's ambient CSPRNG.
+ * Key generation uses Noble's ambient CSPRNG and fails with
+ * `KeyGenerationFailed` when that source is unavailable.
  *
  * @since 0.1.0
  * @category algorithms
@@ -139,7 +143,8 @@ export const slhDsaSha2256fVerify = sha2256f.verify
  * Generates a Level 5 fast SLH-DSA key pair with 64-byte public and 128-byte secret keys.
  *
  * @remarks
- * Key generation uses Noble's ambient CSPRNG.
+ * Key generation uses Noble's ambient CSPRNG and fails with
+ * `KeyGenerationFailed` when that source is unavailable.
  *
  * @since 0.1.0
  * @category algorithms

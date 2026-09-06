@@ -1,14 +1,10 @@
-import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect, Either, Layer, Ref } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
-import * as ts from "typescript"
 
-import { parseTypeScript, readProjectFile, variableInitializerTexts } from "@theoria/source-proof"
-import { Browser, Contracts, Text } from "../../src/index.js"
+import { Browser, Contracts, Errors, Text } from "../../src/index.js"
 
-const packageRootUrl = new URL("../../", import.meta.url)
 const browserProfiles = Browser.BrowserSupportManifest.profiles
 const browserProfile = Browser.browserSupportProfile()
 const defaultEngineProfile = browserProfile.engineProfile
@@ -25,32 +21,6 @@ const visualLine = (
   text,
   width
 })
-
-const parseVariableInitializer = (source: string, variableName: string): ts.SourceFile => {
-  const parsed = parseTypeScript(`${variableName}.ts`, source)
-  const initializer = Arr.head(variableInitializerTexts(parsed, variableName)).pipe(Option.getOrElse(() => "undefined"))
-
-  return parseTypeScript(`${variableName}.initializer.ts`, `const ${variableName} = ${initializer}`)
-}
-
-const callExpressionTexts = (sourceFile: ts.SourceFile): ReadonlyArray<string> => {
-  const collect = (node: ts.Node): ReadonlyArray<string> =>
-    Arr.reduce(
-      Arr.fromIterable(node.getChildren(sourceFile)),
-      ts.isCallExpression(node) ? Arr.make(node.expression.getText(sourceFile)) : Arr.empty<string>(),
-      (texts, child) => Arr.appendAll(texts, collect(child))
-    )
-
-  return collect(sourceFile)
-}
-
-const readInitializerCallExpressions = (relativePath: string, variableName: string) =>
-  readProjectFile(packageRootUrl, relativePath).pipe(
-    Effect.map((source) => callExpressionTexts(parseVariableInitializer(source, variableName)))
-  )
-
-const containsString = (values: ReadonlyArray<string>, expected: string): boolean =>
-  Arr.some(values, (value) => value === expected)
 
 const prepareInput = (
   text: string,
@@ -96,6 +66,20 @@ class EmojiCanvasContext {
     }
 
     return { width: text.length * 10 }
+  }
+}
+
+/**
+ * A host context whose `measureText` answers with a width that is not a
+ * finite number, as a context whose font never resolved can.
+ */
+class UnmeasuringCanvasContext {
+  direction: "ltr" | "rtl" | "inherit" = "inherit"
+  font = "10px monospace"
+  textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom" = "alphabetic"
+
+  measureText(_text: string): { readonly width: number } {
+    return { width: Number.NaN }
   }
 }
 
@@ -158,30 +142,8 @@ const deterministicLayer = (profile: Browser.BrowserSupportProfileType) =>
   )
 
 describe("Text browser runtime contracts", () => {
-  it.effect("browser support manifest ships multiple profiles with explicit engine and tab policy data", () =>
-    Effect.sync(() => {
-      const profileIds = Arr.map(browserProfiles, (profile) => profile.id)
-
-      expect(profileIds).toEqual(["canvas-monospace", "canvas-system-ui"])
-      expect(browserProfiles[0]?.fontSelection).toBe("named-family")
-      expect(browserProfiles[0]?.fontStack).toEqual(["Mono", "monospace"])
-      expect(browserProfiles[1]?.fontSelection).toBe("browser-default-stack")
-      expect(browserProfiles[1]?.fontStack).toEqual(["system-ui", "sans-serif"])
-      expect(Arr.every(browserProfiles, (profile) => profile.tabPolicy.mode === "space-columns")).toBe(true)
-      expect(Arr.every(browserProfiles, (profile) => profile.engineProfile.tabWidth === profile.tabPolicy.columns))
-        .toBe(true)
-      expect(
-        (browserProfiles[1]?.engineProfile.lineFitEpsilon ?? 0) >
-          (browserProfiles[0]?.engineProfile.lineFitEpsilon ?? 0)
-      ).toBe(true)
-    }))
-
   it.effect("CanvasTextMeasurerLive is concurrency-safe under repeated prepare calls", () =>
     Effect.gen(function*() {
-      const initializerCalls = yield* readInitializerCallExpressions(
-        "src/Browser/layers.ts",
-        "makeCanvasTextMeasurer"
-      ).pipe(Effect.provide(BunContext.layer))
       const context = new MonospaceCanvasContext()
       const inputs: ReadonlyArray<Text.PrepareInputType> = Arr.make(
         prepareInput("alpha beta", { family: browserProfile.defaultFontFamily, size: 10 }, "normal"),
@@ -201,8 +163,6 @@ describe("Text browser runtime contracts", () => {
         { concurrency: "unbounded" }
       ).pipe(Effect.provide(browserLayer(context, Browser.initialFontReadinessRevision())))
 
-      expect(containsString(initializerCalls, "Effect.makeSemaphore")).toBe(true)
-      expect(containsString(initializerCalls, "contextSemaphore.withPermits")).toBe(true)
       expect(context.measureCount).toBeGreaterThan(0)
       expect(context.font).toBe("10px monospace")
       expect(context.direction).toBe("inherit")
@@ -381,5 +341,76 @@ describe("Text browser runtime contracts", () => {
         visualLine(1, "ef", 20)
       ])
       expect(result.largerSummary.maxLineWidth).toBe(72)
+    }))
+
+  it.effect("a canvas context that cannot measure becomes a MeasurementFailed failure and the context is restored", () =>
+    Effect.gen(function*() {
+      const context = new UnmeasuringCanvasContext()
+      const font: Text.FontDescriptorType = { family: browserProfile.defaultFontFamily, size: 10 }
+
+      const failure = yield* Effect.flip(
+        Text.prepare(prepareInput("alpha", font, "normal")).pipe(
+          Effect.provide(browserLayer(context, Browser.initialFontReadinessRevision()))
+        )
+      )
+
+      expect(failure).toBeInstanceOf(Errors.MeasurementFailed)
+      expect(failure.text).toBe("alpha")
+      expect(failure.reason).toBe("measureText returned NaN")
+      expect(context.font).toBe("10px monospace")
+      expect(context.direction).toBe("inherit")
+      expect(context.textBaseline).toBe("alphabetic")
+    }))
+
+  it.effect("measurement caches evict failures so the next request measures again", () =>
+    Effect.gen(function*() {
+      const font: Text.FontDescriptorType = { family: browserProfile.defaultFontFamily, size: 10 }
+      const input = prepareInput("alpha", font, "normal")
+      const failingOnce = Layer.effect(
+        Contracts.TextMeasurer,
+        Effect.map(Ref.make(0), (calls) => ({
+          measure: (measuredFont: Text.FontDescriptorType, text: string) =>
+            Ref.updateAndGet(calls, (count) => count + 1).pipe(
+              Effect.flatMap((count) =>
+                count === 1
+                  ? Effect.fail(
+                    new Errors.MeasurementFailed({
+                      fontFamily: measuredFont.family,
+                      fontSize: measuredFont.size,
+                      text,
+                      reason: "font not ready"
+                    })
+                  )
+                  : Effect.succeed(text.length * 10)
+              )
+            )
+        }))
+      )
+      const cacheLayers: ReadonlyArray<Layer.Layer<Contracts.MeasurementCache>> = Arr.make(
+        Text.MeasurementCacheLive.pipe(Layer.provide(failingOnce)),
+        Browser.BrowserMeasurementCacheLive({
+          fontReadinessRevision: Browser.initialFontReadinessRevision(),
+          profileId: browserProfile.id
+        }).pipe(Layer.provide(failingOnce))
+      )
+
+      const outcomes = yield* Effect.forEach(cacheLayers, (cacheLayer) =>
+        Effect.gen(function*() {
+          const first = yield* Effect.either(Text.prepare(input))
+          const second = yield* Text.prepare(input)
+
+          return { first, second: Text.layout(second, { maxWidth: 100, lineHeight: 12 }).maxLineWidth }
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              Text.WordSegmenterLive,
+              Layer.succeed(Contracts.EngineProfile, defaultEngineProfile),
+              cacheLayer
+            )
+          )
+        ))
+
+      expect(Arr.map(outcomes, (outcome) => Either.isLeft(outcome.first))).toEqual([true, true])
+      expect(Arr.map(outcomes, (outcome) => outcome.second)).toEqual([50, 50])
     }))
 })

@@ -3,17 +3,11 @@
  *
  * @since 0.1.0
  * @category signing
+ * @module
  */
 import { Effect, Match } from "effect"
 import { ed25519Sign, ed25519Verify } from "./algorithms/ed25519.js"
-import {
-  mlDsa44Sign,
-  mlDsa44Verify,
-  mlDsa65Sign,
-  mlDsa65Verify,
-  mlDsa87Sign,
-  mlDsa87Verify
-} from "./algorithms/mlDsa.js"
+import { mlDsa44Sign, mlDsa44Verify, mlDsa65Verify, mlDsa87Sign, mlDsa87Verify } from "./algorithms/mlDsa.js"
 import {
   secp256k1EcdsaSign,
   secp256k1EcdsaVerify,
@@ -32,9 +26,9 @@ import {
 } from "./algorithms/slhDsa.js"
 import { type SigningFailed, VerificationFailed } from "./schemas/errors.js"
 import type { Signature } from "./schemas/Signature.js"
-import type { SignatureAlgorithm } from "./schemas/SignatureAlgorithm.js"
+import type { KeyOnlySigningAlgorithm } from "./schemas/SignatureAlgorithm.js"
 
-type SignatureAlgorithmType = typeof SignatureAlgorithm.Type
+type KeyOnlySigningAlgorithmType = typeof KeyOnlySigningAlgorithm.Type
 
 /**
  * Signs exact message bytes with the selected suite and attaches the supplied
@@ -42,9 +36,10 @@ type SignatureAlgorithmType = typeof SignatureAlgorithm.Type
  *
  * @remarks
  * `publicKey` is stored in the returned carrier; signing uses `secretKey`.
- * The function does not establish that those keys form a pair. The
- * `"ml-dsa-65"` branch always fails closed: use `mlDsa65SignHedged` or
- * `mlDsa65SignDeterministic` explicitly.
+ * The function does not establish that those keys form a pair. ML-DSA-65 is
+ * not a `KeyOnlySigningAlgorithm` because its signing needs caller-supplied
+ * entropy and a context: use `mlDsa65SignHedged` (production) or
+ * `mlDsa65SignDeterministic` (conformance) directly.
  *
  * @param algorithm - The signing suite and output algorithm tag.
  * @param message - The exact bytes to sign; no framing or domain separation is added.
@@ -56,7 +51,7 @@ type SignatureAlgorithmType = typeof SignatureAlgorithm.Type
  * @category signing
  */
 export const sign = (
-  algorithm: SignatureAlgorithmType,
+  algorithm: KeyOnlySigningAlgorithmType,
   message: Uint8Array,
   secretKey: Uint8Array,
   publicKey: Uint8Array
@@ -66,7 +61,6 @@ export const sign = (
     Match.when("secp256k1-ecdsa", () => secp256k1EcdsaSign(message, secretKey, publicKey)),
     Match.when("secp256k1-schnorr", () => secp256k1SchnorrSign(message, secretKey, publicKey)),
     Match.when("ml-dsa-44", () => mlDsa44Sign(message, secretKey, publicKey)),
-    Match.when("ml-dsa-65", () => mlDsa65Sign(message, secretKey, publicKey)),
     Match.when("ml-dsa-87", () => mlDsa87Sign(message, secretKey, publicKey)),
     Match.when("slh-dsa-sha2-128f", () => slhDsaSha2128fSign(message, secretKey, publicKey)),
     Match.when("slh-dsa-sha2-128s", () => slhDsaSha2128sSign(message, secretKey, publicKey)),

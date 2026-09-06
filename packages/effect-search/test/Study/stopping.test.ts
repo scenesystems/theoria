@@ -7,7 +7,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     fidelity: SearchSpace.fidelity(1, 9)
   })
@@ -16,7 +16,7 @@ describe("advanced stopping conditions", () => {
   it.live("stops with durationExceeded when maxDuration elapses", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 31 }),
         direction: "minimize",
         trials: 100,
@@ -32,7 +32,7 @@ describe("advanced stopping conditions", () => {
   it.effect("stops with targetReached once the objective satisfies targetValue", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 7 }),
         direction: "minimize",
         trials: 10,
@@ -47,7 +47,7 @@ describe("advanced stopping conditions", () => {
   it.effect("stops with noImprovement after the configured non-improving window", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 9 }),
         direction: "minimize",
         trials: 25,
@@ -68,7 +68,7 @@ describe("advanced stopping conditions", () => {
       })
 
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         scheduler,
         direction: "minimize",
         noImprovementWindow: 1,

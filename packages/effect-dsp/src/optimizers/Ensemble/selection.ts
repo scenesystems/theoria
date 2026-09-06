@@ -5,20 +5,20 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Match, Option, Order } from "effect"
+import { Array as Arr, Data, Match, Option, Order } from "effect"
 import type { Schema } from "effect"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
 import type { Module as DspModule } from "../../Module/model.js"
 
-type ProgramSample<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{
+class ProgramSample<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   readonly score: number
   readonly program: DspModule<I, O>
-}>
+}> {}
 
-type SamplingState<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{
+class SamplingState<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   readonly seed: number
   readonly samples: Array<ProgramSample<I, O>>
-}>
+}> {}
 
 /**
  * Clamp the requested subset size to `[1, programCount]`, returning `0` only

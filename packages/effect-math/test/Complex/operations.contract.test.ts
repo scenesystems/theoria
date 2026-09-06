@@ -53,14 +53,14 @@ import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/share
 import { dot } from "../../src/LinearAlgebra/operations.js"
 
 const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "strict",
   backend: "typed-array",
   diagnostics: "enabled"
 })
 
 const relaxedScalarLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "relaxed",
   backend: "scalar",
   diagnostics: "disabled"
@@ -719,4 +719,15 @@ describe("Complex / complexDerivativeWithPolicies", () => {
       const result = yield* complexDerivativeWithPolicies(f, 3)
       expectClose(result, 6, 1e-15)
     }).pipe(Effect.provide(strictTypedArrayLayer)))
+})
+
+describe("Complex / Schema", () => {
+  it.effect("encodes and decodes a Complex value through its Schema", () =>
+    Effect.gen(function*() {
+      const z = new Complex({ re: 3, im: 4 })
+      const encoded = yield* Schema.encode(Complex)(z)
+      const decoded = yield* Schema.decode(Complex)(encoded)
+      expect(decoded.re).toStrictEqual(3)
+      expect(decoded.im).toStrictEqual(4)
+    }))
 })

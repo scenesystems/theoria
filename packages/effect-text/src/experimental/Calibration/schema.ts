@@ -9,7 +9,7 @@ import { Schema } from "effect"
 
 import {
   BaseTextDirection,
-  EngineProfileSchema,
+  EngineProfile,
   LayoutLine,
   LayoutRequest,
   LayoutSummary,
@@ -106,7 +106,7 @@ export const CalibrationProfile = Schema.Struct({
   /** Candidate label copied into the aggregate report. */
   name: Schema.String,
   /** Preparation settings installed while evaluating the candidate. */
-  engineProfile: EngineProfileSchema
+  engineProfile: EngineProfile
 })
 
 /**
@@ -390,22 +390,6 @@ export const CalibrationSearchDescriptor = Schema.Struct({
  * @category models
  */
 export type CalibrationSearchDescriptorType = typeof CalibrationSearchDescriptor.Type
-
-/**
- * Compatibility name decoding the same engine-profile search dimensions as `CalibrationSearchDescriptor`.
- *
- * @since 0.2.0
- * @category schemas
- */
-export const CalibrationSearchSpaceSpec = CalibrationSearchDescriptor
-
-/**
- * Search descriptor projected under the earlier search-space terminology.
- *
- * @since 0.2.0
- * @category models
- */
-export type CalibrationSearchSpaceSpecType = CalibrationSearchDescriptorType
 
 /**
  * Machine-readable study artifacts emitted by experimental optimization runs.

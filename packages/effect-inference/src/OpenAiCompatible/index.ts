@@ -3,6 +3,7 @@
  * language and embedding model layers.
  *
  * @since 0.1.0
+ * @module
  */
 
 /** @since 0.1.0 */

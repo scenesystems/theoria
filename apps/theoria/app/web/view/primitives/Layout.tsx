@@ -1,90 +1,40 @@
-import type { ComponentPropsWithRef, ElementType, ReactNode } from "react"
+import { useRender } from "@base-ui/react/use-render"
 
-type SlotProps<E extends ElementType> = {
-  readonly as?: E
-  readonly children?: ReactNode
-  readonly className?: string
-} & Omit<ComponentPropsWithRef<E>, "as" | "children" | "className">
+import { classNames } from "./classNames.js"
 
-const classes = (base: string, value: string | undefined): string =>
-  [base, value ?? ""].filter((entry) => entry.length > 0).join(" ")
+/** The elements a layout slot renders by default. */
+type LayoutTag = "div" | "header" | "main" | "nav" | "section"
 
-export const Layer = <E extends ElementType = "div">({
-  as,
-  className,
-  ...props
-}: SlotProps<E>) => {
-  const Component = as ?? "div"
+/**
+ * Props of a layout slot: the attributes and ref of its default element plus
+ * Base UI's `render` prop, which swaps the rendered element for another tag
+ * or composes the slot with another component (`render={<ul />}`,
+ * `render={<motion.div />}`). Base UI merges the slot's classes, handlers and
+ * refs into whatever `render` supplies.
+ */
+export type LayoutSlotProps<Tag extends LayoutTag> = useRender.ComponentProps<Tag>
 
-  return <Component {...props} className={classes("min-w-0", className)} />
-}
+/**
+ * A layout slot: a semantic element with the slot's base classes, rendered
+ * through Base UI's {@link useRender} so the element is chosen the same way it
+ * is for every other Base UI component in the app. The props are typed by the
+ * slot's default element, so `<Main>` accepts what a `<main>` accepts.
+ */
+const layoutSlot =
+  <Tag extends LayoutTag>(defaultTagName: Tag, baseClassName: string) =>
+  ({ className, ref, render, ...props }: LayoutSlotProps<Tag>) =>
+    useRender({
+      defaultTagName,
+      props: { ...props, className: classNames(baseClassName, className ?? "") },
+      ref,
+      render
+    })
 
-export const Header = <E extends ElementType = "header">({
-  as,
-  className,
-  ...props
-}: SlotProps<E>) => {
-  const Component = as ?? "header"
-
-  return <Component {...props} className={classes("min-w-0", className)} />
-}
-
-export const Main = <E extends ElementType = "main">({
-  as,
-  className,
-  ...props
-}: SlotProps<E>) => {
-  const Component = as ?? "main"
-
-  return <Component {...props} className={classes("min-w-0", className)} />
-}
-
-export const Nav = <E extends ElementType = "nav">({
-  as,
-  className,
-  ...props
-}: SlotProps<E>) => {
-  const Component = as ?? "nav"
-
-  return <Component {...props} className={classes("min-w-0", className)} />
-}
-
-export const Section = <E extends ElementType = "section">({
-  as,
-  className,
-  ...props
-}: SlotProps<E>) => {
-  const Component = as ?? "section"
-
-  return <Component {...props} className={classes("min-w-0", className)} />
-}
-
-export const Stack = <E extends ElementType = "div">({
-  as,
-  className,
-  ...props
-}: SlotProps<E>) => {
-  const Component = as ?? "div"
-
-  return <Component {...props} className={classes("flex min-w-0 flex-col", className)} />
-}
-
-export const Rail = <E extends ElementType = "div">({
-  as,
-  className,
-  ...props
-}: SlotProps<E>) => {
-  const Component = as ?? "div"
-
-  return <Component {...props} className={classes("flex min-w-0 items-center", className)} />
-}
-
-export const Cluster = <E extends ElementType = "div">({
-  as,
-  className,
-  ...props
-}: SlotProps<E>) => {
-  const Component = as ?? "div"
-
-  return <Component {...props} className={classes("flex min-w-0 flex-wrap items-center", className)} />
-}
+export const Layer = layoutSlot("div", "min-w-0")
+export const Header = layoutSlot("header", "min-w-0")
+export const Main = layoutSlot("main", "min-w-0")
+export const Nav = layoutSlot("nav", "min-w-0")
+export const Section = layoutSlot("section", "min-w-0")
+export const Stack = layoutSlot("div", "flex min-w-0 flex-col")
+export const Rail = layoutSlot("div", "flex min-w-0 items-center")
+export const Cluster = layoutSlot("div", "flex min-w-0 flex-wrap items-center")

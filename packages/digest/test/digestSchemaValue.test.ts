@@ -763,16 +763,18 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
     Effect.gen(function*() {
       const parameter = Schema.suspend(() => Schema.NumberFromString)
       const declaration = Schema.OptionFromSelf(parameter).pipe(Schema.filter(() => true))
-      const schema: Schema.Schema.AnyNoContext = Schema.transform(
-        Schema.Struct({ _tag: Schema.Literal("Some"), value: Schema.String }),
+      const schema: Schema.Schema.AnyNoContext = Schema.transformOrFail(
+        Schema.TaggedStruct("Some", { value: Schema.String }),
         declaration,
         {
           strict: true,
-          decode: (value) => Option.some(value.value),
-          encode: (value): { readonly _tag: "Some"; readonly value: string } => ({
-            _tag: "Some",
-            value: Option.getOrThrow(value)
-          })
+          decode: (value) => ParseResult.succeed(Option.some(value.value)),
+          encode: (value, _, ast) =>
+            Option.match(value, {
+              onNone: () => ParseResult.fail(new ParseResult.Type(ast, value, "expected Some")),
+              onSome: (inner) =>
+                ParseResult.succeed<{ readonly _tag: "Some"; readonly value: string }>({ _tag: "Some", value: inner })
+            })
         }
       )
       const value = Option.some(123)

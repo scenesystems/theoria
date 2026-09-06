@@ -142,18 +142,21 @@ export const estimateCostForCategoricalParameter = (
 
 const keySimilarity = (
   candidateValue: unknown,
-  sampleValue: unknown
-): number =>
-  Option.all([finiteNumber(candidateValue), finiteNumber(sampleValue)]).pipe(
+  sampleValue: Option.Option<unknown>
+): number => {
+  const comparableSample = Option.flatMap(sampleValue, finiteNumber)
+
+  return Option.all([finiteNumber(candidateValue), comparableSample]).pipe(
     Option.match({
       onNone: () =>
-        Match.value(Equal.equals(candidateValue, sampleValue)).pipe(
+        Match.value(Option.exists(sampleValue, (value) => Equal.equals(candidateValue, value))).pipe(
           Match.when(true, () => 1),
           Match.orElse(() => BACKGROUND_SIMILARITY)
         ),
       onSome: ([candidateNumeric, sampleNumeric]) => numericSimilarity(candidateNumeric, sampleNumeric)
     })
   )
+}
 
 /**
  * Estimates trial cost for a full candidate configuration by averaging
@@ -185,7 +188,7 @@ export const estimateCostForConfig = (
               total,
               keySimilarity(
                 candidateValue,
-                valueFromConfig(sample.config, key).pipe(Option.getOrElse(() => undefined))
+                valueFromConfig(sample.config, key)
               )
             )),
           candidateEntries.length

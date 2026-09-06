@@ -1,9 +1,9 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Config, ConfigError, ConfigProvider, Console, Effect, Match, Option } from "effect"
 
-import { program as huggingFaceEndpointRuntimeProgram } from "../examples/04-hugging-face-endpoint-runtime.js"
 import { program as huggingFaceRoutedRuntimeProgram } from "../examples/02-hugging-face-routed-runtime.js"
 import { program as runtimeConfigDecodingProgram } from "../examples/03-runtime-config-decoding.js"
+import { program as huggingFaceEndpointRuntimeProgram } from "../examples/04-hugging-face-endpoint-runtime.js"
 import { InvalidRuntimeConfig } from "../src/Errors/Config.js"
 
 type LiveExampleName =
@@ -29,14 +29,18 @@ const parseSelection = (value: string): Effect.Effect<ReadonlyArray<LiveExampleN
     Match.value(name).pipe(
       Match.when("runtime-config-decoding", () => Effect.succeed<LiveExampleName>("runtime-config-decoding")),
       Match.when("hugging-face-routed-runtime", () => Effect.succeed<LiveExampleName>("hugging-face-routed-runtime")),
-      Match.when("hugging-face-endpoint-runtime", () => Effect.succeed<LiveExampleName>("hugging-face-endpoint-runtime")),
+      Match.when(
+        "hugging-face-endpoint-runtime",
+        () => Effect.succeed<LiveExampleName>("hugging-face-endpoint-runtime")
+      ),
       Match.orElse(() =>
         Effect.fail(
           ConfigError.InvalidData(
             [],
             "Unsupported EFFECT_INFERENCE_LIVE_EXAMPLES entry. Use runtime-config-decoding, hugging-face-routed-runtime, or hugging-face-endpoint-runtime."
           )
-        ))
+        )
+      )
     ))
 }
 

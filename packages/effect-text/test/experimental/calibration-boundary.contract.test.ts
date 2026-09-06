@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Sampler } from "@scenesystems/effect-search"
-import { Effect, Layer, Option, Ref } from "effect"
+import type { Study } from "@scenesystems/effect-search"
+import { Effect, Exit, Layer, Option, Ref } from "effect"
 
 import { Contracts, Experimental, Text } from "../../src/index.js"
 import {
@@ -104,6 +105,31 @@ describe("Experimental.Calibration boundary contracts", () => {
       expect(secondRun.bestProfile).toEqual(firstRun.bestProfile)
       expect(secondRun.optimization.bestScore).toBe(firstRun.optimization.bestScore)
       expect(secondRun.optimization.artifacts.eventLog).toEqual(firstRun.optimization.artifacts.eventLog)
+    }))
+
+  it.effect("optimizeProfile fails with CalibrationSnapshotMissing when storage drops its snapshot", () =>
+    Effect.gen(function*() {
+      const trialLog = yield* Ref.make<Array<Study.SnapshotTrial>>([])
+      const evictingStorage: Study.StudyStorageApi = {
+        appendTrial: (trial) => Ref.update(trialLog, (trials) => [...trials, trial]),
+        loadSnapshot: () => Effect.succeedNone,
+        loadTrialLog: () => Ref.get(trialLog),
+        replayTrialLog: () => Ref.get(trialLog),
+        writeSnapshot: () => Effect.void
+      }
+
+      const exit = yield* Experimental.Calibration.optimizeProfile({
+        cases: canonicalCalibrationCases,
+        services: calibrationServices,
+        trials: 2,
+        sampler: Sampler.random({ seed: 17 }),
+        searchDescriptor: exploratorySearchDescriptor,
+        studyStorage: evictingStorage
+      }).pipe(Effect.exit)
+
+      expect(exit).toStrictEqual(
+        Exit.fail(new Experimental.Calibration.CalibrationSnapshotMissing({ trialLogLength: 2 }))
+      )
     }))
 
   it.effect("experimental calibration corpora can assert exact lines for bidi, CJK, tabs, and hyphenation", () =>

@@ -5,7 +5,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Data, Effect, Option } from "effect"
 import type { Schema } from "effect"
 
 import { extractInstruction, generateText } from "../../../Module/textGeneration.js"
@@ -25,10 +25,10 @@ import type { GEPAEventSink, GEPAOptions } from "./options.js"
  * @since 0.1.0
  * @category models
  */
-export type MutationPhaseResult = Readonly<{
+export class MutationPhaseResult extends Data.Class<{
   readonly stateAfterAcceptance: GEPAState
   readonly accepted: boolean
-}>
+}> {}
 
 const buildMutationCandidate = (
   parentCandidate: ProgramCandidate,
@@ -95,25 +95,24 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
       currentInstruction,
       examples: buildReflectiveDataset(parentEvaluation.samples)
     })
-    const mutatedInstruction = yield* generateText(reflectivePrompt).pipe(
-      Effect.map((response) =>
+    const mutatedInstruction = yield* Effect.map(
+      generateText(reflectivePrompt),
+      (response) =>
         extractInstruction(response, currentInstruction)
-      ),
-      Effect.orElseSucceed(() => currentInstruction)
     )
-    const mutationWithFallback = buildMutationCandidate(parentCandidate, predictorName, mutatedInstruction, iteration)
+    const mutatedCandidate = buildMutationCandidate(parentCandidate, predictorName, mutatedInstruction, iteration)
 
     yield* emit(
       GEPAEvent.MutationProposed({
         iteration,
         parentId: parentCandidate.candidateId,
-        mutatedCandidateId: mutationWithFallback.candidateId,
+        mutatedCandidateId: mutatedCandidate.candidateId,
         predictorName,
         instruction: mutatedInstruction
       })
     )
 
-    const mutatedEvaluation = yield* evaluateCandidate(options, mutationWithFallback)
+    const mutatedEvaluation = yield* evaluateCandidate(options, mutatedCandidate)
     const subsampleSize = Numeric.min(
       Numeric.min(3, parentEvaluation.scores.length),
       mutatedEvaluation.scores.length
@@ -127,7 +126,7 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
     const stateAfterAcceptance = new GEPAState({
       ...stateAfterMerge,
       candidates: accepted
-        ? Arr.append(stateAfterMerge.candidates, mutationWithFallback)
+        ? Arr.append(stateAfterMerge.candidates, mutatedCandidate)
         : stateAfterMerge.candidates,
       scoreVectors: accepted
         ? Arr.append(

@@ -47,10 +47,6 @@ const STRONG_PATTERN = /\p{Letter}|\p{Number}/u
 const LETTER_PATTERN = /\p{Letter}/u
 const NUMBER_PATTERN = /\p{Number}/u
 const EMOJI_PATTERN = /\p{Extended_Pictographic}/u
-const COMBINING_MARK_PATTERN = /\p{Mark}/u
-const VARIATION_SELECTOR_PATTERN = /[\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/u
-const EMOJI_MODIFIER_PATTERN = /\p{Emoji_Modifier}/u
-const REGIONAL_INDICATOR_PATTERN = /\p{Regional_Indicator}/u
 const CJK_SCRIPT_PATTERN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u
 const NO_SPACE_SCRIPT_PATTERN = /[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u
 const OPENING_PUNCTUATION_PATTERN =
@@ -98,10 +94,7 @@ const spaceSegment = (text: string): TextSegmentType => ({ kind: "space", text }
 const hardBreakSegment = (): TextSegmentType => ({ kind: "hard-break", text: LINE_FEED })
 const emptyTextSegments = (): ReadonlyArray<TextSegmentType> => []
 
-const getSegmenter = (granularity: "grapheme") => {
-  const Segmenter = globalThis.Intl?.Segmenter
-  return Segmenter ? new Segmenter(undefined, { granularity }) : undefined
-}
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
 const normalizeLineBreaks = (text: string): string => text.replace(/\r\n?/gu, LINE_FEED)
 
@@ -255,38 +248,14 @@ const textSegmentsFromAtoms = (atoms: ReadonlyArray<TextAtomicToken>): ReadonlyA
 const spaceSegmentsFromText = (text: string): ReadonlyArray<TextSegmentType> =>
   Arr.map(splitWhitespaceTokens(text), (token) => spaceSegment(token[1]))
 
-const fallbackGraphemeClusters = (text: string): ReadonlyArray<string> =>
-  Arr.fromIterable(text).reduce<ReadonlyArray<string>>((clusters, char) => {
-    const previous = clusters[clusters.length - 1]
-
-    return Option.fromNullable(previous).pipe(
-      Option.match({
-        onNone: () => [...clusters, char],
-        onSome: (lastCluster) =>
-          lastCluster.endsWith("\u200d") ||
-            COMBINING_MARK_PATTERN.test(char) ||
-            VARIATION_SELECTOR_PATTERN.test(char) ||
-            EMOJI_MODIFIER_PATTERN.test(char) ||
-            (REGIONAL_INDICATOR_PATTERN.test(char) && REGIONAL_INDICATOR_PATTERN.test(lastCluster))
-            ? [...clusters.slice(0, -1), lastCluster + char]
-            : [...clusters, char]
-      })
-    )
-  }, [])
-
 /**
- * Splits text into grapheme clusters using `Intl.Segmenter` when present and a deterministic fallback otherwise.
+ * Splits text into grapheme clusters with `Intl.Segmenter`.
  *
  * @since 0.1.0
  * @category internals
  */
-export const graphemeClusters = (text: string): ReadonlyArray<string> => {
-  const segmenter = getSegmenter("grapheme")
-
-  return segmenter
-    ? Arr.map(Arr.fromIterable(segmenter.segment(text)), (part) => part.segment)
-    : fallbackGraphemeClusters(text)
-}
+export const graphemeClusters = (text: string): ReadonlyArray<string> =>
+  Arr.map(Arr.fromIterable(graphemeSegmenter.segment(text)), (part) => part.segment)
 
 const segmentNormalText = (text: string): ReadonlyArray<TextSegmentType> =>
   ((state: {

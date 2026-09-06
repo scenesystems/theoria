@@ -32,14 +32,12 @@ export const decodeAlgebraDomain = (input: unknown) =>
   Schema.decodeUnknown(AlgebraDomainSchema)(input, {
     onExcessProperty: "error"
   }).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryDecodeError({
-          domain: "Algebra",
-          contract: "AlgebraDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryDecodeError({
+        domain: "Algebra",
+        contract: "AlgebraDomainSchema",
+        message: error.message
+      })
     )
   )
 
@@ -51,14 +49,12 @@ export const decodeAlgebraDomain = (input: unknown) =>
  */
 export const encodeAlgebraDomain = (domain: AlgebraDomain) =>
   Schema.encode(AlgebraDomainSchema)(domain).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new BoundaryEncodeError({
-          domain: "Algebra",
-          contract: "AlgebraDomainSchema",
-          message: error.message
-        })
-      )
+    Effect.mapError((error) =>
+      new BoundaryEncodeError({
+        domain: "Algebra",
+        contract: "AlgebraDomainSchema",
+        message: error.message
+      })
     )
   )
 

@@ -1,3 +1,4 @@
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
@@ -27,7 +28,9 @@ const richPart = (part: RichPart, key: string): ReactNode => {
     )
   }
 
-  return part.href === null ? part.text : richLink(part.href, part.text, key)
+  return typeof part.href === "string"
+    ? richLink(part.href, part.text, key)
+    : Option.match(part.href, { onNone: () => part.text, onSome: (href) => richLink(href, part.text, key) })
 }
 
 export const DocsRichText = ({ parts }: { readonly parts: ReadonlyArray<RichPart> }) => (

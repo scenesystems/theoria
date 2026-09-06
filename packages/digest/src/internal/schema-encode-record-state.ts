@@ -1,7 +1,7 @@
 /** Mutable invocation state for cooperative Schema record parsing. @internal */
 
 import type { SchemaAST } from "effect"
-import { Effect, Either, MutableRef, Option, ParseResult } from "effect"
+import { Effect, Either, MutableHashSet, MutableRef, Option, ParseResult } from "effect"
 
 import {
   appendMutable,
@@ -9,6 +9,7 @@ import {
   type EncodeState,
   type Parse,
   scan,
+  scanItems,
   type SemanticResult
 } from "./schema-encode-model.js"
 
@@ -139,20 +140,18 @@ export const orderedRecordOutput = (
 ): Effect.Effect<Record<PropertyKey, unknown>> =>
   Effect.suspend(() => {
     const ordered: Record<PropertyKey, unknown> = {}
-    const present: Record<PropertyKey, null> = {}
+    const present = MutableHashSet.empty<PropertyKey>()
     return Effect.as(
       Effect.zipRight(
-        scan(cooperation, 0, (index) => index < inputKeys.length, (index) =>
+        scanItems(cooperation, inputKeys, (key) =>
           Effect.sync(() => {
-            const key = inputKeys[index]!
-            Object.defineProperty(present, key, { configurable: true, value: null })
+            MutableHashSet.add(present, key)
             if (Object.prototype.hasOwnProperty.call(output, key)) ordered[key] = output[key]
           })),
-        scan(cooperation, 0, (index) => index < expectedKeys.length, (index) =>
+        scanItems(cooperation, expectedKeys, (key) =>
           Effect.sync(() => {
-            const key = expectedKeys[index]!
             if (
-              !Object.prototype.hasOwnProperty.call(present, key) &&
+              !MutableHashSet.has(present, key) &&
               Object.prototype.hasOwnProperty.call(output, key)
             ) ordered[key] = output[key]
           }))

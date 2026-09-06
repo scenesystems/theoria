@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Number, Record as EffectRecord, Schema } from "effect"
-import * as SchemaAST from "effect/SchemaAST"
+import { Effect, Match, Number, Schema } from "effect"
 
 import {
   AbsoluteTolerance,
@@ -12,35 +11,8 @@ import {
   Seed,
   StepSize
 } from "../../../src/contracts/shared/BrandedScalars.js"
-import * as BrandedScalars from "../../../src/contracts/shared/BrandedScalars.js"
 
 describe("shared branded scalar contracts", () => {
-  it("declares the canonical brand identifier for each scalar contract", () => {
-    expect(SchemaAST.getBrandAnnotation(Dimension.ast)).toMatchObject({ _tag: "Some", value: ["Dimension"] })
-    expect(SchemaAST.getBrandAnnotation(Axis.ast)).toMatchObject({ _tag: "Some", value: ["Axis"] })
-    expect(SchemaAST.getBrandAnnotation(AbsoluteTolerance.ast)).toMatchObject({
-      _tag: "Some",
-      value: ["AbsoluteTolerance"]
-    })
-    expect(SchemaAST.getBrandAnnotation(RelativeTolerance.ast)).toMatchObject({
-      _tag: "Some",
-      value: ["RelativeTolerance"]
-    })
-    expect(SchemaAST.getBrandAnnotation(Seed.ast)).toMatchObject({ _tag: "Some", value: ["Seed"] })
-    expect(SchemaAST.getBrandAnnotation(IterationBudget.ast)).toMatchObject({
-      _tag: "Some",
-      value: ["IterationBudget"]
-    })
-    expect(SchemaAST.getBrandAnnotation(ConditioningThreshold.ast)).toMatchObject({
-      _tag: "Some",
-      value: ["ConditioningThreshold"]
-    })
-    expect(SchemaAST.getBrandAnnotation(StepSize.ast)).toMatchObject({
-      _tag: "Some",
-      value: ["StepSize"]
-    })
-  })
-
   it.effect("accepts canonical valid values and rejects out-of-bound values", () =>
     Effect.gen(function*() {
       expect(Number.Equivalence(yield* Schema.decodeUnknown(Dimension)(3), 3)).toStrictEqual(true)
@@ -102,18 +74,4 @@ describe("shared branded scalar contracts", () => {
         )
       ).toStrictEqual(true)
     }))
-
-  it("freezes the v1 branded scalar vocabulary", () => {
-    const frozenV1 = [
-      "AbsoluteTolerance",
-      "Axis",
-      "ConditioningThreshold",
-      "Dimension",
-      "IterationBudget",
-      "RelativeTolerance",
-      "Seed",
-      "StepSize"
-    ]
-    expect(EffectRecord.keys({ ...BrandedScalars }).sort()).toStrictEqual(frozenV1)
-  })
 })

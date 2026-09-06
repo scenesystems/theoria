@@ -6,12 +6,11 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 import * as Trial from "../../src/Trial/index.js"
 
-const makeGridSpace = () =>
-  SearchSpace.unsafeMake({
-    alpha: SearchSpace.categorical(["a", "b", "c"]),
-    beta: SearchSpace.categorical(["x", "y", "z", "w"]),
-    useBatchNorm: SearchSpace.boolean()
-  })
+const gridSpace = SearchSpace.make({
+  alpha: SearchSpace.categorical(["a", "b", "c"]),
+  beta: SearchSpace.categorical(["x", "y", "z", "w"]),
+  useBatchNorm: SearchSpace.boolean()
+})
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
@@ -65,7 +64,7 @@ const objectiveForSpace = (space: SearchSpace.SearchSpace) => {
 describe("integration grid study", () => {
   it.effect("uses spaceExhausted completion when trial budget exceeds finite grid size", () =>
     Effect.gen(function*() {
-      const space = makeGridSpace()
+      const space = yield* gridSpace
       const optimized = yield* Study.optimize({
         space,
         sampler: Sampler.grid(),
@@ -97,7 +96,7 @@ describe("integration grid study", () => {
 
   it.effect("uses budgetExhausted completion when budget is within finite grid size", () =>
     Effect.gen(function*() {
-      const space = makeGridSpace()
+      const space = yield* gridSpace
       const optimized = yield* Study.optimize({
         space,
         sampler: Sampler.grid(),
@@ -122,7 +121,7 @@ describe("integration grid study", () => {
 
   it.effect("keeps optimizeStream lifecycle compatibility for grid studies", () =>
     Effect.gen(function*() {
-      const space = makeGridSpace()
+      const space = yield* gridSpace
       const events = Chunk.toReadonlyArray(
         yield* Stream.runCollect(
           Study.optimizeStream({

@@ -31,7 +31,7 @@ const renderUnknown = (value: unknown): string =>
     Match.when(Predicate.isString, (text) => text),
     Match.when(Predicate.isNumber, (numberValue) => String(numberValue)),
     Match.when(Predicate.isBoolean, (booleanValue) => String(booleanValue)),
-    Match.when((candidate: unknown) => candidate === null, () => "null"),
+    Match.when(Predicate.isNull, () => "null"),
     Match.orElse(() => NON_SCALAR_FALLBACK)
   )
 

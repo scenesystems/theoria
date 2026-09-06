@@ -6,8 +6,9 @@
  *
  * @since 0.1.0
  * @category keys
+ * @module
  */
-import { Effect, Match } from "effect"
+import { type Effect, Match } from "effect"
 import { ed25519Keygen } from "./algorithms/ed25519.js"
 import { xwingKeygen } from "./algorithms/hybrid.js"
 import { mlDsa44Keygen, mlDsa65Keygen, mlDsa87Keygen } from "./algorithms/mlDsa.js"
@@ -19,7 +20,7 @@ import {
   slhDsaSha2256fKeygen
 } from "./algorithms/slhDsa.js"
 import { x25519Keygen } from "./algorithms/x25519.js"
-import { KeyGenerationFailed } from "./schemas/errors.js"
+import type { KeyGenerationFailed } from "./schemas/errors.js"
 import type { KeyPair } from "./schemas/KeyPair.js"
 import type { CryptoAlgorithm } from "./schemas/KeyPair.js"
 
@@ -34,9 +35,9 @@ type CryptoAlgorithmType = typeof CryptoAlgorithm.Type
  * destroy secret keys.
  *
  * @param algorithm - The exact signature, agreement, or KEM suite to generate.
- * @returns A caller-owned, algorithm-tagged key pair. Backend failures
- * are normalized to `KeyGenerationFailed` with an algorithm and diagnostic
- * reason.
+ * @returns A caller-owned, algorithm-tagged key pair, or
+ * `KeyGenerationFailed` from the selected primitive with an algorithm and
+ * diagnostic reason.
  *
  * @since 0.1.0
  * @category keys
@@ -58,10 +59,4 @@ export const generateKeyPair = (
     Match.when("x25519", () => x25519Keygen()),
     Match.when("xwing", () => xwingKeygen()),
     Match.exhaustive
-  ).pipe(
-    Effect.catchAll((error) =>
-      Effect.fail(
-        new KeyGenerationFailed({ algorithm, reason: String(error) })
-      )
-    )
   )

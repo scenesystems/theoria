@@ -3,6 +3,7 @@
  * exports the union and its Schema; it does not provide adapters for them.
  *
  * @since 0.1.0
+ * @module
  */
 
 import {

@@ -6,7 +6,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Data, Effect, Option } from "effect"
 import { type CandidateScoreVector, MergeAcceptance, MutationAcceptance } from "./model.js"
 
 /**
@@ -16,11 +16,11 @@ import { type CandidateScoreVector, MergeAcceptance, MutationAcceptance } from "
  * @since 0.1.0
  * @category models
  */
-export type EvaluateMutationAcceptanceOptions<E, R> = Readonly<{
+export class EvaluateMutationAcceptanceOptions<E, R> extends Data.Class<{
   readonly previousSubsampleScores: CandidateScoreVector
   readonly mutatedSubsampleScores: CandidateScoreVector
   readonly evaluateFullValset: Effect.Effect<CandidateScoreVector, E, R>
-}>
+}> {}
 
 /**
  * Inputs for the merge acceptance check — merged and both parent minibatch
@@ -29,11 +29,11 @@ export type EvaluateMutationAcceptanceOptions<E, R> = Readonly<{
  * @since 0.1.0
  * @category models
  */
-export type EvaluateMergeAcceptanceOptions = Readonly<{
+export class EvaluateMergeAcceptanceOptions extends Data.Class<{
   readonly mergedSubsampleScores: CandidateScoreVector
   readonly parentASubsampleScores: CandidateScoreVector
   readonly parentBSubsampleScores: CandidateScoreVector
-}>
+}> {}
 
 const sumScores = (scores: CandidateScoreVector): number => Arr.reduce(scores, 0, (total, score) => total + score)
 

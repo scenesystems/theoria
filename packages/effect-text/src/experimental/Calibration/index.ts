@@ -4,6 +4,7 @@
  * These exports are intentionally unstable and may change outside semver guarantees.
  *
  * @since 0.2.0
+ * @module
  */
 
 /**
@@ -20,6 +21,13 @@ export const CalibrationStability = "unstable"
  * @since 0.2.0
  */
 export * from "./schema.js"
+
+/**
+ * Typed failures for study storage that does not hold the calibration study.
+ *
+ * @since 0.4.0
+ */
+export * from "./errors.js"
 
 /**
  * Effectful profile evaluation built on the existing prepare/layout split.

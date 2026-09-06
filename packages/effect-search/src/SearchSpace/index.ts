@@ -9,11 +9,12 @@
  * configurations from an untrusted boundary.
  *
  * @since 0.1.0
+ * @module
  */
 
 export { activeParameters, isParameterActive } from "./activity.js"
 
-export { fingerprint, make, makeConditional, unsafeMake, unsafeMakeConditional } from "./compile.js"
+export { fingerprint, make, makeConditional } from "./compile.js"
 
 export { extend, omit, pick } from "./compose.js"
 
@@ -27,17 +28,7 @@ export {
 
 export { boolean, categorical, fidelity, float, int } from "./dimensions.js"
 
-export {
-  switchOn,
-  /**
-   * Builds a conditional branch union; shorthand for {@link switchOn}.
-   *
-   * @since 0.1.0
-   * @category constructors
-   */
-  switchOn as switch,
-  when
-} from "./switch.js"
+export { switchOn, switchOn as switch, when } from "./switch.js"
 
 export {
   ActivationCondition,
@@ -45,28 +36,10 @@ export {
   IntOptionsSchema,
   ParameterMetadata,
   SearchSpace,
-  /**
-   * Names the compiled model when `SearchSpace` refers to the package namespace.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   SearchSpace as SearchSpaceDefinition,
   Switch,
-  /**
-   * Names a conditional switch value with definition-oriented terminology.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   Switch as SwitchDefinition,
   SwitchCase,
-  /**
-   * Names one conditional case with definition-oriented terminology.
-   *
-   * @since 0.1.0
-   * @category models
-   */
   SwitchCase as SwitchCaseDefinition
 } from "./model.js"
 

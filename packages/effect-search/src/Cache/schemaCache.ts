@@ -290,8 +290,8 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
           lookupCache.get(resolvedKey).pipe(
             Effect.flatMap(
               Option.match({
-                onNone: () => Effect.succeed(Option.none()),
-                onSome: (encoded) => decodeValue(descriptor, resolvedKey, encoded).pipe(Effect.map(Option.some))
+                onNone: () => Effect.succeedNone,
+                onSome: (encoded) => decodeValue(descriptor, resolvedKey, encoded).pipe(Effect.asSome)
               })
             )
           )

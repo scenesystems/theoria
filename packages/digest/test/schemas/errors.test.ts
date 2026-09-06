@@ -51,19 +51,13 @@ const unsupportedReasons = [
 describe("InvalidKeyLength — Schema.TaggedError", () => {
   it.effect("is yieldable in Effect.gen", () =>
     Effect.gen(function*() {
-      const exit = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new InvalidKeyLength({ expected: 32, actual: 16 })
-        })
-      )
+      const exit = yield* Effect.exit(new InvalidKeyLength({ expected: 32, actual: 16 }))
       expect(Exit.isFailure(exit)).toBe(true)
     }))
 
   it.effect("is catchable via Effect.catchTag", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.gen(function*() {
-        return yield* new InvalidKeyLength({ expected: 32, actual: 16 })
-      }).pipe(
+      const result = yield* new InvalidKeyLength({ expected: 32, actual: 16 }).pipe(
         Effect.catchTag("InvalidKeyLength", (e) => Effect.succeed(`caught:${e.expected}:${e.actual}`))
       )
       expect(result).toBe("caught:32:16")
@@ -71,11 +65,7 @@ describe("InvalidKeyLength — Schema.TaggedError", () => {
 
   it.effect("carries expected and actual fields", () =>
     Effect.gen(function*() {
-      const exit = yield* Effect.exit(
-        Effect.gen(function*() {
-          return yield* new InvalidKeyLength({ expected: 32, actual: 64 })
-        })
-      )
+      const exit = yield* Effect.exit(new InvalidKeyLength({ expected: 32, actual: 64 }))
       expect(exit).toStrictEqual(
         Exit.fail(new InvalidKeyLength({ expected: 32, actual: 64 }))
       )

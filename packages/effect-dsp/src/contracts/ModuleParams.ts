@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Schema } from "effect"
+import { Data, Schema } from "effect"
 import { Option } from "effect"
 import { Demo } from "../Example/index.js"
 import { OutputStrategySchema } from "./OutputStrategy.js"
@@ -48,10 +48,10 @@ export const makeDefaultModuleParams = (instructions: string): ModuleParams =>
     demos: []
   })
 
-type ModuleParamsPatch = Readonly<{
+class ModuleParamsPatch extends Data.Class<{
   readonly instructions?: string
   readonly demos?: ReadonlyArray<Demo>
-}>
+}> {}
 
 const optionalNumberField = (
   key: "temperature" | "maxTokens",

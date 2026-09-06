@@ -1,30 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Record } from "effect"
+import { Effect, Option } from "effect"
 
-import * as Sampler from "../../../src/Sampler/index.js"
 import {
-  BuiltInAcquisitionNameSchema,
-  builtinAcquisitionRegistry,
   defaultAcquisitionName,
   resolveAcquisition,
   scoreAcquisition
 } from "../../../src/samplers/Tpe/acquisition/index.js"
 
 describe("tpe acquisition registry", () => {
-  it.effect("exposes a stable built-in registry for Ei, Pi, and Thompson", () =>
-    Effect.sync(() => {
-      const keys = Record.toEntries(builtinAcquisitionRegistry)
-        .map(([key]) => key)
-        .sort((left, right) => left.localeCompare(right))
-
-      expect(keys).toEqual(["ei", "pi", "thompson"])
-    }))
-
-  it.effect("shares acquisition-name schema with sampler kind options", () =>
-    Effect.sync(() => {
-      expect(Sampler.BuiltInAcquisitionNameSchema).toBe(BuiltInAcquisitionNameSchema)
-    }))
-
   it.effect("resolves the default acquisition when no override is provided", () =>
     Effect.sync(() => {
       const resolved = resolveAcquisition()

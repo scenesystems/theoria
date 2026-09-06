@@ -3,7 +3,7 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { MetricResult } from "@scenesystems/effect-dsp/contracts"
+import { MetricResult, RolloutCount } from "@scenesystems/effect-dsp/contracts"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
@@ -51,7 +51,7 @@ describe("Module.bestOfN", () => {
       const bestOf = yield* Module.bestOfN({
         name: "qa-best-of-3",
         module: inner,
-        N: 3,
+        N: RolloutCount.make(3),
         reward
       })
 
@@ -86,7 +86,7 @@ describe("Module.bestOfN", () => {
       const bestOf = yield* Module.bestOfN({
         name: "qa-rollout-test",
         module: inner,
-        N: 3,
+        N: RolloutCount.make(3),
         reward
       })
 
@@ -126,7 +126,7 @@ describe("Module.bestOfN", () => {
       const bestOf = yield* Module.bestOfN({
         name: "qa-threshold",
         module: inner,
-        N: 3,
+        N: RolloutCount.make(3),
         reward,
         threshold: 0.7
       })
@@ -162,7 +162,7 @@ describe("Module.bestOfN", () => {
       const bestOf = yield* Module.bestOfN({
         name: "qa-fallback",
         module: inner,
-        N: 2,
+        N: RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -196,7 +196,7 @@ describe("Module.bestOfN", () => {
       const bestOf = yield* Module.bestOfN({
         name: "qa-tiebreak",
         module: inner,
-        N: 3,
+        N: RolloutCount.make(3),
         reward
       })
 
@@ -228,7 +228,7 @@ describe("Module.bestOfN", () => {
       const bestOf = yield* Module.bestOfN({
         name: "qa-traced",
         module: inner,
-        N: 2,
+        N: RolloutCount.make(2),
         reward
       })
 

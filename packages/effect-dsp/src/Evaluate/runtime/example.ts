@@ -32,12 +32,12 @@ export type MetricEntry<ME, MR> = readonly [string, Metric<ME, MR>]
  * @since 0.1.0
  * @internal
  */
-export type ExampleOutcome = Readonly<{
+export class ExampleOutcome extends Data.Class<{
   readonly result: ExampleResult
   readonly success: boolean
   readonly averageScore: number
   readonly failure: Option.Option<ExampleFailure>
-}>
+}> {}
 
 type ExampleScore = Readonly<Record<string, number>>
 

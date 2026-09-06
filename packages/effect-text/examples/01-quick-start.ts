@@ -6,7 +6,7 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 
 import { Text } from "@scenesystems/effect-text"
 
@@ -31,9 +31,6 @@ const program = Effect.gen(function*() {
     narrowSummary,
     wideLines
   })
-}).pipe(
-  Effect.provide(Text.TextLayoutLive),
-  Effect.provide(BunContext.layer)
-)
+}).pipe(Effect.provide(Layer.merge(Text.TextLayoutLive, BunContext.layer)))
 
 BunRuntime.runMain(program)

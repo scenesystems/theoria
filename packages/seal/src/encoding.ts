@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  * @category encoding
+ * @module
  */
 
 import { concatBytes } from "@noble/ciphers/utils.js"

@@ -11,8 +11,7 @@ import { Option, Schema } from "effect"
  * @since 0.1.0
  * @category schemas
  */
-export const ExplicitProviderRouteSelectionPolicySchema = Schema.Struct({
-  _tag: Schema.Literal("provider"),
+export const ExplicitProviderRouteSelectionPolicySchema = Schema.TaggedStruct("provider", {
   provider: Schema.String
 })
 

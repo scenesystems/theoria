@@ -25,15 +25,7 @@ import {
 import { drawMultivariateRolls, statsByDimension, uniformWeights, valueAt } from "./multivariateContinuous/kernels.js"
 import { MultivariateContinuousTrace } from "./multivariateContinuous/model.js"
 
-export {
-  /**
-   * Trace record capturing candidate configs, log-densities, and scores for multivariate continuous parameters.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  MultivariateContinuousTrace
-}
+export { MultivariateContinuousTrace }
 
 /**
  * Builds a candidate trace for correlated continuous dimensions by fitting
@@ -56,7 +48,7 @@ export const multivariateContinuousCandidateTrace = (
   acquisition: AcquisitionOption = defaultAcquisitionName
 ): Effect.Effect<Option.Option<MultivariateContinuousTrace>, InvalidSamplerConfig> =>
   Match.value(Num.lessThan(parameters.length, 2)).pipe(
-    Match.when(true, () => Effect.succeed(Option.none())),
+    Match.when(true, () => Effect.succeedNone),
     Match.orElse(() =>
       Effect.gen(function*() {
         const adapters = yield* Effect.forEach(parameters, (parameter) => adapterForParameter(parameter))

@@ -4,6 +4,7 @@
  *
  * @since 0.1.0
  * @category internal
+ * @module
  */
 export * as Beta from "./beta.js"
 export * as Binomial from "./binomial.js"

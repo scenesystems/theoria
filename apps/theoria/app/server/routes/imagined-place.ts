@@ -1,12 +1,12 @@
-import { type HttpServerError, HttpServerRequest, HttpServerResponse } from "@effect/platform"
-import { Clock, Effect, Either, Match, Option } from "effect"
+import { type HttpServerError, HttpServerRequest } from "@effect/platform"
+import { Clock, Effect, Either, Match, Option, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
-import type { ErrorModel } from "../../contracts/error.js"
+import { ErrorModel } from "../../contracts/error.js"
 import type { PlaceBuild, PlaceBuildEnvelope } from "../../contracts/imagined-place-result.js"
 import { PlaceBuildError, PlaceBuildRequest } from "../../contracts/imagined-place.js"
-import { PlaceBuildLimiter } from "../config/place-build-limiter.js"
-import { RuntimeInfo } from "../config/runtime.js"
+import { jsonResponse, responseMeta } from "../api-response.js"
+import { PlaceBuildLimiter, type PlaceBuildLimiterError } from "../config/place-build-limiter.js"
 import type { Participants } from "../imagined-place/authority.js"
 import { buildPlace } from "../imagined-place/run.js"
 
@@ -37,16 +37,14 @@ const statusFor = (code: ErrorModel["code"]): number =>
     Match.orElse(() => 500)
   )
 
-type Rejection = {
-  readonly error: ErrorModel
-  readonly headers: Record<string, string>
-}
+const Rejection = Schema.Struct({
+  error: ErrorModel,
+  headers: Schema.Record({ key: Schema.String, value: Schema.String })
+})
+type Rejection = typeof Rejection.Type
 
 const respond = (envelope: PlaceBuildEnvelope, headers: Record<string, string>) =>
-  HttpServerResponse.json(envelope, {
-    status: envelope.ok ? 200 : statusFor(envelope.error.code),
-    headers: { "cache-control": "no-store", ...headers }
-  })
+  jsonResponse(envelope, { status: envelope.ok ? 200 : statusFor(envelope.error.code), headers })
 
 const methodRejection: Rejection = {
   error: { code: "method-not-allowed", message: "Place builds must use POST.", retryable: false },
@@ -67,6 +65,12 @@ const rateLimitRejection = (retryAfterSeconds: number): Rejection => ({
   headers: { "retry-after": String(retryAfterSeconds) }
 })
 
+/** The limiter is a backstop for anonymous CPU work; when it cannot decide, the build is not attempted. */
+const undecidedAdmission = (failure: PlaceBuildLimiterError): Rejection => ({
+  error: { code: "execution-failed", message: `Place build admission failed: ${failure.detail}`, retryable: true },
+  headers: {}
+})
+
 const unreadableBody: ErrorModel = {
   code: "invalid-request",
   message: "Place build request body could not be read.",
@@ -81,13 +85,17 @@ const accessRejection = (request: HttpServerRequest.HttpServerRequest): Option.O
     : Option.none()
 
 /** Asks the limiter for admission; requests without a client address share one bucket. */
-const admission = (request: HttpServerRequest.HttpServerRequest) =>
+const admission = (
+  request: HttpServerRequest.HttpServerRequest
+): Effect.Effect<Option.Option<Rejection>, never, PlaceBuildLimiter> =>
   Effect.gen(function*() {
     const limiter = yield* PlaceBuildLimiter
     const actor = request.headers[clientAddressHeader] ?? "unknown-client"
     const decision = yield* limiter.admit(actor)
     return decision._tag === "Admitted" ? Option.none() : Option.some(rateLimitRejection(decision.retryAfterSeconds))
-  })
+  }).pipe(
+    Effect.catchTag("PlaceBuildLimiterError", (failure) => Effect.succeedSome(undecidedAdmission(failure)))
+  )
 
 const failureModel = (
   error: PlaceBuildError | ParseResult.ParseError | HttpServerError.RequestError
@@ -122,19 +130,17 @@ const build = (
 export const imaginedPlaceRoute = (request: HttpServerRequest.HttpServerRequest, requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
-    const runtimeInfo = yield* RuntimeInfo
 
     const rejection = yield* Option.match(accessRejection(request), {
       onNone: () => admission(request),
-      onSome: (rejected) => Effect.succeed(Option.some(rejected))
+      onSome: (rejected) => Effect.succeedSome(rejected)
     })
     const outcome = yield* Option.match(rejection, {
       onNone: () => build(request).pipe(Effect.map(Either.mapLeft((error): Rejection => ({ error, headers: {} })))),
       onSome: (rejected) => Effect.succeed(Either.left(rejected))
     })
 
-    const endedAtMs = yield* Clock.currentTimeMillis
-    const meta = { requestId, buildSha: runtimeInfo.buildSha, durationMs: endedAtMs - startedAtMs }
+    const meta = yield* responseMeta(requestId, startedAtMs)
 
     return yield* Either.match(outcome, {
       onLeft: ({ error, headers }) => respond({ ok: false, meta, error }, headers),

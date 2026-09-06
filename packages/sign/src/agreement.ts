@@ -7,6 +7,7 @@
  *
  * @since 0.1.0
  * @category agreement
+ * @module
  */
 import type { Effect } from "effect"
 import { Match } from "effect"

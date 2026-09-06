@@ -6,16 +6,15 @@ import { SearchSpace } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Fiber, Option, Ref, Stream } from "effect"
 import { effectSearchInterop } from "../../src/optimizers/effectSearchInterop/index.js"
 
-const makeSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(0, 1)
-  })
+const makeSpace = SearchSpace.make({
+  x: SearchSpace.float(0, 1)
+})
 
 describe("integration/effectSearchInterop ask/tell", () => {
   it.effect("orchestrates ask/tell via a single interop seam and returns stable summaries", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const space = makeSpace()
+        const space = yield* makeSpace
         const sampler = effectSearchInterop.makeTpeSampler({
           seed: 71,
           acquisition: "ei"
@@ -56,7 +55,7 @@ describe("integration/effectSearchInterop ask/tell", () => {
   it.effect("composes progress lines with consumer telemetry without mutating event flow", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const space = makeSpace()
+        const space = yield* makeSpace
         const sampler = effectSearchInterop.makeTpeSampler({
           seed: 97,
           acquisition: "pi"

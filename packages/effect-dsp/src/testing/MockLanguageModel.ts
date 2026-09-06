@@ -322,7 +322,7 @@ const encodeJsonRecord = (record: Readonly<Record<string, unknown>>): Option.Opt
 
 const encodeJsonValue = (value: unknown): Option.Option<string> =>
   Match.value(value).pipe(
-    Match.when((candidate: unknown) => candidate === null, () => Option.some("null")),
+    Match.when(Predicate.isNull, () => Option.some("null")),
     Match.when(Predicate.isString, (text) => Option.some(`"${escapeJsonString(text)}"`)),
     Match.when(
       (candidate: unknown) => Predicate.isNumber(candidate) && Numeric.isFinite(candidate),

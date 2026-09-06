@@ -54,11 +54,15 @@ const makeState = (
   })
 
 const processBatch = (state: State): State => {
-  CONTROL_TOKENS.some(() => {
-    if (stopped(state)) return true
-    process(state, MutableList.shift(state.stack)!)
-    return false
-  })
+  CONTROL_TOKENS.some(() =>
+    stopped(state) || Option.match(Option.fromNullable(MutableList.shift(state.stack)), {
+      onNone: () => true,
+      onSome: (frame) => {
+        process(state, frame)
+        return false
+      }
+    })
+  )
   return state
 }
 
@@ -80,22 +84,21 @@ const execute = (
         while: (current) =>
           !stopped(current),
         body: (current) =>
-          Effect.flatMap(
+          Effect.filterOrElse(
             Effect.sync(() => processBatch(current)),
+            stopped,
             (nextState) =>
-              stopped(nextState)
-                ? Effect.succeed(nextState)
-                : Effect.as(
-                  Effect.zipRight(
-                    Effect.yieldNow(),
-                    Effect.suspend(() => {
-                      const next = MutableRef.get(batches) + 1
-                      MutableRef.set(batches, next % HOST_YIELD_BATCHES)
-                      return next === HOST_YIELD_BATCHES ? Effect.sleep(0) : Effect.void
-                    })
-                  ),
-                  nextState
-                )
+              Effect.as(
+                Effect.zipRight(
+                  Effect.yieldNow(),
+                  Effect.suspend(() => {
+                    const next = MutableRef.get(batches) + 1
+                    MutableRef.set(batches, next % HOST_YIELD_BATCHES)
+                    return next === HOST_YIELD_BATCHES ? Effect.sleep(0) : Effect.void
+                  })
+                ),
+                nextState
+              )
           )
         // Bun timers require a host boundary in addition to fiber yielding. Amortize that
         // boundary while retaining Effect scheduler cooperation after every fixed-size batch.

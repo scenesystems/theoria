@@ -36,7 +36,7 @@ export const makeFixtureEventRuntime = (): Effect.Effect<EventRuntime> =>
     )
   )
 
-export const makeSpace = () => makeSlotSpace(32)
+export const makeSpace = makeSlotSpace(32)
 
 export const deterministicSampler = new Sampler.Sampler({
   kind: Sampler.Random({ options: { seed: 0 } }),
@@ -66,7 +66,7 @@ export const pruneLowSlotPolicy = new Study.PruningPolicy({
 
 export const objectiveWithReports = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
   Effect.gen(function*() {
-    const config = decodeSlotConfig(raw)
+    const config = yield* decodeSlotConfig(raw)
 
     yield* runtime.report(0, config.slot)
     yield* runtime.report(1, config.slot)
@@ -76,7 +76,7 @@ export const objectiveWithReports = (raw: unknown, runtime: Study.ObjectiveTrial
 
 export const objectiveWithInvalidReports = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
   Effect.gen(function*() {
-    const config = decodeSlotConfig(raw)
+    const config = yield* decodeSlotConfig(raw)
 
     yield* Match.value(config.slot).pipe(
       Match.when(0, () =>
@@ -106,7 +106,7 @@ export const objectiveWithStopProbe = (
 ) =>
 (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
   Effect.gen(function*() {
-    const config = decodeSlotConfig(raw)
+    const config = yield* decodeSlotConfig(raw)
 
     yield* runtime.requestStop(stopReason)
     const heartbeat = yield* runtime.heartbeat

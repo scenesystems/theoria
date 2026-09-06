@@ -1,9 +1,9 @@
-import { Popover } from "@base-ui-components/react/popover"
+import { Popover } from "@base-ui/react/popover"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowRightIcon } from "@heroicons/react/20/solid"
 import { Match, Option, Schema } from "effect"
-import type { ComponentProps, MouseEvent, ReactNode } from "react"
+import type { ComponentProps, MouseEvent as ReactMouseEvent, ReactNode } from "react"
 import { useRef } from "react"
 
 import { Id } from "../../../contracts/id.js"
@@ -23,13 +23,6 @@ import { Cluster, Layer, Rail, Stack } from "./Layout.js"
 import { InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 
-type DocsLinkProps = Omit<ComponentProps<"a">, "href" | "onClick" | "title"> & {
-  readonly href: string
-  /** The destination as the visitor knows it here: the symbol, the package, the guide. */
-  readonly title: string
-  readonly children: ReactNode
-}
-
 const popupClassName = [
   "w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-stage-200/90 bg-stage-0/97 shadow-chip outline-none backdrop-blur-sm",
   "origin-[var(--transform-origin)] transition-[opacity,transform] duration-150",
@@ -41,11 +34,13 @@ const popupClassName = [
 const openLinkClassName =
   `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
 
-/** A press with a modifier or a non-primary button is the browser's: a new tab, a new window, the context menu. */
-const isModifiedPress = (event: Event): boolean =>
-  (event instanceof MouseEvent || event instanceof KeyboardEvent) &&
-  (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
-    (event instanceof MouseEvent && event.button !== 0))
+/**
+ * A press with a modifier or a non-primary button is the browser's: a new tab,
+ * a new window, the context menu. Base UI types a trigger press as one of these
+ * four events; only mouse and pointer events carry a button.
+ */
+const isModifiedPress = (event: MouseEvent | PointerEvent | TouchEvent | KeyboardEvent): boolean =>
+  event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || ("button" in event && event.button !== 0)
 
 const isCardId = Schema.is(Id)
 
@@ -139,10 +134,13 @@ const Preview = ({ destination, href, title }: {
   )
 }
 
-const PreviewLink = ({ children, className, destination, href, title, ...props }: DocsLinkProps & {
+const PreviewLink = ({ children, className, destination, href, title, ...props }: ComponentProps<"a"> & {
+  readonly children: ReactNode
   readonly destination: DocsLinkTarget
+  readonly href: string
+  readonly title: string
 }) => {
-  const keepForPreview = (event: MouseEvent<HTMLAnchorElement>) => {
+  const keepForPreview = (event: ReactMouseEvent<HTMLAnchorElement>) => {
     if (!isModifiedPress(event.nativeEvent)) event.preventDefault()
   }
 
@@ -178,7 +176,19 @@ const PreviewLink = ({ children, className, destination, href, title, ...props }
  * manifest does not know, or a manifest not yet loaded, leaves an ordinary
  * link.
  */
-export const DocsLink = ({ children, href, title, ...props }: DocsLinkProps) => {
+/**
+ * A documentation link with a hover preview of its destination.
+ *
+ * `title` is the destination as the visitor knows it here: the symbol, the
+ * package, the guide. The press belongs to the preview, so a caller cannot
+ * supply `onClick`.
+ */
+export const DocsLink = ({ children, href, title, ...props }: ComponentProps<"a"> & {
+  readonly children: ReactNode
+  readonly href: string
+  readonly onClick?: never
+  readonly title: string
+}) => {
   const manifest = Result.value(useAtomValue(docsManifestAtom))
   const target = Option.flatMap(manifest, (loaded) => docsLinkTarget(loaded, href))
 

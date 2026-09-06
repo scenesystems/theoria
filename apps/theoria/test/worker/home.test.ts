@@ -5,7 +5,6 @@ import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import { cards } from "../../app/contracts/card.js"
-import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
 import {
@@ -30,12 +29,11 @@ const decodeRequest = Schema.decodeUnknown(PlaceBuildRequest)
 const decodeEnvelope = Schema.decodeUnknown(PlaceBuildEnvelope)
 
 /** The build inside a successful envelope; a failure envelope fails the test. */
-const successfulBuild = (body: unknown): Effect.Effect<PlaceBuild> =>
+const successfulBuild = (body: unknown) =>
   decodeEnvelope(body).pipe(
     Effect.flatMap((envelope) =>
       envelope.ok ? Effect.succeed(envelope.data) : Effect.dieMessage(`build failed: ${envelope.error.code}`)
-    ),
-    Effect.orDie
+    )
   )
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
@@ -53,7 +51,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The page opens with the recorded brief: the neighbor's proposal merged, the program's not.
         const initial = yield* Fiber.join(firstBuild)
         expect(initial.status()).toBe(200)
-        expect(yield* decodeRequest(initial.request().postDataJSON()).pipe(Effect.orDie)).toMatchObject({
+        expect(yield* decodeRequest(initial.request().postDataJSON())).toMatchObject({
           acceptNeighbor: true,
           acceptProgram: false
         })
@@ -94,7 +92,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* click(merges.nth(1))
         const rebuilt = yield* Fiber.join(rebuild)
         expect(rebuilt.status()).toBe(200)
-        expect(yield* decodeRequest(rebuilt.request().postDataJSON()).pipe(Effect.orDie)).toMatchObject({
+        expect(yield* decodeRequest(rebuilt.request().postDataJSON())).toMatchObject({
           acceptNeighbor: true,
           acceptProgram: true
         })

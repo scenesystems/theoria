@@ -27,7 +27,7 @@ export class PreparedDocsSearchIndex extends Data.Class<{
 
 export const DocsSearchOptions = Schema.Struct({
   limit: Schema.Number,
-  packageSlug: Schema.NullOr(Schema.String)
+  packageSlug: Schema.OptionFromNullOr(Schema.String)
 })
 
 export type DocsSearchOptions = typeof DocsSearchOptions.Type
@@ -116,10 +116,10 @@ const emptyQueryScore = (entry: DocsSearchEntry): number =>
 const matchScore = (
   document: PreparedSearchDocument,
   query: string,
-  packageSlug: string | null
+  packageSlug: Option.Option<string>
 ): number => {
   const term = normalizeSearchText(query)
-  const packageBoost = document.entry.packageSlug === packageSlug ? 8 : 0
+  const packageBoost = Option.exists(packageSlug, (slug) => slug === document.entry.packageSlug) ? 8 : 0
 
   if (term.length === 0) return emptyQueryScore(document.entry) + packageBoost
 
@@ -178,7 +178,7 @@ export const prepareDocsSearchIndex = (
         name,
         qualifiedName,
         prepareField(entry.package, 80),
-        prepareField(entry.category ?? "", 70),
+        prepareField(Option.getOrElse(entry.category, () => ""), 70),
         prepareField(entry.summary, 50)
       ]
     })

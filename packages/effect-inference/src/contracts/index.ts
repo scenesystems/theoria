@@ -8,6 +8,7 @@
  * runtime evidence after execution.
  *
  * @since 0.1.0
+ * @module
  */
 
 /** @since 0.1.0 */

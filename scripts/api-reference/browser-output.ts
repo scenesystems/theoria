@@ -1,26 +1,12 @@
 import { Array as Arr, Effect, Option } from "effect"
 
-import {
-  type ApiPage,
-  type DocsApiModuleSummary,
-  type DocsGuideSummary,
-  type GuidePage
-} from "@theoria/docs-model"
+import { type ApiPage, type DocsApiModuleSummary, type DocsGuideSummary, type GuidePage } from "@theoria/docs-model"
+import { browserApiExportPath, makeBrowserApiExportPage, makeBrowserApiModuleIndex } from "./browser-model.js"
 import { type ApiReferenceRoute } from "./model.js"
-import {
-  browserApiExportPath,
-  makeBrowserApiExportPage,
-  makeBrowserApiModuleIndex
-} from "./browser-model.js"
-import {
-  writeDocsApiExportPage,
-  writeDocsApiModuleIndex,
-  writeGuidePage
-} from "./output.js"
+import { writeDocsApiExportPage, writeDocsApiModuleIndex, writeGuidePage } from "./output.js"
 import { pageOutputPath } from "./reflections.js"
 
-const docText = (page: ApiPage): string =>
-  Arr.map(page.module.docs.summary, (part) => part.text).join("").trim()
+const docText = (page: ApiPage): string => Arr.map(page.module.docs.summary, (part) => part.text).join("").trim()
 
 const moduleSummary = (
   page: ApiPage,
@@ -63,11 +49,12 @@ export const writeBrowserApiModule = (input: {
     const moduleIndex = makeBrowserApiModuleIndex(page, input.revision, route.page)
     yield* Effect.forEach(
       page.exports,
-      (apiExport) => writeDocsApiExportPage(
-        input.browserVersionRoot,
-        browserApiExportPath(route.page, apiExport.anchor),
-        makeBrowserApiExportPage(apiExport)
-      ),
+      (apiExport) =>
+        writeDocsApiExportPage(
+          input.browserVersionRoot,
+          browserApiExportPath(route.page, apiExport.anchor),
+          makeBrowserApiExportPage(apiExport)
+        ),
       { concurrency: 16, discard: true }
     )
     yield* writeDocsApiModuleIndex(input.browserVersionRoot, route.page, moduleIndex)
@@ -88,8 +75,7 @@ export const writeBrowserApiModule = (input: {
     return [moduleSummary(page, input.revision, route.page), ...sourceModules]
   })
 
-const relativeGuideAsset = (revision: string, asset: string): string =>
-  asset.replace(`/docs-data/${revision}/`, "")
+const relativeGuideAsset = (revision: string, asset: string): string => asset.replace(`/docs-data/${revision}/`, "")
 
 export const writeBrowserGuides = (input: {
   readonly browserVersionRoot: string
@@ -100,10 +86,11 @@ export const writeBrowserGuides = (input: {
 }) =>
   Effect.forEach(
     Arr.zip(input.pages, [input.overview, ...input.guides]),
-    ([page, summary]) => writeGuidePage(
-      input.browserVersionRoot,
-      relativeGuideAsset(input.revision, summary.asset),
-      page
-    ),
+    ([page, summary]) =>
+      writeGuidePage(
+        input.browserVersionRoot,
+        relativeGuideAsset(input.revision, summary.asset),
+        page
+      ),
     { discard: true }
   )

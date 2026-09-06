@@ -7,6 +7,7 @@
  * These declarations may change without a major-version release.
  *
  * @since 0.1.0
+ * @module
  */
 export * from "./conditionalLinearTree.js"
 export * from "./mixedOptimizer.js"

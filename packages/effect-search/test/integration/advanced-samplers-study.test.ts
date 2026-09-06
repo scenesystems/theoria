@@ -6,11 +6,10 @@ import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
-const objectiveSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-5, 5),
-    y: SearchSpace.float(-5, 5)
-  })
+const objectiveSpace = SearchSpace.make({
+  x: SearchSpace.float(-5, 5),
+  y: SearchSpace.float(-5, 5)
+})
 
 const objective = (space: SearchSpace.SearchSpace) => {
   const decode = Schema.decodeUnknownSync(space.schema)
@@ -28,7 +27,7 @@ const asSingleObjective = (result: Study.StudyResult) =>
 describe("integration advanced samplers", () => {
   it.effect("runs end-to-end optimization with CMA-ES and GP-BO samplers", () =>
     Effect.gen(function*() {
-      const space = objectiveSpace()
+      const space = yield* objectiveSpace
       const optimizeObjective = objective(space)
       const cmaResult = yield* Study.minimize({
         space,
@@ -60,7 +59,7 @@ describe("integration advanced samplers", () => {
 
   it.effect("preserves sampler checkpoint continuity across snapshot and resume", () =>
     Effect.gen(function*() {
-      const space = objectiveSpace()
+      const space = yield* objectiveSpace
       const optimizeObjective = objective(space)
       const firstLeg = yield* Study.minimize({
         space,
@@ -112,18 +111,15 @@ describe("integration advanced samplers", () => {
 
   it.effect("fails Study.optimize with typed sampler errors for unsupported multi-objective runs", () =>
     Effect.gen(function*() {
-      const space = objectiveSpace()
-      const decode = Schema.decodeUnknownSync(space.schema)
+      const space = yield* objectiveSpace
       const outcome = yield* Effect.either(
         Study.optimize({
           space,
           sampler: Sampler.cmaEs({ seed: 19, sigma: 0.5, populationSize: 8 }),
           directions: ["minimize", "minimize"],
           trials: 4,
-          objective: (raw) => {
-            const config = decode(raw)
-            return Effect.succeed([config.x ** 2, config.y ** 2])
-          }
+          objective: (raw) =>
+            Schema.decodeUnknown(space.schema)(raw).pipe(Effect.map((config) => [config.x ** 2, config.y ** 2]))
         })
       )
 

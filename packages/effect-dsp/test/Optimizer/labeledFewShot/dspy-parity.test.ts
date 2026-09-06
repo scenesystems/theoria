@@ -7,7 +7,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
 
-import { LabeledFewShotSampleFixtureSchema, makeFixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
+import { LabeledFewShotSampleFixtureSchema, loadFixture } from "../../helpers/dspy-fixtures/index.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -23,8 +23,7 @@ const makeQaSignature = () =>
 describe("Optimizer.labeledFewShot DSPy parity", () => {
   it.effect("matches fixture-backed seeded sample selection without LM calls", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
-      const rawFixture = yield* registry.load("dspy.labeledfewshot.sample-k.seed-9")
+      const rawFixture = yield* loadFixture("dspy.labeledfewshot.sample-k.seed-9")
       const fixture = yield* Schema.decodeUnknown(LabeledFewShotSampleFixtureSchema)(rawFixture)
 
       const signature = yield* makeQaSignature()
