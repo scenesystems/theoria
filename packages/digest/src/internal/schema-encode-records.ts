@@ -1,6 +1,17 @@
 /** Cooperative Effect Schema type-literal interpreter. @internal */
 
-import { Array as Arr, Effect, Either, MutableRef, Option, ParseResult, Predicate, Schema, SchemaAST } from "effect"
+import {
+  Array as Arr,
+  Effect,
+  Either,
+  MutableHashSet,
+  MutableRef,
+  Option,
+  ParseResult,
+  Predicate,
+  Schema,
+  SchemaAST
+} from "effect"
 
 import {
   appendMutable,
@@ -65,9 +76,9 @@ export const parseRecord = (
     const state = new RecordState()
     const allErrors = options?.errors === "all"
     const expectedKeys: Array<PropertyKey> = []
-    const expectedKeysMap: Record<PropertyKey, null> = {}
+    const expectedKeySet = MutableHashSet.empty<PropertyKey>()
     const expectedTypes: Array<SchemaAST.AST> = []
-    const expectedKey = (key: PropertyKey) => Object.prototype.hasOwnProperty.call(expectedKeysMap, key)
+    const expectedKey = (key: PropertyKey) => MutableHashSet.has(expectedKeySet, key)
     const excessMode = Option.fromNullable(options.onExcessProperty)
     return Effect.map(
       Effect.gen(function*() {
@@ -79,7 +90,7 @@ export const parseRecord = (
           Effect.sync(() => {
             const key = Arr.unsafeGet(ast.propertySignatures, index).name
             appendMutable(expectedKeys, key)
-            Object.defineProperty(expectedKeysMap, key, { configurable: true, value: null })
+            MutableHashSet.add(expectedKeySet, key)
             appendMutable(
               expectedTypes,
               typeof key === "symbol" ? new SchemaAST.UniqueSymbol(key) : new SchemaAST.Literal(key)

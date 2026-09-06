@@ -1,7 +1,7 @@
 /** Mutable invocation state for cooperative Schema record parsing. @internal */
 
 import type { SchemaAST } from "effect"
-import { Effect, Either, MutableRef, Option, ParseResult } from "effect"
+import { Effect, Either, MutableHashSet, MutableRef, Option, ParseResult } from "effect"
 
 import {
   appendMutable,
@@ -140,18 +140,18 @@ export const orderedRecordOutput = (
 ): Effect.Effect<Record<PropertyKey, unknown>> =>
   Effect.suspend(() => {
     const ordered: Record<PropertyKey, unknown> = {}
-    const present: Record<PropertyKey, null> = {}
+    const present = MutableHashSet.empty<PropertyKey>()
     return Effect.as(
       Effect.zipRight(
         scanItems(cooperation, inputKeys, (key) =>
           Effect.sync(() => {
-            Object.defineProperty(present, key, { configurable: true, value: null })
+            MutableHashSet.add(present, key)
             if (Object.prototype.hasOwnProperty.call(output, key)) ordered[key] = output[key]
           })),
         scanItems(cooperation, expectedKeys, (key) =>
           Effect.sync(() => {
             if (
-              !Object.prototype.hasOwnProperty.call(present, key) &&
+              !MutableHashSet.has(present, key) &&
               Object.prototype.hasOwnProperty.call(output, key)
             ) ordered[key] = output[key]
           }))
