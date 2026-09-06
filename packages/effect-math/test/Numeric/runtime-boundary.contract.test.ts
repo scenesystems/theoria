@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Number, Schema } from "effect"
+import { Effect, Match, Number } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import {
@@ -9,7 +9,7 @@ import {
 import { validateNumericBoundary } from "../../src/Numeric/operations.js"
 
 const deterministicLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(1337),
+  seed: Seed.make(1337),
   precision: "strict",
   backend: "typed-array",
   diagnostics: "enabled"

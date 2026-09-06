@@ -38,7 +38,7 @@ it.effect("Bun store searches roots in order and falls back to later roots", () 
       expect(yield* store.text("/index.html")).toBe("<title>x</title>")
       expect(yield* store.text("/extra/data.json")).toBe("{\"public\":true}")
 
-      const fallback = Option.getOrThrow(yield* store.response("/extra/data.json"))
+      const fallback = yield* yield* store.response("/extra/data.json")
       expect(fallback.headers["content-type"]).toBe("application/json; charset=utf-8")
       expect(yield* bodyText(fallback)).toBe("{\"public\":true}")
     })
@@ -57,7 +57,7 @@ it.effect("Bun store reads assets as text and reports missing ones", () =>
 it.effect("Bun store streams assets with a content type", () =>
   withDist((store) =>
     Effect.gen(function*() {
-      const plain = Option.getOrThrow(yield* store.response("/assets/app.js"))
+      const plain = yield* yield* store.response("/assets/app.js")
       expect(plain.headers["content-type"]).toBe("application/javascript; charset=utf-8")
       expect(plain.headers["content-encoding"]).toBeUndefined()
       expect(yield* bodyText(plain)).toBe("console.log(1)")

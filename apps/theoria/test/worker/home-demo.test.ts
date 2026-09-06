@@ -52,9 +52,9 @@ const referenceTargets = (references: Locator) =>
     return yield* Effect.forEach(Arr.range(0, total - 1), (index) =>
       Effect.gen(function*() {
         const reference = references.nth(index)
-        const text = Option.fromNullable(yield* act(() => reference.getAttribute("data-place-reference")))
-        const href = Option.fromNullable(yield* act(() => reference.getAttribute("href")))
-        return Option.getOrThrow(Option.all({ text, href }))
+        const text = yield* Option.fromNullable(yield* act(() => reference.getAttribute("data-place-reference")))
+        const href = yield* Option.fromNullable(yield* act(() => reference.getAttribute("href")))
+        return { text, href }
       }))
   })
 
@@ -177,7 +177,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         const section = page.locator("[data-place-how-its-built]")
         const reference = section.locator("[data-place-reference]").first()
-        const href = Option.getOrThrow(Option.fromNullable(yield* act(() => reference.getAttribute("href"))))
+        const href = yield* Option.fromNullable(yield* act(() => reference.getAttribute("href")))
         const preview = page.locator(`[data-docs-link-preview='${href}']`)
 
         yield* click(reference)

@@ -53,14 +53,14 @@ import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/share
 import { dot } from "../../src/LinearAlgebra/operations.js"
 
 const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "strict",
   backend: "typed-array",
   diagnostics: "enabled"
 })
 
 const relaxedScalarLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "relaxed",
   backend: "scalar",
   diagnostics: "disabled"

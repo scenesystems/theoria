@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Number as EffectNumber, Option, Schema } from "effect"
+import { Effect, Number as EffectNumber, Option } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
@@ -39,14 +39,14 @@ import {
 } from "../../src/Numeric/operations.js"
 
 const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "strict",
   backend: "typed-array",
   diagnostics: "enabled"
 })
 
 const relaxedScalarLayer = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "relaxed",
   backend: "scalar",
   diagnostics: "disabled"
@@ -55,9 +55,8 @@ const relaxedScalarLayer = makeDeterministicRuntimePoliciesLayer({
 describe("Numeric / safeDivide", () => {
   it.effect("returns Some for valid division", () =>
     Effect.gen(function*() {
-      const result = safeDivide(10, 3)
-      expect(Option.isSome(result)).toStrictEqual(true)
-      expect(Option.getOrThrow(result)).toBeCloseTo(10 / 3)
+      const result = yield* safeDivide(10, 3)
+      expect(result).toBeCloseTo(10 / 3)
     }))
 
   it.effect("returns None for zero divisor", () =>
@@ -68,7 +67,7 @@ describe("Numeric / safeDivide", () => {
   it.effect("supports dual API", () =>
     Effect.gen(function*() {
       const divideByTwo = safeDivide(2)
-      expect(Option.getOrThrow(divideByTwo(10))).toStrictEqual(5)
+      expect(yield* divideByTwo(10)).toStrictEqual(5)
     }))
 })
 
@@ -97,7 +96,7 @@ describe("Numeric / safeDivideFinite", () => {
 
   it.effect("returns Some for valid finite division", () =>
     Effect.gen(function*() {
-      expect(Option.getOrThrow(safeDivideFinite(10, 4))).toStrictEqual(2.5)
+      expect(yield* safeDivideFinite(10, 4)).toStrictEqual(2.5)
     }))
 })
 
@@ -175,7 +174,7 @@ describe("Numeric / sum", () => {
 describe("Numeric / argmaxIndex", () => {
   it.effect("returns index of maximum element", () =>
     Effect.gen(function*() {
-      expect(Option.getOrThrow(argmaxIndex([1, 5, 3, 2]))).toStrictEqual(1)
+      expect(yield* argmaxIndex([1, 5, 3, 2])).toStrictEqual(1)
     }))
 
   it.effect("returns None for empty array", () =>
@@ -185,12 +184,12 @@ describe("Numeric / argmaxIndex", () => {
 
   it.effect("returns first index on ties", () =>
     Effect.gen(function*() {
-      expect(Option.getOrThrow(argmaxIndex([5, 5, 5]))).toStrictEqual(0)
+      expect(yield* argmaxIndex([5, 5, 5])).toStrictEqual(0)
     }))
 
   it.effect("handles single element", () =>
     Effect.gen(function*() {
-      expect(Option.getOrThrow(argmaxIndex([42]))).toStrictEqual(0)
+      expect(yield* argmaxIndex([42])).toStrictEqual(0)
     }))
 })
 
@@ -251,8 +250,8 @@ describe("Numeric / expm1", () => {
 describe("Numeric / safeDivideValidated", () => {
   it.effect("decodes valid input and returns Option.Some", () =>
     Effect.gen(function*() {
-      const result = yield* safeDivideValidated({ dividend: 10, divisor: 4 })
-      expect(Option.getOrThrow(result)).toStrictEqual(2.5)
+      const result = yield* yield* safeDivideValidated({ dividend: 10, divisor: 4 })
+      expect(result).toStrictEqual(2.5)
     }))
 
   it.effect("rejects excess properties with NumericDecodeError", () =>
@@ -320,7 +319,7 @@ describe("Numeric / sumValidated", () => {
 describe("Numeric / argmaxValidated", () => {
   it.effect("returns index of maximum in non-empty vector", () =>
     Effect.gen(function*() {
-      expect(Option.getOrThrow(yield* argmaxValidated({ values: [1, 5, 3] }))).toStrictEqual(1)
+      expect(yield* yield* argmaxValidated({ values: [1, 5, 3] })).toStrictEqual(1)
     }))
 
   it.effect("rejects NaN in vector", () =>

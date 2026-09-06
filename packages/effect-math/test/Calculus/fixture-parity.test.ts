@@ -18,8 +18,11 @@ import { CalculusNumericalParityFixtureSchema, FixtureRegistryLive, loadFixture 
 
 class UnknownFixtureFunction extends Data.TaggedError("UnknownFixtureFunction")<{ readonly name: string }> {}
 
-const lookup = <F>(registry: Record<string, F>, name: string): F =>
-  Option.getOrThrowWith(Record.get(registry, name), () => new UnknownFixtureFunction({ name }))
+const lookup = <F>(registry: Record<string, F>, name: string): Effect.Effect<F, UnknownFixtureFunction> =>
+  Option.match(Record.get(registry, name), {
+    onNone: () => Effect.fail(new UnknownFixtureFunction({ name })),
+    onSome: Effect.succeed
+  })
 
 const testFunctions: Record<string, (x: number) => number> = {
   x_squared: (x) => N.multiply(x, x),
@@ -96,51 +99,51 @@ describe("Calculus SciPy fixture parity", () => {
       })
 
       yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
-        Effect.sync(() =>
-          Match.value(c).pipe(
-            Match.when({ operation: "derivative" }, (v) => {
-              const fn = lookup(testFunctions, v.input.function)
+        Match.value(c).pipe(
+          Match.when({ operation: "derivative" }, (v) =>
+            Effect.map(lookup(testFunctions, v.input.function), (fn) =>
               expectParity(
                 derivative(fn, v.input.x),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.when({ operation: "secondDerivative" }, (v) => {
-              const fn = lookup(testFunctions, v.input.function)
+              ))),
+          Match.when({ operation: "secondDerivative" }, (v) =>
+            Effect.map(lookup(testFunctions, v.input.function), (fn) =>
               expectParity(
                 secondDerivative(fn, v.input.x),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.when({ operation: "directionalDerivative" }, (v) => {
-              const fn = lookup(scalarSurfaceFunctions, v.input.function)
+              ))),
+          Match.when({ operation: "directionalDerivative" }, (v) =>
+            Effect.map(lookup(scalarSurfaceFunctions, v.input.function), (fn) =>
               expectParity(
                 directionalDerivative(fn, Chunk.fromIterable(v.input.point), Chunk.fromIterable(v.input.direction)),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.when({ operation: "trapezoid" }, (v) =>
+              ))),
+          Match.when({ operation: "trapezoid" }, (v) =>
+            Effect.sync(() =>
               expectParity(
                 trapezoid(Chunk.fromIterable(v.input.values), v.input.dx),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )),
-            Match.when({ operation: "simpson" }, (v) =>
+              )
+            )),
+          Match.when({ operation: "simpson" }, (v) =>
+            Effect.sync(() =>
               expectParity(
                 simpson(Chunk.fromIterable(v.input.values), v.input.dx),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )),
-            Match.when({ operation: "adaptiveSimpson" }, (v) => {
-              const fn = lookup(testFunctions, v.input.function)
+              )
+            )),
+          Match.when({ operation: "adaptiveSimpson" }, (v) =>
+            Effect.map(lookup(testFunctions, v.input.function), (fn) =>
               expectParity(
                 adaptiveSimpson(
                   fn,
@@ -153,55 +156,48 @@ describe("Calculus SciPy fixture parity", () => {
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.when({ operation: "gradient" }, (v) => {
-              const fn = lookup(scalarSurfaceFunctions, v.input.function)
+              ))),
+          Match.when({ operation: "gradient" }, (v) =>
+            Effect.map(lookup(scalarSurfaceFunctions, v.input.function), (fn) =>
               expectVectorParity(
                 Chunk.toReadonlyArray(gradient(fn, Chunk.fromIterable(v.input.point))),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.when({ operation: "jacobian" }, (v) => {
-              const fn = lookup(vectorFieldFunctions, v.input.function)
+              ))),
+          Match.when({ operation: "jacobian" }, (v) =>
+            Effect.map(lookup(vectorFieldFunctions, v.input.function), (fn) =>
               expectMatrixParity(
                 chunkMatrixToReadonly(jacobian(fn, Chunk.fromIterable(v.input.point))),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.when({ operation: "hessian" }, (v) => {
-              const fn = lookup(scalarSurfaceFunctions, v.input.function)
+              ))),
+          Match.when({ operation: "hessian" }, (v) =>
+            Effect.map(lookup(scalarSurfaceFunctions, v.input.function), (fn) =>
               expectMatrixParity(
                 chunkMatrixToReadonly(hessian(fn, Chunk.fromIterable(v.input.point))),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.when({ operation: "divergence" }, (v) => {
-              const fn = lookup(vectorFieldFunctions, v.input.function)
+              ))),
+          Match.when({ operation: "divergence" }, (v) =>
+            Effect.map(lookup(vectorFieldFunctions, v.input.function), (fn) =>
               expectParity(
                 divergence(fn, Chunk.fromIterable(v.input.point)),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.when({ operation: "laplacian" }, (v) => {
-              const fn = lookup(scalarSurfaceFunctions, v.input.function)
+              ))),
+          Match.when({ operation: "laplacian" }, (v) =>
+            Effect.map(lookup(scalarSurfaceFunctions, v.input.function), (fn) =>
               expectParity(
                 laplacian(fn, Chunk.fromIterable(v.input.point)),
                 v.expected,
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
-              )
-            }),
-            Match.exhaustive
-          )
+              ))),
+          Match.exhaustive
         ))
     }).pipe(Effect.provide(FixtureRegistryLive)))
 })

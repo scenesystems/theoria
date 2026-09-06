@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -43,7 +43,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
   it.effect("renders the HTML shell through the Worker with per-route metadata", () =>
     Effect.gen(function*() {
       const site = yield* Site
-      const firstPackage = Option.getOrThrow(Arr.head(site.manifest.packages))
+      const firstPackage = yield* Arr.head(site.manifest.packages)
 
       const home = yield* site.fetch(`${productionHost}/`)
       expect(home.status).toBe(200)

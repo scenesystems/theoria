@@ -24,17 +24,17 @@ import {
 import { IterationBudget, Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 
-const singleIterationBudget = Schema.decodeUnknownSync(IterationBudget)(1)
+const singleIterationBudget = IterationBudget.make(1)
 
 const strictPolicies = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "strict",
   backend: "typed-array",
   diagnostics: "enabled"
 })
 
 const relaxedPolicies = makeDeterministicRuntimePoliciesLayer({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "relaxed",
   backend: "scalar",
   diagnostics: "disabled"

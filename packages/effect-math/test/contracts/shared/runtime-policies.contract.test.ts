@@ -13,7 +13,7 @@ import {
 } from "../../../src/contracts/shared/RuntimePolicies.js"
 
 const deterministicInput = Schema.decodeUnknownSync(DeterministicRuntimePoliciesInputSchema)({
-  seed: Schema.decodeUnknownSync(Seed)(42),
+  seed: Seed.make(42),
   precision: "strict",
   backend: "typed-array",
   diagnostics: "enabled"

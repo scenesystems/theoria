@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Layer, Number as EffectNumber, Schema } from "effect"
+import { Chunk, Effect, Layer, Number as EffectNumber } from "effect"
 
 import { polyEvalWithPolicies } from "../../../src/Algebra/operations.js"
 import { trapezoidWithPolicies } from "../../../src/Calculus/operations.js"
@@ -17,7 +17,7 @@ import { normalPdfWithPolicies } from "../../../src/Probability/operations.js"
 import { gammaWithPolicies } from "../../../src/Special/operations.js"
 import { summaryStatisticsWithPolicies } from "../../../src/Statistics/operations.js"
 
-const seed = Schema.decodeUnknownSync(Seed)(42)
+const seed = Seed.make(42)
 
 // ── Full backend × precision layers (Numeric, LinearAlgebra) ──
 
