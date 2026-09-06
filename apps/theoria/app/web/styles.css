@@ -129,8 +129,9 @@
   --font-display: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
 
   /* Typography: per-role font-size tokens (generated — do not edit) */
+  --st-fs-display: 44px;
+  --st-fs-lead: 18px;
   --st-fs-hero-title: 38px;
-  --st-fs-hero-body: 18px;
   --st-fs-subsection-title: 22px;
   --st-fs-card-title: 24px;
   --st-fs-card-summary: 16px;
@@ -146,8 +147,9 @@
   --st-fs-marker-label: 12px;
 
   /* Typography: per-role line-height tokens (generated — do not edit) */
+  --st-lh-display: 50px;
+  --st-lh-lead: 28px;
   --st-lh-hero-title: 44px;
-  --st-lh-hero-body: 30px;
   --st-lh-subsection-title: 30px;
   --st-lh-card-title: 32px;
   --st-lh-card-summary: 26px;
@@ -163,8 +165,9 @@
   --st-lh-marker-label: 14px;
 
   /* Typography: per-role font-weight tokens (generated — do not edit) */
+  --st-fw-display: 600;
+  --st-fw-lead: 400;
   --st-fw-hero-title: 600;
-  --st-fw-hero-body: 400;
   --st-fw-subsection-title: 600;
   --st-fw-card-title: 600;
   --st-fw-card-summary: 400;
@@ -180,8 +183,9 @@
   --st-fw-marker-label: 600;
 
   /* Typography: per-role tracking tokens (generated — do not edit) */
+  --st-tr-display: -0.02em;
+  --st-tr-lead: 0;
   --st-tr-hero-title: -0.02em;
-  --st-tr-hero-body: 0;
   --st-tr-subsection-title: -0.01em;
   --st-tr-card-title: -0.01em;
   --st-tr-card-summary: 0;
@@ -197,8 +201,9 @@
   --st-tr-marker-label: 0.01em;
 
   /* Typography: per-role font-family tokens (generated — do not edit) */
+  --st-ff-display: var(--font-display);
+  --st-ff-lead: var(--font-body);
   --st-ff-hero-title: var(--font-display);
-  --st-ff-hero-body: var(--font-body);
   --st-ff-subsection-title: var(--font-display);
   --st-ff-card-title: var(--font-display);
   --st-ff-card-summary: var(--font-body);
@@ -214,10 +219,12 @@
   --st-ff-marker-label: var(--font-body);
 
   /* Typography: per-role/variant max-width tokens (generated — do not edit) */
+  --st-mw-display-compact: 720px;
+  --st-mw-display-expanded: 1040px;
+  --st-mw-lead-compact: 600px;
+  --st-mw-lead-expanded: 720px;
   --st-mw-hero-title-compact: 680px;
   --st-mw-hero-title-expanded: 920px;
-  --st-mw-hero-body-compact: 600px;
-  --st-mw-hero-body-expanded: 880px;
   --st-mw-subsection-title-compact: 520px;
   --st-mw-subsection-title-expanded: 1120px;
   --st-mw-card-title-compact: 520px;
@@ -451,16 +458,25 @@
 
   @media (max-width: 639px) {
     :root {
+      --st-fs-display: 36px;
+      --st-lh-display: 40px;
       --st-fs-hero-title: 32px;
       --st-lh-hero-title: 38px;
-      --st-fs-hero-body: 16px;
-      --st-lh-hero-body: 24px;
+      --st-fs-lead: 17px;
+      --st-lh-lead: 26px;
       --st-fs-subsection-title: clamp(14px, 4.6vw, 18px);
       --st-lh-subsection-title: 24px;
       --st-fs-card-summary: 15px;
       --st-lh-card-summary: 22px;
       --st-fs-section-title: 21px;
       --st-lh-section-title: 28px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :root {
+      --st-fs-display: 64px;
+      --st-lh-display: 68px;
     }
   }
 

@@ -21,7 +21,7 @@ import {
   setViewport,
   visible
 } from "./browser.js"
-import { surfaceStyle } from "./platform/in-page.js"
+import { scrollToTop, surfaceStyle, topEdgeInViewport } from "./platform/in-page.js"
 import { Site, SiteLive } from "./site.js"
 
 const buildPath = "/api/imagined-place/build"
@@ -136,6 +136,41 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           onCanvas
         )
         expect(yield* act(() => paper.evaluate(surfaceStyle))).toEqual(onCanvas)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the hero and the place share the first viewport", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
+        yield* goto(page, "/")
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const paper = demo.locator("[data-place-stage='paper']")
+        yield* visible(paper)
+        yield* visible(demo.locator("[data-place-marker]").first())
+
+        // Wide: the hero reads first; the drawn place and at least one of its
+        // discs are already on screen beside the arrival, before any scroll.
+        const heading = page.getByRole("heading", { level: 1 })
+        const browse = page.getByRole("link", { exact: true, name: "Browse the packages" })
+        const placeTitle = demo.locator("[data-place-arrive] h2")
+        expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => placeTitle.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => demo.locator("[data-place-marker]").first().evaluate(topEdgeInViewport))).toBe(true)
+
+        // Narrow: the hero, both actions and the place's own name fit the
+        // first screen; the paper follows directly under the atmosphere.
+        yield* setViewport(page, { width: 390, height: 844 })
+        yield* act(() => page.evaluate(scrollToTop))
+        expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
+        expect(
+          yield* act(() =>
+            page.getByRole("link", { exact: true, name: "See the place it built" }).evaluate(topEdgeInViewport)
+          )
+        ).toBe(true)
+        expect(yield* act(() => placeTitle.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* failures).toEqual([])
       }))
 

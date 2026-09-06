@@ -97,37 +97,27 @@ const ParticipantLegend = ({ artifact }: { readonly artifact: PlaceArtifact }) =
 )
 
 /**
- * The title of the composition is projected text; it sits in its own grid
- * cell with a definite width so measuring it never depends on its siblings.
- * The version beside it lights up when the record changes and stays still
- * when the stage is only redrawn: that is the point of the presets.
+ * Which version the paper is drawing, and its content ID. The title is not
+ * repeated here: the place is named once, on arrival. The version lights up
+ * when the record changes and stays still when the stage is only redrawn:
+ * that is the point of the presets.
  */
-const TitleRow = ({ build }: { readonly build: PlaceBuild }) => {
+const VersionRow = ({ build }: { readonly build: PlaceBuild }) => {
   const change = useAtomValue(placeVersionChangeAtom)
   return (
-    <Layer className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
-      <SemanticText
-        as="h3"
-        className="min-w-0 text-ink-900"
-        role="hero-body"
-        text={build.artifact.composition.title}
-        variant="compact"
-        wrapAuthority="native-browser"
-      />
-      <Layer className="min-w-0" data-place-current-version>
-        <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5">
-          <SemanticText
-            as="span"
-            className="tabular-nums text-ink-500"
-            role="code-meta"
-            text={currentVersionText(build.evidence)}
-          />
-          {Option.match(currentVersion(build.evidence), {
-            onNone: () => null,
-            onSome: (version) => <ContentId form="short" id={version.contentId} />
-          })}
-        </ChangedValue>
-      </Layer>
+    <Layer className="flex min-w-0 justify-end" data-place-current-version>
+      <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5">
+        <SemanticText
+          as="span"
+          className="tabular-nums text-ink-500"
+          role="code-meta"
+          text={currentVersionText(build.evidence)}
+        />
+        {Option.match(currentVersion(build.evidence), {
+          onNone: () => null,
+          onSome: (version) => <ContentId form="short" id={version.contentId} />
+        })}
+      </ChangedValue>
     </Layer>
   )
 }
@@ -206,7 +196,7 @@ export const PlaceArrangement = ({
   <Stack className="@container gap-4">
     {Option.match(build, {
       onNone: () => null,
-      onSome: (value) => <TitleRow build={value} />
+      onSome: (value) => <VersionRow build={value} />
     })}
     <PlaceStage />
     {Result.isFailure(frame) ? <DrawFailed frame={frame} /> : null}

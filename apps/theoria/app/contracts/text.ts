@@ -57,8 +57,9 @@ export const fontFamilyThemeTokens: ReadonlyArray<readonly [string, string]> = H
 ) => [`--font-${family}`, stack])
 
 export const TextRole = Schema.Literal(
+  "display",
+  "lead",
   "hero-title",
-  "hero-body",
   "subsection-title",
   "card-title",
   "card-summary",
@@ -113,6 +114,30 @@ export const fontDescriptorFor = (semantics: TextSemantics): Text.FontDescriptor
 })
 
 const textSemanticsByRole: Record<TextRole, TextSemantics> = {
+  display: {
+    role: "display",
+    family: "display",
+    fontSize: 44,
+    weight: "semibold",
+    tracking: -0.02,
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
+    whiteSpace: "normal",
+    lineHeight: 50,
+    maxWidth: { compact: 720, expanded: 1040 }
+  },
+  lead: {
+    role: "lead",
+    family: "body",
+    fontSize: 18,
+    weight: "normal",
+    tracking: 0,
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
+    whiteSpace: "normal",
+    lineHeight: 28,
+    maxWidth: { compact: 600, expanded: 720 }
+  },
   "hero-title": {
     role: "hero-title",
     family: "display",
@@ -124,18 +149,6 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     whiteSpace: "normal",
     lineHeight: 44,
     maxWidth: { compact: 680, expanded: 920 }
-  },
-  "hero-body": {
-    role: "hero-body",
-    family: "body",
-    fontSize: 18,
-    weight: "normal",
-    tracking: 0,
-    wrapAuthority: "native-browser",
-    lineBreaks: "wrap",
-    whiteSpace: "normal",
-    lineHeight: 30,
-    maxWidth: { compact: 600, expanded: 880 }
   },
   "subsection-title": {
     role: "subsection-title",
@@ -296,8 +309,9 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
 }
 
 export const textSemantics: ReadonlyArray<TextSemantics> = [
+  textSemanticsByRole.display,
+  textSemanticsByRole.lead,
   textSemanticsByRole["hero-title"],
-  textSemanticsByRole["hero-body"],
   textSemanticsByRole["subsection-title"],
   textSemanticsByRole["card-title"],
   textSemanticsByRole["card-summary"],

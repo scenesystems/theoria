@@ -221,7 +221,7 @@ Metrics appear only where they are the result of a step the visitor can see.
 - `app/server/routes/imagined-place.ts`: the route.
 - `app/web/atoms/imagined-place.ts`, `imagined-place-render.ts`: controls,
   build, version change, stage width, step, browser-side search.
-- `app/web/view/home/`: `HomePage`, `HomeHero`, `ImaginedPlaceDemo`,
+- `app/web/view/home/`: `HomePage`, `HomeHero`, `PlaceActs`, `PlaceArrive`,
   `PlaceStepCard`, `placeSteps`, `PlaceControls`, `PlaceComposition`,
   `PlaceProposals`, `PlaceProposalCard`, `PlaceLineage`, `PlaceArrangement`,
   `PlaceStage`, `PlaceMarker`, `PlaceWalk`, `PlaceSearchTrace`,

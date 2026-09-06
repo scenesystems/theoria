@@ -24,12 +24,28 @@ const packageNames = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
 const nameButtonClassName =
   "-mx-1.5 -my-1 rounded-md px-1.5 py-1 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
 
+/** Whether the step sits on the acts' spine (a dot marks the chosen step) or stands alone, as the stage does. */
+export type StepSpine = "spine" | "none"
+
+const spineDot = (active: boolean) => (
+  <Layer aria-hidden className="hidden w-3 justify-center pt-2 lg:flex">
+    <Layer
+      render={<span />}
+      className={`inline-flex size-2.5 shrink-0 rounded-full border transition-colors duration-150 ${
+        active ? "border-ink-900 bg-ink-900" : "border-stage-400 bg-stage-0"
+      }`}
+    />
+  </Layer>
+)
+
 /**
  * One step of the story: its name, the packages that do the work, and the
  * live object the step produced. Choosing a step points the code panel at it;
- * the dot on the spine marks the chosen one.
+ * on the spine, the dot marks the chosen one.
  */
-export const PlaceStepCard = ({ children, step }: { readonly children: ReactNode; readonly step: PlaceStep }) => {
+export const PlaceStepCard = (
+  { children, spine, step }: { readonly children: ReactNode; readonly spine: StepSpine; readonly step: PlaceStep }
+) => {
   const active = useAtomValue(placeStepAtom) === step
   const setStep = useAtomSet(placeStepAtom)
   const definition = placeStepDefinition(step)
@@ -37,18 +53,13 @@ export const PlaceStepCard = ({ children, step }: { readonly children: ReactNode
   return (
     <Layer
       render={<article />}
-      className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-x-3.5"
+      className={spine === "spine"
+        ? "grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-x-3.5"
+        : "grid grid-cols-1"}
       data-place-step={step}
       data-place-step-active={active ? "true" : "false"}
     >
-      <Layer aria-hidden className="hidden w-3 justify-center pt-2 lg:flex">
-        <Layer
-          render={<span />}
-          className={`inline-flex size-2.5 shrink-0 rounded-full border transition-colors duration-150 ${
-            active ? "border-ink-900 bg-ink-900" : "border-stage-400 bg-stage-0"
-          }`}
-        />
-      </Layer>
+      {spine === "spine" ? spineDot(active) : null}
       <Stack className="min-w-0 gap-3.5">
         <Cluster className="items-baseline gap-x-2.5 gap-y-1.5">
           <Button

@@ -1,42 +1,42 @@
 import { ArrowDownIcon } from "@heroicons/react/20/solid"
 
+import { primaryActionClassName, textActionClassName } from "../primitives/ActionButton.js"
 import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { AnchorLink, InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
-const anchorLinkClassName =
-  "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-ink-700 transition-colors hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+/** The demo section's anchor; the hero's second action lands the visitor on the place. */
+export const imaginedPlaceSectionId = "imagined-place"
 
-const docsLinkClassName =
-  "inline-flex items-center rounded-lg border border-stage-300/90 bg-stage-0/88 px-3.5 py-2 text-ink-900 shadow-chip transition-colors hover:border-ink-400 hover:bg-stage-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
-
+/**
+ * The hero says what Theoria is, once, in display type on the bare canvas.
+ * Two ways onward: the packages, or the place the demonstration built.
+ */
 export const HomeHero = () => (
-  <Section className="py-6 sm:py-10">
-    <Stack className="gap-5">
-      <Stack className="gap-4">
-        <SemanticText
-          as="h1"
-          className="max-w-3xl text-ink-900"
-          role="hero-title"
-          text="Scientific computing and model programming with Effect"
-          variant="expanded"
-          wrapAuthority="native-browser"
-        />
-        <SemanticText
-          as="p"
-          className="max-w-3xl text-ink-700"
-          role="hero-body"
-          text="Theoria is an open-source collection of TypeScript libraries for reproducible computational work in Effect applications."
-          variant="expanded"
-          wrapAuthority="native-browser"
-        />
-      </Stack>
-      <Cluster className="items-center gap-3">
-        <InternalLink className={docsLinkClassName} href="/docs">
-          <SemanticText as="span" role="button-label" text="Browse the packages" />
+  <Section className="pt-10 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28" data-home-hero>
+    <Stack className="gap-6 sm:gap-8">
+      <SemanticText
+        as="h1"
+        className="text-balance text-ink-950"
+        role="display"
+        text="Scientific computing and model programming with Effect"
+        variant="expanded"
+        wrapAuthority="native-browser"
+      />
+      <SemanticText
+        as="p"
+        className="text-ink-700"
+        role="lead"
+        text="Theoria is an open-source collection of TypeScript libraries for reproducible computational work in Effect applications."
+        variant="expanded"
+        wrapAuthority="native-browser"
+      />
+      <Cluster className="items-center gap-x-3 gap-y-2 pt-1">
+        <InternalLink className={primaryActionClassName} href="/docs">
+          <SemanticText as="span" className="text-stage-0" role="button-label" text="Browse the packages" />
         </InternalLink>
-        <AnchorLink className={anchorLinkClassName} href="#how-its-built">
-          <SemanticText as="span" className="text-inherit" role="button-label" text="How it's built" />
+        <AnchorLink className={textActionClassName} href={`#${imaginedPlaceSectionId}`}>
+          <SemanticText as="span" className="text-inherit" role="button-label" text="See the place it built" />
           <ArrowDownIcon aria-hidden className="size-4" />
         </AnchorLink>
       </Cluster>

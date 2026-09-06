@@ -139,3 +139,15 @@ export const surfaceStyle = (element: Element) => {
     shadow: style.boxShadow
   }
 }
+
+/**
+ * Whether the element's top edge is inside the viewport as it stands, with
+ * no scrolling: the question "is this on the first screen?".
+ */
+export const topEdgeInViewport = (element: Element) => {
+  const rect = element.getBoundingClientRect()
+  return rect.top >= 0 && rect.top < window.innerHeight && rect.height > 0
+}
+
+/** Back to the top of the document, as a fresh load would be. */
+export const scrollToTop = () => window.scrollTo(0, 0)

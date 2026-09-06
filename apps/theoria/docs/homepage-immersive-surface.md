@@ -273,24 +273,38 @@ derived.
       structure-counting test pins today's markup and is exactly the kind of
       governance test this repository removed.
 
-### Act 1 — The place is the page
+### Act 1 — The hero and the place
 
-- [ ] `HomePage.tsx`: glow layers removed; padding
-      `max-w-[88rem] px-5 sm:px-8 lg:px-12`; the stage is the first child
-      after the header.
-- [ ] `HomeHero.tsx` → `PlaceArrive.tsx`: `h1` in the lead role; place title
-      in the display role (`text-balance`, 44/50 at `sm`, 64/68 at `lg`);
-      atmosphere as lead; one filled action (`Read how it's built`), one text
-      action (`Browse the packages`).
-- [ ] `PlaceStage.tsx`: paper at full content width; `placeStageWidthAtom`
-      reads the content width; version knots rendered on the paper.
-- [ ] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`: `lg:grid-cols-[1fr_minmax(28rem,44rem)]`
-      with the stage `sticky top-6` in the first column; below `lg`, the stage
-      pins as a band (`sticky top-0`, `max-h-[40vh] min-h-[12rem]`) that
-      hides its prose via container query.
-- [ ] `test/worker/home.test.ts` — _the place is in the first viewport_: at
-      390×844 and 1440×900 the paper's top edge and at least one disc are
-      inside the viewport before any scroll.
+The hero and the demonstration are separate things and each is given its
+own room: the hero says what Theoria is; the demonstration shows a place it
+built. (The first draft of this act folded the hero into the arrival; that
+was reversed — the page needs both.)
+
+- [x] `HomePage.tsx`: glow layers removed; padding
+      `max-w-[88rem] px-5 sm:px-8 lg:px-12`; header → hero → demonstration →
+      footer, all on the canvas.
+- [x] `HomeHero.tsx`: `h1` in the display role (`text-balance`, 44/50, 36/40
+      below `sm`, 64/68 at `lg`); body as lead; one filled action
+      (`Browse the packages`), one text action (`See the place it built`)
+      that scrolls to the demonstration.
+- [x] `PlaceArrive.tsx`: the demonstration opens with one line of
+      orientation, the place's title as an `h2` in the page-title role and its
+      atmosphere as lead; the paper follows. `PlaceInvitation` carries the
+      one-sentence account of the acts and `Read how it's built`.
+- [x] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`:
+      `lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]` with the stage
+      `sticky top-6` in the second column beside the arrival, the invitation
+      and the acts; below `lg` the arrival leads, the paper follows at full
+      width, then the invitation and the acts.
+- [ ] `PlaceStage.tsx`: `placeStageWidthAtom` reads the content width;
+      version knots rendered on the paper (Act 2, with the strand).
+- [ ] Below `lg`, the stage pins as a band (`sticky top-0`,
+      `max-h-[40vh] min-h-[12rem]`) that hides its prose via container query
+      (Act 4, with `placeActAtom`).
+- [x] `test/worker/home.test.ts` — _the hero and the place share the first
+      viewport_: at 1440×900 the `h1`, its filled action, the place's title,
+      the paper's top edge and a disc are inside the viewport before any
+      scroll; at 390×844 the `h1`, both actions and the place's title are.
 
 ### Act 2 — Voices and lineage
 
