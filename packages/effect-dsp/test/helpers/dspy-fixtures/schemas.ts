@@ -726,7 +726,7 @@ export const GepaOrchestrationEventOrderFixtureSchema = Schema.Struct({
     seed: Schema.Number,
     maxIterations: Schema.Number,
     timeline: Schema.Array(GepaEventTimelineItemSchema),
-    expectedWithinIterationOrder: Schema.Array(Schema.String),
+    expectedWithinIterationOrder: Schema.NonEmptyArray(Schema.String),
     expectedTerminalTag: Schema.String
   })
 })

@@ -9,13 +9,8 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Option, Schema, Stream } from "effect"
-import {
-  GepaMergeScheduleFixtureSchema,
-  GepaOrchestrationEventOrderFixtureSchema,
-  GepaOrchestrationStateTransitionsFixtureSchema,
-  loadFixture
-} from "../../helpers/dspy-fixtures/index.js"
+import { Array as Arr, Effect, Layer, Option, Order, Schema, Stream } from "effect"
+import { GepaOrchestrationEventOrderFixtureSchema, loadFixture } from "../../helpers/dspy-fixtures/index.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -35,12 +30,6 @@ describe("Optimizer.gepa orchestration", () => {
       const eventOrderFixture = yield* Schema.decodeUnknown(GepaOrchestrationEventOrderFixtureSchema)(
         rawEventOrderFixture
       )
-      const rawStateTransitionsFixture = yield* loadFixture("dspy.gepa.orchestration.state-transitions.basic")
-      const stateTransitionsFixture = yield* Schema.decodeUnknown(GepaOrchestrationStateTransitionsFixtureSchema)(
-        rawStateTransitionsFixture
-      )
-      const rawMergeScheduleFixture = yield* loadFixture("dspy.gepa.merge.schedule.max-merge-invocations")
-      const mergeScheduleFixture = yield* Schema.decodeUnknown(GepaMergeScheduleFixtureSchema)(rawMergeScheduleFixture)
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Paris" }))
@@ -66,31 +55,19 @@ describe("Optimizer.gepa orchestration", () => {
 
       const eventList = Arr.fromIterable(events)
       const tags = Arr.map(eventList, (event) => event._tag)
+      // Where each stage of an iteration first appears; upstream's order is the fixture's.
+      const firstAppearance = Option.all(
+        Arr.map(
+          eventOrderFixture.payload.expectedWithinIterationOrder,
+          (tag) => Arr.findFirstIndex(tags, (candidate) => candidate === tag)
+        )
+      )
 
-      expect(eventOrderFixture.payload.expectedTerminalTag).toBe("OptimizationCompleted")
-      expect(stateTransitionsFixture.payload.expectedCandidateCountProgression.length).toBeGreaterThan(0)
-      expect(mergeScheduleFixture.payload.defaultMaxMergeInvocations).toBe(5)
-
-      expect(tags).toContain("IterationStarted")
-      expect(tags).toContain("MergeChecked")
-      expect(tags).toContain("MutationProposed")
-      expect(tags).toContain("AcceptanceEvaluated")
-      expect(tags).toContain("ParetoUpdated")
-      expect(tags).toContain("OptimizationCompleted")
-      expect(tags.indexOf("MergeChecked")).toBeLessThan(tags.indexOf("MutationProposed"))
-      expect(tags.indexOf("MutationProposed")).toBeLessThan(tags.indexOf("AcceptanceEvaluated"))
-      expect(tags.indexOf("AcceptanceEvaluated")).toBeLessThan(tags.indexOf("ParetoUpdated"))
-      expect(
-        Option.match(Arr.head(eventList), {
-          onNone: () => false,
-          onSome: Optimizer.GEPAEvent.$is("IterationStarted")
-        })
-      ).toBe(true)
-      expect(
-        Option.match(Arr.last(eventList), {
-          onNone: () => false,
-          onSome: Optimizer.GEPAEvent.$is("OptimizationCompleted")
-        })
-      ).toBe(true)
+      expect(Option.isSome(firstAppearance)).toBe(true)
+      expect(Option.map(firstAppearance, Arr.sort(Order.number))).toEqual(firstAppearance)
+      expect(Arr.head(tags)).toEqual(
+        Option.some(Arr.headNonEmpty(eventOrderFixture.payload.expectedWithinIterationOrder))
+      )
+      expect(Arr.last(tags)).toEqual(Option.some(eventOrderFixture.payload.expectedTerminalTag))
     }))
 })

@@ -10,11 +10,7 @@ import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Option, Predicate, Ref, Schema, Stream } from "effect"
-import {
-  GepaOrchestrationEventOrderFixtureSchema,
-  GepaSelectionWeightsFixtureSchema,
-  loadFixture
-} from "../helpers/dspy-fixtures/index.js"
+import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -41,11 +37,7 @@ describe("GEPA integration", () => {
     () =>
       Effect.gen(function*() {
         const rawSelectionFixture = yield* loadFixture("dspy.gepa.selection.weights.seed-42")
-        const rawEventOrderFixture = yield* loadFixture("dspy.gepa.orchestration.event-order.seed-0")
         const selectionFixture = yield* Schema.decodeUnknown(GepaSelectionWeightsFixtureSchema)(rawSelectionFixture)
-        const eventOrderFixture = yield* Schema.decodeUnknown(GepaOrchestrationEventOrderFixtureSchema)(
-          rawEventOrderFixture
-        )
         const signature = yield* makeQaSignature()
         const module = yield* Module.predict("qa", signature)
         const mock = yield* MockLanguageModel.make(
@@ -104,7 +96,6 @@ describe("GEPA integration", () => {
         expect(paretoEvents.length).toBeGreaterThan(0)
         expect(params.instructions.length).toBeGreaterThan(0)
         expect(Option.isSome(Arr.findFirst(eventList, Optimizer.GEPAEvent.$is("AcceptanceEvaluated")))).toBe(true)
-        expect(eventOrderFixture.payload.expectedWithinIterationOrder).toContain("AcceptanceEvaluated")
       })
   )
 })

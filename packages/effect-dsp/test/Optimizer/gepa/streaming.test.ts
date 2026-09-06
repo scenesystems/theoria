@@ -9,7 +9,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Option, Schema, Stream } from "effect"
 import {
   GepaOrchestrationEventOrderFixtureSchema,
   GepaSelectionWeightsFixtureSchema,
@@ -80,11 +80,11 @@ describe("Optimizer.gepaStream", () => {
         const firstEvents = Arr.fromIterable(firstRun)
         const secondEvents = Arr.fromIterable(secondRun)
 
+        const tags = Arr.map(firstEvents, (event) => event._tag)
+
         expect(secondEvents).toEqual(firstEvents)
-        expect(Arr.map(firstEvents, (event) => event._tag)).toContain("OptimizationCompleted")
-        expect(Arr.map(firstEvents, (event) => event._tag)).toContain("ParetoUpdated")
-        expect(eventOrderFixture.payload.expectedTerminalTag).toBe("OptimizationCompleted")
-        expect(eventOrderFixture.payload.expectedWithinIterationOrder.length).toBeGreaterThan(0)
+        expect(tags).toContain("ParetoUpdated")
+        expect(Arr.last(tags)).toEqual(Option.some(eventOrderFixture.payload.expectedTerminalTag))
       })
   )
 })

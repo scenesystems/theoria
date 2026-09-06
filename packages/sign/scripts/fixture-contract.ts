@@ -1,3 +1,8 @@
+/**
+ * Conformance fixture contract — schemas for the retained external vectors
+ * and their provenance manifest, plus the readers `fixtures:check` and the
+ * conformance tests share.
+ */
 import { FileSystem, Path, Url } from "@effect/platform"
 import { Effect, Schema } from "effect"
 
@@ -86,7 +91,7 @@ export const ConformanceManifest = Schema.parseJson(
 const fixturePath = (file: string): Effect.Effect<string, never, Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
-    const root = yield* path.fromFileUrl(yield* Url.fromString("../fixtures/conformance/", import.meta.url))
+    const root = yield* path.fromFileUrl(yield* Url.fromString("../test/fixtures/conformance/", import.meta.url))
     return path.join(root, file)
   }).pipe(Effect.orDie)
 

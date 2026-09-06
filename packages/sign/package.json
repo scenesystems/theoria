@@ -44,6 +44,7 @@
     "lint": "cd ../.. && oxlint packages/sign && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/sign && dprint check \"packages/sign/**\"",
     "lint:fix": "cd ../.. && oxlint --fix packages/sign && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/sign && dprint fmt \"packages/sign/**\"",
     "test": "vitest run --root ../.. packages/sign/test",
+    "fixtures:check": "bun run scripts/check-fixtures.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",

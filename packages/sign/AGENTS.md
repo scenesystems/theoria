@@ -10,12 +10,17 @@ Digital signatures, key agreement, and key encapsulation for Effect.
 
 ## Commands
 
-| Task       | Command         |
-| ---------- | --------------- |
-| Type check | `bun run check` |
-| Lint       | `bun run lint`  |
-| Test       | `bun run test`  |
-| Build      | `bun run build` |
+| Task          | Command                  |
+| ------------- | ------------------------ |
+| Type check    | `bun run check`          |
+| Lint          | `bun run lint`           |
+| Test          | `bun run test`           |
+| Build         | `bun run build`          |
+| Fixture check | `bun run fixtures:check` |
+
+`fixtures:check` decodes the retained conformance payloads under
+`test/fixtures/conformance/` and verifies their fingerprints against
+`sources.manifest.json`. The tests only assert verdicts.
 
 All four gates must pass clean before any work is considered complete.
 

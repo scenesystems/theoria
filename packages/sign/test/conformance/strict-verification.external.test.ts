@@ -1,19 +1,15 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { sha256 } from "@noble/hashes/sha2.js"
-import { bytesToHex } from "@noble/hashes/utils.js"
-import { Array as Arr, Effect, Either, Encoding, Option } from "effect"
-import { ed25519Verify } from "../../src/algorithms/ed25519.js"
-import { mlDsa65Verify } from "../../src/algorithms/mlDsa.js"
-import { p256Sha256P1363LowSVerify } from "../../src/algorithms/p256.js"
+import { Array as Arr, Effect, Either, Encoding } from "effect"
 import {
-  ConformanceManifest,
   decodeConformanceFixture,
   Ed25519Fixture,
   MlDsa65Fixture,
-  P256Fixture,
-  readConformanceFixtureBytes
-} from "./fixtures.js"
+  P256Fixture
+} from "../../scripts/fixture-contract.js"
+import { ed25519Verify } from "../../src/algorithms/ed25519.js"
+import { mlDsa65Verify } from "../../src/algorithms/mlDsa.js"
+import { p256Sha256P1363LowSVerify } from "../../src/algorithms/p256.js"
 
 const decodeHex = (value: string): Effect.Effect<Uint8Array> =>
   Either.match(Encoding.decodeHex(value), {
@@ -73,9 +69,7 @@ describe("strict direct verification — retained external corpus", () => {
           const message = yield* decodeHex(vector.message)
           const signature = yield* decodeHex(vector.signature)
           const context = yield* decodeHex(vector.context)
-          const expected = Option.getOrThrow(
-            Arr.findFirst(fixture.strictVerdicts, ({ tcId }) => tcId === vector.tcId)
-          )
+          const expected = yield* Arr.findFirst(fixture.strictVerdicts, ({ tcId }) => tcId === vector.tcId)
           const verdict = yield* verificationVerdict(mlDsa65Verify(signature, message, publicKey, context))
 
           expect(verdict, `${String(vector.tgId)}:${String(vector.tcId)}`).toBe(expected.verdict)
@@ -87,14 +81,4 @@ describe("strict direct verification — retained external corpus", () => {
           }
         }), { discard: true })
     }).pipe(Effect.provide(BunContext.layer)), 30_000)
-
-  it.effect("every retained payload matches its manifest fingerprint", () =>
-    Effect.gen(function*() {
-      const manifest = yield* decodeConformanceFixture("sources.manifest.json", ConformanceManifest)
-      yield* Effect.forEach(manifest.payloads, (payload) =>
-        Effect.gen(function*() {
-          const bytes = yield* readConformanceFixtureBytes(payload.file)
-          expect(bytesToHex(sha256(bytes)), payload.file).toBe(payload.sha256)
-        }), { discard: true })
-    }).pipe(Effect.provide(BunContext.layer)))
 })
