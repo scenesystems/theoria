@@ -152,27 +152,33 @@ Two consequences are visible in the generated reference:
 `effect-tsgo patch`, so `bun install` (including CI's
 `bun install --frozen-lockfile`) leaves `tsc` reporting
 `Version 7.0.2+effect-tsgo.0.40.0`. The plugin entry in `tsconfig.base.json`
-sets `includeSuggestionsInTsc: true`,
-`ignoreEffectSuggestionsInTscExitCode: true`,
-`ignoreEffectWarningsInTscExitCode: false` and
-`ignoreEffectErrorsInTscExitCode: false`. The first full run surfaced ten
-warnings that had been editor-only; all were fixed rather than downgraded:
+sets `includeSuggestionsInTsc: true` and every
+`ignoreEffect*InTscExitCode` flag to `false`: a language-service suggestion,
+warning or error fails `tsc` the same way a type error does, so the idiomatic
+Effect form is the only one that compiles. Diagnostics that were editor-only
+before the upgrade were fixed rather than downgraded, and none is suppressed:
 
-- Nine `effectFnIife` in `packages/effect-search/src/Study/{api,snapshot}`:
+- `effectFnIife` in `packages/effect-search/src/Study/{api,snapshot}`:
   `Effect.fn("name")(inner)(args)` immediately-invoked wrappers became the
   body piped through `Effect.withSpan("name")`, preserving the span names.
-- One `unknownInEffectCatch` in `apps/theoria/app/web/atoms/docs.ts`: the
+- `unknownInEffectCatch` in `apps/theoria/app/web/atoms/docs.ts`: the
   clipboard call (since replaced by `Clipboard.writeString` from
   `@effect/platform-browser`) failed with a typed error instead of `unknown`.
-- Twelve `multipleEffectProvide` in tests: chained `Effect.provide(A),
+- `multipleEffectProvide` in tests: chained `Effect.provide(A),
 Effect.provide(B)` became a single `Effect.provide(Layer.merge(A, B))`
   where the layers are independent, or `A.pipe(Layer.provideMerge(B))` where
   `A`'s construction consumes `B` (the `StudyStorageLive` and rate-limit
   logger cases).
-
-Suggestions (`catchAllToMapError`, `unnecessaryFailYieldableError`, and the
-like) still print — about a hundred across the repository — and do not fail
-the build.
+- The 150 suggestions the first strict run printed, each replaced by the
+  direct Effect operation: `Effect.mapError` for catchAll-then-fail;
+  `Effect.void`, `Effect.succeedNone`, `Effect.succeedSome` and
+  `Effect.asSome` for their `succeed`/`map` compositions;
+  `Effect.filterOrFail` / `Effect.filterOrElse` for flatMap with an identity
+  branch; yieldable tagged errors yielded directly; single-return `Effect.gen`
+  wrappers collapsed; `Schema.TaggedStruct` for structs with a literal `_tag`;
+  `Schema.decodeUnknown` in the error channel instead of `decodeUnknownSync`
+  inside a generator; flattened pipes; consecutive `catchTag` calls merged
+  into one `catchTags`.
 
 **typescript-eslint cannot run on TypeScript 7**, and `@effect/eslint-plugin`
 imports `@typescript-eslint/utils` at load time, so both were removed. The
@@ -435,7 +441,8 @@ whose `typescript` link points at 6.0.2.
   1.7 GB), with the whole reference finishing in about 46 seconds. This is also TypeDoc's
   own multi-package pattern (`packages` entry point strategy: convert
   separately, merge the JSON) and does not depend on the Bun version.
-- Effect warnings fail `tsc`; suggestions do not.
+- Effect suggestions, warnings and errors all fail `tsc`; there is no
+  severity that only prints.
 - Vitest stops at 4.1, not 5.0, as requested; `.node-version` 22.23.1 already
   satisfies Vitest 5's Node floor.
 - `@effect/vitest` 0.30.0 stays with a peer warning rather than an override,

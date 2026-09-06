@@ -127,7 +127,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
 - Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
-- All randomness through Effect `Random` with seeded generators.
+- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through `generateEntropy` in `@scenesystems/sign`; `Random` is never a source of secrets.
 - Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
 
 ---
