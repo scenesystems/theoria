@@ -8,49 +8,27 @@ concurrency:
   # Publishing must never be interrupted or overlap another publish.
   cancel-in-progress: false
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  publish:
-    name: Publish Packages
+  # Everything that executes repository or dependency code (type checks, lint,
+  # tests, build) runs here, without the OpenID Connect token. The tarballs it
+  # produces are the only thing the publish job receives.
+  pack:
+    name: Pack Packages
     if: github.repository_owner == 'scenesystems' && github.ref == 'refs/heads/main'
-    environment: npm
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: write
-      id-token: write
+      contents: read
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+      pack-dir-artifact-id: ${{ steps.pack.outputs.pack-dir-artifact-id }}
     steps:
-      - name: Generate token
-        id: app-token
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-
-      # Digest release evidence is certified on Node 22. npm Trusted
-      # Publishing additionally requires Node >=22.14. npm 11.5.2 contains
-      # the corrected OIDC package-visibility behavior.
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version-file: ".node-version"
-          registry-url: "https://registry.npmjs.org"
-          package-manager-cache: false
-
-      - name: Install npm for Trusted Publishing
-        run: |
-          npm install --global npm@11.5.2
-          node --version
-          npm --version
 
       - uses: ./.github/actions/setup
 
@@ -70,13 +48,69 @@ jobs:
         if: steps.mode.outputs.mode == 'none'
         run: echo "::notice::Every package version is already published."
 
-      # The publish sub-action reads the tags `changeset publish` reports through
-      # CHANGESETS_OUTPUT, then pushes them and creates a GitHub release per package.
-      - name: Publish unpublished package versions
+      # The root build ends with scripts/resolve-workspace-deps.ts, which rewrites
+      # `workspace:` ranges in each dist manifest to the released semver ranges.
+      - name: Verify and build the workspace
         if: steps.mode.outputs.mode == 'publish'
+        run: bun run release:check
+
+      - name: Pack the unpublished package versions
+        if: steps.mode.outputs.mode == 'publish'
+        id: pack
+        uses: changesets/action/pack@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+        with:
+          publish-plan-artifact-id: ${{ steps.mode.outputs.publish-plan-artifact-id }}
+
+  # Holds the OpenID Connect token for npm Trusted Publishing. It installs the
+  # workspace only to resolve the Changesets CLI and publishes the packed
+  # tarballs; no build or test code runs here. Tags and releases are created
+  # through the GitHub API with the app token, so the job token stays read-only.
+  publish:
+    name: Publish Packages
+    needs: pack
+    if: needs.pack.outputs.mode == 'publish'
+    environment: npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Generate token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      # Digest release evidence is certified on Node 22. npm Trusted
+      # Publishing additionally requires Node >=22.14. npm 11.5.2 contains
+      # the corrected OIDC package-visibility behavior.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: ".node-version"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - name: Install npm for Trusted Publishing
+        run: |
+          npm install --global npm@11.5.2
+          node --version
+          npm --version
+
+      - uses: ./.github/actions/setup
+
+      # Runs `changeset publish --from-pack-dir` against the downloaded tarballs,
+      # then reads CHANGESETS_OUTPUT to push the tags and create a GitHub
+      # release per package.
+      - name: Publish the packed package versions
         uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
           github-token: ${{ steps.app-token.outputs.token }}
-          script: bun run changeset:publish
+          pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
         env:
           HUSKY: "0"
