@@ -1,389 +1,471 @@
-# The home page as a place you enter
+# Theoria homepage: an imagined place you can change
 
-`/` presents the Imagined Place demo as a card that holds cards. This file
-records what the page measures today, what it should become, and the work that
-gets it there, so that each change can be judged against one standard. It
-complements `imagined-place-landing-demo.md`, which records what the demo _is_
-and what runs; this file records what a visitor should _experience_.
+Status: researched experience direction and implementation brief, revised
+2026-09-06. This supersedes the earlier surface-migration checklist. It is
+the brief for the standalone homepage redesign PR following the foundation
+work in PR #85, not a claim that the redesign is implemented.
 
-The short version: the demo builds an imagined place from a brief, two
-proposals, a signed lineage and a live arrangement search. Today the page
-describes that place in a dashboard. It should instead put the visitor inside
-the place and let the page be the place's own account of how it came to be.
+## The ambition
 
-## The standard
+The homepage should let someone feel the possibility of imagination becoming
+something shared, without asking them to understand a software stack first.
+They arrive somewhere specific, discover that they can affect it, and see
+that their decision has an intelligible consequence. Then they can look
+closer and understand why they can trust what happened.
 
-Structure comes from position, grouping, type and space first. A surface,
-border, shadow or animation is added only when it explains ownership, state,
-containment or causality. Motion explains continuity, feedback, spatial
-relation or a state change; it is short, interruptible, never the only cue,
-and keeps its meaning under reduced motion. Continuous motion exists only
-while a real continuous process runs. Responsive behaviour is recomposition
-that preserves priority, not proportional shrinking. Nothing the page shows
-may claim more than the code earns.
+**An imagined place you can change. Every contribution leaves a trace.**
 
-The page should feel expansive because the place is allowed to occupy it, and
-alive because the things that are actually alive on it — the search, the
-merge, the re-signing — are allowed to be seen. It should never feel alive by
-decoration.
+That is the experience thesis, not approved final marketing copy. Theoria
+remains the open-source computational library collection; this demonstration
+expresses a part of Scene's larger vision, not the full Scene product.
+Theoria is the repository/product name used here; “Etheria” in the request
+is not treated as authorization to rename it.
 
-## What the page does today
+Removing nested cards is necessary but insufficient. An unboxed dashboard is
+still a dashboard. Success requires a new arrival, art direction, narrative
+hierarchy, participatory moment, and route into technical depth. The existing
+Compose / Propose / Record / Arrange pipeline becomes the explanation beneath
+the experience, not the experience's mandatory navigation structure.
 
-Measured in Chromium at 1440×900, light theme, every element under `main`:
+The emotional progression is **curiosity → invitation → agency → recognition
+→ trust → possibility**. Each feeling must have a concrete cause:
 
-| Measure                               | Value |
-| ------------------------------------- | ----- |
-| Elements                              | 643   |
-| With a visible border                 | 59    |
-| With a border radius                  | 124   |
-| Pill-shaped (`border-radius ≥ 999px`) | 74    |
-| With a box shadow                     | 19    |
-| Deepest bordered-ancestor chain       | 5     |
+| Feeling | What produces it |
+| --- | --- |
+| Curiosity | An evocative, specific place already present on arrival |
+| Invitation | One understandable thing to try, without setup or a tutorial |
+| Agency | Accept or decline a contribution and see the place respond |
+| Recognition | The contributor and their addition remain identifiable |
+| Trust | Inspect the actual evidence and distinguish recorded from live work |
+| Possibility | Understand how these libraries could support something of your own |
 
-The depth-5 chains are page → demo card → proposal card → sealed-note box →
-pill, and page → demo card → code panel → header rail → Copy button. The place
-itself — its prose and discs, the artifact the demo exists to show — sits on a
-bordered paper inside a bordered stage inside a `2rem`-radius card, at roughly
-half the content width, below a hero that talks about libraries. On the first
-viewport a visitor sees a headline and two buttons; the place is a scroll
-away. Under the sticky stage the right column is empty for most of the page.
-At 390 px the outer card is about twelve screens tall and its border and
-padding take about 8 % of the width.
+## Research and its authority
 
-The vocabulary produced this. `view/primitives/designSystem.ts` once
-declared seventeen `surfaceMaterials` with nine distinct radii, fifteen of
-them without a caller, beside a dozen zero-caller theme resolvers
-(`evidenceSectionThemeFor`, `obstacleToneClassesFor`, `surfaceThemeForCard`,
-`badgeThemeFromSurface`, `metricPillClassesFor`, `panelButtonClassName`,
-`appTheme.homeGrid`, `appTheme.compactNav`). That dead vocabulary is gone; the
-two materials still in use, `raisedCard` and `calloutError`, are the card
-vocabulary of the package catalog `/` replaced, and every new element still
-reaches for them.
+The sources below inform this direction. Prior agent recommendations are not
+new user mandates, and decisions for Scene's consumer site do not automatically
+become requirements for Theoria.
 
-Two more findings, the first now resolved by the toolchain branch. The code
-tabs were plain `Button`s without `tablist` semantics, the scenario chooser was
-`aria-pressed` buttons and the merge switch a `Button role="switch"`; they are
-now Base UI `Tabs`, `RadioGroup` and `Switch` (`TabBar.tsx`, `ChoicePills.tsx`,
-`ToggleSwitch.tsx`), so the redesign changes their appearance, not their
-semantics. The second stands: motion is still CSS only, so merging a proposal
-makes a disc appear on the stage with no continuity from the proposal that
-offered it — the one causal moment the demo exists to show.
+### Earlier conversations recovered
 
-## What the page should be
+- [Frontend design skill research](https://ampcode.com/threads/T-01a02ac1-c543-736b-ba6a-61cff7ee20b3):
+  a specific aesthetic thesis, one signature interaction, delight through
+  competence and control, and responsive recomposition. Cards are justified
+  by independent objects, not by every heading or metadata group. The research
+  explicitly rejects mandatory preloaders, magnetic controls, custom cursors,
+  and scroll hijacking as a recipe for “premium.”
+- [Scene vision shift](https://ampcode.com/threads/T-01a03edf-7ddf-70bd-9d8e-c0c32416d736):
+  the user's direct standard is sophisticated, polished, refined, and real;
+  plural worlds emerge through collective imagination. Prior visual iterations
+  exposed generic graphs, scribbles, regular grids, and obvious resets as poor
+  substitutes for that feeling. Transfer the ambition and coherence, not the
+  consumer homepage's specific particle renderer. Use “Scene” in new public
+  product prose, not “Scene Systems.”
+- [Design system branch plan](https://ampcode.com/threads/T-019ff097-5885-769c-8afb-1e6edc73a48b):
+  shared measures, imagery-led editorial composition, meaningful responsive
+  alternatives, provider-owned interaction mechanics, and explicit separation
+  of product truth from its visual projection. Do not import its proposed
+  package architecture into this app merely to implement a page.
+- [Previous homepage review](https://ampcode.com/threads/T-01a06822-5e48-74fd-afcb-bcd5f3d83b9f):
+  useful surface audit and foundation separation. Its proposal is superseded
+  where it fixes the experience around four scrolling acts, prescribes a
+  shrinking mobile stage, or treats border counts as the success criterion.
+- [Imagined places demo](https://ampcode.com/threads/T-01a061d5-2378-7197-9988-70cc24e4233d):
+  the functional predecessor. The current code and
+  `imagined-place-landing-demo.md` remain the authority for what the demo does.
 
-### The place is the page
+### External principles and how we use them
 
-The stage stops being an illustration inside the demo and becomes the page's
-first and largest thing. On arrival the visitor is already inside _The
-Unfinished Light_: the place's title is the display type, its atmosphere is
-the lead, its prose and discs fill the first viewport, and the arrangement
-search is visibly settling as the page loads. Theoria's own sentence
-("Scientific computing and model programming with Effect") stays the `h1` for
-meaning and search, set as a quiet lead above the place; the place's title is
-an `h2` set as display. Heading rank and visual role are independent.
+- [Bret Victor, Explorable Explanations](https://worrydream.com/ExplorableExplanations/)
+  (read directly for this revision): integrate exploration into an authored
+  explanation. Do not dump people into an empty sandbox. A visitor who does
+  not interact should still understand the example; interaction answers their
+  next question. The 2024 postscript emphasizes inspectable computational
+  claims, not merely interactive pictures.
+- [Material adaptive layout](https://m3.material.io/foundations/layout/applying-layout)
+  and [Apple layout guidance](https://developer.apple.com/design/human-interface-guidelines/layout)
+  (recovered from prior research): preserve task, context, and consequence
+  across sizes, not desktop geometry. Apply to the relationship between the
+  invitation and the place, not to a prescribed number of columns.
+- [Figma multiplayer](https://www.figma.com/blog/multiplayer-editing-in-figma)
+  (prior research): attribution makes shared work understandable. Borrow the
+  legibility of contribution, not fake presence or simulated collaborators.
+- [Spotify Wrapped animation engineering](https://engineering.atspotify.com/2024/01/exploring-the-animation-landscape-of-2023-wrapped)
+  (prior research): a coherent narrative can be personal and expressive.
+  Borrow authored pacing and recognition, not a compulsory slideshow.
+- [WCAG animation from interactions](https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html)
+  (read directly): nonessential motion must have an alternative; a real process
+  is not automatically an essential animation. This criterion is AAA; adopt
+  its reduced-motion behavior deliberately alongside the AA baseline.
+- [Motion accessibility](https://motion.dev/docs/react-accessibility)
+  (read directly): `MotionConfig reducedMotion="user"` disables Motion
+  transform/layout animations, not all CSS, SVG, or per-frame updates. The
+  arrangement renderer requires its own presentation policy.
+- [WCAG reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html):
+  validate reading and interaction at narrow effective widths, not only a
+  few device screenshots.
 
-The header is three text links and an icon. There are no glow layers, no
-frame around the stage, no eyebrow tags. The paper is the canvas.
+These references support principles, not a collage of other products' styles.
+The creative direction below is a recommendation for this demo.
 
-### Scrolling is deepening, not paging
+## Current experience: observation versus inference
 
-Below the place, the page is one continuous account in four acts — Compose,
-Propose, Record, Build — separated by space and at most a hairline. The place
-does not leave: on wide screens it stays pinned and the acts pass beside it;
-on narrow screens it pins as a shrinking band at the top so the world is
-present while the visitor reads how it was made. Each act is the same object
-seen from one side. Which act is in view is state (`placeActAtom`, derived
-from the intersection of act landmarks), and the stage answers it: in Compose
-the composed features are named; in Propose the proposed features appear as
-ghost discs at the margin of the paper; in Record the two versions are
-distinguishable on the paper; in Build the disc, line or signature under the
-pointer is answered by the code that made it.
+This revision inspected the running local application in Chromium, including
+1440×900 light arrival, the scrolled desktop demo, and 390×844 dark arrival.
+The scenario radios, merge switches, tabs, marker buttons, and trial slider
+are present in the accessibility snapshot. A merge switch was exercised; this
+was an exploratory review, not a full end-to-end regression pass.
 
-No scroll-jacking, no parallax, no scroll-linked transforms. Scroll position
-selects state; motion between states is the theme's short transition.
+At the verified mobile scroll position zero, the main heading begins at
+136px, “An imagined place” at 449px, the place title at 665px, and “How it's
+built” at 3602px. No document-level horizontal overflow was observed in that
+state. These are observations from this run, not universal layout constants.
 
-### Voices, not cards
+The desktop arrival devotes its strongest hierarchy to the library category;
+the place is partially visible lower down. In the demo, package pills, step
+labels, version badges, a framed story, and framed proposals compete for
+attention. Mobile exposes the title and only the beginning of the place before
+the fold. The first meaningful contribution is much farther down.
 
-Proposals are marginalia. Each proposal sits beside the sentence in the prose
-it would add, with a 2 px left rule in the proposer's tone — dashed while
-declined, solid while accepted — and no background, radius or shadow. The
-neighbor's sealed note is a fold: closed, it shows the envelope size and the
-seal glyph; opened with the author's key, it is a `blockquote` with the seal
-tone's rule. Merging is the visitor's sentence joining the place: the feature
-name in the proposal and its disc on the stage share a `layoutId`, so flipping
-`Merge` moves the name onto the paper and the description re-flows around it.
-Flipping back returns it to the margin. Declined proposals stay in view with
-their signatures, as they stay in the result.
+The inference is not “the UI is broken.” The functional demonstration is
+substantial. Its presentation prioritizes explaining implementation over
+making someone want to participate. Its best asset—the literary specificity
+of a lighthouse kept alight by unfinished letters—has less visual authority
+than the controls explaining it.
 
-### Lineage is a strand, not a table
+The previous document's counts (59 bordered elements, 124 rounded elements,
+74 pills, 19 shadows, maximum bordered nesting 5 at 1440×900) are historical
+measurements, not re-measured numbers in this revision. They diagnose repeated
+containment; they are not acceptance budgets. Removing useful focus outlines
+to hit a border target would make the page worse.
 
-Versions are a thin vertical strand along the inside edge of the reading
-column with a knot per version. `V1 · Origin` and `V2 · Current` are labels
-on the knots; what changed and who contributed it reads as prose beside them;
-the BLAKE3 ID is the fingerprint under each knot in technical type. When a
-merge changes the version, the strand grows a knot and the current ID washes
-once. The same strand appears on the pinned stage as two small knots so the
-version is always visible without a badge.
+## Recommended creative direction: a living atlas
 
-### Every mark has a provenance
+Considered alternatives:
 
-Theoria's promise is that evidence is retained. The page proves it at the
-level of the pixel: pointing at or focusing any mark asks the page how it knows.
-A disc answers with its feature, contributor and the trial that placed it; a
-narrowed line answers with the disc that narrowed it and the `layoutLinesWith`
-call; a signature answers with the key and the `sign` call; the version ID
-answers with the digest and its parent. In the Build act the answer is also a
-highlighted line in the code beside the value it produced. This is one atom
-(`placeFocusAtom`) read by the stage, the proposals, the lineage and the code
-block; there is no separate tooltip system. Provenance replaces the pills:
-`Verified`, `Recorded inference`, `You signed`, `In v2` become glyph-and-text
-`InlineStatus` marks whose provenance is one focus away.
+| Direction | Strength | Why it is not the whole answer |
+| --- | --- | --- |
+| Unframed editorial laboratory | Clear and technically credible | Still primarily an explanation of tools |
+| Cinematic world portal | Immediate emotional scale | Risks unrelated scenery, heavy rendering, and a passive visitor |
+| Living atlas with a participatory scene | Place, human contribution, and inspectable computation share one composition | Requires authored scenario treatment and careful causal interaction |
 
-### The world has weather
+Choose the third. “Atlas” describes a spatial/literary reading experience,
+not a generic map dashboard. The page is a broad field containing a place,
+its words, and the people/programs contributing to it. It has a recognizable
+silhouette even with labels and controls removed. It should not look like
+the old page with its rectangles erased.
 
-The three scenarios are three worlds, and switching worlds should change the
-air of the page, not a chip. Each scenario declares a world tone
-(`--th-world-*`: a canvas tint, a paper gradient, a rule colour, a disc
-palette) in `styles.css`, authored separately for light and dark so that the
-Library Under Cald Water is cool and dim in both themes and The Market of Lost
-Things is warm in both. The tone is semantic — it tells the visitor which
-world they are in — and is bounded: text and control colours do not change,
-contrast minima hold in every world in both themes, and the tone is the only
-"expressive" colour on the page.
+### Art direction, not just color themes
 
-### The search is the only continuous motion
+The three scenarios need different compositional character as well as palette:
 
-The arrangement search is a real process with thirty-six trials, and it is
-the one thing on the page allowed to move on its own. It runs at page size:
-discs settle on the paper and the description re-wraps around them while the
-trace below the paper draws its running best. When it finishes, the page is
-still. Scrubbing the trace draws a rejected arrangement on the paper as a
-ghost over the kept one, so a visitor can see what the search refused. Discs
-are still placed outright while scrubbing, as the demo decided; continuity is
-for merges and version changes, not for browsing trials.
+| Place | Spatial and material direction | Emotional quality |
+| --- | --- | --- |
+| Unfinished Light | A long interval of open space, a restrained light-bearing focal point, a causeway-like reading direction, warm letter-like prose against cool surroundings | Solitude made sustaining through other people's participation |
+| Lost Market | Unequal gatherings and meeting points, warmer mineral/paper tones, denser but deliberate typographic rhythm | Curiosity, exchange, unexpected recognition |
+| Drowned Library | Spacious depth, quiet layered edges and cool ink, measured interruptions in the reading field | Discovery, care, the persistence of knowledge |
 
-### The underside
+Keep the actual artifact's words and feature identities authoritative. Authored
+atmosphere is illustration, not evidence of a simulation or invented spatial
+facts. Start with lightweight CSS/SVG treatment, existing feature geometry,
+and typography; do not add a 3D engine, video, or generated scenic image to
+make the concept feel expensive. Any later asset must have a specific role,
+rights/provenance, responsive treatment, and loading budget.
 
-`How it's built` is the page turned over. The four acts' code is one Base UI
-tab set with an underline indicator; the code block is the page's one
-instrument surface; the live values sit as annotation rows under the lines
-that made them; the files that ran link to GitHub at the build's commit. The
-Build act is where provenance focus becomes bidirectional: pointing at a code
-line highlights the mark on the stage it produced, and pointing at a mark
-highlights the line.
+Use three visual registers: expressive place title, humane readable prose,
+and quiet technical annotation. Explore the existing display face's scale,
+weight and spacing before adding a font. Typography changes belong in the
+semantic-text source and generated tokens, not manual edits to generated CSS.
+Body prose remains on a readable measure; an expansive canvas does not mean
+150-character lines. Large-screen whitespace should establish distance and
+relationship, not simply stretch a narrow component.
 
-## Composition
+Light and dark are separately art-directed environments, not just inverse
+backgrounds. Scenario color must never replace participant identity, selected
+state, error meaning, or readable text contrast. Hover and focus should feel
+precise and local: a mark, rule, or label answers attention without lifting a
+whole region into another card.
 
-```
-main (canvas; world tone on :root via data-world)
-├─ SiteHeader                wordmark · Docs · GitHub · theme icon — text, no chips
-├─ Arrive                    h1 (lead role) · place title (display) · atmosphere · brief
-│  └─ PlaceStage             unframed paper, full content width; discs, walk, prose;
-│                            search trace as a strand beneath; presets; version knots
-├─ Act: Compose              lg: pinned stage right, act left [1fr | minmax(28rem, 44rem)]
-│                            scenario radio group · brief textarea (instrument) · features inline
-├─ Act: Propose              proposals as marginalia beside the prose they add
-├─ Act: Record               lineage strand; IDs as fingerprints
-├─ Act: Build                tabs · code (instrument) · references · files
-└─ SiteFooter
-```
+## The visitor's experience
 
-At `lg` and above the stage is pinned and the acts scroll beside it. Below
-`lg` the stage leads the page at full width, then pins as a band whose height
-clamps between `12rem` and `40vh` while the acts scroll under it; the band
-keeps the discs and the version knots and drops the prose, so the world is
-never off screen. At 320 px the paper is at least 240 px wide; the scenario
-group scrolls horizontally with `scroll-snap-type: x proximity`.
+### 1. Arrive somewhere, without waiting for an introduction
 
-## Surfaces
+Put the place's title, a short evocative passage, and a meaningful portion of
+the arrangement in the opening composition. Keep Theoria's identity and one
+concise explanation visible. Recommended headline direction: “An imagined
+place. Changed together.” Final copy must also make clear that this is a
+recorded-example demonstration built with Theoria, not a live community.
 
-Three roles replace `surfaceMaterials`:
+One primary invitation: “Make room for one more idea,” leading directly to a
+real proposal and decision. “See how it works” is the secondary path; Docs and
+GitHub remain easy exits. Do not require a scroll journey or cinematic intro
+to reach the demo. Do not use viewport-height locking that clips long titles
+or translated/enlarged text.
 
-| Role         | Carries                                           | Treatment                                                                  |
-| ------------ | ------------------------------------------------- | -------------------------------------------------------------------------- |
-| `canvas`     | the place, prose, discs, acts, proposals, lineage | the page; no border, radius or shadow                                      |
-| `instrument` | code block, brief textarea, search trace          | one tint step above canvas (`stage-100`), `--radius-instrument`, no shadow |
-| `overlay`    | provenance popover, docs preview, dialogs         | `stage-0`, `shadow-surface`, `--radius-instrument`; the only elevation     |
+### 2. Offer a contribution where its consequence is visible
 
-Boundaries: a hairline `border-t` between acts at `lg` and up; a 2 px left
-rule on a proposal; the lineage strand. Nothing else draws a box. Pills remain
-only for selections (scenario, stage presets). Package names are inline
-monospace links in their tone.
+Bring a proposal into the opening experience, beside the place on wide
+screens and immediately adjacent on compact screens. Use the actual feature
+name and contributor, a short explanation of what it adds, and the existing
+merge switch. Keep both accept and decline legible and reversible. The
+default already accepts the neighbor's feature: never pretend the visitor
+just contributed it. The unaccepted program proposal provides a genuine
+first action without changing the initial domain state.
 
-## Motion
+The characteristic interaction is **a contribution becoming part of the
+place**. A proposal's identity is visually connected to its resulting mark
+and sentence. Recognition occurs once, at the committed change, not as
+confetti or a perpetual glow. Declining is equally first-class: the proposed
+contribution remains inspectable but does not appear as part of the result.
 
-`motion` 13.x is added and configured once at the root: `MotionConfig
-reducedMotion="user"` with the theme's enter transition, `LazyMotion strict`
-with `domAnimation`, and `m` from `motion/react-m` in feature code. Durations
-and easing are theme tokens (`--th-motion-duration-enter: 240ms`,
-`--th-motion-duration-shift: 320ms`, `--th-motion-ease`). Five relationships
-are animated, and nothing else:
+Use a shared-layout transition only if it preserves object identity and does
+not yank text or focus across the page. A short local emphasis at the source
+and destination is a valid alternative when either is offscreen. Do not turn
+the existing scene into an animated cloud of unrelated discs.
 
-| Relationship              | Mechanism                                                         |
-| ------------------------- | ----------------------------------------------------------------- |
-| A merged feature travels  | shared `layoutId` between proposal name and disc                  |
-| A version re-flows        | `AnimatePresence mode="popLayout"` on prose lines, ≤ 300 ms total |
-| Discs keep place on merge | `layout` on `PlaceMarker`; `layout={false}` while scrubbing       |
-| The act changes           | opacity and 4 px rise on the act's stage answer                   |
-| The search runs           | the existing per-frame render; the only continuous motion         |
+### 3. Let curiosity choose the depth
 
-Under reduced motion transforms are off and only opacity remains. No state is
-carried by motion alone: the merge accompanies the switch and the `In v2`
-mark, the version accompanies a changed content ID.
+After the first invitation, expose three understandable questions:
 
-## Effect and Effect Atom
+- What else could this place become? Scenario choice, brief, other proposal.
+- What changed, and who offered it? Contribution comparison and lineage.
+- How is this computed? Arrangement trials, source examples, package docs.
 
-The experience layer is three atoms beside the existing ones, all pure
-derivations or explicit effects:
+These are ordinary page landmarks and explicit controls, not compulsory steps
+or a new router. The underlying Compose / Propose / Record / Arrange names
+remain useful inside the technical explanation. Avoid automatic tab changes
+while someone is reading code: explicit selection owns their attention.
 
-- `placeActAtom`: `"arrive" | "compose" | "propose" | "record" | "build"`,
-  written by one `IntersectionObserver` effect over the act landmarks, read by
-  the stage.
-- `placeFocusAtom`: `Option<PlaceProvenance>`, a tagged union
-  (`Feature | Line | Signature | Version | Trial | CodeLine`) written by
-  hover and focus handlers, read by every surface that can answer.
-- `placeWorldAtom`: derived from `placeControlsAtom.scenario`; sets
-  `data-world` on `:root` through one effect so the tone is CSS, not props.
+Scenario choice is a small index of places with meaningful names and one-line
+descriptions, not a row of package-like chips. A scenario change changes
+composition and atmosphere together. Explain that it replaces the brief;
+do not add persistence or invent a saved-world workflow.
 
-Provenance answers are computed from `PlaceBuild` and the current
-`PlaceRendering` with `Match.exhaustive`; nothing is stored that can be
-derived.
+### 4. Reveal evidence without turning everything into an inspector
 
-## Work
+Selecting or focusing a feature can show its contributor, description, and
+available provenance in one contextual explanation. Hover is a preview, never
+the only access. On touch use an explicit details action; on compact screens
+place the explanation inline or in an accessible overlay with proper focus
+return. Do not make every prose line a tab stop.
 
-### Act 0 — Vocabulary (removes the cards)
+Show origin and current version as a readable relationship, with fingerprints
+and signature details at the next level. Keep cryptographic terminology in
+the evidence layer; explain its consequence in everyday language first.
+The source tab can highlight a relevant operation, but a source-code mapping
+is explanatory, not an execution trace. Do not claim line-level runtime
+provenance that the result contract does not supply.
 
-- [ ] `styles.css` `@theme inline`: `--color-rule`, `--color-rule-strong`,
-      `--color-instrument`, `--radius-instrument: 0.75rem`,
-      `--radius-control: 0.5rem`, with `--th-*` values in `:root` and
-      `:root.dark`.
-- [ ] `designSystem.ts`: `SurfaceRole` and `surfaceClassName(role)` via
-      `Match.exhaustive` replace the two remaining `surfaceMaterials`
-      (the zero-caller exports are already removed).
-- [ ] `StatusPill` → `InlineStatus`; `TagBadge` → `ParticipantName`;
-      `PackagePill` → `PackageName`; `ContentCard` removed from home and
-      `DocsPage.tsx`; `ContentCardShape`/`ContentCardDensity` removed.
-- [ ] `ArtifactStage.tsx`: `frame: "none" | "instrument"`; home uses `"none"`.
-- [ ] `SiteHeader.tsx`, `HeaderChrome.tsx`: text links, icon-only theme
-      toggle; `headerChromeSurfaceClassName` removed.
-- [ ] `test/worker/home.test.ts`: the rendered `canvas` role has no border,
-      radius or box shadow in computed style. Verification of the de-carding
-      itself is visual — screenshots at 1440 and 390 inspected in review — not
-      a test that counts bordered ancestors or `shadow-*` classes; a
-      structure-counting test pins today's markup and is exactly the kind of
-      governance test this repository removed.
+### 5. End with a possibility, not a catalog dump
 
-### Act 1 — The place is the page
+Connect the experience back to the libraries through a small authored account:
+structured composition, accountable contribution, reproducible arrangement.
+Give the interested builder source and documentation links at the point of
+interest, followed by a clear next action to explore the packages. Do not
+append a generic grid of capability cards, invented metrics, or social proof.
 
-- [ ] `HomePage.tsx`: glow layers removed; padding
-      `max-w-[88rem] px-5 sm:px-8 lg:px-12`; the stage is the first child
-      after the header.
-- [ ] `HomeHero.tsx` → `PlaceArrive.tsx`: `h1` in the lead role; place title
-      in the display role (`text-balance`, 44/50 at `sm`, 64/68 at `lg`);
-      atmosphere as lead; one filled action (`Read how it's built`), one text
-      action (`Browse the packages`).
-- [ ] `PlaceStage.tsx`: paper at full content width; `placeStageWidthAtom`
-      reads the content width; version knots rendered on the paper.
-- [ ] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`: `lg:grid-cols-[1fr_minmax(28rem,44rem)]`
-      with the stage `sticky top-6` in the first column; below `lg`, the stage
-      pins as a band (`sticky top-0`, `max-h-[40vh] min-h-[12rem]`) that
-      hides its prose via container query.
-- [ ] `test/worker/home.test.ts` — _the place is in the first viewport_: at
-      390×844 and 1440×900 the paper's top edge and at least one disc are
-      inside the viewport before any scroll.
+## Truth and state are part of the design
 
-### Act 2 — Voices and lineage
+The source already separates requested merge state from the last recorded
+build. Preserve this distinction in every visual treatment.
 
-- [ ] `PlaceProposalCard.tsx` → `PlaceProposal.tsx`: `article` with
-      `pl-4 border-l-2`; dashed neutral while declined, solid proposer tone
-      while accepted; sealed note as a fold that opens into a `blockquote`.
-- [ ] `PlaceProposals.tsx`: proposals anchored beside the prose line they
-      would add (`placeViewModel` exposes the anchor line index).
-- [ ] `PlaceLineage.tsx` → `PlaceStrand.tsx`: strand and knots; IDs in
-      technical type; the wash on version change stays.
-- [x] `ToggleSwitch` on Base UI `Switch`; `ChoicePills` on `RadioGroup` with
-      `appearance: "pill" | "segment"`; `TabBar` on `Tabs` (done on the
-      toolchain branch).
-- [ ] `TabBar`: the 2 px indicator; `ChoicePills` → `ChoiceGroup` rename.
-- [ ] `test/worker/home-demo.test.ts` — _keyboard reaches every control_:
-      scenario radio (arrows rebuild) → textarea → merge switch (Space) →
-      tabs (arrows change the panel) → trace slider, asserting active roles
-      in order.
+| State | Visible behavior |
+| --- | --- |
+| Initial build | Stable scene-sized space, readable context and loading status; no fabricated successful artifact |
+| Build ready, arranging | Actual artifact present; announce progress sparingly; distinguish arrangement from composition |
+| Visitor changes a decision | Switch acknowledges immediately; “Updating this version” accompanies the still-committed scene |
+| New build succeeds | New evidence and artifact become current together; then acknowledge the contribution visually |
+| Build fails | Keep the last good place identified as previous; preserve requested choice, explain failure and offer retry |
+| Rendering fails | Preserve the readable artifact and evidence; show rendering-specific retry, not a blank experience |
+| Rapid reversals/scenario changes | Latest request owns the result; stale response/animation cannot reintroduce an old feature or announce success |
+| Trial preview | Label the preview as a candidate, not a new signed version; provide an obvious return to the kept arrangement |
 
-### Act 3 — Motion
+Non-negotiable boundaries from current code:
 
-- [x] `package.json`: `motion` 13.x; `App.tsx`: `MotionConfig
-reducedMotion="user"` at the root (done on the toolchain branch).
-- [ ] `App.tsx`: `LazyMotion strict` with the theme's enter transition; motion
-      tokens in `styles.css`.
-- [ ] `PlaceMarker.tsx`: `m.button` with `layout` and
-      `layoutId="place-feature:<name>"`; `layout={false}` while
-      `placeTrialPreviewAtom` is `Some`.
-- [ ] `PlaceProposal.tsx`: the feature name carries the same `layoutId`
-      while declined.
-- [ ] `PlaceStage.tsx`: `AnimatePresence mode="popLayout"` on prose lines
-      keyed by version content ID; stagger 20 ms, total ≤ 300 ms, exit 120 ms.
-- [ ] `test/worker/home-demo.test.ts` — _a merged feature travels to the
-      stage_: after the toggle the disc exists and the proposal no longer
-      renders the name as a `layoutId` element; under
-      `emulateMedia({ reducedMotion: "reduce" })` no element in `main` has a
-      non-identity transform mid-transition.
+- Composer/proposer inference replies are recorded examples. Editing a brief
+  is not free-form live generation. Say so next to the editor, not only in code.
+- Digests, signatures, sealing and the browser arrangement search are real.
+  Do not imply externally verified identity or a real neighbor online now.
+- Lineage is origin/current for the build, not a durable accumulating session
+  history. The previous plan's “grow a knot on every merge” would misrepresent
+  it. Draw only versions that exist in `build.evidence.lineage`.
+- Stage width and trial selection are presentation-only and must not rebuild
+  or change content IDs. Removing borders must also correct drawable-width
+  budgeting; it is not only a class-name edit.
+- A note disclosure reveals a note already opened by the build. Do not stage a
+  fake key acquisition or claim the disclosure click performed cryptography.
 
-### Act 4 — Acts, provenance and weather
+## Responsive composition and access
 
-- [ ] `atoms/imagined-place-experience.ts`: `placeActAtom`, `placeFocusAtom`,
-      `placeWorldAtom`; `contracts/demo/imagined-place-provenance.ts`:
-      `PlaceProvenance` and `provenanceFor` over `PlaceBuild` and
-      `PlaceRendering`.
-- [ ] `PlaceStage.tsx`: act answers (ghost discs in Propose, version
-      distinction in Record); `PlaceProvenance.tsx`: one overlay that renders
-      any `PlaceProvenance`; disc popovers, ID tooltips and status pills fold
-      into it.
-- [ ] `PlaceHowItsBuilt.tsx`: code lines carry `data-provenance`; focus on a
-      line writes `placeFocusAtom`; a focused mark highlights its line.
-- [ ] `styles.css`: `--th-world-{unfinished-light,lost-market,drowned-library}-*`
-      for light and dark; `:root[data-world]` selects them; contrast checked
-      per world per theme against rendered colors in `test/worker/home.test.ts`.
-- [ ] `test/worker/home-demo.test.ts` — _every mark answers_: for each
-      `[data-provenance]` in `main`, hover shows an overlay naming a package;
-      the count of marks without provenance is zero. _The world changes the
-      air_: switching scenario changes `data-world` on `:root` and the
-      computed canvas colour, and text colour does not change.
+**Wide:** an asymmetric shared field. The place and immediate invitation are
+visible together. Supporting reading uses a narrower measure; provenance can
+occupy a quiet side region. Pin the scene only when the viewport has enough
+height to make it useful, without an empty column lasting several screens.
 
-### Act 5 — Responsive and environmental verification
+**Medium:** retain a purposeful place/decision pairing when it fits; otherwise
+recompose to a scene followed by its invitation. Do not wait for a familiar
+device breakpoint after the content has already become cramped.
 
-- [ ] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three worlds:
-      no element overflows; the paper and a disc are in the first viewport.
-- [ ] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
-      ≤ 3 lines; the pinned band never covers the focused control.
-- [ ] Forced colors: proposer rule, switch state, tab indicator and strand
-      knots stay visible without background colour.
-- [ ] Reduced motion: the search still renders per frame (it is a real
-      process), merges and version changes are opacity only, nothing else
-      moves.
-- [ ] Re-run the measurement above and record the after values in the table;
-      the target is ≤ 10 bordered elements and ≤ 4 shadows at 1440 with the
-      overlay closed.
+**Compact:** scene title and a useful excerpt/arrangement lead; a contribution
+follows closely. No permanently shrinking sticky scene taking 40% of the
+screen. Provide an explicit “Back to the place” anchor from deeper material
+if needed. Prefer document scrolling over nested prose scrolling; an expanded
+text view may complement, but never conceal, the readable artifact. Code can
+have its own labelled horizontal scroller.
 
-## Non-goals
+At high zoom, short landscape heights, or with a virtual keyboard, disable
+optional pinning. Preserve focus, draft and selected proposal across
+recomposition; do not mount two independent copies of the demo. Keep visual
+and keyboard reading order consistent rather than relying on CSS `order` to
+put the scene first while controls precede it in the DOM.
 
-- `/docs` beyond removing `ContentCard` and inheriting the header, footer and
-  type scale.
-- Demo content, scenarios, the server build or the arrangement search itself.
-- Parallax, scroll-linked transforms, particles, ambient animation, sound.
-- Any claim the build does not make: the page shows session keys, recorded
-  inference and a seeded search, and says so.
-- Adopting a shared external theme package; this work reshapes the app's own
-  `styles.css` and `designSystem.ts` so that a later adoption has less to
-  undo.
+Use real landmarks/headings, visible focus, Base UI radio/switch/tab mechanics,
+and comfortably sized targets (aim for 44px; validate WCAG 2.2 AA target-size
+requirements and exceptions). State has text/shape as well as color. Overlays
+must support Escape, dismissal, collision handling and return of focus. Avoid
+announcing all 36 search trials; announce meaningful completion or failure.
 
-## Done when
+Reduced motion receives the same information with a stable scene, static
+before/after distinction, and explicit trial stepping. Computation can finish
+without animating every intermediate arrangement. User-requested exploration
+must remain available. If automatic motion runs for more than five seconds
+alongside other content, provide appropriate pause/stop/hide behavior under
+WCAG 2.2.2; an animation is not exempt merely because its data is real.
+
+## Theme, components, and engineering ownership
+
+Three surface roles remain useful: canvas for the scene and reading;
+instrument for editable/code/trace regions; overlay for transient detail.
+They are a hierarchy aid, not a rule banning every border. Use whitespace,
+alignment, typography and selective rules first. Proposal authorship does not
+require a card; status does not require a pill; a section does not require a
+surface. Keep visible field boundaries and adequate control affordances.
+
+| Owner | Responsibility in this redesign |
+| --- | --- |
+| `view/home/HomePage.tsx`, `HomeHero.tsx`, `ImaginedPlaceDemo.tsx` | New arrival and progressive narrative composition; one demo instance |
+| `PlaceArrangement.tsx`, `PlaceStage.tsx`, `PlaceMarker.tsx`, `PlaceWalk.tsx` | Larger scene, readable artifact, feature identity and responsive arrangement |
+| `PlaceControls.tsx`, `PlaceProposals.tsx`, `PlaceProposalCard.tsx` | Immediate invitation, scenario index, attributed proposals, requested/recorded feedback |
+| `PlaceLineage.tsx`, `PlaceHowItsBuilt.tsx`, `placeViewModel.ts` | Honest origin/current relationship and contextual technical explanation |
+| `view/primitives/`, semantic-text contracts/generator, `styles.css` | Shared typography, surfaces, controls, color, spacing and motion vocabulary |
+| `atoms/imagined-place.ts`, `imagined-place-render.ts` | Existing build and render authorities; no duplicate presentation build |
+| `atoms/element-observation.ts`, browser platform services | Mount-scoped observation and cleanup, not durable pseudo-identities |
+
+Base UI owns keyboard/focus/overlay mechanics through existing primitives.
+React owns composition and rendering. Tailwind composes token-backed layout;
+CSS owns semantic theme and scenario atmosphere. Effect owns work, typed
+failures, interruption and cleanup; Effect Atom connects authoritative and
+derived state to the view. Motion owns short visual transitions, never the
+success state or the lifetime of a network request.
+
+Do not prescribe three new atoms before proving a need. Reuse the existing
+step state where appropriate; a shared focused feature needs only a stable
+identity derived against the current result. Hover/focus precedence must not
+erase keyboard selection. World atmosphere can be derived from the displayed
+artifact on the homepage root, avoiding a global `:root` mutation that leaks
+into Docs or changes before the new artifact arrives.
+
+Check the installed Motion feature bundle before choosing `LazyMotion` for
+shared layout; the former checklist's `domAnimation` assumption is not a
+verified layout-animation contract. Scope transition identity by scenario and
+stable feature identity, not just feature name. Avoid animating measured prose
+line layout every search frame. Profile the actual expensive boundary rather
+than adding a blanket GPU/3D solution.
+
+Shared header/footer/theme changes belong in this PR only where they establish
+the coherent new language. Inspect Docs consumers for regressions. Do not
+rewrite the docs information architecture, remove APIs with live callers,
+or adopt external theme/UI packages as an incidental dependency migration.
+
+## Standalone PR delivery plan
+
+This is one substantial homepage redesign, developed in reviewable stages—not
+a small de-carding PR represented as completion of the vision. Keep toolchain,
+deployment and unrelated library work out. No redesign code or PR has been
+published as part of this research revision.
+
+1. **Compose the signature experience first.** Build the new arrival plus one
+   real proposal-to-place interaction using existing result data. Establish
+   display/prose/technical hierarchy and the first scenario's art direction.
+   Review it rendered at 390 and 1440, including reduced motion. Reject it if
+   it still reads as the old dashboard without borders.
+2. **Author the complete place family.** Carry the composition through all
+   three scenarios and both themes. Make the scenario index and transitions
+   coherent. Retain a useful static/readable state and loading/error states.
+3. **Make participation and evidence continuous.** Recompose both proposals,
+   contribution consequence, origin/current relationship and contextual
+   details. Exercise pending, failed and rapidly reversed changes before
+   polishing motion. Keep the first action adjacent to its consequence.
+4. **Open the technical layer.** Integrate trial exploration, brief editing
+   disclosure, source tabs, references and package exits with progressive
+   depth. Preserve the resize/content-ID invariant and existing core flow.
+5. **Harden the whole composition.** Verify input modes, reflow, typography,
+   performance and shared-theme consumers. Remove obsolete home-only framing
+   and motion after callers are migrated; no speculative primitive framework.
+
+The first stage is a design validation checkpoint, not permission to stop with
+one polished scenario. The completed PR includes all three, the technical
+depth, failure states and responsive behavior.
+
+## Acceptance: prove the experience, not the component count
+
+### Human review
+
+- Without operating it, can a new visitor identify a specific place, what
+  Theoria is, and one thing they can try?
+- After one contribution, can they explain what changed and who offered it?
+- Can they distinguish a recorded example from live generation, and a trial
+  preview from a signed artifact?
+- Does each world have authored character beyond a palette swap? Is the page
+  recognizably different in composition from the old framed demonstration?
+- Is the experience compelling with motion disabled, and readable without
+  opening a detail overlay? Do Docs/source remain easy to reach?
+
+These are review questions, not claims that usability testing has occurred.
+Use short first-use sessions with non-author reviewers when available; record
+confusion and revise the interaction, rather than treating enthusiasm as proof.
+
+### Executed checks for the implementation
+
+- Arrival and interaction at 320, 390, 768, 1024, 1440 and 1920px; representative
+  short landscape height; all three scenarios in light/dark. At common 390×844
+  and 1440×900 sizes, show meaningful place content and a clear invitation in
+  the opening composition. At enlarged text prioritize readable flow over an
+  artificial fold target.
+- 200% text/zoom and 320px effective reflow: no page overflow, obscured focus,
+  clipped controls, or unreadable scene; code overflow is local and labelled.
+- Keyboard-only scenario selection, merge reversal, note/details dismissal,
+  source tabs and trial stepping; touch equivalents for every hover affordance.
+  Inspect accessibility names, reading order, focus return and live feedback.
+- Pending/failed initial build, failed rebuild with last good artifact, render
+  retry, scenario switch during build, repeated merge reversals, trial preview
+  followed by a new result, and viewport change during search.
+- Reduced motion and forced colors across the contribution and search flow;
+  actual contrast checks for text and controls in each world/theme. Do not
+  treat `MotionConfig` or a screenshot as proof of these behaviors.
+- Confirm width-only changes issue no build request and preserve IDs; confirm
+  successful merge changes reflect actual evidence rather than optimistic
+  animation state. Cover these in the existing behavioral tests.
+- Profile initial load and active search under mobile CPU throttling; compare
+  request count, transferred assets, layout shifts and interaction stalls
+  against baseline. Avoid duplicate searches from duplicate scene mounts;
+  defer syntax highlighting/technical work where practical. Capture measured
+  regressions before adding dependencies or committing to heavier artwork.
+- Inspect representative Docs pages after shared token/chrome edits.
+
+Use `test/worker/home.test.ts` and `home-demo.test.ts` for browser behavior and
+the existing atom/contract tests for state invariants. Do not add tests that
+count wrappers, assert Tailwind strings, or inspect Motion `layoutId` props.
+Keep before/after representative screenshots and a short contribution clip
+only where timing needs review; inspect them, not merely capture them.
+
+Implementation gates:
 
 ```bash
 bun run check:all && bun run lint && bun run test && bun run build
-bun run check:apps && bun run test:apps && bun run --filter @theoria/theoria-app test:worker
+bun run check:apps && bun run test:apps
+bun run --filter @theoria/theoria-app test:worker
 ```
 
-and a visitor at 390×844 with reduced motion on sees the place, a disc and the
-version before scrolling, can merge a proposal from the keyboard and watch the
-prose change, and can ask any mark on the page how it knows.
+The research revision itself changes this document only. It does not claim
+those implementation gates, accessibility conformance, performance targets,
+or the redesigned experience have passed.
