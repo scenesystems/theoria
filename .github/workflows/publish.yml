@@ -54,18 +54,26 @@ jobs:
 
       - uses: ./.github/actions/setup
 
+      # `version` when unreleased changesets exist, `publish` when a package version is
+      # missing from npm, `none` when the registry already matches the repository.
+      - name: Select the Changesets mode
+        id: mode
+        uses: changesets/action/select-mode@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+
       - name: Refuse to publish with pending changesets
-        shell: bash
+        if: steps.mode.outputs.mode == 'version'
         run: |
-          pending=$(find .changeset -maxdepth 1 -type f -name '*.md' ! -name 'README.md' -print -quit)
-          if [ -n "$pending" ]; then
-            echo "::error::Pending changesets remain. Merge the Version Packages PR before publishing."
-            exit 1
-          fi
+          echo "::error::Pending changesets remain. Merge the Version Packages PR before publishing."
+          exit 1
+
+      - name: Report an already published release
+        if: steps.mode.outputs.mode == 'none'
+        run: echo "::notice::Every package version is already published."
 
       # The publish sub-action reads the tags `changeset publish` reports through
       # CHANGESETS_OUTPUT, then pushes them and creates a GitHub release per package.
       - name: Publish unpublished package versions
+        if: steps.mode.outputs.mode == 'publish'
         uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
           github-token: ${{ steps.app-token.outputs.token }}
