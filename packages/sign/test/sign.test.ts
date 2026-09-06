@@ -16,9 +16,10 @@ import { ed25519Keygen } from "../src/algorithms/ed25519.js"
 import { mlDsa44Keygen, mlDsa87Keygen } from "../src/algorithms/mlDsa.js"
 import { secp256k1EcdsaKeygen, secp256k1SchnorrKeygen } from "../src/algorithms/secp256k1.js"
 import { slhDsaSha2128fKeygen } from "../src/algorithms/slhDsa.js"
+import { utf8ToBytes } from "../src/encoding.js"
 import { sign, verify } from "../src/sign.js"
 
-const message = new TextEncoder().encode("unified pipeline test")
+const message = utf8ToBytes("unified pipeline test")
 
 describe("Unified sign/verify pipeline", () => {
   it.effect("sign('ed25519') → verify roundtrip", () =>
@@ -79,7 +80,7 @@ describe("Unified sign/verify pipeline", () => {
     Effect.gen(function*() {
       const kp = yield* ed25519Keygen()
       const sig = yield* sign("ed25519", message, kp.secretKey, kp.publicKey)
-      const wrongMessage = new TextEncoder().encode("wrong message")
+      const wrongMessage = utf8ToBytes("wrong message")
       const valid = yield* verify(sig, wrongMessage)
       expect(valid).toBe(false)
     }))

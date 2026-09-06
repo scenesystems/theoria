@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, Ref } from "effect"
+import { Data, Effect, Either, Layer, Ref } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
@@ -69,9 +69,14 @@ class EmojiCanvasContext {
   }
 }
 
+/** What a detached 2D context raises from `measureText`: an `InvalidStateError`. */
+class InvalidStateError extends Data.TaggedError("InvalidStateError")<{ readonly message: string }> {}
+
 /**
- * A host context whose `measureText` raises a `DOMException`, as a detached 2D
- * context does. The host raises it: cloning a function is a `DataCloneError`.
+ * A host context whose `measureText` raises, as a detached 2D context does.
+ * The double is on the host side of the boundary, so the failure is raised the
+ * way a host function raises: `Either.getOrThrowWith` is Effect's way to do
+ * that without a `throw` of its own.
  */
 class DetachedCanvasContext {
   direction: "ltr" | "rtl" | "inherit" = "inherit"
@@ -79,7 +84,10 @@ class DetachedCanvasContext {
   textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom" = "alphabetic"
 
   measureText(text: string): { readonly width: number } {
-    return structuredClone({ width: text.length, detached: () => text })
+    return Either.getOrThrowWith(
+      Either.left(text),
+      (detached) => new InvalidStateError({ message: `The canvas measuring "${detached}" is detached.` })
+    )
   }
 }
 
@@ -356,7 +364,9 @@ describe("Text browser runtime contracts", () => {
 
       expect(failure).toBeInstanceOf(Errors.MeasurementFailed)
       expect(failure.text).toBe("alpha")
-      expect(failure.reason).toContain("measureText threw DataCloneError")
+      expect(failure.reason).toContain(
+        "measureText threw InvalidStateError: The canvas measuring \"alpha\" is detached."
+      )
       expect(context.font).toBe("10px monospace")
       expect(context.direction).toBe("inherit")
       expect(context.textBaseline).toBe("alphabetic")

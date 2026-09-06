@@ -19,9 +19,10 @@ import {
   secp256k1SchnorrSign,
   secp256k1SchnorrVerify
 } from "../../src/algorithms/secp256k1.js"
+import { utf8ToBytes } from "../../src/encoding.js"
 
 describe("secp256k1 ECDSA — algorithm contracts", () => {
-  const message = new TextEncoder().encode("hello secp256k1")
+  const message = utf8ToBytes("hello secp256k1")
 
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {
@@ -74,7 +75,7 @@ describe("secp256k1 ECDSA — algorithm contracts", () => {
 })
 
 describe("secp256k1 Schnorr (BIP-340) — algorithm contracts", () => {
-  const message = new TextEncoder().encode("hello schnorr")
+  const message = utf8ToBytes("hello schnorr")
 
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {

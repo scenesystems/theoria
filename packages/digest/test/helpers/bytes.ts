@@ -1,28 +1,39 @@
 /**
- * Hex-to-bytes conversion for test vectors.
- *
- * Pure utility — no Effect dependency. Converts hex string
- * golden vectors into Uint8Array for comparison with digest
- * output.
+ * Byte conversions for test vectors: hex golden vectors into `Uint8Array`,
+ * fixture text into UTF-8 bytes, and UTF-8 bytes back into text through an
+ * oracle independent of the package's encoder.
  *
  * @internal
  * @since 0.1.0
  * @category test-helpers
  */
-import { Array as Arr } from "effect"
+import type { Effect } from "effect"
+import { Array as Arr, Stream } from "effect"
 
-const fixtureTextEncoder = new TextEncoder()
+import { encodeUtf8Unchecked } from "../../src/internal/unicode.js"
 
 /**
  * Encode known well-formed fixture text as UTF-8 bytes.
  *
  * Use the public effectful encoder in tests that exercise text behavior. This
- * helper exists only to prepare fixed raw-byte cryptographic vectors.
+ * helper exists only to prepare fixed raw-byte cryptographic vectors, so it
+ * uses the package's unchecked encoder directly.
  *
  * @since 0.3.0
  * @category test-helpers
  */
-export const encodeFixtureUtf8 = (text: string): Uint8Array => fixtureTextEncoder.encode(text)
+export const encodeFixtureUtf8 = (text: string): Uint8Array => encodeUtf8Unchecked(text)
+
+/**
+ * Decode UTF-8 bytes with the runtime's decoder, reached through Effect's
+ * `Stream.decodeText`. It is the oracle the encoder's round-trip laws are
+ * checked against, so it deliberately does not go through the package.
+ *
+ * @since 0.3.0
+ * @category test-helpers
+ */
+export const decodeUtf8 = (bytes: Uint8Array): Effect.Effect<string> =>
+  Stream.decodeText(Stream.make(bytes)).pipe(Stream.mkString)
 
 /**
  * Convert hex string to Uint8Array.

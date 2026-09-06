@@ -1,4 +1,4 @@
-import { HttpClient, HttpClientResponse } from "@effect/platform"
+import { HttpClient, HttpClientResponse, HttpServerResponse } from "@effect/platform"
 import { Effect, Layer } from "effect"
 
 import { DocsClient } from "../../app/web/services/DocsClient.js"
@@ -14,10 +14,7 @@ export const staticHttpClient = (body: (path: string) => string): Layer.Layer<Ht
       Effect.succeed(
         HttpClientResponse.fromWeb(
           request,
-          new Response(body(url.pathname), {
-            status: 200,
-            headers: { "content-type": "application/json" }
-          })
+          HttpServerResponse.toWeb(HttpServerResponse.text(body(url.pathname), { contentType: "application/json" }))
         )
       )
     )

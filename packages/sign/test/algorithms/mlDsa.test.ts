@@ -25,9 +25,10 @@ import {
   mlDsa87Sign,
   mlDsa87Verify
 } from "../../src/algorithms/mlDsa.js"
+import { utf8ToBytes } from "../../src/encoding.js"
 import { hasInvalidMlDsa65HintEncoding } from "../../src/internal/mlDsa65.js"
 
-const message = new TextEncoder().encode("post-quantum hello")
+const message = utf8ToBytes("post-quantum hello")
 const EMPTY_CONTEXT = new Uint8Array(0)
 
 describe("ML-DSA-44 — algorithm contracts", () => {

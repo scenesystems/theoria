@@ -8,7 +8,7 @@ import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import type * as PlatformError from "@effect/platform/Error"
 import type { ParseResult } from "effect"
-import { Array as Arr, Console, Data, Effect, Either, Option, Schema } from "effect"
+import { Array as Arr, Console, Data, Effect, Either, Option, Schema, Stream } from "effect"
 
 import { digestBytesHex } from "../src/convenience.js"
 import {
@@ -35,7 +35,8 @@ class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
   }
 }
 
-const toText = (bytes: Uint8Array): string => new TextDecoder().decode(bytes)
+/** The fixture bytes as text; the same bytes are hashed, so the file is read once. */
+const toText = (bytes: Uint8Array): Effect.Effect<string> => Stream.decodeText(Stream.make(bytes)).pipe(Stream.mkString)
 
 const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => digestBytesHex("sha256", bytes)
 
@@ -46,7 +47,7 @@ const readJsonContent = (
 ): Effect.Effect<string, FixtureCheckError, FileSystem.FileSystem> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const bytes = yield* fileSystem.readFile(absolutePath).pipe(
+    const content = yield* fileSystem.readFileString(absolutePath).pipe(
       Effect.mapError((error) =>
         new FixtureCheckError({
           name: "read",
@@ -56,8 +57,6 @@ const readJsonContent = (
         })
       )
     )
-
-    const content = toText(bytes)
 
     yield* decodeUnknownJson(content).pipe(
       Effect.mapError((error) =>
@@ -152,7 +151,7 @@ const program = Effect.gen(function*() {
           })
         )
       )
-      const content = toText(bytes)
+      const content = yield* toText(bytes)
 
       yield* validateFixtureByKind(source.kind, content).pipe(
         Effect.mapError((error) =>

@@ -162,14 +162,37 @@ export const BROWSER_GLOBALS = [
     "KeyboardEvent",
     "TouchEvent",
     "FocusEvent"
-  ].map(windowMember)
+  ].map(windowMember),
+  {
+    name: "TextEncoder",
+    message: "Do not construct 'TextEncoder'. Use the package's UTF-8 encoder or Stream.encodeText from 'effect'."
+  },
+  {
+    name: "TextDecoder",
+    message: "Do not construct 'TextDecoder'. Use Stream.decodeText from 'effect' or FileSystem.readFileString."
+  },
+  {
+    name: "structuredClone",
+    message: "Do not call 'structuredClone'. Effect data is immutable; copy with a spread or Struct.evolve."
+  },
+  {
+    name: "Request",
+    message:
+      "Do not construct 'Request'. Build requests with HttpClientRequest; the platform module owns the one web Request the server request fixture needs."
+  },
+  {
+    name: "Response",
+    message:
+      "Do not construct 'Response'. Build it with HttpServerResponse and hand it over with HttpServerResponse.toWeb."
+  }
 ]
 
 /**
  * Host globals that Effect or `@effect/platform*` already model as services.
- * Web `Request`/`Response` construction is not banned:
- * `HttpServerRequest.fromWeb` and `HttpClientResponse.fromWeb` are Effect's
- * designed interop seam and its own tests build fixtures this way.
+ * The web `Request`, `Response`, `TextEncoder`, `TextDecoder` and
+ * `structuredClone` constructors are in `BROWSER_GLOBALS` above: they are
+ * scope-aware bans, so a `Response` imported from `@effect/ai` or a type
+ * annotation is untouched, while a global reference is reported.
  */
 export const HOST_GLOBAL_RULES = [
   {

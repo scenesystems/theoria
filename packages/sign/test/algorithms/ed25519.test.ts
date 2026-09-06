@@ -12,9 +12,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { ed25519Keygen, ed25519Sign, ed25519Verify } from "../../src/algorithms/ed25519.js"
+import { utf8ToBytes } from "../../src/encoding.js"
 
 describe("Ed25519 — algorithm contracts", () => {
-  const message = new TextEncoder().encode("hello noble")
+  const message = utf8ToBytes("hello noble")
 
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {

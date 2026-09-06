@@ -17,6 +17,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import { hkdfSha256 } from "../src/kdf.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
+import { encodeFixtureUtf8 } from "./helpers/bytes.js"
 import { hkdfSha256Vectors } from "./helpers/vectors/hkdf.vectors.js"
 
 describe("hkdfSha256 — RFC 5869 vectors", () => {
@@ -57,8 +58,8 @@ describe("hkdfSha256 — behavioral contracts", () => {
   it.effect("different info strings produce different derived keys", () =>
     Effect.gen(function*() {
       const { ikm, salt } = hkdfSha256Vectors.case1
-      const infoA = new TextEncoder().encode("context-a")
-      const infoB = new TextEncoder().encode("context-b")
+      const infoA = encodeFixtureUtf8("context-a")
+      const infoB = encodeFixtureUtf8("context-b")
       const a = yield* hkdfSha256(ikm, salt, infoA, 32)
       const b = yield* hkdfSha256(ikm, salt, infoB, 32)
       expect(a).not.toEqual(b)

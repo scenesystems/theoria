@@ -13,9 +13,9 @@ import { canonicalJsonBytes } from "../src/convenience.js"
 import { encodeUtf8 } from "../src/encoding.js"
 import { utf8ByteLengthUnchecked } from "../src/internal/unicode.js"
 import { InvalidUnicode } from "../src/schemas/errors.js"
+import { decodeUtf8 } from "./helpers/bytes.js"
 
 const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })
-const utf8Decoder = new TextDecoder("utf-8", { fatal: true })
 
 describe("encodeUtf8", () => {
   it.effect("keeps an astral scalar intact across the canonical byte segment boundary", () =>
@@ -24,8 +24,7 @@ describe("encodeUtf8", () => {
       const canonical = yield* canonicalize(value)
       const bytes = yield* canonicalJsonBytes(value)
 
-      expect(bytes).toStrictEqual(new TextEncoder().encode(canonical))
-      expect(new TextDecoder().decode(bytes)).not.toContain("�")
+      expect(yield* decodeUtf8(bytes)).toBe(canonical)
     }))
 
   it.effect("encodes ASCII BMP and astral text to exact UTF-8 bytes", () =>
@@ -98,7 +97,7 @@ describe("encodeUtf8", () => {
     ([text]) =>
       Effect.gen(function*() {
         const encoded = yield* encodeUtf8(text)
-        expect(utf8Decoder.decode(encoded)).toBe(text)
+        expect(yield* decodeUtf8(encoded)).toBe(text)
       }),
     { fastCheck: { numRuns: 200 } }
   )

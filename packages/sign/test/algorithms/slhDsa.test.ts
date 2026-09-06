@@ -21,8 +21,9 @@ import {
   slhDsaSha2128sSign,
   slhDsaSha2128sVerify
 } from "../../src/algorithms/slhDsa.js"
+import { utf8ToBytes } from "../../src/encoding.js"
 
-const message = new TextEncoder().encode("hash-based hello")
+const message = utf8ToBytes("hash-based hello")
 
 describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
   it.effect("sign → verify roundtrip", () =>

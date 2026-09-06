@@ -1,4 +1,5 @@
-import { Headers, HttpServerRequest, HttpServerResponse } from "@effect/platform"
+import type { HttpServerRequest } from "@effect/platform"
+import { Headers, HttpServerResponse } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
 import { Data, Effect, Layer, Ref, Schema } from "effect"
 import * as Arr from "effect/Array"
@@ -9,6 +10,7 @@ import { PlaceBuildLimiter, refused, unlimited } from "../../app/server/config/p
 import { RuntimeInfo } from "../../app/server/config/runtime.js"
 import { ParticipantsLive } from "../../app/server/imagined-place/authority.js"
 import { imaginedPlacePath, imaginedPlaceRoute } from "../../app/server/routes/imagined-place.js"
+import { serverRequest } from "./platform/web-request.js"
 
 const RuntimeInfoTest = Layer.succeed(RuntimeInfo, { buildSha: "test-sha", startedAtMs: 0 })
 const RouteLive = Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, unlimited)
@@ -34,17 +36,16 @@ const responseText = (response: HttpServerResponse.HttpServerResponse) =>
     catch: (cause) => new UnreadableBody({ cause })
   })
 
-const request = (init: RequestInit) =>
-  HttpServerRequest.fromWeb(new Request(`http://127.0.0.1${imaginedPlacePath}`, init))
+const request = (init: RequestInit) => serverRequest(`http://127.0.0.1${imaginedPlacePath}`, init)
 
 const jsonBody = (body: string) => request({ method: "POST", body, headers: { "content-type": "application/json" } })
 
 /** `sec-fetch-site` is a forbidden header for `Request`, so it is set on the server request directly. */
-const crossSite = (serverRequest: HttpServerRequest.HttpServerRequest) =>
-  serverRequest.modify({ headers: Headers.set(serverRequest.headers, "sec-fetch-site", "cross-site") })
+const crossSite = (incoming: HttpServerRequest.HttpServerRequest) =>
+  incoming.modify({ headers: Headers.set(incoming.headers, "sec-fetch-site", "cross-site") })
 
-const call = (serverRequest: HttpServerRequest.HttpServerRequest, layer: typeof RouteLive = RouteLive) =>
-  imaginedPlaceRoute(serverRequest, "req-1").pipe(
+const call = (incoming: HttpServerRequest.HttpServerRequest, layer: typeof RouteLive = RouteLive) =>
+  imaginedPlaceRoute(incoming, "req-1").pipe(
     Effect.flatMap((response) =>
       responseText(response).pipe(
         Effect.flatMap(decodeEnvelope),

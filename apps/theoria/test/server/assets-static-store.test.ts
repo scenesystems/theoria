@@ -21,12 +21,16 @@ const bindingOffline = Effect.map(Effect.runtime(), (runtime) =>
     fetch: () => Runtime.runPromise(runtime)(Effect.fail(new BindingOffline({ message: "binding offline" })))
   }))
 
-const statusByPath = (pathname: string): Response => {
-  if (pathname === "/present.txt") return new Response("hello", { headers: { "content-type": "text/plain" } })
-  if (pathname === "/forbidden.txt") return new Response("denied", { status: 403 })
-  if (pathname === "/broken.txt") return new Response("boom", { status: 500 })
-  return new Response("", { status: 404 })
+/** The binding's answer for a path, built as a server response. */
+const answerFor = (pathname: string): HttpServerResponse.HttpServerResponse => {
+  if (pathname === "/present.txt") return HttpServerResponse.text("hello", { contentType: "text/plain" })
+  if (pathname === "/forbidden.txt") return HttpServerResponse.text("denied", { status: 403 })
+  if (pathname === "/broken.txt") return HttpServerResponse.text("boom", { status: 500 })
+  return HttpServerResponse.empty({ status: 404 })
 }
+
+/** The binding's answer handed over as the web `Response` the binding returns. */
+const statusByPath = (pathname: string): Response => HttpServerResponse.toWeb(answerFor(pathname))
 
 const bodyText = (response: HttpServerResponse.HttpServerResponse) =>
   Effect.tryPromise(() => HttpServerResponse.toWeb(response).text())
