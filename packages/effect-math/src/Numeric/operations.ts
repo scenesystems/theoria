@@ -363,15 +363,14 @@ export const unsafeDivideValidated = (input: unknown) =>
         })
       )
     )
-    return yield* Effect.filterOrFail(
-      Effect.succeed(EffectNumber.divide(decoded.dividend, decoded.divisor)),
-      Option.isSome,
-      () =>
+    return yield* Option.match(EffectNumber.divide(decoded.dividend, decoded.divisor), {
+      onNone: () =>
         new NumericDomainViolationError({
           operation: "unsafeDivide",
           message: `Division by zero: ${decoded.dividend} / ${decoded.divisor}`
-        })
-    ).pipe(Effect.map(Option.getOrThrow))
+        }),
+      onSome: Effect.succeed
+    })
   })
 
 /**
