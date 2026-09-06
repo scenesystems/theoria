@@ -1,9 +1,42 @@
 # Theoria homepage: an imagined place you can change
 
-Status: researched experience direction and implementation brief, revised
-2026-09-06. This supersedes the earlier surface-migration checklist. It is
-the brief for the standalone homepage redesign PR following the foundation
-work in PR #85, not a claim that the redesign is implemented.
+Status: corrective planning proposal, 2026-09-06, following user rejection of
+the unapproved identity change and consultation with the Oracle. This replaces
+the earlier creative permissions; it is not an approved design or permission
+to resume implementation. The homepage remains a standalone PR after PR #85.
+
+## Scope and approval authority
+
+Substantially redesign composition and interactions while preserving Theoria's
+established identity: **Figtree display/body, JetBrains Mono technical text,
+and the cool blue-white/light and blue-black/dark palette family**. A better
+homepage is not a new brand. Theoria remains the product name.
+
+Identity preservation does not freeze quality. Improve hierarchy, contrast,
+semantic roles, spacing, responsive type scale, readable measures, controls,
+focus and necessary engineering foundations against demonstrated experience
+requirements. Existing code and passing tests do not excuse inadequate quality.
+
+Replacing font families, changing the base palette/material language, or a
+broader visual rebrand requires separate explicit user approval **before**
+implementation, including homepage-only substitutions. Shared improvements
+must identify their quality gap, affected consumers and before/after evidence;
+they must not incidentally redesign Docs. Ambiguous identity changes need a
+comparison and a decision, not an implementer's unilateral interpretation.
+
+Research, agent recommendations, rendered comparisons and green tests do not
+constitute human design approval. The user first authorizes bounded discovery
+(Gate 1A), then selects a named comparison-board revision and authorizes its
+production slice after feasibility decisions (Gate 1B). A named rendered slice
+needs approval before expansion (Gate 2), as does the final integrated experience
+(Gate 3). Material departures reopen that approval.
+
+The coordination failure was converting “existing code is not the quality
+ceiling” into unrestricted visual replacement, then treating agent inspection
+as approval. Newsreader and warm-paper/green-black treatments were not approved.
+The regroup code baseline is
+[`9c3f99f`](https://github.com/scenesystems/theoria/commit/9c3f99fc7b378896d5325994c5067cb361aaa7fc).
+Failed work is preserved separately, not part of the renewed baseline.
 
 ## The ambition
 
@@ -22,8 +55,9 @@ Theoria is the repository/product name used here; “Etheria” in the request
 is not treated as authorization to rename it.
 
 Removing nested cards is necessary but insufficient. An unboxed dashboard is
-still a dashboard. Success requires a new arrival, art direction, narrative
-hierarchy, participatory moment, and route into technical depth. The existing
+still a dashboard. Success requires a new arrival, composition within the
+established identity, narrative hierarchy, participatory moment, and route into
+technical depth. The existing
 Compose / Propose / Record / Arrange pipeline becomes the explanation beneath
 the experience, not the experience's mandatory navigation structure.
 
@@ -75,8 +109,11 @@ become requirements for Theoria.
 
 ### External principles and how we use them
 
+The source-reading notes in this section describe the pre-experiment research,
+not new external verification during this corrective revision.
+
 - [Bret Victor, Explorable Explanations](https://worrydream.com/ExplorableExplanations/)
-  (read directly for this revision): integrate exploration into an authored
+  (read directly during that research): integrate exploration into an authored
   explanation. Do not dump people into an empty sandbox. A visitor who does
   not interact should still understand the example; interaction answers their
   next question. The 2024 postscript emphasizes inspectable computational
@@ -107,9 +144,9 @@ become requirements for Theoria.
 These references support principles, not a collage of other products' styles.
 The creative direction below is a recommendation for this demo.
 
-## Current experience: observation versus inference
+## Historical baseline observations versus inference
 
-This revision inspected the running local application in Chromium, including
+The pre-experiment research inspected the running application in Chromium, including
 1440×900 light arrival, the scrolled desktop demo, and 390×844 dark arrival.
 The scenario radios, merge switches, tabs, marker buttons, and trial slider
 are present in the accessibility snapshot. A merge switch was exercised; this
@@ -138,67 +175,103 @@ measurements, not re-measured numbers in this revision. They diagnose repeated
 containment; they are not acceptance budgets. Removing useful focus outlines
 to hit a border target would make the page worse.
 
-## Recommended creative direction: a living atlas
+## Composition hypotheses for user selection
 
-Considered alternatives:
+Neither option below is approved. Compare them with the same actual content,
+Figtree/JetBrains Mono, cool palette, navigation, viewport and contribution
+states. Do not compare a polished favorite with an intentionally plain foil.
 
-| Direction                               | Strength                                                                     | Why it is not the whole answer                                      |
-| --------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Unframed editorial laboratory           | Clear and technically credible                                               | Still primarily an explanation of tools                             |
-| Cinematic world portal                  | Immediate emotional scale                                                    | Risks unrelated scenery, heavy rendering, and a passive visitor     |
-| Living atlas with a participatory scene | Place, human contribution, and inspectable computation share one composition | Requires authored scenario treatment and careful causal interaction |
+Before production visual implementation, the coordinator records one selected direction
+and its user approval reference. A comparison must show, for each hypothesis,
+the same first scenario at 390×844 and 1440×900, both themes, default and
+accepted-program states, plus compact pending and static/reduced-motion states.
+Use storyboards for this pre-implementation decision; do not quietly build both
+directions in production. Show title/prose/offer placement, reading order,
+shared-token changes (if any), and access to complete text and evidence.
 
-Choose the third. “Atlas” describes a spatial/literary reading experience,
-not a generic map dashboard. The page is a broad field containing a place,
-its words, and the people/programs contributing to it. It has a recognizable
-silhouette even with labels and controls removed. It should not look like
-the old page with its rectangles erased.
+**No board is approved yet.** Neither the recommendation below nor any previous
+agent screenshot is an executable design specification. Under discovery
+authorization, the single visual owner authors proposed roles/metric values or
+ranges, reading measures, spacing, primary action, responsive recomposition and
+identity-compatible illustration. These are outputs for review, not information
+the user must supply before design work can begin. The technical owner probes
+the proposed metric envelope; the selected board records the resulting choices.
+An unfilled field blocks production visual dispatch, not the comparison task
+whose purpose is to resolve it. Nobody fills it with an unapproved font/theme.
 
-### Art direction, not just color themes
+| Hypothesis                       | Strength                                                                                              | Risk / rejection criterion                                                                                        |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Shared place field (recommended) | Place, prose, contribution and its consequence form one expansive composition                         | Reject if it becomes empty scenery, a larger old diagram, or separates action from consequence on compact screens |
+| Place-led living document        | Readable place prose leads, with attributed contributions inline/on the margin and arrangement nearby | Reject if it feels like documentation with fewer borders rather than somewhere to participate                     |
 
-The target experience sets the standard; the repository does not set its
-ceiling. Existing typography, theme tokens, primitives, layouts and interaction
-patterns must be assessed against the desired production-grade result. Retain
-them only where they meet it; enhance or replace them where they do not.
-Theme and design-system improvements are core work in this redesign, not
-optional polish after the homepage is assembled. Neither existing code nor
-passing tests excuse an unresolved visual, interactive or engineering gap.
+The preferred shared-field hypothesis puts a large Figtree place title, actual
+evocative summary, open measured arrangement and adjacent attributed offer in
+one asymmetric composition. Theoria's purpose and Docs/GitHub exits remain
+clear. On compact screens, a useful excerpt/scene and decision lead; the full
+tall arrangement must not push the first action far away. One scene recomposes.
+The alternative leads with the place's readable prose, integrating decisions
+into its reading structure rather than leading with the spatial arrangement.
 
-The three scenarios need different compositional character as well as palette:
+“Living atlas” was an agent metaphor, not a user mandate or permission for
+parchment, serif branding or a map dashboard. The preferred hypothesis changes
+the visitor's relationship to the demo, not the brand. It should not look like
+the old page with its rectangles erased. Use the visitor targets below to choose.
 
-| Place            | Spatial and material direction                                                                                                                             | Emotional quality                                             |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Unfinished Light | A long interval of open space, a restrained light-bearing focal point, a causeway-like reading direction, warm letter-like prose against cool surroundings | Solitude made sustaining through other people's participation |
-| Lost Market      | Unequal gatherings and meeting points, warmer mineral/paper tones, denser but deliberate typographic rhythm                                                | Curiosity, exchange, unexpected recognition                   |
-| Drowned Library  | Spacious depth, quiet layered edges and cool ink, measured interruptions in the reading field                                                              | Discovery, care, the persistence of knowledge                 |
+### Ambitious composition within the established identity
 
-Keep the actual artifact's words and feature identities authoritative. Authored
-atmosphere is illustration, not evidence of a simulation or invented spatial
-facts. Choose typography, imagery and rendering techniques for their ability
-to realize the art direction, not because they are already installed or
-fashionable. CSS/SVG, authored assets and more capable rendering approaches
-are candidates to evaluate against visual quality, accessibility, performance
-and maintainability. Do not add spectacle merely to make the concept feel
-expensive, or settle for inadequate geometry merely because it exists. Assets
-need a specific role, rights/provenance, responsive treatment and loading budget.
+The target experience sets the quality standard. Improve typography hierarchy,
+theme semantics, primitives, layout and interactions without replacing the
+established families and color identity. Theme/design-system quality is core
+work, not optional polish. Retaining identity is an explicit requirement;
+retaining inadequate implementation is not. New APIs need a concrete purpose.
 
-Use three visual registers: expressive place title, humane readable prose,
-and quiet technical annotation. Select faces, scale, weight and spacing through
-rendered comparison against the intended character; the current font is a
-candidate, not a prerequisite. Improve semantic-text roles and generation
+Proposed scenario character comes from content, spatial rhythm and bounded
+illustration, not replacement palettes. These are comparison ideas, not approved
+artwork or permission to alter measured feature coordinates:
+
+| Place            | Spatial and material direction                                                                | Emotional quality                                             |
+| ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Unfinished Light | A long interval of open space, a restrained focal point and a causeway-like reading direction | Solitude made sustaining through other people's participation |
+| Lost Market      | Unequal gatherings and meeting points with denser but deliberate typographic rhythm           | Curiosity, exchange, unexpected recognition                   |
+| Drowned Library  | Spacious depth, quiet layered edges and cool ink, measured interruptions in the reading field | Discovery, care, the persistence of knowledge                 |
+
+Keep actual artifact words and feature identities authoritative. Illustration
+is not evidence of simulation or invented spatial facts. Proposed assets need
+a specific content role, reviewed identity-compatible treatment, rights,
+responsive behavior and loading budget. Do not add spectacle to imply quality
+or settle for inadequate geometry merely because it exists. No new rendering
+engine or asset dependency is presumed necessary before profiling the need.
+
+Use three visual registers: expressive Figtree place title, readable Figtree
+prose, and quiet JetBrains Mono technical annotation. Compare scale, weight,
+leading and spacing within those families. Improve semantic-text roles and generation
 where needed, keeping one typography authority rather than independent manual
 edits to generated CSS.
 Body prose remains on a readable measure; an expansive canvas does not mean
 150-character lines. Large-screen whitespace should establish distance and
 relationship, not simply stretch a narrow component.
 
-Light and dark are separately art-directed environments, not just inverse
-backgrounds. Scenario color must never replace participant identity, selected
+Light and dark need independently verified hierarchy, contrast and interaction
+states within the established cool palette, not independently invented brands.
+Scenario treatment must never replace participant identity, selected
 state, error meaning, or readable text contrast. Hover and focus should feel
 precise and local: a mark, rule, or label answers attention without lifting a
 whole region into another card.
 
 ## The visitor's experience
+
+The following targets apply to either hypothesis; proposed copy is not final.
+
+| Moment       | Observable outcome                                                                                                                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Arrival      | At ordinary 390×844 and 1440×900, a specific place, meaningful content, Theoria's purpose, recorded-example disclosure and real invitation are apparent. At enlarged text, readable flow takes priority over fold manipulation. |
+| Contribution | Feature, proposer and reversible decision are understandable without a tutorial. Controls acknowledge intent immediately without claiming build success.                                                                        |
+| Recognition  | The visitor can identify what changed and who offered it from persistent text/shape/attribution, not only a digest or transient glow.                                                                                           |
+| Evidence     | A deliberate details action reveals the displayed contribution, origin/current relationship, actual signatures, explanatory source and arrangement trials without conflating preview with a signed artifact.                    |
+
+“Add the Ship's bell?” is a concrete provisional invitation supported by the
+first scenario's unaccepted program proposal, not an invented collaboration.
+The already-accepted neighbor contribution must not be staged as newly made.
 
 ### 1. Arrive somewhere, without waiting for an introduction
 
@@ -225,8 +298,11 @@ just contributed it. The unaccepted program proposal provides a genuine
 first action without changing the initial domain state.
 
 The characteristic interaction is **a contribution becoming part of the
-place**. A proposal's identity is visually connected to its resulting mark
-and sentence. Recognition occurs once, at the committed change, not as
+place**. A proposal's identity is connected to its resulting named mark and
+readable attributed description. Exact measured sentence highlighting would
+need a source-span contract the current projected lines do not supply; do not
+fake it by matching strings. Recognition remains legible after motion stops.
+Transient emphasis occurs only at the displayed committed change, not as
 confetti or a perpetual glow. Declining is equally first-class: the proposed
 contribution remains inspectable but does not appear as part of the result.
 
@@ -384,45 +460,93 @@ stable feature identity, not just feature name. Avoid animating measured prose
 line layout every search frame. Profile the actual expensive boundary rather
 than adding a blanket GPU/3D solution.
 
-Shared header/footer/theme changes belong in this PR only where they establish
-the coherent new language and production quality it requires. This includes
-necessary redesign of shared tokens, primitives and interaction contracts—not
-just adjustments allowed by their current APIs. Migrate affected callers and
-inspect Docs consumers for capability and accessibility regressions; their old
-appearance is not an immutable standard. Do not rewrite unrelated Docs
-information architecture or undertake an incidental dependency migration.
+Shared header/footer/theme changes belong here only for demonstrated quality
+gaps in the approved experience. Improve semantic tokens, primitives and
+interaction contracts where needed, retaining the established identity. Record
+affected consumers and inspect Home/Docs before and after; functionality alone
+does not justify incidental restyling. Do not rewrite unrelated Docs information
+architecture or undertake an incidental dependency migration.
 
 ## Standalone PR delivery plan
 
 This is one substantial homepage redesign, developed in reviewable stages—not
 a small de-carding PR represented as completion of the vision. Keep toolchain,
-deployment and unrelated library work out. No redesign code or PR has been
-published as part of this research revision.
+deployment and unrelated library work out. Regrouping changes planning only;
+no experiment code is included. The implementation plan owns detailed gates.
 
-1. **Compose the signature experience first.** Build the new arrival plus one
-   real proposal-to-place interaction using existing result data. Establish
-   display/prose/technical hierarchy and the first scenario's art direction.
-   Review it rendered at 390 and 1440, including reduced motion. Reject it if
-   it still reads as the old dashboard without borders.
-2. **Author the complete place family.** Carry the composition through all
+Before the first production slice, its risk register requires a bounded,
+authorized feasibility probe for scheduler responsiveness, measured text and
+spacing, font readiness and pending resize. This is a dependency of the slice,
+not parallel polish deferred until screenshots look good. Read the engineering
+plan's dispatch checklist rather than treating this narrative as a work order.
+
+0. **Discovery, then selection.** Gate 1A authorizes the scoped comparison and
+   isolated feasibility probes with named owners and a proposed finite effort
+   bound. Boards and independent scheduler investigation can overlap; metric
+   probes consume the boards' proposed values. Gate 1B records user selection,
+   evidence-supported feasibility, accepted shared-role/reading treatment and
+   authorization for prerequisite fixes plus one production slice. No design
+   selection is required before assigning the comparison that produces it.
+
+1. **Compose the complete signature experience first.** After necessary tested
+   state/render/measurement foundations, build the new arrival and the Ship's
+   bell proposal's full intent → pending → displayed inclusion → reversal loop.
+   Show the named mark, readable contribution and persistent proposer attribution,
+   not only a changed digest or transient glow. Include a working path into
+   that displayed result's real evidence and retain source/trial access. Establish
+   display/prose/technical hierarchy and the first scenario's approved composition.
+   Review it rendered at 390 and 1440, both themes, including reduced motion,
+   pending/failure and reversal. Reject a dashboard with its borders removed.
+   **Gate 2 requires user approval of this complete rendered loop before expansion.**
+2. **Expand the proven participation/evidence pattern.** Carry the completed
+   first contribution pattern through both proposals, origin/current relationship
+   and contextual details. Both offers remain operable in the first slice;
+   this stage finishes their unified presentation, not their first functionality.
+   Exercise pending, failed and rapid reversal before polishing motion.
+3. **Complete the technical layer.** Expand trial exploration, brief editing
+   disclosure, source tabs, references and package exits with progressive
+   depth from the first slice's working evidence path. Preserve the resize/ID
+   invariant and existing capabilities throughout, not only at final delivery.
+4. **Author the complete place family.** Carry the composition through all
    three scenarios and both themes. Make the scenario index and transitions
    coherent. Retain a useful static/readable state and loading/error states.
-3. **Make participation and evidence continuous.** Recompose both proposals,
-   contribution consequence, origin/current relationship and contextual
-   details. Exercise pending, failed and rapidly reversed changes before
-   polishing motion. Keep the first action adjacent to its consequence.
-4. **Open the technical layer.** Integrate trial exploration, brief editing
-   disclosure, source tabs, references and package exits with progressive
-   depth. Preserve the resize/content-ID invariant and existing core flow.
 5. **Harden the whole composition.** Verify input modes, reflow, typography,
    performance and shared-theme consumers. Remove obsolete home-only framing
    and motion after callers are migrated; no speculative primitive framework.
 
-The first stage is a design validation checkpoint, not permission to stop with
-one polished scenario. The completed PR includes all three, the technical
-depth, failure states and responsive behavior.
+The first stage is a human design approval checkpoint, not permission to stop
+with one polished scenario or an agent's self-approval. Final integrated visual
+acceptance is also required. The completed PR includes all three scenarios,
+technical depth, failure states and responsive behavior. Material changes to
+the approved direction reopen the relevant gate.
 
 ## Acceptance: prove the experience, not the component count
+
+### Visual definition of done
+
+The table is the visual review rubric for the selected approved direction.
+Every row requires inspected compact/wide, light/dark evidence. Passing tests
+cannot close these rows. Technical acceptance and exact test procedures live
+only in the [engineering plan](./homepage-implementation-plan.md), including
+the state, accessibility, performance and task-assignment gates.
+
+| ID                                     | Required evidence / pass                                                                                                                                                                          | Reject when                                                                                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V01 Identity                           | Home and affected Docs before/after show Figtree/JetBrains Mono, established cool themes and preserved product identity; every shared role change is explained and reviewed                       | A serif/material/base-color replacement appears, including a homepage-only substitute; “looks better” is the only justification                             |
+| V02 Arrival                            | At ordinary target viewports, a specific place and actual evocative content dominate with a clear real invitation; Theoria's purpose and recorded-example disclosure remain apparent              | It is still a hero above a dashboard, empty decoration dominates, or the action is pushed below a long scene on compact screens                             |
+| V03 Contribution and recognition       | Default, requested, displayed-success and reversed states show what was offered, who offered it and whether the displayed place includes it; attribution remains after motion ends                | A digest/glow/moving disc is the only consequence; old evidence looks newly accepted; success is inferred from switch intent                                |
+| V04 Reading and responsive composition | Complete readable prose, deliberate hierarchy and measures, coherent DOM/visual order, comfortable controls, one scene at all widths; stage, proposal and evidence transitions feel like one page | Tiny type/scaled scene, clipped text, duplicate mobile scene, CSS order reversal, compulsory pinning, nested scrolling merely to preserve the old dashboard |
+| V05 Theme/control state quality        | Contrast, selected/disabled/pending/focus states remain distinct and consistent in both themes and forced colors; useful boundaries remain without repeated nested panels                         | Removing cards also removes affordance; per-component color patches or decorative pills replace clear hierarchy                                             |
+| V06 Motion and depth                   | Static/reduced state is complete; purposeful finite motion explains an actual relationship; source/trials/lineage/details and package exits remain discoverable but subordinate                   | Decorative motion competes with reading, content waits for animation, source/evidence disappears, or each scenario invents a different design system        |
+
+Review the three scenarios as a family, not just the default lighthouse. Check
+both accepted and reversed contributions and representative pending/failure,
+open-detail and trial-preview states. At 200% text and narrow reflow, content
+and operability outrank the initial-fold composition. Do not fabricate numerical
+scores for “delight”; use the concrete review questions below and the user's
+revision-bound acceptance. A beautiful default screenshot cannot pass a broken
+non-default state. If a review fails, revise within the approved direction or
+ask to reopen that direction; do not silently redesign around the objection.
 
 ### Human review
 
@@ -437,6 +561,8 @@ depth, failure states and responsive behavior.
   opening a detail overlay? Do Docs/source remain easy to reach?
 
 These are review questions, not claims that usability testing has occurred.
+Agent verification makes a revision ready for review; only explicit user
+acceptance makes the design approved. Record the exact revision and decision.
 Use short first-use sessions with non-author reviewers when available; record
 confusion and revise the interaction, rather than treating enthusiasm as proof.
 
@@ -482,6 +608,6 @@ bun run check:apps && bun run test:apps
 bun run --filter @theoria/theoria-app test:worker
 ```
 
-The research revision itself changes this document only. It does not claim
+This corrective revision changes the two homepage planning documents only. It does not claim
 those implementation gates, accessibility conformance, performance targets,
 or the redesigned experience have passed.
