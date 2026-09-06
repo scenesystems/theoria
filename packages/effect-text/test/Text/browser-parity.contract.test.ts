@@ -1,16 +1,17 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect, Exit, Schema } from "effect"
+import * as Arr from "effect/Array"
 import * as Browser from "../../src/Browser/index.js"
 
 import {
   BrowserParityArtifactJsonSchema,
   browserParityArtifactRelativePath,
-  browserParityCasesForProfile,
-  browserParityLayer
+  browserParityCaseIds,
+  BrowserParityCasesMissing,
+  renderBrowserParityArtifact
 } from "../../src/Browser/index.js"
-import { Text } from "../../src/index.js"
 
 const readSyntheticRegressionArtifact = (profileId: Browser.BrowserSupportProfileIdType) =>
   Effect.gen(function*() {
@@ -24,26 +25,33 @@ const readSyntheticRegressionArtifact = (profileId: Browser.BrowserSupportProfil
   }).pipe(Effect.provide(BunContext.layer))
 
 describe("Text synthetic browser regression contracts", () => {
-  it.effect("matches the checked-in synthetic artifacts for every shipped browser profile", () =>
+  it.effect("renders the checked-in synthetic artifact for every shipped browser profile", () =>
     Effect.forEach(
       Browser.BrowserSupportManifest.profiles,
       (profile) =>
         Effect.gen(function*() {
           const artifact = yield* readSyntheticRegressionArtifact(profile.id)
-          const layer = browserParityLayer(profile)
-          const actualCases = yield* Effect.forEach(browserParityCasesForProfile(profile), (entry) =>
-            Text.prepareWithSegments(entry.prepare).pipe(
-              Effect.provide(layer),
-              Effect.map((prepared) => ({
-                caseId: entry.caseId,
-                prepare: entry.prepare,
-                request: entry.request,
-                summary: Text.layout(prepared, entry.request),
-                lines: Text.layoutLines(prepared, entry.request)
-              }))
-            ))
+          expect(yield* renderBrowserParityArtifact(profile)).toEqual(artifact)
+        }),
+      { discard: true }
+    ))
 
-          expect(actualCases).toEqual(artifact.cases)
+  it.effect("a profile that declares only some released scenarios fails before preparation", () =>
+    Effect.forEach(
+      Browser.BrowserSupportManifest.profiles,
+      (profile) =>
+        Effect.gen(function*() {
+          const declared = Arr.take(profile.parityCases, 1)
+          const exit = yield* Effect.exit(renderBrowserParityArtifact({ ...profile, parityCases: declared }))
+
+          expect(exit).toStrictEqual(
+            Exit.fail(
+              new BrowserParityCasesMissing({
+                profileId: profile.id,
+                missing: Arr.filter(browserParityCaseIds, (caseId) => !Arr.contains(declared, caseId))
+              })
+            )
+          )
         }),
       { discard: true }
     ))
