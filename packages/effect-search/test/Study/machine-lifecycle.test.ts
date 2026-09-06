@@ -13,7 +13,7 @@ describe("machine lifecycle", () => {
   it.effect("transitions created -> running -> paused -> running -> completed and rejects terminal resume", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const runtime = yield* initializeRuntime(makeSettings()).pipe(Effect.provide(StudyClockLayer))
+        const runtime = yield* initializeRuntime(yield* makeSettings()).pipe(Effect.provide(StudyClockLayer))
 
         const created = yield* readRuntimeState(runtime)
         expect(created.lifecycle).toBe("Created")

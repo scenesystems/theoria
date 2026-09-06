@@ -6,7 +6,7 @@ import * as SearchSpace from "../../../src/SearchSpace/index.js"
 import * as Study from "../../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     y: SearchSpace.float(-1, 1)
   })
@@ -43,7 +43,7 @@ const memorySink = Effect.gen(function*() {
 describe("terminal reporter stream composition", () => {
   it.effect("keeps optimizeStream event sequence unchanged while emitting terminal lines", () =>
     Effect.gen(function*() {
-      const space = makeSpace()
+      const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
       const baselineEvents = yield* Stream.runCollect(
         Study.optimizeStream({
@@ -77,7 +77,7 @@ describe("terminal reporter stream composition", () => {
 
   it.effect("composes with resumeStream and emits completion output through the same reporter boundary", () =>
     Effect.gen(function*() {
-      const space = makeSpace()
+      const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
       const initial = yield* Study.optimize({
         space,

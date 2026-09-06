@@ -108,6 +108,15 @@ export const ENTRY_POINT_RULES = [
     message: "Do not use 'Effect.runSync' in library code. Use Runtime.runMain at the entry point."
   },
   {
+    selector: "CallExpression[callee.object.name='Runtime'][callee.property.name=/^runSync(Exit)?$/]",
+    message:
+      "Do not use 'Runtime.runSync' or 'Runtime.runSyncExit'. Compose the Effect instead; a test runs it through it.effect or it.effect.prop."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runSyncExit']",
+    message: "Do not use 'Effect.runSyncExit' in library code. Use Runtime.runMain at the entry point."
+  },
+  {
     selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runFork']",
     message: "Do not use 'Effect.runFork' in library code. Use Runtime.runMain at the entry point."
   },

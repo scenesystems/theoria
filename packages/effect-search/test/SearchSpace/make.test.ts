@@ -22,8 +22,8 @@ const expectReadDistribution = (schema: Schema.Schema.AnyNoContext, expected: un
 
 describe("SearchSpace.make", () => {
   it.effect("extracts parameter metadata in stable insertion order", () =>
-    Effect.sync(() => {
-      const space = SearchSpace.unsafeMake({
+    Effect.gen(function*() {
+      const space = yield* SearchSpace.make({
         lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
         optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"]),
         batchSize: SearchSpace.int(16, 128, { step: 16 }),
@@ -46,8 +46,8 @@ describe("SearchSpace.make", () => {
     }))
 
   it.effect("retains per-parameter distribution metadata that can be discovered from AST annotations", () =>
-    Effect.sync(() => {
-      const space = SearchSpace.unsafeMake({
+    Effect.gen(function*() {
+      const space = yield* SearchSpace.make({
         lr: SearchSpace.float(0.01, 1, { scale: "log" }),
         batchSize: SearchSpace.int(8, 128, { step: 8 }),
         optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"]),
@@ -111,8 +111,8 @@ describe("SearchSpace.make", () => {
     }))
 
   it.effect("builds a schema that enforces the declared configuration contract", () =>
-    Effect.sync(() => {
-      const space = SearchSpace.unsafeMake({
+    Effect.gen(function*() {
+      const space = yield* SearchSpace.make({
         lr: SearchSpace.float(0.001, 0.1),
         optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"]),
         batchSize: SearchSpace.int(16, 64, { step: 16 })

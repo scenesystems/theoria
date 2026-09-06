@@ -18,7 +18,7 @@ describe("snapshot format versioning", () => {
   it.effect("Study.snapshot emits snapshotFormatVersion and decodes via variant schema", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 4321 }),
         direction: "minimize",
         trials: 6,
@@ -42,7 +42,7 @@ describe("snapshot format versioning", () => {
   it.effect("decodeStudySnapshot round-trips canonical snapshot payloads deterministically", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 1212 }),
         direction: "minimize",
         trials: 5,
@@ -68,7 +68,7 @@ describe("snapshot format versioning", () => {
   it.effect("decodeStudySnapshot rejects legacy `version` payloads in prerelease format contract", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 8181 }),
         direction: "minimize",
         trials: 4,
@@ -92,7 +92,7 @@ describe("snapshot format versioning", () => {
   it.effect("Study.resume preserves trial continuity with canonical snapshot payload", () =>
     Effect.gen(function*() {
       const firstLeg = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 9090 }),
         direction: "minimize",
         trials: 4,
@@ -109,7 +109,7 @@ describe("snapshot format versioning", () => {
       const firstSnapshot = yield* Study.snapshot(firstSingle.value)
 
       const resumed = yield* Study.resume({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 9090 }),
         snapshot: firstSnapshot,
         direction: "minimize",

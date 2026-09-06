@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Number as Num, Option, Ref, Schema } from "effect"
+import { Effect, Number as Num, Option, Ref } from "effect"
 
 import { makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
 import * as Float64 from "../../src/internal/float64.js"
@@ -9,12 +9,10 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-2, 2),
     depth: SearchSpace.int(1, 4)
   })
-
-const decodeConfig = Schema.decodeUnknownSync(makeSpace().schema)
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
@@ -24,9 +22,10 @@ describe("Study concurrency", () => {
     Effect.gen(function*() {
       const activeRef = yield* Ref.make(0)
       const maxActiveRef = yield* Ref.make(0)
+      const space = yield* makeSpace()
 
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space,
         sampler: Sampler.random({ seed: 42 }),
         direction: "minimize",
         trials: 10,
@@ -37,7 +36,7 @@ describe("Study concurrency", () => {
               Effect.tap((active) => Ref.update(maxActiveRef, (maxActive) => Num.max(maxActive, active)))
             ),
             () => {
-              const config = decodeConfig(raw)
+              const config = raw
 
               return Effect.sleep("15 millis").pipe(Effect.as(Float64.abs(config.x) + config.depth))
             },
@@ -78,7 +77,7 @@ describe("Study concurrency", () => {
       })
 
       yield* Study.optimize({
-        space: makeSlotSpace(32),
+        space: yield* makeSlotSpace(32),
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 8,

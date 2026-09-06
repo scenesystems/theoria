@@ -3,47 +3,40 @@ import { Effect, Either, Schema } from "effect"
 
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
-const makeLearningRateSpace = () =>
-  SearchSpace.unsafeMake({
-    lr: SearchSpace.float(0.0001, 0.1, { scale: "log" })
+const learningRateSpace = SearchSpace.make({
+  lr: SearchSpace.float(0.0001, 0.1, { scale: "log" })
+})
+
+const batchSpace = SearchSpace.make({
+  batchSize: SearchSpace.int(16, 128, { step: 16 })
+})
+
+const conditionalSpace = Effect.gen(function*() {
+  const linear = yield* SearchSpace.make({
+    lr: SearchSpace.float(0.0001, 0.1, { scale: "log" }),
+    regularization: SearchSpace.float(0, 1)
+  })
+  const tree = yield* SearchSpace.make({
+    maxDepth: SearchSpace.int(2, 12)
   })
 
-const makeBatchSpace = () =>
-  SearchSpace.unsafeMake({
-    batchSize: SearchSpace.int(16, 128, { step: 16 })
-  })
-
-const makeConditionalSpace = () =>
-  SearchSpace.unsafeMakeConditional(
+  return yield* SearchSpace.makeConditional(
     {
       model: SearchSpace.categorical(["linear", "tree"]),
       seed: SearchSpace.int(0, 10)
     },
-    SearchSpace.switch("model", [
-      SearchSpace.when(
-        "linear",
-        SearchSpace.unsafeMake({
-          lr: SearchSpace.float(0.0001, 0.1, { scale: "log" }),
-          regularization: SearchSpace.float(0, 1)
-        })
-      ),
-      SearchSpace.when(
-        "tree",
-        SearchSpace.unsafeMake({
-          maxDepth: SearchSpace.int(2, 12)
-        })
-      )
-    ])
+    SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
   )
+})
 
 const requireMergedConfig = (config: { readonly lr: number; readonly batchSize: number }) => config
 
 describe("SearchSpace composition", () => {
   it.effect("extends, picks and omits parameters by name", () =>
     Effect.gen(function*() {
-      const extended = yield* SearchSpace.extend(makeLearningRateSpace(), makeBatchSpace())
-      const picked = yield* SearchSpace.pick(makeConditionalSpace(), ["lr"])
-      const omitted = yield* SearchSpace.omit(makeConditionalSpace(), ["model"])
+      const extended = yield* SearchSpace.extend(yield* learningRateSpace, yield* batchSpace)
+      const picked = yield* SearchSpace.pick(yield* conditionalSpace, ["lr"])
+      const omitted = yield* SearchSpace.omit(yield* conditionalSpace, ["model"])
 
       expect(extended.params.map((parameter) => parameter.name)).toEqual(["lr", "batchSize"])
       expect(picked.params.map((parameter) => parameter.name)).toEqual(["model", "lr"])
@@ -52,7 +45,7 @@ describe("SearchSpace composition", () => {
 
   it.effect("extends two spaces and preserves merged config typing", () =>
     Effect.gen(function*() {
-      const extended = yield* SearchSpace.extend(makeLearningRateSpace(), makeBatchSpace())
+      const extended = yield* SearchSpace.extend(yield* learningRateSpace, yield* batchSpace)
       const decoded = yield* Schema.decodeUnknown(extended.schema)({ lr: 0.01, batchSize: 32 })
       const typed = requireMergedConfig(decoded)
 
@@ -64,8 +57,8 @@ describe("SearchSpace composition", () => {
     Effect.gen(function*() {
       const result = yield* Effect.either(
         SearchSpace.extend(
-          makeLearningRateSpace(),
-          SearchSpace.unsafeMake({
+          yield* learningRateSpace,
+          yield* SearchSpace.make({
             lr: SearchSpace.int(1, 5)
           })
         )
@@ -81,7 +74,7 @@ describe("SearchSpace composition", () => {
 
   it.effect("pick computes activation dependency closure for conditional dimensions", () =>
     Effect.gen(function*() {
-      const projected = yield* SearchSpace.pick(makeConditionalSpace(), ["lr"])
+      const projected = yield* SearchSpace.pick(yield* conditionalSpace, ["lr"])
       const decode = Schema.decodeUnknownEither(projected.schema)
       const learningRateParameter = projected.params.find((parameter) => parameter.name === "lr")
 
@@ -100,7 +93,7 @@ describe("SearchSpace composition", () => {
 
   it.effect("omit removes descendants when dropping a conditional discriminant", () =>
     Effect.gen(function*() {
-      const projected = yield* SearchSpace.omit(makeConditionalSpace(), ["model"])
+      const projected = yield* SearchSpace.omit(yield* conditionalSpace, ["model"])
       const decode = Schema.decodeUnknownEither(projected.schema)
 
       expect(projected.params.map((parameter) => parameter.name)).toEqual(["seed"])
@@ -115,7 +108,7 @@ describe("SearchSpace composition", () => {
 
   it.effect("fails deterministically on invalid projection requests", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(SearchSpace.pick(makeConditionalSpace(), ["unknown"]))
+      const result = yield* Effect.either(SearchSpace.pick(yield* conditionalSpace, ["unknown"]))
 
       expect(Either.isLeft(result)).toBe(true)
 

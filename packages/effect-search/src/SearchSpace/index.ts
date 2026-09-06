@@ -14,7 +14,7 @@
 
 export { activeParameters, isParameterActive } from "./activity.js"
 
-export { fingerprint, make, makeConditional, unsafeMake, unsafeMakeConditional } from "./compile.js"
+export { fingerprint, make, makeConditional } from "./compile.js"
 
 export { extend, omit, pick } from "./compose.js"
 

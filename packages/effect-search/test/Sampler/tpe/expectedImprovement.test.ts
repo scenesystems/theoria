@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
-import fc from "fast-check"
+import { Effect, FastCheck as fc } from "effect"
 
 import {
   argmax,
@@ -22,17 +21,12 @@ describe("tpe expected improvement", () => {
       expect(argmax(scores)).toBe(2)
     }))
 
-  it.effect("never emits NaN scores for finite inputs", () =>
+  it.effect.prop("never emits NaN scores for finite inputs", [
+    fc.integer({ min: -1_000_000, max: 1_000_000 }),
+    fc.integer({ min: -1_000_000, max: 1_000_000 })
+  ], ([logL, logG]) =>
     Effect.sync(() => {
-      fc.assert(
-        fc.property(
-          fc.integer({ min: -1_000_000, max: 1_000_000 }),
-          fc.integer({ min: -1_000_000, max: 1_000_000 }),
-          (logL, logG) => {
-            expect(Number.isNaN(expectedImprovementScore(logL, logG))).toBe(false)
-          }
-        )
-      )
+      expect(Number.isNaN(expectedImprovementScore(logL, logG))).toBe(false)
     }))
 
   it.effect("accumulates joint log-density contributions for grouped EI", () =>
@@ -41,21 +35,16 @@ describe("tpe expected improvement", () => {
       expect(jointExpectedImprovementScore([-1.2, -0.3], [-2.1, -1.1])).toBeCloseTo(1.7, 12)
     }))
 
-  it.effect("always chooses an index inside the provided candidate set", () =>
+  it.effect.prop("always chooses an index inside the provided candidate set", [
+    fc.array(fc.integer({ min: -1_000_000, max: 1_000_000 }), { minLength: 1, maxLength: 100 })
+  ], ([scores]) =>
     Effect.sync(() => {
-      fc.assert(
-        fc.property(
-          fc.array(fc.integer({ min: -1_000_000, max: 1_000_000 }), { minLength: 1, maxLength: 100 }),
-          (scores) => {
-            const index = argmax(scores)
-            expect(index).toBeGreaterThanOrEqual(0)
-            expect(index).toBeLessThan(scores.length)
+      const index = argmax(scores)
+      expect(index).toBeGreaterThanOrEqual(0)
+      expect(index).toBeLessThan(scores.length)
 
-            const baseline = scores[0] ?? Number.NEGATIVE_INFINITY
-            const maximum = scores.reduce((best, value) => (value > best ? value : best), baseline)
-            expect(scores[index]).toBe(maximum)
-          }
-        )
-      )
+      const baseline = scores[0] ?? Number.NEGATIVE_INFINITY
+      const maximum = scores.reduce((best, value) => (value > best ? value : best), baseline)
+      expect(scores[index]).toBe(maximum)
     }))
 })

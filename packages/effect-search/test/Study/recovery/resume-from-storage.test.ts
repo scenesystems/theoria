@@ -41,14 +41,14 @@ describe("recovery resume-from-storage", () => {
       const resumedTrials = totalTrials - checkpointTrials - replayTailTrials
 
       const baselineResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: totalTrials,
         objective: singleObjective
       })
       const stagedResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: checkpointTrials + replayTailTrials,
@@ -76,7 +76,7 @@ describe("recovery resume-from-storage", () => {
       yield* Effect.forEach(stagedSnapshot.trials, (trial) => storage.appendTrial(trial), { discard: true })
 
       const resumedResult = yield* Study.resumeFromStorage({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: resumedTrials,
@@ -96,8 +96,8 @@ describe("recovery resume-from-storage", () => {
         return
       }
 
-      expect(encodeConfigTrace(singleConfigTrace(resumedSingle.value))).toBe(
-        encodeConfigTrace(singleConfigTrace(baselineSingle.value))
+      expect(encodeConfigTrace(yield* singleConfigTrace(resumedSingle.value))).toBe(
+        encodeConfigTrace(yield* singleConfigTrace(baselineSingle.value))
       )
       expect(encodeNumericTrace(singleValueTrace(resumedSingle.value))).toBe(
         encodeNumericTrace(singleValueTrace(baselineSingle.value))

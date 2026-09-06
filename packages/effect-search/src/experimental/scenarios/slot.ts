@@ -27,19 +27,19 @@ export const SlotConfigSchema = Schema.Struct({
 export type SlotConfig = Schema.Schema.Type<typeof SlotConfigSchema>
 
 /**
- * Decodes an unknown slot configuration and throws on a schema violation.
+ * Decodes an unknown slot configuration with schema violations in the Effect error channel.
  *
  * @since 0.1.0
  * @category utils
  */
-export const decodeSlotConfig = Schema.decodeUnknownSync(SlotConfigSchema)
+export const decodeSlotConfig = Schema.decodeUnknown(SlotConfigSchema)
 
 /**
  * Builds an integer slot space from `0` through `maxSlot`.
  *
  * @remarks
- * The call defects when `maxSlot` is not a finite, non-negative integer because
- * the fixture uses `SearchSpace.unsafeMake`.
+ * Compilation fails with `InvalidSearchSpace` when `maxSlot` is not a finite,
+ * non-negative integer.
  *
  * @param maxSlot - Inclusive upper bound for generated slots.
  *
@@ -47,6 +47,6 @@ export const decodeSlotConfig = Schema.decodeUnknownSync(SlotConfigSchema)
  * @category constructors
  */
 export const makeSlotSpace = (maxSlot: number) =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     slot: SearchSpace.int(0, maxSlot)
   })

@@ -14,11 +14,10 @@ const acquisitionModes = Schema.decodeUnknownSync(Schema.Array(AcquisitionNameSc
   "thompson"
 ])
 
-const makeAcquisitionStudySpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-2, 2),
-    branch: SearchSpace.categorical(["left", "center", "right"])
-  })
+const acquisitionStudySpace = SearchSpace.make({
+  x: SearchSpace.float(-2, 2),
+  branch: SearchSpace.categorical(["left", "center", "right"])
+})
 
 const branchPenalty = (branch: string): number => branch === "center" ? 0 : branch === "left" ? 0.2 : 0.35
 
@@ -39,34 +38,36 @@ const asSingleObjective = (result: Study.StudyResult) =>
 const optimizeWithAcquisition = (
   acquisition: Schema.Schema.Type<typeof AcquisitionNameSchema>,
   seed: number
-) => {
-  const space = makeAcquisitionStudySpace()
+) =>
+  Effect.gen(function*() {
+    const space = yield* acquisitionStudySpace
 
-  return Study.optimize({
-    space,
-    sampler: Sampler.tpe({
-      seed,
-      nStartupTrials: 4,
-      nEiCandidates: 16,
-      acquisition
-    }),
-    direction: "minimize",
-    trials: 10,
-    objective: objectiveForSpace(space)
+    return yield* Study.optimize({
+      space,
+      sampler: Sampler.tpe({
+        seed,
+        nStartupTrials: 4,
+        nEiCandidates: 16,
+        acquisition
+      }),
+      direction: "minimize",
+      trials: 10,
+      objective: objectiveForSpace(space)
+    })
   })
-}
 
-const optimizeRandom = (seed: number) => {
-  const space = makeAcquisitionStudySpace()
+const optimizeRandom = (seed: number) =>
+  Effect.gen(function*() {
+    const space = yield* acquisitionStudySpace
 
-  return Study.optimize({
-    space,
-    sampler: Sampler.random({ seed }),
-    direction: "minimize",
-    trials: 10,
-    objective: objectiveForSpace(space)
+    return yield* Study.optimize({
+      space,
+      sampler: Sampler.random({ seed }),
+      direction: "minimize",
+      trials: 10,
+      objective: objectiveForSpace(space)
+    })
   })
-}
 
 const configTrace = (result: Study.SingleObjectiveResult) => result.trials.map((trial) => trial.config)
 

@@ -7,33 +7,28 @@ import { emptySuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
-const categoricalOnlySpace = () =>
-  SearchSpace.unsafeMake({
-    optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"])
-  })
+const categoricalOnlySpace = SearchSpace.make({
+  optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"])
+})
 
-const intStepSpace = () =>
-  SearchSpace.unsafeMake({
-    width: SearchSpace.int(16, 64, { step: 16 })
-  })
+const intStepSpace = SearchSpace.make({
+  width: SearchSpace.int(16, 64, { step: 16 })
+})
 
-const floatNoStepSpace = () =>
-  SearchSpace.unsafeMake({
-    lr: SearchSpace.float(1e-4, 1e-1)
-  })
+const floatNoStepSpace = SearchSpace.make({
+  lr: SearchSpace.float(1e-4, 1e-1)
+})
 
-const mixedSpace = () =>
-  SearchSpace.unsafeMake({
-    optimizer: SearchSpace.categorical(["adam", "sgd"]),
-    width: SearchSpace.int(16, 64, { step: 16 })
-  })
+const mixedSpace = SearchSpace.make({
+  optimizer: SearchSpace.categorical(["adam", "sgd"]),
+  width: SearchSpace.int(16, 64, { step: 16 })
+})
 
-const exhaustiveSpace = () =>
-  SearchSpace.unsafeMake({
-    alpha: SearchSpace.categorical(["a", "b", "c"]),
-    beta: SearchSpace.categorical(["x", "y", "z", "w"]),
-    useBatchNorm: SearchSpace.boolean()
-  })
+const exhaustiveSpace = SearchSpace.make({
+  alpha: SearchSpace.categorical(["a", "b", "c"]),
+  beta: SearchSpace.categorical(["x", "y", "z", "w"]),
+  useBatchNorm: SearchSpace.boolean()
+})
 
 const collectSuggestions = (space: SearchSpace.SearchSpace, count: number) => {
   const sampler = Sampler.grid()
@@ -64,9 +59,9 @@ const choicesFor = (
 describe("Sampler.grid", () => {
   it.effect("validates finite-space compatibility for categorical, stepped-int, and mixed spaces", () =>
     Effect.gen(function*() {
-      const categoricalSpace = categoricalOnlySpace()
-      const intSpace = intStepSpace()
-      const mixedFiniteSpace = mixedSpace()
+      const categoricalSpace = yield* categoricalOnlySpace
+      const intSpace = yield* intStepSpace
+      const mixedFiniteSpace = yield* mixedSpace
       const categoricalCandidate = yield* Sampler.suggest(Sampler.grid(), categoricalSpace, emptySuggestContext(0))
       const intCandidate = yield* Sampler.suggest(Sampler.grid(), intSpace, emptySuggestContext(0))
       const mixedCandidate = yield* Sampler.suggest(Sampler.grid(), mixedFiniteSpace, emptySuggestContext(0))
@@ -76,7 +71,7 @@ describe("Sampler.grid", () => {
       expect(Either.isRight(Schema.decodeUnknownEither(mixedFiniteSpace.schema)(mixedCandidate))).toBe(true)
 
       const incompatible = yield* Effect.either(
-        Sampler.suggest(Sampler.grid(), floatNoStepSpace(), emptySuggestContext(0))
+        Sampler.suggest(Sampler.grid(), yield* floatNoStepSpace, emptySuggestContext(0))
       )
 
       expect(Either.isLeft(incompatible)).toBe(true)
@@ -88,7 +83,7 @@ describe("Sampler.grid", () => {
 
   it.effect("enumerates deterministic 3×4×2 cartesian order with no duplicates", () =>
     Effect.gen(function*() {
-      const space = exhaustiveSpace()
+      const space = yield* exhaustiveSpace
       const candidates = yield* collectSuggestions(space, 24)
       const decoded = yield* Effect.forEach(candidates, (candidate) => Schema.decodeUnknown(space.schema)(candidate))
       const observedKeys = Arr.map(decoded, configKey)
@@ -109,7 +104,7 @@ describe("Sampler.grid", () => {
   it.effect("does not recycle configurations after the finite grid is exhausted", () =>
     Effect.gen(function*() {
       const exhaustedSuggestion = yield* Effect.either(
-        Sampler.suggest(Sampler.grid(), exhaustiveSpace(), emptySuggestContext(24))
+        Sampler.suggest(Sampler.grid(), yield* exhaustiveSpace, emptySuggestContext(24))
       )
 
       expect(Either.isLeft(exhaustedSuggestion)).toBe(true)

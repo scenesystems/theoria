@@ -5,8 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
 import { Demo } from "@scenesystems/effect-dsp/Example"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import { Array as Arr, Effect, Match, Option, Schema } from "effect"
-import fc from "fast-check"
+import { Array as Arr, Effect, FastCheck as fc, Match, Option, Schema } from "effect"
 
 const primitiveUnknownArbitrary = fc.oneof(
   fc.string({ maxLength: 12 }),
@@ -81,34 +80,26 @@ const toModuleParams = (params: {
   })
 
 describe("Module.SavedState schema round-trip", () => {
-  it.effect("preserves value identity through encode/decode", () =>
+  it.effect.prop("preserves value identity through encode/decode", [fc.record({
+    modules: fc.array(moduleParamsArbitrary, { minLength: 1, maxLength: 4 }),
+    metadata: fc.option(unknownRecordArbitrary, { nil: undefined })
+  })], ([sample]) =>
     Effect.gen(function*() {
-      const samples = fc.sample(
-        fc.record({
-          modules: fc.array(moduleParamsArbitrary, { minLength: 1, maxLength: 4 }),
-          metadata: fc.option(unknownRecordArbitrary, { nil: undefined })
-        }),
-        { numRuns: 75 }
-      )
+      const modules = Arr.map(sample.modules, (params, index) => ({
+        name: `module-${index + 1}`,
+        params: toModuleParams(params)
+      }))
+      const state = new Module.SavedState({
+        version: 1,
+        modules,
+        ...Option.match(Option.fromNullable(sample.metadata), {
+          onNone: () => ({}),
+          onSome: (metadata) => ({ metadata })
+        })
+      })
+      const encoded = yield* Schema.encode(Module.SavedState)(state)
+      const decoded = yield* Schema.decode(Module.SavedState)(encoded)
 
-      yield* Effect.forEach(samples, (sample) =>
-        Effect.gen(function*() {
-          const modules = Arr.map(sample.modules, (params, index) => ({
-            name: `module-${index + 1}`,
-            params: toModuleParams(params)
-          }))
-          const state = new Module.SavedState({
-            version: 1,
-            modules,
-            ...Option.match(Option.fromNullable(sample.metadata), {
-              onNone: () => ({}),
-              onSome: (metadata) => ({ metadata })
-            })
-          })
-          const encoded = yield* Schema.encode(Module.SavedState)(state)
-          const decoded = yield* Schema.decode(Module.SavedState)(encoded)
-
-          expect(decoded).toEqual(state)
-        }), { concurrency: 1, discard: true })
-    }))
+      expect(decoded).toEqual(state)
+    }), { fastCheck: { numRuns: 75 } })
 })

@@ -10,15 +10,13 @@ const demoChoices: [string, ...Array<string>] = ["d0", "d1", "d2", "d3", "d4", "
 const temperatureChoices: [string, ...Array<string>] = ["cool", "warm", "hot"]
 const preferredDemos: Array<string> = ["d3", "d5", "d1", "d4", "d0", "d2"]
 
-const CoupledSpace = SearchSpace.unsafeMake({
+const CoupledSpace = SearchSpace.make({
   instruction: SearchSpace.categorical(instructionChoices),
   demo: SearchSpace.categorical(demoChoices),
   temperature: SearchSpace.categorical(temperatureChoices)
 })
 
-const decodeConfig = Schema.decodeUnknownSync(CoupledSpace.schema)
-
-const makeSpace = () => CoupledSpace
+const decodeConfig = (raw: unknown) => Effect.flatMap(CoupledSpace, (space) => Schema.decodeUnknown(space.schema)(raw))
 
 const indexOfChoice = (choices: ReadonlyArray<string>, value: string): number => {
   const index = choices.findIndex((choice) => choice === value)
@@ -26,38 +24,43 @@ const indexOfChoice = (choices: ReadonlyArray<string>, value: string): number =>
   return index >= 0 ? index : 0
 }
 
-const objectiveValue = (raw: unknown): number => {
-  const config = decodeConfig(raw)
-  const instructionIndex = indexOfChoice(instructionChoices, config.instruction)
-  const preferredDemo = Option.fromNullable(preferredDemos[instructionIndex]).pipe(
-    Option.getOrElse(() => demoChoices[0])
-  )
-  const couplingPenalty = config.demo === preferredDemo ? 0 : 4.5
-  const temperaturePenalty = config.temperature === "cool" ? 0 : config.temperature === "warm" ? 0.15 : 0.35
+const objectiveValue = (raw: unknown) =>
+  Effect.gen(function*() {
+    const config = yield* decodeConfig(raw)
+    const instructionIndex = indexOfChoice(instructionChoices, config.instruction)
+    const preferredDemo = Option.fromNullable(preferredDemos[instructionIndex]).pipe(
+      Option.getOrElse(() => demoChoices[0])
+    )
+    const couplingPenalty = config.demo === preferredDemo ? 0 : 4.5
+    const temperaturePenalty = config.temperature === "cool" ? 0 : config.temperature === "warm" ? 0.15 : 0.35
 
-  return couplingPenalty + temperaturePenalty + instructionIndex * 0.01
-}
+    return couplingPenalty + temperaturePenalty + instructionIndex * 0.01
+  })
 
-const isCoupledBestPair = (raw: unknown): boolean => {
-  const config = decodeConfig(raw)
-  const instructionIndex = indexOfChoice(instructionChoices, config.instruction)
-  const preferredDemo = Option.fromNullable(preferredDemos[instructionIndex]).pipe(
-    Option.getOrElse(() => demoChoices[0])
-  )
+const isCoupledBestPair = (raw: unknown) =>
+  Effect.gen(function*() {
+    const config = yield* decodeConfig(raw)
+    const instructionIndex = indexOfChoice(instructionChoices, config.instruction)
+    const preferredDemo = Option.fromNullable(preferredDemos[instructionIndex]).pipe(
+      Option.getOrElse(() => demoChoices[0])
+    )
 
-  return config.demo === preferredDemo
-}
+    return config.demo === preferredDemo
+  })
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 const optimizeWith = (sampler: Sampler.Sampler) =>
-  Study.optimize({
-    space: makeSpace(),
-    sampler,
-    direction: "minimize",
-    trials: 24,
-    objective: (raw) => Effect.succeed(objectiveValue(raw))
+  Effect.gen(function*() {
+    const space = yield* CoupledSpace
+    return yield* Study.optimize({
+      space,
+      sampler,
+      direction: "minimize",
+      trials: 24,
+      objective: objectiveValue
+    })
   })
 
 describe("integration multivariate categorical tpe study", () => {
@@ -82,7 +85,7 @@ describe("integration multivariate categorical tpe study", () => {
         return
       }
 
-      expect(isCoupledBestPair(tpeOption.value.bestTrial.config)).toBe(true)
+      expect(yield* isCoupledBestPair(tpeOption.value.bestTrial.config)).toBe(true)
       expect(tpeOption.value.bestTrial.state.value).toBeLessThanOrEqual(randomOption.value.bestTrial.state.value)
     }))
 })

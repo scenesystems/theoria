@@ -3,7 +3,6 @@ import { Chunk, Effect, Match, Option, Ref, Schema, Stream } from "effect"
 import { normalizeObjectiveVector, objectiveSpecFromOptions } from "../../../src/contracts/index.js"
 import {
   decodePromptCategoricalConfig,
-  decodePromptCategoricalConfigEffect,
   makePromptCategoricalSpace,
   PromptCategoricalConfigSchema
 } from "../../../src/experimental/scenarios/promptCategorical.js"
@@ -16,26 +15,30 @@ import { EventPublisher } from "../../../src/Study/events.js"
 import * as Study from "../../../src/Study/index.js"
 import type * as StudyEvent from "../../../src/StudyEvent/index.js"
 
-export const makeSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-2, 2),
-    depth: SearchSpace.int(1, 5),
-    optimizer: SearchSpace.categorical(["adam", "sgd"])
-  })
+export const makeSpace = SearchSpace.make({
+  x: SearchSpace.float(-2, 2),
+  depth: SearchSpace.int(1, 5),
+  optimizer: SearchSpace.categorical(["adam", "sgd"])
+})
 
-export const makeMultiSpace = () => makePromptCategoricalSpace()
+export const makeMultiSpace = makePromptCategoricalSpace()
 
-export const makeIncompatibleSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-2, 2),
-    depth: SearchSpace.int(1, 5),
-    optimizer: SearchSpace.categorical(["rmsprop"])
-  })
+export const makeIncompatibleSpace = SearchSpace.make({
+  x: SearchSpace.float(-2, 2),
+  depth: SearchSpace.int(1, 5),
+  optimizer: SearchSpace.categorical(["rmsprop"])
+})
 
-export const decodeConfig = Schema.decodeUnknownSync(makeSpace().schema)
+const ConfigSchema = Schema.Struct({
+  x: Schema.Number,
+  depth: Schema.Number,
+  optimizer: Schema.Literal("adam", "sgd")
+})
+
+export const decodeConfig = Schema.decodeUnknown(ConfigSchema)
 
 export const encodeConfigTrace = Schema.encodeSync(
-  Schema.parseJson(Schema.Array(makeSpace().schema))
+  Schema.parseJson(Schema.Array(ConfigSchema))
 )
 
 export const encodeNumericTrace = Schema.encodeSync(
@@ -67,16 +70,13 @@ const scoringQualityLoss = (scoring: string): number => scoring === "recall" ? 1
 const interactionQualityBonus = (instruction: string, demos: string, scoring: string): number =>
   instruction === "socratic" && demos === "curated" && scoring === "strict" ? -0.2 : 0
 
-export const singleObjective = (raw: unknown) => {
-  const config = decodeConfig(raw)
-
-  return Effect.succeed(
-    Float64.abs(config.x) + config.depth + (config.optimizer === "adam" ? 0 : 0.25)
+export const singleObjective = (raw: unknown) =>
+  decodeConfig(raw).pipe(
+    Effect.map((config) => Float64.abs(config.x) + config.depth + (config.optimizer === "adam" ? 0 : 0.25))
   )
-}
 
 export const objectiveVector = (raw: unknown) =>
-  decodePromptCategoricalConfigEffect(raw).pipe(
+  decodePromptCategoricalConfig(raw).pipe(
     Effect.map((config) => [
       instructionLatency(config.instruction) + demosLatency(config.demos) + scoringLatency(config.scoring),
       instructionQualityLoss(config.instruction) +
@@ -93,7 +93,7 @@ export const asMultiObjective = (result: Study.StudyResult) =>
   result._tag === "MultiObjective" ? Option.some(result) : Option.none()
 
 export const singleConfigTrace = (result: Study.SingleObjectiveResult) =>
-  result.trials.map((trial) => decodeConfig(trial.config))
+  Effect.forEach(result.trials, (trial) => decodeConfig(trial.config))
 
 export const singleValueTrace = (result: Study.SingleObjectiveResult): Array<number> =>
   result.trials.flatMap((trial) =>
@@ -108,7 +108,7 @@ export const singleValueTrace = (result: Study.SingleObjectiveResult): Array<num
   )
 
 export const multiConfigTrace = (result: Study.MultiObjectiveResult) =>
-  result.trials.map((trial) => decodePromptCategoricalConfig(trial.config))
+  Effect.forEach(result.trials, (trial) => decodePromptCategoricalConfig(trial.config))
 
 export const multiValueTrace = (result: Study.MultiObjectiveResult) =>
   result.trials.flatMap((trial) =>
@@ -121,7 +121,7 @@ export const multiValueTrace = (result: Study.MultiObjectiveResult) =>
 export const multiParetoValueTrace = (result: Study.MultiObjectiveResult) =>
   result.paretoFront.map((trial) => normalizeObjectiveVector(trial.state.value))
 
-export const pruneStopSpace = () => makeSlotSpace(64)
+export const pruneStopSpace = makeSlotSpace(64)
 
 export const deterministicSampler = new Sampler.Sampler({
   kind: Sampler.Random({ options: { seed: 0 } }),
@@ -145,7 +145,7 @@ export const pruneStopPolicy = new Study.PruningPolicy({
 
 export const pruneStopObjective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
   Effect.gen(function*() {
-    const config = decodeSlotConfig(raw)
+    const config = yield* decodeSlotConfig(raw)
 
     yield* runtime.report(0, config.slot)
     yield* Match.value(config.slot === 4).pipe(

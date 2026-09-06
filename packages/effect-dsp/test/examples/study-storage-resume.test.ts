@@ -16,11 +16,10 @@ import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 import { Array as Arr, Chunk, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
 
-const makeSpace = () =>
-  SearchSpace.unsafeMake({
-    instructionIndex: SearchSpace.int(0, 2),
-    demoIndex: SearchSpace.int(0, 2)
-  })
+const makeSpace = SearchSpace.make({
+  instructionIndex: SearchSpace.int(0, 2),
+  demoIndex: SearchSpace.int(0, 2)
+})
 
 const italyEvalset = Arr.make(
   new Example({
@@ -124,7 +123,7 @@ describe("examples/07-miprov2-resume-from-storage", () => {
         MockLanguageModel.map(responseForPrompt)
       )
 
-      const space = makeSpace()
+      const space = yield* makeSpace
       const objective = (raw: unknown) =>
         Effect.gen(function*() {
           const config = yield* Schema.decodeUnknown(space.schema)(raw)

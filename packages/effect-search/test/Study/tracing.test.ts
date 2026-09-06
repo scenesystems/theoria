@@ -7,7 +7,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     depth: SearchSpace.int(1, 3)
   })
@@ -47,7 +47,7 @@ describe("Study and Sampler tracing", () => {
     Effect.gen(function*() {
       const captured = yield* collectSpanNames(
         Effect.gen(function*() {
-          const space = makeSpace()
+          const space = yield* makeSpace()
           const objective = objectiveValue(space)
           const optimizeResult = yield* Study.optimize({
             space,
@@ -91,7 +91,7 @@ describe("Study and Sampler tracing", () => {
   it.effect("emits tracing span for Sampler.suggest combinator", () =>
     Effect.gen(function*() {
       const captured = yield* collectSpanNames(
-        Sampler.suggest(Sampler.random({ seed: 33 }), makeSpace(), emptySuggestContext())
+        Sampler.suggest(Sampler.random({ seed: 33 }), yield* makeSpace(), emptySuggestContext())
       )
 
       expect(captured[1]).toContain("effect-search/Sampler.suggest")

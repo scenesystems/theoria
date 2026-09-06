@@ -7,8 +7,8 @@ import {
   LinearTreeConditionalConfigSchema,
   makeLinearTreeConditionalSpace
 } from "../../src/experimental/scenarios/conditionalLinearTree.js"
-import { makeRandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
-import { makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
+import { decodeRandomTrainingConfig, makeRandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
+import { decodeSlotConfig, makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
 import * as Float64 from "../../src/internal/float64.js"
 import { pendingAsZeroImputationPolicy } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
@@ -24,13 +24,11 @@ const deterministicSampler = new Sampler.Sampler({
   suggest: (_space, context) => Effect.succeed({ slot: context.nextTrialNumber })
 })
 
-const singleSpace = () => makeSlotSpace(40)
-
-const decodeSingleConfig = Schema.decodeUnknownSync(singleSpace().schema)
+const singleSpace = makeSlotSpace(40)
 
 const singleObjective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
   Effect.gen(function*() {
-    const config = decodeSingleConfig(raw)
+    const config = yield* decodeSlotConfig(raw)
 
     yield* runtime.report(0, config.slot)
     yield* runtime.report(1, config.slot)
@@ -50,13 +48,13 @@ const singlePruningPolicy = new Study.PruningPolicy({
       : Study.ContinuePruneDecision()
 })
 
-const multiSpace = () =>
-  SearchSpace.unsafeMake({
-    instruction: SearchSpace.categorical(["baseline", "rewrite", "socratic"]),
-    demos: SearchSpace.categorical(["none", "few", "curated"])
-  })
+const multiSpace = SearchSpace.make({
+  instruction: SearchSpace.categorical(["baseline", "rewrite", "socratic"]),
+  demos: SearchSpace.categorical(["none", "few", "curated"])
+})
 
-const decodeMultiConfig = Schema.decodeUnknownSync(multiSpace().schema)
+const decodeMultiConfig = (raw: unknown) =>
+  Effect.flatMap(multiSpace, (space) => Schema.decodeUnknown(space.schema)(raw))
 
 const latency = (instruction: string, demos: string): number =>
   Match.value(instruction).pipe(
@@ -74,7 +72,7 @@ const loss = (instruction: string, demos: string): number =>
 
 const multiObjective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
   Effect.gen(function*() {
-    const config = decodeMultiConfig(raw)
+    const config = yield* decodeMultiConfig(raw)
     const objectiveLatency = latency(config.instruction, config.demos)
     const objectiveLoss = loss(config.instruction, config.demos)
 
@@ -102,26 +100,28 @@ const asMultiObjective = (result: Study.StudyResult) =>
   result._tag === "MultiObjective" ? Option.some(result) : Option.none()
 
 const bootstrapSpace = makeRandomTrainingSpace(32)
-const decodeBootstrapConfig = Schema.decodeUnknownSync(bootstrapSpace.schema)
+const decodeBootstrapConfig = decodeRandomTrainingConfig
 
-const bootstrapFiniteGridSpace = SearchSpace.unsafeMake({
+const bootstrapFiniteGridSpace = SearchSpace.make({
   prompt: SearchSpace.categorical(["baseline", "rewrite", "socratic"]),
   shots: SearchSpace.int(0, 2, { step: 1 }),
   strict: SearchSpace.boolean()
 })
-const decodeBootstrapFiniteGridConfig = Schema.decodeUnknownSync(bootstrapFiniteGridSpace.schema)
+const decodeBootstrapFiniteGridConfig = (raw: unknown) =>
+  Effect.flatMap(bootstrapFiniteGridSpace, (space) => Schema.decodeUnknown(space.schema)(raw))
 
 const coupledInstructionChoices: [string, ...Array<string>] = ["i0", "i1", "i2", "i3", "i4", "i5"]
 const coupledDemoChoices: [string, ...Array<string>] = ["d0", "d1", "d2", "d3", "d4", "d5"]
 const coupledTemperatureChoices: [string, ...Array<string>] = ["cool", "warm", "hot"]
 const coupledPreferredDemos: Array<string> = ["d3", "d5", "d1", "d4", "d0", "d2"]
 
-const coupledSpace = SearchSpace.unsafeMake({
+const coupledSpace = SearchSpace.make({
   instruction: SearchSpace.categorical(coupledInstructionChoices),
   demo: SearchSpace.categorical(coupledDemoChoices),
   temperature: SearchSpace.categorical(coupledTemperatureChoices)
 })
-const decodeCoupledConfig = Schema.decodeUnknownSync(coupledSpace.schema)
+const decodeCoupledConfig = (raw: unknown) =>
+  Effect.flatMap(coupledSpace, (space) => Schema.decodeUnknown(space.schema)(raw))
 
 const indexOfChoice = (choices: ReadonlyArray<string>, value: string): number => {
   const index = choices.findIndex((choice) => choice === value)
@@ -129,27 +129,29 @@ const indexOfChoice = (choices: ReadonlyArray<string>, value: string): number =>
   return index >= 0 ? index : 0
 }
 
-const coupledObjectiveValue = (raw: unknown): number => {
-  const config = decodeCoupledConfig(raw)
-  const instructionIndex = indexOfChoice(coupledInstructionChoices, config.instruction)
-  const preferredDemo = Option.fromNullable(coupledPreferredDemos[instructionIndex]).pipe(
-    Option.getOrElse(() => coupledDemoChoices[0])
-  )
-  const couplingPenalty = config.demo === preferredDemo ? 0 : 4.5
-  const temperaturePenalty = config.temperature === "cool" ? 0 : config.temperature === "warm" ? 0.15 : 0.35
+const coupledObjectiveValue = (raw: unknown) =>
+  Effect.gen(function*() {
+    const config = yield* decodeCoupledConfig(raw)
+    const instructionIndex = indexOfChoice(coupledInstructionChoices, config.instruction)
+    const preferredDemo = Option.fromNullable(coupledPreferredDemos[instructionIndex]).pipe(
+      Option.getOrElse(() => coupledDemoChoices[0])
+    )
+    const couplingPenalty = config.demo === preferredDemo ? 0 : 4.5
+    const temperaturePenalty = config.temperature === "cool" ? 0 : config.temperature === "warm" ? 0.15 : 0.35
 
-  return couplingPenalty + temperaturePenalty + instructionIndex * 0.01
-}
+    return couplingPenalty + temperaturePenalty + instructionIndex * 0.01
+  })
 
-const isCoupledBestPair = (raw: unknown): boolean => {
-  const config = decodeCoupledConfig(raw)
-  const instructionIndex = indexOfChoice(coupledInstructionChoices, config.instruction)
-  const preferredDemo = Option.fromNullable(coupledPreferredDemos[instructionIndex]).pipe(
-    Option.getOrElse(() => coupledDemoChoices[0])
-  )
+const isCoupledBestPair = (raw: unknown) =>
+  Effect.gen(function*() {
+    const config = yield* decodeCoupledConfig(raw)
+    const instructionIndex = indexOfChoice(coupledInstructionChoices, config.instruction)
+    const preferredDemo = Option.fromNullable(coupledPreferredDemos[instructionIndex]).pipe(
+      Option.getOrElse(() => coupledDemoChoices[0])
+    )
 
-  return config.demo === preferredDemo
-}
+    return config.demo === preferredDemo
+  })
 
 const conditionalSpace = makeLinearTreeConditionalSpace()
 const decodeConditionalConfig = decodeLinearTreeConditionalConfig
@@ -160,48 +162,54 @@ const encodeObjectiveVectors = Schema.encodeSync(
   Schema.parseJson(Schema.Array(Schema.Array(Schema.Number)))
 )
 
-const conditionalLatency = (raw: unknown): number =>
-  Match.value(decodeConditionalConfig(raw)).pipe(
-    Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
-      Float64.abs(Float64.log(learningRate) - Float64.log(0.015)) + regularization * 0.2),
-    Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
-      0.6 + Float64.abs(maxDepth - 6) * 0.2 + Float64.abs(minSamplesLeaf - 2) * 0.1),
-    Match.exhaustive
-  )
+const conditionalLatency = (raw: unknown) =>
+  decodeConditionalConfig(raw).pipe(Effect.map((config) =>
+    Match.value(config).pipe(
+      Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
+        Float64.abs(Float64.log(learningRate) - Float64.log(0.015)) + regularization * 0.2),
+      Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
+        0.6 + Float64.abs(maxDepth - 6) * 0.2 + Float64.abs(minSamplesLeaf - 2) * 0.1),
+      Match.exhaustive
+    )
+  ))
 
-const conditionalLoss = (raw: unknown): number =>
-  Match.value(decodeConditionalConfig(raw)).pipe(
-    Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
-      Float64.abs(learningRate - 0.02) * 6 + Float64.abs(regularization - 0.2)),
-    Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
-      0.4 + Float64.abs(maxDepth - 7) * 0.25 + Float64.abs(minSamplesLeaf - 2) * 0.35),
-    Match.exhaustive
-  )
+const conditionalLoss = (raw: unknown) =>
+  decodeConditionalConfig(raw).pipe(Effect.map((config) =>
+    Match.value(config).pipe(
+      Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
+        Float64.abs(learningRate - 0.02) * 6 + Float64.abs(regularization - 0.2)),
+      Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
+        0.4 + Float64.abs(maxDepth - 7) * 0.25 + Float64.abs(minSamplesLeaf - 2) * 0.35),
+      Match.exhaustive
+    )
+  ))
 
 const gepaObjective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
   Effect.gen(function*() {
-    const latencyValue = conditionalLatency(raw)
-    const lossValue = conditionalLoss(raw)
+    const latencyValue = yield* conditionalLatency(raw)
+    const lossValue = yield* conditionalLoss(raw)
 
     yield* runtime.report(0, latencyValue + lossValue)
 
     return [latencyValue, lossValue]
   })
 
-const isBranchSafe = (raw: unknown): boolean =>
-  Match.value(decodeConditionalConfig(raw)).pipe(
-    Match.when({ model: "linear" }, (config) =>
-      "learningRate" in config && "regularization" in config && !("maxDepth" in config)),
-    Match.when({ model: "tree" }, (config) =>
-      "maxDepth" in config && "minSamplesLeaf" in config && !("learningRate" in config)),
-    Match.exhaustive
-  )
+const isBranchSafe = (raw: unknown) =>
+  decodeConditionalConfig(raw).pipe(Effect.map((config) =>
+    Match.value(config).pipe(
+      Match.when({ model: "linear" }, (config) =>
+        "learningRate" in config && "regularization" in config && !("maxDepth" in config)),
+      Match.when({ model: "tree" }, (config) =>
+        "maxDepth" in config && "minSamplesLeaf" in config && !("learningRate" in config)),
+      Match.exhaustive
+    )
+  ))
 
 describe("optimizer readiness pruning regression", () => {
   it.effect("keeps single-objective optimizer paths stable with pruning enabled", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: singleSpace(),
+        space: yield* singleSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 8,
@@ -227,7 +235,7 @@ describe("optimizer readiness pruning regression", () => {
   it.effect("keeps multi-objective Pareto outputs free of pruned trials", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: multiSpace(),
+        space: yield* multiSpace,
         sampler: Sampler.tpe({ seed: 717, nStartupTrials: 4, nEiCandidates: 20 }),
         directions: ["minimize", "minimize"],
         trials: 12,
@@ -252,12 +260,14 @@ describe("optimizer readiness pruning regression", () => {
 
   it.live("BootstrapFewShot readiness keeps deterministic random/grid baselines with bounded concurrency", () =>
     Effect.gen(function*() {
+      const resolvedBootstrapSpace = yield* bootstrapSpace
+      const resolvedGridSpace = yield* bootstrapFiniteGridSpace
       const activeRef = yield* Ref.make(0)
       const maxActiveRef = yield* Ref.make(0)
 
       const runRandomBaseline = (seed: number) =>
         Study.optimize({
-          space: bootstrapSpace,
+          space: resolvedBootstrapSpace,
           sampler: Sampler.random({ seed }),
           direction: "minimize",
           concurrency: 3,
@@ -267,19 +277,20 @@ describe("optimizer readiness pruning regression", () => {
               Ref.updateAndGet(activeRef, (active) => Num.increment(active)).pipe(
                 Effect.tap((active) => Ref.update(maxActiveRef, (maxActive) => Num.max(maxActive, active)))
               ),
-              () => {
-                const config = decodeBootstrapConfig(raw)
-                const optimizerPenalty = config.optimizer === "adamw" ? 0 : config.optimizer === "adam" ? 0.2 : 0.45
+              () =>
+                Effect.gen(function*() {
+                  const config = yield* decodeBootstrapConfig(raw)
+                  const optimizerPenalty = config.optimizer === "adamw" ? 0 : config.optimizer === "adam" ? 0.2 : 0.45
 
-                return Effect.sleep("4 millis").pipe(
-                  Effect.as(
-                    Float64.abs(Float64.log(config.lr) - Float64.log(0.01)) +
-                      Float64.abs(config.batchSize - 32) * 0.05 +
-                      (config.useBatchNorm ? 0 : 0.15) +
-                      optimizerPenalty
+                  return yield* Effect.sleep("4 millis").pipe(
+                    Effect.as(
+                      Float64.abs(Float64.log(config.lr) - Float64.log(0.01)) +
+                        Float64.abs(config.batchSize - 32) * 0.05 +
+                        (config.useBatchNorm ? 0 : 0.15) +
+                        optimizerPenalty
+                    )
                   )
-                )
-              },
+                }),
               () => Ref.update(activeRef, (active) => Num.decrement(active))
             )
         })
@@ -306,18 +317,19 @@ describe("optimizer readiness pruning regression", () => {
       expect(maxActive).toBeLessThanOrEqual(3)
 
       const gridResult = yield* Study.optimize({
-        space: bootstrapFiniteGridSpace,
+        space: resolvedGridSpace,
         sampler: Sampler.grid({ shuffle: false, seed: 0 }),
         direction: "minimize",
         trials: 100,
-        objective: (raw) => {
-          const config = decodeBootstrapFiniteGridConfig(raw)
-          const promptPenalty = config.prompt === "baseline" ? 0 : config.prompt === "rewrite" ? 0.2 : 0.4
-          const shotPenalty = config.shots * 0.1
-          const strictPenalty = config.strict ? 0 : 0.15
+        objective: (raw) =>
+          Effect.gen(function*() {
+            const config = yield* decodeBootstrapFiniteGridConfig(raw)
+            const promptPenalty = config.prompt === "baseline" ? 0 : config.prompt === "rewrite" ? 0.2 : 0.4
+            const shotPenalty = config.shots * 0.1
+            const strictPenalty = config.strict ? 0 : 0.15
 
-          return Effect.succeed(promptPenalty + shotPenalty + strictPenalty)
-        }
+            return promptPenalty + shotPenalty + strictPenalty
+          })
       })
 
       const gridOption = asSingleObjective(gridResult)
@@ -333,26 +345,27 @@ describe("optimizer readiness pruning regression", () => {
 
   it.effect("MIPROv2 readiness keeps categorical-coupled multivariate TPE deterministic and competitive", () =>
     Effect.gen(function*() {
+      const space = yield* coupledSpace
       const tpeLeft = yield* Study.optimize({
-        space: coupledSpace,
+        space,
         sampler: Sampler.tpe({ seed: 211, nStartupTrials: 8, nEiCandidates: 80 }),
         direction: "minimize",
         trials: 24,
-        objective: (raw) => Effect.succeed(coupledObjectiveValue(raw))
+        objective: coupledObjectiveValue
       })
       const tpeRight = yield* Study.optimize({
-        space: coupledSpace,
+        space,
         sampler: Sampler.tpe({ seed: 211, nStartupTrials: 8, nEiCandidates: 80 }),
         direction: "minimize",
         trials: 24,
-        objective: (raw) => Effect.succeed(coupledObjectiveValue(raw))
+        objective: coupledObjectiveValue
       })
       const randomBaseline = yield* Study.optimize({
-        space: coupledSpace,
+        space,
         sampler: Sampler.random({ seed: 211 }),
         direction: "minimize",
         trials: 24,
-        objective: (raw) => Effect.succeed(coupledObjectiveValue(raw))
+        objective: coupledObjectiveValue
       })
 
       const tpeLeftOption = asSingleObjective(tpeLeft)
@@ -370,7 +383,7 @@ describe("optimizer readiness pruning regression", () => {
       expect(tpeLeftOption.value.trials.map((trial) => trial.config)).toEqual(
         tpeRightOption.value.trials.map((trial) => trial.config)
       )
-      expect(isCoupledBestPair(tpeLeftOption.value.bestTrial.config)).toBe(true)
+      expect(yield* isCoupledBestPair(tpeLeftOption.value.bestTrial.config)).toBe(true)
       expect(tpeLeftOption.value.bestTrial.state.value).toBeLessThanOrEqual(randomOption.value.bestTrial.state.value)
     }))
 
@@ -378,6 +391,7 @@ describe("optimizer readiness pruning regression", () => {
     "GEPA readiness combines MOTPE, conditional dimensions, and snapshot/resume parity",
     () =>
       Effect.gen(function*() {
+        const space = yield* conditionalSpace
         const options = {
           seed: 628,
           nStartupTrials: 6,
@@ -388,14 +402,14 @@ describe("optimizer readiness pruning regression", () => {
         const secondLegTrials = totalTrials - firstLegTrials
 
         const baselineResult = yield* Study.optimize({
-          space: conditionalSpace,
+          space,
           sampler: Sampler.tpe(options),
           directions: ["minimize", "minimize"],
           trials: totalTrials,
           objective: gepaObjective
         })
         const firstLegResult = yield* Study.optimize({
-          space: conditionalSpace,
+          space,
           sampler: Sampler.tpe(options),
           directions: ["minimize", "minimize"],
           trials: firstLegTrials,
@@ -414,7 +428,7 @@ describe("optimizer readiness pruning regression", () => {
 
         const snapshot = yield* Study.snapshot(firstLegOption.value)
         const resumedResult = yield* Study.resume({
-          space: conditionalSpace,
+          space,
           sampler: Sampler.tpe(options),
           snapshot,
           directions: ["minimize", "minimize"],
@@ -431,15 +445,16 @@ describe("optimizer readiness pruning regression", () => {
 
         const baseline = baselineOption.value
         const resumed = resumedOption.value
-        const baselineTrace = baseline.trials.map((trial) => decodeConditionalConfig(trial.config))
-        const resumedTrace = resumed.trials.map((trial) => decodeConditionalConfig(trial.config))
+        const baselineTrace = yield* Effect.forEach(baseline.trials, (trial) => decodeConditionalConfig(trial.config))
+        const resumedTrace = yield* Effect.forEach(resumed.trials, (trial) => decodeConditionalConfig(trial.config))
         const baselinePareto = baseline.paretoFront.map((trial) => normalizeObjectiveVector(trial.state.value))
         const resumedPareto = resumed.paretoFront.map((trial) => normalizeObjectiveVector(trial.state.value))
 
         expect(encodeConditionalTrace(resumedTrace)).toBe(encodeConditionalTrace(baselineTrace))
         expect(encodeObjectiveVectors(resumedPareto)).toBe(encodeObjectiveVectors(baselinePareto))
         expect(resumed.paretoFront.length).toBeGreaterThan(0)
-        expect(resumed.trials.every((trial) => isBranchSafe(trial.config))).toBe(true)
+        const branchSafety = yield* Effect.forEach(resumed.trials, (trial) => isBranchSafe(trial.config))
+        expect(branchSafety.every((safe) => safe)).toBe(true)
       }),
     30_000
   )

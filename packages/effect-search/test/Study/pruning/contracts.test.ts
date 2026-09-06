@@ -19,7 +19,7 @@ describe("Study pruning and early stop contracts", () => {
   it.effect("marks pruned trials with typed metadata and excludes them from best selection", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 4,
@@ -52,7 +52,7 @@ describe("Study pruning and early stop contracts", () => {
   it.effect("surfaces invalid report semantics through typed InvalidObjectiveReport failures", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 4,
@@ -83,7 +83,7 @@ describe("Study pruning and early stop contracts", () => {
       const interruptHeartbeatRef = yield* Ref.make<ReadonlyArray<string>>([])
 
       const drainResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 3,
@@ -91,7 +91,7 @@ describe("Study pruning and early stop contracts", () => {
         objective: objectiveWithStopProbe(drainHeartbeatRef, "drain-stop")
       })
       const interruptResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 3,
@@ -121,7 +121,7 @@ describe("Study pruning and early stop contracts", () => {
     Effect.gen(function*() {
       const events = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: makeSpace(),
+          space: yield* makeSpace,
           sampler: deterministicSampler,
           direction: "minimize",
           trials: 3,
@@ -137,7 +137,7 @@ describe("Study pruning and early stop contracts", () => {
           },
           objective: (raw, runtime) =>
             Effect.gen(function*() {
-              const config = decodeSlotConfig(raw)
+              const config = yield* decodeSlotConfig(raw)
               yield* runtime.report(0, config.slot)
               yield* runtime.requestStop("stream-stop")
               return config.slot

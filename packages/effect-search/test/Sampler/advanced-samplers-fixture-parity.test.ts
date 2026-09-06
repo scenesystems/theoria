@@ -17,7 +17,7 @@ const makeSpace = (
     readonly y: { readonly low: number; readonly high: number }
   }
 ) =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(space.x.low, space.x.high),
     y: SearchSpace.float(space.y.low, space.y.high)
   })
@@ -47,7 +47,7 @@ describe("advanced samplers fixture parity", () => {
     Effect.gen(function*() {
       const loaded = yield* loadFixture("advanced-samplers.cmaes-parity")
       const fixture = yield* Schema.decodeUnknown(AdvancedCmaEsFixtureSchema)(loaded)
-      const space = makeSpace(fixture.payload.space)
+      const space = yield* makeSpace(fixture.payload.space)
       const context = makeContext(fixture.payload.context)
       const cmaSampler = Sampler.cmaEs(fixture.payload.sampler)
       const cmaCandidate = yield* Sampler.suggest(cmaSampler, space, context)
@@ -59,7 +59,7 @@ describe("advanced samplers fixture parity", () => {
     Effect.gen(function*() {
       const loaded = yield* loadFixture("advanced-samplers.gpbo-parity")
       const fixture = yield* Schema.decodeUnknown(AdvancedGpBoFixtureSchema)(loaded)
-      const space = makeSpace(fixture.payload.space)
+      const space = yield* makeSpace(fixture.payload.space)
       const context = makeContext(fixture.payload.context)
       const gpSampler = Sampler.gpBo(fixture.payload.sampler)
       const candidate = yield* Sampler.suggest(gpSampler, space, context)

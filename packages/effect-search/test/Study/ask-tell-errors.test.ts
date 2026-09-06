@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
 
@@ -15,7 +15,7 @@ describe("Study ask-tell typed transition errors", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 222 }),
           direction: "minimize",
           trials: 2,
@@ -63,7 +63,7 @@ describe("Study ask-tell typed transition errors", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 223 }),
           direction: "minimize",
           trials: 2,

@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
 
@@ -15,7 +15,7 @@ describe("Study objective timeout", () => {
     Effect.gen(function*() {
       const events = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 17 }),
           direction: "minimize",
           trials: 1,
@@ -42,7 +42,7 @@ describe("Study objective timeout", () => {
 
       yield* Stream.runCollect(
         Study.optimizeStream({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 23 }),
           direction: "minimize",
           trials: 1,

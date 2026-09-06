@@ -13,7 +13,7 @@ describe("machine streaming", () => {
   it.effect("streams lifecycle transitions through actor changes", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const runtime = yield* initializeRuntime(makeSettings()).pipe(Effect.provide(StudyClockLayer))
+        const runtime = yield* initializeRuntime(yield* makeSettings()).pipe(Effect.provide(StudyClockLayer))
 
         const lifecycleFiber = yield* runtimeChanges(runtime).pipe(
           Stream.map((state) => state.lifecycle),

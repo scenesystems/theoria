@@ -7,7 +7,7 @@ import { isStudyHandle } from "../../src/Study/api/askTell.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
 
@@ -16,7 +16,7 @@ describe("Study handle guard", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 555 }),
           direction: "minimize",
           trials: 1,

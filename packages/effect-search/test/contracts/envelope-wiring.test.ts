@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
 
 import type { ArtifactEnvelope } from "../../src/contracts/ArtifactEnvelope.js"
 import {
@@ -28,10 +28,7 @@ const makeCollectingSink = Effect.gen(function*() {
   return { sink, collected }
 })
 
-const getEnvelope = (envelopes: ReadonlyArray<ArtifactEnvelope>, index: number) =>
-  Arr.get(envelopes, index).pipe(
-    Option.getOrThrowWith(() => `expected envelope at index ${index}`)
-  )
+const getEnvelope = (envelopes: ReadonlyArray<ArtifactEnvelope>, index: number) => Arr.get(envelopes, index)
 
 describe("contracts/envelope-wiring", () => {
   it.effect("envelopeEventPublisher wraps StudyEvent in StudyEventEnvelope with correct lineage", () =>
@@ -45,7 +42,7 @@ describe("contracts/envelope-wiring", () => {
       const envelopes = yield* Ref.get(collected)
       expect(envelopes).toHaveLength(2)
 
-      const first = getEnvelope(envelopes, 0)
+      const first = yield* getEnvelope(envelopes, 0)
       expect(first._tag).toBe("StudyEvent")
       expect(first.schemaVersion).toBe("artifact-envelope/v1")
       expect(first.producer._tag).toBe("EffectSearch")
@@ -53,7 +50,7 @@ describe("contracts/envelope-wiring", () => {
       expect(first.lineage.sourceRef.domain).toBe("study")
       expect(first.lineage.artifactId.sequence).toBe(0)
 
-      const second = getEnvelope(envelopes, 1)
+      const second = yield* getEnvelope(envelopes, 1)
       expect(second._tag).toBe("StudyEvent")
       expect(second.lineage.artifactId.sequence).toBe(1)
     }).pipe(Effect.provide(makeTestEnvelopeContextLayer)))
@@ -66,13 +63,11 @@ describe("contracts/envelope-wiring", () => {
       yield* publisher.publish(StudyEvent.TrialCompleted({ trialNumber: 0, value: 1.0 }))
 
       const envelopes = yield* Ref.get(collected)
-      const envelope = getEnvelope(envelopes, 0)
+      const envelope = yield* getEnvelope(envelopes, 0)
 
       expect(envelope.relations).toHaveLength(1)
 
-      const relation = Arr.get(envelope.relations ?? [], 0).pipe(
-        Option.getOrThrowWith(() => "expected relation at index 0")
-      )
+      const relation = yield* Arr.get(envelope.relations ?? [], 0)
       expect(relation._tag).toBe("Run")
       expect(relation._tag === "Run" && relation.ref).toBe(TEST_RUN_ID)
     }).pipe(Effect.provide(makeTestEnvelopeContextLayer)))
@@ -101,7 +96,7 @@ describe("contracts/envelope-wiring", () => {
       yield* publisher.publish(StudyEvent.StudyCompleted({ completionReason: "budgetExhausted" }))
 
       const envelopes = yield* Ref.get(collected)
-      const envelope = getEnvelope(envelopes, 0)
+      const envelope = yield* getEnvelope(envelopes, 0)
       expect(envelope.producer._tag).toBe("EffectSearch")
 
       const producer = envelope.producer
@@ -118,7 +113,7 @@ describe("contracts/envelope-wiring", () => {
       yield* publisher.publish(StudyEvent.TrialCompleted({ trialNumber: 0, value: 2.0 }))
 
       const envelopes = yield* Ref.get(collected)
-      const envelope = getEnvelope(envelopes, 0)
+      const envelope = yield* getEnvelope(envelopes, 0)
       expect(isEnvelope("StudyEvent")(envelope)).toBe(true)
       expect(isEnvelope("TrialLog")(envelope)).toBe(false)
     }).pipe(Effect.provide(makeTestEnvelopeContextLayer)))

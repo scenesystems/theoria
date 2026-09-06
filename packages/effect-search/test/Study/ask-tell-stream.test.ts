@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     depth: SearchSpace.int(1, 3)
   })
@@ -16,7 +16,7 @@ describe("Study ask-tell stream", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 444 }),
           direction: "minimize",
           trials: 2,

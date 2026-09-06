@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Schema } from "effect"
 
 import {
-  decodePromptCategoricalConfigEffect,
+  decodePromptCategoricalConfig,
   makePromptCategoricalSpace,
   PromptCategoricalConfigSchema
 } from "../../src/experimental/scenarios/promptCategorical.js"
@@ -23,7 +23,7 @@ const interactionPenalty = (instruction: string, demos: string, scoring: string)
   instruction === "rewrite" && demos === "curated" && scoring === "balanced" ? -0.25 : 0
 
 const objectiveValue = (raw: unknown) =>
-  decodePromptCategoricalConfigEffect(raw).pipe(
+  decodePromptCategoricalConfig(raw).pipe(
     Effect.map((config) =>
       instructionPenalty(config.instruction) +
       demosPenalty(config.demos) +
@@ -41,7 +41,7 @@ const traceFromResult = (
   Option.match(asSingleObjective(result), {
     onNone: () => Effect.succeedNone,
     onSome: (value) =>
-      Effect.forEach(value.trials, (trial) => decodePromptCategoricalConfigEffect(trial.config)).pipe(
+      Effect.forEach(value.trials, (trial) => decodePromptCategoricalConfig(trial.config)).pipe(
         Effect.asSome
       )
   })
@@ -49,16 +49,19 @@ const traceFromResult = (
 const optimizeWithReplayFixture = (
   fixture: Schema.Schema.Type<typeof TpeCategoricalStudyReplayFixtureSchema>
 ) =>
-  Study.optimize({
-    space: makePromptCategoricalSpace(),
-    sampler: Sampler.tpe({
-      seed: fixture.payload.sampler.seed,
-      nStartupTrials: fixture.payload.sampler.nStartupTrials,
-      nEiCandidates: fixture.payload.sampler.nEiCandidates
-    }),
-    direction: "minimize",
-    trials: fixture.payload.sampler.trials,
-    objective: objectiveValue
+  Effect.gen(function*() {
+    const space = yield* makePromptCategoricalSpace()
+    return yield* Study.optimize({
+      space,
+      sampler: Sampler.tpe({
+        seed: fixture.payload.sampler.seed,
+        nStartupTrials: fixture.payload.sampler.nStartupTrials,
+        nEiCandidates: fixture.payload.sampler.nEiCandidates
+      }),
+      direction: "minimize",
+      trials: fixture.payload.sampler.trials,
+      objective: objectiveValue
+    })
   })
 
 describe("integration deterministic fixture replay", () => {

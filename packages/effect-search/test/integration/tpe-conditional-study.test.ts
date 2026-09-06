@@ -28,7 +28,7 @@ const objectiveValue = (config: ConditionalConfig): number =>
     Match.exhaustive
   )
 
-const objective = (raw: unknown) => Effect.succeed(objectiveValue(decodeConditional(raw)))
+const objective = (raw: unknown) => decodeConditional(raw).pipe(Effect.map(objectiveValue))
 
 const asSingleObjective = (result: Study.StudyResult) =>
   Match.value(result).pipe(
@@ -36,8 +36,8 @@ const asSingleObjective = (result: Study.StudyResult) =>
     Match.orElse(() => Option.none())
   )
 
-const configTrace = (result: Study.SingleObjectiveResult): Array<ConditionalConfig> =>
-  Arr.map(result.trials, (trial) => decodeConditional(trial.config))
+const configTrace = (result: Study.SingleObjectiveResult) =>
+  Effect.forEach(result.trials, (trial) => decodeConditional(trial.config))
 
 const valueTrace = (result: Study.SingleObjectiveResult): Array<number> =>
   Arr.flatMap(result.trials, (trial) =>
@@ -54,13 +54,16 @@ const valueTrace = (result: Study.SingleObjectiveResult): Array<number> =>
     })(trial.state))
 
 const optimizeWith = (concurrency: number) =>
-  Study.optimize({
-    space: makeSpace(),
-    sampler: Sampler.tpe({ seed: 212, nStartupTrials: 4, nEiCandidates: 16 }),
-    direction: "minimize",
-    trials: 10,
-    concurrency,
-    objective
+  Effect.gen(function*() {
+    const space = yield* makeSpace()
+    return yield* Study.optimize({
+      space,
+      sampler: Sampler.tpe({ seed: 212, nStartupTrials: 4, nEiCandidates: 16 }),
+      direction: "minimize",
+      trials: 10,
+      concurrency,
+      objective
+    })
   })
 
 describe("integration conditional TPE study", () => {
@@ -80,24 +83,22 @@ describe("integration conditional TPE study", () => {
       expect(Option.isSome(parallelAOption)).toBe(true)
       expect(Option.isSome(parallelBOption)).toBe(true)
 
-      const tracedRuns = Option.getOrThrow(
-        Option.all({
-          singleThreadedAOption,
-          singleThreadedBOption,
-          parallelAOption,
-          parallelBOption
-        })
-      )
+      const tracedRuns = yield* Option.all({
+        singleThreadedAOption,
+        singleThreadedBOption,
+        parallelAOption,
+        parallelBOption
+      })
 
-      expect(encodeConfigTrace(configTrace(tracedRuns.singleThreadedAOption))).toBe(
-        encodeConfigTrace(configTrace(tracedRuns.singleThreadedBOption))
+      expect(encodeConfigTrace(yield* configTrace(tracedRuns.singleThreadedAOption))).toBe(
+        encodeConfigTrace(yield* configTrace(tracedRuns.singleThreadedBOption))
       )
       expect(encodeValueTrace(valueTrace(tracedRuns.singleThreadedAOption))).toBe(
         encodeValueTrace(valueTrace(tracedRuns.singleThreadedBOption))
       )
 
-      expect(encodeConfigTrace(configTrace(tracedRuns.parallelAOption))).toBe(
-        encodeConfigTrace(configTrace(tracedRuns.parallelBOption))
+      expect(encodeConfigTrace(yield* configTrace(tracedRuns.parallelAOption))).toBe(
+        encodeConfigTrace(yield* configTrace(tracedRuns.parallelBOption))
       )
       expect(encodeValueTrace(valueTrace(tracedRuns.parallelAOption))).toBe(
         encodeValueTrace(valueTrace(tracedRuns.parallelBOption))
@@ -112,11 +113,10 @@ describe("integration conditional TPE study", () => {
 
       expect(Option.isSome(single)).toBe(true)
 
-      const verifiedRun = Option.getOrThrow(single)
+      const verifiedRun = yield* single
 
-      Arr.forEach(verifiedRun.trials, (trial) => {
-        const decoded = decodeConditional(trial.config)
-
+      const decodedConfigs = yield* Effect.forEach(verifiedRun.trials, (trial) => decodeConditional(trial.config))
+      Arr.forEach(decodedConfigs, (decoded) => {
         Match.value(decoded.model).pipe(
           Match.when("linear", () => {
             expect("learningRate" in decoded).toBe(true)
@@ -146,14 +146,14 @@ describe("integration conditional TPE study", () => {
       const firstLegTrials = 5
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.tpe(options),
         direction: "minimize",
         trials: totalTrials,
         objective
       })
       const firstLegResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.tpe(options),
         direction: "minimize",
         trials: firstLegTrials,
@@ -166,16 +166,14 @@ describe("integration conditional TPE study", () => {
       expect(Option.isSome(baselineSingle)).toBe(true)
       expect(Option.isSome(firstLegSingle)).toBe(true)
 
-      const partialRuns = Option.getOrThrow(
-        Option.all({
-          baselineSingle,
-          firstLegSingle
-        })
-      )
+      const partialRuns = yield* Option.all({
+        baselineSingle,
+        firstLegSingle
+      })
 
       const snapshot = yield* Study.snapshot(partialRuns.firstLegSingle)
       const resumedResult = yield* Study.resume({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.tpe(options),
         snapshot,
         direction: "minimize",
@@ -186,10 +184,10 @@ describe("integration conditional TPE study", () => {
 
       expect(Option.isSome(resumedSingle)).toBe(true)
 
-      const resumedRun = Option.getOrThrow(resumedSingle)
+      const resumedRun = yield* resumedSingle
 
-      expect(encodeConfigTrace(configTrace(resumedRun))).toBe(
-        encodeConfigTrace(configTrace(partialRuns.baselineSingle))
+      expect(encodeConfigTrace(yield* configTrace(resumedRun))).toBe(
+        encodeConfigTrace(yield* configTrace(partialRuns.baselineSingle))
       )
       expect(encodeValueTrace(valueTrace(resumedRun))).toBe(
         encodeValueTrace(valueTrace(partialRuns.baselineSingle))
@@ -207,14 +205,14 @@ describe("integration conditional TPE study", () => {
         groupDimensions: true
       }
       const left = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.tpe(options),
         direction: "minimize",
         trials: 10,
         objective
       })
       const right = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.tpe(options),
         direction: "minimize",
         trials: 10,
@@ -226,16 +224,13 @@ describe("integration conditional TPE study", () => {
       expect(Option.isSome(leftSingle)).toBe(true)
       expect(Option.isSome(rightSingle)).toBe(true)
 
-      const runs = Option.getOrThrow(
-        Option.all({
-          leftSingle,
-          rightSingle
-        })
-      )
+      const runs = yield* Option.all({
+        leftSingle,
+        rightSingle
+      })
 
-      Arr.forEach(runs.leftSingle.trials, (trial) => {
-        const decoded = decodeConditional(trial.config)
-
+      const decodedConfigs = yield* Effect.forEach(runs.leftSingle.trials, (trial) => decodeConditional(trial.config))
+      Arr.forEach(decodedConfigs, (decoded) => {
         Match.value(decoded.model).pipe(
           Match.when("linear", () => {
             expect("learningRate" in decoded).toBe(true)
@@ -253,8 +248,8 @@ describe("integration conditional TPE study", () => {
         )
       })
 
-      expect(encodeConfigTrace(configTrace(runs.leftSingle))).toBe(
-        encodeConfigTrace(configTrace(runs.rightSingle))
+      expect(encodeConfigTrace(yield* configTrace(runs.leftSingle))).toBe(
+        encodeConfigTrace(yield* configTrace(runs.rightSingle))
       )
       expect(encodeValueTrace(valueTrace(runs.leftSingle))).toBe(
         encodeValueTrace(valueTrace(runs.rightSingle))

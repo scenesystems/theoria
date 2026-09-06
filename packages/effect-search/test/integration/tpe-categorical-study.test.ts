@@ -18,31 +18,33 @@ const scoringPenalty = (scoring: string): number => scoring === "balanced" ? 0 :
 const interactionPenalty = (instruction: string, demos: string, scoring: string): number =>
   instruction === "rewrite" && demos === "curated" && scoring === "balanced" ? -0.25 : 0
 
-const objectiveValue = (raw: unknown): number => {
-  const config = decodePromptCategoricalConfig(raw)
+const objectiveValue = (raw: unknown) =>
+  Effect.gen(function*() {
+    const config = yield* decodePromptCategoricalConfig(raw)
 
-  return (
-    instructionPenalty(config.instruction) +
-    demosPenalty(config.demos) +
-    scoringPenalty(config.scoring) +
-    interactionPenalty(config.instruction, config.demos, config.scoring)
-  )
-}
+    return (
+      instructionPenalty(config.instruction) +
+      demosPenalty(config.demos) +
+      scoringPenalty(config.scoring) +
+      interactionPenalty(config.instruction, config.demos, config.scoring)
+    )
+  })
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
-const optimizeWith = (sampler: Sampler.Sampler) => {
-  const space = makePromptCategoricalSpace()
+const optimizeWith = (sampler: Sampler.Sampler) =>
+  Effect.gen(function*() {
+    const space = yield* makePromptCategoricalSpace()
 
-  return Study.optimize({
-    space,
-    sampler,
-    direction: "minimize",
-    trials: 18,
-    objective: (raw) => Effect.succeed(objectiveValue(raw))
+    return yield* Study.optimize({
+      space,
+      sampler,
+      direction: "minimize",
+      trials: 18,
+      objective: objectiveValue
+    })
   })
-}
 
 describe("integration categorical tpe study", () => {
   it.effect("uses random startup trials before switching to TPE suggestions", () =>
@@ -130,7 +132,7 @@ describe("integration categorical tpe study", () => {
 
       expect(tpeOption.value.bestTrial.state.value).toBeLessThanOrEqual(randomOption.value.bestTrial.state.value)
 
-      const randomValues = randomOption.value.trials.map((trial) => objectiveValue(trial.config))
+      const randomValues = yield* Effect.forEach(randomOption.value.trials, (trial) => objectiveValue(trial.config))
       const randomBaseline = Option.fromNullable(randomValues[0]).pipe(
         Option.getOrElse(() => Number.POSITIVE_INFINITY)
       )

@@ -7,13 +7,13 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     depth: SearchSpace.int(1, 3)
   })
 
 const makeIncompatibleSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1),
     width: SearchSpace.int(1, 3)
   })
@@ -33,7 +33,7 @@ const asSingleObjective = (result: Study.StudyResult) =>
 describe("Study.resumeStream", () => {
   it.effect("streams resumed lifecycle events and completes with StudyCompleted", () =>
     Effect.gen(function*() {
-      const space = makeSpace()
+      const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
       const baseline = yield* Study.optimize({
         space,
@@ -65,7 +65,7 @@ describe("Study.resumeStream", () => {
 
   it.effect("preserves resume snapshot validation failures", () =>
     Effect.gen(function*() {
-      const space = makeSpace()
+      const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
       const baseline = yield* Study.optimize({
         space,
@@ -80,12 +80,12 @@ describe("Study.resumeStream", () => {
       const resumed = yield* Effect.either(
         Stream.runCollect(
           Study.resumeStream({
-            space: makeIncompatibleSpace(),
+            space: yield* makeIncompatibleSpace(),
             sampler: Sampler.random({ seed: 321 }),
             snapshot,
             direction: "minimize",
             trials: 2,
-            objective: objectiveFromSpace(makeIncompatibleSpace())
+            objective: objectiveFromSpace(yield* makeIncompatibleSpace())
           })
         )
       )

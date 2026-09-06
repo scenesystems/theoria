@@ -10,69 +10,52 @@ import {
   loadFixture
 } from "../helpers/fixtures.js"
 
-const makeConditionalSpace = () => makeLinearTreeConditionalSpace()
+const conditionalSpace = makeLinearTreeConditionalSpace()
 
-const makeTreeStructuredSpace = () =>
-  SearchSpace.unsafeMakeConditional(
+const treeStructuredSpace = Effect.gen(function*() {
+  const linear = yield* SearchSpace.make({
+    learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
+    regularization: SearchSpace.float(0, 1)
+  })
+  const shallow = yield* SearchSpace.make({
+    shallowMaxDepth: SearchSpace.int(2, 6)
+  })
+  const deep = yield* SearchSpace.make({
+    maxDepth: SearchSpace.int(7, 16),
+    minSamplesLeaf: SearchSpace.int(1, 4)
+  })
+  const tree = yield* SearchSpace.makeConditional(
+    {
+      depthMode: SearchSpace.categorical(["shallow", "deep"])
+    },
+    SearchSpace.switch("depthMode", [SearchSpace.when("shallow", shallow), SearchSpace.when("deep", deep)])
+  )
+
+  return yield* SearchSpace.makeConditional(
     {
       model: SearchSpace.categorical(["linear", "tree"])
     },
-    SearchSpace.switch("model", [
-      SearchSpace.when(
-        "linear",
-        SearchSpace.unsafeMake({
-          learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
-          regularization: SearchSpace.float(0, 1)
-        })
-      ),
-      SearchSpace.when(
-        "tree",
-        SearchSpace.unsafeMakeConditional(
-          {
-            depthMode: SearchSpace.categorical(["shallow", "deep"])
-          },
-          SearchSpace.switch("depthMode", [
-            SearchSpace.when(
-              "shallow",
-              SearchSpace.unsafeMake({
-                shallowMaxDepth: SearchSpace.int(2, 6)
-              })
-            ),
-            SearchSpace.when(
-              "deep",
-              SearchSpace.unsafeMake({
-                maxDepth: SearchSpace.int(7, 16),
-                minSamplesLeaf: SearchSpace.int(1, 4)
-              })
-            )
-          ])
-        )
-      )
-    ])
+    SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
   )
+})
 
-const makeBranchParitySpace = () =>
-  SearchSpace.unsafeMakeConditional(
+const branchParitySpace = Effect.gen(function*() {
+  const adam = yield* SearchSpace.make({
+    beta1: SearchSpace.float(0.8, 0.99),
+    beta2: SearchSpace.float(0.9, 0.999)
+  })
+  const sgd = yield* SearchSpace.make({
+    momentum: SearchSpace.float(0, 1)
+  })
+
+  return yield* SearchSpace.makeConditional(
     {
       optimizer: SearchSpace.categorical(["adam", "sgd"]),
       lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
     },
-    SearchSpace.switch("optimizer", [
-      SearchSpace.when(
-        "adam",
-        SearchSpace.unsafeMake({
-          beta1: SearchSpace.float(0.8, 0.99),
-          beta2: SearchSpace.float(0.9, 0.999)
-        })
-      ),
-      SearchSpace.when(
-        "sgd",
-        SearchSpace.unsafeMake({
-          momentum: SearchSpace.float(0, 1)
-        })
-      )
-    ])
+    SearchSpace.switch("optimizer", [SearchSpace.when("adam", adam), SearchSpace.when("sgd", sgd)])
   )
+})
 
 const decodeSpace = (space: SearchSpace.SearchSpace, value: unknown) => Schema.decodeUnknownEither(space.schema)(value)
 
@@ -128,8 +111,8 @@ const treeStructuredTypeInferenceProof = (_space: SearchSpace.SearchSpace) => {
 
 describe("SearchSpace conditional contracts", () => {
   it.effect("builds branch-safe typing and schema decode boundaries", () =>
-    Effect.sync(() => {
-      const space = makeConditionalSpace()
+    Effect.gen(function*() {
+      const space = yield* conditionalSpace
       const proof = typeInferenceProof(space)
 
       expect(Either.isRight(decodeSpace(space, proof.linear))).toBe(true)
@@ -147,8 +130,8 @@ describe("SearchSpace conditional contracts", () => {
     }))
 
   it.effect("builds nested tree-structured branch typing and schema decode boundaries", () =>
-    Effect.sync(() => {
-      const space = makeTreeStructuredSpace()
+    Effect.gen(function*() {
+      const space = yield* treeStructuredSpace
       const proof = treeStructuredTypeInferenceProof(space)
 
       expect(Either.isRight(decodeSpace(space, proof.linear))).toBe(true)
@@ -185,8 +168,8 @@ describe("SearchSpace conditional contracts", () => {
     }))
 
   it.effect("tracks activation metadata for branch-scoped parameters", () =>
-    Effect.sync(() => {
-      const space = makeConditionalSpace()
+    Effect.gen(function*() {
+      const space = yield* conditionalSpace
       const model = parameterByName(space, "model")
       const learningRate = parameterByName(space, "learningRate")
       const maxDepth = parameterByName(space, "maxDepth")
@@ -195,13 +178,11 @@ describe("SearchSpace conditional contracts", () => {
       expect(Option.isSome(learningRate)).toBe(true)
       expect(Option.isSome(maxDepth)).toBe(true)
 
-      const tracked = Option.getOrThrow(
-        Option.all({
-          model,
-          learningRate,
-          maxDepth
-        })
-      )
+      const tracked = yield* Option.all({
+        model,
+        learningRate,
+        maxDepth
+      })
 
       expect(tracked.model.activeWhen).toEqual([])
       expect(tracked.learningRate.activeWhen).toEqual([{ dimension: "model", equals: "linear" }])
@@ -226,7 +207,7 @@ describe("SearchSpace conditional contracts", () => {
           SearchSpace.switch("missing", [
             SearchSpace.when(
               "a",
-              SearchSpace.unsafeMake({
+              yield* SearchSpace.make({
                 alpha: SearchSpace.float(0.01, 1)
               })
             )
@@ -251,7 +232,7 @@ describe("SearchSpace conditional contracts", () => {
           SearchSpace.switch("mode", [
             SearchSpace.when(
               "tree",
-              SearchSpace.unsafeMake({
+              yield* SearchSpace.make({
                 maxDepth: SearchSpace.int(1, 4)
               })
             )
@@ -276,13 +257,13 @@ describe("SearchSpace conditional contracts", () => {
           SearchSpace.switch("mode", [
             SearchSpace.when(
               "a",
-              SearchSpace.unsafeMake({
+              yield* SearchSpace.make({
                 shared: SearchSpace.float(0.01, 1)
               })
             ),
             SearchSpace.when(
               "b",
-              SearchSpace.unsafeMake({
+              yield* SearchSpace.make({
                 shared: SearchSpace.float(0.01, 1)
               })
             )
@@ -301,7 +282,7 @@ describe("SearchSpace conditional contracts", () => {
     Effect.gen(function*() {
       const loaded = yield* loadFixture("conditional.filtering").pipe(Effect.provide(FixtureRegistryLive))
       const fixture = yield* Schema.decodeUnknown(ConditionalFilteringFixtureSchema)(loaded)
-      const space = makeBranchParitySpace()
+      const space = yield* branchParitySpace
 
       fixture.payload.cases.forEach((entry) => {
         const trials = entry.trials.map(
@@ -322,7 +303,7 @@ describe("SearchSpace conditional contracts", () => {
     Effect.gen(function*() {
       const loaded = yield* loadFixture("conditional.group-decomposition").pipe(Effect.provide(FixtureRegistryLive))
       const fixture = yield* Schema.decodeUnknown(ConditionalGroupDecompositionFixtureSchema)(loaded)
-      const space = makeBranchParitySpace()
+      const space = yield* branchParitySpace
       const groups = SearchSpace.decomposeConditionalGroups(space).map((group) => ({
         key: group.key,
         dimensions: [...group.dimensions]

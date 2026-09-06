@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeTypedSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     lr: SearchSpace.float(0.001, 0.1),
     optimizer: SearchSpace.categorical(["adam", "sgd"])
   })
@@ -16,7 +16,7 @@ const expectTypedConfig = (config: { readonly lr: number; readonly optimizer: "a
 describe("Study typed results", () => {
   it.effect("infers objective config and threads it into StudyResult.bestTrial.config", () =>
     Effect.gen(function*() {
-      const space = makeTypedSpace()
+      const space = yield* makeTypedSpace()
       const optimized = yield* Study.optimize({
         space,
         sampler: Sampler.random({ seed: 13 }),
@@ -40,7 +40,7 @@ describe("Study typed results", () => {
 
   it.effect("infers objective config for optimizeStream without explicit annotations", () =>
     Effect.gen(function*() {
-      const space = makeTypedSpace()
+      const space = yield* makeTypedSpace()
       const stream = Study.optimizeStream({
         space,
         sampler: Sampler.random({ seed: 5 }),
@@ -63,7 +63,7 @@ describe("Study typed results", () => {
 
   it.effect("threads config type into MultiObjectiveResult.paretoFront", () =>
     Effect.gen(function*() {
-      const space = makeTypedSpace()
+      const space = yield* makeTypedSpace()
       const optimized = yield* Study.optimize({
         space,
         sampler: Sampler.random({ seed: 21 }),

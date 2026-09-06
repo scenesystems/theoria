@@ -86,14 +86,14 @@ describe("recovery crash residue", () => {
     const replayTailTrials = 3
 
     const baselineResult = yield* Study.optimize({
-      space: makeSpace(),
+      space: yield* makeSpace,
       sampler: Sampler.random({ seed }),
       direction: "minimize",
       trials: totalTrials,
       objective: singleObjective
     })
     const stagedResult = yield* Study.optimize({
-      space: makeSpace(),
+      space: yield* makeSpace,
       sampler: Sampler.random({ seed }),
       direction: "minimize",
       trials: checkpointTrials + replayTailTrials,
@@ -118,7 +118,7 @@ describe("recovery crash residue", () => {
     )
 
     const resume = Study.resumeFromStorage({
-      space: makeSpace(),
+      space: yield* makeSpace,
       sampler: Sampler.random({ seed }),
       direction: "minimize",
       trials: totalTrials - checkpointTrials - replayTailTrials,
@@ -145,7 +145,9 @@ describe("recovery crash residue", () => {
 
       const resumed = yield* resume.pipe(Effect.flatMap(asSingleObjective))
 
-      expect(encodeConfigTrace(singleConfigTrace(resumed))).toBe(encodeConfigTrace(singleConfigTrace(baseline)))
+      expect(encodeConfigTrace(yield* singleConfigTrace(resumed))).toBe(
+        encodeConfigTrace(yield* singleConfigTrace(baseline))
+      )
       expect(encodeNumericTrace(singleValueTrace(resumed))).toBe(encodeNumericTrace(singleValueTrace(baseline)))
       expect(Arr.map(resumed.trials, (trial) => trial.trialNumber)).toEqual(Arr.makeBy(totalTrials, (index) => index))
 
@@ -183,7 +185,7 @@ describe("recovery crash residue", () => {
 
       const outcome = yield* Effect.either(
         Study.resumeFromStorage({
-          space: makeSpace(),
+          space: yield* makeSpace,
           sampler: Sampler.random({ seed: 61 }),
           direction: "minimize",
           trials: 2,
@@ -214,7 +216,7 @@ describe("recovery crash residue", () => {
 
       const outcome = yield* Effect.either(
         Study.resumeFromStorage({
-          space: makeSpace(),
+          space: yield* makeSpace,
           sampler: Sampler.random({ seed: 62 }),
           direction: "minimize",
           trials: 2,
@@ -237,7 +239,7 @@ describe("recovery crash residue", () => {
   it.effect("fails resumeFromStorage with typed InvalidStudyConfig when replay tail introduces duplicate trial numbers", () =>
     Effect.gen(function*() {
       const snapshotResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed: 71 }),
         direction: "minimize",
         trials: 4,
@@ -265,7 +267,7 @@ describe("recovery crash residue", () => {
 
       const outcome = yield* Effect.either(
         Study.resumeFromStorage({
-          space: makeSpace(),
+          space: yield* makeSpace,
           sampler: Sampler.random({ seed: 71 }),
           direction: "minimize",
           trials: 1,

@@ -85,7 +85,6 @@
     "dprint": "0.55.2",
     "effect": "3.22.1",
     "eslint": "^10.9.1",
-    "fast-check": "^4.9.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",
     "oxlint": "1.81.0",

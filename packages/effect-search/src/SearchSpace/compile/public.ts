@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Runtime, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import { ParameterMetadata as ParameterMetadataClass, SearchSpace } from "../model.js"
 import type { Switch } from "../model.js"
@@ -109,28 +109,6 @@ export const make = <
   })
 
 /**
- * Compiles a flat space synchronously and defects on invalid declarations.
- *
- * @remarks
- * Prefer {@link make} when invalid user or configuration input belongs in the
- * typed error channel.
- *
- * @typeParam Dimensions - Field schemas whose decoded and encoded types form the configuration.
- * @param dimensions - Named schemas annotated with sampler distributions.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const unsafeMake = <
-  const Dimensions extends {
-    readonly [key: string]: Schema.Schema.AnyNoContext
-  }
->(dimensions: Dimensions) =>
-  Runtime.runSync(Runtime.defaultRuntime)(
-    make(dimensions).pipe(Effect.orDie)
-  )
-
-/**
  * Compiles root dimensions and one conditional switch into a typed union schema.
  *
  * @remarks
@@ -212,31 +190,3 @@ export const makeConditional = <
       params
     })
   })
-
-/**
- * Compiles a conditional space synchronously and defects on invalid declarations.
- *
- * @remarks
- * Prefer {@link makeConditional} when declarations cross a fallible input
- * boundary.
- *
- * @typeParam Dimensions - Root field schemas shared by every branch.
- * @typeParam BranchSchema - Union schema contributed by the switch.
- * @param dimensions - Root dimensions, including the switch discriminant.
- * @param branch - Cases assembled with {@link switchOn} and {@link when}.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const unsafeMakeConditional = <
-  const Dimensions extends {
-    readonly [key: string]: Schema.Schema.AnyNoContext
-  },
-  BranchSchema extends Schema.Schema.AnyNoContext
->(
-  dimensions: Dimensions,
-  branch: Switch<BranchSchema>
-) =>
-  Runtime.runSync(Runtime.defaultRuntime)(
-    makeConditional(dimensions, branch).pipe(Effect.orDie)
-  )

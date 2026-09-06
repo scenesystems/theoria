@@ -3,7 +3,7 @@ import { Array as Arr, Effect, Option, Schema } from "effect"
 
 import { normalizeObjectiveVector } from "../../src/contracts/index.js"
 import {
-  decodePromptCategoricalConfigEffect,
+  decodePromptCategoricalConfig,
   makePromptCategoricalSpace,
   PromptCategoricalConfigSchema
 } from "../../src/experimental/scenarios/promptCategorical.js"
@@ -33,7 +33,7 @@ const interactionQualityBonus = (instruction: string, demos: string, scoring: st
   instruction === "socratic" && demos === "curated" && scoring === "strict" ? -0.2 : 0
 
 const objectiveVector = (raw: unknown) =>
-  decodePromptCategoricalConfigEffect(raw).pipe(
+  decodePromptCategoricalConfig(raw).pipe(
     Effect.map((config) => [
       instructionLatency(config.instruction) +
       demosLatency(config.demos) +
@@ -54,7 +54,7 @@ const traceFromResult = (
   Option.match(asMultiObjective(result), {
     onNone: () => Effect.succeedNone,
     onSome: (value) =>
-      Effect.forEach(value.trials, (trial) => decodePromptCategoricalConfigEffect(trial.config)).pipe(
+      Effect.forEach(value.trials, (trial) => decodePromptCategoricalConfig(trial.config)).pipe(
         Effect.asSome
       )
   })
@@ -62,16 +62,19 @@ const traceFromResult = (
 const optimizeWithFixture = (
   fixture: Schema.Schema.Type<typeof MotpeStudyFixtureSchema>
 ) =>
-  Study.optimize({
-    space: makePromptCategoricalSpace(),
-    sampler: Sampler.tpe({
-      seed: fixture.payload.sampler.seed,
-      nStartupTrials: fixture.payload.sampler.nStartupTrials,
-      nEiCandidates: fixture.payload.sampler.nEiCandidates
-    }),
-    directions: fixture.payload.directions,
-    trials: fixture.payload.sampler.trials,
-    objective: objectiveVector
+  Effect.gen(function*() {
+    const space = yield* makePromptCategoricalSpace()
+    return yield* Study.optimize({
+      space,
+      sampler: Sampler.tpe({
+        seed: fixture.payload.sampler.seed,
+        nStartupTrials: fixture.payload.sampler.nStartupTrials,
+        nEiCandidates: fixture.payload.sampler.nEiCandidates
+      }),
+      directions: fixture.payload.directions,
+      trials: fixture.payload.sampler.trials,
+      objective: objectiveVector
+    })
   })
 
 describe("integration deterministic MOTPE study replay", () => {

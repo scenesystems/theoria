@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
 const makeTypedSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     lr: SearchSpace.float(0.0001, 0.1),
     optimizer: SearchSpace.categorical(["adam", "sgd"])
   })
@@ -16,7 +16,7 @@ const expectTypedEncoded = (config: { readonly lr: number; readonly optimizer: "
 describe("SearchSpace.Type", () => {
   it.effect("infers Type and Encoded from SearchSpace.make declarations", () =>
     Effect.gen(function*() {
-      const space = makeTypedSpace()
+      const space = yield* makeTypedSpace()
       const decoded = yield* Schema.decodeUnknown(space.schema)({ lr: 0.01, optimizer: "adam" })
       const typedConfig: SearchSpace.Type<typeof space> = decoded
       const typedEncoded: SearchSpace.Encoded<typeof space> = {

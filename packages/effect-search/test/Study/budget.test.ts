@@ -6,7 +6,7 @@ import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
 const makeSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
 
@@ -14,7 +14,7 @@ describe("budget-aware stopping", () => {
   it.effect("tracks trial costs and stops with budgetExhausted when cumulative cost exceeds maxCost", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 13 }),
         direction: "minimize",
         trials: 10,
@@ -36,7 +36,7 @@ describe("budget-aware stopping", () => {
     Effect.gen(function*() {
       const events = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: makeSpace(),
+          space: yield* makeSpace(),
           sampler: Sampler.random({ seed: 13 }),
           direction: "minimize",
           trials: 10,
@@ -62,7 +62,7 @@ describe("budget-aware stopping", () => {
   it.effect("keeps trial-budget completion semantics when objectives return only values", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace(),
         sampler: Sampler.random({ seed: 44 }),
         direction: "minimize",
         trials: 3,

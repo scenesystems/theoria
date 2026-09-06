@@ -86,7 +86,7 @@ describe("contracts/artifact storage failures", () => {
       const logPath = path.join(directory, "envelopes.jsonl")
 
       yield* Study.optimize({
-        space: SearchSpace.unsafeMake({ choice: SearchSpace.categorical(["only"]) }),
+        space: yield* SearchSpace.make({ choice: SearchSpace.categorical(["only"]) }),
         sampler: Sampler.random({ seed: 7 }),
         direction: "minimize",
         trials: 2,
@@ -134,7 +134,7 @@ describe("contracts/artifact storage failures", () => {
       const logPath = path.join(directory, "envelopes.jsonl")
 
       yield* Study.optimize({
-        space: SearchSpace.unsafeMake({ choice: SearchSpace.categorical(["only"]) }),
+        space: yield* SearchSpace.make({ choice: SearchSpace.categorical(["only"]) }),
         sampler: Sampler.random({ seed: 7 }),
         direction: "minimize",
         trials: 1,
@@ -168,7 +168,7 @@ describe("contracts/artifact storage failures", () => {
       yield* fileSystem.makeDirectory(path.join(directory, "envelopes.jsonl"))
 
       const outcome = yield* Study.optimize({
-        space: SearchSpace.unsafeMake({ choice: SearchSpace.categorical(["only"]) }),
+        space: yield* SearchSpace.make({ choice: SearchSpace.categorical(["only"]) }),
         sampler: Sampler.random({ seed: 7 }),
         direction: "minimize",
         trials: 2,
@@ -194,7 +194,7 @@ describe("contracts/artifact storage failures", () => {
       yield* fileSystem.makeDirectory(path.join(directory, "envelopes.jsonl"))
 
       const exit = yield* Study.optimize({
-        space: SearchSpace.unsafeMake({ choice: SearchSpace.categorical(["only"]) }),
+        space: yield* SearchSpace.make({ choice: SearchSpace.categorical(["only"]) }),
         sampler: Sampler.random({ seed: 7 }),
         direction: "minimize",
         trials: 2,
@@ -252,7 +252,7 @@ describe("contracts/artifact storage failures", () => {
     Effect.gen(function*() {
       const kernel = yield* Study.StudyKernel
       const plan = yield* Study.optimizePlanFromOptions({
-        space: SearchSpace.unsafeMake({ choice: SearchSpace.categorical(["only"]) }),
+        space: yield* SearchSpace.make({ choice: SearchSpace.categorical(["only"]) }),
         sampler: Sampler.random({ seed: 7 }),
         direction: "minimize",
         trials: 2,

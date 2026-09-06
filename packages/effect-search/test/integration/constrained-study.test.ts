@@ -5,15 +5,13 @@ import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
 
-const space = SearchSpace.unsafeMake({
+const space = SearchSpace.make({
   x: SearchSpace.int(0, 9)
 })
 
-const decodeConfig = Schema.decodeUnknownSync(space.schema)
+const decodeConfig = (raw: unknown) => Effect.flatMap(space, (resolved) => Schema.decodeUnknown(resolved.schema)(raw))
 
-const objective = (raw: unknown): Effect.Effect<number> => Effect.sync(() => decodeConfig(raw).x)
-
-const constraint = (raw: unknown): Effect.Effect<number> => Effect.sync(() => decodeConfig(raw).x - 4)
+const objective = (raw: unknown) => decodeConfig(raw).pipe(Effect.map((config) => config.x))
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
@@ -26,23 +24,32 @@ const samplerOptions = {
   nEiCandidates: 32
 }
 
-const trace = (result: Study.SingleObjectiveResult): ReadonlyArray<number> =>
-  result.trials.map((trial) => decodeConfig(trial.config).x)
+const trace = (result: Study.SingleObjectiveResult) =>
+  Effect.forEach(result.trials, (trial) => decodeConfig(trial.config).pipe(Effect.map((config) => config.x)))
 
 const feasibleCount = (values: ReadonlyArray<number>): number => values.filter((value) => value <= 4).length
 
 describe("constrained study integration", () => {
   it.effect("diverges after startup and improves feasible suggestion frequency", () =>
     Effect.gen(function*() {
+      const resolvedSpace = yield* space
+      const decodeConstraintConfig = Schema.decodeUnknownOption(resolvedSpace.schema)
+      const constraint = (raw: unknown) =>
+        Effect.succeed(
+          Option.match(decodeConstraintConfig(raw), {
+            onNone: () => Number.POSITIVE_INFINITY,
+            onSome: (config) => config.x - 4
+          })
+        )
       const unconstrainedResult = yield* Study.optimize({
-        space,
+        space: resolvedSpace,
         sampler: Sampler.tpe(samplerOptions),
         direction: "maximize",
         trials: 16,
         objective
       })
       const constrainedResult = yield* Study.optimize({
-        space,
+        space: resolvedSpace,
         sampler: Sampler.tpe({
           ...samplerOptions,
           constraints: [constraint]
@@ -61,8 +68,8 @@ describe("constrained study integration", () => {
         return
       }
 
-      const unconstrainedTrace = trace(unconstrained.value)
-      const constrainedTrace = trace(constrained.value)
+      const unconstrainedTrace = yield* trace(unconstrained.value)
+      const constrainedTrace = yield* trace(constrained.value)
       const unconstrainedPostStartup = unconstrainedTrace.slice(startupTrials)
       const constrainedPostStartup = constrainedTrace.slice(startupTrials)
 

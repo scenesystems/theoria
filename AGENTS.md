@@ -180,7 +180,7 @@ git commit -m "feat(effect-search): add TPE categorical sampler"
 - RED → GREEN → REFACTOR. Tests first.
 - Golden fixtures from reference implementations (Optuna, DSPy).
 - Fixture generation uses `uv run` — never `python3` directly.
-- Property-based tests via `fast-check`.
+- Property-based tests run through `it.effect.prop` from `@effect/vitest`, with arbitraries from `effect`'s `FastCheck` re-export; the repo carries no direct `fast-check` dependency.
 - Tolerances: exact for integers/categories; mixed absolute + relative for continuous math.
 
 ---

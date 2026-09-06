@@ -3,7 +3,7 @@ import { Array as Arr, Data, Effect, Option, Schema } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../src/Errors/index.js"
 import {
-  decodeMixedOptimizerConfigEffect,
+  decodeMixedOptimizerConfig,
   makeMixedOptimizerSpace
 } from "../../../src/experimental/scenarios/mixedOptimizer.js"
 import * as Float64 from "../../../src/internal/float64.js"
@@ -173,7 +173,7 @@ const traceFromDimension = (
 
 const decodedConfigs = (
   configs: ReadonlyArray<unknown>
-) => Effect.forEach(configs, (config) => decodeMixedOptimizerConfigEffect(config))
+) => Effect.forEach(configs, (config) => decodeMixedOptimizerConfig(config))
 
 describe("mixed-space fixture parity", () => {
   it.effect("replays per-dimension rolls and joint EI argmax decisions from mixed-space fixtures", () =>
@@ -188,7 +188,7 @@ describe("mixed-space fixture parity", () => {
         fixtures,
         (fixture) =>
           Effect.gen(function*() {
-            const space = makeMixedOptimizerSpace()
+            const space = yield* makeMixedOptimizerSpace()
             const split = splitFromFixture(fixture.payload)
 
             const traces = yield* Effect.forEach(fixture.payload.dimensions, (dimension) =>
@@ -222,8 +222,8 @@ describe("mixed-space fixture parity", () => {
               SCORE_TOLERANCE
             )
 
-            const bestConfig = yield* decodeMixedOptimizerConfigEffect(selection.bestConfig)
-            const expectedBest = yield* decodeMixedOptimizerConfigEffect(fixture.payload.expected.expectedSuggestion)
+            const bestConfig = yield* decodeMixedOptimizerConfig(selection.bestConfig)
+            const expectedBest = yield* decodeMixedOptimizerConfig(fixture.payload.expected.expectedSuggestion)
 
             yield* Effect.sync(() => {
               expect(selection.bestIndex).toBe(fixture.payload.expected.expectedBestIndex)

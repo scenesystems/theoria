@@ -25,7 +25,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
   it.effect("captures canonical snapshot metadata and continues trial numbering", () =>
     Effect.gen(function*() {
       const seed = 501
-      const space = makeSpace()
+      const space = yield* makeSpace
       const sampler = Sampler.random({ seed })
       const initialResult = yield* Study.optimize({
         space,
@@ -80,14 +80,14 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       const firstLegTrials = 7
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: totalTrials,
         objective: singleObjective
       })
       const firstLegResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: firstLegTrials,
@@ -99,7 +99,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
 
       const snapshot = yield* Study.snapshot(firstLegSingle)
       const resumedResult = yield* Study.resume({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.random({ seed }),
         snapshot,
         direction: "minimize",
@@ -108,8 +108,8 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       })
       const resumedSingle = yield* asSingleObjective(resumedResult)
 
-      expect(encodeConfigTrace(singleConfigTrace(resumedSingle))).toBe(
-        encodeConfigTrace(singleConfigTrace(baselineSingle))
+      expect(encodeConfigTrace(yield* singleConfigTrace(resumedSingle))).toBe(
+        encodeConfigTrace(yield* singleConfigTrace(baselineSingle))
       )
       expect(encodeNumericTrace(singleValueTrace(resumedSingle))).toBe(
         encodeNumericTrace(singleValueTrace(baselineSingle))
@@ -129,14 +129,14 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       const firstLegTrials = 5
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.tpe(options),
         direction: "minimize",
         trials: totalTrials,
         objective: singleObjective
       })
       const firstLegResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.tpe(options),
         direction: "minimize",
         trials: firstLegTrials,
@@ -148,7 +148,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
 
       const snapshot = yield* Study.snapshot(firstLegSingle)
       const resumedResult = yield* Study.resume({
-        space: makeSpace(),
+        space: yield* makeSpace,
         sampler: Sampler.tpe(options),
         snapshot,
         direction: "minimize",
@@ -157,8 +157,8 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       })
       const resumedSingle = yield* asSingleObjective(resumedResult)
 
-      expect(encodeConfigTrace(singleConfigTrace(resumedSingle))).toBe(
-        encodeConfigTrace(singleConfigTrace(baselineSingle))
+      expect(encodeConfigTrace(yield* singleConfigTrace(resumedSingle))).toBe(
+        encodeConfigTrace(yield* singleConfigTrace(baselineSingle))
       )
       expect(encodeNumericTrace(singleValueTrace(resumedSingle))).toBe(
         encodeNumericTrace(singleValueTrace(baselineSingle))
@@ -178,14 +178,14 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       const firstLegTrials = 5
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
-        space: makeMultiSpace(),
+        space: yield* makeMultiSpace,
         sampler: Sampler.tpe(options),
         directions: ["minimize", "minimize"],
         trials: totalTrials,
         objective: objectiveVector
       })
       const firstLegResult = yield* Study.optimize({
-        space: makeMultiSpace(),
+        space: yield* makeMultiSpace,
         sampler: Sampler.tpe(options),
         directions: ["minimize", "minimize"],
         trials: firstLegTrials,
@@ -197,7 +197,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
 
       const snapshot = yield* Study.snapshot(firstLegMulti)
       const resumedResult = yield* Study.resume({
-        space: makeMultiSpace(),
+        space: yield* makeMultiSpace,
         sampler: Sampler.tpe(options),
         snapshot,
         directions: ["minimize", "minimize"],
@@ -206,8 +206,8 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       })
       const resumedMulti = yield* asMultiObjective(resumedResult)
 
-      expect(encodeMultiConfigTrace(multiConfigTrace(resumedMulti))).toBe(
-        encodeMultiConfigTrace(multiConfigTrace(baselineMulti))
+      expect(encodeMultiConfigTrace(yield* multiConfigTrace(resumedMulti))).toBe(
+        encodeMultiConfigTrace(yield* multiConfigTrace(baselineMulti))
       )
       expect(encodeObjectiveVectorTrace(multiValueTrace(resumedMulti))).toBe(
         encodeObjectiveVectorTrace(multiValueTrace(baselineMulti))

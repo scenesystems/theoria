@@ -44,12 +44,12 @@ export const RandomTrainingConfigSchema = Schema.Struct({
 export type RandomTrainingConfig = Schema.Schema.Type<typeof RandomTrainingConfigSchema>
 
 /**
- * Decodes an unknown training configuration and throws on a schema violation.
+ * Decodes an unknown training configuration with schema violations in the Effect error channel.
  *
  * @since 0.1.0
  * @category utils
  */
-export const decodeRandomTrainingConfig = Schema.decodeUnknownSync(RandomTrainingConfigSchema)
+export const decodeRandomTrainingConfig = Schema.decodeUnknown(RandomTrainingConfigSchema)
 
 /**
  * Builds a training space with configurable learning-rate and batch-size bounds.
@@ -57,7 +57,7 @@ export const decodeRandomTrainingConfig = Schema.decodeUnknownSync(RandomTrainin
  * @remarks
  * Learning rate is sampled linearly from `minLearningRate` through `0.1`.
  * Batch size is sampled from `16` through `maxBatchSize` in steps of `16`.
- * Invalid bounds defect because this fixture uses `SearchSpace.unsafeMake`:
+ * Compilation fails with `InvalidSearchSpace` when the bounds are invalid:
  * `maxBatchSize` must be a finite integer at least `16`, and `minLearningRate`
  * must be finite and no greater than `0.1`.
  *
@@ -68,7 +68,7 @@ export const decodeRandomTrainingConfig = Schema.decodeUnknownSync(RandomTrainin
  * @category constructors
  */
 export const makeRandomTrainingSpace = (maxBatchSize = 128, minLearningRate = 1e-4) =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     lr: SearchSpace.float(minLearningRate, 1e-1),
     optimizer: SearchSpace.categorical(RandomTrainingOptimizerChoices),
     batchSize: SearchSpace.int(16, maxBatchSize, { step: 16 }),
@@ -95,12 +95,12 @@ export const LogLearningRateConfigSchema = Schema.Struct({
 export type LogLearningRateConfig = Schema.Schema.Type<typeof LogLearningRateConfigSchema>
 
 /**
- * Decodes an unknown learning-rate configuration and throws on a schema violation.
+ * Decodes an unknown learning-rate configuration with schema violations in the Effect error channel.
  *
  * @since 0.1.0
  * @category utils
  */
-export const decodeLogLearningRateConfig = Schema.decodeUnknownSync(LogLearningRateConfigSchema)
+export const decodeLogLearningRateConfig = Schema.decodeUnknown(LogLearningRateConfigSchema)
 
 /**
  * Builds a log-scaled learning-rate space from `0.0001` through `0.1`.
@@ -109,6 +109,6 @@ export const decodeLogLearningRateConfig = Schema.decodeUnknownSync(LogLearningR
  * @category constructors
  */
 export const makeLogLearningRateSpace = () =>
-  SearchSpace.unsafeMake({
+  SearchSpace.make({
     lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
   })
