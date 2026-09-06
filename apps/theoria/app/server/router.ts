@@ -1,7 +1,7 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { Clock, Effect, Match, Option } from "effect"
 
-import { RuntimeInfo } from "./config/runtime.js"
+import { jsonResponse, responseMeta } from "./api-response.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
 import { imaginedPlacePath, imaginedPlaceRoute } from "./routes/imagined-place.js"
 import { sitemapRoute } from "./routes/sitemap.js"
@@ -11,29 +11,19 @@ import { versionRoute } from "./routes/version.js"
 const apiNotFoundResponse = (requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
-    const runtimeInfo = yield* RuntimeInfo
-    const endedAtMs = yield* Clock.currentTimeMillis
+    const meta = yield* responseMeta(requestId, startedAtMs)
 
-    return yield* HttpServerResponse.json(
+    return yield* jsonResponse(
       {
         ok: false,
-        meta: {
-          requestId,
-          buildSha: runtimeInfo.buildSha,
-          durationMs: endedAtMs - startedAtMs
-        },
+        meta,
         error: {
           code: "route-not-found",
           message: "API route not found.",
           retryable: false
         }
       },
-      {
-        status: 404,
-        headers: {
-          "cache-control": "no-store"
-        }
-      }
+      { status: 404 }
     )
   })
 

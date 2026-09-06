@@ -1,12 +1,12 @@
-import { type HttpServerError, HttpServerRequest, HttpServerResponse } from "@effect/platform"
+import { type HttpServerError, HttpServerRequest } from "@effect/platform"
 import { Clock, Effect, Either, Match, Option, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
 import { ErrorModel } from "../../contracts/error.js"
 import type { PlaceBuild, PlaceBuildEnvelope } from "../../contracts/imagined-place-result.js"
 import { PlaceBuildError, PlaceBuildRequest } from "../../contracts/imagined-place.js"
+import { jsonResponse, responseMeta } from "../api-response.js"
 import { PlaceBuildLimiter, type PlaceBuildLimiterError } from "../config/place-build-limiter.js"
-import { RuntimeInfo } from "../config/runtime.js"
 import type { Participants } from "../imagined-place/authority.js"
 import { buildPlace } from "../imagined-place/run.js"
 
@@ -44,10 +44,7 @@ const Rejection = Schema.Struct({
 type Rejection = typeof Rejection.Type
 
 const respond = (envelope: PlaceBuildEnvelope, headers: Record<string, string>) =>
-  HttpServerResponse.json(envelope, {
-    status: envelope.ok ? 200 : statusFor(envelope.error.code),
-    headers: { "cache-control": "no-store", ...headers }
-  })
+  jsonResponse(envelope, { status: envelope.ok ? 200 : statusFor(envelope.error.code), headers })
 
 const methodRejection: Rejection = {
   error: { code: "method-not-allowed", message: "Place builds must use POST.", retryable: false },
@@ -133,7 +130,6 @@ const build = (
 export const imaginedPlaceRoute = (request: HttpServerRequest.HttpServerRequest, requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
-    const runtimeInfo = yield* RuntimeInfo
 
     const rejection = yield* Option.match(accessRejection(request), {
       onNone: () => admission(request),
@@ -144,8 +140,7 @@ export const imaginedPlaceRoute = (request: HttpServerRequest.HttpServerRequest,
       onSome: (rejected) => Effect.succeed(Either.left(rejected))
     })
 
-    const endedAtMs = yield* Clock.currentTimeMillis
-    const meta = { requestId, buildSha: runtimeInfo.buildSha, durationMs: endedAtMs - startedAtMs }
+    const meta = yield* responseMeta(requestId, startedAtMs)
 
     return yield* Either.match(outcome, {
       onLeft: ({ error, headers }) => respond({ ok: false, meta, error }, headers),

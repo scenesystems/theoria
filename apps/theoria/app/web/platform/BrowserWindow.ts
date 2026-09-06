@@ -22,10 +22,6 @@ export const currentUrl: Effect.Effect<URL, never, BrowserWindow> = Effect.flatM
   (browserWindow) => Url.fromString(browserWindow.location.href)
 ).pipe(Effect.orDie)
 
-/** Resolves `href` against the document's current URL; a malformed `href` is the caller's error to handle. */
-export const resolveUrl = (href: string): Effect.Effect<URL, IllegalArgumentException, BrowserWindow> =>
-  Effect.flatMap(BrowserWindow, (browserWindow) => Url.fromString(href, browserWindow.location.href))
-
 /** Resolves `href` against `base` without a service, for callers that already hold the current URL. */
 export const resolveAgainst = (href: string, base: URL): Either.Either<URL, IllegalArgumentException> =>
   Url.fromString(href, base.href)
