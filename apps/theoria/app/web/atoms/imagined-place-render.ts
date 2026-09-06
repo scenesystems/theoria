@@ -8,6 +8,7 @@ import { DemoExecutionError } from "../../contracts/demo-error.js"
 import {
   arrange,
   Arrangement,
+  description,
   descriptionInput,
   meanderSpace,
   renderingFor,
@@ -42,6 +43,8 @@ export class PlaceRenderFrame extends Data.Class<{
   /** Index into `tried` of the best so far: the one `rendering` draws. */
   readonly bestIndex: number
   readonly rendering: PlaceRendering
+  /** The description the lines set; a new artifact's lines replace the old ones rather than moving. */
+  readonly prose: string
   /** The discs that carry their names at this stage width, and how wide each name wraps. */
   readonly labels: MarkerLabelWidths
 }> {}
@@ -80,6 +83,7 @@ const bestOf = (progress: Progress): Arrangement => Arr.unsafeGet(progress.tried
 const frame = (
   progress: Progress,
   stage: Stage,
+  prose: string,
   labels: MarkerLabelWidths,
   trial: number,
   phase: PlaceRenderFrame["phase"]
@@ -88,6 +92,7 @@ const frame = (
     phase,
     trial,
     stage,
+    prose,
     labels,
     tried: progress.tried,
     bestIndex: progress.bestIndex,
@@ -147,7 +152,16 @@ const renderStream = (
               yield* Option.match(progress, {
                 onNone: () => Effect.void,
                 onSome: (found) =>
-                  emit(frame(found, stage, labels, trial, trial === renderTrials ? "complete" : "running"))
+                  emit(
+                    frame(
+                      found,
+                      stage,
+                      description(artifact),
+                      labels,
+                      trial,
+                      trial === renderTrials ? "complete" : "running"
+                    )
+                  )
               })
               yield* Effect.sleep(frameDelay)
             }),
@@ -163,6 +177,43 @@ const renderStream = (
  * as the search saw it.
  */
 export const placeTrialPreviewAtom: AtomType.Writable<Option.Option<number>> = Atom.make(Option.none<number>())
+
+/**
+ * What the stage is drawing: `kept`, the arrangement the search settled on,
+ * or `trial`, one the visitor chose from the trace. A kept disc travels and
+ * follows the search; a trial's discs are placed outright.
+ */
+export const PlaceDrawn = Schema.Literal("kept", "trial")
+
+export type PlaceDrawn = typeof PlaceDrawn.Type
+
+export const placeDrawnAtom: AtomType.Atom<PlaceDrawn> = Atom.make((get: AtomType.Context) =>
+  Option.match(get(placeTrialPreviewAtom), {
+    onNone: (): PlaceDrawn => "kept",
+    onSome: (): PlaceDrawn => "trial"
+  })
+)
+
+/**
+ * Where a feature's name belongs: on the `stage` while the kept arrangement
+ * draws the feature as a disc, in its `proposal` while it does not. A merge
+ * or a decline changes the answer in the same frame the disc appears or
+ * leaves, which is what lets the name and the disc hand off to each other.
+ * Before anything is drawn there is nowhere to travel from or to.
+ */
+export const PlaceFeatureHome = Schema.Literal("stage", "proposal")
+
+export type PlaceFeatureHome = typeof PlaceFeatureHome.Type
+
+export const placeFeatureHomeAtom = Atom.family((name: string): AtomType.Atom<Option.Option<PlaceFeatureHome>> =>
+  Atom.make((get: AtomType.Context) =>
+    Option.map(
+      Result.value(get(placeRenderFrameAtom)),
+      (found): PlaceFeatureHome =>
+        Arr.some(found.rendering.projection.markers, (marker) => marker.name === name) ? "stage" : "proposal"
+    )
+  )
+)
 
 /** Why there is no frame: the search failed, or the document has no canvas to measure the place's text on. */
 export type PlaceRenderError = DemoExecutionError | CanvasUnavailable

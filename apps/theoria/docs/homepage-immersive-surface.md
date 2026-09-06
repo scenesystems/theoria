@@ -337,20 +337,36 @@ was reversed — the page needs both.)
 
 - [x] `package.json`: `motion` 13.x; `App.tsx`: `MotionConfig
 reducedMotion="user"` at the root (done on the toolchain branch).
-- [ ] `App.tsx`: `LazyMotion strict` with the theme's enter transition; motion
-      tokens in `styles.css`.
-- [ ] `PlaceMarker.tsx`: `m.button` with `layout` and
-      `layoutId="place-feature:<name>"`; `layout={false}` while
-      `placeTrialPreviewAtom` is `Some`.
-- [ ] `PlaceProposal.tsx`: the feature name carries the same `layoutId`
-      while declined.
-- [ ] `PlaceStage.tsx`: `AnimatePresence mode="popLayout"` on prose lines
-      keyed by version content ID; stagger 20 ms, total ≤ 300 ms, exit 120 ms.
-- [ ] `test/worker/home-demo.test.ts` — _a merged feature travels to the
-      stage_: after the toggle the disc exists and the proposal no longer
-      renders the name as a `layoutId` element; under
-      `emulateMedia({ reducedMotion: "reduce" })` no element in `main` has a
-      non-identity transform mid-transition.
+- [x] `App.tsx`: `LazyMotion strict` (`domMax`, for layout animations) with
+      the theme's transition; motion tokens are one contract,
+      `contracts/motion.ts` (`MotionRelation` = enter | shift | exit as
+      `Duration`s, one ease), generated into `styles.css` and handed to
+      `MotionConfig` by `primitives/motion.ts`. Reduced motion is an atom,
+      `atoms/motion.ts` `motionPreferenceAtom`, from the platform's
+      `BrowserWindow.mediaQuery`, and drives `MotionConfig reducedMotion`.
+- [x] `PlaceMarker.tsx`: a kept disc is `m.button layout="position"
+      layoutId="place-feature:<name>"`; a trial's disc is a plain button
+      (`placeDrawnAtom`). The disc's `layoutDependency` is constant, so Motion
+      measures it only when it mounts or leaves; the search's own moves stay
+      CSS `translate` transitions. (Motion re-measuring on every frame while
+      CSS also transitioned the disc produced restarts and lag.)
+- [x] `PlaceProposal.tsx`: the feature name carries the same `layoutId` while
+      the kept arrangement does not draw the feature (`placeFeatureHomeAtom`,
+      read by both sides), so the name leaves and the disc arrives in the
+      same commit. Motion clears layout snapshots the frame after an unmount;
+      a hand-off across separate commits never animates.
+- [x] `PlaceStage.tsx`: `AnimatePresence mode="wait"` on prose lines keyed by
+      the frame's prose (`mode="popLayout"` double-painted the crossfade);
+      stagger 20 ms, arrival ≤ 300 ms, exit 120 ms.
+- [x] `test/worker/home-demo.test.ts` — _a merged feature travels to the
+      stage_: the disc is painted at ≥ 3 distinct transforms on its way;
+      _under reduced motion the feature appears on the stage without
+      travelling_: ≤ 1 (Motion holds one frame at the origin before the
+      jump). `test/contracts/motion.contract.test.ts` pins the tokens.
+- Known: the disc's travel is clipped where it crosses the paper's edge
+  (the paper clips overflow for the scrolling trial). During a running
+  search the paper resizes per frame and the sticky stage column shifts;
+  pre-existing from Act 2, see Act 5.
 
 ### Act 4 — Acts, provenance and weather
 

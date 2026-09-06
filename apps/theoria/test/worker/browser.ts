@@ -64,14 +64,28 @@ export class Session extends Data.Class<{
 }> {}
 
 /** Opens an isolated browser context on the site for the rest of the scope. */
+/** The reader's system motion setting the context reports; `no-preference` unless a test asks otherwise. */
+export const ReducedMotion = Schema.Literal("reduce", "no-preference")
+export type ReducedMotion = typeof ReducedMotion.Type
+
 export const openPage = (
-  options: { readonly viewport?: Viewport; readonly permissions?: ReadonlyArray<string> } = {}
+  options: {
+    readonly viewport?: Viewport
+    readonly permissions?: ReadonlyArray<string>
+    readonly reducedMotion?: ReducedMotion
+  } = {}
 ): Effect.Effect<Session, BrowserError, Browser | Site | Scope.Scope> =>
   Effect.gen(function*() {
     const browser = yield* Browser
     const site = yield* Site
     const context = yield* Effect.acquireRelease(
-      act(() => browser.newContext({ baseURL: site.url, viewport: options.viewport ?? desktop })),
+      act(() =>
+        browser.newContext({
+          baseURL: site.url,
+          viewport: options.viewport ?? desktop,
+          reducedMotion: options.reducedMotion ?? "no-preference"
+        })
+      ),
       (open) => Effect.orDie(act(() => open.close()))
     )
     yield* act(() => context.grantPermissions([...(options.permissions ?? [])]))

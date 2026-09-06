@@ -1,11 +1,13 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Fiber, Layer, Option, Order } from "effect"
+import { Chunk, Data, Duration, Effect, Fiber, Layer, Option, Order, Schedule, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as HashSet from "effect/HashSet"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-arrangement.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
+import type { ReducedMotion } from "./browser.js"
 import {
   act,
   animationsSettled,
@@ -34,6 +36,7 @@ import {
   activeElementOpensDocsLink,
   activeElementRole,
   currentLocation,
+  featureTransforms,
   insideViewportRight,
   isActiveElement,
   markerPositionsInStage,
@@ -46,6 +49,55 @@ const rendered = (page: Page) => page.locator("[data-place-render-phase='complet
 
 /** Every disc's position relative to the stage, so scrolling cannot move it. */
 const markerPositions = (page: Page) => () => page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
+
+const FeatureTransform = Schema.Struct({ name: Schema.String, transform: Schema.String })
+type FeatureTransform = typeof FeatureTransform.Type
+
+/** Every distinct transform each feature inside `region` was painted at, sampled a frame apart for `window`. */
+const featureTransformsWithin = (region: Locator, window: Duration.Duration) =>
+  Effect.map(
+    Effect.repeat(
+      act(() => region.evaluate(featureTransforms)),
+      Schedule.collectAllInputs<ReadonlyArray<FeatureTransform>>().pipe(
+        Schedule.intersect(Schedule.spaced("16 millis").pipe(Schedule.upTo(window)))
+      )
+    ),
+    // `Data.struct` gives the samples value equality, so the set holds each distinct transform once.
+    ([samples]) => HashSet.fromIterable(Arr.map(Arr.flatten(Chunk.toReadonlyArray(samples)), Data.struct))
+  )
+
+/** How many distinct transforms `name` was painted at. */
+const distinctTransforms = (seen: HashSet.HashSet<FeatureTransform>, name: string): number =>
+  HashSet.size(HashSet.filter(seen, (entry) => entry.name === name))
+
+/**
+ * Merges the declined program proposal and reports every transform painted
+ * inside the demo while the merge lands. The feature's name is what travels:
+ * it is the proposal's travelling element before, and the stage's disc after.
+ */
+const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
+  Effect.gen(function*() {
+    const { failures, page } = yield* openPage({ reducedMotion })
+    yield* goto(page, "/")
+    yield* visible(rendered(page))
+    const demo = page.getByRole("region", { name: "Imagined place demo" })
+    const proposal = demo.locator("[data-place-proposal='program']")
+    const travelling = proposal.locator("[data-place-feature-travel]")
+    yield* count(travelling, 1)
+    const name = yield* Option.fromNullable(yield* act(() => travelling.getAttribute("data-place-feature-travel")))
+    const disc = demo.locator(`[data-place-marker][data-place-feature-travel="${name}"]`)
+    yield* count(disc, 0)
+
+    const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+    yield* click(proposal.getByRole("switch"))
+    // Sample every frame for longer than the shift lasts, from the moment the merge is requested.
+    const painted = yield* Effect.fork(featureTransformsWithin(demo, Duration.millis(900)))
+    expect((yield* Fiber.join(rebuild)).status()).toBe(200)
+    yield* count(travelling, 0)
+    yield* visible(disc)
+    const seen = yield* Fiber.join(painted)
+    return { failures, name, travelled: distinctTransforms(seen, name) }
+  })
 
 const referenceTargets = (references: Locator) =>
   Effect.gen(function*() {
@@ -139,6 +191,22 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const firstWord = Option.getOrElse(Arr.head(adds.split(" ")), () => adds)
         yield* containsText(demo.locator(`[data-place-line='${line}']`), firstWord)
         yield* count(demo.locator("[data-place-proposal='program'][data-place-anchor-line]"), 0)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a merged feature travels to the stage", () =>
+      Effect.gen(function*() {
+        const { failures, travelled } = yield* mergeProgramProposal("no-preference")
+        // The name travelled: it was painted at several points between the proposal and the stage.
+        expect(travelled).toBeGreaterThanOrEqual(3)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("under reduced motion the feature appears on the stage without travelling", () =>
+      Effect.gen(function*() {
+        const { failures, travelled } = yield* mergeProgramProposal("reduce")
+        // At most the one frame Motion holds a layout node at its origin before the instant jump.
+        expect(travelled).toBeLessThanOrEqual(1)
         expect(yield* failures).toEqual([])
       }))
 

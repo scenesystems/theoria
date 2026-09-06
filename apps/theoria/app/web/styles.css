@@ -251,6 +251,12 @@
   --st-mw-button-label-expanded: 210px;
   --st-mw-marker-label-compact: 160px;
   --st-mw-marker-label-expanded: 200px;
+
+  /* Motion: durations and the one easing (generated — do not edit) */
+  --th-motion-duration-enter: 240ms;
+  --th-motion-duration-shift: 320ms;
+  --th-motion-duration-exit: 120ms;
+  --ease-theme: cubic-bezier(0.2, 0, 0, 1);
 }
 
 @layer base {

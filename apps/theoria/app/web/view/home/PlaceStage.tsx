@@ -4,11 +4,15 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
+import { AnimatePresence } from "motion/react"
+import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
 import type { PlaceLine, PlaceMarker, PlaceProjection } from "../../../contracts/imagined-place-result.js"
 import { useElementWidthReporter } from "../../atoms/element-observation.js"
 import {
+  type PlaceDrawn,
+  placeDrawnAtom,
   type PlaceRenderFrame,
   placeRenderFrameAtom,
   placeShownFrameAtom,
@@ -17,6 +21,7 @@ import {
 import { placeStageContainerWidthAtom, placeStageFrame, placeStageFrameBorderPx } from "../../atoms/imagined-place.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { arrivalFrom, arrivedAt, departed, exitTransition, staggeredArrival } from "../primitives/motion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
@@ -31,27 +36,42 @@ const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSPro
   height: `${lineHeight}px`
 })
 
-/** The prose, one measured line at a time, above the walk and beside the discs. */
-const Lines = ({ projection }: { readonly projection: PlaceProjection }) => (
-  <>
-    {Arr.map(projection.lines, (line, index) => (
-      <Layer
-        className="absolute overflow-hidden"
-        data-place-line={String(index)}
-        key={index}
-        style={lineStyle(line, projection.padding, projection.lineHeight)}
-      >
-        <SemanticText
-          as="span"
-          className="block whitespace-nowrap text-ink-900"
-          role="card-summary"
-          text={line.text.length === 0 ? "\u00a0" : line.text}
-          variant="expanded"
-          wrapAuthority="native-browser"
-        />
-      </Layer>
-    ))}
-  </>
+/**
+ * The prose, one measured line at a time, above the walk and beside the
+ * discs. The set of lines is keyed by the text it sets: when a merge or a
+ * decline changes the description, the old lines leave together first and
+ * then the new ones arrive one after another from the top, so two texts are
+ * never painted over each other, and the words are settled before anything
+ * travelling to the stage lands.
+ */
+const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; readonly prose: string }) => (
+  <AnimatePresence initial={false} mode="wait">
+    <Layer
+      render={<m.div exit={departed} transition={exitTransition} />}
+      className="absolute inset-0"
+      data-place-lines
+      key={prose}
+    >
+      {Arr.map(projection.lines, (line, index) => (
+        <Layer
+          render={<m.div animate={arrivedAt} initial={arrivalFrom} transition={staggeredArrival(index)} />}
+          className="absolute overflow-hidden"
+          data-place-line={String(index)}
+          key={index}
+          style={lineStyle(line, projection.padding, projection.lineHeight)}
+        >
+          <SemanticText
+            as="span"
+            className="block whitespace-nowrap text-ink-900"
+            role="card-summary"
+            text={line.text.length === 0 ? "\u00a0" : line.text}
+            variant="expanded"
+            wrapAuthority="native-browser"
+          />
+        </Layer>
+      ))}
+    </Layer>
+  </AnimatePresence>
 )
 
 /**
@@ -60,7 +80,11 @@ const Lines = ({ projection }: { readonly projection: PlaceProjection }) => (
  * swapping trials places them outright instead of sliding them, while the
  * search's own progress still moves them.
  */
-const Drawing = ({ frame, shown }: { readonly frame: PlaceRenderFrame; readonly shown: string }) => {
+const Drawing = ({ drawn, frame, shown }: {
+  readonly drawn: PlaceDrawn
+  readonly frame: PlaceRenderFrame
+  readonly shown: string
+}) => {
   const projection = frame.rendering.projection
   return (
     <Layer
@@ -75,13 +99,14 @@ const Drawing = ({ frame, shown }: { readonly frame: PlaceRenderFrame; readonly 
         : null}
       {Arr.map(projection.markers, (marker, index) => (
         <PlaceMarkerDisc
+          drawn={drawn}
           index={index}
           key={`${shown}:${marker.name}`}
           labelWidth={Record.get(frame.labels, marker.name)}
           marker={marker}
         />
       ))}
-      <Lines projection={projection} />
+      <Lines projection={projection} prose={frame.prose} />
     </Layer>
   )
 }
@@ -100,10 +125,12 @@ const scrollbarClassName =
  * scrolls, which is the same fact the search held against it.
  */
 const Paper = ({
+  drawn,
   frame,
   keptHeight,
   preview
 }: {
+  readonly drawn: PlaceDrawn
   readonly frame: PlaceRenderFrame
   readonly keptHeight: number
   readonly preview: Option.Option<number>
@@ -119,7 +146,11 @@ const Paper = ({
     >
       <ScrollArea.Viewport className="h-full w-full">
         <ScrollArea.Content>
-          <Drawing frame={frame} shown={Option.match(preview, { onNone: () => "kept", onSome: String })} />
+          <Drawing
+            drawn={drawn}
+            frame={frame}
+            shown={Option.match(preview, { onNone: () => "kept", onSome: String })}
+          />
         </ScrollArea.Content>
       </ScrollArea.Viewport>
       <Layer className={fadeClassName} data-place-stage-fade />
@@ -169,6 +200,7 @@ const numbered = (frame: PlaceRenderFrame): boolean => Record.isEmptyRecord(fram
  */
 export const PlaceStage = () => {
   const preview = useAtomValue(placeTrialPreviewAtom)
+  const drawn = useAtomValue(placeDrawnAtom)
   const reportContainerWidth = useElementWidthReporter(useAtomSet(placeStageContainerWidthAtom))
   const latest = Result.value(useAtomValue(placeShownFrameAtom))
   // The paper is cut to the kept arrangement even while another trial is drawn on it.
@@ -195,6 +227,7 @@ export const PlaceStage = () => {
             onNone: () => <Placeholder />,
             onSome: (value) => (
               <Paper
+                drawn={drawn}
                 frame={value}
                 keptHeight={Option.getOrElse(keptHeight, () => value.rendering.projection.stageHeight)}
                 preview={preview}

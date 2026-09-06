@@ -1,15 +1,24 @@
 import { Popover } from "@base-ui/react/popover"
-import { Option } from "effect"
+import { Match, Option } from "effect"
+import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
+import type { PlaceDrawn } from "../../atoms/imagined-place-render.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
-import { discClassName, markerContributor, markerLabel, markerTone, participantLabel } from "./placeViewModel.js"
+import {
+  discClassName,
+  featureLayoutId,
+  markerContributor,
+  markerLabel,
+  markerTone,
+  participantLabel
+} from "./placeViewModel.js"
 
-/** Position with `translate`, which the compositor animates without re-laying out the text. */
+/** Position with `translate`, which changes without re-laying out the text. */
 const markerStyle = (marker: Marker): CSSProperties => ({
   translate: `${(marker.x - marker.radius).toFixed(1)}px ${(marker.y - marker.radius).toFixed(1)}px`,
   width: `${(marker.radius * 2).toFixed(1)}px`,
@@ -17,12 +26,21 @@ const markerStyle = (marker: Marker): CSSProperties => ({
 })
 
 /**
- * Every trial the search accepts moves a marker a little; a merged proposal's
- * marker grows in from nothing. Both stop under `prefers-reduced-motion`, and
+ * Every trial the search accepts moves a marker a little; that movement is
+ * CSS, a short transition on `translate`, so a frame every few milliseconds
+ * settles rather than restarts. Both stop under `prefers-reduced-motion`, and
  * while the trace is scrubbed, when whole arrangements are swapped outright.
  */
 const motionClassName =
   "transition-[translate,width,height,opacity,scale,box-shadow] duration-200 ease-out starting:scale-90 starting:opacity-0 motion-reduce:transition-none group-data-[place-scrubbing]/stage:transition-none"
+
+/**
+ * Motion measures a kept disc only when it mounts or leaves: the hand-off
+ * with its proposal's name. A constant dependency means no re-render of the
+ * disc (the search moving it, the paper resizing) starts a layout animation,
+ * so Motion never fights the CSS above for the disc's position.
+ */
+const layoutOnHandOffOnly = "hand-off"
 
 const triggerClassName =
   "absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0"
@@ -45,6 +63,24 @@ const popupClassName = [
   "motion-reduce:transition-none"
 ].join(" ")
 
+/** A kept disc is the Motion node the feature travels as; a trial's disc is a plain button, placed outright. */
+const discElement = (drawn: PlaceDrawn, name: string) =>
+  Match.value(drawn).pipe(
+    Match.when(
+      "kept",
+      () => (
+        <m.button
+          data-place-feature-travel={name}
+          layout="position"
+          layoutDependency={layoutOnHandOffOnly}
+          layoutId={featureLayoutId(name)}
+        />
+      )
+    ),
+    Match.when("trial", () => <button />),
+    Match.exhaustive
+  )
+
 /**
  * One feature on the stage. The disc is a button: hover, focus or tap opens
  * the feature's description and who added it, so nothing about the place is
@@ -52,7 +88,8 @@ const popupClassName = [
  * is drawn on the disc at the width it was measured to fit, wrapping as
  * measured; a disc too small for its name shows its number instead.
  */
-export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
+export const PlaceMarkerDisc = ({ drawn, index, labelWidth, marker }: {
+  readonly drawn: PlaceDrawn
   readonly index: number
   readonly labelWidth: Option.Option<number>
   readonly marker: Marker
@@ -72,6 +109,7 @@ export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
         data-place-marker={marker.name}
         delay={120}
         openOnHover
+        render={discElement(drawn, marker.name)}
         style={markerStyle(marker)}
       >
         {Option.match(labelWidth, {

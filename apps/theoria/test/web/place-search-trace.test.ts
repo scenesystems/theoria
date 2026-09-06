@@ -51,6 +51,7 @@ const complete: PlaceRenderFrame = new PlaceRenderFrame({
   tried,
   bestIndex: 2,
   rendering,
+  prose: "A room.",
   labels: {}
 })
 const running: PlaceRenderFrame = new PlaceRenderFrame({

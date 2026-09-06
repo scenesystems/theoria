@@ -146,6 +146,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const paper = demo.locator("[data-place-stage='paper']")
         yield* visible(paper)
+        // The seeded search moves the discs while it runs; the claim is about the kept drawing.
+        yield* visible(page.locator("[data-place-render-phase='complete']"))
         yield* visible(demo.locator("[data-place-marker]").first())
 
         // Wide: the hero reads first; the drawn place and at least one of its

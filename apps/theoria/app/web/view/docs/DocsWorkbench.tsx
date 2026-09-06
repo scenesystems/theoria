@@ -1,5 +1,6 @@
 import { Option } from "effect"
-import { motion, useReducedMotion } from "motion/react"
+import { useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import type { ReactNode } from "react"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
@@ -21,7 +22,7 @@ export const DocsRouteEntrance = (
     <Layer
       className={className}
       render={
-        <motion.div
+        <m.div
           animate={{ opacity: 1, y: 0 }}
           initial={reducedMotion === true ? false : { opacity: 0, y: 6 }}
           transition={{ duration: 0.18, ease: "easeOut" }}

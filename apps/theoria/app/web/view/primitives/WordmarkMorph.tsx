@@ -1,4 +1,5 @@
-import { motion, type MotionValue, useReducedMotion, useTime, useTransform } from "motion/react"
+import { type MotionValue, useReducedMotion, useTime, useTransform } from "motion/react"
+import * as m from "motion/react-m"
 import { memo } from "react"
 
 import { frameAt, segmentProgress } from "./wordmarkMorph.js"
@@ -40,7 +41,7 @@ const Segment = ({
     return face === "en" ? 1 - progress : progress
   })
 
-  return <motion.span style={{ opacity }}>{text}</motion.span>
+  return <m.span style={{ opacity }}>{text}</m.span>
 }
 
 /**

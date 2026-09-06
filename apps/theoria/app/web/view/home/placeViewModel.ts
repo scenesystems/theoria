@@ -84,6 +84,13 @@ export const discClassName = (role: ParticipantRole): string =>
     Match.exhaustive
   )
 
+/**
+ * The Motion `layoutId` a feature travels under: its name in a declined
+ * proposal and its disc on the stage share it, so merging moves the name onto
+ * the paper and declining brings it back.
+ */
+export const featureLayoutId = (name: string): string => `place-feature:${name}`
+
 export const markerLabel = (marker: PlaceMarker): string =>
   Option.match(Option.fromNullable(marker.contributedBy), {
     onNone: () => marker.name,

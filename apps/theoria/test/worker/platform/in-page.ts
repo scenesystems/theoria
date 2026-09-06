@@ -114,6 +114,24 @@ export const stageLayout = () => {
   return `${String(Math.round(sheet?.height ?? -1))} ${String(Math.round(trace?.top ?? -1))}`
 }
 
+/**
+ * The `transform` painted right now on every element inside `region` that
+ * carries a feature (`data-place-feature-travel`), by feature name. Motion
+ * moves things by transform, so a feature sampled at several distinct
+ * transforms over time travelled; one that is only ever seen at one (Motion
+ * holds a layout node at its origin for a single frame before an instant
+ * jump) did not.
+ */
+export const featureTransforms = (
+  region: Element
+): ReadonlyArray<{ readonly name: string; readonly transform: string }> =>
+  [...region.querySelectorAll("[data-place-feature-travel]")]
+    .map((element) => ({
+      name: element.getAttribute("data-place-feature-travel") ?? "",
+      transform: getComputedStyle(element).transform
+    }))
+    .filter(({ transform }) => transform !== "none")
+
 /** The element's right edge is inside the viewport. */
 export const insideViewportRight = (element: Element) => element.getBoundingClientRect().right <= window.innerWidth
 

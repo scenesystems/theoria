@@ -1,5 +1,6 @@
 import { Separator } from "@base-ui/react/separator"
-import { motion, useReducedMotion } from "motion/react"
+import { useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
@@ -26,7 +27,7 @@ export const PulseLayer = ({
       aria-hidden={ariaHidden}
       className={className}
       render={
-        <motion.div
+        <m.div
           animate={{ opacity: reducedMotion === true ? 1 : [1, 0.5, 1] }}
           transition={reducedMotion === true
             ? { duration: 0 }

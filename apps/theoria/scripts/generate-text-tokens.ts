@@ -1,6 +1,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Console } from "effect"
 
+import { motionThemeTokens } from "../app/contracts/motion.js"
 import { fontFamilyCssVar, fontFamilyThemeTokens, fontWeightNumeric, textSemantics } from "../app/contracts/text.js"
 
 const fontFamilyThemeLines = fontFamilyThemeTokens.map(
@@ -32,6 +33,10 @@ const maxWidthTokens = textSemantics.flatMap((s) => [
   `  --st-mw-${s.role}-expanded: ${String(s.maxWidth.expanded)}px;`
 ])
 
+const motionTokens = motionThemeTokens.map(
+  ([name, value]) => `  ${name}: ${value};`
+)
+
 const output = [
   "  /* Typography: font-family theme tokens (generated — do not edit) */",
   ...fontFamilyThemeLines,
@@ -52,7 +57,10 @@ const output = [
   ...fontFamilyTokens,
   "",
   "  /* Typography: per-role/variant max-width tokens (generated — do not edit) */",
-  ...maxWidthTokens
+  ...maxWidthTokens,
+  "",
+  "  /* Motion: durations and the one easing (generated — do not edit) */",
+  ...motionTokens
 ].join("\n")
 
 BunRuntime.runMain(Console.log(output))
