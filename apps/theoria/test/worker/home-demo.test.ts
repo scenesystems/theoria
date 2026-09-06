@@ -5,7 +5,6 @@ import { Effect, Layer, Option, Order } from "effect"
 import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-arrangement.js"
-import { placeStageFrameBorderPx } from "../../app/web/atoms/imagined-place.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import {
   act,
@@ -122,11 +121,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* animationsSettled(page)
             expect(yield* overflowingElements(page)).toEqual([])
             expect(yield* fitsViewport(page)).toBe(true)
-            // The stage is drawn for the column it has, frame border included, so nothing is clipped or scrolled away.
+            // The stage is drawn for exactly the width inside the frame's border, and the frame fits the column.
             const widths = yield* until(
               act(() => page.evaluate(stageAndColumnWidths)),
-              ({ column, frame, stage }) =>
-                stage > 0 && frame === stage + placeStageFrameBorderPx * 2 && frame <= column,
+              ({ column, drawable, frame, stage }) => stage > 0 && drawable === stage && frame <= column,
               `the stage and its frame fit the column at ${String(width)}px`
             )
             return widths.stage

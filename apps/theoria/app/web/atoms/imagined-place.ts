@@ -16,6 +16,7 @@ import {
 import type { SuccessEnvelopeData } from "../services/envelopeRequest.js"
 import { ImaginedPlaceClient } from "../services/ImaginedPlaceClient.js"
 import type { PlaceStep } from "../view/home/placeSteps.js"
+import { artifactStageBorderPx } from "../view/primitives/ArtifactStage.js"
 
 /**
  * State for the home-page demo.
@@ -147,7 +148,7 @@ export const placeStageRequestAtom: AtomType.Writable<number> = Atom.make(stageM
 export const placeStageContainerWidthAtom: AtomType.Writable<number> = Atom.make(0)
 
 /** The stage frame's border, on each side; the drawing sits inside it, so the column must hold both. */
-export const placeStageFrameBorderPx = 1
+export const placeStageFrameBorderPx = artifactStageBorderPx
 
 /** The widest stage the column can show once the frame's border has taken its share. */
 export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {
