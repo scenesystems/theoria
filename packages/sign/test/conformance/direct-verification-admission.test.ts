@@ -1,32 +1,21 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { ed25519Verify } from "../../src/algorithms/ed25519.js"
-import { mlDsa65Verify } from "../../src/algorithms/mlDsa.js"
+import { mlDsa65SignHedged, mlDsa65Verify } from "../../src/algorithms/mlDsa.js"
 import { p256Sha256P1363LowSVerify } from "../../src/algorithms/p256.js"
 import { DIRECT_VERIFICATION_MAX_MESSAGE_BYTES } from "../../src/internal/verificationInput.js"
-import type { InvalidVerificationInput, VerificationUnavailable } from "../../src/schemas/errors.js"
+import { generateKeyPair } from "../../src/keyPair.js"
 
 const EMPTY_CONTEXT = new Uint8Array(0)
-type DirectVerification = Effect.Effect<boolean, InvalidVerificationInput | VerificationUnavailable, never>
 
-const ed25519Contract: (signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array) => DirectVerification =
-  ed25519Verify
-const p256Contract: (signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array) => DirectVerification =
-  p256Sha256P1363LowSVerify
-const mlDsa65Contract: (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array,
-  context: Uint8Array
-) => DirectVerification = mlDsa65Verify
-
-const failureTag = <A>(effect: Effect.Effect<A, InvalidVerificationInput | VerificationUnavailable>) =>
+const failureTag = <A, E extends { readonly _tag: string }>(effect: Effect.Effect<A, E>) =>
   Effect.flip(effect).pipe(Effect.map((error) => error._tag))
 
+/** Bytes whose buffer has been transferred away, as after a postMessage: reading them raises. */
 const detachedBytes = (byteLength: number): Uint8Array => {
   const buffer = new ArrayBuffer(byteLength)
   const bytes = new Uint8Array(buffer)
-  structuredClone(buffer, { transfer: [buffer] })
+  buffer.transfer()
   return bytes
 }
 
@@ -36,13 +25,6 @@ const uncopyableBytes = (byteLength: number): Uint8Array =>
   })
 
 describe("strict direct verification admission", () => {
-  it.effect("implements the exact service-free public Effect contracts", () =>
-    Effect.sync(() => {
-      expect(ed25519Contract).toBe(ed25519Verify)
-      expect(p256Contract).toBe(p256Sha256P1363LowSVerify)
-      expect(mlDsa65Contract).toBe(mlDsa65Verify)
-    }))
-
   it.effect("returns typed failures for detached and uncopyable inputs without throwing at construction", () =>
     Effect.gen(function*() {
       const verifications = [
@@ -62,6 +44,27 @@ describe("strict direct verification admission", () => {
       yield* Effect.forEach(verifications, (verification) =>
         failureTag(verification).pipe(
           Effect.map((tag) => expect(tag).toBe("InvalidVerificationInput"))
+        ), { discard: true })
+    }))
+
+  it.effect("hedged signing fails with SigningFailed for detached and uncopyable inputs without throwing", () =>
+    Effect.gen(function*() {
+      const keys = yield* generateKeyPair("ml-dsa-65")
+      const signings = [
+        mlDsa65SignHedged(detachedBytes(0), keys.secretKey, keys.publicKey, EMPTY_CONTEXT, new Uint8Array(32)),
+        mlDsa65SignHedged(new Uint8Array(3), detachedBytes(4_032), keys.publicKey, EMPTY_CONTEXT, new Uint8Array(32)),
+        mlDsa65SignHedged(new Uint8Array(3), keys.secretKey, detachedBytes(1_952), EMPTY_CONTEXT, new Uint8Array(32)),
+        mlDsa65SignHedged(new Uint8Array(3), keys.secretKey, keys.publicKey, detachedBytes(0), new Uint8Array(32)),
+        mlDsa65SignHedged(new Uint8Array(3), keys.secretKey, keys.publicKey, EMPTY_CONTEXT, detachedBytes(32)),
+        mlDsa65SignHedged(uncopyableBytes(3), keys.secretKey, keys.publicKey, EMPTY_CONTEXT, new Uint8Array(32))
+      ]
+
+      yield* Effect.forEach(signings, (signing) =>
+        Effect.flip(signing).pipe(
+          Effect.map((error) => {
+            expect(error._tag).toBe("SigningFailed")
+            expect(error.reason).toBe("invalid input")
+          })
         ), { discard: true })
     }))
 

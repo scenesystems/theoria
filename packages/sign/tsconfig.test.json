@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
+    "lib": ["ES2024"],
     "types": ["@types/node", "@effect/vitest", "vitest/globals"],
     "tsBuildInfoFile": ".tsbuildinfo/test.tsbuildinfo"
   },
