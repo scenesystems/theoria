@@ -39,7 +39,15 @@ jobs:
 
       - uses: ./.github/actions/setup
 
+      # `version` when unreleased changesets exist, `publish` when every changeset is
+      # consumed but a version is missing from npm, `none` otherwise. `changeset version`
+      # exits non-zero without changesets, so the version step only runs in version mode.
+      - name: Select the Changesets mode
+        id: mode
+        uses: changesets/action/select-mode@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+
       - name: Create or update the release pull request
+        if: steps.mode.outputs.mode == 'version'
         uses: changesets/action/version@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
           github-token: ${{ steps.app-token.outputs.token }}
