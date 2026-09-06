@@ -18,8 +18,6 @@ export * from "./ModuleId.js"
 
 export * from "./OptimizerKind.js"
 
-export * from "./CacheKey.js"
-
 export * from "./Usage.js"
 
 export * from "./OptimizerEventEnvelope.js"

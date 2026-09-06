@@ -291,14 +291,6 @@ export const EngineProfile = Schema.Struct({
 })
 
 /**
- * Compatibility name decoding the same preparation-time settings as `EngineProfile`.
- *
- * @since 0.1.0
- * @category schemas
- */
-export const EngineProfileSchema = EngineProfile
-
-/**
  * Engine settings captured when a prepared handle is compiled.
  *
  * @since 0.1.0
