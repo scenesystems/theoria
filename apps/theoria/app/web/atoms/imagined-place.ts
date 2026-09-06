@@ -13,6 +13,7 @@ import {
   PlaceScenario,
   placeScenarioMeta
 } from "../../contracts/imagined-place.js"
+import type { ArtifactStageFrame } from "../../contracts/layout.js"
 import type { SuccessEnvelopeData } from "../services/envelopeRequest.js"
 import { ImaginedPlaceClient } from "../services/ImaginedPlaceClient.js"
 import type { PlaceStep } from "../view/home/placeSteps.js"
@@ -147,8 +148,11 @@ export const placeStageRequestAtom: AtomType.Writable<number> = Atom.make(stageM
 /** The width the stage column actually has, reported by a resize observer. */
 export const placeStageContainerWidthAtom: AtomType.Writable<number> = Atom.make(0)
 
+/** The place is drawn on the canvas, unframed; the stage frame is what the column must hold, and that is no border at all. */
+export const placeStageFrame: ArtifactStageFrame = "none"
+
 /** The stage frame's border, on each side; the drawing sits inside it, so the column must hold both. */
-export const placeStageFrameBorderPx = artifactStageBorderPx
+export const placeStageFrameBorderPx = artifactStageBorderPx(placeStageFrame)
 
 /** The widest stage the column can show once the frame's border has taken its share. */
 export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {

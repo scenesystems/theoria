@@ -6,38 +6,19 @@ import type { ReactNode } from "react"
 
 import { cards } from "../../../contracts/card.js"
 import type { Id as CardId } from "../../../contracts/id.js"
-import { toneForCard } from "../../../contracts/theme.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
-import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { PackageName } from "../primitives/PackageName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 import { type PlaceStep, placeStepDefinition } from "./placeSteps.js"
 
-const packagePillClassName =
-  "inline-flex items-center rounded-md border px-1.5 py-0.5 transition-colors duration-150 hover:bg-stage-0 focus-visible:outline-none focus-visible:ring-2"
-
-/** A package's short name, linked to its docs, in its own tone. */
-const PackagePill = ({ id }: { readonly id: CardId }) => {
-  const tone = toneClassesFor(toneForCard(id))
-  return (
-    <DocsLink
-      className={`${packagePillClassName} ${tone.borderSubtle} ${tone.bgTinted} ${tone.focusRing}`}
-      href={`/docs/${id}`}
-      title={id}
-    >
-      <SemanticText as="span" className={tone.text} role="code-meta" text={id} />
-    </DocsLink>
-  )
-}
-
-/** Only packages in the docs manifest get a pill, so a typo here cannot produce a dead link. */
-const packagePills = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
+/** Only packages in the docs manifest are named, so a typo here cannot produce a dead link. */
+const packageNames = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
   Arr.filterMap(ids, (id) =>
     Option.map(
       Arr.findFirst(cards, (card) => card.id === id),
-      (card) => <PackagePill id={card.id} key={card.id} />
+      (card) => <PackageName id={card.id} key={card.id} />
     ))
 
 const nameButtonClassName =
@@ -86,7 +67,7 @@ export const PlaceStepCard = ({ children, step }: { readonly children: ReactNode
               variant="compact"
             />
           </Button>
-          <Cluster className="gap-1.5">{packagePills(definition.packages)}</Cluster>
+          <Cluster className="gap-x-2.5 gap-y-1">{packageNames(definition.packages)}</Cluster>
         </Cluster>
         {children}
       </Stack>

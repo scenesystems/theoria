@@ -21,6 +21,7 @@ import {
   setViewport,
   visible
 } from "./browser.js"
+import { surfaceStyle } from "./platform/in-page.js"
 import { Site, SiteLive } from "./site.js"
 
 const buildPath = "/api/imagined-place/build"
@@ -114,6 +115,27 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(current, merged.evidence.lineage[1]?.contentId ?? "")
         yield* containsText(current, "You signed · key")
         yield* count(demo.getByText("did not verify"), 0)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the place sits on the canvas: no surface between the page and the drawing", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        yield* visible(demo)
+        const paper = demo.locator("[data-place-stage='paper']")
+        yield* visible(paper)
+
+        // The page, the demo and the drawn paper are one canvas: none of them
+        // is boxed by a border, rounded off or lifted by a shadow.
+        const onCanvas = { border: "0px 0px 0px 0px", radius: "0px", shadow: "none" }
+        expect(yield* act(() => page.locator("main").evaluate(surfaceStyle))).toEqual(onCanvas)
+        expect(yield* act(() => demo.evaluate(surfaceStyle))).toEqual(onCanvas)
+        expect(yield* act(() => demo.locator("[data-artifact-stage='frame']").evaluate(surfaceStyle))).toEqual(
+          onCanvas
+        )
+        expect(yield* act(() => paper.evaluate(surfaceStyle))).toEqual(onCanvas)
         expect(yield* failures).toEqual([])
       }))
 

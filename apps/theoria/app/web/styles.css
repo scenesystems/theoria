@@ -24,6 +24,13 @@
   --color-ink-900: var(--th-ink-900);
   --color-ink-950: var(--th-ink-950);
 
+  /* Surface vocabulary: hairlines, the instrument fill, and the two radii a surface may take */
+  --color-rule: var(--th-rule);
+  --color-rule-strong: var(--th-rule-strong);
+  --color-instrument: var(--th-instrument);
+  --radius-instrument: 0.75rem;
+  --radius-control: 0.5rem;
+
   --color-danger-50: var(--th-danger-50);
   --color-danger-200: var(--th-danger-200);
   --color-danger-400: var(--th-danger-400);
@@ -260,6 +267,11 @@
     --th-ink-900: #172339;
     --th-ink-950: #0b1326;
 
+    /* Hairlines and the instrument fill: the same greys the stage scale uses, named for their job */
+    --th-rule: #dde4ee;
+    --th-rule-strong: #c8d3e3;
+    --th-instrument: #edf1f7;
+
     --th-danger-50: #fef2f2;
     --th-danger-200: #fecaca;
     --th-danger-400: #f87171;
@@ -320,6 +332,10 @@
     --th-ink-800: #c8d3e3;
     --th-ink-900: #edf1f7;
     --th-ink-950: #ffffff;
+
+    --th-rule: #1c2944;
+    --th-rule-strong: #263550;
+    --th-instrument: #152038;
 
     --th-danger-50: #2a1215;
     --th-danger-200: #5c2022;

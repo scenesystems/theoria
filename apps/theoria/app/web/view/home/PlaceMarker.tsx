@@ -4,8 +4,8 @@ import type { CSSProperties } from "react"
 
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { TagBadge } from "../primitives/TagBadge.js"
 
 import { discClassName, markerContributor, markerLabel, markerTone, participantLabel } from "./placeViewModel.js"
 
@@ -106,7 +106,7 @@ export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
                     wrapAuthority="native-browser"
                   />
                 </Popover.Title>
-                <TagBadge name={participantLabel(role)} tone={tone} />
+                <ParticipantName name={participantLabel(role)} tone={tone} />
               </Cluster>
               <Popover.Description render={<Layer />}>
                 <SemanticText

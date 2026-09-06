@@ -6,7 +6,6 @@ import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildAtom, placeBuildEnvelopeAtom } from "../../atoms/imagined-place.js"
 import { ActionButton } from "../primitives/ActionButton.js"
-import { surfaceMaterials } from "../primitives/designSystem.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
@@ -70,7 +69,7 @@ export const ImaginedPlaceDemo = () => {
   const frame = useAtomValue(placeRenderFrameAtom)
 
   return (
-    <Section aria-label="Imagined place demo" className={`${surfaceMaterials.raisedCard} p-4 sm:p-7 lg:p-8`}>
+    <Section aria-label="Imagined place demo" className="py-4 sm:py-6">
       <Stack className="gap-6 lg:gap-8">
         <Stack className="gap-2">
           <SemanticText

@@ -125,3 +125,17 @@ export const activeElementOpensDocsLink = () => document.activeElement?.hasAttri
 
 /** The current path and fragment. */
 export const currentLocation = () => location.pathname + location.hash
+
+/**
+ * How an element's surface is drawn: its border widths, corner radii and
+ * shadow, as the browser computed them. Content on the canvas has none of
+ * the three; this is how a test tells a canvas from a card.
+ */
+export const surfaceStyle = (element: Element) => {
+  const style = getComputedStyle(element)
+  return {
+    border: `${style.borderTopWidth} ${style.borderRightWidth} ${style.borderBottomWidth} ${style.borderLeftWidth}`,
+    radius: style.borderRadius,
+    shadow: style.boxShadow
+  }
+}

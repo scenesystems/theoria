@@ -3,24 +3,27 @@ import { Option } from "effect"
 import type { ReactNode } from "react"
 
 import type { PlaceEvidence, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
-import { ContentCard } from "../primitives/ContentCard.js"
-import { contentCardToneClassesFor, toneClassesFor } from "../primitives/designSystem.js"
+import { dangerStatusTone, inlineStatusToneFor, neutralStatusTone, toneClassesFor } from "../primitives/designSystem.js"
+import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
+import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { StatusPill } from "../primitives/StatusPill.js"
-import { TagBadge } from "../primitives/TagBadge.js"
 import { ToggleSwitch } from "../primitives/ToggleSwitch.js"
 
 import { ContentId } from "./ContentId.js"
 import { mergedIntoText, participantLabel, participantTone, signatureLabel } from "./placeViewModel.js"
 
 const sealTone = toneClassesFor("seal")
-const digestTone = toneClassesFor("digest")
 
-const signaturePillClassName = (valid: boolean): string =>
-  valid
-    ? "border border-stage-200/90 bg-stage-0/80 text-ink-700"
-    : "border border-danger-200/80 bg-danger-50/70 text-danger-700"
+const signatureTone = (valid: boolean) => valid ? neutralStatusTone : dangerStatusTone
+
+/**
+ * The voice's rule: a proposer's accent while their proposal is merged, a
+ * dashed neutral hairline while it is declined. It is the only edge the
+ * proposal has; there is no box behind the words.
+ */
+const voiceClassName = (accepted: boolean, tone: { readonly border: string }): string =>
+  accepted ? `border-solid ${tone.border}` : "border-dashed border-rule-strong"
 
 /** One labelled part of the proposal: the label names what the text is. */
 const Field = ({ children, label }: { readonly children: ReactNode; readonly label: string }) => (
@@ -38,7 +41,7 @@ const Field = ({ children, label }: { readonly children: ReactNode; readonly lab
 
 /** The neighbor's note, opened: the open lock and caption say how it arrived; the text is theirs. */
 const OpenedNote = ({ note }: { readonly note: SealedNote }) => (
-  <Stack className={`gap-1.5 rounded-md border px-3 py-2.5 ${sealTone.borderSubtle} ${sealTone.bgTinted}`}>
+  <Stack className={`gap-1.5 border-l-2 pl-3 ${sealTone.border}`}>
     <Rail className="gap-1.5">
       <LockOpenIcon aria-hidden className={`size-3.5 shrink-0 ${sealTone.text}`} />
       <SemanticText
@@ -61,19 +64,21 @@ const OpenedNote = ({ note }: { readonly note: SealedNote }) => (
 )
 
 /** Appears when the build records the merge: the same digest tone as the version it names. */
-const recordedPillClassName =
-  `border ${digestTone.borderSubtle} ${digestTone.bgTinted} ${digestTone.textStrong} transition-[opacity,scale] duration-300 ease-out starting:scale-95 starting:opacity-0 motion-reduce:transition-none`
+const recordedTone = inlineStatusToneFor("digest")
+const recordedClassName =
+  "transition-[opacity,translate] duration-300 ease-out starting:translate-x-1 starting:opacity-0 motion-reduce:transition-none"
 
 /**
- * One proposal offered to the author. Header: who offers it (the badge) and
- * the author's decision (the switch). Title: the feature's name, which becomes its marker on the stage.
+ * One proposal offered to the author, spoken in their voice: a rule in the
+ * proposer's accent down its left edge and no box. Header: who offers it (the
+ * name) and the author's decision (the switch). Title: the feature's name, which becomes its marker on the stage.
  * Then three labelled parts — what the proposal adds to the place, why the
  * proposer thinks it belongs, and (for the neighbor) the note sealed to the
  * author. Footer: the proposal's own signature and content ID, which it keeps
  * whether or not it is merged. `accepted` is the author's decision and is
  * shown at once; `record.accepted` is what the last build recorded, and puts
  * the version's name beside the badge. The two differ while a build is in
- * flight, and the card says so.
+ * flight, and the article says so.
  */
 export const PlaceProposalCard = ({
   accepted,
@@ -90,23 +95,21 @@ export const PlaceProposalCard = ({
 }) => {
   const role = record.proposal.proposer
   const tone = toneClassesFor(participantTone(role))
-  const cardTone = accepted ? { tone: contentCardToneClassesFor(participantTone(role)) } : {}
   const pending = accepted === record.accepted ? {} : { "data-place-pending": "" }
 
   return (
-    <ContentCard
-      className={`h-full gap-3 ${accepted ? "border-solid" : "border-dashed"}`}
+    <Stack
+      render={<article />}
+      className={`h-full gap-3 border-l-2 pl-4 transition-colors duration-300 ${voiceClassName(accepted, tone)}`}
       data-place-proposal={role}
       data-place-recorded={record.accepted ? "true" : "false"}
-      density="compact"
-      {...cardTone}
       {...pending}
     >
       <Cluster render={<header />} className="items-center justify-between gap-x-3 gap-y-1.5">
-        <Cluster className="items-center gap-2">
-          <TagBadge name={participantLabel(role)} tone={tone} />
+        <Cluster className="items-center gap-x-3 gap-y-1">
+          <ParticipantName name={participantLabel(role)} tone={tone} />
           {record.accepted
-            ? <StatusPill className={recordedPillClassName} label={mergedIntoText(evidence)} />
+            ? <InlineStatus className={recordedClassName} label={mergedIntoText(evidence)} tone={recordedTone} />
             : null}
         </Cluster>
         <Layer className="ml-auto">
@@ -164,13 +167,10 @@ export const PlaceProposalCard = ({
         })}
       </Layer>
 
-      <Cluster render={<footer />} className="items-center gap-x-2.5 gap-y-1">
-        <StatusPill
-          className={signaturePillClassName(record.signature.valid)}
-          label={signatureLabel(record.signature)}
-        />
+      <Cluster render={<footer />} className="items-center gap-x-3 gap-y-1">
+        <InlineStatus label={signatureLabel(record.signature)} tone={signatureTone(record.signature.valid)} />
         <ContentId form="short" id={record.contentId} />
       </Cluster>
-    </ContentCard>
+    </Stack>
   )
 }

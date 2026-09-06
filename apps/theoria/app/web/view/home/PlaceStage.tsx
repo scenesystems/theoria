@@ -14,7 +14,7 @@ import {
   placeShownFrameAtom,
   placeTrialPreviewAtom
 } from "../../atoms/imagined-place-render.js"
-import { placeStageContainerWidthAtom, placeStageFrameBorderPx } from "../../atoms/imagined-place.js"
+import { placeStageContainerWidthAtom, placeStageFrame, placeStageFrameBorderPx } from "../../atoms/imagined-place.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -186,6 +186,7 @@ export const PlaceStage = () => {
     <Stack className="gap-3">
       <Layer data-place-stage="column">
         <ArtifactStage
+          frame={placeStageFrame}
           frameStyle={frameStyle}
           viewportClassName="justify-center"
           viewportRef={reportContainerWidth}

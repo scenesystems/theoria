@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from "motion/react"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
-import { surfaceMaterials, type ToneClasses } from "./designSystem.js"
+import { dangerStatusTone, surfaceClassName, type ToneClasses } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -138,11 +138,17 @@ export const FailureState = ({
   readonly description: string
 }) => (
   <Stack className="gap-4 py-4">
-    <Layer className={`${surfaceMaterials.calloutError} p-4`}>
+    <Layer className={`${surfaceClassName("instrument")} p-4`}>
       <Stack className="gap-3">
         <Cluster className="gap-2">
-          <Layer aria-hidden render={<span />} className="inline-flex size-2 rounded-full bg-danger-500" />
-          <SemanticText as="span" className="text-danger-700" role="status" text={description} variant="expanded" />
+          <Layer aria-hidden render={<span />} className={`inline-flex size-2 rounded-full ${dangerStatusTone.dot}`} />
+          <SemanticText
+            as="span"
+            className={dangerStatusTone.text}
+            role="status"
+            text={description}
+            variant="expanded"
+          />
         </Cluster>
         {action}
       </Stack>

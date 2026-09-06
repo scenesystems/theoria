@@ -5,10 +5,10 @@ import * as Arr from "effect/Array"
 import type { PlaceBuild, Version } from "../../../contracts/imagined-place-result.js"
 import { placeVersionChangeAtom } from "../../atoms/imagined-place.js"
 import { ChangedValue } from "../primitives/ChangedValue.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { dangerStatusTone, inlineStatusToneFor, toneClassesFor } from "../primitives/designSystem.js"
+import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { StatusPill } from "../primitives/StatusPill.js"
 
 import { ContentId } from "./ContentId.js"
 import {
@@ -21,12 +21,9 @@ import {
 } from "./placeViewModel.js"
 
 const digestTone = toneClassesFor("digest")
-const signTone = toneClassesFor("sign")
+const signTone = inlineStatusToneFor("sign")
 
-const signaturePillClassName = (valid: boolean): string =>
-  valid
-    ? `border ${signTone.borderSubtle} bg-stage-0/80 ${signTone.text}`
-    : "border border-danger-200/80 bg-danger-50/70 text-danger-700"
+const signatureTone = (valid: boolean) => valid ? signTone : dangerStatusTone
 
 const nodeClassName = (current: boolean): string =>
   `inline-flex size-3 shrink-0 rounded-full border-2 ${digestTone.border} ${current ? digestTone.bg : "bg-stage-0"}`
@@ -81,10 +78,7 @@ const VersionNode = ({ build, last, version }: {
           onNone: () => null,
           onSome: (signature) => (
             <Cluster>
-              <StatusPill
-                className={signaturePillClassName(signature.valid)}
-                label={versionSignatureLabel(signature)}
-              />
+              <InlineStatus label={versionSignatureLabel(signature)} tone={signatureTone(signature.valid)} />
             </Cluster>
           )
         })}

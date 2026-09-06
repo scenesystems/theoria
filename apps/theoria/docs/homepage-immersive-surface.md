@@ -253,20 +253,20 @@ derived.
 
 ### Act 0 — Vocabulary (removes the cards)
 
-- [ ] `styles.css` `@theme inline`: `--color-rule`, `--color-rule-strong`,
+- [x] `styles.css` `@theme inline`: `--color-rule`, `--color-rule-strong`,
       `--color-instrument`, `--radius-instrument: 0.75rem`,
       `--radius-control: 0.5rem`, with `--th-*` values in `:root` and
       `:root.dark`.
-- [ ] `designSystem.ts`: `SurfaceRole` and `surfaceClassName(role)` via
+- [x] `designSystem.ts`: `SurfaceRole` and `surfaceClassName(role)` via
       `Match.exhaustive` replace the two remaining `surfaceMaterials`
       (the zero-caller exports are already removed).
-- [ ] `StatusPill` → `InlineStatus`; `TagBadge` → `ParticipantName`;
+- [x] `StatusPill` → `InlineStatus`; `TagBadge` → `ParticipantName`;
       `PackagePill` → `PackageName`; `ContentCard` removed from home and
       `DocsPage.tsx`; `ContentCardShape`/`ContentCardDensity` removed.
-- [ ] `ArtifactStage.tsx`: `frame: "none" | "instrument"`; home uses `"none"`.
-- [ ] `SiteHeader.tsx`, `HeaderChrome.tsx`: text links, icon-only theme
+- [x] `ArtifactStage.tsx`: `frame: "none" | "instrument"`; home uses `"none"`.
+- [x] `SiteHeader.tsx`, `HeaderChrome.tsx`: text links, icon-only theme
       toggle; `headerChromeSurfaceClassName` removed.
-- [ ] `test/worker/home.test.ts`: the rendered `canvas` role has no border,
+- [x] `test/worker/home.test.ts`: the rendered `canvas` role has no border,
       radius or box shadow in computed style. Verification of the de-carding
       itself is visual — screenshots at 1440 and 390 inspected in review — not
       a test that counts bordered ancestors or `shadow-*` classes; a

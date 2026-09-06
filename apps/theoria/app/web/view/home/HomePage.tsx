@@ -8,9 +8,6 @@ import { ImaginedPlaceDemo } from "./ImaginedPlaceDemo.js"
 
 export const HomePage = () => (
   <Layer render={<main />} className={appTheme.root}>
-    <Layer aria-hidden className={appTheme.atmosphericGlowA} />
-    <Layer aria-hidden className={appTheme.atmosphericGlowB} />
-
     <Layer className={appTheme.content}>
       <SiteHeader />
       <HomeHero />

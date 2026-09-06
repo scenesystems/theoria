@@ -8,7 +8,6 @@ import type { DocsRoute } from "../../../contracts/docs.js"
 import { Id } from "../../../contracts/id.js"
 import { docsManifestAtom } from "../../atoms/docs-data.js"
 import { docsKeyboardShortcutsAtom } from "../../atoms/docs.js"
-import { ContentCard } from "../primitives/ContentCard.js"
 import { neutralToneClasses, toneClassesForCard } from "../primitives/designSystem.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Layer, Main, Stack } from "../primitives/Layout.js"
@@ -33,19 +32,18 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
     >
       <DocsRouteEntrance className="flex min-w-0 flex-col gap-8">
         <SemanticText as="h1" className="text-ink-950" role="hero-title" text="Packages" />
-        <Layer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <Layer className="grid gap-x-10 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
           {Arr.map(
             manifest.packages,
             (docsPackage) => {
               const tone = isCardId(docsPackage.slug) ? toneClassesForCard(docsPackage.slug) : neutralToneClasses
 
               return (
-                <ContentCard
-                  className={`group relative h-full transition-[border-color,background-color,box-shadow] hover:bg-stage-0/94 hover:shadow-surface ${tone.border}`}
+                <Layer
+                  render={<article />}
+                  className={`group relative flex h-full flex-col border-l-2 py-1 pl-5 ${tone.border}`}
                   data-docs-package={docsPackage.slug}
-                  density="standard"
                   key={docsPackage.slug}
-                  shape="left-accent"
                 >
                   <Stack className="h-full gap-5">
                     <Stack className="gap-2">
@@ -74,7 +72,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
                       text={`v${docsPackage.version}`}
                     />
                   </Stack>
-                </ContentCard>
+                </Layer>
               )
             }
           )}

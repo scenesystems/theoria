@@ -5,17 +5,17 @@ import * as Arr from "effect/Array"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceFeature } from "../../../contracts/imagined-place.js"
 import { briefIsEdited, placeControlsAtom } from "../../atoms/imagined-place.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { inlineStatusToneFor, toneClassesFor } from "../primitives/designSystem.js"
+import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
-import { StatusPill } from "../primitives/StatusPill.js"
 
 import { PlaceControls } from "./PlaceControls.js"
 import { participantTone } from "./placeViewModel.js"
 
 const authorTone = toneClassesFor(participantTone("author"))
-const inferenceTone = toneClassesFor("dsp")
+const inferenceTone = inlineStatusToneFor("dsp")
 
 /** A feature the composer named; the same accent as its marker on the stage. */
 const FeatureChip = ({ feature }: { readonly feature: PlaceFeature }) => (
@@ -36,7 +36,7 @@ const Pending = () => (
 
 /**
  * What the composer returned for the brief: the title it gave the place and
- * the features it named, in the author's accent because the author signs them. The pill is the honest part:
+ * the features it named, in the author's accent because the author signs them. The status is the honest part:
  * the runtime is recorded, so the answer is the one recorded for this
  * scenario, checked against the output schema each time. When the brief has
  * been edited, one line says what that does and does not change.
@@ -52,10 +52,7 @@ const Composed = ({ build, edited }: { readonly build: PlaceBuild; readonly edit
         variant="compact"
         wrapAuthority="native-browser"
       />
-      <StatusPill
-        className={`border ${inferenceTone.borderSubtle} ${inferenceTone.bgTinted} ${inferenceTone.text}`}
-        label="Recorded inference"
-      />
+      <InlineStatus label="Recorded inference" tone={inferenceTone} />
     </Cluster>
     <Cluster className="gap-1.5">
       {Arr.map(build.artifact.composition.features, (feature) => <FeatureChip feature={feature} key={feature.name} />)}

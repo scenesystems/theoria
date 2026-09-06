@@ -1,6 +1,7 @@
 import { Match, Schema } from "effect"
 
 import type { Id as CardId } from "../../../contracts/id.js"
+import type { SurfaceRole } from "../../../contracts/layout.js"
 import { type CardTone, toneForCard } from "../../../contracts/theme.js"
 
 // ---------------------------------------------------------------------------
@@ -172,25 +173,37 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
 export const toneClassesForCard = (id: CardId): ToneClasses => toneClassesFor(toneForCard(id))
 
 // ---------------------------------------------------------------------------
-// ContentCardTone — semantic tone overlay for ContentCard.
+// Surfaces — the three things a surface can be, and how each is drawn.
+// The canvas is the page: content sits on it with no border, radius or shadow.
 // ---------------------------------------------------------------------------
 
-export const ContentCardToneClasses = Schema.Struct({
-  border: Schema.String,
-  bg: Schema.String
+export const surfaceClassName = (role: SurfaceRole): string =>
+  Match.value(role).pipe(
+    Match.when("canvas", () => ""),
+    Match.when("instrument", () => "rounded-instrument bg-instrument"),
+    Match.when("overlay", () => "rounded-instrument bg-stage-0 shadow-surface"),
+    Match.exhaustive
+  )
+
+// ---------------------------------------------------------------------------
+// InlineStatusTone — a glyph and a colour for a status said in the text's own
+// line: a dot in the tone and the words after it. Never a capsule.
+// ---------------------------------------------------------------------------
+
+export const InlineStatusTone = Schema.Struct({
+  dot: Schema.String,
+  text: Schema.String
 })
-export type ContentCardToneClasses = typeof ContentCardToneClasses.Type
+export type InlineStatusTone = typeof InlineStatusTone.Type
 
-export const contentCardToneClassesFor = (tone: CardTone): ContentCardToneClasses => {
+export const inlineStatusToneFor = (tone: CardTone): InlineStatusTone => {
   const classes = toneClassesFor(tone)
-  return { border: classes.borderSubtle, bg: classes.bgTinted }
+  return { dot: classes.dot, text: classes.text }
 }
 
-export const surfaceMaterials = {
-  raisedCard:
-    "rounded-[2rem] border border-stage-300/95 bg-stage-0/94 shadow-hero ring-1 ring-stage-0/80 backdrop-blur-sm",
-  calloutError: "rounded-md border border-danger-200/80 bg-danger-50/70 px-3 py-3"
-}
+export const neutralStatusTone: InlineStatusTone = { dot: neutralToneClasses.dot, text: neutralToneClasses.text }
+
+export const dangerStatusTone: InlineStatusTone = { dot: "bg-danger-500", text: "text-danger-700" }
 
 const pillButtonBaseClassName =
   "inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
@@ -244,13 +257,11 @@ export const toggleTrackClassName = ({
     ? `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing}`
     : `${toggleTrackBaseClassName} border-stage-200/90 bg-stage-50/90 ${tone.focusRing}`
 
+/** The page is the canvas: one column of content on the stage colour, nothing floating over it. */
 export const appTheme = {
   root:
     "relative min-h-screen overflow-x-clip bg-stage-50 font-body text-ink-900 antialiased selection:bg-tone-text-200/60 selection:text-ink-950",
-  atmosphericGlowA: "pointer-events-none absolute -left-24 top-8 h-72 w-72 rounded-full bg-stage-0/85 blur-3xl",
-  atmosphericGlowB:
-    "pointer-events-none absolute -right-24 top-24 h-[21rem] w-[21rem] rounded-full bg-stage-100/90 blur-3xl",
-  content: "relative mx-auto flex w-full max-w-[84rem] flex-col gap-4 px-4 py-7 sm:px-7 sm:py-9 lg:px-10"
+  content: "relative mx-auto flex w-full max-w-[88rem] flex-col gap-4 px-5 py-6 sm:px-8 sm:py-8 lg:px-12"
 }
 
 // ---------------------------------------------------------------------------
