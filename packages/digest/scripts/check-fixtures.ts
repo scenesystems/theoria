@@ -7,7 +7,8 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import type * as PlatformError from "@effect/platform/Error"
-import { Array as Arr, Console, Data, Effect, Either, Option, ParseResult, Schema } from "effect"
+import type { ParseResult } from "effect"
+import { Array as Arr, Console, Data, Effect, Either, Option, Schema } from "effect"
 
 import { digestBytesHex } from "../src/convenience.js"
 import {
@@ -159,7 +160,7 @@ const program = Effect.gen(function*() {
             name: source.id,
             file: source.fixturePath,
             reason: "schema decode failed",
-            cause: Option.filter(Option.some(error), ParseResult.isParseError)
+            cause: Option.some(error)
           })
         )
       )

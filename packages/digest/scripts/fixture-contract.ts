@@ -1,4 +1,4 @@
-import { Effect, Match, Schema } from "effect"
+import { Effect, Match, type ParseResult, Schema } from "effect"
 import {
   Blake3FixtureSchema,
   type FixtureKind,
@@ -21,7 +21,7 @@ export const decodeUnknownJson = Schema.decodeUnknown(Schema.parseJson(Schema.Un
 export const validateFixtureByKind = (
   kind: FixtureKind,
   content: string
-): Effect.Effect<void, unknown, never> =>
+): Effect.Effect<void, ParseResult.ParseError> =>
   Match.value(kind).pipe(
     Match.when("blake3", () =>
       Schema.decodeUnknown(Blake3FixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
