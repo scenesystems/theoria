@@ -186,8 +186,9 @@ replacement stack:
 
 - `oxlint` 1.81 (`.oxlintrc.json`) owns `no-unused-vars`,
   `no-unused-expressions`, `no-explicit-any`, `array-type` (generic),
-  `consistent-type-imports` and the TypeScript correctness rules. `bun run
-lint` runs it with `--deny-warnings`. It has no path overrides. Two rules
+  `consistent-type-imports` and the TypeScript correctness rules. Its config
+  sets `denyWarnings`, so `bun run lint` fails on any warning. It has no path
+  overrides. Two rules
   from its default correctness category are off: `require-yield` (an
   `Effect.gen` body without `yield*` is idiomatic and ESLint already had it
   off) and `typescript/prefer-as-const` (`eslint.config.mjs` bans every `as`
@@ -398,9 +399,9 @@ bun run check:tests    # tsconfig.test.json: package and app tests, package scri
 bun run check:examples # tsconfig.examples.json: package examples, fixture scripts, effect-text benchmarks
 bun run check:all      # the three above; this is what CI and the pre-commit hook run
 bun run check:apps
-bun run lint           # oxlint --deny-warnings && eslint --max-warnings=0 && dprint check
-bun run test           # vitest 4 projects: 365 files, 2001 tests (packages in Node, app in happy-dom)
-bun run test:apps      # the app project alone: 26 files, 93 tests
+bun run lint           # oxlint (denyWarnings) && eslint --max-warnings=0 && dprint check
+bun run test           # vitest 4 projects: 366 files, 2022 tests (packages in Node, app in happy-dom)
+bun run test:apps      # the app project alone: 29 files, 101 tests
 bun run test:worker    # after deploy:dry-run — the built Worker in workerd + Chromium: 6 files, 23 tests
 bun run build          # tsc -b, Babel 8 CJS/ESM, typedoc on TS 6, Vite 8 web build
 ```
