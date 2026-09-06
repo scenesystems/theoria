@@ -19,7 +19,8 @@ import { appRuntime } from "./runtime.js"
  * when the last subscriber leaves.
  */
 export const elementWidthAtom: (element: HTMLElement) => AtomType.Atom<Result.Result<number>> = Atom.family(
-  (element: HTMLElement) => Atom.make(ElementSize.contentWidths(element).pipe(Stream.filter((width) => width > 0)))
+  (element: HTMLElement) =>
+    appRuntime.atom(ElementSize.contentWidths(element).pipe(Stream.filter((width) => width > 0)))
 )
 
 /** The width of an element that has not mounted: never measured. */

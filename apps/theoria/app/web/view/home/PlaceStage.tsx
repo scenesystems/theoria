@@ -14,7 +14,7 @@ import {
   placeShownFrameAtom,
   placeTrialPreviewAtom
 } from "../../atoms/imagined-place-render.js"
-import { placeStageContainerWidthAtom } from "../../atoms/imagined-place.js"
+import { placeStageContainerWidthAtom, placeStageFrameBorderPx } from "../../atoms/imagined-place.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -23,8 +23,6 @@ import { ShimmerLine } from "../primitives/Skeleton.js"
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
 import { markerLabel, markerTone } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
-
-const stageFrameBorderPx = 1
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
   left: `${padding}px`,
@@ -181,7 +179,7 @@ export const PlaceStage = () => {
   // The frame is cut to the drawn stage; before a frame exists, the placeholder sizes it.
   const frameStyle = Option.match(latest, {
     onNone: () => ({}),
-    onSome: (value) => ({ width: `${value.rendering.projection.stageWidth + stageFrameBorderPx * 2}px` })
+    onSome: (value) => ({ width: `${value.rendering.projection.stageWidth + placeStageFrameBorderPx * 2}px` })
   })
 
   return (

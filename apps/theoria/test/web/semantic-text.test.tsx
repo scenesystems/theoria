@@ -11,30 +11,52 @@ import { mountWithRegistry, waitForValue } from "../helpers/react-mount.js"
 
 const BrowserTest = Layer.merge(BrowserWindow.layer, BrowserDocument.layer)
 
-/** happy-dom lays nothing out, so the test window's elements report the width the case asks for. */
-function withMockClientWidth<A, E, R>(
+/**
+ * happy-dom lays nothing out and its `ResizeObserver` never reports, so for the
+ * duration of the effect the test window's observer reports `width` as the
+ * content width of every element it is asked to observe, the way a browser
+ * delivers the first observation when observation starts.
+ */
+function withObservedContentWidth<A, E, R>(
   width: number,
   effect: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R | BrowserWindow.BrowserWindow> {
   return Effect.flatMap(BrowserWindow.BrowserWindow, (browserWindow) => {
-    const prototype = browserWindow.HTMLElement.prototype
+    const size: ResizeObserverSize = { blockSize: 0, inlineSize: width }
+    class ReportingResizeObserver implements ResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+
+      observe(target: Element): void {
+        this.callback(
+          [{
+            borderBoxSize: [size],
+            contentBoxSize: [size],
+            contentRect: new browserWindow.DOMRectReadOnly(0, 0, width, 0),
+            devicePixelContentBoxSize: [size],
+            target
+          }],
+          this
+        )
+      }
+
+      unobserve(): void {}
+
+      disconnect(): void {}
+    }
 
     return Effect.acquireUseRelease(
       Effect.sync(() => {
-        const descriptor = Option.fromNullable(Object.getOwnPropertyDescriptor(prototype, "clientWidth"))
+        const original = browserWindow.ResizeObserver
 
-        Reflect.defineProperty(prototype, "clientWidth", { configurable: true, get: () => width })
+        Reflect.defineProperty(browserWindow, "ResizeObserver", { configurable: true, value: ReportingResizeObserver })
 
-        return descriptor
+        return original
       }),
       () => effect,
-      (descriptor) =>
-        Effect.sync(() =>
-          Option.match(descriptor, {
-            onNone: () => Reflect.deleteProperty(prototype, "clientWidth"),
-            onSome: (original) => Reflect.defineProperty(prototype, "clientWidth", original)
-          })
-        )
+      (original) =>
+        Effect.sync(() => {
+          Reflect.defineProperty(browserWindow, "ResizeObserver", { configurable: true, value: original })
+        })
     )
   })
 }
@@ -56,7 +78,7 @@ function withRenderedSemanticText<A>(
   node: ReactNode,
   use: (container: HTMLDivElement) => Effect.Effect<A>
 ): Effect.Effect<A> {
-  return withMockClientWidth(
+  return withObservedContentWidth(
     width,
     Effect.flatMap(mountWithRegistry(node, 400), ({ container }) => use(container)).pipe(Effect.scoped)
   ).pipe(Effect.provide(BrowserTest))

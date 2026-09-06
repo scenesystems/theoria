@@ -146,10 +146,14 @@ export const placeStageRequestAtom: AtomType.Writable<number> = Atom.make(stageM
 /** The width the stage column actually has, reported by a resize observer. */
 export const placeStageContainerWidthAtom: AtomType.Writable<number> = Atom.make(0)
 
-/** The widest stage the column can show. */
+/** The stage frame's border, on each side; the drawing sits inside it, so the column must hold both. */
+export const placeStageFrameBorderPx = 1
+
+/** The widest stage the column can show once the frame's border has taken its share. */
 export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {
   const container = get(placeStageContainerWidthAtom)
-  return container > 0 ? Math.max(stageMinWidth, Math.min(stageMaxWidth, container)) : stageMaxWidth
+  const drawable = container - placeStageFrameBorderPx * 2
+  return container > 0 ? Math.max(stageMinWidth, Math.min(stageMaxWidth, drawable)) : stageMaxWidth
 })
 
 /** The stage width that is drawn: the request, cut to the column, clamped to the stage's range. */

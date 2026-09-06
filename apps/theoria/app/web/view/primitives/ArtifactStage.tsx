@@ -23,9 +23,13 @@ export const ArtifactStage = ({
   readonly viewportClassName?: string
   readonly viewportRef: RefCallback<HTMLElement>
 }) => (
-  <Layer className={classNames(viewportClassName, extraViewportClassName)} ref={viewportRef}>
-    <Layer className={classNames(frameClassName, className)} style={frameStyle}>
-      <Layer className={bodyClassName} style={bodyStyle}>
+  <Layer
+    className={classNames(viewportClassName, extraViewportClassName)}
+    data-artifact-stage="viewport"
+    ref={viewportRef}
+  >
+    <Layer className={classNames(frameClassName, className)} data-artifact-stage="frame" style={frameStyle}>
+      <Layer className={bodyClassName} data-artifact-stage="body" style={bodyStyle}>
         {children}
       </Layer>
     </Layer>

@@ -92,9 +92,11 @@ export const markerPositionsInStage = (markers: ReadonlyArray<Element>) => {
 /** The drawn stage's width against the column it is drawn into; the stage must never be wider than the visitor can see. */
 export const stageAndColumnWidths = () => {
   const column = document.querySelector("[data-place-stage='column']")
+  const frame = column?.querySelector("[data-artifact-stage='frame']")
   const content = document.querySelector("[data-place-stage='content']")
   return {
     column: column?.clientWidth ?? -1,
+    frame: frame?.getBoundingClientRect().width ?? -1,
     stage: Number(content?.getAttribute("data-place-stage-width") ?? -1)
   }
 }

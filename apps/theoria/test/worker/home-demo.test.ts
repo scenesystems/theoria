@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Order } from "effect"
 import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-arrangement.js"
+import { placeStageFrameBorderPx } from "../../app/web/atoms/imagined-place.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import {
   act,
@@ -113,20 +114,25 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
         yield* visible(rendered(page))
-        yield* Effect.forEach([320, 390, 820, 1280, 1680], (width) =>
+        // Shrinks to 320 first, then grows: the stage must follow the column both ways.
+        const stages = yield* Effect.forEach(Arr.make(320, 390, 820, 1280, 1680), (width) =>
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 900 })
             yield* visible(rendered(page))
             yield* animationsSettled(page)
             expect(yield* overflowingElements(page)).toEqual([])
             expect(yield* fitsViewport(page)).toBe(true)
-            // The stage is drawn for the column it has, so nothing is clipped or scrolled away.
-            yield* until(
+            // The stage is drawn for the column it has, frame border included, so nothing is clipped or scrolled away.
+            const widths = yield* until(
               act(() => page.evaluate(stageAndColumnWidths)),
-              ({ column, stage }) => stage > 0 && stage <= column,
-              `the stage fits its column at ${String(width)}px`
+              ({ column, frame, stage }) =>
+                stage > 0 && frame === stage + placeStageFrameBorderPx * 2 && frame <= column,
+              `the stage and its frame fit the column at ${String(width)}px`
             )
+            return widths.stage
           }))
+        expect(stages).toEqual(Arr.sort(stages, Order.number))
+        expect(Arr.lastNonEmpty(stages)).toBeGreaterThan(Arr.headNonEmpty(stages))
         expect(yield* failures).toEqual([])
       }))
 
