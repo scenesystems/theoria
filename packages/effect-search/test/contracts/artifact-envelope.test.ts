@@ -68,7 +68,7 @@ describe("contracts/ArtifactEnvelope", () => {
         trial: {
           trialNumber: 0,
           config: {},
-          state: { _tag: "Completed", value: 1.0, duration: 100 }
+          state: { _tag: "Completed", value: 1.0, duration: 100, retryCount: 0 }
         }
       })
 

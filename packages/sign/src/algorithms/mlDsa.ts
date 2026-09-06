@@ -79,26 +79,6 @@ export const mlDsa44Keygen = dsa44.keygen
 export const mlDsa65SignDeterministic = dsa65.sign
 
 /**
- * Legacy ML-DSA-65 signing entrypoint without explicit entropy.
- *
- * @remarks
- * It now fails closed because its historical signature cannot supply explicit hedging entropy. Use
- * `mlDsa65SignHedged` for production signing or `mlDsa65SignDeterministic` for conformance.
- *
- * @deprecated Deprecated since 0.1.1. Use `mlDsa65SignHedged` for production
- * signing or `mlDsa65SignDeterministic` for conformance; the legacy operation
- * always fails because it cannot accept explicit entropy.
- * @since 0.1.0
- * @category algorithms
- */
-export const mlDsa65Sign = (
-  _message: Uint8Array,
-  _secretKey: Uint8Array,
-  _publicKey: Uint8Array
-): Effect.Effect<never, SigningFailed> =>
-  Effect.fail(new SigningFailed({ algorithm: "ml-dsa-65", reason: "explicit signing mode required" }))
-
-/**
  * Signs with pure ML-DSA-65 using exactly 32 bytes of caller-supplied entropy.
  *
  * @remarks

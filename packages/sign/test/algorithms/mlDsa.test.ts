@@ -19,7 +19,6 @@ import {
   mlDsa44Sign,
   mlDsa44Verify,
   mlDsa65Keygen,
-  mlDsa65Sign,
   mlDsa65SignDeterministic,
   mlDsa65Verify,
   mlDsa87Keygen,
@@ -135,13 +134,6 @@ describe("ML-DSA-65 — algorithm contracts", () => {
       expect(
         Arr.map(Arr.range(0, 5), (present) => hasInvalidMlDsa65HintEncoding(new Uint8Array(endpointOffset + present)))
       ).toEqual(Arr.replicate(true, 6))
-    }))
-
-  it.effect("fails the legacy signing entrypoint closed instead of selecting a default mode", () =>
-    Effect.gen(function*() {
-      const kp = yield* mlDsa65Keygen()
-      const error = yield* Effect.flip(mlDsa65Sign(message, kp.secretKey, kp.publicKey))
-      expect(error._tag).toBe("SigningFailed")
     }))
 })
 

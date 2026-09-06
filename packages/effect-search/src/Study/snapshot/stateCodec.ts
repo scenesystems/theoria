@@ -21,7 +21,7 @@ export const TrialStateSnapshotSchema = Schema.Union(
   Schema.TaggedStruct("Completed", {
     value: ObjectiveValueSchema,
     duration: Schema.Number,
-    retryCount: Schema.optional(Schema.Number),
+    retryCount: Schema.Number,
     evaluationCount: Schema.optional(Schema.Number),
     variance: Schema.optional(Schema.Number)
   }),
@@ -46,8 +46,10 @@ export const TrialStateSnapshotSchema = Schema.Union(
  * @remarks
  * Running state retains its start timestamp. Completed, failed, and pruned states
  * retain measured duration. Cancellation retains no timestamp, duration, or reason.
- * Legacy completed records may omit retry and evaluation counts; restoration uses
- * zero retries and one evaluation for those omissions.
+ * A completed record carries the same fields as the in-memory `Completed`
+ * state: `retryCount` is required; `evaluationCount` and `variance` are present
+ * only when the trial was evaluated through the study runtime, so a snapshot
+ * round trip preserves their absence on warm-start trials.
  *
  * @since 0.1.0
  * @category type-level
@@ -163,8 +165,13 @@ export const snapshotToState = (state: TrialStateSnapshot): Trial.TrialState =>
       Trial.Completed({
         value,
         duration,
-        retryCount: Option.fromNullable(retryCount).pipe(Option.getOrElse(() => 0)),
-        evaluationCount: Option.fromNullable(evaluationCount).pipe(Option.getOrElse(() => 1)),
+        retryCount,
+        ...Option.fromNullable(evaluationCount).pipe(
+          Option.match({
+            onNone: () => ({}),
+            onSome: (resolvedEvaluationCount) => ({ evaluationCount: resolvedEvaluationCount })
+          })
+        ),
         ...Option.fromNullable(variance).pipe(
           Option.match({
             onNone: () => ({}),

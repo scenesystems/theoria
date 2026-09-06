@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Match, Number as Num, Schema } from "effect"
 
 import type { SamplerCheckpoint } from "../../Sampler/index.js"
 import type { SnapshotTrial, TrialStateSnapshot } from "./stateCodec.js"
@@ -36,7 +36,7 @@ export type SamplerMetrics = Schema.Schema.Type<typeof SamplerMetricsSchema>
 
 const retryCountFromState = (state: TrialStateSnapshot): number =>
   Match.value(state).pipe(
-    Match.tag("Completed", ({ retryCount }) => Option.fromNullable(retryCount).pipe(Option.getOrElse(() => 0))),
+    Match.tag("Completed", ({ retryCount }) => retryCount),
     Match.orElse(() => 0)
   )
 

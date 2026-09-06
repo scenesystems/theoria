@@ -41,7 +41,7 @@ Prefer a direct verifier whenever your protocol fixes the algorithm and authenti
 | Agreement  | `x25519`                                                                                                             | `deriveSharedSecret`                           |
 | KEM        | `xwing` (X25519 with ML-KEM-768)                                                                                     | `encapsulate`, `decapsulate`                   |
 
-The algorithm names are the literal unions `SignatureAlgorithm`, `AgreementAlgorithm`, and `KemAlgorithm`. Every family also exposes algorithm-specific functions, such as `ed25519Sign` and `xwingEncapsulate`, for callers that want the algorithm fixed in the type rather than passed as a value.
+The algorithm names are the literal unions `SignatureAlgorithm` (with the `KeyOnlySigningAlgorithm` subset that `sign` accepts), `AgreementAlgorithm`, and `KemAlgorithm`. Every family also exposes algorithm-specific functions, such as `ed25519Sign` and `xwingEncapsulate`, for callers that want the algorithm fixed in the type rather than passed as a value.
 
 Key agreement returns a `SharedSecret` whose 32 raw bytes must be derived before use. The same rule applies to the `sharedSecret` field of a `KemCiphertext`.
 
@@ -81,7 +81,7 @@ Direct verification admits messages up to 8,192 bytes and rejects longer input b
 
 ## Post-quantum signatures
 
-Production ML-DSA-65 signing uses `mlDsa65SignHedged`, which requires exactly 32 bytes of fresh cryptographic entropy from the caller and an explicit FIPS 204 context of 0 through 255 bytes. Ambient randomness is never consulted, which keeps signing reproducible under test and auditable in production. `mlDsa65SignDeterministic` exists for conformance vectors, and both `mlDsa65Sign` and `sign("ml-dsa-65", ...)` fail with `SigningFailed` because those signatures have nowhere to accept the entropy.
+Production ML-DSA-65 signing uses `mlDsa65SignHedged`, which requires exactly 32 bytes of fresh cryptographic entropy from the caller and an explicit FIPS 204 context of 0 through 255 bytes. Ambient randomness is never consulted, which keeps signing reproducible under test and auditable in production. `mlDsa65SignDeterministic` exists for conformance vectors. The dispatching `sign` function accepts a `KeyOnlySigningAlgorithm`, which excludes `"ml-dsa-65"` at the type level because its four-argument signature has nowhere to accept the entropy or the context; `verify` still checks every `SignatureAlgorithm`, including ML-DSA-65 with the empty context.
 
 ```ts typecheck
 import { generateEntropy, generateKeyPair, mlDsa65SignHedged, mlDsa65Verify, utf8ToBytes } from "@scenesystems/sign"
@@ -108,7 +108,7 @@ The package exports plain functions and schemas from a single entrypoint.
 | Generic operations  | `generateKeyPair`, `generateEntropy`, `sign`, `verify`, `deriveSharedSecret`, `encapsulate`, `decapsulate`                                                                                         |
 | Direct verification | `ed25519Verify`, `p256Sha256P1363LowSVerify`, `mlDsa65Verify`                                                                                                                                      |
 | Algorithm functions | `ed25519Sign`, `mlDsa65SignHedged`, `mlDsa65SignDeterministic`, `xwingEncapsulate`, `xwingDecapsulate`, and peers                                                                                  |
-| Schemas             | `KeyPair`, `Signature`, `SharedSecret`, `KemCiphertext`, `SignatureAlgorithm`, `AgreementAlgorithm`, `KemAlgorithm`                                                                                |
+| Schemas             | `KeyPair`, `Signature`, `SharedSecret`, `KemCiphertext`, `SignatureAlgorithm`, `KeyOnlySigningAlgorithm`, `AgreementAlgorithm`, `KemAlgorithm`                                                     |
 | Errors              | `SigningFailed`, `VerificationFailed`, `InvalidSignature`, `KeyGenerationFailed`, `EntropyGenerationFailed`, `AgreementFailed`, `KemFailed`, `InvalidVerificationInput`, `VerificationUnavailable` |
 | Bytes               | `utf8ToBytes`, `toHex`, `equalBytes`                                                                                                                                                               |
 
