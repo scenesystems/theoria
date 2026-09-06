@@ -53,8 +53,12 @@ jobs:
       - name: Bundle Worker
         run: bun run --cwd apps/theoria deploy:dry-run
 
+      # The workspace's own Playwright installs the browser build it launches;
+      # `bunx playwright` would resolve the registry's latest release, whose
+      # Chromium revision drifts from the one `@playwright/test` in the lockfile
+      # expects.
       - name: Install Chromium for Worker browser tests
-        run: bunx playwright install --with-deps chromium
+        run: bun run --cwd apps/theoria test:worker:browsers
 
       # Runs the bundle that will be deployed inside workerd against the built
       # `dist/` (routing, `_headers`, indexing policy, API, demo build) over

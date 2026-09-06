@@ -13,6 +13,7 @@
     "lint:fix": "cd ../.. && oxlint --fix apps/theoria && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix apps/theoria && dprint fmt \"apps/theoria/**\"",
     "test": "vitest run --config vitest.config.ts",
     "test:worker": "vitest run --config vitest.worker.config.ts",
+    "test:worker:browsers": "playwright install --with-deps chromium",
     "build:web": "bun run docs:assets && vite build",
     "build": "bun run check:all && bun run build:web",
     "build:check": "bun scripts/check-build-output.ts",
