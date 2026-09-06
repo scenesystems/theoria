@@ -27,13 +27,15 @@ const markerStyle = (marker: Marker): CSSProperties => ({
 })
 
 /**
- * Where the search has put the marker, as the one thing that makes Motion
- * measure a settled disc again. Every accepted trial moves a marker a little;
- * each move is one layout animation from wherever the disc is on its way,
- * so a frame every few milliseconds settles rather than restarts. Nothing
- * else about the disc's render (its label, the paper resizing) starts one.
+ * Motion measures a settled disc only when it mounts or leaves: the hand-off
+ * with its proposal's name. A constant dependency means nothing else about
+ * the disc's render starts a layout animation. The search's own progress is
+ * drawn state by state: each accepted trial reflows the text at once and
+ * places the discs at once, so the text and the discs are always the same
+ * arrangement, never a text flowing around where discs are still on their
+ * way to.
  */
-const placement = (marker: Marker): string => `${marker.x.toFixed(1)}:${marker.y.toFixed(1)}`
+const layoutOnHandOffOnly = "hand-off"
 
 const triggerClassName =
   "absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0"
@@ -57,10 +59,9 @@ const popupClassName = [
 ].join(" ")
 
 /**
- * A settled disc is the Motion node the feature travels as and the one
- * Motion moves with the search; a trial's disc is a plain button, placed
- * outright. Neither has a CSS transition on its position: one system moves
- * each element.
+ * A settled disc is the Motion node the feature travels as; a trial's disc is
+ * a plain button. Neither has a CSS transition on its position: the only
+ * movement a disc makes is its hand-off, and Motion alone makes it.
  */
 const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">, marker: Marker) =>
   Match.value(drawn).pipe(
@@ -70,7 +71,7 @@ const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">, marker: Marker)
         <m.button
           data-place-feature-travel={marker.name}
           layout="position"
-          layoutDependency={placement(marker)}
+          layoutDependency={layoutOnHandOffOnly}
           layoutId={featureLayoutId(marker.name)}
         />
       )
@@ -81,12 +82,11 @@ const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">, marker: Marker)
 
 /**
  * The room the search is making for a feature just merged, while it runs:
- * the ring follows the search's moves, and the feature's name travels into
- * it when the search settles. Not a button, since the feature is not on the
- * stage yet; the name in its proposal still is.
+ * the ring is placed with the text, state by state, and the feature's name
+ * travels into it when the search settles. Not a button, since the feature
+ * is not on the stage yet; the name in its proposal still is.
  */
-const ringClassName =
-  "pointer-events-none absolute left-0 top-0 rounded-full border-2 border-dashed opacity-70 transition-[translate] duration-200 ease-out motion-reduce:transition-none"
+const ringClassName = "pointer-events-none absolute left-0 top-0 rounded-full border-2 border-dashed opacity-70"
 
 const ArrivingRing = ({ marker }: { readonly marker: Marker }) => (
   <Layer

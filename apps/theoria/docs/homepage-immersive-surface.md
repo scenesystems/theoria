@@ -352,13 +352,16 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       search never resizes the paper, and the sticky stage column never
       moves while the reader is near the end of the acts. Each disc's kind
       is `placeDiscDrawnAtom(name)` (`settled` | `arriving` | `trial`).
-- [x] `PlaceMarker.tsx`: one system moves each element. A settled disc is
-      `m.button layout="position" layoutId="place-feature:<name>"` and
-      Motion owns every move it makes, with `layoutDependency` = the marker's
-      placement, so each accepted trial is one layout animation from wherever
-      the disc is; there is no CSS transition on its position. A trial's disc
-      is a plain button placed outright. A feature just merged is a dashed
-      ring in its proposer's tone while the search makes room for it.
+- [x] `PlaceMarker.tsx`: the text and the discs are one arrangement and are
+      always drawn from the same state. Each accepted trial reflows the text
+      and places the discs at once; nothing glides between states (discs
+      animated to their new places while the text had already reflowed put
+      text over discs for most of a running search). The only movement a
+      disc makes is its hand-off with its name: a settled disc is `m.button
+      layout="position" layoutId="place-feature:<name>"` with a constant
+      `layoutDependency`, so Motion measures it only when it mounts or
+      leaves; a trial's disc is a plain button. A feature just merged is a
+      dashed ring in its proposer's tone while the search makes room for it.
 - [x] `PlaceProposal.tsx`: `placeFeatureHomeAtom` puts a merged feature's
       name on the stage only when the search settles (the name travels to
       where the feature stays, not to a first random trial), and a declined
