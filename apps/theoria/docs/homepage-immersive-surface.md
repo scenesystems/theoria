@@ -30,14 +30,14 @@ the experience, not the experience's mandatory navigation structure.
 The emotional progression is **curiosity → invitation → agency → recognition
 → trust → possibility**. Each feeling must have a concrete cause:
 
-| Feeling | What produces it |
-| --- | --- |
-| Curiosity | An evocative, specific place already present on arrival |
-| Invitation | One understandable thing to try, without setup or a tutorial |
-| Agency | Accept or decline a contribution and see the place respond |
-| Recognition | The contributor and their addition remain identifiable |
-| Trust | Inspect the actual evidence and distinguish recorded from live work |
-| Possibility | Understand how these libraries could support something of your own |
+| Feeling     | What produces it                                                    |
+| ----------- | ------------------------------------------------------------------- |
+| Curiosity   | An evocative, specific place already present on arrival             |
+| Invitation  | One understandable thing to try, without setup or a tutorial        |
+| Agency      | Accept or decline a contribution and see the place respond          |
+| Recognition | The contributor and their addition remain identifiable              |
+| Trust       | Inspect the actual evidence and distinguish recorded from live work |
+| Possibility | Understand how these libraries could support something of your own  |
 
 ## Research and its authority
 
@@ -142,10 +142,10 @@ to hit a border target would make the page worse.
 
 Considered alternatives:
 
-| Direction | Strength | Why it is not the whole answer |
-| --- | --- | --- |
-| Unframed editorial laboratory | Clear and technically credible | Still primarily an explanation of tools |
-| Cinematic world portal | Immediate emotional scale | Risks unrelated scenery, heavy rendering, and a passive visitor |
+| Direction                               | Strength                                                                     | Why it is not the whole answer                                      |
+| --------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Unframed editorial laboratory           | Clear and technically credible                                               | Still primarily an explanation of tools                             |
+| Cinematic world portal                  | Immediate emotional scale                                                    | Risks unrelated scenery, heavy rendering, and a passive visitor     |
 | Living atlas with a participatory scene | Place, human contribution, and inspectable computation share one composition | Requires authored scenario treatment and careful causal interaction |
 
 Choose the third. “Atlas” describes a spatial/literary reading experience,
@@ -156,25 +156,38 @@ the old page with its rectangles erased.
 
 ### Art direction, not just color themes
 
+The target experience sets the standard; the repository does not set its
+ceiling. Existing typography, theme tokens, primitives, layouts and interaction
+patterns must be assessed against the desired production-grade result. Retain
+them only where they meet it; enhance or replace them where they do not.
+Theme and design-system improvements are core work in this redesign, not
+optional polish after the homepage is assembled. Neither existing code nor
+passing tests excuse an unresolved visual, interactive or engineering gap.
+
 The three scenarios need different compositional character as well as palette:
 
-| Place | Spatial and material direction | Emotional quality |
-| --- | --- | --- |
+| Place            | Spatial and material direction                                                                                                                             | Emotional quality                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | Unfinished Light | A long interval of open space, a restrained light-bearing focal point, a causeway-like reading direction, warm letter-like prose against cool surroundings | Solitude made sustaining through other people's participation |
-| Lost Market | Unequal gatherings and meeting points, warmer mineral/paper tones, denser but deliberate typographic rhythm | Curiosity, exchange, unexpected recognition |
-| Drowned Library | Spacious depth, quiet layered edges and cool ink, measured interruptions in the reading field | Discovery, care, the persistence of knowledge |
+| Lost Market      | Unequal gatherings and meeting points, warmer mineral/paper tones, denser but deliberate typographic rhythm                                                | Curiosity, exchange, unexpected recognition                   |
+| Drowned Library  | Spacious depth, quiet layered edges and cool ink, measured interruptions in the reading field                                                              | Discovery, care, the persistence of knowledge                 |
 
 Keep the actual artifact's words and feature identities authoritative. Authored
 atmosphere is illustration, not evidence of a simulation or invented spatial
-facts. Start with lightweight CSS/SVG treatment, existing feature geometry,
-and typography; do not add a 3D engine, video, or generated scenic image to
-make the concept feel expensive. Any later asset must have a specific role,
-rights/provenance, responsive treatment, and loading budget.
+facts. Choose typography, imagery and rendering techniques for their ability
+to realize the art direction, not because they are already installed or
+fashionable. CSS/SVG, authored assets and more capable rendering approaches
+are candidates to evaluate against visual quality, accessibility, performance
+and maintainability. Do not add spectacle merely to make the concept feel
+expensive, or settle for inadequate geometry merely because it exists. Assets
+need a specific role, rights/provenance, responsive treatment and loading budget.
 
 Use three visual registers: expressive place title, humane readable prose,
-and quiet technical annotation. Explore the existing display face's scale,
-weight and spacing before adding a font. Typography changes belong in the
-semantic-text source and generated tokens, not manual edits to generated CSS.
+and quiet technical annotation. Select faces, scale, weight and spacing through
+rendered comparison against the intended character; the current font is a
+candidate, not a prerequisite. Improve semantic-text roles and generation
+where needed, keeping one typography authority rather than independent manual
+edits to generated CSS.
 Body prose remains on a readable measure; an expansive canvas does not mean
 150-character lines. Large-screen whitespace should establish distance and
 relationship, not simply stretch a narrow component.
@@ -268,16 +281,16 @@ append a generic grid of capability cards, invented metrics, or social proof.
 The source already separates requested merge state from the last recorded
 build. Preserve this distinction in every visual treatment.
 
-| State | Visible behavior |
-| --- | --- |
-| Initial build | Stable scene-sized space, readable context and loading status; no fabricated successful artifact |
-| Build ready, arranging | Actual artifact present; announce progress sparingly; distinguish arrangement from composition |
-| Visitor changes a decision | Switch acknowledges immediately; “Updating this version” accompanies the still-committed scene |
-| New build succeeds | New evidence and artifact become current together; then acknowledge the contribution visually |
-| Build fails | Keep the last good place identified as previous; preserve requested choice, explain failure and offer retry |
-| Rendering fails | Preserve the readable artifact and evidence; show rendering-specific retry, not a blank experience |
+| State                            | Visible behavior                                                                                               |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Initial build                    | Stable scene-sized space, readable context and loading status; no fabricated successful artifact               |
+| Build ready, arranging           | Actual artifact present; announce progress sparingly; distinguish arrangement from composition                 |
+| Visitor changes a decision       | Switch acknowledges immediately; “Updating this version” accompanies the still-committed scene                 |
+| New build succeeds               | New evidence and artifact become current together; then acknowledge the contribution visually                  |
+| Build fails                      | Keep the last good place identified as previous; preserve requested choice, explain failure and offer retry    |
+| Rendering fails                  | Preserve the readable artifact and evidence; show rendering-specific retry, not a blank experience             |
 | Rapid reversals/scenario changes | Latest request owns the result; stale response/animation cannot reintroduce an old feature or announce success |
-| Trial preview | Label the preview as a candidate, not a new signed version; provide an obvious return to the kept arrangement |
+| Trial preview                    | Label the preview as a candidate, not a new signed version; provide an obvious return to the kept arrangement  |
 
 Non-negotiable boundaries from current code:
 
@@ -340,15 +353,15 @@ alignment, typography and selective rules first. Proposal authorship does not
 require a card; status does not require a pill; a section does not require a
 surface. Keep visible field boundaries and adequate control affordances.
 
-| Owner | Responsibility in this redesign |
-| --- | --- |
-| `view/home/HomePage.tsx`, `HomeHero.tsx`, `ImaginedPlaceDemo.tsx` | New arrival and progressive narrative composition; one demo instance |
-| `PlaceArrangement.tsx`, `PlaceStage.tsx`, `PlaceMarker.tsx`, `PlaceWalk.tsx` | Larger scene, readable artifact, feature identity and responsive arrangement |
-| `PlaceControls.tsx`, `PlaceProposals.tsx`, `PlaceProposalCard.tsx` | Immediate invitation, scenario index, attributed proposals, requested/recorded feedback |
-| `PlaceLineage.tsx`, `PlaceHowItsBuilt.tsx`, `placeViewModel.ts` | Honest origin/current relationship and contextual technical explanation |
-| `view/primitives/`, semantic-text contracts/generator, `styles.css` | Shared typography, surfaces, controls, color, spacing and motion vocabulary |
-| `atoms/imagined-place.ts`, `imagined-place-render.ts` | Existing build and render authorities; no duplicate presentation build |
-| `atoms/element-observation.ts`, browser platform services | Mount-scoped observation and cleanup, not durable pseudo-identities |
+| Owner                                                                        | Responsibility in this redesign                                                         |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `view/home/HomePage.tsx`, `HomeHero.tsx`, `ImaginedPlaceDemo.tsx`            | New arrival and progressive narrative composition; one demo instance                    |
+| `PlaceArrangement.tsx`, `PlaceStage.tsx`, `PlaceMarker.tsx`, `PlaceWalk.tsx` | Larger scene, readable artifact, feature identity and responsive arrangement            |
+| `PlaceControls.tsx`, `PlaceProposals.tsx`, `PlaceProposalCard.tsx`           | Immediate invitation, scenario index, attributed proposals, requested/recorded feedback |
+| `PlaceLineage.tsx`, `PlaceHowItsBuilt.tsx`, `placeViewModel.ts`              | Honest origin/current relationship and contextual technical explanation                 |
+| `view/primitives/`, semantic-text contracts/generator, `styles.css`          | Shared typography, surfaces, controls, color, spacing and motion vocabulary             |
+| `atoms/imagined-place.ts`, `imagined-place-render.ts`                        | Existing build and render authorities; no duplicate presentation build                  |
+| `atoms/element-observation.ts`, browser platform services                    | Mount-scoped observation and cleanup, not durable pseudo-identities                     |
 
 Base UI owns keyboard/focus/overlay mechanics through existing primitives.
 React owns composition and rendering. Tailwind composes token-backed layout;
@@ -372,9 +385,12 @@ line layout every search frame. Profile the actual expensive boundary rather
 than adding a blanket GPU/3D solution.
 
 Shared header/footer/theme changes belong in this PR only where they establish
-the coherent new language. Inspect Docs consumers for regressions. Do not
-rewrite the docs information architecture, remove APIs with live callers,
-or adopt external theme/UI packages as an incidental dependency migration.
+the coherent new language and production quality it requires. This includes
+necessary redesign of shared tokens, primitives and interaction contracts—not
+just adjustments allowed by their current APIs. Migrate affected callers and
+inspect Docs consumers for capability and accessibility regressions; their old
+appearance is not an immutable standard. Do not rewrite unrelated Docs
+information architecture or undertake an incidental dependency migration.
 
 ## Standalone PR delivery plan
 
