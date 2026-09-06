@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import { briefMaxLength, placeScenarioMeta, placeScenarios } from "../../../contracts/imagined-place.js"
 import { briefIsEdited, controlsForScenario, placeControlsAtom } from "../../atoms/imagined-place.js"
-import { ChoicePills } from "../primitives/ChoicePills.js"
+import { ChoiceGroup } from "../primitives/ChoiceGroup.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -36,7 +36,7 @@ export const PlaceControls = ({ disabled }: { readonly disabled: boolean }) => {
 
   return (
     <Stack className="gap-3">
-      <ChoicePills
+      <ChoiceGroup
         activeIndex={activeIndex}
         className="gap-1.5"
         disabled={disabled}

@@ -63,7 +63,7 @@ reaches for them.
 Two more findings, the first now resolved by the toolchain branch. The code
 tabs were plain `Button`s without `tablist` semantics, the scenario chooser was
 `aria-pressed` buttons and the merge switch a `Button role="switch"`; they are
-now Base UI `Tabs`, `RadioGroup` and `Switch` (`TabBar.tsx`, `ChoicePills.tsx`,
+now Base UI `Tabs`, `RadioGroup` and `Switch` (`TabBar.tsx`, `ChoiceGroup.tsx`,
 `ToggleSwitch.tsx`), so the redesign changes their appearance, not their
 semantics. The second stands: motion is still CSS only, so merging a proposal
 makes a disc appear on the stage with no continuity from the proposal that
@@ -307,21 +307,30 @@ was reversed — the page needs both.)
 
 ### Act 2 — Voices and lineage
 
-- [ ] `PlaceProposalCard.tsx` → `PlaceProposal.tsx`: `article` with
+- [x] `PlaceProposalCard.tsx` → `PlaceProposal.tsx`: `article` with
       `pl-4 border-l-2`; dashed neutral while declined, solid proposer tone
-      while accepted; sealed note as a fold that opens into a `blockquote`.
-- [ ] `PlaceProposals.tsx`: proposals anchored beside the prose line they
-      would add (`placeViewModel` exposes the anchor line index).
-- [ ] `PlaceLineage.tsx` → `PlaceStrand.tsx`: strand and knots; IDs in
-      technical type; the wash on version change stays.
+      while accepted; sealed note as a fold (Base UI `Collapsible`) that
+      opens into a `blockquote`.
+- [x] `PlaceProposals.tsx`: proposals anchored beside the prose line they
+      would add (`placeViewModel.proposalAnchorLine` → `data-place-anchor-line`).
+      The linkage is in the DOM only; drawing it (highlighting the line when
+      the proposal is pointed at) is Act 4's provenance work.
+- [x] `PlaceLineage.tsx` → `PlaceStrand.tsx`: strand and knots (`PlaceStrand`
+      in the Record act, `StageKnots` on the pinned stage in place of the
+      version badge); IDs in technical type; the wash on version change stays.
+      The "Built from v1" line is gone: the strand's link is the parenthood.
 - [x] `ToggleSwitch` on Base UI `Switch`; `ChoicePills` on `RadioGroup` with
       `appearance: "pill" | "segment"`; `TabBar` on `Tabs` (done on the
       toolchain branch).
-- [ ] `TabBar`: the 2 px indicator; `ChoicePills` → `ChoiceGroup` rename.
-- [ ] `test/worker/home-demo.test.ts` — _keyboard reaches every control_:
+- [x] `TabBar`: tabs as text on a hairline with the 2 px `Tabs.Indicator`;
+      `ChoicePills` → `ChoiceGroup` rename; pills, segments and the brief's
+      `TextAreaField` on the instrument tokens (`border-rule`, `bg-instrument`).
+- [x] `test/worker/home-demo.test.ts` — _keyboard reaches every control_:
       scenario radio (arrows rebuild) → textarea → merge switch (Space) →
-      tabs (arrows change the panel) → trace slider, asserting active roles
-      in order.
+      tabs (arrows rove, Enter activates — Base UI 1.7 defaults
+      `activateOnFocus` to false, which suits heavy code panels) → trace
+      slider. _The neighbor's note is a fold, and a merged proposal stands
+      beside its line of prose_ covers the fold and the anchor.
 
 ### Act 3 — Motion
 

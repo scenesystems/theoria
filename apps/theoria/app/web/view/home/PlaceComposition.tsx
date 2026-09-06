@@ -17,13 +17,11 @@ import { participantTone } from "./placeViewModel.js"
 const authorTone = toneClassesFor(participantTone("author"))
 const inferenceTone = inlineStatusToneFor("dsp")
 
-/** A feature the composer named; the same accent as its marker on the stage. */
-const FeatureChip = ({ feature }: { readonly feature: PlaceFeature }) => (
-  <Layer
-    render={<span />}
-    className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 ${authorTone.borderSubtle} ${authorTone.bgSubtle}`}
-  >
-    <SemanticText as="span" className={`truncate ${authorTone.textStrong}`} role="tab-label" text={feature.name} />
+/** A feature the composer named, said in the line in the author's accent: the same accent as its marker on the stage. */
+const FeatureName = ({ feature, first }: { readonly feature: PlaceFeature; readonly first: boolean }) => (
+  <Layer render={<span />} className="inline-flex items-baseline gap-2">
+    {first ? null : <Layer aria-hidden render={<span />} className="text-ink-400">·</Layer>}
+    <SemanticText as="span" className={authorTone.textStrong} role="selection-title" text={feature.name} />
   </Layer>
 )
 
@@ -54,8 +52,11 @@ const Composed = ({ build, edited }: { readonly build: PlaceBuild; readonly edit
       />
       <InlineStatus label="Recorded inference" tone={inferenceTone} />
     </Cluster>
-    <Cluster className="gap-1.5">
-      {Arr.map(build.artifact.composition.features, (feature) => <FeatureChip feature={feature} key={feature.name} />)}
+    <Cluster className="gap-x-2 gap-y-1" data-place-features>
+      {Arr.map(
+        build.artifact.composition.features,
+        (feature, index) => <FeatureName feature={feature} first={index === 0} key={feature.name} />
+      )}
     </Cluster>
     {edited
       ? (

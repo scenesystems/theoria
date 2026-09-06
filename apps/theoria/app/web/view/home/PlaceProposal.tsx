@@ -1,17 +1,18 @@
-import { LockOpenIcon } from "@heroicons/react/20/solid"
+import { Collapsible } from "@base-ui/react/collapsible"
+import { LockClosedIcon, LockOpenIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
 import type { ReactNode } from "react"
 
 import type { PlaceEvidence, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
 import { dangerStatusTone, inlineStatusToneFor, neutralStatusTone, toneClassesFor } from "../primitives/designSystem.js"
 import { InlineStatus } from "../primitives/InlineStatus.js"
-import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
+import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ToggleSwitch } from "../primitives/ToggleSwitch.js"
 
 import { ContentId } from "./ContentId.js"
-import { mergedIntoText, participantLabel, participantTone, signatureLabel } from "./placeViewModel.js"
+import { mergedIntoText, participantLabel, participantTone, sealedNoteLabel, signatureLabel } from "./placeViewModel.js"
 
 const sealTone = toneClassesFor("seal")
 
@@ -39,28 +40,56 @@ const Field = ({ children, label }: { readonly children: ReactNode; readonly lab
   </>
 )
 
-/** The neighbor's note, opened: the open lock and caption say how it arrived; the text is theirs. */
-const OpenedNote = ({ note }: { readonly note: SealedNote }) => (
-  <Stack className={`gap-1.5 border-l-2 pl-3 ${sealTone.border}`}>
-    <Rail className="gap-1.5">
-      <LockOpenIcon aria-hidden className={`size-3.5 shrink-0 ${sealTone.text}`} />
+const foldTriggerClassName =
+  "group/fold -mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+
+const foldPanelClassName =
+  "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 motion-reduce:transition-none"
+
+/**
+ * The neighbor's note is a fold. Closed, it is the envelope: the seal and its
+ * size, which is all anyone but the author can see. Opened with the author's
+ * key, it is their words, quoted, on the seal tone's rule.
+ */
+const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
+  <Collapsible.Root className="min-w-0" data-place-sealed-note>
+    <Collapsible.Trigger className={foldTriggerClassName}>
+      <LockClosedIcon
+        aria-hidden
+        className={`size-3.5 shrink-0 group-data-[panel-open]/fold:hidden ${sealTone.text}`}
+      />
+      <LockOpenIcon
+        aria-hidden
+        className={`hidden size-3.5 shrink-0 group-data-[panel-open]/fold:inline ${sealTone.text}`}
+      />
       <SemanticText
         as="span"
-        className={sealTone.text}
+        className={`hidden group-data-[panel-open]/fold:inline ${sealTone.text}`}
         role="tab-label"
         text="Opened with your key"
         variant="compact"
       />
-    </Rail>
-    <SemanticText
-      as="p"
-      className="text-ink-800"
-      role="row-value"
-      text={`“${note.openedText}”`}
-      variant="compact"
-      wrapAuthority="native-browser"
-    />
-  </Stack>
+      <SemanticText
+        as="span"
+        className={`group-data-[panel-open]/fold:hidden ${sealTone.text}`}
+        role="tab-label"
+        text={sealedNoteLabel(note)}
+        variant="compact"
+      />
+    </Collapsible.Trigger>
+    <Collapsible.Panel className={foldPanelClassName}>
+      <Layer render={<blockquote />} className={`mt-2 border-l-2 pl-3 ${sealTone.border}`}>
+        <SemanticText
+          as="p"
+          className="text-ink-800"
+          role="row-value"
+          text={`“${note.openedText}”`}
+          variant="compact"
+          wrapAuthority="native-browser"
+        />
+      </Layer>
+    </Collapsible.Panel>
+  </Collapsible.Root>
 )
 
 /** Appears when the build records the merge: the same digest tone as the version it names. */
@@ -69,25 +98,29 @@ const recordedClassName =
   "transition-[opacity,translate] duration-300 ease-out starting:translate-x-1 starting:opacity-0 motion-reduce:transition-none"
 
 /**
- * One proposal offered to the author, spoken in their voice: a rule in the
- * proposer's accent down its left edge and no box. Header: who offers it (the
- * name) and the author's decision (the switch). Title: the feature's name, which becomes its marker on the stage.
- * Then three labelled parts — what the proposal adds to the place, why the
- * proposer thinks it belongs, and (for the neighbor) the note sealed to the
- * author. Footer: the proposal's own signature and content ID, which it keeps
- * whether or not it is merged. `accepted` is the author's decision and is
- * shown at once; `record.accepted` is what the last build recorded, and puts
- * the version's name beside the badge. The two differ while a build is in
- * flight, and the article says so.
+ * One proposal offered to the author, spoken in their voice: marginalia with
+ * a rule in the proposer's accent down its left edge and no box. Header: who
+ * offers it (the name) and the author's decision (the switch). Title: the
+ * feature's name, which becomes its marker on the stage. Then three labelled
+ * parts — what the proposal adds to the place, why the proposer thinks it
+ * belongs, and (for the neighbor) the note sealed to the author. Footer: the
+ * proposal's own signature and content ID, which it keeps whether or not it
+ * is merged. `accepted` is the author's decision and is shown at once;
+ * `record.accepted` is what the last build recorded, and puts the version's
+ * name beside the badge. The two differ while a build is in flight, and the
+ * article says so. `anchorLine` is the line of the drawn prose where the
+ * proposal's sentence stands once merged: the margin it belongs beside.
  */
-export const PlaceProposalCard = ({
+export const PlaceProposal = ({
   accepted,
+  anchorLine,
   evidence,
   note,
   onToggle,
   record
 }: {
   readonly accepted: boolean
+  readonly anchorLine: Option.Option<number>
   readonly evidence: PlaceEvidence
   readonly note: Option.Option<SealedNote>
   readonly onToggle: () => void
@@ -96,6 +129,10 @@ export const PlaceProposalCard = ({
   const role = record.proposal.proposer
   const tone = toneClassesFor(participantTone(role))
   const pending = accepted === record.accepted ? {} : { "data-place-pending": "" }
+  const anchor = Option.match(anchorLine, {
+    onNone: () => ({}),
+    onSome: (line) => ({ "data-place-anchor-line": String(line) })
+  })
 
   return (
     <Stack
@@ -103,6 +140,7 @@ export const PlaceProposalCard = ({
       className={`h-full gap-3 border-l-2 pl-4 transition-colors duration-300 ${voiceClassName(accepted, tone)}`}
       data-place-proposal={role}
       data-place-recorded={record.accepted ? "true" : "false"}
+      {...anchor}
       {...pending}
     >
       <Cluster render={<header />} className="items-center justify-between gap-x-3 gap-y-1.5">
@@ -161,7 +199,7 @@ export const PlaceProposalCard = ({
           onNone: () => null,
           onSome: (value) => (
             <Field label="Note">
-              <OpenedNote note={value} />
+              <SealedNoteFold note={value} />
             </Field>
           )
         })}

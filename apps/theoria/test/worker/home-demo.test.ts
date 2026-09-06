@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer, Option, Order } from "effect"
+import { Effect, Fiber, Layer, Option, Order } from "effect"
 import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-arrangement.js"
@@ -21,6 +21,7 @@ import {
   goto,
   hidden,
   hover,
+  nextResponse,
   openPage,
   overflowingElements,
   press,
@@ -31,6 +32,7 @@ import {
 } from "./browser.js"
 import {
   activeElementOpensDocsLink,
+  activeElementRole,
   currentLocation,
   insideViewportRight,
   isActiveElement,
@@ -105,6 +107,109 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* hover(contentId)
         yield* attribute(contentId, "data-popup-open", "")
         yield* visible(page.getByText("Click to copy"))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the neighbor's note is a fold, and a merged proposal stands beside its line of prose", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+
+        // Closed, the fold is the envelope: the seal and its size. The words wait for the author's key.
+        const fold = demo.locator("[data-place-sealed-note]")
+        const trigger = fold.getByRole("button")
+        yield* visible(fold.getByText(/Sealed note · \d+ bytes/u))
+        yield* hidden(fold.getByText("Opened with your key"))
+        yield* hidden(fold.locator("blockquote"))
+        yield* click(trigger)
+        yield* visible(fold.getByText("Opened with your key"))
+        yield* hidden(fold.getByText(/Sealed note · \d+ bytes/u))
+        yield* visible(fold.locator("blockquote"))
+        yield* containsText(fold.locator("blockquote"), /“.+”/u)
+        yield* click(trigger)
+        yield* hidden(fold.locator("blockquote"))
+        yield* visible(fold.getByText(/Sealed note · \d+ bytes/u))
+
+        // The merged proposal knows the drawn line its sentence starts on; the declined one is not in the prose.
+        const neighbor = demo.locator("[data-place-proposal='neighbor']")
+        const line = yield* Option.fromNullable(yield* act(() => neighbor.getAttribute("data-place-anchor-line")))
+        const adds = yield* act(() => neighbor.getByRole("definition").first().innerText())
+        const firstWord = Option.getOrElse(Arr.head(adds.split(" ")), () => adds)
+        yield* containsText(demo.locator(`[data-place-line='${line}']`), firstWord)
+        yield* count(demo.locator("[data-place-proposal='program'][data-place-anchor-line]"), 0)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("keyboard reaches every control", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const focusRole = () => page.evaluate(activeElementRole)
+
+        // Scenarios are a radio group: arrows pick one, and picking rebuilds through the server.
+        const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
+        const checked = scenarios.getByRole("radio", { checked: true })
+        yield* focus(checked)
+        const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        yield* press(page, "ArrowRight")
+        expect((yield* Fiber.join(rebuild)).status()).toBe(200)
+        yield* eventually(focusRole, "radio")
+
+        // Tab walks from the scenarios into the brief and on to the first merge switch, with nothing trapping it.
+        const walkTo = (role: string) =>
+          Effect.map(
+            Effect.iterate(Arr.empty<string>(), {
+              while: (trail) => !Arr.contains(trail, role) && trail.length < 12,
+              body: (trail) =>
+                Effect.gen(function*() {
+                  yield* press(page, "Tab")
+                  return Arr.append(trail, yield* act(focusRole))
+                })
+            }),
+            (trail) => ({ reached: Arr.contains(trail, role), trail })
+          )
+        expect(yield* walkTo("textarea")).toMatchObject({ reached: true })
+        expect(yield* walkTo("switch")).toMatchObject({ reached: true })
+        const merge = demo.getByRole("switch").first()
+        yield* eventually(() => merge.evaluate(isActiveElement), true)
+        const before = yield* act(() => merge.getAttribute("aria-checked"))
+        const remerge = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        yield* press(page, "Space")
+        expect((yield* Fiber.join(remerge)).status()).toBe(200)
+        yield* attribute(merge, "aria-checked", before === "true" ? "false" : "true")
+
+        // The code tabs rove with arrows and activate on Enter (the listings are heavy), and the listing follows.
+        const section = page.locator("[data-place-how-its-built]")
+        const activeTab = section.getByRole("tab", { selected: true })
+        const firstStep = yield* act(() => activeTab.innerText())
+        const listing = section.locator("[data-place-code-step]")
+        const firstListing = yield* Option.fromNullable(yield* act(() => listing.getAttribute("data-place-code-step")))
+        yield* focus(activeTab)
+        yield* press(page, "ArrowRight")
+        yield* eventually(focusRole, "tab")
+        yield* press(page, "Enter")
+        yield* until(act(() => activeTab.innerText()), (name) => name !== firstStep, "the next tab is selected")
+        yield* count(listing, 1)
+        yield* until(
+          act(() => listing.getAttribute("data-place-code-step")),
+          (step) => step !== firstListing,
+          "the listing follows the selected tab"
+        )
+
+        // The trace slider answers arrows; its caption names the trial.
+        const slider = demo.getByRole("slider", { name: "Trial drawn on the stage" })
+        // The rebuild replays its trials first; the slider answers once the search is drawn.
+        yield* eventually(() => slider.isEnabled(), true)
+        yield* focus(slider)
+        yield* press(page, "Home")
+        yield* attribute(slider, "aria-valuenow", "0")
+        yield* press(page, "ArrowRight")
+        yield* attribute(slider, "aria-valuenow", "1")
+        yield* containsText(demo.locator("[data-place-search-caption]"), /Trial 2 of|Kept trial/u)
         expect(yield* failures).toEqual([])
       }))
 

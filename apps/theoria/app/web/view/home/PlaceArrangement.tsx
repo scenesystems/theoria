@@ -17,24 +17,20 @@ import {
   placeStageMaxWidth,
   placeStagePresets,
   placeStageRequestAtom,
-  placeStageWidthAtom,
-  placeVersionChangeAtom
+  placeStageWidthAtom
 } from "../../atoms/imagined-place.js"
 import { ActionButton } from "../primitives/ActionButton.js"
-import { ChangedValue } from "../primitives/ChangedValue.js"
-import { ChoicePills } from "../primitives/ChoicePills.js"
+import { ChoiceGroup } from "../primitives/ChoiceGroup.js"
 import { legendThemeFor, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { StageBanner } from "../primitives/StageBanner.js"
 
-import { ContentId } from "./ContentId.js"
 import { PlaceSearchTrace } from "./PlaceSearchTrace.js"
 import { PlaceStage } from "./PlaceStage.js"
+import { StageKnots } from "./PlaceStrand.js"
 import {
-  currentVersion,
-  currentVersionText,
   drawablePresets,
   keptTrialLabel,
   participantLabel,
@@ -61,7 +57,7 @@ const StagePresets = () => {
   return presets.length === 0 ? null : (
     <Cluster className="items-center gap-2.5" data-place-presets>
       <SemanticText as="span" className="text-ink-500" role="code-meta" text="Drawn at" />
-      <ChoicePills
+      <ChoiceGroup
         activeIndex={activeIndex}
         className="gap-1.5"
         disabled={false}
@@ -95,32 +91,6 @@ const ParticipantLegend = ({ artifact }: { readonly artifact: PlaceArtifact }) =
     ))}
   </Cluster>
 )
-
-/**
- * Which version the paper is drawing, and its content ID. The title is not
- * repeated here: the place is named once, on arrival. The version lights up
- * when the record changes and stays still when the stage is only redrawn:
- * that is the point of the presets.
- */
-const VersionRow = ({ build }: { readonly build: PlaceBuild }) => {
-  const change = useAtomValue(placeVersionChangeAtom)
-  return (
-    <Layer className="flex min-w-0 justify-end" data-place-current-version>
-      <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5">
-        <SemanticText
-          as="span"
-          className="tabular-nums text-ink-500"
-          role="code-meta"
-          text={currentVersionText(build.evidence)}
-        />
-        {Option.match(currentVersion(build.evidence), {
-          onNone: () => null,
-          onSome: (version) => <ContentId form="short" id={version.contentId} />
-        })}
-      </ChangedValue>
-    </Layer>
-  )
-}
 
 /**
  * Where the search stands, or which of its trials the stage is drawing. While
@@ -196,7 +166,7 @@ export const PlaceArrangement = ({
   <Stack className="@container gap-4">
     {Option.match(build, {
       onNone: () => null,
-      onSome: (value) => <VersionRow build={value} />
+      onSome: (value) => <StageKnots evidence={value.evidence} />
     })}
     <PlaceStage />
     {Result.isFailure(frame) ? <DrawFailed frame={frame} /> : null}

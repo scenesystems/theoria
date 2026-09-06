@@ -6,7 +6,9 @@ import type {
   PlaceBuild,
   PlaceEvidence,
   PlaceMarker,
+  PlaceProjection,
   ProposalRecord,
+  SealedNote,
   SignatureRecord,
   Version
 } from "../../../contracts/imagined-place-result.js"
@@ -109,12 +111,6 @@ export const signatureFor = (
 /** The version being drawn: the last in the lineage. */
 export const currentVersion = (evidence: PlaceEvidence): Option.Option<Version> => Arr.last(evidence.lineage)
 
-export const currentVersionText = (evidence: PlaceEvidence): string =>
-  Option.match(currentVersion(evidence), {
-    onNone: () => "No version yet",
-    onSome: (version) => `Version ${String(version.version)} ·`
-  })
-
 /** A merged proposal is part of the current version; the pill on its card names which one. */
 export const mergedIntoText = (evidence: PlaceEvidence): string =>
   Option.match(currentVersion(evidence), {
@@ -125,12 +121,35 @@ export const mergedIntoText = (evidence: PlaceEvidence): string =>
 export const isCurrentVersion = (evidence: PlaceEvidence, version: Version): boolean =>
   Option.exists(currentVersion(evidence), (current) => current.contentId === version.contentId)
 
-export const versionTitle = (evidence: PlaceEvidence, version: Version): string =>
-  `v${String(version.version)} · ${
-    Option.isNone(Option.fromNullable(version.parent))
-      ? isCurrentVersion(evidence, version) ? "Origin · Current" : "Origin"
-      : "Current"
-  }`
+/** The knot's label: the first version is the origin; every later one is the current version while it is last. */
+export const knotLabel = (version: Version): string =>
+  `V${String(version.version)} · ${Option.isNone(Option.fromNullable(version.parent)) ? "Origin" : "Current"}`
+
+/** The envelope as anyone but the author sees it: sealed, and this big. */
+export const sealedNoteLabel = (note: SealedNote): string => `Sealed note · ${String(note.envelopeBytes)} bytes`
+
+const leadingWords = (text: string, count: number): string => text.split(" ").slice(0, count).join(" ")
+
+/**
+ * The line of the drawn prose where a proposal's sentence begins, once it is
+ * merged: the margin the proposal belongs beside. The sentence's first words
+ * are looked for whole, then fewer of them, since a line may wrap inside
+ * them. Declined proposals have no line, as they are not in the prose.
+ */
+export const proposalAnchorLine = (projection: PlaceProjection, record: ProposalRecord): Option.Option<number> =>
+  record.accepted
+    ? Option.orElse(
+      Arr.findFirstIndex(
+        projection.lines,
+        (line) => line.text.includes(leadingWords(record.proposal.feature.description, 3))
+      ),
+      () =>
+        Arr.findFirstIndex(
+          projection.lines,
+          (line) => line.text.includes(leadingWords(record.proposal.feature.description, 1))
+        )
+    )
+    : Option.none()
 
 /** What the version added: the origin's feature count, or each merged proposal with who offered it. */
 export const versionChanges = (build: PlaceBuild, version: Version): ReadonlyArray<string> =>
@@ -142,9 +161,6 @@ export const versionChanges = (build: PlaceBuild, version: Version): ReadonlyArr
         (record) => `+ ${record.proposal.feature.name} · ${participantLabel(record.proposal.proposer)}`
       )
   })
-
-export const parentText = (version: Version): Option.Option<string> =>
-  Option.map(Option.fromNullable(version.parent), () => `Built from v${String(version.version - 1)}`)
 
 /** The trial the stage draws: the one chosen from the trace if it exists, else the best. */
 export const shownTrialIndex = (frame: PlaceRenderFrame, preview: Option.Option<number>): number =>

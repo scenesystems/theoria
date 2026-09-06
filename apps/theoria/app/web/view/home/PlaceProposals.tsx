@@ -1,14 +1,17 @@
+import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild, ProposalRecord } from "../../../contracts/imagined-place-result.js"
 import type { ParticipantRole, PlaceBuildRequest } from "../../../contracts/imagined-place.js"
+import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
 import { placeControlsAtom } from "../../atoms/imagined-place.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
-import { PlaceProposalCard } from "./PlaceProposalCard.js"
+import { PlaceProposal } from "./PlaceProposal.js"
+import { proposalAnchorLine } from "./placeViewModel.js"
 
 const accepts = (controls: PlaceBuildRequest, role: ParticipantRole): boolean =>
   Match.value(role).pipe(
@@ -35,22 +38,26 @@ const Pending = () => (
 )
 
 /**
- * The Propose step: two offers to the author, each signed by its proposer.
- * The switches are the author's decision and never lock: a change during a
- * build starts the next build with the new decision instead of dropping the
- * click. The build that follows records the decision on each card.
+ * The Propose act: two offers to the author, each signed by its proposer,
+ * as marginalia. A merged proposal knows the line of the drawn prose its
+ * sentence stands on. The switches are the author's decision and never lock:
+ * a change during a build starts the next build with the new decision
+ * instead of dropping the click. The build that follows records the decision
+ * on each proposal.
  */
 export const PlaceProposals = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
   const controls = useAtomValue(placeControlsAtom)
   const setControls = useAtomSet(placeControlsAtom)
+  const projection = Option.map(Result.value(useAtomValue(placeRenderFrameAtom)), (frame) => frame.rendering.projection)
 
   return Option.match(build, {
     onNone: () => <Pending />,
     onSome: (value) => (
-      <Layer className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+      <Layer className="grid gap-6 sm:grid-cols-2 lg:grid-cols-1">
         {Arr.map(value.proposals, (record: ProposalRecord) => (
-          <PlaceProposalCard
+          <PlaceProposal
             accepted={accepts(controls, record.proposal.proposer)}
+            anchorLine={Option.flatMap(projection, (lines) => proposalAnchorLine(lines, record))}
             evidence={value.evidence}
             key={record.proposal.proposer}
             note={record.proposal.proposer === value.evidence.sealedNote.from

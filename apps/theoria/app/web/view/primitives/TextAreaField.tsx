@@ -2,11 +2,13 @@ import { Field } from "@base-ui/react/field"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
-import type { ToneClasses } from "./designSystem.js"
+import { surfaceClassName, type ToneClasses } from "./designSystem.js"
 
 /** Grows with its content where the browser supports `field-sizing`; `rows` is the floor everywhere. */
 const controlClassName =
-  "field-sizing-content min-h-28 w-full resize-none rounded-[1.25rem] border px-4 py-3 text-sm leading-relaxed text-ink-900 shadow-chip placeholder:text-ink-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink-900 placeholder:text-ink-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+    surfaceClassName("instrument")
+  }`
 
 /**
  * A labelled field. Base UI wires `id`/`htmlFor`/`aria-describedby` between
@@ -56,9 +58,7 @@ export const TextAreaField = ({
   readonly value: string
 }) => (
   <Field.Control
-    className={`${controlClassName} ${
-      active ? `${tone.border} bg-stage-0/94` : "border-stage-200/95 bg-stage-0/74"
-    } ${tone.focusRing}`}
+    className={`${controlClassName} ${active ? tone.border : "border-rule"} ${tone.focusRing}`}
     onValueChange={onValueChange}
     placeholder={placeholder}
     render={<textarea rows={rows} />}

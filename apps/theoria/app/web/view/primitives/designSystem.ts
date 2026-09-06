@@ -206,7 +206,7 @@ export const neutralStatusTone: InlineStatusTone = { dot: neutralToneClasses.dot
 export const dangerStatusTone: InlineStatusTone = { dot: "bg-danger-500", text: "text-danger-700" }
 
 const pillButtonBaseClassName =
-  "inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
+  "inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
 
 export const pillButtonClassName = ({
   active,
@@ -216,11 +216,10 @@ export const pillButtonClassName = ({
   readonly tone: ToneClasses
 }): string =>
   active
-    ? `${pillButtonBaseClassName} border-stage-300/90 bg-stage-0/96 shadow-chip ring-1 ring-stage-0/65 hover:border-stage-400 ${tone.borderSubtle} ${tone.bgTinted}`
-    : `${pillButtonBaseClassName} border-stage-200/95 bg-stage-50/72 hover:border-stage-300 hover:bg-stage-0/90`
+    ? `${pillButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted}`
+    : `${pillButtonBaseClassName} border-rule bg-transparent hover:border-rule-strong hover:bg-stage-100/60`
 
-const segmentedControlRailBaseClassName =
-  "grid min-w-0 gap-1 rounded-[1rem] border border-stage-200/80 bg-stage-50/38 p-1"
+const segmentedControlRailBaseClassName = "grid min-w-0 gap-1 rounded-instrument border border-rule bg-instrument p-1"
 
 export const segmentedControlRailClassName = (count: number): string =>
   count <= 2
@@ -230,7 +229,7 @@ export const segmentedControlRailClassName = (count: number): string =>
     : `${segmentedControlRailBaseClassName} grid-cols-2 sm:grid-cols-4`
 
 const segmentedControlButtonBaseClassName =
-  "inline-flex min-h-10 min-w-0 items-center justify-center rounded-[0.9rem] border border-transparent px-3 py-2 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
+  "inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
 
 export const segmentedControlButtonClassName = ({
   active,
@@ -240,8 +239,8 @@ export const segmentedControlButtonClassName = ({
   readonly tone: ToneClasses
 }): string =>
   active
-    ? `${segmentedControlButtonBaseClassName} border-stage-200/80 bg-stage-0/88 ${tone.bgTinted}`
-    : `${segmentedControlButtonBaseClassName} hover:border-stage-200/70 hover:bg-stage-0/52`
+    ? `${segmentedControlButtonBaseClassName} border-rule bg-stage-0 ${tone.bgTinted}`
+    : `${segmentedControlButtonBaseClassName} hover:bg-stage-0/60`
 
 const toggleTrackBaseClassName =
   "inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"

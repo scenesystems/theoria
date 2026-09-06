@@ -223,8 +223,8 @@ Metrics appear only where they are the result of a step the visitor can see.
   build, version change, stage width, step, browser-side search.
 - `app/web/view/home/`: `HomePage`, `HomeHero`, `PlaceActs`, `PlaceArrive`,
   `PlaceStepCard`, `placeSteps`, `PlaceControls`, `PlaceComposition`,
-  `PlaceProposals`, `PlaceProposalCard`, `PlaceLineage`, `PlaceArrangement`,
+  `PlaceProposals`, `PlaceProposal`, `PlaceStrand`, `PlaceArrangement`,
   `PlaceStage`, `PlaceMarker`, `PlaceWalk`, `PlaceSearchTrace`,
   `PlaceHowItsBuilt`, `placeViewModel`.
 - `app/web/view/primitives/ChangedValue.tsx`, `ToggleSwitch.tsx`,
-  `ChoicePills.tsx`: the controls the demo added or reshaped.
+  `ChoiceGroup.tsx`: the controls the demo added or reshaped.

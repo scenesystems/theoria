@@ -120,6 +120,17 @@ export const insideViewportRight = (element: Element) => element.getBoundingClie
 /** The element has keyboard focus. */
 export const isActiveElement = (element: Element) => element === document.activeElement
 
+/**
+ * What keyboard focus rests on, as a visitor's assistive technology would
+ * name it: its ARIA role, else its tag. Empty when nothing in the page has focus.
+ */
+export const activeElementRole = (): string => {
+  const element = document.activeElement
+  return element instanceof Element && element !== document.body
+    ? element.getAttribute("role") ?? element.tagName.toLowerCase()
+    : ""
+}
+
 /** Keyboard focus is on an element marked `data-docs-link-open`. */
 export const activeElementOpensDocsLink = () => document.activeElement?.hasAttribute("data-docs-link-open") ?? false
 

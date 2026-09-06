@@ -15,9 +15,9 @@ import { PlaceArrangement } from "./PlaceArrangement.js"
 import { PlaceArrive } from "./PlaceArrive.js"
 import { PlaceComposition } from "./PlaceComposition.js"
 import { PlaceHowItsBuilt } from "./PlaceHowItsBuilt.js"
-import { PlaceLineage } from "./PlaceLineage.js"
 import { PlaceProposals } from "./PlaceProposals.js"
 import { PlaceStepCard } from "./PlaceStepCard.js"
+import { PlaceStrand } from "./PlaceStrand.js"
 
 const BuildFailed = () => {
   const retry = useAtomRefresh(placeBuildEnvelopeAtom)
@@ -53,7 +53,7 @@ const Acts = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
     <PlaceStepCard spine="spine" step="record">
       {Option.match(build, {
         onNone: () => <Pending />,
-        onSome: (value) => <PlaceLineage build={value} />
+        onSome: (value) => <PlaceStrand build={value} />
       })}
     </PlaceStepCard>
   </Stack>
