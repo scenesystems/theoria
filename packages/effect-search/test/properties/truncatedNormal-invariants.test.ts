@@ -58,12 +58,24 @@ const toParams = (input: {
     high: input.supportCenter + input.halfWidth
   })
 
+// Endpoint-exact interpolation: `low + q * (high - low)` can land one ulp inside the support at q = 1,
+// and far in a tail one ulp of x moves the cdf by more than CDF_EPSILON.
 const supportPoint = (params: TruncatedNormalParams, quantile: number): number =>
-  params.low + quantile * (params.high - params.low)
+  params.low * (1 - quantile) + params.high * quantile
 
 const CDF_EPSILON = 1e-8
 const ROUNDTRIP_QUANTILE_TOLERANCE = 1e-7
-const PPF_MONOTONE_RESOLUTION = 134 * Number.EPSILON
+
+// A floating-point quantile function is monotone up to the rounding of its output. `sample` returns
+// `z * sigma + mean` with `z` accurate to a few ulps of max(1, |z|), so adjacent quantiles that the
+// double representation cannot separate may come back in either order by about one ulp of
+// `sigma + |mean| + max(|low|, |high|)`. Four ulps of that scale is the bound; the observed worst case
+// over 2 × 10^5 generated parameter sets is 1.04.
+const SAMPLE_MONOTONE_ULPS = 4
+
+const sampleResolution = (params: TruncatedNormalParams): number =>
+  SAMPLE_MONOTONE_ULPS * Number.EPSILON *
+  (params.sigma + Float64.abs(params.mean) + Num.max(Float64.abs(params.low), Float64.abs(params.high)))
 
 const deterministicTailCases = [
   {
@@ -149,16 +161,18 @@ const deterministicTailCases = [
   }
 ]
 
-const cdfTraceIsMonotone = (values: ReadonlyArray<number>): boolean =>
+const isMonotoneWithin = (values: ReadonlyArray<number>, tolerance: number): boolean =>
   Arr.every(
     values,
     (value, index) =>
       index === 0 ||
-      value >=
+      value + tolerance >=
         Arr.get(values, index - 1).pipe(
           Option.getOrElse(() => Number.NEGATIVE_INFINITY)
         )
   )
+
+const cdfTraceIsMonotone = (values: ReadonlyArray<number>): boolean => isMonotoneWithin(values, 0)
 
 const valueAt = (values: ReadonlyArray<number>, index: number, fallback: number): number =>
   Arr.get(values, index).pipe(Option.getOrElse(() => fallback))
@@ -194,10 +208,9 @@ describe("truncated normal invariants", () => {
     Effect.sync(() => {
       const params = toParams(input)
       const orderedQuantiles = Arr.sort(quantiles, Num.Order)
-      const deduped = Arr.dedupeWith(orderedQuantiles, (a, b) => Float64.abs(a - b) < PPF_MONOTONE_RESOLUTION)
-      const draws = Arr.map(deduped, (quantile) => sample(quantile, params))
+      const draws = Arr.map(orderedQuantiles, (quantile) => sample(quantile, params))
 
-      expect(cdfTraceIsMonotone(draws)).toBe(true)
+      expect(isMonotoneWithin(draws, sampleResolution(params))).toBe(true)
     }))
 
   it.effect.prop("logPdf stays finite for points inside support", [

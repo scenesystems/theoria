@@ -35,7 +35,7 @@
     "docs:api": "bun scripts/api-reference.ts",
     "docs": "bun run check:readmes && bun run docs:api",
     "changeset": "changeset",
-    "changeset:version": "changeset version",
+    "changeset:version": "changeset version && prettier --write \"packages/*/CHANGELOG.md\"",
     "release:check": "bun run check:all && bun run lint && bun run test && bun run build",
     "changeset:publish": "bun run release:check && changeset publish",
     "secrets:check": "git ls-files -z | xargs -0 bunx secretlint --no-terminalLink",
