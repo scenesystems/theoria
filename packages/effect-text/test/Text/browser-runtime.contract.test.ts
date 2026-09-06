@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Data, Effect, Either, Layer, Ref } from "effect"
+import { Effect, Either, Layer, Ref } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
@@ -69,25 +69,17 @@ class EmojiCanvasContext {
   }
 }
 
-/** What a detached 2D context raises from `measureText`: an `InvalidStateError`. */
-class InvalidStateError extends Data.TaggedError("InvalidStateError")<{ readonly message: string }> {}
-
 /**
- * A host context whose `measureText` raises, as a detached 2D context does.
- * The double is on the host side of the boundary, so the failure is raised the
- * way a host function raises: `Either.getOrThrowWith` is Effect's way to do
- * that without a `throw` of its own.
+ * A host context whose `measureText` answers with a width that is not a
+ * finite number, as a context whose font never resolved can.
  */
-class DetachedCanvasContext {
+class UnmeasuringCanvasContext {
   direction: "ltr" | "rtl" | "inherit" = "inherit"
   font = "10px monospace"
   textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom" = "alphabetic"
 
-  measureText(text: string): { readonly width: number } {
-    return Either.getOrThrowWith(
-      Either.left(text),
-      (detached) => new InvalidStateError({ message: `The canvas measuring "${detached}" is detached.` })
-    )
+  measureText(_text: string): { readonly width: number } {
+    return { width: Number.NaN }
   }
 }
 
@@ -351,9 +343,9 @@ describe("Text browser runtime contracts", () => {
       expect(result.largerSummary.maxLineWidth).toBe(72)
     }))
 
-  it.effect("a throwing canvas context becomes a MeasurementFailed failure and the context is restored", () =>
+  it.effect("a canvas context that cannot measure becomes a MeasurementFailed failure and the context is restored", () =>
     Effect.gen(function*() {
-      const context = new DetachedCanvasContext()
+      const context = new UnmeasuringCanvasContext()
       const font: Text.FontDescriptorType = { family: browserProfile.defaultFontFamily, size: 10 }
 
       const failure = yield* Effect.flip(
@@ -364,9 +356,7 @@ describe("Text browser runtime contracts", () => {
 
       expect(failure).toBeInstanceOf(Errors.MeasurementFailed)
       expect(failure.text).toBe("alpha")
-      expect(failure.reason).toContain(
-        "measureText threw InvalidStateError: The canvas measuring \"alpha\" is detached."
-      )
+      expect(failure.reason).toBe("measureText returned NaN")
       expect(context.font).toBe("10px monospace")
       expect(context.direction).toBe("inherit")
       expect(context.textBaseline).toBe("alphabetic")
