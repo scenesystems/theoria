@@ -11,7 +11,7 @@ import {
   maximizeDirections,
   nonDominatedIndices,
   objectiveFrontierHoldings,
-  objectiveHoldingWeights
+  objectiveFrontierWeights
 } from "@scenesystems/effect-search/Pareto"
 import { Array as Arr, Option } from "effect"
 
@@ -100,7 +100,7 @@ export const perExampleFrontierHoldings = (
 export const deriveParentSelectionWeights = (
   scoreVectors: ReadonlyArray<CandidateScoreVector>
 ): ReadonlyArray<ParentSelectionWeight> =>
-  Arr.map(objectiveHoldingWeights(scoreVectors, maximizeObjectiveDirections(scoreVectors)), toParentSelectionWeight)
+  Arr.map(objectiveFrontierWeights(scoreVectors, maximizeObjectiveDirections(scoreVectors)), toParentSelectionWeight)
 
 /**
  * Compute a complete Pareto snapshot for one score matrix — frontier indices,

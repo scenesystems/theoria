@@ -99,18 +99,6 @@ export const objectiveFrontierWeights = (
 }
 
 /**
- * Exposes {@link objectiveFrontierWeights} under the optimizer's holding terminology.
- *
- * @since 0.1.0
- * @category frontier
- */
-export const objectiveHoldingWeights = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
-  epsilon = 0
-): ReadonlyArray<ObjectiveFrontierWeight> => objectiveFrontierWeights(points, directions, epsilon)
-
-/**
  * Analyzes one matrix into its first front and exact per-coordinate holdings.
  *
  * @remarks

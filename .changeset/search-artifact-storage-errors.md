@@ -19,3 +19,5 @@ The checkpoint written when a study fails or is interrupted runs uninterruptibly
 `TerminalSink.supportsAnsi` is `Effect<boolean>`: a capability probe that can fail is resolved by the caller, and the reporter no longer falls back to plain text on an unobserved failure.
 
 These widen public error types, which is a breaking change under 0.x semver, hence a minor release.
+
+`Pareto.objectiveHoldingWeights` is removed. It was an exact alias of `objectiveFrontierWeights`, which remains the single frontier-weight entrypoint; callers rename the import.

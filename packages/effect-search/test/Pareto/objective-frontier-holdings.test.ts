@@ -94,20 +94,6 @@ describe("Pareto objective frontier holdings", () => {
       expect(Pareto.dominatedIndices(points, directions("minimize", "minimize"))).toEqual(Arr.make(3))
     }))
 
-  it.effect("aliases objective frontier weights as objective holding weights", () =>
-    Effect.sync(() => {
-      const points = Arr.make(
-        Arr.make(0.8, 0.4, 0.6),
-        Arr.make(0.7, 0.9, 0.5),
-        Arr.make(0.8, 0.9, 0.2)
-      )
-      const maximize = directions("maximize", "maximize", "maximize")
-
-      expect(Pareto.objectiveHoldingWeights(points, maximize)).toEqual(
-        Pareto.objectiveFrontierWeights(points, maximize)
-      )
-    }))
-
   it.effect("builds deterministic frontier snapshots with dominated complements and holding weights", () =>
     Effect.sync(() => {
       const points = Arr.make(

@@ -16,13 +16,7 @@ export type { ObjectiveWeights } from "./multiObjective.js"
 
 export { dominates } from "./dominance.js"
 
-export {
-  dominatedIndices,
-  frontierSnapshot,
-  maximizeDirections,
-  objectiveFrontierWeights,
-  objectiveHoldingWeights
-} from "./weights.js"
+export { dominatedIndices, frontierSnapshot, maximizeDirections, objectiveFrontierWeights } from "./weights.js"
 
 export { nonDominatedIndices, nonDominatedRanks, nonDominatedSort, objectiveFrontierHoldings } from "./frontier.js"
 
