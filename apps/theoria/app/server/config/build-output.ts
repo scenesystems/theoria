@@ -82,15 +82,22 @@ export const checkBuildOutput = (
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
 
-    // `stat` follows links, so a link is detected first: a link into or out of
-    // the artifact must never pass as the regular file it points at.
+    // `stat` follows links, so an entry is first checked to be exactly where
+    // it appears: its canonical path must be its path under the canonical
+    // root. A link into or out of the artifact resolves elsewhere and must
+    // never pass as the regular file it points at. Only an absent entry is
+    // a verdict; any other filesystem failure fails the check itself.
+    const canonicalRoot = yield* fileSystem.realPath(root)
     const kindOf = (relativePath: string): Effect.Effect<Option.Option<FileSystem.File.Type>, PlatformError> =>
-      fileSystem.readLink(path.join(root, relativePath)).pipe(
-        Effect.as<FileSystem.File.Type>("SymbolicLink"),
-        Effect.orElse(() => Effect.map(fileSystem.stat(path.join(root, relativePath)), (info) => info.type)),
-        Effect.asSome,
-        Effect.catchIf(isNotFound, () => Effect.succeedNone)
-      )
+      Effect.gen(function*() {
+        const absolute = path.join(root, relativePath)
+        const canonical = yield* fileSystem.realPath(absolute)
+        if (canonical !== path.join(canonicalRoot, relativePath)) {
+          return Option.some<FileSystem.File.Type>("SymbolicLink")
+        }
+        const info = yield* fileSystem.stat(absolute)
+        return Option.some(info.type)
+      }).pipe(Effect.catchIf(isNotFound, () => Effect.succeedNone))
 
     const required = yield* Effect.forEach(
       requiredBuildFiles,
