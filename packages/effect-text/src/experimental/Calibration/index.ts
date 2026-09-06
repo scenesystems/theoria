@@ -23,6 +23,13 @@ export const CalibrationStability = "unstable"
 export * from "./schema.js"
 
 /**
+ * Typed failures for study storage that does not hold the calibration study.
+ *
+ * @since 0.4.0
+ */
+export * from "./errors.js"
+
+/**
  * Effectful profile evaluation built on the existing prepare/layout split.
  *
  * @since 0.2.0

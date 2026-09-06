@@ -89,8 +89,11 @@ export const makeProfileSearchSpace = (
  *
  * Candidate measurement failures become trial failures. If no trial succeeds,
  * the Effect fails with `NoSuccessfulTrials`. Search-space, sampler, snapshot,
- * and study validation failures remain in the Effect Search error channel. The
- * final evaluation of the selected profile can fail with `MeasurementFailed`.
+ * and study validation failures remain in the Effect Search error channel.
+ * Supplied `studyStorage` that holds no snapshot after the study ran fails with
+ * `CalibrationSnapshotMissing`, and storage that resolves to a multi-objective
+ * study fails with `CalibrationStudyNotSingleObjective`. The final evaluation
+ * of the selected profile can fail with `MeasurementFailed`.
  * The returned event log contains this invocation's events; the snapshot holds
  * cumulative state for resumption.
  *

@@ -13,6 +13,7 @@ import * as Arr from "effect/Array"
 import type { MeasurementCache, WordSegmenter } from "../../../contracts/index.js"
 import type { MeasurementFailed } from "../../../Errors/index.js"
 import type { EngineProfileType } from "../../../Text/schema.js"
+import { CalibrationSnapshotMissing, CalibrationStudyNotSingleObjective } from "../errors.js"
 import { evaluateProfile } from "../evaluation.js"
 import type { CalibrationCaseType, CalibrationObjectiveMetadataType } from "../schema.js"
 import { scoreCalibrationReportSync } from "./scoring.js"
@@ -25,10 +26,13 @@ type CalibrationObjective = (
 
 const asSingleObjectiveResult = <Config>(
   result: Study.StudyResult<Config>
-): Effect.Effect<Study.SingleObjectiveResult<Config>> =>
+): Effect.Effect<Study.SingleObjectiveResult<Config>, CalibrationStudyNotSingleObjective> =>
   result._tag === "SingleObjective"
     ? Effect.succeed(result)
-    : Effect.dieMessage("Experimental.Calibration.optimizeProfile requires a single-objective study result")
+    : new CalibrationStudyNotSingleObjective({
+      trialCount: result.trials.length,
+      paretoFrontSize: result.paretoFront.length
+    })
 
 const makeInMemoryStudyStorage = Effect.gen(function*() {
   const snapshotRef = yield* Ref.make<Option.Option<Study.StudySnapshot>>(Option.none())
@@ -64,7 +68,10 @@ const loadStoredSnapshot = (storage: Study.StudyStorageApi) =>
   storage.loadSnapshot().pipe(
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.dieMessage("Experimental.Calibration.optimizeProfile expected a persisted StudySnapshot"),
+        onNone: () =>
+          storage.loadTrialLog().pipe(
+            Effect.flatMap((trialLog) => new CalibrationSnapshotMissing({ trialLogLength: trialLog.length }))
+          ),
         onSome: Effect.succeed
       })
     )
