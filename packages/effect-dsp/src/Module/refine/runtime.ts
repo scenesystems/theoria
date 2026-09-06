@@ -5,17 +5,18 @@
  * @category internal
  * @internal
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"
-import { Data, Effect, Match, Option, Ref } from "effect"
+import { Data, Effect, Option, Ref } from "effect"
+import type { MetricResult } from "../../contracts/MetricResult.js"
 import { type ModuleParams, withModuleParamsInstructions } from "../../contracts/ModuleParams.js"
+import type { RolloutCount } from "../../contracts/RolloutCount.js"
 import type { Signature } from "../../Signature/model.js"
 import type { RewardFn } from "../bestOfN/runtime.js"
 import type { Module } from "../model.js"
 
 class RefineLoopState<O> extends Data.Class<{
   readonly attempt: number
-  readonly bestOutput: Option.Option<O>
+  readonly bestOutput: O
   readonly bestScore: number
   readonly feedbackAccumulator: string
 }> {}
@@ -27,12 +28,6 @@ const appendFeedback = (
   withModuleParamsInstructions(
     params,
     `${params.instructions}\n\n[Refinement feedback]\n${feedback}`
-  )
-
-const normalizeRunCount = (requested: number): number =>
-  Match.value(requested).pipe(
-    Match.when(Numeric.isFinite, (value) => Numeric.max(1, Numeric.floor(value))),
-    Match.orElse(() => 1)
   )
 
 /**
@@ -48,71 +43,87 @@ export const makeRefineForward = <
   readonly moduleName: string
   readonly signature: Signature<I, O>
   readonly innerModule: Module<I, O>
-  readonly N: number
+  readonly N: RolloutCount
   readonly reward: RewardFn<I, O>
   readonly threshold: number
   readonly forwardLock: Effect.Semaphore
 }): Module<I, O>["forward"] => {
-  const normalizedN = normalizeRunCount(options.N)
+  type Output = Schema.Schema.Type<Schema.Struct<O>>
+  type State = RefineLoopState<Output>
+
+  const attemptFeedback = (attempt: number, result: MetricResult) =>
+    Option.match(Option.fromNullable(result.feedback), {
+      onSome: (fb) => `Attempt ${attempt} (score: ${result.score}): ${fb}`,
+      onNone: () => `Attempt ${attempt} scored ${result.score}, below threshold ${options.threshold}.`
+    })
+
+  const recordFeedback = (accumulator: string, feedbackText: string, bestScore: number) =>
+    Effect.gen(function*() {
+      const nextFeedback = accumulator.length > 0
+        ? `${accumulator}\n${feedbackText}`
+        : feedbackText
+
+      if (bestScore < options.threshold) {
+        yield* Ref.update(
+          options.innerModule.params,
+          (params) => appendFeedback(params, nextFeedback)
+        )
+      }
+
+      return nextFeedback
+    })
 
   return Effect.fn(options.moduleName)((input) =>
     options.forwardLock.withPermits(1)(
       Effect.acquireUseRelease(
         Ref.get(options.innerModule.params),
-        () => {
-          const initialState: RefineLoopState<Schema.Schema.Type<Schema.Struct<O>>> = {
-            attempt: 0,
-            bestOutput: Option.none(),
-            bestScore: -Infinity,
-            feedbackAccumulator: ""
-          }
-
-          return Effect.iterate(initialState, {
-            while: (state) =>
-              state.attempt < normalizedN &&
-              state.bestScore < options.threshold,
-            body: (state) =>
-              Effect.gen(function*() {
-                const output = yield* options.innerModule.forward(input)
-                const result = yield* options.reward(input, output)
-
-                const newBest = result.score > state.bestScore
-                const nextOutput = newBest ? Option.some(output) : state.bestOutput
-                const nextScore = newBest ? result.score : state.bestScore
-
-                const feedbackText = Option.match(Option.fromNullable(result.feedback), {
-                  onSome: (fb) => `Attempt ${state.attempt + 1} (score: ${result.score}): ${fb}`,
-                  onNone: () =>
-                    `Attempt ${state.attempt + 1} scored ${result.score}, below threshold ${options.threshold}.`
-                })
-
-                const nextFeedback = state.feedbackAccumulator.length > 0
-                  ? `${state.feedbackAccumulator}\n${feedbackText}`
-                  : feedbackText
-
-                if (nextScore < options.threshold) {
-                  yield* Ref.update(
-                    options.innerModule.params,
-                    (params) => appendFeedback(params, nextFeedback)
-                  )
-                }
-
-                return {
-                  attempt: state.attempt + 1,
-                  bestOutput: nextOutput,
-                  bestScore: nextScore,
-                  feedbackAccumulator: nextFeedback
-                }
-              })
-          }).pipe(
-            Effect.flatMap((finalState) =>
-              Option.match(finalState.bestOutput, {
-                onSome: (output) => Effect.succeed(output),
-                onNone: () => Effect.die("refine: no candidates produced")
-              })
+        () =>
+          Effect.gen(function*() {
+            const firstOutput = yield* options.innerModule.forward(input)
+            const firstResult = yield* options.reward(input, firstOutput)
+            const firstFeedback = yield* recordFeedback(
+              "",
+              attemptFeedback(1, firstResult),
+              firstResult.score
             )
-          )
-        },
+
+            const seeded: State = {
+              attempt: 1,
+              bestOutput: firstOutput,
+              bestScore: firstResult.score,
+              feedbackAccumulator: firstFeedback
+            }
+
+            const finalState = yield* Effect.iterate(seeded, {
+              while: (state) =>
+                state.attempt < options.N &&
+                state.bestScore < options.threshold,
+              body: (state) =>
+                Effect.gen(function*() {
+                  const output = yield* options.innerModule.forward(input)
+                  const result = yield* options.reward(input, output)
+
+                  const newBest = result.score > state.bestScore
+                  const nextOutput = newBest ? output : state.bestOutput
+                  const nextScore = newBest ? result.score : state.bestScore
+
+                  const nextFeedback = yield* recordFeedback(
+                    state.feedbackAccumulator,
+                    attemptFeedback(state.attempt + 1, result),
+                    nextScore
+                  )
+
+                  return {
+                    attempt: state.attempt + 1,
+                    bestOutput: nextOutput,
+                    bestScore: nextScore,
+                    feedbackAccumulator: nextFeedback
+                  }
+                })
+            })
+
+            return finalState.bestOutput
+          }),
         (baseParams) => Ref.set(options.innerModule.params, baseParams)
       )
     )

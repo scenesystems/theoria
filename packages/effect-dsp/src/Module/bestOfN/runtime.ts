@@ -5,11 +5,11 @@
  * @category internal
  * @internal
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"
-import { Array as Arr, Data, Effect, Match, Number as Num, Option, Order } from "effect"
+import { Array as Arr, Data, Effect, identity, Number as Num, Option, Order } from "effect"
 import { withRollout } from "../../Cache/refs.js"
 import type { MetricResult } from "../../contracts/MetricResult.js"
+import type { RolloutCount } from "../../contracts/RolloutCount.js"
 import type { Signature } from "../../Signature/model.js"
 import type { Module } from "../model.js"
 
@@ -38,12 +38,6 @@ export type RewardFn<
   output: Schema.Schema.Type<Schema.Struct<O>>
 ) => Effect.Effect<MetricResult>
 
-const normalizeRunCount = (requested: number): number =>
-  Match.value(requested).pipe(
-    Match.when(Numeric.isFinite, (value) => Numeric.max(1, Numeric.floor(value))),
-    Match.orElse(() => 1)
-  )
-
 class ScoredCandidate<O> extends Data.Class<{
   readonly output: O
   readonly score: number
@@ -68,16 +62,16 @@ export const makeBestOfNForward = <
   readonly moduleName: string
   readonly signature: Signature<I, O>
   readonly innerModule: Module<I, O>
-  readonly N: number
+  readonly N: RolloutCount
   readonly reward: RewardFn<I, O>
   readonly threshold?: number
 }): Module<I, O>["forward"] => {
-  const normalizedN = normalizeRunCount(options.N)
+  const rolloutIndices: Arr.NonEmptyArray<number> = Arr.makeBy(options.N, identity)
 
   return Effect.fn(options.moduleName)((input) =>
     Effect.gen(function*() {
       const candidates = yield* Effect.forEach(
-        Arr.range(0, normalizedN - 1),
+        rolloutIndices,
         (rolloutIndex) =>
           withRollout(
             rolloutIndex,
@@ -96,20 +90,16 @@ export const makeBestOfNForward = <
       )
 
       const sorted = Arr.sort(candidates, scoredCandidateOrder)
+      const best = Arr.headNonEmpty(sorted)
 
-      const selected = Option.match(Option.fromNullable(options.threshold), {
+      return Option.match(Option.fromNullable(options.threshold), {
         onSome: (threshold) =>
-          Option.orElse(
+          Option.getOrElse(
             Arr.findFirst(sorted, (candidate) => candidate.score >= threshold),
-            () => Arr.head(sorted)
+            () => best
           ),
-        onNone: () => Arr.head(sorted)
-      })
-
-      return yield* Option.match(selected, {
-        onSome: (candidate) => Effect.succeed(candidate.output),
-        onNone: () => Effect.die("bestOfN: no candidates produced")
-      })
+        onNone: () => best
+      }).output
     })
   )
 }

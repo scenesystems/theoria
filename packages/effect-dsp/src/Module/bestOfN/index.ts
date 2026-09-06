@@ -9,6 +9,7 @@ import { Data, Effect, HashMap, Option, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { makeDefaultModuleParams } from "../../contracts/ModuleParams.js"
+import type { RolloutCount } from "../../contracts/RolloutCount.js"
 import { Module } from "../model.js"
 import { makeBestOfNForward, type RewardFn } from "./runtime.js"
 
@@ -17,8 +18,8 @@ import { makeBestOfNForward, type RewardFn } from "./runtime.js"
  *
  * @remarks
  * A forward call runs and scores every rollout sequentially. Ties favor the
- * earlier rollout. `N` is rounded down; values below one and non-finite values
- * produce one candidate. The threshold affects selection after all rollouts
+ * earlier rollout. `N` is a {@link RolloutCount}, so the type guarantees at
+ * least one candidate. The threshold affects selection after all rollouts
  * finish and does not stop execution early.
  *
  * @see {@link bestOfN} for construction.
@@ -38,8 +39,8 @@ export class BestOfNOptions<
   readonly name: string
   /** Module invoked once per rollout; its signature becomes the wrapper signature. */
   readonly module: Module<I, O>
-  /** Requested rollout count, rounded down and normalized to at least one. */
-  readonly N: number
+  /** Number of rollouts to run and score. */
+  readonly N: RolloutCount
   /** Scores each output immediately after its rollout completes. */
   readonly reward: RewardFn<I, O>
   /**
@@ -55,8 +56,8 @@ export class BestOfNOptions<
  * @remarks
  * The inner module and reward callback run sequentially. Each run receives its
  * zero-based rollout identity through `RolloutRef`, so cache keys can
- * distinguish candidates. `N` is rounded down; values below one and non-finite
- * values produce one rollout.
+ * distinguish candidates. `N` rollouts run; the {@link RolloutCount} brand
+ * rules out zero or fractional counts before this constructor is reached.
  * The greatest score wins; equal scores preserve the earlier rollout. With a
  * threshold, the greatest passing candidate wins, falling back to the greatest
  * candidate overall when none pass.

@@ -9,6 +9,7 @@ import { Data, Effect, HashMap, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { makeDefaultModuleParams } from "../../contracts/ModuleParams.js"
+import type { RolloutCount } from "../../contracts/RolloutCount.js"
 import type { RewardFn } from "../bestOfN/runtime.js"
 import { Module } from "../model.js"
 import { makeRefineForward } from "./runtime.js"
@@ -18,10 +19,11 @@ import { makeRefineForward } from "./runtime.js"
  *
  * @remarks
  * Attempts are sequential and stop when the best score reaches `threshold` or
- * the normalized attempt limit is exhausted. Below-threshold feedback is
+ * `N` attempts have run. Below-threshold feedback is
  * accumulated into the inner module's instructions for subsequent attempts.
  * The original parameter snapshot is restored after success, failure,
- * interruption, or a defect. Equal scores retain the earlier output.
+ * interruption, or a defect. Equal scores retain the earlier output, and a
+ * `NaN` score never replaces an earlier output.
  *
  * @see {@link refine} for construction.
  * @see {@link RewardFn} for the scoring callback contract.
@@ -40,8 +42,8 @@ export class RefineOptions<
   readonly name: string
   /** Module rerun with accumulated feedback; its signature becomes the wrapper signature. */
   readonly module: Module<I, O>
-  /** Maximum attempts, rounded down and normalized to one when invalid or below one. */
-  readonly N: number
+  /** Maximum number of attempts; the first attempt always runs. */
+  readonly N: RolloutCount
   /** Scores each attempt and may supply feedback for the next attempt. */
   readonly reward: RewardFn<I, O>
   /** Score that ends refinement early when reached or exceeded. */
@@ -52,8 +54,8 @@ export class RefineOptions<
  * Creates an iterative wrapper that refines an inner module's output.
  *
  * @remarks
- * The wrapper runs and scores the inner module sequentially up to
- * the normalized attempt count. It stops after a score reaches `threshold`; otherwise it
+ * The wrapper runs and scores the inner module sequentially up to `N`
+ * times. It stops after a score reaches `threshold`; otherwise it
  * appends accumulated reward feedback to the inner module's instructions
  * before the next attempt. The greatest-scoring output is returned.
  * Calls through the same wrapper are serialized while the inner module's

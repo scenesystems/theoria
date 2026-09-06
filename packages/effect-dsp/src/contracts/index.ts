@@ -16,6 +16,8 @@ export * from "./OutputStrategy.js"
 
 export * from "./ModuleId.js"
 
+export * from "./RolloutCount.js"
+
 export * from "./OptimizerKind.js"
 
 export * from "./Usage.js"
