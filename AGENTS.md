@@ -156,10 +156,10 @@ Uses [Changesets](https://github.com/changesets/changesets) for independent per-
 ```bash
 bun run changeset              # Create a changeset
 bun run changeset:version      # Apply version bumps
-bun run changeset:publish      # Publish to npm
+bun run release:check          # Type checks, lint, behavioral tests, production build
 ```
 
-The release command runs the workspace type checks, lint, behavioral tests, and production build before Changesets publishes packages.
+Publishing happens only in the `Publish Packages` workflow (`.github/workflows/publish.yml`, manual dispatch on `main`) through npm Trusted Publishing. Its `pack` job runs `release:check` and packs the unpublished versions into tarballs; its `publish` job holds the OpenID Connect token and publishes those tarballs, then pushes the tags and creates the GitHub releases.
 
 ---
 

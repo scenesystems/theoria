@@ -37,7 +37,6 @@
     "changeset": "changeset",
     "changeset:version": "changeset version && prettier --write \"packages/*/CHANGELOG.md\"",
     "release:check": "bun run check:all && bun run lint && bun run test && bun run build",
-    "changeset:publish": "bun run release:check && changeset publish",
     "secrets:check": "git ls-files -z | xargs -0 bunx secretlint --no-terminalLink",
     "prettier": "prettier --cache --cache-location node_modules/.cache/.prettiercache --check \"**/*.{md,json,yml,yaml}\"",
     "prettier:fix": "prettier --cache --cache-location node_modules/.cache/.prettiercache --write \"**/*.{md,json,yml,yaml}\"",
