@@ -28,7 +28,7 @@ import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { StageBanner } from "../primitives/StageBanner.js"
 
-import { PlaceSearchTrace } from "./PlaceSearchTrace.js"
+import { PlaceSearchTrace, PlaceSearchTracePending } from "./PlaceSearchTrace.js"
 import { PlaceStage } from "./PlaceStage.js"
 import { StageKnots } from "./PlaceStrand.js"
 import {
@@ -168,7 +168,7 @@ export const PlaceArrangement = ({ build }: { readonly build: Option.Option<Plac
       <PlaceStage />
       {Result.isFailure(search) ? <DrawFailed search={search} /> : null}
       {Option.match(Result.value(search), {
-        onNone: () => null,
+        onNone: () => (Result.isFailure(search) ? null : <PlaceSearchTracePending />),
         onSome: (value) => (
           <Stack className="gap-2">
             <PlaceSearchTrace search={value} />

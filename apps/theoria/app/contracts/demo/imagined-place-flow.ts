@@ -152,6 +152,32 @@ export const paperUnder = (stage: Stage, markers: ReadonlyArray<PlaceMarker>): n
   Arr.reduce(markers, 0, (low, marker) => Math.max(low, marker.y + marker.radius)) + stage.padding
 
 /**
+ * The paper a search of these features is expected to want on this stage,
+ * before it has run: the description flowed with nothing in its way, and the
+ * lines the discs take out of the column — each as if it stood at the
+ * column's edge, its diameter and the gap around it cut from as many lines
+ * as it is tall. The search decides the true paper and the drawing lands
+ * there; until it does, the paper is held at this, so nothing around the
+ * stage moves for a trial. Wrapped lines never quite fill the column, so
+ * this runs a line or two short rather than long.
+ *
+ * @since 0.3.0
+ */
+export const paperExpected = (
+  stage: Stage,
+  prepared: Text.PreparedTextWithSegments,
+  features: ReadonlyArray<PlaceFeature>
+): number => {
+  const column = stage.stageWidth - 2 * stage.padding
+  const proseLines = flowLines(prepared, stage, []).length
+  const displacedLines = Arr.reduce(features, 0, (lines, feature) => {
+    const diameter = 2 * markerRadius(stage, feature.weight)
+    return lines + (diameter / stage.lineHeight) * ((diameter + markerGap) / column)
+  })
+  return Math.ceil(proseLines + displacedLines) * stage.lineHeight + 2 * stage.padding
+}
+
+/**
  * The drawing `t` of the way between two: the discs by `markersBetween`, with
  * the geometry's rules kept at every step; the paper's edge in a straight
  * line, since a single length has no rules to keep.

@@ -115,6 +115,37 @@ export const stageLayout = () => {
 }
 
 /**
+ * Records the paper at every change to the document, from before its first
+ * script runs: the paper's `data-place-stage-height` (`-` before there is a
+ * paper) and the trace's `data-place-render-phase` (`-` before the first
+ * trial is in), one `height phase` line per change, on the root element as
+ * `data-paper-frames`. A mutation observer sees each committed state of the
+ * document, so no state is lost between samples; installed as an init script,
+ * so the navigation that starts the document cannot interrupt it. Read back
+ * with `recordedPaperFrames`. Self-contained: an init script is serialised,
+ * so it can call nothing else in this module.
+ */
+export const recordPaperFrames = () => {
+  const record = () => {
+    const paper = document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-stage-height")
+    const phase = document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase")
+    const frame = `${paper ?? "-"} ${phase ?? "-"}`
+    const seen = (document.documentElement.dataset["paperFrames"] ?? "").split("\n").filter((line) => line.length > 0)
+    if (seen.at(-1) === frame) return
+    document.documentElement.dataset["paperFrames"] = [...seen, frame].join("\n")
+  }
+  new MutationObserver(record).observe(document, {
+    attributeFilter: ["data-place-stage-height", "data-place-render-phase"],
+    attributes: true,
+    childList: true,
+    subtree: true
+  })
+}
+
+/** The states `recordPaperFrames` has recorded so far, one `height phase` line each. */
+export const recordedPaperFrames = () => document.documentElement.dataset["paperFrames"] ?? ""
+
+/**
  * One frame of the stage in `region` during a merge. `places`: where the
  * feature `name` is painted — its ring (`data-place-marker-arriving`) while
  * the search makes room for it, its disc (`data-place-marker`) once the

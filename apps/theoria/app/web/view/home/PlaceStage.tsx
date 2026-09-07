@@ -8,6 +8,7 @@ import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
+import { stageFor } from "../../../contracts/demo/imagined-place-flow.js"
 import type { PlaceLine, PlaceMarker, PlaceProjection } from "../../../contracts/imagined-place-result.js"
 import { useElementWidthReporter } from "../../atoms/element-observation.js"
 import {
@@ -213,6 +214,7 @@ const Legend = ({ markers }: { readonly markers: ReadonlyArray<PlaceMarker> }) =
   </Cluster>
 )
 
+/** Before the artifact is known nothing about the paper is: three lines stand in for it. */
 const Placeholder = () => (
   <Stack className="gap-3 p-4">
     <ShimmerLine width="w-4/5" />
@@ -220,6 +222,44 @@ const Placeholder = () => (
     <ShimmerLine width="w-2/3" />
   </Stack>
 )
+
+/** A column of set prose, as a skeleton reads: full lines, a shorter last one. */
+const sketchedLineWidth = (index: number, count: number): string =>
+  index === count - 1
+    ? "w-1/2"
+    : Option.getOrElse(Arr.get(["w-11/12", "w-full", "w-5/6", "w-full"], index % 4), () => "w-full")
+
+/**
+ * The paper before the first frame: cut to the sheet the search is expected to
+ * want (`placeSheetAtom`), which the first frame then holds, so the page around
+ * the stage is at its size from the moment the artifact is known. The lines
+ * the description will be set on are sketched where they will stand.
+ */
+const BlankPaper = ({ drawn, sheet }: { readonly drawn: PlaceDrawn; readonly sheet: PlaceSheet }) => {
+  const stage = stageFor(sheet.width)
+  const count = Math.floor((sheet.height - 2 * stage.padding) / stage.lineHeight)
+  return (
+    <Layer
+      aria-busy
+      className={paperClassName}
+      data-place-drawn={drawn}
+      data-place-stage="paper"
+      data-place-stage-height={String(sheet.height)}
+      style={{ height: `${sheet.height}px`, width: `${sheet.width}px` }}
+    >
+      <Stack style={{ padding: `${stage.padding}px` }}>
+        {Arr.map(
+          Arr.range(0, count - 1),
+          (index) => (
+            <Layer className="flex items-center" key={index} style={{ height: `${stage.lineHeight}px` }}>
+              <ShimmerLine width={sketchedLineWidth(index, count)} />
+            </Layer>
+          )
+        )}
+      </Stack>
+    </Layer>
+  )
+}
 
 /** Discs are named or numbered as a set; the legend accompanies the numbers. */
 const numbered = (frame: PlaceRenderFrame): boolean => Record.isEmptyRecord(frame.search.labels)
@@ -251,16 +291,20 @@ export const PlaceStage = () => {
           viewportClassName="justify-center"
           viewportRef={reportContainerWidth}
         >
-          {Option.match(Option.all({ frame: latest, sheet }), {
+          {Option.match(sheet, {
             onNone: () => <Placeholder />,
-            onSome: (value) => (
-              <Paper
-                drawn={drawn}
-                frame={value.frame}
-                sheet={value.sheet}
-                shown={Option.match(preview, { onNone: () => "kept", onSome: String })}
-              />
-            )
+            onSome: (cut) =>
+              Option.match(latest, {
+                onNone: () => <BlankPaper drawn={drawn} sheet={cut} />,
+                onSome: (frame) => (
+                  <Paper
+                    drawn={drawn}
+                    frame={frame}
+                    sheet={cut}
+                    shown={Option.match(preview, { onNone: () => "kept", onSome: String })}
+                  />
+                )
+              })
           })}
         </ArtifactStage>
       </Layer>

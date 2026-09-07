@@ -30,7 +30,7 @@ export const StageBanner = ({
   readonly text: string
   readonly tone: "live" | "complete" | "error"
 }) => (
-  <Layer className="py-1">
+  <Layer className="py-1" data-stage-banner={tone}>
     <Cluster className="flex-wrap items-center gap-x-3 gap-y-1">
       <Cluster className="items-center gap-1.5">
         <Dot tone={tone} />

@@ -1,8 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Option } from "effect"
+import { Effect, Layer, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { markersBetween, placeMarkers, type Stage, stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
+import { Contracts, Text } from "@scenesystems/effect-text"
+
+import {
+  flowLines,
+  markersBetween,
+  paperExpected,
+  placeMarkers,
+  type Stage,
+  stageFor
+} from "../../app/contracts/demo/imagined-place-flow.js"
 import { type Meander, meanderBounds } from "../../app/contracts/demo/imagined-place-search.js"
 import type { PlaceMarker } from "../../app/contracts/imagined-place-result.js"
 import type { ParticipantRole, PlaceFeature } from "../../app/contracts/imagined-place.js"
@@ -14,6 +23,17 @@ const features: ReadonlyArray<PlaceFeature> = Arr.makeBy(6, (index) => ({
 }))
 
 const noContributors = Arr.map(features, () => Option.none())
+
+/** Text measured at a fixed width per character, so the prose flows the same on every run. */
+const fixedWidthText = Layer.mergeAll(
+  Text.WordSegmenterLive,
+  Text.EngineProfileLive,
+  Text.MeasurementCacheLive.pipe(
+    Layer.provide(
+      Layer.succeed(Contracts.TextMeasurer, { measure: (_font, text: string) => Effect.succeed(text.length * 5) })
+    )
+  )
+)
 
 /** The corners of the meander space are where the geometry is most stressed. */
 const corner = (pick: 0 | 1): Meander => ({
@@ -103,4 +123,22 @@ describe("Imagined place geometry contract", () => {
     const markers = placeMarkers(features, contributors, stageFor(640), corner(0))
     expect(Arr.filter(markers, (m) => m.contributedBy === "neighbor").length).toBe(1)
   })
+
+  it.effect("the expected paper is whole lines: the prose alone with no features, more for every feature", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: Arr.join(Arr.makeBy(120, (index) => `word${String(index)}`), " "),
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(fixedWidthText))
+      Arr.forEach([240, 640, 900], (width) => {
+        const stage = stageFor(width)
+        const proseAlone = flowLines(prepared, stage, []).length * stage.lineHeight + 2 * stage.padding
+        expect(paperExpected(stage, prepared, [])).toBe(proseAlone)
+        const withFeatures = paperExpected(stage, prepared, features)
+        expect(withFeatures).toBeGreaterThan(proseAlone)
+        expect((withFeatures - 2 * stage.padding) % stage.lineHeight).toBe(0)
+        expect(paperExpected(stage, prepared, Arr.take(features, 2))).toBeLessThanOrEqual(withFeatures)
+      })
+    }))
 })

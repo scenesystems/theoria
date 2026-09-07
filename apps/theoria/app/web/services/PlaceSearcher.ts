@@ -90,9 +90,9 @@ const make = Effect.gen(function*() {
     return new Kept({ worker, scope: forked })
   })
 
-  // One worker for the page, spawned the first time a search opens and kept
-  // for every search after, until it fails or falls silent; then the next
-  // search spawns another. A spawn that fails is tried again next time.
+  // One worker for the page, kept for every search until it fails or falls
+  // silent; then the next search spawns another. A spawn that fails is tried
+  // again next time.
   const worker: Effect.Effect<Kept, WorkerError.WorkerError> = SynchronizedRef.modifyEffect(
     kept,
     (current) =>
@@ -102,6 +102,12 @@ const make = Effect.gen(function*() {
           Effect.map(spawn, (found) => [found, Option.some(found)])
       })
   )
+
+  // The first worker is spawned as the service is, so it is booted — its
+  // chunk and its sampler loaded — while the artifact is still on its way,
+  // and the first search finds it ready instead of waiting for it. A search
+  // that opens meanwhile waits on the same spawn, not a second one.
+  yield* Effect.forkIn(Effect.ignore(worker), scope)
 
   // Forgets a worker that is gone and ends its scope, unless another has
   // already taken its place.

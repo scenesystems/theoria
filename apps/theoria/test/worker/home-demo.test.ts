@@ -40,12 +40,62 @@ import {
   isActiveElement,
   markerPositionsInStage,
   mergeFrame,
+  recordedPaperFrames,
+  recordPaperFrames,
   stageAndColumnWidths,
   stageLayout
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
+
+/**
+ * How many error banners the page shows, sampled a frame apart from now until
+ * the place is drawn. A build still on its way is waiting, not failed, so
+ * before the first frame there is nothing to report.
+ */
+const errorBannersUntilRendered = (page: Page) =>
+  Stream.repeatEffectWithSchedule(
+    act(() => page.locator("[data-stage-banner='error']").count()),
+    Schedule.spaced("16 millis")
+  ).pipe(
+    Stream.interruptWhen(visible(rendered(page))),
+    Stream.runCollect,
+    Effect.map(Chunk.toReadonlyArray)
+  )
+
+/** One sample of the paper: its reported height, if there is a paper, and the search's phase, if a trial is in. */
+const PaperSample = Schema.Struct({
+  height: Schema.Option(Schema.String),
+  phase: Schema.Option(Schema.String)
+})
+type PaperSample = typeof PaperSample.Type
+
+const paperSample = (reported: string): PaperSample => {
+  const [height = "-", phase = "-"] = reported.split(" ")
+  return PaperSample.make({
+    height: height === "-" ? Option.none() : Option.some(height),
+    phase: phase === "-" ? Option.none() : Option.some(phase)
+  })
+}
+
+const landing = (sample: PaperSample): boolean =>
+  Option.exists(sample.phase, (phase) => phase === "landing" || phase === "complete")
+
+/** Records the paper on every animation frame of every document the page loads from now on. */
+const recordPaper = (page: Page) => act(() => page.addInitScript(recordPaperFrames))
+
+/**
+ * Every change to the paper recorded from the document's first frame until
+ * the search lands its drawing. Before the first trial is in, the paper is the
+ * one the search is expected to want; while the trials run, the first frame
+ * holds it; so every height until landing is one height.
+ */
+const paperUntilLanding = (page: Page) =>
+  Effect.map(
+    act(() => page.evaluate(recordedPaperFrames)),
+    (recorded) => Arr.takeWhile(Arr.map(recorded.split("\n"), paperSample), (sample) => !landing(sample))
+  )
 
 /** Every disc's position relative to the stage, so scrolling cannot move it. */
 const markerPositions = (page: Page) => () => page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
@@ -173,8 +223,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
     it.scoped("the search trace draws any trial, returns to the kept one, and content IDs open in full", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
+        // Sample every frame from before the page is asked for until the place is drawn.
+        const banners = yield* Effect.fork(errorBannersUntilRendered(page))
+        yield* recordPaper(page)
         yield* goto(page, "/")
         yield* visible(rendered(page))
+        // Nothing has failed while the build and the first drawing are on their way.
+        expect(Arr.filter(yield* Fiber.join(banners), (shown) => shown > 0)).toEqual([])
+        // The paper is cut to size before the first trial is in, and holds that size until the drawing lands.
+        const papers = yield* paperUntilLanding(page)
+        expect(Arr.some(papers, (sample) => Option.isSome(sample.height) && Option.isNone(sample.phase))).toBe(true)
+        expect(Arr.dedupe(Arr.filterMap(papers, (sample) => sample.height))).toHaveLength(1)
         yield* count(page.locator("[data-place-step]"), placeStepDefinitions.length)
         yield* visible(page.locator("[data-place-marker]").first())
 

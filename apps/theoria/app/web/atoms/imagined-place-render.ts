@@ -15,6 +15,7 @@ import {
 } from "../../contracts/demo/imagined-place-arrangement.js"
 import {
   drawingBetween,
+  paperExpected,
   paperUnder,
   PlaceDrawing,
   type Stage,
@@ -242,7 +243,13 @@ const renderStream = (
         onSome: (found) => found.prose === prose ? Duration.zero : motionDuration("exit")
       })
       const journey = yield* journeyFrom(Option.map(left, (found) => found.drawing), rest)
-      const held = Option.flatMap(left, (found) => found.held)
+      // The paper while trials run: the last drawing's, or — for a first
+      // drawing at this width — the paper the search is expected to want,
+      // which is also what the stage showed before this frame.
+      const held = Option.getOrElse(
+        Option.flatMap(left, (found) => found.held),
+        () => paperExpected(stage, prepared, placeFeatures(artifact))
+      )
       const settledBefore = Option.match(left, {
         onNone: () => HashSet.fromIterable(Arr.map(placeFeatures(artifact), (feature) => feature.name)),
         onSome: (found) => found.settled
@@ -262,7 +269,7 @@ const renderStream = (
         const fits = bestRendering.projection.stageHeight
         const heading = new PlaceDrawing({
           markers: best.markers,
-          paper: done ? fits : Option.getOrElse(held, () => fits)
+          paper: done ? fits : held
         })
         const searchWhile = (landed: boolean) =>
           new PlaceSearch({
@@ -347,6 +354,10 @@ export const placeDrawnAtom: AtomType.Atom<PlaceDrawn> = Atom.make((get: AtomTyp
  * while trials are scrubbed, so nothing around the stage moves for a jump the
  * search makes; travelling with the discs once the trials are in, so a disc
  * heading past the old edge is never cut and the paper lands with the discs.
+ * Before the first drawing it is the paper the search is expected to want
+ * (`placeExpectedPaperAtom`), which the first drawing then holds: the stage
+ * is cut to size from the moment the artifact is known, and the first frame
+ * moves nothing around it.
  */
 export const PlaceSheet = Schema.Struct({
   width: Schema.Number,
@@ -356,10 +367,14 @@ export const PlaceSheet = Schema.Struct({
 export type PlaceSheet = typeof PlaceSheet.Type
 
 export const placeSheetAtom: AtomType.Atom<Option.Option<PlaceSheet>> = Atom.make((get: AtomType.Context) =>
-  Option.map(
-    Result.value(get(placeRenderFrameAtom)),
-    (latest): PlaceSheet => PlaceSheet.make({ width: latest.search.stage.stageWidth, height: latest.paper })
-  )
+  Option.match(Result.value(get(placeRenderFrameAtom)), {
+    onSome: (latest) => Option.some(PlaceSheet.make({ width: latest.search.stage.stageWidth, height: latest.paper })),
+    onNone: () =>
+      Option.map(
+        Result.value(get(placeExpectedPaperAtom)),
+        (expected) => PlaceSheet.make({ width: get(placeStageWidthAtom), height: expected })
+      )
+  })
 )
 
 /**
@@ -431,7 +446,9 @@ const placeRenderRuntime: AtomType.AtomRuntime<BrowserTextLayout | PlaceSearcher
 /**
  * The latest frame for the current artifact at the current stage width. A new
  * artifact or a new width starts a new search; the previous frame is kept
- * while it runs so the stage never blanks.
+ * while it runs so the stage never blanks. Until the first artifact arrives
+ * the drawing is waiting, not failed: a stream that ended here without a
+ * frame would be reported as a failure, so it waits instead.
  */
 export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = placeRenderRuntime
   .atom((get: AtomType.Context) => {
@@ -452,10 +469,30 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
     // A new search means new trials; a trial chosen from the old one no longer exists.
     get.set(placeTrialPreviewAtom, Option.none())
     return Option.match(artifact, {
-      onNone: () => Stream.empty,
+      onNone: () => Stream.never,
       onSome: (value) => renderStream(value, stageWidth, left, motion)
     })
   })
+
+/**
+ * The paper the search is expected to want for the current artifact at the
+ * current stage width (`paperExpected`), from the same prepared text the
+ * drawing flows: what the stage is cut to before the first frame, and what
+ * that frame holds. Waiting, like the frame, until the artifact arrives.
+ */
+export const placeExpectedPaperAtom: AtomType.Atom<Result.Result<number, PlaceRenderError>> = placeRenderRuntime.atom(
+  (get: AtomType.Context) => {
+    const stage = stageFor(get(placeStageWidthAtom))
+    return Option.match(get(placeArtifactAtom), {
+      onNone: () => Effect.never,
+      onSome: (artifact) =>
+        prepareBrowserText(descriptionInput(artifact)).pipe(
+          Effect.map((prepared) => paperExpected(stage, prepared, placeFeatures(artifact))),
+          Effect.mapError((cause) => renderFailed(String(cause)))
+        )
+    })
+  }
+)
 
 /** The frame the stage draws: the best arrangement, or the trial the visitor chose. */
 export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = Atom.make(

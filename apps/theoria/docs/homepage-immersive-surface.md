@@ -286,12 +286,19 @@ was reversed — the page needs both.)
       footer, all on the canvas.
 - [x] `HomeHero.tsx`: `h1` in the display role (`text-balance`, 44/50, 36/40
       below `sm`, 64/68 at `lg`); body as lead; one filled action
-      (`Browse the packages`), one text action (`See the place it built`)
-      that scrolls to the demonstration.
-- [x] `PlaceArrive.tsx`: the demonstration opens with the place's title as
-      an `h2` in the page-title role, then one lead statement of what is being
-      looked at and how it works (`placeArriveText`, naming the acts in order).
-      The atmosphere is not repeated here: the story is already on the paper.
+      (`Browse the packages`), one text action (`See how it's built`,
+      `howItsBuiltActionLabel`) that scrolls to `#how-its-built`
+      (`howItsBuiltSectionId`, the one id both the hero and the section
+      use). The demonstration shares the first viewport with the hero, so an
+      action pointing at it was a step to nowhere; the first draft's `See the
+      place it built` was reversed.
+- [x] `PlaceArrive.tsx`: the demonstration opens with its own title as an
+      `h2` in the page-title role (`placeArriveTitle`, "The packages at work":
+      this is a demonstration of the packages, not the place), then one lead
+      statement of how it works (`placeArriveText`, naming the acts in order).
+      The place's name is not repeated here: the composer named it, and the
+      paper and the Compose card already carry it. (The first draft put the
+      place's name here; that was reversed — it doubled the paper's heading.)
 - [x] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`:
       `lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]` with the stage
       `sticky top-6` in the second column beside the arrival and the acts;
@@ -466,6 +473,44 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       answer bound and named, the worker's scope is closed, and the next
       search spawns another.
       `test/contracts/motion.contract.test.ts` pins the tokens.
+- [x] `atoms/imagined-place-render.ts`: before the artifact arrives the render
+      stream is `Stream.never`, not `Stream.empty` — effect-atom turns a
+      stream that ends without a value into a failure, which drew "The place
+      could not be drawn" at first paint. A build on its way is waiting, not
+      failed. `StageBanner` carries `data-stage-banner={tone}` so tests can
+      count error banners frame by frame (`errorBannersUntilRendered`).
+- [x] `contracts/demo/imagined-place-flow.ts` `paperExpected`,
+      `atoms/imagined-place-render.ts` `placeExpectedPaperAtom`,
+      `PlaceStage.tsx` `BlankPaper`, `PlaceSearchTrace.tsx`
+      `PlaceSearchTracePending`, `services/PlaceSearcher.ts`: the stage is
+      cut to size the moment the artifact is known and nothing around it
+      moves until the drawing lands. `paperExpected` is the prose flowed with
+      nothing in its way plus the lines the discs take out of the column,
+      whole lines, from the same prepared text the drawing flows; it runs a
+      line or two short by design, so the paper grows with the discs at
+      landing rather than shrinking. `placeSheetAtom` is the expected paper
+      until there is a frame; the first frame holds it (`held`) through
+      `running`; `landing` travels to the true paper. `BlankPaper` is the
+      paper-shaped skeleton (shimmer rows at the stage's own padding and line
+      height) drawn while the sheet is known and the frame is not;
+      `PlaceSearchTracePending` reserves the trace's and the caption's rows
+      (`traceHeightClassName`) so the first frame moves nothing below the
+      paper either. The searcher spawns its first worker when the runtime
+      builds, not at the first search, so the worker boots while the build
+      is fetched and the text measured: first frame ~780 ms from navigation
+      in a production build, from ~1000 ms. Before the artifact only the
+      width is known, so the placeholder stays small; that one change of
+      size is accepted.
+- [x] `test/worker/home-demo.test.ts` — the first test installs
+      `recordPaperFrames` (`platform/in-page.ts`: a `MutationObserver` over
+      the paper's `data-place-stage-height` and the trace's
+      `data-place-render-phase`, installed as an init script so no state is
+      lost to a round trip and the navigation cannot interrupt it) and
+      asserts that a paper exists before the first trial is in and that every
+      recorded height until `landing` is one height.
+      `test/contracts/imagined-place-flow.contract.test.ts` pins
+      `paperExpected`: whole lines, the prose alone with no features, more
+      for every feature.
 
 ### Act 4 — Acts, provenance and weather
 
