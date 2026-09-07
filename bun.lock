@@ -213,9 +213,6 @@
       },
     },
   },
-  "patchedDependencies": {
-    "@base-ui/react@1.7.0": "patches/@base-ui%2Freact@1.7.0.patch",
-  },
   "overrides": {
     "@babel/core": "8.0.1",
     "@effect/ai": "0.37.0",

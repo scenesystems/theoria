@@ -616,14 +616,11 @@ import.meta.url), { type: "module" })`, which every bundler resolves
       and the prose on the paper reads at ≥ 4.5:1 in every story and mode. _The band_: past the stage at 390 the band shows one disc per
       marker and nothing in the flow moves; at 1280 it appears only for the
       Build act, and a code line lights its discs there.
-- [x] `patches/@base-ui%2Freact@1.7.0.patch` (root `patchedDependencies`):
-      every `Popover.Trigger` on one root shares a single `HoverInteraction`,
-      and upstream (1.7.0, still 1.8.0) registers its `dispose` — which clears
-      the shared rest timer — on _each_ trigger's unmount. With hundreds of
-      marks on one root, any mark leaving during the 320 ms rest (a stage line
-      reflowing, prose departing) cancelled the hover-open of the mark under
-      the pointer until it moved again. The patch reference-counts consumers
-      and disposes only when the last leaves. To upstream.
+- [x] Hover intent is owned by the app: pointer handlers write
+      `placePointerOverAtom`, one latest-wins timed intent stream writes
+      `placeAnswerAtom`, and that answer controls the shared Base UI root and
+      its explicit active trigger. Unmounting an unrelated detached trigger
+      therefore cannot cancel another mark's pending answer.
 
 ### Act 5 — Responsive and environmental verification
 
@@ -672,10 +669,6 @@ left on purpose. Every item takes the same route: failing test, then the change.
       (`ChangedValue`) are still CSS keyframes beside Motion. Either move them
       to Motion under `MotionConfig reducedMotion="user"` so one system owns
       presence, or record why a CSS keyframe is the honest tool for each.
-- [ ] **Base UI `HoverInteraction` patch upstream.** File the issue and the
-      change against `@base-ui/react` (reference-counted `dispose` across
-      triggers sharing one root); pin the version that carries it and delete
-      `patches/@base-ui%2Freact@1.7.0.patch`.
 - [ ] **Per-trial render cost.** In development each search trial costs
       ~45–60 ms on the main thread. Measure on the production build in Chromium
       (`test:worker` can record `performance.measure` spans); if the cost is

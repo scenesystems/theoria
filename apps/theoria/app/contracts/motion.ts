@@ -1,6 +1,8 @@
-import { Duration, Schema } from "effect"
+import { Duration, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
+
+import type { PlaceMark } from "./demo/imagined-place-provenance.js"
 
 /**
  * Motion tokens: how long each kind of change on the page takes, and the one
@@ -33,6 +35,17 @@ export const motionStagger: Duration.Duration = Duration.millis(20)
 
 /** The longest a staggered arrival may take from the first thing starting to the last. */
 export const motionArrivalBudget: Duration.Duration = Duration.millis(300)
+
+/** Delay from pointer entry to answering a mark. */
+export const answerOpenDelay = (mark: PlaceMark): Duration.Duration =>
+  Match.value(mark).pipe(
+    Match.tag("Line", () => Duration.millis(320)),
+    Match.tag("Feature", "Signature", "Digest", "Trial", "Inference", "Note", "CodeLine", () => Duration.millis(120)),
+    Match.exhaustive
+  )
+
+/** Grace for crossing the gap between a mark and its answer. */
+export const answerCloseGrace: Duration.Duration = Duration.millis(150)
 
 /** One ease for everything that moves: quick to leave, soft to land. */
 export const motionEase: readonly [number, number, number, number] = [0.2, 0, 0, 1]

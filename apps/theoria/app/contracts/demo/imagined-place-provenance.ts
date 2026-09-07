@@ -1,4 +1,4 @@
-import { Match, type Option, Schema } from "effect"
+import { type Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { Id as CardId } from "../id.js"
@@ -122,6 +122,31 @@ export const PlaceMark = Schema.Union(
 )
 export type PlaceMark = typeof PlaceMark.Type
 
+/** How an answer became open; press answers stay pinned when the pointer leaves. */
+export const AnswerOpening = Schema.Literal("hover", "press")
+export type AnswerOpening = typeof AnswerOpening.Type
+
+/** The single open provenance answer. */
+export class PlaceAnswer extends Schema.Class<PlaceAnswer>("PlaceAnswer")({
+  triggerId: Schema.String,
+  mark: PlaceMark,
+  opening: AnswerOpening
+}) {}
+
+/** Where the pointer is within the provenance interaction region. */
+export const PointerOver = Schema.Union(
+  Schema.TaggedStruct("Mark", { triggerId: Schema.String, mark: PlaceMark }),
+  Schema.TaggedStruct("Answer", {})
+)
+export type PointerOver = typeof PointerOver.Type
+
+/** A delayed decision made by the owned hover-intent process. */
+export const HoverIntent = Schema.Union(
+  Schema.TaggedStruct("Open", { triggerId: Schema.String, mark: PlaceMark }),
+  Schema.TaggedStruct("Close", {})
+)
+export type HoverIntent = typeof HoverIntent.Type
+
 /** A mark carried on an element as one attribute value, and read back from it. */
 export const PlaceMarkAttribute = Schema.parseJson(PlaceMark)
 
@@ -165,14 +190,3 @@ export const PlaceProvenance = Schema.Struct({
   copy: Schema.Option(Schema.String)
 })
 export type PlaceProvenance = typeof PlaceProvenance.Type
-
-/**
- * How long the pointer rests on a mark before it is answered. Prose is read,
- * not pointed at, so a line waits longer than a disc or a pill.
- */
-export const markOpenDelayMs = (mark: PlaceMark): number =>
-  Match.value(mark).pipe(
-    Match.tag("Line", () => 320),
-    Match.tag("Feature", "Signature", "Digest", "Trial", "Inference", "Note", "CodeLine", () => 120),
-    Match.exhaustive
-  )

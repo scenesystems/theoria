@@ -1,4 +1,4 @@
-import { Registry, Result } from "@effect-atom/atom"
+import { Atom, Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
@@ -8,6 +8,7 @@ import {
   composeSite,
   encodeMark,
   layoutSite,
+  PlaceAnswer,
   type PlaceMark,
   proposalDigestSite,
   proposalSignatureSite,
@@ -15,9 +16,10 @@ import {
 } from "../../app/contracts/demo/imagined-place-provenance.js"
 import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
 import {
+  placeAnswerAtom,
   placeAnsweredMarkAtom,
   placeFeatureFocusedAtom,
-  placeFocusAtom,
+  placeFocusAtom as placeFocusReadAtom,
   placeFocusedLineAtom,
   placeMarkFocusedAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
@@ -29,6 +31,17 @@ import {
 import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
 import { proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
 import { onStage } from "../helpers/place-on-stage.js"
+
+/** Test writer for the answer authority; production consumers only receive the derived focus atom. */
+const placeFocusAtom = Atom.writable(
+  (get) => get(placeFocusReadAtom),
+  (ctx, value: Option.Option<PlaceMark>) => {
+    ctx.set(
+      placeAnswerAtom,
+      Option.map(value, (mark) => new PlaceAnswer({ triggerId: "test-mark", mark, opening: "press" }))
+    )
+  }
+)
 
 /**
  * One mark is pointed at; everything the overlay's answer is about lights

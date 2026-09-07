@@ -7,11 +7,15 @@ import {
   type CodeSite,
   decodeMark,
   encodeMark,
+  type HoverIntent,
   PlaceAct,
+  PlaceAnswer,
   type PlaceMark,
-  type PlaceProvenance
+  type PlaceProvenance,
+  type PointerOver
 } from "../../contracts/demo/imagined-place-provenance.js"
 import type { ProposalRecord } from "../../contracts/imagined-place-result.js"
+import { answerCloseGrace, answerOpenDelay } from "../../contracts/motion.js"
 import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
@@ -30,7 +34,7 @@ import { appRuntime } from "./runtime.js"
  */
 
 // ---------------------------------------------------------------------------
-// Focus — the mark under the pointer
+// Focus — the open answer and owned hover intent
 // ---------------------------------------------------------------------------
 
 /**
@@ -38,7 +42,71 @@ import { appRuntime } from "./runtime.js"
  * Written by the overlay from the trigger that opened it; read by the code
  * panel, which lights the line that made the mark.
  */
-export const placeFocusAtom: AtomType.Writable<Option.Option<PlaceMark>> = Atom.make(Option.none<PlaceMark>())
+export const placeAnswerAtom: AtomType.Writable<Option.Option<PlaceAnswer>> = Atom.make(Option.none<PlaceAnswer>())
+
+/** The mark whose answer is open; all existing focus projections derive from this authority. */
+export const placeFocusAtom: AtomType.Atom<Option.Option<PlaceMark>> = Atom.map(
+  placeAnswerAtom,
+  Option.map((answer: PlaceAnswer) => answer.mark)
+)
+
+/** The pointer's current provenance interaction region. Touch uses Base UI press instead. */
+export const placePointerOverAtom: AtomType.Writable<Option.Option<PointerOver>> = Atom.make(
+  Option.none<PointerOver>()
+)
+
+/**
+ * Turn pointer entries into delayed latest-wins decisions. The delay begins
+ * at entry (there is deliberately no movement-based hover-rest heuristic).
+ */
+export const hoverIntents = (
+  pointerOver: Stream.Stream<Option.Option<PointerOver>>
+): Stream.Stream<HoverIntent> =>
+  pointerOver.pipe(
+    Stream.flatMap(
+      (over) =>
+        Match.value(over).pipe(
+          Match.tag(
+            "None",
+            () => Stream.fromEffect(Effect.sleep(answerCloseGrace).pipe(Effect.as<HoverIntent>({ _tag: "Close" })))
+          ),
+          Match.tag("Some", ({ value }) =>
+            Match.value(value).pipe(
+              Match.tag("Mark", ({ mark, triggerId }) =>
+                Stream.fromEffect(
+                  Effect.sleep(answerOpenDelay(mark)).pipe(
+                    Effect.as<HoverIntent>({ _tag: "Open", triggerId, mark })
+                  )
+                )),
+              Match.tag("Answer", () => Stream.empty),
+              Match.exhaustive
+            )),
+          Match.exhaustive
+        ),
+      { switch: true }
+    )
+  )
+
+/** The one process that writes provenance answers from pointer intent. */
+export const placeHoverIntentAtom = appRuntime.atom((get: AtomType.Context) =>
+  hoverIntents(get.stream(placePointerOverAtom)).pipe(
+    Stream.runForEach((intent) =>
+      Effect.sync(() => {
+        Match.value(intent).pipe(
+          Match.tag("Open", ({ mark, triggerId }) => {
+            get.set(placeAnswerAtom, Option.some(new PlaceAnswer({ triggerId, mark, opening: "hover" })))
+          }),
+          Match.tag("Close", () => {
+            if (Option.exists(get.once(placeAnswerAtom), (answer) => answer.opening === "hover")) {
+              get.set(placeAnswerAtom, Option.none())
+            }
+          }),
+          Match.exhaustive
+        )
+      })
+    )
+  )
+)
 
 /**
  * What is on the page to answer from: the build once it has arrived, and

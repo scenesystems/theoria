@@ -1,20 +1,26 @@
 import { Button } from "@base-ui/react/button"
 import { Popover } from "@base-ui/react/popover"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
-import { type ComponentProps, Fragment } from "react"
+import { type ComponentProps, Fragment, useId } from "react"
 
 import {
   codeSiteCall,
   decodeMark,
   encodeMark,
-  markOpenDelayMs,
+  PlaceAnswer,
   type PlaceMark,
   type PlaceProvenance as Provenance
 } from "../../../contracts/demo/imagined-place-provenance.js"
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
-import { placeFocusAtom, placeMarkFocusedAtom, placeOnPageAtom } from "../../atoms/imagined-place-experience.js"
+import {
+  placeAnswerAtom,
+  placeHoverIntentAtom,
+  placeMarkFocusedAtom,
+  placeOnPageAtom,
+  placePointerOverAtom
+} from "../../atoms/imagined-place-experience.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
 import {
   elevationClassName,
@@ -57,6 +63,10 @@ export const provenanceAttribute = "data-provenance"
 export const ProvenanceMark = ({
   mark,
   nativeButton,
+  id,
+  onKeyDown,
+  onPointerEnter,
+  onPointerLeave,
   render,
   ...props
 }: ComponentProps<"button"> & {
@@ -66,17 +76,30 @@ export const ProvenanceMark = ({
 }) => {
   const encoded = encodeMark(mark)
   const focused = useAtomValue(placeMarkFocusedAtom(encoded))
+  const generatedId = useId()
+  const triggerId = id ?? `place-mark-${generatedId}`
+  const setPointerOver = useAtomSet(placePointerOverAtom)
 
   return (
     <Popover.Trigger
       {...props}
       {...{ [provenanceAttribute]: encoded }}
-      closeDelay={80}
       data-place-focused={focused ? "" : undefined}
-      delay={markOpenDelayMs(mark)}
       handle={provenanceHandle}
+      id={triggerId}
       nativeButton={nativeButton}
-      openOnHover
+      onKeyDown={(event) => {
+        onKeyDown?.(event)
+        if (event.key === "Escape") setPointerOver(Option.none())
+      }}
+      onPointerEnter={(event) => {
+        onPointerEnter?.(event)
+        if (event.pointerType !== "touch") setPointerOver(Option.some({ _tag: "Mark", triggerId, mark }))
+      }}
+      onPointerLeave={(event) => {
+        onPointerLeave?.(event)
+        if (event.pointerType !== "touch") setPointerOver(Option.none())
+      }}
       payload={mark}
       render={render}
     />
@@ -293,22 +316,36 @@ const pressLeavesAnswerAlone = (
  * Moving from one mark to another while open is an opening by the new mark.
  */
 export const PlaceProvenanceOverlay = () => {
-  const focus = useAtomValue(placeFocusAtom)
-  const setFocus = useAtomSet(placeFocusAtom)
+  useAtomMount(placeHoverIntentAtom)
+  const answer = useAtomValue(placeAnswerAtom)
+  const setAnswer = useAtomSet(placeAnswerAtom)
+  const setPointerOver = useAtomSet(placePointerOverAtom)
+  const triggerId = Option.match(answer, { onNone: () => null, onSome: (current) => current.triggerId })
   return (
     <Popover.Root
       handle={provenanceHandle}
       modal={false}
+      open={Option.isSome(answer)}
       onOpenChange={(open, details) => {
         const mark = decodeMark(details.trigger?.getAttribute(provenanceAttribute))
-        if (pressLeavesAnswerAlone(details, mark, focus)) {
+        const answering = Option.map(answer, (current) => current.mark)
+        if (pressLeavesAnswerAlone(details, mark, answering)) {
           details.cancel()
           return
         }
-        setFocus(open ? mark : Option.none())
+        if (open && details.reason === "trigger-press") {
+          Option.map(mark, (pressed) =>
+            setAnswer(
+              Option.some(new PlaceAnswer({ triggerId: details.trigger?.id ?? "", mark: pressed, opening: "press" }))
+            ))
+        } else if (!open) {
+          setAnswer(Option.none())
+          setPointerOver(Option.none())
+        }
       }}
+      triggerId={triggerId}
     >
-      {({ payload }) => (
+      {() => (
         <Popover.Portal>
           <Popover.Positioner
             align="center"
@@ -317,11 +354,25 @@ export const PlaceProvenanceOverlay = () => {
             side="top"
             sideOffset={8}
           >
-            <Popover.Popup className={popupClassName} data-place-provenance>
+            <Popover.Popup
+              className={popupClassName}
+              data-place-provenance
+              finalFocus={() =>
+                Option.exists(answer, (current) => current.opening === "hover")
+                  ? false
+                  : undefined}
+              initialFocus={() => Option.exists(answer, (current) => current.opening === "hover") ? false : undefined}
+              onPointerEnter={(event) => {
+                if (event.pointerType !== "touch") setPointerOver(Option.some({ _tag: "Answer" }))
+              }}
+              onPointerLeave={(event) => {
+                if (event.pointerType !== "touch") setPointerOver(Option.none())
+              }}
+            >
               <Popover.Viewport className={viewportClassName}>
-                {Option.match(Option.fromNullable(payload), {
+                {Option.match(answer, {
                   onNone: () => null,
-                  onSome: (mark) => <Answered mark={mark} />
+                  onSome: (current) => <Answered mark={current.mark} />
                 })}
               </Popover.Viewport>
             </Popover.Popup>
