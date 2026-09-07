@@ -80,7 +80,7 @@ export const PlaceActs = () => {
       <Layer>
         <PlaceBand />
         <Stack className="gap-12 lg:gap-16">
-          <Stack className="gap-8 lg:gap-10">
+          <Stack className="gap-8">
             <Stack className="min-w-0 max-w-[44rem] gap-6">
               <PlaceArrive />
               {Result.isFailure(result) ? <BuildFailed /> : null}

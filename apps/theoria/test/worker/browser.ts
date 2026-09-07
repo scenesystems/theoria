@@ -8,12 +8,14 @@ import {
   type Response
 } from "@playwright/test"
 import { Chunk, Context, Data, Effect, Layer, Predicate, Queue, Schedule, Schema, type Scope } from "effect"
+import * as Arr from "effect/Array"
 
 import {
   distinctTextColours,
   documentFitsViewport,
   elementsPastViewport,
-  finiteAnimationsFinished
+  finiteAnimationsFinished,
+  scrollY
 } from "./platform/in-page.js"
 import { Site } from "./site.js"
 
@@ -170,6 +172,14 @@ export const highlighted = (code: Locator): Effect.Effect<void, BrowserError> =>
 
 /** True when the document does not scroll horizontally at the current viewport. */
 export const fitsViewport = (page: Page) => act(() => page.evaluate(documentFitsViewport))
+
+/**
+ * The page's vertical scroll position read `samples` times in a row, oldest
+ * first — a scroll seen over time. A glide shows positions between where it
+ * began and where it ends; a landing at once shows only those two.
+ */
+export const scrollPositions = (page: Page, samples: number): Effect.Effect<ReadonlyArray<number>, BrowserError> =>
+  Effect.forEach(Arr.range(1, samples), () => act(() => page.evaluate(scrollY)))
 
 /**
  * Waits until every finite animation on the page (CSS animations and

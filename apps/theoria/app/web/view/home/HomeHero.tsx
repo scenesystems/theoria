@@ -21,7 +21,7 @@ export const howItsBuiltActionLabel = "See how it's built"
  * point at it.
  */
 export const HomeHero = () => (
-  <Section className="pt-10 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28" data-home-hero>
+  <Section className="pt-hero-lead pb-hero-trail" data-home-hero>
     <Stack className="gap-6 sm:gap-8">
       <SemanticText
         as="h1"

@@ -385,6 +385,32 @@ export const topEdgeInViewport = (element: Element) => {
   return rect.top >= 0 && rect.top < window.innerHeight && rect.height > 0
 }
 
+/** Whether all of an element is inside the viewport. */
+export const fullyInViewport = (element: Element) => {
+  const rect = element.getBoundingClientRect()
+  return rect.top >= 0 && rect.bottom <= window.innerHeight && rect.height > 0
+}
+
+/** The vertical scroll position now. */
+export const scrollY = () => window.scrollY
+
+/** Mobile marker legend text and its rendered line metrics. */
+export const markerLegendMetrics = (element: Element) => {
+  const entries = [...element.children]
+  const firstText = entries[0]?.querySelector("span:last-child") ?? element
+  const style = getComputedStyle(firstText)
+  return {
+    entries: entries.map((entry) => entry.textContent?.trim() ?? ""),
+    names: entries.map((entry) => entry.lastElementChild?.lastElementChild?.textContent ?? ""),
+    markerLabels: [...document.querySelectorAll("[data-place-marker]")].map(
+      (marker) => marker.getAttribute("aria-label") ?? ""
+    ),
+    height: element.getBoundingClientRect().height,
+    lineHeight: Number.parseFloat(style.lineHeight),
+    rowGap: Number.parseFloat(getComputedStyle(element).rowGap)
+  }
+}
+
 /** Back to the top of the document, as a fresh load would be. */
 export const scrollToTop = () => window.scrollTo(0, 0)
 

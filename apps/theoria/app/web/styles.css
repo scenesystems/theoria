@@ -45,6 +45,10 @@
   --shadow-surface: var(--th-shadow-surface);
   --shadow-hero: var(--th-shadow-hero);
   --shadow-chip: var(--th-shadow-chip);
+
+  /* The hero's rhythm above and below scales with viewport height, bounded, so the demonstration shares the first viewport. */
+  --spacing-hero-lead: clamp(2.5rem, 7svh, 6rem);
+  --spacing-hero-trail: clamp(2rem, 4.5svh, 5rem);
 }
 
 @theme {

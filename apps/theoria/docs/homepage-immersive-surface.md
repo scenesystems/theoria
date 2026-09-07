@@ -678,17 +678,21 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
       section loses its shadow and keeps its rule; ≤ 10 bordered, ≤ 4 shadowed,
       bordered chain ≤ 2 at 1440 with the overlay closed. A worker test measures
       it so the counts cannot drift back.
-- [ ] The first viewport at 1440×900 shows the paper's top and the first disc,
+- [x] The first viewport at 1440×900 shows the paper's top and the first disc,
       not only the two column headers: the hero's vertical spacing is cut so
       the place is seen before any scroll, as `Done when` says. (Act 4 re-stated
       the claim to the headers when the form work moved the arrival above the
-      grid; the plan's intent stands.)
+      grid; the plan's intent stands.) Checked in _the hero and the place share
+      the first viewport_.
 - [ ] 320: the paper is ≥ 240 px wide; the story chooser wraps or scroll-snaps,
       never overflows.
 - [ ] `Done when` is run as a test: at 390×844 with reduced motion, the place,
       a disc and the version are visible before scrolling; a proposal is merged
       from the keyboard and the prose changes; every mark answers from the
-      keyboard.
+      keyboard. The paper's top is checked before scrolling in _the hero and
+      the place share the first viewport_; a disc is another 143 px down in the
+      hero → arrival → column header → paper order, and the version depends on
+      Act 6's **Version knots on the paper** decision.
 
 ### Act 6 — Deferred from the reviews and the build
 

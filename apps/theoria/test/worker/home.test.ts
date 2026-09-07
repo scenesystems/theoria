@@ -21,11 +21,19 @@ import {
   goto,
   nextResponse,
   openPage,
+  scrollPositions,
   setViewport,
   urlMatches,
   visible
 } from "./browser.js"
-import { scrollToTop, surfaceStyle, topEdgeInViewport } from "./platform/in-page.js"
+import {
+  fullyInViewport,
+  scrollPast,
+  scrollToTop,
+  scrollY,
+  surfaceStyle,
+  topEdgeInViewport
+} from "./platform/in-page.js"
 import { Site, SiteLive } from "./site.js"
 
 const buildPath = "/api/imagined-place/build"
@@ -168,6 +176,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             demo.locator("[data-place-step='compose'] [data-place-step-header]").evaluate(topEdgeInViewport)
           )
         ).toBe(true)
+        expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => demo.locator("[data-place-marker]").first().evaluate(fullyInViewport))).toBe(true)
         expect(
           yield* act(() =>
             demo.locator("[data-place-step='arrange'] [data-place-step-header]").evaluate(topEdgeInViewport)
@@ -193,12 +203,54 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const howItsBuilt = page.getByRole("link", { exact: true, name: howItsBuiltActionLabel })
         expect(yield* act(() => howItsBuilt.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => arriveTitle.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
 
         // The hero's second action lands on how the demonstration is built, not on the demonstration already in view.
         yield* click(howItsBuilt)
         yield* urlMatches(page, new RegExp(`#${howItsBuiltSectionId}$`, "u"))
         yield* eventually(() => page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
         expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("same-document anchors glide unless reduced motion asks them to land at once", () =>
+      Effect.gen(function*() {
+        const smooth = yield* openPage({
+          viewport: { width: 1440, height: 900 },
+          reducedMotion: "no-preference"
+        })
+        yield* goto(smooth.page, "/")
+        const smoothLink = smooth.page.getByRole("link", { name: howItsBuiltActionLabel })
+        const start = yield* act(() => smooth.page.evaluate(scrollY))
+        yield* click(smoothLink)
+        // The page passes through positions on its way: a glide, not a jump.
+        const gliding = yield* scrollPositions(smooth.page, 24)
+        yield* eventually(() => smooth.page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
+        const finish = yield* act(() => smooth.page.evaluate(scrollY))
+        expect(finish).toBeGreaterThan(start)
+        expect(Arr.some(gliding, (position) => position > start && position < finish)).toBe(true)
+        yield* urlMatches(smooth.page, /#how-its-built$/u)
+
+        const reduced = yield* openPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" })
+        yield* goto(reduced.page, "/")
+        const reducedStart = yield* act(() => reduced.page.evaluate(scrollY))
+        yield* click(reduced.page.getByRole("link", { name: howItsBuiltActionLabel }))
+        // Under reduced motion the page is where it is going from the first frame that moves.
+        const landing = yield* scrollPositions(reduced.page, 24)
+        yield* eventually(() => reduced.page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
+        const landed = yield* act(() => reduced.page.evaluate(scrollY))
+        expect(Arr.every(landing, (position) => position === reducedStart || position === landed)).toBe(true)
+        yield* urlMatches(reduced.page, /#how-its-built$/u)
+
+        const demo = reduced.page.getByRole("region", { name: "Imagined place demo" })
+        const paper = demo.locator("[data-place-stage='paper']")
+        yield* act(() => paper.evaluate(scrollPast))
+        const band = reduced.page.locator("[data-place-band]")
+        yield* visible(band)
+        yield* click(band.getByRole("link", { name: "Back to the place" }))
+        yield* eventually(() => paper.evaluate(topEdgeInViewport), true)
+        yield* urlMatches(reduced.page, /#imagined-place$/u)
+        expect(yield* smooth.failures).toEqual([])
+        expect(yield* reduced.failures).toEqual([])
       }))
 
     it.scoped("the package index stays complete and unscrolled across responsive widths", () =>

@@ -48,6 +48,7 @@ import {
   focusLanding,
   insideViewportRight,
   isActiveElement,
+  markerLegendMetrics,
   markerPositionsInStage,
   mergeFrame,
   paperProseContrast,
@@ -1171,6 +1172,24 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 : { fontSize: "16px", lineHeight: "26px" }
             )
           }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the mobile numbered legend names every disc in no more than two lines", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const legend = page.locator("[data-place-legend]")
+        yield* visible(legend)
+        const metrics = yield* act(() => legend.evaluate(markerLegendMetrics))
+        expect(metrics.entries).toHaveLength(metrics.markerLabels.length)
+        Arr.forEach(metrics.entries, (entry, index) => {
+          expect(entry).not.toContain("added by")
+          expect(metrics.markerLabels[index]).toContain(metrics.names[index])
+        })
+        expect(metrics.markerLabels.some((label) => label.includes("added by neighbor"))).toBe(true)
+        expect(metrics.height).toBeLessThanOrEqual(2 * metrics.lineHeight + metrics.rowGap)
         expect(yield* failures).toEqual([])
       }))
   }

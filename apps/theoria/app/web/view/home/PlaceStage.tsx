@@ -35,7 +35,7 @@ import { ShimmerLine } from "../primitives/Skeleton.js"
 import { PlaceGhosts } from "./PlaceGhosts.js"
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
 import { ProvenanceMark } from "./PlaceProvenance.js"
-import { markerLabel, markerTone, searching } from "./placeViewModel.js"
+import { markerTone, searching } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
@@ -239,18 +239,16 @@ const Paper = ({
 
 /** Shown only when markers are too small to carry their names: numbers on the stage, names here. */
 const Legend = ({ markers }: { readonly markers: ReadonlyArray<PlaceMarker> }) => (
-  <Cluster className="gap-x-3 gap-y-1.5" data-place-legend>
+  <Cluster className="gap-x-4 gap-y-1" data-place-legend>
     {Arr.map(markers, (marker, index) => {
       const tone = markerTone(marker)
       return (
         <Cluster className="items-center gap-1.5" key={marker.name}>
           <Layer render={<span />} className={`inline-flex size-2 shrink-0 rounded-full ${tone.dot}`} />
-          <SemanticText
-            as="span"
-            className="text-ink-700"
-            role="code-meta"
-            text={`${String(index + 1)} ${markerLabel(marker)}`}
-          />
+          <Cluster className="items-center gap-1">
+            <SemanticText as="span" className="tabular-nums text-ink-500" role="row-value" text={String(index + 1)} />
+            <SemanticText as="span" className="text-ink-700" role="row-value" text={marker.name} />
+          </Cluster>
         </Cluster>
       )
     })}
