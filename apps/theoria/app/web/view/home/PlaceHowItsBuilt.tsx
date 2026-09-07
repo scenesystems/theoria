@@ -5,11 +5,13 @@ import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
+import { codeSiteOnLine } from "../../../contracts/demo/imagined-place-provenance.js"
 import { toneForCard } from "../../../contracts/theme.js"
 import { placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
 import { placeSearchAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildAtom, placeBuildShaAtom, placeStepAtom } from "../../atoms/imagined-place.js"
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
+import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { DocsLink } from "../primitives/DocsLink.js"
@@ -100,12 +102,32 @@ const StepTabs = () => (
  * A live value is the mark for the line that produced it: pointing at it
  * answers with the thing the line made, on the page, and lights that thing
  * where it stands, and the line above it is lit whenever its mark is. The
- * line itself is not the control, because its API names are links and a
- * control may not hold links: a trigger around the line took the link's press
- * and its preview never opened.
+ * line's number in the gutter is the same mark, so the line itself can be
+ * pointed at; the line's text is not the control, because its API names are
+ * links and a control may not hold links: a trigger around the line took the
+ * link's press and its preview never opened.
  */
 const annotationMarkClassName =
   "inline-flex cursor-default rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 data-[popup-open]:ring-2 data-[popup-open]:ring-ink-900/20"
+
+const gutterMarkClassName =
+  "-mx-1 inline-flex w-[calc(100%+0.5rem)] cursor-default justify-end rounded-md px-1 text-right text-inherit transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 data-[popup-open]:bg-stage-100/80 data-[place-focused]:text-ink-900"
+
+/** A line's number: the line's mark where the line made something on the page, a number where it did not. */
+const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
+  Option.match(codeSiteOnLine(step, line.text), {
+    onNone: () => gutterNumber(line),
+    onSome: (site) => (
+      <ProvenanceMark
+        aria-label={`Line ${String(line.number)}`}
+        className={gutterMarkClassName}
+        data-place-code-line={line.number}
+        mark={{ _tag: "CodeLine", step, match: site.match }}
+      >
+        {line.number}
+      </ProvenanceMark>
+    )
+  })
 
 /**
  * The step's code with two things a listing cannot show: every API name links
@@ -138,6 +160,7 @@ const StepCode = ({ step }: { readonly step: PlaceStep }) => {
             <CodeAnnotationRow text={annotation.text} />
           </ProvenanceMark>
         )}
+        renderLineNumber={stepLineNumber(step)}
         source={definition.code}
       />
     </Layer>

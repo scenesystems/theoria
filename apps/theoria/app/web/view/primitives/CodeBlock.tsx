@@ -9,7 +9,7 @@ import type { ReactNode } from "react"
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
 import { type CodeAnnotation, CodeAnnotationRow } from "./code/CodeLine.js"
 import type { CodeLink } from "./code/codeLinks.js"
-import { HighlightedCode } from "./code/HighlightedCode.js"
+import { type GutterLine, gutterNumber, HighlightedCode } from "./code/HighlightedCode.js"
 import type { CodeLanguage } from "./code/highlighter.js"
 import { docsTheme } from "./docsSystem.js"
 import { Cluster, Layer, Rail, Section } from "./Layout.js"
@@ -43,6 +43,7 @@ export const CodeBlock = ({
   language = "typescript",
   links = [],
   renderAnnotation = defaultAnnotation,
+  renderLineNumber = gutterNumber,
   source
 }: {
   readonly annotations?: ReadonlyArray<CodeAnnotation>
@@ -53,6 +54,8 @@ export const CodeBlock = ({
   readonly language?: CodeLanguage
   readonly links?: ReadonlyArray<CodeLink>
   readonly renderAnnotation?: (annotation: CodeAnnotation) => ReactNode
+  /** Draws a line's number in the gutter; the number itself unless given. */
+  readonly renderLineNumber?: (line: GutterLine) => ReactNode
   readonly source: string
 }) => {
   const copy = useAtomSet(copyDocsCodeAtom)
@@ -105,6 +108,7 @@ export const CodeBlock = ({
                 language={language}
                 links={links}
                 renderAnnotation={renderAnnotation}
+                renderLineNumber={renderLineNumber}
                 source={source}
                 variant="expanded"
               />

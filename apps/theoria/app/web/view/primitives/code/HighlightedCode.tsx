@@ -1,12 +1,12 @@
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Data, Option } from "effect"
 import * as Arr from "effect/Array"
 import { Fragment, type ReactNode } from "react"
 
 import type { SurfaceVariant } from "../../../../contracts/presentation.js"
 import { CodeSource, highlightedLinesAtom } from "../../../atoms/syntax-highlighting.js"
 
-import { annotationFor, type CodeAnnotation, CodeAnnotationRow, CodeLine, lineMatches } from "./CodeLine.js"
+import { annotationFor, type CodeAnnotation, CodeAnnotationRow, CodeLine, lineMatches, lineText } from "./CodeLine.js"
 import type { CodeLink } from "./codeLinks.js"
 import { tokenClassName } from "./highlighter.js"
 import type { CodeLanguage, HighlightToken } from "./highlighter.js"
@@ -69,12 +69,23 @@ const focusableLineRowClassName =
 
 const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
 
+/** A line of the sample as the gutter has it: its number, from one, and its text. */
+export class GutterLine extends Data.Class<{
+  readonly number: number
+  readonly text: string
+}> {}
+
+/** The gutter as a listing has it: the number alone. */
+export const gutterNumber = (line: GutterLine): ReactNode => line.number
+
 /**
  * A code sample, line by line. `links` turn named symbols into links to the
  * API reference; `annotations` show, under a line, the value the running
  * program produced there, rendered by `renderAnnotation` when the caller
  * wants the value to be more than text. `focusedMatch` names the line the
- * page is pointing at, by a substring unique to it.
+ * page is pointing at, by a substring unique to it. `renderLineNumber`
+ * draws the gutter, where a caller can make a line's number the control for
+ * the line — the line itself holds links, and a control may not.
  */
 export const HighlightedCode = ({
   annotations = [],
@@ -82,6 +93,7 @@ export const HighlightedCode = ({
   language = "typescript",
   links = [],
   renderAnnotation = defaultAnnotation,
+  renderLineNumber = gutterNumber,
   source,
   variant
 }: {
@@ -90,6 +102,7 @@ export const HighlightedCode = ({
   readonly language?: CodeLanguage
   readonly links?: ReadonlyArray<CodeLink>
   readonly renderAnnotation?: (annotation: CodeAnnotation) => ReactNode
+  readonly renderLineNumber?: (line: GutterLine) => ReactNode
   readonly source: string
   readonly variant: SurfaceVariant
 }) => {
@@ -109,7 +122,7 @@ export const HighlightedCode = ({
                 ? "hidden select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-700/65 sm:block"
                 : "hidden"}
             >
-              {lineIndex + 1}
+              {renderLineNumber(new GutterLine({ number: lineIndex + 1, text: lineText(line) }))}
             </span>
             <span className="whitespace-pre">
               <CodeLine links={links} tokens={line} />

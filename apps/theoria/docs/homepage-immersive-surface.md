@@ -233,7 +233,7 @@ mark, the version accompanies a changed content ID.
 
 ## Effect and Effect Atom
 
-The experience layer is three atoms beside the existing ones, all pure
+The experience layer is two atoms beside the existing ones, all pure
 derivations or explicit effects:
 
 - `placeActAtom`: `"arrive" | "compose" | "propose" | "record" | "build"`, a
@@ -324,9 +324,11 @@ place it built` was reversed.
       while accepted; sealed note as a fold (Base UI `Collapsible`) that
       opens into a `blockquote`.
 - [x] `PlaceProposals.tsx`: proposals anchored beside the prose line they
-      would add (`placeViewModel.proposalAnchorLine` → `data-place-anchor-line`).
-      The linkage is in the DOM only; drawing it (highlighting the line when
-      the proposal is pointed at) is Act 4's provenance work.
+      would add (`placeViewModel.proposalAnchorLine` → `data-place-anchor-line`,
+      from `placeProposalLineAtom`, the drawing shown this instant). The
+      linkage is drawn by Act 4: pointing at a merged proposal's feature
+      lights that line on the stage (`placeFocusedLineAtom`); the attribute is
+      the same fact said in the DOM, which the tests read back.
 - [x] `PlaceLineage.tsx` → `PlaceStrand.tsx`: strand and knots (`PlaceStrand`
       in the Record act, `StageKnots` on the pinned stage in place of the
       version badge); IDs in technical type; the wash on version change stays.
@@ -358,7 +360,10 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `BrowserWindow.mediaQuery`, and drives `MotionConfig reducedMotion`.
 - [x] `atoms/imagined-place-render.ts`: what the stage draws is one atom,
       `placeDrawnAtom` (`kept` | `sketch` | `trial`). The frame is
-      `PlaceRenderFrame { search, rendering, paper }`: the paper's height is
+      `PlaceRenderFrame { search, rendering, paper, trial }`: `trial` is the
+      trial the rendering is drawn from, so a disc's answer can name it, and
+      say `Toward trial N` while the drawing is still on its way there; the
+      paper's height is
       part of the drawing and travels with the discs (`PlaceDrawing
 { markers, paper }`, `drawingBetween`), so `placeSheetAtom` is the
       chosen width at once and the drawing's own height — `held` at the
@@ -536,9 +541,13 @@ import.meta.url), { type: "module" })`, which every bundler resolves
       something carries `data-provenance` for that line; pointing at it
       writes `placeFocusAtom`; a focused mark highlights its line, and a
       focused line lights every disc it made, on the stage and in the band.
-      The line itself is not the control: its API names are links, and a
-      trigger around the line took the link's press so its preview never
-      opened (tried, measured, reverted).
+      The line's number in the gutter is the line's own mark
+      (`codeSiteOnLine` in `contracts/demo/imagined-place-provenance.ts`,
+      `renderLineNumber` on `HighlightedCode`): `Line N`, carrying the site
+      the line is, so the code is a trigger without a control around its
+      links — a trigger around the line took the link's press so its preview
+      never opened (tried, measured, reverted). The gutter is not shown below
+      `sm`, where the annotation beside the line is the same mark.
 - [x] Focus is bidirectional through one atom, `placeMarkFocusedAtom(mark)`,
       read by every `ProvenanceMark` and said as `data-place-focused`: a
       feature lights its disc, its name in the composition and its

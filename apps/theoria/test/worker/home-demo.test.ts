@@ -37,7 +37,7 @@ import {
 import {
   activeElementOpensDocsLink,
   activeElementRole,
-  bandDiscCentres,
+  bandDiscCentre,
   bandShowsKept,
   canvasColour,
   currentLocation,
@@ -55,8 +55,10 @@ import {
   scrollToTop,
   stageAndColumnWidths,
   stageLayout,
+  storyDrawn,
   surfacePaint,
-  textColour
+  textColour,
+  textFitsItsBox
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -294,6 +296,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const whole = page.locator("[data-place-provenance] [data-place-provenance-value]")
         yield* visible(whole)
         expect(yield* act(() => whole.textContent())).toBe(wholeId)
+        // The whole ID is read, not only copied: at 390 px it breaks wherever the answer's width falls, clipped nowhere.
+        expect(yield* act(() => whole.locator(":scope > *").first().evaluate(textFitsItsBox))).toBe(true)
         yield* visible(page.locator("[data-place-provenance] [data-place-provenance-copy]"))
         expect(yield* failures).toEqual([])
       }))
@@ -549,9 +553,27 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(page.locator("[data-code-line-focused]"), 1)
         yield* count(demo.locator("[data-place-marker][data-place-focused]"), 4)
 
+        // The line itself is a mark, by its number in the gutter: the same answer as its value's, the same lighting.
+        const composeGutter = page.locator("[data-place-code-step='compose'] [data-place-code-line]").first()
+        yield* attribute(composeGutter, "data-provenance", /composer\.forward\(/u)
+        yield* attribute(composeGutter, "aria-label", /^Line \d+$/u)
+        yield* act(() => page.mouse.move(0, 0))
+        yield* hidden(overlay)
+        yield* hover(composeGutter)
+        yield* visible(overlay)
+        yield* containsText(overlay.locator("[data-current]").getByRole("heading", { level: 3 }), /\S/u)
+        yield* count(page.locator("[data-code-line-focused]"), 1)
+        yield* count(demo.locator("[data-place-marker][data-place-focused]"), 4)
+        // Only the lines that made something are marks; the rest of the gutter is numbers.
+        const gutterMarks = yield* act(() =>
+          page.locator("[data-place-code-step='compose'] [data-place-code-line]").count()
+        )
+        expect(gutterMarks).toBe(2)
+
         // Each line of the arrangement answers with what it made, credited to its own package:
         // the first narrowed line from the layout, lit on the stage; the search's kept trial from
         // the call that scored it and from the call that recorded it, which light no line of prose.
+        // Each site is two marks, the value beside the line and the line's number, and both answer alike.
         const built = page.locator("[data-place-how-its-built]")
         const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
         yield* click(built.getByRole("tab", { name: arrange.name }))
@@ -567,14 +589,23 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           ],
           (expected) =>
             Effect.gen(function*() {
-              const mark = built.locator(`[data-provenance*='${expected.match}']`)
-              yield* act(() => mark.scrollIntoViewIfNeeded())
-              yield* hover(mark)
-              yield* visible(overlay)
-              yield* containsText(title, expected.title)
-              yield* attribute(credited, "href", expected.href)
-              yield* count(page.locator("[data-code-line-focused]"), 1)
-              yield* count(litLines, expected.lit)
+              const marks = built.locator(`[data-provenance*='${expected.match}']`)
+              yield* count(marks, 2)
+              yield* Effect.forEach(
+                [marks.locator("[data-code-annotation]"), marks.and(page.locator("[data-place-code-line]"))],
+                (mark) =>
+                  Effect.gen(function*() {
+                    yield* act(() => mark.scrollIntoViewIfNeeded())
+                    yield* act(() => page.mouse.move(0, 0))
+                    yield* hidden(overlay)
+                    yield* hover(mark)
+                    yield* visible(overlay)
+                    yield* containsText(title, expected.title)
+                    yield* attribute(credited, "href", expected.href)
+                    yield* count(page.locator("[data-code-line-focused]"), 1)
+                    yield* count(litLines, expected.lit)
+                  })
+              )
             })
         )
         expect(yield* failures).toEqual([])
@@ -673,27 +704,46 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const name = yield* Option.fromNullable(yield* act(() => feature.getAttribute("data-place-feature")))
         yield* act(() => proposal.scrollIntoViewIfNeeded())
         yield* visible(band)
-        const before = yield* act(() => band.evaluate(bandDiscCentres))
 
-        // Every centre the band draws, sampled a frame apart, from the merge until the new disc is filled in.
-        const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        // The program's feature merged, its disc stands last in the row, after the neighbor's.
+        const merge = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* click(proposal.getByRole("switch"))
+        expect((yield* Fiber.join(merge)).status()).toBe(200)
+        yield* eventually(() => band.evaluate(bandShowsKept, name), true)
+        const before = yield* act(() => band.evaluate(bandDiscCentre, name))
+
+        // Declining the neighbor takes a disc out from before it, so the program's disc has to move left.
+        // Every centre it is drawn at, sampled a frame apart, from the decline until the neighbor's disc
+        // has left the band and the drawing is the kept one again.
+        const neighbor = demo.locator("[data-place-proposal='neighbor']")
+        const neighborName = yield* Option.fromNullable(
+          yield* act(() => neighbor.locator("[data-place-feature]").getAttribute("data-place-feature"))
+        )
+        const landed = Effect.map(
+          Effect.all([
+            act(() => band.evaluate(bandDiscCentre, neighborName)),
+            act(() => band.evaluate(bandShowsKept, name))
+          ]),
+          ([neighborCentre, kept]) => neighborCentre === "" && kept
+        )
+        const decline = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        yield* click(neighbor.getByRole("switch"))
         const drawn = yield* Effect.fork(
           Stream.repeatEffectWithSchedule(
-            act(() => band.evaluate(bandDiscCentres)),
+            act(() => band.evaluate(bandDiscCentre, name)),
             Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
           ).pipe(
-            Stream.takeUntilEffect(() => act(() => band.evaluate(bandShowsKept, name))),
+            Stream.takeUntilEffect(() => landed),
             Stream.runCollect,
             Effect.map(Chunk.toReadonlyArray)
           )
         )
-        expect((yield* Fiber.join(rebuild)).status()).toBe(200)
-        yield* visible(band.locator(`[data-place-band-disc="${name}"]`))
-        const centres = Arr.dedupeAdjacent(yield* Fiber.join(drawn))
-        // Each drawing is a trial's, placed outright: no more distinct rows than trials, and none between two.
-        expect(centres.length).toBeLessThanOrEqual(renderTrials + 2)
-        expect(centres[0]).toBe(before)
+        expect((yield* Fiber.join(decline)).status()).toBe(200)
+        const centres = Arr.dedupe(yield* Fiber.join(drawn))
+        const after = yield* act(() => band.evaluate(bandDiscCentre, name))
+        // The disc did move, and every place it was drawn at is one the row stands at: none between the two.
+        expect(Number(after)).toBeLessThan(Number(before))
+        expect(Arr.difference(centres, [before, after])).toEqual([])
         expect(yield* failures).toEqual([])
       }))
 
@@ -707,27 +757,35 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const brief = demo.getByRole("textbox", { name: "Brief" })
         const paper = page.locator("[data-place-stage='paper']")
         const title = page.locator("h1")
-        // The story's own brief arriving in the field is the moment the page has taken the story.
+        // The story is taken once its own brief is in the field and the stage draws its features, kept.
         const storyTaken = (scenario: PlaceScenario) =>
-          eventually(() => brief.inputValue(), placeScenarioMeta[scenario].brief)
+          Effect.andThen(
+            eventually(() => brief.inputValue(), placeScenarioMeta[scenario].brief),
+            eventually(() => demo.evaluate(storyDrawn), true)
+          )
+        // The page's colours: the air behind it, the paper, and the ink of the title.
+        const palette = Effect.all({
+          air: act(() => page.evaluate(canvasColour)),
+          paper: act(() => paper.evaluate(surfacePaint)),
+          ink: act(() => title.evaluate(textColour))
+        })
 
-        const airBefore = yield* act(() => page.evaluate(canvasColour))
-        const paperBefore = yield* act(() => paper.evaluate(surfacePaint))
-        const inkBefore = yield* act(() => title.evaluate(textColour))
+        yield* storyTaken("unfinished-light")
+        const before = yield* palette
         yield* click(scenarios.getByRole("radio", { name: placeScenarioMeta["lost-market"].label }))
         yield* storyTaken("lost-market")
-        yield* eventually(() => demo.evaluate(discsAtRest), true)
-        expect(yield* act(() => page.evaluate(canvasColour))).toBe(airBefore)
-        expect(yield* act(() => paper.evaluate(surfacePaint))).toBe(paperBefore)
-        expect(yield* act(() => title.evaluate(textColour))).toBe(inkBefore)
+        expect(yield* palette).toEqual(before)
 
         yield* Effect.forEach(colorSchemes, (scheme) =>
           Effect.gen(function*() {
             yield* setColorScheme(page, scheme)
+            yield* animationsSettled(page)
+            const inScheme = yield* palette
             yield* Effect.forEach(placeScenarios, (scenario) =>
               Effect.gen(function*() {
                 yield* click(scenarios.getByRole("radio", { name: placeScenarioMeta[scenario].label }))
                 yield* storyTaken(scenario)
+                expect(yield* palette).toEqual(inScheme)
                 const contrast = yield* until(
                   act(() => page.evaluate(paperProseContrast)),
                   (ratio) => ratio >= 4.5,

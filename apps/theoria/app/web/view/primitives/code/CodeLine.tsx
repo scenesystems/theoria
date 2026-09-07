@@ -63,7 +63,8 @@ export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
   </Layer>
 )
 
-const lineText = (tokens: ReadonlyArray<HighlightToken>): string =>
+/** The line's text, as the source has it. */
+export const lineText = (tokens: ReadonlyArray<HighlightToken>): string =>
   Arr.join(Arr.map(tokens, (token) => token.value), "")
 
 export const annotationFor = (

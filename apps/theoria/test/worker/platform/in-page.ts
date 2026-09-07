@@ -215,11 +215,26 @@ export const mergeFrame = (
 export const discsAtRest = (region: Element): boolean =>
   [...region.querySelectorAll("[data-place-marker]")].every((element) => getComputedStyle(element).transform === "none")
 
-/** Where the band's discs are drawn this frame: each disc's name at its centre, as one string. */
-export const bandDiscCentres = (band: Element): string =>
-  [...band.querySelectorAll("[data-place-band-disc]")]
-    .map((disc) => `${disc.getAttribute("data-place-band-disc") ?? ""}@${disc.getAttribute("cx") ?? ""}`)
-    .join(" ")
+/**
+ * The stage draws the composition now shown: every feature the composer named
+ * has its disc in `region`, filled in and at rest, and the drawing is the kept
+ * one. Stories name different features, so this holds only once the drawing
+ * is the new story's, not the last one's still standing.
+ */
+export const storyDrawn = (region: Element): boolean => {
+  const named = [...region.querySelectorAll("[data-place-features] [data-provenance]")]
+    .map((mark) => mark.textContent ?? "")
+  const discs = [...region.querySelectorAll("[data-place-marker]")]
+  const drawn = discs.map((disc) => disc.getAttribute("data-place-marker") ?? "")
+  return named.length > 0 &&
+    named.every((name) => drawn.includes(name)) &&
+    document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept" &&
+    discs.every((disc) => getComputedStyle(disc).transform === "none")
+}
+
+/** Where the band draws the disc named this frame: its `cx` as written, or nothing while it is not drawn. */
+export const bandDiscCentre = (band: Element, name: string): string =>
+  band.querySelector(`[data-place-band-disc="${name}"]`)?.getAttribute("cx") ?? ""
 
 /** The band draws the disc named, and the paper's drawing is the kept one: a merge has landed in the band. */
 export const bandShowsKept = (band: Element, name: string): boolean =>
@@ -228,6 +243,20 @@ export const bandShowsKept = (band: Element, name: string): boolean =>
     )
       .length === 1 &&
   document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept"
+
+/**
+ * The element's text stands wholly inside the element's own box and the
+ * viewport: no glyph runs past its right edge, so none is clipped by an
+ * ancestor that clips its overflow. The text's extent is the union of its
+ * line boxes, measured as a selection of it would be.
+ */
+export const textFitsItsBox = (element: Element): boolean => {
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  const text = range.getBoundingClientRect()
+  const box = element.getBoundingClientRect()
+  return text.right <= box.right + 0.5 && text.right <= window.innerWidth && text.left >= box.left - 0.5
+}
 
 /** The element's right edge is inside the viewport. */
 export const insideViewportRight = (element: Element) => element.getBoundingClientRect().right <= window.innerWidth

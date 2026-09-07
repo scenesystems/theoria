@@ -137,6 +137,10 @@ export const codeSiteCall = (site: CodeSite): string => site.match.slice(0, site
 export const codeSiteOf = (step: PlaceStep, match: string): Option.Option<CodeSite> =>
   Arr.findFirst(allCodeSites, (candidate) => candidate.step === step && candidate.match === match)
 
+/** The code site a line of `step`'s sample is, if the line is one that made something on the page. */
+export const codeSiteOnLine = (step: PlaceStep, line: string): Option.Option<CodeSite> =>
+  Arr.findFirst(allCodeSites, (candidate) => candidate.step === step && line.includes(candidate.match))
+
 /**
  * What a visitor pointing at a mark is told: what it is, the facts about it
  * worth a line each, and the line of code that made it. `copy` is a value

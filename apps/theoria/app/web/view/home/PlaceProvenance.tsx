@@ -144,7 +144,7 @@ const copyLabel = ({ copied, failed }: { readonly copied: boolean; readonly fail
  */
 const WholeValue = ({ value }: { readonly value: string }) => (
   <Layer data-place-provenance-value={value}>
-    <SemanticText as="code" className={`block break-all ${digestTone.textStrong}`} role="code-meta" text={value} />
+    <SemanticText as="p" className={`break-all ${digestTone.textStrong}`} role="code-meta" text={value} />
   </Layer>
 )
 
