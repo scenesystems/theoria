@@ -1,6 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Data, Duration, Effect, Equal, Layer, Match, Option, Schema, Stream } from "effect"
+import { Data, Duration, Effect, Equal, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
 
@@ -26,7 +26,7 @@ import { type ParticipantRole, type PlaceArtifact, placeFeatures } from "../../c
 import { motionDuration } from "../../contracts/motion.js"
 import { journeyFrom, toward, travellingOver } from "../motion/travel.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
-import { PlaceSearcher } from "../services/PlaceSearcher.js"
+import { PlaceSearcher, workerGone } from "../services/PlaceSearcher.js"
 import type { BrowserTextLayout } from "../text/browserTextLayout.js"
 import { type MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
@@ -154,7 +154,10 @@ const renderFailed = (message: string) => new DemoExecutionError({ code: "execut
  * scores each meander the worker proposes (`candidate`) and tells it the
  * loss. The worker samples the next trial while the page waits out the frame
  * delay, so the sampler's growing cost is off the drawing thread and out of
- * the trial's time alike.
+ * the trial's time alike. A worker that is gone — failed or fallen silent —
+ * is searched past once: the search starts over on the fresh worker the
+ * searcher spawns, and the same seed finds the same place. Only a second
+ * loss, or the search refusing what it was asked, is a failed drawing.
  */
 const search = (
   candidate: (meander: Meander) => Arrangement
@@ -180,7 +183,10 @@ const search = (
           ? Effect.succeedNone
           : Effect.map(trial(current), (next) => Option.some([next, Option.some(next)])))
     })
-  ).pipe(Stream.mapError((cause) => renderFailed(String(cause))))
+  ).pipe(
+    Stream.retry(Schedule.once.pipe(Schedule.whileInput(workerGone))),
+    Stream.mapError((cause) => renderFailed(String(cause)))
+  )
 
 /** How long the drawing takes to reach a new best: the theme's `shift`, or none when the reader asked for less motion. */
 const travelDuration = (motion: MotionPreference): Duration.Duration =>
@@ -275,16 +281,22 @@ const renderStream = (
           paper: heading.paper
         })
         const onTheWay = searchWhile(false)
+        const arrived = new PlaceRenderFrame({ ...landed, search: onTheWay })
         const paperOnTheWay = (drawn: PlaceDrawing): number =>
           done ? Math.max(drawn.paper, paperUnder(stage, drawn.markers)) : drawn.paper
-        return Stream.map(toward(travelling, journey, heading), (drawn) =>
+        // The drawing arrives, and lands a frame later: whatever stands at the
+        // arrival — the ring a disc will fill — is drawn exactly there before
+        // anything is swapped for it, whether it travelled or was placed outright.
+        return Stream.flatMap(toward(travelling, journey, heading), (drawn) =>
           Equal.equals(drawn, heading)
-            ? landed
-            : new PlaceRenderFrame({
-              search: onTheWay,
-              rendering: rendered(around(drawn.markers)),
-              paper: paperOnTheWay(drawn)
-            }))
+            ? Stream.concat(Stream.make(arrived), Stream.as(Stream.take(travelling.ticks, 1), landed))
+            : Stream.make(
+              new PlaceRenderFrame({
+                search: onTheWay,
+                rendering: rendered(around(drawn.markers)),
+                paper: paperOnTheWay(drawn)
+              })
+            ))
       }
 
       return search(candidate).pipe(

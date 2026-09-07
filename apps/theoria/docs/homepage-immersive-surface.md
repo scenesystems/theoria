@@ -367,18 +367,27 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       the search's settings (`Meander`, `meanderSpace`, `renderSeed`,
       `renderTrials`, `renderSampler`) and its protocol (`OpenSearch`,
       `AskSearch`, `TellSearch`, `CloseSearch`) are one contract; the
-      sampler runs in a worker (`@effect/platform` `Worker`, spawned once
-      per page by the platform module, `import/default` allowed there) and
-      the page scores each proposed meander with its own text metrics, so
-      the sampler's growing cost is off the drawing thread. `PlaceSearcher`
-      is a service in `placeRenderRuntime`'s layer next to the text layout.
+      sampler runs in a worker (`@effect/platform` `Worker`; the platform
+      module names its entry the standard way, `new Worker(new URL("…",
+      import.meta.url), { type: "module" })`, which every bundler resolves
+      at build time) and the page scores each proposed meander with its own
+      text metrics, so the sampler's growing cost is off the drawing thread.
+      `PlaceSearcher` is a service in `placeRenderRuntime`'s layer next to
+      the text layout. A worker that closes or is reclaimed says nothing to
+      the page, so every request is bounded (`answerWithin`, 3 s, far past
+      any honest answer): past it, or on a worker error, the worker is
+      forgotten and its scope closed, the render stream searches once more
+      on the fresh worker the next `open` spawns, and only a second loss is
+      a failed drawing with "Draw again".
 - [x] `PlaceMarker.tsx`: the text and the discs are one arrangement and are
       always drawn from the same state, and no disc is ever a Motion layout
       node: the frames own every position. A feature just merged is a
       dashed ring in its proposer's tone while the search makes room for
       it; when the search settles, the disc fades in exactly where the ring
       stands as the ring fades out (`AnimatePresence propagate`, exit 120
-      ms). A disc whose feature leaves the drawing fades where it stood. A
+      ms) — under reduced motion by opacity alone, with no scale written
+      for Motion to cancel, so no transform is ever on the disc. A disc
+      whose feature leaves the drawing fades where it stood. A
       trial's disc is a plain button, placed outright as the trace is
       scrubbed. Nothing flies across the prose: the earlier shared
       `layoutId` between the name and the disc drew the disc over the text
@@ -394,7 +403,12 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       travel begins with the first frame drawn, not when the target is set,
       so a page busy while a merge arrives does not spend the travel unseen.
       A target set again continues; a new target starts from wherever the
-      drawing is; reduced motion is a zero duration and places outright. A
+      drawing is; reduced motion is a zero duration and places outright.
+      The drawing arrives, and lands a frame later: the ring is committed
+      exactly where the disc fills in before it is swapped for the disc,
+      whether it travelled there or was placed there outright (placed
+      outright, an exiting ring would otherwise be frozen at the previous
+      best while the disc appeared at the new one). A
       `Journey` may owe a `rest`, counted from the first frame drawn: when
       the description changes, the drawing rests for the exit duration
       while the old lines leave, so lines flowed around where the discs
@@ -437,13 +451,20 @@ reducedMotion="user"` at the root (done on the toolchain branch).
 - [x] `test/worker/home-demo.test.ts` — _a merged feature fills the room the
       search made for it, never over the prose_: while the search runs the
       ring marks the room, the sheet holds its height and the paper is
-      `sketch`; the disc is only ever painted where the ring last stood,
+      `sketch`; at every sampled frame of the hand-off — the ring still
+      leaving as the disc arrives — both stand at one `translate`, the disc
       arrives at more than one transform, and at no sampled frame is a line
       of prose painted over any disc or ring (`platform/in-page.ts`
-      `mergeFrame`: circle against every line's box); _under reduced motion
-      the feature is placed outright, never over the prose_: one disc place,
-      one transform, no overlaps. `test/web/travel.test.ts` covers the
-      journey's rest, counted from the first frame drawn.
+      `mergeFrame`: circle against every line's box, a line painted at its
+      own opacity times its lines container's, so a set of lines that has
+      finished leaving is not painted); _under reduced motion the feature is
+      placed outright, never over the prose_: the same hand-off, one disc
+      place, one transform, no overlaps. `test/web/travel.test.ts` covers
+      the journey's rest, counted from the first frame drawn.
+      `test/web/place-searcher.test.ts` gives the searcher a worker manager
+      whose workers say nothing or fail: the request is given up on at the
+      answer bound and named, the worker's scope is closed, and the next
+      search spawns another.
       `test/contracts/motion.contract.test.ts` pins the tokens.
 
 ### Act 4 — Acts, provenance and weather

@@ -1,15 +1,16 @@
-import type { Worker } from "@effect/platform"
+import type { Worker as PlatformWorker } from "@effect/platform"
 import { BrowserWorker } from "@effect/platform-browser"
 import type { Layer } from "effect"
 
-import SearchWorker from "../place-search.worker.js?worker"
-
 /**
  * Spawns the arrangement search's Web Worker (`place-search.worker.ts`).
- * Vite's `?worker` import bundles that program root as its own entry and
- * gives back its constructor, so the worker's URL is never written down here.
- * Nothing is spawned until a `Worker.makeSerialized` asks.
+ * The entry is named the standard way — a module-relative URL against
+ * `import.meta.url` — which every bundler resolves at build time into its
+ * own chunk, so nothing here is particular to one of them. Nothing is
+ * spawned until a `Worker.makeSerialized` asks.
  *
  * @since 0.3.0
  */
-export const layer: Layer.Layer<Worker.WorkerManager | Worker.Spawner> = BrowserWorker.layer(() => new SearchWorker())
+export const layer: Layer.Layer<PlatformWorker.WorkerManager | PlatformWorker.Spawner> = BrowserWorker.layer(() =>
+  new Worker(new URL("../place-search.worker.ts", import.meta.url), { type: "module" })
+)

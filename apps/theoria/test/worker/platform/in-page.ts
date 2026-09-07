@@ -122,7 +122,10 @@ export const stageLayout = () => {
  * `translate` stand in one place, and a disc with no `transform` is filled in
  * and at rest. `overlaps`: every line of prose painted over any disc or ring,
  * as line index and feature name — the lines are flowed around the discs as
- * drawn, so every line's box must clear every circle at every frame.
+ * drawn, so every line's box must clear every circle at every frame. A line
+ * is painted at its own opacity times its lines container's: a set of lines
+ * that has finished leaving stands at opacity 0 for the frame before the
+ * next set mounts, and nothing at opacity 0 is painted.
  */
 export const mergeFrame = (
   region: Element,
@@ -138,10 +141,17 @@ export const mergeFrame = (
     translate: getComputedStyle(element).translate,
     transform: getComputedStyle(element).transform
   })
-  const lines = [...region.querySelectorAll("[data-place-line]")].map((element) => ({
-    index: element.getAttribute("data-place-line") ?? "",
-    rect: element.getBoundingClientRect()
-  }))
+  const opacity = (element: Element): number => Number(getComputedStyle(element).opacity)
+  const painted = (line: Element): boolean => {
+    const container = line.closest("[data-place-lines]")
+    return opacity(line) * (container ? opacity(container) : 1) > 0
+  }
+  const lines = [...region.querySelectorAll("[data-place-line]")]
+    .filter(painted)
+    .map((element) => ({
+      index: element.getAttribute("data-place-line") ?? "",
+      rect: element.getBoundingClientRect()
+    }))
   const discs = [...region.querySelectorAll("[data-place-marker], [data-place-marker-arriving]")].map((element) => {
     const rect = element.getBoundingClientRect()
     return {

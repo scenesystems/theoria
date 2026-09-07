@@ -7,6 +7,7 @@ import type { CSSProperties } from "react"
 
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { type PlaceDiscDrawn, placeDiscDrawnAtom } from "../../atoms/imagined-place-render.js"
+import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { departed, exitTransition } from "../primitives/motion.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
@@ -33,6 +34,19 @@ const markerStyle = (marker: Marker): CSSProperties => ({
 const filledFrom = { opacity: 0, scale: 0.9 }
 const filled = { opacity: 1, scale: 1 }
 const leaving = { ...departed, transition: exitTransition }
+
+/**
+ * How a settled disc fills in: hidden and a touch small, growing to size.
+ * Under reduced motion it fills in by opacity alone — no scale is written
+ * for Motion to cancel, so no transform is ever on the disc, not even for
+ * the frame between its first paint and Motion's first.
+ */
+const filling = (preference: MotionPreference) =>
+  Match.value(preference).pipe(
+    Match.when("full", () => ({ initial: filledFrom, animate: filled })),
+    Match.when("reduced", () => ({ initial: departed, animate: { opacity: 1 } })),
+    Match.exhaustive
+  )
 
 const triggerClassName =
   "absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0"
@@ -61,9 +75,9 @@ const popupClassName = [
  * transition on its position: the search's movement is drawn by the frames
  * themselves.
  */
-const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">) =>
+const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">, preference: MotionPreference) =>
   Match.value(drawn).pipe(
-    Match.when("settled", () => <m.button animate={filled} exit={leaving} initial={filledFrom} />),
+    Match.when("settled", () => <m.button exit={leaving} {...filling(preference)} />),
     Match.when("trial", () => <button />),
     Match.exhaustive
   )
@@ -95,6 +109,7 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
   const role = markerContributor(marker)
   const tone = markerTone(marker)
   const named = Option.isSome(labelWidth)
+  const preference = useAtomValue(motionPreferenceAtom)
 
   return (
     <Popover.Root modal={false}>
@@ -107,7 +122,7 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
         data-place-marker={marker.name}
         delay={120}
         openOnHover
-        render={discElement(drawn)}
+        render={discElement(drawn, preference)}
         style={markerStyle(marker)}
       >
         {Option.match(labelWidth, {

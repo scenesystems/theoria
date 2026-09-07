@@ -3,7 +3,6 @@ import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
 import { Chunk, Duration, Effect, Fiber, Layer, Option, Order, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
-import * as Str from "effect/String"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
@@ -126,13 +125,20 @@ const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     yield* count(ring, 0)
     yield* attribute(paper, "data-place-drawn", "kept")
     const frames = yield* Fiber.join(painted)
-    const rings = placesOf(frames, "ring")
     const discs = placesOf(frames, "disc")
+    // The frames of the hand-off itself: the ring still leaving as the disc arrives.
+    const handingOff = Arr.filter(
+      frames,
+      (frame) =>
+        Arr.some(frame.places, (place) => place.kind === "ring") &&
+        Arr.some(frame.places, (place) => place.kind === "disc")
+    )
     return {
       failures,
       name,
-      // The disc fills the ring: it is only ever painted where the ring last stood.
-      filledInPlace: Arr.getEquivalence(Str.Equivalence)(discs, Arr.takeRight(rings, 1)),
+      // The disc fills the ring: the hand-off is painted, and at every frame of it both stand in one place.
+      filledInPlace: Arr.isNonEmptyReadonlyArray(handingOff) &&
+        Arr.every(handingOff, (frame) => Arr.dedupe(Arr.map(frame.places, (place) => place.translate)).length === 1),
       // How many places the disc was painted at: one when it never moves.
       placed: Arr.length(discs),
       // The disc arrives with Motion in place, so it is painted at more than one transform on its way in.
@@ -256,10 +262,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
     it.scoped("under reduced motion the feature is placed outright, never over the prose", () =>
       Effect.gen(function*() {
-        const { arrivals, failures, overlaps, placed } = yield* mergeProgramProposal("reduce")
-        // Nothing travels: the drawing is placed outright at every best, the disc at the kept
-        // arrangement's the moment the trials are in — not where the ring last stood, when the
-        // last trial is the best. Motion drops the scale too, so the disc is at rest from its first frame.
+        const { arrivals, failures, filledInPlace, overlaps, placed } = yield* mergeProgramProposal("reduce")
+        // Nothing travels: the drawing is placed outright at every best, and the disc fills the
+        // ring by opacity alone — no scale is written for Motion to cancel, so the disc is at rest
+        // from its first frame.
+        expect(filledInPlace).toBe(true)
         expect(placed).toBe(1)
         expect(arrivals).toBe(1)
         expect(overlaps).toEqual([])
