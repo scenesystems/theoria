@@ -14,7 +14,7 @@ export const placeArriveText =
 
 /** Arrival at the demonstration: what it is, then how it works. */
 export const PlaceArrive = () => (
-  <Stack className="gap-4" data-place-arrive>
+  <Stack className="gap-4" data-place-act="arrive" data-place-arrive>
     <SemanticText
       as="h2"
       className="text-balance text-ink-950"

@@ -1,4 +1,3 @@
-import { Popover } from "@base-ui/react/popover"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { Match, Option } from "effect"
 import { AnimatePresence } from "motion/react"
@@ -6,14 +5,22 @@ import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
+import { placeActAtom, placeFeatureFocusedAtom } from "../../atoms/imagined-place-experience.js"
 import { type PlaceDiscDrawn, placeDiscDrawnAtom } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
-import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { Layer } from "../primitives/Layout.js"
 import { departed, exitTransition } from "../primitives/motion.js"
-import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
-import { discClassName, markerContributor, markerLabel, markerTone, participantLabel } from "./placeViewModel.js"
+import { ProvenanceMark } from "./PlaceProvenance.js"
+import {
+  discActOutline,
+  discClassName,
+  discFocusRing,
+  markerContributor,
+  markerLabel,
+  markerTone
+} from "./placeViewModel.js"
 
 /** Position with `translate`, which changes without re-laying out the text. */
 const markerStyle = (marker: Marker): CSSProperties => ({
@@ -48,8 +55,13 @@ const filling = (preference: MotionPreference) =>
     Match.exhaustive
   )
 
+/**
+ * The outline answers the act in view and the ring the mark under the
+ * pointer; both are always drawn, transparent when silent, so only their
+ * colours transition. Opacity is Motion's and is not transitioned.
+ */
 const triggerClassName =
-  "absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0"
+  "absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0"
 
 /** Named discs clip their label to the circle. */
 const namedTriggerClassName = "overflow-hidden"
@@ -60,14 +72,6 @@ const namedTriggerClassName = "overflow-hidden"
  * the drawing.
  */
 const numberedTriggerClassName = "before:absolute before:-inset-1 before:rounded-full before:content-['']"
-
-const popupClassName = [
-  "w-64 rounded-lg border border-stage-200/90 bg-stage-0/96 px-3 py-2.5 shadow-chip outline-none backdrop-blur-sm",
-  "origin-[var(--transform-origin)] transition-[opacity,transform] duration-150",
-  "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
-  "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
-  "motion-reduce:transition-none"
-].join(" ")
 
 /**
  * A settled disc fills in and fades out where it stands; a trial's disc is a
@@ -100,6 +104,12 @@ const ArrivingRing = ({ marker }: { readonly marker: Marker }) => (
   />
 )
 
+/**
+ * A disc is a mark of the one answer surface: pointing at it opens the
+ * feature's description, who added it and the call that placed it. It also
+ * answers back — to the act being read, with an outline, and to the code
+ * line that made it, with a ring.
+ */
 const Disc = ({ drawn, index, labelWidth, marker }: {
   readonly drawn: Exclude<PlaceDiscDrawn, "arriving">
   readonly index: number
@@ -110,70 +120,36 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
   const tone = markerTone(marker)
   const named = Option.isSome(labelWidth)
   const preference = useAtomValue(motionPreferenceAtom)
+  const act = useAtomValue(placeActAtom)
+  const focused = useAtomValue(placeFeatureFocusedAtom(marker.name))
 
   return (
-    <Popover.Root modal={false}>
-      <Popover.Trigger
-        aria-label={markerLabel(marker)}
-        className={`${triggerClassName} ${named ? namedTriggerClassName : numberedTriggerClassName} ${
-          discClassName(role)
-        } ${tone.focusRing}`}
-        closeDelay={80}
-        data-place-marker={marker.name}
-        delay={120}
-        openOnHover
-        render={discElement(drawn, preference)}
-        style={markerStyle(marker)}
-      >
-        {Option.match(labelWidth, {
-          onNone: () => (
-            <SemanticText as="span" className={tone.textStrong} role="tab-label" text={String(index + 1)} />
-          ),
-          onSome: (width) => (
-            <Layer className="shrink-0" style={{ width: `${width.toFixed(1)}px` }}>
-              <SemanticText
-                as="p"
-                className={`w-full ${tone.textStrong}`}
-                role="marker-label"
-                text={marker.name}
-                variant="compact"
-              />
-            </Layer>
-          )
-        })}
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner align="center" collisionPadding={12} side="top" sideOffset={8}>
-          <Popover.Popup className={popupClassName}>
-            <Stack className="gap-1.5">
-              <Cluster className="items-baseline gap-x-2 gap-y-1">
-                <Popover.Title render={<Layer className="min-w-0 max-w-full" />}>
-                  <SemanticText
-                    as="h3"
-                    className="truncate text-ink-900"
-                    role="selection-title"
-                    text={marker.name}
-                    variant="compact"
-                    wrapAuthority="native-browser"
-                  />
-                </Popover.Title>
-                <ParticipantName name={participantLabel(role)} tone={tone} />
-              </Cluster>
-              <Popover.Description render={<Layer />}>
-                <SemanticText
-                  as="p"
-                  className="text-ink-700"
-                  role="status"
-                  text={marker.description}
-                  variant="compact"
-                  wrapAuthority="native-browser"
-                />
-              </Popover.Description>
-            </Stack>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+    <ProvenanceMark
+      aria-label={markerLabel(marker)}
+      className={`${triggerClassName} ${named ? namedTriggerClassName : numberedTriggerClassName} ${
+        discClassName(role)
+      } ${tone.focusRing} ${discFocusRing(role)} ${discActOutline(act, marker)}`}
+      data-place-focused={focused ? "" : undefined}
+      data-place-marker={marker.name}
+      mark={{ _tag: "Feature", name: marker.name }}
+      render={discElement(drawn, preference)}
+      style={markerStyle(marker)}
+    >
+      {Option.match(labelWidth, {
+        onNone: () => <SemanticText as="span" className={tone.textStrong} role="tab-label" text={String(index + 1)} />,
+        onSome: (width) => (
+          <Layer className="shrink-0" style={{ width: `${width.toFixed(1)}px` }}>
+            <SemanticText
+              as="p"
+              className={`w-full ${tone.textStrong}`}
+              role="marker-label"
+              text={marker.name}
+              variant="compact"
+            />
+          </Layer>
+        )
+      })}
+    </ProvenanceMark>
   )
 }
 

@@ -1,20 +1,21 @@
-import { Match, Option } from "effect"
+import { Match, Option, Order, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import type { PlaceAct } from "../../../contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
-import type {
-  PlaceBuild,
-  PlaceEvidence,
+import {
+  type PlaceBuild,
+  type PlaceEvidence,
   PlaceMarker,
-  PlaceProjection,
-  ProposalRecord,
-  SealedNote,
-  SignatureRecord,
-  Version
+  type PlaceProjection,
+  type ProposalRecord,
+  type SealedNote,
+  type SignatureRecord,
+  type Version
 } from "../../../contracts/imagined-place-result.js"
 import type { ParticipantRole, PlaceArtifact } from "../../../contracts/imagined-place.js"
 import type { CardTone } from "../../../contracts/theme.js"
-import type { PlaceSearch } from "../../atoms/imagined-place-render.js"
+import type { PlaceDiscDrawn, PlaceSearch } from "../../atoms/imagined-place-render.js"
 import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
 
 /**
@@ -81,6 +82,133 @@ export const discClassName = (role: ParticipantRole): string =>
       "program",
       () => "bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60 shadow-chip"
     ),
+    Match.exhaustive
+  )
+
+/**
+ * The outline a disc wears while an act is in view. The outline is always
+ * present and transparent when the act says nothing about this disc, so only
+ * its colour ever transitions; Motion owns the disc's opacity and must not
+ * find a CSS transition on it.
+ */
+export const discActOutline = (act: PlaceAct, marker: PlaceMarker): string => {
+  const proposer = Option.fromNullable(marker.contributedBy)
+  return Match.value(act).pipe(
+    Match.when("compose", () => Option.isNone(proposer) ? "outline-tone-sign-400/70" : "outline-transparent"),
+    Match.when("propose", () =>
+      Option.match(proposer, {
+        onNone: () => "outline-transparent",
+        onSome: (role) =>
+          Match.value(role).pipe(
+            Match.when("author", () => "outline-tone-sign-400/70"),
+            Match.when("neighbor", () => "outline-tone-seal-400/70"),
+            Match.when("program", () => "outline-tone-dsp-400/70"),
+            Match.exhaustive
+          )
+      })),
+    Match.when("record", () => Option.isSome(proposer) ? "outline-tone-digest-400/70" : "outline-transparent"),
+    Match.when("arrive", () => "outline-transparent"),
+    Match.when("build", () => "outline-transparent"),
+    Match.exhaustive
+  )
+}
+
+/** The ring a disc wears while the code line that placed it is under the pointer. */
+export const discFocusRing = (role: ParticipantRole): string =>
+  Match.value(role).pipe(
+    Match.when("author", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-sign-300"),
+    Match.when("neighbor", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-seal-300"),
+    Match.when("program", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-dsp-300"),
+    Match.exhaustive
+  )
+
+/**
+ * A disc in the band's miniature: the contributor's tone as a flat fill, or
+ * as a dashed ring while the search is still making room for it. The stroke
+ * is kept at one width whatever the miniature's scale; a disc answering the
+ * code line that made it wears the contributor's ring, as on the stage.
+ */
+export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, focused: boolean): string =>
+  Match.value(drawn).pipe(
+    Match.when("arriving", () =>
+      Match.value(role).pipe(
+        Match.when("author", () =>
+          "fill-none stroke-tone-sign-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
+        Match.when("neighbor", () =>
+          "fill-none stroke-tone-seal-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
+        Match.when("program", () =>
+          "fill-none stroke-tone-dsp-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
+        Match.exhaustive
+      )),
+    Match.orElse(() =>
+      Match.value(role).pipe(
+        Match.when("author", () =>
+          focused
+            ? "fill-tone-sign-300 stroke-tone-sign-500 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-sign-300 stroke-transparent stroke-[3] [vector-effect:non-scaling-stroke]"),
+        Match.when("neighbor", () =>
+          focused
+            ? "fill-tone-seal-300 stroke-tone-seal-500 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-seal-300 stroke-transparent stroke-[3] [vector-effect:non-scaling-stroke]"),
+        Match.when("program", () =>
+          focused
+            ? "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-dsp-300 stroke-transparent stroke-[3] [vector-effect:non-scaling-stroke]"),
+        Match.exhaustive
+      )
+    )
+  )
+
+/** A disc of the place set in the band's row: the marker at its centre there. */
+export const BandDisc = Schema.Struct({
+  marker: PlaceMarker,
+  cx: Schema.Number
+})
+export type BandDisc = typeof BandDisc.Type
+
+/** The band's drawing, in the stage's own units: discs in a row on a strip of paper. */
+export const BandRow = Schema.Struct({
+  width: Schema.Number.pipe(Schema.positive()),
+  height: Schema.Number.pipe(Schema.positive()),
+  cy: Schema.Number,
+  discs: Schema.Array(BandDisc)
+})
+export type BandRow = typeof BandRow.Type
+
+/** Paper around the row, and paper between its discs, in stage units. */
+const bandMargin = 18
+const bandGap = 14
+
+/**
+ * The band drops the prose and keeps the discs, set in one row at the size
+ * they have on the stage: a merge arrives as one more disc, a code line
+ * pointed at lights the disc it made. Their places on the sheet are not
+ * kept — on a narrow stage they are one column beside the prose, and a
+ * strip has no room for a sheet — so the row reads left to right in the
+ * order the place names them.
+ */
+export const bandRow = (projection: PlaceProjection): BandRow =>
+  Arr.match(projection.markers, {
+    onEmpty: () => ({ width: bandMargin * 2, height: bandMargin * 2, cy: bandMargin, discs: [] }),
+    onNonEmpty: (markers) => {
+      // Each disc's left edge; the last entry is where one more would start.
+      const lefts = Arr.scan(markers, bandMargin, (left, marker) => left + marker.radius * 2 + bandGap)
+      const tallest = Arr.max(Arr.map(markers, (marker) => marker.radius), Order.number)
+      return {
+        width: Arr.lastNonEmpty(lefts) - bandGap + bandMargin,
+        height: tallest * 2 + bandMargin * 2,
+        cy: tallest + bandMargin,
+        discs: Arr.zipWith(markers, lefts, (marker, left) => ({ marker, cx: left + marker.radius }))
+      }
+    }
+  })
+
+/** A declined proposal's ghost: a dashed ring in the proposer's tone. */
+export const ghostClassName = (role: ParticipantRole): string =>
+  Match.value(role).pipe(
+    Match.when("author", () => "border-tone-sign-400/80"),
+    Match.when("neighbor", () => "border-tone-seal-400/80"),
+    Match.when("program", () => "border-tone-dsp-400/80"),
     Match.exhaustive
   )
 

@@ -28,6 +28,7 @@ import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { StageBanner } from "../primitives/StageBanner.js"
 
+import { inlineMarkClassName, ProvenanceMark } from "./PlaceProvenance.js"
 import { PlaceSearchTrace, PlaceSearchTracePending } from "./PlaceSearchTrace.js"
 import { PlaceStage } from "./PlaceStage.js"
 import { StageKnots } from "./PlaceStrand.js"
@@ -104,14 +105,18 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
   const setPreview = useAtomSet(placeTrialPreviewAtom)
   return (
     <Rail className="min-h-9 min-w-0 gap-2.5">
-      <Layer className="min-w-0" data-place-search-caption>
+      <ProvenanceMark
+        className={inlineMarkClassName}
+        data-place-search-caption
+        mark={{ _tag: "Trial", index: shown }}
+      >
         <SemanticText
           as="span"
           className="block truncate tabular-nums text-ink-500"
           role="code-meta"
           text={renderProgressText(search, shown)}
         />
-      </Layer>
+      </ProvenanceMark>
       {shown === search.bestIndex ? null : (
         <Button
           className={`shrink-0 ${pillButtonClassName({ active: false, tone: searchTone })}`}

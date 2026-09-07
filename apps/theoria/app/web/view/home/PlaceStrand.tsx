@@ -6,11 +6,11 @@ import type { PlaceBuild, PlaceEvidence, Version } from "../../../contracts/imag
 import { placeVersionChangeAtom } from "../../atoms/imagined-place.js"
 import { ChangedValue } from "../primitives/ChangedValue.js"
 import { dangerStatusTone, inlineStatusToneFor, toneClassesFor } from "../primitives/designSystem.js"
-import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 import { ContentId } from "./ContentId.js"
+import { StatusMark } from "./PlaceProvenance.js"
 import { isCurrentVersion, knotLabel, signatureFor, versionChanges, versionSignatureLabel } from "./placeViewModel.js"
 
 const digestTone = toneClassesFor("digest")
@@ -102,7 +102,11 @@ const Knot = ({ build, last, version }: {
           onNone: () => null,
           onSome: (signature) => (
             <Cluster>
-              <InlineStatus label={versionSignatureLabel(signature)} tone={signatureTone(signature.valid)} />
+              <StatusMark
+                label={versionSignatureLabel(signature)}
+                mark={{ _tag: "Signature", subject: version.contentId }}
+                tone={signatureTone(signature.valid)}
+              />
             </Cluster>
           )
         })}

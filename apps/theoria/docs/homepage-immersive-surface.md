@@ -291,7 +291,7 @@ was reversed — the page needs both.)
       (`howItsBuiltSectionId`, the one id both the hero and the section
       use). The demonstration shares the first viewport with the hero, so an
       action pointing at it was a step to nowhere; the first draft's `See the
-      place it built` was reversed.
+    place it built` was reversed.
 - [x] `PlaceArrive.tsx`: the demonstration opens with its own title as an
       `h2` in the page-title role (`placeArriveTitle`, "The packages at work":
       this is a demonstration of the packages, not the place), then one lead
@@ -306,9 +306,13 @@ was reversed — the page needs both.)
       acts.
 - [ ] `PlaceStage.tsx`: `placeStageWidthAtom` reads the content width;
       version knots rendered on the paper (Act 2, with the strand).
-- [ ] Below `lg`, the stage pins as a band (`sticky top-0`,
-      `max-h-[40vh] min-h-[12rem]`) that hides its prose via container query
-      (Act 4, with `placeActAtom`).
+- [x] Below `lg` — and at `lg` once the full-width Build act scrolls the
+      pinned stage away — the place stays as a band: `PlaceBand.tsx`, a
+      `sticky top-0` slot of no height at the head of the demonstration, so
+      the band coming and going moves nothing in the flow; the band is a strip
+      of paper with the discs in a row at their stage size, no prose, one link
+      back to the stage; shown by `placeBandAtom`, derived from the stage
+      column crossing the viewport's top edge (Act 4).
 - [x] `test/worker/home.test.ts` — _the hero and the place share the first
       viewport_: at 1440×900 the `h1`, its filled action, the place's title,
       the paper's top edge and a disc are inside the viewport before any
@@ -356,7 +360,7 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `placeDrawnAtom` (`kept` | `sketch` | `trial`). The frame is
       `PlaceRenderFrame { search, rendering, paper }`: the paper's height is
       part of the drawing and travels with the discs (`PlaceDrawing
-    { markers, paper }`, `drawingBetween`), so `placeSheetAtom` is the
+  { markers, paper }`, `drawingBetween`), so `placeSheetAtom` is the
       chosen width at once and the drawing's own height — `held` at the
       settled height while a search's trials run (a jump moves nothing
       around the stage, and the sticky stage column never shifts while the
@@ -376,7 +380,7 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `AskSearch`, `TellSearch`, `CloseSearch`) are one contract; the
       sampler runs in a worker (`@effect/platform` `Worker`; the platform
       module names its entry the standard way, `new Worker(new URL("…",
-      import.meta.url), { type: "module" })`, which every bundler resolves
+    import.meta.url), { type: "module" })`, which every bundler resolves
       at build time) and the page scores each proposed meander with its own
       text metrics, so the sampler's growing cost is off the drawing thread.
       `PlaceSearcher` is a service in `placeRenderRuntime`'s layer next to
@@ -514,24 +518,39 @@ reducedMotion="user"` at the root (done on the toolchain branch).
 
 ### Act 4 — Acts, provenance and weather
 
-- [ ] `atoms/imagined-place-experience.ts`: `placeActAtom`, `placeFocusAtom`,
-      `placeWorldAtom`; `contracts/demo/imagined-place-provenance.ts`:
-      `PlaceProvenance` and `provenanceFor` over `PlaceBuild` and
-      `PlaceRendering`.
-- [ ] `PlaceStage.tsx`: act answers (ghost discs in Propose, version
+- [x] `atoms/imagined-place-experience.ts`: `placeActAtom`, `placeFocusAtom`,
+      `placeWorldAtom`, `placeBandAtom`; `contracts/demo/imagined-place-provenance.ts`:
+      `PlaceMark`, `PlaceProvenance`, `PlaceAct`; `view/home/placeProvenance.ts`:
+      `provenanceFor` over `PlaceBuild` and the search. Focus is a mark; the
+      answer is derived.
+- [x] `PlaceStage.tsx`: act answers (ghost discs in Propose, version
       distinction in Record); `PlaceProvenance.tsx`: one overlay that renders
       any `PlaceProvenance`; disc popovers, ID tooltips and status pills fold
       into it.
-- [ ] `PlaceHowItsBuilt.tsx`: code lines carry `data-provenance`; focus on a
-      line writes `placeFocusAtom`; a focused mark highlights its line.
-- [ ] `styles.css`: `--th-world-{unfinished-light,lost-market,drowned-library}-*`
-      for light and dark; `:root[data-world]` selects them; contrast checked
-      per world per theme against rendered colors in `test/worker/home.test.ts`.
-- [ ] `test/worker/home-demo.test.ts` — _every mark answers_: for each
-      `[data-provenance]` in `main`, hover shows an overlay naming a package;
-      the count of marks without provenance is zero. _The world changes the
-      air_: switching scenario changes `data-world` on `:root` and the
-      computed canvas colour, and text colour does not change.
+- [x] `PlaceHowItsBuilt.tsx`: code lines carry `data-provenance`; pointing at
+      a line writes `placeFocusAtom`; a focused mark highlights its line, and
+      a focused line lights every disc it made, on the stage and in the band.
+- [x] `styles.css`: `--th-world-{canvas,paper,paper-edge,rule}` per world for
+      light and dark; `:root[data-world]` selects them; contrast checked per
+      world per theme against rendered colours in `test/worker/home-demo.test.ts`.
+- [x] `test/worker/home-demo.test.ts` — _every mark answers_: for each
+      `[data-provenance]` in the demonstration, hover shows an overlay naming
+      a package; a code line lights its discs. _The acts answer on the
+      stage_: scrolling to Propose changes `data-place-stage-act` and shows a
+      ghost. _The world changes the air_: switching scenario changes
+      `data-world` on `:root` and the computed canvas colour, text colour does
+      not change, and the prose on the paper reads at ≥ 4.5:1 in every world
+      and mode. _The band_: past the stage at 390 the band shows one disc per
+      marker and nothing in the flow moves; at 1280 it appears only for the
+      Build act, and a code line lights its discs there.
+- [x] `patches/@base-ui%2Freact@1.7.0.patch` (root `patchedDependencies`):
+      every `Popover.Trigger` on one root shares a single `HoverInteraction`,
+      and upstream (1.7.0, still 1.8.0) registers its `dispose` — which clears
+      the shared rest timer — on _each_ trigger's unmount. With hundreds of
+      marks on one root, any mark leaving during the 320 ms rest (a stage line
+      reflowing, prose departing) cancelled the hover-open of the mark under
+      the pointer until it moved again. The patch reference-counts consumers
+      and disposes only when the last leaves. To upstream.
 
 ### Act 5 — Responsive and environmental verification
 

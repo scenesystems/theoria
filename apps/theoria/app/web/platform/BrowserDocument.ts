@@ -1,4 +1,5 @@
 import { Context, Effect, Layer, Option, Schema, Stream } from "effect"
+import * as Arr from "effect/Array"
 
 /**
  * The document this page renders into, as a service. The head, the root
@@ -22,6 +23,15 @@ export const querySelector = (selector: string): Effect.Effect<Option.Option<HTM
     (browserDocument) => Option.fromNullable(browserDocument.querySelector<HTMLElement>(selector))
   )
 
+/** Every element the selector matches, in document order. */
+export const querySelectorAll = (
+  selector: string
+): Effect.Effect<ReadonlyArray<HTMLElement>, never, BrowserDocument> =>
+  Effect.map(
+    BrowserDocument,
+    (browserDocument) => Arr.fromIterable(browserDocument.querySelectorAll<HTMLElement>(selector))
+  )
+
 /** An element in the shell's `<head>`; a missing one is the server's to create, so callers usually do nothing. */
 export const headElement = (selector: string): Effect.Effect<Option.Option<HTMLElement>, never, BrowserDocument> =>
   Effect.map(
@@ -40,6 +50,23 @@ export const toggleRootClass = (name: string, present: boolean): Effect.Effect<v
   Effect.flatMap(BrowserDocument, (browserDocument) =>
     Effect.sync(() => {
       browserDocument.documentElement.classList.toggle(name, present)
+    }))
+
+/**
+ * Sets a `data-*` attribute on `<html>`; a state the whole page's CSS reads,
+ * such as the world the demo is set in, lives here beside the theme class.
+ */
+export const setRootData = (name: string, value: string): Effect.Effect<void, never, BrowserDocument> =>
+  Effect.flatMap(BrowserDocument, (browserDocument) =>
+    Effect.sync(() => {
+      browserDocument.documentElement.dataset[name] = value
+    }))
+
+/** Takes a `data-*` attribute off `<html>`. */
+export const removeRootData = (name: string): Effect.Effect<void, never, BrowserDocument> =>
+  Effect.flatMap(BrowserDocument, (browserDocument) =>
+    Effect.sync(() => {
+      browserDocument.documentElement.removeAttribute(`data-${name}`)
     }))
 
 /** Document events of one type as a stream; the listener is removed when the stream ends. */

@@ -4,9 +4,10 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { CheckIcon, ClipboardDocumentIcon, ExclamationCircleIcon } from "@heroicons/react/20/solid"
 import { Match } from "effect"
 import { Option } from "effect"
+import type { ReactNode } from "react"
 
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
-import type { CodeAnnotation } from "./code/CodeLine.js"
+import { type CodeAnnotation, CodeAnnotationRow } from "./code/CodeLine.js"
 import type { CodeLink } from "./code/codeLinks.js"
 import { HighlightedCode } from "./code/HighlightedCode.js"
 import type { CodeLanguage } from "./code/highlighter.js"
@@ -33,18 +34,25 @@ const languageLabel = (language: CodeLanguage): string =>
     Match.exhaustive
   )
 
+const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
+
 export const CodeBlock = ({
   annotations = [],
+  focusedMatch = Option.none(),
   label,
   language = "typescript",
   links = [],
+  renderAnnotation = defaultAnnotation,
   source
 }: {
   readonly annotations?: ReadonlyArray<CodeAnnotation>
+  /** The line the page is pointing at, by a substring unique to it. */
+  readonly focusedMatch?: Option.Option<string>
   /** A short title for the header's single fixed-height line ("Signature", "Example 2", a step name). */
   readonly label: string
   readonly language?: CodeLanguage
   readonly links?: ReadonlyArray<CodeLink>
+  readonly renderAnnotation?: (annotation: CodeAnnotation) => ReactNode
   readonly source: string
 }) => {
   const copy = useAtomSet(copyDocsCodeAtom)
@@ -93,8 +101,10 @@ export const CodeBlock = ({
             <Layer render={<pre />} className="m-0 min-w-max px-4 py-5 sm:px-5">
               <HighlightedCode
                 annotations={annotations}
+                focusedMatch={focusedMatch}
                 language={language}
                 links={links}
+                renderAnnotation={renderAnnotation}
                 source={source}
                 variant="expanded"
               />

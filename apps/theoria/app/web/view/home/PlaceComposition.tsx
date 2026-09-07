@@ -6,12 +6,12 @@ import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceFeature } from "../../../contracts/imagined-place.js"
 import { briefIsEdited, placeControlsAtom } from "../../atoms/imagined-place.js"
 import { inlineStatusToneFor, toneClassesFor } from "../primitives/designSystem.js"
-import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
 import { PlaceControls } from "./PlaceControls.js"
+import { inlineMarkClassName, ProvenanceMark, StatusMark } from "./PlaceProvenance.js"
 import { participantTone } from "./placeViewModel.js"
 
 const authorTone = toneClassesFor(participantTone("author"))
@@ -21,7 +21,9 @@ const inferenceTone = inlineStatusToneFor("dsp")
 const FeatureName = ({ feature, first }: { readonly feature: PlaceFeature; readonly first: boolean }) => (
   <Layer render={<span />} className="inline-flex items-baseline gap-2">
     {first ? null : <Layer aria-hidden render={<span />} className="text-ink-400">·</Layer>}
-    <SemanticText as="span" className={authorTone.textStrong} role="selection-title" text={feature.name} />
+    <ProvenanceMark className={inlineMarkClassName} mark={{ _tag: "Feature", name: feature.name }}>
+      <SemanticText as="span" className={authorTone.textStrong} role="selection-title" text={feature.name} />
+    </ProvenanceMark>
   </Layer>
 )
 
@@ -50,7 +52,7 @@ const Composed = ({ build, edited }: { readonly build: PlaceBuild; readonly edit
         variant="compact"
         wrapAuthority="native-browser"
       />
-      <InlineStatus label="Recorded inference" tone={inferenceTone} />
+      <StatusMark label="Recorded inference" mark={{ _tag: "Inference" }} tone={inferenceTone} />
     </Cluster>
     <Cluster className="gap-x-2 gap-y-1" data-place-features>
       {Arr.map(

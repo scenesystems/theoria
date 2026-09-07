@@ -5,8 +5,9 @@ import { Chunk, Duration, Effect, Fiber, Layer, Option, Order, Schedule, Schema,
 import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
+import { placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
-import type { ReducedMotion } from "./browser.js"
+import type { ColorScheme, ReducedMotion } from "./browser.js"
 import {
   act,
   animationsSettled,
@@ -26,6 +27,7 @@ import {
   openPage,
   overflowingElements,
   press,
+  setColorScheme,
   setViewport,
   until,
   urlMatches,
@@ -34,20 +36,31 @@ import {
 import {
   activeElementOpensDocsLink,
   activeElementRole,
+  canvasColour,
   currentLocation,
   discsAtRest,
+  documentTop,
   insideViewportRight,
   isActiveElement,
   markerPositionsInStage,
   mergeFrame,
+  paperProseContrast,
   recordedPaperFrames,
   recordPaperFrames,
+  rootWorld,
+  scrollElementTo,
+  scrollPast,
+  scrollToTop,
   stageAndColumnWidths,
-  stageLayout
+  stageLayout,
+  textColour
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
+
+/** Both modes the page is read in. */
+const colorSchemes: ReadonlyArray<ColorScheme> = ["light", "dark"]
 
 /**
  * How many error banners the page shows, sampled a frame apart from now until
@@ -274,7 +287,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const contentId = page.locator("[data-place-content-id]").first()
         yield* hover(contentId)
         yield* attribute(contentId, "data-popup-open", "")
-        yield* visible(page.getByText("Click to copy"))
+        yield* visible(page.locator("[data-place-provenance] [data-place-provenance-copy]"))
         expect(yield* failures).toEqual([])
       }))
 
@@ -492,6 +505,124 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* press(page, "Enter")
         yield* eventually(() => page.evaluate(currentLocation), href)
         yield* attached(page.locator(`#${href.slice(href.indexOf("#") + 1)}`))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("every mark answers, and the answer lights what made it", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const overlay = page.locator("[data-place-provenance]")
+
+        // Every mark on the page, pointed at, names the package whose call made it.
+        const marks = demo.locator("[data-provenance]")
+        const total = yield* act(() => marks.count())
+        expect(total).toBeGreaterThan(0)
+        const pointable = yield* Effect.filter(Arr.range(0, total - 1), (index) =>
+          act(() => marks.nth(index).isVisible()))
+        expect(pointable.length).toBeGreaterThan(0)
+        yield* Effect.forEach(pointable, (index) =>
+          Effect.gen(function*() {
+            const mark = marks.nth(index)
+            yield* act(() =>
+              mark.scrollIntoViewIfNeeded()
+            )
+            yield* hover(mark)
+            yield* visible(overlay)
+            yield* attribute(overlay.locator("a[href^='/docs/']").first(), "href", /^\/docs\/[a-z-]+$/u)
+          }))
+
+        // A code line pointed at is lit, and so is every disc it made.
+        const composeLine = page.locator("[data-place-code-step='compose'] [data-code-annotation]").first()
+        yield* act(() => composeLine.scrollIntoViewIfNeeded())
+        yield* hover(composeLine)
+        yield* visible(overlay)
+        yield* count(page.locator("[data-code-line-focused]"), 1)
+        yield* count(demo.locator("[data-place-marker][data-place-focused]"), 4)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the acts answer on the stage", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const stage = page.locator("[data-place-stage-act]")
+        yield* attribute(stage, "data-place-stage-act", "arrive")
+
+        yield* act(() => page.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
+        yield* attribute(stage, "data-place-stage-act", "propose")
+        yield* until(act(() => page.locator("[data-place-ghost]").count()), (ghosts) => ghosts >= 1, "a ghost disc")
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the world changes the air, and the prose reads in every world and mode", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
+        const title = page.locator("h1")
+
+        const airBefore = yield* act(() => page.evaluate(canvasColour))
+        const inkBefore = yield* act(() => title.evaluate(textColour))
+        yield* click(scenarios.getByRole("radio", { name: placeScenarioMeta["lost-market"].label }))
+        yield* eventually(() => page.evaluate(rootWorld), "lost-market")
+        yield* until(act(() => page.evaluate(canvasColour)), (air) => air !== airBefore, "the canvas colour changing")
+        expect(yield* act(() => title.evaluate(textColour))).toBe(inkBefore)
+
+        yield* Effect.forEach(colorSchemes, (scheme) =>
+          Effect.gen(function*() {
+            yield* setColorScheme(page, scheme)
+            yield* Effect.forEach(placeScenarios, (scenario) =>
+              Effect.gen(function*() {
+                yield* click(scenarios.getByRole("radio", { name: placeScenarioMeta[scenario].label }))
+                yield* eventually(() => page.evaluate(rootWorld), scenario)
+                const contrast = yield* until(
+                  act(() => page.evaluate(paperProseContrast)),
+                  (ratio) => ratio >= 4.5,
+                  `prose contrast in ${scenario} ${scheme}`
+                )
+                expect(contrast).toBeGreaterThanOrEqual(4.5)
+              }))
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the place stays as a band while the stage is scrolled past, and moves nothing", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const band = page.locator("[data-place-band]")
+        const column = demo.locator("[data-place-stage='column']")
+        const compose = demo.locator("[data-place-act='compose']")
+        yield* hidden(band)
+
+        const composeTop = yield* act(() => compose.evaluate(documentTop))
+        yield* act(() => column.evaluate(scrollPast))
+        yield* visible(band)
+        const markers = yield* act(() => demo.locator("[data-place-marker]").count())
+        yield* count(band.locator("[data-place-band-disc]"), markers)
+        expect(yield* act(() => compose.evaluate(documentTop))).toBe(composeTop)
+
+        yield* act(() => page.evaluate(scrollToTop))
+        yield* hidden(band)
+
+        // At the reading width the stage is pinned beside the acts; only the Build act scrolls it away.
+        yield* setViewport(page, { width: 1280, height: 800 })
+        yield* act(() => demo.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
+        yield* hidden(band)
+        const build = demo.locator("[data-place-act='build']")
+        yield* act(() => build.evaluate(scrollElementTo, 0))
+        yield* visible(band)
+        const composeLine = build.locator("[data-place-code-step='compose'] [data-code-annotation]").first()
+        yield* hover(composeLine)
+        yield* count(band.locator("[data-place-band-disc][data-place-focused]"), 4)
         expect(yield* failures).toEqual([])
       }))
   }

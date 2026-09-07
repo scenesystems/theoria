@@ -6,8 +6,10 @@ import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
 import { toneForCard } from "../../../contracts/theme.js"
+import { placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
 import { placeSearchAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildAtom, placeBuildShaAtom, placeStepAtom } from "../../atoms/imagined-place.js"
+import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { DocsLink } from "../primitives/DocsLink.js"
@@ -18,6 +20,7 @@ import { Tab, TabBar, TabGroup, TabPanel } from "../primitives/TabBar.js"
 
 import { howItsBuiltSectionId } from "./HomeHero.js"
 import { placeLiveValues } from "./placeLiveValues.js"
+import { ProvenanceMark } from "./PlaceProvenance.js"
 import {
   commitUrl,
   type PlaceReference,
@@ -94,22 +97,43 @@ const StepTabs = () => (
 )
 
 /**
+ * A live value is a mark: pointing at it answers with the thing the line
+ * made, on the page, and lights that thing where it stands.
+ */
+const annotationMarkClassName =
+  "inline-flex cursor-default rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 data-[popup-open]:ring-2 data-[popup-open]:ring-ink-900/20"
+
+/**
  * The step's code with two things a listing cannot show: every API name links
  * to its reference page, and beside the lines that produced them are the
  * values from the build on this page. The header names only the step; which
  * package each call comes from is beside that call in the reference rail.
+ * While a mark on the page is pointed at, the line that made it is lit.
  */
 const StepCode = ({ step }: { readonly step: PlaceStep }) => {
   const build = Result.value(useAtomValue(placeBuildAtom))
   const search = Result.value(useAtomValue(placeSearchAtom))
+  const focusedSite = useAtomValue(placeFocusedSiteAtom)
   const definition = placeStepDefinition(step)
 
   return (
     <Layer data-place-code-step={step} key={placeStepIndex(step)}>
       <CodeBlock
         annotations={placeLiveValues(step, build, search)}
+        focusedMatch={Option.map(
+          Option.filter(focusedSite, (site) => site.step === step),
+          (site) => site.match
+        )}
         label={definition.name}
         links={referenceLinks(step)}
+        renderAnnotation={(annotation) => (
+          <ProvenanceMark
+            className={annotationMarkClassName}
+            mark={{ _tag: "CodeLine", step, match: annotation.match }}
+          >
+            <CodeAnnotationRow text={annotation.text} />
+          </ProvenanceMark>
+        )}
         source={definition.code}
       />
     </Layer>
@@ -143,6 +167,7 @@ export const PlaceHowItsBuilt = () => {
     <Section
       aria-label="How it's built"
       className="scroll-mt-6 border-t border-stage-200/85 pt-6 lg:pt-8"
+      data-place-act="build"
       data-place-how-its-built
       id={howItsBuiltSectionId}
     >

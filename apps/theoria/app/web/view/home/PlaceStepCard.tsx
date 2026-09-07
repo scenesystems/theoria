@@ -1,11 +1,13 @@
 import { Button } from "@base-ui/react/button"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
 import { cards } from "../../../contracts/card.js"
+import { PlaceAct } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { Id as CardId } from "../../../contracts/id.js"
+import { placeActAttribute } from "../../atoms/imagined-place-experience.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { PackageName } from "../primitives/PackageName.js"
@@ -38,6 +40,17 @@ const spineDot = (active: boolean) => (
   </Layer>
 )
 
+const actOf = Schema.decodeUnknownOption(PlaceAct)
+
+/**
+ * A step on the spine is an act of the story: a landmark the stage answers
+ * when it is read. The stage's own step is not an act; it is what answers.
+ */
+const landmark = (spine: StepSpine, step: PlaceStep): { readonly [placeActAttribute]?: PlaceAct } =>
+  spine === "spine"
+    ? Option.match(actOf(step), { onNone: () => ({}), onSome: (act) => ({ [placeActAttribute]: act }) })
+    : {}
+
 /**
  * One step of the story: its name, the packages that do the work, and the
  * live object the step produced. Choosing a step points the code panel at it;
@@ -58,6 +71,7 @@ export const PlaceStepCard = (
         : "grid grid-cols-1"}
       data-place-step={step}
       data-place-step-active={active ? "true" : "false"}
+      {...landmark(spine, step)}
     >
       {spine === "spine" ? spineDot(active) : null}
       <Stack className="min-w-0 gap-3.5">

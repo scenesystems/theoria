@@ -128,5 +128,8 @@
     "*.{md,json,yml,yaml}": [
       "prettier --write"
     ]
+  },
+  "patchedDependencies": {
+    "@base-ui/react@1.7.0": "patches/@base-ui%2Freact@1.7.0.patch"
   }
 }

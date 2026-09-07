@@ -263,3 +263,61 @@ export const topEdgeInViewport = (element: Element) => {
 
 /** Back to the top of the document, as a fresh load would be. */
 export const scrollToTop = () => window.scrollTo(0, 0)
+
+/** Scrolls so the element's top edge stands at the given share of the viewport's height. */
+export const scrollElementTo = (element: Element, share: number) => {
+  window.scrollBy(0, element.getBoundingClientRect().top - window.innerHeight * share)
+}
+
+/** Scrolls until the element's bottom edge is just above the viewport: read past. */
+export const scrollPast = (element: Element) => {
+  window.scrollBy(0, element.getBoundingClientRect().bottom + 1)
+}
+
+/** The element's top edge in the document, which scrolling cannot move: where it stands in the flow. */
+export const documentTop = (element: Element) => Math.round(element.getBoundingClientRect().top + window.scrollY)
+
+/** The world the root carries, or the empty string off the home page. */
+export const rootWorld = () => document.documentElement.dataset["world"] ?? ""
+
+/** The page canvas colour, as painted. */
+export const canvasColour = () => getComputedStyle(document.body).backgroundColor
+
+/** The element's text colour, as painted. */
+export const textColour = (element: Element) => getComputedStyle(element).color
+
+/**
+ * The lowest WCAG contrast ratio between the prose on the paper and the two
+ * colours the paper is painted with, `--th-world-paper` and
+ * `--th-world-paper-edge`, in the world and mode the root is in now. The
+ * paper is a gradient between the two, so the prose must read against both.
+ * Colours are read as the browser paints them: a probe element takes each
+ * variable as its background and reports the computed `rgb(...)`.
+ */
+export const paperProseContrast = (): number => {
+  const channel = (value: number): number => {
+    const share = value / 255
+    return share <= 0.04045 ? share / 12.92 : ((share + 0.055) / 1.055) ** 2.4
+  }
+  const luminance = (rgb: string): number => {
+    const [r = 0, g = 0, b = 0] = (rgb.match(/[\d.]+/gu) ?? []).map(Number)
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+  }
+  const contrast = (a: string, b: string): number => {
+    const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+    return ((light ?? 0) + 0.05) / ((dark ?? 0) + 0.05)
+  }
+  const painted = (variable: string): string => {
+    const probe = document.body.appendChild(document.createElement("div"))
+    probe.style.backgroundColor = `var(${variable})`
+    const colour = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return colour
+  }
+  const papers = [painted("--th-world-paper"), painted("--th-world-paper-edge")]
+  const ratios = [...document.querySelectorAll("[data-place-line] span")].flatMap((line) => {
+    const ink = getComputedStyle(line).color
+    return papers.map((paper) => contrast(ink, paper))
+  })
+  return ratios.length > 0 ? Math.min(...ratios) : 0
+}

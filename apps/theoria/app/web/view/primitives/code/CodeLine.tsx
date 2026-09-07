@@ -1,4 +1,4 @@
-import { type Option, Schema } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { DocsLink } from "../DocsLink.js"
@@ -73,6 +73,10 @@ export const annotationFor = (
   const text = lineText(tokens)
   return Arr.findFirst(annotations, (annotation) => text.includes(annotation.match))
 }
+
+/** Whether this line is the one a match names. */
+export const lineMatches = (tokens: ReadonlyArray<HighlightToken>, match: Option.Option<string>): boolean =>
+  Option.exists(match, (needle) => lineText(tokens).includes(needle))
 
 /** One line of a sample: its tokens, with named symbols linked to the API reference. */
 export const CodeLine = ({

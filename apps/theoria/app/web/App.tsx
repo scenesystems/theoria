@@ -4,6 +4,7 @@ import { Match } from "effect"
 import { domMax, LazyMotion, MotionConfig } from "motion/react"
 import type { ReactNode } from "react"
 
+import { placeWorldApplicationAtom } from "./atoms/imagined-place-experience.js"
 import { motionConfigReducedMotion, motionPreferenceAtom } from "./atoms/motion.js"
 import { browserMetadataMountAtom, browserNavigationMountAtom, pageRouteAtom } from "./atoms/navigation.js"
 import { colorModeApplicationAtom } from "./atoms/theme.js"
@@ -18,6 +19,7 @@ const AppShell = () => {
   useAtomValue(browserNavigationMountAtom)
   useAtomMount(browserMetadataMountAtom)
   useAtomMount(colorModeApplicationAtom)
+  useAtomMount(placeWorldApplicationAtom)
   const route = useAtomValue(pageRouteAtom)
 
   return Match.value(route).pipe(

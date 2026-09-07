@@ -11,6 +11,7 @@ import type { CSSProperties } from "react"
 import { stageFor } from "../../../contracts/demo/imagined-place-flow.js"
 import type { PlaceLine, PlaceMarker, PlaceProjection } from "../../../contracts/imagined-place-result.js"
 import { useElementWidthReporter } from "../../atoms/element-observation.js"
+import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import {
   type PlaceDrawn,
   placeDrawnAtom,
@@ -27,7 +28,9 @@ import { departed, exitTransition, staggeredArrival } from "../primitives/motion
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
+import { PlaceGhosts } from "./PlaceGhosts.js"
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
+import { ProvenanceMark } from "./PlaceProvenance.js"
 import { markerLabel, markerTone, searching } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
 
@@ -51,21 +54,36 @@ const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSPro
 const lineArrivalFrom = { opacity: 0 }
 const lineArrivedAt = { opacity: 1 }
 
+/**
+ * A line of prose is a mark for the pointer alone: resting on it says how
+ * the line was set, in words the layout engine chose. It is not a button and
+ * not in the tab order, so a screen reader reads the prose as prose; the
+ * same facts are reached from the keyboard at the code panel, where the line
+ * of code that set them is a mark too. While answered, the line wears a
+ * faint wash. The lines' sheet itself lets the pointer through to the discs
+ * beneath it; only the lines take it.
+ */
+const lineClassName =
+  "pointer-events-auto absolute overflow-hidden rounded-sm transition-colors duration-150 ease-theme data-[popup-open]:bg-ink-900/5 motion-reduce:transition-none"
+
 const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; readonly prose: string }) => (
   <AnimatePresence initial={false} mode="wait">
     <Layer
       render={<m.div exit={departed} transition={exitTransition} />}
-      className="absolute inset-0"
+      className="pointer-events-none absolute inset-0"
       data-place-lines
       key={prose}
     >
       {Arr.map(projection.lines, (line, index) => (
-        <Layer
+        <ProvenanceMark
           render={<m.div animate={lineArrivedAt} initial={lineArrivalFrom} transition={staggeredArrival(index)} />}
-          className="absolute overflow-hidden"
+          className={lineClassName}
           data-place-line={String(index)}
           key={index}
+          mark={{ _tag: "Line", index }}
+          nativeButton={false}
           style={lineStyle(line, projection.padding, projection.lineHeight)}
+          tabIndex={-1}
         >
           <SemanticText
             as="span"
@@ -75,7 +93,7 @@ const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; re
             variant="expanded"
             wrapAuthority="native-browser"
           />
-        </Layer>
+        </ProvenanceMark>
       ))}
     </Layer>
   </AnimatePresence>
@@ -86,17 +104,20 @@ const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; re
  * as buttons, the text above both. The discs are keyed by the trial drawn, so
  * swapping trials places them outright, while the search's own progress moves
  * the same discs. A disc whose feature leaves the drawing — declined, or gone
- * with the scenario — fades where it stood.
+ * with the scenario — fades where it stood. The drawing carries the act being
+ * read, which its discs and ghosts answer.
  */
 const Drawing = ({ frame, shown }: {
   readonly frame: PlaceRenderFrame
   readonly shown: string
 }) => {
   const projection = frame.rendering.projection
+  const act = useAtomValue(placeActAtom)
   return (
     <Layer
       aria-busy={searching(frame.search)}
       className="relative"
+      data-place-stage-act={act}
       data-place-stage="content"
       data-place-stage-width={String(projection.stageWidth)}
       style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px` }}
@@ -114,6 +135,7 @@ const Drawing = ({ frame, shown }: {
           />
         ))}
       </AnimatePresence>
+      <PlaceGhosts padding={projection.padding} stageWidth={projection.stageWidth} />
       <Lines projection={projection} prose={frame.search.prose} />
     </Layer>
   )
@@ -122,12 +144,14 @@ const Drawing = ({ frame, shown }: {
 /**
  * The paper's height is moved by the frames themselves, so nothing is added
  * to it; its width is recut in one step when the visitor chooses another, and
- * eases there.
+ * eases there. Its colour is the world's: the gradient's stops are registered
+ * properties, so changing worlds eases the paper's tint at the theme's shift
+ * duration, as the canvas behind it does.
  */
 const paperClassName =
-  "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[width] duration-200 ease-out motion-reduce:transition-none"
+  "group/stage relative bg-radial-[at_20%_0%] from-world-paper to-world-paper-edge transition-[width,--tw-gradient-from,--tw-gradient-to] [transition-duration:200ms,var(--th-motion-duration-shift),var(--th-motion-duration-shift)] ease-out motion-reduce:transition-none"
 const fadeClassName =
-  "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-stage-0 via-stage-0/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
+  "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-world-paper-edge via-world-paper-edge/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
 const scrollbarClassName =
   "flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/stage:opacity-100"
 

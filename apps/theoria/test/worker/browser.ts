@@ -123,6 +123,10 @@ export const press = (page: Page, key: string) => act(() => page.keyboard.press(
 export const wheel = (page: Page, deltaX: number, deltaY: number) => act(() => page.mouse.wheel(deltaX, deltaY))
 export const fill = (locator: Locator, value: string) => act(() => locator.fill(value))
 export const setViewport = (page: Page, viewport: Viewport) => act(() => page.setViewportSize(viewport))
+/** The reader's system colour scheme, as the page's `prefers-color-scheme` media query reports it. */
+export const ColorScheme = Schema.Literal("light", "dark")
+export type ColorScheme = typeof ColorScheme.Type
+export const setColorScheme = (page: Page, scheme: ColorScheme) => act(() => page.emulateMedia({ colorScheme: scheme }))
 
 export const visible = (locator: Locator) => act(() => inBrowser(locator).toBeVisible())
 export const hidden = (locator: Locator) => act(() => inBrowser(locator).toBeHidden())
