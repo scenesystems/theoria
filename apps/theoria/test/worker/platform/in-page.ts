@@ -454,6 +454,9 @@ export const topEdgeInViewport = (element: Element) => {
   return rect.top >= 0 && rect.top < window.innerHeight && rect.height > 0
 }
 
+/** Top edge in viewport pixels, for environmental-test evidence. */
+export const viewportTop = (element: Element) => Math.round(element.getBoundingClientRect().top)
+
 /** Whether all of an element is inside the viewport. */
 export const fullyInViewport = (element: Element) => {
   const rect = element.getBoundingClientRect()
@@ -515,6 +518,75 @@ export const textColour = (element: Element) => getComputedStyle(element).color
 
 /** The element's painted surface — its background image, gradient stops and all — as one string. */
 export const surfacePaint = (element: Element) => getComputedStyle(element).backgroundImage
+
+/** WCAG contrast of an element's text against the nearest opaque painted ancestor. */
+export const textContrastOf = (element: Element): number => {
+  const channels = (colour: string): ReadonlyArray<number> => {
+    const canvas = document.createElement("canvas")
+    canvas.width = 1
+    canvas.height = 1
+    const context = canvas.getContext("2d")
+    if (!context) return [0, 0, 0, 0]
+    context.clearRect(0, 0, 1, 1)
+    context.fillStyle = colour
+    context.fillRect(0, 0, 1, 1)
+    const [red = 0, green = 0, blue = 0, alpha = 0] = context.getImageData(0, 0, 1, 1).data
+    return [red, green, blue, alpha / 255]
+  }
+  const opaqueBackground = (node: Element): string => {
+    const colour = getComputedStyle(node).backgroundColor
+    const values = channels(colour)
+    const alpha = values[3] ?? 1
+    const parent = node.parentElement
+    if (alpha >= 1) return colour
+    if (!(parent instanceof Element)) {
+      const probe = document.body.appendChild(document.createElement("span"))
+      probe.style.backgroundColor = "var(--th-stage-50)"
+      const canvas = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return canvas
+    }
+    const beneath = channels(opaqueBackground(parent))
+    return `rgb(${String((values[0] ?? 0) * alpha + (beneath[0] ?? 0) * (1 - alpha))} ${
+      String((values[1] ?? 0) * alpha + (beneath[1] ?? 0) * (1 - alpha))
+    } ${String((values[2] ?? 0) * alpha + (beneath[2] ?? 0) * (1 - alpha))})`
+  }
+  const channel = (value: number) => {
+    const share = value / 255
+    return share <= 0.04045 ? share / 12.92 : ((share + 0.055) / 1.055) ** 2.4
+  }
+  const luminance = (colour: string) => {
+    const [r = 0, g = 0, b = 0] = channels(colour)
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+  }
+  const values = [luminance(getComputedStyle(element).color), luminance(opaqueBackground(element))]
+    .sort((left, right) => right - left)
+  return ((values[0] ?? 0) + 0.05) / ((values[1] ?? 0) + 0.05)
+}
+
+/** Properties currently animated by CSS transitions, keyframes, or WAAPI. */
+export const animatedProperties = (): ReadonlyArray<string> =>
+  document.getAnimations().flatMap((animation) => {
+    if (animation instanceof CSSTransition) return animation.transitionProperty.split(",").map((name) => name.trim())
+    const omitted = ["offset", "computedOffset", "easing", "composite"]
+    return animation.effect instanceof KeyframeEffect ?
+      animation.effect.getKeyframes().flatMap((frame) =>
+        Reflect.ownKeys(frame).filter((name): name is string => typeof name === "string" && !omitted.includes(name))
+      ) :
+      []
+  })
+
+/** Rounded rects of stable landmarks and named markers, suitable for frame sampling. */
+export const retainedRects = (): ReadonlyArray<string> =>
+  [...document.querySelectorAll("h1, [data-place-step-header], [data-place-stage='paper']")]
+    .map((element) => {
+      const rect = element.getBoundingClientRect()
+      const name = element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-step-header") ??
+        element.tagName
+      return `${name}:${String(Math.round(rect.x))},${String(Math.round(rect.y))},${String(Math.round(rect.width))},${
+        String(Math.round(rect.height))
+      }`
+    })
 
 /**
  * The lowest WCAG contrast ratio between the prose on the paper and the two

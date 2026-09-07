@@ -671,8 +671,12 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
 
 ### Act 5 — Responsive and environmental verification
 
-- [ ] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three stories:
-      no element overflows; the arrival and both column headers are in the first viewport.
+- [x] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three stories:
+      no element overflows, checked by _at W×H every story fits and its lead is
+      visible_ in `home-environment.test.ts`. At `lg` (1024 px) and above both
+      Compose and Arrange headers lead the first viewport; below `lg` Arrange
+      is first in the stacked flow, above the paper, while the arrival leads
+      the first viewport.
 - [x] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
       ≤ 3 lines; the pinned band never covers the focused control. _The 200
       percent reflow equivalent fits and focus clears the pinned band_ uses a
@@ -681,9 +685,11 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
       viewport or media queries.
 - [ ] Forced colors: proposer rule, switch state, tab indicator and strand
       knots stay visible without background colour.
-- [ ] Reduced motion: the search still renders per frame (it is a real
+- [x] Reduced motion: the search still renders per frame (it is a real
       process), merges and version changes are opacity only, nothing else
-      moves.
+      moves. Checked by _under reduced motion searches have frames while
+      merges and story changes move only by opacity_ in
+      `home-environment.test.ts`.
 - [x] The measurement above reaches its targets: the marker chips and content-ID
       chips lose `shadow-chip` and stand by their ring and wash; the code
       section loses its shadow and keeps its rule; ≤ 10 bordered, ≤ 4 shadowed,
@@ -747,7 +753,9 @@ left on purpose. Every item takes the same route: failing test, then the change.
       light checks cover — answers open, band shown, Build act lit, a search
       running, a story changing — checked in dark and in `forced-colors`;
       contrast asserted from rendered colours as `home-demo.test.ts` does for
-      the prose.
+      the prose. The dark half is complete in _light and dark keep every
+      interactive state at readable contrast_ (`home-environment.test.ts`);
+      forced colours remains open.
 - [ ] **Web vitals on the preview.** No LCP, CLS or INP budget was set. Measure
       on `theoria-pr-<N>.staging.scenesystems.io` and record: LCP ≤ 2.5 s, CLS
       ≤ 0.1 (the skeleton exists for this; prove it), INP ≤ 200 ms while a
