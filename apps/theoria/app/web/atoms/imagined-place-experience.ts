@@ -15,6 +15,7 @@ import type { ProposalRecord } from "../../contracts/imagined-place-result.js"
 import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
+import * as ElementSize from "../platform/ElementSize.js"
 import { featuresAnswered, type PlaceOnPage, provenanceFor } from "../view/home/placeProvenance.js"
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 
@@ -140,12 +141,32 @@ const decodeAct = Schema.decodeUnknownOption(PlaceAct)
 const readingLine = 0.5
 
 /**
+ * Every time where the page stands in the viewport may have changed: the
+ * first paint; each scroll, resize and fragment change; and each change of
+ * the page's own height, which is the layout moving under a still viewport
+ * — the build landing in the column, the paper growing under a search.
+ * Anything measured against the viewport is measured again on each, so it
+ * is a projection of the position and never a history of edges crossed.
+ */
+const pageStandingChanges: Stream.Stream<
+  unknown,
+  never,
+  BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow
+> = Stream.concat(
+  Stream.fromEffect(nextFrame),
+  Stream.merge(
+    BrowserWindow.viewportChanges,
+    Stream.unwrap(Effect.map(BrowserDocument.body, ElementSize.contentHeights))
+  )
+)
+
+/**
  * The act being read, from where the page stands in the viewport now: the
  * last landmark in the column that has reached the reading line, the
- * arrival if none has. Measured afresh after the first paint and on every
- * scroll, resize and fragment change — a projection of the position, so a
- * jump to a fragment, a resize that moves a landmark across the line, or
- * the page mounted again all answer rightly, with no crossing to have seen.
+ * arrival if none has. Measured afresh on every change of where the page
+ * stands, so a jump to a fragment, a resize that moves a landmark across the
+ * line, the paper growing above one, or the page mounted again all answer
+ * rightly, with no crossing to have seen.
  */
 const actRead: Effect.Effect<PlaceAct, never, BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow> = Effect
   .gen(function*() {
@@ -158,11 +179,14 @@ const actRead: Effect.Effect<PlaceAct, never, BrowserDocument.BrowserDocument | 
     )
   })
 
-const actsRead: Stream.Stream<PlaceAct, never, BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow> = Stream
-  .concat(Stream.fromEffect(nextFrame), BrowserWindow.viewportChanges)
-  .pipe(Stream.mapEffect(() => actRead), Stream.changes)
+/** The act being read, as it changes. */
+export const placeActsRead: Stream.Stream<
+  PlaceAct,
+  never,
+  BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow
+> = pageStandingChanges.pipe(Stream.mapEffect(() => actRead), Stream.changes)
 
-const placeActInViewAtom: AtomType.Atom<Result.Result<PlaceAct>> = appRuntime.atom(actsRead)
+const placeActInViewAtom: AtomType.Atom<Result.Result<PlaceAct>> = appRuntime.atom(placeActsRead)
 
 /** The act being read; the arrival until anything has been. */
 export const placeActAtom: AtomType.Atom<PlaceAct> = Atom.make((get: AtomType.Context) =>
@@ -195,23 +219,24 @@ const stageColumnSelector = `[data-place-stage="column"]`
 
 /**
  * Whether the drawn place has been read past — the stage's column above the
- * viewport, wholly — from where the page stands now, measured afresh after
- * the first paint and on every scroll, resize and fragment change. The band
- * moves nothing in the page's flow, so the column stands where it would
- * without the band, and the measure is one and the same either way.
+ * viewport, wholly — from where the page stands now, measured afresh on
+ * every change of where the page stands. The band moves nothing in the
+ * page's flow, so the column stands where it would without the band, and
+ * the measure is one and the same either way.
  */
 const stageReadPast: Effect.Effect<boolean, never, BrowserDocument.BrowserDocument> = Effect.map(
   BrowserDocument.querySelectorAll(stageColumnSelector),
   (columns) => Option.exists(Arr.head(columns), (column) => column.getBoundingClientRect().bottom <= 0)
 )
 
-const stageReadPastNow: Stream.Stream<boolean, never, BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow> =
-  Stream.concat(Stream.fromEffect(nextFrame), BrowserWindow.viewportChanges).pipe(
-    Stream.mapEffect(() => stageReadPast),
-    Stream.changes
-  )
+/** Whether the stage has been read past, as it changes. */
+export const placeStageReadPastNow: Stream.Stream<
+  boolean,
+  never,
+  BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow
+> = pageStandingChanges.pipe(Stream.mapEffect(() => stageReadPast), Stream.changes)
 
-const placeStageReadPastAtom: AtomType.Atom<Result.Result<boolean>> = appRuntime.atom(stageReadPastNow)
+const placeStageReadPastAtom: AtomType.Atom<Result.Result<boolean>> = appRuntime.atom(placeStageReadPastNow)
 
 /**
  * Whether the band is shown: the place as a band, pinned to the top of the

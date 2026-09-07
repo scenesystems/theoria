@@ -523,13 +523,14 @@ export const placeSearchAtom: AtomType.Atom<Result.Result<PlaceSearch, PlaceRend
 
 /**
  * The line of the drawn prose a merged proposal's sentence stands on, if it
- * is merged and drawn. Follows the drawing, which reflows the prose as the
- * discs travel, and changes only when the sentence moves to another line.
+ * is merged and drawn. Follows the drawing shown — the trial chosen from the
+ * trace included — which reflows the prose as the discs travel, and changes
+ * only when the sentence moves to another line.
  */
 export const placeProposalLineAtom = Atom.family((proposer: ParticipantRole): AtomType.Atom<Option.Option<number>> =>
   Atom.make((get: AtomType.Context) =>
     Option.flatMap(
-      Option.all({ build: Result.value(get(placeBuildAtom)), frame: Result.value(get(placeRenderFrameAtom)) }),
+      Option.all({ build: Result.value(get(placeBuildAtom)), frame: Result.value(get(placeShownFrameAtom)) }),
       ({ build, frame }) =>
         Option.flatMap(
           Arr.findFirst(build.proposals, (record) => record.proposal.proposer === proposer),

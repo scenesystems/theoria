@@ -1,4 +1,4 @@
-import { Match, Option, Schema } from "effect"
+import { Equivalence, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { markersBeside } from "../../../contracts/demo/imagined-place-flow.js"
@@ -23,6 +23,7 @@ import {
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import {
   PlaceBuild,
+  type PlaceMarker,
   type PlaceProjection,
   type ProposalRecord,
   type SignatureRecord,
@@ -95,6 +96,32 @@ const versionName = (version: Version): string => `v${String(version.version)}`
 const trialName = (search: PlaceSearch, index: number): string =>
   index === search.bestIndex ? `Trial ${String(index + 1)} · kept` : `Trial ${String(index + 1)} · not kept`
 
+/** Two markers are the same disc: the same feature, at the same place, the same size. */
+const sameDisc: Equivalence.Equivalence<PlaceMarker> = Equivalence.struct({
+  name: Equivalence.string,
+  x: Equivalence.number,
+  y: Equivalence.number,
+  radius: Equivalence.number
+})
+
+const sameDiscs = Arr.getEquivalence(sameDisc)
+
+/**
+ * Whether the drawing on the paper is the frame's trial itself, or a
+ * drawing still on its way to it: the discs travel over many frames, and
+ * only when every one stands where the trial put it is the trial what is
+ * drawn.
+ */
+const arrivedAtTrial = (frame: PlaceRenderFrame): boolean =>
+  Option.exists(
+    Arr.get(frame.search.tried, frame.trial),
+    (arrangement) => sameDiscs(frame.rendering.projection.markers, arrangement.markers)
+  )
+
+/** The drawing named as what it is: the trial it has arrived at, or the trial it is heading for. */
+const drawingName = (frame: PlaceRenderFrame): string =>
+  arrivedAtTrial(frame) ? trialName(frame.search, frame.trial) : `Toward trial ${String(frame.trial + 1)}`
+
 /** Where a feature stands in the drawing on the paper, if it is drawn there. */
 const drawnFacts = (shown: Option.Option<PlaceRenderFrame>, name: string): ReadonlyArray<ProvenanceFact> =>
   Option.match(
@@ -106,7 +133,7 @@ const drawnFacts = (shown: Option.Option<PlaceRenderFrame>, name: string): Reado
     {
       onNone: (): ReadonlyArray<ProvenanceFact> => [],
       onSome: ({ frame, marker }) => [
-        fact("Drawn", `${trialName(frame.search, frame.trial)} · r ${String(Math.round(marker.radius))} px`)
+        fact("Drawn", `${drawingName(frame)} · r ${String(Math.round(marker.radius))} px`)
       ]
     }
   )

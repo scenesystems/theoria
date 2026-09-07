@@ -14,6 +14,12 @@ export class BrowserDocument extends Context.Tag("theoria/BrowserDocument")<Brow
 /** The ambient document. This is the one place the app reads the global. */
 export const layer: Layer.Layer<BrowserDocument> = Layer.sync(BrowserDocument, () => document)
 
+/** The document's body: the page's whole height is its. */
+export const body: Effect.Effect<HTMLElement, never, BrowserDocument> = Effect.map(
+  BrowserDocument,
+  (browserDocument) => browserDocument.body
+)
+
 export const elementById = (id: string): Effect.Effect<Option.Option<HTMLElement>, never, BrowserDocument> =>
   Effect.map(BrowserDocument, (browserDocument) => Option.fromNullable(browserDocument.getElementById(id)))
 

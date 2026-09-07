@@ -20,7 +20,11 @@ import {
   placeFocusedLineAtom,
   placeMarkFocusedAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
-import { type PlaceRenderFrame, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
+import {
+  placeProposalLineAtom,
+  type PlaceRenderFrame,
+  placeShownFrameAtom
+} from "../../app/web/atoms/imagined-place-render.js"
 import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
 import { proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
 import { onStage } from "../helpers/place-on-stage.js"
@@ -162,5 +166,22 @@ describe("place focus", () => {
         proposalAnchorLine(showingKept.rendering.projection, merged)
       )
       expect(onTrial.get(placeFocusedLineAtom)).not.toEqual(onKept.get(placeFocusedLineAtom))
+    }))
+
+  it.effect("a proposal's sentence is anchored on the line it stands on in the drawing shown, a chosen trial included", () =>
+    Effect.gen(function*() {
+      const { build, showingKept, showingTrial } = yield* onStage
+      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const onKept = pageShowing(build, showingKept)
+      expect(onKept.get(placeProposalLineAtom(merged.proposal.proposer))).toEqual(
+        proposalAnchorLine(showingKept.rendering.projection, merged)
+      )
+      const onTrial = pageShowing(build, showingTrial)
+      expect(onTrial.get(placeProposalLineAtom(merged.proposal.proposer))).toEqual(
+        proposalAnchorLine(showingTrial.rendering.projection, merged)
+      )
+      expect(onTrial.get(placeProposalLineAtom(merged.proposal.proposer))).not.toEqual(
+        onKept.get(placeProposalLineAtom(merged.proposal.proposer))
+      )
     }))
 })

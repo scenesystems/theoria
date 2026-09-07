@@ -14,6 +14,23 @@ import { BrowserWindow } from "./BrowserWindow.js"
  * @since 0.2.0
  */
 export const contentWidths = (element: HTMLElement): Stream.Stream<number, never, BrowserWindow> =>
+  contentMeasure(element, (rect) => Math.floor(rect.width))
+
+/**
+ * The content-box height of `element` as whole pixels, on the same terms as
+ * `contentWidths`. The height of the document's body is the height of the
+ * page: anything laid out by hand that changes its own height moves what is
+ * below it, so what is measured against the viewport measures again on each.
+ *
+ * @since 0.3.0
+ */
+export const contentHeights = (element: HTMLElement): Stream.Stream<number, never, BrowserWindow> =>
+  contentMeasure(element, (rect) => Math.floor(rect.height))
+
+const contentMeasure = (
+  element: HTMLElement,
+  measure: (rect: DOMRectReadOnly) => number
+): Stream.Stream<number, never, BrowserWindow> =>
   Stream.unwrap(
     Effect.map(BrowserWindow, (browserWindow) =>
       Stream.asyncPush<number>((emit) =>
@@ -21,7 +38,7 @@ export const contentWidths = (element: HTMLElement): Stream.Stream<number, never
           Effect.sync(() => {
             const observer = new browserWindow.ResizeObserver((entries) => {
               Arr.forEach(entries, (entry) => {
-                emit.single(Math.floor(entry.contentRect.width))
+                emit.single(measure(entry.contentRect))
               })
             })
             observer.observe(element)

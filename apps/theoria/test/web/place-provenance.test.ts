@@ -4,17 +4,26 @@ import * as Arr from "effect/Array"
 
 import { markersBeside } from "../../app/contracts/demo/imagined-place-flow.js"
 import {
+  allCodeSites,
+  type CodeSite,
   codeSiteOf,
   composeSite,
+  inferenceSite,
   layoutSite,
+  mergedDigestSite,
+  originDigestSite,
   type PlaceMark,
   type PlaceProvenance,
   type PlaceStep,
+  proposalDigestSite,
+  proposalSignatureSite,
+  sealSite,
   searchSite,
-  separationSite
+  separationSite,
+  versionSignatureSite
 } from "../../app/contracts/demo/imagined-place-provenance.js"
 import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
-import type { PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
+import { frameShowing, PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
 import { type PlaceOnPage, provenanceFor } from "../../app/web/view/home/placeProvenance.js"
 import { currentVersion } from "../../app/web/view/home/placeViewModel.js"
 import { onStage } from "../helpers/place-on-stage.js"
@@ -141,5 +150,84 @@ describe("place provenance", () => {
       expect(provenanceFor({ _tag: "Digest", contentId: "blake3-256:nothing" }, on)).toEqual(Option.none())
       expect(codeSiteOf("compose", "nothing(")).toEqual(Option.none())
       expect(provenanceFor(codeLine("compose", "nothing("), on)).toEqual(Option.none())
+    }))
+
+  it.effect("a drawing on its way to a trial says so, and says which trial only once it has arrived", () =>
+    Effect.gen(function*() {
+      const { build, kept, showingTrial } = yield* onStage
+      const drawn = yield* Arr.head(kept.projection.markers)
+      const mark: PlaceMark = { _tag: "Feature", name: drawn.name }
+      // The discs stand where the kept arrangement put them, heading for the first trial.
+      const onTheWay = new PlaceRenderFrame({ ...showingTrial, rendering: kept })
+
+      const travelling = yield* answered(mark, page(Option.some(build), Option.some(onTheWay)))
+      expect(yield* factValue(travelling, "Drawn")).toBe(`Toward trial 1 · r ${String(Math.round(drawn.radius))} px`)
+
+      const arrived = yield* answered(mark, page(Option.some(build), Option.some(showingTrial)))
+      expect(yield* factValue(arrived, "Drawn")).toMatch(/^Trial 1 · not kept · r \d+ px$/u)
+    }))
+
+  it.effect("a trial chosen from the trace is answered as itself: its discs, its lines, its loss", () =>
+    Effect.gen(function*() {
+      const { build, showingKept, trial } = yield* onStage
+      const chosen = frameShowing(showingKept, Option.some(0))
+      expect(chosen.trial).toBe(0)
+      const on = page(Option.some(build), Option.some(chosen))
+
+      const asTrial = yield* answered({ _tag: "Trial", index: 0 }, on)
+      expect(asTrial.title).toBe("Trial 1 · not kept")
+      expect(yield* factValue(asTrial, "Loss")).toBe(trial.evidence.bestLoss.toFixed(3))
+
+      const drawn = yield* Arr.head(chosen.rendering.projection.markers)
+      const asFeature = yield* answered({ _tag: "Feature", name: drawn.name }, on)
+      expect(yield* factValue(asFeature, "Drawn")).toBe(`Trial 1 · not kept · r ${String(Math.round(drawn.radius))} px`)
+
+      const asLine = yield* answered({ _tag: "Line", index: 0 }, on)
+      expect(asLine.title).toBe(`Line 1 of ${String(trial.projection.lines.length)}`)
+
+      const scored = yield* answered(codeLine("arrange", separationSite.match), on)
+      expect(scored.mark).toEqual({ _tag: "Trial", index: 0 })
+    }))
+
+  it.effect("every line of the code is answered by what it made, under its own package", () =>
+    Effect.gen(function*() {
+      const { build, showingTrial } = yield* onStage
+      const on = page(Option.some(build), Option.some(showingTrial))
+      const neighbor = yield* Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "neighbor")
+      const current = yield* currentVersion(build.evidence)
+      const origin = yield* Arr.head(build.evidence.lineage)
+      const merged = yield* Arr.get(build.evidence.lineage, 1)
+      const projection = showingTrial.rendering.projection
+      const narrowed = yield* Arr.findFirstIndex(
+        projection.lines,
+        (_, index) => Arr.isNonEmptyReadonlyArray(markersBeside(projection, projection.markers, index))
+      )
+      const expected: ReadonlyArray<readonly [site: CodeSite, title: string, made: PlaceMark]> = [
+        [composeSite, build.artifact.composition.title, codeLine("compose", composeSite.match)],
+        [inferenceSite, "Recorded inference", { _tag: "Inference" }],
+        [proposalDigestSite, "Proposal content ID", { _tag: "Digest", contentId: neighbor.contentId }],
+        [proposalSignatureSite, "ed25519 over the proposal", { _tag: "Signature", subject: neighbor.contentId }],
+        [sealSite, "Sealed note", { _tag: "Note" }],
+        [originDigestSite, "v1 content ID", { _tag: "Digest", contentId: origin.contentId }],
+        [mergedDigestSite, "v2 content ID", { _tag: "Digest", contentId: merged.contentId }],
+        [versionSignatureSite, `ed25519 over v${String(current.version)}`, {
+          _tag: "Signature",
+          subject: current.contentId
+        }],
+        [layoutSite, `Line ${String(narrowed + 1)} of ${String(projection.lines.length)}`, {
+          _tag: "Line",
+          index: narrowed
+        }],
+        [separationSite, "Trial 1 · not kept", { _tag: "Trial", index: 0 }],
+        [searchSite, "Trial 1 · not kept", { _tag: "Trial", index: 0 }]
+      ]
+      expect(expected.length).toBe(allCodeSites.length)
+      yield* Effect.forEach(expected, ([site, title, made]) =>
+        Effect.gen(function*() {
+          const provenance = yield* answered(codeLine(site.step, site.match), on)
+          expect([site.id, provenance.title]).toEqual([site.id, title])
+          expect([site.id, provenance.site]).toEqual([site.id, site])
+          expect([site.id, provenance.mark]).toEqual([site.id, made])
+        }))
     }))
 })
