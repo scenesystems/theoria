@@ -29,18 +29,28 @@ decoration.
 
 ## What the page does today
 
-Measured in Chromium at 1440×900, light theme, every element under `main`:
+Measured in Chromium at 1440×900, light theme, every element under `main`.
+_Before_ is the card page this plan replaces; _after Act 4_ is the branch at
+`4bb60e4` with the overlay closed; _target_ is what Act 5 must reach.
 
-| Measure                               | Value |
-| ------------------------------------- | ----- |
-| Elements                              | 643   |
-| With a visible border                 | 59    |
-| With a border radius                  | 124   |
-| Pill-shaped (`border-radius ≥ 999px`) | 74    |
-| With a box shadow                     | 19    |
-| Deepest bordered-ancestor chain       | 5     |
+| Measure                               | Before | After Act 4 | Target |
+| ------------------------------------- | ------ | ----------- | ------ |
+| Elements                              | 643    | 686         | —      |
+| With a visible border                 | 59     | 28          | ≤ 10   |
+| With a border radius                  | 124    | 154         | —      |
+| Pill-shaped (`border-radius ≥ 999px`) | 74     | 69          | —      |
+| With a box shadow                     | 19     | 11          | ≤ 4    |
+| Deepest bordered-ancestor chain       | 5      | 4           | ≤ 2    |
 
-The depth-5 chains are page → demo card → proposal card → sealed-note box →
+What remains bordered or shadowed after Act 4: the five marker chips
+(`shadow-chip` with an inset ring), the two status marks, the code section
+(`rounded-[1.35rem] border shadow-chip` — the one instrument surface), the two
+content-ID chips, the switch thumb, the spine dots and the strand knots. The
+spine dots, knots, proposer rules and the switch are borders that say state or
+ownership and stay; the chips and the code section's shadow are the Act 5
+work.
+
+Before, the depth-5 chains were page → demo card → proposal card → sealed-note box →
 pill, and page → demo card → code panel → header rail → Copy button. The place
 itself — its prose and discs, the artifact the demo exists to show — sits on a
 bordered paper inside a bordered stage inside a `2rem`-radius card, at roughly
@@ -626,9 +636,73 @@ import.meta.url), { type: "module" })`, which every bundler resolves
 - [ ] Reduced motion: the search still renders per frame (it is a real
       process), merges and version changes are opacity only, nothing else
       moves.
-- [ ] Re-run the measurement above and record the after values in the table;
-      the target is ≤ 10 bordered elements and ≤ 4 shadows at 1440 with the
-      overlay closed.
+- [ ] The measurement above reaches its targets: the marker chips and content-ID
+      chips lose `shadow-chip` and stand by their ring and wash; the code
+      section loses its shadow and keeps its rule; ≤ 10 bordered, ≤ 4 shadowed,
+      bordered chain ≤ 2 at 1440 with the overlay closed. A worker test measures
+      it so the counts cannot drift back.
+- [ ] The first viewport at 1440×900 shows the paper's top and the first disc,
+      not only the two column headers: the hero's vertical spacing is cut so
+      the place is seen before any scroll, as `Done when` says. (Act 4 re-stated
+      the claim to the headers when the form work moved the arrival above the
+      grid; the plan's intent stands.)
+- [ ] 320: the paper is ≥ 240 px wide; the story chooser wraps or scroll-snaps,
+      never overflows.
+- [ ] `Done when` is run as a test: at 390×844 with reduced motion, the place,
+      a disc and the version are visible before scrolling; a proposal is merged
+      from the keyboard and the prose changes; every mark answers from the
+      keyboard.
+
+### Act 6 — Deferred from the reviews and the build
+
+Not in the plan's original acts; each was raised while building Acts 0–4 and
+left on purpose. Every item takes the same route: failing test, then the change.
+
+- [ ] **Version knots on the paper** (Act 2's open box). `PlaceStrand` draws
+      knots beside the pinned stage; the plan has them on the paper's edge at
+      the stage's width from `placeStageWidthAtom`. Decide once against the
+      rendered stage whether the strand beside the stage already says lineage
+      well enough; if it does, tick the box and record why.
+- [ ] **Canonical `CodeSite` identities.** `markMadeBy` in `placeProvenance.ts`
+      still finds a line's mark by the site's string id. Give every `CodeSite`
+      one `Schema`-branded identity minted at the layout contract, and derive
+      the mark from it; remove the fallback.
+- [ ] **The CSS animations the toolchain branch left for this work.**
+      `animate-path-draw` (`PlaceWalk`) and `animate-value-changed`
+      (`ChangedValue`) are still CSS keyframes beside Motion. Either move them
+      to Motion under `MotionConfig reducedMotion="user"` so one system owns
+      presence, or record why a CSS keyframe is the honest tool for each.
+- [ ] **Base UI `HoverInteraction` patch upstream.** File the issue and the
+      change against `@base-ui/react` (reference-counted `dispose` across
+      triggers sharing one root); pin the version that carries it and delete
+      `patches/@base-ui%2Freact@1.7.0.patch`.
+- [ ] **Per-trial render cost.** In development each search trial costs
+      ~45–60 ms on the main thread. Measure on the production build in Chromium
+      (`test:worker` can record `performance.measure` spans); if the cost is
+      real, coalesce trials to one render per animation frame in
+      `placeShownFrameAtom` rather than one per trial, and test that the last
+      frame of every search is still drawn.
+- [ ] **The edited-brief status line.** `PlaceComposition` says "The recording
+      answers the original brief; your edited brief is what version 1 signs."
+      once the brief is edited. Decide whether this is the field's description
+      (then it belongs to `FieldDescription`, present from the start, in fewer
+      words) or a state the page should show another way.
+- [ ] **Dark theme and forced colors across every state.** Every state the
+      light checks cover — answers open, band shown, Build act lit, a search
+      running, a story changing — checked in dark and in `forced-colors`;
+      contrast asserted from rendered colours as `home-demo.test.ts` does for
+      the prose.
+- [ ] **Web vitals on the preview.** No LCP, CLS or INP budget was set. Measure
+      on `theoria-pr-<N>.staging.scenesystems.io` and record: LCP ≤ 2.5 s, CLS
+      ≤ 0.1 (the skeleton exists for this; prove it), INP ≤ 200 ms while a
+      search runs, and the size of the homepage's JavaScript. Set the budgets
+      in the doc and, where the toolchain allows, in CI.
+- [ ] **Stale comments.** One sweep of `view/home/` and `atoms/` for comments
+      that describe the layout animations, the world tones, or the card page
+      that no longer exist.
+- [ ] **A third review** of the form work (`b8a56b6` onward) by the Oracle,
+      once Act 5 lands, with the same must/should/nice discipline as the first
+      two.
 
 ## Non-goals
 
