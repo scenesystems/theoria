@@ -1,13 +1,14 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Fiber, Layer, Schema } from "effect"
+import { Effect, Fiber, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import { cards } from "../../app/contracts/card.js"
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
-import { placeArriveText } from "../../app/web/view/home/PlaceArrive.js"
+import { howItsBuiltActionLabel, howItsBuiltSectionId } from "../../app/web/view/home/HomeHero.js"
+import { placeArriveText, placeArriveTitle } from "../../app/web/view/home/PlaceArrive.js"
 import {
   act,
   attribute,
@@ -15,11 +16,13 @@ import {
   click,
   containsText,
   count,
+  eventually,
   fitsViewport,
   goto,
   nextResponse,
   openPage,
   setViewport,
+  urlMatches,
   visible
 } from "./browser.js"
 import { scrollToTop, surfaceStyle, topEdgeInViewport } from "./platform/in-page.js"
@@ -154,29 +157,37 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // discs are already on screen beside the arrival, before any scroll.
         const heading = page.getByRole("heading", { level: 1 })
         const browse = page.getByRole("link", { exact: true, name: "Browse the packages" })
-        const placeTitle = demo.locator("[data-place-arrive] h2")
+        const arriveTitle = demo.locator("[data-place-arrive] h2")
         expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => placeTitle.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => arriveTitle.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => demo.locator("[data-place-marker]").first().evaluate(topEdgeInViewport))).toBe(true)
-        // The arrival says what this is and how it works; the story stays on the paper.
+        // The arrival says what this is and how it works; the place's name and
+        // its story stay on the paper, where the composer put them.
         const arrive = demo.locator("[data-place-arrive]")
+        yield* containsText(arriveTitle, placeArriveTitle)
         yield* containsText(arrive, placeArriveText)
         yield* count(arrive.getByText(/at high water the sea covers the causeway/u), 0)
+        const composedTitle = yield* Option.fromNullable(
+          yield* act(() => demo.locator("[data-place-composition] p").first().textContent())
+        )
+        yield* count(arrive.getByText(composedTitle, { exact: true }), 0)
 
-        // Narrow: the hero, both actions and the place's own name fit the
+        // Narrow: the hero, both actions and the demonstration's title fit the
         // first screen; the paper follows directly under the arrival.
         yield* setViewport(page, { width: 390, height: 844 })
         yield* act(() => page.evaluate(scrollToTop))
         expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
-        expect(
-          yield* act(() =>
-            page.getByRole("link", { exact: true, name: "See the place it built" }).evaluate(topEdgeInViewport)
-          )
-        ).toBe(true)
-        expect(yield* act(() => placeTitle.evaluate(topEdgeInViewport))).toBe(true)
+        const howItsBuilt = page.getByRole("link", { exact: true, name: howItsBuiltActionLabel })
+        expect(yield* act(() => howItsBuilt.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => arriveTitle.evaluate(topEdgeInViewport))).toBe(true)
+
+        // The hero's second action lands on how the demonstration is built, not on the demonstration already in view.
+        yield* click(howItsBuilt)
+        yield* urlMatches(page, new RegExp(`#${howItsBuiltSectionId}$`, "u"))
+        yield* eventually(() => page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
         expect(yield* failures).toEqual([])
       }))
 

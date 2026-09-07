@@ -74,7 +74,7 @@ export const PlaceActs = () => {
       <Stack className="gap-12 lg:gap-16">
         <Layer className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-10">
           <Layer className="min-w-0 lg:col-start-1 lg:row-start-1">
-            <PlaceArrive build={build} />
+            <PlaceArrive />
             {Result.isFailure(result) ? <BuildFailed /> : null}
           </Layer>
           <Layer className="min-w-0 max-w-[44rem] lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-6">

@@ -16,6 +16,7 @@ import { ExternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { Tab, TabBar, TabGroup, TabPanel } from "../primitives/TabBar.js"
 
+import { howItsBuiltSectionId } from "./HomeHero.js"
 import { placeLiveValues } from "./placeLiveValues.js"
 import {
   commitUrl,
@@ -143,7 +144,7 @@ export const PlaceHowItsBuilt = () => {
       aria-label="How it's built"
       className="scroll-mt-6 border-t border-stage-200/85 pt-6 lg:pt-8"
       data-place-how-its-built
-      id="how-its-built"
+      id={howItsBuiltSectionId}
     >
       <Stack className="gap-5">
         <Cluster className="items-start justify-between gap-x-6 gap-y-3">

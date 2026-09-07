@@ -5,12 +5,20 @@ import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { AnchorLink, InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
-/** The demo section's anchor; the hero's second action lands the visitor on the place. */
+/** The demo section's anchor. */
 export const imaginedPlaceSectionId = "imagined-place"
+
+/** The How it's built section's anchor; the hero's second action lands the visitor there. */
+export const howItsBuiltSectionId = "how-its-built"
+
+/** The hero's second action, by name: what the tests reach it by. */
+export const howItsBuiltActionLabel = "See how it's built"
 
 /**
  * The hero says what Theoria is, once, in display type on the bare canvas.
- * Two ways onward: the packages, or the place the demonstration built.
+ * Two ways onward: the packages, or how the demonstration beside it is
+ * built. The demonstration itself is already in view, so the hero does not
+ * point at it.
  */
 export const HomeHero = () => (
   <Section className="pt-10 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28" data-home-hero>
@@ -35,8 +43,8 @@ export const HomeHero = () => (
         <InternalLink className={primaryActionClassName} href="/docs">
           <SemanticText as="span" className="text-stage-0" role="button-label" text="Browse the packages" />
         </InternalLink>
-        <AnchorLink className={textActionClassName} href={`#${imaginedPlaceSectionId}`}>
-          <SemanticText as="span" className="text-inherit" role="button-label" text="See the place it built" />
+        <AnchorLink className={textActionClassName} href={`#${howItsBuiltSectionId}`}>
+          <SemanticText as="span" className="text-inherit" role="button-label" text={howItsBuiltActionLabel} />
           <ArrowDownIcon aria-hidden className="size-4" />
         </AnchorLink>
       </Cluster>
