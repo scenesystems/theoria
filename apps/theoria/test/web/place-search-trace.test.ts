@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Option } from "effect"
+import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
 
@@ -56,7 +56,12 @@ const search = new PlaceSearch({
   labels: {},
   settled: HashSet.empty()
 })
-const complete: PlaceRenderFrame = new PlaceRenderFrame({ search, rendering, paper: rendering.projection.stageHeight })
+const complete: PlaceRenderFrame = new PlaceRenderFrame({
+  search,
+  trial: 2,
+  rendering,
+  paper: rendering.projection.stageHeight
+})
 const running: PlaceSearch = new PlaceSearch({
   ...search,
   phase: "running",
@@ -66,35 +71,40 @@ const running: PlaceSearch = new PlaceSearch({
 const landing: PlaceSearch = new PlaceSearch({ ...search, phase: "landing" })
 
 describe("search trace", () => {
-  it("derives the trace from the trials rather than storing it twice", () => {
-    expect(searchLosses(search)).toEqual([16.999, 4.25, 1.52])
-  })
+  it.effect("derives the trace from the trials rather than storing it twice", () =>
+    Effect.sync(() => {
+      expect(searchLosses(search)).toEqual([16.999, 4.25, 1.52])
+    }))
 
-  it("draws the best trial unless a tried trial is chosen", () => {
-    expect(shownTrialIndex(search, Option.none())).toBe(2)
-    expect(shownTrialIndex(search, Option.some(0))).toBe(0)
-    expect(shownTrialIndex(search, Option.some(7))).toBe(2)
-    expect(frameShowing(complete, Option.some(0)).rendering.projection.markers[0]?.x).toBe(500)
-    expect(frameShowing(complete, Option.some(7))).toBe(complete)
-  })
+  it.effect("draws the best trial unless a tried trial is chosen", () =>
+    Effect.sync(() => {
+      expect(shownTrialIndex(search, Option.none())).toBe(2)
+      expect(shownTrialIndex(search, Option.some(0))).toBe(0)
+      expect(shownTrialIndex(search, Option.some(7))).toBe(2)
+      expect(frameShowing(complete, Option.some(0)).rendering.projection.markers[0]?.x).toBe(500)
+      expect(frameShowing(complete, Option.some(7))).toBe(complete)
+    }))
 
-  it("captions the shown trial honestly", () => {
-    expect(renderProgressText(running, 1)).toBe("Searching arrangements · 2 of 36")
-    expect(renderProgressText(landing, 2)).toBe("Searching arrangements · 3 of 36")
-    expect(renderProgressText(search, 2)).toBe("Kept trial 3 of 3 · loss 1.520")
-    expect(renderProgressText(search, 0)).toBe("Trial 1 of 3 · loss 16.999 · not kept")
-    expect(keptTrialLabel(search)).toBe("Kept trial 3")
-  })
+  it.effect("captions the shown trial honestly", () =>
+    Effect.sync(() => {
+      expect(renderProgressText(running, 1)).toBe("Searching arrangements · 2 of 36")
+      expect(renderProgressText(landing, 2)).toBe("Searching arrangements · 3 of 36")
+      expect(renderProgressText(search, 2)).toBe("Kept trial 3 of 3 · loss 1.520")
+      expect(renderProgressText(search, 0)).toBe("Trial 1 of 3 · loss 16.999 · not kept")
+      expect(keptTrialLabel(search)).toBe("Kept trial 3")
+    }))
 
-  it("reports progress until the drawing has landed", () => {
-    expect(searching(running)).toBe(true)
-    expect(searching(landing)).toBe(true)
-    expect(searching(search)).toBe(false)
-  })
+  it.effect("reports progress until the drawing has landed", () =>
+    Effect.sync(() => {
+      expect(searching(running)).toBe(true)
+      expect(searching(landing)).toBe(true)
+      expect(searching(search)).toBe(false)
+    }))
 
-  it("tells a screen reader which trial the thumb is on", () => {
-    expect(trialValueText(search, 2)).toBe("Trial 3 of 3, loss 1.520, kept")
-    expect(trialValueText(search, 1)).toBe("Trial 2 of 3, loss 4.250")
-    expect(trialValueText(running, 2)).toBe("Trial 3, not tried yet")
-  })
+  it.effect("tells a screen reader which trial the thumb is on", () =>
+    Effect.sync(() => {
+      expect(trialValueText(search, 2)).toBe("Trial 3 of 3, loss 1.520, kept")
+      expect(trialValueText(search, 1)).toBe("Trial 2 of 3, loss 4.250")
+      expect(trialValueText(running, 2)).toBe("Trial 3, not tried yet")
+    }))
 })

@@ -53,19 +53,29 @@ const studies = Effect.gen(function*() {
         onSome: Effect.succeed
       }))
 
-  const open: Effect.Effect<PlaceSearchId, PlaceSearchFailed> = Effect.gen(function*() {
-    const scope = yield* Scope.make()
-    const handle = yield* Study.open({
-      space,
-      sampler: renderSampler(),
-      objective: () => Effect.dieMessage("the page scores every trial; the search only proposes them"),
-      trials: renderTrials,
-      direction: "minimize"
-    }).pipe(Scope.extend(scope), Effect.mapError(failed))
-    const search = yield* Ref.updateAndGet(named, (count) => count + 1)
-    yield* Ref.update(opened, HashMap.set(PlaceSearchId.make(search), new Opened({ handle, scope })))
-    return PlaceSearchId.make(search)
-  })
+  // A study is opened in its own scope and kept in one step: one that
+  // fails to open, or whose opening the page gives up on, is closed with its
+  // scope and never kept; one kept is kept before anything can interrupt.
+  const open: Effect.Effect<PlaceSearchId, PlaceSearchFailed> = Effect.uninterruptibleMask((restore) =>
+    Effect.gen(function*() {
+      const scope = yield* Scope.make()
+      const handle = yield* restore(
+        Study.open({
+          space,
+          sampler: renderSampler(),
+          objective: () => Effect.dieMessage("the page scores every trial; the search only proposes them"),
+          trials: renderTrials,
+          direction: "minimize"
+        }).pipe(Scope.extend(scope))
+      ).pipe(
+        Effect.mapError(failed),
+        Effect.onError((cause) => Scope.close(scope, Exit.failCause(cause)))
+      )
+      const search = yield* Ref.updateAndGet(named, (count) => count + 1)
+      yield* Ref.update(opened, HashMap.set(PlaceSearchId.make(search), new Opened({ handle, scope })))
+      return PlaceSearchId.make(search)
+    })
+  )
 
   const ask = (search: PlaceSearchId): Effect.Effect<AskedMeander, PlaceSearchFailed> =>
     Effect.gen(function*() {

@@ -1,5 +1,5 @@
 import { type Errors, Text } from "@scenesystems/effect-text"
-import { Effect, Option } from "effect"
+import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 
@@ -21,7 +21,8 @@ import { prepareBrowserText } from "../text/authority.js"
  * record is empty, every disc shows its number and the legend carries the
  * names, so the numbers on the stage and in the legend always agree.
  */
-export type MarkerLabelWidths = Record.ReadonlyRecord<string, number>
+export const MarkerLabelWidths = Schema.Record({ key: Schema.String, value: Schema.Number })
+export type MarkerLabelWidths = typeof MarkerLabelWidths.Type
 
 const labelRole = "marker-label"
 

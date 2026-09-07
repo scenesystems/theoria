@@ -1,10 +1,10 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import type { HighlighterCore } from "@shikijs/core"
-import { Data } from "effect"
+import { Schema } from "effect"
 
 import {
-  type CodeLanguage,
+  CodeLanguage,
   highlightCode,
   type HighlightToken,
   makeSyntaxHighlighter,
@@ -18,10 +18,10 @@ export const syntaxHighlighterAtom: AtomType.Atom<Result.Result<HighlighterCore,
   .atom(makeSyntaxHighlighter)
 
 /** One piece of source in one language: what a highlighting is of. Structural, so the same code is one key. */
-export class CodeSource extends Data.Class<{
-  readonly language: CodeLanguage
-  readonly source: string
-}> {}
+export class CodeSource extends Schema.Class<CodeSource>("CodeSource")({
+  language: CodeLanguage,
+  source: Schema.String
+}) {}
 
 /**
  * The source as tokens, highlighted once per distinct source and kept while

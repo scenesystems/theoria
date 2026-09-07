@@ -1,7 +1,7 @@
 import { Tooltip } from "@base-ui/react/tooltip"
 import { RegistryProvider, useAtomMount, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
-import { domMax, LazyMotion, MotionConfig } from "motion/react"
+import { domAnimation, LazyMotion, MotionConfig } from "motion/react"
 import type { ReactNode } from "react"
 
 import { placeWorldApplicationAtom } from "./atoms/imagined-place-experience.js"
@@ -36,12 +36,13 @@ const AppShell = () => {
 /**
  * Motion is configured once: the theme's transition and the reader's motion
  * preference, read from `motionPreferenceAtom` so the page has one source for
- * it. The feature bundle loads lazily (`domMax`, as the stage animates
- * layout) and `strict` makes every animated element an `m` element, so
- * nothing bypasses this configuration.
+ * it. The feature bundle loads lazily (`domAnimation`: values and presence;
+ * nothing on the page animates layout, the drawing travels by its own
+ * measured positions) and `strict` makes every animated element an `m`
+ * element, so nothing bypasses this configuration.
  */
 const MotionRoot = ({ children }: { readonly children: ReactNode }) => (
-  <LazyMotion features={domMax} strict>
+  <LazyMotion features={domAnimation} strict>
     <MotionConfig
       reducedMotion={motionConfigReducedMotion(useAtomValue(motionPreferenceAtom))}
       transition={themeTransition}

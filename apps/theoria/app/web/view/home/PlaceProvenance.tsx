@@ -1,6 +1,5 @@
 import { Button } from "@base-ui/react/button"
 import { Popover } from "@base-ui/react/popover"
-import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
@@ -15,10 +14,9 @@ import {
   type PlaceProvenance as Provenance
 } from "../../../contracts/demo/imagined-place-provenance.js"
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
-import { placeFocusAtom } from "../../atoms/imagined-place-experience.js"
-import { placeSearchAtom } from "../../atoms/imagined-place-render.js"
-import { placeBuildAtom, placeStepAtom } from "../../atoms/imagined-place.js"
-import { type InlineStatusTone, surfaceClassName } from "../primitives/designSystem.js"
+import { placeFocusAtom, placeMarkFocusedAtom, placeOnPageAtom } from "../../atoms/imagined-place-experience.js"
+import { placeStepAtom } from "../../atoms/imagined-place.js"
+import { type InlineStatusTone, surfaceClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
@@ -44,7 +42,10 @@ export const provenanceAttribute = "data-provenance"
  * Something the visitor can point at. Hover, focus-and-press or tap opens the
  * answer; the pointer resting on prose waits longer than on a disc. Renders a
  * button unless `render` says otherwise; a rendered non-button says so with
- * `nativeButton={false}`.
+ * `nativeButton={false}`. While the open answer is about this mark — pointed
+ * at itself, or made by the line of code pointed at — the element says so
+ * with `data-place-focused`, so a disc, a line of prose and the code that
+ * made them light together from whichever end the visitor starts.
  */
 export const ProvenanceMark = ({
   mark,
@@ -55,19 +56,25 @@ export const ProvenanceMark = ({
   readonly mark: PlaceMark
   readonly nativeButton?: boolean
   readonly render?: Popover.Trigger.Props<PlaceMark>["render"]
-}) => (
-  <Popover.Trigger
-    {...props}
-    {...{ [provenanceAttribute]: encodeMark(mark) }}
-    closeDelay={80}
-    delay={markOpenDelayMs(mark)}
-    handle={provenanceHandle}
-    nativeButton={nativeButton}
-    openOnHover
-    payload={mark}
-    render={render}
-  />
-)
+}) => {
+  const encoded = encodeMark(mark)
+  const focused = useAtomValue(placeMarkFocusedAtom(encoded))
+
+  return (
+    <Popover.Trigger
+      {...props}
+      {...{ [provenanceAttribute]: encoded }}
+      closeDelay={80}
+      data-place-focused={focused ? "" : undefined}
+      delay={markOpenDelayMs(mark)}
+      handle={provenanceHandle}
+      nativeButton={nativeButton}
+      openOnHover
+      payload={mark}
+      render={render}
+    />
+  )
+}
 
 /**
  * A mark set in a line of text: the words themselves, on a button that
@@ -75,7 +82,7 @@ export const ProvenanceMark = ({
  * a line.
  */
 export const inlineMarkClassName =
-  "-mx-1 inline-flex min-w-0 max-w-full cursor-default items-center rounded-md px-1 py-0.5 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 data-[popup-open]:bg-stage-100/80"
+  "-mx-1 inline-flex min-w-0 max-w-full cursor-default items-center rounded-md px-1 py-0.5 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 data-[place-focused]:bg-stage-100/80 data-[popup-open]:bg-stage-100/80"
 
 /** A status said in the line that is also a mark: the signature, the version it is in. */
 export const StatusMark = ({ className = "", label, mark, tone, ...props }: ComponentProps<"button"> & {
@@ -125,8 +132,21 @@ const codeLinkClassName =
 const copyButtonClassName =
   "-mx-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
 
+const digestTone = toneClassesFor("digest")
+
 const copyLabel = ({ copied, failed }: { readonly copied: boolean; readonly failed: boolean }): string =>
   copied ? "Copied" : failed ? "Copy failed" : "Copy"
+
+/**
+ * The whole of a value the page shows cut short — a content ID to the last
+ * character, broken wherever the answer's width falls — so two can be read
+ * against each other here, not only copied.
+ */
+const WholeValue = ({ value }: { readonly value: string }) => (
+  <Layer data-place-provenance-value={value}>
+    <SemanticText as="code" className={`block break-all ${digestTone.textStrong}`} role="code-meta" text={value} />
+  </Layer>
+)
 
 /** Puts the whole value on the clipboard; says whether it got there. */
 const CopyValue = ({ value }: { readonly value: string }) => {
@@ -206,6 +226,10 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
           </Fragment>
         ))}
       </Layer>
+      {Option.match(provenance.copy, {
+        onNone: () => null,
+        onSome: (value) => <WholeValue value={value} />
+      })}
       <Cluster className="items-center justify-between gap-x-3 gap-y-1 border-t border-rule pt-2">
         <AnchorLink
           className={codeLinkClassName}
@@ -231,11 +255,10 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
   )
 }
 
-/** The answer for the mark that opened the overlay, from the build and search on this page. */
+/** The answer for the mark that opened the overlay, from what is on the page this instant. */
 const Answered = ({ mark }: { readonly mark: PlaceMark }) => {
-  const build = Result.value(useAtomValue(placeBuildAtom))
-  const search = Result.value(useAtomValue(placeSearchAtom))
-  return Option.match(provenanceFor(mark, build, search), {
+  const page = useAtomValue(placeOnPageAtom)
+  return Option.match(provenanceFor(mark, page), {
     onNone: () => null,
     onSome: (provenance) => <Answer provenance={provenance} />
   })

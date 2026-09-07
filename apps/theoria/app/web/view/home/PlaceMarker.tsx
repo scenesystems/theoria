@@ -5,7 +5,7 @@ import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
-import { placeActAtom, placeFeatureFocusedAtom } from "../../atoms/imagined-place-experience.js"
+import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import { type PlaceDiscDrawn, placeDiscDrawnAtom } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { Layer } from "../primitives/Layout.js"
@@ -121,7 +121,6 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
   const named = Option.isSome(labelWidth)
   const preference = useAtomValue(motionPreferenceAtom)
   const act = useAtomValue(placeActAtom)
-  const focused = useAtomValue(placeFeatureFocusedAtom(marker.name))
 
   return (
     <ProvenanceMark
@@ -129,7 +128,6 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
       className={`${triggerClassName} ${named ? namedTriggerClassName : numberedTriggerClassName} ${
         discClassName(role)
       } ${tone.focusRing} ${discFocusRing(role)} ${discActOutline(act, marker)}`}
-      data-place-focused={focused ? "" : undefined}
       data-place-marker={marker.name}
       mark={{ _tag: "Feature", name: marker.name }}
       render={discElement(drawn, preference)}
@@ -174,9 +172,12 @@ export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
     <AnimatePresence initial={false} propagate>
       {Match.value(drawn).pipe(
         Match.when("arriving", () => <ArrivingRing key="room" marker={marker} />),
-        Match.orElse((present) => (
-          <Disc drawn={present} index={index} key="disc" labelWidth={labelWidth} marker={marker} />
-        ))
+        Match.whenOr(
+          "settled",
+          "trial",
+          (present) => <Disc drawn={present} index={index} key="disc" labelWidth={labelWidth} marker={marker} />
+        ),
+        Match.exhaustive
       )}
     </AnimatePresence>
   )

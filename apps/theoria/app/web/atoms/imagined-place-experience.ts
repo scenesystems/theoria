@@ -1,10 +1,12 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Match, Option, Schema, Stream } from "effect"
+import { Effect, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import {
   type CodeSite,
+  decodeMark,
+  encodeMark,
   PlaceAct,
   type PlaceMark,
   type PlaceProvenance
@@ -13,11 +15,11 @@ import type { ProposalRecord } from "../../contracts/imagined-place-result.js"
 import type { PlaceScenario } from "../../contracts/imagined-place.js"
 import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
-import type { BrowserWindow } from "../platform/BrowserWindow.js"
-import * as ElementIntersection from "../platform/ElementIntersection.js"
-import { featuresAnswered, provenanceFor } from "../view/home/placeProvenance.js"
+import * as BrowserWindow from "../platform/BrowserWindow.js"
+import { featuresAnswered, type PlaceOnPage, provenanceFor } from "../view/home/placeProvenance.js"
+import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 
-import { placeSearchAtom } from "./imagined-place-render.js"
+import { placeShownFrameAtom } from "./imagined-place-render.js"
 import { placeBuildAtom, placeControlsAtom } from "./imagined-place.js"
 import { pageRouteAtom } from "./navigation.js"
 import { appRuntime } from "./runtime.js"
@@ -39,18 +41,29 @@ import { appRuntime } from "./runtime.js"
  */
 export const placeFocusAtom: AtomType.Writable<Option.Option<PlaceMark>> = Atom.make(Option.none<PlaceMark>())
 
+/**
+ * What is on the page to answer from: the build once it has arrived, and
+ * the frame the stage is drawing this instant, so every answer agrees with
+ * what is visible.
+ */
+export const placeOnPageAtom: AtomType.Atom<PlaceOnPage> = Atom.make((get: AtomType.Context) => ({
+  build: Result.value(get(placeBuildAtom)),
+  shown: Result.value(get(placeShownFrameAtom))
+}))
+
 /** The page's answer for the mark under the pointer, if it has one yet. */
 export const placeFocusedProvenanceAtom: AtomType.Atom<Option.Option<PlaceProvenance>> = Atom.make(
-  (get: AtomType.Context) =>
-    Option.flatMap(
-      get(placeFocusAtom),
-      (mark) => provenanceFor(mark, Result.value(get(placeBuildAtom)), Result.value(get(placeSearchAtom)))
-    )
+  (get: AtomType.Context) => Option.flatMap(get(placeFocusAtom), (mark) => provenanceFor(mark, get(placeOnPageAtom)))
 )
 
 /** The line of code that made what the visitor is pointing at. */
 export const placeFocusedSiteAtom: AtomType.Atom<Option.Option<CodeSite>> = Atom.make((get: AtomType.Context) =>
   Option.map(get(placeFocusedProvenanceAtom), (provenance) => provenance.site)
+)
+
+/** The mark answered: the one pointed at, or for a line of code, the mark of what that line made. */
+export const placeAnsweredMarkAtom: AtomType.Atom<Option.Option<PlaceMark>> = Atom.make((get: AtomType.Context) =>
+  Option.map(get(placeFocusedProvenanceAtom), (provenance) => provenance.mark)
 )
 
 /**
@@ -67,6 +80,55 @@ export const placeFeatureFocusedAtom = Atom.family((name: string): AtomType.Atom
   )
 )
 
+/**
+ * The line of the drawn prose the answer stands on: the line pointed at, or
+ * the line a merged proposal's sentence stands on when its feature is pointed
+ * at — read from the drawing shown this instant, as the sentence moves while
+ * the discs travel.
+ */
+export const placeFocusedLineAtom: AtomType.Atom<Option.Option<number>> = Atom.make((get: AtomType.Context) =>
+  Option.flatMap(get(placeAnsweredMarkAtom), (mark) =>
+    Match.value(mark).pipe(
+      Match.tag("Line", ({ index }) => Option.some(index)),
+      Match.tag("Feature", ({ name }) =>
+        Option.flatMap(
+          Option.all({ build: Result.value(get(placeBuildAtom)), shown: Result.value(get(placeShownFrameAtom)) }),
+          ({ build, shown }) =>
+            Option.flatMap(
+              Arr.findFirst(build.proposals, (record: ProposalRecord) => record.proposal.feature.name === name),
+              (record) => proposalAnchorLine(shown.rendering.projection, record)
+            )
+        )),
+      Match.tag("Signature", "Digest", "Trial", "Inference", "Note", "CodeLine", () => Option.none()),
+      Match.exhaustive
+    ))
+)
+
+/**
+ * Whether a mark on the page is answered by the open overlay, so it can say
+ * so where it stands. A feature is answered when it is among the features
+ * answered; a line, when it is the line the answer stands on; a line of
+ * code, when the answer credits its site — the same rule that lights the
+ * line in the code panel, so the code lights from the prose as the prose
+ * does from the code; anything else, when it is the mark answered. Keyed by
+ * the mark's attribute value, since a mark is a value and not a handle.
+ */
+export const placeMarkFocusedAtom = Atom.family((encoded: string): AtomType.Atom<boolean> =>
+  Atom.make((get: AtomType.Context) =>
+    Option.exists(decodeMark(encoded), (mark) =>
+      Match.value(mark).pipe(
+        Match.tag("Feature", ({ name }) => get(placeFeatureFocusedAtom(name))),
+        Match.tag("Line", ({ index }) => Option.contains(get(placeFocusedLineAtom), index)),
+        Match.tag("CodeLine", ({ match, step }) =>
+          Option.exists(get(placeFocusedSiteAtom), (site) => site.step === step && site.match === match)),
+        Match.tag("Signature", "Digest", "Trial", "Inference", "Note", () =>
+          Option.exists(get(placeAnsweredMarkAtom), (answered) =>
+            encodeMark(answered) === encoded)),
+        Match.exhaustive
+      ))
+  )
+)
+
 // ---------------------------------------------------------------------------
 // Act — where the visitor is reading
 // ---------------------------------------------------------------------------
@@ -76,29 +138,33 @@ export const placeActAttribute = "data-place-act"
 
 const decodeAct = Schema.decodeUnknownOption(PlaceAct)
 
-/**
- * The band of the viewport an act is read in: from two fifths of the way
- * down to the middle. A landmark crossing it is the act being read; between
- * landmarks the last one read holds.
- */
-const readingBand: IntersectionObserverInit = { rootMargin: "-40% 0px -50% 0px", threshold: 0 }
+/** The reading line: halfway down the viewport. A landmark above it has been reached. */
+const readingLine = 0.5
 
 /**
- * The act whose landmark is in the reading band, as the visitor scrolls.
- * The landmarks are looked up once the page has painted and observed from
- * then on; the stream reports only entries into the band, so the value
- * holds while the visitor is between acts.
+ * The act being read, from where the page stands in the viewport now: the
+ * last landmark in the column that has reached the reading line, the
+ * arrival if none has. Measured afresh after the first paint and on every
+ * scroll, resize and fragment change — a projection of the position, so a
+ * jump to a fragment, a resize that moves a landmark across the line, or
+ * the page mounted again all answer rightly, with no crossing to have seen.
  */
-const actsInView: Stream.Stream<PlaceAct, never, BrowserDocument.BrowserDocument | BrowserWindow> = Stream.fromEffect(
-  nextFrame
-).pipe(
-  Stream.flatMap(() => Stream.fromEffect(BrowserDocument.querySelectorAll(`[${placeActAttribute}]`))),
-  Stream.flatMap((landmarks) => ElementIntersection.intersections(landmarks, readingBand)),
-  Stream.filter((entry) => entry.isIntersecting),
-  Stream.filterMap((entry) => decodeAct(entry.target.getAttribute(placeActAttribute)))
-)
+const actRead: Effect.Effect<PlaceAct, never, BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow> = Effect
+  .gen(function*() {
+    const landmarks = yield* BrowserDocument.querySelectorAll(`[${placeActAttribute}]`)
+    const line = (yield* BrowserWindow.viewportHeight) * readingLine
+    const reached = Arr.filter(landmarks, (landmark) => landmark.getBoundingClientRect().top <= line)
+    return Option.getOrElse(
+      Option.flatMap(Arr.last(reached), (landmark) => decodeAct(landmark.getAttribute(placeActAttribute))),
+      (): PlaceAct => "arrive"
+    )
+  })
 
-const placeActInViewAtom: AtomType.Atom<Result.Result<PlaceAct>> = appRuntime.atom(actsInView)
+const actsRead: Stream.Stream<PlaceAct, never, BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow> = Stream
+  .concat(Stream.fromEffect(nextFrame), BrowserWindow.viewportChanges)
+  .pipe(Stream.mapEffect(() => actRead), Stream.changes)
+
+const placeActInViewAtom: AtomType.Atom<Result.Result<PlaceAct>> = appRuntime.atom(actsRead)
 
 /** The act being read; the arrival until anything has been. */
 export const placeActAtom: AtomType.Atom<PlaceAct> = Atom.make((get: AtomType.Context) =>
@@ -117,7 +183,8 @@ export const placeGhostsAtom: AtomType.Atom<ReadonlyArray<ProposalRecord>> = Ato
         onNone: (): ReadonlyArray<ProposalRecord> => [],
         onSome: (build) => Arr.filter(build.proposals, (record) => !record.accepted)
       })),
-    Match.orElse((): ReadonlyArray<ProposalRecord> => [])
+    Match.whenOr("arrive", "compose", "record", "build", (): ReadonlyArray<ProposalRecord> => []),
+    Match.exhaustive
   )
 )
 
@@ -128,26 +195,25 @@ export const placeGhostsAtom: AtomType.Atom<ReadonlyArray<ProposalRecord>> = Ato
 /** The stage's column, whose leaving the viewport the band answers. */
 const stageColumnSelector = `[data-place-stage="column"]`
 
-/** Whether the stage has been scrolled past: out of the viewport, above it. */
-const scrolledPast = (entry: IntersectionObserverEntry): boolean =>
-  !entry.isIntersecting && entry.boundingClientRect.bottom <= 0
-
 /**
- * Whether the drawn place has been read past, as the visitor scrolls. The
- * column is looked up once the page has painted and observed from then on;
- * the observer reports each crossing of the viewport's edge. The band moves
- * nothing in the page's flow, so the column's place is the same with the
- * band and without, and the crossing is one edge, not two.
+ * Whether the drawn place has been read past — the stage's column above the
+ * viewport, wholly — from where the page stands now, measured afresh after
+ * the first paint and on every scroll, resize and fragment change. The band
+ * moves nothing in the page's flow, so the column stands where it would
+ * without the band, and the measure is one and the same either way.
  */
-const stageReadPast: Stream.Stream<boolean, never, BrowserDocument.BrowserDocument | BrowserWindow> = Stream
-  .fromEffect(nextFrame)
-  .pipe(
-    Stream.flatMap(() => Stream.fromEffect(BrowserDocument.querySelectorAll(stageColumnSelector))),
-    Stream.flatMap((columns) => ElementIntersection.intersections(columns, { threshold: 0 })),
-    Stream.map(scrolledPast)
+const stageReadPast: Effect.Effect<boolean, never, BrowserDocument.BrowserDocument> = Effect.map(
+  BrowserDocument.querySelectorAll(stageColumnSelector),
+  (columns) => Option.exists(Arr.head(columns), (column) => column.getBoundingClientRect().bottom <= 0)
+)
+
+const stageReadPastNow: Stream.Stream<boolean, never, BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow> =
+  Stream.concat(Stream.fromEffect(nextFrame), BrowserWindow.viewportChanges).pipe(
+    Stream.mapEffect(() => stageReadPast),
+    Stream.changes
   )
 
-const placeStageReadPastAtom: AtomType.Atom<Result.Result<boolean>> = appRuntime.atom(stageReadPast)
+const placeStageReadPastAtom: AtomType.Atom<Result.Result<boolean>> = appRuntime.atom(stageReadPastNow)
 
 /**
  * Whether the band is shown: the place as a band, pinned to the top of the
@@ -178,6 +244,14 @@ export const placeWorldAtom: AtomType.Atom<PlaceScenario> = Atom.make(
 export const placeWorldApplicationAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
   Match.value(get(pageRouteAtom)).pipe(
     Match.tag("HomeRoute", () => BrowserDocument.setRootData("world", get(placeWorldAtom))),
-    Match.orElse(() => BrowserDocument.removeRootData("world"))
+    Match.tag(
+      "DocsIndexRoute",
+      "DocsOverviewRoute",
+      "DocsGuideRoute",
+      "DocsApiRoute",
+      "DocsNotFoundRoute",
+      () => BrowserDocument.removeRootData("world")
+    ),
+    Match.exhaustive
   )
 )

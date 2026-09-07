@@ -256,10 +256,15 @@ export const toggleTrackClassName = ({
     ? `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing}`
     : `${toggleTrackBaseClassName} border-stage-200/90 bg-stage-50/90 ${tone.focusRing}`
 
-/** The page is the canvas: one column of content on the stage colour, nothing floating over it. */
+/**
+ * The page is the canvas: one column of content on the document's own
+ * canvas, nothing floating over it. The root paints nothing itself — the
+ * body is the canvas, in the world's colour and with its weather — so what
+ * the world tints is what the visitor sees, on this page as on the docs.
+ */
 export const appTheme = {
   root:
-    "relative min-h-screen overflow-x-clip bg-stage-50 font-body text-ink-900 antialiased selection:bg-tone-text-200/60 selection:text-ink-950",
+    "relative min-h-screen overflow-x-clip font-body text-ink-900 antialiased selection:bg-tone-text-200/60 selection:text-ink-950",
   content: "relative mx-auto flex w-full max-w-[88rem] flex-col gap-4 px-5 py-6 sm:px-8 sm:py-8 lg:px-12"
 }
 

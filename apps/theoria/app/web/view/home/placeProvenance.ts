@@ -1,8 +1,10 @@
-import { Match, Option } from "effect"
+import { Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import { markersBeside } from "../../../contracts/demo/imagined-place-flow.js"
 import {
   type CodeSite,
+  type CodeSiteId,
   codeSiteOf,
   composeSite,
   inferenceSite,
@@ -16,30 +18,45 @@ import {
   type ProvenanceFact,
   sealSite,
   searchSite,
-  separationSite,
   versionSignatureSite
 } from "../../../contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
-import type {
+import {
   PlaceBuild,
-  PlaceLine,
-  PlaceProjection,
-  ProposalRecord,
-  SignatureRecord,
-  Version
+  type PlaceProjection,
+  type ProposalRecord,
+  type SignatureRecord,
+  type Version
 } from "../../../contracts/imagined-place-result.js"
 import type { ParticipantRole } from "../../../contracts/imagined-place.js"
-import type { PlaceSearch } from "../../atoms/imagined-place-render.js"
+import { PlaceRenderFrame, type PlaceSearch } from "../../atoms/imagined-place-render.js"
 
 import { currentVersion, participantLabel, searching, shortId, signatureFor } from "./placeViewModel.js"
 
 /**
  * What the page says about the thing under the pointer. Every answer is
- * read from the build the server returned and the search the browser ran;
- * nothing here is stored, so an answer can never disagree with the page.
- * Each names the line of code that made the thing, and each such line is
- * answered in turn by the thing it made.
+ * read from the build the server returned and the frame the stage is
+ * drawing this instant; nothing here is stored, so an answer can never
+ * disagree with what is visible. Each names the line of code that made the
+ * thing, and each such line is answered in turn by the thing it made.
  */
+
+/**
+ * What the page has to answer from: the build, once the server has
+ * returned it, and the frame the stage is showing, once the search has
+ * drawn one. Either may be missing; marks are answered from whichever
+ * they need, so a signature is answered before a single disc is drawn,
+ * and a line of the prose is answered from the drawing on the paper — the
+ * trial being scrubbed, or a rendering on its way — not from the best
+ * arrangement the search knows of.
+ *
+ * @since 0.3.0
+ */
+export const PlaceOnPage = Schema.Struct({
+  build: Schema.Option(PlaceBuild),
+  shown: Schema.Option(PlaceRenderFrame)
+})
+export type PlaceOnPage = typeof PlaceOnPage.Type
 
 const fact = (label: string, value: string): ProvenanceFact => ({ label, value })
 
@@ -57,6 +74,9 @@ const described = (provenance: PlaceProvenance, detail: string): PlaceProvenance
   detail: Option.some(detail)
 })
 
+/** The same answer, credited to the line of code that was pointed at rather than the one that made its subject. */
+const creditedTo = (provenance: PlaceProvenance, site: CodeSite): PlaceProvenance => ({ ...provenance, site })
+
 const proposalFor = (build: PlaceBuild, role: ParticipantRole): Option.Option<ProposalRecord> =>
   Arr.findFirst(build.proposals, (record) => record.proposal.proposer === role)
 
@@ -71,52 +91,82 @@ const proposalById = (build: PlaceBuild, contentId: string): Option.Option<Propo
 
 const versionName = (version: Version): string => `v${String(version.version)}`
 
-/** A feature from the brief was composed; one from a proposal was offered, and merged or declined. */
-const featureAnswer = (mark: PlaceMark, build: PlaceBuild, name: string): Option.Option<PlaceProvenance> =>
-  Option.match(proposalOfFeature(build, name), {
-    onNone: () =>
+/** The trial a shown drawing is of, and whether the search kept it. */
+const trialName = (search: PlaceSearch, index: number): string =>
+  index === search.bestIndex ? `Trial ${String(index + 1)} · kept` : `Trial ${String(index + 1)} · not kept`
+
+/** Where a feature stands in the drawing on the paper, if it is drawn there. */
+const drawnFacts = (shown: Option.Option<PlaceRenderFrame>, name: string): ReadonlyArray<ProvenanceFact> =>
+  Option.match(
+    Option.flatMap(shown, (frame) =>
       Option.map(
-        Arr.findFirst(build.artifact.composition.features, (feature) => feature.name === name),
-        (feature) =>
+        Arr.findFirst(frame.rendering.projection.markers, (marker) => marker.name === name),
+        (marker) => ({ frame, marker })
+      )),
+    {
+      onNone: (): ReadonlyArray<ProvenanceFact> => [],
+      onSome: ({ frame, marker }) => [
+        fact("Drawn", `${trialName(frame.search, frame.trial)} · r ${String(Math.round(marker.radius))} px`)
+      ]
+    }
+  )
+
+/** A feature from the brief was composed; one from a proposal was offered, and merged or declined. */
+const featureAnswer = (mark: PlaceMark, page: PlaceOnPage, name: string): Option.Option<PlaceProvenance> =>
+  Option.flatMap(page.build, (build) =>
+    Option.match(proposalOfFeature(build, name), {
+      onNone: () =>
+        Option.map(
+          Arr.findFirst(build.artifact.composition.features, (feature) => feature.name === name),
+          (feature) =>
+            described(
+              answer(
+                mark,
+                feature.name,
+                Arr.appendAll(
+                  [
+                    fact("From", "Your brief"),
+                    fact("Weight", feature.weight.toFixed(2)),
+                    fact(
+                      "In",
+                      Option.match(Arr.head(build.evidence.lineage), { onNone: () => "v1", onSome: versionName })
+                    )
+                  ],
+                  drawnFacts(page.shown, name)
+                ),
+                composeSite
+              ),
+              feature.description
+            )
+        ),
+      onSome: (record) =>
+        Option.some(
           described(
             answer(
               mark,
-              feature.name,
-              [
-                fact("From", "Your brief"),
-                fact("Weight", feature.weight.toFixed(2)),
-                fact("In", Option.match(Arr.head(build.evidence.lineage), { onNone: () => "v1", onSome: versionName }))
-              ],
-              composeSite
-            ),
-            feature.description
-          )
-      ),
-    onSome: (record) =>
-      Option.some(
-        described(
-          answer(
-            mark,
-            record.proposal.feature.name,
-            [
-              fact("From", participantLabel(record.proposal.proposer)),
-              fact(
-                "Decision",
-                record.accepted
-                  ? Option.match(currentVersion(build.evidence), {
-                    onNone: () => "Merged",
-                    onSome: (version) => `Merged into ${versionName(version)}`
-                  })
-                  : "Declined"
+              record.proposal.feature.name,
+              Arr.appendAll(
+                [
+                  fact("From", participantLabel(record.proposal.proposer)),
+                  fact(
+                    "Decision",
+                    record.accepted
+                      ? Option.match(currentVersion(build.evidence), {
+                        onNone: () => "Merged",
+                        onSome: (version) => `Merged into ${versionName(version)}`
+                      })
+                      : "Declined"
+                  ),
+                  fact("Proposal", shortId(record.contentId))
+                ],
+                drawnFacts(page.shown, name)
               ),
-              fact("Proposal", shortId(record.contentId))
-            ],
-            proposalDigestSite
-          ),
-          record.proposal.feature.description
+              proposalDigestSite
+            ),
+            record.proposal.feature.description
+          )
         )
-      )
-  })
+    }))
 
 const signatureFacts = (signature: SignatureRecord): ReadonlyArray<ProvenanceFact> => [
   fact("Signer", participantLabel(signature.signer)),
@@ -201,15 +251,16 @@ const compositionAnswer = (mark: PlaceMark, build: PlaceBuild): PlaceProvenance 
 /** The names of the features an answer is about: a feature's own, or every one the composing line returned. */
 export const featuresAnswered = (provenance: PlaceProvenance, build: PlaceBuild): ReadonlyArray<string> =>
   Match.value(provenance.mark).pipe(
-    Match.tag("Feature", ({ name }) => [name]),
+    Match.tag("Feature", ({ name }): ReadonlyArray<string> => [name]),
     Match.tag(
       "CodeLine",
-      ({ match, step }) =>
-        Option.exists(codeSiteOf(step, match), (site) => site.match === composeSite.match)
+      ({ match, step }): ReadonlyArray<string> =>
+        Option.exists(codeSiteOf(step, match), (site) => site.id === composeSite.id)
           ? Arr.map(build.artifact.composition.features, (feature) => feature.name)
           : []
     ),
-    Match.orElse((): ReadonlyArray<string> => [])
+    Match.tag("Line", "Signature", "Digest", "Trial", "Inference", "Note", (): ReadonlyArray<string> => []),
+    Match.exhaustive
   )
 
 const inferenceAnswer = (mark: PlaceMark, build: PlaceBuild): Option.Option<PlaceProvenance> =>
@@ -245,27 +296,33 @@ const noteAnswer = (mark: PlaceMark, build: PlaceBuild): PlaceProvenance => {
 /** The width a line has when no disc stands beside it. */
 const fullLineWidth = (projection: PlaceProjection): number => projection.stageWidth - 2 * projection.padding
 
-/** Whether a disc stands beside the line and narrows it. */
-const narrowed = (projection: PlaceProjection, line: PlaceLine): boolean =>
-  line.maxWidth < fullLineWidth(projection) - 1
+/** The discs standing beside a line of the drawing on the paper, by the flow's own rule. */
+const beside = (frame: PlaceRenderFrame, index: number) =>
+  markersBeside(frame.rendering.projection, frame.rendering.projection.markers, index)
 
 /** A line's room is what the discs beside it leave; a full line has none beside it. */
-const lineAnswer = (mark: PlaceMark, search: PlaceSearch, index: number): Option.Option<PlaceProvenance> => {
-  const projection = search.best.projection
+const lineAnswer = (mark: PlaceMark, frame: PlaceRenderFrame, index: number): Option.Option<PlaceProvenance> => {
+  const projection = frame.rendering.projection
   const full = fullLineWidth(projection)
+  const besideIt = beside(frame, index)
   return Option.map(Arr.get(projection.lines, index), (line) =>
     answer(
       mark,
       `Line ${String(index + 1)} of ${String(projection.lines.length)}`,
-      [
-        fact(
-          "Room",
-          narrowed(projection, line)
-            ? `${String(Math.round(line.maxWidth))} of ${String(full)} px · beside a disc`
-            : `${String(full)} px · full`
-        ),
-        fact("Set", `${String(Math.round(line.width))} px`)
-      ],
+      Arr.appendAll(
+        [
+          fact(
+            "Room",
+            Arr.isNonEmptyReadonlyArray(besideIt)
+              ? `${String(Math.round(line.maxWidth))} of ${String(full)} px · beside a disc`
+              : `${String(full)} px · full`
+          ),
+          fact("Set", `${String(Math.round(line.width))} px`)
+        ],
+        Arr.isNonEmptyReadonlyArray(besideIt)
+          ? [fact("Beside", Arr.join(Arr.map(besideIt, (marker) => marker.name), ", "))]
+          : []
+      ),
       layoutSite
     ))
 }
@@ -274,9 +331,7 @@ const trialAnswer = (mark: PlaceMark, search: PlaceSearch, index: number): Optio
   Option.map(Arr.get(search.tried, index), (arrangement) =>
     answer(
       mark,
-      index === search.bestIndex
-        ? `Trial ${String(index + 1)} · kept`
-        : `Trial ${String(index + 1)} · not kept`,
+      trialName(search, index),
       [
         fact("Loss", arrangement.quality.loss.toFixed(3)),
         fact(
@@ -290,88 +345,100 @@ const trialAnswer = (mark: PlaceMark, search: PlaceSearch, index: number): Optio
       searchSite
     ))
 
-/**
- * The mark a line of code made, so the line is answered by it. Lines that
- * measure the arrangement answer with the kept trial they measured; the
- * composing line made every feature at once and is answered by the
- * composition itself, not by one mark.
- */
-const markMadeBy = (site: CodeSite, build: PlaceBuild, search: PlaceSearch): Option.Option<PlaceMark> =>
-  Match.value(site.match).pipe(
-    Match.when(inferenceSite.match, () => Option.some<PlaceMark>({ _tag: "Inference" })),
-    Match.when(proposalDigestSite.match, () =>
-      Option.map(
-        proposalFor(build, "neighbor"),
-        (record): PlaceMark => ({ _tag: "Digest", contentId: record.contentId })
-      )),
-    Match.when(proposalSignatureSite.match, () =>
-      Option.map(
-        proposalFor(build, "neighbor"),
-        (record): PlaceMark => ({ _tag: "Signature", subject: record.contentId })
-      )),
-    Match.when(sealSite.match, () => Option.some<PlaceMark>({ _tag: "Note" })),
-    Match.when(originDigestSite.match, () =>
-      Option.map(
-        Arr.head(build.evidence.lineage),
-        (version): PlaceMark => ({ _tag: "Digest", contentId: version.contentId })
-      )),
-    Match.when(mergedDigestSite.match, () =>
-      Option.map(
-        Arr.get(build.evidence.lineage, 1),
-        (version): PlaceMark => ({ _tag: "Digest", contentId: version.contentId })
-      )),
-    Match.when(versionSignatureSite.match, () =>
-      Option.map(
-        currentVersion(build.evidence),
-        (version): PlaceMark => ({ _tag: "Signature", subject: version.contentId })
-      )),
-    Match.when(layoutSite.match, () =>
-      Option.map(
-        Option.orElse(
-          Arr.findFirstIndex(
-            search.best.projection.lines,
-            (line) => narrowed(search.best.projection, line)
-          ),
-          () => Option.map(Arr.head(search.best.projection.lines), () => 0)
-        ),
-        (index): PlaceMark => ({ _tag: "Line", index })
-      )),
-    Match.when(separationSite.match, () => Option.some<PlaceMark>({ _tag: "Trial", index: search.bestIndex })),
-    Match.when(searchSite.match, () => Option.some<PlaceMark>({ _tag: "Trial", index: search.bestIndex })),
-    Match.orElse(() => Option.none())
+/** The first line of the drawing that a disc narrows; the first line at all if none is narrowed. */
+const narrowedLine = (frame: PlaceRenderFrame): Option.Option<number> =>
+  Option.orElse(
+    Arr.findFirstIndex(
+      frame.rendering.projection.lines,
+      (_, index) => Arr.isNonEmptyReadonlyArray(beside(frame, index))
+    ),
+    () => Option.map(Arr.head(frame.rendering.projection.lines), () => 0)
   )
 
-const answerFor = (
-  mark: PlaceMark,
-  build: PlaceBuild,
-  search: PlaceSearch
-): Option.Option<PlaceProvenance> =>
-  Match.value(mark).pipe(
-    Match.tag("Feature", ({ name }) => featureAnswer(mark, build, name)),
-    Match.tag("Line", ({ index }) => lineAnswer(mark, search, index)),
-    Match.tag("Signature", ({ subject }) => signatureAnswer(mark, build, subject)),
-    Match.tag("Digest", ({ contentId }) => digestAnswer(mark, build, contentId)),
-    Match.tag("Trial", ({ index }) => trialAnswer(mark, search, index)),
-    Match.tag("Inference", () => inferenceAnswer(mark, build)),
-    Match.tag("Note", () => Option.some(noteAnswer(mark, build))),
-    Match.tag("CodeLine", ({ match, step }) =>
-      Option.flatMap(codeSiteOf(step, match), (site) =>
-        site.match === composeSite.match
-          ? Option.some(compositionAnswer(mark, build))
-          : Option.flatMap(markMadeBy(site, build, search), (made) =>
-            answerFor(made, build, search)))),
+/**
+ * The mark a line of code made, so the line is answered by it. Lines that
+ * measure the arrangement answer with the trial on the paper, which they
+ * measured; the composing line made every feature at once and is answered
+ * by the composition itself, not by one mark. What each site made is
+ * matched on the site's name, exhaustively, so a new site must say.
+ */
+const markMadeBy = (id: CodeSiteId, page: PlaceOnPage): Option.Option<PlaceMark> =>
+  Match.value(id).pipe(
+    Match.when("compose", () => Option.none<PlaceMark>()),
+    Match.when("inference", () => Option.some<PlaceMark>({ _tag: "Inference" })),
+    Match.when("proposal-digest", () =>
+      Option.map(
+        Option.flatMap(page.build, (build) => proposalFor(build, "neighbor")),
+        (record): PlaceMark => ({ _tag: "Digest", contentId: record.contentId })
+      )),
+    Match.when("proposal-signature", () =>
+      Option.map(
+        Option.flatMap(page.build, (build) => proposalFor(build, "neighbor")),
+        (record): PlaceMark => ({ _tag: "Signature", subject: record.contentId })
+      )),
+    Match.when("seal", () => Option.some<PlaceMark>({ _tag: "Note" })),
+    Match.when("origin-digest", () =>
+      Option.map(
+        Option.flatMap(page.build, (build) => Arr.head(build.evidence.lineage)),
+        (version): PlaceMark => ({ _tag: "Digest", contentId: version.contentId })
+      )),
+    Match.when("merged-digest", () =>
+      Option.map(
+        Option.flatMap(page.build, (build) => Arr.get(build.evidence.lineage, 1)),
+        (version): PlaceMark => ({ _tag: "Digest", contentId: version.contentId })
+      )),
+    Match.when("version-signature", () =>
+      Option.map(
+        Option.flatMap(page.build, (build) => currentVersion(build.evidence)),
+        (version): PlaceMark => ({ _tag: "Signature", subject: version.contentId })
+      )),
+    Match.when("layout", () =>
+      Option.map(
+        Option.flatMap(page.shown, narrowedLine),
+        (index): PlaceMark => ({ _tag: "Line", index })
+      )),
+    Match.whenOr("separation", "search", () =>
+      Option.map(page.shown, (frame): PlaceMark => ({ _tag: "Trial", index: frame.trial }))),
     Match.exhaustive
   )
 
 /**
- * The answer for a mark, if the page has one yet: before the build or the
- * search is in there is nothing to say, and a mark naming something the
- * build does not have (a feature of another scenario, a trial not yet run)
- * has none either.
+ * A line of code is answered by what it made, credited to the line itself:
+ * `Statistics.minimum(` and `Study.tell(` both made the trial on the paper,
+ * and each says so under its own package's name.
  */
-export const provenanceFor = (
-  mark: PlaceMark,
-  build: Option.Option<PlaceBuild>,
-  search: Option.Option<PlaceSearch>
-): Option.Option<PlaceProvenance> =>
-  Option.flatMap(Option.all({ build, search }), ({ build, search }) => answerFor(mark, build, search))
+const codeLineAnswer = (mark: PlaceMark, page: PlaceOnPage, site: CodeSite): Option.Option<PlaceProvenance> =>
+  site.id === composeSite.id
+    ? Option.map(page.build, (build) => compositionAnswer(mark, build))
+    : Option.map(
+      Option.flatMap(markMadeBy(site.id, page), (made) => answerFor(made, page)),
+      (provenance) => creditedTo(provenance, site)
+    )
+
+const answerFor = (mark: PlaceMark, page: PlaceOnPage): Option.Option<PlaceProvenance> =>
+  Match.value(mark).pipe(
+    Match.tag("Feature", ({ name }) => featureAnswer(mark, page, name)),
+    Match.tag("Line", ({ index }) => Option.flatMap(page.shown, (frame) => lineAnswer(mark, frame, index))),
+    Match.tag(
+      "Signature",
+      ({ subject }) => Option.flatMap(page.build, (build) => signatureAnswer(mark, build, subject))
+    ),
+    Match.tag("Digest", ({ contentId }) => Option.flatMap(page.build, (build) => digestAnswer(mark, build, contentId))),
+    Match.tag("Trial", ({ index }) => Option.flatMap(page.shown, (frame) => trialAnswer(mark, frame.search, index))),
+    Match.tag("Inference", () => Option.flatMap(page.build, (build) => inferenceAnswer(mark, build))),
+    Match.tag("Note", () => Option.map(page.build, (build) => noteAnswer(mark, build))),
+    Match.tag(
+      "CodeLine",
+      ({ match, step }) => Option.flatMap(codeSiteOf(step, match), (site) => codeLineAnswer(mark, page, site))
+    ),
+    Match.exhaustive
+  )
+
+/**
+ * The answer for a mark, if the page has one yet: a mark needing the build
+ * before it has arrived, or the drawing before one is on the paper, has
+ * nothing to say, and neither has a mark naming something the page does not
+ * have (a feature of another scenario, a trial not yet run).
+ */
+export const provenanceFor = (mark: PlaceMark, page: PlaceOnPage): Option.Option<PlaceProvenance> =>
+  answerFor(mark, page)

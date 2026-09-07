@@ -51,6 +51,15 @@ export type PlaceSearchError =
 export const answerWithin: Duration.Duration = Duration.seconds(3)
 
 /**
+ * How long a worker may take to boot — its script fetched, its sampler
+ * loaded, its readiness posted — before it is given up on. A script that
+ * never loads reports only to the console; the platform waits on its
+ * readiness without bound, so this bound is the only way its absence is
+ * known, and the search is refused instead of the page waiting forever.
+ */
+export const bootWithin: Duration.Duration = Duration.seconds(10)
+
+/**
  * Whether the error means the worker itself is gone — everything but the
  * search refusing what it was asked, which is the worker answering properly.
  */
@@ -73,18 +82,27 @@ class Kept extends Data.Class<{
 /** The worker to use, and the worker to remember. */
 type Spawned = readonly [use: Kept, remember: Option.Option<Kept>]
 
+/** Why no worker could be had: it failed to spawn, or was not ready within the bound. */
+type SpawnError = WorkerError.WorkerError | PlaceSearchUnanswered
+
 const make = Effect.gen(function*() {
   const scope = yield* Effect.scope
   const platform = yield* Effect.context<Worker.WorkerManager | Worker.Spawner>()
   const kept = yield* SynchronizedRef.make(Option.none<Kept>())
 
   // Each worker lives in its own fork of the service's scope, so one can be
-  // let go — ended with its thread — while the service goes on.
-  const spawn: Effect.Effect<Kept, WorkerError.WorkerError> = Effect.gen(function*() {
+  // let go — ended with its thread — while the service goes on. A worker
+  // that fails to boot, is not ready within the bound, or is given up on
+  // while booting is ended with its fork, so nothing of it is kept.
+  const spawn: Effect.Effect<Kept, SpawnError> = Effect.gen(function*() {
     const forked = yield* Scope.fork(scope, ExecutionStrategy.sequential)
     const worker = yield* Worker.makeSerialized<PlaceSearchRequest>({}).pipe(
       Scope.extend(forked),
       Effect.provide(platform),
+      Effect.timeoutFail({
+        duration: bootWithin,
+        onTimeout: () => new PlaceSearchUnanswered({ request: "spawn", after: bootWithin })
+      }),
       Effect.onError((cause) => Scope.close(forked, Exit.failCause(cause)))
     )
     return new Kept({ worker, scope: forked })
@@ -93,13 +111,12 @@ const make = Effect.gen(function*() {
   // One worker for the page, kept for every search until it fails or falls
   // silent; then the next search spawns another. A spawn that fails is tried
   // again next time.
-  const worker: Effect.Effect<Kept, WorkerError.WorkerError> = SynchronizedRef.modifyEffect(
+  const worker: Effect.Effect<Kept, SpawnError> = SynchronizedRef.modifyEffect(
     kept,
     (current) =>
       Option.match(current, {
-        onSome: (found): Effect.Effect<Spawned, WorkerError.WorkerError> => Effect.succeed([found, current]),
-        onNone: (): Effect.Effect<Spawned, WorkerError.WorkerError> =>
-          Effect.map(spawn, (found) => [found, Option.some(found)])
+        onSome: (found): Effect.Effect<Spawned, SpawnError> => Effect.succeed([found, current]),
+        onNone: (): Effect.Effect<Spawned, SpawnError> => Effect.map(spawn, (found) => [found, Option.some(found)])
       })
   )
 
@@ -135,18 +152,30 @@ const make = Effect.gen(function*() {
       Effect.tapError((error) => (workerGone(error) ? forget(on) : Effect.void))
     )
 
-  const open: Effect.Effect<OpenedPlaceSearch, PlaceSearchError, Scope.Scope> = Effect.gen(function*() {
-    const found = yield* worker
-    const search = yield* answered(found, "OpenSearch", found.worker.executeEffect(new OpenSearch()))
-    yield* Effect.addFinalizer(() =>
-      Effect.ignore(answered(found, "CloseSearch", found.worker.executeEffect(new CloseSearch({ search }))))
-    )
-    return new OpenedPlaceSearch({
-      ask: answered(found, "AskSearch", found.worker.executeEffect(new AskSearch({ search }))),
-      tell: (trial, loss) =>
-        answered(found, "TellSearch", found.worker.executeEffect(new TellSearch({ search, trial, loss })))
-    })
-  })
+  // Opening a search and promising to close it are one step: nothing can
+  // come between the worker answering with the search and the finalizer
+  // that closes it. Waiting on the worker and on its answer stay
+  // interruptible — a search given up on while opening must not hold the
+  // page — and an open interrupted while the worker may already have the
+  // study is resolved by forgetting the worker: its thread ends and takes
+  // whatever it had opened, and the next search spawns another.
+  const open: Effect.Effect<OpenedPlaceSearch, PlaceSearchError, Scope.Scope> = Effect.uninterruptibleMask(
+    (restore) =>
+      Effect.gen(function*() {
+        const found = yield* restore(worker)
+        const search = yield* restore(
+          answered(found, "OpenSearch", found.worker.executeEffect(new OpenSearch()))
+        ).pipe(Effect.onInterrupt(() => forget(found)))
+        yield* Effect.addFinalizer(() =>
+          Effect.ignore(answered(found, "CloseSearch", found.worker.executeEffect(new CloseSearch({ search }))))
+        )
+        return new OpenedPlaceSearch({
+          ask: answered(found, "AskSearch", found.worker.executeEffect(new AskSearch({ search }))),
+          tell: (trial, loss) =>
+            answered(found, "TellSearch", found.worker.executeEffect(new TellSearch({ search, trial, loss })))
+        })
+      })
+  )
 
   return { open }
 })
@@ -156,9 +185,10 @@ const make = Effect.gen(function*() {
  * opens a search on the search worker and drives it ask by ask, so the
  * sampler's work leaves the thread that draws. The search is open for as
  * long as the scope it was opened in — the render stream's — and closed
- * with it. Every request is answered within `answerWithin` or the worker is
- * taken for gone and the next search spawns a fresh one; the caller decides
- * whether to search again. The production layer spawns the worker through
+ * with it. A worker is ready within `bootWithin` and every request is
+ * answered within `answerWithin`, or the worker is taken for gone and the
+ * next search spawns a fresh one; the caller decides whether to search
+ * again. The production layer spawns the worker through
  * the platform module; another layer can answer the same requests in the
  * thread.
  */

@@ -215,6 +215,20 @@ export const mergeFrame = (
 export const discsAtRest = (region: Element): boolean =>
   [...region.querySelectorAll("[data-place-marker]")].every((element) => getComputedStyle(element).transform === "none")
 
+/** Where the band's discs are drawn this frame: each disc's name at its centre, as one string. */
+export const bandDiscCentres = (band: Element): string =>
+  [...band.querySelectorAll("[data-place-band-disc]")]
+    .map((disc) => `${disc.getAttribute("data-place-band-disc") ?? ""}@${disc.getAttribute("cx") ?? ""}`)
+    .join(" ")
+
+/** The band draws the disc named, and the paper's drawing is the kept one: a merge has landed in the band. */
+export const bandShowsKept = (band: Element, name: string): boolean =>
+  [...band.querySelectorAll("[data-place-band-disc]")].filter((disc) =>
+      disc.getAttribute("data-place-band-disc") === name
+    )
+      .length === 1 &&
+  document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept"
+
 /** The element's right edge is inside the viewport. */
 export const insideViewportRight = (element: Element) => element.getBoundingClientRect().right <= window.innerWidth
 
@@ -280,8 +294,19 @@ export const documentTop = (element: Element) => Math.round(element.getBoundingC
 /** The world the root carries, or the empty string off the home page. */
 export const rootWorld = () => document.documentElement.dataset["world"] ?? ""
 
-/** The page canvas colour, as painted. */
-export const canvasColour = () => getComputedStyle(document.body).backgroundColor
+/**
+ * The page canvas colour as the visitor sees it: the background of the
+ * topmost element painted at the page's left margin, halfway down the
+ * viewport, where nothing but the canvas stands. An element that paints no
+ * colour of its own lets the one beneath it through, so a root that covered
+ * the body with its own colour would be reported, not the body.
+ */
+export const canvasColour = () => {
+  const painted = document.elementsFromPoint(2, window.innerHeight / 2)
+    .map((element) => getComputedStyle(element).backgroundColor)
+    .find((colour) => colour !== "rgba(0, 0, 0, 0)" && colour !== "transparent")
+  return painted ?? "none"
+}
 
 /** The element's text colour, as painted. */
 export const textColour = (element: Element) => getComputedStyle(element).color

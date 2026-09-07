@@ -98,12 +98,14 @@ const journeyProgressAt = <A>(travelling: Travelling<A>, journey: Journey<A>, ti
   })
 
 /**
- * What is drawn `progress` of the way along a travel. A landed travel draws
- * its target itself — the same value, not a copy — so whatever reads the
- * drawing can tell it has arrived.
+ * What is drawn `progress` of the way along a travel. A travel yet to begin
+ * draws where it starts from, itself — the same value, not a copy — so a
+ * drawing at rest is the last one left, exactly, and nothing on the way to
+ * the target shows before the travel does. A landed travel draws its target
+ * itself, so whatever reads the drawing can tell it has arrived.
  */
 const drawnAt = <A>(travelling: Travelling<A>, travel: Travel<A>, progress: number): A =>
-  progress >= 1 ? travel.to : travelling.between(travel.from, travel.to, ease(progress))
+  progress <= 0 ? travel.from : progress >= 1 ? travel.to : travelling.between(travel.from, travel.to, ease(progress))
 
 /**
  * A journey from where the last drawing was left, so a new stream of targets

@@ -7,6 +7,7 @@ import type { ReactNode } from "react"
 import { cards } from "../../../contracts/card.js"
 import { PlaceAct } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { Id as CardId } from "../../../contracts/id.js"
+import type { StepSpine } from "../../../contracts/layout.js"
 import { placeActAttribute } from "../../atoms/imagined-place-experience.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -25,9 +26,6 @@ const packageNames = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
 
 const nameButtonClassName =
   "-mx-1.5 -my-1 rounded-md px-1.5 py-1 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
-
-/** Whether the step sits on the acts' spine (a dot marks the chosen step) or stands alone, as the stage does. */
-export type StepSpine = "spine" | "none"
 
 const spineDot = (active: boolean) => (
   <Layer aria-hidden className="hidden w-3 justify-center pt-2 lg:flex">

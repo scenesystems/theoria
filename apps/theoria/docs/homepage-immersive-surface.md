@@ -237,9 +237,11 @@ mark, the version accompanies a changed content ID.
 The experience layer is three atoms beside the existing ones, all pure
 derivations or explicit effects:
 
-- `placeActAtom`: `"arrive" | "compose" | "propose" | "record" | "build"`,
-  written by one `IntersectionObserver` effect over the act landmarks, read by
-  the stage.
+- `placeActAtom`: `"arrive" | "compose" | "propose" | "record" | "build"`, a
+  projection of where the reading line (half the viewport) stands among the
+  act landmarks, re-read on every scroll, resize and hash change — so a jump
+  from below the viewport to above it, which no observer entry reports, still
+  answers. Read by the stage.
 - `placeFocusAtom`: `Option<PlaceProvenance>`, a tagged union
   (`Feature | Line | Signature | Version | Trial | CodeLine`) written by
   hover and focus handlers, read by every surface that can answer.
@@ -291,7 +293,7 @@ was reversed — the page needs both.)
       (`howItsBuiltSectionId`, the one id both the hero and the section
       use). The demonstration shares the first viewport with the hero, so an
       action pointing at it was a step to nowhere; the first draft's `See the
-    place it built` was reversed.
+  place it built` was reversed.
 - [x] `PlaceArrive.tsx`: the demonstration opens with its own title as an
       `h2` in the page-title role (`placeArriveTitle`, "The packages at work":
       this is a demonstration of the packages, not the place), then one lead
@@ -349,8 +351,9 @@ was reversed — the page needs both.)
 
 - [x] `package.json`: `motion` 13.x; `App.tsx`: `MotionConfig
 reducedMotion="user"` at the root (done on the toolchain branch).
-- [x] `App.tsx`: `LazyMotion strict` (`domMax`, for layout animations) with
-      the theme's transition; motion tokens are one contract,
+- [x] `App.tsx`: `LazyMotion strict` (`domAnimation`; the drawing travels by
+      its own measured positions, so nothing animates layout) with the
+      theme's transition; motion tokens are one contract,
       `contracts/motion.ts` (`MotionRelation` = enter | shift | exit as
       `Duration`s, one ease), generated into `styles.css` and handed to
       `MotionConfig` by `primitives/motion.ts`. Reduced motion is an atom,
@@ -360,7 +363,7 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `placeDrawnAtom` (`kept` | `sketch` | `trial`). The frame is
       `PlaceRenderFrame { search, rendering, paper }`: the paper's height is
       part of the drawing and travels with the discs (`PlaceDrawing
-  { markers, paper }`, `drawingBetween`), so `placeSheetAtom` is the
+{ markers, paper }`, `drawingBetween`), so `placeSheetAtom` is the
       chosen width at once and the drawing's own height — `held` at the
       settled height while a search's trials run (a jump moves nothing
       around the stage, and the sticky stage column never shifts while the
@@ -380,16 +383,21 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `AskSearch`, `TellSearch`, `CloseSearch`) are one contract; the
       sampler runs in a worker (`@effect/platform` `Worker`; the platform
       module names its entry the standard way, `new Worker(new URL("…",
-    import.meta.url), { type: "module" })`, which every bundler resolves
+  import.meta.url), { type: "module" })`, which every bundler resolves
       at build time) and the page scores each proposed meander with its own
       text metrics, so the sampler's growing cost is off the drawing thread.
       `PlaceSearcher` is a service in `placeRenderRuntime`'s layer next to
       the text layout. A worker that closes or is reclaimed says nothing to
       the page, so every request is bounded (`answerWithin`, 3 s, far past
-      any honest answer): past it, or on a worker error, the worker is
-      forgotten and its scope closed, the render stream searches once more
-      on the fresh worker the next `open` spawns, and only a second loss is
-      a failed drawing with "Draw again".
+      any honest answer) and so is the worker's boot (`bootWithin`, 10 s,
+      inside `spawn`, so a script that never reports ready cannot hold the
+      searcher): past either, or on a worker error, the worker is forgotten
+      and its scope closed, the render stream searches once more on the
+      fresh worker the next `open` spawns, and only a second loss is a
+      failed drawing with "Draw again". Opening a search is one
+      uninterruptible step around the request and its finalizer; an open
+      interrupted between them forgets the worker, so nothing is left
+      allocated in it without an owner.
 - [x] `PlaceMarker.tsx`: the text and the discs are one arrangement and are
       always drawn from the same state, and no disc is ever a Motion layout
       node: the frames own every position. A feature just merged is a
@@ -527,15 +535,37 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       distinction in Record); `PlaceProvenance.tsx`: one overlay that renders
       any `PlaceProvenance`; disc popovers, ID tooltips and status pills fold
       into it.
-- [x] `PlaceHowItsBuilt.tsx`: code lines carry `data-provenance`; pointing at
-      a line writes `placeFocusAtom`; a focused mark highlights its line, and
-      a focused line lights every disc it made, on the stage and in the band.
+- [x] `PlaceHowItsBuilt.tsx`: the value beside each line that produced
+      something carries `data-provenance` for that line; pointing at it
+      writes `placeFocusAtom`; a focused mark highlights its line, and a
+      focused line lights every disc it made, on the stage and in the band.
+      The line itself is not the control: its API names are links, and a
+      trigger around the line took the link's press so its preview never
+      opened (tried, measured, reverted).
+- [x] Focus is bidirectional through one atom, `placeMarkFocusedAtom(mark)`,
+      read by every `ProvenanceMark` and said as `data-place-focused`: a
+      feature lights its disc, its name in the composition and its
+      proposal's title; a line lights on the stage when pointed at, when the
+      code that set it is pointed at, or when the merged proposal whose
+      sentence stands on it is pointed at (`placeFocusedLineAtom`, from
+      `proposalAnchorLine` on the drawing shown this instant); a content ID
+      or signature lights wherever it is said.
+- [x] `PlaceStage.tsx`: the lines of the prose are one stop in the tab order,
+      a vertical Base UI `Toolbar` — arrows move between lines, Enter opens
+      the line's answer — so every line's facts have a keyboard route; the
+      answers are read from `placeShownFrameAtom`, the drawing on the stage
+      this instant, not the search's best, so a hovered line's width and
+      count agree with what is visible, and a disc's answer names the trial
+      it is drawn from.
 - [x] `styles.css`: `--th-world-{canvas,paper,paper-edge,rule}` per world for
       light and dark; `:root[data-world]` selects them; contrast checked per
       world per theme against rendered colours in `test/worker/home-demo.test.ts`.
 - [x] `test/worker/home-demo.test.ts` — _every mark answers_: for each
       `[data-provenance]` in the demonstration, hover shows an overlay naming
-      a package; a code line lights its discs. _The acts answer on the
+      a package; each annotation's answer names its own title and package
+      (`Statistics.minimum(` → effect-math, `Study.tell(` → effect-search,
+      `Text.layoutLinesWith(` → effect-text); a code line lights its discs;
+      the lines answer from the keyboard. _The acts answer on the
       stage_: scrolling to Propose changes `data-place-stage-act` and shows a
       ghost. _The world changes the air_: switching scenario changes
       `data-world` on `:root` and the computed canvas colour, text colour does

@@ -1,11 +1,11 @@
-import { Chunk, Data, Option, Schema } from "effect"
+import { Chunk, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import * as Geometry from "@scenesystems/effect-math/Geometry"
 import * as Statistics from "@scenesystems/effect-math/Statistics"
 import { Text } from "@scenesystems/effect-text"
 
-import type { PlaceLine, PlaceMarker } from "../imagined-place-result.js"
+import { type PlaceLine, PlaceMarker } from "../imagined-place-result.js"
 import type { ParticipantRole, PlaceFeature } from "../imagined-place.js"
 import { semanticsFor, type TextRole } from "../text.js"
 
@@ -142,10 +142,10 @@ export const markersBetween =
  *
  * @since 0.3.0
  */
-export class PlaceDrawing extends Data.Class<{
-  readonly markers: ReadonlyArray<PlaceMarker>
-  readonly paper: number
-}> {}
+export class PlaceDrawing extends Schema.Class<PlaceDrawing>("PlaceDrawing")({
+  markers: Schema.Array(PlaceMarker),
+  paper: Schema.Number
+}) {}
 
 /** The least paper these discs stand on whole: the lowest edge of any, and the stage's padding below it. */
 export const paperUnder = (stage: Stage, markers: ReadonlyArray<PlaceMarker>): number =>
@@ -190,19 +190,40 @@ export const drawingBetween = (stage: Stage) => {
     new PlaceDrawing({ markers: markers(from.markers, to.markers, t), paper: lerp(from.paper, to.paper, t) })
 }
 
+/** The lines of prose are set from the padding down, one line height each; this is what a line's band is. */
+export const LineBands = Stage.pick("padding", "lineHeight")
+export type LineBands = typeof LineBands.Type
+
+/**
+ * The markers that stand in a line's band — between its top and the next
+ * line's — and so narrow it: the one rule the flow keeps, asked of one line.
+ * A line with none beside it runs the column's full width. The same question
+ * a projection answers, since its padding and line height are the stage's.
+ *
+ * @since 0.3.0
+ */
+export const markersBeside = (
+  stage: LineBands,
+  markers: ReadonlyArray<PlaceMarker>,
+  lineIndex: number
+): ReadonlyArray<PlaceMarker> => {
+  const top = stage.padding + lineIndex * stage.lineHeight
+  const bottom = top + stage.lineHeight
+  return Arr.filter(markers, (marker) => marker.y - marker.radius < bottom && marker.y + marker.radius > top)
+}
+
 /**
  * The description flows from the top-left and stops short of any marker that
  * intrudes into a line's band, so text wraps around the features. The
  * resolver is what `Text.layoutLinesWith` calls once per line.
  */
 export const lineWidthFor = (stage: Stage, markers: ReadonlyArray<PlaceMarker>) => (lineIndex: number): number => {
-  const top = stage.padding + lineIndex * stage.lineHeight
-  const bottom = top + stage.lineHeight
   const fullWidth = stage.stageWidth - 2 * stage.padding
-  const limit = Arr.reduce(markers, fullWidth, (width, marker) => {
-    const intrudes = marker.y - marker.radius < bottom && marker.y + marker.radius > top
-    return intrudes ? Math.min(width, marker.x - marker.radius - markerGap - stage.padding) : width
-  })
+  const limit = Arr.reduce(
+    markersBeside(stage, markers, lineIndex),
+    fullWidth,
+    (width, marker) => Math.min(width, marker.x - marker.radius - markerGap - stage.padding)
+  )
   return Math.max(minimumLineWidth, limit)
 }
 

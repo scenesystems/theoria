@@ -26,6 +26,29 @@ export const PlaceAct = Schema.Literal("arrive", "compose", "propose", "record",
 export type PlaceAct = typeof PlaceAct.Type
 
 /**
+ * The lines of the samples that produced something on the page, each by
+ * name: what a site is, before where it is. A closed set, so what answers
+ * for a site can be matched exhaustively, and a site is one value however
+ * many places name it.
+ *
+ * @since 0.3.0
+ */
+export const CodeSiteId = Schema.Literal(
+  "compose",
+  "inference",
+  "proposal-digest",
+  "proposal-signature",
+  "seal",
+  "origin-digest",
+  "merged-digest",
+  "version-signature",
+  "layout",
+  "separation",
+  "search"
+)
+export type CodeSiteId = typeof CodeSiteId.Type
+
+/**
  * A line of the code sample, named by the step it is in and a substring
  * unique to it there, and the package that call comes from. The same
  * `match` keys the live value shown under that line.
@@ -33,30 +56,36 @@ export type PlaceAct = typeof PlaceAct.Type
  * @since 0.3.0
  */
 export const CodeSite = Schema.Struct({
+  id: CodeSiteId,
   step: PlaceStep,
   match: Schema.String,
   package: CardId
 })
 export type CodeSite = typeof CodeSite.Type
 
-const site = (step: PlaceStep, match: string, pkg: CardId): CodeSite => ({ step, match, package: pkg })
+const site = (id: CodeSiteId, step: PlaceStep, match: string, pkg: CardId): CodeSite => ({
+  id,
+  step,
+  match,
+  package: pkg
+})
 
 /**
  * Every line of the samples that produced something on the page. Each is
  * answered by the thing it made; each thing on the page is answered by its
  * line. The order within a step is the order of the lines in the sample.
  */
-export const composeSite = site("compose", "composer.forward(", "effect-inference")
-export const inferenceSite = site("compose", "InferenceTesting.staticLanguageModel(", "effect-inference")
-export const proposalDigestSite = site("propose", "digestSchemaValue(Proposal,", "digest")
-export const proposalSignatureSite = site("propose", "ed25519Sign(proposer.secretKey", "sign")
-export const sealSite = site("propose", "seal(\"xchacha20-poly1305\"", "seal")
-export const originDigestSite = site("record", "digestSchemaValue(PlaceArtifact, origin,", "digest")
-export const mergedDigestSite = site("record", "digestSchemaValue(PlaceArtifact, merged,", "digest")
-export const versionSignatureSite = site("record", "ed25519Sign(author.secretKey", "sign")
-export const layoutSite = site("arrange", "Text.layoutLinesWith(", "effect-text")
-export const separationSite = site("arrange", "Statistics.minimum(", "effect-math")
-export const searchSite = site("arrange", "Study.tell(", "effect-search")
+export const composeSite = site("compose", "compose", "composer.forward(", "effect-inference")
+export const inferenceSite = site("inference", "compose", "InferenceTesting.staticLanguageModel(", "effect-inference")
+export const proposalDigestSite = site("proposal-digest", "propose", "digestSchemaValue(Proposal,", "digest")
+export const proposalSignatureSite = site("proposal-signature", "propose", "ed25519Sign(proposer.secretKey", "sign")
+export const sealSite = site("seal", "propose", "seal(\"xchacha20-poly1305\"", "seal")
+export const originDigestSite = site("origin-digest", "record", "digestSchemaValue(PlaceArtifact, origin,", "digest")
+export const mergedDigestSite = site("merged-digest", "record", "digestSchemaValue(PlaceArtifact, merged,", "digest")
+export const versionSignatureSite = site("version-signature", "record", "ed25519Sign(author.secretKey", "sign")
+export const layoutSite = site("layout", "arrange", "Text.layoutLinesWith(", "effect-text")
+export const separationSite = site("separation", "arrange", "Statistics.minimum(", "effect-math")
+export const searchSite = site("search", "arrange", "Study.tell(", "effect-search")
 
 export const allCodeSites: ReadonlyArray<CodeSite> = [
   composeSite,
@@ -140,5 +169,6 @@ export type PlaceProvenance = typeof PlaceProvenance.Type
 export const markOpenDelayMs = (mark: PlaceMark): number =>
   Match.value(mark).pipe(
     Match.tag("Line", () => 320),
-    Match.orElse(() => 120)
+    Match.tag("Feature", "Signature", "Digest", "Trial", "Inference", "Note", "CodeLine", () => 120),
+    Match.exhaustive
   )

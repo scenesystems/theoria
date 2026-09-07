@@ -27,3 +27,17 @@ export const ArtifactStageFrame = Schema.Literal("none", "instrument")
  * @since 0.1.0
  */
 export type ArtifactStageFrame = typeof ArtifactStageFrame.Type
+
+/**
+ * Whether a step of the story stands on the acts' spine — the rule down the
+ * reading column, a dot on it marking the chosen step — or alone, as the
+ * stage's own step does.
+ *
+ * @since 0.3.0
+ */
+export const StepSpine = Schema.Literal("spine", "none")
+
+/**
+ * @since 0.3.0
+ */
+export type StepSpine = typeof StepSpine.Type

@@ -1,6 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Data, Duration, Effect, Equal, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
+import { Duration, Effect, Equal, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
 
@@ -18,18 +18,18 @@ import {
   paperExpected,
   paperUnder,
   PlaceDrawing,
-  type Stage,
+  Stage,
   stageFor
 } from "../../contracts/demo/imagined-place-flow.js"
 import { type Meander, renderTrials } from "../../contracts/demo/imagined-place-search.js"
-import type { PlaceRendering } from "../../contracts/imagined-place-result.js"
+import { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import { type ParticipantRole, type PlaceArtifact, placeFeatures } from "../../contracts/imagined-place.js"
 import { motionDuration } from "../../contracts/motion.js"
 import { journeyFrom, toward, travellingOver } from "../motion/travel.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
 import { PlaceSearcher, workerGone } from "../services/PlaceSearcher.js"
 import type { BrowserTextLayout } from "../text/browserTextLayout.js"
-import { type MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
+import { MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
@@ -63,19 +63,19 @@ export const PlaceSearchPhase = Schema.Literal("running", "landing", "complete")
 
 export type PlaceSearchPhase = typeof PlaceSearchPhase.Type
 
-export class PlaceSearch extends Data.Class<{
-  readonly phase: PlaceSearchPhase
-  readonly stage: Stage
+export class PlaceSearch extends Schema.Class<PlaceSearch>("PlaceSearch")({
+  phase: PlaceSearchPhase,
+  stage: Stage,
   /** Every arrangement so far, in the order the search tried them. */
-  readonly tried: ReadonlyArray<Arrangement>
+  tried: Schema.Array(Arrangement),
   /** Index into `tried` of the best so far: where the drawing is heading. */
-  readonly bestIndex: number
+  bestIndex: Schema.Int,
   /** The best so far, rendered: what the search has found, whether or not the drawing has reached it. */
-  readonly best: PlaceRendering
+  best: PlaceRendering,
   /** The description the lines set; a new artifact's lines replace the old ones rather than moving. */
-  readonly prose: string
+  prose: Schema.String,
   /** The discs that carry their names at this stage width, and how wide each name wraps. */
-  readonly labels: MarkerLabelWidths
+  labels: MarkerLabelWidths,
   /**
    * The features the last settled arrangement drew, by name: what stands on
    * the stage until this search settles in turn. A drawn feature not among
@@ -83,8 +83,8 @@ export class PlaceSearch extends Data.Class<{
    * anything has settled nothing has been merged, so this is every feature
    * the place came with.
    */
-  readonly settled: HashSet.HashSet<string>
-}> {}
+  settled: Schema.HashSetFromSelf(Schema.String)
+}) {}
 
 /**
  * What the stage draws at one frame: the search as it stands, and the
@@ -94,13 +94,15 @@ export class PlaceSearch extends Data.Class<{
  * which does not wake them for a frame: the same `PlaceSearch` is carried
  * through every frame of a trial's travel.
  */
-export class PlaceRenderFrame extends Data.Class<{
-  readonly search: PlaceSearch
+export class PlaceRenderFrame extends Schema.Class<PlaceRenderFrame>("PlaceRenderFrame")({
+  search: PlaceSearch,
+  /** Index into the search's `tried` of the arrangement the drawing is of, or heading for: the best, or the trial chosen. */
+  trial: Schema.Int,
   /** The drawing: the best arrangement once the discs have landed on it, the text flowed around them on the way. */
-  readonly rendering: PlaceRendering
+  rendering: PlaceRendering,
   /** The height of the paper under the drawing, where its edge has reached. */
-  readonly paper: number
-}> {}
+  paper: Schema.Number
+}) {}
 
 /** The loss of every trial so far: the trace of the search. */
 export const searchLosses = (search: PlaceSearch): ReadonlyArray<number> =>
@@ -108,19 +110,25 @@ export const searchLosses = (search: PlaceSearch): ReadonlyArray<number> =>
 
 /** The same frame drawn with the trial at `index` instead; out of range leaves the frame as it is. */
 export const frameShowing = (frame: PlaceRenderFrame, index: Option.Option<number>): PlaceRenderFrame =>
-  Option.match(Option.flatMap(index, (value) => Arr.get(frame.search.tried, value)), {
-    onNone: () => frame,
-    onSome: (arrangement) =>
-      new PlaceRenderFrame({
-        ...frame,
-        rendering: renderingFor({
-          arrangement,
-          bestLoss: frame.search.best.evidence.bestLoss,
-          stage: frame.search.stage,
-          trials: frame.search.tried.length
+  Option.match(
+    Option.flatMap(index, (trial) =>
+      Option.map(Arr.get(frame.search.tried, trial), (arrangement) => ({ trial, arrangement }))),
+    {
+      onNone: () =>
+        frame,
+      onSome: ({ arrangement, trial }) =>
+        new PlaceRenderFrame({
+          ...frame,
+          trial,
+          rendering: renderingFor({
+            arrangement,
+            bestLoss: frame.search.best.evidence.bestLoss,
+            stage: frame.search.stage,
+            trials: frame.search.tried.length
+          })
         })
-      })
-  })
+    }
+  )
 
 /** Long enough to see the markers settle, short enough that 36 trials finish in about a second. */
 const frameDelay = Duration.millis(28)
@@ -206,12 +214,12 @@ const travelDuration = (motion: MotionPreference): Duration.Duration =>
  * features the last settled arrangement drew, and the description its lines
  * were set from.
  */
-class DrawingLeft extends Data.Class<{
-  readonly drawing: PlaceDrawing
-  readonly held: Option.Option<number>
-  readonly settled: HashSet.HashSet<string>
-  readonly prose: string
-}> {}
+class DrawingLeft extends Schema.Class<DrawingLeft>("DrawingLeft")({
+  drawing: PlaceDrawing,
+  held: Schema.Option(Schema.Number),
+  settled: Schema.HashSetFromSelf(Schema.String),
+  prose: Schema.String
+}) {}
 
 const drawnNames = (rendering: PlaceRendering): HashSet.HashSet<string> =>
   HashSet.fromIterable(Arr.map(rendering.projection.markers, (marker) => marker.name))
@@ -284,6 +292,7 @@ const renderStream = (
           })
         const landed = new PlaceRenderFrame({
           search: searchWhile(true),
+          trial: progress.bestIndex,
           rendering: bestRendering,
           paper: heading.paper
         })
@@ -300,6 +309,7 @@ const renderStream = (
             : Stream.make(
               new PlaceRenderFrame({
                 search: onTheWay,
+                trial: progress.bestIndex,
                 rendering: rendered(around(drawn.markers)),
                 paper: paperOnTheWay(drawn)
               })

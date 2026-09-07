@@ -82,6 +82,22 @@ describe("travel", () => {
       expect(isMonotone(drawn)).toBe(true)
     }))
 
+  it.effect("a drawing at rest is the one left there, itself, not one rebuilt from where it is going", () =>
+    Effect.gen(function*() {
+      // A drawing whose `between` rebuilds the destination's shape even at the start, as a layout would.
+      const rebuilding = new Travelling<ReadonlyArray<number>>({
+        between: (from, to, t) =>
+          Arr.map(to, (value, index) => Option.getOrElse(Arr.get(from, index), () => value) * (1 - t) + value * t),
+        duration: Duration.millis(160),
+        ticks: travelling.ticks
+      })
+      const left: ReadonlyArray<number> = [100, 200]
+      const journey = yield* journeyFrom(Option.some(left), Duration.millis(80))
+      const drawn = yield* collect(toward(rebuilding, journey, [100, 200, 300]))
+      Arr.forEach(Arr.take(drawn, 7), (frame) => expect(frame).toBe(left))
+      expect(Arr.last(drawn)).toEqual(Option.some([100, 200, 300]))
+    }))
+
   it.effect("the rest is counted from the first frame drawn, not from when the journey was made", () =>
     Effect.gen(function*() {
       const journey = yield* journeyFrom(Option.some(0), Duration.millis(80))

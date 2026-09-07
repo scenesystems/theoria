@@ -6,6 +6,7 @@ import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
 import { placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
+import { howItsBuiltActionLabel } from "../../app/web/view/home/HomeHero.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import type { ColorScheme, ReducedMotion } from "./browser.js"
 import {
@@ -36,6 +37,8 @@ import {
 import {
   activeElementOpensDocsLink,
   activeElementRole,
+  bandDiscCentres,
+  bandShowsKept,
   canvasColour,
   currentLocation,
   discsAtRest,
@@ -285,8 +288,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* eventually(positions, kept)
 
         const contentId = page.locator("[data-place-content-id]").first()
+        const wholeId = yield* act(() => contentId.getAttribute("data-place-content-id"))
         yield* hover(contentId)
         yield* attribute(contentId, "data-popup-open", "")
+        const whole = page.locator("[data-place-provenance] [data-place-provenance-value]")
+        yield* visible(whole)
+        expect(yield* act(() => whole.textContent())).toBe(wholeId)
         yield* visible(page.locator("[data-place-provenance] [data-place-provenance-copy]"))
         expect(yield* failures).toEqual([])
       }))
@@ -541,6 +548,73 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(overlay)
         yield* count(page.locator("[data-code-line-focused]"), 1)
         yield* count(demo.locator("[data-place-marker][data-place-focused]"), 4)
+
+        // Each line of the arrangement answers with what it made, credited to its own package:
+        // the first narrowed line from the layout, lit on the stage; the search's kept trial from
+        // the call that scored it and from the call that recorded it, which light no line of prose.
+        const built = page.locator("[data-place-how-its-built]")
+        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
+        yield* click(built.getByRole("tab", { name: arrange.name }))
+        // Between two answers the overlay holds both for a moment; the title asked about is the current one's.
+        const title = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
+        const credited = overlay.locator("[data-current] a[href^='/docs/']").first()
+        const litLines = demo.locator("[data-place-line][data-place-focused]")
+        yield* Effect.forEach(
+          [
+            { match: "Text.layoutLinesWith(", title: /^Line \d+ of \d+$/u, href: "/docs/effect-text", lit: 1 },
+            { match: "Statistics.minimum(", title: /^Trial \d+ · kept$/u, href: "/docs/effect-math", lit: 0 },
+            { match: "Study.tell(", title: /^Trial \d+ · kept$/u, href: "/docs/effect-search", lit: 0 }
+          ],
+          (expected) =>
+            Effect.gen(function*() {
+              const mark = built.locator(`[data-provenance*='${expected.match}']`)
+              yield* act(() => mark.scrollIntoViewIfNeeded())
+              yield* hover(mark)
+              yield* visible(overlay)
+              yield* containsText(title, expected.title)
+              yield* attribute(credited, "href", expected.href)
+              yield* count(page.locator("[data-code-line-focused]"), 1)
+              yield* count(litLines, expected.lit)
+            })
+        )
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the lines answer from the keyboard, and a proposal lights the line its sentence stands on", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const overlay = page.locator("[data-place-provenance]")
+        const lines = demo.getByRole("toolbar", { name: "Lines of the prose" })
+        const line = (index: number) => lines.locator(`[data-place-line='${String(index)}']`)
+
+        // One stop in the tab order; the arrows move between lines; Enter answers the line under focus.
+        yield* attribute(lines, "aria-orientation", "vertical")
+        yield* attribute(line(0), "tabindex", "0")
+        yield* attribute(line(1), "tabindex", "-1")
+        yield* focus(line(0))
+        yield* press(page, "ArrowDown")
+        expect(yield* act(() => line(1).evaluate(isActiveElement))).toBe(true)
+        yield* press(page, "Enter")
+        yield* visible(overlay)
+        yield* containsText(overlay.getByRole("heading", { level: 3 }), /^Line 2 of \d+$/u)
+        yield* attribute(line(1), "data-place-focused", "")
+        yield* press(page, "Escape")
+        yield* hidden(overlay)
+
+        // A merged proposal's name, pointed at, lights its disc and the line of the drawing its sentence stands on.
+        const merged = demo.locator("[data-place-proposal][data-place-anchor-line]").first()
+        const anchored = yield* Option.fromNullable(yield* act(() => merged.getAttribute("data-place-anchor-line")))
+        const name = merged.locator("[data-place-feature]")
+        yield* act(() => name.scrollIntoViewIfNeeded())
+        yield* hover(name)
+        yield* visible(overlay)
+        yield* attribute(name, "data-place-focused", "")
+        yield* count(demo.locator("[data-place-marker][data-place-focused]"), 1)
+        yield* attribute(line(Number(anchored)), "data-place-focused", "")
+        yield* count(demo.locator("[data-place-line][data-place-focused]"), 1)
         expect(yield* failures).toEqual([])
       }))
 
@@ -555,6 +629,71 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* act(() => page.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
         yield* attribute(stage, "data-place-stage-act", "propose")
         yield* until(act(() => page.locator("[data-place-ghost]").count()), (ghosts) => ghosts >= 1, "a ghost disc")
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the act follows a jump either way, and a return to the page", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const stage = page.locator("[data-place-stage-act]")
+        yield* attribute(stage, "data-place-stage-act", "arrive")
+
+        // A jump from the hero to the build lands past every act in between; no scroll crossed them.
+        yield* click(page.getByRole("link", { exact: true, name: howItsBuiltActionLabel }))
+        yield* attribute(stage, "data-place-stage-act", "build")
+        // And back the other way, past them all again.
+        yield* act(() => page.evaluate(scrollToTop))
+        yield* attribute(stage, "data-place-stage-act", "arrive")
+
+        // Leaving for the docs and coming back mounts the reading afresh, and it answers where it stands.
+        yield* act(() => page.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
+        yield* attribute(stage, "data-place-stage-act", "propose")
+        yield* click(page.getByRole("link", { exact: true, name: "Browse the packages" }))
+        yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
+        yield* act(() => page.goBack())
+        yield* visible(rendered(page))
+        yield* act(() => page.evaluate(scrollToTop))
+        yield* attribute(stage, "data-place-stage-act", "arrive")
+        yield* act(() => page.locator("[data-place-act='record']").evaluate(scrollElementTo, 0.45))
+        yield* attribute(stage, "data-place-stage-act", "record")
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("under reduced motion the band places its discs where they stand; nothing slides", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce", viewport: { width: 390, height: 844 } })
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const band = page.locator("[data-place-band]")
+        const proposal = demo.locator("[data-place-proposal='program']")
+        const feature = proposal.locator("[data-place-feature]")
+        const name = yield* Option.fromNullable(yield* act(() => feature.getAttribute("data-place-feature")))
+        yield* act(() => proposal.scrollIntoViewIfNeeded())
+        yield* visible(band)
+        const before = yield* act(() => band.evaluate(bandDiscCentres))
+
+        // Every centre the band draws, sampled a frame apart, from the merge until the new disc is filled in.
+        const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        yield* click(proposal.getByRole("switch"))
+        const drawn = yield* Effect.fork(
+          Stream.repeatEffectWithSchedule(
+            act(() => band.evaluate(bandDiscCentres)),
+            Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
+          ).pipe(
+            Stream.takeUntilEffect(() => act(() => band.evaluate(bandShowsKept, name))),
+            Stream.runCollect,
+            Effect.map(Chunk.toReadonlyArray)
+          )
+        )
+        expect((yield* Fiber.join(rebuild)).status()).toBe(200)
+        yield* visible(band.locator(`[data-place-band-disc="${name}"]`))
+        const centres = Arr.dedupeAdjacent(yield* Fiber.join(drawn))
+        // Each drawing is a trial's, placed outright: no more distinct rows than trials, and none between two.
+        expect(centres.length).toBeLessThanOrEqual(renderTrials + 2)
+        expect(centres[0]).toBe(before)
         expect(yield* failures).toEqual([])
       }))
 

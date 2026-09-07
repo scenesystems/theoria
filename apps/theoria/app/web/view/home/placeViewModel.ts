@@ -140,7 +140,7 @@ export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, 
           "fill-none stroke-tone-dsp-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
         Match.exhaustive
       )),
-    Match.orElse(() =>
+    Match.whenOr("settled", "trial", () =>
       Match.value(role).pipe(
         Match.when("author", () =>
           focused
@@ -155,8 +155,8 @@ export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, 
             ? "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-[3] [vector-effect:non-scaling-stroke]"
             : "fill-tone-dsp-300 stroke-transparent stroke-[3] [vector-effect:non-scaling-stroke]"),
         Match.exhaustive
-      )
-    )
+      )),
+    Match.exhaustive
   )
 
 /** A disc of the place set in the band's row: the marker at its centre there. */

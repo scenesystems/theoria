@@ -1,4 +1,5 @@
 import { ScrollArea } from "@base-ui/react/scroll-area"
+import { Toolbar } from "@base-ui/react/toolbar"
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Match, Option } from "effect"
@@ -55,35 +56,43 @@ const lineArrivalFrom = { opacity: 0 }
 const lineArrivedAt = { opacity: 1 }
 
 /**
- * A line of prose is a mark for the pointer alone: resting on it says how
- * the line was set, in words the layout engine chose. It is not a button and
- * not in the tab order, so a screen reader reads the prose as prose; the
- * same facts are reached from the keyboard at the code panel, where the line
- * of code that set them is a mark too. While answered, the line wears a
- * faint wash. The lines' sheet itself lets the pointer through to the discs
- * beneath it; only the lines take it.
+ * Each line of prose is a mark: resting on it, or pressing it, says how the
+ * line was set, in words the layout engine chose. The lines are one stop in
+ * the tab order — a vertical toolbar, so the arrows move between lines and
+ * Enter opens the line's answer — and the prose still reads in order. While
+ * answered, whether pointed at itself or through the code that set it or the
+ * proposal whose sentence stands on it, the line wears a faint wash. The
+ * lines' sheet itself lets the pointer through to the discs beneath it; only
+ * the lines take it.
  */
 const lineClassName =
-  "pointer-events-auto absolute overflow-hidden rounded-sm transition-colors duration-150 ease-theme data-[popup-open]:bg-ink-900/5 motion-reduce:transition-none"
+  "pointer-events-auto absolute overflow-hidden rounded-sm transition-colors duration-150 ease-theme data-[place-focused]:bg-ink-900/5 data-[popup-open]:bg-ink-900/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 motion-reduce:transition-none"
 
 const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; readonly prose: string }) => (
   <AnimatePresence initial={false} mode="wait">
-    <Layer
+    <Toolbar.Root
       render={<m.div exit={departed} transition={exitTransition} />}
+      aria-label="Lines of the prose"
       className="pointer-events-none absolute inset-0"
       data-place-lines
       key={prose}
+      loopFocus={false}
+      orientation="vertical"
     >
       {Arr.map(projection.lines, (line, index) => (
-        <ProvenanceMark
-          render={<m.div animate={lineArrivedAt} initial={lineArrivalFrom} transition={staggeredArrival(index)} />}
+        <Toolbar.Button
+          render={
+            <ProvenanceMark
+              render={<m.div animate={lineArrivedAt} initial={lineArrivalFrom} transition={staggeredArrival(index)} />}
+              mark={{ _tag: "Line", index }}
+              nativeButton={false}
+            />
+          }
           className={lineClassName}
           data-place-line={String(index)}
           key={index}
-          mark={{ _tag: "Line", index }}
           nativeButton={false}
           style={lineStyle(line, projection.padding, projection.lineHeight)}
-          tabIndex={-1}
         >
           <SemanticText
             as="span"
@@ -93,9 +102,9 @@ const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; re
             variant="expanded"
             wrapAuthority="native-browser"
           />
-        </ProvenanceMark>
+        </Toolbar.Button>
       ))}
-    </Layer>
+    </Toolbar.Root>
   </AnimatePresence>
 )
 

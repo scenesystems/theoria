@@ -115,17 +115,9 @@ const activeAnchor = (
 const activeAnchors = (
   ids: ReadonlyArray<string>
 ): Stream.Stream<string, never, BrowserWindow.BrowserWindow | BrowserDocument.BrowserDocument> =>
-  Stream.concat(
-    Stream.fromEffect(nextFrame),
-    Stream.mergeAll(
-      [
-        BrowserWindow.events("scroll", { passive: true }),
-        BrowserWindow.events("resize"),
-        BrowserWindow.events("hashchange")
-      ],
-      { concurrency: "unbounded" }
-    )
-  ).pipe(Stream.mapEffect(() => activeAnchor(ids)))
+  Stream.concat(Stream.fromEffect(nextFrame), BrowserWindow.viewportChanges).pipe(
+    Stream.mapEffect(() => activeAnchor(ids))
+  )
 
 /**
  * The anchor a table of contents should mark as current, for the anchors named
