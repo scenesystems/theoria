@@ -163,6 +163,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
+    it.scoped("the Build act is titled and not narrated: no paragraph stands between its title and the code", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const built = page.locator("[data-place-how-its-built]")
+        yield* visible(built.getByRole("heading", { level: 3, name: "How it's built" }))
+        yield* count(built.locator("h3 ~ p"), 0)
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("the Compose act reads down: the stories, the title, the brief, the features", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()

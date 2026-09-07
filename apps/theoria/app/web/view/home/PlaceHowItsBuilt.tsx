@@ -198,24 +198,14 @@ export const PlaceHowItsBuilt = () => {
       id={howItsBuiltSectionId}
     >
       <Stack className="gap-5">
-        <Cluster className="items-start justify-between gap-x-6 gap-y-3">
-          <Stack className="gap-1.5">
-            <SemanticText
-              as="h3"
-              className="text-ink-900"
-              role="subsection-title"
-              text="How it's built"
-              variant="expanded"
-            />
-            <SemanticText
-              as="p"
-              className="max-w-[56ch] text-ink-600"
-              role="card-summary"
-              text="Each step's code, with the values it produced on this page. Every name links to its reference page; every file links to the source that ran."
-              variant="compact"
-              wrapAuthority="native-browser"
-            />
-          </Stack>
+        <Cluster className="items-center justify-between gap-x-6 gap-y-3">
+          <SemanticText
+            as="h3"
+            className="text-ink-900"
+            role="subsection-title"
+            text="How it's built"
+            variant="expanded"
+          />
           <Rail className="-mr-2 shrink-0">
             <CommitLink sha={sha} />
           </Rail>
