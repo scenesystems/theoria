@@ -4,15 +4,18 @@ import { Effect, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import {
+  type AnswerOpening,
   type CodeSite,
   decodeMark,
   encodeMark,
   type HoverIntent,
+  type MarkPress,
   PlaceAct,
   PlaceAnswer,
   type PlaceMark,
   type PlaceProvenance,
-  type PointerOver
+  type PointerOver,
+  type PressOutcome
 } from "../../contracts/demo/imagined-place-provenance.js"
 import type { ProposalRecord } from "../../contracts/imagined-place-result.js"
 import { answerCloseGrace, answerOpenDelay } from "../../contracts/motion.js"
@@ -37,12 +40,26 @@ import { appRuntime } from "./runtime.js"
 // Focus — the open answer and owned hover intent
 // ---------------------------------------------------------------------------
 
+const answerState = Atom.make(Option.none<PlaceAnswer>())
+const answerOpeningState = Atom.make<AnswerOpening>("press")
+
 /**
- * The mark the visitor is pointing at, while the overlay answering it is open.
- * Written by the overlay from the trigger that opened it; read by the code
- * panel, which lights the line that made the mark.
+ * The open answer: the mark the visitor is pointing at, and how it was opened.
+ * Written by the overlay; read by the code panel, which lights the line that
+ * made the mark. Writing it also records how it was opened, because the popup
+ * decides where focus goes as it closes — after the answer itself is gone. A
+ * hover answer never had focus; a pressed one hands it back.
  */
-export const placeAnswerAtom: AtomType.Writable<Option.Option<PlaceAnswer>> = Atom.make(Option.none<PlaceAnswer>())
+export const placeAnswerAtom: AtomType.Writable<Option.Option<PlaceAnswer>> = Atom.writable(
+  (get: AtomType.Context) => get(answerState),
+  (ctx: AtomType.WriteContext<Option.Option<PlaceAnswer>>, value: Option.Option<PlaceAnswer>) => {
+    ctx.set(answerState, value)
+    Option.map(value, (answer) => ctx.set(answerOpeningState, answer.opening))
+  }
+)
+
+/** How the answer on show — or the one just leaving — was opened. */
+export const placeAnswerOpeningAtom: AtomType.Atom<AnswerOpening> = answerOpeningState
 
 /** The mark whose answer is open; all existing focus projections derive from this authority. */
 export const placeFocusAtom: AtomType.Atom<Option.Option<PlaceMark>> = Atom.map(
@@ -87,22 +104,54 @@ export const hoverIntents = (
     )
   )
 
+/**
+ * What an intent does to the open answer: opening answers the mark as a
+ * hover; closing closes a hover answer and leaves a pressed one pinned.
+ */
+export const answerAfterIntent = (
+  current: Option.Option<PlaceAnswer>,
+  intent: HoverIntent
+): Option.Option<PlaceAnswer> =>
+  Match.value(intent).pipe(
+    Match.tag("Open", ({ mark, triggerId }) => Option.some(new PlaceAnswer({ triggerId, mark, opening: "hover" }))),
+    Match.tag("Close", () => Option.filter(current, (answer) => answer.opening === "press")),
+    Match.exhaustive
+  )
+
+const sameMark = (left: PlaceMark, right: PlaceMark): boolean => encodeMark(left) === encodeMark(right)
+
+/**
+ * Pressing a digest copies it; while its answer is open the press changes
+ * nothing about the answer, so it stays as it was opened, says "Copied", and
+ * leaves as it would have. Pressing the mark of a hover answer pins that
+ * answer rather than closing it. Any other press is what the popover says:
+ * opening answers the pressed mark, pinned; closing closes.
+ */
+export const answerAfterPress = (current: Option.Option<PlaceAnswer>, press: MarkPress): PressOutcome =>
+  Option.match(
+    Option.filter(current, (answer) => sameMark(answer.mark, press.pressed.mark)),
+    {
+      onNone: () => ({
+        _tag: "Answer",
+        answer: press.opening
+          ? Option.some(new PlaceAnswer({ ...press.pressed, opening: "press" }))
+          : Option.none()
+      }),
+      onSome: (answer): PressOutcome =>
+        press.pressed.mark._tag === "Digest"
+          ? { _tag: "Leave" }
+          : answer.opening === "hover"
+          ? { _tag: "Pin", answer: new PlaceAnswer({ ...answer, opening: "press" }) }
+          : { _tag: "Answer", answer: Option.none() }
+    }
+  )
+
 /** The one process that writes provenance answers from pointer intent. */
 export const placeHoverIntentAtom = appRuntime.atom((get: AtomType.Context) =>
   hoverIntents(get.stream(placePointerOverAtom)).pipe(
     Stream.runForEach((intent) =>
       Effect.sync(() => {
-        Match.value(intent).pipe(
-          Match.tag("Open", ({ mark, triggerId }) => {
-            get.set(placeAnswerAtom, Option.some(new PlaceAnswer({ triggerId, mark, opening: "hover" })))
-          }),
-          Match.tag("Close", () => {
-            if (Option.exists(get.once(placeAnswerAtom), (answer) => answer.opening === "hover")) {
-              get.set(placeAnswerAtom, Option.none())
-            }
-          }),
-          Match.exhaustive
-        )
+        get.set(placeAnswerAtom, answerAfterIntent(get.once(placeAnswerAtom), intent))
       })
     )
   )

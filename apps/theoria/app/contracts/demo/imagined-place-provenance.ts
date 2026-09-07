@@ -133,19 +133,39 @@ export class PlaceAnswer extends Schema.Class<PlaceAnswer>("PlaceAnswer")({
   opening: AnswerOpening
 }) {}
 
+/** A mark as one mounted trigger carries it: the element's id and the mark it stands for. */
+export const MarkTrigger = Schema.Struct({ triggerId: Schema.String, mark: PlaceMark })
+export type MarkTrigger = typeof MarkTrigger.Type
+
 /** Where the pointer is within the provenance interaction region. */
 export const PointerOver = Schema.Union(
-  Schema.TaggedStruct("Mark", { triggerId: Schema.String, mark: PlaceMark }),
+  Schema.TaggedStruct("Mark", MarkTrigger.fields),
   Schema.TaggedStruct("Answer", {})
 )
 export type PointerOver = typeof PointerOver.Type
 
 /** A delayed decision made by the owned hover-intent process. */
 export const HoverIntent = Schema.Union(
-  Schema.TaggedStruct("Open", { triggerId: Schema.String, mark: PlaceMark }),
+  Schema.TaggedStruct("Open", MarkTrigger.fields),
   Schema.TaggedStruct("Close", {})
 )
 export type HoverIntent = typeof HoverIntent.Type
+
+/** A press on a mark, as the popover reports it: whether it would open, and which mark. */
+export const MarkPress = Schema.Struct({ opening: Schema.Boolean, pressed: MarkTrigger })
+export type MarkPress = typeof MarkPress.Type
+
+/**
+ * What a press does: `Leave` keeps the answer exactly as it is and the
+ * popover's own change is cancelled; `Pin` likewise cancels the popover's
+ * close and makes a hover answer a pressed one; `Answer` is the new answer.
+ */
+export const PressOutcome = Schema.Union(
+  Schema.TaggedStruct("Leave", {}),
+  Schema.TaggedStruct("Pin", { answer: PlaceAnswer }),
+  Schema.TaggedStruct("Answer", { answer: Schema.Option(PlaceAnswer) })
+)
+export type PressOutcome = typeof PressOutcome.Type
 
 /** A mark carried on an element as one attribute value, and read back from it. */
 export const PlaceMarkAttribute = Schema.parseJson(PlaceMark)

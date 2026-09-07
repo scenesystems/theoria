@@ -651,6 +651,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* attribute(line(1), "data-place-focused", "")
         yield* press(page, "Escape")
         yield* hidden(overlay)
+        // A pressed answer hands focus back to the mark that opened it.
+        yield* eventually(() => line(1).evaluate(isActiveElement), true)
 
         // A merged proposal's name, pointed at, lights its disc and the line of the drawing its sentence stands on.
         const merged = demo.locator("[data-place-proposal][data-place-anchor-line]").first()
@@ -663,6 +665,109 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(demo.locator("[data-place-marker][data-place-focused]"), 1)
         yield* attribute(line(Number(anchored)), "data-place-focused", "")
         yield* count(demo.locator("[data-place-line][data-place-focused]"), 1)
+        expect(yield* failures).toEqual([])
+      }))
+
+    /**
+     * The pointer's intent is the page's own: a mark's answer opens after its
+     * delay from entry no matter what else leaves the page meanwhile, never
+     * moves focus, and stays while the pointer is on the mark, its answer, or
+     * a preview opened from it. These are the rules a shared hover timer in
+     * the popover library broke, and the page no longer relies on one.
+     */
+    it.scoped("a mark leaving while the pointer rests on another does not cancel its answer", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const overlay = page.locator("[data-place-provenance]")
+        const built = page.locator("[data-place-how-its-built]")
+        const compose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "compose")
+        const composeTab = built.getByRole("tab", { name: compose.name })
+        const composeMarks = built.locator("[data-place-code-step='compose'] [data-provenance]")
+
+        // The code panel's tabs at the foot of the viewport, the prose above them on the stage.
+        yield* act(() => composeTab.evaluate(scrollElementTo, 0.9))
+        yield* focus(composeTab)
+        yield* count(composeMarks, 4)
+        const line = demo.locator("[data-place-line='5']")
+        expect(yield* act(() => line.isVisible())).toBe(true)
+
+        // The pointer comes to rest on a line; before its delay is up, the keyboard changes the tab
+        // (the arrow moves, Enter activates), and every mark of the compose panel leaves the page.
+        // The pointer has not moved.
+        yield* hover(line)
+        yield* press(page, "ArrowRight")
+        yield* press(page, "Enter")
+        yield* count(composeMarks, 0)
+        yield* visible(overlay)
+        yield* containsText(overlay.locator("[data-current]").getByRole("heading", { level: 3 }), /^Line 6 of \d+$/u)
+        // Focus stayed with the keyboard, on the tab list.
+        expect(yield* act(() => page.evaluate(activeElementRole))).toBe("tab")
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a hover answer never takes focus; a press pins it until it is dismissed", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const overlay = page.locator("[data-place-provenance]")
+        const disc = demo.locator("[data-place-marker]").first()
+        const body = page.locator("body")
+
+        yield* act(() => disc.scrollIntoViewIfNeeded())
+        yield* hover(disc)
+        yield* visible(overlay)
+        expect(yield* act(() => body.evaluate(isActiveElement))).toBe(true)
+
+        // Leaving the mark and its answer closes a hover answer after the grace.
+        yield* act(() => page.mouse.move(0, 0))
+        yield* hidden(overlay)
+
+        // A press on the mark of a hover answer pins it: the pointer may leave and it stays.
+        yield* hover(disc)
+        yield* visible(overlay)
+        yield* click(disc)
+        yield* act(() => page.mouse.move(0, 0))
+        yield* Effect.sleep(Duration.millis(600))
+        yield* visible(overlay)
+        yield* press(page, "Escape")
+        yield* hidden(overlay)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the mark, its answer and a preview opened from it are one place for the pointer", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const overlay = page.locator("[data-place-provenance]")
+        const line = demo.locator("[data-place-line='2']")
+
+        // From the mark into its answer: still here, well past the grace.
+        yield* act(() => line.scrollIntoViewIfNeeded())
+        yield* hover(line)
+        yield* visible(overlay)
+        yield* hover(overlay)
+        yield* Effect.sleep(Duration.millis(600))
+        yield* visible(overlay)
+
+        // From the answer into a preview opened from inside it: still here.
+        yield* click(overlay.locator("a[href^='/docs/']").first())
+        const preview = page.locator("[data-docs-link-preview]")
+        yield* visible(preview)
+        yield* hover(preview)
+        yield* Effect.sleep(Duration.millis(600))
+        yield* visible(overlay)
+
+        // Leaving all of it closes all of it: the answer after its grace, and the preview with it.
+        yield* act(() => page.mouse.move(0, 0))
+        yield* hidden(preview)
+        yield* hidden(overlay)
         expect(yield* failures).toEqual([])
       }))
 

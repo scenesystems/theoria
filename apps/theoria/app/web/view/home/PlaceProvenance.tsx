@@ -1,7 +1,7 @@
 import { Button } from "@base-ui/react/button"
 import { Popover } from "@base-ui/react/popover"
 import { useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type ComponentProps, Fragment, useId } from "react"
 
@@ -9,13 +9,15 @@ import {
   codeSiteCall,
   decodeMark,
   encodeMark,
-  PlaceAnswer,
+  type MarkTrigger,
   type PlaceMark,
   type PlaceProvenance as Provenance
 } from "../../../contracts/demo/imagined-place-provenance.js"
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
 import {
+  answerAfterPress,
   placeAnswerAtom,
+  placeAnswerOpeningAtom,
   placeHoverIntentAtom,
   placeMarkFocusedAtom,
   placeOnPageAtom,
@@ -34,6 +36,7 @@ import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
 import { PackageName } from "../primitives/PackageName.js"
+import { PointerRegion, pointerRegionHandlers, PointerRegionProvider } from "../primitives/PointerRegion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 import { howItsBuiltSectionId } from "./HomeHero.js"
@@ -64,7 +67,6 @@ export const ProvenanceMark = ({
   mark,
   nativeButton,
   id,
-  onKeyDown,
   onPointerEnter,
   onPointerLeave,
   render,
@@ -79,6 +81,13 @@ export const ProvenanceMark = ({
   const generatedId = useId()
   const triggerId = id ?? `place-mark-${generatedId}`
   const setPointerOver = useAtomSet(placePointerOverAtom)
+  // The pointer over a mark is the beginning of that mark's answer; its delay counts from entry.
+  const pointed = pointerRegionHandlers(
+    new PointerRegion({
+      enter: () => setPointerOver(Option.some({ _tag: "Mark", triggerId, mark })),
+      leave: () => setPointerOver(Option.none())
+    })
+  )
 
   return (
     <Popover.Trigger
@@ -88,17 +97,13 @@ export const ProvenanceMark = ({
       handle={provenanceHandle}
       id={triggerId}
       nativeButton={nativeButton}
-      onKeyDown={(event) => {
-        onKeyDown?.(event)
-        if (event.key === "Escape") setPointerOver(Option.none())
-      }}
       onPointerEnter={(event) => {
         onPointerEnter?.(event)
-        if (event.pointerType !== "touch") setPointerOver(Option.some({ _tag: "Mark", triggerId, mark }))
+        pointed.onPointerEnter(event)
       }}
       onPointerLeave={(event) => {
         onPointerLeave?.(event)
-        if (event.pointerType !== "touch") setPointerOver(Option.none())
+        pointed.onPointerLeave(event)
       }}
       payload={mark}
       render={render}
@@ -293,56 +298,72 @@ const Answered = ({ mark }: { readonly mark: PlaceMark }) => {
   })
 }
 
-/**
- * Pressing a digest copies it. While its answer is already open the press
- * changes nothing about the answer — it neither closes it nor pins it open
- * the way a press otherwise would — so the answer stays as the pointer
- * opened it, says "Copied", and leaves with the pointer. From closed, as on
- * a touch screen, the press opens the answer as any press does.
- */
-const pressLeavesAnswerAlone = (
-  details: Popover.Root.ChangeEventDetails,
-  mark: Option.Option<PlaceMark>,
-  answering: Option.Option<PlaceMark>
-): boolean =>
-  details.reason === "trigger-press"
-  && Option.exists(mark, (pressed) => pressed._tag === "Digest")
-  && Option.exists(answering, (current) =>
-    Option.exists(mark, (pressed) => encodeMark(pressed) === encodeMark(current)))
+/** The mark a press landed on, read back from the trigger the popover names. */
+const pressOn = (details: Popover.Root.ChangeEventDetails): Option.Option<MarkTrigger> =>
+  Option.all({
+    triggerId: Option.fromNullable(details.trigger?.id),
+    mark: decodeMark(details.trigger?.getAttribute(provenanceAttribute))
+  })
 
 /**
- * Mounted once, beside the demonstration. Opening writes the mark that opened
- * it to `placeFocusAtom`, read back from the trigger; closing clears it.
- * Moving from one mark to another while open is an opening by the new mark.
+ * Mounted once, beside the demonstration. The answer is owned here, in
+ * `placeAnswerAtom`: the pointer's intent opens and closes hover answers
+ * through `placeHoverIntentAtom`; a press opens a pinned answer, or pins a
+ * hover one; a dismissal — Escape, a press outside, focus leaving — closes
+ * whatever is open and forgets where the pointer was, so nothing pending
+ * opens afterwards. The popover is told what is open and by which trigger.
+ *
+ * A hover answer never takes or returns focus; a pressed one takes it and
+ * hands it back to its mark. Which of the two is leaving is known after the
+ * answer itself is gone, from `placeAnswerOpeningAtom`.
+ *
+ * The popup and any preview opened from inside it are one pointer region:
+ * crossing between them is not leaving.
  */
 export const PlaceProvenanceOverlay = () => {
   useAtomMount(placeHoverIntentAtom)
   const answer = useAtomValue(placeAnswerAtom)
+  const opening = useAtomValue(placeAnswerOpeningAtom)
   const setAnswer = useAtomSet(placeAnswerAtom)
   const setPointerOver = useAtomSet(placePointerOverAtom)
   const triggerId = Option.match(answer, { onNone: () => null, onSome: (current) => current.triggerId })
+  const region = new PointerRegion({
+    enter: () => setPointerOver(Option.some({ _tag: "Answer" })),
+    leave: () => setPointerOver(Option.none())
+  })
+  const regionHandlers = pointerRegionHandlers(region)
+  const hoverKeepsFocusWhereItIs = () => opening === "hover" ? false : undefined
+
+  const onOpenChange = (open: boolean, details: Popover.Root.ChangeEventDetails) => {
+    Option.match(
+      details.reason === "trigger-press" ? pressOn(details) : Option.none(),
+      {
+        onSome: (pressed) =>
+          Match.value(answerAfterPress(answer, { opening: open, pressed })).pipe(
+            Match.tag("Leave", () => details.cancel()),
+            Match.tag("Pin", ({ answer: pinned }) => {
+              details.cancel()
+              setAnswer(Option.some(pinned))
+            }),
+            Match.tag("Answer", ({ answer: next }) => setAnswer(next)),
+            Match.exhaustive
+          ),
+        onNone: () => {
+          if (!open) {
+            setAnswer(Option.none())
+            setPointerOver(Option.none())
+          }
+        }
+      }
+    )
+  }
+
   return (
     <Popover.Root
       handle={provenanceHandle}
       modal={false}
       open={Option.isSome(answer)}
-      onOpenChange={(open, details) => {
-        const mark = decodeMark(details.trigger?.getAttribute(provenanceAttribute))
-        const answering = Option.map(answer, (current) => current.mark)
-        if (pressLeavesAnswerAlone(details, mark, answering)) {
-          details.cancel()
-          return
-        }
-        if (open && details.reason === "trigger-press") {
-          Option.map(mark, (pressed) =>
-            setAnswer(
-              Option.some(new PlaceAnswer({ triggerId: details.trigger?.id ?? "", mark: pressed, opening: "press" }))
-            ))
-        } else if (!open) {
-          setAnswer(Option.none())
-          setPointerOver(Option.none())
-        }
-      }}
+      onOpenChange={onOpenChange}
       triggerId={triggerId}
     >
       {() => (
@@ -354,28 +375,23 @@ export const PlaceProvenanceOverlay = () => {
             side="top"
             sideOffset={8}
           >
-            <Popover.Popup
-              className={popupClassName}
-              data-place-provenance
-              finalFocus={() =>
-                Option.exists(answer, (current) => current.opening === "hover")
-                  ? false
-                  : undefined}
-              initialFocus={() => Option.exists(answer, (current) => current.opening === "hover") ? false : undefined}
-              onPointerEnter={(event) => {
-                if (event.pointerType !== "touch") setPointerOver(Option.some({ _tag: "Answer" }))
-              }}
-              onPointerLeave={(event) => {
-                if (event.pointerType !== "touch") setPointerOver(Option.none())
-              }}
-            >
-              <Popover.Viewport className={viewportClassName}>
-                {Option.match(answer, {
-                  onNone: () => null,
-                  onSome: (current) => <Answered mark={current.mark} />
-                })}
-              </Popover.Viewport>
-            </Popover.Popup>
+            <PointerRegionProvider region={region}>
+              <Popover.Popup
+                className={popupClassName}
+                data-place-provenance
+                finalFocus={hoverKeepsFocusWhereItIs}
+                initialFocus={hoverKeepsFocusWhereItIs}
+                onPointerEnter={regionHandlers.onPointerEnter}
+                onPointerLeave={regionHandlers.onPointerLeave}
+              >
+                <Popover.Viewport className={viewportClassName}>
+                  {Option.match(answer, {
+                    onNone: () => null,
+                    onSome: (current) => <Answered mark={current.mark} />
+                  })}
+                </Popover.Viewport>
+              </Popover.Popup>
+            </PointerRegionProvider>
           </Popover.Positioner>
         </Popover.Portal>
       )}

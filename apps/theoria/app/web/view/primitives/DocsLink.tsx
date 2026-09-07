@@ -1,6 +1,6 @@
 import { Popover } from "@base-ui/react/popover"
 import { Result } from "@effect-atom/atom"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowRightIcon } from "@heroicons/react/20/solid"
 import { Match, Option, Schema } from "effect"
 import type { ComponentProps, MouseEvent as ReactMouseEvent, ReactNode } from "react"
@@ -8,7 +8,6 @@ import { useRef } from "react"
 
 import { Id } from "../../../contracts/id.js"
 import { docsApiModuleIndexAtom, docsManifestAtom } from "../../atoms/docs-data.js"
-import { placePointerOverAtom } from "../../atoms/imagined-place-experience.js"
 
 import { elevationClassName, neutralToneClasses, toneClassesForCard } from "./designSystem.js"
 import {
@@ -22,6 +21,7 @@ import {
 import { docsTheme } from "./docsSystem.js"
 import { Cluster, Layer, Rail, Stack } from "./Layout.js"
 import { InternalLink } from "./Link.js"
+import { usePointerRegionHandlers } from "./PointerRegion.js"
 import { SemanticText } from "./SemanticText.js"
 
 const popupClassName = [
@@ -86,19 +86,15 @@ const Preview = ({ destination, href, title }: {
 }) => {
   const tone = toneFor(destination.docsPackage.slug)
   const openRef = useRef<HTMLAnchorElement>(null)
-  const setPointerOver = useAtomSet(placePointerOverAtom)
+  const region = usePointerRegionHandlers()
 
   return (
     <Popover.Popup
       className={popupClassName}
       data-docs-link-preview={href}
       initialFocus={(openType) => openType === "keyboard" ? openRef.current : true}
-      onPointerEnter={(event) => {
-        if (event.pointerType !== "touch") setPointerOver(Option.some({ _tag: "Answer" }))
-      }}
-      onPointerLeave={(event) => {
-        if (event.pointerType !== "touch") setPointerOver(Option.none())
-      }}
+      onPointerEnter={region.onPointerEnter}
+      onPointerLeave={region.onPointerLeave}
     >
       <Stack className="gap-1.5 px-3.5 pt-3 pb-3">
         <Rail className="justify-between gap-3">
@@ -148,7 +144,6 @@ const PreviewLink = ({ children, className, destination, href, title, ...props }
   readonly href: string
   readonly title: string
 }) => {
-  const setPointerOver = useAtomSet(placePointerOverAtom)
   const keepForPreview = (event: ReactMouseEvent<HTMLAnchorElement>) => {
     if (!isModifiedPress(event.nativeEvent)) event.preventDefault()
   }
@@ -157,7 +152,6 @@ const PreviewLink = ({ children, className, destination, href, title, ...props }
     <Popover.Root
       modal={false}
       onOpenChange={(open, details) => {
-        setPointerOver(open ? Option.some({ _tag: "Answer" }) : Option.none())
         // Modifier and middle presses keep their native meaning; only a plain press opens the preview.
         if (open && details.reason === "trigger-press" && isModifiedPress(details.event)) details.cancel()
       }}
