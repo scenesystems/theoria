@@ -4,6 +4,7 @@ import * as Arr from "effect/Array"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
+import { stillUnderReducedMotion } from "../primitives/designSystem.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Layer, Nav, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
@@ -88,11 +89,13 @@ const NavigationBranch = ({
               >
                 <ChevronRightIcon
                   aria-hidden
-                  className="size-4 transition-transform duration-150 group-data-[panel-open]:rotate-90"
+                  className={`size-4 transition-transform duration-150 group-data-[panel-open]:rotate-90 ${stillUnderReducedMotion}`}
                 />
               </Collapsible.Trigger>
             </Layer>
-            <Collapsible.Panel className="h-[var(--collapsible-panel-height)] overflow-hidden transition-[height,opacity] duration-150 data-[ending-style]:h-0 data-[ending-style]:opacity-0 data-[starting-style]:h-0 data-[starting-style]:opacity-0">
+            <Collapsible.Panel
+              className={`h-[var(--collapsible-panel-height)] overflow-hidden transition-[height,opacity] duration-150 data-[ending-style]:h-0 data-[ending-style]:opacity-0 data-[starting-style]:h-0 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`}
+            >
               {branchContent}
             </Collapsible.Panel>
           </Collapsible.Root>

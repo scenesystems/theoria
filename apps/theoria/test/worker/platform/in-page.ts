@@ -299,6 +299,53 @@ export const backgroundColour = (element: Element) => getComputedStyle(element).
 export const isActiveElement = (element: Element) => element === document.activeElement
 
 /**
+ * What the element's CSS transitions ease and for how long, as computed. A
+ * property of `none` is how a transition is switched off: the duration is
+ * still declared, and nothing eases.
+ */
+export const transitionOf = (element: Element): { readonly property: string; readonly duration: string } => {
+  const style = getComputedStyle(element)
+  return { property: style.transitionProperty, duration: style.transitionDuration }
+}
+
+/**
+ * Where keyboard focus has landed after a route to a line of code: which
+ * site's gutter mark has it, whether it shows a focus ring, and whether it is
+ * wholly inside the viewport — read together, as one moment.
+ */
+export const focusLanding = (): {
+  readonly site: string
+  readonly focusVisible: boolean
+  readonly inViewport: boolean
+} => {
+  const element = document.activeElement
+  if (!(element instanceof HTMLElement) || element === document.body) {
+    return { site: "", focusVisible: false, inViewport: false }
+  }
+  const rect = element.getBoundingClientRect()
+  return {
+    site: element.getAttribute("data-place-code-site") ?? "",
+    focusVisible: element.matches(":focus-visible"),
+    inViewport: rect.top >= 0 && rect.left >= 0 && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth
+  }
+}
+
+/**
+ * The answer popups on the page and the title each one currently shows, read
+ * in one pass so a sample taken while a popup is leaving never pairs its
+ * presence with a heading read a moment later.
+ */
+export const answerPopupsShowing = (): { readonly popups: number; readonly titles: ReadonlyArray<string> } => {
+  const popups = [...document.querySelectorAll("[data-place-provenance]")]
+  return {
+    popups: popups.length,
+    titles: popups.flatMap((popup) =>
+      [...popup.querySelectorAll("[data-current] h3")].map((heading) => heading.textContent ?? "")
+    )
+  }
+}
+
+/**
  * What keyboard focus rests on, as a visitor's assistive technology would
  * name it: its ARIA role, else its tag. Empty when nothing in the page has focus.
  */

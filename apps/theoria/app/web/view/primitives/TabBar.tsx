@@ -3,6 +3,7 @@ import { Option } from "effect"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
+import { stillUnderReducedMotion } from "./designSystem.js"
 import { Cluster } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -11,7 +12,7 @@ const tabClassName =
 
 /** The 2 px line under the active tab; Base UI measures the tab and hands the geometry over as CSS variables. */
 const indicatorClassName =
-  "absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-ink-900 transition-[translate,width] duration-200 ease-out motion-reduce:transition-none"
+  `absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-ink-900 transition-[translate,width] duration-200 ease-out ${stillUnderReducedMotion}`
 
 /**
  * A controlled tab group over a closed set of string values. Base UI reports

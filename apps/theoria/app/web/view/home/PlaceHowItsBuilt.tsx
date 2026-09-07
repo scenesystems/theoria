@@ -7,7 +7,7 @@ import type { ReactNode } from "react"
 
 import { codeSiteOnLine } from "../../../contracts/demo/imagined-place-provenance.js"
 import { toneForCard } from "../../../contracts/theme.js"
-import { placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
+import { placeCodeSiteAttribute, placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
 import { placeSearchAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildAtom, placeBuildShaAtom, placeStepAtom } from "../../atoms/imagined-place.js"
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
@@ -121,7 +121,7 @@ const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
         aria-label={`Line ${String(line.number)}`}
         className={gutterMarkClassName}
         data-place-code-line={line.number}
-        data-place-code-site={site.id}
+        {...{ [placeCodeSiteAttribute]: site.id }}
         mark={{ _tag: "CodeLine", site: site.id }}
       >
         {line.number}

@@ -26,12 +26,13 @@ import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
 import * as ElementSize from "../platform/ElementSize.js"
+import { howItsBuiltSectionId } from "../view/home/HomeHero.js"
 import { type PlaceOnPage, provenanceFor } from "../view/home/placeProvenance.js"
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 
 import { placeShownFrameAtom } from "./imagined-place-render.js"
 import { placeBuildAtom, placeStepAtom } from "./imagined-place.js"
-import { motionPreferenceAtom } from "./motion.js"
+import { motionPreferenceAtom, scrollBehaviorFor } from "./motion.js"
 import { navigateToElementAtom } from "./navigation.js"
 import { appRuntime } from "./runtime.js"
 
@@ -304,20 +305,28 @@ export const placeMarkFocusedAtom = Atom.family((encoded: string): AtomType.Atom
   )
 )
 
-/** Selects a credited site, closes its answer without focus return, then lands on its gutter mark. */
-export const placeGoToSiteAtom = appRuntime.fn<CodeSiteId>()((id, ctx) => {
-  const site = codeSite(id)
-  return Effect.sync(() => {
+/** The attribute a gutter mark carries its site's id on, so the route from an answer can find it. */
+export const placeCodeSiteAttribute = "data-place-code-site"
+
+/**
+ * From an answer to the line of code it credits: the line's step is selected,
+ * the answer is let go where it is — focus does not return to its mark — and
+ * the section becomes the history entry, settling on the line's gutter mark
+ * once the step has rendered, as the reader's motion preference says.
+ */
+export const placeGoToSiteAtom = appRuntime.fn<CodeSiteId>()((id, ctx) =>
+  Effect.sync(() => {
+    const site = codeSite(id)
     ctx.set(placeStepAtom, site.step)
     ctx.set(answerFocusReturnState, "stays")
     ctx.set(placeAnswerAtom, Option.none())
     ctx.set(navigateToElementAtom, {
-      href: "#how-its-built",
-      selector: `[data-place-code-site="${id}"]`,
-      behavior: ctx(motionPreferenceAtom) === "full" ? "smooth" : "instant"
+      href: `#${howItsBuiltSectionId}`,
+      selector: `[${placeCodeSiteAttribute}="${id}"]`,
+      behavior: scrollBehaviorFor(ctx(motionPreferenceAtom))
     })
   })
-})
+)
 
 // ---------------------------------------------------------------------------
 // Act — where the visitor is reading

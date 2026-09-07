@@ -203,9 +203,20 @@ export const elevationClassName = (elevation: Elevation): string =>
 // the wash on its own box instead of the mark's.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Motion — CSS transitions are the page's own and do not read Motion's
+// configuration, so a thing that travels by transition (a translate, a scale,
+// a height, a rotation) says here that it stands still when the reader asks
+// for reduced motion. Motion's own values are configured from the same
+// preference at the root; this is the CSS side of one rule.
+// ---------------------------------------------------------------------------
+
+/** A transitioned thing that travels; under reduced motion it takes its place at once. */
+export const stillUnderReducedMotion = "motion-reduce:transition-none"
+
 /** A mark's box: pointable and focusable. The wash is added by whichever box wears it. */
 export const markClassName =
-  "group/mark cursor-default rounded-md transition-colors duration-150 ease-theme focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 motion-reduce:transition-none"
+  `group/mark cursor-default rounded-md transition-colors duration-150 ease-theme focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 ${stillUnderReducedMotion}`
 
 /** The wash on a mark's own box. */
 export const litMarkClassName =
@@ -213,7 +224,7 @@ export const litMarkClassName =
 
 /** The wash on a chip set inside a mark, in place of the chip's own paper. */
 export const litChipClassName =
-  "transition-colors duration-150 ease-theme motion-reduce:transition-none group-hover/mark:bg-stage-100/80 group-data-[place-focused]/mark:bg-stage-100/80 group-data-[popup-open]/mark:bg-stage-100/80"
+  `transition-colors duration-150 ease-theme ${stillUnderReducedMotion} group-hover/mark:bg-stage-100/80 group-data-[place-focused]/mark:bg-stage-100/80 group-data-[popup-open]/mark:bg-stage-100/80`
 
 // ---------------------------------------------------------------------------
 // InlineStatusTone — a glyph and a colour for a status said in the text's own

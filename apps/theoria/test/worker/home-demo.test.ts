@@ -1,9 +1,10 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Chunk, Duration, Effect, Fiber, Layer, Option, Order, Schedule, Schema, Stream } from "effect"
+import { Chunk, Duration, Effect, Fiber, Layer, Match, Option, Order, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
+import { codeSite, CodeSiteId } from "../../app/contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
 import { type PlaceScenario, placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
 import { howItsBuiltActionLabel } from "../../app/web/view/home/HomeHero.js"
@@ -37,12 +38,14 @@ import {
 import {
   activeElementOpensDocsLink,
   activeElementRole,
+  answerPopupsShowing,
   bandDiscCentre,
   bandShowsKept,
   canvasColour,
   currentLocation,
   discsAtRest,
   documentTop,
+  focusLanding,
   insideViewportRight,
   isActiveElement,
   markerPositionsInStage,
@@ -58,7 +61,8 @@ import {
   storyDrawn,
   surfacePaint,
   textColour,
-  textFitsItsBox
+  textFitsItsBox,
+  transitionOf
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -220,6 +224,74 @@ const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
       ),
       overlaps: Arr.dedupe(Arr.flatMap(frames, (frame) => frame.overlaps))
     }
+  })
+
+/**
+ * From a disc's answer to the line of code it credits, opened and followed by
+ * pointer or by keyboard. Reports the step selected, where focus landed, the
+ * URL's fragment and whether the answer is still on the page — the route lands
+ * on the credited line itself, mid-viewport, with the answer gone.
+ */
+const fromAnswerToItsCode = (opening: "pointer" | "keyboard", reducedMotion: ReducedMotion) =>
+  Effect.gen(function*() {
+    const { failures, page } = yield* openPage({ reducedMotion })
+    yield* goto(page, "/")
+    yield* visible(rendered(page))
+    const demo = page.getByRole("region", { name: "Imagined place demo" })
+    const overlay = page.locator("[data-place-provenance]")
+    const disc = demo.locator("[data-place-marker]").first()
+    const codeLink = overlay.locator("[data-place-provenance-code]")
+
+    yield* Match.value(opening).pipe(
+      Match.when("pointer", () => click(disc)),
+      Match.when("keyboard", () =>
+        Effect.gen(function*() {
+          yield* focus(disc)
+          yield* press(page, "Enter")
+        })),
+      Match.exhaustive
+    )
+    yield* visible(overlay)
+    const siteId = yield* Schema.decodeUnknown(CodeSiteId)(
+      yield* act(() => codeLink.getAttribute("data-place-provenance-code"))
+    )
+    const site = codeSite(siteId)
+    const step = yield* Arr.findFirst(placeStepDefinitions, (definition) => definition.id === site.step)
+
+    yield* Match.value(opening).pipe(
+      Match.when("pointer", () => click(codeLink)),
+      Match.when("keyboard", () =>
+        Effect.gen(function*() {
+          // Tab walks from the pinned answer's first control to the credited line's link.
+          yield* Effect.iterate(false, {
+            while: (reached) => !reached,
+            body: () =>
+              Effect.gen(function*() {
+                yield* press(page, "Tab")
+                return yield* act(() => codeLink.evaluate(isActiveElement))
+              })
+          }).pipe(
+            Effect.timeoutFail({ duration: Duration.seconds(5), onTimeout: () => "the code link was never reached" })
+          )
+          yield* press(page, "Enter")
+        })),
+      Match.exhaustive
+    )
+
+    yield* urlMatches(page, /#how-its-built$/u)
+    const section = page.locator("[data-place-how-its-built]")
+    yield* attribute(section.getByRole("tab", { name: step.name }), "aria-selected", "true")
+    const mark = section.locator(`[data-place-code-site="${siteId}"]`)
+    yield* eventually(() => mark.evaluate(isActiveElement), true)
+    yield* hidden(overlay)
+    // A smooth scroll takes its frames; an instant one has landed by the time focus has.
+    const landing = yield* Match.value(reducedMotion).pipe(
+      Match.when("reduce", () => act(() => page.evaluate(focusLanding))),
+      Match.when("no-preference", () =>
+        until(act(() => page.evaluate(focusLanding)), (landed) => landed.inViewport, "the line is in the viewport")),
+      Match.exhaustive
+    )
+    return { failures, landing, siteId }
   })
 
 const referenceTargets = (references: Locator) =>
@@ -628,6 +700,34 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
+    /**
+     * The answer's credited line is a route, not a hash: following it selects
+     * the step whose code holds the line, closes the answer where it is, and
+     * lands focus on the line's own gutter mark in the middle of the viewport.
+     * By keyboard the landing shows its ring; under reduced motion it lands at
+     * once rather than gliding.
+     */
+    it.scoped("an answer's credited line, followed by pointer, lands on that line of code", () =>
+      Effect.gen(function*() {
+        const { failures, landing, siteId } = yield* fromAnswerToItsCode("pointer", "no-preference")
+        expect(landing).toMatchObject({ site: siteId, inViewport: true })
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("an answer's credited line, followed by keyboard, lands on that line with its focus ring", () =>
+      Effect.gen(function*() {
+        const { failures, landing, siteId } = yield* fromAnswerToItsCode("keyboard", "no-preference")
+        expect(landing).toEqual({ site: siteId, focusVisible: true, inViewport: true })
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("under reduced motion the credited line is landed on at once", () =>
+      Effect.gen(function*() {
+        const { failures, landing, siteId } = yield* fromAnswerToItsCode("keyboard", "reduce")
+        expect(landing).toEqual({ site: siteId, focusVisible: true, inViewport: true })
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("the lines answer from the keyboard, and a proposal lights the line its sentence stands on", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
@@ -758,22 +858,19 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // moment the new drawing replaces it the answer goes — fading with the words it had,
         // never emptied, and never having named another build's feature.
         const sampling = yield* Stream.repeatEffectWithSchedule(
-          Effect.all([act(() => overlay.count()), act(() => heading.allTextContents())]),
+          act(() => page.evaluate(answerPopupsShowing)),
           Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
         ).pipe(
-          Stream.takeUntil(([popups]) => popups === 0),
+          Stream.takeUntil(({ popups }) => popups === 0),
           Stream.runCollect,
           Effect.map(Chunk.toReadonlyArray),
           Effect.fork
         )
         yield* click(radio)
         const popupUntilGone = yield* Fiber.join(sampling)
-        const whileOnPage = Arr.filter(popupUntilGone, ([popups]) => popups > 0)
+        const whileOnPage = Arr.filter(popupUntilGone, ({ popups }) => popups > 0)
         expect(whileOnPage.length).toBeGreaterThan(0)
-        expect(
-          Arr.every(whileOnPage, ([, titles]) => Arr.every(titles, (seen) => seen === title) && titles.length === 1)
-        )
-          .toBe(true)
+        expect(Arr.every(whileOnPage, ({ titles }) => titles.length === 1 && titles[0] === title)).toBe(true)
         yield* hidden(overlay)
         expect(yield* act(() => radio.evaluate(isActiveElement))).toBe(true)
         expect(yield* failures).toEqual([])
@@ -852,6 +949,32 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* act(() => page.locator("[data-place-act='record']").evaluate(scrollElementTo, 0.45))
         yield* attribute(stage, "data-place-stage-act", "record")
         expect(yield* failures).toEqual([])
+      }))
+
+    /**
+     * A switch's thumb travels by CSS transition, which Motion's configuration
+     * does not reach: it takes its place at once under reduced motion by the
+     * page's own rule, and eases across otherwise.
+     */
+    it.scoped("a switch's thumb eases across, and under reduced motion takes its place at once", () =>
+      Effect.gen(function*() {
+        const thumbTransition = (reducedMotion: ReducedMotion) =>
+          Effect.gen(function*() {
+            const { failures, page } = yield* openPage({ reducedMotion })
+            yield* goto(page, "/")
+            yield* visible(rendered(page))
+            const demo = page.getByRole("region", { name: "Imagined place demo" })
+            const thumb = demo.getByRole("switch").first().locator("span").first()
+            yield* visible(thumb)
+            const transition = yield* act(() => thumb.evaluate(transitionOf))
+            expect(yield* failures).toEqual([])
+            return transition
+          })
+        expect(yield* thumbTransition("no-preference")).toEqual({
+          property: "transform, translate, scale, rotate",
+          duration: "0.15s"
+        })
+        expect(yield* thumbTransition("reduce")).toMatchObject({ property: "none" })
       }))
 
     it.scoped("under reduced motion the band places its discs where they stand; nothing slides", () =>

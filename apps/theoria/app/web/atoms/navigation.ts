@@ -11,6 +11,7 @@ import { applyBrowserMetadata } from "../services/browser-metadata.js"
 import { isPagePath, pagePathFor, type PageRoute, parsePathname } from "../services/path.js"
 import { docsManifestAtom } from "./docs-data.js"
 import { docsLocationHashAtom } from "./docs.js"
+import { ScrollManner } from "./motion.js"
 import { appRuntime } from "./runtime.js"
 
 const routeForUrl = (url: URL): PageRoute => parsePathname(url.pathname)
@@ -84,10 +85,48 @@ const settleAfterNavigation = (
     Option.match(anchor, { onNone: () => {}, onSome: (element) => element.scrollIntoView() })
   })
 
+/**
+ * After the new route has rendered: the element named by `selector` is
+ * brought to the middle of the viewport — gliding or at once, as the visitor's
+ * motion preference says — and given focus, so the route lands on a thing
+ * rather than a position.
+ */
+const settleOnElement = (
+  selector: string,
+  behavior: ScrollManner
+): Effect.Effect<void, never, BrowserDocument.BrowserDocument> =>
+  Effect.gen(function*() {
+    yield* nextFrame
+    const target = yield* BrowserDocument.querySelector(selector)
+    Option.match(target, {
+      onNone: () => {},
+      onSome: (element) => {
+        element.scrollIntoView({ behavior, block: "center" })
+        element.focus({ preventScroll: true })
+      }
+    })
+  })
+
 const relativeReference = (url: URL): string => `${url.pathname}${url.search}${url.hash}`
 
 const isAppDestination = (destination: URL, current: URL): boolean =>
   destination.origin === current.origin && isPagePath(destination.pathname)
+
+/**
+ * Makes `destination` the document's entry and the route on screen, unless it
+ * already is. The caller has established that `destination` is an app route.
+ */
+const enterAppRoute = (
+  destination: URL,
+  current: URL,
+  ctx: AtomType.FnContext
+): Effect.Effect<void, never, BrowserWindow.BrowserWindow> =>
+  relativeReference(destination) === relativeReference(current)
+    ? Effect.void
+    : Effect.andThen(BrowserWindow.pushState(destination), () => {
+      ctx.set(pageRouteAtom, routeForUrl(destination))
+      ctx.set(docsLocationHashAtom, destination.hash)
+    })
 
 /**
  * Navigates to `href`. App routes on this origin become a history entry and a
@@ -104,42 +143,29 @@ export const navigateAtom = appRuntime.fn<string>()((href, ctx) =>
       return
     }
 
-    if (relativeReference(destination) !== relativeReference(current)) {
-      yield* BrowserWindow.pushState(destination)
-      ctx.set(pageRouteAtom, routeForUrl(destination))
-      ctx.set(docsLocationHashAtom, destination.hash)
-    }
-
+    yield* enterAppRoute(destination, current, ctx)
     yield* settleAfterNavigation(destination.hash)
   })
 )
 
-const ElementNavigation = Schema.Struct({
+/** A navigation within the app that lands on a particular element rather than on its hash's position. */
+export const ElementNavigation = Schema.Struct({
   href: Schema.String,
   selector: Schema.String,
-  behavior: Schema.Literal("smooth", "instant")
+  behavior: ScrollManner
 })
-type ElementNavigation = typeof ElementNavigation.Type
+export type ElementNavigation = typeof ElementNavigation.Type
 
-/** Pushes an app history entry, then settles on and focuses a custom element after rendering. */
+/**
+ * Navigates to `href` — an app route on this origin, or a programming error —
+ * and settles on the element `selector` names once the route has rendered.
+ */
 export const navigateToElementAtom = appRuntime.fn<ElementNavigation>()((navigation, ctx) =>
   Effect.gen(function*() {
     const current = yield* BrowserWindow.currentUrl
     const destination = yield* Effect.orDie(BrowserWindow.resolveAgainst(navigation.href, current))
-    if (relativeReference(destination) !== relativeReference(current)) {
-      yield* BrowserWindow.pushState(destination)
-      ctx.set(pageRouteAtom, routeForUrl(destination))
-      ctx.set(docsLocationHashAtom, destination.hash)
-    }
-    yield* nextFrame
-    const target = yield* BrowserDocument.querySelector(navigation.selector)
-    Option.match(target, {
-      onNone: () => {},
-      onSome: (element) => {
-        element.scrollIntoView({ behavior: navigation.behavior, block: "center" })
-        element.focus({ preventScroll: true })
-      }
-    })
+    yield* enterAppRoute(destination, current, ctx)
+    yield* settleOnElement(navigation.selector, navigation.behavior)
   })
 )
 

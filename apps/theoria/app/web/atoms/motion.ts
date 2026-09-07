@@ -25,6 +25,18 @@ export const motionPreferenceAtom: AtomType.Atom<MotionPreference> = Atom.make((
   Result.getOrElse(get(systemMotionPreferenceAtom), (): MotionPreference => "full")
 )
 
+/** How the page brings a thing into view: gliding to it, or landing on it at once. */
+export const ScrollManner = Schema.Literal("smooth", "instant")
+export type ScrollManner = typeof ScrollManner.Type
+
+/** The manner the preference asks for: reduced motion lands at once. */
+export const scrollBehaviorFor = (preference: MotionPreference): ScrollManner =>
+  Match.value(preference).pipe(
+    Match.when("reduced", (): ScrollManner => "instant"),
+    Match.when("full", (): ScrollManner => "smooth"),
+    Match.exhaustive
+  )
+
 /** Motion's own vocabulary for the preference; it is told, never left to read the window itself. */
 export type MotionConfigReducedMotion = "always" | "never"
 

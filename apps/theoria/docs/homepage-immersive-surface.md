@@ -571,9 +571,20 @@ import.meta.url), { type: "module" })`, which every bundler resolves
 
 - [x] Code-line marks carry one canonical `CodeSiteId`; `codeSite(id)` is the
       total source for the site's step, line-locating match and package.
-- [x] The credited-code link is an atom-owned route: it selects the step,
-      closes without returning focus, pushes `#how-its-built`, then centres
-      and focuses the canonical gutter mark (instantly under reduced motion).
+- [x] `placeGoToSiteAtom`: the answer's credited line is a route, not a hash.
+      It selects the line's step, lets the answer go where it is (focus does
+      not return to the mark), enters `#how-its-built` through
+      `navigateToElementAtom`, and after the step renders centres and focuses
+      the line's gutter mark (`data-place-code-site`) — smooth or instant by
+      `scrollBehaviorFor(motionPreference)`. Tested on a registry with the
+      window (sequence, manner per preference, focus) and in Chromium by
+      pointer, by keyboard (`:focus-visible` on the landing) and under reduced
+      motion.
+- [x] `stillUnderReducedMotion` (`designSystem.ts`): the one CSS-side rule for
+      things that travel by transition — switch thumb, tab indicator, drawer,
+      search dialog, package menu, navigation folds — since Motion's
+      configuration does not reach CSS. Chromium checks the thumb's computed
+      `transition-duration` is `0.15s` and `0s` by preference.
 - [x] `atoms/imagined-place-experience.ts`: `placeActAtom`, `placeFocusAtom`,
       `placeBandAtom`; `contracts/demo/imagined-place-provenance.ts`:
       `PlaceMark`, `PlaceProvenance`, `PlaceAct`; `view/home/placeProvenance.ts`:
@@ -689,10 +700,14 @@ left on purpose. Every item takes the same route: failing test, then the change.
       the stage's width from `placeStageWidthAtom`. Decide once against the
       rendered stage whether the strand beside the stage already says lineage
       well enough; if it does, tick the box and record why.
-- [ ] **Canonical `CodeSite` identities.** `markMadeBy` in `placeProvenance.ts`
-      still finds a line's mark by the site's string id. Give every `CodeSite`
-      one `Schema`-branded identity minted at the layout contract, and derive
-      the mark from it; remove the fallback.
+- [x] **Canonical `CodeSite` identities.** A code-line mark is
+      `{ _tag: "CodeLine", site: CodeSiteId }`; `CodeSiteId` is the closed
+      `Schema.Literal` of sites, `codeSite(id)` the total lookup, and
+      `allCodeSites` is derived from the literals. `markMadeBy` matches
+      exhaustively on the id; `match` is the site's line-locating data, not
+      its identity. No brand: a closed literal set is already one identity per
+      site, and the contract test checks each resolves to one line of its
+      step's code.
 - [ ] **The CSS animations the toolchain branch left for this work.**
       `animate-path-draw` (`PlaceWalk`) and `animate-value-changed`
       (`ChangedValue`) are still CSS keyframes beside Motion. Either move them
