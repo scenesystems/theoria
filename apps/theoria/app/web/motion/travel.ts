@@ -36,26 +36,66 @@ export class Travelling<A> extends Data.Class<{
  * target. It starts with the first frame drawn after the target is set, not
  * when the target is set: a page busy for a while between the two (a merge
  * arriving, a search starting) would otherwise spend the travel's time before
- * anything of it was seen.
+ * anything of it was seen. It does not start before `notBefore` either: until
+ * then the drawing rests where it is, whatever the target — the time, say,
+ * that something else on the page needs to leave first.
  */
 export class Travel<A> extends Data.Class<{
   readonly from: A
   readonly to: A
   readonly startedAt: Option.Option<number>
+  readonly notBefore: number
 }> {}
 
-/** How far along a travel is at `time`: 0 until it starts, 1 once it has landed. */
+/**
+ * Where a drawing is on its way, and the rest it still owes: nothing on its
+ * way until the first target is set; at rest until the first frame of the
+ * first target is drawn and `rest` has passed from then. The rest is counted
+ * from that first frame, not from when the journey was made, for the same
+ * reason a travel starts with its first frame: what the drawing rests for —
+ * lines leaving the page, say — leaves from the first frame that shows the
+ * new target, however long the page took to get to it.
+ */
+export class Journey<A> extends Data.Class<{
+  readonly travel: Option.Option<Travel<A>>
+  readonly rest: Duration.Duration
+}> {}
+
+/** How far along a travel is at `time`: 0 until it starts, 1 once it has landed; placed outright once it may start, given no duration. */
 const progressAt = <A>(travelling: Travelling<A>, travel: Travel<A>, time: number): number =>
-  Duration.isZero(travelling.duration)
+  Duration.isZero(travelling.duration) && time >= travel.notBefore
     ? 1
     : Option.match(travel.startedAt, {
       onNone: () => 0,
-      onSome: (startedAt) => Math.min(1, Math.max(0, (time - startedAt) / Duration.toMillis(travelling.duration)))
+      onSome: (startedAt) =>
+        Duration.isZero(travelling.duration)
+          ? 0
+          : Math.min(1, Math.max(0, (time - startedAt) / Duration.toMillis(travelling.duration)))
     })
 
-/** The travel as begun at `time`, if it had not begun already. */
+/** The travel as begun at `time`, or when it may begin if that is later, if it had not begun already. */
 const begunAt = <A>(travel: Travel<A>, time: number): Travel<A> =>
-  Option.isSome(travel.startedAt) ? travel : new Travel({ ...travel, startedAt: Option.some(time) })
+  Option.isSome(travel.startedAt)
+    ? travel
+    : new Travel({ ...travel, startedAt: Option.some(Math.max(time, travel.notBefore)) })
+
+/** The journey with the rest it owes taken from `time`: its travel may not begin before the rest has passed. */
+const restedFrom = <A>(journey: Journey<A>, time: number): Journey<A> =>
+  new Journey({
+    travel: Option.map(
+      journey.travel,
+      (travel) =>
+        new Travel({ ...travel, notBefore: Math.max(travel.notBefore, time + Duration.toMillis(journey.rest)) })
+    ),
+    rest: Duration.zero
+  })
+
+/** How far along a journey's travel is at `time`: nowhere while it still owes a rest; landed when nothing is on its way. */
+const journeyProgressAt = <A>(travelling: Travelling<A>, journey: Journey<A>, time: number): number =>
+  Option.match(journey.travel, {
+    onNone: () => 1,
+    onSome: (travel) => Duration.isZero(journey.rest) ? progressAt(travelling, travel, time) : 0
+  })
 
 /**
  * What is drawn `progress` of the way along a travel. A landed travel draws
@@ -66,12 +106,20 @@ const drawnAt = <A>(travelling: Travelling<A>, travel: Travel<A>, progress: numb
   progress >= 1 ? travel.to : travelling.between(travel.from, travel.to, ease(progress))
 
 /**
- * Where a drawing is on its way: nothing until the first target is set. Made
- * from where the last drawing was left, so a new stream of targets carries on
- * from there instead of starting somewhere else.
+ * A journey from where the last drawing was left, so a new stream of targets
+ * carries on from there instead of starting somewhere else; resting there for
+ * `rest` from the first frame drawn before any target is travelled toward.
  */
-export const journeyFrom = <A>(from: Option.Option<A>): Effect.Effect<Ref.Ref<Option.Option<Travel<A>>>> =>
-  Ref.make(Option.map(from, (at) => new Travel({ from: at, to: at, startedAt: Option.none() })))
+export const journeyFrom = <A>(
+  from: Option.Option<A>,
+  rest: Duration.Duration = Duration.zero
+): Effect.Effect<Ref.Ref<Journey<A>>> =>
+  Ref.make(
+    new Journey({
+      travel: Option.map(from, (at) => new Travel({ from: at, to: at, startedAt: Option.none(), notBefore: 0 })),
+      rest
+    })
+  )
 
 /**
  * The values drawn from now until `to` is reached: where the drawing is at
@@ -79,40 +127,48 @@ export const journeyFrom = <A>(from: Option.Option<A>): Effect.Effect<Ref.Ref<Op
  * A target set again while its travel is under way continues that travel; a
  * new target starts a new travel from wherever the drawing is at that moment,
  * so the drawing never jumps. The first target ever is placed outright: there
- * is nowhere to travel from.
+ * is nowhere to travel from. A journey owing a rest takes it from the first
+ * frame drawn of a travel: the drawing stays where it was left until the
+ * rest has passed, whatever targets come in meanwhile.
  */
 export const toward = <A>(
   travelling: Travelling<A>,
-  journey: Ref.Ref<Option.Option<Travel<A>>>,
+  journey: Ref.Ref<Journey<A>>,
   to: A
 ): Stream.Stream<A> =>
   Stream.unwrap(
     Effect.gen(function*() {
       const now = yield* Clock.currentTimeMillis
-      const travel = Option.match(yield* Ref.get(journey), {
-        onNone: () => new Travel({ from: to, to, startedAt: Option.none() }),
+      const owed = yield* Ref.get(journey)
+      const travel = Option.match(owed.travel, {
+        onNone: () => new Travel({ from: to, to, startedAt: Option.none(), notBefore: now }),
         onSome: (current) =>
           Equal.equals(current.to, to)
             ? current
             : new Travel({
-              from: drawnAt(travelling, current, progressAt(travelling, current, now)),
+              from: drawnAt(travelling, current, journeyProgressAt(travelling, owed, now)),
               to,
-              startedAt: Option.none()
+              startedAt: Option.none(),
+              notBefore: current.notBefore
             })
       })
-      yield* Ref.set(journey, Option.some(travel))
+      const set = new Journey({ ...owed, travel: Option.some(travel) })
+      yield* Ref.set(journey, set)
 
       if (Equal.equals(travel.from, travel.to)) {
         return Stream.make(travel.to)
       }
-      // The first tick begins the travel; every tick draws it as it stands at that moment.
+      // The first tick takes the rest owed and begins the travel; every tick draws it as it stands at that moment.
       const tick = Effect.gen(function*() {
         const time = yield* Clock.currentTimeMillis
-        const begun = yield* Ref.updateAndGet(journey, Option.map((current) => begunAt(current, time)))
-        return Option.match(begun, { onNone: () => 1, onSome: (current) => progressAt(travelling, current, time) })
+        const begun = yield* Ref.updateAndGet(journey, (current) => {
+          const rested = restedFrom(current, time)
+          return new Journey({ ...rested, travel: Option.map(rested.travel, (found) => begunAt(found, time)) })
+        })
+        return journeyProgressAt(travelling, begun, time)
       })
       return Stream.concat(
-        Stream.make(progressAt(travelling, travel, now)),
+        Stream.make(journeyProgressAt(travelling, set, now)),
         Stream.mapEffect(travelling.ticks, () => tick)
       )
         .pipe(

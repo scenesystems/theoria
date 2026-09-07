@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Chunk, Data, Duration, Effect, Fiber, Layer, Option, Order, Schedule, Schema } from "effect"
+import { Chunk, Duration, Effect, Fiber, Layer, Option, Order, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
-import * as HashSet from "effect/HashSet"
+import * as Str from "effect/String"
 
-import { renderTrials } from "../../app/contracts/demo/imagined-place-arrangement.js"
+import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import type { ReducedMotion } from "./browser.js"
 import {
@@ -37,10 +37,10 @@ import {
   activeElementRole,
   currentLocation,
   discsAtRest,
-  featureTransforms,
   insideViewportRight,
   isActiveElement,
   markerPositionsInStage,
+  mergeFrame,
   stageAndColumnWidths,
   stageLayout
 } from "./platform/in-page.js"
@@ -51,46 +51,52 @@ const rendered = (page: Page) => page.locator("[data-place-render-phase='complet
 /** Every disc's position relative to the stage, so scrolling cannot move it. */
 const markerPositions = (page: Page) => () => page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
 
-const FeatureTransform = Schema.Struct({ name: Schema.String, transform: Schema.String, onStage: Schema.Boolean })
-type FeatureTransform = typeof FeatureTransform.Type
+const FeaturePlace = Schema.Struct({
+  kind: Schema.Literal("ring", "disc"),
+  translate: Schema.String,
+  transform: Schema.String
+})
+type FeaturePlace = typeof FeaturePlace.Type
 
-const landed = (sample: ReadonlyArray<FeatureTransform>, name: string): boolean =>
-  Arr.some(sample, (entry) => entry.name === name && entry.onStage && entry.transform === "none")
+/** One frame of the stage during a merge: where the feature is painted, and any line of prose painted over a disc. */
+const MergeFrame = Schema.Struct({
+  places: Schema.Array(FeaturePlace),
+  overlaps: Schema.Array(Schema.String)
+})
+type MergeFrame = typeof MergeFrame.Type
+
+const landed = (frame: MergeFrame): boolean =>
+  Arr.some(frame.places, (place) => place.kind === "disc" && place.transform === "none")
 
 /**
- * Every distinct transform the feature `name` was painted at inside `region`,
- * sampled a frame apart from now until its disc has landed on the stage, or
- * for `atMost`.
+ * The stage sampled a frame apart from now until the feature `name` has a
+ * disc filled in and at rest — that frame included — or for `atMost`.
  */
-const transformsUntilLanded = (region: Locator, name: string, atMost: Duration.Duration) =>
-  Effect.map(
-    Effect.repeat(
-      act(() => region.evaluate(featureTransforms)),
-      Schedule.collectAllInputs<ReadonlyArray<FeatureTransform>>().pipe(
-        Schedule.intersect(Schedule.spaced("16 millis").pipe(Schedule.upTo(atMost))),
-        Schedule.intersect(Schedule.recurUntil((sample: ReadonlyArray<FeatureTransform>) => landed(sample, name)))
-      )
-    ),
-    // `Data.struct` gives the samples value equality, so the set holds each distinct transform once.
-    ([[samples]]) =>
-      HashSet.fromIterable(
-        Arr.map(
-          Arr.filter(Arr.flatten(Chunk.toReadonlyArray(samples)), (entry) => entry.transform !== "none"),
-          Data.struct
-        )
-      )
+const framesUntilLanded = (region: Locator, name: string, atMost: Duration.Duration) =>
+  Stream.repeatEffectWithSchedule(
+    act(() => region.evaluate(mergeFrame, name)),
+    Schedule.spaced("16 millis").pipe(Schedule.upTo(atMost))
+  ).pipe(
+    Stream.takeUntil(landed),
+    Stream.runCollect,
+    Effect.map(Chunk.toReadonlyArray)
   )
 
-/** How many distinct transforms `name` was painted at. */
-const distinctTransforms = (seen: HashSet.HashSet<FeatureTransform>, name: string): number =>
-  HashSet.size(HashSet.filter(seen, (entry) => entry.name === name))
+/** Every distinct `translate` the feature's `kind` was painted at, in order of first sight. */
+const placesOf = (frames: ReadonlyArray<MergeFrame>, kind: FeaturePlace["kind"]): ReadonlyArray<string> =>
+  Arr.dedupe(
+    Arr.filterMap(
+      Arr.flatMap(frames, (frame) => frame.places),
+      (place) => place.kind === kind ? Option.some(place.translate) : Option.none()
+    )
+  )
 
 /**
- * Merges the declined program proposal and reports every transform painted
+ * Merges the declined program proposal and reports every frame painted
  * inside the demo until the merge lands. While the search makes room for the
- * feature, its name stays in the proposal, a ring marks the room on the
- * stage, and the sheet holds its size; when the search settles, the name
- * travels onto the stage and is the disc from then on.
+ * feature, a ring marks the room on the stage and the sheet holds its size;
+ * when the search settles, the disc fills the ring where it last stood, and
+ * at no frame is a line of prose painted over a disc.
  */
 const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
   Effect.gen(function*() {
@@ -99,10 +105,9 @@ const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     yield* visible(rendered(page))
     const demo = page.getByRole("region", { name: "Imagined place demo" })
     const proposal = demo.locator("[data-place-proposal='program']")
-    const travelling = proposal.locator("[data-place-feature-travel]")
-    yield* count(travelling, 1)
-    const name = yield* Option.fromNullable(yield* act(() => travelling.getAttribute("data-place-feature-travel")))
-    const disc = demo.locator(`[data-place-marker][data-place-feature-travel="${name}"]`)
+    const feature = proposal.locator("[data-place-feature]")
+    const name = yield* Option.fromNullable(yield* act(() => feature.getAttribute("data-place-feature")))
+    const disc = demo.locator(`[data-place-marker="${name}"]`)
     yield* count(disc, 0)
     const paper = page.locator("[data-place-stage='paper']")
     const sheetHeight = () => paper.getAttribute("data-place-stage-height")
@@ -110,20 +115,37 @@ const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
 
     const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
     yield* click(proposal.getByRole("switch"))
-    // Sample every frame from the moment the merge is requested until the disc has landed.
-    const painted = yield* Effect.fork(transformsUntilLanded(demo, name, Duration.seconds(12)))
+    // Sample every frame from the moment the merge is requested until the disc is filled in.
+    const painted = yield* Effect.fork(framesUntilLanded(demo, name, Duration.seconds(12)))
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
     const ring = demo.locator(`[data-place-marker-arriving="${name}"]`)
     yield* visible(ring)
-    yield* count(travelling, 1)
     yield* attribute(paper, "data-place-drawn", "sketch")
     expect(yield* act(sheetHeight)).toBe(keptHeight)
-    yield* count(travelling, 0)
     yield* visible(disc)
     yield* count(ring, 0)
     yield* attribute(paper, "data-place-drawn", "kept")
-    const seen = yield* Fiber.join(painted)
-    return { failures, name, travelled: distinctTransforms(seen, name) }
+    const frames = yield* Fiber.join(painted)
+    const rings = placesOf(frames, "ring")
+    const discs = placesOf(frames, "disc")
+    return {
+      failures,
+      name,
+      // The disc fills the ring: it is only ever painted where the ring last stood.
+      filledInPlace: Arr.getEquivalence(Str.Equivalence)(discs, Arr.takeRight(rings, 1)),
+      // How many places the disc was painted at: one when it never moves.
+      placed: Arr.length(discs),
+      // The disc arrives with Motion in place, so it is painted at more than one transform on its way in.
+      arrivals: Arr.length(
+        Arr.dedupe(
+          Arr.filterMap(
+            Arr.flatMap(frames, (frame) => frame.places),
+            (place) => place.kind === "disc" ? Option.some(place.transform) : Option.none()
+          )
+        )
+      ),
+      overlaps: Arr.dedupe(Arr.flatMap(frames, (frame) => frame.overlaps))
+    }
   })
 
 const referenceTargets = (references: Locator) =>
@@ -223,19 +245,24 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a merged feature travels to the stage", () =>
+    it.scoped("a merged feature fills the room the search made for it, never over the prose", () =>
       Effect.gen(function*() {
-        const { failures, travelled } = yield* mergeProgramProposal("no-preference")
-        // The name travelled: it was painted at several points between the proposal and the stage.
-        expect(travelled).toBeGreaterThanOrEqual(3)
+        const { arrivals, failures, filledInPlace, overlaps } = yield* mergeProgramProposal("no-preference")
+        expect(filledInPlace).toBe(true)
+        expect(arrivals).toBeGreaterThanOrEqual(2)
+        expect(overlaps).toEqual([])
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("under reduced motion the feature appears on the stage without travelling", () =>
+    it.scoped("under reduced motion the feature is placed outright, never over the prose", () =>
       Effect.gen(function*() {
-        const { failures, travelled } = yield* mergeProgramProposal("reduce")
-        // At most the one frame Motion holds a layout node at its origin before the instant jump.
-        expect(travelled).toBeLessThanOrEqual(1)
+        const { arrivals, failures, overlaps, placed } = yield* mergeProgramProposal("reduce")
+        // Nothing travels: the drawing is placed outright at every best, the disc at the kept
+        // arrangement's the moment the trials are in — not where the ring last stood, when the
+        // last trial is the best. Motion drops the scale too, so the disc is at rest from its first frame.
+        expect(placed).toBe(1)
+        expect(arrivals).toBe(1)
+        expect(overlaps).toEqual([])
         expect(yield* failures).toEqual([])
       }))
 

@@ -1,7 +1,6 @@
 import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { Sampler, SearchSpace } from "@scenesystems/effect-search"
 import type { Text } from "@scenesystems/effect-text"
 
 import { PlaceLine, PlaceMarker, type PlaceRendering } from "../imagined-place-result.js"
@@ -12,25 +11,13 @@ import {
   flowLines,
   FlowQuality,
   flowQuality,
-  type Meander,
-  meanderBounds,
   minimumSeparation,
   occupiedHeight,
   placeMarkers,
   placeTextRole,
   type Stage
 } from "./imagined-place-flow.js"
-
-/**
- * Deterministic search settings. The seed is fixed so the same artifact at the
- * same stage width always renders the same way; both values are reported.
- *
- * @since 0.3.0
- */
-export const renderSeed = 42
-export const renderTrials = 36
-
-export const renderSampler = () => Sampler.tpe({ seed: renderSeed })
+import { type Meander, renderSeed } from "./imagined-place-search.js"
 
 /**
  * The text that flows around the markers: what the place is, how it feels,
@@ -59,15 +46,6 @@ export const contributorsOf = (artifact: PlaceArtifact): ReadonlyArray<Option.Op
     Arr.map(artifact.composition.features, () => Option.none()),
     Arr.map(artifact.accepted, (proposal) => Option.some(proposal.proposer))
   )
-
-export const meanderSpace = SearchSpace.make({
-  edge: SearchSpace.float(...meanderBounds.edge),
-  swing: SearchSpace.float(...meanderBounds.swing),
-  phase: SearchSpace.float(...meanderBounds.phase),
-  turns: SearchSpace.float(...meanderBounds.turns),
-  top: SearchSpace.float(...meanderBounds.top),
-  step: SearchSpace.float(...meanderBounds.step)
-})
 
 export const Arrangement = Schema.Struct({
   markers: Schema.Array(PlaceMarker),

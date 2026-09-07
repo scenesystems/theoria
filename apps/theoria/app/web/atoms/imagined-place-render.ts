@@ -1,8 +1,8 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Study } from "@scenesystems/effect-search"
-import { Data, Duration, Effect, Equal, Match, Option, Schema, Stream } from "effect"
+import { Data, Duration, Effect, Equal, Layer, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as HashSet from "effect/HashSet"
 
 import { DemoExecutionError } from "../../contracts/demo-error.js"
 import {
@@ -11,18 +11,22 @@ import {
   Arrangement,
   description,
   descriptionInput,
-  meanderSpace,
-  renderingFor,
-  renderSampler,
-  renderTrials
+  renderingFor
 } from "../../contracts/demo/imagined-place-arrangement.js"
-import type { Meander } from "../../contracts/demo/imagined-place-flow.js"
-import { markersBetween, type Stage, stageFor } from "../../contracts/demo/imagined-place-flow.js"
-import type { PlaceMarker, PlaceRendering } from "../../contracts/imagined-place-result.js"
-import type { ParticipantRole, PlaceArtifact } from "../../contracts/imagined-place.js"
+import {
+  drawingBetween,
+  paperUnder,
+  PlaceDrawing,
+  type Stage,
+  stageFor
+} from "../../contracts/demo/imagined-place-flow.js"
+import { type Meander, renderTrials } from "../../contracts/demo/imagined-place-search.js"
+import type { PlaceRendering } from "../../contracts/imagined-place-result.js"
+import { type ParticipantRole, type PlaceArtifact, placeFeatures } from "../../contracts/imagined-place.js"
 import { motionDuration } from "../../contracts/motion.js"
 import { journeyFrom, toward, travellingOver } from "../motion/travel.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
+import { PlaceSearcher } from "../services/PlaceSearcher.js"
 import type { BrowserTextLayout } from "../text/browserTextLayout.js"
 import { type MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
@@ -30,7 +34,7 @@ import { prepareBrowserText } from "../view/text/authority.js"
 
 import { placeArtifactAtom, placeBuildAtom, placeStageWidthAtom } from "./imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "./motion.js"
-import { textLayoutRuntime } from "./text-layout.js"
+import { textLayoutLayerAtom } from "./text-layout.js"
 
 /**
  * Draws the place in the browser with the browser's own font metrics.
@@ -45,8 +49,9 @@ import { textLayoutRuntime } from "./text-layout.js"
  * they are to where the new best puts them over the theme's `shift`, keeping
  * the geometry's own rules on the way (`markersBetween`), and every frame the
  * text is flowed around the discs as drawn — so the discs and the text move
- * together and never overlap. A frame is `complete` once the search is over
- * and the drawing has landed on its best.
+ * together and never overlap. The paper's edge is part of the drawing and
+ * travels with it (`PlaceDrawing`). A frame is `complete` once the search is
+ * over and the drawing has landed on its best.
  */
 /**
  * Where the search stands. `running`: trials are still coming in, each a
@@ -70,6 +75,14 @@ export class PlaceSearch extends Data.Class<{
   readonly prose: string
   /** The discs that carry their names at this stage width, and how wide each name wraps. */
   readonly labels: MarkerLabelWidths
+  /**
+   * The features the last settled arrangement drew, by name: what stands on
+   * the stage until this search settles in turn. A drawn feature not among
+   * them is one just merged, which the search is making room for. Before
+   * anything has settled nothing has been merged, so this is every feature
+   * the place came with.
+   */
+  readonly settled: HashSet.HashSet<string>
 }> {}
 
 /**
@@ -84,6 +97,8 @@ export class PlaceRenderFrame extends Data.Class<{
   readonly search: PlaceSearch
   /** The drawing: the best arrangement once the discs have landed on it, the text flowed around them on the way. */
   readonly rendering: PlaceRendering
+  /** The height of the paper under the drawing, where its edge has reached. */
+  readonly paper: number
 }> {}
 
 /** The loss of every trial so far: the trace of the search. */
@@ -133,25 +148,30 @@ const advance = (current: Option.Option<Progress>, arrangement: Arrangement): Pr
 
 const renderFailed = (message: string) => new DemoExecutionError({ code: "execution-failed", message, retryable: true })
 
-/** The search, one element per trial: its progress after that trial. The study lives as long as the stream. */
-const search = (candidate: (meander: Meander) => Arrangement): Stream.Stream<Progress, DemoExecutionError> =>
+/**
+ * The search, one element per trial: its progress after that trial. The
+ * study is open on the search worker for as long as the stream; the page
+ * scores each meander the worker proposes (`candidate`) and tells it the
+ * loss. The worker samples the next trial while the page waits out the frame
+ * delay, so the sampler's growing cost is off the drawing thread and out of
+ * the trial's time alike.
+ */
+const search = (
+  candidate: (meander: Meander) => Arrangement
+): Stream.Stream<Progress, DemoExecutionError, PlaceSearcher> =>
   Stream.unwrapScoped(
     Effect.gen(function*() {
-      const space = yield* meanderSpace
-      const handle = yield* Study.open({
-        space,
-        sampler: renderSampler(),
-        objective: (meander) => Effect.succeed(candidate(meander).quality.loss),
-        trials: renderTrials,
-        direction: "minimize"
-      })
+      const searcher = yield* PlaceSearcher
+      const study = yield* searcher.open
 
       const trial = (current: Option.Option<Progress>) =>
         Effect.gen(function*() {
-          yield* Option.match(current, { onNone: () => Effect.void, onSome: () => Effect.sleep(frameDelay) })
-          const asked = yield* Study.ask(handle)
-          const arrangement = candidate(asked.config)
-          yield* Study.tell(handle, asked.trialNumber, arrangement.quality.loss)
+          const asked = yield* Option.match(current, {
+            onNone: () => study.ask,
+            onSome: () => Effect.zipRight(Effect.sleep(frameDelay), study.ask, { concurrent: true })
+          })
+          const arrangement = candidate(asked.meander)
+          yield* study.tell(asked.trial, arrangement.quality.loss)
           return advance(current, arrangement)
         })
 
@@ -170,12 +190,35 @@ const travelDuration = (motion: MotionPreference): Duration.Duration =>
     Match.exhaustive
   )
 
+/**
+ * Where the last drawing left off, for the next search to carry on from: the
+ * discs wherever they were, landed or on their way, and the paper's height —
+ * `held` for the new search's trials when the paper is the same width, so a
+ * jump the search makes moves nothing around the stage; not held when the
+ * width changed, since the old height means nothing at the new width — the
+ * features the last settled arrangement drew, and the description its lines
+ * were set from.
+ */
+class DrawingLeft extends Data.Class<{
+  readonly drawing: PlaceDrawing
+  readonly held: Option.Option<number>
+  readonly settled: HashSet.HashSet<string>
+  readonly prose: string
+}> {}
+
+const drawnNames = (rendering: PlaceRendering): HashSet.HashSet<string> =>
+  HashSet.fromIterable(Arr.map(rendering.projection.markers, (marker) => marker.name))
+
+/** What a frame leaves for the next search: its own drawing if it settled, else what it was itself left. */
+const settledAfter = (frame: PlaceRenderFrame): HashSet.HashSet<string> =>
+  settled(frame) ? drawnNames(frame.rendering) : frame.search.settled
+
 const renderStream = (
   artifact: PlaceArtifact,
   stageWidth: number,
-  from: Option.Option<ReadonlyArray<PlaceMarker>>,
+  left: Option.Option<DrawingLeft>,
   motion: MotionPreference
-): Stream.Stream<PlaceRenderFrame, DemoExecutionError, BrowserTextLayout> =>
+): Stream.Stream<PlaceRenderFrame, DemoExecutionError, BrowserTextLayout | PlaceSearcher> =>
   Stream.unwrap(
     Effect.gen(function*() {
       const stage = stageFor(stageWidth)
@@ -184,38 +227,68 @@ const renderStream = (
       const labels = yield* markerLabelWidths(artifact, stage)
       const candidate = arrange(artifact, prepared, stage)
       const around = arrangedAround(prepared, stage)
-      const travelling = travellingOver(markersBetween(stage), travelDuration(motion))
-      const journey = yield* journeyFrom(from)
+      const travelling = travellingOver(drawingBetween(stage), travelDuration(motion))
+      // A changed description's lines leave before anything else moves: the
+      // drawing rests through their exit, so lines flowed around where the
+      // discs were never stand over discs that have moved on.
+      const rest = Option.match(left, {
+        onNone: () => Duration.zero,
+        onSome: (found) => found.prose === prose ? Duration.zero : motionDuration("exit")
+      })
+      const journey = yield* journeyFrom(Option.map(left, (found) => found.drawing), rest)
+      const held = Option.flatMap(left, (found) => found.held)
+      const settledBefore = Option.match(left, {
+        onNone: () => HashSet.fromIterable(Arr.map(placeFeatures(artifact), (feature) => feature.name)),
+        onSome: (found) => found.settled
+      })
 
-      // One search per trial, one rendering of the best per trial; every frame of the travel shares them.
-      const framesAfter = (progress: Progress): (drawn: ReadonlyArray<PlaceMarker>) => PlaceRenderFrame => {
+      // The drawing's travel after a trial: toward the best so far, on the
+      // held paper while trials are still coming in, on paper cut to the best
+      // once they are all in — so the paper lands with the discs. One search
+      // per trial, one rendering of the best per trial; every frame of the
+      // travel shares them.
+      const travelAfter = (progress: Progress): Stream.Stream<PlaceRenderFrame> => {
         const best = bestOf(progress)
+        const done = trialsDone(progress)
         const rendered = (arrangement: Arrangement) =>
           renderingFor({ arrangement, bestLoss: best.quality.loss, stage, trials: progress.tried.length })
         const bestRendering = rendered(best)
+        const fits = bestRendering.projection.stageHeight
+        const heading = new PlaceDrawing({
+          markers: best.markers,
+          paper: done ? fits : Option.getOrElse(held, () => fits)
+        })
         const searchWhile = (landed: boolean) =>
           new PlaceSearch({
-            phase: phaseOf(trialsDone(progress), landed),
+            phase: phaseOf(done, landed),
             stage,
             tried: progress.tried,
             bestIndex: progress.bestIndex,
             best: bestRendering,
             prose,
-            labels
+            labels,
+            settled: settledBefore
           })
-        const landed = new PlaceRenderFrame({ search: searchWhile(true), rendering: bestRendering })
+        const landed = new PlaceRenderFrame({
+          search: searchWhile(true),
+          rendering: bestRendering,
+          paper: heading.paper
+        })
         const onTheWay = searchWhile(false)
-        return (drawn) =>
-          Equal.equals(drawn, best.markers)
+        const paperOnTheWay = (drawn: PlaceDrawing): number =>
+          done ? Math.max(drawn.paper, paperUnder(stage, drawn.markers)) : drawn.paper
+        return Stream.map(toward(travelling, journey, heading), (drawn) =>
+          Equal.equals(drawn, heading)
             ? landed
-            : new PlaceRenderFrame({ search: onTheWay, rendering: rendered(around(drawn)) })
+            : new PlaceRenderFrame({
+              search: onTheWay,
+              rendering: rendered(around(drawn.markers)),
+              paper: paperOnTheWay(drawn)
+            }))
       }
 
       return search(candidate).pipe(
-        Stream.flatMap(
-          (progress) => Stream.map(toward(travelling, journey, bestOf(progress).markers), framesAfter(progress)),
-          { switch: true }
-        ),
+        Stream.flatMap(travelAfter, { switch: true }),
         Stream.takeUntil(settled)
       )
     }).pipe(Effect.mapError((cause) => renderFailed(String(cause))))
@@ -232,8 +305,6 @@ const settled = (frame: PlaceRenderFrame): boolean => frame.search.phase === "co
 
 const draws = (frame: PlaceRenderFrame, name: string): boolean =>
   Arr.some(frame.rendering.projection.markers, (marker) => marker.name === name)
-
-const stageHeight = (frame: PlaceRenderFrame): number => frame.rendering.projection.stageHeight
 
 /**
  * What the stage is drawing. `kept`: the arrangement the search settled on,
@@ -258,83 +329,49 @@ export const placeDrawnAtom: AtomType.Atom<PlaceDrawn> = Atom.make((get: AtomTyp
 )
 
 /**
- * The arrangement the last search settled on, remembered while the next one
- * runs: what the sheet is cut to and what the discs on it stand for until the
- * new arrangement is settled in turn.
- */
-export const placeKeptFrameAtom: AtomType.Atom<Option.Option<PlaceRenderFrame>> = Atom.make((get: AtomType.Context) =>
-  Option.orElse(
-    Option.filter(Result.value(get(placeRenderFrameAtom)), settled),
-    () => Option.flatten(get.self<Option.Option<PlaceRenderFrame>>())
-  )
-)
-
-/**
  * The paper the stage draws on. Its width is the one the visitor chose and
- * applies at once. Its height is `held` at the settled arrangement's while
- * the next search's trials run and while trials are scrubbed, so nothing
- * around the stage moves for a jump the search makes; once the trials are in
- * and the drawing travels to the best, the edge is `following` the drawing
- * frame by frame, so a disc heading past the old edge is never cut and the
- * paper lands with the discs. Until a search has settled at this width, it
- * follows the sketch.
+ * applies at once. Its height is the drawing's own (`PlaceRenderFrame.paper`):
+ * held at the settled arrangement's while the next search's trials run and
+ * while trials are scrubbed, so nothing around the stage moves for a jump the
+ * search makes; travelling with the discs once the trials are in, so a disc
+ * heading past the old edge is never cut and the paper lands with the discs.
  */
-export const PlaceSheetEdge = Schema.Literal("held", "following")
-
-export type PlaceSheetEdge = typeof PlaceSheetEdge.Type
-
 export const PlaceSheet = Schema.Struct({
   width: Schema.Number,
-  height: Schema.Number,
-  edge: PlaceSheetEdge
+  height: Schema.Number
 })
 
 export type PlaceSheet = typeof PlaceSheet.Type
 
-const holds = (frame: PlaceRenderFrame): boolean => frame.search.phase === "running"
-
-export const placeSheetAtom: AtomType.Atom<Option.Option<PlaceSheet>> = Atom.make((get: AtomType.Context) => {
-  const kept = get(placeKeptFrameAtom)
-  return Option.map(Result.value(get(placeRenderFrameAtom)), (latest): PlaceSheet => {
-    const width = latest.search.stage.stageWidth
-    const heldHere = Option.filter(kept, (found) => found.search.stage.stageWidth === width && holds(latest))
-    return Option.match(heldHere, {
-      onNone: () =>
-        PlaceSheet.make({
-          width,
-          height: stageHeight(latest),
-          edge: latest.search.phase === "landing" ? "following" : "held"
-        }),
-      onSome: (found) => PlaceSheet.make({ width, height: stageHeight(found), edge: "held" })
-    })
-  })
-})
+export const placeSheetAtom: AtomType.Atom<Option.Option<PlaceSheet>> = Atom.make((get: AtomType.Context) =>
+  Option.map(
+    Result.value(get(placeRenderFrameAtom)),
+    (latest): PlaceSheet => PlaceSheet.make({ width: latest.search.stage.stageWidth, height: latest.paper })
+  )
+)
 
 /**
- * Where a feature's name belongs: on the `stage` while the feature is drawn
- * as a settled disc, in its `proposal` while it is not. A merged feature's
- * name stays in the proposal while the search makes room for it and travels
- * onto the paper when the search settles, so it lands where the feature
- * stays; a declined feature's disc leaves the moment the next search starts,
- * so the name arrives back from where the disc was. Both sides read this
- * atom, so each hand-off happens in one commit. Before anything is drawn
- * there is nowhere to travel from or to.
+ * Where a feature is at home: on the `stage` while it is drawn as a settled
+ * disc, in its `proposal` while it is not. A merged feature stays at home in
+ * its proposal while the search makes room for it — a ring on the stage —
+ * and is on the stage once the search settles, where the disc fills the
+ * ring; so the disc appears where the feature stays, never at a first random
+ * trial. A declined feature leaves the drawing the moment the next search
+ * starts. Derived from the frame alone: `PlaceSearch.settled` is what the
+ * last settled arrangement drew.
  */
 export const PlaceFeatureHome = Schema.Literal("stage", "proposal")
 
 export type PlaceFeatureHome = typeof PlaceFeatureHome.Type
 
 export const placeFeatureHomeAtom = Atom.family((name: string): AtomType.Atom<Option.Option<PlaceFeatureHome>> =>
-  Atom.make((get: AtomType.Context) => {
-    const kept = get(placeKeptFrameAtom)
-    return Option.map(
+  Atom.make((get: AtomType.Context) =>
+    Option.map(
       Result.value(get(placeRenderFrameAtom)),
       (latest): PlaceFeatureHome =>
-        draws(latest, name) && (settled(latest) || Option.exists(kept, (found) => draws(found, name)))
-          ? "stage"
-          : "proposal"
+        draws(latest, name) && (settled(latest) || HashSet.has(latest.search.settled, name)) ? "stage" : "proposal"
     )
-  })
+  )
 )
 
 /**
@@ -371,25 +408,40 @@ export const placeDiscDrawnAtom = Atom.family((name: string): AtomType.Atom<Plac
 export type PlaceRenderError = DemoExecutionError | CanvasUnavailable
 
 /**
+ * What drawing the place needs: the page's text measurement — the same layer
+ * `textLayoutRuntime` runs, so the two share one measurement cache — and the
+ * search worker.
+ */
+const placeRenderRuntime: AtomType.AtomRuntime<BrowserTextLayout | PlaceSearcher, CanvasUnavailable> = Atom.runtime(
+  (get: AtomType.Context) => Layer.merge(get(textLayoutLayerAtom), PlaceSearcher.Default)
+)
+
+/**
  * The latest frame for the current artifact at the current stage width. A new
  * artifact or a new width starts a new search; the previous frame is kept
  * while it runs so the stage never blanks.
  */
-export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = textLayoutRuntime
+export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = placeRenderRuntime
   .atom((get: AtomType.Context) => {
     const artifact = get(placeArtifactAtom)
     const stageWidth = get(placeStageWidthAtom)
     const motion = get(motionPreferenceAtom)
-    // The discs carry on from wherever the last drawing left them, landed or on their way.
-    const from = Option.map(
+    // The drawing carries on from wherever the last one left off, landed or on its way.
+    const left = Option.map(
       Option.flatMap(get.self<Result.Result<PlaceRenderFrame, PlaceRenderError>>(), Result.value),
-      (previous) => previous.rendering.projection.markers
+      (previous) =>
+        new DrawingLeft({
+          drawing: new PlaceDrawing({ markers: previous.rendering.projection.markers, paper: previous.paper }),
+          held: previous.search.stage.stageWidth === stageWidth ? Option.some(previous.paper) : Option.none(),
+          settled: settledAfter(previous),
+          prose: previous.search.prose
+        })
     )
     // A new search means new trials; a trial chosen from the old one no longer exists.
     get.set(placeTrialPreviewAtom, Option.none())
     return Option.match(artifact, {
       onNone: () => Stream.empty,
-      onSome: (value) => renderStream(value, stageWidth, from, motion)
+      onSome: (value) => renderStream(value, stageWidth, left, motion)
     })
   })
 

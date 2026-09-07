@@ -109,11 +109,12 @@ it would add, with a 2 px left rule in the proposer's tone — dashed while
 declined, solid while accepted — and no background, radius or shadow. The
 neighbor's sealed note is a fold: closed, it shows the envelope size and the
 seal glyph; opened with the author's key, it is a `blockquote` with the seal
-tone's rule. Merging is the visitor's sentence joining the place: the feature
-name in the proposal and its disc on the stage share a `layoutId`, so flipping
-`Merge` moves the name onto the paper and the description re-flows around it.
-Flipping back returns it to the margin. Declined proposals stay in view with
-their signatures, as they stay in the result.
+tone's rule. Merging is the visitor's sentence joining the place: flipping
+`Merge` opens a dashed ring on the paper where the search makes room, the
+description re-flows around it, and the disc fills the ring where it stands
+once the search settles. Nothing crosses the prose to get there. Flipping back
+fades the disc where it stood. Declined proposals stay in view with their
+signatures, as they stay in the result.
 
 ### Lineage is a strand, not a table
 
@@ -219,13 +220,13 @@ and easing are theme tokens (`--th-motion-duration-enter: 240ms`,
 `--th-motion-duration-shift: 320ms`, `--th-motion-ease`). Five relationships
 are animated, and nothing else:
 
-| Relationship              | Mechanism                                                         |
-| ------------------------- | ----------------------------------------------------------------- |
-| A merged feature travels  | shared `layoutId` between proposal name and disc                  |
-| A version re-flows        | `AnimatePresence mode="popLayout"` on prose lines, ≤ 300 ms total |
-| Discs keep place on merge | `layout` on `PlaceMarker`; `layout={false}` while scrubbing       |
-| The act changes           | opacity and 4 px rise on the act's stage answer                   |
-| The search runs           | the existing per-frame render; the only continuous motion         |
+| Relationship              | Mechanism                                                    |
+| ------------------------- | ------------------------------------------------------------ |
+| A merged feature arrives  | a ring holds its room; the disc fills the ring in place      |
+| A version re-flows        | `AnimatePresence mode="wait"` on prose lines, ≤ 300 ms total |
+| Discs keep place on merge | the drawing travels frame by frame (`web/motion/travel.ts`)  |
+| The act changes           | opacity and 4 px rise on the act's stage answer              |
+| The search runs           | the existing per-frame render; the only continuous motion    |
 
 Under reduced motion transforms are off and only opacity remains. No state is
 carried by motion alone: the merge accompanies the switch and the `In v2`
@@ -345,20 +346,43 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `atoms/motion.ts` `motionPreferenceAtom`, from the platform's
       `BrowserWindow.mediaQuery`, and drives `MotionConfig reducedMotion`.
 - [x] `atoms/imagined-place-render.ts`: what the stage draws is one atom,
-      `placeDrawnAtom` (`kept` | `sketch` | `trial`); the arrangement the last
-      search settled on is remembered across searches (`placeKeptFrameAtom`,
-      via `get.self`), and the paper is `placeSheetAtom`: the chosen width at
-      once, the settled height until the next search settles. So a running
-      search never resizes the paper, and the sticky stage column never
-      moves while the reader is near the end of the acts. Each disc's kind
-      is `placeDiscDrawnAtom(name)` (`settled` | `arriving` | `trial`).
+      `placeDrawnAtom` (`kept` | `sketch` | `trial`). The frame is
+      `PlaceRenderFrame { search, rendering, paper }`: the paper's height is
+      part of the drawing and travels with the discs (`PlaceDrawing
+    { markers, paper }`, `drawingBetween`), so `placeSheetAtom` is the
+      chosen width at once and the drawing's own height — `held` at the
+      settled height while a search's trials run (a jump moves nothing
+      around the stage, and the sticky stage column never shifts while the
+      reader is near the end of the acts), following the discs once every
+      trial is in, never less than the paper the arriving discs stand on
+      (`paperUnder`). `PlaceSearch.settled` names what the last settled
+      arrangement drew; `placeFeatureHomeAtom(name)` derives from the frame
+      alone whether a feature is at home on the `stage` or in its
+      `proposal`, and `placeDiscDrawnAtom(name)` (`settled` | `arriving` |
+      `trial`) how its disc is drawn. `searching(search)` is the one
+      predicate for running or landing (trace, caption, live values,
+      `aria-busy`).
+- [x] `contracts/demo/imagined-place-search.ts`, `web/place-search.worker.ts`,
+      `web/platform/PlaceSearchWorker.ts`, `web/services/PlaceSearcher.ts`:
+      the search's settings (`Meander`, `meanderSpace`, `renderSeed`,
+      `renderTrials`, `renderSampler`) and its protocol (`OpenSearch`,
+      `AskSearch`, `TellSearch`, `CloseSearch`) are one contract; the
+      sampler runs in a worker (`@effect/platform` `Worker`, spawned once
+      per page by the platform module, `import/default` allowed there) and
+      the page scores each proposed meander with its own text metrics, so
+      the sampler's growing cost is off the drawing thread. `PlaceSearcher`
+      is a service in `placeRenderRuntime`'s layer next to the text layout.
 - [x] `PlaceMarker.tsx`: the text and the discs are one arrangement and are
-      always drawn from the same state; the only Motion a disc has is its
-      hand-off with its name: a settled disc is `m.button layout="position"
-    layoutId="place-feature:<name>"` with a constant `layoutDependency`,
-      so Motion measures it only when it mounts or leaves; a trial's disc is
-      a plain button. A feature just merged is a dashed ring in its
-      proposer's tone while the search makes room for it.
+      always drawn from the same state, and no disc is ever a Motion layout
+      node: the frames own every position. A feature just merged is a
+      dashed ring in its proposer's tone while the search makes room for
+      it; when the search settles, the disc fades in exactly where the ring
+      stands as the ring fades out (`AnimatePresence propagate`, exit 120
+      ms). A disc whose feature leaves the drawing fades where it stood. A
+      trial's disc is a plain button, placed outright as the trace is
+      scrubbed. Nothing flies across the prose: the earlier shared
+      `layoutId` between the name and the disc drew the disc over the text
+      on its way, and the rule is that text and discs never overlap.
 - [x] `web/motion/travel.ts` and `atoms/imagined-place-render.ts`: the search
       moves in jumps (a better trial; a new artifact that places every disc
       anew) and the drawing does not. `Travelling<A>` is the Effect-native
@@ -370,52 +394,57 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       travel begins with the first frame drawn, not when the target is set,
       so a page busy while a merge arrives does not spend the travel unseen.
       A target set again continues; a new target starts from wherever the
-      drawing is; reduced motion is a zero duration and places outright. The
-      drawing travels in marker space with the geometry's own rules kept at
-      every step (`markersBetween`: straight lines, radii following, each
-      marker pushed down to clear those before it, clamped to the stage; a
-      merged feature grows in where it will stand), and every frame the
-      prose is flowed around the discs as drawn (`arrangedAround`), so text
-      and discs move together and never overlap. `PlaceRenderFrame` is
-      `{ search, rendering }`: `PlaceSearch` changes once per trial and is
-      the same instance through a travel's frames, so `placeSearchAtom`
+      drawing is; reduced motion is a zero duration and places outright. A
+      `Journey` may owe a `rest`, counted from the first frame drawn: when
+      the description changes, the drawing rests for the exit duration
+      while the old lines leave, so lines flowed around where the discs
+      were never stand over discs that have moved on — under reduced motion
+      too, since Motion keeps the opacity fade. The drawing travels in
+      marker space with the geometry's own rules kept at every step
+      (`markersBetween`: straight lines, radii following, each marker pushed
+      down to clear those before it, clamped to the stage; a merged feature
+      grows in where it will stand), and every frame the prose is flowed
+      around the discs as drawn (`arrangedAround`), so text and discs move
+      together and never overlap. `PlaceSearch` changes once per trial and
+      is the same instance through a travel's frames, so `placeSearchAtom`
       readers (trace, caption, code's live values) are not woken per frame.
-      `get.self` carries the last drawn markers into the next search.
+      `get.self` carries the last drawing, its held paper, what had settled
+      and its prose into the next search (`DrawingLeft`).
 - [x] `atoms/syntax-highlighting.ts` `highlightedLinesAtom` (an `Atom.family`
       keyed by `CodeSource`) tokenises each source once instead of on every
       render of `HighlightedCode`.
-- [x] `PlaceProposal.tsx`: `placeFeatureHomeAtom` puts a merged feature's
-      name on the stage only when the search settles (the name travels to
-      where the feature stays, not to a first random trial), and a declined
-      feature's name back in its proposal the moment the next search starts
-      (the name is the traveller, and it is never inside the paper). Motion
-      clears layout snapshots the frame after an unmount; both sides read one
-      atom so each hand-off is one commit.
+- [x] `PlaceProposal.tsx`: the feature's name stays in its proposal; the
+      proposal is marked `data-place-feature` so tests can find the feature
+      whose room the search is making.
 - [x] `PlaceStage.tsx`: the paper is a `ScrollArea` whose viewport, fade
       and scrollbar exist only while a sketch or a trial is drawn (Base UI
       measures overflow from the viewport's `scrollHeight`, which counts a
       disc still travelling in, and re-measures only on resize or scroll: a
       fade that outlived the kept state was stale, not true); the kept
-      arrangement fits the sheet and is unclipped, so a disc arriving from
-      its proposal crosses the sheet's edge whole. The search has three
-      phases: `running` (trials coming in; the sheet's edge is `held` at
-      the kept height so a jump moves nothing around the stage), `landing`
-      (every trial in, the drawing travelling to the best; the edge is
-      `following` the drawing frame by frame with no CSS transition of its
-      own, so the paper lands with the discs and a disc heading past the
-      old edge is never cut), `complete`. `ArtifactStage` derives its
+      arrangement fits the sheet and is unclipped. The search has three
+      phases: `running` (trials coming in; the paper is `held` so a jump
+      moves nothing around the stage), `landing` (every trial in, the
+      drawing travelling to the best; the paper is part of the drawing and
+      travels with it, so it lands with the discs and a disc heading past
+      the old edge is never cut), `complete`. `ArtifactStage` derives its
       clipping from the frame kind: `none` (the canvas) clips nothing.
-      `AnimatePresence mode="wait"`
-      on prose lines keyed by the frame's prose: replaced text fades through,
-      never two texts at once (`popLayout` double-painted the crossfade);
-      stagger 20 ms, arrival ≤ 300 ms, exit 120 ms.
-- [x] `test/worker/home-demo.test.ts` — _a merged feature travels to the
-      stage_: while the search runs the name stays in its proposal, the ring
-      marks the room, the sheet holds its height and the paper is `sketch`;
-      once settled the disc is painted at ≥ 3 distinct transforms on its
-      way; _under reduced motion the feature appears on the stage without
-      travelling_: ≤ 1. `test/contracts/motion.contract.test.ts` pins the
-      tokens.
+      `AnimatePresence mode="wait"` on prose lines keyed by the frame's
+      prose: replaced text fades through, never two texts at once
+      (`popLayout` double-painted the crossfade); stagger 20 ms, arrival
+      ≤ 300 ms, exit 120 ms. A line arrives by fading only, without the
+      theme's 4 px rise: its place is the room the discs leave it, and
+      rising from below would cross a disc's edge.
+- [x] `test/worker/home-demo.test.ts` — _a merged feature fills the room the
+      search made for it, never over the prose_: while the search runs the
+      ring marks the room, the sheet holds its height and the paper is
+      `sketch`; the disc is only ever painted where the ring last stood,
+      arrives at more than one transform, and at no sampled frame is a line
+      of prose painted over any disc or ring (`platform/in-page.ts`
+      `mergeFrame`: circle against every line's box); _under reduced motion
+      the feature is placed outright, never over the prose_: one disc place,
+      one transform, no overlaps. `test/web/travel.test.ts` covers the
+      journey's rest, counted from the first frame drawn.
+      `test/contracts/motion.contract.test.ts` pins the tokens.
 
 ### Act 4 — Acts, provenance and weather
 

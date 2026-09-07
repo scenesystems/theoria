@@ -1,23 +1,18 @@
 import { Popover } from "@base-ui/react/popover"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { Match, Option } from "effect"
+import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { type PlaceDiscDrawn, placeDiscDrawnAtom } from "../../atoms/imagined-place-render.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { departed, exitTransition } from "../primitives/motion.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
-import {
-  discClassName,
-  featureLayoutId,
-  markerContributor,
-  markerLabel,
-  markerTone,
-  participantLabel
-} from "./placeViewModel.js"
+import { discClassName, markerContributor, markerLabel, markerTone, participantLabel } from "./placeViewModel.js"
 
 /** Position with `translate`, which changes without re-laying out the text. */
 const markerStyle = (marker: Marker): CSSProperties => ({
@@ -27,16 +22,17 @@ const markerStyle = (marker: Marker): CSSProperties => ({
 })
 
 /**
- * Motion measures a settled disc only when it mounts or leaves: the hand-off
- * with its proposal's name. A constant dependency means nothing else about
- * the disc's render starts a layout animation. The search's own progress is
- * drawn frame by frame by the render atom: the discs travel to each new
- * arrangement with the text flowed around them at every step, so the text
- * and the discs are always the same arrangement, never a text flowing around
- * where discs are still on their way to. Motion animating the same movement
- * would draw the discs somewhere else than the text was flowed.
+ * A disc's only Motion is in place: it fills the room its ring marked when
+ * the search settles, and fades where it stands when its feature is
+ * declined. Nothing about a disc ever travels by Motion: the search's own
+ * progress is drawn frame by frame by the render atom, the discs moving to
+ * each new arrangement with the text flowed around them at every step, so
+ * the text and the discs are always one arrangement. A disc Motion moved on
+ * its own would be somewhere the text was not flowed around — over it.
  */
-const layoutOnHandOffOnly = "hand-off"
+const filledFrom = { opacity: 0, scale: 0.9 }
+const filled = { opacity: 1, scale: 1 }
+const leaving = { ...departed, transition: exitTransition }
 
 const triggerClassName =
   "absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0"
@@ -60,37 +56,29 @@ const popupClassName = [
 ].join(" ")
 
 /**
- * A settled disc is the Motion node the feature travels as; a trial's disc is
- * a plain button. Neither has a CSS transition on its position: the search's
- * movement is drawn by the frames themselves, and the hand-off by Motion.
+ * A settled disc fills in and fades out where it stands; a trial's disc is a
+ * plain button, placed outright as the trace is scrubbed. Neither has a CSS
+ * transition on its position: the search's movement is drawn by the frames
+ * themselves.
  */
-const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">, marker: Marker) =>
+const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">) =>
   Match.value(drawn).pipe(
-    Match.when(
-      "settled",
-      () => (
-        <m.button
-          data-place-feature-travel={marker.name}
-          layout="position"
-          layoutDependency={layoutOnHandOffOnly}
-          layoutId={featureLayoutId(marker.name)}
-        />
-      )
-    ),
+    Match.when("settled", () => <m.button animate={filled} exit={leaving} initial={filledFrom} />),
     Match.when("trial", () => <button />),
     Match.exhaustive
   )
 
 /**
  * The room the search is making for a feature just merged, while it runs:
- * the ring is placed with the text, state by state, and the feature's name
- * travels into it when the search settles. Not a button, since the feature
- * is not on the stage yet; the name in its proposal still is.
+ * the ring is placed with the text, state by state, and the disc fills it
+ * when the search settles. Not a button, since the feature is not on the
+ * stage yet; its name in the proposal still is.
  */
 const ringClassName = "pointer-events-none absolute left-0 top-0 rounded-full border-2 border-dashed opacity-70"
 
 const ArrivingRing = ({ marker }: { readonly marker: Marker }) => (
   <Layer
+    render={<m.div exit={departed} transition={exitTransition} />}
     aria-hidden
     className={`${ringClassName} ${markerTone(marker).border}`}
     data-place-marker-arriving={marker.name}
@@ -119,7 +107,7 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
         data-place-marker={marker.name}
         delay={120}
         openOnHover
-        render={discElement(drawn, marker)}
+        render={discElement(drawn)}
         style={markerStyle(marker)}
       >
         {Option.match(labelWidth, {
@@ -180,6 +168,10 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
  * hover-only. Its accessible name is the same text the legend uses. The name
  * is drawn on the disc at the width it was measured to fit, wrapping as
  * measured; a disc too small for its name shows its number instead.
+ *
+ * The ring and the disc stand in the same place; when the search settles,
+ * the ring fades as the disc fills it. `propagate` lets the disc fade out
+ * where it stands when the whole feature leaves the drawing.
  */
 export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
   readonly index: number
@@ -187,8 +179,14 @@ export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
   readonly marker: Marker
 }) => {
   const drawn = useAtomValue(placeDiscDrawnAtom(marker.name))
-  return Match.value(drawn).pipe(
-    Match.when("arriving", () => <ArrivingRing marker={marker} />),
-    Match.orElse((present) => <Disc drawn={present} index={index} labelWidth={labelWidth} marker={marker} />)
+  return (
+    <AnimatePresence initial={false} propagate>
+      {Match.value(drawn).pipe(
+        Match.when("arriving", () => <ArrivingRing key="room" marker={marker} />),
+        Match.orElse((present) => (
+          <Disc drawn={present} index={index} key="disc" labelWidth={labelWidth} marker={marker} />
+        ))
+      )}
+    </AnimatePresence>
   )
 }

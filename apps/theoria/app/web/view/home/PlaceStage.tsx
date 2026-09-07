@@ -16,19 +16,18 @@ import {
   type PlaceRenderFrame,
   type PlaceSheet,
   placeSheetAtom,
-  type PlaceSheetEdge,
   placeShownFrameAtom,
   placeTrialPreviewAtom
 } from "../../atoms/imagined-place-render.js"
 import { placeStageContainerWidthAtom, placeStageFrame, placeStageFrameBorderPx } from "../../atoms/imagined-place.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
-import { arrivalFrom, arrivedAt, departed, exitTransition, staggeredArrival } from "../primitives/motion.js"
+import { departed, exitTransition, staggeredArrival } from "../primitives/motion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
-import { markerLabel, markerTone } from "./placeViewModel.js"
+import { markerLabel, markerTone, searching } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
@@ -44,8 +43,13 @@ const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSPro
  * decline changes the description, the old lines leave together first and
  * then the new ones arrive one after another from the top, so two texts are
  * never painted over each other, and the words are settled before anything
- * travelling to the stage lands.
+ * travelling to the stage lands. A line arrives in place, without the rise
+ * everything else arriving takes: its place is the room the discs leave it,
+ * and a line arriving from four pixels low would cross into a disc below.
  */
+const lineArrivalFrom = { opacity: 0 }
+const lineArrivedAt = { opacity: 1 }
+
 const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; readonly prose: string }) => (
   <AnimatePresence initial={false} mode="wait">
     <Layer
@@ -56,7 +60,7 @@ const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; re
     >
       {Arr.map(projection.lines, (line, index) => (
         <Layer
-          render={<m.div animate={arrivedAt} initial={arrivalFrom} transition={staggeredArrival(index)} />}
+          render={<m.div animate={lineArrivedAt} initial={lineArrivalFrom} transition={staggeredArrival(index)} />}
           className="absolute overflow-hidden"
           data-place-line={String(index)}
           key={index}
@@ -80,7 +84,8 @@ const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; re
  * The arrangement at its own size: the walk once the search settles, the discs
  * as buttons, the text above both. The discs are keyed by the trial drawn, so
  * swapping trials places them outright, while the search's own progress moves
- * the same discs.
+ * the same discs. A disc whose feature leaves the drawing — declined, or gone
+ * with the scenario — fades where it stood.
  */
 const Drawing = ({ frame, shown }: {
   readonly frame: PlaceRenderFrame
@@ -89,7 +94,7 @@ const Drawing = ({ frame, shown }: {
   const projection = frame.rendering.projection
   return (
     <Layer
-      aria-busy={frame.search.phase === "running"}
+      aria-busy={searching(frame.search)}
       className="relative"
       data-place-stage="content"
       data-place-stage-width={String(projection.stageWidth)}
@@ -98,31 +103,28 @@ const Drawing = ({ frame, shown }: {
       {frame.search.phase === "complete"
         ? <PlaceWalk height={projection.stageHeight} markers={projection.markers} width={projection.stageWidth} />
         : null}
-      {Arr.map(projection.markers, (marker, index) => (
-        <PlaceMarkerDisc
-          index={index}
-          key={`${shown}:${marker.name}`}
-          labelWidth={Record.get(frame.search.labels, marker.name)}
-          marker={marker}
-        />
-      ))}
+      <AnimatePresence initial={false}>
+        {Arr.map(projection.markers, (marker, index) => (
+          <PlaceMarkerDisc
+            index={index}
+            key={`${shown}:${marker.name}`}
+            labelWidth={Record.get(frame.search.labels, marker.name)}
+            marker={marker}
+          />
+        ))}
+      </AnimatePresence>
       <Lines projection={projection} prose={frame.search.prose} />
     </Layer>
   )
 }
 
-const paperClassName = "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0"
 /**
- * A held edge moves in one step when the sheet is recut (the visitor's width,
- * a sketch before anything has settled at it) and eases there; a following
- * edge is moved by the frames themselves, so nothing is added.
+ * The paper's height is moved by the frames themselves, so nothing is added
+ * to it; its width is recut in one step when the visitor chooses another, and
+ * eases there.
  */
-const paperEdgeClassName = (edge: PlaceSheetEdge): string =>
-  Match.value(edge).pipe(
-    Match.when("held", () => "transition-[height,width] duration-200 ease-out motion-reduce:transition-none"),
-    Match.when("following", () => "transition-none"),
-    Match.exhaustive
-  )
+const paperClassName =
+  "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[width] duration-200 ease-out motion-reduce:transition-none"
 const fadeClassName =
   "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-stage-0 via-stage-0/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
 const scrollbarClassName =
@@ -147,13 +149,13 @@ const cut = (drawn: PlaceDrawn): boolean =>
 const viewportStyle = (drawn: PlaceDrawn): CSSProperties => cut(drawn) ? {} : { overflow: "visible" }
 
 /**
- * The stage is paper cut to the kept arrangement (`placeSheetAtom`). The paper
- * keeps that size while the next search's trials run and while another trial
- * is drawn on it, so nothing around the stage moves for a jump, and scrubbing
- * the trace never moves the trace: a sketch or a trial that runs longer than
- * the sheet is clipped with a fade and scrolls, which is the same fact the
- * search holds against it. Once the trials are in, the edge follows the
- * drawing's travel to the best, and the paper lands with the discs.
+ * The stage is paper cut to the drawing (`placeSheetAtom`). The paper keeps
+ * the kept arrangement's height while the next search's trials run and while
+ * another trial is drawn on it, so nothing around the stage moves for a jump,
+ * and scrubbing the trace never moves the trace: a sketch or a trial that
+ * runs longer than the sheet is clipped with a fade and scrolls, which is the
+ * same fact the search holds against it. Once the trials are in, the edge
+ * travels with the discs to the best, and the paper lands with them.
  */
 const Paper = ({
   drawn,
@@ -167,7 +169,7 @@ const Paper = ({
   readonly shown: string
 }) => (
   <ScrollArea.Root
-    className={`${paperClassName} ${paperEdgeClassName(sheet.edge)}`}
+    className={paperClassName}
     data-place-drawn={drawn}
     data-place-stage="paper"
     data-place-stage-height={String(sheet.height)}

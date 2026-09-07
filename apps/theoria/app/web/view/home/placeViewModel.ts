@@ -1,7 +1,7 @@
 import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
+import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import type {
   PlaceBuild,
   PlaceEvidence,
@@ -83,13 +83,6 @@ export const discClassName = (role: ParticipantRole): string =>
     ),
     Match.exhaustive
   )
-
-/**
- * The Motion `layoutId` a feature travels under: its name in a declined
- * proposal and its disc on the stage share it, so merging moves the name onto
- * the paper and declining brings it back.
- */
-export const featureLayoutId = (name: string): string => `place-feature:${name}`
 
 export const markerLabel = (marker: PlaceMarker): string =>
   Option.match(Option.fromNullable(marker.contributedBy), {
@@ -176,6 +169,20 @@ export const shownTrialIndex = (search: PlaceSearch, preview: Option.Option<numb
     () => search.bestIndex
   )
 
+/**
+ * Whether the search is still under way for whoever reads it: trials coming
+ * in, or the drawing still travelling to the best. The caption, the trace and
+ * the code's live values report progress until the discs have landed, so
+ * nothing announces a result the stage has not shown yet.
+ */
+export const searching = (search: PlaceSearch): boolean =>
+  Match.value(search.phase).pipe(
+    Match.when("running", () => true),
+    Match.when("landing", () => true),
+    Match.when("complete", () => false),
+    Match.exhaustive
+  )
+
 const lossOf = (search: PlaceSearch, index: number): Option.Option<number> =>
   Option.map(Arr.get(search.tried, index), (arrangement) => arrangement.quality.loss)
 
@@ -185,7 +192,7 @@ const lossOf = (search: PlaceSearch, index: number): Option.Option<number> =>
  * is the word the code panel uses for the same number.
  */
 export const renderProgressText = (search: PlaceSearch, shown: number): string =>
-  search.phase === "running"
+  searching(search)
     ? `Searching arrangements · ${String(search.tried.length)} of ${String(renderTrials)}`
     : Option.match(lossOf(search, shown), {
       onNone: () => `${String(search.tried.length)} arrangements tried`,

@@ -1,4 +1,4 @@
-import { Chunk, Option, Schema } from "effect"
+import { Chunk, Data, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import * as Geometry from "@scenesystems/effect-math/Geometry"
@@ -8,6 +8,8 @@ import { Text } from "@scenesystems/effect-text"
 import type { PlaceLine, PlaceMarker } from "../imagined-place-result.js"
 import type { ParticipantRole, PlaceFeature } from "../imagined-place.js"
 import { semanticsFor, type TextRole } from "../text.js"
+
+import type { Meander } from "./imagined-place-search.js"
 
 /**
  * Pure geometry and text flow for one stage. Everything here is a function of
@@ -50,33 +52,6 @@ const minimumLineWidth = 60
 
 /** Between 4.5% and 8% of the stage width: big enough for a name at 640 px, a number at 240 px. */
 export const markerRadius = (stage: Stage, weight: number): number => stage.stageWidth * (0.045 + 0.035 * weight)
-
-/**
- * Where the markers go: along a meander down the right-hand side of the
- * stage. Six numbers describe it whatever the feature count, which keeps the
- * search small; the text then has to flow around whatever curve is chosen.
- * All values are fractions of the stage width.
- */
-export const Meander = Schema.Struct({
-  edge: Schema.Number,
-  swing: Schema.Number,
-  phase: Schema.Number,
-  turns: Schema.Number,
-  top: Schema.Number,
-  step: Schema.Number
-})
-export type Meander = typeof Meander.Type
-
-type Bounds = readonly [low: number, high: number]
-
-export const meanderBounds: Record<keyof Meander, Bounds> = {
-  edge: [0.5, 0.9],
-  swing: [0, 0.3],
-  phase: [-Math.PI, Math.PI],
-  turns: [0.5, 2.5],
-  top: [0.04, 0.6],
-  step: [0.03, 0.24]
-}
 
 const clamp = (low: number, high: number, value: number): number => Math.min(high, Math.max(low, value))
 
@@ -158,6 +133,36 @@ export const markersBetween =
       const y = clearanceBelow(placed, x, radius, Math.max(stage.padding + radius, lerp(start.y, target.y, t)))
       return Arr.append(placed, { ...target, x, y, radius })
     })
+
+/**
+ * What the stage draws by hand and travels between arrangements: the discs,
+ * and the height of the paper they stand on. The two travel as one value so
+ * the paper's edge arrives with the discs — never before them, cutting one
+ * off; never after, breathing with the prose reflowing around them.
+ *
+ * @since 0.3.0
+ */
+export class PlaceDrawing extends Data.Class<{
+  readonly markers: ReadonlyArray<PlaceMarker>
+  readonly paper: number
+}> {}
+
+/** The least paper these discs stand on whole: the lowest edge of any, and the stage's padding below it. */
+export const paperUnder = (stage: Stage, markers: ReadonlyArray<PlaceMarker>): number =>
+  Arr.reduce(markers, 0, (low, marker) => Math.max(low, marker.y + marker.radius)) + stage.padding
+
+/**
+ * The drawing `t` of the way between two: the discs by `markersBetween`, with
+ * the geometry's rules kept at every step; the paper's edge in a straight
+ * line, since a single length has no rules to keep.
+ *
+ * @since 0.3.0
+ */
+export const drawingBetween = (stage: Stage) => {
+  const markers = markersBetween(stage)
+  return (from: PlaceDrawing, to: PlaceDrawing, t: number): PlaceDrawing =>
+    new PlaceDrawing({ markers: markers(from.markers, to.markers, t), paper: lerp(from.paper, to.paper, t) })
+}
 
 /**
  * The description flows from the top-left and stops short of any marker that

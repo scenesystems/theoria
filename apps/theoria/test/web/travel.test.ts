@@ -67,7 +67,49 @@ describe("travel", () => {
       expect(Arr.head(turned)).toEqual(Option.some(reached))
       expect(Arr.last(turned)).toEqual(Option.some(-100))
       expect(Arr.every(turned, (value) => value <= reached)).toBe(true)
-      expect(Option.map(yield* Ref.get(journey), (travel) => travel.from)).toEqual(Option.some(reached))
+      expect(Option.map((yield* Ref.get(journey)).travel, (travel) => travel.from)).toEqual(Option.some(reached))
+    }))
+
+  it.effect("the drawing rests where it is before its first travel begins", () =>
+    Effect.gen(function*() {
+      const journey = yield* journeyFrom(Option.some(0), Duration.millis(80))
+      const drawn = yield* collect(toward(travelling, journey, 100))
+      // Where the drawing is at once; the first frame, which the rest is counted from, and four more of it;
+      // the frame that begins the travel; then ten frames of 16 ms.
+      expect(Arr.take(drawn, 7)).toEqual([0, 0, 0, 0, 0, 0, 0])
+      expect(Arr.last(drawn)).toEqual(Option.some(100))
+      expect(drawn.length).toBe(17)
+      expect(isMonotone(drawn)).toBe(true)
+    }))
+
+  it.effect("the rest is counted from the first frame drawn, not from when the journey was made", () =>
+    Effect.gen(function*() {
+      const journey = yield* journeyFrom(Option.some(0), Duration.millis(80))
+      // The page is busy for longer than the rest before the first target comes in.
+      yield* TestClock.adjust("1 second")
+      const drawn = yield* collect(toward(travelling, journey, 100))
+      expect(Arr.take(drawn, 7)).toEqual([0, 0, 0, 0, 0, 0, 0])
+      expect(drawn.length).toBe(17)
+    }))
+
+  it.effect("a new target set during the rest waits out the rest too", () =>
+    Effect.gen(function*() {
+      const journey = yield* journeyFrom(Option.some(0), Duration.millis(80))
+      const resting = yield* collect(Stream.take(toward(travelling, journey, 100), 3))
+      expect(resting).toEqual([0, 0, 0])
+      const turned = yield* collect(toward(travelling, journey, -100))
+      // The rest has 64 ms to run: at once, then four frames still at rest, then the travel.
+      expect(Arr.take(turned, 5)).toEqual([0, 0, 0, 0, 0])
+      expect(turned[5]).toBeLessThan(0)
+      expect(Arr.last(turned)).toEqual(Option.some(-100))
+    }))
+
+  it.effect("with no duration a resting drawing is placed outright once the rest is over", () =>
+    Effect.gen(function*() {
+      const journey = yield* journeyFrom(Option.some(0), Duration.millis(40))
+      const drawn = yield* collect(toward(placedOutright, journey, 100))
+      // At once; the first frame, which the rest is counted from, and two more of it; then placed outright.
+      expect(drawn).toEqual([0, 0, 0, 0, 100])
     }))
 
   it.effect("with no duration every target is placed outright", () =>

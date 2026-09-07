@@ -1,12 +1,11 @@
 import { Collapsible } from "@base-ui/react/collapsible"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { LockClosedIcon, LockOpenIcon } from "@heroicons/react/20/solid"
-import { Match, Option } from "effect"
-import * as m from "motion/react-m"
+import { Option } from "effect"
 import type { ReactNode } from "react"
 
 import type { PlaceEvidence, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
-import { placeFeatureHomeAtom, placeProposalLineAtom } from "../../atoms/imagined-place-render.js"
+import { placeProposalLineAtom } from "../../atoms/imagined-place-render.js"
 import { dangerStatusTone, inlineStatusToneFor, neutralStatusTone, toneClassesFor } from "../primitives/designSystem.js"
 import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -15,14 +14,7 @@ import { SemanticText } from "../primitives/SemanticText.js"
 import { ToggleSwitch } from "../primitives/ToggleSwitch.js"
 
 import { ContentId } from "./ContentId.js"
-import {
-  featureLayoutId,
-  mergedIntoText,
-  participantLabel,
-  participantTone,
-  sealedNoteLabel,
-  signatureLabel
-} from "./placeViewModel.js"
+import { mergedIntoText, participantLabel, participantTone, sealedNoteLabel, signatureLabel } from "./placeViewModel.js"
 
 const sealTone = toneClassesFor("seal")
 
@@ -103,16 +95,13 @@ const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
 )
 
 /**
- * The feature's name. While the stage is not drawing the feature, the name
- * is the feature's body and carries its `layoutId`: when the author merges
- * it, the disc that appears on the stage sets out from here, and when they
- * decline it, the name arrives back from the disc. While the disc is drawn
- * the name is a label and the disc is the one that moves. Both sides read
- * `placeFeatureHomeAtom`, so the hand-off happens in one frame.
+ * The feature's name: what its disc on the stage is labelled with once the
+ * author merges it. The name stays here in either case; the stage answers a
+ * merge where the feature stands, with a ring while the search makes room
+ * and the disc filling it when the search settles.
  */
-const FeatureTitle = ({ name }: { readonly name: string }) => {
-  const home = useAtomValue(placeFeatureHomeAtom(name))
-  const title = (
+const FeatureTitle = ({ name }: { readonly name: string }) => (
+  <Layer className="self-start" data-place-feature={name}>
     <SemanticText
       as="h3"
       className="text-ink-900"
@@ -121,25 +110,8 @@ const FeatureTitle = ({ name }: { readonly name: string }) => {
       variant="compact"
       wrapAuthority="native-browser"
     />
-  )
-  return Option.match(home, {
-    onNone: () => title,
-    onSome: (drawn) =>
-      Match.value(drawn).pipe(
-        Match.when("stage", () => title),
-        Match.when("proposal", () => (
-          <Layer
-            render={<m.div layout="position" layoutDependency={name} layoutId={featureLayoutId(name)} />}
-            className="self-start"
-            data-place-feature-travel={name}
-          >
-            {title}
-          </Layer>
-        )),
-        Match.exhaustive
-      )
-  })
-}
+  </Layer>
+)
 
 /** Appears when the build records the merge: the same digest tone as the version it names. */
 const recordedTone = inlineStatusToneFor("digest")

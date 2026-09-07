@@ -2,14 +2,8 @@ import { describe, expect, it } from "@effect/vitest"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
-import {
-  markersBetween,
-  type Meander,
-  meanderBounds,
-  placeMarkers,
-  type Stage,
-  stageFor
-} from "../../app/contracts/demo/imagined-place-flow.js"
+import { markersBetween, placeMarkers, type Stage, stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
+import { type Meander, meanderBounds } from "../../app/contracts/demo/imagined-place-search.js"
 import type { PlaceMarker } from "../../app/contracts/imagined-place-result.js"
 import type { ParticipantRole, PlaceFeature } from "../../app/contracts/imagined-place.js"
 

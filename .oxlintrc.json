@@ -61,5 +61,13 @@
     "typescript/prefer-namespace-keyword": "error",
     "typescript/triple-slash-reference": "error"
   },
+  "overrides": [
+    {
+      "files": ["apps/*/app/web/platform/**"],
+      "rules": {
+        "import/default": "off"
+      }
+    }
+  ],
   "ignorePatterns": ["apps/*/public/**"]
 }

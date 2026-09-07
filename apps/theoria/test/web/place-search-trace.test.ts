@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
+import * as HashSet from "effect/HashSet"
 
 import { stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
 import type { PlaceRendering } from "../../app/contracts/imagined-place-result.js"
@@ -8,6 +9,7 @@ import { frameShowing, PlaceRenderFrame, PlaceSearch, searchLosses } from "../..
 import {
   keptTrialLabel,
   renderProgressText,
+  searching,
   shownTrialIndex,
   trialValueText
 } from "../../app/web/view/home/placeViewModel.js"
@@ -51,15 +53,17 @@ const search = new PlaceSearch({
   bestIndex: 2,
   best: rendering,
   prose: "A room.",
-  labels: {}
+  labels: {},
+  settled: HashSet.empty()
 })
-const complete: PlaceRenderFrame = new PlaceRenderFrame({ search, rendering })
+const complete: PlaceRenderFrame = new PlaceRenderFrame({ search, rendering, paper: rendering.projection.stageHeight })
 const running: PlaceSearch = new PlaceSearch({
   ...search,
   phase: "running",
   tried: Arr.take(tried, 2),
   bestIndex: 1
 })
+const landing: PlaceSearch = new PlaceSearch({ ...search, phase: "landing" })
 
 describe("search trace", () => {
   it("derives the trace from the trials rather than storing it twice", () => {
@@ -76,9 +80,16 @@ describe("search trace", () => {
 
   it("captions the shown trial honestly", () => {
     expect(renderProgressText(running, 1)).toBe("Searching arrangements · 2 of 36")
+    expect(renderProgressText(landing, 2)).toBe("Searching arrangements · 3 of 36")
     expect(renderProgressText(search, 2)).toBe("Kept trial 3 of 3 · loss 1.520")
     expect(renderProgressText(search, 0)).toBe("Trial 1 of 3 · loss 16.999 · not kept")
     expect(keptTrialLabel(search)).toBe("Kept trial 3")
+  })
+
+  it("reports progress until the drawing has landed", () => {
+    expect(searching(running)).toBe(true)
+    expect(searching(landing)).toBe(true)
+    expect(searching(search)).toBe(false)
   })
 
   it("tells a screen reader which trial the thumb is on", () => {

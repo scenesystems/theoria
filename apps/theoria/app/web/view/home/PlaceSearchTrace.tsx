@@ -4,12 +4,12 @@ import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
-import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
+import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import { type PlaceSearch, placeTrialPreviewAtom, searchLosses } from "../../atoms/imagined-place-render.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 
-import { shownTrialIndex, trialValueText } from "./placeViewModel.js"
+import { searching, shownTrialIndex, trialValueText } from "./placeViewModel.js"
 
 const searchTone = toneClassesFor("search")
 
@@ -103,7 +103,7 @@ export const PlaceSearchTrace = ({ search }: { readonly search: PlaceSearch }) =
   const setPreview = useAtomSet(placeTrialPreviewAtom)
   const losses = searchLosses(search)
   const shown = shownTrialIndex(search, preview)
-  const running = search.phase === "running"
+  const running = searching(search)
 
   return (
     <Slider.Root

@@ -1,13 +1,13 @@
 import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
+import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceSearch } from "../../atoms/imagined-place-render.js"
 import type { CodeAnnotation } from "../primitives/code/CodeLine.js"
 
 import type { PlaceStep } from "./placeSteps.js"
-import { currentVersion, shortId, signatureFor, signatureLabel } from "./placeViewModel.js"
+import { currentVersion, searching, shortId, signatureFor, signatureLabel } from "./placeViewModel.js"
 
 /**
  * What each line of the code sample produced in the build on screen. Every
@@ -87,7 +87,7 @@ const arrangeValues = (search: PlaceSearch): ReadonlyArray<CodeAnnotation> => {
     },
     {
       match: "Study.tell(",
-      text: search.phase === "running"
+      text: searching(search)
         ? `trial ${String(search.tried.length)} of ${String(renderTrials)}`
         : `${String(evidence.trials)} tried · best loss ${evidence.bestLoss.toFixed(3)}`
     }

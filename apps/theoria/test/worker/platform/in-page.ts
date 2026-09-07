@@ -115,25 +115,62 @@ export const stageLayout = () => {
 }
 
 /**
- * The `transform` painted right now on every element inside `region` that
- * carries a feature (`data-place-feature-travel`), by feature name, and
- * whether the element is the feature's disc on the stage. Motion moves things
- * by transform, so a feature sampled at several distinct transforms over time
- * travelled; one that is only ever seen at one (Motion holds a layout node at
- * its origin for a single frame before an instant jump) did not. A disc on the
- * stage with no transform has landed.
+ * One frame of the stage in `region` during a merge. `places`: where the
+ * feature `name` is painted — its ring (`data-place-marker-arriving`) while
+ * the search makes room for it, its disc (`data-place-marker`) once the
+ * search has settled; each is placed by `translate`, so two elements at one
+ * `translate` stand in one place, and a disc with no `transform` is filled in
+ * and at rest. `overlaps`: every line of prose painted over any disc or ring,
+ * as line index and feature name — the lines are flowed around the discs as
+ * drawn, so every line's box must clear every circle at every frame.
  */
-export const featureTransforms = (
-  region: Element
-): ReadonlyArray<{ readonly name: string; readonly transform: string; readonly onStage: boolean }> =>
-  [...region.querySelectorAll("[data-place-feature-travel]")]
-    .map((element) => ({
-      name: element.getAttribute("data-place-feature-travel") ?? "",
-      transform: getComputedStyle(element).transform,
-      onStage: element.hasAttribute("data-place-marker")
-    }))
+export const mergeFrame = (
+  region: Element,
+  name: string
+): {
+  readonly places: ReadonlyArray<
+    { readonly kind: "ring" | "disc"; readonly translate: string; readonly transform: string }
+  >
+  readonly overlaps: ReadonlyArray<string>
+} => {
+  const place = (kind: "ring" | "disc") => (element: Element) => ({
+    kind,
+    translate: getComputedStyle(element).translate,
+    transform: getComputedStyle(element).transform
+  })
+  const lines = [...region.querySelectorAll("[data-place-line]")].map((element) => ({
+    index: element.getAttribute("data-place-line") ?? "",
+    rect: element.getBoundingClientRect()
+  }))
+  const discs = [...region.querySelectorAll("[data-place-marker], [data-place-marker-arriving]")].map((element) => {
+    const rect = element.getBoundingClientRect()
+    return {
+      name: element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-marker-arriving") ?? "",
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      radius: rect.width / 2
+    }
+  })
+  const clamp = (low: number, high: number, value: number) => Math.min(high, Math.max(low, value))
+  return {
+    places: [
+      ...[...region.querySelectorAll(`[data-place-marker-arriving="${name}"]`)].map(place("ring")),
+      ...[...region.querySelectorAll(`[data-place-marker="${name}"]`)].map(place("disc"))
+    ],
+    overlaps: lines.flatMap((line) =>
+      discs.flatMap((disc) => {
+        // The circle meets the box when the box's nearest point to the centre is within the radius.
+        const dx = clamp(line.rect.left, line.rect.right, disc.x) - disc.x
+        const dy = clamp(line.rect.top, line.rect.bottom, disc.y) - disc.y
+        return line.rect.width > 0 && dx * dx + dy * dy < disc.radius * disc.radius
+          ? [`line ${line.index} over ${disc.name}`]
+          : []
+      })
+    )
+  }
+}
 
-/** Every disc on the stage in `region` is where it stands: none is still on its way from its name. */
+/** Every disc on the stage in `region` is filled in and at rest: none is still arriving or leaving. */
 export const discsAtRest = (region: Element): boolean =>
   [...region.querySelectorAll("[data-place-marker]")].every((element) => getComputedStyle(element).transform === "none")
 
