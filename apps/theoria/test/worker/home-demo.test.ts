@@ -36,6 +36,7 @@ import {
   activeElementOpensDocsLink,
   activeElementRole,
   currentLocation,
+  discsAtRest,
   featureTransforms,
   insideViewportRight,
   isActiveElement,
@@ -151,6 +152,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         const caption = page.locator("[data-place-search-caption]")
         yield* containsText(caption, "Kept trial")
+        // The disc of the merged feature is still travelling from its name when the search settles; the kept positions are where it lands.
+        yield* eventually(() => page.getByRole("region", { name: "Imagined place demo" }).evaluate(discsAtRest), true)
         const positions = markerPositions(page)
         const kept = yield* act(positions)
         // The sheet and the slider under the pointer must not move while trials are swapped.

@@ -133,6 +133,10 @@ export const featureTransforms = (
       onStage: element.hasAttribute("data-place-marker")
     }))
 
+/** Every disc on the stage in `region` is where it stands: none is still on its way from its name. */
+export const discsAtRest = (region: Element): boolean =>
+  [...region.querySelectorAll("[data-place-marker]")].every((element) => getComputedStyle(element).transform === "none")
+
 /** The element's right edge is inside the viewport. */
 export const insideViewportRight = (element: Element) => element.getBoundingClientRect().right <= window.innerWidth
 

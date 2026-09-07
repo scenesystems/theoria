@@ -1,26 +1,18 @@
-import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 import { Fragment } from "react"
 
 import type { SurfaceVariant } from "../../../../contracts/presentation.js"
-import { syntaxHighlighterAtom } from "../../../atoms/syntax-highlighting.js"
+import { CodeSource, highlightedLinesAtom } from "../../../atoms/syntax-highlighting.js"
 
 import { annotationFor, type CodeAnnotation, CodeAnnotationRow, CodeLine } from "./CodeLine.js"
 import type { CodeLink } from "./codeLinks.js"
-import { highlightCode, plainCode, tokenClassName } from "./highlighter.js"
+import { tokenClassName } from "./highlighter.js"
 import type { CodeLanguage, HighlightToken } from "./highlighter.js"
 
-const useHighlightedLines = (language: CodeLanguage, source: string): ReadonlyArray<ReadonlyArray<HighlightToken>> => {
-  const highlighter = useAtomValue(syntaxHighlighterAtom)
-
-  return Result.match(highlighter, {
-    onInitial: () => plainCode(source),
-    onFailure: () => plainCode(source),
-    onSuccess: ({ value }) => language === "text" ? plainCode(source) : highlightCode(value, source, language)
-  })
-}
+const useHighlightedLines = (language: CodeLanguage, source: string): ReadonlyArray<ReadonlyArray<HighlightToken>> =>
+  useAtomValue(highlightedLinesAtom(new CodeSource({ language, source })))
 
 const HighlightTokens = ({
   line,

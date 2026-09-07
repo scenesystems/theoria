@@ -3,7 +3,7 @@ import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
-import type { PlaceRenderFrame } from "../../atoms/imagined-place-render.js"
+import type { PlaceSearch } from "../../atoms/imagined-place-render.js"
 import type { CodeAnnotation } from "../primitives/code/CodeLine.js"
 
 import type { PlaceStep } from "./placeSteps.js"
@@ -11,7 +11,7 @@ import { currentVersion, shortId, signatureFor, signatureLabel } from "./placeVi
 
 /**
  * What each line of the code sample produced in the build on screen. Every
- * value here is read from the server's evidence or the browser's render frame;
+ * value here is read from the server's evidence or the browser's search;
  * a value that does not exist yet is simply absent.
  */
 const annotation = (match: string, text: Option.Option<string>): Option.Option<CodeAnnotation> =>
@@ -74,8 +74,8 @@ const recordValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
   ])
 }
 
-const arrangeValues = (frame: PlaceRenderFrame): ReadonlyArray<CodeAnnotation> => {
-  const { evidence, projection } = frame.rendering
+const arrangeValues = (search: PlaceSearch): ReadonlyArray<CodeAnnotation> => {
+  const { evidence, projection } = search.best
   return [
     {
       match: "Text.layoutLinesWith(",
@@ -87,8 +87,8 @@ const arrangeValues = (frame: PlaceRenderFrame): ReadonlyArray<CodeAnnotation> =
     },
     {
       match: "Study.tell(",
-      text: frame.phase === "running"
-        ? `trial ${String(frame.trial)} of ${String(renderTrials)}`
+      text: search.phase === "running"
+        ? `trial ${String(search.tried.length)} of ${String(renderTrials)}`
         : `${String(evidence.trials)} tried · best loss ${evidence.bestLoss.toFixed(3)}`
     }
   ]
@@ -97,12 +97,12 @@ const arrangeValues = (frame: PlaceRenderFrame): ReadonlyArray<CodeAnnotation> =
 export const placeLiveValues = (
   step: PlaceStep,
   build: Option.Option<PlaceBuild>,
-  frame: Option.Option<PlaceRenderFrame>
+  search: Option.Option<PlaceSearch>
 ): ReadonlyArray<CodeAnnotation> =>
   Match.value(step).pipe(
     Match.when("compose", () => Option.match(build, { onNone: () => [], onSome: composeValues })),
     Match.when("propose", () => Option.match(build, { onNone: () => [], onSome: proposeValues })),
     Match.when("record", () => Option.match(build, { onNone: () => [], onSome: recordValues })),
-    Match.when("arrange", () => Option.match(frame, { onNone: () => [], onSome: arrangeValues })),
+    Match.when("arrange", () => Option.match(search, { onNone: () => [], onSome: arrangeValues })),
     Match.exhaustive
   )

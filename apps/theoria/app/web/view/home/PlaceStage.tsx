@@ -16,6 +16,7 @@ import {
   type PlaceRenderFrame,
   type PlaceSheet,
   placeSheetAtom,
+  type PlaceSheetEdge,
   placeShownFrameAtom,
   placeTrialPreviewAtom
 } from "../../atoms/imagined-place-render.js"
@@ -88,30 +89,40 @@ const Drawing = ({ frame, shown }: {
   const projection = frame.rendering.projection
   return (
     <Layer
-      aria-busy={frame.phase === "running"}
+      aria-busy={frame.search.phase === "running"}
       className="relative"
       data-place-stage="content"
       data-place-stage-width={String(projection.stageWidth)}
       style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px` }}
     >
-      {frame.phase === "complete"
+      {frame.search.phase === "complete"
         ? <PlaceWalk height={projection.stageHeight} markers={projection.markers} width={projection.stageWidth} />
         : null}
       {Arr.map(projection.markers, (marker, index) => (
         <PlaceMarkerDisc
           index={index}
           key={`${shown}:${marker.name}`}
-          labelWidth={Record.get(frame.labels, marker.name)}
+          labelWidth={Record.get(frame.search.labels, marker.name)}
           marker={marker}
         />
       ))}
-      <Lines projection={projection} prose={frame.prose} />
+      <Lines projection={projection} prose={frame.search.prose} />
     </Layer>
   )
 }
 
-const paperClassName =
-  "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[height,width] duration-200 ease-out motion-reduce:transition-none"
+const paperClassName = "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0"
+/**
+ * A held edge moves in one step when the sheet is recut (the visitor's width,
+ * a sketch before anything has settled at it) and eases there; a following
+ * edge is moved by the frames themselves, so nothing is added.
+ */
+const paperEdgeClassName = (edge: PlaceSheetEdge): string =>
+  Match.value(edge).pipe(
+    Match.when("held", () => "transition-[height,width] duration-200 ease-out motion-reduce:transition-none"),
+    Match.when("following", () => "transition-none"),
+    Match.exhaustive
+  )
 const fadeClassName =
   "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-stage-0 via-stage-0/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
 const scrollbarClassName =
@@ -119,26 +130,30 @@ const scrollbarClassName =
 
 /**
  * The kept arrangement fits the sheet, so the sheet's edge is not a clip:
- * a disc travelling in from its proposal crosses it whole. Anything else
- * drawn (the search's sketch, a trial from the trace) may run longer than
- * the sheet and is cut at its edge with a fade, and scrolls. Base UI sets the
- * viewport to scroll inline, so the kept case is set the same way.
+ * a disc travelling in from its proposal crosses it whole, and there is no
+ * fade and no scrollbar. Anything else drawn (the search's sketch, a trial
+ * from the trace) may run longer than the sheet and is cut at its edge with
+ * a fade, and scrolls.
  */
-const viewportStyle = (drawn: PlaceDrawn): CSSProperties =>
+const cut = (drawn: PlaceDrawn): boolean =>
   Match.value(drawn).pipe(
-    Match.when("kept", (): CSSProperties => ({ overflow: "visible" })),
-    Match.when("sketch", (): CSSProperties => ({})),
-    Match.when("trial", (): CSSProperties => ({})),
+    Match.when("kept", () => false),
+    Match.when("sketch", () => true),
+    Match.when("trial", () => true),
     Match.exhaustive
   )
 
+/** Base UI sets the viewport to scroll inline, so the uncut case is set the same way. */
+const viewportStyle = (drawn: PlaceDrawn): CSSProperties => cut(drawn) ? {} : { overflow: "visible" }
+
 /**
  * The stage is paper cut to the kept arrangement (`placeSheetAtom`). The paper
- * keeps that size while the next search runs and while another trial is
- * drawn on it, so nothing around the stage moves until the arrangement is
- * settled, and scrubbing the trace never moves the trace: a sketch or a trial
- * that runs longer than the sheet is clipped with a fade and scrolls, which
- * is the same fact the search holds against it.
+ * keeps that size while the next search's trials run and while another trial
+ * is drawn on it, so nothing around the stage moves for a jump, and scrubbing
+ * the trace never moves the trace: a sketch or a trial that runs longer than
+ * the sheet is clipped with a fade and scrolls, which is the same fact the
+ * search holds against it. Once the trials are in, the edge follows the
+ * drawing's travel to the best, and the paper lands with the discs.
  */
 const Paper = ({
   drawn,
@@ -152,7 +167,7 @@ const Paper = ({
   readonly shown: string
 }) => (
   <ScrollArea.Root
-    className={paperClassName}
+    className={`${paperClassName} ${paperEdgeClassName(sheet.edge)}`}
     data-place-drawn={drawn}
     data-place-stage="paper"
     data-place-stage-height={String(sheet.height)}
@@ -163,10 +178,16 @@ const Paper = ({
         <Drawing frame={frame} shown={shown} />
       </ScrollArea.Content>
     </ScrollArea.Viewport>
-    <Layer className={fadeClassName} data-place-stage-fade />
-    <ScrollArea.Scrollbar className={scrollbarClassName} orientation="vertical">
-      <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
-    </ScrollArea.Scrollbar>
+    {cut(drawn)
+      ? (
+        <>
+          <Layer className={fadeClassName} data-place-stage-fade />
+          <ScrollArea.Scrollbar className={scrollbarClassName} orientation="vertical">
+            <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
+          </ScrollArea.Scrollbar>
+        </>
+      )
+      : null}
   </ScrollArea.Root>
 )
 
@@ -199,7 +220,7 @@ const Placeholder = () => (
 )
 
 /** Discs are named or numbered as a set; the legend accompanies the numbers. */
-const numbered = (frame: PlaceRenderFrame): boolean => Record.isEmptyRecord(frame.labels)
+const numbered = (frame: PlaceRenderFrame): boolean => Record.isEmptyRecord(frame.search.labels)
 
 /**
  * The place drawn at the stage width the visitor chose. The description flows

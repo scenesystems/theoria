@@ -5,7 +5,7 @@ import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
 import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
-import { frameLosses, type PlaceRenderFrame, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
+import { type PlaceSearch, placeTrialPreviewAtom, searchLosses } from "../../atoms/imagined-place-render.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 
@@ -98,33 +98,33 @@ const thumbLineClassName =
  * arrangements the search rejected, drawn exactly as it scored them. While
  * the search runs the thumb follows the best so far.
  */
-export const PlaceSearchTrace = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
+export const PlaceSearchTrace = ({ search }: { readonly search: PlaceSearch }) => {
   const preview = useAtomValue(placeTrialPreviewAtom)
   const setPreview = useAtomSet(placeTrialPreviewAtom)
-  const losses = frameLosses(frame)
-  const shown = shownTrialIndex(frame, preview)
-  const running = frame.phase === "running"
+  const losses = searchLosses(search)
+  const shown = shownTrialIndex(search, preview)
+  const running = search.phase === "running"
 
   return (
     <Slider.Root
       className="w-full"
-      data-place-render-phase={frame.phase}
+      data-place-render-phase={search.phase}
       data-place-trace
       disabled={running}
       max={renderTrials - 1}
       min={0}
       onValueChange={(value) => {
-        setPreview(value === frame.bestIndex ? Option.none() : Option.some(value))
+        setPreview(value === search.bestIndex ? Option.none() : Option.some(value))
       }}
       step={1}
       value={shown}
     >
       <Slider.Control className="relative h-16 w-full cursor-pointer touch-none select-none data-[disabled]:cursor-default">
-        <TraceChart best={frame.bestIndex} losses={losses} shown={shown} />
+        <TraceChart best={search.bestIndex} losses={losses} shown={shown} />
         <Slider.Thumb
           className={thumbClassName}
           getAriaLabel={() => "Trial drawn on the stage"}
-          getAriaValueText={(_, value) => trialValueText(frame, value)}
+          getAriaValueText={(_, value) => trialValueText(search, value)}
           // Escape leaves the excursion: back to the trial the search kept.
           onKeyDown={(event) => {
             if (event.key === "Escape") setPreview(Option.none())

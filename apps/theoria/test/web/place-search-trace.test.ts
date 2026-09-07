@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import { stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
 import type { PlaceRendering } from "../../app/contracts/imagined-place-result.js"
-import { frameLosses, frameShowing, PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
+import { frameShowing, PlaceRenderFrame, PlaceSearch, searchLosses } from "../../app/web/atoms/imagined-place-render.js"
 import {
   keptTrialLabel,
   renderProgressText,
@@ -44,47 +44,46 @@ const rendering: PlaceRendering = {
   }
 }
 
-const complete: PlaceRenderFrame = new PlaceRenderFrame({
+const search = new PlaceSearch({
   phase: "complete",
-  trial: 3,
   stage,
   tried,
   bestIndex: 2,
-  rendering,
+  best: rendering,
   prose: "A room.",
   labels: {}
 })
-const running: PlaceRenderFrame = new PlaceRenderFrame({
-  ...complete,
+const complete: PlaceRenderFrame = new PlaceRenderFrame({ search, rendering })
+const running: PlaceSearch = new PlaceSearch({
+  ...search,
   phase: "running",
-  trial: 2,
   tried: Arr.take(tried, 2),
   bestIndex: 1
 })
 
 describe("search trace", () => {
   it("derives the trace from the trials rather than storing it twice", () => {
-    expect(frameLosses(complete)).toEqual([16.999, 4.25, 1.52])
+    expect(searchLosses(search)).toEqual([16.999, 4.25, 1.52])
   })
 
   it("draws the best trial unless a tried trial is chosen", () => {
-    expect(shownTrialIndex(complete, Option.none())).toBe(2)
-    expect(shownTrialIndex(complete, Option.some(0))).toBe(0)
-    expect(shownTrialIndex(complete, Option.some(7))).toBe(2)
+    expect(shownTrialIndex(search, Option.none())).toBe(2)
+    expect(shownTrialIndex(search, Option.some(0))).toBe(0)
+    expect(shownTrialIndex(search, Option.some(7))).toBe(2)
     expect(frameShowing(complete, Option.some(0)).rendering.projection.markers[0]?.x).toBe(500)
     expect(frameShowing(complete, Option.some(7))).toBe(complete)
   })
 
   it("captions the shown trial honestly", () => {
     expect(renderProgressText(running, 1)).toBe("Searching arrangements · 2 of 36")
-    expect(renderProgressText(complete, 2)).toBe("Kept trial 3 of 3 · loss 1.520")
-    expect(renderProgressText(complete, 0)).toBe("Trial 1 of 3 · loss 16.999 · not kept")
-    expect(keptTrialLabel(complete)).toBe("Kept trial 3")
+    expect(renderProgressText(search, 2)).toBe("Kept trial 3 of 3 · loss 1.520")
+    expect(renderProgressText(search, 0)).toBe("Trial 1 of 3 · loss 16.999 · not kept")
+    expect(keptTrialLabel(search)).toBe("Kept trial 3")
   })
 
   it("tells a screen reader which trial the thumb is on", () => {
-    expect(trialValueText(complete, 2)).toBe("Trial 3 of 3, loss 1.520, kept")
-    expect(trialValueText(complete, 1)).toBe("Trial 2 of 3, loss 4.250")
+    expect(trialValueText(search, 2)).toBe("Trial 3 of 3, loss 1.520, kept")
+    expect(trialValueText(search, 1)).toBe("Trial 2 of 3, loss 4.250")
     expect(trialValueText(running, 2)).toBe("Trial 3, not tried yet")
   })
 })

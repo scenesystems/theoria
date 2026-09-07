@@ -77,6 +77,22 @@ export const Arrangement = Schema.Struct({
 export type Arrangement = typeof Arrangement.Type
 
 /**
+ * The description flowed around the given markers, and how good that is: what
+ * every drawing of the stage is, whether the search placed the markers or
+ * they are on their way between two of its placements.
+ *
+ * @since 0.3.0
+ */
+export const arrangedAround = (
+  prepared: Text.PreparedTextWithSegments,
+  stage: Stage
+) =>
+(markers: ReadonlyArray<PlaceMarker>): Arrangement => {
+  const lines = flowLines(prepared, stage, markers)
+  return { markers, lines, quality: flowQuality(stage, markers, lines) }
+}
+
+/**
  * One candidate: markers on the meander, the description flowed around them,
  * and how good that is. The search calls this once per trial.
  *
@@ -86,11 +102,10 @@ export const arrange = (
   artifact: PlaceArtifact,
   prepared: Text.PreparedTextWithSegments,
   stage: Stage
-) =>
-(meander: Meander): Arrangement => {
-  const markers = placeMarkers(placeFeatures(artifact), contributorsOf(artifact), stage, meander)
-  const lines = flowLines(prepared, stage, markers)
-  return { markers, lines, quality: flowQuality(stage, markers, lines) }
+) => {
+  const around = arrangedAround(prepared, stage)
+  return (meander: Meander): Arrangement =>
+    around(placeMarkers(placeFeatures(artifact), contributorsOf(artifact), stage, meander))
 }
 
 /**

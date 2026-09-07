@@ -6,7 +6,7 @@ import * as m from "motion/react-m"
 import type { ReactNode } from "react"
 
 import type { PlaceEvidence, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
-import { placeFeatureHomeAtom } from "../../atoms/imagined-place-render.js"
+import { placeFeatureHomeAtom, placeProposalLineAtom } from "../../atoms/imagined-place-render.js"
 import { dangerStatusTone, inlineStatusToneFor, neutralStatusTone, toneClassesFor } from "../primitives/designSystem.js"
 import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -157,19 +157,18 @@ const recordedClassName =
  * is merged. `accepted` is the author's decision and is shown at once;
  * `record.accepted` is what the last build recorded, and puts the version's
  * name beside the badge. The two differ while a build is in flight, and the
- * article says so. `anchorLine` is the line of the drawn prose where the
- * proposal's sentence stands once merged: the margin it belongs beside.
+ * article says so. `data-place-anchor-line` is the line of the drawn prose
+ * where the proposal's sentence stands once merged: the margin it belongs
+ * beside.
  */
 export const PlaceProposal = ({
   accepted,
-  anchorLine,
   evidence,
   note,
   onToggle,
   record
 }: {
   readonly accepted: boolean
-  readonly anchorLine: Option.Option<number>
   readonly evidence: PlaceEvidence
   readonly note: Option.Option<SealedNote>
   readonly onToggle: () => void
@@ -178,7 +177,7 @@ export const PlaceProposal = ({
   const role = record.proposal.proposer
   const tone = toneClassesFor(participantTone(role))
   const pending = accepted === record.accepted ? {} : { "data-place-pending": "" }
-  const anchor = Option.match(anchorLine, {
+  const anchor = Option.match(useAtomValue(placeProposalLineAtom(role)), {
     onNone: () => ({}),
     onSome: (line) => ({ "data-place-anchor-line": String(line) })
   })

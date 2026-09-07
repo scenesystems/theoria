@@ -3,7 +3,6 @@ import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
-import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildAtom, placeBuildEnvelopeAtom } from "../../atoms/imagined-place.js"
 import { ActionButton } from "../primitives/ActionButton.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
@@ -69,7 +68,6 @@ const Acts = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
 export const PlaceActs = () => {
   const result = useAtomValue(placeBuildAtom)
   const build = Result.value(result)
-  const frame = useAtomValue(placeRenderFrameAtom)
 
   return (
     <Section aria-label="Imagined place demo" className="scroll-mt-6 pb-6" id={imaginedPlaceSectionId}>
@@ -81,7 +79,7 @@ export const PlaceActs = () => {
           </Layer>
           <Layer className="min-w-0 max-w-[44rem] lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-6">
             <PlaceStepCard spine="none" step="arrange">
-              <PlaceArrangement build={build} frame={frame} />
+              <PlaceArrangement build={build} />
             </PlaceStepCard>
           </Layer>
           <Layer className="min-w-0 lg:col-start-1 lg:row-start-2">

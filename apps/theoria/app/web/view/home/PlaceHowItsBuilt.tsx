@@ -6,7 +6,7 @@ import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
 import { toneForCard } from "../../../contracts/theme.js"
-import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
+import { placeSearchAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildAtom, placeBuildShaAtom, placeStepAtom } from "../../atoms/imagined-place.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
@@ -100,13 +100,13 @@ const StepTabs = () => (
  */
 const StepCode = ({ step }: { readonly step: PlaceStep }) => {
   const build = Result.value(useAtomValue(placeBuildAtom))
-  const frame = Result.value(useAtomValue(placeRenderFrameAtom))
+  const search = Result.value(useAtomValue(placeSearchAtom))
   const definition = placeStepDefinition(step)
 
   return (
     <Layer data-place-code-step={step} key={placeStepIndex(step)}>
       <CodeBlock
-        annotations={placeLiveValues(step, build, frame)}
+        annotations={placeLiveValues(step, build, search)}
         label={definition.name}
         links={referenceLinks(step)}
         source={definition.code}

@@ -8,8 +8,9 @@ import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../../contracts/imagined-place.js"
 import {
   type PlaceRenderError,
-  type PlaceRenderFrame,
   placeRenderFrameAtom,
+  type PlaceSearch,
+  placeSearchAtom,
   placeTrialPreviewAtom
 } from "../../atoms/imagined-place-render.js"
 import {
@@ -98,8 +99,8 @@ const ParticipantLegend = ({ artifact }: { readonly artifact: PlaceArtifact }) =
  * as tall as that pill and never wraps, so choosing a trial cannot move the
  * trace under the pointer.
  */
-const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
-  const shown = shownTrialIndex(frame, useAtomValue(placeTrialPreviewAtom))
+const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
+  const shown = shownTrialIndex(search, useAtomValue(placeTrialPreviewAtom))
   const setPreview = useAtomSet(placeTrialPreviewAtom)
   return (
     <Rail className="min-h-9 min-w-0 gap-2.5">
@@ -108,10 +109,10 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
           as="span"
           className="block truncate tabular-nums text-ink-500"
           role="code-meta"
-          text={renderProgressText(frame, shown)}
+          text={renderProgressText(search, shown)}
         />
       </Layer>
-      {shown === frame.bestIndex ? null : (
+      {shown === search.bestIndex ? null : (
         <Button
           className={`shrink-0 ${pillButtonClassName({ active: false, tone: searchTone })}`}
           data-place-show-kept
@@ -124,7 +125,7 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
             as="span"
             className="text-ink-700"
             role="tab-label"
-            text={keptTrialLabel(frame)}
+            text={keptTrialLabel(search)}
             variant="expanded"
           />
         </Button>
@@ -139,12 +140,12 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
  * the failure is still shown, `waiting`, and the button rests: another click
  * would only cancel that run and start over.
  */
-const DrawFailed = ({ frame }: { readonly frame: Result.Failure<PlaceRenderFrame, PlaceRenderError> }) => {
+const DrawFailed = ({ search }: { readonly search: Result.Failure<PlaceSearch, PlaceRenderError> }) => {
   const redraw = useAtomRefresh(placeRenderFrameAtom)
   return (
     <StageBanner
-      action={<ActionButton disabled={frame.waiting} label="Draw again" onClick={redraw} />}
-      text={frame.waiting ? "Drawing the place again." : "The place could not be drawn."}
+      action={<ActionButton disabled={search.waiting} label="Draw again" onClick={redraw} />}
+      text={search.waiting ? "Drawing the place again." : "The place could not be drawn."}
       tone="error"
     />
   )
@@ -156,35 +157,32 @@ const DrawFailed = ({ frame }: { readonly frame: Result.Failure<PlaceRenderFrame
  * decide their shape by this column's width, not the viewport's: the column
  * is narrower beside the steps than it is above them.
  */
-export const PlaceArrangement = ({
-  build,
-  frame
-}: {
-  readonly build: Option.Option<PlaceBuild>
-  readonly frame: Result.Result<PlaceRenderFrame, PlaceRenderError>
-}) => (
-  <Stack className="@container gap-4">
-    {Option.match(build, {
-      onNone: () => null,
-      onSome: (value) => <StageKnots evidence={value.evidence} />
-    })}
-    <PlaceStage />
-    {Result.isFailure(frame) ? <DrawFailed frame={frame} /> : null}
-    {Option.match(Result.value(frame), {
-      onNone: () => null,
-      onSome: (value) => (
-        <Stack className="gap-2">
-          <PlaceSearchTrace frame={value} />
-          <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,1fr)_auto]">
-            <SearchCaption frame={value} />
-            <StagePresets />
-          </Layer>
-        </Stack>
-      )
-    })}
-    {Option.match(build, {
-      onNone: () => null,
-      onSome: (value) => <ParticipantLegend artifact={value.artifact} />
-    })}
-  </Stack>
-)
+export const PlaceArrangement = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
+  const search = useAtomValue(placeSearchAtom)
+  return (
+    <Stack className="@container gap-4">
+      {Option.match(build, {
+        onNone: () => null,
+        onSome: (value) => <StageKnots evidence={value.evidence} />
+      })}
+      <PlaceStage />
+      {Result.isFailure(search) ? <DrawFailed search={search} /> : null}
+      {Option.match(Result.value(search), {
+        onNone: () => null,
+        onSome: (value) => (
+          <Stack className="gap-2">
+            <PlaceSearchTrace search={value} />
+            <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,1fr)_auto]">
+              <SearchCaption search={value} />
+              <StagePresets />
+            </Layer>
+          </Stack>
+        )
+      })}
+      {Option.match(build, {
+        onNone: () => null,
+        onSome: (value) => <ParticipantLegend artifact={value.artifact} />
+      })}
+    </Stack>
+  )
+}

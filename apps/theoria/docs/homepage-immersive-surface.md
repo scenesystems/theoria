@@ -353,15 +353,37 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       moves while the reader is near the end of the acts. Each disc's kind
       is `placeDiscDrawnAtom(name)` (`settled` | `arriving` | `trial`).
 - [x] `PlaceMarker.tsx`: the text and the discs are one arrangement and are
-      always drawn from the same state. Each accepted trial reflows the text
-      and places the discs at once; nothing glides between states (discs
-      animated to their new places while the text had already reflowed put
-      text over discs for most of a running search). The only movement a
-      disc makes is its hand-off with its name: a settled disc is `m.button
-      layout="position" layoutId="place-feature:<name>"` with a constant
-      `layoutDependency`, so Motion measures it only when it mounts or
-      leaves; a trial's disc is a plain button. A feature just merged is a
-      dashed ring in its proposer's tone while the search makes room for it.
+      always drawn from the same state; the only Motion a disc has is its
+      hand-off with its name: a settled disc is `m.button layout="position"
+    layoutId="place-feature:<name>"` with a constant `layoutDependency`,
+      so Motion measures it only when it mounts or leaves; a trial's disc is
+      a plain button. A feature just merged is a dashed ring in its
+      proposer's tone while the search makes room for it.
+- [x] `web/motion/travel.ts` and `atoms/imagined-place-render.ts`: the search
+      moves in jumps (a better trial; a new artifact that places every disc
+      anew) and the drawing does not. `Travelling<A>` is the Effect-native
+      counterpart of a Motion layout animation for values Motion cannot
+      animate because what they draw is computed: `toward` is a `Stream` of
+      the value one per frame (`platform/AnimationFrame.ts` `frames`, Motion's
+      frame loop) from where the drawing is to the target over the theme's
+      `shift` with the theme's ease, landing on the target itself. The
+      travel begins with the first frame drawn, not when the target is set,
+      so a page busy while a merge arrives does not spend the travel unseen.
+      A target set again continues; a new target starts from wherever the
+      drawing is; reduced motion is a zero duration and places outright. The
+      drawing travels in marker space with the geometry's own rules kept at
+      every step (`markersBetween`: straight lines, radii following, each
+      marker pushed down to clear those before it, clamped to the stage; a
+      merged feature grows in where it will stand), and every frame the
+      prose is flowed around the discs as drawn (`arrangedAround`), so text
+      and discs move together and never overlap. `PlaceRenderFrame` is
+      `{ search, rendering }`: `PlaceSearch` changes once per trial and is
+      the same instance through a travel's frames, so `placeSearchAtom`
+      readers (trace, caption, code's live values) are not woken per frame.
+      `get.self` carries the last drawn markers into the next search.
+- [x] `atoms/syntax-highlighting.ts` `highlightedLinesAtom` (an `Atom.family`
+      keyed by `CodeSource`) tokenises each source once instead of on every
+      render of `HighlightedCode`.
 - [x] `PlaceProposal.tsx`: `placeFeatureHomeAtom` puts a merged feature's
       name on the stage only when the search settles (the name travels to
       where the feature stays, not to a first random trial), and a declined
@@ -369,11 +391,21 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       (the name is the traveller, and it is never inside the paper). Motion
       clears layout snapshots the frame after an unmount; both sides read one
       atom so each hand-off is one commit.
-- [x] `PlaceStage.tsx`: the paper is a `ScrollArea` whose viewport clips
-      only while a sketch or a trial is drawn; the kept arrangement fits the
-      sheet and is unclipped, so a disc arriving from its proposal crosses the
-      sheet's edge whole. `ArtifactStage` derives its clipping from the frame
-      kind: `none` (the canvas) clips nothing. `AnimatePresence mode="wait"`
+- [x] `PlaceStage.tsx`: the paper is a `ScrollArea` whose viewport, fade
+      and scrollbar exist only while a sketch or a trial is drawn (Base UI
+      measures overflow from the viewport's `scrollHeight`, which counts a
+      disc still travelling in, and re-measures only on resize or scroll: a
+      fade that outlived the kept state was stale, not true); the kept
+      arrangement fits the sheet and is unclipped, so a disc arriving from
+      its proposal crosses the sheet's edge whole. The search has three
+      phases: `running` (trials coming in; the sheet's edge is `held` at
+      the kept height so a jump moves nothing around the stage), `landing`
+      (every trial in, the drawing travelling to the best; the edge is
+      `following` the drawing frame by frame with no CSS transition of its
+      own, so the paper lands with the discs and a disc heading past the
+      old edge is never cut), `complete`. `ArtifactStage` derives its
+      clipping from the frame kind: `none` (the canvas) clips nothing.
+      `AnimatePresence mode="wait"`
       on prose lines keyed by the frame's prose: replaced text fades through,
       never two texts at once (`popLayout` double-painted the crossfade);
       stagger 20 ms, arrival ≤ 300 ms, exit 120 ms.

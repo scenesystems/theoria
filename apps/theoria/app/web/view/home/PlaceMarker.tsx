@@ -30,10 +30,11 @@ const markerStyle = (marker: Marker): CSSProperties => ({
  * Motion measures a settled disc only when it mounts or leaves: the hand-off
  * with its proposal's name. A constant dependency means nothing else about
  * the disc's render starts a layout animation. The search's own progress is
- * drawn state by state: each accepted trial reflows the text at once and
- * places the discs at once, so the text and the discs are always the same
- * arrangement, never a text flowing around where discs are still on their
- * way to.
+ * drawn frame by frame by the render atom: the discs travel to each new
+ * arrangement with the text flowed around them at every step, so the text
+ * and the discs are always the same arrangement, never a text flowing around
+ * where discs are still on their way to. Motion animating the same movement
+ * would draw the discs somewhere else than the text was flowed.
  */
 const layoutOnHandOffOnly = "hand-off"
 
@@ -60,8 +61,8 @@ const popupClassName = [
 
 /**
  * A settled disc is the Motion node the feature travels as; a trial's disc is
- * a plain button. Neither has a CSS transition on its position: the only
- * movement a disc makes is its hand-off, and Motion alone makes it.
+ * a plain button. Neither has a CSS transition on its position: the search's
+ * movement is drawn by the frames themselves, and the hand-off by Motion.
  */
 const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">, marker: Marker) =>
   Match.value(drawn).pipe(

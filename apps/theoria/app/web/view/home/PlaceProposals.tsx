@@ -1,17 +1,14 @@
-import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild, ProposalRecord } from "../../../contracts/imagined-place-result.js"
 import type { ParticipantRole, PlaceBuildRequest } from "../../../contracts/imagined-place.js"
-import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
 import { placeControlsAtom } from "../../atoms/imagined-place.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
 import { PlaceProposal } from "./PlaceProposal.js"
-import { proposalAnchorLine } from "./placeViewModel.js"
 
 const accepts = (controls: PlaceBuildRequest, role: ParticipantRole): boolean =>
   Match.value(role).pipe(
@@ -48,7 +45,6 @@ const Pending = () => (
 export const PlaceProposals = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
   const controls = useAtomValue(placeControlsAtom)
   const setControls = useAtomSet(placeControlsAtom)
-  const projection = Option.map(Result.value(useAtomValue(placeRenderFrameAtom)), (frame) => frame.rendering.projection)
 
   return Option.match(build, {
     onNone: () => <Pending />,
@@ -57,7 +53,6 @@ export const PlaceProposals = ({ build }: { readonly build: Option.Option<PlaceB
         {Arr.map(value.proposals, (record: ProposalRecord) => (
           <PlaceProposal
             accepted={accepts(controls, record.proposal.proposer)}
-            anchorLine={Option.flatMap(projection, (lines) => proposalAnchorLine(lines, record))}
             evidence={value.evidence}
             key={record.proposal.proposer}
             note={record.proposal.proposer === value.evidence.sealedNote.from

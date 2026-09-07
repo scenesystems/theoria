@@ -14,7 +14,7 @@ import type {
 } from "../../../contracts/imagined-place-result.js"
 import type { ParticipantRole, PlaceArtifact } from "../../../contracts/imagined-place.js"
 import type { CardTone } from "../../../contracts/theme.js"
-import type { PlaceRenderFrame } from "../../atoms/imagined-place-render.js"
+import type { PlaceSearch } from "../../atoms/imagined-place-render.js"
 import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
 
 /**
@@ -170,41 +170,41 @@ export const versionChanges = (build: PlaceBuild, version: Version): ReadonlyArr
   })
 
 /** The trial the stage draws: the one chosen from the trace if it exists, else the best. */
-export const shownTrialIndex = (frame: PlaceRenderFrame, preview: Option.Option<number>): number =>
+export const shownTrialIndex = (search: PlaceSearch, preview: Option.Option<number>): number =>
   Option.getOrElse(
-    Option.filter(preview, (index) => index >= 0 && index < frame.tried.length),
-    () => frame.bestIndex
+    Option.filter(preview, (index) => index >= 0 && index < search.tried.length),
+    () => search.bestIndex
   )
 
-const lossOf = (frame: PlaceRenderFrame, index: number): Option.Option<number> =>
-  Option.map(Arr.get(frame.tried, index), (arrangement) => arrangement.quality.loss)
+const lossOf = (search: PlaceSearch, index: number): Option.Option<number> =>
+  Option.map(Arr.get(search.tried, index), (arrangement) => arrangement.quality.loss)
 
 /**
  * The search, captioned as measure · value · scope. While it runs, how far it
  * is; when it stops, which trial the stage draws and what it scored. "Loss"
  * is the word the code panel uses for the same number.
  */
-export const renderProgressText = (frame: PlaceRenderFrame, shown: number): string =>
-  frame.phase === "running"
-    ? `Searching arrangements · ${String(frame.trial)} of ${String(renderTrials)}`
-    : Option.match(lossOf(frame, shown), {
-      onNone: () => `${String(frame.tried.length)} arrangements tried`,
+export const renderProgressText = (search: PlaceSearch, shown: number): string =>
+  search.phase === "running"
+    ? `Searching arrangements · ${String(search.tried.length)} of ${String(renderTrials)}`
+    : Option.match(lossOf(search, shown), {
+      onNone: () => `${String(search.tried.length)} arrangements tried`,
       onSome: (loss) =>
-        shown === frame.bestIndex
-          ? `Kept trial ${String(shown + 1)} of ${String(frame.tried.length)} · loss ${loss.toFixed(3)}`
-          : `Trial ${String(shown + 1)} of ${String(frame.tried.length)} · loss ${loss.toFixed(3)} · not kept`
+        shown === search.bestIndex
+          ? `Kept trial ${String(shown + 1)} of ${String(search.tried.length)} · loss ${loss.toFixed(3)}`
+          : `Trial ${String(shown + 1)} of ${String(search.tried.length)} · loss ${loss.toFixed(3)} · not kept`
     })
 
 /** The way back from a rejected trial: the kept one, by number. */
-export const keptTrialLabel = (frame: PlaceRenderFrame): string => `Kept trial ${String(frame.bestIndex + 1)}`
+export const keptTrialLabel = (search: PlaceSearch): string => `Kept trial ${String(search.bestIndex + 1)}`
 
 /** What a screen reader hears for the trace thumb. */
-export const trialValueText = (frame: PlaceRenderFrame, index: number): string =>
-  Option.match(lossOf(frame, index), {
+export const trialValueText = (search: PlaceSearch, index: number): string =>
+  Option.match(lossOf(search, index), {
     onNone: () => `Trial ${String(index + 1)}, not tried yet`,
     onSome: (loss) =>
-      `Trial ${String(index + 1)} of ${String(frame.tried.length)}, loss ${loss.toFixed(3)}${
-        index === frame.bestIndex ? ", kept" : ""
+      `Trial ${String(index + 1)} of ${String(search.tried.length)}, loss ${loss.toFixed(3)}${
+        index === search.bestIndex ? ", kept" : ""
       }`
   })
 
