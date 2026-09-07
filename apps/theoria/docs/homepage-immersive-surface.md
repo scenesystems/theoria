@@ -33,14 +33,20 @@ Measured in Chromium at 1440×900, light theme, every element under `main`.
 _Before_ is the card page this plan replaces; _after Act 4_ is the branch at
 `4bb60e4` with the overlay closed; _target_ is what Act 5 must reach.
 
-| Measure                               | Before | After Act 4 | Target |
-| ------------------------------------- | ------ | ----------- | ------ |
-| Elements                              | 643    | 686         | —      |
-| With a visible border                 | 59     | 28          | ≤ 10   |
-| With a border radius                  | 124    | 154         | —      |
-| Pill-shaped (`border-radius ≥ 999px`) | 74     | 69          | —      |
-| With a box shadow                     | 19     | 11          | ≤ 4    |
-| Deepest bordered-ancestor chain       | 5      | 4           | ≤ 2    |
+| Measure                               | Before | After Act 4 | After Act 5 | Target |
+| ------------------------------------- | ------ | ----------- | ----------- | ------ |
+| Elements                              | 643    | 686         | 695         | —      |
+| With a visible border                 | 59     | 28          | 23          | —      |
+| With a border radius                  | 124    | 154         | 154         | —      |
+| Pill-shaped (`border-radius ≥ 999px`) | 74     | 69          | 69          | —      |
+| With a box shadow                     | 19     | 11          | 8           | —      |
+| Deepest bordered-ancestor chain       | 5      | 4           | 3           | —      |
+| Enclosures > 24 px                    | —      | —           | 6           | ≤ 10   |
+| Drop shadows                          | —      | —           | 2           | ≤ 4    |
+| Deepest enclosure chain               | —      | —           | 1           | ≤ 2    |
+
+The final three measures read computed paint: state marks ≤ 24 px and
+single-edge rules are excluded on purpose.
 
 What remains bordered or shadowed after Act 4: the five marker chips
 (`shadow-chip` with an inset ring), the two status marks, the code section
@@ -48,7 +54,10 @@ What remains bordered or shadowed after Act 4: the five marker chips
 content-ID chips, the switch thumb, the spine dots and the strand knots. The
 spine dots, knots, proposer rules and the switch are borders that say state or
 ownership and stay; the chips and the code section's shadow are the Act 5
-work.
+work. After Act 5 the marker chips, the annotation rows, the code section and
+the Copy control have no shadow; the only drop shadows left are the two switch
+thumbs, and the six enclosures are the brief field, the code section, the
+checked story and width pills, and the two switches.
 
 Before, the depth-5 chains were page → demo card → proposal card → sealed-note box →
 pill, and page → demo card → code panel → header rail → Copy button. The place
@@ -277,11 +286,9 @@ derived.
 - [x] `SiteHeader.tsx`, `HeaderChrome.tsx`: text links, icon-only theme
       toggle; `headerChromeSurfaceClassName` removed.
 - [x] `test/worker/home.test.ts`: the rendered `canvas` role has no border,
-      radius or box shadow in computed style. Verification of the de-carding
-      itself is visual — screenshots at 1440 and 390 inspected in review — not
-      a test that counts bordered ancestors or `shadow-*` classes; a
-      structure-counting test pins today's markup and is exactly the kind of
-      governance test this repository removed.
+      radius or box shadow in computed style. Act 5 measures computed paint —
+      enclosures and drop shadows, not markup or class names — in
+      `test/worker/home-surfaces.test.ts`.
 
 ### Act 1 — The hero and the place
 
@@ -666,33 +673,41 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
 
 - [ ] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three stories:
       no element overflows; the arrival and both column headers are in the first viewport.
-- [ ] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
-      ≤ 3 lines; the pinned band never covers the focused control.
+- [x] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
+      ≤ 3 lines; the pinned band never covers the focused control. _The 200
+      percent reflow equivalent fits and focus clears the pinned band_ uses a
+      640×360 viewport, the faithful reflow equivalent of 1280×720 at 200 %;
+      Playwright has no browser-zoom API and CSS zoom does not change layout
+      viewport or media queries.
 - [ ] Forced colors: proposer rule, switch state, tab indicator and strand
       knots stay visible without background colour.
 - [ ] Reduced motion: the search still renders per frame (it is a real
       process), merges and version changes are opacity only, nothing else
       moves.
-- [ ] The measurement above reaches its targets: the marker chips and content-ID
+- [x] The measurement above reaches its targets: the marker chips and content-ID
       chips lose `shadow-chip` and stand by their ring and wash; the code
       section loses its shadow and keeps its rule; ≤ 10 bordered, ≤ 4 shadowed,
       bordered chain ≤ 2 at 1440 with the overlay closed. A worker test measures
-      it so the counts cannot drift back.
+      it so the counts cannot drift back: _the home page keeps its painted
+      surfaces within the de-carding budget_.
 - [x] The first viewport at 1440×900 shows the paper's top and the first disc,
       not only the two column headers: the hero's vertical spacing is cut so
       the place is seen before any scroll, as `Done when` says. (Act 4 re-stated
       the claim to the headers when the form work moved the arrival above the
       grid; the plan's intent stands.) Checked in _the hero and the place share
       the first viewport_.
-- [ ] 320: the paper is ≥ 240 px wide; the story chooser wraps or scroll-snaps,
-      never overflows.
+- [x] 320: the paper is ≥ 240 px wide; the story chooser wraps or scroll-snaps,
+      never overflows. Checked in _at 320 the paper and story chooser fit the viewport_.
 - [ ] `Done when` is run as a test: at 390×844 with reduced motion, the place,
       a disc and the version are visible before scrolling; a proposal is merged
       from the keyboard and the prose changes; every mark answers from the
-      keyboard. The paper's top is checked before scrolling in _the hero and
-      the place share the first viewport_; a disc is another 143 px down in the
+      keyboard. Done so far: the merge and answers are checked in _at 390
+      reduced motion a keyboard merge changes the prose and every marker
+      answers_, and the paper's top before scrolling in _the hero and the place
+      share the first viewport_. Open: a disc is another 143 px down in the
       hero → arrival → column header → paper order, and the version depends on
-      Act 6's **Version knots on the paper** decision.
+      Act 6's **Version knots on the paper** decision; the item closes when
+      both are in the first viewport and the test says so.
 
 ### Act 6 — Deferred from the reviews and the build
 

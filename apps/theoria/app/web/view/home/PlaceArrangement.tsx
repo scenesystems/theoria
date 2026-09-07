@@ -23,7 +23,7 @@ import {
 } from "../../atoms/imagined-place.js"
 import { ActionButton } from "../primitives/ActionButton.js"
 import { ChoiceGroup } from "../primitives/ChoiceGroup.js"
-import { legendThemeFor, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
+import { pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -88,8 +88,7 @@ const ParticipantLegend = ({ artifact }: { readonly artifact: PlaceArtifact }) =
       <LegendItem
         key={role}
         label={participantLabel(role)}
-        shape="circle"
-        theme={legendThemeFor(participantTone(role))}
+        tone={toneClassesFor(participantTone(role))}
       />
     ))}
   </Cluster>

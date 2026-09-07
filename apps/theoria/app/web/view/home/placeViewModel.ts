@@ -65,22 +65,22 @@ export const markerTone = (marker: PlaceMarker): ToneClasses =>
 
 /**
  * The disc itself: a soft radial fill lit from the upper left, an inset ring
- * and a low shadow, in the contributor's tone. Full literals per participant
+ * in the contributor's tone. Full literals per participant
  * because Tailwind purges anything assembled at run time.
  */
 export const discClassName = (role: ParticipantRole): string =>
   Match.value(role).pipe(
     Match.when(
       "author",
-      () => "bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60 shadow-chip"
+      () => "bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60"
     ),
     Match.when(
       "neighbor",
-      () => "bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60 shadow-chip"
+      () => "bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60"
     ),
     Match.when(
       "program",
-      () => "bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60 shadow-chip"
+      () => "bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60"
     ),
     Match.exhaustive
   )

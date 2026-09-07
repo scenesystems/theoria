@@ -28,6 +28,7 @@ import { placeStageContainerWidthAtom, placeStageFrame, placeStageFrameBorderPx 
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { litMarkClassName, markClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { LegendItem } from "../primitives/LegendItem.js"
 import { departed, exitTransition, staggeredArrival } from "../primitives/motion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
@@ -240,18 +241,14 @@ const Paper = ({
 /** Shown only when markers are too small to carry their names: numbers on the stage, names here. */
 const Legend = ({ markers }: { readonly markers: ReadonlyArray<PlaceMarker> }) => (
   <Cluster className="gap-x-4 gap-y-1" data-place-legend>
-    {Arr.map(markers, (marker, index) => {
-      const tone = markerTone(marker)
-      return (
-        <Cluster className="items-center gap-1.5" key={marker.name}>
-          <Layer render={<span />} className={`inline-flex size-2 shrink-0 rounded-full ${tone.dot}`} />
-          <Cluster className="items-center gap-1">
-            <SemanticText as="span" className="tabular-nums text-ink-500" role="row-value" text={String(index + 1)} />
-            <SemanticText as="span" className="text-ink-700" role="row-value" text={marker.name} />
-          </Cluster>
-        </Cluster>
-      )
-    })}
+    {Arr.map(markers, (marker, index) => (
+      <LegendItem
+        index={index + 1}
+        key={marker.name}
+        label={marker.name}
+        tone={markerTone(marker)}
+      />
+    ))}
   </Cluster>
 )
 

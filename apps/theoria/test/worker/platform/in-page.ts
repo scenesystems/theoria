@@ -12,6 +12,75 @@
 /** The document does not scroll horizontally at the current viewport. */
 export const documentFitsViewport = () => document.documentElement.scrollWidth <= window.innerWidth
 
+/**
+ * The painted-surface budget below `root`.
+ *
+ * An enclosure has a visible computed border of at least 1px on all four sides
+ * and a box larger than 24×24px. A drop shadow is a non-inset shadow layer with
+ * visible colour and a non-zero offset or blur; spread-only rings do not count.
+ * The deepest enclosure chain is each enclosure plus its enclosure ancestors.
+ */
+export const surfaceBudget = (root: Element) => {
+  const elements = [...root.querySelectorAll("*")].filter((element) => {
+    const rect = element.getBoundingClientRect()
+    const style = getComputedStyle(element)
+    return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none"
+  })
+  const visibleColour = (colour: string) => colour !== "transparent" && !colour.includes(", 0)")
+  const enclosed = (element: Element) => {
+    const rect = element.getBoundingClientRect()
+    const style = getComputedStyle(element)
+    const sides = ["Top", "Right", "Bottom", "Left"]
+    return rect.width > 24 && rect.height > 24 &&
+      sides.every((side) =>
+        Number.parseFloat(style.getPropertyValue(`border-${side.toLowerCase()}-width`)) >= 1
+        && style.getPropertyValue(`border-${side.toLowerCase()}-style`) !== "none"
+        && visibleColour(style.getPropertyValue(`border-${side.toLowerCase()}-color`))
+      )
+  }
+  const describe = (element: Element) => {
+    const attributes = [...element.attributes]
+      .filter((attribute) => attribute.name.startsWith("data-") || attribute.name === "aria-label")
+      .map((attribute) => `[${attribute.name}='${attribute.value}']`)
+      .join("")
+    return `${element.tagName.toLowerCase()}${attributes}`
+  }
+  const enclosureElements = elements.filter(enclosed)
+  const hasDropShadow = (element: Element) =>
+    getComputedStyle(element).boxShadow
+      .split(/,(?![^()]*(?:\)|$))/u)
+      .some((layer) => {
+        const lengths = [...layer.matchAll(/(-?\d+(?:\.\d+)?)px/gu)].map((match) => Number(match[1]))
+        const colour = layer.match(/(?:rgba?|hsla?)\([^)]*\)|#[\da-f]+/iu)?.[0] ?? "transparent"
+        return !layer.includes("inset") && visibleColour(colour)
+          && ((lengths[0] ?? 0) !== 0 || (lengths[1] ?? 0) !== 0 || (lengths[2] ?? 0) > 0)
+      })
+  const depth = (element: Element): number => {
+    const parent = element.parentElement
+    return parent instanceof Element && root.contains(parent) ? (enclosed(parent) ? 1 : 0) + depth(parent) : 1
+  }
+  return {
+    enclosures: enclosureElements.map(describe),
+    dropShadows: elements.filter(hasDropShadow).map(describe),
+    deepestEnclosureChain: Math.max(0, ...enclosureElements.map(depth))
+  }
+}
+
+/** Width and line height of a text box. */
+export const textBlockMetrics = (element: Element) => ({
+  height: element.getBoundingClientRect().height,
+  lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight)
+})
+
+/** Whether the focused element overlaps the pinned place-band link. */
+export const focusedControlIntersectsBand = () => {
+  const focused = document.activeElement?.getBoundingClientRect()
+  const band = document.querySelector("[data-place-band] a")?.getBoundingClientRect()
+  return focused && band
+    ? focused.left < band.right && focused.right > band.left && focused.top < band.bottom && focused.bottom > band.top
+    : false
+}
+
 /** Every finite animation (CSS and Web Animations) has finished; infinite ones are ignored. */
 export const finiteAnimationsFinished = () =>
   document.getAnimations().every((animation) =>
@@ -401,7 +470,7 @@ export const markerLegendMetrics = (element: Element) => {
   const style = getComputedStyle(firstText)
   return {
     entries: entries.map((entry) => entry.textContent?.trim() ?? ""),
-    names: entries.map((entry) => entry.lastElementChild?.lastElementChild?.textContent ?? ""),
+    names: entries.map((entry) => entry.lastElementChild?.textContent ?? ""),
     markerLabels: [...document.querySelectorAll("[data-place-marker]")].map(
       (marker) => marker.getAttribute("aria-label") ?? ""
     ),

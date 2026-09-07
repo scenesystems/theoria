@@ -258,7 +258,7 @@ export const pillButtonClassName = ({
 }): string =>
   active
     ? `${pillButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted}`
-    : `${pillButtonBaseClassName} border-rule bg-transparent hover:border-rule-strong hover:bg-stage-100/60`
+    : `${pillButtonBaseClassName} border-transparent bg-stage-100/70 hover:bg-stage-100`
 
 const segmentedControlRailBaseClassName = "grid min-w-0 gap-1 rounded-instrument border border-rule bg-instrument p-1"
 
@@ -308,18 +308,3 @@ export const appTheme = {
     "relative min-h-screen overflow-x-clip font-body text-ink-900 antialiased selection:bg-tone-text-200/60 selection:text-ink-950",
   content: "relative mx-auto flex w-full max-w-[88rem] flex-col gap-4 px-5 py-6 sm:px-8 sm:py-8 lg:px-12"
 }
-
-// ---------------------------------------------------------------------------
-// LegendTheme — resolved styling for chart legends.
-// ---------------------------------------------------------------------------
-
-export const LegendTheme = Schema.Struct({
-  swatch: Schema.String,
-  label: Schema.String
-})
-export type LegendTheme = typeof LegendTheme.Type
-
-export const legendThemeFor = (tone: CardTone): LegendTheme => ({
-  swatch: toneClassesFor(tone).bg,
-  label: "text-ink-700"
-})

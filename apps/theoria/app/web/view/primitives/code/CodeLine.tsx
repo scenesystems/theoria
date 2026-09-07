@@ -56,7 +56,7 @@ const Segment = ({ segment }: { readonly segment: LineSegment }) =>
 export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
   <Layer
     render={<span />}
-    className={`${litChipClassName} my-1 inline-flex items-center gap-1.5 rounded-md border border-stage-300/85 bg-stage-50/95 px-2 py-0.5 shadow-chip`}
+    className={`${litChipClassName} my-1 inline-flex items-center gap-1.5 rounded-md border border-stage-300/85 bg-stage-50/95 px-2 py-0.5`}
     data-code-annotation
   >
     <Layer aria-hidden render={<span />} className="inline-block size-1.5 rounded-full bg-ink-500" />

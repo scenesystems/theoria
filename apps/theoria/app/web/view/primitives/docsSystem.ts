@@ -39,7 +39,7 @@ export const docsTheme = {
   drawerViewport: "fixed inset-0 z-[90] flex justify-start",
   drawer:
     `h-full w-[min(22rem,88vw)] translate-x-[var(--drawer-swipe-movement-x)] touch-auto overflow-y-auto overscroll-contain border-r border-stage-300/90 bg-stage-0/98 shadow-hero outline-none transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform data-[starting-style]:-translate-x-full data-[ending-style]:-translate-x-full data-[ending-style]:duration-[calc(var(--drawer-swipe-strength)*300ms)] data-[swiping]:select-none ${stillUnderReducedMotion}`,
-  code: "overflow-hidden rounded-[1.35rem] border border-stage-200/90 bg-stage-0/92 shadow-chip",
+  code: "overflow-hidden rounded-[1.35rem] border border-stage-200/90 bg-stage-0/92",
   codeAction:
-    "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-stage-200/90 bg-stage-0/78 px-3 text-ink-600 transition-colors hover:border-stage-300 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+    "inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-transparent px-3 text-ink-600 transition-colors hover:bg-stage-100/70 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
 }

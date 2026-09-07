@@ -114,10 +114,12 @@ export const ProvenanceMark = ({
 /**
  * A mark set in a line of text: the words themselves, on a button that
  * shows itself only when pointed at or answering, so the line still reads as
- * a line.
+ * a line. Its padding sits in the negative margins, so its greatest width is
+ * the line's plus that room; a plain `100%` would leave a shrink-to-fit
+ * heading eight pixels short of its own words and break them.
  */
 export const inlineMarkClassName =
-  `${markClassName} ${litMarkClassName} -mx-1 inline-flex min-w-0 max-w-full items-center px-1 py-0.5 text-left`
+  `${markClassName} ${litMarkClassName} -mx-1 inline-flex min-w-0 max-w-[calc(100%+0.5rem)] items-center px-1 py-0.5 text-left`
 
 /** A status said in the line that is also a mark: the signature, the version it is in. */
 export const StatusMark = ({ className = "", label, mark, tone, ...props }: ComponentProps<"button"> & {
