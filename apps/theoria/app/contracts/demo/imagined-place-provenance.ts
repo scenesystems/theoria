@@ -1,5 +1,6 @@
 import { type Equivalence, Match, type Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import type * as Record from "effect/Record"
 
 import { Id as CardId } from "../id.js"
 import { type PlaceBuild } from "../imagined-place-result.js"
@@ -88,19 +89,24 @@ export const layoutSite = site("layout", "arrange", "Text.layoutLinesWith(", "ef
 export const separationSite = site("separation", "arrange", "Statistics.minimum(", "effect-math")
 export const searchSite = site("search", "arrange", "Study.tell(", "effect-search")
 
-export const allCodeSites: ReadonlyArray<CodeSite> = [
-  composeSite,
-  inferenceSite,
-  proposalDigestSite,
-  proposalSignatureSite,
-  sealSite,
-  originDigestSite,
-  mergedDigestSite,
-  versionSignatureSite,
-  layoutSite,
-  separationSite,
-  searchSite
-]
+const codeSites: Record<CodeSiteId, CodeSite> = {
+  compose: composeSite,
+  inference: inferenceSite,
+  "proposal-digest": proposalDigestSite,
+  "proposal-signature": proposalSignatureSite,
+  seal: sealSite,
+  "origin-digest": originDigestSite,
+  "merged-digest": mergedDigestSite,
+  "version-signature": versionSignatureSite,
+  layout: layoutSite,
+  separation: separationSite,
+  search: searchSite
+}
+
+/** The canonical site named by `id`. */
+export const codeSite = (id: CodeSiteId): CodeSite => codeSites[id]
+
+export const allCodeSites: ReadonlyArray<CodeSite> = Arr.map(CodeSiteId.literals, codeSite)
 
 /**
  * Which build a drawing is of: the content ID of the version being drawn.
@@ -153,7 +159,7 @@ export const PlaceMark = Schema.Union(
   Schema.TaggedStruct("Trial", { index: Schema.Int, drawing: DrawingId }),
   Schema.TaggedStruct("Inference", {}),
   Schema.TaggedStruct("Note", {}),
-  Schema.TaggedStruct("CodeLine", { step: PlaceStep, match: Schema.String })
+  Schema.TaggedStruct("CodeLine", { site: CodeSiteId })
 )
 export type PlaceMark = typeof PlaceMark.Type
 

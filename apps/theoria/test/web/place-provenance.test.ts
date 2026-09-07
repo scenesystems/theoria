@@ -47,7 +47,10 @@ const answered = provenanceFor
 const factValue = (provenance: PlaceProvenance, label: string): Option.Option<string> =>
   Option.map(Arr.findFirst(provenance.facts, (fact) => fact.label === label), (fact) => fact.value)
 
-const codeLine = (step: PlaceStep, match: string): PlaceMark => ({ _tag: "CodeLine", step, match })
+const codeLine = (step: PlaceStep, match: string): PlaceMark => ({
+  _tag: "CodeLine",
+  site: Option.getOrThrow(codeSiteOf(step, match)).id
+})
 
 describe("place provenance", () => {
   it.effect("a line of the prose is answered from the drawing on the paper, not from the arrangement the search kept", () =>
@@ -158,7 +161,6 @@ describe("place provenance", () => {
       expect(provenanceFor({ _tag: "Line", index: 99, drawing }, on)).toEqual(Option.none())
       expect(provenanceFor({ _tag: "Digest", contentId: "blake3-256:nothing" }, on)).toEqual(Option.none())
       expect(codeSiteOf("compose", "nothing(")).toEqual(Option.none())
-      expect(provenanceFor(codeLine("compose", "nothing("), on)).toEqual(Option.none())
     }))
 
   it.effect("a drawing on its way to a trial says so, and says which trial only once it has arrived", () =>

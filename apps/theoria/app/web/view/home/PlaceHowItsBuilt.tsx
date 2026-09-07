@@ -121,7 +121,8 @@ const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
         aria-label={`Line ${String(line.number)}`}
         className={gutterMarkClassName}
         data-place-code-line={line.number}
-        mark={{ _tag: "CodeLine", step, match: site.match }}
+        data-place-code-site={site.id}
+        mark={{ _tag: "CodeLine", site: site.id }}
       >
         {line.number}
       </ProvenanceMark>
@@ -151,14 +152,15 @@ const StepCode = ({ step }: { readonly step: PlaceStep }) => {
         )}
         label={definition.name}
         links={referenceLinks(step)}
-        renderAnnotation={(annotation) => (
-          <ProvenanceMark
-            className={annotationMarkClassName}
-            mark={{ _tag: "CodeLine", step, match: annotation.match }}
-          >
-            <CodeAnnotationRow text={annotation.text} />
-          </ProvenanceMark>
-        )}
+        renderAnnotation={(annotation) =>
+          Option.match(codeSiteOnLine(step, annotation.match), {
+            onNone: () => null,
+            onSome: (site) => (
+              <ProvenanceMark className={annotationMarkClassName} mark={{ _tag: "CodeLine", site: site.id }}>
+                <CodeAnnotationRow text={annotation.text} />
+              </ProvenanceMark>
+            )
+          })}
         renderLineNumber={stepLineNumber(step)}
         source={definition.code}
       />

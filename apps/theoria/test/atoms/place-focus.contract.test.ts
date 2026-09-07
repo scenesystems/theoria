@@ -72,7 +72,7 @@ const line = (index: number, shown: PlaceRenderFrame): PlaceMark => ({
   drawing: drawingId(shown.search)
 })
 
-const codeLineAt = (site: CodeSite): PlaceMark => ({ _tag: "CodeLine", step: site.step, match: site.match })
+const codeLineAt = (site: CodeSite): PlaceMark => ({ _tag: "CodeLine", site: site.id })
 
 describe("place focus", () => {
   it.effect("nothing pointed at lights nothing", () =>

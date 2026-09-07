@@ -6,6 +6,8 @@ import * as Arr from "effect/Array"
 import {
   type AnswerFocusReturn,
   type CodeSite,
+  codeSite,
+  type CodeSiteId,
   decodeMark,
   encodeMark,
   focusReturnAfter,
@@ -28,7 +30,9 @@ import { type PlaceOnPage, provenanceFor } from "../view/home/placeProvenance.js
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 
 import { placeShownFrameAtom } from "./imagined-place-render.js"
-import { placeBuildAtom } from "./imagined-place.js"
+import { placeBuildAtom, placeStepAtom } from "./imagined-place.js"
+import { motionPreferenceAtom } from "./motion.js"
+import { navigateToElementAtom } from "./navigation.js"
 import { appRuntime } from "./runtime.js"
 
 /**
@@ -292,15 +296,28 @@ export const placeMarkFocusedAtom = Atom.family((encoded: string): AtomType.Atom
       Match.value(mark).pipe(
         Match.tag("Feature", "Disc", ({ name }) => get(placeFeatureFocusedAtom(name))),
         Match.tag("Line", ({ index }) => Option.contains(get(placeFocusedLineAtom), index)),
-        Match.tag("CodeLine", ({ match, step }) =>
-          Option.exists(get(placeFocusedSiteAtom), (site) => site.step === step && site.match === match)),
+        Match.tag("CodeLine", ({ site }) => Option.exists(get(placeFocusedSiteAtom), (focused) => focused.id === site)),
         Match.tag("Signature", "Digest", "Trial", "Inference", "Note", () =>
-          Option.exists(get(placeAnsweredMarkAtom), (answered) =>
-            encodeMark(answered) === encoded)),
+          Option.exists(get(placeAnsweredMarkAtom), (answered) => encodeMark(answered) === encoded)),
         Match.exhaustive
       ))
   )
 )
+
+/** Selects a credited site, closes its answer without focus return, then lands on its gutter mark. */
+export const placeGoToSiteAtom = appRuntime.fn<CodeSiteId>()((id, ctx) => {
+  const site = codeSite(id)
+  return Effect.sync(() => {
+    ctx.set(placeStepAtom, site.step)
+    ctx.set(answerFocusReturnState, "stays")
+    ctx.set(placeAnswerAtom, Option.none())
+    ctx.set(navigateToElementAtom, {
+      href: "#how-its-built",
+      selector: `[data-place-code-site="${id}"]`,
+      behavior: ctx(motionPreferenceAtom) === "full" ? "smooth" : "instant"
+    })
+  })
+})
 
 // ---------------------------------------------------------------------------
 // Act — where the visitor is reading

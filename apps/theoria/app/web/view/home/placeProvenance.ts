@@ -4,8 +4,8 @@ import * as Arr from "effect/Array"
 import { markersBeside } from "../../../contracts/demo/imagined-place-flow.js"
 import {
   type CodeSite,
+  codeSite,
   type CodeSiteId,
-  codeSiteOf,
   composeSite,
   type DrawingId,
   inferenceSite,
@@ -317,8 +317,7 @@ const aboutFeatures = (mark: PlaceMark, build: PlaceBuild): ReadonlyArray<string
     Match.tag("Feature", "Disc", ({ name }): ReadonlyArray<string> => [name]),
     Match.tag(
       "CodeLine",
-      ({ match, step }): ReadonlyArray<string> =>
-        Option.exists(codeSiteOf(step, match), (site) => site.id === composeSite.id) ? composedNames(build) : []
+      ({ site }): ReadonlyArray<string> => site === composeSite.id ? composedNames(build) : []
     ),
     Match.tag("Inference", () => composedNames(build)),
     Match.tag("Digest", ({ contentId }) => featuresOfSubject(build, contentId)),
@@ -533,9 +532,8 @@ const answerFor = (mark: PlaceMark, page: PlaceOnPage): Option.Option<PlaceProve
         noteAnswer(mark, build))),
     Match.tag(
       "CodeLine",
-      ({ match, step }) =>
-        Option.flatMap(codeSiteOf(step, match), (site) =>
-          codeLineAnswer(mark, page, site))
+      ({ site }) =>
+        codeLineAnswer(mark, page, codeSite(site))
     ),
     Match.exhaustive
   )

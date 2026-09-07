@@ -20,11 +20,11 @@ import {
   placeAnswerFocusReturnAtom,
   placeAnswerLifetimeAtom,
   placeAnswerOnShowAtom,
+  placeGoToSiteAtom,
   placeHoverIntentAtom,
   placeMarkFocusedAtom,
   placePointerOverAtom
 } from "../../atoms/imagined-place-experience.js"
-import { placeStepAtom } from "../../atoms/imagined-place.js"
 import {
   elevationClassName,
   type InlineStatusTone,
@@ -161,7 +161,7 @@ const viewportClassName = [
 ].join(" ")
 
 const codeLinkClassName =
-  "-mx-1.5 inline-flex min-w-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  "-mx-1.5 inline-flex min-w-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 motion-reduce:transition-none hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
 
 const copyButtonClassName =
   "-mx-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
@@ -214,7 +214,7 @@ const CopyValue = ({ value }: { readonly value: string }) => {
  * that call's step with the line lit.
  */
 const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
-  const setStep = useAtomSet(placeStepAtom)
+  const goToSite = useAtomSet(placeGoToSiteAtom)
   return (
     <Stack className="gap-2.5 px-3.5 py-3">
       <Cluster className="items-baseline justify-between gap-x-3 gap-y-1">
@@ -267,10 +267,11 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
       <Cluster className="items-center justify-between gap-x-3 gap-y-1 border-t border-rule pt-2">
         <AnchorLink
           className={codeLinkClassName}
-          data-place-provenance-code={provenance.site.match}
+          data-place-provenance-code={provenance.site.id}
           href={`#${howItsBuiltSectionId}`}
-          onClick={() => {
-            setStep(provenance.site.step)
+          onClick={(event) => {
+            event.preventDefault()
+            goToSite(provenance.site.id)
           }}
         >
           <SemanticText

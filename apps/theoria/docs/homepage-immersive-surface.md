@@ -569,6 +569,11 @@ import.meta.url), { type: "module" })`, which every bundler resolves
 
 ### Act 4 — Acts and provenance
 
+- [x] Code-line marks carry one canonical `CodeSiteId`; `codeSite(id)` is the
+      total source for the site's step, line-locating match and package.
+- [x] The credited-code link is an atom-owned route: it selects the step,
+      closes without returning focus, pushes `#how-its-built`, then centres
+      and focuses the canonical gutter mark (instantly under reduced motion).
 - [x] `atoms/imagined-place-experience.ts`: `placeActAtom`, `placeFocusAtom`,
       `placeBandAtom`; `contracts/demo/imagined-place-provenance.ts`:
       `PlaceMark`, `PlaceProvenance`, `PlaceAct`; `view/home/placeProvenance.ts`:

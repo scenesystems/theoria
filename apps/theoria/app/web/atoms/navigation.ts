@@ -1,6 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Effect, Match, Option, Stream } from "effect"
+import { Effect, Match, Option, Schema, Stream } from "effect"
 
 import type { DocsManifest } from "@theoria/docs-model"
 import { metadataForDocs, metadataForHome, type PageMetadata } from "../../contracts/metadata.js"
@@ -111,6 +111,35 @@ export const navigateAtom = appRuntime.fn<string>()((href, ctx) =>
     }
 
     yield* settleAfterNavigation(destination.hash)
+  })
+)
+
+const ElementNavigation = Schema.Struct({
+  href: Schema.String,
+  selector: Schema.String,
+  behavior: Schema.Literal("smooth", "instant")
+})
+type ElementNavigation = typeof ElementNavigation.Type
+
+/** Pushes an app history entry, then settles on and focuses a custom element after rendering. */
+export const navigateToElementAtom = appRuntime.fn<ElementNavigation>()((navigation, ctx) =>
+  Effect.gen(function*() {
+    const current = yield* BrowserWindow.currentUrl
+    const destination = yield* Effect.orDie(BrowserWindow.resolveAgainst(navigation.href, current))
+    if (relativeReference(destination) !== relativeReference(current)) {
+      yield* BrowserWindow.pushState(destination)
+      ctx.set(pageRouteAtom, routeForUrl(destination))
+      ctx.set(docsLocationHashAtom, destination.hash)
+    }
+    yield* nextFrame
+    const target = yield* BrowserDocument.querySelector(navigation.selector)
+    Option.match(target, {
+      onNone: () => {},
+      onSome: (element) => {
+        element.scrollIntoView({ behavior: navigation.behavior, block: "center" })
+        element.focus({ preventScroll: true })
+      }
+    })
   })
 )
 

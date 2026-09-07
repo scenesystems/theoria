@@ -555,7 +555,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         // The line itself is a mark, by its number in the gutter: the same answer as its value's, the same lighting.
         const composeGutter = page.locator("[data-place-code-step='compose'] [data-place-code-line]").first()
-        yield* attribute(composeGutter, "data-provenance", /composer\.forward\(/u)
+        yield* attribute(composeGutter, "data-place-code-site", "compose")
         yield* attribute(composeGutter, "aria-label", /^Line \d+$/u)
         yield* act(() => page.mouse.move(0, 0))
         yield* hidden(overlay)
@@ -574,7 +574,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const built = page.locator("[data-place-how-its-built]")
         const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose")
         yield* click(built.getByRole("tab", { name: propose.name }))
-        const digestLine = built.locator("[data-provenance*='digestSchemaValue(Proposal'] [data-code-annotation]")
+        const digestLine = built.locator("[data-provenance*='proposal-digest'] [data-code-annotation]")
         yield* act(() => digestLine.scrollIntoViewIfNeeded())
         yield* act(() => page.mouse.move(0, 0))
         yield* hidden(overlay)
@@ -600,13 +600,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const litLines = demo.locator("[data-place-line][data-place-focused]")
         yield* Effect.forEach(
           [
-            { match: "Text.layoutLinesWith(", title: /^Line \d+ of \d+$/u, href: "/docs/effect-text", lit: 1 },
-            { match: "Statistics.minimum(", title: /^Trial \d+ · kept$/u, href: "/docs/effect-math", lit: 0 },
-            { match: "Study.tell(", title: /^Trial \d+ · kept$/u, href: "/docs/effect-search", lit: 0 }
+            { site: "layout", title: /^Line \d+ of \d+$/u, href: "/docs/effect-text", lit: 1 },
+            { site: "separation", title: /^Trial \d+ · kept$/u, href: "/docs/effect-math", lit: 0 },
+            { site: "search", title: /^Trial \d+ · kept$/u, href: "/docs/effect-search", lit: 0 }
           ],
           (expected) =>
             Effect.gen(function*() {
-              const marks = built.locator(`[data-provenance*='${expected.match}']`)
+              const marks = built.locator(`[data-provenance*='${expected.site}']`)
               yield* count(marks, 2)
               yield* Effect.forEach(
                 [marks.locator("[data-code-annotation]"), marks.and(page.locator("[data-place-code-line]"))],
