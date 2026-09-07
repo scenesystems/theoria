@@ -26,7 +26,7 @@ export const Stage = Schema.Struct({
 export type Stage = typeof Stage.Type
 
 /** The text role the description is set in; its line height shapes the stage. */
-export const placeTextRole: TextRole = "card-summary"
+export const placeTextRole: TextRole = "stage-prose"
 
 /** The Arrange column at a 320 px viewport is 254 px wide; the stage must fit inside it. */
 export const stageMinWidth = 240

@@ -1,11 +1,26 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
+import { metricsAt, metricsOverride, textSemantics, viewports } from "../../app/contracts/text.js"
 import { deterministicTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
 import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Typography contract", () => {
+  it.effect("keeps projected typography independent of responsive metrics", () =>
+    Effect.gen(function*() {
+      const base = metricsAt("stage-prose", Option.none())
+      expect(metricsAt("stage-prose", Option.some("narrow"))).toEqual(base)
+      expect(metricsAt("stage-prose", Option.some("wide"))).toEqual(base)
+
+      const responsive = Arr.filter(
+        textSemantics,
+        (semantics) => Arr.some(viewports, (viewport) => Option.isSome(metricsOverride(semantics, viewport)))
+      )
+      expect(responsive.length).toBeGreaterThan(0)
+      Arr.forEach(responsive, (semantics) => expect(semantics.wrapAuthority).toBe("native-browser"))
+    }))
+
   it.effect("projectText produces glyph-aware line breaks", () =>
     Effect.gen(function*() {
       const longText =

@@ -290,6 +290,10 @@ own room: the hero says what Theoria is; the demonstration shows a place it
 built. (The first draft of this act folded the hero into the arrival; that
 was reversed — the page needs both.)
 
+- Typography metrics live in `contracts/text.ts`; generated CSS carries the
+  responsive tokens and complete safelist, while `stage-prose` stays 16/26 at
+  every viewport to match the projected paper geometry.
+
 - [x] `HomePage.tsx`: glow layers removed; padding
       `max-w-[88rem] px-5 sm:px-8 lg:px-12`; header → hero → demonstration →
       footer, all on the canvas.
@@ -625,7 +629,7 @@ import.meta.url), { type: "module" })`, which every bundler resolves
       build a drawing is of, so the stage keeps its story while the next is
       built and nothing reads across (`placeArtifactAtom` is gone; the
       render stream takes the build). A disc on the paper is a `Disc { name,
-  source }`, a line of the prose a `Line { index, drawing }`, a trial a
+source }`, a line of the prose a `Line { index, drawing }`, a trial a
       `Trial { index, drawing }` (`DrawingId = { source, stageWidth }`,
       compared by `sameDrawing`); a `Feature` in the column is of the build
       the column describes, and tells where it stands only if the paper is

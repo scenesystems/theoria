@@ -1,5 +1,5 @@
 import { Text } from "@scenesystems/effect-text"
-import { Match, Schema } from "effect"
+import { Match, Option, Schema } from "effect"
 import * as HashMap from "effect/HashMap"
 
 import { type SurfaceVariant, SurfaceVariant as SurfaceVariantSchema } from "./presentation.js"
@@ -63,6 +63,7 @@ export const TextRole = Schema.Literal(
   "subsection-title",
   "card-title",
   "card-summary",
+  "stage-prose",
   "status",
   "tab-label",
   "selection-title",
@@ -92,6 +93,38 @@ export const TextWrapAuthority = Schema.Literal("native-browser", "effect-text-p
 
 export type TextWrapAuthority = typeof TextWrapAuthority.Type
 
+export const FluidSize = Schema.Struct({
+  min: PositiveWidth,
+  vw: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  max: PositiveWidth
+})
+export type FluidSize = typeof FluidSize.Type
+
+export const FontSize = Schema.Union(Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)), FluidSize)
+export type FontSize = typeof FontSize.Type
+
+export const Metrics = Schema.Struct({ fontSize: FontSize, lineHeight: PositiveLineHeight })
+export type Metrics = typeof Metrics.Type
+
+export const Viewport = Schema.Literal("narrow", "wide")
+export type Viewport = typeof Viewport.Type
+
+export const viewports: ReadonlyArray<Viewport> = Viewport.literals
+
+/** The media condition under which a viewport's metrics apply. */
+export const viewportCondition = (viewport: Viewport): string =>
+  Match.value(viewport).pipe(
+    Match.when("narrow", () => "(width < 40rem)"),
+    Match.when("wide", () => "(width >= 64rem)"),
+    Match.exhaustive
+  )
+
+export const ResponsiveMetrics = Schema.Struct({
+  narrow: Schema.optional(Metrics),
+  wide: Schema.optional(Metrics)
+})
+export type ResponsiveMetrics = typeof ResponsiveMetrics.Type
+
 export const TextSemantics = Schema.Struct({
   role: TextRole,
   family: FontFamily,
@@ -102,7 +135,8 @@ export const TextSemantics = Schema.Struct({
   lineBreaks: LineBreakBehavior,
   whiteSpace: Text.WhiteSpaceMode,
   lineHeight: PositiveLineHeight,
-  maxWidth: VariantMaxWidth
+  maxWidth: VariantMaxWidth,
+  at: ResponsiveMetrics
 })
 
 export type TextSemantics = typeof TextSemantics.Type
@@ -124,7 +158,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 50,
-    maxWidth: { compact: 720, expanded: 1040 }
+    maxWidth: { compact: 720, expanded: 1040 },
+    at: { narrow: { fontSize: 36, lineHeight: 40 }, wide: { fontSize: 64, lineHeight: 68 } }
   },
   lead: {
     role: "lead",
@@ -136,7 +171,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 28,
-    maxWidth: { compact: 600, expanded: 720 }
+    maxWidth: { compact: 600, expanded: 720 },
+    at: { narrow: { fontSize: 17, lineHeight: 26 } }
   },
   "hero-title": {
     role: "hero-title",
@@ -148,7 +184,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 44,
-    maxWidth: { compact: 680, expanded: 920 }
+    maxWidth: { compact: 680, expanded: 920 },
+    at: { narrow: { fontSize: 32, lineHeight: 38 } }
   },
   "subsection-title": {
     role: "subsection-title",
@@ -160,7 +197,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 30,
-    maxWidth: { compact: 520, expanded: 1120 }
+    maxWidth: { compact: 520, expanded: 1120 },
+    at: { narrow: { fontSize: { min: 14, vw: 4.6, max: 18 }, lineHeight: 24 } }
   },
   "card-title": {
     role: "card-title",
@@ -172,7 +210,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 32,
-    maxWidth: { compact: 520, expanded: 1120 }
+    maxWidth: { compact: 520, expanded: 1120 },
+    at: {}
   },
   "card-summary": {
     role: "card-summary",
@@ -184,7 +223,21 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 26,
-    maxWidth: { compact: 720, expanded: 1400 }
+    maxWidth: { compact: 720, expanded: 1400 },
+    at: { narrow: { fontSize: 15, lineHeight: 22 } }
+  },
+  "stage-prose": {
+    role: "stage-prose",
+    family: "body",
+    fontSize: 16,
+    weight: "normal",
+    tracking: 0,
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
+    whiteSpace: "normal",
+    lineHeight: 26,
+    maxWidth: { compact: 720, expanded: 1400 },
+    at: {}
   },
   status: {
     role: "status",
@@ -196,7 +249,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 22,
-    maxWidth: { compact: 760, expanded: 1400 }
+    maxWidth: { compact: 760, expanded: 1400 },
+    at: {}
   },
   "tab-label": {
     role: "tab-label",
@@ -208,7 +262,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 16,
-    maxWidth: { compact: 180, expanded: 220 }
+    maxWidth: { compact: 180, expanded: 220 },
+    at: {}
   },
   "selection-title": {
     role: "selection-title",
@@ -220,7 +275,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 20,
-    maxWidth: { compact: 900, expanded: 1400 }
+    maxWidth: { compact: 900, expanded: 1400 },
+    at: {}
   },
   "section-title": {
     role: "section-title",
@@ -232,7 +288,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 32,
-    maxWidth: { compact: 900, expanded: 1400 }
+    maxWidth: { compact: 900, expanded: 1400 },
+    at: { narrow: { fontSize: 21, lineHeight: 28 } }
   },
   "row-label": {
     role: "row-label",
@@ -244,7 +301,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 16,
-    maxWidth: { compact: 360, expanded: 680 }
+    maxWidth: { compact: 360, expanded: 680 },
+    at: {}
   },
   "row-value": {
     role: "row-value",
@@ -256,7 +314,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 22,
-    maxWidth: { compact: 760, expanded: 1400 }
+    maxWidth: { compact: 760, expanded: 1400 },
+    at: {}
   },
   "code-meta": {
     role: "code-meta",
@@ -268,7 +327,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 18,
-    maxWidth: { compact: 900, expanded: 1400 }
+    maxWidth: { compact: 900, expanded: 1400 },
+    at: {}
   },
   "code-block": {
     role: "code-block",
@@ -280,7 +340,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "pre-wrap",
     lineHeight: 18,
-    maxWidth: { compact: 900, expanded: 1800 }
+    maxWidth: { compact: 900, expanded: 1800 },
+    at: {}
   },
   "button-label": {
     role: "button-label",
@@ -292,7 +353,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 16,
-    maxWidth: { compact: 170, expanded: 210 }
+    maxWidth: { compact: 170, expanded: 210 },
+    at: {}
   },
   "marker-label": {
     role: "marker-label",
@@ -304,7 +366,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 14,
-    maxWidth: { compact: 160, expanded: 200 }
+    maxWidth: { compact: 160, expanded: 200 },
+    at: {}
   }
 }
 
@@ -315,6 +378,7 @@ export const textSemantics: ReadonlyArray<TextSemantics> = [
   textSemanticsByRole["subsection-title"],
   textSemanticsByRole["card-title"],
   textSemanticsByRole["card-summary"],
+  textSemanticsByRole["stage-prose"],
 
   textSemanticsByRole.status,
   textSemanticsByRole["tab-label"],
@@ -329,6 +393,26 @@ export const textSemantics: ReadonlyArray<TextSemantics> = [
 ]
 
 export const semanticsFor = (role: TextRole): TextSemantics => textSemanticsByRole[role]
+
+/** The metrics a role takes at a viewport instead of its own, if it has any. */
+export const metricsOverride = (semantics: TextSemantics, viewport: Viewport): Option.Option<Metrics> =>
+  Option.fromNullable(semantics.at[viewport])
+
+/** A role's size and leading, base or at a viewport that overrides them. */
+export const metricsAt = (role: TextRole, viewport: Option.Option<Viewport>): Metrics => {
+  const semantics = semanticsFor(role)
+  const base = Metrics.make({ fontSize: semantics.fontSize, lineHeight: semantics.lineHeight })
+  return Option.match(viewport, {
+    onNone: () => base,
+    onSome: (at) => Option.getOrElse(metricsOverride(semantics, at), () => base)
+  })
+}
+
+/** The CSS for a size: fixed, or fluid between its bounds. */
+export const fontSizeCss = (size: FontSize): string =>
+  Schema.is(FluidSize)(size)
+    ? `clamp(${String(size.min)}px, ${String(size.vw)}vw, ${String(size.max)}px)`
+    : `${String(size)}px`
 
 export const maxWidthFor = (role: TextRole, variant: SurfaceVariant): number =>
   Match.value(variant).pipe(

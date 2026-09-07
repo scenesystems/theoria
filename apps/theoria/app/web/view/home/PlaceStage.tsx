@@ -103,7 +103,7 @@ const Lines = ({ drawing, projection, prose }: {
           <SemanticText
             as="span"
             className="block whitespace-nowrap text-ink-900"
-            role="card-summary"
+            role="stage-prose"
             text={line.text.length === 0 ? "\u00a0" : line.text}
             variant="expanded"
             wrapAuthority="native-browser"

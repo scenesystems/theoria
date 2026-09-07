@@ -992,5 +992,63 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(band.locator("[data-place-band-disc][data-place-focused]"), 4)
         expect(yield* failures).toEqual([])
       }))
+
+    it.scoped("stage prose metrics stay aligned with geometry across responsive widths", () =>
+      Effect.gen(function*() {
+        const viewports = [
+          { width: 390, height: 844 },
+          { width: 768, height: 1024 },
+          { width: 1280, height: 800 }
+        ]
+        const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
+        yield* goto(page, "/")
+
+        yield* Effect.forEach(viewports, (viewport) =>
+          Effect.gen(function*() {
+            yield* setViewport(page, viewport)
+            yield* goto(page, "/")
+            const lines = page.locator("[data-place-line]").first()
+            yield* visible(lines)
+            const stage = yield* act(() =>
+              page.locator("[data-place-line]").evaluateAll((elements) =>
+                elements.slice(0, 3).map((element) => {
+                  const span = element.querySelector("span")
+                  const computed = (span ?? element).computedStyleMap()
+                  return {
+                    fontSize: computed.get("font-size")?.toString(),
+                    lineHeight: computed.get("line-height")?.toString(),
+                    height: element.getBoundingClientRect().height,
+                    clipped: (span?.scrollWidth ?? 0) > element.clientWidth + 1
+                  }
+                })
+              )
+            )
+            Arr.forEach(stage, (metrics) => {
+              expect(metrics.fontSize).toBe("16px")
+              expect(metrics.lineHeight).toBe("26px")
+              expect(metrics.height).toBe(26)
+              expect(metrics.clipped).toBe(false)
+            })
+
+            yield* goto(page, "/docs")
+            const card = page.locator("[class*=\"--st-fs-card-summary\"]").first()
+            yield* visible(card)
+            const cardMetrics = yield* act(() =>
+              card.evaluate((element) => {
+                const computed = element.computedStyleMap()
+                return {
+                  fontSize: computed.get("font-size")?.toString(),
+                  lineHeight: computed.get("line-height")?.toString()
+                }
+              })
+            )
+            expect(cardMetrics).toEqual(
+              viewport.width === 390
+                ? { fontSize: "15px", lineHeight: "22px" }
+                : { fontSize: "16px", lineHeight: "26px" }
+            )
+          }))
+        expect(yield* failures).toEqual([])
+      }))
   }
 )
