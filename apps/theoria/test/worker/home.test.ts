@@ -153,16 +153,26 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(page.locator("[data-place-render-phase='complete']"))
         yield* visible(demo.locator("[data-place-marker]").first())
 
-        // Wide: the hero reads first; the drawn place and at least one of its
-        // discs are already on screen beside the arrival, before any scroll.
+        // Wide: the hero reads first; the arrival follows on the same screen,
+        // and the demonstration begins under it with Compose and Arrange
+        // starting on one line, so the first scroll reads down both columns.
         const heading = page.getByRole("heading", { level: 1 })
         const browse = page.getByRole("link", { exact: true, name: "Browse the packages" })
         const arriveTitle = demo.locator("[data-place-arrive] h2")
         expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
         expect(yield* act(() => arriveTitle.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => demo.locator("[data-place-marker]").first().evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => demo.locator("[data-place-arrive] p").evaluate(topEdgeInViewport))).toBe(true)
+        expect(
+          yield* act(() =>
+            demo.locator("[data-place-step='compose'] [data-place-step-header]").evaluate(topEdgeInViewport)
+          )
+        ).toBe(true)
+        expect(
+          yield* act(() =>
+            demo.locator("[data-place-step='arrange'] [data-place-step-header]").evaluate(topEdgeInViewport)
+          )
+        ).toBe(true)
         // The arrival says what this is and how it works; the place's name and
         // its story stay on the paper, where the composer put them.
         const arrive = demo.locator("[data-place-arrive]")
@@ -170,7 +180,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(arrive, placeArriveText)
         yield* count(arrive.getByText(/at high water the sea covers the causeway/u), 0)
         const composedTitle = yield* Option.fromNullable(
-          yield* act(() => demo.locator("[data-place-composition] p").first().textContent())
+          yield* act(() => demo.locator("[data-place-composition-title]").textContent())
         )
         yield* count(arrive.getByText(composedTitle, { exact: true }), 0)
 

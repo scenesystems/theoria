@@ -10,6 +10,7 @@ import {
   layoutSite,
   type PlaceMark,
   proposalDigestSite,
+  proposalSignatureSite,
   separationSite
 } from "../../app/contracts/demo/imagined-place-provenance.js"
 import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
@@ -103,6 +104,54 @@ describe("place focus", () => {
         Arr.every(build.artifact.composition.features, (feature) => registry.get(placeFeatureFocusedAtom(feature.name)))
       ).toBe(true)
       expect(registry.get(placeFocusedLineAtom)).toEqual(Option.none())
+    }))
+
+  it.effect("the line that digested a proposal, pointed at, lights the proposal's disc and its name, and nothing else", () =>
+    Effect.gen(function*() {
+      const { build, showingTrial } = yield* onStage
+      const registry = pageShowing(build, showingTrial)
+      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const digesting = codeLineAt(proposalDigestSite)
+
+      registry.set(placeFocusAtom, Option.some(digesting))
+      expect(registry.get(placeAnsweredMarkAtom)).toEqual(
+        Option.some<PlaceMark>({ _tag: "Digest", contentId: merged.contentId })
+      )
+      expect(registry.get(placeFeatureFocusedAtom(merged.proposal.feature.name))).toBe(true)
+      expect(lit(registry, { _tag: "Feature", name: merged.proposal.feature.name })).toBe(true)
+      expect(
+        Arr.some(build.artifact.composition.features, (feature) => registry.get(placeFeatureFocusedAtom(feature.name)))
+      ).toBe(false)
+      // The signing line is about the same proposal, and lights the same disc.
+      registry.set(placeFocusAtom, Option.some(codeLineAt(proposalSignatureSite)))
+      expect(registry.get(placeFeatureFocusedAtom(merged.proposal.feature.name))).toBe(true)
+    }))
+
+  it.effect("a version's ID, pointed at, lights every feature the version records", () =>
+    Effect.gen(function*() {
+      const { build, showingTrial } = yield* onStage
+      const registry = pageShowing(build, showingTrial)
+      const origin = yield* Arr.head(build.evidence.lineage)
+      const current = yield* Arr.last(build.evidence.lineage)
+      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const composed = Arr.map(build.artifact.composition.features, (feature) => feature.name)
+
+      // Version 1 digests the composition alone.
+      registry.set(placeFocusAtom, Option.some<PlaceMark>({ _tag: "Digest", contentId: origin.contentId }))
+      expect(Arr.every(composed, (name) => registry.get(placeFeatureFocusedAtom(name)))).toBe(true)
+      expect(registry.get(placeFeatureFocusedAtom(merged.proposal.feature.name))).toBe(false)
+
+      // Version 2 digests the composition and what was merged into it; the line that signed it says the same.
+      registry.set(placeFocusAtom, Option.some<PlaceMark>({ _tag: "Digest", contentId: current.contentId }))
+      expect(Arr.every(composed, (name) => registry.get(placeFeatureFocusedAtom(name)))).toBe(true)
+      expect(registry.get(placeFeatureFocusedAtom(merged.proposal.feature.name))).toBe(true)
+      registry.set(placeFocusAtom, Option.some<PlaceMark>({ _tag: "Signature", subject: current.contentId }))
+      expect(registry.get(placeFeatureFocusedAtom(merged.proposal.feature.name))).toBe(true)
+
+      // The recorded inference composed the features, and lights those alone.
+      registry.set(placeFocusAtom, Option.some<PlaceMark>({ _tag: "Inference" }))
+      expect(Arr.every(composed, (name) => registry.get(placeFeatureFocusedAtom(name)))).toBe(true)
+      expect(registry.get(placeFeatureFocusedAtom(merged.proposal.feature.name))).toBe(false)
     }))
 
   it.effect("the layout's line, pointed at, lights the first narrowed line of the drawing on the paper", () =>

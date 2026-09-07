@@ -298,24 +298,51 @@ place it built` was reversed.
       The place's name is not repeated here: the composer named it, and the
       paper and the Compose card already carry it. (The first draft put the
       place's name here; that was reversed — it doubled the paper's heading.)
-- [x] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`:
-      `lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]` with the stage
-      `sticky top-6` in the second column beside the arrival and the acts;
-      below `lg` the arrival leads, the paper follows at full width, then the
-      acts.
+- [x] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`: the arrival leads the
+      demonstration at full width; under it,
+      `lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]` with the acts in
+      the first column and the stage `sticky top-6` in the second, so Compose
+      and Arrange start on one line and the first scroll reads down both
+      columns; below `lg` the arrival leads, the paper follows at full width,
+      then the acts. (The first draft set the arrival beside the stage in the
+      grid's first row; Arrange then began a paragraph above Compose.)
+- [x] `PlaceStepCard.tsx`: the spine's dot is in the header's grid row and
+      centred on it, level with the step's name; the dot is positioned so it
+      paints over the spine's rule (`PlaceActs.tsx`, `left-[calc(0.375rem-0.5px)]`,
+      the centre of the `w-3` dot column), so an open ring is open. The name
+      and its packages are `items-center`.
+- [x] `PlaceComposition.tsx` reads down: the scenarios, the title the composer
+      gave the chosen one, the brief that scenario gives the composer
+      (`PlaceControls.tsx` → `ScenarioChoice` and `BriefField`), then the
+      features under a `Features` label beside the recorded-inference status.
+- [x] One wash for what is lit: `designSystem.ts` `markClassName`,
+      `litMarkClassName` (the mark's own box) and `litChipClassName` (a chip set
+      inside a mark, on the chip's box) — the same `stage-100/80` under the
+      pointer, while answered, and while a popup is open, on a feature's name,
+      a line of the prose, a code line's number, a value under a line of code,
+      and a step's name. `Elevation` (`contracts/layout.ts`) orders what stands
+      over the page: band under answer under preview, so a docs preview opened
+      from an answer stands over it.
 - [ ] `PlaceStage.tsx`: `placeStageWidthAtom` reads the content width;
       version knots rendered on the paper (Act 2, with the strand).
 - [x] Below `lg` — and at `lg` once the full-width Build act scrolls the
       pinned stage away — the place stays as a band: `PlaceBand.tsx`, a
       `sticky top-0` slot of no height at the head of the demonstration, so
-      the band coming and going moves nothing in the flow; the band is a strip
-      of paper with the discs in a row at their stage size, no prose, one link
-      back to the stage; shown by `placeBandAtom`, derived from the stage
-      column crossing the viewport's top edge (Act 4).
+      the band coming and going moves nothing in the flow; the band is a
+      legend-sized strip — a pill one line of text tall — with the discs in a
+      row in their stage proportions (`bandRow`, a viewBox drawn at `h-5`), no
+      prose, and an arrow up: one link back to the stage; shown by
+      `placeBandAtom`, derived from the stage column crossing the viewport's
+      top edge (Act 4). (The first draft drew the row at stage size; at 390 it
+      was a sheet, not a strip.)
 - [x] `test/worker/home.test.ts` — _the hero and the place share the first
-      viewport_: at 1440×900 the `h1`, its filled action, the place's title,
-      the paper's top edge and a disc are inside the viewport before any
-      scroll; at 390×844 the `h1`, both actions and the place's title are.
+      viewport_: at 1440×900 the `h1`, its filled action, the arrival's title
+      and lead, and the Compose and Arrange headers are inside the viewport
+      before any scroll; at 390×844 the `h1`, both actions and the arrival's
+      title are. `test/worker/home-form.test.ts` measures the form: dots
+      centred on the spine and over it, names level with their packages, one
+      wash on everything lit, the preview over the answer, the band's height
+      and its arrow, the arrival over both columns, the Compose act's order.
 
 ### Act 2 — Voices and lineage
 
@@ -591,7 +618,7 @@ import.meta.url), { type: "module" })`, which every bundler resolves
 ### Act 5 — Responsive and environmental verification
 
 - [ ] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three stories:
-      no element overflows; the paper and a disc are in the first viewport.
+      no element overflows; the arrival and both column headers are in the first viewport.
 - [ ] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
       ≤ 3 lines; the pinned band never covers the focused control.
 - [ ] Forced colors: proposer rule, switch state, tab indicator and strand

@@ -44,7 +44,10 @@ const Pending = () => (
  * changes what the stage shows.
  */
 const Acts = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
-  <Stack className="relative gap-10 lg:before:absolute lg:before:bottom-3 lg:before:left-[5px] lg:before:top-3 lg:before:w-px lg:before:bg-rule-strong">
+  <Stack
+    className="relative gap-10 lg:before:absolute lg:before:bottom-3 lg:before:left-[calc(0.375rem-0.5px)] lg:before:top-3 lg:before:w-px lg:before:bg-rule-strong"
+    data-place-acts
+  >
     <PlaceStepCard spine="spine" step="compose">
       <PlaceComposition build={build} />
     </PlaceStepCard>
@@ -77,20 +80,22 @@ export const PlaceActs = () => {
       <Layer>
         <PlaceBand />
         <Stack className="gap-12 lg:gap-16">
-          <Layer className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-10">
-            <Layer className="min-w-0 lg:col-start-1 lg:row-start-1">
+          <Stack className="gap-8 lg:gap-10">
+            <Stack className="min-w-0 max-w-[44rem] gap-6">
               <PlaceArrive />
               {Result.isFailure(result) ? <BuildFailed /> : null}
+            </Stack>
+            <Layer className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]">
+              <Layer className="min-w-0 max-w-[44rem] lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-6">
+                <PlaceStepCard spine="none" step="arrange">
+                  <PlaceArrangement build={build} />
+                </PlaceStepCard>
+              </Layer>
+              <Layer className="min-w-0 lg:col-start-1 lg:row-start-1">
+                <Acts build={build} />
+              </Layer>
             </Layer>
-            <Layer className="min-w-0 max-w-[44rem] lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-6">
-              <PlaceStepCard spine="none" step="arrange">
-                <PlaceArrangement build={build} />
-              </PlaceStepCard>
-            </Layer>
-            <Layer className="min-w-0 lg:col-start-1 lg:row-start-2">
-              <Acts build={build} />
-            </Layer>
-          </Layer>
+          </Stack>
 
           <PlaceHowItsBuilt />
         </Stack>

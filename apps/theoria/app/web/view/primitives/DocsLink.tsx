@@ -9,7 +9,7 @@ import { useRef } from "react"
 import { Id } from "../../../contracts/id.js"
 import { docsApiModuleIndexAtom, docsManifestAtom } from "../../atoms/docs-data.js"
 
-import { neutralToneClasses, toneClassesForCard } from "./designSystem.js"
+import { elevationClassName, neutralToneClasses, toneClassesForCard } from "./designSystem.js"
 import {
   docsLinkModuleAsset,
   docsLinkPath,
@@ -159,7 +159,13 @@ const PreviewLink = ({ children, className, destination, href, title, ...props }
         {children}
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Positioner align="start" collisionPadding={12} side="bottom" sideOffset={8}>
+        <Popover.Positioner
+          align="start"
+          className={elevationClassName("preview")}
+          collisionPadding={12}
+          side="bottom"
+          sideOffset={8}
+        >
           <Preview destination={destination} href={href} title={title} />
         </Popover.Positioner>
       </Popover.Portal>

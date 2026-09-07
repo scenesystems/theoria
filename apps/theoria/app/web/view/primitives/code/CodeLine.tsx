@@ -1,6 +1,7 @@
 import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import { litChipClassName } from "../designSystem.js"
 import { DocsLink } from "../DocsLink.js"
 import { Layer } from "../Layout.js"
 import { SemanticText } from "../SemanticText.js"
@@ -55,7 +56,7 @@ const Segment = ({ segment }: { readonly segment: LineSegment }) =>
 export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
   <Layer
     render={<span />}
-    className="my-1 inline-flex items-center gap-1.5 rounded-md border border-stage-300/85 bg-stage-50/95 px-2 py-0.5 shadow-chip"
+    className={`${litChipClassName} my-1 inline-flex items-center gap-1.5 rounded-md border border-stage-300/85 bg-stage-50/95 px-2 py-0.5 shadow-chip`}
     data-code-annotation
   >
     <Layer aria-hidden render={<span />} className="inline-block size-1.5 rounded-full bg-ink-500" />

@@ -29,7 +29,7 @@ import {
   type SignatureRecord,
   type Version
 } from "../../../contracts/imagined-place-result.js"
-import type { ParticipantRole } from "../../../contracts/imagined-place.js"
+import { type ParticipantRole, placeFeatures } from "../../../contracts/imagined-place.js"
 import { PlaceRenderFrame, type PlaceSearch } from "../../atoms/imagined-place-render.js"
 
 import { currentVersion, participantLabel, searching, shortId, signatureFor } from "./placeViewModel.js"
@@ -275,18 +275,48 @@ const compositionAnswer = (mark: PlaceMark, build: PlaceBuild): PlaceProvenance 
   )
 }
 
-/** The names of the features an answer is about: a feature's own, or every one the composing line returned. */
+const composedNames = (build: PlaceBuild): ReadonlyArray<string> =>
+  Arr.map(build.artifact.composition.features, (feature) => feature.name)
+
+/**
+ * The features a version's ID is over: the origin digests the composition
+ * alone; a version with a parent digests the composition and every proposal
+ * merged into it, which is what the place draws.
+ */
+const featuresOfVersion = (build: PlaceBuild, version: Version): ReadonlyArray<string> =>
+  Option.isNone(Option.fromNullable(version.parent))
+    ? composedNames(build)
+    : Arr.map(placeFeatures(build.artifact), (feature) => feature.name)
+
+/** The features a content ID is over: a version's, or the one feature a proposal offered. */
+const featuresOfSubject = (build: PlaceBuild, contentId: string): ReadonlyArray<string> =>
+  Option.match(versionFor(build, contentId), {
+    onSome: (version) => featuresOfVersion(build, version),
+    onNone: () =>
+      Option.match(proposalById(build, contentId), {
+        onNone: (): ReadonlyArray<string> => [],
+        onSome: (record) => [record.proposal.feature.name]
+      })
+  })
+
+/**
+ * The names of the features an answer is about, so each can say so where it
+ * stands: a feature's own; every feature the composing line, or the recorded
+ * inference, returned; the features a content ID or a signature is over. A
+ * line of the prose, a trial and the sealed note are about no feature.
+ */
 export const featuresAnswered = (provenance: PlaceProvenance, build: PlaceBuild): ReadonlyArray<string> =>
   Match.value(provenance.mark).pipe(
     Match.tag("Feature", ({ name }): ReadonlyArray<string> => [name]),
     Match.tag(
       "CodeLine",
       ({ match, step }): ReadonlyArray<string> =>
-        Option.exists(codeSiteOf(step, match), (site) => site.id === composeSite.id)
-          ? Arr.map(build.artifact.composition.features, (feature) => feature.name)
-          : []
+        Option.exists(codeSiteOf(step, match), (site) => site.id === composeSite.id) ? composedNames(build) : []
     ),
-    Match.tag("Line", "Signature", "Digest", "Trial", "Inference", "Note", (): ReadonlyArray<string> => []),
+    Match.tag("Inference", () => composedNames(build)),
+    Match.tag("Digest", ({ contentId }) => featuresOfSubject(build, contentId)),
+    Match.tag("Signature", ({ subject }) => featuresOfSubject(build, subject)),
+    Match.tag("Line", "Trial", "Note", (): ReadonlyArray<string> => []),
     Match.exhaustive
   )
 

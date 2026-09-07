@@ -13,7 +13,7 @@ import { placeBuildAtom, placeBuildShaAtom, placeStepAtom } from "../../atoms/im
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
 import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { litMarkClassName, markClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
@@ -107,11 +107,10 @@ const StepTabs = () => (
  * links and a control may not hold links: a trigger around the line took the
  * link's press and its preview never opened.
  */
-const annotationMarkClassName =
-  "inline-flex cursor-default rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 data-[popup-open]:ring-2 data-[popup-open]:ring-ink-900/20"
+const annotationMarkClassName = `${markClassName} inline-flex`
 
 const gutterMarkClassName =
-  "-mx-1 inline-flex w-[calc(100%+0.5rem)] cursor-default justify-end rounded-md px-1 text-right text-inherit transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 data-[popup-open]:bg-stage-100/80 data-[place-focused]:text-ink-900"
+  `${markClassName} ${litMarkClassName} -mx-1 inline-flex w-[calc(100%+0.5rem)] justify-end px-1 text-right text-inherit data-[place-focused]:text-ink-900 data-[popup-open]:text-ink-900`
 
 /** A line's number: the line's mark where the line made something on the page, a number where it did not. */
 const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>

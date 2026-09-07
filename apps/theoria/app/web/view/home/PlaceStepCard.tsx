@@ -10,7 +10,8 @@ import type { Id as CardId } from "../../../contracts/id.js"
 import type { StepSpine } from "../../../contracts/layout.js"
 import { placeActAttribute } from "../../atoms/imagined-place-experience.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
-import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { litMarkClassName, markClassName } from "../primitives/designSystem.js"
+import { Cluster, Layer } from "../primitives/Layout.js"
 import { PackageName } from "../primitives/PackageName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
@@ -24,19 +25,37 @@ const packageNames = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
       (card) => <PackageName id={card.id} key={card.id} />
     ))
 
-const nameButtonClassName =
-  "-mx-1.5 -my-1 rounded-md px-1.5 py-1 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+const nameButtonClassName = `${markClassName} ${litMarkClassName} -mx-1.5 -my-1 cursor-pointer px-1.5 py-1 text-left`
 
+/**
+ * The dot on the spine, in the header's row and centred on it, so the dot
+ * sits level with the step's name whatever the name's line height. The dot
+ * is positioned so it paints over the spine's line: an open ring is open.
+ */
 const spineDot = (active: boolean) => (
-  <Layer aria-hidden className="hidden w-3 justify-center pt-2 lg:flex">
+  <Layer aria-hidden className="relative hidden w-3 justify-center self-center lg:col-start-1 lg:row-start-1 lg:flex">
     <Layer
       render={<span />}
-      className={`inline-flex size-2.5 shrink-0 rounded-full border transition-colors duration-150 ${
+      className={`inline-flex size-2.5 shrink-0 rounded-full border transition-colors duration-150 ease-theme motion-reduce:transition-none ${
         active ? "border-ink-900 bg-ink-900" : "border-stage-400 bg-stage-0"
       }`}
+      data-place-spine-dot
     />
   </Layer>
 )
+
+const cardClassName = (spine: StepSpine): string =>
+  spine === "spine"
+    ? "grid grid-cols-1 gap-y-3.5 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-3.5"
+    : "grid grid-cols-1 gap-y-3.5"
+
+const headerClassName = (spine: StepSpine): string =>
+  spine === "spine"
+    ? "min-w-0 items-center gap-x-2.5 gap-y-1.5 lg:col-start-2 lg:row-start-1"
+    : "min-w-0 items-center gap-x-2.5 gap-y-1.5"
+
+const bodyClassName = (spine: StepSpine): string =>
+  spine === "spine" ? "min-w-0 lg:col-start-2 lg:row-start-2" : "min-w-0"
 
 const actOf = Schema.decodeUnknownOption(PlaceAct)
 
@@ -64,36 +83,32 @@ export const PlaceStepCard = (
   return (
     <Layer
       render={<article />}
-      className={spine === "spine"
-        ? "grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-x-3.5"
-        : "grid grid-cols-1"}
+      className={cardClassName(spine)}
       data-place-step={step}
       data-place-step-active={active ? "true" : "false"}
       {...landmark(spine, step)}
     >
       {spine === "spine" ? spineDot(active) : null}
-      <Stack className="min-w-0 gap-3.5">
-        <Cluster className="items-baseline gap-x-2.5 gap-y-1.5">
-          <Button
-            aria-pressed={active}
-            className={nameButtonClassName}
-            onClick={() => {
-              setStep(step)
-            }}
-            type="button"
-          >
-            <SemanticText
-              as="span"
-              className={active ? "text-ink-900" : "text-ink-700"}
-              role="row-label"
-              text={definition.name}
-              variant="compact"
-            />
-          </Button>
-          <Cluster className="gap-x-2.5 gap-y-1">{packageNames(definition.packages)}</Cluster>
-        </Cluster>
-        {children}
-      </Stack>
+      <Cluster className={headerClassName(spine)} data-place-step-header>
+        <Button
+          aria-pressed={active}
+          className={nameButtonClassName}
+          onClick={() => {
+            setStep(step)
+          }}
+          type="button"
+        >
+          <SemanticText
+            as="span"
+            className={active ? "text-ink-900" : "text-ink-700"}
+            role="row-label"
+            text={definition.name}
+            variant="compact"
+          />
+        </Button>
+        <Cluster className="items-center gap-x-2.5 gap-y-1">{packageNames(definition.packages)}</Cluster>
+      </Cluster>
+      <Layer className={bodyClassName(spine)}>{children}</Layer>
     </Layer>
   )
 }

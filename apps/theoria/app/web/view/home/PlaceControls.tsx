@@ -6,7 +6,7 @@ import { briefMaxLength, placeScenarioMeta, placeScenarios } from "../../../cont
 import { briefIsEdited, controlsForScenario, placeControlsAtom } from "../../atoms/imagined-place.js"
 import { ChoiceGroup } from "../primitives/ChoiceGroup.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
-import { Layer, Stack } from "../primitives/Layout.js"
+import { Layer } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { FieldDescription, FieldGroup, FieldLabel, TextAreaField } from "../primitives/TextAreaField.js"
 
@@ -20,13 +20,11 @@ const scenarioOptions = Arr.map(placeScenarios, (scenario, index) => ({
 const tone = toneClassesFor("dsp")
 
 /**
- * The brief: pick a place pattern and say what you want in it. Both feed the
- * composer program on the server; the textarea's active state shows when the
- * brief no longer matches the recorded one. The scenario picker is its own
- * control and stays outside the Brief field so the field's label names only
- * the textarea.
+ * The scenario: which recorded story the demonstration tells. Choosing one
+ * sets the brief to that story's brief. It is its own control, outside the
+ * Brief field, so the field's label names only the textarea.
  */
-export const PlaceControls = ({ disabled }: { readonly disabled: boolean }) => {
+export const ScenarioChoice = ({ disabled }: { readonly disabled: boolean }) => {
   const controls = useAtomValue(placeControlsAtom)
   const setControls = useAtomSet(placeControlsAtom)
   const activeIndex = Option.getOrElse(
@@ -35,47 +33,58 @@ export const PlaceControls = ({ disabled }: { readonly disabled: boolean }) => {
   )
 
   return (
-    <Stack className="gap-3">
-      <ChoiceGroup
-        activeIndex={activeIndex}
-        className="gap-1.5"
-        disabled={disabled}
-        label="Scenario"
-        onSelect={(index) => {
-          Option.map(Arr.get(placeScenarios, index), (scenario) => {
-            setControls((current) => controlsForScenario(current, scenario))
-          })
+    <ChoiceGroup
+      activeIndex={activeIndex}
+      className="gap-1.5"
+      disabled={disabled}
+      label="Scenario"
+      onSelect={(index) => {
+        Option.map(Arr.get(placeScenarios, index), (scenario) => {
+          setControls((current) => controlsForScenario(current, scenario))
+        })
+      }}
+      options={scenarioOptions}
+      tone={tone}
+    />
+  )
+}
+
+/**
+ * The brief: what the composer was asked for. It feeds the composer program
+ * on the server; the textarea's active state shows when the brief no longer
+ * matches the recorded one.
+ */
+export const BriefField = ({ disabled }: { readonly disabled: boolean }) => {
+  const controls = useAtomValue(placeControlsAtom)
+  const setControls = useAtomSet(placeControlsAtom)
+
+  return (
+    <FieldGroup className="gap-3" disabled={disabled}>
+      <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
+        <FieldLabel>
+          <SemanticText as="span" className="text-ink-900" role="row-label" text="Brief" variant="compact" />
+        </FieldLabel>
+        <FieldDescription>
+          <SemanticText
+            as="span"
+            className="text-ink-500"
+            role="code-meta"
+            text={briefCountText(controls.brief.length, briefMaxLength)}
+            variant="compact"
+          />
+        </FieldDescription>
+      </Layer>
+      <TextAreaField
+        active={briefIsEdited(controls)}
+        onValueChange={(next) => {
+          const brief = next.slice(0, briefMaxLength)
+          setControls((current) => ({ ...current, brief }))
         }}
-        options={scenarioOptions}
+        placeholder="Describe the place you want to share…"
+        rows={5}
         tone={tone}
+        value={controls.brief}
       />
-      <FieldGroup className="gap-3" disabled={disabled}>
-        <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
-          <FieldLabel>
-            <SemanticText as="span" className="text-ink-900" role="row-label" text="Brief" variant="compact" />
-          </FieldLabel>
-          <FieldDescription>
-            <SemanticText
-              as="span"
-              className="text-ink-500"
-              role="code-meta"
-              text={briefCountText(controls.brief.length, briefMaxLength)}
-              variant="compact"
-            />
-          </FieldDescription>
-        </Layer>
-        <TextAreaField
-          active={briefIsEdited(controls)}
-          onValueChange={(next) => {
-            const brief = next.slice(0, briefMaxLength)
-            setControls((current) => ({ ...current, brief }))
-          }}
-          placeholder="Describe the place you want to share…"
-          rows={5}
-          tone={tone}
-          value={controls.brief}
-        />
-      </FieldGroup>
-    </Stack>
+    </FieldGroup>
   )
 }

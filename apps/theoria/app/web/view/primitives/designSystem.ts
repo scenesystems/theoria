@@ -1,7 +1,7 @@
 import { Match, Schema } from "effect"
 
 import type { Id as CardId } from "../../../contracts/id.js"
-import type { SurfaceRole } from "../../../contracts/layout.js"
+import type { Elevation, SurfaceRole } from "../../../contracts/layout.js"
 import { type CardTone, toneForCard } from "../../../contracts/theme.js"
 
 // ---------------------------------------------------------------------------
@@ -184,6 +184,36 @@ export const surfaceClassName = (role: SurfaceRole): string =>
     Match.when("overlay", () => "rounded-instrument bg-stage-0 shadow-surface"),
     Match.exhaustive
   )
+
+/** How high a thing stands over the page, in the one order `Elevation` gives. */
+export const elevationClassName = (elevation: Elevation): string =>
+  Match.value(elevation).pipe(
+    Match.when("band", () => "z-10"),
+    Match.when("answer", () => "z-20"),
+    Match.when("preview", () => "z-30"),
+    Match.exhaustive
+  )
+
+// ---------------------------------------------------------------------------
+// Marks — a thing on the page that can be pointed at and answered. Wherever a
+// mark stands — in a line of text, in the code's gutter, on the paper, as a
+// value under a line of code — it is lit the same way: one wash, under the
+// pointer and while it is answered, whether pointed at itself or lit by the
+// answer to another. A mark is `group/mark`, so a chip set inside it can wear
+// the wash on its own box instead of the mark's.
+// ---------------------------------------------------------------------------
+
+/** A mark's box: pointable and focusable. The wash is added by whichever box wears it. */
+export const markClassName =
+  "group/mark cursor-default rounded-md transition-colors duration-150 ease-theme focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 motion-reduce:transition-none"
+
+/** The wash on a mark's own box. */
+export const litMarkClassName =
+  "hover:bg-stage-100/80 data-[place-focused]:bg-stage-100/80 data-[popup-open]:bg-stage-100/80"
+
+/** The wash on a chip set inside a mark, in place of the chip's own paper. */
+export const litChipClassName =
+  "transition-colors duration-150 ease-theme motion-reduce:transition-none group-hover/mark:bg-stage-100/80 group-data-[place-focused]/mark:bg-stage-100/80 group-data-[popup-open]/mark:bg-stage-100/80"
 
 // ---------------------------------------------------------------------------
 // InlineStatusTone — a glyph and a colour for a status said in the text's own

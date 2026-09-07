@@ -261,6 +261,40 @@ export const textFitsItsBox = (element: Element): boolean => {
 /** The element's right edge is inside the viewport. */
 export const insideViewportRight = (element: Element) => element.getBoundingClientRect().right <= window.innerWidth
 
+/**
+ * Whether the element is what the visitor would touch at its own centre:
+ * nothing is painted over it there. An overlay that stands behind another
+ * fails this where the two overlap.
+ */
+export const topmostAtItsCentre = (element: Element): boolean => {
+  const box = element.getBoundingClientRect()
+  const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+  return element.contains(hit)
+}
+
+/**
+ * Whether the element is what the visitor would touch at the point given, in
+ * viewport coordinates: a pseudo-element painted over it reports its
+ * generating element instead.
+ */
+export const topmostAt = (element: Element, point: { readonly x: number; readonly y: number }): boolean => {
+  const hit = document.elementFromPoint(point.x, point.y)
+  return element.contains(hit)
+}
+
+/**
+ * The centre line of the rule the element draws before its content, in
+ * viewport coordinates: its `::before`, positioned from the element's left
+ * edge. The spine of the acts is such a rule.
+ */
+export const beforeRuleCentreX = (element: Element): number => {
+  const rule = getComputedStyle(element, "::before")
+  return element.getBoundingClientRect().left + parseFloat(rule.left) + parseFloat(rule.width) / 2
+}
+
+/** The colour the element paints behind itself, as the browser computed it. */
+export const backgroundColour = (element: Element) => getComputedStyle(element).backgroundColor
+
 /** The element has keyboard focus. */
 export const isActiveElement = (element: Element) => element === document.activeElement
 

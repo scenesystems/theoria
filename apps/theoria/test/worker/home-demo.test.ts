@@ -570,11 +570,28 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         )
         expect(gutterMarks).toBe(2)
 
+        // The line that digested the neighbor's proposal lights the one disc that proposal put on the paper.
+        const built = page.locator("[data-place-how-its-built]")
+        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose")
+        yield* click(built.getByRole("tab", { name: propose.name }))
+        const digestLine = built.locator("[data-provenance*='digestSchemaValue(Proposal'] [data-code-annotation]")
+        yield* act(() => digestLine.scrollIntoViewIfNeeded())
+        yield* act(() => page.mouse.move(0, 0))
+        yield* hidden(overlay)
+        yield* hover(digestLine)
+        yield* visible(overlay)
+        const neighborName = yield* Option.fromNullable(
+          yield* act(() =>
+            demo.locator("[data-place-proposal='neighbor'] [data-place-feature]").getAttribute("data-place-feature")
+          )
+        )
+        yield* count(demo.locator("[data-place-marker][data-place-focused]"), 1)
+        yield* attribute(demo.locator("[data-place-marker][data-place-focused]"), "data-place-marker", neighborName)
+
         // Each line of the arrangement answers with what it made, credited to its own package:
         // the first narrowed line from the layout, lit on the stage; the search's kept trial from
         // the call that scored it and from the call that recorded it, which light no line of prose.
         // Each site is two marks, the value beside the line and the line's number, and both answer alike.
-        const built = page.locator("[data-place-how-its-built]")
         const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
         yield* click(built.getByRole("tab", { name: arrange.name }))
         // Between two answers the overlay holds both for a moment; the title asked about is the current one's.

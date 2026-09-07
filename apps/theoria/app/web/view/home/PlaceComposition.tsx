@@ -10,7 +10,7 @@ import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
-import { PlaceControls } from "./PlaceControls.js"
+import { BriefField, ScenarioChoice } from "./PlaceControls.js"
 import { inlineMarkClassName, ProvenanceMark, StatusMark } from "./PlaceProvenance.js"
 import { participantTone } from "./placeViewModel.js"
 
@@ -27,39 +27,56 @@ const FeatureName = ({ feature, first }: { readonly feature: PlaceFeature; reado
   </Layer>
 )
 
-const Pending = () => (
-  <Stack className="gap-2.5 pt-1">
-    <ShimmerLine width="w-2/3" />
-    <ShimmerLine width="w-4/5" />
-  </Stack>
-)
+/**
+ * The title the composer gave the place, under the story chosen and over the
+ * brief it answers: the story's name, then its brief. While the build is
+ * pending the title's line shimmers at the title's height, so the act does
+ * not change shape when the title arrives.
+ */
+const Title = ({ build }: { readonly build: Option.Option<PlaceBuild> }) =>
+  Option.match(build, {
+    onNone: () => <ShimmerLine width="w-1/2" />,
+    onSome: (value) => (
+      <Layer className="min-w-0" data-place-composition-title>
+        <SemanticText
+          as="p"
+          className="text-ink-900"
+          role="card-title"
+          text={value.artifact.composition.title}
+          variant="compact"
+          wrapAuthority="native-browser"
+        />
+      </Layer>
+    )
+  })
 
 /**
- * What the composer returned for the brief: the title it gave the place and
- * the features it named, in the author's accent because the author signs them. The status is the honest part:
- * the runtime is recorded, so the answer is the one recorded for this
- * scenario, checked against the output schema each time. When the brief has
- * been edited, one line says what that does and does not change.
+ * The features the composer named from the brief, in the author's accent
+ * because the author signs them. The row is labelled as what it is, beside
+ * the status that is the honest part: the runtime is recorded, so the answer
+ * is the one recorded for this scenario, checked against the output schema
+ * each time. When the brief has been edited, one line says what that does
+ * and does not change.
  */
-const Composed = ({ build, edited }: { readonly build: PlaceBuild; readonly edited: boolean }) => (
-  <Stack className="gap-2" data-place-composition>
-    <Cluster className="items-center justify-between gap-x-3 gap-y-1">
-      <SemanticText
-        as="p"
-        className="min-w-0 text-ink-900"
-        role="card-title"
-        text={build.artifact.composition.title}
-        variant="compact"
-        wrapAuthority="native-browser"
-      />
+const Features = ({ build, edited }: { readonly build: Option.Option<PlaceBuild>; readonly edited: boolean }) => (
+  <Stack className="gap-2">
+    <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
+      <Layer render={<span />} data-place-features-label>
+        <SemanticText as="span" className="text-ink-900" role="row-label" text="Features" variant="compact" />
+      </Layer>
       <StatusMark label="Recorded inference" mark={{ _tag: "Inference" }} tone={inferenceTone} />
-    </Cluster>
-    <Cluster className="gap-x-2 gap-y-1" data-place-features>
-      {Arr.map(
-        build.artifact.composition.features,
-        (feature, index) => <FeatureName feature={feature} first={index === 0} key={feature.name} />
-      )}
-    </Cluster>
+    </Layer>
+    {Option.match(build, {
+      onNone: () => <ShimmerLine width="w-4/5" />,
+      onSome: (value) => (
+        <Cluster className="gap-x-2 gap-y-1" data-place-features>
+          {Arr.map(
+            value.artifact.composition.features,
+            (feature, index) => <FeatureName feature={feature} first={index === 0} key={feature.name} />
+          )}
+        </Cluster>
+      )
+    })}
     {edited
       ? (
         <SemanticText
@@ -75,16 +92,19 @@ const Composed = ({ build, edited }: { readonly build: PlaceBuild; readonly edit
   </Stack>
 )
 
-/** The Compose step: the brief goes in, a typed composition comes out. */
+/**
+ * The Compose act, read down: the stories to choose from, the title of the
+ * one chosen, the brief that story gives the composer, and the features the
+ * composer named from it.
+ */
 export const PlaceComposition = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
   const edited = briefIsEdited(useAtomValue(placeControlsAtom))
   return (
-    <Stack className="gap-4">
-      <PlaceControls disabled={false} />
-      {Option.match(build, {
-        onNone: () => <Pending />,
-        onSome: (value) => <Composed build={value} edited={edited} />
-      })}
+    <Stack className="gap-4" data-place-composition>
+      <ScenarioChoice disabled={false} />
+      <Title build={build} />
+      <BriefField disabled={false} />
+      <Features build={build} edited={edited} />
     </Stack>
   )
 }

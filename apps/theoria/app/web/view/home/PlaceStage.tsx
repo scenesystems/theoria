@@ -24,6 +24,7 @@ import {
 } from "../../atoms/imagined-place-render.js"
 import { placeStageContainerWidthAtom, placeStageFrame, placeStageFrameBorderPx } from "../../atoms/imagined-place.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
+import { litMarkClassName, markClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { departed, exitTransition, staggeredArrival } from "../primitives/motion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -65,8 +66,7 @@ const lineArrivedAt = { opacity: 1 }
  * lines' sheet itself lets the pointer through to the discs beneath it; only
  * the lines take it.
  */
-const lineClassName =
-  "pointer-events-auto absolute overflow-hidden rounded-sm transition-colors duration-150 ease-theme data-[place-focused]:bg-ink-900/5 data-[popup-open]:bg-ink-900/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 motion-reduce:transition-none"
+const lineClassName = `${markClassName} ${litMarkClassName} pointer-events-auto absolute overflow-hidden`
 
 const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; readonly prose: string }) => (
   <AnimatePresence initial={false} mode="wait">

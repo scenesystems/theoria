@@ -29,6 +29,21 @@ export const ArtifactStageFrame = Schema.Literal("none", "instrument")
 export type ArtifactStageFrame = typeof ArtifactStageFrame.Type
 
 /**
+ * What may stand over the page, lowest first: the band pinned over the
+ * demonstration as it scrolls; an answer to a mark, opened over the band;
+ * a preview of a docs link, opened from inside an answer. Each stands over
+ * everything before it, so a thing opened from another is never behind it.
+ *
+ * @since 0.3.0
+ */
+export const Elevation = Schema.Literal("band", "answer", "preview")
+
+/**
+ * @since 0.3.0
+ */
+export type Elevation = typeof Elevation.Type
+
+/**
  * Whether a step of the story stands on the acts' spine — the rule down the
  * reading column, a dot on it marking the chosen step — or alone, as the
  * stage's own step does.

@@ -16,7 +16,14 @@ import {
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
 import { placeFocusAtom, placeMarkFocusedAtom, placeOnPageAtom } from "../../atoms/imagined-place-experience.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
-import { type InlineStatusTone, surfaceClassName, toneClassesFor } from "../primitives/designSystem.js"
+import {
+  elevationClassName,
+  type InlineStatusTone,
+  litMarkClassName,
+  markClassName,
+  surfaceClassName,
+  toneClassesFor
+} from "../primitives/designSystem.js"
 import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
@@ -82,7 +89,7 @@ export const ProvenanceMark = ({
  * a line.
  */
 export const inlineMarkClassName =
-  "-mx-1 inline-flex min-w-0 max-w-full cursor-default items-center rounded-md px-1 py-0.5 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 data-[place-focused]:bg-stage-100/80 data-[popup-open]:bg-stage-100/80"
+  `${markClassName} ${litMarkClassName} -mx-1 inline-flex min-w-0 max-w-full items-center px-1 py-0.5 text-left`
 
 /** A status said in the line that is also a mark: the signature, the version it is in. */
 export const StatusMark = ({ className = "", label, mark, tone, ...props }: ComponentProps<"button"> & {
@@ -100,8 +107,7 @@ export const StatusMark = ({ className = "", label, mark, tone, ...props }: Comp
  * changes, so the popup can ease between two answers' sizes without
  * re-deciding which side of the mark it is on.
  */
-/** Above the band, which is above the page. */
-const positionerClassName = "z-20 w-(--positioner-width) h-(--positioner-height)"
+const positionerClassName = `${elevationClassName("answer")} w-(--positioner-width) h-(--positioner-height)`
 
 const popupClassName = [
   surfaceClassName("overlay"),

@@ -144,16 +144,16 @@ export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, 
       Match.value(role).pipe(
         Match.when("author", () =>
           focused
-            ? "fill-tone-sign-300 stroke-tone-sign-500 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-sign-300 stroke-transparent stroke-[3] [vector-effect:non-scaling-stroke]"),
+            ? "fill-tone-sign-300 stroke-tone-sign-500 stroke-2 [vector-effect:non-scaling-stroke]"
+            : "fill-tone-sign-300 stroke-transparent stroke-2 [vector-effect:non-scaling-stroke]"),
         Match.when("neighbor", () =>
           focused
-            ? "fill-tone-seal-300 stroke-tone-seal-500 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-seal-300 stroke-transparent stroke-[3] [vector-effect:non-scaling-stroke]"),
+            ? "fill-tone-seal-300 stroke-tone-seal-500 stroke-2 [vector-effect:non-scaling-stroke]"
+            : "fill-tone-seal-300 stroke-transparent stroke-2 [vector-effect:non-scaling-stroke]"),
         Match.when("program", () =>
           focused
-            ? "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-dsp-300 stroke-transparent stroke-[3] [vector-effect:non-scaling-stroke]"),
+            ? "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-2 [vector-effect:non-scaling-stroke]"
+            : "fill-tone-dsp-300 stroke-transparent stroke-2 [vector-effect:non-scaling-stroke]"),
         Match.exhaustive
       )),
     Match.exhaustive
@@ -175,17 +175,18 @@ export const BandRow = Schema.Struct({
 })
 export type BandRow = typeof BandRow.Type
 
-/** Paper around the row, and paper between its discs, in stage units. */
-const bandMargin = 18
-const bandGap = 14
+/** Paper around the row, and paper between its discs, in stage units: a strip, not a sheet. */
+const bandMargin = 6
+const bandGap = 10
 
 /**
- * The band drops the prose and keeps the discs, set in one row at the size
- * they have on the stage: a merge arrives as one more disc, a code line
- * pointed at lights the disc it made. Their places on the sheet are not
- * kept — on a narrow stage they are one column beside the prose, and a
- * strip has no room for a sheet — so the row reads left to right in the
- * order the place names them.
+ * The band drops the prose and keeps the discs, set in one row in the
+ * proportions they have on the stage: a merge arrives as one more disc, a
+ * code line pointed at lights the disc it made. Their places on the sheet
+ * are not kept — on a narrow stage they are one column beside the prose, and
+ * a strip has no room for a sheet — so the row reads left to right in the
+ * order the place names them. The row is in stage units; the strip draws it
+ * at a line's height.
  */
 export const bandRow = (projection: PlaceProjection): BandRow =>
   Arr.match(projection.markers, {
