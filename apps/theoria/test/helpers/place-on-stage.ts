@@ -25,6 +25,13 @@ const request: PlaceBuildRequest = {
   acceptProgram: false
 }
 
+const otherRequest: PlaceBuildRequest = {
+  scenario: "lost-market",
+  brief: scenarioById("lost-market").brief,
+  acceptNeighbor: true,
+  acceptProgram: false
+}
+
 const arrangementOf = (rendering: PlaceRendering) => ({
   markers: rendering.projection.markers,
   lines: rendering.projection.lines,
@@ -36,12 +43,17 @@ const arrangementOf = (rendering: PlaceRendering) => ({
   }
 })
 
-/** The build; a search that kept the wide rendering after trying a narrow one; a frame showing either. */
+/** The two builds, with the first build's trial and kept frames and the other build's complete frame. */
 export const onStage = Effect.gen(function*() {
-  const build = yield* buildPlace(request).pipe(Effect.provide(ParticipantsLive))
+  const [build, otherBuild] = yield* Effect.all([
+    buildPlace(request).pipe(Effect.provide(ParticipantsLive)),
+    buildPlace(otherRequest).pipe(Effect.provide(ParticipantsLive))
+  ])
   const kept = yield* render(build.artifact, 660)
   const trial = yield* render(build.artifact, 320)
+  const otherRendering = yield* render(otherBuild.artifact, 660)
   const search = new PlaceSearch({
+    source: build,
     phase: "complete",
     stage: stageFor(660),
     tried: [arrangementOf(trial), arrangementOf(kept)],
@@ -53,5 +65,22 @@ export const onStage = Effect.gen(function*() {
   })
   const showingTrial = new PlaceRenderFrame({ search, trial: 0, rendering: trial, paper: trial.projection.stageHeight })
   const showingKept = new PlaceRenderFrame({ search, trial: 1, rendering: kept, paper: kept.projection.stageHeight })
-  return { build, kept, trial, showingTrial, showingKept }
+  const otherSearch = new PlaceSearch({
+    source: otherBuild,
+    phase: "complete",
+    stage: stageFor(660),
+    tried: [arrangementOf(otherRendering)],
+    bestIndex: 0,
+    best: otherRendering,
+    prose: Arr.join(Arr.map(otherRendering.projection.lines, (line) => line.text), " "),
+    labels: {},
+    settled: HashSet.empty()
+  })
+  const otherShowing = new PlaceRenderFrame({
+    search: otherSearch,
+    trial: 0,
+    rendering: otherRendering,
+    paper: otherRendering.projection.stageHeight
+  })
+  return { build, kept, trial, showingTrial, showingKept, other: { build: otherBuild, showing: otherShowing } }
 })

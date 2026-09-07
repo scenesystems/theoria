@@ -64,10 +64,7 @@ const recordValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
     annotation(
       "ed25519Sign(author.secretKey",
       Option.map(
-        Option.flatMap(
-          currentVersion(build.evidence),
-          (version) => signatureFor(build.evidence.signatures, version.contentId)
-        ),
+        signatureFor(build.evidence.signatures, currentVersion(build.evidence).contentId),
         signatureLabel
       )
     )

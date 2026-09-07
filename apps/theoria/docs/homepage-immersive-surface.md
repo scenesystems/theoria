@@ -621,6 +621,26 @@ import.meta.url), { type: "module" })`, which every bundler resolves
       `placeAnswerAtom`, and that answer controls the shared Base UI root and
       its explicit active trigger. Unmounting an unrelated detached trigger
       therefore cannot cancel another mark's pending answer.
+- [x] Every answer is read from its own source. `PlaceSearch.source` is the
+      build a drawing is of, so the stage keeps its story while the next is
+      built and nothing reads across (`placeArtifactAtom` is gone; the
+      render stream takes the build). A disc on the paper is a `Disc { name,
+  source }`, a line of the prose a `Line { index, drawing }`, a trial a
+      `Trial { index, drawing }` (`DrawingId = { source, stageWidth }`,
+      compared by `sameDrawing`); a `Feature` in the column is of the build
+      the column describes, and tells where it stands only if the paper is
+      drawing that same build. `PlaceProvenance.about` names the features an
+      answer is about, read from the answer's own source, so
+      `placeFeatureFocusedAtom` lights nothing of another build. An answer
+      lives as long as the page can answer it: `placeAnswerLifetimeAtom` lets
+      it go when its drawing is replaced and leaves focus where it is
+      (`AnswerFocusReturn`); a pressed answer dismissed by hand still returns
+      focus to its mark. `PlaceEvidence.lineage` is non-empty by schema, so
+      the current version is total. Checked in `test/web/place-provenance.test.ts`
+      (_answers from the drawing's own source_), `test/atoms/place-answer.contract.test.ts`
+      (_answer lifetime_) and `test/worker/home-demo.test.ts` (_an answer
+      opened on the drawing survives the next story's build and closes with
+      its drawing_).
 
 ### Act 5 — Responsive and environmental verification
 

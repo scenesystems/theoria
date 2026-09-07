@@ -8,7 +8,6 @@ import type { PlaceMark } from "../../../contracts/demo/imagined-place-provenanc
 import type { PlaceEvidence, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
 import { placeProposalLineAtom } from "../../atoms/imagined-place-render.js"
 import { dangerStatusTone, inlineStatusToneFor, neutralStatusTone, toneClassesFor } from "../primitives/designSystem.js"
-import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
@@ -185,17 +184,14 @@ export const PlaceProposal = ({
         <Cluster className="items-center gap-x-3 gap-y-1">
           <ParticipantName name={participantLabel(role)} tone={tone} />
           {record.accepted
-            ? Option.match(currentVersion(evidence), {
-              onNone: () => <InlineStatus className={recordedClassName} label="Merged" tone={recordedTone} />,
-              onSome: (version) => (
-                <StatusMark
-                  className={recordedClassName}
-                  label={mergedIntoText(evidence)}
-                  mark={{ _tag: "Digest", contentId: version.contentId }}
-                  tone={recordedTone}
-                />
-              )
-            })
+            ? (
+              <StatusMark
+                className={recordedClassName}
+                label={mergedIntoText(evidence)}
+                mark={{ _tag: "Digest", contentId: currentVersion(evidence).contentId }}
+                tone={recordedTone}
+              />
+            )
             : null}
         </Cluster>
         <Layer className="ml-auto">

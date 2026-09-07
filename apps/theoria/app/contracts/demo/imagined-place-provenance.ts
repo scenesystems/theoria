@@ -1,7 +1,8 @@
-import { type Option, Schema } from "effect"
+import { type Equivalence, Match, type Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { Id as CardId } from "../id.js"
+import { type PlaceBuild } from "../imagined-place-result.js"
 
 /**
  * The demo's story in four steps, in the order they run on the server
@@ -102,20 +103,54 @@ export const allCodeSites: ReadonlyArray<CodeSite> = [
 ]
 
 /**
+ * Which build a drawing is of: the content ID of the version being drawn.
+ * The stage keeps drawing the story it was given while the next one is
+ * built, so what is on the paper and what the column describes can be two
+ * different builds for a while; a mark on the paper names its own.
+ *
+ * @since 0.3.0
+ */
+export const PlaceSourceId = Schema.NonEmptyString
+export type PlaceSourceId = typeof PlaceSourceId.Type
+
+/** The source a build is, by the version it drew. */
+export const placeSourceId = (build: PlaceBuild): PlaceSourceId => Arr.lastNonEmpty(build.evidence.lineage).contentId
+
+/**
+ * One drawing: a source laid out at one stage width. A line of the prose
+ * or a trial of the search exists only within its drawing — the next
+ * source, or the same one at another width, has other lines and other
+ * trials — so a mark on either carries the drawing it belongs to.
+ *
+ * @since 0.3.0
+ */
+export const DrawingId = Schema.Struct({ source: PlaceSourceId, stageWidth: Schema.Number })
+export type DrawingId = typeof DrawingId.Type
+
+/** Two drawing IDs name the same drawing. */
+export const sameDrawing: Equivalence.Equivalence<DrawingId> = Schema.equivalence(DrawingId)
+
+/**
  * Something on the page a visitor can point at and be answered about: a
- * feature's disc or name, a line of the drawn prose, a signature, a content
- * ID, a trial of the search, the recorded inference, the sealed note, or a
- * line of the code that made one of these. A mark is the whole of what is
- * remembered about the pointer; everything said about it is derived.
+ * feature's name in the column, its disc on the paper, a line of the drawn
+ * prose, a signature, a content ID, a trial of the search, the recorded
+ * inference, the sealed note, or a line of the code that made one of
+ * these. A mark is the whole of what is remembered about the pointer;
+ * everything said about it is derived.
+ *
+ * A `Feature` is of the build the column describes; a `Disc`, a `Line`
+ * and a `Trial` are of the drawing they were pointed at on, and are
+ * answered only while that drawing is the one shown.
  *
  * @since 0.3.0
  */
 export const PlaceMark = Schema.Union(
   Schema.TaggedStruct("Feature", { name: Schema.String }),
-  Schema.TaggedStruct("Line", { index: Schema.Int }),
+  Schema.TaggedStruct("Disc", { name: Schema.String, source: PlaceSourceId }),
+  Schema.TaggedStruct("Line", { index: Schema.Int, drawing: DrawingId }),
   Schema.TaggedStruct("Signature", { subject: Schema.String }),
   Schema.TaggedStruct("Digest", { contentId: Schema.String }),
-  Schema.TaggedStruct("Trial", { index: Schema.Int }),
+  Schema.TaggedStruct("Trial", { index: Schema.Int, drawing: DrawingId }),
   Schema.TaggedStruct("Inference", {}),
   Schema.TaggedStruct("Note", {}),
   Schema.TaggedStruct("CodeLine", { step: PlaceStep, match: Schema.String })
@@ -125,6 +160,24 @@ export type PlaceMark = typeof PlaceMark.Type
 /** How an answer became open; press answers stay pinned when the pointer leaves. */
 export const AnswerOpening = Schema.Literal("hover", "press")
 export type AnswerOpening = typeof AnswerOpening.Type
+
+/**
+ * Where focus goes when the answer closes: back to the mark that opened it,
+ * or nowhere — it stays where it is. A hover answer never took focus, and an
+ * answer whose mark has left the page has nowhere to send it.
+ *
+ * @since 0.3.0
+ */
+export const AnswerFocusReturn = Schema.Literal("mark", "stays")
+export type AnswerFocusReturn = typeof AnswerFocusReturn.Type
+
+/** Where focus returns when an answer opened this way closes. */
+export const focusReturnAfter = (opening: AnswerOpening): AnswerFocusReturn =>
+  Match.value(opening).pipe(
+    Match.when("press", (): AnswerFocusReturn => "mark"),
+    Match.when("hover", (): AnswerFocusReturn => "stays"),
+    Match.exhaustive
+  )
 
 /** The single open provenance answer. */
 export class PlaceAnswer extends Schema.Class<PlaceAnswer>("PlaceAnswer")({
@@ -207,6 +260,14 @@ export const PlaceProvenance = Schema.Struct({
   detail: Schema.Option(Schema.String),
   facts: Schema.Array(ProvenanceFact),
   site: CodeSite,
-  copy: Schema.Option(Schema.String)
+  copy: Schema.Option(Schema.String),
+  /**
+   * The names of the features the answer is about, so each can say so where
+   * it stands: a feature's own; every feature the composing line, or the
+   * recorded inference, returned; the features a content ID or a signature
+   * is over. Read from the same source the answer was, so a disc of the
+   * drawing on the paper lights its own feature and no other build's.
+   */
+  about: Schema.Array(Schema.String)
 })
 export type PlaceProvenance = typeof PlaceProvenance.Type

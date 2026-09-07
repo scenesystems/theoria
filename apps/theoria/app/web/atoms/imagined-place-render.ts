@@ -21,9 +21,12 @@ import {
   Stage,
   stageFor
 } from "../../contracts/demo/imagined-place-flow.js"
+import type { DrawingId } from "../../contracts/demo/imagined-place-provenance.js"
+import { placeSourceId } from "../../contracts/demo/imagined-place-provenance.js"
 import { type Meander, renderTrials } from "../../contracts/demo/imagined-place-search.js"
 import { PlaceRendering } from "../../contracts/imagined-place-result.js"
-import { type ParticipantRole, type PlaceArtifact, placeFeatures } from "../../contracts/imagined-place.js"
+import { PlaceBuild } from "../../contracts/imagined-place-result.js"
+import { type ParticipantRole, placeFeatures } from "../../contracts/imagined-place.js"
 import { motionDuration } from "../../contracts/motion.js"
 import { journeyFrom, toward, travellingOver } from "../motion/travel.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
@@ -33,7 +36,7 @@ import { MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLa
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
-import { placeArtifactAtom, placeBuildAtom, placeStageWidthAtom } from "./imagined-place.js"
+import { placeBuildAtom, placeStageWidthAtom } from "./imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "./motion.js"
 import { textLayoutLayerAtom } from "./text-layout.js"
 
@@ -64,6 +67,7 @@ export const PlaceSearchPhase = Schema.Literal("running", "landing", "complete")
 export type PlaceSearchPhase = typeof PlaceSearchPhase.Type
 
 export class PlaceSearch extends Schema.Class<PlaceSearch>("PlaceSearch")({
+  source: PlaceBuild,
   phase: PlaceSearchPhase,
   stage: Stage,
   /** Every arrangement so far, in the order the search tried them. */
@@ -85,6 +89,12 @@ export class PlaceSearch extends Schema.Class<PlaceSearch>("PlaceSearch")({
    */
   settled: Schema.HashSetFromSelf(Schema.String)
 }) {}
+
+/** The drawing a search is of: its source at its stage width. */
+export const drawingId = (search: PlaceSearch): DrawingId => ({
+  source: placeSourceId(search.source),
+  stageWidth: search.stage.stageWidth
+})
 
 /**
  * What the stage draws at one frame: the search as it stands, and the
@@ -229,13 +239,14 @@ const settledAfter = (frame: PlaceRenderFrame): HashSet.HashSet<string> =>
   settled(frame) ? drawnNames(frame.rendering) : frame.search.settled
 
 const renderStream = (
-  artifact: PlaceArtifact,
+  source: PlaceBuild,
   stageWidth: number,
   left: Option.Option<DrawingLeft>,
   motion: MotionPreference
 ): Stream.Stream<PlaceRenderFrame, DemoExecutionError, BrowserTextLayout | PlaceSearcher> =>
   Stream.unwrap(
     Effect.gen(function*() {
+      const artifact = source.artifact
       const stage = stageFor(stageWidth)
       const prose = description(artifact)
       const prepared = yield* prepareBrowserText(descriptionInput(artifact))
@@ -281,6 +292,7 @@ const renderStream = (
         })
         const searchWhile = (landed: boolean) =>
           new PlaceSearch({
+            source,
             phase: phaseOf(done, landed),
             stage,
             tried: progress.tried,
@@ -462,7 +474,7 @@ const placeRenderRuntime: AtomType.AtomRuntime<BrowserTextLayout | PlaceSearcher
  */
 export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = placeRenderRuntime
   .atom((get: AtomType.Context) => {
-    const artifact = get(placeArtifactAtom)
+    const build = Result.value(get(placeBuildAtom))
     const stageWidth = get(placeStageWidthAtom)
     const motion = get(motionPreferenceAtom)
     // The drawing carries on from wherever the last one left off, landed or on its way.
@@ -478,7 +490,7 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
     )
     // A new search means new trials; a trial chosen from the old one no longer exists.
     get.set(placeTrialPreviewAtom, Option.none())
-    return Option.match(artifact, {
+    return Option.match(build, {
       onNone: () => Stream.never,
       onSome: (value) => renderStream(value, stageWidth, left, motion)
     })
@@ -493,11 +505,11 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
 export const placeExpectedPaperAtom: AtomType.Atom<Result.Result<number, PlaceRenderError>> = placeRenderRuntime.atom(
   (get: AtomType.Context) => {
     const stage = stageFor(get(placeStageWidthAtom))
-    return Option.match(get(placeArtifactAtom), {
+    return Option.match(Result.value(get(placeBuildAtom)), {
       onNone: () => Effect.never,
-      onSome: (artifact) =>
-        prepareBrowserText(descriptionInput(artifact)).pipe(
-          Effect.map((prepared) => paperExpected(stage, prepared, placeFeatures(artifact))),
+      onSome: (build) =>
+        prepareBrowserText(descriptionInput(build.artifact)).pipe(
+          Effect.map((prepared) => paperExpected(stage, prepared, placeFeatures(build.artifact))),
           Effect.mapError((cause) => renderFailed(String(cause)))
         )
     })
@@ -530,10 +542,10 @@ export const placeSearchAtom: AtomType.Atom<Result.Result<PlaceSearch, PlaceRend
 export const placeProposalLineAtom = Atom.family((proposer: ParticipantRole): AtomType.Atom<Option.Option<number>> =>
   Atom.make((get: AtomType.Context) =>
     Option.flatMap(
-      Option.all({ build: Result.value(get(placeBuildAtom)), frame: Result.value(get(placeShownFrameAtom)) }),
-      ({ build, frame }) =>
+      Result.value(get(placeShownFrameAtom)),
+      (frame) =>
         Option.flatMap(
-          Arr.findFirst(build.proposals, (record) => record.proposal.proposer === proposer),
+          Arr.findFirst(frame.search.source.proposals, (record) => record.proposal.proposer === proposer),
           (record) => proposalAnchorLine(frame.rendering.projection, record)
         )
     )

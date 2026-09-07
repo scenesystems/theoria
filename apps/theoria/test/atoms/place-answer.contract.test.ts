@@ -1,23 +1,30 @@
-import { Registry } from "@effect-atom/atom"
+import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Duration, Effect, Fiber, Option, Queue, Ref, Stream, TestClock } from "effect"
+import * as Arr from "effect/Array"
 import * as Chunk from "effect/Chunk"
 
 import {
   type HoverIntent,
   PlaceAnswer,
   type PlaceMark,
+  placeSourceId,
   type PointerOver
 } from "../../app/contracts/demo/imagined-place-provenance.js"
+import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
 import { answerCloseGrace, answerOpenDelay } from "../../app/contracts/motion.js"
 import {
   answerAfterIntent,
   answerAfterPress,
   hoverIntents,
   placeAnswerAtom,
-  placeAnswerOpeningAtom,
+  placeAnswerFocusReturnAtom,
+  placeAnswerOnShowAtom,
   placeFocusAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
+import { type PlaceRenderFrame, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
+import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
+import { onStage } from "../helpers/place-on-stage.js"
 
 /**
  * The pointer's intent is owned here, not by the popover library: entering a
@@ -26,7 +33,7 @@ import {
  * clock, and the rule for what an intent does to the open answer.
  */
 
-const line: PlaceMark = { _tag: "Line", index: 3 }
+const line: PlaceMark = { _tag: "Line", index: 3, drawing: { source: "blake3-256:test", stageWidth: 660 } }
 const disc: PlaceMark = { _tag: "Feature", name: "the iron stair" }
 
 const overMark = (triggerId: string, mark: PlaceMark): Option.Option<PointerOver> =>
@@ -178,27 +185,100 @@ describe("the answer under an intent", () => {
           task()
         }
       })
-      expect(registry.get(placeAnswerOpeningAtom)).toBe("press")
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
       registry.set(placeAnswerAtom, Option.some(hoverOpened))
-      expect(registry.get(placeAnswerOpeningAtom)).toBe("hover")
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("stays")
       registry.set(placeAnswerAtom, Option.none())
-      expect(registry.get(placeAnswerOpeningAtom)).toBe("hover")
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("stays")
       registry.set(placeAnswerAtom, Option.some(pressOpened))
       registry.set(placeAnswerAtom, Option.none())
-      expect(registry.get(placeAnswerOpeningAtom)).toBe("press")
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
     }))
 
   it.effect("focus is the open answer's mark", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
+      const { build, showingTrial } = yield* onStage
+      const available: PlaceMark = {
+        _tag: "Feature",
+        name: (yield* Arr.head(build.artifact.composition.features)).name
+      }
       const registry = Registry.make({
+        initialValues: [
+          [placeBuildAtom, Result.success(build)],
+          [placeShownFrameAtom, Result.success(showingTrial)]
+        ],
         scheduleTask: (task) => {
           task()
         }
       })
       expect(registry.get(placeFocusAtom)).toEqual(Option.none())
-      registry.set(placeAnswerAtom, Option.some(hoverOpened))
-      expect(registry.get(placeFocusAtom)).toEqual(Option.some(disc))
+      registry.set(placeAnswerAtom, Option.some(new PlaceAnswer({ triggerId: "a", mark: available, opening: "hover" })))
+      expect(registry.get(placeFocusAtom)).toEqual(Option.some(available))
       registry.set(placeAnswerAtom, Option.none())
       expect(registry.get(placeFocusAtom)).toEqual(Option.none())
+    }))
+})
+
+/** A page with the next story's build in the column and `shown` on the paper. */
+const pageOnNextStory = (build: PlaceBuild, shown: PlaceRenderFrame): Registry.Registry =>
+  Registry.make({
+    initialValues: [
+      [placeBuildAtom, Result.success(build)],
+      [placeShownFrameAtom, Result.success(shown)]
+    ],
+    scheduleTask: (task) => {
+      task()
+    }
+  })
+
+describe("answer lifetime", () => {
+  it.effect("an answer opened on the drawing outlives the next build, and is gone once its drawing is replaced", () =>
+    Effect.gen(function*() {
+      const { build, other, showingTrial, trial } = yield* onStage
+      const name = (yield* Arr.head(trial.projection.markers)).name
+      const onDisc = new PlaceAnswer({
+        triggerId: "d",
+        mark: { _tag: "Disc", name, source: placeSourceId(build) },
+        opening: "press"
+      })
+
+      // The column already describes the next story; the paper still draws this one.
+      const stillDrawn = pageOnNextStory(other.build, showingTrial)
+      stillDrawn.set(placeAnswerAtom, Option.some(onDisc))
+      expect(Option.map(stillDrawn.get(placeAnswerAtom), (answer) => answer.mark)).toEqual(Option.some(onDisc.mark))
+      expect(stillDrawn.get(placeAnswerFocusReturnAtom)).toBe("mark")
+
+      // The paper now draws the next story: the disc pointed at is no longer on the page.
+      const replaced = pageOnNextStory(other.build, other.showing)
+      replaced.set(placeAnswerAtom, Option.some(onDisc))
+      expect(replaced.get(placeAnswerAtom)).toEqual(Option.none())
+    }))
+
+  it.effect("the popup keeps the answer's words while it leaves", () =>
+    Effect.gen(function*() {
+      const { build, showingTrial, trial } = yield* onStage
+      const name = (yield* Arr.head(trial.projection.markers)).name
+      const registry = pageOnNextStory(build, showingTrial)
+      expect(registry.get(placeAnswerOnShowAtom)).toEqual(Option.none())
+
+      registry.set(
+        placeAnswerAtom,
+        Option.some(
+          new PlaceAnswer({
+            triggerId: "d",
+            mark: { _tag: "Disc", name, source: placeSourceId(build) },
+            opening: "press"
+          })
+        )
+      )
+      const shown = registry.get(placeAnswerOnShowAtom)
+      expect(Option.map(shown, (provenance) => provenance.title)).toEqual(Option.some(name))
+
+      // Closed: nothing is answered, yet the popup still has what it was saying to fade with —
+      // through the popover's own dismissal closing it again while nothing is answered.
+      registry.set(placeAnswerAtom, Option.none())
+      registry.set(placeAnswerAtom, Option.none())
+      expect(registry.get(placeAnswerAtom)).toEqual(Option.none())
+      expect(registry.get(placeAnswerOnShowAtom)).toEqual(shown)
     }))
 })

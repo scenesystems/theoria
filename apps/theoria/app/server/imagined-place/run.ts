@@ -76,7 +76,7 @@ export const buildPlace = (
       : { ...origin, parent: originId, accepted }
     const currentId = yield* versionId(artifact)
 
-    const versions: ReadonlyArray<Version> = Arr.isEmptyReadonlyArray(accepted)
+    const versions: Arr.NonEmptyReadonlyArray<Version> = Arr.isEmptyReadonlyArray(accepted)
       ? [{ version: 1, contentId: originId, featureCount: placeFeatures(origin).length }]
       : [
         { version: 1, contentId: originId, featureCount: placeFeatures(origin).length },

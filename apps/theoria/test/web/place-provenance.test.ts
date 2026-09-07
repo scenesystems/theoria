@@ -14,6 +14,7 @@ import {
   originDigestSite,
   type PlaceMark,
   type PlaceProvenance,
+  placeSourceId,
   type PlaceStep,
   proposalDigestSite,
   proposalSignatureSite,
@@ -23,7 +24,7 @@ import {
   versionSignatureSite
 } from "../../app/contracts/demo/imagined-place-provenance.js"
 import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
-import { frameShowing, PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
+import { drawingId, frameShowing, PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
 import { type PlaceOnPage, provenanceFor } from "../../app/web/view/home/placeProvenance.js"
 import { currentVersion } from "../../app/web/view/home/placeViewModel.js"
 import { onStage } from "../helpers/place-on-stage.js"
@@ -54,13 +55,19 @@ describe("place provenance", () => {
       const { build, kept, showingKept, showingTrial, trial } = yield* onStage
       expect(trial.projection.lines.length).not.toBe(kept.projection.lines.length)
 
-      const onTrial = yield* answered({ _tag: "Line", index: 0 }, page(Option.some(build), Option.some(showingTrial)))
+      const onTrial = yield* answered(
+        { _tag: "Line", index: 0, drawing: drawingId(showingTrial.search) },
+        page(Option.some(build), Option.some(showingTrial))
+      )
       expect(onTrial.title).toBe(`Line 1 of ${String(trial.projection.lines.length)}`)
       expect(onTrial.site).toEqual(layoutSite)
       const roomOnTrial = yield* factValue(onTrial, "Room")
       expect(roomOnTrial).toContain(`${String(trial.projection.stageWidth - 2 * trial.projection.padding)} px`)
 
-      const onKept = yield* answered({ _tag: "Line", index: 0 }, page(Option.some(build), Option.some(showingKept)))
+      const onKept = yield* answered(
+        { _tag: "Line", index: 0, drawing: drawingId(showingKept.search) },
+        page(Option.some(build), Option.some(showingKept))
+      )
       expect(onKept.title).toBe(`Line 1 of ${String(kept.projection.lines.length)}`)
     }))
 
@@ -86,7 +93,7 @@ describe("place provenance", () => {
       const on = page(Option.some(build), Option.some(showingTrial))
 
       const scored = yield* answered(codeLine("arrange", separationSite.match), on)
-      expect(scored.mark).toEqual({ _tag: "Trial", index: 0 })
+      expect(scored.mark).toEqual({ _tag: "Trial", index: 0, drawing: drawingId(showingTrial.search) })
       expect(scored.title).toBe("Trial 1 · not kept")
       expect(scored.site).toEqual(separationSite)
       expect(scored.site.package).toBe("effect-math")
@@ -111,7 +118,7 @@ describe("place provenance", () => {
         codeLine("arrange", layoutSite.match),
         page(Option.some(build), Option.some(showingTrial))
       )
-      expect(laid.mark).toEqual({ _tag: "Line", index: narrowed })
+      expect(laid.mark).toEqual({ _tag: "Line", index: narrowed, drawing: drawingId(showingTrial.search) })
       expect(laid.site).toEqual(layoutSite)
       expect(yield* factValue(laid, "Room")).toContain("beside a disc")
     }))
@@ -121,7 +128,7 @@ describe("place provenance", () => {
       const { build } = yield* onStage
       const on = page(Option.some(build), Option.none())
       const origin = yield* Arr.head(build.evidence.lineage)
-      const current = yield* currentVersion(build.evidence)
+      const current = currentVersion(build.evidence)
 
       const digest = yield* answered({ _tag: "Digest", contentId: origin.contentId }, on)
       expect(digest.title).toBe("v1 content ID")
@@ -135,8 +142,9 @@ describe("place provenance", () => {
       expect(composed.title).toBe(build.artifact.composition.title)
       expect(yield* factValue(composed, "Features")).toBe(String(build.artifact.composition.features.length))
 
-      expect(provenanceFor({ _tag: "Line", index: 0 }, on)).toEqual(Option.none())
-      expect(provenanceFor({ _tag: "Trial", index: 0 }, on)).toEqual(Option.none())
+      const drawing = { source: "blake3-256:test", stageWidth: 660 }
+      expect(provenanceFor({ _tag: "Line", index: 0, drawing }, on)).toEqual(Option.none())
+      expect(provenanceFor({ _tag: "Trial", index: 0, drawing }, on)).toEqual(Option.none())
       expect(provenanceFor(codeLine("arrange", layoutSite.match), on)).toEqual(Option.none())
     }))
 
@@ -145,8 +153,9 @@ describe("place provenance", () => {
       const { build, showingTrial } = yield* onStage
       const on = page(Option.some(build), Option.some(showingTrial))
       expect(provenanceFor({ _tag: "Feature", name: "Nowhere" }, on)).toEqual(Option.none())
-      expect(provenanceFor({ _tag: "Trial", index: 99 }, on)).toEqual(Option.none())
-      expect(provenanceFor({ _tag: "Line", index: 99 }, on)).toEqual(Option.none())
+      const drawing = drawingId(showingTrial.search)
+      expect(provenanceFor({ _tag: "Trial", index: 99, drawing }, on)).toEqual(Option.none())
+      expect(provenanceFor({ _tag: "Line", index: 99, drawing }, on)).toEqual(Option.none())
       expect(provenanceFor({ _tag: "Digest", contentId: "blake3-256:nothing" }, on)).toEqual(Option.none())
       expect(codeSiteOf("compose", "nothing(")).toEqual(Option.none())
       expect(provenanceFor(codeLine("compose", "nothing("), on)).toEqual(Option.none())
@@ -174,7 +183,8 @@ describe("place provenance", () => {
       expect(chosen.trial).toBe(0)
       const on = page(Option.some(build), Option.some(chosen))
 
-      const asTrial = yield* answered({ _tag: "Trial", index: 0 }, on)
+      const drawing = drawingId(chosen.search)
+      const asTrial = yield* answered({ _tag: "Trial", index: 0, drawing }, on)
       expect(asTrial.title).toBe("Trial 1 · not kept")
       expect(yield* factValue(asTrial, "Loss")).toBe(trial.evidence.bestLoss.toFixed(3))
 
@@ -182,11 +192,11 @@ describe("place provenance", () => {
       const asFeature = yield* answered({ _tag: "Feature", name: drawn.name }, on)
       expect(yield* factValue(asFeature, "Drawn")).toBe(`Trial 1 · not kept · r ${String(Math.round(drawn.radius))} px`)
 
-      const asLine = yield* answered({ _tag: "Line", index: 0 }, on)
+      const asLine = yield* answered({ _tag: "Line", index: 0, drawing }, on)
       expect(asLine.title).toBe(`Line 1 of ${String(trial.projection.lines.length)}`)
 
       const scored = yield* answered(codeLine("arrange", separationSite.match), on)
-      expect(scored.mark).toEqual({ _tag: "Trial", index: 0 })
+      expect(scored.mark).toEqual({ _tag: "Trial", index: 0, drawing })
     }))
 
   it.effect("every line of the code is answered by what it made, under its own package", () =>
@@ -194,7 +204,7 @@ describe("place provenance", () => {
       const { build, showingTrial } = yield* onStage
       const on = page(Option.some(build), Option.some(showingTrial))
       const neighbor = yield* Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "neighbor")
-      const current = yield* currentVersion(build.evidence)
+      const current = currentVersion(build.evidence)
       const origin = yield* Arr.head(build.evidence.lineage)
       const merged = yield* Arr.get(build.evidence.lineage, 1)
       const projection = showingTrial.rendering.projection
@@ -216,10 +226,11 @@ describe("place provenance", () => {
         }],
         [layoutSite, `Line ${String(narrowed + 1)} of ${String(projection.lines.length)}`, {
           _tag: "Line",
-          index: narrowed
+          index: narrowed,
+          drawing: drawingId(showingTrial.search)
         }],
-        [separationSite, "Trial 1 · not kept", { _tag: "Trial", index: 0 }],
-        [searchSite, "Trial 1 · not kept", { _tag: "Trial", index: 0 }]
+        [separationSite, "Trial 1 · not kept", { _tag: "Trial", index: 0, drawing: drawingId(showingTrial.search) }],
+        [searchSite, "Trial 1 · not kept", { _tag: "Trial", index: 0, drawing: drawingId(showingTrial.search) }]
       ]
       expect(expected.length).toBe(allCodeSites.length)
       yield* Effect.forEach(expected, ([site, title, made]) =>
@@ -229,5 +240,63 @@ describe("place provenance", () => {
           expect([site.id, provenance.site]).toEqual([site.id, site])
           expect([site.id, provenance.mark]).toEqual([site.id, made])
         }))
+    }))
+})
+
+describe("answers from the drawing's own source", () => {
+  it.effect("a disc on the paper is answered from the drawing it is on, not from the build in the column", () =>
+    Effect.gen(function*() {
+      const { build, showingTrial, trial, other } = yield* onStage
+      const name = (yield* Arr.head(trial.projection.markers)).name
+      const on = page(Option.some(other.build), Option.some(showingTrial))
+      const disc = yield* answered({ _tag: "Disc", name, source: placeSourceId(build) }, on)
+      expect(disc.title).toBe(name)
+      expect(disc.about).toEqual([name])
+      expect(yield* factValue(disc, "Drawn")).toMatch(/^Trial 1 · not kept/u)
+      expect((yield* answered({ _tag: "Line", index: 0, drawing: drawingId(showingTrial.search) }, on)).title)
+        .toBe(`Line 1 of ${String(trial.projection.lines.length)}`)
+      expect(Option.isSome(provenanceFor({ _tag: "Trial", index: 0, drawing: drawingId(showingTrial.search) }, on)))
+        .toBe(true)
+      const otherName = (yield* Arr.head(other.build.artifact.composition.features)).name
+      const feature = yield* answered({ _tag: "Feature", name: otherName }, on)
+      expect(factValue(feature, "Drawn")).toEqual(Option.none())
+    }))
+
+  it.effect("a mark of a drawing no longer on the paper has no answer", () =>
+    Effect.gen(function*() {
+      const { build, showingKept, showingTrial, trial, other } = yield* onStage
+      const name = (yield* Arr.head(trial.projection.markers)).name
+      const onOther = page(Option.some(build), Option.some(other.showing))
+      expect(provenanceFor({ _tag: "Disc", name, source: placeSourceId(build) }, onOther)).toEqual(Option.none())
+      expect(provenanceFor({ _tag: "Line", index: 0, drawing: drawingId(showingTrial.search) }, onOther)).toEqual(
+        Option.none()
+      )
+      expect(provenanceFor({ _tag: "Trial", index: 0, drawing: drawingId(showingTrial.search) }, onOther)).toEqual(
+        Option.none()
+      )
+      expect(provenanceFor({
+        _tag: "Line",
+        index: 0,
+        drawing: { source: placeSourceId(build), stageWidth: 320 }
+      }, page(Option.some(build), Option.some(showingKept)))).toEqual(Option.none())
+    }))
+
+  it.effect("about names the features an answer is about, from the answer's own source", () =>
+    Effect.gen(function*() {
+      const { build, showingTrial, trial } = yield* onStage
+      const on = page(Option.some(build), Option.some(showingTrial))
+      const name = (yield* Arr.head(trial.projection.markers)).name
+      const composed = Arr.map(build.artifact.composition.features, (feature) => feature.name)
+      const origin = Arr.headNonEmpty(build.evidence.lineage)
+      expect((yield* answered({ _tag: "Disc", name, source: placeSourceId(build) }, on)).about).toEqual([name])
+      expect((yield* answered({ _tag: "Inference" }, on)).about).toEqual(composed)
+      expect((yield* answered({ _tag: "Digest", contentId: origin.contentId }, on)).about).toEqual(composed)
+      expect((yield* answered({ _tag: "Line", index: 0, drawing: drawingId(showingTrial.search) }, on)).about).toEqual(
+        []
+      )
+      expect((yield* answered({ _tag: "Trial", index: 0, drawing: drawingId(showingTrial.search) }, on)).about).toEqual(
+        []
+      )
+      expect((yield* answered({ _tag: "Note" }, on)).about).toEqual([])
     }))
 })

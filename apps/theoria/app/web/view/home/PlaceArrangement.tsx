@@ -7,6 +7,7 @@ import * as Arr from "effect/Array"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../../contracts/imagined-place.js"
 import {
+  drawingId,
   type PlaceRenderError,
   placeRenderFrameAtom,
   type PlaceSearch,
@@ -108,7 +109,7 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
       <ProvenanceMark
         className={inlineMarkClassName}
         data-place-search-caption
-        mark={{ _tag: "Trial", index: shown }}
+        mark={{ _tag: "Trial", index: shown, drawing: drawingId(search) }}
       >
         <SemanticText
           as="span"

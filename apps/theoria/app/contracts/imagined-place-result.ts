@@ -127,7 +127,7 @@ export type SealedNote = typeof SealedNote.Type
 
 export const PlaceEvidence = Schema.Struct({
   inference: Schema.Array(InferenceEvidence),
-  lineage: Schema.Array(Version),
+  lineage: Schema.NonEmptyArray(Version),
   signatures: Schema.Array(SignatureRecord),
   sealedNote: SealedNote
 })

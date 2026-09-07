@@ -24,6 +24,7 @@ import {
   placeMarkFocusedAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
 import {
+  drawingId,
   placeProposalLineAtom,
   type PlaceRenderFrame,
   placeShownFrameAtom
@@ -65,7 +66,11 @@ const pageShowing = (build: PlaceBuild, shown: PlaceRenderFrame): Registry.Regis
 const lit = (registry: Registry.Registry, mark: PlaceMark): boolean =>
   registry.get(placeMarkFocusedAtom(encodeMark(mark)))
 
-const line = (index: number): PlaceMark => ({ _tag: "Line", index })
+const line = (index: number, shown: PlaceRenderFrame): PlaceMark => ({
+  _tag: "Line",
+  index,
+  drawing: drawingId(shown.search)
+})
 
 const codeLineAt = (site: CodeSite): PlaceMark => ({ _tag: "CodeLine", step: site.step, match: site.match })
 
@@ -76,7 +81,7 @@ describe("place focus", () => {
       const registry = pageShowing(build, showingTrial)
       expect(registry.get(placeAnsweredMarkAtom)).toEqual(Option.none())
       expect(registry.get(placeFocusedLineAtom)).toEqual(Option.none())
-      expect(lit(registry, line(0))).toBe(false)
+      expect(lit(registry, line(0, showingTrial))).toBe(false)
       expect(Arr.some(showingTrial.rendering.projection.markers, (marker) =>
         lit(registry, { _tag: "Feature", name: marker.name })))
         .toBe(false)
@@ -94,8 +99,8 @@ describe("place focus", () => {
       expect(registry.get(placeAnsweredMarkAtom)).toEqual(Option.some(feature))
       expect(lit(registry, feature)).toBe(true)
       expect(registry.get(placeFocusedLineAtom)).toEqual(Option.some(anchored))
-      expect(lit(registry, line(anchored))).toBe(true)
-      expect(lit(registry, line(anchored + 1))).toBe(false)
+      expect(lit(registry, line(anchored, showingTrial))).toBe(true)
+      expect(lit(registry, line(anchored + 1, showingTrial))).toBe(false)
       // And the line of code that made the proposal's identity, in the panel.
       expect(lit(registry, codeLineAt(proposalDigestSite))).toBe(true)
       expect(lit(registry, codeLineAt(layoutSite))).toBe(false)
@@ -177,8 +182,8 @@ describe("place focus", () => {
       const answered = yield* registry.get(placeAnsweredMarkAtom)
       expect(answered._tag).toBe("Line")
       const index = yield* registry.get(placeFocusedLineAtom)
-      expect(answered).toEqual(line(index))
-      expect(lit(registry, line(index))).toBe(true)
+      expect(answered).toEqual(line(index, showingTrial))
+      expect(lit(registry, line(index, showingTrial))).toBe(true)
       expect(lit(registry, laying)).toBe(true)
     }))
 
@@ -186,8 +191,8 @@ describe("place focus", () => {
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
       const registry = pageShowing(build, showingTrial)
-      registry.set(placeFocusAtom, Option.some(line(2)))
-      expect(lit(registry, line(2))).toBe(true)
+      registry.set(placeFocusAtom, Option.some(line(2, showingTrial)))
+      expect(lit(registry, line(2, showingTrial))).toBe(true)
       expect(lit(registry, codeLineAt(layoutSite))).toBe(true)
       expect(lit(registry, codeLineAt(separationSite))).toBe(false)
       expect(lit(registry, codeLineAt(composeSite))).toBe(false)
@@ -198,13 +203,17 @@ describe("place focus", () => {
       const { build, showingTrial } = yield* onStage
       const registry = pageShowing(build, showingTrial)
       const scoring = codeLineAt(separationSite)
-      const trial: PlaceMark = { _tag: "Trial", index: showingTrial.trial }
+      const trial: PlaceMark = { _tag: "Trial", index: showingTrial.trial, drawing: drawingId(showingTrial.search) }
 
       registry.set(placeFocusAtom, Option.some(scoring))
       expect(registry.get(placeAnsweredMarkAtom)).toEqual(Option.some(trial))
       expect(lit(registry, trial)).toBe(true)
       expect(lit(registry, scoring)).toBe(true)
-      expect(lit(registry, { _tag: "Trial", index: showingTrial.search.bestIndex })).toBe(false)
+      expect(lit(registry, {
+        _tag: "Trial",
+        index: showingTrial.search.bestIndex,
+        drawing: drawingId(showingTrial.search)
+      })).toBe(false)
       expect(registry.get(placeFocusedLineAtom)).toEqual(Option.none())
       expect(
         Arr.some(build.artifact.composition.features, (feature) => registry.get(placeFeatureFocusedAtom(feature.name)))

@@ -4,6 +4,7 @@ import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
+import type { PlaceSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import { type PlaceDiscDrawn, placeDiscDrawnAtom } from "../../atoms/imagined-place-render.js"
@@ -110,11 +111,12 @@ const ArrivingRing = ({ marker }: { readonly marker: Marker }) => (
  * answers back — to the act being read, with an outline, and to the code
  * line that made it, with a ring.
  */
-const Disc = ({ drawn, index, labelWidth, marker }: {
+const Disc = ({ drawn, index, labelWidth, marker, source }: {
   readonly drawn: Exclude<PlaceDiscDrawn, "arriving">
   readonly index: number
   readonly labelWidth: Option.Option<number>
   readonly marker: Marker
+  readonly source: PlaceSourceId
 }) => {
   const role = markerContributor(marker)
   const tone = markerTone(marker)
@@ -129,7 +131,7 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
         discClassName(role)
       } ${tone.focusRing} ${discFocusRing(role)} ${discActOutline(act, marker)}`}
       data-place-marker={marker.name}
-      mark={{ _tag: "Feature", name: marker.name }}
+      mark={{ _tag: "Disc", name: marker.name, source }}
       render={discElement(drawn, preference)}
       style={markerStyle(marker)}
     >
@@ -162,10 +164,11 @@ const Disc = ({ drawn, index, labelWidth, marker }: {
  * the ring fades as the disc fills it. `propagate` lets the disc fade out
  * where it stands when the whole feature leaves the drawing.
  */
-export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
+export const PlaceMarkerDisc = ({ index, labelWidth, marker, source }: {
   readonly index: number
   readonly labelWidth: Option.Option<number>
   readonly marker: Marker
+  readonly source: PlaceSourceId
 }) => {
   const drawn = useAtomValue(placeDiscDrawnAtom(marker.name))
   return (
@@ -175,7 +178,9 @@ export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
         Match.whenOr(
           "settled",
           "trial",
-          (present) => <Disc drawn={present} index={index} key="disc" labelWidth={labelWidth} marker={marker} />
+          (present) => (
+            <Disc drawn={present} index={index} key="disc" labelWidth={labelWidth} marker={marker} source={source} />
+          )
         ),
         Match.exhaustive
       )}

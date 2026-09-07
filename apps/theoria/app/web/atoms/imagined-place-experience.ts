@@ -4,16 +4,17 @@ import { Effect, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import {
-  type AnswerOpening,
+  type AnswerFocusReturn,
   type CodeSite,
   decodeMark,
   encodeMark,
+  focusReturnAfter,
   type HoverIntent,
   type MarkPress,
   PlaceAct,
   PlaceAnswer,
   type PlaceMark,
-  type PlaceProvenance,
+  PlaceProvenance,
   type PointerOver,
   type PressOutcome
 } from "../../contracts/demo/imagined-place-provenance.js"
@@ -23,7 +24,7 @@ import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
 import * as ElementSize from "../platform/ElementSize.js"
-import { featuresAnswered, type PlaceOnPage, provenanceFor } from "../view/home/placeProvenance.js"
+import { type PlaceOnPage, provenanceFor } from "../view/home/placeProvenance.js"
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 
 import { placeShownFrameAtom } from "./imagined-place-render.js"
@@ -41,25 +42,34 @@ import { appRuntime } from "./runtime.js"
 // ---------------------------------------------------------------------------
 
 const answerState = Atom.make(Option.none<PlaceAnswer>())
-const answerOpeningState = Atom.make<AnswerOpening>("press")
+const answerFocusReturnState = Atom.make<AnswerFocusReturn>("mark")
+const answerLeavingState = Atom.make(Option.none<PlaceProvenance>())
 
 /**
  * The open answer: the mark the visitor is pointing at, and how it was opened.
  * Written by the overlay; read by the code panel, which lights the line that
  * made the mark. Writing it also records how it was opened, because the popup
  * decides where focus goes as it closes — after the answer itself is gone. A
- * hover answer never had focus; a pressed one hands it back.
+ * hover answer never had focus; a pressed one hands it back. Closing it keeps
+ * what was being said, for the popup to leave with.
  */
 export const placeAnswerAtom: AtomType.Writable<Option.Option<PlaceAnswer>> = Atom.writable(
-  (get: AtomType.Context) => get(answerState),
+  (get: AtomType.Context) => Option.filter(get(answerState), () => Option.isSome(get(placeFocusedProvenanceAtom))),
   (ctx: AtomType.WriteContext<Option.Option<PlaceAnswer>>, value: Option.Option<PlaceAnswer>) => {
+    Option.match(value, {
+      onNone: () => ctx.set(answerLeavingState, ctx.get(placeAnswerOnShowAtom)),
+      onSome: (answer) => ctx.set(answerFocusReturnState, focusReturnAfter(answer.opening))
+    })
     ctx.set(answerState, value)
-    Option.map(value, (answer) => ctx.set(answerOpeningState, answer.opening))
   }
 )
 
-/** How the answer on show — or the one just leaving — was opened. */
-export const placeAnswerOpeningAtom: AtomType.Atom<AnswerOpening> = answerOpeningState
+/**
+ * Where focus goes when the answer on show — or the one just leaving —
+ * closes. Decided when the answer opens, and kept while it closes, so the
+ * closing popover can still ask.
+ */
+export const placeAnswerFocusReturnAtom: AtomType.Atom<AnswerFocusReturn> = answerFocusReturnState
 
 /** The mark whose answer is open; all existing focus projections derive from this authority. */
 export const placeFocusAtom: AtomType.Atom<Option.Option<PlaceMark>> = Atom.map(
@@ -167,9 +177,56 @@ export const placeOnPageAtom: AtomType.Atom<PlaceOnPage> = Atom.make((get: AtomT
   shown: Result.value(get(placeShownFrameAtom))
 }))
 
-/** The page's answer for the mark under the pointer, if it has one yet. */
+/**
+ * The page's answer for the open answer's mark, if it has one: read from the
+ * build and the drawing shown this instant, so it is what the popover says
+ * and what the code panel and the discs light.
+ */
 export const placeFocusedProvenanceAtom: AtomType.Atom<Option.Option<PlaceProvenance>> = Atom.make(
-  (get: AtomType.Context) => Option.flatMap(get(placeFocusAtom), (mark) => provenanceFor(mark, get(placeOnPageAtom)))
+  (get: AtomType.Context) =>
+    Option.flatMap(get(answerState), (answer) => provenanceFor(answer.mark, get(placeOnPageAtom)))
+)
+
+/**
+ * What the popup says: the answer on show, or, while it closes, the one just
+ * leaving. A popup fades out over a moment; it fades with its last words
+ * rather than emptying the instant the answer is let go.
+ */
+export const placeAnswerOnShowAtom: AtomType.Atom<Option.Option<PlaceProvenance>> = Atom.make(
+  (get: AtomType.Context) => Option.orElse(get(placeFocusedProvenanceAtom), () => get(answerLeavingState))
+)
+
+/** The answer open, and what the page says about it this instant. */
+const Answering = Schema.Struct({ answer: Schema.Option(PlaceAnswer), provenance: Schema.Option(PlaceProvenance) })
+type Answering = typeof Answering.Type
+const answeringAtom: AtomType.Atom<Answering> = Atom.make((get: AtomType.Context) =>
+  Answering.make({ answer: get(answerState), provenance: get(placeFocusedProvenanceAtom) })
+)
+
+/** An answer is open for a mark the page can no longer answer: its drawing was replaced, or its build. */
+const vanished = (answering: Answering): boolean =>
+  Option.isSome(answering.answer) && Option.isNone(answering.provenance)
+
+/**
+ * An answer lives as long as the page can answer it. When what it was
+ * pointed at leaves the page — the drawing it was on is replaced by the
+ * next story's, a feature is no longer in the build — the answer is let go
+ * with what it last said, and focus stays where it is, since the mark that
+ * opened it is gone too. The overlay mounts this for as long as answers can
+ * be open.
+ */
+export const placeAnswerLifetimeAtom = appRuntime.atom((get: AtomType.Context) =>
+  get.stream(answeringAtom).pipe(
+    Stream.zipWithPrevious,
+    Stream.filter(([, current]) => vanished(current)),
+    Stream.runForEach(([previous]) =>
+      Effect.sync(() => {
+        get.set(answerLeavingState, Option.flatMap(previous, (was) => was.provenance))
+        get.set(answerFocusReturnState, "stays")
+        get.set(answerState, Option.none())
+      })
+    )
+  )
 )
 
 /** The line of code that made what the visitor is pointing at. */
@@ -189,10 +246,7 @@ export const placeAnsweredMarkAtom: AtomType.Atom<Option.Option<PlaceMark>> = At
  */
 export const placeFeatureFocusedAtom = Atom.family((name: string): AtomType.Atom<boolean> =>
   Atom.make((get: AtomType.Context) =>
-    Option.exists(
-      Option.all({ provenance: get(placeFocusedProvenanceAtom), build: Result.value(get(placeBuildAtom)) }),
-      ({ build, provenance }) => Arr.contains(featuresAnswered(provenance, build), name)
-    )
+    Option.exists(get(placeFocusedProvenanceAtom), (provenance) => Arr.contains(provenance.about, name))
   )
 )
 
@@ -206,12 +260,15 @@ export const placeFocusedLineAtom: AtomType.Atom<Option.Option<number>> = Atom.m
   Option.flatMap(get(placeAnsweredMarkAtom), (mark) =>
     Match.value(mark).pipe(
       Match.tag("Line", ({ index }) => Option.some(index)),
-      Match.tag("Feature", ({ name }) =>
+      Match.tag("Feature", "Disc", ({ name }) =>
         Option.flatMap(
-          Option.all({ build: Result.value(get(placeBuildAtom)), shown: Result.value(get(placeShownFrameAtom)) }),
-          ({ build, shown }) =>
+          Result.value(get(placeShownFrameAtom)),
+          (shown) =>
             Option.flatMap(
-              Arr.findFirst(build.proposals, (record: ProposalRecord) => record.proposal.feature.name === name),
+              Arr.findFirst(
+                shown.search.source.proposals,
+                (record: ProposalRecord) => record.proposal.feature.name === name
+              ),
               (record) => proposalAnchorLine(shown.rendering.projection, record)
             )
         )),
@@ -233,7 +290,7 @@ export const placeMarkFocusedAtom = Atom.family((encoded: string): AtomType.Atom
   Atom.make((get: AtomType.Context) =>
     Option.exists(decodeMark(encoded), (mark) =>
       Match.value(mark).pipe(
-        Match.tag("Feature", ({ name }) => get(placeFeatureFocusedAtom(name))),
+        Match.tag("Feature", "Disc", ({ name }) => get(placeFeatureFocusedAtom(name))),
         Match.tag("Line", ({ index }) => Option.contains(get(placeFocusedLineAtom), index)),
         Match.tag("CodeLine", ({ match, step }) =>
           Option.exists(get(placeFocusedSiteAtom), (site) => site.step === step && site.match === match)),

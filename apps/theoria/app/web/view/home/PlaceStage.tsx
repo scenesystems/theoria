@@ -10,10 +10,12 @@ import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
 import { stageFor } from "../../../contracts/demo/imagined-place-flow.js"
+import { type DrawingId, placeSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceLine, PlaceMarker, PlaceProjection } from "../../../contracts/imagined-place-result.js"
 import { useElementWidthReporter } from "../../atoms/element-observation.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import {
+  drawingId,
   type PlaceDrawn,
   placeDrawnAtom,
   type PlaceRenderFrame,
@@ -68,7 +70,11 @@ const lineArrivedAt = { opacity: 1 }
  */
 const lineClassName = `${markClassName} ${litMarkClassName} pointer-events-auto absolute overflow-hidden`
 
-const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; readonly prose: string }) => (
+const Lines = ({ drawing, projection, prose }: {
+  readonly drawing: DrawingId
+  readonly projection: PlaceProjection
+  readonly prose: string
+}) => (
   <AnimatePresence initial={false} mode="wait">
     <Toolbar.Root
       render={<m.div exit={departed} transition={exitTransition} />}
@@ -84,7 +90,7 @@ const Lines = ({ projection, prose }: { readonly projection: PlaceProjection; re
           render={
             <ProvenanceMark
               render={<m.div animate={lineArrivedAt} initial={lineArrivalFrom} transition={staggeredArrival(index)} />}
-              mark={{ _tag: "Line", index }}
+              mark={{ _tag: "Line", index, drawing }}
               nativeButton={false}
             />
           }
@@ -141,11 +147,16 @@ const Drawing = ({ frame, shown }: {
             key={`${shown}:${marker.name}`}
             labelWidth={Record.get(frame.search.labels, marker.name)}
             marker={marker}
+            source={placeSourceId(frame.search.source)}
           />
         ))}
       </AnimatePresence>
       <PlaceGhosts padding={projection.padding} stageWidth={projection.stageWidth} />
-      <Lines projection={projection} prose={frame.search.prose} />
+      <Lines
+        drawing={drawingId(frame.search)}
+        projection={projection}
+        prose={frame.search.prose}
+      />
     </Layer>
   )
 }

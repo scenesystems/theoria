@@ -7,12 +7,7 @@ import * as Str from "effect/String"
 import type { DemoError } from "../../contracts/demo-error.js"
 import { stageFor, stageMaxWidth, stageMinWidth } from "../../contracts/demo/imagined-place-flow.js"
 import type { PlaceBuild } from "../../contracts/imagined-place-result.js"
-import {
-  type PlaceArtifact,
-  type PlaceBuildRequest,
-  PlaceScenario,
-  placeScenarioMeta
-} from "../../contracts/imagined-place.js"
+import { type PlaceBuildRequest, PlaceScenario, placeScenarioMeta } from "../../contracts/imagined-place.js"
 import type { ArtifactStageFrame } from "../../contracts/layout.js"
 import type { SuccessEnvelopeData } from "../services/envelopeRequest.js"
 import { ImaginedPlaceClient } from "../services/ImaginedPlaceClient.js"
@@ -73,16 +68,6 @@ export const placeBuildAtom: AtomType.Atom<Result.Result<PlaceBuild, DemoError>>
 /** The commit the server was built from, so links into the source show exactly the code that ran. */
 export const placeBuildShaAtom: AtomType.Atom<Option.Option<string>> = Atom.make(
   (get: AtomType.Context) => Option.map(Result.value(get(placeBuildEnvelopeAtom)), (envelope) => envelope.meta.buildSha)
-)
-
-/**
- * The artifact to draw: the latest successful build's, kept while the next
- * build is in flight so the stage never blanks. The reference is stable across
- * a rebuild's waiting state, so dependents do not re-run until a new artifact
- * arrives.
- */
-export const placeArtifactAtom: AtomType.Atom<Option.Option<PlaceArtifact>> = Atom.make(
-  (get: AtomType.Context) => Option.map(Result.value(get(placeBuildAtom)), (build) => build.artifact)
 )
 
 /**

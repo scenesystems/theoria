@@ -7,15 +7,19 @@ import {
   type CodeSiteId,
   codeSiteOf,
   composeSite,
+  type DrawingId,
   inferenceSite,
   layoutSite,
   mergedDigestSite,
   originDigestSite,
   type PlaceMark,
   type PlaceProvenance,
+  type PlaceSourceId,
+  placeSourceId,
   proposalDigestSite,
   proposalSignatureSite,
   type ProvenanceFact,
+  sameDrawing,
   sealSite,
   searchSite,
   versionSignatureSite
@@ -30,7 +34,7 @@ import {
   type Version
 } from "../../../contracts/imagined-place-result.js"
 import { type ParticipantRole, placeFeatures } from "../../../contracts/imagined-place.js"
-import { PlaceRenderFrame, type PlaceSearch } from "../../atoms/imagined-place-render.js"
+import { drawingId, PlaceRenderFrame, type PlaceSearch } from "../../atoms/imagined-place-render.js"
 
 import { currentVersion, participantLabel, searching, shortId, signatureFor } from "./placeViewModel.js"
 
@@ -61,13 +65,14 @@ export type PlaceOnPage = typeof PlaceOnPage.Type
 
 const fact = (label: string, value: string): ProvenanceFact => ({ label, value })
 
+/** An answer about no feature yet; `answered` says which features it is about, once its source is known. */
 const answer = (
   mark: PlaceMark,
   title: string,
   facts: ReadonlyArray<ProvenanceFact>,
   site: CodeSite,
   copy: Option.Option<string> = Option.none()
-): PlaceProvenance => ({ mark, title, detail: Option.none(), facts, site, copy })
+): PlaceProvenance => ({ mark, title, detail: Option.none(), facts, site, copy, about: [] })
 
 /** A feature speaks for itself first: its description, then the facts. */
 const described = (provenance: PlaceProvenance, detail: string): PlaceProvenance => ({
@@ -138,62 +143,64 @@ const drawnFacts = (shown: Option.Option<PlaceRenderFrame>, name: string): Reado
     }
   )
 
-/** A feature from the brief was composed; one from a proposal was offered, and merged or declined. */
-const featureAnswer = (mark: PlaceMark, page: PlaceOnPage, name: string): Option.Option<PlaceProvenance> =>
-  Option.flatMap(page.build, (build) =>
-    Option.match(proposalOfFeature(build, name), {
-      onNone: () =>
-        Option.map(
-          Arr.findFirst(build.artifact.composition.features, (feature) => feature.name === name),
-          (feature) =>
-            described(
-              answer(
-                mark,
-                feature.name,
-                Arr.appendAll(
-                  [
-                    fact("From", "Your brief"),
-                    fact("Weight", feature.weight.toFixed(2)),
-                    fact(
-                      "In",
-                      Option.match(Arr.head(build.evidence.lineage), { onNone: () => "v1", onSome: versionName })
-                    )
-                  ],
-                  drawnFacts(page.shown, name)
-                ),
-                composeSite
-              ),
-              feature.description
-            )
-        ),
-      onSome: (record) =>
-        Option.some(
+/**
+ * A feature from the brief was composed; one from a proposal was offered,
+ * and merged or declined. `shown` is the drawing of this same build, if it
+ * is on the paper; where the feature stands there is told too.
+ */
+const featureAnswer = (
+  mark: PlaceMark,
+  build: PlaceBuild,
+  shown: Option.Option<PlaceRenderFrame>,
+  name: string
+): Option.Option<PlaceProvenance> =>
+  Option.match(proposalOfFeature(build, name), {
+    onNone: () =>
+      Option.map(
+        Arr.findFirst(build.artifact.composition.features, (feature) => feature.name === name),
+        (feature) =>
           described(
             answer(
               mark,
-              record.proposal.feature.name,
+              feature.name,
               Arr.appendAll(
                 [
-                  fact("From", participantLabel(record.proposal.proposer)),
-                  fact(
-                    "Decision",
-                    record.accepted
-                      ? Option.match(currentVersion(build.evidence), {
-                        onNone: () => "Merged",
-                        onSome: (version) => `Merged into ${versionName(version)}`
-                      })
-                      : "Declined"
-                  ),
-                  fact("Proposal", shortId(record.contentId))
+                  fact("From", "Your brief"),
+                  fact("Weight", feature.weight.toFixed(2)),
+                  fact("In", versionName(Arr.headNonEmpty(build.evidence.lineage)))
                 ],
-                drawnFacts(page.shown, name)
+                drawnFacts(shown, name)
               ),
-              proposalDigestSite
+              composeSite
             ),
-            record.proposal.feature.description
+            feature.description
           )
+      ),
+    onSome: (record) =>
+      Option.some(
+        described(
+          answer(
+            mark,
+            record.proposal.feature.name,
+            Arr.appendAll(
+              [
+                fact("From", participantLabel(record.proposal.proposer)),
+                fact(
+                  "Decision",
+                  record.accepted
+                    ? `Merged into ${versionName(currentVersion(build.evidence))}`
+                    : "Declined"
+                ),
+                fact("Proposal", shortId(record.contentId))
+              ],
+              drawnFacts(shown, name)
+            ),
+            proposalDigestSite
+          ),
+          record.proposal.feature.description
         )
-    }))
+      )
+  })
 
 const signatureFacts = (signature: SignatureRecord): ReadonlyArray<ProvenanceFact> => [
   fact("Signer", participantLabel(signature.signer)),
@@ -267,7 +274,7 @@ const compositionAnswer = (mark: PlaceMark, build: PlaceBuild): PlaceProvenance 
       [
         fact("From", "Your brief"),
         fact("Features", String(composition.features.length)),
-        fact("In", Option.match(Arr.head(build.evidence.lineage), { onNone: () => "v1", onSome: versionName }))
+        fact("In", versionName(Arr.headNonEmpty(build.evidence.lineage)))
       ],
       composeSite
     ),
@@ -300,14 +307,14 @@ const featuresOfSubject = (build: PlaceBuild, contentId: string): ReadonlyArray<
   })
 
 /**
- * The names of the features an answer is about, so each can say so where it
- * stands: a feature's own; every feature the composing line, or the recorded
+ * The names of the features a mark is about, read from the build it is of:
+ * a feature's own; every feature the composing line, or the recorded
  * inference, returned; the features a content ID or a signature is over. A
  * line of the prose, a trial and the sealed note are about no feature.
  */
-export const featuresAnswered = (provenance: PlaceProvenance, build: PlaceBuild): ReadonlyArray<string> =>
-  Match.value(provenance.mark).pipe(
-    Match.tag("Feature", ({ name }): ReadonlyArray<string> => [name]),
+const aboutFeatures = (mark: PlaceMark, build: PlaceBuild): ReadonlyArray<string> =>
+  Match.value(mark).pipe(
+    Match.tag("Feature", "Disc", ({ name }): ReadonlyArray<string> => [name]),
     Match.tag(
       "CodeLine",
       ({ match, step }): ReadonlyArray<string> =>
@@ -319,6 +326,12 @@ export const featuresAnswered = (provenance: PlaceProvenance, build: PlaceBuild)
     Match.tag("Line", "Trial", "Note", (): ReadonlyArray<string> => []),
     Match.exhaustive
   )
+
+/** The answer, saying which of `build`'s features it is about. */
+const answered = (build: PlaceBuild) => (provenance: PlaceProvenance): PlaceProvenance => ({
+  ...provenance,
+  about: aboutFeatures(provenance.mark, build)
+})
 
 const inferenceAnswer = (mark: PlaceMark, build: PlaceBuild): Option.Option<PlaceProvenance> =>
   Option.map(
@@ -446,16 +459,20 @@ const markMadeBy = (id: CodeSiteId, page: PlaceOnPage): Option.Option<PlaceMark>
       )),
     Match.when("version-signature", () =>
       Option.map(
-        Option.flatMap(page.build, (build) => currentVersion(build.evidence)),
-        (version): PlaceMark => ({ _tag: "Signature", subject: version.contentId })
+        page.build,
+        (build): PlaceMark => ({ _tag: "Signature", subject: currentVersion(build.evidence).contentId })
       )),
     Match.when("layout", () =>
-      Option.map(
-        Option.flatMap(page.shown, narrowedLine),
-        (index): PlaceMark => ({ _tag: "Line", index })
-      )),
+      Option.flatMap(page.shown, (frame) =>
+        Option.map(
+          narrowedLine(frame),
+          (index): PlaceMark => ({ _tag: "Line", index, drawing: drawingId(frame.search) })
+        ))),
     Match.whenOr("separation", "search", () =>
-      Option.map(page.shown, (frame): PlaceMark => ({ _tag: "Trial", index: frame.trial }))),
+      Option.map(
+        page.shown,
+        (frame): PlaceMark => ({ _tag: "Trial", index: frame.trial, drawing: drawingId(frame.search) })
+      )),
     Match.exhaustive
   )
 
@@ -466,27 +483,59 @@ const markMadeBy = (id: CodeSiteId, page: PlaceOnPage): Option.Option<PlaceMark>
  */
 const codeLineAnswer = (mark: PlaceMark, page: PlaceOnPage, site: CodeSite): Option.Option<PlaceProvenance> =>
   site.id === composeSite.id
-    ? Option.map(page.build, (build) => compositionAnswer(mark, build))
+    ? Option.map(page.build, (build) => answered(build)(compositionAnswer(mark, build)))
     : Option.map(
       Option.flatMap(markMadeBy(site.id, page), (made) => answerFor(made, page)),
       (provenance) => creditedTo(provenance, site)
     )
 
+/** The frame on the paper, if it is a drawing of `source`. */
+const shownOf = (page: PlaceOnPage, source: PlaceSourceId): Option.Option<PlaceRenderFrame> =>
+  Option.filter(page.shown, (frame) => placeSourceId(frame.search.source) === source)
+
+/** The frame on the paper, if it is the drawing a mark was pointed at on. */
+const shownDrawing = (page: PlaceOnPage, drawing: DrawingId): Option.Option<PlaceRenderFrame> =>
+  Option.filter(page.shown, (frame) => sameDrawing(drawingId(frame.search), drawing))
+
+/**
+ * A feature of the column is answered from the build the column describes,
+ * with where it stands only if the paper is drawing that same build; a disc
+ * is answered from the drawing it is on, whichever build that is of.
+ */
 const answerFor = (mark: PlaceMark, page: PlaceOnPage): Option.Option<PlaceProvenance> =>
   Match.value(mark).pipe(
-    Match.tag("Feature", ({ name }) => featureAnswer(mark, page, name)),
-    Match.tag("Line", ({ index }) => Option.flatMap(page.shown, (frame) => lineAnswer(mark, frame, index))),
-    Match.tag(
-      "Signature",
-      ({ subject }) => Option.flatMap(page.build, (build) => signatureAnswer(mark, build, subject))
-    ),
-    Match.tag("Digest", ({ contentId }) => Option.flatMap(page.build, (build) => digestAnswer(mark, build, contentId))),
-    Match.tag("Trial", ({ index }) => Option.flatMap(page.shown, (frame) => trialAnswer(mark, frame.search, index))),
-    Match.tag("Inference", () => Option.flatMap(page.build, (build) => inferenceAnswer(mark, build))),
-    Match.tag("Note", () => Option.map(page.build, (build) => noteAnswer(mark, build))),
+    Match.tag("Feature", ({ name }) =>
+      Option.flatMap(page.build, (build) =>
+        Option.map(featureAnswer(mark, build, shownOf(page, placeSourceId(build)), name), answered(build)))),
+    Match.tag("Disc", ({ name, source }) =>
+      Option.flatMap(shownOf(page, source), (frame) =>
+        Option.map(
+          featureAnswer(mark, frame.search.source, Option.some(frame), name),
+          answered(frame.search.source)
+        ))),
+    Match.tag("Line", ({ drawing, index }) =>
+      Option.flatMap(shownDrawing(page, drawing), (frame) =>
+        lineAnswer(mark, frame, index))),
+    Match.tag("Signature", ({ subject }) =>
+      Option.flatMap(page.build, (build) =>
+        Option.map(signatureAnswer(mark, build, subject), answered(build)))),
+    Match.tag("Digest", ({ contentId }) =>
+      Option.flatMap(page.build, (build) =>
+        Option.map(digestAnswer(mark, build, contentId), answered(build)))),
+    Match.tag("Trial", ({ drawing, index }) =>
+      Option.flatMap(shownDrawing(page, drawing), (frame) =>
+        trialAnswer(mark, frame.search, index))),
+    Match.tag("Inference", () =>
+      Option.flatMap(page.build, (build) =>
+        Option.map(inferenceAnswer(mark, build), answered(build)))),
+    Match.tag("Note", () =>
+      Option.map(page.build, (build) =>
+        noteAnswer(mark, build))),
     Match.tag(
       "CodeLine",
-      ({ match, step }) => Option.flatMap(codeSiteOf(step, match), (site) => codeLineAnswer(mark, page, site))
+      ({ match, step }) =>
+        Option.flatMap(codeSiteOf(step, match), (site) =>
+          codeLineAnswer(mark, page, site))
     ),
     Match.exhaustive
   )

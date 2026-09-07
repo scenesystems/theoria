@@ -40,7 +40,8 @@ export const motionArrivalBudget: Duration.Duration = Duration.millis(300)
 export const answerOpenDelay = (mark: PlaceMark): Duration.Duration =>
   Match.value(mark).pipe(
     Match.tag("Line", () => Duration.millis(320)),
-    Match.tag("Feature", "Signature", "Digest", "Trial", "Inference", "Note", "CodeLine", () => Duration.millis(120)),
+    Match.tag("Feature", "Disc", "Signature", "Digest", "Trial", "Inference", "Note", "CodeLine", () =>
+      Duration.millis(120)),
     Match.exhaustive
   )
 

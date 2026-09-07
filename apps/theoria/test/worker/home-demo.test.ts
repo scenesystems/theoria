@@ -739,6 +739,46 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
+    it.scoped("an answer opened on the drawing survives the next story's build and closes with its drawing", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const overlay = page.locator("[data-place-provenance]")
+        const heading = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
+        const disc = demo.locator("[data-place-marker]").first()
+        yield* click(disc)
+        yield* visible(overlay)
+        const title = yield* Option.fromNullable(yield* act(() => heading.textContent()))
+        const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
+        const radio = scenarios.getByRole("radio", { name: placeScenarioMeta["lost-market"].label })
+        // The answer's title, sampled a frame apart for as long as the popup is on the page:
+        // while the next story is built the old drawing stays and so does its answer; the
+        // moment the new drawing replaces it the answer goes — fading with the words it had,
+        // never emptied, and never having named another build's feature.
+        const sampling = yield* Stream.repeatEffectWithSchedule(
+          Effect.all([act(() => overlay.count()), act(() => heading.allTextContents())]),
+          Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
+        ).pipe(
+          Stream.takeUntil(([popups]) => popups === 0),
+          Stream.runCollect,
+          Effect.map(Chunk.toReadonlyArray),
+          Effect.fork
+        )
+        yield* click(radio)
+        const popupUntilGone = yield* Fiber.join(sampling)
+        const whileOnPage = Arr.filter(popupUntilGone, ([popups]) => popups > 0)
+        expect(whileOnPage.length).toBeGreaterThan(0)
+        expect(
+          Arr.every(whileOnPage, ([, titles]) => Arr.every(titles, (seen) => seen === title) && titles.length === 1)
+        )
+          .toBe(true)
+        yield* hidden(overlay)
+        expect(yield* act(() => radio.evaluate(isActiveElement))).toBe(true)
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("the mark, its answer and a preview opened from it are one place for the pointer", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()

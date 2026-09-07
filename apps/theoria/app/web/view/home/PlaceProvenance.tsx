@@ -17,10 +17,11 @@ import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "..
 import {
   answerAfterPress,
   placeAnswerAtom,
-  placeAnswerOpeningAtom,
+  placeAnswerFocusReturnAtom,
+  placeAnswerLifetimeAtom,
+  placeAnswerOnShowAtom,
   placeHoverIntentAtom,
   placeMarkFocusedAtom,
-  placeOnPageAtom,
   placePointerOverAtom
 } from "../../atoms/imagined-place-experience.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
@@ -40,7 +41,6 @@ import { PointerRegion, pointerRegionHandlers, PointerRegionProvider } from "../
 import { SemanticText } from "../primitives/SemanticText.js"
 
 import { howItsBuiltSectionId } from "./HomeHero.js"
-import { provenanceFor } from "./placeProvenance.js"
 
 /**
  * The page has one answer surface. Every mark on it — a disc, a content ID,
@@ -289,15 +289,6 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
   )
 }
 
-/** The answer for the mark that opened the overlay, from what is on the page this instant. */
-const Answered = ({ mark }: { readonly mark: PlaceMark }) => {
-  const page = useAtomValue(placeOnPageAtom)
-  return Option.match(provenanceFor(mark, page), {
-    onNone: () => null,
-    onSome: (provenance) => <Answer provenance={provenance} />
-  })
-}
-
 /** The mark a press landed on, read back from the trigger the popover names. */
 const pressOn = (details: Popover.Root.ChangeEventDetails): Option.Option<MarkTrigger> =>
   Option.all({
@@ -314,16 +305,20 @@ const pressOn = (details: Popover.Root.ChangeEventDetails): Option.Option<MarkTr
  * opens afterwards. The popover is told what is open and by which trigger.
  *
  * A hover answer never takes or returns focus; a pressed one takes it and
- * hands it back to its mark. Which of the two is leaving is known after the
- * answer itself is gone, from `placeAnswerOpeningAtom`.
+ * hands it back to its mark. Which of the two is leaving, and what it was
+ * saying, are known after the answer itself is gone, from
+ * `placeAnswerFocusReturnAtom` and `placeAnswerOnShowAtom`, so the popup
+ * closes as it was rather than emptied.
  *
  * The popup and any preview opened from inside it are one pointer region:
  * crossing between them is not leaving.
  */
 export const PlaceProvenanceOverlay = () => {
   useAtomMount(placeHoverIntentAtom)
+  useAtomMount(placeAnswerLifetimeAtom)
   const answer = useAtomValue(placeAnswerAtom)
-  const opening = useAtomValue(placeAnswerOpeningAtom)
+  const onShow = useAtomValue(placeAnswerOnShowAtom)
+  const focusReturn = useAtomValue(placeAnswerFocusReturnAtom)
   const setAnswer = useAtomSet(placeAnswerAtom)
   const setPointerOver = useAtomSet(placePointerOverAtom)
   const triggerId = Option.match(answer, { onNone: () => null, onSome: (current) => current.triggerId })
@@ -332,7 +327,8 @@ export const PlaceProvenanceOverlay = () => {
     leave: () => setPointerOver(Option.none())
   })
   const regionHandlers = pointerRegionHandlers(region)
-  const hoverKeepsFocusWhereItIs = () => opening === "hover" ? false : undefined
+  const initialFocus = () => Option.exists(answer, (current) => current.opening === "hover") ? false : undefined
+  const finalFocus = () => focusReturn === "stays" ? false : undefined
 
   const onOpenChange = (open: boolean, details: Popover.Root.ChangeEventDetails) => {
     Option.match(
@@ -379,15 +375,15 @@ export const PlaceProvenanceOverlay = () => {
               <Popover.Popup
                 className={popupClassName}
                 data-place-provenance
-                finalFocus={hoverKeepsFocusWhereItIs}
-                initialFocus={hoverKeepsFocusWhereItIs}
+                finalFocus={finalFocus}
+                initialFocus={initialFocus}
                 onPointerEnter={regionHandlers.onPointerEnter}
                 onPointerLeave={regionHandlers.onPointerLeave}
               >
                 <Popover.Viewport className={viewportClassName}>
-                  {Option.match(answer, {
+                  {Option.match(onShow, {
                     onNone: () => null,
-                    onSome: (current) => <Answered mark={current.mark} />
+                    onSome: (provenance) => <Answer provenance={provenance} />
                   })}
                 </Popover.Viewport>
               </Popover.Popup>

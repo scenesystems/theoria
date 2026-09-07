@@ -238,17 +238,13 @@ export const signatureFor = (
 ): Option.Option<SignatureRecord> => Arr.findFirst(signatures, (signature) => signature.subject === subject)
 
 /** The version being drawn: the last in the lineage. */
-export const currentVersion = (evidence: PlaceEvidence): Option.Option<Version> => Arr.last(evidence.lineage)
+export const currentVersion = (evidence: PlaceEvidence): Version => Arr.lastNonEmpty(evidence.lineage)
 
 /** A merged proposal is part of the current version; the pill on its card names which one. */
-export const mergedIntoText = (evidence: PlaceEvidence): string =>
-  Option.match(currentVersion(evidence), {
-    onNone: () => "Merged",
-    onSome: (version) => `In v${String(version.version)}`
-  })
+export const mergedIntoText = (evidence: PlaceEvidence): string => `In v${String(currentVersion(evidence).version)}`
 
 export const isCurrentVersion = (evidence: PlaceEvidence, version: Version): boolean =>
-  Option.exists(currentVersion(evidence), (current) => current.contentId === version.contentId)
+  currentVersion(evidence).contentId === version.contentId
 
 /** The knot's label: the first version is the origin; every later one is the current version while it is last. */
 export const knotLabel = (version: Version): string =>
