@@ -140,17 +140,16 @@ block; there is no separate tooltip system. Provenance replaces the pills:
 `Verified`, `Recorded inference`, `You signed`, `In v2` become glyph-and-text
 `InlineStatus` marks whose provenance is one focus away.
 
-### The world has weather
+### One palette across the stories
 
-The three scenarios are three worlds, and switching worlds should change the
-air of the page, not a chip. Each scenario declares a world tone
-(`--th-world-*`: a canvas tint, a paper gradient, a rule colour, a disc
-palette) in `styles.css`, authored separately for light and dark so that the
-Library Under Cald Water is cool and dim in both themes and The Market of Lost
-Things is warm in both. The tone is semantic — it tells the visitor which
-world they are in — and is bounded: text and control colours do not change,
-contrast minima hold in every world in both themes, and the tone is the only
-"expressive" colour on the page.
+The three scenarios are three places, not three pages. Choosing another
+changes the drawing — the title, the prose, the discs, the walk — and nothing
+of the page around it: the canvas, the paper and the rule down the acts'
+spine are the stage's own greys in every story and in both themes. An
+earlier draft tinted the page per story ("the world has weather"); it was
+taken out because a page that recolours under the visitor reads as a theme
+change, not a story change, and the drawing already says which place this is.
+The only colour that varies on the page is the participants' tones.
 
 ### The search is the only continuous motion
 
@@ -176,7 +175,7 @@ highlights the line.
 ## Composition
 
 ```
-main (canvas; world tone on :root via data-world)
+main (canvas; the stage's own greys in every story)
 ├─ SiteHeader                wordmark · Docs · GitHub · theme icon — text, no chips
 ├─ Arrive                    place title (h2) · what this is and how it works (lead)
 │  └─ PlaceStage             unframed paper, full content width; discs, walk, prose;
@@ -245,8 +244,6 @@ derivations or explicit effects:
 - `placeFocusAtom`: `Option<PlaceProvenance>`, a tagged union
   (`Feature | Line | Signature | Version | Trial | CodeLine`) written by
   hover and focus handlers, read by every surface that can answer.
-- `placeWorldAtom`: derived from `placeControlsAtom.scenario`; sets
-  `data-world` on `:root` through one effect so the tone is CSS, not props.
 
 Provenance answers are computed from `PlaceBuild` and the current
 `PlaceRendering` with `Match.exhaustive`; nothing is stored that can be
@@ -293,7 +290,7 @@ was reversed — the page needs both.)
       (`howItsBuiltSectionId`, the one id both the hero and the section
       use). The demonstration shares the first viewport with the hero, so an
       action pointing at it was a step to nowhere; the first draft's `See the
-  place it built` was reversed.
+place it built` was reversed.
 - [x] `PlaceArrive.tsx`: the demonstration opens with its own title as an
       `h2` in the page-title role (`placeArriveTitle`, "The packages at work":
       this is a demonstration of the packages, not the place), then one lead
@@ -383,7 +380,7 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `AskSearch`, `TellSearch`, `CloseSearch`) are one contract; the
       sampler runs in a worker (`@effect/platform` `Worker`; the platform
       module names its entry the standard way, `new Worker(new URL("…",
-  import.meta.url), { type: "module" })`, which every bundler resolves
+import.meta.url), { type: "module" })`, which every bundler resolves
       at build time) and the page scores each proposed meander with its own
       text metrics, so the sampler's growing cost is off the drawing thread.
       `PlaceSearcher` is a service in `placeRenderRuntime`'s layer next to
@@ -524,10 +521,10 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `paperExpected`: whole lines, the prose alone with no features, more
       for every feature.
 
-### Act 4 — Acts, provenance and weather
+### Act 4 — Acts and provenance
 
 - [x] `atoms/imagined-place-experience.ts`: `placeActAtom`, `placeFocusAtom`,
-      `placeWorldAtom`, `placeBandAtom`; `contracts/demo/imagined-place-provenance.ts`:
+      `placeBandAtom`; `contracts/demo/imagined-place-provenance.ts`:
       `PlaceMark`, `PlaceProvenance`, `PlaceAct`; `view/home/placeProvenance.ts`:
       `provenanceFor` over `PlaceBuild` and the search. Focus is a mark; the
       answer is derived.
@@ -557,9 +554,9 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       this instant, not the search's best, so a hovered line's width and
       count agree with what is visible, and a disc's answer names the trial
       it is drawn from.
-- [x] `styles.css`: `--th-world-{canvas,paper,paper-edge,rule}` per world for
-      light and dark; `:root[data-world]` selects them; contrast checked per
-      world per theme against rendered colours in `test/worker/home-demo.test.ts`.
+- [x] `styles.css`: the canvas, the paper and the spine's rule are the stage's
+      own greys in every story; the prose on the paper is contrast-checked
+      per story per theme against rendered colours in `test/worker/home-demo.test.ts`.
 - [x] `test/worker/home-demo.test.ts` — _every mark answers_: for each
       `[data-provenance]` in the demonstration, hover shows an overlay naming
       a package; each annotation's answer names its own title and package
@@ -567,10 +564,10 @@ reducedMotion="user"` at the root (done on the toolchain branch).
       `Text.layoutLinesWith(` → effect-text); a code line lights its discs;
       the lines answer from the keyboard. _The acts answer on the
       stage_: scrolling to Propose changes `data-place-stage-act` and shows a
-      ghost. _The world changes the air_: switching scenario changes
-      `data-world` on `:root` and the computed canvas colour, text colour does
-      not change, and the prose on the paper reads at ≥ 4.5:1 in every world
-      and mode. _The band_: past the stage at 390 the band shows one disc per
+      ghost. _Choosing another story changes the drawing and nothing of the
+      page_: after the story is taken and the discs are at rest, the computed
+      canvas colour, the paper's paint and the title's ink are what they were,
+      and the prose on the paper reads at ≥ 4.5:1 in every story and mode. _The band_: past the stage at 390 the band shows one disc per
       marker and nothing in the flow moves; at 1280 it appears only for the
       Build act, and a code line lights its discs there.
 - [x] `patches/@base-ui%2Freact@1.7.0.patch` (root `patchedDependencies`):
@@ -584,7 +581,7 @@ reducedMotion="user"` at the root (done on the toolchain branch).
 
 ### Act 5 — Responsive and environmental verification
 
-- [ ] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three worlds:
+- [ ] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three stories:
       no element overflows; the paper and a disc are in the first viewport.
 - [ ] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
       ≤ 3 lines; the pinned band never covers the focused control.

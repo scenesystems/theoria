@@ -12,7 +12,6 @@ import {
   type PlaceProvenance
 } from "../../contracts/demo/imagined-place-provenance.js"
 import type { ProposalRecord } from "../../contracts/imagined-place-result.js"
-import type { PlaceScenario } from "../../contracts/imagined-place.js"
 import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
@@ -20,13 +19,12 @@ import { featuresAnswered, type PlaceOnPage, provenanceFor } from "../view/home/
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 
 import { placeShownFrameAtom } from "./imagined-place-render.js"
-import { placeBuildAtom, placeControlsAtom } from "./imagined-place.js"
-import { pageRouteAtom } from "./navigation.js"
+import { placeBuildAtom } from "./imagined-place.js"
 import { appRuntime } from "./runtime.js"
 
 /**
- * The demonstration as one experience: what the visitor is pointing at, which
- * act of the story they are reading, and which world the place is set in.
+ * The demonstration as one experience: what the visitor is pointing at and
+ * which act of the story they are reading.
  * Each is one fact; everything the page does with it is derived.
  */
 
@@ -225,33 +223,4 @@ const placeStageReadPastAtom: AtomType.Atom<Result.Result<boolean>> = appRuntime
  */
 export const placeBandAtom: AtomType.Atom<boolean> = Atom.make((get: AtomType.Context) =>
   Result.getOrElse(get(placeStageReadPastAtom), () => false)
-)
-
-// ---------------------------------------------------------------------------
-// World — the scenario the place is set in
-// ---------------------------------------------------------------------------
-
-/** The world the visitor chose: the page's air changes with it the moment they do. */
-export const placeWorldAtom: AtomType.Atom<PlaceScenario> = Atom.make(
-  (get: AtomType.Context) => get(placeControlsAtom).scenario
-)
-
-/**
- * Keeps `data-world` on `<html>` in step with the world while the home page
- * is the page, and off it anywhere else, so the docs keep the plain canvas;
- * mount once at the app root.
- */
-export const placeWorldApplicationAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
-  Match.value(get(pageRouteAtom)).pipe(
-    Match.tag("HomeRoute", () => BrowserDocument.setRootData("world", get(placeWorldAtom))),
-    Match.tag(
-      "DocsIndexRoute",
-      "DocsOverviewRoute",
-      "DocsGuideRoute",
-      "DocsApiRoute",
-      "DocsNotFoundRoute",
-      () => BrowserDocument.removeRootData("world")
-    ),
-    Match.exhaustive
-  )
 )

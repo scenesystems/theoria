@@ -28,12 +28,6 @@
   --color-rule: var(--th-rule);
   --color-rule-strong: var(--th-rule-strong);
   --color-instrument: var(--th-instrument);
-
-  /* The world's air: the canvas behind the page, the paper the place is drawn on, and the rule down the acts' spine */
-  --color-world-canvas: var(--th-world-canvas);
-  --color-world-paper: var(--th-world-paper);
-  --color-world-paper-edge: var(--th-world-paper-edge);
-  --color-world-rule: var(--th-world-rule);
   --radius-instrument: 0.75rem;
   --radius-control: 0.5rem;
 
@@ -291,12 +285,6 @@
     --th-rule-strong: #c8d3e3;
     --th-instrument: #edf1f7;
 
-    /* The world without weather: the stage's own greys. Each world below tints only these four. */
-    --th-world-canvas: var(--th-stage-50);
-    --th-world-paper: var(--th-stage-50);
-    --th-world-paper-edge: var(--th-stage-0);
-    --th-world-rule: var(--th-rule-strong);
-
     --th-danger-50: #fef2f2;
     --th-danger-200: #fecaca;
     --th-danger-400: #f87171;
@@ -361,11 +349,6 @@
     --th-rule: #1c2944;
     --th-rule-strong: #263550;
     --th-instrument: #152038;
-
-    --th-world-canvas: var(--th-stage-50);
-    --th-world-paper: var(--th-stage-50);
-    --th-world-paper-edge: var(--th-stage-0);
-    --th-world-rule: var(--th-rule-strong);
 
     --th-danger-50: #2a1215;
     --th-danger-200: #5c2022;
@@ -513,50 +496,8 @@
     background:
       radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--color-stage-100) 88%, transparent) 0%, transparent 46%),
       radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--color-stage-100) 60%, transparent) 0%, transparent 42%),
-      var(--color-world-canvas);
+      var(--color-stage-50);
     color: var(--color-ink-900);
-    transition: background-color var(--th-motion-duration-shift) var(--ease-theme);
-  }
-
-  /*
-   * The world has weather. Each scenario tints the canvas, the paper and the
-   * spine's rule — nothing else: text, controls and the participants' tones
-   * are the same in every world, so contrast holds and the tint alone says
-   * which world this is. Authored for each theme so a world is itself in
-   * both: the market warm, the library cool and dim.
-   */
-  :root[data-world="lost-market"] {
-    --th-world-canvas: #f9f4ec;
-    --th-world-paper: #faf4ea;
-    --th-world-paper-edge: #fffcf6;
-    --th-world-rule: #dccbb3;
-  }
-
-  :root.dark[data-world="lost-market"] {
-    --th-world-canvas: #17110c;
-    --th-world-paper: #1e1610;
-    --th-world-paper-edge: #110c08;
-    --th-world-rule: #4d3c2b;
-  }
-
-  :root[data-world="drowned-library"] {
-    --th-world-canvas: #edf3f5;
-    --th-world-paper: #e8f0f2;
-    --th-world-paper-edge: #f6fafb;
-    --th-world-rule: #b6ced5;
-  }
-
-  :root.dark[data-world="drowned-library"] {
-    --th-world-canvas: #08161c;
-    --th-world-paper: #0b1e26;
-    --th-world-paper-edge: #051116;
-    --th-world-rule: #1e4550;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    body {
-      transition: none;
-    }
   }
 }
 

@@ -52,23 +52,6 @@ export const toggleRootClass = (name: string, present: boolean): Effect.Effect<v
       browserDocument.documentElement.classList.toggle(name, present)
     }))
 
-/**
- * Sets a `data-*` attribute on `<html>`; a state the whole page's CSS reads,
- * such as the world the demo is set in, lives here beside the theme class.
- */
-export const setRootData = (name: string, value: string): Effect.Effect<void, never, BrowserDocument> =>
-  Effect.flatMap(BrowserDocument, (browserDocument) =>
-    Effect.sync(() => {
-      browserDocument.documentElement.dataset[name] = value
-    }))
-
-/** Takes a `data-*` attribute off `<html>`. */
-export const removeRootData = (name: string): Effect.Effect<void, never, BrowserDocument> =>
-  Effect.flatMap(BrowserDocument, (browserDocument) =>
-    Effect.sync(() => {
-      browserDocument.documentElement.removeAttribute(`data-${name}`)
-    }))
-
 /** Document events of one type as a stream; the listener is removed when the stream ends. */
 export const events = <K extends keyof DocumentEventMap>(
   type: K,

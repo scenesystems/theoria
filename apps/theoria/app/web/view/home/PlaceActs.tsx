@@ -44,7 +44,7 @@ const Pending = () => (
  * changes what the stage shows.
  */
 const Acts = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
-  <Stack className="relative gap-10 lg:before:absolute lg:before:bottom-3 lg:before:left-[5px] lg:before:top-3 lg:before:w-px lg:before:bg-world-rule lg:before:transition-colors lg:before:duration-(--th-motion-duration-shift) lg:before:ease-theme">
+  <Stack className="relative gap-10 lg:before:absolute lg:before:bottom-3 lg:before:left-[5px] lg:before:top-3 lg:before:w-px lg:before:bg-rule-strong">
     <PlaceStepCard spine="spine" step="compose">
       <PlaceComposition build={build} />
     </PlaceStepCard>

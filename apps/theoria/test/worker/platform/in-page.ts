@@ -291,9 +291,6 @@ export const scrollPast = (element: Element) => {
 /** The element's top edge in the document, which scrolling cannot move: where it stands in the flow. */
 export const documentTop = (element: Element) => Math.round(element.getBoundingClientRect().top + window.scrollY)
 
-/** The world the root carries, or the empty string off the home page. */
-export const rootWorld = () => document.documentElement.dataset["world"] ?? ""
-
 /**
  * The page canvas colour as the visitor sees it: the background of the
  * topmost element painted at the page's left margin, halfway down the
@@ -311,11 +308,14 @@ export const canvasColour = () => {
 /** The element's text colour, as painted. */
 export const textColour = (element: Element) => getComputedStyle(element).color
 
+/** The element's painted surface — its background image, gradient stops and all — as one string. */
+export const surfacePaint = (element: Element) => getComputedStyle(element).backgroundImage
+
 /**
  * The lowest WCAG contrast ratio between the prose on the paper and the two
- * colours the paper is painted with, `--th-world-paper` and
- * `--th-world-paper-edge`, in the world and mode the root is in now. The
- * paper is a gradient between the two, so the prose must read against both.
+ * colours the paper is painted with, `--th-stage-50` and `--th-stage-0`, in
+ * the mode the root is in now. The paper is a gradient between the two, so
+ * the prose must read against both.
  * Colours are read as the browser paints them: a probe element takes each
  * variable as its background and reports the computed `rgb(...)`.
  */
@@ -339,7 +339,7 @@ export const paperProseContrast = (): number => {
     probe.remove()
     return colour
   }
-  const papers = [painted("--th-world-paper"), painted("--th-world-paper-edge")]
+  const papers = [painted("--th-stage-50"), painted("--th-stage-0")]
   const ratios = [...document.querySelectorAll("[data-place-line] span")].flatMap((line) => {
     const ink = getComputedStyle(line).color
     return papers.map((paper) => contrast(ink, paper))

@@ -38,7 +38,7 @@ const bandClassName = "flex justify-center pt-3"
  * and never wider than the page gives; the row scales down to fit.
  */
 const linkClassName =
-  "block max-w-full rounded-instrument bg-world-paper ring-1 ring-world-rule shadow-surface outline-none transition-colors duration-(--th-motion-duration-shift) ease-theme focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  "block max-w-full rounded-instrument bg-stage-50 ring-1 ring-rule-strong shadow-surface outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
 
 /**
  * How a disc takes its place in the row: sliding over as a merge shifts the

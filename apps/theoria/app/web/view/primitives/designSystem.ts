@@ -259,8 +259,8 @@ export const toggleTrackClassName = ({
 /**
  * The page is the canvas: one column of content on the document's own
  * canvas, nothing floating over it. The root paints nothing itself — the
- * body is the canvas, in the world's colour and with its weather — so what
- * the world tints is what the visitor sees, on this page as on the docs.
+ * body is the canvas, in the stage's colour — so the home page and the docs
+ * stand on the same ground, and no story changes it.
  */
 export const appTheme = {
   root:

@@ -5,7 +5,7 @@ import { Chunk, Duration, Effect, Fiber, Layer, Option, Order, Schedule, Schema,
 import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
-import { placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
+import { type PlaceScenario, placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
 import { howItsBuiltActionLabel } from "../../app/web/view/home/HomeHero.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import type { ColorScheme, ReducedMotion } from "./browser.js"
@@ -50,12 +50,12 @@ import {
   paperProseContrast,
   recordedPaperFrames,
   recordPaperFrames,
-  rootWorld,
   scrollElementTo,
   scrollPast,
   scrollToTop,
   stageAndColumnWidths,
   stageLayout,
+  surfacePaint,
   textColour
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
@@ -697,20 +697,28 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the world changes the air, and the prose reads in every world and mode", () =>
+    it.scoped("choosing another story changes the drawing and nothing of the page, in every mode", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
         yield* visible(rendered(page))
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
+        const brief = demo.getByRole("textbox", { name: "Brief" })
+        const paper = page.locator("[data-place-stage='paper']")
         const title = page.locator("h1")
+        // The story's own brief arriving in the field is the moment the page has taken the story.
+        const storyTaken = (scenario: PlaceScenario) =>
+          eventually(() => brief.inputValue(), placeScenarioMeta[scenario].brief)
 
         const airBefore = yield* act(() => page.evaluate(canvasColour))
+        const paperBefore = yield* act(() => paper.evaluate(surfacePaint))
         const inkBefore = yield* act(() => title.evaluate(textColour))
         yield* click(scenarios.getByRole("radio", { name: placeScenarioMeta["lost-market"].label }))
-        yield* eventually(() => page.evaluate(rootWorld), "lost-market")
-        yield* until(act(() => page.evaluate(canvasColour)), (air) => air !== airBefore, "the canvas colour changing")
+        yield* storyTaken("lost-market")
+        yield* eventually(() => demo.evaluate(discsAtRest), true)
+        expect(yield* act(() => page.evaluate(canvasColour))).toBe(airBefore)
+        expect(yield* act(() => paper.evaluate(surfacePaint))).toBe(paperBefore)
         expect(yield* act(() => title.evaluate(textColour))).toBe(inkBefore)
 
         yield* Effect.forEach(colorSchemes, (scheme) =>
@@ -719,7 +727,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* Effect.forEach(placeScenarios, (scenario) =>
               Effect.gen(function*() {
                 yield* click(scenarios.getByRole("radio", { name: placeScenarioMeta[scenario].label }))
-                yield* eventually(() => page.evaluate(rootWorld), scenario)
+                yield* storyTaken(scenario)
                 const contrast = yield* until(
                   act(() => page.evaluate(paperProseContrast)),
                   (ratio) => ratio >= 4.5,

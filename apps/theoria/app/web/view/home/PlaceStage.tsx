@@ -153,14 +153,13 @@ const Drawing = ({ frame, shown }: {
 /**
  * The paper's height is moved by the frames themselves, so nothing is added
  * to it; its width is recut in one step when the visitor chooses another, and
- * eases there. Its colour is the world's: the gradient's stops are registered
- * properties, so changing worlds eases the paper's tint at the theme's shift
- * duration, as the canvas behind it does.
+ * eases there. Its colour is the stage's own and the same in every story, so
+ * choosing another place changes the drawing and nothing of the page around it.
  */
 const paperClassName =
-  "group/stage relative bg-radial-[at_20%_0%] from-world-paper to-world-paper-edge transition-[width,--tw-gradient-from,--tw-gradient-to] [transition-duration:200ms,var(--th-motion-duration-shift),var(--th-motion-duration-shift)] ease-out motion-reduce:transition-none"
+  "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[width] duration-200 ease-out motion-reduce:transition-none"
 const fadeClassName =
-  "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-world-paper-edge via-world-paper-edge/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
+  "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-stage-0 via-stage-0/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
 const scrollbarClassName =
   "flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/stage:opacity-100"
 
