@@ -871,6 +871,44 @@ left on purpose. Every item takes the same route: failing test, then the change.
 - [ ] **A third review** of the form work (`b8a56b6` onward) by the Oracle,
       once Act 5 lands, with the same must/should/nice discipline as the first
       two.
+- [ ] **Event-coupled rest.** The drawing's rest before travel is a duration
+      today (`restBeforeTravel`), a guess at when the lines' exit ends.
+      `AnimatePresence`'s `onExitComplete` should signal an atom, the journey
+      should wait on that signal with the duration only as an upper bound,
+      and a browser test should sample frames under load to show no prose
+      over a moved disc.
+- [ ] **Holdable pending state.** The pending state can only be sampled right
+      after `open` today, since `--abort` produces the failure banner. A test
+      helper (`holdResponse(page, method, suffix)`) should hold the build
+      response on a `Deferred` before continuing it, so the skeleton, the
+      pending row and the frame can be asserted at every viewport, light and
+      dark; the failure banner's footprint (today +72 px above the stage)
+      should be asserted too.
+- [ ] **Touch targets.** `PlaceMarker`'s hit area is a fixed `-inset-1`; it
+      should derive from the marker's radius (a CSS variable) so every marker
+      answers to at least 44 px at 320 and 390 wide, with unit and browser
+      tests.
+- [ ] **Anchor-line consumer.** `data-place-anchor-line` on `PlaceProposal` is
+      read by tests only. Hovering or focusing a proposal should light its
+      line through the existing focus model, or the attribute goes.
+- [ ] **Band label.** `PlaceBand`'s `aria-label="Back to the place"` hides the
+      disc row from assistive technology; the name should derive from the
+      band's row data, the row itself `aria-hidden`, with an accessibility
+      tree test.
+- [ ] **Single motion source.** `DocsWorkbench` and `WordmarkMorph` read
+      Motion's `useReducedMotion` while the rest of the page reads
+      `motionPreferenceAtom`; they should read the atom, and lint should
+      forbid the import.
+- [ ] **Fallback-metrics fonts.** `font-display: swap` without a
+      metric-matched fallback lets the text reflow when the woff2 lands; the
+      text-token contract should declare fallback `@font-face`s with
+      `size-adjust`, `ascent-override`, `descent-override` and
+      `line-gap-override`, then move the vendored files to
+      `@fontsource-variable/*` with a `transformIndexHtml` preload hook.
+- [ ] **CSP nonce.** `style-src` allows `'unsafe-inline'`
+      (`security-headers.ts`). Audit inline styles under report-only, theme
+      Shiki through CSS variables, and issue a per-response nonce so the
+      allowance goes.
 
 ## Non-goals
 
