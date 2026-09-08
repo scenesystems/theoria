@@ -208,7 +208,7 @@ const Drawing = ({ drawn, fit, frame, shown }: {
   return (
     <Layer
       aria-busy={searching(frame.search)}
-      className="relative"
+      className="relative isolate"
       data-place-stage-act={act}
       data-place-stage="content"
       data-place-stage-fit={String(fit)}

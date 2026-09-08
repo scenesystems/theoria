@@ -4,6 +4,7 @@ import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
+import { minimumTouchTarget, touchReach } from "../../../contracts/demo/imagined-place-flow.js"
 import type { PlaceSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
@@ -24,11 +25,14 @@ import {
   markerTone
 } from "./placeViewModel.js"
 
+/** The diameter a disc is drawn at, to the tenth of a pixel. */
+const drawnDiameter = (marker: Marker): number => Number((marker.radius * 2).toFixed(1))
+
 /** Position with `translate`, which changes without re-laying out the text. */
 const markerStyle = (marker: Marker): CSSProperties => ({
   translate: `${(marker.x - marker.radius).toFixed(1)}px ${(marker.y - marker.radius).toFixed(1)}px`,
-  width: `${(marker.radius * 2).toFixed(1)}px`,
-  height: `${(marker.radius * 2).toFixed(1)}px`
+  width: `${String(drawnDiameter(marker))}px`,
+  height: `${String(drawnDiameter(marker))}px`
 })
 
 /**
@@ -60,20 +64,44 @@ const filling = (preference: MotionPreference) =>
 /**
  * The outline answers the act in view and the ring the mark under the
  * pointer; both are always drawn, transparent when silent, so only their
- * colours transition. Opacity is Motion's and is not transitioned.
+ * colours transition. Opacity is Motion's and is not transitioned. Discs
+ * stand above the prose lines (`z-10` within the stage's own stacking
+ * context), so a touch on a disc's reach is the disc's where a line runs
+ * beside it.
  */
 const triggerClassName =
-  `absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 ${forcedColorsFocusClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0`
+  `absolute left-0 top-0 z-10 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 ${forcedColorsFocusClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0`
 
-/** Named discs clip their label to the circle. */
-const namedTriggerClassName = "overflow-hidden"
+/** A named disc's label is clipped to the width it was measured to fit. */
+const labelClassName = "shrink-0 overflow-hidden"
 
 /**
- * Numbered discs can be drawn well under 44 px on a phone; an invisible ring
- * around them keeps the touch target at least that large without changing
- * the drawing.
+ * A disc can be drawn well under 44 px on a phone. Its reach — an invisible
+ * ring, part of the disc and clipped by nothing — makes its touch target up
+ * to that size without changing the drawing; the geometry already keeps the
+ * reaches of neighbouring discs apart (`touchReach`).
  */
-const numberedTriggerClassName = "before:absolute before:-inset-1 before:rounded-full before:content-['']"
+const reachClassName = "absolute rounded-full"
+
+/**
+ * The reach is the minimum target itself, centred on the disc as drawn — not
+ * the disc grown by a rounded margin, which could stand a snapped fraction
+ * short of the promise or a fraction into a neighbour's reach.
+ */
+const reachStyle = (marker: Marker): CSSProperties => {
+  const offset = `${((drawnDiameter(marker) - minimumTouchTarget) / 2).toFixed(2)}px`
+  return {
+    width: `${String(minimumTouchTarget)}px`,
+    height: `${String(minimumTouchTarget)}px`,
+    left: offset,
+    top: offset
+  }
+}
+
+const Reach = ({ marker }: { readonly marker: Marker }) =>
+  touchReach(marker.radius) > 0
+    ? <Layer aria-hidden className={reachClassName} data-place-reach style={reachStyle(marker)} />
+    : null
 
 /** A disc the visitor can point at: settled on the stage, or a trial's, placed outright as the trace is scrubbed. */
 type DiscPresent = Exclude<PlaceDiscDrawn, "arriving" | "leaving">
@@ -147,25 +175,25 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
 }) => {
   const role = markerContributor(marker)
   const tone = markerTone(marker)
-  const named = Option.isSome(labelWidth)
   const preference = useAtomValue(motionPreferenceAtom)
   const act = useAtomValue(placeActAtom)
 
   return (
     <ProvenanceMark
       aria-label={markerLabel(marker)}
-      className={`${triggerClassName} ${named ? namedTriggerClassName : numberedTriggerClassName} ${
-        discClassName(role)
-      } ${tone.focusRing} ${discFocusRing(role)} ${discActOutline(act, marker)}`}
+      className={`${triggerClassName} ${discClassName(role)} ${tone.focusRing} ${discFocusRing(role)} ${
+        discActOutline(act, marker)
+      }`}
       data-place-marker={marker.name}
       mark={{ _tag: "Disc", name: marker.name, source }}
       render={discElement(drawn, preference)}
       style={markerStyle(marker)}
     >
+      <Reach marker={marker} />
       {Option.match(labelWidth, {
         onNone: () => <SemanticText as="span" className={tone.textStrong} role="tab-label" text={String(index + 1)} />,
         onSome: (width) => (
-          <Layer className="shrink-0" style={{ width: `${width.toFixed(1)}px` }}>
+          <Layer className={labelClassName} style={{ width: `${width.toFixed(1)}px` }}>
             <SemanticText
               as="p"
               className={`w-full ${tone.textStrong}`}

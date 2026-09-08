@@ -1032,17 +1032,32 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       differently along the page) and at least `stepsApart` times the
       within-step distance; below `lg` Arrange stands the act gap above
       Compose; the two region gaps are equal and at least the act gap.
-- [ ] **Touch targets.** `PlaceMarker`'s hit area is a fixed `-inset-1`
-      (`numberedTriggerClassName`); it should derive from the marker's
-      radius (a CSS variable written by `markerStyle`, `before:-inset-(--…)`)
-      so every marker answers to at least 44 px at 320 and 390 wide.
-      `markerRadius` is 4.5–8 % of the stage width, so a 320 px stage draws
-      discs of 29–51 px: named discs can be under 44 px too, and their
-      `overflow-hidden` would clip the reach — the clip should move to the
-      label's wrapper so one trigger class serves both. Unit test of the
-      reach (`it.effect`), browser test at 320 and 390 that the computed
-      `::before` box is ≥ 44 px and that `elementFromPoint` 22 px from each
-      disc's centre resolves to the disc.
+- [x] **Touch targets.** `PlaceMarker`'s hit area was a fixed `-inset-1`
+      on numbered discs only, and named discs clipped it with
+      `overflow-hidden`. The geometry now owns the target: `minimumTouchTarget`
+      (44), `touchReach(radius)` — what a radius lacks of 22, nothing for a
+      disc that large — and `touchGap` (2) in `imagined-place-flow.ts`.
+      `clearanceBelow` clears by the greater of the disc gap and the two
+      reaches plus the touch gap, so in a landed drawing two touch targets
+      never meet, and a touch at the edge of a small disc's target is that
+      disc's alone rather than a coin toss with its neighbour (Chromium snaps
+      hit-tests to device pixels, so tangent targets were exactly that).
+      `markersBetween` carries a reach with each marker on the way, `0` for
+      a disc absent at either end, so an arriving ring of no radius still
+      asks nothing of its neighbours at rest and every step lands where
+      `placeMarkers` puts it. The disc renders its reach as a child
+      (`Reach`, `data-place-reach`): the minimum target itself, centred on
+      the disc as drawn, not the disc grown by a rounded margin — an inset
+      to a tenth of a pixel stood a snapped fraction short of 44 or a
+      fraction into the neighbour's reach, and auto margins cannot centre a
+      child larger than its box. Discs stand `z-10` in the stage's own
+      stacking context (`isolate`), above the prose lines, so the reach is
+      what a touch beside a small disc meets; the label wrapper carries the
+      clip. `imagined-place-flow.contract.test.ts` asserts `touchReach` at
+      240 and 900, and `expectTouchable` on every landed drawing;
+      `test/worker/home-touch.test.ts` at 390 and 320 asserts each disc's
+      reach box is ≥ 44 px and `elementFromPoint` 21.5 px from its centre
+      in four directions resolves to the disc (`discTouchTargets`).
 - [ ] **Anchor-line consumer.** `data-place-anchor-line` on `PlaceProposal` is
       read by tests only. Hovering or focusing a proposal should light its
       line through the existing focus model, or the attribute goes.

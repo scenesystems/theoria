@@ -6,11 +6,15 @@ import { Contracts, Text } from "@scenesystems/effect-text"
 
 import {
   flowLines,
+  markerRadius,
   markersBetween,
+  minimumTouchTarget,
   paperExpected,
   placeMarkers,
   type Stage,
-  stageFor
+  stageFor,
+  touchGap,
+  touchReach
 } from "../../app/contracts/demo/imagined-place-flow.js"
 import { type Meander, meanderBounds } from "../../app/contracts/demo/imagined-place-search.js"
 import type { PlaceMarker } from "../../app/contracts/imagined-place-result.js"
@@ -60,10 +64,34 @@ const expectWellPlaced = (stage: Stage, markers: ReadonlyArray<PlaceMarker>) => 
     }))
 }
 
+/**
+ * In a landed drawing two touch targets never meet either, so a touch beside
+ * a small disc is that disc's alone, even at the target's edge. (On the way,
+ * a disc growing in or shrinking away reaches for its target in proportion,
+ * so this is asked of where the drawing lands, not of every step.)
+ */
+const expectTouchable = (markers: ReadonlyArray<PlaceMarker>) =>
+  Arr.forEach(markers, (a, i) =>
+    Arr.forEach(Arr.drop(markers, i + 1), (b) => {
+      expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(
+        a.radius + touchReach(a.radius) + b.radius + touchReach(b.radius) + touchGap - 1e-9
+      )
+    }))
+
 /** Steps of a travel between the two corners, as the stage would draw them. */
 const steps = Arr.map(Arr.range(0, 10), (index) => index / 10)
 
 describe("Imagined place geometry contract", () => {
+  it.effect("a disc's reach makes up what its radius lacks of a 44 px touch target, and nothing more", () =>
+    Effect.sync(() => {
+      const narrow = stageFor(240)
+      const small = markerRadius(narrow, 0)
+      expect(small).toBeLessThan(minimumTouchTarget / 2)
+      expect(2 * (small + touchReach(small))).toBeCloseTo(minimumTouchTarget, 10)
+      expect(touchReach(minimumTouchTarget / 2)).toBe(0)
+      expect(touchReach(markerRadius(stageFor(900), 1))).toBe(0)
+    }))
+
   it.effect("markers never overlap and never leave the padded stage, whatever the meander", () =>
     Effect.sync(() => {
       Arr.forEach([240, 640, 900], (width) => {
@@ -72,6 +100,7 @@ describe("Imagined place geometry contract", () => {
           const markers = placeMarkers(features, noContributors, stage, meander)
           expect(markers.length).toBe(features.length)
           expectWellPlaced(stage, markers)
+          expectTouchable(markers)
         })
       })
     }))

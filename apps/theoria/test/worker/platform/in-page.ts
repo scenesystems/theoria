@@ -183,6 +183,39 @@ export const horizontalScrollers = (
       contained: region.getBoundingClientRect().right <= document.documentElement.clientWidth
     }))
 
+/**
+ * Each disc's touch target as the visitor meets it: the box of its reach and
+ * whether a touch a little under 22 px from the disc's centre, in each of the
+ * four directions, lands on the disc — what a 44 px target promises. A point
+ * a prose line or another disc is painted over reports that instead.
+ */
+export const discTouchTargets = (discs: ReadonlyArray<Element>): ReadonlyArray<{
+  readonly name: string
+  readonly width: number
+  readonly height: number
+  readonly missed: ReadonlyArray<string>
+}> =>
+  discs.map((disc) => {
+    const box = disc.getBoundingClientRect()
+    const reach = (disc.querySelector("[data-place-reach]") ?? disc).getBoundingClientRect()
+    const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 }
+    const offset = 21.5
+    const points = [
+      { at: "left", x: centre.x - offset, y: centre.y },
+      { at: "right", x: centre.x + offset, y: centre.y },
+      { at: "above", x: centre.x, y: centre.y - offset },
+      { at: "below", x: centre.x, y: centre.y + offset }
+    ]
+    return {
+      name: disc.getAttribute("data-place-marker") ?? "",
+      width: reach.width,
+      height: reach.height,
+      missed: points
+        .filter((point) => !disc.contains(document.elementFromPoint(point.x, point.y)))
+        .map((point) => point.at)
+    }
+  })
+
 /** Every marker's position relative to the place stage, so scrolling cannot move it. */
 export const markerPositionsInStage = (markers: ReadonlyArray<Element>) => {
   const stage = document.querySelector("[data-place-stage='content']")?.getBoundingClientRect()
