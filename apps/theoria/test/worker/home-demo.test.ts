@@ -45,6 +45,7 @@ import {
   currentLocation,
   discsAtRest,
   documentTop,
+  finishingTouches,
   focusLanding,
   insideViewportRight,
   isActiveElement,
@@ -427,6 +428,59 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(arrivals).toBe(1)
         expect(overlaps).toEqual([])
         expect(yield* failures).toEqual([])
+      }))
+
+    /**
+     * Two finishing touches follow a merge: the version that changed is washed
+     * in the digest tone until it settles, and once the search settles the walk
+     * through the place draws itself, front to back. Both are Motion's, under
+     * the page's one configuration. The walk is movement, so under reduced
+     * motion it is drawn whole from its first frame; the wash is colour alone,
+     * which reduced motion keeps.
+     */
+    it.scoped("a merge washes the changed version and the settled search draws the walk once; under reduced motion the walk is whole at once", () =>
+      Effect.gen(function*() {
+        const finishing = (reducedMotion: ReducedMotion) =>
+          Effect.gen(function*() {
+            const { failures, page } = yield* openPage({ reducedMotion })
+            yield* goto(page, "/")
+            yield* visible(rendered(page))
+            const paper = page.locator("[data-place-stage='paper']")
+            yield* attribute(paper, "data-place-drawn", "kept")
+            const merge = page.getByRole("switch", { checked: false, name: /^Merge Ship's bell/u })
+            yield* act(() => merge.scrollIntoViewIfNeeded())
+            yield* click(merge)
+            // Every frame from the merge until the walk is whole.
+            const frames = yield* Stream.repeatEffectWithSchedule(
+              act(() => page.evaluate(finishingTouches)),
+              Schedule.spaced("16 millis").pipe(Schedule.upTo("14 seconds"))
+            ).pipe(
+              Stream.takeUntil((frame) => frame.walk === 1),
+              Stream.runCollect,
+              Effect.map(Chunk.toReadonlyArray)
+            )
+            yield* animationsSettled(page)
+            const settled = yield* act(() => page.evaluate(finishingTouches))
+            expect(yield* failures).toEqual([])
+            return {
+              walks: Arr.dedupe(Arr.filter(Arr.map(frames, (frame) => frame.walk), (walk) => walk >= 0)),
+              washes: Arr.dedupe(
+                Arr.filterMap(frames, (frame) =>
+                  frame.wash.changes === "1" ? Option.some(frame.wash.opacity) : Option.none())
+              ),
+              settled
+            }
+          })
+        const full = yield* finishing("no-preference")
+        // The walk was seen part-drawn on its way to whole; the wash was seen fading and has settled to nothing.
+        expect(Arr.some(full.walks, (walk) => walk > 0 && walk < 1), full.walks.join(" ")).toBe(true)
+        expect(Arr.last(full.walks)).toEqual(Option.some(1))
+        expect(Arr.some(full.washes, (opacity) => opacity > 0 && opacity < 1), full.washes.join(" ")).toBe(true)
+        expect(full.settled).toEqual({ walk: 1, wash: { changes: "1", opacity: 0 } })
+        const reduced = yield* finishing("reduce")
+        // Drawn whole from its first frame; the wash, colour alone, still marks the change and settles.
+        expect(reduced.walks).toEqual([1])
+        expect(reduced.settled).toEqual({ walk: 1, wash: { changes: "1", opacity: 0 } })
       }))
 
     it.scoped("keyboard reaches every control", () =>

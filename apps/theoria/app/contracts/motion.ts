@@ -36,6 +36,20 @@ export const motionStagger: Duration.Duration = Duration.millis(20)
 /** The longest a staggered arrival may take from the first thing starting to the last. */
 export const motionArrivalBudget: Duration.Duration = Duration.millis(300)
 
+/**
+ * How long the walk through the place takes to draw itself once the search
+ * settles: front to back, in the order the features were named, slow enough
+ * to be followed. Movement, so reduced motion draws it whole at once.
+ */
+export const motionWalkDraw: Duration.Duration = Duration.millis(900)
+
+/**
+ * How long a changed value stays washed in its tone before settling: longer
+ * than anything moving, so the eye finds it after the drawing has landed.
+ * Colour alone, which reduced motion keeps.
+ */
+export const motionValueWash: Duration.Duration = Duration.millis(1200)
+
 /** Delay from pointer entry to answering a mark. */
 export const answerOpenDelay = (mark: PlaceMark): Duration.Duration =>
   Match.value(mark).pipe(

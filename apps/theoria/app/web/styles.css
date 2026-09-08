@@ -342,41 +342,12 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Content transition animations
+ * Stage utilities. Nothing here animates: Motion owns every arrival, exit and
+ * finishing touch under the one configuration at the root, and CSS
+ * transitions elsewhere read the motion tokens above.
  * --------------------------------------------------------------------------- */
 
 @layer utilities {
-  /* A value that just changed: a wash in the digest tone that settles to nothing. */
-  @keyframes value-changed {
-    from {
-      background-color: var(--color-tone-digest-200);
-      box-shadow: 0 0 0 4px var(--color-tone-digest-200);
-    }
-    to {
-      background-color: transparent;
-      box-shadow: 0 0 0 4px transparent;
-    }
-  }
-
-  .animate-value-changed {
-    border-radius: 0.25rem;
-    animation: value-changed 1200ms ease-out both;
-  }
-
-  /* A path that draws itself once, front to back; pathLength="1" normalises the offset. */
-  @keyframes path-draw {
-    from {
-      stroke-dashoffset: 1;
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  .animate-path-draw {
-    animation: path-draw 900ms ease-out both;
-  }
-
   /* One feature on the imagined place's stage, coloured by who added it. */
   .bg-place-disc-sign {
     background-image: var(--th-place-disc-sign);
@@ -388,12 +359,5 @@
 
   .bg-place-disc-dsp {
     background-image: var(--th-place-disc-dsp);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-path-draw,
-    .animate-value-changed {
-      animation: none;
-    }
   }
 }

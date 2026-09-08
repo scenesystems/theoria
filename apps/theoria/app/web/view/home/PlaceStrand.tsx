@@ -44,7 +44,7 @@ export const StageKnots = ({ evidence }: { readonly evidence: PlaceEvidence }) =
       {Option.match(Arr.last(evidence.lineage), {
         onNone: () => null,
         onSome: (version) => (
-          <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5">
+          <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5" tone={digestTone}>
             <SemanticText
               as="span"
               className="tabular-nums text-ink-500"
@@ -95,7 +95,7 @@ const Knot = ({ build, last, version }: {
             wrapAuthority="native-browser"
           />
         ))}
-        <ChangedValue changes={current ? change.changes : 0} className="flex min-w-0">
+        <ChangedValue changes={current ? change.changes : 0} className="flex min-w-0" tone={digestTone}>
           <ContentId form="full" id={version.contentId} />
         </ChangedValue>
         {Option.match(signatureFor(build.evidence.signatures, version.contentId), {

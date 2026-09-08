@@ -752,11 +752,17 @@ left on purpose. Every item takes the same route: failing test, then the change.
       its identity. No brand: a closed literal set is already one identity per
       site, and the contract test checks each resolves to one line of its
       step's code.
-- [ ] **The CSS animations the toolchain branch left for this work.**
-      `animate-path-draw` (`PlaceWalk`) and `animate-value-changed`
-      (`ChangedValue`) are still CSS keyframes beside Motion. Either move them
-      to Motion under `MotionConfig reducedMotion="user"` so one system owns
-      presence, or record why a CSS keyframe is the honest tool for each.
+- [x] **The CSS animations the toolchain branch left for this work.** Both
+      moved to Motion; `styles.css` declares no keyframes and no `animation`
+      (guarded by `test/contracts/motion.contract.test.ts`, which reads the
+      stylesheet). The walk (`PlaceWalk`) is an `m.path` whose `pathLength`
+      draws once over `motionWalkDraw` (900 ms) when the search settles; it is
+      movement, so under reduced motion it is whole at once (`motionPreferenceAtom` + `Match.exhaustive`, the `PlaceMarker` pattern, because Motion 13.2's
+      `reducedMotion` leaves `pathLength` animating). The wash (`ChangedValue`)
+      is a `Layer` in the digest tone fading over `motionValueWash` (1200 ms);
+      it is colour, not motion, so it stays under reduced motion. Browser test:
+      `home-demo` "a merge washes the changed version and the settled search
+      draws the walk once".
 - [x] **Per-trial render cost.** Measured on the production build
       (`vite preview` of `dist/`, Chromium, `PerformanceObserver` on
       `long-animation-frame` and `event`, one story change): 36 trials arrive

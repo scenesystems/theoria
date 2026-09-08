@@ -1,7 +1,14 @@
 import { Duration } from "effect"
 import type { Transition } from "motion/react"
 
-import { motionArrivalBudget, motionDuration, motionEase, motionStagger } from "../../../contracts/motion.js"
+import {
+  motionArrivalBudget,
+  motionDuration,
+  motionEase,
+  motionStagger,
+  motionValueWash,
+  motionWalkDraw
+} from "../../../contracts/motion.js"
 
 const seconds = (duration: Duration.Duration): number => Duration.toSeconds(duration)
 
@@ -18,6 +25,12 @@ export const themeTransition: Transition = {
 
 /** Leaving is quicker than arriving, so the new state leads. */
 export const exitTransition: Transition = { duration: seconds(motionDuration("exit")), ease: motionEase }
+
+/** The walk drawing itself once the search settles. */
+export const walkDrawTransition: Transition = { duration: seconds(motionWalkDraw), ease: motionEase }
+
+/** A changed value's wash settling to nothing. */
+export const valueWashTransition: Transition = { duration: seconds(motionValueWash), ease: motionEase }
 
 /** Each of several things arriving together takes two thirds of a lone arrival; the stagger makes up the rest. */
 const staggeredDuration: Duration.Duration = Duration.times(motionDuration("enter"), 2 / 3)

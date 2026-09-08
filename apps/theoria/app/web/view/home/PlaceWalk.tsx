@@ -1,6 +1,11 @@
+import { useAtomValue } from "@effect-atom/atom-react"
+import { Match } from "effect"
 import * as Arr from "effect/Array"
+import * as m from "motion/react-m"
 
 import type { PlaceMarker } from "../../../contracts/imagined-place-result.js"
+import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
+import { walkDrawTransition } from "../primitives/motion.js"
 
 /**
  * The walk through the place: one dotted line through the markers in the
@@ -14,11 +19,27 @@ const walkPath = (markers: ReadonlyArray<PlaceMarker>): string =>
     " "
   )
 
+const undrawn = { pathLength: 0 }
+const drawn = { pathLength: 1 }
+
 /**
- * The dotted walk is masked by a second copy of itself whose dash offset
- * animates from the full path length to zero, so the walk draws itself once
- * when the arrangement arrives. `pathLength="1"` makes the offset independent
- * of the path's real length. Under reduced motion the mask is simply full.
+ * How the mask draws: from nothing to the whole path over the walk's time, or
+ * — under reduced motion, since a line drawing itself is movement — whole
+ * from its first frame, with no undrawn state written for Motion to cancel.
+ */
+const drawing = (preference: MotionPreference) =>
+  Match.value(preference).pipe(
+    Match.when("full", () => ({ initial: undrawn, animate: drawn, transition: walkDrawTransition })),
+    Match.when("reduced", () => ({ initial: false, animate: drawn })),
+    Match.exhaustive
+  )
+
+/**
+ * The dotted walk is masked by a second copy of itself whose drawn length
+ * Motion animates from nothing to the whole path, so the walk draws itself
+ * once when the arrangement arrives. Motion normalises the path's length to
+ * 1 and writes the dash array and offset itself, so the draw is independent
+ * of the path's real length.
  */
 export const PlaceWalk = ({ height, markers, width }: {
   readonly height: number
@@ -27,6 +48,7 @@ export const PlaceWalk = ({ height, markers, width }: {
 }) => {
   const d = walkPath(markers)
   const maskId = `place-walk-${String(width)}-${String(markers.length)}`
+  const preference = useAtomValue(motionPreferenceAtom)
   return markers.length < 2 ? null : (
     <svg
       aria-hidden
@@ -38,13 +60,12 @@ export const PlaceWalk = ({ height, markers, width }: {
     >
       {/* Alpha mask: any opaque stroke reveals, so the theme's colours do not matter here. */}
       <mask id={maskId} maskUnits="userSpaceOnUse" style={{ maskType: "alpha" }}>
-        <path
-          className="animate-path-draw fill-none stroke-ink-900"
+        <m.path
+          className="fill-none stroke-ink-900"
           d={d}
-          pathLength={1}
-          strokeDasharray="1 1"
           strokeLinecap="round"
           strokeWidth={8}
+          {...drawing(preference)}
         />
       </mask>
       <path

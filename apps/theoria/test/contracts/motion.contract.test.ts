@@ -1,7 +1,10 @@
 import { Registry } from "@effect-atom/atom"
+import { FileSystem, Path, Url } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Duration, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import {
   motionArrivalBudget,
@@ -9,13 +12,47 @@ import {
   motionEase,
   motionEaseCss,
   MotionRelation,
-  motionThemeTokens
+  motionThemeTokens,
+  motionValueWash,
+  motionWalkDraw
 } from "../../app/contracts/motion.js"
 import { placeDiscDrawnAtom, placeDrawnAtom, placeTrialPreviewAtom } from "../../app/web/atoms/imagined-place-render.js"
 import { motionConfigReducedMotion } from "../../app/web/atoms/motion.js"
-import { exitTransition, staggeredArrival, themeTransition } from "../../app/web/view/primitives/motion.js"
+import {
+  exitTransition,
+  staggeredArrival,
+  themeTransition,
+  valueWashTransition,
+  walkDrawTransition
+} from "../../app/web/view/primitives/motion.js"
+
+/** The app's `app/web` directory, from this file rather than the working directory: the root test run starts elsewhere. */
+const webRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
+  const path = yield* Path.Path
+  return yield* path.fromFileUrl(yield* Url.fromString("../../app/web/", import.meta.url))
+}).pipe(Effect.orDie)
 
 describe("motion contract", () => {
+  it.effect("one system owns presence: the stylesheet declares no keyframes and no animation", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const stylesheet = yield* fileSystem.readFileString(path.join(yield* webRoot, "styles.css")).pipe(Effect.orDie)
+      const declarations = Arr.filter(
+        Str.split(stylesheet, "\n"),
+        (line) => Str.includes("@keyframes")(line) || /^\s*animation(-[a-z]+)?\s*:/u.test(line)
+      )
+      expect(declarations).toEqual([])
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("a walk drawing itself and a changed value's wash are slower than any relation, and the wash outlasts the walk", () =>
+    Effect.sync(() => {
+      expect(Duration.lessThan(motionDuration("shift"), motionWalkDraw)).toBe(true)
+      expect(Duration.lessThan(motionWalkDraw, motionValueWash)).toBe(true)
+      expect(walkDrawTransition).toEqual({ duration: Duration.toSeconds(motionWalkDraw), ease: motionEase })
+      expect(valueWashTransition).toEqual({ duration: Duration.toSeconds(motionValueWash), ease: motionEase })
+    }))
+
   it.effect("leaves quicker than it arrives, and moves what is already there slowest", () =>
     Effect.sync(() => {
       expect(Duration.lessThan(motionDuration("exit"), motionDuration("enter"))).toBe(true)

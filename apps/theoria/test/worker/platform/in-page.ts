@@ -251,6 +251,31 @@ export const recordPaperFrames = () => {
 export const recordedPaperFrames = () => document.documentElement.dataset["paperFrames"] ?? ""
 
 /**
+ * One frame of the settled drawing's finishing touches. `walk`: how much of
+ * the walk through the place is drawn, from 0 (none) to 1 (whole), read from
+ * the first value of its mask's `stroke-dasharray`; -1 while there is no walk.
+ * `wash`: the opacity of the wash over the current version's changed value,
+ * with the change it marks; `changes` is `""` and `opacity` -1 while no value
+ * has changed.
+ */
+export const finishingTouches = (): {
+  readonly walk: number
+  readonly wash: { readonly changes: string; readonly opacity: number }
+} => {
+  const mask = document.querySelector("[data-place-walk] mask path")
+  const dash = mask?.getAttribute("stroke-dasharray") ?? ""
+  const washed = document.querySelector("[data-place-current-version] [data-changes]")
+  const wash = washed?.querySelector("[data-place-wash]")
+  return {
+    walk: dash.length > 0 ? Number.parseFloat(dash) : -1,
+    wash: {
+      changes: washed?.getAttribute("data-changes") ?? "",
+      opacity: wash ? Number.parseFloat(getComputedStyle(wash).opacity) : -1
+    }
+  }
+}
+
+/**
  * One frame of the stage in `region` during a merge. `places`: where the
  * feature `name` is painted — its ring (`data-place-marker-arriving`) while
  * the search makes room for it, its disc (`data-place-marker`) once the

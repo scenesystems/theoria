@@ -24,7 +24,9 @@ export const ToneClasses = Schema.Struct({
   stroke: Schema.String,
   bg: Schema.String,
   bgSubtle: Schema.String,
-  bgTinted: Schema.String
+  bgTinted: Schema.String,
+  /** The wash a value just changed is lit with, before it settles to nothing. */
+  wash: Schema.String
 })
 export type ToneClasses = typeof ToneClasses.Type
 
@@ -43,7 +45,8 @@ export const neutralToneClasses: ToneClasses = {
   stroke: "stroke-ink-700",
   bg: "bg-stage-400",
   bgSubtle: "bg-stage-100",
-  bgTinted: "bg-stage-100/70"
+  bgTinted: "bg-stage-100/70",
+  wash: "bg-stage-200"
 }
 
 export const toneClassesFor = (tone: CardTone): ToneClasses =>
@@ -63,7 +66,8 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
       stroke: "stroke-tone-text-500",
       bg: "bg-tone-text-500",
       bgSubtle: "bg-tone-text-100",
-      bgTinted: "bg-tone-text-100/45"
+      bgTinted: "bg-tone-text-100/45",
+      wash: "bg-tone-text-200"
     })),
     Match.when("search", () => ({
       indicator: "bg-tone-search-500",
@@ -80,7 +84,8 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
       stroke: "stroke-tone-search-500",
       bg: "bg-tone-search-500",
       bgSubtle: "bg-tone-search-100",
-      bgTinted: "bg-tone-search-100/45"
+      bgTinted: "bg-tone-search-100/45",
+      wash: "bg-tone-search-200"
     })),
     Match.when("math", () => ({
       indicator: "bg-tone-math-500",
@@ -97,7 +102,8 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
       stroke: "stroke-tone-math-500",
       bg: "bg-tone-math-500",
       bgSubtle: "bg-tone-math-100",
-      bgTinted: "bg-tone-math-100/45"
+      bgTinted: "bg-tone-math-100/45",
+      wash: "bg-tone-math-200"
     })),
     Match.when("dsp", () => ({
       indicator: "bg-tone-dsp-500",
@@ -114,7 +120,8 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
       stroke: "stroke-tone-dsp-500",
       bg: "bg-tone-dsp-500",
       bgSubtle: "bg-tone-dsp-100",
-      bgTinted: "bg-tone-dsp-100/45"
+      bgTinted: "bg-tone-dsp-100/45",
+      wash: "bg-tone-dsp-200"
     })),
     Match.when("digest", () => ({
       indicator: "bg-tone-digest-500",
@@ -131,7 +138,8 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
       stroke: "stroke-tone-digest-500",
       bg: "bg-tone-digest-500",
       bgSubtle: "bg-tone-digest-100",
-      bgTinted: "bg-tone-digest-100/45"
+      bgTinted: "bg-tone-digest-100/45",
+      wash: "bg-tone-digest-200"
     })),
     Match.when("sign", () => ({
       indicator: "bg-tone-sign-500",
@@ -148,7 +156,8 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
       stroke: "stroke-tone-sign-500",
       bg: "bg-tone-sign-500",
       bgSubtle: "bg-tone-sign-100",
-      bgTinted: "bg-tone-sign-100/45"
+      bgTinted: "bg-tone-sign-100/45",
+      wash: "bg-tone-sign-200"
     })),
     Match.when("seal", () => ({
       indicator: "bg-tone-seal-500",
@@ -165,7 +174,8 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
       stroke: "stroke-tone-seal-500",
       bg: "bg-tone-seal-500",
       bgSubtle: "bg-tone-seal-100",
-      bgTinted: "bg-tone-seal-100/45"
+      bgTinted: "bg-tone-seal-100/45",
+      wash: "bg-tone-seal-200"
     })),
     Match.exhaustive
   )
