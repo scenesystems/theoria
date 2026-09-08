@@ -1,9 +1,9 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import type { Text } from "@scenesystems/effect-text"
 import { Duration, Effect, Equal, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
+import * as Record from "effect/Record"
 
 import { DemoExecutionError } from "../../contracts/demo-error.js"
 import {
@@ -12,7 +12,6 @@ import {
   Arrangement,
   description,
   descriptionInput,
-  recordedDescriptionInput,
   renderingFor
 } from "../../contracts/demo/imagined-place-arrangement.js"
 import {
@@ -28,23 +27,22 @@ import { placeSourceId } from "../../contracts/demo/imagined-place-provenance.js
 import { type Meander, renderTrials } from "../../contracts/demo/imagined-place-search.js"
 import { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import { PlaceBuild } from "../../contracts/imagined-place-result.js"
-import {
-  type ParticipantRole,
-  type PlaceFeature,
-  placeFeatures,
-  placeScenarioRecordings,
-  recordedFeatures
-} from "../../contracts/imagined-place.js"
+import { type ParticipantRole, placeFeatures } from "../../contracts/imagined-place.js"
 import { motionDuration } from "../../contracts/motion.js"
 import { journeyFrom, toward, travellingOver } from "../motion/travel.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
 import { PlaceSearcher, workerGone } from "../services/PlaceSearcher.js"
 import type { BrowserTextLayout } from "../text/browserTextLayout.js"
 import { MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
-import { proposalAnchorLine } from "../view/home/placeViewModel.js"
+import {
+  legendFromMarkers,
+  legendFromOutline,
+  type PlaceLegendEntry,
+  proposalAnchorLine
+} from "../view/home/placeViewModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
-import { placeBuiltAtom, placeControlsAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
+import { placeBuiltAtom, placeOutlineAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "./motion.js"
 import { textLayoutLayerAtom } from "./text-layout.js"
 
@@ -526,13 +524,13 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
   })
 
 /**
- * The paper the search is expected to want for the current artifact at the
+ * The paper the search is expected to want for the place's outline at the
  * current stage width (`paperExpected`), from the same prepared text the
  * drawing flows: what the stage is cut to before the first frame, and what
- * that frame holds. Before the artifact arrives, the paper is cut from the
- * scenario's recording under the chosen acceptances — the same text every
- * build of that story describes — so the stage holds its size while the
- * server replays the program; the artifact is the truth once it is here.
+ * that frame holds. Before the build arrives the outline is the scenario's
+ * recording under the chosen acceptances — the same text every build of that
+ * story describes — so the stage holds its size while the server replays the
+ * program; the build's artifact is the outline once it is here.
  */
 export const placeExpectedPaperAtom: AtomType.Atom<Result.Result<number, PlaceRenderError>> = placeRenderRuntime.atom(
   (get: AtomType.Context) =>
@@ -540,22 +538,32 @@ export const placeExpectedPaperAtom: AtomType.Atom<Result.Result<number, PlaceRe
       onNone: () => Effect.never,
       onSome: (stageWidth) => {
         const stage = stageFor(stageWidth)
-        const cut = (input: Text.PrepareInputType, features: ReadonlyArray<PlaceFeature>) =>
-          prepareBrowserText(input).pipe(
-            Effect.map((prepared) => paperExpected(stage, prepared, features)),
-            Effect.mapError((cause) => renderFailed(String(cause)))
-          )
-        return Option.match(get(placeBuiltAtom), {
-          onNone: () => {
-            const controls = get(placeControlsAtom)
-            const recording = placeScenarioRecordings[controls.scenario]
-            return cut(recordedDescriptionInput(recording, controls), recordedFeatures(recording, controls))
-          },
-          onSome: (build) => cut(descriptionInput(build.artifact), placeFeatures(build.artifact))
-        })
+        const outline = get(placeOutlineAtom)
+        return prepareBrowserText(descriptionInput(outline)).pipe(
+          Effect.map((prepared) => paperExpected(stage, prepared, placeFeatures(outline))),
+          Effect.mapError((cause) => renderFailed(String(cause)))
+        )
       }
     })
 )
+
+/**
+ * Which discs are expected to carry their names at the current stage width,
+ * measured from the outline with the same engine the drawing uses
+ * (`markerLabelWidths`): empty when the discs will be numbered. Decided before
+ * the first frame, so the legend that accompanies numbered discs is laid
+ * before the drawing and the drawing changes nothing under it.
+ */
+export const placeExpectedLabelsAtom: AtomType.Atom<Result.Result<MarkerLabelWidths, PlaceRenderError>> =
+  placeRenderRuntime.atom((get: AtomType.Context) =>
+    Option.match(get(placeStageMeasuredWidthAtom), {
+      onNone: () => Effect.never,
+      onSome: (stageWidth) =>
+        markerLabelWidths(get(placeOutlineAtom), stageFor(stageWidth)).pipe(
+          Effect.mapError((cause) => renderFailed(String(cause)))
+        )
+    })
+  )
 
 /** The frame the stage draws: the best arrangement, or the trial the visitor chose. */
 export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = Atom.make(
@@ -563,6 +571,28 @@ export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, 
     const preview = get(placeTrialPreviewAtom)
     return Result.map(get(placeRenderFrameAtom), (found) => frameShowing(found, preview))
   }
+)
+
+/**
+ * The legend the stage shows under numbered discs: none while the discs carry
+ * their names. From the shown frame's markers once there is a drawing; before
+ * it, from the outline whenever the names are expected not to fit — the same
+ * names in the same order as the drawing will number them, so the legend is
+ * on the page at its full height from the first frame.
+ */
+export const placeLegendAtom: AtomType.Atom<Option.Option<ReadonlyArray<PlaceLegendEntry>>> = Atom.make(
+  (get: AtomType.Context) =>
+    Option.match(Result.value(get(placeShownFrameAtom)), {
+      onSome: (frame) =>
+        Record.isEmptyRecord(frame.search.labels)
+          ? Option.some(legendFromMarkers(frame.rendering.projection.markers))
+          : Option.none(),
+      onNone: () =>
+        Option.flatMap(Result.value(get(placeExpectedLabelsAtom)), (labels) =>
+          Record.isEmptyRecord(labels)
+            ? Option.some(legendFromOutline(get(placeOutlineAtom)))
+            : Option.none())
+    })
 )
 
 /**

@@ -11,13 +11,14 @@ import type { CSSProperties, ReactNode } from "react"
 
 import { stageFor } from "../../../contracts/demo/imagined-place-flow.js"
 import { type DrawingId, placeSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
-import type { PlaceLine, PlaceMarker, PlaceProjection } from "../../../contracts/imagined-place-result.js"
+import type { PlaceLine, PlaceProjection } from "../../../contracts/imagined-place-result.js"
 import { useElementWidthReporter } from "../../atoms/element-observation.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import {
   drawingId,
   type PlaceDrawn,
   placeDrawnAtom,
+  placeLegendAtom,
   type PlaceRenderFrame,
   type PlaceSheet,
   placeSheetAtom,
@@ -32,7 +33,7 @@ import {
 } from "../../atoms/imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
-import { litMarkClassName, markClassName } from "../primitives/designSystem.js"
+import { litMarkClassName, markClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { departed, exitTransition, staggeredArrival } from "../primitives/motion.js"
@@ -42,7 +43,7 @@ import { ShimmerLine } from "../primitives/Skeleton.js"
 import { PlaceGhosts } from "./PlaceGhosts.js"
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
 import { ProvenanceMark } from "./PlaceProvenance.js"
-import { markerTone, searching } from "./placeViewModel.js"
+import { participantTone, type PlaceLegendEntry, searching } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
@@ -274,15 +275,19 @@ const Paper = ({
   </ScrollArea.Root>
 )
 
-/** Shown only when markers are too small to carry their names: numbers on the stage, names here. */
-const Legend = ({ markers }: { readonly markers: ReadonlyArray<PlaceMarker> }) => (
+/**
+ * Shown only when markers are too small to carry their names: numbers on the
+ * stage, names here. Laid from the outline before the first drawing, so the
+ * drawing arrives under a legend already at its height.
+ */
+const Legend = ({ entries }: { readonly entries: ReadonlyArray<PlaceLegendEntry> }) => (
   <Cluster className="gap-x-4 gap-y-1" data-place-legend>
-    {Arr.map(markers, (marker, index) => (
+    {Arr.map(entries, (entry, index) => (
       <LegendItem
         index={index + 1}
-        key={marker.name}
-        label={marker.name}
-        tone={markerTone(marker)}
+        key={entry.name}
+        label={entry.name}
+        tone={toneClassesFor(participantTone(entry.contributedBy))}
       />
     ))}
   </Cluster>
@@ -335,9 +340,6 @@ const BlankPaper = ({ drawn, sheet }: { readonly drawn: PlaceDrawn; readonly she
   )
 }
 
-/** Discs are named or numbered as a set; the legend accompanies the numbers. */
-const numbered = (frame: PlaceRenderFrame): boolean => Record.isEmptyRecord(frame.search.labels)
-
 /**
  * The place drawn at the stage width the visitor chose. The description flows
  * around the features; features from merged proposals keep their proposer's
@@ -350,6 +352,7 @@ export const PlaceStage = () => {
   const sheet = useAtomValue(placeSheetAtom)
   const reportContainerWidth = useElementWidthReporter(useAtomSet(measureStageContainerAtom))
   const latest = Result.value(useAtomValue(placeShownFrameAtom))
+  const legend = useAtomValue(placeLegendAtom)
   const unmeasuredWidth = useAtomValue(placeStageFrameWidthAtom)
   // The frame is cut to the sheet; before the column is measured and the sheet cut, the browser cuts it to the column.
   const frameStyle = Option.match(sheet, {
@@ -383,12 +386,9 @@ export const PlaceStage = () => {
           })}
         </ArtifactStage>
       </Layer>
-      {Option.match(latest, {
+      {Option.match(legend, {
         onNone: () => null,
-        onSome: (value) =>
-          numbered(value)
-            ? <Legend markers={value.rendering.projection.markers} />
-            : null
+        onSome: (entries) => <Legend entries={entries} />
       })}
     </Stack>
   )

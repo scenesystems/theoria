@@ -251,24 +251,121 @@ export const recordPaperFrames = () => {
 export const recordedPaperFrames = () => document.documentElement.dataset["paperFrames"] ?? ""
 
 /**
- * Records LCP, CLS and INP from before the document's first script runs.
+ * Records the footprint of each region of the demonstration — every step card
+ * (`step:<step>`) and the stage's column (`stage:column`) — from the frame it
+ * is first painted in: a resize observer reports a region's border-box height
+ * once per frame it changes in, before that frame is painted, so what is
+ * recorded is what was shown. Regions are found as they mount, from before
+ * the document's first script runs. One `name height phase` line per report,
+ * `phase` the trace's `data-place-render-phase` (`-` before the first trial
+ * is in), on the root element as `data-footprints`; read back with
+ * `recordedFootprints`. Self-contained, like `recordPaperFrames`.
+ */
+export const recordFootprints = () => {
+  const regions = "[data-place-step],[data-place-stage='column']"
+  const named = (element: Element): string =>
+    element.matches("[data-place-step]")
+      ? `step:${element.getAttribute("data-place-step") ?? ""}`
+      : "stage:column"
+  const sizes = new ResizeObserver((entries) => {
+    const phase = document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase") ?? "-"
+    const lines = entries.map((entry) =>
+      `${named(entry.target)} ${String(Math.round(entry.borderBoxSize[0]?.blockSize ?? 0))} ${phase}`
+    )
+    const seen = (document.documentElement.dataset["footprints"] ?? "").split("\n").filter((line) => line.length > 0)
+    document.documentElement.dataset["footprints"] = [...seen, ...lines].join("\n")
+  })
+  // Each node is observed as it is added — itself, where it is a region, and every region within it.
+  const watch = (records: ReadonlyArray<MutationRecord>) => {
+    records.forEach((record) => {
+      record.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) return
+        const added = node.matches(regions) ? [node] : []
+        added.concat([...node.querySelectorAll(regions)]).forEach((element) => {
+          sizes.observe(element, { box: "border-box" })
+        })
+      })
+    })
+  }
+  new MutationObserver(watch).observe(document, { childList: true, subtree: true })
+}
+
+/** The footprints `recordFootprints` has recorded so far, one `name height phase` line each. */
+export const recordedFootprints = () => document.documentElement.dataset["footprints"] ?? ""
+
+/**
+ * Records the page's web vitals from before the document's first script runs.
  * Installed as an init script, when the document has no root element yet, so
  * nothing is written until an observer fires; the first paint always does.
  * Self-contained, like `recordPaperFrames`. Read back with `recordedWebVitals`.
+ *
+ * What is recorded is what was observed, and nothing stands in for an
+ * observation that was not made:
+ *
+ * - `webVitalLcp`: the largest contentful paint's render time (its load time
+ *   for an image whose render time is withheld); empty until one is observed.
+ * - `webVitalShiftTotal`: the sum of every layout shift without recent input
+ *   over the page's life. Never less than CLS, whose session windows would
+ *   only leave shifts out, so a total within the CLS budget is a CLS within
+ *   it; it is not CLS and is not named so.
+ * - `webVitalInp`: interaction to next paint as defined — each interaction's
+ *   duration is the longest of the event entries sharing its `interactionId`,
+ *   and the page's INP is the worst interaction until fifty, then one
+ *   interaction in fifty is set aside; empty while no interaction has been
+ *   reported.
+ * - `webVitalEventThreshold`: the least event duration the observer reports,
+ *   in milliseconds. An interaction quicker than this leaves no entry, so a
+ *   page with interactions and no INP answered every one of them within it.
+ * - `webVitalInteractions`: how many discrete interactions the page had —
+ *   pointer presses and key presses — counted from the events themselves, so
+ *   an INP that is empty is told apart from a page that was never touched.
  */
 export const recordWebVitals = () => {
-  const values = { cls: 0, inp: 0, lcp: 0, shifted: "" }
+  const eventDurationThresholdMs = 16
+  const values: {
+    lcp: string
+    shiftTotal: number
+    interactions: number
+    /** Each reported interaction's longest event duration, by `interactionId`. */
+    reported: ReadonlyArray<{ readonly id: number; readonly duration: number }>
+    shifted: string
+  } = { lcp: "", shiftTotal: 0, interactions: 0, reported: [], shifted: "" }
+  const interactionToNextPaint = (): string => {
+    const durations = values.reported.map((interaction) => interaction.duration).sort((a, b) => b - a)
+    const setAside = Math.min(durations.length - 1, Math.floor(durations.length / 50))
+    return durations.length === 0 ? "" : String(durations[setAside] ?? "")
+  }
+  const interactionId = (entry: PerformanceEntry): number =>
+    "interactionId" in entry && typeof entry.interactionId === "number" ? entry.interactionId : 0
+  // An entry lengthens the interaction it belongs to, or reports a new one; entries of no interaction (`0`) are not INP's.
+  const withEntry = (
+    reported: ReadonlyArray<{ readonly id: number; readonly duration: number }>,
+    entry: PerformanceEntry
+  ): ReadonlyArray<{ readonly id: number; readonly duration: number }> => {
+    const id = interactionId(entry)
+    if (id === 0) return reported
+    return reported.some((interaction) => interaction.id === id)
+      ? reported.map((interaction) =>
+        interaction.id === id ? { id, duration: Math.max(interaction.duration, entry.duration) } : interaction
+      )
+      : [...reported, { id, duration: entry.duration }]
+  }
   const record = () => {
-    document.documentElement.dataset["webVitals"] = [values.lcp, values.cls, values.inp].join(" ")
-    document.documentElement.dataset["webVitalShifts"] = values.shifted
+    const data = document.documentElement.dataset
+    data["webVitalLcp"] = values.lcp
+    data["webVitalShiftTotal"] = String(values.shiftTotal)
+    data["webVitalInp"] = interactionToNextPaint()
+    data["webVitalEventThreshold"] = String(eventDurationThresholdMs)
+    data["webVitalInteractions"] = String(values.interactions)
+    data["webVitalInteractionDurations"] = values.reported.map((interaction) => String(interaction.duration)).join(" ")
+    data["webVitalShifts"] = values.shifted
   }
   // The demonstration's region a shifted node lies in, named by the nearest
   // region-level `data-place-*` attribute, then the node's own nearest
   // `data-place-*` name (or tag) and how far down it moved, so a failure says
   // what moved and by how much; none for a node outside the demonstration.
   const regions = "[data-place-composition],[data-place-features],[data-place-stage],[data-place-act],[data-place-acts]"
-  const parts =
-    "[data-place-step],[data-place-current-version],[data-place-current-version-pending],[data-place-trace],[data-place-legend]"
+  const parts = "[data-place-step],[data-place-current-version],[data-place-trace],[data-place-legend]"
   const placeName = (element: Element): string =>
     element.getAttributeNames().find((name) => name.startsWith("data-place-")) ?? element.tagName.toLowerCase()
   const demonstrationRegion = (
@@ -287,20 +384,26 @@ export const recordWebVitals = () => {
     )
   }
   // `LayoutShift.sources` is not in the DOM library yet; each source names the node that moved and its rectangles.
-  const isShiftSources = (
+  const isShiftSource = (
     value: unknown
-  ): value is ReadonlyArray<
-    { readonly node: unknown; readonly previousRect: DOMRectReadOnly; readonly currentRect: DOMRectReadOnly }
-  > => value instanceof Array
+  ): value is {
+    readonly node: unknown
+    readonly previousRect: DOMRectReadOnly
+    readonly currentRect: DOMRectReadOnly
+  } =>
+    value instanceof Object
+    && "node" in value
+    && "previousRect" in value && value.previousRect instanceof DOMRectReadOnly
+    && "currentRect" in value && value.currentRect instanceof DOMRectReadOnly
+  const shiftSources = (entry: PerformanceEntry) =>
+    "sources" in entry && entry.sources instanceof Array ? entry.sources.filter(isShiftSource) : []
   const shiftedRegions = (entry: PerformanceEntry): ReadonlyArray<string> =>
-    "sources" in entry && isShiftSources(entry.sources)
-      ? entry.sources.flatMap(demonstrationRegion).map((shift) => `${shift}@${String(Math.round(entry.startTime))}ms`)
-      : []
+    shiftSources(entry).flatMap(demonstrationRegion).map((shift) => `${shift}@${String(Math.round(entry.startTime))}ms`)
   new PerformanceObserver((list) => {
     list.getEntries().forEach((entry) => {
       const renderTime = "renderTime" in entry && typeof entry.renderTime === "number" ? entry.renderTime : 0
       const loadTime = "loadTime" in entry && typeof entry.loadTime === "number" ? entry.loadTime : 0
-      values.lcp = renderTime || loadTime
+      values.lcp = String(renderTime || loadTime)
     })
     record()
   }).observe({ type: "largest-contentful-paint", buffered: true })
@@ -308,7 +411,7 @@ export const recordWebVitals = () => {
     const unexpected = list.getEntries().filter((entry) =>
       !("hadRecentInput" in entry && entry.hadRecentInput === true)
     )
-    values.cls += unexpected.reduce(
+    values.shiftTotal += unexpected.reduce(
       (total, entry) => total + ("value" in entry && typeof entry.value === "number" ? entry.value : 0),
       0
     )
@@ -316,19 +419,38 @@ export const recordWebVitals = () => {
       .join(" ")
     record()
   }).observe({ type: "layout-shift", buffered: true })
-  const eventOptions = {
-    type: "event",
-    buffered: true,
-    durationThreshold: 16
-  }
+  // `durationThreshold` is Event Timing's and not in the DOM library yet; a named object carries it without a cast.
+  const eventOptions = { type: "event", buffered: true, durationThreshold: eventDurationThresholdMs }
   new PerformanceObserver((list) => {
-    values.inp = list.getEntries().reduce((maximum, entry) => Math.max(maximum, entry.duration), values.inp)
+    values.reported = list.getEntries().reduce(withEntry, values.reported)
     record()
   }).observe(eventOptions)
+  // The interactions themselves, counted as they happen: a press of a pointer or a key is one.
+  const interacted = () => {
+    values.interactions += 1
+    record()
+  }
+  document.addEventListener("pointerdown", interacted, { capture: true, passive: true })
+  document.addEventListener("keydown", interacted, { capture: true, passive: true })
 }
 
-/** LCP, CLS and INP recorded by `recordWebVitals`, separated by spaces. */
-export const recordedWebVitals = () => document.documentElement.dataset["webVitals"] ?? ""
+/**
+ * What `recordWebVitals` has observed so far, as it stands on the root
+ * element: every field a string, empty where nothing was observed. Decoded
+ * by the test into observations; an absent recorder decodes to nothing, so
+ * missing instrumentation is never a passing measurement.
+ */
+export const recordedWebVitals = () => {
+  const data = document.documentElement.dataset
+  return {
+    lcp: data["webVitalLcp"] ?? "",
+    layoutShiftTotal: data["webVitalShiftTotal"] ?? "",
+    inp: data["webVitalInp"] ?? "",
+    eventThresholdMs: data["webVitalEventThreshold"] ?? "",
+    interactions: data["webVitalInteractions"] ?? "",
+    interactionDurations: data["webVitalInteractionDurations"] ?? ""
+  }
+}
 
 /**
  * The demonstration's regions that shifted layout without recent input,
@@ -659,6 +781,27 @@ export const canvasColour = () => {
     .map((element) => getComputedStyle(element).backgroundColor)
     .find((colour) => colour !== "rgba(0, 0, 0, 0)" && colour !== "transparent")
   return painted ?? "none"
+}
+
+/**
+ * How the canvas is lit: what the body itself paints, and the light beneath
+ * the page — the body's `::before` — with what fixes it in its own layer. A
+ * body that paints the light on its own box puts it on the document's root
+ * layer, where every repaint of the page re-shades it; on a fixed layer it is
+ * shaded once.
+ */
+export const canvasLight = () => {
+  const light = getComputedStyle(document.body, "::before")
+  return {
+    bodyImage: getComputedStyle(document.body).backgroundImage,
+    light: {
+      image: light.backgroundImage,
+      position: light.position,
+      inset: [light.top, light.right, light.bottom, light.left].join(" "),
+      pointerEvents: light.pointerEvents,
+      zIndex: light.zIndex
+    }
+  }
 }
 
 /** The element's text colour, as painted. */

@@ -5,7 +5,7 @@ import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
-import type { PlaceArtifact } from "../../../contracts/imagined-place.js"
+import type { PlaceOutline } from "../../../contracts/imagined-place.js"
 import {
   drawingId,
   type PlaceRenderError,
@@ -27,12 +27,13 @@ import { pillButtonClassName, toneClassesFor } from "../primitives/designSystem.
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { GhostText } from "../primitives/Skeleton.js"
 import { StageBanner } from "../primitives/StageBanner.js"
 
-import { inlineMarkClassName, ProvenanceMark } from "./PlaceProvenance.js"
+import { inlineMarkClassName, inlineMarkRoomClassName, ProvenanceMark } from "./PlaceProvenance.js"
 import { PlaceSearchTrace, PlaceSearchTracePending } from "./PlaceSearchTrace.js"
 import { PlaceStage } from "./PlaceStage.js"
-import { StageKnots, StageKnotsPending } from "./PlaceStrand.js"
+import { StageKnots } from "./PlaceStrand.js"
 import {
   drawablePresets,
   keptTrialLabel,
@@ -40,6 +41,7 @@ import {
   participantTone,
   presentParticipants,
   renderProgressText,
+  searchCaptionShape,
   shownTrialIndex,
   stagePresetLabel
 } from "./placeViewModel.js"
@@ -81,10 +83,11 @@ const StagePresets = () => {
 /**
  * Who made what in the version drawn: the same accents the markers, cards and
  * pills use. A proposer appears only while a proposal of theirs is merged.
+ * Read from the outline, so the legend is here before the build is.
  */
-const ParticipantLegend = ({ artifact }: { readonly artifact: PlaceArtifact }) => (
+const ParticipantLegend = ({ outline }: { readonly outline: PlaceOutline }) => (
   <Cluster className="gap-x-4 gap-y-1.5" data-place-legend-participants>
-    {Arr.map(presentParticipants(artifact), (role) => (
+    {Arr.map(presentParticipants(outline), (role) => (
       <LegendItem
         key={role}
         label={participantLabel(role)}
@@ -139,6 +142,37 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
   )
 }
 
+/** The caption's row before the search has started: its words as a ghost in the mark's room, at the row's height. */
+const SearchCaptionPending = () => (
+  <Rail aria-busy className="min-h-9 min-w-0 gap-2.5" data-place-search-caption-pending>
+    <Layer render={<span />} className={inlineMarkRoomClassName}>
+      <GhostText as="span" className="tabular-nums text-ink-500" role="code-meta" text={searchCaptionShape} />
+    </Layer>
+  </Rail>
+)
+
+/**
+ * The trace and, under it, the caption and the widths to draw at. The rows
+ * are the same before the search has started, with the trace's chart and the
+ * caption's words as the room they will take; the widths are known from the
+ * column and are offered from the first frame.
+ */
+const SearchRows = ({ search }: { readonly search: Option.Option<PlaceSearch> }) => (
+  <Stack className="gap-2">
+    {Option.match(search, {
+      onNone: () => <PlaceSearchTracePending />,
+      onSome: (value) => <PlaceSearchTrace search={value} />
+    })}
+    <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,1fr)_auto]">
+      {Option.match(search, {
+        onNone: () => <SearchCaptionPending />,
+        onSome: (value) => <SearchCaption search={value} />
+      })}
+      <StagePresets />
+    </Layer>
+  </Stack>
+)
+
 /**
  * The search that draws the place failed; the last frame it reached stays on
  * the stage until it is run again. While the run it asked for is under way
@@ -162,32 +196,20 @@ const DrawFailed = ({ search }: { readonly search: Result.Failure<PlaceSearch, P
  * decide their shape by this column's width, not the viewport's: the column
  * is narrower beside the steps than it is above them.
  */
-export const PlaceArrangement = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
+export const PlaceArrangement = ({ build, outline }: {
+  readonly build: Option.Option<PlaceBuild>
+  readonly outline: PlaceOutline
+}) => {
   const search = useAtomValue(placeSearchAtom)
   return (
     <Stack className="@container gap-4">
-      {Option.match(build, {
-        onNone: () => <StageKnotsPending />,
-        onSome: (value) => <StageKnots evidence={value.evidence} />
-      })}
+      <StageKnots evidence={Option.map(build, (value) => value.evidence)} outline={outline} />
       <PlaceStage />
       {Result.isFailure(search) ? <DrawFailed search={search} /> : null}
-      {Option.match(Result.value(search), {
-        onNone: () => (Result.isFailure(search) ? null : <PlaceSearchTracePending />),
-        onSome: (value) => (
-          <Stack className="gap-2">
-            <PlaceSearchTrace search={value} />
-            <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,1fr)_auto]">
-              <SearchCaption search={value} />
-              <StagePresets />
-            </Layer>
-          </Stack>
-        )
-      })}
-      {Option.match(build, {
-        onNone: () => null,
-        onSome: (value) => <ParticipantLegend artifact={value.artifact} />
-      })}
+      {Result.isFailure(search) && Option.isNone(Result.value(search)) ?
+        null :
+        <SearchRows search={Result.value(search)} />}
+      <ParticipantLegend outline={outline} />
     </Stack>
   )
 }

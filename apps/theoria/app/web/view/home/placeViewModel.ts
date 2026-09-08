@@ -1,10 +1,10 @@
 import { Match, Option, Order, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import { contributorsOf } from "../../../contracts/demo/imagined-place-arrangement.js"
 import type { PlaceAct } from "../../../contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import {
-  type PlaceBuild,
   type PlaceEvidence,
   PlaceMarker,
   type PlaceProjection,
@@ -13,7 +13,13 @@ import {
   type SignatureRecord,
   type Version
 } from "../../../contracts/imagined-place-result.js"
-import type { ParticipantRole, PlaceArtifact } from "../../../contracts/imagined-place.js"
+import {
+  type OfferedProposal,
+  ParticipantRole,
+  placeFeatures,
+  type PlaceOutline,
+  type VersionShape
+} from "../../../contracts/imagined-place.js"
 import type { CardTone } from "../../../contracts/theme.js"
 import type { PlaceDiscDrawn, PlaceSearch } from "../../atoms/imagined-place-render.js"
 import type { MotionPreference } from "../../atoms/motion.js"
@@ -28,13 +34,23 @@ import { departed, shiftTransition } from "../primitives/motion.js"
 /** Content IDs look like `blake3-256:…`; the short form keeps the first characters of the digest itself. */
 export const shortId = (id: string): string => `${id.slice(id.indexOf(":") + 1, id.indexOf(":") + 11)}…`
 
+/**
+ * The room the build's evidence takes before it is here. A digest has the
+ * authority's form — the algorithm, then 64 hex digits — so an ID cut to
+ * either form is as long as the one that arrives; a key is named by eight of
+ * its digits. The digits are room, not a digest: nothing reads them.
+ */
+const unknownDigest = "0".repeat(64)
+export const contentIdShape = `blake3-256:${unknownDigest}`
+const keyDigits = (fingerprint: string): string => fingerprint.slice(0, 8)
+
 const participants: ReadonlyArray<ParticipantRole> = ["author", "neighbor", "program"]
 
 /** Who has a feature in this version: the author always, and each proposer whose proposal was merged. */
-export const presentParticipants = (artifact: PlaceArtifact): ReadonlyArray<ParticipantRole> =>
+export const presentParticipants = (place: PlaceOutline): ReadonlyArray<ParticipantRole> =>
   Arr.filter(
     participants,
-    (role) => role === "author" || Arr.some(artifact.accepted, (proposal) => proposal.proposer === role)
+    (role) => role === "author" || Arr.some(place.accepted, (proposal) => proposal.proposer === role)
   )
 
 export const participantLabel = (role: ParticipantRole): string =>
@@ -64,6 +80,28 @@ export const markerContributor = (marker: PlaceMarker): ParticipantRole =>
 
 export const markerTone = (marker: PlaceMarker): ToneClasses =>
   toneClassesFor(participantTone(markerContributor(marker)))
+
+/**
+ * One entry of the stage's marker legend: the feature a numbered disc stands
+ * for, in its contributor's tone. The legend is laid from the outline before
+ * the first drawing and from the drawing's markers after it — the same names
+ * in the same order, so the first frame moves nothing under it.
+ */
+export const PlaceLegendEntry = Schema.Struct({
+  name: Schema.String,
+  contributedBy: ParticipantRole
+})
+export type PlaceLegendEntry = typeof PlaceLegendEntry.Type
+
+export const legendFromOutline = (place: PlaceOutline): ReadonlyArray<PlaceLegendEntry> =>
+  Arr.zipWith(placeFeatures(place), contributorsOf(place), (feature, contributor) =>
+    PlaceLegendEntry.make({
+      name: feature.name,
+      contributedBy: Option.getOrElse(contributor, (): ParticipantRole => "author")
+    }))
+
+export const legendFromMarkers = (markers: ReadonlyArray<PlaceMarker>): ReadonlyArray<PlaceLegendEntry> =>
+  Arr.map(markers, (marker) => PlaceLegendEntry.make({ name: marker.name, contributedBy: markerContributor(marker) }))
 
 /** Under forced colours the ring is dropped with every shadow, so the disc keeps its edge as a `CanvasText` border on the `Canvas`. */
 const discEdgeClassName = "forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas]"
@@ -239,14 +277,21 @@ export const markerLabel = (marker: PlaceMarker): string =>
  * A valid signature proves possession of a session key, not who a person is,
  * so the label names the key and nothing more.
  */
+const verifiedLabel = (fingerprint: string): string => `Verified · key ${keyDigits(fingerprint)}`
 export const signatureLabel = (signature: SignatureRecord): string =>
-  signature.valid ? `Verified · key ${signature.keyFingerprint.slice(0, 8)}` : "Signature did not verify"
+  signature.valid ? verifiedLabel(signature.keyFingerprint) : "Signature did not verify"
+/** The room a proposal's signature takes before the build: verified, by a key yet to be named. */
+export const signatureLabelShape = verifiedLabel(unknownDigest)
 
 /** The author signs every version; the lineage pill says who and with which key. */
+const signedLabel = (signer: ParticipantRole, fingerprint: string): string =>
+  `${participantLabel(signer)} signed · key ${keyDigits(fingerprint)}`
 export const versionSignatureLabel = (signature: SignatureRecord): string =>
   signature.valid
-    ? `${participantLabel(signature.signer)} signed · key ${signature.keyFingerprint.slice(0, 8)}`
+    ? signedLabel(signature.signer, signature.keyFingerprint)
     : `${participantLabel(signature.signer)} signed · did not verify`
+/** The room a version's signature takes before the build: the author's, by a key yet to be named. */
+export const versionSignatureLabelShape = signedLabel("author", unknownDigest)
 
 export const signatureFor = (
   signatures: ReadonlyArray<SignatureRecord>,
@@ -257,17 +302,24 @@ export const signatureFor = (
 export const currentVersion = (evidence: PlaceEvidence): Version => Arr.lastNonEmpty(evidence.lineage)
 
 /** A merged proposal is part of the current version; the pill on its card names which one. */
-export const mergedIntoText = (evidence: PlaceEvidence): string => `In v${String(currentVersion(evidence).version)}`
+export const mergedIntoText = (current: VersionShape): string => `In v${String(current.version)}`
 
 export const isCurrentVersion = (evidence: PlaceEvidence, version: Version): boolean =>
   currentVersion(evidence).contentId === version.contentId
 
 /** The knot's label: the first version is the origin; every later one is the current version while it is last. */
-export const knotLabel = (version: Version): string =>
-  `V${String(version.version)} · ${Option.isNone(Option.fromNullable(version.parent)) ? "Origin" : "Current"}`
+export const knotLabel = (shape: VersionShape): string =>
+  `V${String(shape.version)} · ${shape.version === 1 ? "Origin" : "Current"}`
 
+/** The version a knot on the strand records, once the build is here: the one of the knot's shape. */
+export const versionOf = (evidence: PlaceEvidence, shape: VersionShape): Option.Option<Version> =>
+  Arr.findFirst(evidence.lineage, (version) => version.version === shape.version)
+
+const sealedNoteText = (bytes: string): string => `Sealed note · ${bytes} bytes`
 /** The envelope as anyone but the author sees it: sealed, and this big. */
-export const sealedNoteLabel = (note: SealedNote): string => `Sealed note · ${String(note.envelopeBytes)} bytes`
+export const sealedNoteLabel = (note: SealedNote): string => sealedNoteText(String(note.envelopeBytes))
+/** The room the envelope takes before it is sealed: a size of three digits, as the notes run. */
+export const sealedNoteLabelShape = sealedNoteText("000")
 
 const leadingWords = (text: string, count: number): string => text.split(" ").slice(0, count).join(" ")
 
@@ -293,15 +345,13 @@ export const proposalAnchorLine = (projection: PlaceProjection, record: Proposal
     : Option.none()
 
 /** What the version added: the origin's feature count, or each merged proposal with who offered it. */
-export const versionChanges = (build: PlaceBuild, version: Version): ReadonlyArray<string> =>
-  Option.match(Option.fromNullable(version.parent), {
-    onNone: () => [`${String(version.featureCount)} features from your brief`],
-    onSome: () =>
-      Arr.map(
-        Arr.filter(build.proposals, (record: ProposalRecord) => record.accepted),
-        (record) => `+ ${record.proposal.feature.name} · ${participantLabel(record.proposal.proposer)}`
-      )
-  })
+export const versionChanges = (offered: ReadonlyArray<OfferedProposal>, shape: VersionShape): ReadonlyArray<string> =>
+  shape.version === 1
+    ? [`${String(shape.featureCount)} features from your brief`]
+    : Arr.map(
+      Arr.filter(offered, (proposal) => proposal.accepted),
+      (proposal) => `+ ${proposal.proposal.feature.name} · ${participantLabel(proposal.proposal.proposer)}`
+    )
 
 /** The trial the stage draws: the one chosen from the trace if it exists, else the best. */
 export const shownTrialIndex = (search: PlaceSearch, preview: Option.Option<number>): number =>
@@ -327,6 +377,10 @@ export const searching = (search: PlaceSearch): boolean =>
 const lossOf = (search: PlaceSearch, index: number): Option.Option<number> =>
   Option.map(Arr.get(search.tried, index), (arrangement) => arrangement.quality.loss)
 
+const searchingText = (tried: number): string => `Searching arrangements · ${String(tried)} of ${String(renderTrials)}`
+/** The room the caption takes before the search has started: the search, with nothing tried yet. */
+export const searchCaptionShape = searchingText(0)
+
 /**
  * The search, captioned as measure · value · scope. While it runs, how far it
  * is; when it stops, which trial the stage draws and what it scored. "Loss"
@@ -334,7 +388,7 @@ const lossOf = (search: PlaceSearch, index: number): Option.Option<number> =>
  */
 export const renderProgressText = (search: PlaceSearch, shown: number): string =>
   searching(search)
-    ? `Searching arrangements · ${String(search.tried.length)} of ${String(renderTrials)}`
+    ? searchingText(search.tried.length)
     : Option.match(lossOf(search, shown), {
       onNone: () => `${String(search.tried.length)} arrangements tried`,
       onSome: (loss) =>

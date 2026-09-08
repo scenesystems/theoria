@@ -337,14 +337,32 @@
     scrollbar-gutter: stable;
   }
 
+  /* The canvas is the stage's colour: one flat fill, propagated to the
+   * viewport, so it costs nothing to repaint under the page. */
   body {
     margin: 0;
     min-height: 100vh;
+    background-color: var(--color-stage-50);
+    color: var(--color-ink-900);
+  }
+
+  /* The light on the canvas: washes at the page's top corners, on a fixed
+   * layer of their own beneath the page. Fixed, the layer is composited apart
+   * from the page and shaded once; painted on the body they would sit on the
+   * document's root layer, where every repaint of the page — a ring round a
+   * pressed trigger, a frame of the search — re-shades the gradients tile by
+   * tile, and a press on a phone waits behind it. The washes are sized to the
+   * viewport, so they are the same light whatever the page's height, and the
+   * light is no part of the page: nothing can point at it. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background:
       radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--color-stage-100) 88%, transparent) 0%, transparent 46%),
-      radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--color-stage-100) 60%, transparent) 0%, transparent 42%),
-      var(--color-stage-50);
-    color: var(--color-ink-900);
+      radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--color-stage-100) 60%, transparent) 0%, transparent 42%);
   }
 }
 
@@ -355,6 +373,24 @@
  * --------------------------------------------------------------------------- */
 
 @layer utilities {
+  /*
+   * Words that are known before they are here in evidence, drawn as the room
+   * they take: the text is transparent and a bar covers the middle of each
+   * line's words. The bar is a background clipped to each line fragment, so a
+   * line's bar is exactly as long as that line's words.
+   */
+  .ghost-words {
+    color: transparent;
+    background-image: linear-gradient(--alpha(var(--color-stage-200) / 60%), --alpha(var(--color-stage-200) / 60%));
+    background-size: 100% 70%;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 0.125rem;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    user-select: none;
+  }
+
   /* One feature on the imagined place's stage, coloured by who added it. */
   .bg-place-disc-sign {
     background-image: var(--th-place-disc-sign);

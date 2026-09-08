@@ -4,16 +4,7 @@ import * as Arr from "effect/Array"
 import type { Text } from "@scenesystems/effect-text"
 
 import { PlaceLine, PlaceMarker, type PlaceRendering } from "../imagined-place-result.js"
-import {
-  type ParticipantRole,
-  type PlaceAcceptances,
-  type PlaceArtifact,
-  type PlaceComposition,
-  type PlaceFeature,
-  placeFeatures,
-  type PlaceScenarioRecording,
-  recordedFeatures
-} from "../imagined-place.js"
+import { type ParticipantRole, type PlaceArtifact, placeFeatures, type PlaceOutline } from "../imagined-place.js"
 import { prepareInputFor } from "../text.js"
 
 import {
@@ -36,37 +27,29 @@ import { type Meander, renderSeed } from "./imagined-place-search.js"
  *
  * @since 0.3.0
  */
-export const description = (artifact: PlaceArtifact): string =>
-  describing(artifact.composition, placeFeatures(artifact))
-
-/** What to prepare for measurement, in the role the stage renders it with. */
-export const descriptionInput = (artifact: PlaceArtifact): Text.PrepareInputType =>
-  prepareInputFor(placeTextRole, description(artifact))
-
-/**
- * The text a build for `acceptances` of a recorded scenario will flow, before
- * that build arrives: the same words, from the recording the server replays,
- * so the stage can be cut to the paper they will want.
- *
- * @since 0.3.0
- */
-export const recordedDescriptionInput = (
-  recording: PlaceScenarioRecording,
-  acceptances: PlaceAcceptances
-): Text.PrepareInputType =>
-  prepareInputFor(placeTextRole, describing(recording.composition, recordedFeatures(recording, acceptances)))
-
-const describing = (composition: PlaceComposition, features: ReadonlyArray<PlaceFeature>): string =>
+export const description = (place: PlaceOutline): string =>
   Arr.join(
-    Arr.prependAll(Arr.map(features, (feature) => feature.description), [composition.summary, composition.atmosphere]),
+    Arr.prependAll(Arr.map(placeFeatures(place), (feature) => feature.description), [
+      place.composition.summary,
+      place.composition.atmosphere
+    ]),
     " "
   )
 
-/** Who added each feature, aligned with `placeFeatures(artifact)`. */
-export const contributorsOf = (artifact: PlaceArtifact): ReadonlyArray<Option.Option<ParticipantRole>> =>
+/**
+ * What to prepare for measurement, in the role the stage renders it with. An
+ * outline from a scenario's recording gives the text a build for it will
+ * flow before that build arrives — the same words, from the recording the
+ * server replays — so the stage can be cut to the paper they will want.
+ */
+export const descriptionInput = (place: PlaceOutline): Text.PrepareInputType =>
+  prepareInputFor(placeTextRole, description(place))
+
+/** Who added each feature, aligned with `placeFeatures(place)`; the composition's own have no contributor but the author. */
+export const contributorsOf = (place: PlaceOutline): ReadonlyArray<Option.Option<ParticipantRole>> =>
   Arr.appendAll(
-    Arr.map(artifact.composition.features, () => Option.none()),
-    Arr.map(artifact.accepted, (proposal) => Option.some(proposal.proposer))
+    Arr.map(place.composition.features, () => Option.none()),
+    Arr.map(place.accepted, (proposal) => Option.some(proposal.proposer))
   )
 
 export const Arrangement = Schema.Struct({

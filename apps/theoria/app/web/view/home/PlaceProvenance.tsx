@@ -41,6 +41,7 @@ import { AnchorLink } from "../primitives/Link.js"
 import { PackageName } from "../primitives/PackageName.js"
 import { PointerRegion, pointerRegionHandlers, PointerRegionProvider } from "../primitives/PointerRegion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { GhostText } from "../primitives/Skeleton.js"
 
 import { howItsBuiltSectionId } from "./HomeHero.js"
 
@@ -122,8 +123,15 @@ export const ProvenanceMark = ({
  */
 export const inlineMarkPadding = "px-1 py-0.5"
 
-export const inlineMarkClassName =
-  `${markClassName} ${litMarkClassName} -mx-1 inline-flex min-w-0 max-w-[calc(100%+0.5rem)] items-center ${inlineMarkPadding} text-left`
+/**
+ * The room a mark in the line takes, without being one: the box a mark's
+ * words stand in before the build brings them, so the mark arriving there
+ * moves nothing around it.
+ */
+export const inlineMarkRoomClassName =
+  `-mx-1 inline-flex min-w-0 max-w-[calc(100%+0.5rem)] items-center ${inlineMarkPadding}`
+
+export const inlineMarkClassName = `${markClassName} ${litMarkClassName} ${inlineMarkRoomClassName} text-left`
 
 /** A status said in the line that is also a mark: the signature, the version it is in. */
 export const StatusMark = ({ className = "", label, mark, tone, ...props }: ComponentProps<"button"> & {
@@ -134,6 +142,22 @@ export const StatusMark = ({ className = "", label, mark, tone, ...props }: Comp
   <ProvenanceMark {...props} className={`${inlineMarkClassName} ${className}`} mark={mark}>
     <InlineStatus label={label} tone={tone} />
   </ProvenanceMark>
+)
+
+/**
+ * The room a status mark takes before the build brings the status: its dot
+ * and the label's words as ghosts, in the mark's padding, so the status
+ * arriving there moves nothing. Not a mark: there is nothing yet to answer.
+ */
+export const StatusMarkPending = ({ className = "", label, tone }: {
+  readonly className?: string
+  readonly label: string
+  readonly tone: InlineStatusTone
+}) => (
+  <Layer render={<span />} className={`${inlineMarkRoomClassName} gap-1.5 ${className}`} data-place-status-pending>
+    <Layer aria-hidden render={<span />} className={`inline-flex size-1.5 shrink-0 rounded-full ${tone.dot}`} />
+    <GhostText as="span" className={tone.text} role="tab-label" text={label} variant="compact" />
+  </Layer>
 )
 
 /**

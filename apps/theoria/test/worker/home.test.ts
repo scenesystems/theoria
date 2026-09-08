@@ -135,7 +135,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* goto(page, "/")
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         yield* visible(demo)
-        const paper = demo.locator("[data-place-stage='paper']")
+        // The blank paper stands in for the drawn one until the first frame; it
+        // is the drawn paper that is asked, once the drawing has replaced the blank.
+        const paper = demo.locator("[data-place-stage='paper']:not([aria-busy])")
         yield* visible(paper)
 
         // The page, the demo and the drawn paper are one canvas: none of them

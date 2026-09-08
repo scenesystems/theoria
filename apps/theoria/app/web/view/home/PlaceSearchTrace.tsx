@@ -7,7 +7,7 @@ import type { CSSProperties } from "react"
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import { type PlaceSearch, placeTrialPreviewAtom, searchLosses } from "../../atoms/imagined-place-render.js"
 import { focusEdgeClassName, toneClassesFor } from "../primitives/designSystem.js"
-import { Layer, Rail, Stack } from "../primitives/Layout.js"
+import { Layer } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
 import { searching, shownTrialIndex, trialValueText } from "./placeViewModel.js"
@@ -100,16 +100,15 @@ const thumbLineClassName =
 export const traceHeightClassName = "h-16"
 
 /**
- * The trace's rows before the first trial is in: the chart's height and the
- * caption's, empty, so the first frame moves nothing below the paper.
+ * The trace's chart before the first trial is in: its height, with a line
+ * breathing where the trace will draw, so the first frame moves nothing
+ * below the paper. The caption's row is not here: it is kept by the row that
+ * holds it live.
  */
 export const PlaceSearchTracePending = () => (
-  <Stack aria-busy className="gap-2" data-place-trace-pending>
-    <Layer className={`${traceHeightClassName} flex w-full items-center`}>
-      <ShimmerLine width="w-full" />
-    </Layer>
-    <Rail className="min-h-9" />
-  </Stack>
+  <Layer aria-busy className={`${traceHeightClassName} flex w-full items-center`} data-place-trace-pending>
+    <ShimmerLine width="w-full" />
+  </Layer>
 )
 
 /**

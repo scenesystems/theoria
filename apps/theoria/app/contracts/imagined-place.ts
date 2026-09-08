@@ -109,16 +109,69 @@ export const PlaceArtifact = Schema.Struct({
 export type PlaceArtifact = typeof PlaceArtifact.Type
 
 /**
+ * The outline of a place: what it is made of, before or apart from the
+ * evidence that it was made. An artifact is an outline with the brief it
+ * answered and the parent it digests; the browser knows an outline for a
+ * build that has not arrived, from the scenario's recording under the
+ * author's decisions, and cuts the page to it.
+ *
+ * @since 0.3.0
+ */
+export const PlaceOutline = PlaceArtifact.pipe(Schema.pick("composition", "accepted"))
+export type PlaceOutline = typeof PlaceOutline.Type
+
+/**
  * Every feature that appears in the rendered place: the composition's own,
  * then each accepted proposal's, in acceptance order.
  *
  * @since 0.3.0
  */
-export const placeFeatures = (artifact: PlaceArtifact): ReadonlyArray<PlaceFeature> =>
-  Arr.appendAll(artifact.composition.features, Arr.map(artifact.accepted, (proposal) => asFeature(proposal.feature)))
+export const placeFeatures = (place: PlaceOutline): ReadonlyArray<PlaceFeature> =>
+  Arr.appendAll(place.composition.features, Arr.map(place.accepted, (proposal) => asFeature(proposal.feature)))
 
 /** A proposed feature as it appears in the place once accepted: its rationale stays with the proposal. */
 const asFeature = ({ description, name, weight }: ProposedFeature): PlaceFeature => ({ name, description, weight })
+
+/**
+ * A proposal as it stands before the author: offered by its proposer, and
+ * merged or declined by the author's decision. The build records it with its
+ * digest and signature; the decision is the author's before any build.
+ *
+ * @since 0.3.0
+ */
+export const OfferedProposal = Schema.Struct({
+  proposal: Proposal,
+  accepted: Schema.Boolean
+})
+export type OfferedProposal = typeof OfferedProposal.Type
+
+/**
+ * One version of the place as far as it can be known without digesting it:
+ * its number and how many features it has. A version is a shape with the
+ * content ID that digests it and the parent it extends.
+ *
+ * @since 0.3.0
+ */
+export const VersionShape = Schema.Struct({
+  version: Schema.Int,
+  featureCount: Schema.Int
+})
+export type VersionShape = typeof VersionShape.Type
+
+/**
+ * The versions a place has, in order: version 1 is the composer's place, and
+ * a merge makes version 2 with the merged features added. The server digests
+ * and signs exactly these; the browser lays out the record of a build that
+ * has not arrived from them.
+ *
+ * @since 0.3.0
+ */
+export const versionShapes = (place: PlaceOutline): Arr.NonEmptyReadonlyArray<VersionShape> => {
+  const origin: VersionShape = { version: 1, featureCount: place.composition.features.length }
+  return Arr.isEmptyReadonlyArray(place.accepted)
+    ? [origin]
+    : [origin, { version: 2, featureCount: placeFeatures(place).length }]
+}
 
 export const briefMaxLength = 280
 
@@ -169,28 +222,43 @@ export const PlaceScenarioRecording = Schema.Struct({
 export type PlaceScenarioRecording = typeof PlaceScenarioRecording.Type
 
 /**
- * The features a build for `acceptances` will have, in the order the server
- * keeps them: the composer's, then each accepted proposal's.
+ * Who seals a note to the author with every build: the neighbour, beside
+ * their proposal. The server seals it from them; the page keeps the note's
+ * room beside their proposal before the build is here.
  *
  * @since 0.3.0
  */
-export const recordedFeatures = (
+export const sealedNoteSender: ParticipantRole = "neighbor"
+
+/**
+ * The proposals a build for `acceptances` will record, in the order the server
+ * offers them — the neighbour's, then the proposer program's — each with the
+ * author's decision on it.
+ *
+ * @since 0.3.0
+ */
+export const recordedProposals = (
   recording: PlaceScenarioRecording,
   acceptances: PlaceAcceptances
-): ReadonlyArray<PlaceFeature> =>
-  Arr.appendAll(
-    recording.composition.features,
-    Arr.map(
-      Arr.filter(
-        [
-          { feature: recording.neighbor, accepted: acceptances.acceptNeighbor },
-          { feature: recording.program, accepted: acceptances.acceptProgram }
-        ],
-        (proposal) => proposal.accepted
-      ),
-      (proposal) => asFeature(proposal.feature)
-    )
+): ReadonlyArray<OfferedProposal> => [
+  { proposal: { proposer: "neighbor", feature: recording.neighbor }, accepted: acceptances.acceptNeighbor },
+  { proposal: { proposer: "program", feature: recording.program }, accepted: acceptances.acceptProgram }
+]
+
+/**
+ * The outline of the place a build for `acceptances` will make: the recorded
+ * composition with the accepted proposals merged, in the order the server
+ * keeps them.
+ *
+ * @since 0.3.0
+ */
+export const recordedOutline = (recording: PlaceScenarioRecording, acceptances: PlaceAcceptances): PlaceOutline => ({
+  composition: recording.composition,
+  accepted: Arr.map(
+    Arr.filter(recordedProposals(recording, acceptances), (offered) => offered.accepted),
+    (offered) => offered.proposal
   )
+})
 
 export const placeScenarioRecordings: Record<PlaceScenario, PlaceScenarioRecording> = {
   "unfinished-light": {

@@ -1,12 +1,17 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import type { Option } from "effect"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
-import { placeBuildAtom, placeBuildEnvelopeAtom } from "../../atoms/imagined-place.js"
+import type { OfferedProposal, PlaceOutline } from "../../../contracts/imagined-place.js"
+import {
+  placeBuildAtom,
+  placeBuildEnvelopeAtom,
+  placeOfferedAtom,
+  placeOutlineAtom
+} from "../../atoms/imagined-place.js"
 import { ActionButton } from "../primitives/ActionButton.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
-import { ShimmerLine } from "../primitives/Skeleton.js"
 import { StageBanner } from "../primitives/StageBanner.js"
 
 import { imaginedPlaceSectionId } from "./HomeHero.js"
@@ -31,34 +36,30 @@ const BuildFailed = () => {
   )
 }
 
-const Pending = () => (
-  <Stack className="gap-2.5 pt-1">
-    <ShimmerLine width="w-1/2" />
-    <ShimmerLine width="w-3/4" />
-  </Stack>
-)
-
 /**
  * The acts of the story on one spine — Compose, Propose, Record. Arrange is
  * the stage beside them, which is the reason the spine exists: each act
- * changes what the stage shows.
+ * changes what the stage shows. Each act is laid out from the outline — what
+ * the recording says the build will say — and filled in from the build, so
+ * the acts take their height from their first frame.
  */
-const Acts = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
+const Acts = ({ build, offered, outline }: {
+  readonly build: Option.Option<PlaceBuild>
+  readonly offered: ReadonlyArray<OfferedProposal>
+  readonly outline: PlaceOutline
+}) => (
   <Stack
     className="relative gap-10 lg:before:absolute lg:before:bottom-3 lg:before:left-[calc(0.375rem-0.5px)] lg:before:top-3 lg:before:w-px lg:before:bg-rule-strong"
     data-place-acts
   >
     <PlaceStepCard spine="spine" step="compose">
-      <PlaceComposition build={build} />
+      <PlaceComposition build={build} outline={outline} />
     </PlaceStepCard>
     <PlaceStepCard spine="spine" step="propose">
-      <PlaceProposals build={build} />
+      <PlaceProposals build={build} offered={offered} outline={outline} />
     </PlaceStepCard>
     <PlaceStepCard spine="spine" step="record">
-      {Option.match(build, {
-        onNone: () => <Pending />,
-        onSome: (value) => <PlaceStrand build={value} />
-      })}
+      <PlaceStrand build={build} offered={offered} outline={outline} />
     </PlaceStepCard>
   </Stack>
 )
@@ -73,6 +74,8 @@ const Acts = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
 export const PlaceActs = () => {
   const result = useAtomValue(placeBuildAtom)
   const build = Result.value(result)
+  const outline = useAtomValue(placeOutlineAtom)
+  const offered = useAtomValue(placeOfferedAtom)
 
   return (
     <Section aria-label="Imagined place demo" className="scroll-mt-6 pb-6" id={imaginedPlaceSectionId}>
@@ -88,11 +91,11 @@ export const PlaceActs = () => {
             <Layer className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]">
               <Layer className="min-w-0 max-w-[44rem] lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-6">
                 <PlaceStepCard spine="none" step="arrange">
-                  <PlaceArrangement build={build} />
+                  <PlaceArrangement build={build} outline={outline} />
                 </PlaceStepCard>
               </Layer>
               <Layer className="min-w-0 lg:col-start-1 lg:row-start-1">
-                <Acts build={build} />
+                <Acts build={build} offered={offered} outline={outline} />
               </Layer>
             </Layer>
           </Stack>

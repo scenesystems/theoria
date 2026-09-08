@@ -868,9 +868,65 @@ left on purpose. Every item takes the same route: failing test, then the change.
       described a disc as "a Motion node that travels from its name";
       `motionConfigReducedMotion` said reduced motion "skips layout";
       `MotionRelation.shift` named "a name to the stage".
-- [ ] **A third review** of the form work (`b8a56b6` onward) by the Oracle,
-      once Act 5 lands, with the same must/should/nice discipline as the first
-      two.
+- [x] **A third review** of the form work (`b8a56b6` onward) by the Oracle,
+      with the same must/should/nice discipline as the first two. Three
+      must-fixes, four should-fixes, one nice-to-have; every one is closed by a
+      failing test first.
+  - _Code-site navigation targeted an element hidden on phones_ (must). The
+    landing target at 320 and 390 was the `sm:block` gutter button. The
+    gutter is now a line's mark at every width (`HighlightedCode`,
+    `PlaceHowItsBuilt`, `navigation.ts`), with pointer and keyboard routes
+    tested at 390.
+  - _A pending hover could undo an explicit press_ (must). The 120 ms
+    hover-open could arrive after a click, turn `opening` from `press` to
+    `hover`, and close on leave. A press now outlasts the hover on its way
+    (`imagined-place-experience.ts`), with the enter → press → delay → leave
+    sequence tested.
+  - _Returning to a story quickly resurrected its discarded brief_ (must).
+    A→B→A within the 400 ms debounce built A's edited brief while the field
+    showed the default. Pending work is scoped to the selection
+    (`imagined-place.ts`, `place-build-request.test.ts`).
+  - _A build's waiting state restarted the old drawing's search_ (should).
+    The render stream depended on the whole build result; it now depends on
+    the build value, so `waiting` toggling restarts nothing and a new build
+    restarts once.
+  - _No fixed footprint through loading_ (should). Closed under _No shift
+    from the demonstration's own loading_ above, and finished by the marker
+    legend: `placeLegendAtom` derives the legend from the outline's features
+    before the first frame and from the shown frame after it
+    (`place-legend.test.ts`), so the legend's row is there at one height
+    from the first paint.
+  - _The INP test did not test responsiveness during the search_ (should).
+    It clicked to start a search and measured nothing while trials ran; LCP
+    and INP defaulted to zero; the lifetime shift total was called CLS; the
+    event observer's maximum duration was not INP. `recordWebVitals` now
+    publishes absent observations as empty (decoded to `Option` by the
+    test), groups event timing by `interactionId` for a true INP, counts the
+    interactions from their own events so an untouched page cannot pass, and
+    names the lifetime total `layoutShiftTotal`. The test changes the story,
+    waits for the search to be `running`, opens a package's docs preview,
+    asserts the drawing had not settled, and holds both interactions to the
+    budget. Honest, it found a miss: at 390 px the press took 208–216 ms.
+    Profiled on the production build, it was the compositor: the canvas
+    washes were `body`'s background, so they sat on the document's root
+    layer sized to the whole document, and any repaint — the pressed
+    trigger's ring — re-shaded two radial gradients tile by tile (four
+    tiles, ~165 ms each) while the main thread waited on the commit. The
+    washes are now `body::before`, `position: fixed; inset: 0; z-index: -1;
+pointer-events: none`: their own composited layer, shaded once, sized to
+    the viewport so the light is the same whatever the page's height. The
+    press no longer produces a long task at all. `home-vitals.test.ts`
+    asserts the body paints a flat colour and the light is that fixed layer.
+    Every opened page in the browser suite is its own visitor
+    (`cf-connecting-ip` per page in `test/worker/browser.ts`), so the real
+    build limiter cannot fail a fast suite.
+  - _Some environmental checks passed without measuring their subject_
+    (should). `lowestTextContrastWithin` returned infinity for no text; the
+    running caption could match a prior one; reduced-motion trial counting
+    compared height strings. Each probe now measures what it claims
+    (`3a421cd`).
+  - _The band's positional transition_ (nice) now derives from
+    `motionDuration("shift")`.
 - [ ] **Event-coupled rest.** The drawing's rest before travel is a duration
       today (`restBeforeTravel`), a guess at when the lines' exit ends.
       `AnimatePresence`'s `onExitComplete` should signal an atom, the journey

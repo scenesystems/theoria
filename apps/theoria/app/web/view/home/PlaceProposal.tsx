@@ -2,10 +2,17 @@ import { Collapsible } from "@base-ui/react/collapsible"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { LockClosedIcon, LockOpenIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
+import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
 import type { PlaceMark } from "../../../contracts/demo/imagined-place-provenance.js"
-import type { PlaceEvidence, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
+import type { PlaceBuild, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
+import {
+  type OfferedProposal,
+  type ParticipantRole,
+  sealedNoteSender,
+  type VersionShape
+} from "../../../contracts/imagined-place.js"
 import { placeProposalLineAtom } from "../../atoms/imagined-place-render.js"
 import {
   dangerStatusTone,
@@ -18,17 +25,26 @@ import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { GhostText } from "../primitives/Skeleton.js"
 import { ToggleSwitch } from "../primitives/ToggleSwitch.js"
 
-import { ContentId } from "./ContentId.js"
-import { inlineMarkClassName, ProvenanceMark, StatusMark } from "./PlaceProvenance.js"
+import { ContentId, ContentIdPending } from "./ContentId.js"
+import {
+  inlineMarkClassName,
+  inlineMarkRoomClassName,
+  ProvenanceMark,
+  StatusMark,
+  StatusMarkPending
+} from "./PlaceProvenance.js"
 import {
   currentVersion,
   mergedIntoText,
   participantLabel,
   participantTone,
   sealedNoteLabel,
-  signatureLabel
+  sealedNoteLabelShape,
+  signatureLabel,
+  signatureLabelShape
 } from "./placeViewModel.js"
 
 const sealTone = toneClassesFor("seal")
@@ -70,8 +86,10 @@ const Field = ({ children, label, mark = Option.none() }: {
   </>
 )
 
+const foldTriggerLayoutClassName = "-mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1"
+
 const foldTriggerClassName =
-  `group/fold -mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `group/fold ${foldTriggerLayoutClassName} text-left transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
 
 const foldPanelClassName =
   "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 motion-reduce:transition-none"
@@ -123,16 +141,70 @@ const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
 )
 
 /**
+ * The envelope before it is sealed: the closed fold's own layout, with the
+ * seal's icon and the label's words as ghosts. Not a fold: there is nothing
+ * yet to open.
+ */
+const SealedNoteFoldPending = () => (
+  <Layer render={<span />} className={foldTriggerLayoutClassName} data-place-sealed-note-pending>
+    <LockClosedIcon aria-hidden className={`size-3.5 shrink-0 ${sealTone.text}`} />
+    <GhostText as="span" className={sealTone.text} role="tab-label" text={sealedNoteLabelShape} variant="compact" />
+  </Layer>
+)
+
+/**
+ * The note's part of the proposal, for the proposer who sends one: the
+ * sealed envelope once the build has sealed it, and its room before that.
+ * The build says who sent it; before the build, the contract does.
+ */
+const NoteField = ({ build, role }: {
+  readonly build: Option.Option<PlaceBuild>
+  readonly role: ParticipantRole
+}) =>
+  Option.match(build, {
+    onNone: () =>
+      role === sealedNoteSender
+        ? (
+          <Field label="Note">
+            <SealedNoteFoldPending />
+          </Field>
+        )
+        : null,
+    onSome: (value) =>
+      value.evidence.sealedNote.from === role
+        ? (
+          <Field label="Note" mark={Option.some<PlaceMark>({ _tag: "Note" })}>
+            <SealedNoteFold note={value.evidence.sealedNote} />
+          </Field>
+        )
+        : null
+  })
+
+/** The build's record of a proposer's proposal: what it signed and whether the author took it. */
+const recordOf = (build: PlaceBuild, role: ParticipantRole): Option.Option<ProposalRecord> =>
+  Arr.findFirst(build.proposals, (record) => record.proposal.proposer === role)
+
+/**
  * The feature's name: what its disc on the stage is labelled with once the
  * author merges it. The name stays here in either case; the stage answers a
  * merge where the feature stands, with a ring while the search makes room
- * and the disc filling it when the search settles.
+ * and the disc filling it when the search settles. Before the build the name
+ * is the recording's, as a ghost in the mark's own padding, so the title's
+ * line is the one the mark will stand in.
  */
-const FeatureTitle = ({ name }: { readonly name: string }) => (
+const FeatureTitle = ({ name, recorded }: { readonly name: string; readonly recorded: boolean }) => (
   <SemanticContent as="h3" className="self-start text-ink-900" role="card-title" variant="compact">
-    <ProvenanceMark className={inlineMarkClassName} data-place-feature={name} mark={{ _tag: "Feature", name }}>
-      {name}
-    </ProvenanceMark>
+    {recorded
+      ? (
+        <ProvenanceMark className={inlineMarkClassName} data-place-feature={name} mark={{ _tag: "Feature", name }}>
+          {name}
+        </ProvenanceMark>
+      )
+      : (
+        <Layer render={<span />} className={inlineMarkRoomClassName}>
+          <GhostText as="span" role="card-title" text={name} variant="compact" />
+        </Layer>
+      )}
   </SemanticContent>
 )
 
@@ -149,32 +221,44 @@ const recordedClassName =
  * parts — what the proposal adds to the place, why the proposer thinks it
  * belongs, and (for the neighbor) the note sealed to the author. Footer: the
  * proposal's own signature and content ID, which it keeps whether or not it
- * is merged. `accepted` is the author's decision and is shown at once;
- * `record.accepted` is what the last build recorded, and puts the version's
- * name beside the badge. The two differ while a build is in flight, and the
- * article says so. `data-place-anchor-line` is the line of the drawn prose
- * where the proposal's sentence stands once merged: the margin it belongs
- * beside.
+ * is merged. `accepted` is the author's decision and is shown at once; the
+ * build's record of the proposal says what the last build recorded, and puts
+ * the version's name beside the badge. The two differ while a build is in
+ * flight, and the article says so. Before any build the article is laid out
+ * from the offer as the recording made it, with every word the build will
+ * sign — the name, the signature, the ID, the version — as a ghost in its
+ * place. `data-place-anchor-line` is the line of the drawn prose where the
+ * proposal's sentence stands once merged: the margin it belongs beside.
  */
 export const PlaceProposal = ({
   accepted,
-  evidence,
-  note,
-  onToggle,
-  record
+  build,
+  mergedInto,
+  offered,
+  onToggle
 }: {
   readonly accepted: boolean
-  readonly evidence: PlaceEvidence
-  readonly note: Option.Option<SealedNote>
+  readonly build: Option.Option<PlaceBuild>
+  readonly mergedInto: VersionShape
+  readonly offered: OfferedProposal
   readonly onToggle: () => void
-  readonly record: ProposalRecord
 }) => {
-  const role = record.proposal.proposer
+  const role = offered.proposal.proposer
   const tone = toneClassesFor(participantTone(role))
-  const pending = accepted === record.accepted ? {} : { "data-place-pending": "" }
+  const record = Option.flatMap(build, (value) => recordOf(value, role))
+  const recorded = Option.map(record, (value) => value.accepted)
+  const pending = Option.match(recorded, {
+    onNone: () => ({}),
+    onSome: (value) => accepted === value ? {} : { "data-place-pending": "" }
+  })
   const anchor = Option.match(useAtomValue(placeProposalLineAtom(role)), {
     onNone: () => ({}),
     onSome: (line) => ({ "data-place-anchor-line": String(line) })
+  })
+  // What the build signed, once it is here; the recording's words, which are the same words, before.
+  const feature = Option.match(record, {
+    onNone: () => offered.proposal.feature,
+    onSome: (value) => value.proposal.feature
   })
 
   return (
@@ -182,23 +266,33 @@ export const PlaceProposal = ({
       render={<article />}
       className={`h-full gap-3 border-l-2 pl-4 transition-colors duration-300 ${voiceClassName(accepted, tone)}`}
       data-place-proposal={role}
-      data-place-recorded={record.accepted ? "true" : "false"}
+      {...Option.match(recorded, {
+        onNone: () => ({}),
+        onSome: (value) => ({ "data-place-recorded": value ? "true" : "false" })
+      })}
       {...anchor}
       {...pending}
     >
       <Cluster render={<header />} className="items-center justify-between gap-x-3 gap-y-1.5">
         <Cluster className="items-center gap-x-3 gap-y-1">
           <ParticipantName name={participantLabel(role)} tone={tone} />
-          {record.accepted
-            ? (
-              <StatusMark
-                className={recordedClassName}
-                label={mergedIntoText(evidence)}
-                mark={{ _tag: "Digest", contentId: currentVersion(evidence).contentId }}
-                tone={recordedTone}
-              />
-            )
-            : null}
+          {Option.match(build, {
+            onNone: () =>
+              offered.accepted
+                ? <StatusMarkPending label={mergedIntoText(mergedInto)} tone={recordedTone} />
+                : null,
+            onSome: (value) =>
+              Option.getOrElse(recorded, () => false)
+                ? (
+                  <StatusMark
+                    className={recordedClassName}
+                    label={mergedIntoText(currentVersion(value.evidence))}
+                    mark={{ _tag: "Digest", contentId: currentVersion(value.evidence).contentId }}
+                    tone={recordedTone}
+                  />
+                )
+                : null
+          })}
         </Cluster>
         <Layer className="ml-auto">
           <ToggleSwitch
@@ -206,13 +300,13 @@ export const PlaceProposal = ({
             disabled={false}
             label="Merge"
             onToggle={onToggle}
-            subject={record.proposal.feature.name}
+            subject={feature.name}
             tone={tone}
           />
         </Layer>
       </Cluster>
 
-      <FeatureTitle name={record.proposal.feature.name} />
+      <FeatureTitle name={feature.name} recorded={Option.isSome(record)} />
 
       <Layer
         render={<dl />}
@@ -223,7 +317,7 @@ export const PlaceProposal = ({
             as="p"
             className="text-ink-800"
             role="row-value"
-            text={record.proposal.feature.description}
+            text={feature.description}
             variant="compact"
             wrapAuthority="native-browser"
           />
@@ -233,28 +327,33 @@ export const PlaceProposal = ({
             as="p"
             className="text-ink-600"
             role="row-value"
-            text={record.proposal.feature.rationale}
+            text={feature.rationale}
             variant="compact"
             wrapAuthority="native-browser"
           />
         </Field>
-        {Option.match(note, {
-          onNone: () => null,
-          onSome: (value) => (
-            <Field label="Note" mark={Option.some<PlaceMark>({ _tag: "Note" })}>
-              <SealedNoteFold note={value} />
-            </Field>
-          )
-        })}
+        <NoteField build={build} role={role} />
       </Layer>
 
       <Cluster render={<footer />} className="items-center gap-x-3 gap-y-1">
-        <StatusMark
-          label={signatureLabel(record.signature)}
-          mark={{ _tag: "Signature", subject: record.contentId }}
-          tone={signatureTone(record.signature.valid)}
-        />
-        <ContentId form="short" id={record.contentId} />
+        {Option.match(record, {
+          onNone: () => (
+            <>
+              <StatusMarkPending label={signatureLabelShape} tone={neutralStatusTone} />
+              <ContentIdPending form="short" />
+            </>
+          ),
+          onSome: (value) => (
+            <>
+              <StatusMark
+                label={signatureLabel(value.signature)}
+                mark={{ _tag: "Signature", subject: value.contentId }}
+                tone={signatureTone(value.signature.valid)}
+              />
+              <ContentId form="short" id={value.contentId} />
+            </>
+          )
+        })}
       </Cluster>
     </Stack>
   )

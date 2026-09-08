@@ -4,12 +4,14 @@ import { Match } from "effect"
 import * as m from "motion/react-m"
 import type { CSSProperties, ReactNode } from "react"
 
+import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import type { TextRole } from "../../../contracts/text.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { classNames } from "./classNames.js"
 import { dangerStatusTone, surfaceClassName, type ToneClasses } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { pulseTransition, stillTransition } from "./motion.js"
+import { SemanticContent } from "./SemanticContent.js"
 import { SemanticText } from "./SemanticText.js"
 import { fontSizeVar, lineHeightVar } from "./semanticTextClasses.js"
 
@@ -61,6 +63,40 @@ export const ShimmerText = ({ role, width }: { readonly role: TextRole; readonly
     />
   </Layer>
 )
+
+/**
+ * Words that are known before they are here in evidence — the recording says
+ * what the build will say — at their exact size and wrap, drawn as the room
+ * they take and nothing more: a bar over each line's words that breathes
+ * while the build is pending. The block is the one the text will stand in,
+ * with the same role, so the words arriving in it change nothing around it;
+ * in the line (`span`, `code`) the words do not wrap, as `SemanticText`'s do
+ * not. The words are not read out, since they are not yet the build's.
+ */
+export const GhostText = ({
+  as,
+  className = "",
+  role,
+  text,
+  variant = "expanded"
+}: {
+  readonly as: "span" | "p" | "h3" | "code"
+  readonly className?: string
+  readonly role: TextRole
+  readonly text: string
+  readonly variant?: SurfaceVariant
+}) => {
+  const preference = useAtomValue(motionPreferenceAtom)
+  const inline = as === "span" || as === "code"
+
+  return (
+    <SemanticContent as={as} className={className} role={role} variant={variant}>
+      <m.span aria-hidden className={inline ? "ghost-words whitespace-nowrap" : "ghost-words"} {...pulse(preference)}>
+        {text}
+      </m.span>
+    </SemanticContent>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // SkeletonSection — a composed group of shimmer lines that mimics a content

@@ -7,7 +7,7 @@ import {
   type Page,
   type Response
 } from "@playwright/test"
-import { Chunk, Context, Data, Effect, Layer, Predicate, Queue, Schedule, Schema, type Scope } from "effect"
+import { Chunk, Context, Data, Effect, Layer, Predicate, Queue, Ref, Schedule, Schema, type Scope } from "effect"
 import * as Arr from "effect/Array"
 
 import {
@@ -40,7 +40,11 @@ export const act = <A>(run: () => Promise<A>): Effect.Effect<A, BrowserError> =>
     catch: (cause) => new BrowserError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
   })
 
-export class Browser extends Context.Tag("test/worker/Browser")<Browser, PlaywrightBrowser>() {}
+export class Browser extends Context.Tag("test/worker/Browser")<Browser, {
+  readonly chromium: PlaywrightBrowser
+  /** How many visitors this browser has opened pages for; each page is a visitor of its own. */
+  readonly visitors: Ref.Ref<number>
+}>() {}
 
 /**
  * Chromium for the whole layer. Nothing in a test can respond to the browser
@@ -48,11 +52,25 @@ export class Browser extends Context.Tag("test/worker/Browser")<Browser, Playwri
  */
 export const BrowserLive: Layer.Layer<Browser, BrowserError> = Layer.scoped(
   Browser,
-  Effect.acquireRelease(
-    act(() => chromium.launch()),
-    (browser) => Effect.orDie(act(() => browser.close()))
-  )
+  Effect.all({
+    chromium: Effect.acquireRelease(
+      act(() => chromium.launch()),
+      (browser) => Effect.orDie(act(() => browser.close()))
+    ),
+    visitors: Ref.make(0)
+  })
 )
+
+/**
+ * The address the Worker sees a page's requests from. Cloudflare sets
+ * `cf-connecting-ip` on every request at the edge, and the place build's
+ * limiter keys its budget by it; every page a test opens is a visitor of its
+ * own, with its own budget, as visitors are — so a suite's builds are never
+ * summed into one address. Addresses are drawn from TEST-NET-3
+ * (203.0.113.0/24) and the documentation nets above it.
+ */
+const visitorAddress = (visitor: number): string =>
+  `203.0.${String(113 + Math.floor(visitor / 256))}.${String(visitor % 256)}`
 
 export const Viewport = Schema.Struct({ width: Schema.Number, height: Schema.Number })
 export type Viewport = typeof Viewport.Type
@@ -85,14 +103,16 @@ export const openPage = (
   Effect.gen(function*() {
     const browser = yield* Browser
     const site = yield* Site
+    const visitor = yield* Ref.getAndUpdate(browser.visitors, (count) => count + 1)
     const context = yield* Effect.acquireRelease(
       act(() =>
-        browser.newContext({
+        browser.chromium.newContext({
           baseURL: site.url,
           viewport: options.viewport ?? desktop,
           reducedMotion: options.reducedMotion ?? "no-preference",
           forcedColors: options.forcedColors ?? "none",
-          colorScheme: options.colorScheme ?? "light"
+          colorScheme: options.colorScheme ?? "light",
+          extraHTTPHeaders: { "cf-connecting-ip": visitorAddress(visitor) }
         })
       ),
       (open) => Effect.orDie(act(() => open.close()))

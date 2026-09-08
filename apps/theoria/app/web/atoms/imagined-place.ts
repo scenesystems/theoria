@@ -7,7 +7,16 @@ import * as Str from "effect/String"
 import type { DemoError } from "../../contracts/demo-error.js"
 import { stageFor, stageMaxWidth, stageMinWidth } from "../../contracts/demo/imagined-place-flow.js"
 import type { PlaceBuild } from "../../contracts/imagined-place-result.js"
-import { PlaceBuildRequest, PlaceScenario, placeScenarioMeta } from "../../contracts/imagined-place.js"
+import {
+  type OfferedProposal,
+  PlaceBuildRequest,
+  type PlaceOutline,
+  PlaceScenario,
+  placeScenarioMeta,
+  placeScenarioRecordings,
+  recordedOutline,
+  recordedProposals
+} from "../../contracts/imagined-place.js"
 import type { ArtifactStageFrame } from "../../contracts/layout.js"
 import type { SuccessEnvelopeData } from "../services/envelopeRequest.js"
 import { ImaginedPlaceClient } from "../services/ImaginedPlaceClient.js"
@@ -163,6 +172,33 @@ export const placeBuildAtom: AtomType.Atom<Result.Result<PlaceBuild, DemoError>>
  * build starts over for another build only, never for a request.
  */
 export const placeBuiltAtom: AtomType.Atom<Option.Option<PlaceBuild>> = Atom.map(placeBuildAtom, Result.value)
+
+/**
+ * The outline of the place the acts read: the build's, once one has arrived.
+ * Before that it is the scenario's recording under the author's decisions —
+ * the same outline the server replays — so every act stands at the shape of
+ * what is coming, and what arrives is its evidence.
+ */
+export const placeOutlineAtom: AtomType.Atom<PlaceOutline> = Atom.make((get: AtomType.Context) =>
+  Option.match(get(placeBuiltAtom), {
+    onNone: () => {
+      const controls = get(placeControlsAtom)
+      return recordedOutline(placeScenarioRecordings[controls.scenario], controls)
+    },
+    onSome: (build) => build.artifact
+  })
+)
+
+/** The proposals before the author, on the same terms as `placeOutlineAtom`: recorded once built, offered before. */
+export const placeOfferedAtom: AtomType.Atom<ReadonlyArray<OfferedProposal>> = Atom.make((get: AtomType.Context) =>
+  Option.match(get(placeBuiltAtom), {
+    onNone: () => {
+      const controls = get(placeControlsAtom)
+      return recordedProposals(placeScenarioRecordings[controls.scenario], controls)
+    },
+    onSome: (build) => build.proposals
+  })
+)
 
 /** The commit the server was built from, so links into the source show exactly the code that ran. */
 export const placeBuildShaAtom: AtomType.Atom<Option.Option<string>> = Atom.make(
