@@ -93,7 +93,7 @@ describe("Imagined place geometry contract", () => {
       })
     }))
 
-  it.effect("a feature only in the destination grows in where it will stand; one only at the start has left", () =>
+  it.effect("a feature only in the destination grows in where it will stand; one only at the start shrinks away where it stood, after the rest", () =>
     Effect.sync(() => {
       const stage = stageFor(640)
       const between = markersBetween(stage)
@@ -104,8 +104,20 @@ describe("Imagined place geometry contract", () => {
       const destination = Arr.findFirst(to, (m) => m.name === "Feature 6")
       expect(Option.map(arriving, (m) => m.radius)).toEqual(Option.map(destination, (m) => m.radius / 2))
       expect(Option.map(arriving, (m) => m.x)).toEqual(Option.map(destination, (m) => m.x))
-      expect(Arr.some(halfway, (m) => m.name === "Feature 1")).toBe(false)
+      // The leaver is still drawn, half its size, where it stood — so the text is flowed around it while it
+      // goes — and it is listed last, so every other disc keeps its number.
+      const leaving = Arr.findFirst(halfway, (m) => m.name === "Feature 1")
+      const origin = Arr.findFirst(from, (m) => m.name === "Feature 1")
+      expect(Option.map(leaving, (m) => m.radius)).toEqual(Option.map(origin, (m) => m.radius / 2))
+      expect(Option.map(leaving, (m) => m.x)).toEqual(Option.map(origin, (m) => m.x))
+      expect(Arr.map(halfway, (m) => m.name)).toEqual([...Arr.map(to, (m) => m.name), "Feature 1"])
       expectWellPlaced(stage, halfway)
+      // At the start the leaver stands whole; at the end it is gone, and the drawing is the destination itself.
+      const atStart = Arr.findFirst(between(from, to, 0), (m) => m.name === "Feature 1")
+      expect(Option.map(atStart, (m) => m.radius)).toEqual(Option.map(origin, (m) => m.radius))
+      expect(Option.map(atStart, (m) => m.x)).toEqual(Option.map(origin, (m) => m.x))
+      expect(between(from, to, 1)).toEqual(to)
+      Arr.forEach(steps, (t) => expectWellPlaced(stage, between(from, to, t)))
     }))
 
   it.effect("a feature arriving above a kept one clears it from the first step, so the drawing must rest before it travels", () =>

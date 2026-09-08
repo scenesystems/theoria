@@ -486,28 +486,33 @@ export const finishingTouches = (): {
 }
 
 /**
- * One frame of the stage in `region` during a merge. `places`: where the
- * feature `name` is painted — its ring (`data-place-marker-arriving`) while
- * the search makes room for it, its disc (`data-place-marker`) once the
+ * One frame of the stage in `region` while its drawing changes. `places`:
+ * where every feature is painted — its ring (`data-place-marker-arriving`)
+ * while the search makes room for it, its disc (`data-place-marker`) once the
  * search has settled; each is placed by `translate`, so two elements at one
  * `translate` stand in one place, and a disc with no `transform` is filled in
- * and at rest. `overlaps`: every line of prose painted over any disc or ring,
- * as line index and feature name — the lines are flowed around the discs as
- * drawn, so every line's box must clear every circle at every frame. A line
- * is painted at its own opacity times its lines container's: a set of lines
- * that has finished leaving stands at opacity 0 for the frame before the
- * next set mounts, and nothing at opacity 0 is painted.
+ * and at rest. `lines`: every set of prose lines standing on the stage
+ * (`data-place-lines`), by the text it sets, with whether the set is painted
+ * at all — a set that has finished leaving stands at opacity 0 for the frame
+ * before the next set mounts. `overlaps`: every line of prose painted over
+ * any disc or ring, as line index and feature name — the lines are flowed
+ * around the discs as drawn, so every line's box must clear every circle at
+ * every frame. A line is painted at its own opacity times its set's, and
+ * nothing at opacity 0 is painted. `phase`: the search's, from the trace
+ * (`complete` once the drawing is kept and landed; `-` before the first trial).
  */
-export const mergeFrame = (
-  region: Element,
-  name: string
+export const stageFrame = (
+  region: Element
 ): {
+  readonly phase: string
   readonly places: ReadonlyArray<
-    { readonly kind: "ring" | "disc"; readonly translate: string; readonly transform: string }
+    { readonly name: string; readonly kind: "ring" | "disc"; readonly translate: string; readonly transform: string }
   >
+  readonly lines: ReadonlyArray<{ readonly text: string; readonly painted: boolean }>
   readonly overlaps: ReadonlyArray<string>
 } => {
-  const place = (kind: "ring" | "disc") => (element: Element) => ({
+  const place = (kind: "ring" | "disc", attribute: string) => (element: Element) => ({
+    name: element.getAttribute(attribute) ?? "",
     kind,
     translate: getComputedStyle(element).translate,
     transform: getComputedStyle(element).transform
@@ -534,10 +539,15 @@ export const mergeFrame = (
   })
   const clamp = (low: number, high: number, value: number) => Math.min(high, Math.max(low, value))
   return {
+    phase: document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase") ?? "-",
     places: [
-      ...[...region.querySelectorAll(`[data-place-marker-arriving="${name}"]`)].map(place("ring")),
-      ...[...region.querySelectorAll(`[data-place-marker="${name}"]`)].map(place("disc"))
+      ...[...region.querySelectorAll("[data-place-marker-arriving]")].map(place("ring", "data-place-marker-arriving")),
+      ...[...region.querySelectorAll("[data-place-marker]")].map(place("disc", "data-place-marker"))
     ],
+    lines: [...region.querySelectorAll("[data-place-lines]")].map((set) => ({
+      text: [...set.querySelectorAll("[data-place-line]")].map((line) => line.textContent ?? "").join("\n"),
+      painted: opacity(set) > 0
+    })),
     overlaps: lines.flatMap((line) =>
       discs.flatMap((disc) => {
         // The circle meets the box when the box's nearest point to the centre is within the radius.
@@ -550,6 +560,10 @@ export const mergeFrame = (
     )
   }
 }
+
+/** No disc in `region` is still shrinking away: every feature that left the drawing has gone from the stage. */
+export const leaversGone = (region: Element): boolean =>
+  region.querySelectorAll("[data-place-marker-leaving]").length === 0
 
 /** Every disc on the stage in `region` is filled in and at rest: none is still arriving or leaving. */
 export const discsAtRest = (region: Element): boolean =>

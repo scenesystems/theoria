@@ -30,6 +30,15 @@ const durations = HashMap.make(
 
 export const motionDuration = (relation: MotionRelation): Duration.Duration => HashMap.unsafeGet(durations, relation)
 
+/**
+ * The longest anything resting for an exit waits for it. What leaves signals
+ * when it has left, and what rested for it moves on at the signal; the bound
+ * is for an exit stretched by a page too busy to run it to time, or one whose
+ * signal never comes — so nothing rests for good. Three exits: the exit
+ * itself and two more of grace.
+ */
+export const motionExitBound: Duration.Duration = Duration.times(motionDuration("exit"), 3)
+
 /** The gap between things arriving together, line after line. */
 export const motionStagger: Duration.Duration = Duration.millis(20)
 

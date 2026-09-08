@@ -50,11 +50,13 @@ export class Travel<A> extends Data.Class<{
 /**
  * Where a drawing is on its way, and the rest it still owes: nothing on its
  * way until the first target is set; at rest until the first frame of the
- * first target is drawn and `rest` has passed from then. The rest is counted
- * from that first frame, not from when the journey was made, for the same
- * reason a travel starts with its first frame: what the drawing rests for —
- * lines leaving the page, say — leaves from the first frame that shows the
- * new target, however long the page took to get to it.
+ * first target is drawn and `rest` has passed from then — or until what it
+ * rests for is done and releases it (`releaseRest`), whichever is first, so
+ * `rest` is the bound on a rest, not its length. The rest is counted from
+ * that first frame, not from when the journey was made, for the same reason
+ * a travel starts with its first frame: what the drawing rests for — lines
+ * leaving the page, say — leaves from the first frame that shows the new
+ * target, however long the page took to get to it.
  */
 export class Journey<A> extends Data.Class<{
   readonly travel: Option.Option<Travel<A>>
@@ -89,6 +91,37 @@ const restedFrom = <A>(journey: Journey<A>, time: number): Journey<A> =>
     ),
     rest: Duration.zero
   })
+
+/**
+ * The journey with its rest over at `time`: what it rested for is done, so
+ * nothing holds its travel back — neither a rest still owed nor a beginning
+ * set past `time` when the rest was taken. A travel already begun keeps its
+ * beginning; the release comes after the rest it would have shortened.
+ */
+const released = <A>(journey: Journey<A>, time: number): Journey<A> =>
+  new Journey({
+    travel: Option.map(
+      journey.travel,
+      (travel) =>
+        new Travel({
+          ...travel,
+          startedAt: Option.filter(travel.startedAt, (startedAt) => startedAt <= time),
+          notBefore: Math.min(travel.notBefore, time)
+        })
+    ),
+    rest: Duration.zero
+  })
+
+/**
+ * Releases the journey from the rest it owes, now: whatever it rested for is
+ * done. Its travel begins with the next frame drawn — or is placed outright
+ * at once, given no duration. A rest that has already passed is left as it
+ * was taken.
+ *
+ * @since 0.3.0
+ */
+export const releaseRest = <A>(journey: Ref.Ref<Journey<A>>): Effect.Effect<void> =>
+  Effect.flatMap(Clock.currentTimeMillis, (time) => Ref.update(journey, (current) => released(current, time)))
 
 /** How far along a journey's travel is at `time`: nowhere while it still owes a rest; landed when nothing is on its way. */
 const journeyProgressAt = <A>(travelling: Travelling<A>, journey: Journey<A>, time: number): number =>

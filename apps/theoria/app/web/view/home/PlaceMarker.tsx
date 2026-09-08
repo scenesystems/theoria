@@ -7,7 +7,7 @@ import type { CSSProperties } from "react"
 import type { PlaceSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
-import { type PlaceDiscDrawn, placeDiscDrawnAtom } from "../../atoms/imagined-place-render.js"
+import type { PlaceDiscDrawn } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { forcedColorsFocusClassName } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
@@ -75,13 +75,17 @@ const namedTriggerClassName = "overflow-hidden"
  */
 const numberedTriggerClassName = "before:absolute before:-inset-1 before:rounded-full before:content-['']"
 
+/** A disc the visitor can point at: settled on the stage, or a trial's, placed outright as the trace is scrubbed. */
+type DiscPresent = Exclude<PlaceDiscDrawn, "arriving" | "leaving">
+
 /**
- * A settled disc fills in and fades out where it stands; a trial's disc is a
- * plain button, placed outright as the trace is scrubbed. Neither has a CSS
- * transition on its position: the search's movement is drawn by the frames
- * themselves.
+ * A settled disc fills in where it stands, and fades there only if its
+ * feature leaves the drawing outright — placed by a search under reduced
+ * motion, or a trial scrubbed away; a trial's disc is a plain button, placed
+ * outright as the trace is scrubbed. Neither has a CSS transition on its
+ * position: the search's movement is drawn by the frames themselves.
  */
-const discElement = (drawn: Exclude<PlaceDiscDrawn, "arriving">, preference: MotionPreference) =>
+const discElement = (drawn: DiscPresent, preference: MotionPreference) =>
   Match.value(drawn).pipe(
     Match.when("settled", () => <m.button exit={leaving} {...filling(preference)} />),
     Match.when("trial", () => <button />),
@@ -107,13 +111,35 @@ const ArrivingRing = ({ marker }: { readonly marker: Marker }) => (
 )
 
 /**
+ * A disc whose feature is leaving the drawing — declined, or gone with the
+ * story — shrinking away where it stood as the drawing travels, the text
+ * flowed around it to the last. It is no longer a mark: its name left with
+ * the feature, so it carries no label and answers nothing, and the pointer
+ * goes through it. It stands in the disc's own place in the presence, so the
+ * disc becomes it outright rather than fading, at its full size, over lines
+ * flowed around what it is shrinking to.
+ */
+const leavingClassName = "pointer-events-none absolute left-0 top-0 rounded-full"
+
+const LeavingDisc = ({ marker }: { readonly marker: Marker }) => (
+  <Layer
+    render={<m.div exit={departed} transition={exitTransition} />}
+    aria-hidden
+    className={`${leavingClassName} ${discClassName(markerContributor(marker))}`}
+    data-place-marker={marker.name}
+    data-place-marker-leaving
+    style={markerStyle(marker)}
+  />
+)
+
+/**
  * A disc is a mark of the one answer surface: pointing at it opens the
  * feature's description, who added it and the call that placed it. It also
  * answers back — to the act being read, with an outline, and to the code
  * line that made it, with a ring.
  */
 const Disc = ({ drawn, index, labelWidth, marker, source }: {
-  readonly drawn: Exclude<PlaceDiscDrawn, "arriving">
+  readonly drawn: DiscPresent
   readonly index: number
   readonly labelWidth: Option.Option<number>
   readonly marker: Marker
@@ -162,29 +188,57 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
  * measured; a disc too small for its name shows its number instead.
  *
  * The ring and the disc stand in the same place; when the search settles,
- * the ring fades as the disc fills it. `propagate` lets the disc fade out
- * where it stands when the whole feature leaves the drawing.
+ * the ring fades as the disc fills it. A disc whose feature is leaving stands
+ * in the disc's place and shrinks with the drawing; `propagate` lets whatever
+ * stands there fade out — by then nothing, or a disc placed outright — when
+ * the feature has left the drawing.
+ *
+ * How the disc is drawn comes with the frame it stands in, from the stage: a
+ * disc held by Motion while it leaves is not redrawn by frames it is not in.
  */
-export const PlaceMarkerDisc = ({ index, labelWidth, marker, source }: {
+const Standing = ({ drawn, index, labelWidth, marker, source }: {
+  readonly drawn: Exclude<PlaceDiscDrawn, "arriving">
   readonly index: number
   readonly labelWidth: Option.Option<number>
   readonly marker: Marker
   readonly source: PlaceSourceId
-}) => {
-  const drawn = useAtomValue(placeDiscDrawnAtom(marker.name))
-  return (
-    <AnimatePresence initial={false} propagate>
-      {Match.value(drawn).pipe(
-        Match.when("arriving", () => <ArrivingRing key="room" marker={marker} />),
-        Match.whenOr(
-          "settled",
-          "trial",
-          (present) => (
-            <Disc drawn={present} index={index} key="disc" labelWidth={labelWidth} marker={marker} source={source} />
-          )
-        ),
-        Match.exhaustive
-      )}
-    </AnimatePresence>
+}) =>
+  Match.value(drawn).pipe(
+    Match.when("leaving", () => <LeavingDisc marker={marker} />),
+    Match.whenOr(
+      "settled",
+      "trial",
+      (present) => <Disc drawn={present} index={index} labelWidth={labelWidth} marker={marker} source={source} />
+    ),
+    Match.exhaustive
   )
-}
+
+export const PlaceMarkerDisc = ({ drawn, index, labelWidth, marker, source }: {
+  readonly drawn: PlaceDiscDrawn
+  readonly index: number
+  readonly labelWidth: Option.Option<number>
+  readonly marker: Marker
+  readonly source: PlaceSourceId
+}) => (
+  <AnimatePresence initial={false} propagate>
+    {Match.value(drawn).pipe(
+      Match.when("arriving", () => <ArrivingRing key="room" marker={marker} />),
+      Match.whenOr(
+        "settled",
+        "trial",
+        "leaving",
+        (standing) => (
+          <Standing
+            drawn={standing}
+            index={index}
+            key="disc"
+            labelWidth={labelWidth}
+            marker={marker}
+            source={source}
+          />
+        )
+      ),
+      Match.exhaustive
+    )}
+  </AnimatePresence>
+)

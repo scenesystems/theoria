@@ -158,9 +158,10 @@ export const discFocusRing = (role: ParticipantRole): string =>
 
 /**
  * A disc in the band's miniature: the contributor's tone as a flat fill, or
- * as a dashed ring while the search is still making room for it. The stroke
- * is kept at one width whatever the miniature's scale; a disc answering the
- * code line that made it wears the contributor's ring, as on the stage.
+ * as a dashed ring while the search is still making room for it; a disc
+ * leaving keeps its fill as it shrinks. The stroke is kept at one width
+ * whatever the miniature's scale; a disc answering the code line that made
+ * it wears the contributor's ring, as on the stage.
  */
 export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, focused: boolean): string =>
   Match.value(drawn).pipe(
@@ -176,7 +177,7 @@ export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, 
       )),
     // The fills sit close to the strip in both themes, so the ring in the contributor's 500 stop is the
     // boundary that stands out from it (≥ 3:1); focus deepens and thickens that ring.
-    Match.whenOr("settled", "trial", () =>
+    Match.whenOr("settled", "trial", "leaving", () =>
       Match.value(role).pipe(
         Match.when("author", () =>
           focused

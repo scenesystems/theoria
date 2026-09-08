@@ -927,12 +927,27 @@ pointer-events: none`: their own composited layer, shaded once, sized to
     (`3a421cd`).
   - _The band's positional transition_ (nice) now derives from
     `motionDuration("shift")`.
-- [ ] **Event-coupled rest.** The drawing's rest before travel is a duration
-      today (`restBeforeTravel`), a guess at when the lines' exit ends.
-      `AnimatePresence`'s `onExitComplete` should signal an atom, the journey
-      should wait on that signal with the duration only as an upper bound,
-      and a browser test should sample frames under load to show no prose
-      over a moved disc.
+- [x] **Event-coupled rest.** The drawing's rest before travel was a duration
+      (`restBeforeTravel`), a guess at when the lines' exit ends. The rest
+      now ends on an event: the stage's `Lines` reports which prose's lines
+      stand (`placeLinesOnStageAtom`, written from a mount signal rather
+      than `onExitComplete`, since it is the new lines standing — not the
+      old ones gone — that makes the paper safe to draw on), the render
+      stream releases the journey's rest when the lines the frame is drawn
+      for stand, and `motionExitBound` (three exits, 360 ms) is only the
+      safety net if they never do. The frame-sampling browser test found two
+      real faults: a disc read its own drawn state from the shown frame
+      while `AnimatePresence` held it for exit, so a name no longer drawn
+      swapped disc for ring mid-exit and never left (two sets of discs at
+      `complete`); and a story change dropped the old story's discs the
+      moment the drawing moved. The disc's kind is now told by the frame
+      (`discDrawn`, a pure function of drawn set and frame), and departures
+      are geometry: `markersBetween` keeps from-only markers shrinking to
+      radius zero where they stood, the lines flowed around them to the
+      last, drawn as `LeavingDisc` — non-interactive, unlabelled — and gone
+      once the drawing lands. The legend lists only the markers the search
+      is heading for, so a leaver's label goes at the first frame of the new
+      search.
 - [ ] **Holdable pending state.** The pending state can only be sampled right
       after `open` today, since `--abort` produces the failure banner. A test
       helper (`holdResponse(page, method, suffix)`) should hold the build

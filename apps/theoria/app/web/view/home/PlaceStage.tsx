@@ -7,18 +7,20 @@ import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
-import type { CSSProperties, ReactNode } from "react"
+import { type CSSProperties, type ReactNode, useMemo } from "react"
 
 import { stageFor } from "../../../contracts/demo/imagined-place-flow.js"
 import { type DrawingId, placeSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceLine, PlaceProjection } from "../../../contracts/imagined-place-result.js"
-import { useElementWidthReporter } from "../../atoms/element-observation.js"
+import { observeOnMount, useElementWidthReporter } from "../../atoms/element-observation.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import {
+  discDrawn,
   drawingId,
   type PlaceDrawn,
   placeDrawnAtom,
   placeLegendAtom,
+  placeLinesOnStageAtom,
   type PlaceRenderFrame,
   type PlaceSheet,
   placeSheetAtom,
@@ -102,6 +104,14 @@ const LinesPresence = ({ children, preference }: {
  * proposal whose sentence stands on it, the line wears a faint wash. The
  * lines' sheet itself lets the pointer through to the discs beneath it; only
  * the lines take it.
+ *
+ * The set reports itself to `placeLinesOnStageAtom` as it mounts and leaves —
+ * through a ref, as the page measures DOM nodes, since the element exists
+ * only once React commits — so the drawing, resting for the old set to leave,
+ * travels the moment the new set stands rather than at a guess of when the
+ * exit ends. Under full motion the old set unmounts before the new one
+ * mounts; under reduced motion both happen in one commit, the leaving
+ * cleared before the arriving is reported.
  */
 const lineClassName = `${markClassName} ${litMarkClassName} pointer-events-auto absolute overflow-hidden`
 
@@ -110,61 +120,82 @@ const Lines = ({ drawing, preference, projection, prose }: {
   readonly preference: MotionPreference
   readonly projection: PlaceProjection
   readonly prose: string
-}) => (
-  <LinesPresence preference={preference}>
-    <Toolbar.Root
-      render={<m.div exit={departed} transition={exitTransition} />}
-      aria-label="Lines of the prose"
-      className="pointer-events-none absolute inset-0"
-      data-place-lines
-      key={prose}
-      loopFocus={false}
-      orientation="vertical"
-    >
-      {Arr.map(projection.lines, (line, index) => (
-        <Toolbar.Button
-          render={
-            <ProvenanceMark
-              render={<m.div animate={lineArrivedAt} initial={lineArrivalFrom} transition={staggeredArrival(index)} />}
-              mark={{ _tag: "Line", index, drawing }}
-              nativeButton={false}
+}) => {
+  const report = useAtomSet(placeLinesOnStageAtom)
+  const standing = useMemo(
+    () =>
+      observeOnMount<HTMLDivElement>(() => {
+        report(Option.some(prose))
+
+        return () => {
+          report(Option.none())
+        }
+      }),
+    [prose, report]
+  )
+  return (
+    <LinesPresence preference={preference}>
+      <Toolbar.Root
+        render={<m.div exit={departed} transition={exitTransition} />}
+        aria-label="Lines of the prose"
+        className="pointer-events-none absolute inset-0"
+        data-place-lines
+        key={prose}
+        loopFocus={false}
+        orientation="vertical"
+        ref={standing}
+      >
+        {Arr.map(projection.lines, (line, index) => (
+          <Toolbar.Button
+            render={
+              <ProvenanceMark
+                render={
+                  <m.div animate={lineArrivedAt} initial={lineArrivalFrom} transition={staggeredArrival(index)} />
+                }
+                mark={{ _tag: "Line", index, drawing }}
+                nativeButton={false}
+              />
+            }
+            className={lineClassName}
+            data-place-line={String(index)}
+            key={index}
+            nativeButton={false}
+            style={lineStyle(line, projection.padding, projection.lineHeight)}
+          >
+            <SemanticText
+              as="span"
+              className="block whitespace-nowrap text-ink-900"
+              role="stage-prose"
+              text={line.text.length === 0 ? "\u00a0" : line.text}
+              variant="expanded"
+              wrapAuthority="native-browser"
             />
-          }
-          className={lineClassName}
-          data-place-line={String(index)}
-          key={index}
-          nativeButton={false}
-          style={lineStyle(line, projection.padding, projection.lineHeight)}
-        >
-          <SemanticText
-            as="span"
-            className="block whitespace-nowrap text-ink-900"
-            role="stage-prose"
-            text={line.text.length === 0 ? "\u00a0" : line.text}
-            variant="expanded"
-            wrapAuthority="native-browser"
-          />
-        </Toolbar.Button>
-      ))}
-    </Toolbar.Root>
-  </LinesPresence>
-)
+          </Toolbar.Button>
+        ))}
+      </Toolbar.Root>
+    </LinesPresence>
+  )
+}
 
 /**
  * The arrangement at its own size: the walk once the search settles, the discs
  * as buttons, the text above both. The discs are keyed by the trial drawn, so
  * swapping trials places them outright, while the search's own progress moves
  * the same discs. A disc whose feature leaves the drawing — declined, or gone
- * with the scenario — fades where it stood. The drawing carries the act being
- * read, which its discs and ghosts answer.
+ * with the scenario — shrinks away where it stood as the drawing travels, the
+ * text flowed around it to the last (`markersBetween`). The drawing carries
+ * the act being read, which its discs and ghosts answer. How each disc is
+ * drawn is told from this frame, so every disc of the frame is told alike.
  */
-const Drawing = ({ frame, shown }: {
+const Drawing = ({ drawn, frame, shown }: {
+  readonly drawn: PlaceDrawn
   readonly frame: PlaceRenderFrame
   readonly shown: string
 }) => {
   const projection = frame.rendering.projection
   const act = useAtomValue(placeActAtom)
   const preference = useAtomValue(motionPreferenceAtom)
+  const showing = Option.some(frame)
   return (
     <Layer
       aria-busy={searching(frame.search)}
@@ -180,6 +211,7 @@ const Drawing = ({ frame, shown }: {
       <AnimatePresence initial={false}>
         {Arr.map(projection.markers, (marker, index) => (
           <PlaceMarkerDisc
+            drawn={discDrawn(drawn, showing, marker.name)}
             index={index}
             key={`${shown}:${marker.name}`}
             labelWidth={Record.get(frame.search.labels, marker.name)}
@@ -259,7 +291,7 @@ const Paper = ({
   >
     <ScrollArea.Viewport className="h-full w-full" style={viewportStyle(drawn)}>
       <ScrollArea.Content>
-        <Drawing frame={frame} shown={shown} />
+        <Drawing drawn={drawn} frame={frame} shown={shown} />
       </ScrollArea.Content>
     </ScrollArea.Viewport>
     {cut(drawn)

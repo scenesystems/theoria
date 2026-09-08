@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Duration, Effect, Option, Ref, Stream, TestClock } from "effect"
 import * as Arr from "effect/Array"
 
-import { follow, journeyFrom, toward, Travelling } from "../../app/web/motion/travel.js"
+import { follow, journeyFrom, releaseRest, toward, Travelling } from "../../app/web/motion/travel.js"
 
 /** A number travels by moving straight; a frame is the test clock moving on 16 ms. */
 const travelling = new Travelling<number>({
@@ -118,6 +118,59 @@ describe("travel", () => {
       expect(Arr.take(turned, 5)).toEqual([0, 0, 0, 0, 0])
       expect(turned[5]).toBeLessThan(0)
       expect(Arr.last(turned)).toEqual(Option.some(-100))
+    }))
+
+  it.effect("a rest released by what it rested for ends there: the travel begins with the next frame", () =>
+    Effect.gen(function*() {
+      const journey = yield* journeyFrom(Option.some(0), Duration.millis(800))
+      // At once, then two frames at rest — well short of the bound.
+      expect(yield* collect(Stream.take(toward(travelling, journey, 100), 3))).toEqual([0, 0, 0])
+      yield* releaseRest(journey)
+      const released = yield* collect(toward(travelling, journey, 100))
+      // Where it is; the frame that begins the travel; then ten frames of 16 ms, moving from the first.
+      expect(Arr.take(released, 2)).toEqual([0, 0])
+      expect(released[2]).toBeGreaterThan(0)
+      expect(Arr.last(released)).toEqual(Option.some(100))
+      expect(released.length).toBe(12)
+      expect(isMonotone(released)).toBe(true)
+    }))
+
+  it.effect("a rest released before the first frame is drawn is not taken at all", () =>
+    Effect.gen(function*() {
+      const journey = yield* journeyFrom(Option.some(0), Duration.millis(800))
+      yield* releaseRest(journey)
+      const drawn = yield* collect(toward(travelling, journey, 100))
+      expect(Arr.take(drawn, 2)).toEqual([0, 0])
+      expect(drawn[2]).toBeGreaterThan(0)
+      expect(drawn.length).toBe(12)
+    }))
+
+  it.effect("a release after the rest has passed changes nothing of a travel under way", () =>
+    Effect.gen(function*() {
+      const journey = yield* journeyFrom(Option.some(0), Duration.millis(32))
+      // At once, the frame the rest is counted from, two of rest, then three frames of travel.
+      const partWay = yield* collect(Stream.take(toward(travelling, journey, 100), 7))
+      const reached = yield* Arr.last(partWay)
+      expect(reached).toBeGreaterThan(0)
+      expect(reached).toBeLessThan(100)
+      const before = yield* Ref.get(journey)
+      yield* releaseRest(journey)
+      const after = yield* Ref.get(journey)
+      expect(Option.map(after.travel, (travel) => travel.startedAt)).toEqual(
+        Option.map(before.travel, (travel) => travel.startedAt)
+      )
+      const onward = yield* collect(toward(travelling, journey, 100))
+      expect(Arr.head(onward)).toEqual(Option.some(reached))
+      expect(Arr.last(onward)).toEqual(Option.some(100))
+      expect(isMonotone(onward)).toBe(true)
+    }))
+
+  it.effect("with no duration a drawing is placed outright the moment its rest is released", () =>
+    Effect.gen(function*() {
+      const journey = yield* journeyFrom(Option.some(0), Duration.millis(800))
+      expect(yield* collect(Stream.take(toward(placedOutright, journey, 100), 2))).toEqual([0, 0])
+      yield* releaseRest(journey)
+      expect(yield* collect(toward(placedOutright, journey, 100))).toEqual([100])
     }))
 
   it.effect("with no duration a resting drawing is placed outright once the rest is over", () =>

@@ -51,9 +51,9 @@ import {
   focusLanding,
   insideViewportRight,
   isActiveElement,
+  leaversGone,
   markerLegendMetrics,
   markerPositionsInStage,
-  mergeFrame,
   paperProseContrast,
   recordedPaperFrames,
   recordPaperFrames,
@@ -61,6 +61,7 @@ import {
   scrollPast,
   scrollToTop,
   stageAndColumnWidths,
+  stageFrame,
   stageLayout,
   storyDrawn,
   surfacePaint,
@@ -127,41 +128,62 @@ const paperUntilLanding = (page: Page) =>
 const markerPositions = (page: Page) => () => page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
 
 const FeaturePlace = Schema.Struct({
+  name: Schema.String,
   kind: Schema.Literal("ring", "disc"),
   translate: Schema.String,
   transform: Schema.String
 })
 type FeaturePlace = typeof FeaturePlace.Type
 
-/** One frame of the stage during a merge: where the feature is painted, and any line of prose painted over a disc. */
-const MergeFrame = Schema.Struct({
-  places: Schema.Array(FeaturePlace),
-  overlaps: Schema.Array(Schema.String)
+/** A set of prose lines standing on the stage: the text it sets, and whether it is painted at all. */
+const LineSet = Schema.Struct({
+  text: Schema.String,
+  painted: Schema.Boolean
 })
-type MergeFrame = typeof MergeFrame.Type
-
-const landed = (frame: MergeFrame): boolean =>
-  Arr.some(frame.places, (place) => place.kind === "disc" && place.transform === "none")
 
 /**
- * The stage sampled a frame apart from now until the feature `name` has a
- * disc filled in and at rest — that frame included — or for `atMost`.
+ * One frame of the stage while its drawing changes: where every feature is
+ * painted, which sets of lines stand, and any line of prose painted over a disc.
  */
-const framesUntilLanded = (region: Locator, name: string, atMost: Duration.Duration) =>
+const StageFrame = Schema.Struct({
+  phase: Schema.String,
+  places: Schema.Array(FeaturePlace),
+  lines: Schema.Array(LineSet),
+  overlaps: Schema.Array(Schema.String)
+})
+type StageFrame = typeof StageFrame.Type
+
+/** The frame's places of one feature. */
+const placesIn = (frame: StageFrame, name: string): ReadonlyArray<FeaturePlace> =>
+  Arr.filter(frame.places, (place) => place.name === name)
+
+/** The feature `name` has a disc filled in and at rest in the frame. */
+const landed = (name: string) => (frame: StageFrame): boolean =>
+  Arr.some(placesIn(frame, name), (place) => place.kind === "disc" && place.transform === "none")
+
+/**
+ * The stage sampled a frame apart from now until `done` holds of a frame —
+ * that frame included — or for `atMost`.
+ */
+const framesUntil = (region: Locator, done: (frame: StageFrame) => boolean, atMost: Duration.Duration) =>
   Stream.repeatEffectWithSchedule(
-    act(() => region.evaluate(mergeFrame, name)),
+    act(() => region.evaluate(stageFrame)),
     Schedule.spaced("16 millis").pipe(Schedule.upTo(atMost))
   ).pipe(
-    Stream.takeUntil(landed),
+    Stream.takeUntil(done),
     Stream.runCollect,
     Effect.map(Chunk.toReadonlyArray)
   )
 
 /** Every distinct `translate` the feature's `kind` was painted at, in order of first sight. */
-const placesOf = (frames: ReadonlyArray<MergeFrame>, kind: FeaturePlace["kind"]): ReadonlyArray<string> =>
+const placesOf = (
+  frames: ReadonlyArray<StageFrame>,
+  name: string,
+  kind: FeaturePlace["kind"]
+): ReadonlyArray<string> =>
   Arr.dedupe(
     Arr.filterMap(
-      Arr.flatMap(frames, (frame) => frame.places),
+      Arr.flatMap(frames, (frame) => placesIn(frame, name)),
       (place) => place.kind === kind ? Option.some(place.translate) : Option.none()
     )
   )
@@ -191,7 +213,7 @@ const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
     yield* click(proposal.getByRole("switch"))
     // Sample every frame from the moment the merge is requested until the disc is filled in.
-    const painted = yield* Effect.fork(framesUntilLanded(demo, name, Duration.seconds(12)))
+    const painted = yield* Effect.fork(framesUntil(demo, landed(name), Duration.seconds(12)))
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
     const ring = demo.locator(`[data-place-marker-arriving="${name}"]`)
     yield* visible(ring)
@@ -201,32 +223,114 @@ const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     yield* count(ring, 0)
     yield* attribute(paper, "data-place-drawn", "kept")
     const frames = yield* Fiber.join(painted)
-    const discs = placesOf(frames, "disc")
+    const feature_ = Arr.map(frames, (frame) => placesIn(frame, name))
+    const discs = placesOf(frames, name, "disc")
     // The frames of the hand-off itself: the ring still leaving as the disc arrives.
     const handingOff = Arr.filter(
-      frames,
-      (frame) =>
-        Arr.some(frame.places, (place) => place.kind === "ring") &&
-        Arr.some(frame.places, (place) => place.kind === "disc")
+      feature_,
+      (places) =>
+        Arr.some(places, (place) => place.kind === "ring") && Arr.some(places, (place) => place.kind === "disc")
     )
     return {
       failures,
       name,
       // The disc fills the ring: the hand-off is painted, and at every frame of it both stand in one place.
       filledInPlace: Arr.isNonEmptyReadonlyArray(handingOff) &&
-        Arr.every(handingOff, (frame) => Arr.dedupe(Arr.map(frame.places, (place) => place.translate)).length === 1),
+        Arr.every(handingOff, (places) => Arr.dedupe(Arr.map(places, (place) => place.translate)).length === 1),
       // How many places the disc was painted at: one when it never moves.
       placed: Arr.length(discs),
       // The disc arrives with Motion in place, so it is painted at more than one transform on its way in.
       arrivals: Arr.length(
         Arr.dedupe(
           Arr.filterMap(
-            Arr.flatMap(frames, (frame) => frame.places),
+            Arr.flatten(feature_),
             (place) => place.kind === "disc" ? Option.some(place.transform) : Option.none()
           )
         )
       ),
       overlaps: Arr.dedupe(Arr.flatMap(frames, (frame) => frame.overlaps))
+    }
+  })
+
+/**
+ * The drawing as it stands in the frame: every disc by name and place, one
+ * line each, in a fixed order — so two frames of the same drawing read the
+ * same, whether or not a disc's old element is still leaving over its new one.
+ */
+const drawingStands = (frame: StageFrame): string =>
+  Arr.join(
+    Arr.sort(
+      Arr.dedupe(
+        Arr.filterMap(
+          frame.places,
+          (place) => place.kind === "disc" ? Option.some(`${place.name}@${place.translate}`) : Option.none()
+        )
+      ),
+      Order.string
+    ),
+    "\n"
+  )
+
+/** The text of every set of lines painted in the frame. */
+const paintedSets = (frame: StageFrame): ReadonlyArray<string> =>
+  Arr.filterMap(frame.lines, (set) => set.painted ? Option.some(set.text) : Option.none())
+
+/** A set of lines other than those in `known` is painted in the frame. */
+const paintsNewSet = (frame: StageFrame, known: ReadonlyArray<string>): boolean =>
+  Arr.some(paintedSets(frame), (text) => !Arr.contains(known, text))
+
+/**
+ * Changes the story and reports every frame painted inside the demo until the
+ * new drawing is kept and landed. The lines set from the old story leave
+ * before anything moves, and the discs wait for the new lines to stand: the
+ * first frame in which any disc is drawn elsewhere than it stood is no
+ * earlier than the first frame in which the new set is painted, and at no
+ * frame is a line of prose painted over a disc.
+ */
+const changeStory = () =>
+  Effect.gen(function*() {
+    const { failures, page } = yield* openPage()
+    yield* goto(page, "/")
+    yield* visible(rendered(page))
+    const demo = page.getByRole("region", { name: "Imagined place demo" })
+    yield* eventually(() => demo.evaluate(storyDrawn), true)
+    const before = yield* act(() => demo.evaluate(stageFrame))
+    const standing = drawingStands(before)
+    const oldSets = paintedSets(before)
+    const oldNames = Arr.dedupe(Arr.map(before.places, (place) => place.name))
+    const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
+    const radio = scenarios.getByRole("radio", { checked: false }).first()
+    // The new story's drawing, kept and landed: the phase is the search's own, so the old story's
+    // `complete` is told from the new one's by the new lines standing over a drawing that has moved.
+    const kept = (frame: StageFrame): boolean =>
+      frame.phase === "complete" && paintsNewSet(frame, oldSets) && drawingStands(frame) !== standing
+
+    // Sample every frame from before the story is chosen until the new drawing is kept.
+    const painted = yield* Effect.fork(framesUntil(demo, kept, Duration.seconds(20)))
+    const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+    yield* click(radio)
+    expect((yield* Fiber.join(rebuild)).status()).toBe(200)
+    yield* eventually(() => demo.evaluate(storyDrawn), true)
+    // Once the new drawing has landed, every disc of the old story has shrunk away and gone.
+    yield* eventually(() => demo.evaluate(leaversGone), true)
+    const frames = yield* Fiber.join(painted)
+    // The first frame the drawing is elsewhere than it stood, and the first the new lines are painted in.
+    const moved = Arr.findFirstIndex(frames, (frame) => drawingStands(frame) !== standing)
+    const newLines = Arr.findFirstIndex(frames, (frame) => paintsNewSet(frame, oldSets))
+    return {
+      failures,
+      frames: frames.length,
+      moved,
+      newLines,
+      // A frame with two sets painted would be two texts over each other.
+      twoSets: Arr.some(frames, (frame) => paintedSets(frame).length > 1),
+      overlaps: Arr.dedupe(Arr.flatMap(frames, (frame) => frame.overlaps)),
+      // The old story's discs are still drawn in the first frame the drawing moves — shrinking away where
+      // they stood, the lines flowed around them — rather than dropped the moment it does.
+      leaversShrink: Option.exists(
+        Option.flatMap(moved, (index) => Arr.get(frames, index)),
+        (frame) => Arr.some(frame.places, (place) => place.kind === "disc" && Arr.contains(oldNames, place.name))
+      )
     }
   })
 
@@ -442,6 +546,24 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(filledInPlace).toBe(true)
         expect(placed).toBe(1)
         expect(arrivals).toBe(1)
+        expect(overlaps).toEqual([])
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a changed story's discs wait for its lines: the old set leaves, the new set stands, then the drawing moves and the old discs shrink away", () =>
+      Effect.gen(function*() {
+        const { failures, frames, leaversShrink, moved, newLines, overlaps, twoSets } = yield* changeStory()
+        // The drawing moved, and the new lines were painted, within the frames sampled.
+        expect(frames).toBeGreaterThan(2)
+        expect(Option.isSome(moved)).toBe(true)
+        expect(Option.isSome(newLines)).toBe(true)
+        // The drawing rests until the new set stands: it is never drawn elsewhere while the old set is still leaving.
+        expect(Option.getOrElse(moved, () => -1)).toBeGreaterThanOrEqual(Option.getOrElse(newLines, () => -1))
+        expect(twoSets).toBe(false)
+        // The old story's discs go as the drawing travels — shrinking where they stood, the text flowed around
+        // them to the last — and are gone once it lands (`changeStory` waits on that); at no frame is a line
+        // over any disc, going or coming.
+        expect(leaversShrink).toBe(true)
         expect(overlaps).toEqual([])
         expect(yield* failures).toEqual([])
       }))

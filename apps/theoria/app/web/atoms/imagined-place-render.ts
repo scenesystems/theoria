@@ -28,8 +28,8 @@ import { type Meander, renderTrials } from "../../contracts/demo/imagined-place-
 import { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import { PlaceBuild } from "../../contracts/imagined-place-result.js"
 import { type ParticipantRole, placeFeatures } from "../../contracts/imagined-place.js"
-import { motionDuration } from "../../contracts/motion.js"
-import { journeyFrom, toward, travellingOver } from "../motion/travel.js"
+import { motionDuration, motionExitBound } from "../../contracts/motion.js"
+import { journeyFrom, releaseRest, toward, travellingOver } from "../motion/travel.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
 import { PlaceSearcher, workerGone } from "../services/PlaceSearcher.js"
 import type { BrowserTextLayout } from "../text/browserTextLayout.js"
@@ -222,12 +222,23 @@ export const travelDuration = (motion: MotionPreference): Duration.Duration =>
   )
 
 /**
- * How long the drawing rests before it travels: a changed description's lines
- * leave before anything else moves, so lines flowed around where the discs
- * were never stand over discs that have moved on. Under reduced motion the
- * stage swaps the prose in the same frame it places the drawing, so there is
- * nothing to rest for — and resting would leave the new lines, flowed around
- * where the discs will be, over discs that have not moved yet.
+ * The description whose lines stand on the stage: reported by the stage as
+ * its set of lines mounts and unmounts, so the drawing can rest until the
+ * lines set from a new description are up — which, with the old set leaving
+ * before the new one mounts, is when the old lines have left. None while no
+ * set stands: before the first, and in the moment between one set and the next.
+ */
+export const placeLinesOnStageAtom: AtomType.Writable<Option.Option<string>> = Atom.make(Option.none<string>())
+
+/**
+ * The longest the drawing rests before it travels: a changed description's
+ * lines leave before anything else moves, so lines flowed around where the
+ * discs were never stand over discs that have moved on. The rest ends when the
+ * new lines stand (`placeLinesOnStageAtom`); this is only the bound on that
+ * signal. Under reduced motion the stage swaps the prose in the same frame it
+ * places the drawing, so there is nothing to rest for — and resting would
+ * leave the new lines, flowed around where the discs will be, over discs that
+ * have not moved yet.
  */
 export const restBeforeTravel = (
   left: Option.Option<string>,
@@ -238,11 +249,15 @@ export const restBeforeTravel = (
     Match.when("full", () =>
       Option.match(left, {
         onNone: () => Duration.zero,
-        onSome: (before) => before === prose ? Duration.zero : motionDuration("exit")
+        onSome: (before) => before === prose ? Duration.zero : motionExitBound
       })),
     Match.when("reduced", () => Duration.zero),
     Match.exhaustive
   )
+
+/** Once the lines set from `prose` stand on the stage, as `linesOnStage` reports them. */
+const linesStanding = (linesOnStage: Stream.Stream<Option.Option<string>>, prose: string): Effect.Effect<void> =>
+  Stream.runDrain(Stream.take(Stream.filter(linesOnStage, Option.contains(prose)), 1))
 
 /**
  * Where the last drawing left off, for the next search to carry on from: the
@@ -271,9 +286,10 @@ const renderStream = (
   source: PlaceBuild,
   stageWidth: number,
   left: Option.Option<DrawingLeft>,
-  motion: MotionPreference
+  motion: MotionPreference,
+  linesOnStage: Stream.Stream<Option.Option<string>>
 ): Stream.Stream<PlaceRenderFrame, DemoExecutionError, BrowserTextLayout | PlaceSearcher> =>
-  Stream.unwrap(
+  Stream.unwrapScoped(
     Effect.gen(function*() {
       const artifact = source.artifact
       const stage = stageFor(stageWidth)
@@ -285,6 +301,12 @@ const renderStream = (
       const travelling = travellingOver(drawingBetween(stage), travelDuration(motion))
       const rest = restBeforeTravel(Option.map(left, (found) => found.prose), prose, motion)
       const journey = yield* journeyFrom(Option.map(left, (found) => found.drawing), rest)
+      // A rest owed is for the old lines to leave: it ends when the new lines
+      // stand, or at its bound. The wait lives as long as this drawing does.
+      yield* Effect.unless(
+        Effect.forkScoped(Effect.andThen(linesStanding(linesOnStage, prose), releaseRest(journey))),
+        () => Duration.isZero(rest)
+      )
       // The paper while trials run: the last drawing's, or — for a first
       // drawing at this width — the paper the search is expected to want,
       // which is also what the stage showed before this frame.
@@ -428,53 +450,63 @@ export const placeSheetAtom: AtomType.Atom<Option.Option<PlaceSheet>> = Atom.mak
  * its proposal while the search makes room for it — a ring on the stage —
  * and is on the stage once the search settles, where the disc fills the
  * ring; so the disc appears where the feature stays, never at a first random
- * trial. A declined feature leaves the drawing the moment the next search
- * starts. Derived from the frame alone: `PlaceSearch.settled` is what the
+ * trial. Derived from the frame alone: `PlaceSearch.settled` is what the
  * last settled arrangement drew.
  */
 export const PlaceFeatureHome = Schema.Literal("stage", "proposal")
 
 export type PlaceFeatureHome = typeof PlaceFeatureHome.Type
 
-export const placeFeatureHomeAtom = Atom.family((name: string): AtomType.Atom<Option.Option<PlaceFeatureHome>> =>
-  Atom.make((get: AtomType.Context) =>
-    Option.map(
-      Result.value(get(placeRenderFrameAtom)),
-      (latest): PlaceFeatureHome =>
-        draws(latest, name) && (settled(latest) || HashSet.has(latest.search.settled, name)) ? "stage" : "proposal"
-    )
-  )
-)
+export const featureHome = (frame: PlaceRenderFrame, name: string): PlaceFeatureHome =>
+  draws(frame, name) && (settled(frame) || HashSet.has(frame.search.settled, name)) ? "stage" : "proposal"
+
+/** Whether the search is heading for a feature: the best so far places every feature the place has; a drawn marker of any other name is on its way out. */
+const heading = (frame: PlaceRenderFrame, name: string): boolean =>
+  Arr.some(frame.search.best.projection.markers, (marker) => marker.name === name)
 
 /**
  * How one disc is drawn. `settled`: the disc, positioned by the frame and
  * filled in place; it follows the search's moves frame by frame. `arriving`:
  * the search is making room for a feature just merged; a ring marks the room
- * until the search settles and the disc fills it where it stands. `trial`:
- * placed outright, as the trace is scrubbed.
+ * until the search settles and the disc fills it where it stands. `leaving`:
+ * the feature is declined, or gone with the story, and its disc shrinks away
+ * where it stood as the drawing travels — no longer a mark, its name gone
+ * with the feature. `trial`: placed outright, as the trace is scrubbed.
  */
-export const PlaceDiscDrawn = Schema.Literal("settled", "arriving", "trial")
+export const PlaceDiscDrawn = Schema.Literal("settled", "arriving", "leaving", "trial")
 
 export type PlaceDiscDrawn = typeof PlaceDiscDrawn.Type
 
-export const placeDiscDrawnAtom = Atom.family((name: string): AtomType.Atom<PlaceDiscDrawn> =>
-  Atom.make((get: AtomType.Context) =>
-    Match.value(get(placeDrawnAtom)).pipe(
-      Match.when("trial", (): PlaceDiscDrawn => "trial"),
-      Match.when("kept", (): PlaceDiscDrawn => "settled"),
-      Match.when("sketch", () =>
-        Option.match(get(placeFeatureHomeAtom(name)), {
-          onNone: (): PlaceDiscDrawn => "settled",
-          onSome: (home) =>
-            Match.value(home).pipe(
+/**
+ * How the disc named is drawn in `frame` — the frame the stage shows, or none
+ * before the first — the stage showing `drawn`. A pure reading of the frame
+ * the stage draws, so the discs of one frame are all told from that frame: a
+ * disc read from an atom of its own could be told from a later frame than
+ * the one it stands in — and a disc leaving the drawing, held by Motion
+ * while it goes, would be redrawn by every frame after it and never let go.
+ */
+export const discDrawn = (drawn: PlaceDrawn, frame: Option.Option<PlaceRenderFrame>, name: string): PlaceDiscDrawn =>
+  Match.value(drawn).pipe(
+    Match.when("trial", (): PlaceDiscDrawn => "trial"),
+    Match.when("kept", (): PlaceDiscDrawn => "settled"),
+    Match.when("sketch", () =>
+      Option.match(frame, {
+        onNone: (): PlaceDiscDrawn => "settled",
+        onSome: (shown): PlaceDiscDrawn =>
+          heading(shown, name)
+            ? Match.value(featureHome(shown, name)).pipe(
               Match.when("stage", (): PlaceDiscDrawn => "settled"),
               Match.when("proposal", (): PlaceDiscDrawn => "arriving"),
               Match.exhaustive
             )
-        })),
-      Match.exhaustive
-    )
+            : "leaving"
+      })),
+    Match.exhaustive
   )
+
+/** How the disc named is drawn in the frame the stage shows now, for what stands apart from the stage — the band. */
+export const placeDiscDrawnAtom = Atom.family((name: string): AtomType.Atom<PlaceDiscDrawn> =>
+  Atom.make((get: AtomType.Context) => discDrawn(get(placeDrawnAtom), Result.value(get(placeShownFrameAtom)), name))
 )
 
 /** Why there is no frame: the search failed, or the document has no canvas to measure the place's text on. */
@@ -519,7 +551,7 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
     get.set(placeTrialPreviewAtom, Option.none())
     return Option.match(Option.all([build, stageWidth]), {
       onNone: () => Stream.never,
-      onSome: ([value, width]) => renderStream(value, width, left, motion)
+      onSome: ([value, width]) => renderStream(value, width, left, motion, get.stream(placeLinesOnStageAtom))
     })
   })
 
@@ -575,17 +607,23 @@ export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, 
 
 /**
  * The legend the stage shows under numbered discs: none while the discs carry
- * their names. From the shown frame's markers once there is a drawing; before
- * it, from the outline whenever the names are expected not to fit — the same
- * names in the same order as the drawing will number them, so the legend is
- * on the page at its full height from the first frame.
+ * their names. From the shown frame's markers once there is a drawing — the
+ * features the search is heading for, not a disc shrinking away, whose name
+ * has left with its feature — before it, from the outline whenever the names
+ * are expected not to fit — the same names in the same order as the drawing
+ * will number them, so the legend is on the page at its full height from the
+ * first frame and holds its lines through a travel.
  */
 export const placeLegendAtom: AtomType.Atom<Option.Option<ReadonlyArray<PlaceLegendEntry>>> = Atom.make(
   (get: AtomType.Context) =>
     Option.match(Result.value(get(placeShownFrameAtom)), {
       onSome: (frame) =>
         Record.isEmptyRecord(frame.search.labels)
-          ? Option.some(legendFromMarkers(frame.rendering.projection.markers))
+          ? Option.some(
+            legendFromMarkers(
+              Arr.filter(frame.rendering.projection.markers, (marker) => heading(frame, marker.name))
+            )
+          )
           : Option.none(),
       onNone: () =>
         Option.flatMap(Result.value(get(placeExpectedLabelsAtom)), (labels) =>

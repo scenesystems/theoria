@@ -112,27 +112,40 @@ export const placeMarkers = (
  * The markers `t` of the way from one arrangement to another, `t` in [0, 1]:
  * how the stage travels between what the search finds instead of jumping. A
  * marker in both moves straight and its radius follows; one only in `to` — a
- * feature just merged — grows in where it will stand; one only in `from` has
- * already left. Every step keeps what `placeMarkers` keeps: the markers stay
- * on the padded stage and never overlap, each pushed down just far enough to
- * clear those before it, so the text can be flowed around every step. `from`
- * and `to` that are clear already are returned as they are at either end.
+ * feature just merged — grows in where it will stand; one only in `from` — a
+ * feature declined, or gone with the story — shrinks away where it stood, the
+ * mirror of an arrival, and is gone at the end. Leavers come after every
+ * marker of `to`, so the discs that stay keep their numbers on the way. Every
+ * step keeps what `placeMarkers` keeps: the markers stay on the padded stage
+ * and never overlap, each pushed down just far enough to clear those before
+ * it, so the text can be flowed around every step — around what is leaving
+ * as much as what is arriving, so nothing on the stage is ever under a word.
+ * `from` and `to` that are clear already are returned as they are at either end.
  *
  * @since 0.3.0
  */
 export const markersBetween =
   (stage: Stage) =>
-  (from: ReadonlyArray<PlaceMarker>, to: ReadonlyArray<PlaceMarker>, t: number): ReadonlyArray<PlaceMarker> =>
-    Arr.reduce(to, Arr.empty<PlaceMarker>(), (placed, target) => {
-      const start = Option.getOrElse(
-        Arr.findFirst(from, (marker) => marker.name === target.name),
-        (): PlaceMarker => ({ ...target, radius: 0 })
-      )
+  (from: ReadonlyArray<PlaceMarker>, to: ReadonlyArray<PlaceMarker>, t: number): ReadonlyArray<PlaceMarker> => {
+    const named = (markers: ReadonlyArray<PlaceMarker>, name: string) =>
+      Arr.findFirst(markers, (marker) => marker.name === name)
+    const place = (placed: ReadonlyArray<PlaceMarker>, start: PlaceMarker, target: PlaceMarker) => {
       const radius = lerp(start.radius, target.radius, t)
       const x = clamp(stage.padding + radius, stage.stageWidth - stage.padding - radius, lerp(start.x, target.x, t))
       const y = clearanceBelow(placed, x, radius, Math.max(stage.padding + radius, lerp(start.y, target.y, t)))
       return Arr.append(placed, { ...target, x, y, radius })
-    })
+    }
+    const staying = Arr.reduce(
+      to,
+      Arr.empty<PlaceMarker>(),
+      (placed, target) =>
+        place(placed, Option.getOrElse(named(from, target.name), (): PlaceMarker => ({ ...target, radius: 0 })), target)
+    )
+    const leaving = Arr.filter(from, (marker) => Option.isNone(named(to, marker.name)))
+    return t >= 1
+      ? staying
+      : Arr.reduce(leaving, staying, (placed, start) => place(placed, start, { ...start, radius: 0 }))
+  }
 
 /**
  * What the stage draws by hand and travels between arrangements: the discs,
