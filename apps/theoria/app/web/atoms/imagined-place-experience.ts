@@ -13,6 +13,7 @@ import {
   focusReturnAfter,
   type HoverIntent,
   type MarkPress,
+  type MarkTrigger,
   PlaceAct,
   PlaceAnswer,
   type PlaceMark,
@@ -31,7 +32,7 @@ import { type PlaceOnPage, provenanceFor } from "../view/home/placeProvenance.js
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 
 import { placeShownFrameAtom } from "./imagined-place-render.js"
-import { placeBuildAtom, placeStepAtom } from "./imagined-place.js"
+import { placeBuiltAtom, placeStepAtom } from "./imagined-place.js"
 import { motionPreferenceAtom, scrollBehaviorFor } from "./motion.js"
 import { navigateToElementAtom } from "./navigation.js"
 import { appRuntime } from "./runtime.js"
@@ -88,8 +89,24 @@ export const placePointerOverAtom: AtomType.Writable<Option.Option<PointerOver>>
 )
 
 /**
+ * A press on a mark, as it bears on the pointer: if the pointer is on that
+ * mark, it is now on a mark it has pressed, and whatever hover was on its
+ * way there is forgotten. A press from the keyboard, or on a mark the
+ * pointer is not on, says nothing about where the pointer is.
+ */
+export const placeMarkPressedAtom = Atom.fnSync<MarkTrigger>()((pressed, ctx) => {
+  const over = ctx.registry.get(placePointerOverAtom)
+  if (Option.exists(over, (at) => at._tag === "Mark" && at.triggerId === pressed.triggerId)) {
+    ctx.set(placePointerOverAtom, Option.some({ _tag: "Pressed", ...pressed }))
+  }
+})
+
+/**
  * Turn pointer entries into delayed latest-wins decisions. The delay begins
- * at entry (there is deliberately no movement-based hover-rest heuristic).
+ * at entry (there is deliberately no movement-based hover-rest heuristic). A
+ * press on the mark under the pointer decides nothing and forgets what was
+ * on its way: the press has answered, and a hover arriving after it would
+ * only undo what the press said.
  */
 export const hoverIntents = (
   pointerOver: Stream.Stream<Option.Option<PointerOver>>
@@ -110,7 +127,7 @@ export const hoverIntents = (
                     Effect.as<HoverIntent>({ _tag: "Open", triggerId, mark })
                   )
                 )),
-              Match.tag("Answer", () => Stream.empty),
+              Match.tag("Pressed", "Answer", () => Stream.empty),
               Match.exhaustive
             )),
           Match.exhaustive
@@ -119,21 +136,29 @@ export const hoverIntents = (
     )
   )
 
+const sameMark = (left: PlaceMark, right: PlaceMark): boolean => encodeMark(left) === encodeMark(right)
+
+/** The answer is the pressed one for this mark: pinned where it was pressed, whatever else points at the mark. */
+const pinnedOn = (current: Option.Option<PlaceAnswer>, mark: PlaceMark): boolean =>
+  Option.exists(current, (answer) => answer.opening === "press" && sameMark(answer.mark, mark))
+
 /**
  * What an intent does to the open answer: opening answers the mark as a
- * hover; closing closes a hover answer and leaves a pressed one pinned.
+ * hover, unless that mark's answer is already pressed, which a hover cannot
+ * undo; closing closes a hover answer and leaves a pressed one pinned.
  */
 export const answerAfterIntent = (
   current: Option.Option<PlaceAnswer>,
   intent: HoverIntent
 ): Option.Option<PlaceAnswer> =>
   Match.value(intent).pipe(
-    Match.tag("Open", ({ mark, triggerId }) => Option.some(new PlaceAnswer({ triggerId, mark, opening: "hover" }))),
-    Match.tag("Close", () => Option.filter(current, (answer) => answer.opening === "press")),
+    Match.tag("Open", ({ mark, triggerId }) =>
+      pinnedOn(current, mark) ? current : Option.some(new PlaceAnswer({ triggerId, mark, opening: "hover" }))),
+    Match.tag("Close", () =>
+      Option.filter(current, (answer) =>
+        answer.opening === "press")),
     Match.exhaustive
   )
-
-const sameMark = (left: PlaceMark, right: PlaceMark): boolean => encodeMark(left) === encodeMark(right)
 
 /**
  * Pressing a digest copies it; while its answer is open the press changes
@@ -178,7 +203,7 @@ export const placeHoverIntentAtom = appRuntime.atom((get: AtomType.Context) =>
  * what is visible.
  */
 export const placeOnPageAtom: AtomType.Atom<PlaceOnPage> = Atom.make((get: AtomType.Context) => ({
-  build: Result.value(get(placeBuildAtom)),
+  build: get(placeBuiltAtom),
   shown: Result.value(get(placeShownFrameAtom))
 }))
 
@@ -401,7 +426,7 @@ export const placeActAtom: AtomType.Atom<PlaceAct> = Atom.make((get: AtomType.Co
 export const placeGhostsAtom: AtomType.Atom<ReadonlyArray<ProposalRecord>> = Atom.make((get: AtomType.Context) =>
   Match.value(get(placeActAtom)).pipe(
     Match.when("propose", () =>
-      Option.match(Result.value(get(placeBuildAtom)), {
+      Option.match(get(placeBuiltAtom), {
         onNone: (): ReadonlyArray<ProposalRecord> => [],
         onSome: (build) => Arr.filter(build.proposals, (record) => !record.accepted)
       })),

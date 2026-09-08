@@ -1,6 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Data, Duration, Effect, Option, Schema } from "effect"
+import { Data, Duration, Effect, type Layer, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -51,10 +51,23 @@ export type BriefDraft = typeof BriefDraft.Type
 
 export const placeBriefDraftAtom: AtomType.Writable<Option.Option<BriefDraft>> = Atom.make(Option.none<BriefDraft>())
 
-/** Choosing a story: the story's own brief comes with it; whatever was typed under the last one is let go. */
+/**
+ * The draft as typing last left it: what is built. Recorded by the settling
+ * process once typing has rested; let go, at once, with the draft it settled
+ * from. Only ever what was typed since the story was chosen, so a story
+ * chosen again cannot bring back words let go a moment before.
+ */
+const settledBriefDraftState = Atom.make(Option.none<BriefDraft>())
+
+/**
+ * Choosing a story: the story's own brief comes with it; whatever was typed
+ * under the last one is let go — the draft in the field and the draft
+ * settled from it, in the same breath, so nothing is built from either.
+ */
 export const chooseScenarioAtom = Atom.fnSync<PlaceScenario>()((scenario, ctx) => {
   ctx.set(placeControlsAtom, { ...ctx.registry.get(placeControlsAtom), scenario })
   ctx.set(placeBriefDraftAtom, Option.none())
+  ctx.set(settledBriefDraftState, Option.none())
 })
 
 /** The brief for a story: what was typed under it, or the one it was recorded with. */
@@ -77,7 +90,30 @@ export const placeBriefEditedAtom: AtomType.Atom<boolean> = Atom.make((get: Atom
 /** How long typing rests before the brief is built: not on every keystroke, not long enough to feel ignored. */
 export const briefSettleDelay: Duration.Duration = Duration.millis(400)
 
-const settledBriefDraftAtom = Atom.debounce(placeBriefDraftAtom, briefSettleDelay)
+/**
+ * The settling of typing: each draft typed is recorded as settled once
+ * typing has rested for the delay, and the latest keystroke is the only one
+ * that can settle — the rest begins again with each. A draft let go settles
+ * nothing. Alive while the request is read, since that is what settling is
+ * for.
+ */
+const briefSettlingAtom: AtomType.Atom<Result.Result<void>> = Atom.make((get: AtomType.Context) =>
+  get.stream(placeBriefDraftAtom).pipe(
+    Stream.flatMap(
+      (draft) =>
+        Option.match(draft, {
+          onNone: () => Stream.empty,
+          onSome: () => Stream.fromEffect(Effect.as(Effect.sleep(briefSettleDelay), draft))
+        }),
+      { switch: true }
+    ),
+    Stream.runForEach((settled) =>
+      Effect.sync(() => {
+        get.set(settledBriefDraftState, settled)
+      })
+    )
+  )
+)
 
 /**
  * What is built: the controls as they stand and the brief as typing left it.
@@ -85,12 +121,24 @@ const settledBriefDraftAtom = Atom.debounce(placeBriefDraftAtom, briefSettleDela
  * builds nothing again.
  */
 export const placeBuildRequestAtom: AtomType.Atom<PlaceBuildRequest> = Atom.make((get: AtomType.Context) => {
+  get(briefSettlingAtom)
   const controls = get(placeControlsAtom)
-  return Data.struct({ ...controls, brief: briefFor(controls.scenario, get(settledBriefDraftAtom)) })
+  return Data.struct({ ...controls, brief: briefFor(controls.scenario, get(settledBriefDraftState)) })
 })
 
+/**
+ * The layer the place build's client comes from. The app leaves it at the
+ * fetch-backed client; a registry for a test sets it through `initialValues`
+ * to a client that answers from memory, or holds its answer.
+ */
+export const placeClientLayerAtom: AtomType.Writable<Layer.Layer<ImaginedPlaceClient>> = Atom.make(
+  ImaginedPlaceClient.Default
+)
+
 /** The home page's own runtime: the place build does not share the docs workbench's client. */
-const placeRuntime = Atom.runtime(ImaginedPlaceClient.Default)
+const placeRuntime: AtomType.AtomRuntime<ImaginedPlaceClient> = Atom.runtime(
+  (get: AtomType.Context) => get(placeClientLayerAtom)
+)
 
 /** The server's whole answer, metadata included. Refresh this one to build again after a failure. */
 export const placeBuildEnvelopeAtom: AtomType.Atom<Result.Result<SuccessEnvelopeData<PlaceBuild>, DemoError>> =
@@ -107,6 +155,14 @@ export const placeBuildEnvelopeAtom: AtomType.Atom<Result.Result<SuccessEnvelope
 export const placeBuildAtom: AtomType.Atom<Result.Result<PlaceBuild, DemoError>> = Atom.make(
   (get: AtomType.Context) => Result.map(get(placeBuildEnvelopeAtom), (envelope) => envelope.data)
 )
+
+/**
+ * The build the page has, once one has arrived. Apart from the request for
+ * the next: while a rebuild is on its way the answer above is the same build,
+ * waiting, and that is no change here — so what draws and answers from the
+ * build starts over for another build only, never for a request.
+ */
+export const placeBuiltAtom: AtomType.Atom<Option.Option<PlaceBuild>> = Atom.map(placeBuildAtom, Result.value)
 
 /** The commit the server was built from, so links into the source show exactly the code that ran. */
 export const placeBuildShaAtom: AtomType.Atom<Option.Option<string>> = Atom.make(
@@ -135,7 +191,7 @@ const sameVersion = Option.getEquivalence<{ readonly scenario: PlaceScenario; re
 export const placeVersionChangeAtom: AtomType.Atom<PlaceVersionChange> = Atom.make(
   (get: AtomType.Context): PlaceVersionChange => {
     const current = Option.flatMap(
-      Result.value(get(placeBuildAtom)),
+      get(placeBuiltAtom),
       (build) =>
         Option.map(Arr.last(build.evidence.lineage), (version) => ({
           scenario: build.artifact.scenario,

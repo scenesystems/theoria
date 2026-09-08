@@ -196,9 +196,15 @@ export class PlaceAnswer extends Schema.Class<PlaceAnswer>("PlaceAnswer")({
 export const MarkTrigger = Schema.Struct({ triggerId: Schema.String, mark: PlaceMark })
 export type MarkTrigger = typeof MarkTrigger.Type
 
-/** Where the pointer is within the provenance interaction region. */
+/**
+ * Where the pointer is within the provenance interaction region: on a mark,
+ * whose answer it may be about to open; on a mark it has pressed, which has
+ * said all a pointer can say there, so nothing is on its way; or on the
+ * answer itself.
+ */
 export const PointerOver = Schema.Union(
   Schema.TaggedStruct("Mark", MarkTrigger.fields),
+  Schema.TaggedStruct("Pressed", MarkTrigger.fields),
   Schema.TaggedStruct("Answer", {})
 )
 export type PointerOver = typeof PointerOver.Type

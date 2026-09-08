@@ -23,6 +23,7 @@ import {
   placeGoToSiteAtom,
   placeHoverIntentAtom,
   placeMarkFocusedAtom,
+  placeMarkPressedAtom,
   placePointerOverAtom
 } from "../../atoms/imagined-place-experience.js"
 import {
@@ -327,6 +328,7 @@ export const PlaceProvenanceOverlay = () => {
   const focusReturn = useAtomValue(placeAnswerFocusReturnAtom)
   const setAnswer = useAtomSet(placeAnswerAtom)
   const setPointerOver = useAtomSet(placePointerOverAtom)
+  const markPressed = useAtomSet(placeMarkPressedAtom)
   const triggerId = Option.match(answer, { onNone: () => null, onSome: (current) => current.triggerId })
   const region = new PointerRegion({
     enter: () => setPointerOver(Option.some({ _tag: "Answer" })),
@@ -340,7 +342,8 @@ export const PlaceProvenanceOverlay = () => {
     Option.match(
       details.reason === "trigger-press" ? pressOn(details) : Option.none(),
       {
-        onSome: (pressed) =>
+        onSome: (pressed) => {
+          markPressed(pressed)
           Match.value(answerAfterPress(answer, { opening: open, pressed })).pipe(
             Match.tag("Leave", () => details.cancel()),
             Match.tag("Pin", ({ answer: pinned }) => {
@@ -349,7 +352,8 @@ export const PlaceProvenanceOverlay = () => {
             }),
             Match.tag("Answer", ({ answer: next }) => setAnswer(next)),
             Match.exhaustive
-          ),
+          )
+        },
         onNone: () => {
           if (!open) {
             setAnswer(Option.none())

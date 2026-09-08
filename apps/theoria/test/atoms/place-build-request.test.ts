@@ -95,6 +95,27 @@ describe("the place's build request", () => {
   )
 
   live(
+    "a story chosen again within the settle never brings its let-go draft back, nor a draft typed after it",
+    Effect.gen(function*() {
+      const { registry } = yield* mounted
+      registry.set(placeBriefDraftAtom, Option.some({ scenario: "unfinished-light", text: "A lighthouse" }))
+      yield* settled
+      expect(registry.get(placeBuildRequestAtom).brief).toBe("A lighthouse")
+      // Away and back, well inside the settle: the field shows the story's own brief, and so must the request.
+      registry.set(chooseScenarioAtom, "lost-market")
+      registry.set(chooseScenarioAtom, "unfinished-light")
+      expect(registry.get(placeBriefAtom)).toBe(unfinished)
+      expect(registry.get(placeBuildRequestAtom)).toMatchObject({ scenario: "unfinished-light", brief: unfinished })
+      // Typing again at once: the old words are gone for good; only the new ones settle.
+      registry.set(placeBriefDraftAtom, Option.some({ scenario: "unfinished-light", text: "A harbour" }))
+      yield* Effect.sleep(Duration.millis(100))
+      expect(registry.get(placeBuildRequestAtom).brief).toBe(unfinished)
+      yield* settled
+      expect(registry.get(placeBuildRequestAtom).brief).toBe("A harbour")
+    })
+  )
+
+  live(
     "a settled brief that changed nothing is the same request, so nothing is built again",
     Effect.gen(function*() {
       const { registry } = yield* mounted

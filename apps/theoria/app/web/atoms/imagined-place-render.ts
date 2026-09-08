@@ -44,7 +44,7 @@ import { MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLa
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
-import { placeBuildAtom, placeControlsAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
+import { placeBuiltAtom, placeControlsAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "./motion.js"
 import { textLayoutLayerAtom } from "./text-layout.js"
 
@@ -501,7 +501,7 @@ const placeRenderRuntime: AtomType.AtomRuntime<BrowserTextLayout | PlaceSearcher
  */
 export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = placeRenderRuntime
   .atom((get: AtomType.Context) => {
-    const build = Result.value(get(placeBuildAtom))
+    const build = get(placeBuiltAtom)
     const stageWidth = get(placeStageMeasuredWidthAtom)
     const motion = get(motionPreferenceAtom)
     // The drawing carries on from wherever the last one left off, landed or on its way.
@@ -545,7 +545,7 @@ export const placeExpectedPaperAtom: AtomType.Atom<Result.Result<number, PlaceRe
             Effect.map((prepared) => paperExpected(stage, prepared, features)),
             Effect.mapError((cause) => renderFailed(String(cause)))
           )
-        return Option.match(Result.value(get(placeBuildAtom)), {
+        return Option.match(get(placeBuiltAtom), {
           onNone: () => {
             const controls = get(placeControlsAtom)
             const recording = placeScenarioRecordings[controls.scenario]
