@@ -544,7 +544,9 @@ export const focusLanding = (): {
   return {
     site: element.getAttribute("data-place-code-site") ?? "",
     focusVisible: element.matches(":focus-visible"),
-    inViewport: rect.top >= 0 && rect.left >= 0 && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth
+    // An element without size is not shown, so it is nowhere in the viewport.
+    inViewport: rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.left >= 0 &&
+      rect.bottom <= window.innerHeight && rect.right <= window.innerWidth
   }
 }
 

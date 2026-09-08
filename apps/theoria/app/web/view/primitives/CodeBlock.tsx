@@ -110,7 +110,6 @@ export const CodeBlock = ({
                 renderAnnotation={renderAnnotation}
                 renderLineNumber={renderLineNumber}
                 source={source}
-                variant="expanded"
               />
             </Layer>
           </ScrollArea.Content>

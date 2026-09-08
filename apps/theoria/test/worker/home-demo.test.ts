@@ -9,7 +9,7 @@ import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
 import { type PlaceScenario, placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
 import { howItsBuiltActionLabel } from "../../app/web/view/home/HomeHero.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
-import type { ColorScheme, ReducedMotion } from "./browser.js"
+import type { ColorScheme, ReducedMotion, Viewport } from "./browser.js"
 import {
   act,
   animationsSettled,
@@ -19,6 +19,7 @@ import {
   click,
   containsText,
   count,
+  desktop,
   eventually,
   fitsViewport,
   focus,
@@ -28,6 +29,7 @@ import {
   nextResponse,
   openPage,
   overflowingElements,
+  phone,
   press,
   setColorScheme,
   setViewport,
@@ -229,26 +231,40 @@ const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
   })
 
 /**
- * From a disc's answer to the line of code it credits, opened and followed by
- * pointer or by keyboard. Reports the step selected, where focus landed, the
- * URL's fragment and whether the answer is still on the page — the route lands
- * on the credited line itself, mid-viewport, with the answer gone.
+ * From a mark's answer to the line of code it credits, opened and followed by
+ * pointer or by keyboard, from a disc on the paper or a line of its prose, at
+ * any viewport. Reports the step selected, where focus landed, the URL's
+ * fragment and whether the answer is still on the page — the route lands on
+ * the credited line itself, mid-viewport, with the answer gone.
  */
-const fromAnswerToItsCode = (opening: "pointer" | "keyboard", reducedMotion: ReducedMotion) =>
+const fromAnswerToItsCode = (
+  opening: "pointer" | "keyboard",
+  reducedMotion: ReducedMotion,
+  from: "disc" | "line" = "disc",
+  viewport: Viewport = desktop
+) =>
   Effect.gen(function*() {
-    const { failures, page } = yield* openPage({ reducedMotion })
+    const { failures, page } = yield* openPage({ reducedMotion, viewport })
     yield* goto(page, "/")
     yield* visible(rendered(page))
     const demo = page.getByRole("region", { name: "Imagined place demo" })
     const overlay = page.locator("[data-place-provenance]")
-    const disc = demo.locator("[data-place-marker]").first()
+    const mark = Match.value(from).pipe(
+      Match.when("disc", () => demo.locator("[data-place-marker]").first()),
+      Match.when("line", () =>
+        demo.getByRole("toolbar", { name: "Lines of the prose" }).locator("[data-place-line='0']")),
+      Match.exhaustive
+    )
     const codeLink = overlay.locator("[data-place-provenance-code]")
 
+    yield* act(() =>
+      mark.scrollIntoViewIfNeeded()
+    )
     yield* Match.value(opening).pipe(
-      Match.when("pointer", () => click(disc)),
+      Match.when("pointer", () => click(mark)),
       Match.when("keyboard", () =>
         Effect.gen(function*() {
-          yield* focus(disc)
+          yield* focus(mark)
           yield* press(page, "Enter")
         })),
       Match.exhaustive
@@ -283,8 +299,8 @@ const fromAnswerToItsCode = (opening: "pointer" | "keyboard", reducedMotion: Red
     yield* urlMatches(page, /#how-its-built$/u)
     const section = page.locator("[data-place-how-its-built]")
     yield* attribute(section.getByRole("tab", { name: step.name }), "aria-selected", "true")
-    const mark = section.locator(`[data-place-code-site="${siteId}"]`)
-    yield* eventually(() => mark.evaluate(isActiveElement), true)
+    const gutterMark = section.locator(`[data-place-code-site="${siteId}"]`)
+    yield* eventually(() => gutterMark.evaluate(isActiveElement), true)
     yield* hidden(overlay)
     // A smooth scroll takes its frames; an instant one has landed by the time focus has.
     const landing = yield* Match.value(reducedMotion).pipe(
@@ -293,7 +309,7 @@ const fromAnswerToItsCode = (opening: "pointer" | "keyboard", reducedMotion: Red
         until(act(() => page.evaluate(focusLanding)), (landed) => landed.inViewport, "the line is in the viewport")),
       Match.exhaustive
     )
-    return { failures, landing, siteId }
+    return { failures, landing, siteId, step: step.id }
   })
 
 const referenceTargets = (references: Locator) =>
@@ -779,6 +795,31 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
     it.scoped("under reduced motion the credited line is landed on at once", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("keyboard", "reduce")
+        expect(landing).toEqual({ site: siteId, focusVisible: true, inViewport: true })
+        expect(yield* failures).toEqual([])
+      }))
+
+    /**
+     * On a phone the gutter is as much the line's mark as on a desk: the route
+     * lands on it there too, and a line of the prose, credited to a step other
+     * than the one open, lands with that step's code shown.
+     */
+    it.scoped("on a phone, a disc's credited line, followed by pointer, is landed on", () =>
+      Effect.gen(function*() {
+        const { failures, landing, siteId } = yield* fromAnswerToItsCode("pointer", "no-preference", "disc", phone)
+        expect(landing).toMatchObject({ site: siteId, inViewport: true })
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("on a phone, a prose line's credited line, followed by keyboard, opens its own step and lands", () =>
+      Effect.gen(function*() {
+        const { failures, landing, siteId, step } = yield* fromAnswerToItsCode(
+          "keyboard",
+          "no-preference",
+          "line",
+          phone
+        )
+        expect(step).toBe("arrange")
         expect(landing).toEqual({ site: siteId, focusVisible: true, inViewport: true })
         expect(yield* failures).toEqual([])
       }))

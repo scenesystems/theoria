@@ -9,7 +9,7 @@ import { codeSiteOnLine } from "../../../contracts/demo/imagined-place-provenanc
 import { toneForCard } from "../../../contracts/theme.js"
 import { placeCodeSiteAttribute, placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
 import { placeSearchAtom } from "../../atoms/imagined-place-render.js"
-import { placeBuildAtom, placeBuildShaAtom, placeStepAtom } from "../../atoms/imagined-place.js"
+import { placeBuildShaAtom, placeBuiltAtom, placeStepAtom } from "../../atoms/imagined-place.js"
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
 import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
@@ -140,7 +140,7 @@ const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
  * While a mark on the page is pointed at, the line that made it is lit.
  */
 const StepCode = ({ step }: { readonly step: PlaceStep }) => {
-  const build = Result.value(useAtomValue(placeBuildAtom))
+  const build = useAtomValue(placeBuiltAtom)
   const search = Result.value(useAtomValue(placeSearchAtom))
   const focusedSite = useAtomValue(placeFocusedSiteAtom)
   const definition = placeStepDefinition(step)

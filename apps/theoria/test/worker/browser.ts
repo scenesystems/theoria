@@ -57,6 +57,7 @@ export const BrowserLive: Layer.Layer<Browser, BrowserError> = Layer.scoped(
 export const Viewport = Schema.Struct({ width: Schema.Number, height: Schema.Number })
 export type Viewport = typeof Viewport.Type
 export const desktop: Viewport = { width: 1280, height: 800 }
+export const phone: Viewport = { width: 390, height: 844 }
 
 export class Session extends Data.Class<{
   readonly page: Page
