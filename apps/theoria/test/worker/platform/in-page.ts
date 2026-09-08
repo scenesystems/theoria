@@ -218,6 +218,12 @@ export const horizontalScrollers = (
  * whether a touch a little under 22 px from the disc's centre, in each of the
  * four directions, lands on the disc — what a 44 px target promises. A point
  * a prose line or another disc is painted over reports that instead.
+ *
+ * The box is read as the layout engine holds it: Chromium lays out in 1/64 px
+ * units, so a 44 px box at a fractional offset reports 43.99998 or 44.00002
+ * from `getBoundingClientRect`, and a size compared against a minimum is
+ * snapped to that unit rather than the float's. (Inlined: this function is
+ * serialised into the page on its own.)
  */
 export const discTouchTargets = (discs: ReadonlyArray<Element>): ReadonlyArray<{
   readonly name: string
@@ -227,7 +233,8 @@ export const discTouchTargets = (discs: ReadonlyArray<Element>): ReadonlyArray<{
 }> =>
   discs.map((disc) => {
     const box = disc.getBoundingClientRect()
-    const reach = (disc.querySelector("[data-place-reach]") ?? disc).getBoundingClientRect()
+    const reachBox = (disc.querySelector("[data-place-reach]") ?? disc).getBoundingClientRect()
+    const reach = { width: Math.round(reachBox.width * 64) / 64, height: Math.round(reachBox.height * 64) / 64 }
     const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 }
     const offset = 21.5
     const points = [

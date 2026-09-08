@@ -734,15 +734,17 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
       every marker answers_, which asserts the paper's top edge and the
       current version (`data-place-current-version`) in the first viewport
       before the merge. The disc is the one honest exception: measured on the
-      production build the paper's top is at 835 of 844 and the first disc 89
-      px into the paper, where the search's own drawing puts it at this width.
-      What stands above it is the hero (lead 7svh, trail 4.5svh, already cut
-      for the 1440 case), the arrival's title and its one paragraph — the
-      words that say what this is — and the Arrange header with the version.
-      Cutting any of those to gain 80 px would trade the hero or the clarity
-      for the disc; moving the disc would be forcing the drawing. At 1440×900
-      the first disc is fully in the first viewport (_the hero and the place
-      share the first viewport_).
+      production build the paper's top is at 835 of 844 and the first mark 99
+      px into the paper (89 before the marks grew to touch size), where the
+      search's own drawing puts it at this width. What stands above it is the
+      header (84 px), the hero (427 px: lead 7svh, trail 4.5svh, already cut
+      for the 1440 case), the arrival's title and its one paragraph (184 px —
+      the words that say what this is) and the Arrange header with the
+      version. Revisited after Act 6: cutting any of those to gain ~110 px
+      would trade the hero or the clarity for the disc; moving the disc would
+      be forcing the drawing. The exception stands. At 1440×900 the first disc
+      is fully in the first viewport (_the hero and the place share the first
+      viewport_).
 
 ### Act 6 — Deferred from the reviews and the build
 
