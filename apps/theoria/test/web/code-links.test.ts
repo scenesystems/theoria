@@ -20,41 +20,45 @@ const links: ReadonlyArray<CodeLink> = [
 ]
 
 describe("segmentLine", () => {
-  it("links a symbol split across tokens and glued to whitespace", () => {
-    const tokens: ReadonlyArray<HighlightToken> = [
-      { kind: "keyword", value: "yield*" },
-      plain(" Study"),
-      { kind: "operator", value: "." },
-      { kind: "function", value: "open" },
-      { kind: "operator", value: "(" }
-    ]
-    const segments = segmentLine(tokens, links)
+  it.effect("links a symbol split across tokens and glued to whitespace", () =>
+    Effect.sync(() => {
+      const tokens: ReadonlyArray<HighlightToken> = [
+        { kind: "keyword", value: "yield*" },
+        plain(" Study"),
+        { kind: "operator", value: "." },
+        { kind: "function", value: "open" },
+        { kind: "operator", value: "(" }
+      ]
+      const segments = segmentLine(tokens, links)
 
-    expect(Arr.map(segments, text)).toEqual(["yield* ", "Study.open", "("])
-    expect(linked(segments)).toEqual(["Study.open"])
-    expect(Arr.join(Arr.map(segments, text), "")).toBe("yield* Study.open(")
-  })
+      expect(Arr.map(segments, text)).toEqual(["yield* ", "Study.open", "("])
+      expect(linked(segments)).toEqual(["Study.open"])
+      expect(Arr.join(Arr.map(segments, text), "")).toBe("yield* Study.open(")
+    }))
 
-  it("prefers the longest link and never links a suffix or a member of something else", () => {
-    const segments = segmentLine(
-      [plain("unseal(x); other.seal(y); "), { kind: "function", value: "seal" }, plain("(z)")],
-      links
-    )
-    expect(linked(segments)).toEqual(["seal"])
-  })
+  it.effect("prefers the longest link and never links a suffix or a member of something else", () =>
+    Effect.sync(() => {
+      const segments = segmentLine(
+        [plain("unseal(x); other.seal(y); "), { kind: "function", value: "seal" }, plain("(z)")],
+        links
+      )
+      expect(linked(segments)).toEqual(["seal"])
+    }))
 
-  it("skips mentions inside comments and strings", () => {
-    const segments = segmentLine(
-      [{ kind: "comment", value: "// seal it" }, plain(" "), { kind: "string", value: "\"seal\"" }],
-      links
-    )
-    expect(linked(segments)).toEqual([])
-    expect(segments.length).toBe(1)
-  })
+  it.effect("skips mentions inside comments and strings", () =>
+    Effect.sync(() => {
+      const segments = segmentLine(
+        [{ kind: "comment", value: "// seal it" }, plain(" "), { kind: "string", value: "\"seal\"" }],
+        links
+      )
+      expect(linked(segments)).toEqual([])
+      expect(segments.length).toBe(1)
+    }))
 
-  it("keeps an empty line as one empty token", () => {
-    expect(segmentLine([plain("")], links)).toEqual([{ _tag: "Tokens", tokens: [plain("")] }])
-  })
+  it.effect("keeps an empty line as one empty token", () =>
+    Effect.sync(() => {
+      expect(segmentLine([plain("")], links)).toEqual([{ _tag: "Tokens", tokens: [plain("")] }])
+    }))
 
   it.effect("links real shiki output for the demo's code", () =>
     Effect.scoped(

@@ -1210,7 +1210,7 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       of the quick start at 390. Not done: a fade on code blocks — the code's
       background is the docs surface, not the stage, and the scrollbar alone
       is the convention there.
-- [ ] **Closed unions matched with `Match.orElse`.**
+- [x] **Closed unions matched with `Match.orElse`.**
       `app/server/routes/imagined-place.ts` `statusFor` (over
       `ErrorModel["code"]`) and its rejection match, and
       `SemanticText.tsx` `BrowserWrappedBlockText` (line 154) fall through
@@ -1218,6 +1218,22 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       member and end in `Match.exhaustive`. The other `Match.orElse` uses in
       `app/` are over open values (paths, characters, parse errors) and
       stay.
+      _Done._ The status of an error code now has one home:
+      `httpStatus(code)` in `app/contracts/error.ts`, exhaustive over
+      `ErrorCode`, used by the imagined-place route and by the router's 404
+      (which had spelled its own 404). The route's rejection match names
+      `PlaceBuildError`, `ParseError` and `RequestError` by tag and ends in
+      `Match.exhaustive`. In `SemanticText.tsx` the wrap-mode fallthrough is
+      replaced by `whiteSpaceClassName(mode)` in `semanticTextClasses.ts`,
+      exhaustive over `Text.WhiteSpaceMode`, and `maxWidthClassName` decides
+      control-sized roles by membership in a named list rather than a
+      fallthrough. Tests: `test/contracts/error.contract.test.ts` asserts
+      every code's status and that only `execution-failed` is a server
+      fault; `test/web/semantic-text-classes.test.ts` asserts both mode
+      classes, the three control-sized roles and every other role's measure
+      variable for both surfaces. The remaining plain `it(` unit tests
+      (`code-links`, `place-references`) were moved to `it.effect` so every
+      unit test runs in the Effect test style.
 
 ## Non-goals
 

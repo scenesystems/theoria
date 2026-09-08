@@ -2,9 +2,10 @@ import { type HttpServerError, HttpServerRequest } from "@effect/platform"
 import { Clock, Effect, Either, Match, Option, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
-import { ErrorModel } from "../../contracts/error.js"
+import { ErrorModel, httpStatus } from "../../contracts/error.js"
 import type { PlaceBuild, PlaceBuildEnvelope } from "../../contracts/imagined-place-result.js"
-import { PlaceBuildError, PlaceBuildRequest } from "../../contracts/imagined-place.js"
+import type { PlaceBuildError } from "../../contracts/imagined-place.js"
+import { PlaceBuildRequest } from "../../contracts/imagined-place.js"
 import { jsonResponse, responseMeta } from "../api-response.js"
 import { PlaceBuildLimiter, type PlaceBuildLimiterError } from "../config/place-build-limiter.js"
 import type { Participants } from "../imagined-place/authority.js"
@@ -28,15 +29,6 @@ export const imaginedPlacePath = "/api/imagined-place/build"
 /** Set by Cloudflare on every request; absent only when the app runs outside the edge. */
 const clientAddressHeader = "cf-connecting-ip"
 
-const statusFor = (code: ErrorModel["code"]): number =>
-  Match.value(code).pipe(
-    Match.when("invalid-request", () => 400),
-    Match.when("method-not-allowed", () => 405),
-    Match.when("cross-site-request", () => 403),
-    Match.when("rate-limited", () => 429),
-    Match.orElse(() => 500)
-  )
-
 const Rejection = Schema.Struct({
   error: ErrorModel,
   headers: Schema.Record({ key: Schema.String, value: Schema.String })
@@ -44,7 +36,7 @@ const Rejection = Schema.Struct({
 type Rejection = typeof Rejection.Type
 
 const respond = (envelope: PlaceBuildEnvelope, headers: Record<string, string>) =>
-  jsonResponse(envelope, { status: envelope.ok ? 200 : statusFor(envelope.error.code), headers })
+  jsonResponse(envelope, { status: envelope.ok ? 200 : httpStatus(envelope.error.code), headers })
 
 const methodRejection: Rejection = {
   error: { code: "method-not-allowed", message: "Place builds must use POST.", retryable: false },
@@ -101,17 +93,18 @@ const failureModel = (
   error: PlaceBuildError | ParseResult.ParseError | HttpServerError.RequestError
 ): ErrorModel =>
   Match.value(error).pipe(
-    Match.when(Match.instanceOf(PlaceBuildError), (failure): ErrorModel => ({
+    Match.tag("PlaceBuildError", (failure): ErrorModel => ({
       code: "execution-failed",
       message: `Place build failed at ${failure.stage}.`,
       retryable: true
     })),
-    Match.when(ParseResult.isParseError, (failure): ErrorModel => ({
+    Match.tag("ParseError", (failure): ErrorModel => ({
       code: "invalid-request",
       message: ParseResult.TreeFormatter.formatErrorSync(failure),
       retryable: false
     })),
-    Match.orElse(() => unreadableBody)
+    Match.tag("RequestError", () => unreadableBody),
+    Match.exhaustive
   )
 
 const decodeBody = HttpServerRequest.schemaBodyJson(PlaceBuildRequest)

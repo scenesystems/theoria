@@ -1,4 +1,6 @@
+import type { Text } from "@scenesystems/effect-text"
 import { Match } from "effect"
+import * as Arr from "effect/Array"
 
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import type { TextRole } from "../../../contracts/text.js"
@@ -26,12 +28,18 @@ export const glyphClassName = (role: TextRole): string =>
     textTransformFor(role)
   ].filter((className) => className.length > 0).join(" ")
 
+/** Roles whose width is their control's, not a measure of their own: a label is as wide as what it labels. */
+const controlSizedRoles: ReadonlyArray<TextRole> = ["button-label", "tab-label", "marker-label"]
+
 export const maxWidthClassName = (role: TextRole, variant: SurfaceVariant): string =>
-  Match.value(role).pipe(
-    Match.when("button-label", () => ""),
-    Match.when("tab-label", () => ""),
-    Match.when("marker-label", () => ""),
-    Match.orElse(() => `max-w-(${maxWidthCssVar(role, variant)})`)
+  Arr.contains(controlSizedRoles, role) ? "" : `max-w-(${maxWidthCssVar(role, variant)})`
+
+/** How a block wraps before it is measured: the browser's own wrapping, in the text's white-space mode. */
+export const whiteSpaceClassName = (mode: Text.WhiteSpaceModeType): string =>
+  Match.value(mode).pipe(
+    Match.when("pre-wrap", () => "whitespace-pre-wrap"),
+    Match.when("normal", () => "whitespace-normal"),
+    Match.exhaustive
   )
 
 export const semanticClassName = (role: TextRole, variant: SurfaceVariant): string =>
