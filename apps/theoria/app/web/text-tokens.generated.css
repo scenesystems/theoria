@@ -1,8 +1,8 @@
 /* Typography and motion tokens (generated — do not edit; run `bun run gen:text-tokens`) */
 @theme inline {
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-body: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-display: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono Variable Fallback: Courier New", "JetBrains Mono Variable Fallback: Liberation Mono", "JetBrains Mono Variable Fallback: Roboto Mono", "JetBrains Mono Variable Fallback: Noto Sans Mono", "Courier New", "Liberation Mono", "Roboto Mono", "Noto Sans Mono", monospace;
+  --font-body: "Figtree Variable", "Figtree Variable Fallback: Segoe UI", "Figtree Variable Fallback: Helvetica Neue", "Figtree Variable Fallback: Arial", "Figtree Variable Fallback: Liberation Sans", "Figtree Variable Fallback: Roboto", "Figtree Variable Fallback: Noto Sans", "Segoe UI", "Helvetica Neue", Arial, "Liberation Sans", Roboto, "Noto Sans", sans-serif;
+  --font-display: "Figtree Variable", "Figtree Variable Fallback: Segoe UI", "Figtree Variable Fallback: Helvetica Neue", "Figtree Variable Fallback: Arial", "Figtree Variable Fallback: Liberation Sans", "Figtree Variable Fallback: Roboto", "Figtree Variable Fallback: Noto Sans", "Segoe UI", "Helvetica Neue", Arial, "Liberation Sans", Roboto, "Noto Sans", sans-serif;
   --st-fs-display: 44px;
   --st-lh-display: 50px;
   --st-fw-display: 600;
@@ -151,6 +151,79 @@
   }
 }
 
+/* Stand-in faces, scaled to the served faces' metrics so the swap moves nothing (generated — do not edit) */
+@font-face {
+  font-family: "Figtree Variable Fallback: Segoe UI";
+  src: local('Segoe UI'), local('SegoeUI');
+  ascent-override: 93.8065%;
+  descent-override: 24.6859%;
+  size-adjust: 101.2722%;
+}
+@font-face {
+  font-family: "Figtree Variable Fallback: Helvetica Neue";
+  src: local('Helvetica Neue'), local('HelveticaNeue');
+  ascent-override: 95.2116%;
+  descent-override: 25.0557%;
+  line-gap-override: 0%;
+  size-adjust: 99.7778%;
+}
+@font-face {
+  font-family: "Figtree Variable Fallback: Arial";
+  src: local('Arial'), local('ArialMT');
+  ascent-override: 94.3231%;
+  descent-override: 24.8219%;
+  line-gap-override: 0%;
+  size-adjust: 100.7176%;
+}
+@font-face {
+  font-family: "Figtree Variable Fallback: Liberation Sans";
+  src: local('Liberation Sans'), local('LiberationSans');
+  ascent-override: 94.3231%;
+  descent-override: 24.8219%;
+  line-gap-override: 0%;
+  size-adjust: 100.7176%;
+}
+@font-face {
+  font-family: "Figtree Variable Fallback: Roboto";
+  src: local('Roboto Regular'), local('Roboto-Regular');
+  ascent-override: 94.1165%;
+  descent-override: 24.7675%;
+  size-adjust: 100.9387%;
+}
+@font-face {
+  font-family: "Figtree Variable Fallback: Noto Sans";
+  src: local('Noto Sans Regular'), local('NotoSans-Regular');
+  ascent-override: 100.2895%;
+  descent-override: 26.392%;
+  size-adjust: 94.7257%;
+}
+@font-face {
+  font-family: "JetBrains Mono Variable Fallback: Courier New";
+  src: local('Courier New'), local('CourierNewPSMT');
+  ascent-override: 102.0166%;
+  descent-override: 30.0049%;
+  size-adjust: 99.9837%;
+}
+@font-face {
+  font-family: "JetBrains Mono Variable Fallback: Liberation Mono";
+  src: local('Liberation Mono'), local('LiberationMono');
+  ascent-override: 102.0166%;
+  descent-override: 30.0049%;
+  size-adjust: 99.9837%;
+}
+@font-face {
+  font-family: "JetBrains Mono Variable Fallback: Roboto Mono";
+  src: local('Roboto Mono Regular'), local('RobotoMono-Regular');
+  ascent-override: 102.0166%;
+  descent-override: 30.0049%;
+  size-adjust: 99.9837%;
+}
+@font-face {
+  font-family: "JetBrains Mono Variable Fallback: Noto Sans Mono";
+  src: local('Noto Sans Mono Regular'), local('NotoSansMono-Regular');
+  ascent-override: 102%;
+  descent-override: 30%;
+}
 /* SemanticText candidates, one line per role (generated — do not edit) */
 @source inline("text-(length:--st-fs-display) font-(--st-fw-display) tracking-(--st-tr-display) font-(family-name:--st-ff-display) leading-(--st-lh-display) max-w-(--st-mw-display-compact) max-w-(--st-mw-display-expanded)");
 @source inline("text-(length:--st-fs-lead) font-(--st-fw-lead) tracking-(--st-tr-lead) font-(family-name:--st-ff-lead) leading-(--st-lh-lead) max-w-(--st-mw-lead-compact) max-w-(--st-mw-lead-expanded)");

@@ -16,10 +16,20 @@ import { participantTone } from "./placeViewModel.js"
 const authorTone = toneClassesFor(participantTone("author"))
 const inferenceTone = inlineStatusToneFor("dsp")
 
-/** A feature's place in the row: after the first, a dot stands before it. */
+/**
+ * A feature's place in the row: after the first, a dot stands before it. The
+ * dot is set in the name's own role, so the two share a baseline offset and
+ * the slot stands at the mark's height in any face: a dot in the body's size
+ * on the name's baseline made the slot a pixel taller in one face than in
+ * its metric stand-in.
+ */
 const FeatureSlot = ({ children, first }: { readonly children: ReactNode; readonly first: boolean }) => (
   <Layer render={<span />} className="inline-flex items-baseline gap-2">
-    {first ? null : <Layer aria-hidden render={<span />} className="text-ink-400">·</Layer>}
+    {first ? null : (
+      <Layer aria-hidden render={<span />} className="inline-flex text-ink-400">
+        <SemanticText as="span" role="selection-title" text="·" />
+      </Layer>
+    )}
     {children}
   </Layer>
 )

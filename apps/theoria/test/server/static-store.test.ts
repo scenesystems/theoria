@@ -23,9 +23,8 @@ const withDist = <A, E>(use: (store: StaticStore["Type"]) => Effect.Effect<A, E>
     yield* fileSystem.makeDirectory(`${distRoot}/assets`, { recursive: true })
     yield* fileSystem.writeFileString(`${distRoot}/index.html`, "<title>x</title>")
     yield* fileSystem.writeFileString(`${distRoot}/assets/app.js`, "console.log(1)")
-    yield* fileSystem.makeDirectory(`${distRoot}/fonts`, { recursive: true })
     yield* fileSystem.writeFile(
-      `${distRoot}/fonts/figtree-5.3.0-latin-wght-normal.woff2`,
+      `${distRoot}/assets/figtree-latin-wght-normal-D4qk9tSy.woff2`,
       new Uint8Array([0x77, 0x4f, 0x46, 0x32])
     )
     // `public/` holds a file `dist/` lacks, and a stale copy of one `dist/` has.
@@ -73,11 +72,13 @@ it.effect("Bun store streams assets with a content type", () =>
 it.effect("Bun store serves typefaces as woff2, and the site keeps them for a year", () =>
   withDist((store) =>
     Effect.gen(function*() {
-      const pathname = "/fonts/figtree-5.3.0-latin-wght-normal.woff2"
+      const pathname = "/assets/figtree-latin-wght-normal-D4qk9tSy.woff2"
       const font = yield* yield* store.response(pathname)
       expect(font.headers["content-type"]).toBe("font/woff2")
-      // Named by upstream version, so a new file is a new URL.
+      // A build asset, named by content hash, so a new file is a new URL.
       expect(cacheControlForPath(pathname)).toBe("public, max-age=31536000, immutable")
+      // Nothing outside the build's assets is immutable by its path alone.
+      expect(cacheControlForPath("/fonts/figtree.woff2")).toBe("public, max-age=3600")
     })
   ))
 

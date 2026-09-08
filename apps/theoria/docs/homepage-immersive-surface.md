@@ -839,8 +839,9 @@ left on purpose. Every item takes the same route: failing test, then the change.
       JetBrains Mono came from Google Fonts with `display=swap`, so on a
       first visit every text box was set twice, 4 px narrower the second
       time at ~700 ms: the Latin variable subsets are now served from this
-      origin (`public/fonts`, named by upstream version, immutable), declared
-      in `web/typefaces.css`, and preloaded by the shell, so they are here
+      origin (then `public/fonts` and `web/typefaces.css`; since Act 6's
+      fallback-metrics work, content-hashed bundle assets from
+      `@fontsource-variable/*`), and preloaded by the shell, so they are here
       (~26 ms) before any script runs; the CSP names no third-party font
       hosts, and `site.test.ts` derives the required preloads from the
       stylesheet. `html { scrollbar-gutter: stable }` keeps the page from
@@ -1104,12 +1105,54 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       motion a frame mid-fade, under `reducedMotion: "reduce"` every sample at
       opacity 1 with no opacity animation (`in-page.presence`) — and reads the
       header wordmark's faces: both under full motion, Latin alone at rest.
-- [ ] **Fallback-metrics fonts.** `font-display: swap` without a
-      metric-matched fallback lets the text reflow when the woff2 lands; the
-      text-token contract should declare fallback `@font-face`s with
-      `size-adjust`, `ascent-override`, `descent-override` and
-      `line-gap-override`, then move the vendored files to
-      `@fontsource-variable/*` with a `transformIndexHtml` preload hook.
+- [x] **Fallback-metrics fonts.** `font-display: swap` without a
+      metric-matched fallback let the text reflow when the woff2 landed, and
+      `browserTextLayout` measured the story in whatever face was in hand.
+      The text contract (`contracts/text.ts`) now names the served faces
+      (`Typeface`, `servedFontFamily`) and, for each, the stand-ins the stacks
+      fall to — Segoe UI, Helvetica Neue, Arial, Liberation Sans, Roboto,
+      Noto Sans for the sans; Courier New, Liberation Mono, Roboto Mono, Noto
+      Sans Mono for the mono — each declared by `@capsizecss/core`'s
+      `createFontStack` as a `@font-face` named `"<served> Fallback:
+  <stand-in>"` with `ascent-override`, `descent-override`,
+      `line-gap-override` and `size-adjust` from `@capsizecss/metrics`
+      (`typefaceFallbacks`, `typefaceFallbackFaces`, rendered into the
+      generated text-token CSS). Liberation is declared with Arial's and
+      Courier New's metrics under its own names: it is their metric clone,
+      and the face Linux hosts and CI have. The vendored files went:
+      `@fontsource-variable/figtree` and `@fontsource-variable/jetbrains-mono`
+      are imported by `styles.css`, bundled as content-hashed assets
+      (`.woff2` never inlined), and the Latin variable subsets are preloaded
+      by a `transformIndexHtml` hook (`vite.config.ts`
+      `theoria:preload-typefaces`) that finds them in the bundle and fails
+      the build if either is missing; `public/fonts` and its headers are
+      gone. Measurement waits for the faces: `BrowserFonts`
+      (`platform/BrowserFonts.ts`) wraps `document.fonts.load`, and
+      `browserTextLayoutLayer` loads `measuredFont("body")` and `("mono")`
+      before it takes its canvas — a failed load is logged and measurement
+      goes on, since the metrics then are the stand-in's and still the best
+      in hand; no later `loadingdone` re-measures, since the layer was gated
+      on the same faces. Two metric-dependent heights the stand-ins exposed
+      were fixed at the source: the feature row's dot was body-size text on
+      the name's baseline (`PlaceComposition.tsx` `FeatureSlot`, now set in
+      the name's role) and the proposal's label/value rows aligned two type
+      sizes on a baseline (`PlaceProposal.tsx` `Field`, now the label
+      centred on the value's first line box) — both a pixel apart between a
+      face and its stand-in. Before the faces are in hand the stage is uncut
+      (`PlaceStage.tsx` `Placeholder`, `data-place-stage="uncut"`): nothing
+      about the paper is known honestly until a line is measured in the face
+      it is set in, so the paper is cut once, when they land, and held.
+      Tests: `typefaces.contract.test.ts` (stacks, aliases, overrides, the
+      measured font), `browser-text-layout.test.ts` (nothing measured until
+      the faces load, a failed load non-fatal), `static-store.test.ts`
+      (`/assets/*.woff2` immutable), `site.test.ts` (preloads derived from
+      the stylesheet's `url()`s and the stand-in faces declared, in the
+      minifier's spelling too), and `home-typefaces.test.ts`, which holds
+      every `.woff2` at the browser's edge (`holdResponses`, `gotoParsed`)
+      past the build's return and asserts the first paint is in a stand-in
+      with overrides, the stage uncut, then on release the faces loaded, the
+      title's box unchanged, every text region painted at one height and the
+      stage column at two (uncut, cut), at desktop and phone.
 - [ ] **CSP nonce.** `style-src` allows `'unsafe-inline'`
       (`security-headers.ts`). Audit inline styles under report-only, theme
       Shiki through CSS variables, and issue a per-response nonce so the

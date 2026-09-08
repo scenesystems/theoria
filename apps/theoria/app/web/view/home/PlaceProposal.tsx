@@ -60,7 +60,10 @@ const voiceClassName = (accepted: boolean, tone: { readonly border: string }): s
 /**
  * One labelled part of the proposal: the label names what the text is. A
  * label with a mark is a mark: the note's label answers with how the note
- * was sealed.
+ * was sealed. Beside the value the label is centred on the value's first
+ * line — a line box the value's height — rather than set on its baseline: a
+ * baseline shared between two type sizes lands a pixel apart from one face
+ * to its metric stand-in, and the row with it.
  */
 const Field = ({ children, label, mark = Option.none() }: {
   readonly children: ReactNode
@@ -68,7 +71,7 @@ const Field = ({ children, label, mark = Option.none() }: {
   readonly mark?: Option.Option<PlaceMark>
 }) => (
   <>
-    <Layer render={<dt />} className="pt-2 first:pt-0 sm:pt-0">
+    <Layer render={<dt />} className="pt-2 first:pt-0 sm:flex sm:min-h-(--st-lh-row-value) sm:items-center sm:pt-0">
       {Option.match(mark, {
         onNone: () => (
           <SemanticText as="span" className="text-ink-500" role="row-label" text={label} variant="compact" />
@@ -304,7 +307,7 @@ export const PlaceProposal = ({
 
       <Layer
         render={<dl />}
-        className="grid gap-y-1 sm:grid-cols-[2.75rem_minmax(0,1fr)] sm:items-baseline sm:gap-x-3 sm:gap-y-2.5"
+        className="grid gap-y-1 sm:grid-cols-[2.75rem_minmax(0,1fr)] sm:items-start sm:gap-x-3 sm:gap-y-2.5"
       >
         <Field label="Adds">
           <SemanticText

@@ -341,9 +341,13 @@ const Legend = ({ entries }: { readonly entries: ReadonlyArray<PlaceLegendEntry>
   </Cluster>
 )
 
-/** Before the artifact is known nothing about the paper is: three lines stand in for it. */
+/**
+ * Before the paper can be cut nothing about it is known — the column is not
+ * yet measured, or the served face the story will be set in is not yet in
+ * hand, so no line of it has been measured — and three lines stand in for it.
+ */
 const Placeholder = () => (
-  <Stack className="gap-3 p-4">
+  <Stack className="gap-3 p-4" data-place-stage="uncut">
     <ShimmerLine width="w-4/5" />
     <ShimmerLine width="w-3/5" />
     <ShimmerLine width="w-2/3" />

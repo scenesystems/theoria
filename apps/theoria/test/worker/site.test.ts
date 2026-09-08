@@ -124,29 +124,39 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
 
       // The shell preloads every Latin face the stylesheet declares, so text set
       // by the first render is set in it; other subsets load only when used.
+      // The faces are build assets: the stylesheet's URLs and the preloads are
+      // the same content-hashed files, and a new file is a new URL.
       const stylesheet = yield* Option.match(
         Option.fromNullable(/<link rel="stylesheet" crossorigin href="([^"]+\.css)">/u.exec(homeHtml)?.[1]),
         { onNone: () => Effect.dieMessage("the shell links no stylesheet"), onSome: Effect.succeed }
       )
       const css = yield* text(yield* site.fetch(stylesheet))
-      const declared = Arr.fromIterable(css.matchAll(/url\((\/fonts\/[^)]+-latin-wght-[^)]+\.woff2)\)/gu)).map((
-        found
-      ) => found[1] ?? "")
+      const declared = Arr.fromIterable(
+        css.matchAll(/url\((\/assets\/[^)]+-latin-wght-normal-[^)]+\.woff2)\)/gu)
+      ).map((found) => found[1] ?? "")
       const preloads = Arr.fromIterable(
         homeHtml.matchAll(
-          /<link rel="preload" href="(\/fonts\/[^"]+\.woff2)" as="font" type="font\/woff2" crossorigin/gu
+          /<link rel="preload" href="(\/assets\/[^"]+\.woff2)" as="font" type="font\/woff2" crossorigin/gu
         )
       ).map((found) => found[1] ?? "")
-      expect(declared.length).toBeGreaterThan(0)
+      expect(declared).toHaveLength(2)
       expect(Arr.sort(preloads, Str.Order)).toEqual(Arr.sort(declared, Str.Order))
       yield* Effect.forEach(preloads, (pathname) =>
         Effect.gen(function*() {
           const font = yield* site.fetch(pathname)
           expect(font.status).toBe(200)
           expect(font.headers.get("content-type")).toBe("font/woff2")
-          // Files are named by their upstream version, so a change is a new URL.
           expect(font.headers.get("cache-control")).toBe("public, max-age=31536000, immutable")
         }))
+
+      // Every stand-in the stacks name is declared with the served face's metrics, so the swap moves nothing.
+      // The minifier may drop the quotes and escape the colon (`Fallback\: Arial`); both spellings name one face.
+      expect(css).toMatch(
+        /font-family:\s*["']?Figtree Variable Fallback\\?: Arial["']?;\s*src:\s*local\(["']?Arial["']?\)[^}]*ascent-override:/u
+      )
+      expect(css).toMatch(
+        /font-family:\s*["']?JetBrains Mono Variable Fallback\\?: Courier New["']?;\s*src:\s*local\(["']?Courier New["']?\)[^}]*ascent-override:/u
+      )
     }))
 
   it.effect("serves a spec-shaped llms.txt from the shipped docs manifest", () =>

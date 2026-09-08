@@ -102,6 +102,23 @@ export const surfaceBudget = (root: Element) => {
   }
 }
 
+/**
+ * The document's type as it stands: whether its faces are still arriving,
+ * whether the served face named is in hand, and the stand-in faces declared
+ * with the served face's metrics — each one that the host matched to a local
+ * font is `loaded` once used; one the host lacks is `error`.
+ */
+export const typefaces = (served: string) => ({
+  status: document.fonts.status,
+  servedInHand: document.fonts.check(served),
+  standIns: [...document.fonts].filter((face) => face.family.includes("Fallback")).map((face) => ({
+    family: face.family,
+    status: face.status,
+    ascentOverride: face.ascentOverride,
+    descentOverride: face.descentOverride
+  }))
+})
+
 /** Width and line height of a text box. */
 export const textBlockMetrics = (element: Element) => ({
   height: element.getBoundingClientRect().height,

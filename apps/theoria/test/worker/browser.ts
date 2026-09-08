@@ -162,6 +162,12 @@ export const observeRequests = (
   })
 
 export const goto = (page: Page, path: string) => act(() => page.goto(path))
+/**
+ * Navigates and returns once the document has parsed, without waiting for the `load` event. For a test that holds a
+ * subresource the shell preloads (a font, say): those holds keep `load` from firing, and the test wants the page in
+ * exactly that state.
+ */
+export const gotoParsed = (page: Page, path: string) => act(() => page.goto(path, { waitUntil: "domcontentloaded" }))
 export const click = (locator: Locator) => act(() => locator.click())
 export const hover = (locator: Locator) => act(() => locator.hover())
 export const focus = (locator: Locator) => act(() => locator.focus())
@@ -222,11 +228,31 @@ export const holdResponse = (
   method: string,
   suffix: string
 ): Effect.Effect<HeldRequest, BrowserError> =>
+  Effect.flatMap(
+    Ref.make(false),
+    (held) => holdRequests(page, method, suffix, Ref.getAndSet(held, true).pipe(Effect.map((taken) => !taken)))
+  )
+
+/**
+ * Holds every request with `method` whose URL ends with `suffix`, however many
+ * there are, until the test lets them all go together — for a resource the
+ * page fetches in several files, such as its typefaces.
+ */
+export const holdResponses = (
+  page: Page,
+  method: string,
+  suffix: string
+): Effect.Effect<HeldRequest, BrowserError> => holdRequests(page, method, suffix, Effect.succeed(true))
+
+const holdRequests = (
+  page: Page,
+  method: string,
+  suffix: string,
+  claim: Effect.Effect<boolean>
+): Effect.Effect<HeldRequest, BrowserError> =>
   Effect.gen(function*() {
     const runtime = yield* Effect.runtime<never>()
     const outcome = yield* Deferred.make<HeldOutcome>()
-    const held = yield* Ref.make(false)
-    const claim = Ref.getAndSet(held, true).pipe(Effect.map((taken) => !taken))
     const settle = (route: Route) =>
       Deferred.await(outcome).pipe(
         Effect.flatMap((decision) =>

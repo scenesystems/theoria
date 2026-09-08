@@ -11,6 +11,7 @@ import {
   metricsOverride,
   type TextSemantics,
   textSemantics,
+  typefaceFallbackFaces,
   type Viewport,
   viewportCondition,
   viewports
@@ -76,6 +77,8 @@ export const renderTextTokensCss = (): string =>
     "",
     ...Arr.getSomes(Arr.map(viewports, viewportBlock)),
     "",
+    "/* Stand-in faces, scaled to the served faces' metrics so the swap moves nothing (generated — do not edit) */",
+    typefaceFallbackFaces,
     "/* SemanticText candidates, one line per role (generated — do not edit) */",
     ...Arr.map(textSemantics, sourceLine),
     ""

@@ -1,5 +1,17 @@
+import { createFontStack } from "@capsizecss/core"
+import arial from "@capsizecss/metrics/arial"
+import courierNew from "@capsizecss/metrics/courierNew"
+import figtree from "@capsizecss/metrics/figtree"
+import helveticaNeue from "@capsizecss/metrics/helveticaNeue"
+import jetBrainsMono from "@capsizecss/metrics/jetBrainsMono"
+import notoSans from "@capsizecss/metrics/notoSans"
+import notoSansMono from "@capsizecss/metrics/notoSansMono"
+import roboto from "@capsizecss/metrics/roboto"
+import robotoMono from "@capsizecss/metrics/robotoMono"
+import segoeUI from "@capsizecss/metrics/segoeUI"
 import { Text } from "@scenesystems/effect-text"
 import { Match, Option, Schema } from "effect"
+import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 
 import { type SurfaceVariant, SurfaceVariant as SurfaceVariantSchema } from "./presentation.js"
@@ -24,13 +36,104 @@ export type FontFamily = typeof FontFamily.Type
 
 const entry = <K, V>(k: K, v: V): readonly [K, V] => [k, v]
 
-const fontFamilyStacks = HashMap.make(
-  entry<FontFamily, string>("body", `Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif`),
-  entry<FontFamily, string>("display", `Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif`),
-  entry<FontFamily, string>(
-    "mono",
-    `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
+/**
+ * The two typefaces this site serves, named as the Fontsource variable
+ * packages that supply them name their faces, and the system fonts that stand
+ * in for each until it arrives. A stand-in is not named as itself: Capsize
+ * writes it a `@font-face` alias whose `size-adjust`, `ascent-override` and
+ * `descent-override` scale it to the served face's proportions, from the two
+ * fonts' metric tables, so text set in the stand-in takes the same lines and
+ * the same height, and the swap moves nothing.
+ */
+const Typeface = Schema.Literal("sans", "mono")
+type Typeface = typeof Typeface.Type
+
+const typefaceOf = (family: FontFamily): Typeface =>
+  Match.value(family).pipe(
+    Match.when("body", (): Typeface => "sans"),
+    Match.when("display", (): Typeface => "sans"),
+    Match.when("mono", (): Typeface => "mono"),
+    Match.exhaustive
   )
+
+const servedFaces = HashMap.make(
+  entry("sans", { ...figtree, familyName: "Figtree Variable" }),
+  entry("mono", { ...jetBrainsMono, familyName: "JetBrains Mono Variable" })
+)
+
+/**
+ * The Liberation fonts are the metric clones of Arial and Courier New that
+ * Linux desktops and continuous-integration images carry in their place: the
+ * same advances and vertical metrics by design, so Arial's tables describe
+ * them, and they are matched under their own names.
+ */
+const liberationSans = {
+  ...arial,
+  familyName: "Liberation Sans",
+  fullName: "Liberation Sans",
+  postscriptName: "LiberationSans"
+}
+const liberationMono = {
+  ...courierNew,
+  familyName: "Liberation Mono",
+  fullName: "Liberation Mono",
+  postscriptName: "LiberationMono"
+}
+
+const standIns = HashMap.make(
+  entry("sans", [segoeUI, helveticaNeue, arial, liberationSans, roboto, notoSans]),
+  entry("mono", [courierNew, liberationMono, robotoMono, notoSansMono])
+)
+
+const genericFamily = (typeface: Typeface): string =>
+  Match.value(typeface).pipe(
+    Match.when("sans", () => "sans-serif"),
+    Match.when("mono", () => "monospace"),
+    Match.exhaustive
+  )
+
+/** A system font that stands in for a served face, under the alias whose `@font-face` matches its metrics. */
+export const TypefaceFallback = Schema.Struct({ alias: Schema.String, standIn: Schema.String })
+export type TypefaceFallback = typeof TypefaceFallback.Type
+
+const fontStack = (typeface: Typeface) =>
+  createFontStack([HashMap.unsafeGet(servedFaces, typeface), ...HashMap.unsafeGet(standIns, typeface)])
+
+const fontStacks = HashMap.make(
+  entry("sans", fontStack("sans")),
+  entry("mono", fontStack("mono"))
+)
+
+/** The face a family is served in, by the name its `@font-face` rules declare. */
+export const servedFontFamily = (family: FontFamily): string =>
+  HashMap.unsafeGet(servedFaces, typefaceOf(family)).familyName
+
+export const typefaceFallbacks = (family: FontFamily): ReadonlyArray<TypefaceFallback> =>
+  Arr.map(HashMap.unsafeGet(standIns, typefaceOf(family)), (standIn) =>
+    TypefaceFallback.make({
+      alias: `${servedFontFamily(family)} Fallback: ${standIn.familyName}`,
+      standIn: standIn.familyName
+    }))
+
+/** The `@font-face` rules that scale every stand-in to the face it stands in for. */
+export const typefaceFallbackFaces: string = Arr.map(
+  Typeface.literals,
+  (typeface) => HashMap.unsafeGet(fontStacks, typeface).fontFaces
+).join("\n")
+
+/**
+ * The font the layout engine loads before it measures a family: the served
+ * face at its normal weight and the root size. Measuring earlier would cache
+ * the stand-in's widths for the page's life.
+ */
+export const measuredFont = (family: FontFamily): string => `400 16px "${servedFontFamily(family)}"`
+
+const fontFamilyStacks = HashMap.make(
+  ...Arr.map(FontFamily.literals, (family) =>
+    entry<FontFamily, string>(
+      family,
+      `${HashMap.unsafeGet(fontStacks, typefaceOf(family)).fontFamily}, ${genericFamily(typefaceOf(family))}`
+    ))
 )
 
 const fontFamilyVarNames = HashMap.make(

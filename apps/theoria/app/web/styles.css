@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
-@import "./typefaces.css";
+/* The served typefaces, as Fontsource packages them: variable Latin and Latin Extended faces, swapped in on
+ * arrival. Their metric-matched stand-ins are in the generated tokens beneath, from the same contract that
+ * names the stacks. */
+@import "@fontsource-variable/figtree";
+@import "@fontsource-variable/jetbrains-mono";
 @import "./text-tokens.generated.css";
 
 @theme inline {
