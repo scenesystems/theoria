@@ -243,6 +243,18 @@ export const bandRow = (projection: PlaceProjection): BandRow =>
   })
 
 /**
+ * The band's name to assistive technology, from the row it draws: where the
+ * link goes, and the features the row shows, in the row's order — so a
+ * reader who cannot see the discs is told what the band carries, and a merge
+ * that adds a disc adds a name. An empty row is only the way back.
+ */
+export const bandLabel = (row: BandRow): string =>
+  Arr.match(row.discs, {
+    onEmpty: () => "Back to the place",
+    onNonEmpty: (discs) => `Back to the place: ${Arr.join(Arr.map(discs, (disc) => disc.marker.name), ", ")}`
+  })
+
+/**
  * How a disc takes its place in the row: fading in where it stands, and
  * sliding over at the shift relation as a merge shifts the row — or, under
  * reduced motion, placed outright where it now stands, fading in alone. `cx`

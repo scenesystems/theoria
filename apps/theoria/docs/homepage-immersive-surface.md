@@ -373,12 +373,13 @@ place it built` was reversed.
       `pl-4 border-l-2`; dashed neutral while declined, solid proposer tone
       while accepted; sealed note as a fold (Base UI `Collapsible`) that
       opens into a `blockquote`.
-- [x] `PlaceProposals.tsx`: proposals anchored beside the prose line they
-      would add (`placeViewModel.proposalAnchorLine` → `data-place-anchor-line`,
-      from `placeProposalLineAtom`, the drawing shown this instant). The
-      linkage is drawn by Act 4: pointing at a merged proposal's feature
-      lights that line on the stage (`placeFocusedLineAtom`); the attribute is
-      the same fact said in the DOM, which the tests read back.
+- [x] `PlaceProposals.tsx`: proposals linked to the prose line they would add
+      (`placeViewModel.proposalAnchorLine`, read from the drawing shown this
+      instant). The linkage is the focus model's, both ways: pointing at a
+      merged proposal's feature lights that line on the stage
+      (`placeFocusedLineAtom`), and pointing at the line lights the feature's
+      name and its disc (`placeProvenance.lineAnswer` says what the line
+      adds). Nothing is written to the DOM for it beyond `data-place-focused`.
 - [x] `PlaceLineage.tsx` → `PlaceStrand.tsx`: strand and knots (`PlaceStrand`
       in the Record act, `StageKnots` on the pinned stage in place of the
       version badge); IDs in technical type; the wash on version change stays.
@@ -1058,13 +1059,35 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       `test/worker/home-touch.test.ts` at 390 and 320 asserts each disc's
       reach box is ≥ 44 px and `elementFromPoint` 21.5 px from its centre
       in four directions resolves to the disc (`discTouchTargets`).
-- [ ] **Anchor-line consumer.** `data-place-anchor-line` on `PlaceProposal` is
-      read by tests only. Hovering or focusing a proposal should light its
-      line through the existing focus model, or the attribute goes.
-- [ ] **Band label.** `PlaceBand`'s `aria-label="Back to the place"` hides the
-      disc row from assistive technology; the name should derive from the
-      band's row data, the row itself `aria-hidden`, with an accessibility
-      tree test.
+- [x] **Anchor-line consumer.** `data-place-anchor-line` on `PlaceProposal`
+      was read by tests only, and `placeProposalLineAtom` existed to write it.
+      Both are gone. The fact it carried — the line a merged proposal's
+      sentence begins on, by `proposalAnchorLine` over the drawing shown — now
+      has a consumer in the focus model: a line's answer
+      (`placeProvenance.lineAnswer`) is `about` the features whose sentence
+      begins on it and says so in an `Adds` fact, so pointing at the line
+      lights the proposal's name in the column and its disc on the paper, as
+      pointing at the name already lit the line. The link follows the drawing:
+      on a narrower trial the sentence stands on another line, and that line
+      is the one that answers for it. `place-provenance.test.ts` asserts
+      `about` and `Adds` on the kept and trial drawings, the line before, and
+      that no line is about the declined proposal;
+      `place-focus.contract.test.ts` asserts the line lights the name and the
+      disc, and not from the line before, on both drawings; `home-demo.test.ts`
+      hovers the name to find the lit line, then hovers that line and reads
+      the name and disc lit and the answer's `Adds`. Tests that needed a
+      merged proposal now find it by `data-place-recorded='true'`.
+- [x] **Band label.** `PlaceBand`'s `aria-label="Back to the place"` hid the
+      disc row from assistive technology. The link is now named by
+      `placeViewModel.bandLabel(row)` — "Back to the place: " and the row's
+      feature names in the row's order, so a merge that adds a disc adds a
+      name; an empty row is only "Back to the place". The row's `svg` and the
+      arrow stay `aria-hidden`: the tree holds one link. `place-band.test.ts`
+      asserts the label from a real rendering and from an empty row;
+      `home-form.test.ts` reads the band's ARIA snapshot
+      (`browser.accessibilityTree`, `locator.ariaSnapshot()`) and asserts one
+      node, a link with that exact name and the stage's `href`, no `img`, and
+      the name grown by one after a merge (`in-page.bandDiscNames`).
 - [ ] **Single motion source.** `DocsWorkbench` and `WordmarkMorph` read
       Motion's `useReducedMotion` while the rest of the page reads
       `motionPreferenceAtom`; they should read the atom, and lint should

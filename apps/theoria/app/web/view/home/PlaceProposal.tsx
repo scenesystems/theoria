@@ -1,5 +1,4 @@
 import { Collapsible } from "@base-ui/react/collapsible"
-import { useAtomValue } from "@effect-atom/atom-react"
 import { LockClosedIcon, LockOpenIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
@@ -13,7 +12,6 @@ import {
   sealedNoteSender,
   type VersionShape
 } from "../../../contracts/imagined-place.js"
-import { placeProposalLineAtom } from "../../atoms/imagined-place-render.js"
 import {
   dangerStatusTone,
   focusEdgeClassName,
@@ -227,8 +225,9 @@ const recordedClassName =
  * flight, and the article says so. Before any build the article is laid out
  * from the offer as the recording made it, with every word the build will
  * sign — the name, the signature, the ID, the version — as a ghost in its
- * place. `data-place-anchor-line` is the line of the drawn prose where the
- * proposal's sentence stands once merged: the margin it belongs beside.
+ * place. The proposal's link to the drawn prose is the focus model's: its
+ * name, pointed at, lights the line its sentence stands on, and that line,
+ * pointed at, lights the name and the disc (`placeProvenance.lineAnswer`).
  */
 export const PlaceProposal = ({
   accepted,
@@ -251,10 +250,6 @@ export const PlaceProposal = ({
     onNone: () => ({}),
     onSome: (value) => accepted === value ? {} : { "data-place-pending": "" }
   })
-  const anchor = Option.match(useAtomValue(placeProposalLineAtom(role)), {
-    onNone: () => ({}),
-    onSome: (line) => ({ "data-place-anchor-line": String(line) })
-  })
   // What the build signed, once it is here; the recording's words, which are the same words, before.
   const feature = Option.match(record, {
     onNone: () => offered.proposal.feature,
@@ -270,7 +265,6 @@ export const PlaceProposal = ({
         onNone: () => ({}),
         onSome: (value) => ({ "data-place-recorded": value ? "true" : "false" })
       })}
-      {...anchor}
       {...pending}
     >
       <Cluster render={<header />} className="items-center justify-between gap-x-3 gap-y-1.5">

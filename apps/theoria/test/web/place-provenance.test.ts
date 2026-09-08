@@ -26,7 +26,7 @@ import {
 import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
 import { drawingId, frameShowing, PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
 import { type PlaceOnPage, provenanceFor } from "../../app/web/view/home/placeProvenance.js"
-import { currentVersion } from "../../app/web/view/home/placeViewModel.js"
+import { currentVersion, proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
 import { onStage } from "../helpers/place-on-stage.js"
 
 /**
@@ -293,6 +293,7 @@ describe("answers from the drawing's own source", () => {
       expect((yield* answered({ _tag: "Disc", name, source: placeSourceId(build) }, on)).about).toEqual([name])
       expect((yield* answered({ _tag: "Inference" }, on)).about).toEqual(composed)
       expect((yield* answered({ _tag: "Digest", contentId: origin.contentId }, on)).about).toEqual(composed)
+      // The first line carries the composition's own opening, not a proposal's sentence.
       expect((yield* answered({ _tag: "Line", index: 0, drawing: drawingId(showingTrial.search) }, on)).about).toEqual(
         []
       )
@@ -300,5 +301,49 @@ describe("answers from the drawing's own source", () => {
         []
       )
       expect((yield* answered({ _tag: "Note" }, on)).about).toEqual([])
+    }))
+
+  it.effect("a line of the prose is about the merged proposal whose sentence stands on it, read from the drawing shown", () =>
+    Effect.gen(function*() {
+      const { build, kept, showingKept, showingTrial, trial } = yield* onStage
+      const neighbor = yield* Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "neighbor")
+      const program = yield* Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "program")
+      expect(neighbor.accepted).toBe(true)
+      expect(program.accepted).toBe(false)
+
+      // On the kept drawing: the line the sentence begins on names the feature; the line before it does not.
+      const onKept = page(Option.some(build), Option.some(showingKept))
+      const keptLine = yield* proposalAnchorLine(kept.projection, neighbor)
+      const standing = yield* answered(
+        { _tag: "Line", index: keptLine, drawing: drawingId(showingKept.search) },
+        onKept
+      )
+      expect(standing.about).toEqual([neighbor.proposal.feature.name])
+      expect(yield* factValue(standing, "Adds")).toBe(neighbor.proposal.feature.name)
+      const before = yield* answered(
+        { _tag: "Line", index: keptLine - 1, drawing: drawingId(showingKept.search) },
+        onKept
+      )
+      expect(before.about).toEqual([])
+      expect(factValue(before, "Adds")).toEqual(Option.none())
+
+      // The narrower trial reflows the prose; the sentence stands on another line, and the answer follows the drawing shown.
+      const onTrial = page(Option.some(build), Option.some(showingTrial))
+      const trialLine = yield* proposalAnchorLine(trial.projection, neighbor)
+      expect(trialLine).not.toBe(keptLine)
+      const moved = yield* answered(
+        { _tag: "Line", index: trialLine, drawing: drawingId(showingTrial.search) },
+        onTrial
+      )
+      expect(moved.about).toEqual([neighbor.proposal.feature.name])
+      const stale = yield* answered({ _tag: "Line", index: keptLine, drawing: drawingId(showingTrial.search) }, onTrial)
+      expect(stale.about).toEqual([])
+
+      // A declined proposal is not in the prose, so no line is about it.
+      const every = yield* Effect.forEach(
+        kept.projection.lines,
+        (_, index) => answered({ _tag: "Line", index, drawing: drawingId(showingKept.search) }, onKept)
+      )
+      expect(Arr.some(every, (line) => Arr.contains(line.about, program.proposal.feature.name))).toBe(false)
     }))
 })

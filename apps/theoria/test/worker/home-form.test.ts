@@ -4,8 +4,10 @@ import type { Locator, Page } from "@playwright/test"
 import { Effect, Fiber, Layer, Option } from "effect"
 import * as Arr from "effect/Array"
 
+import { imaginedPlaceSectionId } from "../../app/web/view/home/HomeHero.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import {
+  accessibilityTree,
   act,
   attribute,
   BrowserLive,
@@ -20,7 +22,14 @@ import {
   visible,
   withoutAttribute
 } from "./browser.js"
-import { backgroundColour, beforeRuleCentreX, scrollPast, topmostAt, topmostAtItsCentre } from "./platform/in-page.js"
+import {
+  backgroundColour,
+  bandDiscNames,
+  beforeRuleCentreX,
+  scrollPast,
+  topmostAt,
+  topmostAtItsCentre
+} from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 /**
@@ -100,7 +109,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         // A merged proposal's name, pointed at, lights its line of the prose, the line of code that
         // digested it, that line's number, and the value beside it: one wash on all of them.
-        const merged = demo.locator("[data-place-proposal][data-place-anchor-line]").first()
+        const merged = demo.locator("[data-place-proposal][data-place-recorded='true']").first()
         const name = merged.locator("[data-place-feature]")
         yield* act(() => name.scrollIntoViewIfNeeded())
         yield* hover(name)
@@ -159,6 +168,37 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           band.locator("[data-place-band-disc]"),
           yield* act(() => demo.locator("[data-place-marker]").count())
         )
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("to assistive technology the band is one link, named for where it goes and what it shows", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
+        yield* goto(page, "/")
+        yield* visible(rendered(page))
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const band = page.locator("[data-place-band]")
+        yield* act(() => demo.locator("[data-place-stage='column']").evaluate(scrollPast))
+        yield* visible(band)
+        const names = yield* act(() => band.evaluate(bandDiscNames))
+        expect(names.length).toBeGreaterThan(1)
+        // The row and the arrow are decoration; the tree holds the link alone, and its name lists the row.
+        const nodes = Arr.filter((yield* accessibilityTree(band)).split("\n"), (line) => !line.startsWith(" "))
+        expect(nodes).toHaveLength(1)
+        expect(nodes[0]).toMatch(/^- '?link "Back to the place: /u)
+        const named = (drawn: ReadonlyArray<string>) =>
+          band.getByRole("link", { exact: true, name: `Back to the place: ${Arr.join(drawn, ", ")}` })
+        yield* count(named(names), 1)
+        yield* attribute(named(names), "href", `#${imaginedPlaceSectionId}`)
+        yield* count(band.getByRole("img"), 0)
+        // A merge adds a disc to the row, and its name to the link.
+        yield* click(demo.getByRole("switch", { checked: false }).first())
+        const after = yield* until(
+          act(() => band.evaluate(bandDiscNames)),
+          (drawn) => drawn.length === names.length + 1,
+          "one more disc in the band"
+        )
+        yield* count(named(after), 1)
         expect(yield* failures).toEqual([])
       }))
 

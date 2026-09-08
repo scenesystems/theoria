@@ -10,6 +10,7 @@ import {
   layoutSite,
   PlaceAnswer,
   type PlaceMark,
+  placeSourceId,
   proposalDigestSite,
   proposalSignatureSite,
   separationSite
@@ -23,12 +24,7 @@ import {
   placeFocusedLineAtom,
   placeMarkFocusedAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
-import {
-  drawingId,
-  placeProposalLineAtom,
-  type PlaceRenderFrame,
-  placeShownFrameAtom
-} from "../../app/web/atoms/imagined-place-render.js"
+import { drawingId, type PlaceRenderFrame, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
 import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
 import { proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
 import { onStage } from "../helpers/place-on-stage.js"
@@ -239,20 +235,33 @@ describe("place focus", () => {
       expect(onTrial.get(placeFocusedLineAtom)).not.toEqual(onKept.get(placeFocusedLineAtom))
     }))
 
-  it.effect("a proposal's sentence is anchored on the line it stands on in the drawing shown, a chosen trial included", () =>
+  it.effect("the line a merged proposal's sentence stands on, pointed at, lights the proposal's name and its disc — and follows the drawing shown", () =>
     Effect.gen(function*() {
       const { build, showingKept, showingTrial } = yield* onStage
       const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
-      const onKept = pageShowing(build, showingKept)
-      expect(onKept.get(placeProposalLineAtom(merged.proposal.proposer))).toEqual(
-        proposalAnchorLine(showingKept.rendering.projection, merged)
-      )
+      const declined = yield* Arr.findFirst(build.proposals, (record) => !record.accepted)
+      const feature: PlaceMark = { _tag: "Feature", name: merged.proposal.feature.name }
+      const disc: PlaceMark = { _tag: "Disc", name: merged.proposal.feature.name, source: placeSourceId(build) }
+
       const onTrial = pageShowing(build, showingTrial)
-      expect(onTrial.get(placeProposalLineAtom(merged.proposal.proposer))).toEqual(
-        proposalAnchorLine(showingTrial.rendering.projection, merged)
-      )
-      expect(onTrial.get(placeProposalLineAtom(merged.proposal.proposer))).not.toEqual(
-        onKept.get(placeProposalLineAtom(merged.proposal.proposer))
-      )
+      const onTrialLine = yield* proposalAnchorLine(showingTrial.rendering.projection, merged)
+      onTrial.set(placeFocusAtom, Option.some(line(onTrialLine, showingTrial)))
+      expect(lit(onTrial, line(onTrialLine, showingTrial))).toBe(true)
+      expect(lit(onTrial, feature)).toBe(true)
+      expect(lit(onTrial, disc)).toBe(true)
+      expect(lit(onTrial, { _tag: "Feature", name: declined.proposal.feature.name })).toBe(false)
+      // The line before it carries the composition's own words: no proposal lights from it.
+      onTrial.set(placeFocusAtom, Option.some(line(onTrialLine - 1, showingTrial)))
+      expect(lit(onTrial, feature)).toBe(false)
+      expect(lit(onTrial, disc)).toBe(false)
+
+      // On the kept drawing the sentence stands on another line; that line lights the proposal, the trial's line no longer does.
+      const onKept = pageShowing(build, showingKept)
+      const onKeptLine = yield* proposalAnchorLine(showingKept.rendering.projection, merged)
+      expect(onKeptLine).not.toBe(onTrialLine)
+      onKept.set(placeFocusAtom, Option.some(line(onKeptLine, showingKept)))
+      expect(lit(onKept, feature)).toBe(true)
+      onKept.set(placeFocusAtom, Option.some(line(onTrialLine, showingKept)))
+      expect(lit(onKept, feature)).toBe(false)
     }))
 })

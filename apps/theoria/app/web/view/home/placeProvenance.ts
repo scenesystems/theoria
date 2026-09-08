@@ -36,7 +36,14 @@ import {
 import { type ParticipantRole, placeFeatures } from "../../../contracts/imagined-place.js"
 import { drawingId, PlaceRenderFrame, type PlaceSearch } from "../../atoms/imagined-place-render.js"
 
-import { currentVersion, participantLabel, searching, shortId, signatureFor } from "./placeViewModel.js"
+import {
+  currentVersion,
+  participantLabel,
+  proposalAnchorLine,
+  searching,
+  shortId,
+  signatureFor
+} from "./placeViewModel.js"
 
 /**
  * What the page says about the thing under the pointer. Every answer is
@@ -310,7 +317,9 @@ const featuresOfSubject = (build: PlaceBuild, contentId: string): ReadonlyArray<
  * The names of the features a mark is about, read from the build it is of:
  * a feature's own; every feature the composing line, or the recorded
  * inference, returned; the features a content ID or a signature is over. A
- * line of the prose, a trial and the sealed note are about no feature.
+ * trial and the sealed note are about no feature; a line of the prose is
+ * about the proposal standing on it, which `lineAnswer` reads from the
+ * drawing shown, as the build alone does not know where the lines fall.
  */
 const aboutFeatures = (mark: PlaceMark, build: PlaceBuild): ReadonlyArray<string> =>
   Match.value(mark).pipe(
@@ -369,13 +378,31 @@ const fullLineWidth = (projection: PlaceProjection): number => projection.stageW
 const beside = (frame: PlaceRenderFrame, index: number) =>
   markersBeside(frame.rendering.projection, frame.rendering.projection.markers, index)
 
-/** A line's room is what the discs beside it leave; a full line has none beside it. */
+/**
+ * The merged proposals whose sentence begins on a line of the drawing on the
+ * paper — the same rule that anchors a proposal beside its line, read from
+ * the drawing shown, so it follows the sentence as the prose reflows.
+ */
+const standingOn = (frame: PlaceRenderFrame, index: number): ReadonlyArray<ProposalRecord> =>
+  Arr.filter(
+    frame.search.source.proposals,
+    (record) => Option.contains(proposalAnchorLine(frame.rendering.projection, record), index)
+  )
+
+/**
+ * A line's room is what the discs beside it leave; a full line has none
+ * beside it. A line where a merged proposal's sentence begins is about that
+ * proposal's feature, so pointing at the line lights the proposal's name in
+ * the column and its disc on the paper, as pointing at the name lights the
+ * line.
+ */
 const lineAnswer = (mark: PlaceMark, frame: PlaceRenderFrame, index: number): Option.Option<PlaceProvenance> => {
   const projection = frame.rendering.projection
   const full = fullLineWidth(projection)
   const besideIt = beside(frame, index)
-  return Option.map(Arr.get(projection.lines, index), (line) =>
-    answer(
+  const adds = Arr.map(standingOn(frame, index), (record) => record.proposal.feature.name)
+  return Option.map(Arr.get(projection.lines, index), (line) => ({
+    ...answer(
       mark,
       `Line ${String(index + 1)} of ${String(projection.lines.length)}`,
       Arr.appendAll(
@@ -388,12 +415,17 @@ const lineAnswer = (mark: PlaceMark, frame: PlaceRenderFrame, index: number): Op
           ),
           fact("Set", `${String(Math.round(line.width))} px`)
         ],
-        Arr.isNonEmptyReadonlyArray(besideIt)
-          ? [fact("Beside", Arr.join(Arr.map(besideIt, (marker) => marker.name), ", "))]
-          : []
+        Arr.appendAll(
+          Arr.isNonEmptyReadonlyArray(besideIt)
+            ? [fact("Beside", Arr.join(Arr.map(besideIt, (marker) => marker.name), ", "))]
+            : [],
+          Arr.isNonEmptyReadonlyArray(adds) ? [fact("Adds", Arr.join(adds, ", "))] : []
+        )
       ),
       layoutSite
-    ))
+    ),
+    about: adds
+  }))
 }
 
 const trialAnswer = (mark: PlaceMark, search: PlaceSearch, index: number): Option.Option<PlaceProvenance> =>

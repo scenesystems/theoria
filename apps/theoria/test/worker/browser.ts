@@ -185,6 +185,13 @@ export const attribute = (locator: Locator, name: string, expected: string | Reg
   act(() => inBrowser(locator).toHaveAttribute(name, expected))
 export const withoutAttribute = (locator: Locator, name: string) =>
   act(() => inBrowser(locator).not.toHaveAttribute(name))
+/**
+ * The accessibility tree under `locator`, as Playwright's ARIA snapshot
+ * writes it: one YAML line per node, `- role "name"`, children indented.
+ * Decoration (`aria-hidden`) has no node.
+ */
+export const accessibilityTree = (locator: Locator): Effect.Effect<string, BrowserError> =>
+  act(() => locator.ariaSnapshot())
 export const urlMatches = (page: Page, pattern: RegExp) => act(() => inBrowser(page).toHaveURL(pattern))
 
 /** Waits for the next response whose URL ends with `suffix` from a request with `method`. */

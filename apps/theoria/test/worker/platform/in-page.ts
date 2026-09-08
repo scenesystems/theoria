@@ -744,6 +744,10 @@ export const storyDrawn = (region: Element): boolean => {
 export const bandDiscCentre = (band: Element, name: string): string =>
   band.querySelector(`[data-place-band-disc="${name}"]`)?.getAttribute("cx") ?? ""
 
+/** The names of the discs the band draws, left to right as the row has them. */
+export const bandDiscNames = (band: Element): ReadonlyArray<string> =>
+  [...band.querySelectorAll("[data-place-band-disc]")].map((disc) => disc.getAttribute("data-place-band-disc") ?? "")
+
 /** The band draws the disc named, and the paper's drawing is the kept one: a merge has landed in the band. */
 export const bandShowsKept = (band: Element, name: string): boolean =>
   [...band.querySelectorAll("[data-place-band-disc]")].filter((disc) =>

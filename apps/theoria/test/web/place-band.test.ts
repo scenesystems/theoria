@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import { ParticipantRole } from "../../app/contracts/imagined-place.js"
 import { PlaceDiscDrawn } from "../../app/web/atoms/imagined-place-render.js"
-import { bandDiscClassName, bandDiscPlacing, bandRow } from "../../app/web/view/home/placeViewModel.js"
+import { bandDiscClassName, bandDiscPlacing, bandLabel, bandRow } from "../../app/web/view/home/placeViewModel.js"
 import { departed, shiftTransition } from "../../app/web/view/primitives/motion.js"
 import { onStage } from "../helpers/place-on-stage.js"
 
@@ -33,6 +33,21 @@ describe("place band", () => {
         expect(edge.left).toBeGreaterThan(0)
         expect(edge.right).toBeLessThan(row.width)
       })
+    }))
+
+  /**
+   * The strip is one link; its drawing is decoration to assistive technology.
+   * So the link's name says what the drawing shows — the place's features, in
+   * the row's order — and not only where it goes.
+   */
+  it.effect("names itself from its row: where it goes, and the features it shows, in order", () =>
+    Effect.gen(function*() {
+      const { kept } = yield* onStage
+      const row = bandRow(kept.projection)
+      const names = Arr.map(row.discs, (disc) => disc.marker.name)
+      expect(names.length).toBeGreaterThan(1)
+      expect(bandLabel(row)).toBe(`Back to the place: ${Arr.join(names, ", ")}`)
+      expect(bandLabel({ ...row, discs: [] })).toBe("Back to the place")
     }))
 
   it.effect("is a strip: its paper is no thicker than a quarter of the tallest disc, above and below", () =>

@@ -28,19 +28,14 @@ import { placeSourceId } from "../../contracts/demo/imagined-place-provenance.js
 import { type Meander, renderTrials } from "../../contracts/demo/imagined-place-search.js"
 import { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import { PlaceBuild } from "../../contracts/imagined-place-result.js"
-import { type ParticipantRole, placeFeatures } from "../../contracts/imagined-place.js"
+import { placeFeatures } from "../../contracts/imagined-place.js"
 import { motionDuration, motionExitBound } from "../../contracts/motion.js"
 import { journeyFrom, releaseRest, toward, travellingOver } from "../motion/travel.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
 import { PlaceSearcher, workerGone } from "../services/PlaceSearcher.js"
 import type { BrowserTextLayout } from "../text/browserTextLayout.js"
 import { MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
-import {
-  legendFromMarkers,
-  legendFromOutline,
-  type PlaceLegendEntry,
-  proposalAnchorLine
-} from "../view/home/placeViewModel.js"
+import { legendFromMarkers, legendFromOutline, type PlaceLegendEntry } from "../view/home/placeViewModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
 import { placeBuildAtom, placeBuiltAtom, placeOutlineAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
@@ -709,23 +704,4 @@ export const placeWait = (failure: Option.Option<StageFailure>): PlaceWait =>
 
 export const placeWaitAtom: AtomType.Atom<PlaceWait> = Atom.make((get: AtomType.Context) =>
   placeWait(get(placeFailureAtom))
-)
-
-/**
- * The line of the drawn prose a merged proposal's sentence stands on, if it
- * is merged and drawn. Follows the drawing shown — the trial chosen from the
- * trace included — which reflows the prose as the discs travel, and changes
- * only when the sentence moves to another line.
- */
-export const placeProposalLineAtom = Atom.family((proposer: ParticipantRole): AtomType.Atom<Option.Option<number>> =>
-  Atom.make((get: AtomType.Context) =>
-    Option.flatMap(
-      Result.value(get(placeShownFrameAtom)),
-      (frame) =>
-        Option.flatMap(
-          Arr.findFirst(frame.search.source.proposals, (record) => record.proposal.proposer === proposer),
-          (record) => proposalAnchorLine(frame.rendering.projection, record)
-        )
-    )
-  )
 )

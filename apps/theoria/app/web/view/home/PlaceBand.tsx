@@ -19,6 +19,7 @@ import {
   type BandDisc,
   bandDiscClassName,
   bandDiscPlacing,
+  bandLabel,
   type BandRow,
   bandRow,
   markerContributor
@@ -28,10 +29,11 @@ import {
  * The place as a band, pinned to the top of the viewport while the stage is
  * scrolled past: its discs in a row on a strip of paper, at the frame being
  * drawn, so a merge made from an act below the stage is seen arriving, and a
- * code line pointed at in the Build act lights the disc it made. It carries
+ * code line pointed at in the Build act lights the disc it made. It shows
  * no words: the prose and the names stay on the stage. It is one link back
  * to the stage, and says so with an arrow up; the drawing itself says
- * nothing the stage does not.
+ * nothing the stage does not, and the link's name says what the drawing
+ * shows to those who cannot see it.
  *
  * The band lives in the page's flow so the acts scroll under it as under a
  * header, and it ends with the demonstration. Its slot has no height: the
@@ -89,18 +91,26 @@ const Row = ({ row }: { readonly row: BandRow }) => (
 /** Arrives as anything on the page does and leaves quicker, so the stage coming back leads. */
 const leaving = { ...departed, transition: exitTransition }
 
-const Band = ({ frame }: { readonly frame: PlaceRenderFrame }) => (
-  <Layer
-    render={<m.div animate={arrivedAt} exit={leaving} initial={arrivalFrom} />}
-    className={bandClassName}
-    data-place-band
-  >
-    <AnchorLink aria-label="Back to the place" className={linkClassName} href={`#${imaginedPlaceSectionId}`}>
-      <Row row={bandRow(frame.rendering.projection)} />
-      <ArrowUpIcon aria-hidden className="size-3.5 shrink-0 text-ink-500" data-place-band-icon />
-    </AnchorLink>
-  </Layer>
-)
+/**
+ * One link, named from the row it draws (`bandLabel`): the drawing and the
+ * arrow are decoration to assistive technology, so the name carries what
+ * they show.
+ */
+const Band = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
+  const row = bandRow(frame.rendering.projection)
+  return (
+    <Layer
+      render={<m.div animate={arrivedAt} exit={leaving} initial={arrivalFrom} />}
+      className={bandClassName}
+      data-place-band
+    >
+      <AnchorLink aria-label={bandLabel(row)} className={linkClassName} href={`#${imaginedPlaceSectionId}`}>
+        <Row row={row} />
+        <ArrowUpIcon aria-hidden className="size-3.5 shrink-0 text-ink-500" data-place-band-icon />
+      </AnchorLink>
+    </Layer>
+  )
+}
 
 export const PlaceBand = () => {
   const shown = useAtomValue(placeBandAtom)

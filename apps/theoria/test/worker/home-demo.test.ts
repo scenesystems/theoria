@@ -520,13 +520,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* hidden(fold.locator("blockquote"))
         yield* visible(fold.getByText(/Sealed note · \d+ bytes/u))
 
-        // The merged proposal knows the drawn line its sentence starts on; the declined one is not in the prose.
+        // The merged proposal's name lights the drawn line its sentence starts on; the declined one is not in the prose.
         const neighbor = demo.locator("[data-place-proposal='neighbor']")
-        const line = yield* Option.fromNullable(yield* act(() => neighbor.getAttribute("data-place-anchor-line")))
         const adds = yield* act(() => neighbor.getByRole("definition").first().innerText())
         const firstWord = Option.getOrElse(Arr.head(adds.split(" ")), () => adds)
-        yield* containsText(demo.locator(`[data-place-line='${line}']`), firstWord)
-        yield* count(demo.locator("[data-place-proposal='program'][data-place-anchor-line]"), 0)
+        yield* hover(neighbor.locator("[data-place-feature]"))
+        const lit = demo.locator("[data-place-line][data-place-focused]")
+        yield* eventually(() => lit.count(), 1)
+        yield* containsText(lit, firstWord)
+        yield* hover(demo.locator("[data-place-proposal='program'] [data-place-feature]"))
+        yield* eventually(() => lit.count(), 0)
         expect(yield* failures).toEqual([])
       }))
 
@@ -984,16 +987,40 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* eventually(() => line(1).evaluate(isActiveElement), true)
 
         // A merged proposal's name, pointed at, lights its disc and the line of the drawing its sentence stands on.
-        const merged = demo.locator("[data-place-proposal][data-place-anchor-line]").first()
-        const anchored = yield* Option.fromNullable(yield* act(() => merged.getAttribute("data-place-anchor-line")))
+        const merged = demo.locator("[data-place-proposal][data-place-recorded='true']").first()
         const name = merged.locator("[data-place-feature]")
+        const featureName = yield* act(() => name.innerText())
         yield* act(() => name.scrollIntoViewIfNeeded())
         yield* hover(name)
         yield* visible(overlay)
         yield* attribute(name, "data-place-focused", "")
         yield* count(demo.locator("[data-place-marker][data-place-focused]"), 1)
-        yield* attribute(line(Number(anchored)), "data-place-focused", "")
         yield* count(demo.locator("[data-place-line][data-place-focused]"), 1)
+        const litLine = demo.locator("[data-place-line][data-place-focused]")
+        const anchored = yield* Option.fromNullable(yield* act(() => litLine.getAttribute("data-place-line")))
+        // The declined proposal's sentence is not in the prose: its name lights no line.
+        const declined = demo.locator("[data-place-proposal][data-place-recorded='false']").first()
+        yield* hover(declined.locator("[data-place-feature]"))
+        yield* eventually(() => demo.locator("[data-place-line][data-place-focused]").count(), 0)
+
+        // And the other way: that line, pointed at, lights the proposal's name and its disc, and says what it adds.
+        yield* act(() => line(Number(anchored)).scrollIntoViewIfNeeded())
+        yield* hover(line(Number(anchored)))
+        yield* eventually(() => line(Number(anchored)).getAttribute("data-place-focused"), "")
+        const current = overlay.locator("[data-current]")
+        yield* containsText(current.getByRole("heading", { level: 3 }), `Line ${String(Number(anchored) + 1)} of `)
+        yield* containsText(current, featureName)
+        yield* attribute(name, "data-place-focused", "")
+        yield* count(demo.locator("[data-place-feature][data-place-focused]"), 1)
+        yield* count(demo.locator("[data-place-marker][data-place-focused]"), 1)
+        // The line before it carries the composition's own words and lights no proposal. (The open
+        // answer stands over that line, as a popup above its anchor does, so it is let go first.)
+        yield* press(page, "Escape")
+        yield* hidden(overlay)
+        yield* hover(line(Number(anchored) - 1))
+        yield* eventually(() => line(Number(anchored) - 1).getAttribute("data-place-focused"), "")
+        yield* count(demo.locator("[data-place-feature][data-place-focused]"), 0)
+        yield* count(demo.locator("[data-place-marker][data-place-focused]"), 0)
         expect(yield* failures).toEqual([])
       }))
 
