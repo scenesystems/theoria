@@ -1,21 +1,28 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowUpIcon } from "@heroicons/react/20/solid"
-import { Match, Option } from "effect"
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 
 import { placeBandAtom, placeFeatureFocusedAtom } from "../../atoms/imagined-place-experience.js"
 import { placeDiscDrawnAtom, type PlaceRenderFrame, placeShownFrameAtom } from "../../atoms/imagined-place-render.js"
-import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
+import { motionPreferenceAtom } from "../../atoms/motion.js"
 import { elevationClassName, focusEdgeClassName } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
 import { arrivalFrom, arrivedAt, departed, exitTransition } from "../primitives/motion.js"
 
 import { imaginedPlaceSectionId } from "./HomeHero.js"
-import { type BandDisc, bandDiscClassName, type BandRow, bandRow, markerContributor } from "./placeViewModel.js"
+import {
+  type BandDisc,
+  bandDiscClassName,
+  bandDiscPlacing,
+  type BandRow,
+  bandRow,
+  markerContributor
+} from "./placeViewModel.js"
 
 /**
  * The place as a band, pinned to the top of the viewport while the stage is
@@ -44,20 +51,6 @@ const bandClassName = "flex justify-center pt-3"
 const linkClassName =
   `inline-flex max-w-full items-center gap-2 rounded-full bg-stage-50 px-2.5 py-1.5 ring-1 ring-rule-strong shadow-surface ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 forced-colors:border forced-colors:border-[CanvasText]`
 
-/**
- * How a disc takes its place in the row: sliding over as a merge shifts the
- * row, or — under reduced motion — placed outright where it now stands,
- * fading in and out alone. `cx` is not among the values Motion holds still
- * for reduced motion, so it is kept out of Motion's hands there and written
- * as the attribute it is.
- */
-const placing = (preference: MotionPreference, cx: number) =>
-  Match.value(preference).pipe(
-    Match.when("full", () => ({ initial: { cx, opacity: 0 }, animate: { cx, opacity: 1 } })),
-    Match.when("reduced", () => ({ cx: cx.toFixed(1), initial: departed, animate: { opacity: 1 } })),
-    Match.exhaustive
-  )
-
 const Disc = ({ cy, disc }: { readonly cy: number; readonly disc: BandDisc }) => {
   const drawn = useAtomValue(placeDiscDrawnAtom(disc.marker.name))
   const focused = useAtomValue(placeFeatureFocusedAtom(disc.marker.name))
@@ -70,7 +63,7 @@ const Disc = ({ cy, disc }: { readonly cy: number; readonly disc: BandDisc }) =>
       data-place-focused={focused ? "" : undefined}
       exit={{ opacity: 0, transition: exitTransition }}
       r={disc.marker.radius.toFixed(1)}
-      {...placing(preference, disc.cx)}
+      {...bandDiscPlacing(preference, disc.cx)}
     />
   )
 }

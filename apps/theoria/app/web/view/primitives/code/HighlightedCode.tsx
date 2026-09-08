@@ -120,7 +120,7 @@ export const HighlightedCode = ({
             className={focusableLineRowClassName}
             data-code-line-focused={lineMatches(line, focusedMatch) ? "" : undefined}
           >
-            <span className="block select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-700/65">
+            <span className="block select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-700">
               {renderLineNumber(new GutterLine({ number: lineIndex + 1, text: lineText(line) }))}
             </span>
             <span className="whitespace-pre">

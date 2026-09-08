@@ -4,6 +4,7 @@ import type { Locator, Page } from "@playwright/test"
 import { Chunk, Effect, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
+import * as Str from "effect/String"
 
 import { type PlaceScenario, placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
 import type { ColorScheme, Viewport } from "./browser.js"
@@ -25,12 +26,10 @@ import {
   visible
 } from "./browser.js"
 import {
+  contrastsWithin,
   fullyInViewport,
-  lowestTextContrastWithin,
   motionSample,
   paperProseContrast,
-  recordedPaperFrames,
-  recordPaperFrames,
   scrollElementTo,
   scrollToTop,
   storyDrawn,
@@ -109,11 +108,21 @@ const storyTaken = (page: Page, scenario: PlaceScenario) =>
     eventually(() => page.getByRole("region", { name: "Imagined place demo" }).evaluate(storyDrawn), true)
   )
 
-const readable = (locator: Locator) =>
-  Effect.map(act(() => locator.evaluate(lowestTextContrastWithin)), (lowest) => {
-    expect(lowest.ratio, lowest.text).toBeGreaterThanOrEqual(4.5)
-    return lowest.ratio
+/**
+ * Everything of one kind under the locator reaches the ratio, and there is
+ * something of that kind to measure: words at 4.5:1 (WCAG 1.4.3), painted
+ * shapes at 3:1 (WCAG 1.4.11).
+ */
+const reaches = (kind: "text" | "graphic", ratio: number) => (locator: Locator) =>
+  Effect.map(act(() => locator.evaluate(contrastsWithin)), (measured) => {
+    const ofKind = Arr.filter(measured, (measure) => measure.kind === kind)
+    expect(ofKind, `${kind} to measure`).not.toEqual([])
+    Arr.forEach(ofKind, (measure) => {
+      expect(measure.ratio, measure.name).toBeGreaterThanOrEqual(ratio)
+    })
   })
+const readable = reaches("text", 4.5)
+const distinct = reaches("graphic", 3)
 
 /** What an honest reduced-motion change may still animate: colour and opacity, never geometry. */
 const opacityAndColour = [
@@ -164,7 +173,6 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
     it.scoped("under reduced motion the search still has frames, and merges and story changes move only by opacity", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" })
-        yield* act(() => page.addInitScript(recordPaperFrames))
         yield* goto(page, "/")
         yield* visible(rendered(page))
         // Nothing animates a geometric property. The title, the step headers and the paper stand only where
@@ -220,7 +228,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 expect(Arr.difference(during, [rested]).length, `${name} during ${drawing}`).toBeLessThanOrEqual(1)
               })
             })
-            return properties
+            // How many trials the sampled frames saw drawn, by the trace's count.
+            return Arr.length(Arr.dedupe(Arr.map(samples, (frame) => frame.trials)))
           })
         const merge = page.getByRole("switch", { checked: false, name: /^Merge Ship's bell/u })
         yield* act(() => merge.scrollIntoViewIfNeeded())
@@ -229,14 +238,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           name: placeScenarioMeta["lost-market"].label
         })
         yield* act(() => story.scrollIntoViewIfNeeded())
-        yield* onlyOpacityAcross(click(story))
-        // The search is a real process: it drew more than one trial on the way to the kept one.
-        const trials = Arr.dedupe(
-          (yield* act(() => page.evaluate(recordedPaperFrames))).split("\n").filter((frame) =>
-            frame.includes("running")
-          )
-        )
-        expect(trials.length).toBeGreaterThanOrEqual(2)
+        // The search is a real process: the frames saw it draw more than one trial on the way to the kept one.
+        expect(yield* onlyOpacityAcross(click(story))).toBeGreaterThanOrEqual(2)
         expect(yield* failures).toEqual([])
       }))
 
@@ -261,21 +264,26 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* act(() =>
               build.evaluate(scrollElementTo, 0)
             )
+            // The band carries no words: its discs and its arrow are what must stand out from the strip.
             const bandLink = page.locator("[data-place-band] a")
             yield* visible(bandLink)
-            yield* readable(bandLink)
+            yield* distinct(bandLink)
             yield* hover(build.locator("[data-place-code-line]").first())
             const litLine = build.locator("[data-code-line-focused]")
             yield* visible(litLine)
             yield* readable(litLine)
-            // A search running, then the story changed.
+            // A search running — its caption saying so, not the last search's settled one — then the story changed.
             yield* click(
               page.getByRole("radiogroup", { name: "Scenario" }).getByRole("radio", {
                 name: placeScenarioMeta[scenario].label
               })
             )
             const caption = page.locator("[data-place-search-caption]")
-            yield* until(act(() => caption.innerText()), (text) => text.length > 0, "the search's caption")
+            yield* until(
+              act(() => caption.innerText()),
+              (text) => Str.startsWith("Searching arrangements")(text),
+              "the running search's caption"
+            )
             yield* readable(caption)
             yield* storyTaken(page, scenario)
             expect(yield* act(() => page.evaluate(paperProseContrast))).toBeGreaterThanOrEqual(4.5)

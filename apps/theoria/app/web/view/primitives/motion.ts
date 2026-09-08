@@ -16,8 +16,9 @@ const seconds = (duration: Duration.Duration): number => Duration.toSeconds(dura
 /**
  * The theme's transition, set once on `MotionConfig`: values arrive over
  * `enter`. Something already on the page moving takes `shift`, which the
- * drawing's travel reads for itself. Feature code passes its own
- * `transition` only for exits and staggers.
+ * drawing's travel reads for itself and Motion is handed as
+ * `shiftTransition`. Feature code passes its own `transition` only for
+ * exits, shifts and staggers.
  */
 export const themeTransition: Transition = {
   duration: seconds(motionDuration("enter")),
@@ -26,6 +27,9 @@ export const themeTransition: Transition = {
 
 /** Leaving is quicker than arriving, so the new state leads. */
 export const exitTransition: Transition = { duration: seconds(motionDuration("exit")), ease: motionEase }
+
+/** Something already on the page moving to a new place: slowest of the relations, so the eye follows. */
+export const shiftTransition: Transition = { duration: seconds(motionDuration("shift")), ease: motionEase }
 
 /** The walk drawing itself once the search settles. */
 export const walkDrawTransition: Transition = { duration: seconds(motionWalkDraw), ease: motionEase }

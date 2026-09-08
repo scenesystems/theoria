@@ -668,13 +668,21 @@ export const textColour = (element: Element) => getComputedStyle(element).color
 export const surfacePaint = (element: Element) => getComputedStyle(element).backgroundImage
 
 /**
- * The lowest WCAG contrast of any visible text under `root` — every element
- * that holds its own words, `root` included, each against what it is painted
- * over: its ancestors' backgrounds composited from the nearest opaque one
- * down, and the browser's white canvas when no ancestor paints at all. The
- * words come back with the ratio, so a failure names them.
+ * The WCAG contrast of everything visible under `root`, `root` included:
+ * every element that holds its own words, as `text`, and every painted SVG
+ * shape — a disc, an icon's path — as a `graphic`, each against what it is
+ * painted over: its ancestors' backgrounds composited from the nearest opaque
+ * one down, and the browser's white canvas when no ancestor paints at all. A
+ * translucent colour is composited over that surface before it is measured.
+ * Each comes back named — the words, or the shape's `data-place-*` name — so
+ * a failure says what, and the test decides what each kind must reach and
+ * that anything was measured at all: an empty answer is not a passing one.
  */
-export const lowestTextContrastWithin = (root: Element): { readonly ratio: number; readonly text: string } => {
+export const contrastsWithin = (root: Element): ReadonlyArray<{
+  readonly kind: "text" | "graphic"
+  readonly ratio: number
+  readonly name: string
+}> => {
   const channels = (colour: string): ReadonlyArray<number> => {
     const canvas = document.createElement("canvas")
     canvas.width = 1
@@ -687,17 +695,20 @@ export const lowestTextContrastWithin = (root: Element): { readonly ratio: numbe
     const [red = 0, green = 0, blue = 0, alpha = 0] = context.getImageData(0, 0, 1, 1).data
     return [red, green, blue, alpha / 255]
   }
-  const opaqueBackground = (node: Element): string => {
-    const colour = getComputedStyle(node).backgroundColor
+  const over = (colour: string, beneath: string): string => {
     const values = channels(colour)
     const alpha = values[3] ?? 1
-    const parent = node.parentElement
     if (alpha >= 1) return colour
-    if (!(parent instanceof Element)) return "rgb(255 255 255)"
-    const beneath = channels(opaqueBackground(parent))
-    return `rgb(${String((values[0] ?? 0) * alpha + (beneath[0] ?? 0) * (1 - alpha))} ${
-      String((values[1] ?? 0) * alpha + (beneath[1] ?? 0) * (1 - alpha))
-    } ${String((values[2] ?? 0) * alpha + (beneath[2] ?? 0) * (1 - alpha))})`
+    const under = channels(beneath)
+    return `rgb(${String((values[0] ?? 0) * alpha + (under[0] ?? 0) * (1 - alpha))} ${
+      String((values[1] ?? 0) * alpha + (under[1] ?? 0) * (1 - alpha))
+    } ${String((values[2] ?? 0) * alpha + (under[2] ?? 0) * (1 - alpha))})`
+  }
+  const opaqueBackground = (node: Element): string => {
+    const colour = getComputedStyle(node).backgroundColor
+    const parent = node.parentElement
+    if ((channels(colour)[3] ?? 1) >= 1) return colour
+    return over(colour, parent instanceof Element ? opaqueBackground(parent) : "rgb(255 255 255)")
   }
   const channel = (value: number) => {
     const share = value / 255
@@ -707,23 +718,49 @@ export const lowestTextContrastWithin = (root: Element): { readonly ratio: numbe
     const [r = 0, g = 0, b = 0] = channels(colour)
     return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
   }
-  const contrast = (element: Element) => {
-    const values = [luminance(getComputedStyle(element).color), luminance(opaqueBackground(element))]
-      .sort((left, right) => right - left)
+  const contrast = (paint: string, element: Element) => {
+    const beneath = opaqueBackground(element)
+    const values = [luminance(over(paint, beneath)), luminance(beneath)].sort((left, right) => right - left)
     return ((values[0] ?? 0) + 0.05) / ((values[1] ?? 0) + 0.05)
   }
   const holdsWords = (element: Element) =>
     [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "")
+  const shapes = ["circle", "ellipse", "rect", "path", "line", "polyline", "polygon"]
+  // What a shape is told apart by: its stroke where one is painted — a painted boundary is what must stand
+  // out from the surface (WCAG 1.4.11) — else its fill; nothing where it has neither.
+  const shapePaint = (element: Element): string => {
+    if (!(element instanceof SVGElement) || !shapes.includes(element.tagName.toLowerCase())) return "none"
+    const style = getComputedStyle(element)
+    const strokePainted = style.stroke !== "none" && (channels(style.stroke)[3] ?? 0) > 0
+      && Number.parseFloat(style.strokeWidth) > 0
+    return strokePainted ? style.stroke : style.fill
+  }
   const shown = (element: Element) => {
     const rect = element.getBoundingClientRect()
     const style = getComputedStyle(element)
     return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && Number(style.opacity) > 0
   }
-  const measured = [root, ...root.querySelectorAll("*")]
-    .filter((element) => holdsWords(element) && shown(element))
-    .map((element) => ({ ratio: contrast(element), text: (element.textContent ?? "").trim().slice(0, 40) }))
-    .sort((left, right) => left.ratio - right.ratio)
-  return measured[0] ?? { ratio: Number.POSITIVE_INFINITY, text: "" }
+  const shapeName = (element: Element): string =>
+    element.getAttributeNames()
+      .filter((name) => name.startsWith("data-place-"))
+      .map((name) => `${name}=${element.getAttribute(name) ?? ""}`)[0] ?? element.tagName.toLowerCase()
+  const measurement = (kind: "text" | "graphic", ratio: number, name: string) => ({ kind, ratio, name })
+  return [root, ...root.querySelectorAll("*")]
+    .filter((element) => shown(element))
+    .flatMap((element) => {
+      const paint = shapePaint(element)
+      if (holdsWords(element)) {
+        return [
+          measurement(
+            "text",
+            contrast(getComputedStyle(element).color, element),
+            (element.textContent ?? "").trim().slice(0, 40)
+          )
+        ]
+      }
+      if (paint !== "none") return [measurement("graphic", contrast(paint, element), shapeName(element))]
+      return []
+    })
 }
 
 /**

@@ -22,6 +22,7 @@ import { motionConfigReducedMotion } from "../../app/web/atoms/motion.js"
 import {
   exitTransition,
   pulseTransition,
+  shiftTransition,
   staggeredArrival,
   themeTransition,
   valueWashTransition,
@@ -86,6 +87,7 @@ describe("motion contract", () => {
     Effect.sync(() => {
       expect(themeTransition).toEqual({ duration: Duration.toSeconds(motionDuration("enter")), ease: motionEase })
       expect(exitTransition.duration).toBe(Duration.toSeconds(motionDuration("exit")))
+      expect(shiftTransition).toEqual({ duration: Duration.toSeconds(motionDuration("shift")), ease: motionEase })
     }))
 
   it.effect("staggers arrivals but lands the last one within the budget however many there are", () =>

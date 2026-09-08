@@ -16,7 +16,9 @@ import {
 import type { ParticipantRole, PlaceArtifact } from "../../../contracts/imagined-place.js"
 import type { CardTone } from "../../../contracts/theme.js"
 import type { PlaceDiscDrawn, PlaceSearch } from "../../atoms/imagined-place-render.js"
+import type { MotionPreference } from "../../atoms/motion.js"
 import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
+import { departed, shiftTransition } from "../primitives/motion.js"
 
 /**
  * Pure formatting for the home-page demo. Everything here turns a build or a
@@ -134,20 +136,22 @@ export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, 
           "fill-none stroke-tone-dsp-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
         Match.exhaustive
       )),
+    // The fills sit close to the strip in both themes, so the ring in the contributor's 500 stop is the
+    // boundary that stands out from it (≥ 3:1); focus deepens and thickens that ring.
     Match.whenOr("settled", "trial", () =>
       Match.value(role).pipe(
         Match.when("author", () =>
           focused
-            ? "fill-tone-sign-300 stroke-tone-sign-500 stroke-2 [vector-effect:non-scaling-stroke]"
-            : "fill-tone-sign-300 stroke-transparent stroke-2 [vector-effect:non-scaling-stroke]"),
+            ? "fill-tone-sign-300 stroke-tone-sign-700 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-sign-300 stroke-tone-sign-500 stroke-2 [vector-effect:non-scaling-stroke]"),
         Match.when("neighbor", () =>
           focused
-            ? "fill-tone-seal-300 stroke-tone-seal-500 stroke-2 [vector-effect:non-scaling-stroke]"
-            : "fill-tone-seal-300 stroke-transparent stroke-2 [vector-effect:non-scaling-stroke]"),
+            ? "fill-tone-seal-300 stroke-tone-seal-700 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-seal-300 stroke-tone-seal-500 stroke-2 [vector-effect:non-scaling-stroke]"),
         Match.when("program", () =>
           focused
-            ? "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-2 [vector-effect:non-scaling-stroke]"
-            : "fill-tone-dsp-300 stroke-transparent stroke-2 [vector-effect:non-scaling-stroke]"),
+            ? "fill-tone-dsp-300 stroke-tone-dsp-700 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-2 [vector-effect:non-scaling-stroke]"),
         Match.exhaustive
       )),
     Match.exhaustive
@@ -197,6 +201,24 @@ export const bandRow = (projection: PlaceProjection): BandRow =>
       }
     }
   })
+
+/**
+ * How a disc takes its place in the row: fading in where it stands, and
+ * sliding over at the shift relation as a merge shifts the row — or, under
+ * reduced motion, placed outright where it now stands, fading in alone. `cx`
+ * is not among the values Motion holds still for reduced motion, so it is
+ * kept out of Motion's hands there and written as the attribute it is.
+ */
+export const bandDiscPlacing = (preference: MotionPreference, cx: number) =>
+  Match.value(preference).pipe(
+    Match.when("full", () => ({
+      initial: { cx, opacity: 0 },
+      animate: { cx, opacity: 1 },
+      transition: { cx: shiftTransition }
+    })),
+    Match.when("reduced", () => ({ cx: cx.toFixed(1), initial: departed, animate: { opacity: 1 } })),
+    Match.exhaustive
+  )
 
 /** A declined proposal's ghost: a dashed ring in the proposer's tone. */
 export const ghostClassName = (role: ParticipantRole): string =>

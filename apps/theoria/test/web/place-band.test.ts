@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Match } from "effect"
 import * as Arr from "effect/Array"
 
-import { bandRow } from "../../app/web/view/home/placeViewModel.js"
+import { ParticipantRole } from "../../app/contracts/imagined-place.js"
+import { PlaceDiscDrawn } from "../../app/web/atoms/imagined-place-render.js"
+import { bandDiscClassName, bandDiscPlacing, bandRow } from "../../app/web/view/home/placeViewModel.js"
+import { departed, shiftTransition } from "../../app/web/view/primitives/motion.js"
 import { onStage } from "../helpers/place-on-stage.js"
 
 /**
@@ -42,6 +45,53 @@ describe("place band", () => {
       expect(row.height).toBeLessThanOrEqual(tallest * 2 * 1.25)
       Arr.forEach(row.discs, (disc) => {
         expect(disc.cx).toBeGreaterThanOrEqual(disc.marker.radius)
+      })
+    }))
+
+  /**
+   * A disc already in the row moving over is something on the page shifting,
+   * and takes the shift relation, not the arrival it fades in with. Under
+   * reduced motion its centre is written as the attribute it is, so nothing
+   * slides: Motion holds still only what it knows to.
+   */
+  it.effect("a disc slides over at the shift relation, and under reduced motion is placed outright", () =>
+    Effect.sync(() => {
+      expect(bandDiscPlacing("full", 120)).toEqual({
+        initial: { cx: 120, opacity: 0 },
+        animate: { cx: 120, opacity: 1 },
+        transition: { cx: shiftTransition }
+      })
+      expect(bandDiscPlacing("reduced", 120)).toEqual({
+        cx: "120.0",
+        initial: departed,
+        animate: { opacity: 1 }
+      })
+    }))
+
+  /**
+   * The strip and the discs' fills are near neighbours in both themes, so a
+   * settled disc is bounded by a stroke in its contributor's 500 stop — the
+   * boundary is what must stand out (WCAG 1.4.11) — and focus deepens that
+   * ring rather than being the only one.
+   */
+  it.effect("a settled disc is bounded by its contributor's ring, and focus deepens it", () =>
+    Effect.sync(() => {
+      Arr.forEach(ParticipantRole.literals, (role) => {
+        const tone = Match.value(role).pipe(
+          Match.when("author", () => "sign"),
+          Match.when("neighbor", () => "seal"),
+          Match.when("program", () => "dsp"),
+          Match.exhaustive
+        )
+        Arr.forEach(Arr.filter(PlaceDiscDrawn.literals, (drawn) => drawn !== "arriving"), (drawn) => {
+          const resting = bandDiscClassName(role, drawn, false)
+          const focused = bandDiscClassName(role, drawn, true)
+          expect(resting).toContain(`fill-tone-${tone}-300`)
+          expect(resting).toContain(`stroke-tone-${tone}-500`)
+          expect(resting).not.toContain("stroke-transparent")
+          expect(focused).toContain(`stroke-tone-${tone}-700`)
+          expect(focused).toContain("stroke-[3]")
+        })
       })
     }))
 })
