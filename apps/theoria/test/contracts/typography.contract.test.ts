@@ -2,11 +2,31 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { metricsAt, metricsOverride, textSemantics, viewports } from "../../app/contracts/text.js"
+import {
+  fontSizeCss,
+  lineHeightCss,
+  metricsAt,
+  metricsOverride,
+  textSemantics,
+  viewports
+} from "../../app/contracts/text.js"
 import { deterministicTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
 import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Typography contract", () => {
+  it.effect("display type is fluid on narrow viewports, in size and leading together", () =>
+    Effect.gen(function*() {
+      // At 320 the title stands five lines; fixed 36/40 leading pushes the hero's second action below
+      // a 568 px fold. Size and leading both follow the width between their bounds, so the title keeps
+      // one ratio and no width sees a step.
+      const narrow = metricsAt("display", Option.some("narrow"))
+      expect(fontSizeCss(narrow.fontSize)).toBe("clamp(32px, 10vw, 36px)")
+      expect(lineHeightCss(narrow.lineHeight)).toBe("clamp(36px, 11.25vw, 40px)")
+      // Fixed metrics still render as fixed pixels.
+      expect(fontSizeCss(metricsAt("display", Option.none()).fontSize)).toBe("44px")
+      expect(lineHeightCss(metricsAt("display", Option.none()).lineHeight)).toBe("50px")
+    }))
+
   it.effect("keeps projected typography independent of responsive metrics", () =>
     Effect.gen(function*() {
       const base = metricsAt("stage-prose", Option.none())

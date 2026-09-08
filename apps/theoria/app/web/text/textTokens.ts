@@ -7,6 +7,7 @@ import {
   fontFamilyThemeTokens,
   fontSizeCss,
   fontWeightNumeric,
+  lineHeightCss,
   metricsOverride,
   type TextSemantics,
   textSemantics,
@@ -42,7 +43,7 @@ const viewportTokens = (viewport: Viewport): ReadonlyArray<string> =>
       onNone: () => [],
       onSome: (metrics) => [
         `    --st-fs-${semantics.role}: ${fontSizeCss(metrics.fontSize)};`,
-        `    --st-lh-${semantics.role}: ${String(metrics.lineHeight)}px;`
+        `    --st-lh-${semantics.role}: ${lineHeightCss(metrics.lineHeight)};`
       ]
     }))
 

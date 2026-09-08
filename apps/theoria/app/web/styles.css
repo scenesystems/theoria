@@ -47,20 +47,8 @@
   --shadow-chip: var(--th-shadow-chip);
 
   /* The hero's rhythm above and below scales with viewport height, bounded, so the demonstration shares the first viewport. */
-  --spacing-hero-lead: var(--th-spacing-hero-lead);
-  --spacing-hero-trail: var(--th-spacing-hero-trail);
-}
-
-:root {
-  --th-spacing-hero-lead: clamp(2.5rem, 7svh, 6rem);
-  --th-spacing-hero-trail: clamp(2rem, 4.5svh, 5rem);
-}
-
-@media (max-height: 36rem) {
-  :root {
-    --th-spacing-hero-lead: 0.125rem;
-    --th-spacing-hero-trail: 0.125rem;
-  }
+  --spacing-hero-lead: clamp(2.5rem, 7svh, 6rem);
+  --spacing-hero-trail: clamp(2rem, 4.5svh, 5rem);
 }
 
 @theme {

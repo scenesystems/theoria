@@ -93,6 +93,7 @@ export const TextWrapAuthority = Schema.Literal("native-browser", "effect-text-p
 
 export type TextWrapAuthority = typeof TextWrapAuthority.Type
 
+/** A length that follows the viewport's width between two bounds: `clamp(min, vw, max)`. */
 export const FluidSize = Schema.Struct({
   min: PositiveWidth,
   vw: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
@@ -103,7 +104,16 @@ export type FluidSize = typeof FluidSize.Type
 export const FontSize = Schema.Union(Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)), FluidSize)
 export type FontSize = typeof FontSize.Type
 
-export const Metrics = Schema.Struct({ fontSize: FontSize, lineHeight: PositiveLineHeight })
+/** Leading, fixed or fluid: a fluid size wants fluid leading beside it, or the ratio between them drifts. */
+export const LineHeight = Schema.Union(PositiveLineHeight, FluidSize)
+export type LineHeight = typeof LineHeight.Type
+
+/**
+ * A role's metrics at a viewport. Fluid metrics are for roles the browser
+ * wraps: the text layout engine flows projected roles from the base metrics,
+ * which are fixed, and the typography contract test holds that apart.
+ */
+export const Metrics = Schema.Struct({ fontSize: FontSize, lineHeight: LineHeight })
 export type Metrics = typeof Metrics.Type
 
 export const Viewport = Schema.Literal("narrow", "wide")
@@ -159,7 +169,12 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     whiteSpace: "normal",
     lineHeight: 50,
     maxWidth: { compact: 720, expanded: 1040 },
-    at: { narrow: { fontSize: 36, lineHeight: 40 }, wide: { fontSize: 64, lineHeight: 68 } }
+    // Narrow: 32/36 at 320 rising to 36/40 by 360, so a five-line title still leaves a 568 px fold room
+    // for the hero's actions; the same 1.11 ratio at both ends.
+    at: {
+      narrow: { fontSize: { min: 32, vw: 10, max: 36 }, lineHeight: { min: 36, vw: 11.25, max: 40 } },
+      wide: { fontSize: 64, lineHeight: 68 }
+    }
   },
   lead: {
     role: "lead",
@@ -408,11 +423,15 @@ export const metricsAt = (role: TextRole, viewport: Option.Option<Viewport>): Me
   })
 }
 
-/** The CSS for a size: fixed, or fluid between its bounds. */
-export const fontSizeCss = (size: FontSize): string =>
-  Schema.is(FluidSize)(size)
-    ? `clamp(${String(size.min)}px, ${String(size.vw)}vw, ${String(size.max)}px)`
-    : `${String(size)}px`
+/** The CSS for a length: fixed pixels, or fluid between its bounds. */
+const lengthCss = (length: number | FluidSize): string =>
+  Schema.is(FluidSize)(length)
+    ? `clamp(${String(length.min)}px, ${String(length.vw)}vw, ${String(length.max)}px)`
+    : `${String(length)}px`
+
+export const fontSizeCss = (size: FontSize): string => lengthCss(size)
+
+export const lineHeightCss = (leading: LineHeight): string => lengthCss(leading)
 
 export const maxWidthFor = (role: TextRole, variant: SurfaceVariant): number =>
   Match.value(variant).pipe(

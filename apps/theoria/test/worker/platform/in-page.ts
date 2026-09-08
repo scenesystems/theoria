@@ -454,9 +454,6 @@ export const topEdgeInViewport = (element: Element) => {
   return rect.top >= 0 && rect.top < window.innerHeight && rect.height > 0
 }
 
-/** Top edge in viewport pixels, for environmental-test evidence. */
-export const viewportTop = (element: Element) => Math.round(element.getBoundingClientRect().top)
-
 /** Whether all of an element is inside the viewport. */
 export const fullyInViewport = (element: Element) => {
   const rect = element.getBoundingClientRect()
@@ -519,8 +516,14 @@ export const textColour = (element: Element) => getComputedStyle(element).color
 /** The element's painted surface — its background image, gradient stops and all — as one string. */
 export const surfacePaint = (element: Element) => getComputedStyle(element).backgroundImage
 
-/** WCAG contrast of an element's text against the nearest opaque painted ancestor. */
-export const textContrastOf = (element: Element): number => {
+/**
+ * The lowest WCAG contrast of any visible text under `root` — every element
+ * that holds its own words, `root` included, each against what it is painted
+ * over: its ancestors' backgrounds composited from the nearest opaque one
+ * down, and the browser's white canvas when no ancestor paints at all. The
+ * words come back with the ratio, so a failure names them.
+ */
+export const lowestTextContrastWithin = (root: Element): { readonly ratio: number; readonly text: string } => {
   const channels = (colour: string): ReadonlyArray<number> => {
     const canvas = document.createElement("canvas")
     canvas.width = 1
@@ -539,13 +542,7 @@ export const textContrastOf = (element: Element): number => {
     const alpha = values[3] ?? 1
     const parent = node.parentElement
     if (alpha >= 1) return colour
-    if (!(parent instanceof Element)) {
-      const probe = document.body.appendChild(document.createElement("span"))
-      probe.style.backgroundColor = "var(--th-stage-50)"
-      const canvas = getComputedStyle(probe).backgroundColor
-      probe.remove()
-      return canvas
-    }
+    if (!(parent instanceof Element)) return "rgb(255 255 255)"
     const beneath = channels(opaqueBackground(parent))
     return `rgb(${String((values[0] ?? 0) * alpha + (beneath[0] ?? 0) * (1 - alpha))} ${
       String((values[1] ?? 0) * alpha + (beneath[1] ?? 0) * (1 - alpha))
@@ -559,34 +556,64 @@ export const textContrastOf = (element: Element): number => {
     const [r = 0, g = 0, b = 0] = channels(colour)
     return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
   }
-  const values = [luminance(getComputedStyle(element).color), luminance(opaqueBackground(element))]
-    .sort((left, right) => right - left)
-  return ((values[0] ?? 0) + 0.05) / ((values[1] ?? 0) + 0.05)
+  const contrast = (element: Element) => {
+    const values = [luminance(getComputedStyle(element).color), luminance(opaqueBackground(element))]
+      .sort((left, right) => right - left)
+    return ((values[0] ?? 0) + 0.05) / ((values[1] ?? 0) + 0.05)
+  }
+  const holdsWords = (element: Element) =>
+    [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "")
+  const shown = (element: Element) => {
+    const rect = element.getBoundingClientRect()
+    const style = getComputedStyle(element)
+    return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && Number(style.opacity) > 0
+  }
+  const measured = [root, ...root.querySelectorAll("*")]
+    .filter((element) => holdsWords(element) && shown(element))
+    .map((element) => ({ ratio: contrast(element), text: (element.textContent ?? "").trim().slice(0, 40) }))
+    .sort((left, right) => left.ratio - right.ratio)
+  return measured[0] ?? { ratio: Number.POSITIVE_INFINITY, text: "" }
 }
 
-/** Properties currently animated by CSS transitions, keyframes, or WAAPI. */
-export const animatedProperties = (): ReadonlyArray<string> =>
-  document.getAnimations().flatMap((animation) => {
+/**
+ * One frame of the page as motion sees it. `trials`: how many trials the
+ * search's trace shows, so a sample can be tied to the drawing it belongs to.
+ * `properties`: every property a CSS transition, keyframe animation or WAAPI
+ * animation is animating right now. `placed`: where the page's landmarks and
+ * every disc stand, each named — the title (`h1`), the step headers by their
+ * step, the paper (`paper`) and the discs by their feature — as
+ * `[name, rounded "x,y,w,h"]` pairs, so a test can follow each one's own
+ * path across sampled frames.
+ */
+export const motionSample = (): {
+  readonly trials: number
+  readonly properties: ReadonlyArray<string>
+  readonly placed: ReadonlyArray<readonly [string, string]>
+} => {
+  const omitted = ["offset", "computedOffset", "easing", "composite"]
+  const properties = document.getAnimations().flatMap((animation) => {
     if (animation instanceof CSSTransition) return animation.transitionProperty.split(",").map((name) => name.trim())
-    const omitted = ["offset", "computedOffset", "easing", "composite"]
     return animation.effect instanceof KeyframeEffect ?
       animation.effect.getKeyframes().flatMap((frame) =>
         Reflect.ownKeys(frame).filter((name): name is string => typeof name === "string" && !omitted.includes(name))
       ) :
       []
   })
-
-/** Rounded rects of stable landmarks and named markers, suitable for frame sampling. */
-export const retainedRects = (): ReadonlyArray<string> =>
-  [...document.querySelectorAll("h1, [data-place-step-header], [data-place-stage='paper']")]
-    .map((element) => {
-      const rect = element.getBoundingClientRect()
-      const name = element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-step-header") ??
-        element.tagName
-      return `${name}:${String(Math.round(rect.x))},${String(Math.round(rect.y))},${String(Math.round(rect.width))},${
+  const placed = [
+    ...document.querySelectorAll("h1, [data-place-step-header], [data-place-stage='paper'], [data-place-marker]")
+  ].map((element): readonly [string, string] => {
+    const rect = element.getBoundingClientRect()
+    const name = element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-stage")
+      ?? element.closest("[data-place-step]")?.getAttribute("data-place-step") ?? element.tagName.toLowerCase()
+    return [
+      name,
+      `${String(Math.round(rect.x))},${String(Math.round(rect.y))},${String(Math.round(rect.width))},${
         String(Math.round(rect.height))
       }`
-    })
+    ]
+  })
+  return { trials: document.querySelectorAll("[data-place-trial]").length, properties, placed }
+}
 
 /**
  * The lowest WCAG contrast ratio between the prose on the paper and the two

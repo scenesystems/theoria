@@ -672,11 +672,22 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
 ### Act 5 — Responsive and environmental verification
 
 - [x] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three stories:
-      no element overflows, checked by _at W×H every story fits and its lead is
-      visible_ in `home-environment.test.ts`. At `lg` (1024 px) and above both
-      Compose and Arrange headers lead the first viewport; below `lg` Arrange
-      is first in the stacked flow, above the paper, while the arrival leads
-      the first viewport.
+      no element overflows, checked by _at W×H every story fits in light and
+      dark, and … leads the first viewport_ in `home-environment.test.ts`. What
+      leads the first viewport is a rule the test states, not a hope: below
+      640 px tall (320×568) the hero owns the screen — title, lead and both
+      actions wholly in view, "See how it's built" pointing down — and the
+      arrival is a scroll away; from 640 px tall the arrival's title is in
+      view; at `lg` (1024 px wide) and above both Compose and Arrange headers
+      stand beside it; below `lg` the columns stack with Arrange first, above
+      the paper, and that header is in view. The hero's lead and trail keep
+      their `clamp(…, svh, …)` rhythm at every height; a `max-height` step that
+      cut them to nothing bought 4 px of the arrival at 320×568 for a 38 px
+      jump at 576 px, so it was not kept. What made room at 320×568 is the
+      display role: its narrow metrics are fluid, `clamp(32px, 10vw, 36px)`
+      over `clamp(36px, 11.25vw, 40px)`, so the five-line title stands 180 px
+      at 320 and 200 px from 360, at one ratio, with no width where it steps
+      (`text.ts`, held by the typography contract test).
 - [x] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
       ≤ 3 lines; the pinned band never covers the focused control. _The 200
       percent reflow equivalent fits and focus clears the pinned band_ uses a
@@ -687,9 +698,12 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
       knots stay visible without background colour.
 - [x] Reduced motion: the search still renders per frame (it is a real
       process), merges and version changes are opacity only, nothing else
-      moves. Checked by _under reduced motion searches have frames while
+      moves. Checked by _under reduced motion the search still has frames, and
       merges and story changes move only by opacity_ in
-      `home-environment.test.ts`.
+      `home-environment.test.ts`: every retained element — title, step headers,
+      paper, each disc by name — is sampled each frame and may stand only where
+      it stood before or where it stands after, and no running animation names
+      a property outside opacity and colour.
 - [x] The measurement above reaches its targets: the marker chips and content-ID
       chips lose `shadow-chip` and stand by their ring and wash; the code
       section loses its shadow and keeps its rule; ≤ 10 bordered, ≤ 4 shadowed,
@@ -754,8 +768,11 @@ left on purpose. Every item takes the same route: failing test, then the change.
       running, a story changing — checked in dark and in `forced-colors`;
       contrast asserted from rendered colours as `home-demo.test.ts` does for
       the prose. The dark half is complete in _light and dark keep every
-      interactive state at readable contrast_ (`home-environment.test.ts`);
-      forced colours remains open.
+      interactive state readable_ (`home-environment.test.ts`), which takes the
+      lowest ratio over every visible element holding its own words within the
+      answer, the band's link, the lit line and the search's caption, so a
+      muted secondary line cannot hide behind a readable heading; forced
+      colours remains open.
 - [ ] **Web vitals on the preview.** No LCP, CLS or INP budget was set. Measure
       on `theoria-pr-<N>.staging.scenesystems.io` and record: LCP ≤ 2.5 s, CLS
       ≤ 0.1 (the skeleton exists for this; prove it), INP ≤ 200 ms while a

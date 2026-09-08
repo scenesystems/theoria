@@ -130,8 +130,8 @@
 
 @media (width < 40rem) {
   :root {
-    --st-fs-display: 36px;
-    --st-lh-display: 40px;
+    --st-fs-display: clamp(32px, 10vw, 36px);
+    --st-lh-display: clamp(36px, 11.25vw, 40px);
     --st-fs-lead: 17px;
     --st-lh-lead: 26px;
     --st-fs-hero-title: 32px;
