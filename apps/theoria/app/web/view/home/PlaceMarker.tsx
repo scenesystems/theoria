@@ -9,6 +9,7 @@ import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-re
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import { type PlaceDiscDrawn, placeDiscDrawnAtom } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
+import { forcedColorsFocusClassName } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { departed, exitTransition } from "../primitives/motion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -62,7 +63,7 @@ const filling = (preference: MotionPreference) =>
  * colours transition. Opacity is Motion's and is not transitioned.
  */
 const triggerClassName =
-  "absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0"
+  `absolute left-0 top-0 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 ${forcedColorsFocusClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0`
 
 /** Named discs clip their label to the circle. */
 const namedTriggerClassName = "overflow-hidden"

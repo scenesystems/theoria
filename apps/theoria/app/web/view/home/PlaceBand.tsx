@@ -9,7 +9,7 @@ import * as m from "motion/react-m"
 import { placeBandAtom, placeFeatureFocusedAtom } from "../../atoms/imagined-place-experience.js"
 import { placeDiscDrawnAtom, type PlaceRenderFrame, placeShownFrameAtom } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
-import { elevationClassName } from "../primitives/designSystem.js"
+import { elevationClassName, focusEdgeClassName } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
 import { arrivalFrom, arrivedAt, departed, exitTransition } from "../primitives/motion.js"
@@ -42,7 +42,7 @@ const bandClassName = "flex justify-center pt-3"
  * row scales down to fit beside the arrow.
  */
 const linkClassName =
-  "inline-flex max-w-full items-center gap-2 rounded-full bg-stage-50 px-2.5 py-1.5 ring-1 ring-rule-strong shadow-surface outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  `inline-flex max-w-full items-center gap-2 rounded-full bg-stage-50 px-2.5 py-1.5 ring-1 ring-rule-strong shadow-surface ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 forced-colors:border forced-colors:border-[CanvasText]`
 
 /**
  * How a disc takes its place in the row: sliding over as a merge shifts the

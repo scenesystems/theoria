@@ -1,7 +1,7 @@
 import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { litChipClassName } from "../designSystem.js"
+import { focusEdgeClassName, litChipClassName } from "../designSystem.js"
 import { DocsLink } from "../DocsLink.js"
 import { Layer } from "../Layout.js"
 import { SemanticText } from "../SemanticText.js"
@@ -20,7 +20,7 @@ export const CodeAnnotation = Schema.Struct({
 export type CodeAnnotation = typeof CodeAnnotation.Type
 
 const linkClassName =
-  "rounded-[3px] underline decoration-dotted decoration-ink-500/70 underline-offset-[3px] transition-colors duration-150 hover:bg-stage-100 hover:decoration-solid hover:decoration-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  `rounded-[3px] underline decoration-dotted decoration-ink-500/70 underline-offset-[3px] transition-colors duration-150 hover:bg-stage-100 hover:decoration-solid hover:decoration-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
 
 const Tokens = ({ tokens }: { readonly tokens: ReadonlyArray<HighlightToken> }) => (
   <>

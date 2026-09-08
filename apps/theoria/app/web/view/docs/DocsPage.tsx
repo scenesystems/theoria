@@ -8,7 +8,7 @@ import type { DocsRoute } from "../../../contracts/docs.js"
 import { Id } from "../../../contracts/id.js"
 import { docsManifestAtom } from "../../atoms/docs-data.js"
 import { docsKeyboardShortcutsAtom } from "../../atoms/docs.js"
-import { neutralToneClasses, toneClassesForCard } from "../primitives/designSystem.js"
+import { focusEdgeClassName, neutralToneClasses, toneClassesForCard } from "../primitives/designSystem.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Layer, Main, Stack } from "../primitives/Layout.js"
 import { CardLink } from "../primitives/Link.js"
@@ -26,7 +26,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
   <Layer className={docsTheme.root}>
     <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
     <Main
-      className="mx-auto w-full max-w-[82rem] px-5 py-10 outline-none sm:px-8 sm:py-14"
+      className={`mx-auto w-full max-w-[82rem] px-5 py-10 sm:px-8 sm:py-14 ${docsTheme.routeFocus}`}
       data-route-focus
       tabIndex={-1}
     >
@@ -48,7 +48,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
                   <Stack className="h-full gap-5">
                     <Stack className="gap-2">
                       <CardLink
-                        className="outline-none focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ink-900/20"
+                        className={`${focusEdgeClassName} focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ink-900/20`}
                         href={docsPackage.overview.path}
                       >
                         <SemanticText
@@ -86,7 +86,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
 const MissingRoute = ({ manifest }: { readonly manifest: DocsManifest }) => (
   <Layer className={docsTheme.root}>
     <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
-    <Main className="mx-auto w-full max-w-3xl px-5 py-20 outline-none" data-route-focus tabIndex={-1}>
+    <Main className={`mx-auto w-full max-w-3xl px-5 py-20 ${docsTheme.routeFocus}`} data-route-focus tabIndex={-1}>
       <DocsStatus state="not-found" />
     </Main>
     <DocsSearchDialog activePackageSlug={Option.none()} manifest={manifest} />

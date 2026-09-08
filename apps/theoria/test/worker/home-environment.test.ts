@@ -170,9 +170,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // Nothing animates a geometric property. The title, the step headers and the paper stand only where
         // they stood before or where they stand after — never between. The discs are drawn by a real search:
         // each trial is a complete drawing, so a disc may stand somewhere new when a trial arrives, but between
-        // two trials it does not move at all. A sample belongs to the drawing of one search's trial: the trace
-        // counts up through a search and starts again at nothing for the next, so a fall in the count begins
-        // a new search.
+        // two trials it does not move at all — except that a changed description's lines leave before anything
+        // else moves, and the drawing rests where it was left through their exit, so a trial arriving during the
+        // rest finds the disc where it stood before and then, placed outright, at that trial's best: never
+        // anywhere between. A sample belongs to the drawing of one search's trial: the trace counts up through
+        // a search and starts again at nothing for the next, so a fall in the count begins a new search.
         const sample = Effect.map(act(() => page.evaluate(motionSample)), (frame) => ({
           ...frame,
           placed: Record.fromEntries(frame.placed)
@@ -210,11 +212,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 expect(Arr.difference(stoodAt(samples), ends), name).toEqual([])
                 return
               }
+              const rested = before.placed[name] ?? ""
               Arr.forEach(Arr.dedupe(Arr.map(drawn, ([drawing]) => drawing)), (drawing) => {
                 const during = stoodAt(
                   Arr.filterMap(drawn, ([of, frame]) => of === drawing ? Option.some(frame) : Option.none())
                 )
-                expect(during.length, `${name} during ${drawing}`).toBeLessThanOrEqual(1)
+                expect(Arr.difference(during, [rested]).length, `${name} during ${drawing}`).toBeLessThanOrEqual(1)
               })
             })
             return properties

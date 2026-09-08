@@ -2,11 +2,11 @@ import { Field } from "@base-ui/react/field"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
-import { surfaceClassName, type ToneClasses } from "./designSystem.js"
+import { focusEdgeClassName, surfaceClassName, type ToneClasses } from "./designSystem.js"
 
 /** Grows with its content where the browser supports `field-sizing`; `rows` is the floor everywhere. */
 const controlClassName =
-  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink-900 placeholder:text-ink-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink-900 placeholder:text-ink-400 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-offset-1 ${
     surfaceClassName("instrument")
   }`
 

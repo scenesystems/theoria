@@ -8,6 +8,7 @@ import type { CSSProperties } from "react"
 import type { ProposalRecord } from "../../../contracts/imagined-place-result.js"
 import { placeGhostsAtom } from "../../atoms/imagined-place-experience.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
+import { focusEdgeClassName } from "../primitives/designSystem.js"
 import { departed, exitTransition } from "../primitives/motion.js"
 
 import { ProvenanceMark } from "./PlaceProvenance.js"
@@ -30,7 +31,7 @@ const ghostStyle = (stageWidth: number, padding: number, index: number): CSSProp
 })
 
 const ghostBaseClassName =
-  "absolute left-0 top-0 cursor-default rounded-full border-2 border-dashed before:absolute before:-inset-2 before:rounded-full before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-ink-900/20 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0"
+  `absolute left-0 top-0 cursor-default rounded-full border-2 border-dashed before:absolute before:-inset-2 before:rounded-full before:content-[''] ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-ink-900/20 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 forced-colors:border-[CanvasText]`
 
 const appearedFrom = { opacity: 0, scale: 0.8 }
 const appeared = { opacity: 1, scale: 1 }

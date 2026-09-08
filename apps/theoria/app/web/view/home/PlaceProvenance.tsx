@@ -27,6 +27,7 @@ import {
 } from "../../atoms/imagined-place-experience.js"
 import {
   elevationClassName,
+  focusEdgeClassName,
   type InlineStatusTone,
   litMarkClassName,
   markClassName,
@@ -141,7 +142,7 @@ const positionerClassName = `${elevationClassName("answer")} w-(--positioner-wid
 
 const popupClassName = [
   surfaceClassName("overlay"),
-  "w-(--popup-width) h-(--popup-height) max-w-[min(22rem,calc(100vw-1.5rem))] outline-none",
+  `w-(--popup-width) h-(--popup-height) max-w-[min(22rem,calc(100vw-1.5rem))] ${focusEdgeClassName}`,
   "origin-(--transform-origin) transition-[opacity,transform,width,height] duration-150 ease-theme",
   "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
   "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
@@ -163,10 +164,10 @@ const viewportClassName = [
 ].join(" ")
 
 const codeLinkClassName =
-  "-mx-1.5 inline-flex min-w-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 motion-reduce:transition-none hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  `-mx-1.5 inline-flex min-w-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 motion-reduce:transition-none hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
 
 const copyButtonClassName =
-  "-mx-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  `-mx-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
 
 const digestTone = toneClassesFor("digest")
 

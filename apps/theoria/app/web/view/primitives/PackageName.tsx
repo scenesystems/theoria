@@ -1,12 +1,12 @@
 import type { Id as CardId } from "../../../contracts/id.js"
 import { toneForCard } from "../../../contracts/theme.js"
 
-import { toneClassesFor } from "./designSystem.js"
+import { focusEdgeClassName, toneClassesFor } from "./designSystem.js"
 import { DocsLink } from "./DocsLink.js"
 import { SemanticText } from "./SemanticText.js"
 
 const packageNameClassName =
-  "inline-flex min-w-0 items-baseline rounded-control decoration-1 underline-offset-[0.2em] transition-colors duration-150 hover:underline focus-visible:outline-none focus-visible:ring-2"
+  `inline-flex min-w-0 items-baseline rounded-control decoration-1 underline-offset-[0.2em] transition-colors duration-150 hover:underline ${focusEdgeClassName} focus-visible:ring-2`
 
 /**
  * A package's short name, in monospace and its own tone, linked to its docs.

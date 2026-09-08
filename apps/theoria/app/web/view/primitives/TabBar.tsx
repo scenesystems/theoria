@@ -3,16 +3,16 @@ import { Option } from "effect"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
-import { stillUnderReducedMotion } from "./designSystem.js"
+import { focusEdgeClassName, stillUnderReducedMotion } from "./designSystem.js"
 import { Cluster } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 const tabClassName =
-  "inline-flex min-h-9 items-center px-3 py-2 text-ink-600 transition-colors duration-150 ease-out hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-900/20 data-[active]:text-ink-950"
+  `inline-flex min-h-9 items-center px-3 py-2 text-ink-600 transition-colors duration-150 ease-out hover:text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-900/20 data-[active]:text-ink-950`
 
 /** The 2 px line under the active tab; Base UI measures the tab and hands the geometry over as CSS variables. */
 const indicatorClassName =
-  `absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-ink-900 transition-[translate,width] duration-200 ease-out ${stillUnderReducedMotion}`
+  `absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-ink-900 forced-colors:bg-[CanvasText] transition-[translate,width] duration-200 ease-out ${stillUnderReducedMotion}`
 
 /**
  * A controlled tab group over a closed set of string values. Base UI reports
@@ -57,7 +57,7 @@ export const TabBar = ({
 }) => (
   <Tabs.List className={classNames("relative flex gap-1 border-b border-rule", className)}>
     {children}
-    <Tabs.Indicator className={indicatorClassName} renderBeforeHydration />
+    <Tabs.Indicator className={indicatorClassName} data-tab-indicator renderBeforeHydration />
   </Tabs.List>
 )
 

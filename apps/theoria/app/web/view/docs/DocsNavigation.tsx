@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
-import { stillUnderReducedMotion } from "../primitives/designSystem.js"
+import { focusEdgeClassName, stillUnderReducedMotion } from "../primitives/designSystem.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Layer, Nav, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
@@ -85,7 +85,7 @@ const NavigationBranch = ({
               />
               <Collapsible.Trigger
                 aria-label={`Toggle ${branch.label.toLocaleLowerCase("en-US")} navigation`}
-                className="group mt-0.5 inline-flex size-10 items-center justify-center rounded-xl text-ink-500 outline-none transition-colors hover:bg-stage-0/80 hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/20"
+                className={`group mt-0.5 inline-flex size-10 items-center justify-center rounded-xl text-ink-500 transition-colors hover:bg-stage-0/80 hover:text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`}
               >
                 <ChevronRightIcon
                   aria-hidden

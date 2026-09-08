@@ -694,8 +694,13 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
       640×360 viewport, the faithful reflow equivalent of 1280×720 at 200 %;
       Playwright has no browser-zoom API and CSS zoom does not change layout
       viewport or media queries.
-- [ ] Forced colors: proposer rule, switch state, tab indicator and strand
-      knots stay visible without background colour.
+- [x] Forced colors: proposer rule, switch state, tab indicator and strand
+      knots stay visible without background colour. `home-forced-colors.test.ts`
+      checks every state in light and dark with Canvas, CanvasText, Highlight
+      and HighlightText system colours. Focus has one authority:
+      `focusEdgeClassName` drops the outline and restores a solid `Highlight`
+      one under forced colours; `focus-edge.contract.test.ts` holds that no
+      other class string writes `outline-none`.
 - [x] Reduced motion: the search still renders per frame (it is a real
       process), merges and version changes are opacity only, nothing else
       moves. Checked by _under reduced motion the search still has frames, and
@@ -771,8 +776,10 @@ left on purpose. Every item takes the same route: failing test, then the change.
       interactive state readable_ (`home-environment.test.ts`), which takes the
       lowest ratio over every visible element holding its own words within the
       answer, the band's link, the lit line and the search's caption, so a
-      muted secondary line cannot hide behind a readable heading; forced
-      colours remains open.
+      muted secondary line cannot hide behind a readable heading. Forced
+      colours now covers focus edges, switch state, tab indicator, strand
+      knots, discs, lit code wash and solid/dashed proposer rules in both
+      colour schemes (`home-forced-colors.test.ts`).
 - [ ] **Web vitals on the preview.** No LCP, CLS or INP budget was set. Measure
       on `theoria-pr-<N>.staging.scenesystems.io` and record: LCP ≤ 2.5 s, CLS
       ≤ 0.1 (the skeleton exists for this; prove it), INP ≤ 200 ms while a

@@ -3,11 +3,15 @@ import { useAtomValue } from "@effect-atom/atom-react"
 import * as Arr from "effect/Array"
 
 import { activeAnchorAtom } from "../../atoms/element-observation.js"
+import { focusEdgeClassName } from "../primitives/designSystem.js"
 import { Nav, Stack } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 export type DocsPageAnchor = readonly [id: string, label: string]
+
+const anchorClassName =
+  `rounded-sm transition-colors ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-50`
 
 export const DocsOnThisPage = ({ anchors }: { readonly anchors: ReadonlyArray<DocsPageAnchor> }) => {
   const anchorKey = Arr.map(anchors, ([id]) => id).join("\u0000")
@@ -24,8 +28,8 @@ export const DocsOnThisPage = ({ anchors }: { readonly anchors: ReadonlyArray<Do
               <AnchorLink
                 aria-current={activeAnchor === id ? "location" : undefined}
                 className={activeAnchor === id
-                  ? "text-ink-950 outline-none transition-colors"
-                  : "text-ink-500 outline-none transition-colors hover:text-ink-900 focus-visible:text-ink-900"}
+                  ? `${anchorClassName} text-ink-950`
+                  : `${anchorClassName} text-ink-500 hover:text-ink-900 focus-visible:text-ink-900`}
                 href={`#${id}`}
                 key={id}
               >

@@ -20,9 +20,9 @@ const signatureTone = (valid: boolean) => valid ? signTone : dangerStatusTone
 
 /** A knot on the strand: filled for the version being drawn, open for the ones before it. */
 const knotClassName = (current: boolean, size: "strand" | "stage"): string =>
-  `inline-flex shrink-0 rounded-full border-2 ${digestTone.border} ${current ? digestTone.bg : "bg-stage-0"} ${
-    size === "strand" ? "size-3" : "size-2"
-  }`
+  `inline-flex shrink-0 rounded-full border-2 ${digestTone.border} forced-colors:border-[CanvasText] ${
+    current ? `${digestTone.bg} forced-colors:bg-[CanvasText]` : "bg-stage-0 forced-colors:bg-[Canvas]"
+  } ${size === "strand" ? "size-3" : "size-2"}`
 
 /**
  * The strand as it appears on the pinned stage: one small knot per version,

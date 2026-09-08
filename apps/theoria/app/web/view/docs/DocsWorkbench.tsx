@@ -70,7 +70,7 @@ export const DocsResourceFrame = ({
   readonly route: DocsRoute
 }) => (
   <>
-    <Main className={`${docsTheme.main} outline-none`} data-route-focus tabIndex={-1}>
+    <Main className={`${docsTheme.main} ${docsTheme.routeFocus}`} data-route-focus tabIndex={-1}>
       <DocsRouteEntrance className={docsTheme.article} key={docsPathFor(route)}>{children}</DocsRouteEntrance>
     </Main>
     <Section aria-label="Page outline" render={<aside />} className={docsTheme.toc}>

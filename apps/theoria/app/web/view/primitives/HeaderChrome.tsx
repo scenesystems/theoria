@@ -1,7 +1,8 @@
 import { classNames } from "./classNames.js"
+import { focusEdgeClassName } from "./designSystem.js"
 
 const headerChromeFocusClassName =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-50"
+  `${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-50`
 
 /**
  * A header destination as words: ink that darkens under the pointer, nothing

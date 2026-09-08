@@ -214,17 +214,30 @@ export const elevationClassName = (elevation: Elevation): string =>
 /** A transitioned thing that travels; under reduced motion it takes its place at once. */
 export const stillUnderReducedMotion = "motion-reduce:transition-none"
 
+/**
+ * The one way a control gives up the browser's focus outline for a ring of its
+ * own. Rings are box shadows, and forced colours drop every shadow, so the
+ * same word brings the outline back there in the system's `Highlight`.
+ * `outline-solid`, not `outline`: `outline` resolves its style from
+ * `--tw-outline-style`, which `outline-none` has set to none. No class string
+ * writes `outline-none` on its own; a contract test holds that. A control that
+ * keeps an outline of its own (the discs) wears only the forced-colours half.
+ */
+export const forcedColorsFocusClassName =
+  "forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-2 forced-colors:focus-visible:outline-offset-2 forced-colors:focus-visible:outline-[Highlight]"
+export const focusEdgeClassName = `focus-visible:outline-none ${forcedColorsFocusClassName}`
+
 /** A mark's box: pointable and focusable. The wash is added by whichever box wears it. */
 export const markClassName =
-  `group/mark cursor-default rounded-md transition-colors duration-150 ease-theme focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 ${stillUnderReducedMotion}`
+  `group/mark cursor-default rounded-md transition-colors duration-150 ease-theme ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 ${stillUnderReducedMotion}`
 
 /** The wash on a mark's own box. */
 export const litMarkClassName =
-  "hover:bg-stage-100/80 data-[place-focused]:bg-stage-100/80 data-[popup-open]:bg-stage-100/80"
+  "hover:bg-stage-100/80 data-[place-focused]:bg-stage-100/80 data-[popup-open]:bg-stage-100/80 forced-colors:hover:bg-[Highlight] forced-colors:hover:text-[HighlightText] forced-colors:data-[place-focused]:bg-[Highlight] forced-colors:data-[place-focused]:text-[HighlightText] forced-colors:data-[popup-open]:bg-[Highlight] forced-colors:data-[popup-open]:text-[HighlightText]"
 
 /** The wash on a chip set inside a mark, in place of the chip's own paper. */
 export const litChipClassName =
-  `transition-colors duration-150 ease-theme ${stillUnderReducedMotion} group-hover/mark:bg-stage-100/80 group-data-[place-focused]/mark:bg-stage-100/80 group-data-[popup-open]/mark:bg-stage-100/80`
+  `transition-colors duration-150 ease-theme ${stillUnderReducedMotion} group-hover/mark:bg-stage-100/80 group-data-[place-focused]/mark:bg-stage-100/80 group-data-[popup-open]/mark:bg-stage-100/80 forced-colors:group-hover/mark:bg-[Highlight] forced-colors:group-hover/mark:text-[HighlightText] forced-colors:group-data-[place-focused]/mark:bg-[Highlight] forced-colors:group-data-[place-focused]/mark:text-[HighlightText] forced-colors:group-data-[popup-open]/mark:bg-[Highlight] forced-colors:group-data-[popup-open]/mark:text-[HighlightText]`
 
 // ---------------------------------------------------------------------------
 // InlineStatusTone — a glyph and a colour for a status said in the text's own
@@ -247,7 +260,7 @@ export const neutralStatusTone: InlineStatusTone = { dot: neutralToneClasses.dot
 export const dangerStatusTone: InlineStatusTone = { dot: "bg-danger-500", text: "text-danger-700" }
 
 const pillButtonBaseClassName =
-  "inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
+  `inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-colors duration-150 ease-out ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
 
 export const pillButtonClassName = ({
   active,
@@ -270,7 +283,7 @@ export const segmentedControlRailClassName = (count: number): string =>
     : `${segmentedControlRailBaseClassName} grid-cols-2 sm:grid-cols-4`
 
 const segmentedControlButtonBaseClassName =
-  "inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
+  `inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 transition-colors duration-150 ease-out ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
 
 export const segmentedControlButtonClassName = ({
   active,
@@ -284,7 +297,7 @@ export const segmentedControlButtonClassName = ({
     : `${segmentedControlButtonBaseClassName} hover:bg-stage-0/60`
 
 const toggleTrackBaseClassName =
-  "inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
+  `inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55 forced-colors:border-[CanvasText]`
 
 export const toggleTrackClassName = ({
   checked,
@@ -294,7 +307,7 @@ export const toggleTrackClassName = ({
   readonly tone: ToneClasses
 }): string =>
   checked
-    ? `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing}`
+    ? `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing} forced-colors:bg-[Highlight]`
     : `${toggleTrackBaseClassName} border-stage-200/90 bg-stage-50/90 ${tone.focusRing}`
 
 /**

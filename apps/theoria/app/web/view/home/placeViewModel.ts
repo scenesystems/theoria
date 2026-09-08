@@ -63,6 +63,9 @@ export const markerContributor = (marker: PlaceMarker): ParticipantRole =>
 export const markerTone = (marker: PlaceMarker): ToneClasses =>
   toneClassesFor(participantTone(markerContributor(marker)))
 
+/** Under forced colours the ring is dropped with every shadow, so the disc keeps its edge as a `CanvasText` border on the `Canvas`. */
+const discEdgeClassName = "forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas]"
+
 /**
  * The disc itself: a soft radial fill lit from the upper left, an inset ring
  * in the contributor's tone. Full literals per participant
@@ -70,18 +73,9 @@ export const markerTone = (marker: PlaceMarker): ToneClasses =>
  */
 export const discClassName = (role: ParticipantRole): string =>
   Match.value(role).pipe(
-    Match.when(
-      "author",
-      () => "bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60"
-    ),
-    Match.when(
-      "neighbor",
-      () => "bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60"
-    ),
-    Match.when(
-      "program",
-      () => "bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60"
-    ),
+    Match.when("author", () => `bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60 ${discEdgeClassName}`),
+    Match.when("neighbor", () => `bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60 ${discEdgeClassName}`),
+    Match.when("program", () => `bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60 ${discEdgeClassName}`),
     Match.exhaustive
   )
 

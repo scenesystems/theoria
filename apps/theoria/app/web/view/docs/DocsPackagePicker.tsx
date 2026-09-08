@@ -4,7 +4,7 @@ import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
-import { stillUnderReducedMotion } from "../primitives/designSystem.js"
+import { focusEdgeClassName, stillUnderReducedMotion } from "../primitives/designSystem.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -52,7 +52,7 @@ export const DocsPackagePicker = ({
                 key={docsPackage.slug}
                 render={
                   <InternalLink
-                    className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-ink-700 outline-none hover:bg-stage-100/80 focus:bg-stage-100/80"
+                    className={`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-ink-700 ${focusEdgeClassName} hover:bg-stage-100/80 focus:bg-stage-100/80`}
                     href={docsPackage.overview.path}
                     onClick={onNavigate}
                   />

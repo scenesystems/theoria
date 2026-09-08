@@ -65,7 +65,7 @@ const lineRowClassName = "grid grid-cols-[minmax(0,1fr)] items-start sm:grid-col
  * the text, with the colour easing in and out.
  */
 const focusableLineRowClassName =
-  `${lineRowClassName} -mx-2 rounded-md px-2 transition-colors duration-200 ease-theme data-[code-line-focused]:bg-stage-100/80 motion-reduce:transition-none`
+  `${lineRowClassName} -mx-2 rounded-md px-2 transition-colors duration-200 ease-theme data-[code-line-focused]:bg-stage-100/80 forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] motion-reduce:transition-none`
 
 const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
 

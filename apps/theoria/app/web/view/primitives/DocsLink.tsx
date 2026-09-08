@@ -9,7 +9,7 @@ import { useRef } from "react"
 import { Id } from "../../../contracts/id.js"
 import { docsApiModuleIndexAtom, docsManifestAtom } from "../../atoms/docs-data.js"
 
-import { elevationClassName, neutralToneClasses, toneClassesForCard } from "./designSystem.js"
+import { elevationClassName, focusEdgeClassName, neutralToneClasses, toneClassesForCard } from "./designSystem.js"
 import {
   docsLinkModuleAsset,
   docsLinkPath,
@@ -25,7 +25,7 @@ import { usePointerRegionHandlers } from "./PointerRegion.js"
 import { SemanticText } from "./SemanticText.js"
 
 const popupClassName = [
-  "w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-stage-200/90 bg-stage-0/97 shadow-chip outline-none backdrop-blur-sm",
+  `w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-stage-200/90 bg-stage-0/97 shadow-chip ${focusEdgeClassName} backdrop-blur-sm`,
   "origin-[var(--transform-origin)] transition-[opacity,transform] duration-150",
   "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
   "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
@@ -33,7 +33,7 @@ const popupClassName = [
 ].join(" ")
 
 const openLinkClassName =
-  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
+  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
 
 /**
  * A press with a modifier or a non-primary button is the browser's: a new tab,

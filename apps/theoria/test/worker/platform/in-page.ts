@@ -9,6 +9,42 @@
  * `locator.evaluate`, `locator.evaluateAll` or `page.waitForFunction`.
  */
 
+/** The resolved value of a CSS system colour in the page's current colour scheme. */
+export const systemColour = (name: string): string => {
+  const probe = document.createElement("span")
+  probe.style.color = name
+  probe.hidden = true
+  document.body.append(probe)
+  const colour = getComputedStyle(probe).color
+  probe.remove()
+  return colour
+}
+
+/**
+ * The edges each element is painted with: its outline, and its left border —
+ * the side a rule down an element's edge is drawn on, and the same as every
+ * other side for a knot or a disc. For `evaluateAll`, one locator or many.
+ */
+export const edgesOf = (elements: ReadonlyArray<Element>): ReadonlyArray<{
+  readonly outline: { readonly color: string; readonly style: string; readonly width: number }
+  readonly border: { readonly color: string; readonly style: string; readonly width: number }
+}> =>
+  elements.map((element) => {
+    const style = getComputedStyle(element)
+    return {
+      outline: {
+        color: style.outlineColor,
+        style: style.outlineStyle,
+        width: Number.parseFloat(style.outlineWidth)
+      },
+      border: {
+        color: style.borderLeftColor,
+        style: style.borderLeftStyle,
+        width: Number.parseFloat(style.borderLeftWidth)
+      }
+    }
+  })
+
 /** The document does not scroll horizontally at the current viewport. */
 export const documentFitsViewport = () => document.documentElement.scrollWidth <= window.innerWidth
 
@@ -599,17 +635,20 @@ export const motionSample = (): {
       ) :
       []
   })
+  // A disc's place is its place on the paper: the drawing's own geometry, apart from wherever the paper stands.
+  const paper = document.querySelector("[data-place-stage='paper']")?.getBoundingClientRect() ?? new DOMRect()
   const placed = [
     ...document.querySelectorAll("h1, [data-place-step-header], [data-place-stage='paper'], [data-place-marker]")
   ].map((element): readonly [string, string] => {
     const rect = element.getBoundingClientRect()
+    const origin = element.hasAttribute("data-place-marker") ? paper : new DOMRect()
     const name = element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-stage")
       ?? element.closest("[data-place-step]")?.getAttribute("data-place-step") ?? element.tagName.toLowerCase()
     return [
       name,
-      `${String(Math.round(rect.x))},${String(Math.round(rect.y))},${String(Math.round(rect.width))},${
-        String(Math.round(rect.height))
-      }`
+      `${String(Math.round(rect.x - origin.x))},${String(Math.round(rect.y - origin.y))},${
+        String(Math.round(rect.width))
+      },${String(Math.round(rect.height))}`
     ]
   })
   return { trials: document.querySelectorAll("[data-place-trial]").length, properties, placed }

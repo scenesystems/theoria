@@ -7,7 +7,13 @@ import type { ReactNode } from "react"
 import type { PlaceMark } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceEvidence, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
 import { placeProposalLineAtom } from "../../atoms/imagined-place-render.js"
-import { dangerStatusTone, inlineStatusToneFor, neutralStatusTone, toneClassesFor } from "../primitives/designSystem.js"
+import {
+  dangerStatusTone,
+  focusEdgeClassName,
+  inlineStatusToneFor,
+  neutralStatusTone,
+  toneClassesFor
+} from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
@@ -65,7 +71,7 @@ const Field = ({ children, label, mark = Option.none() }: {
 )
 
 const foldTriggerClassName =
-  "group/fold -mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  `group/fold -mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
 
 const foldPanelClassName =
   "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 motion-reduce:transition-none"

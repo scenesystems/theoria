@@ -6,7 +6,7 @@ import type { CSSProperties } from "react"
 
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import { type PlaceSearch, placeTrialPreviewAtom, searchLosses } from "../../atoms/imagined-place-render.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { focusEdgeClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Layer, Rail, Stack } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
@@ -87,10 +87,14 @@ const TraceChart = ({ best, losses, shown }: {
 }
 
 const thumbClassName =
-  "group flex h-full w-5 cursor-ew-resize items-center justify-center outline-none data-[disabled]:cursor-default"
+  `group flex h-full w-5 cursor-ew-resize items-center justify-center ${focusEdgeClassName} data-[disabled]:cursor-default`
 
+/**
+ * The thumb's line answers focus on the input inside it; under forced colours
+ * the ring is dropped, so the line itself turns to the system's `Highlight`.
+ */
 const thumbLineClassName =
-  "pointer-events-none block h-full w-0.5 rounded-full bg-ink-900/55 transition-[background-color,box-shadow] duration-150 group-hover:bg-ink-900 group-has-[:focus-visible]:bg-ink-900 group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-ink-900/25 group-data-[disabled]:bg-ink-900/25"
+  "pointer-events-none block h-full w-0.5 rounded-full bg-ink-900/55 transition-[background-color,box-shadow] duration-150 group-hover:bg-ink-900 group-has-[:focus-visible]:bg-ink-900 group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-ink-900/25 group-data-[disabled]:bg-ink-900/25 forced-colors:bg-[CanvasText] forced-colors:group-has-[:focus-visible]:bg-[Highlight]"
 
 /** The chart's height, shared by the trace and the rows held for it. */
 export const traceHeightClassName = "h-16"
