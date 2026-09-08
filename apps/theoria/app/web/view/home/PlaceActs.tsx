@@ -70,7 +70,8 @@ export const PlaceActs = () => {
               <PlaceArrive />
             </Stack>
             <Layer className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]">
-              <Layer className="min-w-0 max-w-[44rem] lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-6">
+              {/* The stage column is the grid track's at `lg` and the section's below it: the paper takes the column up to `stageMaxWidth`, and is centred in it, at every width. */}
+              <Layer className="min-w-0 lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-6">
                 <PlaceStepCard spine="none" step="arrange">
                   <PlaceArrangement build={build} outline={outline} />
                 </PlaceStepCard>

@@ -160,6 +160,25 @@ export class PlaceDrawing extends Schema.Class<PlaceDrawing>("PlaceDrawing")({
   paper: Schema.Number
 }) {}
 
+/**
+ * The drawing scaled as one piece about the stage's origin: every disc's
+ * place and size, and the paper's edge, by the same factor — the drawing as
+ * it is shown when the stage it was drawn for is shown fitted to a narrower
+ * column.
+ *
+ * @since 0.4.0
+ */
+export const drawingScaled = (drawing: PlaceDrawing, scale: number): PlaceDrawing =>
+  new PlaceDrawing({
+    markers: Arr.map(drawing.markers, (marker) => ({
+      ...marker,
+      x: marker.x * scale,
+      y: marker.y * scale,
+      radius: marker.radius * scale
+    })),
+    paper: drawing.paper * scale
+  })
+
 /** The least paper these discs stand on whole: the lowest edge of any, and the stage's padding below it. */
 export const paperUnder = (stage: Stage, markers: ReadonlyArray<PlaceMarker>): number =>
   Arr.reduce(markers, 0, (low, marker) => Math.max(low, marker.y + marker.radius)) + stage.padding

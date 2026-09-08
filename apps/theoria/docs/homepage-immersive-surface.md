@@ -969,6 +969,44 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       `contrastsWithin` no longer measures words hidden from assistive
       technology (`GhostText`'s transparent words under a bar), which are a
       shape, not text; graphics are still measured wherever they are.
+- [x] **The stage follows its column; nothing else redraws it.** Two
+      faults were found behind the paper standing left of centre after a
+      window resize on wide screens. The stage column's wrapper in
+      `PlaceActs.tsx` carried `max-w-[44rem]` — idle at `lg`, where the
+      grid track already caps it, but between 768 and 1023 px it pinned
+      the paper to 704 px at the left of a wider column while Compose ran
+      full width, and the widest width offered stopped short of
+      `stageMaxWidth` (900). The class is gone: below `lg` the paper takes
+      the column up to `stageMaxWidth` and is centred beyond it, as the
+      layout note above always said. And while the column narrowed, the
+      sheet kept the previous drawing's width until the new search's first
+      frame, so the drawing stood 704 px wide in a 557 px frame, cut at
+      the right, for the drag and the first-frame latency; then the paper's
+      `transition-[width]` eased after the column for another 200 ms. The
+      sheet now has a `fit` (`PlaceSheet`, `sheetFit`, `sheetFitting` in
+      `imagined-place-render.ts`): its width is the lesser of the column
+      measured and the width drawn, and a drawing wider than the column is
+      shown fitted to it — scaled as one piece from its top-left corner by a
+      composited `transform`, the paper's height with it — never up. The
+      next search carries on from the drawing as it is shown
+      (`drawingScaled` in `imagined-place-flow.ts` scales every disc and the
+      paper for `DrawingLeft`), so discs travel from where they are seen. The
+      paper eases its width only while the column does not bound it
+      (`paperClassName(fit)`); bounded, it follows the column outright. No
+      superfluous redraw was found: a landed drawing is redrawn for another
+      width or another build only. `test/worker/home-resize.test.ts`
+      asserts the stage takes its step at 900 and is centred at 1000; that
+      across a 1400→1100→1400 resize neither the drawing nor the paper ever
+      stands wider than the frame and the frame stays centred at every
+      recorded frame (`recordFrameFit`); and that three seconds idle,
+      scrolling, hovering a disc, leaving and returning to the window
+      (`leaveAndReturn`), and the colour scheme changing record no change to
+      the paper or the search's phase. `test/atoms/place-sheet.test.ts`
+      pins `sheetFit`, `sheetFitting` and `drawingScaled`; the overflow test
+      in `home-demo.test.ts` now asserts the stage is
+      `min(stageMaxWidth, column)` at every width rather than monotonic in
+      the viewport, since the column at `lg` is narrower than the reading
+      width just below it.
 - [ ] **Touch targets.** `PlaceMarker`'s hit area is a fixed `-inset-1`
       (`numberedTriggerClassName`); it should derive from the marker's
       radius (a CSS variable written by `markerStyle`, `before:-inset-(--…)`)

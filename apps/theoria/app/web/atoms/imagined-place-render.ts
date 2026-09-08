@@ -16,6 +16,7 @@ import {
 } from "../../contracts/demo/imagined-place-arrangement.js"
 import {
   drawingBetween,
+  drawingScaled,
   paperExpected,
   paperUnder,
   PlaceDrawing,
@@ -415,31 +416,51 @@ export const placeDrawnAtom: AtomType.Atom<PlaceDrawn> = Atom.make((get: AtomTyp
 )
 
 /**
- * The paper the stage draws on. Its width is the one the visitor chose and
- * applies at once. Its height is the drawing's own (`PlaceRenderFrame.paper`):
- * held at the settled arrangement's while the next search's trials run and
- * while trials are scrubbed, so nothing around the stage moves for a jump the
- * search makes; travelling with the discs once the trials are in, so a disc
- * heading past the old edge is never cut and the paper lands with the discs.
- * Before the first drawing it is the paper the search is expected to want
+ * The paper the stage draws on. Its width is the drawing's, cut to the column
+ * the stage has now: never wider than the column, so a column made narrower
+ * shows the drawing fitted to it — scaled as one piece by `fit`, its height
+ * with it — until the arrangement for the new width lands; a column made wider
+ * leaves the drawing its size, centred, since nothing is scaled up. Its height
+ * is otherwise the drawing's own (`PlaceRenderFrame.paper`): held at the
+ * settled arrangement's while the next search's trials run and while trials
+ * are scrubbed, so nothing around the stage moves for a jump the search makes;
+ * travelling with the discs once the trials are in, so a disc heading past
+ * the old edge is never cut and the paper lands with the discs. Before the
+ * first drawing it is the paper the search is expected to want
  * (`placeExpectedPaperAtom`), which the first drawing then holds: the stage
  * is cut to size from the moment the artifact is known, and the first frame
  * moves nothing around it.
  */
 export const PlaceSheet = Schema.Struct({
   width: Schema.Number,
-  height: Schema.Number
+  height: Schema.Number,
+  /** The scale the drawing on the sheet is shown at: 1 while the column holds it, less while it is fitted to a narrower one. */
+  fit: Schema.Number
 })
 
 export type PlaceSheet = typeof PlaceSheet.Type
 
+/** How far a drawing `drawn` wide is scaled to stand on a column `measured` wide: whole while the column holds it, never up. */
+export const sheetFit = (measured: number, drawn: number): number => Math.min(1, measured / drawn)
+
+/** The sheet under a drawing `drawn` wide with `paper` under it, on a column `measured` wide. */
+export const sheetFitting = (measured: number, drawn: number, paper: number): PlaceSheet => {
+  const fit = sheetFit(measured, drawn)
+  return PlaceSheet.make({ width: Math.min(measured, drawn), height: paper * fit, fit })
+}
+
 export const placeSheetAtom: AtomType.Atom<Option.Option<PlaceSheet>> = Atom.make((get: AtomType.Context) =>
   Option.match(Result.value(get(placeRenderFrameAtom)), {
-    onSome: (latest) => Option.some(PlaceSheet.make({ width: latest.search.stage.stageWidth, height: latest.paper })),
+    onSome: (latest) => {
+      const drawn = latest.search.stage.stageWidth
+      return Option.some(
+        sheetFitting(Option.getOrElse(get(placeStageMeasuredWidthAtom), () => drawn), drawn, latest.paper)
+      )
+    },
     onNone: () =>
       Option.map(
         Option.all([get(placeStageMeasuredWidthAtom), Result.value(get(placeExpectedPaperAtom))]),
-        ([width, expected]) => PlaceSheet.make({ width, height: expected })
+        ([width, expected]) => PlaceSheet.make({ width, height: expected, fit: 1 })
       )
   })
 )
@@ -534,12 +555,18 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
     const build = get(placeBuiltAtom)
     const stageWidth = get(placeStageMeasuredWidthAtom)
     const motion = get(motionPreferenceAtom)
-    // The drawing carries on from wherever the last one left off, landed or on its way.
+    // The drawing carries on from wherever the last one left off, landed or on its way — as it is shown: fitted to the column when the column is narrower than it was drawn for.
     const left = Option.map(
       Option.flatMap(get.self<Result.Result<PlaceRenderFrame, PlaceRenderError>>(), Result.value),
       (previous) =>
         new DrawingLeft({
-          drawing: new PlaceDrawing({ markers: previous.rendering.projection.markers, paper: previous.paper }),
+          drawing: drawingScaled(
+            new PlaceDrawing({ markers: previous.rendering.projection.markers, paper: previous.paper }),
+            Option.match(stageWidth, {
+              onNone: () => 1,
+              onSome: (measured) => sheetFit(measured, previous.search.stage.stageWidth)
+            })
+          ),
           held: Option.contains(stageWidth, previous.search.stage.stageWidth)
             ? Option.some(previous.paper)
             : Option.none(),

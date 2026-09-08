@@ -4,6 +4,7 @@ import type { Locator, Page } from "@playwright/test"
 import { Chunk, Duration, Effect, Fiber, Layer, Match, Option, Order, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
+import { stageMaxWidth } from "../../app/contracts/demo/imagined-place-flow.js"
 import { codeSite, CodeSiteId } from "../../app/contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
 import { type PlaceScenario, placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
@@ -588,8 +589,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* attribute(paper, "data-place-drawn", "kept")
             const merge = page.getByRole("switch", { checked: false, name: /^Merge Ship's bell/u })
             yield* act(() => merge.scrollIntoViewIfNeeded())
+            // The kept drawing and its walk stand until the merged build lands; sampling starts once the new
+            // search is drawing, or the first sample would be the old walk, already whole.
+            const rebuilt = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
             yield* click(merge)
-            // Every frame from the merge until the walk is whole.
+            expect((yield* Fiber.join(rebuilt)).status()).toBe(200)
+            yield* attribute(paper, "data-place-drawn", "sketch")
+            // Every frame from the merged search's first trial until the walk is whole.
             const frames = yield* Stream.repeatEffectWithSchedule(
               act(() => page.evaluate(finishingTouches)),
               Schedule.spaced("16 millis").pipe(Schedule.upTo("14 seconds"))
@@ -698,7 +704,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
         yield* visible(rendered(page))
-        // Shrinks to 320 first, then grows: the stage must follow the column both ways.
+        // Shrinks to 320 first, then grows: the stage must follow the column both ways. Below `lg` the column
+        // is the page's reading width and the stage takes it whole; at `lg` the column is the grid's second
+        // track, narrower than the reading width just below `lg`, and the stage is recut to it.
         const stages = yield* Effect.forEach(Arr.make(320, 390, 820, 1280, 1680), (width) =>
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 900 })
@@ -712,9 +720,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               ({ column, drawable, frame, stage }) => stage > 0 && drawable === stage && frame <= column,
               `the stage and its frame fit the column at ${String(width)}px`
             )
+            expect(widths.stage, `the stage takes its column at ${String(width)}px`).toBe(
+              Math.min(stageMaxWidth, widths.column)
+            )
             return widths.stage
           }))
-        expect(stages).toEqual(Arr.sort(stages, Order.number))
         expect(Arr.lastNonEmpty(stages)).toBeGreaterThan(Arr.headNonEmpty(stages))
         expect(yield* failures).toEqual([])
       }))

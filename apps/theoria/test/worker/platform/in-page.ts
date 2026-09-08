@@ -211,6 +211,84 @@ export const stageAndColumnWidths = () => {
   }
 }
 
+/**
+ * The stage in its step: the Arrange step's content width (the column the
+ * stage may take), the width the stage is drawn at, the frame's edges against
+ * the step's (both zero when the frame takes the whole step, equal when it is
+ * centred in it), and the widest width the presets offer.
+ */
+export const stageInItsStep = () => {
+  const step = document.querySelector("[data-place-step='arrange']")
+  const frame = step?.querySelector("[data-artifact-stage='frame']")
+  const content = document.querySelector("[data-place-stage='content']")
+  const stepBox = step?.getBoundingClientRect()
+  const frameBox = frame?.getBoundingClientRect()
+  const presets = [...document.querySelectorAll("[data-place-presets] [role='radio']")]
+  return {
+    step: step?.clientWidth ?? -1,
+    stage: Number(content?.getAttribute("data-place-stage-width") ?? -1),
+    leftOfFrame: Math.round((frameBox?.left ?? 0) - (stepBox?.left ?? 0)),
+    rightOfFrame: Math.round((stepBox?.right ?? 0) - (frameBox?.right ?? 0)),
+    widestOffered: presets.at(-1)?.textContent?.trim() ?? ""
+  }
+}
+
+/** The content widths of the Arrange and Compose steps: the columns the two share when they are stacked. */
+export const stepWidths = () => ({
+  arrange: document.querySelector("[data-place-step='arrange']")?.clientWidth ?? -1,
+  compose: document.querySelector("[data-place-step='compose']")?.clientWidth ?? -1
+})
+
+/**
+ * Records how the drawing stands in its frame at every frame the frame, its
+ * viewport or the paper changes size in: the frame's width, the drawing's
+ * visible width, the paper's width, and how far the frame's centre is from
+ * the viewport's, one `frame drawing paper offCentre` line per report, on the
+ * root element as `data-frame-fit`. Installed as an init script, but its resize observer is
+ * made only once the first drawing stands: a document's observers are
+ * notified in the order they were made, so one made after the stage's own is
+ * told of a size after the stage has answered the same size, and what it
+ * records is what that frame paints. Read back with `recordedFrameFit`.
+ * Self-contained, like `recordPaperFrames`.
+ */
+export const recordFrameFit = () => {
+  const centreOf = (element: Element) => {
+    const box = element.getBoundingClientRect()
+    return box.left + box.width / 2
+  }
+  const widthOf = (element: Element) => Math.round(element.getBoundingClientRect().width)
+  const record = (frame: Element, viewport: Element, paper: Element) => () => {
+    const drawing = document.querySelector("[data-place-stage='content']")
+    const line = [
+      String(widthOf(frame)),
+      String(drawing ? widthOf(drawing) : 0),
+      String(widthOf(paper)),
+      String(Math.round(centreOf(frame) - centreOf(viewport)))
+    ].join(" ")
+    const seen = (document.documentElement.dataset["frameFit"] ?? "").split("\n").filter((entry) => entry.length > 0)
+    if (seen.at(-1) === line) return
+    document.documentElement.dataset["frameFit"] = [...seen, line].join("\n")
+  }
+  const arm = () => {
+    const frame = document.querySelector("[data-artifact-stage='frame']")
+    const viewport = frame?.closest("[data-artifact-stage='viewport']")
+    const paper = document.querySelector("[data-place-stage='paper']")
+    const drawing = document.querySelector("[data-place-stage='content']")
+    if (!(frame && viewport && paper && drawing) || document.documentElement.dataset["frameFitArmed"] === "armed") {
+      return
+    }
+    document.documentElement.dataset["frameFitArmed"] = "armed"
+    const sizes = new ResizeObserver(record(frame, viewport, paper))
+    sizes.observe(frame, { box: "border-box" })
+    sizes.observe(viewport, { box: "border-box" })
+    sizes.observe(paper, { box: "border-box" })
+  }
+  new MutationObserver(arm).observe(document, { childList: true, subtree: true })
+}
+
+/** The frames `recordFrameFit` has recorded so far, one `frame drawing paper offCentre` line each. */
+export const recordedFrameFit = () => document.documentElement.dataset["frameFit"] ?? ""
+
 /** The sheet's height and the trace's top edge: the geometry that must not move while trials are swapped. */
 export const stageLayout = () => {
   const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
@@ -249,6 +327,18 @@ export const recordPaperFrames = () => {
 
 /** The states `recordPaperFrames` has recorded so far, one `height phase` line each. */
 export const recordedPaperFrames = () => document.documentElement.dataset["paperFrames"] ?? ""
+
+/**
+ * What a reader does to the window without changing the page: switches tab
+ * and back (`visibilitychange`), leaves the window and returns (`blur`,
+ * `focus`). Fired in page, since Playwright emulates none of them.
+ */
+export const leaveAndReturn = () => {
+  document.dispatchEvent(new Event("visibilitychange"))
+  window.dispatchEvent(new Event("blur"))
+  window.dispatchEvent(new Event("focus"))
+  document.dispatchEvent(new Event("visibilitychange"))
+}
 
 /**
  * Records the footprint of each region of the demonstration — every step card

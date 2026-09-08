@@ -188,9 +188,16 @@ const Lines = ({ drawing, preference, projection, prose }: {
  * text flowed around it to the last (`markersBetween`). The drawing carries
  * the act being read, which its discs and ghosts answer. How each disc is
  * drawn is told from this frame, so every disc of the frame is told alike.
+ * The drawing is laid out at the width it was drawn for and shown at the
+ * sheet's `fit`: scaled as one piece from its top-left corner (a composited
+ * transform, so its discs and text keep their identity and the next search
+ * carries on from where they are seen), whole while the column holds it.
  */
-const Drawing = ({ drawn, frame, shown }: {
+const fitStyle = (fit: number): CSSProperties => fit < 1 ? { transform: `scale(${fit})`, transformOrigin: "0 0" } : {}
+
+const Drawing = ({ drawn, fit, frame, shown }: {
   readonly drawn: PlaceDrawn
+  readonly fit: number
   readonly frame: PlaceRenderFrame
   readonly shown: string
 }) => {
@@ -204,8 +211,9 @@ const Drawing = ({ drawn, frame, shown }: {
       className="relative"
       data-place-stage-act={act}
       data-place-stage="content"
+      data-place-stage-fit={String(fit)}
       data-place-stage-width={String(projection.stageWidth)}
-      style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px` }}
+      style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px`, ...fitStyle(fit) }}
     >
       {frame.search.phase === "complete"
         ? <PlaceWalk height={projection.stageHeight} markers={projection.markers} width={projection.stageWidth} />
@@ -236,11 +244,17 @@ const Drawing = ({ drawn, frame, shown }: {
 /**
  * The paper's height is moved by the frames themselves, so nothing is added
  * to it; its width is recut in one step when the visitor chooses another, and
- * eases there. Its colour is the stage's own and the same in every story, so
- * choosing another place changes the drawing and nothing of the page around it.
+ * eases there. While the column bounds it (`fit` below one) its width is the
+ * column's and follows it outright: an eased width would lag the column being
+ * dragged and stand past its edge. Its colour is the stage's own and the same
+ * in every story, so choosing another place changes the drawing and nothing
+ * of the page around it.
  */
-const paperClassName =
-  "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[width] duration-200 ease-out motion-reduce:transition-none"
+const paperSurfaceClassName = "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0"
+const paperClassName = (fit: number): string =>
+  fit < 1
+    ? paperSurfaceClassName
+    : `${paperSurfaceClassName} transition-[width] duration-200 ease-out motion-reduce:transition-none`
 const fadeClassName =
   "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-stage-0 via-stage-0/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
 const scrollbarClassName =
@@ -285,15 +299,15 @@ const Paper = ({
   readonly shown: string
 }) => (
   <ScrollArea.Root
-    className={paperClassName}
+    className={paperClassName(sheet.fit)}
     data-place-drawn={drawn}
     data-place-stage="paper"
     data-place-stage-height={String(sheet.height)}
     style={{ height: `${sheet.height}px`, width: `${sheet.width}px` }}
   >
     <ScrollArea.Viewport className="h-full w-full" style={viewportStyle(drawn)}>
-      <ScrollArea.Content>
-        <Drawing drawn={drawn} frame={frame} shown={shown} />
+      <ScrollArea.Content style={{ width: `${sheet.width}px` }}>
+        <Drawing drawn={drawn} fit={sheet.fit} frame={frame} shown={shown} />
       </ScrollArea.Content>
     </ScrollArea.Viewport>
     {cut(drawn)
@@ -370,7 +384,7 @@ const BlankPaper = ({ drawn, sheet, wait }: {
   return (
     <Layer
       aria-busy={wait === "pending"}
-      className={paperClassName}
+      className={paperClassName(sheet.fit)}
       data-place-drawn={drawn}
       data-place-stage="paper"
       data-place-stage-height={String(sheet.height)}
