@@ -757,18 +757,24 @@ left on purpose. Every item takes the same route: failing test, then the change.
       (`ChangedValue`) are still CSS keyframes beside Motion. Either move them
       to Motion under `MotionConfig reducedMotion="user"` so one system owns
       presence, or record why a CSS keyframe is the honest tool for each.
-- [ ] **Per-trial render cost.** In development each search trial costs
-      ~45–60 ms on the main thread. Measure on the production build in Chromium
-      (`test:worker` can record `performance.measure` spans); if the cost is
-      real, coalesce trials to one render per animation frame in
-      `placeShownFrameAtom` rather than one per trial, and test that the last
-      frame of every search is still drawn.
+- [x] **Per-trial render cost.** Measured on the production build
+      (`vite preview` of `dist/`, Chromium, `PerformanceObserver` on
+      `long-animation-frame` and `event`, one story change): 36 trials arrive
+      ≈40 ms apart (the deliberate 28 ms `frameDelay` plus the worker's own
+      time), 3 long animation frames in the whole search (73 ms of blocking in
+      total), and no interaction ≥16 ms. The development cost was Vite's
+      unminified React; per-trial coalescing is not needed and was not added.
+      The same profile found the real delay: the whole request was debounced
+      400 ms, so a story or a merge clicked waited 400 ms before the build
+      began. Now only the typed brief settles (`placeBriefDraftAtom` →
+      `settledBriefDraftAtom`); a story or merge chosen is built at once
+      (`placeBuildRequestAtom`, `test/atoms/place-build-request.test.ts`).
 - [ ] **The edited-brief status line.** `PlaceComposition` says "The recording
       answers the original brief; your edited brief is what version 1 signs."
       once the brief is edited. Decide whether this is the field's description
       (then it belongs to `FieldDescription`, present from the start, in fewer
       words) or a state the page should show another way.
-- [ ] **Dark theme and forced colors across every state.** Every state the
+- [x] **Dark theme and forced colors across every state.** Every state the
       light checks cover — answers open, band shown, Build act lit, a search
       running, a story changing — checked in dark and in `forced-colors`;
       contrast asserted from rendered colours as `home-demo.test.ts` does for

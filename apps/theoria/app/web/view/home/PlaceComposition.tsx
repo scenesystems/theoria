@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceFeature } from "../../../contracts/imagined-place.js"
-import { briefIsEdited, placeControlsAtom } from "../../atoms/imagined-place.js"
+import { placeBriefEditedAtom } from "../../atoms/imagined-place.js"
 import { inlineStatusToneFor, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -98,7 +98,7 @@ const Features = ({ build, edited }: { readonly build: Option.Option<PlaceBuild>
  * composer named from it.
  */
 export const PlaceComposition = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
-  const edited = briefIsEdited(useAtomValue(placeControlsAtom))
+  const edited = useAtomValue(placeBriefEditedAtom)
   return (
     <Stack className="gap-4" data-place-composition>
       <ScenarioChoice disabled={false} />

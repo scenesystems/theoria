@@ -3,7 +3,13 @@ import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { briefMaxLength, placeScenarioMeta, placeScenarios } from "../../../contracts/imagined-place.js"
-import { briefIsEdited, controlsForScenario, placeControlsAtom } from "../../atoms/imagined-place.js"
+import {
+  chooseScenarioAtom,
+  placeBriefAtom,
+  placeBriefDraftAtom,
+  placeBriefEditedAtom,
+  placeControlsAtom
+} from "../../atoms/imagined-place.js"
 import { ChoiceGroup } from "../primitives/ChoiceGroup.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
@@ -26,7 +32,7 @@ const tone = toneClassesFor("dsp")
  */
 export const ScenarioChoice = ({ disabled }: { readonly disabled: boolean }) => {
   const controls = useAtomValue(placeControlsAtom)
-  const setControls = useAtomSet(placeControlsAtom)
+  const chooseScenario = useAtomSet(chooseScenarioAtom)
   const activeIndex = Option.getOrElse(
     Arr.findFirstIndex(placeScenarios, (scenario) => scenario === controls.scenario),
     () => 0
@@ -39,9 +45,7 @@ export const ScenarioChoice = ({ disabled }: { readonly disabled: boolean }) => 
       disabled={disabled}
       label="Scenario"
       onSelect={(index) => {
-        Option.map(Arr.get(placeScenarios, index), (scenario) => {
-          setControls((current) => controlsForScenario(current, scenario))
-        })
+        Option.map(Arr.get(placeScenarios, index), chooseScenario)
       }}
       options={scenarioOptions}
       tone={tone}
@@ -55,8 +59,10 @@ export const ScenarioChoice = ({ disabled }: { readonly disabled: boolean }) => 
  * matches the recorded one.
  */
 export const BriefField = ({ disabled }: { readonly disabled: boolean }) => {
-  const controls = useAtomValue(placeControlsAtom)
-  const setControls = useAtomSet(placeControlsAtom)
+  const scenario = useAtomValue(placeControlsAtom).scenario
+  const brief = useAtomValue(placeBriefAtom)
+  const edited = useAtomValue(placeBriefEditedAtom)
+  const setDraft = useAtomSet(placeBriefDraftAtom)
 
   return (
     <FieldGroup className="gap-3" disabled={disabled}>
@@ -69,21 +75,20 @@ export const BriefField = ({ disabled }: { readonly disabled: boolean }) => {
             as="span"
             className="text-ink-500"
             role="code-meta"
-            text={briefCountText(controls.brief.length, briefMaxLength)}
+            text={briefCountText(brief.length, briefMaxLength)}
             variant="compact"
           />
         </FieldDescription>
       </Layer>
       <TextAreaField
-        active={briefIsEdited(controls)}
+        active={edited}
         onValueChange={(next) => {
-          const brief = next.slice(0, briefMaxLength)
-          setControls((current) => ({ ...current, brief }))
+          setDraft(Option.some({ scenario, text: next.slice(0, briefMaxLength) }))
         }}
         placeholder="Describe the place you want to share…"
         rows={5}
         tone={tone}
-        value={controls.brief}
+        value={brief}
       />
     </FieldGroup>
   )

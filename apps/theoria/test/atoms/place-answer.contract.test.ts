@@ -179,12 +179,9 @@ describe("the answer under an intent", () => {
     }))
 
   it.effect("how the answer on show was opened outlives the answer, for the popup's leaving", () =>
-    Effect.sync(() => {
-      const registry = Registry.make({
-        scheduleTask: (task) => {
-          task()
-        }
-      })
+    Effect.gen(function*() {
+      const { build, showingTrial } = yield* onStage
+      const registry = pageOnNextStory(build, showingTrial)
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
       registry.set(placeAnswerAtom, Option.some(hoverOpened))
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("stays")

@@ -1,13 +1,13 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Effect, Option, Schema } from "effect"
+import { Data, Duration, Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import type { DemoError } from "../../contracts/demo-error.js"
 import { stageFor, stageMaxWidth, stageMinWidth } from "../../contracts/demo/imagined-place-flow.js"
 import type { PlaceBuild } from "../../contracts/imagined-place-result.js"
-import { type PlaceBuildRequest, PlaceScenario, placeScenarioMeta } from "../../contracts/imagined-place.js"
+import { PlaceBuildRequest, PlaceScenario, placeScenarioMeta } from "../../contracts/imagined-place.js"
 import type { ArtifactStageFrame } from "../../contracts/layout.js"
 import type { SuccessEnvelopeData } from "../services/envelopeRequest.js"
 import { ImaginedPlaceClient } from "../services/ImaginedPlaceClient.js"
@@ -24,27 +24,70 @@ import { artifactStageBorderPx } from "../view/primitives/ArtifactStage.js"
  */
 export const defaultPlaceScenario: PlaceScenario = "unfinished-light"
 
-export const defaultPlaceControls: PlaceBuildRequest = {
+/**
+ * The choices made by a press: the story and which proposals are merged.
+ * Each is a decision, built the moment it is made. The brief is not here: it
+ * is typed, and typing settles before it is built.
+ */
+export const PlaceControls = PlaceBuildRequest.pipe(Schema.omit("brief"))
+export type PlaceControls = typeof PlaceControls.Type
+
+export const defaultPlaceControls: PlaceControls = {
   scenario: defaultPlaceScenario,
-  brief: placeScenarioMeta[defaultPlaceScenario].brief,
   acceptNeighbor: true,
   acceptProgram: false
 }
 
-export const placeControlsAtom: AtomType.Writable<PlaceBuildRequest> = Atom.make(defaultPlaceControls)
+export const placeControlsAtom: AtomType.Writable<PlaceControls> = Atom.make(defaultPlaceControls)
 
-/** Switching patterns also resets the brief to the one the pattern was recorded for. */
-export const controlsForScenario = (controls: PlaceBuildRequest, scenario: PlaceScenario): PlaceBuildRequest => ({
-  ...controls,
-  scenario,
-  brief: placeScenarioMeta[scenario].brief
+/**
+ * What the visitor has typed into the brief, under the story it was typed
+ * for. A draft belongs to its story: under another story it says nothing, so
+ * a story chosen while a draft is settling is built with its own brief, and
+ * a story chosen again does not bring an old draft back with it.
+ */
+export const BriefDraft = Schema.Struct({ scenario: PlaceScenario, text: Schema.String })
+export type BriefDraft = typeof BriefDraft.Type
+
+export const placeBriefDraftAtom: AtomType.Writable<Option.Option<BriefDraft>> = Atom.make(Option.none<BriefDraft>())
+
+/** Choosing a story: the story's own brief comes with it; whatever was typed under the last one is let go. */
+export const chooseScenarioAtom = Atom.fnSync<PlaceScenario>()((scenario, ctx) => {
+  ctx.set(placeControlsAtom, { ...ctx.registry.get(placeControlsAtom), scenario })
+  ctx.set(placeBriefDraftAtom, Option.none())
 })
 
-export const briefIsEdited = (controls: PlaceBuildRequest): boolean =>
-  controls.brief !== placeScenarioMeta[controls.scenario].brief
+/** The brief for a story: what was typed under it, or the one it was recorded with. */
+const briefFor = (scenario: PlaceScenario, draft: Option.Option<BriefDraft>): string =>
+  Option.match(Option.filter(draft, (typed) => typed.scenario === scenario), {
+    onNone: () => placeScenarioMeta[scenario].brief,
+    onSome: (typed) => typed.text
+  })
 
-/** Typing in the brief should not build on every keystroke. */
-const buildRequestAtom = Atom.debounce(placeControlsAtom, "400 millis")
+/** The brief as the field shows it: every keystroke. */
+export const placeBriefAtom: AtomType.Atom<string> = Atom.make((get: AtomType.Context) =>
+  briefFor(get(placeControlsAtom).scenario, get(placeBriefDraftAtom))
+)
+
+/** Whether the brief shown is no longer the one the story was recorded with. */
+export const placeBriefEditedAtom: AtomType.Atom<boolean> = Atom.make((get: AtomType.Context) =>
+  get(placeBriefAtom) !== placeScenarioMeta[get(placeControlsAtom).scenario].brief
+)
+
+/** How long typing rests before the brief is built: not on every keystroke, not long enough to feel ignored. */
+export const briefSettleDelay: Duration.Duration = Duration.millis(400)
+
+const settledBriefDraftAtom = Atom.debounce(placeBriefDraftAtom, briefSettleDelay)
+
+/**
+ * What is built: the controls as they stand and the brief as typing left it.
+ * A value, so a settled draft that changed nothing is the same request and
+ * builds nothing again.
+ */
+export const placeBuildRequestAtom: AtomType.Atom<PlaceBuildRequest> = Atom.make((get: AtomType.Context) => {
+  const controls = get(placeControlsAtom)
+  return Data.struct({ ...controls, brief: briefFor(controls.scenario, get(settledBriefDraftAtom)) })
+})
 
 /** The home page's own runtime: the place build does not share the docs workbench's client. */
 const placeRuntime = Atom.runtime(ImaginedPlaceClient.Default)
@@ -53,7 +96,7 @@ const placeRuntime = Atom.runtime(ImaginedPlaceClient.Default)
 export const placeBuildEnvelopeAtom: AtomType.Atom<Result.Result<SuccessEnvelopeData<PlaceBuild>, DemoError>> =
   placeRuntime.atom(
     (get: AtomType.Context) => {
-      const request = get(buildRequestAtom)
+      const request = get(placeBuildRequestAtom)
       return Effect.gen(function*() {
         const client = yield* ImaginedPlaceClient
         return yield* client.build(request)

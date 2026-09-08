@@ -3,14 +3,14 @@ import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild, ProposalRecord } from "../../../contracts/imagined-place-result.js"
-import type { ParticipantRole, PlaceBuildRequest } from "../../../contracts/imagined-place.js"
-import { placeControlsAtom } from "../../atoms/imagined-place.js"
+import type { ParticipantRole } from "../../../contracts/imagined-place.js"
+import { type PlaceControls, placeControlsAtom } from "../../atoms/imagined-place.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
 import { PlaceProposal } from "./PlaceProposal.js"
 
-const accepts = (controls: PlaceBuildRequest, role: ParticipantRole): boolean =>
+const accepts = (controls: PlaceControls, role: ParticipantRole): boolean =>
   Match.value(role).pipe(
     Match.when("neighbor", () => controls.acceptNeighbor),
     Match.when("program", () => controls.acceptProgram),
@@ -18,7 +18,7 @@ const accepts = (controls: PlaceBuildRequest, role: ParticipantRole): boolean =>
     Match.exhaustive
   )
 
-const toggled = (controls: PlaceBuildRequest, role: ParticipantRole): PlaceBuildRequest =>
+const toggled = (controls: PlaceControls, role: ParticipantRole): PlaceControls =>
   Match.value(role).pipe(
     Match.when("neighbor", () => ({ ...controls, acceptNeighbor: !controls.acceptNeighbor })),
     Match.when("program", () => ({ ...controls, acceptProgram: !controls.acceptProgram })),
