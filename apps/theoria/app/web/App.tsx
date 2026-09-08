@@ -1,3 +1,4 @@
+import { CSPProvider } from "@base-ui/react/csp-provider"
 import { Tooltip } from "@base-ui/react/tooltip"
 import { RegistryProvider, useAtomMount, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
@@ -50,13 +51,21 @@ const MotionRoot = ({ children }: { readonly children: ReactNode }) => (
   </LazyMotion>
 )
 
-/** Base UI tooltips share one provider so they hand off without delay. */
+/**
+ * The page is served under a policy that admits no inline style
+ * (`security-headers.ts`), so Base UI is told to write no `<style>` elements:
+ * the one rule its scroll areas would write, hiding the native scrollbar, is
+ * in `styles.css` instead. Base UI tooltips share one provider so they hand
+ * off without delay.
+ */
 export const App = () => (
   <RegistryProvider defaultIdleTTL={400}>
-    <MotionRoot>
-      <Tooltip.Provider>
-        <AppShell />
-      </Tooltip.Provider>
-    </MotionRoot>
+    <CSPProvider disableStyleElements>
+      <MotionRoot>
+        <Tooltip.Provider>
+          <AppShell />
+        </Tooltip.Provider>
+      </MotionRoot>
+    </CSPProvider>
   </RegistryProvider>
 )

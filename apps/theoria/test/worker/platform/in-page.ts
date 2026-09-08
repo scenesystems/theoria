@@ -423,6 +423,28 @@ export const recordPaperFrames = () => {
 export const recordedPaperFrames = () => document.documentElement.dataset["paperFrames"] ?? ""
 
 /**
+ * Records every Content Security Policy violation the document reports, from
+ * before its first script runs: one `directive blockedURI source:line` line
+ * per report, on the root element as `data-policyViolations`. A violation is
+ * reported to the document whether or not the browser also logs it, so this
+ * is the page's own account of what the policy refused — an inline style a
+ * library wrote, a script from elsewhere. Read back with
+ * `recordedPolicyViolations`. Self-contained, like `recordPaperFrames`.
+ */
+export const recordPolicyViolations = () => {
+  document.addEventListener("securitypolicyviolation", (event) => {
+    const line = `${event.violatedDirective} ${event.blockedURI} ${event.sourceFile}:${String(event.lineNumber)}`
+    const seen = (document.documentElement.dataset["policyViolations"] ?? "").split("\n").filter((entry) =>
+      entry.length > 0
+    )
+    document.documentElement.dataset["policyViolations"] = [...seen, line].join("\n")
+  })
+}
+
+/** The violations `recordPolicyViolations` has recorded so far, one per line; empty when the policy refused nothing. */
+export const recordedPolicyViolations = () => document.documentElement.dataset["policyViolations"] ?? ""
+
+/**
  * What a reader does to the window without changing the page: switches tab
  * and back (`visibilitychange`), leaves the window and returns (`blur`,
  * `focus`). Fired in page, since Playwright emulates none of them.

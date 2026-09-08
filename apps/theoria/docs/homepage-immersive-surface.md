@@ -1114,7 +1114,7 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       Noto Sans for the sans; Courier New, Liberation Mono, Roboto Mono, Noto
       Sans Mono for the mono — each declared by `@capsizecss/core`'s
       `createFontStack` as a `@font-face` named `"<served> Fallback:
-  <stand-in>"` with `ascent-override`, `descent-override`,
+<stand-in>"` with `ascent-override`, `descent-override`,
       `line-gap-override` and `size-adjust` from `@capsizecss/metrics`
       (`typefaceFallbacks`, `typefaceFallbackFaces`, rendered into the
       generated text-token CSS). Liberation is declared with Arial's and
@@ -1153,16 +1153,47 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       with overrides, the stage uncut, then on release the faces loaded, the
       title's box unchanged, every text region painted at one height and the
       stage column at two (uncut, cut), at desktop and phone.
-- [ ] **CSP nonce.** `style-src` allows `'unsafe-inline'`
+- [x] **CSP nonce.** `style-src` allows `'unsafe-inline'`
       (`security-headers.ts`). Audit inline styles under report-only, theme
       Shiki through CSS variables, and issue a per-response nonce so the
       allowance goes.
+      _Done, without a nonce._ The audit found one writer of inline style:
+      Base UI's scroll areas (and `Select.Popup`, unused) render a `<style>`
+      element hiding the native scrollbar (`.base-ui-disable-scrollbar`).
+      Shiki already themes through `var(--th-code-*)` classes
+      (`highlighter.ts`), `index.html` carries no `<style>` or inline script,
+      Motion writes one only for `AnimatePresence mode="popLayout"` (not
+      used), and every `style={{…}}` prop is set through the CSSOM, which
+      `style-src` does not govern. So the policy is `style-src 'self'`
+      outright: `App.tsx` wraps the tree in Base UI's
+      `<CSPProvider disableStyleElements>` and the one rule it would have
+      written is in `styles.css`. A per-response nonce was not issued
+      because nothing on the page would carry it — the shell is static and
+      the app is client-rendered — and a nonce with no consumer is a
+      mechanism kept for its own sake. Should a first-party `<style>` ever be
+      needed, the route is `CSPProvider nonce` / `MotionConfig nonce` fed
+      from a nonce the Worker mints into the shell, not `'unsafe-inline'`.
+      Tests: `analytics.test.ts` (the policy reads `style-src 'self'; ` under
+      every analytics setting and never `unsafe-inline`) and
+      `security-policy.test.ts`, which installs a `securitypolicyviolation`
+      recorder before the first script (`recordPolicyViolations`), reads the
+      served policy from the navigation's own response, and takes the page
+      through the drawing, a proposal's popover, a merge, a change of story,
+      the theme, and the documentation's highlighted code, package menu,
+      search dialog and (below `lg`) navigation drawer, asserting the
+      document reported nothing refused and the console is clean, at desktop
+      and phone. The test was mutation-checked: with `disableStyleElements`
+      removed it fails on `style-src-elem inline` at the drawing.
 - [ ] **Mobile paper scroll affordance.** A sketch or a trial longer than the
       sheet is cut with a fade and scrolls inside the paper (`PlaceStage.tsx`
       `cut`, `Paper`); below `lg` there is no scrollbar and nothing but the
       fade says the paper scrolls. Decide the affordance (Base UI
       `ScrollArea` scrollbar shown while cut, or the fade alone with a
-      documented reason) and test it at 390.
+      documented reason) and test it at 390. The same want in
+      `CodeBlock.tsx`: its viewport is `max-h-[32rem]` with a horizontal
+      scrollbar only, so a tall example is clipped with nothing to say it
+      scrolls (seen on `/docs/effect-search/examples` at 390 while auditing
+      the policy).
 - [ ] **Closed unions matched with `Match.orElse`.**
       `app/server/routes/imagined-place.ts` `statusFor` (over
       `ErrorModel["code"]`) and its rejection match, and

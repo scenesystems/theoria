@@ -349,6 +349,18 @@
     scrollbar-gutter: stable;
   }
 
+  /* A Base UI scroll area's viewport draws its own scrollbar, so the native
+   * one is hidden. Base UI would write this rule into a `<style>` element as
+   * it renders; the page's policy admits no inline style, so it is told not to
+   * (`CSPProvider` in `App.tsx`) and the rule lives here. */
+  .base-ui-disable-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .base-ui-disable-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   /* The canvas is the stage's colour: one flat fill, propagated to the
    * viewport, so it costs nothing to repaint under the page. */
   body {
