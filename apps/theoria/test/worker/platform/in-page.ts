@@ -117,6 +117,19 @@ export const focusedControlIntersectsBand = () => {
     : false
 }
 
+/**
+ * How an element stands right now: its painted opacity, and whether an
+ * animation running on it is driving that opacity. Something placed outright
+ * is at opacity 1 and fades nothing; something arriving is mid-fade.
+ */
+export const presence = (element: Element) => ({
+  opacity: Number(getComputedStyle(element).opacity),
+  fading: element.getAnimations().some((animation) =>
+    animation.effect instanceof KeyframeEffect
+    && animation.effect.getKeyframes().some((keyframe) => "opacity" in keyframe)
+  )
+})
+
 /** Every finite animation (CSS and Web Animations) has finished; infinite ones are ignored. */
 export const finiteAnimationsFinished = () =>
   document.getAnimations().every((animation) =>

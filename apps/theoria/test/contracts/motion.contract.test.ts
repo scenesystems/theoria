@@ -20,14 +20,17 @@ import {
 import { placeDiscDrawnAtom, placeDrawnAtom, placeTrialPreviewAtom } from "../../app/web/atoms/imagined-place-render.js"
 import { motionConfigReducedMotion } from "../../app/web/atoms/motion.js"
 import {
+  arrivalFrom,
   exitTransition,
   pulseTransition,
+  routeEntranceInitial,
   shiftTransition,
   staggeredArrival,
   themeTransition,
   valueWashTransition,
   walkDrawTransition
 } from "../../app/web/view/primitives/motion.js"
+import { wordmarkMotion } from "../../app/web/view/primitives/wordmarkMorph.js"
 
 /** The app's `app/web` directory, from this file rather than the working directory: the root test run starts elsewhere. */
 const webRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
@@ -109,6 +112,15 @@ describe("motion contract", () => {
     Effect.sync(() => {
       expect(motionConfigReducedMotion("reduced")).toBe("always")
       expect(motionConfigReducedMotion("full")).toBe("never")
+    }))
+
+  it.effect("one source decides what arrives and what rests: a route rises in or is placed, the wordmark crossfades or stands", () =>
+    Effect.sync(() => {
+      // The preference atom, not Motion's own media-query hook, is the source; these read only the preference.
+      expect(routeEntranceInitial("full")).toEqual(arrivalFrom)
+      expect(routeEntranceInitial("reduced")).toBe(false)
+      expect(wordmarkMotion("full")).toBe("crossfading")
+      expect(wordmarkMotion("reduced")).toBe("still")
     }))
 
   it.effect("draws the search's sketch until it settles, and a trial while one is chosen from the trace", () =>

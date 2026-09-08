@@ -1,4 +1,4 @@
-import { Duration } from "effect"
+import { Duration, Match } from "effect"
 import type { Transition } from "motion/react"
 
 import {
@@ -10,6 +10,7 @@ import {
   motionValueWash,
   motionWalkDraw
 } from "../../../contracts/motion.js"
+import type { MotionPreference } from "../../atoms/motion.js"
 
 const seconds = (duration: Duration.Duration): number => Duration.toSeconds(duration)
 
@@ -64,3 +65,18 @@ export const staggeredArrival = (index: number): Transition => ({
 export const arrivalFrom = { opacity: 0, y: 4 }
 export const arrivedAt = { opacity: 1, y: 0 }
 export const departed = { opacity: 0 }
+
+/** Where a route's content starts: `arrivalFrom`, or `false` for Motion to render it arrived from its first frame. */
+export type RouteEntranceInitial = typeof arrivalFrom | false
+
+/**
+ * A whole route's content is placed outright under reduced motion — no fade,
+ * where Motion on its own would keep the fade and drop only the rise — so
+ * the preference is read here, from the page's one source, not from Motion.
+ */
+export const routeEntranceInitial = (preference: MotionPreference): RouteEntranceInitial =>
+  Match.value(preference).pipe(
+    Match.when("full", (): RouteEntranceInitial => arrivalFrom),
+    Match.when("reduced", (): RouteEntranceInitial => false),
+    Match.exhaustive
+  )

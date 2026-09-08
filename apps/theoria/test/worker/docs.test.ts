@@ -7,6 +7,7 @@ import * as Str from "effect/String"
 import { cards } from "../../app/contracts/card.js"
 import {
   act,
+  attached,
   attribute,
   BrowserLive,
   click,
@@ -26,7 +27,7 @@ import {
   visible,
   wheel
 } from "./browser.js"
-import { clipboardText, horizontalScrollers, setRootFontSize } from "./platform/in-page.js"
+import { clipboardText, horizontalScrollers, presence, setRootFontSize } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
@@ -61,6 +62,40 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect((yield* Clock.currentTimeMillis) - cardNavigationStarted).toBeLessThan(1_500)
         expect(yield* documents).toHaveLength(1)
         expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a route's content rises in, or under reduced motion is placed outright with the wordmark at rest", () =>
+      Effect.gen(function*() {
+        const full = yield* openPage()
+        yield* goto(full.page, "/")
+        yield* visible(full.page.getByRole("region", { name: "Imagined place demo" }))
+        // The wordmark crossfades between its Latin and Greek faces, so both are in the page.
+        yield* containsText(full.page.locator("header").getByRole("img", { name: "Theoria" }), "θεωρία")
+        yield* click(full.page.locator("header").getByRole("link", { exact: true, name: "Docs" }))
+        const entrance = full.page.locator("[data-route-entrance]")
+        yield* attached(entrance)
+        // Arriving: the first frames after the route mounts are the fade in.
+        const arriving = yield* Effect.forEach(Arr.range(1, 12), () => act(() => entrance.evaluate(presence)))
+        expect(Arr.some(arriving, (sample) => sample.opacity < 1 || sample.fading)).toBe(true)
+        yield* visible(full.page.getByRole("heading", { level: 1, name: "Packages" }))
+
+        const reduced = yield* openPage({ reducedMotion: "reduce" })
+        yield* goto(reduced.page, "/")
+        yield* visible(reduced.page.getByRole("region", { name: "Imagined place demo" }))
+        // At rest: the Latin wordmark alone, with no Greek face to fade to.
+        const wordmark = reduced.page.locator("header").getByRole("img", { name: "Theoria" })
+        yield* containsText(wordmark, "Theoria")
+        expect(yield* act(() => wordmark.innerText())).not.toContain("θ")
+        yield* click(reduced.page.locator("header").getByRole("link", { exact: true, name: "Docs" }))
+        const placed = reduced.page.locator("[data-route-entrance]")
+        yield* attached(placed)
+        // Placed outright: at full opacity from its first frame, fading nothing.
+        const standing = yield* Effect.forEach(Arr.range(1, 12), () => act(() => placed.evaluate(presence)))
+        expect(standing).toEqual(Arr.map(standing, () => ({ opacity: 1, fading: false })))
+        yield* visible(reduced.page.getByRole("heading", { level: 1, name: "Packages" }))
+
+        expect(yield* full.failures).toEqual([])
+        expect(yield* reduced.failures).toEqual([])
       }))
 
     it.scoped("docs navigation, package selection, and focused API caching stay coherent", () =>

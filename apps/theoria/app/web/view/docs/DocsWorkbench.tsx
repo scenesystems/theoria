@@ -1,33 +1,35 @@
+import { useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
-import { useReducedMotion } from "motion/react"
 import * as m from "motion/react-m"
 import type { ReactNode } from "react"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
 import { docsPathFor, type DocsRoute } from "../../../contracts/docs.js"
+import { motionPreferenceAtom } from "../../atoms/motion.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Layer, Main, Section, Stack } from "../primitives/Layout.js"
+import { arrivedAt, routeEntranceInitial } from "../primitives/motion.js"
 import { DocsHeader } from "./DocsHeader.js"
 import { DocsNavigation } from "./DocsNavigation.js"
 import { DocsNavigationDrawer } from "./DocsNavigationDrawer.js"
 import { DocsOnThisPage, type DocsPageAnchor } from "./DocsOnThisPage.js"
 import { DocsSearchDialog } from "./DocsSearchDialog.js"
 
+/**
+ * A route's content arriving: it rises in over the theme's `enter`, or under
+ * reduced motion stands where it lands from the first frame. The preference
+ * comes from `motionPreferenceAtom`, the page's one source for it.
+ */
 export const DocsRouteEntrance = (
   { children, className }: { readonly children: ReactNode; readonly className: string }
 ) => {
-  const reducedMotion = useReducedMotion()
+  const preference = useAtomValue(motionPreferenceAtom)
 
   return (
     <Layer
       className={className}
-      render={
-        <m.div
-          animate={{ opacity: 1, y: 0 }}
-          initial={reducedMotion === true ? false : { opacity: 0, y: 6 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
-        />
-      }
+      data-route-entrance
+      render={<m.div animate={arrivedAt} initial={routeEntranceInitial(preference)} />}
     >
       {children}
     </Layer>

@@ -1088,10 +1088,22 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       (`browser.accessibilityTree`, `locator.ariaSnapshot()`) and asserts one
       node, a link with that exact name and the stage's `href`, no `img`, and
       the name grown by one after a merge (`in-page.bandDiscNames`).
-- [ ] **Single motion source.** `DocsWorkbench` and `WordmarkMorph` read
+- [x] **Single motion source.** `DocsWorkbench` and `WordmarkMorph` read
       Motion's `useReducedMotion` while the rest of the page reads
-      `motionPreferenceAtom`; they should read the atom, and lint should
-      forbid the import.
+      `motionPreferenceAtom`. Both now read the atom through two pure
+      decisions: `routeEntranceInitial(preference)` (`primitives/motion.ts`)
+      is `arrivalFrom` or `false`, so a route is placed outright under reduced
+      motion where Motion alone would keep the fade; `wordmarkMotion(preference)`
+      (`wordmarkMorph.ts`, `Schema.Literal("crossfading", "still")`) picks the
+      face. The docs entrance also dropped its private `y: 6`/180 ms in favour
+      of `arrivalFrom` and the theme's `enter`, so it shares the page's motion
+      vocabulary. The Effect lint set (`eslint/effect/builtins.mjs`) forbids
+      importing `useReducedMotion` from `motion/*` everywhere. Tests:
+      `motion.contract.test.ts` for both decisions; `docs.test.ts` samples
+      `[data-route-entrance]` on a client-side route change — under full
+      motion a frame mid-fade, under `reducedMotion: "reduce"` every sample at
+      opacity 1 with no opacity animation (`in-page.presence`) — and reads the
+      header wordmark's faces: both under full motion, Latin alone at rest.
 - [ ] **Fallback-metrics fonts.** `font-display: swap` without a
       metric-matched fallback lets the text reflow when the woff2 lands; the
       text-token contract should declare fallback `@font-face`s with

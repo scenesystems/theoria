@@ -8,6 +8,10 @@
  * fractional frames are valid and give the smooth motion.
  */
 
+import { Match, Schema } from "effect"
+
+import type { MotionPreference } from "../../atoms/motion.js"
+
 const HOLD_FRAMES = 30
 const SWEEP_FRAMES = 24
 const SEGMENT_COUNT = 6
@@ -39,3 +43,15 @@ export const segmentProgress = (frame: number, segmentIndex: number): number => 
 
 /** The frame within the cycle for `elapsedMs` since the animation started. */
 export const frameAt = (elapsedMs: number): number => (elapsedMs / frameIntervalMs) % totalFrames
+
+/** What the wordmark does: crossfades through its cycle, or stands still on the Latin face. */
+export const WordmarkMotion = Schema.Literal("crossfading", "still")
+export type WordmarkMotion = typeof WordmarkMotion.Type
+
+/** The wordmark stands still when the reader's system asks for less motion. */
+export const wordmarkMotion = (preference: MotionPreference): WordmarkMotion =>
+  Match.value(preference).pipe(
+    Match.when("full", (): WordmarkMotion => "crossfading"),
+    Match.when("reduced", (): WordmarkMotion => "still"),
+    Match.exhaustive
+  )

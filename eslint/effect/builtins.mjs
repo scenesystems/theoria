@@ -245,5 +245,12 @@ export const HOST_GLOBAL_RULES = [
   {
     selector: "Identifier[name=/^(localStorage|sessionStorage)$/]",
     message: "Do not use Web Storage directly. Use BrowserKeyValueStore from '@effect/platform-browser'."
+  },
+  {
+    // Motion's hook reads `matchMedia` from the window itself, a second
+    // source for a preference the page already follows as an atom.
+    selector: "ImportDeclaration[source.value=/^motion/] ImportSpecifier[imported.name='useReducedMotion']",
+    message:
+      "Do not read the reader's motion preference from Motion. Read motionPreferenceAtom, the page's one source for it, and decide with Match.exhaustive."
   }
 ]

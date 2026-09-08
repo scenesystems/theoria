@@ -1,8 +1,11 @@
-import { type MotionValue, useReducedMotion, useTime, useTransform } from "motion/react"
+import { useAtomValue } from "@effect-atom/atom-react"
+import { Match } from "effect"
+import { type MotionValue, useTime, useTransform } from "motion/react"
 import * as m from "motion/react-m"
 import { memo } from "react"
 
-import { frameAt, segmentProgress } from "./wordmarkMorph.js"
+import { motionPreferenceAtom } from "../../atoms/motion.js"
+import { frameAt, segmentProgress, wordmarkMotion } from "./wordmarkMorph.js"
 
 /**
  * Semantic character units: 7 Latin chars → 6 Greek chars in 6 positions.
@@ -98,17 +101,22 @@ const AnimatedWordmark = () => {
  * frame clock (`useTime`) drives each segment's opacity through
  * `segmentProgress`, so the crossfade runs at the display's refresh rate
  * without React re-rendering. Readers who prefer reduced motion see the
- * Latin wordmark at rest.
+ * Latin wordmark at rest; the preference is `motionPreferenceAtom`'s, the
+ * page's one source for it.
  *
  * @since 0.1.0
  */
 export const WordmarkMorph = () => {
-  const reducedMotion = useReducedMotion()
+  const preference = useAtomValue(motionPreferenceAtom)
 
   return (
     <span aria-hidden className="inline-grid items-baseline text-ink-900">
       <MeasureLayer />
-      {reducedMotion === true ? <span className="col-start-1 row-start-1">Theoria</span> : <AnimatedWordmark />}
+      {Match.value(wordmarkMotion(preference)).pipe(
+        Match.when("still", () => <span className="col-start-1 row-start-1">Theoria</span>),
+        Match.when("crossfading", () => <AnimatedWordmark />),
+        Match.exhaustive
+      )}
     </span>
   )
 }
