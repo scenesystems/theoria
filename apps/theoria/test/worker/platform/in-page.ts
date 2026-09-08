@@ -233,6 +233,37 @@ export const stageInItsStep = () => {
   }
 }
 
+/**
+ * The page's vertical rhythm, in document pixels: the top and bottom edge of
+ * each region of the home page, and inside the Compose step the space between
+ * its header and its body — the tightest relation the page draws, which
+ * everything further apart must clearly exceed. An edge is `-1` when the
+ * region is not in the document.
+ */
+export const pageRhythm = () => {
+  const edges = (selector: string) => {
+    const element = document.querySelector(selector)
+    const box = element?.getBoundingClientRect()
+    return box
+      ? { top: Math.round(box.top + window.scrollY), bottom: Math.round(box.bottom + window.scrollY) }
+      : { top: -1, bottom: -1 }
+  }
+  const header = edges("[data-place-step='compose'] [data-place-step-header]")
+  const body = edges("[data-place-step='compose'] [data-place-step-header] + *")
+  return {
+    hero: edges("[data-home-hero]"),
+    arrive: edges("[data-place-arrive]"),
+    arrange: edges("[data-place-step='arrange']"),
+    compose: edges("[data-place-step='compose']"),
+    propose: edges("[data-place-step='propose']"),
+    record: edges("[data-place-step='record']"),
+    columns: edges("[data-place-columns]"),
+    howItsBuilt: edges("[data-place-how-its-built]"),
+    footer: edges("[data-site-footer]"),
+    withinStep: body.top - header.bottom
+  }
+}
+
 /** The content widths of the Arrange and Compose steps: the columns the two share when they are stacked. */
 export const stepWidths = () => ({
   arrange: document.querySelector("[data-place-step='arrange']")?.clientWidth ?? -1,

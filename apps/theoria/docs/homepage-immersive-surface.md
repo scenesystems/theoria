@@ -1007,6 +1007,31 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       `min(stageMaxWidth, column)` at every width rather than monotonic in
       the viewport, since the column at `lg` is narrower than the reading
       width just below it.
+- [x] **Vertical rhythm.** The steps stood 40 px apart against 14 px
+      between a step's header and its body, so Compose, Propose and Record
+      read as one column of cards, and below `lg` Arrange met Compose at 32.
+      The page had no scale for this: `gap-4` on the content column,
+      `gap-8`/`gap-12 lg:gap-16` on the stacks, `pb-6` on the section,
+      `mt-10` on the footer, each set where it was needed. Two fluid tokens
+      in `styles.css` `@theme` now hold the whole page's spacing between
+      things: `--spacing-act` (`clamp(3.5rem, 2rem + 4vw, 4.5rem)`: 56 px
+      at 390, 72 at 1280) between the steps of the story — the Acts stack,
+      and the grid's row gap where Arrange stands above Compose — and
+      `--spacing-region` (`clamp(4.5rem, 2.5rem + 5vw, 6rem)`: 72 at 390,
+      96 at 1280) between the page's regions — the demonstration's columns
+      to _How it's built_, and _How it's built_ to the footer (`mt-region`
+      on `SiteFooter`). The content column's `gap-4` is gone so each block
+      owns its own distance (the hero's lead and trail tokens set the
+      header→hero and hero→arrive distances alone), as are the section's
+      `pb-6` and the arrive→grid `gap-8` (now `gap-10`). Between-step space
+      is at least three times the within-step relation at every width, so
+      proximity groups a header with its body and separates the steps
+      without a rule or a card. `test/worker/home-rhythm.test.ts` measures
+      the page at 390, 820 and 1280 (`pageRhythm` in `in-page.ts`): the
+      acts stand equally apart (to the pixel a fluid length rounds
+      differently along the page) and at least `stepsApart` times the
+      within-step distance; below `lg` Arrange stands the act gap above
+      Compose; the two region gaps are equal and at least the act gap.
 - [ ] **Touch targets.** `PlaceMarker`'s hit area is a fixed `-inset-1`
       (`numberedTriggerClassName`); it should derive from the marker's
       radius (a CSS variable written by `markerStyle`, `before:-inset-(--…)`)

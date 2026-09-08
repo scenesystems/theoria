@@ -50,6 +50,14 @@
   /* The hero's rhythm above and below scales with viewport height, bounded, so the demonstration shares the first viewport. */
   --spacing-hero-lead: clamp(2.5rem, 7svh, 6rem);
   --spacing-hero-trail: clamp(2rem, 4.5svh, 5rem);
+  /*
+   * The page's rhythm below the hero, in two steps: between the steps of the story (Arrange, Compose, Propose, Record)
+   * and between the regions of the page (the demonstration, how it is built, the footer). Both scale with the
+   * viewport's width, bounded; a region always stands off at least as far as a step, and a step several times
+   * further than a header stands from its body, so what is apart reads apart.
+   */
+  --spacing-act: clamp(3.5rem, 2rem + 4vw, 4.5rem);
+  --spacing-region: clamp(4.5rem, 2.5rem + 5vw, 6rem);
 }
 
 @theme {

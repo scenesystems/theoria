@@ -324,10 +324,13 @@ export const toggleTrackClassName = ({
  * The page is the canvas: one column of content on the document's own
  * canvas, nothing floating over it. The root paints nothing itself — the
  * body is the canvas, in the stage's colour — so the home page and the docs
- * stand on the same ground, and no story changes it.
+ * stand on the same ground, and no story changes it. The column adds no
+ * space of its own between what it holds: each block owns its distance from
+ * the next (the hero's lead and trail, the footer's `region`), so every
+ * distance on the page has one source.
  */
 export const appTheme = {
   root:
     "relative min-h-screen overflow-x-clip font-body text-ink-900 antialiased selection:bg-tone-text-200/60 selection:text-ink-950",
-  content: "relative mx-auto flex w-full max-w-[88rem] flex-col gap-4 px-5 py-6 sm:px-8 sm:py-8 lg:px-12"
+  content: "relative mx-auto flex w-full max-w-[88rem] flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12"
 }

@@ -31,7 +31,7 @@ const Acts = ({ build, offered, outline }: {
   readonly outline: PlaceOutline
 }) => (
   <Stack
-    className="relative gap-10 lg:before:absolute lg:before:bottom-3 lg:before:left-[calc(0.375rem-0.5px)] lg:before:top-3 lg:before:w-px lg:before:bg-rule-strong"
+    className="relative gap-act lg:before:absolute lg:before:bottom-3 lg:before:left-[calc(0.375rem-0.5px)] lg:before:top-3 lg:before:w-px lg:before:bg-rule-strong"
     data-place-acts
   >
     <PlaceStepCard spine="spine" step="compose">
@@ -60,16 +60,20 @@ export const PlaceActs = () => {
   const offered = useAtomValue(placeOfferedAtom)
 
   return (
-    <Section aria-label="Imagined place demo" className="scroll-mt-6 pb-6" id={imaginedPlaceSectionId}>
+    <Section aria-label="Imagined place demo" className="scroll-mt-6" id={imaginedPlaceSectionId}>
       {/* The band's slot leads the demonstration so it can pin to the viewport for as long as the demonstration lasts. */}
       <Layer>
         <PlaceBand />
-        <Stack className="gap-12 lg:gap-16">
-          <Stack className="gap-8">
+        {/* The page's regions stand `region` apart; the steps of the story `act` apart, stacked or on the spine. */}
+        <Stack className="gap-region">
+          <Stack className="gap-10">
             <Stack className="min-w-0 max-w-[44rem] gap-6">
               <PlaceArrive />
             </Stack>
-            <Layer className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]">
+            <Layer
+              className="grid gap-x-12 gap-y-act lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]"
+              data-place-columns
+            >
               {/* The stage column is the grid track's at `lg` and the section's below it: the paper takes the column up to `stageMaxWidth`, and is centred in it, at every width. */}
               <Layer className="min-w-0 lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-6">
                 <PlaceStepCard spine="none" step="arrange">
