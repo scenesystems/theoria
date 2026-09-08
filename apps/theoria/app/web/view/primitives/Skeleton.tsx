@@ -1,6 +1,6 @@
 import { Separator } from "@base-ui/react/separator"
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Match } from "effect"
+import { Match, Schema } from "effect"
 import * as m from "motion/react-m"
 import type { CSSProperties, ReactNode } from "react"
 
@@ -21,33 +21,61 @@ import { fontSizeVar, lineHeightVar } from "./semanticTextClasses.js"
 // visitor asked for reduced motion.
 // ---------------------------------------------------------------------------
 
-const pulse = (preference: MotionPreference) =>
-  Match.value(preference).pipe(
-    Match.when("full", () => ({ animate: { opacity: [1, 0.5, 1] }, transition: pulseTransition })),
-    Match.when("reduced", () => ({ animate: { opacity: 1 }, transition: stillTransition })),
+/**
+ * Whether a placeholder breathes — what it stands in for is on its way — or
+ * holds still: nothing is coming until it is asked for. A still placeholder
+ * is the room something would take, not a promise that it will.
+ */
+export const PlaceholderMotion = Schema.Literal("breathing", "still")
+export type PlaceholderMotion = typeof PlaceholderMotion.Type
+
+const still = { animate: { opacity: 1 }, transition: stillTransition }
+
+const pulse = (preference: MotionPreference, motion: PlaceholderMotion) =>
+  Match.value(motion).pipe(
+    Match.when("still", () => still),
+    Match.when("breathing", () =>
+      Match.value(preference).pipe(
+        Match.when("full", () => ({ animate: { opacity: [1, 0.5, 1] }, transition: pulseTransition })),
+        Match.when("reduced", () => still),
+        Match.exhaustive
+      )),
     Match.exhaustive
   )
 
 export const PulseLayer = ({
   ariaHidden,
   className,
+  motion = "breathing",
   style
 }: {
   readonly ariaHidden?: boolean
   readonly className: string
+  readonly motion?: PlaceholderMotion
   readonly style?: CSSProperties
 }) => {
   const preference = useAtomValue(motionPreferenceAtom)
 
   return (
-    <Layer aria-hidden={ariaHidden} className={className} style={style} render={<m.div {...pulse(preference)} />} />
+    <Layer
+      aria-hidden={ariaHidden}
+      className={className}
+      style={style}
+      render={<m.div {...pulse(preference, motion)} />}
+    />
   )
 }
 
 /** A bar standing in for a line of content of no particular text role. */
-export const ShimmerLine = ({ className = "", width }: { readonly className?: string; readonly width: string }) => (
-  <PulseLayer className={`h-3 rounded bg-stage-200/60 ${width} ${className}`} />
-)
+export const ShimmerLine = ({
+  className = "",
+  motion = "breathing",
+  width
+}: {
+  readonly className?: string
+  readonly motion?: PlaceholderMotion
+  readonly width: string
+}) => <PulseLayer className={`h-3 rounded bg-stage-200/60 ${width} ${className}`} motion={motion} />
 
 /**
  * A line standing in for text of a known role: the line box is exactly the
@@ -91,7 +119,11 @@ export const GhostText = ({
 
   return (
     <SemanticContent as={as} className={className} role={role} variant={variant}>
-      <m.span aria-hidden className={inline ? "ghost-words whitespace-nowrap" : "ghost-words"} {...pulse(preference)}>
+      <m.span
+        aria-hidden
+        className={inline ? "ghost-words whitespace-nowrap" : "ghost-words"}
+        {...pulse(preference, "breathing")}
+      >
         {text}
       </m.span>
     </SemanticContent>

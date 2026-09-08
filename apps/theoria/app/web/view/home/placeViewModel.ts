@@ -21,10 +21,11 @@ import {
   type VersionShape
 } from "../../../contracts/imagined-place.js"
 import type { CardTone } from "../../../contracts/theme.js"
-import type { PlaceDiscDrawn, PlaceSearch } from "../../atoms/imagined-place-render.js"
+import type { PlaceDiscDrawn, PlaceSearch, PlaceWait, StageFailure } from "../../atoms/imagined-place-render.js"
 import type { MotionPreference } from "../../atoms/motion.js"
 import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
 import { departed, shiftTransition } from "../primitives/motion.js"
+import type { PlaceholderMotion } from "../primitives/Skeleton.js"
 
 /**
  * Pure formatting for the home-page demo. Everything here turns a build or a
@@ -400,6 +401,35 @@ export const renderProgressText = (search: PlaceSearch, shown: number): string =
 
 /** The way back from a rejected trial: the kept one, by number. */
 export const keptTrialLabel = (search: PlaceSearch): string => `Kept trial ${String(search.bestIndex + 1)}`
+
+/**
+ * What the caption's row says in the search's place when the stage has
+ * failed: what failed, or that the run asked for in its place is under way.
+ */
+export const stageFailureText = (failure: StageFailure): string =>
+  Match.value(failure).pipe(
+    Match.when({ failed: "build", waiting: false }, () => "The place could not be built."),
+    Match.when({ failed: "build", waiting: true }, () => "Building the place again."),
+    Match.when({ failed: "draw", waiting: false }, () => "The place could not be drawn."),
+    Match.when({ failed: "draw", waiting: true }, () => "Drawing the place again."),
+    Match.exhaustive
+  )
+
+/** What stands in for the drawing breathes while one is on its way, and holds still when none is coming. */
+export const waitMotion = (wait: PlaceWait): PlaceholderMotion =>
+  Match.value(wait).pipe(
+    Match.when("pending", (): PlaceholderMotion => "breathing"),
+    Match.when("failed", (): PlaceholderMotion => "still"),
+    Match.exhaustive
+  )
+
+/** The run that answers the failure: the build again, or the drawing again. */
+export const stageFailureActionLabel = (failure: StageFailure): string =>
+  Match.value(failure.failed).pipe(
+    Match.when("build", () => "Try again"),
+    Match.when("draw", () => "Draw again"),
+    Match.exhaustive
+  )
 
 /** What a screen reader hears for the trace thumb. */
 export const trialValueText = (search: PlaceSearch, index: number): string =>

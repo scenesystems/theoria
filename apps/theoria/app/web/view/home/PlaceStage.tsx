@@ -25,7 +25,9 @@ import {
   type PlaceSheet,
   placeSheetAtom,
   placeShownFrameAtom,
-  placeTrialPreviewAtom
+  placeTrialPreviewAtom,
+  type PlaceWait,
+  placeWaitAtom
 } from "../../atoms/imagined-place-render.js"
 import {
   measureStageContainerAtom,
@@ -45,7 +47,7 @@ import { ShimmerLine } from "../primitives/Skeleton.js"
 import { PlaceGhosts } from "./PlaceGhosts.js"
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
 import { ProvenanceMark } from "./PlaceProvenance.js"
-import { participantTone, type PlaceLegendEntry, searching } from "./placeViewModel.js"
+import { participantTone, type PlaceLegendEntry, searching, waitMotion } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
@@ -340,30 +342,47 @@ const sketchedLineWidth = (index: number, count: number): string =>
     ? "w-1/2"
     : Option.getOrElse(Arr.get(["w-11/12", "w-full", "w-5/6", "w-full"], index % 4), () => "w-full")
 
+/** Told that no drawing is coming, the sketched lines stand fainter. */
+const sketchClassName = (wait: PlaceWait): string =>
+  Match.value(wait).pipe(
+    Match.when("pending", () => ""),
+    Match.when("failed", () => "opacity-60"),
+    Match.exhaustive
+  )
+
 /**
  * The paper before the first frame: cut to the sheet the search is expected to
  * want (`placeSheetAtom`), which the first frame then holds, so the page around
  * the stage is at its size from the moment the artifact is known. The lines
- * the description will be set on are sketched where they will stand.
+ * the description will be set on are sketched where they will stand, and
+ * breathe while the drawing is on its way; told that none is coming — the
+ * build or the drawing failed, and has not been asked for again — they hold
+ * still, the room the description would take.
  */
-const BlankPaper = ({ drawn, sheet }: { readonly drawn: PlaceDrawn; readonly sheet: PlaceSheet }) => {
+const BlankPaper = ({ drawn, sheet, wait }: {
+  readonly drawn: PlaceDrawn
+  readonly sheet: PlaceSheet
+  readonly wait: PlaceWait
+}) => {
   const stage = stageFor(sheet.width)
   const count = Math.floor((sheet.height - 2 * stage.padding) / stage.lineHeight)
+  const motion = waitMotion(wait)
   return (
     <Layer
-      aria-busy
+      aria-busy={wait === "pending"}
       className={paperClassName}
       data-place-drawn={drawn}
       data-place-stage="paper"
       data-place-stage-height={String(sheet.height)}
+      data-place-stage-wait={wait}
       style={{ height: `${sheet.height}px`, width: `${sheet.width}px` }}
     >
-      <Stack style={{ padding: `${stage.padding}px` }}>
+      <Stack className={sketchClassName(wait)} style={{ padding: `${stage.padding}px` }}>
         {Arr.map(
           Arr.range(0, count - 1),
           (index) => (
             <Layer className="flex items-center" key={index} style={{ height: `${stage.lineHeight}px` }}>
-              <ShimmerLine width={sketchedLineWidth(index, count)} />
+              <ShimmerLine motion={motion} width={sketchedLineWidth(index, count)} />
             </Layer>
           )
         )}
@@ -385,6 +404,7 @@ export const PlaceStage = () => {
   const reportContainerWidth = useElementWidthReporter(useAtomSet(measureStageContainerAtom))
   const latest = Result.value(useAtomValue(placeShownFrameAtom))
   const legend = useAtomValue(placeLegendAtom)
+  const wait = useAtomValue(placeWaitAtom)
   const unmeasuredWidth = useAtomValue(placeStageFrameWidthAtom)
   // The frame is cut to the sheet; before the column is measured and the sheet cut, the browser cuts it to the column.
   const frameStyle = Option.match(sheet, {
@@ -405,7 +425,7 @@ export const PlaceStage = () => {
             onNone: () => <Placeholder />,
             onSome: (cut) =>
               Option.match(latest, {
-                onNone: () => <BlankPaper drawn={drawn} sheet={cut} />,
+                onNone: () => <BlankPaper drawn={drawn} sheet={cut} wait={wait} />,
                 onSome: (frame) => (
                   <Paper
                     drawn={drawn}

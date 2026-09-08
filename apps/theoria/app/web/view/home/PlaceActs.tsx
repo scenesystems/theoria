@@ -1,18 +1,11 @@
 import { Result } from "@effect-atom/atom"
-import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect-atom/atom-react"
 import type { Option } from "effect"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { OfferedProposal, PlaceOutline } from "../../../contracts/imagined-place.js"
-import {
-  placeBuildAtom,
-  placeBuildEnvelopeAtom,
-  placeOfferedAtom,
-  placeOutlineAtom
-} from "../../atoms/imagined-place.js"
-import { ActionButton } from "../primitives/ActionButton.js"
+import { placeBuildAtom, placeOfferedAtom, placeOutlineAtom } from "../../atoms/imagined-place.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
-import { StageBanner } from "../primitives/StageBanner.js"
 
 import { imaginedPlaceSectionId } from "./HomeHero.js"
 import { PlaceArrangement } from "./PlaceArrangement.js"
@@ -24,17 +17,6 @@ import { PlaceProposals } from "./PlaceProposals.js"
 import { PlaceProvenanceOverlay } from "./PlaceProvenance.js"
 import { PlaceStepCard } from "./PlaceStepCard.js"
 import { PlaceStrand } from "./PlaceStrand.js"
-
-const BuildFailed = () => {
-  const retry = useAtomRefresh(placeBuildEnvelopeAtom)
-  return (
-    <StageBanner
-      action={<ActionButton label="Try again" onClick={retry} />}
-      text="The place could not be built."
-      tone="error"
-    />
-  )
-}
 
 /**
  * The acts of the story on one spine — Compose, Propose, Record. Arrange is
@@ -86,7 +68,6 @@ export const PlaceActs = () => {
           <Stack className="gap-8">
             <Stack className="min-w-0 max-w-[44rem] gap-6">
               <PlaceArrive />
-              {Result.isFailure(result) ? <BuildFailed /> : null}
             </Stack>
             <Layer className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]">
               <Layer className="min-w-0 max-w-[44rem] lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-6">

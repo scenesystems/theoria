@@ -5,12 +5,17 @@ import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
-import { type PlaceSearch, placeTrialPreviewAtom, searchLosses } from "../../atoms/imagined-place-render.js"
+import {
+  type PlaceSearch,
+  placeTrialPreviewAtom,
+  type PlaceWait,
+  searchLosses
+} from "../../atoms/imagined-place-render.js"
 import { focusEdgeClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
-import { searching, shownTrialIndex, trialValueText } from "./placeViewModel.js"
+import { searching, shownTrialIndex, trialValueText, waitMotion } from "./placeViewModel.js"
 
 const searchTone = toneClassesFor("search")
 
@@ -101,13 +106,18 @@ export const traceHeightClassName = "h-16"
 
 /**
  * The trace's chart before the first trial is in: its height, with a line
- * breathing where the trace will draw, so the first frame moves nothing
- * below the paper. The caption's row is not here: it is kept by the row that
- * holds it live.
+ * where the trace will draw — breathing while the search is on its way,
+ * still when none is coming — so the first frame moves nothing below the
+ * paper. The caption's row is not here: it is kept by the row that holds it
+ * live.
  */
-export const PlaceSearchTracePending = () => (
-  <Layer aria-busy className={`${traceHeightClassName} flex w-full items-center`} data-place-trace-pending>
-    <ShimmerLine width="w-full" />
+export const PlaceSearchTracePending = ({ wait }: { readonly wait: PlaceWait }) => (
+  <Layer
+    aria-busy={wait === "pending"}
+    className={`${traceHeightClassName} flex w-full items-center`}
+    data-place-trace-pending={wait}
+  >
+    <ShimmerLine motion={waitMotion(wait)} width="w-full" />
   </Layer>
 )
 

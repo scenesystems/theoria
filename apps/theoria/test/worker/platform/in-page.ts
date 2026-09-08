@@ -880,8 +880,14 @@ export const contrastsWithin = (root: Element): ReadonlyArray<{
     const values = [luminance(over(paint, beneath)), luminance(beneath)].sort((left, right) => right - left)
     return ((values[0] ?? 0) + 0.05) / ((values[1] ?? 0) + 0.05)
   }
+  // Words hidden from assistive technology are not read by anyone: a placeholder drawn as the room the
+  // words will take (transparent words under a bar) is a shape, not text, and its bar is not a boundary.
+  const hiddenWords = (element: Element) => element.closest("[aria-hidden='true']") instanceof Element
   const holdsWords = (element: Element) =>
-    [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "")
+    !hiddenWords(element)
+    && [...element.childNodes].some((node) =>
+      node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== ""
+    )
   const shapes = ["circle", "ellipse", "rect", "path", "line", "polyline", "polygon"]
   // What a shape is told apart by: its stroke where one is painted — a painted boundary is what must stand
   // out from the surface (WCAG 1.4.11) — else its fill; nothing where it has neither.

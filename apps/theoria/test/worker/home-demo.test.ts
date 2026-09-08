@@ -77,13 +77,14 @@ const rendered = (page: Page) => page.locator("[data-place-render-phase='complet
 const colorSchemes: ReadonlyArray<ColorScheme> = ["light", "dark"]
 
 /**
- * How many error banners the page shows, sampled a frame apart from now until
+ * How many failures the stage tells (`StageFailed`, the search caption's row
+ * when the build or the drawing failed), sampled a frame apart from now until
  * the place is drawn. A build still on its way is waiting, not failed, so
  * before the first frame there is nothing to report.
  */
-const errorBannersUntilRendered = (page: Page) =>
+const stageFailuresUntilRendered = (page: Page) =>
   Stream.repeatEffectWithSchedule(
-    act(() => page.locator("[data-stage-banner='error']").count()),
+    act(() => page.locator("[data-place-stage-failed]").count()),
     Schedule.spaced("16 millis")
   ).pipe(
     Stream.interruptWhen(visible(rendered(page))),
@@ -436,12 +437,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         // Sample every frame from before the page is asked for until the place is drawn.
-        const banners = yield* Effect.fork(errorBannersUntilRendered(page))
+        const told = yield* Effect.fork(stageFailuresUntilRendered(page))
         yield* recordPaper(page)
         yield* goto(page, "/")
         yield* visible(rendered(page))
         // Nothing has failed while the build and the first drawing are on their way.
-        expect(Arr.filter(yield* Fiber.join(banners), (shown) => shown > 0)).toEqual([])
+        expect(Arr.filter(yield* Fiber.join(told), (shown) => shown > 0)).toEqual([])
         // The paper is cut to size before the first trial is in, and holds that size until the drawing lands.
         const papers = yield* paperUntilLanding(page)
         expect(Arr.some(papers, (sample) => Option.isSome(sample.height) && Option.isNone(sample.phase))).toBe(true)

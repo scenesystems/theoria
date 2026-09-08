@@ -5,9 +5,25 @@ import {
   expect as inBrowser,
   type Locator,
   type Page,
-  type Response
+  type Response,
+  type Route
 } from "@playwright/test"
-import { Chunk, Context, Data, Effect, Layer, Predicate, Queue, Ref, Schedule, Schema, type Scope } from "effect"
+import {
+  Chunk,
+  Context,
+  Data,
+  Deferred,
+  Effect,
+  Layer,
+  Match,
+  Predicate,
+  Queue,
+  Ref,
+  Runtime,
+  Schedule,
+  Schema,
+  type Scope
+} from "effect"
 import * as Arr from "effect/Array"
 
 import {
@@ -120,9 +136,11 @@ export const openPage = (
     yield* act(() => context.grantPermissions([...(options.permissions ?? [])]))
     const page = yield* act(() => context.newPage())
 
+    // A console error names where it was raised — the resource that failed to load, or the script — so a test
+    // can tell the failure it caused from any other.
     const failures = yield* Queue.unbounded<string>()
     page.on("console", (message) => {
-      if (message.type() === "error") Queue.unsafeOffer(failures, message.text())
+      if (message.type() === "error") Queue.unsafeOffer(failures, `${message.text()} (${message.location().url})`)
     })
     page.on("pageerror", (error) => {
       Queue.unsafeOffer(failures, error.message)
@@ -159,6 +177,7 @@ export const setColorScheme = (page: Page, scheme: ColorScheme) => act(() => pag
 
 export const visible = (locator: Locator) => act(() => inBrowser(locator).toBeVisible())
 export const hidden = (locator: Locator) => act(() => inBrowser(locator).toBeHidden())
+export const disabled = (locator: Locator) => act(() => inBrowser(locator).toBeDisabled())
 export const count = (locator: Locator, expected: number) => act(() => inBrowser(locator).toHaveCount(expected))
 export const containsText = (locator: Locator, expected: string | RegExp) =>
   act(() => inBrowser(locator).toContainText(expected))
@@ -173,6 +192,62 @@ export const nextResponse = (page: Page, method: string, suffix: string): Effect
   act(() =>
     page.waitForResponse((response) => response.url().endsWith(suffix) && response.request().method() === method)
   )
+
+/** What becomes of a held request once the test lets it go: it reaches the server, or it fails as the network would. */
+export const HeldOutcome = Schema.Literal("continue", "fail")
+export type HeldOutcome = typeof HeldOutcome.Type
+
+/** A request held at the browser's edge, and the two ways to let it go. */
+export class HeldRequest extends Data.Class<{
+  readonly release: Effect.Effect<void>
+  readonly fail: Effect.Effect<void>
+}> {}
+
+/**
+ * Holds the next request with `method` whose URL ends with `suffix` until the
+ * test lets it go — to the server with `release`, or as a network failure
+ * with `fail` — so the page's pending state can be observed for as long as an
+ * assertion needs, and its failure state made to happen. One request is held;
+ * every other one, and every one after, passes as it would have.
+ */
+export const holdResponse = (
+  page: Page,
+  method: string,
+  suffix: string
+): Effect.Effect<HeldRequest, BrowserError> =>
+  Effect.gen(function*() {
+    const runtime = yield* Effect.runtime<never>()
+    const outcome = yield* Deferred.make<HeldOutcome>()
+    const held = yield* Ref.make(false)
+    const claim = Ref.getAndSet(held, true).pipe(Effect.map((taken) => !taken))
+    const settle = (route: Route) =>
+      Deferred.await(outcome).pipe(
+        Effect.flatMap((decision) =>
+          act(() =>
+            Match.value(decision).pipe(
+              Match.when("continue", () => route.continue()),
+              Match.when("fail", () => route.abort("failed")),
+              Match.exhaustive
+            )
+          )
+        )
+      )
+    yield* act(() =>
+      page.route(
+        (url) => url.pathname.endsWith(suffix),
+        (route) =>
+          Runtime.runPromise(runtime)(
+            route.request().method() === method
+              ? Effect.if(claim, { onTrue: () => settle(route), onFalse: () => act(() => route.fallback()) })
+              : act(() => route.fallback())
+          )
+      )
+    )
+    return new HeldRequest({
+      release: Effect.asVoid(Deferred.succeed(outcome, "continue")),
+      fail: Effect.asVoid(Deferred.succeed(outcome, "fail"))
+    })
+  })
 
 export const attached = (locator: Locator) => act(() => inBrowser(locator).toBeAttached())
 export const eventually = <A>(read: () => Promise<A>, expected: A) => act(() => inBrowser.poll(read).toBe(expected))

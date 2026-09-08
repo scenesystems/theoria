@@ -541,8 +541,9 @@ import.meta.url), { type: "module" })`, which every bundler resolves
       stream is `Stream.never`, not `Stream.empty` — effect-atom turns a
       stream that ends without a value into a failure, which drew "The place
       could not be drawn" at first paint. A build on its way is waiting, not
-      failed. `StageBanner` carries `data-stage-banner={tone}` so tests can
-      count error banners frame by frame (`errorBannersUntilRendered`).
+      failed. The stage's failure row carries `data-place-stage-failed` so
+      tests can count told failures frame by frame
+      (`stageFailuresUntilRendered`).
 - [x] `contracts/demo/imagined-place-flow.ts` `paperExpected`,
       `atoms/imagined-place-render.ts` `placeExpectedPaperAtom`,
       `PlaceStage.tsx` `BlankPaper`, `PlaceSearchTrace.tsx`
@@ -948,17 +949,37 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       once the drawing lands. The legend lists only the markers the search
       is heading for, so a leaver's label goes at the first frame of the new
       search.
-- [ ] **Holdable pending state.** The pending state can only be sampled right
-      after `open` today, since `--abort` produces the failure banner. A test
-      helper (`holdResponse(page, method, suffix)`) should hold the build
-      response on a `Deferred` before continuing it, so the skeleton, the
-      pending row and the frame can be asserted at every viewport, light and
-      dark; the failure banner's footprint (today +72 px above the stage)
-      should be asserted too.
-- [ ] **Touch targets.** `PlaceMarker`'s hit area is a fixed `-inset-1`; it
-      should derive from the marker's radius (a CSS variable) so every marker
-      answers to at least 44 px at 320 and 390 wide, with unit and browser
-      tests.
+- [x] **Holdable pending state.** `holdResponse(page, method, suffix)` in
+      `test/worker/browser.ts` holds a response on a `Deferred` until the
+      test releases or fails it (`HeldRequest`), so
+      `test/worker/home-pending.test.ts` asserts the held skeleton, the
+      pending rows and their contrast at 1440 and 390, light and dark, and
+      that the build landing shifts no region. Asserting the failure's
+      footprint made it go: the failure banner (+72 px above the stage) is
+      gone, and a build or drawing failure now has one home — the search
+      caption's row (`StageFailed`, `role="alert"`), which is `min-h-9` in
+      every state, so telling the failure moves nothing. `placeFailureAtom`
+      derives `StageFailure` (`failed: build | draw`, `waiting`) from the
+      build and frame results; `placeWaitAtom` tells the paper and the trace
+      whether a drawing is coming (`PlaceWait`: `pending` breathes and is
+      `aria-busy`, `failed` holds still, fainter — `waitMotion`), so a still
+      placeholder is the room a drawing would take, not a promise of one.
+      The pill asks for the run that failed again and rests while it is
+      under way. `StageBanner` had no other use and is removed.
+      `contrastsWithin` no longer measures words hidden from assistive
+      technology (`GhostText`'s transparent words under a bar), which are a
+      shape, not text; graphics are still measured wherever they are.
+- [ ] **Touch targets.** `PlaceMarker`'s hit area is a fixed `-inset-1`
+      (`numberedTriggerClassName`); it should derive from the marker's
+      radius (a CSS variable written by `markerStyle`, `before:-inset-(--…)`)
+      so every marker answers to at least 44 px at 320 and 390 wide.
+      `markerRadius` is 4.5–8 % of the stage width, so a 320 px stage draws
+      discs of 29–51 px: named discs can be under 44 px too, and their
+      `overflow-hidden` would clip the reach — the clip should move to the
+      label's wrapper so one trigger class serves both. Unit test of the
+      reach (`it.effect`), browser test at 320 and 390 that the computed
+      `::before` box is ≥ 44 px and that `elementFromPoint` 22 px from each
+      disc's centre resolves to the disc.
 - [ ] **Anchor-line consumer.** `data-place-anchor-line` on `PlaceProposal` is
       read by tests only. Hovering or focusing a proposal should light its
       line through the existing focus model, or the attribute goes.
@@ -980,6 +1001,20 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       (`security-headers.ts`). Audit inline styles under report-only, theme
       Shiki through CSS variables, and issue a per-response nonce so the
       allowance goes.
+- [ ] **Mobile paper scroll affordance.** A sketch or a trial longer than the
+      sheet is cut with a fade and scrolls inside the paper (`PlaceStage.tsx`
+      `cut`, `Paper`); below `lg` there is no scrollbar and nothing but the
+      fade says the paper scrolls. Decide the affordance (Base UI
+      `ScrollArea` scrollbar shown while cut, or the fade alone with a
+      documented reason) and test it at 390.
+- [ ] **Closed unions matched with `Match.orElse`.**
+      `app/server/routes/imagined-place.ts` `statusFor` (over
+      `ErrorModel["code"]`) and its rejection match, and
+      `SemanticText.tsx` `BrowserWrappedBlockText` (line 154) fall through
+      with `Match.orElse` where the union is closed; each should name every
+      member and end in `Match.exhaustive`. The other `Match.orElse` uses in
+      `app/` are over open values (paths, characters, parse errors) and
+      stay.
 
 ## Non-goals
 

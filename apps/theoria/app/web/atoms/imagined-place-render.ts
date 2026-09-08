@@ -42,7 +42,7 @@ import {
 } from "../view/home/placeViewModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
-import { placeBuiltAtom, placeOutlineAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
+import { placeBuildAtom, placeBuiltAtom, placeOutlineAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "./motion.js"
 import { textLayoutLayerAtom } from "./text-layout.js"
 
@@ -640,6 +640,48 @@ export const placeLegendAtom: AtomType.Atom<Option.Option<ReadonlyArray<PlaceLeg
  */
 export const placeSearchAtom: AtomType.Atom<Result.Result<PlaceSearch, PlaceRenderError>> = Atom.make(
   (get: AtomType.Context) => Result.map(get(placeRenderFrameAtom), (frame) => frame.search)
+)
+
+/**
+ * What has failed the stage: the build the place is made from, or the drawing
+ * of it — and whether the run asked for in its place is under way. The build
+ * failing is the reason there is no drawing, so it is the failure whatever
+ * the drawing says. One failure at a time, told in one place — the search
+ * caption's row, there in every state at one height — so nothing around the
+ * stage moves for it.
+ */
+export class StageFailure extends Schema.Class<StageFailure>("StageFailure")({
+  failed: Schema.Literal("build", "draw"),
+  waiting: Schema.Boolean
+}) {}
+
+export const stageFailure = (
+  build: Result.Result<unknown, unknown>,
+  frame: Result.Result<unknown, unknown>
+): Option.Option<StageFailure> =>
+  Result.isFailure(build)
+    ? Option.some(new StageFailure({ failed: "build", waiting: build.waiting }))
+    : Result.isFailure(frame)
+    ? Option.some(new StageFailure({ failed: "draw", waiting: frame.waiting }))
+    : Option.none()
+
+export const placeFailureAtom: AtomType.Atom<Option.Option<StageFailure>> = Atom.make((get: AtomType.Context) =>
+  stageFailure(get(placeBuildAtom), get(placeRenderFrameAtom))
+)
+
+/**
+ * What the paper stands as where there is no drawing: waiting for one, or
+ * told that none is coming until it is asked for. A failure with its run
+ * under way is waiting again.
+ */
+export const PlaceWait = Schema.Literal("pending", "failed")
+export type PlaceWait = typeof PlaceWait.Type
+
+export const placeWait = (failure: Option.Option<StageFailure>): PlaceWait =>
+  Option.exists(failure, (found) => !found.waiting) ? "failed" : "pending"
+
+export const placeWaitAtom: AtomType.Atom<PlaceWait> = Atom.make((get: AtomType.Context) =>
+  placeWait(get(placeFailureAtom))
 )
 
 /**

@@ -1,34 +1,37 @@
 import { Button } from "@base-ui/react/button"
 import { Result } from "@effect-atom/atom"
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceOutline } from "../../../contracts/imagined-place.js"
 import {
   drawingId,
-  type PlaceRenderError,
+  placeFailureAtom,
   placeRenderFrameAtom,
   type PlaceSearch,
   placeSearchAtom,
-  placeTrialPreviewAtom
+  placeTrialPreviewAtom,
+  type PlaceWait,
+  placeWaitAtom,
+  type StageFailure
 } from "../../atoms/imagined-place-render.js"
 import {
+  placeBuildEnvelopeAtom,
   placeStageMaxDrawableAtom,
   placeStageMaxWidth,
   placeStagePresets,
   placeStageRequestAtom,
   placeStageWidthAtom
 } from "../../atoms/imagined-place.js"
-import { ActionButton } from "../primitives/ActionButton.js"
 import { ChoiceGroup } from "../primitives/ChoiceGroup.js"
-import { pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
+import { dangerStatusTone, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
+import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { GhostText } from "../primitives/Skeleton.js"
-import { StageBanner } from "../primitives/StageBanner.js"
 
 import { inlineMarkClassName, inlineMarkRoomClassName, ProvenanceMark } from "./PlaceProvenance.js"
 import { PlaceSearchTrace, PlaceSearchTracePending } from "./PlaceSearchTrace.js"
@@ -43,6 +46,8 @@ import {
   renderProgressText,
   searchCaptionShape,
   shownTrialIndex,
+  stageFailureActionLabel,
+  stageFailureText,
   stagePresetLabel
 } from "./placeViewModel.js"
 
@@ -152,43 +157,74 @@ const SearchCaptionPending = () => (
 )
 
 /**
+ * The caption's row when the build or the drawing failed: the one place on
+ * the page the failure is told, at the row's height, so nothing above or
+ * below the stage moves for it. Whatever the stage last reached stays drawn.
+ * The pill asks for the run that failed again; while that run is under way
+ * the failure is still told, `waiting`, and the pill rests — another click
+ * would only cancel the run and start over.
+ */
+const StageFailed = ({ failure }: { readonly failure: StageFailure }) => {
+  const rebuild = useAtomRefresh(placeBuildEnvelopeAtom)
+  const redraw = useAtomRefresh(placeRenderFrameAtom)
+  const again = Match.value(failure.failed).pipe(
+    Match.when("build", () => rebuild),
+    Match.when("draw", () => redraw),
+    Match.exhaustive
+  )
+  return (
+    <Rail className="min-h-9 min-w-0 gap-2.5" data-place-stage-failed={failure.failed} role="alert">
+      <InlineStatus className="min-w-0" label={stageFailureText(failure)} tone={dangerStatusTone} />
+      <Button
+        className={`shrink-0 ${pillButtonClassName({ active: false, tone: searchTone })}`}
+        data-place-stage-again
+        disabled={failure.waiting}
+        onClick={again}
+        type="button"
+      >
+        <SemanticText
+          as="span"
+          className="text-ink-700"
+          role="tab-label"
+          text={stageFailureActionLabel(failure)}
+          variant="expanded"
+        />
+      </Button>
+    </Rail>
+  )
+}
+
+/**
  * The trace and, under it, the caption and the widths to draw at. The rows
  * are the same before the search has started, with the trace's chart and the
  * caption's words as the room they will take; the widths are known from the
- * column and are offered from the first frame.
+ * column and are offered from the first frame. When the build or the drawing
+ * failed the caption's row tells it, in the same room; the trace keeps
+ * whatever search it last had.
  */
-const SearchRows = ({ search }: { readonly search: Option.Option<PlaceSearch> }) => (
+const SearchRows = ({ failure, search, wait }: {
+  readonly failure: Option.Option<StageFailure>
+  readonly search: Option.Option<PlaceSearch>
+  readonly wait: PlaceWait
+}) => (
   <Stack className="gap-2">
     {Option.match(search, {
-      onNone: () => <PlaceSearchTracePending />,
+      onNone: () => <PlaceSearchTracePending wait={wait} />,
       onSome: (value) => <PlaceSearchTrace search={value} />
     })}
     <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,1fr)_auto]">
-      {Option.match(search, {
-        onNone: () => <SearchCaptionPending />,
-        onSome: (value) => <SearchCaption search={value} />
+      {Option.match(failure, {
+        onNone: () =>
+          Option.match(search, {
+            onNone: () => <SearchCaptionPending />,
+            onSome: (value) => <SearchCaption search={value} />
+          }),
+        onSome: (value) => <StageFailed failure={value} />
       })}
       <StagePresets />
     </Layer>
   </Stack>
 )
-
-/**
- * The search that draws the place failed; the last frame it reached stays on
- * the stage until it is run again. While the run it asked for is under way
- * the failure is still shown, `waiting`, and the button rests: another click
- * would only cancel that run and start over.
- */
-const DrawFailed = ({ search }: { readonly search: Result.Failure<PlaceSearch, PlaceRenderError> }) => {
-  const redraw = useAtomRefresh(placeRenderFrameAtom)
-  return (
-    <StageBanner
-      action={<ActionButton disabled={search.waiting} label="Draw again" onClick={redraw} />}
-      text={search.waiting ? "Drawing the place again." : "The place could not be drawn."}
-      tone="error"
-    />
-  )
-}
 
 /**
  * The Arrange step: the place drawn for this screen, the search that arranged
@@ -201,14 +237,13 @@ export const PlaceArrangement = ({ build, outline }: {
   readonly outline: PlaceOutline
 }) => {
   const search = useAtomValue(placeSearchAtom)
+  const failure = useAtomValue(placeFailureAtom)
+  const wait = useAtomValue(placeWaitAtom)
   return (
     <Stack className="@container gap-4">
       <StageKnots evidence={Option.map(build, (value) => value.evidence)} outline={outline} />
       <PlaceStage />
-      {Result.isFailure(search) ? <DrawFailed search={search} /> : null}
-      {Result.isFailure(search) && Option.isNone(Result.value(search)) ?
-        null :
-        <SearchRows search={Result.value(search)} />}
+      <SearchRows failure={failure} search={Result.value(search)} wait={wait} />
       <ParticipantLegend outline={outline} />
     </Stack>
   )

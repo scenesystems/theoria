@@ -4,14 +4,13 @@ import type { Page } from "@playwright/test"
 import { Effect, Fiber, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
-import * as Str from "effect/String"
 
 import { webVitalBudgets } from "../../app/contracts/performance.js"
 import { act, animationsSettled, BrowserLive, click, goto, nextResponse, openPage, visible } from "./browser.js"
+import { footprintsUntilLanding, heightsByRegion } from "./footprints.js"
 import {
   canvasLight,
   recordedDemonstrationShifts,
-  recordedFootprints,
   recordedWebVitals,
   recordFootprints,
   recordWebVitals
@@ -54,33 +53,6 @@ const readVitals = (page: Page) =>
 const interactionToNextPaint = (vitals: typeof WebVitals.Type): number =>
   Option.getOrElse(vitals.inp, () => vitals.eventThresholdMs)
 
-/** One footprint report: a region's name, its painted height, and the drawing's phase at the time. */
-const Footprint = Schema.Struct({
-  region: Schema.String,
-  height: Schema.NumberFromString,
-  phase: Schema.String
-})
-type Footprint = typeof Footprint.Type
-
-const footprint = (line: string) => {
-  const [region = "", height = "0", phase = "-"] = line.split(" ")
-  return Schema.decodeUnknownSync(Footprint)({ region, height, phase })
-}
-
-/** Every footprint recorded until the drawing lands, by region, in the order painted. */
-const footprintsUntilLanding = (page: Page) =>
-  Effect.map(
-    act(() => page.evaluate(recordedFootprints)),
-    (recorded) =>
-      Arr.groupBy(
-        Arr.takeWhile(
-          Arr.map(Arr.filter(recorded.split("\n"), Str.isNonEmpty), footprint),
-          (report) => report.phase !== "landing" && report.phase !== "complete"
-        ),
-        (report) => report.region
-      )
-  )
-
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria homepage web vitals in Chromium",
   (it) => {
@@ -120,14 +92,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* act(() => page.addInitScript(recordFootprints))
           yield* goto(page, "/")
           yield* visible(rendered(page))
-          const footprints = yield* footprintsUntilLanding(page)
-          const regions = Rec.keys(footprints)
-          expect(regions).toEqual(
+          const heights = heightsByRegion(yield* footprintsUntilLanding(page))
+          expect(Rec.keys(heights)).toEqual(
             expect.arrayContaining(["step:compose", "step:propose", "step:record", "stage:column"])
           )
-          Arr.forEach(regions, (region) => {
-            const heights = Arr.dedupe(Arr.map(footprints[region] ?? [], (report: Footprint) => report.height))
-            expect(heights, `${region} at ${String(viewport.width)}px`).toHaveLength(1)
+          Arr.forEach(Rec.toEntries(heights), ([region, painted]) => {
+            expect(painted, `${region} at ${String(viewport.width)}px`).toHaveLength(1)
           })
           expect(yield* failures).toEqual([])
         })))
