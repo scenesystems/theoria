@@ -119,8 +119,10 @@ export const ProvenanceMark = ({
  * the line's plus that room; a plain `100%` would leave a shrink-to-fit
  * heading eight pixels short of its own words and break them.
  */
+export const inlineMarkPadding = "px-1 py-0.5"
+
 export const inlineMarkClassName =
-  `${markClassName} ${litMarkClassName} -mx-1 inline-flex min-w-0 max-w-[calc(100%+0.5rem)] items-center px-1 py-0.5 text-left`
+  `${markClassName} ${litMarkClassName} -mx-1 inline-flex min-w-0 max-w-[calc(100%+0.5rem)] items-center ${inlineMarkPadding} text-left`
 
 /** A status said in the line that is also a mark: the signature, the version it is in. */
 export const StatusMark = ({ className = "", label, mark, tone, ...props }: ComponentProps<"button"> & {

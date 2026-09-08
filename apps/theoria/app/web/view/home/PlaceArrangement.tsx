@@ -32,7 +32,7 @@ import { StageBanner } from "../primitives/StageBanner.js"
 import { inlineMarkClassName, ProvenanceMark } from "./PlaceProvenance.js"
 import { PlaceSearchTrace, PlaceSearchTracePending } from "./PlaceSearchTrace.js"
 import { PlaceStage } from "./PlaceStage.js"
-import { StageKnots } from "./PlaceStrand.js"
+import { StageKnots, StageKnotsPending } from "./PlaceStrand.js"
 import {
   drawablePresets,
   keptTrialLabel,
@@ -167,7 +167,7 @@ export const PlaceArrangement = ({ build }: { readonly build: Option.Option<Plac
   return (
     <Stack className="@container gap-4">
       {Option.match(build, {
-        onNone: () => null,
+        onNone: () => <StageKnotsPending />,
         onSome: (value) => <StageKnots evidence={value.evidence} />
       })}
       <PlaceStage />

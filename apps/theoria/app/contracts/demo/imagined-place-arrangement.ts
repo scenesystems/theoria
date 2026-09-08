@@ -4,7 +4,16 @@ import * as Arr from "effect/Array"
 import type { Text } from "@scenesystems/effect-text"
 
 import { PlaceLine, PlaceMarker, type PlaceRendering } from "../imagined-place-result.js"
-import { type ParticipantRole, type PlaceArtifact, placeFeatures } from "../imagined-place.js"
+import {
+  type ParticipantRole,
+  type PlaceAcceptances,
+  type PlaceArtifact,
+  type PlaceComposition,
+  type PlaceFeature,
+  placeFeatures,
+  type PlaceScenarioRecording,
+  recordedFeatures
+} from "../imagined-place.js"
 import { prepareInputFor } from "../text.js"
 
 import {
@@ -28,17 +37,30 @@ import { type Meander, renderSeed } from "./imagined-place-search.js"
  * @since 0.3.0
  */
 export const description = (artifact: PlaceArtifact): string =>
-  Arr.join(
-    Arr.prependAll(
-      Arr.map(placeFeatures(artifact), (feature) => feature.description),
-      [artifact.composition.summary, artifact.composition.atmosphere]
-    ),
-    " "
-  )
+  describing(artifact.composition, placeFeatures(artifact))
 
 /** What to prepare for measurement, in the role the stage renders it with. */
 export const descriptionInput = (artifact: PlaceArtifact): Text.PrepareInputType =>
   prepareInputFor(placeTextRole, description(artifact))
+
+/**
+ * The text a build for `acceptances` of a recorded scenario will flow, before
+ * that build arrives: the same words, from the recording the server replays,
+ * so the stage can be cut to the paper they will want.
+ *
+ * @since 0.3.0
+ */
+export const recordedDescriptionInput = (
+  recording: PlaceScenarioRecording,
+  acceptances: PlaceAcceptances
+): Text.PrepareInputType =>
+  prepareInputFor(placeTextRole, describing(recording.composition, recordedFeatures(recording, acceptances)))
+
+const describing = (composition: PlaceComposition, features: ReadonlyArray<PlaceFeature>): string =>
+  Arr.join(
+    Arr.prependAll(Arr.map(features, (feature) => feature.description), [composition.summary, composition.atmosphere]),
+    " "
+  )
 
 /** Who added each feature, aligned with `placeFeatures(artifact)`. */
 export const contributorsOf = (artifact: PlaceArtifact): ReadonlyArray<Option.Option<ParticipantRole>> =>

@@ -5,6 +5,7 @@ import {
   motionArrivalBudget,
   motionDuration,
   motionEase,
+  motionPulse,
   motionStagger,
   motionValueWash,
   motionWalkDraw
@@ -31,6 +32,12 @@ export const walkDrawTransition: Transition = { duration: seconds(motionWalkDraw
 
 /** A changed value's wash settling to nothing. */
 export const valueWashTransition: Transition = { duration: seconds(motionValueWash), ease: motionEase }
+
+/** A placeholder breathing while its content is pending: in and out alike, for as long as it waits. */
+export const pulseTransition: Transition = { duration: seconds(motionPulse), ease: "easeInOut", repeat: Infinity }
+
+/** Nothing moves: what is animated is set at once. */
+export const stillTransition: Transition = { duration: 0 }
 
 /** Each of several things arriving together takes two thirds of a lone arrival; the stagger makes up the rest. */
 const staggeredDuration: Duration.Duration = Duration.times(motionDuration("enter"), 2 / 3)

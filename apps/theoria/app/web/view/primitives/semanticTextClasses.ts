@@ -5,7 +5,7 @@ import type { TextRole } from "../../../contracts/text.js"
 
 export const lineHeightVar = (role: TextRole): string => `--st-lh-${role}`
 
-const fontSizeVar = (role: TextRole): string => `--st-fs-${role}`
+export const fontSizeVar = (role: TextRole): string => `--st-fs-${role}`
 const fontWeightVar = (role: TextRole): string => `--st-fw-${role}`
 const trackingVar = (role: TextRole): string => `--st-tr-${role}`
 const fontFamilyVar = (role: TextRole): string => `--st-ff-${role}`

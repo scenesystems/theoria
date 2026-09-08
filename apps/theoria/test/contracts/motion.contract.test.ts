@@ -11,6 +11,7 @@ import {
   motionDuration,
   motionEase,
   motionEaseCss,
+  motionPulse,
   MotionRelation,
   motionThemeTokens,
   motionValueWash,
@@ -20,6 +21,7 @@ import { placeDiscDrawnAtom, placeDrawnAtom, placeTrialPreviewAtom } from "../..
 import { motionConfigReducedMotion } from "../../app/web/atoms/motion.js"
 import {
   exitTransition,
+  pulseTransition,
   staggeredArrival,
   themeTransition,
   valueWashTransition,
@@ -51,6 +53,16 @@ describe("motion contract", () => {
       expect(Duration.lessThan(motionWalkDraw, motionValueWash)).toBe(true)
       expect(walkDrawTransition).toEqual({ duration: Duration.toSeconds(motionWalkDraw), ease: motionEase })
       expect(valueWashTransition).toEqual({ duration: Duration.toSeconds(motionValueWash), ease: motionEase })
+    }))
+
+  it.effect("a pending placeholder breathes slower than anything arriving, symmetrically, for as long as it is pending", () =>
+    Effect.sync(() => {
+      expect(Duration.lessThan(motionValueWash, motionPulse)).toBe(true)
+      expect(pulseTransition).toEqual({
+        duration: Duration.toSeconds(motionPulse),
+        ease: "easeInOut",
+        repeat: Infinity
+      })
     }))
 
   it.effect("leaves quicker than it arrives, and moves what is already there slowest", () =>

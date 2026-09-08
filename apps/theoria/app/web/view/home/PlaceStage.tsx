@@ -7,7 +7,7 @@ import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
-import type { CSSProperties } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 import { stageFor } from "../../../contracts/demo/imagined-place-flow.js"
 import { type DrawingId, placeSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
@@ -24,7 +24,13 @@ import {
   placeShownFrameAtom,
   placeTrialPreviewAtom
 } from "../../atoms/imagined-place-render.js"
-import { placeStageContainerWidthAtom, placeStageFrame, placeStageFrameBorderPx } from "../../atoms/imagined-place.js"
+import {
+  measureStageContainerAtom,
+  placeStageFrame,
+  placeStageFrameBorderPx,
+  placeStageFrameWidthAtom
+} from "../../atoms/imagined-place.js"
+import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { litMarkClassName, markClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -52,12 +58,39 @@ const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSPro
  * decline changes the description, the old lines leave together first and
  * then the new ones arrive one after another from the top, so two texts are
  * never painted over each other, and the words are settled before anything
- * travelling to the stage lands. A line arrives in place, without the rise
- * everything else arriving takes: its place is the room the discs leave it,
- * and a line arriving from four pixels low would cross into a disc below.
+ * travelling to the stage lands (the drawing rests through the exit,
+ * `restBeforeTravel`). A line arrives in place, without the rise everything
+ * else arriving takes: its place is the room the discs leave it, and a line
+ * arriving from four pixels low would cross into a disc below.
+ *
+ * Under reduced motion the drawing is placed outright, so the old lines
+ * cannot leave first: they would be painted, fading, over discs already
+ * placed where the new lines are flowed. The set is swapped in the frame
+ * the drawing is placed — no exit — and the new lines fade in where they
+ * stand, as everything arriving does under reduced motion.
  */
 const lineArrivalFrom = { opacity: 0 }
 const lineArrivedAt = { opacity: 1 }
+
+/**
+ * The lines' set leaving as one before the next set arrives, under full motion;
+ * swapped outright, with nothing to leave, under reduced motion. A presence
+ * with nothing to animate would still hold the old set a frame, over discs
+ * already placed.
+ */
+const LinesPresence = ({ children, preference }: {
+  readonly children: ReactNode
+  readonly preference: MotionPreference
+}) =>
+  Match.value(preference).pipe(
+    Match.when("full", () => (
+      <AnimatePresence initial={false} mode="wait">
+        {children}
+      </AnimatePresence>
+    )),
+    Match.when("reduced", () => children),
+    Match.exhaustive
+  )
 
 /**
  * Each line of prose is a mark: resting on it, or pressing it, says how the
@@ -71,12 +104,13 @@ const lineArrivedAt = { opacity: 1 }
  */
 const lineClassName = `${markClassName} ${litMarkClassName} pointer-events-auto absolute overflow-hidden`
 
-const Lines = ({ drawing, projection, prose }: {
+const Lines = ({ drawing, preference, projection, prose }: {
   readonly drawing: DrawingId
+  readonly preference: MotionPreference
   readonly projection: PlaceProjection
   readonly prose: string
 }) => (
-  <AnimatePresence initial={false} mode="wait">
+  <LinesPresence preference={preference}>
     <Toolbar.Root
       render={<m.div exit={departed} transition={exitTransition} />}
       aria-label="Lines of the prose"
@@ -112,7 +146,7 @@ const Lines = ({ drawing, projection, prose }: {
         </Toolbar.Button>
       ))}
     </Toolbar.Root>
-  </AnimatePresence>
+  </LinesPresence>
 )
 
 /**
@@ -129,6 +163,7 @@ const Drawing = ({ frame, shown }: {
 }) => {
   const projection = frame.rendering.projection
   const act = useAtomValue(placeActAtom)
+  const preference = useAtomValue(motionPreferenceAtom)
   return (
     <Layer
       aria-busy={searching(frame.search)}
@@ -155,6 +190,7 @@ const Drawing = ({ frame, shown }: {
       <PlaceGhosts padding={projection.padding} stageWidth={projection.stageWidth} />
       <Lines
         drawing={drawingId(frame.search)}
+        preference={preference}
         projection={projection}
         prose={frame.search.prose}
       />
@@ -312,11 +348,12 @@ export const PlaceStage = () => {
   const preview = useAtomValue(placeTrialPreviewAtom)
   const drawn = useAtomValue(placeDrawnAtom)
   const sheet = useAtomValue(placeSheetAtom)
-  const reportContainerWidth = useElementWidthReporter(useAtomSet(placeStageContainerWidthAtom))
+  const reportContainerWidth = useElementWidthReporter(useAtomSet(measureStageContainerAtom))
   const latest = Result.value(useAtomValue(placeShownFrameAtom))
-  // The frame is cut to the sheet; before a frame exists, the placeholder sizes it.
+  const unmeasuredWidth = useAtomValue(placeStageFrameWidthAtom)
+  // The frame is cut to the sheet; before the column is measured and the sheet cut, the browser cuts it to the column.
   const frameStyle = Option.match(sheet, {
-    onNone: () => ({}),
+    onNone: () => ({ width: unmeasuredWidth }),
     onSome: (value) => ({ width: `${value.width + placeStageFrameBorderPx * 2}px` })
   })
 

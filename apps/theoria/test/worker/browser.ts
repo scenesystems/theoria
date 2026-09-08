@@ -143,6 +143,8 @@ export const containsText = (locator: Locator, expected: string | RegExp) =>
   act(() => inBrowser(locator).toContainText(expected))
 export const attribute = (locator: Locator, name: string, expected: string | RegExp) =>
   act(() => inBrowser(locator).toHaveAttribute(name, expected))
+export const withoutAttribute = (locator: Locator, name: string) =>
+  act(() => inBrowser(locator).not.toHaveAttribute(name))
 export const urlMatches = (page: Page, pattern: RegExp) => act(() => inBrowser(page).toHaveURL(pattern))
 
 /** Waits for the next response whose URL ends with `suffix` from a request with `method`. */

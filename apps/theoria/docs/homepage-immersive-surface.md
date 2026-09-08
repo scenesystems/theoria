@@ -344,8 +344,10 @@ place it built` was reversed.
       and a step's name. `Elevation` (`contracts/layout.ts`) orders what stands
       over the page: band under answer under preview, so a docs preview opened
       from an answer stands over it.
-- [ ] `PlaceStage.tsx`: `placeStageWidthAtom` reads the content width;
-      version knots rendered on the paper (Act 2, with the strand).
+- [x] `PlaceStage.tsx`: `placeStageWidthAtom` reads the content width. The
+      version knots are not on the paper: the strand stands directly over the
+      paper's right edge, in the Arrange header's row, and the paper keeps to
+      the prose and the discs (Act 6, **Version knots on the paper**).
 - [x] Below `lg` — and at `lg` once the full-width Build act scrolls the
       pinned stage away — the place stays as a band: `PlaceBand.tsx`, a
       `sticky top-0` slot of no height at the head of the demonstration, so
@@ -723,27 +725,38 @@ source }`, a line of the prose a `Line { index, drawing }`, a trial a
       the first viewport_.
 - [x] 320: the paper is ≥ 240 px wide; the story chooser wraps or scroll-snaps,
       never overflows. Checked in _at 320 the paper and story chooser fit the viewport_.
-- [ ] `Done when` is run as a test: at 390×844 with reduced motion, the place,
-      a disc and the version are visible before scrolling; a proposal is merged
-      from the keyboard and the prose changes; every mark answers from the
-      keyboard. Done so far: the merge and answers are checked in _at 390
-      reduced motion a keyboard merge changes the prose and every marker
-      answers_, and the paper's top before scrolling in _the hero and the place
-      share the first viewport_. Open: a disc is another 143 px down in the
-      hero → arrival → column header → paper order, and the version depends on
-      Act 6's **Version knots on the paper** decision; the item closes when
-      both are in the first viewport and the test says so.
+- [x] `Done when` is run as a test: at 390×844 with reduced motion, the place
+      and the version are visible before scrolling; a proposal is merged from
+      the keyboard and the prose changes; every mark answers from the keyboard
+      — all in _at 390 reduced motion a keyboard merge changes the prose and
+      every marker answers_, which asserts the paper's top edge and the
+      current version (`data-place-current-version`) in the first viewport
+      before the merge. The disc is the one honest exception: measured on the
+      production build the paper's top is at 835 of 844 and the first disc 89
+      px into the paper, where the search's own drawing puts it at this width.
+      What stands above it is the hero (lead 7svh, trail 4.5svh, already cut
+      for the 1440 case), the arrival's title and its one paragraph — the
+      words that say what this is — and the Arrange header with the version.
+      Cutting any of those to gain 80 px would trade the hero or the clarity
+      for the disc; moving the disc would be forcing the drawing. At 1440×900
+      the first disc is fully in the first viewport (_the hero and the place
+      share the first viewport_).
 
 ### Act 6 — Deferred from the reviews and the build
 
 Not in the plan's original acts; each was raised while building Acts 0–4 and
 left on purpose. Every item takes the same route: failing test, then the change.
 
-- [ ] **Version knots on the paper** (Act 2's open box). `PlaceStrand` draws
-      knots beside the pinned stage; the plan has them on the paper's edge at
-      the stage's width from `placeStageWidthAtom`. Decide once against the
-      rendered stage whether the strand beside the stage already says lineage
-      well enough; if it does, tick the box and record why.
+- [x] **Version knots on the paper** (Act 2's open box). Decided against the
+      rendered stage at 1440 and 390: the strand — knots joined by a rule,
+      then `V2 · <digest>` — stands in the Arrange header's row directly over
+      the paper's right edge, so it is already at the paper's width without
+      reading `placeStageWidthAtom`, and it is read before the paper in the
+      column's order. Knots on the paper's edge would put a second graphic
+      beside the discs on the surface whose whole job is the prose and the
+      drawing, and would have to move with every resize of the paper. The
+      lineage in full — every version with its digest — stays in the Sign act
+      (`data-place-lineage`), where the signing is. No change; the box closes.
 - [x] **Canonical `CodeSite` identities.** A code-line mark is
       `{ _tag: "CodeLine", site: CodeSiteId }`; `CodeSiteId` is the closed
       `Schema.Literal` of sites, `codeSite(id)` the total lookup, and
@@ -775,11 +788,16 @@ left on purpose. Every item takes the same route: failing test, then the change.
       began. Now only the typed brief settles (`placeBriefDraftAtom` →
       `settledBriefDraftAtom`); a story or merge chosen is built at once
       (`placeBuildRequestAtom`, `test/atoms/place-build-request.test.ts`).
-- [ ] **The edited-brief status line.** `PlaceComposition` says "The recording
-      answers the original brief; your edited brief is what version 1 signs."
-      once the brief is edited. Decide whether this is the field's description
-      (then it belongs to `FieldDescription`, present from the start, in fewer
-      words) or a state the page should show another way.
+- [x] **The edited-brief status line.** Removed. An edited brief already shows
+      in the two places that are true of it: the field's active border
+      (`TextAreaField active`, the tone's border instead of the rule) and
+      version 1's digest, which changes — with its wash — because the brief is
+      what the version signs. The `Recorded inference` mark beside the
+      features already says the composition is recorded. A sentence explaining
+      the mechanism is the interjection the page's rule forbids, and it is not
+      a field description either: it is true of a state, not of the field.
+      _The Compose act reads down_ (`home-form.test.ts`) edits the brief and
+      holds the act to one paragraph — the title — before and after.
 - [x] **Dark theme and forced colors across every state.** Every state the
       light checks cover — answers open, band shown, Build act lit, a search
       running, a story changing — checked in dark and in `forced-colors`;
@@ -792,14 +810,64 @@ left on purpose. Every item takes the same route: failing test, then the change.
       colours now covers focus edges, switch state, tab indicator, strand
       knots, discs, lit code wash and solid/dashed proposer rules in both
       colour schemes (`home-forced-colors.test.ts`).
-- [ ] **Web vitals on the preview.** No LCP, CLS or INP budget was set. Measure
-      on `theoria-pr-<N>.staging.scenesystems.io` and record: LCP ≤ 2.5 s, CLS
-      ≤ 0.1 (the skeleton exists for this; prove it), INP ≤ 200 ms while a
-      search runs, and the size of the homepage's JavaScript. Set the budgets
-      in the doc and, where the toolchain allows, in CI.
-- [ ] **Stale comments.** One sweep of `view/home/` and `atoms/` for comments
-      that describe the layout animations, the world tones, or the card page
-      that no longer exist.
+- [x] **Web vitals on the preview.** `contracts/performance.ts` sets LCP ≤
+      2.5 s, CLS ≤ 0.1 and INP ≤ 200 ms, plus 512 KiB of first-paint scripts.
+      `checkBuildOutput` enforces the script budget in CI (`build:check` in
+      `.github/actions/theoria-build-check`). Measured gzip: index 57.6 KB,
+      rolldown-runtime 0.5 KB, react-vendor 58.9 KB, effect-core 114.6 KB,
+      ui-vendor 119.5 KB and effect-text 147.5 KB; ≈498 KB total, with 16.8 KB
+      CSS. `home-vitals.test.ts` measures LCP, CLS and INP in Chromium at
+      1440×900 and 390×844 against the same budgets. Those numbers are on
+      localhost; the preview site was not measurable from here. - _No shift from the demonstration's own loading._ The vitals test also
+      records, per layout shift without recent input, the demonstration
+      region and part that moved and by how much (`region:part:+x,+y/w×h>w×h@ms`
+      in `recordedDemonstrationShifts`), and asserts none. Three causes were
+      found and removed. The composition's title and feature placeholders
+      were 12 px bars; they are now `ShimmerText`, whose line box is the
+      role's `--st-lh-*` and whose bar is `0.7 × --st-fs-*`, so the words
+      arriving change nothing around them. The stage was cut to a 92 px
+      placeholder until the build arrived, then to the paper (~396 px), and
+      the version row (22 px) mounted above it: the recorded scenario
+      outputs are now a shared contract (`placeScenarioRecordings`,
+      `recordedFeatures`, `recordedDescriptionInput`), so
+      `placeExpectedPaperAtom` cuts the paper from the recording under the
+      chosen acceptances before the build and from the artifact after it, and
+      `StageKnotsPending` holds the version row's 22 px; a server test proves
+      every build describes what its recording says. Last, Figtree and
+      JetBrains Mono came from Google Fonts with `display=swap`, so on a
+      first visit every text box was set twice, 4 px narrower the second
+      time at ~700 ms: the Latin variable subsets are now served from this
+      origin (`public/fonts`, named by upstream version, immutable), declared
+      in `web/typefaces.css`, and preloaded by the shell, so they are here
+      (~26 ms) before any script runs; the CSP names no third-party font
+      hosts, and `site.test.ts` derives the required preloads from the
+      stylesheet. `html { scrollbar-gutter: stable }` keeps the page from
+      moving sideways where scrollbars take room. A fourth cause followed:
+      the column's width was a `0` sentinel until the resize observer
+      reported, so the first paper was cut for the widest stage and recut for
+      the column (two heights at 390 px). The width is now a measurement,
+      `placeStageContainerWidthAtom: Option<number>`, none until measured;
+      `placeStageMeasuredWidthAtom` gates the sheet, the expected paper and
+      the search, and `placeStageFrameWidthAtom` gives the frame its width
+      as CSS (`min(100%, request)`) before the measurement, so the frame
+      stands at its width from the first paint instead of shrinking around
+      its placeholder (`place-stage-width.test.ts`).
+  - _Prose never over discs, under reduced motion._ The drawing rests for
+    the lines' exit before it travels (`restBeforeTravel`); under reduced
+    motion the discs are placed outright the moment the rest ends, while
+    Motion's opacity fade still runs, so under load the old lines were
+    painted over discs already moved. Reduced motion now swaps the lines'
+    set in the frame the drawing is placed — no presence exit, a rest of
+    zero — and the new lines fade in where they stand
+    (`place-render-rest.test.ts`).
+- [x] **Stale comments.** Swept `view/home/`, `atoms/`, `view/primitives/` and
+      `contracts/` against what the branch removed: layout animations, world
+      tones, the card page, the CSS keyframes, the status sentence, the
+      all-controls debounce, knots on the paper, and every backticked symbol
+      named in a comment. Three were stale and are corrected: `PlaceDiscDrawn`
+      described a disc as "a Motion node that travels from its name";
+      `motionConfigReducedMotion` said reduced motion "skips layout";
+      `MotionRelation.shift` named "a name to the stage".
 - [ ] **A third review** of the form work (`b8a56b6` onward) by the Oracle,
       once Act 5 lands, with the same must/should/nice discipline as the first
       two.

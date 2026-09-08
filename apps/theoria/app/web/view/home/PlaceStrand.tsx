@@ -8,9 +8,10 @@ import { ChangedValue } from "../primitives/ChangedValue.js"
 import { dangerStatusTone, inlineStatusToneFor, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { ShimmerText } from "../primitives/Skeleton.js"
 
 import { ContentId } from "./ContentId.js"
-import { StatusMark } from "./PlaceProvenance.js"
+import { inlineMarkPadding, StatusMark } from "./PlaceProvenance.js"
 import { isCurrentVersion, knotLabel, signatureFor, versionChanges, versionSignatureLabel } from "./placeViewModel.js"
 
 const digestTone = toneClassesFor("digest")
@@ -23,6 +24,20 @@ const knotClassName = (current: boolean, size: "strand" | "stage"): string =>
   `inline-flex shrink-0 rounded-full border-2 ${digestTone.border} forced-colors:border-[CanvasText] ${
     current ? `${digestTone.bg} forced-colors:bg-[CanvasText]` : "bg-stage-0 forced-colors:bg-[Canvas]"
   } ${size === "strand" ? "size-3" : "size-2"}`
+
+/**
+ * The strand's row before the build is here: the room the knots and the
+ * current version's name will take, so the stage below does not move down
+ * when they arrive. The bar is a code-meta line in the inline mark's padding,
+ * which is what sets the row's height once the version is in it.
+ */
+export const StageKnotsPending = () => (
+  <Rail aria-busy className="min-w-0 justify-end gap-2.5" data-place-current-version-pending>
+    <Layer className={`flex ${inlineMarkPadding}`}>
+      <ShimmerText role="code-meta" width="w-28" />
+    </Layer>
+  </Rail>
+)
 
 /**
  * The strand as it appears on the pinned stage: one small knot per version,

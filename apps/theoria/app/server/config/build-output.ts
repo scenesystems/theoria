@@ -1,8 +1,9 @@
 import { FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { Effect, Either, Option, Schema } from "effect"
+import { Effect, Either, identity, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
+import { type WebVitalBudgets, webVitalBudgets } from "../../contracts/performance.js"
 import { contentTypeForPath } from "./static-store.js"
 
 /**
@@ -28,7 +29,8 @@ export class BuildOutputError extends Schema.TaggedError<BuildOutputError>()("Bu
 export const BuildOutputSummary = Schema.Struct({
   root: Schema.String,
   assets: Schema.Number,
-  workerBytes: Schema.Number
+  workerBytes: Schema.Number,
+  homepageScriptGzipBytes: Schema.Number
 })
 export type BuildOutputSummary = typeof BuildOutputSummary.Type
 
@@ -71,12 +73,41 @@ const fileProblem = (entry: string, type: FileSystem.File.Type): Option.Option<s
 const isNotFound = (error: PlatformError): boolean => error._tag === "SystemError" && error.reason === "NotFound"
 
 /**
+ * The bytes on the wire for a file served gzip-encoded, from the platform's
+ * own `CompressionStream`, so the check needs no Node module and measures
+ * what the browser receives. Compression of bytes cannot fail; if it does,
+ * the check itself is broken, which is a defect, not a build problem.
+ */
+export const gzipBytes = (bytes: Uint8Array): Effect.Effect<number> =>
+  Stream.fromReadableStream({
+    // A fresh copy: the file's view may be over a shared buffer, and the compressor takes only an `ArrayBuffer`-backed one.
+    evaluate: () =>
+      Stream.toReadableStream(Stream.make(new Uint8Array(bytes))).pipeThrough(new CompressionStream("gzip")),
+    onError: identity
+  }).pipe(
+    Stream.runFold(0, (total, chunk) => total + chunk.byteLength),
+    Effect.orDie
+  )
+
+/** Module entry and modulepreload JavaScript paths loaded by the homepage, in document order. */
+export const homepageScripts = (indexHtml: string): ReadonlyArray<string> =>
+  Arr.dedupe(
+    Arr.filterMap(
+      Arr.fromIterable(indexHtml.matchAll(
+        /<script\b(?=[^>]*\btype=["']module["'])[^>]*\bsrc=["'](\/assets\/[^"']+\.js)["'][^>]*>|<link\b(?=[^>]*\brel=["']modulepreload["'])[^>]*\bhref=["'](\/assets\/[^"']+\.js)["'][^>]*>/giu
+      )),
+      (match) => Option.fromNullable(match[1] ?? match[2])
+    )
+  )
+
+/**
  * Every problem is collected before failing so one run reports the whole build.
  * A file that is absent is a build problem; a filesystem that cannot be
  * examined is a failure of the check itself and propagates as `PlatformError`.
  */
 export const checkBuildOutput = (
-  root: string
+  root: string,
+  budgets: WebVitalBudgets = webVitalBudgets
 ): Effect.Effect<BuildOutputSummary, BuildOutputError | PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -126,12 +157,40 @@ export const checkBuildOutput = (
         onNone: () => Option.some(`${entry}: vanished during the check`),
         onSome: (type) => fileProblem(entry, type)
       }))
-    const problems: ReadonlyArray<string> = [...missing, ...Arr.getLefts(listed), ...entryProblems]
+    const existingProblems: ReadonlyArray<string> = [...missing, ...Arr.getLefts(listed), ...entryProblems]
+    const scriptResults = Arr.isEmptyReadonlyArray(existingProblems)
+      ? yield* Effect.flatMap(
+        fileSystem.readFileString(path.join(root, "dist/index.html")),
+        (indexHtml) =>
+          Effect.forEach(
+            homepageScripts(indexHtml),
+            (script) =>
+              fileSystem.readFile(path.join(root, `dist${script}`)).pipe(
+                Effect.flatMap(gzipBytes),
+                Effect.map(Either.right),
+                Effect.catchIf(
+                  isNotFound,
+                  () => Effect.succeed(Either.left(`dist${script}: named by dist/index.html but missing`))
+                )
+              )
+          )
+      )
+      : Arr.empty<Either.Either<number, string>>()
+    const homepageScriptGzipBytes = Arr.reduce(Arr.getRights(scriptResults), 0, (total, bytes) => total + bytes)
+    const scriptProblems = Arr.getLefts(scriptResults)
+    const budgetProblems = homepageScriptGzipBytes > budgets.homepageScriptGzipBytes
+      ? [
+        `dist/index.html: homepage scripts are ${String(homepageScriptGzipBytes)} gzip bytes, over the budget of ${
+          String(budgets.homepageScriptGzipBytes)
+        }`
+      ]
+      : Arr.empty<string>()
+    const problems: ReadonlyArray<string> = [...existingProblems, ...scriptProblems, ...budgetProblems]
     if (Arr.isNonEmptyReadonlyArray(problems)) return yield* new BuildOutputError({ root, problems })
 
     const worker = yield* fileSystem.stat(path.join(root, ".wrangler-out/worker.js"))
     const assets = Arr.filter(kinds, ({ entry, kind }) =>
       entry.startsWith("dist/") && Option.exists(kind, (type) =>
         type === "File")).length
-    return { root, assets, workerBytes: Number(worker.size) }
+    return { root, assets, workerBytes: Number(worker.size), homepageScriptGzipBytes }
   })

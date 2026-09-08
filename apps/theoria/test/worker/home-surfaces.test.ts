@@ -20,10 +20,13 @@ import {
 } from "./browser.js"
 import {
   focusedControlIntersectsBand,
+  fullyInViewport,
   insideViewportRight,
   scrollPast,
+  scrollToTop,
   surfaceBudget,
-  textBlockMetrics
+  textBlockMetrics,
+  topEdgeInViewport
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -113,6 +116,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" })
         yield* goto(page, "/")
         yield* waitForRendered(page)
+        // Before any scroll the place and its current version are in view: the paper's top edge and the
+        // version the stage shows, under the Arrange header. (The first disc is the drawing's own: the
+        // search puts it ≈90 px into the paper at this width, so it is the next scroll's, not forced up.)
+        yield* act(() => page.evaluate(scrollToTop))
+        expect(yield* act(() => page.locator("[data-place-stage='paper']").evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => page.locator("[data-place-current-version]").evaluate(fullyInViewport))).toBe(true)
         const lines = page.locator("[data-place-line]")
         const before = yield* act(() => lines.allInnerTexts())
         const merge = page.getByRole("switch", { checked: false, name: /^Merge Ship's bell/u })

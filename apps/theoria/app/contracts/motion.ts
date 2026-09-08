@@ -13,7 +13,7 @@ import type { PlaceMark } from "./demo/imagined-place-provenance.js"
  * A change is one of three relations between what was on the page and what is:
  *
  * - `enter`: something arrives (a line of prose, an act's answer).
- * - `shift`: something already there moves (a disc, a name to the stage).
+ * - `shift`: something already there moves (a disc between arrangements, the band's row).
  * - `exit`: something leaves; shorter than arriving, so the new state leads.
  */
 export const MotionRelation = Schema.Literal("enter", "shift", "exit")
@@ -49,6 +49,13 @@ export const motionWalkDraw: Duration.Duration = Duration.millis(900)
  * Colour alone, which reduced motion keeps.
  */
 export const motionValueWash: Duration.Duration = Duration.millis(1200)
+
+/**
+ * One breath of a placeholder standing in for pending content: slower than
+ * anything arriving, so it reads as waiting rather than as change. Movement
+ * of a kind, so reduced motion holds it still.
+ */
+export const motionPulse: Duration.Duration = Duration.seconds(2)
 
 /** Delay from pointer entry to answering a mark. */
 export const answerOpenDelay = (mark: PlaceMark): Duration.Duration =>

@@ -251,6 +251,94 @@ export const recordPaperFrames = () => {
 export const recordedPaperFrames = () => document.documentElement.dataset["paperFrames"] ?? ""
 
 /**
+ * Records LCP, CLS and INP from before the document's first script runs.
+ * Installed as an init script, when the document has no root element yet, so
+ * nothing is written until an observer fires; the first paint always does.
+ * Self-contained, like `recordPaperFrames`. Read back with `recordedWebVitals`.
+ */
+export const recordWebVitals = () => {
+  const values = { cls: 0, inp: 0, lcp: 0, shifted: "" }
+  const record = () => {
+    document.documentElement.dataset["webVitals"] = [values.lcp, values.cls, values.inp].join(" ")
+    document.documentElement.dataset["webVitalShifts"] = values.shifted
+  }
+  // The demonstration's region a shifted node lies in, named by the nearest
+  // region-level `data-place-*` attribute, then the node's own nearest
+  // `data-place-*` name (or tag) and how far down it moved, so a failure says
+  // what moved and by how much; none for a node outside the demonstration.
+  const regions = "[data-place-composition],[data-place-features],[data-place-stage],[data-place-act],[data-place-acts]"
+  const parts =
+    "[data-place-step],[data-place-current-version],[data-place-current-version-pending],[data-place-trace],[data-place-legend]"
+  const placeName = (element: Element): string =>
+    element.getAttributeNames().find((name) => name.startsWith("data-place-")) ?? element.tagName.toLowerCase()
+  const demonstrationRegion = (
+    source: { readonly node: unknown; readonly previousRect: DOMRectReadOnly; readonly currentRect: DOMRectReadOnly }
+  ): ReadonlyArray<string> => {
+    if (!(source.node instanceof Element)) return []
+    const node = source.node
+    const signed = (pixels: number) => `${pixels >= 0 ? "+" : ""}${String(Math.round(pixels))}`
+    const moved = `${signed(source.currentRect.x - source.previousRect.x)},${
+      signed(source.currentRect.y - source.previousRect.y)
+    }/${String(Math.round(source.previousRect.width))}x${String(Math.round(source.previousRect.height))}>${
+      String(Math.round(source.currentRect.width))
+    }x${String(Math.round(source.currentRect.height))}`
+    return [node.closest(regions) ?? []].flat().map((region) =>
+      `${placeName(region)}:${placeName(node.closest(`${regions},${parts}`) ?? node)}:${moved}`
+    )
+  }
+  // `LayoutShift.sources` is not in the DOM library yet; each source names the node that moved and its rectangles.
+  const isShiftSources = (
+    value: unknown
+  ): value is ReadonlyArray<
+    { readonly node: unknown; readonly previousRect: DOMRectReadOnly; readonly currentRect: DOMRectReadOnly }
+  > => value instanceof Array
+  const shiftedRegions = (entry: PerformanceEntry): ReadonlyArray<string> =>
+    "sources" in entry && isShiftSources(entry.sources)
+      ? entry.sources.flatMap(demonstrationRegion).map((shift) => `${shift}@${String(Math.round(entry.startTime))}ms`)
+      : []
+  new PerformanceObserver((list) => {
+    list.getEntries().forEach((entry) => {
+      const renderTime = "renderTime" in entry && typeof entry.renderTime === "number" ? entry.renderTime : 0
+      const loadTime = "loadTime" in entry && typeof entry.loadTime === "number" ? entry.loadTime : 0
+      values.lcp = renderTime || loadTime
+    })
+    record()
+  }).observe({ type: "largest-contentful-paint", buffered: true })
+  new PerformanceObserver((list) => {
+    const unexpected = list.getEntries().filter((entry) =>
+      !("hadRecentInput" in entry && entry.hadRecentInput === true)
+    )
+    values.cls += unexpected.reduce(
+      (total, entry) => total + ("value" in entry && typeof entry.value === "number" ? entry.value : 0),
+      0
+    )
+    values.shifted = [values.shifted, ...unexpected.flatMap(shiftedRegions)].filter((region) => region.length > 0)
+      .join(" ")
+    record()
+  }).observe({ type: "layout-shift", buffered: true })
+  const eventOptions = {
+    type: "event",
+    buffered: true,
+    durationThreshold: 16
+  }
+  new PerformanceObserver((list) => {
+    values.inp = list.getEntries().reduce((maximum, entry) => Math.max(maximum, entry.duration), values.inp)
+    record()
+  }).observe(eventOptions)
+}
+
+/** LCP, CLS and INP recorded by `recordWebVitals`, separated by spaces. */
+export const recordedWebVitals = () => document.documentElement.dataset["webVitals"] ?? ""
+
+/**
+ * The demonstration's regions that shifted layout without recent input,
+ * recorded by `recordWebVitals`: one `region:part:+pixels` per shifted node,
+ * separated by spaces; empty when only the page outside the demonstration
+ * shifted, or nothing did.
+ */
+export const recordedDemonstrationShifts = () => document.documentElement.dataset["webVitalShifts"] ?? ""
+
+/**
  * One frame of the settled drawing's finishing touches. `walk`: how much of
  * the walk through the place is drawn, from 0 (none) to 1 (whole), read from
  * the first value of its mask's `stroke-dasharray`; -1 while there is no walk.

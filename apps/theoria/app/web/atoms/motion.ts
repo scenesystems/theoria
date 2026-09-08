@@ -40,7 +40,7 @@ export const scrollBehaviorFor = (preference: MotionPreference): ScrollManner =>
 /** Motion's own vocabulary for the preference; it is told, never left to read the window itself. */
 export type MotionConfigReducedMotion = "always" | "never"
 
-/** How Motion should treat the preference: reduced motion skips transforms and layout, keeping opacity. */
+/** How Motion should treat the preference: reduced motion makes positional values instant, keeping opacity. */
 export const motionConfigReducedMotion = (preference: MotionPreference): MotionConfigReducedMotion =>
   Match.value(preference).pipe(
     Match.when("reduced", (): MotionConfigReducedMotion => "always"),

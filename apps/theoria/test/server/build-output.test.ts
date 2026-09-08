@@ -5,10 +5,12 @@ import { expect, it } from "@effect/vitest"
 import { Effect, Either, Layer, type Scope } from "effect"
 import * as Arr from "effect/Array"
 
+import { type WebVitalBudgets, webVitalBudgets } from "../../app/contracts/performance.js"
 import {
   type BuildOutputError,
   type BuildOutputSummary,
-  checkBuildOutput
+  checkBuildOutput,
+  homepageScripts
 } from "../../app/server/config/build-output.js"
 
 /**
@@ -16,7 +18,8 @@ import {
  * inherit its expectations from the code under test; `mutate` then edits it.
  */
 const checkLayout = (
-  mutate: (root: string) => Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path | Scope.Scope>
+  mutate: (root: string) => Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path | Scope.Scope>,
+  budgets: WebVitalBudgets = webVitalBudgets
 ) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -30,7 +33,7 @@ const checkLayout = (
     yield* fileSystem.writeFileString(`${root}/.wrangler-out/worker.js`, "export default {}")
     yield* mutate(root)
     // Only a verdict is an outcome; a filesystem the check could not examine fails the test.
-    return yield* checkBuildOutput(root).pipe(
+    return yield* checkBuildOutput(root, budgets).pipe(
       Effect.map(Either.right),
       Effect.catchTag("BuildOutputError", (error) => Effect.succeed(Either.left(error)))
     )
@@ -38,6 +41,79 @@ const checkLayout = (
 
 const problemsOf = (result: Either.Either<BuildOutputSummary, BuildOutputError>) =>
   Either.match(result, { onLeft: (error) => error.problems, onRight: () => Arr.empty<string>() })
+
+it.effect("finds the homepage module entry and modulepreloads in document order", () =>
+  Effect.sync(() => {
+    const html = `<script type="module" crossorigin src="/assets/index-a.js"></script>
+<link rel="modulepreload" crossorigin href="/assets/runtime-b.js">
+<link crossorigin href="/assets/vendor-c.js" rel="modulepreload">
+<link rel="stylesheet" crossorigin href="/assets/index.css">
+<link rel="icon" href="/icon.svg">
+<script type="module" src="/assets/index-a.js"></script>`
+    expect(homepageScripts(html)).toEqual([
+      "/assets/index-a.js",
+      "/assets/runtime-b.js",
+      "/assets/vendor-c.js"
+    ])
+  }))
+
+it.effect("accepts named homepage scripts and reports the bytes they take on the wire, gzip-encoded", () =>
+  Effect.gen(function*() {
+    // Two scripts of 8 KiB of one repeated line: raw they are 16 KiB; gzip
+    // brings each under a few hundred bytes and cannot go below its own 18
+    // bytes of header and trailer. The sum is in that band only if it is the
+    // encoded size of both.
+    const line = "export const value = 0;\n"
+    const script = line.repeat(8192 / line.length)
+    const result = yield* checkLayout((root) =>
+      Effect.gen(function*() {
+        const fileSystem = yield* FileSystem.FileSystem
+        yield* fileSystem.makeDirectory(`${root}/dist/assets`)
+        yield* fileSystem.writeFileString(
+          `${root}/dist/index.html`,
+          `<script type="module" src="/assets/entry.js"></script><link rel="modulepreload" href="/assets/vendor.js">`
+        )
+        yield* fileSystem.writeFileString(`${root}/dist/assets/entry.js`, script)
+        yield* fileSystem.writeFileString(`${root}/dist/assets/vendor.js`, script)
+      })
+    )
+    const bytes = Either.getOrElse(Either.map(result, (summary) => summary.homepageScriptGzipBytes), () => -1)
+    expect(bytes).toBeGreaterThan(2 * 18)
+    expect(bytes).toBeLessThan(2 * 512)
+  }))
+
+it.effect("rejects a homepage script named by the HTML that is missing", () =>
+  Effect.gen(function*() {
+    const result = yield* checkLayout((root) =>
+      Effect.flatMap(FileSystem.FileSystem, (fileSystem) =>
+        fileSystem.writeFileString(
+          `${root}/dist/index.html`,
+          `<script type="module" src="/assets/missing.js"></script>`
+        ))
+    )
+    expect(problemsOf(result)).toEqual(["dist/assets/missing.js: named by dist/index.html but missing"])
+  }))
+
+it.effect("rejects homepage scripts whose gzip sum exceeds the budget", () =>
+  Effect.gen(function*() {
+    const result = yield* checkLayout(
+      (root) =>
+        Effect.gen(function*() {
+          const fileSystem = yield* FileSystem.FileSystem
+          yield* fileSystem.makeDirectory(`${root}/dist/assets`)
+          yield* fileSystem.writeFileString(
+            `${root}/dist/index.html`,
+            `<script type="module" src="/assets/entry.js"></script>`
+          )
+          yield* fileSystem.writeFileString(`${root}/dist/assets/entry.js`, "a script beyond this test's budget")
+        }),
+      // Below gzip's own 18 bytes of header and trailer, so any script is over it.
+      { ...webVitalBudgets, homepageScriptGzipBytes: 10 }
+    )
+    expect(problemsOf(result)).toEqual([
+      expect.stringMatching(/^dist\/index\.html: homepage scripts are \d+ gzip bytes, over the budget of 10$/u)
+    ])
+  }))
 
 it.effect("accepts a build whose every asset has a served content type", () =>
   Effect.gen(function*() {

@@ -1,45 +1,65 @@
 import { Separator } from "@base-ui/react/separator"
-import { useReducedMotion } from "motion/react"
+import { useAtomValue } from "@effect-atom/atom-react"
+import { Match } from "effect"
 import * as m from "motion/react-m"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
+import type { TextRole } from "../../../contracts/text.js"
+import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { classNames } from "./classNames.js"
 import { dangerStatusTone, surfaceClassName, type ToneClasses } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
+import { pulseTransition, stillTransition } from "./motion.js"
 import { SemanticText } from "./SemanticText.js"
+import { fontSizeVar, lineHeightVar } from "./semanticTextClasses.js"
 
 // ---------------------------------------------------------------------------
-// ShimmerLine — the atomic building block for skeleton loading states.
-// A single animated bar that mimics a line of content.
+// PulseLayer — the atomic building block for skeleton loading states: a layer
+// whose opacity breathes while content is pending, and holds still when the
+// visitor asked for reduced motion.
 // ---------------------------------------------------------------------------
+
+const pulse = (preference: MotionPreference) =>
+  Match.value(preference).pipe(
+    Match.when("full", () => ({ animate: { opacity: [1, 0.5, 1] }, transition: pulseTransition })),
+    Match.when("reduced", () => ({ animate: { opacity: 1 }, transition: stillTransition })),
+    Match.exhaustive
+  )
 
 export const PulseLayer = ({
   ariaHidden,
-  className
+  className,
+  style
 }: {
   readonly ariaHidden?: boolean
   readonly className: string
+  readonly style?: CSSProperties
 }) => {
-  const reducedMotion = useReducedMotion()
+  const preference = useAtomValue(motionPreferenceAtom)
 
   return (
-    <Layer
-      aria-hidden={ariaHidden}
-      className={className}
-      render={
-        <m.div
-          animate={{ opacity: reducedMotion === true ? 1 : [1, 0.5, 1] }}
-          transition={reducedMotion === true
-            ? { duration: 0 }
-            : { duration: 2, ease: [0.4, 0, 0.6, 1], repeat: Infinity }}
-        />
-      }
-    />
+    <Layer aria-hidden={ariaHidden} className={className} style={style} render={<m.div {...pulse(preference)} />} />
   )
 }
 
+/** A bar standing in for a line of content of no particular text role. */
 export const ShimmerLine = ({ className = "", width }: { readonly className?: string; readonly width: string }) => (
   <PulseLayer className={`h-3 rounded bg-stage-200/60 ${width} ${className}`} />
+)
+
+/**
+ * A line standing in for text of a known role: the line box is exactly the
+ * role's line height and the bar inside it the height of its glyphs, both
+ * read from the typography tokens, so the text arriving in its place changes
+ * nothing around it.
+ */
+export const ShimmerText = ({ role, width }: { readonly role: TextRole; readonly width: string }) => (
+  <Layer aria-hidden className={`flex ${width} items-center`} style={{ height: `var(${lineHeightVar(role)})` }}>
+    <PulseLayer
+      className="w-full rounded bg-stage-200/60"
+      style={{ height: `calc(var(${fontSizeVar(role)}) * 0.7)` }}
+    />
+  </Layer>
 )
 
 // ---------------------------------------------------------------------------

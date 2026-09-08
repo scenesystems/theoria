@@ -25,7 +25,7 @@ const program = Effect.gen(function*() {
   yield* Console.log(
     `Build output in ${summary.root} is deployable: ${String(summary.assets)} assets, Worker ${
       String(Math.round(summary.workerBytes / 1024))
-    } KiB`
+    } KiB, homepage scripts ${String(Math.round(summary.homepageScriptGzipBytes / 1024))} KiB gzip`
   )
 })
 

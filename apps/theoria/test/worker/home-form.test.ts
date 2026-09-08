@@ -1,11 +1,25 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Fiber, Layer, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
-import { act, BrowserLive, click, count, goto, hover, openPage, until, visible } from "./browser.js"
+import {
+  act,
+  attribute,
+  BrowserLive,
+  click,
+  count,
+  fill,
+  goto,
+  hover,
+  nextResponse,
+  openPage,
+  until,
+  visible,
+  withoutAttribute
+} from "./browser.js"
 import { backgroundColour, beforeRuleCentreX, scrollPast, topmostAt, topmostAtItsCentre } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -189,6 +203,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(brief.y + brief.height).toBeLessThanOrEqual(features.y)
         // The features are named as what they are, beside the status of the inference that named them.
         yield* visible(compose.locator("[data-place-features-label]"))
+        // An edited brief shows as the field's own dirty state and in the version it builds, not in a sentence:
+        // the act has no more paragraphs after the edit than before it.
+        const field = compose.getByRole("textbox")
+        const paragraphs = yield* act(() => compose.locator("p").count())
+        yield* withoutAttribute(field, "data-dirty")
+        const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        yield* fill(field, "a lighthouse keeper's rock, reached at low water")
+        expect((yield* Fiber.join(rebuild)).status()).toBe(200)
+        yield* attribute(field, "data-dirty", "")
+        yield* count(compose.locator("p"), paragraphs)
         expect(yield* failures).toEqual([])
       }))
   }

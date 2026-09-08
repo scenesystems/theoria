@@ -1,5 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
+import type { Text } from "@scenesystems/effect-text"
 import { Duration, Effect, Equal, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
@@ -11,6 +12,7 @@ import {
   Arrangement,
   description,
   descriptionInput,
+  recordedDescriptionInput,
   renderingFor
 } from "../../contracts/demo/imagined-place-arrangement.js"
 import {
@@ -26,7 +28,13 @@ import { placeSourceId } from "../../contracts/demo/imagined-place-provenance.js
 import { type Meander, renderTrials } from "../../contracts/demo/imagined-place-search.js"
 import { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import { PlaceBuild } from "../../contracts/imagined-place-result.js"
-import { type ParticipantRole, placeFeatures } from "../../contracts/imagined-place.js"
+import {
+  type ParticipantRole,
+  type PlaceFeature,
+  placeFeatures,
+  placeScenarioRecordings,
+  recordedFeatures
+} from "../../contracts/imagined-place.js"
 import { motionDuration } from "../../contracts/motion.js"
 import { journeyFrom, toward, travellingOver } from "../motion/travel.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
@@ -36,7 +44,7 @@ import { MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLa
 import { proposalAnchorLine } from "../view/home/placeViewModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
-import { placeBuildAtom, placeStageWidthAtom } from "./imagined-place.js"
+import { placeBuildAtom, placeControlsAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "./motion.js"
 import { textLayoutLayerAtom } from "./text-layout.js"
 
@@ -208,9 +216,32 @@ const search = (
   )
 
 /** How long the drawing takes to reach a new best: the theme's `shift`, or none when the reader asked for less motion. */
-const travelDuration = (motion: MotionPreference): Duration.Duration =>
+export const travelDuration = (motion: MotionPreference): Duration.Duration =>
   Match.value(motion).pipe(
     Match.when("full", () => motionDuration("shift")),
+    Match.when("reduced", () => Duration.zero),
+    Match.exhaustive
+  )
+
+/**
+ * How long the drawing rests before it travels: a changed description's lines
+ * leave before anything else moves, so lines flowed around where the discs
+ * were never stand over discs that have moved on. Under reduced motion the
+ * stage swaps the prose in the same frame it places the drawing, so there is
+ * nothing to rest for — and resting would leave the new lines, flowed around
+ * where the discs will be, over discs that have not moved yet.
+ */
+export const restBeforeTravel = (
+  left: Option.Option<string>,
+  prose: string,
+  motion: MotionPreference
+): Duration.Duration =>
+  Match.value(motion).pipe(
+    Match.when("full", () =>
+      Option.match(left, {
+        onNone: () => Duration.zero,
+        onSome: (before) => before === prose ? Duration.zero : motionDuration("exit")
+      })),
     Match.when("reduced", () => Duration.zero),
     Match.exhaustive
   )
@@ -254,13 +285,7 @@ const renderStream = (
       const candidate = arrange(artifact, prepared, stage)
       const around = arrangedAround(prepared, stage)
       const travelling = travellingOver(drawingBetween(stage), travelDuration(motion))
-      // A changed description's lines leave before anything else moves: the
-      // drawing rests through their exit, so lines flowed around where the
-      // discs were never stand over discs that have moved on.
-      const rest = Option.match(left, {
-        onNone: () => Duration.zero,
-        onSome: (found) => found.prose === prose ? Duration.zero : motionDuration("exit")
-      })
+      const rest = restBeforeTravel(Option.map(left, (found) => found.prose), prose, motion)
       const journey = yield* journeyFrom(Option.map(left, (found) => found.drawing), rest)
       // The paper while trials run: the last drawing's, or — for a first
       // drawing at this width — the paper the search is expected to want,
@@ -393,8 +418,8 @@ export const placeSheetAtom: AtomType.Atom<Option.Option<PlaceSheet>> = Atom.mak
     onSome: (latest) => Option.some(PlaceSheet.make({ width: latest.search.stage.stageWidth, height: latest.paper })),
     onNone: () =>
       Option.map(
-        Result.value(get(placeExpectedPaperAtom)),
-        (expected) => PlaceSheet.make({ width: get(placeStageWidthAtom), height: expected })
+        Option.all([get(placeStageMeasuredWidthAtom), Result.value(get(placeExpectedPaperAtom))]),
+        ([width, expected]) => PlaceSheet.make({ width, height: expected })
       )
   })
 )
@@ -424,10 +449,11 @@ export const placeFeatureHomeAtom = Atom.family((name: string): AtomType.Atom<Op
 )
 
 /**
- * How one disc is drawn. `settled`: a Motion node that travels from its name
- * and follows the search's moves. `arriving`: the search is making room for
- * a feature just merged; a ring marks the room until the search settles and
- * the name travels in. `trial`: placed outright, as the trace is scrubbed.
+ * How one disc is drawn. `settled`: the disc, positioned by the frame and
+ * filled in place; it follows the search's moves frame by frame. `arriving`:
+ * the search is making room for a feature just merged; a ring marks the room
+ * until the search settles and the disc fills it where it stands. `trial`:
+ * placed outright, as the trace is scrubbed.
  */
 export const PlaceDiscDrawn = Schema.Literal("settled", "arriving", "trial")
 
@@ -469,13 +495,14 @@ const placeRenderRuntime: AtomType.AtomRuntime<BrowserTextLayout | PlaceSearcher
  * The latest frame for the current artifact at the current stage width. A new
  * artifact or a new width starts a new search; the previous frame is kept
  * while it runs so the stage never blanks. Until the first artifact arrives
- * the drawing is waiting, not failed: a stream that ended here without a
- * frame would be reported as a failure, so it waits instead.
+ * and the column has been measured, the drawing is waiting, not failed: a
+ * stream that ended here without a frame would be reported as a failure, so
+ * it waits instead.
  */
 export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, PlaceRenderError>> = placeRenderRuntime
   .atom((get: AtomType.Context) => {
     const build = Result.value(get(placeBuildAtom))
-    const stageWidth = get(placeStageWidthAtom)
+    const stageWidth = get(placeStageMeasuredWidthAtom)
     const motion = get(motionPreferenceAtom)
     // The drawing carries on from wherever the last one left off, landed or on its way.
     const left = Option.map(
@@ -483,16 +510,18 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
       (previous) =>
         new DrawingLeft({
           drawing: new PlaceDrawing({ markers: previous.rendering.projection.markers, paper: previous.paper }),
-          held: previous.search.stage.stageWidth === stageWidth ? Option.some(previous.paper) : Option.none(),
+          held: Option.contains(stageWidth, previous.search.stage.stageWidth)
+            ? Option.some(previous.paper)
+            : Option.none(),
           settled: settledAfter(previous),
           prose: previous.search.prose
         })
     )
     // A new search means new trials; a trial chosen from the old one no longer exists.
     get.set(placeTrialPreviewAtom, Option.none())
-    return Option.match(build, {
+    return Option.match(Option.all([build, stageWidth]), {
       onNone: () => Stream.never,
-      onSome: (value) => renderStream(value, stageWidth, left, motion)
+      onSome: ([value, width]) => renderStream(value, width, left, motion)
     })
   })
 
@@ -500,20 +529,32 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
  * The paper the search is expected to want for the current artifact at the
  * current stage width (`paperExpected`), from the same prepared text the
  * drawing flows: what the stage is cut to before the first frame, and what
- * that frame holds. Waiting, like the frame, until the artifact arrives.
+ * that frame holds. Before the artifact arrives, the paper is cut from the
+ * scenario's recording under the chosen acceptances — the same text every
+ * build of that story describes — so the stage holds its size while the
+ * server replays the program; the artifact is the truth once it is here.
  */
 export const placeExpectedPaperAtom: AtomType.Atom<Result.Result<number, PlaceRenderError>> = placeRenderRuntime.atom(
-  (get: AtomType.Context) => {
-    const stage = stageFor(get(placeStageWidthAtom))
-    return Option.match(Result.value(get(placeBuildAtom)), {
+  (get: AtomType.Context) =>
+    Option.match(get(placeStageMeasuredWidthAtom), {
       onNone: () => Effect.never,
-      onSome: (build) =>
-        prepareBrowserText(descriptionInput(build.artifact)).pipe(
-          Effect.map((prepared) => paperExpected(stage, prepared, placeFeatures(build.artifact))),
-          Effect.mapError((cause) => renderFailed(String(cause)))
-        )
+      onSome: (stageWidth) => {
+        const stage = stageFor(stageWidth)
+        const cut = (input: Text.PrepareInputType, features: ReadonlyArray<PlaceFeature>) =>
+          prepareBrowserText(input).pipe(
+            Effect.map((prepared) => paperExpected(stage, prepared, features)),
+            Effect.mapError((cause) => renderFailed(String(cause)))
+          )
+        return Option.match(Result.value(get(placeBuildAtom)), {
+          onNone: () => {
+            const controls = get(placeControlsAtom)
+            const recording = placeScenarioRecordings[controls.scenario]
+            return cut(recordedDescriptionInput(recording, controls), recordedFeatures(recording, controls))
+          },
+          onSome: (build) => cut(descriptionInput(build.artifact), placeFeatures(build.artifact))
+        })
+      }
     })
-  }
 )
 
 /** The frame the stage draws: the best arrangement, or the trial the visitor chose. */

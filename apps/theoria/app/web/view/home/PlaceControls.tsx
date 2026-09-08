@@ -55,7 +55,7 @@ export const ScenarioChoice = ({ disabled }: { readonly disabled: boolean }) => 
 
 /**
  * The brief: what the composer was asked for. It feeds the composer program
- * on the server; the textarea's active state shows when the brief no longer
+ * on the server; the field is dirty when the brief no longer
  * matches the recorded one.
  */
 export const BriefField = ({ disabled }: { readonly disabled: boolean }) => {
@@ -65,7 +65,7 @@ export const BriefField = ({ disabled }: { readonly disabled: boolean }) => {
   const setDraft = useAtomSet(placeBriefDraftAtom)
 
   return (
-    <FieldGroup className="gap-3" disabled={disabled}>
+    <FieldGroup className="gap-3" dirty={edited} disabled={disabled}>
       <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
         <FieldLabel>
           <SemanticText as="span" className="text-ink-900" role="row-label" text="Brief" variant="compact" />
@@ -81,7 +81,6 @@ export const BriefField = ({ disabled }: { readonly disabled: boolean }) => {
         </FieldDescription>
       </Layer>
       <TextAreaField
-        active={edited}
         onValueChange={(next) => {
           setDraft(Option.some({ scenario, text: next.slice(0, briefMaxLength) }))
         }}

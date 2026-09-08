@@ -173,8 +173,15 @@ export const placeStagePresets: ReadonlyArray<number> = [320, 520]
 /** The width the visitor asked for; by default, as wide as the column allows. */
 export const placeStageRequestAtom: AtomType.Writable<number> = Atom.make(stageMaxWidth)
 
-/** The width the stage column actually has, reported by a resize observer. */
-export const placeStageContainerWidthAtom: AtomType.Writable<number> = Atom.make(0)
+/** The width the stage column actually has, reported by a resize observer; none until it has reported. */
+export const placeStageContainerWidthAtom: AtomType.Writable<Option.Option<number>> = Atom.make(
+  Option.none<number>()
+)
+
+/** The resize observer's report: the column's width, now measured. */
+export const measureStageContainerAtom = Atom.fnSync<number>()((width, ctx) => {
+  ctx.set(placeStageContainerWidthAtom, Option.some(width))
+})
 
 /** The place is drawn on the canvas, unframed; the stage frame is what the column must hold, and that is no border at all. */
 export const placeStageFrame: ArtifactStageFrame = "none"
@@ -182,16 +189,41 @@ export const placeStageFrame: ArtifactStageFrame = "none"
 /** The stage frame's border, on each side; the drawing sits inside it, so the column must hold both. */
 export const placeStageFrameBorderPx = artifactStageBorderPx(placeStageFrame)
 
-/** The widest stage the column can show once the frame's border has taken its share. */
-export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {
-  const container = get(placeStageContainerWidthAtom)
-  const drawable = container - placeStageFrameBorderPx * 2
-  return container > 0 ? Math.max(stageMinWidth, Math.min(stageMaxWidth, drawable)) : stageMaxWidth
-})
+/**
+ * The widest stage the column can show once the frame's border has taken its
+ * share; the widest stage there is until the column has been measured, so
+ * every preset is offered from the first render.
+ */
+export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) =>
+  Option.match(get(placeStageContainerWidthAtom), {
+    onNone: () => stageMaxWidth,
+    onSome: (container) => Math.max(stageMinWidth, Math.min(stageMaxWidth, container - placeStageFrameBorderPx * 2))
+  })
+)
 
 /** The stage width that is drawn: the request, cut to the column, clamped to the stage's range. */
 export const placeStageWidthAtom: AtomType.Atom<number> = Atom.make(
   (get: AtomType.Context) => stageFor(Math.min(get(placeStageRequestAtom), get(placeStageMaxDrawableAtom))).stageWidth
+)
+
+/**
+ * The frame's width as CSS before the column has been measured: the request,
+ * with the frame's border, cut to the column by the browser itself — the same
+ * width the measurement will choose, so the frame stands at its width from the
+ * first paint and the measurement moves nothing. A frame left to size itself
+ * from its placeholder would shrink around it and then jump to the paper.
+ */
+export const placeStageFrameWidthAtom: AtomType.Atom<string> = Atom.make(
+  (get: AtomType.Context) => `min(100%, ${String(get(placeStageRequestAtom) + placeStageFrameBorderPx * 2)}px)`
+)
+
+/**
+ * The stage width that is drawn, once the column has been measured; none
+ * before. Nothing is cut or drawn for a width that was only guessed: a paper
+ * cut for the widest stage would be recut a frame later for the column.
+ */
+export const placeStageMeasuredWidthAtom: AtomType.Atom<Option.Option<number>> = Atom.make((get: AtomType.Context) =>
+  Option.map(get(placeStageContainerWidthAtom), () => get(placeStageWidthAtom))
 )
 
 /** Which step of the story the visitor is looking at; the code panel follows it. */
