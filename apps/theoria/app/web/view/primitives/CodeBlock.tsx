@@ -98,7 +98,7 @@ export const CodeBlock = ({
           </Button>
         </Cluster>
       </Rail>
-      <ScrollArea.Root className="overflow-hidden">
+      <ScrollArea.Root className="group/code overflow-hidden" data-code-scroll>
         <ScrollArea.Viewport className="max-h-[32rem] w-full">
           <ScrollArea.Content>
             <Layer render={<pre />} className="m-0 min-w-max px-4 py-5 sm:px-5">
@@ -119,6 +119,16 @@ export const CodeBlock = ({
           orientation="horizontal"
         >
           <ScrollArea.Thumb className="h-full min-w-8 rounded-full bg-ink-700/35" />
+        </ScrollArea.Scrollbar>
+        {
+          /* A block taller than its viewport is cut and scrolls; the scrollbar is painted for as long as there
+            is more to see — nothing on a phone hovers — and fades once the whole block is in view. */
+        }
+        <ScrollArea.Scrollbar
+          className="flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/code:opacity-100 motion-reduce:transition-none"
+          orientation="vertical"
+        >
+          <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </Section>

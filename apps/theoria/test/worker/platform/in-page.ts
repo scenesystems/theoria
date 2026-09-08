@@ -441,6 +441,27 @@ export const recordPolicyViolations = () => {
   })
 }
 
+/**
+ * What says a scroll area scrolls: whether its viewport runs longer than its
+ * box, whether a vertical scrollbar is painted (mounted, opaque, with width)
+ * and how tall its thumb is, and whether an edge fade is painted. Read of the
+ * area's root; the fade is whatever the root marks `data-place-stage-fade`.
+ */
+export const scrollAffordance = (root: Element) => {
+  const viewport = root.querySelector(".base-ui-disable-scrollbar")
+  const scrollbars = [...root.children].filter((child) => child.getAttribute("data-orientation") === "vertical")
+  const painted = (element: Element): boolean =>
+    Number(getComputedStyle(element).opacity) > 0 && element.getBoundingClientRect().width > 0
+  return {
+    overflows: (viewport?.scrollHeight ?? 0) > (viewport?.clientHeight ?? 0) + 1,
+    scrollbarPainted: scrollbars.some(painted),
+    thumbHeight: scrollbars[0]?.firstElementChild?.getBoundingClientRect().height ?? 0,
+    fadePainted: [...root.querySelectorAll("[data-place-stage-fade]")].some((fade) =>
+      Number(getComputedStyle(fade).opacity) > 0
+    )
+  }
+}
+
 /** The violations `recordPolicyViolations` has recorded so far, one per line; empty when the policy refused nothing. */
 export const recordedPolicyViolations = () => document.documentElement.dataset["policyViolations"] ?? ""
 

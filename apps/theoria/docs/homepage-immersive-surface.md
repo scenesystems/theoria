@@ -1184,7 +1184,7 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       document reported nothing refused and the console is clean, at desktop
       and phone. The test was mutation-checked: with `disableStyleElements`
       removed it fails on `style-src-elem inline` at the drawing.
-- [ ] **Mobile paper scroll affordance.** A sketch or a trial longer than the
+- [x] **Mobile paper scroll affordance.** A sketch or a trial longer than the
       sheet is cut with a fade and scrolls inside the paper (`PlaceStage.tsx`
       `cut`, `Paper`); below `lg` there is no scrollbar and nothing but the
       fade says the paper scrolls. Decide the affordance (Base UI
@@ -1194,6 +1194,22 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       scrollbar only, so a tall example is clipped with nothing to say it
       scrolls (seen on `/docs/effect-search/examples` at 390 while auditing
       the policy).
+      _Done._ The premise was stale: the paper's `ScrollArea.Scrollbar` is
+      painted whenever the viewport overflows (`group-data-[has-overflow-y]`),
+      at every width — verified at 390 with the trace scrubbed to trial 1
+      (`data-has-overflow-y`, an 8 px bar at opacity 1 beside the fade). The
+      affordance decided on is the pair, fade and scrollbar, shown for as
+      long as there is more to see and never gated on hover, since a phone
+      has none; the fade says the cut is a cut, the scrollbar says how much
+      lies past it. `CodeBlock.tsx` now carries the same vertical scrollbar
+      under the same rule (its root marked `data-code-scroll`), so a tall
+      example on a phone reads as scrolling rather than ending. Tests: the
+      390 trace test in `home-demo.test.ts` asserts, of the cut trial, that
+      the viewport overflows, the scrollbar and fade are painted and the
+      thumb has height (`scrollAffordance`); `docs.test.ts` asserts the same
+      of the quick start at 390. Not done: a fade on code blocks — the code's
+      background is the docs surface, not the stage, and the scrollbar alone
+      is the convention there.
 - [ ] **Closed unions matched with `Match.orElse`.**
       `app/server/routes/imagined-place.ts` `statusFor` (over
       `ErrorModel["code"]`) and its rejection match, and

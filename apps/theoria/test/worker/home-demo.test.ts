@@ -58,6 +58,7 @@ import {
   paperProseContrast,
   recordedPaperFrames,
   recordPaperFrames,
+  scrollAffordance,
   scrollElementTo,
   scrollPast,
   scrollToTop,
@@ -468,8 +469,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(caption, "not kept")
         expect(yield* act(positions)).not.toBe(kept)
         expect(yield* act(layout)).toBe(atRest)
-        // Trial 1 runs longer than the kept sheet: it is cut with a fade and scrolls, never clipped silently.
+        // Trial 1 runs longer than the kept sheet: it is cut with a fade and scrolls, never clipped silently —
+        // and on a phone, where nothing hovers, the scrollbar is painted for as long as there is more to see.
         yield* attribute(paper, "data-overflow-y-end", "")
+        const cut = yield* until(
+          act(() => paper.evaluate(scrollAffordance)),
+          (affordance) => affordance.scrollbarPainted && affordance.fadePainted,
+          "the paper's scrollbar and fade painted"
+        )
+        expect(cut.overflows).toBe(true)
+        expect(cut.thumbHeight).toBeGreaterThan(0)
 
         yield* press(page, "End")
         // The last trial may itself be the kept one, so only the position is asserted here.

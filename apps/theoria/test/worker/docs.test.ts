@@ -27,7 +27,7 @@ import {
   visible,
   wheel
 } from "./browser.js"
-import { clipboardText, horizontalScrollers, presence, setRootFontSize } from "./platform/in-page.js"
+import { clipboardText, horizontalScrollers, presence, scrollAffordance, setRootFontSize } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
@@ -179,6 +179,21 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(guideCode, "SearchSpace")
         yield* highlighted(guideCode.locator("pre code"))
         yield* visible(guideCode.getByRole("button", { name: "Copy ts" }))
+
+        // On a phone the quick start runs longer than a code block's viewport: it is cut and scrolls, and the
+        // scrollbar is painted for as long as there is more to see, since nothing on a phone hovers.
+        yield* setViewport(page, { width: 390, height: 844 })
+        yield* goto(page, "/docs/effect-search/examples")
+        const quickStart = page.getByRole("region", { name: "ts code example" }).first()
+        const block = quickStart.locator("[data-code-scroll]")
+        const tall = yield* until(
+          act(() => block.evaluate(scrollAffordance)),
+          (affordance) => affordance.overflows,
+          "the quick start taller than its viewport"
+        )
+        expect(tall.scrollbarPainted).toBe(true)
+        expect(tall.thumbHeight).toBeGreaterThan(0)
+        yield* setViewport(page, { width: 1280, height: 800 })
 
         yield* goto(page, "/docs/effect-math/domains")
         const contractsLink = page.getByRole("link", { exact: true, name: "@scenesystems/effect-math/contracts" })
