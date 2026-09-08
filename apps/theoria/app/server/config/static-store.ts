@@ -62,7 +62,8 @@ const contentTypes = HashMap.make(
   [".webmanifest", "application/manifest+json"],
   [".svg", "image/svg+xml"],
   [".png", "image/png"],
-  [".ico", "image/x-icon"]
+  [".ico", "image/x-icon"],
+  [".woff2", "font/woff2"]
 )
 
 const extensionOf = (pathname: string): Option.Option<string> =>

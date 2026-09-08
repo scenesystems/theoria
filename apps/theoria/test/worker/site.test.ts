@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -107,6 +107,46 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(manifest.headers.get("cache-control") ?? "").not.toContain("immutable")
 
       expect((yield* site.fetch("/robots.txt")).status).toBe(200)
+    }))
+
+  it.effect("serves its own typefaces, preloaded by the shell, so no text is set twice", () =>
+    Effect.gen(function*() {
+      const site = yield* Site
+
+      const home = yield* site.fetch(`${productionHost}/`)
+      const homeHtml = yield* text(home)
+      expect(homeHtml).not.toContain("fonts.googleapis.com")
+      expect(homeHtml).not.toContain("fonts.gstatic.com")
+      const policy = home.headers.get("content-security-policy") ?? ""
+      expect(policy).toContain("font-src 'self'")
+      expect(policy).not.toContain("gstatic")
+      expect(policy).not.toContain("googleapis")
+
+      // The shell preloads every Latin face the stylesheet declares, so text set
+      // by the first render is set in it; other subsets load only when used.
+      const stylesheet = yield* Option.match(
+        Option.fromNullable(/<link rel="stylesheet" crossorigin href="([^"]+\.css)">/u.exec(homeHtml)?.[1]),
+        { onNone: () => Effect.dieMessage("the shell links no stylesheet"), onSome: Effect.succeed }
+      )
+      const css = yield* text(yield* site.fetch(stylesheet))
+      const declared = Arr.fromIterable(css.matchAll(/url\((\/fonts\/[^)]+-latin-wght-[^)]+\.woff2)\)/gu)).map((
+        found
+      ) => found[1] ?? "")
+      const preloads = Arr.fromIterable(
+        homeHtml.matchAll(
+          /<link rel="preload" href="(\/fonts\/[^"]+\.woff2)" as="font" type="font\/woff2" crossorigin/gu
+        )
+      ).map((found) => found[1] ?? "")
+      expect(declared.length).toBeGreaterThan(0)
+      expect(Arr.sort(preloads, Str.Order)).toEqual(Arr.sort(declared, Str.Order))
+      yield* Effect.forEach(preloads, (pathname) =>
+        Effect.gen(function*() {
+          const font = yield* site.fetch(pathname)
+          expect(font.status).toBe(200)
+          expect(font.headers.get("content-type")).toBe("font/woff2")
+          // Files are named by their upstream version, so a change is a new URL.
+          expect(font.headers.get("cache-control")).toBe("public, max-age=31536000, immutable")
+        }))
     }))
 
   it.effect("serves a spec-shaped llms.txt from the shipped docs manifest", () =>

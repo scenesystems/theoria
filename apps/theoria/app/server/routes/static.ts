@@ -30,7 +30,8 @@ export const isHtmlPath = (pathname: string): boolean =>
 export const cacheControlForPath = (pathname: string): string =>
   pathname === indexPathname || pathname === "/docs-data/manifest.json"
     ? "no-cache"
-    : pathname.startsWith("/assets/") || /^\/docs-data\/[A-Za-z0-9._-]+\//u.test(pathname)
+    : pathname.startsWith("/assets/") || pathname.startsWith("/fonts/")
+        || /^\/docs-data\/[A-Za-z0-9._-]+\//u.test(pathname)
     ? "public, max-age=31536000, immutable"
     : "public, max-age=3600"
 

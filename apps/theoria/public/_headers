@@ -10,6 +10,10 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+# Typefaces are named by their upstream version (app/web/typefaces.css).
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
 # Docs data is versioned by revision directory; the manifest at
 # /docs-data/manifest.json keeps the default revalidate-every-time policy.
 /docs-data/:revision/*

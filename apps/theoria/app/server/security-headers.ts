@@ -56,7 +56,7 @@ export const contentSecurityPolicy = (settings: AnalyticsSettings): string => {
     "default-src 'self'",
     "base-uri 'self'",
     directive("connect-src", ["'self'", ...extra.connect]),
-    "font-src 'self' https://fonts.gstatic.com",
+    "font-src 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
     directive("img-src", ["'self'", "data:", ...extra.img]),
@@ -64,7 +64,7 @@ export const contentSecurityPolicy = (settings: AnalyticsSettings): string => {
     // Shiki's Oniguruma grammar engine is WebAssembly; `wasm-unsafe-eval`
     // permits compiling it without permitting JavaScript `eval`.
     directive("script-src", ["'self'", "'wasm-unsafe-eval'", ...extra.script]),
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "style-src 'self' 'unsafe-inline'",
     "worker-src 'self'"
   ], "; ")
 }

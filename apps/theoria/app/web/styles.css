@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+@import "./typefaces.css";
 @import "./text-tokens.generated.css";
 
 @theme inline {
@@ -328,6 +329,12 @@
 
   * {
     box-sizing: border-box;
+  }
+
+  /* Where scrollbars take room, the room is always there: the page does not
+   * move sideways when it first grows past the viewport. */
+  html {
+    scrollbar-gutter: stable;
   }
 
   body {
