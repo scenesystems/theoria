@@ -181,17 +181,23 @@ const Lines = ({ drawing, preference, projection, prose }: {
 
 /**
  * The arrangement at its own size: the walk once the search settles, the discs
- * as buttons, the text above both. The discs are keyed by the trial drawn, so
- * swapping trials places them outright, while the search's own progress moves
- * the same discs. A disc whose feature leaves the drawing — declined, or gone
- * with the scenario — shrinks away where it stood as the drawing travels, the
- * text flowed around it to the last (`markersBetween`). The drawing carries
+ * as buttons, the text above both. The discs' presence is keyed by the trial
+ * drawn, so swapping trials places them outright — the drawing left is gone
+ * in the commit the drawing chosen stands, since a presence swapped whole has
+ * nothing to hold; discs keyed one by one under a lasting presence would be
+ * held a frame past their exit, the two drawings painted over each other —
+ * while the search's own progress moves the same discs. A disc whose feature
+ * leaves the drawing — declined, or gone with the scenario — shrinks away
+ * where it stood as the drawing travels, the text flowed around it to the
+ * last (`markersBetween`). The drawing carries
  * the act being read, which its discs and ghosts answer. How each disc is
  * drawn is told from this frame, so every disc of the frame is told alike.
  * The drawing is laid out at the width it was drawn for and shown at the
  * sheet's `fit`: scaled as one piece from its top-left corner (a composited
  * transform, so its discs and text keep their identity and the next search
- * carries on from where they are seen), whole while the column holds it.
+ * carries on from where they are seen), whole while the column holds it. It
+ * names the trial it is drawn from (`data-place-stage-trial`), so what the
+ * stage shows can be read against the trace that chose it.
  */
 const fitStyle = (fit: number): CSSProperties => fit < 1 ? { transform: `scale(${fit})`, transformOrigin: "0 0" } : {}
 
@@ -212,18 +218,19 @@ const Drawing = ({ drawn, fit, frame, shown }: {
       data-place-stage-act={act}
       data-place-stage="content"
       data-place-stage-fit={String(fit)}
+      data-place-stage-trial={String(frame.trial)}
       data-place-stage-width={String(projection.stageWidth)}
       style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px`, ...fitStyle(fit) }}
     >
       {frame.search.phase === "complete"
         ? <PlaceWalk height={projection.stageHeight} markers={projection.markers} width={projection.stageWidth} />
         : null}
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} key={shown}>
         {Arr.map(projection.markers, (marker, index) => (
           <PlaceMarkerDisc
             drawn={discDrawn(drawn, showing, marker.name)}
             index={index}
-            key={`${shown}:${marker.name}`}
+            key={marker.name}
             labelWidth={Record.get(frame.search.labels, marker.name)}
             marker={marker}
             source={placeSourceId(frame.search.source)}
