@@ -1368,6 +1368,23 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       asserts clearance, so a repeat reads as presence, not geometry. The
       exit bound is not discriminated by any browser test at 4× slowdown and
       stands on `place-render-rest.test.ts` alone.
+- [x] **A search that never began says what the page stood at, and what the
+      page told.** The first run of the sharded matrix with `drawn(page)` in
+      place went red once more, on one test of `home-demo-answers` after
+      20 s, and the report read `phase -, paper -`: not the geometry — the
+      search never began and the sheet was never cut — but no further, since
+      `-` covered a demo never mounted and a column never measured alike, and
+      the console errors the session had collected were lost with the test
+      failing before its own check of them. `stageStanding` now reads the
+      trace's wait (`pending`, `failed`) where there is no phase, `uncut`
+      where the column is not yet measured, whether the stage's column stands
+      on the page at all, and the document's ready state; and the `Browser`
+      service keeps every open page's failures by page (`failuresOf`), so
+      `drawn` reports them with the standing. `home-pending` reads the report
+      with the build failed at the edge: `phase failed, … column standing,
+  document complete; the stage told: The place could not be built. …; the
+  page told: … /api/imagined-place/build`. The shard's cause is not yet
+      known; the next occurrence names it.
 
 ## Non-goals
 

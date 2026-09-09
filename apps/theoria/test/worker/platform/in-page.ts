@@ -883,20 +883,28 @@ export const storyDrawn = (region: Element): boolean => {
 }
 
 /**
- * What the stage says of itself, for a search that did not settle in time:
- * the search's phase from the trace (`-` before the first trial), how the
- * paper stands (`data-place-drawn`, or `-` with no paper), and any failure the
- * stage tells, so a wait that runs out reports a search stuck, failed, or
- * never begun rather than an element not found.
+ * What the stage says of itself, for a search that did not settle in time,
+ * so a wait that runs out reports a search stuck, failed, or never begun
+ * rather than an element not found. The search's phase from the trace
+ * (while the trace waits for a first trial, what it waits on — `pending`, or
+ * `failed` when none is coming; `-` with no trace);
+ * how the paper stands (`data-place-drawn`, `uncut` while the column is not
+ * yet measured and the sheet not cut, `-` with no stage at all); whether the
+ * stage's column is on the page at all — a page that never mounted the demo
+ * is told from one whose column was never measured; the document's ready
+ * state; and any failure the stage tells.
  */
 export const stageStanding = (): string => {
-  const phase = document.querySelector("[data-place-render-phase]")?.getAttribute("data-place-render-phase") ?? "-"
-  const paper = document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") ?? "-"
+  const phase = document.querySelector("[data-place-render-phase]")?.getAttribute("data-place-render-phase") ??
+    document.querySelector("[data-place-trace-pending]")?.getAttribute("data-place-trace-pending") ?? "-"
+  const paper = document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") ??
+    (document.querySelector("[data-place-stage='uncut']") ? "uncut" : "-")
+  const column = document.querySelector("[data-place-stage='column']") ? "standing" : "absent"
   const failures = [...document.querySelectorAll("[data-place-stage-failed]")]
     .map((failure) => (failure.textContent ?? "").trim())
     .filter((text) => text.length > 0)
   const told = failures.length === 0 ? "" : `; the stage told: ${failures.join(" | ")}`
-  return `phase ${phase}, paper ${paper}${told}`
+  return `phase ${phase}, paper ${paper}, column ${column}, document ${document.readyState}${told}`
 }
 
 /** Where the band draws the disc named this frame: its `cx` as written, or nothing while it is not drawn. */

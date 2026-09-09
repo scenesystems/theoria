@@ -16,6 +16,7 @@ import {
   count,
   desktop,
   eventually,
+  failuresOf,
   focus,
   goto,
   hidden,
@@ -54,20 +55,23 @@ export const searchSettlesWithin: Duration.Duration = Duration.seconds(20)
 /**
  * The search has settled and its drawing is on the page; waits as long as a
  * search may take. A search that has not settled by then fails with what the
- * stage says of itself — its phase, its paper, any failure it tells — so the
- * report tells a search stuck from one that failed or never began.
+ * stage says of itself — its phase, its paper, whether its column stands,
+ * any failure it tells (`stageStanding`) — and what the page told the
+ * console (`failuresOf`), so the report tells a search stuck from one that
+ * failed, never began, or was never mounted. `within` is the search's budget;
+ * a test of the report itself may wait less.
  */
-export const drawn = (page: Page) =>
-  visible(rendered(page), searchSettlesWithin).pipe(
+export const drawn = (page: Page, within: Duration.Duration = searchSettlesWithin) =>
+  visible(rendered(page), within).pipe(
     Effect.catchTag("test/worker/BrowserError", (error) =>
       Effect.flatMap(
-        act(() => page.evaluate(stageStanding)),
-        (standing) =>
+        Effect.all({ standing: act(() => page.evaluate(stageStanding)), told: failuresOf(page) }),
+        ({ standing, told }) =>
           Effect.fail(
             new BrowserError({
-              message: `The search did not settle within ${
-                Duration.format(searchSettlesWithin)
-              }: ${standing}. ${error.message}`,
+              message: `The search did not settle within ${Duration.format(within)}: ${standing}${
+                Arr.isNonEmptyReadonlyArray(told) ? `; the page told: ${told.join(" | ")}` : ""
+              }. ${error.message}`,
               cause: error.cause
             })
           )

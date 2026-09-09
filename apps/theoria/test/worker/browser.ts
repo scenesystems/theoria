@@ -15,6 +15,7 @@ import {
   Deferred,
   Duration,
   Effect,
+  HashMap,
   Layer,
   Match,
   Option,
@@ -63,6 +64,12 @@ export class Browser extends Context.Tag("test/worker/Browser")<Browser, {
   readonly chromium: PlaywrightBrowser
   /** How many visitors this browser has opened pages for; each page is a visitor of its own. */
   readonly visitors: Ref.Ref<number>
+  /**
+   * The console errors and uncaught page errors of every page open, by page,
+   * for as long as the page's scope stands — so a helper holding only the
+   * page can say what the page told when it reports the page's state.
+   */
+  readonly failures: Ref.Ref<HashMap.HashMap<Page, Queue.Queue<string>>>
 }>() {}
 
 /**
@@ -76,9 +83,26 @@ export const BrowserLive: Layer.Layer<Browser, BrowserError> = Layer.scoped(
       act(() => chromium.launch()),
       (browser) => Effect.orDie(act(() => browser.close()))
     ),
-    visitors: Ref.make(0)
+    visitors: Ref.make(0),
+    failures: Ref.make(HashMap.empty<Page, Queue.Queue<string>>())
   })
 )
+
+/**
+ * The console errors and uncaught page errors `page` has told since they
+ * were last taken; taking them clears the buffer, as `Session.failures`
+ * does. None for a page this browser did not open.
+ */
+export const failuresOf = (page: Page): Effect.Effect<ReadonlyArray<string>, never, Browser> =>
+  Effect.flatMap(
+    Browser,
+    (browser) =>
+      Effect.flatMap(Ref.get(browser.failures), (open) =>
+        Option.match(HashMap.get(open, page), {
+          onNone: () => Effect.succeed(Arr.empty<string>()),
+          onSome: (told) => Effect.map(Queue.takeAll(told), Chunk.toReadonlyArray)
+        }))
+  )
 
 /**
  * The address the Worker sees a page's requests from. Cloudflare sets
@@ -166,6 +190,11 @@ export const openPage = (
     page.on("pageerror", (error) => {
       Queue.unsafeOffer(failures, error.message)
     })
+    // The page's failures are the browser's to hand back (`failuresOf`) for as long as the page's scope stands.
+    yield* Effect.acquireRelease(
+      Ref.update(browser.failures, HashMap.set(page, failures)),
+      () => Ref.update(browser.failures, HashMap.remove(page))
+    )
 
     return new Session({ page, context, failures: Queue.takeAll(failures).pipe(Effect.map(Chunk.toReadonlyArray)) })
   })

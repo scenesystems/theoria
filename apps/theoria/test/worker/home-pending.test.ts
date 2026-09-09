@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer } from "effect"
+import { Duration, Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 
@@ -22,7 +22,7 @@ import {
   type Viewport,
   visible
 } from "./browser.js"
-import { searchSettlesWithin } from "./demo.js"
+import { drawn, searchSettlesWithin } from "./demo.js"
 import { footprintsUntilLanding, heightsByRegion } from "./footprints.js"
 import { contrastsWithin, recordFootprints, storyDrawn } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
@@ -160,5 +160,32 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           // The browser reports the request the test failed; nothing else went wrong.
           expect(Arr.filter(yield* failures, (failure) => !failure.includes(buildPath))).toEqual([])
         }), { discard: true }))
+
+    /**
+     * A wait for the drawing that runs out says what the stage stood at and
+     * what the page told, so a search that never began on a runner reads as
+     * the state it was in — its column standing, its paper cut and waiting,
+     * the failure in the caption's row, the request the browser reported —
+     * and not as an element not found. The report is the wait's own; a
+     * shorter wait here is only to read it without waiting a search's budget.
+     */
+    it.scoped("a wait for the drawing that runs out reports the stage's standing and what the page told", () =>
+      Effect.gen(function*() {
+        const { page } = yield* openPage()
+        const build = yield* holdResponse(page, "POST", buildPath)
+        yield* goto(page, "/")
+        yield* pendingStage(demoRegion(page))
+        yield* build.fail
+        yield* count(page.getByRole("alert"), 1)
+
+        const report = yield* Effect.flip(drawn(page, Duration.seconds(2)))
+        expect(report._tag).toBe("test/worker/BrowserError")
+        expect(report.message).toMatch(
+          /^The search did not settle within 2s: phase failed, paper \w+, column standing, document complete/u
+        )
+        expect(report.message).toContain("the stage told: The place could not be built.")
+        expect(report.message).toContain("the page told: ")
+        expect(report.message).toContain(buildPath)
+      }))
   }
 )
