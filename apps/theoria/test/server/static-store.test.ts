@@ -3,7 +3,7 @@ import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 
-import { StaticStore } from "../../app/server/config/static-store.js"
+import { contentTypeForPath, StaticStore } from "../../app/server/config/static-store.js"
 import * as BunStaticStore from "../../app/server/platform/bun-static-store.js"
 
 const bodyText = (response: HttpServerResponse.HttpServerResponse) =>
@@ -22,6 +22,10 @@ const withDist = <A, E>(use: (store: StaticStore["Type"]) => Effect.Effect<A, E>
     yield* fileSystem.makeDirectory(`${distRoot}/assets`, { recursive: true })
     yield* fileSystem.writeFileString(`${distRoot}/index.html`, "<title>x</title>")
     yield* fileSystem.writeFileString(`${distRoot}/assets/app.js`, "console.log(1)")
+    yield* fileSystem.writeFile(
+      `${distRoot}/assets/figtree-latin-wght-normal-D4qk9tSy.woff2`,
+      new Uint8Array([0x77, 0x4f, 0x46, 0x32])
+    )
     // `public/` holds a file `dist/` lacks, and a stale copy of one `dist/` has.
     yield* fileSystem.makeDirectory(`${publicRoot}/extra`, { recursive: true })
     yield* fileSystem.writeFileString(`${publicRoot}/extra/data.json`, "{\"public\":true}")
@@ -61,6 +65,18 @@ it.effect("Bun store streams assets with a content type", () =>
       expect(plain.headers["content-type"]).toBe("application/javascript; charset=utf-8")
       expect(plain.headers["content-encoding"]).toBeUndefined()
       expect(yield* bodyText(plain)).toBe("console.log(1)")
+    })
+  ))
+
+// The content-type table is also the build gate (`checkBuildOutput`): a
+// typeface in `dist/assets` with no type here fails the deploy before upload.
+it.effect("Bun store serves typefaces as woff2", () =>
+  withDist((store) =>
+    Effect.gen(function*() {
+      const pathname = "/assets/figtree-latin-wght-normal-D4qk9tSy.woff2"
+      expect(contentTypeForPath(pathname)).toEqual(Option.some("font/woff2"))
+      const font = yield* yield* store.response(pathname)
+      expect(font.headers["content-type"]).toBe("font/woff2")
     })
   ))
 
