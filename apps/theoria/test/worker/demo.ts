@@ -38,6 +38,7 @@ import {
   stageStanding,
   storyDrawn
 } from "./platform/in-page.js"
+import { Site } from "./site.js"
 
 export const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
 
@@ -52,25 +53,37 @@ export const rendered = (page: Page) => page.locator("[data-place-render-phase='
  */
 export const searchSettlesWithin: Duration.Duration = Duration.seconds(20)
 
+/** How many of the site's most recent log lines a failure report carries. */
+export const siteLogsReported = 20
+
 /**
  * The search has settled and its drawing is on the page; waits as long as a
  * search may take. A search that has not settled by then fails with what the
  * stage says of itself — its phase, its paper, whether its column stands,
- * any failure it tells (`stageStanding`) — and what the page told the
- * console (`failuresOf`), so the report tells a search stuck from one that
- * failed, never began, or was never mounted. `within` is the search's budget;
- * a test of the report itself may wait less.
+ * any failure it tells (`stageStanding`) — what the page told the console
+ * (`failuresOf`), and the last of what the site's runtime logged
+ * (`Site.logs`), so the report tells a search stuck from one that failed,
+ * never began, was never mounted, or was never served. `within` is the
+ * search's budget; a test of the report itself may wait less.
  */
 export const drawn = (page: Page, within: Duration.Duration = searchSettlesWithin) =>
   visible(rendered(page), within).pipe(
     Effect.catchTag("test/worker/BrowserError", (error) =>
       Effect.flatMap(
-        Effect.all({ standing: act(() => page.evaluate(stageStanding)), told: failuresOf(page) }),
-        ({ standing, told }) =>
+        Effect.all({
+          standing: act(() => page.evaluate(stageStanding)),
+          told: failuresOf(page),
+          served: Effect.flatMap(Site, (site) => site.logs)
+        }),
+        ({ served, standing, told }) =>
           Effect.fail(
             new BrowserError({
               message: `The search did not settle within ${Duration.format(within)}: ${standing}${
                 Arr.isNonEmptyReadonlyArray(told) ? `; the page told: ${told.join(" | ")}` : ""
+              }${
+                Arr.isNonEmptyReadonlyArray(served)
+                  ? `; the site told: ${Arr.takeRight(served, siteLogsReported).join(" | ")}`
+                  : "; the site told nothing"
               }. ${error.message}`,
               cause: error.cause
             })

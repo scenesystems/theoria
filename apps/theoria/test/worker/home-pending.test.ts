@@ -22,10 +22,10 @@ import {
   type Viewport,
   visible
 } from "./browser.js"
-import { drawn, searchSettlesWithin } from "./demo.js"
+import { drawn, searchSettlesWithin, siteLogsReported } from "./demo.js"
 import { footprintsUntilLanding, heightsByRegion } from "./footprints.js"
 import { contrastsWithin, recordFootprints, storyDrawn } from "./platform/in-page.js"
-import { SiteLive } from "./site.js"
+import { Site, SiteLive } from "./site.js"
 
 /**
  * The demonstration before the build is here, and when it is not coming. The
@@ -162,16 +162,18 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         }), { discard: true }))
 
     /**
-     * A wait for the drawing that runs out says what the stage stood at and
-     * what the page told, so a search that never began on a runner reads as
-     * the state it was in — its column standing, its paper cut and waiting,
-     * the failure in the caption's row, the request the browser reported —
-     * and not as an element not found. The report is the wait's own; a
-     * shorter wait here is only to read it without waiting a search's budget.
+     * A wait for the drawing that runs out says what the stage stood at, what
+     * the page told, and what the site's runtime logged, so a search that
+     * never began on a runner reads as the state it was in — its column
+     * standing, its paper cut and waiting, the failure in the caption's row,
+     * the request the browser reported, what the Worker saw of it — and not
+     * as an element not found. The report is the wait's own; a shorter wait
+     * here is only to read it without waiting a search's budget.
      */
-    it.scoped("a wait for the drawing that runs out reports the stage's standing and what the page told", () =>
+    it.scoped("a wait for the drawing that runs out reports the stage's standing and what the page and site told", () =>
       Effect.gen(function*() {
         const { page } = yield* openPage()
+        const site = yield* Site
         const build = yield* holdResponse(page, "POST", buildPath)
         yield* goto(page, "/")
         yield* pendingStage(demoRegion(page))
@@ -186,6 +188,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(report.message).toContain("the stage told: The place could not be built.")
         expect(report.message).toContain("the page told: ")
         expect(report.message).toContain(buildPath)
+        // The site's logs are the runtime's own: whatever it has said is carried, and their absence is said too.
+        const served = yield* site.logs
+        expect(report.message).toContain(
+          Arr.isNonEmptyReadonlyArray(served)
+            ? `the site told: ${Arr.takeRight(served, siteLogsReported).join(" | ")}`
+            : "the site told nothing"
+        )
       }))
   }
 )

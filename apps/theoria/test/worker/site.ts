@@ -1,6 +1,6 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
-import { Context, Data, Effect, Layer, Option, Predicate, Schema } from "effect"
+import { Context, Data, DateTime, Effect, Layer, Option, Predicate, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 import { createTestHarness } from "wrangler"
@@ -63,6 +63,13 @@ export class Site extends Context.Tag("test/worker/Site")<Site, {
   readonly distRoot: string
   /** A content-hashed script from `dist/assets`, as a site path. */
   readonly hashedScript: string
+  /**
+   * What the Workers runtime has logged since the server started, oldest
+   * first, each line stamped and levelled — the Worker's own logs and the
+   * runtime's, which no browser sees: a request the asset layer failed, an
+   * exception in the Worker. For a failure report; nothing is cleared.
+   */
+  readonly logs: Effect.Effect<ReadonlyArray<string>>
 }>() {}
 
 const missingBuild = (file: string) =>
@@ -147,7 +154,13 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
         ),
       manifest,
       distRoot,
-      hashedScript
+      hashedScript,
+      logs: Effect.sync(() =>
+        Arr.map(
+          server.getLogs(),
+          (log) => `${DateTime.formatIso(DateTime.unsafeMake(log.timestamp))} ${log.level}: ${log.message}`
+        )
+      )
     })
   })
 ).pipe(Layer.provide(BunContext.layer))
