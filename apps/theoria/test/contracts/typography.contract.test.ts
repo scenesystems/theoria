@@ -2,18 +2,34 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
+import { SurfaceVariant } from "../../app/contracts/presentation.js"
 import {
   fontSizeCss,
   lineHeightCss,
+  maxWidthFor,
   metricsAt,
   metricsOverride,
+  TextRole,
   textSemantics,
+  textSemanticsByRole,
   viewports
 } from "../../app/contracts/text.js"
 import { deterministicTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
 import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Typography contract", () => {
+  it.effect("every role has a measure for every surface variant, and the measure is the one the table gives", () =>
+    Effect.gen(function*() {
+      // The table is keyed by the variant itself, so a variant added to `SurfaceVariant` is a width owed by every
+      // role before the app compiles; nothing falls through to another variant's measure.
+      Arr.forEach(TextRole.literals, (role) =>
+        Arr.forEach(SurfaceVariant.literals, (variant) => {
+          expect(maxWidthFor(role, variant)).toBe(textSemanticsByRole[role].maxWidth[variant])
+        }))
+      expect(maxWidthFor("display", "compact")).toBe(720)
+      expect(maxWidthFor("display", "expanded")).toBe(1040)
+    }))
+
   it.effect("display type is fluid on narrow viewports, in size and leading together", () =>
     Effect.gen(function*() {
       // At 320 the title stands five lines; fixed 36/40 leading pushes the hero's second action below

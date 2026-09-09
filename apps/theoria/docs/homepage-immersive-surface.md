@@ -1288,17 +1288,22 @@ pointer-events: none`: their own composited layer, shaded once, sized to
     scenario pills growing in the served face, fixed by the segmented
     control (`segmented-control.contract.test.ts`: two and three cells one
     row at every width, four folding only below `sm`).
-  - _Remaining_ from the review, each to be closed by a failing test first:
-    `atoms/text.ts` matches a closed `SurfaceVariant` with `Match.orElse`
-    where direct indexing of `textSemanticsByRole[role].maxWidth[variant]`
-    says the same; `highlighter.ts` matches a closed `HighlightTokenKind`
-    with a fallthrough where naming `"plain"` and `Match.exhaustive` would;
-    `WordmarkMorph.tsx` runs a perpetual `useTime` crossfade (make it
-    finite, or record the branding exception and its reduced-motion
-    behaviour); `GutterLine` in `HighlightedCode.tsx` is a `Data.Class`
-    with no behaviour and should be `Schema.Class`; the touch probe reads
-    geometry and should also dispatch a real tap. Decisions the review
-    accepted: no CSP nonce (above); the 390 first-disc exception stands.
+  - _Remaining_ from the review, each closed by a failing test first:
+    - _A closed variant matched with a fallthrough_ (closed). `maxWidthFor`
+      matched `SurfaceVariant` with `Match.orElse`, so a variant added to
+      the Literal would silently have taken the expanded measure.
+      `VariantMaxWidth` is now `Schema.Record` keyed by `SurfaceVariant`
+      itself and `maxWidthFor` indexes it: a new variant is a width owed by
+      every role before the app compiles (`typography.contract.test.ts`,
+      "every role has a measure for every surface variant").
+    - `highlighter.ts` matches a closed `HighlightTokenKind` with a
+      fallthrough where naming `"plain"` and `Match.exhaustive` would;
+      `WordmarkMorph.tsx` runs a perpetual `useTime` crossfade (make it
+      finite, or record the branding exception and its reduced-motion
+      behaviour); `GutterLine` in `HighlightedCode.tsx` is a `Data.Class`
+      with no behaviour and should be `Schema.Class`; the touch probe reads
+      geometry and should also dispatch a real tap. Decisions the review
+      accepted: no CSP nonce (above); the 390 first-disc exception stands.
 - [x] **The Chromium suite finishes sooner without a wait shortened.** The
       suite took seven minutes in CI: nineteen files run one at a time, since
       they measure motion and a second browser on the runner would skew it,

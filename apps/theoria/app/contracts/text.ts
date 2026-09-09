@@ -183,10 +183,8 @@ export const TextRole = Schema.Literal(
 
 export type TextRole = typeof TextRole.Type
 
-export const VariantMaxWidth = Schema.Struct({
-  compact: PositiveWidth,
-  expanded: PositiveWidth
-})
+/** A measure for every surface variant: a variant added to `SurfaceVariant` is a width owed by every role. */
+export const VariantMaxWidth = Schema.Record({ key: SurfaceVariantSchema, value: PositiveWidth })
 
 export type VariantMaxWidth = typeof VariantMaxWidth.Type
 
@@ -262,7 +260,7 @@ export const fontDescriptorFor = (semantics: TextSemantics): Text.FontDescriptor
   weight: fontWeightNumeric(semantics.weight)
 })
 
-const textSemanticsByRole: Record<TextRole, TextSemantics> = {
+export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
   display: {
     role: "display",
     family: "display",
@@ -539,10 +537,7 @@ export const fontSizeCss = (size: FontSize): string => lengthCss(size)
 export const lineHeightCss = (leading: LineHeight): string => lengthCss(leading)
 
 export const maxWidthFor = (role: TextRole, variant: SurfaceVariant): number =>
-  Match.value(variant).pipe(
-    Match.when("compact", () => textSemanticsByRole[role].maxWidth.compact),
-    Match.orElse(() => textSemanticsByRole[role].maxWidth.expanded)
-  )
+  textSemanticsByRole[role].maxWidth[variant]
 
 export const prepareInputFor = (role: TextRole, text: string): Text.PrepareInputType => ({
   text,
