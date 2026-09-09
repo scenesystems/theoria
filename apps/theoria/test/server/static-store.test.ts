@@ -3,7 +3,7 @@ import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 
-import { StaticStore } from "../../app/server/config/static-store.js"
+import { contentTypeForPath, StaticStore } from "../../app/server/config/static-store.js"
 import * as BunStaticStore from "../../app/server/platform/bun-static-store.js"
 import { cacheControlForPath } from "../../app/server/routes/static.js"
 
@@ -69,10 +69,13 @@ it.effect("Bun store streams assets with a content type", () =>
     })
   ))
 
+// The content-type table is also the build gate (`checkBuildOutput`): a
+// typeface in `dist/assets` with no type here fails the deploy before upload.
 it.effect("Bun store serves typefaces as woff2, and the site keeps them for a year", () =>
   withDist((store) =>
     Effect.gen(function*() {
       const pathname = "/assets/figtree-latin-wght-normal-D4qk9tSy.woff2"
+      expect(contentTypeForPath(pathname)).toEqual(Option.some("font/woff2"))
       const font = yield* yield* store.response(pathname)
       expect(font.headers["content-type"]).toBe("font/woff2")
       // A build asset, named by content hash, so a new file is a new URL.
