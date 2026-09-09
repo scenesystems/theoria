@@ -2,7 +2,7 @@ import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Errors, Text } from "@scenesystems/effect-text"
 import * as Contracts from "@scenesystems/effect-text/contracts"
-import { Effect, Layer, Option, Ref } from "effect"
+import { Deferred, Effect, Layer, Option, Ref } from "effect"
 
 import { DemoRequestError } from "../../app/contracts/demo-error.js"
 import {
@@ -83,7 +83,75 @@ const failingOnceTextLayout: Layer.Layer<BrowserTextLayout> = Layer.unwrapEffect
   })
 )
 
+/**
+ * Text layout whose measurements all wait at `gate`: a cut held open, so the
+ * column can change while it is under way. The paper and its labels share the
+ * measurement cache, so a lookup begun for one is the one the other awaits.
+ */
+const gatedTextLayout = (gate: Deferred.Deferred<void>): Layer.Layer<BrowserTextLayout> => {
+  const gated = Layer.succeed(Contracts.TextMeasurer, {
+    measure: (font, text) =>
+      Effect.zipRight(
+        Deferred.await(gate),
+        Effect.provide(
+          Effect.flatMap(Contracts.TextMeasurer, (measurer) => measurer.measure(font, text)),
+          Text.TextMeasurerLive
+        )
+      )
+  })
+  return Layer.mergeAll(
+    Text.WordSegmenterLive,
+    Text.HyphenationDictionaryLive(),
+    Layer.succeed(Contracts.EngineProfile, browserEngineProfile),
+    gated,
+    Text.MeasurementCacheLive.pipe(Layer.provide(gated))
+  )
+}
+
+/**
+ * The sheet once it is cut; not yet while nothing is told, and a defect the
+ * moment a failure is — so a wait on it ends at once with what was told.
+ */
+const sheetCut = (registry: Registry.Registry) =>
+  Effect.suspend(() =>
+    Option.match(registry.get(placeFailureAtom), {
+      onSome: (failure) => Effect.dieMessage(`the stage told a ${failure.failed} failure`),
+      onNone: () => registry.get(placeSheetAtom)
+    })
+  )
+
 describe("what has failed the stage", () => {
+  it.scoped("a column that changes while the paper is being cut still gets its paper", () =>
+    Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      const registry = Registry.make({
+        initialValues: [
+          [placeClientLayerAtom, holdingClient],
+          [textLayoutLayerAtom, gatedTextLayout(gate)],
+          [placeStageContainerWidthAtom, Option.some(704)]
+        ],
+        scheduleTask: (task) => {
+          task()
+        }
+      })
+      // The stage holds the sheet and the failure mounted, as the page does, so a cut under way is not let go.
+      yield* Effect.acquireRelease(Effect.sync(() => registry.mount(placeSheetAtom)), (unmount) => Effect.sync(unmount))
+      yield* Effect.acquireRelease(
+        Effect.sync(() => registry.mount(placeFailureAtom)),
+        (unmount) => Effect.sync(unmount)
+      )
+      // The first cut is under way, parked at its first measurement.
+      expect(registry.get(placeSheetAtom)).toEqual(Option.none())
+      expect(registry.get(placeFailureAtom)).toEqual(Option.none())
+      // The column changes: the cut is asked for again at the new width while the first measurement is still pending,
+      // and the new cut awaits the very measurement the interrupted one began.
+      registry.set(placeStageContainerWidthAtom, Option.some(720))
+      yield* Deferred.succeed(gate, undefined)
+      const sheet = yield* Effect.eventually(sheetCut(registry))
+      expect(sheet.width).toBe(720)
+      expect(registry.get(placeFailureAtom)).toEqual(Option.none())
+    }))
+
   it.effect("a failed build is the failure, waiting or not; a failed drawing is one only once the build is here", () =>
     Effect.gen(function*() {
       expect(stageFailure(failed, Result.initial(), cut)).toEqual(

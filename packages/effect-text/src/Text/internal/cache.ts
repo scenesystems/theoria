@@ -60,10 +60,21 @@ export class MeasurementKey extends Data.Class<{
  * yet ready, a context that threw) would otherwise be that failure for the
  * whole time to live; after this read the next request measures again.
  *
+ * The read is uninterruptible. A lookup, once begun, is finished and shared:
+ * `Cache` otherwise interrupts the pending entry's `Deferred` when the fiber
+ * that began the lookup is interrupted, and every other fiber awaiting that
+ * key then fails with an interrupt that is not its own. Measurements are
+ * bounded — a canvas or an estimate — so a fiber interrupted mid-read waits at
+ * most one measurement before the interrupt takes effect.
+ *
  * @since 0.2.0
  * @category internals
  */
 export const getOrEvict = <Key, Value, Failure>(
   cache: Cache.Cache<Key, Value, Failure>,
   key: Key
-): Effect.Effect<Value, Failure> => cache.get(key).pipe(Effect.tapErrorCause(() => cache.invalidate(key)))
+): Effect.Effect<Value, Failure> =>
+  cache.get(key).pipe(
+    Effect.tapErrorCause(() => cache.invalidate(key)),
+    Effect.uninterruptible
+  )

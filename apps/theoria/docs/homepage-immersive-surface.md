@@ -1413,13 +1413,28 @@ page told: … /api/imagined-place/build`. The shard's cause is not yet
       that the next occurrence is conclusive, `Site.logs` reads the
       Worker's structured logs from the harness (which keeps them whatever
       the print level) and `drawn` appends the last twenty to its report
-      (`home-pending` asserts the segment against `site.logs`). Noted, not
-      changed: effect-text's measurement cache is Effect's `Cache`, which
-      interrupts the `Deferred` of a pending lookup when the looking fiber
-      is interrupted, so a second fiber awaiting the same key would fail
-      with a foreign interrupt; measurements are synchronous, so
-      `Effect.uninterruptible` around the lookup would bound it — a change
-      to the package, to be decided on its own.
+      (`home-pending` asserts the segment against `site.logs`).
+- [x] **A column that changes while the paper is being cut still gets its
+      paper.** The route above has a trigger, reproduced test-first
+      (`place-failure.test.ts`, "a column that changes while the paper is
+      being cut"): the paper and its labels share effect-text's measurement
+      cache, which is Effect's `Cache`; a `Cache` interrupts a pending
+      entry's `Deferred` when the fiber that began its lookup is interrupted,
+      and removes the key. A column measured again while the first cut is
+      under way interrupts the cutting fibers and starts new ones, which
+      find the pending entry and await it — and then fail with the old
+      fiber's interrupt. effect-atom keeps that exit as `Result.failure`,
+      and nothing invalidates an atom that failed that way, so the paper
+      stayed uncut until the next width change; before the entry above it
+      stayed uncut in silence. A fiber yields to the event loop every 2 048
+      operations, and the first cut measures many labels, so on a slow
+      runner a font's arrival re-measuring the column lands in that window.
+      Fixed in the package (`getOrEvict`, `internal/cache.ts`): the read is
+      `Effect.uninterruptible`, so a lookup once begun is finished and
+      shared, and the interrupting fiber gives up its interest, not the
+      result; measurements are bounded, so the wait is one measurement
+      (`measurement-cache.contract.test.ts`, changeset
+      `text-measurement-lookup-shared`).
 
 ## Non-goals
 
