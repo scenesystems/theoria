@@ -31,6 +31,7 @@ import {
   discsAtRest,
   finishingTouches,
   scrollAffordance,
+  stageFrame,
   stageLayout,
   textFitsItsBox,
   transitionOf
@@ -39,7 +40,9 @@ import { SiteLive } from "./site.js"
 
 import {
   changeStory,
+  doubledDiscs,
   drawn,
+  expectClearance,
   markerPositions,
   mergeProgramProposal,
   paperUntilLanding,
@@ -160,16 +163,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
     it.scoped("a merged feature fills the room the search made for it, never over the prose", () =>
       Effect.gen(function*() {
-        const { arrivals, failures, filledInPlace, overlaps } = yield* mergeProgramProposal("no-preference")
+        const { arrivals, failures, filledInPlace, overlaps, sampled } = yield* mergeProgramProposal("no-preference")
         expect(filledInPlace).toBe(true)
         expect(arrivals).toBeGreaterThanOrEqual(2)
         expect(overlaps).toEqual([])
+        expectClearance(sampled)
         expect(yield* failures).toEqual([])
       }))
 
     it.scoped("under reduced motion the feature is placed outright, never over the prose", () =>
       Effect.gen(function*() {
-        const { arrivals, failures, filledInPlace, overlaps, placed } = yield* mergeProgramProposal("reduce")
+        const { arrivals, failures, filledInPlace, overlaps, placed, sampled } = yield* mergeProgramProposal("reduce")
         // Nothing travels: the drawing is placed outright at every best, and the disc fills the
         // ring by opacity alone — no scale is written for Motion to cancel, so the disc is at rest
         // from its first frame.
@@ -177,12 +181,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(placed).toBe(1)
         expect(arrivals).toBe(1)
         expect(overlaps).toEqual([])
+        expectClearance(sampled)
         expect(yield* failures).toEqual([])
       }))
 
     it.scoped("a changed story's discs wait for its lines: the old set leaves, the new set stands, then the drawing moves and the old discs shrink away", () =>
       Effect.gen(function*() {
-        const { failures, frames, leaversShrink, moved, newLines, overlaps, twoSets } = yield* changeStory()
+        const { failures, frames, leaversShrink, moved, newLines, overlaps, sampled, twoSets } = yield* changeStory()
         // The drawing moved, and the new lines were painted, within the frames sampled.
         expect(frames).toBeGreaterThan(2)
         expect(Option.isSome(moved)).toBe(true)
@@ -195,6 +200,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // over any disc, going or coming.
         expect(leaversShrink).toBe(true)
         expect(overlaps).toEqual([])
+        expectClearance(sampled)
         expect(yield* failures).toEqual([])
       }))
 
@@ -207,12 +213,57 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      */
     it.scoped("on a processor four times slower, a changed story's discs still wait for its lines", () =>
       Effect.gen(function*() {
-        const { failures, moved, newLines, overlaps, twoSets } = yield* changeStory({ cpuSlowdown: 4 })
+        const { failures, moved, newLines, overlaps, sampled, twoSets } = yield* changeStory({ cpuSlowdown: 4 })
         expect(Option.isSome(moved)).toBe(true)
         expect(Option.isSome(newLines)).toBe(true)
         expect(Option.getOrElse(moved, () => -1)).toBeGreaterThanOrEqual(Option.getOrElse(newLines, () => -1))
         expect(twoSets).toBe(false)
         expect(overlaps).toEqual([])
+        expectClearance(sampled)
+        expect(yield* failures).toEqual([])
+      }))
+
+    /**
+     * The flow keeps its gap all round every disc — beside it, where a line
+     * stops short, and above and below it, where a line within the gap is
+     * narrowed too — and every disc leaves the least line beside it. At the
+     * narrowest column the discs are the largest share of the stage and a
+     * disc's x is most often the geometry's to clamp, so it is where a line
+     * would be set under a disc if either rule were not kept. Every trial of
+     * the search is a whole arrangement, placed outright when the trace is
+     * scrubbed to it, so walking the trace reads the rules of thirty-six.
+     * Placed outright means in one commit: the frame the stage names a trial,
+     * it paints that trial's discs and no other's, so no feature is painted
+     * twice and no line is set over a disc of the drawing just left.
+     */
+    it.scoped("at the narrowest column every trial keeps the gap between prose and discs", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 320, height: 700 }, reducedMotion: "reduce" })
+        yield* goto(page, "/")
+        yield* drawn(page)
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const slider = demo.getByRole("slider", { name: "Trial drawn on the stage" })
+        yield* eventually(() => slider.isEnabled(), true)
+        yield* focus(slider)
+        yield* press(page, "Home")
+        yield* attribute(slider, "aria-valuenow", "0")
+        const trials = yield* Effect.forEach(Arr.range(0, renderTrials - 1), (trial) =>
+          Effect.gen(function*() {
+            yield* attribute(slider, "aria-valuenow", String(trial))
+            const frame = yield* until(
+              act(() => demo.evaluate(stageFrame)),
+              (sampled) => sampled.trial === String(trial) && Arr.isNonEmptyReadonlyArray(sampled.clearance),
+              `trial ${String(trial + 1)} drawn with its lines`
+            )
+            yield* Effect.when(press(page, "ArrowRight"), () => trial < renderTrials - 1)
+            return frame
+          }))
+        expect(trials).toHaveLength(renderTrials)
+        expect(Arr.map(trials, (frame) => ({ trial: frame.trial, doubled: doubledDiscs(frame) }))).toEqual(
+          Arr.map(trials, (frame) => ({ trial: frame.trial, doubled: [] }))
+        )
+        expect(Arr.flatMap(trials, (frame) => frame.overlaps)).toEqual([])
+        expectClearance(trials)
         expect(yield* failures).toEqual([])
       }))
 

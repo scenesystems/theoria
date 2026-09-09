@@ -1346,6 +1346,28 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       `Emulation.setCPUThrottlingRate`), and `stageFrame`'s overlap report now
       names the line set, opacity, box, and the disc's standing, radius,
       centre and transform, so the next sampled fault reads as geometry.
+- [x] **The fixes are read off the page's frames, not waited for.** Every
+      frame the browser tests sample now carries the nearest a painted line
+      comes to a painted disc (`stageFrame.clearance`, in the stage's own
+      pixels through its `fit`), and the trial the drawing is of
+      (`data-place-stage-trial`), and `expectClearance` asserts the flow's
+      `markerGap` held at every frame of every merge and story change, to a
+      quarter-pixel of the stage's rounding. A new walk at the narrowest
+      column (320 px) scrubs all thirty-six trials, reduced motion, and reads
+      each the frame the stage names it. Red against the contracts before
+      the fix: line 4 at its 60 px floor stood under a disc whose edge was at
+      93 px — the shard's fault — and the story changes came within 0.0–1.1
+      px of a disc above or below; green after, at ≥ 9.75 px. The walk found
+      a second fault the fix did not cover: discs keyed by trial under one
+      lasting presence were held a frame past their exit by Motion's
+      post-render removal, so the frame the stage named a trial painted the
+      last trial's discs too, every feature twice, the new lines set through
+      the old discs. The presence is now keyed by the trial drawn
+      (`PlaceStage.tsx`), so a scrub swaps the set whole in one commit; the
+      walk asserts no feature is painted twice (`doubledDiscs`) before it
+      asserts clearance, so a repeat reads as presence, not geometry. The
+      exit bound is not discriminated by any browser test at 4× slowdown and
+      stands on `place-render-rest.test.ts` alone.
 
 ## Non-goals
 

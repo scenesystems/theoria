@@ -732,18 +732,29 @@ export const finishingTouches = (): {
  * any disc or ring, as line index and feature name — the lines are flowed
  * around the discs as drawn, so every line's box must clear every circle at
  * every frame. A line is painted at its own opacity times its set's, and
- * nothing at opacity 0 is painted. `phase`: the search's, from the trace
- * (`complete` once the drawing is kept and landed; `-` before the first trial).
+ * nothing at opacity 0 is painted. `clearance`: the least distance from any
+ * painted line's box to any painted disc's edge, in the stage's own pixels
+ * (the stage may be shown fitted to a narrower column, `data-place-stage-fit`),
+ * with the pair it is between — negative where a line is over a disc; empty
+ * with no line or no disc painted. The flow keeps `markerGap` all round every
+ * disc, so this is what it is at every frame, to the stage's rounding. A disc
+ * is painted as far as its shorter side: one shrunk to no height paints
+ * nothing, whatever the padding leaves it across. `phase`: the search's, from
+ * the trace (`complete` once the drawing is kept and landed; `-` before the
+ * first trial). `trial`: the one the drawing is of (`data-place-stage-trial`;
+ * `-` with no drawing).
  */
 export const stageFrame = (
   region: Element
 ): {
   readonly phase: string
+  readonly trial: string
   readonly places: ReadonlyArray<
     { readonly name: string; readonly kind: "ring" | "disc"; readonly translate: string; readonly transform: string }
   >
   readonly lines: ReadonlyArray<{ readonly text: string; readonly painted: boolean }>
   readonly overlaps: ReadonlyArray<string>
+  readonly clearance: ReadonlyArray<{ readonly least: number; readonly between: string }>
 } => {
   const place = (kind: "ring" | "disc", attribute: string) => (element: Element) => ({
     name: element.getAttribute(attribute) ?? "",
@@ -765,26 +776,62 @@ export const stageFrame = (
       opacity: opacity(element) * opacity(element.closest("[data-place-lines]") ?? element),
       rect: element.getBoundingClientRect()
     }))
-  const discs = [...region.querySelectorAll("[data-place-marker], [data-place-marker-arriving]")].map((element) => {
-    const rect = element.getBoundingClientRect()
-    return {
-      name: element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-marker-arriving") ?? "",
-      standing: element.hasAttribute("data-place-marker-arriving")
-        ? "ring"
-        : element.hasAttribute("data-place-marker-leaving")
-        ? "leaving"
-        : "disc",
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-      radius: rect.width / 2,
-      transform: getComputedStyle(element).transform
-    }
-  })
+  const discs = [...region.querySelectorAll("[data-place-marker], [data-place-marker-arriving]")]
+    .map((element) => {
+      const rect = element.getBoundingClientRect()
+      return {
+        name: element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-marker-arriving") ?? "",
+        standing: element.hasAttribute("data-place-marker-arriving")
+          ? "ring"
+          : element.hasAttribute("data-place-marker-leaving")
+          ? "leaving"
+          : "disc",
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        radius: Math.min(rect.width, rect.height) / 2,
+        transform: getComputedStyle(element).transform
+      }
+    })
+    .filter((disc) => disc.radius > 0)
   const clamp = (low: number, high: number, value: number) => Math.min(high, Math.max(low, value))
   const px = (value: number) => value.toFixed(1)
   const phase = document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase") ?? "-"
+  const fit = Number(region.querySelector("[data-place-stage-fit]")?.getAttribute("data-place-stage-fit") ?? "1")
+  // How far a line's box is from a disc's edge: the box's nearest point to the centre, less the radius.
+  const distance = (
+    line: { readonly rect: DOMRect },
+    disc: { readonly x: number; readonly y: number; readonly radius: number }
+  ) => {
+    const dx = clamp(line.rect.left, line.rect.right, disc.x) - disc.x
+    const dy = clamp(line.rect.top, line.rect.bottom, disc.y) - disc.y
+    return Math.hypot(dx, dy) - disc.radius
+  }
+  const describe = (
+    line: { readonly index: string; readonly set: string; readonly opacity: number; readonly rect: DOMRect },
+    disc: {
+      readonly name: string
+      readonly standing: string
+      readonly radius: number
+      readonly x: number
+      readonly y: number
+      readonly transform: string
+    }
+  ) =>
+    `line ${line.index} of “${line.set}…” at opacity ${line.opacity.toFixed(2)}, box ${px(line.rect.left)}–${
+      px(line.rect.right)
+    } × ${px(line.rect.top)}–${px(line.rect.bottom)}, and ${disc.name} (${disc.standing}, r ${px(disc.radius)} at ${
+      px(disc.x)
+    }, ${px(disc.y)}, transform ${disc.transform}) in phase ${phase}`
+  const pairs = lines.filter((line) => line.rect.width > 0).flatMap((line) =>
+    discs.map((disc) => ({ line, disc, distance: distance(line, disc) / fit }))
+  )
+  // The nearest pair this frame, as a singleton so a frame with no line or no disc painted reports none.
+  const nearest = pairs
+    .filter((pair) => pairs.every((other) => pair.distance <= other.distance))
+    .slice(0, 1)
   return {
     phase,
+    trial: region.querySelector("[data-place-stage='content']")?.getAttribute("data-place-stage-trial") ?? "-",
     places: [
       ...[...region.querySelectorAll("[data-place-marker-arriving]")].map(place("ring", "data-place-marker-arriving")),
       ...[...region.querySelectorAll("[data-place-marker]")].map(place("disc", "data-place-marker"))
@@ -793,22 +840,9 @@ export const stageFrame = (
       text: [...set.querySelectorAll("[data-place-line]")].map((line) => line.textContent ?? "").join("\n"),
       painted: opacity(set) > 0
     })),
-    overlaps: lines.flatMap((line) =>
-      discs.flatMap((disc) => {
-        // The circle meets the box when the box's nearest point to the centre is within the radius.
-        const dx = clamp(line.rect.left, line.rect.right, disc.x) - disc.x
-        const dy = clamp(line.rect.top, line.rect.bottom, disc.y) - disc.y
-        return line.rect.width > 0 && dx * dx + dy * dy < disc.radius * disc.radius
-          ? [
-            `line ${line.index} of “${line.set}…” at opacity ${line.opacity.toFixed(2)}, box ${px(line.rect.left)}–${
-              px(line.rect.right)
-            } × ${px(line.rect.top)}–${px(line.rect.bottom)}, over ${disc.name} (${disc.standing}, r ${
-              px(disc.radius)
-            } at ${px(disc.x)}, ${px(disc.y)}, transform ${disc.transform}) in phase ${phase}`
-          ]
-          : []
-      })
-    )
+    // The circle meets the box when the box's nearest point to the centre is within the radius.
+    overlaps: pairs.filter((pair) => pair.distance < 0).map((pair) => describe(pair.line, pair.disc)),
+    clearance: nearest.map((pair) => ({ least: pair.distance, between: describe(pair.line, pair.disc) }))
   }
 }
 

@@ -4,6 +4,7 @@ import type { Locator, Page } from "@playwright/test"
 import { Chunk, Duration, Effect, Fiber, Match, Option, Order, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
+import { markerGap } from "../../app/contracts/demo/imagined-place-flow.js"
 import { codeSite, CodeSiteId } from "../../app/contracts/demo/imagined-place-provenance.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
 import type { ColorScheme, CpuSlowdown, ReducedMotion, Viewport } from "./browser.js"
@@ -147,17 +148,73 @@ export const LineSet = Schema.Struct({
  * One frame of the stage while its drawing changes: where every feature is
  * painted, which sets of lines stand, and any line of prose painted over a disc.
  */
+export const Clearance = Schema.Struct({
+  /** The distance from the line's box to the disc's edge, in the stage's pixels; negative where the line is over the disc. */
+  least: Schema.Number,
+  /** The line and the disc it is between, as the stage read them. */
+  between: Schema.String
+})
+export type Clearance = typeof Clearance.Type
+
 export const StageFrame = Schema.Struct({
   phase: Schema.String,
+  /** The trial the drawing is of, as the stage names it (`data-place-stage-trial`); `-` with no drawing. */
+  trial: Schema.String,
   places: Schema.Array(FeaturePlace),
   lines: Schema.Array(LineSet),
-  overlaps: Schema.Array(Schema.String)
+  overlaps: Schema.Array(Schema.String),
+  /** The nearest a painted line comes to a painted disc this frame; none with no line or no disc painted. */
+  clearance: Schema.Array(Clearance)
 })
 export type StageFrame = typeof StageFrame.Type
+
+/**
+ * What the stage's drawing may be off the geometry by: a disc's place and
+ * diameter are written to a tenth of a pixel and a line's box to a tenth, so
+ * a distance the geometry keeps exactly reads up to a quarter of a pixel
+ * short on the page.
+ */
+export const stageRounding = 0.25
+
+/** The least any sampled frame kept between a line and a disc, with the pair; none when no frame had both painted. */
+export const leastClearance = (frames: ReadonlyArray<StageFrame>): Option.Option<Clearance> =>
+  Arr.reduce(
+    Arr.flatMap(frames, (frame) => frame.clearance),
+    Option.none<Clearance>(),
+    (least, found) => Option.exists(least, (kept) => kept.least <= found.least) ? least : Option.some(found)
+  )
+
+/**
+ * Every sampled frame kept the flow's gap between prose and discs, to the
+ * stage's rounding: the failure names the frame's nearest pair.
+ */
+export const expectClearance = (frames: ReadonlyArray<StageFrame>) =>
+  Option.match(leastClearance(frames), {
+    onNone: () => {
+      expect.fail("no frame had both a line and a disc painted")
+    },
+    onSome: (nearest) => {
+      expect(nearest.least, nearest.between).toBeGreaterThanOrEqual(markerGap - stageRounding)
+    }
+  })
 
 /** The frame's places of one feature. */
 export const placesIn = (frame: StageFrame, name: string): ReadonlyArray<FeaturePlace> =>
   Arr.filter(frame.places, (place) => place.name === name)
+
+/**
+ * The features painted as a disc more than once in the frame: two drawings
+ * painted at once. A drawing is one arrangement, so a feature has one disc
+ * in it; a ring and the disc filling it are one feature arriving, not two
+ * drawings, and are not counted.
+ */
+export const doubledDiscs = (frame: StageFrame): ReadonlyArray<string> =>
+  Arr.dedupe(
+    Arr.filter(
+      Arr.map(frame.places, (place) => place.name),
+      (name) => Arr.filter(placesIn(frame, name), (place) => place.kind === "disc").length > 1
+    )
+  )
 
 /** The feature `name` has a disc filled in and at rest in the frame. */
 export const landed = (name: string) => (frame: StageFrame): boolean =>
@@ -237,6 +294,7 @@ export const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     return {
       failures,
       name,
+      sampled: frames,
       // The disc fills the ring: the hand-off is painted, and at every frame of it both stand in one place.
       filledInPlace: Arr.isNonEmptyReadonlyArray(handingOff) &&
         Arr.every(handingOff, (places) => Arr.dedupe(Arr.map(places, (place) => place.translate)).length === 1),
@@ -324,6 +382,7 @@ export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}
     return {
       failures,
       frames: frames.length,
+      sampled: frames,
       moved,
       newLines,
       // A frame with two sets painted would be two texts over each other.
