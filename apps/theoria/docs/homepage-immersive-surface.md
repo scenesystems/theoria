@@ -1338,6 +1338,38 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       44 px probe measured the last drawing being fitted (44 × 265⁄335 ≈
       35 px); it now also requires the drawn stage width to fit the frame's
       laid-out inner width, which changes with the column synchronously.
+    - _A profile that only knew the harness_ (closed). The vitals and
+      environment suites ran only against the workerd harness, so a
+      deployment was never profiled. `Site` now has three layers: `SiteLive`
+      (the harness), `SiteRemote` (the deployment `THEORIA_SITE_URL` names,
+      reached through the platform `HttpClient`, its logs empty because a
+      deployment's runtime logs are not readable from outside it), and
+      `SiteUnderTest`, which is the named deployment when one is named and
+      the harness otherwise. Both describe themselves from what they serve —
+      the manifest from `/docs-data/manifest.json`, the hashed script from
+      the shell's first module `<script>` — so they answer alike, and
+      `SiteResponse` reads its body once as text, its `json` parsing that
+      text and its headers a platform `Headers` read with `header` as an
+      `Option` (no `| null` at the assertion). `home-vitals.test.ts` and
+      `home-environment.test.ts` run on `SiteUnderTest`. The script
+      `test:worker:profile` runs those two on the harness, and
+      `test:worker:staging` runs them against staging; a preview is named
+      by setting `THEORIA_SITE_URL` to its origin before the profile script.
+      `site.test.ts` proves a `SiteRemote` pointed at
+      the harness's own origin reports the same manifest, script, status,
+      headers and envelope, posts a body, and is what `SiteUnderTest` picks
+      when named. Found on the first run against staging: every page failed
+      with Cloudflare's error 1000, because `openPage` set `cf-connecting-ip`
+      on the browser context — the harness has no edge, so the tests named
+      each visitor's address themselves, but behind a real edge that header
+      is Cloudflare's to set and a client that sends it is refused. How a
+      visitor is told apart is now the site's (`Site.visitorHeaders`): the
+      harness names an address per page, a deployment names none, so its
+      visitors are all this machine's address and share one build budget.
+      The second run reached staging cleanly; its thirteen failures were all
+      content drift (`bc656d7` has no `[data-home-hero] p`, no
+      `[data-place-provenance]`, and the stage's layout shift), so the pass
+      against staging itself waits for staging to serve this branch.
       Decisions the review accepted: no CSP nonce (above); the 390
       first-disc exception stands.
 - [x] **The Chromium suite finishes sooner without a wait shortened.** The

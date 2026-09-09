@@ -66,6 +66,15 @@ share plus one file, the same cut on every runner. The three
 subject (the search and its drawing; marks and their answers; the page around
 the stage) so no single file dominates a shard.
 
+The vitals and environment suites (`home-vitals.test.ts`,
+`home-environment.test.ts`) profile the site under test, which is the harness
+unless `THEORIA_SITE_URL` names a deployment: `bun run test:worker:profile`
+runs them on the harness, `bun run test:worker:staging` runs them against
+staging, and `THEORIA_SITE_URL=https://theoria-pr-<N>.staging.scenesystems.io
+bun run test:worker:profile` against a preview. A deployment's runtime logs are
+not readable from outside it, so a failure report against one names the
+browser's side only.
+
 Cache lifetimes for directly served assets come from `public/_headers`;
 lifetimes for Worker responses come from `cacheControlForPath`. Cloudflare
 compresses responses at the edge, so the build ships assets uncompressed.

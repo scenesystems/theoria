@@ -16,7 +16,7 @@ import {
   recordFootprints,
   recordWebVitals
 } from "./platform/in-page.js"
-import { SiteLive } from "./site.js"
+import { SiteUnderTest } from "./site.js"
 
 /** A measurement in milliseconds that may not have been made: empty where nothing was observed. */
 const ObservedMs = Schema.OptionFromNonEmptyTrimmedString.pipe(
@@ -53,7 +53,7 @@ const readVitals = (page: Page) =>
 const interactionToNextPaint = (vitals: typeof WebVitals.Type): number =>
   Option.getOrElse(vitals.inp, () => vitals.eventThresholdMs)
 
-layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
+layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria homepage web vitals in Chromium",
   (it) => {
     it.scoped("the homepage's first paint stays within its vitals budgets", () =>

@@ -36,7 +36,7 @@ import {
   storyDrawn,
   topEdgeInViewport
 } from "./platform/in-page.js"
-import { SiteLive } from "./site.js"
+import { SiteUnderTest } from "./site.js"
 
 /** The device-typical viewport at each width the plan names. */
 const viewports: ReadonlyArray<Viewport> = [
@@ -141,7 +141,7 @@ const opacityAndColour = [
   "stroke"
 ]
 
-layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
+layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria home environment in Chromium",
   (it) => {
     Arr.forEach(viewports, (viewport) =>

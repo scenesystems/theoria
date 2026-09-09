@@ -104,17 +104,6 @@ export const failuresOf = (page: Page): Effect.Effect<ReadonlyArray<string>, nev
         }))
   )
 
-/**
- * The address the Worker sees a page's requests from. Cloudflare sets
- * `cf-connecting-ip` on every request at the edge, and the place build's
- * limiter keys its budget by it; every page a test opens is a visitor of its
- * own, with its own budget, as visitors are — so a suite's builds are never
- * summed into one address. Addresses are drawn from TEST-NET-3
- * (203.0.113.0/24) and the documentation nets above it.
- */
-const visitorAddress = (visitor: number): string =>
-  `203.0.${String(113 + Math.floor(visitor / 256))}.${String(visitor % 256)}`
-
 export const Viewport = Schema.Struct({ width: Schema.Number, height: Schema.Number })
 export type Viewport = typeof Viewport.Type
 export const desktop: Viewport = { width: 1280, height: 800 }
@@ -157,6 +146,7 @@ export const openPage = (
   Effect.gen(function*() {
     const browser = yield* Browser
     const site = yield* Site
+    // Every page a test opens is a visitor of its own; the site says how a visitor is told apart.
     const visitor = yield* Ref.getAndUpdate(browser.visitors, (count) => count + 1)
     const context = yield* Effect.acquireRelease(
       act(() =>
@@ -167,7 +157,7 @@ export const openPage = (
           forcedColors: options.forcedColors ?? "none",
           colorScheme: options.colorScheme ?? "light",
           hasTouch: options.hasTouch ?? false,
-          extraHTTPHeaders: { "cf-connecting-ip": visitorAddress(visitor) }
+          extraHTTPHeaders: site.visitorHeaders(visitor)
         })
       ),
       (open) => Effect.orDie(act(() => open.close()))
