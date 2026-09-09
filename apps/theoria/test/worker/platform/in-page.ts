@@ -233,6 +233,8 @@ export const discTouchTargets = (discs: ReadonlyArray<Element>): ReadonlyArray<{
   readonly name: string
   readonly width: number
   readonly height: number
+  /** The disc's own painted box, so a finger can be placed relative to its corner. */
+  readonly disc: { readonly width: number; readonly height: number }
   readonly missed: ReadonlyArray<string>
 }> =>
   discs.map((disc) => {
@@ -251,6 +253,7 @@ export const discTouchTargets = (discs: ReadonlyArray<Element>): ReadonlyArray<{
       name: disc.getAttribute("data-place-marker") ?? "",
       width: reach.width,
       height: reach.height,
+      disc: { width: box.width, height: box.height },
       missed: points
         .filter((point) => !disc.contains(document.elementFromPoint(point.x, point.y)))
         .map((point) => point.at)
@@ -863,11 +866,21 @@ export const discsAtRest = (region: Element): boolean =>
  * column's drawing fitted to it while a new search runs — with every disc at
  * rest. A fitted drawing's discs have no transform of their own (the stage
  * is scaled as one piece), so `discsAtRest` alone cannot tell the two apart.
+ * Nor can `fit` alone: in the frames after the column changes, before the
+ * page has noticed, the last drawing still says it fits. The frame's inner
+ * width is laid out with the column, so a drawing wider than it is the last
+ * column's whatever else it says.
  */
-export const drawnForColumn = (region: Element): boolean =>
-  region.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept" &&
-  region.querySelector("[data-place-stage-fit]")?.getAttribute("data-place-stage-fit") === "1" &&
-  [...region.querySelectorAll("[data-place-marker]")].every((element) => getComputedStyle(element).transform === "none")
+export const drawnForColumn = (region: Element): boolean => {
+  const content = region.querySelector("[data-place-stage='content']")
+  const drawable = region.querySelector("[data-artifact-stage='frame']")?.clientWidth ?? -1
+  return region.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept" &&
+    content?.getAttribute("data-place-stage-fit") === "1" &&
+    Number(content.getAttribute("data-place-stage-width")) <= drawable &&
+    [...region.querySelectorAll("[data-place-marker]")].every((element) =>
+      getComputedStyle(element).transform === "none"
+    )
+}
 
 /**
  * The stage draws the composition now shown: every feature the composer named

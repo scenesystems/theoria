@@ -150,6 +150,8 @@ export const openPage = (
     readonly forcedColors?: ForcedColors
     readonly colorScheme?: ColorScheme
     readonly cpuSlowdown?: CpuSlowdown
+    /** The device has a touchscreen, so `tap` can touch the page the way a finger does. */
+    readonly hasTouch?: boolean
   } = {}
 ): Effect.Effect<Session, BrowserError, Browser | Site | Scope.Scope> =>
   Effect.gen(function*() {
@@ -164,6 +166,7 @@ export const openPage = (
           reducedMotion: options.reducedMotion ?? "no-preference",
           forcedColors: options.forcedColors ?? "none",
           colorScheme: options.colorScheme ?? "light",
+          hasTouch: options.hasTouch ?? false,
           extraHTTPHeaders: { "cf-connecting-ip": visitorAddress(visitor) }
         })
       ),
@@ -220,6 +223,15 @@ export const goto = (page: Page, path: string) => act(() => page.goto(path))
 export const gotoParsed = (page: Page, path: string) => act(() => page.goto(path, { waitUntil: "domcontentloaded" }))
 export const click = (locator: Locator) => act(() => locator.click())
 export const hover = (locator: Locator) => act(() => locator.hover())
+/**
+ * Touches the element with a finger at `position` from its top-left corner:
+ * touch events, then the click they synthesise. The page must have been
+ * opened with `hasTouch`. Playwright first checks that the point lands on the
+ * element or something inside it, so a tap that would hit a neighbour fails
+ * here rather than opening the neighbour.
+ */
+export const tap = (locator: Locator, position: { readonly x: number; readonly y: number }) =>
+  act(() => locator.tap({ position }))
 export const focus = (locator: Locator) => act(() => locator.focus())
 export const press = (page: Page, key: string) => act(() => page.keyboard.press(key))
 /** Turns the mouse wheel over whatever is under the pointer, the way a trackpad swipe does. */
@@ -259,6 +271,8 @@ export const disabled = (locator: Locator) => act(() => inBrowser(locator).toBeD
 export const count = (locator: Locator, expected: number) => act(() => inBrowser(locator).toHaveCount(expected))
 export const containsText = (locator: Locator, expected: string | RegExp) =>
   act(() => inBrowser(locator).toContainText(expected))
+/** The element's whole text, whitespace normalised, is exactly `expected`. */
+export const hasText = (locator: Locator, expected: string) => act(() => inBrowser(locator).toHaveText(expected))
 export const attribute = (locator: Locator, name: string, expected: string | RegExp) =>
   act(() => inBrowser(locator).toHaveAttribute(name, expected))
 export const withoutAttribute = (locator: Locator, name: string) =>

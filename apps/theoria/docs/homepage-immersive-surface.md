@@ -1325,7 +1325,19 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       with `number: Int, positive` — lines count from one, and a zeroth or
       fractional line does not construct or decode
       (`code-highlighter.test.ts`, "a gutter line is numbered from one").
-    - The touch probe reads geometry and should also dispatch a real tap.
+    - _A touch target never touched_ (closed). The probe read each disc's
+      reach with `elementFromPoint` and never touched one. `openPage` now
+      takes `hasTouch`, `tap` touches an element at a position from its
+      corner (touch events, then the click they synthesise; Playwright
+      refuses a point that lands on another element), and
+      `home-touch.test.ts` taps every disc 21 px left of its centre — on
+      the reach, off the painted disc — asserting the answer that opens is
+      that disc's own by title, put away by Escape before the next. Found
+      and fixed on the way: `drawnForColumn` said "drawn for this column"
+      in the frames after a resize before the page had noticed it, so the
+      44 px probe measured the last drawing being fitted (44 × 265⁄335 ≈
+      35 px); it now also requires the drawn stage width to fit the frame's
+      laid-out inner width, which changes with the column synchronously.
       Decisions the review accepted: no CSP nonce (above); the 390
       first-disc exception stands.
 - [x] **The Chromium suite finishes sooner without a wait shortened.** The
