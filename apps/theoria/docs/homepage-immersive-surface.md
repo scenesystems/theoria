@@ -1296,9 +1296,17 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       itself and `maxWidthFor` indexes it: a new variant is a width owed by
       every role before the app compiles (`typography.contract.test.ts`,
       "every role has a measure for every surface variant").
-    - `highlighter.ts` matches a closed `HighlightTokenKind` with a
-      fallthrough where naming `"plain"` and `Match.exhaustive` would;
-      `WordmarkMorph.tsx` runs a perpetual `useTime` crossfade (make it
+    - _A closed token kind matched with a fallthrough_ (closed).
+      `tokenClassName` matched `HighlightTokenKind` and fell through to the
+      ink class, hiding `plain`; `tokenKindFor` matched theme colours by
+      hand, a second copy of the theme. Both now read `highlightTokenPaint`,
+      one table keyed by the kind — its CSS variable, class and grammar
+      scopes — from which the Shiki theme is built, the colour → kind map
+      is derived (`Rec.get`, and only there is "plain" a default, at the
+      open edge of a colour the theme never painted), and the class is
+      indexed (`code-highlighter.test.ts`, "every kind of token has one
+      paint").
+    - `WordmarkMorph.tsx` runs a perpetual `useTime` crossfade (make it
       finite, or record the branding exception and its reduced-motion
       behaviour); `GutterLine` in `HighlightedCode.tsx` is a `Data.Class`
       with no behaviour and should be `Schema.Class`; the touch probe reads

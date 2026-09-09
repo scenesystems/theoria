@@ -1,10 +1,32 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { highlightCode, makeSyntaxHighlighter } from "../../app/web/view/primitives/code/highlighter.js"
+import {
+  highlightCode,
+  HighlightTokenKind,
+  highlightTokenPaint,
+  makeSyntaxHighlighter,
+  tokenClassName,
+  tokenKindFor
+} from "../../app/web/view/primitives/code/highlighter.js"
 
 describe("Theoria Code Highlighter", () => {
+  it.effect("every kind of token has one paint, and the theme's colour for it reads back as the kind", () =>
+    Effect.gen(function*() {
+      // The theme colours a kind by its variable and the view classes it by its name, both from one table keyed by
+      // the kind itself: a kind added to `HighlightTokenKind` is a paint owed before the app compiles.
+      Arr.forEach(HighlightTokenKind.literals, (kind) => {
+        expect(tokenClassName(kind)).toBe(highlightTokenPaint[kind].className)
+        expect(tokenKindFor(Option.some(highlightTokenPaint[kind].variable))).toBe(kind)
+      })
+      expect(tokenClassName("plain")).toBe("text-ink-900")
+      expect(tokenClassName("comment")).toBe("text-code-comment italic")
+      // A colour the theme never paints, or none, is plain: the one open edge, named.
+      expect(tokenKindFor(Option.some("#ff0000"))).toBe("plain")
+      expect(tokenKindFor(Option.none())).toBe("plain")
+    }))
+
   it.effect("classifies keywords, types, numbers, strings, and comments", () =>
     Effect.scoped(
       Effect.gen(function*() {
