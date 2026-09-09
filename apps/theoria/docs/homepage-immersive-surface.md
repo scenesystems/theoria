@@ -1298,6 +1298,22 @@ pointer-events: none`: their own composited layer, shaded once, sized to
     with no behaviour and should be `Schema.Class`; the touch probe reads
     geometry and should also dispatch a real tap. Decisions the review
     accepted: no CSP nonce (above); the 390 first-disc exception stands.
+- [x] **The Chromium suite finishes sooner without a wait shortened.** The
+      suite took seven minutes in CI: nineteen files run one at a time, since
+      they measure motion and a second browser on the runner would skew it,
+      and `home-demo.test.ts` alone took 139 s. It now runs on four runners at
+      once, each a shard of the same uploaded build (`theoria.yml`: Build →
+      Test Worker ×4 → Staging → Production; the preview deploys only once
+      every shard has passed). Vitest's `--shard` cuts by path hash, so
+      `test/worker/sequencer.ts` cuts by file size instead, heaviest first to
+      the lightest shard (`browser-suite-shards.contract.test.ts`: one shard
+      per file, the fair share plus one file as the bound, the same cut on
+      every runner). `home-demo.test.ts` is three files by subject
+      (`home-demo-search`, `-answers`, `-page`) over shared `demo.ts`
+      fixtures, so no one file is a shard on its own. Size is the proxy
+      vitest itself uses for an unmeasured file; measured durations would cut
+      better but every runner must cut the same, and they have no shared
+      measurement — noted in `DEPLOYMENT.md`.
 
 ## Non-goals
 

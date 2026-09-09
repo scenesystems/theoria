@@ -45,9 +45,26 @@ API, the package index against the generated manifest, docs navigation and
 search, syntax highlighting, clipboard copy, every generated route, and
 responsive layouts. The suite needs a build first (`bun run build:web && bun
 run deploy:dry-run`) and Chromium (`bun run test:worker:browsers`), so it
-is not part of `bun run test`; the Build job runs it on the exact artifact it
-uploads. `test/server/wrangler-config.test.ts` reads the configuration through
-Wrangler and checks the per-target names, routes, and `RELEASE_STAGE` values.
+is not part of `bun run test`; the Test jobs run it on the exact artifact the
+Build job uploads. `test/server/wrangler-config.test.ts` reads the configuration
+through Wrangler and checks the per-target names, routes, and `RELEASE_STAGE`
+values.
+
+The suite's files run one at a time (`fileParallelism: false` in
+`vitest.worker.config.ts`): the tests measure motion and layout in a real
+Chromium, and a second browser on the same machine would skew what they
+measure. Waits are never shortened to save time; a test waits for the event it
+is about. To finish sooner, CI runs the suite on several runners at once, each
+taking one shard: `bun run test:worker -- --shard=i/n`. Vitest's own `--shard`
+cuts the file list by path hash, which can leave one runner with most of the
+work, so `test/worker/sequencer.ts` cuts it by file size instead — the
+heaviest file first, each to the lightest shard so far — and
+`test/contracts/browser-suite-shards.contract.test.ts` holds that cut to its
+promises: every file in exactly one shard, no shard heavier than the fair
+share plus one file, the same cut on every runner. The three
+`home-demo-*.test.ts` files were one file before the cut; they are split by
+subject (the search and its drawing; marks and their answers; the page around
+the stage) so no single file dominates a shard.
 
 Cache lifetimes for directly served assets come from `public/_headers`;
 lifetimes for Worker responses come from `cacheControlForPath`. Cloudflare
@@ -217,20 +234,24 @@ per commit. It first runs the app's typecheck and unit tests (`bun run
 check:apps`, `bun run test:apps`), so an artifact never comes from a tree that
 fails its own checks even though the Check workflow runs separately. It then
 builds (`bun run build:web`, then `wrangler deploy --dry-run` to bundle
-`worker.ts` for workerd), runs that bundle in workerd over HTTP and in
-Chromium (`bun run test:worker`), checks the output with
+`worker.ts` for workerd), checks the output with
 [`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml),
-and uploads `dist/` and `.wrangler-out/` as the artifact `theoria-<sha>`. Every
-deployment then uploads that exact artifact with `wrangler deploy --no-bundle`,
-so staging, production, and previews serve byte-identical builds of a commit.
+and uploads `dist/` and `.wrangler-out/` as the artifact `theoria-<sha>`. The
+Test jobs — one per shard, at once — each download that artifact, check it
+again, and run their shard of the workerd and Chromium suite against it (`bun
+run test:worker -- --shard=i/n`, see above). Every deployment then uploads that
+exact artifact with `wrangler deploy --no-bundle`, so staging, production, and
+previews serve byte-identical builds of a commit, and none is deployed before
+every shard has passed.
 
-| Event                   | Job        | Target                                          |
-| ----------------------- | ---------- | ----------------------------------------------- |
-| pull request            | Build      | artifact only, no credentials                   |
-| `workflow_run` of Build | PR Preview | `theoria-pr-<N>.staging.scenesystems.io`        |
-| pull request closed     | Remove     | deletes `theoria-pr-<N>`                        |
-| push to `main`          | Staging    | `theoria.staging.scenesystems.io`               |
-| push to `main` (gated)  | Production | `theoria.scenesystems.io`, after Staging passes |
+| Event                     | Job         | Target                                          |
+| ------------------------- | ----------- | ----------------------------------------------- |
+| pull request              | Build       | artifact only, no credentials                   |
+| pull request              | Test Worker | the artifact, in workerd and Chromium, sharded  |
+| `workflow_run` of Theoria | PR Preview  | `theoria-pr-<N>.staging.scenesystems.io`        |
+| pull request closed       | Remove      | deletes `theoria-pr-<N>`                        |
+| push to `main`            | Staging     | `theoria.staging.scenesystems.io`, after Test   |
+| push to `main` (gated)    | Production  | `theoria.scenesystems.io`, after Staging passes |
 
 Each deployment ends with
 [`theoria-verify-deployment`](../../.github/actions/theoria-verify-deployment/action.yml),
