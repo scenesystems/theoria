@@ -1368,10 +1368,17 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       visitors are all this machine's address and share one build budget.
       The second run reached staging cleanly; its thirteen failures were all
       content drift (`bc656d7` has no `[data-home-hero] p`, no
-      `[data-place-provenance]`, and the stage's layout shift), so the pass
-      against staging itself waits for staging to serve this branch.
-      Decisions the review accepted: no CSP nonce (above); the 390
-      first-disc exception stands.
+      `[data-place-provenance]`, and the stage's layout shift). The third run,
+      against the pull request's preview once it served `b97ddff`, passed all
+      thirteen — after it found one fault in the deployment rather than the
+      code: the zone carried a second, zone-wide Web Analytics site with
+      automatic setup, so the edge injected a second beacon into every HTML
+      response. Production reported into two dashboards; staging and the
+      previews, whose policy does not allow `static.cloudflareinsights.com`,
+      logged a CSP violation on every page load, which every test's
+      console check caught. The duplicate site is deleted and DEPLOYMENT.md
+      names the mechanism. Decisions the review accepted: no CSP nonce
+      (above); the 390 first-disc exception stands.
 - [x] **The Chromium suite finishes sooner without a wait shortened.** The
       suite took seven minutes in CI: nineteen files run one at a time, since
       they measure motion and a second browser on the runner would skew it,

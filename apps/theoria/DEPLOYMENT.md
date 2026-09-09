@@ -196,9 +196,15 @@ all, because behavioral modeling needs thousands of consented users to train.
 Cloudflare Web Analytics is cookieless by design. In-app navigation is a `pushState`, which
 GA4 reports through enhanced measurement ("Page changes based on browser
 history events", on by default for the web stream); do not add manual
-`page_view` events or pages count twice. Turn off Cloudflare's automatic
-JavaScript injection for the zone if it is enabled: the strict CSP blocks the
-auto-injected snippet, and the manual tag already covers it.
+`page_view` events or pages count twice. The manual site must be the only
+Web Analytics site on the zone. A zone-wide site with automatic setup (the API
+reports it under `/accounts/{account}/rum/site_info/list` with
+`auto_install: true`) makes the edge inject a second beacon with its own token
+into every HTML response: production then reports into two dashboards, and
+staging and previews, whose CSP does not allow `static.cloudflareinsights.com`,
+log a CSP violation on every page load, which `bun run test:worker:profile`
+reports as a console failure. Delete such a site rather than only disabling its
+automatic setup, so nothing outside `wrangler.jsonc` can re-enable it.
 
 ### Search and sharing metadata
 
