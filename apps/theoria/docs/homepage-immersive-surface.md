@@ -1382,9 +1382,44 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       service keeps every open page's failures by page (`failuresOf`), so
       `drawn` reports them with the standing. `home-pending` reads the report
       with the build failed at the edge: `phase failed, … column standing,
-  document complete; the stage told: The place could not be built. …; the
-  page told: … /api/imagined-place/build`. The shard's cause is not yet
+document complete; the stage told: The place could not be built. …; the
+page told: … /api/imagined-place/build`. The shard's cause is not yet
       known; the next occurrence names it.
+- [x] **A paper that could not be cut is told, and Draw again cuts it.** The
+      shard's report was read for what it left open: the page had loaded in
+      150 ms, the demo stood, the column was measured, the build was pending
+      or done, and still no sheet was cut in 20 s with nothing told. Load
+      was ruled out (8 400 asset fetches through the harness with no
+      failure; eight loads at eight times slower all drew, near the budget),
+      as were the routes that fail aloud: a font never landing (layout
+      measures the face in hand), a runtime the worker cannot make
+      (`CanvasUnavailable` reaches the frame and is told), an interrupted
+      atom (effect-atom surfaces the exit as a failure). One route stayed
+      silent by construction: `placeExpectedPaperAtom` and
+      `placeExpectedLabelsAtom` fail with `MeasurementFailed` when a
+      measurement throws or is not finite, and neither was read by
+      `stageFailure`, so a failed cut left the sheet `None` for as long as
+      the build stayed pending, and the frame — `Stream.never` until the
+      build lands — had nothing to tell. That is the shape the report had.
+      `stageFailure(build, frame, cut)` now reads the cut
+      (`placeCutAtom`, `Result.all` of paper and labels) and tells a failed
+      cut as a `draw` failure until the frame has a value; the pill's
+      `placeAgainAtom` refreshes what the failure names — the build
+      envelope, or the paper, labels and frame — instead of the frame alone
+      (`place-failure.test.ts`: a measurer that fails once leaves the sheet
+      uncut with `draw` told, and Draw again cuts it at the column's width).
+      Whether that route is what the runner hit is not proven; what is
+      proven is that the state it reported can no longer occur silently. So
+      that the next occurrence is conclusive, `Site.logs` reads the
+      Worker's structured logs from the harness (which keeps them whatever
+      the print level) and `drawn` appends the last twenty to its report
+      (`home-pending` asserts the segment against `site.logs`). Noted, not
+      changed: effect-text's measurement cache is Effect's `Cache`, which
+      interrupts the `Deferred` of a pending lookup when the looking fiber
+      is interrupted, so a second fiber awaiting the same key would fail
+      with a foreign interrupt; measurements are synchronous, so
+      `Effect.uninterruptible` around the lookup would bound it — a change
+      to the package, to be decided on its own.
 
 ## Non-goals
 

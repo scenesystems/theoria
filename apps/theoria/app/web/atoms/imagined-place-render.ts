@@ -38,7 +38,13 @@ import { MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLa
 import { legendFromMarkers, legendFromOutline, type PlaceLegendEntry } from "../view/home/placeViewModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
-import { placeBuildAtom, placeBuiltAtom, placeOutlineAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
+import {
+  placeBuildAtom,
+  placeBuildEnvelopeAtom,
+  placeBuiltAtom,
+  placeOutlineAtom,
+  placeStageMeasuredWidthAtom
+} from "./imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "./motion.js"
 import { textLayoutLive } from "./text-layout.js"
 
@@ -669,9 +675,13 @@ export const placeSearchAtom: AtomType.Atom<Result.Result<PlaceSearch, PlaceRend
  * What has failed the stage: the build the place is made from, or the drawing
  * of it — and whether the run asked for in its place is under way. The build
  * failing is the reason there is no drawing, so it is the failure whatever
- * the drawing says. One failure at a time, told in one place — the search
- * caption's row, there in every state at one height — so nothing around the
- * stage moves for it.
+ * the drawing says. The drawing is the frame and, until the first frame is
+ * here, the cut of the paper the frame is expected to want: a cut that failed
+ * would otherwise leave the paper uncut with nothing told, since the sheet
+ * is cut from it (`placeSheetAtom`). A frame cuts its own paper, so once one
+ * is here the cut no longer matters. One failure at a time, told in one place
+ * — the search caption's row, there in every state at one height — so
+ * nothing around the stage moves for it.
  */
 export class StageFailure extends Schema.Class<StageFailure>("StageFailure")({
   failed: Schema.Literal("build", "draw"),
@@ -680,16 +690,48 @@ export class StageFailure extends Schema.Class<StageFailure>("StageFailure")({
 
 export const stageFailure = (
   build: Result.Result<unknown, unknown>,
-  frame: Result.Result<unknown, unknown>
+  frame: Result.Result<unknown, unknown>,
+  cut: Result.Result<unknown, unknown>
 ): Option.Option<StageFailure> =>
   Result.isFailure(build)
     ? Option.some(new StageFailure({ failed: "build", waiting: build.waiting }))
     : Result.isFailure(frame)
     ? Option.some(new StageFailure({ failed: "draw", waiting: frame.waiting }))
+    : Option.isNone(Result.value(frame)) && Result.isFailure(cut)
+    ? Option.some(new StageFailure({ failed: "draw", waiting: cut.waiting }))
     : Option.none()
 
+/**
+ * The cut of the paper before the first frame: the paper the search is
+ * expected to want, and whether the discs' names are expected to fit —
+ * both measured from the outline, so either failing is the same failure to
+ * measure the place's text.
+ */
+const placeCutAtom: AtomType.Atom<Result.Result<unknown, PlaceRenderError>> = Atom.make((get: AtomType.Context) =>
+  Result.all([get(placeExpectedPaperAtom), get(placeExpectedLabelsAtom)])
+)
+
 export const placeFailureAtom: AtomType.Atom<Option.Option<StageFailure>> = Atom.make((get: AtomType.Context) =>
-  stageFailure(get(placeBuildAtom), get(placeRenderFrameAtom))
+  stageFailure(get(placeBuildAtom), get(placeRenderFrameAtom), get(placeCutAtom))
+)
+
+/**
+ * Asks for the run that failed again: the build, or the drawing — the frame
+ * and the cut before it, since a drawing that failed to measure its text
+ * failed both. What the caption's row offers under the failure it tells.
+ */
+export const placeAgainAtom = Atom.fnSync<StageFailure["failed"]>()((failed, ctx) =>
+  Match.value(failed).pipe(
+    Match.when("build", () => {
+      ctx.refresh(placeBuildEnvelopeAtom)
+    }),
+    Match.when("draw", () => {
+      ctx.refresh(placeExpectedPaperAtom)
+      ctx.refresh(placeExpectedLabelsAtom)
+      ctx.refresh(placeRenderFrameAtom)
+    }),
+    Match.exhaustive
+  )
 )
 
 /**

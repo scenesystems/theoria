@@ -1,15 +1,15 @@
 import { Button } from "@base-ui/react/button"
 import { Result } from "@effect-atom/atom"
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Match, Option } from "effect"
+import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceOutline } from "../../../contracts/imagined-place.js"
 import {
   drawingId,
+  placeAgainAtom,
   placeFailureAtom,
-  placeRenderFrameAtom,
   type PlaceSearch,
   placeSearchAtom,
   placeTrialPreviewAtom,
@@ -18,7 +18,6 @@ import {
   type StageFailure
 } from "../../atoms/imagined-place-render.js"
 import {
-  placeBuildEnvelopeAtom,
   placeStageMaxDrawableAtom,
   placeStageMaxWidth,
   placeStagePresets,
@@ -165,13 +164,10 @@ const SearchCaptionPending = () => (
  * would only cancel the run and start over.
  */
 const StageFailed = ({ failure }: { readonly failure: StageFailure }) => {
-  const rebuild = useAtomRefresh(placeBuildEnvelopeAtom)
-  const redraw = useAtomRefresh(placeRenderFrameAtom)
-  const again = Match.value(failure.failed).pipe(
-    Match.when("build", () => rebuild),
-    Match.when("draw", () => redraw),
-    Match.exhaustive
-  )
+  const askAgain = useAtomSet(placeAgainAtom)
+  const again = () => {
+    askAgain(failure.failed)
+  }
   return (
     <Rail className="min-h-9 min-w-0 gap-2.5" data-place-stage-failed={failure.failed} role="alert">
       <InlineStatus className="min-w-0" label={stageFailureText(failure)} tone={dangerStatusTone} />
