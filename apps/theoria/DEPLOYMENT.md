@@ -34,11 +34,27 @@ covers the HTML shell (`/`, `/index.html`, `/docs`, `/docs/*`), `/api/*`, and
 through to the Worker.
 
 `bun run test:worker` (`test/worker/`) runs the bundled Worker in workerd
-through Wrangler's test harness with the real `wrangler.jsonc`, `dist/`, and
-`_headers`. `site.test.ts` asserts this routing over HTTP: shell paths reach the
-Worker and get metadata, hashed assets come from the assets layer with the `_headers` policy, non-production hostnames are
-`noindex`, and the security headers permit what the browser code needs (Shiki's
-WebAssembly grammar engine requires `'wasm-unsafe-eval'`). `home.test.ts`,
+through Miniflare, configured from the real `wrangler.jsonc` by Wrangler's own
+configuration reader, with the real `dist/` and `_headers`
+(`test/worker/site.ts`). Miniflare holds workerd directly. Wrangler's
+`createTestHarness` and `wrangler dev` put a second workerd in front of it,
+whose proxy Worker forwards every request over TCP to the runtime so the
+runtime can be swapped on reload; under a page load's burst of asset requests
+that hop fails with "Network connection lost" and the harness answers 500 — a
+response a browser cannot retry, so the app never mounts (this was the CI
+shards' "phase -, paper -" failure). `site.test.ts` holds the suite to this
+("answers every shell asset 200 across concurrent page loads"), and
+`test/contracts/worker-runtime.contract.test.ts` holds the `miniflare`
+devDependency to the version `wrangler` bundles, so both read one runtime;
+when `wrangler` moves, `miniflare` moves with it. `site.test.ts` also asserts
+the routing over HTTP: shell paths reach the Worker and get metadata, hashed
+assets come from the assets layer with the `_headers` policy, non-production
+hostnames are `noindex`, and the security headers permit what the browser code
+needs (Shiki's WebAssembly grammar engine requires `'wasm-unsafe-eval'`).
+The Worker names its hostname from the request's URL, not the `Host` header:
+at the edge the two agree, but a local runtime answering on its own address
+sets `Host` to that address while the URL still names the host asked for
+(`app/server/canonical-host.ts`, `test/server/canonical-host.test.ts`). `home.test.ts`,
 `docs.test.ts`, and `docs-routes.test.ts` drive Chromium (Playwright, from
 Effect) against that same server: the Imagined Place build through the real
 API, the package index against the generated manifest, docs navigation and

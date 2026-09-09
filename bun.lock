@@ -91,6 +91,7 @@
         "@types/react-dom": "^19.2.7",
         "@vitejs/plugin-react": "^6.1.1",
         "happy-dom": "^20.13.2",
+        "miniflare": "5.20260831.0-alpha",
         "tailwindcss": "^4.3.3",
         "vite": "^8.2.2",
         "wrangler": "4.128.0",

@@ -1515,6 +1515,42 @@ page told: … /api/imagined-place/build`. The shard's cause is not yet
       result; measurements are bounded, so the wait is one measurement
       (`measurement-cache.contract.test.ts`, changeset
       `text-measurement-lookup-shared`).
+- [x] **The shard's cause, named.** The next occurrence was conclusive: in
+      "on a processor four times slower" the app never mounted because
+      `/assets/rolldown-runtime-*.js` and `/assets/index-*.css` answered
+      **500** — the same shape as the earlier "phase -, paper -" shards. The
+      500 was the harness's, not the Worker's: Wrangler's `createTestHarness`
+      routes every request (`listen()` URL and `fetch()` alike) through
+      `wrangler dev`'s proxy Worker, a second workerd that forwards over TCP
+      to the runtime so it can be swapped on reload; under a page load's
+      burst of asset requests that inner fetch fails with `Network connection
+  lost`, and Miniflare's entry worker turns it into a 500 with the error's
+      stack as its body. Reproduced at about 4 % of requests at 48 concurrent
+      page loads — also for `/api/health/live`, so not the assets layer; the
+      earlier "8 400 fetches with no failure" were sequential, which the hop
+      survives. A browser cannot retry a 500, so the app never booted. Fixed
+      at the harness (`test/worker/site.ts`): `SiteLive` now holds the
+      deploy bundle in Miniflare directly — Wrangler's own configuration
+      reader (`unstable_getMiniflareWorkerOptions`) turns `wrangler.jsonc`
+      into the runtime's options, the bundle's modules are named by the same
+      extension rules Wrangler bundles by, the runtime's structured logs
+      arrive on a `Queue` that `Site.logs` folds into its record, and
+      `dispatchFetch` carries the requested URL to the Worker. Held
+      test-first: `site.test.ts` "answers every shell asset 200 across
+      concurrent page loads" (200 loads × every shell asset, 32 at once),
+      red at 28 × 500 through the old harness, green with none. Two tests
+      then failed for the right reason: the Worker named its hostname from
+      the `Host` header, which a runtime answering on its own address sets
+      to that address, while the request URL still named the host asked
+      for; `requestIsCanonical` now reads the URL (`originalUrl`), the
+      source Cloudflare documents for hostname logic and one that agrees with
+      `Host` at the edge (`canonical-host.test.ts`, red first). `miniflare`
+      is a devDependency pinned to the version `wrangler` bundles, and
+      `worker-runtime.contract.test.ts` holds the two equal so both read one
+      workerd. Undici's keep-alive reuse still loses a handful of connections
+      in 6 000 (`ECONNRESET`, "other side closed"); Chromium retries those
+      transparently for idempotent requests, as the spec allows, and the
+      in-process load test saw none.
 
 ## Non-goals
 

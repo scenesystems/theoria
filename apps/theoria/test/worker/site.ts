@@ -9,10 +9,33 @@ import {
   Url
 } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
-import { Config, type ConfigError, Context, Data, DateTime, Effect, Layer, Option, Predicate, Schema } from "effect"
+import {
+  Chunk,
+  Config,
+  type ConfigError,
+  Context,
+  Data,
+  DateTime,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  Predicate,
+  Queue,
+  Ref,
+  Schema,
+  Struct
+} from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
-import { createTestHarness } from "wrangler"
+import {
+  convertV4MiniflareOptions,
+  Miniflare,
+  NoOpLog,
+  type V4ModuleDefinition,
+  type WorkerdStructuredLog
+} from "miniflare"
+import { unstable_getMiniflareWorkerOptions } from "wrangler"
 
 import { type DocsManifest, DocsManifestJson } from "@theoria/docs-model"
 
@@ -23,6 +46,16 @@ import { type DocsManifest, DocsManifestJson } from "@theoria/docs-model"
  * deployment named by `THEORIA_SITE_URL`, read over the network. HTTP tests
  * call `fetch`; browser tests point Chromium at `url`. Against the harness,
  * absolute URLs control the hostname the Worker sees.
+ *
+ * The harness is Miniflare holding workerd directly, configured from
+ * `wrangler.jsonc` by Wrangler's own reader. Wrangler's `createTestHarness`
+ * (and `wrangler dev`) put a second workerd in front, whose proxy Worker
+ * forwards each request over TCP to the runtime for hot reload; under a page
+ * load's burst of asset requests that hop fails with "Network connection
+ * lost" and answers 500 — an answer a browser cannot retry, so the app never
+ * mounts (`site.test.ts`, "answers every shell asset 200 across concurrent
+ * page loads"). `miniflare` is pinned to the version `wrangler` bundles so
+ * both read one runtime.
  *
  * The harness requires a fresh build: `bun run build:web && bun run deploy:dry-run`.
  */
@@ -153,6 +186,36 @@ const requireFile = (file: string) =>
     return yield* exists ? Effect.void : missingBuild(file)
   })
 
+/** The entry module `wrangler deploy --dry-run --outdir` writes; every other module is named relative to it. */
+const workerEntry = "worker.js"
+
+/**
+ * How workerd is to load one file of the deploy bundle, by the same
+ * extension rules Wrangler applies when bundling: the entry is the script,
+ * `.wasm` is compiled WebAssembly, `.bin` is bytes, `.txt` and `.html` are
+ * text; the source map and README are not modules.
+ */
+const bundleModule = (path: Path.Path, workerDir: string) => (file: string): Option.Option<V4ModuleDefinition> =>
+  Match.value(file === workerEntry ? "entry" : path.extname(file)).pipe(
+    Match.withReturnType<Option.Option<V4ModuleDefinition["type"]>>(),
+    Match.when("entry", () => Option.some("ESModule")),
+    Match.when(".wasm", () => Option.some("CompiledWasm")),
+    Match.when(".bin", () => Option.some("Data")),
+    Match.whenOr(".txt", ".html", () => Option.some("Text")),
+    Match.orElse(() => Option.none()),
+    Option.map((type) => ({ type, path: path.join(workerDir, file) }))
+  )
+
+/** The deploy bundle's modules, the entry first, as Miniflare loads them. */
+const bundleModules = (workerDir: string) =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const fileSystem = yield* FileSystem.FileSystem
+    const files = yield* fileSystem.readDirectory(workerDir).pipe(Effect.mapError(operationalError))
+    const [entry, others] = Arr.partition(Arr.sort(files, Str.Order), (file) => file !== workerEntry)
+    return Arr.filterMap(Arr.appendAll(entry, others), bundleModule(path, workerDir))
+  })
+
 /**
  * The harness for the whole layer. Nothing in a test can respond to workerd
  * failing to shut down, so that failure surfaces as a defect in the scope's exit.
@@ -170,29 +233,56 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
 
     yield* requireFile(path.join(distRoot, "index.html"))
     yield* requireFile(path.join(distRoot, "docs-data", "manifest.json"))
-    yield* requireFile(path.join(workerDir, "worker.js"))
+    yield* requireFile(path.join(workerDir, workerEntry))
+    const modules = yield* bundleModules(workerDir)
 
-    const server = yield* Effect.acquireRelease(
+    // Wrangler reads the configuration as `wrangler deploy` does — assets,
+    // bindings, compatibility — and names the module rules it would bundle
+    // by; the bundle is already built, so those rules are left aside.
+    const { externalWorkers, workerOptions } = yield* Effect.try({
+      try: () => unstable_getMiniflareWorkerOptions(path.join(projectRoot, "wrangler.jsonc")),
+      catch: operationalError
+    })
+
+    // The runtime's structured logs — the Worker's own and workerd's —
+    // arrive on a callback; the queue receives them, and `logs` folds
+    // what has arrived into the record so far, so nothing is cleared.
+    const arriving = yield* Queue.unbounded<WorkerdStructuredLog>()
+    const recorded = yield* Ref.make(Chunk.empty<string>())
+    const runtime = yield* Effect.acquireRelease(
       Effect.sync(() =>
-        createTestHarness({
-          root: projectRoot,
-          workers: [{
-            configPath: "./wrangler.jsonc",
-            prebuiltWorkerDir: "./.wrangler-out",
-            vars: {
-              BUILD_SHA: buildSha,
-              GA_MEASUREMENT_ID: testMeasurementId,
-              CF_WEB_ANALYTICS_TOKEN: testBeaconToken
-            }
-          }]
-        })
+        new Miniflare(convertV4MiniflareOptions({
+          log: new NoOpLog(),
+          logRequests: false,
+          handleStructuredLogs: (log) => {
+            Queue.unsafeOffer(arriving, log)
+          },
+          workers: [
+            {
+              ...Struct.omit(workerOptions, "modulesRules"),
+              modulesRoot: workerDir,
+              modules,
+              bindings: {
+                ...Option.getOrElse(Option.fromNullable(workerOptions.bindings), () => ({})),
+                BUILD_SHA: buildSha,
+                GA_MEASUREMENT_ID: testMeasurementId,
+                CF_WEB_ANALYTICS_TOKEN: testBeaconToken
+              }
+            },
+            ...externalWorkers
+          ]
+        }))
       ),
-      (running) => Effect.orDie(harness(() => running.close()))
+      (running) => Effect.orDie(harness(() => running.dispose()))
     )
-    const listening = yield* harness(() => server.listen())
+    const listening = yield* harness(() => runtime.ready)
 
+    // Miniflare dispatches to the runtime whatever host the URL names, and
+    // the Worker sees that host — so absolute URLs still choose the hostname.
     const fetch: SiteService["fetch"] = (input, init) =>
-      harness(() => server.fetch(input, init)).pipe(
+      Url.fromString(input, listening).pipe(
+        Effect.mapError(operationalError),
+        Effect.flatMap((target) => harness(() => runtime.dispatchFetch(target, init))),
         Effect.flatMap((response) =>
           Effect.map(
             harness(() => response.text()),
@@ -203,17 +293,19 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
     const { hashedScript, manifest } = yield* describeSite(fetch)
 
     return Site.of({
-      url: listening.url.origin,
+      url: listening.origin,
       fetch,
       manifest,
       hashedScript,
       visitorHeaders: (visitor) => ({ "cf-connecting-ip": visitorAddress(visitor) }),
-      logs: Effect.sync(() =>
-        Arr.map(
-          server.getLogs(),
+      logs: Effect.gen(function*() {
+        const fresh = yield* Queue.takeAll(arriving)
+        const lines = Chunk.map(
+          fresh,
           (log) => `${DateTime.formatIso(DateTime.unsafeMake(log.timestamp))} ${log.level}: ${log.message}`
         )
-      )
+        return Chunk.toReadonlyArray(yield* Ref.updateAndGet(recorded, Chunk.appendAll(lines)))
+      })
     })
   })
 ).pipe(Layer.provide(BunContext.layer))

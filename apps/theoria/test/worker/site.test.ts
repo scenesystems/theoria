@@ -29,6 +29,10 @@ const headerText = (response: SiteResponse, name: string) => Option.getOrThrow(h
 
 const PartialRequest = PlaceBuildRequest.pick("scenario")
 
+/** Every `/assets/…` path the shell names — scripts, styles, preloaded fonts — once each. */
+const shellAssets = (shell: string): ReadonlyArray<string> =>
+  Arr.dedupe(Arr.filterMap(Arr.fromIterable(shell.matchAll(/(\/assets\/[^"' )]+)/g)), (found) => Arr.get(found, 1)))
+
 layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
   it.effect("answers API routes from the Worker with the deploy-time build SHA", () =>
     Effect.gen(function*() {
@@ -117,6 +121,31 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
 
       expect((yield* site.fetch("/robots.txt")).status).toBe(200)
     }))
+
+  it.effect("answers every shell asset 200 across concurrent page loads", () =>
+    Effect.gen(function*() {
+      const site = yield* Site
+      const shell = yield* site.fetch("/").pipe(Effect.flatMap(text))
+      const assets = shellAssets(shell)
+      expect(assets.length).toBeGreaterThan(2)
+
+      // A page load asks for every asset at once, and the browser suite's
+      // shards load pages back to back; an asset answered 500 — as the
+      // wrangler dev proxy did under this load — cannot be retried by a
+      // browser, so the app never mounts.
+      const answers = yield* Effect.forEach(
+        Arr.makeBy(200, (load) => load),
+        (load) =>
+          Effect.forEach(
+            assets,
+            (asset) => Effect.map(site.fetch(asset), (response) => ({ load, asset, status: response.status })),
+            { concurrency: "unbounded" }
+          ),
+        { concurrency: 32 }
+      ).pipe(Effect.map(Arr.flatten))
+      expect(Arr.filter(answers, (answer) => answer.status !== 200)).toEqual([])
+      expect(answers.length).toBe(200 * assets.length)
+    }), { timeout: 120_000 })
 
   it.effect("serves its own typefaces, preloaded by the shell, so no text is set twice", () =>
     Effect.gen(function*() {
