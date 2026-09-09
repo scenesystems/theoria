@@ -71,12 +71,14 @@ const expectWellPlaced = (stage: Stage, markers: ReadonlyArray<PlaceMarker>) => 
  * so this is asked of where the drawing lands, not of every step.)
  */
 const expectTouchable = (markers: ReadonlyArray<PlaceMarker>) =>
-  Arr.forEach(markers, (a, i) =>
+  Arr.forEach(markers, (a, i) => {
+    expect(a.reach).toBe(touchReach(a.radius))
     Arr.forEach(Arr.drop(markers, i + 1), (b) => {
       expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(
-        a.radius + touchReach(a.radius) + b.radius + touchReach(b.radius) + touchGap - 1e-9
+        a.radius + a.reach + b.radius + b.reach + touchGap - 1e-9
       )
-    }))
+    })
+  })
 
 /** Steps of a travel between the two corners, as the stage would draw them. */
 const steps = Arr.map(Arr.range(0, 10), (index) => index / 10)
@@ -156,13 +158,57 @@ describe("Imagined place geometry contract", () => {
       // is why a drawing whose prose is leaving rests as it was left instead of drawing step 0 of its travel.
       const stage = stageFor(640)
       const between = markersBetween(stage)
-      const marker = (name: string, y: number): PlaceMarker => ({ name, description: "", x: 100, y, radius: 20 })
+      const marker = (name: string, y: number): PlaceMarker => ({
+        name,
+        description: "",
+        x: 100,
+        y,
+        radius: 20,
+        reach: touchReach(20)
+      })
       const from = [marker("A", 100), marker("B", 200)]
       const to = [marker("A", 100), marker("N", 200), marker("B", 250)]
       const atStart = between(from, to, 0)
       expect(Arr.map(atStart, (m) => m.name)).toEqual(["A", "N", "B"])
       expect(Option.map(Arr.findFirst(atStart, (m) => m.name === "B"), (m) => m.y)).not.toEqual(Option.some(200))
       expectWellPlaced(stage, atStart)
+    }))
+
+  it.effect("a travel interrupted mid-arrival carries on from where the drawing was, reach and all", () =>
+    Effect.sync(() => {
+      // A disc growing in reaches for its touch target in proportion to its growth. When a new target
+      // interrupts the travel, the next travel starts from the intermediate drawing: the half-grown disc
+      // must keep its half-grown reach, not be reissued the full reach of a standing disc of its radius —
+      // which would push its neighbour down by tens of pixels between one frame and the next.
+      const stage = stageFor(240)
+      const between = markersBetween(stage)
+      const radius = 16
+      const marker = (name: string, y: number): PlaceMarker => ({
+        name,
+        description: "",
+        x: 100,
+        y,
+        radius,
+        reach: touchReach(radius)
+      })
+      const from = [marker("A", 60)]
+      const first = [marker("A", 32), marker("N", 78)]
+      const partWay = between(from, first, 0.1)
+      const arriving = Option.getOrThrow(Arr.findFirst(partWay, (m) => m.name === "N"))
+      expect(arriving.radius).toBeCloseTo(radius * 0.1, 10)
+      expect(arriving.reach).toBeCloseTo(touchReach(radius) * 0.1, 10)
+
+      const second = [marker("A", 32), marker("N", 79)]
+      const retargeted = between(partWay, second, 1e-6)
+      Arr.forEach(partWay, (was) => {
+        const now = Option.getOrThrow(Arr.findFirst(retargeted, (m) => m.name === was.name))
+        expect(now.y, was.name).toBeCloseTo(was.y, 3)
+        expect(now.radius, was.name).toBeCloseTo(was.radius, 3)
+        expect(now.reach, was.name).toBeCloseTo(was.reach, 3)
+      })
+      expect(between(partWay, second, 0)).toEqual(partWay)
+      expect(between(partWay, second, 1)).toEqual(second)
+      Arr.forEach(steps, (t) => expectWellPlaced(stage, between(partWay, second, t)))
     }))
 
   it.effect("markers left at another width are brought onto this stage on the way", () =>

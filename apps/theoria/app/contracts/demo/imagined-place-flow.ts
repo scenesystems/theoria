@@ -72,23 +72,17 @@ const clamp = (low: number, high: number, value: number): number => Math.min(hig
 
 const lerp = (from: number, to: number, t: number): number => from + (to - from) * t
 
-/** A marker with the reach its touch target asks of the room around it, while the geometry places it. */
-const Reaching = Schema.Struct({ ...PlaceMarker.fields, reach: Schema.Number })
-type Reaching = typeof Reaching.Type
-
 /**
  * The least `y` at which a marker of this radius and reach at this `x` clears
  * every marker already placed — by the gap, and by the two reaches where
  * those ask for more; `low` when none is in the way.
  */
-const clearanceBelow = (placed: ReadonlyArray<Reaching>, x: number, radius: number, reach: number, low: number) =>
+const clearanceBelow = (placed: ReadonlyArray<PlaceMarker>, x: number, radius: number, reach: number, low: number) =>
   Arr.reduce(placed, low, (y, other) => {
     const needed = Math.max(other.radius + radius + markerGap, other.radius + other.reach + radius + reach + touchGap)
     const dx = Math.abs(other.x - x)
     return dx >= needed ? y : Math.max(y, other.y + Math.sqrt(needed * needed - dx * dx))
   })
-
-const withoutReach = ({ reach: _, ...marker }: Reaching): PlaceMarker => marker
 
 /**
  * Converts a meander into pixel markers. Features from accepted proposals keep
@@ -106,7 +100,7 @@ export const placeMarkers = (
 ): ReadonlyArray<PlaceMarker> => {
   const w = stage.stageWidth
   const span = Math.max(1, features.length - 1)
-  const placed = Arr.reduce(features, Arr.empty<Reaching>(), (placed, feature, index) => {
+  return Arr.reduce(features, Arr.empty<PlaceMarker>(), (placed, feature, index) => {
     const t = index / span
     const radius = markerRadius(stage, feature.weight)
     const reach = touchReach(radius)
@@ -122,7 +116,7 @@ export const placeMarkers = (
       reach,
       Math.max(stage.padding + radius, w * (meander.top + index * meander.step))
     )
-    const marker: Reaching = { name: feature.name, description: feature.description, x, y, radius, reach }
+    const marker: PlaceMarker = { name: feature.name, description: feature.description, x, y, radius, reach }
     return Arr.append(
       placed,
       Option.match(Arr.get(contributors, index).pipe(Option.flatten), {
@@ -131,7 +125,6 @@ export const placeMarkers = (
       })
     )
   })
-  return Arr.map(placed, withoutReach)
 }
 
 /**
@@ -148,6 +141,11 @@ export const placeMarkers = (
  * as much as what is arriving, so nothing on the stage is ever under a word.
  * `from` and `to` that are clear already are returned as they are at either end.
  *
+ * A marker's reach travels with it as its radius does, from the reach it has
+ * in `from` — a disc part-way grown has part of its reach — so a travel that
+ * is interrupted and starts again from where the drawing was carries on from
+ * there. A marker absent at either end has no radius and no reach there.
+ *
  * @since 0.3.0
  */
 export const markersBetween =
@@ -155,10 +153,8 @@ export const markersBetween =
   (from: ReadonlyArray<PlaceMarker>, to: ReadonlyArray<PlaceMarker>, t: number): ReadonlyArray<PlaceMarker> => {
     const named = (markers: ReadonlyArray<PlaceMarker>, name: string) =>
       Arr.findFirst(markers, (marker) => marker.name === name)
-    // A marker on the stage reaches for its touch target; one absent at either end reaches for nothing there.
-    const standing = (marker: PlaceMarker): Reaching => ({ ...marker, reach: touchReach(marker.radius) })
-    const absent = (marker: PlaceMarker): Reaching => ({ ...marker, radius: 0, reach: 0 })
-    const place = (placed: ReadonlyArray<Reaching>, start: Reaching, target: Reaching) => {
+    const absent = (marker: PlaceMarker): PlaceMarker => ({ ...marker, radius: 0, reach: 0 })
+    const place = (placed: ReadonlyArray<PlaceMarker>, start: PlaceMarker, target: PlaceMarker) => {
       const radius = lerp(start.radius, target.radius, t)
       const reach = lerp(start.reach, target.reach, t)
       const x = clamp(stage.padding + radius, stage.stageWidth - stage.padding - radius, lerp(start.x, target.x, t))
@@ -167,21 +163,11 @@ export const markersBetween =
     }
     const staying = Arr.reduce(
       to,
-      Arr.empty<Reaching>(),
-      (placed, target) =>
-        place(
-          placed,
-          Option.match(named(from, target.name), { onNone: () => absent(target), onSome: standing }),
-          standing(target)
-        )
+      Arr.empty<PlaceMarker>(),
+      (placed, target) => place(placed, Option.getOrElse(named(from, target.name), () => absent(target)), target)
     )
     const leaving = Arr.filter(from, (marker) => Option.isNone(named(to, marker.name)))
-    return Arr.map(
-      t >= 1
-        ? staying
-        : Arr.reduce(leaving, staying, (placed, start) => place(placed, standing(start), absent(start))),
-      withoutReach
-    )
+    return t >= 1 ? staying : Arr.reduce(leaving, staying, (placed, start) => place(placed, start, absent(start)))
   }
 
 /**
@@ -211,7 +197,8 @@ export const drawingScaled = (drawing: PlaceDrawing, scale: number): PlaceDrawin
       ...marker,
       x: marker.x * scale,
       y: marker.y * scale,
-      radius: marker.radius * scale
+      radius: marker.radius * scale,
+      reach: marker.reach * scale
     })),
     paper: drawing.paper * scale
   })

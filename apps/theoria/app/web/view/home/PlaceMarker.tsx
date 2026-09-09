@@ -4,7 +4,6 @@ import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
-import { minimumTouchTarget, touchReach } from "../../../contracts/demo/imagined-place-flow.js"
 import type { PlaceSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
@@ -79,27 +78,30 @@ const labelClassName = "shrink-0 overflow-hidden"
  * A disc can be drawn well under 44 px on a phone. Its reach — an invisible
  * ring, part of the disc and clipped by nothing — makes its touch target up
  * to that size without changing the drawing; the geometry already keeps the
- * reaches of neighbouring discs apart (`touchReach`).
+ * reaches of neighbouring discs apart, and a disc on its way carries the
+ * reach it has grown so far (`PlaceMarker.reach`).
  */
 const reachClassName = "absolute rounded-full"
 
 /**
- * The reach is the minimum target itself, centred on the disc as drawn — not
- * the disc grown by a rounded margin, which could stand a snapped fraction
- * short of the promise or a fraction into a neighbour's reach.
+ * The reach's box is the disc plus its reach on every side, to the hundredth
+ * of a pixel and centred on the disc as drawn — for a standing disc the
+ * minimum target itself, not the disc grown by a rounded margin, which could
+ * stand a snapped fraction short of the promise or into a neighbour's reach.
  */
 const reachStyle = (marker: Marker): CSSProperties => {
-  const offset = `${((drawnDiameter(marker) - minimumTouchTarget) / 2).toFixed(2)}px`
+  const across = 2 * (marker.radius + marker.reach)
+  const offset = `${((drawnDiameter(marker) - across) / 2).toFixed(2)}px`
   return {
-    width: `${String(minimumTouchTarget)}px`,
-    height: `${String(minimumTouchTarget)}px`,
+    width: `${across.toFixed(2)}px`,
+    height: `${across.toFixed(2)}px`,
     left: offset,
     top: offset
   }
 }
 
 const Reach = ({ marker }: { readonly marker: Marker }) =>
-  touchReach(marker.radius) > 0
+  marker.reach > 0
     ? <Layer aria-hidden className={reachClassName} data-place-reach style={reachStyle(marker)} />
     : null
 

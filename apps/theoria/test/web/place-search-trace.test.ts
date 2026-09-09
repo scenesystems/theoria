@@ -18,7 +18,7 @@ import { onStage } from "../helpers/place-on-stage.js"
 const stage = stageFor(640)
 
 const arrangementWith = (loss: number, markerX: number) => ({
-  markers: [{ name: "Bell", description: "A bell.", x: markerX, y: 120, radius: 24 }],
+  markers: [{ name: "Bell", description: "A bell.", x: markerX, y: 120, radius: 24, reach: 0 }],
   lines: [{ text: "The bell.", y: 40, maxWidth: 400, width: 120 }],
   quality: { loss, lineCount: 1, narrowestLine: 0.8, raggedness: 0.1 }
 })

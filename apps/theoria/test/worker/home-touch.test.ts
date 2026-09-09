@@ -7,7 +7,7 @@ import * as Arr from "effect/Array"
 import { minimumTouchTarget } from "../../app/contracts/demo/imagined-place-flow.js"
 
 import { act, BrowserLive, eventually, goto, openPage, setViewport, visible } from "./browser.js"
-import { discsAtRest, discTouchTargets, scrollElementTo } from "./platform/in-page.js"
+import { discTouchTargets, drawnForColumn, scrollElementTo } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 /**
@@ -34,7 +34,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.forEach(Arr.make(390, 320), (width) =>
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 844 })
-            yield* eventually(() => demo.evaluate(discsAtRest), true)
+            // A narrower column shows the last drawing fitted while its own search runs; the promise is about the drawing made for it.
+            yield* eventually(() => demo.evaluate(drawnForColumn), true)
             yield* act(() => paper.evaluate(scrollElementTo, 0))
             const targets = yield* act(() => discs.evaluateAll(discTouchTargets))
             const at = `at ${String(width)}px`

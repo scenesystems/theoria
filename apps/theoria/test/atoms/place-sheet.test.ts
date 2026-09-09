@@ -16,13 +16,14 @@ import { PlaceSheet, sheetFit, sheetFitting } from "../../app/web/atoms/imagined
 
 const drawing = new PlaceDrawing({
   markers: [
-    { name: "Causeway", description: "A causeway of set stones.", x: 500, y: 120, radius: 40 },
+    { name: "Causeway", description: "A causeway of set stones.", x: 500, y: 120, radius: 16, reach: 6 },
     {
       name: "The desk",
       description: "A single desk faces the sea.",
       x: 640,
       y: 260,
       radius: 50,
+      reach: 0,
       contributedBy: "neighbor"
     }
   ],
@@ -49,18 +50,19 @@ describe("the sheet under a drawing while the column changes width", () => {
       expect(sheetFitting(704, 704, 500)).toEqual(PlaceSheet.make({ width: 704, height: 500, fit: 1 }))
     }))
 
-  it.effect("scales a drawing as one piece: every disc's place and size, and the paper's edge", () =>
+  it.effect("scales a drawing as one piece: every disc's place, size and reach, and the paper's edge", () =>
     Effect.sync(() => {
       const fitted = drawingScaled(drawing, 0.5)
       expect(fitted.paper).toBe(400)
       expect(fitted.markers).toEqual([
-        { name: "Causeway", description: "A causeway of set stones.", x: 250, y: 60, radius: 20 },
+        { name: "Causeway", description: "A causeway of set stones.", x: 250, y: 60, radius: 8, reach: 3 },
         {
           name: "The desk",
           description: "A single desk faces the sea.",
           x: 320,
           y: 130,
           radius: 25,
+          reach: 0,
           contributedBy: "neighbor"
         }
       ])

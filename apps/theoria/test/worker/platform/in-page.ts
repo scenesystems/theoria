@@ -804,6 +804,17 @@ export const discsAtRest = (region: Element): boolean =>
   [...region.querySelectorAll("[data-place-marker]")].every((element) => getComputedStyle(element).transform === "none")
 
 /**
+ * The stage shows the kept drawing made for this column — not the last
+ * column's drawing fitted to it while a new search runs — with every disc at
+ * rest. A fitted drawing's discs have no transform of their own (the stage
+ * is scaled as one piece), so `discsAtRest` alone cannot tell the two apart.
+ */
+export const drawnForColumn = (region: Element): boolean =>
+  region.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept" &&
+  region.querySelector("[data-place-stage-fit]")?.getAttribute("data-place-stage-fit") === "1" &&
+  [...region.querySelectorAll("[data-place-marker]")].every((element) => getComputedStyle(element).transform === "none")
+
+/**
  * The stage draws the composition now shown: every feature the composer named
  * has its disc in `region`, filled in and at rest, and the drawing is the kept
  * one. Stories name different features, so this holds only once the drawing
