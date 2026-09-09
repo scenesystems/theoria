@@ -1032,6 +1032,10 @@ export const scrollPast = (element: Element) => {
 /** The element's top edge in the document, which scrolling cannot move: where it stands in the flow. */
 export const documentTop = (element: Element) => Math.round(element.getBoundingClientRect().top + window.scrollY)
 
+/** The colour scheme the page shows: the theme's class on `<html>`, set by the app once it has read the media query. */
+export const colorSchemeShown = (): "dark" | "light" =>
+  document.documentElement.classList.contains("dark") ? "dark" : "light"
+
 /**
  * The page canvas colour as the visitor sees it: the background of the
  * topmost element painted at the page's left margin, halfway down the

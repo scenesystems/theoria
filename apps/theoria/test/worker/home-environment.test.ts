@@ -249,9 +249,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // Each scheme changes to a story the page is not already showing, so the search runs.
         yield* Effect.forEach(Arr.zip(colorSchemes, Arr.drop(placeScenarios, 1)), ([scheme, scenario]) =>
           Effect.gen(function*() {
-            yield* setColorScheme(page, scheme)
             yield* goto(page, "/")
             yield* visible(rendered(page))
+            yield* setColorScheme(page, scheme)
             // An answer open.
             yield* focus(page.locator("[data-place-marker]").last())
             yield* press(page, "Enter")

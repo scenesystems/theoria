@@ -27,6 +27,7 @@ import {
 import * as Arr from "effect/Array"
 
 import {
+  colorSchemeShown,
   distinctTextColours,
   documentFitsViewport,
   elementsPastViewport,
@@ -179,7 +180,18 @@ export const setViewport = (page: Page, viewport: Viewport) => act(() => page.se
 /** The reader's system colour scheme, as the page's `prefers-color-scheme` media query reports it. */
 export const ColorScheme = Schema.Literal("light", "dark")
 export type ColorScheme = typeof ColorScheme.Type
-export const setColorScheme = (page: Page, scheme: ColorScheme) => act(() => page.emulateMedia({ colorScheme: scheme }))
+/**
+ * Sets the reader's scheme and returns once the page shows it. The app reads
+ * the media query through a stream and toggles the theme's class on `<html>`
+ * a tick later, so a colour read straight after `emulateMedia` could be the
+ * old scheme's; the theme's own transitions then start, and callers that
+ * read colours wait for `animationsSettled` as they do after any change.
+ */
+export const setColorScheme = (page: Page, scheme: ColorScheme) =>
+  Effect.andThen(
+    act(() => page.emulateMedia({ colorScheme: scheme })),
+    eventually(() => page.evaluate(colorSchemeShown), scheme)
+  )
 
 export const visible = (locator: Locator) => act(() => inBrowser(locator).toBeVisible())
 export const hidden = (locator: Locator) => act(() => inBrowser(locator).toBeHidden())
