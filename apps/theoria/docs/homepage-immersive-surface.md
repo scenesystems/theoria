@@ -1128,33 +1128,48 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       by a `transformIndexHtml` hook (`vite.config.ts`
       `theoria:preload-typefaces`) that finds them in the bundle and fails
       the build if either is missing; `public/fonts` and its headers are
-      gone. Measurement waits for the faces: `BrowserFonts`
-      (`platform/BrowserFonts.ts`) wraps `document.fonts.load`, and
-      `browserTextLayoutLayer` loads `measuredFont("body")` and `("mono")`
-      before it takes its canvas — a failed load is logged and measurement
-      goes on, since the metrics then are the stand-in's and still the best
-      in hand; no later `loadingdone` re-measures, since the layer was gated
-      on the same faces. Two metric-dependent heights the stand-ins exposed
+      gone. Measurement is not held for the faces (revised in the fourth
+      review, below, from a gated layer): `BrowserFonts`
+      (`platform/BrowserFonts.ts`) wraps `document.fonts.check` and `.load`;
+      `browserTextLayoutLayer` measures in whatever face the page shows and,
+      if `measuredFont("body")` or `("mono")` is in flight, watches for it
+      (`servedFacesWatched`) and tells `FontReadiness.facesArrived` when any
+      lands — the registry advances `fontReadinessRevisionAtom`, the layout
+      is built again (`Layer.fresh`, since Effect memoizes a layer by
+      identity, not by what it is told), every prepared text is prepared
+      again and the drawing searched again on the paper it holds. Faces that
+      all fail tell nothing: the stand-in's metrics are then the best in
+      hand. Two metric-dependent heights the stand-ins exposed
       were fixed at the source: the feature row's dot was body-size text on
       the name's baseline (`PlaceComposition.tsx` `FeatureSlot`, now set in
       the name's role) and the proposal's label/value rows aligned two type
       sizes on a baseline (`PlaceProposal.tsx` `Field`, now the label
       centred on the value's first line box) — both a pixel apart between a
-      face and its stand-in. Before the faces are in hand the stage is uncut
-      (`PlaceStage.tsx` `Placeholder`, `data-place-stage="uncut"`): nothing
-      about the paper is known honestly until a line is measured in the face
-      it is set in, so the paper is cut once, when they land, and held.
+      face and its stand-in. The paper is cut in the stand-in from the first
+      paint, to the paper its metrics ask for; when a served face lands the
+      text is measured again in it and the drawing is searched again on the
+      paper it holds, landing a second time at the height the face asks for.
       Tests: `typefaces.contract.test.ts` (stacks, aliases, overrides, the
-      measured font), `browser-text-layout.test.ts` (nothing measured until
-      the faces load, a failed load non-fatal), `static-store.test.ts`
+      measured font), `browser-text-layout.test.ts` (measured in the face in
+      hand, the watcher tells the arrival, a failed load non-fatal),
+      `text-layout.test.ts` (the layout is built again exactly once per
+      arrival, an arrival between the first read and the subscription is not
+      missed, faces in hand build once), `static-store.test.ts`
       (`/assets/*.woff2` immutable), `site.test.ts` (preloads derived from
       the stylesheet's `url()`s and the stand-in faces declared, in the
       minifier's spelling too), and `home-typefaces.test.ts`, which holds
       every `.woff2` at the browser's edge (`holdResponses`, `gotoParsed`)
       past the build's return and asserts the first paint is in a stand-in
-      with overrides, the stage uncut, then on release the faces loaded, the
-      title's box unchanged, every text region painted at one height and the
-      stage column at two (uncut, cut), at desktop and phone.
+      with overrides, the paper cut and the story drawn once with the faces
+      still in flight, then on release the faces loaded, a second landing,
+      the title's box unchanged, every text region painted at one height
+      until the first landing and the paper's resting heights equal before
+      and after the second search, at desktop and phone. That test found the
+      scenario pills growing 2 px in the served face: the scenario choice is
+      now a segmented control of equal cells (`ChoiceGroup`
+      `appearance="segment"`, `segmentedControlRailClassName`), one row at
+      every width, whose cells take their width from the rail and not from
+      the face their labels are set in.
 - [x] **CSP nonce.** `style-src` allows `'unsafe-inline'`
       (`security-headers.ts`). Audit inline styles under report-only, theme
       Shiki through CSS variables, and issue a per-response nonce so the
@@ -1236,6 +1251,53 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       variable for both surfaces. The remaining plain `it(` unit tests
       (`code-links`, `place-references`) were moved to `it.effect` so every
       unit test runs in the Effect test style.
+- [x] **A fourth review** of the eight checkboxes above (`73e6cec` onward)
+      by the Oracle. Three must-fixes, closed by failing tests first; the
+      should-fixes and nice-to-haves are listed under _Remaining_ below.
+  - _A disc's reach was recomputed from its drawn radius, not carried_
+    (must). `touchReach(radius)` in the view gave a disc mid-travel the
+    reach of a settled disc that size, so an interrupted travel started
+    again from a reach the drawing never had. `reach` is now a field of
+    `PlaceMarker` (`imagined-place-result.ts`): `placeMarkers` sets it,
+    `markersBetween` interpolates it from the reach in `from`, a marker
+    absent at either end has none there, and `drawingScaled` scales it with
+    the disc. `PlaceMarker.tsx` renders the reach the drawing gives
+    (`imagined-place-flow.contract.test.ts`, `place-sheet.test.ts`,
+    `place-search-trace.test.ts`). While the last column's drawing is shown
+    fitted during a new search its reaches are fitted too — an honest
+    picture of a drawing in transit; `home-touch.test.ts` waits for the
+    drawing made for the column (`drawnForColumn`, kept and at fit 1)
+    before it holds the discs to 44 px, which `discsAtRest` alone could not
+    tell from the fitted one.
+  - _Text was measured in a face the page might not show_ (must). Layout
+    waited on a gated layer for the served faces, so nothing was cut until
+    they landed, and a face that never landed held the paper uncut.
+    Revised to measure the face in hand and re-measure on arrival, as the
+    _Fallback-metrics fonts_ entry now describes: `BrowserFonts.inHand`,
+    `servedFacesWatched` (a scoped, interruptible watcher on `fonts.load`),
+    `FontReadiness.facesArrived` → `fontReadinessRevisionAtom` →
+    `textLayoutLive` rebuilt with `Layer.fresh` at the new revision.
+    Verified against Effect's layer memoisation (`Fresh` skips the memo
+    map; a merged layer of the same identity would not be rebuilt) and
+    effect-atom's synchronous runtime scheduler (an arrival cannot land
+    inside a build, so the test lands it through a `Deferred`).
+    `TextProjectionKey` and the new `TextPrepareKey` are `Schema.Class`.
+  - _The typefaces test asserted a state the page no longer has_ (must).
+    Rewritten for the no-wait design; its shift assertions found the
+    scenario pills growing in the served face, fixed by the segmented
+    control (`segmented-control.contract.test.ts`: two and three cells one
+    row at every width, four folding only below `sm`).
+  - _Remaining_ from the review, each to be closed by a failing test first:
+    `atoms/text.ts` matches a closed `SurfaceVariant` with `Match.orElse`
+    where direct indexing of `textSemanticsByRole[role].maxWidth[variant]`
+    says the same; `highlighter.ts` matches a closed `HighlightTokenKind`
+    with a fallthrough where naming `"plain"` and `Match.exhaustive` would;
+    `WordmarkMorph.tsx` runs a perpetual `useTime` crossfade (make it
+    finite, or record the branding exception and its reduced-motion
+    behaviour); `GutterLine` in `HighlightedCode.tsx` is a `Data.Class`
+    with no behaviour and should be `Schema.Class`; the touch probe reads
+    geometry and should also dispatch a real tap. Decisions the review
+    accepted: no CSP nonce (above); the 390 first-disc exception stands.
 
 ## Non-goals
 

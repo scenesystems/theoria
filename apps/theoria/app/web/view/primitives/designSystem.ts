@@ -285,11 +285,16 @@ export const pillButtonClassName = ({
 
 const segmentedControlRailBaseClassName = "grid min-w-0 gap-1 rounded-instrument border border-rule bg-instrument p-1"
 
+/**
+ * A segmented control is one row of equal cells at every width the cells can
+ * hold: up to three stay side by side on a phone; four fold to two rows below
+ * the small breakpoint.
+ */
 export const segmentedControlRailClassName = (count: number): string =>
   count <= 2
     ? `${segmentedControlRailBaseClassName} grid-cols-2`
     : count === 3
-    ? `${segmentedControlRailBaseClassName} grid-cols-1 sm:grid-cols-3`
+    ? `${segmentedControlRailBaseClassName} grid-cols-3`
     : `${segmentedControlRailBaseClassName} grid-cols-2 sm:grid-cols-4`
 
 const segmentedControlButtonBaseClassName =

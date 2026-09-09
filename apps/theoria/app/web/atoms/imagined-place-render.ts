@@ -40,7 +40,7 @@ import { prepareBrowserText } from "../view/text/authority.js"
 
 import { placeBuildAtom, placeBuiltAtom, placeOutlineAtom, placeStageMeasuredWidthAtom } from "./imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "./motion.js"
-import { textLayoutLayerAtom } from "./text-layout.js"
+import { textLayoutLive } from "./text-layout.js"
 
 /**
  * Draws the place in the browser with the browser's own font metrics.
@@ -530,11 +530,12 @@ export type PlaceRenderError = DemoExecutionError | CanvasUnavailable
 
 /**
  * What drawing the place needs: the page's text measurement — the same layer
- * `textLayoutRuntime` runs, so the two share one measurement cache — and the
- * search worker.
+ * `textLayoutRuntime` runs, at the same revision of the faces, so the two
+ * share one measurement cache and a face's arrival redraws the place in it —
+ * and the search worker.
  */
 const placeRenderRuntime: AtomType.AtomRuntime<BrowserTextLayout | PlaceSearcher, CanvasUnavailable> = Atom.runtime(
-  (get: AtomType.Context) => Layer.merge(get(textLayoutLayerAtom), PlaceSearcher.Default)
+  (get: AtomType.Context) => Layer.merge(get(textLayoutLive), PlaceSearcher.Default)
 )
 
 /**

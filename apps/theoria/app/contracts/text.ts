@@ -122,9 +122,11 @@ export const typefaceFallbackFaces: string = Arr.map(
 ).join("\n")
 
 /**
- * The font the layout engine loads before it measures a family: the served
- * face at its normal weight and the root size. Measuring earlier would cache
- * the stand-in's widths for the page's life.
+ * The font the layout engine asks the document about before it measures a
+ * family: the served face at its normal weight and the root size. In hand, the
+ * layout measures in it; in flight, the layout measures in the stand-in the
+ * page shows and watches for this face to land, when it is built again in it
+ * — so no width the stand-in gave outlives the face that gave it.
  */
 export const measuredFont = (family: FontFamily): string => `400 16px "${servedFontFamily(family)}"`
 

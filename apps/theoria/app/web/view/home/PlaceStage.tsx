@@ -343,8 +343,10 @@ const Legend = ({ entries }: { readonly entries: ReadonlyArray<PlaceLegendEntry>
 
 /**
  * Before the paper can be cut nothing about it is known — the column is not
- * yet measured, or the served face the story will be set in is not yet in
- * hand, so no line of it has been measured — and three lines stand in for it.
+ * yet measured, so no line of the story has a width to be set to — and three
+ * lines stand in for it. The faces are not waited for: the story is measured
+ * in whatever face the page shows, and measured again should the served face
+ * land later.
  */
 const Placeholder = () => (
   <Stack className="gap-3 p-4" data-place-stage="uncut">

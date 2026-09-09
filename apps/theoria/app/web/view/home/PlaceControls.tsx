@@ -28,7 +28,10 @@ const tone = toneClassesFor("dsp")
 /**
  * The scenario: which recorded story the demonstration tells. Choosing one
  * sets the brief to that story's brief. It is its own control, outside the
- * Brief field, so the field's label names only the textarea.
+ * Brief field, so the field's label names only the textarea. Drawn as a
+ * segmented control: exactly one of three, in cells of equal width — so the
+ * cells are the rail's to divide, not the labels' to measure, and a served
+ * face arriving a glyph wider than its stand-in moves none of them.
  */
 export const ScenarioChoice = ({ disabled }: { readonly disabled: boolean }) => {
   const controls = useAtomValue(placeControlsAtom)
@@ -41,7 +44,7 @@ export const ScenarioChoice = ({ disabled }: { readonly disabled: boolean }) => 
   return (
     <ChoiceGroup
       activeIndex={activeIndex}
-      className="gap-1.5"
+      appearance="segment"
       disabled={disabled}
       label="Scenario"
       onSelect={(index) => {
