@@ -1320,10 +1320,14 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       rests, and a replay starts its sweep at once
       (`wordmark-morph.test.ts`: the keyframes are the cycle's own curve;
       `docs.test.ts`: intro, rest held, pointer and keyboard replays).
-    - `GutterLine` in `HighlightedCode.tsx` is a `Data.Class`
-      with no behaviour and should be `Schema.Class`; the touch probe reads
-      geometry and should also dispatch a real tap. Decisions the review
-      accepted: no CSP nonce (above); the 390 first-disc exception stands.
+    - _A line of code as data without authority_ (closed). `GutterLine` was
+      a `Data.Class` whose `number` was any number; it is `Schema.Class`
+      with `number: Int, positive` — lines count from one, and a zeroth or
+      fractional line does not construct or decode
+      (`code-highlighter.test.ts`, "a gutter line is numbered from one").
+    - The touch probe reads geometry and should also dispatch a real tap.
+      Decisions the review accepted: no CSP nonce (above); the 390
+      first-disc exception stands.
 - [x] **The Chromium suite finishes sooner without a wait shortened.** The
       suite took seven minutes in CI: nineteen files run one at a time, since
       they measure motion and a second browser on the runner would skew it,

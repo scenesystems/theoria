@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Either, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import { GutterLine, gutterNumber } from "../../app/web/view/primitives/code/HighlightedCode.js"
 import {
   highlightCode,
   HighlightTokenKind,
@@ -57,4 +58,17 @@ describe("Theoria Code Highlighter", () => {
         expect(lines[1]?.length).toBeGreaterThan(0)
       })
     ))
+
+  it.effect("a gutter line is numbered from one, by schema, and the gutter shows that number alone", () =>
+    Effect.gen(function*() {
+      const decode = Schema.decodeUnknown(GutterLine)
+      const line = yield* decode({ number: 3, text: "const answer = 42" })
+      expect(gutterNumber(line)).toBe(3)
+      expect(line).toBeInstanceOf(GutterLine)
+      // Lines count from one: a zeroth or fractional line is not a line the gutter has.
+      expect(Either.isLeft(yield* Effect.either(decode({ number: 0, text: "" })))).toBe(true)
+      expect(Either.isLeft(yield* Effect.either(decode({ number: 1.5, text: "" })))).toBe(true)
+      // Constructing directly is the same contract.
+      expect(() => new GutterLine({ number: -1, text: "" })).toThrow()
+    }))
 })

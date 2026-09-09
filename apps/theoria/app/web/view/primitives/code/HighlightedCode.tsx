@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Data, Option } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import { Fragment, type ReactNode } from "react"
 
@@ -75,10 +75,10 @@ const focusableLineRowClassName =
 const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
 
 /** A line of the sample as the gutter has it: its number, from one, and its text. */
-export class GutterLine extends Data.Class<{
-  readonly number: number
-  readonly text: string
-}> {}
+export class GutterLine extends Schema.Class<GutterLine>("GutterLine")({
+  number: Schema.Int.pipe(Schema.positive()),
+  text: Schema.String
+}) {}
 
 /** The gutter as a listing has it: the number alone. */
 export const gutterNumber = (line: GutterLine): ReactNode => line.number
