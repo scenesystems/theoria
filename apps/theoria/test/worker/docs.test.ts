@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Clock, Deferred, Effect, Layer, Runtime } from "effect"
+import { Clock, Deferred, Duration, Effect, Layer, Runtime } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import { cards } from "../../app/contracts/card.js"
+import { introDelaySeconds } from "../../app/web/view/primitives/wordmarkMorph.js"
 import {
   act,
   attached,
@@ -21,13 +22,21 @@ import {
   hover,
   observeRequests,
   openPage,
+  press,
   setViewport,
   until,
   urlMatches,
   visible,
   wheel
 } from "./browser.js"
-import { clipboardText, horizontalScrollers, presence, scrollAffordance, setRootFontSize } from "./platform/in-page.js"
+import {
+  clipboardText,
+  greekFaceOpacities,
+  horizontalScrollers,
+  presence,
+  scrollAffordance,
+  setRootFontSize
+} from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
@@ -96,6 +105,37 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         expect(yield* full.failures).toEqual([])
         expect(yield* reduced.failures).toEqual([])
+      }))
+
+    it.scoped("the wordmark plays one pass as the session begins, rests Latin, and plays again at once when met", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        const wordmark = page.locator("header").getByRole("img", { name: "Theoria" })
+        const greek = act(() => wordmark.evaluate(greekFaceOpacities))
+        const someGreek = (opacities: ReadonlyArray<number>) => Arr.some(opacities, (opacity) => opacity > 0)
+        const allLatin = (opacities: ReadonlyArray<number>) =>
+          opacities.length === 6 && Arr.every(opacities, (opacity) => opacity === 0)
+
+        // The intro: after its lead hold the sweep to Greek shows…
+        yield* until(greek, someGreek, "the intro's sweep to Greek", Duration.seconds(6))
+        // …and the pass returns to Latin and stays there: no clock keeps the wordmark cycling.
+        yield* until(greek, allLatin, "the wordmark's return to Latin", Duration.seconds(10))
+        yield* Effect.sleep("1500 millis")
+        expect(allLatin(yield* greek)).toBe(true)
+
+        // Met by the pointer, it plays again, and without the lead hold: Greek shows within the first sweep.
+        const met = yield* Clock.currentTimeMillis
+        yield* hover(wordmark)
+        yield* until(greek, someGreek, "the replay's sweep to Greek", Duration.seconds(4))
+        expect((yield* Clock.currentTimeMillis) - met).toBeLessThan(introDelaySeconds * 1_000)
+        yield* until(greek, allLatin, "the replay's return to Latin", Duration.seconds(10))
+
+        // Met by the keyboard, the same.
+        yield* press(page, "Tab")
+        yield* until(greek, someGreek, "the focused wordmark's sweep to Greek", Duration.seconds(4))
+
+        expect(yield* failures).toEqual([])
       }))
 
     it.scoped("docs navigation, package selection, and focused API caching stay coherent", () =>

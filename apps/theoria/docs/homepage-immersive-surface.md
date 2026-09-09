@@ -1306,9 +1306,21 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       open edge of a colour the theme never painted), and the class is
       indexed (`code-highlighter.test.ts`, "every kind of token has one
       paint").
-    - `WordmarkMorph.tsx` runs a perpetual `useTime` crossfade (make it
-      finite, or record the branding exception and its reduced-motion
-      behaviour); `GutterLine` in `HighlightedCode.tsx` is a `Data.Class`
+    - _A perpetual clock under the wordmark_ (closed). `WordmarkMorph`
+      drove every segment from `useTime`, a frame callback for the life of
+      the page. The crossfade is now one pass handed to Motion as
+      keyframes (`segmentPass`: the Greek face's opacity at the moments
+      `segmentProgress` leaves and reaches its holds, with `times` and a
+      per-sweep ease), played when the session begins (`intro`, after the
+      cycle's lead hold), then `rest`, then `pass` again when a reader meets
+      it — pointer on the wordmark or focus on the header's home link, both
+      writes to the session's `wordmarkPhaseAtom`, which is read as a phase
+      and written as events (`replayAsked` only moves a resting wordmark;
+      `passEnded` is told by `onAnimationComplete`). Nothing ticks while it
+      rests, and a replay starts its sweep at once
+      (`wordmark-morph.test.ts`: the keyframes are the cycle's own curve;
+      `docs.test.ts`: intro, rest held, pointer and keyboard replays).
+    - `GutterLine` in `HighlightedCode.tsx` is a `Data.Class`
       with no behaviour and should be `Schema.Class`; the touch probe reads
       geometry and should also dispatch a real tap. Decisions the review
       accepted: no CSP nonce (above); the 390 first-disc exception stands.

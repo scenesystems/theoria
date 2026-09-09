@@ -147,6 +147,10 @@ export const presence = (element: Element) => ({
   )
 })
 
+/** How Greek each segment of the wordmark under `root` is painted right now: 0 Latin, 1 Greek. */
+export const greekFaceOpacities = (root: Element): ReadonlyArray<number> =>
+  [...root.querySelectorAll("[data-wordmark-face=\"gr\"]")].map((segment) => Number(getComputedStyle(segment).opacity))
+
 /** Every finite animation (CSS and Web Animations) has finished; infinite ones are ignored. */
 export const finiteAnimationsFinished = () =>
   document.getAnimations().every((animation) =>

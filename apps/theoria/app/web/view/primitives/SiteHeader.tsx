@@ -1,3 +1,6 @@
+import { useAtomSet } from "@effect-atom/atom-react"
+
+import { wordmarkPhaseAtom } from "../../atoms/wordmark.js"
 import { GitHubMark } from "./BrandMarks.js"
 import { headerChromeGlyphClassName, headerChromeLinkClassName } from "./HeaderChrome.js"
 import { Cluster, Header } from "./Layout.js"
@@ -13,32 +16,37 @@ const theoriaRepoUrl = "https://github.com/scenesystems/theoria"
  * other theme — set as words and a glyph on the canvas. Nothing here is a
  * chip: the header is the first thing that says the page is not a card.
  */
-export const SiteHeader = () => (
-  <Header className="pb-2 pt-2">
-    <Cluster className="items-center justify-between gap-4">
-      <InternalLink href="/">
-        <TheoriaLogo animation="glossary" className="text-2xl" />
-      </InternalLink>
-      <Cluster render={<nav aria-label="Site" />} className="items-center gap-1 sm:gap-3">
-        <InternalLink className={headerChromeLinkClassName()} href="/docs">
-          <SemanticText as="span" className="text-inherit" role="button-label" text="Docs" variant="expanded" />
+export const SiteHeader = () => {
+  const tellWordmark = useAtomSet(wordmarkPhaseAtom)
+
+  return (
+    <Header className="pb-2 pt-2">
+      <Cluster className="items-center justify-between gap-4">
+        {/* Reaching the wordmark by keyboard meets it the way a pointer does. */}
+        <InternalLink href="/" onFocus={() => tellWordmark("replayAsked")}>
+          <TheoriaLogo animation="glossary" className="text-2xl" />
         </InternalLink>
-        <ExternalLink
-          aria-label="Theoria on GitHub"
-          className={headerChromeLinkClassName()}
-          href={theoriaRepoUrl}
-        >
-          <GitHubMark className={headerChromeGlyphClassName} />
-          <SemanticText
-            as="span"
-            className="hidden text-inherit sm:inline"
-            role="button-label"
-            text="GitHub"
-            variant="expanded"
-          />
-        </ExternalLink>
-        <ThemeToggle />
+        <Cluster render={<nav aria-label="Site" />} className="items-center gap-1 sm:gap-3">
+          <InternalLink className={headerChromeLinkClassName()} href="/docs">
+            <SemanticText as="span" className="text-inherit" role="button-label" text="Docs" variant="expanded" />
+          </InternalLink>
+          <ExternalLink
+            aria-label="Theoria on GitHub"
+            className={headerChromeLinkClassName()}
+            href={theoriaRepoUrl}
+          >
+            <GitHubMark className={headerChromeGlyphClassName} />
+            <SemanticText
+              as="span"
+              className="hidden text-inherit sm:inline"
+              role="button-label"
+              text="GitHub"
+              variant="expanded"
+            />
+          </ExternalLink>
+          <ThemeToggle />
+        </Cluster>
       </Cluster>
-    </Cluster>
-  </Header>
-)
+    </Header>
+  )
+}
