@@ -6,8 +6,12 @@ import { Contracts, Text } from "@scenesystems/effect-text"
 
 import {
   flowLines,
+  lineWidthFor,
+  markerGap,
   markerRadius,
+  markersBeside,
   markersBetween,
+  minimumLineWidth,
   minimumTouchTarget,
   paperExpected,
   placeMarkers,
@@ -51,9 +55,19 @@ const corner = (pick: 0 | 1): Meander => ({
 
 const corners: ReadonlyArray<Meander> = [corner(0), corner(1)]
 
+/** The meander that leans furthest left: full swing, at the trough of the sine from the first feature on. */
+const leftmost: Meander = {
+  edge: meanderBounds.edge[0],
+  swing: meanderBounds.swing[1],
+  phase: -Math.PI / 2,
+  turns: meanderBounds.turns[0],
+  top: meanderBounds.top[0],
+  step: meanderBounds.step[0]
+}
+
 const expectWellPlaced = (stage: Stage, markers: ReadonlyArray<PlaceMarker>) => {
   Arr.forEach(markers, (m) => {
-    expect(m.x - m.radius).toBeGreaterThanOrEqual(stage.padding - 1e-9)
+    expect(m.x - m.radius).toBeGreaterThanOrEqual(stage.padding + minimumLineWidth + markerGap - 1e-9)
     expect(m.x + m.radius).toBeLessThanOrEqual(stage.stageWidth - stage.padding + 1e-9)
     expect(m.y - m.radius).toBeGreaterThanOrEqual(stage.padding - 1e-9)
   })
@@ -186,7 +200,7 @@ describe("Imagined place geometry contract", () => {
       const marker = (name: string, y: number): PlaceMarker => ({
         name,
         description: "",
-        x: 100,
+        x: 120,
         y,
         radius,
         reach: touchReach(radius)
@@ -220,6 +234,43 @@ describe("Imagined place geometry contract", () => {
       Arr.forEach(steps, (t) => {
         expectWellPlaced(narrow, markersBetween(narrow)(from, to, t))
       })
+    }))
+
+  it.effect("every marker leaves the least line beside it, so no line is ever set under a disc, at the narrowest stage and on the way", () =>
+    Effect.sync(() => {
+      Arr.forEach([240, 320, 704], (width) => {
+        const stage = stageFor(width)
+        const landed = placeMarkers(features, noContributors, stage, leftmost)
+        expectWellPlaced(stage, landed)
+        const widthFor = lineWidthFor(stage, landed)
+        Arr.forEach(Arr.range(0, 40), (line) => {
+          expect(widthFor(line)).toBeGreaterThanOrEqual(minimumLineWidth)
+          Arr.forEach(markersBeside(stage, landed, line), (marker) => {
+            expect(stage.padding + widthFor(line) + markerGap).toBeLessThanOrEqual(marker.x - marker.radius + 1e-9)
+          })
+        })
+        const from = placeMarkers(features, noContributors, stageFor(900), leftmost)
+        Arr.forEach(steps, (t) => {
+          expectWellPlaced(stage, markersBetween(stage)(from, landed, t))
+        })
+      })
+    }))
+
+  it.effect("a line keeps the gap from a disc above or below it as it does from one beside it", () =>
+    Effect.sync(() => {
+      const stage = stageFor(640)
+      const boundary = stage.padding + 2 * stage.lineHeight
+      const radius = markerRadius(stage, 1)
+      const disc = (y: number): PlaceMarker => ({ name: "Disc", description: "", x: 400, y, radius, reach: 0 })
+      const touching = disc(boundary - radius)
+      const clear = disc(boundary - radius - markerGap)
+      const nearlyClear = disc(boundary - radius - markerGap + 0.5)
+      expect(markersBeside(stage, [touching], 2)).toHaveLength(1)
+      expect(markersBeside(stage, [nearlyClear], 2)).toHaveLength(1)
+      expect(markersBeside(stage, [clear], 2)).toHaveLength(0)
+      expect(markersBeside(stage, [clear], 1)).toHaveLength(1)
+      expect(lineWidthFor(stage, [touching])(2)).toBe(touching.x - radius - markerGap - stage.padding)
+      expect(lineWidthFor(stage, [clear])(2)).toBe(stage.stageWidth - 2 * stage.padding)
     }))
 
   it.effect("keeps the proposer on features that came from accepted proposals", () =>

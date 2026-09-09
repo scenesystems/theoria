@@ -47,8 +47,40 @@ export const stageFor = (requestedWidth: number): Stage => {
   }
 }
 
-const markerGap = 10
-const minimumLineWidth = 60
+/**
+ * The clear space the prose keeps from a disc, all the way round: beside it,
+ * where a line stops short; above and below it, where a line whose band the
+ * disc comes within this of is narrowed too. Also the least two discs are
+ * apart. The stage draws to a tenth of a pixel, so a gap this wide is what
+ * keeps a glyph off a disc's edge however the drawing is rounded.
+ *
+ * @since 0.4.0
+ */
+export const markerGap = 10
+
+/**
+ * The least a line of prose is ever set to: the geometry keeps every disc's
+ * left edge at least this and the gap from the padding, so the flow never has
+ * to choose between a line too short to hold a word and one run under a disc.
+ *
+ * @since 0.4.0
+ */
+export const minimumLineWidth = 60
+
+/**
+ * The least `x` a disc of this radius may stand at: on the padded stage, and
+ * leaving the least line and the gap beside it. One rule for a disc landed
+ * and a disc on its way.
+ */
+const leastX = (stage: Stage, radius: number): number => stage.padding + minimumLineWidth + markerGap + radius
+
+/**
+ * The largest disc this stage has room for between the least line and the
+ * right padding. Every disc the geometry places is well within it; one brought
+ * from a wider stage on the way is held to it, so the rule about the least line
+ * holds at every step and not only where the drawing lands.
+ */
+const largestRadius = (stage: Stage): number => (stage.stageWidth - stage.padding - leastX(stage, 0)) / 2
 
 /** Between 4.5% and 8% of the stage width: big enough for a name at 640 px, a number at 240 px. */
 export const markerRadius = (stage: Stage, weight: number): number => stage.stageWidth * (0.045 + 0.035 * weight)
@@ -105,7 +137,7 @@ export const placeMarkers = (
     const radius = markerRadius(stage, feature.weight)
     const reach = touchReach(radius)
     const x = clamp(
-      stage.padding + radius,
+      leastX(stage, radius),
       w - stage.padding - radius,
       w * (meander.edge + meander.swing * Math.sin(meander.phase + t * meander.turns * Math.PI))
     )
@@ -155,9 +187,9 @@ export const markersBetween =
       Arr.findFirst(markers, (marker) => marker.name === name)
     const absent = (marker: PlaceMarker): PlaceMarker => ({ ...marker, radius: 0, reach: 0 })
     const place = (placed: ReadonlyArray<PlaceMarker>, start: PlaceMarker, target: PlaceMarker) => {
-      const radius = lerp(start.radius, target.radius, t)
+      const radius = Math.min(largestRadius(stage), lerp(start.radius, target.radius, t))
       const reach = lerp(start.reach, target.reach, t)
-      const x = clamp(stage.padding + radius, stage.stageWidth - stage.padding - radius, lerp(start.x, target.x, t))
+      const x = clamp(leastX(stage, radius), stage.stageWidth - stage.padding - radius, lerp(start.x, target.x, t))
       const y = clearanceBelow(placed, x, radius, reach, Math.max(stage.padding + radius, lerp(start.y, target.y, t)))
       return Arr.append(placed, { ...target, x, y, radius, reach })
     }
@@ -228,7 +260,7 @@ export const paperExpected = (
   const proseLines = flowLines(prepared, stage, []).length
   const displacedLines = Arr.reduce(features, 0, (lines, feature) => {
     const diameter = 2 * markerRadius(stage, feature.weight)
-    return lines + (diameter / stage.lineHeight) * ((diameter + markerGap) / column)
+    return lines + ((diameter + 2 * markerGap) / stage.lineHeight) * ((diameter + markerGap) / column)
   })
   return Math.ceil(proseLines + displacedLines) * stage.lineHeight + 2 * stage.padding
 }
@@ -252,9 +284,12 @@ export type LineBands = typeof LineBands.Type
 
 /**
  * The markers that stand in a line's band — between its top and the next
- * line's — and so narrow it: the one rule the flow keeps, asked of one line.
- * A line with none beside it runs the column's full width. The same question
- * a projection answers, since its padding and line height are the stage's.
+ * line's — or come within the gap of it, and so narrow it: the one rule the
+ * flow keeps, asked of one line. A line with none beside it runs the column's
+ * full width. The gap counts above and below as it does beside, so a disc
+ * whose edge meets a band's boundary narrows that band's line too, and no
+ * glyph is set against a disc's edge. The same question a projection answers,
+ * since its padding and line height are the stage's.
  *
  * @since 0.3.0
  */
@@ -265,13 +300,19 @@ export const markersBeside = (
 ): ReadonlyArray<PlaceMarker> => {
   const top = stage.padding + lineIndex * stage.lineHeight
   const bottom = top + stage.lineHeight
-  return Arr.filter(markers, (marker) => marker.y - marker.radius < bottom && marker.y + marker.radius > top)
+  return Arr.filter(
+    markers,
+    (marker) => marker.y - marker.radius - markerGap < bottom && marker.y + marker.radius + markerGap > top
+  )
 }
 
 /**
  * The description flows from the top-left and stops short of any marker that
  * intrudes into a line's band, so text wraps around the features. The
- * resolver is what `Text.layoutLinesWith` calls once per line.
+ * resolver is what `Text.layoutLinesWith` calls once per line. The geometry
+ * keeps every marker's left edge past the least line and the gap, so the
+ * floor is never what sets a line's width for markers it placed; it stands for
+ * markers from elsewhere, so the flow still lays out whole words.
  */
 export const lineWidthFor = (stage: Stage, markers: ReadonlyArray<PlaceMarker>) => (lineIndex: number): number => {
   const fullWidth = stage.stageWidth - 2 * stage.padding

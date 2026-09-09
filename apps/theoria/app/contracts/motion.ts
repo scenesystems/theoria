@@ -33,11 +33,14 @@ export const motionDuration = (relation: MotionRelation): Duration.Duration => H
 /**
  * The longest anything resting for an exit waits for it. What leaves signals
  * when it has left, and what rested for it moves on at the signal; the bound
- * is for an exit stretched by a page too busy to run it to time, or one whose
- * signal never comes — so nothing rests for good. Three exits: the exit
- * itself and two more of grace.
+ * is only for a signal that never comes, so nothing rests for good. It is a
+ * page's patience, not a multiple of the exit: a main thread held by a long
+ * task stretches an exit well past its own length, and a bound near that
+ * length would end the rest with the old lines still leaving — and the drawing
+ * travelling under them. Two seconds is what a person waits before a page
+ * reads as stuck, and well inside what the search itself is given to answer.
  */
-export const motionExitBound: Duration.Duration = Duration.times(motionDuration("exit"), 3)
+export const motionExitBound: Duration.Duration = Duration.seconds(2)
 
 /** The gap between things arriving together, line after line. */
 export const motionStagger: Duration.Duration = Duration.millis(20)
