@@ -25,6 +25,7 @@ import {
   until,
   visible
 } from "./browser.js"
+import { drawn, searchSettlesWithin } from "./demo.js"
 import {
   contrastsWithin,
   fullyInViewport,
@@ -48,8 +49,6 @@ const viewports: ReadonlyArray<Viewport> = [
   { width: 1920, height: 1080 }
 ]
 const colorSchemes: ReadonlyArray<ColorScheme> = ["light", "dark"]
-const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
-
 /**
  * What leads the first viewport. A short phone screen belongs to the hero:
  * its title, lead and both actions are wholly in view, and "See how it's
@@ -105,7 +104,11 @@ const leadsFirstViewport = (page: Page, viewport: Viewport) =>
 const storyTaken = (page: Page, scenario: PlaceScenario) =>
   Effect.andThen(
     eventually(() => page.getByRole("textbox", { name: "Brief" }).inputValue(), placeScenarioMeta[scenario].brief),
-    eventually(() => page.getByRole("region", { name: "Imagined place demo" }).evaluate(storyDrawn), true)
+    eventually(
+      () => page.getByRole("region", { name: "Imagined place demo" }).evaluate(storyDrawn),
+      true,
+      searchSettlesWithin
+    )
   )
 
 /**
@@ -150,7 +153,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             const { failures, page } = yield* openPage({ viewport })
             yield* goto(page, "/")
-            yield* visible(rendered(page))
+            yield* drawn(page)
             const scenarios = page.getByRole("radiogroup", { name: "Scenario" })
             yield* Effect.forEach(colorSchemes, (scheme) =>
               Effect.gen(function*() {
@@ -174,7 +177,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         // Nothing animates a geometric property. The title, the step headers and the paper stand only where
         // they stood before or where they stand after — never between. The discs are drawn by a real search:
         // each trial is a complete drawing, so a disc may stand somewhere new when a trial arrives, but between
@@ -204,14 +207,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               sample,
               Schedule.spaced("16 millis").pipe(Schedule.upTo("2 seconds"))
             ).pipe(Stream.runCollect, Effect.map(Chunk.toReadonlyArray))
-            yield* visible(rendered(page))
+            yield* drawn(page)
             yield* animationsSettled(page)
             const after = yield* sample
             const properties = Arr.dedupe(Arr.flatMap(samples, (frame) => frame.properties))
             expect(Arr.difference(properties, opacityAndColour)).toEqual([])
             const retained = Arr.intersection(Record.keys(before.placed), Record.keys(after.placed))
             expect(Arr.difference(landmarks, retained)).toEqual([])
-            const drawn = Arr.zip(drawings(samples), samples)
+            const sampled = Arr.zip(drawings(samples), samples)
             Arr.forEach(retained, (name) => {
               const stoodAt = (frames: ReadonlyArray<typeof before>) =>
                 Arr.dedupe(Arr.filterMap(frames, (frame) => Record.get(frame.placed, name)))
@@ -221,9 +224,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 return
               }
               const rested = before.placed[name] ?? ""
-              Arr.forEach(Arr.dedupe(Arr.map(drawn, ([drawing]) => drawing)), (drawing) => {
+              Arr.forEach(Arr.dedupe(Arr.map(sampled, ([drawing]) => drawing)), (drawing) => {
                 const during = stoodAt(
-                  Arr.filterMap(drawn, ([of, frame]) => of === drawing ? Option.some(frame) : Option.none())
+                  Arr.filterMap(sampled, ([of, frame]) => of === drawing ? Option.some(frame) : Option.none())
                 )
                 expect(Arr.difference(during, [rested]).length, `${name} during ${drawing}`).toBeLessThanOrEqual(1)
               })
@@ -250,7 +253,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.forEach(Arr.zip(colorSchemes, Arr.drop(placeScenarios, 1)), ([scheme, scenario]) =>
           Effect.gen(function*() {
             yield* goto(page, "/")
-            yield* visible(rendered(page))
+            yield* drawn(page)
             yield* setColorScheme(page, scheme)
             // An answer open.
             yield* focus(page.locator("[data-place-marker]").last())

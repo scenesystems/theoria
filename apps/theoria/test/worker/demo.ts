@@ -6,10 +6,11 @@ import * as Arr from "effect/Array"
 
 import { codeSite, CodeSiteId } from "../../app/contracts/demo/imagined-place-provenance.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
-import type { ColorScheme, ReducedMotion, Viewport } from "./browser.js"
+import type { ColorScheme, CpuSlowdown, ReducedMotion, Viewport } from "./browser.js"
 import {
   act,
   attribute,
+  BrowserError,
   click,
   count,
   desktop,
@@ -32,10 +33,45 @@ import {
   recordedPaperFrames,
   recordPaperFrames,
   stageFrame,
+  stageStanding,
   storyDrawn
 } from "./platform/in-page.js"
 
 export const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
+
+/**
+ * How long a test gives a search to settle its drawing, from asking for it to
+ * `complete`: `renderTrials` trials, each proposed, laid out and scored in the
+ * worker before the next is asked for, then the drawing's travel to the last
+ * best — on a machine that may run several times slower than the one the
+ * budget was set on, a CI runner or a throttled page. Far past any honest
+ * search and well short of the suite's patience: a search that takes longer
+ * has failed, whatever the machine.
+ */
+export const searchSettlesWithin: Duration.Duration = Duration.seconds(20)
+
+/**
+ * The search has settled and its drawing is on the page; waits as long as a
+ * search may take. A search that has not settled by then fails with what the
+ * stage says of itself — its phase, its paper, any failure it tells — so the
+ * report tells a search stuck from one that failed or never began.
+ */
+export const drawn = (page: Page) =>
+  visible(rendered(page), searchSettlesWithin).pipe(
+    Effect.catchTag("test/worker/BrowserError", (error) =>
+      Effect.flatMap(
+        act(() => page.evaluate(stageStanding)),
+        (standing) =>
+          Effect.fail(
+            new BrowserError({
+              message: `The search did not settle within ${
+                Duration.format(searchSettlesWithin)
+              }: ${standing}. ${error.message}`,
+              cause: error.cause
+            })
+          )
+      ))
+  )
 
 /** Both modes the page is read in. */
 export const colorSchemes: ReadonlyArray<ColorScheme> = ["light", "dark"]
@@ -51,7 +87,7 @@ export const stageFailuresUntilRendered = (page: Page) =>
     act(() => page.locator("[data-place-stage-failed]").count()),
     Schedule.spaced("16 millis")
   ).pipe(
-    Stream.interruptWhen(visible(rendered(page))),
+    Stream.interruptWhen(drawn(page)),
     Stream.runCollect,
     Effect.map(Chunk.toReadonlyArray)
   )
@@ -165,7 +201,7 @@ export const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
   Effect.gen(function*() {
     const { failures, page } = yield* openPage({ reducedMotion })
     yield* goto(page, "/")
-    yield* visible(rendered(page))
+    yield* drawn(page)
     const demo = page.getByRole("region", { name: "Imagined place demo" })
     const proposal = demo.locator("[data-place-proposal='program']")
     const feature = proposal.locator("[data-place-feature]")
@@ -179,13 +215,14 @@ export const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
     yield* click(proposal.getByRole("switch"))
     // Sample every frame from the moment the merge is requested until the disc is filled in.
-    const painted = yield* Effect.fork(framesUntil(demo, landed(name), Duration.seconds(12)))
+    const painted = yield* Effect.fork(framesUntil(demo, landed(name), searchSettlesWithin))
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
     const ring = demo.locator(`[data-place-marker-arriving="${name}"]`)
     yield* visible(ring)
     yield* attribute(paper, "data-place-drawn", "sketch")
     expect(yield* act(sheetHeight)).toBe(keptHeight)
-    yield* visible(disc)
+    // The disc fills the ring once the search settles: a search's wait.
+    yield* visible(disc, searchSettlesWithin)
     yield* count(ring, 0)
     yield* attribute(paper, "data-place-drawn", "kept")
     const frames = yield* Fiber.join(painted)
@@ -253,11 +290,11 @@ export const paintsNewSet = (frame: StageFrame, known: ReadonlyArray<string>): b
  * earlier than the first frame in which the new set is painted, and at no
  * frame is a line of prose painted over a disc.
  */
-export const changeStory = () =>
+export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}) =>
   Effect.gen(function*() {
-    const { failures, page } = yield* openPage()
+    const { failures, page } = yield* openPage(options)
     yield* goto(page, "/")
-    yield* visible(rendered(page))
+    yield* drawn(page)
     const demo = page.getByRole("region", { name: "Imagined place demo" })
     yield* eventually(() => demo.evaluate(storyDrawn), true)
     const before = yield* act(() => demo.evaluate(stageFrame))
@@ -272,11 +309,12 @@ export const changeStory = () =>
       frame.phase === "complete" && paintsNewSet(frame, oldSets) && drawingStands(frame) !== standing
 
     // Sample every frame from before the story is chosen until the new drawing is kept.
-    const painted = yield* Effect.fork(framesUntil(demo, kept, Duration.seconds(20)))
+    const painted = yield* Effect.fork(framesUntil(demo, kept, searchSettlesWithin))
     const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
     yield* click(radio)
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
-    yield* eventually(() => demo.evaluate(storyDrawn), true)
+    // The new story is drawn once its search settles: a search's wait.
+    yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
     // Once the new drawing has landed, every disc of the old story has shrunk away and gone.
     yield* eventually(() => demo.evaluate(leaversGone), true)
     const frames = yield* Fiber.join(painted)
@@ -316,7 +354,7 @@ export const fromAnswerToItsCode = (
   Effect.gen(function*() {
     const { failures, page } = yield* openPage({ reducedMotion, viewport })
     yield* goto(page, "/")
-    yield* visible(rendered(page))
+    yield* drawn(page)
     const demo = page.getByRole("region", { name: "Imagined place demo" })
     const overlay = page.locator("[data-place-provenance]")
     const mark = Match.value(from).pipe(

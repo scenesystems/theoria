@@ -26,6 +26,7 @@ import {
   urlMatches,
   visible
 } from "./browser.js"
+import { drawn } from "./demo.js"
 import {
   fullyInViewport,
   scrollPast,
@@ -160,7 +161,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const paper = demo.locator("[data-place-stage='paper']")
         yield* visible(paper)
         // The seeded search moves the discs while it runs; the claim is about the kept drawing.
-        yield* visible(page.locator("[data-place-render-phase='complete']"))
+        yield* drawn(page)
         yield* visible(demo.locator("[data-place-marker]").first())
 
         // Wide: the hero reads first; the arrival follows on the same screen,

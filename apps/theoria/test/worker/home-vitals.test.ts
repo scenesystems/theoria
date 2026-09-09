@@ -7,6 +7,7 @@ import * as Rec from "effect/Record"
 
 import { webVitalBudgets } from "../../app/contracts/performance.js"
 import { act, animationsSettled, BrowserLive, click, goto, nextResponse, openPage, visible } from "./browser.js"
+import { drawn } from "./demo.js"
 import { footprintsUntilLanding, heightsByRegion } from "./footprints.js"
 import {
   canvasLight,
@@ -38,7 +39,6 @@ const WebVitals = Schema.Struct({
 })
 
 const viewports = [{ width: 1440, height: 900 }, { width: 390, height: 844 }]
-const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
 const searching = (page: Page) => page.locator("[data-place-render-phase='running']")
 
 const readVitals = (page: Page) =>
@@ -62,7 +62,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           const { failures, page } = yield* openPage({ viewport })
           yield* act(() => page.addInitScript(recordWebVitals))
           yield* goto(page, "/")
-          yield* visible(rendered(page))
+          yield* drawn(page)
           yield* animationsSettled(page)
           const vitals = yield* readVitals(page)
           // A first paint was observed, and it was within budget; a paint never observed is not one within budget.
@@ -91,7 +91,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           const { failures, page } = yield* openPage({ viewport })
           yield* act(() => page.addInitScript(recordFootprints))
           yield* goto(page, "/")
-          yield* visible(rendered(page))
+          yield* drawn(page)
           const heights = heightsByRegion(yield* footprintsUntilLanding(page))
           expect(Rec.keys(heights)).toEqual(
             expect.arrayContaining(["step:compose", "step:propose", "step:record", "stage:column"])
@@ -114,7 +114,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const lit = yield* act(() => page.evaluate(canvasLight))
         expect(lit.bodyImage).toBe("none")
         expect(lit.light.image).toContain("radial-gradient")
@@ -140,7 +140,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           const { failures, page } = yield* openPage({ viewport })
           yield* act(() => page.addInitScript(recordWebVitals))
           yield* goto(page, "/")
-          yield* visible(rendered(page))
+          yield* drawn(page)
           yield* animationsSettled(page)
           const scenarios = page.getByRole("radiogroup", { name: "Scenario" })
           const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
@@ -153,7 +153,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             page.locator("[data-place-trace]").getAttribute("data-place-render-phase")
           )
           expect(phaseAfterClick).not.toBe("complete")
-          yield* visible(rendered(page))
+          yield* drawn(page)
           yield* animationsSettled(page)
           const vitals = yield* readVitals(page)
           expect(vitals.interactions).toBeGreaterThanOrEqual(2)

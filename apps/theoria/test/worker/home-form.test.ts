@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import type { Locator, Page } from "@playwright/test"
+import type { Locator } from "@playwright/test"
 import { Effect, Fiber, Layer, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -22,6 +22,7 @@ import {
   visible,
   withoutAttribute
 } from "./browser.js"
+import { drawn } from "./demo.js"
 import {
   backgroundColour,
   bandDiscNames,
@@ -39,8 +40,6 @@ import { SiteLive } from "./site.js"
  * lit — and each was once wrong on the page.
  */
 
-const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
-
 /** An element's box on the viewport; an element with no box fails the test. */
 const boxOf = (locator: Locator) =>
   Effect.flatMap(act(() => locator.boundingBox()), (box) =>
@@ -56,7 +55,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const acts = demo.locator("[data-place-acts]")
         const dots = demo.locator("[data-place-spine-dot]")
@@ -79,7 +78,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         yield* Effect.forEach(placeStepDefinitions, (step) =>
           Effect.gen(function*() {
@@ -100,7 +99,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const built = page.locator("[data-place-how-its-built]")
@@ -136,7 +135,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const feature = demo.locator("[data-place-features] [data-provenance]").first()
@@ -154,7 +153,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const band = page.locator("[data-place-band]")
         yield* act(() => demo.locator("[data-place-stage='column']").evaluate(scrollPast))
@@ -175,7 +174,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const band = page.locator("[data-place-band]")
         yield* act(() => demo.locator("[data-place-stage='column']").evaluate(scrollPast))
@@ -206,7 +205,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const arrive = yield* boxOf(demo.locator("[data-place-arrive]"))
         const compose = yield* boxOf(demo.locator("[data-place-step='compose']"))
@@ -221,7 +220,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const built = page.locator("[data-place-how-its-built]")
         yield* visible(built.getByRole("heading", { level: 3, name: "How it's built" }))
         yield* count(built.locator("h3 ~ p"), 0)
@@ -232,7 +231,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const compose = page.locator("[data-place-step='compose']")
         const stories = yield* boxOf(compose.getByRole("radiogroup", { name: "Scenario" }))
         const title = yield* boxOf(compose.locator("[data-place-composition-title]"))

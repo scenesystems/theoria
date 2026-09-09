@@ -22,6 +22,7 @@ import {
   type Viewport,
   visible
 } from "./browser.js"
+import { searchSettlesWithin } from "./demo.js"
 import { footprintsUntilLanding, heightsByRegion } from "./footprints.js"
 import { contrastsWithin, recordFootprints, storyDrawn } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
@@ -106,7 +107,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* nothingShifted(page, `${where}, pending`)
 
           yield* build.release
-          yield* eventually(() => demo.evaluate(storyDrawn), true)
+          yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
           yield* hidden(demo.locator("[data-place-search-caption-pending]"))
           yield* nothingShifted(page, `${where}, landed`)
           expect(yield* failures).toEqual([])
@@ -153,7 +154,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
           // The build arrives: the failure goes and the drawing lands, nothing having moved.
           yield* rebuild.release
-          yield* eventually(() => demo.evaluate(storyDrawn), true)
+          yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
           yield* count(page.getByRole("alert"), 0)
           yield* nothingShifted(page, `${where}, landed after failure`)
           // The browser reports the request the test failed; nothing else went wrong.

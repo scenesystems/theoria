@@ -18,6 +18,7 @@ import {
   press,
   visible
 } from "./browser.js"
+import { drawn } from "./demo.js"
 import { backgroundColour, edgesOf, systemColour, textColour } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -32,7 +33,6 @@ import { SiteLive } from "./site.js"
  * not a literal, because the palettes differ.
  */
 const colorSchemes: ReadonlyArray<ColorScheme> = ["light", "dark"]
-const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
 const colour = (locator: Locator) => act(() => locator.evaluate(backgroundColour))
 const system = (page: Page, name: string) => act(() => page.evaluate(systemColour, name))
 const edges = (locator: Locator) => act(() => locator.evaluateAll(edgesOf))
@@ -49,7 +49,7 @@ const inForcedColors = (check: (page: Page) => Effect.Effect<void, unknown>) =>
     Effect.gen(function*() {
       const { failures, page } = yield* openPage({ colorScheme: scheme, forcedColors: "active" })
       yield* goto(page, "/")
-      yield* visible(rendered(page))
+      yield* drawn(page)
       yield* animationsSettled(page)
       yield* check(page)
       expect(yield* failures).toEqual([])

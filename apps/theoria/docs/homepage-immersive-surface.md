@@ -939,8 +939,9 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       than `onExitComplete`, since it is the new lines standing — not the
       old ones gone — that makes the paper safe to draw on), the render
       stream releases the journey's rest when the lines the frame is drawn
-      for stand, and `motionExitBound` (three exits, 360 ms) is only the
-      safety net if they never do. The frame-sampling browser test found two
+      for stand, and `motionExitBound` is only the safety net if they never
+      do (first three exits, 360 ms; now two seconds — see the shard-3 entry
+      below). The frame-sampling browser test found two
       real faults: a disc read its own drawn state from the shown frame
       while `AnimatePresence` held it for exit, so a name no longer drawn
       swapped disc for ring mid-exit and never left (two sets of discs at
@@ -1314,6 +1315,37 @@ pointer-events: none`: their own composited layer, shaded once, sized to
       vitest itself uses for an unmeasured file; measured durations would cut
       better but every runner must cut the same, and they have no shared
       measurement — noted in `DEPLOYMENT.md`.
+- [x] **Shard 3's two failures were the suite's clock and the geometry's edge,
+      not the runner.** The first CI run of the matrix went red on one
+      shard while every file was green here, even pinned to two CPUs and
+      with the page throttled four times slower. `home-vitals` waited for a
+      whole search with the 5 s an assertion gets: thirty-six trials at
+      100–200 ms each is a search of that order on a slow runner. Every wait
+      that spans a search now takes `searchSettlesWithin` (20 s, `demo.ts`),
+      through one `drawn(page)` used by every file, and a search that has
+      not settled by then fails saying what the stage says of itself — phase,
+      paper, any failure told — instead of "element not found"
+      (`stageStanding`, `in-page.ts`). `home-demo-search` sampled one frame
+      with a line over the new story's disc. Two ways were open for that at
+      any width, closed test-first in `imagined-place-flow.contract.test.ts`:
+      the flow kept `markerGap` beside a disc but nothing above or below it,
+      so a disc whose edge met a band's boundary left that line at full
+      width, 0 px from a disc the stage draws to a tenth of a pixel
+      (`markersBeside` now counts the gap all round); and a disc's x was
+      clamped to the padding only, so at narrow stages the `minimumLineWidth`
+      floor could set a line under it (the geometry now keeps every disc's
+      left edge past the least line and the gap — `leastX` — landed and on
+      the way, and holds a disc from a wider stage to the largest that fits).
+      A third way was the rest's safety net: three exits (360 ms) is a bound
+      a main thread held by one long task passes, ending the rest with the
+      old lines still leaving over discs that have moved on; `motionExitBound`
+      is now a page's patience (2 s), since the rest ends on the lines'
+      signal and the bound is only for a signal that never comes
+      (`place-render-rest.test.ts`). `changeStory` also runs once at a 4×
+      CPU slowdown (`openPage({ cpuSlowdown })`, CDP
+      `Emulation.setCPUThrottlingRate`), and `stageFrame`'s overlap report now
+      names the line set, opacity, box, and the disc's standing, radius,
+      centre and transform, so the next sampled fault reads as geometry.
 
 ## Non-goals
 

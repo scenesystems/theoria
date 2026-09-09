@@ -52,7 +52,7 @@ import {
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
-import { colorSchemes, referenceTargets, rendered } from "./demo.js"
+import { colorSchemes, drawn, referenceTargets, searchSettlesWithin } from "./demo.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page demo in Chromium: the page around the stage",
@@ -61,7 +61,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const focusRole = () => page.evaluate(activeElementRole)
 
@@ -132,14 +132,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         // Shrinks to 320 first, then grows: the stage must follow the column both ways. Below `lg` the column
         // is the page's reading width and the stage takes it whole; at `lg` the column is the grid's second
         // track, narrower than the reading width just below `lg`, and the stage is recut to it.
         const stages = yield* Effect.forEach(Arr.make(320, 390, 820, 1280, 1680), (width) =>
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 900 })
-            yield* visible(rendered(page))
+            yield* drawn(page)
             yield* animationsSettled(page)
             expect(yield* overflowingElements(page)).toEqual([])
             expect(yield* fitsViewport(page)).toBe(true)
@@ -162,7 +162,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
 
         const section = page.locator("[data-place-how-its-built]")
         yield* attribute(section.locator("[data-place-commit]"), "href", /github\.com\/scenesystems\/theoria\/tree\//u)
@@ -197,7 +197,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage()
         yield* setViewport(page, { width: 390, height: 844 })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
 
         const section = page.locator("[data-place-how-its-built]")
         const reference = section.locator("[data-place-reference]").first()
@@ -228,7 +228,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const stage = page.locator("[data-place-stage-act]")
         yield* attribute(stage, "data-place-stage-act", "arrive")
 
@@ -242,7 +242,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const stage = page.locator("[data-place-stage-act]")
         yield* attribute(stage, "data-place-stage-act", "arrive")
 
@@ -259,7 +259,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* click(page.getByRole("link", { exact: true, name: "Browse the packages" }))
         yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
         yield* act(() => page.goBack())
-        yield* visible(rendered(page))
+        yield* drawn(page)
         yield* act(() => page.evaluate(scrollToTop))
         yield* attribute(stage, "data-place-stage-act", "arrive")
         yield* act(() => page.locator("[data-place-act='record']").evaluate(scrollElementTo, 0.45))
@@ -271,7 +271,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
         const brief = demo.getByRole("textbox", { name: "Brief" })
@@ -281,7 +281,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const storyTaken = (scenario: PlaceScenario) =>
           Effect.andThen(
             eventually(() => brief.inputValue(), placeScenarioMeta[scenario].brief),
-            eventually(() => demo.evaluate(storyDrawn), true)
+            eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
           )
         // The page's colours: the air behind it, the paper, and the ink of the title.
         const palette = Effect.all({
@@ -321,7 +321,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const band = page.locator("[data-place-band]")
         const column = demo.locator("[data-place-stage='column']")
@@ -413,7 +413,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const legend = page.locator("[data-place-legend]")
         yield* visible(legend)
         const metrics = yield* act(() => legend.evaluate(markerLegendMetrics))

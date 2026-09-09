@@ -1,12 +1,12 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import type { Page } from "@playwright/test"
 import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 
 import { minimumTouchTarget } from "../../app/contracts/demo/imagined-place-flow.js"
 
-import { act, BrowserLive, eventually, goto, openPage, setViewport, visible } from "./browser.js"
+import { act, BrowserLive, eventually, goto, openPage, setViewport } from "./browser.js"
+import { drawn, searchSettlesWithin } from "./demo.js"
 import { discTouchTargets, drawnForColumn, scrollElementTo } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -18,15 +18,13 @@ import { SiteLive } from "./site.js"
  * line beside it or a neighbour: the drawing keeps touch targets from
  * overlapping as it keeps discs from overlapping.
  */
-const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
-
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
     it.scoped("every disc answers to a touch 44 px across on the narrowest phones", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const paper = demo.locator("[data-place-stage='paper']")
         const discs = demo.locator("[data-place-marker]:not([data-place-marker-leaving])")
@@ -35,7 +33,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 844 })
             // A narrower column shows the last drawing fitted while its own search runs; the promise is about the drawing made for it.
-            yield* eventually(() => demo.evaluate(drawnForColumn), true)
+            yield* eventually(() => demo.evaluate(drawnForColumn), true, searchSettlesWithin)
             yield* act(() => paper.evaluate(scrollElementTo, 0))
             const targets = yield* act(() => discs.evaluateAll(discTouchTargets))
             const at = `at ${String(width)}px`

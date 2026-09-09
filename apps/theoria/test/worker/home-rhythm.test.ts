@@ -4,7 +4,8 @@ import type { Page } from "@playwright/test"
 import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 
-import { act, animationsSettled, BrowserLive, goto, openPage, setViewport, visible } from "./browser.js"
+import { act, animationsSettled, BrowserLive, goto, openPage, setViewport } from "./browser.js"
+import { drawn } from "./demo.js"
 import { pageRhythm } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -18,8 +19,6 @@ import { SiteLive } from "./site.js"
  * built, the footer — the space is the same each time and no less than the
  * space between steps. The rhythm holds at every width; only its size scales.
  */
-
-const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
 
 /** How many times the tightest relation within a step the space between steps must be, at least. */
 const stepsApart = 3
@@ -37,7 +36,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 900 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
 
         yield* Effect.forEach(Arr.make(390, 820, 1280), (width) =>
           Effect.gen(function*() {

@@ -39,11 +39,12 @@ import { SiteLive } from "./site.js"
 
 import {
   changeStory,
+  drawn,
   markerPositions,
   mergeProgramProposal,
   paperUntilLanding,
   recordPaper,
-  rendered,
+  searchSettlesWithin,
   stageFailuresUntilRendered
 } from "./demo.js"
 
@@ -57,7 +58,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const told = yield* Effect.fork(stageFailuresUntilRendered(page))
         yield* recordPaper(page)
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         // Nothing has failed while the build and the first drawing are on their way.
         expect(Arr.filter(yield* Fiber.join(told), (shown) => shown > 0)).toEqual([])
         // The paper is cut to size before the first trial is in, and holds that size until the drawing lands.
@@ -126,7 +127,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
 
         // Closed, the fold is the envelope: the seal and its size. The words wait for the author's key.
@@ -198,6 +199,24 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       }))
 
     /**
+     * The drawing rests for the old lines to leave on the lines' own word, not
+     * on a clock: a page four times slower takes longer over the exit and the
+     * hand-off to the new set than the animation's time, and the drawing is not
+     * to move on before then — the bound on the rest is for a signal that never
+     * comes, far past any hand-off a slow page makes.
+     */
+    it.scoped("on a processor four times slower, a changed story's discs still wait for its lines", () =>
+      Effect.gen(function*() {
+        const { failures, moved, newLines, overlaps, twoSets } = yield* changeStory({ cpuSlowdown: 4 })
+        expect(Option.isSome(moved)).toBe(true)
+        expect(Option.isSome(newLines)).toBe(true)
+        expect(Option.getOrElse(moved, () => -1)).toBeGreaterThanOrEqual(Option.getOrElse(newLines, () => -1))
+        expect(twoSets).toBe(false)
+        expect(overlaps).toEqual([])
+        expect(yield* failures).toEqual([])
+      }))
+
+    /**
      * Two finishing touches follow a merge: the version that changed is washed
      * in the digest tone until it settles, and once the search settles the walk
      * through the place draws itself, front to back. Both are Motion's, under
@@ -211,7 +230,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             const { failures, page } = yield* openPage({ reducedMotion })
             yield* goto(page, "/")
-            yield* visible(rendered(page))
+            yield* drawn(page)
             const paper = page.locator("[data-place-stage='paper']")
             yield* attribute(paper, "data-place-drawn", "kept")
             const merge = page.getByRole("switch", { checked: false, name: /^Merge Ship's bell/u })
@@ -266,7 +285,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             const { failures, page } = yield* openPage({ reducedMotion })
             yield* goto(page, "/")
-            yield* visible(rendered(page))
+            yield* drawn(page)
             const demo = page.getByRole("region", { name: "Imagined place demo" })
             const thumb = demo.getByRole("switch").first().locator("span").first()
             yield* visible(thumb)
@@ -285,7 +304,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce", viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const band = page.locator("[data-place-band]")
         const proposal = demo.locator("[data-place-proposal='program']")
@@ -298,7 +317,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const merge = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* click(proposal.getByRole("switch"))
         expect((yield* Fiber.join(merge)).status()).toBe(200)
-        yield* eventually(() => band.evaluate(bandShowsKept, name), true)
+        yield* eventually(() => band.evaluate(bandShowsKept, name), true, searchSettlesWithin)
         const before = yield* act(() => band.evaluate(bandDiscCentre, name))
 
         // Declining the neighbor takes a disc out from before it, so the program's disc has to move left.
@@ -317,7 +336,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         )
         const decline = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* click(neighbor.getByRole("switch"))
-        const drawn = yield* Effect.fork(
+        const sampled = yield* Effect.fork(
           Stream.repeatEffectWithSchedule(
             act(() => band.evaluate(bandDiscCentre, name)),
             Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
@@ -328,7 +347,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           )
         )
         expect((yield* Fiber.join(decline)).status()).toBe(200)
-        const centres = Arr.dedupe(yield* Fiber.join(drawn))
+        const centres = Arr.dedupe(yield* Fiber.join(sampled))
         const after = yield* act(() => band.evaluate(bandDiscCentre, name))
         // The disc did move, and every place it was drawn at is one the row stands at: none between the two.
         expect(Number(after)).toBeLessThan(Number(before))

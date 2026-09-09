@@ -16,6 +16,7 @@ import {
   type Viewport,
   visible
 } from "./browser.js"
+import { drawn, searchSettlesWithin } from "./demo.js"
 import { recordedPolicyViolations, recordPolicyViolations, storyDrawn } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -32,8 +33,6 @@ import { SiteLive } from "./site.js"
  */
 
 const viewports: ReadonlyArray<Viewport> = [desktop, phone]
-
-const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
 
 const noViolations = (page: Page, where: string) =>
   Effect.map(act(() => page.evaluate(recordedPolicyViolations)), (violations) => {
@@ -84,9 +83,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           expect(policy, where).not.toContain("unsafe-inline")
 
           // The drawing: its paper is a scroll area, the surface most likely to bring a style of its own.
-          yield* visible(rendered(page))
+          yield* drawn(page)
           const demo = page.getByRole("region", { name: "Imagined place demo" })
-          yield* eventually(() => demo.evaluate(storyDrawn), true)
+          yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
           yield* noViolations(page, `${where} drawn`)
 
           // A proposal pointed at opens its popover; a merge redraws; a new story rebuilds.
@@ -99,7 +98,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* click(
             demo.getByRole("radiogroup", { name: "Scenario" }).getByRole("radio", { checked: false }).first()
           )
-          yield* eventually(() => demo.evaluate(storyDrawn), true)
+          yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
           yield* noViolations(page, `${where} interacted`)
 
           // The theme, then the documentation: highlighted code in a scroll area, a menu, a dialog, and on a

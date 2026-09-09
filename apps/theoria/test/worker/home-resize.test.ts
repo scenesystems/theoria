@@ -15,9 +15,9 @@ import {
   setColorScheme,
   setViewport,
   until,
-  visible,
   wheel
 } from "./browser.js"
+import { drawn, searchSettlesWithin } from "./demo.js"
 import {
   leaveAndReturn,
   recordedFrameFit,
@@ -40,8 +40,6 @@ import { SiteLive } from "./site.js"
  * frame, so a window being resized shows the paper shrinking in place, never
  * a paper cut off at the right.
  */
-
-const rendered = (page: Page) => page.locator("[data-place-render-phase='complete']")
 
 /** One report of the drawing and its paper in their frame; see `recordFrameFit`. */
 const FrameFit = Schema.Struct({
@@ -74,7 +72,8 @@ const stageFillsItsStep = (page: Page, where: string) =>
     until(
       act(() => page.evaluate(stageInItsStep)),
       ({ stage, step }) => step > 0 && stage === Math.min(stageMaxWidth, step),
-      `the stage is drawn for its step at ${where}`
+      `the stage is drawn for its step at ${where}`,
+      searchSettlesWithin
     ),
     (found) => {
       expect(found.leftOfFrame, `${where}: frame centred`).toBe(found.rightOfFrame)
@@ -89,7 +88,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
 
         // A window narrower than lg: the column is the page's reading width and the stage takes it whole.
         yield* setViewport(page, { width: 900, height: 900 })
@@ -111,7 +110,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ viewport: { width: 1400, height: 900 } })
         yield* act(() => page.addInitScript(recordFrameFit))
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const settled = yield* stageFillsItsStep(page, "1400px")
 
         // Narrower, so the drawing already on the stage is wider than the column can hold; then wider again.
@@ -140,7 +139,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 900 } })
         yield* act(() => page.addInitScript(recordPaperFrames))
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         yield* animationsSettled(page)
         const landed = yield* act(() => page.evaluate(recordedPaperFrames))
 

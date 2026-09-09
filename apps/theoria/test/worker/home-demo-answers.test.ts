@@ -25,7 +25,7 @@ import {
 import { activeElementRole, answerPopupsShowing, isActiveElement, scrollElementTo } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
-import { fromAnswerToItsCode, rendered } from "./demo.js"
+import { drawn, fromAnswerToItsCode } from "./demo.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page demo in Chromium: marks and their answers",
@@ -34,7 +34,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
 
@@ -196,7 +196,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const lines = demo.getByRole("toolbar", { name: "Lines of the prose" })
@@ -267,7 +267,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const built = page.locator("[data-place-how-its-built]")
@@ -300,7 +300,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const disc = demo.locator("[data-place-marker]").first()
@@ -331,7 +331,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const heading = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
@@ -368,7 +368,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
-        yield* visible(rendered(page))
+        yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const line = demo.locator("[data-place-line='2']")

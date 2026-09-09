@@ -1,13 +1,11 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import type { Page } from "@playwright/test"
 import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 
 import {
   act,
   BrowserLive,
-  eventually,
   fitsViewport,
   focus,
   goto,
@@ -18,6 +16,7 @@ import {
   until,
   visible
 } from "./browser.js"
+import { drawn, searchSettlesWithin } from "./demo.js"
 import {
   focusedControlIntersectsBand,
   fullyInViewport,
@@ -30,9 +29,6 @@ import {
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
-const rendered = "[data-place-render-phase='complete']"
-const waitForRendered = (page: Page) => eventually(() => page.locator(rendered).isVisible(), true)
-
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria home surface budget and reflow in Chromium",
   (it) => {
@@ -40,7 +36,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
-        yield* waitForRendered(page)
+        yield* drawn(page)
         const budget = yield* act(() => page.locator("main").evaluate(surfaceBudget))
         expect(budget.enclosures.length, budget.enclosures.join("\n")).toBeLessThanOrEqual(10)
         expect(budget.dropShadows.length, budget.dropShadows.join("\n")).toBeLessThanOrEqual(4)
@@ -52,7 +48,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
-        yield* waitForRendered(page)
+        yield* drawn(page)
         const titles = page.locator("[data-place-proposal] h3")
         const total = yield* act(() => titles.count())
         expect(total).toBeGreaterThan(0)
@@ -69,7 +65,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
-        yield* waitForRendered(page)
+        yield* drawn(page)
         yield* setViewport(page, { width: 320, height: 700 })
         expect(
           yield* act(() =>
@@ -93,7 +89,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* goto(page, "/")
-        yield* waitForRendered(page)
+        yield* drawn(page)
         yield* setViewport(page, { width: 640, height: 360 })
         expect(yield* fitsViewport(page)).toBe(true)
         const title = yield* act(() => page.locator("h1").evaluate(textBlockMetrics))
@@ -115,7 +111,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" })
         yield* goto(page, "/")
-        yield* waitForRendered(page)
+        yield* drawn(page)
         // Before any scroll the place and its current version are in view: the paper's top edge and the
         // version the stage shows, under the Arrange header. (The first disc is the drawing's own: the
         // search puts it ≈90 px into the paper at this width, so it is the next scroll's, not forced up.)
@@ -130,7 +126,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const after = yield* until(
           act(() => lines.allInnerTexts()),
           (text) => text.join(" ") !== before.join(" "),
-          "the merged proposal changes the prose"
+          "the merged proposal changes the prose",
+          searchSettlesWithin
         )
         expect(after.join(" ")).not.toBe(before.join(" "))
         yield* visible(page.getByRole("button", { name: /^Ship's bell, added by proposer program/u }))

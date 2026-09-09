@@ -13,9 +13,11 @@ import {
   Context,
   Data,
   Deferred,
+  Duration,
   Effect,
   Layer,
   Match,
+  Option,
   Predicate,
   Queue,
   Ref,
@@ -108,6 +110,14 @@ export type ReducedMotion = typeof ReducedMotion.Type
 export const ForcedColors = Schema.Literal("active", "none")
 export type ForcedColors = typeof ForcedColors.Type
 
+/**
+ * How many times slower than this machine the page's processor is made, the
+ * way DevTools throttles it: every script, layout and paint takes that many
+ * times as long, while the clock runs as it does. `1` is this machine.
+ */
+export const CpuSlowdown = Schema.Number.pipe(Schema.greaterThanOrEqualTo(1))
+export type CpuSlowdown = typeof CpuSlowdown.Type
+
 export const openPage = (
   options: {
     readonly viewport?: Viewport
@@ -115,6 +125,7 @@ export const openPage = (
     readonly reducedMotion?: ReducedMotion
     readonly forcedColors?: ForcedColors
     readonly colorScheme?: ColorScheme
+    readonly cpuSlowdown?: CpuSlowdown
   } = {}
 ): Effect.Effect<Session, BrowserError, Browser | Site | Scope.Scope> =>
   Effect.gen(function*() {
@@ -136,6 +147,15 @@ export const openPage = (
     )
     yield* act(() => context.grantPermissions([...(options.permissions ?? [])]))
     const page = yield* act(() => context.newPage())
+    // Throttling is the DevTools protocol's; it holds for the page's every document until the page closes.
+    yield* Option.match(Option.filter(Option.fromNullable(options.cpuSlowdown), (rate) => rate > 1), {
+      onNone: () => Effect.void,
+      onSome: (rate) =>
+        Effect.andThen(
+          act(() => context.newCDPSession(page)),
+          (devtools) => act(() => devtools.send("Emulation.setCPUThrottlingRate", { rate }))
+        )
+    })
 
     // A console error names where it was raised — the resource that failed to load, or the script — so a test
     // can tell the failure it caused from any other.
@@ -193,7 +213,18 @@ export const setColorScheme = (page: Page, scheme: ColorScheme) =>
     eventually(() => page.evaluate(colorSchemeShown), scheme)
   )
 
-export const visible = (locator: Locator) => act(() => inBrowser(locator).toBeVisible())
+/**
+ * How long an assertion waits for the page: Playwright's own default, for
+ * anything the page does in a moment — an element appearing, an attribute
+ * changing. A wait on work the page does over time, a search settling or an
+ * exit finishing, names its own budget.
+ */
+export const assertionWait: Duration.Duration = Duration.seconds(5)
+
+const waiting = (within: Duration.Duration) => ({ timeout: Duration.toMillis(within) })
+
+export const visible = (locator: Locator, within: Duration.Duration = assertionWait) =>
+  act(() => inBrowser(locator).toBeVisible(waiting(within)))
 export const hidden = (locator: Locator) => act(() => inBrowser(locator).toBeHidden())
 export const disabled = (locator: Locator) => act(() => inBrowser(locator).toBeDisabled())
 export const count = (locator: Locator, expected: number) => act(() => inBrowser(locator).toHaveCount(expected))
@@ -295,20 +326,22 @@ const holdRequests = (
   })
 
 export const attached = (locator: Locator) => act(() => inBrowser(locator).toBeAttached())
-export const eventually = <A>(read: () => Promise<A>, expected: A) => act(() => inBrowser.poll(read).toBe(expected))
+export const eventually = <A>(read: () => Promise<A>, expected: A, within: Duration.Duration = assertionWait) =>
+  act(() => inBrowser.poll(read, waiting(within)).toBe(expected))
 
 /**
- * Re-reads `read` until `holds` accepts the value, for as long as Playwright's
- * assertions wait. The last value read is the failure's cause.
+ * Re-reads `read` until `holds` accepts the value, for as long as an
+ * assertion waits unless told otherwise. The last value read is the failure's cause.
  */
 export const until = <A>(
   read: Effect.Effect<A, BrowserError>,
   holds: (value: A) => boolean,
-  description: string
+  description: string,
+  within: Duration.Duration = assertionWait
 ): Effect.Effect<A, BrowserError> =>
   read.pipe(
     Effect.filterOrFail(holds, (value) => new BrowserError({ message: `${description} did not hold`, cause: value })),
-    Effect.retry(Schedule.spaced("100 millis").pipe(Schedule.upTo("5 seconds")))
+    Effect.retry(Schedule.spaced("100 millis").pipe(Schedule.upTo(within)))
   )
 
 /**

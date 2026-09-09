@@ -22,6 +22,7 @@ import {
   type Viewport,
   visible
 } from "./browser.js"
+import { searchSettlesWithin } from "./demo.js"
 import { aroundSecondSearch, footprintsSoFar, heightsByRegion, restingHeights, untilLanding } from "./footprints.js"
 import {
   recordedDemonstrationShifts,
@@ -129,7 +130,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* Fiber.join(built)
           const paper = demoRegion(page).locator("[data-place-stage='paper']")
           yield* visible(paper)
-          yield* eventually(() => demoRegion(page).evaluate(storyDrawn), true)
+          yield* eventually(() => demoRegion(page).evaluate(storyDrawn), true, searchSettlesWithin)
           yield* count(demoRegion(page).locator("[data-place-stage='uncut']"), 0)
           expect(landings(yield* paperPhases(page)), where).toBe(1)
           const stillInFlight = yield* act(() => page.evaluate(typefaces, measuredFont("body")))
@@ -144,8 +145,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             `${where}: the faces loaded`
           )
           expect(after.servedInHand, where).toBe(true)
-          yield* until(paperPhases(page), (phases) => landings(phases) >= 2, `${where}: a second landing`)
-          yield* eventually(() => demoRegion(page).evaluate(storyDrawn), true)
+          yield* until(
+            paperPhases(page),
+            (phases) => landings(phases) >= 2,
+            `${where}: a second landing`,
+            searchSettlesWithin
+          )
+          yield* eventually(() => demoRegion(page).evaluate(storyDrawn), true, searchSettlesWithin)
           expect(landings(yield* paperPhases(page)), where).toBe(2)
 
           // The swap moved nothing: the title's box is the box it was, no region of the demonstration was painted at

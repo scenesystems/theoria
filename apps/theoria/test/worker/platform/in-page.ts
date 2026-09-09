@@ -760,20 +760,31 @@ export const stageFrame = (
     .filter(painted)
     .map((element) => ({
       index: element.getAttribute("data-place-line") ?? "",
+      // The set the line is of, by its opening words, so a line of the set leaving is told from one arriving.
+      set: (element.closest("[data-place-lines]")?.textContent ?? "").slice(0, 24),
+      opacity: opacity(element) * opacity(element.closest("[data-place-lines]") ?? element),
       rect: element.getBoundingClientRect()
     }))
   const discs = [...region.querySelectorAll("[data-place-marker], [data-place-marker-arriving]")].map((element) => {
     const rect = element.getBoundingClientRect()
     return {
       name: element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-marker-arriving") ?? "",
+      standing: element.hasAttribute("data-place-marker-arriving")
+        ? "ring"
+        : element.hasAttribute("data-place-marker-leaving")
+        ? "leaving"
+        : "disc",
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
-      radius: rect.width / 2
+      radius: rect.width / 2,
+      transform: getComputedStyle(element).transform
     }
   })
   const clamp = (low: number, high: number, value: number) => Math.min(high, Math.max(low, value))
+  const px = (value: number) => value.toFixed(1)
+  const phase = document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase") ?? "-"
   return {
-    phase: document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase") ?? "-",
+    phase,
     places: [
       ...[...region.querySelectorAll("[data-place-marker-arriving]")].map(place("ring", "data-place-marker-arriving")),
       ...[...region.querySelectorAll("[data-place-marker]")].map(place("disc", "data-place-marker"))
@@ -788,7 +799,13 @@ export const stageFrame = (
         const dx = clamp(line.rect.left, line.rect.right, disc.x) - disc.x
         const dy = clamp(line.rect.top, line.rect.bottom, disc.y) - disc.y
         return line.rect.width > 0 && dx * dx + dy * dy < disc.radius * disc.radius
-          ? [`line ${line.index} over ${disc.name}`]
+          ? [
+            `line ${line.index} of “${line.set}…” at opacity ${line.opacity.toFixed(2)}, box ${px(line.rect.left)}–${
+              px(line.rect.right)
+            } × ${px(line.rect.top)}–${px(line.rect.bottom)}, over ${disc.name} (${disc.standing}, r ${
+              px(disc.radius)
+            } at ${px(disc.x)}, ${px(disc.y)}, transform ${disc.transform}) in phase ${phase}`
+          ]
           : []
       })
     )
@@ -829,6 +846,23 @@ export const storyDrawn = (region: Element): boolean => {
     named.every((name) => drawn.includes(name)) &&
     document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept" &&
     discs.every((disc) => getComputedStyle(disc).transform === "none")
+}
+
+/**
+ * What the stage says of itself, for a search that did not settle in time:
+ * the search's phase from the trace (`-` before the first trial), how the
+ * paper stands (`data-place-drawn`, or `-` with no paper), and any failure the
+ * stage tells, so a wait that runs out reports a search stuck, failed, or
+ * never begun rather than an element not found.
+ */
+export const stageStanding = (): string => {
+  const phase = document.querySelector("[data-place-render-phase]")?.getAttribute("data-place-render-phase") ?? "-"
+  const paper = document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") ?? "-"
+  const failures = [...document.querySelectorAll("[data-place-stage-failed]")]
+    .map((failure) => (failure.textContent ?? "").trim())
+    .filter((text) => text.length > 0)
+  const told = failures.length === 0 ? "" : `; the stage told: ${failures.join(" | ")}`
+  return `phase ${phase}, paper ${paper}${told}`
 }
 
 /** Where the band draws the disc named this frame: its `cx` as written, or nothing while it is not drawn. */
