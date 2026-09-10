@@ -60,8 +60,34 @@ const chunkGroups = [
   { name: "effect-math", test: /\/(?:packages|node_modules\/@scenesystems)\/effect-math\//, priority: 20 }
 ]
 
+/**
+ * The workspace packages the shell imports in the browser, pre-bundled for
+ * the dev server. Their `exports` point at `src/*.ts` (the publish step
+ * rewrites them), so Vite treats them as linked source and would otherwise
+ * serve every module of the transitive graph one request at a time: a cold
+ * homepage made 453 requests, 416 of them package source modules, and at any
+ * real latency the waterfall, not the server, set the load time. Pre-bundled,
+ * each specifier is one request. The cost is that an edit under `packages/`
+ * needs a dev-server restart to show; edits under `app/` keep HMR. The
+ * production build is untouched: `optimizeDeps` applies to `serve` only.
+ */
+const prebundledWorkspacePackages = [
+  "@scenesystems/effect-math",
+  "@scenesystems/effect-math/Geometry",
+  "@scenesystems/effect-math/Statistics",
+  "@scenesystems/effect-search",
+  "@scenesystems/effect-text",
+  "@scenesystems/effect-text/browser",
+  "@scenesystems/effect-text/contracts",
+  "@scenesystems/effect-text/react",
+  "@theoria/docs-model"
+]
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), preloadTypefaces()],
+  optimizeDeps: {
+    include: prebundledWorkspacePackages
+  },
   build: {
     outDir: "dist",
     sourcemap: false,
