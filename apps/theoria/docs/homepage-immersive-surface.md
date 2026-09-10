@@ -1524,7 +1524,7 @@ page told: … /api/imagined-place/build`. The shard's cause is not yet
       `wrangler dev`'s proxy Worker, a second workerd that forwards over TCP
       to the runtime so it can be swapped on reload; under a page load's
       burst of asset requests that inner fetch fails with `Network connection
-  lost`, and Miniflare's entry worker turns it into a 500 with the error's
+lost`, and Miniflare's entry worker turns it into a 500 with the error's
       stack as its body. Reproduced at about 4 % of requests at 48 concurrent
       page loads — also for `/api/health/live`, so not the assets layer; the
       earlier "8 400 fetches with no failure" were sequential, which the hop
