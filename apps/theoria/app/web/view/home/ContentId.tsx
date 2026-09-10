@@ -1,35 +1,42 @@
-import { Tooltip } from "@base-ui/react/tooltip"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { useAtomSet } from "@effect-atom/atom-react"
 
-import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
+import { copyDocsCodeAtom } from "../../atoms/docs.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
-import { Layer, Stack } from "../primitives/Layout.js"
+import { Layer } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { GhostText } from "../primitives/Skeleton.js"
 
-import { shortId } from "./placeViewModel.js"
+import { inlineMarkClassName, inlineMarkRoomClassName, ProvenanceMark } from "./PlaceProvenance.js"
+import { contentIdShape, shortId } from "./placeViewModel.js"
 
 const digestTone = toneClassesFor("digest")
 
-const triggerClassName =
-  "-mx-1 inline-flex min-w-0 max-w-full cursor-copy items-center rounded-md px-1 py-0.5 text-left transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+/** The two forms an ID is cut to: the digest's first characters in the line, or the whole ID on a line of its own. */
+const idText = (form: "short" | "full", id: string): string => form === "full" ? id : shortId(id)
+const idClassName = (form: "short" | "full"): string =>
+  form === "full" ? `block truncate ${digestTone.textStrong}` : digestTone.text
 
-const popupClassName = [
-  "max-w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-stage-200/90 bg-stage-0/96 px-3 py-2.5 shadow-chip backdrop-blur-sm",
-  "transition-[opacity,transform] duration-150",
-  "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
-  "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
-  "origin-[var(--transform-origin)]"
-].join(" ")
-
-const copyStateText = ({ copied, failed }: { readonly copied: boolean; readonly failed: boolean }): string =>
-  copied ? "Copied" : failed ? "Copy failed" : "Click to copy"
+/**
+ * The room a content ID takes before the build digests it: the same form, in
+ * the same padding the mark has, so the ID arriving there moves nothing. Not
+ * a mark, since there is nothing yet to answer with.
+ */
+export const ContentIdPending = ({ className = "", form }: {
+  readonly className?: string
+  readonly form: "short" | "full"
+}) => (
+  <Layer render={<span />} className={`${inlineMarkRoomClassName} ${className}`} data-place-content-id-pending>
+    <GhostText as="code" className={idClassName(form)} role="code-meta" text={idText(form, contentIdShape)} />
+  </Layer>
+)
 
 /**
  * A content ID as the page shows it everywhere: the digest in the digest
- * tone, cut short where there is no room. Hover or focus shows the whole ID;
- * a click copies it, so two IDs on the page can be compared character by
- * character instead of trusting the first ten.
+ * tone, cut short where there is no room. It is a mark: pointing at it
+ * answers with the whole ID, what it digests and the call that made it. A
+ * click copies it and keeps the answer open to say so, so two IDs on the
+ * page can be compared character by character instead of trusting the first
+ * ten.
  */
 export const ContentId = ({ className = "", form, id }: {
   readonly className?: string
@@ -37,56 +44,22 @@ export const ContentId = ({ className = "", form, id }: {
   readonly id: string
 }) => {
   const copy = useAtomSet(copyDocsCodeAtom)
-  const copied = Option.contains(useAtomValue(docsCopiedCodeAtom), id)
-  const failed = Option.contains(useAtomValue(docsCopyFailedCodeAtom), id)
-
   return (
-    <Tooltip.Root
-      onOpenChange={(open, details) => {
-        // A click copies; the tooltip stays to show "Copied" instead of vanishing.
-        if (!open && details.reason === "trigger-press") details.cancel()
+    <ProvenanceMark
+      aria-label={`Content ID ${id}`}
+      className={`${inlineMarkClassName} cursor-copy ${className}`}
+      data-place-content-id={id}
+      mark={{ _tag: "Digest", contentId: id }}
+      onClick={() => {
+        copy(id)
       }}
     >
-      <Tooltip.Trigger
-        aria-label={`Content ID ${id}`}
-        className={`${triggerClassName} ${className}`}
-        data-place-content-id={id}
-        onClick={() => {
-          copy(id)
-        }}
-      >
-        <SemanticText
-          as="code"
-          className={form === "full" ? `block truncate ${digestTone.textStrong}` : digestTone.text}
-          role="code-meta"
-          text={form === "full" ? id : shortId(id)}
-        />
-      </Tooltip.Trigger>
-      <Tooltip.Portal>
-        <Tooltip.Positioner align="start" collisionPadding={16} side="bottom" sideOffset={6}>
-          <Tooltip.Popup className={popupClassName}>
-            <Stack className="gap-1">
-              <Layer className="min-w-0">
-                <SemanticText
-                  as="p"
-                  className={`break-all ${digestTone.textStrong}`}
-                  role="code-meta"
-                  text={id}
-                  variant="compact"
-                  wrapAuthority="native-browser"
-                />
-              </Layer>
-              <SemanticText
-                as="span"
-                className="text-ink-500"
-                role="row-label"
-                text={copyStateText({ copied, failed })}
-                variant="compact"
-              />
-            </Stack>
-          </Tooltip.Popup>
-        </Tooltip.Positioner>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+      <SemanticText
+        as="code"
+        className={form === "full" ? `block truncate ${digestTone.textStrong}` : digestTone.text}
+        role="code-meta"
+        text={form === "full" ? id : shortId(id)}
+      />
+    </ProvenanceMark>
   )
 }

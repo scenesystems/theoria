@@ -109,9 +109,9 @@ const CubeMark = ({ className }: { readonly className?: string }) => (
  * from the tight bounding box of the projected faces so the cube is
  * perfectly centered with no wasted space.
  *
- * When `animation="glossary"`, the wordmark renders via `WordmarkMorph` —
- * an atom-driven primitive that flips per-character between "Theoria"
- * and "θεωρία" using 3D rotateX with DOM-measured glyph widths.
+ * When `animation="glossary"`, the wordmark renders via `WordmarkMorph`,
+ * which crossfades per-character between "Theoria" and "θεωρία" once as the
+ * session begins, rests, and plays again when a reader meets it.
  *
  * @since 0.1.0
  */

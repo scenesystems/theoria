@@ -1,4 +1,5 @@
 import { Context, Effect, Layer, Option, Schema, Stream } from "effect"
+import * as Arr from "effect/Array"
 
 /**
  * The document this page renders into, as a service. The head, the root
@@ -13,6 +14,12 @@ export class BrowserDocument extends Context.Tag("theoria/BrowserDocument")<Brow
 /** The ambient document. This is the one place the app reads the global. */
 export const layer: Layer.Layer<BrowserDocument> = Layer.sync(BrowserDocument, () => document)
 
+/** The document's body: the page's whole height is its. */
+export const body: Effect.Effect<HTMLElement, never, BrowserDocument> = Effect.map(
+  BrowserDocument,
+  (browserDocument) => browserDocument.body
+)
+
 export const elementById = (id: string): Effect.Effect<Option.Option<HTMLElement>, never, BrowserDocument> =>
   Effect.map(BrowserDocument, (browserDocument) => Option.fromNullable(browserDocument.getElementById(id)))
 
@@ -20,6 +27,15 @@ export const querySelector = (selector: string): Effect.Effect<Option.Option<HTM
   Effect.map(
     BrowserDocument,
     (browserDocument) => Option.fromNullable(browserDocument.querySelector<HTMLElement>(selector))
+  )
+
+/** Every element the selector matches, in document order. */
+export const querySelectorAll = (
+  selector: string
+): Effect.Effect<ReadonlyArray<HTMLElement>, never, BrowserDocument> =>
+  Effect.map(
+    BrowserDocument,
+    (browserDocument) => Arr.fromIterable(browserDocument.querySelectorAll<HTMLElement>(selector))
   )
 
 /** An element in the shell's `<head>`; a missing one is the server's to create, so callers usually do nothing. */

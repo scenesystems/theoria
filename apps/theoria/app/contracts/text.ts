@@ -1,5 +1,17 @@
+import { createFontStack } from "@capsizecss/core"
+import arial from "@capsizecss/metrics/arial"
+import courierNew from "@capsizecss/metrics/courierNew"
+import figtree from "@capsizecss/metrics/figtree"
+import helveticaNeue from "@capsizecss/metrics/helveticaNeue"
+import jetBrainsMono from "@capsizecss/metrics/jetBrainsMono"
+import notoSans from "@capsizecss/metrics/notoSans"
+import notoSansMono from "@capsizecss/metrics/notoSansMono"
+import roboto from "@capsizecss/metrics/roboto"
+import robotoMono from "@capsizecss/metrics/robotoMono"
+import segoeUI from "@capsizecss/metrics/segoeUI"
 import { Text } from "@scenesystems/effect-text"
-import { Match, Schema } from "effect"
+import { Match, Option, Schema } from "effect"
+import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 
 import { type SurfaceVariant, SurfaceVariant as SurfaceVariantSchema } from "./presentation.js"
@@ -24,13 +36,106 @@ export type FontFamily = typeof FontFamily.Type
 
 const entry = <K, V>(k: K, v: V): readonly [K, V] => [k, v]
 
-const fontFamilyStacks = HashMap.make(
-  entry<FontFamily, string>("body", `Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif`),
-  entry<FontFamily, string>("display", `Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif`),
-  entry<FontFamily, string>(
-    "mono",
-    `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
+/**
+ * The two typefaces this site serves, named as the Fontsource variable
+ * packages that supply them name their faces, and the system fonts that stand
+ * in for each until it arrives. A stand-in is not named as itself: Capsize
+ * writes it a `@font-face` alias whose `size-adjust`, `ascent-override` and
+ * `descent-override` scale it to the served face's proportions, from the two
+ * fonts' metric tables, so text set in the stand-in takes the same lines and
+ * the same height, and the swap moves nothing.
+ */
+const Typeface = Schema.Literal("sans", "mono")
+type Typeface = typeof Typeface.Type
+
+const typefaceOf = (family: FontFamily): Typeface =>
+  Match.value(family).pipe(
+    Match.when("body", (): Typeface => "sans"),
+    Match.when("display", (): Typeface => "sans"),
+    Match.when("mono", (): Typeface => "mono"),
+    Match.exhaustive
   )
+
+const servedFaces = HashMap.make(
+  entry("sans", { ...figtree, familyName: "Figtree Variable" }),
+  entry("mono", { ...jetBrainsMono, familyName: "JetBrains Mono Variable" })
+)
+
+/**
+ * The Liberation fonts are the metric clones of Arial and Courier New that
+ * Linux desktops and continuous-integration images carry in their place: the
+ * same advances and vertical metrics by design, so Arial's tables describe
+ * them, and they are matched under their own names.
+ */
+const liberationSans = {
+  ...arial,
+  familyName: "Liberation Sans",
+  fullName: "Liberation Sans",
+  postscriptName: "LiberationSans"
+}
+const liberationMono = {
+  ...courierNew,
+  familyName: "Liberation Mono",
+  fullName: "Liberation Mono",
+  postscriptName: "LiberationMono"
+}
+
+const standIns = HashMap.make(
+  entry("sans", [segoeUI, helveticaNeue, arial, liberationSans, roboto, notoSans]),
+  entry("mono", [courierNew, liberationMono, robotoMono, notoSansMono])
+)
+
+const genericFamily = (typeface: Typeface): string =>
+  Match.value(typeface).pipe(
+    Match.when("sans", () => "sans-serif"),
+    Match.when("mono", () => "monospace"),
+    Match.exhaustive
+  )
+
+/** A system font that stands in for a served face, under the alias whose `@font-face` matches its metrics. */
+export const TypefaceFallback = Schema.Struct({ alias: Schema.String, standIn: Schema.String })
+export type TypefaceFallback = typeof TypefaceFallback.Type
+
+const fontStack = (typeface: Typeface) =>
+  createFontStack([HashMap.unsafeGet(servedFaces, typeface), ...HashMap.unsafeGet(standIns, typeface)])
+
+const fontStacks = HashMap.make(
+  entry("sans", fontStack("sans")),
+  entry("mono", fontStack("mono"))
+)
+
+/** The face a family is served in, by the name its `@font-face` rules declare. */
+export const servedFontFamily = (family: FontFamily): string =>
+  HashMap.unsafeGet(servedFaces, typefaceOf(family)).familyName
+
+export const typefaceFallbacks = (family: FontFamily): ReadonlyArray<TypefaceFallback> =>
+  Arr.map(HashMap.unsafeGet(standIns, typefaceOf(family)), (standIn) =>
+    TypefaceFallback.make({
+      alias: `${servedFontFamily(family)} Fallback: ${standIn.familyName}`,
+      standIn: standIn.familyName
+    }))
+
+/** The `@font-face` rules that scale every stand-in to the face it stands in for. */
+export const typefaceFallbackFaces: string = Arr.map(
+  Typeface.literals,
+  (typeface) => HashMap.unsafeGet(fontStacks, typeface).fontFaces
+).join("\n")
+
+/**
+ * The font the layout engine asks the document about before it measures a
+ * family: the served face at its normal weight and the root size. In hand, the
+ * layout measures in it; in flight, the layout measures in the stand-in the
+ * page shows and watches for this face to land, when it is built again in it
+ * — so no width the stand-in gave outlives the face that gave it.
+ */
+export const measuredFont = (family: FontFamily): string => `400 16px "${servedFontFamily(family)}"`
+
+const fontFamilyStacks = HashMap.make(
+  ...Arr.map(FontFamily.literals, (family) =>
+    entry<FontFamily, string>(
+      family,
+      `${HashMap.unsafeGet(fontStacks, typefaceOf(family)).fontFamily}, ${genericFamily(typefaceOf(family))}`
+    ))
 )
 
 const fontFamilyVarNames = HashMap.make(
@@ -57,11 +162,13 @@ export const fontFamilyThemeTokens: ReadonlyArray<readonly [string, string]> = H
 ) => [`--font-${family}`, stack])
 
 export const TextRole = Schema.Literal(
+  "display",
+  "lead",
   "hero-title",
-  "hero-body",
   "subsection-title",
   "card-title",
   "card-summary",
+  "stage-prose",
   "status",
   "tab-label",
   "selection-title",
@@ -76,10 +183,8 @@ export const TextRole = Schema.Literal(
 
 export type TextRole = typeof TextRole.Type
 
-export const VariantMaxWidth = Schema.Struct({
-  compact: PositiveWidth,
-  expanded: PositiveWidth
-})
+/** A measure for every surface variant: a variant added to `SurfaceVariant` is a width owed by every role. */
+export const VariantMaxWidth = Schema.Record({ key: SurfaceVariantSchema, value: PositiveWidth })
 
 export type VariantMaxWidth = typeof VariantMaxWidth.Type
 
@@ -91,6 +196,48 @@ export const TextWrapAuthority = Schema.Literal("native-browser", "effect-text-p
 
 export type TextWrapAuthority = typeof TextWrapAuthority.Type
 
+/** A length that follows the viewport's width between two bounds: `clamp(min, vw, max)`. */
+export const FluidSize = Schema.Struct({
+  min: PositiveWidth,
+  vw: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  max: PositiveWidth
+})
+export type FluidSize = typeof FluidSize.Type
+
+export const FontSize = Schema.Union(Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)), FluidSize)
+export type FontSize = typeof FontSize.Type
+
+/** Leading, fixed or fluid: a fluid size wants fluid leading beside it, or the ratio between them drifts. */
+export const LineHeight = Schema.Union(PositiveLineHeight, FluidSize)
+export type LineHeight = typeof LineHeight.Type
+
+/**
+ * A role's metrics at a viewport. Fluid metrics are for roles the browser
+ * wraps: the text layout engine flows projected roles from the base metrics,
+ * which are fixed, and the typography contract test holds that apart.
+ */
+export const Metrics = Schema.Struct({ fontSize: FontSize, lineHeight: LineHeight })
+export type Metrics = typeof Metrics.Type
+
+export const Viewport = Schema.Literal("narrow", "wide")
+export type Viewport = typeof Viewport.Type
+
+export const viewports: ReadonlyArray<Viewport> = Viewport.literals
+
+/** The media condition under which a viewport's metrics apply. */
+export const viewportCondition = (viewport: Viewport): string =>
+  Match.value(viewport).pipe(
+    Match.when("narrow", () => "(width < 40rem)"),
+    Match.when("wide", () => "(width >= 64rem)"),
+    Match.exhaustive
+  )
+
+export const ResponsiveMetrics = Schema.Struct({
+  narrow: Schema.optional(Metrics),
+  wide: Schema.optional(Metrics)
+})
+export type ResponsiveMetrics = typeof ResponsiveMetrics.Type
+
 export const TextSemantics = Schema.Struct({
   role: TextRole,
   family: FontFamily,
@@ -101,7 +248,8 @@ export const TextSemantics = Schema.Struct({
   lineBreaks: LineBreakBehavior,
   whiteSpace: Text.WhiteSpaceMode,
   lineHeight: PositiveLineHeight,
-  maxWidth: VariantMaxWidth
+  maxWidth: VariantMaxWidth,
+  at: ResponsiveMetrics
 })
 
 export type TextSemantics = typeof TextSemantics.Type
@@ -112,7 +260,38 @@ export const fontDescriptorFor = (semantics: TextSemantics): Text.FontDescriptor
   weight: fontWeightNumeric(semantics.weight)
 })
 
-const textSemanticsByRole: Record<TextRole, TextSemantics> = {
+export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
+  display: {
+    role: "display",
+    family: "display",
+    fontSize: 44,
+    weight: "semibold",
+    tracking: -0.02,
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
+    whiteSpace: "normal",
+    lineHeight: 50,
+    maxWidth: { compact: 720, expanded: 1040 },
+    // Narrow: 32/36 at 320 rising to 36/40 by 360, so a five-line title still leaves a 568 px fold room
+    // for the hero's actions; the same 1.11 ratio at both ends.
+    at: {
+      narrow: { fontSize: { min: 32, vw: 10, max: 36 }, lineHeight: { min: 36, vw: 11.25, max: 40 } },
+      wide: { fontSize: 64, lineHeight: 68 }
+    }
+  },
+  lead: {
+    role: "lead",
+    family: "body",
+    fontSize: 18,
+    weight: "normal",
+    tracking: 0,
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
+    whiteSpace: "normal",
+    lineHeight: 28,
+    maxWidth: { compact: 600, expanded: 720 },
+    at: { narrow: { fontSize: 17, lineHeight: 26 } }
+  },
   "hero-title": {
     role: "hero-title",
     family: "display",
@@ -123,19 +302,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 44,
-    maxWidth: { compact: 680, expanded: 920 }
-  },
-  "hero-body": {
-    role: "hero-body",
-    family: "body",
-    fontSize: 18,
-    weight: "normal",
-    tracking: 0,
-    wrapAuthority: "native-browser",
-    lineBreaks: "wrap",
-    whiteSpace: "normal",
-    lineHeight: 30,
-    maxWidth: { compact: 600, expanded: 880 }
+    maxWidth: { compact: 680, expanded: 920 },
+    at: { narrow: { fontSize: 32, lineHeight: 38 } }
   },
   "subsection-title": {
     role: "subsection-title",
@@ -147,7 +315,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 30,
-    maxWidth: { compact: 520, expanded: 1120 }
+    maxWidth: { compact: 520, expanded: 1120 },
+    at: { narrow: { fontSize: { min: 14, vw: 4.6, max: 18 }, lineHeight: 24 } }
   },
   "card-title": {
     role: "card-title",
@@ -159,7 +328,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 32,
-    maxWidth: { compact: 520, expanded: 1120 }
+    maxWidth: { compact: 520, expanded: 1120 },
+    at: {}
   },
   "card-summary": {
     role: "card-summary",
@@ -171,7 +341,21 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 26,
-    maxWidth: { compact: 720, expanded: 1400 }
+    maxWidth: { compact: 720, expanded: 1400 },
+    at: { narrow: { fontSize: 15, lineHeight: 22 } }
+  },
+  "stage-prose": {
+    role: "stage-prose",
+    family: "body",
+    fontSize: 16,
+    weight: "normal",
+    tracking: 0,
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
+    whiteSpace: "normal",
+    lineHeight: 26,
+    maxWidth: { compact: 720, expanded: 1400 },
+    at: {}
   },
   status: {
     role: "status",
@@ -183,7 +367,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 22,
-    maxWidth: { compact: 760, expanded: 1400 }
+    maxWidth: { compact: 760, expanded: 1400 },
+    at: {}
   },
   "tab-label": {
     role: "tab-label",
@@ -195,7 +380,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 16,
-    maxWidth: { compact: 180, expanded: 220 }
+    maxWidth: { compact: 180, expanded: 220 },
+    at: {}
   },
   "selection-title": {
     role: "selection-title",
@@ -207,7 +393,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 20,
-    maxWidth: { compact: 900, expanded: 1400 }
+    maxWidth: { compact: 900, expanded: 1400 },
+    at: {}
   },
   "section-title": {
     role: "section-title",
@@ -219,7 +406,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 32,
-    maxWidth: { compact: 900, expanded: 1400 }
+    maxWidth: { compact: 900, expanded: 1400 },
+    at: { narrow: { fontSize: 21, lineHeight: 28 } }
   },
   "row-label": {
     role: "row-label",
@@ -231,7 +419,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 16,
-    maxWidth: { compact: 360, expanded: 680 }
+    maxWidth: { compact: 360, expanded: 680 },
+    at: {}
   },
   "row-value": {
     role: "row-value",
@@ -243,7 +432,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 22,
-    maxWidth: { compact: 760, expanded: 1400 }
+    maxWidth: { compact: 760, expanded: 1400 },
+    at: {}
   },
   "code-meta": {
     role: "code-meta",
@@ -255,7 +445,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 18,
-    maxWidth: { compact: 900, expanded: 1400 }
+    maxWidth: { compact: 900, expanded: 1400 },
+    at: {}
   },
   "code-block": {
     role: "code-block",
@@ -267,7 +458,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "pre-wrap",
     lineHeight: 18,
-    maxWidth: { compact: 900, expanded: 1800 }
+    maxWidth: { compact: 900, expanded: 1800 },
+    at: {}
   },
   "button-label": {
     role: "button-label",
@@ -279,7 +471,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 16,
-    maxWidth: { compact: 170, expanded: 210 }
+    maxWidth: { compact: 170, expanded: 210 },
+    at: {}
   },
   "marker-label": {
     role: "marker-label",
@@ -291,16 +484,19 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 14,
-    maxWidth: { compact: 160, expanded: 200 }
+    maxWidth: { compact: 160, expanded: 200 },
+    at: {}
   }
 }
 
 export const textSemantics: ReadonlyArray<TextSemantics> = [
+  textSemanticsByRole.display,
+  textSemanticsByRole.lead,
   textSemanticsByRole["hero-title"],
-  textSemanticsByRole["hero-body"],
   textSemanticsByRole["subsection-title"],
   textSemanticsByRole["card-title"],
   textSemanticsByRole["card-summary"],
+  textSemanticsByRole["stage-prose"],
 
   textSemanticsByRole.status,
   textSemanticsByRole["tab-label"],
@@ -316,11 +512,32 @@ export const textSemantics: ReadonlyArray<TextSemantics> = [
 
 export const semanticsFor = (role: TextRole): TextSemantics => textSemanticsByRole[role]
 
+/** The metrics a role takes at a viewport instead of its own, if it has any. */
+export const metricsOverride = (semantics: TextSemantics, viewport: Viewport): Option.Option<Metrics> =>
+  Option.fromNullable(semantics.at[viewport])
+
+/** A role's size and leading, base or at a viewport that overrides them. */
+export const metricsAt = (role: TextRole, viewport: Option.Option<Viewport>): Metrics => {
+  const semantics = semanticsFor(role)
+  const base = Metrics.make({ fontSize: semantics.fontSize, lineHeight: semantics.lineHeight })
+  return Option.match(viewport, {
+    onNone: () => base,
+    onSome: (at) => Option.getOrElse(metricsOverride(semantics, at), () => base)
+  })
+}
+
+/** The CSS for a length: fixed pixels, or fluid between its bounds. */
+const lengthCss = (length: number | FluidSize): string =>
+  Schema.is(FluidSize)(length)
+    ? `clamp(${String(length.min)}px, ${String(length.vw)}vw, ${String(length.max)}px)`
+    : `${String(length)}px`
+
+export const fontSizeCss = (size: FontSize): string => lengthCss(size)
+
+export const lineHeightCss = (leading: LineHeight): string => lengthCss(leading)
+
 export const maxWidthFor = (role: TextRole, variant: SurfaceVariant): number =>
-  Match.value(variant).pipe(
-    Match.when("compact", () => textSemanticsByRole[role].maxWidth.compact),
-    Match.orElse(() => textSemanticsByRole[role].maxWidth.expanded)
-  )
+  textSemanticsByRole[role].maxWidth[variant]
 
 export const prepareInputFor = (role: TextRole, text: string): Text.PrepareInputType => ({
   text,

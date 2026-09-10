@@ -4,8 +4,18 @@ import * as Arr from "effect/Array"
 
 import { ed25519Verify, utf8ToBytes } from "@scenesystems/sign"
 
-import { description, renderTrials } from "../../app/contracts/demo/imagined-place-arrangement.js"
-import { type PlaceBuildRequest, placeFeatures, placeScenarios } from "../../app/contracts/imagined-place.js"
+import { description, descriptionInput } from "../../app/contracts/demo/imagined-place-arrangement.js"
+import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
+import {
+  type PlaceAcceptances,
+  type PlaceBuildRequest,
+  placeFeatures,
+  placeScenarioRecordings,
+  placeScenarios,
+  recordedOutline,
+  recordedProposals,
+  versionShapes
+} from "../../app/contracts/imagined-place.js"
 import { Participants, ParticipantsLive } from "../../app/server/imagined-place/authority.js"
 import { render } from "../../app/server/imagined-place/render.js"
 import { buildPlace } from "../../app/server/imagined-place/run.js"
@@ -17,6 +27,14 @@ const request: PlaceBuildRequest = {
   acceptNeighbor: true,
   acceptProgram: false
 }
+
+/** Every way the two proposals can be taken or left. */
+const acceptances: ReadonlyArray<PlaceAcceptances> = [
+  { acceptNeighbor: false, acceptProgram: false },
+  { acceptNeighbor: true, acceptProgram: false },
+  { acceptNeighbor: false, acceptProgram: true },
+  { acceptNeighbor: true, acceptProgram: true }
+]
 
 const build = (variant: PlaceBuildRequest = request) => buildPlace(variant).pipe(Effect.provide(ParticipantsLive))
 
@@ -34,6 +52,27 @@ describe("server/imagined-place", () => {
           .toBe(true)
         expect(result.proposals.length).toBe(2)
       })))
+
+  it.effect("the recording outlines every build, so the page can be cut to it before the build arrives", () =>
+    Effect.forEach(placeScenarios, (scenario) =>
+      Effect.forEach(acceptances, (accept) =>
+        Effect.gen(function*() {
+          const result = yield* build({ ...request, ...accept, scenario })
+          const recording = placeScenarioRecordings[scenario]
+          const outline = recordedOutline(recording, accept)
+          expect(result.artifact.composition).toEqual(outline.composition)
+          expect(result.artifact.accepted).toEqual(outline.accepted)
+          expect(placeFeatures(result.artifact)).toEqual(placeFeatures(outline))
+          expect(descriptionInput(result.artifact)).toEqual(descriptionInput(outline))
+          // The proposals are recorded in the order they were offered, with the author's decision on each.
+          expect(Arr.map(result.proposals, ({ accepted, proposal }) => ({ proposal, accepted }))).toEqual(
+            recordedProposals(recording, accept)
+          )
+          // The lineage has the outline's versions: each recorded version is a shape with its digest.
+          expect(Arr.map(result.evidence.lineage, ({ featureCount, version }) => ({ version, featureCount }))).toEqual(
+            versionShapes(outline)
+          )
+        }))))
 
   it.effect("keeps lineage: version 2 names version 1 as its parent and only accepted proposals change it", () =>
     Effect.gen(function*() {

@@ -1,6 +1,7 @@
-import { type Option, Schema } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import { focusEdgeClassName, litChipClassName } from "../designSystem.js"
 import { DocsLink } from "../DocsLink.js"
 import { Layer } from "../Layout.js"
 import { SemanticText } from "../SemanticText.js"
@@ -19,7 +20,7 @@ export const CodeAnnotation = Schema.Struct({
 export type CodeAnnotation = typeof CodeAnnotation.Type
 
 const linkClassName =
-  "rounded-[3px] underline decoration-dotted decoration-ink-500/70 underline-offset-[3px] transition-colors duration-150 hover:bg-stage-100 hover:decoration-solid hover:decoration-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  `rounded-[3px] underline decoration-dotted decoration-ink-500/70 underline-offset-[3px] transition-colors duration-150 hover:bg-stage-100 hover:decoration-solid hover:decoration-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
 
 const Tokens = ({ tokens }: { readonly tokens: ReadonlyArray<HighlightToken> }) => (
   <>
@@ -55,7 +56,7 @@ const Segment = ({ segment }: { readonly segment: LineSegment }) =>
 export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
   <Layer
     render={<span />}
-    className="my-1 inline-flex items-center gap-1.5 rounded-md border border-stage-300/85 bg-stage-50/95 px-2 py-0.5 shadow-chip"
+    className={`${litChipClassName} my-1 inline-flex items-center gap-1.5 rounded-md border border-stage-300/85 bg-stage-50/95 px-2 py-0.5`}
     data-code-annotation
   >
     <Layer aria-hidden render={<span />} className="inline-block size-1.5 rounded-full bg-ink-500" />
@@ -63,7 +64,8 @@ export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
   </Layer>
 )
 
-const lineText = (tokens: ReadonlyArray<HighlightToken>): string =>
+/** The line's text, as the source has it. */
+export const lineText = (tokens: ReadonlyArray<HighlightToken>): string =>
   Arr.join(Arr.map(tokens, (token) => token.value), "")
 
 export const annotationFor = (
@@ -73,6 +75,10 @@ export const annotationFor = (
   const text = lineText(tokens)
   return Arr.findFirst(annotations, (annotation) => text.includes(annotation.match))
 }
+
+/** Whether this line is the one a match names. */
+export const lineMatches = (tokens: ReadonlyArray<HighlightToken>, match: Option.Option<string>): boolean =>
+  Option.exists(match, (needle) => lineText(tokens).includes(needle))
 
 /** One line of a sample: its tokens, with named symbols linked to the API reference. */
 export const CodeLine = ({

@@ -1,0 +1,285 @@
+import { type Equivalence, Match, type Option, Schema } from "effect"
+import * as Arr from "effect/Array"
+import type * as Record from "effect/Record"
+
+import { Id as CardId } from "../id.js"
+import { type PlaceBuild } from "../imagined-place-result.js"
+
+/**
+ * The demo's story in four steps, in the order they run on the server
+ * (`server/imagined-place/run.ts`) and in the browser
+ * (`atoms/imagined-place-render.ts`). Each is one thing the visitor can see
+ * happen and one tab of the code panel.
+ *
+ * @since 0.3.0
+ */
+export const PlaceStep = Schema.Literal("compose", "propose", "record", "arrange")
+export type PlaceStep = typeof PlaceStep.Type
+export const placeSteps: ReadonlyArray<PlaceStep> = PlaceStep.literals
+
+/**
+ * The acts of the story as the page lays them out: the arrival, the three
+ * acts on the spine, and the code that built it all. Each is a landmark in
+ * the reading column; the stage answers the one in view.
+ *
+ * @since 0.3.0
+ */
+export const PlaceAct = Schema.Literal("arrive", "compose", "propose", "record", "build")
+export type PlaceAct = typeof PlaceAct.Type
+
+/**
+ * The lines of the samples that produced something on the page, each by
+ * name: what a site is, before where it is. A closed set, so what answers
+ * for a site can be matched exhaustively, and a site is one value however
+ * many places name it.
+ *
+ * @since 0.3.0
+ */
+export const CodeSiteId = Schema.Literal(
+  "compose",
+  "inference",
+  "proposal-digest",
+  "proposal-signature",
+  "seal",
+  "origin-digest",
+  "merged-digest",
+  "version-signature",
+  "layout",
+  "separation",
+  "search"
+)
+export type CodeSiteId = typeof CodeSiteId.Type
+
+/**
+ * A line of the code sample, named by the step it is in and a substring
+ * unique to it there, and the package that call comes from. The same
+ * `match` keys the live value shown under that line.
+ *
+ * @since 0.3.0
+ */
+export const CodeSite = Schema.Struct({
+  id: CodeSiteId,
+  step: PlaceStep,
+  match: Schema.String,
+  package: CardId
+})
+export type CodeSite = typeof CodeSite.Type
+
+const site = (id: CodeSiteId, step: PlaceStep, match: string, pkg: CardId): CodeSite => ({
+  id,
+  step,
+  match,
+  package: pkg
+})
+
+/**
+ * Every line of the samples that produced something on the page. Each is
+ * answered by the thing it made; each thing on the page is answered by its
+ * line. The order within a step is the order of the lines in the sample.
+ */
+export const composeSite = site("compose", "compose", "composer.forward(", "effect-inference")
+export const inferenceSite = site("inference", "compose", "InferenceTesting.staticLanguageModel(", "effect-inference")
+export const proposalDigestSite = site("proposal-digest", "propose", "digestSchemaValue(Proposal,", "digest")
+export const proposalSignatureSite = site("proposal-signature", "propose", "ed25519Sign(proposer.secretKey", "sign")
+export const sealSite = site("seal", "propose", "seal(\"xchacha20-poly1305\"", "seal")
+export const originDigestSite = site("origin-digest", "record", "digestSchemaValue(PlaceArtifact, origin,", "digest")
+export const mergedDigestSite = site("merged-digest", "record", "digestSchemaValue(PlaceArtifact, merged,", "digest")
+export const versionSignatureSite = site("version-signature", "record", "ed25519Sign(author.secretKey", "sign")
+export const layoutSite = site("layout", "arrange", "Text.layoutLinesWith(", "effect-text")
+export const separationSite = site("separation", "arrange", "Statistics.minimum(", "effect-math")
+export const searchSite = site("search", "arrange", "Study.tell(", "effect-search")
+
+const codeSites: Record<CodeSiteId, CodeSite> = {
+  compose: composeSite,
+  inference: inferenceSite,
+  "proposal-digest": proposalDigestSite,
+  "proposal-signature": proposalSignatureSite,
+  seal: sealSite,
+  "origin-digest": originDigestSite,
+  "merged-digest": mergedDigestSite,
+  "version-signature": versionSignatureSite,
+  layout: layoutSite,
+  separation: separationSite,
+  search: searchSite
+}
+
+/** The canonical site named by `id`. */
+export const codeSite = (id: CodeSiteId): CodeSite => codeSites[id]
+
+export const allCodeSites: ReadonlyArray<CodeSite> = Arr.map(CodeSiteId.literals, codeSite)
+
+/**
+ * Which build a drawing is of: the content ID of the version being drawn.
+ * The stage keeps drawing the story it was given while the next one is
+ * built, so what is on the paper and what the column describes can be two
+ * different builds for a while; a mark on the paper names its own.
+ *
+ * @since 0.3.0
+ */
+export const PlaceSourceId = Schema.NonEmptyString
+export type PlaceSourceId = typeof PlaceSourceId.Type
+
+/** The source a build is, by the version it drew. */
+export const placeSourceId = (build: PlaceBuild): PlaceSourceId => Arr.lastNonEmpty(build.evidence.lineage).contentId
+
+/**
+ * One drawing: a source laid out at one stage width. A line of the prose
+ * or a trial of the search exists only within its drawing — the next
+ * source, or the same one at another width, has other lines and other
+ * trials — so a mark on either carries the drawing it belongs to.
+ *
+ * @since 0.3.0
+ */
+export const DrawingId = Schema.Struct({ source: PlaceSourceId, stageWidth: Schema.Number })
+export type DrawingId = typeof DrawingId.Type
+
+/** Two drawing IDs name the same drawing. */
+export const sameDrawing: Equivalence.Equivalence<DrawingId> = Schema.equivalence(DrawingId)
+
+/**
+ * Something on the page a visitor can point at and be answered about: a
+ * feature's name in the column, its disc on the paper, a line of the drawn
+ * prose, a signature, a content ID, a trial of the search, the recorded
+ * inference, the sealed note, or a line of the code that made one of
+ * these. A mark is the whole of what is remembered about the pointer;
+ * everything said about it is derived.
+ *
+ * A `Feature` is of the build the column describes; a `Disc`, a `Line`
+ * and a `Trial` are of the drawing they were pointed at on, and are
+ * answered only while that drawing is the one shown.
+ *
+ * @since 0.3.0
+ */
+export const PlaceMark = Schema.Union(
+  Schema.TaggedStruct("Feature", { name: Schema.String }),
+  Schema.TaggedStruct("Disc", { name: Schema.String, source: PlaceSourceId }),
+  Schema.TaggedStruct("Line", { index: Schema.Int, drawing: DrawingId }),
+  Schema.TaggedStruct("Signature", { subject: Schema.String }),
+  Schema.TaggedStruct("Digest", { contentId: Schema.String }),
+  Schema.TaggedStruct("Trial", { index: Schema.Int, drawing: DrawingId }),
+  Schema.TaggedStruct("Inference", {}),
+  Schema.TaggedStruct("Note", {}),
+  Schema.TaggedStruct("CodeLine", { site: CodeSiteId })
+)
+export type PlaceMark = typeof PlaceMark.Type
+
+/** How an answer became open; press answers stay pinned when the pointer leaves. */
+export const AnswerOpening = Schema.Literal("hover", "press")
+export type AnswerOpening = typeof AnswerOpening.Type
+
+/**
+ * Where focus goes when the answer closes: back to the mark that opened it,
+ * or nowhere — it stays where it is. A hover answer never took focus, and an
+ * answer whose mark has left the page has nowhere to send it.
+ *
+ * @since 0.3.0
+ */
+export const AnswerFocusReturn = Schema.Literal("mark", "stays")
+export type AnswerFocusReturn = typeof AnswerFocusReturn.Type
+
+/** Where focus returns when an answer opened this way closes. */
+export const focusReturnAfter = (opening: AnswerOpening): AnswerFocusReturn =>
+  Match.value(opening).pipe(
+    Match.when("press", (): AnswerFocusReturn => "mark"),
+    Match.when("hover", (): AnswerFocusReturn => "stays"),
+    Match.exhaustive
+  )
+
+/** The single open provenance answer. */
+export class PlaceAnswer extends Schema.Class<PlaceAnswer>("PlaceAnswer")({
+  triggerId: Schema.String,
+  mark: PlaceMark,
+  opening: AnswerOpening
+}) {}
+
+/** A mark as one mounted trigger carries it: the element's id and the mark it stands for. */
+export const MarkTrigger = Schema.Struct({ triggerId: Schema.String, mark: PlaceMark })
+export type MarkTrigger = typeof MarkTrigger.Type
+
+/**
+ * Where the pointer is within the provenance interaction region: on a mark,
+ * whose answer it may be about to open; on a mark it has pressed, which has
+ * said all a pointer can say there, so nothing is on its way; or on the
+ * answer itself.
+ */
+export const PointerOver = Schema.Union(
+  Schema.TaggedStruct("Mark", MarkTrigger.fields),
+  Schema.TaggedStruct("Pressed", MarkTrigger.fields),
+  Schema.TaggedStruct("Answer", {})
+)
+export type PointerOver = typeof PointerOver.Type
+
+/** A delayed decision made by the owned hover-intent process. */
+export const HoverIntent = Schema.Union(
+  Schema.TaggedStruct("Open", MarkTrigger.fields),
+  Schema.TaggedStruct("Close", {})
+)
+export type HoverIntent = typeof HoverIntent.Type
+
+/** A press on a mark, as the popover reports it: whether it would open, and which mark. */
+export const MarkPress = Schema.Struct({ opening: Schema.Boolean, pressed: MarkTrigger })
+export type MarkPress = typeof MarkPress.Type
+
+/**
+ * What a press does: `Leave` keeps the answer exactly as it is and the
+ * popover's own change is cancelled; `Pin` likewise cancels the popover's
+ * close and makes a hover answer a pressed one; `Answer` is the new answer.
+ */
+export const PressOutcome = Schema.Union(
+  Schema.TaggedStruct("Leave", {}),
+  Schema.TaggedStruct("Pin", { answer: PlaceAnswer }),
+  Schema.TaggedStruct("Answer", { answer: Schema.Option(PlaceAnswer) })
+)
+export type PressOutcome = typeof PressOutcome.Type
+
+/** A mark carried on an element as one attribute value, and read back from it. */
+export const PlaceMarkAttribute = Schema.parseJson(PlaceMark)
+
+export const encodeMark = Schema.encodeSync(PlaceMarkAttribute)
+export const decodeMark: (value: unknown) => Option.Option<PlaceMark> = Schema.decodeUnknownOption(
+  PlaceMarkAttribute
+)
+
+/** The call a site's line makes, by name: `composer.forward(` is `composer.forward`. */
+export const codeSiteCall = (site: CodeSite): string => site.match.slice(0, site.match.indexOf("("))
+
+/** The code site a code-line mark names, if the sample has such a line. */
+export const codeSiteOf = (step: PlaceStep, match: string): Option.Option<CodeSite> =>
+  Arr.findFirst(allCodeSites, (candidate) => candidate.step === step && candidate.match === match)
+
+/** The code site a line of `step`'s sample is, if the line is one that made something on the page. */
+export const codeSiteOnLine = (step: PlaceStep, line: string): Option.Option<CodeSite> =>
+  Arr.findFirst(allCodeSites, (candidate) => candidate.step === step && line.includes(candidate.match))
+
+/**
+ * What a visitor pointing at a mark is told: what it is, the facts about it
+ * worth a line each, and the line of code that made it. `copy` is a value
+ * worth putting on the clipboard whole, such as a content ID.
+ *
+ * @since 0.3.0
+ */
+export const ProvenanceFact = Schema.Struct({
+  label: Schema.String,
+  value: Schema.String
+})
+export type ProvenanceFact = typeof ProvenanceFact.Type
+
+export const PlaceProvenance = Schema.Struct({
+  /** The mark answered: for a code line, the mark of the thing it made. */
+  mark: PlaceMark,
+  title: Schema.String,
+  /** The thing's own words, when it has any: a feature's description. */
+  detail: Schema.Option(Schema.String),
+  facts: Schema.Array(ProvenanceFact),
+  site: CodeSite,
+  copy: Schema.Option(Schema.String),
+  /**
+   * The names of the features the answer is about, so each can say so where
+   * it stands: a feature's own; every feature the composing line, or the
+   * recorded inference, returned; the features a content ID or a signature
+   * is over. Read from the same source the answer was, so a disc of the
+   * drawing on the paper lights its own feature and no other build's.
+   */
+  about: Schema.Array(Schema.String)
+})
+export type PlaceProvenance = typeof PlaceProvenance.Type

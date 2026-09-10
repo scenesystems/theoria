@@ -9,7 +9,7 @@ type LayoutTag = "div" | "header" | "main" | "nav" | "section"
  * Props of a layout slot: the attributes and ref of its default element plus
  * Base UI's `render` prop, which swaps the rendered element for another tag
  * or composes the slot with another component (`render={<ul />}`,
- * `render={<motion.div />}`). Base UI merges the slot's classes, handlers and
+ * `render={<m.div />}`). Base UI merges the slot's classes, handlers and
  * refs into whatever `render` supplies.
  */
 export type LayoutSlotProps<Tag extends LayoutTag> = useRender.ComponentProps<Tag>

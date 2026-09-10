@@ -5,7 +5,7 @@ import { Match } from "effect"
 
 import { type ColorMode, colorModeAtom, colorModePreferenceAtom } from "../../atoms/theme.js"
 
-import { chromeHeaderGlyphClassName, chromeIconButtonClassName } from "./ChromeIconButton.js"
+import { headerChromeGlyphClassName, headerChromeIconButtonClassName } from "./HeaderChrome.js"
 
 const opposite = (mode: ColorMode): ColorMode =>
   Match.value(mode).pipe(
@@ -26,13 +26,13 @@ export const ThemeToggle = () => {
         Match.when("dark", () => "Switch to light mode"),
         Match.exhaustive
       )}
-      className={chromeIconButtonClassName({ active: false, className: "h-11 w-11 rounded-[1rem]" })}
+      className={headerChromeIconButtonClassName()}
       onClick={() => setPreference(opposite(mode))}
       type="button"
     >
       {Match.value(mode).pipe(
-        Match.when("light", () => <MoonIcon aria-hidden className={chromeHeaderGlyphClassName} />),
-        Match.when("dark", () => <SunIcon aria-hidden className={chromeHeaderGlyphClassName} />),
+        Match.when("light", () => <MoonIcon aria-hidden className={headerChromeGlyphClassName} />),
+        Match.when("dark", () => <SunIcon aria-hidden className={headerChromeGlyphClassName} />),
         Match.exhaustive
       )}
     </Button>

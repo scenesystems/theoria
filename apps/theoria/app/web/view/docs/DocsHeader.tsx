@@ -5,6 +5,7 @@ import { Option } from "effect"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
 import { setDocsNavigationOpenAtom } from "../../atoms/docs.js"
+import { focusEdgeClassName } from "../primitives/designSystem.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Cluster, Header, Layer } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
@@ -45,7 +46,7 @@ export const DocsHeader = ({
           })}
           <InternalLink
             aria-label="Theoria home"
-            className="inline-flex min-w-0 items-baseline text-ink-900 outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+            className={`inline-flex min-w-0 items-baseline text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`}
             href="/"
           >
             <TheoriaLogo className="text-[1.55rem] sm:text-[1.7rem]" />
@@ -53,7 +54,7 @@ export const DocsHeader = ({
           <Layer className="hidden h-5 w-px bg-stage-300 sm:block" />
           <InternalLink
             aria-label="Documentation home"
-            className="hidden text-ink-600 outline-none hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:inline-flex"
+            className={`hidden text-ink-600 ${focusEdgeClassName} hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:inline-flex`}
             href="/docs"
           >
             <SemanticText as="span" className="text-inherit" role="status" text="Docs" variant="compact" />

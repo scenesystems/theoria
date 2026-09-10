@@ -4,11 +4,12 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { CheckIcon, ClipboardDocumentIcon, ExclamationCircleIcon } from "@heroicons/react/20/solid"
 import { Match } from "effect"
 import { Option } from "effect"
+import type { ReactNode } from "react"
 
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
-import type { CodeAnnotation } from "./code/CodeLine.js"
+import { type CodeAnnotation, CodeAnnotationRow } from "./code/CodeLine.js"
 import type { CodeLink } from "./code/codeLinks.js"
-import { HighlightedCode } from "./code/HighlightedCode.js"
+import { type GutterLine, gutterNumber, HighlightedCode } from "./code/HighlightedCode.js"
 import type { CodeLanguage } from "./code/highlighter.js"
 import { docsTheme } from "./docsSystem.js"
 import { Cluster, Layer, Rail, Section } from "./Layout.js"
@@ -33,18 +34,28 @@ const languageLabel = (language: CodeLanguage): string =>
     Match.exhaustive
   )
 
+const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
+
 export const CodeBlock = ({
   annotations = [],
+  focusedMatch = Option.none(),
   label,
   language = "typescript",
   links = [],
+  renderAnnotation = defaultAnnotation,
+  renderLineNumber = gutterNumber,
   source
 }: {
   readonly annotations?: ReadonlyArray<CodeAnnotation>
+  /** The line the page is pointing at, by a substring unique to it. */
+  readonly focusedMatch?: Option.Option<string>
   /** A short title for the header's single fixed-height line ("Signature", "Example 2", a step name). */
   readonly label: string
   readonly language?: CodeLanguage
   readonly links?: ReadonlyArray<CodeLink>
+  readonly renderAnnotation?: (annotation: CodeAnnotation) => ReactNode
+  /** Draws a line's number in the gutter; the number itself unless given. */
+  readonly renderLineNumber?: (line: GutterLine) => ReactNode
   readonly source: string
 }) => {
   const copy = useAtomSet(copyDocsCodeAtom)
@@ -87,16 +98,18 @@ export const CodeBlock = ({
           </Button>
         </Cluster>
       </Rail>
-      <ScrollArea.Root className="overflow-hidden">
+      <ScrollArea.Root className="group/code overflow-hidden" data-code-scroll>
         <ScrollArea.Viewport className="max-h-[32rem] w-full">
           <ScrollArea.Content>
             <Layer render={<pre />} className="m-0 min-w-max px-4 py-5 sm:px-5">
               <HighlightedCode
                 annotations={annotations}
+                focusedMatch={focusedMatch}
                 language={language}
                 links={links}
+                renderAnnotation={renderAnnotation}
+                renderLineNumber={renderLineNumber}
                 source={source}
-                variant="expanded"
               />
             </Layer>
           </ScrollArea.Content>
@@ -106,6 +119,16 @@ export const CodeBlock = ({
           orientation="horizontal"
         >
           <ScrollArea.Thumb className="h-full min-w-8 rounded-full bg-ink-700/35" />
+        </ScrollArea.Scrollbar>
+        {
+          /* A block taller than its viewport is cut and scrolls; the scrollbar is painted for as long as there
+            is more to see — nothing on a phone hovers — and fades once the whole block is in view. */
+        }
+        <ScrollArea.Scrollbar
+          className="flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/code:opacity-100 motion-reduce:transition-none"
+          orientation="vertical"
+        >
+          <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </Section>

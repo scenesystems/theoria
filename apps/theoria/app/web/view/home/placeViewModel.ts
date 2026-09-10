@@ -1,19 +1,31 @@
-import { Match, Option } from "effect"
+import { Match, Option, Order, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
-import type {
-  PlaceBuild,
-  PlaceEvidence,
+import { contributorsOf } from "../../../contracts/demo/imagined-place-arrangement.js"
+import type { PlaceAct } from "../../../contracts/demo/imagined-place-provenance.js"
+import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
+import {
+  type PlaceEvidence,
   PlaceMarker,
-  ProposalRecord,
-  SignatureRecord,
-  Version
+  type PlaceProjection,
+  type ProposalRecord,
+  type SealedNote,
+  type SignatureRecord,
+  type Version
 } from "../../../contracts/imagined-place-result.js"
-import type { ParticipantRole, PlaceArtifact } from "../../../contracts/imagined-place.js"
+import {
+  type OfferedProposal,
+  ParticipantRole,
+  placeFeatures,
+  type PlaceOutline,
+  type VersionShape
+} from "../../../contracts/imagined-place.js"
 import type { CardTone } from "../../../contracts/theme.js"
-import type { PlaceRenderFrame } from "../../atoms/imagined-place-render.js"
+import type { PlaceDiscDrawn, PlaceSearch, PlaceWait, StageFailure } from "../../atoms/imagined-place-render.js"
+import type { MotionPreference } from "../../atoms/motion.js"
 import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
+import { departed, shiftTransition } from "../primitives/motion.js"
+import type { PlaceholderMotion } from "../primitives/Skeleton.js"
 
 /**
  * Pure formatting for the home-page demo. Everything here turns a build or a
@@ -23,13 +35,23 @@ import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
 /** Content IDs look like `blake3-256:…`; the short form keeps the first characters of the digest itself. */
 export const shortId = (id: string): string => `${id.slice(id.indexOf(":") + 1, id.indexOf(":") + 11)}…`
 
+/**
+ * The room the build's evidence takes before it is here. A digest has the
+ * authority's form — the algorithm, then 64 hex digits — so an ID cut to
+ * either form is as long as the one that arrives; a key is named by eight of
+ * its digits. The digits are room, not a digest: nothing reads them.
+ */
+const unknownDigest = "0".repeat(64)
+export const contentIdShape = `blake3-256:${unknownDigest}`
+const keyDigits = (fingerprint: string): string => fingerprint.slice(0, 8)
+
 const participants: ReadonlyArray<ParticipantRole> = ["author", "neighbor", "program"]
 
 /** Who has a feature in this version: the author always, and each proposer whose proposal was merged. */
-export const presentParticipants = (artifact: PlaceArtifact): ReadonlyArray<ParticipantRole> =>
+export const presentParticipants = (place: PlaceOutline): ReadonlyArray<ParticipantRole> =>
   Arr.filter(
     participants,
-    (role) => role === "author" || Arr.some(artifact.accepted, (proposal) => proposal.proposer === role)
+    (role) => role === "author" || Arr.some(place.accepted, (proposal) => proposal.proposer === role)
   )
 
 export const participantLabel = (role: ParticipantRole): string =>
@@ -61,24 +83,201 @@ export const markerTone = (marker: PlaceMarker): ToneClasses =>
   toneClassesFor(participantTone(markerContributor(marker)))
 
 /**
+ * One entry of the stage's marker legend: the feature a numbered disc stands
+ * for, in its contributor's tone. The legend is laid from the outline before
+ * the first drawing and from the drawing's markers after it — the same names
+ * in the same order, so the first frame moves nothing under it.
+ */
+export const PlaceLegendEntry = Schema.Struct({
+  name: Schema.String,
+  contributedBy: ParticipantRole
+})
+export type PlaceLegendEntry = typeof PlaceLegendEntry.Type
+
+export const legendFromOutline = (place: PlaceOutline): ReadonlyArray<PlaceLegendEntry> =>
+  Arr.zipWith(placeFeatures(place), contributorsOf(place), (feature, contributor) =>
+    PlaceLegendEntry.make({
+      name: feature.name,
+      contributedBy: Option.getOrElse(contributor, (): ParticipantRole => "author")
+    }))
+
+export const legendFromMarkers = (markers: ReadonlyArray<PlaceMarker>): ReadonlyArray<PlaceLegendEntry> =>
+  Arr.map(markers, (marker) => PlaceLegendEntry.make({ name: marker.name, contributedBy: markerContributor(marker) }))
+
+/** Under forced colours the ring is dropped with every shadow, so the disc keeps its edge as a `CanvasText` border on the `Canvas`. */
+const discEdgeClassName = "forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas]"
+
+/**
  * The disc itself: a soft radial fill lit from the upper left, an inset ring
- * and a low shadow, in the contributor's tone. Full literals per participant
+ * in the contributor's tone. Full literals per participant
  * because Tailwind purges anything assembled at run time.
  */
 export const discClassName = (role: ParticipantRole): string =>
   Match.value(role).pipe(
-    Match.when(
-      "author",
-      () => "bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60 shadow-chip"
-    ),
-    Match.when(
-      "neighbor",
-      () => "bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60 shadow-chip"
-    ),
-    Match.when(
-      "program",
-      () => "bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60 shadow-chip"
-    ),
+    Match.when("author", () => `bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60 ${discEdgeClassName}`),
+    Match.when("neighbor", () => `bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60 ${discEdgeClassName}`),
+    Match.when("program", () => `bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60 ${discEdgeClassName}`),
+    Match.exhaustive
+  )
+
+/**
+ * The outline a disc wears while an act is in view. The outline is always
+ * present and transparent when the act says nothing about this disc, so only
+ * its colour ever transitions; Motion owns the disc's opacity and must not
+ * find a CSS transition on it.
+ */
+export const discActOutline = (act: PlaceAct, marker: PlaceMarker): string => {
+  const proposer = Option.fromNullable(marker.contributedBy)
+  return Match.value(act).pipe(
+    Match.when("compose", () => Option.isNone(proposer) ? "outline-tone-sign-400/70" : "outline-transparent"),
+    Match.when("propose", () =>
+      Option.match(proposer, {
+        onNone: () => "outline-transparent",
+        onSome: (role) =>
+          Match.value(role).pipe(
+            Match.when("author", () => "outline-tone-sign-400/70"),
+            Match.when("neighbor", () => "outline-tone-seal-400/70"),
+            Match.when("program", () => "outline-tone-dsp-400/70"),
+            Match.exhaustive
+          )
+      })),
+    Match.when("record", () => Option.isSome(proposer) ? "outline-tone-digest-400/70" : "outline-transparent"),
+    Match.when("arrive", () => "outline-transparent"),
+    Match.when("build", () => "outline-transparent"),
+    Match.exhaustive
+  )
+}
+
+/** The ring a disc wears while the code line that placed it is under the pointer. */
+export const discFocusRing = (role: ParticipantRole): string =>
+  Match.value(role).pipe(
+    Match.when("author", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-sign-300"),
+    Match.when("neighbor", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-seal-300"),
+    Match.when("program", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-dsp-300"),
+    Match.exhaustive
+  )
+
+/**
+ * A disc in the band's miniature: the contributor's tone as a flat fill, or
+ * as a dashed ring while the search is still making room for it; a disc
+ * leaving keeps its fill as it shrinks. The stroke is kept at one width
+ * whatever the miniature's scale; a disc answering the code line that made
+ * it wears the contributor's ring, as on the stage.
+ */
+export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, focused: boolean): string =>
+  Match.value(drawn).pipe(
+    Match.when("arriving", () =>
+      Match.value(role).pipe(
+        Match.when("author", () =>
+          "fill-none stroke-tone-sign-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
+        Match.when("neighbor", () =>
+          "fill-none stroke-tone-seal-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
+        Match.when("program", () =>
+          "fill-none stroke-tone-dsp-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
+        Match.exhaustive
+      )),
+    // The fills sit close to the strip in both themes, so the ring in the contributor's 500 stop is the
+    // boundary that stands out from it (≥ 3:1); focus deepens and thickens that ring.
+    Match.whenOr("settled", "trial", "leaving", () =>
+      Match.value(role).pipe(
+        Match.when("author", () =>
+          focused
+            ? "fill-tone-sign-300 stroke-tone-sign-700 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-sign-300 stroke-tone-sign-500 stroke-2 [vector-effect:non-scaling-stroke]"),
+        Match.when("neighbor", () =>
+          focused
+            ? "fill-tone-seal-300 stroke-tone-seal-700 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-seal-300 stroke-tone-seal-500 stroke-2 [vector-effect:non-scaling-stroke]"),
+        Match.when("program", () =>
+          focused
+            ? "fill-tone-dsp-300 stroke-tone-dsp-700 stroke-[3] [vector-effect:non-scaling-stroke]"
+            : "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-2 [vector-effect:non-scaling-stroke]"),
+        Match.exhaustive
+      )),
+    Match.exhaustive
+  )
+
+/** A disc of the place set in the band's row: the marker at its centre there. */
+export const BandDisc = Schema.Struct({
+  marker: PlaceMarker,
+  cx: Schema.Number
+})
+export type BandDisc = typeof BandDisc.Type
+
+/** The band's drawing, in the stage's own units: discs in a row on a strip of paper. */
+export const BandRow = Schema.Struct({
+  width: Schema.Number.pipe(Schema.positive()),
+  height: Schema.Number.pipe(Schema.positive()),
+  cy: Schema.Number,
+  discs: Schema.Array(BandDisc)
+})
+export type BandRow = typeof BandRow.Type
+
+/** Paper around the row, and paper between its discs, in stage units: a strip, not a sheet. */
+const bandMargin = 6
+const bandGap = 10
+
+/**
+ * The band drops the prose and keeps the discs, set in one row in the
+ * proportions they have on the stage: a merge arrives as one more disc, a
+ * code line pointed at lights the disc it made. Their places on the sheet
+ * are not kept — on a narrow stage they are one column beside the prose, and
+ * a strip has no room for a sheet — so the row reads left to right in the
+ * order the place names them. The row is in stage units; the strip draws it
+ * at a line's height.
+ */
+export const bandRow = (projection: PlaceProjection): BandRow =>
+  Arr.match(projection.markers, {
+    onEmpty: () => ({ width: bandMargin * 2, height: bandMargin * 2, cy: bandMargin, discs: [] }),
+    onNonEmpty: (markers) => {
+      // Each disc's left edge; the last entry is where one more would start.
+      const lefts = Arr.scan(markers, bandMargin, (left, marker) => left + marker.radius * 2 + bandGap)
+      const tallest = Arr.max(Arr.map(markers, (marker) => marker.radius), Order.number)
+      return {
+        width: Arr.lastNonEmpty(lefts) - bandGap + bandMargin,
+        height: tallest * 2 + bandMargin * 2,
+        cy: tallest + bandMargin,
+        discs: Arr.zipWith(markers, lefts, (marker, left) => ({ marker, cx: left + marker.radius }))
+      }
+    }
+  })
+
+/**
+ * The band's name to assistive technology, from the row it draws: where the
+ * link goes, and the features the row shows, in the row's order — so a
+ * reader who cannot see the discs is told what the band carries, and a merge
+ * that adds a disc adds a name. An empty row is only the way back.
+ */
+export const bandLabel = (row: BandRow): string =>
+  Arr.match(row.discs, {
+    onEmpty: () => "Back to the place",
+    onNonEmpty: (discs) => `Back to the place: ${Arr.join(Arr.map(discs, (disc) => disc.marker.name), ", ")}`
+  })
+
+/**
+ * How a disc takes its place in the row: fading in where it stands, and
+ * sliding over at the shift relation as a merge shifts the row — or, under
+ * reduced motion, placed outright where it now stands, fading in alone. `cx`
+ * is not among the values Motion holds still for reduced motion, so it is
+ * kept out of Motion's hands there and written as the attribute it is.
+ */
+export const bandDiscPlacing = (preference: MotionPreference, cx: number) =>
+  Match.value(preference).pipe(
+    Match.when("full", () => ({
+      initial: { cx, opacity: 0 },
+      animate: { cx, opacity: 1 },
+      transition: { cx: shiftTransition }
+    })),
+    Match.when("reduced", () => ({ cx: cx.toFixed(1), initial: departed, animate: { opacity: 1 } })),
+    Match.exhaustive
+  )
+
+/** A declined proposal's ghost: a dashed ring in the proposer's tone. */
+export const ghostClassName = (role: ParticipantRole): string =>
+  Match.value(role).pipe(
+    Match.when("author", () => "border-tone-sign-400/80"),
+    Match.when("neighbor", () => "border-tone-seal-400/80"),
+    Match.when("program", () => "border-tone-dsp-400/80"),
     Match.exhaustive
   )
 
@@ -92,14 +291,21 @@ export const markerLabel = (marker: PlaceMarker): string =>
  * A valid signature proves possession of a session key, not who a person is,
  * so the label names the key and nothing more.
  */
+const verifiedLabel = (fingerprint: string): string => `Verified · key ${keyDigits(fingerprint)}`
 export const signatureLabel = (signature: SignatureRecord): string =>
-  signature.valid ? `Verified · key ${signature.keyFingerprint.slice(0, 8)}` : "Signature did not verify"
+  signature.valid ? verifiedLabel(signature.keyFingerprint) : "Signature did not verify"
+/** The room a proposal's signature takes before the build: verified, by a key yet to be named. */
+export const signatureLabelShape = verifiedLabel(unknownDigest)
 
 /** The author signs every version; the lineage pill says who and with which key. */
+const signedLabel = (signer: ParticipantRole, fingerprint: string): string =>
+  `${participantLabel(signer)} signed · key ${keyDigits(fingerprint)}`
 export const versionSignatureLabel = (signature: SignatureRecord): string =>
   signature.valid
-    ? `${participantLabel(signature.signer)} signed · key ${signature.keyFingerprint.slice(0, 8)}`
+    ? signedLabel(signature.signer, signature.keyFingerprint)
     : `${participantLabel(signature.signer)} signed · did not verify`
+/** The room a version's signature takes before the build: the author's, by a key yet to be named. */
+export const versionSignatureLabelShape = signedLabel("author", unknownDigest)
 
 export const signatureFor = (
   signatures: ReadonlyArray<SignatureRecord>,
@@ -107,81 +313,143 @@ export const signatureFor = (
 ): Option.Option<SignatureRecord> => Arr.findFirst(signatures, (signature) => signature.subject === subject)
 
 /** The version being drawn: the last in the lineage. */
-export const currentVersion = (evidence: PlaceEvidence): Option.Option<Version> => Arr.last(evidence.lineage)
-
-export const currentVersionText = (evidence: PlaceEvidence): string =>
-  Option.match(currentVersion(evidence), {
-    onNone: () => "No version yet",
-    onSome: (version) => `Version ${String(version.version)} ·`
-  })
+export const currentVersion = (evidence: PlaceEvidence): Version => Arr.lastNonEmpty(evidence.lineage)
 
 /** A merged proposal is part of the current version; the pill on its card names which one. */
-export const mergedIntoText = (evidence: PlaceEvidence): string =>
-  Option.match(currentVersion(evidence), {
-    onNone: () => "Merged",
-    onSome: (version) => `In v${String(version.version)}`
-  })
+export const mergedIntoText = (current: VersionShape): string => `In v${String(current.version)}`
 
 export const isCurrentVersion = (evidence: PlaceEvidence, version: Version): boolean =>
-  Option.exists(currentVersion(evidence), (current) => current.contentId === version.contentId)
+  currentVersion(evidence).contentId === version.contentId
 
-export const versionTitle = (evidence: PlaceEvidence, version: Version): string =>
-  `v${String(version.version)} · ${
-    Option.isNone(Option.fromNullable(version.parent))
-      ? isCurrentVersion(evidence, version) ? "Origin · Current" : "Origin"
-      : "Current"
-  }`
+/** The knot's label: the first version is the origin; every later one is the current version while it is last. */
+export const knotLabel = (shape: VersionShape): string =>
+  `V${String(shape.version)} · ${shape.version === 1 ? "Origin" : "Current"}`
+
+/** The version a knot on the strand records, once the build is here: the one of the knot's shape. */
+export const versionOf = (evidence: PlaceEvidence, shape: VersionShape): Option.Option<Version> =>
+  Arr.findFirst(evidence.lineage, (version) => version.version === shape.version)
+
+const sealedNoteText = (bytes: string): string => `Sealed note · ${bytes} bytes`
+/** The envelope as anyone but the author sees it: sealed, and this big. */
+export const sealedNoteLabel = (note: SealedNote): string => sealedNoteText(String(note.envelopeBytes))
+/** The room the envelope takes before it is sealed: a size of three digits, as the notes run. */
+export const sealedNoteLabelShape = sealedNoteText("000")
+
+const leadingWords = (text: string, count: number): string => text.split(" ").slice(0, count).join(" ")
+
+/**
+ * The line of the drawn prose where a proposal's sentence begins, once it is
+ * merged: the margin the proposal belongs beside. The sentence's first words
+ * are looked for whole, then fewer of them, since a line may wrap inside
+ * them. Declined proposals have no line, as they are not in the prose.
+ */
+export const proposalAnchorLine = (projection: PlaceProjection, record: ProposalRecord): Option.Option<number> =>
+  record.accepted
+    ? Option.orElse(
+      Arr.findFirstIndex(
+        projection.lines,
+        (line) => line.text.includes(leadingWords(record.proposal.feature.description, 3))
+      ),
+      () =>
+        Arr.findFirstIndex(
+          projection.lines,
+          (line) => line.text.includes(leadingWords(record.proposal.feature.description, 1))
+        )
+    )
+    : Option.none()
 
 /** What the version added: the origin's feature count, or each merged proposal with who offered it. */
-export const versionChanges = (build: PlaceBuild, version: Version): ReadonlyArray<string> =>
-  Option.match(Option.fromNullable(version.parent), {
-    onNone: () => [`${String(version.featureCount)} features from your brief`],
-    onSome: () =>
-      Arr.map(
-        Arr.filter(build.proposals, (record: ProposalRecord) => record.accepted),
-        (record) => `+ ${record.proposal.feature.name} · ${participantLabel(record.proposal.proposer)}`
-      )
-  })
-
-export const parentText = (version: Version): Option.Option<string> =>
-  Option.map(Option.fromNullable(version.parent), () => `Built from v${String(version.version - 1)}`)
+export const versionChanges = (offered: ReadonlyArray<OfferedProposal>, shape: VersionShape): ReadonlyArray<string> =>
+  shape.version === 1
+    ? [`${String(shape.featureCount)} features from your brief`]
+    : Arr.map(
+      Arr.filter(offered, (proposal) => proposal.accepted),
+      (proposal) => `+ ${proposal.proposal.feature.name} · ${participantLabel(proposal.proposal.proposer)}`
+    )
 
 /** The trial the stage draws: the one chosen from the trace if it exists, else the best. */
-export const shownTrialIndex = (frame: PlaceRenderFrame, preview: Option.Option<number>): number =>
+export const shownTrialIndex = (search: PlaceSearch, preview: Option.Option<number>): number =>
   Option.getOrElse(
-    Option.filter(preview, (index) => index >= 0 && index < frame.tried.length),
-    () => frame.bestIndex
+    Option.filter(preview, (index) => index >= 0 && index < search.tried.length),
+    () => search.bestIndex
   )
 
-const lossOf = (frame: PlaceRenderFrame, index: number): Option.Option<number> =>
-  Option.map(Arr.get(frame.tried, index), (arrangement) => arrangement.quality.loss)
+/**
+ * Whether the search is still under way for whoever reads it: trials coming
+ * in, or the drawing still travelling to the best. The caption, the trace and
+ * the code's live values report progress until the discs have landed, so
+ * nothing announces a result the stage has not shown yet.
+ */
+export const searching = (search: PlaceSearch): boolean =>
+  Match.value(search.phase).pipe(
+    Match.when("running", () => true),
+    Match.when("landing", () => true),
+    Match.when("complete", () => false),
+    Match.exhaustive
+  )
+
+const lossOf = (search: PlaceSearch, index: number): Option.Option<number> =>
+  Option.map(Arr.get(search.tried, index), (arrangement) => arrangement.quality.loss)
+
+const searchingText = (tried: number): string => `Searching arrangements · ${String(tried)} of ${String(renderTrials)}`
+/** The room the caption takes before the search has started: the search, with nothing tried yet. */
+export const searchCaptionShape = searchingText(0)
 
 /**
  * The search, captioned as measure · value · scope. While it runs, how far it
  * is; when it stops, which trial the stage draws and what it scored. "Loss"
  * is the word the code panel uses for the same number.
  */
-export const renderProgressText = (frame: PlaceRenderFrame, shown: number): string =>
-  frame.phase === "running"
-    ? `Searching arrangements · ${String(frame.trial)} of ${String(renderTrials)}`
-    : Option.match(lossOf(frame, shown), {
-      onNone: () => `${String(frame.tried.length)} arrangements tried`,
+export const renderProgressText = (search: PlaceSearch, shown: number): string =>
+  searching(search)
+    ? searchingText(search.tried.length)
+    : Option.match(lossOf(search, shown), {
+      onNone: () => `${String(search.tried.length)} arrangements tried`,
       onSome: (loss) =>
-        shown === frame.bestIndex
-          ? `Kept trial ${String(shown + 1)} of ${String(frame.tried.length)} · loss ${loss.toFixed(3)}`
-          : `Trial ${String(shown + 1)} of ${String(frame.tried.length)} · loss ${loss.toFixed(3)} · not kept`
+        shown === search.bestIndex
+          ? `Kept trial ${String(shown + 1)} of ${String(search.tried.length)} · loss ${loss.toFixed(3)}`
+          : `Trial ${String(shown + 1)} of ${String(search.tried.length)} · loss ${loss.toFixed(3)} · not kept`
     })
 
 /** The way back from a rejected trial: the kept one, by number. */
-export const keptTrialLabel = (frame: PlaceRenderFrame): string => `Kept trial ${String(frame.bestIndex + 1)}`
+export const keptTrialLabel = (search: PlaceSearch): string => `Kept trial ${String(search.bestIndex + 1)}`
+
+/**
+ * What the caption's row says in the search's place when the stage has
+ * failed: what failed, or that the run asked for in its place is under way.
+ */
+export const stageFailureText = (failure: StageFailure): string =>
+  Match.value(failure).pipe(
+    Match.when({ failed: "build", waiting: false }, () => "The place could not be built."),
+    Match.when({ failed: "build", waiting: true }, () => "Building the place again."),
+    Match.when({ failed: "draw", waiting: false }, () => "The place could not be drawn."),
+    Match.when({ failed: "draw", waiting: true }, () => "Drawing the place again."),
+    Match.exhaustive
+  )
+
+/** What stands in for the drawing breathes while one is on its way, and holds still when none is coming. */
+export const waitMotion = (wait: PlaceWait): PlaceholderMotion =>
+  Match.value(wait).pipe(
+    Match.when("pending", (): PlaceholderMotion => "breathing"),
+    Match.when("failed", (): PlaceholderMotion => "still"),
+    Match.exhaustive
+  )
+
+/** The run that answers the failure: the build again, or the drawing again. */
+export const stageFailureActionLabel = (failure: StageFailure): string =>
+  Match.value(failure.failed).pipe(
+    Match.when("build", () => "Try again"),
+    Match.when("draw", () => "Draw again"),
+    Match.exhaustive
+  )
 
 /** What a screen reader hears for the trace thumb. */
-export const trialValueText = (frame: PlaceRenderFrame, index: number): string =>
-  Option.match(lossOf(frame, index), {
+export const trialValueText = (search: PlaceSearch, index: number): string =>
+  Option.match(lossOf(search, index), {
     onNone: () => `Trial ${String(index + 1)}, not tried yet`,
     onSome: (loss) =>
-      `Trial ${String(index + 1)} of ${String(frame.tried.length)}, loss ${loss.toFixed(3)}${
-        index === frame.bestIndex ? ", kept" : ""
+      `Trial ${String(index + 1)} of ${String(search.tried.length)}, loss ${loss.toFixed(3)}${
+        index === search.bestIndex ? ", kept" : ""
       }`
   })
 

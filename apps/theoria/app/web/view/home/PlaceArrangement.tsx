@@ -1,47 +1,52 @@
 import { Button } from "@base-ui/react/button"
 import { Result } from "@effect-atom/atom"
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
-import type { PlaceArtifact } from "../../../contracts/imagined-place.js"
+import type { PlaceOutline } from "../../../contracts/imagined-place.js"
 import {
-  type PlaceRenderError,
-  type PlaceRenderFrame,
-  placeRenderFrameAtom,
-  placeTrialPreviewAtom
+  drawingId,
+  placeAgainAtom,
+  placeFailureAtom,
+  type PlaceSearch,
+  placeSearchAtom,
+  placeTrialPreviewAtom,
+  type PlaceWait,
+  placeWaitAtom,
+  type StageFailure
 } from "../../atoms/imagined-place-render.js"
 import {
   placeStageMaxDrawableAtom,
   placeStageMaxWidth,
   placeStagePresets,
   placeStageRequestAtom,
-  placeStageWidthAtom,
-  placeVersionChangeAtom
+  placeStageWidthAtom
 } from "../../atoms/imagined-place.js"
-import { ActionButton } from "../primitives/ActionButton.js"
-import { ChangedValue } from "../primitives/ChangedValue.js"
-import { ChoicePills } from "../primitives/ChoicePills.js"
-import { legendThemeFor, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
+import { ChoiceGroup } from "../primitives/ChoiceGroup.js"
+import { dangerStatusTone, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
+import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { StageBanner } from "../primitives/StageBanner.js"
+import { GhostText } from "../primitives/Skeleton.js"
 
-import { ContentId } from "./ContentId.js"
-import { PlaceSearchTrace } from "./PlaceSearchTrace.js"
+import { inlineMarkClassName, inlineMarkRoomClassName, ProvenanceMark } from "./PlaceProvenance.js"
+import { PlaceSearchTrace, PlaceSearchTracePending } from "./PlaceSearchTrace.js"
 import { PlaceStage } from "./PlaceStage.js"
+import { StageKnots } from "./PlaceStrand.js"
 import {
-  currentVersion,
-  currentVersionText,
   drawablePresets,
   keptTrialLabel,
   participantLabel,
   participantTone,
   presentParticipants,
   renderProgressText,
+  searchCaptionShape,
   shownTrialIndex,
+  stageFailureActionLabel,
+  stageFailureText,
   stagePresetLabel
 } from "./placeViewModel.js"
 
@@ -61,7 +66,7 @@ const StagePresets = () => {
   return presets.length === 0 ? null : (
     <Cluster className="items-center gap-2.5" data-place-presets>
       <SemanticText as="span" className="text-ink-500" role="code-meta" text="Drawn at" />
-      <ChoicePills
+      <ChoiceGroup
         activeIndex={activeIndex}
         className="gap-1.5"
         disabled={false}
@@ -82,55 +87,19 @@ const StagePresets = () => {
 /**
  * Who made what in the version drawn: the same accents the markers, cards and
  * pills use. A proposer appears only while a proposal of theirs is merged.
+ * Read from the outline, so the legend is here before the build is.
  */
-const ParticipantLegend = ({ artifact }: { readonly artifact: PlaceArtifact }) => (
+const ParticipantLegend = ({ outline }: { readonly outline: PlaceOutline }) => (
   <Cluster className="gap-x-4 gap-y-1.5" data-place-legend-participants>
-    {Arr.map(presentParticipants(artifact), (role) => (
+    {Arr.map(presentParticipants(outline), (role) => (
       <LegendItem
         key={role}
         label={participantLabel(role)}
-        shape="circle"
-        theme={legendThemeFor(participantTone(role))}
+        tone={toneClassesFor(participantTone(role))}
       />
     ))}
   </Cluster>
 )
-
-/**
- * The title of the composition is projected text; it sits in its own grid
- * cell with a definite width so measuring it never depends on its siblings.
- * The version beside it lights up when the record changes and stays still
- * when the stage is only redrawn: that is the point of the presets.
- */
-const TitleRow = ({ build }: { readonly build: PlaceBuild }) => {
-  const change = useAtomValue(placeVersionChangeAtom)
-  return (
-    <Layer className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
-      <SemanticText
-        as="h3"
-        className="min-w-0 text-ink-900"
-        role="hero-body"
-        text={build.artifact.composition.title}
-        variant="compact"
-        wrapAuthority="native-browser"
-      />
-      <Layer className="min-w-0" data-place-current-version>
-        <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5">
-          <SemanticText
-            as="span"
-            className="tabular-nums text-ink-500"
-            role="code-meta"
-            text={currentVersionText(build.evidence)}
-          />
-          {Option.match(currentVersion(build.evidence), {
-            onNone: () => null,
-            onSome: (version) => <ContentId form="short" id={version.contentId} />
-          })}
-        </ChangedValue>
-      </Layer>
-    </Layer>
-  )
-}
 
 /**
  * Where the search stands, or which of its trials the stage is drawing. While
@@ -138,20 +107,24 @@ const TitleRow = ({ build }: { readonly build: PlaceBuild }) => {
  * as tall as that pill and never wraps, so choosing a trial cannot move the
  * trace under the pointer.
  */
-const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
-  const shown = shownTrialIndex(frame, useAtomValue(placeTrialPreviewAtom))
+const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
+  const shown = shownTrialIndex(search, useAtomValue(placeTrialPreviewAtom))
   const setPreview = useAtomSet(placeTrialPreviewAtom)
   return (
     <Rail className="min-h-9 min-w-0 gap-2.5">
-      <Layer className="min-w-0" data-place-search-caption>
+      <ProvenanceMark
+        className={inlineMarkClassName}
+        data-place-search-caption
+        mark={{ _tag: "Trial", index: shown, drawing: drawingId(search) }}
+      >
         <SemanticText
           as="span"
           className="block truncate tabular-nums text-ink-500"
           role="code-meta"
-          text={renderProgressText(frame, shown)}
+          text={renderProgressText(search, shown)}
         />
-      </Layer>
-      {shown === frame.bestIndex ? null : (
+      </ProvenanceMark>
+      {shown === search.bestIndex ? null : (
         <Button
           className={`shrink-0 ${pillButtonClassName({ active: false, tone: searchTone })}`}
           data-place-show-kept
@@ -164,7 +137,7 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
             as="span"
             className="text-ink-700"
             role="tab-label"
-            text={keptTrialLabel(frame)}
+            text={keptTrialLabel(search)}
             variant="expanded"
           />
         </Button>
@@ -173,22 +146,81 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
   )
 }
 
+/** The caption's row before the search has started: its words as a ghost in the mark's room, at the row's height. */
+const SearchCaptionPending = () => (
+  <Rail aria-busy className="min-h-9 min-w-0 gap-2.5" data-place-search-caption-pending>
+    <Layer render={<span />} className={inlineMarkRoomClassName}>
+      <GhostText as="span" className="tabular-nums text-ink-500" role="code-meta" text={searchCaptionShape} />
+    </Layer>
+  </Rail>
+)
+
 /**
- * The search that draws the place failed; the last frame it reached stays on
- * the stage until it is run again. While the run it asked for is under way
- * the failure is still shown, `waiting`, and the button rests: another click
- * would only cancel that run and start over.
+ * The caption's row when the build or the drawing failed: the one place on
+ * the page the failure is told, at the row's height, so nothing above or
+ * below the stage moves for it. Whatever the stage last reached stays drawn.
+ * The pill asks for the run that failed again; while that run is under way
+ * the failure is still told, `waiting`, and the pill rests — another click
+ * would only cancel the run and start over.
  */
-const DrawFailed = ({ frame }: { readonly frame: Result.Failure<PlaceRenderFrame, PlaceRenderError> }) => {
-  const redraw = useAtomRefresh(placeRenderFrameAtom)
+const StageFailed = ({ failure }: { readonly failure: StageFailure }) => {
+  const askAgain = useAtomSet(placeAgainAtom)
+  const again = () => {
+    askAgain(failure.failed)
+  }
   return (
-    <StageBanner
-      action={<ActionButton disabled={frame.waiting} label="Draw again" onClick={redraw} />}
-      text={frame.waiting ? "Drawing the place again." : "The place could not be drawn."}
-      tone="error"
-    />
+    <Rail className="min-h-9 min-w-0 gap-2.5" data-place-stage-failed={failure.failed} role="alert">
+      <InlineStatus className="min-w-0" label={stageFailureText(failure)} tone={dangerStatusTone} />
+      <Button
+        className={`shrink-0 ${pillButtonClassName({ active: false, tone: searchTone })}`}
+        data-place-stage-again
+        disabled={failure.waiting}
+        onClick={again}
+        type="button"
+      >
+        <SemanticText
+          as="span"
+          className="text-ink-700"
+          role="tab-label"
+          text={stageFailureActionLabel(failure)}
+          variant="expanded"
+        />
+      </Button>
+    </Rail>
   )
 }
+
+/**
+ * The trace and, under it, the caption and the widths to draw at. The rows
+ * are the same before the search has started, with the trace's chart and the
+ * caption's words as the room they will take; the widths are known from the
+ * column and are offered from the first frame. When the build or the drawing
+ * failed the caption's row tells it, in the same room; the trace keeps
+ * whatever search it last had.
+ */
+const SearchRows = ({ failure, search, wait }: {
+  readonly failure: Option.Option<StageFailure>
+  readonly search: Option.Option<PlaceSearch>
+  readonly wait: PlaceWait
+}) => (
+  <Stack className="gap-2">
+    {Option.match(search, {
+      onNone: () => <PlaceSearchTracePending wait={wait} />,
+      onSome: (value) => <PlaceSearchTrace search={value} />
+    })}
+    <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,1fr)_auto]">
+      {Option.match(failure, {
+        onNone: () =>
+          Option.match(search, {
+            onNone: () => <SearchCaptionPending />,
+            onSome: (value) => <SearchCaption search={value} />
+          }),
+        onSome: (value) => <StageFailed failure={value} />
+      })}
+      <StagePresets />
+    </Layer>
+  </Stack>
+)
 
 /**
  * The Arrange step: the place drawn for this screen, the search that arranged
@@ -196,35 +228,19 @@ const DrawFailed = ({ frame }: { readonly frame: Result.Failure<PlaceRenderFrame
  * decide their shape by this column's width, not the viewport's: the column
  * is narrower beside the steps than it is above them.
  */
-export const PlaceArrangement = ({
-  build,
-  frame
-}: {
+export const PlaceArrangement = ({ build, outline }: {
   readonly build: Option.Option<PlaceBuild>
-  readonly frame: Result.Result<PlaceRenderFrame, PlaceRenderError>
-}) => (
-  <Stack className="@container gap-4">
-    {Option.match(build, {
-      onNone: () => null,
-      onSome: (value) => <TitleRow build={value} />
-    })}
-    <PlaceStage />
-    {Result.isFailure(frame) ? <DrawFailed frame={frame} /> : null}
-    {Option.match(Result.value(frame), {
-      onNone: () => null,
-      onSome: (value) => (
-        <Stack className="gap-2">
-          <PlaceSearchTrace frame={value} />
-          <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,1fr)_auto]">
-            <SearchCaption frame={value} />
-            <StagePresets />
-          </Layer>
-        </Stack>
-      )
-    })}
-    {Option.match(build, {
-      onNone: () => null,
-      onSome: (value) => <ParticipantLegend artifact={value.artifact} />
-    })}
-  </Stack>
-)
+  readonly outline: PlaceOutline
+}) => {
+  const search = useAtomValue(placeSearchAtom)
+  const failure = useAtomValue(placeFailureAtom)
+  const wait = useAtomValue(placeWaitAtom)
+  return (
+    <Stack className="@container gap-4">
+      <StageKnots evidence={Option.map(build, (value) => value.evidence)} outline={outline} />
+      <PlaceStage />
+      <SearchRows failure={failure} search={Result.value(search)} wait={wait} />
+      <ParticipantLegend outline={outline} />
+    </Stack>
+  )
+}

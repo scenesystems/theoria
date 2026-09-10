@@ -12,7 +12,7 @@ import {
 } from "./designSystem.js"
 import { SemanticText } from "./SemanticText.js"
 
-type ChoicePillsAppearance = "pill" | "segment"
+export type ChoiceAppearance = "pill" | "segment"
 
 const decodeIndex = Schema.decodeUnknownOption(Schema.Number)
 
@@ -22,7 +22,7 @@ const decodeIndex = Schema.decodeUnknownOption(Schema.Number)
  * option is the group's value. `label` names the group for assistive
  * technology (the options name themselves).
  */
-export const ChoicePills = ({
+export const ChoiceGroup = ({
   activeIndex,
   appearance = "pill",
   className,
@@ -33,7 +33,7 @@ export const ChoicePills = ({
   tone
 }: {
   readonly activeIndex: number
-  readonly appearance?: ChoicePillsAppearance
+  readonly appearance?: ChoiceAppearance
   readonly className?: string
   readonly disabled: boolean
   readonly label: string

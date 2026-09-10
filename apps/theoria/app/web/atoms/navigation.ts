@@ -1,6 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Effect, Match, Option, Stream } from "effect"
+import { Effect, Match, Option, Schema, Stream } from "effect"
 
 import type { DocsManifest } from "@theoria/docs-model"
 import { metadataForDocs, metadataForHome, type PageMetadata } from "../../contracts/metadata.js"
@@ -11,6 +11,7 @@ import { applyBrowserMetadata } from "../services/browser-metadata.js"
 import { isPagePath, pagePathFor, type PageRoute, parsePathname } from "../services/path.js"
 import { docsManifestAtom } from "./docs-data.js"
 import { docsLocationHashAtom } from "./docs.js"
+import { type MotionPreference, motionPreferenceAtom, scrollBehaviorFor, ScrollManner } from "./motion.js"
 import { appRuntime } from "./runtime.js"
 
 const routeForUrl = (url: URL): PageRoute => parsePathname(url.pathname)
@@ -68,7 +69,8 @@ export const browserNavigationMountAtom: AtomType.Atom<Result.Result<void>> = ap
  * the top with focus on the route's landmark.
  */
 const settleAfterNavigation = (
-  hash: string
+  hash: string,
+  behavior: ScrollManner
 ): Effect.Effect<void, never, BrowserWindow.BrowserWindow | BrowserDocument.BrowserDocument> =>
   Effect.gen(function*() {
     yield* nextFrame
@@ -81,13 +83,69 @@ const settleAfterNavigation = (
     }
 
     const anchor = yield* BrowserDocument.elementById(hash.slice(1))
-    Option.match(anchor, { onNone: () => {}, onSome: (element) => element.scrollIntoView() })
+    Option.match(anchor, { onNone: () => {}, onSome: (element) => element.scrollIntoView({ behavior }) })
+  })
+
+const FragmentJourney = Schema.Literal("same-document", "different-document")
+type FragmentJourney = typeof FragmentJourney.Type
+
+const fragmentJourney = (destination: URL, current: URL): FragmentJourney =>
+  destination.pathname === current.pathname && destination.search === current.search
+    ? "same-document"
+    : "different-document"
+
+const fragmentScrollManner = (
+  journey: FragmentJourney,
+  preference: MotionPreference
+): ScrollManner =>
+  Match.value(journey).pipe(
+    Match.when("same-document", () => scrollBehaviorFor(preference)),
+    Match.when("different-document", (): ScrollManner => "instant"),
+    Match.exhaustive
+  )
+
+/**
+ * After the new route has rendered: the element named by `selector` is
+ * brought to the middle of the viewport — gliding or at once, as the visitor's
+ * motion preference says — and given focus, so the route lands on a thing
+ * rather than a position.
+ */
+const settleOnElement = (
+  selector: string,
+  behavior: ScrollManner
+): Effect.Effect<void, never, BrowserDocument.BrowserDocument> =>
+  Effect.gen(function*() {
+    yield* nextFrame
+    const target = yield* BrowserDocument.querySelector(selector)
+    Option.match(target, {
+      onNone: () => {},
+      onSome: (element) => {
+        element.scrollIntoView({ behavior, block: "center" })
+        element.focus({ preventScroll: true })
+      }
+    })
   })
 
 const relativeReference = (url: URL): string => `${url.pathname}${url.search}${url.hash}`
 
 const isAppDestination = (destination: URL, current: URL): boolean =>
   destination.origin === current.origin && isPagePath(destination.pathname)
+
+/**
+ * Makes `destination` the document's entry and the route on screen, unless it
+ * already is. The caller has established that `destination` is an app route.
+ */
+const enterAppRoute = (
+  destination: URL,
+  current: URL,
+  ctx: AtomType.FnContext
+): Effect.Effect<void, never, BrowserWindow.BrowserWindow> =>
+  relativeReference(destination) === relativeReference(current)
+    ? Effect.void
+    : Effect.andThen(BrowserWindow.pushState(destination), () => {
+      ctx.set(pageRouteAtom, routeForUrl(destination))
+      ctx.set(docsLocationHashAtom, destination.hash)
+    })
 
 /**
  * Navigates to `href`. App routes on this origin become a history entry and a
@@ -104,13 +162,32 @@ export const navigateAtom = appRuntime.fn<string>()((href, ctx) =>
       return
     }
 
-    if (relativeReference(destination) !== relativeReference(current)) {
-      yield* BrowserWindow.pushState(destination)
-      ctx.set(pageRouteAtom, routeForUrl(destination))
-      ctx.set(docsLocationHashAtom, destination.hash)
-    }
+    yield* enterAppRoute(destination, current, ctx)
+    yield* settleAfterNavigation(
+      destination.hash,
+      fragmentScrollManner(fragmentJourney(destination, current), ctx(motionPreferenceAtom))
+    )
+  })
+)
 
-    yield* settleAfterNavigation(destination.hash)
+/** A navigation within the app that lands on a particular element rather than on its hash's position. */
+export const ElementNavigation = Schema.Struct({
+  href: Schema.String,
+  selector: Schema.String,
+  behavior: ScrollManner
+})
+export type ElementNavigation = typeof ElementNavigation.Type
+
+/**
+ * Navigates to `href` — an app route on this origin, or a programming error —
+ * and settles on the element `selector` names once the route has rendered.
+ */
+export const navigateToElementAtom = appRuntime.fn<ElementNavigation>()((navigation, ctx) =>
+  Effect.gen(function*() {
+    const current = yield* BrowserWindow.currentUrl
+    const destination = yield* Effect.orDie(BrowserWindow.resolveAgainst(navigation.href, current))
+    yield* enterAppRoute(destination, current, ctx)
+    yield* settleOnElement(navigation.selector, navigation.behavior)
   })
 )
 

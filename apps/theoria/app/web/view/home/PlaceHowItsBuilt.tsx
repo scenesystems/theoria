@@ -5,18 +5,24 @@ import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
+import { codeSiteOnLine } from "../../../contracts/demo/imagined-place-provenance.js"
 import { toneForCard } from "../../../contracts/theme.js"
-import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
-import { placeBuildAtom, placeBuildShaAtom, placeStepAtom } from "../../atoms/imagined-place.js"
+import { placeCodeSiteAttribute, placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
+import { placeSearchAtom } from "../../atoms/imagined-place-render.js"
+import { placeBuildShaAtom, placeBuiltAtom, placeStepAtom } from "../../atoms/imagined-place.js"
+import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
+import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { focusEdgeClassName, litMarkClassName, markClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { Tab, TabBar, TabGroup, TabPanel } from "../primitives/TabBar.js"
 
+import { howItsBuiltSectionId } from "./HomeHero.js"
 import { placeLiveValues } from "./placeLiveValues.js"
+import { ProvenanceMark } from "./PlaceProvenance.js"
 import {
   commitUrl,
   type PlaceReference,
@@ -30,10 +36,13 @@ import {
 import { PlaceStep, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
 
 const rowLinkClassName =
-  "-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
 
 const sourceLinkClassName =
-  "-mx-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+
+const commitLinkClassName =
+  `inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-ink-600 transition-colors duration-150 hover:bg-stage-100/80 hover:text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
 
 const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly title: string }) => (
   <Stack aria-label={title} render={<section />} className="gap-1.5">
@@ -74,7 +83,7 @@ const commitLabel = (sha: string): string => sourceRef(sha) === "HEAD" ? "Source
 
 const CommitLink = ({ sha }: { readonly sha: string }) => (
   <ExternalLink
-    className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-ink-600 transition-colors duration-150 hover:bg-stage-100/80 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+    className={commitLinkClassName}
     data-place-commit={sha}
     href={commitUrl(sha)}
   >
@@ -93,22 +102,69 @@ const StepTabs = () => (
 )
 
 /**
+ * A live value is the mark for the line that produced it: pointing at it
+ * answers with the thing the line made, on the page, and lights that thing
+ * where it stands, and the line above it is lit whenever its mark is. The
+ * line's number in the gutter is the same mark, so the line itself can be
+ * pointed at; the line's text is not the control, because its API names are
+ * links and a control may not hold links: a trigger around the line took the
+ * link's press and its preview never opened.
+ */
+const annotationMarkClassName = `${markClassName} inline-flex`
+
+const gutterMarkClassName =
+  `${markClassName} ${litMarkClassName} -mx-1 inline-flex w-[calc(100%+0.5rem)] justify-end px-1 text-right text-inherit data-[place-focused]:text-ink-900 data-[popup-open]:text-ink-900`
+
+/** A line's number: the line's mark where the line made something on the page, a number where it did not. */
+const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
+  Option.match(codeSiteOnLine(step, line.text), {
+    onNone: () => gutterNumber(line),
+    onSome: (site) => (
+      <ProvenanceMark
+        aria-label={`Line ${String(line.number)}`}
+        className={gutterMarkClassName}
+        data-place-code-line={line.number}
+        {...{ [placeCodeSiteAttribute]: site.id }}
+        mark={{ _tag: "CodeLine", site: site.id }}
+      >
+        {line.number}
+      </ProvenanceMark>
+    )
+  })
+
+/**
  * The step's code with two things a listing cannot show: every API name links
  * to its reference page, and beside the lines that produced them are the
  * values from the build on this page. The header names only the step; which
  * package each call comes from is beside that call in the reference rail.
+ * While a mark on the page is pointed at, the line that made it is lit.
  */
 const StepCode = ({ step }: { readonly step: PlaceStep }) => {
-  const build = Result.value(useAtomValue(placeBuildAtom))
-  const frame = Result.value(useAtomValue(placeRenderFrameAtom))
+  const build = useAtomValue(placeBuiltAtom)
+  const search = Result.value(useAtomValue(placeSearchAtom))
+  const focusedSite = useAtomValue(placeFocusedSiteAtom)
   const definition = placeStepDefinition(step)
 
   return (
     <Layer data-place-code-step={step} key={placeStepIndex(step)}>
       <CodeBlock
-        annotations={placeLiveValues(step, build, frame)}
+        annotations={placeLiveValues(step, build, search)}
+        focusedMatch={Option.map(
+          Option.filter(focusedSite, (site) => site.step === step),
+          (site) => site.match
+        )}
         label={definition.name}
         links={referenceLinks(step)}
+        renderAnnotation={(annotation) =>
+          Option.match(codeSiteOnLine(step, annotation.match), {
+            onNone: () => null,
+            onSome: (site) => (
+              <ProvenanceMark className={annotationMarkClassName} mark={{ _tag: "CodeLine", site: site.id }}>
+                <CodeAnnotationRow text={annotation.text} />
+              </ProvenanceMark>
+            )
+          })}
+        renderLineNumber={stepLineNumber(step)}
         source={definition.code}
       />
     </Layer>
@@ -142,28 +198,19 @@ export const PlaceHowItsBuilt = () => {
     <Section
       aria-label="How it's built"
       className="scroll-mt-6 border-t border-stage-200/85 pt-6 lg:pt-8"
+      data-place-act="build"
       data-place-how-its-built
-      id="how-its-built"
+      id={howItsBuiltSectionId}
     >
       <Stack className="gap-5">
-        <Cluster className="items-start justify-between gap-x-6 gap-y-3">
-          <Stack className="gap-1.5">
-            <SemanticText
-              as="h3"
-              className="text-ink-900"
-              role="subsection-title"
-              text="How it's built"
-              variant="expanded"
-            />
-            <SemanticText
-              as="p"
-              className="max-w-[56ch] text-ink-600"
-              role="card-summary"
-              text="Each step's code, with the values it produced on this page. Every name links to its reference page; every file links to the source that ran."
-              variant="compact"
-              wrapAuthority="native-browser"
-            />
-          </Stack>
+        <Cluster className="items-center justify-between gap-x-6 gap-y-3">
+          <SemanticText
+            as="h3"
+            className="text-ink-900"
+            role="subsection-title"
+            text="How it's built"
+            variant="expanded"
+          />
           <Rail className="-mr-2 shrink-0">
             <CommitLink sha={sha} />
           </Rail>

@@ -1,5 +1,4 @@
 import { Result } from "@effect-atom/atom"
-import { Match } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import type { CSSProperties } from "react"
@@ -8,7 +7,7 @@ import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import { semanticsFor, type TextProjection, type TextRole, type TextWrapAuthority } from "../../../contracts/text.js"
 import { useTextProjection } from "../../atoms/text.js"
 import { classNames } from "./classNames.js"
-import { glyphClassName, lineHeightVar, maxWidthClassName } from "./semanticTextClasses.js"
+import { glyphClassName, lineHeightVar, maxWidthClassName, whiteSpaceClassName } from "./semanticTextClasses.js"
 
 type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code" | "kbd"
 
@@ -149,11 +148,7 @@ const BrowserWrappedBlockText = ({
   const glyph = glyphClassName(role)
   const leading = `leading-(${lineHeightVar(role)})`
   const maxWidthClass = maxWidthClassName(role, variant)
-  const whiteSpace = Match.value(semantics.whiteSpace).pipe(
-    Match.when("pre-wrap", () => "whitespace-pre-wrap"),
-    Match.orElse(() => "whitespace-normal")
-  )
-  const fallback = `${whiteSpace} ${glyph} ${leading} ${maxWidthClass}`
+  const fallback = `${whiteSpaceClassName(semantics.whiteSpace)} ${glyph} ${leading} ${maxWidthClass}`
 
   return (
     <Component

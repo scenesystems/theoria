@@ -4,17 +4,15 @@ import { SiteFooter } from "../primitives/SiteFooter.js"
 import { SiteHeader } from "../primitives/SiteHeader.js"
 
 import { HomeHero } from "./HomeHero.js"
-import { ImaginedPlaceDemo } from "./ImaginedPlaceDemo.js"
+import { PlaceActs } from "./PlaceActs.js"
 
+/** The page is the canvas: the header, the hero, the demonstration, the footer. Nothing floats above them. */
 export const HomePage = () => (
   <Layer render={<main />} className={appTheme.root}>
-    <Layer aria-hidden className={appTheme.atmosphericGlowA} />
-    <Layer aria-hidden className={appTheme.atmosphericGlowB} />
-
     <Layer className={appTheme.content}>
       <SiteHeader />
       <HomeHero />
-      <ImaginedPlaceDemo />
+      <PlaceActs />
       <SiteFooter />
     </Layer>
   </Layer>

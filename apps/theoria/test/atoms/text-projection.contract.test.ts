@@ -2,10 +2,11 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Errors } from "@scenesystems/effect-text"
+import { incrementFontReadinessRevision } from "@scenesystems/effect-text/browser"
 import { Effect, Ref } from "effect"
 import type { TextProjection } from "../../app/contracts/text.js"
 
-import { textLayoutLayerAtom } from "../../app/web/atoms/text-layout.js"
+import { fontReadinessRevisionAtom, textLayoutLayerAtom } from "../../app/web/atoms/text-layout.js"
 import {
   makeTextProjectionAtom,
   TextProjectionAuthority,
@@ -57,6 +58,30 @@ describe("text projection contracts", () => {
       expect(narrow.layout.maxWidth).toBe(120)
       expect(wide.layout.maxWidth).toBe(320)
       expect(narrow.summary.lineCount).toBeGreaterThanOrEqual(wide.summary.lineCount)
+    }))
+
+  it.effect("the faces' arrival prepares the text again: a prepared handle is the revision's, not the page's", () =>
+    Effect.gen(function*() {
+      const prepareCalls = yield* Ref.make(0)
+      const registry = makeTestRegistry()
+      const projectionAtom = makeTextProjectionAtom(makeAuthority(prepareCalls))(
+        new TextProjectionKey({
+          role: "row-label",
+          variant: "compact",
+          text: "Measured in the stand-in, then in the served face.",
+          maxWidth: 320
+        })
+      )
+      const unmount = registry.mount(projectionAtom)
+      yield* waitForProjection(registry, projectionAtom)
+      expect(yield* Ref.get(prepareCalls)).toBe(1)
+
+      registry.set(fontReadinessRevisionAtom, incrementFontReadinessRevision(registry.get(fontReadinessRevisionAtom)))
+      yield* Effect.repeat(Ref.get(prepareCalls), { until: (count) => count >= 2 })
+      yield* waitForProjection(registry, projectionAtom)
+
+      expect(yield* Ref.get(prepareCalls)).toBe(2)
+      unmount()
     }))
 
   it.effect("a measurement failure reaches the surface as the failure, not as an absent projection", () =>

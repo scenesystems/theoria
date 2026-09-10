@@ -1,10 +1,10 @@
 import { type Errors, Text } from "@scenesystems/effect-text"
-import { Effect, Option } from "effect"
+import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 
 import { markerRadius, type Stage } from "../../../contracts/demo/imagined-place-flow.js"
-import { type PlaceArtifact, placeFeatures } from "../../../contracts/imagined-place.js"
+import { placeFeatures, type PlaceOutline } from "../../../contracts/imagined-place.js"
 import { prepareInputFor, semanticsFor } from "../../../contracts/text.js"
 import type { BrowserTextLayout } from "../../text/browserTextLayout.js"
 import { prepareBrowserText } from "../text/authority.js"
@@ -21,7 +21,8 @@ import { prepareBrowserText } from "../text/authority.js"
  * record is empty, every disc shows its number and the legend carries the
  * names, so the numbers on the stage and in the legend always agree.
  */
-export type MarkerLabelWidths = Record.ReadonlyRecord<string, number>
+export const MarkerLabelWidths = Schema.Record({ key: Schema.String, value: Schema.Number })
+export type MarkerLabelWidths = typeof MarkerLabelWidths.Type
 
 const labelRole = "marker-label"
 
@@ -65,13 +66,18 @@ export const labelWidthFor = (
   })
 }
 
-/** Every feature's name measured against the disc it will have at this stage width. */
+/**
+ * Every feature's name measured against the disc it will have at this stage
+ * width. An outline is enough: the names and weights are the outline's, so
+ * the stage knows before the build arrives whether its discs will be named
+ * or numbered, and lays the legend accordingly.
+ */
 export const markerLabelWidths = (
-  artifact: PlaceArtifact,
+  place: PlaceOutline,
   stage: Stage
 ): Effect.Effect<MarkerLabelWidths, Errors.MeasurementFailed, BrowserTextLayout> =>
   Effect.map(
-    Effect.forEach(placeFeatures(artifact), (feature) =>
+    Effect.forEach(placeFeatures(place), (feature) =>
       Effect.map(
         prepareBrowserText(prepareInputFor(labelRole, feature.name)),
         (prepared) =>

@@ -40,7 +40,11 @@ const FooterLink = ({ destination }: { readonly destination: FooterDestination }
 )
 
 export const SiteFooter = () => (
-  <Section render={<footer />} className="mt-10 border-t border-stage-200/90 pb-3 pt-4 md:pt-5">
+  <Section
+    render={<footer />}
+    className="mt-region border-t border-stage-200/90 pb-3 pt-4 md:pt-5"
+    data-site-footer
+  >
     <Stack className="items-center gap-2 md:items-stretch">
       <Cluster className="items-baseline justify-center gap-x-3 gap-y-2 md:justify-between">
         <Cluster className="items-baseline gap-3">

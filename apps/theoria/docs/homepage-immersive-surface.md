@@ -29,18 +29,37 @@ decoration.
 
 ## What the page does today
 
-Measured in Chromium at 1440×900, light theme, every element under `main`:
+Measured in Chromium at 1440×900, light theme, every element under `main`.
+_Before_ is the card page this plan replaces; _after Act 4_ is the branch at
+`4bb60e4` with the overlay closed; _target_ is what Act 5 must reach.
 
-| Measure                               | Value |
-| ------------------------------------- | ----- |
-| Elements                              | 643   |
-| With a visible border                 | 59    |
-| With a border radius                  | 124   |
-| Pill-shaped (`border-radius ≥ 999px`) | 74    |
-| With a box shadow                     | 19    |
-| Deepest bordered-ancestor chain       | 5     |
+| Measure                               | Before | After Act 4 | After Act 5 | Target |
+| ------------------------------------- | ------ | ----------- | ----------- | ------ |
+| Elements                              | 643    | 686         | 695         | —      |
+| With a visible border                 | 59     | 28          | 23          | —      |
+| With a border radius                  | 124    | 154         | 154         | —      |
+| Pill-shaped (`border-radius ≥ 999px`) | 74     | 69          | 69          | —      |
+| With a box shadow                     | 19     | 11          | 8           | —      |
+| Deepest bordered-ancestor chain       | 5      | 4           | 3           | —      |
+| Enclosures > 24 px                    | —      | —           | 6           | ≤ 10   |
+| Drop shadows                          | —      | —           | 2           | ≤ 4    |
+| Deepest enclosure chain               | —      | —           | 1           | ≤ 2    |
 
-The depth-5 chains are page → demo card → proposal card → sealed-note box →
+The final three measures read computed paint: state marks ≤ 24 px and
+single-edge rules are excluded on purpose.
+
+What remains bordered or shadowed after Act 4: the five marker chips
+(`shadow-chip` with an inset ring), the two status marks, the code section
+(`rounded-[1.35rem] border shadow-chip` — the one instrument surface), the two
+content-ID chips, the switch thumb, the spine dots and the strand knots. The
+spine dots, knots, proposer rules and the switch are borders that say state or
+ownership and stay; the chips and the code section's shadow are the Act 5
+work. After Act 5 the marker chips, the annotation rows, the code section and
+the Copy control have no shadow; the only drop shadows left are the two switch
+thumbs, and the six enclosures are the brief field, the code section, the
+checked story and width pills, and the two switches.
+
+Before, the depth-5 chains were page → demo card → proposal card → sealed-note box →
 pill, and page → demo card → code panel → header rail → Copy button. The place
 itself — its prose and discs, the artifact the demo exists to show — sits on a
 bordered paper inside a bordered stage inside a `2rem`-radius card, at roughly
@@ -63,7 +82,7 @@ reaches for them.
 Two more findings, the first now resolved by the toolchain branch. The code
 tabs were plain `Button`s without `tablist` semantics, the scenario chooser was
 `aria-pressed` buttons and the merge switch a `Button role="switch"`; they are
-now Base UI `Tabs`, `RadioGroup` and `Switch` (`TabBar.tsx`, `ChoicePills.tsx`,
+now Base UI `Tabs`, `RadioGroup` and `Switch` (`TabBar.tsx`, `ChoiceGroup.tsx`,
 `ToggleSwitch.tsx`), so the redesign changes their appearance, not their
 semantics. The second stands: motion is still CSS only, so merging a proposal
 makes a disc appear on the stage with no continuity from the proposal that
@@ -109,11 +128,12 @@ it would add, with a 2 px left rule in the proposer's tone — dashed while
 declined, solid while accepted — and no background, radius or shadow. The
 neighbor's sealed note is a fold: closed, it shows the envelope size and the
 seal glyph; opened with the author's key, it is a `blockquote` with the seal
-tone's rule. Merging is the visitor's sentence joining the place: the feature
-name in the proposal and its disc on the stage share a `layoutId`, so flipping
-`Merge` moves the name onto the paper and the description re-flows around it.
-Flipping back returns it to the margin. Declined proposals stay in view with
-their signatures, as they stay in the result.
+tone's rule. Merging is the visitor's sentence joining the place: flipping
+`Merge` opens a dashed ring on the paper where the search makes room, the
+description re-flows around it, and the disc fills the ring where it stands
+once the search settles. Nothing crosses the prose to get there. Flipping back
+fades the disc where it stood. Declined proposals stay in view with their
+signatures, as they stay in the result.
 
 ### Lineage is a strand, not a table
 
@@ -139,17 +159,16 @@ block; there is no separate tooltip system. Provenance replaces the pills:
 `Verified`, `Recorded inference`, `You signed`, `In v2` become glyph-and-text
 `InlineStatus` marks whose provenance is one focus away.
 
-### The world has weather
+### One palette across the stories
 
-The three scenarios are three worlds, and switching worlds should change the
-air of the page, not a chip. Each scenario declares a world tone
-(`--th-world-*`: a canvas tint, a paper gradient, a rule colour, a disc
-palette) in `styles.css`, authored separately for light and dark so that the
-Library Under Cald Water is cool and dim in both themes and The Market of Lost
-Things is warm in both. The tone is semantic — it tells the visitor which
-world they are in — and is bounded: text and control colours do not change,
-contrast minima hold in every world in both themes, and the tone is the only
-"expressive" colour on the page.
+The three scenarios are three places, not three pages. Choosing another
+changes the drawing — the title, the prose, the discs, the walk — and nothing
+of the page around it: the canvas, the paper and the rule down the acts'
+spine are the stage's own greys in every story and in both themes. An
+earlier draft tinted the page per story ("the world has weather"); it was
+taken out because a page that recolours under the visitor reads as a theme
+change, not a story change, and the drawing already says which place this is.
+The only colour that varies on the page is the participants' tones.
 
 ### The search is the only continuous motion
 
@@ -175,9 +194,9 @@ highlights the line.
 ## Composition
 
 ```
-main (canvas; world tone on :root via data-world)
+main (canvas; the stage's own greys in every story)
 ├─ SiteHeader                wordmark · Docs · GitHub · theme icon — text, no chips
-├─ Arrive                    h1 (lead role) · place title (display) · atmosphere · brief
+├─ Arrive                    place title (h2) · what this is and how it works (lead)
 │  └─ PlaceStage             unframed paper, full content width; discs, walk, prose;
 │                            search trace as a strand beneath; presets; version knots
 ├─ Act: Compose              lg: pinned stage right, act left [1fr | minmax(28rem, 44rem)]
@@ -219,13 +238,13 @@ and easing are theme tokens (`--th-motion-duration-enter: 240ms`,
 `--th-motion-duration-shift: 320ms`, `--th-motion-ease`). Five relationships
 are animated, and nothing else:
 
-| Relationship              | Mechanism                                                         |
-| ------------------------- | ----------------------------------------------------------------- |
-| A merged feature travels  | shared `layoutId` between proposal name and disc                  |
-| A version re-flows        | `AnimatePresence mode="popLayout"` on prose lines, ≤ 300 ms total |
-| Discs keep place on merge | `layout` on `PlaceMarker`; `layout={false}` while scrubbing       |
-| The act changes           | opacity and 4 px rise on the act's stage answer                   |
-| The search runs           | the existing per-frame render; the only continuous motion         |
+| Relationship              | Mechanism                                                    |
+| ------------------------- | ------------------------------------------------------------ |
+| A merged feature arrives  | a ring holds its room; the disc fills the ring in place      |
+| A version re-flows        | `AnimatePresence mode="wait"` on prose lines, ≤ 300 ms total |
+| Discs keep place on merge | the drawing travels frame by frame (`web/motion/travel.ts`)  |
+| The act changes           | opacity and 4 px rise on the act's stage answer              |
+| The search runs           | the existing per-frame render; the only continuous motion    |
 
 Under reduced motion transforms are off and only opacity remains. No state is
 carried by motion alone: the merge accompanies the switch and the `In v2`
@@ -233,17 +252,17 @@ mark, the version accompanies a changed content ID.
 
 ## Effect and Effect Atom
 
-The experience layer is three atoms beside the existing ones, all pure
+The experience layer is two atoms beside the existing ones, all pure
 derivations or explicit effects:
 
-- `placeActAtom`: `"arrive" | "compose" | "propose" | "record" | "build"`,
-  written by one `IntersectionObserver` effect over the act landmarks, read by
-  the stage.
+- `placeActAtom`: `"arrive" | "compose" | "propose" | "record" | "build"`, a
+  projection of where the reading line (half the viewport) stands among the
+  act landmarks, re-read on every scroll, resize and hash change — so a jump
+  from below the viewport to above it, which no observer entry reports, still
+  answers. Read by the stage.
 - `placeFocusAtom`: `Option<PlaceProvenance>`, a tagged union
   (`Feature | Line | Signature | Version | Trial | CodeLine`) written by
   hover and focus handlers, read by every surface that can answer.
-- `placeWorldAtom`: derived from `placeControlsAtom.scenario`; sets
-  `data-world` on `:root` through one effect so the tone is CSS, not props.
 
 Provenance answers are computed from `PlaceBuild` and the current
 `PlaceRendering` with `Match.exhaustive`; nothing is stored that can be
@@ -253,117 +272,1285 @@ derived.
 
 ### Act 0 — Vocabulary (removes the cards)
 
-- [ ] `styles.css` `@theme inline`: `--color-rule`, `--color-rule-strong`,
+- [x] `styles.css` `@theme inline`: `--color-rule`, `--color-rule-strong`,
       `--color-instrument`, `--radius-instrument: 0.75rem`,
       `--radius-control: 0.5rem`, with `--th-*` values in `:root` and
       `:root.dark`.
-- [ ] `designSystem.ts`: `SurfaceRole` and `surfaceClassName(role)` via
+- [x] `designSystem.ts`: `SurfaceRole` and `surfaceClassName(role)` via
       `Match.exhaustive` replace the two remaining `surfaceMaterials`
       (the zero-caller exports are already removed).
-- [ ] `StatusPill` → `InlineStatus`; `TagBadge` → `ParticipantName`;
+- [x] `StatusPill` → `InlineStatus`; `TagBadge` → `ParticipantName`;
       `PackagePill` → `PackageName`; `ContentCard` removed from home and
       `DocsPage.tsx`; `ContentCardShape`/`ContentCardDensity` removed.
-- [ ] `ArtifactStage.tsx`: `frame: "none" | "instrument"`; home uses `"none"`.
-- [ ] `SiteHeader.tsx`, `HeaderChrome.tsx`: text links, icon-only theme
+- [x] `ArtifactStage.tsx`: `frame: "none" | "instrument"`; home uses `"none"`.
+- [x] `SiteHeader.tsx`, `HeaderChrome.tsx`: text links, icon-only theme
       toggle; `headerChromeSurfaceClassName` removed.
-- [ ] `test/worker/home.test.ts`: the rendered `canvas` role has no border,
-      radius or box shadow in computed style. Verification of the de-carding
-      itself is visual — screenshots at 1440 and 390 inspected in review — not
-      a test that counts bordered ancestors or `shadow-*` classes; a
-      structure-counting test pins today's markup and is exactly the kind of
-      governance test this repository removed.
+- [x] `test/worker/home.test.ts`: the rendered `canvas` role has no border,
+      radius or box shadow in computed style. Act 5 measures computed paint —
+      enclosures and drop shadows, not markup or class names — in
+      `test/worker/home-surfaces.test.ts`.
 
-### Act 1 — The place is the page
+### Act 1 — The hero and the place
 
-- [ ] `HomePage.tsx`: glow layers removed; padding
-      `max-w-[88rem] px-5 sm:px-8 lg:px-12`; the stage is the first child
-      after the header.
-- [ ] `HomeHero.tsx` → `PlaceArrive.tsx`: `h1` in the lead role; place title
-      in the display role (`text-balance`, 44/50 at `sm`, 64/68 at `lg`);
-      atmosphere as lead; one filled action (`Read how it's built`), one text
-      action (`Browse the packages`).
-- [ ] `PlaceStage.tsx`: paper at full content width; `placeStageWidthAtom`
-      reads the content width; version knots rendered on the paper.
-- [ ] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`: `lg:grid-cols-[1fr_minmax(28rem,44rem)]`
-      with the stage `sticky top-6` in the first column; below `lg`, the stage
-      pins as a band (`sticky top-0`, `max-h-[40vh] min-h-[12rem]`) that
-      hides its prose via container query.
-- [ ] `test/worker/home.test.ts` — _the place is in the first viewport_: at
-      390×844 and 1440×900 the paper's top edge and at least one disc are
-      inside the viewport before any scroll.
+The hero and the demonstration are separate things and each is given its
+own room: the hero says what Theoria is; the demonstration shows a place it
+built. (The first draft of this act folded the hero into the arrival; that
+was reversed — the page needs both.)
+
+- Typography metrics live in `contracts/text.ts`; generated CSS carries the
+  responsive tokens and complete safelist, while `stage-prose` stays 16/26 at
+  every viewport to match the projected paper geometry.
+
+- [x] `HomePage.tsx`: glow layers removed; padding
+      `max-w-[88rem] px-5 sm:px-8 lg:px-12`; header → hero → demonstration →
+      footer, all on the canvas.
+- [x] `HomeHero.tsx`: `h1` in the display role (`text-balance`, 44/50, 36/40
+      below `sm`, 64/68 at `lg`); body as lead; one filled action
+      (`Browse the packages`), one text action (`See how it's built`,
+      `howItsBuiltActionLabel`) that scrolls to `#how-its-built`
+      (`howItsBuiltSectionId`, the one id both the hero and the section
+      use). The demonstration shares the first viewport with the hero, so an
+      action pointing at it was a step to nowhere; the first draft's `See the
+place it built` was reversed.
+- [x] `PlaceArrive.tsx`: the demonstration opens with its own title as an
+      `h2` in the page-title role (`placeArriveTitle`, "The packages at work":
+      this is a demonstration of the packages, not the place), then one lead
+      statement of how it works (`placeArriveText`, naming the acts in order).
+      The place's name is not repeated here: the composer named it, and the
+      paper and the Compose card already carry it. (The first draft put the
+      place's name here; that was reversed — it doubled the paper's heading.)
+- [x] `ImaginedPlaceDemo.tsx` → `PlaceActs.tsx`: the arrival leads the
+      demonstration at full width; under it,
+      `lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]` with the acts in
+      the first column and the stage `sticky top-6` in the second, so Compose
+      and Arrange start on one line and the first scroll reads down both
+      columns; below `lg` the arrival leads, the paper follows at full width,
+      then the acts. (The first draft set the arrival beside the stage in the
+      grid's first row; Arrange then began a paragraph above Compose.)
+- [x] `PlaceStepCard.tsx`: the spine's dot is in the header's grid row and
+      centred on it, level with the step's name; the dot is positioned so it
+      paints over the spine's rule (`PlaceActs.tsx`, `left-[calc(0.375rem-0.5px)]`,
+      the centre of the `w-3` dot column), so an open ring is open. The name
+      and its packages are `items-center`.
+- [x] `PlaceComposition.tsx` reads down: the scenarios, the title the composer
+      gave the chosen one, the brief that scenario gives the composer
+      (`PlaceControls.tsx` → `ScenarioChoice` and `BriefField`), then the
+      features under a `Features` label beside the recorded-inference status.
+- [x] One wash for what is lit: `designSystem.ts` `markClassName`,
+      `litMarkClassName` (the mark's own box) and `litChipClassName` (a chip set
+      inside a mark, on the chip's box) — the same `stage-100/80` under the
+      pointer, while answered, and while a popup is open, on a feature's name,
+      a line of the prose, a code line's number, a value under a line of code,
+      and a step's name. `Elevation` (`contracts/layout.ts`) orders what stands
+      over the page: band under answer under preview, so a docs preview opened
+      from an answer stands over it.
+- [x] `PlaceStage.tsx`: `placeStageWidthAtom` reads the content width. The
+      version knots are not on the paper: the strand stands directly over the
+      paper's right edge, in the Arrange header's row, and the paper keeps to
+      the prose and the discs (Act 6, **Version knots on the paper**).
+- [x] Below `lg` — and at `lg` once the full-width Build act scrolls the
+      pinned stage away — the place stays as a band: `PlaceBand.tsx`, a
+      `sticky top-0` slot of no height at the head of the demonstration, so
+      the band coming and going moves nothing in the flow; the band is a
+      legend-sized strip — a pill one line of text tall — with the discs in a
+      row in their stage proportions (`bandRow`, a viewBox drawn at `h-5`), no
+      prose, and an arrow up: one link back to the stage; shown by
+      `placeBandAtom`, derived from the stage column crossing the viewport's
+      top edge (Act 4). (The first draft drew the row at stage size; at 390 it
+      was a sheet, not a strip.)
+- [x] `test/worker/home.test.ts` — _the hero and the place share the first
+      viewport_: at 1440×900 the `h1`, its filled action, the arrival's title
+      and lead, and the Compose and Arrange headers are inside the viewport
+      before any scroll; at 390×844 the `h1`, both actions and the arrival's
+      title are. `test/worker/home-form.test.ts` measures the form: dots
+      centred on the spine and over it, names level with their packages, one
+      wash on everything lit, the preview over the answer, the band's height
+      and its arrow, the arrival over both columns, the Compose act's order.
 
 ### Act 2 — Voices and lineage
 
-- [ ] `PlaceProposalCard.tsx` → `PlaceProposal.tsx`: `article` with
+- [x] `PlaceProposalCard.tsx` → `PlaceProposal.tsx`: `article` with
       `pl-4 border-l-2`; dashed neutral while declined, solid proposer tone
-      while accepted; sealed note as a fold that opens into a `blockquote`.
-- [ ] `PlaceProposals.tsx`: proposals anchored beside the prose line they
-      would add (`placeViewModel` exposes the anchor line index).
-- [ ] `PlaceLineage.tsx` → `PlaceStrand.tsx`: strand and knots; IDs in
-      technical type; the wash on version change stays.
+      while accepted; sealed note as a fold (Base UI `Collapsible`) that
+      opens into a `blockquote`.
+- [x] `PlaceProposals.tsx`: proposals linked to the prose line they would add
+      (`placeViewModel.proposalAnchorLine`, read from the drawing shown this
+      instant). The linkage is the focus model's, both ways: pointing at a
+      merged proposal's feature lights that line on the stage
+      (`placeFocusedLineAtom`), and pointing at the line lights the feature's
+      name and its disc (`placeProvenance.lineAnswer` says what the line
+      adds). Nothing is written to the DOM for it beyond `data-place-focused`.
+- [x] `PlaceLineage.tsx` → `PlaceStrand.tsx`: strand and knots (`PlaceStrand`
+      in the Record act, `StageKnots` on the pinned stage in place of the
+      version badge); IDs in technical type; the wash on version change stays.
+      The "Built from v1" line is gone: the strand's link is the parenthood.
 - [x] `ToggleSwitch` on Base UI `Switch`; `ChoicePills` on `RadioGroup` with
       `appearance: "pill" | "segment"`; `TabBar` on `Tabs` (done on the
       toolchain branch).
-- [ ] `TabBar`: the 2 px indicator; `ChoicePills` → `ChoiceGroup` rename.
-- [ ] `test/worker/home-demo.test.ts` — _keyboard reaches every control_:
+- [x] `TabBar`: tabs as text on a hairline with the 2 px `Tabs.Indicator`;
+      `ChoicePills` → `ChoiceGroup` rename; pills, segments and the brief's
+      `TextAreaField` on the instrument tokens (`border-rule`, `bg-instrument`).
+- [x] `test/worker/home-demo.test.ts` — _keyboard reaches every control_:
       scenario radio (arrows rebuild) → textarea → merge switch (Space) →
-      tabs (arrows change the panel) → trace slider, asserting active roles
-      in order.
+      tabs (arrows rove, Enter activates — Base UI 1.7 defaults
+      `activateOnFocus` to false, which suits heavy code panels) → trace
+      slider. _The neighbor's note is a fold, and a merged proposal stands
+      beside its line of prose_ covers the fold and the anchor.
 
 ### Act 3 — Motion
 
 - [x] `package.json`: `motion` 13.x; `App.tsx`: `MotionConfig
 reducedMotion="user"` at the root (done on the toolchain branch).
-- [ ] `App.tsx`: `LazyMotion strict` with the theme's enter transition; motion
-      tokens in `styles.css`.
-- [ ] `PlaceMarker.tsx`: `m.button` with `layout` and
-      `layoutId="place-feature:<name>"`; `layout={false}` while
-      `placeTrialPreviewAtom` is `Some`.
-- [ ] `PlaceProposal.tsx`: the feature name carries the same `layoutId`
-      while declined.
-- [ ] `PlaceStage.tsx`: `AnimatePresence mode="popLayout"` on prose lines
-      keyed by version content ID; stagger 20 ms, total ≤ 300 ms, exit 120 ms.
-- [ ] `test/worker/home-demo.test.ts` — _a merged feature travels to the
-      stage_: after the toggle the disc exists and the proposal no longer
-      renders the name as a `layoutId` element; under
-      `emulateMedia({ reducedMotion: "reduce" })` no element in `main` has a
-      non-identity transform mid-transition.
+- [x] `App.tsx`: `LazyMotion strict` (`domAnimation`; the drawing travels by
+      its own measured positions, so nothing animates layout) with the
+      theme's transition; motion tokens are one contract,
+      `contracts/motion.ts` (`MotionRelation` = enter | shift | exit as
+      `Duration`s, one ease), generated into `styles.css` and handed to
+      `MotionConfig` by `primitives/motion.ts`. Reduced motion is an atom,
+      `atoms/motion.ts` `motionPreferenceAtom`, from the platform's
+      `BrowserWindow.mediaQuery`, and drives `MotionConfig reducedMotion`.
+- [x] `atoms/imagined-place-render.ts`: what the stage draws is one atom,
+      `placeDrawnAtom` (`kept` | `sketch` | `trial`). The frame is
+      `PlaceRenderFrame { search, rendering, paper, trial }`: `trial` is the
+      trial the rendering is drawn from, so a disc's answer can name it, and
+      say `Toward trial N` while the drawing is still on its way there; the
+      paper's height is
+      part of the drawing and travels with the discs (`PlaceDrawing
+{ markers, paper }`, `drawingBetween`), so `placeSheetAtom` is the
+      chosen width at once and the drawing's own height — `held` at the
+      settled height while a search's trials run (a jump moves nothing
+      around the stage, and the sticky stage column never shifts while the
+      reader is near the end of the acts), following the discs once every
+      trial is in, never less than the paper the arriving discs stand on
+      (`paperUnder`). `PlaceSearch.settled` names what the last settled
+      arrangement drew; `placeFeatureHomeAtom(name)` derives from the frame
+      alone whether a feature is at home on the `stage` or in its
+      `proposal`, and `placeDiscDrawnAtom(name)` (`settled` | `arriving` |
+      `trial`) how its disc is drawn. `searching(search)` is the one
+      predicate for running or landing (trace, caption, live values,
+      `aria-busy`).
+- [x] `contracts/demo/imagined-place-search.ts`, `web/place-search.worker.ts`,
+      `web/platform/PlaceSearchWorker.ts`, `web/services/PlaceSearcher.ts`:
+      the search's settings (`Meander`, `meanderSpace`, `renderSeed`,
+      `renderTrials`, `renderSampler`) and its protocol (`OpenSearch`,
+      `AskSearch`, `TellSearch`, `CloseSearch`) are one contract; the
+      sampler runs in a worker (`@effect/platform` `Worker`; the platform
+      module names its entry the standard way, `new Worker(new URL("…",
+import.meta.url), { type: "module" })`, which every bundler resolves
+      at build time) and the page scores each proposed meander with its own
+      text metrics, so the sampler's growing cost is off the drawing thread.
+      `PlaceSearcher` is a service in `placeRenderRuntime`'s layer next to
+      the text layout. A worker that closes or is reclaimed says nothing to
+      the page, so every request is bounded (`answerWithin`, 3 s, far past
+      any honest answer) and so is the worker's boot (`bootWithin`, 10 s,
+      inside `spawn`, so a script that never reports ready cannot hold the
+      searcher): past either, or on a worker error, the worker is forgotten
+      and its scope closed, the render stream searches once more on the
+      fresh worker the next `open` spawns, and only a second loss is a
+      failed drawing with "Draw again". Opening a search is one
+      uninterruptible step around the request and its finalizer; an open
+      interrupted between them forgets the worker, so nothing is left
+      allocated in it without an owner.
+- [x] `PlaceMarker.tsx`: the text and the discs are one arrangement and are
+      always drawn from the same state, and no disc is ever a Motion layout
+      node: the frames own every position. A feature just merged is a
+      dashed ring in its proposer's tone while the search makes room for
+      it; when the search settles, the disc fades in exactly where the ring
+      stands as the ring fades out (`AnimatePresence propagate`, exit 120
+      ms) — under reduced motion by opacity alone, with no scale written
+      for Motion to cancel, so no transform is ever on the disc. A disc
+      whose feature leaves the drawing fades where it stood. A
+      trial's disc is a plain button, placed outright as the trace is
+      scrubbed. Nothing flies across the prose: the earlier shared
+      `layoutId` between the name and the disc drew the disc over the text
+      on its way, and the rule is that text and discs never overlap.
+- [x] `web/motion/travel.ts` and `atoms/imagined-place-render.ts`: the search
+      moves in jumps (a better trial; a new artifact that places every disc
+      anew) and the drawing does not. `Travelling<A>` is the Effect-native
+      counterpart of a Motion layout animation for values Motion cannot
+      animate because what they draw is computed: `toward` is a `Stream` of
+      the value one per frame (`platform/AnimationFrame.ts` `frames`, Motion's
+      frame loop) from where the drawing is to the target over the theme's
+      `shift` with the theme's ease, landing on the target itself. The
+      travel begins with the first frame drawn, not when the target is set,
+      so a page busy while a merge arrives does not spend the travel unseen.
+      A target set again continues; a new target starts from wherever the
+      drawing is; reduced motion is a zero duration and places outright.
+      The drawing arrives, and lands a frame later: the ring is committed
+      exactly where the disc fills in before it is swapped for the disc,
+      whether it travelled there or was placed there outright (placed
+      outright, an exiting ring would otherwise be frozen at the previous
+      best while the disc appeared at the new one). A
+      `Journey` may owe a `rest`, counted from the first frame drawn: when
+      the description changes, the drawing rests for the exit duration
+      while the old lines leave, so lines flowed around where the discs
+      were never stand over discs that have moved on — under reduced motion
+      too, since Motion keeps the opacity fade. The drawing travels in
+      marker space with the geometry's own rules kept at every step
+      (`markersBetween`: straight lines, radii following, each marker pushed
+      down to clear those before it, clamped to the stage; a merged feature
+      grows in where it will stand), and every frame the prose is flowed
+      around the discs as drawn (`arrangedAround`), so text and discs move
+      together and never overlap. `PlaceSearch` changes once per trial and
+      is the same instance through a travel's frames, so `placeSearchAtom`
+      readers (trace, caption, code's live values) are not woken per frame.
+      `get.self` carries the last drawing, its held paper, what had settled
+      and its prose into the next search (`DrawingLeft`).
+- [x] `atoms/syntax-highlighting.ts` `highlightedLinesAtom` (an `Atom.family`
+      keyed by `CodeSource`) tokenises each source once instead of on every
+      render of `HighlightedCode`.
+- [x] `PlaceProposal.tsx`: the feature's name stays in its proposal; the
+      proposal is marked `data-place-feature` so tests can find the feature
+      whose room the search is making.
+- [x] `PlaceStage.tsx`: the paper is a `ScrollArea` whose viewport, fade
+      and scrollbar exist only while a sketch or a trial is drawn (Base UI
+      measures overflow from the viewport's `scrollHeight`, which counts a
+      disc still travelling in, and re-measures only on resize or scroll: a
+      fade that outlived the kept state was stale, not true); the kept
+      arrangement fits the sheet and is unclipped. The search has three
+      phases: `running` (trials coming in; the paper is `held` so a jump
+      moves nothing around the stage), `landing` (every trial in, the
+      drawing travelling to the best; the paper is part of the drawing and
+      travels with it, so it lands with the discs and a disc heading past
+      the old edge is never cut), `complete`. `ArtifactStage` derives its
+      clipping from the frame kind: `none` (the canvas) clips nothing.
+      `AnimatePresence mode="wait"` on prose lines keyed by the frame's
+      prose: replaced text fades through, never two texts at once
+      (`popLayout` double-painted the crossfade); stagger 20 ms, arrival
+      ≤ 300 ms, exit 120 ms. A line arrives by fading only, without the
+      theme's 4 px rise: its place is the room the discs leave it, and
+      rising from below would cross a disc's edge.
+- [x] `test/worker/home-demo.test.ts` — _a merged feature fills the room the
+      search made for it, never over the prose_: while the search runs the
+      ring marks the room, the sheet holds its height and the paper is
+      `sketch`; at every sampled frame of the hand-off — the ring still
+      leaving as the disc arrives — both stand at one `translate`, the disc
+      arrives at more than one transform, and at no sampled frame is a line
+      of prose painted over any disc or ring (`platform/in-page.ts`
+      `mergeFrame`: circle against every line's box, a line painted at its
+      own opacity times its lines container's, so a set of lines that has
+      finished leaving is not painted); _under reduced motion the feature is
+      placed outright, never over the prose_: the same hand-off, one disc
+      place, one transform, no overlaps. `test/web/travel.test.ts` covers
+      the journey's rest, counted from the first frame drawn.
+      `test/web/place-searcher.test.ts` gives the searcher a worker manager
+      whose workers say nothing or fail: the request is given up on at the
+      answer bound and named, the worker's scope is closed, and the next
+      search spawns another.
+      `test/contracts/motion.contract.test.ts` pins the tokens.
+- [x] `atoms/imagined-place-render.ts`: before the artifact arrives the render
+      stream is `Stream.never`, not `Stream.empty` — effect-atom turns a
+      stream that ends without a value into a failure, which drew "The place
+      could not be drawn" at first paint. A build on its way is waiting, not
+      failed. The stage's failure row carries `data-place-stage-failed` so
+      tests can count told failures frame by frame
+      (`stageFailuresUntilRendered`).
+- [x] `contracts/demo/imagined-place-flow.ts` `paperExpected`,
+      `atoms/imagined-place-render.ts` `placeExpectedPaperAtom`,
+      `PlaceStage.tsx` `BlankPaper`, `PlaceSearchTrace.tsx`
+      `PlaceSearchTracePending`, `services/PlaceSearcher.ts`: the stage is
+      cut to size the moment the artifact is known and nothing around it
+      moves until the drawing lands. `paperExpected` is the prose flowed with
+      nothing in its way plus the lines the discs take out of the column,
+      whole lines, from the same prepared text the drawing flows; it runs a
+      line or two short by design, so the paper grows with the discs at
+      landing rather than shrinking. `placeSheetAtom` is the expected paper
+      until there is a frame; the first frame holds it (`held`) through
+      `running`; `landing` travels to the true paper. `BlankPaper` is the
+      paper-shaped skeleton (shimmer rows at the stage's own padding and line
+      height) drawn while the sheet is known and the frame is not;
+      `PlaceSearchTracePending` reserves the trace's and the caption's rows
+      (`traceHeightClassName`) so the first frame moves nothing below the
+      paper either. The searcher spawns its first worker when the runtime
+      builds, not at the first search, so the worker boots while the build
+      is fetched and the text measured: first frame ~780 ms from navigation
+      in a production build, from ~1000 ms. Before the artifact only the
+      width is known, so the placeholder stays small; that one change of
+      size is accepted.
+- [x] `test/worker/home-demo.test.ts` — the first test installs
+      `recordPaperFrames` (`platform/in-page.ts`: a `MutationObserver` over
+      the paper's `data-place-stage-height` and the trace's
+      `data-place-render-phase`, installed as an init script so no state is
+      lost to a round trip and the navigation cannot interrupt it) and
+      asserts that a paper exists before the first trial is in and that every
+      recorded height until `landing` is one height.
+      `test/contracts/imagined-place-flow.contract.test.ts` pins
+      `paperExpected`: whole lines, the prose alone with no features, more
+      for every feature.
 
-### Act 4 — Acts, provenance and weather
+### Act 4 — Acts and provenance
 
-- [ ] `atoms/imagined-place-experience.ts`: `placeActAtom`, `placeFocusAtom`,
-      `placeWorldAtom`; `contracts/demo/imagined-place-provenance.ts`:
-      `PlaceProvenance` and `provenanceFor` over `PlaceBuild` and
-      `PlaceRendering`.
-- [ ] `PlaceStage.tsx`: act answers (ghost discs in Propose, version
+- [x] Code-line marks carry one canonical `CodeSiteId`; `codeSite(id)` is the
+      total source for the site's step, line-locating match and package.
+- [x] `placeGoToSiteAtom`: the answer's credited line is a route, not a hash.
+      It selects the line's step, lets the answer go where it is (focus does
+      not return to the mark), enters `#how-its-built` through
+      `navigateToElementAtom`, and after the step renders centres and focuses
+      the line's gutter mark (`data-place-code-site`) — smooth or instant by
+      `scrollBehaviorFor(motionPreference)`. Tested on a registry with the
+      window (sequence, manner per preference, focus) and in Chromium by
+      pointer, by keyboard (`:focus-visible` on the landing) and under reduced
+      motion.
+- [x] `stillUnderReducedMotion` (`designSystem.ts`): the one CSS-side rule for
+      things that travel by transition — switch thumb, tab indicator, drawer,
+      search dialog, package menu, navigation folds — since Motion's
+      configuration does not reach CSS. Chromium checks the thumb's computed
+      `transition-duration` is `0.15s` and `0s` by preference.
+- [x] `atoms/imagined-place-experience.ts`: `placeActAtom`, `placeFocusAtom`,
+      `placeBandAtom`; `contracts/demo/imagined-place-provenance.ts`:
+      `PlaceMark`, `PlaceProvenance`, `PlaceAct`; `view/home/placeProvenance.ts`:
+      `provenanceFor` over `PlaceBuild` and the search. Focus is a mark; the
+      answer is derived.
+- [x] `PlaceStage.tsx`: act answers (ghost discs in Propose, version
       distinction in Record); `PlaceProvenance.tsx`: one overlay that renders
       any `PlaceProvenance`; disc popovers, ID tooltips and status pills fold
       into it.
-- [ ] `PlaceHowItsBuilt.tsx`: code lines carry `data-provenance`; focus on a
-      line writes `placeFocusAtom`; a focused mark highlights its line.
-- [ ] `styles.css`: `--th-world-{unfinished-light,lost-market,drowned-library}-*`
-      for light and dark; `:root[data-world]` selects them; contrast checked
-      per world per theme against rendered colors in `test/worker/home.test.ts`.
-- [ ] `test/worker/home-demo.test.ts` — _every mark answers_: for each
-      `[data-provenance]` in `main`, hover shows an overlay naming a package;
-      the count of marks without provenance is zero. _The world changes the
-      air_: switching scenario changes `data-world` on `:root` and the
-      computed canvas colour, and text colour does not change.
+- [x] `PlaceHowItsBuilt.tsx`: the value beside each line that produced
+      something carries `data-provenance` for that line; pointing at it
+      writes `placeFocusAtom`; a focused mark highlights its line, and a
+      focused line lights every disc it made, on the stage and in the band.
+      The line's number in the gutter is the line's own mark
+      (`codeSiteOnLine` in `contracts/demo/imagined-place-provenance.ts`,
+      `renderLineNumber` on `HighlightedCode`): `Line N`, carrying the site
+      the line is, so the code is a trigger without a control around its
+      links — a trigger around the line took the link's press so its preview
+      never opened (tried, measured, reverted). The gutter is not shown below
+      `sm`, where the annotation beside the line is the same mark.
+- [x] Focus is bidirectional through one atom, `placeMarkFocusedAtom(mark)`,
+      read by every `ProvenanceMark` and said as `data-place-focused`: a
+      feature lights its disc, its name in the composition and its
+      proposal's title; a line lights on the stage when pointed at, when the
+      code that set it is pointed at, or when the merged proposal whose
+      sentence stands on it is pointed at (`placeFocusedLineAtom`, from
+      `proposalAnchorLine` on the drawing shown this instant); a content ID
+      or signature lights wherever it is said.
+- [x] `PlaceStage.tsx`: the lines of the prose are one stop in the tab order,
+      a vertical Base UI `Toolbar` — arrows move between lines, Enter opens
+      the line's answer — so every line's facts have a keyboard route; the
+      answers are read from `placeShownFrameAtom`, the drawing on the stage
+      this instant, not the search's best, so a hovered line's width and
+      count agree with what is visible, and a disc's answer names the trial
+      it is drawn from.
+- [x] `styles.css`: the canvas, the paper and the spine's rule are the stage's
+      own greys in every story; the prose on the paper is contrast-checked
+      per story per theme against rendered colours in `test/worker/home-demo.test.ts`.
+- [x] `test/worker/home-demo.test.ts` — _every mark answers_: for each
+      `[data-provenance]` in the demonstration, hover shows an overlay naming
+      a package; each annotation's answer names its own title and package
+      (`Statistics.minimum(` → effect-math, `Study.tell(` → effect-search,
+      `Text.layoutLinesWith(` → effect-text); a code line lights its discs;
+      the lines answer from the keyboard. _The acts answer on the
+      stage_: scrolling to Propose changes `data-place-stage-act` and shows a
+      ghost. _Choosing another story changes the drawing and nothing of the
+      page_: after the story is taken and the discs are at rest, the computed
+      canvas colour, the paper's paint and the title's ink are what they were,
+      and the prose on the paper reads at ≥ 4.5:1 in every story and mode. _The band_: past the stage at 390 the band shows one disc per
+      marker and nothing in the flow moves; at 1280 it appears only for the
+      Build act, and a code line lights its discs there.
+- [x] Hover intent is owned by the app: pointer handlers write
+      `placePointerOverAtom`, one latest-wins timed intent stream writes
+      `placeAnswerAtom`, and that answer controls the shared Base UI root and
+      its explicit active trigger. Unmounting an unrelated detached trigger
+      therefore cannot cancel another mark's pending answer.
+- [x] Every answer is read from its own source. `PlaceSearch.source` is the
+      build a drawing is of, so the stage keeps its story while the next is
+      built and nothing reads across (`placeArtifactAtom` is gone; the
+      render stream takes the build). A disc on the paper is a `Disc { name,
+source }`, a line of the prose a `Line { index, drawing }`, a trial a
+      `Trial { index, drawing }` (`DrawingId = { source, stageWidth }`,
+      compared by `sameDrawing`); a `Feature` in the column is of the build
+      the column describes, and tells where it stands only if the paper is
+      drawing that same build. `PlaceProvenance.about` names the features an
+      answer is about, read from the answer's own source, so
+      `placeFeatureFocusedAtom` lights nothing of another build. An answer
+      lives as long as the page can answer it: `placeAnswerLifetimeAtom` lets
+      it go when its drawing is replaced and leaves focus where it is
+      (`AnswerFocusReturn`); a pressed answer dismissed by hand still returns
+      focus to its mark. `PlaceEvidence.lineage` is non-empty by schema, so
+      the current version is total. Checked in `test/web/place-provenance.test.ts`
+      (_answers from the drawing's own source_), `test/atoms/place-answer.contract.test.ts`
+      (_answer lifetime_) and `test/worker/home-demo.test.ts` (_an answer
+      opened on the drawing survives the next story's build and closes with
+      its drawing_).
 
 ### Act 5 — Responsive and environmental verification
 
-- [ ] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three worlds:
-      no element overflows; the paper and a disc are in the first viewport.
-- [ ] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
-      ≤ 3 lines; the pinned band never covers the focused control.
-- [ ] Forced colors: proposer rule, switch state, tab indicator and strand
-      knots stay visible without background colour.
-- [ ] Reduced motion: the search still renders per frame (it is a real
+- [x] 320, 390, 768, 1024, 1280, 1440, 1920 × light and dark × three stories:
+      no element overflows, checked by _at W×H every story fits in light and
+      dark, and … leads the first viewport_ in `home-environment.test.ts`. What
+      leads the first viewport is a rule the test states, not a hope: below
+      640 px tall (320×568) the hero owns the screen — title, lead and both
+      actions wholly in view, "See how it's built" pointing down — and the
+      arrival is a scroll away; from 640 px tall the arrival's title is in
+      view; at `lg` (1024 px wide) and above both Compose and Arrange headers
+      stand beside it; below `lg` the columns stack with Arrange first, above
+      the paper, and that header is in view. The hero's lead and trail keep
+      their `clamp(…, svh, …)` rhythm at every height; a `max-height` step that
+      cut them to nothing bought 4 px of the arrival at 320×568 for a 38 px
+      jump at 576 px, so it was not kept. What made room at 320×568 is the
+      display role: its narrow metrics are fluid, `clamp(32px, 10vw, 36px)`
+      over `clamp(36px, 11.25vw, 40px)`, so the five-line title stands 180 px
+      at 320 and 200 px from 360, at one ratio, with no width where it steps
+      (`text.ts`, held by the typography contract test).
+- [x] 200 % zoom at 1280: no horizontal scroll; the display title wraps to
+      ≤ 3 lines; the pinned band never covers the focused control. _The 200
+      percent reflow equivalent fits and focus clears the pinned band_ uses a
+      640×360 viewport, the faithful reflow equivalent of 1280×720 at 200 %;
+      Playwright has no browser-zoom API and CSS zoom does not change layout
+      viewport or media queries.
+- [x] Forced colors: proposer rule, switch state, tab indicator and strand
+      knots stay visible without background colour. `home-forced-colors.test.ts`
+      checks every state in light and dark with Canvas, CanvasText, Highlight
+      and HighlightText system colours. Focus has one authority:
+      `focusEdgeClassName` drops the outline and restores a solid `Highlight`
+      one under forced colours; `focus-edge.contract.test.ts` holds that no
+      other class string writes `outline-none`.
+- [x] Reduced motion: the search still renders per frame (it is a real
       process), merges and version changes are opacity only, nothing else
-      moves.
-- [ ] Re-run the measurement above and record the after values in the table;
-      the target is ≤ 10 bordered elements and ≤ 4 shadows at 1440 with the
-      overlay closed.
+      moves. Checked by _under reduced motion the search still has frames, and
+      merges and story changes move only by opacity_ in
+      `home-environment.test.ts`: every retained element — title, step headers,
+      paper, each disc by name — is sampled each frame and may stand only where
+      it stood before or where it stands after, and no running animation names
+      a property outside opacity and colour.
+- [x] The measurement above reaches its targets: the marker chips and content-ID
+      chips lose `shadow-chip` and stand by their ring and wash; the code
+      section loses its shadow and keeps its rule; ≤ 10 bordered, ≤ 4 shadowed,
+      bordered chain ≤ 2 at 1440 with the overlay closed. A worker test measures
+      it so the counts cannot drift back: _the home page keeps its painted
+      surfaces within the de-carding budget_.
+- [x] The first viewport at 1440×900 shows the paper's top and the first disc,
+      not only the two column headers: the hero's vertical spacing is cut so
+      the place is seen before any scroll, as `Done when` says. (Act 4 re-stated
+      the claim to the headers when the form work moved the arrival above the
+      grid; the plan's intent stands.) Checked in _the hero and the place share
+      the first viewport_.
+- [x] 320: the paper is ≥ 240 px wide; the story chooser wraps or scroll-snaps,
+      never overflows. Checked in _at 320 the paper and story chooser fit the viewport_.
+- [x] `Done when` is run as a test: at 390×844 with reduced motion, the place
+      and the version are visible before scrolling; a proposal is merged from
+      the keyboard and the prose changes; every mark answers from the keyboard
+      — all in _at 390 reduced motion a keyboard merge changes the prose and
+      every marker answers_, which asserts the paper's top edge and the
+      current version (`data-place-current-version`) in the first viewport
+      before the merge. The disc is the one honest exception: measured on the
+      production build the paper's top is at 835 of 844 and the first mark 99
+      px into the paper (89 before the marks grew to touch size), where the
+      search's own drawing puts it at this width. What stands above it is the
+      header (84 px), the hero (427 px: lead 7svh, trail 4.5svh, already cut
+      for the 1440 case), the arrival's title and its one paragraph (184 px —
+      the words that say what this is) and the Arrange header with the
+      version. Revisited after Act 6: cutting any of those to gain ~110 px
+      would trade the hero or the clarity for the disc; moving the disc would
+      be forcing the drawing. The exception stands. At 1440×900 the first disc
+      is fully in the first viewport (_the hero and the place share the first
+      viewport_).
+
+### Act 6 — Deferred from the reviews and the build
+
+Not in the plan's original acts; each was raised while building Acts 0–4 and
+left on purpose. Every item takes the same route: failing test, then the change.
+
+- [x] **Version knots on the paper** (Act 2's open box). Decided against the
+      rendered stage at 1440 and 390: the strand — knots joined by a rule,
+      then `V2 · <digest>` — stands in the Arrange header's row directly over
+      the paper's right edge, so it is already at the paper's width without
+      reading `placeStageWidthAtom`, and it is read before the paper in the
+      column's order. Knots on the paper's edge would put a second graphic
+      beside the discs on the surface whose whole job is the prose and the
+      drawing, and would have to move with every resize of the paper. The
+      lineage in full — every version with its digest — stays in the Sign act
+      (`data-place-lineage`), where the signing is. No change; the box closes.
+- [x] **Canonical `CodeSite` identities.** A code-line mark is
+      `{ _tag: "CodeLine", site: CodeSiteId }`; `CodeSiteId` is the closed
+      `Schema.Literal` of sites, `codeSite(id)` the total lookup, and
+      `allCodeSites` is derived from the literals. `markMadeBy` matches
+      exhaustively on the id; `match` is the site's line-locating data, not
+      its identity. No brand: a closed literal set is already one identity per
+      site, and the contract test checks each resolves to one line of its
+      step's code.
+- [x] **The CSS animations the toolchain branch left for this work.** Both
+      moved to Motion; `styles.css` declares no keyframes and no `animation`
+      (guarded by `test/contracts/motion.contract.test.ts`, which reads the
+      stylesheet). The walk (`PlaceWalk`) is an `m.path` whose `pathLength`
+      draws once over `motionWalkDraw` (900 ms) when the search settles; it is
+      movement, so under reduced motion it is whole at once (`motionPreferenceAtom` + `Match.exhaustive`, the `PlaceMarker` pattern, because Motion 13.2's
+      `reducedMotion` leaves `pathLength` animating). The wash (`ChangedValue`)
+      is a `Layer` in the digest tone fading over `motionValueWash` (1200 ms);
+      it is colour, not motion, so it stays under reduced motion. Browser test:
+      `home-demo` "a merge washes the changed version and the settled search
+      draws the walk once".
+- [x] **Per-trial render cost.** Measured on the production build
+      (`vite preview` of `dist/`, Chromium, `PerformanceObserver` on
+      `long-animation-frame` and `event`, one story change): 36 trials arrive
+      ≈40 ms apart (the deliberate 28 ms `frameDelay` plus the worker's own
+      time), 3 long animation frames in the whole search (73 ms of blocking in
+      total), and no interaction ≥16 ms. The development cost was Vite's
+      unminified React; per-trial coalescing is not needed and was not added.
+      The same profile found the real delay: the whole request was debounced
+      400 ms, so a story or a merge clicked waited 400 ms before the build
+      began. Now only the typed brief settles (`placeBriefDraftAtom` →
+      `settledBriefDraftAtom`); a story or merge chosen is built at once
+      (`placeBuildRequestAtom`, `test/atoms/place-build-request.test.ts`).
+- [x] **The edited-brief status line.** Removed. An edited brief already shows
+      in the two places that are true of it: the field's active border
+      (`TextAreaField active`, the tone's border instead of the rule) and
+      version 1's digest, which changes — with its wash — because the brief is
+      what the version signs. The `Recorded inference` mark beside the
+      features already says the composition is recorded. A sentence explaining
+      the mechanism is the interjection the page's rule forbids, and it is not
+      a field description either: it is true of a state, not of the field.
+      _The Compose act reads down_ (`home-form.test.ts`) edits the brief and
+      holds the act to one paragraph — the title — before and after.
+- [x] **Dark theme and forced colors across every state.** Every state the
+      light checks cover — answers open, band shown, Build act lit, a search
+      running, a story changing — checked in dark and in `forced-colors`;
+      contrast asserted from rendered colours as `home-demo.test.ts` does for
+      the prose. The dark half is complete in _light and dark keep every
+      interactive state readable_ (`home-environment.test.ts`), which takes the
+      lowest ratio over every visible element holding its own words within the
+      answer, the band's link, the lit line and the search's caption, so a
+      muted secondary line cannot hide behind a readable heading. Forced
+      colours now covers focus edges, switch state, tab indicator, strand
+      knots, discs, lit code wash and solid/dashed proposer rules in both
+      colour schemes (`home-forced-colors.test.ts`).
+- [x] **Web vitals on the preview.** `contracts/performance.ts` sets LCP ≤
+      2.5 s, CLS ≤ 0.1 and INP ≤ 200 ms, plus 512 KiB of first-paint scripts.
+      `checkBuildOutput` enforces the script budget in CI (`build:check` in
+      `.github/actions/theoria-build-check`). Measured gzip: index 57.6 KB,
+      rolldown-runtime 0.5 KB, react-vendor 58.9 KB, effect-core 114.6 KB,
+      ui-vendor 119.5 KB and effect-text 147.5 KB; ≈498 KB total, with 16.8 KB
+      CSS. `home-vitals.test.ts` measures LCP, CLS and INP in Chromium at
+      1440×900 and 390×844 against the same budgets. Those numbers are on
+      localhost; the preview site was not measurable from here. - _No shift from the demonstration's own loading._ The vitals test also
+      records, per layout shift without recent input, the demonstration
+      region and part that moved and by how much (`region:part:+x,+y/w×h>w×h@ms`
+      in `recordedDemonstrationShifts`), and asserts none. Three causes were
+      found and removed. The composition's title and feature placeholders
+      were 12 px bars; they are now `ShimmerText`, whose line box is the
+      role's `--st-lh-*` and whose bar is `0.7 × --st-fs-*`, so the words
+      arriving change nothing around them. The stage was cut to a 92 px
+      placeholder until the build arrived, then to the paper (~396 px), and
+      the version row (22 px) mounted above it: the recorded scenario
+      outputs are now a shared contract (`placeScenarioRecordings`,
+      `recordedFeatures`, `recordedDescriptionInput`), so
+      `placeExpectedPaperAtom` cuts the paper from the recording under the
+      chosen acceptances before the build and from the artifact after it, and
+      `StageKnotsPending` holds the version row's 22 px; a server test proves
+      every build describes what its recording says. Last, Figtree and
+      JetBrains Mono came from Google Fonts with `display=swap`, so on a
+      first visit every text box was set twice, 4 px narrower the second
+      time at ~700 ms: the Latin variable subsets are now served from this
+      origin (then `public/fonts` and `web/typefaces.css`; since Act 6's
+      fallback-metrics work, content-hashed bundle assets from
+      `@fontsource-variable/*`), and preloaded by the shell, so they are here
+      (~26 ms) before any script runs; the CSP names no third-party font
+      hosts, and `site.test.ts` derives the required preloads from the
+      stylesheet. `html { scrollbar-gutter: stable }` keeps the page from
+      moving sideways where scrollbars take room. A fourth cause followed:
+      the column's width was a `0` sentinel until the resize observer
+      reported, so the first paper was cut for the widest stage and recut for
+      the column (two heights at 390 px). The width is now a measurement,
+      `placeStageContainerWidthAtom: Option<number>`, none until measured;
+      `placeStageMeasuredWidthAtom` gates the sheet, the expected paper and
+      the search, and `placeStageFrameWidthAtom` gives the frame its width
+      as CSS (`min(100%, request)`) before the measurement, so the frame
+      stands at its width from the first paint instead of shrinking around
+      its placeholder (`place-stage-width.test.ts`).
+  - _Prose never over discs, under reduced motion._ The drawing rests for
+    the lines' exit before it travels (`restBeforeTravel`); under reduced
+    motion the discs are placed outright the moment the rest ends, while
+    Motion's opacity fade still runs, so under load the old lines were
+    painted over discs already moved. Reduced motion now swaps the lines'
+    set in the frame the drawing is placed — no presence exit, a rest of
+    zero — and the new lines fade in where they stand
+    (`place-render-rest.test.ts`).
+- [x] **Stale comments.** Swept `view/home/`, `atoms/`, `view/primitives/` and
+      `contracts/` against what the branch removed: layout animations, world
+      tones, the card page, the CSS keyframes, the status sentence, the
+      all-controls debounce, knots on the paper, and every backticked symbol
+      named in a comment. Three were stale and are corrected: `PlaceDiscDrawn`
+      described a disc as "a Motion node that travels from its name";
+      `motionConfigReducedMotion` said reduced motion "skips layout";
+      `MotionRelation.shift` named "a name to the stage".
+- [x] **A third review** of the form work (`b8a56b6` onward) by the Oracle,
+      with the same must/should/nice discipline as the first two. Three
+      must-fixes, four should-fixes, one nice-to-have; every one is closed by a
+      failing test first.
+  - _Code-site navigation targeted an element hidden on phones_ (must). The
+    landing target at 320 and 390 was the `sm:block` gutter button. The
+    gutter is now a line's mark at every width (`HighlightedCode`,
+    `PlaceHowItsBuilt`, `navigation.ts`), with pointer and keyboard routes
+    tested at 390.
+  - _A pending hover could undo an explicit press_ (must). The 120 ms
+    hover-open could arrive after a click, turn `opening` from `press` to
+    `hover`, and close on leave. A press now outlasts the hover on its way
+    (`imagined-place-experience.ts`), with the enter → press → delay → leave
+    sequence tested.
+  - _Returning to a story quickly resurrected its discarded brief_ (must).
+    A→B→A within the 400 ms debounce built A's edited brief while the field
+    showed the default. Pending work is scoped to the selection
+    (`imagined-place.ts`, `place-build-request.test.ts`).
+  - _A build's waiting state restarted the old drawing's search_ (should).
+    The render stream depended on the whole build result; it now depends on
+    the build value, so `waiting` toggling restarts nothing and a new build
+    restarts once.
+  - _No fixed footprint through loading_ (should). Closed under _No shift
+    from the demonstration's own loading_ above, and finished by the marker
+    legend: `placeLegendAtom` derives the legend from the outline's features
+    before the first frame and from the shown frame after it
+    (`place-legend.test.ts`), so the legend's row is there at one height
+    from the first paint.
+  - _The INP test did not test responsiveness during the search_ (should).
+    It clicked to start a search and measured nothing while trials ran; LCP
+    and INP defaulted to zero; the lifetime shift total was called CLS; the
+    event observer's maximum duration was not INP. `recordWebVitals` now
+    publishes absent observations as empty (decoded to `Option` by the
+    test), groups event timing by `interactionId` for a true INP, counts the
+    interactions from their own events so an untouched page cannot pass, and
+    names the lifetime total `layoutShiftTotal`. The test changes the story,
+    waits for the search to be `running`, opens a package's docs preview,
+    asserts the drawing had not settled, and holds both interactions to the
+    budget. Honest, it found a miss: at 390 px the press took 208–216 ms.
+    Profiled on the production build, it was the compositor: the canvas
+    washes were `body`'s background, so they sat on the document's root
+    layer sized to the whole document, and any repaint — the pressed
+    trigger's ring — re-shaded two radial gradients tile by tile (four
+    tiles, ~165 ms each) while the main thread waited on the commit. The
+    washes are now `body::before`, `position: fixed; inset: 0; z-index: -1;
+pointer-events: none`: their own composited layer, shaded once, sized to
+    the viewport so the light is the same whatever the page's height. The
+    press no longer produces a long task at all. `home-vitals.test.ts`
+    asserts the body paints a flat colour and the light is that fixed layer.
+    Every opened page in the browser suite is its own visitor
+    (`cf-connecting-ip` per page in `test/worker/browser.ts`), so the real
+    build limiter cannot fail a fast suite.
+  - _Some environmental checks passed without measuring their subject_
+    (should). `lowestTextContrastWithin` returned infinity for no text; the
+    running caption could match a prior one; reduced-motion trial counting
+    compared height strings. Each probe now measures what it claims
+    (`3a421cd`).
+  - _The band's positional transition_ (nice) now derives from
+    `motionDuration("shift")`.
+- [x] **Event-coupled rest.** The drawing's rest before travel was a duration
+      (`restBeforeTravel`), a guess at when the lines' exit ends. The rest
+      now ends on an event: the stage's `Lines` reports which prose's lines
+      stand (`placeLinesOnStageAtom`, written from a mount signal rather
+      than `onExitComplete`, since it is the new lines standing — not the
+      old ones gone — that makes the paper safe to draw on), the render
+      stream releases the journey's rest when the lines the frame is drawn
+      for stand, and `motionExitBound` is only the safety net if they never
+      do (first three exits, 360 ms; now two seconds — see the shard-3 entry
+      below). The frame-sampling browser test found two
+      real faults: a disc read its own drawn state from the shown frame
+      while `AnimatePresence` held it for exit, so a name no longer drawn
+      swapped disc for ring mid-exit and never left (two sets of discs at
+      `complete`); and a story change dropped the old story's discs the
+      moment the drawing moved. The disc's kind is now told by the frame
+      (`discDrawn`, a pure function of drawn set and frame), and departures
+      are geometry: `markersBetween` keeps from-only markers shrinking to
+      radius zero where they stood, the lines flowed around them to the
+      last, drawn as `LeavingDisc` — non-interactive, unlabelled — and gone
+      once the drawing lands. The legend lists only the markers the search
+      is heading for, so a leaver's label goes at the first frame of the new
+      search.
+- [x] **Holdable pending state.** `holdResponse(page, method, suffix)` in
+      `test/worker/browser.ts` holds a response on a `Deferred` until the
+      test releases or fails it (`HeldRequest`), so
+      `test/worker/home-pending.test.ts` asserts the held skeleton, the
+      pending rows and their contrast at 1440 and 390, light and dark, and
+      that the build landing shifts no region. Asserting the failure's
+      footprint made it go: the failure banner (+72 px above the stage) is
+      gone, and a build or drawing failure now has one home — the search
+      caption's row (`StageFailed`, `role="alert"`), which is `min-h-9` in
+      every state, so telling the failure moves nothing. `placeFailureAtom`
+      derives `StageFailure` (`failed: build | draw`, `waiting`) from the
+      build and frame results; `placeWaitAtom` tells the paper and the trace
+      whether a drawing is coming (`PlaceWait`: `pending` breathes and is
+      `aria-busy`, `failed` holds still, fainter — `waitMotion`), so a still
+      placeholder is the room a drawing would take, not a promise of one.
+      The pill asks for the run that failed again and rests while it is
+      under way. `StageBanner` had no other use and is removed.
+      `contrastsWithin` no longer measures words hidden from assistive
+      technology (`GhostText`'s transparent words under a bar), which are a
+      shape, not text; graphics are still measured wherever they are.
+- [x] **The stage follows its column; nothing else redraws it.** Two
+      faults were found behind the paper standing left of centre after a
+      window resize on wide screens. The stage column's wrapper in
+      `PlaceActs.tsx` carried `max-w-[44rem]` — idle at `lg`, where the
+      grid track already caps it, but between 768 and 1023 px it pinned
+      the paper to 704 px at the left of a wider column while Compose ran
+      full width, and the widest width offered stopped short of
+      `stageMaxWidth` (900). The class is gone: below `lg` the paper takes
+      the column up to `stageMaxWidth` and is centred beyond it, as the
+      layout note above always said. And while the column narrowed, the
+      sheet kept the previous drawing's width until the new search's first
+      frame, so the drawing stood 704 px wide in a 557 px frame, cut at
+      the right, for the drag and the first-frame latency; then the paper's
+      `transition-[width]` eased after the column for another 200 ms. The
+      sheet now has a `fit` (`PlaceSheet`, `sheetFit`, `sheetFitting` in
+      `imagined-place-render.ts`): its width is the lesser of the column
+      measured and the width drawn, and a drawing wider than the column is
+      shown fitted to it — scaled as one piece from its top-left corner by a
+      composited `transform`, the paper's height with it — never up. The
+      next search carries on from the drawing as it is shown
+      (`drawingScaled` in `imagined-place-flow.ts` scales every disc and the
+      paper for `DrawingLeft`), so discs travel from where they are seen. The
+      paper eases its width only while the column does not bound it
+      (`paperClassName(fit)`); bounded, it follows the column outright. No
+      superfluous redraw was found: a landed drawing is redrawn for another
+      width or another build only. `test/worker/home-resize.test.ts`
+      asserts the stage takes its step at 900 and is centred at 1000; that
+      across a 1400→1100→1400 resize neither the drawing nor the paper ever
+      stands wider than the frame and the frame stays centred at every
+      recorded frame (`recordFrameFit`); and that three seconds idle,
+      scrolling, hovering a disc, leaving and returning to the window
+      (`leaveAndReturn`), and the colour scheme changing record no change to
+      the paper or the search's phase. `test/atoms/place-sheet.test.ts`
+      pins `sheetFit`, `sheetFitting` and `drawingScaled`; the overflow test
+      in `home-demo.test.ts` now asserts the stage is
+      `min(stageMaxWidth, column)` at every width rather than monotonic in
+      the viewport, since the column at `lg` is narrower than the reading
+      width just below it.
+- [x] **Vertical rhythm.** The steps stood 40 px apart against 14 px
+      between a step's header and its body, so Compose, Propose and Record
+      read as one column of cards, and below `lg` Arrange met Compose at 32.
+      The page had no scale for this: `gap-4` on the content column,
+      `gap-8`/`gap-12 lg:gap-16` on the stacks, `pb-6` on the section,
+      `mt-10` on the footer, each set where it was needed. Two fluid tokens
+      in `styles.css` `@theme` now hold the whole page's spacing between
+      things: `--spacing-act` (`clamp(3.5rem, 2rem + 4vw, 4.5rem)`: 56 px
+      at 390, 72 at 1280) between the steps of the story — the Acts stack,
+      and the grid's row gap where Arrange stands above Compose — and
+      `--spacing-region` (`clamp(4.5rem, 2.5rem + 5vw, 6rem)`: 72 at 390,
+      96 at 1280) between the page's regions — the demonstration's columns
+      to _How it's built_, and _How it's built_ to the footer (`mt-region`
+      on `SiteFooter`). The content column's `gap-4` is gone so each block
+      owns its own distance (the hero's lead and trail tokens set the
+      header→hero and hero→arrive distances alone), as are the section's
+      `pb-6` and the arrive→grid `gap-8` (now `gap-10`). Between-step space
+      is at least three times the within-step relation at every width, so
+      proximity groups a header with its body and separates the steps
+      without a rule or a card. `test/worker/home-rhythm.test.ts` measures
+      the page at 390, 820 and 1280 (`pageRhythm` in `in-page.ts`): the
+      acts stand equally apart (to the pixel a fluid length rounds
+      differently along the page) and at least `stepsApart` times the
+      within-step distance; below `lg` Arrange stands the act gap above
+      Compose; the two region gaps are equal and at least the act gap.
+- [x] **Touch targets.** `PlaceMarker`'s hit area was a fixed `-inset-1`
+      on numbered discs only, and named discs clipped it with
+      `overflow-hidden`. The geometry now owns the target: `minimumTouchTarget`
+      (44), `touchReach(radius)` — what a radius lacks of 22, nothing for a
+      disc that large — and `touchGap` (2) in `imagined-place-flow.ts`.
+      `clearanceBelow` clears by the greater of the disc gap and the two
+      reaches plus the touch gap, so in a landed drawing two touch targets
+      never meet, and a touch at the edge of a small disc's target is that
+      disc's alone rather than a coin toss with its neighbour (Chromium snaps
+      hit-tests to device pixels, so tangent targets were exactly that).
+      `markersBetween` carries a reach with each marker on the way, `0` for
+      a disc absent at either end, so an arriving ring of no radius still
+      asks nothing of its neighbours at rest and every step lands where
+      `placeMarkers` puts it. The disc renders its reach as a child
+      (`Reach`, `data-place-reach`): the minimum target itself, centred on
+      the disc as drawn, not the disc grown by a rounded margin — an inset
+      to a tenth of a pixel stood a snapped fraction short of 44 or a
+      fraction into the neighbour's reach, and auto margins cannot centre a
+      child larger than its box. Discs stand `z-10` in the stage's own
+      stacking context (`isolate`), above the prose lines, so the reach is
+      what a touch beside a small disc meets; the label wrapper carries the
+      clip. `imagined-place-flow.contract.test.ts` asserts `touchReach` at
+      240 and 900, and `expectTouchable` on every landed drawing;
+      `test/worker/home-touch.test.ts` at 390 and 320 asserts each disc's
+      reach box is ≥ 44 px and `elementFromPoint` 21.5 px from its centre
+      in four directions resolves to the disc (`discTouchTargets`).
+- [x] **Anchor-line consumer.** `data-place-anchor-line` on `PlaceProposal`
+      was read by tests only, and `placeProposalLineAtom` existed to write it.
+      Both are gone. The fact it carried — the line a merged proposal's
+      sentence begins on, by `proposalAnchorLine` over the drawing shown — now
+      has a consumer in the focus model: a line's answer
+      (`placeProvenance.lineAnswer`) is `about` the features whose sentence
+      begins on it and says so in an `Adds` fact, so pointing at the line
+      lights the proposal's name in the column and its disc on the paper, as
+      pointing at the name already lit the line. The link follows the drawing:
+      on a narrower trial the sentence stands on another line, and that line
+      is the one that answers for it. `place-provenance.test.ts` asserts
+      `about` and `Adds` on the kept and trial drawings, the line before, and
+      that no line is about the declined proposal;
+      `place-focus.contract.test.ts` asserts the line lights the name and the
+      disc, and not from the line before, on both drawings; `home-demo.test.ts`
+      hovers the name to find the lit line, then hovers that line and reads
+      the name and disc lit and the answer's `Adds`. Tests that needed a
+      merged proposal now find it by `data-place-recorded='true'`.
+- [x] **Band label.** `PlaceBand`'s `aria-label="Back to the place"` hid the
+      disc row from assistive technology. The link is now named by
+      `placeViewModel.bandLabel(row)` — "Back to the place: " and the row's
+      feature names in the row's order, so a merge that adds a disc adds a
+      name; an empty row is only "Back to the place". The row's `svg` and the
+      arrow stay `aria-hidden`: the tree holds one link. `place-band.test.ts`
+      asserts the label from a real rendering and from an empty row;
+      `home-form.test.ts` reads the band's ARIA snapshot
+      (`browser.accessibilityTree`, `locator.ariaSnapshot()`) and asserts one
+      node, a link with that exact name and the stage's `href`, no `img`, and
+      the name grown by one after a merge (`in-page.bandDiscNames`).
+- [x] **Single motion source.** `DocsWorkbench` and `WordmarkMorph` read
+      Motion's `useReducedMotion` while the rest of the page reads
+      `motionPreferenceAtom`. Both now read the atom through two pure
+      decisions: `routeEntranceInitial(preference)` (`primitives/motion.ts`)
+      is `arrivalFrom` or `false`, so a route is placed outright under reduced
+      motion where Motion alone would keep the fade; `wordmarkMotion(preference)`
+      (`wordmarkMorph.ts`, `Schema.Literal("crossfading", "still")`) picks the
+      face. The docs entrance also dropped its private `y: 6`/180 ms in favour
+      of `arrivalFrom` and the theme's `enter`, so it shares the page's motion
+      vocabulary. The Effect lint set (`eslint/effect/builtins.mjs`) forbids
+      importing `useReducedMotion` from `motion/*` everywhere. Tests:
+      `motion.contract.test.ts` for both decisions; `docs.test.ts` samples
+      `[data-route-entrance]` on a client-side route change — under full
+      motion a frame mid-fade, under `reducedMotion: "reduce"` every sample at
+      opacity 1 with no opacity animation (`in-page.presence`) — and reads the
+      header wordmark's faces: both under full motion, Latin alone at rest.
+- [x] **Fallback-metrics fonts.** `font-display: swap` without a
+      metric-matched fallback let the text reflow when the woff2 landed, and
+      `browserTextLayout` measured the story in whatever face was in hand.
+      The text contract (`contracts/text.ts`) now names the served faces
+      (`Typeface`, `servedFontFamily`) and, for each, the stand-ins the stacks
+      fall to — Segoe UI, Helvetica Neue, Arial, Liberation Sans, Roboto,
+      Noto Sans for the sans; Courier New, Liberation Mono, Roboto Mono, Noto
+      Sans Mono for the mono — each declared by `@capsizecss/core`'s
+      `createFontStack` as a `@font-face` named `"<served> Fallback:
+<stand-in>"` with `ascent-override`, `descent-override`,
+      `line-gap-override` and `size-adjust` from `@capsizecss/metrics`
+      (`typefaceFallbacks`, `typefaceFallbackFaces`, rendered into the
+      generated text-token CSS). Liberation is declared with Arial's and
+      Courier New's metrics under its own names: it is their metric clone,
+      and the face Linux hosts and CI have. The vendored files went:
+      `@fontsource-variable/figtree` and `@fontsource-variable/jetbrains-mono`
+      are imported by `styles.css`, bundled as content-hashed assets
+      (`.woff2` never inlined), and the Latin variable subsets are preloaded
+      by a `transformIndexHtml` hook (`vite.config.ts`
+      `theoria:preload-typefaces`) that finds them in the bundle and fails
+      the build if either is missing; `public/fonts` and its headers are
+      gone. Measurement is not held for the faces (revised in the fourth
+      review, below, from a gated layer): `BrowserFonts`
+      (`platform/BrowserFonts.ts`) wraps `document.fonts.check` and `.load`;
+      `browserTextLayoutLayer` measures in whatever face the page shows and,
+      if `measuredFont("body")` or `("mono")` is in flight, watches for it
+      (`servedFacesWatched`) and tells `FontReadiness.facesArrived` when any
+      lands — the registry advances `fontReadinessRevisionAtom`, the layout
+      is built again (`Layer.fresh`, since Effect memoizes a layer by
+      identity, not by what it is told), every prepared text is prepared
+      again and the drawing searched again on the paper it holds. Faces that
+      all fail tell nothing: the stand-in's metrics are then the best in
+      hand. Two metric-dependent heights the stand-ins exposed
+      were fixed at the source: the feature row's dot was body-size text on
+      the name's baseline (`PlaceComposition.tsx` `FeatureSlot`, now set in
+      the name's role) and the proposal's label/value rows aligned two type
+      sizes on a baseline (`PlaceProposal.tsx` `Field`, now the label
+      centred on the value's first line box) — both a pixel apart between a
+      face and its stand-in. The paper is cut in the stand-in from the first
+      paint, to the paper its metrics ask for; when a served face lands the
+      text is measured again in it and the drawing is searched again on the
+      paper it holds, landing a second time at the height the face asks for.
+      Tests: `typefaces.contract.test.ts` (stacks, aliases, overrides, the
+      measured font), `browser-text-layout.test.ts` (measured in the face in
+      hand, the watcher tells the arrival, a failed load non-fatal),
+      `text-layout.test.ts` (the layout is built again exactly once per
+      arrival, an arrival between the first read and the subscription is not
+      missed, faces in hand build once), `static-store.test.ts`
+      (`/assets/*.woff2` immutable), `site.test.ts` (preloads derived from
+      the stylesheet's `url()`s and the stand-in faces declared, in the
+      minifier's spelling too), and `home-typefaces.test.ts`, which holds
+      every `.woff2` at the browser's edge (`holdResponses`, `gotoParsed`)
+      past the build's return and asserts the first paint is in a stand-in
+      with overrides, the paper cut and the story drawn once with the faces
+      still in flight, then on release the faces loaded, a second landing,
+      the title's box unchanged, every text region painted at one height
+      until the first landing and the paper's resting heights equal before
+      and after the second search, at desktop and phone. That test found the
+      scenario pills growing 2 px in the served face: the scenario choice is
+      now a segmented control of equal cells (`ChoiceGroup`
+      `appearance="segment"`, `segmentedControlRailClassName`), one row at
+      every width, whose cells take their width from the rail and not from
+      the face their labels are set in.
+- [x] **CSP nonce.** `style-src` allows `'unsafe-inline'`
+      (`security-headers.ts`). Audit inline styles under report-only, theme
+      Shiki through CSS variables, and issue a per-response nonce so the
+      allowance goes.
+      _Done, without a nonce._ The audit found one writer of inline style:
+      Base UI's scroll areas (and `Select.Popup`, unused) render a `<style>`
+      element hiding the native scrollbar (`.base-ui-disable-scrollbar`).
+      Shiki already themes through `var(--th-code-*)` classes
+      (`highlighter.ts`), `index.html` carries no `<style>` or inline script,
+      Motion writes one only for `AnimatePresence mode="popLayout"` (not
+      used), and every `style={{…}}` prop is set through the CSSOM, which
+      `style-src` does not govern. So the policy is `style-src 'self'`
+      outright: `App.tsx` wraps the tree in Base UI's
+      `<CSPProvider disableStyleElements>` and the one rule it would have
+      written is in `styles.css`. A per-response nonce was not issued
+      because nothing on the page would carry it — the shell is static and
+      the app is client-rendered — and a nonce with no consumer is a
+      mechanism kept for its own sake. Should a first-party `<style>` ever be
+      needed, the route is `CSPProvider nonce` / `MotionConfig nonce` fed
+      from a nonce the Worker mints into the shell, not `'unsafe-inline'`.
+      Tests: `analytics.test.ts` (the policy reads `style-src 'self'; ` under
+      every analytics setting and never `unsafe-inline`) and
+      `security-policy.test.ts`, which installs a `securitypolicyviolation`
+      recorder before the first script (`recordPolicyViolations`), reads the
+      served policy from the navigation's own response, and takes the page
+      through the drawing, a proposal's popover, a merge, a change of story,
+      the theme, and the documentation's highlighted code, package menu,
+      search dialog and (below `lg`) navigation drawer, asserting the
+      document reported nothing refused and the console is clean, at desktop
+      and phone. The test was mutation-checked: with `disableStyleElements`
+      removed it fails on `style-src-elem inline` at the drawing.
+- [x] **Mobile paper scroll affordance.** A sketch or a trial longer than the
+      sheet is cut with a fade and scrolls inside the paper (`PlaceStage.tsx`
+      `cut`, `Paper`); below `lg` there is no scrollbar and nothing but the
+      fade says the paper scrolls. Decide the affordance (Base UI
+      `ScrollArea` scrollbar shown while cut, or the fade alone with a
+      documented reason) and test it at 390. The same want in
+      `CodeBlock.tsx`: its viewport is `max-h-[32rem]` with a horizontal
+      scrollbar only, so a tall example is clipped with nothing to say it
+      scrolls (seen on `/docs/effect-search/examples` at 390 while auditing
+      the policy).
+      _Done._ The premise was stale: the paper's `ScrollArea.Scrollbar` is
+      painted whenever the viewport overflows (`group-data-[has-overflow-y]`),
+      at every width — verified at 390 with the trace scrubbed to trial 1
+      (`data-has-overflow-y`, an 8 px bar at opacity 1 beside the fade). The
+      affordance decided on is the pair, fade and scrollbar, shown for as
+      long as there is more to see and never gated on hover, since a phone
+      has none; the fade says the cut is a cut, the scrollbar says how much
+      lies past it. `CodeBlock.tsx` now carries the same vertical scrollbar
+      under the same rule (its root marked `data-code-scroll`), so a tall
+      example on a phone reads as scrolling rather than ending. Tests: the
+      390 trace test in `home-demo.test.ts` asserts, of the cut trial, that
+      the viewport overflows, the scrollbar and fade are painted and the
+      thumb has height (`scrollAffordance`); `docs.test.ts` asserts the same
+      of the quick start at 390. Not done: a fade on code blocks — the code's
+      background is the docs surface, not the stage, and the scrollbar alone
+      is the convention there.
+- [x] **Closed unions matched with `Match.orElse`.**
+      `app/server/routes/imagined-place.ts` `statusFor` (over
+      `ErrorModel["code"]`) and its rejection match, and
+      `SemanticText.tsx` `BrowserWrappedBlockText` (line 154) fall through
+      with `Match.orElse` where the union is closed; each should name every
+      member and end in `Match.exhaustive`. The other `Match.orElse` uses in
+      `app/` are over open values (paths, characters, parse errors) and
+      stay.
+      _Done._ The status of an error code now has one home:
+      `httpStatus(code)` in `app/contracts/error.ts`, exhaustive over
+      `ErrorCode`, used by the imagined-place route and by the router's 404
+      (which had spelled its own 404). The route's rejection match names
+      `PlaceBuildError`, `ParseError` and `RequestError` by tag and ends in
+      `Match.exhaustive`. In `SemanticText.tsx` the wrap-mode fallthrough is
+      replaced by `whiteSpaceClassName(mode)` in `semanticTextClasses.ts`,
+      exhaustive over `Text.WhiteSpaceMode`, and `maxWidthClassName` decides
+      control-sized roles by membership in a named list rather than a
+      fallthrough. Tests: `test/contracts/error.contract.test.ts` asserts
+      every code's status and that only `execution-failed` is a server
+      fault; `test/web/semantic-text-classes.test.ts` asserts both mode
+      classes, the three control-sized roles and every other role's measure
+      variable for both surfaces. The remaining plain `it(` unit tests
+      (`code-links`, `place-references`) were moved to `it.effect` so every
+      unit test runs in the Effect test style.
+- [x] **A fourth review** of the eight checkboxes above (`73e6cec` onward)
+      by the Oracle. Three must-fixes, closed by failing tests first; the
+      should-fixes and nice-to-haves are listed under _Remaining_ below.
+  - _A disc's reach was recomputed from its drawn radius, not carried_
+    (must). `touchReach(radius)` in the view gave a disc mid-travel the
+    reach of a settled disc that size, so an interrupted travel started
+    again from a reach the drawing never had. `reach` is now a field of
+    `PlaceMarker` (`imagined-place-result.ts`): `placeMarkers` sets it,
+    `markersBetween` interpolates it from the reach in `from`, a marker
+    absent at either end has none there, and `drawingScaled` scales it with
+    the disc. `PlaceMarker.tsx` renders the reach the drawing gives
+    (`imagined-place-flow.contract.test.ts`, `place-sheet.test.ts`,
+    `place-search-trace.test.ts`). While the last column's drawing is shown
+    fitted during a new search its reaches are fitted too — an honest
+    picture of a drawing in transit; `home-touch.test.ts` waits for the
+    drawing made for the column (`drawnForColumn`, kept and at fit 1)
+    before it holds the discs to 44 px, which `discsAtRest` alone could not
+    tell from the fitted one.
+  - _Text was measured in a face the page might not show_ (must). Layout
+    waited on a gated layer for the served faces, so nothing was cut until
+    they landed, and a face that never landed held the paper uncut.
+    Revised to measure the face in hand and re-measure on arrival, as the
+    _Fallback-metrics fonts_ entry now describes: `BrowserFonts.inHand`,
+    `servedFacesWatched` (a scoped, interruptible watcher on `fonts.load`),
+    `FontReadiness.facesArrived` → `fontReadinessRevisionAtom` →
+    `textLayoutLive` rebuilt with `Layer.fresh` at the new revision.
+    Verified against Effect's layer memoisation (`Fresh` skips the memo
+    map; a merged layer of the same identity would not be rebuilt) and
+    effect-atom's synchronous runtime scheduler (an arrival cannot land
+    inside a build, so the test lands it through a `Deferred`).
+    `TextProjectionKey` and the new `TextPrepareKey` are `Schema.Class`.
+  - _The typefaces test asserted a state the page no longer has_ (must).
+    Rewritten for the no-wait design; its shift assertions found the
+    scenario pills growing in the served face, fixed by the segmented
+    control (`segmented-control.contract.test.ts`: two and three cells one
+    row at every width, four folding only below `sm`).
+  - _Remaining_ from the review, each closed by a failing test first:
+    - _A closed variant matched with a fallthrough_ (closed). `maxWidthFor`
+      matched `SurfaceVariant` with `Match.orElse`, so a variant added to
+      the Literal would silently have taken the expanded measure.
+      `VariantMaxWidth` is now `Schema.Record` keyed by `SurfaceVariant`
+      itself and `maxWidthFor` indexes it: a new variant is a width owed by
+      every role before the app compiles (`typography.contract.test.ts`,
+      "every role has a measure for every surface variant").
+    - _A closed token kind matched with a fallthrough_ (closed).
+      `tokenClassName` matched `HighlightTokenKind` and fell through to the
+      ink class, hiding `plain`; `tokenKindFor` matched theme colours by
+      hand, a second copy of the theme. Both now read `highlightTokenPaint`,
+      one table keyed by the kind — its CSS variable, class and grammar
+      scopes — from which the Shiki theme is built, the colour → kind map
+      is derived (`Rec.get`, and only there is "plain" a default, at the
+      open edge of a colour the theme never painted), and the class is
+      indexed (`code-highlighter.test.ts`, "every kind of token has one
+      paint").
+    - _A perpetual clock under the wordmark_ (closed). `WordmarkMorph`
+      drove every segment from `useTime`, a frame callback for the life of
+      the page. The crossfade is now one pass handed to Motion as
+      keyframes (`segmentPass`: the Greek face's opacity at the moments
+      `segmentProgress` leaves and reaches its holds, with `times` and a
+      per-sweep ease), played when the session begins (`intro`, after the
+      cycle's lead hold), then `rest`, then `pass` again when a reader meets
+      it — pointer on the wordmark or focus on the header's home link, both
+      writes to the session's `wordmarkPhaseAtom`, which is read as a phase
+      and written as events (`replayAsked` only moves a resting wordmark;
+      `passEnded` is told by `onAnimationComplete`). Nothing ticks while it
+      rests, and a replay starts its sweep at once
+      (`wordmark-morph.test.ts`: the keyframes are the cycle's own curve;
+      `docs.test.ts`: intro, rest held, pointer and keyboard replays).
+    - _A line of code as data without authority_ (closed). `GutterLine` was
+      a `Data.Class` whose `number` was any number; it is `Schema.Class`
+      with `number: Int, positive` — lines count from one, and a zeroth or
+      fractional line does not construct or decode
+      (`code-highlighter.test.ts`, "a gutter line is numbered from one").
+    - _A touch target never touched_ (closed). The probe read each disc's
+      reach with `elementFromPoint` and never touched one. `openPage` now
+      takes `hasTouch`, `tap` touches an element at a position from its
+      corner (touch events, then the click they synthesise; Playwright
+      refuses a point that lands on another element), and
+      `home-touch.test.ts` taps every disc 21 px left of its centre — on
+      the reach, off the painted disc — asserting the answer that opens is
+      that disc's own by title, put away by Escape before the next. Found
+      and fixed on the way: `drawnForColumn` said "drawn for this column"
+      in the frames after a resize before the page had noticed it, so the
+      44 px probe measured the last drawing being fitted (44 × 265⁄335 ≈
+      35 px); it now also requires the drawn stage width to fit the frame's
+      laid-out inner width, which changes with the column synchronously.
+    - _A profile that only knew the harness_ (closed). The vitals and
+      environment suites ran only against the workerd harness, so a
+      deployment was never profiled. `Site` now has three layers: `SiteLive`
+      (the harness), `SiteRemote` (the deployment `THEORIA_SITE_URL` names,
+      reached through the platform `HttpClient`, its logs empty because a
+      deployment's runtime logs are not readable from outside it), and
+      `SiteUnderTest`, which is the named deployment when one is named and
+      the harness otherwise. Both describe themselves from what they serve —
+      the manifest from `/docs-data/manifest.json`, the hashed script from
+      the shell's first module `<script>` — so they answer alike, and
+      `SiteResponse` reads its body once as text, its `json` parsing that
+      text and its headers a platform `Headers` read with `header` as an
+      `Option` (no `| null` at the assertion). `home-vitals.test.ts` and
+      `home-environment.test.ts` run on `SiteUnderTest`. The script
+      `test:worker:profile` runs those two on the harness, and
+      `test:worker:staging` runs them against staging; a preview is named
+      by setting `THEORIA_SITE_URL` to its origin before the profile script.
+      `site.test.ts` proves a `SiteRemote` pointed at
+      the harness's own origin reports the same manifest, script, status,
+      headers and envelope, posts a body, and is what `SiteUnderTest` picks
+      when named. Found on the first run against staging: every page failed
+      with Cloudflare's error 1000, because `openPage` set `cf-connecting-ip`
+      on the browser context — the harness has no edge, so the tests named
+      each visitor's address themselves, but behind a real edge that header
+      is Cloudflare's to set and a client that sends it is refused. How a
+      visitor is told apart is now the site's (`Site.visitorHeaders`): the
+      harness names an address per page, a deployment names none, so its
+      visitors are all this machine's address and share one build budget.
+      The second run reached staging cleanly; its thirteen failures were all
+      content drift (`bc656d7` has no `[data-home-hero] p`, no
+      `[data-place-provenance]`, and the stage's layout shift). The third run,
+      against the pull request's preview once it served `b97ddff`, passed all
+      thirteen — after it found one fault in the deployment rather than the
+      code: the zone carried a second, zone-wide Web Analytics site with
+      automatic setup, so the edge injected a second beacon into every HTML
+      response. Production reported into two dashboards; staging and the
+      previews, whose policy does not allow `static.cloudflareinsights.com`,
+      logged a CSP violation on every page load, which every test's
+      console check caught. The duplicate site is deleted and DEPLOYMENT.md
+      names the mechanism. Decisions the review accepted: no CSP nonce
+      (above); the 390 first-disc exception stands.
+- [x] **The Chromium suite finishes sooner without a wait shortened.** The
+      suite took seven minutes in CI: nineteen files run one at a time, since
+      they measure motion and a second browser on the runner would skew it,
+      and `home-demo.test.ts` alone took 139 s. It now runs on four runners at
+      once, each a shard of the same uploaded build (`theoria.yml`: Build →
+      Test Worker ×4 → Staging → Production; the preview deploys only once
+      every shard has passed). Vitest's `--shard` cuts by path hash, so
+      `test/worker/sequencer.ts` cuts by file size instead, heaviest first to
+      the lightest shard (`browser-suite-shards.contract.test.ts`: one shard
+      per file, the fair share plus one file as the bound, the same cut on
+      every runner). `home-demo.test.ts` is three files by subject
+      (`home-demo-search`, `-answers`, `-page`) over shared `demo.ts`
+      fixtures, so no one file is a shard on its own. Size is the proxy
+      vitest itself uses for an unmeasured file; measured durations would cut
+      better but every runner must cut the same, and they have no shared
+      measurement — noted in `DEPLOYMENT.md`.
+- [x] **Shard 3's two failures were the suite's clock and the geometry's edge,
+      not the runner.** The first CI run of the matrix went red on one
+      shard while every file was green here, even pinned to two CPUs and
+      with the page throttled four times slower. `home-vitals` waited for a
+      whole search with the 5 s an assertion gets: thirty-six trials at
+      100–200 ms each is a search of that order on a slow runner. Every wait
+      that spans a search now takes `searchSettlesWithin` (20 s, `demo.ts`),
+      through one `drawn(page)` used by every file, and a search that has
+      not settled by then fails saying what the stage says of itself — phase,
+      paper, any failure told — instead of "element not found"
+      (`stageStanding`, `in-page.ts`). `home-demo-search` sampled one frame
+      with a line over the new story's disc. Two ways were open for that at
+      any width, closed test-first in `imagined-place-flow.contract.test.ts`:
+      the flow kept `markerGap` beside a disc but nothing above or below it,
+      so a disc whose edge met a band's boundary left that line at full
+      width, 0 px from a disc the stage draws to a tenth of a pixel
+      (`markersBeside` now counts the gap all round); and a disc's x was
+      clamped to the padding only, so at narrow stages the `minimumLineWidth`
+      floor could set a line under it (the geometry now keeps every disc's
+      left edge past the least line and the gap — `leastX` — landed and on
+      the way, and holds a disc from a wider stage to the largest that fits).
+      A third way was the rest's safety net: three exits (360 ms) is a bound
+      a main thread held by one long task passes, ending the rest with the
+      old lines still leaving over discs that have moved on; `motionExitBound`
+      is now a page's patience (2 s), since the rest ends on the lines'
+      signal and the bound is only for a signal that never comes
+      (`place-render-rest.test.ts`). `changeStory` also runs once at a 4×
+      CPU slowdown (`openPage({ cpuSlowdown })`, CDP
+      `Emulation.setCPUThrottlingRate`), and `stageFrame`'s overlap report now
+      names the line set, opacity, box, and the disc's standing, radius,
+      centre and transform, so the next sampled fault reads as geometry.
+- [x] **The fixes are read off the page's frames, not waited for.** Every
+      frame the browser tests sample now carries the nearest a painted line
+      comes to a painted disc (`stageFrame.clearance`, in the stage's own
+      pixels through its `fit`), and the trial the drawing is of
+      (`data-place-stage-trial`), and `expectClearance` asserts the flow's
+      `markerGap` held at every frame of every merge and story change, to a
+      quarter-pixel of the stage's rounding. A new walk at the narrowest
+      column (320 px) scrubs all thirty-six trials, reduced motion, and reads
+      each the frame the stage names it. Red against the contracts before
+      the fix: line 4 at its 60 px floor stood under a disc whose edge was at
+      93 px — the shard's fault — and the story changes came within 0.0–1.1
+      px of a disc above or below; green after, at ≥ 9.75 px. The walk found
+      a second fault the fix did not cover: discs keyed by trial under one
+      lasting presence were held a frame past their exit by Motion's
+      post-render removal, so the frame the stage named a trial painted the
+      last trial's discs too, every feature twice, the new lines set through
+      the old discs. The presence is now keyed by the trial drawn
+      (`PlaceStage.tsx`), so a scrub swaps the set whole in one commit; the
+      walk asserts no feature is painted twice (`doubledDiscs`) before it
+      asserts clearance, so a repeat reads as presence, not geometry. The
+      exit bound is not discriminated by any browser test at 4× slowdown and
+      stands on `place-render-rest.test.ts` alone.
+- [x] **A search that never began says what the page stood at, and what the
+      page told.** The first run of the sharded matrix with `drawn(page)` in
+      place went red once more, on one test of `home-demo-answers` after
+      20 s, and the report read `phase -, paper -`: not the geometry — the
+      search never began and the sheet was never cut — but no further, since
+      `-` covered a demo never mounted and a column never measured alike, and
+      the console errors the session had collected were lost with the test
+      failing before its own check of them. `stageStanding` now reads the
+      trace's wait (`pending`, `failed`) where there is no phase, `uncut`
+      where the column is not yet measured, whether the stage's column stands
+      on the page at all, and the document's ready state; and the `Browser`
+      service keeps every open page's failures by page (`failuresOf`), so
+      `drawn` reports them with the standing. `home-pending` reads the report
+      with the build failed at the edge: `phase failed, … column standing,
+document complete; the stage told: The place could not be built. …; the
+page told: … /api/imagined-place/build`. The shard's cause is not yet
+      known; the next occurrence names it.
+- [x] **A paper that could not be cut is told, and Draw again cuts it.** The
+      shard's report was read for what it left open: the page had loaded in
+      150 ms, the demo stood, the column was measured, the build was pending
+      or done, and still no sheet was cut in 20 s with nothing told. Load
+      was ruled out (8 400 asset fetches through the harness with no
+      failure; eight loads at eight times slower all drew, near the budget),
+      as were the routes that fail aloud: a font never landing (layout
+      measures the face in hand), a runtime the worker cannot make
+      (`CanvasUnavailable` reaches the frame and is told), an interrupted
+      atom (effect-atom surfaces the exit as a failure). One route stayed
+      silent by construction: `placeExpectedPaperAtom` and
+      `placeExpectedLabelsAtom` fail with `MeasurementFailed` when a
+      measurement throws or is not finite, and neither was read by
+      `stageFailure`, so a failed cut left the sheet `None` for as long as
+      the build stayed pending, and the frame — `Stream.never` until the
+      build lands — had nothing to tell. That is the shape the report had.
+      `stageFailure(build, frame, cut)` now reads the cut
+      (`placeCutAtom`, `Result.all` of paper and labels) and tells a failed
+      cut as a `draw` failure until the frame has a value; the pill's
+      `placeAgainAtom` refreshes what the failure names — the build
+      envelope, or the paper, labels and frame — instead of the frame alone
+      (`place-failure.test.ts`: a measurer that fails once leaves the sheet
+      uncut with `draw` told, and Draw again cuts it at the column's width).
+      Whether that route is what the runner hit is not proven; what is
+      proven is that the state it reported can no longer occur silently. So
+      that the next occurrence is conclusive, `Site.logs` reads the
+      Worker's structured logs from the harness (which keeps them whatever
+      the print level) and `drawn` appends the last twenty to its report
+      (`home-pending` asserts the segment against `site.logs`).
+- [x] **A column that changes while the paper is being cut still gets its
+      paper.** The route above has a trigger, reproduced test-first
+      (`place-failure.test.ts`, "a column that changes while the paper is
+      being cut"): the paper and its labels share effect-text's measurement
+      cache, which is Effect's `Cache`; a `Cache` interrupts a pending
+      entry's `Deferred` when the fiber that began its lookup is interrupted,
+      and removes the key. A column measured again while the first cut is
+      under way interrupts the cutting fibers and starts new ones, which
+      find the pending entry and await it — and then fail with the old
+      fiber's interrupt. effect-atom keeps that exit as `Result.failure`,
+      and nothing invalidates an atom that failed that way, so the paper
+      stayed uncut until the next width change; before the entry above it
+      stayed uncut in silence. A fiber yields to the event loop every 2 048
+      operations, and the first cut measures many labels, so on a slow
+      runner a font's arrival re-measuring the column lands in that window.
+      Fixed in the package (`getOrEvict`, `internal/cache.ts`): the read is
+      `Effect.uninterruptible`, so a lookup once begun is finished and
+      shared, and the interrupting fiber gives up its interest, not the
+      result; measurements are bounded, so the wait is one measurement
+      (`measurement-cache.contract.test.ts`, changeset
+      `text-measurement-lookup-shared`).
+- [x] **The shard's cause, named.** The next occurrence was conclusive: in
+      "on a processor four times slower" the app never mounted because
+      `/assets/rolldown-runtime-*.js` and `/assets/index-*.css` answered
+      **500** — the same shape as the earlier "phase -, paper -" shards. The
+      500 was the harness's, not the Worker's: Wrangler's `createTestHarness`
+      routes every request (`listen()` URL and `fetch()` alike) through
+      `wrangler dev`'s proxy Worker, a second workerd that forwards over TCP
+      to the runtime so it can be swapped on reload; under a page load's
+      burst of asset requests that inner fetch fails with `Network connection
+lost`, and Miniflare's entry worker turns it into a 500 with the error's
+      stack as its body. Reproduced at about 4 % of requests at 48 concurrent
+      page loads — also for `/api/health/live`, so not the assets layer; the
+      earlier "8 400 fetches with no failure" were sequential, which the hop
+      survives. A browser cannot retry a 500, so the app never booted. Fixed
+      at the harness (`test/worker/site.ts`): `SiteLive` now holds the
+      deploy bundle in Miniflare directly — Wrangler's own configuration
+      reader (`unstable_getMiniflareWorkerOptions`) turns `wrangler.jsonc`
+      into the runtime's options, the bundle's modules are named by the same
+      extension rules Wrangler bundles by, the runtime's structured logs
+      arrive on a `Queue` that `Site.logs` folds into its record, and
+      `dispatchFetch` carries the requested URL to the Worker. Held
+      test-first: `site.test.ts` "answers every shell asset 200 across
+      concurrent page loads" (200 loads × every shell asset, 32 at once),
+      red at 28 × 500 through the old harness, green with none. Two tests
+      then failed for the right reason: the Worker named its hostname from
+      the `Host` header, which a runtime answering on its own address sets
+      to that address, while the request URL still named the host asked
+      for; `requestIsCanonical` now reads the URL (`originalUrl`), the
+      source Cloudflare documents for hostname logic and one that agrees with
+      `Host` at the edge (`canonical-host.test.ts`, red first). `miniflare`
+      is a devDependency pinned to the version `wrangler` bundles, and
+      `worker-runtime.contract.test.ts` holds the two equal so both read one
+      workerd. Undici's keep-alive reuse still loses a handful of connections
+      in 6 000 (`ECONNRESET`, "other side closed"); Chromium retries those
+      transparently for idempotent requests, as the spec allows, and the
+      in-process load test saw none.
 
 ## Non-goals
 

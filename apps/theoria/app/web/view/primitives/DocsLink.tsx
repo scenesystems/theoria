@@ -9,7 +9,7 @@ import { useRef } from "react"
 import { Id } from "../../../contracts/id.js"
 import { docsApiModuleIndexAtom, docsManifestAtom } from "../../atoms/docs-data.js"
 
-import { neutralToneClasses, toneClassesForCard } from "./designSystem.js"
+import { elevationClassName, focusEdgeClassName, neutralToneClasses, toneClassesForCard } from "./designSystem.js"
 import {
   docsLinkModuleAsset,
   docsLinkPath,
@@ -21,10 +21,11 @@ import {
 import { docsTheme } from "./docsSystem.js"
 import { Cluster, Layer, Rail, Stack } from "./Layout.js"
 import { InternalLink } from "./Link.js"
+import { usePointerRegionHandlers } from "./PointerRegion.js"
 import { SemanticText } from "./SemanticText.js"
 
 const popupClassName = [
-  "w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-stage-200/90 bg-stage-0/97 shadow-chip outline-none backdrop-blur-sm",
+  `w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-stage-200/90 bg-stage-0/97 shadow-chip ${focusEdgeClassName} backdrop-blur-sm`,
   "origin-[var(--transform-origin)] transition-[opacity,transform] duration-150",
   "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
   "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
@@ -32,7 +33,7 @@ const popupClassName = [
 ].join(" ")
 
 const openLinkClassName =
-  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
+  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
 
 /**
  * A press with a modifier or a non-primary button is the browser's: a new tab,
@@ -85,12 +86,15 @@ const Preview = ({ destination, href, title }: {
 }) => {
   const tone = toneFor(destination.docsPackage.slug)
   const openRef = useRef<HTMLAnchorElement>(null)
+  const region = usePointerRegionHandlers()
 
   return (
     <Popover.Popup
       className={popupClassName}
       data-docs-link-preview={href}
       initialFocus={(openType) => openType === "keyboard" ? openRef.current : true}
+      onPointerEnter={region.onPointerEnter}
+      onPointerLeave={region.onPointerLeave}
     >
       <Stack className="gap-1.5 px-3.5 pt-3 pb-3">
         <Rail className="justify-between gap-3">
@@ -159,7 +163,13 @@ const PreviewLink = ({ children, className, destination, href, title, ...props }
         {children}
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Positioner align="start" collisionPadding={12} side="bottom" sideOffset={8}>
+        <Popover.Positioner
+          align="start"
+          className={elevationClassName("preview")}
+          collisionPadding={12}
+          side="bottom"
+          sideOffset={8}
+        >
           <Preview destination={destination} href={href} title={title} />
         </Popover.Positioner>
       </Popover.Portal>

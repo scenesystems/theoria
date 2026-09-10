@@ -201,8 +201,15 @@ export const HOST_GLOBAL_RULES = [
       "Do not read 'globalThis'. Provide the capability as an Effect service (@effect/platform, @effect/platform-browser)."
   },
   {
-    selector: "NewExpression[callee.name='URL']",
-    message: "Do not use 'new URL()'. Use Url.fromString from '@effect/platform'."
+    // `new URL("./entry.ts", import.meta.url)` — a string literal resolved
+    // against the module's own URL — is the standard way to name a module
+    // asset (a Worker entry) that bundlers resolve at build time. It parses
+    // nothing at runtime, so it stays; every other `new URL()` is runtime
+    // parsing and belongs to Url.fromString.
+    selector:
+      "NewExpression[callee.name='URL']:not([arguments.0.type='Literal'][arguments.1.type='MemberExpression'][arguments.1.object.type='MetaProperty'][arguments.1.property.name='url'])",
+    message:
+      "Do not use 'new URL()' to parse a URL at runtime. Use Url.fromString from '@effect/platform'. Only the static module-asset form `new URL(\"./entry\", import.meta.url)` is allowed."
   },
   {
     selector: "CallExpression[callee.type='Identifier'][callee.name='fetch']",
@@ -238,5 +245,12 @@ export const HOST_GLOBAL_RULES = [
   {
     selector: "Identifier[name=/^(localStorage|sessionStorage)$/]",
     message: "Do not use Web Storage directly. Use BrowserKeyValueStore from '@effect/platform-browser'."
+  },
+  {
+    // Motion's hook reads `matchMedia` from the window itself, a second
+    // source for a preference the page already follows as an atom.
+    selector: "ImportDeclaration[source.value=/^motion/] ImportSpecifier[imported.name='useReducedMotion']",
+    message:
+      "Do not read the reader's motion preference from Motion. Read motionPreferenceAtom, the page's one source for it, and decide with Match.exhaustive."
   }
 ]
