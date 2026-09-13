@@ -1,20 +1,17 @@
-import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceAnswer, type PlaceMark, placeSourceId } from "../../app/contracts/demo/imagined-place-provenance.js"
-import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
 import {
   answerAfterPress,
   placeAnswerAtom,
   placeAnswerFocusReturnAtom,
   placeAnswerOnShowAtom,
-  placeFocusAtom
+  placeFocusAtom,
+  placeMarkLeftAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
-import { type PlaceRenderFrame, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
-import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { onStage, pageShowing } from "../helpers/place-on-stage.js"
 
 /**
  * A mark answers when it is pressed, and only then: there is no pointer
@@ -60,7 +57,7 @@ describe("the answer under a press", () => {
   it.effect("an answer hands focus back to its mark when it closes", () =>
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
-      const registry = pageOnNextStory(build, showingTrial)
+      const registry = pageShowing(build, showingTrial)
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
       registry.set(placeAnswerAtom, Option.some(onDisc))
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
@@ -75,7 +72,7 @@ describe("the answer under a press", () => {
         _tag: "Feature",
         name: (yield* Arr.head(build.artifact.composition.features)).name
       }
-      const registry = pageOnNextStory(build, showingTrial)
+      const registry = pageShowing(build, showingTrial)
       expect(registry.get(placeFocusAtom)).toEqual(Option.none())
       registry.set(placeAnswerAtom, Option.some(new PlaceAnswer({ triggerId: "a", mark: available })))
       expect(registry.get(placeFocusAtom)).toEqual(Option.some(available))
@@ -83,18 +80,6 @@ describe("the answer under a press", () => {
       expect(registry.get(placeFocusAtom)).toEqual(Option.none())
     }))
 })
-
-/** A page with the next story's build in the column and `shown` on the paper. */
-const pageOnNextStory = (build: PlaceBuild, shown: PlaceRenderFrame): Registry.Registry =>
-  Registry.make({
-    initialValues: [
-      [placeBuildAtom, Result.success(build)],
-      [placeShownFrameAtom, Result.success(shown)]
-    ],
-    scheduleTask: (task) => {
-      task()
-    }
-  })
 
 describe("answer lifetime", () => {
   it.effect("an answer opened on the drawing outlives the next build, and is gone once its drawing is replaced", () =>
@@ -107,13 +92,13 @@ describe("answer lifetime", () => {
       })
 
       // The column already describes the next story; the paper still draws this one.
-      const stillDrawn = pageOnNextStory(other.build, showingTrial)
+      const stillDrawn = pageShowing(other.build, showingTrial)
       stillDrawn.set(placeAnswerAtom, Option.some(onDisc))
       expect(Option.map(stillDrawn.get(placeAnswerAtom), (answer) => answer.mark)).toEqual(Option.some(onDisc.mark))
       expect(stillDrawn.get(placeAnswerFocusReturnAtom)).toBe("mark")
 
       // The paper now draws the next story: the disc pointed at is no longer on the page.
-      const replaced = pageOnNextStory(other.build, other.showing)
+      const replaced = pageShowing(other.build, other.showing)
       replaced.set(placeAnswerAtom, Option.some(onDisc))
       expect(replaced.get(placeAnswerAtom)).toEqual(Option.none())
     }))
@@ -122,7 +107,7 @@ describe("answer lifetime", () => {
     Effect.gen(function*() {
       const { build, showingTrial, trial } = yield* onStage
       const name = (yield* Arr.head(trial.projection.markers)).name
-      const registry = pageOnNextStory(build, showingTrial)
+      const registry = pageShowing(build, showingTrial)
       expect(registry.get(placeAnswerOnShowAtom)).toEqual(Option.none())
 
       registry.set(
@@ -138,5 +123,45 @@ describe("answer lifetime", () => {
       registry.set(placeAnswerAtom, Option.none())
       expect(registry.get(placeAnswerAtom)).toEqual(Option.none())
       expect(registry.get(placeAnswerOnShowAtom)).toEqual(shown)
+    }))
+
+  it.effect("the mark leaving the page takes its answer with it: closed with its words, and focus stays", () =>
+    Effect.gen(function*() {
+      // A declined proposal's ghost stands at the margin only while the proposing act is read; its feature
+      // is still in the build, so the page could answer for it — but the mark that opened the answer is gone.
+      const { build, showingTrial } = yield* onStage
+      const declined = yield* Arr.findFirst(build.proposals, (record) => !record.accepted)
+      const ghost = new PlaceAnswer({
+        triggerId: "ghost",
+        mark: { _tag: "Feature", name: declined.proposal.feature.name }
+      })
+      const registry = pageShowing(build, showingTrial)
+      // Every mark holds the leaving mounted, as `useAtomSet` does.
+      registry.mount(placeMarkLeftAtom)
+      registry.set(placeAnswerAtom, Option.some(ghost))
+      const shown = registry.get(placeAnswerOnShowAtom)
+      expect(Option.isSome(shown)).toBe(true)
+
+      // Another mark leaving is not this answer's concern.
+      registry.set(placeMarkLeftAtom, "another")
+      expect(registry.get(placeAnswerAtom)).toEqual(Option.some(ghost))
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
+
+      registry.set(placeMarkLeftAtom, "ghost")
+      expect(registry.get(placeAnswerAtom)).toEqual(Option.none())
+      expect(registry.get(placeAnswerOnShowAtom)).toEqual(shown)
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("stays")
+
+      // The mark back on the page — the proposing act read again — answers from the same id, and its
+      // answer stands: the leaving was one event, not a standing rule about that id.
+      registry.set(placeAnswerAtom, Option.some(ghost))
+      expect(registry.get(placeAnswerAtom)).toEqual(Option.some(ghost))
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
+
+      // A mark leaving once nothing is answered — the popup's own exit, say — changes nothing.
+      registry.set(placeAnswerAtom, Option.none())
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
+      registry.set(placeMarkLeftAtom, "ghost")
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
     }))
 })

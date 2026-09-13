@@ -65,6 +65,28 @@ export const placeAnswerAtom: AtomType.Writable<Option.Option<PlaceAnswer>> = At
 )
 
 /**
+ * A mark has left the page: the trigger with this id is unmounted. If it
+ * carried the open answer, the answer is let go with what it last said, and
+ * focus stays where it is — there is no mark to hand it back to. Written
+ * by every mark as it unmounts; the popover itself does not close for a
+ * trigger leaving, and left to its own devices would hand focus to
+ * whatever was focused before the answer, which is not where the reader is.
+ * The page's data outliving the mark — a declined proposal's ghost leaves
+ * with the proposing act, its feature still in the build — is exactly the
+ * case `placeAnswerLifetimeAtom` cannot see.
+ */
+export const placeMarkLeftAtom = Atom.fnSync<string>()((triggerId, ctx) => {
+  // Read through the registry: a subscribing read would run this again, with this same id, for every
+  // later answer — closing an answer a mark of the same id opens after coming back.
+  const carried = Option.exists(ctx.registry.get(answerState), (answer) => answer.triggerId === triggerId)
+  if (carried) {
+    ctx.set(answerLeavingState, ctx.registry.get(placeAnswerOnShowAtom))
+    ctx.set(answerFocusReturnState, "stays")
+    ctx.set(answerState, Option.none())
+  }
+})
+
+/**
  * Where focus goes when the answer on show — or the one just leaving —
  * closes. Decided when the answer opens, and kept while it closes, so the
  * closing popover can still ask.

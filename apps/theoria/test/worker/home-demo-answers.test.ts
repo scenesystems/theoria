@@ -20,9 +20,16 @@ import {
   openPage,
   phone,
   press,
+  until,
   visible
 } from "./browser.js"
-import { activeElementWithin, answerPopupsShowing, isActiveElement, visibleElementIds } from "./platform/in-page.js"
+import {
+  activeElementWithin,
+  answerPopupsShowing,
+  isActiveElement,
+  scrollElementTo,
+  visibleElementIds
+} from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 import { drawn, fromAnswerToItsCode } from "./demo.js"
@@ -336,6 +343,46 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* click(brief)
         yield* hidden(overlay)
         yield* eventually(() => brief.evaluate(isActiveElement), true)
+        expect(yield* failures).toEqual([])
+      }))
+
+    /**
+     * A declined proposal's ghost stands at the paper's margin only while the
+     * proposing act is read. Its feature is still in the build, so the page
+     * could go on answering for it — but the mark that opened the answer has
+     * left, and an answer with no mark to stand over closes, letting focus
+     * stay where the reader is rather than handing it to whatever was focused
+     * before.
+     */
+    it.scoped("a mark leaving the page takes its answer with it", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* drawn(page)
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const overlay = page.locator("[data-place-provenance]")
+        const stage = page.locator("[data-place-stage-act]")
+        const ghosts = demo.locator("[data-place-ghost]")
+
+        yield* act(() => page.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
+        yield* attribute(stage, "data-place-stage-act", "propose")
+        yield* until(act(() => ghosts.count()), (found) => found >= 1, "a ghost disc")
+        const ghost = ghosts.first()
+        yield* click(ghost)
+        yield* visible(overlay)
+        yield* attribute(ghost, "data-popup-open", "")
+        expect(yield* act(() => page.evaluate(activeElementWithin, "[data-place-provenance]"))).toBe(true)
+
+        // Reading on to the record takes the ghosts off the paper, and the answer with them.
+        yield* act(() => page.locator("[data-place-act='record']").evaluate(scrollElementTo, 0.45))
+        yield* attribute(stage, "data-place-stage-act", "record")
+        yield* count(ghosts, 0)
+        yield* hidden(overlay)
+        yield* count(demo.locator("[data-provenance][data-popup-open]"), 0)
+        yield* count(demo.locator("[data-place-focused]"), 0)
+        // Focus was not handed anywhere: nothing on the page holds it.
+        yield* Effect.sleep(Duration.millis(200))
+        expect(yield* act(() => page.locator("body").evaluate(isActiveElement))).toBe(true)
         expect(yield* failures).toEqual([])
       }))
 

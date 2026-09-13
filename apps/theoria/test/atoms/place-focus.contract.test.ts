@@ -1,4 +1,4 @@
-import { Atom, Registry, Result } from "@effect-atom/atom"
+import { Atom, type Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
@@ -15,7 +15,6 @@ import {
   proposalSignatureSite,
   separationSite
 } from "../../app/contracts/demo/imagined-place-provenance.js"
-import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
 import {
   placeAnswerAtom,
   placeAnsweredMarkAtom,
@@ -24,10 +23,9 @@ import {
   placeFocusedLineAtom,
   placeMarkFocusedAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
-import { drawingId, type PlaceRenderFrame, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
-import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
+import { drawingId, type PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
 import { proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { onStage, pageShowing } from "../helpers/place-on-stage.js"
 
 /** Test writer for the answer authority; production consumers only receive the derived focus atom. */
 const placeFocusAtom = Atom.writable(
@@ -46,18 +44,6 @@ const placeFocusAtom = Atom.writable(
  * whichever end the visitor starts. These are the rules of that lighting,
  * read from the atoms alone, with a real build and drawing on the page.
  */
-
-/** A registry with the build arrived and the frame on the paper, as the page has them. */
-const pageShowing = (build: PlaceBuild, shown: PlaceRenderFrame): Registry.Registry =>
-  Registry.make({
-    initialValues: [
-      [placeBuildAtom, Result.success(build)],
-      [placeShownFrameAtom, Result.success(shown)]
-    ],
-    scheduleTask: (task) => {
-      task()
-    }
-  })
 
 const lit = (registry: Registry.Registry, mark: PlaceMark): boolean =>
   registry.get(placeMarkFocusedAtom(encodeMark(mark)))

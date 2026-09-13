@@ -3,7 +3,7 @@ import { Popover } from "@base-ui/react/popover"
 import { useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
-import { type ComponentProps, Fragment, useId } from "react"
+import { type ComponentProps, Fragment, useEffect, useId } from "react"
 
 import {
   codeSiteCall,
@@ -21,7 +21,8 @@ import {
   placeAnswerLifetimeAtom,
   placeAnswerOnShowAtom,
   placeGoToSiteAtom,
-  placeMarkFocusedAtom
+  placeMarkFocusedAtom,
+  placeMarkLeftAtom
 } from "../../atoms/imagined-place-experience.js"
 import {
   elevationClassName,
@@ -76,6 +77,9 @@ export const ProvenanceMark = ({
   const encoded = encodeMark(mark)
   const focused = useAtomValue(placeMarkFocusedAtom(encoded))
   const generatedId = useId()
+  const triggerId = id ?? `place-mark-${generatedId}`
+  const markLeft = useAtomSet(placeMarkLeftAtom)
+  useEffect(() => () => markLeft(triggerId), [markLeft, triggerId])
 
   return (
     <Popover.Trigger
@@ -83,7 +87,7 @@ export const ProvenanceMark = ({
       {...{ [provenanceAttribute]: encoded }}
       data-place-focused={focused ? "" : undefined}
       handle={provenanceHandle}
-      id={id ?? `place-mark-${generatedId}`}
+      id={triggerId}
       nativeButton={nativeButton}
       payload={mark}
       render={render}
