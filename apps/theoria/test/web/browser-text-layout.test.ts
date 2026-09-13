@@ -81,7 +81,7 @@ describe("browser text layout", () => {
       expect(yield* Ref.get(told)).toBe(0)
     }))
 
-  it.effect("faces in flight are asked for at once, and their arrival is told once, when the last of them lands", () =>
+  it.effect("faces in flight are asked for at once, and each arrival is told as it lands, not held for the other", () =>
     Effect.gen(function*() {
       const asked = yield* Ref.make<ReadonlyArray<string>>([])
       const told = yield* Ref.make(0)
@@ -97,14 +97,40 @@ describe("browser text layout", () => {
       expect(yield* Ref.get(asked)).toEqual([measuredFont("body"), measuredFont("mono")])
 
       // The watch does not hold the layout: it returned with the faces still in flight, and nothing is told yet.
-      yield* Deferred.succeed(body, undefined)
       yield* Effect.yieldNow()
       expect(yield* Ref.get(told)).toBe(0)
 
-      yield* Deferred.succeed(mono, undefined)
+      // The body's face lands: every width measured in its stand-in is wrong now, whatever the code's face is doing.
+      yield* Deferred.succeed(body, undefined)
       yield* Effect.repeat(Ref.get(told), { until: (count) => count > 0 })
       yield* Effect.yieldNow()
       expect(yield* Ref.get(told)).toBe(1)
+
+      yield* Deferred.succeed(mono, undefined)
+      yield* Effect.repeat(Ref.get(told), { until: (count) => count > 1 })
+      yield* Effect.yieldNow()
+      expect(yield* Ref.get(told)).toBe(2)
+      yield* Scope.close(scope, Exit.void)
+    }))
+
+  it.effect("a face in hand is not asked for again, and is no arrival: a layout built after one landed and one failed rests", () =>
+    Effect.gen(function*() {
+      // The layout at the revision after the body's face landed: that face is in hand, the code's is not — it failed,
+      // and fails again when asked. Neither is an arrival, so the revision does not advance and build this layout again.
+      const asked = yield* Ref.make<ReadonlyArray<string>>([])
+      const told = yield* Ref.make(0)
+      const fonts = Layer.succeed(BrowserFonts.BrowserFonts, {
+        inHand: (font) => Effect.succeed(font === measuredFont("body")),
+        load: (font) => Ref.update(asked, Arr.append(font)).pipe(Effect.andThen(failing(font)))
+      })
+      const scope = yield* Scope.make()
+      yield* servedFacesWatched.pipe(Scope.extend(scope), Effect.provide(Layer.merge(fonts, readinessTold(told))))
+      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 1 })
+      yield* Effect.yieldNow()
+      yield* Effect.yieldNow()
+
+      expect(yield* Ref.get(asked)).toEqual([measuredFont("mono")])
+      expect(yield* Ref.get(told)).toBe(0)
       yield* Scope.close(scope, Exit.void)
     }))
 

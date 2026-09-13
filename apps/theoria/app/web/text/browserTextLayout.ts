@@ -3,7 +3,6 @@ import * as Browser from "@scenesystems/effect-text/browser"
 import * as Contracts from "@scenesystems/effect-text/contracts"
 import { Context, Effect, Layer, type Scope } from "effect"
 import * as Arr from "effect/Array"
-import { identity } from "effect/Function"
 
 import { measuredFont } from "../../contracts/text.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
@@ -29,7 +28,7 @@ export type BrowserTextLayout = Contracts.WordSegmenter | Contracts.MeasurementC
 export class FontReadiness extends Context.Tag("theoria/FontReadiness")<FontReadiness, {
   /** The generation of the widths this layout's cache keeps; advanced by each arrival told. */
   readonly revision: Browser.FontReadinessRevisionType
-  /** Told once, when a served face arrives after this layout was built without it. */
+  /** Told when a served face arrives after this layout was built without it; once for each face that does. */
   readonly facesArrived: Effect.Effect<void>
 }>() {}
 
@@ -82,12 +81,17 @@ const faceLanded = (fonts: Context.Tag.Service<BrowserFonts.BrowserFonts>) => (f
 
 /**
  * Watches the served faces for as long as the layout lives, without holding
- * it. Faces all in hand need no watching. Faces still in flight are asked for
- * — the browser has them on the way already; asking joins the wait — and
- * when the last of them settles, the arrival is told once if any face
- * landed: the page has swapped a stand-in for its face, and every width the
- * layout measured in the stand-in is now the wrong face's. Faces that all
- * failed changed nothing on the page, so nothing is told.
+ * it. Only the faces not in hand when the layout was built are watched: a
+ * face in hand was measured in, and is nothing to wait for. Each face still
+ * in flight is asked for — the browser has it on the way already; asking
+ * joins the wait — and its landing is told at once, on its own: the page has
+ * swapped a stand-in for that face, and every width the layout measured in
+ * the stand-in is now the wrong face's, whatever the other face is doing. A
+ * face that fails changed nothing on the page, so nothing is told for it —
+ * and the layout built after another face landed finds it still not in
+ * hand, asks once more, is refused once more, and rests. Were a face in hand
+ * asked for and its answer counted, that layout would be told an arrival
+ * that never happened, and be built again without end.
  *
  * @since 0.4.0
  */
@@ -98,19 +102,22 @@ export const servedFacesWatched: Effect.Effect<
 > = Effect.gen(function*() {
   const fonts = yield* BrowserFonts.BrowserFonts
   const readiness = yield* FontReadiness
-  const inHand = yield* Effect.forEach(servedFaces, fonts.inHand)
+  const inFlight = yield* Effect.filter(servedFaces, (font) => Effect.map(fonts.inHand(font), (held) => !held))
   // Interruptible in its own right: a layer built in an uninterruptible region
   // would otherwise hand that region to the watcher, and a layout left behind
   // for a newer one could not let go of it before the faces settled.
   yield* Effect.unless(
     Effect.forkScoped(
       Effect.interruptible(
-        Effect.forEach(servedFaces, faceLanded(fonts), { concurrency: "unbounded" }).pipe(
-          Effect.flatMap((landed) => Effect.when(readiness.facesArrived, () => Arr.some(landed, identity)))
+        Effect.forEach(
+          inFlight,
+          (font) =>
+            Effect.flatMap(faceLanded(fonts)(font), (landed) => Effect.when(readiness.facesArrived, () => landed)),
+          { concurrency: "unbounded", discard: true }
         )
       )
     ),
-    () => Arr.every(inHand, identity)
+    () => Arr.isEmptyReadonlyArray(inFlight)
   )
 })
 
