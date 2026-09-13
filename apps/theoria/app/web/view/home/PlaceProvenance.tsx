@@ -1,7 +1,7 @@
 import { Button } from "@base-ui/react/button"
 import { Popover } from "@base-ui/react/popover"
 import { useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Match, Option } from "effect"
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 import { type ComponentProps, Fragment, useId } from "react"
 
@@ -21,10 +21,7 @@ import {
   placeAnswerLifetimeAtom,
   placeAnswerOnShowAtom,
   placeGoToSiteAtom,
-  placeHoverIntentAtom,
-  placeMarkFocusedAtom,
-  placeMarkPressedAtom,
-  placePointerOverAtom
+  placeMarkFocusedAtom
 } from "../../atoms/imagined-place-experience.js"
 import {
   elevationClassName,
@@ -39,7 +36,6 @@ import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
 import { PackageName } from "../primitives/PackageName.js"
-import { PointerRegion, pointerRegionHandlers, PointerRegionProvider } from "../primitives/PointerRegion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { GhostText } from "../primitives/Skeleton.js"
 
@@ -58,20 +54,18 @@ const provenanceHandle = Popover.createHandle<PlaceMark>()
 export const provenanceAttribute = "data-provenance"
 
 /**
- * Something the visitor can point at. Hover, focus-and-press or tap opens the
- * answer; the pointer resting on prose waits longer than on a disc. Renders a
- * button unless `render` says otherwise; a rendered non-button says so with
- * `nativeButton={false}`. While the open answer is about this mark — pointed
- * at itself, or made by the line of code pointed at — the element says so
- * with `data-place-focused`, so a disc, a line of prose and the code that
- * made them light together from whichever end the visitor starts.
+ * Something the visitor can press. A click, a tap, or focus-and-Enter opens
+ * the answer; the pointer resting on it opens nothing. Renders a button
+ * unless `render` says otherwise; a rendered non-button says so with
+ * `nativeButton={false}`. While the open answer is about this mark — pressed
+ * itself, or made by the line of code pressed — the element says so with
+ * `data-place-focused`, so a disc, a line of prose and the code that made
+ * them light together from whichever end the visitor starts.
  */
 export const ProvenanceMark = ({
   mark,
   nativeButton,
   id,
-  onPointerEnter,
-  onPointerLeave,
   render,
   ...props
 }: ComponentProps<"button"> & {
@@ -82,15 +76,6 @@ export const ProvenanceMark = ({
   const encoded = encodeMark(mark)
   const focused = useAtomValue(placeMarkFocusedAtom(encoded))
   const generatedId = useId()
-  const triggerId = id ?? `place-mark-${generatedId}`
-  const setPointerOver = useAtomSet(placePointerOverAtom)
-  // The pointer over a mark is the beginning of that mark's answer; its delay counts from entry.
-  const pointed = pointerRegionHandlers(
-    new PointerRegion({
-      enter: () => setPointerOver(Option.some({ _tag: "Mark", triggerId, mark })),
-      leave: () => setPointerOver(Option.none())
-    })
-  )
 
   return (
     <Popover.Trigger
@@ -98,16 +83,8 @@ export const ProvenanceMark = ({
       {...{ [provenanceAttribute]: encoded }}
       data-place-focused={focused ? "" : undefined}
       handle={provenanceHandle}
-      id={triggerId}
+      id={id ?? `place-mark-${generatedId}`}
       nativeButton={nativeButton}
-      onPointerEnter={(event) => {
-        onPointerEnter?.(event)
-        pointed.onPointerEnter(event)
-      }}
-      onPointerLeave={(event) => {
-        onPointerLeave?.(event)
-        pointed.onPointerLeave(event)
-      }}
       payload={mark}
       render={render}
     />
@@ -329,59 +306,35 @@ const pressOn = (details: Popover.Root.ChangeEventDetails): Option.Option<MarkTr
 
 /**
  * Mounted once, beside the demonstration. The answer is owned here, in
- * `placeAnswerAtom`: the pointer's intent opens and closes hover answers
- * through `placeHoverIntentAtom`; a press opens a pinned answer, or pins a
- * hover one; a dismissal — Escape, a press outside, focus leaving — closes
- * whatever is open and forgets where the pointer was, so nothing pending
- * opens afterwards. The popover is told what is open and by which trigger.
+ * `placeAnswerAtom`: a press on a mark opens its answer, or closes the one
+ * open on that mark, or moves the answer to the mark pressed; a dismissal —
+ * Escape, a press outside, focus leaving — closes whatever is open. The
+ * popover is told what is open and by which trigger; the pointer alone
+ * changes nothing.
  *
- * A hover answer never takes or returns focus; a pressed one takes it and
- * hands it back to its mark. Which of the two is leaving, and what it was
- * saying, are known after the answer itself is gone, from
- * `placeAnswerFocusReturnAtom` and `placeAnswerOnShowAtom`, so the popup
- * closes as it was rather than emptied.
- *
- * The popup and any preview opened from inside it are one pointer region:
- * crossing between them is not leaving.
+ * An answer takes focus and hands it back to its mark, unless the mark left
+ * the page or the answer routed the reader to a line of code meanwhile.
+ * Where focus goes, and what the answer was saying, are known after the
+ * answer itself is gone, from `placeAnswerFocusReturnAtom` and
+ * `placeAnswerOnShowAtom`, so the popup closes as it was rather than emptied.
  */
 export const PlaceProvenanceOverlay = () => {
-  useAtomMount(placeHoverIntentAtom)
   useAtomMount(placeAnswerLifetimeAtom)
   const answer = useAtomValue(placeAnswerAtom)
   const onShow = useAtomValue(placeAnswerOnShowAtom)
   const focusReturn = useAtomValue(placeAnswerFocusReturnAtom)
   const setAnswer = useAtomSet(placeAnswerAtom)
-  const setPointerOver = useAtomSet(placePointerOverAtom)
-  const markPressed = useAtomSet(placeMarkPressedAtom)
   const triggerId = Option.match(answer, { onNone: () => null, onSome: (current) => current.triggerId })
-  const region = new PointerRegion({
-    enter: () => setPointerOver(Option.some({ _tag: "Answer" })),
-    leave: () => setPointerOver(Option.none())
-  })
-  const regionHandlers = pointerRegionHandlers(region)
-  const initialFocus = () => Option.exists(answer, (current) => current.opening === "hover") ? false : undefined
-  const finalFocus = () => focusReturn === "stays" ? false : undefined
+  const finalFocus = () => focusReturn !== "stays"
 
   const onOpenChange = (open: boolean, details: Popover.Root.ChangeEventDetails) => {
     Option.match(
       details.reason === "trigger-press" ? pressOn(details) : Option.none(),
       {
-        onSome: (pressed) => {
-          markPressed(pressed)
-          Match.value(answerAfterPress(answer, { opening: open, pressed })).pipe(
-            Match.tag("Leave", () => details.cancel()),
-            Match.tag("Pin", ({ answer: pinned }) => {
-              details.cancel()
-              setAnswer(Option.some(pinned))
-            }),
-            Match.tag("Answer", ({ answer: next }) => setAnswer(next)),
-            Match.exhaustive
-          )
-        },
+        onSome: (pressed) => setAnswer(answerAfterPress({ opening: open, pressed })),
         onNone: () => {
           if (!open) {
             setAnswer(Option.none())
-            setPointerOver(Option.none())
           }
         }
       }
@@ -405,23 +358,14 @@ export const PlaceProvenanceOverlay = () => {
             side="top"
             sideOffset={8}
           >
-            <PointerRegionProvider region={region}>
-              <Popover.Popup
-                className={popupClassName}
-                data-place-provenance
-                finalFocus={finalFocus}
-                initialFocus={initialFocus}
-                onPointerEnter={regionHandlers.onPointerEnter}
-                onPointerLeave={regionHandlers.onPointerLeave}
-              >
-                <Popover.Viewport className={viewportClassName}>
-                  {Option.match(onShow, {
-                    onNone: () => null,
-                    onSome: (provenance) => <Answer provenance={provenance} />
-                  })}
-                </Popover.Viewport>
-              </Popover.Popup>
-            </PointerRegionProvider>
+            <Popover.Popup className={popupClassName} data-place-provenance finalFocus={finalFocus}>
+              <Popover.Viewport className={viewportClassName}>
+                {Option.match(onShow, {
+                  onNone: () => null,
+                  onSome: (provenance) => <Answer provenance={provenance} />
+                })}
+              </Popover.Viewport>
+            </Popover.Popup>
           </Popover.Positioner>
         </Popover.Portal>
       )}

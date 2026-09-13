@@ -21,7 +21,6 @@ import {
 import { docsTheme } from "./docsSystem.js"
 import { Cluster, Layer, Rail, Stack } from "./Layout.js"
 import { InternalLink } from "./Link.js"
-import { usePointerRegionHandlers } from "./PointerRegion.js"
 import { SemanticText } from "./SemanticText.js"
 
 const popupClassName = [
@@ -86,15 +85,12 @@ const Preview = ({ destination, href, title }: {
 }) => {
   const tone = toneFor(destination.docsPackage.slug)
   const openRef = useRef<HTMLAnchorElement>(null)
-  const region = usePointerRegionHandlers()
 
   return (
     <Popover.Popup
       className={popupClassName}
       data-docs-link-preview={href}
       initialFocus={(openType) => openType === "keyboard" ? openRef.current : true}
-      onPointerEnter={region.onPointerEnter}
-      onPointerLeave={region.onPointerLeave}
     >
       <Stack className="gap-1.5 px-3.5 pt-3 pb-3">
         <Rail className="justify-between gap-3">

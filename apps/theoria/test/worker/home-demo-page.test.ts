@@ -21,7 +21,6 @@ import {
   focus,
   goto,
   hidden,
-  hover,
   nextResponse,
   openPage,
   overflowingElements,
@@ -143,14 +142,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* animationsSettled(page)
             expect(yield* overflowingElements(page)).toEqual([])
             expect(yield* fitsViewport(page)).toBe(true)
-            // The stage is drawn for exactly the width inside the frame's border, and the frame fits the column.
+            // The stage is drawn for exactly the width inside the frame's border, the frame fits the column,
+            // and the stage takes the column whole (to its widest). A drawing cut for the width before is
+            // still a fit, so the wait is for the recut, not for any fit.
             const widths = yield* until(
               act(() => page.evaluate(stageAndColumnWidths)),
-              ({ column, drawable, frame, stage }) => stage > 0 && drawable === stage && frame <= column,
-              `the stage and its frame fit the column at ${String(width)}px`
-            )
-            expect(widths.stage, `the stage takes its column at ${String(width)}px`).toBe(
-              Math.min(stageMaxWidth, widths.column)
+              ({ column, drawable, frame, stage }) =>
+                stage > 0 && drawable === stage && frame <= column && stage === Math.min(stageMaxWidth, column),
+              `the stage takes its column at ${String(width)}px`
             )
             return widths.stage
           }))
@@ -346,7 +345,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* act(() => build.evaluate(scrollElementTo, 0))
         yield* visible(band)
         const composeLine = build.locator("[data-place-code-step='compose'] [data-code-annotation]").first()
-        yield* hover(composeLine)
+        yield* click(composeLine)
         yield* count(band.locator("[data-place-band-disc][data-place-focused]"), 4)
         expect(yield* failures).toEqual([])
       }))

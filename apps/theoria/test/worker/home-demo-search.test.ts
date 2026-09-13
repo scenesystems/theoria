@@ -18,7 +18,6 @@ import {
   focus,
   goto,
   hidden,
-  hover,
   nextResponse,
   openPage,
   press,
@@ -115,7 +114,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         const contentId = page.locator("[data-place-content-id]").first()
         const wholeId = yield* act(() => contentId.getAttribute("data-place-content-id"))
-        yield* hover(contentId)
+        yield* click(contentId)
         yield* attribute(contentId, "data-popup-open", "")
         const whole = page.locator("[data-place-provenance] [data-place-provenance-value]")
         yield* visible(whole)
@@ -152,11 +151,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const neighbor = demo.locator("[data-place-proposal='neighbor']")
         const adds = yield* act(() => neighbor.getByRole("definition").first().innerText())
         const firstWord = Option.getOrElse(Arr.head(adds.split(" ")), () => adds)
-        yield* hover(neighbor.locator("[data-place-feature]"))
+        yield* click(neighbor.locator("[data-place-feature]"))
         const lit = demo.locator("[data-place-line][data-place-focused]")
         yield* eventually(() => lit.count(), 1)
         yield* containsText(lit, firstWord)
-        yield* hover(demo.locator("[data-place-proposal='program'] [data-place-feature]"))
+        yield* click(demo.locator("[data-place-proposal='program'] [data-place-feature]"))
         yield* eventually(() => lit.count(), 0)
         expect(yield* failures).toEqual([])
       }))

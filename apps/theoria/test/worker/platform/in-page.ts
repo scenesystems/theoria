@@ -260,6 +260,12 @@ export const discTouchTargets = (discs: ReadonlyArray<Element>): ReadonlyArray<{
     }
   })
 
+/** The ids of the elements that are visible: laid out, with a box of some size. */
+export const visibleElementIds = (elements: ReadonlyArray<Element>): ReadonlyArray<string> =>
+  elements
+    .filter((element) => element.getClientRects().length > 0)
+    .map((element) => element.id)
+
 /** Every marker's position relative to the place stage, so scrolling cannot move it. */
 export const markerPositionsInStage = (markers: ReadonlyArray<Element>) => {
   const stage = document.querySelector("[data-place-stage='content']")?.getBoundingClientRect()
@@ -1053,6 +1059,10 @@ export const activeElementRole = (): string => {
     ? element.getAttribute("role") ?? element.tagName.toLowerCase()
     : ""
 }
+
+/** Keyboard focus rests on, or inside, an element matching `selector`. */
+export const activeElementWithin = (selector: string): boolean =>
+  document.activeElement?.closest(selector) instanceof Element
 
 /** Keyboard focus is on an element marked `data-docs-link-open`. */
 export const activeElementOpensDocsLink = () => document.activeElement?.hasAttribute("data-docs-link-open") ?? false

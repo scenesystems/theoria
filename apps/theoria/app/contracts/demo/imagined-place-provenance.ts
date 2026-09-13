@@ -1,4 +1,4 @@
-import { type Equivalence, Match, type Option, Schema } from "effect"
+import { type Equivalence, type Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type * as Record from "effect/Record"
 
@@ -163,74 +163,26 @@ export const PlaceMark = Schema.Union(
 )
 export type PlaceMark = typeof PlaceMark.Type
 
-/** How an answer became open; press answers stay pinned when the pointer leaves. */
-export const AnswerOpening = Schema.Literal("hover", "press")
-export type AnswerOpening = typeof AnswerOpening.Type
-
 /**
  * Where focus goes when the answer closes: back to the mark that opened it,
- * or nowhere — it stays where it is. A hover answer never took focus, and an
- * answer whose mark has left the page has nowhere to send it.
+ * or nowhere — it stays where it is, because the mark has left the page and
+ * has nowhere to send it, or because the answer routed the reader elsewhere.
  *
  * @since 0.3.0
  */
 export const AnswerFocusReturn = Schema.Literal("mark", "stays")
 export type AnswerFocusReturn = typeof AnswerFocusReturn.Type
 
-/** Where focus returns when an answer opened this way closes. */
-export const focusReturnAfter = (opening: AnswerOpening): AnswerFocusReturn =>
-  Match.value(opening).pipe(
-    Match.when("press", (): AnswerFocusReturn => "mark"),
-    Match.when("hover", (): AnswerFocusReturn => "stays"),
-    Match.exhaustive
-  )
-
-/** The single open provenance answer. */
-export class PlaceAnswer extends Schema.Class<PlaceAnswer>("PlaceAnswer")({
-  triggerId: Schema.String,
-  mark: PlaceMark,
-  opening: AnswerOpening
-}) {}
-
 /** A mark as one mounted trigger carries it: the element's id and the mark it stands for. */
 export const MarkTrigger = Schema.Struct({ triggerId: Schema.String, mark: PlaceMark })
 export type MarkTrigger = typeof MarkTrigger.Type
 
-/**
- * Where the pointer is within the provenance interaction region: on a mark,
- * whose answer it may be about to open; on a mark it has pressed, which has
- * said all a pointer can say there, so nothing is on its way; or on the
- * answer itself.
- */
-export const PointerOver = Schema.Union(
-  Schema.TaggedStruct("Mark", MarkTrigger.fields),
-  Schema.TaggedStruct("Pressed", MarkTrigger.fields),
-  Schema.TaggedStruct("Answer", {})
-)
-export type PointerOver = typeof PointerOver.Type
-
-/** A delayed decision made by the owned hover-intent process. */
-export const HoverIntent = Schema.Union(
-  Schema.TaggedStruct("Open", MarkTrigger.fields),
-  Schema.TaggedStruct("Close", {})
-)
-export type HoverIntent = typeof HoverIntent.Type
+/** The single open provenance answer: the mark pressed, from the trigger it was pressed on. */
+export class PlaceAnswer extends Schema.Class<PlaceAnswer>("PlaceAnswer")(MarkTrigger.fields) {}
 
 /** A press on a mark, as the popover reports it: whether it would open, and which mark. */
 export const MarkPress = Schema.Struct({ opening: Schema.Boolean, pressed: MarkTrigger })
 export type MarkPress = typeof MarkPress.Type
-
-/**
- * What a press does: `Leave` keeps the answer exactly as it is and the
- * popover's own change is cancelled; `Pin` likewise cancels the popover's
- * close and makes a hover answer a pressed one; `Answer` is the new answer.
- */
-export const PressOutcome = Schema.Union(
-  Schema.TaggedStruct("Leave", {}),
-  Schema.TaggedStruct("Pin", { answer: PlaceAnswer }),
-  Schema.TaggedStruct("Answer", { answer: Schema.Option(PlaceAnswer) })
-)
-export type PressOutcome = typeof PressOutcome.Type
 
 /** A mark carried on an element as one attribute value, and read back from it. */
 export const PlaceMarkAttribute = Schema.parseJson(PlaceMark)

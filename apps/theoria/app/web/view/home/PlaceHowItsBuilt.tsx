@@ -102,11 +102,11 @@ const StepTabs = () => (
 )
 
 /**
- * A live value is the mark for the line that produced it: pointing at it
+ * A live value is the mark for the line that produced it: pressing it
  * answers with the thing the line made, on the page, and lights that thing
  * where it stands, and the line above it is lit whenever its mark is. The
  * line's number in the gutter is the same mark, so the line itself can be
- * pointed at; the line's text is not the control, because its API names are
+ * pressed; the line's text is not the control, because its API names are
  * links and a control may not hold links: a trigger around the line took the
  * link's press and its preview never opened.
  */
@@ -137,7 +137,7 @@ const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
  * to its reference page, and beside the lines that produced them are the
  * values from the build on this page. The header names only the step; which
  * package each call comes from is beside that call in the reference rail.
- * While a mark on the page is pointed at, the line that made it is lit.
+ * While a mark on the page is answered, the line that made it is lit.
  */
 const StepCode = ({ step }: { readonly step: PlaceStep }) => {
   const build = useAtomValue(placeBuiltAtom)

@@ -260,9 +260,10 @@ derivations or explicit effects:
   act landmarks, re-read on every scroll, resize and hash change — so a jump
   from below the viewport to above it, which no observer entry reports, still
   answers. Read by the stage.
-- `placeFocusAtom`: `Option<PlaceProvenance>`, a tagged union
-  (`Feature | Line | Signature | Version | Trial | CodeLine`) written by
-  hover and focus handlers, read by every surface that can answer.
+- `placeFocusAtom`: `Option<PlaceMark>`, the mark whose answer is open,
+  derived from `placeAnswerAtom`, which the shared popover writes on a press
+  (click, tap, or focus-and-Enter) and on dismissal; read by every surface
+  that can answer. The pointer resting on a mark writes nothing.
 
 Provenance answers are computed from `PlaceBuild` and the current
 `PlaceRendering` with `Match.exhaustive`; nothing is stored that can be
@@ -1551,6 +1552,23 @@ lost`, and Miniflare's entry worker turns it into a 500 with the error's
       in 6 000 (`ECONNRESET`, "other side closed"); Chromium retries those
       transparently for idempotent requests, as the spec allows, and the
       in-process load test saw none.
+- [x] **Marks answer on press, not hover.** An audit of the homepage found
+      every hover-to-reveal surface (43 elements of 16 kinds) to be a
+      `ProvenanceMark`/`StatusMark` answer; the pointer no longer opens
+      anything. A click, tap or focus-and-Enter opens the answer with focus
+      inside it; the same mark closes it; another mark moves it; Escape and
+      dismissal close it and hand focus back to the mark. The owned hover
+      system is gone rather than gated — `placePointerOverAtom`, the timed
+      intent stream, `PointerRegion`, `AnswerOpening`, `answerOpenDelay` and
+      `answerCloseGrace` — so `PlaceAnswer` is a `MarkTrigger` and
+      `answerAfterPress(press)` is the whole rule. A content ID no longer
+      copies on click, which would have fought its press; the answer's Copy
+      control copies it. Held test-first: `place-answer.contract.test.ts`
+      states the press rule; `home-demo-answers.test.ts` rests the pointer on
+      a disc and a line for longer than any delay the page ever kept and
+      finds nothing open, then presses through open, move, close, Escape and
+      a stacked preview; every other suite that hovered a mark to open it
+      now presses.
 
 ## Non-goals
 

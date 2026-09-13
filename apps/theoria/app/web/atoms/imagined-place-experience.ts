@@ -10,19 +10,13 @@ import {
   type CodeSiteId,
   decodeMark,
   encodeMark,
-  focusReturnAfter,
-  type HoverIntent,
   type MarkPress,
-  type MarkTrigger,
   PlaceAct,
   PlaceAnswer,
   type PlaceMark,
-  PlaceProvenance,
-  type PointerOver,
-  type PressOutcome
+  PlaceProvenance
 } from "../../contracts/demo/imagined-place-provenance.js"
 import type { ProposalRecord } from "../../contracts/imagined-place-result.js"
-import { answerCloseGrace, answerOpenDelay } from "../../contracts/motion.js"
 import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
@@ -38,13 +32,13 @@ import { navigateToElementAtom } from "./navigation.js"
 import { appRuntime } from "./runtime.js"
 
 /**
- * The demonstration as one experience: what the visitor is pointing at and
- * which act of the story they are reading.
+ * The demonstration as one experience: which mark the visitor has pressed
+ * and which act of the story they are reading.
  * Each is one fact; everything the page does with it is derived.
  */
 
 // ---------------------------------------------------------------------------
-// Focus — the open answer and owned hover intent
+// Focus — the open answer
 // ---------------------------------------------------------------------------
 
 const answerState = Atom.make(Option.none<PlaceAnswer>())
@@ -52,19 +46,19 @@ const answerFocusReturnState = Atom.make<AnswerFocusReturn>("mark")
 const answerLeavingState = Atom.make(Option.none<PlaceProvenance>())
 
 /**
- * The open answer: the mark the visitor is pointing at, and how it was opened.
- * Written by the overlay; read by the code panel, which lights the line that
- * made the mark. Writing it also records how it was opened, because the popup
- * decides where focus goes as it closes — after the answer itself is gone. A
- * hover answer never had focus; a pressed one hands it back. Closing it keeps
- * what was being said, for the popup to leave with.
+ * The open answer: the mark the visitor pressed, from the trigger it was
+ * pressed on. Written by the overlay; read by the code panel, which lights
+ * the line that made the mark. Opening one settles that focus returns to
+ * its mark when it closes — a later route elsewhere, or the mark leaving
+ * the page, may say otherwise before then. Closing it keeps what was being
+ * said, for the popup to leave with.
  */
 export const placeAnswerAtom: AtomType.Writable<Option.Option<PlaceAnswer>> = Atom.writable(
   (get: AtomType.Context) => Option.filter(get(answerState), () => Option.isSome(get(placeFocusedProvenanceAtom))),
   (ctx: AtomType.WriteContext<Option.Option<PlaceAnswer>>, value: Option.Option<PlaceAnswer>) => {
     Option.match(value, {
       onNone: () => ctx.set(answerLeavingState, ctx.get(placeAnswerOnShowAtom)),
-      onSome: (answer) => ctx.set(answerFocusReturnState, focusReturnAfter(answer.opening))
+      onSome: () => ctx.set(answerFocusReturnState, "mark")
     })
     ctx.set(answerState, value)
   }
@@ -83,119 +77,14 @@ export const placeFocusAtom: AtomType.Atom<Option.Option<PlaceMark>> = Atom.map(
   Option.map((answer: PlaceAnswer) => answer.mark)
 )
 
-/** The pointer's current provenance interaction region. Touch uses Base UI press instead. */
-export const placePointerOverAtom: AtomType.Writable<Option.Option<PointerOver>> = Atom.make(
-  Option.none<PointerOver>()
-)
-
 /**
- * A press on a mark, as it bears on the pointer: if the pointer is on that
- * mark, it is now on a mark it has pressed, and whatever hover was on its
- * way there is forgotten. A press from the keyboard, or on a mark the
- * pointer is not on, says nothing about where the pointer is.
+ * The answer after a press, which is what the popover says of it: a press
+ * that opens answers the pressed mark from the trigger it was pressed on —
+ * whether nothing was open, or another mark was — and a press that closes
+ * leaves nothing answered. The pointer resting on a mark says nothing.
  */
-export const placeMarkPressedAtom = Atom.fnSync<MarkTrigger>()((pressed, ctx) => {
-  const over = ctx.registry.get(placePointerOverAtom)
-  if (Option.exists(over, (at) => at._tag === "Mark" && at.triggerId === pressed.triggerId)) {
-    ctx.set(placePointerOverAtom, Option.some({ _tag: "Pressed", ...pressed }))
-  }
-})
-
-/**
- * Turn pointer entries into delayed latest-wins decisions. The delay begins
- * at entry (there is deliberately no movement-based hover-rest heuristic). A
- * press on the mark under the pointer decides nothing and forgets what was
- * on its way: the press has answered, and a hover arriving after it would
- * only undo what the press said.
- */
-export const hoverIntents = (
-  pointerOver: Stream.Stream<Option.Option<PointerOver>>
-): Stream.Stream<HoverIntent> =>
-  pointerOver.pipe(
-    Stream.flatMap(
-      (over) =>
-        Match.value(over).pipe(
-          Match.tag(
-            "None",
-            () => Stream.fromEffect(Effect.sleep(answerCloseGrace).pipe(Effect.as<HoverIntent>({ _tag: "Close" })))
-          ),
-          Match.tag("Some", ({ value }) =>
-            Match.value(value).pipe(
-              Match.tag("Mark", ({ mark, triggerId }) =>
-                Stream.fromEffect(
-                  Effect.sleep(answerOpenDelay(mark)).pipe(
-                    Effect.as<HoverIntent>({ _tag: "Open", triggerId, mark })
-                  )
-                )),
-              Match.tag("Pressed", "Answer", () => Stream.empty),
-              Match.exhaustive
-            )),
-          Match.exhaustive
-        ),
-      { switch: true }
-    )
-  )
-
-const sameMark = (left: PlaceMark, right: PlaceMark): boolean => encodeMark(left) === encodeMark(right)
-
-/** The answer is the pressed one for this mark: pinned where it was pressed, whatever else points at the mark. */
-const pinnedOn = (current: Option.Option<PlaceAnswer>, mark: PlaceMark): boolean =>
-  Option.exists(current, (answer) => answer.opening === "press" && sameMark(answer.mark, mark))
-
-/**
- * What an intent does to the open answer: opening answers the mark as a
- * hover, unless that mark's answer is already pressed, which a hover cannot
- * undo; closing closes a hover answer and leaves a pressed one pinned.
- */
-export const answerAfterIntent = (
-  current: Option.Option<PlaceAnswer>,
-  intent: HoverIntent
-): Option.Option<PlaceAnswer> =>
-  Match.value(intent).pipe(
-    Match.tag("Open", ({ mark, triggerId }) =>
-      pinnedOn(current, mark) ? current : Option.some(new PlaceAnswer({ triggerId, mark, opening: "hover" }))),
-    Match.tag("Close", () =>
-      Option.filter(current, (answer) =>
-        answer.opening === "press")),
-    Match.exhaustive
-  )
-
-/**
- * Pressing a digest copies it; while its answer is open the press changes
- * nothing about the answer, so it stays as it was opened, says "Copied", and
- * leaves as it would have. Pressing the mark of a hover answer pins that
- * answer rather than closing it. Any other press is what the popover says:
- * opening answers the pressed mark, pinned; closing closes.
- */
-export const answerAfterPress = (current: Option.Option<PlaceAnswer>, press: MarkPress): PressOutcome =>
-  Option.match(
-    Option.filter(current, (answer) => sameMark(answer.mark, press.pressed.mark)),
-    {
-      onNone: () => ({
-        _tag: "Answer",
-        answer: press.opening
-          ? Option.some(new PlaceAnswer({ ...press.pressed, opening: "press" }))
-          : Option.none()
-      }),
-      onSome: (answer): PressOutcome =>
-        press.pressed.mark._tag === "Digest"
-          ? { _tag: "Leave" }
-          : answer.opening === "hover"
-          ? { _tag: "Pin", answer: new PlaceAnswer({ ...answer, opening: "press" }) }
-          : { _tag: "Answer", answer: Option.none() }
-    }
-  )
-
-/** The one process that writes provenance answers from pointer intent. */
-export const placeHoverIntentAtom = appRuntime.atom((get: AtomType.Context) =>
-  hoverIntents(get.stream(placePointerOverAtom)).pipe(
-    Stream.runForEach((intent) =>
-      Effect.sync(() => {
-        get.set(placeAnswerAtom, answerAfterIntent(get.once(placeAnswerAtom), intent))
-      })
-    )
-  )
-)
+export const answerAfterPress = (press: MarkPress): Option.Option<PlaceAnswer> =>
+  press.opening ? Option.some(new PlaceAnswer(press.pressed)) : Option.none()
 
 /**
  * What is on the page to answer from: the build once it has arrived, and

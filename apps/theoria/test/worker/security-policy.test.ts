@@ -9,7 +9,6 @@ import {
   click,
   desktop,
   eventually,
-  hover,
   openPage,
   phone,
   press,
@@ -88,11 +87,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
           yield* noViolations(page, `${where} drawn`)
 
-          // A proposal pointed at opens its popover; a merge redraws; a new story rebuilds.
+          // A proposal pressed opens its popover; a merge redraws; a new story rebuilds.
           const merged = demo.locator("[data-place-proposal][data-place-recorded='true']").first()
           const name = merged.locator("[data-place-feature]")
           yield* act(() => name.scrollIntoViewIfNeeded())
-          yield* hover(name)
+          yield* click(name)
           yield* visible(page.locator("[data-place-provenance]"))
           yield* click(demo.getByRole("switch", { checked: false }).first())
           yield* click(

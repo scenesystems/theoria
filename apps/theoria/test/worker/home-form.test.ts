@@ -15,7 +15,6 @@ import {
   count,
   fill,
   goto,
-  hover,
   nextResponse,
   openPage,
   until,
@@ -106,12 +105,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose")
         yield* click(built.getByRole("tab", { name: propose.name }))
 
-        // A merged proposal's name, pointed at, lights its line of the prose, the line of code that
+        // A merged proposal's name, pressed, lights its line of the prose, the line of code that
         // digested it, that line's number, and the value beside it: one wash on all of them.
         const merged = demo.locator("[data-place-proposal][data-place-recorded='true']").first()
         const name = merged.locator("[data-place-feature]")
         yield* act(() => name.scrollIntoViewIfNeeded())
-        yield* hover(name)
+        yield* click(name)
         yield* visible(overlay)
         const lit = [
           name,
@@ -140,7 +139,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const overlay = page.locator("[data-place-provenance]")
         const feature = demo.locator("[data-place-features] [data-provenance]").first()
         yield* act(() => feature.scrollIntoViewIfNeeded())
-        yield* hover(feature)
+        yield* click(feature)
         yield* visible(overlay)
         yield* click(overlay.locator("a[href^='/docs/']").first())
         const preview = page.locator("[data-docs-link-preview]")

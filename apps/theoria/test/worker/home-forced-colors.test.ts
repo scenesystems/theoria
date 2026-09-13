@@ -13,7 +13,6 @@ import {
   eventually,
   focus,
   goto,
-  hover,
   openPage,
   press,
   visible
@@ -152,17 +151,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("a line of code lights in Highlight under the pointer, and no line is lit without it", () =>
+    it.scoped("a line of code lights in Highlight when pressed, and no line is lit without it", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const highlight = yield* system(page, "Highlight")
           const build = page.locator("[data-place-act='build']")
           const line = build.locator("[data-place-code-line]").first()
           yield* act(() => line.scrollIntoViewIfNeeded())
-          // Before the pointer, nothing on the page wears the selection colour.
+          // Before the press, nothing on the page wears the selection colour.
           expect(yield* colour(line)).not.toBe(highlight)
           expect(yield* colour(page.locator("[data-place-marker]").first())).not.toBe(highlight)
-          yield* hover(line)
+          yield* click(line)
           const lit = build.locator("[data-code-line-focused]")
           yield* visible(lit)
           yield* eventually(() => lit.evaluate(backgroundColour), highlight)

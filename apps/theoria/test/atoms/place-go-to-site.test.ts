@@ -86,13 +86,7 @@ const arrivedWith = (preference: "full" | "reduced") =>
     registry.set(placeStepAtom, "compose")
     registry.set(
       placeAnswerAtom,
-      Option.some(
-        new PlaceAnswer({
-          triggerId: "d",
-          mark: { _tag: "Disc", name, source: placeSourceId(build) },
-          opening: "press"
-        })
-      )
+      Option.some(new PlaceAnswer({ triggerId: "d", mark: { _tag: "Disc", name, source: placeSourceId(build) } }))
     )
     expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
 

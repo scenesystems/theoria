@@ -17,7 +17,6 @@ import {
   fitsViewport,
   focus,
   goto,
-  hover,
   openPage,
   overflowingElements,
   press,
@@ -271,7 +270,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
             const bandLink = page.locator("[data-place-band] a")
             yield* visible(bandLink)
             yield* distinct(bandLink)
-            yield* hover(build.locator("[data-place-code-line]").first())
+            yield* click(build.locator("[data-place-code-line]").first())
             const litLine = build.locator("[data-code-line-focused]")
             yield* visible(litLine)
             yield* readable(litLine)

@@ -9,9 +9,11 @@ import {
   act,
   animationsSettled,
   BrowserLive,
+  click,
   goto,
   hover,
   openPage,
+  press,
   setColorScheme,
   setViewport,
   until,
@@ -143,12 +145,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* animationsSettled(page)
         const landed = yield* act(() => page.evaluate(recordedPaperFrames))
 
-        // Time passing, the page scrolled down and back, a disc under the pointer, the window left and returned to,
-        // the colour scheme changed: none is a change to what is drawn, so none redraws the paper.
+        // Time passing, the page scrolled down and back, a disc under the pointer and then pressed for its answer,
+        // the window left and returned to, the colour scheme changed: none is a change to what is drawn, so none
+        // redraws the paper.
         yield* Effect.sleep("3 seconds")
         yield* wheel(page, 0, 900)
         yield* wheel(page, 0, -900)
-        yield* hover(page.locator("[data-place-marker]").first())
+        const disc = page.locator("[data-place-marker]").first()
+        yield* hover(disc)
+        yield* click(disc)
+        yield* press(page, "Escape")
         yield* act(() => page.evaluate(leaveAndReturn))
         yield* setColorScheme(page, "dark")
         yield* setColorScheme(page, "light")

@@ -35,7 +35,7 @@ const placeFocusAtom = Atom.writable(
   (ctx, value: Option.Option<PlaceMark>) => {
     ctx.set(
       placeAnswerAtom,
-      Option.map(value, (mark) => new PlaceAnswer({ triggerId: "test-mark", mark, opening: "press" }))
+      Option.map(value, (mark) => new PlaceAnswer({ triggerId: "test-mark", mark }))
     )
   }
 )

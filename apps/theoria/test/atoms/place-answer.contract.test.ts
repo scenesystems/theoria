@@ -1,235 +1,69 @@
 import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Duration, Effect, Fiber, Option, Queue, Ref, Stream, TestClock } from "effect"
+import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
-import * as Chunk from "effect/Chunk"
 
-import {
-  type HoverIntent,
-  PlaceAnswer,
-  type PlaceMark,
-  placeSourceId,
-  type PointerOver
-} from "../../app/contracts/demo/imagined-place-provenance.js"
+import { PlaceAnswer, type PlaceMark, placeSourceId } from "../../app/contracts/demo/imagined-place-provenance.js"
 import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
-import { answerCloseGrace, answerOpenDelay } from "../../app/contracts/motion.js"
 import {
-  answerAfterIntent,
   answerAfterPress,
-  hoverIntents,
   placeAnswerAtom,
   placeAnswerFocusReturnAtom,
   placeAnswerOnShowAtom,
-  placeFocusAtom,
-  placeMarkPressedAtom,
-  placePointerOverAtom
+  placeFocusAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
 import { type PlaceRenderFrame, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
 import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
 import { onStage } from "../helpers/place-on-stage.js"
 
 /**
- * The pointer's intent is owned here, not by the popover library: entering a
- * mark starts that mark's delay, leaving starts the close grace, and only the
- * latest position counts. These are the timings the page keeps, on a test
- * clock, and the rule for what an intent does to the open answer.
+ * A mark answers when it is pressed, and only then: there is no pointer
+ * intent, no delay and no grace. The press is what the popover reports —
+ * which mark, and whether the popover would open or close for it — and the
+ * answer is what that press says. Every answer takes focus and hands it back
+ * to its mark; only an answer whose mark left the page lets focus stay.
  */
 
 const line: PlaceMark = { _tag: "Line", index: 3, drawing: { source: "blake3-256:test", stageWidth: 660 } }
 const disc: PlaceMark = { _tag: "Feature", name: "the iron stair" }
+const digest: PlaceMark = { _tag: "Digest", contentId: "th_1abc" }
 
-const overMark = (triggerId: string, mark: PlaceMark): Option.Option<PointerOver> =>
-  Option.some({ _tag: "Mark", triggerId, mark })
-const overPressed = (triggerId: string, mark: PlaceMark): Option.Option<PointerOver> =>
-  Option.some({ _tag: "Pressed", triggerId, mark })
-const overAnswer: Option.Option<PointerOver> = Option.some({ _tag: "Answer" })
-const overNothing: Option.Option<PointerOver> = Option.none()
+describe("the answer under a press", () => {
+  const onDisc = new PlaceAnswer({ triggerId: "a", mark: disc })
 
-/** A pointer whose positions are offered one at a time, and every intent decided so far. */
-const pointer = Effect.gen(function*() {
-  const positions = yield* Queue.unbounded<Option.Option<PointerOver>>()
-  const decided = yield* Ref.make(Chunk.empty<HoverIntent>())
-  const process = yield* Effect.fork(
-    hoverIntents(Stream.fromQueue(positions)).pipe(
-      Stream.runForEach((intent) => Ref.update(decided, Chunk.append(intent)))
-    )
-  )
-  // Let the process subscribe before the clock moves.
-  yield* TestClock.adjust("0 millis")
-  const moveTo = (position: Option.Option<PointerOver>) =>
-    Queue.offer(positions, position).pipe(Effect.zipRight(TestClock.adjust("0 millis")))
-  const intents = Effect.map(Ref.get(decided), Chunk.toReadonlyArray)
-  return { intents, moveTo, process }
-})
-
-const openOf = (triggerId: string, mark: PlaceMark): HoverIntent => ({ _tag: "Open", triggerId, mark })
-const close: HoverIntent = { _tag: "Close" }
-
-describe("hover intent", () => {
-  it.effect("a line answers only after its full delay", () =>
-    Effect.gen(function*() {
-      const { intents, moveTo, process } = yield* pointer
-      yield* moveTo(overMark("a", line))
-      yield* TestClock.adjust("319 millis")
-      expect(yield* intents).toEqual([])
-      yield* TestClock.adjust("1 millis")
-      expect(yield* intents).toEqual([openOf("a", line)])
-      yield* Fiber.interrupt(process)
-    }))
-
-  it.effect("moving to a second mark forgets the first and waits the second's delay from entry", () =>
-    Effect.gen(function*() {
-      const { intents, moveTo, process } = yield* pointer
-      yield* moveTo(overMark("a", line))
-      yield* TestClock.adjust("100 millis")
-      yield* moveTo(overMark("b", disc))
-      yield* TestClock.adjust("119 millis")
-      expect(yield* intents).toEqual([])
-      yield* TestClock.adjust("1 millis")
-      expect(yield* intents).toEqual([openOf("b", disc)])
-      yield* TestClock.adjust("1 second")
-      expect(yield* intents).toEqual([openOf("b", disc)])
-      yield* Fiber.interrupt(process)
-    }))
-
-  it.effect("leaving before the delay opens nothing and closes after the grace", () =>
-    Effect.gen(function*() {
-      const { intents, moveTo, process } = yield* pointer
-      yield* moveTo(overMark("a", line))
-      yield* TestClock.adjust("100 millis")
-      yield* moveTo(overNothing)
-      yield* TestClock.adjust("149 millis")
-      expect(yield* intents).toEqual([])
-      yield* TestClock.adjust("1 millis")
-      expect(yield* intents).toEqual([close])
-      yield* Fiber.interrupt(process)
-    }))
-
-  it.effect("crossing into the answer within the grace keeps it; leaving the answer closes after the grace", () =>
-    Effect.gen(function*() {
-      const { intents, moveTo, process } = yield* pointer
-      yield* moveTo(overMark("a", disc))
-      yield* TestClock.adjust("120 millis")
-      yield* moveTo(overNothing)
-      yield* TestClock.adjust("100 millis")
-      yield* moveTo(overAnswer)
-      yield* TestClock.adjust("1 second")
-      expect(yield* intents).toEqual([openOf("a", disc)])
-      yield* moveTo(overNothing)
-      yield* TestClock.adjust("150 millis")
-      expect(yield* intents).toEqual([openOf("a", disc), close])
-      yield* Fiber.interrupt(process)
-    }))
-
-  it.effect("pressing the mark under the pointer forgets the hover on its way; leaving still closes after the grace", () =>
-    Effect.gen(function*() {
-      const { intents, moveTo, process } = yield* pointer
-      yield* moveTo(overMark("a", disc))
-      yield* TestClock.adjust("60 millis")
-      yield* moveTo(overPressed("a", disc))
-      yield* TestClock.adjust("1 second")
-      expect(yield* intents).toEqual([])
-      yield* moveTo(overNothing)
-      yield* TestClock.adjust("150 millis")
-      expect(yield* intents).toEqual([close])
-      yield* Fiber.interrupt(process)
-    }))
-
-  it.effect("the delays are the motion tokens", () =>
-    Effect.sync(() => {
-      expect(answerOpenDelay(line)).toEqual(Duration.millis(320))
-      expect(answerOpenDelay(disc)).toEqual(Duration.millis(120))
-      expect(answerCloseGrace).toEqual(Duration.millis(150))
-    }))
-})
-
-describe("the answer under an intent", () => {
-  const hoverOpened = new PlaceAnswer({ triggerId: "a", mark: disc, opening: "hover" })
-  const pressOpened = new PlaceAnswer({ triggerId: "a", mark: disc, opening: "press" })
-
-  it.effect("an open intent answers the mark as a hover", () =>
-    Effect.sync(() => {
-      expect(answerAfterIntent(Option.none(), openOf("b", line))).toEqual(
-        Option.some(new PlaceAnswer({ triggerId: "b", mark: line, opening: "hover" }))
-      )
-      expect(answerAfterIntent(Option.some(pressOpened), openOf("b", line))).toEqual(
-        Option.some(new PlaceAnswer({ triggerId: "b", mark: line, opening: "hover" }))
-      )
-    }))
-
-  it.effect("an open intent for the mark of a pressed answer leaves it pressed", () =>
-    Effect.sync(() => {
-      expect(answerAfterIntent(Option.some(pressOpened), openOf("a", disc))).toEqual(Option.some(pressOpened))
-      // Pointed at again through another trigger for the same mark: still the pressed answer.
-      expect(answerAfterIntent(Option.some(pressOpened), openOf("a2", disc))).toEqual(Option.some(pressOpened))
-      expect(answerAfterIntent(Option.some(hoverOpened), openOf("a", disc))).toEqual(Option.some(hoverOpened))
-    }))
-
-  it.effect("a close intent closes a hover answer and leaves a pressed one pinned", () =>
-    Effect.sync(() => {
-      expect(answerAfterIntent(Option.some(hoverOpened), close)).toEqual(Option.none())
-      expect(answerAfterIntent(Option.some(pressOpened), close)).toEqual(Option.some(pressOpened))
-      expect(answerAfterIntent(Option.none(), close)).toEqual(Option.none())
-    }))
-
-  it.effect("a press opens a mark's answer pinned; the same mark pressed again closes it", () =>
+  it.effect("a press opens the pressed mark's answer; the same mark pressed again closes it", () =>
     Effect.sync(() => {
       const pressA = { triggerId: "a", mark: disc }
-      expect(answerAfterPress(Option.none(), { opening: true, pressed: pressA })).toEqual({
-        _tag: "Answer",
-        answer: Option.some(pressOpened)
-      })
-      expect(answerAfterPress(Option.some(pressOpened), { opening: false, pressed: pressA })).toEqual({
-        _tag: "Answer",
-        answer: Option.none()
-      })
+      expect(answerAfterPress({ opening: true, pressed: pressA })).toEqual(Option.some(onDisc))
+      expect(answerAfterPress({ opening: false, pressed: pressA })).toEqual(Option.none())
     }))
 
-  it.effect("pressing the mark of a hover answer pins it instead of closing it", () =>
+  it.effect("another mark pressed while one answers is answered instead, from its own trigger", () =>
     Effect.sync(() => {
-      expect(answerAfterPress(Option.some(hoverOpened), { opening: false, pressed: { triggerId: "a", mark: disc } }))
-        .toEqual({ _tag: "Pin", answer: pressOpened })
+      expect(answerAfterPress({ opening: true, pressed: { triggerId: "b", mark: line } })).toEqual(
+        Option.some(new PlaceAnswer({ triggerId: "b", mark: line }))
+      )
+      // The same mark carried by a second trigger answers from that trigger, so the popup stands over it.
+      expect(answerAfterPress({ opening: true, pressed: { triggerId: "a2", mark: disc } })).toEqual(
+        Option.some(new PlaceAnswer({ triggerId: "a2", mark: disc }))
+      )
     }))
 
-  it.effect("pressing an answering digest changes nothing about the answer", () =>
+  it.effect("a digest pressed answers like any other mark; copying is the answer's own control", () =>
     Effect.sync(() => {
-      const digest: PlaceMark = { _tag: "Digest", contentId: "th_1abc" }
-      const digestAnswer = new PlaceAnswer({ triggerId: "d", mark: digest, opening: "hover" })
-      expect(answerAfterPress(Option.some(digestAnswer), { opening: false, pressed: { triggerId: "d", mark: digest } }))
-        .toEqual({ _tag: "Leave" })
-      // From closed, a digest press opens as any press does.
-      expect(answerAfterPress(Option.none(), { opening: true, pressed: { triggerId: "d", mark: digest } })).toEqual({
-        _tag: "Answer",
-        answer: Option.some(new PlaceAnswer({ triggerId: "d", mark: digest, opening: "press" }))
-      })
+      expect(answerAfterPress({ opening: true, pressed: { triggerId: "d", mark: digest } })).toEqual(
+        Option.some(new PlaceAnswer({ triggerId: "d", mark: digest }))
+      )
+      expect(answerAfterPress({ opening: false, pressed: { triggerId: "d", mark: digest } })).toEqual(Option.none())
     }))
 
-  it.effect("a press on the mark under the pointer makes it a pressed mark; a press elsewhere moves the pointer nowhere", () =>
-    Effect.sync(() => {
-      const registry = Registry.make({
-        scheduleTask: (task) => {
-          task()
-        }
-      })
-      registry.set(placeMarkPressedAtom, { triggerId: "a", mark: disc })
-      expect(registry.get(placePointerOverAtom)).toEqual(Option.none())
-      registry.set(placePointerOverAtom, overMark("a", disc))
-      registry.set(placeMarkPressedAtom, { triggerId: "b", mark: line })
-      expect(registry.get(placePointerOverAtom)).toEqual(overMark("a", disc))
-      registry.set(placeMarkPressedAtom, { triggerId: "a", mark: disc })
-      expect(registry.get(placePointerOverAtom)).toEqual(overPressed("a", disc))
-    }))
-
-  it.effect("how the answer on show was opened outlives the answer, for the popup's leaving", () =>
+  it.effect("an answer hands focus back to its mark when it closes", () =>
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
       const registry = pageOnNextStory(build, showingTrial)
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
-      registry.set(placeAnswerAtom, Option.some(hoverOpened))
-      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("stays")
-      registry.set(placeAnswerAtom, Option.none())
-      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("stays")
-      registry.set(placeAnswerAtom, Option.some(pressOpened))
+      registry.set(placeAnswerAtom, Option.some(onDisc))
+      expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
       registry.set(placeAnswerAtom, Option.none())
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
     }))
@@ -241,17 +75,9 @@ describe("the answer under an intent", () => {
         _tag: "Feature",
         name: (yield* Arr.head(build.artifact.composition.features)).name
       }
-      const registry = Registry.make({
-        initialValues: [
-          [placeBuildAtom, Result.success(build)],
-          [placeShownFrameAtom, Result.success(showingTrial)]
-        ],
-        scheduleTask: (task) => {
-          task()
-        }
-      })
+      const registry = pageOnNextStory(build, showingTrial)
       expect(registry.get(placeFocusAtom)).toEqual(Option.none())
-      registry.set(placeAnswerAtom, Option.some(new PlaceAnswer({ triggerId: "a", mark: available, opening: "hover" })))
+      registry.set(placeAnswerAtom, Option.some(new PlaceAnswer({ triggerId: "a", mark: available })))
       expect(registry.get(placeFocusAtom)).toEqual(Option.some(available))
       registry.set(placeAnswerAtom, Option.none())
       expect(registry.get(placeFocusAtom)).toEqual(Option.none())
@@ -277,8 +103,7 @@ describe("answer lifetime", () => {
       const name = (yield* Arr.head(trial.projection.markers)).name
       const onDisc = new PlaceAnswer({
         triggerId: "d",
-        mark: { _tag: "Disc", name, source: placeSourceId(build) },
-        opening: "press"
+        mark: { _tag: "Disc", name, source: placeSourceId(build) }
       })
 
       // The column already describes the next story; the paper still draws this one.
@@ -302,13 +127,7 @@ describe("answer lifetime", () => {
 
       registry.set(
         placeAnswerAtom,
-        Option.some(
-          new PlaceAnswer({
-            triggerId: "d",
-            mark: { _tag: "Disc", name, source: placeSourceId(build) },
-            opening: "press"
-          })
-        )
+        Option.some(new PlaceAnswer({ triggerId: "d", mark: { _tag: "Disc", name, source: placeSourceId(build) } }))
       )
       const shown = registry.get(placeAnswerOnShowAtom)
       expect(Option.map(shown, (provenance) => provenance.title)).toEqual(Option.some(name))
