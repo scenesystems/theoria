@@ -1,6 +1,6 @@
 ---
 description: Development guidelines for theoria monorepo
-globs: "**/*.ts, **/*.mts"
+globs: "**/*"
 alwaysApply: true
 ---
 
@@ -230,7 +230,6 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `packages/digest/`        | Content hashing, JCS canonicalization (`@scenesystems/digest`)              |
 | `packages/seal/`          | Authenticated encryption (`@scenesystems/seal`)                             |
 | `packages/sign/`          | Digital signatures, key agreement, key encapsulation (`@scenesystems/sign`) |
-| `.agents/skills/`         | Portable Effect-native skills                                               |
 | `.changeset/`             | Independent versioning per package                                          |
 | `packages/*/AGENTS.md`    | Package-specific governance                                                 |
 
@@ -306,16 +305,52 @@ The build runs once per commit (`build:web`, `deploy:dry-run`, `test:worker`) an
 
 ---
 
-## Skills Reference
+## Always-Applied Method And Workflow Ownership
 
-| Skill                           | When to Load                          |
-| ------------------------------- | ------------------------------------- |
-| `skill:idiomatic-effect`        | Writing Effect code                   |
-| `skill:effect-testing`          | Writing tests with `@effect/vitest`   |
-| `skill:effect-services`         | Designing services and layers         |
-| `skill:effect-error-management` | Designing typed error channels        |
-| `skill:effect-branded-types`    | Creating branded/nominal types        |
-| `skill:effect-data-primitives`  | Using Data module primitives          |
-| `skill:engineering-excellence`  | Structural patterns and decomposition |
-| `skill:target-state-tdd`        | TDD workflow                          |
-| `skill:mermaid-diagrams`        | Architecture diagrams                 |
+All root requirements apply independently of skill discovery or loading. This
+checkout does not bundle `.agents/skills`; missing skills cannot weaken native
+Effect, research, design, TDD, fix-forward ownership, review, or verification.
+
+For material work, research the product outcome, current source and real
+consumers, exact installed public contracts, authoritative implementations, and
+official documentation. Synthesize alternatives and evidence into an outside-in
+design: package responsibilities, canonical Schema/Data/Brand models, public
+modules and imports, exact operations and error/requirement channels, services,
+provider Layers, host composition, and meaningful behavioral acceptance.
+Declare the real target API before implementing dependent behavior. Drive each
+behavior red–green–refactor through that public API, migrate real consumers and
+providers, document supported use, resolve material review findings, and verify
+the claimed boundary. Current source measures the gap, not the target ceiling.
+
+Report designed, source-declared, implemented, integrated, verified, and released
+as distinct stages. Compilation and inventories do not establish behavior or
+later-stage guarantees. Missing capabilities block dependent work only; every
+encountered prohibited implementation or banned test remains a current owned
+correction, never optional follow-up debt. Preserve concurrent work and explicit
+approval/access boundaries without claiming blocked work complete.
+
+Scene's consolidated workflows are maintained in
+[Eva's skill directory](https://github.com/scenesystems/eva/tree/main/.agents/skills).
+When exposed by the working environment, use these workflow owners and read the
+references applicable to the concern. Otherwise consult their source directly;
+do not invent unavailable skill names or copy a competing skill library here.
+
+| Workflow                | Responsibility                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `production-grade-work` | Research, architecture, naming, exact API design, declaration, TDD, implementation, migration, integration, verification |
+| `idiomatic-effect`      | Every pure/effectful API, type investigation, anti-pattern correction, native testing mechanics                          |
+| `composing-ui`          | Participant framing, visual direction, shared UI, channel fidelity, accessibility, rendered review                       |
+| `engineering-review`    | Direct review, corrective findings, bounded Oracle profiles                                                              |
+| `documenting-systems`   | API docs, examples, rationale, specifications, diagrams, validation                                                      |
+| `coordination-protocol` | Independent work, writable ownership, integration, required status records                                               |
+| `building-skills`       | Guidance placement and consolidation                                                                                     |
+| `committing-changes`    | Cohesive verified commits                                                                                                |
+
+Root guidance owns mandatory policy; workflows own reusable procedures and
+technical references. Applicable reference requirements are mandatory. Extend
+one canonical owner rather than adding overlapping or forwarding skills.
+Consolidation preserves distinct requirements, examples, failure cases, and
+executable resources and repairs live handoffs. Browser, Figma, and terminal
+integrations are separate tool instructions, not alternative policy. Historical
+research and upstream implementation are not current coding permission. No
+guidance, inventory, or test-about-tests suite qualifies this method.

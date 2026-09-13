@@ -47,18 +47,20 @@ React + Tailwind CSS v4 + effect-atom application showcasing Scene Systems packa
 
 ## Dev Servers
 
-Use tmux to run the API server and Vite dev server in the background. Prefer the repo runbook `bun run app:theoria:tmux` from the repository root. The API server defaults to `http://127.0.0.1:3876` and the Vite dev server is fixed at `http://localhost:5175`.
+On a local machine, use the repository's `bun run app:theoria:tmux` runbook.
+In an Amp orb, use supervised orb services instead: tmux does not preserve
+servers across Amp updates or pause/resume. Keep the API port at `3876` and
+Vite at `5175`, and expose a portal for user access rather than a loopback URL.
 
 When reading `apps/theoria/package.json`, treat `5175` as the only sanctioned frontend dev port. Do not infer Vite defaults or choose alternate ports unless the user explicitly asks you to change the checked-in configuration.
 
 ---
 
-## Skills Reference
+## Workflow References
 
-| Skill                            | When to Load                                           |
-| -------------------------------- | ------------------------------------------------------ |
-| `skill:tailwind-v4`              | Writing className, theming, dark mode, CSS config      |
-| `skill:base-ui`                  | Composing headless UI components from `@base-ui/react` |
-| `skill:effect-atom`              | State management, atoms, async data, mutations         |
-| `skill:react-19`                 | React 19 patterns — refs, composition, performance     |
-| `skill:effect-react-integration` | Wiring Effect services into React via atoms, streaming |
+Use the consolidated `composing-ui` workflow for design, shared components,
+accessibility, responsive behavior, and rendered review; use `idiomatic-effect`
+for Atom state/lifetime and native computation. Read exact installed Tailwind,
+Base UI, React, and Atom public contracts when integrating them. This checkout
+does not bundle library-specific skills; do not invent their availability.
+Missing tooling never relaxes the root or application requirements.
