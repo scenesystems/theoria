@@ -479,7 +479,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     family: "body",
     fontSize: 12,
     weight: "semibold",
-    tracking: 0.01,
+    // The label is clipped to its measured fit; the measurer sees no tracking, so the label paints none.
+    tracking: 0,
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",

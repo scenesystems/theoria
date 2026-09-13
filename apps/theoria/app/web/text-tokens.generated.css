@@ -118,7 +118,7 @@
   --st-fs-marker-label: 12px;
   --st-lh-marker-label: 14px;
   --st-fw-marker-label: 600;
-  --st-tr-marker-label: 0.01em;
+  --st-tr-marker-label: 0;
   --st-ff-marker-label: var(--font-body);
   --st-mw-marker-label-compact: 160px;
   --st-mw-marker-label-expanded: 200px;

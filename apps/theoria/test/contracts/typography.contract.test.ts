@@ -15,6 +15,7 @@ import {
   viewports
 } from "../../app/contracts/text.js"
 import { deterministicTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
+import { labelRole } from "../../app/web/view/home/placeMarkerLabels.js"
 import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Typography contract", () => {
@@ -55,6 +56,20 @@ describe("Typography contract", () => {
       )
       expect(responsive.length).toBeGreaterThan(0)
       Arr.forEach(responsive, (semantics) => expect(semantics.wrapAuthority).toBe("native-browser"))
+    }))
+
+  it.effect("a role the engine measures for geometry paints no tracking the measurer cannot see", () =>
+    Effect.gen(function*() {
+      // effect-text measures a face at a size and weight; letter-spacing is not in its font descriptor. A role
+      // whose measured width decides a box — code laid out by projection, a disc's name clipped to the width it
+      // was measured to fit — would paint wider than it measured with any tracking, so it carries none.
+      const projected = Arr.filterMap(
+        textSemantics,
+        (semantics) => semantics.wrapAuthority === "effect-text-projected" ? Option.some(semantics.role) : Option.none()
+      )
+      const measured = Arr.append(projected, labelRole)
+      expect(measured).toContain("code-block")
+      Arr.forEach(measured, (role) => expect(textSemanticsByRole[role].tracking).toBe(0))
     }))
 
   it.effect("projectText produces glyph-aware line breaks", () =>

@@ -5,7 +5,7 @@ import * as Record from "effect/Record"
 
 import { markerRadius, type Stage } from "../../../contracts/demo/imagined-place-flow.js"
 import { placeFeatures, type PlaceOutline } from "../../../contracts/imagined-place.js"
-import { prepareInputFor, semanticsFor } from "../../../contracts/text.js"
+import { prepareInputFor, semanticsFor, type TextRole } from "../../../contracts/text.js"
 import type { BrowserTextLayout } from "../../text/browserTextLayout.js"
 import { prepareBrowserText } from "../text/authority.js"
 
@@ -24,7 +24,12 @@ import { prepareBrowserText } from "../text/authority.js"
 export const MarkerLabelWidths = Schema.Record({ key: Schema.String, value: Schema.Number })
 export type MarkerLabelWidths = typeof MarkerLabelWidths.Type
 
-const labelRole = "marker-label"
+/**
+ * The role a disc's name is measured and painted in. Its measured fit clips
+ * the label, so the role paints nothing the measurer cannot see: the
+ * typography contract holds its tracking at zero.
+ */
+export const labelRole: TextRole = "marker-label"
 
 /** Room between the disc's edge and its name: the inset ring and the trigger's padding. */
 const labelInset = 6
