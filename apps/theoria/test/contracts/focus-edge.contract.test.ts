@@ -5,7 +5,12 @@ import { Effect } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
-import { focusEdgeClassName, forcedColorsFocusClassName } from "../../app/web/view/primitives/designSystem.js"
+import {
+  focusEdgeClassName,
+  forcedColorsAnsweringOutlineClassName,
+  forcedColorsFocusClassName,
+  silentOutlineClassName
+} from "../../app/web/view/primitives/designSystem.js"
 
 /** The app's `app/web` directory, from this file rather than the working directory: the root test run starts elsewhere. */
 const webRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
@@ -51,5 +56,16 @@ describe("Focus edge contract", () => {
       expect(forcedColorsFocusClassName).toContain("forced-colors:focus-visible:outline-solid")
       expect(forcedColorsFocusClassName).toContain("forced-colors:focus-visible:outline-[Highlight]")
       expect(forcedColorsFocusClassName).not.toContain("outline-none")
+    }))
+
+  it.effect("the silent outline is none under forced colours, and answering says solid Highlight again", () =>
+    Effect.gen(function*() {
+      expect(silentOutlineClassName).toContain("outline-transparent")
+      expect(silentOutlineClassName).toContain("forced-colors:outline-none")
+      expect(forcedColorsAnsweringOutlineClassName).toContain("forced-colors:data-[popup-open]:outline-solid")
+      expect(forcedColorsAnsweringOutlineClassName).toContain("forced-colors:data-[popup-open]:outline-[Highlight]")
+      expect(forcedColorsAnsweringOutlineClassName).toContain("forced-colors:data-[place-focused]:outline-solid")
+      expect(forcedColorsAnsweringOutlineClassName).toContain("forced-colors:data-[place-focused]:outline-[Highlight]")
+      expect(forcedColorsAnsweringOutlineClassName).not.toContain("outline-none")
     }))
 })

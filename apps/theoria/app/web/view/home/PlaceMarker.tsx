@@ -9,7 +9,7 @@ import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-re
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import type { PlaceDiscDrawn } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
-import { forcedColorsFocusClassName } from "../primitives/designSystem.js"
+import { forcedColorsAnsweringOutlineClassName, forcedColorsFocusClassName } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { departed, exitTransition } from "../primitives/motion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -61,15 +61,16 @@ const filling = (preference: MotionPreference) =>
   )
 
 /**
- * The outline answers the act in view and the ring the mark under the
- * pointer; both are always drawn, transparent when silent, so only their
- * colours transition. Opacity is Motion's and is not transitioned. Discs
- * stand above the prose lines (`z-10` within the stage's own stacking
+ * The outline answers the act in view and the ring the mark pressed or
+ * answered for; both are always drawn, transparent when silent, so only
+ * their colours transition. Opacity is Motion's and is not transitioned.
+ * Under forced colours the ring is dropped, so the outline says it instead.
+ * Discs stand above the prose lines (`z-10` within the stage's own stacking
  * context), so a touch on a disc's reach is the disc's where a line runs
  * beside it.
  */
 const triggerClassName =
-  `absolute left-0 top-0 z-10 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 ${forcedColorsFocusClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0`
+  `absolute left-0 top-0 z-10 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 ${forcedColorsFocusClassName} ${forcedColorsAnsweringOutlineClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0`
 
 /** A named disc's label is clipped to the width it was measured to fit. */
 const labelClassName = "shrink-0 overflow-hidden"

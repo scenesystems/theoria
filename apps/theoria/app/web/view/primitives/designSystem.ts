@@ -237,6 +237,25 @@ export const forcedColorsFocusClassName =
   "forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-2 forced-colors:focus-visible:outline-offset-2 forced-colors:focus-visible:outline-[Highlight]"
 export const focusEdgeClassName = `focus-visible:outline-none ${forcedColorsFocusClassName}`
 
+/**
+ * A control that keeps an outline of its own (the discs) and has nothing to
+ * say with it draws it transparent, so only its colour ever transitions.
+ * Forced colours repaint transparent in `CanvasText`, which would light every
+ * silent control: there the silent outline is no outline. The two words that
+ * bring it back — focus, and answering — each say `outline-solid` again.
+ */
+export const silentOutlineClassName = "outline-transparent forced-colors:outline-none"
+
+/**
+ * A control that says it is answering — open, or answered for — with a ring
+ * says it under forced colours with its outline in `Highlight`, since the
+ * ring is a shadow and dropped there. For a control that keeps an outline of
+ * its own (the discs), whose colour is otherwise forced to `CanvasText` and
+ * whose silent outline is none.
+ */
+export const forcedColorsAnsweringOutlineClassName =
+  "forced-colors:data-[popup-open]:outline-solid forced-colors:data-[popup-open]:outline-[Highlight] forced-colors:data-[place-focused]:outline-solid forced-colors:data-[place-focused]:outline-[Highlight]"
+
 /** A mark's box: pointable and focusable. The wash is added by whichever box wears it. */
 export const markClassName =
   `group/mark cursor-default rounded-md transition-colors duration-150 ease-theme ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 ${stillUnderReducedMotion}`

@@ -997,6 +997,9 @@ export const beforeRuleCentreX = (element: Element): number => {
 /** The colour the element paints behind itself, as the browser computed it. */
 export const backgroundColour = (element: Element) => getComputedStyle(element).backgroundColor
 
+/** The element's outline colour as painted this instant — mid-transition, if one is running. */
+export const outlineColour = (element: Element) => getComputedStyle(element).outlineColor
+
 /** The element has keyboard focus. */
 export const isActiveElement = (element: Element) => element === document.activeElement
 

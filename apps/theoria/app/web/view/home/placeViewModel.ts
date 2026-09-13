@@ -23,7 +23,7 @@ import {
 import type { CardTone } from "../../../contracts/theme.js"
 import type { PlaceDiscDrawn, PlaceSearch, PlaceWait, StageFailure } from "../../atoms/imagined-place-render.js"
 import type { MotionPreference } from "../../atoms/motion.js"
-import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
+import { silentOutlineClassName, type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
 import { departed, shiftTransition } from "../primitives/motion.js"
 import type { PlaceholderMotion } from "../primitives/Skeleton.js"
 
@@ -122,17 +122,17 @@ export const discClassName = (role: ParticipantRole): string =>
 
 /**
  * The outline a disc wears while an act is in view. The outline is always
- * present and transparent when the act says nothing about this disc, so only
- * its colour ever transitions; Motion owns the disc's opacity and must not
- * find a CSS transition on it.
+ * present and silent (`silentOutlineClassName`) when the act says nothing
+ * about this disc, so only its colour ever transitions; Motion owns the
+ * disc's opacity and must not find a CSS transition on it.
  */
 export const discActOutline = (act: PlaceAct, marker: PlaceMarker): string => {
   const proposer = Option.fromNullable(marker.contributedBy)
   return Match.value(act).pipe(
-    Match.when("compose", () => Option.isNone(proposer) ? "outline-tone-sign-400/70" : "outline-transparent"),
+    Match.when("compose", () => Option.isNone(proposer) ? "outline-tone-sign-400/70" : silentOutlineClassName),
     Match.when("propose", () =>
       Option.match(proposer, {
-        onNone: () => "outline-transparent",
+        onNone: () => silentOutlineClassName,
         onSome: (role) =>
           Match.value(role).pipe(
             Match.when("author", () => "outline-tone-sign-400/70"),
@@ -141,9 +141,9 @@ export const discActOutline = (act: PlaceAct, marker: PlaceMarker): string => {
             Match.exhaustive
           )
       })),
-    Match.when("record", () => Option.isSome(proposer) ? "outline-tone-digest-400/70" : "outline-transparent"),
-    Match.when("arrive", () => "outline-transparent"),
-    Match.when("build", () => "outline-transparent"),
+    Match.when("record", () => Option.isSome(proposer) ? "outline-tone-digest-400/70" : silentOutlineClassName),
+    Match.when("arrive", () => silentOutlineClassName),
+    Match.when("build", () => silentOutlineClassName),
     Match.exhaustive
   )
 }

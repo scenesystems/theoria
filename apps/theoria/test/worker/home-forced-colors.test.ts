@@ -8,6 +8,7 @@ import type { ColorScheme } from "./browser.js"
 import {
   act,
   animationsSettled,
+  attribute,
   BrowserLive,
   click,
   eventually,
@@ -18,7 +19,14 @@ import {
   visible
 } from "./browser.js"
 import { drawn } from "./demo.js"
-import { backgroundColour, edgesOf, systemColour, textColour } from "./platform/in-page.js"
+import {
+  backgroundColour,
+  edgesOf,
+  outlineColour,
+  scrollElementTo,
+  systemColour,
+  textColour
+} from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 /**
@@ -61,13 +69,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       inForcedColors((page) =>
         Effect.gen(function*() {
           const highlight = yield* system(page, "Highlight")
-          const outlined = (control: Locator, what: string) =>
+          // The colour is waited for: a disc transitions its outline colour, and the forced palette
+          // is what it transitions between.
+          const inHighlight = (control: Locator, what: string, focusVisible: boolean) =>
             Effect.gen(function*() {
-              yield* eventually(() => control.evaluate((node) => node.matches(":focus-visible")), true)
+              yield* eventually(() => control.evaluate((node) => node.matches(":focus-visible")), focusVisible)
+              yield* eventually(() => control.evaluate(outlineColour), highlight)
               const { outline } = yield* edge(control)
-              expect({ what, style: outline.style, colour: outline.color, drawn: outline.width > 0 })
-                .toEqual({ what, style: "solid", colour: highlight, drawn: true })
+              expect({ what, style: outline.style, drawn: outline.width > 0 })
+                .toEqual({ what, style: "solid", drawn: true })
             })
+          const outlined = (control: Locator, what: string) => inHighlight(control, what, true)
           // Focus moves as a keyboard reader's does — no pointer first, so `:focus-visible` holds.
           const action = page.getByRole("link", { name: "Browse the packages" })
           yield* focus(action)
@@ -81,6 +93,20 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* visible(answer)
           yield* press(page, "Tab")
           yield* outlined(answer.locator(":focus"), "answer's mark")
+          // The disc no longer holds focus, yet it is the one answering: the ring that says so is a
+          // shadow, dropped here, so the disc's own outline says it in Highlight instead.
+          const stated = (control: Locator, what: string) => inHighlight(control, what, false)
+          yield* stated(disc, "open disc")
+          // A merged proposal's name, pressed, answers for its disc: that disc says so the same way.
+          yield* press(page, "Escape")
+          const name = page.locator("[data-place-proposal][data-place-recorded='true']").first()
+            .locator("[data-place-feature]")
+          yield* act(() => name.scrollIntoViewIfNeeded())
+          yield* click(name)
+          yield* visible(answer)
+          const answered = page.locator("[data-place-marker][data-place-focused]")
+          yield* visible(answered)
+          yield* stated(answered, "answered disc")
         })
       ))
 
@@ -148,6 +174,32 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             expect(border.color).toBe(canvasText)
           })
           expect(yield* colour(discs.first())).toBe(canvas)
+        })
+      ))
+
+    it.scoped("an act lights a disc's outline in CanvasText, and a disc it says nothing of wears none", () =>
+      inForcedColors((page) =>
+        Effect.gen(function*() {
+          const canvasText = yield* system(page, "CanvasText")
+          const discs = page.locator("[data-place-marker]")
+          const stage = page.locator("[data-place-stage-act]")
+          yield* attribute(stage, "data-place-stage-act", "arrive")
+          // The arrival says nothing of any disc. The silent outline is transparent, which the forced
+          // palette would repaint in CanvasText and so light every disc; it is drawn as no outline instead.
+          const silent = yield* edges(discs)
+          expect(silent.length).toBeGreaterThan(0)
+          Arr.forEach(silent, ({ outline }) => expect(outline.style).toBe("none"))
+          // Composing lights the features the author drew first; the merged proposals' stay silent.
+          yield* act(() => page.locator("[data-place-act='compose']").evaluate(scrollElementTo, 0.45))
+          yield* attribute(stage, "data-place-stage-act", "compose")
+          const composed = yield* edges(discs)
+          const [quiet, lit] = Arr.partition(composed, ({ outline }) => outline.style !== "none")
+          expect(lit.length).toBeGreaterThan(0)
+          expect(quiet.length).toBeGreaterThan(0)
+          Arr.forEach(lit, ({ outline }) => {
+            expect(outline.width).toBeGreaterThan(0)
+            expect(outline.color).toBe(canvasText)
+          })
         })
       ))
 
