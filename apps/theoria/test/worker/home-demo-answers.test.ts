@@ -300,11 +300,15 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.sleep(Duration.millis(600))
         yield* visible(overlay)
 
-        // Another mark pressed moves the answer to it; the first is no longer the one answered.
+        // Another mark pressed moves the answer to it; the first is no longer the one answered, and focus
+        // stays with the mark pressed — the answer moving is not the answer closing, so nothing is handed back.
         yield* click(line)
         yield* attribute(line, "data-popup-open", "")
         yield* count(demo.locator("[data-provenance][data-popup-open]"), 1)
         yield* containsText(overlay.locator("[data-current]").getByRole("heading", { level: 3 }), /^Line 3 of \d+$/u)
+        yield* Effect.sleep(Duration.millis(200))
+        expect(yield* act(() => line.evaluate(isActiveElement))).toBe(true)
+        expect(yield* act(() => disc.evaluate(isActiveElement))).toBe(false)
 
         // The same mark pressed again closes it, and focus is back on the mark.
         yield* click(line)
@@ -317,6 +321,21 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* press(page, "Escape")
         yield* hidden(overlay)
         yield* eventually(() => disc.evaluate(isActiveElement), true)
+
+        // A press on nothing in particular — the demo's own heading — closes the answer, and focus is back on the mark.
+        yield* click(disc)
+        yield* visible(overlay)
+        yield* click(demo.getByRole("heading", { level: 2 }).first())
+        yield* hidden(overlay)
+        yield* eventually(() => disc.evaluate(isActiveElement), true)
+
+        // A press on a control closes the answer too, and focus is where the visitor put it: on the control.
+        const brief = page.locator("[data-place-step='compose']").getByRole("textbox")
+        yield* click(disc)
+        yield* visible(overlay)
+        yield* click(brief)
+        yield* hidden(overlay)
+        yield* eventually(() => brief.evaluate(isActiveElement), true)
         expect(yield* failures).toEqual([])
       }))
 

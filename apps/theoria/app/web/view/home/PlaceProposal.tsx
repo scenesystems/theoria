@@ -229,8 +229,8 @@ const recordedClassName =
  * from the offer as the recording made it, with every word the build will
  * sign — the name, the signature, the ID, the version — as a ghost in its
  * place. The proposal's link to the drawn prose is the focus model's: its
- * name, pointed at, lights the line its sentence stands on, and that line,
- * pointed at, lights the name and the disc (`placeProvenance.lineAnswer`).
+ * name, pressed, lights the line its sentence stands on, and that line,
+ * pressed, lights the name and the disc (`placeProvenance.lineAnswer`).
  */
 export const PlaceProposal = ({
   accepted,

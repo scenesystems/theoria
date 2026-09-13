@@ -220,7 +220,7 @@ const bandGap = 10
 /**
  * The band drops the prose and keeps the discs, set in one row in the
  * proportions they have on the stage: a merge arrives as one more disc, a
- * code line pointed at lights the disc it made. Their places on the sheet
+ * code line pressed lights the disc it made. Their places on the sheet
  * are not kept — on a narrow stage they are one column beside the prose, and
  * a strip has no room for a sheet — so the row reads left to right in the
  * order the place names them. The row is in stage units; the strip draws it

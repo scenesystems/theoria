@@ -98,11 +98,11 @@ const LinesPresence = ({ children, preference }: {
   )
 
 /**
- * Each line of prose is a mark: resting on it, or pressing it, says how the
- * line was set, in words the layout engine chose. The lines are one stop in
+ * Each line of prose is a mark: pressing it says how the line was set, in
+ * words the layout engine chose. The lines are one stop in
  * the tab order — a vertical toolbar, so the arrows move between lines and
  * Enter opens the line's answer — and the prose still reads in order. While
- * answered, whether pointed at itself or through the code that set it or the
+ * answered, whether pressed itself or through the code that set it or the
  * proposal whose sentence stands on it, the line wears a faint wash. The
  * lines' sheet itself lets the pointer through to the discs beneath it; only
  * the lines take it.

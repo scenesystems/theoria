@@ -211,9 +211,10 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
 }
 
 /**
- * One feature on the stage. The disc is a button: hover, focus or tap opens
- * the feature's description and who added it, so nothing about the place is
- * hover-only. Its accessible name is the same text the legend uses. The name
+ * One feature on the stage. The disc is a button: a press — by pointer,
+ * finger or keyboard — opens the feature's description and who added it;
+ * the pointer resting on it reveals nothing, so pointer and touch read the
+ * same. Its accessible name is the same text the legend uses. The name
  * is drawn on the disc at the width it was measured to fit, wrapping as
  * measured; a disc too small for its name shows its number instead.
  *

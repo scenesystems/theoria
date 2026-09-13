@@ -313,7 +313,9 @@ const pressOn = (details: Popover.Root.ChangeEventDetails): Option.Option<MarkTr
  * changes nothing.
  *
  * An answer takes focus and hands it back to its mark, unless the mark left
- * the page or the answer routed the reader to a line of code meanwhile.
+ * the page or the answer routed the reader to a line of code meanwhile — or
+ * the dismissal was a press on a control, which took focus for itself before
+ * the answer closed, and keeps it: the visitor put it there.
  * Where focus goes, and what the answer was saying, are known after the
  * answer itself is gone, from `placeAnswerFocusReturnAtom` and
  * `placeAnswerOnShowAtom`, so the popup closes as it was rather than emptied.
@@ -325,7 +327,11 @@ export const PlaceProvenanceOverlay = () => {
   const focusReturn = useAtomValue(placeAnswerFocusReturnAtom)
   const setAnswer = useAtomSet(placeAnswerAtom)
   const triggerId = Option.match(answer, { onNone: () => null, onSome: (current) => current.triggerId })
-  const finalFocus = () => focusReturn !== "stays"
+  // Focus is handed back only once the answer has closed. The popover asks
+  // this whenever its trigger changes hands as well — the answer moving from
+  // one mark to the next — and, told anything but no, would hand focus back
+  // to the mark just left while the answer stands open on the next.
+  const finalFocus = () => Option.isNone(answer) && focusReturn !== "stays"
 
   const onOpenChange = (open: boolean, details: Popover.Root.ChangeEventDetails) => {
     Option.match(
