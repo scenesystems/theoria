@@ -329,6 +329,33 @@ encountered prohibited implementation or banned test remains a current owned
 correction, never optional follow-up debt. Preserve concurrent work and explicit
 approval/access boundaries without claiming blocked work complete.
 
+**Build the target; do not become its historian.** Git commits and diffs carry
+change history; source defines APIs and implementation; tests, CI, and runtime
+observations establish behavior. Documentation teaches the supported system and
+durable rationale. A requested plan describes the researched target, exact API,
+composition, acceptance, and necessary delivery order. PR bodies explain the
+current proposed outcome, consequential decisions, and review boundaries.
+
+Update prose in place only when that meaning changes. Commits, pushes, checks,
+and handoffs do not require spec or PR updates. No progress matrices, evidence
+ledgers, per-wave sections, command transcripts, cost/log/thread inventories,
+or duplicated CI histories. Keep material current blockers concise; preserve
+unique relevant rationale in the proper design section when removing a diary,
+not in another archive or handoff file. Delivery stages are truthful claim
+distinctions, not mandatory columns. Historical investigation uses original
+records and does not create permanent history artifacts unless explicitly
+requested or required by an identified adopted external retention protocol.
+
+Coordinators preserve direct human scope and read guidance before citing it.
+Audits and agent recommendations cannot authorize a new product program,
+reporting format, or permanent artifact through "our process." Coordinate in
+the working conversation unless the user requests an external tracking record
+or an identified adopted external protocol requires one. Necessary technical
+decisions and encountered native-Effect/banned-test corrections remain current
+work; less bookkeeping never weakens TDD, integration, verification, or approval
+boundaries. Do not claim completion from prose, checked boxes, or a green command
+that never exercises the required behavior.
+
 Scene's consolidated workflows are maintained in
 [Eva's skill directory](https://github.com/scenesystems/eva/tree/main/.agents/skills).
 When exposed by the working environment, use these workflow owners and read the
@@ -342,7 +369,7 @@ do not invent unavailable skill names or copy a competing skill library here.
 | `composing-ui`          | Participant framing, visual direction, shared UI, channel fidelity, accessibility, rendered review                       |
 | `engineering-review`    | Direct review, corrective findings, bounded Oracle profiles                                                              |
 | `documenting-systems`   | API docs, examples, rationale, specifications, diagrams, validation                                                      |
-| `coordination-protocol` | Independent work, writable ownership, integration, required status records                                               |
+| `coordination-protocol` | Independent work, human-scope preservation, writable ownership, integration, concise handoffs                            |
 | `building-skills`       | Guidance placement and consolidation                                                                                     |
 | `committing-changes`    | Cohesive verified commits                                                                                                |
 
