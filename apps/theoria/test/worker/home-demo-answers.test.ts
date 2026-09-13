@@ -16,6 +16,7 @@ import {
   focus,
   goto,
   hidden,
+  holdResponse,
   hover,
   openPage,
   phone,
@@ -229,6 +230,27 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* hidden(overlay)
         // A pressed answer hands focus back to the mark that opened it.
         yield* eventually(() => line(1).evaluate(isActiveElement), true)
+        // The lines are not native buttons; Space presses one as Enter does, and a second press on the
+        // open mark closes its answer — the same press, the other way. A line presses when Space goes
+        // down, so the key comes up with the answer open: the answer itself holds focus then, and the
+        // key's release presses nothing inside it — one answer, and no preview opened by the same Space.
+        yield* press(page, "Space")
+        yield* visible(overlay)
+        yield* containsText(overlay.getByRole("heading", { level: 3 }), /^Line 2 of \d+$/u)
+        yield* eventually(() => page.evaluate(activeElementWithin, "[data-place-provenance]"), true)
+        yield* Effect.sleep(Duration.millis(200))
+        yield* count(page.getByRole("dialog"), 1)
+        // Back through the answer to its mark, which stands just before the popup in the tab sequence.
+        yield* press(page, "Shift+Tab").pipe(
+          Effect.andThen(act(() => line(1).evaluate(isActiveElement))),
+          Effect.repeat({ until: (onMark) => onMark, times: 6 })
+        )
+        expect(yield* act(() => line(1).evaluate(isActiveElement))).toBe(true)
+        yield* visible(overlay)
+        yield* press(page, "Space")
+        yield* hidden(overlay)
+        yield* count(demo.locator("[data-place-line][data-place-focused]"), 0)
+        expect(yield* act(() => line(1).evaluate(isActiveElement))).toBe(true)
 
         // A merged proposal's name, pressed, lights its disc and the line of the drawing its sentence stands on.
         const merged = demo.locator("[data-place-proposal][data-place-recorded='true']").first()
@@ -395,11 +417,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const overlay = page.locator("[data-place-provenance]")
         const heading = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
         const disc = demo.locator("[data-place-marker]").first()
+        const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
+        const radio = scenarios.getByRole("radio", { name: placeScenarioMeta["lost-market"].label })
+        // The next story's build is held at the browser's edge, so the old drawing stays on the paper
+        // for as long as the test needs: the press that chose the story is over before the answer opens,
+        // and cannot be what closes it.
+        const build = yield* holdResponse(page, "POST", "/api/imagined-place/build")
+        yield* click(radio)
+        yield* attribute(radio, "aria-checked", "true")
         yield* click(disc)
         yield* visible(overlay)
         const title = yield* Option.fromNullable(yield* act(() => heading.textContent()))
-        const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
-        const radio = scenarios.getByRole("radio", { name: placeScenarioMeta["lost-market"].label })
         // The answer's title, sampled a frame apart for as long as the popup is on the page:
         // while the next story is built the old drawing stays and so does its answer; the
         // moment the new drawing replaces it the answer goes — fading with the words it had,
@@ -413,13 +441,18 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.map(Chunk.toReadonlyArray),
           Effect.fork
         )
-        yield* click(radio)
+        // A few frames of the pending build are sampled with the answer open before it is let go.
+        yield* Effect.sleep(Duration.millis(200))
+        yield* build.release
         const popupUntilGone = yield* Fiber.join(sampling)
         const whileOnPage = Arr.filter(popupUntilGone, ({ popups }) => popups > 0)
-        expect(whileOnPage.length).toBeGreaterThan(0)
+        expect(whileOnPage.length).toBeGreaterThan(8)
         expect(Arr.every(whileOnPage, ({ titles }) => titles.length === 1 && titles[0] === title)).toBe(true)
         yield* hidden(overlay)
-        expect(yield* act(() => radio.evaluate(isActiveElement))).toBe(true)
+        // The answer went with its drawing, not with a press: no mark of the new drawing was handed focus.
+        yield* count(demo.locator("[data-provenance][data-popup-open]"), 0)
+        yield* count(demo.locator("[data-place-focused]"), 0)
+        expect(yield* act(() => page.locator("body").evaluate(isActiveElement))).toBe(true)
         expect(yield* failures).toEqual([])
       }))
 

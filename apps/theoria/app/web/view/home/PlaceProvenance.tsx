@@ -3,7 +3,7 @@ import { Popover } from "@base-ui/react/popover"
 import { useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
-import { type ComponentProps, Fragment, useEffect, useId } from "react"
+import { type ComponentProps, Fragment, useEffect, useId, useRef } from "react"
 
 import {
   codeSiteCall,
@@ -336,6 +336,12 @@ export const PlaceProvenanceOverlay = () => {
   // one mark to the next — and, told anything but no, would hand focus back
   // to the mark just left while the answer stands open on the next.
   const finalFocus = () => Option.isNone(answer) && focusReturn !== "stays"
+  // Opened from the keyboard, the answer itself takes focus, and Tab reaches
+  // its marks. The default would focus the first mark inside — and a line of
+  // the prose, a composite item, presses when Space goes down, so the key
+  // would come up on that mark and press it too, opening a preview beside the
+  // answer. Opened by a pointer, the default stands.
+  const popupRef = useRef<HTMLDivElement>(null)
 
   const onOpenChange = (open: boolean, details: Popover.Root.ChangeEventDetails) => {
     Option.match(
@@ -368,7 +374,13 @@ export const PlaceProvenanceOverlay = () => {
             side="top"
             sideOffset={8}
           >
-            <Popover.Popup className={popupClassName} data-place-provenance finalFocus={finalFocus}>
+            <Popover.Popup
+              ref={popupRef}
+              className={popupClassName}
+              data-place-provenance
+              initialFocus={(openType) => openType === "keyboard" ? popupRef.current : true}
+              finalFocus={finalFocus}
+            >
               <Popover.Viewport className={viewportClassName}>
                 {Option.match(onShow, {
                   onNone: () => null,
