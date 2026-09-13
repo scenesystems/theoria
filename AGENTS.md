@@ -130,12 +130,35 @@ launder a prohibited implementation; every first-party owner follows the rule.
   implementation, recorded lint debt, or green checks. Research the exact
   installed public APIs, exports, source, tests, and official integrations for
   an unresolved need. Report the exact requirement; do not authorize a fallback,
-  weaken enforcement, suppress diagnostics, or defer a known in-scope violation.
+  weaken enforcement, suppress diagnostics, or defer an encountered violation.
   Only explicit owner direction can authorize a departure.
 
 Apply these requirements across the entire declared work scope and its real
 consumers/providers, not only newly added lines or examples named by the user.
 Skills, local guidance, examples, and reviewer advice cannot weaken the mandate.
+
+**You encounter it, you own fixing it forward.** Encountering a prohibited
+implementation, workaround, or testing pattern makes its correction part of the
+current work, even when it predates the task, belongs to another module, or was
+outside the initial assignment. Do not leave it behind as "pre-existing,"
+"unrelated," "not assigned," optional cleanup, a TODO, or a follow-up instead
+of correcting it.
+
+Fix the canonical implementation with public native Effect APIs and migrate the
+affected consumers and providers needed for a coherent correction. Preserve
+intended behavior and verify the correction; wrappers, assertions, suppressions,
+weaker policy, and temporary substitutes do not resolve it. Rewrite a banned
+test around any meaningful first-party behavioral claim through the real public
+API. Remove tests that protect no first-party behavior rather than replacing
+them with another inventory or trivial assertion. Never delete useful coverage
+or weaken expectations merely to obtain green checks.
+
+This standing ownership does not authorize unrelated features or overwriting
+concurrent work. Coordinate writable ownership and respect explicit read-only
+and approval boundaries; obtain required access rather than treating them as
+scope excuses. A genuine blocker remains an explicit unresolved correction, not
+a completed delivery. Leave the codebase better by resolving encountered
+problems, not just listing them.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
