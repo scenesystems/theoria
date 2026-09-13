@@ -29,7 +29,10 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 - **`Match.exhaustive`** for all dispatch — no `switch`, no `if/else` chains
 - **`Effect.filterOrFail`** for all validation — no `if` statements
 - **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
-- **`Math.sqrt`** is the only allowed plain JS math function (deterministic IEEE 754 leaf)
+- **No native-math exception**, including `Math.sqrt`. Determinism, IEEE 754
+  semantics, private kernels, and performance do not authorize plain JavaScript.
+  Research the native Effect mathematical API/composition for the operation;
+  report an unresolved primitive requirement rather than adding a fallback.
 
 ## Domain Architecture
 
@@ -53,7 +56,9 @@ Each domain owns: `contract.ts`, `model.ts`, `schema.ts`, `errors.ts`, `operatio
 
 ## Three-Tier Operation Pattern
 
-1. **Pure kernel** — synchronous function on `Chunk<number>`, no Effect wrapper
+1. **Pure kernel** — synchronous public Effect API composition on `Chunk<number>`,
+   no meaningless Effect wrapper and no native operators, methods, loops, or
+   branches inside the kernel or its callbacks
 2. **Effect-wrapped** — Schema decode with `onExcessProperty: "error"`, typed errors
 3. **Policy-aware** — reads `PrecisionPolicyService`/`DiagnosticsPolicyService` via `Context.Tag`
 

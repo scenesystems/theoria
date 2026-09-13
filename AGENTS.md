@@ -58,7 +58,12 @@ For `apps/theoria` dev work, use the checked-in runbook: `bun run app:theoria:tm
 
 ## Vendored Source Reference
 
-The Effect-TS monorepo source is vendored at `.vendor/effect/` for direct reading. When you need to understand how an Effect API works internally, read the source — don't guess or hallucinate signatures.
+The Effect-TS monorepo source is vendored at `.vendor/effect/` for direct reading.
+Read it to establish public API contracts, types, semantics, and supported
+consumer composition. Effect implements abstractions; we consume them. Its
+internal operators, loops, mutation, assertions, and native JavaScript or
+TypeScript never authorize bypassing the public APIs here. Apply that distinction
+to upstream tests and examples too; do not guess or hallucinate signatures.
 
 ```bash
 bun run vendor:check   # see if versions drifted
@@ -71,11 +76,53 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+**Native Effect means consuming the appropriate public Effect APIs throughout
+every implementation, not imitating Effect's internal JavaScript or TypeScript.**
+This is mandatory in pure computation, callbacks, helpers, data and type models,
+services, providers, UI, tests, fixtures, examples, scripts, benchmarks, and
+tooling. Framework configuration is not exempt: required declarations do not
+authorize non-native program logic. Use native `@effect/vitest` composition for
+tests, including `it.effect()` for Effect behavior.
+
+- Use `Boolean`, `Predicate`, `Match`, `Option`, `Either`, and Effect control
+  flow instead of native ternaries, `if`/`else`, `switch`, short-circuit
+  operators, or nullable branching. Closed variants require exhaustive handling.
+- Use native collection and traversal APIs, `Equal`, `Equivalence`, `Order`,
+  `Ordering`, `Number`, `String`, and the appropriate Effect mathematical APIs
+  for every operation, including inside callbacks and pure numeric kernels.
+  No native collection methods, loops, mutable accumulators, operators,
+  `Object.*`, or spread-based substitutes.
+- Schema owns validated data, codecs, brands, transformations, and derived
+  types. Use native Schema/Data classes, tagged values, errors, and collections.
+  No parallel handwritten models, plain `ReadonlyArray`, TypeScript `Record`,
+  `Readonly`/utility-type substitutes, casts, `as const`, `satisfies`, non-null
+  assertions, or `any`/`unknown` escape hatches. Schema-derived `Type` and
+  `Encoded` and native API declarations are consumers, not substitute models.
+- Use native services, Layers, typed errors, scopes, fibers, streams, retries,
+  state, time, randomness, and observability. Consume Platform and ecosystem
+  integrations before designing adapters. Bun is the default executable host;
+  Node requires explicit owner direction. Atom owns reactive state and lifetime,
+  including transient element observation; do not replace it with React state
+  or effect escape hatches or ad hoc Promise state.
+- Keep pure native APIs pure. An outer Effect return type, `Effect.gen`,
+  `Effect.sync`, or service wrapper cannot make a non-native body compliant.
+  Preserve laziness, narrowing, ordering, equality, failures, cancellation,
+  resource lifetimes, and numeric semantics through native composition.
+- No exemption follows from simplicity, performance, deterministic math,
+  adapter/host naming, configuration, fixtures, current source, upstream
+  implementation, recorded lint debt, or green checks. Research the exact
+  installed public APIs, exports, source, tests, and official integrations for
+  an unresolved need. Report the exact requirement; do not authorize a fallback,
+  weaken enforcement, suppress diagnostics, or defer a known in-scope violation.
+  Only explicit owner direction can authorize a departure.
+
+Apply these requirements across the entire declared work scope and its real
+consumers/providers, not only newly added lines or examples named by the user.
+Skills, local guidance, examples, and reviewer advice cannot weaken the mandate.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
-- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers; the only files outside the rules are framework configuration (`**/*.config.*`) and built assets (`apps/*/public/**`). Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
+- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers. Current tooling excludes framework configuration (`**/*.config.*`) and built assets (`apps/*/public/**`); exclusions describe enforcement coverage, not permission for non-native first-party logic. Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment. Do not add or broaden exceptions to admit prohibited code.
 - `.oxlintrc.json` owns every generic JavaScript and TypeScript rule: correctness, `no-unused-vars`, `no-explicit-any`, import hygiene, the Node builtin ban (`import/no-nodejs-modules`), and the `@ts-*` directive ban. It has no path overrides. Warnings fail the run (`denyWarnings`). Two rules are intentionally off: `require-yield` (an `Effect.gen` body without `yield*` is a legitimate idiom) and `typescript/prefer-as-const` (conflicts with the `as` ban). The two linters do not overlap.
 - `.dprint.json` owns formatting.
 - `@effect/tsgo` adds Effect diagnostics inside `tsc`.
@@ -99,12 +146,12 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                              |
 | `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                           |
 | `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
-| `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                   |
+| `Effect.runPromise/runSync`                                       | `BunRuntime.runMain` at executable entry points; Atom-owned execution in UI                                                                                              |
 | TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                       |
 | `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                           |
 | `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                |
 | `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                         |
-| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                      |
+| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; use Schema property transformations or the researched native integration for external optional fields, never spread-based substitute models           |
 | `globalThis`, `localStorage`, `Bun.*`, `crypto.*`                 | A service: `@effect/platform-browser` (`BrowserKeyValueStore`, `Clipboard`), `@effect/platform-bun`, `@scenesystems/digest`, `generateEntropy` from `@scenesystems/sign` |
 | `new URL()`, `fetch()`                                            | `Url.fromString`, `HttpClient` from `@effect/platform`                                                                                                                   |
 | `setTimeout/setInterval`, `requestAnimationFrame`, `performance`  | `Effect.sleep`, `Schedule`, `Clock.currentTimeNanos`; the app's `AnimationFrame` service or Motion's `frame`                                                             |
@@ -177,6 +224,10 @@ git commit -m "feat(effect-search): add TPE categorical sampler"
 
 ## Testing
 
+- No tests about tests, guidance, inventories, or scaffolding. Every test must
+  distinguish a plausible defect in first-party behavior; reasserting configured
+  mock values, retesting a dependency in isolation, and trivial success checks
+  are not acceptance evidence.
 - RED → GREEN → REFACTOR. Tests first.
 - Golden fixtures from reference implementations (Optuna, DSPy).
 - Fixture generation uses `uv run` — never `python3` directly.

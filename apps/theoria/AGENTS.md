@@ -27,7 +27,10 @@ React + Tailwind CSS v4 + effect-atom application showcasing Scene Systems packa
 
 1. **Effect-native only** — no `async/await`, `throw`, `try/catch`, `let`, `for/while`, `switch`, `console.*`. See root AGENTS.md.
 2. **No `useEffect`** — effect-atom handles all subscriptions, side effects, and cleanup.
-3. **No `useState` for domain state** — use `Atom.make` at module level.
+3. **Atom owns all reactive state and lifetime** — no `useState` escape hatch for
+   domain, view, transient, or element-observation state. Use native Atom
+   composition with the lifetime the value requires; research unresolved
+   framework integration rather than granting a local exception.
 4. **No raw HTML** — use layout primitives (Stack, Cluster, Layer, Section) and SemanticText for all text.
 5. **No hardcoded colors** — all from theme tokens via CSS variables.
 6. **No dynamic Tailwind class construction** — `bg-${x}-500` is BANNED. Use `Match.exhaustive` with full literal strings.
