@@ -84,6 +84,16 @@ tooling. Framework configuration is not exempt: required declarations do not
 authorize non-native program logic. Use native `@effect/vitest` composition for
 tests, including `it.effect()` for Effect behavior.
 
+Public means supported by the installed package's public exports and consumer
+declarations, not merely exported from upstream source. No dependency-internal
+imports, APIs marked internal, invented APIs, or assertions to reach unavailable
+APIs. Resolve version drift against the installed public contract. These module
+names and banned examples illustrate rather than limit the mandate; it applies
+to newly encountered concerns and future Effect versions. Prefer the dedicated
+public combinator over rebuilding its behavior from lower-level operations.
+A first-party wrapper, alias, re-export, or Effect-sounding package name cannot
+launder a prohibited implementation; every first-party owner follows the rule.
+
 - Use `Boolean`, `Predicate`, `Match`, `Option`, `Either`, and Effect control
   flow instead of native ternaries, `if`/`else`, `switch`, short-circuit
   operators, or nullable branching. Closed variants require exhaustive handling.
@@ -108,6 +118,13 @@ tests, including `it.effect()` for Effect behavior.
   `Effect.sync`, or service wrapper cannot make a non-native body compliant.
   Preserve laziness, narrowing, ordering, equality, failures, cancellation,
   resource lifetimes, and numeric semantics through native composition.
+- Verify actual contracts, not API-name analogies: concurrency defaults, first
+  success versus first completion, finalizer failure, numeric edge cases, and
+  nested equality matter. Outer Data/Schema constructors do not make nested
+  plain values structural or deeply immutable. No unsafe extraction, unchecked
+  validation, or ambient-time substitute for typed failure or service ownership.
+  Expected failures stay typed; invariant defects and interruption retain their
+  `Cause` semantics rather than being relabeled as recoverable errors.
 - No exemption follows from simplicity, performance, deterministic math,
   adapter/host naming, configuration, fixtures, current source, upstream
   implementation, recorded lint debt, or green checks. Research the exact
@@ -133,16 +150,16 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | Banned                                                            | Use Instead                                                                                                                                                              |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                                                               |
-| `throw`, `try/catch`                                              | `Data.TaggedError`, `Schema.TaggedError`                                                                                                                                 |
-| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError`                                                                                                                               |
+| `throw`, `try/catch`                                              | Native typed failure/recovery for expected errors; preserve defects and interruption in `Cause`; translate authorized foreign exceptions once                            |
+| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError` for expected failures; `Effect.die` for a genuine invariant defect, never as a recovery shortcut                              |
 | `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                     |
 | `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                            |
 | `for`, `while`, `do...while`                                      | `Arr.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                            |
 | `switch`                                                          | `Match` from effect                                                                                                                                                      |
 | `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                                                        |
 | `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                                                          |
-| `as` assertions, `satisfies`                                      | `Schema.decodeUnknown`, `Schema.is`                                                                                                                                      |
-| `JSON.parse/stringify`                                            | `Schema.decode` / `Schema.encode`                                                                                                                                        |
+| `as` assertions, `satisfies`                                      | Untrusted input: decode with its owning Schema; internal values: correct the owning type relationship or use native narrowing                                            |
+| `JSON.parse/stringify`                                            | Decode/encode through `Schema.parseJson` composed with the owning Schema; retain typed parse failures                                                                    |
 | `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                              |
 | `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                           |
 | `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
