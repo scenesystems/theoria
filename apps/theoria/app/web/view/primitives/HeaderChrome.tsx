@@ -41,12 +41,14 @@ export const headerChromeIconButtonClassName = (className = ""): string =>
 
 /**
  * Where a header glyph is drawn from, which decides how much of its box its
- * ink fills. Heroicons' 20-unit solid set leaves a two-unit margin, so its
- * ink is four fifths of the box; a brand mark such as GitHub's fills its box
- * to the edge. A glyph's box is its ink size divided by that fraction, so
- * glyphs from either source are drawn the same size.
+ * ink nominally fills. Heroicons' 20-unit solid set draws on a 16-unit grid
+ * inside a two-unit margin — the sun fills the 16 exactly, the open book
+ * spans it at its widest, the moon runs a little past it — so its ink is
+ * taken as four fifths of the box; a brand mark such as GitHub's fills its
+ * box to the edge. A glyph's box is its ink size divided by that fraction,
+ * so glyphs from either source are drawn at nominally the same size.
  */
-export const HeaderGlyphSource = Schema.Literal("heroicon", "brand-mark")
+export const HeaderGlyphSource = Schema.Literal("heroicon-20-solid", "brand-mark")
 export type HeaderGlyphSource = typeof HeaderGlyphSource.Type
 
 /**
@@ -58,7 +60,7 @@ export type HeaderGlyphSource = typeof HeaderGlyphSource.Type
 export const headerChromeGlyphClassName = (source: HeaderGlyphSource): string =>
   Match.value(source).pipe(
     Match.when(
-      "heroicon",
+      "heroicon-20-solid",
       () => "size-[calc(var(--header-chrome-glyph-ink)*1.25)] -mx-[calc(var(--header-chrome-glyph-ink)*0.125)] shrink-0"
     ),
     Match.when("brand-mark", () => "size-(--header-chrome-glyph-ink) shrink-0"),
