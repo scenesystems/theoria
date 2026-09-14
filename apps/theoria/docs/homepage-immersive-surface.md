@@ -1510,12 +1510,17 @@ page told: … /api/imagined-place/build`. The shard's cause is not yet
       stayed uncut in silence. A fiber yields to the event loop every 2 048
       operations, and the first cut measures many labels, so on a slow
       runner a font's arrival re-measuring the column lands in that window.
-      Fixed in the package (`getOrEvict`, `internal/cache.ts`): the read is
-      `Effect.uninterruptible`, so a lookup once begun is finished and
-      shared, and the interrupting fiber gives up its interest, not the
-      result; measurements are bounded, so the wait is one measurement
+      Fixed in the package (`getOrEvict`, `internal/cache.ts`): a miss
+      forks the lookup into the cache layer's scope and the reader waits on
+      it, so a lookup once begun is finished and shared, a reader
+      interrupted while waiting stops waiting and nothing else, and the
+      layer's scope closing stops every lookup still pending; the three
+      layers are `Layer.scoped`. A first version made the read
+      `Effect.uninterruptible`, which held a cancelled reader for the
+      length of the measurement and could not be cancelled at all with an
+      asynchronous `TextMeasurer` (fifth review, #5)
       (`measurement-cache.contract.test.ts`, changeset
-      `text-measurement-lookup-shared`).
+      `text-measurement-lookup-owned`).
 - [x] **The shard's cause, named.** The next occurrence was conclusive: in
       "on a processor four times slower" the app never mounted because
       `/assets/rolldown-runtime-*.js` and `/assets/index-*.css` answered
@@ -1569,6 +1574,54 @@ lost`, and Miniflare's entry worker turns it into a 500 with the error's
       finds nothing open, then presses through open, move, close, Escape and
       a stacked preview; every other suite that hovered a mark to open it
       now presses.
+- [x] **A fifth review** of the branch by the Oracle, after the press work.
+      Every finding closed in its own commit, failing test first where a
+      seam allowed one.
+  - _Search close could hang despite its timeout_ (must, `f32c0c7`).
+    `CloseSearch` ran inside `Effect.addFinalizer`, which is
+    uninterruptible, so `timeoutFail` could never cut the losing request;
+    and after a failed `AskSearch` forgot the worker, the study finalizer
+    still posted a close it never answered. `answered` now restores
+    interruptibility around the request before its timeout, and a close is
+    posted only to a worker still kept (`stillKept`). Tests: a worker that
+    opens but never answers close is given up at `answerWithin`; a worker
+    whose ask fails is forgotten and gets no close (`place-searcher.test.ts`).
+    A second interrupt arriving mid-finalizer would still abandon the close;
+    that is Effect's finalizer semantics, not tested.
+  - _Arrange annotations answered the best trial, not the shown frame_
+    (must, `bd04b1d`). `ShownGeometry` + `placeShownGeometryAtom`
+    (`imagined-place-render.ts`); `placeLiveValues` reads line count and
+    least separation from the shown frame, trial and best loss from the
+    search (`place-live-values.test.ts`; `home-demo-search.test.ts` presses
+    Home and finds annotation, popup and stage agreeing).
+  - _The proposal's anchor fallback could pick the wrong sentence_ (must,
+    `503248c`). `proposalAnchorLine` locates the whole sentence's offset in
+    the flowed letters and maps it to a line; no one-word fallback
+    (`place-anchor-line.test.ts`, fixtures written by hand).
+  - _Resize's first frame bypassed geometry clamping_ (must, `50a3a17`).
+    `drawingOnStage(stage, drawing)` sets a drawing on a stage's rules —
+    `markersBetween(stage)(markers, markers, 1)` and paper at least
+    `paperUnder` — and `renderStream` starts the journey from the left
+    drawing set on the new stage. Deterministic at the geometry
+    (`imagined-place-flow.contract.test.ts`: the scaled drawing breaks the
+    narrow stage's rules and runs prose through a disc; set on the stage it
+    does neither; a drawing on its rules is unchanged). `home-resize.test.ts`
+    samples every frame from 1400 to 320 for clearance — a net, not a
+    reproduction: the one bad frame lived a tick and sampling did not catch
+    it without the fix.
+  - _effect-text's cache fix removed cancellation from a public seam_ (must).
+    See the entry under _The shard's cause_ above: lookups are the layer's
+    scoped work, readers wait interruptibly.
+  - _`PlaceSearchStudies.close` could orphan a study_ (should, `dadc91b`):
+    remove-and-close is one uninterruptible step. Not red-first: no seam
+    lets a test interrupt between two synchronous steps, and small
+    `withMaxOpsBeforeYield` budgets livelocked the scratch test, which was
+    deleted.
+  - _Mark-left used `useEffect` cleanup_ (should, `e46ece5`): the
+    `observeOnMount` callback-ref pattern, `placeMarkLeftAtom` kept.
+  - _A screenshot committed under a flag's name_ (`916ed3b`): an
+    `agent-browser` invocation with a misplaced `--selector` wrote a file so
+    named; removed. It remains in the branch's history.
 
 ## Non-goals
 

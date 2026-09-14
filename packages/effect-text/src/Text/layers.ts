@@ -52,6 +52,7 @@ const approximateCharacterWidth = (font: FontDescriptorType, char: string): numb
 
 const makeMeasurementCache = Effect.gen(function*() {
   const measurer = yield* TextMeasurer
+  const owner = yield* Effect.scope
   const cache = yield* Cache.make({
     capacity: 1024,
     timeToLive: "24 hours",
@@ -60,7 +61,7 @@ const makeMeasurementCache = Effect.gen(function*() {
 
   return {
     measure: (font: FontDescriptorType, text: string) =>
-      getOrEvict(cache, new MeasurementKey({ font: fontKey(font), text }))
+      getOrEvict(cache, owner, new MeasurementKey({ font: fontKey(font), text }))
   }
 })
 
@@ -261,12 +262,15 @@ export const EngineProfileLive = Layer.succeed(EngineProfile, {
  * Acquires a 1,024-entry, 24-hour cache backed by the ambient `TextMeasurer`.
  * Cache identity includes font family, size, weight normalized to `400`, and
  * text. A failed measurement fails that read but is evicted, so the next
- * request measures again instead of replaying the failure.
+ * request measures again instead of replaying the failure. Measurements are
+ * the layer's work: a reader interrupted while one is pending stops waiting
+ * and nothing else, and the layer's scope closing stops every measurement
+ * still pending.
  *
  * @since 0.1.0
  * @category layers
  */
-export const MeasurementCacheLive = Layer.effect(MeasurementCache, makeMeasurementCache)
+export const MeasurementCacheLive = Layer.scoped(MeasurementCache, makeMeasurementCache)
 
 /**
  * Installs the deterministic segmenter, shipped hyphenation dictionaries,
