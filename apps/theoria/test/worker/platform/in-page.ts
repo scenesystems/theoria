@@ -1392,13 +1392,15 @@ export const textBaselines = (elements: ReadonlyArray<Element>): ReadonlyArray<n
  * its paths' bounds scaled into the box it is drawn in, not the box: glyph
  * sets leave different margins inside their boxes, and a margin is not seen.
  * The glyph's size is the longer side of that ink, so glyphs from different
- * sets compare as the eye compares them. It reaches a point when a press
- * there lands on it, so a control's hit area can be wider than what it shows.
- * For `evaluateAll`.
+ * sets compare as the eye compares them. It reaches the four corners of a
+ * 44px square about its centre when a press at each lands on it, so a
+ * control's hit area can be wider than what it shows; the centre is
+ * returned so a test can press there itself. For `evaluateAll`.
  */
 export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<{
   readonly shown: { readonly left: number; readonly right: number }
-  readonly reaches: { readonly left: boolean; readonly right: boolean }
+  readonly centre: { readonly x: number; readonly y: number }
+  readonly reachesCorners: boolean
   readonly glyphInk: number
 }> => {
   const paintedBox = (element: Element): DOMRect => {
@@ -1423,13 +1425,37 @@ export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<
     const centre = { x: (left + right) / 2, y: (top + bottom) / 2 }
     // Half of a 44px hit area, less a pixel for the edge itself.
     const reach = 21
-    const reaches = (dx: number): boolean => control.contains(document.elementFromPoint(centre.x + dx, centre.y))
+    const reaches = (dx: number, dy: number): boolean =>
+      control.contains(document.elementFromPoint(centre.x + dx, centre.y + dy))
     return {
       shown: { left, right },
-      reaches: { left: reaches(-reach), right: reaches(reach) },
+      centre,
+      reachesCorners: [-reach, reach].every((dx) => [-reach, reach].every((dy) => reaches(dx, dy))),
       glyphInk
     }
   })
+}
+
+/**
+ * How an element's words are underlined, as the browser draws them: which
+ * decoration lines it has, where the underline sits, its colour, and the
+ * colour of the words themselves, read from the first element inside it that
+ * holds them (or the element, if it holds its own).
+ */
+export const underlineDrawn = (element: Element): {
+  readonly lines: string
+  readonly position: string
+  readonly color: string
+  readonly inkColor: string
+} => {
+  const style = getComputedStyle(element)
+  const words = element.querySelector("span") ?? element
+  return {
+    lines: style.textDecorationLine,
+    position: style.textUnderlinePosition,
+    color: style.textDecorationColor,
+    inkColor: getComputedStyle(words).color
+  }
 }
 
 /**
@@ -1476,6 +1502,3 @@ export const boxEdges = (elements: ReadonlyArray<Element>): ReadonlyArray<{
     const box = element.getBoundingClientRect()
     return { top: box.top, bottom: box.bottom }
   })
-
-/** The underline's place on an element's words, as the browser will draw it. */
-export const underlinePosition = (element: Element): string => getComputedStyle(element).textUnderlinePosition

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { siteMetadata } from "../../app/contracts/metadata.js"
@@ -10,11 +10,14 @@ import {
   attribute,
   BrowserLive,
   click,
+  clickAt,
   containsText,
   desktop,
   goto,
+  hover,
   openPage,
   phone,
+  pointerAway,
   setViewport,
   visible
 } from "./browser.js"
@@ -23,7 +26,7 @@ import {
   headerControls,
   mountWrappedBaselineRow,
   textBaselines,
-  underlinePosition,
+  underlineDrawn,
   unmountWrappedBaselineRow
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
@@ -67,7 +70,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the header's ways off the page stand equally apart, each with a glyph and a full hit area", () =>
+    it.scoped("the header's ways off the page stand equally apart in either theme, each with a glyph and a full hit area", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })
         yield* goto(page, "/")
@@ -76,26 +79,46 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.forEach([desktop, phone], (viewport) =>
           Effect.gen(function*() {
             yield* setViewport(page, viewport)
-            const controls = yield* act(() => siteNav(page).locator(":scope > *").evaluateAll(headerControls))
-            const at = `at ${String(viewport.width)}px`
-            expect(controls.length, `${at}: docs, the repository, the other theme`).toBe(3)
-            const gaps = Arr.zipWith(
-              Arr.drop(controls, 1),
-              Arr.dropRight(controls, 1),
-              (next, previous) => next.shown.left - previous.shown.right
+            yield* visible(siteNav(page).getByRole("link", { name: "Docs" }))
+            // Measured with the moon showing, then the sun, and left as found.
+            yield* Effect.forEach(
+              [
+                { offered: "Switch to dark mode", thenOffered: "Switch to light mode" },
+                { offered: "Switch to light mode", thenOffered: "Switch to dark mode" }
+              ],
+              ({ offered, thenOffered }) =>
+                Effect.gen(function*() {
+                  yield* visible(page.getByRole("button", { name: offered }))
+                  const controls = yield* act(() => siteNav(page).locator(":scope > *").evaluateAll(headerControls))
+                  const at = `at ${String(viewport.width)}px offering "${offered}"`
+                  expect(controls.length, `${at}: docs, the repository, the other theme`).toBe(3)
+                  const gaps = Arr.zipWith(
+                    Arr.drop(controls, 1),
+                    Arr.dropRight(controls, 1),
+                    (next, previous) => next.shown.left - previous.shown.right
+                  )
+                  alike(gaps, `${at}: the space the reader sees between controls is one space, not ${String(gaps)}`)
+                  expect(Arr.every(controls, (control) => control.glyphInk > 0), `${at}: every control has a glyph`)
+                    .toBe(true)
+                  alike(
+                    Arr.map(controls, (control) => control.glyphInk),
+                    `${at}: the glyphs are drawn at one size, not ${
+                      String(controls.map((control) => control.glyphInk))
+                    }`
+                  )
+                  expect(
+                    Arr.every(controls, (control) => control.reachesCorners),
+                    `${at}: every control takes a press anywhere in a 44px square about its centre`
+                  ).toBe(true)
+                  // The theme control is a glyph alone, so its hit area is wider than what it shows: press it there.
+                  const theme = yield* Option.match(Arr.last(controls), {
+                    onNone: () => Effect.dieMessage(`${at}: no theme control`),
+                    onSome: Effect.succeed
+                  })
+                  yield* clickAt(page, { x: theme.centre.x + 21, y: theme.centre.y })
+                  yield* visible(page.getByRole("button", { name: thenOffered }))
+                })
             )
-            alike(gaps, `${at}: the space the reader sees between controls is one space, not ${String(gaps)}`)
-            expect(Arr.every(controls, (control) => control.glyphInk > 0), `${at}: every control has a glyph`).toBe(
-              true
-            )
-            alike(
-              Arr.map(controls, (control) => control.glyphInk),
-              `${at}: the glyphs are drawn at one size, not ${String(controls.map((control) => control.glyphInk))}`
-            )
-            expect(
-              Arr.every(controls, (control) => control.reaches.left && control.reaches.right),
-              `${at}: every control is at least 44px wide to a press`
-            ).toBe(true)
           }))
         expect(yield* failures).toEqual([])
       }))
@@ -129,8 +152,15 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const rests = yield* baselines(words)
             expect(rests.length, `${name}: a name and at least one package`).toBeGreaterThan(1)
             alike(rests, `${name}: its name and its packages rest on one baseline, not ${String(rests)}`)
-            const underline = yield* act(() => header.locator("a[href^='/docs/']").first().evaluate(underlinePosition))
-            expect(underline, `${name}: the underline is drawn below the descenders`).toBe("under")
+            const link = header.locator("a[href^='/docs/']").first()
+            yield* pointerAway(page)
+            const before = yield* act(() => link.evaluate(underlineDrawn))
+            expect(before.lines, `${name}: no underline until the pointer arrives`).not.toContain("underline")
+            yield* hover(link)
+            const under = yield* act(() => link.evaluate(underlineDrawn))
+            expect(under.lines, `${name}: the underline arrives under the pointer`).toContain("underline")
+            expect(under.position, `${name}: the underline is drawn below the descenders`).toBe("under")
+            expect(under.color, `${name}: the underline is drawn in the name's colour`).toBe(under.inkColor)
           }))
         expect(yield* failures).toEqual([])
       }))
