@@ -93,7 +93,15 @@ React 19 + effect-atom + Tailwind CSS v4. All state flows through atoms, all ren
 
 ### Browser boundary: `platform/`
 
-The only place the app reads a host global. `BrowserWindow.ts` and `BrowserDocument.ts` acquire `window`/`document` in a `Layer.sync` and expose the operations the app needs (`currentUrl`, `pushState`, `events`, `elementById`, `setTitle`, `canvasContext2d`, …) as Effects over those services; `AnimationFrame.ts` and `ElementSize.ts` wrap `requestAnimationFrame` and `ResizeObserver` the same way; `browser.ts` composes them with `BrowserKeyValueStore.layerLocalStorage`, `Clipboard.layer` and `FetchHttpClient.layer` into `BrowserLive`. Tests provide the same tags from happy-dom or stubs. Nothing outside this folder may name `window`, `document`, `globalThis`, `localStorage`, `navigator` or `fetch`; ESLint bans the host globals repo-wide.
+Browser capabilities belong behind native Effect services composed as
+`BrowserLive`. Consume public Platform browser providers such as
+`BrowserKeyValueStore.layerLocalStorage`, `Clipboard.layer`, and
+`FetchHttpClient.layer` before designing a provider. Test Layers supply the same
+capabilities. The `platform/` location and a `Layer.sync` wrapper do not authorize
+raw host globals or reimplementing an existing native integration. Existing
+`BrowserWindow`, `BrowserDocument`, animation, and observation implementations
+must be assessed against the mandate, not treated as exemptions. Research an
+unresolved host requirement and report it rather than introducing a fallback.
 
 ### Services: `services/`
 
@@ -109,7 +117,15 @@ Every client-side value must belong to exactly one category before you choose an
 
 - **Durable semantic state**: Stable domain identities that survive remounts and route changes. Use `Atom.make`, `Atom.family(id)`, and `Atom.keepAlive` only when the key is a real semantic identity such as a demo id, run session, pane preference, or theme preference.
 - **Derived projection state**: Pure views over durable state. Use read-only derived atoms and let registry TTL reclaim them when idle.
-- **Mount-scoped element observation**: Values derived from a live DOM element (`ResizeObserver`, viewport width, rects, visibility, scroll measurements). These live in `web/atoms/element-observation.ts` as non-`keepAlive` atoms keyed by the element itself (`elementWidthAtom(element)` is an `Atom.family` over the `ElementSize` stream), so the observer lives exactly as long as the element's subscribers. The element reaches the component through a React 19 callback ref into component state (`useElementWidth`): refs run in the commit phase and atom mounts in passive effects, and the registry drops an atom written before anything mounts it, so a writable "slot" atom cannot carry the element. Never key observations by string ids like `useId()` or any other pseudo-identity.
+- **Mount-scoped element observation**: Values derived from a live DOM element
+  (viewport width, rects, visibility, scroll measurements). Keep observation in
+  `web/atoms/element-observation.ts` under native Atom lifetime ownership, keyed
+  by the element and without `keepAlive`. Preserve commit/mount ordering and
+  release the observer with its subscribers. Research the installed Atom/ref
+  integration; an atom written before mounting must not lose the element. That
+  lifecycle constraint does not authorize React state or effect escape hatches.
+  Report an unresolved native integration rather than retaining a non-native
+  fallback. Never key observations by string ids or pseudo-identities.
 
 **Rule**: If the source of truth disappears when the element unmounts, the state must disappear with it. Do not promote DOM lifetime into durable app identity.
 
@@ -132,7 +148,9 @@ Every client-side value must belong to exactly one category before you choose an
 
 1. Use `SemanticText` for all text rendering — never raw `<p>`, `<h1>`, `<span>` with inline text.
 2. Use layout primitives (`Stack`, `Cluster`, `Layer`, `Section`, `Header`) for structure — never raw `<div>` for layout.
-3. Components must fill parents: `min-w-0` + `flex-1` in flex containers.
+3. Layout primitives own fill/fit, intrinsic sizing, and overflow. Let flexible
+   content shrink with `min-w-0` where required; do not force every control,
+   text region, or illustration to stretch with `flex-1`.
 4. All colors from CSS variable theme tokens — never hardcoded hex/rgb.
 5. `Match.exhaustive` for all tagged union dispatch in renderers.
 6. `ref` is a standard prop (React 19) — never use `forwardRef`.
@@ -149,7 +167,14 @@ This applies to all concerns:
 - **Component variants**: Driven by contract schemas (`SurfaceVariant`, `CardTone`, `PackageGroup`). To add a visual variant, extend the schema and handle it via `Match.exhaustive` — never branch on a string literal in a single component.
 - **Tone/accent mapping**: Managed by `contracts/theme.ts` via `toneForCard`, resolved to `ToneClasses` via `designSystem.ts`. To change how a card looks, update the tone mapping — never put card-specific colors in a view component.
 
-**The test**: If a change touches only one component file and adds a visual property that no other component shares, it is almost certainly wrong. The property should live in a contract, a primitive, or a theme token.
+Judge the owning responsibility, not the number of files changed. Reusable
+visual values and behavior must live in their contract, primitive, or theme
+owner; page composition selects those public APIs rather than overriding them.
+Improve a weak owner even when it currently has one consumer. Token compliance
+alone is not visual acceptance, and extracting another wrapper is not a fix.
+Neither the existing card variants nor this source inventory prescribe the
+target composition: prefer open hierarchy and create the required shared layout
+instead of forcing the homepage or docs into nested cards.
 
 ### Composition and Organization
 
@@ -163,12 +188,15 @@ This applies to all concerns:
 - **Hardcoding visual properties on a single component** — extract to a primitive, contract, or CSS variable.
 - **One-off wrapper components** that exist only to override a primitive's style for one use case — improve the primitive instead.
 - `useEffect` for subscriptions or side effects — use effect-atom.
-- `useState` for domain state — use `Atom.make` at module level.
+- `useState` for domain, view, transient, or element-observation state — native
+  Atom composition owns state and its actual lifetime.
 - Importing anything from `server/`.
 - Dynamic Tailwind class construction (`bg-${x}-500`) — use `Match.exhaustive` with literal strings.
 - `dark:` utility classes for color theming — CSS variable swap handles dark mode.
 - Inline styles for colors — use CSS vars via className: `bg-(--my-var)`.
-- Calling `Effect.runPromise` / `Effect.runSync` anywhere except `Atom.runtime`.
+- Calling `Effect.runPromise` / `Effect.runSync` in UI code, including atom
+  callbacks. Declare Effects through `Atom.runtime` and its public atom APIs;
+  Atom owns execution and cleanup, not a component or a manually invoked runner.
 
 ---
 

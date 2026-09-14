@@ -1,6 +1,6 @@
 ---
 description: Development guidelines for theoria monorepo
-globs: "**/*.ts, **/*.mts"
+globs: "**/*"
 alwaysApply: true
 ---
 
@@ -58,7 +58,12 @@ For `apps/theoria` dev work, use the checked-in runbook: `bun run app:theoria:tm
 
 ## Vendored Source Reference
 
-The Effect-TS monorepo source is vendored at `.vendor/effect/` for direct reading. When you need to understand how an Effect API works internally, read the source — don't guess or hallucinate signatures.
+The Effect-TS monorepo source is vendored at `.vendor/effect/` for direct reading.
+Read it to establish public API contracts, types, semantics, and supported
+consumer composition. Effect implements abstractions; we consume them. Its
+internal operators, loops, mutation, assertions, and native JavaScript or
+TypeScript never authorize bypassing the public APIs here. Apply that distinction
+to upstream tests and examples too; do not guess or hallucinate signatures.
 
 ```bash
 bun run vendor:check   # see if versions drifted
@@ -71,11 +76,93 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+**Native Effect means consuming the appropriate public Effect APIs throughout
+every implementation, not imitating Effect's internal JavaScript or TypeScript.**
+This is mandatory in pure computation, callbacks, helpers, data and type models,
+services, providers, UI, tests, fixtures, examples, scripts, benchmarks, and
+tooling. Framework configuration is not exempt: required declarations do not
+authorize non-native program logic. Use native `@effect/vitest` composition for
+tests, including `it.effect()` for Effect behavior.
+
+Public means supported by the installed package's public exports and consumer
+declarations, not merely exported from upstream source. No dependency-internal
+imports, APIs marked internal, invented APIs, or assertions to reach unavailable
+APIs. Resolve version drift against the installed public contract. These module
+names and banned examples illustrate rather than limit the mandate; it applies
+to newly encountered concerns and future Effect versions. Prefer the dedicated
+public combinator over rebuilding its behavior from lower-level operations.
+A first-party wrapper, alias, re-export, or Effect-sounding package name cannot
+launder a prohibited implementation; every first-party owner follows the rule.
+
+- Use `Boolean`, `Predicate`, `Match`, `Option`, `Either`, and Effect control
+  flow instead of native ternaries, `if`/`else`, `switch`, short-circuit
+  operators, or nullable branching. Closed variants require exhaustive handling.
+- Use native collection and traversal APIs, `Equal`, `Equivalence`, `Order`,
+  `Ordering`, `Number`, `String`, and the appropriate Effect mathematical APIs
+  for every operation, including inside callbacks and pure numeric kernels.
+  No native collection methods, loops, mutable accumulators, operators,
+  `Object.*`, or spread-based substitutes.
+- Schema owns validated data, codecs, brands, transformations, and derived
+  types. Use native Schema/Data classes, tagged values, errors, and collections.
+  No parallel handwritten models, plain `ReadonlyArray`, TypeScript `Record`,
+  `Readonly`/utility-type substitutes, casts, `as const`, `satisfies`, non-null
+  assertions, or `any`/`unknown` escape hatches. Schema-derived `Type` and
+  `Encoded` and native API declarations are consumers, not substitute models.
+- Use native services, Layers, typed errors, scopes, fibers, streams, retries,
+  state, time, randomness, and observability. Consume Platform and ecosystem
+  integrations before designing adapters. Bun is the default executable host;
+  Node requires explicit owner direction. Atom owns reactive state and lifetime,
+  including transient element observation; do not replace it with React state
+  or effect escape hatches or ad hoc Promise state.
+- Keep pure native APIs pure. An outer Effect return type, `Effect.gen`,
+  `Effect.sync`, or service wrapper cannot make a non-native body compliant.
+  Preserve laziness, narrowing, ordering, equality, failures, cancellation,
+  resource lifetimes, and numeric semantics through native composition.
+- Verify actual contracts, not API-name analogies: concurrency defaults, first
+  success versus first completion, finalizer failure, numeric edge cases, and
+  nested equality matter. Outer Data/Schema constructors do not make nested
+  plain values structural or deeply immutable. No unsafe extraction, unchecked
+  validation, or ambient-time substitute for typed failure or service ownership.
+  Expected failures stay typed; invariant defects and interruption retain their
+  `Cause` semantics rather than being relabeled as recoverable errors.
+- No exemption follows from simplicity, performance, deterministic math,
+  adapter/host naming, configuration, fixtures, current source, upstream
+  implementation, recorded lint debt, or green checks. Research the exact
+  installed public APIs, exports, source, tests, and official integrations for
+  an unresolved need. Report the exact requirement; do not authorize a fallback,
+  weaken enforcement, suppress diagnostics, or defer an encountered violation.
+  Only explicit owner direction can authorize a departure.
+
+Apply these requirements across the entire declared work scope and its real
+consumers/providers, not only newly added lines or examples named by the user.
+Skills, local guidance, examples, and reviewer advice cannot weaken the mandate.
+
+**You encounter it, you own fixing it forward.** Encountering a prohibited
+implementation, workaround, or testing pattern makes its correction part of the
+current work, even when it predates the task, belongs to another module, or was
+outside the initial assignment. Do not leave it behind as "pre-existing,"
+"unrelated," "not assigned," optional cleanup, a TODO, or a follow-up instead
+of correcting it.
+
+Fix the canonical implementation with public native Effect APIs and migrate the
+affected consumers and providers needed for a coherent correction. Preserve
+intended behavior and verify the correction; wrappers, assertions, suppressions,
+weaker policy, and temporary substitutes do not resolve it. Rewrite a banned
+test around any meaningful first-party behavioral claim through the real public
+API. Remove tests that protect no first-party behavior rather than replacing
+them with another inventory or trivial assertion. Never delete useful coverage
+or weaken expectations merely to obtain green checks.
+
+This standing ownership does not authorize unrelated features or overwriting
+concurrent work. Coordinate writable ownership and respect explicit read-only
+and approval boundaries; obtain required access rather than treating them as
+scope excuses. A genuine blocker remains an explicit unresolved correction, not
+a completed delivery. Leave the codebase better by resolving encountered
+problems, not just listing them.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
-- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers; the only files outside the rules are framework configuration (`**/*.config.*`) and built assets (`apps/*/public/**`). Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
+- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers. Current tooling excludes framework configuration (`**/*.config.*`) and built assets (`apps/*/public/**`); exclusions describe enforcement coverage, not permission for non-native first-party logic. Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment. Do not add or broaden exceptions to admit prohibited code.
 - `.oxlintrc.json` owns every generic JavaScript and TypeScript rule: correctness, `no-unused-vars`, `no-explicit-any`, import hygiene, the Node builtin ban (`import/no-nodejs-modules`), and the `@ts-*` directive ban. It has no path overrides. Warnings fail the run (`denyWarnings`). Two rules are intentionally off: `require-yield` (an `Effect.gen` body without `yield*` is a legitimate idiom) and `typescript/prefer-as-const` (conflicts with the `as` ban). The two linters do not overlap.
 - `.dprint.json` owns formatting.
 - `@effect/tsgo` adds Effect diagnostics inside `tsc`.
@@ -86,29 +173,62 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | Banned                                                            | Use Instead                                                                                                                                                              |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                                                               |
-| `throw`, `try/catch`                                              | `Data.TaggedError`, `Schema.TaggedError`                                                                                                                                 |
-| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError`                                                                                                                               |
+| `throw`, `try/catch`                                              | Native typed failure/recovery for expected errors; preserve defects and interruption in `Cause`; translate authorized foreign exceptions once                            |
+| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError` for expected failures; `Effect.die` for a genuine invariant defect, never as a recovery shortcut                              |
 | `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                     |
 | `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                            |
 | `for`, `while`, `do...while`                                      | `Arr.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                            |
 | `switch`                                                          | `Match` from effect                                                                                                                                                      |
 | `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                                                        |
 | `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                                                          |
-| `as` assertions, `satisfies`                                      | `Schema.decodeUnknown`, `Schema.is`                                                                                                                                      |
-| `JSON.parse/stringify`                                            | `Schema.decode` / `Schema.encode`                                                                                                                                        |
+| `as` assertions, `satisfies`                                      | Untrusted input: decode with its owning Schema; internal values: correct the owning type relationship or use native narrowing                                            |
+| `JSON.parse/stringify`                                            | Decode/encode through `Schema.parseJson` composed with the owning Schema; retain typed parse failures                                                                    |
 | `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                              |
 | `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                           |
 | `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
-| `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                   |
+| `Effect.runPromise/runSync`                                       | `BunRuntime.runMain` at executable entry points; Atom-owned execution in UI                                                                                              |
 | TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                       |
 | `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                           |
 | `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                |
 | `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                         |
-| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                      |
+| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; use Schema property transformations or the researched native integration for external optional fields, never spread-based substitute models           |
 | `globalThis`, `localStorage`, `Bun.*`, `crypto.*`                 | A service: `@effect/platform-browser` (`BrowserKeyValueStore`, `Clipboard`), `@effect/platform-bun`, `@scenesystems/digest`, `generateEntropy` from `@scenesystems/sign` |
 | `new URL()`, `fetch()`                                            | `Url.fromString`, `HttpClient` from `@effect/platform`                                                                                                                   |
 | `setTimeout/setInterval`, `requestAnimationFrame`, `performance`  | `Effect.sleep`, `Schedule`, `Clock.currentTimeNanos`; the app's `AnimationFrame` service or Motion's `frame`                                                             |
 | `process.*` (every property, including `memoryUsage`, `versions`) | `Config`, `Console`, `Path` + `import.meta.url`, `Clock`, `BunRuntime.runMain` (exit code 1 on failure); what Effect cannot observe is not reported                      |
+
+---
+
+## UI, Design, And Brand Quality
+
+Visual and interaction quality are required outcomes, not optional polish after
+architecture or passing tests. Build professionally composed, beautiful,
+coherent, smooth, delightful, responsive experiences. Use the `composing-ui`
+workflow from design through rendered review without copying Scene's identity
+or creating another local skill library.
+
+- Start from original human goals, later corrections, and human-selected
+  references. Agent proposals, summaries, generated images, current code, and
+  shared defaults do not establish approved art direction. Preserve established
+  identity; changing the font family, base palette/material language, logo, or
+  product identity requires explicit human approval. Improve weak foundations
+  within that identity; neither freezing current code nor copying a reference
+  fulfills the target-state requirement.
+- Let actual content and functioning interactions lead. Do not impose a
+  governance/provenance narrative, dashboard, card grid, or package pipeline on
+  every surface. Remove redundant explanation and nested-card fragmentation,
+  not useful guides, real stories, accessible names, status, or recovery.
+  Illustration, atmosphere, expressive hierarchy, and motion can carry identity
+  and delight; restraint is not generic minimalism.
+- Improve shared tokens, primitives, layouts, and interactions at their owners.
+  Do not accept bad visuals because the imports are correct or add local skins,
+  wrappers, or native-JavaScript workarounds to bypass missing quality.
+- Inspect the running experience across relevant routes, themes, content,
+  responsive layouts, and interaction states. Exercise click, touch, hover,
+  focus, loading, transitions, errors, and recovery—not just full-page captures.
+  Inspect screenshots and motion recordings; use real behavioral checks for
+  functionality. Automated tests and pixel diffs cannot approve aesthetics.
+  A blocked render remains visually unverified, not complete.
 
 ---
 
@@ -143,7 +263,6 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `packages/digest/`        | Content hashing, JCS canonicalization (`@scenesystems/digest`)              |
 | `packages/seal/`          | Authenticated encryption (`@scenesystems/seal`)                             |
 | `packages/sign/`          | Digital signatures, key agreement, key encapsulation (`@scenesystems/sign`) |
-| `.agents/skills/`         | Portable Effect-native skills                                               |
 | `.changeset/`             | Independent versioning per package                                          |
 | `packages/*/AGENTS.md`    | Package-specific governance                                                 |
 
@@ -177,6 +296,10 @@ git commit -m "feat(effect-search): add TPE categorical sampler"
 
 ## Testing
 
+- No tests about tests, guidance, inventories, or scaffolding. Every test must
+  distinguish a plausible defect in first-party behavior; reasserting configured
+  mock values, retesting a dependency in isolation, and trivial success checks
+  are not acceptance evidence.
 - RED → GREEN → REFACTOR. Tests first.
 - Golden fixtures from reference implementations (Optuna, DSPy).
 - Fixture generation uses `uv run` — never `python3` directly.
@@ -215,16 +338,85 @@ The build runs once per commit (`build:web`, `deploy:dry-run`, `test:worker`) an
 
 ---
 
-## Skills Reference
+## Always-Applied Method And Workflow Ownership
 
-| Skill                           | When to Load                          |
-| ------------------------------- | ------------------------------------- |
-| `skill:idiomatic-effect`        | Writing Effect code                   |
-| `skill:effect-testing`          | Writing tests with `@effect/vitest`   |
-| `skill:effect-services`         | Designing services and layers         |
-| `skill:effect-error-management` | Designing typed error channels        |
-| `skill:effect-branded-types`    | Creating branded/nominal types        |
-| `skill:effect-data-primitives`  | Using Data module primitives          |
-| `skill:engineering-excellence`  | Structural patterns and decomposition |
-| `skill:target-state-tdd`        | TDD workflow                          |
-| `skill:mermaid-diagrams`        | Architecture diagrams                 |
+All root requirements apply independently of skill discovery or loading. This
+checkout does not bundle `.agents/skills`; missing skills cannot weaken native
+Effect, research, design, TDD, fix-forward ownership, review, or verification.
+
+Read this repository's README and current human direction for Theoria's purpose
+and product experience. Shared engineering skills do not import Scene's company
+vision, World workflows, or product terminology into this scientific-computing
+library, demonstration, or documentation. Architecture and bounded delivery
+plans serve the intended experience; they do not redefine it.
+
+For material work, research the product outcome, current source and real
+consumers, exact installed public contracts, authoritative implementations, and
+official documentation. Synthesize alternatives and evidence into an outside-in
+design: package responsibilities, canonical Schema/Data/Brand models, public
+modules and imports, exact operations and error/requirement channels, services,
+provider Layers, host composition, and meaningful behavioral acceptance.
+Declare the real target API before implementing dependent behavior. Drive each
+behavior red–green–refactor through that public API, migrate real consumers and
+providers, document supported use, resolve material review findings, and verify
+the claimed boundary. Current source measures the gap, not the target ceiling.
+
+Report designed, source-declared, implemented, integrated, verified, and released
+as distinct stages. Compilation and inventories do not establish behavior or
+later-stage guarantees. Missing capabilities block dependent work only; every
+encountered prohibited implementation or banned test remains a current owned
+correction, never optional follow-up debt. Preserve concurrent work and explicit
+approval/access boundaries without claiming blocked work complete.
+
+**Build the target; do not become its historian.** Git commits and diffs carry
+change history; source defines APIs and implementation; tests, CI, and runtime
+observations establish behavior. Documentation teaches the supported system and
+durable rationale. A requested plan describes the researched target, exact API,
+composition, acceptance, and necessary delivery order. PR bodies explain the
+current proposed outcome, consequential decisions, and review boundaries.
+
+Update prose in place only when that meaning changes. Commits, pushes, checks,
+and handoffs do not require spec or PR updates. No progress matrices, evidence
+ledgers, per-wave sections, command transcripts, cost/log/thread inventories,
+or duplicated CI histories. Keep material current blockers concise; preserve
+unique relevant rationale in the proper design section when removing a diary,
+not in another archive or handoff file. Delivery stages are truthful claim
+distinctions, not mandatory columns. Historical investigation uses original
+records and does not create permanent history artifacts unless explicitly
+requested or required by an identified adopted external retention protocol.
+
+Coordinators preserve direct human scope and read guidance before citing it.
+Audits and agent recommendations cannot authorize a new product program,
+reporting format, or permanent artifact through "our process." Coordinate in
+the working conversation unless the user requests an external tracking record
+or an identified adopted external protocol requires one. Necessary technical
+decisions and encountered native-Effect/banned-test corrections remain current
+work; less bookkeeping never weakens TDD, integration, verification, or approval
+boundaries. Do not claim completion from prose, checked boxes, or a green command
+that never exercises the required behavior.
+
+Scene's consolidated workflows are maintained in
+[Eva's skill directory](https://github.com/scenesystems/eva/tree/main/.agents/skills).
+When exposed by the working environment, use these workflow owners and read the
+references applicable to the concern. Otherwise consult their source directly;
+do not invent unavailable skill names or copy a competing skill library here.
+
+| Workflow                | Responsibility                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `production-grade-work` | Research, architecture, naming, exact API design, declaration, TDD, implementation, migration, integration, verification |
+| `idiomatic-effect`      | Every pure/effectful API, type investigation, anti-pattern correction, native testing mechanics                          |
+| `composing-ui`          | Product experience, brand and visual-system design, shared UI implementation, accessibility, rendered review             |
+| `engineering-review`    | Direct review, corrective findings, bounded Oracle profiles                                                              |
+| `documenting-systems`   | API docs, examples, rationale, specifications, diagrams, validation                                                      |
+| `coordination-protocol` | Independent work, human-scope preservation, writable ownership, integration, concise handoffs                            |
+| `building-skills`       | Guidance placement and consolidation                                                                                     |
+| `committing-changes`    | Cohesive verified commits                                                                                                |
+
+Root guidance owns mandatory policy; workflows own reusable procedures and
+technical references. Applicable reference requirements are mandatory. Extend
+one canonical owner rather than adding overlapping or forwarding skills.
+Consolidation preserves distinct requirements, examples, failure cases, and
+executable resources and repairs live handoffs. Browser, Figma, and terminal
+integrations are separate tool instructions, not alternative policy. Historical
+research and upstream implementation are not current coding permission. No
+guidance, inventory, or test-about-tests suite qualifies this method.
