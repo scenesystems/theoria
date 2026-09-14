@@ -3,7 +3,7 @@ import { Popover } from "@base-ui/react/popover"
 import { useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
-import { type ComponentProps, Fragment, useEffect, useId, useRef } from "react"
+import { type ComponentProps, Fragment, useId, useMemo, useRef } from "react"
 
 import {
   codeSiteCall,
@@ -14,6 +14,7 @@ import {
   type PlaceProvenance as Provenance
 } from "../../../contracts/demo/imagined-place-provenance.js"
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
+import { observeOnMount } from "../../atoms/element-observation.js"
 import {
   answerAfterPress,
   placeAnswerAtom,
@@ -79,10 +80,13 @@ export const ProvenanceMark = ({
   const generatedId = useId()
   const triggerId = id ?? `place-mark-${generatedId}`
   const markLeft = useAtomSet(placeMarkLeftAtom)
-  useEffect(() => () => markLeft(triggerId), [markLeft, triggerId])
+  // The mark says it has left at the commit its element leaves the page, so
+  // an answer about it goes with it rather than lingering over nothing.
+  const leaving = useMemo(() => observeOnMount<HTMLElement>(() => () => markLeft(triggerId)), [markLeft, triggerId])
 
   return (
     <Popover.Trigger
+      ref={leaving}
       {...props}
       {...{ [provenanceAttribute]: encoded }}
       data-place-focused={focused ? "" : undefined}
