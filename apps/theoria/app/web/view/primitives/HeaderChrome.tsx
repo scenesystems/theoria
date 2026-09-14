@@ -1,4 +1,4 @@
-import { Match } from "effect"
+import { Match, Schema } from "effect"
 
 import { classNames } from "./classNames.js"
 import { focusEdgeClassName } from "./designSystem.js"
@@ -46,7 +46,8 @@ export const headerChromeIconButtonClassName = (className = ""): string =>
  * to the edge. A glyph's box is its ink size divided by that fraction, so
  * glyphs from either source are drawn the same size.
  */
-export type HeaderGlyphSource = "heroicon" | "brand-mark"
+export const HeaderGlyphSource = Schema.Literal("heroicon", "brand-mark")
+export type HeaderGlyphSource = typeof HeaderGlyphSource.Type
 
 /**
  * A glyph inside a header control, boxed so its ink is the control's glyph

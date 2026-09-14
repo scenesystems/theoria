@@ -1,5 +1,5 @@
 import { useRender } from "@base-ui/react/use-render"
-import { Match } from "effect"
+import { Match, Schema } from "effect"
 
 import { classNames } from "./classNames.js"
 
@@ -45,7 +45,8 @@ export const Section = layoutSlot("section", "min-w-0")
 export const Stack = layoutSlot("div", "flex min-w-0 flex-col")
 
 /** How a flex row aligns its items on the cross axis. */
-export type RowAlign = "baseline" | "center" | "start"
+export const RowAlign = Schema.Literal("baseline", "center", "start")
+export type RowAlign = typeof RowAlign.Type
 
 const rowAlignClassName = (align: RowAlign): string =>
   Match.value(align).pipe(

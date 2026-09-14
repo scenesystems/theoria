@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Either, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import * as Str from "effect/String"
 import type { ReactNode } from "react"
 
 import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
-import { Cluster, Rail } from "../../app/web/view/primitives/Layout.js"
+import { Cluster, Rail, RowAlign } from "../../app/web/view/primitives/Layout.js"
 import { mountReact, waitForValue } from "../helpers/react-mount.js"
 
 const alignmentClasses = (element: Element): ReadonlyArray<string> =>
@@ -48,5 +48,11 @@ describe("layout rows", () => {
       const cluster = yield* mountedRow(<Cluster align="baseline" className="justify-between gap-3" />)
 
       expect(cluster.className).toBe("flex min-w-0 flex-wrap items-baseline justify-between gap-3")
+    }))
+
+  it.effect("refuse an alignment the row cannot draw", () =>
+    Effect.sync(() => {
+      expect(Either.isLeft(Schema.decodeUnknownEither(RowAlign)("middle"))).toBe(true)
+      expect(Schema.decodeUnknownEither(RowAlign)("baseline")).toEqual(Either.right("baseline"))
     }))
 })
