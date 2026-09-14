@@ -1,26 +1,17 @@
-import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
-import { Fragment } from "react"
+import { Fragment, type ReactNode } from "react"
 
-import type { SurfaceVariant } from "../../../../contracts/presentation.js"
-import { syntaxHighlighterAtom } from "../../../atoms/syntax-highlighting.js"
+import { CodeSource, highlightedLinesAtom } from "../../../atoms/syntax-highlighting.js"
 
-import { annotationFor, type CodeAnnotation, CodeAnnotationRow, CodeLine } from "./CodeLine.js"
+import { annotationFor, type CodeAnnotation, CodeAnnotationRow, CodeLine, lineMatches, lineText } from "./CodeLine.js"
 import type { CodeLink } from "./codeLinks.js"
-import { highlightCode, plainCode, tokenClassName } from "./highlighter.js"
+import { tokenClassName } from "./highlighter.js"
 import type { CodeLanguage, HighlightToken } from "./highlighter.js"
 
-const useHighlightedLines = (language: CodeLanguage, source: string): ReadonlyArray<ReadonlyArray<HighlightToken>> => {
-  const highlighter = useAtomValue(syntaxHighlighterAtom)
-
-  return Result.match(highlighter, {
-    onInitial: () => plainCode(source),
-    onFailure: () => plainCode(source),
-    onSuccess: ({ value }) => language === "text" ? plainCode(source) : highlightCode(value, source, language)
-  })
-}
+const useHighlightedLines = (language: CodeLanguage, source: string): ReadonlyArray<ReadonlyArray<HighlightToken>> =>
+  useAtomValue(highlightedLinesAtom(new CodeSource({ language, source })))
 
 const HighlightTokens = ({
   line,
@@ -66,40 +57,71 @@ export const InlineHighlightedCode = ({
   )
 }
 
-const lineRowClassName = "grid grid-cols-[minmax(0,1fr)] items-start sm:grid-cols-[2.45rem_minmax(0,1fr)] sm:gap-3"
+/**
+ * A line's row: the gutter, then the text. The gutter is there at every
+ * width — where a line's number is the control for the line, a phone reaches
+ * it too — narrower on a phone, where the room is the text's.
+ */
+const lineRowClassName =
+  "grid grid-cols-[2rem_minmax(0,1fr)] gap-2 items-start sm:grid-cols-[2.45rem_minmax(0,1fr)] sm:gap-3"
 
 /**
- * A code sample, line by line. `links` turn named symbols into links to the
- * API reference; `annotations` show, under a line, the value the running
- * program produced there.
+ * A line the page is pointing at: washed across its row, a little wider than
+ * the text, with the colour easing in and out.
+ */
+const focusableLineRowClassName =
+  `${lineRowClassName} -mx-2 rounded-md px-2 transition-colors duration-200 ease-theme data-[code-line-focused]:bg-stage-100/80 forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] motion-reduce:transition-none`
+
+const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
+
+/** A line of the sample as the gutter has it: its number, from one, and its text. */
+export class GutterLine extends Schema.Class<GutterLine>("GutterLine")({
+  number: Schema.Int.pipe(Schema.positive()),
+  text: Schema.String
+}) {}
+
+/** The gutter as a listing has it: the number alone. */
+export const gutterNumber = (line: GutterLine): ReactNode => line.number
+
+/**
+ * A code sample, line by line, each with its number in the gutter. `links`
+ * turn named symbols into links to the API reference; `annotations` show,
+ * under a line, the value the running program produced there, rendered by
+ * `renderAnnotation` when the caller wants the value to be more than text.
+ * `focusedMatch` names the line the page is pointing at, by a substring
+ * unique to it. `renderLineNumber` draws the gutter, where a caller can make
+ * a line's number the control for the line — the line itself holds links,
+ * and a control may not.
  */
 export const HighlightedCode = ({
   annotations = [],
+  focusedMatch = Option.none(),
   language = "typescript",
   links = [],
-  source,
-  variant
+  renderAnnotation = defaultAnnotation,
+  renderLineNumber = gutterNumber,
+  source
 }: {
   readonly annotations?: ReadonlyArray<CodeAnnotation>
+  readonly focusedMatch?: Option.Option<string>
   readonly language?: CodeLanguage
   readonly links?: ReadonlyArray<CodeLink>
+  readonly renderAnnotation?: (annotation: CodeAnnotation) => ReactNode
+  readonly renderLineNumber?: (line: GutterLine) => ReactNode
   readonly source: string
-  readonly variant: SurfaceVariant
 }) => {
   const lines = useHighlightedLines(language, source)
-  const showLineNumbers = variant === "expanded"
 
   return (
     <code className="block text-(length:--st-fs-code-block) font-(--st-fw-code-block) tracking-(--st-tr-code-block) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-block) text-ink-900 [tab-size:2]">
       {Arr.map(lines, (line, lineIndex) => (
         <Fragment key={`${lineIndex}:${line.length}`}>
-          <span className={lineRowClassName}>
-            <span
-              className={showLineNumbers
-                ? "hidden select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-700/65 sm:block"
-                : "hidden"}
-            >
-              {lineIndex + 1}
+          <span
+            className={focusableLineRowClassName}
+            data-code-line-focused={lineMatches(line, focusedMatch) ? "" : undefined}
+          >
+            <span className="block select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-700">
+              {renderLineNumber(new GutterLine({ number: lineIndex + 1, text: lineText(line) }))}
             </span>
             <span className="whitespace-pre">
               <CodeLine links={links} tokens={line} />
@@ -109,10 +131,8 @@ export const HighlightedCode = ({
             onNone: () => null,
             onSome: (annotation) => (
               <span className={lineRowClassName}>
-                <span aria-hidden className="hidden sm:block" />
-                <span>
-                  <CodeAnnotationRow text={annotation.text} />
-                </span>
+                <span aria-hidden className="block" />
+                <span>{renderAnnotation(annotation)}</span>
               </span>
             )
           })}

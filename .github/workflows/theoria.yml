@@ -1,11 +1,13 @@
 name: Theoria
 
-# Builds the Theoria site once per commit and deploys that exact build to
-# Cloudflare Workers. Pull requests only build; `theoria-preview.yml` deploys the
-# uploaded build to a per-PR Worker with credentials the PR itself never sees.
-# Pushes to `main` deploy to staging and then to production. The Staging job's
-# verify step is the gate: Production needs it and runs unattended once staging
-# serves the build and its checks pass. See `apps/theoria/DEPLOYMENT.md`.
+# Builds the Theoria site once per commit, tests that exact build in workerd
+# and Chromium on several runners at once, and deploys it to Cloudflare Workers.
+# Pull requests only build and test; `theoria-preview.yml` deploys the uploaded
+# build to a per-PR Worker with credentials the PR itself never sees, once this
+# workflow — tests included — has succeeded. Pushes to `main` deploy to staging
+# and then to production. The Staging job's verify step is the gate: Production
+# needs it and runs unattended once staging serves the build and its checks
+# pass. See `apps/theoria/DEPLOYMENT.md`.
 
 on:
   workflow_dispatch:
@@ -53,19 +55,6 @@ jobs:
       - name: Bundle Worker
         run: bun run --cwd apps/theoria deploy:dry-run
 
-      # The workspace's own Playwright installs the browser build it launches;
-      # `bunx playwright` would resolve the registry's latest release, whose
-      # Chromium revision drifts from the one `@playwright/test` in the lockfile
-      # expects.
-      - name: Install Chromium for Worker browser tests
-        run: bun run --cwd apps/theoria test:worker:browsers
-
-      # Runs the bundle that will be deployed inside workerd against the built
-      # `dist/` (routing, `_headers`, indexing policy, API, demo build) over
-      # HTTP and in Chromium.
-      - name: Test Worker in workerd
-        run: bun run --cwd apps/theoria test:worker
-
       - uses: ./.github/actions/theoria-build-check
         with:
           path: apps/theoria
@@ -90,10 +79,52 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'pull_request' && 1 || 7 }}
 
+  # Runs the bundle that will be deployed inside workerd against the built
+  # `dist/` (routing, `_headers`, indexing policy, API, demo build) over HTTP
+  # and in Chromium. The suite measures motion and layout, so its files run one
+  # at a time on a runner; to finish sooner it runs on several runners at once,
+  # each taking one shard cut by `apps/theoria/test/worker/sequencer.ts`. Every
+  # shard tests the artifact the Build job uploaded, the one that is deployed.
+  test:
+    name: Test Worker (${{ matrix.shard }}/${{ strategy.job-total }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: theoria-test-${{ github.event.pull_request.number || github.ref }}-${{ matrix.shard }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+
+      - name: Download build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: apps/theoria
+
+      - uses: ./.github/actions/theoria-build-check
+        with:
+          path: apps/theoria
+
+      # The workspace's own Playwright installs the browser build it launches;
+      # `bunx playwright` would resolve the registry's latest release, whose
+      # Chromium revision drifts from the one `@playwright/test` in the lockfile
+      # expects.
+      - name: Install Chromium for Worker browser tests
+        run: bun run --cwd apps/theoria test:worker:browsers
+
+      - name: Test Worker in workerd
+        run: bun run --cwd apps/theoria test:worker -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
   staging:
     name: Staging
     if: github.event_name != 'pull_request'
-    needs: build
+    needs: [build, test]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:

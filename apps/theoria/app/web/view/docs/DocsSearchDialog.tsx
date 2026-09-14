@@ -12,6 +12,7 @@ import { docsSearchIndexAtom } from "../../atoms/docs-data.js"
 import { docsSearchOpenAtom, docsSearchQueryAtom, setDocsSearchOpenAtom } from "../../atoms/docs.js"
 import { navigateAtom } from "../../atoms/navigation.js"
 import { ActionButton } from "../primitives/ActionControl.js"
+import { focusEdgeClassName } from "../primitives/designSystem.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
@@ -88,7 +89,7 @@ const SearchCombobox = ({
           <Combobox.Input
             aria-label="Search"
             autoFocus
-            className="h-11 w-full rounded-xl border border-stage-200/90 bg-stage-50/72 px-4 font-body text-ink-900 outline-none placeholder:text-ink-400 focus:border-stage-400 focus:ring-2 focus:ring-ink-900/10"
+            className={`h-11 w-full rounded-xl border border-stage-200/90 bg-stage-50/72 px-4 font-body text-ink-900 ${focusEdgeClassName} placeholder:text-ink-400 focus:border-stage-400 focus:ring-2 focus:ring-ink-900/10`}
             placeholder="Package, module, or symbol"
           />
         </Layer>
@@ -122,7 +123,7 @@ const SearchCombobox = ({
           <Combobox.List className="max-h-[30rem] overflow-y-auto p-2 sm:p-3">
             {Arr.map(results, (entry, index) => (
               <Combobox.Item
-                className="group rounded-xl outline-none data-[highlighted]:bg-stage-100/80"
+                className={`group rounded-xl ${focusEdgeClassName} data-[highlighted]:bg-stage-100/80`}
                 index={index}
                 key={entry.id}
                 render={

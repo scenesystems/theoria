@@ -6,7 +6,7 @@ import { Clock, Duration, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type Unstable_Config, unstable_readConfig } from "wrangler"
 
-import { json, productionHost, Site, SiteLive, SiteRequest } from "./site.js"
+import { header, json, productionHost, Site, SiteLive, SiteRequest } from "./site.js"
 
 type Limiter = Unstable_Config["ratelimits"][number]
 
@@ -76,8 +76,8 @@ layer(SiteLive, { timeout: "2 minutes" })("Place build rate limit in workerd", (
 
       const refused = yield* attempt("198.51.100.10")
       expect(refused.status).toBe(429)
-      expect(refused.headers.get("retry-after")).toBe(String(periodSeconds))
-      expect(refused.headers.get("cache-control")).toBe("no-store")
+      expect(header(refused, "retry-after")).toEqual(Option.some(String(periodSeconds)))
+      expect(header(refused, "cache-control")).toEqual(Option.some("no-store"))
       expect(yield* json(refused)).toMatchObject({
         ok: false,
         error: { code: "rate-limited", retryable: true }

@@ -59,6 +59,13 @@ describe("analytics tags and policy", () => {
       expect(contentSecurityPolicy(disabledAnalytics)).not.toContain("googletagmanager")
     }))
 
+  it.effect("admits no inline style: every rule the page needs is in its stylesheet", () =>
+    Effect.sync(() => {
+      expect(contentSecurityPolicy(disabledAnalytics)).toContain("style-src 'self'; ")
+      expect(contentSecurityPolicy(both)).toContain("style-src 'self'; ")
+      expect(contentSecurityPolicy(both)).not.toContain("unsafe-inline")
+    }))
+
   it.effect("loads each provider from external scripts only, with a matching policy", () =>
     Effect.sync(() => {
       const html = injectAnalytics("<html><head><title>t</title></head><body></body></html>", both)

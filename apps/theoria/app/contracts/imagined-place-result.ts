@@ -1,14 +1,19 @@
 import { Schema } from "effect"
 
 import { Envelope } from "./envelope.js"
-import { ParticipantRole, PlaceArtifact, Proposal } from "./imagined-place.js"
+import { OfferedProposal, ParticipantRole, PlaceArtifact, VersionShape } from "./imagined-place.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 const UnitInterval = Schema.Number.pipe(Schema.between(0, 1))
 
 /**
  * A feature marker on the stage in pixels; `contributedBy` is set when the
- * feature came from an accepted proposal.
+ * feature came from an accepted proposal. `reach` is how far past its edge
+ * the disc answers to a touch — invisible, part of the disc, and a fact of the
+ * drawing like its radius: the geometry keeps neighbours' reaches apart as it
+ * keeps the discs apart, and a disc on its way between two drawings carries
+ * the reach it has grown so far, so a travel interrupted and retargeted
+ * continues from where the drawing was.
  *
  * @since 0.3.0
  */
@@ -18,6 +23,7 @@ export const PlaceMarker = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
   radius: Schema.Number.pipe(Schema.positive()),
+  reach: Schema.Number.pipe(Schema.nonNegative()),
   contributedBy: Schema.optional(ParticipantRole)
 })
 export type PlaceMarker = typeof PlaceMarker.Type
@@ -68,11 +74,16 @@ export const RenderEvidence = Schema.Struct({
 })
 export type RenderEvidence = typeof RenderEvidence.Type
 
+/**
+ * A version as the build records it: its shape, the content ID that digests
+ * it, and the ID of the version it extends, if it extends one.
+ *
+ * @since 0.3.0
+ */
 export const Version = Schema.Struct({
-  version: Schema.Int,
+  ...VersionShape.fields,
   contentId: NonEmptyString,
-  parent: Schema.optional(NonEmptyString),
-  featureCount: Schema.Int
+  parent: Schema.optional(NonEmptyString)
 })
 export type Version = typeof Version.Type
 
@@ -100,9 +111,8 @@ export type SignatureRecord = typeof SignatureRecord.Type
  * @since 0.3.0
  */
 export const ProposalRecord = Schema.Struct({
-  proposal: Proposal,
+  ...OfferedProposal.fields,
   contentId: NonEmptyString,
-  accepted: Schema.Boolean,
   signature: SignatureRecord
 })
 export type ProposalRecord = typeof ProposalRecord.Type
@@ -127,7 +137,7 @@ export type SealedNote = typeof SealedNote.Type
 
 export const PlaceEvidence = Schema.Struct({
   inference: Schema.Array(InferenceEvidence),
-  lineage: Schema.Array(Version),
+  lineage: Schema.NonEmptyArray(Version),
   signatures: Schema.Array(SignatureRecord),
   sealedNote: SealedNote
 })

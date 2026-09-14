@@ -4,12 +4,18 @@ import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
-import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
-import { frameLosses, type PlaceRenderFrame, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
+import {
+  type PlaceSearch,
+  placeTrialPreviewAtom,
+  type PlaceWait,
+  searchLosses
+} from "../../atoms/imagined-place-render.js"
+import { focusEdgeClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
+import { ShimmerLine } from "../primitives/Skeleton.js"
 
-import { shownTrialIndex, trialValueText } from "./placeViewModel.js"
+import { searching, shownTrialIndex, trialValueText, waitMotion } from "./placeViewModel.js"
 
 const searchTone = toneClassesFor("search")
 
@@ -86,10 +92,34 @@ const TraceChart = ({ best, losses, shown }: {
 }
 
 const thumbClassName =
-  "group flex h-full w-5 cursor-ew-resize items-center justify-center outline-none data-[disabled]:cursor-default"
+  `group flex h-full w-5 cursor-ew-resize items-center justify-center ${focusEdgeClassName} data-[disabled]:cursor-default`
 
+/**
+ * The thumb's line answers focus on the input inside it; under forced colours
+ * the ring is dropped, so the line itself turns to the system's `Highlight`.
+ */
 const thumbLineClassName =
-  "pointer-events-none block h-full w-0.5 rounded-full bg-ink-900/55 transition-[background-color,box-shadow] duration-150 group-hover:bg-ink-900 group-has-[:focus-visible]:bg-ink-900 group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-ink-900/25 group-data-[disabled]:bg-ink-900/25"
+  "pointer-events-none block h-full w-0.5 rounded-full bg-ink-900/55 transition-[background-color,box-shadow] duration-150 group-hover:bg-ink-900 group-has-[:focus-visible]:bg-ink-900 group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-ink-900/25 group-data-[disabled]:bg-ink-900/25 forced-colors:bg-[CanvasText] forced-colors:group-has-[:focus-visible]:bg-[Highlight]"
+
+/** The chart's height, shared by the trace and the rows held for it. */
+export const traceHeightClassName = "h-16"
+
+/**
+ * The trace's chart before the first trial is in: its height, with a line
+ * where the trace will draw — breathing while the search is on its way,
+ * still when none is coming — so the first frame moves nothing below the
+ * paper. The caption's row is not here: it is kept by the row that holds it
+ * live.
+ */
+export const PlaceSearchTracePending = ({ wait }: { readonly wait: PlaceWait }) => (
+  <Layer
+    aria-busy={wait === "pending"}
+    className={`${traceHeightClassName} flex w-full items-center`}
+    data-place-trace-pending={wait}
+  >
+    <ShimmerLine motion={waitMotion(wait)} width="w-full" />
+  </Layer>
+)
 
 /**
  * The search as it happened, and a way to look at any of it. Each dot is an
@@ -98,33 +128,35 @@ const thumbLineClassName =
  * arrangements the search rejected, drawn exactly as it scored them. While
  * the search runs the thumb follows the best so far.
  */
-export const PlaceSearchTrace = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
+export const PlaceSearchTrace = ({ search }: { readonly search: PlaceSearch }) => {
   const preview = useAtomValue(placeTrialPreviewAtom)
   const setPreview = useAtomSet(placeTrialPreviewAtom)
-  const losses = frameLosses(frame)
-  const shown = shownTrialIndex(frame, preview)
-  const running = frame.phase === "running"
+  const losses = searchLosses(search)
+  const shown = shownTrialIndex(search, preview)
+  const running = searching(search)
 
   return (
     <Slider.Root
       className="w-full"
-      data-place-render-phase={frame.phase}
+      data-place-render-phase={search.phase}
       data-place-trace
       disabled={running}
       max={renderTrials - 1}
       min={0}
       onValueChange={(value) => {
-        setPreview(value === frame.bestIndex ? Option.none() : Option.some(value))
+        setPreview(value === search.bestIndex ? Option.none() : Option.some(value))
       }}
       step={1}
       value={shown}
     >
-      <Slider.Control className="relative h-16 w-full cursor-pointer touch-none select-none data-[disabled]:cursor-default">
-        <TraceChart best={frame.bestIndex} losses={losses} shown={shown} />
+      <Slider.Control
+        className={`relative ${traceHeightClassName} w-full cursor-pointer touch-none select-none data-[disabled]:cursor-default`}
+      >
+        <TraceChart best={search.bestIndex} losses={losses} shown={shown} />
         <Slider.Thumb
           className={thumbClassName}
           getAriaLabel={() => "Trial drawn on the stage"}
-          getAriaValueText={(_, value) => trialValueText(frame, value)}
+          getAriaValueText={(_, value) => trialValueText(search, value)}
           // Escape leaves the excursion: back to the trial the search kept.
           onKeyDown={(event) => {
             if (event.key === "Escape") setPreview(Option.none())

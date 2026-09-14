@@ -1,6 +1,7 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { Clock, Effect, Match, Option } from "effect"
 
+import { httpStatus } from "../contracts/error.js"
 import { jsonResponse, responseMeta } from "./api-response.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
 import { imaginedPlacePath, imaginedPlaceRoute } from "./routes/imagined-place.js"
@@ -24,7 +25,7 @@ const apiNotFoundResponse = (requestId: string) =>
           retryable: false
         }
       },
-      { status: 404 }
+      { status: httpStatus("route-not-found") }
     )
   })
 

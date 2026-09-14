@@ -4,13 +4,12 @@ import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import type { Errors, Text } from "@scenesystems/effect-text"
 import type * as TextReact from "@scenesystems/effect-text/react"
-import type { Effect } from "effect"
-import { Data, Option } from "effect"
+import { Data, Effect, Option, Schema } from "effect"
 
-import type { SurfaceVariant } from "../../contracts/presentation.js"
-import { maxWidthFor, type TextProjection, type TextProjectionRequest, type TextRole } from "../../contracts/text.js"
+import { SurfaceVariant } from "../../contracts/presentation.js"
+import { maxWidthFor, type TextProjection, type TextProjectionRequest, TextRole } from "../../contracts/text.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
-import type { BrowserTextLayout } from "../text/browserTextLayout.js"
+import { type BrowserTextLayout, FontReadiness } from "../text/browserTextLayout.js"
 import { prepareIdentityForTextProjection, prepareTextProjection, projectPreparedText } from "../view/text/authority.js"
 
 import { type ElementWidthHandle, useElementWidth } from "./element-observation.js"
@@ -21,12 +20,22 @@ import { textLayoutRuntime } from "./text-layout.js"
  * the surface can offer. Structural, so every surface projecting the same text
  * at the same width shares one atom.
  */
-export class TextProjectionKey extends Data.Class<{
-  readonly role: TextRole
-  readonly variant: SurfaceVariant
-  readonly text: string
-  readonly maxWidth: number
-}> {}
+export class TextProjectionKey extends Schema.Class<TextProjectionKey>("TextProjectionKey")({
+  role: TextRole,
+  variant: SurfaceVariant,
+  text: Schema.String,
+  maxWidth: Schema.Number
+}) {}
+
+/**
+ * What is prepared, independent of the surface's width and variant: the text
+ * in its role. Every surface projecting the same text shares one prepared
+ * handle, prepared at whatever revision of the faces the runtime measures at.
+ */
+class TextPrepareKey extends Schema.Class<TextPrepareKey>("TextPrepareKey")({
+  role: TextRole,
+  text: Schema.String
+}) {}
 
 /** Why a projection is missing: the text could not be measured, or the document has no canvas to measure on. */
 export type TextProjectionError = Errors.MeasurementFailed | CanvasUnavailable
@@ -61,22 +70,27 @@ const defaultTextProjectionAuthority: TextProjectionAuthority = new TextProjecti
 export const makeTextProjectionAtom = (
   authority: TextProjectionAuthority = defaultTextProjectionAuthority
 ): (key: TextProjectionKey) => AtomType.Atom<Result.Result<TextProjection, TextProjectionError>> => {
-  const preparedResultAtom = Atom.family((identity: TextReact.PrepareIdentity) =>
-    textLayoutRuntime.atom(() => authority.prepare(identity))
+  // The handle is the revision's: the runtime is built again at the faces'
+  // arrival, and prepares the text again in the face the page now shows.
+  const preparedResultAtom = Atom.family((key: TextPrepareKey) =>
+    textLayoutRuntime.atom(
+      Effect.flatMap(FontReadiness, (readiness) =>
+        authority.prepare(prepareIdentityForTextProjection(key, readiness.revision)))
+    )
   )
 
-  return Atom.family((key: TextProjectionKey) => {
-    const identity = prepareIdentityForTextProjection({ role: key.role, text: key.text })
+  return Atom.family((key: TextProjectionKey) =>
+    Atom.make((get: AtomType.Context) => {
+      const prepared = get(preparedResultAtom(new TextPrepareKey({ role: key.role, text: key.text })))
 
-    return Atom.make((get: AtomType.Context) =>
-      Result.map(get(preparedResultAtom(identity)), (prepared) =>
+      return Result.map(prepared, (prepared) =>
         authority.project({
           prepared,
           request: { role: key.role, variant: key.variant, text: key.text },
           maxWidth: key.maxWidth
         }))
-    )
-  })
+    })
+  )
 }
 
 const textProjectionAtom = makeTextProjectionAtom()

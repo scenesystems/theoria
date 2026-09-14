@@ -48,6 +48,12 @@ export const scrollToTop: Effect.Effect<void, never, BrowserWindow> = Effect.fla
     })
 )
 
+/** The viewport's height, as the window has it now. */
+export const viewportHeight: Effect.Effect<number, never, BrowserWindow> = Effect.map(
+  BrowserWindow,
+  (browserWindow) => browserWindow.innerHeight
+)
+
 /** True when the viewport has scrolled to (within two pixels of) the bottom of the document. */
 export const isScrolledToBottom: Effect.Effect<boolean, never, BrowserWindow> = Effect.map(
   BrowserWindow,
@@ -65,6 +71,17 @@ export const events = <K extends keyof WindowEventMap>(
     Effect.map(BrowserWindow, (browserWindow) =>
       Stream.fromEventListener<WindowEventMap[K]>(browserWindow, type, options))
   )
+
+/**
+ * Every time what the viewport shows of the page may have changed: each
+ * scroll, resize and fragment change. Anything that is a function of where
+ * the page stands in the viewport is measured again on each, so it is a
+ * projection of the position and never a history of edges crossed.
+ */
+export const viewportChanges: Stream.Stream<Event, never, BrowserWindow> = Stream.mergeAll(
+  [events("scroll", { passive: true }), events("resize"), events("hashchange")],
+  { concurrency: "unbounded" }
+)
 
 /** Whether `query` matches now, followed by every change while the stream is running. */
 export const mediaQuery = (query: string): Stream.Stream<boolean, never, BrowserWindow> =>

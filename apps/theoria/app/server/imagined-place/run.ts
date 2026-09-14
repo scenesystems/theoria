@@ -3,7 +3,7 @@ import * as Arr from "effect/Array"
 
 import type { PlaceBuild, ProposalRecord, Version } from "../../contracts/imagined-place-result.js"
 import type { PlaceArtifact, PlaceBuildRequest, Proposal } from "../../contracts/imagined-place.js"
-import { type PlaceBuildError, placeFeatures } from "../../contracts/imagined-place.js"
+import { type PlaceBuildError, sealedNoteSender, versionShapes } from "../../contracts/imagined-place.js"
 
 import { type Participants, proposalId, signAs, versionId } from "./authority.js"
 import { compose, propose } from "./compose.js"
@@ -49,7 +49,7 @@ export const buildPlace = (
     const [proposed, note] = yield* Effect.all(
       [
         propose(scenario, request.brief, composed.composition),
-        sendSealedNote("neighbor", "author", scenario.neighbor.note)
+        sendSealedNote(sealedNoteSender, "author", scenario.neighbor.note)
       ],
       { concurrency: "unbounded" }
     )
@@ -76,12 +76,14 @@ export const buildPlace = (
       : { ...origin, parent: originId, accepted }
     const currentId = yield* versionId(artifact)
 
-    const versions: ReadonlyArray<Version> = Arr.isEmptyReadonlyArray(accepted)
-      ? [{ version: 1, contentId: originId, featureCount: placeFeatures(origin).length }]
-      : [
-        { version: 1, contentId: originId, featureCount: placeFeatures(origin).length },
-        { version: 2, contentId: currentId, parent: originId, featureCount: placeFeatures(artifact).length }
-      ]
+    // The versions are the outline's shapes, digested: version 1 is the origin; version 2, if there is one, extends it.
+    const versions: Arr.NonEmptyReadonlyArray<Version> = Arr.map(
+      versionShapes(artifact),
+      (shape): Version =>
+        shape.version === 1
+          ? { ...shape, contentId: originId }
+          : { ...shape, contentId: currentId, parent: originId }
+    )
 
     // The author signs every version
     const versionSignatures = yield* Effect.forEach(

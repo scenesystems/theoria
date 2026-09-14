@@ -56,7 +56,7 @@ export const contentSecurityPolicy = (settings: AnalyticsSettings): string => {
     "default-src 'self'",
     "base-uri 'self'",
     directive("connect-src", ["'self'", ...extra.connect]),
-    "font-src 'self' https://fonts.gstatic.com",
+    "font-src 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
     directive("img-src", ["'self'", "data:", ...extra.img]),
@@ -64,7 +64,12 @@ export const contentSecurityPolicy = (settings: AnalyticsSettings): string => {
     // Shiki's Oniguruma grammar engine is WebAssembly; `wasm-unsafe-eval`
     // permits compiling it without permitting JavaScript `eval`.
     directive("script-src", ["'self'", "'wasm-unsafe-eval'", ...extra.script]),
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    // No inline style: the shell is static and the page writes none — Shiki's
+    // tokens are classes, Base UI is told to write no `<style>` elements
+    // (`CSPProvider` in `App.tsx`), and a component's `style` prop is set
+    // through the CSSOM, which the policy does not govern. Nothing here would
+    // change per response, so no nonce is minted either.
+    "style-src 'self'",
     "worker-src 'self'"
   ], "; ")
 }

@@ -1,34 +1,29 @@
 import { classNames } from "./classNames.js"
-import { Layer } from "./Layout.js"
+import { focusEdgeClassName } from "./designSystem.js"
 
-export const headerChromeSurfaceClassName = "border border-stage-200/88 bg-stage-0/78 backdrop-blur-md"
+const headerChromeFocusClassName =
+  `${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-50`
 
-export const headerChromeRailClassName = (className = ""): string =>
+/**
+ * A header destination as words: ink that darkens under the pointer, nothing
+ * drawn around it. The glyph size is a variable so a mark beside the words
+ * sits at the same height in every header control.
+ */
+export const headerChromeLinkClassName = (className = ""): string =>
   classNames(
-    "inline-flex min-w-0 flex-nowrap items-center rounded-[1.7rem] px-2 py-1.5",
-    headerChromeSurfaceClassName,
+    "inline-flex min-h-11 items-center gap-2 rounded-control px-1.5 text-ink-700 transition-colors duration-150 hover:text-ink-950 [--header-chrome-glyph-size:1rem]",
+    headerChromeFocusClassName,
     className
   )
 
-export const headerChromeButtonClassName = ({
-  active,
-  className = ""
-}: {
-  readonly active: boolean
-  readonly className?: string
-}): string =>
+/** A header control that is only its glyph: the same ink and the same hover, in a square hit area. */
+export const headerChromeIconButtonClassName = (className = ""): string =>
   classNames(
-    "inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-[1rem] border px-4 text-ink-700 transition-[border-color,background-color,color] duration-150 [--header-chrome-glyph-size:0.875rem] md:[--header-chrome-glyph-size:0.9375rem]",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1",
-    active
-      ? "border-stage-300/92 bg-stage-50/78 text-ink-900"
-      : "border-stage-200/82 bg-transparent hover:border-stage-300/88 hover:bg-stage-50/68 hover:text-ink-900",
+    "inline-flex size-11 items-center justify-center rounded-control text-ink-700 transition-colors duration-150 hover:text-ink-950 [--header-chrome-glyph-size:1.125rem]",
+    headerChromeFocusClassName,
     className
   )
 
-export const headerChromeActionClassName = (className: string): string =>
-  classNames("h-11 rounded-[1rem] px-4 shadow-none", className)
-
-export const HeaderChromeDivider = ({ className = "" }: { readonly className?: string }) => (
-  <Layer aria-hidden className={classNames("h-7 w-px bg-stage-200/80", className)} />
-)
+/** A glyph inside a header control, sized by the control. */
+export const headerChromeGlyphClassName =
+  "h-[var(--header-chrome-glyph-size)] w-[var(--header-chrome-glyph-size)] shrink-0"

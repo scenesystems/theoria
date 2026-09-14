@@ -3,15 +3,9 @@ import { Effect, Match } from "effect"
 import { Study } from "@scenesystems/effect-search"
 import { Text } from "@scenesystems/effect-text"
 
-import {
-  arrange,
-  descriptionInput,
-  meanderSpace,
-  renderingFor,
-  renderSampler,
-  renderTrials
-} from "../../contracts/demo/imagined-place-arrangement.js"
+import { arrange, descriptionInput, renderingFor } from "../../contracts/demo/imagined-place-arrangement.js"
 import { stageFor } from "../../contracts/demo/imagined-place-flow.js"
+import { meanderSpace, renderSampler, renderTrials } from "../../contracts/demo/imagined-place-search.js"
 import type { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import { type PlaceArtifact, PlaceBuildError } from "../../contracts/imagined-place.js"
 

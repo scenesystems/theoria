@@ -1,36 +1,23 @@
 import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { Sampler, SearchSpace } from "@scenesystems/effect-search"
 import type { Text } from "@scenesystems/effect-text"
 
 import { PlaceLine, PlaceMarker, type PlaceRendering } from "../imagined-place-result.js"
-import { type ParticipantRole, type PlaceArtifact, placeFeatures } from "../imagined-place.js"
+import { type ParticipantRole, type PlaceArtifact, placeFeatures, type PlaceOutline } from "../imagined-place.js"
 import { prepareInputFor } from "../text.js"
 
 import {
   flowLines,
   FlowQuality,
   flowQuality,
-  type Meander,
-  meanderBounds,
   minimumSeparation,
   occupiedHeight,
   placeMarkers,
   placeTextRole,
   type Stage
 } from "./imagined-place-flow.js"
-
-/**
- * Deterministic search settings. The seed is fixed so the same artifact at the
- * same stage width always renders the same way; both values are reported.
- *
- * @since 0.3.0
- */
-export const renderSeed = 42
-export const renderTrials = 36
-
-export const renderSampler = () => Sampler.tpe({ seed: renderSeed })
+import { type Meander, renderSeed } from "./imagined-place-search.js"
 
 /**
  * The text that flows around the markers: what the place is, how it feels,
@@ -40,34 +27,30 @@ export const renderSampler = () => Sampler.tpe({ seed: renderSeed })
  *
  * @since 0.3.0
  */
-export const description = (artifact: PlaceArtifact): string =>
+export const description = (place: PlaceOutline): string =>
   Arr.join(
-    Arr.prependAll(
-      Arr.map(placeFeatures(artifact), (feature) => feature.description),
-      [artifact.composition.summary, artifact.composition.atmosphere]
-    ),
+    Arr.prependAll(Arr.map(placeFeatures(place), (feature) => feature.description), [
+      place.composition.summary,
+      place.composition.atmosphere
+    ]),
     " "
   )
 
-/** What to prepare for measurement, in the role the stage renders it with. */
-export const descriptionInput = (artifact: PlaceArtifact): Text.PrepareInputType =>
-  prepareInputFor(placeTextRole, description(artifact))
+/**
+ * What to prepare for measurement, in the role the stage renders it with. An
+ * outline from a scenario's recording gives the text a build for it will
+ * flow before that build arrives — the same words, from the recording the
+ * server replays — so the stage can be cut to the paper they will want.
+ */
+export const descriptionInput = (place: PlaceOutline): Text.PrepareInputType =>
+  prepareInputFor(placeTextRole, description(place))
 
-/** Who added each feature, aligned with `placeFeatures(artifact)`. */
-export const contributorsOf = (artifact: PlaceArtifact): ReadonlyArray<Option.Option<ParticipantRole>> =>
+/** Who added each feature, aligned with `placeFeatures(place)`; the composition's own have no contributor but the author. */
+export const contributorsOf = (place: PlaceOutline): ReadonlyArray<Option.Option<ParticipantRole>> =>
   Arr.appendAll(
-    Arr.map(artifact.composition.features, () => Option.none()),
-    Arr.map(artifact.accepted, (proposal) => Option.some(proposal.proposer))
+    Arr.map(place.composition.features, () => Option.none()),
+    Arr.map(place.accepted, (proposal) => Option.some(proposal.proposer))
   )
-
-export const meanderSpace = SearchSpace.make({
-  edge: SearchSpace.float(...meanderBounds.edge),
-  swing: SearchSpace.float(...meanderBounds.swing),
-  phase: SearchSpace.float(...meanderBounds.phase),
-  turns: SearchSpace.float(...meanderBounds.turns),
-  top: SearchSpace.float(...meanderBounds.top),
-  step: SearchSpace.float(...meanderBounds.step)
-})
 
 export const Arrangement = Schema.Struct({
   markers: Schema.Array(PlaceMarker),
@@ -75,6 +58,22 @@ export const Arrangement = Schema.Struct({
   quality: FlowQuality
 })
 export type Arrangement = typeof Arrangement.Type
+
+/**
+ * The description flowed around the given markers, and how good that is: what
+ * every drawing of the stage is, whether the search placed the markers or
+ * they are on their way between two of its placements.
+ *
+ * @since 0.3.0
+ */
+export const arrangedAround = (
+  prepared: Text.PreparedTextWithSegments,
+  stage: Stage
+) =>
+(markers: ReadonlyArray<PlaceMarker>): Arrangement => {
+  const lines = flowLines(prepared, stage, markers)
+  return { markers, lines, quality: flowQuality(stage, markers, lines) }
+}
 
 /**
  * One candidate: markers on the meander, the description flowed around them,
@@ -86,11 +85,10 @@ export const arrange = (
   artifact: PlaceArtifact,
   prepared: Text.PreparedTextWithSegments,
   stage: Stage
-) =>
-(meander: Meander): Arrangement => {
-  const markers = placeMarkers(placeFeatures(artifact), contributorsOf(artifact), stage, meander)
-  const lines = flowLines(prepared, stage, markers)
-  return { markers, lines, quality: flowQuality(stage, markers, lines) }
+) => {
+  const around = arrangedAround(prepared, stage)
+  return (meander: Meander): Arrangement =>
+    around(placeMarkers(placeFeatures(artifact), contributorsOf(artifact), stage, meander))
 }
 
 /**

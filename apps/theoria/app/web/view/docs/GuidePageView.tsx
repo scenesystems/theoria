@@ -2,6 +2,7 @@ import * as Arr from "effect/Array"
 
 import type { GuideBlock, GuideInline, GuidePage } from "@theoria/docs-model"
 import { CodeBlock, codeLanguageFor } from "../primitives/CodeBlock.js"
+import { focusEdgeClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
@@ -26,7 +27,7 @@ const GuideHeading = ({ block }: { readonly block: Extract<GuideBlock, { readonl
       role={block.depth === 2 ? "section-title" : "selection-title"}
     >
       <a
-        className="outline-none hover:text-ink-700 focus-visible:ring-2 focus-visible:ring-ink-900/20"
+        className={`${focusEdgeClassName} hover:text-ink-700 focus-visible:ring-2 focus-visible:ring-ink-900/20`}
         href={`#${block.id}`}
         id={block.id}
       >

@@ -4,6 +4,7 @@ import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
+import { focusEdgeClassName, stillUnderReducedMotion } from "../primitives/designSystem.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -39,7 +40,9 @@ export const DocsPackagePicker = ({
         positionMethod="fixed"
         sideOffset={8}
       >
-        <Menu.Popup className="max-h-[min(32rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] origin-[var(--transform-origin)] overflow-y-auto overscroll-contain rounded-2xl border border-stage-300/90 bg-stage-0 p-2 shadow-hero ring-1 ring-stage-0/70 transition-[opacity,transform] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+        <Menu.Popup
+          className={`max-h-[min(32rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] origin-[var(--transform-origin)] overflow-y-auto overscroll-contain rounded-2xl border border-stage-300/90 bg-stage-0 p-2 shadow-hero ring-1 ring-stage-0/70 transition-[opacity,transform] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`}
+        >
           {Arr.map(packages, (docsPackage) => {
             const active = Option.exists(activePackage, (value) => docsPackage.slug === value.slug)
 
@@ -49,7 +52,7 @@ export const DocsPackagePicker = ({
                 key={docsPackage.slug}
                 render={
                   <InternalLink
-                    className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-ink-700 outline-none hover:bg-stage-100/80 focus:bg-stage-100/80"
+                    className={`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-ink-700 ${focusEdgeClassName} hover:bg-stage-100/80 focus:bg-stage-100/80`}
                     href={docsPackage.overview.path}
                     onClick={onNavigate}
                   />

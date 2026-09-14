@@ -54,12 +54,16 @@
       "name": "@theoria/theoria-app",
       "dependencies": {
         "@base-ui/react": "^1.7.0",
+        "@capsizecss/core": "4.1.3",
+        "@capsizecss/metrics": "4.2.0",
         "@effect-atom/atom": "^0.7.0",
         "@effect-atom/atom-react": "^0.7.0",
         "@effect/ai": "0.37.0",
         "@effect/platform": "0.97.1",
         "@effect/platform-browser": "0.77.1",
         "@effect/platform-bun": "0.91.2",
+        "@fontsource-variable/figtree": "5.3.0",
+        "@fontsource-variable/jetbrains-mono": "5.3.0",
         "@heroicons/react": "^2.2.0",
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-dsp": "workspace:^",
@@ -87,6 +91,7 @@
         "@types/react-dom": "^19.2.7",
         "@vitejs/plugin-react": "^6.1.1",
         "happy-dom": "^20.13.2",
+        "miniflare": "5.20260831.0-alpha",
         "tailwindcss": "^4.3.3",
         "vite": "^8.2.2",
         "wrangler": "4.128.0",
@@ -94,7 +99,7 @@
     },
     "packages/digest": {
       "name": "@scenesystems/digest",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "dependencies": {
         "@noble/hashes": "2.4.0",
       },
@@ -112,7 +117,7 @@
     },
     "packages/effect-dsp": {
       "name": "@scenesystems/effect-dsp",
-      "version": "0.2.3",
+      "version": "0.3.0",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-math": "workspace:^",
@@ -128,7 +133,7 @@
     },
     "packages/effect-inference": {
       "name": "@scenesystems/effect-inference",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "dependencies": {
         "@effect/ai-anthropic": "0.27.0",
         "@effect/ai-openai": "0.41.0",
@@ -143,7 +148,7 @@
     },
     "packages/effect-math": {
       "name": "@scenesystems/effect-math",
-      "version": "0.3.2",
+      "version": "0.4.0",
       "devDependencies": {
         "@scenesystems/digest": "workspace:^",
       },
@@ -153,7 +158,7 @@
     },
     "packages/effect-search": {
       "name": "@scenesystems/effect-search",
-      "version": "0.4.3",
+      "version": "0.5.0",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-math": "workspace:^",
@@ -173,7 +178,7 @@
     },
     "packages/effect-text": {
       "name": "@scenesystems/effect-text",
-      "version": "0.3.2",
+      "version": "0.4.0",
       "dependencies": {
         "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
@@ -184,7 +189,7 @@
     },
     "packages/seal": {
       "name": "@scenesystems/seal",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@noble/ciphers": "^2.4.0",
       },
@@ -194,7 +199,7 @@
     },
     "packages/sign": {
       "name": "@scenesystems/sign",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "dependencies": {
         "@noble/curves": "2.4.0",
         "@noble/hashes": "2.4.0",
@@ -293,6 +298,10 @@
     "@base-ui/utils": ["@base-ui/utils@0.3.2", "", { "dependencies": { "@babel/runtime": "^7.29.2", "@floating-ui/utils": "^0.2.12", "reselect": "^5.2.0", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "@types/react": "^17 || ^18 || ^19", "react": "^17 || ^18 || ^19", "react-dom": "^17 || ^18 || ^19" }, "optionalPeers": ["@types/react"] }, "sha512-oWy1aq/I2GmYjpl4PhEAhzflF8VPGKgZeq0xAWTbfD5KBWyxcN0ZP2+WHSUm/5Z6lVMBDLReLcoXwSYoRc/zNQ=="],
 
     "@bcoe/v8-coverage": ["@bcoe/v8-coverage@1.0.2", "", {}, "sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA=="],
+
+    "@capsizecss/core": ["@capsizecss/core@4.1.3", "", { "dependencies": { "csstype": "^3.1.1" } }, "sha512-d2sTTBwKuVioYxpwpU4URMp8VkFK+GI1VNGNawQcF8HBMHzCDa1FLcbeXJSzb5AJik7ZGv3aFVCTs7IS9MhvHg=="],
+
+    "@capsizecss/metrics": ["@capsizecss/metrics@4.2.0", "", {}, "sha512-BkLX2NonSAVuHrStmxlRG/PVUxq4uQWeQGPY/G/4pi7GRQt/4A+7RzMWR8m85+0Tv7BsuBpR7JoniMS9QwuVRw=="],
 
     "@changesets/apply-release-plan": ["@changesets/apply-release-plan@8.0.0", "", { "dependencies": { "@changesets/config": "^4.0.0", "@changesets/format": "^0.1.1", "@changesets/git": "^4.0.0", "@changesets/should-skip-package": "^1.0.0", "@changesets/types": "^7.0.0", "import-meta-resolve": "^4.2.0", "jsonc-parser": "^3.3.1", "semver": "^7.8.1" } }, "sha512-kUd2pbf1w5/AYmBMb0Tt+rkIPCjFJdT0SZMrkOjJT/WV/QbtmvkyB5jkV0oaNPheavprZk+SfUiozUti7TIL2w=="],
 
@@ -505,6 +514,10 @@
     "@floating-ui/react-dom": ["@floating-ui/react-dom@2.1.9", "", { "dependencies": { "@floating-ui/dom": "^1.8.0" }, "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-JDjEFGCpImxDCA7JJKviA0M9+RtmJdj0m/NVU5IMgBK+AmZouAQQ7/+2GLH0GXXY0YMw9oXPB8hKdbPYg5QLYg=="],
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
+
+    "@fontsource-variable/figtree": ["@fontsource-variable/figtree@5.3.0", "", {}, "sha512-VRVodD7OiG7apQwE8/2fMjaqpY/a0qRJqL5HtYj8CKIVps+9amaFcdfKmDIf7iqYQx6iPLlArVXAfKeIZmVcNQ=="],
+
+    "@fontsource-variable/jetbrains-mono": ["@fontsource-variable/jetbrains-mono@5.3.0", "", {}, "sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw=="],
 
     "@gerrit0/mini-shiki": ["@gerrit0/mini-shiki@3.23.0", "", { "dependencies": { "@shikijs/engine-oniguruma": "^3.23.0", "@shikijs/langs": "^3.23.0", "@shikijs/themes": "^3.23.0", "@shikijs/types": "^3.23.0", "@shikijs/vscode-textmate": "^10.0.2" } }, "sha512-bEMORlG0cqdjVyCEuU0cDQbORWX+kYCeo0kV1lbxF5bt4r7SID2l9bqsxJEM0zndaxpOUT7riCyIVEuqq/Ynxg=="],
 

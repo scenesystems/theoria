@@ -2,6 +2,7 @@ import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { ApiCategory, ApiExport, DocsApiExportSummary, DocsApiModuleIndex } from "@theoria/docs-model"
+import { focusEdgeClassName } from "../primitives/designSystem.js"
 import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { AnchorLink, ExternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -15,7 +16,7 @@ const exportFor = (page: DocsApiModuleIndex, id: string): Option.Option<DocsApiE
 const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: DocsApiExportSummary }) => (
   <li>
     <AnchorLink
-      className="group block rounded-xl px-3 py-4 outline-none transition-colors hover:bg-stage-0/72 focus-visible:bg-stage-0/72 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:px-4"
+      className={`group block rounded-xl px-3 py-4 ${focusEdgeClassName} transition-colors hover:bg-stage-0/72 focus-visible:bg-stage-0/72 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:px-4`}
       href={`#${apiExport.anchor}`}
     >
       <Stack className="gap-1.5">
@@ -98,7 +99,7 @@ const SelectedApiExport = ({
     <Stack className="gap-2">
       <SemanticText as="code" className="text-ink-500" role="code-meta" text={page.package.name} />
       <AnchorLink
-        className="w-fit font-body text-sm font-medium text-ink-600 outline-none hover:text-ink-950 focus-visible:ring-2 focus-visible:ring-ink-900/20"
+        className={`w-fit font-body text-sm font-medium text-ink-600 ${focusEdgeClassName} hover:text-ink-950 focus-visible:ring-2 focus-visible:ring-ink-900/20`}
         href="#module"
       >
         ← {page.module.name}

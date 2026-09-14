@@ -1,17 +1,16 @@
 import { Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import { PlaceStep, placeSteps } from "../../../contracts/demo/imagined-place-provenance.js"
 import { Id as CardId } from "../../../contracts/id.js"
 
 /**
- * The demo's story in four steps. Each step is one thing the visitor can see
- * happen and the packages that make it happen; the steps run in this order on
- * the server (`server/imagined-place/run.ts`) and in the browser
- * (`atoms/imagined-place-render.ts`).
+ * The demo's story in four steps, each with the packages that make it happen
+ * and the code the panel shows for it. The steps themselves are the
+ * contract's (`contracts/demo/imagined-place-provenance.ts`), so a code site
+ * and a step tab name the same thing.
  */
-export const PlaceStep = Schema.Literal("compose", "propose", "record", "arrange")
-export type PlaceStep = typeof PlaceStep.Type
-export const placeSteps: ReadonlyArray<PlaceStep> = ["compose", "propose", "record", "arrange"]
+export { PlaceStep, placeSteps }
 
 export const PlaceStepDefinition = Schema.Struct({
   id: PlaceStep,

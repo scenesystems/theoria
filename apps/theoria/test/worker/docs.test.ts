@@ -1,12 +1,14 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Clock, Deferred, Effect, Layer, Runtime } from "effect"
+import { Clock, Deferred, Duration, Effect, Layer, Runtime } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import { cards } from "../../app/contracts/card.js"
+import { introDelaySeconds } from "../../app/web/view/primitives/wordmarkMorph.js"
 import {
   act,
+  attached,
   attribute,
   BrowserLive,
   click,
@@ -20,13 +22,21 @@ import {
   hover,
   observeRequests,
   openPage,
+  press,
   setViewport,
   until,
   urlMatches,
   visible,
   wheel
 } from "./browser.js"
-import { clipboardText, horizontalScrollers, setRootFontSize } from "./platform/in-page.js"
+import {
+  clipboardText,
+  greekFaceOpacities,
+  horizontalScrollers,
+  presence,
+  scrollAffordance,
+  setRootFontSize
+} from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
@@ -60,6 +70,71 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-search" }))
         expect((yield* Clock.currentTimeMillis) - cardNavigationStarted).toBeLessThan(1_500)
         expect(yield* documents).toHaveLength(1)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a route's content rises in, or under reduced motion is placed outright with the wordmark at rest", () =>
+      Effect.gen(function*() {
+        const full = yield* openPage()
+        yield* goto(full.page, "/")
+        yield* visible(full.page.getByRole("region", { name: "Imagined place demo" }))
+        // The wordmark crossfades between its Latin and Greek faces, so both are in the page.
+        yield* containsText(full.page.locator("header").getByRole("img", { name: "Theoria" }), "θεωρία")
+        yield* click(full.page.locator("header").getByRole("link", { exact: true, name: "Docs" }))
+        const entrance = full.page.locator("[data-route-entrance]")
+        yield* attached(entrance)
+        // Arriving: the first frames after the route mounts are the fade in.
+        const arriving = yield* Effect.forEach(Arr.range(1, 12), () => act(() => entrance.evaluate(presence)))
+        expect(Arr.some(arriving, (sample) => sample.opacity < 1 || sample.fading)).toBe(true)
+        yield* visible(full.page.getByRole("heading", { level: 1, name: "Packages" }))
+
+        const reduced = yield* openPage({ reducedMotion: "reduce" })
+        yield* goto(reduced.page, "/")
+        yield* visible(reduced.page.getByRole("region", { name: "Imagined place demo" }))
+        // At rest: the Latin wordmark alone, with no Greek face to fade to.
+        const wordmark = reduced.page.locator("header").getByRole("img", { name: "Theoria" })
+        yield* containsText(wordmark, "Theoria")
+        expect(yield* act(() => wordmark.innerText())).not.toContain("θ")
+        yield* click(reduced.page.locator("header").getByRole("link", { exact: true, name: "Docs" }))
+        const placed = reduced.page.locator("[data-route-entrance]")
+        yield* attached(placed)
+        // Placed outright: at full opacity from its first frame, fading nothing.
+        const standing = yield* Effect.forEach(Arr.range(1, 12), () => act(() => placed.evaluate(presence)))
+        expect(standing).toEqual(Arr.map(standing, () => ({ opacity: 1, fading: false })))
+        yield* visible(reduced.page.getByRole("heading", { level: 1, name: "Packages" }))
+
+        expect(yield* full.failures).toEqual([])
+        expect(yield* reduced.failures).toEqual([])
+      }))
+
+    it.scoped("the wordmark plays one pass as the session begins, rests Latin, and plays again at once when met", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        const wordmark = page.locator("header").getByRole("img", { name: "Theoria" })
+        const greek = act(() => wordmark.evaluate(greekFaceOpacities))
+        const someGreek = (opacities: ReadonlyArray<number>) => Arr.some(opacities, (opacity) => opacity > 0)
+        const allLatin = (opacities: ReadonlyArray<number>) =>
+          opacities.length === 6 && Arr.every(opacities, (opacity) => opacity === 0)
+
+        // The intro: after its lead hold the sweep to Greek shows…
+        yield* until(greek, someGreek, "the intro's sweep to Greek", Duration.seconds(6))
+        // …and the pass returns to Latin and stays there: no clock keeps the wordmark cycling.
+        yield* until(greek, allLatin, "the wordmark's return to Latin", Duration.seconds(10))
+        yield* Effect.sleep("1500 millis")
+        expect(allLatin(yield* greek)).toBe(true)
+
+        // Met by the pointer, it plays again, and without the lead hold: Greek shows within the first sweep.
+        const met = yield* Clock.currentTimeMillis
+        yield* hover(wordmark)
+        yield* until(greek, someGreek, "the replay's sweep to Greek", Duration.seconds(4))
+        expect((yield* Clock.currentTimeMillis) - met).toBeLessThan(introDelaySeconds * 1_000)
+        yield* until(greek, allLatin, "the replay's return to Latin", Duration.seconds(10))
+
+        // Met by the keyboard, the same.
+        yield* press(page, "Tab")
+        yield* until(greek, someGreek, "the focused wordmark's sweep to Greek", Duration.seconds(4))
+
         expect(yield* failures).toEqual([])
       }))
 
@@ -144,6 +219,21 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(guideCode, "SearchSpace")
         yield* highlighted(guideCode.locator("pre code"))
         yield* visible(guideCode.getByRole("button", { name: "Copy ts" }))
+
+        // On a phone the quick start runs longer than a code block's viewport: it is cut and scrolls, and the
+        // scrollbar is painted for as long as there is more to see, since nothing on a phone hovers.
+        yield* setViewport(page, { width: 390, height: 844 })
+        yield* goto(page, "/docs/effect-search/examples")
+        const quickStart = page.getByRole("region", { name: "ts code example" }).first()
+        const block = quickStart.locator("[data-code-scroll]")
+        const tall = yield* until(
+          act(() => block.evaluate(scrollAffordance)),
+          (affordance) => affordance.overflows,
+          "the quick start taller than its viewport"
+        )
+        expect(tall.scrollbarPainted).toBe(true)
+        expect(tall.thumbHeight).toBeGreaterThan(0)
+        yield* setViewport(page, { width: 1280, height: 800 })
 
         yield* goto(page, "/docs/effect-math/domains")
         const contractsLink = page.getByRole("link", { exact: true, name: "@scenesystems/effect-math/contracts" })

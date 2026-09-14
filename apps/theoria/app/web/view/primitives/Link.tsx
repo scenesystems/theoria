@@ -64,11 +64,11 @@ export const ExternalLink = ({
   </a>
 )
 
-/** Same-document anchor (`#fragment`) link; native scrolling, no router involvement. */
+/** Same-document anchor (`#fragment`) link; plain clicks honor the visitor's motion preference. */
 export const AnchorLink = ({ children, href, ...props }: ComponentProps<"a"> & { readonly href: string }) => (
-  <a {...props} href={href}>
+  <InternalLink {...props} href={href}>
     {children}
-  </a>
+  </InternalLink>
 )
 
 /**

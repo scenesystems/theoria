@@ -1,12 +1,14 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Fiber, Layer, Schema } from "effect"
+import { Effect, Fiber, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import { cards } from "../../app/contracts/card.js"
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
+import { howItsBuiltActionLabel, howItsBuiltSectionId } from "../../app/web/view/home/HomeHero.js"
+import { placeArriveText, placeArriveTitle } from "../../app/web/view/home/PlaceArrive.js"
 import {
   act,
   attribute,
@@ -14,13 +16,25 @@ import {
   click,
   containsText,
   count,
+  eventually,
   fitsViewport,
   goto,
   nextResponse,
   openPage,
+  scrollPositions,
   setViewport,
+  urlMatches,
   visible
 } from "./browser.js"
+import { drawn } from "./demo.js"
+import {
+  fullyInViewport,
+  scrollPast,
+  scrollToTop,
+  scrollY,
+  surfaceStyle,
+  topEdgeInViewport
+} from "./platform/in-page.js"
 import { Site, SiteLive } from "./site.js"
 
 const buildPath = "/api/imagined-place/build"
@@ -79,8 +93,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const versions = demo.locator("[data-place-version]")
         yield* count(versions, 2)
         const current = demo.locator("[data-place-version=\"2\"]")
-        yield* containsText(current, "v2 · Current")
-        yield* containsText(current, "Built from v1")
+        yield* containsText(current, "V2 · Current")
         yield* count(current.getByText(/^\+ /u), 1)
         yield* containsText(current, opened.evidence.lineage[1]?.contentId ?? "")
         yield* count(demo.getByText("did not verify"), 0)
@@ -115,6 +128,132 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(current, "You signed · key")
         yield* count(demo.getByText("did not verify"), 0)
         expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the place sits on the canvas: no surface between the page and the drawing", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        yield* visible(demo)
+        // The blank paper stands in for the drawn one until the first frame; it
+        // is the drawn paper that is asked, once the drawing has replaced the blank.
+        const paper = demo.locator("[data-place-stage='paper']:not([aria-busy])")
+        yield* visible(paper)
+
+        // The page, the demo and the drawn paper are one canvas: none of them
+        // is boxed by a border, rounded off or lifted by a shadow.
+        const onCanvas = { border: "0px 0px 0px 0px", radius: "0px", shadow: "none" }
+        expect(yield* act(() => page.locator("main").evaluate(surfaceStyle))).toEqual(onCanvas)
+        expect(yield* act(() => demo.evaluate(surfaceStyle))).toEqual(onCanvas)
+        expect(yield* act(() => demo.locator("[data-artifact-stage='frame']").evaluate(surfaceStyle))).toEqual(
+          onCanvas
+        )
+        expect(yield* act(() => paper.evaluate(surfaceStyle))).toEqual(onCanvas)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the hero and the place share the first viewport", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
+        yield* goto(page, "/")
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const paper = demo.locator("[data-place-stage='paper']")
+        yield* visible(paper)
+        // The seeded search moves the discs while it runs; the claim is about the kept drawing.
+        yield* drawn(page)
+        yield* visible(demo.locator("[data-place-marker]").first())
+
+        // Wide: the hero reads first; the arrival follows on the same screen,
+        // and the demonstration begins under it with Compose and Arrange
+        // starting on one line, so the first scroll reads down both columns.
+        const heading = page.getByRole("heading", { level: 1 })
+        const browse = page.getByRole("link", { exact: true, name: "Browse the packages" })
+        const arriveTitle = demo.locator("[data-place-arrive] h2")
+        expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => arriveTitle.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => demo.locator("[data-place-arrive] p").evaluate(topEdgeInViewport))).toBe(true)
+        expect(
+          yield* act(() =>
+            demo.locator("[data-place-step='compose'] [data-place-step-header]").evaluate(topEdgeInViewport)
+          )
+        ).toBe(true)
+        expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => demo.locator("[data-place-marker]").first().evaluate(fullyInViewport))).toBe(true)
+        expect(
+          yield* act(() =>
+            demo.locator("[data-place-step='arrange'] [data-place-step-header]").evaluate(topEdgeInViewport)
+          )
+        ).toBe(true)
+        // The arrival says what this is and how it works; the place's name and
+        // its story stay on the paper, where the composer put them.
+        const arrive = demo.locator("[data-place-arrive]")
+        yield* containsText(arriveTitle, placeArriveTitle)
+        yield* containsText(arrive, placeArriveText)
+        yield* count(arrive.getByText(/at high water the sea covers the causeway/u), 0)
+        const composedTitle = yield* Option.fromNullable(
+          yield* act(() => demo.locator("[data-place-composition-title]").textContent())
+        )
+        yield* count(arrive.getByText(composedTitle, { exact: true }), 0)
+
+        // Narrow: the hero, both actions and the demonstration's title fit the
+        // first screen; the paper follows directly under the arrival.
+        yield* setViewport(page, { width: 390, height: 844 })
+        yield* act(() => page.evaluate(scrollToTop))
+        expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
+        const howItsBuilt = page.getByRole("link", { exact: true, name: howItsBuiltActionLabel })
+        expect(yield* act(() => howItsBuilt.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => arriveTitle.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
+
+        // The hero's second action lands on how the demonstration is built, not on the demonstration already in view.
+        yield* click(howItsBuilt)
+        yield* urlMatches(page, new RegExp(`#${howItsBuiltSectionId}$`, "u"))
+        yield* eventually(() => page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("same-document anchors glide unless reduced motion asks them to land at once", () =>
+      Effect.gen(function*() {
+        const smooth = yield* openPage({
+          viewport: { width: 1440, height: 900 },
+          reducedMotion: "no-preference"
+        })
+        yield* goto(smooth.page, "/")
+        const smoothLink = smooth.page.getByRole("link", { name: howItsBuiltActionLabel })
+        const start = yield* act(() => smooth.page.evaluate(scrollY))
+        yield* click(smoothLink)
+        // The page passes through positions on its way: a glide, not a jump.
+        const gliding = yield* scrollPositions(smooth.page, 24)
+        yield* eventually(() => smooth.page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
+        const finish = yield* act(() => smooth.page.evaluate(scrollY))
+        expect(finish).toBeGreaterThan(start)
+        expect(Arr.some(gliding, (position) => position > start && position < finish)).toBe(true)
+        yield* urlMatches(smooth.page, /#how-its-built$/u)
+
+        const reduced = yield* openPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" })
+        yield* goto(reduced.page, "/")
+        const reducedStart = yield* act(() => reduced.page.evaluate(scrollY))
+        yield* click(reduced.page.getByRole("link", { name: howItsBuiltActionLabel }))
+        // Under reduced motion the page is where it is going from the first frame that moves.
+        const landing = yield* scrollPositions(reduced.page, 24)
+        yield* eventually(() => reduced.page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
+        const landed = yield* act(() => reduced.page.evaluate(scrollY))
+        expect(Arr.every(landing, (position) => position === reducedStart || position === landed)).toBe(true)
+        yield* urlMatches(reduced.page, /#how-its-built$/u)
+
+        const demo = reduced.page.getByRole("region", { name: "Imagined place demo" })
+        const paper = demo.locator("[data-place-stage='paper']")
+        yield* act(() => paper.evaluate(scrollPast))
+        const band = reduced.page.locator("[data-place-band]")
+        yield* visible(band)
+        yield* click(band.getByRole("link", { name: "Back to the place" }))
+        yield* eventually(() => paper.evaluate(topEdgeInViewport), true)
+        yield* urlMatches(reduced.page, /#imagined-place$/u)
+        expect(yield* smooth.failures).toEqual([])
+        expect(yield* reduced.failures).toEqual([])
       }))
 
     it.scoped("the package index stays complete and unscrolled across responsive widths", () =>

@@ -33,6 +33,7 @@ const makeBrowserMeasurementCache = (options: {
 }) =>
   Effect.gen(function*() {
     const measurer = yield* TextMeasurer
+    const owner = yield* Effect.scope
     const cache = yield* Cache.make({
       capacity: 1024,
       timeToLive: "24 hours",
@@ -43,6 +44,7 @@ const makeBrowserMeasurementCache = (options: {
       measure: (font: FontDescriptorType, text: string) =>
         getOrEvict(
           cache,
+          owner,
           new BrowserMeasurementKey({
             profileId: options.profileId,
             fontReadinessRevision: options.fontReadinessRevision,
@@ -67,6 +69,7 @@ class CanvasTextMeasurerOptions extends Data.Class<{
 const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
   Effect.gen(function*() {
     const contextSemaphore = yield* Effect.makeSemaphore(1)
+    const owner = yield* Effect.scope
     const emojiCorrection = normalizeEmojiCorrection(options.emojiCorrection)
     const emojiAdvanceCache = yield* (
       Option.match(emojiCorrection, {
@@ -100,7 +103,7 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
               Option.match(emojiAdvanceCache, {
                 onNone: () => Effect.succeed(rawWidth),
                 onSome: (cache) =>
-                  getOrEvict(cache, fontKey(font)).pipe(
+                  getOrEvict(cache, owner, fontKey(font)).pipe(
                     Effect.flatMap((emojiAdvance) => {
                       const [strippedText] = stripEmojiClusters(text)
 
@@ -129,13 +132,14 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
  * context is mutated during measurement, restored afterward whether or not the
  * measurement succeeded, and must outlive the layer. Concurrent calls are
  * serialized. A `measureText` that throws and a non-finite or negative width
- * fail as `MeasurementFailed`; a failed probe is not kept in the probe cache.
+ * fail as `MeasurementFailed`; a failed probe is not kept in the probe cache,
+ * and a probe is the layer's work, finished for every reader awaiting it.
  *
  * @since 0.2.0
  * @category layers
  */
 export const CanvasTextMeasurerLive = (options: CanvasTextMeasurerOptions) =>
-  Layer.effect(TextMeasurer, makeCanvasTextMeasurer(options))
+  Layer.scoped(TextMeasurer, makeCanvasTextMeasurer(options))
 
 /**
  * Browser measurement cache keyed by support profile, font signature, text, and font-readiness revision.
@@ -146,7 +150,9 @@ export const CanvasTextMeasurerLive = (options: CanvasTextMeasurerOptions) =>
  * profile. Rebuilding the layer with a new
  * `fontReadinessRevision` invalidates cached widths for the same font/text pair.
  * Only successful measurements are kept: a failed one is evicted so the next
- * request for the same text measures again.
+ * request for the same text measures again. Measurements are the layer's
+ * work: a reader interrupted while one is pending stops waiting and nothing
+ * else, and the layer's scope closing stops every measurement still pending.
  *
  * @since 0.2.0
  * @category layers
@@ -157,7 +163,7 @@ export const BrowserMeasurementCacheLive = (options?: {
   /** Support profile included in every cache key; defaults to the manifest default. */
   readonly profileId?: BrowserSupportProfileIdType
 }) =>
-  Layer.effect(
+  Layer.scoped(
     MeasurementCache,
     makeBrowserMeasurementCache({
       fontReadinessRevision: options?.fontReadinessRevision ?? initialFontReadinessRevision(),

@@ -1,9 +1,47 @@
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, type HtmlTagDescriptor, type Plugin } from "vite"
 
 const apiPort = process.env.THEORIA_PORT ?? "3876"
 const vitePort = 5175
+
+/**
+ * The faces the shell preloads: the Latin subsets of the two served
+ * typefaces, which set the text of the first render. The stylesheet declares
+ * them from the Fontsource packages (`app/web/styles.css`) and the build
+ * emits them as content-hashed assets, so the preload links are written from
+ * the bundle rather than by hand: the stylesheet's URL and the preload's are
+ * the same file, and a version bump moves both.
+ */
+const preloadedFaces = ["figtree-latin-wght-normal.woff2", "jetbrains-mono-latin-wght-normal.woff2"]
+
+const isTypeface = (fileName: string): boolean => fileName.endsWith(".woff2")
+
+const preloadTag = (href: string): HtmlTagDescriptor => ({
+  tag: "link",
+  attrs: { rel: "preload", href, as: "font", type: "font/woff2", crossorigin: true },
+  injectTo: "head"
+})
+
+const preloadTypefaces = (): Plugin => ({
+  name: "theoria:preload-typefaces",
+  apply: "build",
+  transformIndexHtml: {
+    order: "post",
+    handler: (_html, context) => {
+      const emitted = Object.values(context.bundle ?? {})
+      return preloadedFaces.map((face) => {
+        const asset = emitted.find((output) =>
+          output.type === "asset" && output.originalFileNames.some((original) => original.endsWith(`/${face}`))
+        )
+        if (asset === undefined) {
+          throw new Error(`The build emitted no asset for the preloaded face ${face}; is it still declared?`)
+        }
+        return preloadTag(`/${asset.fileName}`)
+      })
+    }
+  }
+})
 
 /**
  * Chunk groups. Rolldown evaluates `priority` before order. Vendor groups
@@ -22,11 +60,40 @@ const chunkGroups = [
   { name: "effect-math", test: /\/(?:packages|node_modules\/@scenesystems)\/effect-math\//, priority: 20 }
 ]
 
+/**
+ * The workspace packages the shell imports in the browser, pre-bundled for
+ * the dev server. Their `exports` point at `src/*.ts` (the publish step
+ * rewrites them), so Vite treats them as linked source and would otherwise
+ * serve every module of the transitive graph one request at a time: a cold
+ * homepage made 453 requests, 416 of them package source modules, and at any
+ * real latency the waterfall, not the server, set the load time. Pre-bundled,
+ * each specifier is one request. The cost is that an edit under `packages/`
+ * needs a dev-server restart to show; edits under `app/` keep HMR. The
+ * production build is untouched: `optimizeDeps` applies to `serve` only.
+ */
+const prebundledWorkspacePackages = [
+  "@scenesystems/effect-math",
+  "@scenesystems/effect-math/Geometry",
+  "@scenesystems/effect-math/Statistics",
+  "@scenesystems/effect-search",
+  "@scenesystems/effect-text",
+  "@scenesystems/effect-text/browser",
+  "@scenesystems/effect-text/contracts",
+  "@scenesystems/effect-text/react",
+  "@theoria/docs-model"
+]
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), preloadTypefaces()],
+  optimizeDeps: {
+    include: prebundledWorkspacePackages
+  },
   build: {
     outDir: "dist",
     sourcemap: false,
+    // A typeface is never inlined into the stylesheet: a small subset as a data URL would weigh on every
+    // page's render-blocking CSS to save a request made only when one of its glyphs is shown.
+    assetsInlineLimit: (fileName) => isTypeface(fileName) ? false : undefined,
     rolldownOptions: {
       output: {
         codeSplitting: {

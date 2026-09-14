@@ -1,18 +1,18 @@
 import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
+import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
-import type { PlaceRenderFrame } from "../../atoms/imagined-place-render.js"
+import type { PlaceSearch, ShownGeometry } from "../../atoms/imagined-place-render.js"
 import type { CodeAnnotation } from "../primitives/code/CodeLine.js"
 
 import type { PlaceStep } from "./placeSteps.js"
-import { currentVersion, shortId, signatureFor, signatureLabel } from "./placeViewModel.js"
+import { currentVersion, searching, shortId, signatureFor, signatureLabel } from "./placeViewModel.js"
 
 /**
  * What each line of the code sample produced in the build on screen. Every
- * value here is read from the server's evidence or the browser's render frame;
- * a value that does not exist yet is simply absent.
+ * value here is read from the server's evidence, the browser's search, or
+ * the drawing on the stage; a value that does not exist yet is simply absent.
  */
 const annotation = (match: string, text: Option.Option<string>): Option.Option<CodeAnnotation> =>
   Option.map(text, (value) => ({ match, text: value }))
@@ -64,31 +64,33 @@ const recordValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
     annotation(
       "ed25519Sign(author.secretKey",
       Option.map(
-        Option.flatMap(
-          currentVersion(build.evidence),
-          (version) => signatureFor(build.evidence.signatures, version.contentId)
-        ),
+        signatureFor(build.evidence.signatures, currentVersion(build.evidence).contentId),
         signatureLabel
       )
     )
   ])
 }
 
-const arrangeValues = (frame: PlaceRenderFrame): ReadonlyArray<CodeAnnotation> => {
-  const { evidence, projection } = frame.rendering
+/**
+ * The geometry lines say what the drawing on the stage is, the search line
+ * where the search stands: the two are read from different things, since
+ * the drawing shown need not be the best the search has found.
+ */
+const arrangeValues = (search: PlaceSearch, shown: ShownGeometry): ReadonlyArray<CodeAnnotation> => {
+  const { evidence } = search.best
   return [
     {
       match: "Text.layoutLinesWith(",
-      text: `${String(evidence.lineCount)} lines at ${String(projection.stageWidth)} px`
+      text: `${String(shown.lineCount)} lines at ${String(shown.stageWidth)} px`
     },
     {
       match: "Statistics.minimum(",
-      text: `closest markers ${String(Math.round(evidence.minimumSeparation * 100))}% of width apart`
+      text: `closest markers ${String(Math.round(shown.minimumSeparation * 100))}% of width apart`
     },
     {
       match: "Study.tell(",
-      text: frame.phase === "running"
-        ? `trial ${String(frame.trial)} of ${String(renderTrials)}`
+      text: searching(search)
+        ? `trial ${String(search.tried.length)} of ${String(renderTrials)}`
         : `${String(evidence.trials)} tried · best loss ${evidence.bestLoss.toFixed(3)}`
     }
   ]
@@ -97,12 +99,17 @@ const arrangeValues = (frame: PlaceRenderFrame): ReadonlyArray<CodeAnnotation> =
 export const placeLiveValues = (
   step: PlaceStep,
   build: Option.Option<PlaceBuild>,
-  frame: Option.Option<PlaceRenderFrame>
+  search: Option.Option<PlaceSearch>,
+  shown: Option.Option<ShownGeometry>
 ): ReadonlyArray<CodeAnnotation> =>
   Match.value(step).pipe(
     Match.when("compose", () => Option.match(build, { onNone: () => [], onSome: composeValues })),
     Match.when("propose", () => Option.match(build, { onNone: () => [], onSome: proposeValues })),
     Match.when("record", () => Option.match(build, { onNone: () => [], onSome: recordValues })),
-    Match.when("arrange", () => Option.match(frame, { onNone: () => [], onSome: arrangeValues })),
+    Match.when("arrange", () =>
+      Option.match(Option.all([search, shown]), {
+        onNone: () => [],
+        onSome: ([found, geometry]) => arrangeValues(found, geometry)
+      })),
     Match.exhaustive
   )

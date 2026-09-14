@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
-/*
- * Safelist: SemanticText generates typography classes dynamically from role names.
- * Tailwind v4 cannot detect template-literal class names at build time,
- * so we point to a safelist file that lists all fully-expanded class names.
- */
-@source "../../semantic-text-safelist.txt";
+/* The served typefaces, as Fontsource packages them: variable Latin and Latin Extended faces, swapped in on
+ * arrival. Their metric-matched stand-ins are in the generated tokens beneath, from the same contract that
+ * names the stacks. */
+@import "@fontsource-variable/figtree";
+@import "@fontsource-variable/jetbrains-mono";
+@import "./text-tokens.generated.css";
 
 @theme inline {
   --color-stage-0: var(--th-stage-0);
@@ -23,6 +23,13 @@
   --color-ink-800: var(--th-ink-800);
   --color-ink-900: var(--th-ink-900);
   --color-ink-950: var(--th-ink-950);
+
+  /* Surface vocabulary: hairlines, the instrument fill, and the two radii a surface may take */
+  --color-rule: var(--th-rule);
+  --color-rule-strong: var(--th-rule-strong);
+  --color-instrument: var(--th-instrument);
+  --radius-instrument: 0.75rem;
+  --radius-control: 0.5rem;
 
   --color-danger-50: var(--th-danger-50);
   --color-danger-200: var(--th-danger-200);
@@ -43,6 +50,18 @@
   --shadow-surface: var(--th-shadow-surface);
   --shadow-hero: var(--th-shadow-hero);
   --shadow-chip: var(--th-shadow-chip);
+
+  /* The hero's rhythm above and below scales with viewport height, bounded, so the demonstration shares the first viewport. */
+  --spacing-hero-lead: clamp(2.5rem, 7svh, 6rem);
+  --spacing-hero-trail: clamp(2rem, 4.5svh, 5rem);
+  /*
+   * The page's rhythm below the hero, in two steps: between the steps of the story (Arrange, Compose, Propose, Record)
+   * and between the regions of the page (the demonstration, how it is built, the footer). Both scale with the
+   * viewport's width, bounded; a region always stands off at least as far as a step, and a step several times
+   * further than a header stands from its body, so what is apart reads apart.
+   */
+  --spacing-act: clamp(3.5rem, 2rem + 4vw, 4.5rem);
+  --spacing-region: clamp(4.5rem, 2.5rem + 5vw, 6rem);
 }
 
 @theme {
@@ -115,128 +134,6 @@
   --color-tone-seal-700: #544d74;
   --color-tone-seal-800: #453f60;
   --color-tone-seal-900: #34304a;
-
-  /* Typography: font-family theme tokens (generated — do not edit) */
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-body: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-display: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
-
-  /* Typography: per-role font-size tokens (generated — do not edit) */
-  --st-fs-hero-title: 38px;
-  --st-fs-hero-body: 18px;
-  --st-fs-subsection-title: 22px;
-  --st-fs-card-title: 24px;
-  --st-fs-card-summary: 16px;
-  --st-fs-status: 14px;
-  --st-fs-tab-label: 12px;
-  --st-fs-selection-title: 14px;
-  --st-fs-section-title: 24px;
-  --st-fs-row-label: 11px;
-  --st-fs-row-value: 14px;
-  --st-fs-code-meta: 12px;
-  --st-fs-code-block: 12px;
-  --st-fs-button-label: 12px;
-  --st-fs-marker-label: 12px;
-
-  /* Typography: per-role line-height tokens (generated — do not edit) */
-  --st-lh-hero-title: 44px;
-  --st-lh-hero-body: 30px;
-  --st-lh-subsection-title: 30px;
-  --st-lh-card-title: 32px;
-  --st-lh-card-summary: 26px;
-  --st-lh-status: 22px;
-  --st-lh-tab-label: 16px;
-  --st-lh-selection-title: 20px;
-  --st-lh-section-title: 32px;
-  --st-lh-row-label: 16px;
-  --st-lh-row-value: 22px;
-  --st-lh-code-meta: 18px;
-  --st-lh-code-block: 18px;
-  --st-lh-button-label: 16px;
-  --st-lh-marker-label: 14px;
-
-  /* Typography: per-role font-weight tokens (generated — do not edit) */
-  --st-fw-hero-title: 600;
-  --st-fw-hero-body: 400;
-  --st-fw-subsection-title: 600;
-  --st-fw-card-title: 600;
-  --st-fw-card-summary: 400;
-  --st-fw-status: 400;
-  --st-fw-tab-label: 600;
-  --st-fw-selection-title: 600;
-  --st-fw-section-title: 600;
-  --st-fw-row-label: 600;
-  --st-fw-row-value: 400;
-  --st-fw-code-meta: 400;
-  --st-fw-code-block: 400;
-  --st-fw-button-label: 600;
-  --st-fw-marker-label: 600;
-
-  /* Typography: per-role tracking tokens (generated — do not edit) */
-  --st-tr-hero-title: -0.02em;
-  --st-tr-hero-body: 0;
-  --st-tr-subsection-title: -0.01em;
-  --st-tr-card-title: -0.01em;
-  --st-tr-card-summary: 0;
-  --st-tr-status: 0;
-  --st-tr-tab-label: 0.02em;
-  --st-tr-selection-title: 0;
-  --st-tr-section-title: 0;
-  --st-tr-row-label: 0.04em;
-  --st-tr-row-value: 0;
-  --st-tr-code-meta: 0;
-  --st-tr-code-block: 0;
-  --st-tr-button-label: 0.02em;
-  --st-tr-marker-label: 0.01em;
-
-  /* Typography: per-role font-family tokens (generated — do not edit) */
-  --st-ff-hero-title: var(--font-display);
-  --st-ff-hero-body: var(--font-body);
-  --st-ff-subsection-title: var(--font-display);
-  --st-ff-card-title: var(--font-display);
-  --st-ff-card-summary: var(--font-body);
-  --st-ff-status: var(--font-body);
-  --st-ff-tab-label: var(--font-body);
-  --st-ff-selection-title: var(--font-display);
-  --st-ff-section-title: var(--font-display);
-  --st-ff-row-label: var(--font-body);
-  --st-ff-row-value: var(--font-body);
-  --st-ff-code-meta: var(--font-mono);
-  --st-ff-code-block: var(--font-mono);
-  --st-ff-button-label: var(--font-body);
-  --st-ff-marker-label: var(--font-body);
-
-  /* Typography: per-role/variant max-width tokens (generated — do not edit) */
-  --st-mw-hero-title-compact: 680px;
-  --st-mw-hero-title-expanded: 920px;
-  --st-mw-hero-body-compact: 600px;
-  --st-mw-hero-body-expanded: 880px;
-  --st-mw-subsection-title-compact: 520px;
-  --st-mw-subsection-title-expanded: 1120px;
-  --st-mw-card-title-compact: 520px;
-  --st-mw-card-title-expanded: 1120px;
-  --st-mw-card-summary-compact: 720px;
-  --st-mw-card-summary-expanded: 1400px;
-  --st-mw-status-compact: 760px;
-  --st-mw-status-expanded: 1400px;
-  --st-mw-tab-label-compact: 180px;
-  --st-mw-tab-label-expanded: 220px;
-  --st-mw-selection-title-compact: 900px;
-  --st-mw-selection-title-expanded: 1400px;
-  --st-mw-section-title-compact: 900px;
-  --st-mw-section-title-expanded: 1400px;
-  --st-mw-row-label-compact: 360px;
-  --st-mw-row-label-expanded: 680px;
-  --st-mw-row-value-compact: 760px;
-  --st-mw-row-value-expanded: 1400px;
-  --st-mw-code-meta-compact: 900px;
-  --st-mw-code-meta-expanded: 1400px;
-  --st-mw-code-block-compact: 900px;
-  --st-mw-code-block-expanded: 1800px;
-  --st-mw-button-label-compact: 170px;
-  --st-mw-button-label-expanded: 210px;
-  --st-mw-marker-label-compact: 160px;
-  --st-mw-marker-label-expanded: 200px;
 }
 
 @layer base {
@@ -259,6 +156,11 @@
     --th-ink-800: #2b3950;
     --th-ink-900: #172339;
     --th-ink-950: #0b1326;
+
+    /* Hairlines and the instrument fill: the same greys the stage scale uses, named for their job */
+    --th-rule: #dde4ee;
+    --th-rule-strong: #c8d3e3;
+    --th-instrument: #edf1f7;
 
     --th-danger-50: #fef2f2;
     --th-danger-200: #fecaca;
@@ -320,6 +222,10 @@
     --th-ink-800: #c8d3e3;
     --th-ink-900: #edf1f7;
     --th-ink-950: #ffffff;
+
+    --th-rule: #1c2944;
+    --th-rule-strong: #263550;
+    --th-instrument: #152038;
 
     --th-danger-50: #2a1215;
     --th-danger-200: #5c2022;
@@ -433,70 +339,80 @@
     );
   }
 
-  @media (max-width: 639px) {
-    :root {
-      --st-fs-hero-title: 32px;
-      --st-lh-hero-title: 38px;
-      --st-fs-hero-body: 16px;
-      --st-lh-hero-body: 24px;
-      --st-fs-subsection-title: clamp(14px, 4.6vw, 18px);
-      --st-lh-subsection-title: 24px;
-      --st-fs-card-summary: 15px;
-      --st-lh-card-summary: 22px;
-      --st-fs-section-title: 21px;
-      --st-lh-section-title: 28px;
-    }
-  }
-
   * {
     box-sizing: border-box;
   }
 
+  /* Where scrollbars take room, the room is always there: the page does not
+   * move sideways when it first grows past the viewport. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  /* A Base UI scroll area's viewport draws its own scrollbar, so the native
+   * one is hidden. Base UI would write this rule into a `<style>` element as
+   * it renders; the page's policy admits no inline style, so it is told not to
+   * (`CSPProvider` in `App.tsx`) and the rule lives here. */
+  .base-ui-disable-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .base-ui-disable-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* The canvas is the stage's colour: one flat fill, propagated to the
+   * viewport, so it costs nothing to repaint under the page. */
   body {
     margin: 0;
     min-height: 100vh;
+    background-color: var(--color-stage-50);
+    color: var(--color-ink-900);
+  }
+
+  /* The light on the canvas: washes at the page's top corners, on a fixed
+   * layer of their own beneath the page. Fixed, the layer is composited apart
+   * from the page and shaded once; painted on the body they would sit on the
+   * document's root layer, where every repaint of the page — a ring round a
+   * pressed trigger, a frame of the search — re-shades the gradients tile by
+   * tile, and a press on a phone waits behind it. The washes are sized to the
+   * viewport, so they are the same light whatever the page's height, and the
+   * light is no part of the page: nothing can point at it. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background:
       radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--color-stage-100) 88%, transparent) 0%, transparent 46%),
-      radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--color-stage-100) 60%, transparent) 0%, transparent 42%),
-      var(--color-stage-50);
-    color: var(--color-ink-900);
+      radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--color-stage-100) 60%, transparent) 0%, transparent 42%);
   }
 }
 
 /* ---------------------------------------------------------------------------
- * Content transition animations
+ * Stage utilities. Nothing here animates: Motion owns every arrival, exit and
+ * finishing touch under the one configuration at the root, and CSS
+ * transitions elsewhere read the motion tokens above.
  * --------------------------------------------------------------------------- */
 
 @layer utilities {
-  /* A value that just changed: a wash in the digest tone that settles to nothing. */
-  @keyframes value-changed {
-    from {
-      background-color: var(--color-tone-digest-200);
-      box-shadow: 0 0 0 4px var(--color-tone-digest-200);
-    }
-    to {
-      background-color: transparent;
-      box-shadow: 0 0 0 4px transparent;
-    }
-  }
-
-  .animate-value-changed {
-    border-radius: 0.25rem;
-    animation: value-changed 1200ms ease-out both;
-  }
-
-  /* A path that draws itself once, front to back; pathLength="1" normalises the offset. */
-  @keyframes path-draw {
-    from {
-      stroke-dashoffset: 1;
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  .animate-path-draw {
-    animation: path-draw 900ms ease-out both;
+  /*
+   * Words that are known before they are here in evidence, drawn as the room
+   * they take: the text is transparent and a bar covers the middle of each
+   * line's words. The bar is a background clipped to each line fragment, so a
+   * line's bar is exactly as long as that line's words.
+   */
+  .ghost-words {
+    color: transparent;
+    background-image: linear-gradient(--alpha(var(--color-stage-200) / 60%), --alpha(var(--color-stage-200) / 60%));
+    background-size: 100% 70%;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 0.125rem;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    user-select: none;
   }
 
   /* One feature on the imagined place's stage, coloured by who added it. */
@@ -510,12 +426,5 @@
 
   .bg-place-disc-dsp {
     background-image: var(--th-place-disc-dsp);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-path-draw,
-    .animate-value-changed {
-      animation: none;
-    }
   }
 }
