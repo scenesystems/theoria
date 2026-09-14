@@ -260,7 +260,8 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
           </Popover.Description>
         )
       })}
-      <Layer render={<dl />} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+      {/* A label is set smaller than its value; they rest on one baseline, not one box's centre. */}
+      <Layer render={<dl />} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
         {Arr.map(provenance.facts, (fact) => (
           <Fragment key={fact.label}>
             <SemanticText as="dt" className="text-ink-500" role="row-label" text={fact.label} variant="compact" />
@@ -279,7 +280,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
         onNone: () => null,
         onSome: (value) => <WholeValue value={value} />
       })}
-      <Cluster className="items-center justify-between gap-x-3 gap-y-1 border-t border-rule pt-2">
+      <Cluster align="baseline" className="justify-between gap-x-3 gap-y-1 border-t border-rule pt-2">
         <AnchorLink
           className={codeLinkClassName}
           data-place-provenance-code={provenance.site.id}
