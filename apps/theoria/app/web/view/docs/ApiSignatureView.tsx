@@ -130,7 +130,7 @@ export const ApiSignatureView = ({
     <Parameters headingAs={headingAs} parameters={signature.parameters} />
     <Stack className="gap-2">
       <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Returns</SemanticContent>
-      <Cluster className="items-start gap-x-4 gap-y-2 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4 py-3">
+      <Cluster align="start" className="gap-x-4 gap-y-2 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4 py-3">
         <InlineHighlightedCode className="min-w-0 max-w-full text-ink-900" source={signature.returns.type} />
         {signature.returns.description.length > 0
           ? (

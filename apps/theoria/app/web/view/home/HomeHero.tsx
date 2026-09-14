@@ -39,7 +39,7 @@ export const HomeHero = () => (
         variant="expanded"
         wrapAuthority="native-browser"
       />
-      <Cluster className="items-center gap-x-3 gap-y-2 pt-1">
+      <Cluster className="gap-x-3 gap-y-2 pt-1">
         <InternalLink className={primaryActionClassName} href="/docs">
           <SemanticText as="span" className="text-stage-0" role="button-label" text="Browse the packages" />
         </InternalLink>

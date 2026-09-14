@@ -94,7 +94,7 @@ const Preview = ({ destination, href, title }: {
     >
       <Stack className="gap-1.5 px-3.5 pt-3 pb-3">
         <Rail className="justify-between gap-3">
-          <Cluster className="items-baseline gap-x-2">
+          <Cluster align="baseline" className="gap-x-2">
             <SemanticText as="span" className={tone.text} role="row-label" text={destination.docsPackage.slug} />
             <SemanticText
               as="span"

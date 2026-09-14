@@ -204,7 +204,7 @@ export const PlaceHowItsBuilt = () => {
       id={howItsBuiltSectionId}
     >
       <Stack className="gap-5">
-        <Cluster className="items-center justify-between gap-x-6 gap-y-3">
+        <Cluster className="justify-between gap-x-6 gap-y-3">
           <SemanticText
             as="h3"
             className="text-ink-900"

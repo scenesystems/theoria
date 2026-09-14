@@ -19,7 +19,7 @@ export const LegendItem = ({
   readonly label: string
   readonly tone: ToneClasses
 }) => (
-  <Cluster className="items-center gap-1.5">
+  <Cluster className="gap-1.5">
     <Layer aria-hidden render={<span />} className={`inline-flex size-2 shrink-0 rounded-full ${tone.bg}`} />
     {Option.match(Option.fromNullable(index), {
       onNone: () => null,

@@ -232,7 +232,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
   const goToSite = useAtomSet(placeGoToSiteAtom)
   return (
     <Stack className="gap-2.5 px-3.5 py-3">
-      <Cluster className="items-baseline justify-between gap-x-3 gap-y-1">
+      <Cluster align="baseline" className="justify-between gap-x-3 gap-y-1">
         <Popover.Title render={<Layer className="min-w-0" />}>
           <SemanticText
             as="h3"

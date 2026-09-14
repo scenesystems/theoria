@@ -270,8 +270,8 @@ export const PlaceProposal = ({
       })}
       {...pending}
     >
-      <Cluster render={<header />} className="items-center justify-between gap-x-3 gap-y-1.5">
-        <Cluster className="items-center gap-x-3 gap-y-1">
+      <Cluster render={<header />} className="justify-between gap-x-3 gap-y-1.5">
+        <Cluster className="gap-x-3 gap-y-1">
           <ParticipantName name={participantLabel(role)} tone={tone} />
           {Option.match(build, {
             onNone: () =>
@@ -332,7 +332,7 @@ export const PlaceProposal = ({
         <NoteField build={build} role={role} />
       </Layer>
 
-      <Cluster render={<footer />} className="items-center gap-x-3 gap-y-1">
+      <Cluster render={<footer />} className="gap-x-3 gap-y-1">
         {Option.match(record, {
           onNone: () => (
             <>
