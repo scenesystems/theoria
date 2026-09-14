@@ -48,10 +48,18 @@ export const headerChromeIconButtonClassName = (className = ""): string =>
  */
 export type HeaderGlyphSource = "heroicon" | "brand-mark"
 
-/** A glyph inside a header control, boxed so its ink is the control's glyph ink size. */
+/**
+ * A glyph inside a header control, boxed so its ink is the control's glyph
+ * ink size, and taking only its ink's width in the line: the margin a set
+ * leaves inside its box is pulled back out, so the room beside a glyph is
+ * the control's room, not the control's room plus the set's.
+ */
 export const headerChromeGlyphClassName = (source: HeaderGlyphSource): string =>
   Match.value(source).pipe(
-    Match.when("heroicon", () => "size-[calc(var(--header-chrome-glyph-ink)*1.25)] shrink-0"),
+    Match.when(
+      "heroicon",
+      () => "size-[calc(var(--header-chrome-glyph-ink)*1.25)] -mx-[calc(var(--header-chrome-glyph-ink)*0.125)] shrink-0"
+    ),
     Match.when("brand-mark", () => "size-(--header-chrome-glyph-ink) shrink-0"),
     Match.exhaustive
   )
