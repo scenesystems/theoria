@@ -50,6 +50,16 @@ const gatedBy = (gate: Deferred.Deferred<void>) =>
     return yield* openingStudies
   })
 
+/** An opener whose study takes its time letting go: its finalizer waits on the gate before counting itself closed. */
+const slowToLetGo = (gate: Deferred.Deferred<void>) =>
+  Effect.gen(function*() {
+    const openings = yield* Openings
+    yield* Effect.addFinalizer(() =>
+      Effect.zipRight(Deferred.await(gate), Ref.update(openings.closed, (count) => count + 1))
+    )
+    return yield* openingStudies
+  })
+
 const failure = (search: PlaceSearchId) => new PlaceSearchFailed({ message: `no open search ${String(search)}` })
 
 describe("PlaceSearchStudies", () => {
@@ -93,6 +103,26 @@ describe("PlaceSearchStudies", () => {
       expect(yield* Ref.get(openings.closed)).toBe(0)
       yield* Fiber.interrupt(opening)
       expect(yield* Ref.get(openings.closed)).toBe(1)
+      expect(yield* studies.openCount).toBe(0)
+    }).pipe(Effect.provide(Openings.Default)))
+
+  it.scoped("a close given up on still lets the study go whole: nothing is forgotten half let go", () =>
+    Effect.gen(function*() {
+      const openings = yield* Openings
+      const gate = yield* Deferred.make<void>()
+      const studies = yield* PlaceSearchStudies.make(slowToLetGo(gate))
+      const search = yield* studies.open
+      const closing = yield* Effect.fork(studies.close(search))
+      yield* Effect.yieldNow()
+      // The table has let go of the study; its scope is closing, held at the gate.
+      expect(yield* studies.openCount).toBe(0)
+      expect(yield* Ref.get(openings.closed)).toBe(1)
+      const interrupting = yield* Effect.fork(Fiber.interrupt(closing))
+      yield* Effect.yieldNow()
+      expect(yield* Ref.get(openings.closed)).toBe(1)
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(interrupting)
+      expect(yield* Ref.get(openings.closed)).toBe(2)
       expect(yield* studies.openCount).toBe(0)
     }).pipe(Effect.provide(Openings.Default)))
 

@@ -90,12 +90,17 @@ export const make = <R>(
     const tell = (search: PlaceSearchId, trial: number, loss: number) =>
       Effect.flatMap(found(search), (held) => held.study.tell(trial, loss).pipe(Effect.mapError(failed)))
 
+    // Letting go of a study and closing its scope are one step: once the
+    // table has forgotten it, nothing may come between and leave its scope
+    // open with no one left to close it.
     const close = (search: PlaceSearchId) =>
-      Effect.gen(function*() {
-        const held = yield* found(search)
-        yield* Ref.update(kept, HashMap.remove(search))
-        yield* Scope.close(held.scope, Exit.void)
-      })
+      Effect.uninterruptible(
+        Effect.gen(function*() {
+          const held = yield* found(search)
+          yield* Ref.update(kept, HashMap.remove(search))
+          yield* Scope.close(held.scope, Exit.void)
+        })
+      )
 
     return new Studies({ open, ask, tell, close, openCount: Effect.map(Ref.get(kept), HashMap.size) })
   })
