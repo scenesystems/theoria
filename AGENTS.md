@@ -344,6 +344,12 @@ All root requirements apply independently of skill discovery or loading. This
 checkout does not bundle `.agents/skills`; missing skills cannot weaken native
 Effect, research, design, TDD, fix-forward ownership, review, or verification.
 
+Read this repository's README and current human direction for Theoria's purpose
+and product experience. Shared engineering skills do not import Scene's company
+vision, World workflows, or product terminology into this scientific-computing
+library, demonstration, or documentation. Architecture and bounded delivery
+plans serve the intended experience; they do not redefine it.
+
 For material work, research the product outcome, current source and real
 consumers, exact installed public contracts, authoritative implementations, and
 official documentation. Synthesize alternatives and evidence into an outside-in
@@ -399,7 +405,7 @@ do not invent unavailable skill names or copy a competing skill library here.
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `production-grade-work` | Research, architecture, naming, exact API design, declaration, TDD, implementation, migration, integration, verification |
 | `idiomatic-effect`      | Every pure/effectful API, type investigation, anti-pattern correction, native testing mechanics                          |
-| `composing-ui`          | Participant framing, visual direction, shared UI, channel fidelity, accessibility, rendered review                       |
+| `composing-ui`          | Product experience, brand and visual-system design, shared UI implementation, accessibility, rendered review             |
 | `engineering-review`    | Direct review, corrective findings, bounded Oracle profiles                                                              |
 | `documenting-systems`   | API docs, examples, rationale, specifications, diagrams, validation                                                      |
 | `coordination-protocol` | Independent work, human-scope preservation, writable ownership, integration, concise handoffs                            |
