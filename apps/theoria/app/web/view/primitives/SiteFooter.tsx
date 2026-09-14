@@ -86,7 +86,7 @@ export const SiteFooter = () => (
         as="p"
         className="text-center text-ink-500 md:text-left"
         role="status"
-        text={`© ${String(siteMetadata.copyrightYear)} Scene Systems`}
+        text={`© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`}
         variant="compact"
       />
     </Stack>
