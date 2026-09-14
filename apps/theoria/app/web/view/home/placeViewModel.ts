@@ -335,28 +335,25 @@ export const sealedNoteLabel = (note: SealedNote): string => sealedNoteText(Stri
 /** The room the envelope takes before it is sealed: a size of three digits, as the notes run. */
 export const sealedNoteLabelShape = sealedNoteText("000")
 
-const leadingWords = (text: string, count: number): string => text.split(" ").slice(0, count).join(" ")
+/** The text with its spaces taken out: where the lines break — between words or, on a narrow stage, inside one — no longer shows. */
+const lettersOf = (text: string): string => text.replaceAll(/\s+/gu, "")
 
 /**
  * The line of the drawn prose where a proposal's sentence begins, once it is
- * merged: the margin the proposal belongs beside. The sentence's first words
- * are looked for whole, then fewer of them, since a line may wrap inside
- * them. Declined proposals have no line, as they are not in the prose.
+ * merged: the margin the proposal belongs beside. The whole sentence is
+ * looked for in the prose the lines flow, read past the line breaks, and the
+ * line holding its first letter is the answer — never a line that merely
+ * holds its first word. Declined proposals have no line, as they are not in
+ * the prose.
  */
-export const proposalAnchorLine = (projection: PlaceProjection, record: ProposalRecord): Option.Option<number> =>
-  record.accepted
-    ? Option.orElse(
-      Arr.findFirstIndex(
-        projection.lines,
-        (line) => line.text.includes(leadingWords(record.proposal.feature.description, 3))
-      ),
-      () =>
-        Arr.findFirstIndex(
-          projection.lines,
-          (line) => line.text.includes(leadingWords(record.proposal.feature.description, 1))
-        )
-    )
-    : Option.none()
+export const proposalAnchorLine = (projection: PlaceProjection, record: ProposalRecord): Option.Option<number> => {
+  if (!record.accepted) return Option.none()
+  const letters = Arr.map(projection.lines, (line) => lettersOf(line.text))
+  const start = Arr.join(letters, "").indexOf(lettersOf(record.proposal.feature.description))
+  // Where each line's letters end in the prose: the sentence begins on the first line that ends past its first letter.
+  const ends = Arr.drop(Arr.scan(letters, 0, (sum, text) => sum + text.length), 1)
+  return start < 0 ? Option.none() : Arr.findFirstIndex(ends, (end) => end > start)
+}
 
 /** What the version added: the origin's feature count, or each merged proposal with who offered it. */
 export const versionChanges = (offered: ReadonlyArray<OfferedProposal>, shape: VersionShape): ReadonlyArray<string> =>
