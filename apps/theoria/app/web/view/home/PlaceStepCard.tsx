@@ -49,10 +49,14 @@ const cardClassName = (spine: StepSpine): string =>
     ? "grid grid-cols-1 gap-y-3.5 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-3.5"
     : "grid grid-cols-1 gap-y-3.5"
 
+/**
+ * The step's name is set small in capitals, its packages in monospace: two
+ * faces at two sizes, which read as one line only when they rest on one
+ * baseline. Centring their boxes would set the capitals a pixel or two above
+ * the names.
+ */
 const headerClassName = (spine: StepSpine): string =>
-  spine === "spine"
-    ? "min-w-0 items-center gap-x-2.5 gap-y-1.5 lg:col-start-2 lg:row-start-1"
-    : "min-w-0 items-center gap-x-2.5 gap-y-1.5"
+  spine === "spine" ? "gap-x-2.5 gap-y-1.5 lg:col-start-2 lg:row-start-1" : "gap-x-2.5 gap-y-1.5"
 
 const bodyClassName = (spine: StepSpine): string =>
   spine === "spine" ? "min-w-0 lg:col-start-2 lg:row-start-2" : "min-w-0"
@@ -89,7 +93,7 @@ export const PlaceStepCard = (
       {...landmark(spine, step)}
     >
       {spine === "spine" ? spineDot(active) : null}
-      <Cluster className={headerClassName(spine)} data-place-step-header>
+      <Cluster align="baseline" className={headerClassName(spine)} data-place-step-header>
         <Button
           aria-pressed={active}
           className={nameButtonClassName}
@@ -106,7 +110,7 @@ export const PlaceStepCard = (
             variant="compact"
           />
         </Button>
-        <Cluster className="items-center gap-x-2.5 gap-y-1">{packageNames(definition.packages)}</Cluster>
+        <Cluster align="baseline" className="gap-x-2.5 gap-y-1">{packageNames(definition.packages)}</Cluster>
       </Cluster>
       <Layer className={bodyClassName(spine)}>{children}</Layer>
     </Layer>
