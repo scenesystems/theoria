@@ -62,7 +62,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               (next, previous) => next.shown.left - previous.shown.right
             )
             alike(gaps, `${at}: the space the reader sees between controls is one space, not ${String(gaps)}`)
-            expect(Arr.every(controls, (control) => control.hasGlyph), `${at}: every control has a glyph`).toBe(true)
+            expect(Arr.every(controls, (control) => control.glyphInk > 0), `${at}: every control has a glyph`).toBe(
+              true
+            )
+            alike(
+              Arr.map(controls, (control) => control.glyphInk),
+              `${at}: the glyphs are drawn at one size, not ${String(controls.map((control) => control.glyphInk))}`
+            )
             expect(
               Arr.every(controls, (control) => control.reaches.left && control.reaches.right),
               `${at}: every control is at least 44px wide to a press`

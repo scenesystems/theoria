@@ -1389,14 +1389,22 @@ export const textBaselines = (elements: ReadonlyArray<Element>): ReadonlyArray<n
  * children's boxes united, so the space between two controls is the space
  * a reader sees, not the space between hit areas. It reaches a point when a
  * press there lands on it, so a control's hit area can be wider than what it
- * shows. For `evaluateAll`.
+ * shows. Its glyph's ink is the drawn part of its svg in CSS pixels — the
+ * box scaled by the fraction of the viewBox the paths fill — so glyphs from
+ * sets with different margins can be compared as the eye compares them. For
+ * `evaluateAll`.
  */
 export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<{
   readonly shown: { readonly left: number; readonly right: number }
   readonly reaches: { readonly left: boolean; readonly right: boolean }
-  readonly hasGlyph: boolean
+  readonly glyphInk: number
 }> =>
   controls.map((control) => {
+    const glyph = control.querySelector("svg")
+    const glyphInk = glyph instanceof SVGSVGElement
+      ? Math.max(glyph.getBBox().width, glyph.getBBox().height) * glyph.getBoundingClientRect().height
+        / glyph.viewBox.baseVal.height
+      : 0
     const boxes = [...control.children]
       .map((child) => child.getBoundingClientRect())
       .filter((box) => box.width > 0 && box.height > 0)
@@ -1411,7 +1419,7 @@ export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<
     return {
       shown: { left, right },
       reaches: { left: reaches(-reach), right: reaches(reach) },
-      hasGlyph: control.querySelector("svg") instanceof SVGElement
+      glyphInk
     }
   })
 

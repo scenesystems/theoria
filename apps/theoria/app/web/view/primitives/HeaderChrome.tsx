@@ -1,3 +1,5 @@
+import { Match } from "effect"
+
 import { classNames } from "./classNames.js"
 import { focusEdgeClassName } from "./designSystem.js"
 
@@ -17,26 +19,39 @@ const headerChromeControlClassName =
   "relative inline-flex min-h-11 items-center gap-2 rounded-control px-1.5 text-ink-700 transition-colors duration-150 hover:text-ink-950 before:absolute before:inset-y-0 before:left-1/2 before:w-[max(100%,2.75rem)] before:-translate-x-1/2"
 
 /**
- * A header destination as words beside a glyph. The glyph size is a variable
- * so a mark beside the words sits at the same height in every header control.
+ * The ink of every header glyph — the part of it that is drawn — is one
+ * size, whether the glyph stands beside words or alone. The control sets it
+ * as a variable so its glyph can be sized from it.
  */
+const headerChromeGlyphInkClassName = "[--header-chrome-glyph-ink:1rem]"
+
+/** A header destination as words beside a glyph. */
 export const headerChromeLinkClassName = (className = ""): string =>
-  classNames(
-    headerChromeControlClassName,
-    "[--header-chrome-glyph-size:1rem]",
-    headerChromeFocusClassName,
-    className
-  )
+  classNames(headerChromeControlClassName, headerChromeGlyphInkClassName, headerChromeFocusClassName, className)
 
 /** A header control that is only its glyph: the same ink, the same hover, the same room and reach. */
 export const headerChromeIconButtonClassName = (className = ""): string =>
   classNames(
     headerChromeControlClassName,
-    "justify-center [--header-chrome-glyph-size:1.125rem]",
+    "justify-center",
+    headerChromeGlyphInkClassName,
     headerChromeFocusClassName,
     className
   )
 
-/** A glyph inside a header control, sized by the control. */
-export const headerChromeGlyphClassName =
-  "h-[var(--header-chrome-glyph-size)] w-[var(--header-chrome-glyph-size)] shrink-0"
+/**
+ * Where a header glyph is drawn from, which decides how much of its box its
+ * ink fills. Heroicons' 20-unit solid set leaves a two-unit margin, so its
+ * ink is four fifths of the box; a brand mark such as GitHub's fills its box
+ * to the edge. A glyph's box is its ink size divided by that fraction, so
+ * glyphs from either source are drawn the same size.
+ */
+export type HeaderGlyphSource = "heroicon" | "brand-mark"
+
+/** A glyph inside a header control, boxed so its ink is the control's glyph ink size. */
+export const headerChromeGlyphClassName = (source: HeaderGlyphSource): string =>
+  Match.value(source).pipe(
+    Match.when("heroicon", () => "size-[calc(var(--header-chrome-glyph-ink)*1.25)] shrink-0"),
+    Match.when("brand-mark", () => "size-(--header-chrome-glyph-ink) shrink-0"),
+    Match.exhaustive
+  )

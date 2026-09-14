@@ -31,8 +31,8 @@ export const ThemeToggle = () => {
       type="button"
     >
       {Match.value(mode).pipe(
-        Match.when("light", () => <MoonIcon aria-hidden className={headerChromeGlyphClassName} />),
-        Match.when("dark", () => <SunIcon aria-hidden className={headerChromeGlyphClassName} />),
+        Match.when("light", () => <MoonIcon aria-hidden className={headerChromeGlyphClassName("heroicon")} />),
+        Match.when("dark", () => <SunIcon aria-hidden className={headerChromeGlyphClassName("heroicon")} />),
         Match.exhaustive
       )}
     </Button>

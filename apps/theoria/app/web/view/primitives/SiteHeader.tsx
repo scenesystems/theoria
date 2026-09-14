@@ -30,7 +30,7 @@ export const SiteHeader = () => {
         {/* The gap keeps neighbouring 44px hit areas from overlapping when only glyphs show. */}
         <Cluster render={<nav aria-label="Site" />} className="gap-4">
           <InternalLink aria-label="Docs" className={headerChromeLinkClassName()} href="/docs">
-            <BookOpenIcon aria-hidden className={headerChromeGlyphClassName} />
+            <BookOpenIcon aria-hidden className={headerChromeGlyphClassName("heroicon")} />
             <SemanticText
               as="span"
               className="hidden text-inherit sm:inline"
@@ -44,7 +44,7 @@ export const SiteHeader = () => {
             className={headerChromeLinkClassName()}
             href={theoriaRepoUrl}
           >
-            <GitHubMark className={headerChromeGlyphClassName} />
+            <GitHubMark className={headerChromeGlyphClassName("brand-mark")} />
             <SemanticText
               as="span"
               className="hidden text-inherit sm:inline"
