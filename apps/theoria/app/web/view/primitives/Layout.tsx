@@ -1,4 +1,5 @@
 import { useRender } from "@base-ui/react/use-render"
+import { Match, Schema } from "effect"
 
 import { classNames } from "./classNames.js"
 
@@ -20,15 +21,21 @@ export type LayoutSlotProps<Tag extends LayoutTag> = useRender.ComponentProps<Ta
  * is for every other Base UI component in the app. The props are typed by the
  * slot's default element, so `<Main>` accepts what a `<main>` accepts.
  */
+const useLayoutSlot = <Tag extends LayoutTag>(
+  defaultTagName: Tag,
+  baseClassName: string,
+  { className, ref, render, ...props }: LayoutSlotProps<Tag>
+) =>
+  useRender({
+    defaultTagName,
+    props: { ...props, className: classNames(baseClassName, className ?? "") },
+    ref,
+    render
+  })
+
 const layoutSlot =
-  <Tag extends LayoutTag>(defaultTagName: Tag, baseClassName: string) =>
-  ({ className, ref, render, ...props }: LayoutSlotProps<Tag>) =>
-    useRender({
-      defaultTagName,
-      props: { ...props, className: classNames(baseClassName, className ?? "") },
-      ref,
-      render
-    })
+  <Tag extends LayoutTag>(defaultTagName: Tag, baseClassName: string) => (props: LayoutSlotProps<Tag>) =>
+    useLayoutSlot(defaultTagName, baseClassName, props)
 
 export const Layer = layoutSlot("div", "min-w-0")
 export const Header = layoutSlot("header", "min-w-0")
@@ -36,5 +43,30 @@ export const Main = layoutSlot("main", "min-w-0")
 export const Nav = layoutSlot("nav", "min-w-0")
 export const Section = layoutSlot("section", "min-w-0")
 export const Stack = layoutSlot("div", "flex min-w-0 flex-col")
-export const Rail = layoutSlot("div", "flex min-w-0 items-center")
-export const Cluster = layoutSlot("div", "flex min-w-0 flex-wrap items-center")
+
+/** How a flex row aligns its items on the cross axis. */
+export const RowAlign = Schema.Literal("baseline", "center", "start")
+export type RowAlign = typeof RowAlign.Type
+
+const rowAlignClassName = (align: RowAlign): string =>
+  Match.value(align).pipe(
+    Match.when("baseline", () => "items-baseline"),
+    Match.when("center", () => "items-center"),
+    Match.when("start", () => "items-start"),
+    Match.exhaustive
+  )
+
+/**
+ * A flex row: a layout slot plus its cross-axis alignment. Alignment is a
+ * prop rather than a class so it cannot collide with the slot's base classes:
+ * the slot's classes are joined, not merged, and two `items-*` utilities on
+ * one element resolve by stylesheet order, not by which the caller wrote.
+ */
+const rowSlot =
+  (baseClassName: string) => ({ align = "center", ...props }: LayoutSlotProps<"div"> & { readonly align?: RowAlign }) =>
+    useLayoutSlot("div", `${baseClassName} ${rowAlignClassName(align)}`, props)
+
+/** A single-line flex row. */
+export const Rail = rowSlot("flex min-w-0")
+/** A wrapping flex row. */
+export const Cluster = rowSlot("flex min-w-0 flex-wrap")

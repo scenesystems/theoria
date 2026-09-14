@@ -64,7 +64,7 @@ const StagePresets = () => {
   const activeIndex = Option.getOrElse(Arr.findFirstIndex(presets, (preset) => preset === drawn), () => -1)
 
   return presets.length === 0 ? null : (
-    <Cluster className="items-center gap-2.5" data-place-presets>
+    <Cluster className="gap-2.5" data-place-presets>
       <SemanticText as="span" className="text-ink-500" role="code-meta" text="Drawn at" />
       <ChoiceGroup
         activeIndex={activeIndex}

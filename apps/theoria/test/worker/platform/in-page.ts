@@ -1363,3 +1363,142 @@ export const paperProseContrast = (): number => {
   })
   return ratios.length > 0 ? Math.min(...ratios) : 0
 }
+
+/**
+ * Where each element's first line of words sits: the bottom of a zero-size
+ * inline box put on that line, which the browser rests on the baseline. Each
+ * element is one that holds its own words, so the probe joins the line rather
+ * than becoming an item of a flex or grid box. The probes are gone before the
+ * baselines are returned. For `evaluateAll`, one locator or many.
+ */
+export const textBaselines = (elements: ReadonlyArray<Element>): ReadonlyArray<number> =>
+  elements.map((element) => {
+    const probe = document.createElement("span")
+    probe.style.display = "inline-block"
+    probe.style.width = "0"
+    probe.style.height = "0"
+    probe.style.verticalAlign = "baseline"
+    // Before the words, so a value that wraps is read on the line its label rests with, not its last.
+    element.prepend(probe)
+    const baseline = probe.getBoundingClientRect().bottom
+    probe.remove()
+    return baseline
+  })
+
+/**
+ * What each header control shows and reaches. What it shows is its words and
+ * its glyph's ink united, so the space between two controls is the space a
+ * reader sees, not the space between boxes or hit areas. A glyph's ink is
+ * its paths' bounds scaled into the box it is drawn in, not the box: glyph
+ * sets leave different margins inside their boxes, and a margin is not seen.
+ * The glyph's size is the longer side of that ink, so glyphs from different
+ * sets compare as the eye compares them. It reaches the four corners of a
+ * 44px square about its centre when a press at each lands on it, so a
+ * control's hit area can be wider than what it shows; the centre is
+ * returned so a test can press there itself. For `evaluateAll`.
+ */
+export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<{
+  readonly shown: { readonly left: number; readonly right: number }
+  readonly centre: { readonly x: number; readonly y: number }
+  readonly reachesCorners: boolean
+  readonly glyphInk: number
+}> => {
+  const paintedBox = (element: Element): DOMRect => {
+    if (!(element instanceof SVGSVGElement)) return element.getBoundingClientRect()
+    const box = element.getBoundingClientRect()
+    const ink = element.getBBox()
+    const scale = box.width / element.viewBox.baseVal.width
+    return new DOMRect(box.left + ink.x * scale, box.top + ink.y * scale, ink.width * scale, ink.height * scale)
+  }
+  return controls.map((control) => {
+    const glyph = control.querySelector("svg")
+    const glyphInk = glyph instanceof SVGSVGElement
+      ? Math.max(paintedBox(glyph).width, paintedBox(glyph).height)
+      : 0
+    const boxes = [...control.children]
+      .map(paintedBox)
+      .filter((box) => box.width > 0 && box.height > 0)
+    const left = Math.min(...boxes.map((box) => box.left))
+    const right = Math.max(...boxes.map((box) => box.right))
+    const top = Math.min(...boxes.map((box) => box.top))
+    const bottom = Math.max(...boxes.map((box) => box.bottom))
+    const centre = { x: (left + right) / 2, y: (top + bottom) / 2 }
+    // Half of a 44px hit area, less a pixel for the edge itself.
+    const reach = 21
+    const reaches = (dx: number, dy: number): boolean =>
+      control.contains(document.elementFromPoint(centre.x + dx, centre.y + dy))
+    return {
+      shown: { left, right },
+      centre,
+      reachesCorners: [-reach, reach].every((dx) => [-reach, reach].every((dy) => reaches(dx, dy))),
+      glyphInk
+    }
+  })
+}
+
+/**
+ * How an element's words are underlined, as the browser draws them: which
+ * decoration lines it has, where the underline sits, its colour, and the
+ * colour of the words themselves, read from the first element inside it that
+ * holds them (or the element, if it holds its own).
+ */
+export const underlineDrawn = (element: Element): {
+  readonly lines: string
+  readonly position: string
+  readonly color: string
+  readonly inkColor: string
+} => {
+  const style = getComputedStyle(element)
+  const words = element.querySelector("span") ?? element
+  return {
+    lines: style.textDecorationLine,
+    position: style.textUnderlinePosition,
+    color: style.textDecorationColor,
+    inkColor: getComputedStyle(words).color
+  }
+}
+
+/**
+ * A baseline row set to wrap: a short label beside a value too long for the
+ * room it is given, so the value takes more than one line. Added to the page
+ * for the baseline instrument to be read against, and taken off again by
+ * {@link unmountWrappedBaselineRow}. The row and its items are found by
+ * `[data-probe-row]`, `[data-probe-label]` and `[data-probe-value]`; the
+ * count of lines the value took is returned so the test knows it wrapped.
+ */
+export const mountWrappedBaselineRow = (): { readonly lines: number } => {
+  const row = document.createElement("div")
+  row.dataset.probeRow = ""
+  row.style.display = "flex"
+  row.style.alignItems = "baseline"
+  row.style.gap = "8px"
+  row.style.width = "160px"
+  row.style.font = "16px/1.5 sans-serif"
+  const label = document.createElement("span")
+  label.dataset.probeLabel = ""
+  label.style.fontSize = "12px"
+  label.textContent = "Label"
+  const value = document.createElement("span")
+  value.dataset.probeValue = ""
+  value.style.minWidth = "0"
+  value.textContent = "a value long enough that it must take more than one line"
+  row.append(label, value)
+  document.body.append(row)
+  const lineHeight = Number.parseFloat(getComputedStyle(value).lineHeight)
+  return { lines: Math.round(value.getBoundingClientRect().height / lineHeight) }
+}
+
+/** Takes the wrapped baseline row back off the page. */
+export const unmountWrappedBaselineRow = (): void => {
+  document.querySelector("[data-probe-row]")?.remove()
+}
+
+/** Where each element's box begins and ends down the page. For `evaluateAll`. */
+export const boxEdges = (elements: ReadonlyArray<Element>): ReadonlyArray<{
+  readonly top: number
+  readonly bottom: number
+}> =>
+  elements.map((element) => {
+    const box = element.getBoundingClientRect()
+    return { top: box.top, bottom: box.bottom }
+  })

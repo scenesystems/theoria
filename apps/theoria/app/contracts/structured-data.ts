@@ -23,7 +23,7 @@ const organization: JsonValue = {
   "@type": "Organization",
   "@id": organizationId,
   name: "Scene",
-  legalName: "SCENE Systems, Inc.",
+  legalName: siteMetadata.legalName,
   url: "https://scenesystems.io/",
   logo: {
     "@type": "ImageObject",

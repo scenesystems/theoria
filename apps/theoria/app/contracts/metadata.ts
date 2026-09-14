@@ -29,6 +29,8 @@ export const SiteMetadata = Schema.Struct({
   twitterHandle: Schema.Literal("@scenesystems"),
   locale: Schema.Literal("en_US"),
   repositoryUrl: Schema.Literal("https://github.com/scenesystems/theoria"),
+  /** The publisher as it is incorporated: the name the copyright line and the structured data carry. */
+  legalName: Schema.Literal("SCENE Systems, Inc."),
   /** Year of first publication, matching the repository LICENSE. */
   copyrightYear: Schema.Int.pipe(Schema.greaterThanOrEqualTo(2026))
 })
@@ -50,6 +52,7 @@ export const siteMetadata: SiteMetadata = {
   twitterHandle: "@scenesystems",
   locale: "en_US",
   repositoryUrl: "https://github.com/scenesystems/theoria",
+  legalName: "SCENE Systems, Inc.",
   copyrightYear: 2026
 }
 

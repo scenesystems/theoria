@@ -212,7 +212,12 @@ export const goto = (page: Page, path: string) => act(() => page.goto(path))
  */
 export const gotoParsed = (page: Page, path: string) => act(() => page.goto(path, { waitUntil: "domcontentloaded" }))
 export const click = (locator: Locator) => act(() => locator.click())
+/** Presses the mouse at a point of the viewport, whatever is there: for reaching a control's hit area outside what it shows. */
+export const clickAt = (page: Page, point: { readonly x: number; readonly y: number }) =>
+  act(() => page.mouse.click(point.x, point.y))
 export const hover = (locator: Locator) => act(() => locator.hover())
+/** Takes the pointer to the viewport's corner, off whatever it was over, so what follows is not still under it. */
+export const pointerAway = (page: Page) => act(() => page.mouse.move(0, 0))
 /**
  * Touches the element with a finger at `position` from its top-left corner:
  * touch events, then the click they synthesise. The page must have been

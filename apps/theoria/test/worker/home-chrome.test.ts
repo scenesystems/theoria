@@ -1,0 +1,197 @@
+// @vitest-environment node
+import { expect, layer } from "@effect/vitest"
+import type { Locator, Page } from "@playwright/test"
+import { Effect, Layer, Option } from "effect"
+import * as Arr from "effect/Array"
+
+import { siteMetadata } from "../../app/contracts/metadata.js"
+import {
+  act,
+  attribute,
+  BrowserLive,
+  click,
+  clickAt,
+  containsText,
+  desktop,
+  goto,
+  hover,
+  openPage,
+  phone,
+  pointerAway,
+  setViewport,
+  visible
+} from "./browser.js"
+import { drawn } from "./demo.js"
+import {
+  headerControls,
+  mountWrappedBaselineRow,
+  textBaselines,
+  underlineDrawn,
+  unmountWrappedBaselineRow
+} from "./platform/in-page.js"
+import { SiteLive } from "./site.js"
+
+/**
+ * The page's chrome and its small type, set as one hand would set them. The
+ * header's ways off the page stand equally apart as the reader sees them,
+ * each with a glyph, each as easy to press as the others. Wherever a label is
+ * set beside words in another face — a step's name beside its packages, an
+ * answer's fact beside its value, a call beside its copy — the two rest on
+ * one baseline, and an underline that arrives under a package's name is drawn
+ * below its descenders, not through them. The footer names the company as it
+ * is incorporated.
+ */
+
+/** Distances that are one distance, allowing the pixel a fluid length rounds to differently along the line. */
+const alike = (distances: ReadonlyArray<number>, message: string) => {
+  expect(Math.max(...distances) - Math.min(...distances), message).toBeLessThanOrEqual(1)
+}
+
+const baselines = (elements: Locator) => act(() => elements.evaluateAll(textBaselines))
+
+const siteNav = (page: Page) => page.getByRole("navigation", { name: "Site" })
+
+layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
+  (it) => {
+    it.scoped("the baseline instrument reads the line a wrapped value begins on, where its label rests", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: phone })
+        yield* goto(page, "/")
+        yield* visible(siteNav(page))
+
+        const { lines } = yield* Effect.acquireRelease(
+          act(() => page.evaluate(mountWrappedBaselineRow)),
+          () => Effect.orDie(act(() => page.evaluate(unmountWrappedBaselineRow)))
+        )
+        expect(lines, "the value takes more than one line").toBeGreaterThan(1)
+        const rests = yield* baselines(page.locator("[data-probe-label], [data-probe-value]"))
+        expect(rests).toHaveLength(2)
+        alike(rests, `a label and the first line of its value rest together, not ${String(rests)}`)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the header's ways off the page stand equally apart in either theme, each with a glyph and a full hit area", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: desktop })
+        yield* goto(page, "/")
+        yield* visible(siteNav(page))
+
+        yield* Effect.forEach([desktop, phone], (viewport) =>
+          Effect.gen(function*() {
+            yield* setViewport(page, viewport)
+            yield* visible(siteNav(page).getByRole("link", { name: "Docs" }))
+            // Measured with the moon showing, then the sun, and left as found.
+            yield* Effect.forEach(
+              [
+                { offered: "Switch to dark mode", thenOffered: "Switch to light mode" },
+                { offered: "Switch to light mode", thenOffered: "Switch to dark mode" }
+              ],
+              ({ offered, thenOffered }) =>
+                Effect.gen(function*() {
+                  yield* visible(page.getByRole("button", { name: offered }))
+                  const controls = yield* act(() => siteNav(page).locator(":scope > *").evaluateAll(headerControls))
+                  const at = `at ${String(viewport.width)}px offering "${offered}"`
+                  expect(controls.length, `${at}: docs, the repository, the other theme`).toBe(3)
+                  const gaps = Arr.zipWith(
+                    Arr.drop(controls, 1),
+                    Arr.dropRight(controls, 1),
+                    (next, previous) => next.shown.left - previous.shown.right
+                  )
+                  alike(gaps, `${at}: the space the reader sees between controls is one space, not ${String(gaps)}`)
+                  expect(Arr.every(controls, (control) => control.glyphInk > 0), `${at}: every control has a glyph`)
+                    .toBe(true)
+                  alike(
+                    Arr.map(controls, (control) => control.glyphInk),
+                    `${at}: the glyphs are drawn at one size, not ${
+                      String(controls.map((control) => control.glyphInk))
+                    }`
+                  )
+                  expect(
+                    Arr.every(controls, (control) => control.reachesCorners),
+                    `${at}: every control takes a press anywhere in a 44px square about its centre`
+                  ).toBe(true)
+                  // The theme control is a glyph alone, so its hit area is wider than what it shows: press it there.
+                  const theme = yield* Option.match(Arr.last(controls), {
+                    onNone: () => Effect.dieMessage(`${at}: no theme control`),
+                    onSome: Effect.succeed
+                  })
+                  yield* clickAt(page, { x: theme.centre.x + 21, y: theme.centre.y })
+                  yield* visible(page.getByRole("button", { name: thenOffered }))
+                })
+            )
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the footer names the company as it is incorporated", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage()
+        yield* goto(page, "/")
+        yield* containsText(
+          page.locator("[data-site-footer]"),
+          `© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`
+        )
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a step's name and its packages rest on one baseline, and a package's underline is drawn below its descenders", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: desktop })
+        yield* goto(page, "/")
+        yield* drawn(page)
+
+        const headers = page.locator("[data-place-step-header]")
+        const headerCount = yield* act(() => headers.count())
+        expect(headerCount).toBeGreaterThan(0)
+        yield* Effect.forEach(Arr.range(0, headerCount - 1), (index) =>
+          Effect.gen(function*() {
+            const header = headers.nth(index)
+            yield* act(() => header.scrollIntoViewIfNeeded())
+            const name = yield* act(() => header.locator("button").first().innerText())
+            const words = header.locator("button > span, a[href^='/docs/'] > span")
+            const rests = yield* baselines(words)
+            expect(rests.length, `${name}: a name and at least one package`).toBeGreaterThan(1)
+            alike(rests, `${name}: its name and its packages rest on one baseline, not ${String(rests)}`)
+            const link = header.locator("a[href^='/docs/']").first()
+            yield* pointerAway(page)
+            const before = yield* act(() => link.evaluate(underlineDrawn))
+            expect(before.lines, `${name}: no underline until the pointer arrives`).not.toContain("underline")
+            yield* hover(link)
+            const under = yield* act(() => link.evaluate(underlineDrawn))
+            expect(under.lines, `${name}: the underline arrives under the pointer`).toContain("underline")
+            expect(under.position, `${name}: the underline is drawn below the descenders`).toBe("under")
+            expect(under.color, `${name}: the underline is drawn in the name's colour`).toBe(under.inkColor)
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("an answer's facts rest label with value on one baseline, and its call with its copy", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: desktop })
+        yield* goto(page, "/")
+        yield* drawn(page)
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const overlay = page.locator("[data-place-provenance]")
+
+        const mark = demo.locator("[data-provenance*='Digest']").first()
+        yield* act(() => mark.scrollIntoViewIfNeeded())
+        yield* click(mark)
+        yield* attribute(mark, "data-popup-open", "")
+        yield* visible(overlay)
+        const answer = overlay.locator("[data-current]")
+
+        const labels = yield* baselines(answer.locator("dt"))
+        const values = yield* baselines(answer.locator("dd"))
+        expect(labels.length, "the answer states facts").toBeGreaterThan(0)
+        expect(values.length).toBe(labels.length)
+        Arr.zipWith(labels, values, (label, value) => alike([label, value], "a fact's label rests with its value"))
+
+        const footer = yield* baselines(
+          answer.locator("[data-place-provenance-code] > code, [data-place-provenance-copy] > span")
+        )
+        expect(footer.length, "the call that made it and the copy of it").toBe(2)
+        alike(footer, `the call and its copy rest on one baseline, not ${String(footer)}`)
+        expect(yield* failures).toEqual([])
+      }))
+  }
+)

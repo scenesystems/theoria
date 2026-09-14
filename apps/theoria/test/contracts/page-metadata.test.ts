@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { headEntries, type HeadEntry } from "../../app/contracts/head.js"
-import { metadataForDocs, metadataForHome } from "../../app/contracts/metadata.js"
+import { metadataForDocs, metadataForHome, siteMetadata } from "../../app/contracts/metadata.js"
 import { structuredDataJson } from "../../app/contracts/structured-data.js"
 import { renderHead } from "../../app/server/render-head.js"
 import { docsManifestFixture } from "../helpers/docs-fixtures.js"
@@ -108,7 +108,13 @@ describe("page metadata", () => {
         "@type": "WebSite",
         publisher: { "@id": "https://scenesystems.io/#organization" }
       })
-      expect(graph[1]).toMatchObject({ "@type": "Organization", "@id": "https://scenesystems.io/#organization" })
+      // The organization is named as it is incorporated, from the one place the footer reads it too.
+      expect(graph[1]).toMatchObject({
+        "@type": "Organization",
+        "@id": "https://scenesystems.io/#organization",
+        legalName: siteMetadata.legalName
+      })
+      expect(siteMetadata.legalName).toBe("SCENE Systems, Inc.")
     }))
 
   it.effect("rewrites every placeholder in the shell exactly once, escaped", () =>

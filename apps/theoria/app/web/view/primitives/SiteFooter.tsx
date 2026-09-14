@@ -46,8 +46,8 @@ export const SiteFooter = () => (
     data-site-footer
   >
     <Stack className="items-center gap-2 md:items-stretch">
-      <Cluster className="items-baseline justify-center gap-x-3 gap-y-2 md:justify-between">
-        <Cluster className="items-baseline gap-3">
+      <Cluster align="baseline" className="justify-center gap-x-3 gap-y-2 md:justify-between">
+        <Cluster align="baseline" className="gap-3">
           <TheoriaLogo animation="glossary" className="text-[1.45rem] md:text-[1.55rem]" />
           <SemanticText
             as="p"
@@ -86,7 +86,7 @@ export const SiteFooter = () => (
         as="p"
         className="text-center text-ink-500 md:text-left"
         role="status"
-        text={`© ${String(siteMetadata.copyrightYear)} Scene Systems`}
+        text={`© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`}
         variant="compact"
       />
     </Stack>
