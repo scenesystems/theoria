@@ -148,7 +148,9 @@ Every client-side value must belong to exactly one category before you choose an
 
 1. Use `SemanticText` for all text rendering — never raw `<p>`, `<h1>`, `<span>` with inline text.
 2. Use layout primitives (`Stack`, `Cluster`, `Layer`, `Section`, `Header`) for structure — never raw `<div>` for layout.
-3. Components must fill parents: `min-w-0` + `flex-1` in flex containers.
+3. Layout primitives own fill/fit, intrinsic sizing, and overflow. Let flexible
+   content shrink with `min-w-0` where required; do not force every control,
+   text region, or illustration to stretch with `flex-1`.
 4. All colors from CSS variable theme tokens — never hardcoded hex/rgb.
 5. `Match.exhaustive` for all tagged union dispatch in renderers.
 6. `ref` is a standard prop (React 19) — never use `forwardRef`.
@@ -165,7 +167,14 @@ This applies to all concerns:
 - **Component variants**: Driven by contract schemas (`SurfaceVariant`, `CardTone`, `PackageGroup`). To add a visual variant, extend the schema and handle it via `Match.exhaustive` — never branch on a string literal in a single component.
 - **Tone/accent mapping**: Managed by `contracts/theme.ts` via `toneForCard`, resolved to `ToneClasses` via `designSystem.ts`. To change how a card looks, update the tone mapping — never put card-specific colors in a view component.
 
-**The test**: If a change touches only one component file and adds a visual property that no other component shares, it is almost certainly wrong. The property should live in a contract, a primitive, or a theme token.
+Judge the owning responsibility, not the number of files changed. Reusable
+visual values and behavior must live in their contract, primitive, or theme
+owner; page composition selects those public APIs rather than overriding them.
+Improve a weak owner even when it currently has one consumer. Token compliance
+alone is not visual acceptance, and extracting another wrapper is not a fix.
+Neither the existing card variants nor this source inventory prescribe the
+target composition: prefer open hierarchy and create the required shared layout
+instead of forcing the homepage or docs into nested cards.
 
 ### Composition and Organization
 

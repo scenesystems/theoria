@@ -199,6 +199,39 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ---
 
+## UI, Design, And Brand Quality
+
+Visual and interaction quality are required outcomes, not optional polish after
+architecture or passing tests. Build professionally composed, beautiful,
+coherent, smooth, delightful, responsive experiences. Use the `composing-ui`
+workflow from design through rendered review without copying Scene's identity
+or creating another local skill library.
+
+- Start from original human goals, later corrections, and human-selected
+  references. Agent proposals, summaries, generated images, current code, and
+  shared defaults do not establish approved art direction. Preserve established
+  identity; changing the font family, base palette/material language, logo, or
+  product identity requires explicit human approval. Improve weak foundations
+  within that identity; neither freezing current code nor copying a reference
+  fulfills the target-state requirement.
+- Let actual content and functioning interactions lead. Do not impose a
+  governance/provenance narrative, dashboard, card grid, or package pipeline on
+  every surface. Remove redundant explanation and nested-card fragmentation,
+  not useful guides, real stories, accessible names, status, or recovery.
+  Illustration, atmosphere, expressive hierarchy, and motion can carry identity
+  and delight; restraint is not generic minimalism.
+- Improve shared tokens, primitives, layouts, and interactions at their owners.
+  Do not accept bad visuals because the imports are correct or add local skins,
+  wrappers, or native-JavaScript workarounds to bypass missing quality.
+- Inspect the running experience across relevant routes, themes, content,
+  responsive layouts, and interaction states. Exercise click, touch, hover,
+  focus, loading, transitions, errors, and recovery—not just full-page captures.
+  Inspect screenshots and motion recordings; use real behavioral checks for
+  functionality. Automated tests and pixel diffs cannot approve aesthetics.
+  A blocked render remains visually unverified, not complete.
+
+---
+
 ## Conventions
 
 - **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.

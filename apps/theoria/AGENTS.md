@@ -8,6 +8,32 @@ alwaysApply: true
 
 React + Tailwind CSS v4 + effect-atom application showcasing Scene Systems packages.
 
+## Experience And Identity
+
+- Theoria has its own established visual identity across homepage and docs:
+  Figtree and its cool light/blue-black dark palette family. Do not import
+  Scene's theme, replace the font or base palette, or reinterpret an immersive
+  brief as a new brand. Improve type, spacing, tonal relationships, component
+  geometry, illustration, and motion through the shared Theoria foundations.
+- The homepage has a distinct aesthetic hero and a real interactive imagined-
+  place demonstration. Preserve both purposes. The package catalog belongs at
+  the docs entry, not in place of the demo. Stories are coherent imaginative
+  content, not implementation narration or pretexts for changing the page theme.
+- Let real operations, feedback, and visible outcomes explain the demonstration.
+  Remove repeated story fragments, confusing bylines, arbitrary metrics, and
+  stacked explanatory cards. Keep useful code/package learning reachable after
+  the walkthrough; keep proprietary Scene content out of public examples.
+- Docs use Theoria's identity, useful guides, readable highlighted/copyable code,
+  meaningful API hierarchy, and working search/navigation. Do not substitute a
+  signature dump or headers explaining that this is a documentation site.
+- Content popovers, including code and provenance, open on click/touch and
+  keyboard activation, not hover. Preserve readable layering, dismissal, focus
+  return, and compact geometry. Actual tooltips are noninteractive supplements.
+- Keep loading geometry stable, drawings coherent with the shown state, controls
+  stationary, and transitions smooth through resize, repeated input, and reduced
+  motion. Recheck mobile, tablet, desktop, wide, and short-height compositions in
+  supported themes; full-page screenshots alone do not review these behaviors.
+
 ---
 
 ## Stack
