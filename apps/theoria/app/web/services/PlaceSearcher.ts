@@ -137,14 +137,21 @@ const make = Effect.gen(function*() {
           : Effect.succeed(current)
     )
 
+  /** Whether the worker is still the page's: not forgotten, not replaced. */
+  const stillKept = (on: Kept): Effect.Effect<boolean> =>
+    Effect.map(SynchronizedRef.get(kept), Option.exists((found) => found.worker.id === on.worker.id))
+
   // Every request is bounded: a worker that never answers is forgotten, as
-  // is one that fails or answers in a shape the page does not know.
+  // is one that fails or answers in a shape the page does not know. The
+  // bound can only cut a request that may be interrupted, so the wait on
+  // the answer is made interruptible whatever region asks — a finalizer
+  // runs with interruption off, and its close must still be given up on.
   const answered = <A>(
     on: Kept,
     request: PlaceSearchRequest["_tag"],
     answer: Effect.Effect<A, PlaceSearchError>
   ): Effect.Effect<A, PlaceSearchError> =>
-    answer.pipe(
+    Effect.interruptible(answer).pipe(
       Effect.timeoutFail({
         duration: answerWithin,
         onTimeout: () => new PlaceSearchUnanswered({ request, after: answerWithin })
@@ -158,7 +165,10 @@ const make = Effect.gen(function*() {
   // interruptible — a search given up on while opening must not hold the
   // page — and an open interrupted while the worker may already have the
   // study is resolved by forgetting the worker: its thread ends and takes
-  // whatever it had opened, and the next search spawns another.
+  // whatever it had opened, and the next search spawns another. A worker
+  // forgotten while the search was open — it failed an ask, or fell silent —
+  // has ended with everything it had, so the close is not posted to it: a
+  // gone worker never answers, and the scope would wait out the bound.
   const open: Effect.Effect<OpenedPlaceSearch, PlaceSearchError, Scope.Scope> = Effect.uninterruptibleMask(
     (restore) =>
       Effect.gen(function*() {
@@ -167,7 +177,10 @@ const make = Effect.gen(function*() {
           answered(found, "OpenSearch", found.worker.executeEffect(new OpenSearch()))
         ).pipe(Effect.onInterrupt(() => forget(found)))
         yield* Effect.addFinalizer(() =>
-          Effect.ignore(answered(found, "CloseSearch", found.worker.executeEffect(new CloseSearch({ search }))))
+          Effect.whenEffect(
+            Effect.ignore(answered(found, "CloseSearch", found.worker.executeEffect(new CloseSearch({ search })))),
+            stillKept(found)
+          )
         )
         return new OpenedPlaceSearch({
           ask: answered(found, "AskSearch", found.worker.executeEffect(new AskSearch({ search }))),

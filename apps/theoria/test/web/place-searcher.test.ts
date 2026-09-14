@@ -31,11 +31,12 @@ import { answerWithin, bootWithin, PlaceSearcher, PlaceSearchUnanswered } from "
 /**
  * How a worker of the fake manager behaves: never ready, so its spawn never
  * returns; or ready, and answering every request never, by failing as the
- * platform does, or properly, as the search worker does.
+ * platform does, or properly, as the search worker does — or properly but
+ * for one request: never answering a close, or failing every ask.
  */
-type Answering = "unready" | "silent" | "failing" | "answering"
+type Answering = "unready" | "silent" | "failing" | "answering" | "never-closing" | "failing-asks"
 
-/** What the fake manager saw: workers spawned, workers ended with their scope, and every request answered. */
+/** What the fake manager saw: workers spawned, workers ended with their scope, and every request posted to one. */
 class Spawns extends Effect.Service<Spawns>()("test/Spawns", {
   effect: Effect.all({
     spawned: Ref.make(0),
@@ -57,17 +58,30 @@ const answeredOnTheWire = (
   spawns: Spawns,
   request: PlaceSearchRequest
 ): Effect.Effect<unknown, ParseResult.ParseError> =>
-  Effect.zipRight(
-    Ref.update(spawns.requests, Arr.append(request)),
-    Match.value(request).pipe(
-      Match.tag("OpenSearch", () => Ref.updateAndGet(spawns.searches, (count) => count + 1)),
-      Match.tag("AskSearch", (asked) =>
-        Schema.encode(AskedMeander)(new AskedMeander({ trial: Number(asked.search), meander }))),
-      Match.tag("TellSearch", () =>
-        Effect.void),
-      Match.tag("CloseSearch", () => Effect.void),
-      Match.exhaustive
-    )
+  Match.value(request).pipe(
+    Match.tag("OpenSearch", () => Ref.updateAndGet(spawns.searches, (count) => count + 1)),
+    Match.tag("AskSearch", (asked) =>
+      Schema.encode(AskedMeander)(new AskedMeander({ trial: Number(asked.search), meander }))),
+    Match.tag("TellSearch", () =>
+      Effect.void),
+    Match.tag("CloseSearch", () => Effect.void),
+    Match.exhaustive
+  )
+
+const crashed = Effect.fail(new WorkerError.WorkerError({ reason: "unknown", cause: "the worker crashed" }))
+
+/** How a worker in one mode answers a request posted to it while it is alive. */
+const behaving = (
+  answering: Answering,
+  spawns: Spawns,
+  request: PlaceSearchRequest
+): Effect.Effect<unknown, WorkerError.WorkerError | ParseResult.ParseError> =>
+  Match.value({ answering, request: request._tag }).pipe(
+    Match.when({ answering: "failing" }, () => crashed),
+    Match.when({ answering: "silent" }, () => Effect.never),
+    Match.when({ answering: "never-closing", request: "CloseSearch" }, () => Effect.never),
+    Match.when({ answering: "failing-asks", request: "AskSearch" }, () => crashed),
+    Match.orElse(() => answeredOnTheWire(spawns, request))
   )
 
 const wire = Schema.decodeUnknown(Schema.Any)
@@ -78,7 +92,9 @@ const wire = Schema.decodeUnknown(Schema.Any)
  * nothing, a crashed one reports an error — or like the search worker,
  * answering every request on the wire. Each spawn is counted, and each
  * worker's end with the scope it was spawned in — the caller's, as the
- * platform's is — so a worker still in use has not ended.
+ * platform's is — so a worker still in use has not ended. Every request
+ * posted is recorded, answered or not; a worker that has ended records it
+ * and, as the platform's does, never answers.
  */
 const managerLayer = (answering: Answering): Layer.Layer<Worker.WorkerManager | Worker.Spawner, never, Spawns> =>
   Layer.merge(
@@ -90,20 +106,21 @@ const managerLayer = (answering: Answering): Layer.Layer<Worker.WorkerManager | 
           spawn: <I, O, E>(): Effect.Effect<Worker.Worker<I, O, E>, WorkerError.WorkerError, Scope.Scope> =>
             Effect.gen(function*() {
               const id = yield* Ref.updateAndGet(spawns.spawned, (count) => count + 1)
-              yield* Effect.addFinalizer(() => Ref.update(spawns.ended, (count) => count + 1))
+              const alive = yield* Ref.make(true)
+              yield* Effect.addFinalizer(() =>
+                Effect.zipRight(Ref.set(alive, false), Ref.update(spawns.ended, (count) => count + 1))
+              )
               const answer = (message: I): Effect.Effect<O, E | WorkerError.WorkerError> =>
-                Match.value(answering).pipe(
-                  Match.when(
-                    "failing",
-                    () => Effect.fail(new WorkerError.WorkerError({ reason: "unknown", cause: "the worker crashed" }))
+                Schema.decodeUnknown(PlaceSearchRequest)(message).pipe(
+                  Effect.tap((request) => Ref.update(spawns.requests, Arr.append(request))),
+                  Effect.flatMap((request) =>
+                    Effect.if(Ref.get(alive), {
+                      onTrue: () => behaving(answering, spawns, request),
+                      onFalse: () => Effect.never
+                    })
                   ),
-                  Match.when("answering", () =>
-                    Schema.decodeUnknown(PlaceSearchRequest)(message).pipe(
-                      Effect.flatMap((request) => answeredOnTheWire(spawns, request)),
-                      Effect.flatMap(wire),
-                      Effect.orDie
-                    )),
-                  Match.orElse(() => Effect.never)
+                  Effect.flatMap(wire),
+                  Effect.catchTag("ParseError", (error) => Effect.die(error))
                 )
               const ready: Worker.Worker<I, O, E> = {
                 id,
@@ -233,6 +250,50 @@ describe("PlaceSearcher", () => {
       expect(next.trial).toBe(2)
       expect(yield* Ref.get(spawns.spawned)).toBe(1)
     }).pipe(Effect.provide(searcherWith("answering"))))
+
+  it.effect("a worker that never answers a close does not hold the scope: the close is given up on at the bound, and the worker with it", () =>
+    Effect.gen(function*() {
+      const spawns = yield* Spawns
+      const searcher = yield* PlaceSearcher
+      const scope = yield* Scope.make()
+      const search = yield* searcher.open.pipe(Scope.extend(scope))
+      expect((yield* search.ask).trial).toBe(1)
+      const closing = yield* Effect.fork(Scope.close(scope, Exit.void))
+      yield* TestClock.adjust(Duration.subtract(answerWithin, Duration.millis(1)))
+      expect(Arr.last(yield* Ref.get(spawns.requests))).toEqual(
+        Option.some(new CloseSearch({ search: PlaceSearchId.make(1) }))
+      )
+      expect(yield* closing.poll).toEqual(Option.none())
+      yield* TestClock.adjust(Duration.millis(1))
+      expect(yield* closing.poll).toEqual(Option.some(Exit.void))
+      // The worker fell silent, so it is gone: ended, and the next search spawns another.
+      expect(yield* Ref.get(spawns.ended)).toBe(1)
+      // The next worker answers the same way, so its search's close is given up on at the bound too.
+      const nextOpen = yield* Effect.fork(Effect.scoped(Effect.flatMap(searcher.open, (opened) => opened.ask)))
+      yield* TestClock.adjust(answerWithin)
+      expect((yield* nextOpen).trial).toBe(2)
+      expect(yield* Ref.get(spawns.spawned)).toBe(2)
+      expect(yield* Ref.get(spawns.ended)).toBe(2)
+    }).pipe(Effect.provide(searcherWith("never-closing"))))
+
+  it.effect("a worker that fails after opening is forgotten at once, and closing the search asks nothing of it", () =>
+    Effect.gen(function*() {
+      const spawns = yield* Spawns
+      const searcher = yield* PlaceSearcher
+      const scope = yield* Scope.make()
+      const search = yield* searcher.open.pipe(Scope.extend(scope))
+      expect(Exit.isFailure(yield* Effect.exit(search.ask))).toBe(true)
+      expect(yield* Ref.get(spawns.ended)).toBe(1)
+      // The worker is gone; a close posted to it would never be answered. None is posted, and the scope closes at once.
+      const closing = yield* Effect.fork(Scope.close(scope, Exit.void))
+      yield* TestClock.adjust(Duration.millis(1))
+      expect(yield* closing.poll).toEqual(Option.some(Exit.void))
+      expect(yield* Ref.get(spawns.requests)).toEqual([
+        new OpenSearch(),
+        new AskSearch({ search: PlaceSearchId.make(1) })
+      ])
+      expect(yield* Ref.get(spawns.ended)).toBe(1)
+    }).pipe(Effect.provide(searcherWith("failing-asks"))))
 
   it.effect("two searches open at once are told apart on the one worker", () =>
     Effect.gen(function*() {
