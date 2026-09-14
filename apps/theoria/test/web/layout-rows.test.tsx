@@ -1,54 +1,73 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Schema } from "effect"
-import * as Arr from "effect/Array"
+import { Effect, Either, Layer, MutableRef, Schema } from "effect"
 import * as Option from "effect/Option"
-import * as Str from "effect/String"
 import type { ReactNode } from "react"
 
+import { observeOnMount } from "../../app/web/atoms/element-observation.js"
 import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
+import * as BrowserWindow from "../../app/web/platform/BrowserWindow.js"
 import { Cluster, Rail, RowAlign } from "../../app/web/view/primitives/Layout.js"
 import { mountReact, waitForValue } from "../helpers/react-mount.js"
 
-const alignmentClasses = (element: Element): ReadonlyArray<string> =>
-  Arr.filter(Str.split(element.className, " "), (name) => name.startsWith("items-"))
+const BrowserTest = Layer.merge(BrowserWindow.layer, BrowserDocument.layer)
 
-const mountedRow = (node: ReactNode): Effect.Effect<Element> =>
+const mountedRow = (node: ReactNode) =>
   Effect.flatMap(
     mountReact(node),
     ({ container }) => waitForValue(() => Option.fromNullable(container.firstElementChild))
   )
-    .pipe(Effect.scoped, Effect.provide(BrowserDocument.layer))
 
 /**
- * A row's classes are joined, not merged, so the stylesheet decides between
- * two `items-*` utilities on one element. The row must therefore carry exactly
- * one, chosen by its `align` prop.
+ * A row is a Base UI slot: whatever the caller composes it with keeps the
+ * caller's element, attributes, handlers and ref, and lets go of them when
+ * the row leaves. Where its items rest is measured in Chromium, where a
+ * stylesheet can be asked; here the row's contract with its caller is.
  */
 describe("layout rows", () => {
-  it.live("centre their items unless asked otherwise", () =>
+  it.live("render as the element the caller composes them with, keeping the caller's attributes and children", () =>
     Effect.gen(function*() {
-      const cluster = yield* mountedRow(<Cluster className="gap-2" />)
-      const rail = yield* mountedRow(<Rail className="gap-2" />)
+      const row = yield* mountedRow(
+        <Cluster align="baseline" className="caller-mark" render={<ul aria-label="Things" />}>
+          <li>one</li>
+          <li>two</li>
+        </Cluster>
+      )
 
-      expect(alignmentClasses(cluster)).toEqual(["items-center"])
-      expect(alignmentClasses(rail)).toEqual(["items-center"])
-    }))
+      expect(row.tagName).toBe("UL")
+      expect(row.getAttribute("aria-label")).toBe("Things")
+      expect(row.classList.contains("caller-mark")).toBe(true)
+      expect(row.querySelectorAll(":scope > li")).toHaveLength(2)
+    }).pipe(Effect.scoped, Effect.provide(BrowserTest)))
 
-  it.live("carry exactly the asked alignment", () =>
+  it.live("forward the caller's handlers to the element they render", () =>
     Effect.gen(function*() {
-      const baseline = yield* mountedRow(<Cluster align="baseline" className="gap-2" />)
-      const start = yield* mountedRow(<Rail align="start" className="gap-2" />)
+      const browserWindow = yield* BrowserWindow.BrowserWindow
+      const clicks = MutableRef.make(0)
+      const row = yield* mountedRow(<Rail onClick={() => MutableRef.update(clicks, (count) => count + 1)} />)
 
-      expect(alignmentClasses(baseline)).toEqual(["items-baseline"])
-      expect(alignmentClasses(start)).toEqual(["items-start"])
-    }))
+      row.dispatchEvent(new browserWindow.MouseEvent("click", { bubbles: true }))
 
-  it.live("keep the caller's other classes and the row's base", () =>
+      expect(MutableRef.get(clicks)).toBe(1)
+    }).pipe(Effect.scoped, Effect.provide(BrowserTest)))
+
+  it.live("hand the caller's ref the element while mounted, and take it back when the row leaves", () =>
     Effect.gen(function*() {
-      const cluster = yield* mountedRow(<Cluster align="baseline" className="justify-between gap-3" />)
+      const held = MutableRef.make(Option.none<Element>())
+      const hold = observeOnMount<HTMLDivElement>((element) => {
+        MutableRef.set(held, Option.some(element))
+        return () => MutableRef.set(held, Option.none())
+      })
 
-      expect(cluster.className).toBe("flex min-w-0 flex-wrap items-baseline justify-between gap-3")
-    }))
+      yield* Effect.scoped(
+        Effect.gen(function*() {
+          const row = yield* mountedRow(<Rail ref={hold} />)
+          const holding = MutableRef.get(held)
+          expect(Option.isSome(holding) && holding.value === row, "the ref holds the rendered element").toBe(true)
+        })
+      )
+
+      expect(MutableRef.get(held)).toEqual(Option.none())
+    }).pipe(Effect.provide(BrowserTest)))
 
   it.effect("refuse an alignment the row cannot draw", () =>
     Effect.sync(() => {

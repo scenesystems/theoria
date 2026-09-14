@@ -1431,5 +1431,15 @@ export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<
   })
 }
 
+/** Where each element's box begins and ends down the page. For `evaluateAll`. */
+export const boxEdges = (elements: ReadonlyArray<Element>): ReadonlyArray<{
+  readonly top: number
+  readonly bottom: number
+}> =>
+  elements.map((element) => {
+    const box = element.getBoundingClientRect()
+    return { top: box.top, bottom: box.bottom }
+  })
+
 /** The underline's place on an element's words, as the browser will draw it. */
 export const underlinePosition = (element: Element): string => getComputedStyle(element).textUnderlinePosition
