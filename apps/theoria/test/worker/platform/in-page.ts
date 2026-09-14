@@ -1363,3 +1363,57 @@ export const paperProseContrast = (): number => {
   })
   return ratios.length > 0 ? Math.min(...ratios) : 0
 }
+
+/**
+ * Where each element's first line of words sits: the bottom of a zero-size
+ * inline box put on that line, which the browser rests on the baseline. Each
+ * element is one that holds its own words, so the probe joins the line rather
+ * than becoming an item of a flex or grid box. The probes are gone before the
+ * baselines are returned. For `evaluateAll`, one locator or many.
+ */
+export const textBaselines = (elements: ReadonlyArray<Element>): ReadonlyArray<number> =>
+  elements.map((element) => {
+    const probe = document.createElement("span")
+    probe.style.display = "inline-block"
+    probe.style.width = "0"
+    probe.style.height = "0"
+    probe.style.verticalAlign = "baseline"
+    element.append(probe)
+    const baseline = probe.getBoundingClientRect().bottom
+    probe.remove()
+    return baseline
+  })
+
+/**
+ * What each header control shows and reaches. Its words and glyph are its
+ * children's boxes united, so the space between two controls is the space
+ * a reader sees, not the space between hit areas. It reaches a point when a
+ * press there lands on it, so a control's hit area can be wider than what it
+ * shows. For `evaluateAll`.
+ */
+export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<{
+  readonly shown: { readonly left: number; readonly right: number }
+  readonly reaches: { readonly left: boolean; readonly right: boolean }
+  readonly hasGlyph: boolean
+}> =>
+  controls.map((control) => {
+    const boxes = [...control.children]
+      .map((child) => child.getBoundingClientRect())
+      .filter((box) => box.width > 0 && box.height > 0)
+    const left = Math.min(...boxes.map((box) => box.left))
+    const right = Math.max(...boxes.map((box) => box.right))
+    const top = Math.min(...boxes.map((box) => box.top))
+    const bottom = Math.max(...boxes.map((box) => box.bottom))
+    const centre = { x: (left + right) / 2, y: (top + bottom) / 2 }
+    // Half of a 44px hit area, less a pixel for the edge itself.
+    const reach = 21
+    const reaches = (dx: number): boolean => control.contains(document.elementFromPoint(centre.x + dx, centre.y))
+    return {
+      shown: { left, right },
+      reaches: { left: reaches(-reach), right: reaches(reach) },
+      hasGlyph: control.querySelector("svg") instanceof SVGElement
+    }
+  })
+
+/** The underline's place on an element's words, as the browser will draw it. */
+export const underlinePosition = (element: Element): string => getComputedStyle(element).textUnderlinePosition

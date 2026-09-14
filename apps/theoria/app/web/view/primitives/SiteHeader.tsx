@@ -1,4 +1,5 @@
 import { useAtomSet } from "@effect-atom/atom-react"
+import { BookOpenIcon } from "@heroicons/react/20/solid"
 
 import { wordmarkPhaseAtom } from "../../atoms/wordmark.js"
 import { GitHubMark } from "./BrandMarks.js"
@@ -21,14 +22,22 @@ export const SiteHeader = () => {
 
   return (
     <Header className="pb-2 pt-2">
-      <Cluster className="items-center justify-between gap-4">
+      <Cluster className="justify-between gap-4">
         {/* Reaching the wordmark by keyboard meets it the way a pointer does. */}
         <InternalLink href="/" onFocus={() => tellWordmark("replayAsked")}>
           <TheoriaLogo animation="glossary" className="text-2xl" />
         </InternalLink>
-        <Cluster render={<nav aria-label="Site" />} className="items-center gap-1 sm:gap-3">
-          <InternalLink className={headerChromeLinkClassName()} href="/docs">
-            <SemanticText as="span" className="text-inherit" role="button-label" text="Docs" variant="expanded" />
+        {/* The gap keeps neighbouring 44px hit areas from overlapping when only glyphs show. */}
+        <Cluster render={<nav aria-label="Site" />} className="gap-4">
+          <InternalLink aria-label="Docs" className={headerChromeLinkClassName()} href="/docs">
+            <BookOpenIcon aria-hidden className={headerChromeGlyphClassName} />
+            <SemanticText
+              as="span"
+              className="hidden text-inherit sm:inline"
+              role="button-label"
+              text="Docs"
+              variant="expanded"
+            />
           </InternalLink>
           <ExternalLink
             aria-label="Theoria on GitHub"
