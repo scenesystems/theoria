@@ -240,6 +240,22 @@ export const paperUnder = (stage: Stage, markers: ReadonlyArray<PlaceMarker>): n
   Arr.reduce(markers, 0, (low, marker) => Math.max(low, marker.y + marker.radius)) + stage.padding
 
 /**
+ * The drawing set on this stage by the rules every drawing on it keeps: no
+ * disc over the padding or the least line beside it, no two discs within
+ * the gap of each other, and paper enough for every disc to stand on whole.
+ * A drawing scaled to fit a narrower stage was drawn by another stage's
+ * rules — the least line does not scale with the discs — so it is set on
+ * the new stage before the prose is flowed around it. A drawing already on
+ * its stage's rules is left exactly as it is.
+ *
+ * @since 0.4.0
+ */
+export const drawingOnStage = (stage: Stage, drawing: PlaceDrawing): PlaceDrawing => {
+  const markers = markersBetween(stage)(drawing.markers, drawing.markers, 1)
+  return new PlaceDrawing({ markers, paper: Math.max(drawing.paper, paperUnder(stage, markers)) })
+}
+
+/**
  * The paper a search of these features is expected to want on this stage,
  * before it has run: the description flowed with nothing in its way, and the
  * lines the discs take out of the column — each as if it stood at the

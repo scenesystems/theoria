@@ -16,6 +16,7 @@ import {
 } from "../../contracts/demo/imagined-place-arrangement.js"
 import {
   drawingBetween,
+  drawingOnStage,
   drawingScaled,
   paperExpected,
   paperUnder,
@@ -302,7 +303,10 @@ const renderStream = (
       const around = arrangedAround(prepared, stage)
       const travelling = travellingOver(drawingBetween(stage), travelDuration(motion))
       const rest = restBeforeTravel(Option.map(left, (found) => found.prose), prose, motion)
-      const journey = yield* journeyFrom(Option.map(left, (found) => found.drawing), rest)
+      // The drawing left is set on this stage before it is drawn here: fitted
+      // to a narrower column it was drawn by a wider stage's rules, and its
+      // first frame reflows the prose around it by this one's.
+      const journey = yield* journeyFrom(Option.map(left, (found) => drawingOnStage(stage, found.drawing)), rest)
       // A rest owed is for the old lines to leave: it ends when the new lines
       // stand, or at its bound. The wait lives as long as this drawing does.
       yield* Effect.unless(

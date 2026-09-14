@@ -5,6 +5,8 @@ import * as Arr from "effect/Array"
 import { Contracts, Text } from "@scenesystems/effect-text"
 
 import {
+  drawingOnStage,
+  drawingScaled,
   flowLines,
   lineWidthFor,
   markerGap,
@@ -14,6 +16,8 @@ import {
   minimumLineWidth,
   minimumTouchTarget,
   paperExpected,
+  paperUnder,
+  PlaceDrawing,
   placeMarkers,
   type Stage,
   stageFor,
@@ -271,6 +275,61 @@ describe("Imagined place geometry contract", () => {
       expect(markersBeside(stage, [clear], 1)).toHaveLength(1)
       expect(lineWidthFor(stage, [touching])(2)).toBe(touching.x - radius - markerGap - stage.padding)
       expect(lineWidthFor(stage, [clear])(2)).toBe(stage.stageWidth - 2 * stage.padding)
+    }))
+
+  it.effect("a drawing scaled down to a narrower stage is set back on that stage's rules before it is drawn there", () =>
+    Effect.sync(() => {
+      // A drawing made for a wide stage, shown fitted to a narrow column, scales every disc's place and size
+      // by the same factor — but the least line beside a disc does not scale, so a disc that stood at the
+      // left of the wide stage lands over the narrow stage's first line. Setting it on the stage clamps it
+      // where a travelling disc would be clamped, and the paper is at least what the discs stand on.
+      const wide = stageFor(900)
+      const narrow = stageFor(254)
+      const scale = narrow.stageWidth / wide.stageWidth
+      const scaled = drawingScaled(
+        new PlaceDrawing({ markers: placeMarkers(features, noContributors, wide, leftmost), paper: wide.stageHeight }),
+        scale
+      )
+      expect(Arr.some(scaled.markers, (m) => m.x - m.radius < narrow.padding + minimumLineWidth + markerGap)).toBe(true)
+
+      const onStage = drawingOnStage(narrow, scaled)
+      expectWellPlaced(narrow, onStage.markers)
+      expect(Arr.map(onStage.markers, (m) => m.name)).toEqual(Arr.map(scaled.markers, (m) => m.name))
+      expect(onStage.paper).toBeGreaterThanOrEqual(paperUnder(narrow, onStage.markers))
+      expect(onStage.paper).toBeGreaterThanOrEqual(scaled.paper)
+    }))
+
+  it.effect("prose flowed on the narrow stage runs through a disc scaled down to it, and clear of one set on it", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: Arr.join(Arr.makeBy(160, (index) => `word${String(index)}`), " "),
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(fixedWidthText))
+      const wide = stageFor(900)
+      const narrow = stageFor(254)
+      const scaled = drawingScaled(
+        new PlaceDrawing({ markers: placeMarkers(features, noContributors, wide, leftmost), paper: wide.stageHeight }),
+        narrow.stageWidth / wide.stageWidth
+      )
+      // A line's ink runs from the padding for its width; a disc beside that line whose left edge is short
+      // of the ink's end, less the gap, has the prose through it.
+      const inkThrough = (markers: ReadonlyArray<PlaceMarker>) =>
+        Arr.some(flowLines(prepared, narrow, markers), (line, index) =>
+          Arr.some(
+            markersBeside(narrow, markers, index),
+            (marker) => marker.x - marker.radius - markerGap < narrow.padding + line.width - 1e-9
+          ))
+      expect(inkThrough(scaled.markers)).toBe(true)
+      expect(inkThrough(drawingOnStage(narrow, scaled).markers)).toBe(false)
+    }))
+
+  it.effect("a drawing already on its stage's rules is left exactly as it is", () =>
+    Effect.sync(() => {
+      const stage = stageFor(640)
+      const markers = placeMarkers(features, noContributors, stage, leftmost)
+      const drawing = new PlaceDrawing({ markers, paper: paperUnder(stage, markers) + 3 * stage.lineHeight })
+      expect(drawingOnStage(stage, drawing)).toEqual(drawing)
     }))
 
   it.effect("keeps the proposer on features that came from accepted proposals", () =>

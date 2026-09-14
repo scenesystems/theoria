@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
-import { Effect, Layer, Schema } from "effect"
+import { Effect, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { stageMaxWidth } from "../../app/contracts/demo/imagined-place-flow.js"
@@ -19,13 +19,14 @@ import {
   until,
   wheel
 } from "./browser.js"
-import { drawn, searchSettlesWithin } from "./demo.js"
+import { drawn, expectClearance, framesUntil, searchSettlesWithin } from "./demo.js"
 import {
   leaveAndReturn,
   recordedFrameFit,
   recordedPaperFrames,
   recordFrameFit,
   recordPaperFrames,
+  stageFrame,
   stageInItsStep,
   stepWidths
 } from "./platform/in-page.js"
@@ -133,6 +134,44 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           )
           expect(Math.abs(fit.offCentre), `frame ${String(fit.frame)} off centre`).toBeLessThanOrEqual(1)
         })
+        expect(yield* failures).toEqual([])
+      }))
+
+    /**
+     * The drawing left on the wide stage is drawn first on the narrow one,
+     * fitted to it; the least line beside a disc does not scale with the
+     * discs, so a disc that stood at the wide stage's left would stand over
+     * the narrow stage's first lines unless it is set on the narrow stage's
+     * rules before the prose is flowed around it. Every frame from the
+     * narrowing until the new arrangement lands keeps the gap.
+     */
+    it.scoped("from the widest column to the narrowest, every frame keeps the gap between prose and discs", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 1400, height: 900 } })
+        yield* goto(page, "/")
+        yield* drawn(page)
+        yield* stageFillsItsStep(page, "1400px")
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+
+        // The landed drawing stays complete until the narrow stage's search begins; the frames that matter run
+        // from its first trial to its landing.
+        yield* setViewport(page, { width: 320, height: 700 })
+        const first = yield* until(
+          act(() => demo.evaluate(stageFrame)),
+          (frame) => frame.phase !== "complete",
+          "the narrow stage's search is drawing"
+        )
+        const frames = Arr.prepend(
+          yield* framesUntil(demo, (frame) => frame.phase === "complete", searchSettlesWithin),
+          first
+        )
+        // The landing is the narrow stage's: drawn for the step's whole width (no widths are offered this narrow).
+        const landed = yield* act(() => page.evaluate(stageInItsStep))
+        expect(landed.stage).toBe(landed.step)
+
+        expect(Arr.last(frames).pipe(Option.map((frame) => frame.phase))).toEqual(Option.some("complete"))
+        expect(Arr.flatMap(frames, (frame) => frame.overlaps)).toEqual([])
+        expectClearance(frames)
         expect(yield* failures).toEqual([])
       }))
 
