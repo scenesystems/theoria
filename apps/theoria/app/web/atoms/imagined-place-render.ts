@@ -672,6 +672,33 @@ export const placeSearchAtom: AtomType.Atom<Result.Result<PlaceSearch, PlaceRend
 )
 
 /**
+ * The geometry of the drawing on the stage, as the lines of code that
+ * produced it say it: how many lines the text flowed into at what width,
+ * and how close the nearest two discs stand. Of the drawing shown — the
+ * best, a trial chosen from the trace, or the discs on their way — so what
+ * is read beside the code is what is seen on the paper and what a press
+ * on either is answered with.
+ */
+export class ShownGeometry extends Schema.Class<ShownGeometry>("ShownGeometry")({
+  lineCount: Schema.Int,
+  stageWidth: Schema.Number,
+  /** Smallest centre-to-centre distance as a fraction of the stage width. */
+  minimumSeparation: Schema.Number
+}) {}
+
+export const shownGeometry = (frame: PlaceRenderFrame): ShownGeometry =>
+  new ShownGeometry({
+    lineCount: frame.rendering.evidence.lineCount,
+    stageWidth: frame.rendering.projection.stageWidth,
+    minimumSeparation: frame.rendering.evidence.minimumSeparation
+  })
+
+/** The shown drawing's geometry; equal from one frame to the next while nothing the code says has changed. */
+export const placeShownGeometryAtom: AtomType.Atom<Option.Option<ShownGeometry>> = Atom.make(
+  (get: AtomType.Context) => Option.map(Result.value(get(placeShownFrameAtom)), shownGeometry)
+)
+
+/**
  * What has failed the stage: the build the place is made from, or the drawing
  * of it — and whether the run asked for in its place is under way. The build
  * failing is the reason there is no drawing, so it is the failure whatever

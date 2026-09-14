@@ -8,7 +8,7 @@ import type { ReactNode } from "react"
 import { codeSiteOnLine } from "../../../contracts/demo/imagined-place-provenance.js"
 import { toneForCard } from "../../../contracts/theme.js"
 import { placeCodeSiteAttribute, placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
-import { placeSearchAtom } from "../../atoms/imagined-place-render.js"
+import { placeSearchAtom, placeShownGeometryAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildShaAtom, placeBuiltAtom, placeStepAtom } from "../../atoms/imagined-place.js"
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
 import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
@@ -142,13 +142,14 @@ const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
 const StepCode = ({ step }: { readonly step: PlaceStep }) => {
   const build = useAtomValue(placeBuiltAtom)
   const search = Result.value(useAtomValue(placeSearchAtom))
+  const shown = useAtomValue(placeShownGeometryAtom)
   const focusedSite = useAtomValue(placeFocusedSiteAtom)
   const definition = placeStepDefinition(step)
 
   return (
     <Layer data-place-code-step={step} key={placeStepIndex(step)}>
       <CodeBlock
-        annotations={placeLiveValues(step, build, search)}
+        annotations={placeLiveValues(step, build, search, shown)}
         focusedMatch={Option.map(
           Option.filter(focusedSite, (site) => site.step === step),
           (site) => site.match

@@ -38,7 +38,7 @@ describe("How it's built references", () => {
   it.effect("shows no values before anything has been built", () =>
     Effect.sync(() => {
       Arr.forEach(placeSteps, (step) => {
-        expect(placeLiveValues(step, Option.none(), Option.none())).toEqual([])
+        expect(placeLiveValues(step, Option.none(), Option.none(), Option.none())).toEqual([])
       })
     }))
 })

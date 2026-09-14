@@ -108,6 +108,31 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(page.locator("[data-place-show-kept]"), 0)
 
         yield* press(page, "Home")
+        yield* containsText(caption, "Trial 1 of")
+        // The Arrange code answers for the drawing on the stage — this trial, not the kept one —
+        // so its line count, the popup it opens, and the prose on the paper agree.
+        const built = page.locator("[data-place-how-its-built]")
+        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
+        yield* click(built.getByRole("tab", { name: arrange.name }))
+        const layoutLine = built.locator("[data-place-code-step='arrange'] [data-code-annotation]", {
+          hasText: "lines at"
+        })
+        yield* visible(layoutLine)
+        const shownLines = yield* act(() => page.locator("[data-place-lines] [data-place-line]").count())
+        expect(shownLines).toBeGreaterThan(0)
+        yield* containsText(layoutLine, new RegExp(`\\b${String(shownLines)} lines at \\d+ px`, "u"))
+        yield* act(() => layoutLine.scrollIntoViewIfNeeded())
+        yield* click(layoutLine)
+        const answer = page.locator("[data-place-provenance] [data-current]")
+        yield* visible(answer)
+        yield* containsText(
+          answer.getByRole("heading", { level: 3 }),
+          new RegExp(`^Line \\d+ of ${String(shownLines)}$`, "u")
+        )
+        yield* press(page, "Escape")
+        yield* hidden(answer)
+        yield* containsText(caption, "Trial 1 of")
+
         yield* click(page.locator("[data-place-show-kept]"))
         yield* containsText(caption, "Kept trial")
         yield* eventually(positions, kept)
