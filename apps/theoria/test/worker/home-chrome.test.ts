@@ -19,7 +19,13 @@ import {
   visible
 } from "./browser.js"
 import { drawn } from "./demo.js"
-import { headerControls, textBaselines, underlinePosition } from "./platform/in-page.js"
+import {
+  headerControls,
+  mountWrappedBaselineRow,
+  textBaselines,
+  underlinePosition,
+  unmountWrappedBaselineRow
+} from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 /**
@@ -44,6 +50,23 @@ const siteNav = (page: Page) => page.getByRole("navigation", { name: "Site" })
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
+    it.scoped("the baseline instrument reads the line a wrapped value begins on, where its label rests", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: phone })
+        yield* goto(page, "/")
+        yield* visible(siteNav(page))
+
+        const { lines } = yield* Effect.acquireRelease(
+          act(() => page.evaluate(mountWrappedBaselineRow)),
+          () => Effect.orDie(act(() => page.evaluate(unmountWrappedBaselineRow)))
+        )
+        expect(lines, "the value takes more than one line").toBeGreaterThan(1)
+        const rests = yield* baselines(page.locator("[data-probe-label], [data-probe-value]"))
+        expect(rests).toHaveLength(2)
+        alike(rests, `a label and the first line of its value rest together, not ${String(rests)}`)
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("the header's ways off the page stand equally apart, each with a glyph and a full hit area", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })

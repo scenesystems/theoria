@@ -1378,7 +1378,8 @@ export const textBaselines = (elements: ReadonlyArray<Element>): ReadonlyArray<n
     probe.style.width = "0"
     probe.style.height = "0"
     probe.style.verticalAlign = "baseline"
-    element.append(probe)
+    // Before the words, so a value that wraps is read on the line its label rests with, not its last.
+    element.prepend(probe)
     const baseline = probe.getBoundingClientRect().bottom
     probe.remove()
     return baseline
@@ -1429,6 +1430,41 @@ export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<
       glyphInk
     }
   })
+}
+
+/**
+ * A baseline row set to wrap: a short label beside a value too long for the
+ * room it is given, so the value takes more than one line. Added to the page
+ * for the baseline instrument to be read against, and taken off again by
+ * {@link unmountWrappedBaselineRow}. The row and its items are found by
+ * `[data-probe-row]`, `[data-probe-label]` and `[data-probe-value]`; the
+ * count of lines the value took is returned so the test knows it wrapped.
+ */
+export const mountWrappedBaselineRow = (): { readonly lines: number } => {
+  const row = document.createElement("div")
+  row.dataset.probeRow = ""
+  row.style.display = "flex"
+  row.style.alignItems = "baseline"
+  row.style.gap = "8px"
+  row.style.width = "160px"
+  row.style.font = "16px/1.5 sans-serif"
+  const label = document.createElement("span")
+  label.dataset.probeLabel = ""
+  label.style.fontSize = "12px"
+  label.textContent = "Label"
+  const value = document.createElement("span")
+  value.dataset.probeValue = ""
+  value.style.minWidth = "0"
+  value.textContent = "a value long enough that it must take more than one line"
+  row.append(label, value)
+  document.body.append(row)
+  const lineHeight = Number.parseFloat(getComputedStyle(value).lineHeight)
+  return { lines: Math.round(value.getBoundingClientRect().height / lineHeight) }
+}
+
+/** Takes the wrapped baseline row back off the page. */
+export const unmountWrappedBaselineRow = (): void => {
+  document.querySelector("[data-probe-row]")?.remove()
 }
 
 /** Where each element's box begins and ends down the page. For `evaluateAll`. */
