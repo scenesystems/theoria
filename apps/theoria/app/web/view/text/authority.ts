@@ -1,9 +1,15 @@
 import { type Errors, Text } from "@scenesystems/effect-text"
 import { type FontReadinessRevisionType, initialFontReadinessRevision } from "@scenesystems/effect-text/browser"
 import * as TextReact from "@scenesystems/effect-text/react"
-import { Effect } from "effect"
+import { Effect, Number, Schema } from "effect"
 
-import { layoutRequestFor, maxWidthFor, prepareInputFor, TextProjectionRequest } from "../../../contracts/text.js"
+import {
+  layoutRequestFor,
+  maxWidthFor,
+  prepareInputFor,
+  TextProjection,
+  TextProjectionRequest
+} from "../../../contracts/text.js"
 import { browserEngineProfile, browserSupportProfileId, type BrowserTextLayout } from "../../text/browserTextLayout.js"
 
 const TextPrepareRequest = TextProjectionRequest.pick("role", "text")
@@ -13,7 +19,7 @@ type TextPrepareRequest = typeof TextPrepareRequest.Type
 const layoutRequestWithWidth = (request: TextProjectionRequest, maxWidth: number): Text.LayoutRequestType => {
   const contractLayout = layoutRequestFor(request.role, request.variant)
 
-  return { ...contractLayout, maxWidth: Math.min(contractLayout.maxWidth, maxWidth) }
+  return { ...contractLayout, maxWidth: Number.min(contractLayout.maxWidth, maxWidth) }
 }
 
 /**
@@ -44,26 +50,30 @@ export const prepareBrowserText = (
 ): Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout> =>
   Text.prepareWithSegments(prepare)
 
+export const ProjectPreparedTextOptions = Schema.Struct({
+  prepared: Text.PreparedTextWithSegments,
+  request: TextProjectionRequest,
+  maxWidth: Schema.Number
+})
+
+export type ProjectPreparedTextOptions = typeof ProjectPreparedTextOptions.Type
+
 export const projectPreparedText = ({
   maxWidth,
   prepared,
   request
-}: {
-  readonly prepared: Text.PreparedTextWithSegments
-  readonly request: TextProjectionRequest
-  readonly maxWidth: number
-}) => {
+}: ProjectPreparedTextOptions): TextProjection => {
   const layout = layoutRequestWithWidth(request, maxWidth)
   const projection = TextReact.projectPreparedLayout(prepared, layout)
 
-  return {
+  return TextProjection.make({
     role: request.role,
     variant: request.variant,
     text: request.text,
     layout,
     summary: projection.summary,
     lines: projection.lines
-  }
+  })
 }
 
 /**

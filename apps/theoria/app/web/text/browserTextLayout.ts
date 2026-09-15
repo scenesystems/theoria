@@ -1,14 +1,14 @@
 import { Text } from "@scenesystems/effect-text"
 import * as Browser from "@scenesystems/effect-text/browser"
 import * as Contracts from "@scenesystems/effect-text/contracts"
-import { Context, Effect, Layer, type Scope } from "effect"
+import { Boolean, Context, Effect, Layer, type Scope } from "effect"
 import * as Arr from "effect/Array"
 
 import { measuredFont } from "../../contracts/text.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserFonts from "../platform/BrowserFonts.js"
 
-export const browserSupportProfile = Browser.DefaultBrowserSupportProfile
+export const browserSupportProfile: Browser.BrowserSupportProfileType = Browser.DefaultBrowserSupportProfile
 export const browserSupportProfileId = browserSupportProfile.id
 export const browserEngineProfile = browserSupportProfile.engineProfile
 
@@ -63,7 +63,7 @@ const canvasTextLayoutLayer = (
 }
 
 /** The faces the layout measures in: the body's and the code's, at the weight and size measurement is done at. */
-const servedFaces: ReadonlyArray<string> = [measuredFont("body"), measuredFont("mono")]
+const servedFaces = Arr.make(measuredFont("body"), measuredFont("mono"))
 
 /** Whether the face landed: a face that fails to load is noted, and the page keeps the stand-in it shows. */
 const faceLanded = (fonts: Context.Tag.Service<BrowserFonts.BrowserFonts>) => (font: string): Effect.Effect<boolean> =>
@@ -102,7 +102,7 @@ export const servedFacesWatched: Effect.Effect<
 > = Effect.gen(function*() {
   const fonts = yield* BrowserFonts.BrowserFonts
   const readiness = yield* FontReadiness
-  const inFlight = yield* Effect.filter(servedFaces, (font) => Effect.map(fonts.inHand(font), (held) => !held))
+  const inFlight = yield* Effect.filter(servedFaces, (font) => Effect.map(fonts.inHand(font), Boolean.not))
   // Interruptible in its own right: a layer built in an uninterruptible region
   // would otherwise hand that region to the watcher, and a layout left behind
   // for a newer one could not let go of it before the faces settled.

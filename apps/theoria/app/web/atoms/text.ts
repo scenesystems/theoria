@@ -4,13 +4,17 @@ import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import type { Errors, Text } from "@scenesystems/effect-text"
 import type * as TextReact from "@scenesystems/effect-text/react"
-import { Data, Effect, Option, Schema } from "effect"
+import { Data, Effect, Number, Option, Schema } from "effect"
 
-import { SurfaceVariant } from "../../contracts/presentation.js"
-import { maxWidthFor, type TextProjection, type TextProjectionRequest, TextRole } from "../../contracts/text.js"
+import { maxWidthFor, type TextProjection, TextProjectionRequest } from "../../contracts/text.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
 import { type BrowserTextLayout, FontReadiness } from "../text/browserTextLayout.js"
-import { prepareIdentityForTextProjection, prepareTextProjection, projectPreparedText } from "../view/text/authority.js"
+import {
+  prepareIdentityForTextProjection,
+  prepareTextProjection,
+  projectPreparedText,
+  type ProjectPreparedTextOptions
+} from "../view/text/authority.js"
 
 import { type ElementWidthHandle, useElementWidth } from "./element-observation.js"
 import { textLayoutRuntime } from "./text-layout.js"
@@ -21,9 +25,7 @@ import { textLayoutRuntime } from "./text-layout.js"
  * at the same width shares one atom.
  */
 export class TextProjectionKey extends Schema.Class<TextProjectionKey>("TextProjectionKey")({
-  role: TextRole,
-  variant: SurfaceVariant,
-  text: Schema.String,
+  ...TextProjectionRequest.fields,
   maxWidth: Schema.Number
 }) {}
 
@@ -33,8 +35,7 @@ export class TextProjectionKey extends Schema.Class<TextProjectionKey>("TextProj
  * handle, prepared at whatever revision of the faces the runtime measures at.
  */
 class TextPrepareKey extends Schema.Class<TextPrepareKey>("TextPrepareKey")({
-  role: TextRole,
-  text: Schema.String
+  ...TextProjectionRequest.pick("role", "text").fields
 }) {}
 
 /** Why a projection is missing: the text could not be measured, or the document has no canvas to measure on. */
@@ -55,16 +56,12 @@ export class TextProjectionAuthority extends Data.Class<{
   readonly prepare: (
     identity: TextReact.PrepareIdentity
   ) => Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout>
-  readonly project: (options: {
-    readonly prepared: Text.PreparedTextWithSegments
-    readonly request: TextProjectionRequest
-    readonly maxWidth: number
-  }) => TextProjection
+  readonly project: (options: ProjectPreparedTextOptions) => TextProjection
 }> {}
 
 const defaultTextProjectionAuthority: TextProjectionAuthority = new TextProjectionAuthority({
   prepare: prepareTextProjection,
-  project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
+  project: projectPreparedText
 })
 
 export const makeTextProjectionAtom = (
@@ -86,7 +83,7 @@ export const makeTextProjectionAtom = (
       return Result.map(prepared, (prepared) =>
         authority.project({
           prepared,
-          request: { role: key.role, variant: key.variant, text: key.text },
+          request: TextProjectionRequest.make({ role: key.role, variant: key.variant, text: key.text }),
           maxWidth: key.maxWidth
         }))
     })
@@ -100,11 +97,7 @@ export const useTextProjection = ({
   role,
   text,
   variant
-}: {
-  readonly role: TextRole
-  readonly text: string
-  readonly variant: SurfaceVariant
-}): TextProjectionHandle => {
+}: TextProjectionRequest): TextProjectionHandle => {
   const width = useElementWidth()
   const measured = Result.value(useAtomValue(width.width))
   const contractMax = maxWidthFor(role, variant)
@@ -116,7 +109,7 @@ export const useTextProjection = ({
         text,
         maxWidth: Option.match(measured, {
           onNone: () => contractMax,
-          onSome: (available) => Math.min(contractMax, available)
+          onSome: (available) => Number.min(contractMax, available)
         })
       })
     )
