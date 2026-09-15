@@ -6,114 +6,35 @@ alwaysApply: true
 
 # @scenesystems/sign
 
-Digital signatures, key agreement, and key encapsulation for Effect.
+Effect-native signatures, key agreement, encapsulation, and JWT verification.
 
-## Commands
+## Design and ownership
 
-| Task          | Command                  |
-| ------------- | ------------------------ |
-| Type check    | `bun run check`          |
-| Lint          | `bun run lint`           |
-| Test          | `bun run test`           |
-| Build         | `bun run build`          |
-| Fixture check | `bun run fixtures:check` |
+- Design representative imports and call sites before changing a concern. Use version-aligned Effect public declarations, implementations, tests, usage, and exports as the architectural reference.
+- Public concerns live in flat PascalCase modules; root namespace and exact-case package subpath expose the same canonical declarations. The explicit export allowlist omits private and obsolete paths. This package is no longer single-entrypoint.
+- Suite modules own operations and suite-specific models/errors. `Signature` owns signature carriers and signing failures; `KeyPair` owns common keys and generation failures; `Verification` owns strict-verifier resource policy and material-free errors.
+- There is no generic algorithm dispatcher, self-trusting signature verifier, separate schemas directory, or compatibility alias surface. Related variants remain together, such as the parameter sets in `MlDsa` and `SlhDsa`.
+- Small coherent implementations may stay public. Substantial private mechanics belong in camelCase files under `internal/`; private code must not redefine public models or leak Noble types into public declarations.
+- Models with codec semantics use Schema; capabilities use Context and Layers. Schema is not required for every TypeScript relationship. This corrects the former local blanket rule; Effect also uses Data values and type-only declarations.
+- Semantic roles determine casing. Constants are not automatically UPPER_SNAKE_CASE. Use qualified schema identifiers, brands, and service keys; preserve compatibility-sensitive wire tags independently of local names.
+- `index.ts` is maintained with the explicit source export map. The existing build-utils `pack-v3` workflow generates distribution manifests; do not hand-edit those outputs.
 
-`fixtures:check` decodes the retained conformance payloads under
-`test/fixtures/conformance/` and verifies their fingerprints against
-`sources.manifest.json`. The tests only assert verdicts.
+## Cryptographic contracts
 
-All four gates must pass clean before any work is considered complete.
+- Preserve standards, strict admission, canonical encodings, context binding, input snapshots, and error-channel distinctions. The strict verifier's 8,192-byte message bound is Theoria resource policy, not an Effect convention or cryptographic standard.
+- Output-determining randomness comes from `Entropy.Entropy`. Provide `Entropy.layer` at application boundaries, never inside library operations. Effect Random is unsuitable for secrets. Deterministic replacements are test-only.
+- Preserve Noble's independent scalar/inversion blinding. Explicit key/signature entropy does not mean the primitive performs no ambient RNG calls.
+- Derivation, deterministic signing, verification, agreement, and decapsulation must not acquire fictitious entropy requirements. Caller-hedged ML-DSA-65 takes explicit context and 32 fresh entropy bytes.
+- Authenticate keys and protocol framing outside the primitive. X25519 and X-Wing return raw secrets requiring a protocol-specific KDF. Signature carriers do not establish identity.
+- Strict errors retain no material. Other errors may contain diagnostics; document disclosure policy. Secret storage, redaction, and destruction remain explicit application responsibilities.
+- Noble audits do not cover Theoria's custom RSA scheme composition.
 
-## Architecture
+## Tests and checks
 
-Single entrypoint — `@scenesystems/sign`. Effect is a required
-peer dependency. Schema is the single source of truth for all types.
+Use package-local `test/Concern.test.ts` and `test/Concern/behavior.test.ts`, with public imports for public guarantees. Test private algorithms directly only for focused laws. Drive behavioral changes red → green → refactor using `@effect/vitest`.
 
-### Three Cryptographic Families
+Use independent RFC/ACVP/Wycheproof/OpenSSL vectors, asymmetric inputs, admission boundaries, and seeded property-based laws. Round trips alone are not conformance. Do not add file/export/metadata inventory tests; compiler, resolver, docs, and build own structural checks.
 
-| Family        | Algorithms                          | Operations                       | Output type     |
-| ------------- | ----------------------------------- | -------------------------------- | --------------- |
-| **Signature** | Ed25519, secp256k1, ML-DSA, SLH-DSA | `sign()`, `verify()`             | `Signature`     |
-| **Agreement** | X25519                              | `deriveSharedSecret()`           | `SharedSecret`  |
-| **KEM**       | XWing (X25519 + ML-KEM-768)         | `encapsulate()`, `decapsulate()` | `KemCiphertext` |
+Run the root four gates: `bun run check:all && bun run lint && bun run test && bun run build`. Also run `bun run --filter @scenesystems/sign fixtures:check` and, after building, `bun run --filter @scenesystems/sign test:packed`. The packed check installs a tarball in an isolated scoped directory and exercises public APIs in Bun and native workerd. Fixture payloads and fingerprints under `test/fixtures/conformance/` change only through their documented generation workflow.
 
-These are NOT interchangeable — you cannot `sign()` with X25519
-or `verify()` an XWing output.
-
-### Modules
-
-**Signature modules:**
-
-- `src/algorithms/ed25519.ts` — Ed25519 EdDSA signatures (RFC 8032)
-- `src/algorithms/secp256k1.ts` — secp256k1 ECDSA + Schnorr (BIP-340)
-- `src/algorithms/mlDsa.ts` — ML-DSA (Dilithium, FIPS-204) post-quantum signatures
-- `src/algorithms/slhDsa.ts` — SLH-DSA (SPHINCS+, FIPS-205) hash-based post-quantum
-- `src/sign.ts` — unified sign/verify pipeline with algorithm dispatch
-
-**Agreement modules:**
-
-- `src/algorithms/x25519.ts` — X25519 ECDH key agreement (RFC 7748)
-- `src/agreement.ts` — key agreement pipeline
-
-**KEM modules:**
-
-- `src/algorithms/hybrid.ts` — XWing hybrid KEM (X25519 + ML-KEM-768)
-- `src/kem.ts` — key encapsulation pipeline (encapsulate/decapsulate)
-
-**Shared modules:**
-
-- `src/keyPair.ts` — key generation for all algorithms
-
-### Schemas (`src/schemas/`)
-
-**Signature schemas:**
-
-- `src/schemas/SignatureAlgorithm.ts` — `Schema.Literal` union of signature algorithms
-- `src/schemas/KeyPair.ts` — `Schema.Class` for typed key pairs
-- `src/schemas/Signature.ts` — `Schema.Class` for algorithm-tagged signatures
-
-**Agreement schemas:**
-
-- `src/schemas/AgreementAlgorithm.ts` — `Schema.Literal` union (`"x25519"`)
-- `src/schemas/SharedSecret.ts` — `Schema.Class` for agreement output
-
-**KEM schemas:**
-
-- `src/schemas/KemAlgorithm.ts` — `Schema.Literal` union (`"xwing"`)
-- `src/schemas/KemCiphertext.ts` — `Schema.Class` for KEM output
-
-**Shared schemas:**
-
-- `src/schemas/errors.ts` — `Schema.TaggedError` types
-
-### Internal (`src/internal/`)
-
-Private implementation. Blocked from consumers via exports map.
-
-- `src/internal/keyEncoding.ts` — key serialization/deserialization
-- `src/internal/algorithmRegistry.ts` — algorithm dispatch registry
-
-## Classical vs Post-Quantum
-
-| Class        | Algorithms                  | Family    | Standards          | Quantum-safe? |
-| ------------ | --------------------------- | --------- | ------------------ | ------------- |
-| Classical    | Ed25519, secp256k1          | Signature | RFC 8032, BIP-340  | No            |
-| Classical    | X25519                      | Agreement | RFC 7748           | No            |
-| Post-quantum | ML-DSA, SLH-DSA             | Signature | FIPS-204, FIPS-205 | Yes           |
-| Hybrid       | XWing (X25519 + ML-KEM-768) | KEM       | CG Framework       | Yes           |
-
-**NIST IR 8547** prohibits classical-only cryptography after 2035.
-**Australian ASD** prohibits classical-only after 2030.
-
-## Conventions
-
-- **Effect-native discipline** — no async/await, throw/try-catch, new Error(), console.\*, let, for/while, switch
-- **Tests always use `@effect/vitest`** with `it.effect()` for schema tests
-- **Known test vectors** from RFC 8032, BIP-340, RFC 7748, NIST FIPS-204, FIPS-205
-- **Schema is the single source of truth** — types are defined as Schema in `src/schemas/`, extracted via `Schema.Type` and `import type`
-- **Three families are not interchangeable** — signature, agreement, and KEM types are distinct
-
-## Governance
-
-- `internal/*` blocked from consumers via exports map
-- No `@noble/curves` or `@noble/post-quantum` types leak through public surface
+Public declarations need a purpose, `@since`, `@category`, and precise representation, failure, dependency, and security contracts. Module headers need `@module`. Keep README and examples aligned and compile them through the repository's documentation workflow. Breaking pre-1.0 API changes use a minor Changeset; do not silently add aliases.

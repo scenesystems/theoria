@@ -19,7 +19,7 @@ Effect-native scientific computing monorepo.
 | @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
 | @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
-The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
+`@scenesystems/digest` and `@scenesystems/seal` currently have a single entrypoint (`.`). `@scenesystems/sign` exposes concern namespaces and matching PascalCase subpaths; the scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema owns validated/encoded data; Context owns capabilities, and non-codec values and type-level relationships need not have schemas. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem; dependency audits do not cover Theoria's compositions.
 
 ---
 
@@ -105,7 +105,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                |
 | `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                         |
 | `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                      |
-| `globalThis`, `localStorage`, `Bun.*`, `crypto.*`                 | A service: `@effect/platform-browser` (`BrowserKeyValueStore`, `Clipboard`), `@effect/platform-bun`, `@scenesystems/digest`, `generateEntropy` from `@scenesystems/sign` |
+| `globalThis`, `localStorage`, `Bun.*`, `crypto.*`                 | A service: `@effect/platform-browser` (`BrowserKeyValueStore`, `Clipboard`), `@effect/platform-bun`, `@scenesystems/digest`, `Entropy.bytes` with `Entropy.layer` from `@scenesystems/sign` |
 | `new URL()`, `fetch()`                                            | `Url.fromString`, `HttpClient` from `@effect/platform`                                                                                                                   |
 | `setTimeout/setInterval`, `requestAnimationFrame`, `performance`  | `Effect.sleep`, `Schedule`, `Clock.currentTimeNanos`; the app's `AnimationFrame` service or Motion's `frame`                                                             |
 | `process.*` (every property, including `memoryUsage`, `versions`) | `Config`, `Console`, `Path` + `import.meta.url`, `Clock`, `BunRuntime.runMain` (exit code 1 on failure); what Effect cannot observe is not reported                      |
@@ -114,7 +114,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ## Conventions
 
-- **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
+- **Naming**: PascalCase public concerns, camelCase private modules and ordinary functions. Constants use semantic casing (for example `zero`, `TypeId`), not automatic UPPER_SNAKE_CASE; the former blanket rule was local policy, not an Effect convention.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
 - **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
@@ -125,10 +125,10 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 ## Governance
 
 - `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
-- Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
+- Give cross-module concepts one canonical owner. Reuse alone does not justify a `contracts/` directory; public concerns own their related models, operations, and failures. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
-- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through `generateEntropy` in `@scenesystems/sign`; `Random` is never a source of secrets.
-- Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
+- Non-cryptographic randomness (sampling, search, fixtures) uses seeded generators so runs replay. Key material and signing entropy use `Entropy.Entropy` from `@scenesystems/sign`, with `Entropy.layer` at host boundaries; `Random` is never a source of secrets. Noble's internal scalar blinding remains intact.
+- Export models follow each package's concerns. `digest` and `seal` currently retain `.`; `sign` exposes root namespaces and explicit public subpaths. Neither single-entrypoint exports nor Schema-only types are universal Effect requirements.
 
 ---
 

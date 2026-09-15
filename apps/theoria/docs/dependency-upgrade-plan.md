@@ -373,8 +373,9 @@ worker test never names the DOM itself; it passes one of those functions to
   failure) rather than `process.exit`; the bespoke `exitCode` fields are gone.
   Fixture registries take a `rootDirectory` string. Timer-based tests use a
   forked `Effect.sleep` fiber instead of `setInterval`. `@scenesystems/sign`
-  gained `generateEntropy` so hedged signing has a CSPRNG source that is not
-  Effect's seedable `Random`.
+  supplies CSPRNG bytes through `Entropy.bytes(length)` and the explicit
+  `Entropy.Entropy` capability, with `Entropy.layer` at the host boundary;
+  cryptographic entropy is separate from Effect's seedable `Random`.
 - **Web interop stays where Effect puts it.** `HttpServerRequest.fromWeb` and
   `HttpClientResponse.fromWeb` take web `Request`/`Response` values by design,
   and Effect's own tests build fixtures with `new Request`/`new Response` at
