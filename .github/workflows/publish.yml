@@ -181,7 +181,9 @@ jobs:
   publish:
     name: Publish Packages
     needs: [resolve, pack]
-    if: needs.pack.outputs.mode == 'publish'
+    # Job reruns can reuse stale prerequisite outputs. A fresh dispatch must
+    # repeat candidate and package validation before requesting this environment.
+    if: needs.pack.outputs.mode == 'publish' && github.run_attempt == '1'
     environment: npm
     runs-on: ubuntu-latest
     timeout-minutes: 15

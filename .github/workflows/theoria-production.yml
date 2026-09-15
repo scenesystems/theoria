@@ -60,6 +60,9 @@ jobs:
   production:
     name: Production
     needs: resolve
+    # Reusing a successful resolve from an earlier attempt bypasses validation.
+    # Retry with a fresh dispatch, not a job/workflow rerun.
+    if: github.run_attempt == '1'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:

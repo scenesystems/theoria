@@ -346,6 +346,12 @@ website-only candidate can skip Publish Packages if its package content matches
 the versions already on npm. Publishing never promotes the website, and
 website promotion never publishes packages.
 
+To retry publication or production, use **Run workflow** on `main` again with
+the same `run_id` and optional `reviewed_run_id`. Do not use GitHub's **Re-run
+jobs** or **Re-run all jobs**: the credentialed publication and production jobs
+are intentionally skipped on later attempts. A fresh dispatch repeats staging
+and package validation instead of reusing potentially stale prerequisite outputs.
+
 The workflow rejects runs from other workflows, repositories, branches, or PRs,
 unfinished or failed runs, and runs without a successful Staging job. It
 downloads the recorded website artifact ID from the selected run, checks out that exact commit
@@ -427,8 +433,10 @@ Packing uses pinned npm with lifecycle scripts disabled. The packed artifact is
 downloaded and its tarball integrity and content checked against staging before
 the OIDC publish job can start. Publication verifies the registry afterwards.
 If registry propagation or recording fails after publish,
-retry the pinned publication: existing matching versions are checked and not
-republished. Never move a `theoria-candidate-*` tag.
+dispatch **Publish Packages** on `main` again with the same candidate inputs.
+It reuses the immutable tag but creates a new run and repeats validation:
+existing matching versions are checked and not republished. Never move a
+`theoria-candidate-*` tag.
 
 ### Pull request previews
 
@@ -665,8 +673,9 @@ deploy:
 2. Attach the hostname to the Worker right away, either by opening
    **Workers & Pages → theoria → Settings → Domains & Routes → Add → Custom
    Domain** and entering `theoria.scenesystems.io` (the already uploaded Worker
-   serves immediately), or by rerunning the failed `Production` job, whose
-   `wrangler deploy` now creates the Custom Domain and its record.
+   serves immediately), or by dispatching **Theoria Production** again on `main`
+   with the same candidate inputs. The new run repeats validation before
+   `wrangler deploy` creates the Custom Domain and its record.
 3. Let the verify step pass. It polls `/api/health/live` for up to ten minutes
    until the hostname reports the deployed `buildSha`; that covers certificate
    issuance for the new hostname and resolvers that cached the wildcard answer
