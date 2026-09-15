@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Match, Option } from "effect"
+import { Match, Number as Num, Option } from "effect"
 import { dual } from "effect/Function"
 
 import type { ObjectiveValue } from "../contracts/ObjectiveValue.js"
@@ -14,7 +14,7 @@ import { Cancelled, Completed, Failed, Pruned, Running, type TrialState } from "
 
 const durationFromState = (state: TrialState, now: number): number =>
   Match.value(state).pipe(
-    Match.tag("Running", ({ startedAt }) => now - startedAt),
+    Match.tag("Running", ({ startedAt }) => Num.subtract(now, startedAt)),
     Match.tag("Completed", () => 0),
     Match.tag("Failed", () => 0),
     Match.tag("Pruned", () => 0),

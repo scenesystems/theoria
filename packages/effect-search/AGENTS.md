@@ -6,7 +6,7 @@ alwaysApply: true
 
 # @scenesystems/effect-search
 
-Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. Peer dependencies: `effect (^3.22.1)`, `@effect/platform (^0.97.1)`, `@effect/experimental (^0.61.1)`, and optional `@effect/sql (>=0.52.1)`. Runtime dependencies: `@scenesystems/digest`, `@scenesystems/effect-math`. This is the optimization engine consumed by `@scenesystems/effect-dsp` for Bayesian search across optimizers (MIPROv2, GEPA, bootstrap, RLM, etc.).
+Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. Peer dependencies: `effect (^3.22.1)`, `@effect/platform (^0.97.1)`, `@effect/experimental (^0.61.1)`, and optional `@effect/sql (>=0.52.1)`. Runtime dependencies: `@scenesystems/digest`, `@scenesystems/effect-math`, `@scenesystems/effect-study`. This is the optimization engine consumed by `@scenesystems/effect-dsp` for Bayesian search across optimizers (MIPROv2, GEPA, bootstrap, RLM, etc.). Reusable evaluation, history, stop controls, event streams, and artifact persistence belong to `effect-study`; search specializes them for optimization.
 
 ## Commands
 
@@ -53,6 +53,6 @@ Every TypeScript file in the package (`src/`, `test/`, `examples/`, `scripts/`) 
 
 - **Internal boundary**: Only implementation modules under `src/internal/**`, `src/samplers/**`, `src/Sampler/**`, `src/Study/**`, and `src/experimental/**` may import `internal/*` paths.
 - **Contract promotion rule**: Reusable cross-module abstractions must live in `src/contracts/**`; `internal/*` is private implementation only.
-- **Scene dependency allowlist**: Runtime dependencies on `@scenesystems/*` are allowed only for boundary-authority packages that define cross-system cryptographic or provenance truth. Do not add dependencies on Scene domain, governance, registry, or app packages to `effect-search` runtime code.
+- **Scene dependency allowlist**: Runtime dependencies on `@scenesystems/*` may provide shared mathematical and study foundations or boundary authorities defining cross-system cryptographic or provenance truth. Do not add dependencies on Scene domain, governance, registry, or app packages to `effect-search` runtime code.
 - **Public surface discipline**: Scene-branded authority types may appear in the public API only when they are semantically part of `effect-search`'s contract. Do not re-export Scene packages merely for convenience, and keep implementation-only authority details behind package-owned abstractions.
 - **Experimental surface rule**: New `src/experimental/**` exports require explicit instability docs and fixture-backed deterministic tests.

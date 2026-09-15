@@ -3,7 +3,8 @@
  *
  * @since 0.1.0
  */
-import { Effect, Ref, Stream } from "effect"
+import type { Stream } from "effect"
+import { Effect, Mailbox, Ref, String as Str } from "effect"
 
 import type { SearchError } from "../../../Errors/index.js"
 import * as Sampler from "../../../Sampler/index.js"
@@ -39,13 +40,13 @@ export const result = <Space extends SearchSpace.SearchSpace>(
     const runtimeState = yield* readRuntimeState(state.runtime)
     yield* Effect.when(
       Effect.fail(invalid("Study.result requires a completed or cancelled ask/tell handle")),
-      () => runtimeState.lifecycle === "Running"
+      () => Str.Equivalence(runtimeState.lifecycle, "Running")
     )
 
     const samplerCheckpoint = yield* Sampler.checkpoint(state.optimizePlan.sampler)
     const snapshotMetadata = snapshotMetadataFromOptions(state.optimizePlan, state.settings, samplerCheckpoint)
     const completionReason = resolveCompletionReason(
-      yield* Ref.get(state.runtime.stopRef.ref),
+      yield* Ref.get(state.runtime.stopRef),
       yield* Ref.get(state.runtime.completionReasonRef)
     )
 
@@ -74,4 +75,4 @@ export const result = <Space extends SearchSpace.SearchSpace>(
  */
 export const events = <Space extends SearchSpace.SearchSpace>(
   handle: StudyHandle<Space>
-): Stream.Stream<StudyEvent.StudyEvent> => Stream.fromQueue(stateOf(handle).eventQueue)
+): Stream.Stream<StudyEvent.StudyEvent> => Mailbox.toStream(stateOf(handle).eventQueue)

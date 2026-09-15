@@ -8,16 +8,17 @@ alwaysApply: true
 
 Effect-native scientific computing monorepo.
 
-| Package              | Directory                    | npm                              | Deps                                                      |
-| -------------------- | ---------------------------- | -------------------------------- | --------------------------------------------------------- |
-| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/digest                              |
-| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @effect/ai (peer)            |
-| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search                       |
-| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                    |
-| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | @effect/ai, effect                                        |
-| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                     |
-| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
-| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
+| Package              | Directory                    | npm                              | Deps                                                                                |
+| -------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
+| effect-study         | `packages/effect-study/`     | `@scenesystems/effect-study`     | effect, @effect/platform, @scenesystems/digest                                      |
+| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/effect-study, @scenesystems/effect-math, @scenesystems/digest |
+| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @scenesystems/effect-study, @effect/ai (peer)          |
+| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search, @scenesystems/effect-study                     |
+| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                                              |
+| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | @effect/ai, effect                                                                  |
+| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                                               |
+| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                                              |
+| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect                           |
 
 The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
 
@@ -100,7 +101,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                           |
 | `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
 | `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                   |
-| TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                       |
+| Handwritten interface models                                      | `Schema.Class`, `Data.TaggedClass`, or empty interfaces extending only `Schema.Schema.Type<typeof schema>` / `Schema.Schema.Encoded<typeof schema>`                      |
 | `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                           |
 | `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                |
 | `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                         |
@@ -136,6 +137,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 | Directory                 | Purpose                                                                     |
 | ------------------------- | --------------------------------------------------------------------------- |
+| `packages/effect-study/`  | Reusable evaluation, trial history, stopping, event streams, and artifacts  |
 | `packages/effect-search/` | Bayesian optimization — TPE, MOTPE, HyperBand/BOHB, c-TPE                   |
 | `packages/effect-dsp/`    | Declarative signal programming — DSPy paradigm for Effect                   |
 | `packages/effect-text/`   | Text preparation, measurement seams, greedy multiline layout                |
@@ -167,7 +169,7 @@ Publishing happens only in the `Publish Packages` workflow (`.github/workflows/p
 
 **Types:** `feat`, `fix`, `docs`, `test`, `chore`, `refactor`
 
-**Scopes:** `effect-search`, `effect-dsp`, `effect-text`, `effect-math`, `digest`, `seal`, `sign`, `root`
+**Scopes:** `effect-study`, `effect-search`, `effect-dsp`, `effect-text`, `effect-math`, `digest`, `seal`, `sign`, `root`
 
 ```bash
 git commit -m "feat(effect-search): add TPE categorical sampler"

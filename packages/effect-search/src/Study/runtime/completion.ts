@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Option, Ref } from "effect"
+import { Boolean as Bool, Effect, Option, Ref } from "effect"
 
 import type * as StudyEvent from "../../StudyEvent/index.js"
 import type { StopRef } from "./controls.js"
@@ -30,10 +30,12 @@ export const shouldSkipNextTrial = (
   completionReasonRef: Ref.Ref<Option.Option<StudyEvent.CompletionReason>>
 ): Effect.Effect<boolean> =>
   Effect.all({
-    stopRequest: Ref.get(stopRef.ref),
+    stopRequest: Ref.get(stopRef),
     completionReason: Ref.get(completionReasonRef)
   }).pipe(
-    Effect.map(({ stopRequest, completionReason }) => Option.isSome(stopRequest) || Option.isSome(completionReason))
+    Effect.map(({ stopRequest, completionReason }) =>
+      Bool.or(Option.isSome(stopRequest), Option.isSome(completionReason))
+    )
   )
 
 /**

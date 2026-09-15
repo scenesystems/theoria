@@ -4,14 +4,15 @@
  * @since 0.1.0
  */
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Chunk, Data, Effect, Layer, Number as Num, Option, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Layer, Number as Num, Option, Schema, Stream, Tuple } from "effect"
 import type * as Context from "effect/Context"
 
+import { isEnvelope } from "../contracts/ArtifactEnvelope.js"
 import { ArtifactSink } from "../contracts/ArtifactSink.js"
 import { EnvelopeContext } from "../contracts/EnvelopeContext.js"
 import { readEnvelopeLog } from "../contracts/sinks/reader.js"
 import { ArtifactStorageError } from "../Errors/Artifact.js"
-import type { SnapshotTrial } from "./snapshot/stateCodec.js"
+import { type SnapshotTrial, SnapshotTrialSchema } from "./snapshot/stateCodec.js"
 import type { StudySnapshot } from "./snapshot/versioning.js"
 import { makeSnapshotEnvelopeFrom, makeTrialLogEnvelopeFrom } from "./storageEnvelopes.js"
 
@@ -27,12 +28,14 @@ const DEFAULT_ENVELOPE_FILE_NAME = "envelopes.jsonl"
  * @since 0.1.0
  * @category models
  */
-export class StudyStorageOptions extends Data.Class<{
+export class StudyStorageOptions extends Schema.Class<StudyStorageOptions>("StudyStorageOptions")({
   /** Directory containing the artifact envelope log. */
-  readonly directory: string
+  directory: Schema.String,
   /** Artifact envelope log file name within `directory`. */
-  readonly envelopeFileName: string
-}> {}
+  envelopeFileName: Schema.String
+}) {}
+
+const TrialLog = Schema.mutable(Schema.Array(SnapshotTrialSchema))
 
 const defaultStudyStorageOptions = (directory: string): StudyStorageOptions =>
   new StudyStorageOptions({
@@ -71,9 +74,9 @@ export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")
     /** Reads the last snapshot envelope, or `None` when the log holds none. */
     readonly loadSnapshot: () => Effect.Effect<Option.Option<StudySnapshot>, ArtifactStorageError>
     /** Reads every trial-log envelope in file order. */
-    readonly loadTrialLog: () => Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError>
+    readonly loadTrialLog: () => Effect.Effect<typeof TrialLog.Type, ArtifactStorageError>
     /** Reads trial-log entries whose number is at least the last snapshot's next trial number. */
-    readonly replayTrialLog: () => Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError>
+    readonly replayTrialLog: () => Effect.Effect<typeof TrialLog.Type, ArtifactStorageError>
   }
 >() {}
 
@@ -143,21 +146,19 @@ export const makeStudyStorage = (
     const loadSnapshot = (): Effect.Effect<Option.Option<StudySnapshot>, ArtifactStorageError> =>
       loadEnvelopes().pipe(
         Effect.map((envelopes) =>
-          Arr.findLast(envelopes, (e) => e._tag === "StudySnapshot").pipe(
-            Option.flatMap((e) => (e._tag === "StudySnapshot" ? Option.some(e.snapshot) : Option.none()))
+          Arr.findLast(envelopes, isEnvelope("StudySnapshot")).pipe(
+            Option.map((envelope) => envelope.snapshot)
           )
         )
       )
 
-    const loadTrialLog = (): Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError> =>
+    const loadTrialLog = (): Effect.Effect<typeof TrialLog.Type, ArtifactStorageError> =>
       loadEnvelopes().pipe(
-        Effect.map((envelopes) =>
-          Arr.filterMap(envelopes, (e) => e._tag === "TrialLog" ? Option.some(e.trial) : Option.none())
-        )
+        Effect.map((envelopes) => Arr.map(Arr.filter(envelopes, isEnvelope("TrialLog")), (envelope) => envelope.trial))
       )
 
-    const replayTrialLog = (): Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError> =>
-      Effect.all([loadSnapshot(), loadTrialLog()]).pipe(
+    const replayTrialLog = (): Effect.Effect<typeof TrialLog.Type, ArtifactStorageError> =>
+      Effect.all(Tuple.make(loadSnapshot(), loadTrialLog())).pipe(
         Effect.map(([snapshotOption, trials]) =>
           Option.match(snapshotOption, {
             onNone: () => trials,

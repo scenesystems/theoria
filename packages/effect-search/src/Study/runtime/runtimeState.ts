@@ -3,16 +3,16 @@
  *
  * @since 0.1.0
  */
-import { Clock, Effect, Layer, Match, Tuple } from "effect"
+import { canTransitionLifecycle, type StudyLifecycle } from "@scenesystems/effect-study/Lifecycle"
+import { Clock, Effect, Layer, Match, type Schema, SubscriptionRef, Tuple } from "effect"
 import type { Stream } from "effect"
 
 import type { StudyState } from "../state.js"
-import { runtimeMutation, RuntimeState, type StudyRuntime } from "./bootstrap.js"
-import { canTransitionLifecycle, type StudyLifecycle } from "./lifecycle.js"
+import { RuntimeState, type StudyRuntime } from "./bootstrap.js"
 
+export type { StudyLifecycle } from "@scenesystems/effect-study/Lifecycle"
 export { RuntimeState, type StudyRuntime } from "./bootstrap.js"
-export { initializeRuntime, restoreRuntime, type RuntimeActor } from "./bootstrap.js"
-export type { StudyLifecycle } from "./lifecycle.js"
+export { initializeRuntime, restoreRuntime } from "./bootstrap.js"
 
 /**
  * Supplies millisecond timestamps for trial start, duration, and completion
@@ -41,15 +41,23 @@ export const StudyClockLayer = Layer.succeed(StudyClock, {
 })
 
 /**
- * Sends a mutation to the runtime state machine, applying a function that transforms the state and produces a result.
+ * Serializes a state transformation. Failure or interruption leaves the state unchanged.
  *
  * @since 0.1.0
  * @category utils
  */
 export const modifyRuntimeState = <Config, A, E>(
   runtime: StudyRuntime<Config>,
-  run: (state: RuntimeState<Config>) => Effect.Effect<readonly [A, RuntimeState<Config>], E, StudyClock>
-): Effect.Effect<A, E> => runtime.stateActor.send(runtimeMutation(run))
+  run: (state: RuntimeState<Config>) => Effect.Effect<
+    Schema.Schema.Type<Schema.Tuple2<Schema.Schema<A>, Schema.Schema<RuntimeState<Config>>>>,
+    E,
+    StudyClock
+  >
+): Effect.Effect<A, E> =>
+  SubscriptionRef.modifyEffect(
+    runtime.state,
+    (state) => run(state).pipe(Effect.provideService(StudyClock, runtime.clock))
+  )
 
 /**
  * Sends a mutation that operates on the inner StudyState while preserving the RuntimeState lifecycle.
@@ -59,7 +67,11 @@ export const modifyRuntimeState = <Config, A, E>(
  */
 export const modifyStudyState = <Config, A, E>(
   runtime: StudyRuntime<Config>,
-  run: (state: StudyState<Config>) => Effect.Effect<readonly [A, StudyState<Config>], E, StudyClock>
+  run: (state: StudyState<Config>) => Effect.Effect<
+    Schema.Schema.Type<Schema.Tuple2<Schema.Schema<A>, Schema.Schema<StudyState<Config>>>>,
+    E,
+    StudyClock
+  >
 ): Effect.Effect<A, E> =>
   modifyRuntimeState(runtime, (state) =>
     run(state.studyState).pipe(
@@ -75,13 +87,13 @@ export const modifyStudyState = <Config, A, E>(
     ))
 
 /**
- * Reads the current runtime state snapshot from the state machine actor.
+ * Reads the last successfully published runtime state.
  *
  * @since 0.1.0
  * @category utils
  */
 export const readRuntimeState = <Config>(runtime: StudyRuntime<Config>): Effect.Effect<RuntimeState<Config>> =>
-  runtime.stateActor.get
+  SubscriptionRef.get(runtime.state)
 
 /**
  * Reads the current study state (trial data) from the runtime, discarding lifecycle metadata.
@@ -128,7 +140,7 @@ export const setRuntimeLifecycle = <Config>(
  * @category utils
  */
 export const runtimeChanges = <Config>(runtime: StudyRuntime<Config>): Stream.Stream<RuntimeState<Config>> =>
-  runtime.stateActor.changes
+  runtime.state.changes
 
 /**
  * Takes a point-in-time snapshot of the runtime state for persistence or diagnostics.

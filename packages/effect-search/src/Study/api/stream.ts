@@ -3,12 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Data, Effect, Option, PubSub, Ref, Stream } from "effect"
+import { type EmitterSink, streamFromEmitter } from "@scenesystems/effect-study/Events"
+import { Data, Effect, Option, Stream } from "effect"
 
 import type { SearchError } from "../../Errors/index.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import type * as StudyEvent from "../../StudyEvent/index.js"
-import { eventPublisherFromPubSub } from "../events.js"
+import { EventPublisher } from "../events.js"
 import {
   type OptimizeOptionsFromSpace,
   type OptimizePlan,
@@ -32,38 +33,15 @@ const streamFromExecutionPlan = <Space extends SearchSpace.SearchSpace, R>(
   Effect.gen(function*() {
     const { optimizePlan, seed } = yield* planEffect
     const studyKernel = yield* StudyKernel
-    const pubsub = yield* PubSub.unbounded<StudyEvent.StudyEvent>()
-    const failureRef = yield* Ref.make<Option.Option<SearchError>>(Option.none())
-    yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub))
-
-    yield* studyKernel.execute(
-      new ExecuteRequest({
-        options: optimizePlan,
-        seed,
-        eventPublisher: Option.some(eventPublisherFromPubSub(pubsub))
-      })
-    ).pipe(
-      Effect.matchEffect({
-        onFailure: (error) => Ref.set(failureRef, Option.some(error)),
-        onSuccess: () => Effect.void
-      }),
-      Effect.ensuring(PubSub.shutdown(pubsub)),
-      Effect.forkScoped
-    )
-
-    const eventStream = yield* Stream.fromPubSub(pubsub, { scoped: true })
-    const failureTail = Stream.unwrap(
-      Ref.get(failureRef).pipe(
-        Effect.map(
-          Option.match({
-            onNone: () => Stream.empty,
-            onSome: (error) => Stream.fail(error)
-          })
-        )
+    return streamFromEmitter((emit: EmitterSink<StudyEvent.StudyEvent>) =>
+      studyKernel.execute(
+        new ExecuteRequest({
+          options: optimizePlan,
+          seed,
+          eventPublisher: Option.some(new EventPublisher({ publish: emit }))
+        })
       )
     )
-
-    return Stream.concat(eventStream, failureTail)
   })
 
 /**
@@ -84,15 +62,15 @@ const streamFromExecutionPlan = <Space extends SearchSpace.SearchSpace, R>(
 export const optimizeStream = <Space extends SearchSpace.SearchSpace>(
   options: OptimizeOptionsFromSpace<Space>
 ): Stream.Stream<StudyEvent.StudyEvent, SearchError> =>
-  Stream.unwrapScoped(
+  Stream.unwrap(
     streamFromExecutionPlan(
       optimizePlanFromOptions(options).pipe(
         Effect.map(
           (optimizePlan): StreamExecutionPlan<Space> => new StreamExecutionPlan({ optimizePlan, seed: Option.none() })
         )
       )
-    ).pipe(Effect.provide(StudyServicesLive), Effect.withSpan("effect-search/Study.optimizeStream"))
-  )
+    )
+  ).pipe(Stream.provideSomeLayer(StudyServicesLive), Stream.withSpan("effect-search/Study.optimizeStream"))
 
 /**
  * Restores a validated snapshot and streams events from the additional work.
@@ -107,7 +85,7 @@ export const optimizeStream = <Space extends SearchSpace.SearchSpace>(
 export const resumeStream = <Space extends SearchSpace.SearchSpace>(
   options: ResumeOptionsFromSpace<Space>
 ): Stream.Stream<StudyEvent.StudyEvent, SearchError> =>
-  Stream.unwrapScoped(
+  Stream.unwrap(
     streamFromExecutionPlan(
       resumeExecutionSeedFromOptions(options).pipe(
         Effect.map(
@@ -115,8 +93,8 @@ export const resumeStream = <Space extends SearchSpace.SearchSpace>(
             new StreamExecutionPlan({ optimizePlan, seed: Option.some(seed) })
         )
       )
-    ).pipe(Effect.provide(StudyServicesLive), Effect.withSpan("effect-search/Study.resumeStream"))
-  )
+    )
+  ).pipe(Stream.provideSomeLayer(StudyServicesLive), Stream.withSpan("effect-search/Study.resumeStream"))
 
 /**
  * Loads recovery state from {@link StudyStorage} and streams events from the
@@ -131,7 +109,7 @@ export const resumeStream = <Space extends SearchSpace.SearchSpace>(
 export const resumeFromStorageStream = <Space extends SearchSpace.SearchSpace>(
   options: ResumeFromStorageOptionsFromSpace<Space>
 ): Stream.Stream<StudyEvent.StudyEvent, SearchError, StudyStorage> =>
-  Stream.unwrapScoped(
+  Stream.unwrap(
     streamFromExecutionPlan(
       resumeExecutionSeedFromStorageOptions(options).pipe(
         Effect.map(
@@ -139,5 +117,5 @@ export const resumeFromStorageStream = <Space extends SearchSpace.SearchSpace>(
             new StreamExecutionPlan({ optimizePlan, seed: Option.some(seed) })
         )
       )
-    ).pipe(Effect.provide(StudyServicesLive), Effect.withSpan("effect-search/Study.resumeFromStorageStream"))
-  )
+    )
+  ).pipe(Stream.provideSomeLayer(StudyServicesLive), Stream.withSpan("effect-search/Study.resumeFromStorageStream"))

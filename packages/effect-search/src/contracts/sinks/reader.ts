@@ -3,42 +3,24 @@
  *
  * @since 0.1.0
  */
-import { FileSystem } from "@effect/platform"
-import { Effect, ParseResult, Schema, Stream } from "effect"
+import type { FileSystem } from "@effect/platform"
+import * as Journal from "@scenesystems/effect-study/Journal"
+import { Option, Stream, String as Str } from "effect"
 
 import { ArtifactStorageError } from "../../Errors/Artifact.js"
 import { type ArtifactEnvelope, ArtifactEnvelopeSchema } from "../ArtifactEnvelope.js"
 
-const ArtifactEnvelopeJsonSchema = Schema.parseJson(ArtifactEnvelopeSchema)
-
-const readFailure = (path: string) => (cause: { readonly message: string }): ArtifactStorageError =>
-  new ArtifactStorageError({ operation: "read", path, detail: cause.message })
-
-/** Issue paths and messages only; the envelope schema itself is too large to repeat per line. */
-const describeIssues = (error: ParseResult.ParseError): string =>
-  ParseResult.ArrayFormatter.formatErrorSync(error)
-    .map((issue) => issue.path.length === 0 ? issue.message : `${issue.path.join(".")}: ${issue.message}`)
-    .join("; ")
-
-const corruptLine = (
-  path: string,
-  lineNumber: number,
-  error: ParseResult.ParseError
-): ArtifactStorageError =>
+const readFailure = (cause: Journal.JournalError): ArtifactStorageError =>
   new ArtifactStorageError({
     operation: "read",
-    path,
-    detail: `line ${lineNumber} is not an artifact envelope: ${describeIssues(error)}`
+    path: cause.path,
+    detail: Option.fromNullable(cause.line).pipe(
+      Option.match({
+        onNone: () => cause.detail,
+        onSome: () => Str.replace("is not a journal entry", "is not an artifact envelope")(cause.detail)
+      })
+    )
   })
-
-const decodeLine = (
-  path: string,
-  line: string,
-  lineNumber: number
-): Effect.Effect<ArtifactEnvelope, ArtifactStorageError> =>
-  Schema.decode(ArtifactEnvelopeJsonSchema)(line).pipe(
-    Effect.mapError((error) => corruptLine(path, lineNumber, error))
-  )
 
 /**
  * Streams artifact envelopes from a UTF-8 JSON-lines file in source order.
@@ -60,19 +42,4 @@ const decodeLine = (
 export const readEnvelopeLog = (
   filePath: string
 ): Stream.Stream<ArtifactEnvelope, ArtifactStorageError, FileSystem.FileSystem> =>
-  Stream.unwrap(
-    Effect.gen(function*() {
-      const fs = yield* FileSystem.FileSystem
-      const exists = yield* fs.exists(filePath).pipe(Effect.mapError(readFailure(filePath)))
-      return exists
-        ? fs.stream(filePath).pipe(
-          Stream.mapError(readFailure(filePath)),
-          Stream.decodeText("utf8"),
-          Stream.splitLines,
-          Stream.zipWithIndex,
-          Stream.filter(([line]) => line.trim().length > 0),
-          Stream.mapEffect(([line, index]) => decodeLine(filePath, line, index + 1))
-        )
-        : Stream.empty
-    })
-  )
+  Journal.read(ArtifactEnvelopeSchema, filePath).pipe(Stream.mapError(readFailure))

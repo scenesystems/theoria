@@ -6,7 +6,7 @@
 import { Effect, FiberRef, Option } from "effect"
 
 import { InvalidObjectiveReport } from "../../Errors/index.js"
-import { ReportRefs, StopRef } from "./controls/model.js"
+import { ReportRefs, type StopRef } from "./controls/model.js"
 import { makeReportRefs, recordIntermediateReport } from "./controls/reporting.js"
 import { heartbeatDecision, makeStopRef, requestStudyStop } from "./controls/stop.js"
 import { ContinueHeartbeat, ObjectiveTrialRuntime } from "./pruning.js"
@@ -19,7 +19,7 @@ export {
   recordIntermediateReport,
   ReportRefs,
   requestStudyStop,
-  StopRef
+  type StopRef
 }
 
 const withCurrentTrialContext = <A, E>(

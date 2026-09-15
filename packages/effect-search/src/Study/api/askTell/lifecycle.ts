@@ -3,7 +3,18 @@
  *
  * @since 0.1.0
  */
-import { Effect, Match, Option, PubSub, Ref } from "effect"
+import type { Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Match,
+  Number as Num,
+  Option,
+  Ref,
+  String as Str,
+  SynchronizedRef
+} from "effect"
 
 import { type ArtifactStorageError, InvalidStudyConfig } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
@@ -35,15 +46,22 @@ export const ensureRunning = <Config>(
     Effect.flatMap((runtimeState) =>
       Match.value(runtimeState.lifecycle).pipe(
         Match.when("Running", () => Effect.void),
-        Match.orElse((lifecycle) =>
-          Effect.fail(invalid(`Study.${operation} requires a running handle (current lifecycle: ${lifecycle})`))
-        )
+        Match.whenOr("Created", "Paused", "Completed", "Failed", "Cancelled", (lifecycle) =>
+          Effect.fail(
+            invalid(
+              Arr.join(
+                Arr.make("Study.", operation, " requires a running handle (current lifecycle: ", lifecycle, ")"),
+                ""
+              )
+            )
+          )),
+        Match.exhaustive
       )
     )
   )
 
 /**
- * Emits a StudyCompleted event, transitions the lifecycle, and shuts down the event pubsub (idempotent).
+ * Emits completion once, transitions the lifecycle, and drains the event mailbox before ending.
  *
  * @since 0.1.0
  * @category utils
@@ -51,7 +69,7 @@ export const ensureRunning = <Config>(
 export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
   state: HandleRuntime<Space>,
   completionReason: StudyEvent.CompletionReason,
-  lifecycle: "Completed" | "Cancelled"
+  lifecycle: Schema.Schema.Type<Schema.Literal<["Completed", "Cancelled"]>>
 ): Effect.Effect<void, ArtifactStorageError> =>
   Effect.gen(function*() {
     yield* Ref.update(state.runtime.completionReasonRef, (current) =>
@@ -61,15 +79,12 @@ export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
       ))
     yield* setRuntimeLifecycle(state.runtime, lifecycle)
 
-    const alreadyPublished = yield* Ref.get(state.completionPublishedRef)
-    yield* Effect.when(
-      appendEvent(state.runtime, StudyEvent.StudyCompleted({ completionReason })).pipe(
-        Effect.zipRight(Ref.set(state.completionPublishedRef, true))
-      ),
-      () => !alreadyPublished
-    )
-
-    yield* PubSub.shutdown(state.pubsub)
+    yield* SynchronizedRef.updateEffect(state.completionPublishedRef, (published) =>
+      Effect.if(published, {
+        onTrue: () => Effect.succeed(true),
+        onFalse: () => appendEvent(state.runtime, StudyEvent.StudyCompleted({ completionReason })).pipe(Effect.as(true))
+      }))
+    yield* state.eventQueue.end
   })
 
 /**
@@ -85,8 +100,11 @@ export const completeIfBudgetReached = <Space extends SearchSpace.SearchSpace>(
     const runtimeState = yield* readRuntimeState(state.runtime)
     const trialCount = trialCountFromState(runtimeState.studyState)
     const pendingTrials = pendingTrialsFromState(runtimeState.studyState)
-    const canComplete = runtimeState.lifecycle === "Running" && trialCount >= state.settings.trials &&
-      pendingTrials.length <= 0
+    const canComplete = Bool.every(Arr.make(
+      Str.Equivalence(runtimeState.lifecycle, "Running"),
+      Num.greaterThanOrEqualTo(trialCount, state.settings.trials),
+      Arr.isEmptyArray(pendingTrials)
+    ))
 
     yield* Effect.when(publishCompletion(state, "budgetExhausted", "Completed"), () => canComplete)
   })

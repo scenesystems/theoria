@@ -3,10 +3,30 @@
  *
  * @since 0.1.0
  */
+import * as StudyTrial from "@scenesystems/effect-study/Trial"
 import { Data, Schema } from "effect"
 
 import { ObjectiveValueSchema } from "../contracts/ObjectiveValue.js"
 import { TrialError } from "../Errors/index.js"
+
+const completionMetadata = Schema.Struct({
+  retryCount: Schema.Number,
+  evaluationCount: Schema.optional(Schema.Number),
+  variance: Schema.optional(Schema.Number)
+})
+
+const completedState = Schema.Struct({
+  ...StudyTrial.Completed(ObjectiveValueSchema).fields,
+  ...completionMetadata.fields
+})
+
+const numericCompletedState = Schema.Struct({
+  ...StudyTrial.Completed(Schema.Number).fields,
+  ...completionMetadata.fields
+})
+
+/** Scalar completion with the same evaluation metadata as vector completion. @since 0.1.0 @category type-level */
+export type NumericCompletedState = Schema.Schema.Type<typeof numericCompletedState>
 
 /**
  * Decodes running, completed, failed, pruned, and cancelled states used in
@@ -22,29 +42,16 @@ import { TrialError } from "../Errors/index.js"
  * @category schemas
  */
 export const TrialStateSchema = Schema.Union(
-  Schema.TaggedStruct("Running", {
-    startedAt: Schema.Number
-  }),
-  Schema.TaggedStruct("Completed", {
-    value: ObjectiveValueSchema,
-    duration: Schema.Number,
-    retryCount: Schema.Number,
-    evaluationCount: Schema.optional(Schema.Number),
-    variance: Schema.optional(Schema.Number)
-  }),
-  Schema.TaggedStruct("Failed", {
-    error: TrialError,
-    duration: Schema.Number
-  }),
+  StudyTrial.Running,
+  completedState,
+  StudyTrial.Failed(TrialError),
   Schema.TaggedStruct("Pruned", {
     step: Schema.Number,
     reason: Schema.String,
     policy: Schema.String,
     duration: Schema.Number
   }),
-  Schema.TaggedStruct("Cancelled", {
-    cancelled: Schema.optional(Schema.Literal(true))
-  })
+  StudyTrial.Cancelled
 )
 
 /**
@@ -110,14 +117,14 @@ export const {
    *
    * @example
    * ```ts
-   * import { Effect } from "effect"
+   * import { Effect, Number as Num } from "effect"
    * import { isState, makeRunning } from "@scenesystems/effect-search/Trial"
    *
    * const trial = makeRunning(0, { rate: 0.1 }, 1_000)
    * export const program = Effect.succeed(trial.state).pipe(
    *   Effect.filterOrFail(isState("Running"), () => "ExpectedRunningState"),
    *   Effect.map(({ startedAt }) => startedAt),
-   *   Effect.filterOrFail((startedAt) => startedAt === 1_000, () => "UnexpectedStartTime")
+   *   Effect.filterOrFail((startedAt) => Num.Equivalence(startedAt, 1_000), () => "UnexpectedStartTime")
    * )
    * ```
    *

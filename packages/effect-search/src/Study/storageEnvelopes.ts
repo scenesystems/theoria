@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { DateTime, Effect, Schema } from "effect"
+import { Array as Arr, DateTime, Effect, Schema } from "effect"
 import type * as Context from "effect/Context"
 
 import {
@@ -26,14 +26,16 @@ import type { StudySnapshot } from "./snapshot/versioning.js"
  * @since 0.1.0
  * @category schemas
  */
-export const ArtifactEnvelopeJsonSchema = Schema.parseJson(ArtifactEnvelopeSchema)
+export const ArtifactEnvelopeJsonSchema: Schema.Schema<ArtifactEnvelope, string> = Schema.parseJson(
+  ArtifactEnvelopeSchema
+)
 
 const SCHEMA_VERSION: ArtifactEnvelopeVersion = "artifact-envelope/v1"
 
-const STUDY_COMPONENT: ComponentPath = ["Study"]
+const STUDY_COMPONENT: ComponentPath = Arr.of("Study")
 
-const TRIAL_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: ["trial"] })
-const SNAPSHOT_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: ["snapshot"] })
+const TRIAL_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: Arr.of("trial") })
+const SNAPSHOT_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: Arr.of("snapshot") })
 
 /**
  * Constructs a TrialLog artifact envelope with lineage metadata from the envelope context.
@@ -59,7 +61,7 @@ export const makeTrialLogEnvelope = (trial: SnapshotTrial) =>
               artifactId,
               emittedAt: DateTime.unsafeNow()
             }),
-            relations: [RunRelation({ ref: ctx.runId })],
+            relations: Arr.of(RunRelation({ ref: ctx.runId })),
             trial
           })
         )
@@ -91,7 +93,7 @@ export const makeSnapshotEnvelope = (snapshot: StudySnapshot) =>
               artifactId,
               emittedAt: DateTime.unsafeNow()
             }),
-            relations: [RunRelation({ ref: ctx.runId })],
+            relations: Arr.of(RunRelation({ ref: ctx.runId })),
             snapshot
           })
         )
@@ -126,7 +128,7 @@ export const makeTrialLogEnvelopeFrom = (
       artifactId,
       emittedAt: DateTime.unsafeNow()
     }),
-    relations: [RunRelation({ ref: ctx.runId })],
+    relations: Arr.of(RunRelation({ ref: ctx.runId })),
     trial
   })
 
@@ -155,6 +157,6 @@ export const makeSnapshotEnvelopeFrom = (
       artifactId,
       emittedAt: DateTime.unsafeNow()
     }),
-    relations: [RunRelation({ ref: ctx.runId })],
+    relations: Arr.of(RunRelation({ ref: ctx.runId })),
     snapshot
   })

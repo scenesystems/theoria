@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Option, Predicate, PubSub, Queue, Ref } from "effect"
+import { Array as Arr, Effect, Mailbox, Number as Num, Option, Schema, SynchronizedRef } from "effect"
 import type * as Scope from "effect/Scope"
 
 import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
@@ -11,7 +11,7 @@ import { type ArtifactStorageError, type SearchError, TrialError } from "../../.
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import * as Trial from "../../../Trial/index.js"
-import { appendEvent, eventPublisherFromPubSub } from "../../events.js"
+import { appendEvent, EventPublisher } from "../../events.js"
 import {
   normalizeSettings,
   type OptimizeOptionsFromSpace,
@@ -46,7 +46,7 @@ import { finalizeTrial, pendingTrial, validateObjectiveValue } from "./shared.js
  *
  * @example
  * ```ts
- * import { Effect, Match } from "effect"
+ * import { Array as Arr, Effect, Match, Number as Num } from "effect"
  * import * as Numeric from "@scenesystems/effect-math/Numeric"
  * import * as Study from "@scenesystems/effect-search/Study"
  * import * as Sampler from "@scenesystems/effect-search/Sampler"
@@ -71,7 +71,7 @@ import { finalizeTrial, pendingTrial, validateObjectiveValue } from "./shared.js
  *       Match.tag("SingleObjective", (single) =>
  *         Effect.succeed(single).pipe(
  *           Effect.filterOrFail(
- *             ({ trials }) => trials.length === 1,
+ *             ({ trials }) => Num.Equivalence(Arr.length(trials), 1),
  *             () => "UnexpectedTrialCount"
  *           )
  *         )
@@ -96,29 +96,27 @@ export const open = <Space extends SearchSpace.SearchSpace>(
     const runtimeSeed = yield* mergeSeedWithPriorTrials(
       optimizePlan,
       settings.objectiveSpec,
-      new RuntimeSeed({ initialTrials: [], startTrialNumber: 0 })
+      new RuntimeSeed({ initialTrials: Arr.empty(), startTrialNumber: 0 })
     )
 
-    const pubsub = yield* PubSub.unbounded<StudyEvent.StudyEvent>()
-    const eventQueue = yield* PubSub.subscribe(pubsub)
-    yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub))
-    yield* Effect.addFinalizer(() => Queue.shutdown(eventQueue))
+    const eventQueue = yield* Mailbox.make<StudyEvent.StudyEvent>()
+    yield* Effect.addFinalizer(() => eventQueue.shutdown)
 
     const runtime = yield* initializeRuntime(
       settings,
       runtimeSeed.initialTrials,
-      eventPublisherFromPubSub(pubsub)
+      new EventPublisher({ publish: (event) => eventQueue.offer(event).pipe(Effect.asVoid) })
     ).pipe(Effect.provide(StudyClockLayer))
 
     yield* setRuntimeLifecycle(runtime, "Running")
-    const completionPublishedRef = yield* Ref.make(false)
+    yield* Effect.addFinalizer(() => setRuntimeLifecycle(runtime, "Cancelled"))
+    const completionPublishedRef = yield* SynchronizedRef.make(false)
 
     return makeStudyHandle(
       new HandleRuntime({
         optimizePlan,
         settings,
         runtime,
-        pubsub,
         eventQueue,
         completionPublishedRef
       })
@@ -150,7 +148,7 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
     const trialNumber = trialCountFromState(yield* readStudyState(state.runtime))
     yield* Effect.when(
       Effect.fail(invalid("Study.ask cannot reserve a trial because the configured trial budget is exhausted")),
-      () => trialNumber >= state.settings.trials
+      () => Num.greaterThanOrEqualTo(trialNumber, state.settings.trials)
     )
 
     const reserved = yield* reserveTrialOrMarkSpaceExhausted(
@@ -232,8 +230,10 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
     yield* ensureRunning(state.runtime, "fail")
     const running = yield* pendingTrial(state, trialNumber, "fail")
     const clock = yield* StudyClock
-    const maybeMessage = Reflect.get(Predicate.isRecord(cause) ? cause : {}, "message")
-    const message = typeof maybeMessage === "string" ? maybeMessage : "manual ask-tell failure"
+    const message = Schema.decodeUnknownOption(Schema.Struct({ message: Schema.String }))(cause).pipe(
+      Option.map(({ message }) => message),
+      Option.getOrElse(() => "manual ask-tell failure")
+    )
     const failed = Trial.fail(running, new TrialError({ trialNumber, message, cause }), yield* clock.now)
 
     yield* finalizeTrial(handle, failed)

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Option, Schema, Tuple } from "effect"
 
 import { matchObjectiveSpec } from "../../../contracts/ObjectiveSpec.js"
 import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
@@ -33,19 +33,16 @@ export const validateObjectiveValue = (
 ): Effect.Effect<void, InvalidObjectiveValue> =>
   matchObjectiveSpec({
     Single: () =>
-      Match.value(value).pipe(
-        Match.when(Match.number, (entry) =>
-          Number.isFinite(entry)
-            ? Effect.void
-            : Effect.fail(new InvalidObjectiveValue({ trialNumber, value }))),
-        Match.orElse(() => Effect.fail(new InvalidObjectiveValue({ trialNumber, value })))
+      Effect.fail(new InvalidObjectiveValue({ trialNumber, value })).pipe(
+        Effect.when(() => Bool.not(Schema.is(Schema.JsonNumber)(value))),
+        Effect.asVoid
       ),
     Multi: ({ directions }) =>
-      Match.value(
-        Arr.isArray(value) && value.length === directions.length && value.every((entry) => Number.isFinite(entry))
-      ).pipe(
-        Match.when(true, () => Effect.void),
-        Match.orElse(() => Effect.fail(new InvalidObjectiveValue({ trialNumber, value })))
+      Effect.fail(new InvalidObjectiveValue({ trialNumber, value })).pipe(
+        Effect.when(() =>
+          Bool.not(Schema.is(Schema.Array(Schema.JsonNumber).pipe(Schema.itemsCount(Arr.length(directions))))(value))
+        ),
+        Effect.asVoid
       )
   })(objectiveSpec)
 
@@ -63,7 +60,21 @@ export const pendingTrial = <Space extends SearchSpace.SearchSpace>(
   readStudyState(state.runtime).pipe(
     Effect.flatMap((studyState) =>
       Option.match(pendingTrialByNumber(studyState, trialNumber), {
-        onNone: () => Effect.fail(invalid(`Study.${operation} trial ${trialNumber} is not reserved`)),
+        onNone: () =>
+          Effect.fail(
+            invalid(
+              Arr.join(
+                Arr.make(
+                  "Study.",
+                  operation,
+                  " trial ",
+                  Schema.encodeSync(Schema.NumberFromString)(trialNumber),
+                  " is not reserved"
+                ),
+                ""
+              )
+            )
+          ),
         onSome: Effect.succeed
       })
     )
@@ -82,7 +93,7 @@ export const finalizeTrial = <Space extends SearchSpace.SearchSpace>(
   Effect.gen(function*() {
     const state = stateOf(handle)
     yield* modifyStudyState(state.runtime, (studyState) =>
-      Effect.succeed([undefined, withFinalizedTrial(studyState, trial)]))
+      Effect.succeed(Tuple.make(undefined, withFinalizedTrial(studyState, trial))))
     yield* appendTrialIfAvailable(trialToSnapshot(trial))
     yield* emitLifecycleEvents(state.settings.objectiveSpec, trial, state.runtime)
     yield* completeIfBudgetReached(state)

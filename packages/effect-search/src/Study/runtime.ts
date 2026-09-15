@@ -206,7 +206,7 @@ export const executeStudy = <Space extends SearchSpace.SearchSpace>(
             )
 
             const finalState = yield* readStudyState(runtime)
-            const stopRequest = yield* Ref.get(runtime.stopRef.ref)
+            const stopRequest = yield* Ref.get(runtime.stopRef)
             const completionReasonOverride = yield* Ref.get(runtime.completionReasonRef)
             const trials = trialsFromState(finalState)
             const completionReason = resolveCompletionReason(stopRequest, completionReasonOverride)

@@ -3,8 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Data, DateTime, Effect, Match, Number as Num, Option, PubSub, Ref, Tuple } from "effect"
+import { Array as Arr, Data, DateTime, Effect, Match, Number as Num, Option, PubSub, Ref, Tuple } from "effect"
 
+import type { Direction } from "../contracts/Direction.js"
 import {
   type ArtifactEnvelopeVersion,
   ArtifactLineage,
@@ -63,7 +64,8 @@ const updateNoImprovementCount = (
   Ref.update(noImprovementCountRef, (current) =>
     Match.value(wasUpdated).pipe(
       Match.when(true, () => 0),
-      Match.orElse(() => Num.increment(current))
+      Match.when(false, () => Num.increment(current)),
+      Match.exhaustive
     ))
 
 /**
@@ -85,8 +87,8 @@ export const fanoutEventPublisher = (left: EventPublisher, right: EventPublisher
   })
 
 const SCHEMA_VERSION: ArtifactEnvelopeVersion = "artifact-envelope/v1"
-const EVENT_COMPONENT: ComponentPath = ["Study", "events"]
-const EVENT_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: ["event"] })
+const EVENT_COMPONENT: ComponentPath = Arr.make("Study", "events")
+const EVENT_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: Arr.of("event") })
 
 /**
  * Wraps study events in artifact envelopes and sends them to an artifact sink.
@@ -106,8 +108,8 @@ export const envelopeEventPublisher = (sink: ArtifactSinkApi): Effect.Effect<Eve
     Effect.map((ctx) =>
       new EventPublisher({
         publish: (event) =>
-          ctx.nextArtifactId.pipe(
-            Effect.map((artifactId) =>
+          Effect.all({ artifactId: ctx.nextArtifactId, emittedAt: DateTime.now }).pipe(
+            Effect.map(({ artifactId, emittedAt }) =>
               StudyEventEnvelope({
                 schemaVersion: SCHEMA_VERSION,
                 producer: {
@@ -119,9 +121,9 @@ export const envelopeEventPublisher = (sink: ArtifactSinkApi): Effect.Effect<Eve
                 lineage: new ArtifactLineage({
                   sourceRef: EVENT_SOURCE_REF,
                   artifactId,
-                  emittedAt: DateTime.unsafeNow()
+                  emittedAt
                 }),
-                relations: [RunRelation({ ref: ctx.runId })],
+                relations: Arr.of(RunRelation({ ref: ctx.runId })),
                 event
               })
             ),
@@ -159,13 +161,13 @@ const eventFromFinalizedTrial = <Config>(trial: Trial.Trial<Config>): Option.Opt
 
 const updateBestValue = (
   bestValueRef: Ref.Ref<Option.Option<number>>,
-  direction: "minimize" | "maximize",
+  direction: Direction,
   candidateValue: number
 ): Effect.Effect<boolean> =>
   Ref.modify(bestValueRef, (currentBest) =>
     Option.match(currentBest, {
       onNone: () => Tuple.make(true, Option.some(candidateValue)),
-      onSome: (value): readonly [boolean, Option.Option<number>] =>
+      onSome: (value) =>
         Match.value(betterByDirection(direction, candidateValue, value)).pipe(
           Match.when(true, () => Tuple.make(true, Option.some(candidateValue))),
           Match.when(false, () => Tuple.make(false, currentBest)),

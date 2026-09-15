@@ -3,9 +3,12 @@
  *
  * @since 0.1.0
  */
+import * as Artifacts from "@scenesystems/effect-study/Artifacts"
 import { Schema } from "effect"
 
-import { ArtifactId, ContentDigest, SourceRef } from "./identity.js"
+import { SourceRef } from "./identity.js"
+
+const SearchArtifactLineage = Artifacts.makeLineageSchema(SourceRef)
 
 /**
  * Records an artifact's declared source, identity, emission time, and optional parents.
@@ -18,15 +21,6 @@ import { ArtifactId, ContentDigest, SourceRef } from "./identity.js"
  * @since 0.1.0
  * @category models
  */
-export class ArtifactLineage extends Schema.Class<ArtifactLineage>("ArtifactLineage")({
-  /** Producer and logical component that emitted the artifact. */
-  sourceRef: SourceRef,
-  /** Identity assigned to this artifact within its declared run. */
-  artifactId: ArtifactId,
-  /** Producer-supplied UTC emission time. */
-  emittedAt: Schema.DateTimeUtc,
-  /** Ordered parent identities, when the artifact records derivation. */
-  derivedFrom: Schema.optional(Schema.Array(ArtifactId)),
-  /** Declared content digest; consumers must verify it against the artifact bytes. */
-  integrity: Schema.optional(ContentDigest)
-}) {}
+export class ArtifactLineage extends Schema.Class<ArtifactLineage>("ArtifactLineage")(
+  SearchArtifactLineage.fields
+) {}

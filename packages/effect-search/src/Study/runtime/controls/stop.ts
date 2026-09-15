@@ -3,32 +3,15 @@
  *
  * @since 0.1.0
  */
-import { Effect, Equal, Match, Option, Ref, Tuple } from "effect"
+import * as Stop from "@scenesystems/effect-study/Stop"
+import { Effect, Option } from "effect"
 
 import type { ArtifactStorageError } from "../../../Errors/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
 import type { EventRuntime } from "../../events.js"
 import { appendEvent } from "../../events.js"
-import {
-  ContinueHeartbeat,
-  type HeartbeatDecision,
-  preferredStopRequest,
-  StopHeartbeat,
-  type StopMode,
-  StopRequest
-} from "../pruning.js"
-import { StopRef } from "./model.js"
-
-const stopRequest = (
-  mode: StopMode,
-  trialNumber: number,
-  reason: string
-): StopRequest =>
-  new StopRequest({
-    mode,
-    requestedByTrialNumber: trialNumber,
-    reason
-  })
+import type { HeartbeatDecision, StopMode } from "../pruning.js"
+import type { StopRef } from "./model.js"
 
 /**
  * Creates a fresh stop reference initialized to no active stop request.
@@ -36,9 +19,7 @@ const stopRequest = (
  * @since 0.1.0
  * @category constructors
  */
-export const makeStopRef: Effect.Effect<StopRef> = Ref.make<Option.Option<StopRequest>>(Option.none()).pipe(
-  Effect.map((ref) => new StopRef({ ref }))
-)
+export const makeStopRef: Effect.Effect<StopRef> = Stop.make
 
 /**
  * Evaluates whether the current trial should continue or stop based on the stop ref and mode.
@@ -49,20 +30,7 @@ export const makeStopRef: Effect.Effect<StopRef> = Ref.make<Option.Option<StopRe
 export const heartbeatDecision = (
   stopRef: StopRef,
   mode: StopMode
-): Effect.Effect<HeartbeatDecision> =>
-  Ref.get(stopRef.ref).pipe(
-    Effect.map(
-      Option.match({
-        onNone: () => ContinueHeartbeat(),
-        onSome: (request) =>
-          Match.value(mode).pipe(
-            Match.when("Interrupt", () => StopHeartbeat({ mode: request.mode, reason: request.reason })),
-            Match.when("Drain", () => ContinueHeartbeat()),
-            Match.exhaustive
-          )
-      })
-    )
-  )
+): Effect.Effect<HeartbeatDecision> => Stop.heartbeat(stopRef, mode)
 
 /**
  * Records a stop request from a trial, preferring the earliest request and most aggressive mode.
@@ -77,19 +45,7 @@ export const requestStudyStop = (
   trialNumber: number,
   reason: string
 ): Effect.Effect<void, ArtifactStorageError> =>
-  Ref.modify(stopRef.ref, (current) => {
-    const candidate = stopRequest(mode, trialNumber, reason)
-
-    return Option.match(current, {
-      onNone: () => Tuple.make(Option.some(candidate), Option.some(candidate)),
-      onSome: (existing) => {
-        const selected = preferredStopRequest(existing, candidate)
-        const changed = !Equal.equals(existing, selected)
-
-        return Tuple.make(changed ? Option.some(selected) : Option.none<StopRequest>(), Option.some(selected))
-      }
-    })
-  }).pipe(
+  Stop.request(stopRef, new Stop.Request({ mode, requestedByTrialNumber: trialNumber, reason })).pipe(
     Effect.flatMap(
       Option.match({
         onNone: () => Effect.void,

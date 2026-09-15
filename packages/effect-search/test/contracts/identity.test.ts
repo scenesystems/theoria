@@ -54,6 +54,17 @@ describe("contracts/identity", () => {
       expect(sourceRef.segments).toEqual(["trial", "log"])
     }))
 
+  it.effect("SourceRef preserves effect-search's closed origin validation", () =>
+    Effect.gen(function*() {
+      const result = yield* Schema.decodeUnknown(Contracts.SourceRef)({
+        origin: "caller-owned",
+        domain: "study",
+        segments: ["trial"]
+      }).pipe(Effect.either)
+
+      expect(result._tag).toBe("Left")
+    }))
+
   it.effect("ContentDigest decodes with algorithm and branded Digest256", () =>
     Effect.gen(function*() {
       const validDigest = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq"

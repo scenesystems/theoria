@@ -1,22 +1,24 @@
 /**
- * Data classes for stop request and intermediate report reference containers.
+ * Native stop and intermediate-report reference models.
  *
  * @since 0.1.0
  */
+import type * as Stop from "@scenesystems/effect-study/Stop"
 import type { Option, Ref } from "effect"
-import { Data } from "effect"
+import { Data, Schema } from "effect"
 
-import type { IntermediateReport, PrunedDecision, StopRequest } from "../pruning.js"
+import { IntermediateReport, type PrunedDecision } from "../pruning.js"
 
 /**
- * Mutable reference container holding an optional stop request for the study.
+ * Native mutable reference holding an optional stop request for the study.
  *
  * @since 0.1.0
- * @category models
+ * @category type-level
  */
-export class StopRef extends Data.Class<{
-  readonly ref: Ref.Ref<Option.Option<StopRequest>>
-}> {}
+export type StopRef = Stop.Ref
+
+const IntermediateReports = Schema.Array(IntermediateReport)
+type IntermediateReports = typeof IntermediateReports.Type
 
 /**
  * Mutable reference container tracking intermediate reports and the pruning decision for a single trial.
@@ -25,6 +27,6 @@ export class StopRef extends Data.Class<{
  * @category models
  */
 export class ReportRefs extends Data.Class<{
-  readonly reportsRef: Ref.Ref<ReadonlyArray<IntermediateReport>>
+  readonly reportsRef: Ref.Ref<IntermediateReports>
   readonly pruneRef: Ref.Ref<Option.Option<PrunedDecision>>
 }> {}

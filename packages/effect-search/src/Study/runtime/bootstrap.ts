@@ -3,9 +3,8 @@
  *
  * @since 0.1.0
  */
-import { Machine } from "@effect/experimental"
-import { Data, Effect, Option, Ref, Request } from "effect"
-import type { Scope } from "effect"
+import type { StudyLifecycle } from "@scenesystems/effect-study/Lifecycle"
+import { Array as Arr, type Context, Data, Effect, Option, Ref, type Schema, SubscriptionRef } from "effect"
 
 import type * as StudyEvent from "../../StudyEvent/index.js"
 import type * as Trial from "../../Trial/index.js"
@@ -16,8 +15,7 @@ import { type OptimizeSettings, singleDirectionFromSettings } from "../options.j
 import type { StudyState } from "../state.js"
 import { stateFromInitialTrials, trialsFromState } from "../state.js"
 import { makeStopRef, type StopRef } from "./controls.js"
-import type { StudyLifecycle } from "./lifecycle.js"
-import type { StudyClock } from "./runtimeState.js"
+import { StudyClock } from "./runtimeState.js"
 
 /**
  * Composite state pairing the lifecycle phase with the inner study trial data.
@@ -30,55 +28,15 @@ export class RuntimeState<Config = unknown> extends Data.Class<{
   readonly studyState: StudyState<Config>
 }> {}
 
-class RuntimeMutationRequest<Config, A, E> extends Data.Class<
-  Request.Request<A, E> & {
-    readonly _tag: "effect-search/StudyRuntimeMutation"
-    readonly run: (state: RuntimeState<Config>) => Effect.Effect<readonly [A, RuntimeState<Config>], E, StudyClock>
-  }
-> {}
-
-type RuntimeMutationAny<Config> = RuntimeMutationRequest<Config, unknown, unknown>
-
-type RuntimeMachine<Config> = Machine.Machine<
-  RuntimeState<Config>,
-  RuntimeMutationAny<Config>,
-  never,
-  void,
-  never,
-  StudyClock
->
-
 /**
- * @since 0.1.0
- * @category type-level
- */
-export type RuntimeActor<Config> = Machine.Actor<RuntimeMachine<Config>>
-
-/**
- * @since 0.1.0
- * @category constructors
- */
-export const runtimeMutation = <Config, A, E>(
-  run: (state: RuntimeState<Config>) => Effect.Effect<readonly [A, RuntimeState<Config>], E, StudyClock>
-): RuntimeMutationRequest<Config, A, E> =>
-  Request.tagged<RuntimeMutationRequest<Config, A, E>>("effect-search/StudyRuntimeMutation")({ run })
-
-const makeRuntimeMachine = <Config>(initialState: RuntimeState<Config>): RuntimeMachine<Config> =>
-  Machine.make(
-    Machine.procedures.make(initialState, { identifier: "effect-search/StudyRuntimeMachine" }).pipe(
-      Machine.procedures.add<RuntimeMutationAny<Config>>()("effect-search/StudyRuntimeMutation", ({ request, state }) =>
-        request.run(state))
-    )
-  )
-
-/**
- * Aggregated runtime handle carrying the state actor, stop controls, best-value tracking, and event publisher.
+ * Search runtime carrying serialized state, stop controls, ranking state, and event publication.
  *
  * @since 0.1.0
  * @category models
  */
 export class StudyRuntime<Config = unknown> extends Data.Class<{
-  readonly stateActor: RuntimeActor<Config>
+  readonly state: SubscriptionRef.SubscriptionRef<RuntimeState<Config>>
+  readonly clock: Context.Tag.Service<typeof StudyClock>
   readonly stopRef: StopRef
   readonly completionReasonRef: Ref.Ref<Option.Option<StudyEvent.CompletionReason>>
   readonly bestValueRef: Ref.Ref<Option.Option<number>>
@@ -86,27 +44,29 @@ export class StudyRuntime<Config = unknown> extends Data.Class<{
   readonly eventPublisher: EventPublisher
 }> {}
 
-const initialRuntimeState = <Config>(initialTrials: ReadonlyArray<Trial.Trial<Config>>): RuntimeState<Config> =>
+type Trials<Config> = Schema.Schema.Type<Schema.Array$<Schema.Schema<Trial.Trial<Config>>>>
+
+const initialRuntimeState = <Config>(initialTrials: Trials<Config>): RuntimeState<Config> =>
   new RuntimeState({
     lifecycle: "Created",
     studyState: stateFromInitialTrials(initialTrials)
   })
 
-const makeRuntimeFromActor = <Config>(
+const makeRuntime = <Config>(
   settings: OptimizeSettings,
-  stateActor: RuntimeActor<Config>,
-  trials: ReadonlyArray<Trial.Trial<Config>>,
+  state: RuntimeState<Config>,
   eventPublisher: EventPublisher
-): Effect.Effect<StudyRuntime<Config>> =>
+): Effect.Effect<StudyRuntime<Config>, never, StudyClock> =>
   Effect.gen(function*() {
     return new StudyRuntime({
-      stateActor,
+      state: yield* SubscriptionRef.make(state),
+      clock: yield* StudyClock,
       stopRef: yield* makeStopRef,
       completionReasonRef: yield* Ref.make<Option.Option<StudyEvent.CompletionReason>>(Option.none()),
       bestValueRef: yield* Ref.make<Option.Option<number>>(
         Option.match(singleDirectionFromSettings(settings), {
           onNone: () => Option.none(),
-          onSome: (direction) => bestValueFromTrials(direction, trials)
+          onSome: (direction) => bestValueFromTrials(direction, trialsFromState(state.studyState))
         })
       ),
       noImprovementCountRef: yield* Ref.make(0),
@@ -115,24 +75,20 @@ const makeRuntimeFromActor = <Config>(
   })
 
 /**
- * Boots a fresh study runtime from initial settings and optional prior trials, returning a scoped StudyRuntime.
+ * Constructs a fresh study runtime from initial settings and optional prior trials.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const initializeRuntime = <Config>(
   settings: OptimizeSettings,
-  initialTrials: ReadonlyArray<Trial.Trial<Config>> = [],
+  initialTrials: Trials<Config> = Arr.empty(),
   eventPublisher: EventPublisher = noopEventPublisher
-): Effect.Effect<StudyRuntime<Config>, never, StudyClock | Scope.Scope> =>
-  Effect.gen(function*() {
-    const stateActor = yield* Machine.boot(makeRuntimeMachine(initialRuntimeState(initialTrials)))
-
-    return yield* makeRuntimeFromActor(settings, stateActor, initialTrials, eventPublisher)
-  })
+): Effect.Effect<StudyRuntime<Config>, never, StudyClock> =>
+  makeRuntime(settings, initialRuntimeState(initialTrials), eventPublisher)
 
 /**
- * Restores a study runtime from a previously persisted snapshot, replaying the state machine to its saved position.
+ * Restores the lifecycle and history from a runtime snapshot into a fresh serialized reference.
  *
  * @since 0.1.0
  * @category constructors
@@ -141,8 +97,4 @@ export const restoreRuntime = <Config>(
   settings: OptimizeSettings,
   snapshot: RuntimeState<Config>,
   eventPublisher: EventPublisher = noopEventPublisher
-): Effect.Effect<StudyRuntime<Config>, never, StudyClock | Scope.Scope> =>
-  Effect.gen(function*() {
-    const stateActor = yield* Machine.boot(makeRuntimeMachine(snapshot), undefined, { previousState: snapshot })
-    return yield* makeRuntimeFromActor(settings, stateActor, trialsFromState(snapshot.studyState), eventPublisher)
-  })
+): Effect.Effect<StudyRuntime<Config>, never, StudyClock> => makeRuntime(settings, snapshot, eventPublisher)

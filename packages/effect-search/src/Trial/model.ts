@@ -3,9 +3,10 @@
  *
  * @since 0.1.0
  */
+import type * as StudyTrial from "@scenesystems/effect-study/Trial"
 import { Data, Match } from "effect"
 
-import type { CompletedState, TrialState } from "./state.js"
+import type { CompletedState, NumericCompletedState, TrialState } from "./state.js"
 
 /**
  * Stores one evaluated or pending configuration together with its study-assigned
@@ -18,18 +19,7 @@ import type { CompletedState, TrialState } from "./state.js"
  * @since 0.1.0
  * @category models
  */
-export class Trial<Config> extends Data.Class<{
-  /** Sequence key assigned by the study. Warm-start trials may use negative values. */
-  readonly trialNumber: number
-  /** Sampled or decoded configuration passed to the objective. */
-  readonly config: Config
-  /** Current evaluation state and its outcome metadata. */
-  readonly state: TrialState
-  /** Caller-defined evaluation cost, when the objective reports one. */
-  readonly cost?: number
-  /** Set to `true` for warm-start history supplied before execution. */
-  readonly prior?: true
-}> {}
+export class Trial<Config> extends Data.Class<StudyTrial.Trial<Config, TrialState>> {}
 
 /**
  * Refines a trial to a successful terminal result while preserving its
@@ -40,11 +30,7 @@ export class Trial<Config> extends Data.Class<{
  * @since 0.1.0
  * @category type-level
  */
-export class CompletedTrial<Config> extends Data.Class<
-  Trial<Config> & {
-    readonly state: CompletedState
-  }
-> {}
+export class CompletedTrial<Config> extends Data.Class<StudyTrial.Trial<Config, CompletedState>> {}
 
 /**
  * Refines a completed trial to a scalar objective result. This distinction is
@@ -55,18 +41,7 @@ export class CompletedTrial<Config> extends Data.Class<
  * @since 0.1.0
  * @category type-level
  */
-export class NumericCompletedTrial<Config> extends Data.Class<
-  CompletedTrial<Config> & {
-    readonly state: {
-      readonly _tag: "Completed"
-      readonly value: number
-      readonly duration: number
-      readonly retryCount: number
-      readonly evaluationCount?: number
-      readonly variance?: number
-    }
-  }
-> {}
+export class NumericCompletedTrial<Config> extends Data.Class<StudyTrial.Trial<Config, NumericCompletedState>> {}
 
 /**
  * Narrows a completed trial when its objective value is a JavaScript number

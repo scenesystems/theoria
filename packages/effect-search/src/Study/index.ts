@@ -37,7 +37,7 @@ export {
   tell
 } from "./api.js"
 
-export { type EmitterSink, streamFromEmitter } from "./streamBridge.js"
+export { type EmitterSink, streamFromEmitter } from "@scenesystems/effect-study/Events"
 
 export {
   defaultTerminalSink,

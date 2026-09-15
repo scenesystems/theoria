@@ -3,14 +3,14 @@
  *
  * @since 0.1.0
  */
-import { Data, Schema } from "effect"
+import * as Artifacts from "@scenesystems/effect-study/Artifacts"
+import { Data, Effect, ParseResult, Predicate, Record, Schema, type SchemaAST, Tuple } from "effect"
 
 import { SnapshotTrialSchema } from "../Study/snapshot/stateCodec.js"
 import { StudySnapshot } from "../Study/snapshot/versioning.js"
 import { StudyEventSchema } from "../StudyEvent/model/schemas.js"
 import { ArtifactLineage } from "./ArtifactLineage.js"
 import { ArtifactProducerSchema } from "./ArtifactProducer.js"
-import { ArtifactRelationSchema } from "./ArtifactRelation.js"
 
 /**
  * Decodes the `"artifact-envelope/v1"` wire-format discriminator.
@@ -18,7 +18,7 @@ import { ArtifactRelationSchema } from "./ArtifactRelation.js"
  * @since 0.1.0
  * @category schemas
  */
-export const ArtifactEnvelopeVersion = Schema.Literal("artifact-envelope/v1")
+export const ArtifactEnvelopeVersion = Artifacts.ArtifactEnvelopeVersion
 
 /**
  * Wire-format version carried by every artifact envelope.
@@ -28,6 +28,42 @@ export const ArtifactEnvelopeVersion = Schema.Literal("artifact-envelope/v1")
  */
 export type ArtifactEnvelopeVersion = Schema.Schema.Type<typeof ArtifactEnvelopeVersion>
 
+const ArtifactPayloadArray = Schema.Array(Schema.suspend((): Schema.Schema<ArtifactPayload> => ArtifactPayload))
+const ArtifactPayloadRecord = Schema.Record({
+  key: Schema.String,
+  value: Schema.suspend((): Schema.Schema<ArtifactPayload> => ArtifactPayload)
+})
+
+// Schema-derived interfaces anchor the recursive containers without repeating their shapes.
+interface ArtifactPayloadArray extends Schema.Schema.Type<typeof ArtifactPayloadArray> {}
+interface ArtifactPayloadRecord extends Schema.Schema.Type<typeof ArtifactPayloadRecord> {}
+
+// Validate records through entries so every string key is an own data property.
+// Schema.Record's v3.22.1 parser assigns "__proto__" instead of preserving that key.
+const RecordInput = Schema.declare(Predicate.isRecord)
+const ArtifactPayloadEntries = Schema.Array(Schema.Tuple(ArtifactPayloadRecord.key, ArtifactPayloadRecord.value))
+
+const parsePayloadRecord = (input: unknown, options: SchemaAST.ParseOptions) =>
+  ParseResult.decodeUnknown(RecordInput)(input, options).pipe(
+    Effect.map(Record.toEntries),
+    Effect.flatMap((entries) => ParseResult.decodeUnknown(ArtifactPayloadEntries)(entries, options)),
+    Effect.map(Record.fromEntries)
+  )
+
+const ArtifactPayloadRecordCodec = Schema.declare<ArtifactPayloadRecord, ArtifactPayloadRecord, []>(Tuple.make(), {
+  decode: () => parsePayloadRecord,
+  encode: () => parsePayloadRecord
+})
+
+const ArtifactPayloadSchema = Schema.Union(
+  Schema.String,
+  Schema.Number,
+  Schema.Boolean,
+  Schema.Null,
+  Schema.suspend((): Schema.Schema<ArtifactPayloadArray> => ArtifactPayloadArray),
+  Schema.suspend((): Schema.Schema<ArtifactPayloadRecord> => ArtifactPayloadRecordCodec)
+)
+
 /**
  * Recursive custom payload made from primitive values, arrays, and string-keyed records.
  * Numbers are not constrained to finite values by this type.
@@ -35,25 +71,7 @@ export type ArtifactEnvelopeVersion = Schema.Schema.Type<typeof ArtifactEnvelope
  * @since 0.1.0
  * @category models
  */
-export type ArtifactPayload =
-  | string
-  | number
-  | boolean
-  | null
-  | ReadonlyArray<ArtifactPayload>
-  | { readonly [key: string]: ArtifactPayload }
-
-const ArtifactPayloadSchema: Schema.Schema<ArtifactPayload, ArtifactPayload, never> = Schema.suspend(
-  (): Schema.Schema<ArtifactPayload, ArtifactPayload, never> =>
-    Schema.Union(
-      Schema.String,
-      Schema.Number,
-      Schema.Boolean,
-      Schema.Null,
-      Schema.Array(ArtifactPayloadSchema),
-      Schema.Record({ key: Schema.String, value: ArtifactPayloadSchema })
-    )
-)
+export type ArtifactPayload = Schema.Schema.Type<typeof ArtifactPayloadSchema>
 
 /**
  * Decodes recursively nested custom payloads without imposing a depth limit.
@@ -65,14 +83,14 @@ const ArtifactPayloadSchema: Schema.Schema<ArtifactPayload, ArtifactPayload, nev
  * @since 0.1.0
  * @category schemas
  */
-export const ArtifactPayload = ArtifactPayloadSchema
+export const ArtifactPayload: Schema.Schema<ArtifactPayload> = ArtifactPayloadSchema
 
-const envelopeBaseFields = {
-  schemaVersion: ArtifactEnvelopeVersion,
-  producer: ArtifactProducerSchema,
-  lineage: ArtifactLineage,
-  relations: Schema.optional(Schema.Array(ArtifactRelationSchema))
-}
+const ArtifactPayloadVariants = Schema.Union(
+  Schema.TaggedStruct("TrialLog", { trial: SnapshotTrialSchema }),
+  Schema.TaggedStruct("StudySnapshot", { snapshot: StudySnapshot }),
+  Schema.TaggedStruct("StudyEvent", { event: StudyEventSchema }),
+  Schema.TaggedStruct("Custom", { payload: ArtifactPayload })
+)
 
 /**
  * Decodes version-one trial, study snapshot, study event, and custom artifact records.
@@ -85,23 +103,10 @@ const envelopeBaseFields = {
  * @since 0.1.0
  * @category schemas
  */
-export const ArtifactEnvelopeSchema = Schema.Union(
-  Schema.TaggedStruct("TrialLog", {
-    ...envelopeBaseFields,
-    trial: SnapshotTrialSchema
-  }),
-  Schema.TaggedStruct("StudySnapshot", {
-    ...envelopeBaseFields,
-    snapshot: StudySnapshot
-  }),
-  Schema.TaggedStruct("StudyEvent", {
-    ...envelopeBaseFields,
-    event: StudyEventSchema
-  }),
-  Schema.TaggedStruct("Custom", {
-    ...envelopeBaseFields,
-    payload: ArtifactPayload
-  })
+export const ArtifactEnvelopeSchema = Artifacts.makeEnvelopeSchemaWithLineage(
+  ArtifactProducerSchema,
+  ArtifactLineage,
+  ArtifactPayloadVariants
 )
 
 /**

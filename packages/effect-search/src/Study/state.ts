@@ -3,13 +3,11 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Number as Num, Option, SortedMap } from "effect"
-import type { Order } from "effect"
+import * as History from "@scenesystems/effect-study/History"
+import { Array as Arr, Option, SortedMap } from "effect"
 
 import * as Trial from "../Trial/index.js"
 import { isCompletedTrialWithConfig } from "./best.js"
-
-const TrialNumberOrder: Order.Order<number> = Num.Order
 
 /**
  * Immutable record tracking all trial data via a single SortedMap keyed by trial number,
@@ -18,30 +16,7 @@ const TrialNumberOrder: Order.Order<number> = Num.Order
  * @since 0.1.0
  * @category models
  */
-export class StudyState<Config = unknown> extends Data.Class<{
-  readonly trials: SortedMap.SortedMap<number, Trial.Trial<Config>>
-  readonly cumulativeCost: number
-}> {}
-
-const validCost = (cost: number): boolean => Number.isFinite(cost) && Num.greaterThanOrEqualTo(cost, 0)
-
-const costFromTrial = <Config>(trial: Trial.Trial<Config>): number =>
-  Option.fromNullable(trial.cost).pipe(
-    Option.filter(validCost),
-    Option.getOrElse(() => 0)
-  )
-
-/**
- * Constructs a zero-trial study state.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const emptyStudyState = <Config>(): StudyState<Config> =>
-  new StudyState({
-    trials: SortedMap.empty<number, Trial.Trial<Config>>(TrialNumberOrder),
-    cumulativeCost: 0
-  })
+export type StudyState<Config = unknown> = History.History<Config, Trial.TrialState>
 
 /**
  * Builds a study state by replaying an array of pre-existing trials.
@@ -50,15 +25,8 @@ export const emptyStudyState = <Config>(): StudyState<Config> =>
  * @category constructors
  */
 export const stateFromInitialTrials = <Config>(
-  initialTrials: ReadonlyArray<Trial.Trial<Config>>
-): StudyState<Config> =>
-  new StudyState({
-    trials: SortedMap.fromIterable(
-      Arr.map(initialTrials, (trial): readonly [number, Trial.Trial<Config>] => [trial.trialNumber, trial]),
-      TrialNumberOrder
-    ),
-    cumulativeCost: Arr.reduce(initialTrials, 0, (acc, trial) => Num.sum(acc, costFromTrial(trial)))
-  })
+  initialTrials: Iterable<Trial.Trial<Config>>
+): StudyState<Config> => History.fromIterable(initialTrials)
 
 /**
  * Returns a new study state with a running trial added.
@@ -69,14 +37,10 @@ export const stateFromInitialTrials = <Config>(
 export const withReservedTrial = <Config>(
   state: StudyState<Config>,
   trial: Trial.Trial<Config>
-): StudyState<Config> =>
-  new StudyState({
-    trials: SortedMap.set(state.trials, trial.trialNumber, trial),
-    cumulativeCost: state.cumulativeCost
-  })
+): StudyState<Config> => History.setTrial(state, trial)
 
 /**
- * Returns a new study state with a trial moved from pending to finalized, accumulating its cost.
+ * Returns a new study state with a trial moved from pending to finalized, recording its cost once.
  *
  * @since 0.1.0
  * @category combinators
@@ -84,11 +48,7 @@ export const withReservedTrial = <Config>(
 export const withFinalizedTrial = <Config>(
   state: StudyState<Config>,
   trial: Trial.Trial<Config>
-): StudyState<Config> =>
-  new StudyState({
-    trials: SortedMap.set(state.trials, trial.trialNumber, trial),
-    cumulativeCost: Num.sum(state.cumulativeCost, costFromTrial(trial))
-  })
+): StudyState<Config> => History.setTrial(state, trial)
 
 /**
  * All trials in deterministic trial-number order.
@@ -96,8 +56,7 @@ export const withFinalizedTrial = <Config>(
  * @since 0.1.0
  * @category utils
  */
-export const trialsFromState = <Config>(state: StudyState<Config>): Array<Trial.Trial<Config>> =>
-  Arr.fromIterable(SortedMap.values(state.trials))
+export const trialsFromState = <Config>(state: StudyState<Config>) => History.trials(state)
 
 /**
  * All completed trials in deterministic trial-number order.
@@ -107,7 +66,7 @@ export const trialsFromState = <Config>(state: StudyState<Config>): Array<Trial.
  */
 export const completedTrialsFromState = <Config>(
   state: StudyState<Config>
-): Array<Trial.CompletedTrial<Config>> =>
+) =>
   Arr.filter(
     trialsFromState(state),
     (trial): trial is Trial.CompletedTrial<Config> => isCompletedTrialWithConfig(trial)
@@ -121,7 +80,7 @@ export const completedTrialsFromState = <Config>(
  */
 export const pendingTrialsFromState = <Config>(
   state: StudyState<Config>
-): Array<Trial.Trial<Config>> =>
+) =>
   Arr.filter(
     trialsFromState(state),
     (trial) => Trial.isState("Running")(trial.state)

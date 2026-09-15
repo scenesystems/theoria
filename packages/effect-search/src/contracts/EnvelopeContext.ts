@@ -3,9 +3,11 @@
  *
  * @since 0.1.0
  */
-import { Effect, Layer, Ref } from "effect"
+import { Effect, Layer, Number as Num, Ref, Schema } from "effect"
 
-import { ArtifactId, type PackageVersion, type RunId } from "./identity.js"
+import { ArtifactId, PackageVersion, RunId } from "./identity.js"
+
+const EnvelopeContextOptions = Schema.Struct({ packageVersion: PackageVersion, runId: RunId, studyId: Schema.String })
 
 /**
  * Exposes declared study provenance and atomic artifact ID allocation for one Layer instance.
@@ -42,11 +44,7 @@ export class EnvelopeContext extends Effect.Tag("effect-search/EnvelopeContext")
  * @since 0.1.0
  * @category layers
  */
-export const EnvelopeContextLive = (args: {
-  readonly packageVersion: PackageVersion
-  readonly runId: RunId
-  readonly studyId: string
-}): Layer.Layer<EnvelopeContext> =>
+export const EnvelopeContextLive = (args: typeof EnvelopeContextOptions.Type): Layer.Layer<EnvelopeContext> =>
   Layer.effect(
     EnvelopeContext,
     Ref.make(0).pipe(
@@ -54,7 +52,7 @@ export const EnvelopeContextLive = (args: {
         packageVersion: args.packageVersion,
         runId: args.runId,
         studyId: args.studyId,
-        nextArtifactId: Ref.getAndUpdate(sequenceRef, (n) => n + 1).pipe(
+        nextArtifactId: Ref.getAndUpdate(sequenceRef, Num.increment).pipe(
           Effect.map((sequence) => new ArtifactId({ runId: args.runId, sequence }))
         )
       }))

@@ -3,42 +3,18 @@
  *
  * @since 0.1.0
  */
+import * as StudyTrial from "@scenesystems/effect-study/Trial"
 import type { Data } from "effect"
 import { Match, Option, Schema } from "effect"
 
-import { ObjectiveValueSchema } from "../../contracts/ObjectiveValue.js"
-import { TrialError } from "../../Errors/index.js"
 import * as Trial from "../../Trial/index.js"
+import { TrialStateSchema } from "../../Trial/state.js"
 
 /**
  * @since 0.1.0
  * @category schemas
  */
-export const TrialStateSnapshotSchema = Schema.Union(
-  Schema.TaggedStruct("Running", {
-    startedAt: Schema.Number
-  }),
-  Schema.TaggedStruct("Completed", {
-    value: ObjectiveValueSchema,
-    duration: Schema.Number,
-    retryCount: Schema.Number,
-    evaluationCount: Schema.optional(Schema.Number),
-    variance: Schema.optional(Schema.Number)
-  }),
-  Schema.TaggedStruct("Failed", {
-    error: TrialError,
-    duration: Schema.Number
-  }),
-  Schema.TaggedStruct("Pruned", {
-    step: Schema.Number,
-    reason: Schema.String,
-    policy: Schema.String,
-    duration: Schema.Number
-  }),
-  Schema.TaggedStruct("Cancelled", {
-    cancelled: Schema.optional(Schema.Literal(true))
-  })
-)
+export const TrialStateSnapshotSchema = TrialStateSchema
 
 /**
  * Stores the lifecycle payload needed to restore a trial.
@@ -68,18 +44,7 @@ export type TrialStateSnapshot = Schema.Schema.Type<typeof TrialStateSnapshotSch
  * @since 0.1.0
  * @category schemas
  */
-export const SnapshotTrialSchema = Schema.Struct({
-  /** Trial identifier retained across snapshot and resume operations. */
-  trialNumber: Schema.Number,
-  /** Encoded configuration; the search-space decoder validates it during restoration. */
-  config: Schema.Unknown,
-  /** Persisted lifecycle payload. */
-  state: TrialStateSnapshotSchema,
-  /** Optional objective cost attributed to this trial. */
-  cost: Schema.optional(Schema.Number),
-  /** Marks a warm-start trial when true. */
-  prior: Schema.optional(Schema.Literal(true))
-})
+export const SnapshotTrialSchema = StudyTrial.makeSchema(Schema.Unknown, TrialStateSnapshotSchema)
 
 /**
  * Persists one trial in the representation shared by snapshots and trial logs.

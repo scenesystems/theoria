@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import * as Artifacts from "@scenesystems/effect-study/Artifacts"
 import { Schema } from "effect"
 
 /**
@@ -12,7 +13,7 @@ import { Schema } from "effect"
  * @since 0.1.0
  * @category schemas
  */
-export const RunId = Schema.ULID.pipe(Schema.brand("RunId"))
+export const RunId = Artifacts.RunId
 
 /**
  * ULID-shaped execution identifier whose brand records successful schema validation.
@@ -20,7 +21,7 @@ export const RunId = Schema.ULID.pipe(Schema.brand("RunId"))
  * @since 0.1.0
  * @category type-level
  */
-export type RunId = Schema.Schema.Type<typeof RunId>
+export type RunId = Artifacts.RunId
 
 /**
  * Validates and brands a non-empty string beginning with `MAJOR.MINOR.PATCH` digits.
@@ -29,10 +30,7 @@ export type RunId = Schema.Schema.Type<typeof RunId>
  * @since 0.1.0
  * @category schemas
  */
-export const PackageVersion = Schema.NonEmptyString.pipe(
-  Schema.pattern(/^\d+\.\d+\.\d+/),
-  Schema.brand("PackageVersion")
-)
+export const PackageVersion = Artifacts.PackageVersion
 
 /**
  * Declared producer version with a validated numeric triplet prefix.
@@ -40,7 +38,7 @@ export const PackageVersion = Schema.NonEmptyString.pipe(
  * @since 0.1.0
  * @category type-level
  */
-export type PackageVersion = Schema.Schema.Type<typeof PackageVersion>
+export type PackageVersion = Artifacts.PackageVersion
 
 /**
  * Validates a non-empty sequence of non-empty component names.
@@ -49,7 +47,7 @@ export type PackageVersion = Schema.Schema.Type<typeof PackageVersion>
  * @since 0.1.0
  * @category schemas
  */
-export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString)
+export const ComponentPath = Artifacts.ComponentPath
 
 /**
  * Logical package location represented by non-empty path segments.
@@ -57,7 +55,9 @@ export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString)
  * @since 0.1.0
  * @category type-level
  */
-export type ComponentPath = Schema.Schema.Type<typeof ComponentPath>
+export type ComponentPath = Artifacts.ComponentPath
+
+const SearchSourceRef = Artifacts.makeSourceRefSchema(Schema.Literal("effect-search", "effect-dsp", "external"))
 
 /**
  * Records the producer family and its declared logical location.
@@ -70,14 +70,7 @@ export type ComponentPath = Schema.Schema.Type<typeof ComponentPath>
  * @since 0.1.0
  * @category models
  */
-export class SourceRef extends Schema.Class<SourceRef>("SourceRef")({
-  /** Producer family that defines the domain and component path. */
-  origin: Schema.Literal("effect-search", "effect-dsp", "external"),
-  /** Producer-defined namespace; the schema requires only a non-empty string. */
-  domain: Schema.NonEmptyString,
-  /** Ordered logical path within the producer's domain. */
-  segments: Schema.NonEmptyArray(Schema.NonEmptyString)
-}) {}
+export class SourceRef extends Schema.Class<SourceRef>("SourceRef")(SearchSourceRef.fields) {}
 
 /**
  * Identifies an artifact by execution and a non-negative integer sequence.
@@ -86,11 +79,14 @@ export class SourceRef extends Schema.Class<SourceRef>("SourceRef")({
  * @since 0.1.0
  * @category models
  */
-export class ArtifactId extends Schema.Class<ArtifactId>("ArtifactId")({
-  /** Execution group to which the artifact declares membership. */
-  runId: RunId,
-  /** Non-negative position allocated within the run; uniqueness is not validated. */
-  sequence: Schema.NonNegativeInt
-}) {}
+export const ArtifactId = Artifacts.ArtifactId
 
-export { ContentDigest } from "@scenesystems/digest"
+/**
+ * Artifact identity decoded by the canonical effect-study schema.
+ *
+ * @since 0.1.0
+ * @category type-level
+ */
+export type ArtifactId = Artifacts.ArtifactId
+
+export { ContentDigest } from "@scenesystems/effect-study/Artifacts"
