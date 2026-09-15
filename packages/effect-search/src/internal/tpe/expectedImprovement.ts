@@ -1,4 +1,4 @@
-import { Array as Arr, Data, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean, Number as Num, Option, Schema } from "effect"
 
 import * as Float64 from "../float64.js"
 
@@ -6,13 +6,15 @@ export const ExpectedImprovementScoreSchema = Schema.Number
 
 export type ExpectedImprovementScore = Schema.Schema.Type<typeof ExpectedImprovementScoreSchema>
 
+type Scores = Schema.Array$<typeof ExpectedImprovementScoreSchema>["Type"]
+
 export const expectedImprovementScore = (
   logL: number,
   logG: number
-): ExpectedImprovementScore => logL - logG
+): ExpectedImprovementScore => Num.subtract(logL, logG)
 
 const finitePositiveCost = (estimatedCost: number): boolean =>
-  Number.isFinite(estimatedCost) && Num.greaterThan(estimatedCost, 0)
+  Boolean.and(Schema.is(Schema.Finite)(estimatedCost), Num.greaterThan(estimatedCost, 0))
 
 export const scoreWithEstimatedCost = (
   score: ExpectedImprovementScore,
@@ -22,7 +24,7 @@ export const scoreWithEstimatedCost = (
     Option.filter(finitePositiveCost),
     Option.match({
       onNone: () => score,
-      onSome: (cost) => score - Float64.log(cost)
+      onSome: (cost) => Num.subtract(score, Float64.log(cost))
     })
   )
 
@@ -36,18 +38,17 @@ export const costWeightedExpectedImprovementScore = (
     estimatedCost
   )
 
-export const sumLogDensities = (values: ReadonlyArray<number>): number =>
-  Arr.reduce(values, 0, (sum, value) => Num.sum(sum, value))
+export const sumLogDensities = (values: Scores): number => Num.sumAll(values)
 
 export const jointExpectedImprovementScore = (
-  logLContributions: ReadonlyArray<number>,
-  logGContributions: ReadonlyArray<number>
+  logLContributions: Scores,
+  logGContributions: Scores
 ): ExpectedImprovementScore =>
   expectedImprovementScore(sumLogDensities(logLContributions), sumLogDensities(logGContributions))
 
 export const costWeightedJointExpectedImprovementScore = (
-  logLContributions: ReadonlyArray<number>,
-  logGContributions: ReadonlyArray<number>,
+  logLContributions: Scores,
+  logGContributions: Scores,
   estimatedCost: Option.Option<number>
 ): ExpectedImprovementScore =>
   scoreWithEstimatedCost(
@@ -55,23 +56,27 @@ export const costWeightedJointExpectedImprovementScore = (
     estimatedCost
   )
 
-class ArgmaxCandidate extends Data.Class<{
-  readonly index: number
-  readonly score: number
-}> {}
+class ArgmaxCandidate extends Schema.Class<ArgmaxCandidate>("effect-search/ArgmaxCandidate")({
+  index: Schema.Number,
+  score: ExpectedImprovementScoreSchema
+}) {}
 
-const initialArgmaxCandidate = new ArgmaxCandidate({
-  index: 0,
-  score: Number.NEGATIVE_INFINITY
-})
+const isNonNaN = Schema.is(Schema.NonNaN)
 
-export const argmax = (scores: ReadonlyArray<ExpectedImprovementScore>): number =>
+export const argmax = (scores: Scores): number =>
   Arr.reduce(
     scores,
-    initialArgmaxCandidate,
+    Option.none<ArgmaxCandidate>(),
     (currentBest, candidateScore, index) =>
-      Match.value(Num.greaterThan(candidateScore, currentBest.score)).pipe(
-        Match.when(true, () => new ArgmaxCandidate({ index, score: candidateScore })),
-        Match.orElse(() => currentBest)
-      )
-  ).index
+      Boolean.match(isNonNaN(candidateScore), {
+        onFalse: () => currentBest,
+        onTrue: () =>
+          currentBest.pipe(
+            Option.filter((current) => Num.greaterThanOrEqualTo(current.score, candidateScore)),
+            Option.orElse(() => Option.some(new ArgmaxCandidate({ index, score: candidateScore })))
+          )
+      })
+  ).pipe(
+    Option.map((candidate) => candidate.index),
+    Option.getOrElse(() => 0)
+  )

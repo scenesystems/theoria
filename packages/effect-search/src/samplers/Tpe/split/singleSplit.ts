@@ -3,12 +3,16 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Match, Option } from "effect"
+import { Array as Arr, Match, Number as Num, Option } from "effect"
 
 import type { Direction } from "../../../contracts/Direction.js"
 import { CompletedTrialForSplit, splitTrials, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
-import type { SuggestCompletedTrial } from "../../../Sampler/index.js"
-import { ConstraintAwareSplitTrial, splitWithConstraintFeasibility } from "../constraints/split.js"
+import type { SuggestContext } from "../../../Sampler/index.js"
+import {
+  ConstraintAwareSplitTrial,
+  type ConstraintAwareSplitTrials,
+  splitWithConstraintFeasibility
+} from "../constraints/split.js"
 
 const numericObjectiveValue = (value: unknown): Option.Option<number> =>
   Match.value(value).pipe(
@@ -18,51 +22,52 @@ const numericObjectiveValue = (value: unknown): Option.Option<number> =>
 
 const directionalObjectiveValue = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => -value),
-    Match.orElse(() => value)
+    Match.when("maximize", () => Num.negate(value)),
+    Match.when("minimize", () => value),
+    Match.exhaustive
   )
 
 const asConstraintAwareSplitTrials = (
-  completed: ReadonlyArray<SuggestCompletedTrial>,
+  completed: SuggestContext["completed"],
   direction: Direction
-): Array<ConstraintAwareSplitTrial> =>
-  completed.flatMap((trial) =>
+): ConstraintAwareSplitTrials =>
+  Arr.flatMap(completed, (trial) =>
     numericObjectiveValue(trial.value).pipe(
       Option.match({
-        onNone: () => [],
-        onSome: (value) => [
-          new ConstraintAwareSplitTrial({
-            trial: new CompletedTrialForSplit({
-              trialNumber: trial.trialNumber,
-              config: trial.config,
-              value: directionalObjectiveValue(direction, value),
-              ...Option.fromNullable(trial.observationWeight).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (observationWeight) => ({ observationWeight })
-                })
-              ),
-              ...Option.fromNullable(trial.cost).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (cost) => ({ cost })
-                })
-              ),
-              ...Option.fromNullable(trial.variance).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (variance) => ({ variance })
-                })
+        onNone: () => Arr.empty<ConstraintAwareSplitTrial>(),
+        onSome: (value) =>
+          Arr.of(
+            new ConstraintAwareSplitTrial({
+              trial: new CompletedTrialForSplit({
+                trialNumber: trial.trialNumber,
+                config: trial.config,
+                value: directionalObjectiveValue(direction, value),
+                ...Option.fromNullable(trial.observationWeight).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (observationWeight) => ({ observationWeight })
+                  })
+                ),
+                ...Option.fromNullable(trial.cost).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (cost) => ({ cost })
+                  })
+                ),
+                ...Option.fromNullable(trial.variance).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (variance) => ({ variance })
+                  })
+                )
+              }),
+              constraints: Option.fromNullable(trial.constraints).pipe(
+                Option.getOrElse(() => Arr.empty<number>())
               )
-            }),
-            constraints: Option.fromNullable(trial.constraints).pipe(
-              Option.getOrElse(() => [])
-            )
-          })
-        ]
+            })
+          )
       })
-    )
-  )
+    ))
 
 /**
  * Splits completed trials for single-objective TPE by normalizing values
@@ -77,7 +82,7 @@ const asConstraintAwareSplitTrials = (
  * @category sampling
  */
 export const splitSingleObjective = (
-  completed: ReadonlyArray<SuggestCompletedTrial>,
+  completed: SuggestContext["completed"],
   direction: Direction
 ): TrialSplit => {
   const trials = asConstraintAwareSplitTrials(completed, direction)

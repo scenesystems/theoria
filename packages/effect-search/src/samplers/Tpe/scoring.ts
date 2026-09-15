@@ -7,6 +7,7 @@ import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
 
 import type { PrimitiveChoice } from "../../contracts/Distribution.js"
 import * as Float64 from "../../internal/float64.js"
+import type { CategoricalParzen } from "../../internal/tpe/categoricalParzen.js"
 
 /**
  * Computes the log-probability of a categorical value under a Parzen density
@@ -20,8 +21,8 @@ import * as Float64 from "../../internal/float64.js"
  * @category scoring
  */
 export const logProbability = (
-  choices: ReadonlyArray<PrimitiveChoice>,
-  probabilities: ReadonlyArray<number>,
+  choices: CategoricalParzen["choices"],
+  probabilities: CategoricalParzen["probabilities"],
   value: PrimitiveChoice
 ): number => {
   const index = Arr.findFirstIndex(choices, (choice) => Equal.equals(choice, value)).pipe(Option.getOrElse(() => -1))

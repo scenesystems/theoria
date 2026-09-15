@@ -54,8 +54,8 @@ export const makeCandidateRollPair = (
  * @category models
  */
 export class DimensionScoreTrace<A> extends Data.Class<{
-  readonly candidates: ReadonlyArray<A>
-  readonly logL: ReadonlyArray<number>
-  readonly logG: ReadonlyArray<number>
-  readonly scores: ReadonlyArray<number>
+  readonly candidates: Schema.Array$<Schema.Schema<A>>["Type"]
+  readonly logL: Schema.Array$<typeof Schema.Number>["Type"]
+  readonly logG: Schema.Array$<typeof Schema.Number>["Type"]
+  readonly scores: Schema.Array$<typeof Schema.Number>["Type"]
 }> {}

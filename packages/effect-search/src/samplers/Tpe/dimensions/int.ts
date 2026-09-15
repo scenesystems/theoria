@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import type { Schema } from "effect"
 import { Array as Arr, Effect, Number as Num, Option, Tuple } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
@@ -10,12 +11,19 @@ import type * as Rng from "../../../internal/rng.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
-import { type AcquisitionOption, defaultAcquisitionName, scoreAcquisition } from "../acquisition/index.js"
+import {
+  AcquisitionContext,
+  type AcquisitionOption,
+  defaultAcquisitionName,
+  scoreAcquisition
+} from "../acquisition/index.js"
 import { chooseBestCandidate, drawRollPairs } from "../candidates.js"
 import { expandedBoundsForStep, normalizeFloat } from "./float.js"
 import { rollFromCandidatePair } from "./rolls.js"
-import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
+import { type CandidateRollPairSchema, DimensionScoreTrace } from "./trace.js"
 import { numericValuesForParameter } from "./values.js"
+
+type CandidateRollPairs = Schema.Array$<typeof CandidateRollPairSchema>["Type"]
 
 const normalizeInt = (
   value: number,
@@ -76,7 +84,7 @@ export const intCandidateTraceFromRolls = (
   high: number,
   step: Option.Option<number>,
   split: TrialSplit,
-  rolls: ReadonlyArray<CandidateRollPair>,
+  rolls: CandidateRollPairs,
   acquisition: AcquisitionOption = defaultAcquisitionName
 ): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
   Effect.gen(function*() {
@@ -98,12 +106,15 @@ export const intCandidateTraceFromRolls = (
       logG: Arr.map(logPairs, ([_logL, logG]) =>
         logG),
       scores: Arr.map(logPairs, ([logL, logG], index) =>
-        scoreAcquisition({
-          logL,
-          logG,
-          estimatedCost: Option.none(),
-          roll: rollFromCandidatePair(rolls, index)
-        }, acquisition))
+        scoreAcquisition(
+          new AcquisitionContext({
+            logL,
+            logG,
+            estimatedCost: Option.none(),
+            roll: rollFromCandidatePair(rolls, index)
+          }),
+          acquisition
+        ))
     })
   })
 

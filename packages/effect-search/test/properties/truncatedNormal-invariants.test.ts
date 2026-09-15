@@ -1,8 +1,27 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FastCheck as fc, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean, Effect, Equal, FastCheck as fc, Number as Num, Option, Schema } from "effect"
 
 import * as Float64 from "../../src/internal/float64.js"
+import type { ContinuousValues } from "../../src/internal/tpe/continuousParzen.js"
 import { cdf, logPdf, sample, TruncatedNormalParams } from "../../src/internal/tpe/truncatedNormal.js"
+
+const ParamsInputSchema = Schema.Struct({
+  mean: Schema.Number,
+  sigma: Schema.Number,
+  supportCenter: Schema.Number,
+  halfWidth: Schema.Number
+})
+
+type ParamsInput = Schema.Schema.Type<typeof ParamsInputSchema>
+
+const isFinite = Schema.is(Schema.Finite)
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const greaterThanOrEqualTo = (left: number, right: number): boolean =>
+  Boolean.and(Boolean.and(isNonNaN(left), isNonNaN(right)), Num.greaterThanOrEqualTo(left, right))
+
+const lessThanOrEqualTo = (left: number, right: number): boolean =>
+  Boolean.and(Boolean.and(isNonNaN(left), isNonNaN(right)), Num.lessThanOrEqualTo(left, right))
 
 const paramsInputArbitrary = fc.record({
   mean: fc.double({
@@ -33,7 +52,7 @@ const paramsInputArbitrary = fc.record({
 
 const quantileArbitrary = fc.double({
   min: 1e-300,
-  max: 1 - 1e-15,
+  max: Num.subtract(1, 1e-15),
   noNaN: true,
   noDefaultInfinity: true
 })
@@ -45,23 +64,21 @@ const rollArbitrary = fc.double({
   noDefaultInfinity: true
 })
 
-const toParams = (input: {
-  readonly mean: number
-  readonly sigma: number
-  readonly supportCenter: number
-  readonly halfWidth: number
-}): TruncatedNormalParams =>
+const toParams = (input: ParamsInput): TruncatedNormalParams =>
   new TruncatedNormalParams({
     mean: input.mean,
     sigma: input.sigma,
-    low: input.supportCenter - input.halfWidth,
-    high: input.supportCenter + input.halfWidth
+    low: Num.subtract(input.supportCenter, input.halfWidth),
+    high: Num.sum(input.supportCenter, input.halfWidth)
   })
 
 // Endpoint-exact interpolation: `low + q * (high - low)` can land one ulp inside the support at q = 1,
 // and far in a tail one ulp of x moves the cdf by more than CDF_EPSILON.
 const supportPoint = (params: TruncatedNormalParams, quantile: number): number =>
-  params.low * (1 - quantile) + params.high * quantile
+  Num.sum(
+    Num.multiply(params.low, Num.subtract(1, quantile)),
+    Num.multiply(params.high, quantile)
+  )
 
 const CDF_EPSILON = 1e-8
 const ROUNDTRIP_QUANTILE_TOLERANCE = 1e-7
@@ -74,8 +91,13 @@ const ROUNDTRIP_QUANTILE_TOLERANCE = 1e-7
 const SAMPLE_MONOTONE_ULPS = 4
 
 const sampleResolution = (params: TruncatedNormalParams): number =>
-  SAMPLE_MONOTONE_ULPS * Number.EPSILON *
-  (params.sigma + Float64.abs(params.mean) + Num.max(Float64.abs(params.low), Float64.abs(params.high)))
+  Num.multiply(
+    Num.multiply(SAMPLE_MONOTONE_ULPS, Number.EPSILON),
+    Num.sum(
+      Num.sum(params.sigma, Float64.abs(params.mean)),
+      Num.max(Float64.abs(params.low), Float64.abs(params.high))
+    )
+  )
 
 const deterministicTailCases = [
   {
@@ -161,20 +183,24 @@ const deterministicTailCases = [
   }
 ]
 
-const isMonotoneWithin = (values: ReadonlyArray<number>, tolerance: number): boolean =>
+const isMonotoneWithin = (values: ContinuousValues, tolerance: number): boolean =>
   Arr.every(
     values,
     (value, index) =>
-      index === 0 ||
-      value + tolerance >=
-        Arr.get(values, index - 1).pipe(
-          Option.getOrElse(() => Number.NEGATIVE_INFINITY)
+      Boolean.or(
+        Equal.equals(index, 0),
+        greaterThanOrEqualTo(
+          Num.sum(value, tolerance),
+          Arr.get(values, Num.decrement(index)).pipe(
+            Option.getOrElse(() => Number.NEGATIVE_INFINITY)
+          )
         )
+      )
   )
 
-const cdfTraceIsMonotone = (values: ReadonlyArray<number>): boolean => isMonotoneWithin(values, 0)
+const cdfTraceIsMonotone = (values: ContinuousValues): boolean => isMonotoneWithin(values, 0)
 
-const valueAt = (values: ReadonlyArray<number>, index: number, fallback: number): number =>
+const valueAt = (values: ContinuousValues, index: number, fallback: number): number =>
   Arr.get(values, index).pipe(Option.getOrElse(() => fallback))
 
 describe("truncated normal invariants", () => {
@@ -184,9 +210,15 @@ describe("truncated normal invariants", () => {
       const points = Arr.makeBy(41, (index) => supportPoint(params, Num.unsafeDivide(index, 40)))
       const values = Arr.map(points, (point) => cdf(point, params))
 
-      expect(Float64.abs(valueAt(values, 0, 0) - 0)).toBeLessThanOrEqual(CDF_EPSILON)
-      expect(Float64.abs(valueAt(values, values.length - 1, 1) - 1)).toBeLessThanOrEqual(CDF_EPSILON)
-      expect(Arr.every(values, (value) => value >= -CDF_EPSILON && value <= 1 + CDF_EPSILON)).toBe(true)
+      expect(Float64.abs(Num.subtract(valueAt(values, 0, 0), 0))).toBeLessThanOrEqual(CDF_EPSILON)
+      expect(
+        Float64.abs(Num.subtract(valueAt(values, Num.decrement(Arr.length(values)), 1), 1))
+      ).toBeLessThanOrEqual(CDF_EPSILON)
+      expect(Arr.every(values, (value) =>
+        Boolean.and(
+          greaterThanOrEqualTo(value, Num.negate(CDF_EPSILON)),
+          lessThanOrEqualTo(value, Num.sum(1, CDF_EPSILON))
+        ))).toBe(true)
       expect(cdfTraceIsMonotone(values)).toBe(true)
     }))
 
@@ -198,7 +230,8 @@ describe("truncated normal invariants", () => {
       const params = toParams(input)
       const draws = Arr.map(rolls, (roll) => sample(roll, params))
 
-      expect(Arr.every(draws, (draw) => draw >= params.low && draw <= params.high)).toBe(true)
+      expect(Arr.every(draws, (draw) =>
+        Boolean.and(greaterThanOrEqualTo(draw, params.low), lessThanOrEqualTo(draw, params.high)))).toBe(true)
     }))
 
   it.effect.prop("sample stays monotone as quantiles increase", [
@@ -221,7 +254,7 @@ describe("truncated normal invariants", () => {
       const params = toParams(input)
       const probes = Arr.map(quantiles, (quantile) => supportPoint(params, quantile))
 
-      expect(Arr.every(probes, (probe) => Number.isFinite(logPdf(probe, params)))).toBe(true)
+      expect(Arr.every(probes, (probe) => isFinite(logPdf(probe, params)))).toBe(true)
     }))
 
   it.effect.prop("cdf(sample(q)) round-trip remains stable across tail-heavy supports", [
@@ -238,20 +271,20 @@ describe("truncated normal invariants", () => {
         const sampleValue = sample(clampedQuantile, params)
         const recovered = cdf(sampleValue, params)
 
-        return Float64.abs(recovered - clampedQuantile)
+        return Float64.abs(Num.subtract(recovered, clampedQuantile))
       })
 
-      expect(Arr.every(roundTripDiffs, (diff) => diff <= ROUNDTRIP_QUANTILE_TOLERANCE)).toBe(true)
+      expect(Arr.every(roundTripDiffs, (diff) => lessThanOrEqualTo(diff, ROUNDTRIP_QUANTILE_TOLERANCE))).toBe(true)
     }))
 
   it.effect.prop("boundary contracts hold for cdf and sample", [paramsInputArbitrary], ([input]) =>
     Effect.sync(() => {
       const params = toParams(input)
 
-      expect(Float64.abs(cdf(params.low, params) - 0)).toBeLessThanOrEqual(CDF_EPSILON)
-      expect(Float64.abs(cdf(params.high, params) - 1)).toBeLessThanOrEqual(CDF_EPSILON)
-      expect(Float64.abs(sample(0, params) - params.low)).toBeLessThanOrEqual(1e-12)
-      expect(Float64.abs(sample(1, params) - params.high)).toBeLessThanOrEqual(1e-12)
+      expect(Float64.abs(Num.subtract(cdf(params.low, params), 0))).toBeLessThanOrEqual(CDF_EPSILON)
+      expect(Float64.abs(Num.subtract(cdf(params.high, params), 1))).toBeLessThanOrEqual(CDF_EPSILON)
+      expect(Float64.abs(Num.subtract(sample(0, params), params.low))).toBeLessThanOrEqual(1e-12)
+      expect(Float64.abs(Num.subtract(sample(1, params), params.high))).toBeLessThanOrEqual(1e-12)
     }))
 
   it.effect("deterministic tail cases preserve quantile round-trip and bounded samples", () =>
@@ -263,11 +296,15 @@ describe("truncated normal invariants", () => {
           const draws = Arr.map(quantiles, (quantile) => sample(quantile, tailCase.params))
           const roundTripDiffs = Arr.map(quantiles, (quantile) => {
             const recovered = cdf(sample(quantile, tailCase.params), tailCase.params)
-            return Float64.abs(recovered - quantile)
+            return Float64.abs(Num.subtract(recovered, quantile))
           })
 
-          expect(Arr.every(draws, (draw) => draw >= tailCase.params.low && draw <= tailCase.params.high)).toBe(true)
-          expect(Arr.every(roundTripDiffs, (diff) => diff <= ROUNDTRIP_QUANTILE_TOLERANCE)).toBe(true)
+          expect(Arr.every(draws, (draw) =>
+            Boolean.and(
+              greaterThanOrEqualTo(draw, tailCase.params.low),
+              lessThanOrEqualTo(draw, tailCase.params.high)
+            ))).toBe(true)
+          expect(Arr.every(roundTripDiffs, (diff) => lessThanOrEqualTo(diff, ROUNDTRIP_QUANTILE_TOLERANCE))).toBe(true)
         }),
       { discard: true }
     ))

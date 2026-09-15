@@ -3,10 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Match, Number as Num, Option, Record, Tuple } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Equal, Match, Number as Num, Option, Record, Schema, Tuple } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
 import { type SamplerConfig, valueFromConfig } from "../../../internal/configAccess.js"
+import * as Float64 from "../../../internal/float64.js"
+import type { GaussianComponents, GaussianVector } from "../../../internal/tpe/multivariateGaussian.js"
+import type { CompletedTrialsForSplit } from "../../../internal/tpe/splitTrials.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import { expandedBoundsForStep, normalizeFloat } from "../dimensions/float.js"
 import { invalidConfig } from "../options.js"
@@ -30,10 +33,17 @@ export class ContinuousAdapter extends Data.Class<{
   readonly normalize: (modelValue: number) => number
 }> {}
 
+type ContinuousAdapters = Schema.Array$<Schema.Schema<ContinuousAdapter>>["Type"]
+
+const isFinite = Schema.is(Schema.Finite)
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const nonPositive = (value: number): boolean => Boolean.and(isNonNaN(value), Num.lessThanOrEqualTo(value, 0))
+
 const finiteNumberFromUnknown = (value: unknown): Option.Option<number> =>
   Match.value(value).pipe(
     Match.when(Match.number, (numericValue) =>
-      Match.value(Number.isFinite(numericValue)).pipe(
+      Match.value(isFinite(numericValue)).pipe(
         Match.when(true, () => Option.some(numericValue)),
         Match.orElse(() => Option.none())
       )),
@@ -79,7 +89,7 @@ export const adapterForParameter = (
         onSome: (resolvedScale) =>
           Match.value(resolvedScale).pipe(
             Match.when("log", () =>
-              Match.value(Num.lessThanOrEqualTo(low, 0) || Num.lessThanOrEqualTo(high, 0)).pipe(
+              Match.value(Boolean.or(nonPositive(low), nonPositive(high))).pipe(
                 Match.when(true, () =>
                   Effect.fail(
                     invalidConfig(
@@ -90,8 +100,8 @@ export const adapterForParameter = (
                   Effect.succeed(
                     new ContinuousAdapter({
                       name: parameter.name,
-                      toModel: (value: number) => Math.log(value),
-                      normalize: (modelValue: number) => normalizeFloat(Math.exp(modelValue), low, high, stepOption)
+                      toModel: (value: number) => Float64.log(value),
+                      normalize: (modelValue: number) => normalizeFloat(Float64.exp(modelValue), low, high, stepOption)
                     })
                   )
                 )
@@ -149,9 +159,9 @@ export const adapterForParameter = (
   )
 
 const modelVectorFromConfig = (
-  adapters: ReadonlyArray<ContinuousAdapter>,
+  adapters: ContinuousAdapters,
   config: SamplerConfig
-): Option.Option<ReadonlyArray<number>> =>
+): Option.Option<GaussianVector> =>
   Arr.reduce(
     adapters,
     Option.some(Arr.empty<number>()),
@@ -178,14 +188,14 @@ const modelVectorFromConfig = (
  * @category constructors
  */
 export const vectorsFromSplit = (
-  adapters: ReadonlyArray<ContinuousAdapter>,
-  trials: ReadonlyArray<{ readonly config: SamplerConfig }>
-): ReadonlyArray<ReadonlyArray<number>> =>
+  adapters: ContinuousAdapters,
+  trials: CompletedTrialsForSplit
+): GaussianComponents =>
   Arr.flatMap(trials, (trial) =>
     modelVectorFromConfig(adapters, trial.config).pipe(
       Option.match({
-        onNone: () => Arr.empty<ReadonlyArray<number>>(),
-        onSome: (vector) => [vector]
+        onNone: () => Arr.empty<GaussianVector>(),
+        onSome: (vector) => Arr.of(vector)
       })
     ))
 
@@ -202,9 +212,9 @@ export const vectorsFromSplit = (
  * @category constructors
  */
 export const configFromCandidate = (
-  adapters: ReadonlyArray<ContinuousAdapter>,
-  candidateValues: ReadonlyArray<number>
-): unknown =>
+  adapters: ContinuousAdapters,
+  candidateValues: GaussianVector
+): SamplerConfig =>
   Record.fromEntries(Arr.map(Arr.zip(adapters, candidateValues), ([adapter, value]) => Tuple.make(adapter.name, value)))
 
 /**
@@ -221,15 +231,17 @@ export const configFromCandidate = (
  * @category guards
  */
 export const normalizeModelCandidate = (
-  adapters: ReadonlyArray<ContinuousAdapter>,
-  modelCandidate: ReadonlyArray<number>,
+  adapters: ContinuousAdapters,
+  modelCandidate: GaussianVector,
   candidateIndex: number
-): Effect.Effect<ReadonlyArray<number>, InvalidSamplerConfig> =>
-  Match.value(modelCandidate.length === adapters.length).pipe(
+): Effect.Effect<GaussianVector, InvalidSamplerConfig> =>
+  Match.value(Equal.equals(Arr.length(modelCandidate), Arr.length(adapters))).pipe(
     Match.when(false, () =>
       Effect.fail(
         invalidConfig(
-          `tpe multivariate candidate ${candidateIndex} has ${modelCandidate.length} coordinates but ${adapters.length} dimensions were expected`
+          `tpe multivariate candidate ${candidateIndex} has ${Arr.length(modelCandidate)} coordinates but ${
+            Arr.length(adapters)
+          } dimensions were expected`
         )
       )),
     Match.orElse(() =>

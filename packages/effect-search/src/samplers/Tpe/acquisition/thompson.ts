@@ -3,25 +3,27 @@
  *
  * @since 0.1.0
  */
-import { Option } from "effect"
+import { Boolean, Match, Number as Num, Option, Schema } from "effect"
 
 import * as Float64 from "../../../internal/float64.js"
 import { scoreWithEstimatedCost } from "../../../internal/tpe/expectedImprovement.js"
 import { type AcquisitionContext, AcquisitionImplementation } from "./model.js"
 
 const ROLL_EPSILON = 1e-12
+const isNonNaN = Schema.is(Schema.NonNaN)
 
 const clampRoll = (roll: number): number =>
-  roll <= ROLL_EPSILON
-    ? ROLL_EPSILON
-    : roll >= 1 - ROLL_EPSILON
-    ? 1 - ROLL_EPSILON
-    : roll
+  Match.value(roll).pipe(
+    Match.when((value) => Boolean.not(isNonNaN(value)), (value) => value),
+    Match.when(Num.lessThanOrEqualTo(ROLL_EPSILON), () => ROLL_EPSILON),
+    Match.when(Num.greaterThanOrEqualTo(Num.subtract(1, ROLL_EPSILON)), () => Num.subtract(1, ROLL_EPSILON)),
+    Match.orElse((value) => value)
+  )
 
 const gumbelNoise = (roll: number): number =>
-  -Float64.log(
-    -Float64.log(clampRoll(roll))
-  )
+  Num.negate(Float64.log(
+    Num.negate(Float64.log(clampRoll(roll)))
+  ))
 
 /**
  * Computes a Thompson Sampling score by perturbing the log-likelihood
@@ -43,7 +45,7 @@ export const thompsonScore = (
   scoreWithEstimatedCost(
     Option.match(roll, {
       onNone: () => logL,
-      onSome: (sampleRoll) => logL + gumbelNoise(sampleRoll)
+      onSome: (sampleRoll) => Num.sum(logL, gumbelNoise(sampleRoll))
     }),
     estimatedCost
   )

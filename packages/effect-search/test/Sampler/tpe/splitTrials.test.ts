@@ -1,9 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Schema } from "effect"
 
 import type { Direction } from "../../../src/contracts/Direction.js"
 import { PrunedIntermediateValue, prunedTrialScore } from "../../../src/internal/tpe/prunedScore.js"
-import { CompletedTrialForSplit, splitTrials } from "../../../src/internal/tpe/splitTrials.js"
+import {
+  CompletedTrialForSplit,
+  type CompletedTrialsForSplit,
+  splitTrials
+} from "../../../src/internal/tpe/splitTrials.js"
 import {
   FixtureRegistryLive,
   loadFixture,
@@ -28,20 +32,19 @@ const optionalTraceValueToNumber = (
 
 const directionalScore = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => -value),
-    Match.orElse(() => value)
+    Match.when("maximize", () => Num.negate(value)),
+    Match.when("minimize", () => value),
+    Match.exhaustive
   )
 
 const normalizedIntermediateValues = (
   trial: SplitFixtureTrial
-): Array<PrunedIntermediateValue> =>
-  trial.intermediateValues.map(
-    (entry) =>
-      new PrunedIntermediateValue({
-        step: entry.step,
-        value: traceValueToNumber(entry.value)
-      })
-  )
+): Schema.Array$<typeof PrunedIntermediateValue>["Type"] =>
+  Arr.map(trial.intermediateValues, (entry) =>
+    new PrunedIntermediateValue({
+      step: entry.step,
+      value: traceValueToNumber(entry.value)
+    }))
 
 const splitTrialFromFixture = (
   direction: Direction,
@@ -87,16 +90,15 @@ const splitTrialFromFixture = (
 
 const splitTrialsFromFixtureCase = (
   direction: Direction,
-  trials: ReadonlyArray<SplitFixtureTrial>
-): Array<CompletedTrialForSplit> =>
-  trials.flatMap((trial) =>
+  trials: SplitTrialsFixture["payload"]["cases"][number]["trials"]
+): CompletedTrialsForSplit =>
+  Arr.flatMap(trials, (trial) =>
     splitTrialFromFixture(direction, trial).pipe(
       Option.match({
-        onNone: () => [],
-        onSome: (resolved) => [resolved]
+        onNone: () => Arr.empty<CompletedTrialForSplit>(),
+        onSome: (resolved) => Arr.of(resolved)
       })
-    )
-  )
+    ))
 
 const makeTrial = (trialNumber: number, value: number) =>
   new CompletedTrialForSplit({
@@ -112,13 +114,18 @@ describe("tpe split trials fixture parity", () => {
       const loaded = yield* loadFixture("split-trials.single-and-liar").pipe(Effect.provide(FixtureRegistryLive))
       const fixture = yield* Schema.decodeUnknown(SplitTrialsFixtureSchema)(loaded)
 
-      fixture.payload.cases.forEach((fixtureCase) => {
-        const trials = splitTrialsFromFixtureCase(fixtureCase.direction, fixtureCase.trials)
-        const split = splitTrials(trials, () => fixtureCase.nBelow)
+      yield* Effect.forEach(
+        fixture.payload.cases,
+        (fixtureCase) =>
+          Effect.sync(() => {
+            const trials = splitTrialsFromFixtureCase(fixtureCase.direction, fixtureCase.trials)
+            const split = splitTrials(trials, () => fixtureCase.nBelow)
 
-        expect(split.below.map((trial) => trial.trialNumber)).toEqual(fixtureCase.expectedBelow)
-        expect(split.above.map((trial) => trial.trialNumber)).toEqual(fixtureCase.expectedAbove)
-      })
+            expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(fixtureCase.expectedBelow)
+            expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(fixtureCase.expectedAbove)
+          }),
+        { discard: true }
+      )
     }))
 
   it.effect("uses trialNumber as the final tie key for split membership", () =>
@@ -131,7 +138,7 @@ describe("tpe split trials fixture parity", () => {
       ]
 
       const split = splitTrials(trials, () => 2)
-      expect(split.below.map((trial) => trial.trialNumber)).toEqual([1, 5])
-      expect(split.above.map((trial) => trial.trialNumber)).toEqual([2, 4])
+      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual([1, 5])
+      expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual([2, 4])
     }))
 })

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Match, Number as Num, Predicate, Record } from "effect"
+import { Array as Arr, Boolean, Match, Number as Num, Order, Predicate, Record, Schema, Tuple } from "effect"
 
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import * as SearchSpace from "../../../SearchSpace/index.js"
@@ -20,31 +20,34 @@ import type { GroupedMixedSettings } from "./model.js"
  * @since 0.1.0
  * @category models
  */
-export class OrderedGroup extends Data.Class<{
-  readonly key: string
-  readonly names: ReadonlyArray<string>
-  readonly depth: number
-}> {}
+export class OrderedGroup extends Schema.Class<OrderedGroup>("effect-search/OrderedGroup")({
+  key: Schema.String,
+  names: Schema.Array(Schema.String),
+  depth: Schema.Number
+}) {}
 
-const namesFromSpace = (space: SearchSpace.SearchSpace): ReadonlyArray<string> =>
+type OrderedGroups = Schema.Array$<typeof OrderedGroup>["Type"]
+type ParameterNames = OrderedGroup["names"]
+type ParameterMetadataList = SearchSpace.SearchSpace["params"]
+
+const namesFromSpace = (space: SearchSpace.SearchSpace): ParameterNames =>
   Arr.map(space.params, (parameter) => parameter.name)
 
-const containsName = (names: ReadonlyArray<string>, name: string): boolean => Arr.contains(names, name)
+const containsName = (names: ParameterNames, name: string): boolean => Arr.contains(names, name)
 
 const parametersInGroup = (
   space: SearchSpace.SearchSpace,
-  names: ReadonlyArray<string>
-): ReadonlyArray<SearchSpace.ParameterMetadata> =>
-  Arr.filter(space.params, (parameter) => containsName(names, parameter.name))
+  names: ParameterNames
+): ParameterMetadataList => Arr.filter(space.params, (parameter) => containsName(names, parameter.name))
 
-const groupDepth = (parameters: ReadonlyArray<SearchSpace.ParameterMetadata>): number =>
-  Match.value(parameters.length <= 0).pipe(
+const groupDepth = (parameters: ParameterMetadataList): number =>
+  Match.value(Arr.isEmptyReadonlyArray(parameters)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       Arr.reduce(
         parameters,
         Number.POSITIVE_INFINITY,
-        (depth, parameter) => Num.min(depth, parameter.activeWhen.length)
+        (depth, parameter) => Num.min(depth, Arr.length(parameter.activeWhen))
       )
     )
   )
@@ -64,24 +67,29 @@ const groupDepth = (parameters: ReadonlyArray<SearchSpace.ParameterMetadata>): n
 export const orderedGroups = (
   space: SearchSpace.SearchSpace,
   settings: GroupedMixedSettings
-): ReadonlyArray<OrderedGroup> => {
+): OrderedGroups => {
   const groups = Match.value(settings.groupDimensions).pipe(
-    Match.when(true, () => Arr.map(SearchSpace.decomposeConditionalGroups(space), (group) => [...group.dimensions])),
-    Match.orElse(() => [namesFromSpace(space)])
+    Match.when(
+      true,
+      () => Arr.map(SearchSpace.decomposeConditionalGroups(space), (group) => Arr.fromIterable(group.dimensions))
+    ),
+    Match.orElse(() => Arr.of(namesFromSpace(space)))
   )
 
-  return Arr.map(groups, (names) => {
-    const sortedNames = [...names].sort((left, right) => left.localeCompare(right))
-    const parameters = parametersInGroup(space, sortedNames)
-    return new OrderedGroup({
-      key: sortedNames.join("|"),
-      names: sortedNames,
-      depth: groupDepth(parameters)
-    })
-  }).sort((left, right) =>
-    left.depth === right.depth
-      ? left.key.localeCompare(right.key)
-      : left.depth - right.depth
+  return Arr.sort(
+    Arr.map(groups, (names) => {
+      const sortedNames = Arr.sort(names, Order.string)
+      const parameters = parametersInGroup(space, sortedNames)
+      return new OrderedGroup({
+        key: Arr.join(sortedNames, "|"),
+        names: sortedNames,
+        depth: groupDepth(parameters)
+      })
+    }),
+    Order.mapInput(
+      Order.tuple(Order.number, Order.string),
+      (group: OrderedGroup) => Tuple.make(group.depth, group.key)
+    )
   )
 }
 
@@ -100,7 +108,7 @@ export const activeGroupParameters = (
   space: SearchSpace.SearchSpace,
   group: OrderedGroup,
   partialConfig: unknown
-): ReadonlyArray<SearchSpace.ParameterMetadata> =>
+): ParameterMetadataList =>
   Arr.filter(
     parametersInGroup(space, group.names),
     (parameter) => SearchSpace.isParameterActive(parameter, partialConfig)
@@ -108,11 +116,15 @@ export const activeGroupParameters = (
 
 const trialContainsAllParameters = (
   config: unknown,
-  parameters: ReadonlyArray<SearchSpace.ParameterMetadata>
+  parameters: ParameterMetadataList
 ): boolean =>
-  Predicate.isRecord(config)
-    ? Arr.every(parameters, (parameter) => Record.has(config, parameter.name))
-    : false
+  Match.value(config).pipe(
+    Match.when(
+      Predicate.isRecord,
+      (record) => Arr.every(parameters, (parameter) => Record.has(record, parameter.name))
+    ),
+    Match.orElse(() => false)
+  )
 
 /**
  * Narrows a trial split to only trials whose configs contain all of
@@ -127,14 +139,15 @@ const trialContainsAllParameters = (
  */
 export const splitForParameters = (
   split: TrialSplit,
-  parameters: ReadonlyArray<SearchSpace.ParameterMetadata>
+  parameters: ParameterMetadataList
 ): TrialSplit => {
   const below = Arr.filter(split.below, (trial) => trialContainsAllParameters(trial.config, parameters))
   const above = Arr.filter(split.above, (trial) => trialContainsAllParameters(trial.config, parameters))
 
-  return below.length > 0 && above.length > 0
-    ? { below, above }
-    : split
+  return Match.value(Boolean.and(Arr.isNonEmptyReadonlyArray(below), Arr.isNonEmptyReadonlyArray(above))).pipe(
+    Match.when(true, () => ({ below, above })),
+    Match.orElse(() => split)
+  )
 }
 
 /**

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Data, Effect, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Number as Num, Option, Schema } from "effect"
 
 import { InvalidSamplerConfig } from "../../Errors/index.js"
 import { defaultNoiseBandwidthOptions, NoiseBandwidthOptions } from "../../internal/tpe/noiseEstimator.js"
@@ -11,8 +11,9 @@ import type { TpeOptions } from "../../Sampler/index.js"
 import { numberOptionOr } from "../../Sampler/shared/optionReaders.js"
 import { type AcquisitionImplementation, type AcquisitionOption, resolveAcquisition } from "./acquisition/index.js"
 
-const DEFAULT_NOISE_ALPHA = 1
 const MAX_NOISE_ALPHA = 10
+const finiteNumberGuard = Schema.is(Schema.Finite)
+const finiteIntegerGuard = Schema.is(Schema.Int)
 
 /**
  * Evaluates a candidate config against a single constraint, returning a numeric
@@ -30,6 +31,14 @@ const MAX_NOISE_ALPHA = 10
 export type TpeConstraintEvaluator = (config: unknown) => Effect.Effect<number, never, never>
 
 /**
+ * Ordered constraint evaluators applied to each completed TPE trial.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type TpeConstraintEvaluators = Schema.Array$<Schema.Schema<TpeConstraintEvaluator>>["Type"]
+
+/**
  * Extended TPE options that include runtime-only fields not persisted in
  * checkpoints — constraint evaluators and acquisition strategy.
  *
@@ -44,7 +53,7 @@ export type TpeConstraintEvaluator = (config: unknown) => Effect.Effect<number, 
  */
 export class TpeRuntimeOptions extends Data.Class<
   TpeOptions & {
-    readonly constraints?: ReadonlyArray<TpeConstraintEvaluator>
+    readonly constraints?: TpeConstraintEvaluators
     readonly acquisition?: AcquisitionOption
   }
 > {}
@@ -78,9 +87,9 @@ export const acquisitionFromOptions = (
  */
 export const constraintEvaluatorsFromOptions = (
   options: TpeRuntimeOptions
-): ReadonlyArray<TpeConstraintEvaluator> =>
+): TpeConstraintEvaluators =>
   Option.fromNullable(options.constraints).pipe(
-    Option.getOrElse(() => [])
+    Option.getOrElse(() => Arr.empty<TpeConstraintEvaluator>())
   )
 
 /**
@@ -108,12 +117,12 @@ export const snapshotSafeOptionsFromRuntime = (
   }
 
   return Option.fromNullable(options.constraints).pipe(
-    Option.filter((constraints) => constraints.length > 0),
+    Option.filter(Arr.isNonEmptyReadonlyArray),
     Option.match({
       onNone: () => baseOptions,
       onSome: (constraints) => ({
         ...baseOptions,
-        constraintsCount: constraints.length
+        constraintsCount: Arr.length(constraints)
       })
     })
   )
@@ -223,7 +232,7 @@ export const noiseAwareFromOptions = (options: TpeOptions): boolean =>
 export const noiseAlphaFromOptions = (options: TpeOptions): number =>
   numberOptionOr(
     Option.fromNullable(options.noiseAlpha),
-    defaultNoiseBandwidthOptions.noiseAlpha || DEFAULT_NOISE_ALPHA
+    defaultNoiseBandwidthOptions.noiseAlpha
   )
 
 /**
@@ -291,7 +300,7 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () => !Number.isFinite(startup) || !Number.isInteger(startup) || Num.lessThan(startup, 0)
+      () => Boolean.or(Boolean.not(finiteIntegerGuard(startup)), Num.lessThan(startup, 0))
     )
 
     yield* Effect.when(
@@ -301,7 +310,7 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () => !Number.isFinite(candidates) || !Number.isInteger(candidates) || Num.lessThan(candidates, 1)
+      () => Boolean.or(Boolean.not(finiteIntegerGuard(candidates)), Num.lessThan(candidates, 1))
     )
 
     yield* Effect.when(
@@ -311,7 +320,7 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () => !Number.isFinite(noiseAlpha)
+      () => Boolean.not(finiteNumberGuard(noiseAlpha))
     )
 
     yield* Effect.when(
@@ -321,6 +330,6 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () => Num.lessThan(noiseAlpha, 0) || Num.greaterThan(noiseAlpha, MAX_NOISE_ALPHA)
+      () => Boolean.or(Num.lessThan(noiseAlpha, 0), Num.greaterThan(noiseAlpha, MAX_NOISE_ALPHA))
     )
   })

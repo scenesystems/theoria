@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Option } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Record, Schema } from "effect"
 
 import { type PrimitiveChoice } from "../../../contracts/Distribution.js"
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
@@ -13,15 +13,30 @@ import { buildCategoricalParzen } from "../../../internal/tpe/categoricalParzen.
 import * as Multi from "../../../internal/tpe/multivariateCategorical.js"
 import { type CompletedTrialForSplit, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
-import { type AcquisitionOption, defaultAcquisitionName, scoreAcquisition } from "../acquisition/index.js"
+import {
+  AcquisitionContext,
+  type AcquisitionOption,
+  defaultAcquisitionName,
+  scoreAcquisition
+} from "../acquisition/index.js"
 import { chooseBestCandidate, drawRolls } from "../candidates.js"
 import { invalidConfig } from "../options.js"
 import { logProbability } from "../scoring.js"
 import { DimensionScoreTrace } from "./trace.js"
 import { primitiveValuesForParameter } from "./values.js"
 
+const MAX_JOINT_CATEGORICAL_TUPLES = 65_536
+
+class CategoricalCandidateScore extends Schema.Class<CategoricalCandidateScore>(
+  "effect-search/CategoricalCandidateScore"
+)({
+  logL: Schema.Number,
+  logG: Schema.Number,
+  score: Schema.Number
+}) {}
+
 const tupleKeyFromTrial = (
-  dimensions: Array<Multi.CategoricalDimension>,
+  dimensions: Multi.CategoricalDimensions,
   trial: CompletedTrialForSplit
 ): Effect.Effect<string, InvalidSamplerConfig> =>
   Multi.tupleFromConfig(dimensions, trial.config).pipe(
@@ -30,14 +45,17 @@ const tupleKeyFromTrial = (
         Effect.fail(
           invalidConfig(`tpe categorical history trial ${trial.trialNumber} does not match search-space dimensions`)
         ),
-      onSome: (tupleConfig) => Effect.succeed(Multi.tupleKey(tupleConfig))
+      onSome: (tupleConfig) =>
+        Multi.tupleKey(tupleConfig).pipe(
+          Effect.mapError(() => invalidConfig("tpe categorical history contains an unencodable choice"))
+        )
     })
   )
 
 const tupleKeysFromTrials = (
-  dimensions: Array<Multi.CategoricalDimension>,
-  trials: ReadonlyArray<CompletedTrialForSplit>
-): Effect.Effect<Array<string>, InvalidSamplerConfig> =>
+  dimensions: Multi.CategoricalDimensions,
+  trials: TrialSplit["below"]
+): Effect.Effect<Multi.ChoiceTupleKeys, InvalidSamplerConfig> =>
   Effect.forEach(trials, (trial) => tupleKeyFromTrial(dimensions, trial))
 
 /**
@@ -53,18 +71,21 @@ const tupleKeysFromTrials = (
  */
 export const categoricalDimensions = (
   space: SearchSpace.SearchSpace
-): Array<Multi.CategoricalDimension> =>
-  space.params.flatMap((parameter) =>
+): Multi.CategoricalDimensions =>
+  Arr.flatMap(space.params, (parameter) =>
     Match.value(parameter.distribution).pipe(
-      Match.when({ type: "categorical" }, ({ choices }) => [
-        new Multi.CategoricalDimension({
-          name: parameter.name,
-          choices: Arr.fromIterable(choices)
-        })
-      ]),
-      Match.orElse(() => [])
-    )
-  )
+      Match.when({ type: "categorical" }, ({ choices }) =>
+        Arr.of(
+          new Multi.CategoricalDimension({
+            name: parameter.name,
+            choices: Arr.fromIterable(choices)
+          })
+        )),
+      Match.when({ type: "float" }, () => Arr.empty<Multi.CategoricalDimension>()),
+      Match.when({ type: "int" }, () => Arr.empty<Multi.CategoricalDimension>()),
+      Match.when({ type: "fidelity" }, () => Arr.empty<Multi.CategoricalDimension>()),
+      Match.exhaustive
+    ))
 
 /**
  * Suggests the best categorical value for a parameter by building Parzen
@@ -80,7 +101,7 @@ export const suggestCategoricalParameter = (
   rng: Rng.Rng,
   nCandidates: number,
   parameter: SearchSpace.ParameterMetadata,
-  choices: ReadonlyArray<PrimitiveChoice>,
+  choices: Multi.CategoricalDimension["choices"],
   split: TrialSplit,
   acquisition: AcquisitionOption = defaultAcquisitionName
 ): Effect.Effect<PrimitiveChoice, InvalidSamplerConfig> =>
@@ -108,9 +129,9 @@ export const suggestCategoricalParameter = (
  */
 export const categoricalCandidateTraceFromRolls = (
   parameter: SearchSpace.ParameterMetadata,
-  choices: ReadonlyArray<PrimitiveChoice>,
+  choices: Multi.CategoricalDimension["choices"],
   split: TrialSplit,
-  rolls: ReadonlyArray<number>,
+  rolls: DimensionScoreTrace<number>["scores"],
   acquisition: AcquisitionOption = defaultAcquisitionName
 ): Effect.Effect<DimensionScoreTrace<PrimitiveChoice>, InvalidSamplerConfig> =>
   Effect.gen(function*() {
@@ -123,27 +144,30 @@ export const categoricalCandidateTraceFromRolls = (
       belowDensity.probabilities,
       rolls
     )
-    const scoredCandidates = candidates.map((candidate, index) => {
+    const scoredCandidates = Arr.map(candidates, (candidate, index) => {
       const logL = logProbability(belowDensity.choices, belowDensity.probabilities, candidate)
       const logG = logProbability(aboveDensity.choices, aboveDensity.probabilities, candidate)
 
-      return {
+      return new CategoricalCandidateScore({
         logL,
         logG,
-        score: scoreAcquisition({
-          logL,
-          logG,
-          estimatedCost: Option.none(),
-          roll: Arr.get(rolls, index)
-        }, acquisition)
-      }
+        score: scoreAcquisition(
+          new AcquisitionContext({
+            logL,
+            logG,
+            estimatedCost: Option.none(),
+            roll: Arr.get(rolls, index)
+          }),
+          acquisition
+        )
+      })
     })
 
     return new DimensionScoreTrace({
       candidates,
-      logL: scoredCandidates.map((candidate) => candidate.logL),
-      logG: scoredCandidates.map((candidate) => candidate.logG),
-      scores: scoredCandidates.map((candidate) => candidate.score)
+      logL: Arr.map(scoredCandidates, (candidate) => candidate.logL),
+      logG: Arr.map(scoredCandidates, (candidate) => candidate.logG),
+      scores: Arr.map(scoredCandidates, (candidate) => candidate.score)
     })
   })
 
@@ -163,7 +187,7 @@ export const categoricalCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,
   parameter: SearchSpace.ParameterMetadata,
-  choices: ReadonlyArray<PrimitiveChoice>,
+  choices: Multi.CategoricalDimension["choices"],
   split: TrialSplit,
   acquisition: AcquisitionOption = defaultAcquisitionName
 ): Effect.Effect<DimensionScoreTrace<PrimitiveChoice>, InvalidSamplerConfig> =>
@@ -177,6 +201,8 @@ export const categoricalCandidateTrace = (
  *
  * Flattens multi-dimensional categorical spaces into a single-dimension
  * tuple space so the density estimator captures inter-dimension correlations.
+ * Products above 65,536 tuples fail before allocation; the candidate count
+ * controls draws, not the size of this joint domain.
  *
  * @see {@link categoricalDimensions} for extracting dimension descriptors
  * @see {@link suggestCategoricalParameter} for independent per-dimension suggestion
@@ -188,13 +214,28 @@ export const suggestMultivariateCategorical = (
   nCandidates: number,
   space: SearchSpace.SearchSpace,
   split: TrialSplit,
-  dimensions: Array<Multi.CategoricalDimension>,
+  dimensions: Multi.CategoricalDimensions,
   acquisition: AcquisitionOption = defaultAcquisitionName
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Effect.gen(function*() {
+    const tupleCount = Arr.reduce(
+      dimensions,
+      1,
+      (count, dimension) => Num.multiply(count, Arr.length(dimension.choices))
+    )
+    yield* Effect.succeed(tupleCount).pipe(
+      Effect.filterOrFail(
+        Num.lessThanOrEqualTo(MAX_JOINT_CATEGORICAL_TUPLES),
+        () => invalidConfig("tpe joint categorical sampling supports at most 65536 tuples")
+      )
+    )
     const tupleDomain = Multi.enumerateChoiceTuples(dimensions)
-    const tupleChoices = tupleDomain.map((tupleConfig) => Multi.tupleKey(tupleConfig))
-    const lookup = Multi.tupleLookup(tupleDomain)
+    const tupleChoices = yield* Effect.forEach(tupleDomain, Multi.tupleKey).pipe(
+      Effect.mapError(() => invalidConfig("tpe categorical search space contains an unencodable choice"))
+    )
+    const lookup = yield* Multi.tupleLookup(tupleDomain).pipe(
+      Effect.mapError(() => invalidConfig("tpe categorical search space contains an unencodable choice"))
+    )
     const belowKeys = yield* tupleKeysFromTrials(dimensions, split.below)
     const aboveKeys = yield* tupleKeysFromTrials(dimensions, split.above)
     const belowDensity = yield* buildCategoricalParzen(tupleChoices, belowKeys)
@@ -205,16 +246,19 @@ export const suggestMultivariateCategorical = (
       belowDensity.probabilities,
       rolls
     )
-    const scores = candidates.map((candidate, index) => {
+    const scores = Arr.map(candidates, (candidate, index) => {
       const logL = logProbability(belowDensity.choices, belowDensity.probabilities, candidate)
       const logG = logProbability(aboveDensity.choices, aboveDensity.probabilities, candidate)
 
-      return scoreAcquisition({
-        logL,
-        logG,
-        estimatedCost: Option.none(),
-        roll: Arr.get(rolls, index)
-      }, acquisition)
+      return scoreAcquisition(
+        new AcquisitionContext({
+          logL,
+          logG,
+          estimatedCost: Option.none(),
+          roll: Arr.get(rolls, index)
+        }),
+        acquisition
+      )
     })
     const bestCandidate = yield* chooseBestCandidate(
       candidates,
@@ -224,11 +268,21 @@ export const suggestMultivariateCategorical = (
     const bestKey = yield* Match.value(bestCandidate).pipe(
       Match.withReturnType<Effect.Effect<string, InvalidSamplerConfig>>(),
       Match.when(Match.string, (value) => Effect.succeed(value)),
-      Match.orElse(() =>
-        Effect.fail(invalidConfig("tpe categorical candidate selection must resolve to a string tuple key"))
-      )
+      Match.when(
+        Match.number,
+        () => Effect.fail(invalidConfig("tpe categorical candidate selection must resolve to a string tuple key"))
+      ),
+      Match.when(
+        Match.boolean,
+        () => Effect.fail(invalidConfig("tpe categorical candidate selection must resolve to a string tuple key"))
+      ),
+      Match.when(
+        null,
+        () => Effect.fail(invalidConfig("tpe categorical candidate selection must resolve to a string tuple key"))
+      ),
+      Match.exhaustive
     )
-    const bestTuple = yield* Option.fromNullable(lookup[bestKey]).pipe(
+    const bestTuple = yield* Record.get(lookup, bestKey).pipe(
       Option.match({
         onNone: () => Effect.fail(invalidConfig("tpe categorical candidate key lookup failed")),
         onSome: Effect.succeed

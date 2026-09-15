@@ -1,5 +1,9 @@
 import { Schema } from "effect"
 
+export const ContinuousValuesSchema = Schema.Array(Schema.Number)
+
+export type ContinuousValues = Schema.Schema.Type<typeof ContinuousValuesSchema>
+
 export class ContinuousKernel extends Schema.Class<ContinuousKernel>("effect-search/ContinuousKernel")({
   mean: Schema.Number,
   sigma: Schema.Number,
