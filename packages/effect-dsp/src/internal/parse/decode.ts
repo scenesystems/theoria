@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr, Effect, Match, Option, Predicate, Record, Schema } from "effect"
+import { Array as Arr, Data, Effect, Match, Option, Predicate, Record, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 import { ParseFieldDiagnostic, ParseOutputError } from "../../Errors/module.js"
 import { extractMarkedRecord, markerDiagnostics } from "./protocol.js"
@@ -12,17 +12,18 @@ import { extractMarkedRecord, markerDiagnostics } from "./protocol.js"
 const pathSegmentToField = (segment: PropertyKey): string =>
   Match.value(segment).pipe(
     Match.when(Predicate.isString, (value) => value),
-    Match.when(Predicate.isNumber, (value) => String(value)),
-    Match.orElse(() => "[root]")
+    Match.when(Predicate.isNumber, Schema.encodeSync(Schema.NumberFromString)),
+    Match.when(Predicate.isSymbol, () => "[root]"),
+    Match.exhaustive
   )
 
-const fieldFromPath = (path: ReadonlyArray<PropertyKey>): string =>
+const fieldFromPath = (path: ParseResult.ArrayFormatterIssue["path"]): string =>
   Option.match(Arr.head(path), {
     onNone: () => "[root]",
     onSome: pathSegmentToField
   })
 
-const schemaDiagnostics = (issue: ParseResult.ParseIssue): ReadonlyArray<ParseFieldDiagnostic> =>
+const schemaDiagnostics = (issue: ParseResult.ParseIssue): ParseOutputError["fieldDiagnostics"] =>
   Arr.map(
     ParseResult.ArrayFormatter.formatIssueSync(issue),
     (diagnostic) =>
@@ -33,38 +34,27 @@ const schemaDiagnostics = (issue: ParseResult.ParseIssue): ReadonlyArray<ParseFi
       })
   )
 
-const parseOutputError = (options: {
-  readonly moduleName: string
-  readonly rawOutput: Option.Option<string>
-  readonly message: string
-  readonly retryCount: Option.Option<number>
-  readonly diagnostics: ReadonlyArray<ParseFieldDiagnostic>
-}): ParseOutputError =>
-  new ParseOutputError({
-    message: options.message,
-    moduleName: options.moduleName,
-    rawOutput: options.rawOutput,
-    retryCount: options.retryCount,
-    fieldDiagnostics: options.diagnostics
-  })
-
-const decodeStruct = <O extends Schema.Struct.Fields>(options: {
+class DecodeOptions<O extends Schema.Struct.Fields> extends Data.Class<{
   readonly moduleName: string
   readonly schema: Schema.Struct<O>
   readonly value: unknown
   readonly rawOutput: Option.Option<string>
   readonly retryCount: Option.Option<number>
   readonly message: string
-  readonly protocolDiagnostics: ReadonlyArray<ParseFieldDiagnostic>
-}): Effect.Effect<Schema.Schema.Type<Schema.Struct<O>>, ParseOutputError, Schema.Schema.Context<Schema.Struct<O>>> =>
+  readonly protocolDiagnostics: ParseOutputError["fieldDiagnostics"]
+}> {}
+
+const decodeStruct = <O extends Schema.Struct.Fields>(
+  options: DecodeOptions<O>
+): Effect.Effect<Schema.Schema.Type<Schema.Struct<O>>, ParseOutputError, Schema.Schema.Context<Schema.Struct<O>>> =>
   Schema.decodeUnknown(options.schema)(options.value).pipe(
     Effect.mapError((error) =>
-      parseOutputError({
+      new ParseOutputError({
         moduleName: options.moduleName,
         rawOutput: options.rawOutput,
         message: options.message,
         retryCount: options.retryCount,
-        diagnostics: Arr.appendAll(options.protocolDiagnostics, schemaDiagnostics(error.issue))
+        fieldDiagnostics: Arr.appendAll(options.protocolDiagnostics, schemaDiagnostics(error.issue))
       })
     )
   )
@@ -90,7 +80,7 @@ export const parseStructuredOutput = <O extends Schema.Struct.Fields>(
     rawOutput: Option.some("[structured-output]"),
     retryCount: Option.none<number>(),
     message: "Unable to decode structured output against module schema",
-    protocolDiagnostics: []
+    protocolDiagnostics: Arr.empty()
   })
 
 /**

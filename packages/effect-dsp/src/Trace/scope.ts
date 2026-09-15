@@ -1,134 +1,163 @@
 /**
- * Fiber-local collection scopes for invocation records and model usage.
+ * Lexical collection scopes for trace entries, calls, and usage.
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, FiberRef } from "effect"
-import { emptyUsage, type Usage, usageDelta } from "../contracts/Usage.js"
-import type { Entry } from "./model.js"
-import { TraceEnabledRef, TraceRef, UsageEnabledRef, UsageRef } from "./refs.js"
+import { Chunk, Data, Effect, Option, Ref } from "effect"
+import { accumulateUsage, emptyUsage } from "../contracts/Usage.js"
+import type { Call, Entry } from "./model.js"
+import { CallCollections, CallCollector, EntryCollections, EntryCollector } from "./refs.js"
 
-const nestedTraceDelta = (before: ReadonlyArray<Entry>, after: ReadonlyArray<Entry>): ReadonlyArray<Entry> =>
-  Arr.drop(after, before.length)
-
-const nestedTracingScope = <A, E, R>(
-  program: Effect.Effect<A, E, R>
-): Effect.Effect<readonly [A, ReadonlyArray<Entry>], E, R> =>
-  Effect.gen(function*() {
-    const before = yield* FiberRef.get(TraceRef)
-    const result = yield* program
-    const after = yield* FiberRef.get(TraceRef)
-
-    return Data.tuple(result, nestedTraceDelta(before, after))
+const entryAncestors = (parent: Option.Option<EntryCollections>) =>
+  Option.match(parent, {
+    onNone: () => Chunk.empty<Ref.Ref<Chunk.Chunk<Entry>>>(),
+    onSome: (collections) => Chunk.prepend(collections.ancestors, collections.current)
   })
 
-const freshTracingScope = <A, E, R>(
-  program: Effect.Effect<A, E, R>
-): Effect.Effect<readonly [A, ReadonlyArray<Entry>], E, R> =>
-  Effect.gen(function*() {
-    const result = yield* program
-    const traces = yield* FiberRef.get(TraceRef)
-
-    return Data.tuple(result, traces)
-  }).pipe(
-    Effect.locally(TraceEnabledRef, true),
-    Effect.locally(TraceRef, [])
-  )
-
-const nestedUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<readonly [A, Usage], E, R> =>
-  Effect.gen(function*() {
-    const before = yield* FiberRef.get(UsageRef)
-    const result = yield* program
-    const after = yield* FiberRef.get(UsageRef)
-
-    return Data.tuple(result, usageDelta({ before, after }))
+const callAncestors = (parent: Option.Option<CallCollections>) =>
+  Option.match(parent, {
+    onNone: () => Chunk.empty<Ref.Ref<Chunk.Chunk<Call>>>(),
+    onSome: (collections) => Chunk.prepend(collections.ancestors, collections.current)
   })
 
-const freshUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<readonly [A, Usage], E, R> =>
+const collectEntries = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   Effect.gen(function*() {
-    const result = yield* program
-    const usage = yield* FiberRef.get(UsageRef)
+    const parent = yield* Effect.serviceOption(EntryCollector)
+    const current = yield* Ref.make(Chunk.empty<Entry>())
+    const collections = new EntryCollections({
+      current,
+      ancestors: entryAncestors(parent)
+    })
 
-    return Data.tuple(result, usage)
-  }).pipe(
-    Effect.locally(UsageEnabledRef, true),
-    Effect.locally(UsageRef, emptyUsage)
-  )
+    return yield* Effect.gen(function*() {
+      const result = yield* program
+      const entries = yield* Ref.get(current)
+
+      return Data.tuple(result, Chunk.toReadonlyArray(entries))
+    }).pipe(Effect.provideService(EntryCollector, collections))
+  })
+
+const collectCalls = <A, E, R>(program: Effect.Effect<A, E, R>) =>
+  Effect.gen(function*() {
+    const parent = yield* Effect.serviceOption(CallCollector)
+    const current = yield* Ref.make(Chunk.empty<Call>())
+    const collections = new CallCollections({
+      current,
+      ancestors: callAncestors(parent)
+    })
+
+    return yield* Effect.gen(function*() {
+      const result = yield* program
+      const calls = yield* Ref.get(current)
+
+      return Data.tuple(result, calls)
+    }).pipe(Effect.provideService(CallCollector, collections))
+  })
+
+const summarizeCalls = (calls: Chunk.Chunk<Call>) =>
+  Chunk.reduce(calls, emptyUsage, (summary, call) => accumulateUsage(summary, call.usage))
 
 /**
  * Collects entries appended while a program runs.
  *
  * @remarks
- * A top-level scope starts with an empty fiber-local collection. A nested
- * scope shares its parent's collection but returns only entries appended
- * during the nested program; those entries remain visible to the parent.
- * Concurrent top-level scopes keep separate collections. If the program
- * fails or is interrupted, its cause and requirements are preserved and no
- * tuple is returned.
+ * Every scope owns a fresh collection. Nested events are added once to the
+ * nested collection and once to each lexical ancestor, while concurrent sibling
+ * scopes never share their own snapshots. On failure or interruption no tuple
+ * is returned. Put `Effect.exit(program)` inside this scope to retain failed
+ * result evidence. Getters are also available to `onExit` finalizers installed
+ * inside the scope.
  *
- * @param program - Effect executed with trace collection enabled.
- * @returns The program result paired with entries added by this scope.
- * @typeParam A - Success value returned by the traced program.
- * @typeParam E - Expected failure preserved from the traced program.
- * @typeParam R - Services required by the traced program.
+ * @param program - Effect executed with entry collection enabled.
+ * @returns The result paired with this scope's entries on success.
  *
  * @since 0.1.0
  * @category combinators
  */
-export const withTracing = <A, E, R>(
-  program: Effect.Effect<A, E, R>
-): Effect.Effect<readonly [A, ReadonlyArray<Entry>], E, R> =>
-  Effect.gen(function*() {
-    const tracingEnabled = yield* FiberRef.get(TraceEnabledRef)
-
-    return yield* Effect.if(tracingEnabled, {
-      onTrue: () => nestedTracingScope(program),
-      onFalse: () => freshTracingScope(program)
-    })
-  })
+export const withTracing = <A, E, R>(program: Effect.Effect<A, E, R>) => collectEntries(program)
 
 /**
- * Accumulates usage samples while a program runs.
+ * Collects call records appended while a program runs.
  *
  * @remarks
- * A top-level scope starts from zero. A nested scope returns the difference
- * between usage before and after its program, while the parent retains the
- * same additions. Program failure, interruption, and service requirements are
- * preserved, and unsuccessful programs return no usage tuple.
+ * On failure or interruption no tuple is returned. Put `Effect.exit(program)`
+ * inside this scope to retain evidence, or read {@link getCalls} from an
+ * `onExit` finalizer installed inside the scope.
  *
- * @param program - Effect executed with usage accumulation enabled.
- * @returns The program result paired with usage added by this scope.
- * @typeParam A - Success value returned by the tracked program.
- * @typeParam E - Expected failure preserved from the tracked program.
- * @typeParam R - Services required by the tracked program.
+ * @param program - Effect executed with call collection enabled.
+ * @returns The result paired with this scope's calls on success.
  *
  * @since 0.1.0
  * @category combinators
  */
-export const withUsageTracking = <A, E, R>(
-  program: Effect.Effect<A, E, R>
-): Effect.Effect<readonly [A, Usage], E, R> =>
-  Effect.gen(function*() {
-    const usageEnabled = yield* FiberRef.get(UsageEnabledRef)
-
-    return yield* Effect.if(usageEnabled, {
-      onTrue: () => nestedUsageScope(program),
-      onFalse: () => freshUsageScope(program)
-    })
-  })
+export const withCalls = <A, E, R>(program: Effect.Effect<A, E, R>) =>
+  collectCalls(program).pipe(
+    Effect.map(([result, calls]) => Data.tuple(result, Chunk.toReadonlyArray(calls)))
+  )
 
 /**
- * Reads all entries currently visible in this fiber's tracing scope.
- * Returns an empty array outside a scope.
+ * Accumulates canonical usage from calls observed while a program runs.
+ *
+ * @remarks
+ * Usage tracking is a projection of per-invocation call evidence and follows
+ * the same lexical nesting and failure behavior as {@link withCalls}.
+ *
+ * @param program - Effect executed with call collection enabled.
+ * @returns The result paired with this scope's canonical usage aggregate.
  *
  * @since 0.1.0
  * @category combinators
  */
-export const get: Effect.Effect<ReadonlyArray<Entry>> = Effect.gen(function*() {
-  const tracingEnabled = yield* FiberRef.get(TraceEnabledRef)
+export const withUsageTracking = <A, E, R>(program: Effect.Effect<A, E, R>) =>
+  collectCalls(program).pipe(
+    Effect.map(([result, calls]) => Data.tuple(result, summarizeCalls(calls)))
+  )
 
-  return yield* Effect.if(tracingEnabled, {
-    onTrue: () => FiberRef.get(TraceRef),
-    onFalse: () => Effect.succeed(Arr.empty<Entry>())
-  })
-})
+/**
+ * Reads this lexical tracing scope's entries, or an empty array outside a scope.
+ *
+ * @since 0.1.0
+ * @category combinators
+ */
+export const get = Effect.serviceOption(EntryCollector).pipe(
+  Effect.flatMap(
+    Option.match({
+      onNone: () => Effect.succeed(Chunk.empty<Entry>()),
+      onSome: (collections) => Ref.get(collections.current)
+    })
+  ),
+  Effect.map(Chunk.toReadonlyArray)
+)
+
+/**
+ * Reads this lexical call scope's calls, or an empty array outside a scope.
+ *
+ * @since 0.1.0
+ * @category combinators
+ */
+export const getCalls = Effect.serviceOption(CallCollector).pipe(
+  Effect.flatMap(
+    Option.match({
+      onNone: () => Effect.succeed(Chunk.empty<Call>()),
+      onSome: (collections) => Ref.get(collections.current)
+    })
+  ),
+  Effect.map(Chunk.toReadonlyArray)
+)
+
+/**
+ * Reads usage projected from this lexical call scope, or five known zeros
+ * outside a scope.
+ *
+ * @since 0.1.0
+ * @category combinators
+ */
+export const getUsage = Effect.serviceOption(CallCollector).pipe(
+  Effect.flatMap(
+    Option.match({
+      onNone: () => Effect.succeed(Chunk.empty<Call>()),
+      onSome: (collections) => Ref.get(collections.current)
+    })
+  ),
+  Effect.map(summarizeCalls)
+)

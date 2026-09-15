@@ -8,7 +8,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Effect, HashMap, Layer, Option, Ref, Schema } from "effect"
+import { Array as Arr, Effect, HashMap, Layer, Option, Ref, Schema, Tuple } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -21,10 +21,7 @@ const makeQaSignature = () =>
     }
   )
 
-const decodeModuleId = (moduleName: string) =>
-  Schema.decodeUnknown(Contracts.ModuleId)(moduleName).pipe(
-    Effect.orDie
-  )
+const decodeModuleId = Schema.decodeUnknown(Contracts.ModuleId)
 
 describe("Module.compose", () => {
   it.effect("builds explicit graph contracts with stable traversal and lineage", () =>
@@ -46,22 +43,15 @@ describe("Module.compose", () => {
       const pipelineId = yield* decodeModuleId(pipeline.name)
       const qaId = yield* decodeModuleId(qa.name)
       const traversal = Contracts.stableModuleGraphTraversal(rootGraph)
-      const lineage = Contracts.moduleGraphLineage(rootGraph, qaId)
+      const lineage = yield* Contracts.moduleGraphLineage(rootGraph, qaId)
 
-      expect(traversal).toEqual([
+      expect(traversal).toEqual(Arr.make(
         rootId,
         pipelineId,
         qaId
-      ])
-      expect(Option.isSome(lineage)).toBe(true)
+      ))
 
-      if (Option.isSome(lineage)) {
-        expect(lineage.value.path).toEqual([
-          rootId,
-          pipelineId,
-          qaId
-        ])
-      }
+      expect(lineage.path).toEqual(Arr.make(rootId, pipelineId, qaId))
     }))
 
   it.effect("rejects graph declarations with duplicate ids mapped to different module values", () =>
@@ -157,38 +147,24 @@ describe("Module.compose", () => {
         )
       )
       const traced = yield* Trace.withTracing(program)
-      const graph = traced[0]
-      const entries = traced[1]
-      const qaLineage = Contracts.moduleGraphLineage(graph, qaId)
-      const secondaryLineage = Contracts.moduleGraphLineage(graph, secondaryId)
+      const graph = Tuple.getFirst(traced)
+      const entries = Tuple.getSecond(traced)
+      const qaLineage = yield* Contracts.moduleGraphLineage(graph, qaId)
+      const secondaryLineage = yield* Contracts.moduleGraphLineage(graph, secondaryId)
 
-      expect(entries.map((entry) => entry.moduleName)).toEqual([
+      expect(Arr.map(entries, (entry) => entry.moduleName)).toEqual(Arr.make(
         "qa",
         "secondary"
-      ])
-      expect(Contracts.stableModuleGraphTraversal(graph)).toEqual([
+      ))
+      expect(Contracts.stableModuleGraphTraversal(graph)).toEqual(Arr.make(
         rootId,
         pipelineId,
         qaId,
         secondaryId
-      ])
-      expect(Option.isSome(qaLineage)).toBe(true)
-      expect(Option.isSome(secondaryLineage)).toBe(true)
+      ))
 
-      if (Option.isSome(qaLineage)) {
-        expect(qaLineage.value.path).toEqual([
-          rootId,
-          pipelineId,
-          qaId
-        ])
-      }
-
-      if (Option.isSome(secondaryLineage)) {
-        expect(secondaryLineage.value.path).toEqual([
-          rootId,
-          secondaryId
-        ])
-      }
+      expect(qaLineage.path).toEqual(Arr.make(rootId, pipelineId, qaId))
+      expect(secondaryLineage.path).toEqual(Arr.make(rootId, secondaryId))
     }))
 
   it.effect("avoids usage double counting for composed execution under nested tracking", () =>
@@ -227,16 +203,16 @@ describe("Module.compose", () => {
           )
         )
       )
-      const innerUsage = nested[0][1]
-      const outerUsage = nested[1]
+      const innerUsage = Tuple.getSecond(Tuple.getFirst(nested))
+      const outerUsage = Tuple.getSecond(nested)
 
       expect(innerUsage.callCount).toBe(2)
       expect(outerUsage.callCount).toBe(2)
-      expect(innerUsage.cachedCount).toBe(0)
-      expect(outerUsage.cachedCount).toBe(0)
-      expect(innerUsage.inputTokens).toBe(0)
-      expect(outerUsage.inputTokens).toBe(0)
-      expect(innerUsage.outputTokens).toBe(0)
-      expect(outerUsage.outputTokens).toBe(0)
+      expect(Option.isNone(Option.fromNullable(innerUsage.tokens.inputTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(outerUsage.tokens.inputTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(innerUsage.tokens.outputTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(outerUsage.tokens.outputTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(innerUsage.tokens.totalTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(outerUsage.tokens.totalTokens))).toBe(true)
     }))
 })

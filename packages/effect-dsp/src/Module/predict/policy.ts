@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Match, Option } from "effect"
+import { Array as Arr, Data, Match, Option, Schema } from "effect"
 import * as Schedule from "effect/Schedule"
 import type { ParseOutputError } from "../../Errors/module.js"
 
@@ -112,8 +112,8 @@ export const DEFAULT_PARSE_INITIAL_DELAY = "100 millis"
  */
 export const DEFAULT_PARSE_BACKOFF_FACTOR = 2
 
-const EMPTY_PARSE_POLICY_OVERRIDES: ParsePolicyOverrides = {}
-const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
+const EMPTY_PARSE_POLICY_OVERRIDES = new ParsePolicyOverrides({})
+const EMPTY_PREDICT_POLICY_OVERRIDES = new PredictPolicyOverrides({})
 
 const normalizeRetryCount = (value: number): number =>
   Match.value(value).pipe(
@@ -143,7 +143,7 @@ export const defaultParseRetrySchedule: ParseRetryScheduleFactory = (maxRetries)
   )
 
 const formatFieldDiagnostic = (diagnostic: ParseOutputError["fieldDiagnostics"][number]): string =>
-  `- ${diagnostic.field} (${diagnostic.issue}): ${diagnostic.message}`
+  Arr.join(Arr.make("- ", diagnostic.field, " (", diagnostic.issue, "): ", diagnostic.message), "")
 
 /**
  * Formats parse diagnostics for the next prompt attempt.
@@ -164,12 +164,20 @@ export const defaultParseFeedbackTemplate: ParseFeedbackTemplate = (error) => {
 
   return Arr.join(
     Arr.appendAll(
-      [
-        `Parse error (${Option.getOrElse(error.retryCount, () => 0)}): ${error.message}`,
+      Arr.make(
+        Arr.join(
+          Arr.make(
+            "Parse error (",
+            Schema.encodeSync(Schema.NumberFromString)(Option.getOrElse(error.retryCount, () => 0)),
+            "): ",
+            error.message
+          ),
+          ""
+        ),
         "Field diagnostics:"
-      ],
+      ),
       Option.match(Arr.head(diagnostics), {
-        onNone: () => ["- none"],
+        onNone: () => Arr.of("- none"),
         onSome: () => diagnostics
       })
     ),
@@ -177,19 +185,20 @@ export const defaultParseFeedbackTemplate: ParseFeedbackTemplate = (error) => {
   )
 }
 
-const resolveParsePolicy = (overrides: ParsePolicyOverrides): ParsePolicy => ({
-  maxRetries: normalizeRetryCount(
-    Option.getOrElse(Option.fromNullable(overrides.maxRetries), () => DEFAULT_PARSE_MAX_RETRIES)
-  ),
-  retrySchedule: Option.getOrElse(
-    Option.fromNullable(overrides.retrySchedule),
-    () => defaultParseRetrySchedule
-  ),
-  feedbackTemplate: Option.getOrElse(
-    Option.fromNullable(overrides.feedbackTemplate),
-    () => defaultParseFeedbackTemplate
-  )
-})
+const resolveParsePolicy = (overrides: ParsePolicyOverrides): ParsePolicy =>
+  new ParsePolicy({
+    maxRetries: normalizeRetryCount(
+      Option.getOrElse(Option.fromNullable(overrides.maxRetries), () => DEFAULT_PARSE_MAX_RETRIES)
+    ),
+    retrySchedule: Option.getOrElse(
+      Option.fromNullable(overrides.retrySchedule),
+      () => defaultParseRetrySchedule
+    ),
+    feedbackTemplate: Option.getOrElse(
+      Option.fromNullable(overrides.feedbackTemplate),
+      () => defaultParseFeedbackTemplate
+    )
+  })
 
 /**
  * Resolves optional predictor policy fields against built-in defaults.
@@ -206,14 +215,15 @@ const resolveParsePolicy = (overrides: ParsePolicyOverrides): ParsePolicy => ({
  */
 export const makePredictPolicy = (
   overrides: PredictPolicyOverrides = EMPTY_PREDICT_POLICY_OVERRIDES
-): PredictPolicy => ({
-  parse: resolveParsePolicy(
-    Option.getOrElse(
-      Option.fromNullable(overrides.parse),
-      () => EMPTY_PARSE_POLICY_OVERRIDES
+): PredictPolicy =>
+  new PredictPolicy({
+    parse: resolveParsePolicy(
+      Option.getOrElse(
+        Option.fromNullable(overrides.parse),
+        () => EMPTY_PARSE_POLICY_OVERRIDES
+      )
     )
-  )
-})
+  })
 
 /**
  * Uses three parse retries, exponential delays, and field-diagnostic feedback.

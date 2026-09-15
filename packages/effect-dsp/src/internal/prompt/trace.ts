@@ -5,10 +5,9 @@
  * @internal
  */
 import type * as Prompt from "@effect/ai/Prompt"
-import { Array as Arr, Match, Option, Predicate } from "effect"
+import { Array as Arr, Match, Option, Predicate, Schema } from "effect"
 
-const hasStringContent = (candidate: unknown): candidate is { readonly content: string } =>
-  Predicate.hasProperty(candidate, "content") && Predicate.isString(candidate.content)
+const hasStringContent = Schema.is(Schema.Struct({ content: Schema.String }))
 
 const messageContentToText = (message: unknown): Option.Option<string> =>
   Match.value(message).pipe(

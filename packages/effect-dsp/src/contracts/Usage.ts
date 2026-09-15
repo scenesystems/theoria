@@ -1,110 +1,115 @@
 /**
- * Token and LM-call accounting accumulated across module forward passes.
+ * Canonical provider token usage accumulated across model calls.
  *
  * @since 0.1.0
  */
-import { Option, Schema } from "effect"
+import * as Response from "@effect/ai/Response"
+import { Number, Option, Schema } from "effect"
 
 /**
- * Accumulates provider token counts and model-call counts across invocations.
+ * Accumulates native provider usage and the number of observed calls.
  *
  * @remarks
- * Cached calls remain part of `callCount` and are counted separately in
- * `cachedCount`. The schema applies no integer, sign, or finiteness constraints.
+ * Each token counter remains independently unknown when any accumulated call
+ * omits that counter. `totalTokens` is never inferred from other counters.
  *
  * @since 0.1.0
  * @category models
  */
 export class Usage extends Schema.Class<Usage>("Usage")({
-  /** Sum of reported input tokens; absent sample values contribute zero. */
-  inputTokens: Schema.Number,
-  /** Sum of reported output tokens; absent sample values contribute zero. */
-  outputTokens: Schema.Number,
-  /** Number of accumulated samples. */
-  callCount: Schema.Number,
-  /** Number of accumulated samples marked as cache hits. */
-  cachedCount: Schema.Number
+  /** Independently accumulated native provider counters. */
+  tokens: Response.Usage,
+  /** Number of calls represented by the aggregate. */
+  callCount: Schema.NonNegativeInt
 }) {}
 
+const sampleCounter = (
+  sample: Option.Option<Response.Usage>,
+  select: (usage: Response.Usage) => Response.Usage["inputTokens"]
+): Option.Option<number> => Option.flatMap(sample, (usage) => Option.fromNullable(select(usage)))
+
+const sumCounter = (
+  current: Response.Usage["inputTokens"],
+  sample: Option.Option<Response.Usage>,
+  select: (usage: Response.Usage) => Response.Usage["inputTokens"]
+): Option.Option<number> =>
+  Option.zipWith(
+    Option.fromNullable(current),
+    sampleCounter(sample, select),
+    Number.sum
+  )
+
+const accumulateTokens = (
+  current: Response.Usage,
+  sample: Option.Option<Response.Usage>
+): Response.Usage => {
+  const inputTokens = sumCounter(current.inputTokens, sample, (usage) => usage.inputTokens)
+  const outputTokens = sumCounter(current.outputTokens, sample, (usage) => usage.outputTokens)
+  const totalTokens = sumCounter(current.totalTokens, sample, (usage) => usage.totalTokens)
+  const reasoningTokens = sumCounter(current.reasoningTokens, sample, (usage) => usage.reasoningTokens)
+  const cachedInputTokens = sumCounter(current.cachedInputTokens, sample, (usage) => usage.cachedInputTokens)
+
+  return new Response.Usage({
+    ...Option.match(inputTokens, {
+      onNone: () => ({ inputTokens: undefined }),
+      onSome: (value) => ({ inputTokens: value })
+    }),
+    ...Option.match(outputTokens, {
+      onNone: () => ({ outputTokens: undefined }),
+      onSome: (value) => ({ outputTokens: value })
+    }),
+    ...Option.match(totalTokens, {
+      onNone: () => ({ totalTokens: undefined }),
+      onSome: (value) => ({ totalTokens: value })
+    }),
+    ...Option.match(reasoningTokens, {
+      onNone: () => ({}),
+      onSome: (value) => ({ reasoningTokens: value })
+    }),
+    ...Option.match(cachedInputTokens, {
+      onNone: () => ({}),
+      onSome: (value) => ({ cachedInputTokens: value })
+    })
+  })
+}
+
 /**
- * Captures provider token counts and cache status for one model call.
+ * Adds one optional provider usage report to an aggregate.
  *
  * @remarks
- * Token counts remain absent when the provider does not report them. The schema
- * does not validate reported counts as non-negative integers.
+ * Every sample increments `callCount`, including a call with no usage report.
+ * A missing report makes every counter unknown. A partially reported sample
+ * makes only its omitted counters unknown, and an unknown counter stays unknown.
  *
- * @since 0.1.0
- * @category models
- */
-export class UsageSample extends Schema.Class<UsageSample>("UsageSample")({
-  /** Provider-reported input tokens, when available. */
-  inputTokens: Schema.OptionFromSelf(Schema.Number),
-  /** Provider-reported output tokens, when available. */
-  outputTokens: Schema.OptionFromSelf(Schema.Number),
-  /** Whether the response came from the configured cache. */
-  cached: Schema.Boolean
-}) {}
-
-const tokenCount = (value: Option.Option<number>): number => Option.getOrElse(value, () => 0)
-
-/**
- * Adds one model-call sample to cumulative usage.
- *
- * @remarks
- * Absent token counts add zero, every sample increments `callCount`, and cached
- * samples increment `cachedCount`. The input value is not mutated.
- *
- * @param usage - Totals before the call.
- * @param sample - Token counts and cache status for the call.
- * @returns New totals after the sample.
+ * @param summary - Aggregate before the observed call.
+ * @param sample - Native provider usage, when the call reported it.
+ * @returns A new immutable aggregate.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const accumulateUsage = (
-  usage: Usage,
-  sample: UsageSample
+  summary: Usage,
+  sample: Option.Option<Response.Usage>
 ): Usage =>
   new Usage({
-    inputTokens: usage.inputTokens + tokenCount(sample.inputTokens),
-    outputTokens: usage.outputTokens + tokenCount(sample.outputTokens),
-    callCount: usage.callCount + 1,
-    cachedCount: usage.cachedCount + (sample.cached ? 1 : 0)
+    tokens: accumulateTokens(summary.tokens, sample),
+    callCount: Number.increment(summary.callCount)
   })
 
 /**
- * Subtracts an earlier usage snapshot from a later snapshot.
- *
- * @remarks
- * No ordering invariant is checked, so any component can be negative when the
- * `after` value is smaller.
- *
- * @param options - Snapshots to subtract component by component.
- * @returns A new usage value equal to `after - before` for every field.
- *
- * @since 0.1.0
- * @category combinators
- */
-export const usageDelta = (options: {
-  readonly before: Usage
-  readonly after: Usage
-}): Usage =>
-  new Usage({
-    inputTokens: options.after.inputTokens - options.before.inputTokens,
-    outputTokens: options.after.outputTokens - options.before.outputTokens,
-    callCount: options.after.callCount - options.before.callCount,
-    cachedCount: options.after.cachedCount - options.before.cachedCount
-  })
-
-/**
- * Zero-valued seed for {@link accumulateUsage}.
+ * Five known zero counters with no observed calls.
  *
  * @since 0.1.0
  * @category constants
  */
 export const emptyUsage = new Usage({
-  inputTokens: 0,
-  outputTokens: 0,
-  callCount: 0,
-  cachedCount: 0
+  tokens: new Response.Usage({
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    reasoningTokens: 0,
+    cachedInputTokens: 0
+  }),
+  callCount: 0
 })

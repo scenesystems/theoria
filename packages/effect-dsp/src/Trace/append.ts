@@ -1,63 +1,58 @@
 /**
- * Recording operations used by traced module execution.
+ * Recording operations used by traced model execution.
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, FiberRef } from "effect"
-import { accumulateUsage, type UsageSample } from "../contracts/Usage.js"
-import type { Entry } from "./model.js"
-import { TraceEnabledRef, TraceRef, UsageEnabledRef, UsageRef } from "./refs.js"
+import { Chunk, Effect, Option, Ref } from "effect"
+import type { Call, Entry } from "./model.js"
+import { CallCollector, EntryCollector } from "./refs.js"
 
 /**
- * Appends an entry to the current tracing scope, or does nothing outside one.
+ * Appends an entry to the current tracing scope and each lexical ancestor.
+ * Outside a tracing scope this operation does nothing.
  *
- * @param entry - Complete invocation record added without copying or redaction.
+ * @param entry - Complete successful invocation record.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const append = (entry: Entry): Effect.Effect<void> =>
-  Effect.gen(function*() {
-    const tracingEnabled = yield* FiberRef.get(TraceEnabledRef)
-
-    return yield* Effect.if(tracingEnabled, {
-      onTrue: () => FiberRef.update(TraceRef, (entries) => Arr.append(entries, entry)),
-      onFalse: () => Effect.void
-    })
-  })
-
-/**
- * Adds a usage sample to the current usage scope, or does nothing outside one.
- * Missing token counts contribute zero; every sample increments `callCount`.
- *
- * @param sample - Provider usage and cache status for one model call.
- *
- * @since 0.1.0
- * @category combinators
- */
-export const appendUsage = (sample: UsageSample): Effect.Effect<void> =>
-  Effect.gen(function*() {
-    const usageEnabled = yield* FiberRef.get(UsageEnabledRef)
-
-    return yield* Effect.if(usageEnabled, {
-      onTrue: () => FiberRef.update(UsageRef, (usage) => accumulateUsage(usage, sample)),
-      onFalse: () => Effect.void
-    })
-  })
+  Effect.serviceOption(EntryCollector).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (collections) =>
+          Effect.forEach(
+            Chunk.prepend(collections.ancestors, collections.current),
+            (ref) => Ref.update(ref, (entries) => Chunk.append(entries, entry)),
+            { discard: true }
+          )
+      })
+    ),
+    Effect.uninterruptible
+  )
 
 /**
- * Records an invocation and its usage sample in the active scopes.
+ * Appends one invocation call to the current call scope and each lexical ancestor.
+ * Outside call or usage scopes this operation does nothing.
  *
- * @remarks
- * The trace entry is appended before usage is accumulated. Either operation is a
- * no-op when its corresponding scope is disabled.
+ * @param call - Per-invocation evidence without prompt or failure contents.
  *
- * @param options - Invocation record and usage sample from the same model call.
- *
- * @since 0.1.0
+ * @since 0.4.0
  * @category combinators
  */
-export const appendExecution = (options: {
-  readonly entry: Entry
-  readonly usage: UsageSample
-}): Effect.Effect<void> => Effect.zipRight(append(options.entry), appendUsage(options.usage))
+export const appendCall = (call: Call): Effect.Effect<void> =>
+  Effect.serviceOption(CallCollector).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (collections) =>
+          Effect.forEach(
+            Chunk.prepend(collections.ancestors, collections.current),
+            (ref) => Ref.update(ref, (calls) => Chunk.append(calls, call)),
+            { discard: true }
+          )
+      })
+    ),
+    Effect.uninterruptible
+  )
