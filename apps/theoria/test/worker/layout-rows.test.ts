@@ -39,7 +39,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const nav = page.getByRole("navigation", { name: "Site" })
         yield* visible(nav)
 
-        const boxes = yield* edges(nav.locator("xpath=..").locator(":scope > *"))
+        // The brand link and navigation both have 44px hit areas; measure the visible wordmark inside its link.
+        const wordmark = page.locator("header a[href='/'] > span")
+        yield* visible(wordmark)
+        const boxes = yield* edges(wordmark.or(nav))
         expect(boxes.length, "the wordmark and the ways").toBe(2)
         unalike(Arr.map(boxes, height), "the wordmark and the ways differ in height")
         alike(
