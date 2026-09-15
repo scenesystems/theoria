@@ -34,6 +34,7 @@ import {
   wheel
 } from "./browser.js"
 import {
+  boxOf,
   clipboardText,
   greekFaceOpacities,
   horizontalScrollers,
@@ -42,6 +43,7 @@ import {
   scrollAffordance,
   setRootFontSize,
   systemColour,
+  textFitsBox,
   typographyOf
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
@@ -49,6 +51,63 @@ import { SiteLive } from "./site.js"
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria docs in Chromium",
   (it) => {
+    it.scoped("docs chrome reaches both edges and the package index shares the header's left alignment", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* Effect.forEach([1440, 1920, 2560], (width) =>
+          Effect.gen(function*() {
+            yield* setViewport(page, { width, height: 900 })
+            yield* goto(page, "/docs")
+            yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
+            const canvas = yield* act(() => page.locator("body").evaluate(boxOf))
+            const header = yield* act(() => page.locator("header > div").evaluate(boxOf))
+            expect(header.left).toBe(0)
+            expect(header.right).toBe(canvas.right)
+            const logo = yield* act(() => page.locator("header a[href='/'] svg").evaluate(boxOf))
+            const title = yield* act(() => page.getByRole("heading", { level: 1 }).evaluate(boxOf))
+            expect(title.left).toBe(logo.left)
+
+            yield* goto(page, "/docs/digest")
+            const sidebar = page.getByRole("complementary", { name: "Documentation navigation" })
+            yield* visible(sidebar)
+            expect((yield* act(() => sidebar.evaluate(boxOf))).left).toBe(0)
+            const picker = yield* act(() => sidebar.getByRole("button", { name: "Choose package" }).evaluate(boxOf))
+            expect(picker.left).toBe(logo.left)
+            const links = sidebar.getByRole("link")
+            expect(yield* act(() => links.evaluateAll((elements) => elements.length))).toBeGreaterThan(5)
+            yield* Effect.forEach(Arr.range(0, (yield* act(() => links.count())) - 1), (index) =>
+              Effect.gen(function*() {
+                expect(yield* act(() => links.nth(index).evaluate(textFitsBox))).toBe(true)
+              }))
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("docs use the home logo's scale, showing only its mark below the sidebar breakpoint", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* goto(page, "/")
+        const logo = page.locator("header a[href='/'] > span")
+        yield* visible(logo)
+        const homeType = yield* act(() => logo.evaluate(typographyOf))
+        const homeMark = yield* act(() => logo.locator("svg").evaluate(boxOf))
+        yield* goto(page, "/docs/effect-inference/getting-started")
+        yield* Effect.forEach([320, 1023, 1024, 1920], (width) =>
+          Effect.gen(function*() {
+            yield* setViewport(page, { width, height: 900 })
+            yield* visible(logo)
+            const docsType = yield* act(() => logo.evaluate(typographyOf))
+            expect(docsType.size).toBe(homeType.size)
+            expect(docsType.weight).toBe(homeType.weight)
+            expect((yield* act(() => logo.locator("svg").evaluate(boxOf))).height).toBe(homeMark.height)
+            const wordmark = logo.getByText("Theoria", { exact: true })
+            yield* width < 1024 ? hidden(wordmark) : visible(wordmark)
+            expect((yield* act(() => page.locator("header").evaluate(boxOf))).height).toBe(73)
+            expect(yield* fitsViewport(page)).toBe(true)
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("guide, module and export pages share title and prose metrics in both modes and across the narrow breakpoint", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
@@ -227,6 +286,15 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const askPageLoads = Effect.map(docsData, Arr.filter(Str.endsWith("/Study/api-ask.json")))
 
         yield* goto(page, "/docs/effect-search")
+        yield* visible(page.locator("header").getByRole("link", { name: "Theoria on GitHub" }))
+        yield* count(page.locator("header").getByRole("button", { name: "Choose package" }), 0)
+        const sidebar = page.getByRole("complementary", { name: "Documentation navigation" })
+        const picker = sidebar.getByRole("button", { name: "Choose package" })
+        yield* visible(picker)
+        const railBox = yield* act(() => sidebar.evaluate(boxOf))
+        const pickerBox = yield* act(() => picker.evaluate(boxOf))
+        expect(pickerBox.left).toBeGreaterThanOrEqual(railBox.left)
+        expect(pickerBox.right).toBeLessThanOrEqual(railBox.right)
         const apiToggle = page.getByRole("button", { name: "Toggle api navigation" })
         const studyLink = page.getByRole("link", { exact: true, name: "Study" })
         yield* hidden(studyLink)
@@ -404,10 +472,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-search" }))
         expect(yield* fitsViewport(page)).toBe(true)
 
+        yield* hidden(page.locator("header").getByText("Theoria", { exact: true }))
+        yield* visible(page.locator("header").getByRole("link", { name: "Theoria home" }).locator("svg"))
+        yield* visible(page.locator("header").getByRole("link", { name: "Theoria on GitHub" }))
         yield* click(page.getByRole("button", { name: "Open navigation" }))
-        const navigation = page.getByRole("dialog")
+        const navigation = page.getByRole("dialog", { name: "Theoria", exact: true })
         yield* visible(navigation)
-        yield* visible(navigation.getByRole("heading", { name: "Menu" }))
+        yield* visible(navigation.getByRole("heading", { name: "Theoria" }))
+        yield* visible(navigation.getByRole("heading", { name: "Theoria" }).locator("svg"))
         yield* click(navigation.getByRole("button", { name: "Choose package" }))
         yield* click(page.getByRole("menuitem").filter({ hasText: "@scenesystems/effect-math" }))
         yield* urlMatches(page, /\/docs\/effect-math$/u)

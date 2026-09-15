@@ -28,9 +28,9 @@ import { DocsPackageShell, DocsResourceFrame, DocsRouteEntrance } from "./DocsWo
 
 const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
   <Layer className={appTheme.root}>
-    <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
+    <DocsHeader />
     <Main
-      className={`mx-auto w-full ${measureClassName("page")} px-5 py-10 sm:px-8 sm:py-14 ${workbenchTheme.routeFocus}`}
+      className={`${workbenchTheme.index} ${workbenchTheme.routeFocus}`}
       data-route-focus
       tabIndex={-1}
     >
@@ -84,7 +84,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
 
 const MissingRoute = ({ manifest }: { readonly manifest: DocsManifest }) => (
   <Layer className={appTheme.root}>
-    <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
+    <DocsHeader />
     <Main
       className={`mx-auto w-full ${measureClassName("reading")} px-5 py-20 ${workbenchTheme.routeFocus}`}
       data-route-focus
@@ -151,8 +151,8 @@ export const DocsPage = ({ route }: { readonly route: DocsRoute }) => {
   return Result.match(manifest, {
     onInitial: () => (
       <Layer className={appTheme.root}>
-        <DocsHeader activePackage={Option.none()} loading packages={[]} />
-        <Main className={`mx-auto w-full ${measureClassName("page")} px-5 py-10 sm:px-8 sm:py-14`}>
+        <DocsHeader loading />
+        <Main className={workbenchTheme.index}>
           <DocsStatus kind="index" state="loading" />
         </Main>
       </Layer>

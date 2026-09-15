@@ -15,6 +15,7 @@ import {
 } from "../primitives/designSystem.js"
 import { Layer, Nav, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
+import { SemanticContent } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import {
   destinationIsActive,
@@ -40,7 +41,9 @@ const NavigationLink = ({
     href={destination.href}
     onClick={onNavigate}
   >
-    <SemanticText as="span" className="min-w-0" role="row-value" text={destination.label} variant="compact" />
+    <SemanticContent as="span" className="min-w-0 wrap-anywhere" role="row-value" variant="compact">
+      {destination.label}
+    </SemanticContent>
   </InternalLink>
 )
 

@@ -38,6 +38,17 @@ export const boxOf = (element: Element) => {
   }
 }
 
+/** Every text fragment must fit its link, including fragments hidden by an ancestor's clipping. */
+export const textFitsBox = (element: Element): boolean => {
+  const box = element.getBoundingClientRect()
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  return [...range.getClientRects()].filter((line) => line.width > 0).every((line) =>
+    line.left >= box.left - 1 && line.right <= box.right + 1 &&
+    line.top >= box.top - 1 && line.bottom <= box.bottom + 1
+  )
+}
+
 /** The resolved value of a CSS system colour in the page's current colour scheme. */
 export const systemColour = (name: string): string => {
   const probe = document.createElement("span")

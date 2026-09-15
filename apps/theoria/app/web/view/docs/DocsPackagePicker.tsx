@@ -25,13 +25,13 @@ export const DocsPackagePicker = ({
   <Menu.Root>
     <Menu.Trigger
       aria-label="Choose package"
-      className={`${pickerTriggerClassName} w-full justify-between lg:w-[18rem]`}
+      className={`${pickerTriggerClassName} w-full justify-between`}
     >
       <SemanticText
         as="span"
         className="min-w-0 truncate text-ink"
         role="button-label"
-        text={Option.match(activePackage, { onNone: () => "Packages", onSome: (value) => value.name })}
+        text={Option.match(activePackage, { onNone: () => "Packages", onSome: (value) => value.slug })}
         variant="compact"
       />
       <ChevronDownIcon aria-hidden className="h-4 w-4 shrink-0 text-ink-tertiary" />

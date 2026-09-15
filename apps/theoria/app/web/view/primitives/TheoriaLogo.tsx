@@ -12,6 +12,10 @@ export const LogoAnimation = Schema.Literal("glossary", "none")
 
 export type LogoAnimation = typeof LogoAnimation.Type
 
+/** The full signature, or just its mark below the workbench's desktop breakpoint. */
+export const LogoVariant = Schema.Literal("full", "responsive")
+export type LogoVariant = typeof LogoVariant.Type
+
 const CubeMark = ({ className }: { readonly className: string }) => (
   <svg
     aria-hidden
@@ -61,17 +65,27 @@ const wordmark = (animation: LogoAnimation) =>
  */
 export const TheoriaLogo = ({
   animation,
-  className = ""
+  className = "",
+  variant = "full"
 }: {
   readonly animation: LogoAnimation
   readonly className?: string
+  readonly variant?: LogoVariant
 }) => {
   const base = `inline-flex items-center gap-[0.25em] select-none ${semanticClassName("wordmark", "compact")}`
 
   return (
     <span className={classNames(base, className)}>
       <CubeMark className="h-[0.85em] shrink-0" />
-      {wordmark(animation)}
+      <span
+        className={Match.value(variant).pipe(
+          Match.when("full", () => "inline-flex"),
+          Match.when("responsive", () => "hidden lg:inline-flex"),
+          Match.exhaustive
+        )}
+      >
+        {wordmark(animation)}
+      </span>
     </span>
   )
 }

@@ -13,6 +13,7 @@ import { DocsHeader } from "./DocsHeader.js"
 import { DocsNavigation } from "./DocsNavigation.js"
 import { DocsNavigationDrawer } from "./DocsNavigationDrawer.js"
 import { DocsOnThisPage, type DocsPageAnchor } from "./DocsOnThisPage.js"
+import { DocsPackagePicker } from "./DocsPackagePicker.js"
 import { DocsSearchDialog } from "./DocsSearchDialog.js"
 
 /**
@@ -48,10 +49,11 @@ export const DocsPackageShell = ({
   readonly route: DocsRoute
 }) => (
   <Layer className={appTheme.root}>
-    <DocsHeader activePackage={Option.some(docsPackage)} packages={manifest.packages} />
+    <DocsHeader navigation />
     <Layer className={workbenchTheme.grid}>
       <Section aria-label="Documentation navigation" render={<aside />} className={workbenchTheme.sidebar}>
         <Stack className={workbenchTheme.sidebarSticky} key={docsPackage.slug}>
+          <DocsPackagePicker activePackage={Option.some(docsPackage)} packages={manifest.packages} />
           <DocsNavigation docsPackage={docsPackage} route={route} />
         </Stack>
       </Section>

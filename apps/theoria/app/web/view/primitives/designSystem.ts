@@ -469,20 +469,21 @@ export const workbenchNavLinkClassName = ({
       }`
   })
 
+/** The workbench meets the viewport; its brand, index heading and sidebar controls share one inset. */
+const workbenchInsetClassName = "px-4 sm:px-6"
+
 export const workbenchTheme = {
-  headerContent: `mx-auto flex min-h-[4.5rem] w-full ${
-    measureClassName("workbench")
-  } items-center justify-between gap-3 px-4 sm:px-6 lg:px-8`,
-  grid: `relative mx-auto grid w-full ${
-    measureClassName("workbench")
-  } grid-cols-1 lg:grid-cols-[17.5rem_minmax(0,1fr)] xl:grid-cols-[17.5rem_minmax(0,1fr)_13rem]`,
+  headerContent: `flex min-h-[4.5rem] w-full items-center justify-between gap-3 ${workbenchInsetClassName}`,
+  index: `w-full py-8 sm:py-10 ${workbenchInsetClassName}`,
+  grid:
+    "relative grid w-full grid-cols-1 lg:grid-cols-[17.5rem_minmax(0,1fr)] xl:grid-cols-[17.5rem_minmax(0,1fr)_13rem]",
   sidebar:
-    "hidden min-w-0 border-r border-hairline-glass bg-canvas-glass px-5 py-7 lg:block lg:min-h-[calc(100dvh-4.5rem)]",
-  sidebarSticky: "sticky top-[6.25rem] max-h-[calc(100dvh-7.75rem)] overflow-y-auto pr-1",
+    `hidden min-w-0 border-r border-hairline-glass bg-canvas-glass py-7 lg:block lg:min-h-[calc(100dvh-4.5rem)] ${workbenchInsetClassName}`,
+  sidebarSticky: "sticky top-[6.25rem] max-h-[calc(100dvh-7.75rem)] gap-6 overflow-y-auto pr-1",
   main: "min-w-0 px-4 py-8 sm:px-7 sm:py-10 lg:px-10 xl:px-12",
   /** The landmark focus moves to after navigation: unmarked, except where forced colours must show where focus went. */
   routeFocus: focusEdgeClassName,
-  article: `mx-auto w-full ${measureClassName("reading")}`,
+  article: `w-full ${measureClassName("reading")}`,
   toc: "hidden min-w-0 px-5 py-8 xl:block",
   tocSticky: "sticky top-[6.25rem] max-h-[calc(100dvh-7.75rem)] overflow-y-auto pr-1"
 }

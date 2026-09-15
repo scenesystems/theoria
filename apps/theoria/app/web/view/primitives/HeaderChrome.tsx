@@ -37,7 +37,7 @@ const headerChromeFocusClassName = `${focusClassName} focus-visible:ring-offset-
  * neighbours.
  */
 const headerChromeControlClassName =
-  `relative inline-flex min-h-11 items-center gap-2 rounded-control px-1.5 text-ink-secondary ${respondColorsClassName} hover:text-ink-strong before:absolute before:inset-y-0 before:left-1/2 before:w-[max(100%,2.75rem)] before:-translate-x-1/2`
+  `relative inline-flex min-h-11 items-center gap-2 rounded-control text-ink-secondary ${respondColorsClassName} hover:text-ink-strong before:absolute before:inset-y-0 before:left-1/2 before:w-[max(100%,2.75rem)] before:-translate-x-1/2`
 
 /**
  * The ink of every header glyph — the part of it that is drawn — is one
@@ -46,15 +46,24 @@ const headerChromeControlClassName =
  */
 const headerChromeGlyphInkClassName = "[--header-chrome-glyph-ink:1rem]"
 
+/** The brand sits on the content edge, with the same focus and hit area but no extra text-control inset. */
+export const headerChromeBrandLinkClassName = `${headerChromeControlClassName} ${headerChromeFocusClassName}`
+
 /** A header destination as words beside a glyph. */
 export const headerChromeLinkClassName = (className = ""): string =>
-  classNames(headerChromeControlClassName, headerChromeGlyphInkClassName, headerChromeFocusClassName, className)
+  classNames(
+    headerChromeControlClassName,
+    "px-1.5",
+    headerChromeGlyphInkClassName,
+    headerChromeFocusClassName,
+    className
+  )
 
 /** A header control that is only its glyph: the same ink, the same hover, the same room and reach. */
 export const headerChromeIconButtonClassName = (className = ""): string =>
   classNames(
     headerChromeControlClassName,
-    "justify-center",
+    "justify-center px-1.5",
     headerChromeGlyphInkClassName,
     headerChromeFocusClassName,
     className

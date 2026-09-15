@@ -14,6 +14,7 @@ import {
 } from "../primitives/designSystem.js"
 import { Cluster, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { TheoriaLogo } from "../primitives/TheoriaLogo.js"
 import { DocsNavigation } from "./DocsNavigation.js"
 import { DocsPackagePicker } from "./DocsPackagePicker.js"
 
@@ -37,9 +38,9 @@ export const DocsNavigationDrawer = ({
           <Drawer.Popup className={drawerClassName}>
             <Stack className="gap-6 p-5">
               <Cluster className="justify-between gap-4">
-                <Drawer.Title
-                  render={<SemanticText as="h2" role="section-title" text="Menu" />}
-                />
+                <Drawer.Title className="flex items-center">
+                  <TheoriaLogo animation="none" />
+                </Drawer.Title>
                 <Drawer.Close aria-label="Close navigation" className={iconButtonClassName}>
                   <XMarkIcon aria-hidden className="h-5 w-5" />
                 </Drawer.Close>
