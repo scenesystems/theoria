@@ -2,9 +2,11 @@
  * Content hashing whose preimage is defined by a Schema encoder.
  *
  * @remarks
- * Schema encoding converts a decoded value to its wire representation before
- * RFC 8785 canonicalization. Use this boundary for values such as `Date` or
- * branded types whose runtime form is not their serialized form.
+ * The caller's Schema encoder owns conversion from a decoded value to its wire
+ * representation before RFC 8785 canonicalization. Use this boundary for values
+ * such as `Date` or branded types whose runtime form is not their serialized form.
+ * This package delegates to public Schema encoding APIs and does not interpret the
+ * Schema AST.
  *
  * @see {@link digest}
  * @see {@link canonicalize}
@@ -15,7 +17,7 @@
  * @module
  */
 
-import { Effect, Either, type ParseResult, Schema } from "effect"
+import { Boolean as B, Effect, Either, type ParseResult, Schema } from "effect"
 import { digest } from "./digest.js"
 import {
   finalizeIncrementalHasherTagged,
@@ -25,7 +27,6 @@ import {
   updateIncrementalHasher
 } from "./internal/digest-bytes.js"
 import { canonicalizeWithByteLimit, canonicalizeWithByteLimitEither } from "./internal/jcs.js"
-import { encodeSchemaCooperatively } from "./internal/schema-encode-machine.js"
 import { encodeUtf8Unchecked } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import {
@@ -96,9 +97,13 @@ const digestEncodedBoundedSync = (
  * Hashes the encoded form of a Schema value rather than its runtime representation.
  *
  * @remarks
- * Schema requirements remain in `R`. Encoding failures and canonicalization
- * failures stay distinct in the error channel. Canonical traversal is stack-safe
- * and yields between bounded batches. The default algorithm is `"blake3-256"`.
+ * `Schema.encode` defines and produces the preimage once per execution, with its
+ * requirements retained in `R`. Encoding failures and canonicalization failures
+ * stay distinct in the error channel. Native synchronous Schema transforms are
+ * not bounded interruption points. Subsequent canonical traversal is stack-safe
+ * and cooperative between batches, while record key enumeration and sorting and
+ * final string and UTF-8 materialization remain synchronous. The default algorithm
+ * is `"blake3-256"`.
  *
  * @typeParam A - Decoded value type accepted by the schema encoder.
  * @typeParam I - Encoded representation passed to canonicalization.
@@ -116,26 +121,35 @@ export const digestSchemaValue = <A, I, R>(
   value: A,
   algorithm: DigestAlgorithm = "blake3-256"
 ): Effect.Effect<string, CanonicalizationError | ParseResult.ParseError, R> =>
-  Effect.flatMap(Schema.encode(schema)(value), (encoded) => digest(algorithm, encoded))
+  Effect.flatMap(
+    Effect.suspend(() => Schema.encode(schema)(value)),
+    (encoded) => digest(algorithm, encoded)
+  )
 
 /**
  * Hashes a Schema value only when its canonical UTF-8 preimage fits an inclusive byte limit.
  *
  * @remarks
- * Structural encoding and canonical traversal each occur once and yield between
- * bounded batches. Native key enumeration and user-defined Schema transforms
- * remain synchronous. The byte limit does not bound input depth, property count,
- * or key-sorting work, so hostile input also needs structural limits.
+ * Schema encoding and canonical traversal each occur once per execution. Encoding
+ * retains the Schema's native service requirements, interruption, failure, and
+ * defect semantics and delegates completely to `Schema.encode`; no package-owned
+ * AST interpreter participates. Native synchronous transforms are not made
+ * cooperative by this operation. The byte limit applies to the encoded canonical
+ * preimage.
  *
- * Traversal stops after observing byte `maximumBytes + 1`; it does not
- * materialize or publish the complete oversized preimage. On success,
- * `canonicalByteLength` is the number of bytes sent to the incremental hasher.
- * The limit must be a non-negative safe integer. The default algorithm is
- * `"blake3-256"`.
+ * Stack-safe canonical traversal yields between bounded batches, but `Record.keys`
+ * and key sorting for an individual record remain synchronous. The serializer
+ * measures emitted UTF-8 segments and rejects the first segment that would take
+ * the total over `maximumBytes`; it does not deliberately observe exactly
+ * `maximumBytes + 1` bytes and does not materialize or publish the complete
+ * oversized preimage. On success, `canonicalByteLength` is the number of bytes
+ * sent to the incremental hasher. The limit must be a non-negative safe integer.
+ * The default algorithm is `"blake3-256"`.
  *
  * @typeParam A - Decoded value type accepted by the schema encoder.
  * @typeParam I - Encoded representation passed to canonicalization.
- * @param schema - Context-free schema whose encoder defines the preimage.
+ * @typeParam R - Services required by schema encoding.
+ * @param schema - Schema whose encoder defines the preimage.
  * @param value - Decoded value to encode and digest.
  * @param maximumBytes - Inclusive non-negative safe-integer limit.
  * @param algorithm - Hash algorithm; defaults to BLAKE3-256.
@@ -144,30 +158,34 @@ export const digestSchemaValue = <A, I, R>(
  * @since 0.3.3
  * @category digest
  */
-export const digestSchemaValueWithByteLimit = <A, I>(
-  schema: Schema.Schema<A, I, never>,
+export const digestSchemaValueWithByteLimit = <A, I, R>(
+  schema: Schema.Schema<A, I, R>,
   value: A,
   maximumBytes: number,
   algorithm: DigestAlgorithm = "blake3-256"
 ): Effect.Effect<
   SchemaValueDigest,
   CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError,
-  never
+  R
 > =>
-  isByteLimit(maximumBytes)
-    ? Effect.flatMap(
-      encodeSchemaCooperatively(schema, value),
-      (encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm)
-    )
-    : new InvalidCanonicalByteLimit({})
+  B.match(isByteLimit(maximumBytes), {
+    onTrue: () =>
+      Effect.flatMap(
+        Effect.suspend(() => Schema.encode(schema)(value)),
+        (encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm)
+      ),
+    onFalse: () => Effect.fail(new InvalidCanonicalByteLimit({}))
+  })
 
 /**
  * Hashes an owner-controlled Schema value without starting an Effect runtime.
  *
  * @remarks
- * The operation uses `Schema.encodeEither` and blocks the current JavaScript
- * turn until completion. Choose an owner-controlled limit appropriate for
- * synchronous work. The default algorithm is `"blake3-256"`.
+ * The operation delegates encoding to `Schema.encodeEither` and blocks the current
+ * JavaScript turn for Schema transforms, traversal, key enumeration and sorting,
+ * segment hashing, and completion. It uses the same segment-counting byte-limit
+ * contract as `digestSchemaValueWithByteLimit`. Choose an owner-controlled limit
+ * appropriate for synchronous work. The default algorithm is `"blake3-256"`.
  *
  * @typeParam A - Decoded value type accepted by the schema encoder.
  * @typeParam I - Encoded representation passed to canonicalization.
@@ -189,9 +207,11 @@ export const digestSchemaValueWithByteLimitSync = <A, I>(
   SchemaValueDigest,
   CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError
 > =>
-  isByteLimit(maximumBytes)
-    ? Either.flatMap(
-      Schema.encodeEither(schema)(value),
-      (encoded) => digestEncodedBoundedSync(encoded, maximumBytes, algorithm)
-    )
-    : Either.left(new InvalidCanonicalByteLimit({}))
+  B.match(isByteLimit(maximumBytes), {
+    onTrue: () =>
+      Either.flatMap(
+        Schema.encodeEither(schema)(value),
+        (encoded) => digestEncodedBoundedSync(encoded, maximumBytes, algorithm)
+      ),
+    onFalse: () => Either.left(new InvalidCanonicalByteLimit({}))
+  })

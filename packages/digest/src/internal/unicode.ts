@@ -7,8 +7,7 @@
  * @internal
  */
 
-import { utf8ToBytes } from "@noble/hashes/utils.js"
-import { Boolean as B, Iterable, Match, Number as N, Option, String as Str } from "effect"
+import { Boolean as B, Either, Encoding, Iterable, Match, Number as N, Option, String as Str } from "effect"
 
 import { InvalidUnicode } from "../schemas/errors.js"
 
@@ -45,8 +44,14 @@ export const unicodeFault = (text: string): Option.Option<InvalidUnicode> =>
     (match) => Option.flatMap(Option.fromNullable(match.index), (index) => unicodeFaultAt(text, index))
   )
 
-/** @internal */
-export const encodeUtf8Unchecked = (text: string): Uint8Array => utf8ToBytes(text)
+/**
+ * Core Effect v3 exposes pure string-to-byte encoding through its public codecs.
+ * The decoder cannot fail on Base64 just produced by the paired encoder. This
+ * keeps synchronous digest APIs runtime-free and preserves a leading U+FEFF.
+ * @internal
+ */
+export const encodeUtf8Unchecked = (text: string): Uint8Array =>
+  Either.getOrThrow(Encoding.decodeBase64(Encoding.encodeBase64(text)))
 
 /** Measure well-formed text using the package's canonical UTF-8 law. @internal */
 export const utf8ByteLengthUnchecked = (text: string): number =>

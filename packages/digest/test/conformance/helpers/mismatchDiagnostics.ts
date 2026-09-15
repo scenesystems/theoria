@@ -1,51 +1,26 @@
 import { expect } from "@effect/vitest"
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, String as Str } from "effect"
 
-const firstDifferenceIndex = (expected: string, actual: string): Option.Option<number> => {
-  const sharedLength = Math.min(expected.length, actual.length)
-  const sharedDifference = sharedLength === 0
-    ? Option.none<number>()
-    : Arr.findFirst(Arr.range(0, sharedLength - 1), (index) => expected[index] !== actual[index])
-
-  return Option.orElse(
-    sharedDifference,
-    () => expected.length === actual.length ? Option.none<number>() : Option.some(sharedLength)
-  )
-}
-
-const charAt = (value: string, index: Option.Option<number>): string =>
-  Option.match(index, {
-    onNone: () => "<none>",
-    onSome: (i) => i < value.length ? `'${value[i]}'` : "<end>"
-  })
+const field = (label: string, value: string): string => Str.concat(Str.concat(label, ": "), value)
 
 const formatDiagnostics = (
   fixtureId: string,
   algorithm: string,
   sourceId: string,
   sourceLocator: string,
-  fixturePath: string,
-  expected: string,
-  actual: string
-): string => {
-  const index = firstDifferenceIndex(expected, actual)
-  const indexLabel = Option.match(index, {
-    onNone: () => "none",
-    onSome: (i) => `${i}`
-  })
-
-  return [
-    "Digest conformance mismatch",
-    `fixture: ${fixtureId}`,
-    `algorithm: ${algorithm}`,
-    `source: ${sourceId}`,
-    `origin: ${sourceLocator}`,
-    `fixturePath: ${fixturePath}`,
-    `firstDifferenceIndex: ${indexLabel}`,
-    `expectedChar: ${charAt(expected, index)}`,
-    `actualChar: ${charAt(actual, index)}`
-  ].join("\n")
-}
+  fixturePath: string
+): string =>
+  Arr.join(
+    Arr.make(
+      "Digest conformance mismatch",
+      field("fixture", fixtureId),
+      field("algorithm", algorithm),
+      field("source", sourceId),
+      field("origin", sourceLocator),
+      field("fixturePath", fixturePath)
+    ),
+    "\n"
+  )
 
 export const expectStringMatch = (
   fixtureId: string,
@@ -56,6 +31,6 @@ export const expectStringMatch = (
   actual: string,
   expected: string
 ): void =>
-  expect(actual, formatDiagnostics(fixtureId, algorithm, sourceId, sourceLocator, fixturePath, expected, actual)).toBe(
+  expect(actual, formatDiagnostics(fixtureId, algorithm, sourceId, sourceLocator, fixturePath)).toBe(
     expected
   )

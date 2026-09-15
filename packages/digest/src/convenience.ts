@@ -117,9 +117,12 @@ export const digestBytesHex = (
  *
  * @remarks
  * Malformed Unicode in values or keys fails through `CanonicalizationError`;
- * replacement text is never emitted.
+ * replacement text is never emitted. Canonical traversal is stack-safe and
+ * cooperative between batches. Record key discovery and sorting, the final string
+ * join, and UTF-8 materialization are synchronous and are not bounded interruption
+ * points. The input graph must remain stable until the Effect completes.
  *
- * @param value - Value in the strict canonical plain-data domain.
+ * @param value - Value represented by dense array elements and own enumerable string-keyed record fields.
  * @returns Exact canonical UTF-8 bytes, or a canonicalization failure.
  *
  * @since 0.1.0
@@ -135,10 +138,11 @@ export const canonicalJsonBytes = (
  *
  * @remarks
  * This is equivalent to passing the output of `canonicalJsonBytes` to
- * `digestBytes`.
+ * `digestBytes`. It uses the same JSON-visible traversal contract and synchronous
+ * final materialization boundaries as `canonicalJsonBytes`.
  *
  * @param algorithm - Digest algorithm applied to the canonical bytes.
- * @param value - Value in the strict canonical plain-data domain.
+ * @param value - Value in the canonical JSON-visible domain.
  * @returns A 32-byte digest, or a canonicalization failure.
  *
  * @since 0.2.0
@@ -153,8 +157,12 @@ export const digestCanonicalJsonBytes = (
 /**
  * Hashes canonical JSON bytes and returns an unpadded base64url digest.
  *
+ * @remarks
+ * Uses the JSON-visible traversal and execution boundaries documented by
+ * `canonicalJsonBytes`.
+ *
  * @param algorithm - Digest algorithm applied to the canonical bytes.
- * @param value - Value in the strict canonical plain-data domain.
+ * @param value - Value in the canonical JSON-visible domain.
  * @returns A 43-character digest, or a canonicalization failure.
  *
  * @since 0.2.0
@@ -169,8 +177,12 @@ export const digestCanonicalJsonBase64Url = (
 /**
  * Hashes canonical JSON bytes and returns a lowercase hexadecimal digest.
  *
+ * @remarks
+ * Uses the JSON-visible traversal and execution boundaries documented by
+ * `canonicalJsonBytes`.
+ *
  * @param algorithm - Digest algorithm applied to the canonical bytes.
- * @param value - Value in the strict canonical plain-data domain.
+ * @param value - Value in the canonical JSON-visible domain.
  * @returns A 64-character digest, or a canonicalization failure.
  *
  * @since 0.2.0

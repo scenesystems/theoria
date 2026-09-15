@@ -1,31 +1,94 @@
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Clock, Console, Data, Effect, Number as Num, Option, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as B,
+  Clock,
+  Console,
+  Deferred,
+  Duration,
+  Effect,
+  Iterable,
+  Number as Num,
+  Option,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 
-import { canonicalJsonBytes } from "../src/convenience.js"
+import { canonicalJsonBytes } from "../src/index.js"
 
 const POINT_COUNT = 65_536
 const WARMUP_SAMPLES = 1
 const MEASURED_SAMPLES = 3
-const TIMER_DURATION_MS = 1
+const TIMER_DURATION = Duration.millis(1)
 
-class Sample extends Data.Class<{
-  readonly wallMs: number
-  readonly schedulerDelayMs: number
-  readonly bytes: number
-}> {}
+class Sample extends Schema.Class<Sample>("CanonicalizationResponsivenessSample")({
+  wallMs: Schema.Number,
+  schedulerDelayMs: Schema.Number,
+  bytes: Schema.Number
+}) {}
 
-const maximumValid = {
+class Probe extends Schema.Class<Probe>("CanonicalizationResponsivenessProbe")({
+  delay: Schema.DurationFromSelf,
+  previous: Schema.DurationFromSelf
+}) {}
+
+class Distribution extends Schema.Class<Distribution>("CanonicalizationResponsivenessDistribution")({
+  min: Schema.Number,
+  p50: Schema.Number,
+  p95: Schema.Number,
+  max: Schema.Number,
+  mean: Schema.Number
+}) {}
+
+class Workload extends Schema.Class<Workload>("CanonicalizationResponsivenessWorkload")({
+  pointCount: Schema.Number,
+  warmupSamples: Schema.Number,
+  measuredSamples: Schema.Number,
+  timerDurationMs: Schema.Number
+}) {}
+
+class Report extends Schema.Class<Report>("CanonicalizationResponsivenessReport")({
+  workload: Workload,
+  samples: Schema.NonEmptyArray(Sample),
+  wallMs: Distribution,
+  schedulerDelayMs: Distribution
+}) {}
+
+const ReportJson = Schema.parseJson(Report, { space: 2 })
+
+const MaximumValid = Schema.Struct({
+  version: Schema.Literal("scene.graph.closed.v1"),
+  domain: Schema.Literal("scene.graph.closed"),
+  algorithm: Schema.Literal("blake3-256"),
+  points: Schema.Array(Schema.Array(Schema.String)),
+  attachments: Schema.Array(Schema.Unknown),
+  edges: Schema.Array(Schema.Unknown),
+  compositions: Schema.Array(Schema.Unknown),
+  children: Schema.Array(Schema.Unknown)
+})
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+
+const maximumValid = Schema.decodeSync(MaximumValid)({
   version: "scene.graph.closed.v1",
   domain: "scene.graph.closed",
   algorithm: "blake3-256",
-  points: Arr.makeBy(POINT_COUNT, (index) => index === 0 ? [] : [`point-${String(index).padStart(5, "0")}`]),
-  attachments: [],
-  edges: [],
-  compositions: [],
-  children: []
-}
+  points: Arr.makeBy(POINT_COUNT, (index) =>
+    B.match(Num.Equivalence(index, 0), {
+      onTrue: () => Arr.empty<string>(),
+      onFalse: () => Arr.of(Str.concat("point-", Str.padStart(5, "0")(encodeNumber(index))))
+    })),
+  attachments: Arr.empty(),
+  edges: Arr.empty(),
+  compositions: Arr.empty(),
+  children: Arr.empty()
+})
 
-const nowMillis: Effect.Effect<number> = Effect.map(Clock.currentTimeNanos, (nanos) => Number(nanos) / 1_000_000)
+const currentTime = Effect.map(Clock.currentTimeNanos, Duration.nanos)
+
+const schedulerDelay = (current: Duration.Duration, previous: Duration.Duration): Duration.Duration =>
+  Duration.subtract(Duration.subtract(current, previous), TIMER_DURATION)
 
 /**
  * Samples one canonicalization while a one-millisecond sleeper fiber runs
@@ -35,25 +98,29 @@ const nowMillis: Effect.Effect<number> = Effect.map(Clock.currentTimeNanos, (nan
  */
 const observe: Effect.Effect<Sample> = Effect.scoped(
   Effect.gen(function*() {
-    const probe = yield* Ref.make({ delay: 0, previous: 0 })
+    const probe = yield* Ref.make(new Probe({ delay: Duration.zero, previous: Duration.zero }))
+    const timerStarted = yield* Deferred.make<void>()
     const tick = Effect.gen(function*() {
-      yield* Effect.sleep(TIMER_DURATION_MS)
-      const now = yield* nowMillis
-      yield* Ref.update(probe, (state) => ({
-        delay: Math.max(state.delay, now - state.previous - TIMER_DURATION_MS),
-        previous: now
-      }))
+      yield* Effect.sleep(TIMER_DURATION)
+      const now = yield* currentTime
+      yield* Ref.update(probe, (state) =>
+        new Probe({
+          delay: Duration.max(state.delay, schedulerDelay(now, state.previous)),
+          previous: now
+        }))
     })
-    const started = yield* nowMillis
-    yield* Ref.update(probe, (state) => ({ ...state, previous: started }))
-    yield* Effect.forkScoped(Effect.forever(tick))
+    const started = yield* currentTime
+    yield* Ref.set(probe, new Probe({ delay: Duration.zero, previous: started }))
+    const timer = Deferred.succeed(timerStarted, undefined).pipe(Effect.zipRight(Effect.forever(tick)))
+    yield* Effect.forkScoped(timer)
+    yield* Deferred.await(timerStarted)
     const bytes = yield* Effect.orDie(canonicalJsonBytes(maximumValid))
-    const finished = yield* nowMillis
+    const finished = yield* currentTime
     const final = yield* Ref.get(probe)
     return new Sample({
-      wallMs: finished - started,
-      schedulerDelayMs: Math.max(final.delay, finished - final.previous - TIMER_DURATION_MS),
-      bytes: bytes.length
+      wallMs: Duration.toMillis(Duration.subtract(finished, started)),
+      schedulerDelayMs: Duration.toMillis(Duration.max(final.delay, schedulerDelay(finished, final.previous))),
+      bytes: Iterable.size(bytes)
     })
   })
 )
@@ -62,61 +129,36 @@ const distribution = (values: Arr.NonEmptyReadonlyArray<number>) => {
   const sorted = Arr.sort(values, Num.Order)
   const percentile = (fraction: number): number =>
     Option.getOrElse(
-      Arr.get(sorted, Math.ceil(sorted.length * fraction) - 1),
-      () => Arr.lastNonEmpty(sorted)
+      Arr.findFirst(sorted, (_value, index) =>
+        Num.greaterThanOrEqualTo(Num.increment(index), Num.multiply(Arr.length(sorted), fraction))),
+      () =>
+        Arr.lastNonEmpty(sorted)
     )
-  return {
+  return new Distribution({
     min: Arr.headNonEmpty(sorted),
     p50: percentile(0.5),
     p95: percentile(0.95),
     max: Arr.lastNonEmpty(sorted),
-    mean: Num.sumAll(sorted) / sorted.length
-  }
+    mean: Num.unsafeDivide(Num.sumAll(sorted), Arr.length(sorted))
+  })
 }
-
-const Distribution = Schema.Struct({
-  min: Schema.Number,
-  p50: Schema.Number,
-  p95: Schema.Number,
-  max: Schema.Number,
-  mean: Schema.Number
-})
-
-const Report = Schema.parseJson(
-  Schema.Struct({
-    workload: Schema.Struct({
-      pointCount: Schema.Number,
-      warmupSamples: Schema.Number,
-      measuredSamples: Schema.Number,
-      timerDurationMs: Schema.Number
-    }),
-    samples: Schema.Array(
-      Schema.Struct({
-        wallMs: Schema.Number,
-        schedulerDelayMs: Schema.Number,
-        bytes: Schema.Number
-      })
-    ),
-    wallMs: Distribution,
-    schedulerDelayMs: Distribution
-  }),
-  { space: 2 }
-)
 
 const program = Effect.gen(function*() {
   yield* Effect.forEach(Arr.makeBy(WARMUP_SAMPLES, (index) => index), () => observe, { discard: true })
   const samples = yield* Effect.forEach(Arr.makeBy(MEASURED_SAMPLES, (index) => index), () => observe)
-  const report = yield* Schema.encode(Report)({
-    workload: {
-      pointCount: POINT_COUNT,
-      warmupSamples: WARMUP_SAMPLES,
-      measuredSamples: MEASURED_SAMPLES,
-      timerDurationMs: TIMER_DURATION_MS
-    },
-    samples,
-    wallMs: distribution(Arr.map(samples, ({ wallMs }) => wallMs)),
-    schedulerDelayMs: distribution(Arr.map(samples, ({ schedulerDelayMs }) => schedulerDelayMs))
-  })
+  const report = yield* Schema.encode(ReportJson)(
+    new Report({
+      workload: new Workload({
+        pointCount: POINT_COUNT,
+        warmupSamples: WARMUP_SAMPLES,
+        measuredSamples: MEASURED_SAMPLES,
+        timerDurationMs: Duration.toMillis(TIMER_DURATION)
+      }),
+      samples,
+      wallMs: distribution(Arr.map(samples, ({ wallMs }) => wallMs)),
+      schedulerDelayMs: distribution(Arr.map(samples, ({ schedulerDelayMs }) => schedulerDelayMs))
+    })
+  )
   yield* Console.log(report)
 })
 

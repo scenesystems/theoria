@@ -4,7 +4,7 @@ import { blake3 } from "@noble/hashes/blake3.js"
 import type { _BLAKE3 } from "@noble/hashes/blake3.js"
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"
 import type { _SHA256 } from "@noble/hashes/sha2.js"
-import { Effect, Match } from "effect"
+import { Effect, Match, String as Str } from "effect"
 
 import { blake3Hash } from "../algorithms/blake3.js"
 import { sha256 } from "../algorithms/sha256.js"
@@ -13,7 +13,8 @@ import type { DigestAlgorithm } from "../schemas/DigestAlgorithm.js"
 
 export type IncrementalHasher = _BLAKE3 | _SHA256
 
-const tagDigest = (algorithm: DigestAlgorithm, digest: Uint8Array): string => `${algorithm}:${toBase64Url(digest)}`
+const tagDigest = (algorithm: DigestAlgorithm, digest: Uint8Array): string =>
+  Str.concat(Str.concat(algorithm, ":"), toBase64Url(digest))
 
 export const makeIncrementalHasherSync = (algorithm: DigestAlgorithm): IncrementalHasher =>
   Match.value(algorithm).pipe(

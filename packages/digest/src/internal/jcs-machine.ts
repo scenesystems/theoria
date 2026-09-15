@@ -1,169 +1,123 @@
-/** Cooperative and synchronous JCS execution drivers. @internal */
+/** Cooperative and synchronous drivers over the same canonical traversal. @internal */
 
-import { Array as Arr, Chunk, Effect, Either, Iterable, MutableHashSet, MutableList, MutableRef, Option } from "effect"
-import * as Tuple from "effect/Tuple"
+import {
+  Boolean as B,
+  Chunk,
+  Effect,
+  Either,
+  Iterable,
+  MutableHashSet,
+  MutableList,
+  MutableRef,
+  Number as N,
+  Option,
+  Predicate,
+  Stream
+} from "effect"
+import { constVoid } from "effect/Function"
 
 import { CanonicalByteLimitExceeded, type CanonicalizationError } from "../schemas/errors.js"
-import {
-  processArrayCheck,
-  processArrayFill,
-  processDescriptors,
-  processSort,
-  processSymbols
-} from "./jcs-admission-machine.js"
-import type { CanonicalSegmentSink, Frame } from "./jcs-model.js"
-import { ByteBudget, exceeded, flushPending, ref, State } from "./jcs-model.js"
-import { processClose, processCursor, processKeys, processString, processVisit } from "./jcs-serialization-machine.js"
+import { flushPending, Frame, State } from "./jcs-model.js"
+import { process } from "./jcs-serialization-machine.js"
+import { utf8ByteLengthUnchecked } from "./unicode.js"
 
-const BATCH = 512
-// Bun 1.3.9 imposes an approximately 1 ms floor on sleep(0). Keep fiber
-// cooperation every batch and run host timers every 8,192 machine frames,
-// halving the prior window without the roughly 8x every-batch wall penalty.
-const HOST_YIELD_BATCHES = 16
-const CONTROL_TOKENS: ReadonlyArray<number> = Arr.makeBy(BATCH, (index) => index)
-
-const process = (state: State, frame: Frame): void => {
-  if (frame._tag === "Visit") return processVisit(state, frame)
-  if (frame._tag === "Symbols") return processSymbols(state, frame)
-  if (frame._tag === "Descriptors") return processDescriptors(state, frame)
-  if (frame._tag === "ArrayCheck") return processArrayCheck(state, frame)
-  if (frame._tag === "ArrayFill") return processArrayFill(state, frame)
-  if (frame._tag === "Sort") return processSort(state, frame)
-  if (frame._tag === "Keys") return processKeys(state, frame)
-  if (frame._tag === "String") return processString(state, frame)
-  if (frame._tag === "ArrayCursor" || frame._tag === "RecordCursor") return processCursor(state, frame)
-  processClose(state, frame)
-}
-
-const stopped = (state: State): boolean =>
-  MutableList.isEmpty(state.stack) || Option.isSome(MutableRef.get(state.failure)) || exceeded(state)
-
-const makeState = (
+const makeState = <E>(
   value: unknown,
-  budget: Option.Option<ByteBudget>,
-  sink: Option.Option<CanonicalSegmentSink>
-): State =>
+  admit: (text: string) => Either.Either<void, E>,
+  sink: Option.Option<(segment: string) => void>
+): State<E> =>
   new State({
-    stack: MutableList.make({ _tag: "Visit", value }),
+    stack: MutableList.make(Frame.Visit({ value })),
     active: MutableHashSet.empty(),
     segments: MutableList.empty(),
     sink,
-    pending: ref(""),
-    budget,
-    failure: ref(Option.none())
+    admit,
+    pending: MutableRef.make(""),
+    failure: MutableRef.make(Option.none())
   })
 
-const processBatch = (state: State): State => {
-  CONTROL_TOKENS.some(() =>
-    stopped(state) || Option.match(Option.fromNullable(MutableList.shift(state.stack)), {
-      onNone: () => true,
-      onSome: (frame) => {
-        process(state, frame)
-        return false
+const stopped = <E>(state: State<E>): boolean =>
+  B.or(MutableList.isEmpty(state.stack), Option.isSome(MutableRef.get(state.failure)))
+
+const processBatch = <E>(state: State<E>): void => {
+  Iterable.forEach(
+    Iterable.takeWhile(Iterable.range(1, 256), () => B.not(stopped(state))),
+    () =>
+      Option.match(Option.fromNullable(MutableList.shift(state.stack)), {
+        onNone: constVoid,
+        onSome: (frame) => process(state, frame)
+      })
+  )
+}
+
+const complete = <E>(state: State<E>): Either.Either<void, CanonicalizationError | E> =>
+  Option.match(MutableRef.get(state.failure), {
+    onSome: Either.left,
+    onNone: () => {
+      flushPending(state)
+      return Either.right(undefined)
+    }
+  })
+
+const execute = <E>(state: State<E>): Effect.Effect<void, CanonicalizationError | E> =>
+  Effect.iterate(state, {
+    while: Predicate.not(stopped),
+    body: (current) =>
+      Effect.gen(function*() {
+        processBatch(current)
+        yield* Effect.when(Effect.sleep(0), () => B.not(stopped(current)))
+        return current
+      })
+  }).pipe(Effect.flatMap(complete))
+
+const executeSynchronously = <E>(state: State<E>): Either.Either<void, CanonicalizationError | E> => {
+  Iterable.forEach(Iterable.takeWhile(Iterable.range(0), () => B.not(stopped(state))), () => processBatch(state))
+  return complete(state)
+}
+
+const admitBounded =
+  (maximumBytes: number, byteLength: MutableRef.MutableRef<number>) =>
+  (text: string): Either.Either<void, CanonicalByteLimitExceeded> => {
+    const next = N.sum(MutableRef.get(byteLength), utf8ByteLengthUnchecked(text))
+    return B.match(N.greaterThan(next, maximumBytes), {
+      onTrue: () => Either.left(new CanonicalByteLimitExceeded({})),
+      onFalse: () => {
+        MutableRef.set(byteLength, next)
+        return Either.right(undefined)
       }
     })
-  )
-  return state
-}
-
-const execute = (
-  value: unknown,
-  maximumBytes: Option.Option<number>,
-  sink: Option.Option<CanonicalSegmentSink>
-): Effect.Effect<State, CanonicalizationError> =>
-  Effect.suspend(() => {
-    const batches = ref(0)
-    const state = makeState(
-      value,
-      Option.map(maximumBytes, (maximum) =>
-        new ByteBudget({ maximumBytes: maximum, byteLength: ref(0), exceeded: ref(false) })),
-      sink
-    )
-    return Effect.flatMap(
-      Effect.iterate(state, {
-        while: (current) =>
-          !stopped(current),
-        body: (current) =>
-          Effect.filterOrElse(
-            Effect.sync(() => processBatch(current)),
-            stopped,
-            (nextState) =>
-              Effect.as(
-                Effect.zipRight(
-                  Effect.yieldNow(),
-                  Effect.suspend(() => {
-                    const next = MutableRef.get(batches) + 1
-                    MutableRef.set(batches, next % HOST_YIELD_BATCHES)
-                    return next === HOST_YIELD_BATCHES ? Effect.sleep(0) : Effect.void
-                  })
-                ),
-                nextState
-              )
-          )
-        // Bun timers require a host boundary in addition to fiber yielding. Amortize that
-        // boundary while retaining Effect scheduler cooperation after every fixed-size batch.
-      }),
-      (current) => {
-        const failure = MutableRef.get(current.failure)
-        if (Option.isSome(failure)) return Effect.fail(failure.value)
-        return Effect.succeed(current)
-      }
-    )
-  })
-
-const executeSynchronously = (state: State): Either.Either<State, CanonicalizationError> => {
-  const completed = Iterable.reduce(
-    Iterable.unfold(state, (current) =>
-      stopped(current)
-        ? Option.none()
-        : Option.some(Tuple.make(processBatch(current), current))),
-    state,
-    (_, current) => current
-  )
-  const failure = MutableRef.get(completed.failure)
-  return Option.match(failure, {
-    onNone: () => Either.right(completed),
-    onSome: Either.left
-  })
-}
-
-const segments = (state: State): Chunk.Chunk<string> => {
-  flushPending(state)
-  return Chunk.fromIterable(state.segments)
-}
+  }
 
 export const canonicalizeSegments = (value: unknown): Effect.Effect<Chunk.Chunk<string>, CanonicalizationError> =>
-  Effect.map(execute(value, Option.none(), Option.none()), segments)
+  Effect.suspend(() => {
+    const state = makeState(value, () => Either.right(undefined), Option.none())
+    return Effect.map(execute(state), () => Chunk.fromIterable(state.segments))
+  })
+
 export const canonicalizeWithByteLimit = (
   value: unknown,
   maximumBytes: number,
-  sink: CanonicalSegmentSink
+  sink: (segment: string) => void
 ): Effect.Effect<number, CanonicalizationError | CanonicalByteLimitExceeded> =>
-  Effect.flatMap(execute(value, Option.some(maximumBytes), Option.some(sink)), (state) =>
-    Option.match(state.budget, {
-      onNone: () => Effect.dieMessage("bounded canonicalization requires a byte budget"),
-      onSome: (budget) =>
-        MutableRef.get(budget.exceeded)
-          ? new CanonicalByteLimitExceeded({})
-          : Effect.sync(() => {
-            flushPending(state)
-            return MutableRef.get(budget.byteLength)
-          })
-    }))
+  Effect.suspend(() => {
+    const length = MutableRef.make(0)
+    const state = makeState(value, admitBounded(maximumBytes, length), Option.some(sink))
+    return Effect.map(execute(state), () => MutableRef.get(length))
+  })
+
 export const canonicalizeWithByteLimitEither = (
   value: unknown,
   maximumBytes: number,
-  sink: CanonicalSegmentSink
+  sink: (segment: string) => void
 ): Either.Either<number, CanonicalizationError | CanonicalByteLimitExceeded> => {
-  const budget = new ByteBudget({ maximumBytes, byteLength: ref(0), exceeded: ref(false) })
-  return Either.flatMap(
-    executeSynchronously(makeState(value, Option.some(budget), Option.some(sink))),
-    (state) => {
-      if (MutableRef.get(budget.exceeded)) return Either.left(new CanonicalByteLimitExceeded({}))
-      flushPending(state)
-      return Either.right(MutableRef.get(budget.byteLength))
-    }
-  )
+  const length = MutableRef.make(0)
+  const state = makeState(value, admitBounded(maximumBytes, length), Option.some(sink))
+  return Either.map(executeSynchronously(state), () => MutableRef.get(length))
 }
+
 export const canonicalizeValue = (value: unknown): Effect.Effect<string, CanonicalizationError> =>
-  Effect.map(canonicalizeSegments(value), (output) => Chunk.join(output, ""))
+  Effect.map(canonicalizeSegments(value), (segments) => Chunk.join(segments, ""))
+
+/** Final materialization is synchronous; bounded hashing consumes segments instead. */
+export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.Effect<Uint8Array> =>
+  Stream.make(Chunk.join(segments, "")).pipe(Stream.encodeText, Stream.runHead, Effect.map(Option.getOrThrow))

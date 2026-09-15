@@ -34,7 +34,7 @@ import {
   String as Str
 } from "effect"
 
-import { encodeUtf8Unchecked, unicodeFault } from "./internal/unicode.js"
+import { unicodeFault } from "./internal/unicode.js"
 import type { InvalidUnicode } from "./schemas/errors.js"
 
 /**
@@ -121,7 +121,7 @@ export const fromUnicodeScalar = (value: number): Effect.Effect<string, ParseRes
 export const encodeUtf8 = (text: string): Effect.Effect<Uint8Array, InvalidUnicode> =>
   Effect.suspend(() =>
     Option.match(unicodeFault(text), {
-      onNone: () => Effect.sync(() => encodeUtf8Unchecked(text)),
+      onNone: () => Stream.make(text).pipe(Stream.encodeText, Stream.runHead, Effect.map(Option.getOrThrow)),
       onSome: Effect.fail
     })
   )

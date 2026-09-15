@@ -1,125 +1,142 @@
-/** Cooperative JCS value, key, and string serialization. @internal */
+/** Native JSON scalar encoding and canonical collection traversal. @internal */
 
-import { Array as Arr, Either, MutableHashSet, MutableRef, Option, Record } from "effect"
+import {
+  Array as Arr,
+  Boolean as B,
+  Chunk,
+  type Data,
+  Either,
+  Match,
+  MutableHashSet,
+  Number as N,
+  Option,
+  Predicate,
+  Record,
+  Schema,
+  String as Str
+} from "effect"
 
-import { classifyPrimitive, reflect } from "./admission.js"
-import { startObject } from "./jcs-admission-machine.js"
-import type { Frame, State } from "./jcs-model.js"
-import { emit, fail, push, ref } from "./jcs-model.js"
-import { unicodeFaultAt } from "./unicode.js"
+import { CyclicValue, InvalidUnicode, UnsupportedValue } from "../schemas/errors.js"
+import { Ancestor, emit, fail, Frame, push, type State } from "./jcs-model.js"
+import { unicodeFault } from "./unicode.js"
 
-const SHORT_ESCAPES: Readonly<Record<string, string>> = {
-  "\b": "\\b",
-  "\t": "\\t",
-  "\n": "\\n",
-  "\f": "\\f",
-  "\r": "\\r"
-}
-const escapeUnit = (text: string, at: number): string => {
-  const character = text.charAt(at)
-  if (character === "\"") return "\\\""
-  if (character === "\\") return "\\\\"
-  return Option.getOrElse(Record.get(SHORT_ESCAPES, character), () => {
-    const code = text.charCodeAt(at)
-    return code < 0x20 ? `\\u${code.toString(16).padStart(4, "0")}` : character
-  })
-}
-const scalarWidth = (text: string, at: number): number => {
-  const code = text.charCodeAt(at)
-  return code >= 0xd800 && code <= 0xdbff ? 2 : 1
-}
+const encodeScalar = Schema.encodeUnknownEither(
+  Schema.parseJson(Schema.Union(Schema.Null, Schema.Boolean, Schema.JsonNumber, Schema.String))
+)
+const isNaN = Predicate.and(Predicate.isNumber, Predicate.not(Schema.is(Schema.NonNaN)))
+const isFinite = Schema.is(Schema.JsonNumber)
+const isHighSurrogate = N.between({ minimum: 0xd800, maximum: 0xdbff })
 
-const checkKey = (state: State, frame: Extract<Frame, { _tag: "Keys" }>, key: string): void => {
-  const code = MutableRef.get(frame.code)
-  if (code === key.length) {
-    MutableRef.update(frame.entry, (entry) => entry + 1)
-    MutableRef.set(frame.code, 0)
-    return push(state, frame)
-  }
-  const fault = unicodeFaultAt(key, code)
-  if (Option.isSome(fault)) return fail(state, fault.value)
-  MutableRef.set(frame.code, code + scalarWidth(key, code))
-  push(state, frame)
-}
+const reject = <E>(state: State<E>, reason: UnsupportedValue["reason"]): void =>
+  fail(state, new UnsupportedValue({ reason }))
 
-export const processKeys = (state: State, frame: Extract<Frame, { _tag: "Keys" }>): void =>
-  Option.match(Arr.get(frame.entries, MutableRef.get(frame.entry)), {
-    onNone: () => {
-      if (!emit(state, "{")) return
-      push(state, { _tag: "RecordCursor", identity: frame.identity, entries: frame.entries, at: ref(0) })
-    },
-    onSome: (entry) => checkKey(state, frame, entry.key)
-  })
-
-export const processString = (state: State, frame: Extract<Frame, { _tag: "String" }>): void => {
-  const at = MutableRef.get(frame.at)
-  if (at === frame.text.length) {
-    emit(state, `"${frame.suffix}`)
-    return
-  }
-  const fault = unicodeFaultAt(frame.text, at)
-  if (Option.isSome(fault)) return fail(state, fault.value)
-  const width = scalarWidth(frame.text, at)
-  if (!emit(state, width === 2 ? frame.text.slice(at, at + 2) : escapeUnit(frame.text, at))) return
-  MutableRef.set(frame.at, at + width)
-  push(state, frame)
-}
-
-type Cursor = Extract<Frame, { _tag: "ArrayCursor" | "RecordCursor" }>
-
-const closeCursor = (state: State, frame: Cursor, token: "]" | "}"): void =>
-  push(state, { _tag: "Close", identity: frame.identity, token })
-
-/** Emits the separator and moves the cursor past `at`; `false` when the byte budget stopped the machine. */
-const advanceCursor = (state: State, frame: Cursor, at: number): boolean => {
-  if (at > 0 && !emit(state, ",")) return false
-  MutableRef.set(frame.at, at + 1)
-  push(state, frame)
-  return true
-}
-
-export const processCursor = (state: State, frame: Cursor): void => {
-  const at = MutableRef.get(frame.at)
-  if (frame._tag === "ArrayCursor") {
-    return Option.match(Arr.get(frame.values, at), {
-      onNone: () => closeCursor(state, frame, "]"),
-      onSome: (value) => {
-        if (!advanceCursor(state, frame, at)) return
-        push(state, { _tag: "Visit", value })
-      }
-    })
-  }
-  Option.match(Arr.get(frame.entries, at), {
-    onNone: () => closeCursor(state, frame, "}"),
-    onSome: (entry) => {
-      if (!advanceCursor(state, frame, at) || !emit(state, "\"")) return
-      push(state, { _tag: "Visit", value: entry.value })
-      push(state, { _tag: "String", text: entry.key, at: ref(0), suffix: ":" })
+const open = <E>(state: State<E>, identity: object, token: string, cursor: Frame): void => {
+  const ancestor = new Ancestor({ identity })
+  B.match(MutableHashSet.has(state.active, ancestor), {
+    onTrue: () => fail(state, new CyclicValue()),
+    onFalse: () => {
+      MutableHashSet.add(state.active, ancestor)
+      emit(state, token)
+      push(state, cursor)
     }
   })
 }
 
-export const processVisit = (state: State, frame: Extract<Frame, { _tag: "Visit" }>): void => {
-  const result = classifyPrimitive(frame.value)
-  if (Either.isLeft(result)) return fail(state, result.left)
-  const value = result.right
-  if (value._tag === "Object") return startObject(state, value.value)
-  if (value._tag === "String") {
-    if (!emit(state, "\"")) return
-    return push(state, { _tag: "String", text: value.value, at: ref(0), suffix: "" })
-  }
-  emit(
-    state,
-    value._tag === "Null" ? "null" : value._tag === "Boolean" ?
-      (value.value ? "true" : "false")
-      : Object.is(value.value, -0)
-      ? "0"
-      : String(value.value)
-  )
+const startString = <E>(state: State<E>, text: string, suffix: string): void => {
+  emit(state, "\"")
+  push(state, Frame.String({ text, at: 0, suffix }))
 }
 
-export const processClose = (state: State, frame: Extract<Frame, { _tag: "Close" }>): void => {
-  if (!emit(state, frame.token)) return
-  const removed = reflect(() => MutableHashSet.remove(state.active, frame.identity))
-  if (Either.isLeft(removed)) fail(state, removed.left)
-}
+const visit = <E>(state: State<E>, value: unknown): void =>
+  Match.value(value).pipe(
+    Match.when(Predicate.isUndefined, () => reject(state, "undefined")),
+    Match.when(Predicate.isBigInt, () => reject(state, "bigint")),
+    Match.when(Predicate.isFunction, () => reject(state, "function")),
+    Match.when(Predicate.isSymbol, () => reject(state, "symbol")),
+    Match.when(Predicate.isDate, () => reject(state, "date")),
+    Match.when(Predicate.isRegExp, () => reject(state, "regexp")),
+    Match.when(Predicate.isUint8Array, () => reject(state, "typed-array")),
+    Match.when(Predicate.isMap, () => reject(state, "map")),
+    Match.when(Predicate.isSet, () => reject(state, "set")),
+    Match.when(Predicate.isPromise, () => reject(state, "promise")),
+    Match.when(isNaN, () => reject(state, "nan")),
+    Match.when(Predicate.and(Predicate.isNumber, Predicate.not(isFinite)), () => reject(state, "non-finite-number")),
+    Match.when(Predicate.isString, (text) => startString(state, text, "")),
+    Match.when(Arr.isArray, (identity) => open(state, identity, "[", Frame.Array({ identity, at: 0 }))),
+    Match.when(Predicate.isRecord, (identity) =>
+      open(
+        state,
+        identity,
+        "{",
+        Frame.Record({
+          identity,
+          keys: Chunk.fromIterable(Arr.sort(Record.keys(identity), Str.Order)),
+          at: 0
+        })
+      )),
+    Match.orElse((scalar) =>
+      Either.match(encodeScalar(scalar), {
+        onLeft: () => reject(state, "unsupported-value"),
+        onRight: (encoded) => emit(state, encoded)
+      })
+    )
+  )
+
+const processString = <E>(state: State<E>, frame: Data.TaggedEnum.Value<Frame, "String">): void =>
+  B.match(N.Equivalence(frame.at, Str.length(frame.text)), {
+    onTrue: () => emit(state, Str.concat("\"", frame.suffix)),
+    onFalse: () => {
+      // Keep the native scalar encoder bounded without splitting a surrogate pair.
+      const limit = N.min(N.sum(frame.at, 1_024), Str.length(frame.text))
+      const end = B.match(Option.exists(Str.charCodeAt(frame.text, N.decrement(limit)), isHighSurrogate), {
+        onTrue: () => N.min(N.increment(limit), Str.length(frame.text)),
+        onFalse: () => limit
+      })
+      const text = Str.slice(frame.at, end)(frame.text)
+      Option.match(unicodeFault(text), {
+        onSome: (error) =>
+          fail(state, new InvalidUnicode({ kind: error.kind, codeUnitIndex: N.sum(frame.at, error.codeUnitIndex) })),
+        onNone: () =>
+          Either.match(encodeScalar(text), {
+            onLeft: () => reject(state, "unsupported-value"),
+            onRight: (encoded) => {
+              emit(state, Str.slice(1, -1)(encoded))
+              push(state, Frame.String({ text: frame.text, at: end, suffix: frame.suffix }))
+            }
+          })
+      })
+    }
+  })
+
+export const process = <E>(state: State<E>, frame: Frame): void =>
+  Frame.$match(frame, {
+    Visit: ({ value }) => visit(state, value),
+    String: (value) => processString(state, value),
+    Close: ({ identity, token }) => {
+      emit(state, token)
+      MutableHashSet.remove(state.active, new Ancestor({ identity }))
+    },
+    Array: ({ identity, at }) =>
+      Option.match(Arr.get(identity, at), {
+        onNone: () => push(state, Frame.Close({ identity, token: "]" })),
+        onSome: (value) =>
+          B.match(Predicate.hasProperty(identity, at), {
+            onFalse: () => reject(state, "sparse-array"),
+            onTrue: () => {
+              B.match(N.greaterThan(at, 0), { onTrue: () => emit(state, ","), onFalse: () => undefined })
+              push(state, Frame.Array({ identity, at: N.increment(at) }))
+              push(state, Frame.Visit({ value }))
+            }
+          })
+      }),
+    Record: ({ identity, keys, at }) =>
+      Option.match(Chunk.get(keys, at), {
+        onNone: () => push(state, Frame.Close({ identity, token: "}" })),
+        onSome: (key) => {
+          B.match(N.greaterThan(at, 0), { onTrue: () => emit(state, ","), onFalse: () => undefined })
+          push(state, Frame.Record({ identity, keys, at: N.increment(at) }))
+          push(state, Frame.Visit({ value: Option.getOrThrow(Record.get(identity, key)) }))
+          startString(state, key, ":")
+        }
+      })
+  })
