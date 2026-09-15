@@ -102,8 +102,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
           // The theme, then the documentation: highlighted code in a scroll area, a menu, a dialog, and on a
           // phone the navigation drawer.
-          yield* click(page.getByRole("button", { name: "Switch to dark mode" }))
-          yield* visible(page.getByRole("button", { name: "Switch to light mode" }))
+          yield* click(page.getByRole("button", { name: /^Following system/u }))
+          yield* click(page.getByRole("button", { name: "Light mode — switch to dark mode" }))
+          yield* visible(page.getByRole("button", { name: "Dark mode — follow the system" }))
           const docsPolicy = yield* servedPolicy(page, "/docs/effect-search/examples")
           expect(docsPolicy, where).toBe(policy)
           yield* visible(page.getByRole("heading", { level: 1, name: "Examples" }))

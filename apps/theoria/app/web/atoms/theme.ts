@@ -1,31 +1,30 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Match, Schema, Stream } from "effect"
+import { Boolean as Bool, Match, Stream } from "effect"
 
+import { colorModeCookieName, ColorModePreference, darkRootClass, isDark } from "../../contracts/color-mode.js"
 import { type ColorMode } from "../../contracts/palette.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
 import { appRuntime } from "./runtime.js"
 
-/** What the reader asked for: a fixed mode, or whatever the operating system says, followed live. */
-export const ColorModePreference = Schema.Literal("system", "light", "dark")
-
-export type ColorModePreference = typeof ColorModePreference.Type
+export { ColorModePreference } from "../../contracts/color-mode.js"
 
 /**
- * The persisted preference, kept in the browser's local storage through the
- * platform `KeyValueStore`. Readers who never chose follow the system.
+ * The persisted preference, kept as the colour-mode cookie through the
+ * platform `KeyValueStore`, so the Worker serves the next page already in
+ * this mode. Readers who never chose follow the system.
  */
 export const colorModePreferenceAtom: AtomType.Writable<ColorModePreference> = Atom.kvs({
   runtime: appRuntime,
-  key: "theoria/color-mode-preference",
+  key: colorModeCookieName,
   schema: ColorModePreference,
   defaultValue: (): ColorModePreference => "system"
 })
 
 const systemColorModeAtom: AtomType.Atom<Result.Result<ColorMode>> = appRuntime.atom(
   BrowserWindow.mediaQuery("(prefers-color-scheme: dark)").pipe(
-    Stream.map((dark): ColorMode => dark ? "dark" : "light")
+    Stream.map(Bool.match({ onTrue: (): ColorMode => "dark", onFalse: (): ColorMode => "light" }))
   )
 )
 
@@ -39,5 +38,5 @@ export const colorModeAtom: AtomType.Atom<ColorMode> = Atom.make((get) =>
 
 /** Keeps the `dark` class on `<html>` in step with the mode; mount once at the app root. */
 export const colorModeApplicationAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
-  BrowserDocument.toggleRootClass("dark", get(colorModeAtom) === "dark")
+  BrowserDocument.toggleRootClass(darkRootClass, isDark(get(colorModeAtom)))
 )

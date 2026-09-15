@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { headEntries, type HeadEntry } from "../../app/contracts/head.js"
+import { rootClassForPreference } from "../../app/contracts/color-mode.js"
+import { headEntries, type HeadEntry, HeadRootClass } from "../../app/contracts/head.js"
 import { metadataForDocs, metadataForHome, siteMetadata } from "../../app/contracts/metadata.js"
 import { structuredDataJson } from "../../app/contracts/structured-data.js"
 import { renderHead } from "../../app/server/render-head.js"
@@ -145,5 +146,20 @@ describe("page metadata", () => {
 
       expect(structuredDataJson(hostile)).not.toContain("</script>")
       expect(structuredDataJson(hostile)).toContain("\\u003c/script>")
+    }))
+
+  it.effect("puts the reader's dark class on the root element, and takes a stale one off", () =>
+    Effect.sync(() => {
+      const light = "<!doctype html>\n<html lang=\"en\">\n<head></head>"
+      const dark = "<!doctype html>\n<html lang=\"en\" class=\"dark\">\n<head></head>"
+
+      expect(renderHead(light, [rootClassForPreference(Option.some("dark"))])).toBe(dark)
+      expect(renderHead(dark, [rootClassForPreference(Option.some("light"))])).toBe(light)
+      expect(renderHead(dark, [rootClassForPreference(Option.some("system"))])).toBe(light)
+      expect(renderHead(light, [rootClassForPreference(Option.none())])).toBe(light)
+      // The language attribute is kept, whatever it is; only the class changes.
+      expect(renderHead("<html lang=\"fr-CA\">", [HeadRootClass.make({ name: "dark", present: true })])).toBe(
+        "<html lang=\"fr-CA\" class=\"dark\">"
+      )
     }))
 })

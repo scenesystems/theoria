@@ -51,6 +51,11 @@ const baselines = (elements: Locator) => act(() => elements.evaluateAll(textBase
 
 const siteNav = (page: Page) => page.getByRole("navigation", { name: "Site" })
 
+/** The theme control's names through its cycle; following the system, it also says which mode that is. */
+const followingSystem = /^Following system, currently (light|dark) — switch to light mode$/u
+const pinnedLight = "Light mode — switch to dark mode"
+const pinnedDark = "Dark mode — follow the system"
+
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
     it.scoped("the baseline instrument reads the line a wrapped value begins on, where its label rests", () =>
@@ -80,17 +85,18 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             yield* setViewport(page, viewport)
             yield* visible(siteNav(page).getByRole("link", { name: "Docs" }))
-            // Measured with the moon showing, then the sun, and left as found.
+            // Measured following the system, then pinned light, then pinned dark, and left as found.
             yield* Effect.forEach(
               [
-                { offered: "Switch to dark mode", thenOffered: "Switch to light mode" },
-                { offered: "Switch to light mode", thenOffered: "Switch to dark mode" }
+                { offered: followingSystem, thenOffered: pinnedLight },
+                { offered: pinnedLight, thenOffered: pinnedDark },
+                { offered: pinnedDark, thenOffered: followingSystem }
               ],
               ({ offered, thenOffered }) =>
                 Effect.gen(function*() {
                   yield* visible(page.getByRole("button", { name: offered }))
                   const controls = yield* act(() => siteNav(page).locator(":scope > *").evaluateAll(headerControls))
-                  const at = `at ${String(viewport.width)}px offering "${offered}"`
+                  const at = `at ${String(viewport.width)}px offering "${String(offered)}"`
                   expect(controls.length, `${at}: docs, the repository, the other theme`).toBe(3)
                   const gaps = Arr.zipWith(
                     Arr.drop(controls, 1),

@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Boolean as Bool, Schema } from "effect"
 
 import { fullCanonicalUrl, type PageMetadata } from "./metadata.js"
 import { structuredDataJson } from "./structured-data.js"
@@ -18,7 +18,9 @@ export const HeadMeta = Schema.TaggedStruct("Meta", {
 })
 export const HeadCanonical = Schema.TaggedStruct("Canonical", { href: Schema.String })
 export const HeadStructuredData = Schema.TaggedStruct("StructuredData", { json: Schema.String })
-export const HeadEntry = Schema.Union(HeadTitle, HeadMeta, HeadCanonical, HeadStructuredData)
+/** A class on the root element, present or absent: the Worker serves the reader's colour mode this way. */
+export const HeadRootClass = Schema.TaggedStruct("RootClass", { name: Schema.String, present: Schema.Boolean })
+export const HeadEntry = Schema.Union(HeadTitle, HeadMeta, HeadCanonical, HeadStructuredData, HeadRootClass)
 export type HeadEntry = typeof HeadEntry.Type
 
 /** The `id` of the JSON-LD placeholder in `index.html`. */
@@ -29,7 +31,10 @@ const property = (key: string, content: string): HeadEntry => HeadMeta.make({ at
 
 /** `max-image-preview:large` lets Google show the share image at full size in results. */
 const robotsDirective = (indexable: boolean): string =>
-  indexable ? "index, follow, max-image-preview:large" : "noindex, follow"
+  Bool.match(indexable, {
+    onTrue: () => "index, follow, max-image-preview:large",
+    onFalse: () => "noindex, follow"
+  })
 
 export const headEntries = (metadata: PageMetadata): ReadonlyArray<HeadEntry> => {
   const canonicalUrl = fullCanonicalUrl(metadata.canonicalPath)

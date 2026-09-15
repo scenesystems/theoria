@@ -13,3 +13,14 @@ export const webRequest = (url: string, init: RequestInit): Request => new Reque
 /** A server request for `url`, as the host would deliver it. */
 export const serverRequest = (url: string, init: RequestInit): HttpServerRequest.HttpServerRequest =>
   HttpServerRequest.fromWeb(webRequest(url, init))
+
+/**
+ * A server request for `url` carrying `cookie` as its `Cookie` header. The
+ * header is set after construction: a browser-shaped `Request` strips it from
+ * its constructor's init, the host that hands the Worker a request does not.
+ */
+export const serverRequestWithCookie = (url: string, cookie: string): HttpServerRequest.HttpServerRequest => {
+  const request = webRequest(url, { method: "GET" })
+  request.headers.set("cookie", cookie)
+  return HttpServerRequest.fromWeb(request)
+}

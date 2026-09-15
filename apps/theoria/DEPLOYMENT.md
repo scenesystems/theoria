@@ -95,6 +95,13 @@ Cache lifetimes for directly served assets come from `public/_headers`;
 lifetimes for Worker responses come from `cacheControlForPath`. Cloudflare
 compresses responses at the edge, so the build ships assets uncompressed.
 
+The HTML shell is rendered per request in the reader's colour mode: the
+Worker reads the `theoria-color-mode` cookie (`contracts/color-mode.ts`) and
+serves `<html class="dark">` for a reader who chose dark, so the first frame
+needs no script. The shell response therefore carries `Vary: Cookie`; a cache
+in front of the Worker must honour it or exclude the shell from caching. The
+cookie holds a preference only — never treat it as trust.
+
 ### Variables and secrets
 
 `RELEASE_STAGE` is declared per target in `wrangler.jsonc`; an unset value (a
