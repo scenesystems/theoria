@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Match, Option, Ref, Tuple } from "effect"
+import { Boolean as Bool, Effect, Match, Option, Ref, String as Str, Tuple } from "effect"
 
 import * as Errors from "../../Errors/index.js"
 import type { SearchError } from "../../Errors/index.js"
@@ -44,7 +44,7 @@ const trialErrorFromCacheError = (
 ) =>
   new Errors.TrialError({
     trialNumber,
-    message: `objective cache failure: ${error._tag}`,
+    message: Str.concat("objective cache failure: ", error._tag),
     cause: error
   })
 
@@ -77,13 +77,13 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
         resource
       })
       const objectiveCache = yield* Effect.serviceOption(StudyObjectiveCache.StudyObjectiveCache)
-      const resolveCachedValue: CacheResolveForTrial = Option.match(objectiveCache, {
-        onNone: () => ({ compute }) =>
-          compute.pipe(
+      const resolveCachedValue: CacheResolveForTrial<Space["schema"]> = Option.match(objectiveCache, {
+        onNone: () => (request) =>
+          request.compute.pipe(
             Effect.map((value) => Tuple.make(value, "miss"))
           ),
-        onSome: (cache) => ({ config, compute }) =>
-          cache.resolve({ config, compute }).pipe(
+        onSome: (cache) => (request) =>
+          cache.resolve(request).pipe(
             Effect.catchTags({
               "effect-search/CacheCorrupt": (error) => Effect.fail(trialErrorFromCacheError(trialNumber, error)),
               "effect-search/CacheBackendError": (error) => Effect.fail(trialErrorFromCacheError(trialNumber, error))
@@ -171,7 +171,7 @@ export const runScheduledTrial = <Space extends SearchSpace.SearchSpace>(
   Effect.gen(function*() {
     const skipNextTrial = yield* shouldSkipNextTrial(runtime.stopRef, runtime.completionReasonRef)
     const skipByCost = yield* shouldSkipByMaxCost(settings, runtime)
-    const skipTrial = skipNextTrial || skipByCost
+    const skipTrial = Bool.or(skipNextTrial, skipByCost)
 
     yield* Effect.when(
       Effect.gen(function*() {
@@ -190,7 +190,7 @@ export const runScheduledTrial = <Space extends SearchSpace.SearchSpace>(
             ).pipe(Effect.asVoid)
         })
       }),
-      () => !skipTrial
+      () => Bool.not(skipTrial)
     )
   })
 
@@ -212,7 +212,7 @@ export const runConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
   Effect.gen(function*() {
     const skipNextTrial = yield* shouldSkipNextTrial(runtime.stopRef, runtime.completionReasonRef)
     const skipByCost = yield* shouldSkipByMaxCost(settings, runtime)
-    const skipTrial = skipNextTrial || skipByCost
+    const skipTrial = Bool.or(skipNextTrial, skipByCost)
 
     return yield* Match.value(skipTrial).pipe(
       Match.when(true, () => Effect.succeedNone),

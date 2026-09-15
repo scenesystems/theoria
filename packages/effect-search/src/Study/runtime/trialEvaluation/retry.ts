@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Cause, Chunk, Effect, Number as Num, Option, Ref, Schedule, Schema } from "effect"
+import { Boolean as Bool, Cause, Chunk, Effect, Match, Number as Num, Option, Ref, Schedule, Schema } from "effect"
 
 import { ArtifactStorageError, TrialError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
@@ -12,6 +12,7 @@ import type * as Trial from "../../../Trial/index.js"
 import { appendEvent } from "../../events.js"
 import { ObjectiveEvaluation, ObjectiveEvaluator } from "../../objectiveEvaluator.js"
 import type { OptimizePlan, OptimizeSettings } from "../../options.js"
+import { StudyObjectiveCacheRequest } from "../../studyObjectiveCache.js"
 import { objectiveRuntime } from "../controls.js"
 import { objectiveFailure } from "../objective.js"
 import type { StudyRuntime } from "../runtimeState.js"
@@ -34,11 +35,19 @@ const retryableTrialError = (
   cause: Cause.Cause<TrialError | ArtifactStorageError>
 ): Option.Option<TrialError> => {
   const failures = Cause.failures(cause)
-  return Chunk.isEmpty(Cause.defects(cause))
-      && !Cause.isInterrupted(cause)
-      && Chunk.every(failures, isTrialError)
-    ? Chunk.head(failures)
-    : Option.none()
+  const trialFailures = Chunk.filter(failures, isTrialError)
+  return Match.value(
+    Bool.and(
+      Chunk.isEmpty(Cause.defects(cause)),
+      Bool.and(
+        Bool.not(Cause.isInterrupted(cause)),
+        Num.Equivalence(Chunk.size(failures), Chunk.size(trialFailures))
+      )
+    )
+  ).pipe(
+    Match.when(true, () => Chunk.head(trialFailures)),
+    Match.orElse(() => Option.none())
+  )
 }
 
 /**
@@ -60,7 +69,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
   runtime: StudyRuntime<ConfigFor<Space>>,
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
-  resolveCachedValue: CacheResolveForTrial
+  resolveCachedValue: CacheResolveForTrial<Space["schema"]>
 ): Effect.Effect<ObjectiveSample, TrialError | ArtifactStorageError, ObjectiveEvaluator> =>
   Effect.gen(function*() {
     const objectiveEvaluator = yield* ObjectiveEvaluator
@@ -74,7 +83,14 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
       ).pipe(
         Effect.flatMap((result) => decodeObjectiveResult(trialNumber, result)),
         Effect.mapErrorCause(
-          Cause.map((cause) => isArtifactStorageError(cause) ? cause : objectiveFailure(trialNumber, cause))
+          Cause.map((cause) =>
+            Option.liftPredicate(cause, isArtifactStorageError).pipe(
+              Option.match({
+                onNone: () => objectiveFailure(trialNumber, cause),
+                onSome: (storageError) => storageError
+              })
+            )
+          )
         )
       ),
       CurrentTrialContext,
@@ -83,13 +99,16 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
 
     const evaluateWithCache = Effect.gen(function*() {
       const lastEvaluation = yield* Ref.make<Option.Option<ObjectiveEvaluation>>(Option.none())
-      const [value] = yield* resolveCachedValue({
-        config: running.config,
-        compute: evaluateUncached.pipe(
-          Effect.tap((evaluation) => Ref.set(lastEvaluation, Option.some(evaluation))),
-          Effect.map((evaluation) => evaluation.value)
-        )
-      })
+      const [value] = yield* resolveCachedValue(
+        new StudyObjectiveCacheRequest({
+          schema: options.space.schema,
+          config: running.config,
+          compute: evaluateUncached.pipe(
+            Effect.tap((evaluation) => Ref.set(lastEvaluation, Option.some(evaluation))),
+            Effect.map((evaluation) => evaluation.value)
+          )
+        })
+      )
       const captured = yield* Ref.get(lastEvaluation)
       return Option.getOrElse(captured, () => new ObjectiveEvaluation({ value }))
     })

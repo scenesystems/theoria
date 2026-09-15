@@ -6,25 +6,41 @@
 import * as PlatformError from "@effect/platform/Error"
 import * as KeyValueStore from "@effect/platform/KeyValueStore"
 import * as SqlClient from "@effect/sql/SqlClient"
-import { Cache, Effect, Layer, Option, ParseResult, PartitionedSemaphore, Schema, Tuple } from "effect"
+import * as SqlSchema from "@effect/sql/SqlSchema"
+import {
+  Cache,
+  Data,
+  Effect,
+  Exit,
+  Inspectable,
+  Layer,
+  Option,
+  ParseResult,
+  RcMap,
+  Schema,
+  String as Str,
+  Tuple
+} from "effect"
 import type * as Context from "effect/Context"
+import type * as Scope from "effect/Scope"
 
 import { type CacheDescriptor } from "./descriptor.js"
-import { CacheBackendError, CacheCorrupt, type CacheError, type CacheResolution } from "./errors.js"
+import { CacheBackendError, CacheCorrupt, type CacheError, type CacheResolutionSchema } from "./errors.js"
 import { durableFingerprint } from "./fingerprint.js"
 
 const LOOKUP_CACHE_CAPACITY = 1024
 const LOOKUP_CACHE_TTL = "24 hours"
 const SQLITE_CACHE_TABLE = "effect_search_cache_entries"
 
-const cachePrefix = (namespace: string, version: string): string => `${namespace}:${version}:`
+const cachePrefix = (namespace: string, version: string): string =>
+  Str.concat(namespace, Str.concat(":", Str.concat(version, ":")))
 
 const platformErrorFromCause = (operation: string) => (cause: unknown): PlatformError.PlatformError =>
   new PlatformError.SystemError({
     reason: "Unknown",
     module: "KeyValueStore",
     method: operation,
-    description: String(cause),
+    description: Inspectable.toStringUnknown(cause),
     cause
   })
 
@@ -32,7 +48,7 @@ const cacheKey = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
   descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
   key: Key
 ): Effect.Effect<string, CacheCorrupt> =>
-  Schema.encode(descriptor.keySchema)(key).pipe(
+  Effect.suspend(() => Schema.encode(descriptor.keySchema)(key)).pipe(
     Effect.mapError((error) =>
       new CacheCorrupt({
         key: cachePrefix(descriptor.namespace, descriptor.version),
@@ -41,11 +57,11 @@ const cacheKey = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
     ),
     Effect.flatMap((encoded) =>
       durableFingerprint(encoded).pipe(
-        Effect.map((fingerprint) => `${cachePrefix(descriptor.namespace, descriptor.version)}${fingerprint}`),
+        Effect.map((fingerprint) => Str.concat(cachePrefix(descriptor.namespace, descriptor.version), fingerprint)),
         Effect.mapError((cause) =>
           new CacheCorrupt({
             key: cachePrefix(descriptor.namespace, descriptor.version),
-            reason: `fingerprint failure: ${cause._tag}`
+            reason: Str.concat("fingerprint failure: ", cause._tag)
           })
         )
       )
@@ -71,7 +87,7 @@ const encodeValue = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
   key: string,
   value: Value
 ): Effect.Effect<string, CacheCorrupt> =>
-  Schema.encode(Schema.parseJson(descriptor.valueSchema))(value).pipe(
+  Effect.suspend(() => Schema.encode(Schema.parseJson(descriptor.valueSchema))(value)).pipe(
     Effect.mapError((error) =>
       new CacheCorrupt({
         key,
@@ -83,8 +99,33 @@ const encodeValue = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
 const failWithBackendError = (operation: string) => (cause: unknown): CacheBackendError =>
   new CacheBackendError({
     operation,
-    reason: String(cause)
+    reason: Inspectable.toStringUnknown(cause)
   })
+
+/**
+ * Couples a cache descriptor and decoded key with a lazy miss computation.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class SchemaCacheRequest<Key, Value, E, R, EncodedKey = Key, EncodedValue = Value> extends Data.Class<{
+  /** Codecs and namespace used to persist the key and value. */
+  readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
+  /** Decoded key whose encoded form determines cache identity. */
+  readonly key: Key
+  /** Computation evaluated only on a cache miss. */
+  readonly compute: Effect.Effect<Value, E, R>
+}> {}
+
+/**
+ * A resolved value paired with its stored or computed origin.
+ *
+ * @since 0.1.0
+ * @category type-level
+ */
+export type SchemaCacheResult<Value> = Schema.Schema.Type<
+  Schema.Tuple2<Schema.Schema<Value>, typeof CacheResolutionSchema>
+>
 
 /**
  * Reads and writes typed values under canonical identities derived from encoded keys.
@@ -96,10 +137,14 @@ const failWithBackendError = (operation: string) => (cause: unknown): CacheBacke
  * the value, and returns `[value, "miss"]`. A persistence failure after computation
  * fails the resolution instead of returning the computed value.
  *
- * Resolution of the same persistence key is serialized within one service instance,
- * including the computation. Other service instances and processes are not coordinated.
- * Schema and fingerprint failures use `CacheCorrupt`; backing-store failures use
- * `CacheBackendError`. Computation errors retain their original type and are not cached.
+ * Every lookup, mutation, and resolution of the same persistence key is serialized
+ * within one service instance, including miss computation. Other keys progress
+ * independently; other service instances and processes are not coordinated. Failed
+ * backing lookups are immediately retryable. Failed or interrupted backing mutations
+ * invalidate uncertain local state, while successful writes publish locally before
+ * releasing the key. Schema and fingerprint failures use `CacheCorrupt`; backing-store
+ * failures use `CacheBackendError`. Computation errors retain their original type and
+ * are not cached.
  *
  * @since 0.1.0
  * @category services
@@ -123,12 +168,10 @@ export class SchemaCache extends Effect.Tag("effect-search/Cache/SchemaCache")<
       descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
       key: Key
     ) => Effect.Effect<void, CacheError>
-    /** Returns a decoded hit or serializes miss computation for this service instance. */
-    readonly resolve: <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(args: {
-      readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
-      readonly key: Key
-      readonly compute: Effect.Effect<Value, E, R>
-    }) => Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R>
+    /** Returns a decoded hit or performs same-key serialized miss computation. */
+    readonly resolve: <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(
+      args: SchemaCacheRequest<Key, Value, E, R, EncodedKey, EncodedValue>
+    ) => Effect.Effect<SchemaCacheResult<Value>, CacheError | E, R>
   }
 >() {}
 
@@ -171,15 +214,14 @@ const makeSqliteKeyValueStore = (): Effect.Effect<
       Effect.mapError(platformErrorFromCause("sqlite-init"))
     )
 
+    const findValue = SqlSchema.findOne({
+      Request: Schema.String,
+      Result: Schema.Struct({ value: Schema.String }).pipe(Schema.pluck("value")),
+      execute: (key) => sql`SELECT value FROM ${table} WHERE key = ${key} LIMIT 1`
+    })
+
     const get = (key: string): Effect.Effect<Option.Option<string>, PlatformError.PlatformError> =>
-      sql<{ readonly value: string }>`SELECT value FROM ${table} WHERE key = ${key} LIMIT 1`.pipe(
-        Effect.map((rows) =>
-          Option.fromNullable(rows[0]).pipe(
-            Option.map((row) => row.value)
-          )
-        ),
-        Effect.mapError(platformErrorFromCause("get"))
-      )
+      findValue(key).pipe(Effect.mapError(platformErrorFromCause("get")))
 
     const set = (key: string, value: string): Effect.Effect<void, PlatformError.PlatformError> =>
       sql`INSERT INTO ${table} (key, value) VALUES (${key}, ${value}) ON CONFLICT(key) DO UPDATE SET value = excluded.value`
@@ -199,15 +241,11 @@ const makeSqliteKeyValueStore = (): Effect.Effect<
       Effect.mapError(platformErrorFromCause("clear"))
     )
 
-    const size = sql<{ readonly count: number }>`SELECT COUNT(*) AS count FROM ${table}`.pipe(
-      Effect.map((rows) =>
-        Option.fromNullable(rows[0]).pipe(
-          Option.map((row) => row.count),
-          Option.getOrElse(() => 0)
-        )
-      ),
-      Effect.mapError(platformErrorFromCause("size"))
-    )
+    const size = SqlSchema.single({
+      Request: Schema.Void,
+      Result: Schema.Struct({ count: Schema.NonNegativeInt }).pipe(Schema.pluck("count")),
+      execute: () => sql`SELECT COUNT(*) AS count FROM ${table}`
+    })(undefined).pipe(Effect.mapError(platformErrorFromCause("size")))
 
     return KeyValueStore.makeStringOnly({
       get,
@@ -236,24 +274,18 @@ const sqlKeyValueStoreLayer = (
     Layer.mapError((error) =>
       new CacheBackendError({
         operation: "sql-key-value-store-layer",
-        reason: String(error)
+        reason: Inspectable.toStringUnknown(error)
       })
     )
   )
 
-const resolveMiss = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(
-  descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
-  key: Key,
+const resolveMiss = <Value, E, R>(
   compute: Effect.Effect<Value, E, R>,
-  set: (
-    descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
-    key: Key,
-    value: Value
-  ) => Effect.Effect<void, CacheError>
-): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
+  write: (value: Value) => Effect.Effect<void, CacheError>
+): Effect.Effect<SchemaCacheResult<Value>, CacheError | E, R> =>
   compute.pipe(
     Effect.flatMap((computed) =>
-      set(descriptor, key, computed).pipe(
+      write(computed).pipe(
         Effect.as(Tuple.make(computed, "miss"))
       )
     )
@@ -261,7 +293,7 @@ const resolveMiss = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(
 
 const resolveCached = <Value>(
   cachedOption: Option.Option<Value>
-): Option.Option<readonly [Value, CacheResolution]> => Option.map(cachedOption, (cached) => Tuple.make(cached, "hit"))
+): Option.Option<SchemaCacheResult<Value>> => Option.map(cachedOption, (cached) => Tuple.make(cached, "hit"))
 
 /**
  * Allocates local lookup and per-key locks over the required `KeyValueStore`.
@@ -269,33 +301,81 @@ const resolveCached = <Value>(
  * @remarks
  * Lookup retains up to 1,024 encoded hits or misses for 24 hours. Calls through this
  * service update or invalidate that local state; changes made directly to the backing
- * store or through another service may remain invisible until eviction or expiry.
- * Construction has no typed failure and does not require or notify `CacheObserver`.
+ * store or through another service may remain invisible until eviction or expiry. Failed
+ * backing lookups are removed immediately instead of being retained by that TTL. An
+ * uncertain failed or interrupted mutation invalidates local state; a successful write
+ * publishes its encoded value locally before another same-key operation may begin.
+ * Construction has no typed failure, requires `Scope`, and does not notify `CacheObserver`.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValueStore.KeyValueStore> =>
+export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValueStore.KeyValueStore | Scope.Scope> =>
   Effect.gen(function*() {
     const keyValueStore = yield* KeyValueStore.KeyValueStore
     const lookupCache = yield* makeLookupCache(keyValueStore)
-    const perKeySemaphore = yield* PartitionedSemaphore.make<string>({ permits: 1 })
+    const perKeySemaphores = yield* RcMap.make({
+      lookup: (_resolvedKey: string) => Effect.makeSemaphore(1)
+    })
+    const registrySemaphore = yield* Effect.makeSemaphore(1)
+
+    const withResolvedKeyLock = <A, E, R>(
+      resolvedKey: string,
+      operation: Effect.Effect<A, E, R>
+    ): Effect.Effect<A, E, R> =>
+      // Serialize cold RcMap acquisition, not the independent per-key operations.
+      registrySemaphore.withPermits(1)(RcMap.get(perKeySemaphores, resolvedKey)).pipe(
+        Effect.flatMap((semaphore) => semaphore.withPermits(1)(operation)),
+        Effect.scoped
+      )
+
+    const readResolved = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
+      descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
+      resolvedKey: string
+    ): Effect.Effect<Option.Option<Value>, CacheError> =>
+      lookupCache.get(resolvedKey).pipe(
+        Effect.onError(() => lookupCache.invalidate(resolvedKey)),
+        Effect.flatMap(
+          Option.match({
+            onNone: () => Effect.succeedNone,
+            onSome: (encoded) => decodeValue(descriptor, resolvedKey, encoded).pipe(Effect.asSome)
+          })
+        )
+      )
+
+    const writeResolved = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
+      descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
+      resolvedKey: string,
+      value: Value
+    ): Effect.Effect<void, CacheError> =>
+      encodeValue(descriptor, resolvedKey, value).pipe(
+        Effect.flatMap((encoded) =>
+          Effect.uninterruptibleMask((restore) =>
+            restore(keyValueStore.set(resolvedKey, encoded).pipe(Effect.mapError(failWithBackendError("set")))).pipe(
+              Effect.onExit(
+                Exit.match({
+                  onFailure: () => lookupCache.invalidate(resolvedKey),
+                  onSuccess: () => lookupCache.set(resolvedKey, Option.some(encoded))
+                })
+              )
+            )
+          )
+        )
+      )
+
+    const removeResolved = (resolvedKey: string): Effect.Effect<void, CacheError> =>
+      Effect.uninterruptibleMask((restore) =>
+        restore(keyValueStore.remove(resolvedKey).pipe(Effect.mapError(failWithBackendError("remove")))).pipe(
+          Effect.onExit(() => lookupCache.invalidate(resolvedKey))
+        )
+      )
 
     const get = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
       descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
       key: Key
     ): Effect.Effect<Option.Option<Value>, CacheError> =>
       cacheKey(descriptor, key).pipe(
-        Effect.flatMap((resolvedKey) =>
-          lookupCache.get(resolvedKey).pipe(
-            Effect.flatMap(
-              Option.match({
-                onNone: () => Effect.succeedNone,
-                onSome: (encoded) => decodeValue(descriptor, resolvedKey, encoded).pipe(Effect.asSome)
-              })
-            )
-          )
-        )
+        Effect.flatMap((resolvedKey) => withResolvedKeyLock(resolvedKey, readResolved(descriptor, resolvedKey)))
       )
 
     const set = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
@@ -304,16 +384,7 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
       value: Value
     ): Effect.Effect<void, CacheError> =>
       cacheKey(descriptor, key).pipe(
-        Effect.flatMap((resolvedKey) =>
-          encodeValue(descriptor, resolvedKey, value).pipe(
-            Effect.flatMap((encoded) =>
-              keyValueStore.set(resolvedKey, encoded).pipe(
-                Effect.mapError(failWithBackendError("set")),
-                Effect.zipRight(lookupCache.set(resolvedKey, Option.some(encoded)))
-              )
-            )
-          )
-        )
+        Effect.flatMap((resolvedKey) => withResolvedKeyLock(resolvedKey, writeResolved(descriptor, resolvedKey, value)))
       )
 
     const remove = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
@@ -321,26 +392,21 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
       key: Key
     ): Effect.Effect<void, CacheError> =>
       cacheKey(descriptor, key).pipe(
-        Effect.flatMap((resolvedKey) =>
-          keyValueStore.remove(resolvedKey).pipe(
-            Effect.mapError(failWithBackendError("remove")),
-            Effect.zipRight(lookupCache.invalidate(resolvedKey))
-          )
-        )
+        Effect.flatMap((resolvedKey) => withResolvedKeyLock(resolvedKey, removeResolved(resolvedKey)))
       )
 
-    const resolveWithSingleFlight = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(args: {
-      readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
-      readonly key: Key
-      readonly compute: Effect.Effect<Value, E, R>
-    }): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
+    const resolve = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(
+      args: SchemaCacheRequest<Key, Value, E, R, EncodedKey, EncodedValue>
+    ): Effect.Effect<SchemaCacheResult<Value>, CacheError | E, R> =>
       cacheKey(args.descriptor, args.key).pipe(
         Effect.flatMap((resolvedKey) =>
-          perKeySemaphore.withPermits(resolvedKey, 1)(
-            get(args.descriptor, args.key).pipe(
-              Effect.flatMap((cachedOption): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
+          withResolvedKeyLock(
+            resolvedKey,
+            readResolved(args.descriptor, resolvedKey).pipe(
+              Effect.flatMap((cachedOption): Effect.Effect<SchemaCacheResult<Value>, CacheError | E, R> =>
                 Option.match(resolveCached(cachedOption), {
-                  onNone: () => resolveMiss(args.descriptor, args.key, args.compute, set),
+                  onNone: () =>
+                    resolveMiss(args.compute, (computed) => writeResolved(args.descriptor, resolvedKey, computed)),
                   onSome: Effect.succeed
                 })
               )
@@ -348,17 +414,6 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
           )
         )
       )
-
-    const resolve = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>({
-      descriptor,
-      key,
-      compute
-    }: {
-      readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
-      readonly key: Key
-      readonly compute: Effect.Effect<Value, E, R>
-    }): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
-      resolveWithSingleFlight({ descriptor, key, compute })
 
     return {
       get,
@@ -370,12 +425,12 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
 
 /**
  * Builds one {@link SchemaCache} over the required key-value store.
- * Each Layer instance owns its lookup entries and per-key locks; it has no release action.
+ * Each Layer instance owns its lookup entries and scoped, reference-counted per-key locks.
  *
  * @since 0.1.0
  * @category layers
  */
-export const SchemaCacheLive = Layer.effect(SchemaCache, makeSchemaCache())
+export const SchemaCacheLive = Layer.scoped(SchemaCache, makeSchemaCache())
 
 /**
  * Stores cache entries and lookup state in the current process only.

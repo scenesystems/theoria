@@ -165,6 +165,7 @@ export {
   StudyObjectiveCacheMemory,
   StudyObjectiveCacheOptions,
   studyObjectiveCacheOptions,
+  StudyObjectiveCacheRequest,
   StudyObjectiveCacheSql
 } from "./studyObjectiveCache.js"
 

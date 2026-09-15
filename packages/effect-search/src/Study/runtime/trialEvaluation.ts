@@ -30,7 +30,7 @@ const evaluateObjectiveWithAveraging = <Space extends SearchSpace.SearchSpace>(
   runtime: StudyRuntime<ConfigFor<Space>>,
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
-  resolveCachedValue: CacheResolveForTrial
+  resolveCachedValue: CacheResolveForTrial<Space["schema"]>
 ): Effect.Effect<ObjectiveAttempt, TrialError | ArtifactStorageError, ObjectiveEvaluator> =>
   Effect.forEach(
     Arr.makeBy(settings.evaluationsPerTrial, (index) => index),
@@ -92,7 +92,7 @@ export const evaluateObjectiveWithPolicy = <Space extends SearchSpace.SearchSpac
   runtime: StudyRuntime<ConfigFor<Space>>,
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
-  resolveCachedValue: CacheResolveForTrial
+  resolveCachedValue: CacheResolveForTrial<Space["schema"]>
 ): Effect.Effect<
   Option.Option<Exit.Exit<ObjectiveAttempt, TrialError>>,
   TrialError | ArtifactStorageError,

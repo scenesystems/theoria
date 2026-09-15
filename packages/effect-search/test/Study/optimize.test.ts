@@ -236,7 +236,7 @@ describe("Study.optimize", () => {
         reason: "forced-corruption"
       })
 
-      const failingSchemaCacheLayer = Layer.effect(
+      const failingSchemaCacheLayer = Layer.scoped(
         Cache.SchemaCache,
         Cache.makeSchemaCache().pipe(
           Effect.map((schemaCache) => ({
@@ -287,7 +287,7 @@ describe("Study.optimize", () => {
         reason: "forced-backend-failure"
       })
 
-      const failingSchemaCacheLayer = Layer.effect(
+      const failingSchemaCacheLayer = Layer.scoped(
         Cache.SchemaCache,
         Cache.makeSchemaCache().pipe(
           Effect.map((schemaCache) => ({

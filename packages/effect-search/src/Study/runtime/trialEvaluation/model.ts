@@ -3,14 +3,13 @@
  *
  * @since 0.1.0
  */
-import type { Effect } from "effect"
+import type { Effect, Schema } from "effect"
 import { Data } from "effect"
 
-import type { CacheError } from "../../../Cache/index.js"
-import type { CacheResolution } from "../../../Cache/index.js"
+import type { SchemaCacheResult } from "../../../Cache/index.js"
 import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
 import type { ArtifactStorageError, TrialError } from "../../../Errors/index.js"
-import type { StudyObjectiveCacheKey } from "../../studyObjectiveCache.js"
+import type { StudyObjectiveCacheApi, StudyObjectiveCacheRequest } from "../../studyObjectiveCache.js"
 
 /**
  * Result of a single or aggregated objective evaluation carrying the value, retry count, and optional variance.
@@ -42,16 +41,17 @@ export class ObjectiveSample extends Data.Class<{
  * @since 0.1.0
  * @category type-level
  */
-export type CacheResolve = <E, Requirement>(args: {
-  readonly config: StudyObjectiveCacheKey
-  readonly compute: Effect.Effect<ObjectiveValue, E, Requirement>
-}) => Effect.Effect<readonly [ObjectiveValue, CacheResolution], E | CacheError, Requirement>
+export type CacheResolve = StudyObjectiveCacheApi["resolve"]
 
 /**
  * @since 0.1.0
  * @category type-level
  */
-export type CacheResolveForTrial = <Requirement>(args: {
-  readonly config: StudyObjectiveCacheKey
-  readonly compute: Effect.Effect<ObjectiveValue, TrialError | ArtifactStorageError, Requirement>
-}) => Effect.Effect<readonly [ObjectiveValue, CacheResolution], TrialError | ArtifactStorageError, Requirement>
+export type CacheResolveForTrial<SpaceSchema extends Schema.Schema.AnyNoContext> = <R>(
+  request: StudyObjectiveCacheRequest<
+    Schema.Schema.Type<SpaceSchema>,
+    Schema.Schema.Encoded<SpaceSchema>,
+    TrialError | ArtifactStorageError,
+    R
+  >
+) => Effect.Effect<SchemaCacheResult<ObjectiveValue>, TrialError | ArtifactStorageError, R>
