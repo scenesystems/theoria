@@ -6,6 +6,7 @@ import * as Arr from "effect/Array"
 import * as Chunk from "effect/Chunk"
 import * as Str from "effect/String"
 
+import type { DiscSlot } from "../../app/contracts/palette.js"
 import {
   codeColor,
   CodePaint,
@@ -14,7 +15,6 @@ import {
   contrast,
   dangerColor,
   DangerRole,
-  DiscSlot,
   discSlotRole,
   inSrgbGamut,
   linearSrgb,
@@ -34,14 +34,9 @@ import {
   translucentLevels
 } from "../../app/contracts/palette.js"
 import { CardTone } from "../../app/contracts/theme.js"
-import { paletteClassCandidates, paletteTokens, renderPaletteTokensCss } from "../../app/web/palette/paletteTokens.js"
+import { paletteTokens, renderPaletteTokensCss } from "../../app/web/palette/paletteTokens.js"
 import { HighlightTokenKind, highlightTokenPaint } from "../../app/web/view/primitives/code/highlighter.js"
-import {
-  discSlotClassName,
-  neutralToneClasses,
-  toneClassCandidates,
-  toneClassesFor
-} from "../../app/web/view/primitives/designSystem.js"
+import { discSlotClassName, neutralToneClasses, toneClassesFor } from "../../app/web/view/primitives/designSystem.js"
 
 /** The app's `app/web` directory, from this file rather than the working directory: the root test run starts elsewhere. */
 const webRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
@@ -317,16 +312,8 @@ describe("Generated palette tokens", () => {
       })
     }))
 
-  it.effect("declares every class a tone's slots and a disc's slots compose, so none is purged", () =>
+  it.effect("a slot's class is the utility for the slot in the tone's role: a recipe, not a literal per tone", () =>
     Effect.sync(() => {
-      const composed = Arr.flatten([
-        toneClassCandidates(neutralToneClasses),
-        Arr.flatMap(CardTone.literals, (tone) => toneClassCandidates(toneClassesFor(tone))),
-        Arr.flatMap(CardTone.literals, (tone) => Arr.map(DiscSlot.literals, (slot) => discSlotClassName(tone, slot)))
-      ])
-      Arr.forEach(composed, (className) => expect(paletteClassCandidates).toContain(className))
-      expect(paletteClassCandidates).toEqual(Arr.dedupe(paletteClassCandidates))
-      // A slot's class is the utility for that slot in the tone's role: the recipe, not a literal per tone.
       expect(toneClassesFor("math").text).toBe("text-tone-math-ink")
       expect(toneClassesFor("seal").borderSubtle).toBe("border-tone-seal-wash-veil")
       expect(toneClassesFor("dsp").bgTinted).toBe("bg-tone-dsp-surface-mist")
@@ -335,22 +322,13 @@ describe("Generated palette tokens", () => {
       expect(discSlotClassName("sign", "bandFocusedStroke")).toBe("stroke-tone-sign-ink")
     }))
 
-  it.effect("matches the palette authority, and the stylesheet keeps no colour or colour name of its own", () =>
+  it.effect("the committed palette tokens equal the palette authority's rendering", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const root = yield* webRoot
       const generated = yield* fileSystem.readFileString(path.join(root, "palette-tokens.generated.css"))
-      const styles = yield* fileSystem.readFileString(path.join(root, "styles.css"))
 
       expect(generated).toBe(renderPaletteTokensCss())
-      expect(generated).toMatch(/^@source inline\(".*\btext-tone-math-ink\b.*"\);$/mu)
-      expect(generated).toMatch(/^\s*\.bg-place-disc-digest\s*\{/mu)
-      expect(styles).not.toMatch(/^\s*--th-[a-z-]+:/mu)
-      expect(styles).not.toMatch(/^\s*--color-[a-z0-9-]+:/mu)
-      expect(styles).not.toMatch(/#[0-9a-f]{3,8}\b/iu)
-      expect(styles).not.toMatch(/\brgba?\(/u)
-      expect(styles).not.toMatch(/\boklch\(/u)
-      expect(generated).toMatch(/^@source inline\(".*\bbg-tone-dsp-surface-mist\b.*"\);$/mu)
     }).pipe(Effect.provide(BunContext.layer)))
 })

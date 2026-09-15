@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { rootClassForPreference } from "../../app/contracts/color-mode.js"
@@ -16,12 +16,22 @@ const Graph = Schema.parseJson(Schema.Struct({
 
 const graphOf = (json: string) => Schema.decodeUnknownSync(Graph)(json)["@graph"]
 
-const metaContent = (entries: ReadonlyArray<HeadEntry>, key: string) =>
-  Arr.findFirst(entries, (entry) => entry._tag === "Meta" && entry.key === key).pipe(
-    (found) => found._tag === "Some" && found.value._tag === "Meta" ? found.value.content : ""
+/** The content of the `Meta` entry keyed `key`; empty when the head carries none. */
+const metaContent = (entries: ReadonlyArray<HeadEntry>, key: string): string =>
+  Option.getOrElse(
+    Arr.findFirst(entries, (entry) =>
+      Match.value(entry).pipe(
+        Match.tag("Meta", (meta) =>
+          Option.map(Option.liftPredicate(meta, (found) => Equal.equals(found.key, key)), (found) =>
+            found.content)),
+        Match.orElse(() =>
+          Option.none()
+        )
+      )),
+    () => ""
   )
 
-const shell = [
+const shell = Arr.join([
   "<title>x</title>",
   "<meta name=\"description\" content=\"x\" />",
   "<meta name=\"robots\" content=\"x\" />",
@@ -37,7 +47,7 @@ const shell = [
   "<meta name=\"twitter:image:alt\" content=\"x\" />",
   "<link rel=\"canonical\" href=\"x\" />",
   "<script type=\"application/ld+json\" id=\"structured-data\">{}</script>"
-].join("\n")
+], "\n")
 
 describe("page metadata", () => {
   it.effect("gives package pages their own share image and a SoftwareSourceCode graph", () =>

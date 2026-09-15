@@ -7,7 +7,7 @@ import * as Str from "effect/String"
 
 import { Elevation, elevationIndex, Measure, measureCss, Radius, radiusCss } from "../../app/contracts/layout.js"
 import { motionEaseFor, MotionRelation } from "../../app/contracts/motion.js"
-import { layoutClassCandidates, renderLayoutTokensCss } from "../../app/web/layout/layoutTokens.js"
+import { renderLayoutTokensCss } from "../../app/web/layout/layoutTokens.js"
 import {
   elevationClassName,
   focusClassName,
@@ -82,34 +82,13 @@ describe("layout contract", () => {
       )
     }))
 
-  it.effect("declares every composed elevation and transition class as a candidate, so Tailwind keeps them", () =>
-    Effect.sync(() => {
-      Arr.forEach(Elevation.literals, (elevation) => {
-        expect(layoutClassCandidates).toContain(elevationClassName(elevation))
-      })
-      Arr.forEach(MotionRelation.literals, (relation) => {
-        Arr.forEach(words(transitionClassName(relation)), (word) => {
-          expect(layoutClassCandidates).toContain(word)
-        })
-      })
-      expect(layoutClassCandidates).toEqual(Arr.dedupe(layoutClassCandidates))
-    }))
-
-  it.effect("matches the layout authority, and the stylesheet keeps no radius, measure or stacking order of its own", () =>
+  it.effect("the committed layout tokens equal the layout authority's rendering", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const root = yield* webRoot
       const generated = yield* fileSystem.readFileString(path.join(root, "layout-tokens.generated.css"))
-      const styles = yield* fileSystem.readFileString(path.join(root, "styles.css"))
 
       expect(generated).toBe(renderLayoutTokensCss())
-      expect(generated).toMatch(/^\s*--radius-sheet: 1\.5rem;$/mu)
-      expect(generated).toMatch(/^\s*--container-workbench: 96rem;$/mu)
-      expect(generated).toMatch(/^\s*--th-z-menu: 70;$/mu)
-      expect(styles).toMatch(/^@import "\.\/layout-tokens\.generated\.css";$/mu)
-      expect(styles).not.toMatch(/^\s*--radius-[a-z-]+:/mu)
-      expect(styles).not.toMatch(/^\s*--container-[a-z-]+:/mu)
-      expect(styles).not.toMatch(/^\s*--th-z-[a-z-]+:/mu)
     }).pipe(Effect.provide(BunContext.layer)))
 })

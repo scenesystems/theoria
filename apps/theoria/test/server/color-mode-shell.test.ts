@@ -1,6 +1,7 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
 import { Data, Effect, Equal, Layer, Option } from "effect"
+import * as Arr from "effect/Array"
 
 import { colorModeCookieName } from "../../app/contracts/color-mode.js"
 import { Analytics, disabledAnalytics } from "../../app/server/config/analytics.js"
@@ -16,13 +17,13 @@ import { serverRequest, serverRequestWithCookie } from "./platform/web-request.j
  * is the fixture's; the metadata placeholders are not under test here.
  */
 
-const shell = [
+const shell = Arr.join([
   "<!doctype html>",
   "<html lang=\"en\">",
   "<head><title>x</title></head>",
   "<body></body>",
   "</html>"
-].join("\n")
+], "\n")
 
 const ShellStore = Layer.succeed(
   StaticStore,

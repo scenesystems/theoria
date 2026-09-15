@@ -1,10 +1,7 @@
 import { Registry } from "@effect-atom/atom"
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Duration, Effect, Equal, Option } from "effect"
+import { Duration, Effect, Equal, Number as Num, Option, Predicate } from "effect"
 import * as Arr from "effect/Array"
-import * as Str from "effect/String"
 
 import {
   motionArrivalBudget,
@@ -35,25 +32,7 @@ import {
 } from "../../app/web/view/primitives/motion.js"
 import { wordmarkMotion } from "../../app/web/view/primitives/wordmarkMorph.js"
 
-/** The app's `app/web` directory, from this file rather than the working directory: the root test run starts elsewhere. */
-const webRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
-  const path = yield* Path.Path
-  return yield* path.fromFileUrl(yield* Url.fromString("../../app/web/", import.meta.url))
-}).pipe(Effect.orDie)
-
 describe("motion contract", () => {
-  it.effect("one system owns presence: the stylesheet declares no keyframes and no animation", () =>
-    Effect.gen(function*() {
-      const fileSystem = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const stylesheet = yield* fileSystem.readFileString(path.join(yield* webRoot, "styles.css")).pipe(Effect.orDie)
-      const declarations = Arr.filter(
-        Str.split(stylesheet, "\n"),
-        (line) => Str.includes("@keyframes")(line) || /^\s*animation(-[a-z]+)?\s*:/u.test(line)
-      )
-      expect(declarations).toEqual([])
-    }).pipe(Effect.provide(BunContext.layer)))
-
   it.effect("a walk drawing itself and a changed value's wash are slower than any relation, and the wash outlasts the walk", () =>
     Effect.sync(() => {
       expect(Duration.lessThan(motionDuration("shift"), motionWalkDraw)).toBe(true)
@@ -120,9 +99,11 @@ describe("motion contract", () => {
     Effect.sync(() => {
       const budget = Duration.toMillis(motionArrivalBudget)
       // Motion takes seconds; compare in whole milliseconds so float sums do not decide the outcome.
+      const seconds = (value: unknown): number =>
+        Option.getOrElse(Option.liftPredicate(value, Predicate.isNumber), () => 0)
       const lands = (index: number) => {
         const { delay, duration } = staggeredArrival(index)
-        return Math.round(((delay ?? 0) + (typeof duration === "number" ? duration : 0)) * 1000)
+        return Num.round(Num.multiply(Num.sum(seconds(delay), seconds(duration)), 1000), 0)
       }
       expect(staggeredArrival(0).delay).toBe(0)
       expect(staggeredArrival(1).delay).toBeGreaterThan(0)

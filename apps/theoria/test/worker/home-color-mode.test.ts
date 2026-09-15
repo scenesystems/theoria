@@ -6,8 +6,20 @@ import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 
 import { colorModeCookieName } from "../../app/contracts/color-mode.js"
+import {
+  ColorMode,
+  neutralColor,
+  neutralSlotRole,
+  type Oklch,
+  toneColor,
+  type ToneSlot,
+  toneSlotRole,
+  toSrgb
+} from "../../app/contracts/palette.js"
+import { CardTone } from "../../app/contracts/theme.js"
+import { neutralToneClasses, type ToneClasses, toneClassesFor } from "../../app/web/view/primitives/designSystem.js"
 import { act, BrowserLive, click, eventually, goto, gotoParsed, openPage, setColorScheme, visible } from "./browser.js"
-import { colorSchemeShown } from "./platform/in-page.js"
+import { colorSchemeShown, paintedByClasses } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 /**
@@ -24,6 +36,29 @@ const pinnedDark = "Dark mode — follow the system"
 
 const themeControl = (page: Page, name: string | RegExp) => page.getByRole("button", { name })
 
+/** The glyph the control wears, as the attribute the view sets from the preference. */
+const glyphWorn = (page: Page, name: string | RegExp) =>
+  act(() => themeControl(page, name).getAttribute("data-theme-glyph"))
+
+/** A palette colour as Chromium reports a computed colour: `rgb(r, g, b)`. */
+const computedCss = (color: Oklch): string => {
+  const painted = toSrgb(color)
+  return `rgb(${String(painted.r)}, ${String(painted.g)}, ${String(painted.b)})`
+}
+
+/** The solid slots a probe wears at once, one per painted property: the accent fill and edge, the ink. */
+const probeClasses = (classes: ToneClasses): string => Arr.join([classes.bg, classes.border, classes.text], " ")
+
+/** What a probe wearing a tone's, or the neutral's, solid slots should paint. */
+const expectedPaint = (colorOf: (slot: ToneSlot) => Oklch) => ({
+  backgroundColor: computedCss(colorOf("bg")),
+  borderColor: computedCss(colorOf("border")),
+  color: computedCss(colorOf("text"))
+})
+
+/** Reads what a probe wearing `classes` paints in the page. */
+const painted = (page: Page, classes: ToneClasses) => act(() => page.evaluate(paintedByClasses, probeClasses(classes)))
+
 /** The colour-mode cookie as the browser holds it for the site, if it does. */
 const preferenceCookie = (context: BrowserContext) =>
   Effect.map(
@@ -34,22 +69,47 @@ const preferenceCookie = (context: BrowserContext) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria colour mode in Chromium",
   (it) => {
+    it.scoped("every tone's solid slots, and the neutral's, paint the palette's colour in both modes", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ colorScheme: "light" })
+        yield* goto(page, "/")
+        yield* Effect.forEach(ColorMode.literals, (mode) =>
+          Effect.gen(function*() {
+            yield* setColorScheme(page, mode)
+            yield* Effect.forEach(CardTone.literals, (tone) =>
+              Effect.map(painted(page, toneClassesFor(tone)), (paint) =>
+                expect(paint, `${tone} in ${mode}`).toEqual(
+                  expectedPaint((slot) =>
+                    toneColor(tone, toneSlotRole(slot), mode)
+                  )
+                )))
+            expect(yield* painted(page, neutralToneClasses), `neutral in ${mode}`).toEqual(
+              expectedPaint((slot) => neutralColor(neutralSlotRole(slot), mode))
+            )
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("the control cycles system → light → dark → system, and following the system follows it live", () =>
       Effect.gen(function*() {
         const { context, failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
 
-        // A first visit follows the system, which is light: no cookie yet says otherwise.
+        // A first visit follows the system, which is light: no cookie yet says otherwise. The glyph is a
+        // screen, not a sun: the state is "following", whatever the system currently shows.
         yield* visible(themeControl(page, "Following system, currently light — switch to light mode"))
         expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("light")
+        expect(yield* glyphWorn(page, followingSystem)).toBe("screen")
 
         yield* click(themeControl(page, followingSystem))
         yield* visible(themeControl(page, pinnedLight))
         expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("light")
+        expect(yield* glyphWorn(page, pinnedLight)).toBe("sun")
 
         yield* click(themeControl(page, pinnedLight))
         yield* visible(themeControl(page, pinnedDark))
         yield* eventually(() => page.evaluate(colorSchemeShown), "dark")
+        expect(yield* glyphWorn(page, pinnedDark)).toBe("moon")
 
         // Pinned dark, the system's scheme changing means nothing to the page.
         yield* act(() => page.emulateMedia({ colorScheme: "light" }))

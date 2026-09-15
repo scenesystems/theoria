@@ -1138,6 +1138,26 @@ export const scrollPast = (element: Element) => {
 /** The element's top edge in the document, which scrolling cannot move: where it stands in the flow. */
 export const documentTop = (element: Element) => Math.round(element.getBoundingClientRect().top + window.scrollY)
 
+/**
+ * The colours a probe wearing `classNames` paints, read from a span appended
+ * to the body for the reading and removed after it. A class the stylesheet
+ * lacks — one Tailwind purged for want of a candidate — leaves the property
+ * at its initial value: transparent, or the inherited ink.
+ */
+export const paintedByClasses = (classNames: string): {
+  readonly backgroundColor: string
+  readonly borderColor: string
+  readonly color: string
+} => {
+  const probe = document.createElement("span")
+  probe.className = classNames
+  document.body.append(probe)
+  const style = getComputedStyle(probe)
+  const painted = { backgroundColor: style.backgroundColor, borderColor: style.borderTopColor, color: style.color }
+  probe.remove()
+  return painted
+}
+
 /** The colour scheme the page shows: the theme's class on `<html>`, set by the app once it has read the media query. */
 export const colorSchemeShown = (): "dark" | "light" =>
   document.documentElement.classList.contains("dark") ? "dark" : "light"
