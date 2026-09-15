@@ -11,15 +11,29 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Iterable, Number, Option, Schema, Tuple } from "effect"
+
+import { abs, exp, log } from "../../Numeric/index.js"
 import { lnGammaLanczos } from "./gamma.js"
 
 const MAX_ITERATIONS = 200
 const EPSILON = 3e-14
 const FPMIN = 1e-30
 
+class BetaincState extends Schema.Class<BetaincState>("BetaincState")({
+  value: Schema.Number,
+  c: Schema.Number,
+  d: Schema.Number,
+  iteration: Schema.Number,
+  converged: Schema.Boolean
+}) {}
+
 /** Clamp tiny values away from zero to prevent division overflow. */
-const guard = (v: number): number => (Math.abs(v) < FPMIN ? FPMIN : v)
+const guard = (value: number): number =>
+  Boolean.match(Number.lessThan(abs(value), FPMIN), {
+    onTrue: () => FPMIN,
+    onFalse: () => value
+  })
 
 /**
  * Modified Lentz continued fraction for I_x(a,b).
@@ -31,18 +45,18 @@ const guard = (v: number): number => (Math.abs(v) < FPMIN ? FPMIN : v)
  * @category internal
  */
 const betacf = (a: number, b: number, x: number): number => {
-  const qab = N.sum(a, b)
-  const qap = N.sum(a, 1)
-  const qam = N.subtract(a, 1)
+  const qab = Number.sum(a, b)
+  const qap = Number.sum(a, 1)
+  const qam = Number.subtract(a, 1)
 
-  const d0 = 1 / guard(N.subtract(1, N.multiply(qab, x) / qap))
+  const d0 = Number.unsafeDivide(1, guard(Number.subtract(1, Number.unsafeDivide(Number.multiply(qab, x), qap))))
   return betacfLoop(a, b, x, qab, qap, qam, d0, 1, d0, 1)
 }
 
 /**
- * Tail-recursive Lentz CF loop.
+ * Iterable-driven Lentz CF evaluation.
  *
- * All mutable Lentz state (h, c, d) is threaded through parameters.
+ * Lentz state is represented by the Schema-backed `BetaincState` model.
  *
  * @since 0.1.0
  * @category internal
@@ -59,32 +73,46 @@ const betacfLoop = (
   dPrev: number,
   m: number
 ): number => {
-  if (m > MAX_ITERATIONS) return h
-
-  const twoM = N.multiply(2, m)
-
-  // Even coefficient: m(b−m)x / ((qam+2m)(a+2m))
-  const numEven = N.multiply(N.multiply(m, N.subtract(b, m)), x) /
-    N.multiply(N.sum(qam, twoM), N.sum(a, twoM))
-
-  const d1 = 1 / guard(N.sum(1, N.multiply(numEven, dPrev)))
-  const c1 = guard(N.sum(1, numEven / cPrev))
-  const h1 = N.multiply(h, N.multiply(d1, c1))
-
-  // Odd coefficient: −(a+m)(qab+m)x / ((a+2m)(qap+2m))
-  const numOdd = N.negate(
-    N.multiply(N.multiply(N.sum(a, m), N.sum(qab, m)), x) /
-      N.multiply(N.sum(a, twoM), N.sum(qap, twoM))
+  const initial = new BetaincState({ value: h, c: cPrev, d: dPrev, iteration: m, converged: false })
+  const final = Iterable.reduce(
+    Iterable.unfold(
+      initial,
+      (state) =>
+        Boolean.match(Boolean.or(state.converged, Number.greaterThan(state.iteration, MAX_ITERATIONS)), {
+          onTrue: Option.none,
+          onFalse: () => {
+            const twoM = Number.multiply(2, state.iteration)
+            const numEven = Number.unsafeDivide(
+              Number.multiply(Number.multiply(state.iteration, Number.subtract(b, state.iteration)), x),
+              Number.multiply(Number.sum(qam, twoM), Number.sum(a, twoM))
+            )
+            const d1 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numEven, state.d))))
+            const c1 = guard(Number.sum(1, Number.unsafeDivide(numEven, state.c)))
+            const h1 = Number.multiply(state.value, Number.multiply(d1, c1))
+            const numOdd = Number.negate(
+              Number.unsafeDivide(
+                Number.multiply(Number.multiply(Number.sum(a, state.iteration), Number.sum(qab, state.iteration)), x),
+                Number.multiply(Number.sum(a, twoM), Number.sum(qap, twoM))
+              )
+            )
+            const d2 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numOdd, d1))))
+            const c2 = guard(Number.sum(1, Number.unsafeDivide(numOdd, c1)))
+            const delta = Number.multiply(d2, c2)
+            const next = new BetaincState({
+              value: Number.multiply(h1, delta),
+              c: c2,
+              d: d2,
+              iteration: Number.sum(state.iteration, 1),
+              converged: Number.lessThan(abs(Number.subtract(delta, 1)), EPSILON)
+            })
+            return Option.some(Tuple.make(next, next))
+          }
+        })
+    ),
+    initial,
+    (_state, next) => next
   )
-
-  const d2 = 1 / guard(N.sum(1, N.multiply(numOdd, d1)))
-  const c2 = guard(N.sum(1, numOdd / c1))
-  const delta = N.multiply(d2, c2)
-  const h2 = N.multiply(h1, delta)
-
-  if (Math.abs(N.subtract(delta, 1)) < EPSILON) return h2
-
-  return betacfLoop(a, b, x, qab, qap, qam, h2, c2, d2, N.sum(m, 1))
+  return final.value
 }
 
 /**
@@ -95,28 +123,35 @@ const betacfLoop = (
  * @since 0.1.0
  * @category internal
  */
-export const betaincKernel = (a: number, b: number, x: number): number => {
-  if (x === 0) return 0
-  if (x === 1) return 1
-
-  // Symmetry transform for convergence
-  if (x > N.sum(a, 1) / N.sum(N.sum(a, b), 2)) {
-    return N.subtract(1, betaincKernel(b, a, N.subtract(1, x)))
-  }
-
-  const lnPre = N.subtract(
-    N.sum(
-      N.multiply(a, Math.log(x)),
-      N.multiply(b, Math.log(N.subtract(1, x)))
-    ),
-    N.sum(
-      Math.log(a),
-      N.subtract(
-        N.sum(lnGammaLanczos(a), lnGammaLanczos(b)),
-        lnGammaLanczos(N.sum(a, b))
-      )
-    )
-  )
-
-  return N.multiply(Math.exp(lnPre), betacf(a, b, x))
+export const betainc = (a: number, b: number, x: number): number => {
+  return Boolean.match(Number.Equivalence(x, 0), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.Equivalence(x, 1), {
+        onTrue: () => 1,
+        onFalse: () =>
+          Boolean.match(
+            Number.greaterThan(x, Number.unsafeDivide(Number.sum(a, 1), Number.sum(Number.sum(a, b), 2))),
+            {
+              onTrue: () => Number.subtract(1, betainc(b, a, Number.subtract(1, x))),
+              onFalse: () => {
+                const lnPre = Number.subtract(
+                  Number.sum(
+                    Number.multiply(a, log(x)),
+                    Number.multiply(b, log(Number.subtract(1, x)))
+                  ),
+                  Number.sum(
+                    log(a),
+                    Number.subtract(
+                      Number.sum(lnGammaLanczos(a), lnGammaLanczos(b)),
+                      lnGammaLanczos(Number.sum(a, b))
+                    )
+                  )
+                )
+                return Number.multiply(exp(lnPre), betacf(a, b, x))
+              }
+            }
+          )
+      })
+  })
 }

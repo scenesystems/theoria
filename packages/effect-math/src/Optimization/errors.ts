@@ -6,6 +6,7 @@
  */
 import { Schema } from "effect"
 
+import type { KernelExecutionError } from "../contracts/shared/AdvancedComputationErrors.js"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
@@ -123,3 +124,4 @@ export type OptimizationOperationError =
   | OptimizationDomainViolationError
   | OptimizationParameterError
   | OptimizationConvergenceError
+  | KernelExecutionError

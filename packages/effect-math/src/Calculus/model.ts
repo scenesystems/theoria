@@ -4,8 +4,10 @@
  * @since 0.1.0
  * @category models
  */
+import { Schema } from "effect"
+
 import { CalculusDomainContract } from "./contract.js"
-import type { CalculusDomain } from "./schema.js"
+import { CalculusDomainSchema } from "./schema.js"
 
 /**
  * Classifies the Calculus domain as provisional in discovery results.
@@ -13,7 +15,7 @@ import type { CalculusDomain } from "./schema.js"
  * @since 0.1.0
  * @category models
  */
-export const CalculusDomainModel: CalculusDomain = {
+export const CalculusDomainModel = Schema.decodeSync(CalculusDomainSchema)({
   domain: CalculusDomainContract,
   stability: "provisional"
-}
+})

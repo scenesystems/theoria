@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { BigDecimal, Chunk, Clock, Effect, Match, Number as EffectNumber, Option, Schema } from "effect"
+import { Chunk, Clock, Effect, Match, Number, Option, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import {
@@ -21,6 +21,7 @@ import {
   NumericDomainBoundaryError,
   NumericDomainViolationError
 } from "./errors.js"
+import * as Binary from "./internal/binary.js"
 import * as Logspace from "./internal/logspace.js"
 import * as LogSumExp from "./internal/logSumExp.js"
 import * as Reduction from "./internal/reduction.js"
@@ -38,6 +39,8 @@ import {
   ReductionInput
 } from "./schema.js"
 
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+
 /**
  * Divides two numbers, returning `None` when the divisor is positive or
  * negative zero. Both data-first and data-last calls are supported.
@@ -45,7 +48,7 @@ import {
  * @example
  * ```ts
  * import { Numeric } from "@scenesystems/effect-math"
- * import { Effect, Option, pipe } from "effect"
+ * import { Boolean, Chunk, Effect, Number, Option, pipe } from "effect"
  *
  * export const program = Effect.gen(function*() {
  *   const quotient = yield* Option.match(Numeric.safeDivide(10, 2), {
@@ -63,7 +66,11 @@ import {
  *
  *   return yield* Effect.succeed({ quotient, zeroFallback, curried }).pipe(
  *     Effect.filterOrFail(
- *       (result) => result.quotient === 5 && result.zeroFallback === 0 && result.curried === 2,
+ *       (result) => Boolean.every(Chunk.make(
+ *         Number.Equivalence(result.quotient, 5),
+ *         Number.Equivalence(result.zeroFallback, 0),
+ *         Number.Equivalence(result.curried, 2)
+ *       )),
  *       () => "UnexpectedDivisionResult"
  *     )
  *   )
@@ -73,10 +80,7 @@ import {
  * @since 0.1.0
  * @category operations
  */
-export const safeDivide: {
-  (divisor: number): (dividend: number) => Option.Option<number>
-  (dividend: number, divisor: number): Option.Option<number>
-} = EffectNumber.divide
+export const safeDivide: typeof Number.divide = Number.divide
 
 /**
  * Divides with JavaScript's IEEE 754 behavior, including infinite and `NaN`
@@ -84,10 +88,7 @@ export const safeDivide: {
  * @since 0.1.0
  * @category operations
  */
-export const unsafeDivide: {
-  (divisor: number): (dividend: number) => number
-  (dividend: number, divisor: number): number
-} = EffectNumber.unsafeDivide
+export const unsafeDivide: typeof Number.unsafeDivide = Number.unsafeDivide
 
 /**
  * Divides finite operands and returns `None` for a zero divisor or non-finite
@@ -110,20 +111,14 @@ export const isFinite: (value: number) => boolean = Schema.is(FiniteScalar)
  * @since 0.4.0
  * @category operations
  */
-export const min: {
-  (that: number): (self: number) => number
-  (self: number, that: number): number
-} = EffectNumber.min
+export const min: typeof Number.min = Number.min
 
 /**
  * Chooses the larger ordered number and supports data-first or pipeable calls.
  * @since 0.4.0
  * @category operations
  */
-export const max: {
-  (that: number): (self: number) => number
-  (self: number, that: number): number
-} = EffectNumber.max
+export const max: typeof Number.max = Number.max
 
 /**
  * Returns the non-negative magnitude of a number. Negative zero becomes
@@ -131,7 +126,25 @@ export const max: {
  * @since 0.4.0
  * @category operations
  */
-export const abs: (value: number) => number = Math.abs
+export const abs: (value: number) => number = Binary.abs
+
+/**
+ * Converts a finite binary64 value to its exact decimal expansion rather than
+ * its shortest round-tripping decimal string. Non-finite input returns `None`;
+ * BigDecimal represents both signs of zero as zero.
+ * @since 0.4.0
+ * @category conversions
+ */
+export const toBigDecimal: typeof Binary.toBigDecimal = Binary.toBigDecimal
+
+/**
+ * Converts a finite integer-valued binary64 number to its exact bigint value,
+ * including values outside the safe-integer range. Fractions and non-finite
+ * inputs return `None`; either sign of zero becomes `0n`.
+ * @since 0.4.0
+ * @category conversions
+ */
+export const toBigInt: typeof Binary.toBigInt = Binary.toBigInt
 
 /**
  * Returns the principal square root. Negative input produces `NaN`, positive
@@ -139,29 +152,65 @@ export const abs: (value: number) => number = Math.abs
  * @since 0.4.0
  * @category operations
  */
-export const sqrt: (value: number) => number = Math.sqrt
+export const sqrt: (value: number) => number = Binary.sqrt
 
 /**
- * Ratio of a circle's circumference to its diameter, using the host IEEE 754
- * double-precision constant.
+ * Computes a correctly rounded Euclidean norm using an exact sum of squares.
+ * Avoids intermediate overflow and underflow. Infinity dominates NaN, and an
+ * empty or all-zero input returns positive zero.
+ * @since 0.4.0
+ * @category operations
+ */
+export const hypot: typeof Binary.hypot = Binary.hypot
+
+/**
+ * Correctly rounded binary64 ratio of a circle's circumference to its diameter.
  * @since 0.4.0
  * @category constants
  */
-export const pi: number = Math.PI
+export const pi = 3.141592653589793
 
 /**
  * Computes sine for a radian angle, preserving signed zero; non-finite input produces `NaN`.
  * @since 0.4.0
  * @category operations
  */
-export const sin: (radians: number) => number = Math.sin
+export const sin: typeof Transcendental.sin = Transcendental.sin
 
 /**
  * Computes cosine for a radian angle; zero maps to `1` and non-finite input produces `NaN`.
  * @since 0.4.0
  * @category operations
  */
-export const cos: (radians: number) => number = Math.cos
+export const cos: typeof Transcendental.cos = Transcendental.cos
+
+/**
+ * Computes the exponential with ln(2) range reduction and exact dyadic scaling.
+ * @since 0.4.0
+ * @category operations
+ */
+export const exp: typeof Transcendental.exp = Transcendental.exp
+
+/**
+ * Computes the quadrant-aware angle of `(x, y)`, including signed-zero and infinity boundaries.
+ * @since 0.4.0
+ * @category operations
+ */
+export const atan2: typeof Transcendental.atan2 = Transcendental.atan2
+
+/**
+ * Computes hyperbolic sine while retaining tiny increments and signed zero.
+ * @since 0.4.0
+ * @category operations
+ */
+export const sinh: typeof Transcendental.sinh = Transcendental.sinh
+
+/**
+ * Computes hyperbolic cosine using symmetrically scaled exponentials.
+ * @since 0.4.0
+ * @category operations
+ */
+export const cosh: typeof Transcendental.cosh = Transcendental.cosh
 
 /**
  * Returns the base-10 logarithm. Zero produces negative infinity, negative
@@ -169,14 +218,15 @@ export const cos: (radians: number) => number = Math.cos
  * @since 0.4.0
  * @category operations
  */
-export const log10: (value: number) => number = Math.log10
+export const log10: typeof Transcendental.log10 = Transcendental.log10
 
 /**
- * Raises `base` to `exponent` with the host IEEE 754 power operation.
+ * Raises `base` to `exponent`, dispatching integral exponents before the
+ * logarithm/exponential path so negative bases retain their real results.
  * @since 0.4.0
  * @category operations
  */
-export const pow: (base: number, exponent: number) => number = Math.pow
+export const pow: typeof Transcendental.pow = Transcendental.pow
 
 /**
  * Rounds a number to the requested decimal precision. Both data-first and
@@ -184,19 +234,7 @@ export const pow: (base: number, exponent: number) => number = Math.pow
  * @since 0.4.0
  * @category operations
  */
-export const round: {
-  (precision: number): (self: number) => number
-  (self: number, precision: number): number
-} = EffectNumber.round
-
-const mapFiniteToInteger = (
-  value: number,
-  operation: (decimal: BigDecimal.BigDecimal) => BigDecimal.BigDecimal
-): number =>
-  Option.match(BigDecimal.safeFromNumber(value), {
-    onNone: () => value,
-    onSome: (decimal) => BigDecimal.unsafeToNumber(operation(decimal))
-  })
+export const round: typeof Number.round = Number.round
 
 /**
  * Rounds finite values toward negative infinity. Infinities and `NaN` pass
@@ -204,7 +242,7 @@ const mapFiniteToInteger = (
  * @since 0.4.0
  * @category operations
  */
-export const floor = (value: number): number => mapFiniteToInteger(value, BigDecimal.floor)
+export const floor: (value: number) => number = Binary.floor
 
 /**
  * Rounds finite values toward positive infinity. Infinities and `NaN` pass
@@ -212,7 +250,7 @@ export const floor = (value: number): number => mapFiniteToInteger(value, BigDec
  * @since 0.4.0
  * @category operations
  */
-export const ceil = (value: number): number => mapFiniteToInteger(value, BigDecimal.ceil)
+export const ceil: (value: number) => number = Binary.ceil
 
 /**
  * Removes the fractional part of a finite value by rounding toward zero.
@@ -220,78 +258,69 @@ export const ceil = (value: number): number => mapFiniteToInteger(value, BigDeci
  * @since 0.4.0
  * @category operations
  */
-export const truncate = (value: number): number => mapFiniteToInteger(value, BigDecimal.truncate)
+export const truncate: (value: number) => number = Binary.truncate
 
 /**
- * Computes the natural logarithm with `Math.log`, including `NaN` for negative
- * input and `-Infinity` for zero. {@link logValidated} rejects those inputs.
+ * Computes the natural logarithm with dyadic normalization, including `NaN`
+ * for negative input and `-Infinity` for zero. {@link logValidated} rejects those inputs.
  * @since 0.1.0
  * @category operations
  */
-export const log: (value: number) => number = Math.log
+export const log: typeof Transcendental.log = Transcendental.log
 
 /**
- * Computes the natural logarithm using DataView bit decomposition and a Taylor
- * series. Produces deterministic results independent of platform
- * `Math.log` implementation.
+ * Computes the natural logarithm using exact dyadic decomposition and a
+ * range-reduced atanh series.
  * @since 0.1.0
  * @category operations
  */
-export const logStrict: (value: number) => number = Transcendental.logStrict
+export const logStrict: typeof Transcendental.logStrict = Transcendental.logStrict
 
 /**
- * Computes `ln(1 + x)` using the native kernel. It avoids
- * catastrophic cancellation for `|x| << 1` where `Math.log(1 + x)`
- * loses significant digits.
+ * Computes `ln(1 + x)` with a cancellation-aware small-input series.
  * @since 0.1.0
  * @category operations
  */
-export const log1p: (value: number) => number = Transcendental.log1pRelaxed
+export const log1p: typeof Transcendental.log1p = Transcendental.log1p
 
 /**
- * Computes `ln(1 + x)` using a Taylor series for `|x| < 1e-4` and
- * DataView bit decomposition for larger values. Produces
- * deterministic results independent of platform `Math.log1p`.
+ * Deterministic precision-policy alias for {@link log1p}.
  * @since 0.1.0
  * @category operations
  */
-export const log1pStrict: (value: number) => number = Transcendental.log1pStrict
+export const log1pStrict: typeof Transcendental.log1pStrict = Transcendental.log1pStrict
 
 /**
- * Computes `exp(x) - 1` using the native kernel. It avoids
- * catastrophic cancellation for `|x| << 1` where `Math.exp(x) - 1`
- * loses significant digits.
+ * Computes `exp(x) - 1` with a cancellation-aware small-input series.
  * @since 0.1.0
  * @category operations
  */
-export const expm1: (value: number) => number = Transcendental.expm1Relaxed
+export const expm1: typeof Transcendental.expm1 = Transcendental.expm1
 
 /**
- * Computes `exp(x) - 1` using a Taylor series for `|x| < 1e-5` and
- * `E ** x - 1` for larger values. Produces deterministic results
- * independent of platform `Math.expm1`.
+ * Deterministic precision-policy alias for {@link expm1}.
  * @since 0.1.0
  * @category operations
  */
-export const expm1Strict: (value: number) => number = Transcendental.expm1Strict
+export const expm1Strict: typeof Transcendental.expm1Strict = Transcendental.expm1Strict
 
 /**
  * Adds values in iteration order without compensated accumulation.
  * {@link sumWithPolicies} selects compensated accumulation when its backend
- * policy is `"typed-array"`.
+ * policy is `"compensated"`.
  * @since 0.1.0
  * @category operations
  */
-export const sum: (values: Iterable<number>) => number = EffectNumber.sumAll
+export const sum: (values: Iterable<number>) => number = Number.sumAll
 
 /**
- * Finds the zero-based index of the maximum element, or `None` for
- * empty arrays. When multiple elements share the maximum value, returns
+ * Finds the zero-based index of the maximum element, or `None` for an empty
+ * iterable. When multiple elements share the maximum value, returns
  * the index of the first occurrence.
  * @since 0.1.0
  * @category operations
  */
-export const argmaxIndex: (values: ReadonlyArray<number>) => Option.Option<number> = Selection.argmaxIndex
+export const argmaxIndex: typeof Selection.argmaxIndex = Selection.argmaxIndex
 
 /**
  * Constrains a value to the closed interval `[minimum, maximum]`. Values
@@ -300,10 +329,7 @@ export const argmaxIndex: (values: ReadonlyArray<number>) => Option.Option<numbe
  * @since 0.1.0
  * @category operations
  */
-export const clamp: {
-  (options: { readonly minimum: number; readonly maximum: number }): (self: number) => number
-  (self: number, options: { readonly minimum: number; readonly maximum: number }): number
-} = EffectNumber.clamp
+export const clamp: typeof Number.clamp = Number.clamp
 
 /**
  * Tests whether a value belongs to the closed interval
@@ -311,10 +337,7 @@ export const clamp: {
  * @since 0.1.0
  * @category operations
  */
-export const between: {
-  (options: { readonly minimum: number; readonly maximum: number }): (self: number) => boolean
-  (self: number, options: { readonly minimum: number; readonly maximum: number }): boolean
-} = EffectNumber.between
+export const between: typeof Number.between = Number.between
 
 /**
  * Yields the immutable descriptor used to register Numeric capabilities.
@@ -341,7 +364,7 @@ export const safeDivideValidated = (input: unknown) =>
         })
       )
     )
-    return EffectNumber.divide(decoded.dividend, decoded.divisor)
+    return Number.divide(decoded.dividend, decoded.divisor)
   })
 
 /**
@@ -363,7 +386,7 @@ export const unsafeDivideValidated = (input: unknown) =>
         })
       )
     )
-    return yield* Option.match(EffectNumber.divide(decoded.dividend, decoded.divisor), {
+    return yield* Option.match(Number.divide(decoded.dividend, decoded.divisor), {
       onNone: () =>
         new NumericDomainViolationError({
           operation: "unsafeDivide",
@@ -392,11 +415,11 @@ export const logValidated = (input: unknown) =>
         })
       )
     )
-    return Math.log(decoded.value)
+    return Transcendental.log(decoded.value)
   })
 
 /**
- * Decodes a non-empty array of finite values and adds them in array order.
+ * Decodes a non-empty finite vector and adds its values in input order.
  * Malformed or excess input fails with `NumericDecodeError`.
  * @since 0.1.0
  * @category validated operations
@@ -413,11 +436,11 @@ export const sumValidated = (input: unknown) =>
         })
       )
     )
-    return EffectNumber.sumAll(decoded.values)
+    return Number.sumAll(decoded.values)
   })
 
 /**
- * Decodes a non-empty array of finite values and finds the first index of its
+ * Decodes a non-empty finite vector and finds the first index of its
  * maximum. Malformed or excess input fails with `NumericDecodeError`.
  * @since 0.1.0
  * @category validated operations
@@ -438,18 +461,18 @@ export const argmaxValidated = (input: unknown) =>
   })
 
 /**
- * Adds an array using the configured backend and finite-result policy.
+ * Adds an iterable using the configured backend and finite-result policy.
  *
  * @remarks
- * The `"typed-array"` backend uses Kahan-compensated `Float64Array`
- * accumulation. The `"scalar"` backend adds in array order. Strict precision
+ * The `"compensated"` backend selects Kahan-compensated `Chunk`
+ * accumulation. The `"scalar"` backend adds in iteration order. Strict precision
  * rejects a non-finite result with `NumericDomainViolationError`. Enabled
  * diagnostics logs the selected policies, input size, and elapsed milliseconds.
  *
  * @example
  * ```ts
  * import { Numeric } from "@scenesystems/effect-math"
- * import { Effect, Layer } from "effect"
+ * import { Chunk, Effect, Layer, Number } from "effect"
  * import {
  *   BackendPolicyService,
  *   DiagnosticsPolicyService,
@@ -457,15 +480,15 @@ export const argmaxValidated = (input: unknown) =>
  * } from "@scenesystems/effect-math/contracts"
  *
  * const layer = Layer.mergeAll(
- *   Layer.succeed(BackendPolicyService, { policy: "typed-array" }),
+ *   Layer.succeed(BackendPolicyService, { policy: "compensated" }),
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * export const program = Numeric.sumWithPolicies([1e15, 1, -1e15]).pipe(
+ * export const program = Numeric.sumWithPolicies(Chunk.make(1e16, 1, 1, -1e16)).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (sum) => sum === 1,
+ *     (sum) => Number.Equivalence(sum, 2),
  *     () => "UnexpectedCompensatedSum"
  *   )
  * )
@@ -474,11 +497,12 @@ export const argmaxValidated = (input: unknown) =>
  * @since 0.1.0
  * @category operations
  */
-export const sumWithPolicies = (values: ReadonlyArray<number>) =>
+export const sumWithPolicies = (values: Iterable<number>) =>
   Effect.gen(function*() {
     const backend = yield* BackendPolicyService
     const precision = yield* PrecisionPolicyService
     const diagnostics = yield* DiagnosticsPolicyService
+    const denseValues = Chunk.fromIterable(values)
 
     const startedAt = yield* Match.value(diagnostics.policy).pipe(
       Match.when("enabled", () => Clock.currentTimeMillis),
@@ -487,8 +511,8 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
     )
 
     const result = yield* Match.value(backend.policy).pipe(
-      Match.when("typed-array", () => Effect.sync(() => Reduction.sumTypedArray(new Float64Array(values)))),
-      Match.when("scalar", () => Effect.succeed(Reduction.sumScalar(values))),
+      Match.when("compensated", () => Effect.succeed(Reduction.sumCompensated(denseValues))),
+      Match.when("scalar", () => Effect.succeed(Reduction.sumScalar(denseValues))),
       Match.exhaustive
     )
 
@@ -496,7 +520,7 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
       Match.when("strict", () =>
         Effect.filterOrFail(
           Effect.succeed(result),
-          Number.isFinite,
+          isFinite,
           () =>
             new NumericDomainViolationError({
               operation: "sumWithPolicies",
@@ -515,8 +539,8 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
             Effect.annotateLogs({
               backend: backend.policy,
               precision: precision.policy,
-              inputSize: String(values.length),
-              elapsedMs: String(EffectNumber.subtract(elapsed, startedAt))
+              inputSize: encodeNumber(Chunk.size(denseValues)),
+              elapsedMs: encodeNumber(Number.subtract(elapsed, startedAt))
             })
           )
         })),
@@ -532,14 +556,13 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
  * relaxed mode, preserving accuracy near zero when requested.
  *
  * @remarks
- * Strict precision selects the Taylor-compensated kernel; relaxed precision
- * delegates to `Math.log1p`. Enabled diagnostics logs the precision, input,
- * and result.
+ * Both policy modes use the deterministic native-composition kernel. Enabled
+ * diagnostics logs the precision, input, and result.
  *
  * @example
  * ```ts
  * import { Numeric } from "@scenesystems/effect-math"
- * import { Effect, Layer } from "effect"
+ * import { Chunk, Effect, Layer, Number, Predicate } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
@@ -553,7 +576,7 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
  * export const program = Numeric.log1pWithPolicies(1e-15).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (result) => result > 0 && result < 1e-14,
+ *     (result) => Predicate.every(Chunk.make(Number.greaterThan(0), Number.lessThan(1e-14)))(result),
  *     () => "UnexpectedLog1pResult"
  *   )
  * )
@@ -578,8 +601,8 @@ export const log1pWithPolicies = (value: number) =>
         Effect.logDebug("Numeric.log1pWithPolicies").pipe(
           Effect.annotateLogs({
             precision: precision.policy,
-            input: String(value),
-            result: String(result)
+            input: encodeNumber(value),
+            result: encodeNumber(result)
           })
         )),
       Match.when("disabled", () => Effect.void),
@@ -594,9 +617,8 @@ export const log1pWithPolicies = (value: number) =>
  * relaxed mode, preserving small increments near zero when requested.
  *
  * @remarks
- * Strict precision selects the Taylor-compensated kernel; relaxed precision
- * delegates to `Math.expm1`. Enabled diagnostics logs the precision, input,
- * and result.
+ * Both policy modes use the deterministic native-composition kernel. Enabled
+ * diagnostics logs the precision, input, and result.
  * @since 0.1.0
  * @category operations
  */
@@ -616,8 +638,8 @@ export const expm1WithPolicies = (value: number) =>
         Effect.logDebug("Numeric.expm1WithPolicies").pipe(
           Effect.annotateLogs({
             precision: precision.policy,
-            input: String(value),
-            result: String(result)
+            input: encodeNumber(value),
+            result: encodeNumber(result)
           })
         )),
       Match.when("disabled", () => Effect.void),
@@ -691,7 +713,7 @@ export const logaddexp: (a: number, b: number) => number = Logspace.logaddexp
 
 /**
  * Computes `log(exp(a) - exp(b))` without materializing either exponential.
- * The caller must supply `a >= b`.
+ * The caller must supply `a > b`; other inputs produce `NaN`.
  *
  * @since 0.1.0
  * @category operations
@@ -781,7 +803,7 @@ export const logSumExpValidated = (input: unknown) =>
         })
       )
     )
-    return LogSumExp.logSumExpChunk(Chunk.fromIterable(decoded.values))
+    return LogSumExp.logSumExpChunk(decoded.values)
   })
 
 // ---------------------------------------------------------------------------
@@ -799,7 +821,10 @@ export const logaddexpWithPolicies = (a: number, b: number) =>
     operation: "Numeric.logaddexpWithPolicies",
     compute: () => Logspace.logaddexp(a, b),
     makeError: (message) => new NumericDomainViolationError({ operation: "logaddexpWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
+    annotations: (result) => ({
+      input: `a=${encodeNumber(a)}, b=${encodeNumber(b)}`,
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -808,10 +833,15 @@ export const logaddexpWithPolicies = (a: number, b: number) =>
  * @since 0.2.0
  * @category operations
  */
-export const logSumExpWithPolicies = (values: ReadonlyArray<number>) =>
-  withScalarPolicyGuards({
+export const logSumExpWithPolicies = (values: Iterable<number>) => {
+  const denseValues = Chunk.fromIterable(values)
+  return withScalarPolicyGuards({
     operation: "Numeric.logSumExpWithPolicies",
-    compute: () => LogSumExp.logSumExpChunk(Chunk.fromIterable(values)),
+    compute: () => LogSumExp.logSumExpChunk(denseValues),
     makeError: (message) => new NumericDomainViolationError({ operation: "logSumExpWithPolicies", message }),
-    annotations: (result) => ({ inputSize: String(values.length), result: String(result) })
+    annotations: (result) => ({
+      inputSize: encodeNumber(Chunk.size(denseValues)),
+      result: encodeNumber(result)
+    })
   })
+}

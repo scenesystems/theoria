@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit, Number as N } from "effect"
+import { Effect, Number } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
+import { abs, exp } from "../../src/Numeric/index.js"
 import {
   betainc,
   betaincValidated,
@@ -18,10 +19,10 @@ import {
   polygammaValidated
 } from "../../src/Special/operations.js"
 
-const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
+const strictCompensatedLayer = makeDeterministicRuntimePoliciesLayer({
   seed: Seed.make(42),
   precision: "strict",
-  backend: "typed-array",
+  backend: "compensated",
   diagnostics: "enabled"
 })
 
@@ -36,7 +37,7 @@ const KERNEL_TOLERANCE = 1e-10
 const POLYGAMMA_TOLERANCE = 1e-10
 
 const expectClose = (actual: number, expected: number, tolerance: number) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 
 // ---------------------------------------------------------------------------
 // Pure kernel operations — erfinv / erfcinv
@@ -55,7 +56,7 @@ describe("Special / erfinv", () => {
 
   it.effect("erfinv is odd: erfinv(-x) = -erfinv(x)", () =>
     Effect.gen(function*() {
-      expectClose(erfinv(-0.5), N.negate(erfinv(0.5)), KERNEL_TOLERANCE)
+      expectClose(erfinv(-0.5), Number.negate(erfinv(0.5)), KERNEL_TOLERANCE)
     }))
 
   it.effect("erfinv(0.99) ≈ 1.8214", () =>
@@ -83,7 +84,7 @@ describe("Special / erfcinv", () => {
 describe("Special / gammainc", () => {
   it.effect("gammainc(1, 1) ≈ 1 - exp(-1)", () =>
     Effect.gen(function*() {
-      expectClose(gammainc(1, 1), N.subtract(1, Math.exp(-1)), KERNEL_TOLERANCE)
+      expectClose(gammainc(1, 1), Number.subtract(1, exp(-1)), KERNEL_TOLERANCE)
     }))
 
   it.effect("gammainc(0.5, 1) ≈ 0.8427", () =>
@@ -100,12 +101,12 @@ describe("Special / gammainc", () => {
 describe("Special / gammaincc", () => {
   it.effect("gammaincc(1, 1) ≈ exp(-1)", () =>
     Effect.gen(function*() {
-      expectClose(gammaincc(1, 1), Math.exp(-1), KERNEL_TOLERANCE)
+      expectClose(gammaincc(1, 1), exp(-1), KERNEL_TOLERANCE)
     }))
 
   it.effect("gammainc(a, x) + gammaincc(a, x) ≈ 1", () =>
     Effect.gen(function*() {
-      expectClose(N.sum(gammainc(5, 5), gammaincc(5, 5)), 1, KERNEL_TOLERANCE)
+      expectClose(Number.sum(gammainc(5, 5), gammaincc(5, 5)), 1, KERNEL_TOLERANCE)
     }))
 })
 
@@ -169,8 +170,9 @@ describe("Special / erfinvValidated", () => {
 
   it.effect("rejects excess properties", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(erfinvValidated({ x: 0.5, extra: true }))
-      expect(Exit.isFailure(result)).toBe(true)
+      const error = yield* Effect.flip(erfinvValidated({ x: 0.5, extra: true }))
+      expect(error._tag).toStrictEqual("SpecialDecodeError")
+      expect(error.operation).toStrictEqual("erfinv")
     }))
 })
 
@@ -178,13 +180,14 @@ describe("Special / gammaincValidated", () => {
   it.effect("decodes valid input", () =>
     Effect.gen(function*() {
       const result = yield* gammaincValidated({ a: 1, x: 1 })
-      expectClose(result, N.subtract(1, Math.exp(-1)), KERNEL_TOLERANCE)
+      expectClose(result, Number.subtract(1, exp(-1)), KERNEL_TOLERANCE)
     }))
 
   it.effect("rejects excess properties", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(gammaincValidated({ a: 1, x: 1, extra: true }))
-      expect(Exit.isFailure(result)).toBe(true)
+      const error = yield* Effect.flip(gammaincValidated({ a: 1, x: 1, extra: true }))
+      expect(error._tag).toStrictEqual("SpecialDecodeError")
+      expect(error.operation).toStrictEqual("gammainc")
     }))
 })
 
@@ -209,11 +212,11 @@ describe("Special / polygammaValidated", () => {
 // ---------------------------------------------------------------------------
 
 describe("Special / erfinvWithPolicies", () => {
-  it.effect("returns correct result under strict+typed-array", () =>
+  it.effect("returns correct result under strict+compensated", () =>
     Effect.gen(function*() {
       const result = yield* erfinvWithPolicies(0.5)
       expectClose(result, 0.4769362762044699, KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns correct result under relaxed+scalar", () =>
     Effect.gen(function*() {
@@ -223,15 +226,15 @@ describe("Special / erfinvWithPolicies", () => {
 })
 
 describe("Special / gammaincWithPolicies", () => {
-  it.effect("returns correct result under strict+typed-array", () =>
+  it.effect("returns correct result under strict+compensated", () =>
     Effect.gen(function*() {
       const result = yield* gammaincWithPolicies(1, 1)
-      expectClose(result, N.subtract(1, Math.exp(-1)), KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+      expectClose(result, Number.subtract(1, exp(-1)), KERNEL_TOLERANCE)
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns correct result under relaxed+scalar", () =>
     Effect.gen(function*() {
       const result = yield* gammaincWithPolicies(1, 1)
-      expectClose(result, N.subtract(1, Math.exp(-1)), KERNEL_TOLERANCE)
+      expectClose(result, Number.subtract(1, exp(-1)), KERNEL_TOLERANCE)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })

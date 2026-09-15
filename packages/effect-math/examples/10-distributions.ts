@@ -81,7 +81,7 @@ const program = Effect.gen(function*() {
 
   // Categorical
   yield* Console.log("\n=== Categorical ===")
-  const probs = Chunk.fromIterable([0.2, 0.3, 0.5])
+  const probs = Chunk.make(0.2, 0.3, 0.5)
   yield* Console.log("  pmf(k=2, [.2,.3,.5]):", categoricalPmf(2, probs))
   yield* Console.log("  entropy([.2,.3,.5]):", categoricalEntropy(probs))
 

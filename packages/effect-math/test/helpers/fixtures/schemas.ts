@@ -514,15 +514,17 @@ export const AlgebraPolynomialParityFixtureSchema = Schema.Struct({
 // Calculus: numerical-parity
 // ---------------------------------------------------------------------------
 
+const NumericalAssertionSchema = Schema.Struct({
+  absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
+  relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
+})
+
 const CalculusDerivativeCaseSchema = Schema.Struct({
   id: Schema.String,
   operation: Schema.Literal("derivative"),
   input: Schema.Struct({ function: Schema.String, x: Schema.Number }),
   expected: Schema.Number,
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusSecondDerivativeCaseSchema = Schema.Struct({
@@ -530,10 +532,7 @@ const CalculusSecondDerivativeCaseSchema = Schema.Struct({
   operation: Schema.Literal("secondDerivative"),
   input: Schema.Struct({ function: Schema.String, x: Schema.Number }),
   expected: Schema.Number,
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusDirectionalDerivativeCaseSchema = Schema.Struct({
@@ -545,10 +544,7 @@ const CalculusDirectionalDerivativeCaseSchema = Schema.Struct({
     direction: Schema.Array(Schema.Number)
   }),
   expected: Schema.Number,
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusTrapezoidCaseSchema = Schema.Struct({
@@ -556,10 +552,7 @@ const CalculusTrapezoidCaseSchema = Schema.Struct({
   operation: Schema.Literal("trapezoid"),
   input: Schema.Struct({ values: Schema.Array(Schema.Number), dx: Schema.Number }),
   expected: Schema.Number,
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusSimpsonCaseSchema = Schema.Struct({
@@ -567,10 +560,7 @@ const CalculusSimpsonCaseSchema = Schema.Struct({
   operation: Schema.Literal("simpson"),
   input: Schema.Struct({ values: Schema.Array(Schema.Number), dx: Schema.Number }),
   expected: Schema.Number,
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusAdaptiveSimpsonCaseSchema = Schema.Struct({
@@ -585,10 +575,7 @@ const CalculusAdaptiveSimpsonCaseSchema = Schema.Struct({
     maxDepth: Schema.Number
   }),
   expected: Schema.Number,
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusGradientCaseSchema = Schema.Struct({
@@ -596,10 +583,7 @@ const CalculusGradientCaseSchema = Schema.Struct({
   operation: Schema.Literal("gradient"),
   input: Schema.Struct({ function: Schema.String, point: Schema.Array(Schema.Number) }),
   expected: Schema.Array(Schema.Number),
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusJacobianCaseSchema = Schema.Struct({
@@ -607,10 +591,7 @@ const CalculusJacobianCaseSchema = Schema.Struct({
   operation: Schema.Literal("jacobian"),
   input: Schema.Struct({ function: Schema.String, point: Schema.Array(Schema.Number) }),
   expected: Schema.Array(Schema.Array(Schema.Number)),
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusHessianCaseSchema = Schema.Struct({
@@ -618,10 +599,7 @@ const CalculusHessianCaseSchema = Schema.Struct({
   operation: Schema.Literal("hessian"),
   input: Schema.Struct({ function: Schema.String, point: Schema.Array(Schema.Number) }),
   expected: Schema.Array(Schema.Array(Schema.Number)),
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusDivergenceCaseSchema = Schema.Struct({
@@ -629,10 +607,7 @@ const CalculusDivergenceCaseSchema = Schema.Struct({
   operation: Schema.Literal("divergence"),
   input: Schema.Struct({ function: Schema.String, point: Schema.Array(Schema.Number) }),
   expected: Schema.Number,
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusLaplacianCaseSchema = Schema.Struct({
@@ -640,10 +615,7 @@ const CalculusLaplacianCaseSchema = Schema.Struct({
   operation: Schema.Literal("laplacian"),
   input: Schema.Struct({ function: Schema.String, point: Schema.Array(Schema.Number) }),
   expected: Schema.Number,
-  assertion: Schema.Struct({
-    absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
-    relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
-  })
+  assertion: NumericalAssertionSchema
 })
 
 const CalculusNumericalCaseSchema = Schema.Union(

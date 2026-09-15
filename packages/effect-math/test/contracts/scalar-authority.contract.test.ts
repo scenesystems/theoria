@@ -1,48 +1,56 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array, Effect, Schema } from "effect"
 
 import { planAdvancedComputation } from "../../src/contracts/shared/ComputationDispatch.js"
-import { type ScalarAuthorityStateType } from "../../src/contracts/shared/ScalarAuthority.js"
+import { ScalarAuthorityState, type ScalarAuthorityStateType } from "../../src/contracts/shared/ScalarAuthority.js"
 import { makeComputationDispatcherLayer } from "./shared/computation-dispatch-layer.js"
 
 const makeDispatcherLayer = (scalarAuthority: ScalarAuthorityStateType) =>
   makeComputationDispatcherLayer({ scalarAuthority })
 
-const primaryBigdecimalAuthority: ScalarAuthorityStateType = {
+const primaryBigdecimalAuthority: ScalarAuthorityStateType = Schema.decodeUnknownSync(ScalarAuthorityState)({
   policy: {
     primaryKind: "bigdecimal",
-    fallbackOrder: ["bigdecimal", "float64"]
+    fallbackOrder: Array.make("bigdecimal", "float64")
   },
-  capabilities: [{
-    kind: "float64",
-    supportedCategories: ["numeric", "linear-algebra", "calculus", "optimization"],
-    deterministic: true,
-    supportsExactArithmetic: false
-  }, {
-    kind: "bigdecimal",
-    supportedCategories: ["numeric", "linear-algebra", "calculus", "optimization"],
-    deterministic: true,
-    supportsExactArithmetic: true
-  }]
-}
+  capabilities: Array.make(
+    {
+      kind: "float64",
+      supportedCategories: Array.make("numeric", "linear-algebra", "calculus", "optimization"),
+      deterministic: true,
+      supportsExactArithmetic: false
+    },
+    {
+      kind: "bigdecimal",
+      supportedCategories: Array.make("numeric", "linear-algebra", "calculus", "optimization"),
+      deterministic: true,
+      supportsExactArithmetic: true
+    }
+  )
+})
 
-const primaryUnsupportedForCalculusAuthority: ScalarAuthorityStateType = {
-  policy: {
-    primaryKind: "bigdecimal",
-    fallbackOrder: ["bigdecimal", "float64"]
-  },
-  capabilities: [{
-    kind: "float64",
-    supportedCategories: ["numeric", "linear-algebra", "calculus", "optimization"],
-    deterministic: true,
-    supportsExactArithmetic: false
-  }, {
-    kind: "bigdecimal",
-    supportedCategories: ["numeric"],
-    deterministic: true,
-    supportsExactArithmetic: true
-  }]
-}
+const primaryUnsupportedForCalculusAuthority: ScalarAuthorityStateType = Schema.decodeUnknownSync(ScalarAuthorityState)(
+  {
+    policy: {
+      primaryKind: "bigdecimal",
+      fallbackOrder: Array.make("bigdecimal", "float64")
+    },
+    capabilities: Array.make(
+      {
+        kind: "float64",
+        supportedCategories: Array.make("numeric", "linear-algebra", "calculus", "optimization"),
+        deterministic: true,
+        supportsExactArithmetic: false
+      },
+      {
+        kind: "bigdecimal",
+        supportedCategories: Array.make("numeric"),
+        deterministic: true,
+        supportsExactArithmetic: true
+      }
+    )
+  }
+)
 
 describe("advanced scalar authority contracts", () => {
   it.effect("uses scalar primaryKind when no scalar request is provided", () =>

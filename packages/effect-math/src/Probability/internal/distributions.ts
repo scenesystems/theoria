@@ -3,16 +3,16 @@
  * All functions are deterministic IEEE 754 leaf computations over
  * scalar arguments — no Effect context, no allocations.
  *
- * The standard normal CDF delegates to the `erf` kernel in
- * `Special/internal/erf.ts` via the identity Φ(x) = ½(1 + erf(x/√2)).
+ * The standard normal CDF delegates to the public Special error function via
+ * the identity Φ(x) = ½(1 + erf(x/√2)).
  *
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Number, Schema } from "effect"
 
-import { erfAbramowitzStegun } from "../../Special/internal/erf.js"
-import { erfinvKernel } from "../../Special/internal/erfinv.js"
+import { exp, pi, sqrt } from "../../Numeric/index.js"
+import { erf, erfinv } from "../../Special/index.js"
 
 /**
  * Precomputed √(2π) for the standard normal PDF denominator.
@@ -20,7 +20,9 @@ import { erfinvKernel } from "../../Special/internal/erfinv.js"
  * @since 0.1.0
  * @category internal
  */
-const SQRT_2PI = Math.sqrt(N.multiply(2, Math.PI))
+const SQRT_2 = sqrt(2)
+const SQRT_2PI = sqrt(Number.multiply(2, pi))
+const isNonNaN = Schema.is(Schema.NonNaN)
 
 /**
  * Numerical guard for probability-edge transforms that map `u ∈ (0, 1)`
@@ -32,9 +34,9 @@ const SQRT_2PI = Math.sqrt(N.multiply(2, Math.PI))
 const UNIT_INTERVAL_EPSILON = 1e-12
 
 const clampUnitRoll = (roll: number): number =>
-  N.clamp(roll, {
+  Number.clamp(roll, {
     minimum: UNIT_INTERVAL_EPSILON,
-    maximum: 1 - UNIT_INTERVAL_EPSILON
+    maximum: Number.subtract(1, UNIT_INTERVAL_EPSILON)
   })
 
 /**
@@ -44,9 +46,9 @@ const clampUnitRoll = (roll: number): number =>
  * @category internal
  */
 export const standardNormalPdf = (x: number): number =>
-  N.multiply(
-    N.unsafeDivide(1, SQRT_2PI),
-    Math.exp(N.multiply(-0.5, N.multiply(x, x)))
+  Number.multiply(
+    Number.unsafeDivide(1, SQRT_2PI),
+    exp(Number.multiply(-0.5, Number.multiply(x, x)))
   )
 
 /**
@@ -57,22 +59,20 @@ export const standardNormalPdf = (x: number): number =>
  * @category internal
  */
 export const normalPdf = (x: number, mu: number, sigma: number): number => {
-  const z = N.unsafeDivide(N.subtract(x, mu), sigma)
-  return N.unsafeDivide(standardNormalPdf(z), sigma)
+  const z = Number.unsafeDivide(Number.subtract(x, mu), sigma)
+  return Number.unsafeDivide(standardNormalPdf(z), sigma)
 }
 
 /**
  * Standard normal CDF: Φ(x) = ½(1 + erf(x / √2)).
  *
- * Delegates to `erfAbramowitzStegun` from the Special domain — the
- * single source of truth for the A&S 7.1.26 rational approximation.
- * Accurate to ~1.5 × 10⁻⁷ for all real x.
+ * Delegates to the multi-region Cephes `erf` operation from the Special domain.
  *
  * @since 0.1.0
  * @category internal
  */
 export const standardNormalCdf = (x: number): number =>
-  N.multiply(0.5, N.sum(1, erfAbramowitzStegun(N.unsafeDivide(x, Math.SQRT2))))
+  Number.multiply(0.5, Number.sum(1, erf(Number.unsafeDivide(x, SQRT_2))))
 
 /**
  * Standard-normal transform `u ↦ z` for `u ∈ (0, 1)` using the inverse-CDF
@@ -85,7 +85,7 @@ export const standardNormalCdf = (x: number): number =>
  * @category internal
  */
 export const standardNormalTransform = (roll: number): number =>
-  N.multiply(Math.SQRT2, erfinvKernel(N.subtract(N.multiply(2, clampUnitRoll(roll)), 1)))
+  Number.multiply(SQRT_2, erfinv(Number.subtract(Number.multiply(2, clampUnitRoll(roll)), 1)))
 
 /**
  * Normal CDF with parameters mu and sigma:
@@ -95,7 +95,7 @@ export const standardNormalTransform = (roll: number): number =>
  * @category internal
  */
 export const normalCdf = (x: number, mu: number, sigma: number): number =>
-  standardNormalCdf(N.unsafeDivide(N.subtract(x, mu), sigma))
+  standardNormalCdf(Number.unsafeDivide(Number.subtract(x, mu), sigma))
 
 /**
  * Uniform PDF: 1 / (high − low) when low ≤ x ≤ high, else 0.
@@ -104,9 +104,14 @@ export const normalCdf = (x: number, mu: number, sigma: number): number =>
  * @category internal
  */
 export const uniformPdf = (x: number, low: number, high: number): number =>
-  (N.greaterThanOrEqualTo(x, low) && N.lessThanOrEqualTo(x, high))
-    ? N.unsafeDivide(1, N.subtract(high, low))
-    : 0
+  Boolean.match(Boolean.and(isNonNaN(x), Boolean.and(isNonNaN(low), isNonNaN(high))), {
+    onTrue: () =>
+      Boolean.match(Boolean.and(Number.greaterThanOrEqualTo(x, low), Number.lessThanOrEqualTo(x, high)), {
+        onTrue: () => Number.unsafeDivide(1, Number.subtract(high, low)),
+        onFalse: () => 0
+      }),
+    onFalse: () => 0
+  })
 
 /**
  * Uniform CDF: 0 when x < low, 1 when x > high,
@@ -116,8 +121,11 @@ export const uniformPdf = (x: number, low: number, high: number): number =>
  * @category internal
  */
 export const uniformCdf = (x: number, low: number, high: number): number =>
-  N.lessThan(x, low) ?
-    0
-    : N.greaterThan(x, high) ?
-    1
-    : N.unsafeDivide(N.subtract(x, low), N.subtract(high, low))
+  Boolean.match(Number.lessThan(x, low), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.greaterThan(x, high), {
+        onTrue: () => 1,
+        onFalse: () => Number.unsafeDivide(Number.subtract(x, low), Number.subtract(high, low))
+      })
+  })

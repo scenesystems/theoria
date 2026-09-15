@@ -5,7 +5,7 @@
  * @category models
  */
 import { GeometryDomainContract } from "./contract.js"
-import type { GeometryDomain } from "./schema.js"
+import { GeometryDomain } from "./schema.js"
 
 /**
  * Metadata identifying the Geometry API as provisional.
@@ -13,7 +13,7 @@ import type { GeometryDomain } from "./schema.js"
  * @since 0.1.0
  * @category models
  */
-export const GeometryDomainModel: GeometryDomain = {
+export const GeometryDomainModel = new GeometryDomain({
   domain: GeometryDomainContract,
   stability: "provisional"
-}
+})

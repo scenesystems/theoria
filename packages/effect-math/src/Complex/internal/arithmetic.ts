@@ -8,7 +8,10 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Chunk, Number, Tuple } from "effect"
+
+import * as Numeric from "../../Numeric/index.js"
+import type { ComplexPair } from "../schema.js"
 
 /**
  * Complex addition: (a + bi) + (c + di) = (a+c) + (b+d)i.
@@ -21,7 +24,7 @@ export const add = (
   aIm: number,
   bRe: number,
   bIm: number
-): readonly [number, number] => [N.sum(aRe, bRe), N.sum(aIm, bIm)]
+): ComplexPair => Tuple.make(Number.sum(aRe, bRe), Number.sum(aIm, bIm))
 
 /**
  * Complex subtraction: (a + bi) - (c + di) = (a-c) + (b-d)i.
@@ -34,7 +37,7 @@ export const subtract = (
   aIm: number,
   bRe: number,
   bIm: number
-): readonly [number, number] => [N.subtract(aRe, bRe), N.subtract(aIm, bIm)]
+): ComplexPair => Tuple.make(Number.subtract(aRe, bRe), Number.subtract(aIm, bIm))
 
 /**
  * Complex multiplication: (a + bi)(c + di) = (ac - bd) + (ad + bc)i.
@@ -47,10 +50,11 @@ export const multiply = (
   aIm: number,
   bRe: number,
   bIm: number
-): readonly [number, number] => [
-  N.subtract(N.multiply(aRe, bRe), N.multiply(aIm, bIm)),
-  N.sum(N.multiply(aRe, bIm), N.multiply(aIm, bRe))
-]
+): ComplexPair =>
+  Tuple.make(
+    Number.subtract(Number.multiply(aRe, bRe), Number.multiply(aIm, bIm)),
+    Number.sum(Number.multiply(aRe, bIm), Number.multiply(aIm, bRe))
+  )
 
 /**
  * Complex division via the Smith method — selects the ratio direction
@@ -67,25 +71,29 @@ export const divide = (
   aIm: number,
   bRe: number,
   bIm: number
-): readonly [number, number] => {
-  if (bRe === 0 && bIm === 0) return [NaN, NaN]
-
-  if (Math.abs(bRe) >= Math.abs(bIm)) {
-    const ratio = N.unsafeDivide(bIm, bRe)
-    const denom = N.sum(bRe, N.multiply(bIm, ratio))
-    return [
-      N.unsafeDivide(N.sum(aRe, N.multiply(aIm, ratio)), denom),
-      N.unsafeDivide(N.subtract(aIm, N.multiply(aRe, ratio)), denom)
-    ]
-  }
-
-  const ratio = N.unsafeDivide(bRe, bIm)
-  const denom = N.sum(bIm, N.multiply(bRe, ratio))
-  return [
-    N.unsafeDivide(N.sum(N.multiply(aRe, ratio), aIm), denom),
-    N.unsafeDivide(N.subtract(N.multiply(aIm, ratio), aRe), denom)
-  ]
-}
+): ComplexPair =>
+  Boolean.match(Boolean.and(Number.Equivalence(bRe, 0), Number.Equivalence(bIm, 0)), {
+    onTrue: () => Tuple.make(NaN, NaN),
+    onFalse: () =>
+      Boolean.match(Number.greaterThanOrEqualTo(Numeric.abs(bRe), Numeric.abs(bIm)), {
+        onTrue: () => {
+          const ratio = Number.unsafeDivide(bIm, bRe)
+          const denominator = Number.sum(bRe, Number.multiply(bIm, ratio))
+          return Tuple.make(
+            Number.unsafeDivide(Number.sum(aRe, Number.multiply(aIm, ratio)), denominator),
+            Number.unsafeDivide(Number.subtract(aIm, Number.multiply(aRe, ratio)), denominator)
+          )
+        },
+        onFalse: () => {
+          const ratio = Number.unsafeDivide(bRe, bIm)
+          const denominator = Number.sum(bIm, Number.multiply(bRe, ratio))
+          return Tuple.make(
+            Number.unsafeDivide(Number.sum(Number.multiply(aRe, ratio), aIm), denominator),
+            Number.unsafeDivide(Number.subtract(Number.multiply(aIm, ratio), aRe), denominator)
+          )
+        }
+      })
+  })
 
 /**
  * Complex conjugate: conj(a + bi) = a - bi.
@@ -93,16 +101,16 @@ export const divide = (
  * @since 0.1.0
  * @category internal
  */
-export const conjugate = (re: number, im: number): readonly [number, number] => [re, N.negate(im)]
+export const conjugate = (re: number, im: number): ComplexPair => Tuple.make(re, Number.negate(im))
 
 /**
- * Complex modulus |a + bi| = √(a² + b²) via `Math.hypot` to avoid
- * overflow for large components.
+ * Complex modulus |a + bi| = √(a² + b²) via the Numeric hypotenuse operation
+ * to avoid overflow for large components.
  *
  * @since 0.1.0
  * @category internal
  */
-export const abs = (re: number, im: number): number => Math.hypot(re, im)
+export const abs = (re: number, im: number): number => Numeric.hypot(Chunk.make(re, im))
 
 /**
  * Complex argument (phase angle): arg(a + bi) = atan2(b, a).
@@ -112,7 +120,7 @@ export const abs = (re: number, im: number): number => Math.hypot(re, im)
  * @since 0.1.0
  * @category internal
  */
-export const arg = (re: number, im: number): number => Math.atan2(im, re)
+export const arg = (re: number, im: number): number => Numeric.atan2(im, re)
 
 /**
  * Complex exponential: exp(a + bi) = eᵃ(cos(b) + i·sin(b)).
@@ -120,9 +128,9 @@ export const arg = (re: number, im: number): number => Math.atan2(im, re)
  * @since 0.1.0
  * @category internal
  */
-export const exp = (re: number, im: number): readonly [number, number] => {
-  const r = Math.exp(re)
-  return [N.multiply(r, Math.cos(im)), N.multiply(r, Math.sin(im))]
+export const exp = (re: number, im: number): ComplexPair => {
+  const radius = Numeric.exp(re)
+  return Tuple.make(Number.multiply(radius, Numeric.cos(im)), Number.multiply(radius, Numeric.sin(im)))
 }
 
 /**
@@ -132,10 +140,8 @@ export const exp = (re: number, im: number): readonly [number, number] => {
  * @since 0.1.0
  * @category internal
  */
-export const log = (re: number, im: number): readonly [number, number] => [
-  Math.log(Math.hypot(re, im)),
-  Math.atan2(im, re)
-]
+export const log = (re: number, im: number): ComplexPair =>
+  Tuple.make(Numeric.log(Numeric.hypot(Chunk.make(re, im))), Numeric.atan2(im, re))
 
 /**
  * Complex exponentiation z^w = exp(w · log(z)). Returns `[1, 0]`
@@ -149,15 +155,19 @@ export const pow = (
   baseIm: number,
   expRe: number,
   expIm: number
-): readonly [number, number] => {
-  if (baseRe === 0 && baseIm === 0) {
-    if (expRe === 0 && expIm === 0) return [1, 0]
-    return [0, 0]
-  }
-  const [logRe, logIm] = log(baseRe, baseIm)
-  const [prodRe, prodIm] = multiply(expRe, expIm, logRe, logIm)
-  return exp(prodRe, prodIm)
-}
+): ComplexPair =>
+  Boolean.match(Boolean.and(Number.Equivalence(baseRe, 0), Number.Equivalence(baseIm, 0)), {
+    onTrue: () =>
+      Boolean.match(Boolean.and(Number.Equivalence(expRe, 0), Number.Equivalence(expIm, 0)), {
+        onTrue: () => Tuple.make(1, 0),
+        onFalse: () => Tuple.make(0, 0)
+      }),
+    onFalse: () => {
+      const [logRe, logIm] = log(baseRe, baseIm)
+      const [productRe, productIm] = multiply(expRe, expIm, logRe, logIm)
+      return exp(productRe, productIm)
+    }
+  })
 
 /**
  * Principal-branch square root. Uses the polar decomposition
@@ -167,12 +177,19 @@ export const pow = (
  * @since 0.1.0
  * @category internal
  */
-export const sqrt = (re: number, im: number): readonly [number, number] => {
-  if (re === 0 && im === 0) return [0, 0]
-
-  const r = Math.hypot(re, im)
-  const resultRe = Math.sqrt(N.unsafeDivide(N.sum(r, re), 2))
-  const resultIm = Math.sqrt(N.unsafeDivide(N.subtract(r, re), 2))
-
-  return im >= 0 ? [resultRe, resultIm] : [resultRe, N.negate(resultIm)]
-}
+export const sqrt = (re: number, im: number): ComplexPair =>
+  Boolean.match(Boolean.and(Number.Equivalence(re, 0), Number.Equivalence(im, 0)), {
+    onTrue: () => Tuple.make(0, 0),
+    onFalse: () => {
+      const radius = Numeric.hypot(Chunk.make(re, im))
+      const resultRe = Numeric.sqrt(Number.unsafeDivide(Number.sum(radius, re), 2))
+      const resultIm = Numeric.sqrt(Number.unsafeDivide(Number.subtract(radius, re), 2))
+      return Tuple.make(
+        resultRe,
+        Boolean.match(Number.greaterThanOrEqualTo(im, 0), {
+          onTrue: () => resultIm,
+          onFalse: () => Number.negate(resultIm)
+        })
+      )
+    }
+  })

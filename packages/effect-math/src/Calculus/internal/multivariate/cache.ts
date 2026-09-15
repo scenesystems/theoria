@@ -1,27 +1,77 @@
 /**
- * Cache helpers for multivariate differentiation kernels.
+ * Immutable cache state for multivariate differentiation kernels.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, HashMap, Number as N, Option } from "effect"
+import { Boolean, HashMap, Number, Option, Schema } from "effect"
+import type { Chunk } from "effect"
 
-const pointCacheKey = (point: Chunk.Chunk<number>): string =>
-  Chunk.reduce(point, "", (acc, value, index) => N.Equivalence(index, 0) ? String(value) : `${acc}|${String(value)}`)
+/**
+ * Stores vector-field evaluations for one Jacobian lifetime.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export class VectorFieldCache extends Schema.Class<VectorFieldCache>("VectorFieldCache")({
+  values: Schema.HashMapFromSelf({
+    key: Schema.ChunkFromSelf(Schema.Number),
+    value: Schema.ChunkFromSelf(Schema.Number)
+  })
+}) {}
 
-export const memoizeVectorField = (f: (point: Chunk.Chunk<number>) => Chunk.Chunk<number>) => {
-  const state = { cache: HashMap.empty<string, Chunk.Chunk<number>>() }
+/**
+ * Carries a cached value and the immutable cache that contains it.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export class VectorFieldEvaluation extends Schema.Class<VectorFieldEvaluation>("VectorFieldEvaluation")({
+  value: Schema.ChunkFromSelf(Schema.Number),
+  cache: VectorFieldCache
+}) {}
 
-  return (candidate: Chunk.Chunk<number>) => {
-    const key = pointCacheKey(candidate)
+/**
+ * Resolves a vector-field evaluation without mutable closure state.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export const evaluateVectorField = (
+  f: (point: Chunk.Chunk<number>) => Chunk.Chunk<number>,
+  cache: VectorFieldCache,
+  candidate: Chunk.Chunk<number>
+): VectorFieldEvaluation =>
+  Option.match(HashMap.get(cache.values, candidate), {
+    onSome: (value) => new VectorFieldEvaluation({ value, cache }),
+    onNone: () => {
+      const value = f(candidate)
+      return new VectorFieldEvaluation({
+        value,
+        cache: new VectorFieldCache({ values: HashMap.set(cache.values, candidate, value) })
+      })
+    }
+  })
 
-    return Option.getOrElse(HashMap.get(state.cache, key), () => {
-      const computed = f(candidate)
-      state.cache = HashMap.set(state.cache, key, computed)
-      return computed
-    })
-  }
-}
+/**
+ * Canonical key for one symmetric mixed-partial pair.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export class MixedPartialKey extends Schema.Class<MixedPartialKey>("MixedPartialKey")({
+  lower: Schema.Number,
+  upper: Schema.Number
+}) {}
 
-export const mixedPartialKey = (axisA: number, axisB: number): string =>
-  N.lessThan(axisA, axisB) ? `${axisA}|${axisB}` : `${axisB}|${axisA}`
+/**
+ * Orders a mixed-partial pair so symmetric Hessian entries share a key.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export const mixedPartialKey = (axisA: number, axisB: number): MixedPartialKey =>
+  Boolean.match(Number.lessThan(axisA, axisB), {
+    onTrue: () => new MixedPartialKey({ lower: axisA, upper: axisB }),
+    onFalse: () => new MixedPartialKey({ lower: axisB, upper: axisA })
+  })

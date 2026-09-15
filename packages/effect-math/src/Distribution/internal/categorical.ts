@@ -6,9 +6,9 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array as Arr, Chunk, Number as N } from "effect"
+import { Array, Boolean, Chunk, Number, Option } from "effect"
 
-import { xlogy } from "../../Numeric/internal/logspace.js"
+import { log, xlogy } from "../../Numeric/index.js"
 
 /**
  * PMF: P(X = k) = probs[k] for k ∈ {0, ..., n-1}, else 0.
@@ -17,9 +17,7 @@ import { xlogy } from "../../Numeric/internal/logspace.js"
  * @category internal
  */
 export const categoricalPmf = (k: number, probs: Chunk.Chunk<number>): number =>
-  (N.greaterThanOrEqualTo(k, 0) && N.lessThan(k, Chunk.size(probs)))
-    ? Chunk.unsafeGet(probs, k)
-    : 0
+  Option.getOrElse(Chunk.get(probs, k), () => 0)
 
 /**
  * Log-PMF: ln P(X = k) = ln(probs[k]) for k in range, else -Infinity.
@@ -28,9 +26,10 @@ export const categoricalPmf = (k: number, probs: Chunk.Chunk<number>): number =>
  * @category internal
  */
 export const categoricalLogpmf = (k: number, probs: Chunk.Chunk<number>): number =>
-  (N.greaterThanOrEqualTo(k, 0) && N.lessThan(k, Chunk.size(probs)))
-    ? Math.log(Chunk.unsafeGet(probs, k))
-    : -Infinity
+  Option.match(Chunk.get(probs, k), {
+    onSome: log,
+    onNone: () => -Infinity
+  })
 
 /**
  * CDF: P(X ≤ k) = Σ_{i=0}^{k} probs[i].
@@ -40,9 +39,14 @@ export const categoricalLogpmf = (k: number, probs: Chunk.Chunk<number>): number
  * @category internal
  */
 export const categoricalCdf = (k: number, probs: Chunk.Chunk<number>): number => {
-  if (N.lessThan(k, 0)) return 0
-  if (N.greaterThanOrEqualTo(k, N.subtract(Chunk.size(probs), 1))) return 1
-  return Chunk.reduce(Chunk.take(probs, N.sum(k, 1)), 0, (acc, p) => N.sum(acc, p))
+  return Boolean.match(Number.lessThan(k, 0), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.greaterThanOrEqualTo(k, Number.subtract(Chunk.size(probs), 1)), {
+        onTrue: () => 1,
+        onFalse: () => Chunk.reduce(Chunk.take(probs, Number.sum(k, 1)), 0, Number.sum)
+      })
+  })
 }
 
 /**
@@ -52,8 +56,8 @@ export const categoricalCdf = (k: number, probs: Chunk.Chunk<number>): number =>
  * @category internal
  */
 export const categoricalMean = (probs: Chunk.Chunk<number>): number => {
-  const indices = Chunk.fromIterable(Arr.range(0, Chunk.size(probs) - 1))
-  return Chunk.reduce(Chunk.zip(indices, probs), 0, (acc, [i, p]) => N.sum(acc, N.multiply(i, p)))
+  const indices = Chunk.fromIterable(Array.range(0, Number.subtract(Chunk.size(probs), 1)))
+  return Chunk.reduce(Chunk.zip(indices, probs), 0, (acc, [i, p]) => Number.sum(acc, Number.multiply(i, p)))
 }
 
 /**
@@ -64,13 +68,13 @@ export const categoricalMean = (probs: Chunk.Chunk<number>): number => {
  */
 export const categoricalVariance = (probs: Chunk.Chunk<number>): number => {
   const mu = categoricalMean(probs)
-  const indices = Chunk.fromIterable(Arr.range(0, Chunk.size(probs) - 1))
+  const indices = Chunk.fromIterable(Array.range(0, Number.subtract(Chunk.size(probs), 1)))
   const e2 = Chunk.reduce(
     Chunk.zip(indices, probs),
     0,
-    (acc, [i, p]) => N.sum(acc, N.multiply(N.multiply(i, i), p))
+    (acc, [i, p]) => Number.sum(acc, Number.multiply(Number.multiply(i, i), p))
   )
-  return N.subtract(e2, N.multiply(mu, mu))
+  return Number.subtract(e2, Number.multiply(mu, mu))
 }
 
 /**
@@ -81,4 +85,4 @@ export const categoricalVariance = (probs: Chunk.Chunk<number>): number => {
  * @category internal
  */
 export const categoricalEntropy = (probs: Chunk.Chunk<number>): number =>
-  N.negate(Chunk.reduce(probs, 0, (acc, p) => N.sum(acc, xlogy(p, p))))
+  Number.negate(Chunk.reduce(probs, 0, (acc, p) => Number.sum(acc, xlogy(p, p))))

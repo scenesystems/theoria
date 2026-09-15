@@ -46,8 +46,8 @@ export const polyDerivative: (coefficients: Chunk.Chunk<number>) => Chunk.Chunk<
 
 /**
  * Greatest non-negative common divisor of integer-valued inputs.
- * `gcd(0, b) = |b|` and `gcd(a, 0) = |a|`. The pure function does not
- * validate integrality or finiteness.
+ * `gcd(0, b) = |b|` and `gcd(a, 0) = |a|`. Fractions and non-finite
+ * inputs produce `NaN`; integral values beyond the safe range remain exact.
  *
  * @since 0.1.0
  * @category operations
@@ -56,8 +56,8 @@ export const gcd: (a: number, b: number) => number = Integer.gcd
 
 /**
  * Non-negative least common multiple of integer-valued inputs.
- * `lcm(0, x) = 0`. The pure function does not validate integrality,
- * finiteness, or safe-integer overflow.
+ * `lcm(0, x) = 0`. Fractions and non-finite inputs produce `NaN`.
+ * Intermediate arithmetic is exact; the final result rounds to binary64.
  *
  * @since 0.1.0
  * @category operations
@@ -96,7 +96,7 @@ export const polyEvalValidated = (input: unknown) =>
         })
       )
     )
-    return Polynomial.polyEval(Chunk.fromIterable(decoded.coefficients), decoded.x)
+    return Polynomial.polyEval(decoded.coefficients, decoded.x)
   })
 
 /**
@@ -117,7 +117,7 @@ export const polyDerivativeValidated = (input: unknown) =>
         })
       )
     )
-    return Polynomial.polyDerivative(Chunk.fromIterable(decoded.coefficients))
+    return Polynomial.polyDerivative(decoded.coefficients)
   })
 
 /**
@@ -200,7 +200,7 @@ export const factorialValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Algebra } from "@scenesystems/effect-math"
- * import { Chunk, Effect, Layer } from "effect"
+ * import { Chunk, Effect, Layer, Number } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
@@ -212,11 +212,11 @@ export const factorialValidated = (input: unknown) =>
  * )
  *
  * export const program = Algebra.polyEvalWithPolicies(
- *   Chunk.fromIterable([1, -2, 1]), 3
+ *   Chunk.make(1, Number.negate(2), 1), 3
  * ).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (result) => result === 4,
+ *     (result) => Number.Equivalence(result, 4),
  *     () => "UnexpectedPolynomialValue"
  *   )
  * )
@@ -231,8 +231,8 @@ export const polyEvalWithPolicies = (coefficients: Chunk.Chunk<number>, x: numbe
     compute: () => Polynomial.polyEval(coefficients, x),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "polyEvalWithPolicies", message }),
     annotations: (result) => ({
-      input: `coefficients=[${Chunk.toReadonlyArray(coefficients).join(",")}], x=${x}`,
-      result: String(result)
+      input: `coefficients=[${Chunk.join(Chunk.map(coefficients, (coefficient) => `${coefficient}`), ",")}], x=${x}`,
+      result: `${result}`
     })
   })
 
@@ -250,11 +250,11 @@ export const polyDerivativeWithPolicies = (coefficients: Chunk.Chunk<number>) =>
   withCustomPolicyGuards({
     operation: "Algebra.polyDerivativeWithPolicies",
     compute: () => Polynomial.polyDerivative(coefficients),
-    isValid: (result) => Chunk.every(result, (c) => Number.isFinite(c)),
+    isValid: (result) => Chunk.every(result, Schema.is(Schema.Finite)),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "polyDerivativeWithPolicies", message }),
     annotations: (result) => ({
-      input: `coefficients=[${Chunk.toReadonlyArray(coefficients).join(",")}]`,
-      result: `[${Chunk.toReadonlyArray(result).join(",")}]`
+      input: `coefficients=[${Chunk.join(Chunk.map(coefficients, (coefficient) => `${coefficient}`), ",")}]`,
+      result: `[${Chunk.join(Chunk.map(result, (coefficient) => `${coefficient}`), ",")}]`
     })
   })
 
@@ -274,7 +274,7 @@ export const factorialWithPolicies = (n: number) =>
     operation: "Algebra.factorialWithPolicies",
     compute: () => Integer.factorial(n),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "factorialWithPolicies", message }),
-    annotations: (result) => ({ input: String(n), result: String(result) })
+    annotations: (result) => ({ input: `${n}`, result: `${result}` })
   })
 
 /**
@@ -293,7 +293,7 @@ export const gcdWithPolicies = (a: number, b: number) =>
     operation: "Algebra.gcdWithPolicies",
     compute: () => Integer.gcd(a, b),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "gcdWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
+    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: `${result}` })
   })
 
 /**
@@ -312,5 +312,5 @@ export const lcmWithPolicies = (a: number, b: number) =>
     operation: "Algebra.lcmWithPolicies",
     compute: () => Integer.lcm(a, b),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "lcmWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
+    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: `${result}` })
   })

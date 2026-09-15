@@ -9,10 +9,12 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Number, Schema } from "effect"
 
-import { betaincKernel } from "../../Special/internal/betainc.js"
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
+import { exp, log } from "../../Numeric/index.js"
+import { betainc, lnGamma } from "../../Special/index.js"
+
+const Integer = Schema.Number.pipe(Schema.int())
 
 /**
  * Log-PMF: ln C(n,k) + k·ln(p) + (n−k)·ln(1−p).
@@ -21,34 +23,50 @@ import { lnGammaLanczos } from "../../Special/internal/gamma.js"
  * @since 0.1.0
  * @category internal
  */
-export const binomialLogPmf = (k: number, n: number, p: number): number => {
-  if (Math.floor(k) !== k || N.lessThan(k, 0) || N.greaterThan(k, n)) return -Infinity
-  if (p === 0) return k === 0 ? 0 : -Infinity
-  if (p === 1) return k === n ? 0 : -Infinity
-
-  const lnCoeff = N.subtract(
-    lnGammaLanczos(N.sum(n, 1)),
-    N.sum(lnGammaLanczos(N.sum(k, 1)), lnGammaLanczos(N.sum(N.subtract(n, k), 1)))
-  )
-
-  return N.sum(
-    lnCoeff,
-    N.sum(
-      N.multiply(k, Math.log(p)),
-      N.multiply(N.subtract(n, k), Math.log(N.subtract(1, p)))
-    )
+export const binomialLogpmf = (k: number, n: number, p: number): number => {
+  return Boolean.match(
+    Boolean.or(Boolean.not(Schema.is(Integer)(k)), Boolean.or(Number.lessThan(k, 0), Number.greaterThan(k, n))),
+    {
+      onTrue: () => -Infinity,
+      onFalse: () =>
+        Boolean.match(Number.Equivalence(p, 0), {
+          onTrue: () => Boolean.match(Number.Equivalence(k, 0), { onTrue: () => 0, onFalse: () => -Infinity }),
+          onFalse: () =>
+            Boolean.match(Number.Equivalence(p, 1), {
+              onTrue: () => Boolean.match(Number.Equivalence(k, n), { onTrue: () => 0, onFalse: () => -Infinity }),
+              onFalse: () => {
+                const lnCoefficient = Number.subtract(
+                  lnGamma(Number.sum(n, 1)),
+                  Number.sum(lnGamma(Number.sum(k, 1)), lnGamma(Number.sum(Number.subtract(n, k), 1)))
+                )
+                return Number.sum(
+                  lnCoefficient,
+                  Number.sum(
+                    Number.multiply(k, log(p)),
+                    Number.multiply(Number.subtract(n, k), log(Number.subtract(1, p)))
+                  )
+                )
+              }
+            })
+        })
+    }
   )
 }
 
 /**
- * PMF: exp(logPmf). Returns 0 for k outside support.
+ * PMF: exp(logpmf). Returns 0 for k outside support.
  *
  * @since 0.1.0
  * @category internal
  */
 export const binomialPmf = (k: number, n: number, p: number): number => {
-  if (Math.floor(k) !== k || N.lessThan(k, 0) || N.greaterThan(k, n)) return 0
-  return Math.exp(binomialLogPmf(k, n, p))
+  return Boolean.match(
+    Boolean.or(Boolean.not(Schema.is(Integer)(k)), Boolean.or(Number.lessThan(k, 0), Number.greaterThan(k, n))),
+    {
+      onTrue: () => 0,
+      onFalse: () => exp(binomialLogpmf(k, n, p))
+    }
+  )
 }
 
 /**
@@ -59,12 +77,22 @@ export const binomialPmf = (k: number, n: number, p: number): number => {
  * @category internal
  */
 export const binomialCdf = (k: number, n: number, p: number): number => {
-  if (N.lessThan(k, 0)) return 0
-  if (N.greaterThanOrEqualTo(k, n)) return 1
-  if (p === 0) return N.greaterThanOrEqualTo(k, 0) ? 1 : 0
-  if (p === 1) return N.greaterThanOrEqualTo(k, n) ? 1 : 0
-
-  return N.subtract(1, betaincKernel(N.sum(k, 1), N.subtract(n, k), p))
+  return Boolean.match(Number.lessThan(k, 0), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.greaterThanOrEqualTo(k, n), {
+        onTrue: () => 1,
+        onFalse: () =>
+          Boolean.match(Number.Equivalence(p, 0), {
+            onTrue: () => 1,
+            onFalse: () =>
+              Boolean.match(Number.Equivalence(p, 1), {
+                onTrue: () => 0,
+                onFalse: () => Number.subtract(1, betainc(Number.sum(k, 1), Number.subtract(n, k), p))
+              })
+          })
+      })
+  })
 }
 
 /**
@@ -73,7 +101,7 @@ export const binomialCdf = (k: number, n: number, p: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const binomialMean = (n: number, p: number): number => N.multiply(n, p)
+export const binomialMean = (n: number, p: number): number => Number.multiply(n, p)
 
 /**
  * Variance: Var(X) = n · p · (1 − p).
@@ -81,4 +109,5 @@ export const binomialMean = (n: number, p: number): number => N.multiply(n, p)
  * @since 0.1.0
  * @category internal
  */
-export const binomialVariance = (n: number, p: number): number => N.multiply(N.multiply(n, p), N.subtract(1, p))
+export const binomialVariance = (n: number, p: number): number =>
+  Number.multiply(Number.multiply(n, p), Number.subtract(1, p))

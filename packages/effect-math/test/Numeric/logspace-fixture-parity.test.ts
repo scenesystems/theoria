@@ -1,16 +1,24 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Number as N, Schema } from "effect"
+import { Chunk, Effect, Match, Number, Schema } from "effect"
 
-import { log1mexp, log1pexp, logaddexp, logsubexp, logSumExp, xlog1py, xlogy } from "../../src/Numeric/operations.js"
+import {
+  abs,
+  log1mexp,
+  log1pexp,
+  logaddexp,
+  logsubexp,
+  logSumExp,
+  xlog1py,
+  xlogy
+} from "../../src/Numeric/operations.js"
 import { FixtureRegistryLive, loadFixture, NumericLogspaceParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const RELATIVE_TOLERANCE = 1e-12
 const ABSOLUTE_TOLERANCE = 1e-12
 
 const expectParity = (actual: number, expected: number, absoluteTol: number = ABSOLUTE_TOLERANCE) => {
-  const absExpected = Math.abs(expected)
-  const tolerance = absExpected > 1 ? N.multiply(absExpected, RELATIVE_TOLERANCE) : absoluteTol
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  const tolerance = Number.max(absoluteTol, Number.multiply(abs(expected), RELATIVE_TOLERANCE))
+  expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 describe("Numeric logspace SciPy fixture parity", () => {
@@ -21,7 +29,7 @@ describe("Numeric logspace SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(fixture.payload.cases, (c) =>
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "logaddexp" }, (v) => expectParity(logaddexp(v.input.a, v.input.b), v.expected)),

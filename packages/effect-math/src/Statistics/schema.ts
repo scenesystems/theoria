@@ -16,10 +16,18 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
  * @since 0.1.0
  * @category schemas
  */
-export const StatisticsDomainSchema = Schema.Struct({
+export class StatisticsDomain extends Schema.Class<StatisticsDomain>("StatisticsDomain")({
   domain: Schema.Literal("Statistics"),
   stability: DomainStability
-})
+}) {}
+
+/**
+ * Schema for Statistics discovery metadata.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const StatisticsDomainSchema = StatisticsDomain
 
 /**
  * Decodes Statistics discovery metadata and rejects excess fields.
@@ -77,13 +85,11 @@ export type StatisticsSchemaBoundaryError = BoundaryDecodeError | BoundaryEncode
  * @since 0.1.0
  * @category models
  */
-export type StatisticsDomain = typeof StatisticsDomainSchema.Type
-
 // ---------------------------------------------------------------------------
 // Shared finite number schema
 // ---------------------------------------------------------------------------
 
-const FiniteNumber = Schema.Number.pipe(Schema.finite())
+const FiniteNumber = Schema.Finite
 
 // ---------------------------------------------------------------------------
 // Operation input schemas
@@ -100,7 +106,7 @@ const FiniteNumber = Schema.Number.pipe(Schema.finite())
  * @category schemas
  */
 export const SampleInput = Schema.Struct({
-  values: Schema.NonEmptyArray(FiniteNumber)
+  values: Schema.NonEmptyChunk(FiniteNumber)
 }).annotations({ identifier: "SampleInput" })
 
 /**
@@ -114,8 +120,8 @@ export const SampleInput = Schema.Struct({
  * @category schemas
  */
 export const TwoSampleInput = Schema.Struct({
-  a: Schema.NonEmptyArray(FiniteNumber),
-  b: Schema.NonEmptyArray(FiniteNumber)
+  a: Schema.NonEmptyChunk(FiniteNumber),
+  b: Schema.NonEmptyChunk(FiniteNumber)
 }).annotations({ identifier: "TwoSampleInput" })
 
 /**
@@ -142,5 +148,5 @@ export class SummaryStatistics extends Schema.TaggedClass<SummaryStatistics>()("
   /** Largest summarized observation. */
   max: FiniteNumber,
   /** Positive observation count recorded by the summary. */
-  count: Schema.Number.pipe(Schema.finite(), Schema.int(), Schema.greaterThanOrEqualTo(1))
+  count: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1))
 }) {}

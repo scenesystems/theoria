@@ -4,59 +4,39 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as EffectNumber } from "effect"
-import * as Arr from "effect/Array"
+import { type Chunk, Iterable, Number, Schema } from "effect"
 
-/**
- * Sum over any `Iterable<number>` via `Number.sumAll`.
- *
- * @since 0.1.0
- * @category internal
- */
-export const sumScalar: (values: Iterable<number>) => number = EffectNumber.sumAll
+import { log } from "./transcendental.js"
 
-/**
- * Kahan-compensated sum over a `Float64Array` carrier via `Array.reduce`.
- *
- * @since 0.1.0
- * @category internal
- */
-export const sumTypedArray = (values: Float64Array): number => {
-  const { s } = Arr.reduce(
-    Arr.fromIterable(values),
-    { s: 0, c: 0 },
-    (acc, v) => {
-      const y = v - acc.c
-      const t = acc.s + y
-      return { s: t, c: (t - acc.s) - y }
-    }
-  )
-  return s
-}
+class CompensatedSum extends Schema.Class<CompensatedSum>("CompensatedSum")({
+  compensation: Schema.Number,
+  sum: Schema.Number
+}) {}
 
-/**
- * Sum over a `Chunk<number>` via `Number.sumAll`.
- *
- * @since 0.1.0
- * @category internal
- */
-export const sumChunk = (values: Chunk.Chunk<number>): number => EffectNumber.sumAll(Chunk.toReadonlyArray(values))
+/** Sum over an iterable in iteration order. */
+export const sumScalar: (values: Iterable<number>) => number = Number.sumAll
 
-/**
- * Kahan-compensated sum of natural logs over a `Float64Array` carrier.
- *
- * @since 0.1.0
- * @category internal
- */
-export const sumLogTypedArray = (values: Float64Array): number => {
-  const { s } = Arr.reduce(
-    Arr.fromIterable(values),
-    { s: 0, c: 0 },
-    (acc, v) => {
-      const y = Math.log(v) - acc.c
-      const t = acc.s + y
-      return { s: t, c: (t - acc.s) - y }
-    }
-  )
-  return s
-}
+/** Kahan-compensated sum over an iterable carrier. */
+export const sumCompensated = (values: Iterable<number>): number =>
+  Iterable.reduce(values, new CompensatedSum({ compensation: 0, sum: 0 }), (state, value) => {
+    const adjusted = Number.subtract(value, state.compensation)
+    const sum = Number.sum(state.sum, adjusted)
+    return new CompensatedSum({
+      compensation: Number.subtract(Number.subtract(sum, state.sum), adjusted),
+      sum
+    })
+  }).sum
+
+/** Sum over a dense immutable chunk. */
+export const sumChunk = (values: Chunk.Chunk<number>): number => Number.sumAll(values)
+
+/** Kahan-compensated sum of natural logarithms over an iterable carrier. */
+export const sumLog = (values: Iterable<number>): number =>
+  Iterable.reduce(values, new CompensatedSum({ compensation: 0, sum: 0 }), (state, value) => {
+    const adjusted = Number.subtract(log(value), state.compensation)
+    const sum = Number.sum(state.sum, adjusted)
+    return new CompensatedSum({
+      compensation: Number.subtract(Number.subtract(sum, state.sum), adjusted),
+      sum
+    })
+  }).sum

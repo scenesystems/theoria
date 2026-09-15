@@ -113,7 +113,7 @@ export class NumericConvergenceError extends Schema.TaggedError<NumericConvergen
  * @category contracts
  */
 export const NumericBoundaryValidationInput = Schema.Struct({
-  values: Schema.Array(Schema.Number.pipe(Schema.finite())),
+  values: Schema.Chunk(Schema.Number.pipe(Schema.finite())),
   tolerance: AbsoluteTolerance,
   budget: IterationBudget
 })

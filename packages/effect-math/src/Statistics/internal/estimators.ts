@@ -1,143 +1,121 @@
 /**
- * Pure statistical estimator kernels over Chunk carriers using Effect
- * primitives. All iteration uses `Chunk.reduce`, `Chunk.zipWith`, etc.
+ * Pure statistical estimator kernels over immutable Chunk carriers.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N, Option, pipe } from "effect"
+import { Boolean, Chunk, Number, Option, pipe, Schema } from "effect"
 
-/**
- * Arithmetic mean of a non-empty chunk.
- *
- * @since 0.1.0
- * @category internal
- */
+import { abs, sqrt } from "../../Numeric/index.js"
+import { SummaryStatistics } from "../schema.js"
+
+class SummaryAccumulator extends Schema.Class<SummaryAccumulator>("SummaryAccumulator")({
+  count: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)),
+  maximum: Schema.Number,
+  mean: Schema.Number,
+  minimum: Schema.Number,
+  sumOfSquaredDistances: Schema.Number
+}) {}
+
+/** Arithmetic mean in observation order. */
 export const mean = (values: Chunk.Chunk<number>): number =>
-  N.unsafeDivide(Chunk.reduce(values, 0, N.sum), Chunk.size(values))
+  Boolean.match(Chunk.every(values, Schema.is(Schema.Finite)), {
+    onFalse: () => Number.unsafeDivide(Chunk.reduce(values, 0, Number.sum), Chunk.size(values)),
+    onTrue: () => {
+      const scale = Chunk.reduce(values, 0, (maximum, value) => Number.max(maximum, abs(value)))
+      return Boolean.match(Number.Equivalence(scale, 0), {
+        onTrue: () => Number.unsafeDivide(Chunk.reduce(values, 0, Number.sum), Chunk.size(values)),
+        onFalse: () =>
+          Number.multiply(
+            Number.unsafeDivide(
+              Chunk.reduce(values, 0, (sum, value) => Number.sum(sum, Number.unsafeDivide(value, scale))),
+              Chunk.size(values)
+            ),
+            scale
+          )
+      })
+    }
+  })
 
-/**
- * Sample variance (Bessel-corrected, n-1 denominator).
- *
- * @since 0.1.0
- * @category internal
- */
+/** Bessel-corrected sample variance. */
 export const variance = (values: Chunk.Chunk<number>): number => {
-  const m = mean(values)
-  const n = Chunk.size(values)
-  return N.unsafeDivide(
-    Chunk.reduce(values, 0, (acc, x) => {
-      const diff = N.subtract(x, m)
-      return N.sum(acc, N.multiply(diff, diff))
+  const average = mean(values)
+  return Number.unsafeDivide(
+    Chunk.reduce(values, 0, (sum, value) => {
+      const distance = Number.subtract(value, average)
+      return Number.sum(sum, Number.multiply(distance, distance))
     }),
-    N.subtract(n, 1)
+    Number.decrement(Chunk.size(values))
   )
 }
 
-/**
- * Sample standard deviation — `√(variance)`.
- *
- * `Math.sqrt` is a deterministic IEEE 754 primitive — no Effect equivalent
- * exists. Used here as a leaf mathematical operation.
- *
- * @since 0.1.0
- * @category internal
- */
-export const standardDeviation = (values: Chunk.Chunk<number>): number => Math.sqrt(variance(values))
+/** Square root of the Bessel-corrected sample variance. */
+export const standardDeviation = (values: Chunk.Chunk<number>): number => sqrt(variance(values))
 
-/**
- * Descriptive statistics for a non-empty chunk using a one-pass Welford accumulator.
- *
- * Singleton chunks produce zero variance and standard deviation.
- *
- * @since 0.3.0
- * @category internal
- */
-export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>) => {
+/** Descriptive statistics from a one-pass Welford fold. */
+export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryStatistics => {
   const first = Chunk.headNonEmpty(values)
-  const aggregated = Chunk.reduce(Chunk.tailNonEmpty(values), {
-    count: 1,
-    maximum: first,
-    mean: first,
-    minimum: first,
-    sumOfSquaredDistances: 0
-  }, (state, value) => {
-    const count = state.count + 1
-    const delta = value - state.mean
-    const mean = state.mean + (delta / count)
-    const deltaFromUpdatedMean = value - mean
-
-    return {
-      count,
-      maximum: Math.max(state.maximum, value),
-      mean,
-      minimum: Math.min(state.minimum, value),
-      sumOfSquaredDistances: state.sumOfSquaredDistances + (delta * deltaFromUpdatedMean)
+  const accumulated = Chunk.reduce(
+    Chunk.tailNonEmpty(values),
+    new SummaryAccumulator({
+      count: 1,
+      maximum: first,
+      mean: first,
+      minimum: first,
+      sumOfSquaredDistances: 0
+    }),
+    (state, value) => {
+      const count = Number.increment(state.count)
+      const delta = Number.subtract(value, state.mean)
+      const average = Number.sum(state.mean, Number.unsafeDivide(delta, count))
+      const updatedDelta = Number.subtract(value, average)
+      return new SummaryAccumulator({
+        count,
+        maximum: Number.max(state.maximum, value),
+        mean: average,
+        minimum: Number.min(state.minimum, value),
+        sumOfSquaredDistances: Number.sum(
+          state.sumOfSquaredDistances,
+          Number.multiply(delta, updatedDelta)
+        )
+      })
     }
+  )
+  const sampleVariance = Boolean.match(Number.Equivalence(accumulated.count, 1), {
+    onTrue: () => 0,
+    onFalse: () => Number.unsafeDivide(accumulated.sumOfSquaredDistances, Number.decrement(accumulated.count))
   })
-  const variance = aggregated.count === 1
-    ? 0
-    : aggregated.sumOfSquaredDistances / (aggregated.count - 1)
-
-  return {
-    count: aggregated.count,
-    maximum: aggregated.maximum,
-    mean: aggregated.mean,
-    minimum: aggregated.minimum,
-    standardDeviation: Math.sqrt(variance),
-    variance
-  }
+  return new SummaryStatistics({
+    count: accumulated.count,
+    max: accumulated.maximum,
+    mean: accumulated.mean,
+    min: accumulated.minimum,
+    standardDeviation: sqrt(sampleVariance),
+    variance: sampleVariance
+  })
 }
 
-/**
- * Minimum of a chunk, returns `Option.none()` for empty.
- *
- * @since 0.1.0
- * @category internal
- */
+/** Minimum observation, or None for an empty sample. */
 export const minimum = (values: Chunk.Chunk<number>): Option.Option<number> =>
-  Chunk.size(values) === 0
-    ? Option.none()
-    : Option.some(
-      Chunk.reduce(
-        Chunk.drop(values, 1),
-        Option.getOrElse(Chunk.get(values, 0), () => 0),
-        N.min
-      )
-    )
+  Option.map(Chunk.head(values), (head) => Chunk.reduce(Chunk.drop(values, 1), head, Number.min))
 
-/**
- * Maximum of a chunk, returns `Option.none()` for empty.
- *
- * @since 0.1.0
- * @category internal
- */
+/** Maximum observation, or None for an empty sample. */
 export const maximum = (values: Chunk.Chunk<number>): Option.Option<number> =>
-  Chunk.size(values) === 0
-    ? Option.none()
-    : Option.some(
-      Chunk.reduce(
-        Chunk.drop(values, 1),
-        Option.getOrElse(Chunk.get(values, 0), () => 0),
-        N.max
-      )
-    )
+  Option.map(Chunk.head(values), (head) => Chunk.reduce(Chunk.drop(values, 1), head, Number.max))
 
-/**
- * Covariance of two equal-length chunks (Bessel-corrected, n-1 denominator).
- *
- * @since 0.1.0
- * @category internal
- */
+/** Bessel-corrected covariance over the shared sample prefix. */
 export const covariance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
   const meanA = mean(a)
   const meanB = mean(b)
-  const n = Chunk.size(a)
-  return N.unsafeDivide(
+  return Number.unsafeDivide(
     pipe(
-      Chunk.zipWith(a, b, (ai, bi) => N.multiply(N.subtract(ai, meanA), N.subtract(bi, meanB))),
-      Chunk.reduce(0, N.sum)
+      Chunk.zipWith(
+        a,
+        b,
+        (left, right) => Number.multiply(Number.subtract(left, meanA), Number.subtract(right, meanB))
+      ),
+      Chunk.reduce(0, Number.sum)
     ),
-    N.subtract(n, 1)
+    Number.decrement(Chunk.size(a))
   )
 }

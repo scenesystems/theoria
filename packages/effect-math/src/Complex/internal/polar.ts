@@ -4,7 +4,10 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Chunk, Number, Tuple } from "effect"
+
+import * as Numeric from "../../Numeric/index.js"
+import type { ComplexPair } from "../schema.js"
 
 /**
  * Rectangular → polar: returns `[r, θ]` where r = |z| and
@@ -13,10 +16,8 @@ import { Number as N } from "effect"
  * @since 0.1.0
  * @category internal
  */
-export const toPolar = (re: number, im: number): readonly [number, number] => [
-  Math.hypot(re, im),
-  Math.atan2(im, re)
-]
+export const toPolar = (re: number, im: number): ComplexPair =>
+  Tuple.make(Numeric.hypot(Chunk.make(re, im)), Numeric.atan2(im, re))
 
 /**
  * Polar → rectangular: returns `[r·cos(θ), r·sin(θ)]`.
@@ -24,7 +25,5 @@ export const toPolar = (re: number, im: number): readonly [number, number] => [
  * @since 0.1.0
  * @category internal
  */
-export const fromPolar = (r: number, theta: number): readonly [number, number] => [
-  N.multiply(r, Math.cos(theta)),
-  N.multiply(r, Math.sin(theta))
-]
+export const fromPolar = (r: number, theta: number): ComplexPair =>
+  Tuple.make(Number.multiply(r, Numeric.cos(theta)), Number.multiply(r, Numeric.sin(theta)))

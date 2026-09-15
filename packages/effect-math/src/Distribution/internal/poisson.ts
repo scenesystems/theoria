@@ -10,10 +10,12 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Number, Schema } from "effect"
 
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
-import { gammainccKernel } from "../../Special/internal/gammainc.js"
+import { exp, log } from "../../Numeric/index.js"
+import { gammaincc, lnGamma } from "../../Special/index.js"
+
+const Integer = Schema.Number.pipe(Schema.int())
 
 /**
  * Log-PMF: k·ln(μ) − μ − ln(Γ(k+1)).
@@ -22,38 +24,50 @@ import { gammainccKernel } from "../../Special/internal/gammainc.js"
  * @since 0.1.0
  * @category internal
  */
-export const poissonLogPmf = (k: number, mu: number): number => {
-  if (N.lessThan(k, 0) || Math.floor(k) !== k) return -Infinity
-  if (mu === 0) return k === 0 ? 0 : -Infinity
-
-  return N.subtract(
-    N.subtract(N.multiply(k, Math.log(mu)), mu),
-    lnGammaLanczos(N.sum(k, 1))
-  )
+export const poissonLogpmf = (k: number, mu: number): number => {
+  return Boolean.match(Boolean.or(Number.lessThan(k, 0), Boolean.not(Schema.is(Integer)(k))), {
+    onTrue: () => -Infinity,
+    onFalse: () =>
+      Boolean.match(Number.Equivalence(mu, 0), {
+        onTrue: () => Boolean.match(Number.Equivalence(k, 0), { onTrue: () => 0, onFalse: () => -Infinity }),
+        onFalse: () =>
+          Number.subtract(
+            Number.subtract(Number.multiply(k, log(mu)), mu),
+            lnGamma(Number.sum(k, 1))
+          )
+      })
+  })
 }
 
 /**
- * PMF: exp(logPmf). Returns 0 for k < 0.
+ * PMF: exp(logpmf). Returns 0 for k < 0.
  *
  * @since 0.1.0
  * @category internal
  */
 export const poissonPmf = (k: number, mu: number): number => {
-  if (N.lessThan(k, 0) || Math.floor(k) !== k) return 0
-  return Math.exp(poissonLogPmf(k, mu))
+  return Boolean.match(Boolean.or(Number.lessThan(k, 0), Boolean.not(Schema.is(Integer)(k))), {
+    onTrue: () => 0,
+    onFalse: () => exp(poissonLogpmf(k, mu))
+  })
 }
 
 /**
- * CDF: P(X ≤ k) = Q(k+1, μ) = gammainccKernel(k+1, μ).
+ * CDF: P(X ≤ k) = Q(k+1, μ) = gammaincc(k+1, μ).
  * Edge case: μ=0 → 1 for all k ≥ 0.
  *
  * @since 0.1.0
  * @category internal
  */
 export const poissonCdf = (k: number, mu: number): number => {
-  if (N.lessThan(k, 0)) return 0
-  if (mu === 0) return 1
-  return gammainccKernel(N.sum(k, 1), mu)
+  return Boolean.match(Number.lessThan(k, 0), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.Equivalence(mu, 0), {
+        onTrue: () => 1,
+        onFalse: () => gammaincc(Number.sum(k, 1), mu)
+      })
+  })
 }
 
 /**

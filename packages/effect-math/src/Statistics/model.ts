@@ -5,7 +5,7 @@
  * @category models
  */
 import { StatisticsDomainContract } from "./contract.js"
-import type { StatisticsDomain } from "./schema.js"
+import { StatisticsDomain } from "./schema.js"
 
 /**
  * Identifies the Statistics domain as provisional.
@@ -13,7 +13,7 @@ import type { StatisticsDomain } from "./schema.js"
  * @since 0.1.0
  * @category models
  */
-export const StatisticsDomainModel: StatisticsDomain = {
+export const StatisticsDomainModel = new StatisticsDomain({
   domain: StatisticsDomainContract,
   stability: "provisional"
-}
+})

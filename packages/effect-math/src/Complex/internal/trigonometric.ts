@@ -6,8 +6,10 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Number, Tuple } from "effect"
 
+import * as Numeric from "../../Numeric/index.js"
+import type { ComplexPair } from "../schema.js"
 import { divide } from "./arithmetic.js"
 
 /**
@@ -16,10 +18,11 @@ import { divide } from "./arithmetic.js"
  * @since 0.1.0
  * @category internal
  */
-export const sin = (re: number, im: number): readonly [number, number] => [
-  N.multiply(Math.sin(re), Math.cosh(im)),
-  N.multiply(Math.cos(re), Math.sinh(im))
-]
+export const sin = (re: number, im: number): ComplexPair =>
+  Tuple.make(
+    Number.multiply(Numeric.sin(re), Numeric.cosh(im)),
+    Number.multiply(Numeric.cos(re), Numeric.sinh(im))
+  )
 
 /**
  * Complex cosine: cos(a + bi) = cos(a)cosh(b) − i·sin(a)sinh(b).
@@ -27,10 +30,11 @@ export const sin = (re: number, im: number): readonly [number, number] => [
  * @since 0.1.0
  * @category internal
  */
-export const cos = (re: number, im: number): readonly [number, number] => [
-  N.multiply(Math.cos(re), Math.cosh(im)),
-  N.negate(N.multiply(Math.sin(re), Math.sinh(im)))
-]
+export const cos = (re: number, im: number): ComplexPair =>
+  Tuple.make(
+    Number.multiply(Numeric.cos(re), Numeric.cosh(im)),
+    Number.negate(Number.multiply(Numeric.sin(re), Numeric.sinh(im)))
+  )
 
 /**
  * Complex tangent: tan(z) = sin(z) / cos(z). Returns `[NaN, NaN]`
@@ -39,7 +43,7 @@ export const cos = (re: number, im: number): readonly [number, number] => [
  * @since 0.1.0
  * @category internal
  */
-export const tan = (re: number, im: number): readonly [number, number] => {
+export const tan = (re: number, im: number): ComplexPair => {
   const [sinRe, sinIm] = sin(re, im)
   const [cosRe, cosIm] = cos(re, im)
   return divide(sinRe, sinIm, cosRe, cosIm)
@@ -51,10 +55,11 @@ export const tan = (re: number, im: number): readonly [number, number] => {
  * @since 0.1.0
  * @category internal
  */
-export const sinh = (re: number, im: number): readonly [number, number] => [
-  N.multiply(Math.sinh(re), Math.cos(im)),
-  N.multiply(Math.cosh(re), Math.sin(im))
-]
+export const sinh = (re: number, im: number): ComplexPair =>
+  Tuple.make(
+    Number.multiply(Numeric.sinh(re), Numeric.cos(im)),
+    Number.multiply(Numeric.cosh(re), Numeric.sin(im))
+  )
 
 /**
  * Complex hyperbolic cosine: cosh(a + bi) = cosh(a)cos(b) + i·sinh(a)sin(b).
@@ -62,10 +67,11 @@ export const sinh = (re: number, im: number): readonly [number, number] => [
  * @since 0.1.0
  * @category internal
  */
-export const cosh = (re: number, im: number): readonly [number, number] => [
-  N.multiply(Math.cosh(re), Math.cos(im)),
-  N.multiply(Math.sinh(re), Math.sin(im))
-]
+export const cosh = (re: number, im: number): ComplexPair =>
+  Tuple.make(
+    Number.multiply(Numeric.cosh(re), Numeric.cos(im)),
+    Number.multiply(Numeric.sinh(re), Numeric.sin(im))
+  )
 
 /**
  * Complex hyperbolic tangent: tanh(z) = sinh(z) / cosh(z). Returns
@@ -74,7 +80,7 @@ export const cosh = (re: number, im: number): readonly [number, number] => [
  * @since 0.1.0
  * @category internal
  */
-export const tanh = (re: number, im: number): readonly [number, number] => {
+export const tanh = (re: number, im: number): ComplexPair => {
   const [sinhRe, sinhIm] = sinh(re, im)
   const [coshRe, coshIm] = cosh(re, im)
   return divide(sinhRe, sinhIm, coshRe, coshIm)

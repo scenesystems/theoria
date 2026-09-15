@@ -104,22 +104,22 @@ export const FinitePositiveScalar = Schema.Number.pipe(Schema.finite(), Schema.g
 }).pipe(Schema.brand("FinitePositiveScalar"))
 
 /**
- * Accepts non-empty arrays containing only finite numbers.
+ * Decodes non-empty arrays of finite numbers into dense immutable chunks.
  *
  * @since 0.1.0
  * @category schemas
  */
-export const FiniteVector = Schema.NonEmptyArray(Schema.Number.pipe(Schema.finite())).annotations({
+export const FiniteVector = Schema.NonEmptyChunk(Schema.Number.pipe(Schema.finite())).annotations({
   identifier: "FiniteVector"
 })
 
 /**
- * Accepts non-empty arrays containing only positive finite numbers.
+ * Decodes non-empty arrays of positive finite numbers into dense immutable chunks.
  *
  * @since 0.1.0
  * @category schemas
  */
-export const PositiveFiniteVector = Schema.NonEmptyArray(
+export const PositiveFiniteVector = Schema.NonEmptyChunk(
   Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
 ).annotations({
   identifier: "PositiveFiniteVector"

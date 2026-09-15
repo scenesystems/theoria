@@ -1,42 +1,26 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array, Effect } from "effect"
 
-import { factorialValidated, gcdValidated } from "../../src/Algebra/operations.js"
+import { factorialValidated, polyEvalValidated } from "../../src/Algebra/operations.js"
 
 describe("Algebra runtime boundary contracts", () => {
-  it.effect("accepts canonical valid factorial input", () =>
+  it.effect("accepts canonical polynomial and factorial inputs", () =>
     Effect.gen(function*() {
-      const result = yield* factorialValidated({ n: 5 })
-      expect(result).toBe(120)
+      expect(yield* polyEvalValidated({ coefficients: Array.make(1, 2, 3), x: 2 })).toBe(17)
+      expect(yield* factorialValidated({ n: 6 })).toBe(720)
     }))
 
-  it.effect("accepts canonical valid gcd input", () =>
+  it.effect("reports excess polynomial fields as typed decode failures", () =>
     Effect.gen(function*() {
-      const result = yield* gcdValidated({ a: 12, b: 8 })
-      expect(result).toBe(4)
+      const error = yield* Effect.flip(polyEvalValidated({ coefficients: Array.make(1, 2), x: 2, extra: true }))
+      expect(error._tag).toBe("AlgebraDecodeError")
+      expect(error.operation).toBe("polyEval")
     }))
 
-  it.effect("rejects excess properties on factorial with typed decode error", () =>
+  it.effect("reports fractional factorial inputs as typed decode failures", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(factorialValidated({ n: 5, extra: true }))
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("AlgebraDecodeError")
-      }
-    }))
-
-  it.effect("rejects excess properties on gcd with typed decode error", () =>
-    Effect.gen(function*() {
-      const result = yield* Effect.either(gcdValidated({ a: 12, b: 8, extra: true }))
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("AlgebraDecodeError")
-      }
-    }))
-
-  it.effect("rejects malformed input with wrong types", () =>
-    Effect.gen(function*() {
-      const result = yield* Effect.either(factorialValidated({ n: "bad" }))
-      expect(result._tag).toBe("Left")
+      const error = yield* Effect.flip(factorialValidated({ n: 2.5 }))
+      expect(error._tag).toBe("AlgebraDecodeError")
+      expect(error.operation).toBe("factorial")
     }))
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Number as N } from "effect"
+import { Array, Chunk, Effect, Number, Predicate, Schema } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
@@ -7,8 +7,10 @@ import {
   betaCdf,
   betaCdfValidated,
   betaCdfWithPolicies,
+  betaPdf,
   categoricalPmf,
   categoricalPmfValidated,
+  exponentialPdf,
   normalCdf,
   normalCdfValidated,
   normalCdfWithPolicies,
@@ -20,8 +22,10 @@ import {
   normalQuantile,
   normalQuantileValidated,
   normalVariance,
+  uniformPdf,
   uniformPdfValidated
 } from "../../src/Distribution/operations.js"
+import { isFinite, pi, sqrt } from "../../src/Numeric/index.js"
 
 const strictLayer = makeDeterministicRuntimePoliciesLayer({
   seed: Seed.make(42),
@@ -37,6 +41,8 @@ const relaxedLayer = makeDeterministicRuntimePoliciesLayer({
   diagnostics: "disabled"
 })
 
+const isNaN = Predicate.not(Schema.is(Schema.NonNaN))
+
 // ---------------------------------------------------------------------------
 // Pure kernel operations — Normal
 // ---------------------------------------------------------------------------
@@ -44,7 +50,7 @@ const relaxedLayer = makeDeterministicRuntimePoliciesLayer({
 describe("Distribution / normalPdf", () => {
   it.effect("peak value at x=mu", () =>
     Effect.gen(function*() {
-      const expected = N.unsafeDivide(1, Math.sqrt(N.multiply(2, Math.PI)))
+      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
       expect(normalPdf(0, 0, 1)).toBeCloseTo(expected)
     }))
 
@@ -85,7 +91,7 @@ describe("Distribution / normalVariance", () => {
 describe("Distribution / normalEntropy", () => {
   it.effect("correct for sigma=1", () =>
     Effect.gen(function*() {
-      const expected = 0.5 * Math.log(N.multiply(2, N.multiply(Math.PI, Math.E)))
+      const expected = 1.4189385332046727
       expect(normalEntropy(0, 1)).toBeCloseTo(expected)
     }))
 })
@@ -99,6 +105,20 @@ describe("Distribution / betaCdf", () => {
     Effect.gen(function*() {
       expect(betaCdf(0.5, 2, 2)).toBeCloseTo(0.5)
     }))
+
+  it.effect("preserves NaN outside Number ordering", () =>
+    Effect.gen(function*() {
+      expect(isNaN(betaPdf(NaN, 2, 2))).toStrictEqual(true)
+      expect(isNaN(betaCdf(NaN, 2, 2))).toStrictEqual(true)
+    }))
+})
+
+describe("Distribution / support checks", () => {
+  it.effect("treats NaN as outside uniform and exponential support", () =>
+    Effect.gen(function*() {
+      expect(uniformPdf(NaN, 0, 1)).toStrictEqual(0)
+      expect(exponentialPdf(NaN, 1)).toStrictEqual(0)
+    }))
 })
 
 // ---------------------------------------------------------------------------
@@ -108,13 +128,13 @@ describe("Distribution / betaCdf", () => {
 describe("Distribution / categoricalPmf", () => {
   it.effect("returns correct probability", () =>
     Effect.gen(function*() {
-      const probs = Chunk.fromIterable([0.2, 0.3, 0.5])
+      const probs = Chunk.make(0.2, 0.3, 0.5)
       expect(categoricalPmf(1, probs)).toBeCloseTo(0.3)
     }))
 
   it.effect("returns 0 out of range", () =>
     Effect.gen(function*() {
-      const probs = Chunk.fromIterable([0.2, 0.3, 0.5])
+      const probs = Chunk.make(0.2, 0.3, 0.5)
       expect(categoricalPmf(5, probs)).toStrictEqual(0)
     }))
 })
@@ -127,7 +147,7 @@ describe("Distribution / normalPdfValidated", () => {
   it.effect("decodes valid input", () =>
     Effect.gen(function*() {
       const result = yield* normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
-      const expected = N.unsafeDivide(1, Math.sqrt(N.multiply(2, Math.PI)))
+      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
       expect(result).toBeCloseTo(expected)
     }))
 
@@ -193,7 +213,7 @@ describe("Distribution / betaCdfValidated", () => {
 describe("Distribution / categoricalPmfValidated", () => {
   it.effect("returns correct PMF", () =>
     Effect.gen(function*() {
-      const result = yield* categoricalPmfValidated({ k: 1, probs: [0.2, 0.3, 0.5] })
+      const result = yield* categoricalPmfValidated({ k: 1, probs: Array.make(0.2, 0.3, 0.5) })
       expect(result).toBeCloseTo(0.3)
     }))
 })
@@ -206,14 +226,14 @@ describe("Distribution / normalPdfWithPolicies", () => {
   it.effect("computes under strict", () =>
     Effect.gen(function*() {
       const result = yield* normalPdfWithPolicies(0, 0, 1)
-      const expected = N.unsafeDivide(1, Math.sqrt(N.multiply(2, Math.PI)))
+      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
       expect(result).toBeCloseTo(expected)
     }).pipe(Effect.provide(strictLayer)))
 
   it.effect("rejects non-finite under strict", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        normalPdfWithPolicies(0, 0, Number.MIN_VALUE)
+        normalPdfWithPolicies(0, 0, 5e-324)
       )
       expect(error._tag).toStrictEqual("DistributionDomainViolationError")
       expect(error.operation).toStrictEqual("normalPdfWithPolicies")
@@ -221,8 +241,8 @@ describe("Distribution / normalPdfWithPolicies", () => {
 
   it.effect("allows non-finite under relaxed", () =>
     Effect.gen(function*() {
-      const result = yield* normalPdfWithPolicies(0, 0, Number.MIN_VALUE)
-      expect(Number.isFinite(result)).toStrictEqual(false)
+      const result = yield* normalPdfWithPolicies(0, 0, 5e-324)
+      expect(isFinite(result)).toStrictEqual(false)
     }).pipe(Effect.provide(relaxedLayer)))
 })
 

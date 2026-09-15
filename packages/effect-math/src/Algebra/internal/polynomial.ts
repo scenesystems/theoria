@@ -9,7 +9,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N, pipe } from "effect"
+import { Boolean, Chunk, Number, Option, pipe } from "effect"
 
 /**
  * Evaluates polynomial at `x` via Horner's method. Coefficients are
@@ -20,17 +20,17 @@ import { Chunk, Number as N, pipe } from "effect"
  * @category internal
  */
 export const polyEval = (coefficients: Chunk.Chunk<number>, x: number): number => {
-  if (Chunk.isEmpty(coefficients)) return 0
-
   const reversed = Chunk.reverse(coefficients)
 
-  return pipe(
-    Chunk.drop(reversed, 1),
-    Chunk.reduce(
-      Chunk.unsafeGet(reversed, 0),
-      (acc, coeff) => N.sum(coeff, N.multiply(acc, x))
-    )
-  )
+  return Option.match(Chunk.head(reversed), {
+    onNone: () => 0,
+    onSome: (leading) =>
+      Chunk.reduce(
+        Chunk.drop(reversed, 1),
+        leading,
+        (acc, coeff) => Number.sum(coeff, Number.multiply(acc, x))
+      )
+  })
 }
 
 /**
@@ -41,11 +41,12 @@ export const polyEval = (coefficients: Chunk.Chunk<number>, x: number): number =
  * @since 0.1.0
  * @category internal
  */
-export const polyDerivative = (coefficients: Chunk.Chunk<number>): Chunk.Chunk<number> => {
-  if (Chunk.size(coefficients) <= 1) return Chunk.of(0)
-
-  return pipe(
-    Chunk.drop(coefficients, 1),
-    Chunk.map((coeff, i) => N.multiply(coeff, N.sum(i, 1)))
-  )
-}
+export const polyDerivative = (coefficients: Chunk.Chunk<number>): Chunk.Chunk<number> =>
+  Boolean.match(Number.lessThanOrEqualTo(Chunk.size(coefficients), 1), {
+    onTrue: () => Chunk.of(0),
+    onFalse: () =>
+      pipe(
+        Chunk.drop(coefficients, 1),
+        Chunk.map((coeff, i) => Number.multiply(coeff, Number.increment(i)))
+      )
+  })

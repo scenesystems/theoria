@@ -5,15 +5,18 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Number as N, Schema } from "effect"
+import { Chunk, Effect, Number, Schema, Tuple } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
+import * as Numeric from "../Numeric/index.js"
 import { ComplexDecodeError, ComplexDomainViolationError } from "./errors.js"
-import * as Arith from "./internal/arithmetic.js"
+import * as Arithmetic from "./internal/arithmetic.js"
 import * as Polar from "./internal/polar.js"
-import * as Trig from "./internal/trigonometric.js"
+import * as Trigonometric from "./internal/trigonometric.js"
 import { Complex, ComplexDomainModel } from "./model.js"
-import { ComplexBinaryInput, ComplexInput, ComplexStepInput } from "./schema.js"
+import { ComplexBinaryInput, ComplexInput, type ComplexPair, ComplexStepInput } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 // ---------------------------------------------------------------------------
 // Domain loader
@@ -91,7 +94,7 @@ export const i: Complex = new Complex({ re: 0, im: 1 })
  * @category operations
  */
 export const add = (a: Complex, b: Complex): Complex => {
-  const [re, im] = Arith.add(a.re, a.im, b.re, b.im)
+  const [re, im] = Arithmetic.add(a.re, a.im, b.re, b.im)
   return new Complex({ re, im })
 }
 
@@ -102,7 +105,7 @@ export const add = (a: Complex, b: Complex): Complex => {
  * @category operations
  */
 export const subtract = (a: Complex, b: Complex): Complex => {
-  const [re, im] = Arith.subtract(a.re, a.im, b.re, b.im)
+  const [re, im] = Arithmetic.subtract(a.re, a.im, b.re, b.im)
   return new Complex({ re, im })
 }
 
@@ -114,7 +117,7 @@ export const subtract = (a: Complex, b: Complex): Complex => {
  * @category operations
  */
 export const multiply = (a: Complex, b: Complex): Complex => {
-  const [re, im] = Arith.multiply(a.re, a.im, b.re, b.im)
+  const [re, im] = Arithmetic.multiply(a.re, a.im, b.re, b.im)
   return new Complex({ re, im })
 }
 
@@ -127,7 +130,7 @@ export const multiply = (a: Complex, b: Complex): Complex => {
  * @category operations
  */
 export const divide = (a: Complex, b: Complex): Complex => {
-  const [re, im] = Arith.divide(a.re, a.im, b.re, b.im)
+  const [re, im] = Arithmetic.divide(a.re, a.im, b.re, b.im)
   return new Complex({ re, im })
 }
 
@@ -138,17 +141,17 @@ export const divide = (a: Complex, b: Complex): Complex => {
  * @category operations
  */
 export const conjugate = (z: Complex): Complex => {
-  const [re, im] = Arith.conjugate(z.re, z.im)
+  const [re, im] = Arithmetic.conjugate(z.re, z.im)
   return new Complex({ re, im })
 }
 
 /**
- * Computes the modulus |z| with `Math.hypot` to avoid intermediate overflow.
+ * Computes the modulus |z| with the overflow-safe Numeric hypotenuse operation.
  *
  * @since 0.1.0
  * @category operations
  */
-export const abs = (z: Complex): number => Arith.abs(z.re, z.im)
+export const abs = (z: Complex): number => Arithmetic.abs(z.re, z.im)
 
 /**
  * Computes the principal phase angle `atan2(im, re)` in `(-π, π]`.
@@ -156,7 +159,7 @@ export const abs = (z: Complex): number => Arith.abs(z.re, z.im)
  * @since 0.1.0
  * @category operations
  */
-export const arg = (z: Complex): number => Arith.arg(z.re, z.im)
+export const arg = (z: Complex): number => Arithmetic.arg(z.re, z.im)
 
 /**
  * Computes `exp(a + bi) = exp(a)(cos(b) + i * sin(b))`. Maps
@@ -166,7 +169,7 @@ export const arg = (z: Complex): number => Arith.arg(z.re, z.im)
  * @category operations
  */
 export const exp = (z: Complex): Complex => {
-  const [re, im] = Arith.exp(z.re, z.im)
+  const [re, im] = Arithmetic.exp(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -178,7 +181,7 @@ export const exp = (z: Complex): Complex => {
  * @category operations
  */
 export const log = (z: Complex): Complex => {
-  const [re, im] = Arith.log(z.re, z.im)
+  const [re, im] = Arithmetic.log(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -190,7 +193,7 @@ export const log = (z: Complex): Complex => {
  * @category operations
  */
 export const pow = (base: Complex, exponent: Complex): Complex => {
-  const [re, im] = Arith.pow(base.re, base.im, exponent.re, exponent.im)
+  const [re, im] = Arithmetic.pow(base.re, base.im, exponent.re, exponent.im)
   return new Complex({ re, im })
 }
 
@@ -202,7 +205,7 @@ export const pow = (base: Complex, exponent: Complex): Complex => {
  * @category operations
  */
 export const sqrt = (z: Complex): Complex => {
-  const [re, im] = Arith.sqrt(z.re, z.im)
+  const [re, im] = Arithmetic.sqrt(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -216,7 +219,7 @@ export const sqrt = (z: Complex): Complex => {
  * @since 0.1.0
  * @category operations
  */
-export const toPolar = (z: Complex): readonly [number, number] => Polar.toPolar(z.re, z.im)
+export const toPolar = (z: Complex): ComplexPair => Polar.toPolar(z.re, z.im)
 
 /**
  * Constructs a complex value from a modulus and angle in radians.
@@ -241,7 +244,7 @@ export const fromPolar = (r: number, theta: number): Complex => {
  * @category operations
  */
 export const sin = (z: Complex): Complex => {
-  const [re, im] = Trig.sin(z.re, z.im)
+  const [re, im] = Trigonometric.sin(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -253,7 +256,7 @@ export const sin = (z: Complex): Complex => {
  * @category operations
  */
 export const cos = (z: Complex): Complex => {
-  const [re, im] = Trig.cos(z.re, z.im)
+  const [re, im] = Trigonometric.cos(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -265,7 +268,7 @@ export const cos = (z: Complex): Complex => {
  * @category operations
  */
 export const tan = (z: Complex): Complex => {
-  const [re, im] = Trig.tan(z.re, z.im)
+  const [re, im] = Trigonometric.tan(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -277,7 +280,7 @@ export const tan = (z: Complex): Complex => {
  * @category operations
  */
 export const sinh = (z: Complex): Complex => {
-  const [re, im] = Trig.sinh(z.re, z.im)
+  const [re, im] = Trigonometric.sinh(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -289,7 +292,7 @@ export const sinh = (z: Complex): Complex => {
  * @category operations
  */
 export const cosh = (z: Complex): Complex => {
-  const [re, im] = Trig.cosh(z.re, z.im)
+  const [re, im] = Trigonometric.cosh(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -300,7 +303,7 @@ export const cosh = (z: Complex): Complex => {
  * @category operations
  */
 export const tanh = (z: Complex): Complex => {
-  const [re, im] = Trig.tanh(z.re, z.im)
+  const [re, im] = Trigonometric.tanh(z.re, z.im)
   return new Complex({ re, im })
 }
 
@@ -317,17 +320,21 @@ export const tanh = (z: Complex): Complex => {
  * @category operations
  */
 export const complexDot = (a: Chunk.Chunk<Complex>, b: Chunk.Chunk<Complex>): Complex => {
-  const init: readonly [number, number] = [0, 0]
+  const init: ComplexPair = Tuple.make(0, 0)
   const result = Chunk.zipWith(a, b, (ai, bi) => {
-    const [cRe, cIm] = Arith.conjugate(ai.re, ai.im)
-    return Arith.multiply(cRe, cIm, bi.re, bi.im)
+    const [cRe, cIm] = Arithmetic.conjugate(ai.re, ai.im)
+    return Arithmetic.multiply(cRe, cIm, bi.re, bi.im)
   }).pipe(
     Chunk.reduce(
       init,
-      (acc, [re, im]): readonly [number, number] => [N.sum(acc[0], re), N.sum(acc[1], im)]
+      (accumulator, [re, im]): ComplexPair =>
+        Tuple.make(
+          Number.sum(Tuple.getFirst(accumulator), re),
+          Number.sum(Tuple.getSecond(accumulator), im)
+        )
     )
   )
-  return new Complex({ re: result[0], im: result[1] })
+  return new Complex({ re: Tuple.getFirst(result), im: Tuple.getSecond(result) })
 }
 
 /**
@@ -341,9 +348,9 @@ export const complexNorm = (xs: Chunk.Chunk<Complex>): number => {
   const sumSq = Chunk.reduce(
     xs,
     0,
-    (acc, z) => N.sum(acc, N.sum(N.multiply(z.re, z.re), N.multiply(z.im, z.im)))
+    (acc, z) => Number.sum(acc, Number.sum(Number.multiply(z.re, z.re), Number.multiply(z.im, z.im)))
   )
-  return Math.sqrt(sumSq)
+  return Numeric.sqrt(sumSq)
 }
 
 /**
@@ -354,7 +361,7 @@ export const complexNorm = (xs: Chunk.Chunk<Complex>): number => {
  */
 export const complexScale = (xs: Chunk.Chunk<Complex>, scalar: Complex): Chunk.Chunk<Complex> =>
   Chunk.map(xs, (z) => {
-    const [re, im] = Arith.multiply(z.re, z.im, scalar.re, scalar.im)
+    const [re, im] = Arithmetic.multiply(z.re, z.im, scalar.re, scalar.im)
     return new Complex({ re, im })
   })
 
@@ -396,7 +403,7 @@ export const toImaginaryChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> 
  * @category operations
  */
 export const toMagnitudeChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> =>
-  Chunk.map(xs, (z) => Arith.abs(z.re, z.im))
+  Chunk.map(xs, (z) => Arithmetic.abs(z.re, z.im))
 
 /**
  * Computes the principal phase angle for each element. Every result lies in
@@ -406,7 +413,7 @@ export const toMagnitudeChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> 
  * @category operations
  */
 export const toPhaseChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> =>
-  Chunk.map(xs, (z) => Arith.arg(z.re, z.im))
+  Chunk.map(xs, (z) => Arithmetic.arg(z.re, z.im))
 
 // ---------------------------------------------------------------------------
 // Complex-step differentiation
@@ -423,11 +430,11 @@ export const toPhaseChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> =>
  * @example
  * ```ts
  * import { complexDerivative, sin } from "@scenesystems/effect-math/Complex"
- * import { Effect } from "effect"
+ * import { Boolean, Effect, Number } from "effect"
  *
  * export const program = Effect.sync(() => complexDerivative(sin, 0)).pipe(
  *   Effect.filterOrFail(
- *     (derivative) => derivative > 0.999999 && derivative < 1.000001,
+ *     (derivative) => Boolean.and(Number.greaterThan(derivative, 0.999999), Number.lessThan(derivative, 1.000001)),
  *     () => "UnexpectedDerivative"
  *   )
  * )
@@ -443,7 +450,7 @@ export const complexDerivative = (
 ): number => {
   const z = new Complex({ re: x, im: h })
   const result = f(z)
-  return N.unsafeDivide(result.im, h)
+  return Number.unsafeDivide(result.im, h)
 }
 
 // ---------------------------------------------------------------------------
@@ -468,7 +475,7 @@ export const addValidated = (input: unknown) =>
         })
       )
     )
-    const [re, im] = Arith.add(decoded.aRe, decoded.aIm, decoded.bRe, decoded.bIm)
+    const [re, im] = Arithmetic.add(decoded.aRe, decoded.aIm, decoded.bRe, decoded.bIm)
     return new Complex({ re, im })
   })
 
@@ -491,7 +498,7 @@ export const subtractValidated = (input: unknown) =>
         })
       )
     )
-    const [re, im] = Arith.subtract(decoded.aRe, decoded.aIm, decoded.bRe, decoded.bIm)
+    const [re, im] = Arithmetic.subtract(decoded.aRe, decoded.aIm, decoded.bRe, decoded.bIm)
     return new Complex({ re, im })
   })
 
@@ -514,7 +521,7 @@ export const multiplyValidated = (input: unknown) =>
         })
       )
     )
-    const [re, im] = Arith.multiply(decoded.aRe, decoded.aIm, decoded.bRe, decoded.bIm)
+    const [re, im] = Arithmetic.multiply(decoded.aRe, decoded.aIm, decoded.bRe, decoded.bIm)
     return new Complex({ re, im })
   })
 
@@ -538,7 +545,7 @@ export const divideValidated = (input: unknown) =>
         })
       )
     )
-    const [re, im] = Arith.divide(decoded.aRe, decoded.aIm, decoded.bRe, decoded.bIm)
+    const [re, im] = Arithmetic.divide(decoded.aRe, decoded.aIm, decoded.bRe, decoded.bIm)
     return new Complex({ re, im })
   })
 
@@ -561,7 +568,7 @@ export const expValidated = (input: unknown) =>
         })
       )
     )
-    const [re, im] = Arith.exp(decoded.re, decoded.im)
+    const [re, im] = Arithmetic.exp(decoded.re, decoded.im)
     return new Complex({ re, im })
   })
 
@@ -584,7 +591,7 @@ export const logValidated = (input: unknown) =>
         })
       )
     )
-    const [re, im] = Arith.log(decoded.re, decoded.im)
+    const [re, im] = Arithmetic.log(decoded.re, decoded.im)
     return new Complex({ re, im })
   })
 
@@ -628,9 +635,9 @@ export const complexDerivativeValidated = (
 export const absWithPolicies = (z: Complex) =>
   withScalarPolicyGuards({
     operation: "Complex.absWithPolicies",
-    compute: () => Arith.abs(z.re, z.im),
+    compute: () => Arithmetic.abs(z.re, z.im),
     makeError: (message) => new ComplexDomainViolationError({ operation: "absWithPolicies", message }),
-    annotations: (result) => ({ input: `${z.re}+${z.im}i`, result: String(result) })
+    annotations: (result) => ({ input: `${encodeNumber(z.re)}+${encodeNumber(z.im)}i`, result: encodeNumber(result) })
   })
 
 /**
@@ -643,9 +650,9 @@ export const absWithPolicies = (z: Complex) =>
 export const argWithPolicies = (z: Complex) =>
   withScalarPolicyGuards({
     operation: "Complex.argWithPolicies",
-    compute: () => Arith.arg(z.re, z.im),
+    compute: () => Arithmetic.arg(z.re, z.im),
     makeError: (message) => new ComplexDomainViolationError({ operation: "argWithPolicies", message }),
-    annotations: (result) => ({ input: `${z.re}+${z.im}i`, result: String(result) })
+    annotations: (result) => ({ input: `${encodeNumber(z.re)}+${encodeNumber(z.im)}i`, result: encodeNumber(result) })
   })
 
 /**
@@ -665,5 +672,5 @@ export const complexDerivativeWithPolicies = (
     operation: "Complex.complexDerivativeWithPolicies",
     compute: () => complexDerivative(f, x, h),
     makeError: (message) => new ComplexDomainViolationError({ operation: "complexDerivativeWithPolicies", message }),
-    annotations: (result) => ({ input: String(x), h: String(h), result: String(result) })
+    annotations: (result) => ({ input: encodeNumber(x), h: encodeNumber(h), result: encodeNumber(result) })
   })

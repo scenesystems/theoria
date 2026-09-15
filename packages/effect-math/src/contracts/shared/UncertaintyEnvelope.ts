@@ -4,16 +4,17 @@
  * @since 0.1.0
  * @category contracts
  */
-import { BigDecimal, Number as N, Schema } from "effect"
+import { BigDecimal, Boolean, Number, Schema } from "effect"
 
 import { ScalarKind } from "./ScalarAuthority.js"
 
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
-const NonNegativeBigDecimal = Schema.BigDecimalFromSelf.pipe(
-  Schema.filter(
-    (value) => BigDecimal.greaterThanOrEqualTo(value, BigDecimal.fromNumber(0)) || "Expected non-negative BigDecimal"
-  )
-)
+const ordered = (isOrdered: boolean, message: string) =>
+  Boolean.match(isOrdered, {
+    onFalse: () => message,
+    onTrue: () => true
+  })
+const NonNegativeBigDecimal = Schema.NonNegativeBigDecimalFromSelf
 
 /**
  * Accepts finite Float64 interval bounds with `lower <= upper`.
@@ -24,7 +25,11 @@ const NonNegativeBigDecimal = Schema.BigDecimalFromSelf.pipe(
 export const Float64Interval = Schema.Struct({
   lower: Schema.Number.pipe(Schema.finite()),
   upper: Schema.Number.pipe(Schema.finite())
-}).pipe(Schema.filter((interval) => N.lessThanOrEqualTo(interval.lower, interval.upper) || "Expected lower <= upper"))
+}).pipe(
+  Schema.filter((interval) =>
+    ordered(Number.lessThanOrEqualTo(interval.lower, interval.upper), "Expected lower <= upper")
+  )
+)
 
 /**
  * Accepts BigDecimal interval bounds with `lower <= upper`.
@@ -37,7 +42,11 @@ export const BigDecimalInterval = Schema.Struct({
   upper: Schema.BigDecimalFromSelf
 }).pipe(
   Schema.filter(
-    (interval) => BigDecimal.lessThanOrEqualTo(interval.lower, interval.upper) || "Expected lower <= upper"
+    (interval) =>
+      ordered(
+        BigDecimal.lessThanOrEqualTo(interval.lower, interval.upper),
+        "Expected lower <= upper"
+      )
   )
 )
 

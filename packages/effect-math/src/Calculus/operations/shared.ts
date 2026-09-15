@@ -4,16 +4,18 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Schema } from "effect"
+import { Boolean, Chunk, Effect, Inspectable, Match, Predicate, Schema } from "effect"
 
 import { KernelExecutionError } from "../../contracts/shared/AdvancedComputationErrors.js"
+import * as Numeric from "../../Numeric/index.js"
 import { CalculusDecodeError, CalculusParameterError } from "../errors.js"
-import type { DerivativeLimitEstimate, RidderMethodInputType } from "../schema.js"
+import type { DerivativeLimitEstimate } from "../schema.js"
 
 const formatKernelErrorMessage = (error: unknown): string =>
-  error instanceof Error
-    ? error.message
-    : String(error)
+  Match.value(error).pipe(
+    Match.when(Predicate.isError, (cause) => cause.message),
+    Match.orElse((cause) => Inspectable.toStringUnknown(cause, 0))
+  )
 
 /**
  * Executes a pure kernel and maps runtime exceptions to typed execution errors.
@@ -53,29 +55,13 @@ export const decodeOperationInput = <A, I, R>(
   )
 
 /**
- * Lifts Ridder configuration fields from decoded operation input.
- *
- * @since 0.1.0
- * @category operations
- */
-export const ridderConfigFrom = (input: RidderMethodInputType): RidderMethodInputType => ({
-  initialStep: input.initialStep,
-  contractionFactor: input.contractionFactor,
-  maxIterations: input.maxIterations,
-  absoluteTolerance: input.absoluteTolerance,
-  relativeTolerance: input.relativeTolerance,
-  minimumStep: input.minimumStep,
-  safetyFactor: input.safetyFactor
-})
-
-/**
  * Checks whether every value in a vector is finite.
  *
  * @since 0.1.0
  * @category operations
  */
 export const vectorIsFinite = (values: Chunk.Chunk<number>): boolean =>
-  Chunk.reduce(values, true, (acc, value) => acc && Number.isFinite(value))
+  Chunk.reduce(values, true, (acc, value) => Boolean.and(acc, Numeric.isFinite(value)))
 
 /**
  * Checks whether every value in a matrix is finite.
@@ -84,7 +70,7 @@ export const vectorIsFinite = (values: Chunk.Chunk<number>): boolean =>
  * @category operations
  */
 export const matrixIsFinite = (matrix: Chunk.Chunk<Chunk.Chunk<number>>): boolean =>
-  Chunk.reduce(matrix, true, (acc, row) => acc && vectorIsFinite(row))
+  Chunk.reduce(matrix, true, (acc, row) => Boolean.and(acc, vectorIsFinite(row)))
 
 /**
  * Checks whether a derivative-limit estimate is finite.
@@ -93,16 +79,7 @@ export const matrixIsFinite = (matrix: Chunk.Chunk<Chunk.Chunk<number>>): boolea
  * @category operations
  */
 export const estimateIsFinite = (estimate: DerivativeLimitEstimate): boolean =>
-  Number.isFinite(estimate.value) && Number.isFinite(estimate.absoluteError)
-
-/**
- * Converts matrix chunks into nested readonly arrays for validated boundaries.
- *
- * @since 0.1.0
- * @category operations
- */
-export const matrixToReadonly = (matrix: Chunk.Chunk<Chunk.Chunk<number>>) =>
-  Chunk.toReadonlyArray(Chunk.map(matrix, (row) => Chunk.toReadonlyArray(row)))
+  Boolean.and(Numeric.isFinite(estimate.value), Numeric.isFinite(estimate.absoluteError))
 
 /**
  * Enforces operation-specific parameter invariants.
@@ -111,11 +88,13 @@ export const matrixToReadonly = (matrix: Chunk.Chunk<Chunk.Chunk<number>>) =>
  * @category operations
  */
 export const ensureParameters = (operation: string, condition: boolean, message: string) =>
-  condition
-    ? Effect.void
-    : Effect.fail(
-      new CalculusParameterError({
-        operation,
-        message
-      })
-    )
+  Boolean.match(condition, {
+    onTrue: () => Effect.void,
+    onFalse: () =>
+      Effect.fail(
+        new CalculusParameterError({
+          operation,
+          message
+        })
+      )
+  })

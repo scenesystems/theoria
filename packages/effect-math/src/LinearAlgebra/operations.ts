@@ -9,7 +9,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Match, Number as N, Schema } from "effect"
+import { Chunk, Effect, Match, Number, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { BackendPolicyService } from "../contracts/shared/RuntimePolicies.js"
@@ -151,21 +151,20 @@ export const frobeniusNorm = (
  *
  * @example
  * ```ts
- * import { Chunk, Effect, Match } from "effect"
+ * import { Chunk, Effect, Match, Number } from "effect"
  * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
- * const factor: Effect.Effect<ReadonlyArray<number>, string> = Match.value(
- *   LinearAlgebra.cholesky(Chunk.fromIterable([4, 2, 2, 3]), 2)
+ * const factor: Effect.Effect<Chunk.Chunk<number>, string> = Match.value(
+ *   LinearAlgebra.cholesky(Chunk.make(4, 2, 2, 3), 2)
  * ).pipe(
  *   Match.tag("None", () => Effect.fail("MatrixWasNotPositiveDefinite")),
- *   Match.tag("Some", ({ value }) => Effect.succeed(Chunk.toReadonlyArray(value))),
+ *   Match.tag("Some", ({ value }) => Effect.succeed(value)),
  *   Match.exhaustive
  * )
  *
  * export const program = factor.pipe(
  *   Effect.filterOrFail(
- *     (lower) => lower[0] === 2 && lower[1] === 0 &&
- *       (lower[3] ?? 0) > 1.414 && (lower[3] ?? 0) < 1.415,
+ *     (lower) => Number.Equivalence(Chunk.size(lower), 4),
  *     () => "UnexpectedCholeskyFactor"
  *   )
  * )
@@ -216,25 +215,24 @@ export const backwardSubstitutionUpper = (
  *
  * @example
  * ```ts
- * import { Chunk, Effect, Match } from "effect"
+ * import { Chunk, Effect, Match, Number } from "effect"
  * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
- * const solution: Effect.Effect<ReadonlyArray<number>, string> = Match.value(
+ * const solution: Effect.Effect<Chunk.Chunk<number>, string> = Match.value(
  *   LinearAlgebra.solveSpd(
- *     Chunk.fromIterable([4, 1, 1, 3]),
+ *     Chunk.make(4, 1, 1, 3),
  *     2,
- *     Chunk.fromIterable([1, 2])
+ *     Chunk.make(1, 2)
  *   )
  * ).pipe(
  *   Match.tag("None", () => Effect.fail("SystemCouldNotBeSolved")),
- *   Match.tag("Some", ({ value }) => Effect.succeed(Chunk.toReadonlyArray(value))),
+ *   Match.tag("Some", ({ value }) => Effect.succeed(value)),
  *   Match.exhaustive
  * )
  *
  * export const program = solution.pipe(
  *   Effect.filterOrFail(
- *     (values) => (values[0] ?? 0) > 0.09 && (values[0] ?? 0) < 0.091 &&
- *       (values[1] ?? 0) > 0.636 && (values[1] ?? 0) < 0.637,
+ *     (values) => Number.Equivalence(Chunk.size(values), 2),
  *     () => "UnexpectedSolution"
  *   )
  * )
@@ -278,23 +276,23 @@ export const dotValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.Equivalence(d.a.length, d.b.length),
+      (d) => Number.Equivalence(Chunk.size(d.a), Chunk.size(d.b)),
       (d) =>
         new ShapeMismatchError({
           operation: "dot",
-          expected: `length ${d.a.length}`,
-          actual: `length ${d.b.length}`,
+          expected: `length ${Chunk.size(d.a)}`,
+          actual: `length ${Chunk.size(d.b)}`,
           message: `Dot product requires vectors of equal length`
         })
     )
 
-    return Vector.dot(Chunk.fromIterable(decoded.a), Chunk.fromIterable(decoded.b))
+    return Vector.dot(decoded.a, decoded.b)
   })
 
 /**
  * Decodes a complete row-major matrix and compatible vector before multiplication.
  *
- * @returns A new readonly array containing one value per row.
+ * @returns A new `Chunk` containing one value per row.
  * @throws {@link LinearAlgebraDecodeError} in the Effect error channel for
  * missing, non-finite, or excess fields.
  * @throws {@link ShapeMismatchError} in the Effect error channel when storage
@@ -302,14 +300,14 @@ export const dotValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Effect } from "effect"
+ * import { Array, Chunk, Effect, Equal } from "effect"
  * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * export const program = LinearAlgebra.matvecValidated({
- *   data: [1, 0, 0, 1], rows: 2, cols: 2, x: [3, 7]
+ *   data: Array.make(1, 0, 0, 1), rows: 2, cols: 2, x: Array.make(3, 7)
  * }).pipe(
  *   Effect.filterOrFail(
- *     (product) => product[0] === 3 && product[1] === 7,
+ *     (product) => Equal.equals(product, Chunk.make(3, 7)),
  *     () => "UnexpectedProduct"
  *   )
  * )
@@ -333,37 +331,35 @@ export const matvecValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.Equivalence(d.data.length, N.multiply(d.rows, d.cols)),
+      (d) => Number.Equivalence(Chunk.size(d.data), Number.multiply(d.rows, d.cols)),
       (d) =>
         new ShapeMismatchError({
           operation: "matvec",
-          expected: `data length ${N.multiply(d.rows, d.cols)}`,
-          actual: `data length ${d.data.length}`,
+          expected: `data length ${Number.multiply(d.rows, d.cols)}`,
+          actual: `data length ${Chunk.size(d.data)}`,
           message: `Matrix data length must equal rows * cols`
         })
     )
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.Equivalence(d.x.length, d.cols),
+      (d) => Number.Equivalence(Chunk.size(d.x), d.cols),
       (d) =>
         new ShapeMismatchError({
           operation: "matvec",
           expected: `vector length ${d.cols}`,
-          actual: `vector length ${d.x.length}`,
+          actual: `vector length ${Chunk.size(d.x)}`,
           message: `Vector length must equal number of columns`
         })
     )
 
-    return Chunk.toReadonlyArray(
-      Matrix.matvec(
-        Chunk.fromIterable(decoded.data),
-        decoded.rows,
-        decoded.cols,
-        decoded.cols,
-        0,
-        Chunk.fromIterable(decoded.x)
-      )
+    return Matrix.matvec(
+      decoded.data,
+      decoded.rows,
+      decoded.cols,
+      decoded.cols,
+      0,
+      decoded.x
     )
   })
 
@@ -391,12 +387,10 @@ export const normValidated = (input: unknown) =>
       )
     )
 
-    const v = Chunk.fromIterable(decoded.values)
-
     return Match.value(decoded.kind).pipe(
-      Match.when("L1", () => Vector.normL1(v)),
-      Match.when("L2", () => Vector.normL2(v)),
-      Match.when("Linf", () => Vector.normLinf(v)),
+      Match.when("L1", () => Vector.normL1(decoded.values)),
+      Match.when("L2", () => Vector.normL2(decoded.values)),
+      Match.when("Linf", () => Vector.normLinf(decoded.values)),
       Match.exhaustive
     )
   })
@@ -404,7 +398,7 @@ export const normValidated = (input: unknown) =>
 /**
  * Decodes complete row-major matrix storage before transposition.
  *
- * @returns A new readonly row-major array with shape `cols` by `rows`.
+ * @returns A new row-major `Chunk` with shape `cols` by `rows`.
  * @throws {@link LinearAlgebraDecodeError} in the Effect error channel for
  * missing, non-finite, or excess fields.
  * @throws {@link ShapeMismatchError} in the Effect error channel when storage
@@ -427,24 +421,22 @@ export const transposeValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.Equivalence(d.data.length, N.multiply(d.rows, d.cols)),
+      (d) => Number.Equivalence(Chunk.size(d.data), Number.multiply(d.rows, d.cols)),
       (d) =>
         new ShapeMismatchError({
           operation: "transpose",
-          expected: `data length ${N.multiply(d.rows, d.cols)}`,
-          actual: `data length ${d.data.length}`,
+          expected: `data length ${Number.multiply(d.rows, d.cols)}`,
+          actual: `data length ${Chunk.size(d.data)}`,
           message: `Matrix data length must equal rows * cols`
         })
     )
 
-    return Chunk.toReadonlyArray(
-      Matrix.transpose(
-        Chunk.fromIterable(decoded.data),
-        decoded.rows,
-        decoded.cols,
-        decoded.cols,
-        0
-      )
+    return Matrix.transpose(
+      decoded.data,
+      decoded.rows,
+      decoded.cols,
+      decoded.cols,
+      0
     )
   })
 
@@ -464,7 +456,7 @@ export const transposeValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Chunk, Effect, Layer } from "effect"
+ * import { Chunk, Effect, Layer, Number } from "effect"
  * import {
  *   BackendPolicyService,
  *   DiagnosticsPolicyService,
@@ -479,12 +471,12 @@ export const transposeValidated = (input: unknown) =>
  * )
  *
  * export const program = LinearAlgebra.dotWithPolicies(
- *   Chunk.fromIterable([1, 2]),
- *   Chunk.fromIterable([3, 4])
+ *   Chunk.make(1, 2),
+ *   Chunk.make(3, 4)
  * ).pipe(
  *   Effect.provide(policies),
  *   Effect.filterOrFail(
- *     (result) => result === 11,
+ *     (result) => Number.Equivalence(result, 11),
  *     () => "UnexpectedDotProduct"
  *   )
  * )
@@ -504,8 +496,8 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
       makeError: (message) => new LinearAlgebraDomainViolationError({ operation: "dotWithPolicies", message }),
       annotations: (result) => ({
         backend: backend.policy,
-        vectorLength: String(Chunk.size(a)),
-        result: String(result)
+        vectorLength: `${Chunk.size(a)}`,
+        result: `${result}`
       })
     })
   })
@@ -536,7 +528,7 @@ export const normWithPolicies = (values: Chunk.Chunk<number>, kind: "L1" | "L2" 
     makeError: (message) => new LinearAlgebraDomainViolationError({ operation: "normWithPolicies", message }),
     annotations: (result) => ({
       kind,
-      vectorLength: String(Chunk.size(values)),
-      result: String(result)
+      vectorLength: `${Chunk.size(values)}`,
+      result: `${result}`
     })
   })

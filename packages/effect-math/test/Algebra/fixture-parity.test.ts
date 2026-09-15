@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Schema } from "effect"
+import { Array, Chunk, Effect, Equal, Match, Schema } from "effect"
 
 import { factorial, gcd, lcm, polyDerivative, polyEval } from "../../src/Algebra/operations.js"
 import { AlgebraPolynomialParityFixtureSchema, FixtureRegistryLive, loadFixture } from "../helpers/fixtures/index.js"
@@ -12,7 +12,7 @@ describe("Algebra SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "polyEval" }, (v) => {
@@ -21,7 +21,7 @@ describe("Algebra SciPy fixture parity", () => {
             }),
             Match.when({ operation: "polyDerivative" }, (v) => {
               const result = polyDerivative(Chunk.fromIterable(v.input.coefficients))
-              expect(Chunk.toReadonlyArray(result)).toStrictEqual(v.expected)
+              expect(Equal.equals(result, Chunk.fromIterable(v.expected))).toBe(true)
             }),
             Match.when({ operation: "gcd" }, (v) => {
               expect(gcd(v.input.a, v.input.b)).toStrictEqual(v.expected)

@@ -8,18 +8,39 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Iterable, Number, Option, Schema, Tuple } from "effect"
+
+import { abs, exp, log } from "../../Numeric/index.js"
 import { lnGammaLanczos } from "./gamma.js"
 
 const MAX_ITERATIONS = 200
 const EPSILON = 1e-14
 const FPMIN = 1e-30
 
+class GammaincSeriesState extends Schema.Class<GammaincSeriesState>("GammaincSeriesState")({
+  ap: Schema.Number,
+  term: Schema.Number,
+  sum: Schema.Number,
+  remaining: Schema.Number
+}) {}
+
+class GammaincCFState extends Schema.Class<GammaincCFState>("GammaincCFState")({
+  value: Schema.Number,
+  c: Schema.Number,
+  d: Schema.Number,
+  iteration: Schema.Number,
+  converged: Schema.Boolean
+}) {}
+
 /** Clamp tiny values away from zero to prevent division overflow. */
-const guard = (v: number): number => (Math.abs(v) < FPMIN ? FPMIN : v)
+const guard = (value: number): number =>
+  Boolean.match(Number.lessThan(abs(value), FPMIN), {
+    onTrue: () => FPMIN,
+    onFalse: () => value
+  })
 
 /**
- * Tail-recursive series expansion for P(a,x).
+ * Iterable-driven series expansion for P(a,x).
  *
  * P(a,x) = e^{−x} x^a / Γ(a) · Σ_{n=0}^{∞} x^n / (a·(a+1)·…·(a+n))
  *
@@ -33,21 +54,43 @@ const gammaincSeriesLoop = (
   sum: number,
   remaining: number
 ): number => {
-  if (remaining === 0) return sum
-  if (Math.abs(term) < N.multiply(EPSILON, Math.abs(sum))) return sum
-  const apNext = N.sum(ap, 1)
-  const termNext = N.multiply(term, x / apNext)
-  return gammaincSeriesLoop(x, apNext, termNext, N.sum(sum, termNext), N.subtract(remaining, 1))
+  const initial = new GammaincSeriesState({ ap, term, sum, remaining })
+  return Iterable.reduce(
+    Iterable.unfold(initial, (state) =>
+      Boolean.match(
+        Boolean.or(
+          Number.Equivalence(state.remaining, 0),
+          Number.lessThan(abs(state.term), Number.multiply(EPSILON, abs(state.sum)))
+        ),
+        {
+          onTrue: Option.none,
+          onFalse: () => {
+            const apNext = Number.sum(state.ap, 1)
+            const termNext = Number.multiply(state.term, Number.unsafeDivide(x, apNext))
+            const next = new GammaincSeriesState({
+              ap: apNext,
+              term: termNext,
+              sum: Number.sum(state.sum, termNext),
+              remaining: Number.subtract(state.remaining, 1)
+            })
+            return Option.some(Tuple.make(next.sum, next))
+          }
+        }
+      )),
+    sum,
+    (_sum, next) => next
+  )
 }
 
 const gammaincSeries = (a: number, x: number): number => {
-  const lnPrefix = N.subtract(N.multiply(a, Math.log(x)), N.sum(x, lnGammaLanczos(a)))
-  const sum = gammaincSeriesLoop(x, a, 1 / a, 1 / a, MAX_ITERATIONS)
-  return N.multiply(Math.exp(lnPrefix), sum)
+  const lnPrefix = Number.subtract(Number.multiply(a, log(x)), Number.sum(x, lnGammaLanczos(a)))
+  const initial = Number.unsafeDivide(1, a)
+  const sum = gammaincSeriesLoop(x, a, initial, initial, MAX_ITERATIONS)
+  return Number.multiply(exp(lnPrefix), sum)
 }
 
 /**
- * Tail-recursive modified Lentz CF for Q(a,x).
+ * Iterable-driven modified Lentz CF for Q(a,x).
  *
  * Uses the Legendre CF representation of Γ(a,x)
  * (Gautschi, 1979; Lentz, 1976).
@@ -65,27 +108,42 @@ const gammaincCFLoop = (
   d: number,
   n: number
 ): number => {
-  if (n > MAX_ITERATIONS) return f
-
-  const an = N.multiply(n, N.subtract(a, n))
-  const bn = N.sum(N.sum(x, 1), N.subtract(N.multiply(2, n), a))
-
-  const dNext = 1 / guard(N.sum(bn, N.multiply(an, d)))
-  const cNext = guard(N.sum(bn, an / c))
-  const delta = N.multiply(cNext, dNext)
-  const fNext = N.multiply(f, delta)
-
-  if (Math.abs(N.subtract(delta, 1)) < EPSILON) return fNext
-
-  return gammaincCFLoop(a, x, fNext, cNext, dNext, N.sum(n, 1))
+  const initial = new GammaincCFState({ value: f, c, d, iteration: n, converged: false })
+  const final = Iterable.reduce(
+    Iterable.unfold(
+      initial,
+      (state) =>
+        Boolean.match(Boolean.or(state.converged, Number.greaterThan(state.iteration, MAX_ITERATIONS)), {
+          onTrue: Option.none,
+          onFalse: () => {
+            const an = Number.multiply(state.iteration, Number.subtract(a, state.iteration))
+            const bn = Number.sum(Number.sum(x, 1), Number.subtract(Number.multiply(2, state.iteration), a))
+            const dNext = Number.unsafeDivide(1, guard(Number.sum(bn, Number.multiply(an, state.d))))
+            const cNext = guard(Number.sum(bn, Number.unsafeDivide(an, state.c)))
+            const delta = Number.multiply(cNext, dNext)
+            const next = new GammaincCFState({
+              value: Number.multiply(state.value, delta),
+              c: cNext,
+              d: dNext,
+              iteration: Number.sum(state.iteration, 1),
+              converged: Number.lessThan(abs(Number.subtract(delta, 1)), EPSILON)
+            })
+            return Option.some(Tuple.make(next, next))
+          }
+        })
+    ),
+    initial,
+    (_state, next) => next
+  )
+  return final.value
 }
 
 const gammaincCF = (a: number, x: number): number => {
-  const lnPrefix = N.subtract(N.multiply(a, Math.log(x)), N.sum(x, lnGammaLanczos(a)))
-  const b0 = N.subtract(N.sum(x, 1), a)
+  const lnPrefix = Number.subtract(Number.multiply(a, log(x)), Number.sum(x, lnGammaLanczos(a)))
+  const b0 = Number.subtract(Number.sum(x, 1), a)
   const f0 = guard(b0)
   const result = gammaincCFLoop(a, x, f0, f0, 0, 1)
-  return N.multiply(Math.exp(lnPrefix), 1 / result)
+  return Number.multiply(exp(lnPrefix), Number.unsafeDivide(1, result))
 }
 
 /**
@@ -96,10 +154,15 @@ const gammaincCF = (a: number, x: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const gammaincKernel = (a: number, x: number): number => {
-  if (x === 0) return 0
-  if (x < N.sum(a, 1)) return gammaincSeries(a, x)
-  return N.subtract(1, gammaincCF(a, x))
+export const gammainc = (a: number, x: number): number => {
+  return Boolean.match(Number.Equivalence(x, 0), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.lessThan(x, Number.sum(a, 1)), {
+        onTrue: () => gammaincSeries(a, x),
+        onFalse: () => Number.subtract(1, gammaincCF(a, x))
+      })
+  })
 }
 
 /**
@@ -110,8 +173,13 @@ export const gammaincKernel = (a: number, x: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const gammainccKernel = (a: number, x: number): number => {
-  if (x === 0) return 1
-  if (x < N.sum(a, 1)) return N.subtract(1, gammaincSeries(a, x))
-  return gammaincCF(a, x)
+export const gammaincc = (a: number, x: number): number => {
+  return Boolean.match(Number.Equivalence(x, 0), {
+    onTrue: () => 1,
+    onFalse: () =>
+      Boolean.match(Number.lessThan(x, Number.sum(a, 1)), {
+        onTrue: () => Number.subtract(1, gammaincSeries(a, x)),
+        onFalse: () => gammaincCF(a, x)
+      })
+  })
 }

@@ -10,10 +10,12 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Match, Option, Schema } from "effect"
+import { Chunk, Effect, Match, Number, Schema } from "effect"
+import type { Option } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
+import { sqrt } from "../Numeric/index.js"
 import { StatisticsDecodeError, StatisticsDomainViolationError, StatisticsShapeError } from "./errors.js"
 import * as Estimators from "./internal/estimators.js"
 import { StatisticsDomainModel } from "./model.js"
@@ -73,13 +75,13 @@ export const standardDeviation: (values: Chunk.Chunk<number>) => number = Estima
  * @example
  * ```ts
  * import { Statistics } from "@scenesystems/effect-math"
- * import { Chunk, Effect } from "effect"
+ * import { Boolean, Chunk, Effect, Number } from "effect"
  *
  * export const program = Effect.sync(() =>
  *   Statistics.summaryStatistics(Chunk.make(2, 4, 6, 8))
  * ).pipe(
  *   Effect.filterOrFail(
- *     (result) => result.mean === 5 && result.count === 4,
+ *     (result) => Boolean.and(Number.Equivalence(result.mean, 5), Number.Equivalence(result.count, 4)),
  *     () => "UnexpectedSummary"
  *   )
  * )
@@ -91,16 +93,7 @@ export const standardDeviation: (values: Chunk.Chunk<number>) => number = Estima
  * @category operations
  */
 export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryStatistics => {
-  const summary = Estimators.summaryStatistics(values)
-
-  return new SummaryStatistics({
-    count: summary.count,
-    max: summary.maximum,
-    mean: summary.mean,
-    min: summary.minimum,
-    standardDeviation: summary.standardDeviation,
-    variance: summary.variance
-  })
+  return Estimators.summaryStatistics(values)
 }
 
 /**
@@ -109,13 +102,13 @@ export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryS
  * @remarks
  * Equal lengths are a caller precondition. If the lengths differ, each mean
  * uses its full sample, paired deviations stop at the shorter sample, and the
- * denominator is `a.length - 1`. An empty `a` returns negative zero. A
+ * denominator is one less than the size of `a`. An empty `a` returns negative zero. A
  * singleton `a` returns `NaN`; when `a` has at least two observations and `b`
  * is empty, the result is zero.
  *
  * @param a - First sample, whose size determines the denominator.
  * @param b - Second sample paired with `a` by position.
- * @returns The sum of paired deviation products divided by `a.length - 1`.
+ * @returns The sum of paired deviation products divided by one less than the size of `a`.
  * @since 0.1.0
  * @category operations
  */
@@ -165,7 +158,7 @@ export const meanValidated = (input: unknown) =>
       )
     )
 
-    return Estimators.mean(Chunk.fromIterable(decoded.values))
+    return Estimators.mean(decoded.values)
   })
 
 /**
@@ -193,17 +186,17 @@ export const varianceValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => d.values.length >= 2,
+      (d) => Number.greaterThanOrEqualTo(Chunk.size(d.values), 2),
       () =>
         new StatisticsShapeError({
           operation: "variance",
           expected: "at least 2 samples",
-          actual: `${decoded.values.length} sample(s)`,
+          actual: `${Chunk.size(decoded.values)} sample(s)`,
           message: "Bessel-corrected variance requires at least 2 samples"
         })
     )
 
-    return Estimators.variance(Chunk.fromIterable(decoded.values))
+    return Estimators.variance(decoded.values)
   })
 
 /**
@@ -211,14 +204,14 @@ export const varianceValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Effect } from "effect"
+ * import { Array, Boolean, Effect, Number } from "effect"
  * import { Statistics } from "@scenesystems/effect-math"
  *
  * export const program = Statistics.summaryStatisticsValidated({
- *   values: [2, 4, 6, 8]
+ *   values: Array.make(2, 4, 6, 8)
  * }).pipe(
  *   Effect.filterOrFail(
- *     (result) => result.mean === 5 && result.count === 4,
+ *     (result) => Boolean.and(Number.Equivalence(result.mean, 5), Number.Equivalence(result.count, 4)),
  *     () => "UnexpectedSummary"
  *   )
  * )
@@ -246,22 +239,23 @@ export const summaryStatisticsValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => d.values.length >= 2,
+      (d) => Number.greaterThanOrEqualTo(Chunk.size(d.values), 2),
       () =>
         new StatisticsShapeError({
           operation: "summaryStatistics",
           expected: "at least 2 samples",
-          actual: `${decoded.values.length} sample(s)`,
+          actual: `${Chunk.size(decoded.values)} sample(s)`,
           message: "Summary statistics requires at least 2 samples for variance"
         })
     )
 
-    const chunk = Chunk.fromIterable(decoded.values)
+    const chunk = decoded.values
     const m = Estimators.mean(chunk)
     const v = Estimators.variance(chunk)
-    const sd = Estimators.standardDeviation(chunk)
-    const minVal = Option.getOrElse(Estimators.minimum(chunk), () => 0)
-    const maxVal = Option.getOrElse(Estimators.maximum(chunk), () => 0)
+    const sd = sqrt(v)
+    const first = Chunk.headNonEmpty(chunk)
+    const minVal = Chunk.reduce(chunk, first, Number.min)
+    const maxVal = Chunk.reduce(chunk, first, Number.max)
 
     return new SummaryStatistics({
       mean: m,
@@ -298,32 +292,29 @@ export const covarianceValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => d.a.length === d.b.length,
+      (d) => Number.Equivalence(Chunk.size(d.a), Chunk.size(d.b)),
       (d) =>
         new StatisticsShapeError({
           operation: "covariance",
-          expected: `length ${d.a.length}`,
-          actual: `length ${d.b.length}`,
+          expected: `length ${Chunk.size(d.a)}`,
+          actual: `length ${Chunk.size(d.b)}`,
           message: "Covariance requires samples of equal length"
         })
     )
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => d.a.length >= 2,
+      (d) => Number.greaterThanOrEqualTo(Chunk.size(d.a), 2),
       () =>
         new StatisticsShapeError({
           operation: "covariance",
           expected: "at least 2 samples",
-          actual: `${decoded.a.length} sample(s)`,
+          actual: `${Chunk.size(decoded.a)} sample(s)`,
           message: "Bessel-corrected covariance requires at least 2 samples"
         })
     )
 
-    return Estimators.covariance(
-      Chunk.fromIterable(decoded.a),
-      Chunk.fromIterable(decoded.b)
-    )
+    return Estimators.covariance(decoded.a, decoded.b)
   })
 
 /**
@@ -348,7 +339,7 @@ export const minimumValidated = (input: unknown) =>
       )
     )
 
-    return Estimators.minimum(Chunk.fromIterable(decoded.values))
+    return Estimators.minimum(decoded.values)
   })
 
 /**
@@ -373,7 +364,7 @@ export const maximumValidated = (input: unknown) =>
       )
     )
 
-    return Estimators.maximum(Chunk.fromIterable(decoded.values))
+    return Estimators.maximum(decoded.values)
   })
 
 // ---------------------------------------------------------------------------
@@ -385,15 +376,16 @@ export const maximumValidated = (input: unknown) =>
  *
  * @remarks
  * The input is not decoded. At least two observations are required. Strict
- * precision requires finite mean, variance, and standard deviation. Enabled
- * diagnostics emit one debug log containing the precision mode and sample
- * size. The strict check does not inspect the extrema separately. This
- * operation requires {@link PrecisionPolicyService} and
- * {@link DiagnosticsPolicyService}.
+ * precision rejects non-finite calculations before returning a result.
+ * Relaxed precision still obeys the canonical finite {@link SummaryStatistics}
+ * result schema, so a non-finite field is a typed domain violation rather than
+ * a successful relaxed result. Enabled diagnostics emit one debug log only
+ * after result validation, containing the precision mode and sample size. This
+ * operation requires {@link PrecisionPolicyService} and {@link DiagnosticsPolicyService}.
  *
  * @example
  * ```ts
- * import { Chunk, Effect, Layer } from "effect"
+ * import { Boolean, Chunk, Effect, Layer, Number } from "effect"
  * import { Statistics } from "@scenesystems/effect-math"
  * import {
  *   DiagnosticsPolicyService,
@@ -410,7 +402,7 @@ export const maximumValidated = (input: unknown) =>
  * ).pipe(
  *   Effect.provide(policies),
  *   Effect.filterOrFail(
- *     (result) => result.mean === 5 && result.count === 4,
+ *     (result) => Boolean.and(Number.Equivalence(result.mean, 5), Number.Equivalence(result.count, 4)),
  *     () => "UnexpectedSummary"
  *   )
  * )
@@ -419,7 +411,7 @@ export const maximumValidated = (input: unknown) =>
  * @param values - Observations used without finite-number validation.
  * @returns A new tagged summary using Bessel-corrected variance.
  * @throws {@link StatisticsShapeError} in the Effect error channel for fewer than two observations.
- * @throws {@link StatisticsDomainViolationError} in the Effect error channel when strict precision rejects a non-finite mean, variance, or standard deviation.
+ * @throws {@link StatisticsDomainViolationError} in the Effect error channel when either precision mode produces a result that violates the finite summary schema.
  * @since 0.1.0
  * @category operations
  */
@@ -430,7 +422,7 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(Chunk.size(values)),
-      (n) => n >= 2,
+      Number.greaterThanOrEqualTo(2),
       (n) =>
         new StatisticsShapeError({
           operation: "summaryStatisticsWithPolicies",
@@ -442,24 +434,30 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
 
     const m = Estimators.mean(values)
     const v = Estimators.variance(values)
-    const sd = Estimators.standardDeviation(values)
-    const minVal = Option.getOrElse(Estimators.minimum(values), () => 0)
-    const maxVal = Option.getOrElse(Estimators.maximum(values), () => 0)
+    const sd = sqrt(v)
+    const first = Chunk.unsafeHead(values)
+    const minVal = Chunk.reduce(values, first, Number.min)
+    const maxVal = Chunk.reduce(values, first, Number.max)
     const count = Chunk.size(values)
 
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(true),
-          () => Number.isFinite(m) && Number.isFinite(v) && Number.isFinite(sd),
-          () =>
-            new StatisticsDomainViolationError({
-              operation: "summaryStatisticsWithPolicies",
-              message: `Non-finite summary statistics result: mean=${m}, variance=${v}, stddev=${sd}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
+    const result = yield* Schema.decodeUnknown(SummaryStatistics)(
+      {
+        _tag: "SummaryStatistics",
+        mean: m,
+        variance: v,
+        standardDeviation: sd,
+        min: minVal,
+        max: maxVal,
+        count
+      },
+      { onExcessProperty: "error" }
+    ).pipe(
+      Effect.mapError((error) =>
+        new StatisticsDomainViolationError({
+          operation: "summaryStatisticsWithPolicies",
+          message: `Summary statistics result violates the finite schema: ${error.message}`
+        })
+      )
     )
 
     yield* Match.value(diagnostics.policy).pipe(
@@ -467,21 +465,14 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
         Effect.logDebug("Statistics.summaryStatisticsWithPolicies").pipe(
           Effect.annotateLogs({
             precision: precision.policy,
-            sampleSize: String(count)
+            sampleSize: `${count}`
           })
         )),
       Match.when("disabled", () => Effect.void),
       Match.exhaustive
     )
 
-    return new SummaryStatistics({
-      mean: m,
-      variance: v,
-      standardDeviation: sd,
-      min: minVal,
-      max: maxVal,
-      count
-    })
+    return result
   })
 
 /**
@@ -505,7 +496,7 @@ export const meanWithPolicies = (values: Chunk.Chunk<number>) =>
     operation: "Statistics.meanWithPolicies",
     compute: () => Estimators.mean(values),
     makeError: (message) => new StatisticsDomainViolationError({ operation: "meanWithPolicies", message }),
-    annotations: (result) => ({ sampleSize: String(Chunk.size(values)), result: String(result) })
+    annotations: (result) => ({ sampleSize: `${Chunk.size(values)}`, result: `${result}` })
   })
 
 /**
@@ -529,7 +520,7 @@ export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
   Effect.gen(function*() {
     yield* Effect.filterOrFail(
       Effect.succeed(Chunk.size(values)),
-      (n) => n >= 2,
+      Number.greaterThanOrEqualTo(2),
       (n) =>
         new StatisticsShapeError({
           operation: "varianceWithPolicies",
@@ -542,7 +533,7 @@ export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
       operation: "Statistics.varianceWithPolicies",
       compute: () => Estimators.variance(values),
       makeError: (message) => new StatisticsDomainViolationError({ operation: "varianceWithPolicies", message }),
-      annotations: (result) => ({ sampleSize: String(Chunk.size(values)), result: String(result) })
+      annotations: (result) => ({ sampleSize: `${Chunk.size(values)}`, result: `${result}` })
     })
   })
 
@@ -568,7 +559,7 @@ export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<nu
   Effect.gen(function*() {
     yield* Effect.filterOrFail(
       Effect.succeed({ aLen: Chunk.size(a), bLen: Chunk.size(b) }),
-      ({ aLen, bLen }) => aLen === bLen,
+      ({ aLen, bLen }) => Number.Equivalence(aLen, bLen),
       ({ aLen, bLen }) =>
         new StatisticsShapeError({
           operation: "covarianceWithPolicies",
@@ -580,7 +571,7 @@ export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<nu
 
     yield* Effect.filterOrFail(
       Effect.succeed(Chunk.size(a)),
-      (n) => n >= 2,
+      Number.greaterThanOrEqualTo(2),
       (n) =>
         new StatisticsShapeError({
           operation: "covarianceWithPolicies",
@@ -594,6 +585,6 @@ export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<nu
       operation: "Statistics.covarianceWithPolicies",
       compute: () => Estimators.covariance(a, b),
       makeError: (message) => new StatisticsDomainViolationError({ operation: "covarianceWithPolicies", message }),
-      annotations: (result) => ({ sampleSize: String(Chunk.size(a)), result: String(result) })
+      annotations: (result) => ({ sampleSize: `${Chunk.size(a)}`, result: `${result}` })
     })
   })

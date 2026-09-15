@@ -38,7 +38,7 @@ export class LinearAlgebraDomainBoundaryError
 export class LinearAlgebraDecodeError
   extends Schema.TaggedError<LinearAlgebraDecodeError>()("LinearAlgebraDecodeError", {
     /** Public linear-algebra operation whose input failed decoding. */
-    operation: Schema.String,
+    operation: Schema.Literal("dot", "matvec", "norm", "transpose"),
     /** Effect Schema issue report for the rejected input. */
     message: Schema.String
   })
@@ -57,7 +57,7 @@ export class LinearAlgebraDecodeError
  */
 export class ShapeMismatchError extends Schema.TaggedError<ShapeMismatchError>()("ShapeMismatchError", {
   /** Linear-algebra operation that compared incompatible dimensions. */
-  operation: Schema.String,
+  operation: Schema.Literal("dot", "matvec", "transpose"),
   /** Required operand shape or dimensionality. */
   expected: Schema.String,
   /** Shape or dimensionality found in the rejected operand. */
@@ -77,7 +77,7 @@ export class ShapeMismatchError extends Schema.TaggedError<ShapeMismatchError>()
  */
 export class SingularMatrixError extends Schema.TaggedError<SingularMatrixError>()("SingularMatrixError", {
   /** Solve operation that encountered the singular matrix. */
-  operation: Schema.String,
+  operation: Schema.Literal("forwardSubstitutionLower", "backwardSubstitutionUpper", "solveSpd"),
   /** Diagnostic describing the failed solve condition. */
   message: Schema.String
 }) {}
@@ -94,7 +94,7 @@ export class SingularMatrixError extends Schema.TaggedError<SingularMatrixError>
  */
 export class DecompositionError extends Schema.TaggedError<DecompositionError>()("DecompositionError", {
   /** Matrix operation whose decomposition failed. */
-  operation: Schema.String,
+  operation: Schema.Literal("cholesky", "solveSpd"),
   /** Diagnostic describing the failed decomposition condition. */
   message: Schema.String
 }) {}
@@ -111,7 +111,7 @@ export class DecompositionError extends Schema.TaggedError<DecompositionError>()
 export class LinearAlgebraDomainViolationError
   extends Schema.TaggedError<LinearAlgebraDomainViolationError>()("LinearAlgebraDomainViolationError", {
     /** Strict-policy operation that produced a non-finite result. */
-    operation: Schema.String,
+    operation: Schema.Literal("dotWithPolicies", "normWithPolicies"),
     /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })

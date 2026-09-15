@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Number as N } from "effect"
+import { Array, Chunk, Effect, Number } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
+import { isFinite, log, pi, sqrt } from "../../src/Numeric/index.js"
 import {
   entropyValidated,
   entropyWithPolicies,
@@ -45,7 +46,7 @@ const relaxedLayer = makeDeterministicRuntimePoliciesLayer({
 describe("Probability / standardNormalPdf", () => {
   it.effect("peak value at x=0 equals 1/√(2π)", () =>
     Effect.gen(function*() {
-      const expected = N.unsafeDivide(1, Math.sqrt(N.multiply(2, Math.PI)))
+      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
       expect(standardNormalPdf(0)).toBeCloseTo(expected)
     }))
 
@@ -60,7 +61,7 @@ describe("Probability / normalPdf", () => {
     Effect.gen(function*() {
       const mu = 5
       const sigma = 2
-      const expected = N.unsafeDivide(1, N.multiply(sigma, Math.sqrt(N.multiply(2, Math.PI))))
+      const expected = Number.unsafeDivide(1, Number.multiply(sigma, sqrt(Number.multiply(2, pi))))
       expect(normalPdf(mu, mu, sigma)).toBeCloseTo(expected)
     }))
 
@@ -94,19 +95,16 @@ describe("Probability / standardNormalTransform", () => {
     }))
 
   it.effect("inverts standardNormalCdf for representative quantiles", () =>
-    Effect.gen(function*() {
-      const probes = [0.1, 0.25, 0.9]
-
-      probes.forEach((probe) => {
+    Effect.forEach(Array.make(0.1, 0.25, 0.9), (probe) =>
+      Effect.sync(() => {
         const roundTrip = standardNormalCdf(standardNormalTransform(probe))
         expect(roundTrip).toBeCloseTo(probe, 6)
-      })
-    }))
+      })))
 
   it.effect("clamps endpoint rolls to finite values", () =>
     Effect.gen(function*() {
-      expect(Number.isFinite(standardNormalTransform(0))).toStrictEqual(true)
-      expect(Number.isFinite(standardNormalTransform(1))).toStrictEqual(true)
+      expect(isFinite(standardNormalTransform(0))).toStrictEqual(true)
+      expect(isFinite(standardNormalTransform(1))).toStrictEqual(true)
     }))
 })
 
@@ -140,6 +138,11 @@ describe("Probability / uniformPdf", () => {
   it.effect("returns 0 outside bounds (above)", () =>
     Effect.gen(function*() {
       expect(uniformPdf(1.1, 0, 1)).toStrictEqual(0)
+    }))
+
+  it.effect("returns 0 for an unordered NaN point", () =>
+    Effect.gen(function*() {
+      expect(uniformPdf(NaN, 0, 1)).toStrictEqual(0)
     }))
 
   it.effect("returns correct density for non-unit interval", () =>
@@ -183,20 +186,20 @@ describe("Probability / shannonEntropy", () => {
   it.effect("entropy of uniform distribution equals ln(n)", () =>
     Effect.gen(function*() {
       const n = 4
-      const probs = Chunk.fromIterable([0.25, 0.25, 0.25, 0.25])
-      expect(shannonEntropy(probs)).toBeCloseTo(Math.log(n))
+      const probs = Chunk.make(0.25, 0.25, 0.25, 0.25)
+      expect(shannonEntropy(probs)).toBeCloseTo(log(n))
     }))
 
   it.effect("entropy of certain outcome is zero", () =>
     Effect.gen(function*() {
-      const probs = Chunk.fromIterable([1, 0, 0])
+      const probs = Chunk.make(1, 0, 0)
       expect(shannonEntropy(probs)).toBeCloseTo(0)
     }))
 
   it.effect("entropy of binary fair coin equals ln(2)", () =>
     Effect.gen(function*() {
-      const probs = Chunk.fromIterable([0.5, 0.5])
-      expect(shannonEntropy(probs)).toBeCloseTo(Math.log(2))
+      const probs = Chunk.make(0.5, 0.5)
+      expect(shannonEntropy(probs)).toBeCloseTo(log(2))
     }))
 })
 
@@ -208,7 +211,7 @@ describe("Probability / normalPdfValidated", () => {
   it.effect("decodes valid input and computes normal PDF", () =>
     Effect.gen(function*() {
       const result = yield* normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
-      const expected = N.unsafeDivide(1, Math.sqrt(N.multiply(2, Math.PI)))
+      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
       expect(result).toBeCloseTo(expected)
     }))
 
@@ -283,14 +286,14 @@ describe("Probability / uniformCdfValidated", () => {
 describe("Probability / entropyValidated", () => {
   it.effect("computes entropy of uniform distribution", () =>
     Effect.gen(function*() {
-      const result = yield* entropyValidated({ probabilities: [0.25, 0.25, 0.25, 0.25] })
-      expect(result).toBeCloseTo(Math.log(4))
+      const result = yield* entropyValidated({ probabilities: Array.make(0.25, 0.25, 0.25, 0.25) })
+      expect(result).toBeCloseTo(log(4))
     }))
 
   it.effect("rejects excess properties with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        entropyValidated({ probabilities: [0.5, 0.5], extra: true })
+        entropyValidated({ probabilities: Array.make(0.5, 0.5), extra: true })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
       expect(error.operation).toStrictEqual("entropy")
@@ -299,7 +302,7 @@ describe("Probability / entropyValidated", () => {
   it.effect("rejects negative probabilities with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        entropyValidated({ probabilities: [-0.5, 1.5] })
+        entropyValidated({ probabilities: Array.make(-0.5, 1.5) })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
     }))
@@ -307,7 +310,7 @@ describe("Probability / entropyValidated", () => {
   it.effect("rejects empty array with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        entropyValidated({ probabilities: [] })
+        entropyValidated({ probabilities: Array.empty<number>() })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
     }))
@@ -321,14 +324,14 @@ describe("Probability / normalPdfWithPolicies", () => {
   it.effect("computes normal PDF under strict precision", () =>
     Effect.gen(function*() {
       const result = yield* normalPdfWithPolicies(0, 0, 1)
-      const expected = N.unsafeDivide(1, Math.sqrt(N.multiply(2, Math.PI)))
+      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
       expect(result).toBeCloseTo(expected)
     }).pipe(Effect.provide(strictLayer)))
 
   it.effect("strict precision rejects non-finite result", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        normalPdfWithPolicies(0, 0, Number.MIN_VALUE)
+        normalPdfWithPolicies(0, 0, 5e-324)
       )
       expect(error._tag).toStrictEqual("ProbabilityDomainViolationError")
       expect(error.operation).toStrictEqual("normalPdfWithPolicies")
@@ -336,15 +339,15 @@ describe("Probability / normalPdfWithPolicies", () => {
 
   it.effect("relaxed precision allows non-finite result", () =>
     Effect.gen(function*() {
-      const result = yield* normalPdfWithPolicies(0, 0, Number.MIN_VALUE)
-      expect(Number.isFinite(result)).toStrictEqual(false)
+      const result = yield* normalPdfWithPolicies(0, 0, 5e-324)
+      expect(isFinite(result)).toStrictEqual(false)
     }).pipe(Effect.provide(relaxedLayer)))
 
   it.effect("deterministic replay produces identical results", () =>
     Effect.gen(function*() {
       const runA = yield* normalPdfWithPolicies(1.5, 0, 1).pipe(Effect.provide(strictLayer))
       const runB = yield* normalPdfWithPolicies(1.5, 0, 1).pipe(Effect.provide(strictLayer))
-      expect(N.Equivalence(runA, runB)).toStrictEqual(true)
+      expect(Number.Equivalence(runA, runB)).toStrictEqual(true)
     }))
 })
 
@@ -393,13 +396,13 @@ describe("Probability / uniformCdfWithPolicies", () => {
 describe("Probability / entropyWithPolicies", () => {
   it.effect("entropy of uniform distribution equals ln(n) under strict", () =>
     Effect.gen(function*() {
-      const result = yield* entropyWithPolicies(Chunk.fromIterable([0.25, 0.25, 0.25, 0.25]))
-      expect(result).toBeCloseTo(Math.log(4))
+      const result = yield* entropyWithPolicies(Chunk.make(0.25, 0.25, 0.25, 0.25))
+      expect(result).toBeCloseTo(log(4))
     }).pipe(Effect.provide(strictLayer)))
 
   it.effect("entropy of fair coin equals ln(2) under relaxed", () =>
     Effect.gen(function*() {
-      const result = yield* entropyWithPolicies(Chunk.fromIterable([0.5, 0.5]))
-      expect(result).toBeCloseTo(Math.log(2))
+      const result = yield* entropyWithPolicies(Chunk.make(0.5, 0.5))
+      expect(result).toBeCloseTo(log(2))
     }).pipe(Effect.provide(relaxedLayer)))
 })

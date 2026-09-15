@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Number as N, Schema } from "effect"
+import { Array, Chunk, Effect, Match, Number, Schema } from "effect"
 
+import { abs } from "../../src/Numeric/index.js"
 import { normalCdf, normalPdf, shannonEntropy, uniformCdf, uniformPdf } from "../../src/Probability/operations.js"
 import {
   FixtureRegistryLive,
@@ -9,12 +10,12 @@ import {
 } from "../helpers/fixtures/index.js"
 
 const NORMAL_PDF_TOLERANCE = 1e-14
-const NORMAL_CDF_TOLERANCE = 2e-7 // Abramowitz & Stegun 7.1.26: ~1.5e-7 max error
+const NORMAL_CDF_TOLERANCE = 2e-14
 const UNIFORM_TOLERANCE = 1e-14
 const ENTROPY_TOLERANCE = 1e-12
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 
 describe("Probability SciPy fixture parity", () => {
   it.effect("all distribution-parity cases match SciPy reference values", () =>
@@ -24,7 +25,7 @@ describe("Probability SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "normalPdf" }, (v) =>

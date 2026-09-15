@@ -20,10 +20,18 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
  * @since 0.1.0
  * @category schemas
  */
-export const LinearAlgebraDomainSchema = Schema.Struct({
+export class LinearAlgebraDomain extends Schema.Class<LinearAlgebraDomain>("LinearAlgebraDomain")({
   domain: Schema.Literal("LinearAlgebra"),
   stability: DomainStability
-})
+}) {}
+
+/**
+ * Schema for LinearAlgebra discovery metadata.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const LinearAlgebraDomainSchema = LinearAlgebraDomain
 
 /**
  * Decoded LinearAlgebra discovery descriptor.
@@ -31,8 +39,6 @@ export const LinearAlgebraDomainSchema = Schema.Struct({
  * @since 0.1.0
  * @category models
  */
-export type LinearAlgebraDomain = typeof LinearAlgebraDomainSchema.Type
-
 /**
  * Decodes a LinearAlgebra discovery descriptor and rejects unknown fields.
  *
@@ -87,7 +93,7 @@ export type LinearAlgebraSchemaBoundaryError = BoundaryDecodeError | BoundaryEnc
 // Shared finite number schema
 // ---------------------------------------------------------------------------
 
-const FiniteNumber = Schema.Number.pipe(Schema.finite())
+const FiniteNumber = Schema.Finite
 
 // ---------------------------------------------------------------------------
 // Dense carrier schemas
@@ -111,15 +117,15 @@ export const StorageOrder = Schema.Literal("row-major", "column-major").annotati
  * Stores finite vector data with a positive declared length.
  *
  * @remarks
- * Decoding does not require the declared length to equal `data.length`.
+ * Decoding does not require the declared length to equal the size of `data`.
  *
  * @since 0.1.0
  * @category schemas
  */
 export class DenseVector extends Schema.TaggedClass<DenseVector>()("DenseVector", {
   /** Finite elements in vector-coordinate order. */
-  data: Schema.Array(FiniteNumber),
-  /** Positive declared dimension, which decoding does not compare with `data.length`. */
+  data: Schema.Chunk(FiniteNumber),
+  /** Positive declared dimension, which decoding does not compare with the size of `data`. */
   length: Dimension
 }) {}
 
@@ -128,15 +134,15 @@ export class DenseVector extends Schema.TaggedClass<DenseVector>()("DenseVector"
  *
  * @remarks
  * Decoding does not prove that storage covers the declared shape. In row-major
- * storage, element `(i, j)` has index `offset + i * stride + j`. `offset` may
- * be any non-negative finite number; this schema does not require an integer.
+ * storage, element `(i, j)` has index `offset + i * stride + j`. `offset` is
+ * a non-negative safe integer.
  *
  * @since 0.1.0
  * @category schemas
  */
 export class DenseMatrix extends Schema.TaggedClass<DenseMatrix>()("DenseMatrix", {
   /** Finite elements in the layout described by the remaining fields. */
-  data: Schema.Array(FiniteNumber),
+  data: Schema.Chunk(FiniteNumber),
   /** Positive declared row count. */
   rows: Dimension,
   /** Positive declared column count. */
@@ -144,7 +150,7 @@ export class DenseMatrix extends Schema.TaggedClass<DenseMatrix>()("DenseMatrix"
   /** Positive element distance between consecutive rows in row-major storage. */
   stride: Dimension,
   /** Non-negative starting index for the matrix view. */
-  offset: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)).annotations({
+  offset: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0)).annotations({
     identifier: "MatrixOffset"
   }),
   /** Declared storage order; current matrix operations consume row-major data. */
@@ -165,8 +171,8 @@ export class DenseMatrix extends Schema.TaggedClass<DenseMatrix>()("DenseMatrix"
  * @category schemas
  */
 export const DotProductInput = Schema.Struct({
-  a: Schema.Array(FiniteNumber),
-  b: Schema.Array(FiniteNumber)
+  a: Schema.Chunk(FiniteNumber),
+  b: Schema.Chunk(FiniteNumber)
 }).annotations({ identifier: "DotProductInput" })
 
 /**
@@ -181,8 +187,8 @@ export const DotProductInput = Schema.Struct({
 export const MatvecInput = Schema.Struct({
   rows: Dimension,
   cols: Dimension,
-  data: Schema.Array(FiniteNumber),
-  x: Schema.Array(FiniteNumber)
+  data: Schema.Chunk(FiniteNumber),
+  x: Schema.Chunk(FiniteNumber)
 }).annotations({ identifier: "MatvecInput" })
 
 /**
@@ -195,7 +201,7 @@ export const MatvecInput = Schema.Struct({
  * @category schemas
  */
 export const NormInput = Schema.Struct({
-  values: Schema.Array(FiniteNumber),
+  values: Schema.Chunk(FiniteNumber),
   kind: Schema.Literal("L1", "L2", "Linf")
 }).annotations({ identifier: "NormInput" })
 
@@ -211,5 +217,5 @@ export const NormInput = Schema.Struct({
 export const TransposeInput = Schema.Struct({
   rows: Dimension,
   cols: Dimension,
-  data: Schema.Array(FiniteNumber)
+  data: Schema.Chunk(FiniteNumber)
 }).annotations({ identifier: "TransposeInput" })

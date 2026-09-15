@@ -4,15 +4,9 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N, pipe } from "effect"
+import { Chunk, Number, pipe } from "effect"
 
-/**
- * Absolute value via `Number.negate` and `Number.max`.
- *
- * @since 0.1.0
- * @category internal
- */
-const abs = (x: number): number => N.max(x, N.negate(x))
+import { abs, hypot } from "../../Numeric/index.js"
 
 /**
  * Dot product of two equal-length chunks via `Chunk.zipWith` + `Chunk.reduce`.
@@ -22,20 +16,17 @@ const abs = (x: number): number => N.max(x, N.negate(x))
  */
 export const dot = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
   pipe(
-    Chunk.zipWith(a, b, N.multiply),
-    Chunk.reduce(0, N.sum)
+    Chunk.zipWith(a, b, Number.multiply),
+    Chunk.reduce(0, Number.sum)
   )
 
 /**
- * Euclidean (L2) norm via dot product with self and `Math.sqrt`.
- *
- * `Math.sqrt` is a deterministic IEEE 754 primitive — no Effect equivalent
- * exists. Used here as a leaf mathematical operation.
+ * Euclidean (L2) norm via Numeric's overflow-safe hypot kernel.
  *
  * @since 0.1.0
  * @category internal
  */
-export const normL2 = (v: Chunk.Chunk<number>): number => Math.sqrt(dot(v, v))
+export const normL2 = (v: Chunk.Chunk<number>): number => hypot(v)
 
 /**
  * L1 norm (sum of absolute values) via `Chunk.reduce`.
@@ -43,7 +34,7 @@ export const normL2 = (v: Chunk.Chunk<number>): number => Math.sqrt(dot(v, v))
  * @since 0.1.0
  * @category internal
  */
-export const normL1 = (v: Chunk.Chunk<number>): number => Chunk.reduce(v, 0, (acc, x) => N.sum(acc, abs(x)))
+export const normL1 = (v: Chunk.Chunk<number>): number => Chunk.reduce(v, 0, (acc, x) => Number.sum(acc, abs(x)))
 
 /**
  * Infinity norm (maximum absolute value) via `Chunk.reduce` + `Number.max`.
@@ -51,7 +42,7 @@ export const normL1 = (v: Chunk.Chunk<number>): number => Chunk.reduce(v, 0, (ac
  * @since 0.1.0
  * @category internal
  */
-export const normLinf = (v: Chunk.Chunk<number>): number => Chunk.reduce(v, 0, (acc, x) => N.max(acc, abs(x)))
+export const normLinf = (v: Chunk.Chunk<number>): number => Chunk.reduce(v, 0, (acc, x) => Number.max(acc, abs(x)))
 
 /**
  * Elementwise vector addition via `Chunk.zipWith` + `Number.sum`.
@@ -62,7 +53,7 @@ export const normLinf = (v: Chunk.Chunk<number>): number => Chunk.reduce(v, 0, (
 export const add = (
   a: Chunk.Chunk<number>,
   b: Chunk.Chunk<number>
-): Chunk.Chunk<number> => Chunk.zipWith(a, b, N.sum)
+): Chunk.Chunk<number> => Chunk.zipWith(a, b, Number.sum)
 
 /**
  * Scalar-vector multiplication via `Chunk.map` + `Number.multiply`.
@@ -73,4 +64,4 @@ export const add = (
 export const scale = (
   alpha: number,
   v: Chunk.Chunk<number>
-): Chunk.Chunk<number> => Chunk.map(v, (x) => N.multiply(alpha, x))
+): Chunk.Chunk<number> => Chunk.map(v, (x) => Number.multiply(alpha, x))

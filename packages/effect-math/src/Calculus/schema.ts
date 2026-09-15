@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category schemas
  */
-import { Effect, Schema } from "effect"
+import { Boolean, Chunk, Effect, Number, Schema } from "effect"
 
 import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 import { AbsoluteTolerance, IterationBudget, RelativeTolerance, StepSize } from "../contracts/shared/BrandedScalars.js"
@@ -82,10 +82,15 @@ export type CalculusSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeEr
 const FiniteNumber = Schema.Number.pipe(Schema.finite())
 const NonNegativeFiniteNumber = FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0))
 const GreaterThanOneFiniteNumber = FiniteNumber.pipe(Schema.greaterThan(1))
-const NonEmptyFiniteNumberArray = Schema.NonEmptyArray(FiniteNumber)
+const NonEmptyFiniteNumberChunk = Schema.NonEmptyChunk(FiniteNumber)
 
-const SampledValues = Schema.Array(FiniteNumber).pipe(
-  Schema.filter((values) => values.length >= 2 || "Expected at least two sampled values")
+const SampledValues = Schema.Chunk(FiniteNumber).pipe(
+  Schema.filter((values) =>
+    Boolean.match(Number.greaterThanOrEqualTo(Chunk.size(values), 2), {
+      onTrue: () => true,
+      onFalse: () => "Expected at least two sampled values"
+    })
+  )
 )
 
 const RidderContractionFactor = GreaterThanOneFiniteNumber.pipe(Schema.brand("RidderContractionFactor"))
@@ -216,7 +221,7 @@ export const AdaptiveSimpsonInput = Schema.Struct({
  * @category schemas
  */
 const PointInput = Schema.Struct({
-  point: NonEmptyFiniteNumberArray
+  point: NonEmptyFiniteNumberChunk
 })
 
 /**
@@ -260,8 +265,8 @@ export const HessianInput = Schema.extend(PointInput, RidderMethodInput).annotat
  */
 export const DirectionalDerivativeInput = Schema.extend(
   Schema.Struct({
-    point: NonEmptyFiniteNumberArray,
-    direction: NonEmptyFiniteNumberArray
+    point: NonEmptyFiniteNumberChunk,
+    direction: NonEmptyFiniteNumberChunk
   }),
   RidderMethodInput
 ).annotations({ identifier: "DirectionalDerivativeInput" })

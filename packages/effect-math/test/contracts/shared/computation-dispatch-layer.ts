@@ -1,4 +1,4 @@
-import { Layer } from "effect"
+import { Data, Layer, Option } from "effect"
 
 import {
   AutodiffAuthorityService,
@@ -18,20 +18,34 @@ import {
   type ScalarAuthorityStateType
 } from "../../../src/contracts/shared/ScalarAuthority.js"
 
-export const makeComputationDispatcherLayer = (
-  overrides: {
-    readonly scalarAuthority?: ScalarAuthorityStateType
-    readonly precisionEscalation?: PrecisionEscalationPolicyType
-    readonly backendPolicy?: BackendPolicyType["policy"]
-    readonly autodiffAuthority?: AutodiffAuthorityStateType
-  } = {}
-) =>
+class ComputationDispatcherLayerOverrides extends Data.Class<{
+  readonly scalarAuthority?: ScalarAuthorityStateType
+  readonly precisionEscalation?: PrecisionEscalationPolicyType
+  readonly backendPolicy?: BackendPolicyType["policy"]
+  readonly autodiffAuthority?: AutodiffAuthorityStateType
+}> {}
+
+const defaultOverrides = new ComputationDispatcherLayerOverrides({})
+const defaultBackendPolicy: BackendPolicyType["policy"] = "scalar"
+
+export const makeComputationDispatcherLayer = (overrides: ComputationDispatcherLayerOverrides = defaultOverrides) =>
   Layer.mergeAll(
     ComputationDispatcherLive,
     Layer.mergeAll(
-      Layer.succeed(ScalarAuthorityService, overrides.scalarAuthority ?? DefaultScalarAuthority),
-      Layer.succeed(PrecisionEscalationService, overrides.precisionEscalation ?? DefaultPrecisionEscalationPolicy),
-      Layer.succeed(BackendPolicyService, { policy: overrides.backendPolicy ?? "scalar" }),
-      Layer.succeed(AutodiffAuthorityService, overrides.autodiffAuthority ?? DefaultAutodiffAuthority)
+      Layer.succeed(
+        ScalarAuthorityService,
+        Option.getOrElse(Option.fromNullable(overrides.scalarAuthority), () => DefaultScalarAuthority)
+      ),
+      Layer.succeed(
+        PrecisionEscalationService,
+        Option.getOrElse(Option.fromNullable(overrides.precisionEscalation), () => DefaultPrecisionEscalationPolicy)
+      ),
+      Layer.succeed(BackendPolicyService, {
+        policy: Option.getOrElse(Option.fromNullable(overrides.backendPolicy), () => defaultBackendPolicy)
+      }),
+      Layer.succeed(
+        AutodiffAuthorityService,
+        Option.getOrElse(Option.fromNullable(overrides.autodiffAuthority), () => DefaultAutodiffAuthority)
+      )
     )
   )

@@ -5,7 +5,16 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Number, Schema } from "effect"
+
+import { log } from "../../Numeric/index.js"
+
+const isNonNaN = Schema.is(Schema.NonNaN)
+const hasOrderedInputs = (x: number, low: number, high: number): boolean =>
+  Boolean.and(
+    Boolean.and(isNonNaN(x), Boolean.and(isNonNaN(low), isNonNaN(high))),
+    Boolean.and(Number.greaterThanOrEqualTo(x, low), Number.lessThanOrEqualTo(x, high))
+  )
 
 /**
  * Uniform PDF: f(x; a, b) = 1 / (b − a) for a ≤ x ≤ b, else 0.
@@ -14,9 +23,10 @@ import { Number as N } from "effect"
  * @category internal
  */
 export const uniformPdf = (x: number, low: number, high: number): number =>
-  (N.greaterThanOrEqualTo(x, low) && N.lessThanOrEqualTo(x, high))
-    ? N.unsafeDivide(1, N.subtract(high, low))
-    : 0
+  Boolean.match(hasOrderedInputs(x, low, high), {
+    onTrue: () => Number.unsafeDivide(1, Number.subtract(high, low)),
+    onFalse: () => 0
+  })
 
 /**
  * Uniform log-PDF: ln f(x; a, b) = −ln(b − a) for a ≤ x ≤ b, else −∞.
@@ -25,9 +35,10 @@ export const uniformPdf = (x: number, low: number, high: number): number =>
  * @category internal
  */
 export const uniformLogpdf = (x: number, low: number, high: number): number =>
-  (N.greaterThanOrEqualTo(x, low) && N.lessThanOrEqualTo(x, high))
-    ? N.negate(Math.log(N.subtract(high, low)))
-    : -Infinity
+  Boolean.match(hasOrderedInputs(x, low, high), {
+    onTrue: () => Number.negate(log(Number.subtract(high, low))),
+    onFalse: () => -Infinity
+  })
 
 /**
  * Uniform CDF: F(x; a, b) = 0 for x < a, 1 for x > b,
@@ -37,11 +48,14 @@ export const uniformLogpdf = (x: number, low: number, high: number): number =>
  * @category internal
  */
 export const uniformCdf = (x: number, low: number, high: number): number =>
-  N.lessThan(x, low)
-    ? 0
-    : N.greaterThan(x, high)
-    ? 1
-    : N.unsafeDivide(N.subtract(x, low), N.subtract(high, low))
+  Boolean.match(Number.lessThan(x, low), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.greaterThan(x, high), {
+        onTrue: () => 1,
+        onFalse: () => Number.unsafeDivide(Number.subtract(x, low), Number.subtract(high, low))
+      })
+  })
 
 /**
  * Uniform quantile (inverse CDF): Q(p; a, b) = a + p · (b − a).
@@ -50,7 +64,7 @@ export const uniformCdf = (x: number, low: number, high: number): number =>
  * @category internal
  */
 export const uniformQuantile = (p: number, low: number, high: number): number =>
-  N.sum(low, N.multiply(p, N.subtract(high, low)))
+  Number.sum(low, Number.multiply(p, Number.subtract(high, low)))
 
 /**
  * Uniform mean: E[X] = (a + b) / 2.
@@ -58,7 +72,7 @@ export const uniformQuantile = (p: number, low: number, high: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const uniformMean = (low: number, high: number): number => N.unsafeDivide(N.sum(low, high), 2)
+export const uniformMean = (low: number, high: number): number => Number.unsafeDivide(Number.sum(low, high), 2)
 
 /**
  * Uniform variance: Var(X) = (b − a)² / 12.
@@ -67,8 +81,8 @@ export const uniformMean = (low: number, high: number): number => N.unsafeDivide
  * @category internal
  */
 export const uniformVariance = (low: number, high: number): number => {
-  const range = N.subtract(high, low)
-  return N.unsafeDivide(N.multiply(range, range), 12)
+  const range = Number.subtract(high, low)
+  return Number.unsafeDivide(Number.multiply(range, range), 12)
 }
 
 /**
@@ -77,4 +91,4 @@ export const uniformVariance = (low: number, high: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const uniformEntropy = (low: number, high: number): number => Math.log(N.subtract(high, low))
+export const uniformEntropy = (low: number, high: number): number => log(Number.subtract(high, low))

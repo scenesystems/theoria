@@ -4,15 +4,24 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array as Arr, Chunk, Number as N, Option } from "effect"
+import { Boolean, Chunk, Iterable, Number, Option, Tuple } from "effect"
 
+import { abs, floor, sqrt } from "../../Numeric/index.js"
 import { transpose } from "./matrix.js"
 
 const MATRIX_SOLVER_EPSILON = 1e-12
 
-const abs = (value: number): number => N.max(value, N.negate(value))
+const indices = (size: number): Chunk.Chunk<number> =>
+  Chunk.fromIterable(
+    Iterable.unfold(0, (index) =>
+      Boolean.match(Number.lessThan(index, size), {
+        onFalse: Option.none,
+        onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
+      }))
+  )
 
-const matrixIndex = (size: number, row: number, column: number): number => N.sum(N.multiply(row, size), column)
+const matrixIndex = (size: number, row: number, column: number): number =>
+  Number.sum(Number.multiply(row, size), column)
 
 const matrixValueAt = (
   matrix: Chunk.Chunk<number>,
@@ -21,201 +30,206 @@ const matrixValueAt = (
   column: number
 ): number => Option.getOrElse(Chunk.get(matrix, matrixIndex(size, row, column)), () => 0)
 
-const lowerKey = (row: number, column: number): string => `${row}:${column}`
-
-const lowerValueAt = (lower: Readonly<Record<string, number>>, row: number, column: number): number =>
-  lower[lowerKey(row, column)] ?? 0
-
-const setLowerValue = (
-  lower: Readonly<Record<string, number>>,
+const setMatrixValue = (
+  matrix: Chunk.Chunk<number>,
+  size: number,
   row: number,
   column: number,
   value: number
-): Readonly<Record<string, number>> => ({
-  ...lower,
-  [lowerKey(row, column)]: value
-})
-
-const lowerToChunk = (lower: Readonly<Record<string, number>>, size: number): Chunk.Chunk<number> =>
-  Chunk.makeBy(size * size, (flatIndex) => {
-    const row = Math.floor(flatIndex / size)
-    const column = flatIndex % size
-    return column <= row ? lowerValueAt(lower, row, column) : 0
-  })
+): Chunk.Chunk<number> => Chunk.replace(matrix, matrixIndex(size, row, column), value)
 
 const isSymmetricMatrix = (matrix: Chunk.Chunk<number>, size: number): boolean =>
-  Arr.every(
-    Arr.makeBy(size, (row) => row),
-    (row) =>
-      Arr.every(
-        Arr.makeBy(size - row - 1, (offset) => row + offset + 1),
-        (column) =>
-          abs(
-            N.subtract(matrixValueAt(matrix, size, row, column), matrixValueAt(matrix, size, column, row))
-          ) <= MATRIX_SOLVER_EPSILON
-      )
-  )
+  Chunk.every(indices(size), (row) =>
+    Chunk.every(
+      Chunk.filter(indices(size), (column) => Number.greaterThan(column, row)),
+      (column) =>
+        Number.lessThanOrEqualTo(
+          abs(Number.subtract(matrixValueAt(matrix, size, row, column), matrixValueAt(matrix, size, column, row))),
+          MATRIX_SOLVER_EPSILON
+        )
+    ))
+
+const lowerCoordinates = (size: number) =>
+  Chunk.flatMap(indices(size), (row) => Chunk.map(indices(Number.increment(row)), (column) => Tuple.make(row, column)))
+
+const lowerToChunk = (lower: Chunk.Chunk<number>, size: number): Chunk.Chunk<number> =>
+  Chunk.map(indices(Number.multiply(size, size)), (flatIndex) => {
+    const row = floor(Number.unsafeDivide(flatIndex, size))
+    const column = Number.remainder(flatIndex, size)
+    return Boolean.match(Number.lessThanOrEqualTo(column, row), {
+      onFalse: () => 0,
+      onTrue: () => matrixValueAt(lower, size, row, column)
+    })
+  })
 
 export const choleskySpd = (
   matrix: Chunk.Chunk<number>,
   size: number
-): Option.Option<Chunk.Chunk<number>> => {
-  if (Chunk.size(matrix) !== size * size || !isSymmetricMatrix(matrix, size)) {
-    return Option.none()
-  }
-
-  const fillRow = (
-    row: number,
-    lower: Readonly<Record<string, number>>
-  ): Option.Option<Readonly<Record<string, number>>> =>
-    Arr.reduce(
-      Arr.makeBy(row + 1, (index) => index),
-      Option.some(lower),
-      (lowerOption, column) =>
-        Option.flatMap(lowerOption, (resolvedLower) => {
-          const projection = Arr.reduce(
-            Arr.makeBy(column, (index) => index),
-            0,
-            (sum, shared) =>
-              N.sum(
-                sum,
-                N.multiply(
-                  lowerValueAt(resolvedLower, row, shared),
-                  lowerValueAt(resolvedLower, column, shared)
+): Option.Option<Chunk.Chunk<number>> =>
+  Option.liftPredicate(
+    matrix,
+    () =>
+      Boolean.and(
+        Number.greaterThan(size, 0),
+        Boolean.and(
+          Number.Equivalence(Chunk.size(matrix), Number.multiply(size, size)),
+          isSymmetricMatrix(matrix, size)
+        )
+      )
+  ).pipe(
+    Option.flatMap(() =>
+      Chunk.reduce(
+        lowerCoordinates(size),
+        Option.some(Chunk.map(indices(Number.multiply(size, size)), () => 0)),
+        (lowerOption, coordinate) =>
+          Option.flatMap(lowerOption, (lower) => {
+            const row = Tuple.getFirst(coordinate)
+            const column = Tuple.getSecond(coordinate)
+            const projection = Chunk.reduce(
+              indices(column),
+              0,
+              (sum, shared) =>
+                Number.sum(
+                  sum,
+                  Number.multiply(
+                    matrixValueAt(lower, size, row, shared),
+                    matrixValueAt(lower, size, column, shared)
+                  )
                 )
-              )
-          )
-
-          if (row === column) {
-            const diagonal = N.subtract(matrixValueAt(matrix, size, row, row), projection)
-
-            return diagonal > MATRIX_SOLVER_EPSILON
-              ? Option.some(setLowerValue(resolvedLower, row, column, Math.sqrt(diagonal)))
-              : Option.none()
-          }
-
-          const pivot = lowerValueAt(resolvedLower, column, column)
-
-          return abs(pivot) <= MATRIX_SOLVER_EPSILON
-            ? Option.none()
-            : Option.some(
-              setLowerValue(
-                resolvedLower,
-                row,
-                column,
-                N.unsafeDivide(N.subtract(matrixValueAt(matrix, size, row, column), projection), pivot)
-              )
             )
-        })
-    )
-
-  const loop = (
-    row: number,
-    lower: Readonly<Record<string, number>>
-  ): Option.Option<Readonly<Record<string, number>>> =>
-    row >= size
-      ? Option.some(lower)
-      : fillRow(row, lower).pipe(Option.flatMap((next) => loop(row + 1, next)))
-
-  return loop(0, {}).pipe(Option.map((lower) => lowerToChunk(lower, size)))
-}
+            return Boolean.match(Number.Equivalence(row, column), {
+              onTrue: () =>
+                Option.liftPredicate(
+                  Number.subtract(matrixValueAt(matrix, size, row, row), projection),
+                  Number.greaterThan(MATRIX_SOLVER_EPSILON)
+                ).pipe(
+                  Option.map((diagonal) => setMatrixValue(lower, size, row, column, sqrt(diagonal)))
+                ),
+              onFalse: () =>
+                Option.liftPredicate(
+                  matrixValueAt(lower, size, column, column),
+                  (pivot) => Number.greaterThan(abs(pivot), MATRIX_SOLVER_EPSILON)
+                ).pipe(
+                  Option.map((pivot) =>
+                    setMatrixValue(
+                      lower,
+                      size,
+                      row,
+                      column,
+                      Number.unsafeDivide(
+                        Number.subtract(matrixValueAt(matrix, size, row, column), projection),
+                        pivot
+                      )
+                    )
+                  )
+                )
+            })
+          })
+      )
+    ),
+    Option.map((lower) => lowerToChunk(lower, size))
+  )
 
 export const forwardSubstituteLower = (
   lower: Chunk.Chunk<number>,
   size: number,
   rhs: Chunk.Chunk<number>
-): Option.Option<Chunk.Chunk<number>> => {
-  if (Chunk.size(lower) !== size * size || Chunk.size(rhs) !== size) {
-    return Option.none()
-  }
-
-  const loop = (
-    index: number,
-    solved: ReadonlyArray<number>
-  ): Option.Option<ReadonlyArray<number>> => {
-    if (index >= size) {
-      return Option.some(solved)
-    }
-
-    const projection = Arr.reduce(
-      Arr.makeBy(index, (position) => position),
-      0,
-      (sum, column) =>
-        N.sum(
-          sum,
-          N.multiply(
-            matrixValueAt(lower, size, index, column),
-            Arr.get(solved, column).pipe(Option.getOrElse(() => 0))
-          )
-        )
+): Option.Option<Chunk.Chunk<number>> =>
+  Option.liftPredicate(
+    Tuple.make(lower, rhs),
+    () =>
+      Boolean.and(
+        Number.Equivalence(Chunk.size(lower), Number.multiply(size, size)),
+        Number.Equivalence(Chunk.size(rhs), size)
+      )
+  ).pipe(
+    Option.flatMap(() =>
+      Chunk.reduce(
+        indices(size),
+        Option.some(Chunk.empty<number>()),
+        (solvedOption, index) =>
+          Option.flatMap(solvedOption, (solved) => {
+            const projection = Chunk.reduce(
+              indices(index),
+              0,
+              (sum, column) =>
+                Number.sum(
+                  sum,
+                  Number.multiply(
+                    matrixValueAt(lower, size, index, column),
+                    Option.getOrElse(Chunk.get(solved, column), () => 0)
+                  )
+                )
+            )
+            return Option.liftPredicate(
+              matrixValueAt(lower, size, index, index),
+              (diagonal) => Number.greaterThan(abs(diagonal), MATRIX_SOLVER_EPSILON)
+            ).pipe(
+              Option.map((diagonal) =>
+                Chunk.append(
+                  solved,
+                  Number.unsafeDivide(
+                    Number.subtract(Option.getOrElse(Chunk.get(rhs, index), () => 0), projection),
+                    diagonal
+                  )
+                )
+              )
+            )
+          })
+      )
     )
-    const diagonal = matrixValueAt(lower, size, index, index)
-
-    if (abs(diagonal) <= MATRIX_SOLVER_EPSILON) {
-      return Option.none()
-    }
-
-    const nextValue = N.unsafeDivide(
-      N.subtract(Option.getOrElse(Chunk.get(rhs, index), () => 0), projection),
-      diagonal
-    )
-
-    return loop(index + 1, Arr.append(solved, nextValue))
-  }
-
-  return loop(0, Arr.empty<number>()).pipe(
-    Option.map((solution) => Chunk.fromIterable(solution))
   )
-}
 
 export const backwardSubstituteUpper = (
   upper: Chunk.Chunk<number>,
   size: number,
   rhs: Chunk.Chunk<number>
-): Option.Option<Chunk.Chunk<number>> => {
-  if (Chunk.size(upper) !== size * size || Chunk.size(rhs) !== size) {
-    return Option.none()
-  }
-
-  const loop = (
-    index: number,
-    solved: Readonly<Record<string, number>>
-  ): Option.Option<Readonly<Record<string, number>>> => {
-    if (index < 0) {
-      return Option.some(solved)
-    }
-
-    const projection = Arr.reduce(
-      Arr.makeBy(size - index - 1, (offset) => index + offset + 1),
-      0,
-      (sum, column) =>
-        N.sum(
-          sum,
-          N.multiply(
-            matrixValueAt(upper, size, index, column),
-            solved[String(column)] ?? 0
-          )
-        )
+): Option.Option<Chunk.Chunk<number>> =>
+  Option.liftPredicate(
+    Tuple.make(upper, rhs),
+    () =>
+      Boolean.and(
+        Number.Equivalence(Chunk.size(upper), Number.multiply(size, size)),
+        Number.Equivalence(Chunk.size(rhs), size)
+      )
+  ).pipe(
+    Option.flatMap(() =>
+      Chunk.reduce(
+        Chunk.reverse(indices(size)),
+        Option.some(Chunk.map(indices(size), () => 0)),
+        (solvedOption, index) =>
+          Option.flatMap(solvedOption, (solved) => {
+            const projection = Chunk.reduce(
+              Chunk.filter(indices(size), (column) => Number.greaterThan(column, index)),
+              0,
+              (sum, column) =>
+                Number.sum(
+                  sum,
+                  Number.multiply(
+                    matrixValueAt(upper, size, index, column),
+                    Option.getOrElse(Chunk.get(solved, column), () => 0)
+                  )
+                )
+            )
+            return Option.liftPredicate(
+              matrixValueAt(upper, size, index, index),
+              (diagonal) => Number.greaterThan(abs(diagonal), MATRIX_SOLVER_EPSILON)
+            ).pipe(
+              Option.map((diagonal) =>
+                Chunk.replace(
+                  solved,
+                  index,
+                  Number.unsafeDivide(
+                    Number.subtract(Option.getOrElse(Chunk.get(rhs, index), () => 0), projection),
+                    diagonal
+                  )
+                )
+              )
+            )
+          })
+      )
     )
-    const diagonal = matrixValueAt(upper, size, index, index)
-
-    if (abs(diagonal) <= MATRIX_SOLVER_EPSILON) {
-      return Option.none()
-    }
-
-    const nextValue = N.unsafeDivide(
-      N.subtract(Option.getOrElse(Chunk.get(rhs, index), () => 0), projection),
-      diagonal
-    )
-
-    return loop(index - 1, {
-      ...solved,
-      [String(index)]: nextValue
-    })
-  }
-
-  return loop(size - 1, {}).pipe(Option.map((solution) => Chunk.makeBy(size, (index) => solution[String(index)] ?? 0)))
-}
+  )
 
 export const solveSpd = (
   matrix: Chunk.Chunk<number>,

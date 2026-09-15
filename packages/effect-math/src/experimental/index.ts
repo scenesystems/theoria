@@ -1,22 +1,38 @@
 /**
- * Publishes labels for reserved integration areas that have no public implementation.
+ * Reserves the experimental subpath for implemented, explicitly unstable APIs.
  *
  * @remarks
- * This subpath has experimental stability. Its labels may change in a minor
- * package release.
+ * This subpath currently exports no APIs. Experimental contracts are added
+ * only when they have executable behavior rather than as a metadata inventory.
  *
  * @since 0.1.0
  * @module
  */
 
+import { Array, Schema } from "effect"
+
 /**
- * Lists the names currently reserved for experimental integration work.
+ * Accepts a reserved experimental integration name.
  *
- * @remarks
- * The exported array is mutable and shared by all importers. Its labels do not
- * correspond to public Schemas or services in this package.
+ * @since 0.1.0
+ * @category schemas
+ */
+export const ExperimentalSeam = Schema.Literal("VariantSchema", "Machine", "Persistence")
+
+/**
+ * A decoded experimental integration name.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type ExperimentalSeamType = typeof ExperimentalSeam.Type
+
+/**
+ * Lists integration names retained for compatibility while the subpath is experimental.
  *
  * @since 0.1.0
  * @category experimental
  */
-export const ExperimentalSeams = ["VariantSchema", "Machine", "Persistence"]
+export const ExperimentalSeams = Schema.decodeUnknownSync(Schema.NonEmptyArray(ExperimentalSeam))(
+  Array.make("VariantSchema", "Machine", "Persistence")
+)

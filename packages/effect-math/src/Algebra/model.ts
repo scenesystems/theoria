@@ -5,7 +5,7 @@
  * @category models
  */
 import { AlgebraDomainContract } from "./contract.js"
-import type { AlgebraDomain } from "./schema.js"
+import { AlgebraDomain } from "./schema.js"
 
 /**
  * Identifies the Algebra domain as provisional.
@@ -13,7 +13,7 @@ import type { AlgebraDomain } from "./schema.js"
  * @since 0.1.0
  * @category models
  */
-export const AlgebraDomainModel: AlgebraDomain = {
+export const AlgebraDomainModel = new AlgebraDomain({
   domain: AlgebraDomainContract,
   stability: "provisional"
-}
+})

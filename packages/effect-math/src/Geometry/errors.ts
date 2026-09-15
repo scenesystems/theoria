@@ -35,7 +35,7 @@ export class GeometryDomainBoundaryError
  */
 export class GeometryDecodeError extends Schema.TaggedError<GeometryDecodeError>()("GeometryDecodeError", {
   /** Public geometry operation whose input failed decoding. */
-  operation: Schema.String,
+  operation: Schema.Literal("distance", "midpoint", "centroid"),
   /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
@@ -52,7 +52,7 @@ export class GeometryDecodeError extends Schema.TaggedError<GeometryDecodeError>
 export class GeometryShapeMismatchError
   extends Schema.TaggedError<GeometryShapeMismatchError>()("GeometryShapeMismatchError", {
     /** Geometry operation that compared incompatible dimensions. */
-    operation: Schema.String,
+    operation: Schema.Literal("distance", "midpoint", "centroid"),
     /** Required operand shape or dimensionality. */
     expected: Schema.String,
     /** Shape or dimensionality found in the rejected operand. */
@@ -74,7 +74,7 @@ export class GeometryShapeMismatchError
  */
 export class GeometryDegenerateError extends Schema.TaggedError<GeometryDegenerateError>()("GeometryDegenerateError", {
   /** Geometry operation that encountered a degenerate configuration. */
-  operation: Schema.String,
+  operation: Schema.Literal("centroid"),
   /** Diagnostic identifying the failed geometric invariant. */
   message: Schema.String
 }) {}
@@ -89,7 +89,7 @@ export class GeometryDegenerateError extends Schema.TaggedError<GeometryDegenera
 export class GeometryDomainViolationError
   extends Schema.TaggedError<GeometryDomainViolationError>()("GeometryDomainViolationError", {
     /** Strict-policy operation that produced a non-finite result. */
-    operation: Schema.String,
+    operation: Schema.Literal("distanceWithPolicies"),
     /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })

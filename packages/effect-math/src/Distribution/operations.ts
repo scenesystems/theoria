@@ -11,20 +11,20 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Number as N, Schema } from "effect"
+import { Chunk, Effect, Number, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { DistributionDecodeError, DistributionDomainViolationError, DistributionParameterError } from "./errors.js"
-import * as BetaKernel from "./internal/beta.js"
-import * as BinomialKernel from "./internal/binomial.js"
-import * as CategoricalKernel from "./internal/categorical.js"
-import * as ExponentialKernel from "./internal/exponential.js"
-import * as GammaKernel from "./internal/gamma.js"
-import * as LogNormalKernel from "./internal/logNormal.js"
-import * as NormalKernel from "./internal/normal.js"
-import * as PoissonKernel from "./internal/poisson.js"
-import * as StudentTKernel from "./internal/studentT.js"
-import * as UniformKernel from "./internal/uniform.js"
+import * as Beta from "./internal/beta.js"
+import * as Binomial from "./internal/binomial.js"
+import * as Categorical from "./internal/categorical.js"
+import * as Exponential from "./internal/exponential.js"
+import * as Gamma from "./internal/gamma.js"
+import * as LogNormal from "./internal/logNormal.js"
+import * as Normal from "./internal/normal.js"
+import * as Poisson from "./internal/poisson.js"
+import * as StudentT from "./internal/studentT.js"
+import * as Uniform from "./internal/uniform.js"
 import { DistributionDomainModel } from "./model.js"
 import {
   BetaDistEvalInput,
@@ -34,6 +34,8 @@ import {
   NormalQuantileInput,
   UniformDistEvalInput
 } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Returns the canonical provisional distribution-family descriptor for
@@ -55,7 +57,7 @@ export const loadDistributionDomain = Effect.succeed(DistributionDomainModel)
  * @since 0.1.0
  * @category operations
  */
-export const normalPdf: (x: number, mu: number, sigma: number) => number = NormalKernel.normalPdf
+export const normalPdf: (x: number, mu: number, sigma: number) => number = Normal.normalPdf
 
 /**
  * Evaluates the natural logarithm of a normal density.
@@ -63,7 +65,7 @@ export const normalPdf: (x: number, mu: number, sigma: number) => number = Norma
  * @since 0.1.0
  * @category operations
  */
-export const normalLogpdf: (x: number, mu: number, sigma: number) => number = NormalKernel.normalLogpdf
+export const normalLogpdf: (x: number, mu: number, sigma: number) => number = Normal.normalLogpdf
 
 /**
  * Evaluates the probability of a normal variate being at or below `x`.
@@ -71,7 +73,7 @@ export const normalLogpdf: (x: number, mu: number, sigma: number) => number = No
  * @since 0.1.0
  * @category operations
  */
-export const normalCdf: (x: number, mu: number, sigma: number) => number = NormalKernel.normalCdf
+export const normalCdf: (x: number, mu: number, sigma: number) => number = Normal.normalCdf
 
 /**
  * Finds the normal variate whose cumulative probability is `p`.
@@ -83,7 +85,7 @@ export const normalCdf: (x: number, mu: number, sigma: number) => number = Norma
  * @since 0.1.0
  * @category operations
  */
-export const normalQuantile: (p: number, mu: number, sigma: number) => number = NormalKernel.normalQuantile
+export const normalQuantile: (p: number, mu: number, sigma: number) => number = Normal.normalQuantile
 
 /**
  * Returns the location parameter of a normal distribution.
@@ -91,7 +93,7 @@ export const normalQuantile: (p: number, mu: number, sigma: number) => number = 
  * @since 0.1.0
  * @category operations
  */
-export const normalMean: (mu: number, sigma: number) => number = NormalKernel.normalMean
+export const normalMean: (mu: number, sigma: number) => number = Normal.normalMean
 
 /**
  * Returns the square of the normal distribution's scale parameter.
@@ -99,7 +101,7 @@ export const normalMean: (mu: number, sigma: number) => number = NormalKernel.no
  * @since 0.1.0
  * @category operations
  */
-export const normalVariance: (mu: number, sigma: number) => number = NormalKernel.normalVariance
+export const normalVariance: (mu: number, sigma: number) => number = Normal.normalVariance
 
 /**
  * Computes normal differential entropy in nats.
@@ -107,7 +109,7 @@ export const normalVariance: (mu: number, sigma: number) => number = NormalKerne
  * @since 0.1.0
  * @category operations
  */
-export const normalEntropy: (mu: number, sigma: number) => number = NormalKernel.normalEntropy
+export const normalEntropy: (mu: number, sigma: number) => number = Normal.normalEntropy
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: LogNormal
@@ -119,7 +121,7 @@ export const normalEntropy: (mu: number, sigma: number) => number = NormalKernel
  * @since 0.1.0
  * @category operations
  */
-export const logNormalPdf: (x: number, mu: number, sigma: number) => number = LogNormalKernel.logNormalPdf
+export const logNormalPdf: (x: number, mu: number, sigma: number) => number = LogNormal.logNormalPdf
 
 /**
  * Evaluates the natural logarithm of a log-normal density.
@@ -129,7 +131,7 @@ export const logNormalPdf: (x: number, mu: number, sigma: number) => number = Lo
  * @since 0.1.0
  * @category operations
  */
-export const logNormalLogpdf: (x: number, mu: number, sigma: number) => number = LogNormalKernel.logNormalLogpdf
+export const logNormalLogpdf: (x: number, mu: number, sigma: number) => number = LogNormal.logNormalLogpdf
 
 /**
  * Evaluates the cumulative probability of a log-normal variate.
@@ -139,7 +141,7 @@ export const logNormalLogpdf: (x: number, mu: number, sigma: number) => number =
  * @since 0.1.0
  * @category operations
  */
-export const logNormalCdf: (x: number, mu: number, sigma: number) => number = LogNormalKernel.logNormalCdf
+export const logNormalCdf: (x: number, mu: number, sigma: number) => number = LogNormal.logNormalCdf
 
 /**
  * Finds the log-normal variate whose cumulative probability is `p`.
@@ -151,7 +153,7 @@ export const logNormalCdf: (x: number, mu: number, sigma: number) => number = Lo
  * @since 0.1.0
  * @category operations
  */
-export const logNormalQuantile: (p: number, mu: number, sigma: number) => number = LogNormalKernel.logNormalQuantile
+export const logNormalQuantile: (p: number, mu: number, sigma: number) => number = LogNormal.logNormalQuantile
 
 /**
  * Computes the arithmetic mean from log-space location and scale.
@@ -159,7 +161,7 @@ export const logNormalQuantile: (p: number, mu: number, sigma: number) => number
  * @since 0.1.0
  * @category operations
  */
-export const logNormalMean: (mu: number, sigma: number) => number = LogNormalKernel.logNormalMean
+export const logNormalMean: (mu: number, sigma: number) => number = LogNormal.logNormalMean
 
 /**
  * Computes variance from log-space location and scale.
@@ -167,7 +169,7 @@ export const logNormalMean: (mu: number, sigma: number) => number = LogNormalKer
  * @since 0.1.0
  * @category operations
  */
-export const logNormalVariance: (mu: number, sigma: number) => number = LogNormalKernel.logNormalVariance
+export const logNormalVariance: (mu: number, sigma: number) => number = LogNormal.logNormalVariance
 
 /**
  * Computes log-normal differential entropy in nats.
@@ -175,7 +177,7 @@ export const logNormalVariance: (mu: number, sigma: number) => number = LogNorma
  * @since 0.1.0
  * @category operations
  */
-export const logNormalEntropy: (mu: number, sigma: number) => number = LogNormalKernel.logNormalEntropy
+export const logNormalEntropy: (mu: number, sigma: number) => number = LogNormal.logNormalEntropy
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: Exponential
@@ -187,7 +189,7 @@ export const logNormalEntropy: (mu: number, sigma: number) => number = LogNormal
  * @since 0.1.0
  * @category operations
  */
-export const exponentialPdf: (x: number, rate: number) => number = ExponentialKernel.exponentialPdf
+export const exponentialPdf: (x: number, rate: number) => number = Exponential.exponentialPdf
 
 /**
  * Evaluates the natural logarithm of an exponential density.
@@ -197,7 +199,7 @@ export const exponentialPdf: (x: number, rate: number) => number = ExponentialKe
  * @since 0.1.0
  * @category operations
  */
-export const exponentialLogpdf: (x: number, rate: number) => number = ExponentialKernel.exponentialLogpdf
+export const exponentialLogpdf: (x: number, rate: number) => number = Exponential.exponentialLogpdf
 
 /**
  * Evaluates cumulative exponential probability, returning `0` when `x` is negative.
@@ -205,7 +207,7 @@ export const exponentialLogpdf: (x: number, rate: number) => number = Exponentia
  * @since 0.1.0
  * @category operations
  */
-export const exponentialCdf: (x: number, rate: number) => number = ExponentialKernel.exponentialCdf
+export const exponentialCdf: (x: number, rate: number) => number = Exponential.exponentialCdf
 
 /**
  * Finds the exponential variate whose cumulative probability is `p`.
@@ -215,7 +217,7 @@ export const exponentialCdf: (x: number, rate: number) => number = ExponentialKe
  * @since 0.1.0
  * @category operations
  */
-export const exponentialQuantile: (p: number, rate: number) => number = ExponentialKernel.exponentialQuantile
+export const exponentialQuantile: (p: number, rate: number) => number = Exponential.exponentialQuantile
 
 /**
  * Returns the reciprocal of the exponential rate.
@@ -223,7 +225,7 @@ export const exponentialQuantile: (p: number, rate: number) => number = Exponent
  * @since 0.1.0
  * @category operations
  */
-export const exponentialMean: (rate: number) => number = ExponentialKernel.exponentialMean
+export const exponentialMean: (rate: number) => number = Exponential.exponentialMean
 
 /**
  * Returns the reciprocal of the squared exponential rate.
@@ -231,7 +233,7 @@ export const exponentialMean: (rate: number) => number = ExponentialKernel.expon
  * @since 0.1.0
  * @category operations
  */
-export const exponentialVariance: (rate: number) => number = ExponentialKernel.exponentialVariance
+export const exponentialVariance: (rate: number) => number = Exponential.exponentialVariance
 
 /**
  * Computes exponential differential entropy in nats.
@@ -239,7 +241,7 @@ export const exponentialVariance: (rate: number) => number = ExponentialKernel.e
  * @since 0.1.0
  * @category operations
  */
-export const exponentialEntropy: (rate: number) => number = ExponentialKernel.exponentialEntropy
+export const exponentialEntropy: (rate: number) => number = Exponential.exponentialEntropy
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: Uniform
@@ -254,7 +256,7 @@ export const exponentialEntropy: (rate: number) => number = ExponentialKernel.ex
  * @since 0.1.0
  * @category operations
  */
-export const uniformPdf: (x: number, low: number, high: number) => number = UniformKernel.uniformPdf
+export const uniformPdf: (x: number, low: number, high: number) => number = Uniform.uniformPdf
 
 /**
  * Evaluates the natural logarithm of uniform density on the closed interval.
@@ -264,7 +266,7 @@ export const uniformPdf: (x: number, low: number, high: number) => number = Unif
  * @since 0.1.0
  * @category operations
  */
-export const uniformLogpdf: (x: number, low: number, high: number) => number = UniformKernel.uniformLogpdf
+export const uniformLogpdf: (x: number, low: number, high: number) => number = Uniform.uniformLogpdf
 
 /**
  * Evaluates cumulative uniform probability, clamped to the unit interval.
@@ -272,7 +274,7 @@ export const uniformLogpdf: (x: number, low: number, high: number) => number = U
  * @since 0.1.0
  * @category operations
  */
-export const uniformCdf: (x: number, low: number, high: number) => number = UniformKernel.uniformCdf
+export const uniformCdf: (x: number, low: number, high: number) => number = Uniform.uniformCdf
 
 /**
  * Interpolates linearly between the uniform bounds at probability `p`.
@@ -280,7 +282,7 @@ export const uniformCdf: (x: number, low: number, high: number) => number = Unif
  * @since 0.1.0
  * @category operations
  */
-export const uniformQuantile: (p: number, low: number, high: number) => number = UniformKernel.uniformQuantile
+export const uniformQuantile: (p: number, low: number, high: number) => number = Uniform.uniformQuantile
 
 /**
  * Returns the midpoint of the uniform bounds.
@@ -288,7 +290,7 @@ export const uniformQuantile: (p: number, low: number, high: number) => number =
  * @since 0.1.0
  * @category operations
  */
-export const uniformMean: (low: number, high: number) => number = UniformKernel.uniformMean
+export const uniformMean: (low: number, high: number) => number = Uniform.uniformMean
 
 /**
  * Computes variance from the width between the uniform bounds.
@@ -296,7 +298,7 @@ export const uniformMean: (low: number, high: number) => number = UniformKernel.
  * @since 0.1.0
  * @category operations
  */
-export const uniformVariance: (low: number, high: number) => number = UniformKernel.uniformVariance
+export const uniformVariance: (low: number, high: number) => number = Uniform.uniformVariance
 
 /**
  * Computes uniform differential entropy in nats.
@@ -304,7 +306,7 @@ export const uniformVariance: (low: number, high: number) => number = UniformKer
  * @since 0.1.0
  * @category operations
  */
-export const uniformEntropy: (low: number, high: number) => number = UniformKernel.uniformEntropy
+export const uniformEntropy: (low: number, high: number) => number = Uniform.uniformEntropy
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: Beta
@@ -321,7 +323,7 @@ export const uniformEntropy: (low: number, high: number) => number = UniformKern
  * @since 0.1.0
  * @category operations
  */
-export const betaPdf: (x: number, alpha: number, beta: number) => number = BetaKernel.betaPdf
+export const betaPdf: (x: number, alpha: number, beta: number) => number = Beta.betaPdf
 
 /**
  * Evaluates the natural logarithm of a beta density.
@@ -331,7 +333,7 @@ export const betaPdf: (x: number, alpha: number, beta: number) => number = BetaK
  * @since 0.1.0
  * @category operations
  */
-export const betaLogpdf: (x: number, alpha: number, beta: number) => number = BetaKernel.betaLogpdf
+export const betaLogpdf: (x: number, alpha: number, beta: number) => number = Beta.betaLogpdf
 
 /**
  * Evaluates cumulative beta probability through the regularized incomplete beta function.
@@ -341,7 +343,7 @@ export const betaLogpdf: (x: number, alpha: number, beta: number) => number = Be
  * @since 0.1.0
  * @category operations
  */
-export const betaCdf: (x: number, alpha: number, beta: number) => number = BetaKernel.betaCdf
+export const betaCdf: (x: number, alpha: number, beta: number) => number = Beta.betaCdf
 
 /**
  * Approximates a beta quantile with at most 20 Newton iterations.
@@ -354,7 +356,7 @@ export const betaCdf: (x: number, alpha: number, beta: number) => number = BetaK
  * @since 0.1.0
  * @category operations
  */
-export const betaQuantile: (p: number, alpha: number, beta: number) => number = BetaKernel.betaQuantile
+export const betaQuantile: (p: number, alpha: number, beta: number) => number = Beta.betaQuantile
 
 /**
  * Computes the mean of a beta distribution.
@@ -362,7 +364,7 @@ export const betaQuantile: (p: number, alpha: number, beta: number) => number = 
  * @since 0.1.0
  * @category operations
  */
-export const betaMean: (alpha: number, beta: number) => number = BetaKernel.betaMean
+export const betaMean: (alpha: number, beta: number) => number = Beta.betaMean
 
 /**
  * Computes the variance of a beta distribution.
@@ -370,7 +372,7 @@ export const betaMean: (alpha: number, beta: number) => number = BetaKernel.beta
  * @since 0.1.0
  * @category operations
  */
-export const betaVariance: (alpha: number, beta: number) => number = BetaKernel.betaVariance
+export const betaVariance: (alpha: number, beta: number) => number = Beta.betaVariance
 
 /**
  * Computes beta differential entropy in nats.
@@ -378,7 +380,7 @@ export const betaVariance: (alpha: number, beta: number) => number = BetaKernel.
  * @since 0.1.0
  * @category operations
  */
-export const betaEntropy: (alpha: number, beta: number) => number = BetaKernel.betaEntropy
+export const betaEntropy: (alpha: number, beta: number) => number = Beta.betaEntropy
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: Gamma
@@ -394,7 +396,7 @@ export const betaEntropy: (alpha: number, beta: number) => number = BetaKernel.b
  * @since 0.1.0
  * @category operations
  */
-export const gammaPdf: (x: number, shape: number, scale: number) => number = GammaKernel.gammaPdf
+export const gammaPdf: (x: number, shape: number, scale: number) => number = Gamma.gammaPdf
 
 /**
  * Evaluates the natural logarithm of a gamma density.
@@ -404,7 +406,7 @@ export const gammaPdf: (x: number, shape: number, scale: number) => number = Gam
  * @since 0.1.0
  * @category operations
  */
-export const gammaLogpdf: (x: number, shape: number, scale: number) => number = GammaKernel.gammaLogpdf
+export const gammaLogpdf: (x: number, shape: number, scale: number) => number = Gamma.gammaLogpdf
 
 /**
  * Evaluates cumulative gamma probability through the regularized incomplete gamma function.
@@ -414,7 +416,7 @@ export const gammaLogpdf: (x: number, shape: number, scale: number) => number = 
  * @since 0.1.0
  * @category operations
  */
-export const gammaCdf: (x: number, shape: number, scale: number) => number = GammaKernel.gammaCdf
+export const gammaCdf: (x: number, shape: number, scale: number) => number = Gamma.gammaCdf
 
 /**
  * Approximates a gamma quantile with at most 50 Newton iterations.
@@ -427,7 +429,7 @@ export const gammaCdf: (x: number, shape: number, scale: number) => number = Gam
  * @since 0.1.0
  * @category operations
  */
-export const gammaQuantile: (p: number, shape: number, scale: number) => number = GammaKernel.gammaQuantile
+export const gammaQuantile: (p: number, shape: number, scale: number) => number = Gamma.gammaQuantile
 
 /**
  * Computes the mean of a shape-scale gamma distribution.
@@ -435,7 +437,7 @@ export const gammaQuantile: (p: number, shape: number, scale: number) => number 
  * @since 0.1.0
  * @category operations
  */
-export const gammaMean: (shape: number, scale: number) => number = GammaKernel.gammaMean
+export const gammaMean: (shape: number, scale: number) => number = Gamma.gammaMean
 
 /**
  * Computes the variance of a shape-scale gamma distribution.
@@ -443,7 +445,7 @@ export const gammaMean: (shape: number, scale: number) => number = GammaKernel.g
  * @since 0.1.0
  * @category operations
  */
-export const gammaVariance: (shape: number, scale: number) => number = GammaKernel.gammaVariance
+export const gammaVariance: (shape: number, scale: number) => number = Gamma.gammaVariance
 
 /**
  * Computes gamma differential entropy in nats.
@@ -451,7 +453,7 @@ export const gammaVariance: (shape: number, scale: number) => number = GammaKern
  * @since 0.1.0
  * @category operations
  */
-export const gammaEntropy: (shape: number, scale: number) => number = GammaKernel.gammaEntropy
+export const gammaEntropy: (shape: number, scale: number) => number = Gamma.gammaEntropy
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: StudentT
@@ -463,7 +465,7 @@ export const gammaEntropy: (shape: number, scale: number) => number = GammaKerne
  * @since 0.1.0
  * @category operations
  */
-export const studentTPdf: (x: number, df: number) => number = StudentTKernel.studentTPdf
+export const studentTPdf: (x: number, df: number) => number = StudentT.studentTPdf
 
 /**
  * Evaluates the natural logarithm of a Student's t density.
@@ -471,7 +473,7 @@ export const studentTPdf: (x: number, df: number) => number = StudentTKernel.stu
  * @since 0.1.0
  * @category operations
  */
-export const studentTLogpdf: (x: number, df: number) => number = StudentTKernel.studentTLogpdf
+export const studentTLogpdf: (x: number, df: number) => number = StudentT.studentTLogpdf
 
 /**
  * Evaluates cumulative Student's t probability through the regularized incomplete beta function.
@@ -479,7 +481,7 @@ export const studentTLogpdf: (x: number, df: number) => number = StudentTKernel.
  * @since 0.1.0
  * @category operations
  */
-export const studentTCdf: (x: number, df: number) => number = StudentTKernel.studentTCdf
+export const studentTCdf: (x: number, df: number) => number = StudentT.studentTCdf
 
 /**
  * Approximates a Student's t quantile with at most 50 Newton iterations.
@@ -492,7 +494,7 @@ export const studentTCdf: (x: number, df: number) => number = StudentTKernel.stu
  * @since 0.1.0
  * @category operations
  */
-export const studentTQuantile: (p: number, df: number) => number = StudentTKernel.studentTQuantile
+export const studentTQuantile: (p: number, df: number) => number = StudentT.studentTQuantile
 
 /**
  * Returns `0` when the Student's t mean exists and `NaN` when `df <= 1`.
@@ -500,7 +502,7 @@ export const studentTQuantile: (p: number, df: number) => number = StudentTKerne
  * @since 0.1.0
  * @category operations
  */
-export const studentTMean: (df: number) => number = StudentTKernel.studentTMean
+export const studentTMean: (df: number) => number = StudentT.studentTMean
 
 /**
  * Computes Student's t variance when it exists.
@@ -511,7 +513,7 @@ export const studentTMean: (df: number) => number = StudentTKernel.studentTMean
  * @since 0.1.0
  * @category operations
  */
-export const studentTVariance: (df: number) => number = StudentTKernel.studentTVariance
+export const studentTVariance: (df: number) => number = StudentT.studentTVariance
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: Categorical
@@ -525,7 +527,7 @@ export const studentTVariance: (df: number) => number = StudentTKernel.studentTV
  * @since 0.1.0
  * @category operations
  */
-export const categoricalPmf: (k: number, probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalPmf
+export const categoricalPmf: (k: number, probs: Chunk.Chunk<number>) => number = Categorical.categoricalPmf
 
 /**
  * Returns the natural logarithm of the mass at category index `k`.
@@ -535,7 +537,7 @@ export const categoricalPmf: (k: number, probs: Chunk.Chunk<number>) => number =
  * @since 0.1.0
  * @category operations
  */
-export const categoricalLogpmf: (k: number, probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalLogpmf
+export const categoricalLogpmf: (k: number, probs: Chunk.Chunk<number>) => number = Categorical.categoricalLogpmf
 
 /**
  * Sums categorical masses through index `k`.
@@ -548,7 +550,7 @@ export const categoricalLogpmf: (k: number, probs: Chunk.Chunk<number>) => numbe
  * @since 0.1.0
  * @category operations
  */
-export const categoricalCdf: (k: number, probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalCdf
+export const categoricalCdf: (k: number, probs: Chunk.Chunk<number>) => number = Categorical.categoricalCdf
 
 /**
  * Computes the probability-weighted category index.
@@ -559,7 +561,7 @@ export const categoricalCdf: (k: number, probs: Chunk.Chunk<number>) => number =
  * @since 0.1.0
  * @category operations
  */
-export const categoricalMean: (probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalMean
+export const categoricalMean: (probs: Chunk.Chunk<number>) => number = Categorical.categoricalMean
 
 /**
  * Computes variance of category indices using the supplied masses.
@@ -570,7 +572,7 @@ export const categoricalMean: (probs: Chunk.Chunk<number>) => number = Categoric
  * @since 0.1.0
  * @category operations
  */
-export const categoricalVariance: (probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalVariance
+export const categoricalVariance: (probs: Chunk.Chunk<number>) => number = Categorical.categoricalVariance
 
 /**
  * Computes categorical entropy in nats using the supplied masses.
@@ -582,7 +584,7 @@ export const categoricalVariance: (probs: Chunk.Chunk<number>) => number = Categ
  * @since 0.1.0
  * @category operations
  */
-export const categoricalEntropy: (probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalEntropy
+export const categoricalEntropy: (probs: Chunk.Chunk<number>) => number = Categorical.categoricalEntropy
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: Binomial
@@ -596,7 +598,7 @@ export const categoricalEntropy: (probs: Chunk.Chunk<number>) => number = Catego
  * @since 0.1.0
  * @category operations
  */
-export const binomialPmf: (k: number, n: number, p: number) => number = BinomialKernel.binomialPmf
+export const binomialPmf: (k: number, n: number, p: number) => number = Binomial.binomialPmf
 
 /**
  * Evaluates the natural logarithm of binomial mass.
@@ -606,7 +608,7 @@ export const binomialPmf: (k: number, n: number, p: number) => number = Binomial
  * @since 0.1.0
  * @category operations
  */
-export const binomialLogpmf: (k: number, n: number, p: number) => number = BinomialKernel.binomialLogPmf
+export const binomialLogpmf: (k: number, n: number, p: number) => number = Binomial.binomialLogpmf
 
 /**
  * Evaluates cumulative binomial probability through the regularized incomplete beta function.
@@ -616,7 +618,7 @@ export const binomialLogpmf: (k: number, n: number, p: number) => number = Binom
  * @since 0.1.0
  * @category operations
  */
-export const binomialCdf: (k: number, n: number, p: number) => number = BinomialKernel.binomialCdf
+export const binomialCdf: (k: number, n: number, p: number) => number = Binomial.binomialCdf
 
 /**
  * Computes the expected success count for `n` trials.
@@ -624,7 +626,7 @@ export const binomialCdf: (k: number, n: number, p: number) => number = Binomial
  * @since 0.1.0
  * @category operations
  */
-export const binomialMean: (n: number, p: number) => number = BinomialKernel.binomialMean
+export const binomialMean: (n: number, p: number) => number = Binomial.binomialMean
 
 /**
  * Computes success-count variance for `n` trials.
@@ -632,7 +634,7 @@ export const binomialMean: (n: number, p: number) => number = BinomialKernel.bin
  * @since 0.1.0
  * @category operations
  */
-export const binomialVariance: (n: number, p: number) => number = BinomialKernel.binomialVariance
+export const binomialVariance: (n: number, p: number) => number = Binomial.binomialVariance
 
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports: Poisson
@@ -648,7 +650,7 @@ export const binomialVariance: (n: number, p: number) => number = BinomialKernel
  * @since 0.1.0
  * @category operations
  */
-export const poissonPmf: (k: number, mu: number) => number = PoissonKernel.poissonPmf
+export const poissonPmf: (k: number, mu: number) => number = Poisson.poissonPmf
 
 /**
  * Evaluates the natural logarithm of Poisson mass.
@@ -659,7 +661,7 @@ export const poissonPmf: (k: number, mu: number) => number = PoissonKernel.poiss
  * @since 0.1.0
  * @category operations
  */
-export const poissonLogpmf: (k: number, mu: number) => number = PoissonKernel.poissonLogPmf
+export const poissonLogpmf: (k: number, mu: number) => number = Poisson.poissonLogpmf
 
 /**
  * Evaluates cumulative Poisson probability through the upper incomplete gamma function.
@@ -670,7 +672,7 @@ export const poissonLogpmf: (k: number, mu: number) => number = PoissonKernel.po
  * @since 0.1.0
  * @category operations
  */
-export const poissonCdf: (k: number, mu: number) => number = PoissonKernel.poissonCdf
+export const poissonCdf: (k: number, mu: number) => number = Poisson.poissonCdf
 
 /**
  * Returns the Poisson rate as the expected count.
@@ -678,7 +680,7 @@ export const poissonCdf: (k: number, mu: number) => number = PoissonKernel.poiss
  * @since 0.1.0
  * @category operations
  */
-export const poissonMean: (mu: number) => number = PoissonKernel.poissonMean
+export const poissonMean: (mu: number) => number = Poisson.poissonMean
 
 /**
  * Returns the Poisson rate as the count variance.
@@ -686,7 +688,7 @@ export const poissonMean: (mu: number) => number = PoissonKernel.poissonMean
  * @since 0.1.0
  * @category operations
  */
-export const poissonVariance: (mu: number) => number = PoissonKernel.poissonVariance
+export const poissonVariance: (mu: number) => number = Poisson.poissonVariance
 
 // ---------------------------------------------------------------------------
 // Schema-validated operations
@@ -715,7 +717,7 @@ export const normalPdfValidated = (input: unknown) =>
       )
     )
 
-    return NormalKernel.normalPdf(decoded.x, decoded.mu, decoded.sigma)
+    return Normal.normalPdf(decoded.x, decoded.mu, decoded.sigma)
   })
 
 /**
@@ -740,7 +742,7 @@ export const normalCdfValidated = (input: unknown) =>
       )
     )
 
-    return NormalKernel.normalCdf(decoded.x, decoded.mu, decoded.sigma)
+    return Normal.normalCdf(decoded.x, decoded.mu, decoded.sigma)
   })
 
 /**
@@ -768,7 +770,7 @@ export const normalQuantileValidated = (input: unknown) =>
       )
     )
 
-    return NormalKernel.normalQuantile(decoded.p, decoded.mu, decoded.sigma)
+    return Normal.normalQuantile(decoded.p, decoded.mu, decoded.sigma)
   })
 
 /**
@@ -797,7 +799,7 @@ export const uniformPdfValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.lessThan(d.low, d.high),
+      (d) => Number.lessThan(d.low, d.high),
       (d) =>
         new DistributionParameterError({
           operation: "uniformPdf",
@@ -805,7 +807,7 @@ export const uniformPdfValidated = (input: unknown) =>
         })
     )
 
-    return UniformKernel.uniformPdf(decoded.x, decoded.low, decoded.high)
+    return Uniform.uniformPdf(decoded.x, decoded.low, decoded.high)
   })
 
 /**
@@ -830,7 +832,7 @@ export const betaCdfValidated = (input: unknown) =>
       )
     )
 
-    return BetaKernel.betaCdf(decoded.x, decoded.alpha, decoded.beta)
+    return Beta.betaCdf(decoded.x, decoded.alpha, decoded.beta)
   })
 
 /**
@@ -858,7 +860,7 @@ export const betaQuantileValidated = (input: unknown) =>
       )
     )
 
-    return BetaKernel.betaQuantile(decoded.p, decoded.alpha, decoded.beta)
+    return Beta.betaQuantile(decoded.p, decoded.alpha, decoded.beta)
   })
 
 /**
@@ -887,7 +889,7 @@ export const categoricalPmfValidated = (input: unknown) =>
       )
     )
 
-    return CategoricalKernel.categoricalPmf(decoded.k, Chunk.fromIterable(decoded.probs))
+    return Categorical.categoricalPmf(decoded.k, Chunk.fromIterable(decoded.probs))
   })
 
 // ---------------------------------------------------------------------------
@@ -911,9 +913,14 @@ export const categoricalPmfValidated = (input: unknown) =>
 export const normalPdfWithPolicies = (x: number, mu: number, sigma: number) =>
   withScalarPolicyGuards({
     operation: "Distribution.normalPdfWithPolicies",
-    compute: () => NormalKernel.normalPdf(x, mu, sigma),
+    compute: () => Normal.normalPdf(x, mu, sigma),
     makeError: (message) => new DistributionDomainViolationError({ operation: "normalPdfWithPolicies", message }),
-    annotations: (result) => ({ x: String(x), mu: String(mu), sigma: String(sigma), result: String(result) })
+    annotations: (result) => ({
+      x: encodeNumber(x),
+      mu: encodeNumber(mu),
+      sigma: encodeNumber(sigma),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -932,9 +939,14 @@ export const normalPdfWithPolicies = (x: number, mu: number, sigma: number) =>
 export const normalCdfWithPolicies = (x: number, mu: number, sigma: number) =>
   withScalarPolicyGuards({
     operation: "Distribution.normalCdfWithPolicies",
-    compute: () => NormalKernel.normalCdf(x, mu, sigma),
+    compute: () => Normal.normalCdf(x, mu, sigma),
     makeError: (message) => new DistributionDomainViolationError({ operation: "normalCdfWithPolicies", message }),
-    annotations: (result) => ({ x: String(x), mu: String(mu), sigma: String(sigma), result: String(result) })
+    annotations: (result) => ({
+      x: encodeNumber(x),
+      mu: encodeNumber(mu),
+      sigma: encodeNumber(sigma),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -953,7 +965,12 @@ export const normalCdfWithPolicies = (x: number, mu: number, sigma: number) =>
 export const betaCdfWithPolicies = (x: number, alpha: number, beta: number) =>
   withScalarPolicyGuards({
     operation: "Distribution.betaCdfWithPolicies",
-    compute: () => BetaKernel.betaCdf(x, alpha, beta),
+    compute: () => Beta.betaCdf(x, alpha, beta),
     makeError: (message) => new DistributionDomainViolationError({ operation: "betaCdfWithPolicies", message }),
-    annotations: (result) => ({ x: String(x), alpha: String(alpha), beta: String(beta), result: String(result) })
+    annotations: (result) => ({
+      x: encodeNumber(x),
+      alpha: encodeNumber(alpha),
+      beta: encodeNumber(beta),
+      result: encodeNumber(result)
+    })
   })

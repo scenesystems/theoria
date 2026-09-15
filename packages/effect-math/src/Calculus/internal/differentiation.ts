@@ -7,7 +7,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Number } from "effect"
 
 const DEFAULT_H = 1e-8
 
@@ -18,4 +18,4 @@ const DEFAULT_H = 1e-8
  * @category internal
  */
 export const centralDifference = (f: (x: number) => number, x: number, h: number = DEFAULT_H): number =>
-  N.unsafeDivide(N.subtract(f(N.sum(x, h)), f(N.subtract(x, h))), N.multiply(2, h))
+  Number.unsafeDivide(Number.subtract(f(Number.sum(x, h)), f(Number.subtract(x, h))), Number.multiply(2, h))

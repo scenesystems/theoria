@@ -4,15 +4,15 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Chunk, Iterable, Number, Option, Schema, Tuple } from "effect"
+
+import * as Numeric from "../../Numeric/index.js"
 
 const DEFAULT_ABSOLUTE_TOLERANCE = 1e-10
 const DEFAULT_RELATIVE_TOLERANCE = 1e-10
 const DEFAULT_MAX_DEPTH = 16
 
-const absolute = (value: number): number => N.max(value, N.negate(value))
-
-const midpoint = (a: number, b: number): number => N.unsafeDivide(N.sum(a, b), 2)
+const midpoint = (a: number, b: number): number => Number.unsafeDivide(Number.sum(a, b), 2)
 
 const segment = (
   a: number,
@@ -21,56 +21,91 @@ const segment = (
   fm: number,
   fb: number
 ): number =>
-  N.multiply(
-    N.unsafeDivide(N.subtract(b, a), 6),
-    N.sum(N.sum(fa, N.multiply(4, fm)), fb)
+  Number.multiply(
+    Number.unsafeDivide(Number.subtract(b, a), 6),
+    Number.sum(Number.sum(fa, Number.multiply(4, fm)), fb)
   )
 
 const localTolerance = (
   estimate: number,
   absoluteTolerance: number,
   relativeTolerance: number
-): number => N.max(absoluteTolerance, N.multiply(relativeTolerance, absolute(estimate)))
+): number => Number.max(absoluteTolerance, Number.multiply(relativeTolerance, Numeric.abs(estimate)))
 
-const recurse = (
-  f: (x: number) => number,
-  a: number,
-  b: number,
-  fa: number,
-  fm: number,
-  fb: number,
-  whole: number,
-  absoluteTolerance: number,
-  relativeTolerance: number,
-  depth: number
-): number => {
-  const m = midpoint(a, b)
-  const leftMid = midpoint(a, m)
-  const rightMid = midpoint(m, b)
+class SimpsonFrame extends Schema.Class<SimpsonFrame>("SimpsonFrame")({
+  a: Schema.Number,
+  b: Schema.Number,
+  fa: Schema.Number,
+  fm: Schema.Number,
+  fb: Schema.Number,
+  whole: Schema.Number,
+  absoluteTolerance: Schema.Number,
+  relativeTolerance: Schema.Number,
+  depth: Schema.Number
+}) {}
 
-  const fLeftMid = f(leftMid)
-  const fRightMid = f(rightMid)
+class SimpsonState extends Schema.Class<SimpsonState>("SimpsonState")({
+  pending: Schema.ChunkFromSelf(SimpsonFrame),
+  total: Schema.Number
+}) {}
 
-  const left = segment(a, m, fa, fLeftMid, fm)
-  const right = segment(m, b, fm, fRightMid, fb)
-  const combined = N.sum(left, right)
+const refine = (f: (x: number) => number, state: SimpsonState): SimpsonState =>
+  Option.match(Chunk.head(state.pending), {
+    onNone: () => state,
+    onSome: (frame) => {
+      const rest = Chunk.drop(state.pending, 1)
+      const m = midpoint(frame.a, frame.b)
+      const leftMid = midpoint(frame.a, m)
+      const rightMid = midpoint(m, frame.b)
+      const fLeftMid = f(leftMid)
+      const fRightMid = f(rightMid)
+      const left = segment(frame.a, m, frame.fa, fLeftMid, frame.fm)
+      const right = segment(m, frame.b, frame.fm, fRightMid, frame.fb)
+      const combined = Number.sum(left, right)
+      const correction = Number.subtract(combined, frame.whole)
+      const tolerance = localTolerance(combined, frame.absoluteTolerance, frame.relativeTolerance)
+      const converged = Number.lessThanOrEqualTo(Numeric.abs(correction), Number.multiply(15, tolerance))
+      const complete = Boolean.or(Number.lessThanOrEqualTo(frame.depth, 0), converged)
 
-  const correction = N.subtract(combined, whole)
-  const tolerance = localTolerance(combined, absoluteTolerance, relativeTolerance)
-  const converged = N.lessThanOrEqualTo(absolute(correction), N.multiply(15, tolerance))
-
-  if (N.lessThanOrEqualTo(depth, 0) || converged) {
-    return N.sum(combined, N.unsafeDivide(correction, 15))
-  }
-
-  const nextAbsolute = N.unsafeDivide(absoluteTolerance, 2)
-  const nextRelative = N.unsafeDivide(relativeTolerance, 2)
-
-  return N.sum(
-    recurse(f, a, m, fa, fLeftMid, fm, left, nextAbsolute, nextRelative, N.subtract(depth, 1)),
-    recurse(f, m, b, fm, fRightMid, fb, right, nextAbsolute, nextRelative, N.subtract(depth, 1))
-  )
-}
+      return Boolean.match(complete, {
+        onTrue: () =>
+          new SimpsonState({
+            pending: rest,
+            total: Number.sum(state.total, Number.sum(combined, Number.unsafeDivide(correction, 15)))
+          }),
+        onFalse: () => {
+          const nextAbsolute = Number.unsafeDivide(frame.absoluteTolerance, 2)
+          const nextRelative = Number.unsafeDivide(frame.relativeTolerance, 2)
+          const nextDepth = Number.decrement(frame.depth)
+          const children = Chunk.make(
+            new SimpsonFrame({
+              a: frame.a,
+              b: m,
+              fa: frame.fa,
+              fm: fLeftMid,
+              fb: frame.fm,
+              whole: left,
+              absoluteTolerance: nextAbsolute,
+              relativeTolerance: nextRelative,
+              depth: nextDepth
+            }),
+            new SimpsonFrame({
+              a: m,
+              b: frame.b,
+              fa: frame.fm,
+              fm: fRightMid,
+              fb: frame.fb,
+              whole: right,
+              absoluteTolerance: nextAbsolute,
+              relativeTolerance: nextRelative,
+              depth: nextDepth
+            })
+          )
+          return new SimpsonState({ pending: Chunk.appendAll(children, rest), total: state.total })
+        }
+      })
+    }
+  })
 
 /**
  * Adaptive Simpson quadrature with independent absolute and relative tolerances.
@@ -86,7 +121,10 @@ export const adaptiveSimpsonIntegral = (
   relativeTolerance: number = DEFAULT_RELATIVE_TOLERANCE,
   maxDepth: number = DEFAULT_MAX_DEPTH
 ): number => {
-  const normalizedDepth = Number.isFinite(maxDepth) ? N.max(0, maxDepth) : DEFAULT_MAX_DEPTH
+  const normalizedDepth = Boolean.match(Numeric.isFinite(maxDepth), {
+    onTrue: () => Number.max(0, maxDepth),
+    onFalse: () => DEFAULT_MAX_DEPTH
+  })
 
   const m = midpoint(a, b)
   const fa = f(a)
@@ -94,16 +132,34 @@ export const adaptiveSimpsonIntegral = (
   const fb = f(b)
   const whole = segment(a, b, fa, fm, fb)
 
-  return recurse(
-    f,
-    a,
-    b,
-    fa,
-    fm,
-    fb,
-    whole,
-    N.max(absoluteTolerance, Number.MIN_VALUE),
-    N.max(relativeTolerance, Number.MIN_VALUE),
-    normalizedDepth
+  const initial = new SimpsonState({
+    pending: Chunk.of(
+      new SimpsonFrame({
+        a,
+        b,
+        fa,
+        fm,
+        fb,
+        whole,
+        absoluteTolerance: Number.max(absoluteTolerance, 5e-324),
+        relativeTolerance: Number.max(relativeTolerance, 5e-324),
+        depth: normalizedDepth
+      })
+    ),
+    total: 0
+  })
+
+  return Iterable.reduce(
+    Iterable.unfold(initial, (state) =>
+      Boolean.match(Chunk.isEmpty(state.pending), {
+        onTrue: Option.none,
+        onFalse: () => {
+          const next = refine(f, state)
+          return Option.some(Tuple.make(next, next))
+        }
+      })),
+    initial,
+    (_state, next) => next
   )
+    .total
 }

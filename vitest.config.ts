@@ -1,9 +1,13 @@
+import { Boolean, Config, Effect, Option, String } from "effect"
 import { defineConfig } from "vitest/config"
 
 export default defineConfig({
   test: {
     pool: "forks",
-    maxWorkers: process.env.CI ? 2 : 4,
+    maxWorkers: Effect.runSync(Effect.gen(function*() {
+      const ci = yield* Config.option(Config.string("CI"))
+      return Boolean.match(Option.exists(ci, String.isNonEmpty), { onTrue: () => 2, onFalse: () => 4 })
+    })),
     fileParallelism: true,
     maxConcurrency: 10,
     passWithNoTests: false,

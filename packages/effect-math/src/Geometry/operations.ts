@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Match, Number as N, Schema } from "effect"
+import { Chunk, Effect, Match, Number, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { GeometryDecodeError, GeometryDomainViolationError, GeometryShapeMismatchError } from "./errors.js"
@@ -99,30 +99,27 @@ export const distanceValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.Equivalence(d.a.length, d.b.length),
+      (d) => Number.Equivalence(Chunk.size(d.a), Chunk.size(d.b)),
       (d) =>
         new GeometryShapeMismatchError({
           operation: "distance",
-          expected: `length ${d.a.length}`,
-          actual: `length ${d.b.length}`,
+          expected: `length ${Chunk.size(d.a)}`,
+          actual: `length ${Chunk.size(d.b)}`,
           message: `Distance requires points of equal dimensionality`
         })
     )
 
-    const a = Chunk.fromIterable(decoded.a)
-    const b = Chunk.fromIterable(decoded.b)
-
     return Match.value(decoded.metric).pipe(
-      Match.when("euclidean", () => Metric.euclideanDistance(a, b)),
-      Match.when("manhattan", () => Metric.manhattanDistance(a, b)),
-      Match.when("chebyshev", () => Metric.chebyshevDistance(a, b)),
+      Match.when("euclidean", () => Metric.euclideanDistance(decoded.a, decoded.b)),
+      Match.when("manhattan", () => Metric.manhattanDistance(decoded.a, decoded.b)),
+      Match.when("chebyshev", () => Metric.chebyshevDistance(decoded.a, decoded.b)),
       Match.exhaustive
     )
   })
 
 /**
  * Decodes two finite points with equal dimensions and returns their midpoint
- * as an immutable array. Malformed or excess input fails with
+ * as an immutable `Chunk`. Malformed or excess input fails with
  * `GeometryDecodeError`; unequal dimensions fail with
  * `GeometryShapeMismatchError`.
  * @since 0.1.0
@@ -143,19 +140,17 @@ export const midpointValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.Equivalence(d.a.length, d.b.length),
+      (d) => Number.Equivalence(Chunk.size(d.a), Chunk.size(d.b)),
       (d) =>
         new GeometryShapeMismatchError({
           operation: "midpoint",
-          expected: `length ${d.a.length}`,
-          actual: `length ${d.b.length}`,
+          expected: `length ${Chunk.size(d.a)}`,
+          actual: `length ${Chunk.size(d.b)}`,
           message: `Midpoint requires points of equal dimensionality`
         })
     )
 
-    return Chunk.toReadonlyArray(
-      Metric.midpoint(Chunk.fromIterable(decoded.a), Chunk.fromIterable(decoded.b))
-    )
+    return Metric.midpoint(decoded.a, decoded.b)
   })
 
 /**
@@ -179,11 +174,11 @@ export const centroidValidated = (input: unknown) =>
       )
     )
 
-    const firstLength = decoded.points[0].length
+    const firstLength = Chunk.size(Chunk.headNonEmpty(decoded.points))
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => d.points.every((pt) => N.Equivalence(pt.length, firstLength)),
+      (d) => Chunk.every(d.points, (point) => Number.Equivalence(Chunk.size(point), firstLength)),
       () =>
         new GeometryShapeMismatchError({
           operation: "centroid",
@@ -193,12 +188,7 @@ export const centroidValidated = (input: unknown) =>
         })
     )
 
-    const chunkPoints = Chunk.map(
-      Chunk.fromIterable(decoded.points),
-      Chunk.fromIterable
-    )
-
-    return Chunk.toReadonlyArray(Metric.centroid(chunkPoints))
+    return Metric.centroid(decoded.points)
   })
 
 // ---------------------------------------------------------------------------
@@ -217,7 +207,7 @@ export const centroidValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Chunk, Effect, Layer } from "effect"
+ * import { Chunk, Effect, Layer, Number } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   Geometry,
@@ -230,13 +220,13 @@ export const centroidValidated = (input: unknown) =>
  * )
  *
  * export const program = Geometry.distanceWithPolicies(
- *   Chunk.fromIterable([0, 0]),
- *   Chunk.fromIterable([3, 4]),
+ *   Chunk.make(0, 0),
+ *   Chunk.make(3, 4),
  *   "euclidean"
  * ).pipe(
  *   Effect.provide(policies),
  *   Effect.filterOrFail(
- *     (distance) => distance === 5,
+ *     (distance) => Number.Equivalence(distance, 5),
  *     () => "UnexpectedDistance"
  *   )
  * )
@@ -262,7 +252,7 @@ export const distanceWithPolicies = (
     makeError: (message) => new GeometryDomainViolationError({ operation: "distanceWithPolicies", message }),
     annotations: (result) => ({
       metric,
-      dimensionality: String(Chunk.size(a)),
-      result: String(result)
+      dimensionality: `${Chunk.size(a)}`,
+      result: `${result}`
     })
   })

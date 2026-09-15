@@ -2,17 +2,22 @@
  * Beta distribution kernels.
  * Parameters: alpha > 0, beta > 0. Support: x ∈ [0, 1].
  *
- * CDF delegates to betainc from Special/internal/betainc.js.
- * Log-normalisation uses lnGamma from Special/internal/gamma.js.
+ * CDF and normalization delegate to canonical public Special operations.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Iterable, Number, Option, Schema, Tuple } from "effect"
 
-import { betaincKernel } from "../../Special/internal/betainc.js"
-import { digammaKernel } from "../../Special/internal/digamma.js"
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
+import { abs, exp, log } from "../../Numeric/index.js"
+import { betainc, digamma, lnGamma } from "../../Special/index.js"
+
+class BetaQuantileState extends Schema.Class<BetaQuantileState>("BetaQuantileState")({
+  x: Schema.Number,
+  remaining: Schema.Number
+}) {}
+
+const isNonNaN = Schema.is(Schema.NonNaN)
 
 /**
  * Log of the Beta function B(a,b) = Γ(a)Γ(b)/Γ(a+b).
@@ -21,9 +26,9 @@ import { lnGammaLanczos } from "../../Special/internal/gamma.js"
  * @category internal
  */
 export const betaLogNorm = (a: number, b: number): number =>
-  N.subtract(
-    N.sum(lnGammaLanczos(a), lnGammaLanczos(b)),
-    lnGammaLanczos(N.sum(a, b))
+  Number.subtract(
+    Number.sum(lnGamma(a), lnGamma(b)),
+    lnGamma(Number.sum(a, b))
   )
 
 /**
@@ -35,19 +40,29 @@ export const betaLogNorm = (a: number, b: number): number =>
  * @category internal
  */
 export const betaPdf = (x: number, alpha: number, beta: number): number => {
-  if (x <= 0 || x >= 1) {
-    if (x === 0 && alpha === 1) return Math.exp(N.negate(betaLogNorm(alpha, beta)))
-    if (x === 1 && beta === 1) return Math.exp(N.negate(betaLogNorm(alpha, beta)))
-    return 0
-  }
-  return Math.exp(
-    N.subtract(
-      N.sum(
-        N.multiply(N.subtract(alpha, 1), Math.log(x)),
-        N.multiply(N.subtract(beta, 1), Math.log(N.subtract(1, x)))
-      ),
-      betaLogNorm(alpha, beta)
-    )
+  return Boolean.match(
+    Boolean.and(isNonNaN(x), Boolean.or(Number.lessThanOrEqualTo(x, 0), Number.greaterThanOrEqualTo(x, 1))),
+    {
+      onTrue: () =>
+        Boolean.match(Boolean.and(Number.Equivalence(x, 0), Number.Equivalence(alpha, 1)), {
+          onTrue: () => exp(Number.negate(betaLogNorm(alpha, beta))),
+          onFalse: () =>
+            Boolean.match(Boolean.and(Number.Equivalence(x, 1), Number.Equivalence(beta, 1)), {
+              onTrue: () => exp(Number.negate(betaLogNorm(alpha, beta))),
+              onFalse: () => 0
+            })
+        }),
+      onFalse: () =>
+        exp(
+          Number.subtract(
+            Number.sum(
+              Number.multiply(Number.subtract(alpha, 1), log(x)),
+              Number.multiply(Number.subtract(beta, 1), log(Number.subtract(1, x)))
+            ),
+            betaLogNorm(alpha, beta)
+          )
+        )
+    }
   )
 }
 
@@ -58,13 +73,19 @@ export const betaPdf = (x: number, alpha: number, beta: number): number => {
  * @category internal
  */
 export const betaLogpdf = (x: number, alpha: number, beta: number): number => {
-  if (x <= 0 || x >= 1) return -Infinity
-  return N.subtract(
-    N.sum(
-      N.multiply(N.subtract(alpha, 1), Math.log(x)),
-      N.multiply(N.subtract(beta, 1), Math.log(N.subtract(1, x)))
-    ),
-    betaLogNorm(alpha, beta)
+  return Boolean.match(
+    Boolean.and(isNonNaN(x), Boolean.or(Number.lessThanOrEqualTo(x, 0), Number.greaterThanOrEqualTo(x, 1))),
+    {
+      onTrue: () => -Infinity,
+      onFalse: () =>
+        Number.subtract(
+          Number.sum(
+            Number.multiply(Number.subtract(alpha, 1), log(x)),
+            Number.multiply(Number.subtract(beta, 1), log(Number.subtract(1, x)))
+          ),
+          betaLogNorm(alpha, beta)
+        )
+    }
   )
 }
 
@@ -75,13 +96,22 @@ export const betaLogpdf = (x: number, alpha: number, beta: number): number => {
  * @category internal
  */
 export const betaCdf = (x: number, alpha: number, beta: number): number => {
-  if (x <= 0) return 0
-  if (x >= 1) return 1
-  return betaincKernel(alpha, beta, x)
+  return Boolean.match(isNonNaN(x), {
+    onFalse: () => NaN,
+    onTrue: () =>
+      Boolean.match(Number.lessThanOrEqualTo(x, 0), {
+        onTrue: () => 0,
+        onFalse: () =>
+          Boolean.match(Number.greaterThanOrEqualTo(x, 1), {
+            onTrue: () => 1,
+            onFalse: () => betainc(alpha, beta, x)
+          })
+      })
+  })
 }
 
 /**
- * Tail-recursive Newton–Raphson loop for the beta quantile.
+ * Schema-state Newton–Raphson iteration for the beta quantile.
  *
  * @since 0.1.0
  * @category internal
@@ -93,16 +123,34 @@ const betaQuantileLoop = (
   x: number,
   remaining: number
 ): number => {
-  if (remaining === 0) return x
-  const f = N.subtract(betaCdf(x, alpha, beta), p)
-  const fprime = betaPdf(x, alpha, beta)
-  if (fprime < 1e-30) return x
-  if (Math.abs(f) < 1e-12) return x
-  const xNext = Math.max(
-    1e-15,
-    Math.min(N.subtract(1, 1e-15), N.subtract(x, N.unsafeDivide(f, fprime)))
+  const initial = new BetaQuantileState({ x, remaining })
+  return Iterable.reduce(
+    Iterable.unfold(initial, (state) => {
+      const difference = Number.subtract(betaCdf(state.x, alpha, beta), p)
+      const density = betaPdf(state.x, alpha, beta)
+      return Boolean.match(
+        Boolean.or(
+          Number.Equivalence(state.remaining, 0),
+          Boolean.or(Number.lessThan(density, 1e-30), Number.lessThan(abs(difference), 1e-12))
+        ),
+        {
+          onTrue: Option.none,
+          onFalse: () => {
+            const next = new BetaQuantileState({
+              x: Number.clamp(Number.subtract(state.x, Number.unsafeDivide(difference, density)), {
+                minimum: 1e-15,
+                maximum: Number.subtract(1, 1e-15)
+              }),
+              remaining: Number.subtract(state.remaining, 1)
+            })
+            return Option.some(Tuple.make(next.x, next))
+          }
+        }
+      )
+    }),
+    x,
+    (_x, next) => next
   )
-  return betaQuantileLoop(p, alpha, beta, xNext, N.subtract(remaining, 1))
 }
 
 /**
@@ -122,7 +170,7 @@ export const betaQuantile = (p: number, alpha: number, beta: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const betaMean = (alpha: number, beta: number): number => N.unsafeDivide(alpha, N.sum(alpha, beta))
+export const betaMean = (alpha: number, beta: number): number => Number.unsafeDivide(alpha, Number.sum(alpha, beta))
 
 /**
  * Beta variance: αβ / ((α+β)²(α+β+1)).
@@ -131,10 +179,10 @@ export const betaMean = (alpha: number, beta: number): number => N.unsafeDivide(
  * @category internal
  */
 export const betaVariance = (alpha: number, beta: number): number => {
-  const ab = N.sum(alpha, beta)
-  return N.unsafeDivide(
-    N.multiply(alpha, beta),
-    N.multiply(N.multiply(ab, ab), N.sum(ab, 1))
+  const ab = Number.sum(alpha, beta)
+  return Number.unsafeDivide(
+    Number.multiply(alpha, beta),
+    Number.multiply(Number.multiply(ab, ab), Number.sum(ab, 1))
   )
 }
 
@@ -146,13 +194,13 @@ export const betaVariance = (alpha: number, beta: number): number => {
  * @category internal
  */
 export const betaEntropy = (alpha: number, beta: number): number =>
-  N.sum(
-    N.subtract(
+  Number.sum(
+    Number.subtract(
       betaLogNorm(alpha, beta),
-      N.sum(
-        N.multiply(N.subtract(alpha, 1), digammaKernel(alpha)),
-        N.multiply(N.subtract(beta, 1), digammaKernel(beta))
+      Number.sum(
+        Number.multiply(Number.subtract(alpha, 1), digamma(alpha)),
+        Number.multiply(Number.subtract(beta, 1), digamma(beta))
       )
     ),
-    N.multiply(N.subtract(N.sum(alpha, beta), 2), digammaKernel(N.sum(alpha, beta)))
+    Number.multiply(Number.subtract(Number.sum(alpha, beta), 2), digamma(Number.sum(alpha, beta)))
   )

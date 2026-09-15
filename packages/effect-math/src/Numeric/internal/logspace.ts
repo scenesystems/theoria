@@ -1,81 +1,70 @@
 /**
- * Log-space arithmetic kernels for numerically stable log-probability
- * computations. All functions avoid overflow/underflow by operating in
- * log-space throughout.
+ * Stable log-space arithmetic composed from Numeric transcendental kernels.
  *
  * @since 0.1.0
  * @category internal
  */
+import { Boolean, Match, Number, Tuple } from "effect"
 
-/**
- * log(exp(a) + exp(b)) without overflow. Uses max-shift trick:
- * max(a,b) + log1p(exp(-|a - b|)).
- *
- * @since 0.1.0
- * @category internal
- */
-export const logaddexp = (a: number, b: number): number => {
-  if (a === -Infinity) return b
-  if (b === -Infinity) return a
-  const max = a > b ? a : b
-  const min = a > b ? b : a
-  return max + Math.log1p(Math.exp(min - max))
-}
+import * as Binary from "./binary.js"
+import { exp, expm1, log, log1p } from "./transcendental.js"
 
-/**
- * log(exp(a) - exp(b)) for a > b. Returns NaN when b >= a.
- * Uses a + log1p(-exp(b - a)).
- *
- * @since 0.1.0
- * @category internal
- */
-export const logsubexp = (a: number, b: number): number => {
-  if (b >= a) return NaN
-  return a + Math.log1p(-Math.exp(b - a))
-}
+const LN_2 = 0.6931471805599453
 
-/**
- * log(1 - exp(x)) for x < 0. Branches at x = -ln(2) ≈ -0.6931:
- * - x > -ln(2): log(-expm1(x))
- * - x ≤ -ln(2): log1p(-exp(x))
- *
- * @since 0.1.0
- * @category internal
- */
-export const log1mexp = (x: number): number => {
-  if (x >= 0) return NaN
-  return x > -Math.LN2
-    ? Math.log(-Math.expm1(x))
-    : Math.log1p(-Math.exp(x))
-}
+/** Computes `log(exp(a) + exp(b))` without materializing large exponentials. */
+export const logaddexp = (a: number, b: number): number =>
+  Match.value(Tuple.make(a, b)).pipe(
+    Match.when(([a, b]) => Boolean.or(Binary.isNaN(a), Binary.isNaN(b)), () => Binary.notANumber),
+    Match.when(([a]) => Number.Equivalence(a, Binary.negativeInfinity), ([, b]) => b),
+    Match.when(([, b]) => Number.Equivalence(b, Binary.negativeInfinity), ([a]) => a),
+    Match.when(
+      ([a, b]) =>
+        Boolean.or(Number.Equivalence(a, Binary.positiveInfinity), Number.Equivalence(b, Binary.positiveInfinity)),
+      () => Binary.positiveInfinity
+    ),
+    Match.orElse(([a, b]) => {
+      const maximum = Number.max(a, b)
+      const minimum = Number.min(a, b)
+      return Number.sum(maximum, log1p(exp(Number.subtract(minimum, maximum))))
+    })
+  )
 
-/**
- * log(1 + exp(x)) (softplus). Branches for numerical stability:
- * - x > 33.3: x (exp(x) dominates, log1p ≈ x)
- * - x > -37: log1p(exp(x))
- * - x ≤ -37: exp(x) (log1p(tiny) ≈ tiny)
- *
- * @since 0.1.0
- * @category internal
- */
-export const log1pexp = (x: number): number => {
-  if (x > 33.3) return x
-  if (x > -37) return Math.log1p(Math.exp(x))
-  return Math.exp(x)
-}
+/** Computes `log(exp(a) - exp(b))`; returns NaN outside the strict `a > b` domain. */
+export const logsubexp = (a: number, b: number): number =>
+  Match.value(Number.greaterThan(a, b)).pipe(
+    Match.when(true, () => {
+      const exponential = exp(Number.subtract(b, a))
+      return Number.sum(a, log1p(Number.negate(exponential)))
+    }),
+    Match.orElse(() => Binary.notANumber)
+  )
 
-/**
- * x * log(y) with x=0 → 0 convention (avoids 0 * -Infinity = NaN).
- *
- * @since 0.1.0
- * @category internal
- */
-export const xlogy = (x: number, y: number): number => x === 0 ? 0 : x * Math.log(y)
+/** Computes `log(1 - exp(x))` on `x < 0` without cancellation. */
+export const log1mexp = (x: number): number =>
+  Match.value(x).pipe(
+    Match.when(Number.greaterThanOrEqualTo(0), () => Binary.notANumber),
+    Match.when(Number.greaterThan(Number.negate(LN_2)), (x) => log(Number.negate(expm1(x)))),
+    Match.orElse((x) => log1p(Number.negate(exp(x))))
+  )
 
-/**
- * x * log(1 + y) with x=0 → 0 convention.
- *
- * @since 0.1.0
- * @category internal
- */
-export const xlog1py = (x: number, y: number): number => x === 0 ? 0 : x * Math.log1p(y)
+/** Computes softplus without overflowing its intermediate exponential. */
+export const log1pexp = (x: number): number =>
+  Match.value(x).pipe(
+    Match.when(Number.greaterThan(33.3), (x) => x),
+    Match.when(Number.greaterThan(-37), (x) => log1p(exp(x))),
+    Match.orElse(exp)
+  )
+
+/** Computes `x * log(y)` with the conventional zero multiplier. */
+export const xlogy = (x: number, y: number): number =>
+  Match.value(x).pipe(
+    Match.when((x) => Number.Equivalence(x, 0), () => 0),
+    Match.orElse((x) => Number.multiply(x, log(y)))
+  )
+
+/** Computes `x * log(1 + y)` with the conventional zero multiplier. */
+export const xlog1py = (x: number, y: number): number =>
+  Match.value(x).pipe(
+    Match.when((x) => Number.Equivalence(x, 0), () => 0),
+    Match.orElse((x) => Number.multiply(x, log1p(y)))
+  )

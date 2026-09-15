@@ -85,6 +85,22 @@ export type ComplexSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeErr
 // ---------------------------------------------------------------------------
 
 /**
+ * Canonical pair carrier for rectangular components and polar coordinates.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const ComplexPairSchema = Schema.Tuple(Schema.Number, Schema.Number)
+
+/**
+ * Decoded pair of numeric complex components.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type ComplexPair = typeof ComplexPairSchema.Type
+
+/**
  * Accepts finite real and imaginary components for a unary operation.
  *
  * @since 0.1.0

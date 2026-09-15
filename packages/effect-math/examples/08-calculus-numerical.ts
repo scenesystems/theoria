@@ -7,7 +7,7 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Chunk, Console, Data, Effect, Number as N, Option, Schema } from "effect"
+import { Array, Chunk, Console, Data, Effect, Number, Option, Schema } from "effect"
 
 import {
   adaptiveSimpson,
@@ -48,7 +48,7 @@ const program = Effect.gen(function*() {
   const relativeTolerance = yield* Schema.decode(RelativeTolerance)(1e-12)
 
   // Derivative operators
-  const xSquared = (x: number) => N.multiply(x, x)
+  const xSquared = (x: number) => Number.multiply(x, x)
   yield* Console.log("d/dx(x²)|₁:", derivative(xSquared, 1))
   // Output: d/dx(x²)|₁: ≈ 2
   yield* Console.log("d/dx(x²)|₃:", derivative(xSquared, 3))
@@ -56,18 +56,18 @@ const program = Effect.gen(function*() {
   yield* Console.log("d/dx(sin)|₀:", derivative(Numeric.sin, 0))
   // Output: d/dx(sin)|₀: ≈ 1 (cos(0) = 1)
 
-  const xCubed = (x: number) => N.multiply(N.multiply(x, x), x)
+  const xCubed = (x: number) => Number.multiply(Number.multiply(x, x), x)
   yield* Console.log("d²/dx²(x³)|₂:", secondDerivative(xCubed, 2))
   // Output: d²/dx²(x³)|₂: ≈ 12
 
-  const firstLimit = derivativeLimit(Numeric.sin, Numeric.pi / 3, {
+  const firstLimit = derivativeLimit(Numeric.sin, Number.unsafeDivide(Numeric.pi, 3), {
     absoluteTolerance,
     relativeTolerance
   })
   yield* Console.log("derivativeLimit d/dx(sin)|π/3:", firstLimit)
   // Output: value ≈ 0.5 with bounded absoluteError and convergence flag
 
-  const secondLimit = secondDerivativeLimit(Numeric.sin, Numeric.pi / 3)
+  const secondLimit = secondDerivativeLimit(Numeric.sin, Number.unsafeDivide(Numeric.pi, 3))
   yield* Console.log("secondDerivativeLimit d²/dx²(sin)|π/3:", secondLimit)
   // Output: value ≈ -sin(π/3)
 
@@ -75,28 +75,31 @@ const program = Effect.gen(function*() {
   const scalarSurface = (point: Chunk.Chunk<number>) => {
     const x = coordinateAt(point, 0)
     const y = coordinateAt(point, 1)
-    return N.sum(N.sum(N.multiply(x, x), N.multiply(3, N.multiply(x, y))), N.multiply(y, y))
+    return Number.sum(
+      Number.sum(Number.multiply(x, x), Number.multiply(3, Number.multiply(x, y))),
+      Number.multiply(y, y)
+    )
   }
 
   const vectorField = (point: Chunk.Chunk<number>) => {
     const x = coordinateAt(point, 0)
     const y = coordinateAt(point, 1)
-    return Chunk.fromIterable([
-      N.sum(N.multiply(x, x), y),
-      N.sum(N.multiply(x, y), Numeric.sin(x))
-    ])
+    return Chunk.make(
+      Number.sum(Number.multiply(x, x), y),
+      Number.sum(Number.multiply(x, y), Numeric.sin(x))
+    )
   }
 
-  const point = Chunk.fromIterable([1, 2])
-  const direction = Chunk.fromIterable([3, 4])
-  yield* Console.log("gradient at [1,2]:", Chunk.toReadonlyArray(gradient(scalarSurface, point)))
+  const point = Chunk.make(1, 2)
+  const direction = Chunk.make(3, 4)
+  yield* Console.log("gradient at [1,2]:", gradient(scalarSurface, point))
   yield* Console.log(
     "jacobian at [1,2]:",
-    Chunk.toReadonlyArray(Chunk.map(jacobian(vectorField, point), (row) => Chunk.toReadonlyArray(row)))
+    jacobian(vectorField, point)
   )
   yield* Console.log(
     "hessian at [1,2]:",
-    Chunk.toReadonlyArray(Chunk.map(hessian(scalarSurface, point), (row) => Chunk.toReadonlyArray(row)))
+    hessian(scalarSurface, point)
   )
   yield* Console.log(
     "directionalDerivative at [1,2] along [3,4]:",
@@ -111,14 +114,12 @@ const program = Effect.gen(function*() {
     onNone: () => Effect.fail(new UnexpectedZeroDivisor()),
     onSome: Effect.succeed
   })
-  const sineValues = Chunk.fromIterable(
-    Arr.makeBy(11, (i) => Numeric.sin(N.multiply(i, step)))
-  )
+  const sineValues = Chunk.makeBy(11, (i) => Numeric.sin(Number.multiply(i, step)))
   yield* Console.log("∫sin(x) dx [0, π/2] (trapezoid):", trapezoid(sineValues, step))
   // Output: ∫sin(x) dx [0, π/2] (trapezoid): ≈ 0.998 (exact = 1)
 
   // Simpson's integration
-  const quadValues = Chunk.fromIterable([0, 1, 4, 9, 16])
+  const quadValues = Chunk.make(0, 1, 4, 9, 16)
   yield* Console.log("∫x² dx [0,4] (simpson):", simpson(quadValues, 1))
   // Output: ∫x² dx [0,4] (simpson): 21.333... (exact = 64/3)
 
@@ -129,11 +130,11 @@ const program = Effect.gen(function*() {
   // Output: ∫sin(x) dx [0, π] (adaptiveSimpson): ≈ 2
 
   // Schema-validated boundary
-  const trapV = yield* trapezoidValidated({ values: [1, 1, 1, 1, 1], dx: 0.25 })
+  const trapV = yield* trapezoidValidated({ values: Array.make(1, 1, 1, 1, 1), dx: 0.25 })
   yield* Console.log("trapezoidValidated (constant):", trapV)
   // Output: trapezoidValidated (constant): 1
 
-  const simpV = yield* simpsonValidated({ values: [0, 1, 4, 9, 16], dx: 1 })
+  const simpV = yield* simpsonValidated({ values: Array.make(0, 1, 4, 9, 16), dx: 1 })
   yield* Console.log("simpsonValidated (quadratic):", simpV)
   // Output: simpsonValidated (quadratic): 21.333...
 
@@ -162,9 +163,10 @@ const program = Effect.gen(function*() {
   yield* Console.log("simpsonWithPolicies (strict):", simpP)
   // Output: simpsonWithPolicies (strict): 21.333...
 
-  const derivativePolicyEstimate = yield* derivativeLimitWithPolicies(Numeric.sin, Numeric.pi / 3).pipe(
-    Effect.provide(policies)
-  )
+  const derivativePolicyEstimate = yield* derivativeLimitWithPolicies(Numeric.sin, Number.unsafeDivide(Numeric.pi, 3))
+    .pipe(
+      Effect.provide(policies)
+    )
   yield* Console.log("derivativeLimitWithPolicies d/dx(sin)|π/3:", derivativePolicyEstimate)
 })
 

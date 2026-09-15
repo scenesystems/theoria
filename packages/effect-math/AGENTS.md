@@ -24,12 +24,12 @@ bun run build        # ESM + CJS + annotate-pure-calls
 All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patterns table. Key constraints:
 
 - **`Chunk<number>`** is the sole dense carrier — no `Float64Array`, no `ReadonlyArray` in public API
-- **Effect `Number` module** for all arithmetic — `N.sum`, `N.multiply`, `N.subtract`, not `+`, `-`, `*`
+- **Effect `Number` module** for all arithmetic — `Number.sum`, `Number.multiply`, `Number.subtract`, not `+`, `-`, `*`
 - **`Schema.TaggedError`** for all errors — no `throw`, no `new Error()`
 - **`Match.exhaustive`** for all dispatch — no `switch`, no `if/else` chains
 - **`Effect.filterOrFail`** for all validation — no `if` statements
 - **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
-- **`Math.sqrt`** is the only allowed plain JS math function (deterministic IEEE 754 leaf)
+- **No implicit math exceptions.** Deterministic IEEE 754 behavior does not authorize `Math.sqrt` or other JavaScript substitutes. Research Effect's public APIs and ecosystem integrations; obtain explicit authorization for any operation that remains unavailable before introducing a non-Effect implementation.
 
 ## Domain Architecture
 
@@ -50,6 +50,17 @@ Eleven domains, each with the same file structure:
 | Distribution  | provisional | Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT, Categorical, Binomial, Poisson |
 
 Each domain owns: `contract.ts`, `model.ts`, `schema.ts`, `errors.ts`, `operations.ts`, `internal/`, `index.ts`.
+
+## Naming and Vocabulary
+
+- Use Effect's exact public module names: `Array`, `BigDecimal`, `BigInt`, `Boolean`, `Number`, `Record`, and `String`. Do not abbreviate them or prefix them with `Effect`.
+- Resolve overlapping operations with the owning domain namespace: `Numeric.sqrt` and `Complex.sqrt`, not renamed function imports. Direct imports keep their canonical names when there is no collision.
+- Name internal namespaces for their mathematical subject or algorithm: `Arithmetic`, `Trigonometric`, `Integration`, `Ridder`, `Normal`, and `Beta`. Do not add `Kernel`, `Adapter`, `Bridge`, or compatibility suffixes to disambiguate imports.
+- Pure implementations use their operation name, matching the public spelling, without a redundant `Kernel` suffix. Actual algorithm distinctions such as `gammaLanczos` and contracts such as `KernelExecutionError` retain their meaning.
+- Operation forms use the base name, `Validated`, and `WithPolicies`. Precision variants use `Strict` or `Relaxed` only where they name an established policy contract. Distribution suffixes are `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
+- Keep conventional mathematical symbols for scalar variables and coefficients. These are not module aliases. Models and schemas use PascalCase; operations and values use camelCase; mathematical constants use their established notation or descriptive uppercase names.
+- Apply the same vocabulary to implementation, tests, examples, scripts, and documentation. Upstream Python imports retain canonical names such as `numpy` and `scipy.special`, without shorthand aliases. This naming rule does not authorize a non-Effect implementation.
+- Verify behavior through public APIs. Do not add tests of naming, guidance, inventories, or scaffolding.
 
 ## Three-Tier Operation Pattern
 

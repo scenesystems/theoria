@@ -1,20 +1,27 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Number as N, Schema } from "effect"
+import { Array, Chunk, Effect, Match, Number, Schema, Tuple } from "effect"
 
 import { dot, frobeniusNorm, matvec, normL1, normL2, normLinf } from "../../src/LinearAlgebra/operations.js"
+import { abs } from "../../src/Numeric/index.js"
 import { FixtureRegistryLive, LinalgVectorParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 const DOT_NORM_TOLERANCE = 1e-12
 const MATVEC_FROBENIUS_TOLERANCE = 1e-10
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(Number.lessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
 
 const expectChunkWithinTolerance = (
   actual: Chunk.Chunk<number>,
-  expected: ReadonlyArray<number>,
+  expected: Chunk.Chunk<number>,
   tolerance: number
-) => Arr.forEach(Chunk.toReadonlyArray(actual), (v, i) => expectWithinTolerance(v, expected[i] ?? 0, tolerance))
+) => {
+  expect(Number.Equivalence(Chunk.size(actual), Chunk.size(expected))).toBe(true)
+  Chunk.forEach(
+    Chunk.zip(actual, expected),
+    (pair) => expectWithinTolerance(Tuple.getFirst(pair), Tuple.getSecond(pair), tolerance)
+  )
+}
 
 describe("LinearAlgebra SciPy fixture parity", () => {
   it.effect("all vector-parity cases match SciPy reference values", () =>
@@ -24,7 +31,7 @@ describe("LinearAlgebra SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "dot" }, (v) => {
@@ -48,7 +55,7 @@ describe("LinearAlgebra SciPy fixture parity", () => {
                 v.input.cols,
                 Chunk.fromIterable(v.input.x)
               )
-              expectChunkWithinTolerance(result, v.expected, MATVEC_FROBENIUS_TOLERANCE)
+              expectChunkWithinTolerance(result, Chunk.fromIterable(v.expected), MATVEC_FROBENIUS_TOLERANCE)
             }),
             Match.when({ operation: "frobenius" }, (v) => {
               const result = frobeniusNorm(

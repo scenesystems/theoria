@@ -4,9 +4,6 @@ import { Effect } from "effect"
 import { planAdvancedComputation } from "../../src/contracts/shared/ComputationDispatch.js"
 import { makeComputationDispatcherLayer } from "./shared/computation-dispatch-layer.js"
 
-const makeDispatcherLayer = (policy: "typed-array" | "scalar") =>
-  makeComputationDispatcherLayer({ backendPolicy: policy })
-
 describe("advanced backend authority contracts", () => {
   it.effect("keeps backend selection on runtime policy authority when accelerated is requested", () =>
     Effect.gen(function*() {
@@ -18,9 +15,9 @@ describe("advanced backend authority contracts", () => {
         escalationAttempt: 0,
         requiresAutodiff: false,
         requiresUncertaintyEnvelope: false
-      }).pipe(Effect.provide(makeDispatcherLayer("typed-array")))
+      }).pipe(Effect.provide(makeComputationDispatcherLayer({ backendPolicy: "compensated" })))
 
-      expect(plan.backendKind).toStrictEqual("typed-array")
+      expect(plan.backendKind).toStrictEqual("compensated")
     }))
 
   it.effect("locks no-preference selection to scalar backend when runtime policy is scalar", () =>
@@ -32,12 +29,12 @@ describe("advanced backend authority contracts", () => {
         escalationAttempt: 0,
         requiresAutodiff: false,
         requiresUncertaintyEnvelope: false
-      }).pipe(Effect.provide(makeDispatcherLayer("scalar")))
+      }).pipe(Effect.provide(makeComputationDispatcherLayer({ backendPolicy: "scalar" })))
 
       expect(plan.backendKind).toStrictEqual("scalar")
     }))
 
-  it.effect("falls back to scalar when typed-array policy cannot satisfy bigdecimal lane", () =>
+  it.effect("falls back to scalar when compensated policy cannot satisfy bigdecimal lane", () =>
     Effect.gen(function*() {
       const plan = yield* planAdvancedComputation({
         operationCategory: "linear-algebra",
@@ -46,7 +43,7 @@ describe("advanced backend authority contracts", () => {
         escalationAttempt: 0,
         requiresAutodiff: false,
         requiresUncertaintyEnvelope: false
-      }).pipe(Effect.provide(makeDispatcherLayer("typed-array")))
+      }).pipe(Effect.provide(makeComputationDispatcherLayer({ backendPolicy: "compensated" })))
 
       expect(plan.backendKind).toStrictEqual("scalar")
     }))
