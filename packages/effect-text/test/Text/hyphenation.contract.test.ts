@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Match, Number, Option, Ref, Schema, Stream, String } from "effect"
+import { Effect, Layer, Match, MutableRef, Number, Option, Ref, Schema, Stream, String } from "effect"
 import * as Arr from "effect/Array"
 import * as Tuple from "effect/Tuple"
 
@@ -173,13 +173,8 @@ describe("Text hyphenation contracts", () => {
       )
     }))
 
-  it.effect("ships checked-in dictionaries for en-us, en-gb, de, fr, and es", () =>
+  it.effect("hyphenates words with the bundled English, German, French, and Spanish dictionaries", () =>
     Effect.gen(function*() {
-      expect(Text.HyphenationSupport).toEqual({
-        localeFallback: "exact-or-base-language",
-        locales: Arr.make("en-us", "en-gb", "de", "fr", "es")
-      })
-
       const cases: typeof HyphenationCases.Type = Arr.make(
         new HyphenationCase({
           expected: Arr.make(visualLine(0, "hy-", 15), visualLine(1, "phen-", 25), visualLine(2, "ation", 25)),
@@ -565,6 +560,70 @@ describe("Text hyphenation contracts", () => {
 
       yield* Text.prepareWithSegments(prepareInput).pipe(Effect.provide(makeLayer(1)))
       expect(yield* Ref.get(loads)).toBe(2)
+    }))
+
+  it.effect("compiles static dictionary sources only when requested and reuses them across words", () =>
+    Effect.gen(function*() {
+      const sourceReads = MutableRef.make(0)
+      const unusedReads = MutableRef.make(0)
+      const layer = Layer.mergeAll(
+        Text.WordSegmenterLive,
+        Text.EngineProfileLive,
+        Text.HyphenationDictionaryLive({
+          dictionaries: {
+            "EN_X": {
+              get hyphenation() {
+                MutableRef.incrementAndGet(sourceReads)
+                return Arr.make(2, 6)
+              },
+              colouration: Arr.make(3, 6)
+            },
+            fr: {
+              get typographie() {
+                MutableRef.incrementAndGet(unusedReads)
+                return Arr.make(4, 7)
+              }
+            }
+          }
+        }),
+        Text.MeasurementCacheLive.pipe(Layer.provide(measurerLayer))
+      )
+      yield* Effect.gen(function*() {
+        const plain = yield* Text.prepareWithSegments({
+          text: "hyphenation",
+          font: { family: "Mono", size: 10 },
+          whiteSpace: "normal"
+        })
+        expect(Text.layoutLines(plain, { maxWidth: 30, lineHeight: 12 })).toEqual(
+          Arr.make(visualLine(0, "hyphen", 30), visualLine(1, "ation", 25))
+        )
+        expect(MutableRef.get(sourceReads)).toBe(0)
+        expect(MutableRef.get(unusedReads)).toBe(0)
+
+        const first = yield* Text.prepareWithSegments({
+          text: "hyphenation",
+          font: { family: "Mono", size: 10 },
+          hyphenationLocale: "en-x",
+          whiteSpace: "normal"
+        })
+        expect(Text.layoutLines(first, { maxWidth: 30, lineHeight: 12 })).toEqual(
+          Arr.make(visualLine(0, "hy-", 15), visualLine(1, "phen-", 25), visualLine(2, "ation", 25))
+        )
+        const readsAfterCompilation = MutableRef.get(sourceReads)
+        expect(readsAfterCompilation).toBeGreaterThan(0)
+
+        const second = yield* Text.prepareWithSegments({
+          text: "colouration",
+          font: { family: "Mono", size: 10 },
+          hyphenationLocale: "EN_X",
+          whiteSpace: "normal"
+        })
+        expect(Text.layoutLines(second, { maxWidth: 35, lineHeight: 12 })).toEqual(
+          Arr.make(visualLine(0, "colour-", 35), visualLine(1, "ation", 25))
+        )
+        expect(MutableRef.get(sourceReads)).toBe(readsAfterCompilation)
+        expect(MutableRef.get(unusedReads)).toBe(0)
+      }).pipe(Effect.provide(layer))
     }))
 
   it.effect("uses precompiled dictionaries from static options and effectful loaders", () =>

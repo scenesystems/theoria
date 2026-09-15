@@ -6,7 +6,6 @@
 import { Boolean, Cache, Data, Effect, Layer, Match, Number, Option, Schema, String } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
-import * as Tuple from "effect/Tuple"
 
 import {
   EngineProfile,
@@ -20,7 +19,6 @@ import { EffectTextSupportManifest } from "../contracts/supportManifest.js"
 import { segmentText } from "./internal/analysis.js"
 import { fontDescriptor, fontKey, getOrEvict, MeasurementKey } from "./internal/cache.js"
 import {
-  CompiledHyphenationDictionary,
   compileHyphenationDictionary,
   type HyphenationBreakPointsType,
   type HyphenationDictionarySourceType,
@@ -33,11 +31,8 @@ import {
 import type { FontDescriptorType } from "./schema.js"
 
 type HyphenationDictionaryLoader = (locale: string) => Effect.Effect<LoadedHyphenationDictionary>
-type CompiledHyphenationDictionaryLoader = (locale: string) => Effect.Effect<CompiledHyphenationDictionary>
 const HyphenationDictionaries = Schema.Record({ key: Schema.String, value: LoadedHyphenationDictionary })
 type HyphenationDictionaries = typeof HyphenationDictionaries.Type
-const CompiledHyphenationDictionaries = Schema.Record({ key: Schema.String, value: CompiledHyphenationDictionary })
-type CompiledHyphenationDictionaries = typeof CompiledHyphenationDictionaries.Type
 
 /**
  * Options for the layer-owned dictionary and word caches.
@@ -56,7 +51,6 @@ export class HyphenationDictionaryOptions extends Data.Class<{
 
 const emptyHyphenationBreaks: HyphenationBreakPointsType = Arr.empty<number>()
 const emptyLoadedHyphenationDictionary: HyphenationDictionarySourceType = Rec.empty()
-const emptyCompiledHyphenationDictionary = compileHyphenationDictionary(emptyLoadedHyphenationDictionary)
 const isWhitespaceCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/^\s$/u)))
 const isWideCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/[A-Z0-9]/u)))
 
@@ -91,18 +85,10 @@ const makeMeasurementCache = Effect.gen(function*() {
   }
 })
 
-const compiledHyphenationDictionaries = (
-  dictionaries: HyphenationDictionaries
-): CompiledHyphenationDictionaries =>
-  Rec.fromEntries(
-    Arr.map(Rec.toEntries(dictionaries), ([locale, dictionary]) =>
-      Tuple.make(normalizeHyphenationLocale(locale), compileHyphenationDictionary(dictionary)))
-  )
-
-const compiledHyphenationDictionaryForLocale = (
-  dictionaries: CompiledHyphenationDictionaries,
+const hyphenationDictionaryForLocale = (
+  dictionaries: HyphenationDictionaries,
   locale: string
-): Option.Option<CompiledHyphenationDictionary> =>
+): Option.Option<LoadedHyphenationDictionary> =>
   Arr.findFirst(hyphenationLocaleFallbackCandidates(locale), (candidate) => Rec.has(dictionaries, candidate)).pipe(
     Option.flatMap((candidate) => Rec.get(dictionaries, candidate))
   )
@@ -143,31 +129,25 @@ const makeHyphenationDictionary = (providedOptions?: HyphenationDictionaryOption
   Effect.gen(function*() {
     const options = Option.fromNullable(providedOptions)
     const revision = optionRevision(options)
-    const dictionaries = compiledHyphenationDictionaries(
-      optionDictionaries(options).pipe(Option.getOrElse(() => shippedHyphenationDictionarySources))
+    const dictionaries = Rec.mapKeys(
+      optionDictionaries(options).pipe(Option.getOrElse(() => shippedHyphenationDictionarySources)),
+      normalizeHyphenationLocale
     )
     const loaderOption = optionDictionaryLoader(options)
     const supportsStaticLocale = (locale: string): boolean =>
-      Option.isSome(compiledHyphenationDictionaryForLocale(dictionaries, locale))
-    const defaultLoader: CompiledHyphenationDictionaryLoader = (locale) =>
-      Effect.succeed(
-        compiledHyphenationDictionaryForLocale(dictionaries, locale).pipe(
-          Option.orElse(() =>
-            shippedHyphenationDictionarySourceForLocale(locale).pipe(Option.map(compileHyphenationDictionary))
-          ),
-          Option.getOrElse(() => emptyCompiledHyphenationDictionary)
+      Option.isSome(hyphenationDictionaryForLocale(dictionaries, locale))
+    const defaultLoader: HyphenationDictionaryLoader = (locale) =>
+      Effect.sync(() =>
+        hyphenationDictionaryForLocale(dictionaries, locale).pipe(
+          Option.orElse(() => shippedHyphenationDictionarySourceForLocale(locale)),
+          Option.getOrElse(() => emptyLoadedHyphenationDictionary)
         )
       )
-    const loadDictionary: CompiledHyphenationDictionaryLoader = loaderOption.pipe(
-      Option.match({
-        onNone: () => defaultLoader,
-        onSome: (sourceLoader) => (locale) => sourceLoader(locale).pipe(Effect.map(compileHyphenationDictionary))
-      })
-    )
+    const loadDictionary = loaderOption.pipe(Option.getOrElse(() => defaultLoader))
     const localeCache = yield* Cache.make({
       capacity: 32,
       timeToLive: "24 hours",
-      lookup: (key: HyphenationLocaleKey) => loadDictionary(key.locale)
+      lookup: (key: HyphenationLocaleKey) => loadDictionary(key.locale).pipe(Effect.map(compileHyphenationDictionary))
     })
     const hyphenationCache = yield* Cache.make({
       capacity: 2048,
@@ -217,6 +197,8 @@ export const NoHyphenationDictionaryLive = Layer.succeed(HyphenationDictionary, 
  * Layer-owned dictionary hyphenation with per-locale and per-word caches.
  *
  * @remarks
+ * Dictionary sources are compiled on the first word request for each locale;
+ * preparation without hyphenation does not compile unused dictionaries.
  * Rebuilding the layer with a new `revision` invalidates the loaded locale
  * dictionaries and cached word break opportunities without relying on global
  * singletons. The default ships `en-us`, `en-gb`, `de`, `fr`, and `es` and
