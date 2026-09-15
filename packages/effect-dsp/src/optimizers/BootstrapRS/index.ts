@@ -6,10 +6,11 @@
  * @module
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { Array as Arr, Data, Effect, Option } from "effect"
+import { Array as Arr, Data, Effect, Exit, Option, Ref, Tuple } from "effect"
 import type { Schema } from "effect"
 import type * as Layer from "effect/Layer"
 import { AllTrialsFailed } from "../../Errors/optimizer.js"
+import { collectModuleParamRefs } from "../../internal/module-params.js"
 import type { Metric } from "../../Metric/model.js"
 import * as Module from "../../Module/index.js"
 import type { Module as DspModule } from "../../Module/model.js"
@@ -59,7 +60,7 @@ export class BootstrapRSOptions<
   readonly maxRounds?: number
   /** Trace-demo cap forwarded to each bootstrap restart; defaults to `1`. */
   readonly maxBootstrappedDemos?: number
-  /** Labeled prefix cap for bootstrap and labeled-baseline construction; defaults to `1`. */
+  /** Labeled cap for bootstrap and each destination's compatible baseline; defaults to `1`. */
   readonly maxLabeledDemos?: number
   /** Acceptance threshold forwarded to BootstrapFewShot. */
   readonly threshold?: number
@@ -81,17 +82,20 @@ const noCandidateError = () =>
  * Evaluates baseline and seeded bootstrap states and loads the highest score.
  *
  * @remarks
- * Candidate construction starts with the initial state and one labeled
- * few-shot state, followed by sequential BootstrapFewShot runs over seeded
- * rotations of `trainset`. Failed bootstrap runs are dropped. Every remaining
- * state is evaluated sequentially on `valset`, or `trainset` when omitted;
- * evaluation failures are also dropped. The first highest-scoring state wins
- * and is loaded into the supplied module.
+ * Candidate construction starts with the initial state and one destination-aware
+ * labeled state, followed by sequential BootstrapFewShot runs over seeded
+ * rotations of `trainset`. Each destination's labeled state samples only examples
+ * accepted by its own demonstration contract and remains empty when none are
+ * compatible. Construction failures propagate. Every state is evaluated
+ * sequentially on `valset`, or `trainset` when omitted; candidates with zero
+ * successful examples are excluded. The first highest-scoring state wins and is
+ * loaded into the supplied module.
  *
  * `AllTrialsFailed` means no candidate completed evaluation. Other setup and
  * final-load failures retain their typed channels. Candidate evaluation mutates
- * the module while states are compared, so concurrent use of that module is
- * unsafe until this effect completes.
+ * the module while states are compared. Failure or interruption restores every
+ * original parameter Ref, including children, before the effect exits. Success
+ * retains the selected state. Concurrent use of the module remains unsafe.
  *
  * @typeParam I - Module input fields decoded during evaluation.
  * @typeParam O - Module output fields scored by the metric.
@@ -112,77 +116,88 @@ export const bootstrapRS = <
   E = never,
   R = never
 >(options: BootstrapRSOptions<I, O, ME, MR, E, R>) =>
-  Effect.gen(function*() {
-    const seeds = resolveSeeds(
-      new ResolveSeedsOptions({
-        numCandidates: normalizeNonNegative(options.numCandidates),
-        ...Option.match(Option.fromNullable(options.seeds), {
-          onNone: () => ({}),
-          onSome: (provided) => ({ seeds: provided })
+  Effect.acquireUseRelease(
+    Effect.forEach(collectModuleParamRefs(options.module), (entry) =>
+      Ref.get(entry.params).pipe(Effect.map((params) => Tuple.make(entry.params, params)))),
+    () =>
+      Effect.gen(function*() {
+        const seeds = resolveSeeds(
+          new ResolveSeedsOptions({
+            numCandidates: normalizeNonNegative(options.numCandidates),
+            ...Option.match(Option.fromNullable(options.seeds), {
+              onNone: () => ({}),
+              onSome: (provided) => ({ seeds: provided })
+            })
+          })
+        )
+        const valset = Option.getOrElse(Option.fromNullable(options.valset), () =>
+          options.trainset)
+        const maxRounds = Option.getOrElse(Option.fromNullable(options.maxRounds), () => 1)
+        const maxBootstrappedDemos = Option.getOrElse(Option.fromNullable(options.maxBootstrappedDemos), () => 1)
+        const baselineLabeledCount = Option.getOrElse(Option.fromNullable(options.maxLabeledDemos), () => 1)
+        const initialState = yield* Module.save(options.module)
+
+        const allCandidates = yield* buildCandidateStates(
+          new BuildCandidateStatesOptions({
+            module: options.module,
+            initialState,
+            trainset: options.trainset,
+            metric: options.metric,
+            seeds,
+            maxRounds,
+            maxBootstrappedDemos,
+            ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
+              onNone: () => ({}),
+              onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
+            }),
+            ...Option.match(Option.fromNullable(options.threshold), {
+              onNone: () => ({}),
+              onSome: (threshold) => ({ threshold })
+            }),
+            ...Option.match(Option.fromNullable(options.teacher), {
+              onNone: () => ({}),
+              onSome: (teacher) => ({ teacher })
+            }),
+            ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
+              onNone: () => ({}),
+              onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
+            }),
+            ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
+              onNone: () => ({}),
+              onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
+            }),
+            baselineLabeledCount
+          })
+        )
+
+        yield* Effect.if(Option.isNone(Arr.head(allCandidates)), {
+          onFalse: () => Effect.void,
+          onTrue: noCandidateError
         })
+
+        const scoredCandidates = yield* scoreCandidates(
+          new ScoreCandidatesOptions({
+            module: options.module,
+            candidates: allCandidates,
+            valset,
+            metric: options.metric
+          })
+        )
+
+        yield* Effect.if(Option.isNone(Arr.head(scoredCandidates)), {
+          onFalse: () => Effect.void,
+          onTrue: noCandidateError
+        })
+
+        const selectedCandidate = yield* selectBestCandidate(scoredCandidates)
+
+        yield* Module.load(options.module, selectedCandidate.state)
+
+        return options.module
+      }),
+    (snapshot, exit) =>
+      Exit.match(exit, {
+        onFailure: () => Effect.forEach(snapshot, ([ref, params]) => Ref.set(ref, params), { discard: true }),
+        onSuccess: () => Effect.void
       })
-    )
-    const valset = Option.getOrElse(Option.fromNullable(options.valset), () => options.trainset)
-    const maxRounds = Option.getOrElse(Option.fromNullable(options.maxRounds), () => 1)
-    const maxBootstrappedDemos = Option.getOrElse(Option.fromNullable(options.maxBootstrappedDemos), () => 1)
-    const baselineLabeledCount = Option.getOrElse(Option.fromNullable(options.maxLabeledDemos), () => 1)
-    const initialState = yield* Module.save(options.module)
-
-    const allCandidates = yield* buildCandidateStates(
-      new BuildCandidateStatesOptions({
-        module: options.module,
-        initialState,
-        trainset: options.trainset,
-        metric: options.metric,
-        seeds,
-        maxRounds,
-        maxBootstrappedDemos,
-        ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
-          onNone: () => ({}),
-          onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
-        }),
-        ...Option.match(Option.fromNullable(options.threshold), {
-          onNone: () => ({}),
-          onSome: (threshold) => ({ threshold })
-        }),
-        ...Option.match(Option.fromNullable(options.teacher), {
-          onNone: () => ({}),
-          onSome: (teacher) => ({ teacher })
-        }),
-        ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
-          onNone: () => ({}),
-          onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
-        }),
-        ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
-          onNone: () => ({}),
-          onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
-        }),
-        baselineLabeledCount
-      })
-    )
-
-    yield* Effect.if(Option.isNone(Arr.head(allCandidates)), {
-      onFalse: () => Effect.void,
-      onTrue: noCandidateError
-    })
-
-    const scoredCandidates = yield* scoreCandidates(
-      new ScoreCandidatesOptions({
-        module: options.module,
-        candidates: allCandidates,
-        valset,
-        metric: options.metric
-      })
-    )
-
-    yield* Effect.if(Option.isNone(Arr.head(scoredCandidates)), {
-      onFalse: () => Effect.void,
-      onTrue: noCandidateError
-    })
-
-    const selectedCandidate = yield* selectBestCandidate(scoredCandidates)
-
-    yield* Module.load(options.module, selectedCandidate.state)
-
-    return options.module
-  })
+  )

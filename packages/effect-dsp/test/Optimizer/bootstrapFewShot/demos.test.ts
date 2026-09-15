@@ -3,69 +3,63 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Demo, Example } from "@scenesystems/effect-dsp/Example"
-import { Array as Arr, Data, Effect, Equal, Hash, Match, MutableRef, Number, Option, Schema, String } from "effect"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
+import { Array as Arr, Effect, MutableRef, Number, Option, Schema, String } from "effect"
 import {
   labeledTrainset,
   mergeAcceptedDemos,
   roundInstructions
 } from "../../../src/optimizers/BootstrapFewShot/runtime/demos.js"
 
-class ObservedAnswer extends Data.Class<{
-  readonly value: string
-  readonly reads: MutableRef.MutableRef<number>
-}> {
-  [Equal.symbol](other: Equal.Equal): boolean {
-    MutableRef.increment(this.reads)
-    return Match.value(other).pipe(
-      Match.when(
-        Schema.is(Schema.Struct({ value: Schema.String })),
-        (that) => String.Equivalence(this.value, that.value)
-      ),
-      Match.orElse(() => false)
-    )
-  }
-
-  [Hash.symbol](): number {
-    return Hash.string(this.value)
-  }
-}
-
 describe("bootstrap demonstration helpers", () => {
   it.effect("compares outputs only for matching inputs while capacity remains", () =>
     Effect.gen(function*() {
       const reads = MutableRef.make(0)
+      const signature = yield* Signature.make("Nested demos", {
+        facts: Schema.Struct({ questions: Schema.Array(Schema.String) })
+      }, {
+        answer: Schema.String.annotations({
+          equivalence: () => (left, right) => {
+            MutableRef.increment(reads)
+            return String.Equivalence(left, right)
+          }
+        })
+      })
       const makeDemo = (question: string) =>
         new Demo({
-          input: { question },
-          output: { answer: new ObservedAnswer({ value: "Paris", reads }) }
+          input: { facts: { questions: Arr.make(question) } },
+          output: { answer: "Paris" }
         })
       const existing = makeDemo("France")
       const different = makeDemo("Another question")
       const duplicate = makeDemo("France")
 
-      const distinct = mergeAcceptedDemos({
+      const distinct = yield* mergeAcceptedDemos({
         existing: Arr.make(existing),
         accepted: Arr.make(different),
-        maxBootstrappedDemos: 2
+        maxBootstrappedDemos: 2,
+        contract: signature.demoContract
       })
       expect(distinct.added).toBe(1)
       expect(Arr.length(distinct.demos)).toBe(2)
       expect(MutableRef.get(reads)).toBe(0)
 
-      const deduped = mergeAcceptedDemos({
+      const deduped = yield* mergeAcceptedDemos({
         existing: Arr.make(existing),
         accepted: Arr.make(duplicate),
-        maxBootstrappedDemos: 2
+        maxBootstrappedDemos: 2,
+        contract: signature.demoContract
       })
       expect(deduped.added).toBe(0)
       expect(Arr.length(deduped.demos)).toBe(1)
       expect(Number.greaterThan(MutableRef.get(reads), 0)).toBe(true)
       MutableRef.set(reads, 0)
 
-      const merged = mergeAcceptedDemos({
+      const merged = yield* mergeAcceptedDemos({
         existing: Arr.make(existing),
         accepted: Arr.make(duplicate),
-        maxBootstrappedDemos: 1
+        maxBootstrappedDemos: 1,
+        contract: signature.demoContract
       })
       expect(merged.added).toBe(0)
       expect(Arr.length(merged.demos)).toBe(1)
