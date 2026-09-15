@@ -4,7 +4,7 @@ import * as Str from "effect/String"
 
 import type { GuideBlock, GuideInline, GuidePage } from "@theoria/docs-model"
 import { CodeBlock, codeLanguageFor } from "../primitives/CodeBlock.js"
-import { focusEdgeClassName } from "../primitives/designSystem.js"
+import { anchorHeadingClassName, focusClassName, linkTextClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent, type SemanticContentElement } from "../primitives/SemanticContent.js"
@@ -38,7 +38,7 @@ const GuideHeading = ({ block }: { readonly block: HeadingBlock }) => {
       role={Bool.match(isSection, { onTrue: () => "section-title", onFalse: () => "selection-title" })}
     >
       <a
-        className={`${focusEdgeClassName} hover:text-ink-secondary focus-visible:ring-2 focus-visible:ring-focus`}
+        className={`${focusClassName} ${anchorHeadingClassName}`}
         href={`#${block.id}`}
         id={block.id}
       >
@@ -160,7 +160,7 @@ export const GuidePageView = ({ page }: { readonly page: GuidePage }) => (
         <Cluster className="gap-4">
           <SemanticText as="span" className="text-ink-tertiary" role="status" text={`v${page.package.version}`} />
           <ExternalLink
-            className="font-body text-sm font-medium text-ink-secondary underline decoration-accent underline-offset-4 hover:text-ink-strong"
+            className={`font-body text-sm font-medium text-ink-secondary ${linkTextClassName}`}
             href={page.sourceUrl}
           >
             Source

@@ -10,8 +10,10 @@ import { docsKeyboardShortcutsAtom } from "../../atoms/docs.js"
 import {
   appTheme,
   focusEdgeClassName,
+  linkTitleClassName,
   measureClassName,
   neutralToneClasses,
+  respondColorsClassName,
   workbenchTheme
 } from "../primitives/designSystem.js"
 import { Layer, Main, Stack } from "../primitives/Layout.js"
@@ -40,7 +42,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
             (docsPackage) => (
               <Layer
                 render={<article />}
-                className={`group relative flex h-full flex-col border-l-2 py-1 pl-5 ${neutralToneClasses.border}`}
+                className={`group relative flex h-full flex-col border-l-2 py-1 pl-5 ${respondColorsClassName} ${neutralToneClasses.border} ${neutralToneClasses.borderHover}`}
                 data-docs-package={docsPackage.slug}
                 key={docsPackage.slug}
               >
@@ -52,7 +54,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
                     >
                       <SemanticText
                         as="h2"
-                        className="text-ink-strong group-hover:text-ink-secondary"
+                        className={`text-ink-strong ${linkTitleClassName}`}
                         role="card-title"
                         text={docsPackage.name}
                       />

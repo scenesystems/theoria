@@ -7,7 +7,7 @@ import { focusClassName, surfaceClassName, type ToneClasses } from "./designSyst
 
 /** Grows with its content where the browser supports `field-sizing`; `rows` is the floor everywhere. */
 const controlClassName =
-  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink placeholder:text-ink-tertiary ${focusClassName} focus-visible:ring-offset-1 ${
+  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink placeholder:text-ink-tertiary ${focusClassName} ${
     surfaceClassName("instrument")
   }`
 

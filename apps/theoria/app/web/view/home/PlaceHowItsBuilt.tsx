@@ -13,7 +13,13 @@ import { placeBuildShaAtom, placeBuiltAtom, placeStepAtom } from "../../atoms/im
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
 import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
-import { focusClassName, litMarkClassName, markClassName, respondColorsClassName } from "../primitives/designSystem.js"
+import {
+  firmUnderPointerClassName,
+  focusClassName,
+  litMarkClassName,
+  markClassName,
+  respondColorsClassName
+} from "../primitives/designSystem.js"
 import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
@@ -36,13 +42,13 @@ import {
 import { PlaceStep, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
 
 const rowLinkClassName =
-  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
+  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const sourceLinkClassName =
-  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
+  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const commitLinkClassName =
-  `inline-flex min-h-8 items-center gap-1.5 rounded-mark px-2 text-ink-tertiary ${respondColorsClassName} hover:bg-instrument-glass hover:text-ink ${focusClassName}`
+  `inline-flex min-h-8 items-center gap-1.5 rounded-mark px-2 text-ink-tertiary ${respondColorsClassName} ${firmUnderPointerClassName} hover:text-ink ${focusClassName}`
 
 const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly title: string }) => (
   <Stack aria-label={title} render={<section />} className="gap-1.5">

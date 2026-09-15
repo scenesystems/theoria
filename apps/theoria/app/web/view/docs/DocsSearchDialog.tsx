@@ -16,9 +16,12 @@ import {
   dialogBackdropClassName,
   dialogSheetClassName,
   dialogViewportClassName,
+  firmUnderPointerClassName,
+  focusClassName,
   focusEdgeClassName,
   iconButtonClassName,
   pickerTriggerClassName,
+  respondColorsClassName,
   secondaryActionClassName
 } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -91,7 +94,7 @@ const SearchCombobox = ({
           <Combobox.Input
             aria-label="Search"
             autoFocus
-            className={`h-11 w-full rounded-instrument border border-hairline-veil bg-canvas-glass px-4 font-body text-ink ${focusEdgeClassName} placeholder:text-ink-tertiary focus:border-accent focus:ring-2 focus:ring-focus`}
+            className={`h-11 w-full rounded-instrument border border-hairline-veil bg-canvas-glass px-4 font-body text-ink ${focusClassName} placeholder:text-ink-tertiary`}
             placeholder="Package, module, or symbol"
           />
         </Layer>
@@ -135,7 +138,7 @@ const SearchCombobox = ({
               <Combobox.List className="max-h-[30rem] overflow-y-auto p-2 sm:p-3">
                 {Arr.map(entries, (entry, index) => (
                   <Combobox.Item
-                    className={`group rounded-instrument ${focusEdgeClassName} data-[highlighted]:bg-instrument-glass`}
+                    className={`group rounded-instrument ${respondColorsClassName} ${focusEdgeClassName} ${firmUnderPointerClassName} data-[highlighted]:bg-instrument-glass`}
                     index={index}
                     key={entry.id}
                     render={

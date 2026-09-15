@@ -35,7 +35,7 @@ const popupClassName =
   } data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 ${stillUnderReducedMotion}`
 
 const openLinkClassName =
-  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-control border px-3 py-1.5 ${respondColorsClassName} ${focusClassName} focus-visible:ring-offset-1 ${primaryActionClassName}`
+  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-control border px-3 py-1.5 ${respondColorsClassName} ${focusClassName} ${primaryActionClassName}`
 
 /**
  * A press with a modifier or a non-primary button is the browser's: a new tab,

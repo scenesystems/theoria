@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Equal, Layer, Option, Predicate } from "effect"
 import * as Arr from "effect/Array"
 
 import { siteMetadata } from "../../app/contracts/metadata.js"
@@ -25,6 +25,7 @@ import { drawn } from "./demo.js"
 import {
   headerControls,
   mountWrappedBaselineRow,
+  pressableCursors,
   textBaselines,
   underlineDrawn,
   unmountWrappedBaselineRow
@@ -137,6 +138,28 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           page.locator("[data-site-footer]"),
           `© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`
         )
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("whatever can be pressed wears the hand, however it is rendered", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: desktop })
+        yield* goto(page, "/")
+        yield* drawn(page)
+
+        const controls = yield* act(() => page.locator("body").evaluate(pressableCursors))
+        // The page renders its controls every way the rule must reach: a button, a mark set as a div, Base UI's
+        // radios and switches as spans, its tabs as buttons in a role. Each kind is present, or the check is hollow.
+        const rendered = Arr.dedupe(Arr.map(controls, (control) => control.rendered))
+        yield* Effect.forEach(
+          ["button", "div[role=button]", "span[role=radio]", "span[role=switch]", "button[role=tab]"],
+          (kind) =>
+            Effect.sync(() => {
+              expect(rendered, `the page renders a control as ${kind}`).toContain(kind)
+            })
+        )
+        const otherwise = Arr.filter(controls, Predicate.not((control) => Equal.equals(control.cursor, "pointer")))
+        expect(otherwise, "every pressable control wears the hand").toEqual([])
         expect(yield* failures).toEqual([])
       }))
 

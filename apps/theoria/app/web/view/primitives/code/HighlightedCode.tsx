@@ -80,11 +80,12 @@ const lineRowClassName =
   "grid grid-cols-[2rem_minmax(0,1fr)] gap-2 items-start sm:grid-cols-[2.45rem_minmax(0,1fr)] sm:gap-3"
 
 /**
- * A line the page is pointing at: washed across its row, a little wider than
- * the text, with the colour easing in and out.
+ * A line the page is pointing at: the instrument across its row, a little
+ * wider than the text, with the colour easing in and out — the same wash a
+ * mark wears while it is answered, so a line and the mark that lit it match.
  */
 const focusableLineRowClassName =
-  `${lineRowClassName} -mx-2 rounded-mark px-2 ${respondColorsClassName} data-[code-line-focused]:bg-instrument-glass forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] ${stillUnderReducedMotion}`
+  `${lineRowClassName} -mx-2 rounded-mark px-2 ${respondColorsClassName} data-[code-line-focused]:bg-instrument forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] ${stillUnderReducedMotion}`
 
 const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
 

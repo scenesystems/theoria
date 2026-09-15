@@ -14,6 +14,7 @@ import {
 } from "../../../contracts/imagined-place.js"
 import {
   dangerStatusTone,
+  firmUnderPointerClassName,
   focusClassName,
   inlineStatusToneFor,
   neutralStatusTone,
@@ -98,7 +99,7 @@ const Field = ({ children, label, mark = Option.none() }: {
 const foldTriggerLayoutClassName = "-mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-mark px-1.5 py-1"
 
 const foldTriggerClassName =
-  `group/fold ${foldTriggerLayoutClassName} text-left ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
+  `group/fold ${foldTriggerLayoutClassName} text-left ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const foldPanelClassName = `h-(--collapsible-panel-height) overflow-hidden transition-[height] ${
   transitionClassName("enter")

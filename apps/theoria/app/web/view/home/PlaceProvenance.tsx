@@ -27,6 +27,7 @@ import {
 } from "../../atoms/imagined-place-experience.js"
 import {
   elevationClassName,
+  firmUnderPointerClassName,
   focusClassName,
   focusEdgeClassName,
   type InlineStatusTone,
@@ -181,10 +182,10 @@ const viewportClassName = Arr.join([
 ], " ")
 
 const codeLinkClassName =
-  `-mx-1.5 inline-flex min-w-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} ${stillUnderReducedMotion} hover:bg-instrument-glass ${focusClassName}`
+  `-mx-1.5 inline-flex min-w-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} ${stillUnderReducedMotion} ${firmUnderPointerClassName} ${focusClassName}`
 
 const copyButtonClassName =
-  `-mx-1.5 inline-flex shrink-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
+  `-mx-1.5 inline-flex shrink-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const copyLabel = ({ copied, failed }: { readonly copied: boolean; readonly failed: boolean }): string =>
   Bool.match(copied, {

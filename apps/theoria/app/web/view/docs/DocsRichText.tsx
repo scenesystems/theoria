@@ -4,6 +4,7 @@ import * as Str from "effect/String"
 import type { ReactNode } from "react"
 
 import type { ApiDocPart, GuideInline } from "@theoria/docs-model"
+import { linkTextClassName } from "../primitives/designSystem.js"
 import { ExternalLink, InternalLink } from "../primitives/Link.js"
 
 type RichPart = ApiDocPart | GuideInline
@@ -12,7 +13,7 @@ type RichPart = ApiDocPart | GuideInline
 const staysOnSite: Predicate.Predicate<string> = Predicate.some([Str.startsWith("/"), Str.startsWith("#")])
 
 const richLink = (href: string, text: string, key: string): ReactNode => {
-  const className = "font-medium text-ink underline decoration-accent underline-offset-4 hover:text-ink-strong"
+  const className = `font-medium text-ink ${linkTextClassName}`
 
   return Bool.match(staysOnSite(href), {
     onTrue: () => <InternalLink className={className} href={href} key={key}>{text}</InternalLink>,

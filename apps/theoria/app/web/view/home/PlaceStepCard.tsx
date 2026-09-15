@@ -30,7 +30,7 @@ const packageNames = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
       (card) => <PackageName id={card.id} key={card.id} />
     ))
 
-const nameButtonClassName = `${markClassName} ${litMarkClassName} -mx-1.5 -my-1 cursor-pointer px-1.5 py-1 text-left`
+const nameButtonClassName = `${markClassName} ${litMarkClassName} -mx-1.5 -my-1 px-1.5 py-1 text-left`
 
 /**
  * The dot on the spine, in the header's row and centred on it, so the dot

@@ -47,6 +47,27 @@
     display: none;
   }
 
+  /* Whatever can be pressed wears the hand. The browser gives a button the
+   * arrow and a span the I-beam, and Base UI renders a radio, a switch or a
+   * tab as either; this is the one place the pointer is told what it is over,
+   * so no recipe says `cursor-pointer` and none says `cursor-default` on a
+   * control. A control that cannot be pressed now is left to its recipe,
+   * which says `not-allowed`. */
+  :where(
+    button,
+    summary,
+    [role="button"],
+    [role="tab"],
+    [role="radio"],
+    [role="switch"],
+    [role="checkbox"],
+    [role="menuitem"],
+    [role="option"],
+    [role="link"]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+
   /* The canvas is the stage's colour: one flat fill, propagated to the
    * viewport, so it costs nothing to repaint under the page. */
   body {

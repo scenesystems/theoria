@@ -4,6 +4,7 @@ import * as Arr from "effect/Array"
 import type { ApiDocPart, ApiParameter, ApiSignature, ApiTypeParameter } from "@theoria/docs-model"
 import { InlineHighlightedCode } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
+import { linkTextClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
@@ -155,7 +156,7 @@ export const ApiSignatureView = ({
       </Cluster>
     </Stack>
     <ExternalLink
-      className="w-fit font-body text-sm font-medium text-ink-tertiary underline decoration-accent underline-offset-4 hover:text-ink-strong"
+      className={`w-fit font-body text-sm font-medium text-ink-tertiary ${linkTextClassName}`}
       href={signature.sourceUrl}
     >
       Source

@@ -1,8 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
+import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
-import { segmentedControlRailClassName } from "../../app/web/view/primitives/designSystem.js"
+import { Tone } from "../../app/contracts/theme.js"
+import {
+  segmentedControlButtonClassName,
+  segmentedControlRailClassName,
+  toneClassesFor
+} from "../../app/web/view/primitives/designSystem.js"
+
+const words = (className: string): ReadonlyArray<string> => Arr.filter(Str.split(className, " "), Str.isNonEmpty)
 
 /**
  * A segmented control promises one row of equal cells: the eye reads the
@@ -24,5 +32,21 @@ describe("Segmented control contract", () => {
       const rail = segmentedControlRailClassName(4)
       expect(rail).toContain("grid-cols-2")
       expect(rail).toContain("sm:grid-cols-4")
+    }))
+
+  /**
+   * The rail is the instrument, so a cell at rest under the pointer must firm
+   * to the rung beyond it, solid — a glass of that rung over the rail is not
+   * seen, and the paper would lift the cell above its chosen neighbour.
+   */
+  it.effect("a cell at rest firms to the hairline under the pointer and the strong hairline pressed, never to the paper", () =>
+    Effect.gen(function*() {
+      Arr.forEach(Tone.literals, (tone) => {
+        const cell = words(segmentedControlButtonClassName({ active: false, tone: toneClassesFor(tone) }))
+        expect(cell, tone).toContain("hover:bg-hairline")
+        expect(cell, tone).toContain("active:bg-hairline-strong")
+        expect(Arr.some(cell, Str.includes("bg-paper")), tone).toBe(false)
+        expect(Arr.some(cell, Str.includes("-glass")), tone).toBe(false)
+      })
     }))
 })

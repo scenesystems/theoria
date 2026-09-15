@@ -3,6 +3,7 @@ import * as Arr from "effect/Array"
 
 import type { ApiMember } from "@theoria/docs-model"
 import { CodeBlock } from "../primitives/CodeBlock.js"
+import { linkTextClassName } from "../primitives/designSystem.js"
 import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
@@ -28,7 +29,7 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
             <ApiDocumentationView docs={member.docs} />
             <CodeBlock label="Type" source={member.declaration} />
             <ExternalLink
-              className="w-fit font-body text-sm font-medium text-ink-tertiary underline decoration-accent underline-offset-4 hover:text-ink-strong"
+              className={`w-fit font-body text-sm font-medium text-ink-tertiary ${linkTextClassName}`}
               href={member.sourceUrl}
             >
               Source

@@ -3,6 +3,8 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
+import * as Equal from "effect/Equal"
+import * as Predicate from "effect/Predicate"
 import * as Str from "effect/String"
 
 import {
@@ -21,8 +23,10 @@ const webRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() 
 /** The one module allowed to write `outline-none`: it pairs the word with its forced-colours restoration. */
 const focusEdgeAuthority = "view/primitives/designSystem.ts"
 
-const isSource = (file: string): boolean =>
-  (Str.endsWith(".ts")(file) || Str.endsWith(".tsx")(file)) && !Str.includes(".generated.")(file)
+const isSource: Predicate.Predicate<string> = Predicate.and(
+  Predicate.or(Str.endsWith(".ts"), Str.endsWith(".tsx")),
+  Predicate.not(Str.includes(".generated."))
+)
 
 describe("Focus edge contract", () => {
   it.effect("no class string drops the focus outline without the forced-colours restoration", () =>
@@ -36,15 +40,15 @@ describe("Focus edge contract", () => {
       )
       expect(files).toContain(focusEdgeAuthority)
 
-      const offenders = yield* Effect.forEach(
-        Arr.filter(files, (file) => file !== focusEdgeAuthority),
+      const offenders = yield* Effect.filter(
+        Arr.filter(files, Predicate.not(Equal.equals(focusEdgeAuthority))),
         (file) =>
           fileSystem.readFileString(path.join(root, file)).pipe(
-            Effect.map((source) => Str.includes("outline-none")(source) ? Arr.of(file) : Arr.empty<string>()),
+            Effect.map(Str.includes("outline-none")),
             Effect.orDie
           ),
         { concurrency: "unbounded" }
-      ).pipe(Effect.map(Arr.flatten))
+      )
 
       expect(offenders).toEqual([])
     }).pipe(Effect.provide(BunContext.layer)))

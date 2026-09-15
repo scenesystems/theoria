@@ -2,7 +2,13 @@ import { Equal, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { ApiCategory, ApiExport, DocsApiExportSummary, DocsApiModuleIndex } from "@theoria/docs-model"
-import { focusEdgeClassName } from "../primitives/designSystem.js"
+import {
+  firmUnderPointerClassName,
+  focusClassName,
+  linkTextClassName,
+  linkTitleClassName,
+  respondColorsClassName
+} from "../primitives/designSystem.js"
 import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { AnchorLink, ExternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -16,14 +22,14 @@ const exportFor = (page: DocsApiModuleIndex, id: string): Option.Option<DocsApiE
 const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: DocsApiExportSummary }) => (
   <li>
     <AnchorLink
-      className={`group block rounded-instrument px-3 py-4 ${focusEdgeClassName} transition-colors hover:bg-paper-glass focus-visible:bg-paper-glass focus-visible:ring-2 focus-visible:ring-focus sm:px-4`}
+      className={`group block rounded-instrument px-3 py-4 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName} sm:px-4`}
       href={`#${apiExport.anchor}`}
     >
       <Stack className="gap-1.5">
         <Cluster className="gap-2.5">
           <SemanticText
             as="h3"
-            className="break-words text-ink-strong group-hover:text-ink-secondary"
+            className={`break-words text-ink-strong ${linkTitleClassName}`}
             role="selection-title"
             text={apiExport.name}
           />
@@ -78,7 +84,7 @@ const ApiModuleHeader = ({ page }: { readonly page: DocsApiModuleIndex }) => (
           text={`${String(Arr.length(page.exports))} exports`}
         />
         <ExternalLink
-          className="font-body text-sm font-medium text-ink-secondary underline decoration-accent underline-offset-4 hover:text-ink-strong"
+          className={`font-body text-sm font-medium text-ink-secondary ${linkTextClassName}`}
           href={page.module.sourceUrl}
         >
           Source
@@ -99,7 +105,7 @@ const SelectedApiExport = ({
     <Stack className="gap-2">
       <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
       <AnchorLink
-        className={`w-fit font-body text-sm font-medium text-ink-tertiary ${focusEdgeClassName} hover:text-ink-strong focus-visible:ring-2 focus-visible:ring-focus`}
+        className={`w-fit font-body text-sm font-medium text-ink-tertiary ${focusClassName} hover:text-ink-strong`}
         href="#module"
       >
         ← {page.module.name}

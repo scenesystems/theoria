@@ -147,6 +147,31 @@ export const presence = (element: Element) => ({
   )
 })
 
+/**
+ * Every control under `root` that can be pressed right now, by what it is
+ * rendered as (`span[role=radio]`, `button`, `div[role=button]`…) and the
+ * cursor it wears; disabled controls are not pressable and are left out.
+ * `text` names the control for the message when one is wrong.
+ */
+export const pressableCursors = (root: Element): ReadonlyArray<{
+  readonly rendered: string
+  readonly cursor: string
+  readonly text: string
+}> =>
+  [...root.querySelectorAll(
+    "button, summary, [role='button'], [role='tab'], [role='radio'], [role='switch'], [role='checkbox'], [role='menuitem'], [role='option'], [role='link']"
+  )]
+    .filter((element) => !element.matches(":disabled, [aria-disabled='true'], [data-disabled]"))
+    .map((element) => ({
+      rendered: `${element.tagName.toLowerCase()}${
+        [...element.attributes].filter((attribute) => attribute.name === "role").map((attribute) =>
+          `[role=${attribute.value}]`
+        ).join("")
+      }`,
+      cursor: getComputedStyle(element).cursor,
+      text: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 40)
+    }))
+
 /** How Greek each segment of the wordmark under `root` is painted right now: 0 Latin, 1 Greek. */
 export const greekFaceOpacities = (root: Element): ReadonlyArray<number> =>
   [...root.querySelectorAll("[data-wordmark-face=\"gr\"]")].map((segment) => Number(getComputedStyle(segment).opacity))

@@ -63,6 +63,18 @@ const lightnessDescends = (values: ReadonlyArray<number>): boolean =>
 const toneTexts: ReadonlyArray<ToneRole> = ["ink", "ink-strong"]
 /** The roles that carry a tone's voice: its marks and its text. Pale grounds sit too near white to read a saturation. */
 const toneVoiced: ReadonlyArray<ToneRole> = ["accent-soft", "accent", "ink"]
+/**
+ * The neutral rungs a control at rest climbs: its ground, then the fill under
+ * the pointer and pressed on paper, which are in turn the ground and the two
+ * steps on an instrument rail.
+ */
+const pointerRungs: ReadonlyArray<NeutralRole> = ["paper", "instrument", "hairline", "hairline-strong"]
+/**
+ * The least contrast between a fill and the same fill one state on for the
+ * change to be seen at all: a glass of the next rung over its own ground
+ * stays under it, a solid rung clears it.
+ */
+const stateStepMinimum = 1.1
 /** A filled action's fill at rest, under the pointer and pressed. */
 const emphasisStates: ReadonlyArray<NeutralRole> = ["emphasis", "emphasis-hover", "emphasis-pressed"]
 /** The slots a control wears under the pointer, each beside the slot it deepens. */
@@ -431,6 +443,18 @@ describe("palette contract", () => {
         Arr.forEach(bandStrokes, (slot) => {
           const ratio = contrast(toneColor(tone, discSlotRole(slot), mode), fill)
           expect(ratio, `${tone} ${slot} on bandFill (${mode})`).toBeGreaterThanOrEqual(graphicMinimum)
+        })
+      })
+    }))
+
+  it.effect("a control at rest climbs the neutral ladder under the pointer: each rung is deeper than the last, and the step shows", () =>
+    Effect.sync(() => {
+      Arr.forEach(ColorMode.literals, (mode) => {
+        const deeper = deeperThan(mode)
+        const rungs = Arr.map(pointerRungs, (role) => neutralColor(role, mode))
+        Arr.forEach(Arr.zip(rungs, Arr.drop(rungs, 1)), ([ground, step]) => {
+          expect(deeper(luminance(step), luminance(ground)), mode).toBe(true)
+          expect(contrast(step, ground), mode).toBeGreaterThanOrEqual(stateStepMinimum)
         })
       })
     }))

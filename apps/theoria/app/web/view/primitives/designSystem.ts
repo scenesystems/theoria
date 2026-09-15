@@ -170,7 +170,14 @@ export const forcedColorsFocusClassName =
   "forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-2 forced-colors:focus-visible:outline-offset-2 forced-colors:focus-visible:outline-[Highlight]"
 export const focusEdgeClassName = `focus-visible:outline-none ${forcedColorsFocusClassName}`
 
-/** The ring itself: two pixels of the focus role. Worn with `focusEdgeClassName`, which gives up the outline for it. */
+/**
+ * The ring itself: two pixels of the focus role, hugging the control's own
+ * edge. Worn with `focusEdgeClassName`, which gives up the outline for it. A
+ * ring set off from its control is a gap painted in a colour, and the browser's
+ * colour for that gap is white; so a control that wants the gap — words in
+ * the header, a disc on the stage — names the ground it stands on for it, and
+ * a control with an edge of its own wears the ring against that edge.
+ */
 export const focusRingClassName = "focus-visible:ring-2 focus-visible:ring-focus"
 
 /** A control's focus in one word: the edge given up and the ring worn. */
@@ -196,6 +203,38 @@ export const forcedColorsAnsweringOutlineClassName =
   "forced-colors:data-[popup-open]:outline-solid forced-colors:data-[popup-open]:outline-[Highlight] forced-colors:data-[place-focused]:outline-solid forced-colors:data-[place-focused]:outline-[Highlight]"
 
 // ---------------------------------------------------------------------------
+// The pointer — how a thing at rest answers it. One direction everywhere:
+// under the pointer a control steps toward the ink, and a press steps it once
+// more, each a step along the neutral ladder and never toward the paper, so a
+// hovered thing is never lighter than its neighbours and never mistaken for
+// one that is chosen. On paper or the canvas the steps are a glass of the
+// instrument and the instrument; on an instrument rail, where the instrument
+// is the ground and a glass of the next rung would not show against it, they
+// are the hairline and the strong hairline, solid. Text
+// answers with the underline every link in the prose already wears — the
+// accent's rule under the words — and never a lighter ink, so words under
+// the pointer read firmer, not fainter.
+// ---------------------------------------------------------------------------
+
+/** A control at rest on paper or the canvas, under the pointer and pressed. */
+export const firmUnderPointerClassName = "hover:bg-instrument-glass active:bg-instrument"
+
+/** A control at rest on an instrument rail, under the pointer and pressed. */
+export const firmOnRailUnderPointerClassName = "hover:bg-hairline active:bg-hairline-strong"
+
+/** The rule under a link's words: the accent, set off the baseline. */
+const linkRuleClassName = "decoration-accent underline-offset-4"
+
+/** Words that are always a link: the rule under them at rest, the words firming under the pointer. */
+export const linkTextClassName = `underline ${linkRuleClassName} hover:text-ink-strong`
+
+/** A title that is a link: it takes the rule when its card (`group`) is under the pointer. */
+export const linkTitleClassName = `group-hover:underline ${linkRuleClassName}`
+
+/** A heading that links to itself: the rule appears under the pointer. */
+export const anchorHeadingClassName = `hover:underline ${linkRuleClassName}`
+
+// ---------------------------------------------------------------------------
 // Marks — a thing on the page that can be pointed at and answered. Wherever a
 // mark stands — in a line of text, in the code's gutter, on the paper, as a
 // value under a line of code — it is lit the same way: a glass of the
@@ -208,7 +247,7 @@ export const forcedColorsAnsweringOutlineClassName =
 
 /** A mark's box: pointable and focusable. The wash is added by whichever box wears it. */
 export const markClassName =
-  `group/mark cursor-default rounded-mark ${respondColorsClassName} ${focusClassName} ${stillUnderReducedMotion}`
+  `group/mark rounded-mark ${respondColorsClassName} ${focusClassName} ${stillUnderReducedMotion}`
 
 /** The wash on a mark's own box. */
 export const litMarkClassName =
@@ -248,7 +287,7 @@ export const dangerStatusTone: InlineStatusTone = { dot: "bg-danger-accent", tex
 // ---------------------------------------------------------------------------
 
 const pillButtonBaseClassName =
-  `inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 ${respondColorsClassName} ${focusClassName} focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
+  `inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 ${respondColorsClassName} ${focusClassName} disabled:cursor-not-allowed disabled:opacity-55`
 
 export const pillButtonClassName = ({
   active,
@@ -280,7 +319,7 @@ export const segmentedControlRailClassName = (count: number): string =>
   )
 
 const segmentedControlButtonBaseClassName =
-  `inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 ${respondColorsClassName} ${focusClassName} focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
+  `inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 ${respondColorsClassName} ${focusClassName} disabled:cursor-not-allowed disabled:opacity-55`
 
 export const segmentedControlButtonClassName = ({
   active,
@@ -291,11 +330,11 @@ export const segmentedControlButtonClassName = ({
 }): string =>
   Bool.match(active, {
     onTrue: () => `${segmentedControlButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted} ${tone.bgTintedHover}`,
-    onFalse: () => `${segmentedControlButtonBaseClassName} hover:bg-paper-glass active:bg-paper`
+    onFalse: () => `${segmentedControlButtonBaseClassName} ${firmOnRailUnderPointerClassName}`
   })
 
 const toggleTrackBaseClassName =
-  `inline-flex h-7 w-12 shrink-0 items-center rounded-full border ${respondColorsClassName} ${focusClassName} focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55 forced-colors:border-[CanvasText]`
+  `inline-flex h-7 w-12 shrink-0 items-center rounded-full border ${respondColorsClassName} ${focusClassName} disabled:cursor-not-allowed disabled:opacity-55 forced-colors:border-[CanvasText]`
 
 export const toggleTrackClassName = ({
   checked,
@@ -306,7 +345,7 @@ export const toggleTrackClassName = ({
 }): string =>
   Bool.match(checked, {
     onTrue: () =>
-      `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.borderHover} ${tone.bgHover} forced-colors:bg-[Highlight]`,
+      `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.borderHover} ${tone.bgHover} forced-colors:bg-[Highlight] forced-colors:hover:bg-[Highlight]`,
     onFalse: () =>
       `${toggleTrackBaseClassName} border-hairline-veil bg-canvas-veil hover:border-hairline-strong hover:bg-instrument`
   })
@@ -380,13 +419,13 @@ export const menuPopupClassName = `origin-[var(--transform-origin)] overflow-y-a
 } data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`
 
 export const menuItemClassName =
-  `flex min-w-0 items-center gap-3 rounded-instrument px-3 py-2.5 text-ink-secondary ${focusEdgeClassName} hover:bg-instrument-glass focus:bg-instrument-glass active:bg-instrument`
+  `flex min-w-0 items-center gap-3 rounded-instrument px-3 py-2.5 text-ink-secondary ${focusEdgeClassName} ${firmUnderPointerClassName} focus:bg-instrument-glass`
 
 /** A code example's frame: a sheet that clips its lines. */
 export const codeFrameClassName = `overflow-hidden ${surfaceClassName("sheet")}`
 
 export const codeActionClassName =
-  `inline-flex min-h-10 items-center gap-1.5 rounded-control bg-transparent px-3 text-ink-tertiary ${respondColorsClassName} hover:bg-instrument-glass hover:text-ink active:bg-instrument ${focusClassName}`
+  `inline-flex min-h-10 items-center gap-1.5 rounded-control bg-transparent px-3 text-ink-tertiary ${respondColorsClassName} ${firmUnderPointerClassName} hover:text-ink ${focusClassName}`
 
 // ---------------------------------------------------------------------------
 // The workbench — the documentation's grid: a navigation rail, the reading
