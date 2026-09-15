@@ -1,9 +1,10 @@
 import * as LinearAlgebra from "@scenesystems/effect-math/LinearAlgebra"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Boolean as Bool, Match, Number as Num, Schema, Tuple } from "effect"
+import { Boolean as Bool, Match, Number as Num, Option, Schema, Tuple } from "effect"
+import * as Arr from "effect/Array"
 import * as Chunk from "effect/Chunk"
 
-import type { CardTone } from "./theme.js"
+import type { Tone } from "./theme.js"
 
 /**
  * The palette: every colour the site paints with, named for its job and
@@ -13,11 +14,23 @@ import type { CardTone } from "./theme.js"
  * `test/contracts/palette.contract.test.ts`: every ink on every surface it
  * may sit on, every accent that marks a boundary, and every syntax paint.
  *
- * Roles, not ramps. A role names what a colour does — the canvas under the
- * page, the ink of body text, the hairline between things — and each role is
- * one lightness and chroma per mode at its family's hue. The seven tones share
- * one ladder of roles at seven hues, so a chip in `math` and a chip in `seal`
- * are the same lightness apart from their surfaces, and read the same.
+ * One hue, and roles along it. The reference is a light blue and four teals
+ * beneath it — muted teal, pine blue, pine teal, dark teal — and every colour
+ * the site paints keeps to their hue. It is held as two families that meet
+ * at the light blue: the brand is the teals at their own chroma, and the grey
+ * is the same hue at a whisper of it, run up to a white and down to an ink
+ * black. A role names what a colour does — the canvas under the page, the
+ * ink of body text, the hairline between things — and is one lightness per
+ * mode; its family's ramp lends it chroma and hue at that lightness, so no
+ * role carries a colour of its own and a ghost white canvas, a light blue
+ * hairline and an ink black heading are the one grey at three lightnesses.
+ *
+ * Every tone is a saturation of the brand: the three tones share one ladder
+ * of roles, so a disc in `primary` and a disc in `secondary` are the same
+ * lightness apart from their surfaces, and are told apart by how much of the
+ * colour they carry, not by a hue of their own. The focus ring and the code's
+ * paint are shades of the same two families. Danger alone is a third, because
+ * an error is not a voice.
  */
 
 export const ColorMode = Schema.Literal("light", "dark")
@@ -33,29 +46,152 @@ const Hue = Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThan(3
 /** A colour in OKLCH: perceptual lightness in `[0, 1]`, chroma, and hue in degrees. */
 export class Oklch extends Schema.Class<Oklch>("Oklch")({ l: Unit, c: Chroma, h: Hue }) {}
 
-/** A lightness and chroma, before a family lends its hue. */
-export class Tint extends Schema.Class<Tint>("Tint")({ l: Unit, c: Chroma }) {}
-
-/** One role's tint in each mode: the single definition both stylesheets derive from. */
-export class Shade extends Schema.Class<Shade>("Shade")({ light: Tint, dark: Tint }) {}
-
 const Channel = Schema.Number.pipe(Schema.int(), Schema.between(0, 255))
 
 /** A colour as the browser paints it: 8-bit sRGB. */
 export class Srgb extends Schema.Class<Srgb>("Srgb")({ r: Channel, g: Channel, b: Channel }) {}
 
-const tint = (l: number, c: number): Tint => new Tint({ l, c })
+// ---------------------------------------------------------------------------
+// Ramps
+// ---------------------------------------------------------------------------
 
-const shade = (light: Tint, dark: Tint): Shade => new Shade({ light, dark })
+/**
+ * A ramp: the colours a family passes through, lightest first. The family's
+ * colour at a lightness lies between the two stops about it — chroma and hue
+ * each drawn straight from the one to the next, hue the short way round — and
+ * beyond the ramp's ends it keeps the end's chroma and hue.
+ */
+const Ramp = Schema.NonEmptyArray(Oklch)
 
-const tintIn = (shade: Shade, mode: ColorMode): Tint =>
+type Ramp = typeof Ramp.Type
+
+const stop = (l: number, c: number, h: number): Oklch => new Oklch({ l, c, h })
+
+const lerp = (from: number, to: number, t: number): number => Num.sum(from, Num.multiply(t, Num.subtract(to, from)))
+
+/** The degrees from one hue to another the short way round, in `[-180, 180)`. */
+const hueArc = (from: number, to: number): number =>
+  Num.subtract(Num.remainder(Num.sum(Num.subtract(to, from), 540), 360), 180)
+
+/** A hue brought back onto the circle, in `[0, 360)`. */
+const turn = (hue: number): number => Num.remainder(Num.sum(hue, 360), 360)
+
+const rampColor = (ramp: Ramp, l: number): Oklch => {
+  const held = Num.clamp(l, { minimum: Arr.lastNonEmpty(ramp).l, maximum: Arr.headNonEmpty(ramp).l })
+  const about = Arr.findFirst(
+    Arr.zip(ramp, Arr.drop(ramp, 1)),
+    ([upper, lower]) => Num.between(held, { minimum: lower.l, maximum: upper.l })
+  )
+  return Option.match(about, {
+    onNone: () => stop(l, Arr.headNonEmpty(ramp).c, Arr.headNonEmpty(ramp).h),
+    onSome: ([upper, lower]) => {
+      const t = Numeric.unsafeDivide(Num.subtract(upper.l, held), Num.subtract(upper.l, lower.l))
+      return stop(l, lerp(upper.c, lower.c, t), turn(Num.sum(upper.h, Num.multiply(t, hueArc(upper.h, lower.h)))))
+    }
+  })
+}
+
+/** The reference's colour, in OKLCH: `#BCD1D4`, `#80AAA9`, `#45847E`, `#095D53`, `#0A3639`. */
+const lightBlue = stop(0.8459, 0.023, 207.1)
+const mutedTeal = stop(0.7073, 0.0453, 194.3)
+const pineBlue = stop(0.5695, 0.0659, 187.5)
+const pineTeal = stop(0.4306, 0.0743, 182)
+const darkTeal = stop(0.3056, 0.0461, 201.8)
+
+/**
+ * The grey's ends, and the stops between: the light blue's hue carried at a
+ * whisper of chroma up to a white and down to an ink black, so a canvas, a
+ * hairline and a heading are the one teal-cast grey and never a lavender or
+ * a navy beside the colour. The ink black leans a little bluer than the dark
+ * teal above it, as the reference's does.
+ */
+const white = stop(1, 0, 210)
+const ghostWhite = stop(0.9784, 0.006, 210)
+const midGrey = stop(0.55, 0.02, 205)
+const duskGrey = stop(darkTeal.l, 0.03, 205)
+const inkBlack = stop(0.1729, 0.028, 235)
+
+/**
+ * The three families a colour belongs to: the grey the neutrals are drawn
+ * from, the brand every tone is a saturation of, and danger.
+ */
+export const Family = Schema.Literal("grey", "brand", "danger")
+
+export type Family = typeof Family.Type
+
+/** The grey: one ramp for both modes, so the dark canvas is a step above the ink black and its ink the ghost white. */
+const greyRamp: Ramp = Arr.make(white, ghostWhite, lightBlue, midGrey, duskGrey, inkBlack)
+
+/**
+ * The brand on light paper is the reference's middle, from the light blue it
+ * shares with the grey down to the dark teal. On dark paper the reference is
+ * turned over: the same dark teal at the bottom, the colour deepest where a
+ * mark must be light enough to read on the ink black, and thinning to a
+ * white — the pale end bluer and the deep end greener, as the reference runs.
+ */
+const brandRamp = (mode: ColorMode): Ramp =>
+  Match.value(mode).pipe(
+    Match.when("light", () => Arr.make(lightBlue, mutedTeal, pineBlue, pineTeal, darkTeal)),
+    Match.when("dark", () =>
+      Arr.make(
+        stop(1, 0, 207.1),
+        stop(0.94, 0.022, 200),
+        stop(0.83, 0.06, 190),
+        stop(0.74, 0.078, 187.5),
+        stop(0.55, 0.066, 187.5),
+        stop(0.42, 0.05, 195),
+        darkTeal
+      )),
+    Match.exhaustive
+  )
+
+/** Danger: a red, deep where it is a mark and where it is text on light paper, paler as text on dark. */
+const dangerRamp = (mode: ColorMode): Ramp =>
+  Match.value(mode).pipe(
+    Match.when("light", () => Arr.make(stop(0.637, 0.2, 25), stop(0.505, 0.19, 25))),
+    Match.when("dark", () => Arr.make(stop(0.808, 0.103, 25), stop(0.657, 0.19, 25))),
+    Match.exhaustive
+  )
+
+const familyRamp = (family: Family, mode: ColorMode): Ramp =>
+  Match.value(family).pipe(
+    Match.when("grey", () => greyRamp),
+    Match.when("brand", () => brandRamp(mode)),
+    Match.when("danger", () => dangerRamp(mode)),
+    Match.exhaustive
+  )
+
+/** The family's colour at a lightness, in a mode: what its ramp gives there. */
+export const familyColor = (family: Family, mode: ColorMode, l: number): Oklch => rampColor(familyRamp(family, mode), l)
+
+/** One role's lightness in each mode: the single definition both stylesheets derive from. */
+export class Shade extends Schema.Class<Shade>("Shade")({ light: Unit, dark: Unit }) {}
+
+const shade = (light: number, dark: number): Shade => new Shade({ light, dark })
+
+const lightnessIn = (shade: Shade, mode: ColorMode): number =>
   Match.value(mode).pipe(
     Match.when("light", () => shade.light),
     Match.when("dark", () => shade.dark),
     Match.exhaustive
   )
 
-const at = (hue: number, tint: Tint): Oklch => new Oklch({ l: tint.l, c: tint.c, h: hue })
+const saturate = (color: Oklch, saturation: number): Oklch =>
+  new Oklch({ l: color.l, c: Num.multiply(color.c, saturation), h: color.h })
+
+/** A paint: a family, how much of its colour is carried in `[0, 1]`, and a lightness per mode. */
+class Paint extends Schema.Class<Paint>("Paint")({ family: Family, saturation: Unit, shade: Shade }) {}
+
+const paintColor = (p: Paint, mode: ColorMode): Oklch =>
+  saturate(familyColor(p.family, mode, lightnessIn(p.shade, mode)), p.saturation)
+
+/** A neutral's paint: the grey at a lightness per mode. */
+const grey = (light: number, dark: number): Paint =>
+  new Paint({ family: "grey", saturation: 1, shade: shade(light, dark) })
+
+/** The brand at a saturation, at a lightness per mode. */
+const brand = (saturation: number) => (light: number, dark: number): Paint =>
+  new Paint({ family: "brand", saturation, shade: shade(light, dark) })
 
 // ---------------------------------------------------------------------------
 // Neutrals
@@ -70,9 +206,10 @@ const at = (hue: number, tint: Tint): Oklch => new Oklch({ l: tint.l, c: tint.c,
  * - `hairline`, `hairline-strong`: the rules between things, and the firmer edge of a control.
  * - `accent`: a neutral mark — a dot, an underline, a focused border — so it must hold 3:1 on every surface.
  * - `ink-tertiary` … `ink-strong`: text, from the quietest label that is still read (AA on every surface) to a heading.
- * - `emphasis`, `emphasis-hover`, `on-emphasis`: a filled control, the fill under the pointer, and its text.
+ * - `emphasis`, `emphasis-hover`, `emphasis-pressed`, `on-emphasis`: a filled control, the fill under the
+ *   pointer, the fill while pressed — each a step further from the ink — and its text.
  * - `focus`: the one ring every focused control wears. Focus is an affordance,
- *   not a brand accent, so it is the same in every tone and holds 3:1 on every
+ *   so it is the same in every tone — the one colour at full saturation — and holds 3:1 on every
  *   ground a control may stand on — each neutral surface and each tone's surface, wash and edge.
  */
 export const NeutralRole = Schema.Literal(
@@ -88,40 +225,45 @@ export const NeutralRole = Schema.Literal(
   "ink-strong",
   "emphasis",
   "emphasis-hover",
+  "emphasis-pressed",
   "on-emphasis",
   "focus"
 )
 
 export type NeutralRole = typeof NeutralRole.Type
 
-/** The cool grey every neutral is tinted towards, so paper and ink belong to one light. */
-export const neutralHue = 260
+/**
+ * The ladder, in lightness alone. On light paper it runs from the white of a
+ * sheet and the ghost white of the canvas, through the light blue of the
+ * rules, to an ink a step above the ink black and a heading that is the ink
+ * black itself; on dark paper it is turned over — the paper the ink black,
+ * the canvas and the controls a step above it, the text the whites.
+ */
+const paperPaint = grey(white.l, inkBlack.l)
+const inkPaint = grey(0.25, 0.957)
+const inkHoverPaint = grey(0.343, 0.863)
 
-const paperShade = shade(tint(1, 0), tint(0.19, 0.041))
-const inkShade = shade(tint(0.257, 0.045), tint(0.957, 0.009))
-const inkHoverShade = shade(tint(0.343, 0.045), tint(0.863, 0.025))
-
-const neutralShade = (role: NeutralRole): Shade =>
+const neutralPaint = (role: NeutralRole): Paint =>
   Match.value(role).pipe(
-    Match.when("canvas", () => shade(tint(0.976, 0.006), tint(0.22, 0.046))),
-    Match.when("paper", () => paperShade),
-    Match.when("instrument", () => shade(tint(0.957, 0.009), tint(0.247, 0.049))),
-    Match.when("hairline", () => shade(tint(0.916, 0.016), tint(0.284, 0.053))),
-    Match.when("hairline-strong", () => shade(tint(0.863, 0.025), tint(0.329, 0.052))),
-    Match.when("accent", () => shade(tint(0.63, 0.036), tint(0.56, 0.045))),
-    Match.when("ink-tertiary", () => shade(tint(0.525, 0.04), tint(0.661, 0.038))),
-    Match.when("ink-secondary", () => shade(tint(0.442, 0.043), tint(0.775, 0.034))),
-    Match.when("ink", () => inkShade),
-    Match.when("ink-strong", () => shade(tint(0.19, 0.041), tint(1, 0))),
-    Match.when("emphasis", () => inkShade),
-    Match.when("emphasis-hover", () => inkHoverShade),
-    Match.when("on-emphasis", () => paperShade),
-    Match.when("focus", () => shade(tint(0.47, 0.14), tint(0.82, 0.09))),
+    Match.when("canvas", () => grey(ghostWhite.l, 0.2)),
+    Match.when("paper", () => paperPaint),
+    Match.when("instrument", () => grey(0.957, 0.228)),
+    Match.when("hairline", () => grey(0.916, 0.265)),
+    Match.when("hairline-strong", () => grey(0.863, 0.31)),
+    Match.when("accent", () => grey(0.63, 0.56)),
+    Match.when("ink-tertiary", () => grey(0.525, 0.661)),
+    Match.when("ink-secondary", () => grey(0.442, 0.775)),
+    Match.when("ink", () => inkPaint),
+    Match.when("ink-strong", () => grey(inkBlack.l, white.l)),
+    Match.when("emphasis", () => inkPaint),
+    Match.when("emphasis-hover", () => inkHoverPaint),
+    Match.when("emphasis-pressed", () => grey(0.4, 0.8)),
+    Match.when("on-emphasis", () => paperPaint),
+    Match.when("focus", () => brand(1)(0.47, 0.82)),
     Match.exhaustive
   )
 
-export const neutralColor = (role: NeutralRole, mode: ColorMode): Oklch =>
-  at(neutralHue, tintIn(neutralShade(role), mode))
+export const neutralColor = (role: NeutralRole, mode: ColorMode): Oklch => paintColor(neutralPaint(role), mode)
 
 // ---------------------------------------------------------------------------
 // Translucency
@@ -159,46 +301,60 @@ export const translucentLevels: ReadonlyArray<Translucency> = ["veil", "glass", 
 // ---------------------------------------------------------------------------
 
 /**
- * The roles a tone plays, one ladder shared by all seven hues:
+ * The roles a tone plays, one ladder shared by the three hues:
  *
- * - `surface`: a tinted fill — a chip, a card's wash.
- * - `wash`: the fill a changed value is lit with before it settles.
+ * - `surface`: a tinted fill — a chosen pill, a chosen segment, a chip's ground — a visible step from the paper.
+ * - `wash`: the fill a changed value is lit with before it settles, and a chosen fill under the pointer.
  * - `edge`: a tinted hairline.
  * - `accent-soft`: a quiet mark beside text — a dot, a muted fill.
- * - `accent`: the tone's mark and its quiet text, so it holds AA on every surface it sits on.
- * - `ink`, `ink-strong`: the tone's text, and its heading.
+ * - `accent`: the tone's mark — a filled track, a rule, a plotted line — so it marks a boundary (3:1) on
+ *   every surface it sits on. It is never text.
+ * - `ink`, `ink-strong`: the tone's text and its heading, each unmistakably the tone's and AA wherever it stands;
+ *   the ink is also a filled mark deepened under the pointer.
  */
 export const ToneRole = Schema.Literal("surface", "wash", "edge", "accent-soft", "accent", "ink", "ink-strong")
 
 export type ToneRole = typeof ToneRole.Type
 
+/**
+ * The ladder, in lightness alone: the grounds nearest the paper, the marks
+ * where the brand's ramp is deepest in colour — the pine blue and the pine
+ * teal on light paper — and the inks a step beyond them.
+ */
 const toneShade = (role: ToneRole): Shade =>
   Match.value(role).pipe(
-    Match.when("surface", () => shade(tint(0.957, 0.015), tint(0.345, 0.05))),
-    Match.when("wash", () => shade(tint(0.905, 0.03), tint(0.42, 0.057))),
-    Match.when("edge", () => shade(tint(0.83, 0.05), tint(0.49, 0.066))),
-    Match.when("accent-soft", () => shade(tint(0.72, 0.065), tint(0.53, 0.07))),
-    Match.when("accent", () => shade(tint(0.52, 0.075), tint(0.74, 0.07))),
-    Match.when("ink", () => shade(tint(0.47, 0.06), tint(0.83, 0.055))),
-    Match.when("ink-strong", () => shade(tint(0.345, 0.045), tint(0.958, 0.018))),
+    Match.when("surface", () => shade(0.905, 0.345)),
+    Match.when("wash", () => shade(0.865, 0.42)),
+    Match.when("edge", () => shade(0.79, 0.49)),
+    Match.when("accent-soft", () => shade(0.7, 0.55)),
+    Match.when("accent", () => shade(0.555, 0.74)),
+    Match.when("ink", () => shade(0.45, 0.83)),
+    Match.when("ink-strong", () => shade(0.34, 0.94)),
     Match.exhaustive
   )
 
-/** Each tone's hue: the blue of text, the tan of search, the green of math, the mauve of dsp, the teal of digest, the amber of sign, the violet of seal. */
-export const toneHue = (tone: CardTone): number =>
+/** A voice: the family a tone speaks in and how much of its colour it carries, in `[0, 1]` of the ramp's chroma. */
+class Voice extends Schema.Class<Voice>("Voice")({ family: Family, saturation: Unit }) {}
+
+/**
+ * Each tone's voice. The ladder's lightness is the same in every tone, so
+ * every contrast the contract holds is held once for all three; a voice is
+ * told from another by its saturation. The reader speaks in the brand at
+ * full saturation; the neighbor in the brand muted to half; the program in
+ * the neutrals' own grey, a voice with no colour of its own.
+ */
+export const toneVoice = (tone: Tone): Voice =>
   Match.value(tone).pipe(
-    Match.when("text", () => 260),
-    Match.when("search", () => 80),
-    Match.when("math", () => 162),
-    Match.when("dsp", () => 345),
-    Match.when("digest", () => 196),
-    Match.when("sign", () => 70),
-    Match.when("seal", () => 293),
+    Match.when("primary", () => new Voice({ family: "brand", saturation: 1 })),
+    Match.when("secondary", () => new Voice({ family: "brand", saturation: 0.5 })),
+    Match.when("tertiary", () => new Voice({ family: "grey", saturation: 1 })),
     Match.exhaustive
   )
 
-export const toneColor = (tone: CardTone, role: ToneRole, mode: ColorMode): Oklch =>
-  at(toneHue(tone), tintIn(toneShade(role), mode))
+export const toneColor = (tone: Tone, role: ToneRole, mode: ColorMode): Oklch => {
+  const voice = toneVoice(tone)
+  return saturate(familyColor(voice.family, mode, lightnessIn(toneShade(role), mode)), voice.saturation)
+}
 
 // ---------------------------------------------------------------------------
 // Slots
@@ -213,20 +369,28 @@ export const toneColor = (tone: CardTone, role: ToneRole, mode: ColorMode): Oklc
  * by the same recipe.
  *
  * - `border`, `bg`, `dot`, `stroke`: the tone's marks — a filled track, a status dot, a plotted line.
+ * - `borderHover`, `bgHover`: the filled mark's edge and fill under the pointer, a step deeper into the tone.
  * - `borderSubtle`, `bgTinted`, `wash`: the tone's quiet grounds — a chosen pill's edge and fill, a changed value's wash.
+ * - `bgTintedHover`: the chosen fill under the pointer, a step deeper than at rest.
  * - `text`, `textStrong`: the tone's words and its heading; each holds AA on every surface it may stand on.
+ *
+ * A slot may carry its state: `bgHover` is worn as `hover:bg-…`, so a control names the slot for each state it
+ * has and never composes a variant of its own.
  *
  * Focus is not a slot: every control wears the neutral `focus` ring, whatever its tone.
  */
 export const ToneSlot = Schema.Literal(
   "border",
+  "borderHover",
   "borderSubtle",
   "dot",
   "text",
   "textStrong",
   "stroke",
   "bg",
+  "bgHover",
   "bgTinted",
+  "bgTintedHover",
   "wash"
 )
 
@@ -239,13 +403,16 @@ export const toneSlotRole = (slot: ToneSlot): ToneRole =>
   Match.value(slot).pipe(
     Match.withReturnType<ToneRole>(),
     Match.when("border", () => "accent"),
+    Match.when("borderHover", () => "ink"),
     Match.when("borderSubtle", () => "wash"),
     Match.when("dot", () => "accent-soft"),
     Match.when("text", () => "ink"),
     Match.when("textStrong", () => "ink-strong"),
     Match.when("stroke", () => "accent"),
     Match.when("bg", () => "accent"),
+    Match.when("bgHover", () => "ink"),
     Match.when("bgTinted", () => "surface"),
+    Match.when("bgTintedHover", () => "wash"),
     Match.when("wash", () => "wash"),
     Match.exhaustive
   )
@@ -254,24 +421,39 @@ export const neutralSlotRole = (slot: ToneSlot): NeutralRole =>
   Match.value(slot).pipe(
     Match.withReturnType<NeutralRole>(),
     Match.when("border", () => "accent"),
+    Match.when("borderHover", () => "ink-secondary"),
     Match.when("borderSubtle", () => "hairline"),
     Match.when("dot", () => "accent"),
     Match.when("text", () => "ink-secondary"),
     Match.when("textStrong", () => "ink"),
     Match.when("stroke", () => "ink-secondary"),
     Match.when("bg", () => "accent"),
+    Match.when("bgHover", () => "ink-secondary"),
     Match.when("bgTinted", () => "instrument"),
+    Match.when("bgTintedHover", () => "hairline"),
     Match.when("wash", () => "hairline"),
     Match.exhaustive
   )
 
-/** The translucency a slot is painted at: a chosen pill's edge veils the paper, its fill is a mist of the tone; the rest are solid. */
+/** The translucency a slot is painted at: a chosen pill's edge veils the paper; the rest, its fill among them, are solid, so a chosen thing is the same colour on any ground. */
 export const toneSlotTranslucency = (slot: ToneSlot): Translucency =>
   Match.value(slot).pipe(
     Match.withReturnType<Translucency>(),
     Match.when("borderSubtle", () => "veil"),
-    Match.when("bgTinted", () => "mist"),
-    Match.whenOr("border", "dot", "text", "textStrong", "stroke", "bg", "wash", () => "solid"),
+    Match.whenOr(
+      "border",
+      "borderHover",
+      "dot",
+      "text",
+      "textStrong",
+      "stroke",
+      "bg",
+      "bgHover",
+      "bgTinted",
+      "bgTintedHover",
+      "wash",
+      () => "solid"
+    ),
     Match.exhaustive
   )
 
@@ -331,16 +513,14 @@ export const DangerRole = Schema.Literal("accent", "ink")
 
 export type DangerRole = typeof DangerRole.Type
 
-const dangerHue = 25
-
-const dangerShade = (role: DangerRole): Shade =>
+const dangerPaint = (role: DangerRole): Paint =>
   Match.value(role).pipe(
-    Match.when("accent", () => shade(tint(0.637, 0.2), tint(0.657, 0.19))),
-    Match.when("ink", () => shade(tint(0.505, 0.19), tint(0.808, 0.103))),
+    Match.when("accent", () => new Paint({ family: "danger", saturation: 1, shade: shade(0.637, 0.657) })),
+    Match.when("ink", () => new Paint({ family: "danger", saturation: 1, shade: shade(0.505, 0.808) })),
     Match.exhaustive
   )
 
-export const dangerColor = (role: DangerRole, mode: ColorMode): Oklch => at(dangerHue, tintIn(dangerShade(role), mode))
+export const dangerColor = (role: DangerRole, mode: ColorMode): Oklch => paintColor(dangerPaint(role), mode)
 
 // ---------------------------------------------------------------------------
 // Code
@@ -351,27 +531,27 @@ export const CodePaint = Schema.Literal("comment", "keyword", "string", "number"
 
 export type CodePaint = typeof CodePaint.Type
 
-class Paint extends Schema.Class<Paint>("Paint")({ hue: Hue, shade: Shade }) {}
-
-const paint = (hue: number, light: Tint, dark: Tint): Paint => new Paint({ hue, shade: shade(light, dark) })
-
-/** Saturated on light paper, pastel on dark; every kind reads at AA on paper, canvas and a focused line. */
+/**
+ * The brand and the grey: the language's own words — keywords deepest,
+ * then the types and the functions called — in the brand at full saturation,
+ * the values written into it — strings and numbers — in the brand muted to
+ * half, and a comment and an operator in the neutral ink beside them.
+ * Deeper on light paper, paler on dark; every kind reads at AA on paper,
+ * canvas and a focused line.
+ */
 const codePaint = (kind: CodePaint): Paint =>
   Match.value(kind).pipe(
-    Match.when("comment", () => paint(259, tint(0.525, 0.045), tint(0.652, 0.047))),
-    Match.when("keyword", () => paint(265, tint(0.472, 0.108), tint(0.782, 0.105))),
-    Match.when("string", () => paint(161, tint(0.5, 0.098), tint(0.831, 0.072))),
-    Match.when("number", () => paint(79, tint(0.5, 0.1), tint(0.849, 0.087))),
-    Match.when("type", () => paint(303, tint(0.52, 0.114), tint(0.83, 0.061))),
-    Match.when("function", () => paint(245, tint(0.472, 0.097), tint(0.81, 0.086))),
-    Match.when("operator", () => paint(256, tint(0.442, 0.043), tint(0.854, 0.041))),
+    Match.when("comment", () => neutralPaint("ink-tertiary")),
+    Match.when("keyword", () => brand(1)(0.42, 0.8)),
+    Match.when("string", () => brand(0.5)(0.48, 0.84)),
+    Match.when("number", () => brand(0.5)(0.48, 0.84)),
+    Match.when("type", () => brand(1)(0.5, 0.86)),
+    Match.when("function", () => brand(1)(0.5, 0.86)),
+    Match.when("operator", () => grey(0.442, 0.854)),
     Match.exhaustive
   )
 
-export const codeColor = (kind: CodePaint, mode: ColorMode): Oklch => {
-  const p = codePaint(kind)
-  return at(p.hue, tintIn(p.shade, mode))
-}
+export const codeColor = (kind: CodePaint, mode: ColorMode): Oklch => paintColor(codePaint(kind), mode)
 
 // ---------------------------------------------------------------------------
 // Shadows
@@ -395,7 +575,7 @@ export const shadowGeometry = (role: ShadowRole): string =>
 export const shadowColor = (mode: ColorMode): Oklch =>
   Match.value(mode).pipe(
     Match.when("light", () => neutralColor("ink-strong", "light")),
-    Match.when("dark", () => new Oklch({ l: 0, c: 0, h: neutralHue })),
+    Match.when("dark", () => stop(0, 0, inkBlack.h)),
     Match.exhaustive
   )
 

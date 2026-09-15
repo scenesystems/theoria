@@ -24,7 +24,7 @@ import {
   translucencyAlpha,
   translucentLevels
 } from "../../contracts/palette.js"
-import { CardTone } from "../../contracts/theme.js"
+import { Tone } from "../../contracts/theme.js"
 import {
   discFillClassName,
   discSlotClassName,
@@ -64,13 +64,13 @@ const colorWithAlphaCss = (color: Oklch, alpha: number): string => {
 
 export const neutralTokenName = (role: NeutralRole): string => `--th-${role}`
 
-export const toneTokenName = (tone: CardTone, role: ToneRole): string => `--th-tone-${tone}-${role}`
+export const toneTokenName = (tone: Tone, role: ToneRole): string => `--th-tone-${tone}-${role}`
 
 /** A translucent role's token: the role's name and its level, `--th-paper-veil`. */
 export const translucentNeutralTokenName = (role: NeutralRole, translucency: Translucency): string =>
   `${neutralTokenName(role)}-${translucency}`
 
-export const translucentToneTokenName = (tone: CardTone, role: ToneRole, translucency: Translucency): string =>
+export const translucentToneTokenName = (tone: Tone, role: ToneRole, translucency: Translucency): string =>
   `${toneTokenName(tone, role)}-${translucency}`
 
 const translucentCss = (color: Oklch, translucency: Translucency): string =>
@@ -82,9 +82,9 @@ export const codeTokenName = (kind: CodePaint): string => `--th-code-${kind}`
 
 export const shadowTokenName = (role: ShadowRole): string => `--th-shadow-${role}`
 
-export const discTokenName = (tone: CardTone): string => `--th-place-disc-${tone}`
+export const discTokenName = (tone: Tone): string => `--th-place-disc-${tone}`
 
-const stopTokenName = (tone: CardTone, stop: DiscStop): string =>
+const stopTokenName = (tone: Tone, stop: DiscStop): string =>
   Match.value(stop).pipe(
     Match.tag("Neutral", ({ role }) => neutralTokenName(role)),
     Match.tag("Tone", ({ role }) => toneTokenName(tone, role)),
@@ -92,7 +92,7 @@ const stopTokenName = (tone: CardTone, stop: DiscStop): string =>
   )
 
 /** The disc is lit from the upper left; the stops run highlight, body, rim. */
-const discGradientCss = (tone: CardTone, mode: ColorMode): string => {
+const discGradientCss = (tone: Tone, mode: ColorMode): string => {
   const [highlight, body, rim] = discStops(mode)
   return `radial-gradient(circle at 32% 28%, var(${stopTokenName(tone, highlight)}) 0%, var(${
     stopTokenName(tone, body)
@@ -103,7 +103,7 @@ const discGradientCss = (tone: CardTone, mode: ColorMode): string => {
 export const paletteTokens = (mode: ColorMode): ReadonlyArray<Token> =>
   Arr.flatten([
     Arr.map(NeutralRole.literals, (role) => token(neutralTokenName(role), colorCss(neutralColor(role, mode)))),
-    Arr.flatMap(CardTone.literals, (tone) =>
+    Arr.flatMap(Tone.literals, (tone) =>
       Arr.map(ToneRole.literals, (role) =>
         token(toneTokenName(tone, role), colorCss(toneColor(tone, role, mode))))),
     Arr.flatMap(NeutralRole.literals, (role) =>
@@ -112,7 +112,7 @@ export const paletteTokens = (mode: ColorMode): ReadonlyArray<Token> =>
           translucentNeutralTokenName(role, translucency),
           translucentCss(neutralColor(role, mode), translucency)
         ))),
-    Arr.flatMap(CardTone.literals, (tone) =>
+    Arr.flatMap(Tone.literals, (tone) =>
       Arr.flatMap(ToneRole.literals, (role) =>
         Arr.map(translucentLevels, (translucency) =>
           token(
@@ -128,7 +128,7 @@ export const paletteTokens = (mode: ColorMode): ReadonlyArray<Token> =>
         shadowTokenName(role),
         `${shadowGeometry(role)} ${colorWithAlphaCss(shadowColor(mode), shadowAlpha(role, mode))}`
       )),
-    Arr.map(CardTone.literals, (tone) =>
+    Arr.map(Tone.literals, (tone) =>
       token(discTokenName(tone), discGradientCss(tone, mode)))
   ])
 
@@ -139,7 +139,7 @@ export const paletteThemeTokens: ReadonlyArray<Token> = Arr.flatten([
     (role) => token(`--color-${neutralColorName(role, "solid")}`, `var(${neutralTokenName(role)})`)
   ),
   Arr.flatMap(
-    CardTone.literals,
+    Tone.literals,
     (tone) =>
       Arr.map(
         ToneRole.literals,
@@ -153,7 +153,7 @@ export const paletteThemeTokens: ReadonlyArray<Token> = Arr.flatten([
         `var(${translucentNeutralTokenName(role, translucency)})`
       ))),
   Arr.flatMap(
-    CardTone.literals,
+    Tone.literals,
     (tone) =>
       Arr.flatMap(ToneRole.literals, (role) =>
         Arr.map(translucentLevels, (translucency) =>
@@ -187,13 +187,13 @@ const modeBlock = (mode: ColorMode): ReadonlyArray<string> =>
 export const paletteClassCandidates: ReadonlyArray<string> = Arr.dedupe(
   Arr.flatten([
     toneClassCandidates(neutralToneClasses),
-    Arr.flatMap(CardTone.literals, (tone) => toneClassCandidates(toneClassesFor(tone))),
-    Arr.flatMap(CardTone.literals, (tone) => Arr.map(DiscSlot.literals, (slot) => discSlotClassName(tone, slot)))
+    Arr.flatMap(Tone.literals, (tone) => toneClassCandidates(toneClassesFor(tone))),
+    Arr.flatMap(Tone.literals, (tone) => Arr.map(DiscSlot.literals, (slot) => discSlotClassName(tone, slot)))
   ])
 )
 
 /** One feature on the imagined place's stage, coloured by who added it: the disc's gradient as a utility per tone. */
-const discFillUtility = (tone: CardTone): ReadonlyArray<string> => [
+const discFillUtility = (tone: Tone): ReadonlyArray<string> => [
   `  .${discFillClassName(tone)} {`,
   `    background-image: var(${discTokenName(tone)});`,
   "  }"
@@ -212,7 +212,7 @@ export const renderPaletteTokensCss = (): string =>
       [""],
       modeBlock("dark"),
       ["}", "", "@layer utilities {"],
-      Arr.flatten(Arr.intersperse(Arr.map(CardTone.literals, discFillUtility), [""])),
+      Arr.flatten(Arr.intersperse(Arr.map(Tone.literals, discFillUtility), [""])),
       ["}", "", "/* Design-system candidates: the class each slot wears in each tone (generated — do not edit) */"],
       [`@source inline("${Arr.join(paletteClassCandidates, " ")}");`, ""]
     ]),

@@ -32,10 +32,10 @@ import {
   type InlineStatusTone,
   litMarkClassName,
   markClassName,
+  neutralToneClasses,
   respondColorsClassName,
   stillUnderReducedMotion,
   surfaceClassName,
-  toneClassesFor,
   transitionClassName
 } from "../primitives/designSystem.js"
 import { InlineStatus } from "../primitives/InlineStatus.js"
@@ -186,8 +186,6 @@ const codeLinkClassName =
 const copyButtonClassName =
   `-mx-1.5 inline-flex shrink-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
 
-const digestTone = toneClassesFor("digest")
-
 const copyLabel = ({ copied, failed }: { readonly copied: boolean; readonly failed: boolean }): string =>
   Bool.match(copied, {
     onTrue: () => "Copied",
@@ -201,7 +199,7 @@ const copyLabel = ({ copied, failed }: { readonly copied: boolean; readonly fail
  */
 const WholeValue = ({ value }: { readonly value: string }) => (
   <Layer data-place-provenance-value={value}>
-    <SemanticText as="p" className={`break-all ${digestTone.textStrong}`} role="code-meta" text={value} />
+    <SemanticText as="p" className={`break-all ${neutralToneClasses.textStrong}`} role="code-meta" text={value} />
   </Layer>
 )
 

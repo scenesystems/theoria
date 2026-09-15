@@ -14,12 +14,28 @@ import {
   toneColor,
   type ToneSlot,
   toneSlotRole,
-  toSrgb
+  toSrgb,
+  type Translucency,
+  translucencyAlpha
 } from "../../app/contracts/palette.js"
-import { CardTone } from "../../app/contracts/theme.js"
+import { Tone } from "../../app/contracts/theme.js"
 import { neutralToneClasses, type ToneClasses, toneClassesFor } from "../../app/web/view/primitives/designSystem.js"
-import { act, BrowserLive, click, eventually, goto, gotoParsed, openPage, setColorScheme, visible } from "./browser.js"
-import { colorSchemeShown, paintedByClasses } from "./platform/in-page.js"
+import {
+  act,
+  attribute,
+  BrowserLive,
+  click,
+  eventually,
+  goto,
+  gotoParsed,
+  hover,
+  openPage,
+  pointerAway,
+  setColorScheme,
+  visible
+} from "./browser.js"
+import { drawn } from "./demo.js"
+import { backgroundColour, colorSchemeShown, paintedByClasses } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 /**
@@ -44,6 +60,14 @@ const glyphWorn = (page: Page, name: string | RegExp) =>
 const computedCss = (color: Oklch): string => {
   const painted = toSrgb(color)
   return `rgb(${String(painted.r)}, ${String(painted.g)}, ${String(painted.b)})`
+}
+
+/** A translucent palette colour as Chromium reports it: `rgba(r, g, b, a)`. */
+const computedTranslucentCss = (color: Oklch, translucency: Translucency): string => {
+  const painted = toSrgb(color)
+  return `rgba(${String(painted.r)}, ${String(painted.g)}, ${String(painted.b)}, ${
+    String(translucencyAlpha(translucency))
+  })`
 }
 
 /** The solid slots a probe wears at once, one per painted property: the accent fill and edge, the ink. */
@@ -76,7 +100,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.forEach(ColorMode.literals, (mode) =>
           Effect.gen(function*() {
             yield* setColorScheme(page, mode)
-            yield* Effect.forEach(CardTone.literals, (tone) =>
+            yield* Effect.forEach(Tone.literals, (tone) =>
               Effect.map(painted(page, toneClassesFor(tone)), (paint) =>
                 expect(paint, `${tone} in ${mode}`).toEqual(
                   expectedPaint((slot) =>
@@ -86,6 +110,60 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             expect(yield* painted(page, neutralToneClasses), `neutral in ${mode}`).toEqual(
               expectedPaint((slot) => neutralColor(neutralSlotRole(slot), mode))
             )
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a chosen fill, a checked toggle and an answered mark each step deeper on the ladder, in both modes", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ colorScheme: "light" })
+        yield* goto(page, "/")
+        yield* drawn(page)
+        const demo = page.getByRole("region", { name: "Imagined place demo" })
+        const chosen = page.getByRole("radio", { checked: true, name: "Unfinished light" })
+        const merge = page.getByRole("switch", { checked: true, name: /^Merge Finishing shelf/u })
+        const line = demo.locator("[data-place-line='2']")
+
+        yield* Effect.forEach(ColorMode.literals, (mode) =>
+          Effect.gen(function*() {
+            yield* setColorScheme(page, mode)
+
+            // The scenario chosen is filled with the author's surface — a tint the eye finds on the rail —
+            // and the pointer resting on it deepens the fill one step, to the wash.
+            yield* pointerAway(page)
+            yield* eventually(
+              () => chosen.evaluate(backgroundColour),
+              computedCss(toneColor("primary", "surface", mode))
+            )
+            yield* hover(chosen)
+            yield* eventually(() => chosen.evaluate(backgroundColour), computedCss(toneColor("primary", "wash", mode)))
+
+            // The neighbor's merged proposal wears the neighbor's own mark on its switch, deepened to the
+            // neighbor's ink under the pointer: the same voice, one step firmer.
+            yield* pointerAway(page)
+            yield* eventually(
+              () => merge.evaluate(backgroundColour),
+              computedCss(toneColor("secondary", "accent", mode))
+            )
+            yield* hover(merge)
+            yield* eventually(() => merge.evaluate(backgroundColour), computedCss(toneColor("secondary", "ink", mode)))
+
+            // A mark is lit with a glass of the instrument while pointed at, and with the instrument itself
+            // while answered, so the answer reads firmer than the pointer passing over.
+            yield* act(() => line.scrollIntoViewIfNeeded())
+            yield* pointerAway(page)
+            yield* hover(line)
+            yield* eventually(
+              () => line.evaluate(backgroundColour),
+              computedTranslucentCss(neutralColor("instrument", mode), "glass")
+            )
+            yield* click(line)
+            yield* attribute(line, "data-popup-open", "")
+            yield* pointerAway(page)
+            yield* eventually(() => line.evaluate(backgroundColour), computedCss(neutralColor("instrument", mode)))
+            yield* click(line)
+            yield* pointerAway(page)
+            yield* eventually(() => line.evaluate(backgroundColour), "rgba(0, 0, 0, 0)")
           }))
         expect(yield* failures).toEqual([])
       }))

@@ -7,20 +7,13 @@ import * as Str from "effect/String"
 import type { ReactNode } from "react"
 
 import { codeSiteOnLine } from "../../../contracts/demo/imagined-place-provenance.js"
-import { toneForCard } from "../../../contracts/theme.js"
 import { placeCodeSiteAttribute, placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
 import { placeSearchAtom, placeShownGeometryAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildShaAtom, placeBuiltAtom, placeStepAtom } from "../../atoms/imagined-place.js"
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
 import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
-import {
-  focusClassName,
-  litMarkClassName,
-  markClassName,
-  respondColorsClassName,
-  toneClassesFor
-} from "../primitives/designSystem.js"
+import { focusClassName, litMarkClassName, markClassName, respondColorsClassName } from "../primitives/designSystem.js"
 import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
@@ -58,23 +51,20 @@ const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly
   </Stack>
 )
 
-/** One symbol the sample calls, linked to its page in the reference, in its package's tone. */
-const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => {
-  const tone = toneClassesFor(toneForCard(reference.package))
-  return (
-    <Layer render={<li />}>
-      <DocsLink
-        className={rowLinkClassName}
-        data-place-reference={reference.text}
-        href={reference.href}
-        title={reference.text}
-      >
-        <SemanticText as="code" className="text-ink" role="code-meta" text={reference.text} />
-        <SemanticText as="span" className={`shrink-0 ${tone.text}`} role="code-meta" text={reference.package} />
-      </DocsLink>
-    </Layer>
-  )
-}
+/** One symbol the sample calls, linked to its page in the reference; the package is named beside it in the quiet ink. */
+const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => (
+  <Layer render={<li />}>
+    <DocsLink
+      className={rowLinkClassName}
+      data-place-reference={reference.text}
+      href={reference.href}
+      title={reference.text}
+    >
+      <SemanticText as="code" className="text-ink" role="code-meta" text={reference.text} />
+      <SemanticText as="span" className="shrink-0 text-ink-tertiary" role="code-meta" text={reference.package} />
+    </DocsLink>
+  </Layer>
+)
 
 /** The file in this repository that does what the sample shows, at the commit the server was built from. */
 const SourceRow = ({ path, sha }: { readonly path: string; readonly sha: string }) => (

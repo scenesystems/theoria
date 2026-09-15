@@ -52,8 +52,8 @@ import {
   stagePresetLabel
 } from "./placeViewModel.js"
 
-const presetTone = toneClassesFor("text")
-const searchTone = toneClassesFor("search")
+const presetTone = toneClassesFor("primary")
+const searchTone = toneClassesFor("primary")
 
 /**
  * The same version drawn for another screen. Only presets the column can show

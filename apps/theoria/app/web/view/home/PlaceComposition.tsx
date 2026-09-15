@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceFeature, PlaceOutline } from "../../../contracts/imagined-place.js"
-import { inlineStatusToneFor, toneClassesFor } from "../primitives/designSystem.js"
+import { neutralStatusTone, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { GhostText } from "../primitives/Skeleton.js"
@@ -14,7 +14,7 @@ import { inlineMarkClassName, inlineMarkRoomClassName, ProvenanceMark, StatusMar
 import { buildPresence, isFirst, participantTone } from "./placeViewModel.js"
 
 const authorTone = toneClassesFor(participantTone("author"))
-const inferenceTone = inlineStatusToneFor("dsp")
+const inferenceTone = neutralStatusTone
 
 /**
  * A feature's place in the row: after the first, a dot stands before it. The

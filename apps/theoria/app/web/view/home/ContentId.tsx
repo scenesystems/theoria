@@ -1,6 +1,6 @@
 import { Match, Schema } from "effect"
 
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { neutralToneClasses } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { GhostText } from "../primitives/Skeleton.js"
@@ -8,7 +8,7 @@ import { GhostText } from "../primitives/Skeleton.js"
 import { inlineMarkClassName, inlineMarkRoomClassName, ProvenanceMark } from "./PlaceProvenance.js"
 import { contentIdShape, shortId } from "./placeViewModel.js"
 
-const digestTone = toneClassesFor("digest")
+const idTone = neutralToneClasses
 
 /** The two forms an ID is cut to: the digest's first characters in the line, or the whole ID on a line of its own. */
 export const IdForm = Schema.Literal("short", "full")
@@ -22,8 +22,8 @@ const idText = (form: IdForm, id: string): string =>
   )
 const idClassName = (form: IdForm): string =>
   Match.value(form).pipe(
-    Match.when("full", () => `block truncate ${digestTone.textStrong}`),
-    Match.when("short", () => digestTone.text),
+    Match.when("full", () => `block truncate ${idTone.textStrong}`),
+    Match.when("short", () => idTone.text),
     Match.exhaustive
   )
 

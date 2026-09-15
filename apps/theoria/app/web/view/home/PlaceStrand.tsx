@@ -24,6 +24,7 @@ import {
   isFirst,
   isLast,
   knotLabel,
+  participantTone,
   signatureFor,
   versionChanges,
   versionOf,
@@ -31,8 +32,9 @@ import {
   versionSignatureLabelShape
 } from "./placeViewModel.js"
 
-const digestTone = toneClassesFor("digest")
-const signTone = inlineStatusToneFor("sign")
+/** The record is the reader's own: its knots, its threads and the wash under a changed value are in their tone, as is their signature. */
+const recordTone = toneClassesFor(participantTone("author"))
+const signTone = inlineStatusToneFor(participantTone("author"))
 
 const signatureTone = (valid: boolean) => Bool.match(valid, { onTrue: () => signTone, onFalse: () => dangerStatusTone })
 
@@ -53,13 +55,13 @@ const knotSizeClassName = (size: KnotSize): string =>
 
 const knotFillClassName = (current: boolean): string =>
   Bool.match(current, {
-    onTrue: () => `${digestTone.bg} forced-colors:bg-[CanvasText]`,
+    onTrue: () => `${recordTone.bg} forced-colors:bg-[CanvasText]`,
     onFalse: () => "bg-paper forced-colors:bg-[Canvas]"
   })
 
 /** A knot on the strand: filled for the version being drawn, open for the ones before it. */
 const knotClassName = (current: boolean, size: KnotSize): string =>
-  `inline-flex shrink-0 rounded-full border-2 ${digestTone.border} forced-colors:border-[CanvasText] ${
+  `inline-flex shrink-0 rounded-full border-2 ${recordTone.border} forced-colors:border-[CanvasText] ${
     knotFillClassName(current)
   } ${knotSizeClassName(size)}`
 
@@ -67,14 +69,14 @@ const knotClassName = (current: boolean, size: KnotSize): string =>
 const StageThread = ({ index }: { readonly index: number }) =>
   Bool.match(isFirst(index), {
     onTrue: () => null,
-    onFalse: () => <Layer render={<span />} className={`h-px w-2 ${digestTone.bg} opacity-40`} />
+    onFalse: () => <Layer render={<span />} className={`h-px w-2 ${recordTone.bg} opacity-40`} />
   })
 
 /** The thread down from a knot to the next; the last knot ends the strand. */
 const StrandThread = ({ last }: { readonly last: boolean }) =>
   Bool.match(last, {
     onTrue: () => null,
-    onFalse: () => <Layer render={<span />} className={`mt-1 w-px flex-1 ${digestTone.bg} opacity-40`} />
+    onFalse: () => <Layer render={<span />} className={`mt-1 w-px flex-1 ${recordTone.bg} opacity-40`} />
   })
 
 /** Room below a knot's entry for the thread to the next; the last needs none. */
@@ -122,7 +124,7 @@ export const StageKnots = ({ evidence, outline }: {
           </Layer>
         ),
         onSome: (version) => (
-          <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5" tone={digestTone}>
+          <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5" tone={recordTone}>
             <SemanticText
               as="span"
               className="tabular-nums text-ink-tertiary"
@@ -149,7 +151,7 @@ const Recorded = ({ current, version, evidence }: {
       <ChangedValue
         changes={Bool.match(current, { onTrue: () => change.changes, onFalse: () => 0 })}
         className="flex min-w-0"
-        tone={digestTone}
+        tone={recordTone}
       >
         <ContentId form="full" id={version.contentId} />
       </ChangedValue>

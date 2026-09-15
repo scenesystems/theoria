@@ -1,7 +1,6 @@
 import { Boolean as Bool, Match, Number as Num, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import type { Id as CardId } from "../../../contracts/id.js"
 import type { Elevation, Measure, SurfaceRole } from "../../../contracts/layout.js"
 import { motionEaseFor, type MotionRelation } from "../../../contracts/motion.js"
 import {
@@ -16,7 +15,7 @@ import {
   toneSlotTranslucency,
   type Translucency
 } from "../../../contracts/palette.js"
-import { type CardTone, toneForCard } from "../../../contracts/theme.js"
+import type { Tone } from "../../../contracts/theme.js"
 
 // ---------------------------------------------------------------------------
 // ToneClasses — the class a component's slot wears in a tone, derived from the
@@ -26,11 +25,13 @@ import { type CardTone, toneForCard } from "../../../contracts/theme.js"
 // (`@source inline`) in the generated stylesheet; a contract test holds that.
 // ---------------------------------------------------------------------------
 
-/** The utility a slot is worn as: the property it paints. */
+/** The utility a slot is worn as: the property it paints, under the state it answers to. */
 const slotUtility = (slot: ToneSlot): string =>
   Match.value(slot).pipe(
     Match.whenOr("border", "borderSubtle", () => "border"),
+    Match.when("borderHover", () => "hover:border"),
     Match.whenOr("dot", "bg", "bgTinted", "wash", () => "bg"),
+    Match.whenOr("bgHover", "bgTintedHover", () => "hover:bg"),
     Match.whenOr("text", "textStrong", () => "text"),
     Match.when("stroke", () => "stroke"),
     Match.exhaustive
@@ -49,10 +50,10 @@ export const neutralColorName = (role: NeutralRole, translucency: Translucency):
   `${role}${translucencySuffix(translucency)}`
 
 /** The name Tailwind knows a tone's role by at a translucency, as the generated bridge declares it. */
-export const toneColorName = (tone: CardTone, role: ToneRole, translucency: Translucency): string =>
+export const toneColorName = (tone: Tone, role: ToneRole, translucency: Translucency): string =>
   `tone-${tone}-${role}${translucencySuffix(translucency)}`
 
-const toneSlotClassName = (tone: CardTone, slot: ToneSlot): string =>
+const toneSlotClassName = (tone: Tone, slot: ToneSlot): string =>
   `${slotUtility(slot)}-${toneColorName(tone, toneSlotRole(slot), toneSlotTranslucency(slot))}`
 
 const neutralSlotClassName = (slot: ToneSlot): string =>
@@ -63,21 +64,22 @@ export type ToneClasses = typeof ToneClasses.Type
 
 const slotClasses = (className: (slot: ToneSlot) => string): ToneClasses => ({
   border: className("border"),
+  borderHover: className("borderHover"),
   borderSubtle: className("borderSubtle"),
   dot: className("dot"),
   text: className("text"),
   textStrong: className("textStrong"),
   stroke: className("stroke"),
   bg: className("bg"),
+  bgHover: className("bgHover"),
   bgTinted: className("bgTinted"),
+  bgTintedHover: className("bgTintedHover"),
   wash: className("wash")
 })
 
 export const neutralToneClasses: ToneClasses = slotClasses(neutralSlotClassName)
 
-export const toneClassesFor = (tone: CardTone): ToneClasses => slotClasses((slot) => toneSlotClassName(tone, slot))
-
-export const toneClassesForCard = (id: CardId): ToneClasses => toneClassesFor(toneForCard(id))
+export const toneClassesFor = (tone: Tone): ToneClasses => slotClasses((slot) => toneSlotClassName(tone, slot))
 
 /** Every class a set of tone classes may wear, one per slot, for the generator to declare. */
 export const toneClassCandidates = (classes: ToneClasses): ReadonlyArray<string> =>
@@ -98,11 +100,11 @@ const discSlotUtility = (slot: DiscSlot): string =>
     Match.exhaustive
   )
 
-export const discSlotClassName = (tone: CardTone, slot: DiscSlot): string =>
+export const discSlotClassName = (tone: Tone, slot: DiscSlot): string =>
   `${discSlotUtility(slot)}-${toneColorName(tone, discSlotRole(slot), discSlotTranslucency(slot))}`
 
 /** The disc's soft radial fill in its tone: a utility the generated stylesheet declares per tone. */
-export const discFillClassName = (tone: CardTone): string => `bg-place-disc-${tone}`
+export const discFillClassName = (tone: Tone): string => `bg-place-disc-${tone}`
 
 // ---------------------------------------------------------------------------
 // Motion — a CSS transition's duration and ease are the motion contract's:
@@ -140,6 +142,9 @@ export const surfaceClassName = (role: SurfaceRole): string =>
     Match.when("drawer", () => "border-r border-hairline-strong-veil bg-paper shadow-hero"),
     Match.exhaustive
   )
+
+/** A notice set into the reading: an instrument's fill with a firm edge, its words in the ink. Colour says who, and a notice is no one, so it is neutral. */
+export const noticeClassName = `${surfaceClassName("instrument")} border border-hairline-strong-glass px-4 py-3`
 
 /** How high a thing stands over the page: the elevation's z-index token, in the one order `Elevation` gives. */
 export const elevationClassName = (elevation: Elevation): string => `z-(--th-z-${elevation})`
@@ -193,10 +198,12 @@ export const forcedColorsAnsweringOutlineClassName =
 // ---------------------------------------------------------------------------
 // Marks — a thing on the page that can be pointed at and answered. Wherever a
 // mark stands — in a line of text, in the code's gutter, on the paper, as a
-// value under a line of code — it is lit the same way: one wash, under the
-// pointer and while it is answered, whether pointed at itself or lit by the
-// answer to another. A mark is `group/mark`, so a chip set inside it can wear
-// the wash on its own box instead of the mark's.
+// value under a line of code — it is lit the same way: a glass of the
+// instrument under the pointer, and the instrument itself while it is
+// answered — whether pointed at itself or lit by the answer to another — so
+// the answer reads firmer than the pointer passing over. A mark is
+// `group/mark`, so a chip set inside it can wear the wash on its own box
+// instead of the mark's.
 // ---------------------------------------------------------------------------
 
 /** A mark's box: pointable and focusable. The wash is added by whichever box wears it. */
@@ -205,11 +212,11 @@ export const markClassName =
 
 /** The wash on a mark's own box. */
 export const litMarkClassName =
-  "hover:bg-instrument-glass data-[place-focused]:bg-instrument-glass data-[popup-open]:bg-instrument-glass forced-colors:hover:bg-[Highlight] forced-colors:hover:text-[HighlightText] forced-colors:data-[place-focused]:bg-[Highlight] forced-colors:data-[place-focused]:text-[HighlightText] forced-colors:data-[popup-open]:bg-[Highlight] forced-colors:data-[popup-open]:text-[HighlightText]"
+  "hover:bg-instrument-glass data-[place-focused]:bg-instrument data-[popup-open]:bg-instrument forced-colors:hover:bg-[Highlight] forced-colors:hover:text-[HighlightText] forced-colors:data-[place-focused]:bg-[Highlight] forced-colors:data-[place-focused]:text-[HighlightText] forced-colors:data-[popup-open]:bg-[Highlight] forced-colors:data-[popup-open]:text-[HighlightText]"
 
 /** The wash on a chip set inside a mark, in place of the chip's own paper. */
 export const litChipClassName =
-  `${respondColorsClassName} ${stillUnderReducedMotion} group-hover/mark:bg-instrument-glass group-data-[place-focused]/mark:bg-instrument-glass group-data-[popup-open]/mark:bg-instrument-glass forced-colors:group-hover/mark:bg-[Highlight] forced-colors:group-hover/mark:text-[HighlightText] forced-colors:group-data-[place-focused]/mark:bg-[Highlight] forced-colors:group-data-[place-focused]/mark:text-[HighlightText] forced-colors:group-data-[popup-open]/mark:bg-[Highlight] forced-colors:group-data-[popup-open]/mark:text-[HighlightText]`
+  `${respondColorsClassName} ${stillUnderReducedMotion} group-hover/mark:bg-instrument-glass group-data-[place-focused]/mark:bg-instrument group-data-[popup-open]/mark:bg-instrument forced-colors:group-hover/mark:bg-[Highlight] forced-colors:group-hover/mark:text-[HighlightText] forced-colors:group-data-[place-focused]/mark:bg-[Highlight] forced-colors:group-data-[place-focused]/mark:text-[HighlightText] forced-colors:group-data-[popup-open]/mark:bg-[Highlight] forced-colors:group-data-[popup-open]/mark:text-[HighlightText]`
 
 // ---------------------------------------------------------------------------
 // InlineStatusTone — a glyph and a colour for a status said in the text's own
@@ -222,7 +229,7 @@ export const InlineStatusTone = Schema.Struct({
 })
 export type InlineStatusTone = typeof InlineStatusTone.Type
 
-export const inlineStatusToneFor = (tone: CardTone): InlineStatusTone => {
+export const inlineStatusToneFor = (tone: Tone): InlineStatusTone => {
   const classes = toneClassesFor(tone)
   return { dot: classes.dot, text: classes.text }
 }
@@ -232,7 +239,12 @@ export const neutralStatusTone: InlineStatusTone = { dot: neutralToneClasses.dot
 export const dangerStatusTone: InlineStatusTone = { dot: "bg-danger-accent", text: "text-danger-ink" }
 
 // ---------------------------------------------------------------------------
-// Controls — pills, segmented controls, toggles, actions.
+// Controls — pills, segmented controls, toggles, actions. Every control
+// answers each state it can be in with a step of its own: at rest, under the
+// pointer, pressed, chosen (and chosen under the pointer), disabled. A chosen
+// control is in its tone; the pointer over it deepens the tone. A control at
+// rest is neutral; the pointer over it firms its paper, and a press firms it
+// once more — each a step along the neutral ladder, never a colour of its own.
 // ---------------------------------------------------------------------------
 
 const pillButtonBaseClassName =
@@ -246,8 +258,9 @@ export const pillButtonClassName = ({
   readonly tone: ToneClasses
 }): string =>
   Bool.match(active, {
-    onTrue: () => `${pillButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted}`,
-    onFalse: () => `${pillButtonBaseClassName} border-transparent bg-instrument-glass hover:bg-instrument`
+    onTrue: () => `${pillButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted} ${tone.bgTintedHover}`,
+    onFalse: () =>
+      `${pillButtonBaseClassName} border-transparent bg-instrument-glass hover:bg-instrument active:bg-hairline`
   })
 
 const segmentedControlRailBaseClassName = `grid min-w-0 gap-1 ${
@@ -277,8 +290,8 @@ export const segmentedControlButtonClassName = ({
   readonly tone: ToneClasses
 }): string =>
   Bool.match(active, {
-    onTrue: () => `${segmentedControlButtonBaseClassName} border-hairline bg-paper ${tone.bgTinted}`,
-    onFalse: () => `${segmentedControlButtonBaseClassName} hover:bg-paper-glass`
+    onTrue: () => `${segmentedControlButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted} ${tone.bgTintedHover}`,
+    onFalse: () => `${segmentedControlButtonBaseClassName} hover:bg-paper-glass active:bg-paper`
   })
 
 const toggleTrackBaseClassName =
@@ -292,29 +305,31 @@ export const toggleTrackClassName = ({
   readonly tone: ToneClasses
 }): string =>
   Bool.match(checked, {
-    onTrue: () => `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} forced-colors:bg-[Highlight]`,
-    onFalse: () => `${toggleTrackBaseClassName} border-hairline-veil bg-canvas-veil`
+    onTrue: () =>
+      `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.borderHover} ${tone.bgHover} forced-colors:bg-[Highlight]`,
+    onFalse: () =>
+      `${toggleTrackBaseClassName} border-hairline-veil bg-canvas-veil hover:border-hairline-strong hover:bg-instrument`
   })
 
-/** A filled action: emphasis under its words, deeper under the pointer. */
+/** A filled action: emphasis under its words, a step off under the pointer, another while pressed. */
 export const primaryActionClassName =
-  "border-emphasis bg-emphasis text-on-emphasis shadow-chip hover:border-emphasis-hover hover:bg-emphasis-hover"
+  "border-emphasis bg-emphasis text-on-emphasis shadow-chip hover:border-emphasis-hover hover:bg-emphasis-hover active:border-emphasis-pressed active:bg-emphasis-pressed"
 
-/** An action on paper: a firm edge that darkens under the pointer, paper that settles solid. */
+/** An action on paper: a firm edge that darkens under the pointer, paper that settles solid and firms to the instrument while pressed. */
 export const secondaryActionClassName =
-  "border-hairline-strong-veil bg-paper-veil text-ink shadow-chip hover:border-accent hover:bg-paper"
+  "border-hairline-strong-veil bg-paper-veil text-ink shadow-chip hover:border-accent hover:bg-paper active:bg-instrument"
 
 /** A glyph alone as a control on paper, in the header or a sheet. */
 export const iconButtonClassName =
   `inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-instrument border border-hairline-veil bg-paper-glass text-ink-secondary transition-[border-color,background-color,color] ${
     transitionClassName("respond")
-  } hover:border-hairline-strong hover:bg-paper-veil hover:text-ink ${focusClassName}`
+  } hover:border-hairline-strong hover:bg-paper-veil hover:text-ink active:bg-instrument ${focusClassName}`
 
 /** The control that opens a search or a picker: a field's height, paper that firms under the pointer. */
 export const pickerTriggerClassName =
   `flex h-11 min-w-0 items-center gap-2.5 rounded-instrument border border-hairline-veil bg-paper-glass px-3 text-ink-tertiary shadow-chip transition-[border-color,background-color,color] ${
     transitionClassName("respond")
-  } hover:border-hairline-strong hover:bg-paper-veil hover:text-ink ${focusClassName}`
+  } hover:border-hairline-strong hover:bg-paper-veil hover:text-ink active:bg-instrument ${focusClassName}`
 
 // ---------------------------------------------------------------------------
 // Sheets, drawers and their backdrops — surfaces over the page, each at its
@@ -365,13 +380,13 @@ export const menuPopupClassName = `origin-[var(--transform-origin)] overflow-y-a
 } data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`
 
 export const menuItemClassName =
-  `flex min-w-0 items-center gap-3 rounded-instrument px-3 py-2.5 text-ink-secondary ${focusEdgeClassName} hover:bg-instrument-glass focus:bg-instrument-glass`
+  `flex min-w-0 items-center gap-3 rounded-instrument px-3 py-2.5 text-ink-secondary ${focusEdgeClassName} hover:bg-instrument-glass focus:bg-instrument-glass active:bg-instrument`
 
 /** A code example's frame: a sheet that clips its lines. */
 export const codeFrameClassName = `overflow-hidden ${surfaceClassName("sheet")}`
 
 export const codeActionClassName =
-  `inline-flex min-h-10 items-center gap-1.5 rounded-control bg-transparent px-3 text-ink-tertiary ${respondColorsClassName} hover:bg-instrument-glass hover:text-ink ${focusClassName}`
+  `inline-flex min-h-10 items-center gap-1.5 rounded-control bg-transparent px-3 text-ink-tertiary ${respondColorsClassName} hover:bg-instrument-glass hover:text-ink active:bg-instrument ${focusClassName}`
 
 // ---------------------------------------------------------------------------
 // The workbench — the documentation's grid: a navigation rail, the reading
@@ -381,9 +396,14 @@ export const codeActionClassName =
 const workbenchNavLinkBaseClassName =
   `group relative flex min-w-0 items-start ${focusClassName} transition-[border-color,background-color,color] ${
     transitionClassName("respond")
-  } hover:bg-paper-glass hover:text-ink`
+  } hover:text-ink`
 
-/** A link in the navigation rail: a section at rest or chosen, or a page under a section. */
+/**
+ * A link in the navigation rail: a section at rest or chosen, or a page under
+ * a section. At rest the pointer lays a glass of paper over it; chosen, it
+ * stands on a veil of paper already, and the pointer settles that solid — a
+ * step firmer, never a step back.
+ */
 export const workbenchNavLinkClassName = ({
   active,
   child
@@ -396,16 +416,16 @@ export const workbenchNavLinkClassName = ({
       `${workbenchNavLinkBaseClassName} rounded-control px-3 py-2 text-ink-tertiary ${
         Bool.match(active, {
           onTrue: () =>
-            "bg-paper-veil text-ink-strong before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-ink-secondary",
-          onFalse: () => ""
+            "bg-paper-veil text-ink-strong hover:bg-paper before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-ink-secondary",
+          onFalse: () => "hover:bg-paper-glass"
         })
       }`,
     onFalse: () =>
-      `${workbenchNavLinkBaseClassName} gap-3 rounded-instrument border border-transparent px-3 py-2.5 text-ink-secondary hover:border-hairline-veil ${
+      `${workbenchNavLinkBaseClassName} gap-3 rounded-instrument border border-transparent px-3 py-2.5 text-ink-secondary ${
         Bool.match(active, {
           onTrue: () =>
-            "border-hairline-strong-veil bg-paper-veil text-ink-strong shadow-chip before:absolute before:bottom-2.5 before:left-0 before:top-2.5 before:w-0.5 before:rounded-full before:bg-ink-secondary",
-          onFalse: () => ""
+            "border-hairline-strong-veil bg-paper-veil text-ink-strong shadow-chip hover:border-hairline-strong hover:bg-paper before:absolute before:bottom-2.5 before:left-0 before:top-2.5 before:w-0.5 before:rounded-full before:bg-ink-secondary",
+          onFalse: () => "hover:border-hairline-veil hover:bg-paper-glass"
         })
       }`
   })
@@ -439,6 +459,6 @@ export const workbenchTheme = {
  */
 export const appTheme = {
   root:
-    "relative min-h-screen overflow-x-clip font-body text-ink antialiased selection:bg-tone-text-wash-glass selection:text-ink-strong",
+    "relative min-h-screen overflow-x-clip font-body text-ink antialiased selection:bg-tone-primary-wash selection:text-ink-strong",
   content: `relative mx-auto flex w-full ${measureClassName("page")} flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12`
 }

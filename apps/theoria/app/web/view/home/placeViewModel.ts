@@ -22,7 +22,7 @@ import {
   type PlaceOutline,
   type VersionShape
 } from "../../../contracts/imagined-place.js"
-import type { CardTone } from "../../../contracts/theme.js"
+import type { Tone } from "../../../contracts/theme.js"
 import type { PlaceDiscDrawn, PlaceSearch, PlaceWait, StageFailure } from "../../atoms/imagined-place-render.js"
 import type { MotionPreference } from "../../atoms/motion.js"
 import {
@@ -76,15 +76,17 @@ export const participantLabel = (role: ParticipantRole): string =>
   )
 
 /**
- * One accent per participant, used everywhere that participant appears: on
- * markers, proposal cards, signature pills and the legend. The author's is the
- * signing tone, the neighbor's the sealing tone, the program's the dsp tone.
+ * One tone per participant, used everywhere that participant appears: on
+ * markers, proposal cards, signature pills and the legend. The reader's own
+ * voice is the primary, the neighbor's the secondary, the program's the
+ * tertiary — colour on the page says who, and nothing else.
  */
-export const participantTone = (role: ParticipantRole): CardTone =>
+export const participantTone = (role: ParticipantRole): Tone =>
   Match.value(role).pipe(
-    Match.when("author", (): CardTone => "sign"),
-    Match.when("neighbor", (): CardTone => "seal"),
-    Match.when("program", (): CardTone => "dsp"),
+    Match.withReturnType<Tone>(),
+    Match.when("author", () => "primary"),
+    Match.when("neighbor", () => "secondary"),
+    Match.when("program", () => "tertiary"),
     Match.exhaustive
   )
 
@@ -130,7 +132,7 @@ export const discClassName = (role: ParticipantRole): string => {
   return `${discFillClassName(tone)} ring-1 ring-inset ${discSlotClassName(tone, "ring")} ${discEdgeClassName}`
 }
 
-const actOutline = (tone: CardTone): string => discSlotClassName(tone, "actOutline")
+const actOutline = (tone: Tone): string => discSlotClassName(tone, "actOutline")
 
 /**
  * The outline a disc wears while an act is in view. The outline is always
@@ -154,7 +156,7 @@ export const discActOutline = (act: PlaceAct, marker: PlaceMarker): string => {
     Match.when("record", () =>
       Option.match(proposer, {
         onNone: () => silentOutlineClassName,
-        onSome: () => actOutline("digest")
+        onSome: () => actOutline(participantTone("author"))
       })),
     Match.whenOr("arrive", "build", () => silentOutlineClassName),
     Match.exhaustive

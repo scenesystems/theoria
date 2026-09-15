@@ -84,9 +84,9 @@ describe("brand contract", () => {
       const svg = renderFaviconSvg()
       expect(svg).toContain(`viewBox="${markViewBoxAttribute(mark.viewBox)}"`)
       expect(Arr.length(Arr.filter(Str.split(svg, "\n"), Str.startsWith("  <polygon ")))).toBe(3)
-      expect(svg).toContain("polygon { fill: rgb(22 35 57); stroke: rgb(22 35 57) }")
+      expect(svg).toContain("polygon { fill: rgb(16 37 43); stroke: rgb(16 37 43) }")
       expect(svg).toContain("@media (prefers-color-scheme: dark)")
-      expect(svg).toContain("polygon { fill: rgb(237 241 247); stroke: rgb(237 241 247) }")
+      expect(svg).toContain("polygon { fill: rgb(234 242 244); stroke: rgb(234 242 244) }")
       expect(svg).toContain(`stroke-opacity="${String(markStroke.opacity)}" stroke-width="${String(markStroke.width)}"`)
       expect(svg).not.toMatch(/#[0-9a-f]{3,8}\b/iu)
     }))
@@ -94,15 +94,15 @@ describe("brand contract", () => {
   it.effect("theme-color tracks the canvas of each scheme, dark then light as the head lists them", () =>
     Effect.sync(() => {
       expect(renderThemeColorMetas()).toEqual([
-        "<meta name=\"theme-color\" content=\"rgb(13 26 48)\" media=\"(prefers-color-scheme: dark)\" />",
-        "<meta name=\"theme-color\" content=\"rgb(245 247 251)\" media=\"(prefers-color-scheme: light)\" />"
+        "<meta name=\"theme-color\" content=\"rgb(7 24 32)\" media=\"(prefers-color-scheme: dark)\" />",
+        "<meta name=\"theme-color\" content=\"rgb(244 249 250)\" media=\"(prefers-color-scheme: light)\" />"
       ])
     }))
 
   it.effect("the manifest paints its splash and chrome in the dark canvas its icons stand on", () =>
     Effect.gen(function*() {
       const manifest = yield* Schema.decode(WebManifest)(yield* renderWebManifest())
-      expect(manifest.background_color).toBe("rgb(13 26 48)")
+      expect(manifest.background_color).toBe("rgb(7 24 32)")
       expect(manifest.theme_color).toBe(manifest.background_color)
       expect(manifest.name).toBe("Theoria")
       expect(Arr.map(manifest.icons, (icon) => icon.src)).toEqual(["/icon-192.png", "/icon-512.png"])
@@ -110,13 +110,13 @@ describe("brand contract", () => {
 
   it.effect("the share cards and icons paint the same canvas and inks, and the .ico the light ink", () =>
     Effect.sync(() => {
-      expect(palette.canvas).toBe("rgb(13,26,48)")
+      expect(palette.canvas).toBe("rgb(7,24,32)")
       expect(palette.ink).toBe("rgb(255,255,255)")
-      expect(palette.lightInk).toBe("rgb(22,35,57)")
+      expect(palette.lightInk).toBe("rgb(16,37,43)")
       // A card's ground is the canvas; an icon's mark is the strong ink; the .ico's mark is the light ink.
       expect(Arr.take(siteCard(mark, { sans: "a", sansSemiBold: "b", mono: "c" }, "tag", "host", "out.png"), 3))
-        .toEqual(["-size", "1200x630", "xc:rgb(13,26,48)"])
-      expect(solidIcon(mark, 192, 0.6, "icon.png")).toContain("xc:rgb(13,26,48)")
+        .toEqual(["-size", "1200x630", "xc:rgb(7,24,32)"])
+      expect(solidIcon(mark, 192, 0.6, "icon.png")).toContain("xc:rgb(7,24,32)")
       expect(favicon(mark, [16], "favicon.ico")).toContain(palette.lightInk)
       // The mark drawn at 100px from (0, 0) spans its frame's aspect: the far right corner lands at width/height · 100.
       const drawn = drawMark(mark, palette.ink, 0, 0, 100)

@@ -24,7 +24,7 @@ const scenarioOptions = Arr.map(placeScenarios, (scenario, index) => ({
   label: placeScenarioMeta[scenario].label
 }))
 
-const tone = toneClassesFor("dsp")
+const tone = toneClassesFor("primary")
 
 /**
  * The scenario: which recorded story the demonstration tells. Choosing one

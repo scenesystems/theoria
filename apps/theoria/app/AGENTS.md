@@ -146,8 +146,8 @@ This applies to all concerns:
 - **Colors and theming**: Defined by CSS variables in `styles.css` and consumed via `bg-(--var)` / `text-(--var)`. To change a color, change the variable — never add a one-off class or inline style to a single component.
 - **Typography**: All text flows through `SemanticText` which reads from `TextRole` contract semantics. To add a new text style, add a `TextRole` and its CSS variable tokens — never style text directly on a component.
 - **Spacing and layout**: Controlled by layout primitives and Tailwind utilities composed through props. To change layout behavior, improve the primitive or add a variant to the contract schema (`SurfaceRole`, `ArtifactStageFrame`) — never add ad-hoc CSS to one component.
-- **Component variants**: Driven by contract schemas (`SurfaceVariant`, `CardTone`, `PackageGroup`). To add a visual variant, extend the schema and handle it via `Match.exhaustive` — never branch on a string literal in a single component.
-- **Tone/accent mapping**: Managed by `contracts/theme.ts` via `toneForCard`, resolved to `ToneClasses` via `designSystem.ts`. To change how a card looks, update the tone mapping — never put card-specific colors in a view component.
+- **Component variants**: Driven by contract schemas (`SurfaceVariant`, `Tone`, `PackageGroup`). To add a visual variant, extend the schema and handle it via `Match.exhaustive` — never branch on a string literal in a single component.
+- **Tone mapping**: Colour says who, and nothing else. `contracts/theme.ts` declares the three tones (`primary` the reader and the brand, `secondary` another person, `tertiary` a program); `placeViewModel.ts` maps a `ParticipantRole` to its tone via `participantTone`, resolved to `ToneClasses` via `designSystem.ts`. Packages, statuses and content IDs read in the neutral ink — never give a package or a kind of thing its own hue in a view component.
 
 **The test**: If a change touches only one component file and adds a visual property that no other component shares, it is almost certainly wrong. The property should live in a contract, a primitive, or a theme token.
 

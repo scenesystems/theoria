@@ -2,22 +2,19 @@ import { Popover } from "@base-ui/react/popover"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowRightIcon } from "@heroicons/react/20/solid"
-import { Boolean as Bool, Equal, Match, Option, Predicate, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Predicate } from "effect"
 import type { ComponentProps, MouseEvent as ReactMouseEvent, ReactNode } from "react"
 import { useRef } from "react"
 
-import { Id } from "../../../contracts/id.js"
 import { docsApiModuleIndexAtom, docsManifestAtom } from "../../atoms/docs-data.js"
 
 import {
   elevationClassName,
   focusClassName,
   focusEdgeClassName,
-  neutralToneClasses,
   primaryActionClassName,
   respondColorsClassName,
   stillUnderReducedMotion,
-  toneClassesForCard,
   transitionClassName
 } from "./designSystem.js"
 import {
@@ -57,14 +54,6 @@ const isModifiedPress = (event: MouseEvent | PointerEvent | TouchEvent | Keyboar
     )
   ])
 
-const isCardId = Schema.is(Id)
-
-const toneFor = (slug: string) =>
-  Option.match(Option.liftPredicate(slug, isCardId), {
-    onNone: () => neutralToneClasses,
-    onSome: toneClassesForCard
-  })
-
 /** What kind of page opens: the package overview, a guide, or an API module's reference. */
 const pageKind = (target: DocsLinkTarget): string =>
   Match.value(target).pipe(
@@ -102,7 +91,6 @@ const Preview = ({ destination, href, title }: {
   readonly href: string
   readonly title: string
 }) => {
-  const tone = toneFor(destination.docsPackage.slug)
   const openRef = useRef<HTMLAnchorElement>(null)
 
   return (
@@ -118,7 +106,12 @@ const Preview = ({ destination, href, title }: {
       <Stack className="gap-1.5 px-3.5 pt-3 pb-3">
         <Rail className="justify-between gap-3">
           <Cluster align="baseline" className="gap-x-2">
-            <SemanticText as="span" className={tone.text} role="row-label" text={destination.docsPackage.slug} />
+            <SemanticText
+              as="span"
+              className="text-ink-secondary"
+              role="row-label"
+              text={destination.docsPackage.slug}
+            />
             <SemanticText
               as="span"
               className="text-ink-tertiary"

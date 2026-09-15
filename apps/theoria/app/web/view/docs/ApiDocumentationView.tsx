@@ -3,6 +3,7 @@ import * as Arr from "effect/Array"
 
 import type { ApiDocumentation } from "@theoria/docs-model"
 import { CodeBlock, codeLanguageFor } from "../primitives/CodeBlock.js"
+import { noticeClassName } from "../primitives/designSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -31,10 +32,10 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
     {Option.match(docs.deprecated, {
       onNone: () => null,
       onSome: (deprecated) => (
-        <Layer className="rounded-instrument border border-tone-search-edge-glass bg-tone-search-surface-mist px-4 py-3">
+        <Layer className={noticeClassName}>
           <Stack className="gap-1.5">
-            <SemanticText as="p" className="text-tone-search-ink-strong" role="row-label" text="Deprecated" />
-            <SemanticContent as="p" className="text-tone-search-ink-strong" role="row-value">
+            <SemanticText as="p" className="text-ink-strong" role="row-label" text="Deprecated" />
+            <SemanticContent as="p" className="text-ink" role="row-value">
               <DocsRichText parts={deprecated} />
             </SemanticContent>
           </Stack>

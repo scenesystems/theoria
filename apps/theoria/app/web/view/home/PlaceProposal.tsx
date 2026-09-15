@@ -48,7 +48,8 @@ import {
   signatureLabelShape
 } from "./placeViewModel.js"
 
-const sealTone = toneClassesFor("seal")
+/** The note is the sender's: its seal, its words and their rule wear the sender's tone. */
+const sealTone = toneClassesFor(participantTone(sealedNoteSender))
 
 const signatureTone = (valid: boolean) =>
   Bool.match(valid, { onTrue: () => neutralStatusTone, onFalse: () => dangerStatusTone })
@@ -106,7 +107,7 @@ const foldPanelClassName = `h-(--collapsible-panel-height) overflow-hidden trans
 /**
  * The neighbor's note is a fold. Closed, it is the envelope: the seal and its
  * size, which is all anyone but the author can see. Opened with the author's
- * key, it is their words, quoted, on the seal tone's rule.
+ * key, it is their words, quoted, on a rule in the sender's tone.
  */
 const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
   <Collapsible.Root className="min-w-0" data-place-sealed-note>
@@ -205,22 +206,23 @@ const recordOf = (build: PlaceBuild, role: ParticipantRole): Option.Option<Propo
  */
 const FeatureTitle = ({ name, recorded }: { readonly name: string; readonly recorded: boolean }) => (
   <SemanticContent as="h3" className="self-start text-ink" role="card-title" variant="compact">
-    {recorded
-      ? (
+    {Bool.match(recorded, {
+      onTrue: () => (
         <ProvenanceMark className={inlineMarkClassName} data-place-feature={name} mark={{ _tag: "Feature", name }}>
           {name}
         </ProvenanceMark>
-      )
-      : (
+      ),
+      onFalse: () => (
         <Layer render={<span />} className={inlineMarkRoomClassName}>
           <GhostText as="span" role="card-title" text={name} variant="compact" />
         </Layer>
-      )}
+      )
+    })}
   </SemanticContent>
 )
 
-/** Appears when the build records the merge: the same digest tone as the version it names. */
-const recordedTone = inlineStatusToneFor("digest")
+/** Appears when the build records the merge: in the reader's tone, as the version it names is theirs. */
+const recordedTone = inlineStatusToneFor(participantTone("author"))
 const recordedClassName = `transition-[opacity,translate] ${
   transitionClassName("enter")
 } starting:translate-x-1 starting:opacity-0 ${stillUnderReducedMotion}`

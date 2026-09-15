@@ -4,8 +4,8 @@
   "description": "Open-source TypeScript libraries for numerics, optimization, language-model programming, text layout, and cryptography, built with Effect.",
   "start_url": "/",
   "display": "browser",
-  "background_color": "rgb(13 26 48)",
-  "theme_color": "rgb(13 26 48)",
+  "background_color": "rgb(7 24 32)",
+  "theme_color": "rgb(7 24 32)",
   "icons": [
     {
       "src": "/icon-192.png",

@@ -18,7 +18,7 @@ import { ShimmerLine } from "../primitives/Skeleton.js"
 
 import { isFirst, isKept, searching, shownTrialIndex, trialValueText, waitMotion } from "./placeViewModel.js"
 
-const searchTone = toneClassesFor("search")
+const searchTone = toneClassesFor("primary")
 
 const Point = Schema.Struct({ x: Schema.Number, y: Schema.Number })
 type Point = typeof Point.Type
