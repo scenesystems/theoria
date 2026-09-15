@@ -1,5 +1,6 @@
-import { Option, Schema } from "effect"
+import { Boolean as Bool, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import { focusClassName, litChipClassName, respondColorsClassName } from "../designSystem.js"
 import { DocsLink } from "../DocsLink.js"
@@ -22,13 +23,20 @@ export type CodeAnnotation = typeof CodeAnnotation.Type
 const linkClassName =
   `rounded-mark underline decoration-dotted decoration-ink-tertiary-glass underline-offset-[3px] ${respondColorsClassName} hover:bg-instrument hover:decoration-solid hover:decoration-ink ${focusClassName}`
 
+/** A token's text as the page shows it: an empty token still takes a space, so the line keeps its shape. */
+export const tokenText = (value: string): string =>
+  Bool.match(Str.isEmpty(value), { onTrue: () => " ", onFalse: () => value })
+
+/** A token's key among its line: its place, then its length, since two tokens may read alike. */
+export const tokenKey = (index: number, value: string): string => `${String(index)}:${String(Str.length(value))}`
+
 const Tokens = ({ tokens }: { readonly tokens: ReadonlyArray<HighlightToken> }) => (
   <>
     {Arr.map(
       tokens,
       (token, index) => (
-        <span className={tokenClassName(token.kind)} key={`${index}:${token.value.length}`}>
-          {token.value.length === 0 ? " " : token.value}
+        <span className={tokenClassName(token.kind)} key={tokenKey(index, token.value)}>
+          {tokenText(token.value)}
         </span>
       )
     )}
@@ -36,18 +44,18 @@ const Tokens = ({ tokens }: { readonly tokens: ReadonlyArray<HighlightToken> }) 
 )
 
 const Segment = ({ segment }: { readonly segment: LineSegment }) =>
-  segment._tag === "Tokens"
-    ? <Tokens tokens={segment.tokens} />
-    : (
-      <DocsLink
-        className={linkClassName}
-        data-code-link={segment.link.text}
-        href={segment.link.href}
-        title={segment.link.text}
-      >
-        <Tokens tokens={segment.tokens} />
-      </DocsLink>
-    )
+  Match.value(segment).pipe(
+    Match.tag("Tokens", ({ tokens }) => <Tokens tokens={tokens} />),
+    Match.tag(
+      "Link",
+      ({ link, tokens }) => (
+        <DocsLink className={linkClassName} data-code-link={link.text} href={link.href} title={link.text}>
+          <Tokens tokens={tokens} />
+        </DocsLink>
+      )
+    ),
+    Match.exhaustive
+  )
 
 /**
  * What a line produced in the build on screen. Rendered on its own row under
@@ -73,12 +81,12 @@ export const annotationFor = (
   annotations: ReadonlyArray<CodeAnnotation>
 ): Option.Option<CodeAnnotation> => {
   const text = lineText(tokens)
-  return Arr.findFirst(annotations, (annotation) => text.includes(annotation.match))
+  return Arr.findFirst(annotations, (annotation) => Str.includes(annotation.match)(text))
 }
 
 /** Whether this line is the one a match names. */
 export const lineMatches = (tokens: ReadonlyArray<HighlightToken>, match: Option.Option<string>): boolean =>
-  Option.exists(match, (needle) => lineText(tokens).includes(needle))
+  Option.exists(match, (needle) => Str.includes(needle)(lineText(tokens)))
 
 /** One line of a sample: its tokens, with named symbols linked to the API reference. */
 export const CodeLine = ({
@@ -91,7 +99,7 @@ export const CodeLine = ({
   <>
     {Arr.map(
       segmentLine(tokens, links),
-      (segment, index) => <Segment key={`${index}:${segment._tag}`} segment={segment} />
+      (segment, index) => <Segment key={`${String(index)}:${segment._tag}`} segment={segment} />
     )}
   </>
 )

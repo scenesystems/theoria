@@ -1,4 +1,4 @@
-import { Option } from "effect"
+import { Equal, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { ApiCategory, ApiExport, DocsApiExportSummary, DocsApiModuleIndex } from "@theoria/docs-model"
@@ -11,7 +11,7 @@ import { ApiExportView } from "./ApiExportView.js"
 import { apiCategoryAnchor } from "./docsModel.js"
 
 const exportFor = (page: DocsApiModuleIndex, id: string): Option.Option<DocsApiExportSummary> =>
-  Arr.findFirst(page.exports, (apiExport) => apiExport.id === id)
+  Arr.findFirst(page.exports, (apiExport) => Equal.equals(apiExport.id, id))
 
 const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: DocsApiExportSummary }) => (
   <li>
@@ -75,7 +75,7 @@ const ApiModuleHeader = ({ page }: { readonly page: DocsApiModuleIndex }) => (
           as="span"
           className="text-ink-tertiary"
           role="code-meta"
-          text={`${String(page.exports.length)} exports`}
+          text={`${String(Arr.length(page.exports))} exports`}
         />
         <ExternalLink
           className="font-body text-sm font-medium text-ink-secondary underline decoration-accent underline-offset-4 hover:text-ink-strong"

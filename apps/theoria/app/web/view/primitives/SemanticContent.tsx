@@ -1,13 +1,29 @@
-import type { ElementType, ReactNode } from "react"
+import { Option, Schema } from "effect"
+import type { ReactNode } from "react"
 
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import type { TextRole } from "../../../contracts/text.js"
+import { classNames } from "./classNames.js"
 import { semanticClassName } from "./semanticTextClasses.js"
 
-type SemanticContentElement = "span" | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "dt" | "dd" | "code"
+/** The elements arbitrary content may be set in with a text role's glyphs. */
+export const SemanticContentElement = Schema.Literal(
+  "span",
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "dt",
+  "dd",
+  "code"
+)
+export type SemanticContentElement = typeof SemanticContentElement.Type
 
 export const SemanticContent = ({
-  as,
+  as = "p",
   children,
   className,
   role,
@@ -19,11 +35,15 @@ export const SemanticContent = ({
   readonly role: TextRole
   readonly variant?: SurfaceVariant
 }) => {
-  const Component: ElementType = as ?? "p"
+  const Component = as
 
   return (
     <Component
-      className={`${semanticClassName(role, variant)} whitespace-normal ${className ?? ""}`}
+      className={classNames(
+        semanticClassName(role, variant),
+        "whitespace-normal",
+        Option.getOrElse(Option.fromNullable(className), () => "")
+      )}
     >
       {children}
     </Component>

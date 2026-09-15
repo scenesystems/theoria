@@ -2,14 +2,15 @@ import { ScrollArea } from "@base-ui/react/scroll-area"
 import { Toolbar } from "@base-ui/react/toolbar"
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Boolean as Bool, Match, Number as Num, Option } from "effect"
+import { BigDecimal, Boolean as Bool, Equal, Match, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
+import * as Str from "effect/String"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import { type CSSProperties, type ReactNode, useMemo } from "react"
 
-import { stageFor } from "../../../contracts/demo/imagined-place-flow.js"
+import { type Stage, stageFor } from "../../../contracts/demo/imagined-place-flow.js"
 import { type DrawingId, placeSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceLine, PlaceProjection } from "../../../contracts/imagined-place-result.js"
 import { observeOnMount, useElementWidthReporter } from "../../atoms/element-observation.js"
@@ -53,8 +54,12 @@ import { ShimmerLine } from "../primitives/Skeleton.js"
 import { PlaceGhosts } from "./PlaceGhosts.js"
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
 import { ProvenanceMark } from "./PlaceProvenance.js"
-import { participantTone, type PlaceLegendEntry, searching, waitMotion } from "./placeViewModel.js"
+import { isLast, participantTone, type PlaceLegendEntry, searching, waitMotion } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
+
+/** A line set with no words keeps its height with a non-breaking space, so the paragraph's rhythm holds. */
+const lineText = (text: string): string =>
+  Bool.match(Str.isEmpty(text), { onTrue: () => "\u00a0", onFalse: () => text })
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
   left: `${padding}px`,
@@ -174,7 +179,7 @@ const Lines = ({ drawing, preference, projection, prose }: {
               as="span"
               className="block whitespace-nowrap text-ink"
               role="stage-prose"
-              text={line.text.length === 0 ? "\u00a0" : line.text}
+              text={lineText(line.text)}
               variant="expanded"
               wrapAuthority="native-browser"
             />
@@ -205,7 +210,24 @@ const Lines = ({ drawing, preference, projection, prose }: {
  * names the trial it is drawn from (`data-place-stage-trial`), so what the
  * stage shows can be read against the trace that chose it.
  */
-const fitStyle = (fit: number): CSSProperties => fit < 1 ? { transform: `scale(${fit})`, transformOrigin: "0 0" } : {}
+const fitStyle = (fit: number): CSSProperties =>
+  Bool.match(Num.lessThan(fit, 1), {
+    onTrue: () => ({ transform: `scale(${fit})`, transformOrigin: "0 0" }),
+    onFalse: () => ({})
+  })
+
+/** The walk is drawn once the search has settled; while it runs, the discs are still on their way. */
+const Walk = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
+  const projection = frame.rendering.projection
+  return Match.value(frame.search.phase).pipe(
+    Match.when(
+      "complete",
+      () => <PlaceWalk height={projection.stageHeight} markers={projection.markers} width={projection.stageWidth} />
+    ),
+    Match.whenOr("running", "landing", () => null),
+    Match.exhaustive
+  )
+}
 
 const Drawing = ({ drawn, fit, frame, shown }: {
   readonly drawn: PlaceDrawn
@@ -228,9 +250,7 @@ const Drawing = ({ drawn, fit, frame, shown }: {
       data-place-stage-width={String(projection.stageWidth)}
       style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px`, ...fitStyle(fit) }}
     >
-      {frame.search.phase === "complete"
-        ? <PlaceWalk height={projection.stageHeight} markers={projection.markers} width={projection.stageWidth} />
-        : null}
+      <Walk frame={frame} />
       <AnimatePresence initial={false} key={shown}>
         {Arr.map(projection.markers, (marker, index) => (
           <PlaceMarkerDisc
@@ -294,7 +314,8 @@ const cut = (drawn: PlaceDrawn): boolean =>
   )
 
 /** Base UI sets the viewport to scroll inline, so the uncut case is set the same way. */
-const viewportStyle = (drawn: PlaceDrawn): CSSProperties => cut(drawn) ? {} : { overflow: "visible" }
+const viewportStyle = (drawn: PlaceDrawn): CSSProperties =>
+  Bool.match(cut(drawn), { onTrue: () => ({}), onFalse: () => ({ overflow: "visible" }) })
 
 /**
  * The stage is paper cut to the drawing (`placeSheetAtom`). The paper keeps
@@ -350,7 +371,7 @@ const Legend = ({ entries }: { readonly entries: ReadonlyArray<PlaceLegendEntry>
   <Cluster className="gap-x-4 gap-y-1" data-place-legend>
     {Arr.map(entries, (entry, index) => (
       <LegendItem
-        index={index + 1}
+        index={Num.increment(index)}
         key={entry.name}
         label={entry.name}
         tone={toneClassesFor(participantTone(entry.contributedBy))}
@@ -375,10 +396,26 @@ const Placeholder = () => (
 )
 
 /** A column of set prose, as a skeleton reads: full lines, a shorter last one. */
+const sketchedLineWidths = ["w-11/12", "w-full", "w-5/6", "w-full"]
 const sketchedLineWidth = (index: number, count: number): string =>
-  index === count - 1
-    ? "w-1/2"
-    : Option.getOrElse(Arr.get(["w-11/12", "w-full", "w-5/6", "w-full"], index % 4), () => "w-full")
+  Bool.match(isLast(index, count), {
+    onTrue: () => "w-1/2",
+    onFalse: () =>
+      Option.getOrElse(
+        Arr.get(sketchedLineWidths, Num.remainder(index, Arr.length(sketchedLineWidths))),
+        () => "w-full"
+      )
+  })
+
+/** How many whole lines the sheet holds inside its padding. */
+const sketchedLineCount = (sheet: PlaceSheet, stage: Stage): number =>
+  BigDecimal.unsafeToNumber(
+    BigDecimal.floor(
+      BigDecimal.unsafeFromNumber(
+        Num.unsafeDivide(Num.subtract(sheet.height, Num.multiply(stage.padding, 2)), stage.lineHeight)
+      )
+    )
+  )
 
 /** Told that no drawing is coming, the sketched lines stand fainter. */
 const sketchClassName = (wait: PlaceWait): string =>
@@ -403,11 +440,11 @@ const BlankPaper = ({ drawn, sheet, wait }: {
   readonly wait: PlaceWait
 }) => {
   const stage = stageFor(sheet.width)
-  const count = Math.floor((sheet.height - 2 * stage.padding) / stage.lineHeight)
+  const count = sketchedLineCount(sheet, stage)
   const motion = waitMotion(wait)
   return (
     <Layer
-      aria-busy={wait === "pending"}
+      aria-busy={Equal.equals(wait, "pending")}
       className={paperClassName(sheet.fit)}
       data-place-drawn={drawn}
       data-place-stage="paper"
@@ -417,7 +454,7 @@ const BlankPaper = ({ drawn, sheet, wait }: {
     >
       <Stack className={sketchClassName(wait)} style={{ padding: `${stage.padding}px` }}>
         {Arr.map(
-          Arr.range(0, count - 1),
+          Arr.range(0, Num.decrement(count)),
           (index) => (
             <Layer className="flex items-center" key={index} style={{ height: `${stage.lineHeight}px` }}>
               <ShimmerLine motion={motion} width={sketchedLineWidth(index, count)} />
@@ -447,7 +484,7 @@ export const PlaceStage = () => {
   // The frame is cut to the sheet; before the column is measured and the sheet cut, the browser cuts it to the column.
   const frameStyle = Option.match(sheet, {
     onNone: () => ({ width: unmeasuredWidth }),
-    onSome: (value) => ({ width: `${value.width + placeStageFrameBorderPx * 2}px` })
+    onSome: (value) => ({ width: `${Num.sum(value.width, Num.multiply(placeStageFrameBorderPx, 2))}px` })
   })
 
   return (

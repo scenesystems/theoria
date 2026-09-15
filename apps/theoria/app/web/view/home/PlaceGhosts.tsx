@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
@@ -24,8 +25,13 @@ import { ghostClassName, participantLabel } from "./placeViewModel.js"
 const ghostDiameter = 14
 const ghostGap = 8
 
+/** Ghosts stand in a column down the margin, one pitch apart: a ghost and the gap after it. */
+const ghostPitch = Num.sum(ghostDiameter, ghostGap)
+
 const ghostStyle = (stageWidth: number, padding: number, index: number): CSSProperties => ({
-  translate: `${String(stageWidth - ghostDiameter - 1)}px ${String(padding + index * (ghostDiameter + ghostGap))}px`,
+  translate: `${String(Num.subtract(stageWidth, Num.increment(ghostDiameter)))}px ${
+    String(Num.sum(padding, Num.multiply(index, ghostPitch)))
+  }px`,
   width: `${String(ghostDiameter)}px`,
   height: `${String(ghostDiameter)}px`
 })

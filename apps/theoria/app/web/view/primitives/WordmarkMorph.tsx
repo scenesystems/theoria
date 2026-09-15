@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Match, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { AnimationDefinition, Variants } from "motion/react"
 import * as m from "motion/react-m"
@@ -95,7 +95,7 @@ const rootClassName = "inline-grid items-baseline text-ink"
 
 /** A pass that was playing has ended; a `rest` completing is not a pass. */
 const passEnded = (definition: AnimationDefinition): boolean =>
-  Schema.is(WordmarkPhase)(definition) && definition !== "rest"
+  Bool.and(Schema.is(WordmarkPhase)(definition), Bool.not(Equal.equals(definition, "rest")))
 
 /**
  * The crossfading wordmark: its phase is the session's `wordmarkPhaseAtom`,

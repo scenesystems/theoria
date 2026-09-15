@@ -3,6 +3,7 @@ import { ScrollArea } from "@base-ui/react/scroll-area"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { CheckIcon, ClipboardDocumentIcon, ExclamationCircleIcon } from "@heroicons/react/20/solid"
 import { Boolean as Bool, Match, Option, Schema } from "effect"
+import * as Str from "effect/String"
 import type { ReactNode } from "react"
 
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
@@ -42,7 +43,7 @@ const copyLabelFor = (state: CopyState): string =>
   )
 
 export const codeLanguageFor = (language: string): CodeLanguage =>
-  Match.value(language.trim().toLocaleLowerCase("en-US")).pipe(
+  Match.value(Str.toLocaleLowerCase("en-US")(Str.trim(language))).pipe(
     Match.when("ts", (): CodeLanguage => "typescript"),
     Match.when("typescript", (): CodeLanguage => "typescript"),
     Match.when("sh", (): CodeLanguage => "shellscript"),

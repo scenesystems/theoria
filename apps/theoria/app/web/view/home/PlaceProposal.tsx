@@ -1,6 +1,6 @@
 import { Collapsible } from "@base-ui/react/collapsible"
 import { LockClosedIcon, LockOpenIcon } from "@heroicons/react/20/solid"
-import { Boolean as Bool, Option } from "effect"
+import { Boolean as Bool, Equal, Option } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
@@ -172,26 +172,28 @@ const NoteField = ({ build, role }: {
 }) =>
   Option.match(build, {
     onNone: () =>
-      role === sealedNoteSender
-        ? (
+      Bool.match(Equal.equals(role, sealedNoteSender), {
+        onTrue: () => (
           <Field label="Note">
             <SealedNoteFoldPending />
           </Field>
-        )
-        : null,
+        ),
+        onFalse: () => null
+      }),
     onSome: (value) =>
-      value.evidence.sealedNote.from === role
-        ? (
+      Bool.match(Equal.equals(value.evidence.sealedNote.from, role), {
+        onTrue: () => (
           <Field label="Note" mark={Option.some<PlaceMark>({ _tag: "Note" })}>
             <SealedNoteFold note={value.evidence.sealedNote} />
           </Field>
-        )
-        : null
+        ),
+        onFalse: () => null
+      })
   })
 
 /** The build's record of a proposer's proposal: what it signed and whether the author took it. */
 const recordOf = (build: PlaceBuild, role: ParticipantRole): Option.Option<ProposalRecord> =>
-  Arr.findFirst(build.proposals, (record) => record.proposal.proposer === role)
+  Arr.findFirst(build.proposals, (record) => Equal.equals(record.proposal.proposer, role))
 
 /**
  * The feature's name: what its disc on the stage is labelled with once the
@@ -260,7 +262,8 @@ export const PlaceProposal = ({
   const recorded = Option.map(record, (value) => value.accepted)
   const pending = Option.match(recorded, {
     onNone: () => ({}),
-    onSome: (value) => accepted === value ? {} : { "data-place-pending": "" }
+    onSome: (value) =>
+      Bool.match(Equal.equals(accepted, value), { onTrue: () => ({}), onFalse: () => ({ "data-place-pending": "" }) })
   })
   // What the build signed, once it is here; the recording's words, which are the same words, before.
   const feature = Option.match(record, {
@@ -277,7 +280,9 @@ export const PlaceProposal = ({
       data-place-proposal={role}
       {...Option.match(recorded, {
         onNone: () => ({}),
-        onSome: (value) => ({ "data-place-recorded": value ? "true" : "false" })
+        onSome: (value) => ({
+          "data-place-recorded": Bool.match(value, { onTrue: () => "true", onFalse: () => "false" })
+        })
       })}
       {...pending}
     >
@@ -286,20 +291,22 @@ export const PlaceProposal = ({
           <ParticipantName name={participantLabel(role)} tone={tone} />
           {Option.match(build, {
             onNone: () =>
-              offered.accepted
-                ? <StatusMarkPending label={mergedIntoText(mergedInto)} tone={recordedTone} />
-                : null,
+              Bool.match(offered.accepted, {
+                onTrue: () => <StatusMarkPending label={mergedIntoText(mergedInto)} tone={recordedTone} />,
+                onFalse: () => null
+              }),
             onSome: (value) =>
-              Option.getOrElse(recorded, () => false)
-                ? (
+              Bool.match(Option.getOrElse(recorded, () => false), {
+                onTrue: () => (
                   <StatusMark
                     className={recordedClassName}
                     label={mergedIntoText(currentVersion(value.evidence))}
                     mark={{ _tag: "Digest", contentId: currentVersion(value.evidence).contentId }}
                     tone={recordedTone}
                   />
-                )
-                : null
+                ),
+                onFalse: () => null
+              })
           })}
         </Cluster>
         <Layer className="ml-auto">

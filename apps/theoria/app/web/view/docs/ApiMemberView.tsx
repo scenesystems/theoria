@@ -1,3 +1,4 @@
+import { Boolean as Bool } from "effect"
 import * as Arr from "effect/Array"
 
 import type { ApiMember } from "@theoria/docs-model"
@@ -15,12 +16,14 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
       <Cluster className="gap-2">
         <SemanticContent as="h4" className="text-ink-strong" role="selection-title">{member.name}</SemanticContent>
         <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={member.kind} />
-        {member.inherited
-          ? <SemanticText as="span" className="text-ink-tertiary" role="row-label" text="inherited" />
-          : null}
+        {Bool.match(member.inherited, {
+          onTrue: () => <SemanticText as="span" className="text-ink-tertiary" role="row-label" text="inherited" />,
+          onFalse: () =>
+            null
+        })}
       </Cluster>
-      {member.signatures.length === 0
-        ? (
+      {Arr.match(member.signatures, {
+        onEmpty: () => (
           <Stack className="gap-4">
             <ApiDocumentationView docs={member.docs} />
             <CodeBlock label="Type" source={member.declaration} />
@@ -31,23 +34,24 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
               Source
             </ExternalLink>
           </Stack>
-        )
-        : (
+        ),
+        onNonEmpty: (signatures) => (
           <Stack className="gap-8">
             {Arr.map(
-              member.signatures,
+              signatures,
               (signature, index) => (
                 <ApiSignatureView
                   headingAs="h5"
                   index={index}
                   key={`${signature.kind}:${String(index)}`}
                   signature={signature}
-                  total={member.signatures.length}
+                  total={Arr.length(signatures)}
                 />
               )
             )}
           </Stack>
-        )}
+        )
+      })}
     </Stack>
   </Section>
 )

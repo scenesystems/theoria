@@ -1,5 +1,6 @@
-import { Match, Option } from "effect"
+import { Boolean as Bool, Equal, Match, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
@@ -22,20 +23,20 @@ const composeValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> =>
     annotation(
       "composer.forward(",
       Option.some(
-        `“${build.artifact.composition.title}” · ${String(build.artifact.composition.features.length)} features`
+        `“${build.artifact.composition.title}” · ${String(Arr.length(build.artifact.composition.features))} features`
       )
     ),
     annotation(
       "InferenceTesting.staticLanguageModel(",
       Option.map(
-        Arr.findFirst(build.evidence.inference, (evidence) => evidence.program === "theoria-place-composer"),
+        Arr.findFirst(build.evidence.inference, (evidence) => Equal.equals(evidence.program, "theoria-place-composer")),
         (evidence) => evidence.responseModel
       )
     )
   ])
 
 const proposeValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
-  const neighbor = Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "neighbor")
+  const neighbor = Arr.findFirst(build.proposals, (record) => Equal.equals(record.proposal.proposer, "neighbor"))
   const note = build.evidence.sealedNote
   return Arr.getSomes([
     annotation(
@@ -85,13 +86,14 @@ const arrangeValues = (search: PlaceSearch, shown: ShownGeometry): ReadonlyArray
     },
     {
       match: "Statistics.minimum(",
-      text: `closest markers ${String(Math.round(shown.minimumSeparation * 100))}% of width apart`
+      text: `closest markers ${String(Num.round(Num.multiply(shown.minimumSeparation, 100), 0))}% of width apart`
     },
     {
       match: "Study.tell(",
-      text: searching(search)
-        ? `trial ${String(search.tried.length)} of ${String(renderTrials)}`
-        : `${String(evidence.trials)} tried · best loss ${evidence.bestLoss.toFixed(3)}`
+      text: Bool.match(searching(search), {
+        onTrue: () => `trial ${String(Arr.length(search.tried))} of ${String(renderTrials)}`,
+        onFalse: () => `${String(evidence.trials)} tried · best loss ${evidence.bestLoss.toFixed(3)}`
+      })
     }
   ]
 }

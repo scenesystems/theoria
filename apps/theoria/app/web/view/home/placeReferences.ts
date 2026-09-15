@@ -1,4 +1,4 @@
-import { Match, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { Id as CardId } from "../../../contracts/id.js"
@@ -97,8 +97,12 @@ export const placeSourceFiles = (step: PlaceStep): ReadonlyArray<string> =>
 
 const repository = "https://github.com/scenesystems/theoria"
 
+/** A local dev server is built from no commit; its source is read at HEAD. */
+export const isLocalBuild = (buildSha: string): boolean => Equal.equals(buildSha, "dev-local")
+
 /** Source pinned to the commit the server was built from; a local dev server points at HEAD. */
-export const sourceRef = (buildSha: string): string => buildSha === "dev-local" ? "HEAD" : buildSha
+export const sourceRef = (buildSha: string): string =>
+  Bool.match(isLocalBuild(buildSha), { onTrue: () => "HEAD", onFalse: () => buildSha })
 
 export const sourceUrl = (buildSha: string, path: string): string => `${repository}/blob/${sourceRef(buildSha)}/${path}`
 

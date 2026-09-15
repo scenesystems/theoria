@@ -1,6 +1,7 @@
 import type { HttpServerRequest } from "@effect/platform"
-import { Effect, Option } from "effect"
+import { Boolean as Bool, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import { requestIsCanonical } from "./canonical-host.js"
 import { Analytics, type AnalyticsSettings, disabledAnalytics } from "./config/analytics.js"
@@ -32,18 +33,30 @@ const cloudflareTags = (token: string): ReadonlyArray<string> => [
   `<script defer src="${cloudflareInsightsScriptHost}/beacon.min.js" data-cf-beacon='{"token":"${token}"}'></script>`
 ]
 
-export const analyticsTags = (settings: AnalyticsSettings): ReadonlyArray<string> => [
-  ...Option.match(settings.googleMeasurementId, { onNone: () => [], onSome: googleTags }),
-  ...Option.match(settings.cloudflareBeaconToken, { onNone: () => [], onSome: cloudflareTags })
-]
+export const analyticsTags = (settings: AnalyticsSettings): ReadonlyArray<string> =>
+  Arr.appendAll(
+    Option.match(settings.googleMeasurementId, { onNone: () => Arr.empty<string>(), onSome: googleTags }),
+    Option.match(settings.cloudflareBeaconToken, { onNone: () => Arr.empty<string>(), onSome: cloudflareTags })
+  )
 
-/** Inserts the configured tags at the end of `<head>`. */
-export const injectAnalytics = (html: string, settings: AnalyticsSettings): string => {
-  const tags = analyticsTags(settings)
-  return Arr.isEmptyReadonlyArray(tags)
-    ? html
-    : html.replace("</head>", () => `  ${Arr.join(tags, "\n    ")}\n  </head>`)
-}
+/**
+ * Inserts the configured tags at the end of `<head>`. The tags are spliced
+ * in at the closing tag's position rather than through a replacement
+ * pattern, so nothing in a token is read as a substitution.
+ */
+export const injectAnalytics = (html: string, settings: AnalyticsSettings): string =>
+  Arr.match(analyticsTags(settings), {
+    onEmpty: () => html,
+    onNonEmpty: (tags) =>
+      Option.match(Str.indexOf("</head>")(html), {
+        onNone: () => html,
+        onSome: (at) =>
+          Str.concat(
+            Str.concat(Str.slice(0, at)(html), `  ${Arr.join(tags, "\n    ")}\n  `),
+            Str.slice(at)(html)
+          )
+      })
+  })
 
 /** The analytics settings for the current request: configured values on the canonical host, nothing elsewhere. */
 export const requestAnalytics: Effect.Effect<
@@ -54,5 +67,5 @@ export const requestAnalytics: Effect.Effect<
   const canonical = yield* requestIsCanonical
   const settings = yield* Analytics
 
-  return canonical ? settings : disabledAnalytics
+  return Bool.match(canonical, { onTrue: () => settings, onFalse: () => disabledAnalytics })
 })

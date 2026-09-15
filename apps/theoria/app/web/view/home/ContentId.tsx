@@ -1,3 +1,5 @@
+import { Match, Schema } from "effect"
+
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -9,9 +11,21 @@ import { contentIdShape, shortId } from "./placeViewModel.js"
 const digestTone = toneClassesFor("digest")
 
 /** The two forms an ID is cut to: the digest's first characters in the line, or the whole ID on a line of its own. */
-const idText = (form: "short" | "full", id: string): string => form === "full" ? id : shortId(id)
-const idClassName = (form: "short" | "full"): string =>
-  form === "full" ? `block truncate ${digestTone.textStrong}` : digestTone.text
+export const IdForm = Schema.Literal("short", "full")
+export type IdForm = typeof IdForm.Type
+
+const idText = (form: IdForm, id: string): string =>
+  Match.value(form).pipe(
+    Match.when("full", () => id),
+    Match.when("short", () => shortId(id)),
+    Match.exhaustive
+  )
+const idClassName = (form: IdForm): string =>
+  Match.value(form).pipe(
+    Match.when("full", () => `block truncate ${digestTone.textStrong}`),
+    Match.when("short", () => digestTone.text),
+    Match.exhaustive
+  )
 
 /**
  * The room a content ID takes before the build digests it: the same form, in
@@ -20,7 +34,7 @@ const idClassName = (form: "short" | "full"): string =>
  */
 export const ContentIdPending = ({ className = "", form }: {
   readonly className?: string
-  readonly form: "short" | "full"
+  readonly form: IdForm
 }) => (
   <Layer render={<span />} className={`${inlineMarkRoomClassName} ${className}`} data-place-content-id-pending>
     <GhostText as="code" className={idClassName(form)} role="code-meta" text={idText(form, contentIdShape)} />
@@ -36,7 +50,7 @@ export const ContentIdPending = ({ className = "", form }: {
  */
 export const ContentId = ({ className = "", form, id }: {
   readonly className?: string
-  readonly form: "short" | "full"
+  readonly form: IdForm
   readonly id: string
 }) => (
   <ProvenanceMark

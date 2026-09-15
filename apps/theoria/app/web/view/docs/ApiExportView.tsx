@@ -1,3 +1,4 @@
+import { Boolean as Bool, Equal } from "effect"
 import * as Arr from "effect/Array"
 
 import type { ApiExport, ApiFacet } from "@theoria/docs-model"
@@ -11,32 +12,33 @@ import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { ApiMemberView } from "./ApiMemberView.js"
 import { ApiSignatureView, ApiTypeParametersView } from "./ApiSignatureView.js"
 
-const RelationList = ({ facet }: { readonly facet: ApiFacet }) => {
-  const relations = [
-    ...Arr.map(facet.extends, (value) => `extends ${value}`),
-    ...Arr.map(facet.implements, (value) => `implements ${value}`)
-  ]
-
-  return relations.length === 0
-    ? null
-    : (
-      <Cluster className="gap-2">
-        {Arr.map(relations, (relation) => (
-          <Layer
-            className="rounded-control border border-hairline-veil bg-instrument-glass px-2.5 py-1 text-ink-tertiary"
-            key={relation}
-          >
-            <InlineHighlightedCode source={relation} />
-          </Layer>
-        ))}
-      </Cluster>
-    )
-}
+const RelationList = ({ facet }: { readonly facet: ApiFacet }) =>
+  Arr.match(
+    Arr.appendAll(
+      Arr.map(facet.extends, (value) => `extends ${value}`),
+      Arr.map(facet.implements, (value) => `implements ${value}`)
+    ),
+    {
+      onEmpty: () => null,
+      onNonEmpty: (relations) => (
+        <Cluster className="gap-2">
+          {Arr.map(relations, (relation) => (
+            <Layer
+              className="rounded-control border border-hairline-veil bg-instrument-glass px-2.5 py-1 text-ink-tertiary"
+              key={relation}
+            >
+              <InlineHighlightedCode source={relation} />
+            </Layer>
+          ))}
+        </Cluster>
+      )
+    }
+  )
 
 const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
   <Stack className="gap-6">
-    {facet.signatures.length === 0
-      ? (
+    {Arr.match(facet.signatures, {
+      onEmpty: () => (
         <Stack className="gap-5">
           <ApiDocumentationView docs={facet.docs} />
           <CodeBlock label="Type" source={facet.declaration} />
@@ -49,32 +51,41 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
             Source
           </ExternalLink>
         </Stack>
-      )
-      : (
+      ),
+      onNonEmpty: (signatures) => (
         <Stack className="gap-9">
           {Arr.map(
-            facet.signatures,
+            signatures,
             (signature, index) => (
               <ApiSignatureView
                 index={index}
                 key={`${signature.kind}:${String(index)}`}
                 signature={signature}
-                total={facet.signatures.length}
+                total={Arr.length(signatures)}
               />
             )
           )}
         </Stack>
-      )}
-    {facet.members.length === 0
-      ? null
-      : (
+      )
+    })}
+    {Arr.match(facet.members, {
+      onEmpty: () => null,
+      onNonEmpty: (members) => (
         <Stack className="gap-7 pt-2">
           <SemanticContent as="h3" className="text-ink" role="section-title">Members</SemanticContent>
-          {Arr.map(facet.members, (member) => <ApiMemberView key={member.anchor} member={member} />)}
+          {Arr.map(members, (member) => <ApiMemberView key={member.anchor} member={member} />)}
         </Stack>
-      )}
+      )
+    })}
   </Stack>
 )
+
+/** Every facet after the first is ruled off from the one above it. */
+const facetClassName = (index: number): string =>
+  Bool.match(Equal.equals(index, 0), {
+    onTrue: () => "",
+    onFalse: () => "border-t border-hairline-glass pt-8"
+  })
 
 export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) => (
   <Section
@@ -98,10 +109,7 @@ export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) 
         {Arr.map(
           apiExport.facets,
           (facet, index) => (
-            <Layer
-              className={index === 0 ? "" : "border-t border-hairline-glass pt-8"}
-              key={`${facet.kind}:${String(index)}`}
-            >
+            <Layer className={facetClassName(index)} key={`${facet.kind}:${String(index)}`}>
               <ApiFacetView facet={facet} />
             </Layer>
           )

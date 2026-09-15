@@ -1,7 +1,8 @@
 import { Slider } from "@base-ui/react/slider"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 import type { CSSProperties } from "react"
 
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
@@ -15,7 +16,7 @@ import { focusEdgeClassName, toneClassesFor, transitionClassName } from "../prim
 import { Layer } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
-import { searching, shownTrialIndex, trialValueText, waitMotion } from "./placeViewModel.js"
+import { isFirst, isKept, searching, shownTrialIndex, trialValueText, waitMotion } from "./placeViewModel.js"
 
 const searchTone = toneClassesFor("search")
 
@@ -24,7 +25,19 @@ type Point = typeof Point.Type
 
 /** A running minimum: the loss the search would report after each trial. */
 const runningBest = (losses: ReadonlyArray<number>): ReadonlyArray<number> =>
-  Arr.scan(losses, Number.POSITIVE_INFINITY, (best, loss) => Math.min(best, loss)).slice(1)
+  Arr.drop(Arr.scan(losses, Number.POSITIVE_INFINITY, Num.min), 1)
+
+/** The chart's width per trial: the whole budget across a hundred percent, or nothing to step by for a budget of one. */
+const trialStep: number = Bool.match(Num.lessThanOrEqualTo(renderTrials, 1), {
+  onTrue: () => 0,
+  onFalse: () => Num.unsafeDivide(100, Num.decrement(renderTrials))
+})
+
+/** A flat trace still needs a height to be drawn at: one unit, so every point stands at the bottom. */
+const spanOf = (min: number, max: number): number => {
+  const span = Num.subtract(max, min)
+  return Bool.match(Equal.equals(span, 0), { onTrue: () => 1, onFalse: () => span })
+}
 
 /**
  * Every trial at its loss, in percent of the chart: x over the whole trial
@@ -33,32 +46,56 @@ const runningBest = (losses: ReadonlyArray<number>): ReadonlyArray<number> =>
  * the best and a linear axis would flatten the part worth seeing.
  */
 const pointsFor = (losses: ReadonlyArray<number>): ReadonlyArray<Point> => {
-  const scaled = Arr.map(losses, (loss) => Math.log(Math.max(loss, Number.EPSILON)))
-  const max = Math.max(...scaled, 0)
-  const min = Math.min(...scaled, max)
-  const range = max - min || 1
-  const step = renderTrials <= 1 ? 0 : 100 / (renderTrials - 1)
-  return Arr.map(scaled, (value, index) => ({ x: index * step, y: 100 - ((value - min) / range) * 100 }))
+  const scaled = Arr.map(losses, (loss) => Math.log(Num.max(loss, Number.EPSILON)))
+  const max = Arr.reduce(scaled, 0, Num.max)
+  const min = Arr.reduce(scaled, max, Num.min)
+  const range = spanOf(min, max)
+  return Arr.map(scaled, (value, index) => ({
+    x: Num.multiply(index, trialStep),
+    y: Num.subtract(100, Num.multiply(Num.unsafeDivide(Num.subtract(value, min), range), 100))
+  }))
 }
 
 /** The best-so-far as a step line: horizontal until a better trial, then straight down to it. */
 const bestPath = (losses: ReadonlyArray<number>): string =>
   Arr.join(
     Arr.map(pointsFor(runningBest(losses)), (point, index) =>
-      index === 0
-        ? `M${point.x.toFixed(2)} ${point.y.toFixed(2)}`
-        : `H${point.x.toFixed(2)} V${point.y.toFixed(2)}`),
+      Bool.match(isFirst(index), {
+        onTrue: () => `M${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
+        onFalse: () => `H${point.x.toFixed(2)} V${point.y.toFixed(2)}`
+      })),
     " "
   )
 
 const dotStyle = (point: Point): CSSProperties => ({ left: `${point.x.toFixed(2)}%`, top: `${point.y.toFixed(2)}%` })
 
-const dotClassName = (kind: "tried" | "best" | "shown"): string =>
-  kind === "best"
-    ? `absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-paper ${searchTone.bg}`
-    : kind === "shown"
-    ? "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emphasis ring-2 ring-paper"
-    : `absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70 ${searchTone.dot}`
+/** What a trial's dot stands for: the one drawn on the stage, the one the search kept, or one only tried. */
+const DotKind = Schema.Literal("tried", "best", "shown")
+type DotKind = typeof DotKind.Type
+
+const dotKind = (index: number, best: number, shown: number): DotKind =>
+  Bool.match(Equal.equals(index, shown), {
+    onTrue: (): DotKind => "shown",
+    onFalse: () =>
+      Bool.match(Equal.equals(index, best), { onTrue: (): DotKind => "best", onFalse: (): DotKind => "tried" })
+  })
+
+const dotClassName = (kind: DotKind): string =>
+  Match.value(kind).pipe(
+    Match.when(
+      "best",
+      () => `absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-paper ${searchTone.bg}`
+    ),
+    Match.when(
+      "shown",
+      () => "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emphasis ring-2 ring-paper"
+    ),
+    Match.when(
+      "tried",
+      () => `absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70 ${searchTone.dot}`
+    ),
+    Match.exhaustive
+  )
 
 /** Dots for every trial and the step line beneath them; the chosen and the kept trial stand out. */
 const TraceChart = ({ best, losses, shown }: {
@@ -81,7 +118,7 @@ const TraceChart = ({ best, losses, shown }: {
       {Arr.map(points, (point, index) => (
         <Layer
           render={<span />}
-          className={dotClassName(index === shown ? "shown" : index === best ? "best" : "tried")}
+          className={dotClassName(dotKind(index, best, shown))}
           data-place-trial={String(index)}
           key={index}
           style={dotStyle(point)}
@@ -115,7 +152,7 @@ export const traceHeightClassName = "h-16"
  */
 export const PlaceSearchTracePending = ({ wait }: { readonly wait: PlaceWait }) => (
   <Layer
-    aria-busy={wait === "pending"}
+    aria-busy={Equal.equals(wait, "pending")}
     className={`${traceHeightClassName} flex w-full items-center`}
     data-place-trace-pending={wait}
   >
@@ -143,10 +180,12 @@ export const PlaceSearchTrace = ({ search }: { readonly search: PlaceSearch }) =
       data-place-render-phase={search.phase}
       data-place-trace
       disabled={running}
-      max={renderTrials - 1}
+      max={Num.decrement(renderTrials)}
       min={0}
       onValueChange={(value) => {
-        setPreview(value === search.bestIndex ? Option.none() : Option.some(value))
+        setPreview(
+          Bool.match(isKept(search, value), { onTrue: () => Option.none(), onFalse: () => Option.some(value) })
+        )
       }}
       step={1}
       value={shown}
@@ -161,7 +200,10 @@ export const PlaceSearchTrace = ({ search }: { readonly search: PlaceSearch }) =
           getAriaValueText={(_, value) => trialValueText(search, value)}
           // Escape leaves the excursion: back to the trial the search kept.
           onKeyDown={(event) => {
-            if (event.key === "Escape") setPreview(Option.none())
+            Bool.match(Equal.equals(event.key, "Escape"), {
+              onTrue: () => setPreview(Option.none()),
+              onFalse: () => undefined
+            })
           }}
         >
           <Layer render={<span />} className={thumbLineClassName} />

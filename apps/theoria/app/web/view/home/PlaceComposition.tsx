@@ -1,4 +1,4 @@
-import { Option } from "effect"
+import { Boolean as Bool, Option } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
@@ -11,7 +11,7 @@ import { GhostText } from "../primitives/Skeleton.js"
 
 import { BriefField, ScenarioChoice } from "./PlaceControls.js"
 import { inlineMarkClassName, inlineMarkRoomClassName, ProvenanceMark, StatusMark } from "./PlaceProvenance.js"
-import { participantTone } from "./placeViewModel.js"
+import { buildPresence, isFirst, participantTone } from "./placeViewModel.js"
 
 const authorTone = toneClassesFor(participantTone("author"))
 const inferenceTone = inlineStatusToneFor("dsp")
@@ -25,11 +25,14 @@ const inferenceTone = inlineStatusToneFor("dsp")
  */
 const FeatureSlot = ({ children, first }: { readonly children: ReactNode; readonly first: boolean }) => (
   <Layer render={<span />} className="inline-flex items-baseline gap-2">
-    {first ? null : (
-      <Layer aria-hidden render={<span />} className="inline-flex text-ink-tertiary">
-        <SemanticText as="span" role="selection-title" text="·" />
-      </Layer>
-    )}
+    {Bool.match(first, {
+      onTrue: () => null,
+      onFalse: () => (
+        <Layer aria-hidden render={<span />} className="inline-flex text-ink-tertiary">
+          <SemanticText as="span" role="selection-title" text="·" />
+        </Layer>
+      )
+    })}
     {children}
   </Layer>
 )
@@ -109,17 +112,17 @@ const Features = ({ build, outline }: {
       </Layer>
       <StatusMark label="Recorded inference" mark={{ _tag: "Inference" }} tone={inferenceTone} />
     </Layer>
-    <Cluster className="gap-x-2 gap-y-1" data-place-features={Option.isSome(build) ? "built" : "pending"}>
+    <Cluster className="gap-x-2 gap-y-1" data-place-features={buildPresence(build)}>
       {Option.match(build, {
         onNone: () =>
           Arr.map(
             outline.composition.features,
-            (feature, index) => <FeatureNamePending feature={feature} first={index === 0} key={feature.name} />
+            (feature, index) => <FeatureNamePending feature={feature} first={isFirst(index)} key={feature.name} />
           ),
         onSome: (value) =>
           Arr.map(
             value.artifact.composition.features,
-            (feature, index) => <FeatureName feature={feature} first={index === 0} key={feature.name} />
+            (feature, index) => <FeatureName feature={feature} first={isFirst(index)} key={feature.name} />
           )
       })}
     </Cluster>

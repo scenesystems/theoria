@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild, PlaceEvidence, Version } from "../../../contracts/imagined-place-result.js"
@@ -19,7 +19,10 @@ import { GhostText } from "../primitives/Skeleton.js"
 import { ContentId, ContentIdPending } from "./ContentId.js"
 import { StatusMark, StatusMarkPending } from "./PlaceProvenance.js"
 import {
+  buildPresence,
   isCurrentVersion,
+  isFirst,
+  isLast,
   knotLabel,
   signatureFor,
   versionChanges,
@@ -31,17 +34,52 @@ import {
 const digestTone = toneClassesFor("digest")
 const signTone = inlineStatusToneFor("sign")
 
-const signatureTone = (valid: boolean) => valid ? signTone : dangerStatusTone
+const signatureTone = (valid: boolean) => Bool.match(valid, { onTrue: () => signTone, onFalse: () => dangerStatusTone })
 
 /** The version being drawn is the last of the outline's shapes: filled on the strand before the build names it. */
 const isCurrentShape = (shapes: ReadonlyArray<VersionShape>, shape: VersionShape): boolean =>
-  Option.exists(Arr.last(shapes), (last) => last.version === shape.version)
+  Option.exists(Arr.last(shapes), (last) => Equal.equals(last.version, shape.version))
+
+/** Where a knot is drawn: on the strand itself, or small on the pinned stage. */
+const KnotSize = Schema.Literal("strand", "stage")
+type KnotSize = typeof KnotSize.Type
+
+const knotSizeClassName = (size: KnotSize): string =>
+  Match.value(size).pipe(
+    Match.when("strand", () => "size-3"),
+    Match.when("stage", () => "size-2"),
+    Match.exhaustive
+  )
+
+const knotFillClassName = (current: boolean): string =>
+  Bool.match(current, {
+    onTrue: () => `${digestTone.bg} forced-colors:bg-[CanvasText]`,
+    onFalse: () => "bg-paper forced-colors:bg-[Canvas]"
+  })
 
 /** A knot on the strand: filled for the version being drawn, open for the ones before it. */
-const knotClassName = (current: boolean, size: "strand" | "stage"): string =>
+const knotClassName = (current: boolean, size: KnotSize): string =>
   `inline-flex shrink-0 rounded-full border-2 ${digestTone.border} forced-colors:border-[CanvasText] ${
-    current ? `${digestTone.bg} forced-colors:bg-[CanvasText]` : "bg-paper forced-colors:bg-[Canvas]"
-  } ${size === "strand" ? "size-3" : "size-2"}`
+    knotFillClassName(current)
+  } ${knotSizeClassName(size)}`
+
+/** The thread between knots: a short line before every knot but the first on the stage's row. */
+const StageThread = ({ index }: { readonly index: number }) =>
+  Bool.match(isFirst(index), {
+    onTrue: () => null,
+    onFalse: () => <Layer render={<span />} className={`h-px w-2 ${digestTone.bg} opacity-40`} />
+  })
+
+/** The thread down from a knot to the next; the last knot ends the strand. */
+const StrandThread = ({ last }: { readonly last: boolean }) =>
+  Bool.match(last, {
+    onTrue: () => null,
+    onFalse: () => <Layer render={<span />} className={`mt-1 w-px flex-1 ${digestTone.bg} opacity-40`} />
+  })
+
+/** Room below a knot's entry for the thread to the next; the last needs none. */
+const knotEntryClassName = (last: boolean): string =>
+  Bool.match(last, { onTrue: () => "min-w-0 gap-1.5", onFalse: () => "min-w-0 gap-1.5 pb-5" })
 
 /**
  * The strand as it appears on the pinned stage: one small knot per version,
@@ -61,12 +99,12 @@ export const StageKnots = ({ evidence, outline }: {
     <Rail
       aria-busy={Option.isNone(evidence)}
       className="min-w-0 justify-end gap-2.5"
-      data-place-current-version={Option.isSome(evidence) ? "built" : "pending"}
+      data-place-current-version={buildPresence(evidence)}
     >
       <Rail aria-hidden className="gap-1">
         {Arr.map(shapes, (shape, index) => (
           <Rail className="gap-1" key={shape.version}>
-            {index === 0 ? null : <Layer render={<span />} className={`h-px w-2 ${digestTone.bg} opacity-40`} />}
+            <StageThread index={index} />
             <Layer render={<span />} className={knotClassName(isCurrentShape(shapes, shape), "stage")} />
           </Rail>
         ))}
@@ -108,7 +146,11 @@ const Recorded = ({ current, version, evidence }: {
   const change = useAtomValue(placeVersionChangeAtom)
   return (
     <>
-      <ChangedValue changes={current ? change.changes : 0} className="flex min-w-0" tone={digestTone}>
+      <ChangedValue
+        changes={Bool.match(current, { onTrue: () => change.changes, onFalse: () => 0 })}
+        className="flex min-w-0"
+        tone={digestTone}
+      >
         <ContentId form="full" id={version.contentId} />
       </ChangedValue>
       {Option.match(signatureFor(evidence.signatures, version.contentId), {
@@ -161,9 +203,9 @@ const Knot = ({ build, last, offered, shape, shapes }: {
     <Layer className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3" data-place-version={String(shape.version)}>
       <Layer aria-hidden className="flex flex-col items-center pt-1">
         <Layer render={<span />} className={knotClassName(current, "strand")} />
-        {last ? null : <Layer render={<span />} className={`mt-1 w-px flex-1 ${digestTone.bg} opacity-40`} />}
+        <StrandThread last={last} />
       </Layer>
-      <Stack className={`min-w-0 gap-1.5 ${last ? "" : "pb-5"}`}>
+      <Stack className={knotEntryClassName(last)}>
         <SemanticText
           as="p"
           className="min-w-0 text-ink"
@@ -209,12 +251,12 @@ export const PlaceStrand = ({ build, offered, outline }: {
 }) => {
   const shapes = versionShapes(outline)
   return (
-    <Stack className="gap-0" data-place-lineage={Option.isSome(build) ? "built" : "pending"}>
+    <Stack className="gap-0" data-place-lineage={buildPresence(build)}>
       {Arr.map(shapes, (shape, index) => (
         <Knot
           build={build}
           key={shape.version}
-          last={index === shapes.length - 1}
+          last={isLast(index, Arr.length(shapes))}
           offered={offered}
           shape={shape}
           shapes={shapes}

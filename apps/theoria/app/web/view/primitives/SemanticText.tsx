@@ -1,6 +1,9 @@
 import { Result } from "@effect-atom/atom"
+import { Boolean as Bool, Equal, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 import * as Option from "effect/Option"
+import * as Str from "effect/String"
 import type { CSSProperties } from "react"
 
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
@@ -9,22 +12,29 @@ import { useTextProjection } from "../../atoms/text.js"
 import { classNames } from "./classNames.js"
 import { glyphClassName, lineHeightVar, maxWidthClassName, whiteSpaceClassName } from "./semanticTextClasses.js"
 
-type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code" | "kbd"
+/** The block elements a text may be: those the projection may wrap line by line. */
+export const BlockElement = Schema.Literal("p", "h1", "h2", "h3", "dt", "dd")
+export type BlockElement = typeof BlockElement.Type
 
-type BlockElement = "p" | "h1" | "h2" | "h3" | "dt" | "dd"
+/** The inline elements a text may be: set on one line, never projected. */
+export const InlineElement = Schema.Literal("span", "code", "kbd")
+export type InlineElement = typeof InlineElement.Type
 
-const isBlockElement = (el: SemanticTextElement): el is BlockElement => el !== "span" && el !== "code" && el !== "kbd"
+export const SemanticTextElement = Schema.Union(BlockElement, InlineElement)
+export type SemanticTextElement = typeof SemanticTextElement.Type
 
 /**
  * Why a block is wrapped by the browser rather than by a projection, exposed
  * as `data-text-layout` so a measurement failure is visible in the document.
  */
-type BrowserLayoutReason = "native" | "measuring" | "measurement-failed"
+const BrowserLayoutReason = Schema.Literal("native", "measuring", "measurement-failed")
+type BrowserLayoutReason = typeof BrowserLayoutReason.Type
 
 const projectedLineWhitespaceClass = (preserveWhitespace: boolean): string =>
-  preserveWhitespace ? "whitespace-pre" : "whitespace-nowrap"
+  Bool.match(preserveWhitespace, { onTrue: () => "whitespace-pre", onFalse: () => "whitespace-nowrap" })
 
-const projectedLineText = (text: string): string => text.length === 0 ? "\u00a0" : text
+const projectedLineText = (text: string): string =>
+  Bool.match(Str.isEmpty(text), { onTrue: () => "\u00a0", onFalse: () => text })
 
 type ProjectionLine = TextProjection["lines"][number]
 
@@ -45,10 +55,11 @@ const limitedProjectionLines = ({
 }): ReadonlyArray<ProjectionLine> =>
   Option.match(maxLines, {
     onNone: () => projection.lines,
-    onSome: (limit) => {
-      const visibleLines = Arr.take(projection.lines, limit)
-      return Arr.isEmptyReadonlyArray(visibleLines) ? projection.lines : visibleLines
-    }
+    onSome: (limit) =>
+      Arr.match(Arr.take(projection.lines, limit), {
+        onEmpty: () => projection.lines,
+        onNonEmpty: (visibleLines) => visibleLines
+      })
   })
 
 const lineClampStyle = ({
@@ -207,13 +218,13 @@ const ProjectedWrappedBlockText = ({
         <Component
           ref={ref}
           className={classNames(className, `${glyph} ${leading} ${maxWidthClass}`)}
-          data-lines={visibleLines.length}
-          data-height={visibleLines.length * semantics.lineHeight}
+          data-lines={Arr.length(visibleLines)}
+          data-height={Num.multiply(Arr.length(visibleLines), semantics.lineHeight)}
           data-max-line-width={projection.summary.maxLineWidth}
           style={reservedLineStyle(role, reserveLines)}
         >
           <ProjectedLines
-            preserveWhitespace={semantics.whiteSpace === "pre-wrap"}
+            preserveWhitespace={Equal.equals(semantics.whiteSpace, "pre-wrap")}
             projection={{ ...projection, lines: visibleLines }}
           />
         </Component>
@@ -241,44 +252,48 @@ export const SemanticText = ({
   readonly wrapAuthority?: TextWrapAuthority
   readonly variant?: SurfaceVariant
 }) => {
-  const element = as
   const semantics = semanticsFor(role)
-  const resolvedWrapAuthority = wrapAuthority ?? semantics.wrapAuthority
+  const wrapping = Option.getOrElse(Option.fromNullable(wrapAuthority), () => semantics.wrapAuthority)
   const maxLines = Option.fromNullable(lineLimit)
   const reserved = Option.fromNullable(reserveLines)
 
-  if (!isBlockElement(element)) {
-    return <InlineText as={element} className={className} role={role} text={text} />
-  }
-
-  if (semantics.lineBreaks === "nowrap") {
-    return <NoWrapBlockText as={element} className={className} role={role} text={text} />
-  }
-
-  if (resolvedWrapAuthority === "native-browser") {
-    return (
-      <BrowserWrappedBlockText
-        as={element}
-        className={className}
-        layout="native"
-        maxLines={maxLines}
-        reserveLines={reserved}
-        role={role}
-        text={text}
-        variant={variant}
-      />
-    )
-  }
-
-  return (
-    <ProjectedWrappedBlockText
-      as={element}
-      className={className}
-      maxLines={maxLines}
-      reserveLines={reserved}
-      role={role}
-      text={text}
-      variant={variant}
-    />
+  return Match.value(as).pipe(
+    Match.when(
+      Schema.is(InlineElement),
+      (element) => <InlineText as={element} className={className} role={role} text={text} />
+    ),
+    Match.when(Schema.is(BlockElement), (element) =>
+      Match.value(semantics.lineBreaks).pipe(
+        Match.when("nowrap", () => <NoWrapBlockText as={element} className={className} role={role} text={text} />),
+        Match.when("wrap", () =>
+          Match.value(wrapping).pipe(
+            Match.when("native-browser", () => (
+              <BrowserWrappedBlockText
+                as={element}
+                className={className}
+                layout="native"
+                maxLines={maxLines}
+                reserveLines={reserved}
+                role={role}
+                text={text}
+                variant={variant}
+              />
+            )),
+            Match.when("effect-text-projected", () => (
+              <ProjectedWrappedBlockText
+                as={element}
+                className={className}
+                maxLines={maxLines}
+                reserveLines={reserved}
+                role={role}
+                text={text}
+                variant={variant}
+              />
+            )),
+            Match.exhaustive
+          )),
+        Match.exhaustive
+      )),
+    Match.exhaustive
   )
 }

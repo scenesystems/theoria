@@ -3,6 +3,7 @@ import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowUpIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Bool from "effect/Boolean"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 
@@ -22,6 +23,7 @@ import {
   bandLabel,
   type BandRow,
   bandRow,
+  focusedAttribute,
   markerContributor
 } from "./placeViewModel.js"
 
@@ -62,7 +64,7 @@ const Disc = ({ cy, disc }: { readonly cy: number; readonly disc: BandDisc }) =>
       className={bandDiscClassName(markerContributor(disc.marker), drawn, focused)}
       cy={cy.toFixed(1)}
       data-place-band-disc={disc.marker.name}
-      data-place-focused={focused ? "" : undefined}
+      {...focusedAttribute(focused)}
       exit={{ opacity: 0, transition: exitTransition }}
       r={disc.marker.radius.toFixed(1)}
       {...bandDiscPlacing(preference, disc.cx)}
@@ -118,12 +120,14 @@ export const PlaceBand = () => {
   return (
     <Layer className={slotClassName}>
       <AnimatePresence>
-        {shown
-          ? Option.match(latest, {
-            onNone: () => null,
-            onSome: (frame) => <Band frame={frame} key="band" />
-          })
-          : null}
+        {Bool.match(shown, {
+          onFalse: () => null,
+          onTrue: () =>
+            Option.match(latest, {
+              onNone: () => null,
+              onSome: (frame) => <Band frame={frame} key="band" />
+            })
+        })}
       </AnimatePresence>
     </Layer>
   )

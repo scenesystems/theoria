@@ -1,8 +1,9 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
-import { Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 import type { ReactNode } from "react"
 
 import { codeSiteOnLine } from "../../../contracts/demo/imagined-place-provenance.js"
@@ -31,12 +32,12 @@ import { placeLiveValues } from "./placeLiveValues.js"
 import { ProvenanceMark } from "./PlaceProvenance.js"
 import {
   commitUrl,
+  isLocalBuild,
   type PlaceReference,
   placeReferences,
   placeSourceFiles,
   referenceLinks,
   sourceLabel,
-  sourceRef,
   sourceUrl
 } from "./placeReferences.js"
 import { PlaceStep, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
@@ -85,7 +86,8 @@ const SourceRow = ({ path, sha }: { readonly path: string; readonly sha: string 
   </Layer>
 )
 
-const commitLabel = (sha: string): string => sourceRef(sha) === "HEAD" ? "Source" : `Source · ${sha.slice(0, 7)}`
+const commitLabel = (sha: string): string =>
+  Bool.match(isLocalBuild(sha), { onTrue: () => "Source", onFalse: () => `Source · ${Str.takeLeft(sha, 7)}` })
 
 const CommitLink = ({ sha }: { readonly sha: string }) => (
   <ExternalLink
@@ -157,7 +159,7 @@ const StepCode = ({ step }: { readonly step: PlaceStep }) => {
       <CodeBlock
         annotations={placeLiveValues(step, build, search, shown)}
         focusedMatch={Option.map(
-          Option.filter(focusedSite, (site) => site.step === step),
+          Option.filter(focusedSite, (site) => Equal.equals(site.step, step)),
           (site) => site.match
         )}
         label={definition.name}

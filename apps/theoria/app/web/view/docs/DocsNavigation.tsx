@@ -2,6 +2,7 @@ import { Collapsible } from "@base-ui/react/collapsible"
 import { ChevronRightIcon } from "@heroicons/react/20/solid"
 import { Boolean as Bool } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
@@ -52,8 +53,10 @@ const NavigationBranch = ({
   readonly onNavigate: () => void
   readonly route: DocsRoute
 }) => {
-  const active = destinationIsActive(branch.root, route) ||
+  const active = Bool.or(
+    destinationIsActive(branch.root, route),
     Arr.some(branch.children, (destination) => destinationIsActive(destination, route))
+  )
   const branchContent = (
     <Stack className="ml-3 mt-1 gap-1 border-l border-hairline-strong-glass pl-3">
       {Arr.map(branch.children, (destination) => (
@@ -77,15 +80,15 @@ const NavigationBranch = ({
         text={branch.label}
         variant="expanded"
       />
-      {branch.children.length === 0 ?
-        (
+      {Arr.match(branch.children, {
+        onEmpty: () => (
           <NavigationLink
             active={destinationIsActive(branch.root, route)}
             destination={branch.root}
             onNavigate={onNavigate}
           />
-        ) :
-        (
+        ),
+        onNonEmpty: () => (
           <Collapsible.Root defaultOpen={active} key={`${branch.root.href}:${String(active)}`}>
             <Layer className="grid grid-cols-[minmax(0,1fr)_2.5rem] items-start gap-1">
               <NavigationLink
@@ -94,7 +97,7 @@ const NavigationBranch = ({
                 onNavigate={onNavigate}
               />
               <Collapsible.Trigger
-                aria-label={`Toggle ${branch.label.toLocaleLowerCase("en-US")} navigation`}
+                aria-label={`Toggle ${Str.toLocaleLowerCase("en-US")(branch.label)} navigation`}
                 className={`group mt-0.5 inline-flex size-10 items-center justify-center rounded-instrument text-ink-tertiary ${respondColorsClassName} hover:bg-paper-glass hover:text-ink ${focusClassName}`}
               >
                 <ChevronRightIcon
@@ -113,7 +116,8 @@ const NavigationBranch = ({
               {branchContent}
             </Collapsible.Panel>
           </Collapsible.Root>
-        )}
+        )
+      })}
     </Stack>
   )
 }
