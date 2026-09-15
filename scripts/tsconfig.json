@@ -16,7 +16,12 @@
     "typecheck/**/*.ts",
     "ensure-docs-assets.ts",
     "resolve-workspace-deps.ts",
+    "release.ts",
+    "release/**/*.ts",
     "../packages/digest/scripts/fixture-schemas.ts"
   ],
-  "references": [{ "path": "../packages/docs-model/tsconfig.src.json" }]
+  "references": [
+    { "path": "../packages/docs-model/tsconfig.src.json" },
+    { "path": "../packages/digest/tsconfig.src.json" }
+  ]
 }

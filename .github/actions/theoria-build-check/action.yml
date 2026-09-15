@@ -19,4 +19,4 @@ runs:
       shell: bash
       env:
         BUILD_ROOT: ${{ inputs.path }}
-      run: BUILD_ROOT="$(realpath "$BUILD_ROOT")" bun run --cwd apps/theoria build:check
+      run: bun apps/theoria/scripts/check-build-output.ts

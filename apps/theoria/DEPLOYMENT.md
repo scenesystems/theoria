@@ -276,7 +276,8 @@ The [Theoria workflow](../../.github/workflows/theoria.yml) builds the site once
 per commit. It first runs the app's typecheck and unit tests (`bun run
 check:apps`, `bun run test:apps`), so an artifact never comes from a tree that
 fails its own checks even though the Check workflow runs separately. It then
-builds (`bun run build:web`, then `wrangler deploy --dry-run` to bundle
+builds the website and publishable packages (`bun run build` from the repository
+root, then `wrangler deploy --dry-run` to bundle
 `worker.ts` for workerd), checks the output with
 [`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml),
 and uploads `dist/` and `.wrangler-out/` as the artifact `theoria-<sha>`. The
@@ -285,21 +286,159 @@ again, and run their shard of the workerd and Chromium suite against it (`bun
 run test:worker -- --shard=i/n`, see above). Every deployment then uploads that
 exact artifact with `wrangler deploy --no-bundle`, so staging, production, and
 previews serve byte-identical builds of a commit, and none is deployed before
-every shard has passed.
+every shard has passed. Main builds also retain `packages/*/dist` in
+`theoria-packages-<sha>` for later publication without rebuilding.
 
-| Event                     | Job         | Target                                          |
-| ------------------------- | ----------- | ----------------------------------------------- |
-| pull request              | Build       | artifact only, no credentials                   |
-| pull request              | Test Worker | the artifact, in workerd and Chromium, sharded  |
-| `workflow_run` of Theoria | PR Preview  | `theoria-pr-<N>.staging.scenesystems.io`        |
-| pull request closed       | Remove      | deletes `theoria-pr-<N>`                        |
-| push to `main`            | Staging     | `theoria.staging.scenesystems.io`, after Test   |
-| push to `main` (gated)    | Production  | `theoria.scenesystems.io`, after Staging passes |
+| Event                                   | Job         | Target                                                          |
+| --------------------------------------- | ----------- | --------------------------------------------------------------- |
+| pull request                            | Build       | artifact only, no credentials                                   |
+| pull request                            | Test Worker | the artifact, in workerd and Chromium, sharded                  |
+| `workflow_run` of Theoria               | PR Preview  | `theoria-pr-<N>.staging.scenesystems.io`                        |
+| pull request closed                     | Remove      | deletes `theoria-pr-<N>`                                        |
+| push to `main`                          | Staging     | `theoria.staging.scenesystems.io`, after Test                   |
+| manual Theoria run on `main`            | Staging     | rebuild, test, and deploy staging only                          |
+| manual Theoria Production run on `main` | Production  | `theoria.scenesystems.io`, from a chosen successful staging run |
 
-Each deployment ends with
-[`theoria-verify-deployment`](../../.github/actions/theoria-verify-deployment/action.yml),
-which polls `/api/health/live` until `meta.buildSha` matches the commit and then
-runs the checklist below against the live hostname.
+Staging and production use `bun scripts/release.ts deploy`; previews use the
+same verifier through `theoria-verify-deployment`. The Effect program polls
+`/api/health/live` until HTTP 200 and `meta.buildSha` match the commit, then
+runs the checklist below against the live hostname. Requests and subprocesses
+have scoped lifetimes; failed verification fails the release.
+
+### Promote staging to production
+
+Pushes to `main` stop after staging verification. A successful staging job
+uploads a schema-v2 `theoria-candidate` record: the commit SHA, staging run ID
+and attempt, immutable website and package artifact IDs, and each public
+package's version and prepared-content SHA-256 digest.
+Both [Publish Packages](../../.github/workflows/publish.yml) and
+[Theoria Production](../../.github/workflows/theoria-production.yml) select
+this record with the same `run_id`; neither follows a moving `main` or staging
+site after selection.
+
+1. For package changes, merge **Version Packages** first. This finalizes the
+   package versions and changelogs but does not publish anything to npm.
+2. Wait for that commit's **Theoria** run to finish successfully, including
+   **Staging**, then review https://theoria.staging.scenesystems.io.
+3. Copy `run_id` from the staging job's summary, or the numeric ID after
+   `/actions/runs/` in that run's URL (not the run number or commit SHA).
+4. If the candidate contains unpublished package versions, run **Actions →
+   Publish Packages → Run workflow** on `main` with that `run_id`. The first
+   run pins the candidate and starts a second run on
+   `theoria-candidate-<sha>`. Wait for the **tag run**, including **Verify and
+   record package publication**, to succeed; a green dispatcher alone does
+   not mean packages were published.
+5. Whenever ready, open **Actions → Theoria Production → Run workflow**, select
+   `main`, and enter the same `run_id`. It first requires matching published
+   package content, then deploys the selected website artifact.
+
+The equivalent CLI commands are:
+
+```sh
+gh workflow run publish.yml --ref main -f run_id=STAGING_RUN_ID
+# Wait for the pinned tag publication to succeed; production is still unchanged.
+gh workflow run theoria-production.yml --ref main -f run_id=STAGING_RUN_ID
+```
+
+**Staging ahead, npm published, website promotion pending** is a supported
+state. A later staging deployment does not alter the selected release. A
+website-only candidate can skip Publish Packages if its package content matches
+the versions already on npm. Publishing never promotes the website, and
+website promotion never publishes packages.
+
+To retry publication or production, use **Run workflow** on `main` again with
+the same `run_id` and optional `reviewed_run_id`. Do not use GitHub's **Re-run
+jobs** or **Re-run all jobs**: the credentialed publication and production jobs
+are intentionally skipped on later attempts. A fresh dispatch repeats staging
+and package validation instead of reusing potentially stale prerequisite outputs.
+
+The workflow rejects runs from other workflows, repositories, branches, or PRs,
+unfinished or failed runs, and runs without a successful Staging job. It
+downloads the recorded website artifact ID from the selected run, checks out that exact commit
+for the deployment configuration and tools, deploys without rebuilding, and
+verifies production. The production summary links the selected commit and
+staging run; these identify the deployed revision, not the newer `main` commit
+GitHub associates with the manual workflow dispatch. Production deployments
+are serialized and never cancel one already in progress.
+
+Later pushes can replace the live staging site without changing the selected
+artifact. Before promoting, confirm `/api/health/live` reports the
+`meta.buildSha` you intended to review; the workflow allows an older successful
+staging run so the release choice remains explicit. Artifacts expire seven
+days after upload. A missing or expired artifact fails promotion before deploy;
+start a new **Theoria** run on `main` to build, test, and stage again, then
+review and promote that new run.
+
+### Carry a review through version finalization
+
+If staging run **A** was reviewed before the version bump, stage the finalized
+commit as run **V**. Supply `run_id=V` and optionally `reviewed_run_id=A` to
+Publish Packages and Theoria Production. Both validate that A is a successful
+main staging run and an ancestor of V, then inspect the **entire A-to-V diff**.
+Only stable version advances, corresponding internal dependency-range updates,
+changelogs, consumed changeset deletions, and matching lockfile workspace
+metadata updates may carry the review forward. New packages, source changes,
+exports or build-script changes, external dependency changes, and lockfile
+resolution changes require a fresh review. The name or author of a Version
+Packages commit is not evidence of equivalence.
+
+V is always rebuilt and tested on staging: version labels and the Git revision
+are embedded in the website. The earlier functional review can carry forward,
+but the old artifact is never relabeled. If the comparison rejects V, review V
+directly and omit `reviewed_run_id`; this does not bypass package-publication
+or staging checks.
+
+### Package compatibility and publication records
+
+`scripts/release.ts` composes `@effect/cli`, Effect Schema and platform services.
+Its modules separate candidate evidence, Git/version comparison, npm content,
+GitHub transport, and website deployment. YAML retains GitHub triggers, job
+dependencies, permissions, environments and vendor Actions. No Bash or jq
+implements release policy. The CLI runs on Linux/Bun (including GitHub's Ubuntu
+runners); argument acquisition uses procfs. GitHub CLI handles paginated API
+responses and artifact downloads. The repository-pinned Wrangler handles
+Cloudflare deployment.
+
+The npm check validates registry-hosted provenance against the published
+tarball's SHA-512 integrity, this repository, and `publish.yml`. It downloads
+the tarball, verifies the bytes against that integrity, rejects unsafe archive
+paths, links and special files, and compares its content with the staged
+packages. GNU tar and sha512sum run through scoped Effect commands with checked
+exit status; the downloaded package code is never executed.
+
+Content identity covers the actual shipped files: JavaScript, declarations,
+source, maps, exports, dependency ranges and other manifest fields. Only root
+README/changelog and descriptive manifest fields (description, homepage,
+repository, bugs, keywords) are excluded. Website-only and README changes need
+no npm release when the package content is unchanged. A compiler or dependency
+change matters when it changes shipped output; there is no manually maintained
+inventory of possible build inputs.
+
+An already published version with different content blocks both publishing and
+promotion: add a changeset, merge the version PR, and stage the resulting
+candidate. Missing provenance or registry errors also fail closed. Packages
+published before this workflow can be reused when their existing npm
+provenance and package content match; there is no version-exists-only migration
+bypass. The publication and production workflows save JSON evidence for 90
+days and summarize their state. Future website-only releases use the durable
+npm provenance, not an expired Actions evidence artifact.
+
+The publisher runs on the immutable candidate tag because npm provenance and
+the Changesets action's GitHub tags use the workflow **event SHA**, not merely
+the checked-out SHA. The main dispatcher never publishes. The tag run checks
+its event SHA and tag name against the selected staging record before any npm
+credentials are requested. It downloads the staged package output, runs checks,
+verifies that output still matches the candidate, then packs it without rebuilding.
+Packing uses pinned npm with lifecycle scripts disabled. The packed artifact is
+downloaded and its tarball integrity and content checked against staging before
+the OIDC publish job can start. Publication verifies the registry afterwards.
+If registry propagation or recording fails after publish,
+dispatch **Publish Packages** on `main` again with the same candidate inputs.
+It reuses the immutable tag but creates a new run and repeats validation:
+existing matching versions are checked and not republished. Never move a
+`theoria-candidate-*` tag.
+
+### Pull request previews
 
 The [preview workflow](../../.github/workflows/theoria-preview.yml) runs from
 trusted `main` on `workflow_run`. An unprivileged `resolve` job first finds the
@@ -325,8 +464,8 @@ show the deployment URL. After verification passes, the job posts a single
 redeploy, and edited again to say the preview was removed when the pull request
 closes) with the hostname, the deployed commit, and the run that deployed it.
 
-Both workflows only take effect once they exist on `main`: a pull request that
-adds or edits them is built, but not previewed, until it merges.
+The preview and manual production workflows must exist on `main` to be
+triggered. Changes to them take effect after merge, not from the pull request.
 
 ### Cloudflare account and token
 
@@ -353,19 +492,30 @@ In **Settings → Environments**, create `staging` and `production`. Add
 `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as environment secrets to
 both. Restrict both environments to the `main` deployment branch so a workflow
 edited on a pull request cannot request either environment's secrets. Leave
-both environments without required reviewers: every push to `main` deploys to
-staging, the Staging job's verify step exercises the live staging site, and the
-Production job, which `needs` that job, deploys the same build unattended only
-after that verification passes. Staging is the gate, so a release (including a
-merged Version Packages pull request) reaches the website in one run with no
-manual step. Adding a required reviewer to `production` turns that into a
-manual gate; if you do, approve within seven days of the push, because the
-build artifact expires after that and the Production job can no longer
-download it.
+staging without required reviewers so every push to `main` deploys there
+automatically. Production's manual dispatch is the release decision and needs
+repository write access; required reviewers on `production` are optional if an
+additional approval or a specific release approver is wanted. Any extra approval
+must happen before the selected artifact expires, seven days after upload.
 
-One consequence of the branch restriction: `workflow_dispatch` runs from any
-branch other than `main` fail when the Staging job requests the environment;
-pull request previews are the way to review a branch.
+Both staging and production jobs skip manual dispatches from branches other
+than `main`; pull request previews are the way to review a branch. Merging a
+Version Packages pull request stages the website like any other merge but
+does not promote production or bypass the manual release decision.
+
+The **npm** environment is separate. Its deployment branch/tag policy must
+allow the tag pattern `theoria-candidate-*` for pinned publication; keep the
+existing `main` branch rule during rollout. Do not open it to arbitrary tags
+or branches. Adding that tag rule is a one-time repository-settings change
+requiring maintainer approval, not something the workflows change themselves.
+The `npm` Trusted Publisher still names `publish.yml` and environment `npm`.
+Repository Actions must permit the dispatcher's scoped `contents: write` and
+`actions: write` token to create the candidate ref and dispatch the tag run.
+
+Rollout requires a new successful Theoria staging run after these workflows
+merge: older runs lack the schema-v2 candidate and prepared package artifact. No live deployment,
+package publication, or environment-policy change is part of installing this
+workflow change.
 
 ### Manual deploy
 
@@ -425,13 +575,12 @@ the dashboard the same action is **Workers & Pages → theoria → Deployments �
 on the version → Rollback**. Then verify with the checklist under
 [Manual deploy](#manual-deploy), watching `meta.buildSha`.
 
-A rollback does not change `main`. The next push to `main` deploys whatever
-`main` then contains, so follow the rollback with the second path, or the bad
-commit comes back on the next merge.
+A rollback does not change `main`. The next push deploys whatever `main` then
+contains to staging only. Follow the rollback with the second path so a later
+manual production promotion does not reintroduce the bad commit.
 
-**Durable: revert on `main`.** Use this for anything that can wait for one CI
-run (recent runs took six to eighteen minutes from push to production, most of
-it the build and the two live verify steps), and always after an immediate
+**Durable: revert on `main`.** Use this for anything that can wait for a staging
+CI run and an explicit production promotion, and always after an immediate
 rollback:
 
 ```sh
@@ -440,10 +589,12 @@ gh pr create --base main --fill
 ```
 
 Merge the pull request as usual. The Theoria workflow builds the reverted tree,
-deploys it to staging, verifies it, and only then deploys production, so the
-revert takes exactly the path a release does and cannot skip the staging gate.
-If the revert also needs a package change, add a patch changeset like any other
-fix; the website deploy does not depend on package versions.
+deploys it to staging, and verifies it. Review that run, then manually promote
+it with **Theoria Production**, so the revert takes the same path as a release
+and cannot skip the staging gate. If the revert also needs a package change,
+add a patch changeset like any other fix, finalize and publish the new versions,
+then promote their staging candidate. Existing npm versions cannot be replaced
+with reverted code.
 
 Previews never need a rollback: push a fix to the pull request or close it.
 
@@ -522,8 +673,9 @@ deploy:
 2. Attach the hostname to the Worker right away, either by opening
    **Workers & Pages → theoria → Settings → Domains & Routes → Add → Custom
    Domain** and entering `theoria.scenesystems.io` (the already uploaded Worker
-   serves immediately), or by rerunning the failed `Production` job, whose
-   `wrangler deploy` now creates the Custom Domain and its record.
+   serves immediately), or by dispatching **Theoria Production** again on `main`
+   with the same candidate inputs. The new run repeats validation before
+   `wrangler deploy` creates the Custom Domain and its record.
 3. Let the verify step pass. It polls `/api/health/live` for up to ten minutes
    until the hostname reports the deployed `buildSha`; that covers certificate
    issuance for the new hostname and resolvers that cached the wildcard answer

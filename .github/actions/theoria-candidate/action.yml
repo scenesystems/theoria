@@ -1,0 +1,38 @@
+name: Resolve Theoria release candidate
+description: Validate staging evidence and optional version-only review; requires full checkout and installed dependencies.
+inputs:
+  run-id:
+    description: Successful Theoria staging run ID
+    required: true
+  reviewed-run-id:
+    description: Optional earlier reviewed staging run
+    default: ""
+  publication-event:
+    description: Also bind the publishing event ref and SHA
+    default: "false"
+outputs:
+  build-sha:
+    description: Candidate commit
+    value: ${{ steps.candidate.outputs.build-sha }}
+  artifact-id:
+    description: Immutable staged website artifact ID
+    value: ${{ steps.candidate.outputs.artifact-id }}
+  package-artifact-id:
+    description: Immutable prepared package artifact ID
+    value: ${{ steps.candidate.outputs.package-artifact-id }}
+  path:
+    description: Validated candidate record
+    value: ${{ steps.candidate.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - name: Resolve the selected candidate
+      id: candidate
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RUN_ID: ${{ inputs.run-id }}
+        REVIEWED_RUN_ID: ${{ inputs.reviewed-run-id }}
+        PUBLICATION_EVENT: ${{ inputs.publication-event }}
+        RELEASE_OUTPUT: ${{ runner.temp }}/theoria-candidate/release-candidate.json
+      run: bun scripts/release.ts resolve

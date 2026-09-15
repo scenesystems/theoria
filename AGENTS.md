@@ -159,7 +159,7 @@ bun run changeset:version      # Apply version bumps
 bun run release:check          # Type checks, lint, behavioral tests, production build
 ```
 
-Publishing happens only in the `Publish Packages` workflow (`.github/workflows/publish.yml`, manual dispatch on `main`) through npm Trusted Publishing. Its `pack` job runs `release:check` and packs the unpublished versions into tarballs; its `publish` job holds the OpenID Connect token and publishes those tarballs, then pushes the tags and creates the GitHub releases.
+Publishing happens only in `Publish Packages` (`.github/workflows/publish.yml`) through npm Trusted Publishing. Manually dispatch on `main` with a successful Theoria staging `run_id`. The dispatcher pins `theoria-candidate-<sha>` and starts the actual publish run on that tag, so provenance and release tags name the candidate commit. Its `pack` job downloads the staged package output, runs typechecks/lint/tests, verifies content identity and packs unpublished versions without rebuilding; its `publish` job holds the OpenID Connect token, publishes those tarballs, and creates tags/releases. Wait for the tag run's publication verification, not just the dispatcher. The `npm` environment must permit `theoria-candidate-*` tags. Publishing never promotes the website. Release policy lives in `scripts/release.ts` and its Effect modules, not shell scripts.
 
 ---
 
@@ -191,17 +191,17 @@ The `apps/theoria` site deploys as one Cloudflare Worker (`apps/theoria/worker.t
 
 ### Targets
 
-| Target     | Worker            | Hostname                                 | Deployed by                                                   |
-| ---------- | ----------------- | ---------------------------------------- | ------------------------------------------------------------- |
-| preview    | `theoria-pr-<N>`  | `theoria-pr-<N>.staging.scenesystems.io` | `Theoria Preview` (`workflow_run` on `main`) per pull request |
-| staging    | `theoria-staging` | `theoria.staging.scenesystems.io`        | `Theoria` on every push to `main`                             |
-| production | `theoria`         | `theoria.scenesystems.io`                | `Theoria` after staging passes and `production` is approved   |
+| Target     | Worker            | Hostname                                 | Deployed by                                                       |
+| ---------- | ----------------- | ---------------------------------------- | ----------------------------------------------------------------- |
+| preview    | `theoria-pr-<N>`  | `theoria-pr-<N>.staging.scenesystems.io` | `Theoria Preview` (`workflow_run` on `main`) per pull request     |
+| staging    | `theoria-staging` | `theoria.staging.scenesystems.io`        | `Theoria` on every push to `main`                                 |
+| production | `theoria`         | `theoria.scenesystems.io`                | `Theoria Production`, manually selecting a successful staging run |
 
-The build runs once per commit (`build:web`, `deploy:dry-run`, `test:worker`) and the same artifact is checked (`theoria-build-check` runs `apps/theoria/scripts/check-build-output.ts`: every `dist/` file must have a content type in `app/server/config/static-store.ts`, the single MIME table the Bun server also uses), deployed, and verified (`theoria-verify-deployment`) at each stage. Only `theoria.scenesystems.io` is indexable; every other hostname gets `X-Robots-Tag: noindex`.
+The root `build` prepares packages and the website once per commit, followed by `deploy:dry-run` and `test:worker`. The same website artifact is checked (`theoria-build-check` runs `apps/theoria/scripts/check-build-output.ts`: every `dist/` file must have a content type in `app/server/config/static-store.ts`, the single MIME table the Bun server also uses), deployed, and verified by the Effect release program at each stage. Main builds also retain the prepared package output. Only `theoria.scenesystems.io` is indexable; every other hostname gets `X-Robots-Tag: noindex`.
 
 ### Deployment Protocol
 
-1. **Code changes** deploy by merging to `main`: staging deploys automatically, production waits for approval of the `production` environment in the workflow run.
+1. **Code changes** deploy by merging to `main`: staging deploys automatically and records a release candidate. Publish new package versions with `Publish Packages`, then separately dispatch `Theoria Production` on `main` with the same `run_id`. Production requires matching npm provenance and prepared package content, and promotes the recorded artifact/configuration without rebuilding. Website-only candidates can reuse matching published packages. Optional `reviewed_run_id` carries a prior staging review forward only through verified version-only changes. Candidate/site/package artifacts expire after seven days. Never dispatch publication or production without explicit release approval.
 2. **Variables** are declared in `wrangler.jsonc` (`vars`) or passed as `--var` by the workflow (`BUILD_SHA`). Changing one is a code change.
 3. **Secrets** live in the GitHub `staging` and `production` environments (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`); the app itself needs none.
 4. **Debugging** starts with the failed workflow step, then `wrangler tail theoria` / `wrangler tail theoria-staging` (Workers Logs are enabled in `wrangler.jsonc`).
