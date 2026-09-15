@@ -8,7 +8,7 @@ import { Cluster } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 const tabClassName =
-  `inline-flex min-h-9 items-center px-3 py-2 text-ink-tertiary ${respondColorsClassName} hover:text-ink ${focusClassName} focus-visible:ring-inset data-[active]:text-ink-strong`
+  `inline-flex min-h-9 shrink-0 items-center px-2 py-2 text-ink-tertiary sm:px-3 ${respondColorsClassName} hover:text-ink ${focusClassName} focus-visible:ring-inset data-[active]:text-ink-strong`
 
 /** The 2 px line under the active tab; Base UI measures the tab and hands the geometry over as CSS variables. */
 const indicatorClassName =
@@ -47,8 +47,8 @@ export const TabGroup = <A extends string>({
 )
 
 /**
- * The strip of tabs: words on a hairline, the active one underlined. Base UI
- * owns roving focus and the `tablist` role.
+ * One scrollable row of tabs, never wrapped or squeezed. Base UI owns roving
+ * focus and the `tablist` role; the active word is underlined on the hairline.
  */
 export const TabBar = ({
   className = "",
@@ -57,7 +57,9 @@ export const TabBar = ({
   readonly className?: string
   readonly children: ReactNode
 }) => (
-  <Tabs.List className={classNames("relative flex gap-1 border-b border-hairline", className)}>
+  <Tabs.List
+    className={classNames("relative flex flex-nowrap gap-1 overflow-x-auto border-b border-hairline", className)}
+  >
     {children}
     <Tabs.Indicator className={indicatorClassName} data-tab-indicator renderBeforeHydration />
   </Tabs.List>

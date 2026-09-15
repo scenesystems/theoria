@@ -23,6 +23,7 @@ import {
 import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
+import { SemanticContent } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { Tab, TabBar, TabGroup, TabPanel } from "../primitives/TabBar.js"
 
@@ -42,10 +43,10 @@ import {
 import { PlaceStep, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
 
 const rowLinkClassName =
-  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
+  `-mx-2 flex min-w-0 flex-col items-start gap-1 rounded-mark px-2 py-1.5 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const sourceLinkClassName =
-  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
+  `-mx-2 flex min-w-0 items-baseline gap-1.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const commitLinkClassName =
   `inline-flex min-h-8 items-center gap-1.5 rounded-mark px-2 text-ink-tertiary ${respondColorsClassName} ${firmUnderPointerClassName} hover:text-ink ${focusClassName}`
@@ -57,7 +58,7 @@ const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly
   </Stack>
 )
 
-/** One symbol the sample calls, linked to its page in the reference; the package is named beside it in the quiet ink. */
+/** One symbol the sample calls, with its package consistently below; long identifiers wrap within the rail. */
 const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => (
   <Layer render={<li />}>
     <DocsLink
@@ -66,7 +67,9 @@ const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => 
       href={reference.href}
       title={reference.text}
     >
-      <SemanticText as="code" className="text-ink" role="code-meta" text={reference.text} />
+      <SemanticContent as="code" className="min-w-0 max-w-full wrap-anywhere text-ink" role="code-meta">
+        {reference.text}
+      </SemanticContent>
       <SemanticText as="span" className="shrink-0 text-ink-tertiary" role="code-meta" text={reference.package} />
     </DocsLink>
   </Layer>
@@ -76,7 +79,9 @@ const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => 
 const SourceRow = ({ path, sha }: { readonly path: string; readonly sha: string }) => (
   <Layer render={<li />}>
     <ExternalLink className={sourceLinkClassName} data-place-source={path} href={sourceUrl(sha, path)}>
-      <SemanticText as="code" className="text-ink" role="code-meta" text={sourceLabel(path)} />
+      <SemanticContent as="code" className="min-w-0 wrap-anywhere text-ink" role="code-meta">
+        {sourceLabel(path)}
+      </SemanticContent>
       <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 text-ink-tertiary" />
     </ExternalLink>
   </Layer>
@@ -97,7 +102,7 @@ const CommitLink = ({ sha }: { readonly sha: string }) => (
 )
 
 const StepTabs = () => (
-  <TabBar className="w-fit max-w-full flex-wrap">
+  <TabBar className="w-fit max-w-full">
     {Arr.map(
       placeStepDefinitions,
       (candidate) => <Tab key={candidate.id} label={candidate.name} value={candidate.id} />
