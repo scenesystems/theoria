@@ -31,6 +31,8 @@ The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal
 4. **NEVER USE `git stash`.** Ask the user how to proceed.
 5. **RUN CLI COMMANDS.** VS Code diagnostics are insufficient.
 
+After switching branches or integrating changes to dependency manifests or `bun.lock`, run `bun install --frozen-lockfile` from the repository root before checks. An existing `node_modules` directory may belong to the previous checkout. If a declared package cannot resolve, restore the frozen install and retry before reporting a blocker. A restriction on dependency changes does not prohibit installing the committed dependencies; do not edit manifests or the lockfile merely to repair a stale install.
+
 ---
 
 ## Commands
@@ -71,7 +73,7 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Framework-required configuration syntax is allowed; application logic and operational orchestration inside configuration must still consume native Effect APIs. Use `it.effect()` in tests.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
