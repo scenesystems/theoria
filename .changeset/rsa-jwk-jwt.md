@@ -6,4 +6,4 @@ Add `rsaPublicKeyFromJwk` and `rsaSha256Verify` for canonical public JWK import 
 
 Add `Jwt.verifyRs256` with unique key selection, explicit issuer/audience/lifetime policy, and Effect Clock validation. Issuance and not-before are inclusive; expiry is exclusive, with no clock skew. Application claim Schemas run after authentication and preserve requirements and interruption. Callers own JWKS trust and authorization policy; retain integer Schema refinements when fractional NumericDates are not permitted.
 
-Add independent Wycheproof and OpenSSL coverage, including signed Access-policy fixtures. The new RSA composition uses existing public Noble primitives but is not covered by Noble's dependency audits; no production RSA signer is added.
+Add independent Wycheproof and OpenSSL coverage, including signed Access-policy fixtures, and exercise the packed RSA/JWT APIs in Bun and workerd without Node compatibility. Local workerd CPU measurements are not production budget guarantees. The new RSA composition uses existing public Noble primitives but is not covered by Noble's dependency audits; no production RSA signer is added.

@@ -14,6 +14,12 @@ Policy expectations are specified independently in the generator: issuer `https:
 
 The Access corpus freezes this Worker-consumable profile: issuer `https://team.example`; audience `app`; maximum lifetime 86400 seconds (24 hours); verification time 150 seconds after Unix epoch (set `TestClock` to 150000 milliseconds); required nonempty `sub`; and required `email` in the allow-list containing only `reader@example.test`. `iat` and present `nbf` are inclusive at the known time, `exp` is exclusive, and absent `nbf` is accepted. Its 27 expected outcomes comprise six valid tokens, sixteen `Claims` rejections, and five `MalformedToken` rejections. Missing, empty, and denied identity claims; wrong issuer/audience; missing and malformed times; all time boundaries; maximum/excess lifetime; audience arrays; optional `nbf`; algorithm confusion; protected-header excess; malformed JSON/UTF-8; and BOM handling are signed cases. Key-set variations reuse the first valid signed token: missing, wrong-`kid`, or duplicate matches reject as `KeySelection`; a matching JWK with `use: "enc"` rejects as `InvalidKey`.
 
+## Packed-package execution
+
+After `bun run build`, run `bun run --filter @scenesystems/sign test:packed`. The Effect Platform script packs `sign/dist`, installs the tarball and the repository's test-tool versions/overrides in a scoped temporary directory, and invokes Vitest on the same `rsa.test.ts` and `jwt.test.ts`. Their static `@scenesystems/sign` imports resolve to the installed package; the temporary directory contains no first-party production source. It then bundles the verification-only Worker entrypoint with Bun's browser target and runs the public APIs inside the repository-locked workerd binary, without `nodejs_compat`. Three `@effect/vitest` integration tests send the independent RSA and Access vectors over HTTP, checking genuine/nonmatch verdicts, invalid widths, signed policy failures, key selection, and exact clock boundaries. There are no package-layout assertions. Effect owns the child-process scope, readiness stream, transport, and cleanup. CI, snapshot publication, and `release:check` run this check after building. It checks a tarball made from the release build; it does not attest the identity of a later published registry artifact.
+
+The repository's Vitest 4 and Vite 8 versions are unchanged. `@effect/vitest` 0.30.0 declares Vitest `^3.2.0`; the isolated installation reports that peer mismatch. Passing behavior checks does not establish upstream support for this test-tool pairing.
+
 ## One-off weakening experiment, 2026-09-14
 
 Each change below was applied separately and tested with `bunx vitest run packages/sign/test/rsa.test.ts` or `packages/sign/test/jwt.test.ts`. Every run exited 1 because of a behavioral failure. Both production files were restored byte-for-byte, and the unchanged 10-test RSA/JWT baseline passed afterward. No mutation framework, test of test structure, or permanent weakening was retained.
@@ -46,3 +52,23 @@ Observed in a Linux x64 orb on Bun 1.3.9, Effect 3.22.1, Noble curves/hashes 2.4
 | JWT 2048/e=65537, nonmatch                  |  0.832 |  1.073 |         1067 |
 
 RSA includes validation, copying, hashing, arithmetic, and comparison, with an already imported key. JWT includes parsing, JWK import, verification, and claim policy. Fixture loading and construction of the reusable Effects are outside timing. This is a warm, single-process baseline, not an SLA, load test, cold-start profile, or Workers measurement. In particular, worst-admitted RSA is materially more expensive than ordinary verification; synchronous arithmetic is not preempted by an Effect timeout.
+
+## Local workerd baseline, 2026-09-15
+
+After building, run `SIGN_WORKER_BENCHMARK=true bun run --filter @scenesystems/sign test:packed` on Linux, separately from other tests/builds. The same packed-package check runs first, then a fresh, dedicated workerd process executes 50 warmups and 500 sequential HTTP calls per case. Every call must return the expected public-API result, including typed JWT signature rejection. No signing, fixture loading, bundling, installation, or process startup is measured.
+
+Observed in a Linux x86_64 orb with workerd 2026-08-31 (locked package 1.20260831.1), Bun driver 1.3.9, Effect 3.22.1, and compatibility date 2026-08-31, without Node compatibility:
+
+| Public API workload                         | Mean process CPU ms/call | Wall p50 ms | Wall p95 ms | HTTP calls/s |
+| ------------------------------------------- | -----------------------: | ----------: | ----------: | -----------: |
+| HTTP harness baseline                       |                     0.68 |       0.855 |       2.596 |          948 |
+| RSA 2048/e=65537, genuine                   |                     1.32 |       1.462 |       3.226 |          586 |
+| RSA 2048/e=65537, nonmatch                  |                     1.18 |       1.377 |       3.190 |          618 |
+| RSA 4096/e=4294967295, 8192 bytes, genuine  |                     6.76 |       6.936 |       9.001 |          137 |
+| RSA 4096/e=4294967295, 8192 bytes, nonmatch |                     7.20 |       7.143 |       9.162 |          131 |
+| JWT 2048/e=65537, genuine                   |                     6.24 |       4.964 |       7.042 |          191 |
+| JWT 2048/e=65537, nonmatch                  |                     4.96 |       4.334 |       6.375 |          210 |
+
+CPU is the change in Linux `/proc/<pid>/stat` fields `utime + stime` for the dedicated workerd process, converted using `getconf CLK_TCK` (100 here). The respective measured batches consumed 340, 660, 590, 3380, 3600, 3120, and 2480 milliseconds of process CPU. Quantization is 10 ms per batch (0.02 ms per reported per-call mean). The values include all runtime threads, JIT/GC, HTTP, request decoding, and response encoding; they exclude the Bun driver. Both RSA and JWT include JWK import. JWT additionally constructs a native TestClock layer per request to verify retained fixtures at their known time. That instrumentation is included, not subtracted or presented as production verifier cost. The ping baseline is contextual, not a correction factor.
+
+Wall p50/p95 use the Bun driver's live monotonic clock and nearest ranks 250/475; throughput includes timing and verdict checks. Wall latency is **not** CPU time. Process CPU can exceed elapsed time because workerd uses multiple runtime threads. This establishes local workerd execution and an instrumented cost baseline, not Cloudflare isolate CPU, billed invocation CPU, an SLA, cold-start cost, or suitability for a particular production CPU limit. A deployed application must measure its own released artifact and actual request path before setting its CPU budget.
