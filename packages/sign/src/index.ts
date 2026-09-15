@@ -31,6 +31,20 @@
 export * from "./algorithms/ed25519.js"
 
 /**
+ * @since 0.4.0
+ * @category algorithms
+ */
+export * from "./algorithms/rsa.js"
+
+/**
+ * Fixed RS256 token verification with trusted key selection and claim policy.
+ *
+ * @since 0.4.0
+ * @category protocols
+ */
+export * as Jwt from "./Jwt.js"
+
+/**
  * @since 0.1.1
  * @category algorithms
  */

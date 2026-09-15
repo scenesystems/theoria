@@ -1,18 +1,23 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
+  ed25519KeyPairFromSeed,
   ed25519Verify,
+  InvalidEd25519Seed,
   InvalidVerificationInput,
   mlDsa65Keygen,
   mlDsa65SignHedged,
   mlDsa65Verify,
   p256Sha256P1363LowSVerify,
+  rsaPublicKeyFromJwk,
+  rsaSha256Verify,
   SigningFailed,
   utf8ToBytes
 } from "@scenesystems/sign"
-import { Array as Arr, Effect, Encoding, Match, Schema, Tuple } from "effect"
-import { Ed25519Fixture, P256Fixture } from "../../scripts/fixture-contract.js"
+import { Array as Arr, Boolean as B, Effect, Encoding, Match, Schema, Tuple } from "effect"
+import { Ed25519Fixture, P256Fixture, RsaWycheproofFixture } from "../../scripts/fixture-contract.js"
 import ed25519Corpus from "../fixtures/conformance/ed25519.json" with { type: "json" }
 import p256Corpus from "../fixtures/conformance/p256.json" with { type: "json" }
+import rsaCorpus from "../fixtures/conformance/rsa-wycheproof.json" with { type: "json" }
 
 const copyBytes = (bytes: Uint8Array) =>
   Schema.encode(Schema.Uint8Array)(bytes).pipe(Effect.flatMap(Schema.decode(Schema.Uint8Array)))
@@ -25,13 +30,17 @@ const detachedBytes = (bytes: Uint8Array) =>
     return bytes
   })
 
-/** Authorized test-only Proxy/Reflect boundary: length works, but typed-array iteration fails. */
-const uncopyableBytes = (bytes: Uint8Array) =>
+/** Authorized test-only Proxy/Reflect boundary: reject copying, or optionally length admission itself. */
+const uncopyableBytes = (bytes: Uint8Array, unreadableLength = false) =>
   Effect.sync(() =>
     new Proxy(bytes, {
       get: (target, property) =>
         Match.value(property).pipe(
-          Match.when("length", () => target.length),
+          Match.when("length", () =>
+            B.match(unreadableLength, {
+              onTrue: () => Schema.decodeUnknownSync(Schema.Never)(target.length),
+              onFalse: () => target.length
+            })),
           Match.orElse(() => Reflect.get(target, property))
         )
     })
@@ -114,6 +123,42 @@ describe("strict direct verification admission", () => {
       const pending = mlDsa65Verify(signed.signature, empty, keys.publicKey, pendingContext)
       yield* detachedBytes(pendingContext)
       expect(yield* Effect.flip(pending)).toEqual(new InvalidVerificationInput({}))
+    }))
+
+  it.effect("rejects unreadable RSA verification bytes and Ed25519 reconstruction seeds as admission failures", () =>
+    Effect.gen(function*() {
+      const rsa = Arr.headNonEmpty(
+        (yield* Schema.decodeUnknown(Schema.typeSchema(RsaWycheproofFixture))(rsaCorpus)).testGroups
+      )
+      const rsaKey = yield* rsaPublicKeyFromJwk(rsa.keyJwk)
+      const rsaSignature = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, 256))
+      const message = utf8ToBytes("")
+      const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+
+      yield* Effect.forEach(
+        Arr.make(detachedBytes, uncopyableBytes, (bytes: Uint8Array) => uncopyableBytes(bytes, true)),
+        (unreadable) =>
+          Effect.gen(function*() {
+            expect(
+              yield* Effect.flip(rsaSha256Verify(yield* unreadable(yield* copyBytes(rsaSignature)), message, rsaKey))
+            ).toEqual(new InvalidVerificationInput({}))
+            expect(
+              yield* Effect.flip(rsaSha256Verify(rsaSignature, yield* unreadable(yield* copyBytes(message)), rsaKey))
+            ).toEqual(new InvalidVerificationInput({}))
+            expect(yield* Effect.flip(ed25519KeyPairFromSeed(yield* unreadable(yield* copyBytes(seed)))))
+              .toEqual(new InvalidEd25519Seed({}))
+          })
+      )
+
+      const pendingSignature = yield* copyBytes(rsaSignature)
+      const pendingVerification = rsaSha256Verify(pendingSignature, message, rsaKey)
+      yield* detachedBytes(pendingSignature)
+      expect(yield* Effect.flip(pendingVerification)).toEqual(new InvalidVerificationInput({}))
+
+      const pendingSeed = yield* copyBytes(seed)
+      const pendingReconstruction = ed25519KeyPairFromSeed(pendingSeed)
+      yield* detachedBytes(pendingSeed)
+      expect(yield* Effect.flip(pendingReconstruction)).toEqual(new InvalidEd25519Seed({}))
     }))
 
   it.effect("hedged signing rejects each unreadable input without throwing or misclassifying it as a backend failure", () =>

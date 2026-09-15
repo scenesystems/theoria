@@ -4,7 +4,7 @@
 
 The three families are kept apart because their security roles differ. Signatures prove possession of a signing key under an identity policy you define. Agreement and encapsulation produce raw shared secret material that must pass through a key derivation function before it becomes a key. Each family has its own operations and its own tagged result schemas: `Signature`, `SharedSecret`, and `KemCiphertext`, with `KeyPair` shared across all algorithms. Primitive implementations come from the Noble Curves, Hashes, and Post-Quantum projects.
 
-The package does not provide identity, authorization, certificates, trust roots, key storage, rotation, transcript construction, or protocol policy. A KEM is unauthenticated on its own, so a protocol must bind recipient keys and transcripts through an authenticated channel. [`@scenesystems/digest`](../digest/README.md) supplies HKDF and BLAKE3 key derivation for the shared secrets this package produces, and [`@scenesystems/seal`](../seal/README.md) encrypts under the derived keys.
+The package does not establish identity, certificates, trust roots, key storage, or rotation. The separate `Jwt` module verifies a fixed RS256 token profile against caller-trusted keys and explicit claim policy; applications still own authorization decisions. A KEM is unauthenticated on its own, so a protocol must bind recipient keys and transcripts through an authenticated channel. [`@scenesystems/digest`](../digest/README.md) supplies HKDF and BLAKE3 key derivation for the shared secrets this package produces, and [`@scenesystems/seal`](../seal/README.md) encrypts under the derived keys.
 
 ## Installation
 
@@ -95,6 +95,45 @@ The profiles are fixed and reject alternate encodings:
 - ML-DSA-65 follows FIPS 204 with an explicit context. Public keys are 1,952 bytes and signatures 3,309 bytes with canonical hint encoding. An empty context and a nonempty context define distinct profiles.
 
 Direct verification admits messages up to 8,192 bytes and rejects longer input before the primitive runs. This bound protects the verifier; it is not a wire-format limit, and your protocol must still define its own message-size policy.
+
+## RSA public keys and RS256 verification
+
+`rsaPublicKeyFromJwk(jwk)` admits canonical, unpadded Base64urlUInt `n` and `e` into the Schema-owned `RsaPublicKey`. The modulus must be odd and 2048–4096 bits; the exponent must be odd and between 3 and 2³²−1. Optional `alg`, `use`, and `key_ops` must permit RS256 verification. Invalid keys fail with the material-free `InvalidRsaPublicKey`. Admission validates public parameters, not prime factorization, certificate chains, or provenance.
+
+`rsaSha256Verify(signature, message, key)` verifies RSASSA-PKCS1-v1_5 with SHA-256, hashing the message once. It requires a modulus-width signature whose integer is less than the modulus, and compares the complete RFC 8017 encoding: padding, DER DigestInfo, NULL parameters, and digest. BER variants and missing-NULL encodings do not verify. It shares the 8192-byte message bound and material-free `InvalidVerificationInput` / `VerificationUnavailable` contract. It does not add RSA signing, encryption, PSS, or dispatch through `Signature`.
+
+This implementation adds no dependency. It composes the existing Noble public arithmetic and hash APIs. **The new RSA scheme composition is not covered by Noble's audits.** The tests retain all 259 cases from a pinned Wycheproof corpus, including strict rejection of its optional missing-NULL compatibility case.
+
+Independent OpenSSL fixtures cover 2048-, 2049-, 3072-, and 4096-bit keys, including the minimum and maximum admitted exponents. They verify genuine signatures and reject altered messages/signatures, alongside tests for modulus bit lengths, signature widths and representatives, and the inclusive 8192-byte message limit. CI checks both RSA fixture schemas and hashes with `bun run --filter @scenesystems/sign fixtures:check`; see [fixture provenance and regeneration](./test/fixtures/RSA-PROVENANCE.md).
+
+## JWT verification has explicit trust and application policy
+
+`Jwt.verifyRs256(token, trustedJwks, policy, claimsSchema)` verifies the original `header.payload` bytes, then enforces issuer, audience, issuance, expiry, optional not-before, maximum lifetime, and the application's claim Schema. The token is `Redacted<string>`. The application Schema may require services or perform effectful refinements; those requirements and interruption semantics are preserved.
+
+The caller must authenticate the JWKS for the configured issuer, for example by fetching a configured Cloudflare Access issuer's certificates using Effect Platform `HttpClient`. `Jwt` performs no HTTP or implicit caching and never follows token-supplied URLs. It requires exactly one matching `kid` in a JWKS of at most 100 keys; identical duplicates also fail. The protected header accepts only `alg: RS256`, `kid`, and optional `typ: JWT`. Compact input is bounded to 8876 characters, with the signed portion subject to the RSA message limit. Base64url must be canonical; malformed UTF-8 and a leading BOM are rejected, not replaced or stripped. JSON duplicate members use the last-member semantics permitted by RFC 7519.
+
+This profile requires `iss`, `aud`, `iat`, and `exp`. Audiences may be a string or nonempty array. Comparisons are case-sensitive; expiry is exclusive, issuance/not-before inclusive, and no clock skew is applied. `Jwt.Rejected` identifies the rejected stage without carrying input material. `VerificationUnavailable` remains a distinct backend failure.
+
+```ts typecheck
+import { Jwt } from "@scenesystems/sign"
+import { HashSet, Redacted, Schema } from "effect"
+
+const allowedEmails = HashSet.make("reader@example.test")
+const Identity = Schema.Struct({
+  sub: Schema.NonEmptyString,
+  email: Schema.NonEmptyString.pipe(Schema.filter((email) => HashSet.has(allowedEmails, email)))
+})
+const policy = new Jwt.Policy({
+  issuer: "https://team.cloudflareaccess.com",
+  audience: "configured-application-audience",
+  maxLifetimeSeconds: 86400
+})
+
+export const authenticate = (token: Redacted.Redacted<string>, trustedJwks: unknown) =>
+  Jwt.verifyRs256(token, trustedJwks, policy, Identity)
+```
+
+The protocol tests use OpenSSL-signed fixtures, not signatures generated by the verifier under test. They check that rejected tokens cannot reach a downstream Effect and that effectful application policy is interruptible with finalization.
 
 ## Post-quantum signatures
 
