@@ -28,12 +28,15 @@ import {
 } from "./browser.js"
 import { drawn } from "./demo.js"
 import {
+  boxOf,
   fullyInViewport,
   scrollPast,
   scrollToTop,
   scrollY,
   surfaceStyle,
-  topEdgeInViewport
+  textFitsBox,
+  topEdgeInViewport,
+  typographyOf
 } from "./platform/in-page.js"
 import { Site, SiteLive } from "./site.js"
 
@@ -285,11 +288,31 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           ])
         })
 
-        yield* Effect.forEach([320, 768, 1280], (width) =>
+        // Include both sides of column transitions, not just device presets. Every row shares the
+        // same card height; a long package identifier must fit in full, not wrap or be clipped.
+        yield* Effect.forEach([320, 390, 639, 640, 768, 919, 920, 935, 936, 1280, 1391, 1392, 1920, 2560], (width) =>
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 800 })
             yield* count(packageCards, manifest.packages.length)
             expect(yield* fitsViewport(page)).toBe(true)
+            const first = yield* act(() =>
+              packageCards.first().evaluate(boxOf)
+            )
+            yield* Effect.forEach(manifest.packages, (docsPackage) =>
+              Effect.gen(function*() {
+                const card = packageIndex.locator(`[data-docs-package="${docsPackage.slug}"]`)
+                const box = yield* act(() => card.evaluate(boxOf))
+                const title = card.getByRole("heading", { name: docsPackage.name, exact: true })
+                const titleBox = yield* act(() => title.evaluate(boxOf))
+                const type = yield* act(() => title.evaluate(typographyOf))
+                expect(titleBox.height, `${docsPackage.slug} title at ${width}px`).toBeLessThanOrEqual(
+                  Number.parseFloat(type.leading) + 1
+                )
+                expect(yield* act(() => title.evaluate(textFitsBox))).toBe(true)
+                expect(Number.parseFloat(type.size)).toBeGreaterThanOrEqual(16)
+                expect(Math.abs(box.width - first.width), `card width at ${width}px`).toBeLessThan(1)
+                expect(Math.abs(box.height - first.height), `card height at ${width}px`).toBeLessThan(1)
+              }))
           }))
         expect(yield* failures).toEqual([])
       }))

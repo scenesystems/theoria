@@ -34,6 +34,7 @@ import {
   wheel
 } from "./browser.js"
 import {
+  backgroundColour,
   boxOf,
   clipboardText,
   greekFaceOpacities,
@@ -44,7 +45,8 @@ import {
   setRootFontSize,
   systemColour,
   textFitsBox,
-  typographyOf
+  typographyOf,
+  underlineDrawn
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -79,6 +81,37 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               Effect.gen(function*() {
                 expect(yield* act(() => links.nth(index).evaluate(textFitsBox))).toBe(true)
               }))
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("package cards answer hover and press with their background, never a title underline", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* Effect.forEach(ColorMode.literals, (scheme) =>
+          Effect.gen(function*() {
+            yield* setColorScheme(page, scheme)
+            yield* goto(page, "/docs")
+            const card = page.locator("[data-docs-package='digest']")
+            yield* visible(card)
+            yield* hover(card)
+            const hoverColour = yield* act(() => page.evaluate(systemColour, "var(--th-instrument-glass)"))
+            yield* until(
+              act(() => card.evaluate(backgroundColour)),
+              (color) => color === hoverColour,
+              "card hover wash"
+            )
+            expect((yield* act(() => card.locator("h2").evaluate(underlineDrawn))).lines).not.toContain("underline")
+            yield* act(() => page.mouse.down())
+            const pressedColour = yield* act(() => page.evaluate(systemColour, "var(--th-instrument)"))
+            expect(pressedColour).not.toBe(hoverColour)
+            yield* until(
+              act(() => card.evaluate(backgroundColour)),
+              (color) => color === pressedColour,
+              "card pressed wash"
+            )
+            yield* act(() => page.mouse.up())
+            yield* urlMatches(page, /\/docs\/digest$/u)
           }))
         expect(yield* failures).toEqual([])
       }))

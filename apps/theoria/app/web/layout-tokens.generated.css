@@ -4,6 +4,7 @@
   --radius-control: 0.5rem;
   --radius-instrument: 0.75rem;
   --radius-sheet: 1.5rem;
+  --container-card: 26rem;
   --container-reading: 54rem;
   --container-page: 100rem;
   --container-workbench: 96rem;
@@ -22,4 +23,4 @@
 }
 
 /* Design-system candidates: measures, elevations and transitions (generated — do not edit) */
-@source inline("max-w-reading max-w-page max-w-workbench z-(--th-z-band) z-(--th-z-answer) z-(--th-z-preview) z-(--th-z-header) z-(--th-z-backdrop) z-(--th-z-sheet) z-(--th-z-menu) duration-(--th-motion-duration-enter) ease-theme duration-(--th-motion-duration-shift) duration-(--th-motion-duration-exit) duration-(--th-motion-duration-respond) duration-(--th-motion-duration-follow) ease-follow");
+@source inline("max-w-card max-w-reading max-w-page max-w-workbench z-(--th-z-band) z-(--th-z-answer) z-(--th-z-preview) z-(--th-z-header) z-(--th-z-backdrop) z-(--th-z-sheet) z-(--th-z-menu) duration-(--th-motion-duration-enter) ease-theme duration-(--th-motion-duration-shift) duration-(--th-motion-duration-exit) duration-(--th-motion-duration-respond) duration-(--th-motion-duration-follow) ease-follow");

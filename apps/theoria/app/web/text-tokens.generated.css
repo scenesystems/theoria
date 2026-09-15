@@ -66,6 +66,13 @@
   --st-ff-section-title: var(--font-display);
   --st-mw-section-title-compact: 900px;
   --st-mw-section-title-expanded: 1400px;
+  --st-fs-package-title: 24px;
+  --st-lh-package-title: 32px;
+  --st-fw-package-title: 600;
+  --st-tr-package-title: -0.01em;
+  --st-ff-package-title: var(--font-display);
+  --st-mw-package-title-compact: 900px;
+  --st-mw-package-title-expanded: 1400px;
   --st-fs-row-label: 11px;
   --st-lh-row-label: 16px;
   --st-fw-row-label: 600;
@@ -134,6 +141,8 @@
     --st-lh-hero-title: 38px;
     --st-fs-section-title: 21px;
     --st-lh-section-title: 28px;
+    --st-fs-package-title: clamp(16px, 5vw, 24px);
+    --st-lh-package-title: clamp(22px, 6.875vw, 32px);
   }
 }
 @media (width >= 64rem) {
@@ -153,6 +162,7 @@
   :where(.st-caption) { color: var(--th-ink-tertiary); text-transform: none; }
   :where(.st-selection-title) { color: var(--th-ink-strong); text-transform: none; }
   :where(.st-section-title) { color: var(--th-ink-strong); text-transform: none; }
+  :where(.st-package-title) { color: var(--th-ink-strong); text-transform: none; }
   :where(.st-row-label) { color: var(--th-ink-tertiary); text-transform: uppercase; }
   :where(.st-row-value) { color: inherit; text-transform: none; }
   :where(.st-code-meta) { color: inherit; text-transform: none; }
@@ -245,6 +255,7 @@
 @source inline("st-caption text-(length:--st-fs-caption) font-(--st-fw-caption) tracking-(--st-tr-caption) font-(family-name:--st-ff-caption) leading-(--st-lh-caption) max-w-(--st-mw-caption-compact) max-w-(--st-mw-caption-expanded)");
 @source inline("st-selection-title text-(length:--st-fs-selection-title) font-(--st-fw-selection-title) tracking-(--st-tr-selection-title) font-(family-name:--st-ff-selection-title) leading-(--st-lh-selection-title) max-w-(--st-mw-selection-title-compact) max-w-(--st-mw-selection-title-expanded)");
 @source inline("st-section-title text-(length:--st-fs-section-title) font-(--st-fw-section-title) tracking-(--st-tr-section-title) font-(family-name:--st-ff-section-title) leading-(--st-lh-section-title) max-w-(--st-mw-section-title-compact) max-w-(--st-mw-section-title-expanded)");
+@source inline("st-package-title text-(length:--st-fs-package-title) font-(--st-fw-package-title) tracking-(--st-tr-package-title) font-(family-name:--st-ff-package-title) leading-(--st-lh-package-title) max-w-(--st-mw-package-title-compact) max-w-(--st-mw-package-title-expanded)");
 @source inline("st-row-label text-(length:--st-fs-row-label) font-(--st-fw-row-label) tracking-(--st-tr-row-label) font-(family-name:--st-ff-row-label) leading-(--st-lh-row-label) max-w-(--st-mw-row-label-compact) max-w-(--st-mw-row-label-expanded)");
 @source inline("st-row-value text-(length:--st-fs-row-value) font-(--st-fw-row-value) tracking-(--st-tr-row-value) font-(family-name:--st-ff-row-value) leading-(--st-lh-row-value) max-w-(--st-mw-row-value-compact) max-w-(--st-mw-row-value-expanded)");
 @source inline("st-code-meta text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) tracking-(--st-tr-code-meta) font-(family-name:--st-ff-code-meta) leading-(--st-lh-code-meta) max-w-(--st-mw-code-meta-compact) max-w-(--st-mw-code-meta-expanded)");

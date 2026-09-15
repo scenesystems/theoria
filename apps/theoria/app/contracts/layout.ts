@@ -47,12 +47,12 @@ export const radiusCss = (radius: Radius): string =>
   )
 
 /**
- * How wide a column of content may be: a column of reading (an article),
+ * Content measures: a card's preferred width, a column of reading (an article),
  * the page's one column, and the documentation workbench with its rails.
  *
  * @since 0.4.0
  */
-export const Measure = Schema.Literal("reading", "page", "workbench")
+export const Measure = Schema.Literal("card", "reading", "page", "workbench")
 
 /**
  * @since 0.4.0
@@ -64,6 +64,7 @@ export type Measure = typeof Measure.Type
  */
 export const measureCss = (measure: Measure): string =>
   Match.value(measure).pipe(
+    Match.when("card", () => "26rem"),
     Match.when("reading", () => "54rem"),
     Match.when("page", () => "100rem"),
     Match.when("workbench", () => "96rem"),

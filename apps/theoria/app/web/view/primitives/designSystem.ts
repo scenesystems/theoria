@@ -475,6 +475,8 @@ const workbenchInsetClassName = "px-4 sm:px-6"
 export const workbenchTheme = {
   headerContent: `flex min-h-[4.5rem] w-full items-center justify-between gap-3 ${workbenchInsetClassName}`,
   index: `w-full py-8 sm:py-10 ${workbenchInsetClassName}`,
+  /** Add columns only when each card has room for its title; every row shares the tallest card's height. */
+  packageGrid: "grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(min(100%,var(--container-card)),1fr))] gap-10",
   grid:
     "relative grid w-full grid-cols-1 lg:grid-cols-[17.5rem_minmax(0,1fr)] xl:grid-cols-[17.5rem_minmax(0,1fr)_13rem]",
   sidebar:

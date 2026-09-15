@@ -171,6 +171,7 @@ export const TextRole = Schema.Literal(
   "caption",
   "selection-title",
   "section-title",
+  "package-title",
   "row-label",
   "row-value",
   "code-meta",
@@ -409,6 +410,25 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     maxWidth: { compact: 900, expanded: 1400 },
     at: { narrow: { fontSize: 21, lineHeight: 28 } }
   },
+  // Package identifiers stay intact. The card grid preserves their desktop measure; on a
+  // narrow viewport every title scales together rather than shrinking individual names.
+  "package-title": {
+    role: "package-title",
+    family: "display",
+    fontSize: 24,
+    weight: "semibold",
+    tracking: -0.01,
+    foreground: "ink-strong",
+    transform: "none",
+    wrapAuthority: "native-browser",
+    lineBreaks: "nowrap",
+    whiteSpace: "normal",
+    lineHeight: 32,
+    maxWidth: { compact: 900, expanded: 1400 },
+    at: {
+      narrow: { fontSize: { min: 16, vw: 5, max: 24 }, lineHeight: { min: 22, vw: 6.875, max: 32 } }
+    }
+  },
   "row-label": {
     role: "row-label",
     family: "body",
@@ -528,6 +548,7 @@ export const textSemantics: ReadonlyArray<TextSemantics> = [
   textSemanticsByRole.caption,
   textSemanticsByRole["selection-title"],
   textSemanticsByRole["section-title"],
+  textSemanticsByRole["package-title"],
   textSemanticsByRole["row-label"],
   textSemanticsByRole["row-value"],
   textSemanticsByRole["code-meta"],

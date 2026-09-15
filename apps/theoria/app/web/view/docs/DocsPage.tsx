@@ -9,8 +9,8 @@ import { docsManifestAtom } from "../../atoms/docs-data.js"
 import { docsKeyboardShortcutsAtom } from "../../atoms/docs.js"
 import {
   appTheme,
+  firmUnderPointerClassName,
   focusEdgeClassName,
-  linkTitleClassName,
   measureClassName,
   neutralToneClasses,
   respondColorsClassName,
@@ -36,13 +36,13 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
     >
       <DocsRouteEntrance className="flex min-w-0 flex-col gap-8">
         <SemanticText as="h1" role="hero-title" text="Packages" />
-        <Layer className="grid gap-x-10 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
+        <Layer className={workbenchTheme.packageGrid}>
           {Arr.map(
             manifest.packages,
             (docsPackage) => (
               <Layer
                 render={<article />}
-                className={`group relative flex h-full flex-col border-l-2 py-1 pl-5 ${respondColorsClassName} ${neutralToneClasses.border} ${neutralToneClasses.borderHover}`}
+                className={`relative flex h-full flex-col border-l-2 py-1 pl-5 ${respondColorsClassName} ${firmUnderPointerClassName} focus-within:bg-instrument-glass ${neutralToneClasses.border} ${neutralToneClasses.borderHover}`}
                 data-docs-package={docsPackage.slug}
                 key={docsPackage.slug}
               >
@@ -54,8 +54,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
                     >
                       <SemanticText
                         as="h2"
-                        className={linkTitleClassName}
-                        role="section-title"
+                        role="package-title"
                         text={docsPackage.name}
                       />
                     </CardLink>
