@@ -101,6 +101,8 @@ export const program = Effect.gen(function* () {
 
 Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Study.optimize` as the `scheduler` option in place of a `sampler`.
 
+Joint categorical TPE supports at most 65,536 combinations across its dimensions. Larger products fail with checked `InvalidSamplerConfig` before the joint domain is allocated. `nEiCandidates` limits candidate draws, not domain size. This limit applies when model-driven joint categorical sampling begins; random startup does not enumerate the domain.
+
 A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The study as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
 
 ## Running studies
