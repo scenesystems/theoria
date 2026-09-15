@@ -7,31 +7,37 @@
 
 import { Command, type CommandExecutor, FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { Array as Arr, Data, Effect, Stream, String as Str } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Number as Num, Schema, Stream, String as Str, Tuple } from "effect"
 import type { Scope } from "effect"
 
-export type SnippetLanguage = "ts" | "tsx"
+export const SnippetLanguage = Schema.Literal("ts", "tsx")
+export type SnippetLanguage = typeof SnippetLanguage.Type
 
-export class Snippet extends Data.Class<{
-  readonly directory: string
-  readonly location: string
-  readonly language: SnippetLanguage
-  readonly code: string
-}> {}
+export class Snippet extends Schema.Class<Snippet>("Snippet")({
+  directory: Schema.String,
+  location: Schema.String,
+  language: SnippetLanguage,
+  code: Schema.String
+}) {}
 
-export class SnippetTypecheckError extends Data.TaggedError("SnippetTypecheckError")<{
-  readonly message: string
-}> {}
+export class SnippetTypecheckError extends Schema.TaggedError<SnippetTypecheckError>()("SnippetTypecheckError", {
+  message: Schema.String
+}) {}
 
-class TempSnippet extends Data.Class<{
-  readonly snippet: Snippet
-  readonly tempPath: string
-}> {}
+class TempSnippet extends Schema.Class<TempSnippet>("TempSnippet")({
+  snippet: Snippet,
+  tempPath: Schema.String
+}) {}
 
 const COMPILER_FLAGS = Str.split(
-  "--noEmit --ignoreConfig --pretty false --strict --skipLibCheck --target ES2022 --lib ES2022 --module NodeNext "
-    + "--moduleResolution NodeNext --moduleDetection force --verbatimModuleSyntax --isolatedModules --resolveJsonModule "
-    + "--exactOptionalPropertyTypes --noFallthroughCasesInSwitch --noUncheckedIndexedAccess --noImplicitOverride --jsx react-jsx",
+  Arr.join(
+    Arr.make(
+      "--noEmit --ignoreConfig --pretty false --strict --skipLibCheck --target ES2022 --lib ES2022 --module NodeNext",
+      "--moduleResolution NodeNext --moduleDetection force --verbatimModuleSyntax --isolatedModules --resolveJsonModule",
+      "--exactOptionalPropertyTypes --noFallthroughCasesInSwitch --noUncheckedIndexedAccess --noImplicitOverride --jsx react-jsx"
+    ),
+    " "
+  ),
   " "
 )
 
@@ -44,9 +50,12 @@ const materialize = (
     const tempPath = yield* fileSystem.makeTempFileScoped({
       directory: snippet.directory,
       prefix,
-      suffix: `.${snippet.language}`
+      suffix: Str.concat(".", snippet.language)
     })
-    yield* fileSystem.writeFileString(tempPath, `// Extracted from ${snippet.location}\n${snippet.code}`)
+    yield* fileSystem.writeFileString(
+      tempPath,
+      Arr.join(Arr.make(Str.concat("// Extracted from ", snippet.location), snippet.code), "\n")
+    )
     return new TempSnippet({ snippet, tempPath })
   })
 
@@ -54,17 +63,21 @@ const rewriteCompilerOutput = (
   root: string,
   pathService: Path.Path,
   output: string,
-  snippets: ReadonlyArray<TempSnippet>
+  snippets: Iterable<TempSnippet>
 ): string =>
-  Arr.reduce(snippets, output, (current, { snippet, tempPath }) =>
-    current
-      .replaceAll(tempPath, snippet.location)
-      .replaceAll(pathService.relative(root, tempPath), snippet.location))
+  Arr.reduce(
+    snippets,
+    output,
+    (current, { snippet, tempPath }) =>
+      Str.replaceAll(pathService.relative(root, tempPath), snippet.location)(
+        Str.replaceAll(tempPath, snippet.location)(current)
+      )
+  )
 
 const collectText = (stream: Stream.Stream<Uint8Array, PlatformError>) =>
-  Stream.decodeText(stream).pipe(Stream.runFold("", (acc, chunk) => `${acc}${chunk}`))
+  Stream.decodeText(stream).pipe(Stream.runFold("", (acc, chunk) => Str.concat(acc, chunk)))
 
-const runCompiler = (root: string, snippets: ReadonlyArray<TempSnippet>) =>
+const runCompiler = (root: string, snippets: Schema.Schema.Type<Schema.Array$<typeof TempSnippet>>) =>
   Effect.gen(function*() {
     const pathService = yield* Path.Path
     const command = Command.make("bunx", "tsc", ...COMPILER_FLAGS, ...Arr.map(snippets, (_) => _.tempPath)).pipe(
@@ -74,13 +87,20 @@ const runCompiler = (root: string, snippets: ReadonlyArray<TempSnippet>) =>
     )
     const running = yield* Command.start(command)
     const [exitCode, stdout, stderr] = yield* Effect.all(
-      [running.exitCode, collectText(running.stdout), collectText(running.stderr)],
+      Tuple.make(running.exitCode, collectText(running.stdout), collectText(running.stderr)),
       { concurrency: "unbounded" }
     )
-    if (Number(exitCode) === 0) return
-    const compilerOutput = rewriteCompilerOutput(root, pathService, `${stdout}${stderr}`, snippets).trim()
-    return yield* new SnippetTypecheckError({
-      message: Str.isNonEmpty(compilerOutput) ? compilerOutput : "Snippet typecheck failed with no compiler output"
+    return yield* Effect.if(Num.Equivalence(exitCode, 0), {
+      onTrue: () => Effect.void,
+      onFalse: () => {
+        const compilerOutput = Str.trim(rewriteCompilerOutput(root, pathService, Str.concat(stdout, stderr), snippets))
+        return new SnippetTypecheckError({
+          message: Bool.match(Str.isNonEmpty(compilerOutput), {
+            onTrue: () => compilerOutput,
+            onFalse: () => "Snippet typecheck failed with no compiler output"
+          })
+        })
+      }
     })
   })
 
@@ -93,7 +113,7 @@ const runCompiler = (root: string, snippets: ReadonlyArray<TempSnippet>) =>
 export const typecheckSnippets = (
   root: string,
   prefix: string,
-  snippets: ReadonlyArray<Snippet>
+  snippets: Iterable<Snippet>
 ): Effect.Effect<
   void,
   SnippetTypecheckError | PlatformError,
