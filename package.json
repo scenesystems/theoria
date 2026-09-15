@@ -57,7 +57,7 @@
     "@babel/plugin-transform-export-namespace-from": "^8.0.1",
     "@babel/plugin-transform-modules-commonjs": "^8.0.1",
     "@changesets/changelog-github": "^1.0.0",
-    "@changesets/cli": "^3.0.1",
+    "@changesets/cli": "^3.0.2",
     "@effect/ai": "0.37.0",
     "@effect/ai-anthropic": "0.27.0",
     "@effect/ai-openai": "0.41.0",
