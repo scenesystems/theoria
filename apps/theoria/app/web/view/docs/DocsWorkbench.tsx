@@ -6,7 +6,7 @@ import type { ReactNode } from "react"
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
 import { docsPathFor, type DocsRoute } from "../../../contracts/docs.js"
 import { motionPreferenceAtom } from "../../atoms/motion.js"
-import { docsTheme } from "../primitives/docsSystem.js"
+import { appTheme, workbenchTheme } from "../primitives/designSystem.js"
 import { Layer, Main, Section, Stack } from "../primitives/Layout.js"
 import { arrivedAt, routeEntranceInitial } from "../primitives/motion.js"
 import { DocsHeader } from "./DocsHeader.js"
@@ -47,11 +47,11 @@ export const DocsPackageShell = ({
   readonly manifest: DocsManifest
   readonly route: DocsRoute
 }) => (
-  <Layer className={docsTheme.root}>
+  <Layer className={appTheme.root}>
     <DocsHeader activePackage={Option.some(docsPackage)} packages={manifest.packages} />
-    <Layer className={docsTheme.workbench}>
-      <Section aria-label="Documentation navigation" render={<aside />} className={docsTheme.sidebar}>
-        <Stack className={docsTheme.sidebarSticky} key={docsPackage.slug}>
+    <Layer className={workbenchTheme.grid}>
+      <Section aria-label="Documentation navigation" render={<aside />} className={workbenchTheme.sidebar}>
+        <Stack className={workbenchTheme.sidebarSticky} key={docsPackage.slug}>
           <DocsNavigation docsPackage={docsPackage} route={route} />
         </Stack>
       </Section>
@@ -72,11 +72,11 @@ export const DocsResourceFrame = ({
   readonly route: DocsRoute
 }) => (
   <>
-    <Main className={`${docsTheme.main} ${docsTheme.routeFocus}`} data-route-focus tabIndex={-1}>
-      <DocsRouteEntrance className={docsTheme.article} key={docsPathFor(route)}>{children}</DocsRouteEntrance>
+    <Main className={`${workbenchTheme.main} ${workbenchTheme.routeFocus}`} data-route-focus tabIndex={-1}>
+      <DocsRouteEntrance className={workbenchTheme.article} key={docsPathFor(route)}>{children}</DocsRouteEntrance>
     </Main>
-    <Section aria-label="Page outline" render={<aside />} className={docsTheme.toc}>
-      <Layer className={docsTheme.tocSticky}>
+    <Section aria-label="Page outline" render={<aside />} className={workbenchTheme.toc}>
+      <Layer className={workbenchTheme.tocSticky}>
         <DocsOnThisPage anchors={anchors} />
       </Layer>
     </Section>

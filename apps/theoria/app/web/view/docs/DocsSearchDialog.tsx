@@ -12,8 +12,15 @@ import { docsSearchIndexAtom } from "../../atoms/docs-data.js"
 import { docsSearchOpenAtom, docsSearchQueryAtom, setDocsSearchOpenAtom } from "../../atoms/docs.js"
 import { navigateAtom } from "../../atoms/navigation.js"
 import { ActionButton } from "../primitives/ActionControl.js"
-import { focusEdgeClassName } from "../primitives/designSystem.js"
-import { docsTheme } from "../primitives/docsSystem.js"
+import {
+  dialogBackdropClassName,
+  dialogSheetClassName,
+  dialogViewportClassName,
+  focusEdgeClassName,
+  iconButtonClassName,
+  pickerTriggerClassName,
+  secondaryActionClassName
+} from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -24,7 +31,7 @@ export const DocsSearchTrigger = () => {
   return (
     <Button
       aria-label="Search documentation"
-      className={`${docsTheme.searchTrigger} w-11 justify-center sm:w-56 sm:justify-start`}
+      className={`${pickerTriggerClassName} w-11 justify-center sm:w-56 sm:justify-start`}
       onClick={() => setOpen(true)}
       type="button"
     >
@@ -32,7 +39,7 @@ export const DocsSearchTrigger = () => {
       <SemanticText as="span" className="hidden min-w-0 flex-1 text-left sm:block" role="button-label" text="Search" />
       <SemanticText
         as="kbd"
-        className="hidden rounded-md border border-hairline bg-canvas px-1.5 py-0.5 text-ink-tertiary sm:block"
+        className="hidden rounded-mark border border-hairline bg-canvas px-1.5 py-0.5 text-ink-tertiary sm:block"
         role="code-meta"
         text="⌘K"
       />
@@ -62,11 +69,6 @@ const SearchCombobox = ({
     onFailure: () => Arr.empty<DocsSearchEntry>(),
     onSuccess: ({ value }) => searchDocs(value, query, { limit: 20, packageSlug: activePackageSlug })
   })
-  const searchState: "loading" | "failure" | "ready" = Result.match(searchIndex, {
-    onInitial: () => "loading",
-    onFailure: () => "failure",
-    onSuccess: () => "ready"
-  })
 
   return (
     <Combobox.Root
@@ -84,81 +86,83 @@ const SearchCombobox = ({
         )
       }}
     >
-      <Cluster className="gap-3 border-b border-hairline/90 p-3 sm:p-4">
+      <Cluster className="gap-3 border-b border-hairline-veil p-3 sm:p-4">
         <Layer className="min-w-0 flex-1">
           <Combobox.Input
             aria-label="Search"
             autoFocus
-            className={`h-11 w-full rounded-xl border border-hairline/90 bg-canvas/72 px-4 font-body text-ink ${focusEdgeClassName} placeholder:text-ink-tertiary focus:border-accent focus:ring-2 focus:ring-ink/10`}
+            className={`h-11 w-full rounded-instrument border border-hairline-veil bg-canvas-glass px-4 font-body text-ink ${focusEdgeClassName} placeholder:text-ink-tertiary focus:border-accent focus:ring-2 focus:ring-focus`}
             placeholder="Package, module, or symbol"
           />
         </Layer>
-        <Dialog.Close aria-label="Close search" className={docsTheme.iconButton}>
+        <Dialog.Close aria-label="Close search" className={iconButtonClassName}>
           <XMarkIcon aria-hidden className="h-5 w-5" />
         </Dialog.Close>
       </Cluster>
-      {searchState === "loading"
-        ? (
+      {Result.match(searchIndex, {
+        onInitial: () => (
           <Stack className="gap-2 px-5 py-10">
             <SemanticText as="p" className="text-ink-tertiary" role="status" text="Loading search…" />
           </Stack>
-        )
-        : null}
-      {searchState === "failure"
-        ? (
+        ),
+        onFailure: () => (
           <Stack className="gap-2 px-5 py-10">
             <SemanticText as="p" className="text-ink" role="row-label" text="Search unavailable" />
             <ActionButton
-              className={docsTheme.secondaryAction}
+              className={secondaryActionClassName}
               disabled={false}
               label="Try again"
               onClick={refresh}
               variant="expanded"
             />
           </Stack>
-        )
-        : null}
-      {searchState === "ready"
-        ? (
-          <Combobox.List className="max-h-[30rem] overflow-y-auto p-2 sm:p-3">
-            {Arr.map(results, (entry, index) => (
-              <Combobox.Item
-                className={`group rounded-xl ${focusEdgeClassName} data-[highlighted]:bg-instrument/80`}
-                index={index}
-                key={entry.id}
-                render={
-                  <InternalLink
-                    className="flex min-w-0 items-center gap-3 px-3 py-3 text-ink-secondary"
-                    href={resultHref(entry)}
-                    onClick={() => setOpen(false)}
-                  />
-                }
-                value={entry}
-              >
-                <Stack className="min-w-0 flex-1 gap-0.5">
-                  <SemanticText as="span" className="text-ink" role="button-label" text={entry.name} />
-                  <SemanticText
-                    as="span"
-                    className="truncate text-ink-tertiary"
-                    role="code-meta"
-                    text={entry.qualifiedName}
-                  />
-                </Stack>
-                <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={entry.kind} />
-              </Combobox.Item>
-            ))}
-          </Combobox.List>
-        )
-        : null}
-      {searchState === "ready" && results.length === 0
-        ? (
-          <Stack className="items-center gap-2 px-5 py-10 text-center">
-            <MagnifyingGlassIcon aria-hidden className="h-6 w-6 text-ink-tertiary" />
-            <SemanticText as="p" className="text-ink" role="row-label" text="No results" />
-            <SemanticText as="p" className="text-ink-tertiary" role="status" text="Try a package, module, or symbol." />
-          </Stack>
-        )
-        : null}
+        ),
+        onSuccess: () =>
+          Arr.match(results, {
+            onEmpty: () => (
+              <Stack className="items-center gap-2 px-5 py-10 text-center">
+                <MagnifyingGlassIcon aria-hidden className="h-6 w-6 text-ink-tertiary" />
+                <SemanticText as="p" className="text-ink" role="row-label" text="No results" />
+                <SemanticText
+                  as="p"
+                  className="text-ink-tertiary"
+                  role="status"
+                  text="Try a package, module, or symbol."
+                />
+              </Stack>
+            ),
+            onNonEmpty: (entries) => (
+              <Combobox.List className="max-h-[30rem] overflow-y-auto p-2 sm:p-3">
+                {Arr.map(entries, (entry, index) => (
+                  <Combobox.Item
+                    className={`group rounded-instrument ${focusEdgeClassName} data-[highlighted]:bg-instrument-glass`}
+                    index={index}
+                    key={entry.id}
+                    render={
+                      <InternalLink
+                        className="flex min-w-0 items-center gap-3 px-3 py-3 text-ink-secondary"
+                        href={resultHref(entry)}
+                        onClick={() => setOpen(false)}
+                      />
+                    }
+                    value={entry}
+                  >
+                    <Stack className="min-w-0 flex-1 gap-0.5">
+                      <SemanticText as="span" className="text-ink" role="button-label" text={entry.name} />
+                      <SemanticText
+                        as="span"
+                        className="truncate text-ink-tertiary"
+                        role="code-meta"
+                        text={entry.qualifiedName}
+                      />
+                    </Stack>
+                    <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={entry.kind} />
+                  </Combobox.Item>
+                ))}
+              </Combobox.List>
+            )
+          })
+      })}
     </Combobox.Root>
   )
 }
@@ -176,9 +180,9 @@ export const DocsSearchDialog = ({
   return (
     <Dialog.Root onOpenChange={setOpen} open={open}>
       <Dialog.Portal>
-        <Dialog.Backdrop className={docsTheme.dialogBackdrop} />
-        <Dialog.Viewport className={docsTheme.dialogViewport}>
-          <Dialog.Popup className={docsTheme.searchDialog}>
+        <Dialog.Backdrop className={dialogBackdropClassName} />
+        <Dialog.Viewport className={dialogViewportClassName}>
+          <Dialog.Popup className={`w-full max-w-[42rem] ${dialogSheetClassName}`}>
             <Stack className="gap-0">
               <Dialog.Title render={<SemanticText as="h2" className="sr-only" role="hero-title" text="Search" />} />
               <Dialog.Description

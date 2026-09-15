@@ -8,8 +8,14 @@ import type { DocsRoute } from "../../../contracts/docs.js"
 import { Id } from "../../../contracts/id.js"
 import { docsManifestAtom } from "../../atoms/docs-data.js"
 import { docsKeyboardShortcutsAtom } from "../../atoms/docs.js"
-import { focusEdgeClassName, neutralToneClasses, toneClassesForCard } from "../primitives/designSystem.js"
-import { docsTheme } from "../primitives/docsSystem.js"
+import {
+  appTheme,
+  focusEdgeClassName,
+  measureClassName,
+  neutralToneClasses,
+  toneClassesForCard,
+  workbenchTheme
+} from "../primitives/designSystem.js"
 import { Layer, Main, Stack } from "../primitives/Layout.js"
 import { CardLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -23,10 +29,10 @@ import { DocsPackageShell, DocsResourceFrame, DocsRouteEntrance } from "./DocsWo
 const isCardId = Schema.is(Id)
 
 const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
-  <Layer className={docsTheme.root}>
+  <Layer className={appTheme.root}>
     <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
     <Main
-      className={`mx-auto w-full max-w-[82rem] px-5 py-10 sm:px-8 sm:py-14 ${docsTheme.routeFocus}`}
+      className={`mx-auto w-full ${measureClassName("page")} px-5 py-10 sm:px-8 sm:py-14 ${workbenchTheme.routeFocus}`}
       data-route-focus
       tabIndex={-1}
     >
@@ -36,7 +42,10 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
           {Arr.map(
             manifest.packages,
             (docsPackage) => {
-              const tone = isCardId(docsPackage.slug) ? toneClassesForCard(docsPackage.slug) : neutralToneClasses
+              const tone = Option.match(Option.liftPredicate(docsPackage.slug, isCardId), {
+                onSome: toneClassesForCard,
+                onNone: () => neutralToneClasses
+              })
 
               return (
                 <Layer
@@ -48,7 +57,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
                   <Stack className="h-full gap-5">
                     <Stack className="gap-2">
                       <CardLink
-                        className={`${focusEdgeClassName} focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ink/20`}
+                        className={`${focusEdgeClassName} focus-visible:after:rounded-control focus-visible:after:ring-2 focus-visible:after:ring-focus`}
                         href={docsPackage.overview.path}
                       >
                         <SemanticText
@@ -84,9 +93,13 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
 )
 
 const MissingRoute = ({ manifest }: { readonly manifest: DocsManifest }) => (
-  <Layer className={docsTheme.root}>
+  <Layer className={appTheme.root}>
     <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
-    <Main className={`mx-auto w-full max-w-3xl px-5 py-20 ${docsTheme.routeFocus}`} data-route-focus tabIndex={-1}>
+    <Main
+      className={`mx-auto w-full ${measureClassName("reading")} px-5 py-20 ${workbenchTheme.routeFocus}`}
+      data-route-focus
+      tabIndex={-1}
+    >
       <DocsStatus state="not-found" />
     </Main>
     <DocsSearchDialog activePackageSlug={Option.none()} manifest={manifest} />
@@ -147,16 +160,16 @@ export const DocsPage = ({ route }: { readonly route: DocsRoute }) => {
 
   return Result.match(manifest, {
     onInitial: () => (
-      <Layer className={docsTheme.root}>
+      <Layer className={appTheme.root}>
         <DocsHeader activePackage={Option.none()} loading packages={[]} />
-        <Main className="mx-auto w-full max-w-[82rem] px-5 py-10 sm:px-8 sm:py-14">
+        <Main className={`mx-auto w-full ${measureClassName("page")} px-5 py-10 sm:px-8 sm:py-14`}>
           <DocsStatus kind="index" state="loading" />
         </Main>
       </Layer>
     ),
     onFailure: () => (
-      <Layer className={docsTheme.root}>
-        <Main className="mx-auto max-w-3xl px-5 py-20">
+      <Layer className={appTheme.root}>
+        <Main className={`mx-auto ${measureClassName("reading")} px-5 py-20`}>
           <DocsStatus retry={refresh} state="failure" />
         </Main>
       </Layer>

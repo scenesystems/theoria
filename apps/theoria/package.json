@@ -23,6 +23,7 @@
     "deploy:dry-run": "wrangler deploy --env=\"\" --dry-run --outdir .wrangler-out",
     "gen:text-tokens": "bun scripts/generate-text-tokens.ts",
     "gen:palette-tokens": "bun scripts/generate-palette-tokens.ts",
+    "gen:layout-tokens": "bun scripts/generate-layout-tokens.ts",
     "gen:social-assets": "bun scripts/generate-social-assets.ts"
   },
   "dependencies": {

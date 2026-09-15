@@ -1,12 +1,13 @@
 import { Field } from "@base-ui/react/field"
+import { Boolean as Bool } from "effect"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
-import { focusEdgeClassName, surfaceClassName, type ToneClasses } from "./designSystem.js"
+import { focusClassName, surfaceClassName, type ToneClasses } from "./designSystem.js"
 
 /** Grows with its content where the browser supports `field-sizing`; `rows` is the floor everywhere. */
 const controlClassName =
-  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink placeholder:text-ink-tertiary ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-offset-1 ${
+  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink placeholder:text-ink-tertiary ${focusClassName} focus-visible:ring-offset-1 ${
     surfaceClassName("instrument")
   }`
 
@@ -61,7 +62,8 @@ export const TextAreaField = ({
   readonly value: string
 }) => (
   <Field.Control
-    className={(state) => `${controlClassName} ${state.dirty ? tone.border : "border-hairline"} ${tone.focusRing}`}
+    className={(state) =>
+      `${controlClassName} ${Bool.match(state.dirty, { onTrue: () => tone.border, onFalse: () => "border-hairline" })}`}
     onValueChange={onValueChange}
     placeholder={placeholder}
     render={<textarea rows={rows} />}

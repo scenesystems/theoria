@@ -1,6 +1,6 @@
 import { Collapsible } from "@base-ui/react/collapsible"
 import { LockClosedIcon, LockOpenIcon } from "@heroicons/react/20/solid"
-import { Option } from "effect"
+import { Boolean as Bool, Option } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
@@ -14,10 +14,13 @@ import {
 } from "../../../contracts/imagined-place.js"
 import {
   dangerStatusTone,
-  focusEdgeClassName,
+  focusClassName,
   inlineStatusToneFor,
   neutralStatusTone,
-  toneClassesFor
+  respondColorsClassName,
+  stillUnderReducedMotion,
+  toneClassesFor,
+  transitionClassName
 } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
@@ -47,7 +50,8 @@ import {
 
 const sealTone = toneClassesFor("seal")
 
-const signatureTone = (valid: boolean) => valid ? neutralStatusTone : dangerStatusTone
+const signatureTone = (valid: boolean) =>
+  Bool.match(valid, { onTrue: () => neutralStatusTone, onFalse: () => dangerStatusTone })
 
 /**
  * The voice's rule: a proposer's accent while their proposal is merged, a
@@ -55,7 +59,10 @@ const signatureTone = (valid: boolean) => valid ? neutralStatusTone : dangerStat
  * proposal has; there is no box behind the words.
  */
 const voiceClassName = (accepted: boolean, tone: { readonly border: string }): string =>
-  accepted ? `border-solid ${tone.border}` : "border-dashed border-hairline-strong"
+  Bool.match(accepted, {
+    onTrue: () => `border-solid ${tone.border}`,
+    onFalse: () => "border-dashed border-hairline-strong"
+  })
 
 /**
  * One labelled part of the proposal: the label names what the text is. A
@@ -87,13 +94,14 @@ const Field = ({ children, label, mark = Option.none() }: {
   </>
 )
 
-const foldTriggerLayoutClassName = "-mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1"
+const foldTriggerLayoutClassName = "-mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-mark px-1.5 py-1"
 
 const foldTriggerClassName =
-  `group/fold ${foldTriggerLayoutClassName} text-left transition-colors duration-150 hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
+  `group/fold ${foldTriggerLayoutClassName} text-left ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
 
-const foldPanelClassName =
-  "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 motion-reduce:transition-none"
+const foldPanelClassName = `h-(--collapsible-panel-height) overflow-hidden transition-[height] ${
+  transitionClassName("enter")
+} data-[ending-style]:h-0 data-[starting-style]:h-0 ${stillUnderReducedMotion}`
 
 /**
  * The neighbor's note is a fold. Closed, it is the envelope: the seal and its
@@ -211,8 +219,9 @@ const FeatureTitle = ({ name, recorded }: { readonly name: string; readonly reco
 
 /** Appears when the build records the merge: the same digest tone as the version it names. */
 const recordedTone = inlineStatusToneFor("digest")
-const recordedClassName =
-  "transition-[opacity,translate] duration-300 ease-out starting:translate-x-1 starting:opacity-0 motion-reduce:transition-none"
+const recordedClassName = `transition-[opacity,translate] ${
+  transitionClassName("enter")
+} starting:translate-x-1 starting:opacity-0 ${stillUnderReducedMotion}`
 
 /**
  * One proposal offered to the author, spoken in their voice: marginalia with
@@ -262,7 +271,9 @@ export const PlaceProposal = ({
   return (
     <Stack
       render={<article />}
-      className={`h-full gap-3 border-l-2 pl-4 transition-colors duration-300 ${voiceClassName(accepted, tone)}`}
+      className={`h-full gap-3 border-l-2 pl-4 transition-colors ${transitionClassName("enter")} ${
+        voiceClassName(accepted, tone)
+      }`}
       data-place-proposal={role}
       {...Option.match(recorded, {
         onNone: () => ({}),

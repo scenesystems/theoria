@@ -23,7 +23,7 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
     {Option.match(docs.deprecated, {
       onNone: () => null,
       onSome: (deprecated) => (
-        <Layer className="rounded-xl border border-tone-search-edge/70 bg-tone-search-surface/45 px-4 py-3">
+        <Layer className="rounded-instrument border border-tone-search-edge-glass bg-tone-search-surface-mist px-4 py-3">
           <Stack className="gap-1.5">
             <SemanticText as="p" className="text-tone-search-ink-strong" role="row-label" text="Deprecated" />
             <SemanticContent as="p" className="text-tone-search-ink-strong" role="row-value">

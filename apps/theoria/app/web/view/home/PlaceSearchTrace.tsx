@@ -11,7 +11,7 @@ import {
   type PlaceWait,
   searchLosses
 } from "../../atoms/imagined-place-render.js"
-import { focusEdgeClassName, toneClassesFor } from "../primitives/designSystem.js"
+import { focusEdgeClassName, toneClassesFor, transitionClassName } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
@@ -99,7 +99,9 @@ const thumbClassName =
  * the ring is dropped, so the line itself turns to the system's `Highlight`.
  */
 const thumbLineClassName =
-  "pointer-events-none block h-full w-0.5 rounded-full bg-emphasis/55 transition-[background-color,box-shadow] duration-150 group-hover:bg-emphasis group-has-[:focus-visible]:bg-emphasis group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-ink/25 group-data-[disabled]:bg-emphasis/25 forced-colors:bg-[CanvasText] forced-colors:group-has-[:focus-visible]:bg-[Highlight]"
+  `pointer-events-none block h-full w-0.5 rounded-full bg-emphasis-mist transition-[background-color,box-shadow] ${
+    transitionClassName("respond")
+  } group-hover:bg-emphasis group-has-[:focus-visible]:bg-emphasis group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-focus group-data-[disabled]:bg-emphasis-mist forced-colors:bg-[CanvasText] forced-colors:group-has-[:focus-visible]:bg-[Highlight]`
 
 /** The chart's height, shared by the trace and the rows held for it. */
 export const traceHeightClassName = "h-16"

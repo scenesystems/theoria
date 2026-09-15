@@ -125,7 +125,10 @@
   --th-motion-duration-enter: 240ms;
   --th-motion-duration-shift: 320ms;
   --th-motion-duration-exit: 120ms;
+  --th-motion-duration-respond: 150ms;
+  --th-motion-duration-follow: 300ms;
   --ease-theme: cubic-bezier(0.2, 0, 0, 1);
+  --ease-follow: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (width < 40rem) {

@@ -1,7 +1,7 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Number as Num, Order, Tuple } from "effect"
+import { Effect, Equal, Number as Num, Option, Order, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Chunk from "effect/Chunk"
 import * as Str from "effect/String"
@@ -10,6 +10,7 @@ import {
   codeColor,
   CodePaint,
   ColorMode,
+  composite,
   contrast,
   dangerColor,
   DangerRole,
@@ -22,11 +23,15 @@ import {
   NeutralRole,
   neutralSlotRole,
   Oklch,
+  paintedContrast,
   toneColor,
   ToneRole,
   toneSlotRole,
   toneTextSlots,
-  toSrgb
+  toSrgb,
+  Translucency,
+  translucencyAlpha,
+  translucentLevels
 } from "../../app/contracts/palette.js"
 import { CardTone } from "../../app/contracts/theme.js"
 import { paletteClassCandidates, paletteTokens, renderPaletteTokensCss } from "../../app/web/palette/paletteTokens.js"
@@ -59,6 +64,8 @@ const lightnessDescends = (values: ReadonlyArray<number>): boolean =>
   Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([above, below]) => Order.greaterThan(Num.Order)(above, below))
 
 const toneTexts: ReadonlyArray<ToneRole> = ["accent", "ink", "ink-strong"]
+/** The tone roles a focused control may stand on: a chosen pill's fill, a changed value's wash, a toggle's edge. */
+const toneGrounds: ReadonlyArray<ToneRole> = ["surface", "wash", "edge"]
 const bandStrokes: ReadonlyArray<DiscSlot> = ["bandStroke", "bandFocusedStroke"]
 
 const pairs = <A, B>(as: ReadonlyArray<A>, bs: ReadonlyArray<B>): ReadonlyArray<readonly [A, B]> =>
@@ -130,6 +137,21 @@ describe("palette contract", () => {
         }))
     }))
 
+  it.effect("the focus ring marks a boundary on every neutral surface and on every tone's surface, wash and edge, in both modes", () =>
+    Effect.sync(() => {
+      Arr.forEach(ColorMode.literals, (mode) => {
+        const focus = neutralColor("focus", mode)
+        Arr.forEach(neutralSurfaces, (surface) => {
+          expect(contrast(focus, neutralColor(surface, mode)), `focus on ${surface} (${mode})`)
+            .toBeGreaterThanOrEqual(graphicMinimum)
+        })
+        Arr.forEach(pairs(CardTone.literals, toneGrounds), ([tone, role]) => {
+          expect(contrast(focus, toneColor(tone, role, mode)), `focus on ${tone} ${role} (${mode})`)
+            .toBeGreaterThanOrEqual(graphicMinimum)
+        })
+      })
+    }))
+
   it.effect("a tone's accent and inks read at AA on the neutral surfaces and on the tone's own surface", () =>
     Effect.sync(() => {
       Arr.forEach(pairs(ColorMode.literals, CardTone.literals), ([mode, tone]) => {
@@ -172,6 +194,44 @@ describe("palette contract", () => {
           })
         })
       })
+    }))
+
+  it.effect("translucency runs from solid to mist, each level letting more through, and a solid colour is itself", () =>
+    Effect.sync(() => {
+      const alphas = Arr.map(Translucency.literals, translucencyAlpha)
+      expect(lightnessDescends(alphas)).toBe(true)
+      expect(translucencyAlpha("solid")).toBe(1)
+      expect(translucentLevels).not.toContain("solid")
+      const paper = neutralColor("paper", "light")
+      const canvas = neutralColor("canvas", "dark")
+      expect(composite(paper, "solid", canvas)).toEqual(toSrgb(paper))
+      // Half-way maths: white at mist (38%) over black is 38% of 255, rounded, in every channel.
+      expect(composite(white, "mist", black)).toEqual({ r: 97, g: 97, b: 97 })
+      // A translucent colour lies between itself and its ground, so its contrast to the ground is below the solid's.
+      const ink = neutralColor("ink", "light")
+      expect(paintedContrast(composite(paper, "veil", canvas), toSrgb(ink))).toBeLessThan(contrast(paper, ink))
+      expect(paintedContrast(composite(paper, "veil", canvas), toSrgb(ink))).toBeGreaterThan(
+        paintedContrast(composite(paper, "glass", canvas), toSrgb(ink))
+      )
+    }))
+
+  it.effect("every neutral ink reads at AA on every translucent paper, canvas and instrument over every neutral ground, in both modes", () =>
+    Effect.sync(() => {
+      Arr.forEach(
+        ColorMode.literals,
+        (mode) =>
+          Arr.forEach(
+            pairs(neutralSurfaces, neutralSurfaces),
+            ([surface, ground]) =>
+              Arr.forEach(pairs(translucentLevels, neutralInks), ([level, ink]) => {
+                const painted = composite(neutralColor(surface, mode), level, neutralColor(ground, mode))
+                const ratio = paintedContrast(toSrgb(neutralColor(ink, mode)), painted)
+                expect(ratio, `${ink} on ${surface}-${level} over ${ground} (${mode})`).toBeGreaterThanOrEqual(
+                  textMinimum
+                )
+              })
+          )
+      )
     }))
 
   it.effect("the band's disc strokes mark a boundary on its fill, at rest and under focus, in both modes", () =>
@@ -241,6 +301,15 @@ describe("Generated palette tokens", () => {
       const lightNames = Arr.map(paletteTokens("light"), ([name]) => name)
       const darkNames = Arr.map(paletteTokens("dark"), ([name]) => name)
       expect(darkNames).toEqual(lightNames)
+      // Every colour role is painted at every translucent level, as the level's alpha.
+      Arr.forEach(pairs(NeutralRole.literals, translucentLevels), ([role, level]) => {
+        expect(lightNames).toContain(`--th-${role}-${level}`)
+      })
+      Arr.forEach(pairs(CardTone.literals, pairs(ToneRole.literals, translucentLevels)), ([tone, [role, level]]) => {
+        expect(lightNames).toContain(`--th-tone-${tone}-${role}-${level}`)
+      })
+      const paperVeil = Arr.findFirst(paletteTokens("light"), ([name]) => Equal.equals(name, "--th-paper-veil"))
+      expect(paperVeil).toEqual(Option.some(["--th-paper-veil", "rgb(255 255 255 / 86%)"]))
       Arr.forEach(HighlightTokenKind.literals, (kind) => {
         const variable = highlightTokenPaint[kind].variable
         const token = Str.slice(4, Str.length(variable) - 1)(variable)
@@ -259,7 +328,9 @@ describe("Generated palette tokens", () => {
       expect(paletteClassCandidates).toEqual(Arr.dedupe(paletteClassCandidates))
       // A slot's class is the utility for that slot in the tone's role: the recipe, not a literal per tone.
       expect(toneClassesFor("math").text).toBe("text-tone-math-ink")
-      expect(toneClassesFor("seal").focusRing).toBe("focus-visible:ring-tone-seal-edge")
+      expect(toneClassesFor("seal").borderSubtle).toBe("border-tone-seal-wash-veil")
+      expect(toneClassesFor("dsp").bgTinted).toBe("bg-tone-dsp-surface-mist")
+      expect(discSlotClassName("math", "ring")).toBe("ring-tone-math-edge-glass")
       expect(neutralToneClasses.textStrong).toBe("text-ink")
       expect(discSlotClassName("sign", "bandFocusedStroke")).toBe("stroke-tone-sign-ink")
     }))
@@ -280,5 +351,6 @@ describe("Generated palette tokens", () => {
       expect(styles).not.toMatch(/#[0-9a-f]{3,8}\b/iu)
       expect(styles).not.toMatch(/\brgba?\(/u)
       expect(styles).not.toMatch(/\boklch\(/u)
+      expect(generated).toMatch(/^@source inline\(".*\bbg-tone-dsp-surface-mist\b.*"\);$/mu)
     }).pipe(Effect.provide(BunContext.layer)))
 })

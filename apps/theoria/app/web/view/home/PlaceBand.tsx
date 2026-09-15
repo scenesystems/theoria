@@ -9,7 +9,7 @@ import * as m from "motion/react-m"
 import { placeBandAtom, placeFeatureFocusedAtom } from "../../atoms/imagined-place-experience.js"
 import { placeDiscDrawnAtom, type PlaceRenderFrame, placeShownFrameAtom } from "../../atoms/imagined-place-render.js"
 import { motionPreferenceAtom } from "../../atoms/motion.js"
-import { elevationClassName, focusEdgeClassName } from "../primitives/designSystem.js"
+import { elevationClassName, focusClassName } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
 import { arrivalFrom, arrivedAt, departed, exitTransition } from "../primitives/motion.js"
@@ -51,7 +51,7 @@ const bandClassName = "flex justify-center pt-3"
  * row scales down to fit beside the arrow.
  */
 const linkClassName =
-  `inline-flex max-w-full items-center gap-2 rounded-full bg-canvas px-2.5 py-1.5 ring-1 ring-hairline-strong shadow-surface ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 forced-colors:border forced-colors:border-[CanvasText]`
+  `inline-flex max-w-full items-center gap-2 rounded-full bg-canvas px-2.5 py-1.5 ring-1 ring-hairline-strong shadow-surface ${focusClassName} forced-colors:border forced-colors:border-[CanvasText]`
 
 const Disc = ({ cy, disc }: { readonly cy: number; readonly disc: BandDisc }) => {
   const drawn = useAtomValue(placeDiscDrawnAtom(disc.marker.name))

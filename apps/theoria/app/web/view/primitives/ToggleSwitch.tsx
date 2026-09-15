@@ -1,12 +1,14 @@
 import { Switch } from "@base-ui/react/switch"
 import { Option } from "effect"
 
-import { stillUnderReducedMotion, toggleTrackClassName, type ToneClasses } from "./designSystem.js"
+import { stillUnderReducedMotion, toggleTrackClassName, type ToneClasses, transitionClassName } from "./designSystem.js"
 import { Rail } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 const thumbClassName =
-  `block size-5 translate-x-[2px] rounded-full border border-hairline-strong/80 bg-paper shadow-chip transition-transform duration-150 ${stillUnderReducedMotion} forced-colors:bg-[CanvasText] data-[checked]:translate-x-[21px] forced-colors:data-[checked]:bg-[HighlightText]`
+  `block size-5 translate-x-[2px] rounded-full border border-hairline-strong-glass bg-paper shadow-chip transition-transform ${
+    transitionClassName("respond")
+  } ${stillUnderReducedMotion} forced-colors:bg-[CanvasText] data-[checked]:translate-x-[21px] forced-colors:data-[checked]:bg-[HighlightText]`
 
 /**
  * A labelled switch that sizes to its content; the parent decides where it

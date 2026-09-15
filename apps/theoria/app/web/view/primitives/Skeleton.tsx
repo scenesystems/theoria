@@ -1,6 +1,6 @@
 import { Separator } from "@base-ui/react/separator"
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Match, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as m from "motion/react-m"
 import type { CSSProperties, ReactNode } from "react"
 
@@ -8,7 +8,7 @@ import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import type { TextRole } from "../../../contracts/text.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { classNames } from "./classNames.js"
-import { dangerStatusTone, surfaceClassName, type ToneClasses } from "./designSystem.js"
+import { dangerStatusTone, surfaceClassName, type ToneClasses, transitionClassName } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { pulseTransition, stillTransition } from "./motion.js"
 import { SemanticContent } from "./SemanticContent.js"
@@ -75,7 +75,7 @@ export const ShimmerLine = ({
   readonly className?: string
   readonly motion?: PlaceholderMotion
   readonly width: string
-}) => <PulseLayer className={`h-3 rounded bg-hairline/60 ${width} ${className}`} motion={motion} />
+}) => <PulseLayer className={`h-3 rounded bg-hairline-glass ${width} ${className}`} motion={motion} />
 
 /**
  * A line standing in for text of a known role: the line box is exactly the
@@ -86,7 +86,7 @@ export const ShimmerLine = ({
 export const ShimmerText = ({ role, width }: { readonly role: TextRole; readonly width: string }) => (
   <Layer aria-hidden className={`flex ${width} items-center`} style={{ height: `var(${lineHeightVar(role)})` }}>
     <PulseLayer
-      className="w-full rounded bg-hairline/60"
+      className="w-full rounded bg-hairline-glass"
       style={{ height: `calc(var(${fontSizeVar(role)}) * 0.7)` }}
     />
   </Layer>
@@ -115,13 +115,13 @@ export const GhostText = ({
   readonly variant?: SurfaceVariant
 }) => {
   const preference = useAtomValue(motionPreferenceAtom)
-  const inline = as === "span" || as === "code"
+  const inline = Bool.or(Equal.equals(as, "span"), Equal.equals(as, "code"))
 
   return (
     <SemanticContent as={as} className={className} role={role} variant={variant}>
       <m.span
         aria-hidden
-        className={inline ? "ghost-words whitespace-nowrap" : "ghost-words"}
+        className={Bool.match(inline, { onTrue: () => "ghost-words whitespace-nowrap", onFalse: () => "ghost-words" })}
         {...pulse(preference, "breathing")}
       >
         {text}
@@ -163,7 +163,7 @@ export const SkeletonSection = () => (
 export const SkeletonPreview = ({ className = "" }: { readonly className?: string }) => (
   <Stack className={classNames("gap-0", className)}>
     <SkeletonSection />
-    <Separator className="h-px bg-hairline/80" />
+    <Separator className="h-px bg-hairline-glass" />
     <SkeletonSection />
   </Stack>
 )
@@ -174,7 +174,7 @@ export const SkeletonPreview = ({ className = "" }: { readonly className?: strin
 // ---------------------------------------------------------------------------
 
 export const ContentPlaceholder = ({ text }: { readonly text: string }) => (
-  <Layer className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-hairline/95 p-4">
+  <Layer className="flex min-h-32 items-center justify-center rounded-mark border border-dashed border-hairline-veil p-4">
     <SemanticText as="span" className="text-ink-secondary" role="status" text={text} variant="expanded" />
   </Layer>
 )
@@ -193,7 +193,11 @@ export const LoadingIndicator = ({
   readonly text: string
   readonly tone: ToneClasses
 }) => (
-  <Cluster className={`gap-1.5 transition-opacity duration-150 ${active ? "opacity-100" : "invisible"}`}>
+  <Cluster
+    className={`gap-1.5 transition-opacity ${transitionClassName("respond")} ${
+      Bool.match(active, { onTrue: () => "opacity-100", onFalse: () => "invisible" })
+    }`}
+  >
     <PulseLayer ariaHidden className={`inline-flex size-1.5 rounded-full ${tone.dot}`} />
     <SemanticText as="span" className="text-ink-secondary" role="code-meta" text={text} variant="expanded" />
   </Cluster>
@@ -203,7 +207,7 @@ export const LoadingIndicator = ({
 // RunningState — animated indicator + skeleton preview for in-progress work.
 // ---------------------------------------------------------------------------
 
-export const RunningState = ({ text }: { readonly text?: string }) => (
+export const RunningState = ({ text }: { readonly text: Option.Option<string> }) => (
   <Stack className="gap-4 py-4">
     <Cluster className="gap-2">
       <PulseLayer ariaHidden className="inline-flex size-2 rounded-full bg-accent" />
@@ -211,7 +215,7 @@ export const RunningState = ({ text }: { readonly text?: string }) => (
         as="span"
         className="text-ink-tertiary"
         role="status"
-        text={text ?? "Generating evidence…"}
+        text={Option.getOrElse(text, () => "Generating evidence…")}
         variant="expanded"
       />
     </Cluster>
@@ -254,20 +258,20 @@ export const EmptyState = ({
   action,
   description
 }: {
-  readonly action?: ReactNode
-  readonly description?: string
+  readonly action: Option.Option<ReactNode>
+  readonly description: Option.Option<string>
 }) => (
   <Stack className="relative min-h-full">
     <SkeletonPreview className="pointer-events-none opacity-20" />
     <SkeletonPreview className="pointer-events-none opacity-10" />
     <SkeletonPreview className="pointer-events-none opacity-5" />
     <Stack className="absolute inset-0 items-center justify-center gap-3">
-      {action}
+      {Option.match(action, { onNone: () => null, onSome: (control) => control })}
       <SemanticText
         as="span"
         className="text-ink-tertiary"
         role="status"
-        text={description ?? "Run the demo to generate reproducible evidence."}
+        text={Option.getOrElse(description, () => "Run the demo to generate reproducible evidence.")}
         variant="expanded"
       />
     </Stack>

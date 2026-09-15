@@ -1,6 +1,6 @@
 import { ArrowDownIcon } from "@heroicons/react/20/solid"
 
-import { primaryActionClassName, textActionClassName } from "../primitives/ActionButton.js"
+import { filledActionClassName, textActionClassName } from "../primitives/ActionButton.js"
 import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { AnchorLink, InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -40,7 +40,7 @@ export const HomeHero = () => (
         wrapAuthority="native-browser"
       />
       <Cluster className="gap-x-3 gap-y-2 pt-1">
-        <InternalLink className={primaryActionClassName} href="/docs">
+        <InternalLink className={filledActionClassName} href="/docs">
           <SemanticText as="span" className="text-on-emphasis" role="button-label" text="Browse the packages" />
         </InternalLink>
         <AnchorLink className={textActionClassName} href={`#${howItsBuiltSectionId}`}>

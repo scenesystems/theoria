@@ -2,8 +2,7 @@ import { Button } from "@base-ui/react/button"
 import { ScrollArea } from "@base-ui/react/scroll-area"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { CheckIcon, ClipboardDocumentIcon, ExclamationCircleIcon } from "@heroicons/react/20/solid"
-import { Match } from "effect"
-import { Option } from "effect"
+import { Boolean as Bool, Match, Option, Schema } from "effect"
 import type { ReactNode } from "react"
 
 import { copyDocsCodeAtom, docsCopiedCodeAtom, docsCopyFailedCodeAtom } from "../../atoms/docs.js"
@@ -11,9 +10,36 @@ import { type CodeAnnotation, CodeAnnotationRow } from "./code/CodeLine.js"
 import type { CodeLink } from "./code/codeLinks.js"
 import { type GutterLine, gutterNumber, HighlightedCode } from "./code/HighlightedCode.js"
 import type { CodeLanguage } from "./code/highlighter.js"
-import { docsTheme } from "./docsSystem.js"
+import {
+  codeActionClassName,
+  codeFrameClassName,
+  stillUnderReducedMotion,
+  transitionClassName
+} from "./designSystem.js"
 import { Cluster, Layer, Rail, Section } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+
+/** What the copy control says of the last copy asked of it: nothing yet, done, or failed. */
+const CopyState = Schema.Literal("idle", "copied", "failed")
+type CopyState = typeof CopyState.Type
+
+const copyStateFor = ({ copied, failed }: { readonly copied: boolean; readonly failed: boolean }): CopyState =>
+  Bool.match(copied, {
+    onTrue: (): CopyState => "copied",
+    onFalse: () =>
+      Bool.match(failed, {
+        onTrue: (): CopyState => "failed",
+        onFalse: (): CopyState => "idle"
+      })
+  })
+
+const copyLabelFor = (state: CopyState): string =>
+  Match.value(state).pipe(
+    Match.when("idle", () => "Copy"),
+    Match.when("copied", () => "Copied"),
+    Match.when("failed", () => "Copy failed"),
+    Match.exhaustive
+  )
 
 export const codeLanguageFor = (language: string): CodeLanguage =>
   Match.value(language.trim().toLocaleLowerCase("en-US")).pipe(
@@ -58,14 +84,16 @@ export const CodeBlock = ({
   readonly renderLineNumber?: (line: GutterLine) => ReactNode
   readonly source: string
 }) => {
-  const copy = useAtomSet(copyDocsCodeAtom)
-  const copied = Option.contains(useAtomValue(docsCopiedCodeAtom), source)
-  const failed = Option.contains(useAtomValue(docsCopyFailedCodeAtom), source)
-  const copyLabel = copied ? "Copied" : failed ? "Copy failed" : "Copy"
+  const copySource = useAtomSet(copyDocsCodeAtom)
+  const copy = copyStateFor({
+    copied: Option.contains(useAtomValue(docsCopiedCodeAtom), source),
+    failed: Option.contains(useAtomValue(docsCopyFailedCodeAtom), source)
+  })
+  const copyLabel = copyLabelFor(copy)
 
   return (
-    <Section aria-label={`${label} code example`} className={docsTheme.code}>
-      <Rail className="justify-between gap-3 border-b border-hairline/78 bg-canvas/60 px-4 py-2.5 sm:px-5">
+    <Section aria-label={`${label} code example`} className={codeFrameClassName}>
+      <Rail className="justify-between gap-3 border-b border-hairline-glass bg-canvas-glass px-4 py-2.5 sm:px-5">
         <Layer className="min-w-0 flex-1">
           <SemanticText
             as="code"
@@ -85,15 +113,16 @@ export const CodeBlock = ({
           />
           <Button
             aria-label={`${copyLabel} ${label}`}
-            className={docsTheme.codeAction}
-            onClick={() => copy(source)}
+            className={codeActionClassName}
+            onClick={() => copySource(source)}
             type="button"
           >
-            {copied
-              ? <CheckIcon aria-hidden className="h-4 w-4" />
-              : failed
-              ? <ExclamationCircleIcon aria-hidden className="h-4 w-4" />
-              : <ClipboardDocumentIcon aria-hidden className="h-4 w-4" />}
+            {Match.value(copy).pipe(
+              Match.when("copied", () => <CheckIcon aria-hidden className="h-4 w-4" />),
+              Match.when("failed", () => <ExclamationCircleIcon aria-hidden className="h-4 w-4" />),
+              Match.when("idle", () => <ClipboardDocumentIcon aria-hidden className="h-4 w-4" />),
+              Match.exhaustive
+            )}
             <SemanticText as="span" className="text-inherit" role="button-label" text={copyLabel} />
           </Button>
         </Cluster>
@@ -115,20 +144,22 @@ export const CodeBlock = ({
           </ScrollArea.Content>
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar
-          className="flex h-2.5 touch-none select-none bg-instrument/70 p-0.5"
+          className="flex h-2.5 touch-none select-none bg-instrument-glass p-0.5"
           orientation="horizontal"
         >
-          <ScrollArea.Thumb className="h-full min-w-8 rounded-full bg-ink-secondary/35" />
+          <ScrollArea.Thumb className="h-full min-w-8 rounded-full bg-ink-secondary-mist" />
         </ScrollArea.Scrollbar>
         {
           /* A block taller than its viewport is cut and scrolls; the scrollbar is painted for as long as there
             is more to see — nothing on a phone hovers — and fades once the whole block is in view. */
         }
         <ScrollArea.Scrollbar
-          className="flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/code:opacity-100 motion-reduce:transition-none"
+          className={`flex w-2 touch-none select-none p-px opacity-0 transition-opacity ${
+            transitionClassName("respond")
+          } group-data-[has-overflow-y]/code:opacity-100 ${stillUnderReducedMotion}`}
           orientation="vertical"
         >
-          <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-secondary/35" />
+          <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-secondary-mist" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </Section>

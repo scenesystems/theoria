@@ -29,7 +29,7 @@ export const ApiTypeParametersView = ({
         <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Type parameters</SemanticContent>
         <Stack
           render={<dl />}
-          className="divide-y divide-hairline/75 rounded-xl border border-hairline/90 bg-canvas/45 px-4"
+          className="divide-y divide-hairline-glass rounded-instrument border border-hairline-veil bg-canvas-mist px-4"
         >
           {Arr.map(
             parameters,
@@ -80,7 +80,7 @@ const Parameters = ({
         <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Parameters</SemanticContent>
         <Stack
           render={<dl />}
-          className="divide-y divide-hairline/75 rounded-xl border border-hairline/90 bg-canvas/45 px-4"
+          className="divide-y divide-hairline-glass rounded-instrument border border-hairline-veil bg-canvas-mist px-4"
         >
           {Arr.map(
             parameters,
@@ -130,7 +130,10 @@ export const ApiSignatureView = ({
     <Parameters headingAs={headingAs} parameters={signature.parameters} />
     <Stack className="gap-2">
       <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Returns</SemanticContent>
-      <Cluster align="start" className="gap-x-4 gap-y-2 rounded-xl border border-hairline/90 bg-canvas/45 px-4 py-3">
+      <Cluster
+        align="start"
+        className="gap-x-4 gap-y-2 rounded-instrument border border-hairline-veil bg-canvas-mist px-4 py-3"
+      >
         <InlineHighlightedCode className="min-w-0 max-w-full text-ink" source={signature.returns.type} />
         {signature.returns.description.length > 0
           ? (

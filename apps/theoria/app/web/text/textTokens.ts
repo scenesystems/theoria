@@ -1,4 +1,4 @@
-import { Option, String as Str } from "effect"
+import { Boolean as Bool, Equal, Option, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import { motionThemeTokens } from "../../contracts/motion.js"
@@ -26,7 +26,8 @@ import { semanticClassName } from "../view/primitives/semanticTextClasses.js"
  * contract test holds the file to this rendering.
  */
 
-const trackingCss = (tracking: number): string => tracking === 0 ? "0" : `${String(tracking)}em`
+const trackingCss = (tracking: number): string =>
+  Bool.match(Equal.equals(tracking, 0), { onTrue: () => "0", onFalse: () => `${String(tracking)}em` })
 
 const roleTokens = (semantics: TextSemantics): ReadonlyArray<string> => [
   `  --st-fs-${semantics.role}: ${fontSizeCss(semantics.fontSize)};`,
@@ -51,7 +52,7 @@ const viewportTokens = (viewport: Viewport): ReadonlyArray<string> =>
 const viewportBlock = (viewport: Viewport): Option.Option<string> =>
   Option.map(
     Option.liftPredicate(viewportTokens(viewport), Arr.isNonEmptyReadonlyArray),
-    (tokens) => `@media ${viewportCondition(viewport)} {\n  :root {\n${tokens.join("\n")}\n  }\n}`
+    (tokens) => `@media ${viewportCondition(viewport)} {\n  :root {\n${Arr.join(tokens, "\n")}\n  }\n}`
   )
 
 /** The utility classes a role's text may wear, each once, in either variant. */
@@ -64,10 +65,10 @@ export const semanticTextCandidates = (semantics: TextSemantics): ReadonlyArray<
   )
 
 const sourceLine = (semantics: TextSemantics): string =>
-  `@source inline("${semanticTextCandidates(semantics).join(" ")}");`
+  `@source inline("${Arr.join(semanticTextCandidates(semantics), " ")}");`
 
 export const renderTextTokensCss = (): string =>
-  [
+  Arr.join([
     "/* Typography and motion tokens (generated — do not edit; run `bun run gen:text-tokens`) */",
     "@theme inline {",
     ...Arr.map(fontFamilyThemeTokens, ([name, value]) => `  ${name}: ${value};`),
@@ -82,4 +83,4 @@ export const renderTextTokensCss = (): string =>
     "/* SemanticText candidates, one line per role (generated — do not edit) */",
     ...Arr.map(textSemantics, sourceLine),
     ""
-  ].join("\n")
+  ], "\n")

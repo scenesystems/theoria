@@ -8,12 +8,9 @@
 @import "./text-tokens.generated.css";
 
 @import "./palette-tokens.generated.css";
+@import "./layout-tokens.generated.css";
 
 @theme inline {
-  /* Surface vocabulary: the two radii a surface may take */
-  --radius-instrument: 0.75rem;
-  --radius-control: 0.5rem;
-
   /* The hero's rhythm above and below scales with viewport height, bounded, so the demonstration shares the first viewport. */
   --spacing-hero-lead: clamp(2.5rem, 7svh, 6rem);
   --spacing-hero-trail: clamp(2rem, 4.5svh, 5rem);
@@ -81,8 +78,10 @@
 
 /* ---------------------------------------------------------------------------
  * Stage utilities. Nothing here animates: Motion owns every arrival, exit and
- * finishing touch under the one configuration at the root, and CSS
- * transitions elsewhere read the motion tokens above.
+ * finishing touch under the one configuration at the root, and every CSS
+ * transition in the views is composed by `transitionClassName` from the
+ * motion tokens in the generated text tokens (`--th-motion-duration-*`,
+ * `--ease-*`); a lint rule keeps a hand-typed duration or ease out.
  * --------------------------------------------------------------------------- */
 
 @layer utilities {

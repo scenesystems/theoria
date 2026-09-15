@@ -27,7 +27,7 @@ const GuideHeading = ({ block }: { readonly block: Extract<GuideBlock, { readonl
       role={block.depth === 2 ? "section-title" : "selection-title"}
     >
       <a
-        className={`${focusEdgeClassName} hover:text-ink-secondary focus-visible:ring-2 focus-visible:ring-ink/20`}
+        className={`${focusEdgeClassName} hover:text-ink-secondary focus-visible:ring-2 focus-visible:ring-focus`}
         href={`#${block.id}`}
         id={block.id}
       >
@@ -57,9 +57,9 @@ const GuideList = ({ items, ordered }: {
 }
 
 const GuideTable = ({ block }: { readonly block: Extract<GuideBlock, { readonly kind: "table" }> }) => (
-  <Layer className="overflow-x-auto rounded-xl border border-hairline/90 bg-paper/72">
+  <Layer className="overflow-x-auto rounded-instrument border border-hairline-veil bg-paper-glass">
     <table className="w-full min-w-[32rem] border-collapse text-left">
-      <thead className="border-b border-hairline bg-instrument/65">
+      <thead className="border-b border-hairline bg-instrument-glass">
         <tr>
           {Arr.map(block.headers, (parts, index) => (
             <th className="px-4 py-3" key={`${String(index)}:${parts.length}`}>
@@ -70,7 +70,7 @@ const GuideTable = ({ block }: { readonly block: Extract<GuideBlock, { readonly 
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-hairline/75">
+      <tbody className="divide-y divide-hairline-glass">
         {Arr.map(block.rows, (row, rowIndex) => (
           <tr key={`${String(rowIndex)}:${row.length}`}>
             {Arr.map(
@@ -118,7 +118,7 @@ const GuideBlockView = ({ block, index }: { readonly block: GuideBlock; readonly
 
 export const GuidePageView = ({ page }: { readonly page: GuidePage }) => (
   <Stack className="gap-9 sm:gap-11">
-    <Section className="border-b border-hairline/90 pb-8">
+    <Section className="border-b border-hairline-veil pb-8">
       <Stack className="gap-4">
         <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
         <SemanticText

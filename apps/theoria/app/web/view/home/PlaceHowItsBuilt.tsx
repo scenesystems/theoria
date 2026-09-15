@@ -13,7 +13,13 @@ import { placeBuildShaAtom, placeBuiltAtom, placeStepAtom } from "../../atoms/im
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
 import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
-import { focusEdgeClassName, litMarkClassName, markClassName, toneClassesFor } from "../primitives/designSystem.js"
+import {
+  focusClassName,
+  litMarkClassName,
+  markClassName,
+  respondColorsClassName,
+  toneClassesFor
+} from "../primitives/designSystem.js"
 import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
@@ -36,13 +42,13 @@ import {
 import { PlaceStep, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
 
 const rowLinkClassName =
-  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
+  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
 
 const sourceLinkClassName =
-  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
+  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
 
 const commitLinkClassName =
-  `inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-ink-tertiary transition-colors duration-150 hover:bg-instrument/80 hover:text-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
+  `inline-flex min-h-8 items-center gap-1.5 rounded-mark px-2 text-ink-tertiary ${respondColorsClassName} hover:bg-instrument-glass hover:text-ink ${focusClassName}`
 
 const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly title: string }) => (
   <Stack aria-label={title} render={<section />} className="gap-1.5">
@@ -198,7 +204,7 @@ export const PlaceHowItsBuilt = () => {
   return (
     <Section
       aria-label="How it's built"
-      className="scroll-mt-6 border-t border-hairline/85 pt-6 lg:pt-8"
+      className="scroll-mt-6 border-t border-hairline-veil pt-6 lg:pt-8"
       data-place-act="build"
       data-place-how-its-built
       id={howItsBuiltSectionId}

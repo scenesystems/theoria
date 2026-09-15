@@ -9,7 +9,13 @@ import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-re
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
 import type { PlaceDiscDrawn } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
-import { forcedColorsAnsweringOutlineClassName, forcedColorsFocusClassName } from "../primitives/designSystem.js"
+import {
+  focusRingClassName,
+  forcedColorsAnsweringOutlineClassName,
+  forcedColorsFocusClassName,
+  stillUnderReducedMotion,
+  transitionClassName
+} from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { departed, exitTransition } from "../primitives/motion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -70,7 +76,9 @@ const filling = (preference: MotionPreference) =>
  * beside it.
  */
 const triggerClassName =
-  `absolute left-0 top-0 z-10 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${forcedColorsFocusClassName} ${forcedColorsAnsweringOutlineClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-paper data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-paper`
+  `absolute left-0 top-0 z-10 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] ${
+    transitionClassName("enter")
+  } ${stillUnderReducedMotion} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${forcedColorsFocusClassName} ${forcedColorsAnsweringOutlineClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-paper data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-paper`
 
 /** A named disc's label is clipped to the width it was measured to fit. */
 const labelClassName = "shrink-0 overflow-hidden"
@@ -184,7 +192,7 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
   return (
     <ProvenanceMark
       aria-label={markerLabel(marker)}
-      className={`${triggerClassName} ${discClassName(role)} ${tone.focusRing} ${discFocusRing(role)} ${
+      className={`${triggerClassName} ${discClassName(role)} ${focusRingClassName} ${discFocusRing(role)} ${
         discActOutline(act, marker)
       }`}
       data-place-marker={marker.name}

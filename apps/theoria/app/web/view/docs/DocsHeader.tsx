@@ -1,12 +1,12 @@
 import { Button } from "@base-ui/react/button"
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Bars3Icon } from "@heroicons/react/20/solid"
-import { Option } from "effect"
+import { Boolean as Bool, Option } from "effect"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
 import { setDocsNavigationOpenAtom } from "../../atoms/docs.js"
-import { focusEdgeClassName } from "../primitives/designSystem.js"
-import { docsTheme } from "../primitives/docsSystem.js"
+import { focusClassName, iconButtonClassName, workbenchTheme } from "../primitives/designSystem.js"
+import { headerChromeClassName } from "../primitives/HeaderChrome.js"
 import { Cluster, Header, Layer } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -28,15 +28,15 @@ export const DocsHeader = ({
   const setNavigationOpen = useAtomSet(setDocsNavigationOpenAtom)
 
   return (
-    <Header className={docsTheme.header}>
-      <Cluster className={docsTheme.headerContent}>
+    <Header className={headerChromeClassName("workbench")}>
+      <Cluster className={workbenchTheme.headerContent}>
         <Cluster className="min-w-0 shrink-0 gap-3">
           {Option.match(activePackage, {
             onNone: () => null,
             onSome: () => (
               <Button
                 aria-label="Open navigation"
-                className={`${docsTheme.iconButton} lg:hidden`}
+                className={`${iconButtonClassName} lg:hidden`}
                 onClick={() => setNavigationOpen(true)}
                 type="button"
               >
@@ -46,7 +46,7 @@ export const DocsHeader = ({
           })}
           <InternalLink
             aria-label="Theoria home"
-            className={`inline-flex min-w-0 items-baseline text-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`}
+            className={`inline-flex min-w-0 items-baseline text-ink ${focusClassName}`}
             href="/"
           >
             <TheoriaLogo className="text-[1.55rem] sm:text-[1.7rem]" />
@@ -54,19 +54,23 @@ export const DocsHeader = ({
           <Layer className="hidden h-5 w-px bg-hairline-strong sm:block" />
           <InternalLink
             aria-label="Documentation home"
-            className={`hidden text-ink-tertiary ${focusEdgeClassName} hover:text-ink focus-visible:ring-2 focus-visible:ring-ink/20 sm:inline-flex`}
+            className={`hidden text-ink-tertiary ${focusClassName} hover:text-ink sm:inline-flex`}
             href="/docs"
           >
             <SemanticText as="span" className="text-inherit" role="status" text="Docs" variant="compact" />
           </InternalLink>
         </Cluster>
         <Layer className="hidden min-w-0 flex-1 justify-center lg:flex">
-          {loading ?
-            <ShimmerLine className="h-11 rounded-xl" width="w-72" /> :
-            <DocsPackagePicker activePackage={activePackage} packages={packages} />}
+          {Bool.match(loading, {
+            onTrue: () => <ShimmerLine className="h-11 rounded-instrument" width="w-72" />,
+            onFalse: () => <DocsPackagePicker activePackage={activePackage} packages={packages} />
+          })}
         </Layer>
         <Cluster className="min-w-0 shrink-0 justify-end gap-2">
-          {loading ? <ShimmerLine className="hidden h-11 rounded-xl sm:block" width="w-40" /> : <DocsSearchTrigger />}
+          {Bool.match(loading, {
+            onTrue: () => <ShimmerLine className="hidden h-11 rounded-instrument sm:block" width="w-40" />,
+            onFalse: () => <DocsSearchTrigger />
+          })}
           <ThemeToggle />
         </Cluster>
       </Cluster>

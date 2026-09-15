@@ -1,0 +1,25 @@
+/* Layout tokens (generated — do not edit; run `bun run gen:layout-tokens`) */
+@theme inline {
+  --radius-mark: 0.375rem;
+  --radius-control: 0.5rem;
+  --radius-instrument: 0.75rem;
+  --radius-sheet: 1.5rem;
+  --container-reading: 54rem;
+  --container-page: 88rem;
+  --container-workbench: 96rem;
+}
+
+@layer base {
+  :root {
+    --th-z-band: 10;
+    --th-z-answer: 20;
+    --th-z-preview: 30;
+    --th-z-header: 40;
+    --th-z-backdrop: 50;
+    --th-z-sheet: 60;
+    --th-z-menu: 70;
+  }
+}
+
+/* Design-system candidates: each elevation's class and each relation's transition (generated — do not edit) */
+@source inline("z-(--th-z-band) z-(--th-z-answer) z-(--th-z-preview) z-(--th-z-header) z-(--th-z-backdrop) z-(--th-z-sheet) z-(--th-z-menu) duration-(--th-motion-duration-enter) ease-theme duration-(--th-motion-duration-shift) duration-(--th-motion-duration-exit) duration-(--th-motion-duration-respond) duration-(--th-motion-duration-follow) ease-follow");

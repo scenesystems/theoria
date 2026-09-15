@@ -5,6 +5,8 @@ import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import { cards } from "../../app/contracts/card.js"
+import { elevationIndex } from "../../app/contracts/layout.js"
+import { motionDuration } from "../../app/contracts/motion.js"
 import { introDelaySeconds } from "../../app/web/view/primitives/wordmarkMorph.js"
 import {
   act,
@@ -34,6 +36,7 @@ import {
   greekFaceOpacities,
   horizontalScrollers,
   presence,
+  resolvedChrome,
   scrollAffordance,
   setRootFontSize
 } from "./platform/in-page.js"
@@ -180,6 +183,36 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-math" }))
         yield* click(page.getByRole("link", { name: "Documentation home" }))
         yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("the workbench's chrome resolves to the layout and motion contracts' tokens", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
+        yield* goto(page, "/docs/effect-search")
+        yield* visible(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-search" }))
+
+        // The workbench header is sticky at the header elevation, not a hand-typed z-index.
+        const header = yield* act(() => page.locator("header").first().evaluate(resolvedChrome))
+        expect(header.position).toBe("sticky")
+        expect(header.zIndex).toBe(String(elevationIndex("header")))
+
+        // A picker trigger is an instrument's corner and answers the pointer by the respond relation.
+        const trigger = yield* act(() =>
+          page.getByRole("button", { name: "Search documentation" }).evaluate(resolvedChrome)
+        )
+        expect(trigger.radius).toBe("12px")
+        expect(trigger.duration).toBe(`${String(Duration.toSeconds(motionDuration("respond")))}s`)
+
+        // A code example's frame is a sheet: the largest corner on the page.
+        yield* click(page.getByRole("link", { exact: true, name: "Getting started" }))
+        const frame = yield* act(() => page.locator("[aria-label$='code example']").first().evaluate(resolvedChrome))
+        expect(frame.radius).toBe("24px")
+
+        // The package menu opens at the menu elevation, above the header.
+        yield* click(page.getByRole("button", { name: "Choose package" }))
+        const menu = yield* act(() => page.getByRole("menu").locator("xpath=..").evaluate(resolvedChrome))
+        expect(menu.zIndex).toBe(String(elevationIndex("menu")))
         expect(yield* failures).toEqual([])
       }))
 

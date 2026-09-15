@@ -10,7 +10,7 @@ import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { ApiSignatureView } from "./ApiSignatureView.js"
 
 export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
-  <Section className="scroll-mt-28 border-l border-hairline-strong/80 pl-4 sm:pl-5" id={member.anchor}>
+  <Section className="scroll-mt-28 border-l border-hairline-strong-glass pl-4 sm:pl-5" id={member.anchor}>
     <Stack className="gap-5">
       <Cluster className="gap-2">
         <SemanticContent as="h4" className="text-ink-strong" role="selection-title">{member.name}</SemanticContent>

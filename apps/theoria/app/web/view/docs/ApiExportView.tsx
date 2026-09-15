@@ -23,7 +23,7 @@ const RelationList = ({ facet }: { readonly facet: ApiFacet }) => {
       <Cluster className="gap-2">
         {Arr.map(relations, (relation) => (
           <Layer
-            className="rounded-lg border border-hairline/90 bg-instrument/60 px-2.5 py-1 text-ink-tertiary"
+            className="rounded-control border border-hairline-veil bg-instrument-glass px-2.5 py-1 text-ink-tertiary"
             key={relation}
           >
             <InlineHighlightedCode source={relation} />
@@ -77,14 +77,17 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
 )
 
 export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) => (
-  <Section className="scroll-mt-28 border-t border-hairline/90 pt-9 first:border-t-0 first:pt-0" id={apiExport.anchor}>
+  <Section
+    className="scroll-mt-28 border-t border-hairline-veil pt-9 first:border-t-0 first:pt-0"
+    id={apiExport.anchor}
+  >
     <Stack className="gap-7">
       <Stack className="gap-3">
         <SemanticText as="h1" className="break-words text-ink-strong" role="section-title" text={apiExport.name} />
         <Cluster className="gap-2">
           <SemanticText
             as="span"
-            className="rounded-md bg-instrument px-2 py-1 text-ink-tertiary"
+            className="rounded-mark bg-instrument px-2 py-1 text-ink-tertiary"
             role="row-label"
             text={apiExport.category}
           />
@@ -96,7 +99,7 @@ export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) 
           apiExport.facets,
           (facet, index) => (
             <Layer
-              className={index === 0 ? "" : "border-t border-hairline/75 pt-8"}
+              className={index === 0 ? "" : "border-t border-hairline-glass pt-8"}
               key={`${facet.kind}:${String(index)}`}
             >
               <ApiFacetView facet={facet} />

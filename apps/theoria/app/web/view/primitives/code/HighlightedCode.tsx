@@ -5,6 +5,7 @@ import { Fragment, type ReactNode } from "react"
 
 import { CodeSource, highlightedLinesAtom } from "../../../atoms/syntax-highlighting.js"
 
+import { respondColorsClassName, stillUnderReducedMotion } from "../designSystem.js"
 import { annotationFor, type CodeAnnotation, CodeAnnotationRow, CodeLine, lineMatches, lineText } from "./CodeLine.js"
 import type { CodeLink } from "./codeLinks.js"
 import { tokenClassName } from "./highlighter.js"
@@ -70,7 +71,7 @@ const lineRowClassName =
  * the text, with the colour easing in and out.
  */
 const focusableLineRowClassName =
-  `${lineRowClassName} -mx-2 rounded-md px-2 transition-colors duration-200 ease-theme data-[code-line-focused]:bg-instrument/80 forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] motion-reduce:transition-none`
+  `${lineRowClassName} -mx-2 rounded-mark px-2 ${respondColorsClassName} data-[code-line-focused]:bg-instrument-glass forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] ${stillUnderReducedMotion}`
 
 const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
 

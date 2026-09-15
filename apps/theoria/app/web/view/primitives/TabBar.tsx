@@ -3,16 +3,18 @@ import { Option } from "effect"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
-import { focusEdgeClassName, stillUnderReducedMotion } from "./designSystem.js"
+import { focusClassName, respondColorsClassName, stillUnderReducedMotion, transitionClassName } from "./designSystem.js"
 import { Cluster } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 const tabClassName =
-  `inline-flex min-h-9 items-center px-3 py-2 text-ink-tertiary transition-colors duration-150 ease-out hover:text-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink/20 data-[active]:text-ink-strong`
+  `inline-flex min-h-9 items-center px-3 py-2 text-ink-tertiary ${respondColorsClassName} hover:text-ink ${focusClassName} focus-visible:ring-inset data-[active]:text-ink-strong`
 
 /** The 2 px line under the active tab; Base UI measures the tab and hands the geometry over as CSS variables. */
 const indicatorClassName =
-  `absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-emphasis forced-colors:bg-[CanvasText] transition-[translate,width] duration-200 ease-out ${stillUnderReducedMotion}`
+  `absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-emphasis forced-colors:bg-[CanvasText] transition-[translate,width] ${
+    transitionClassName("respond")
+  } ${stillUnderReducedMotion}`
 
 /**
  * A controlled tab group over a closed set of string values. Base UI reports

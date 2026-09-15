@@ -2,7 +2,7 @@ import { ScrollArea } from "@base-ui/react/scroll-area"
 import { Toolbar } from "@base-ui/react/toolbar"
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Match, Option } from "effect"
+import { Boolean as Bool, Match, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import { AnimatePresence } from "motion/react"
@@ -37,7 +37,13 @@ import {
 } from "../../atoms/imagined-place.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
-import { litMarkClassName, markClassName, toneClassesFor } from "../primitives/designSystem.js"
+import {
+  litMarkClassName,
+  markClassName,
+  stillUnderReducedMotion,
+  toneClassesFor,
+  transitionClassName
+} from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { departed, exitTransition, staggeredArrival } from "../primitives/motion.js"
@@ -259,13 +265,18 @@ const Drawing = ({ drawn, fit, frame, shown }: {
  */
 const paperSurfaceClassName = "group/stage relative bg-radial-[at_20%_0%] from-canvas to-paper"
 const paperClassName = (fit: number): string =>
-  fit < 1
-    ? paperSurfaceClassName
-    : `${paperSurfaceClassName} transition-[width] duration-200 ease-out motion-reduce:transition-none`
+  Bool.match(Num.lessThan(fit, 1), {
+    onTrue: () => paperSurfaceClassName,
+    onFalse: () =>
+      `${paperSurfaceClassName} transition-[width] ${transitionClassName("shift")} ${stillUnderReducedMotion}`
+  })
 const fadeClassName =
-  "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-paper via-paper/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
-const scrollbarClassName =
-  "flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/stage:opacity-100"
+  `pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-paper via-paper-veil to-transparent opacity-0 transition-opacity ${
+    transitionClassName("respond")
+  } group-data-[overflow-y-end]/stage:opacity-100 ${stillUnderReducedMotion}`
+const scrollbarClassName = `flex w-2 touch-none select-none p-px opacity-0 transition-opacity ${
+  transitionClassName("respond")
+} group-data-[has-overflow-y]/stage:opacity-100`
 
 /**
  * The kept arrangement fits the sheet, so the sheet's edge is not a clip:
@@ -322,7 +333,7 @@ const Paper = ({
         <>
           <Layer className={fadeClassName} data-place-stage-fade />
           <ScrollArea.Scrollbar className={scrollbarClassName} orientation="vertical">
-            <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-secondary/35" />
+            <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-secondary-mist" />
           </ScrollArea.Scrollbar>
         </>
       )

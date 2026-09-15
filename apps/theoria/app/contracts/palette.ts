@@ -71,6 +71,9 @@ const at = (hue: number, tint: Tint): Oklch => new Oklch({ l: tint.l, c: tint.c,
  * - `accent`: a neutral mark — a dot, an underline, a focused border — so it must hold 3:1 on every surface.
  * - `ink-tertiary` … `ink-strong`: text, from the quietest label that is still read (AA on every surface) to a heading.
  * - `emphasis`, `emphasis-hover`, `on-emphasis`: a filled control, the fill under the pointer, and its text.
+ * - `focus`: the one ring every focused control wears. Focus is an affordance,
+ *   not a brand accent, so it is the same in every tone and holds 3:1 on every
+ *   ground a control may stand on — each neutral surface and each tone's surface, wash and edge.
  */
 export const NeutralRole = Schema.Literal(
   "canvas",
@@ -85,7 +88,8 @@ export const NeutralRole = Schema.Literal(
   "ink-strong",
   "emphasis",
   "emphasis-hover",
-  "on-emphasis"
+  "on-emphasis",
+  "focus"
 )
 
 export type NeutralRole = typeof NeutralRole.Type
@@ -112,11 +116,43 @@ const neutralShade = (role: NeutralRole): Shade =>
     Match.when("emphasis", () => inkShade),
     Match.when("emphasis-hover", () => inkHoverShade),
     Match.when("on-emphasis", () => paperShade),
+    Match.when("focus", () => shade(tint(0.47, 0.14), tint(0.82, 0.09))),
     Match.exhaustive
   )
 
 export const neutralColor = (role: NeutralRole, mode: ColorMode): Oklch =>
   at(neutralHue, tintIn(neutralShade(role), mode))
+
+// ---------------------------------------------------------------------------
+// Translucency
+// ---------------------------------------------------------------------------
+
+/**
+ * How much of what lies under a colour shows through it. Four levels, and no
+ * other alpha anywhere: a view names the level (`bg-paper-veil`), never a
+ * percentage, and a lint rule holds that.
+ *
+ * - `solid`: the colour as it is.
+ * - `veil`: a sheet that lets the page glow through — a sticky header, a chosen nav link, a control's paper.
+ * - `glass`: a wash — a control lit under the pointer, a ring on a disc, a soft rule.
+ * - `mist`: a tint — a chip's ground, a disabled fill, the scrim that dims the page under a sheet.
+ */
+export const Translucency = Schema.Literal("solid", "veil", "glass", "mist")
+
+export type Translucency = typeof Translucency.Type
+
+/** The alpha of a translucency, in `[0, 1]`. */
+export const translucencyAlpha = (translucency: Translucency): number =>
+  Match.value(translucency).pipe(
+    Match.when("solid", () => 1),
+    Match.when("veil", () => 0.86),
+    Match.when("glass", () => 0.62),
+    Match.when("mist", () => 0.38),
+    Match.exhaustive
+  )
+
+/** The translucencies that are not the colour itself, and so are painted as tokens of their own. */
+export const translucentLevels: ReadonlyArray<Translucency> = ["veil", "glass", "mist"]
 
 // ---------------------------------------------------------------------------
 // Tones
@@ -179,12 +215,12 @@ export const toneColor = (tone: CardTone, role: ToneRole, mode: ColorMode): Oklc
  * - `border`, `bg`, `dot`, `stroke`: the tone's marks — a filled track, a status dot, a plotted line.
  * - `borderSubtle`, `bgTinted`, `wash`: the tone's quiet grounds — a chosen pill's edge and fill, a changed value's wash.
  * - `text`, `textStrong`: the tone's words and its heading; each holds AA on every surface it may stand on.
- * - `focusRing`: the ring a toggle in the tone wears when focused.
+ *
+ * Focus is not a slot: every control wears the neutral `focus` ring, whatever its tone.
  */
 export const ToneSlot = Schema.Literal(
   "border",
   "borderSubtle",
-  "focusRing",
   "dot",
   "text",
   "textStrong",
@@ -204,7 +240,6 @@ export const toneSlotRole = (slot: ToneSlot): ToneRole =>
     Match.withReturnType<ToneRole>(),
     Match.when("border", () => "accent"),
     Match.when("borderSubtle", () => "wash"),
-    Match.when("focusRing", () => "edge"),
     Match.when("dot", () => "accent-soft"),
     Match.when("text", () => "ink"),
     Match.when("textStrong", () => "ink-strong"),
@@ -220,7 +255,6 @@ export const neutralSlotRole = (slot: ToneSlot): NeutralRole =>
     Match.withReturnType<NeutralRole>(),
     Match.when("border", () => "accent"),
     Match.when("borderSubtle", () => "hairline"),
-    Match.when("focusRing", () => "hairline-strong"),
     Match.when("dot", () => "accent"),
     Match.when("text", () => "ink-secondary"),
     Match.when("textStrong", () => "ink"),
@@ -228,6 +262,16 @@ export const neutralSlotRole = (slot: ToneSlot): NeutralRole =>
     Match.when("bg", () => "accent"),
     Match.when("bgTinted", () => "instrument"),
     Match.when("wash", () => "hairline"),
+    Match.exhaustive
+  )
+
+/** The translucency a slot is painted at: a chosen pill's edge veils the paper, its fill is a mist of the tone; the rest are solid. */
+export const toneSlotTranslucency = (slot: ToneSlot): Translucency =>
+  Match.value(slot).pipe(
+    Match.withReturnType<Translucency>(),
+    Match.when("borderSubtle", () => "veil"),
+    Match.when("bgTinted", () => "mist"),
+    Match.whenOr("border", "dot", "text", "textStrong", "stroke", "bg", "wash", () => "solid"),
     Match.exhaustive
   )
 
@@ -266,6 +310,15 @@ export const discSlotRole = (slot: DiscSlot): ToneRole =>
     Match.when("bandFill", () => "wash"),
     Match.when("bandStroke", () => "accent"),
     Match.when("bandFocusedStroke", () => "ink"),
+    Match.exhaustive
+  )
+
+/** A disc's ring, act outline and ghost are glass over the disc's own fill; the band's flat paint is solid. */
+export const discSlotTranslucency = (slot: DiscSlot): Translucency =>
+  Match.value(slot).pipe(
+    Match.withReturnType<Translucency>(),
+    Match.whenOr("ring", "actOutline", "ghost", () => "glass"),
+    Match.whenOr("focusRing", "bandArrivingStroke", "bandFill", "bandStroke", "bandFocusedStroke", () => "solid"),
     Match.exhaustive
   )
 
@@ -487,24 +540,43 @@ export const toSrgb = (color: Oklch): Srgb => {
 
 const luminanceWeights = Chunk.make(0.2126, 0.7152, 0.0722)
 
-/**
- * WCAG relative luminance of the colour as painted: from the quantised sRGB,
- * not the OKLCH, so the ratio is the one a reader's screen shows.
- */
-export const luminance = (color: Oklch): number => {
-  const painted = toSrgb(color)
-  return LinearAlgebra.dot(
+/** WCAG relative luminance of a painted colour. */
+export const paintedLuminance = (painted: Srgb): number =>
+  LinearAlgebra.dot(
     luminanceWeights,
     Chunk.map(
       Chunk.make(painted.r, painted.g, painted.b),
       (channel) => decodeComponent(Numeric.unsafeDivide(channel, 255))
     )
   )
+
+/**
+ * WCAG relative luminance of the colour as painted: from the quantised sRGB,
+ * not the OKLCH, so the ratio is the one a reader's screen shows.
+ */
+export const luminance = (color: Oklch): number => paintedLuminance(toSrgb(color))
+
+/** WCAG 2.x contrast ratio between two painted colours, in `[1, 21]`. */
+export const paintedContrast = (a: Srgb, b: Srgb): number => {
+  const ya = paintedLuminance(a)
+  const yb = paintedLuminance(b)
+  return Numeric.unsafeDivide(Num.sum(Num.max(ya, yb), 0.05), Num.sum(Num.min(ya, yb), 0.05))
 }
 
 /** WCAG 2.x contrast ratio between two colours, in `[1, 21]`. */
-export const contrast = (a: Oklch, b: Oklch): number => {
-  const ya = luminance(a)
-  const yb = luminance(b)
-  return Numeric.unsafeDivide(Num.sum(Num.max(ya, yb), 0.05), Num.sum(Num.min(ya, yb), 0.05))
+export const contrast = (a: Oklch, b: Oklch): number => paintedContrast(toSrgb(a), toSrgb(b))
+
+const blendChannel = (alpha: number) => (over: number, under: number): number =>
+  Num.round(Num.sum(Num.multiply(alpha, over), Num.multiply(Num.subtract(1, alpha), under)), 0)
+
+/**
+ * What the browser paints where a translucent colour lies over a ground: the
+ * two blended channel by channel in encoded sRGB, as CSS composites a
+ * background over what is under it. A solid colour is itself.
+ */
+export const composite = (over: Oklch, translucency: Translucency, under: Oklch): Srgb => {
+  const top = toSrgb(over)
+  const ground = toSrgb(under)
+  const blend = blendChannel(translucencyAlpha(translucency))
+  return new Srgb({ r: blend(top.r, ground.r), g: blend(top.g, ground.g), b: blend(top.b, ground.b) })
 }

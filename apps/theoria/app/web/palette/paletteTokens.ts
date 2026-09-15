@@ -19,15 +19,20 @@ import {
   ShadowRole,
   toneColor,
   ToneRole,
-  toSrgb
+  toSrgb,
+  type Translucency,
+  translucencyAlpha,
+  translucentLevels
 } from "../../contracts/palette.js"
 import { CardTone } from "../../contracts/theme.js"
 import {
   discFillClassName,
   discSlotClassName,
+  neutralColorName,
   neutralToneClasses,
   toneClassCandidates,
-  toneClassesFor
+  toneClassesFor,
+  toneColorName
 } from "../view/primitives/designSystem.js"
 
 /**
@@ -61,6 +66,16 @@ export const neutralTokenName = (role: NeutralRole): string => `--th-${role}`
 
 export const toneTokenName = (tone: CardTone, role: ToneRole): string => `--th-tone-${tone}-${role}`
 
+/** A translucent role's token: the role's name and its level, `--th-paper-veil`. */
+export const translucentNeutralTokenName = (role: NeutralRole, translucency: Translucency): string =>
+  `${neutralTokenName(role)}-${translucency}`
+
+export const translucentToneTokenName = (tone: CardTone, role: ToneRole, translucency: Translucency): string =>
+  `${toneTokenName(tone, role)}-${translucency}`
+
+const translucentCss = (color: Oklch, translucency: Translucency): string =>
+  colorWithAlphaCss(color, translucencyAlpha(translucency))
+
 export const dangerTokenName = (role: DangerRole): string => `--th-danger-${role}`
 
 export const codeTokenName = (kind: CodePaint): string => `--th-code-${kind}`
@@ -91,24 +106,61 @@ export const paletteTokens = (mode: ColorMode): ReadonlyArray<Token> =>
     Arr.flatMap(CardTone.literals, (tone) =>
       Arr.map(ToneRole.literals, (role) =>
         token(toneTokenName(tone, role), colorCss(toneColor(tone, role, mode))))),
+    Arr.flatMap(NeutralRole.literals, (role) =>
+      Arr.map(translucentLevels, (translucency) =>
+        token(
+          translucentNeutralTokenName(role, translucency),
+          translucentCss(neutralColor(role, mode), translucency)
+        ))),
+    Arr.flatMap(CardTone.literals, (tone) =>
+      Arr.flatMap(ToneRole.literals, (role) =>
+        Arr.map(translucentLevels, (translucency) =>
+          token(
+            translucentToneTokenName(tone, role, translucency),
+            translucentCss(toneColor(tone, role, mode), translucency)
+          )))),
     Arr.map(DangerRole.literals, (role) =>
       token(dangerTokenName(role), colorCss(dangerColor(role, mode)))),
-    Arr.map(CodePaint.literals, (kind) => token(codeTokenName(kind), colorCss(codeColor(kind, mode)))),
+    Arr.map(CodePaint.literals, (kind) =>
+      token(codeTokenName(kind), colorCss(codeColor(kind, mode)))),
     Arr.map(ShadowRole.literals, (role) =>
       token(
         shadowTokenName(role),
         `${shadowGeometry(role)} ${colorWithAlphaCss(shadowColor(mode), shadowAlpha(role, mode))}`
       )),
-    Arr.map(CardTone.literals, (tone) => token(discTokenName(tone), discGradientCss(tone, mode)))
+    Arr.map(CardTone.literals, (tone) =>
+      token(discTokenName(tone), discGradientCss(tone, mode)))
   ])
 
 /** The Tailwind bridge: a `--color-*` utility token per colour role and a `--shadow-*` per shadow, each reading its `--th-*`. */
 export const paletteThemeTokens: ReadonlyArray<Token> = Arr.flatten([
-  Arr.map(NeutralRole.literals, (role) => token(`--color-${role}`, `var(${neutralTokenName(role)})`)),
+  Arr.map(
+    NeutralRole.literals,
+    (role) => token(`--color-${neutralColorName(role, "solid")}`, `var(${neutralTokenName(role)})`)
+  ),
   Arr.flatMap(
     CardTone.literals,
     (tone) =>
-      Arr.map(ToneRole.literals, (role) => token(`--color-tone-${tone}-${role}`, `var(${toneTokenName(tone, role)})`))
+      Arr.map(
+        ToneRole.literals,
+        (role) => token(`--color-${toneColorName(tone, role, "solid")}`, `var(${toneTokenName(tone, role)})`)
+      )
+  ),
+  Arr.flatMap(NeutralRole.literals, (role) =>
+    Arr.map(translucentLevels, (translucency) =>
+      token(
+        `--color-${neutralColorName(role, translucency)}`,
+        `var(${translucentNeutralTokenName(role, translucency)})`
+      ))),
+  Arr.flatMap(
+    CardTone.literals,
+    (tone) =>
+      Arr.flatMap(ToneRole.literals, (role) =>
+        Arr.map(translucentLevels, (translucency) =>
+          token(
+            `--color-${toneColorName(tone, role, translucency)}`,
+            `var(${translucentToneTokenName(tone, role, translucency)})`
+          )))
   ),
   Arr.map(DangerRole.literals, (role) => token(`--color-danger-${role}`, `var(${dangerTokenName(role)})`)),
   Arr.map(CodePaint.literals, (kind) => token(`--color-code-${kind}`, `var(${codeTokenName(kind)})`)),

@@ -16,7 +16,7 @@ const exportFor = (page: DocsApiModuleIndex, id: string): Option.Option<DocsApiE
 const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: DocsApiExportSummary }) => (
   <li>
     <AnchorLink
-      className={`group block rounded-xl px-3 py-4 ${focusEdgeClassName} transition-colors hover:bg-paper/72 focus-visible:bg-paper/72 focus-visible:ring-2 focus-visible:ring-ink/20 sm:px-4`}
+      className={`group block rounded-instrument px-3 py-4 ${focusEdgeClassName} transition-colors hover:bg-paper-glass focus-visible:bg-paper-glass focus-visible:ring-2 focus-visible:ring-focus sm:px-4`}
       href={`#${apiExport.anchor}`}
     >
       <Stack className="gap-1.5">
@@ -45,7 +45,7 @@ const ApiCategoryIndex = ({
   <Section className="scroll-mt-28" id={apiCategoryAnchor(category.name)}>
     <Stack className="gap-4">
       <SemanticText as="h2" className="capitalize text-ink-strong" role="section-title" text={category.name} />
-      <Stack render={<ul />} className="divide-y divide-hairline/80 border-y border-hairline/80 py-1">
+      <Stack render={<ul />} className="divide-y divide-hairline-glass border-y border-hairline-glass py-1">
         {Arr.filterMap(category.exportIds, (id) =>
           Option.map(
             exportFor(page, id),
@@ -57,7 +57,7 @@ const ApiCategoryIndex = ({
 )
 
 const ApiModuleHeader = ({ page }: { readonly page: DocsApiModuleIndex }) => (
-  <Section className="scroll-mt-28 border-b border-hairline/90 pb-8" id="module">
+  <Section className="scroll-mt-28 border-b border-hairline-veil pb-8" id="module">
     <Stack className="gap-5">
       <Stack className="gap-3">
         <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
@@ -99,7 +99,7 @@ const SelectedApiExport = ({
     <Stack className="gap-2">
       <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
       <AnchorLink
-        className={`w-fit font-body text-sm font-medium text-ink-tertiary ${focusEdgeClassName} hover:text-ink-strong focus-visible:ring-2 focus-visible:ring-ink/20`}
+        className={`w-fit font-body text-sm font-medium text-ink-tertiary ${focusEdgeClassName} hover:text-ink-strong focus-visible:ring-2 focus-visible:ring-focus`}
         href="#module"
       >
         ← {page.module.name}

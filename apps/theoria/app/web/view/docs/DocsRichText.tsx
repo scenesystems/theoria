@@ -20,7 +20,7 @@ const richPart = (part: RichPart, key: string): ReactNode => {
   if (part.kind === "code") {
     return (
       <code
-        className="rounded-md border border-hairline/80 bg-instrument/72 px-1.5 py-0.5 font-mono text-[0.88em] text-ink"
+        className="rounded-mark border border-hairline-glass bg-instrument-glass px-1.5 py-0.5 font-mono text-[0.88em] text-ink"
         key={key}
       >
         {part.text}

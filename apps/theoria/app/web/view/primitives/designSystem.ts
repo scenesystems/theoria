@@ -2,14 +2,19 @@ import { Boolean as Bool, Match, Number as Num, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type { Id as CardId } from "../../../contracts/id.js"
-import type { Elevation, SurfaceRole } from "../../../contracts/layout.js"
+import type { Elevation, Measure, SurfaceRole } from "../../../contracts/layout.js"
+import { motionEaseFor, type MotionRelation } from "../../../contracts/motion.js"
 import {
   type DiscSlot,
   discSlotRole,
+  discSlotTranslucency,
+  type NeutralRole,
   neutralSlotRole,
   type ToneRole,
   ToneSlot,
-  toneSlotRole
+  toneSlotRole,
+  toneSlotTranslucency,
+  type Translucency
 } from "../../../contracts/palette.js"
 import { type CardTone, toneForCard } from "../../../contracts/theme.js"
 
@@ -21,34 +26,37 @@ import { type CardTone, toneForCard } from "../../../contracts/theme.js"
 // (`@source inline`) in the generated stylesheet; a contract test holds that.
 // ---------------------------------------------------------------------------
 
-/** The utility a slot is worn as: the property it paints, with the variant that lights it. */
+/** The utility a slot is worn as: the property it paints. */
 const slotUtility = (slot: ToneSlot): string =>
   Match.value(slot).pipe(
     Match.whenOr("border", "borderSubtle", () => "border"),
-    Match.when("focusRing", () => "focus-visible:ring"),
     Match.whenOr("dot", "bg", "bgTinted", "wash", () => "bg"),
     Match.whenOr("text", "textStrong", () => "text"),
     Match.when("stroke", () => "stroke"),
     Match.exhaustive
   )
 
-/** The translucency a slot is painted at: a chosen pill's edge and fill let the paper through; the rest are solid. */
-const slotAlpha = (slot: ToneSlot): string =>
-  Match.value(slot).pipe(
-    Match.when("borderSubtle", () => "/95"),
-    Match.when("bgTinted", () => "/45"),
-    Match.whenOr("border", "focusRing", "dot", "text", "textStrong", "stroke", "bg", "wash", () => ""),
+/** A translucency's suffix on a colour name: a solid colour is the role itself, `paper`; a translucent one is `paper-veil`. */
+const translucencySuffix = (translucency: Translucency): string =>
+  Match.value(translucency).pipe(
+    Match.when("solid", () => ""),
+    Match.whenOr("veil", "glass", "mist", (level) => `-${level}`),
     Match.exhaustive
   )
 
-/** The name Tailwind knows a tone's role by, as the generated bridge declares it. */
-export const toneColorName = (tone: CardTone, role: ToneRole): string => `tone-${tone}-${role}`
+/** The name Tailwind knows a neutral role by at a translucency, as the generated bridge declares it. */
+export const neutralColorName = (role: NeutralRole, translucency: Translucency): string =>
+  `${role}${translucencySuffix(translucency)}`
+
+/** The name Tailwind knows a tone's role by at a translucency, as the generated bridge declares it. */
+export const toneColorName = (tone: CardTone, role: ToneRole, translucency: Translucency): string =>
+  `tone-${tone}-${role}${translucencySuffix(translucency)}`
 
 const toneSlotClassName = (tone: CardTone, slot: ToneSlot): string =>
-  `${slotUtility(slot)}-${toneColorName(tone, toneSlotRole(slot))}${slotAlpha(slot)}`
+  `${slotUtility(slot)}-${toneColorName(tone, toneSlotRole(slot), toneSlotTranslucency(slot))}`
 
 const neutralSlotClassName = (slot: ToneSlot): string =>
-  `${slotUtility(slot)}-${neutralSlotRole(slot)}${slotAlpha(slot)}`
+  `${slotUtility(slot)}-${neutralColorName(neutralSlotRole(slot), toneSlotTranslucency(slot))}`
 
 export const ToneClasses = Schema.Record({ key: ToneSlot, value: Schema.String })
 export type ToneClasses = typeof ToneClasses.Type
@@ -56,7 +64,6 @@ export type ToneClasses = typeof ToneClasses.Type
 const slotClasses = (className: (slot: ToneSlot) => string): ToneClasses => ({
   border: className("border"),
   borderSubtle: className("borderSubtle"),
-  focusRing: className("focusRing"),
   dot: className("dot"),
   text: className("text"),
   textStrong: className("textStrong"),
@@ -91,25 +98,37 @@ const discSlotUtility = (slot: DiscSlot): string =>
     Match.exhaustive
   )
 
-/** A disc's ring, act outline and ghost let the disc's own fill through; the band's flat paint is solid. */
-const discSlotAlpha = (slot: DiscSlot): string =>
-  Match.value(slot).pipe(
-    Match.when("ring", () => "/60"),
-    Match.when("actOutline", () => "/70"),
-    Match.when("ghost", () => "/80"),
-    Match.whenOr("focusRing", "bandArrivingStroke", "bandFill", "bandStroke", "bandFocusedStroke", () => ""),
-    Match.exhaustive
-  )
-
 export const discSlotClassName = (tone: CardTone, slot: DiscSlot): string =>
-  `${discSlotUtility(slot)}-${toneColorName(tone, discSlotRole(slot))}${discSlotAlpha(slot)}`
+  `${discSlotUtility(slot)}-${toneColorName(tone, discSlotRole(slot), discSlotTranslucency(slot))}`
 
 /** The disc's soft radial fill in its tone: a utility the generated stylesheet declares per tone. */
 export const discFillClassName = (tone: CardTone): string => `bg-place-disc-${tone}`
 
 // ---------------------------------------------------------------------------
-// Surfaces — the three things a surface can be, and how each is drawn.
-// The canvas is the page: content sits on it with no border, radius or shadow.
+// Motion — a CSS transition's duration and ease are the motion contract's:
+// `transitionClassName` reads the relation's tokens from the generated
+// stylesheet, and nothing else in the views names a duration or an ease (a
+// lint rule holds that). CSS transitions do not read Motion's configuration,
+// so a thing that travels by transition (a translate, a scale, a height, a
+// rotation) says here that it stands still when the reader asks for reduced
+// motion. Motion's own values are configured from the same preference at the
+// root; this is the CSS side of one rule.
+// ---------------------------------------------------------------------------
+
+/** How long a transition takes and how it moves: the relation's duration token and its ease. */
+export const transitionClassName = (relation: MotionRelation): string =>
+  `duration-(--th-motion-duration-${relation}) ease-${motionEaseFor(relation)}`
+
+/** A transitioned thing that travels; under reduced motion it takes its place at once. */
+export const stillUnderReducedMotion = "motion-reduce:transition-none"
+
+/** A control's colours answering the pointer or the focus. */
+export const respondColorsClassName = `transition-colors ${transitionClassName("respond")}`
+
+// ---------------------------------------------------------------------------
+// Surfaces — the five things a surface can be, and how each is drawn. The
+// canvas is the page: content sits on it with no border, radius or shadow.
+// Every sheet, drawer and overlay on the page is composed here and nowhere else.
 // ---------------------------------------------------------------------------
 
 export const surfaceClassName = (role: SurfaceRole): string =>
@@ -117,37 +136,21 @@ export const surfaceClassName = (role: SurfaceRole): string =>
     Match.when("canvas", () => ""),
     Match.when("instrument", () => "rounded-instrument bg-instrument"),
     Match.when("overlay", () => "rounded-instrument bg-paper shadow-surface"),
+    Match.when("sheet", () => "rounded-sheet border border-hairline-strong-veil bg-paper shadow-hero"),
+    Match.when("drawer", () => "border-r border-hairline-strong-veil bg-paper shadow-hero"),
     Match.exhaustive
   )
 
-/** How high a thing stands over the page, in the one order `Elevation` gives. */
-export const elevationClassName = (elevation: Elevation): string =>
-  Match.value(elevation).pipe(
-    Match.when("band", () => "z-10"),
-    Match.when("answer", () => "z-20"),
-    Match.when("preview", () => "z-30"),
-    Match.exhaustive
-  )
+/** How high a thing stands over the page: the elevation's z-index token, in the one order `Elevation` gives. */
+export const elevationClassName = (elevation: Elevation): string => `z-(--th-z-${elevation})`
+
+/** How wide a column of content may be: the measure's container token. */
+export const measureClassName = (measure: Measure): string => `max-w-${measure}`
 
 // ---------------------------------------------------------------------------
-// Marks — a thing on the page that can be pointed at and answered. Wherever a
-// mark stands — in a line of text, in the code's gutter, on the paper, as a
-// value under a line of code — it is lit the same way: one wash, under the
-// pointer and while it is answered, whether pointed at itself or lit by the
-// answer to another. A mark is `group/mark`, so a chip set inside it can wear
-// the wash on its own box instead of the mark's.
+// Focus — one ring for every focused control, in the neutral `focus` role,
+// whatever the control's tone: focus is an affordance, not a brand accent.
 // ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Motion — CSS transitions are the page's own and do not read Motion's
-// configuration, so a thing that travels by transition (a translate, a scale,
-// a height, a rotation) says here that it stands still when the reader asks
-// for reduced motion. Motion's own values are configured from the same
-// preference at the root; this is the CSS side of one rule.
-// ---------------------------------------------------------------------------
-
-/** A transitioned thing that travels; under reduced motion it takes its place at once. */
-export const stillUnderReducedMotion = "motion-reduce:transition-none"
 
 /**
  * The one way a control gives up the browser's focus outline for a ring of its
@@ -161,6 +164,12 @@ export const stillUnderReducedMotion = "motion-reduce:transition-none"
 export const forcedColorsFocusClassName =
   "forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-2 forced-colors:focus-visible:outline-offset-2 forced-colors:focus-visible:outline-[Highlight]"
 export const focusEdgeClassName = `focus-visible:outline-none ${forcedColorsFocusClassName}`
+
+/** The ring itself: two pixels of the focus role. Worn with `focusEdgeClassName`, which gives up the outline for it. */
+export const focusRingClassName = "focus-visible:ring-2 focus-visible:ring-focus"
+
+/** A control's focus in one word: the edge given up and the ring worn. */
+export const focusClassName = `${focusEdgeClassName} ${focusRingClassName}`
 
 /**
  * A control that keeps an outline of its own (the discs) and has nothing to
@@ -181,17 +190,26 @@ export const silentOutlineClassName = "outline-transparent forced-colors:outline
 export const forcedColorsAnsweringOutlineClassName =
   "forced-colors:data-[popup-open]:outline-solid forced-colors:data-[popup-open]:outline-[Highlight] forced-colors:data-[place-focused]:outline-solid forced-colors:data-[place-focused]:outline-[Highlight]"
 
+// ---------------------------------------------------------------------------
+// Marks — a thing on the page that can be pointed at and answered. Wherever a
+// mark stands — in a line of text, in the code's gutter, on the paper, as a
+// value under a line of code — it is lit the same way: one wash, under the
+// pointer and while it is answered, whether pointed at itself or lit by the
+// answer to another. A mark is `group/mark`, so a chip set inside it can wear
+// the wash on its own box instead of the mark's.
+// ---------------------------------------------------------------------------
+
 /** A mark's box: pointable and focusable. The wash is added by whichever box wears it. */
 export const markClassName =
-  `group/mark cursor-default rounded-md transition-colors duration-150 ease-theme ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 ${stillUnderReducedMotion}`
+  `group/mark cursor-default rounded-mark ${respondColorsClassName} ${focusClassName} ${stillUnderReducedMotion}`
 
 /** The wash on a mark's own box. */
 export const litMarkClassName =
-  "hover:bg-instrument/80 data-[place-focused]:bg-instrument/80 data-[popup-open]:bg-instrument/80 forced-colors:hover:bg-[Highlight] forced-colors:hover:text-[HighlightText] forced-colors:data-[place-focused]:bg-[Highlight] forced-colors:data-[place-focused]:text-[HighlightText] forced-colors:data-[popup-open]:bg-[Highlight] forced-colors:data-[popup-open]:text-[HighlightText]"
+  "hover:bg-instrument-glass data-[place-focused]:bg-instrument-glass data-[popup-open]:bg-instrument-glass forced-colors:hover:bg-[Highlight] forced-colors:hover:text-[HighlightText] forced-colors:data-[place-focused]:bg-[Highlight] forced-colors:data-[place-focused]:text-[HighlightText] forced-colors:data-[popup-open]:bg-[Highlight] forced-colors:data-[popup-open]:text-[HighlightText]"
 
 /** The wash on a chip set inside a mark, in place of the chip's own paper. */
 export const litChipClassName =
-  `transition-colors duration-150 ease-theme ${stillUnderReducedMotion} group-hover/mark:bg-instrument/80 group-data-[place-focused]/mark:bg-instrument/80 group-data-[popup-open]/mark:bg-instrument/80 forced-colors:group-hover/mark:bg-[Highlight] forced-colors:group-hover/mark:text-[HighlightText] forced-colors:group-data-[place-focused]/mark:bg-[Highlight] forced-colors:group-data-[place-focused]/mark:text-[HighlightText] forced-colors:group-data-[popup-open]/mark:bg-[Highlight] forced-colors:group-data-[popup-open]/mark:text-[HighlightText]`
+  `${respondColorsClassName} ${stillUnderReducedMotion} group-hover/mark:bg-instrument-glass group-data-[place-focused]/mark:bg-instrument-glass group-data-[popup-open]/mark:bg-instrument-glass forced-colors:group-hover/mark:bg-[Highlight] forced-colors:group-hover/mark:text-[HighlightText] forced-colors:group-data-[place-focused]/mark:bg-[Highlight] forced-colors:group-data-[place-focused]/mark:text-[HighlightText] forced-colors:group-data-[popup-open]/mark:bg-[Highlight] forced-colors:group-data-[popup-open]/mark:text-[HighlightText]`
 
 // ---------------------------------------------------------------------------
 // InlineStatusTone — a glyph and a colour for a status said in the text's own
@@ -213,8 +231,12 @@ export const neutralStatusTone: InlineStatusTone = { dot: neutralToneClasses.dot
 
 export const dangerStatusTone: InlineStatusTone = { dot: "bg-danger-accent", text: "text-danger-ink" }
 
+// ---------------------------------------------------------------------------
+// Controls — pills, segmented controls, toggles, actions.
+// ---------------------------------------------------------------------------
+
 const pillButtonBaseClassName =
-  `inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-colors duration-150 ease-out ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
+  `inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 ${respondColorsClassName} ${focusClassName} focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
 
 export const pillButtonClassName = ({
   active,
@@ -225,11 +247,12 @@ export const pillButtonClassName = ({
 }): string =>
   Bool.match(active, {
     onTrue: () => `${pillButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted}`,
-    onFalse: () => `${pillButtonBaseClassName} border-transparent bg-instrument/70 hover:bg-instrument`
+    onFalse: () => `${pillButtonBaseClassName} border-transparent bg-instrument-glass hover:bg-instrument`
   })
 
-const segmentedControlRailBaseClassName =
-  "grid min-w-0 gap-1 rounded-instrument border border-hairline bg-instrument p-1"
+const segmentedControlRailBaseClassName = `grid min-w-0 gap-1 ${
+  surfaceClassName("instrument")
+} border border-hairline p-1`
 
 /**
  * A segmented control is one row of equal cells at every width the cells can
@@ -244,7 +267,7 @@ export const segmentedControlRailClassName = (count: number): string =>
   )
 
 const segmentedControlButtonBaseClassName =
-  `inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 transition-colors duration-150 ease-out ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
+  `inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 ${respondColorsClassName} ${focusClassName} focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
 
 export const segmentedControlButtonClassName = ({
   active,
@@ -255,11 +278,11 @@ export const segmentedControlButtonClassName = ({
 }): string =>
   Bool.match(active, {
     onTrue: () => `${segmentedControlButtonBaseClassName} border-hairline bg-paper ${tone.bgTinted}`,
-    onFalse: () => `${segmentedControlButtonBaseClassName} hover:bg-paper/60`
+    onFalse: () => `${segmentedControlButtonBaseClassName} hover:bg-paper-glass`
   })
 
 const toggleTrackBaseClassName =
-  `inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55 forced-colors:border-[CanvasText]`
+  `inline-flex h-7 w-12 shrink-0 items-center rounded-full border ${respondColorsClassName} ${focusClassName} focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55 forced-colors:border-[CanvasText]`
 
 export const toggleTrackClassName = ({
   checked,
@@ -269,10 +292,141 @@ export const toggleTrackClassName = ({
   readonly tone: ToneClasses
 }): string =>
   Bool.match(checked, {
-    onTrue: () =>
-      `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing} forced-colors:bg-[Highlight]`,
-    onFalse: () => `${toggleTrackBaseClassName} border-hairline/90 bg-canvas/90 ${tone.focusRing}`
+    onTrue: () => `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} forced-colors:bg-[Highlight]`,
+    onFalse: () => `${toggleTrackBaseClassName} border-hairline-veil bg-canvas-veil`
   })
+
+/** A filled action: emphasis under its words, deeper under the pointer. */
+export const primaryActionClassName =
+  "border-emphasis bg-emphasis text-on-emphasis shadow-chip hover:border-emphasis-hover hover:bg-emphasis-hover"
+
+/** An action on paper: a firm edge that darkens under the pointer, paper that settles solid. */
+export const secondaryActionClassName =
+  "border-hairline-strong-veil bg-paper-veil text-ink shadow-chip hover:border-accent hover:bg-paper"
+
+/** A glyph alone as a control on paper, in the header or a sheet. */
+export const iconButtonClassName =
+  `inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-instrument border border-hairline-veil bg-paper-glass text-ink-secondary transition-[border-color,background-color,color] ${
+    transitionClassName("respond")
+  } hover:border-hairline-strong hover:bg-paper-veil hover:text-ink ${focusClassName}`
+
+/** The control that opens a search or a picker: a field's height, paper that firms under the pointer. */
+export const pickerTriggerClassName =
+  `flex h-11 min-w-0 items-center gap-2.5 rounded-instrument border border-hairline-veil bg-paper-glass px-3 text-ink-tertiary shadow-chip transition-[border-color,background-color,color] ${
+    transitionClassName("respond")
+  } hover:border-hairline-strong hover:bg-paper-veil hover:text-ink ${focusClassName}`
+
+// ---------------------------------------------------------------------------
+// Sheets, drawers and their backdrops — surfaces over the page, each at its
+// elevation, arriving and leaving by the relation that fits.
+// ---------------------------------------------------------------------------
+
+/** The dim over the page under a sheet: fades in and out with the sheet. */
+export const dialogBackdropClassName = `fixed inset-0 ${
+  elevationClassName("backdrop")
+} bg-ink-strong-mist backdrop-blur-sm transition-opacity ${
+  transitionClassName("enter")
+} data-[starting-style]:opacity-0 data-[ending-style]:opacity-0`
+
+export const dialogViewportClassName = `fixed inset-0 ${
+  elevationClassName("sheet")
+} flex items-start justify-center overflow-y-auto px-3 py-[10dvh] sm:px-6`
+
+/** A sheet that arrives from just above its place and leaves the same way. */
+export const dialogSheetClassName = `overflow-hidden ${surfaceClassName("sheet")} transition-[opacity,transform] ${
+  transitionClassName("enter")
+} data-[starting-style]:translate-y-[-0.5rem] data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 data-[ending-style]:translate-y-[-0.5rem] data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 ${stillUnderReducedMotion}`
+
+/**
+ * The drawer follows the finger while swiped (`duration-0`), and when let go
+ * settles by the `follow` relation, shortened by how far the swipe had
+ * already carried it.
+ */
+const drawerSettleClassName = `${
+  transitionClassName("follow")
+} data-[swiping]:duration-0 data-[ending-style]:duration-[calc(var(--drawer-swipe-strength)*var(--th-motion-duration-follow))]`
+
+export const drawerBackdropClassName = `fixed inset-0 ${
+  elevationClassName("backdrop")
+} min-h-dvh bg-ink-strong backdrop-blur-sm opacity-[calc(0.25*(1-var(--drawer-swipe-progress)))] transition-opacity ${drawerSettleClassName} data-[starting-style]:opacity-0 data-[ending-style]:opacity-0`
+
+export const drawerViewportClassName = `fixed inset-0 ${elevationClassName("sheet")} flex justify-start`
+
+export const drawerClassName =
+  `h-full w-[min(22rem,88vw)] translate-x-[var(--drawer-swipe-movement-x)] touch-auto overflow-y-auto overscroll-contain ${
+    surfaceClassName("drawer")
+  } ${focusEdgeClassName} transition-transform ${drawerSettleClassName} will-change-transform data-[starting-style]:-translate-x-full data-[ending-style]:-translate-x-full data-[swiping]:select-none ${stillUnderReducedMotion}`
+
+/** A menu opened from the header: an overlay at the menu's elevation, scaling in from its anchor. */
+export const menuPopupClassName = `origin-[var(--transform-origin)] overflow-y-auto overscroll-contain ${
+  surfaceClassName("overlay")
+} border border-hairline-strong-veil p-2 transition-[opacity,transform] ${
+  transitionClassName("enter")
+} data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`
+
+export const menuItemClassName =
+  `flex min-w-0 items-center gap-3 rounded-instrument px-3 py-2.5 text-ink-secondary ${focusEdgeClassName} hover:bg-instrument-glass focus:bg-instrument-glass`
+
+/** A code example's frame: a sheet that clips its lines. */
+export const codeFrameClassName = `overflow-hidden ${surfaceClassName("sheet")}`
+
+export const codeActionClassName =
+  `inline-flex min-h-10 items-center gap-1.5 rounded-control bg-transparent px-3 text-ink-tertiary ${respondColorsClassName} hover:bg-instrument-glass hover:text-ink ${focusClassName}`
+
+// ---------------------------------------------------------------------------
+// The workbench — the documentation's grid: a navigation rail, the reading
+// column, and the page's outline, under the sticky header.
+// ---------------------------------------------------------------------------
+
+const workbenchNavLinkBaseClassName =
+  `group relative flex min-w-0 items-start ${focusClassName} transition-[border-color,background-color,color] ${
+    transitionClassName("respond")
+  } hover:bg-paper-glass hover:text-ink`
+
+/** A link in the navigation rail: a section at rest or chosen, or a page under a section. */
+export const workbenchNavLinkClassName = ({
+  active,
+  child
+}: {
+  readonly active: boolean
+  readonly child: boolean
+}): string =>
+  Bool.match(child, {
+    onTrue: () =>
+      `${workbenchNavLinkBaseClassName} rounded-control px-3 py-2 text-ink-tertiary ${
+        Bool.match(active, {
+          onTrue: () =>
+            "bg-paper-veil text-ink-strong before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-ink-secondary",
+          onFalse: () => ""
+        })
+      }`,
+    onFalse: () =>
+      `${workbenchNavLinkBaseClassName} gap-3 rounded-instrument border border-transparent px-3 py-2.5 text-ink-secondary hover:border-hairline-veil ${
+        Bool.match(active, {
+          onTrue: () =>
+            "border-hairline-strong-veil bg-paper-veil text-ink-strong shadow-chip before:absolute before:bottom-2.5 before:left-0 before:top-2.5 before:w-0.5 before:rounded-full before:bg-ink-secondary",
+          onFalse: () => ""
+        })
+      }`
+  })
+
+export const workbenchTheme = {
+  headerContent: `mx-auto flex min-h-[4.5rem] w-full ${
+    measureClassName("workbench")
+  } items-center justify-between gap-3 px-4 sm:px-6 lg:px-8`,
+  grid: `relative mx-auto grid w-full ${
+    measureClassName("workbench")
+  } grid-cols-1 lg:grid-cols-[17.5rem_minmax(0,1fr)] xl:grid-cols-[17.5rem_minmax(0,1fr)_13rem]`,
+  sidebar:
+    "hidden min-w-0 border-r border-hairline-glass bg-canvas-glass px-5 py-7 lg:block lg:min-h-[calc(100dvh-4.5rem)]",
+  sidebarSticky: "sticky top-[6.25rem] max-h-[calc(100dvh-7.75rem)] overflow-y-auto pr-1",
+  main: "min-w-0 px-4 py-8 sm:px-7 sm:py-10 lg:px-10 xl:px-12",
+  /** The landmark focus moves to after navigation: unmarked, except where forced colours must show where focus went. */
+  routeFocus: focusEdgeClassName,
+  article: `mx-auto w-full ${measureClassName("reading")}`,
+  toc: "hidden min-w-0 px-5 py-8 xl:block",
+  tocSticky: "sticky top-[6.25rem] max-h-[calc(100dvh-7.75rem)] overflow-y-auto pr-1"
+}
 
 /**
  * The page is the canvas: one column of content on the document's own
@@ -285,6 +439,6 @@ export const toggleTrackClassName = ({
  */
 export const appTheme = {
   root:
-    "relative min-h-screen overflow-x-clip font-body text-ink antialiased selection:bg-tone-text-wash/60 selection:text-ink-strong",
-  content: "relative mx-auto flex w-full max-w-[88rem] flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12"
+    "relative min-h-screen overflow-x-clip font-body text-ink antialiased selection:bg-tone-text-wash-glass selection:text-ink-strong",
+  content: `relative mx-auto flex w-full ${measureClassName("page")} flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12`
 }

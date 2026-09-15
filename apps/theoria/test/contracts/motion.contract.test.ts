@@ -2,15 +2,18 @@ import { Registry } from "@effect-atom/atom"
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Duration, Effect, Option } from "effect"
+import { Duration, Effect, Equal, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import {
   motionArrivalBudget,
   motionDuration,
+  MotionEase,
   motionEase,
   motionEaseCss,
+  motionEaseCurve,
+  motionEaseFor,
   motionPulse,
   MotionRelation,
   motionThemeTokens,
@@ -75,15 +78,35 @@ describe("motion contract", () => {
       expect(Duration.lessThan(motionDuration("enter"), motionDuration("shift"))).toBe(true)
     }))
 
-  it.effect("writes one CSS token per relation and the one easing", () =>
+  it.effect("a control responds quicker than anything arrives, and what follows a gesture lands before a shift would", () =>
+    Effect.sync(() => {
+      expect(Duration.lessThan(motionDuration("respond"), motionDuration("enter"))).toBe(true)
+      expect(Duration.lessThan(motionDuration("follow"), motionDuration("shift"))).toBe(true)
+    }))
+
+  it.effect("only what follows a gesture has its own ease; everything the page moves shares the theme's", () =>
+    Effect.sync(() => {
+      const [following, own] = Arr.partition(
+        MotionRelation.literals,
+        (relation) => Equal.equals(motionEaseFor(relation), "theme")
+      )
+      expect(following).toEqual(["follow"])
+      expect(own).toEqual(["enter", "shift", "exit", "respond"])
+      expect(motionEaseCurve("theme")).toEqual(motionEase)
+      expect(motionEaseCurve("follow")).not.toEqual(motionEase)
+    }))
+
+  it.effect("writes one CSS token per relation and one per ease", () =>
     Effect.sync(() => {
       const names = Arr.map(motionThemeTokens, ([name]) => name)
       expect(names).toEqual([
         ...Arr.map(MotionRelation.literals, (relation) => `--th-motion-duration-${relation}`),
-        "--ease-theme"
+        ...Arr.map(MotionEase.literals, (ease) => `--ease-${ease}`)
       ])
       expect(motionThemeTokens).toContainEqual(["--th-motion-duration-exit", "120ms"])
+      expect(motionThemeTokens).toContainEqual(["--th-motion-duration-respond", "150ms"])
       expect(motionThemeTokens).toContainEqual(["--ease-theme", motionEaseCss])
+      expect(motionThemeTokens).toContainEqual(["--ease-follow", "cubic-bezier(0.32, 0.72, 0, 1)"])
     }))
 
   it.effect("hands Motion the same durations, in seconds", () =>

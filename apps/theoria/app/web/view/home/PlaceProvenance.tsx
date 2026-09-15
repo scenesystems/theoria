@@ -27,12 +27,16 @@ import {
 } from "../../atoms/imagined-place-experience.js"
 import {
   elevationClassName,
+  focusClassName,
   focusEdgeClassName,
   type InlineStatusTone,
   litMarkClassName,
   markClassName,
+  respondColorsClassName,
+  stillUnderReducedMotion,
   surfaceClassName,
-  toneClassesFor
+  toneClassesFor,
+  transitionClassName
 } from "../primitives/designSystem.js"
 import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -155,10 +159,10 @@ const positionerClassName = `${elevationClassName("answer")} w-(--positioner-wid
 const popupClassName = [
   surfaceClassName("overlay"),
   `w-(--popup-width) h-(--popup-height) max-w-[min(22rem,calc(100vw-1.5rem))] ${focusEdgeClassName}`,
-  "origin-(--transform-origin) transition-[opacity,transform,width,height] duration-150 ease-theme",
+  `origin-(--transform-origin) transition-[opacity,transform,width,height] ${transitionClassName("enter")}`,
   "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
   "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
-  "motion-reduce:transition-none"
+  `${stillUnderReducedMotion}`
 ].join(" ")
 
 /**
@@ -168,18 +172,18 @@ const popupClassName = [
 const viewportClassName = [
   "relative overflow-clip",
   "[&>[data-previous]]:inset-0 [&>[data-previous]]:w-(--popup-width) [&>[data-previous]]:h-(--popup-height)",
-  "[&>[data-previous]]:transition-opacity [&>[data-previous]]:duration-150 [&>[data-previous]]:ease-theme",
+  "[&>[data-previous]]:transition-opacity [&>[data-previous]]:duration-(--th-motion-duration-respond) [&>[data-previous]]:ease-theme",
   "[&>[data-previous][data-ending-style]]:opacity-0",
-  "[&>[data-current]]:transition-opacity [&>[data-current]]:duration-150 [&>[data-current]]:ease-theme",
+  "[&>[data-current]]:transition-opacity [&>[data-current]]:duration-(--th-motion-duration-respond) [&>[data-current]]:ease-theme",
   "[&>[data-current][data-starting-style]]:opacity-0",
   "motion-reduce:[&>[data-current]]:transition-none motion-reduce:[&>[data-previous]]:transition-none"
 ].join(" ")
 
 const codeLinkClassName =
-  `-mx-1.5 inline-flex min-w-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 motion-reduce:transition-none hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
+  `-mx-1.5 inline-flex min-w-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} ${stillUnderReducedMotion} hover:bg-instrument-glass ${focusClassName}`
 
 const copyButtonClassName =
-  `-mx-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
+  `-mx-1.5 inline-flex shrink-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} hover:bg-instrument-glass ${focusClassName}`
 
 const digestTone = toneClassesFor("digest")
 

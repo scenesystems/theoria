@@ -1,11 +1,17 @@
 import { Collapsible } from "@base-ui/react/collapsible"
 import { ChevronRightIcon } from "@heroicons/react/20/solid"
+import { Boolean as Bool } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsPackageSummary } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
-import { focusEdgeClassName, stillUnderReducedMotion } from "../primitives/designSystem.js"
-import { docsTheme } from "../primitives/docsSystem.js"
+import {
+  focusClassName,
+  respondColorsClassName,
+  stillUnderReducedMotion,
+  transitionClassName,
+  workbenchNavLinkClassName
+} from "../primitives/designSystem.js"
 import { Layer, Nav, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -18,7 +24,7 @@ import {
 
 const NavigationLink = ({
   active,
-  child,
+  child = false,
   destination,
   onNavigate
 }: {
@@ -28,10 +34,8 @@ const NavigationLink = ({
   readonly onNavigate: () => void
 }) => (
   <InternalLink
-    aria-current={active ? "page" : undefined}
-    className={child
-      ? `${docsTheme.navChildLink} ${active ? docsTheme.navChildLinkActive : ""}`
-      : `${docsTheme.navLink} ${active ? docsTheme.navLinkActive : ""}`}
+    aria-current={Bool.match(active, { onTrue: () => "page", onFalse: () => undefined })}
+    className={workbenchNavLinkClassName({ active, child })}
     href={destination.href}
     onClick={onNavigate}
   >
@@ -51,7 +55,7 @@ const NavigationBranch = ({
   const active = destinationIsActive(branch.root, route) ||
     Arr.some(branch.children, (destination) => destinationIsActive(destination, route))
   const branchContent = (
-    <Stack className="ml-3 mt-1 gap-1 border-l border-hairline-strong/80 pl-3">
+    <Stack className="ml-3 mt-1 gap-1 border-l border-hairline-strong-glass pl-3">
       {Arr.map(branch.children, (destination) => (
         <NavigationLink
           active={destinationIsActive(destination, route)}
@@ -91,16 +95,20 @@ const NavigationBranch = ({
               />
               <Collapsible.Trigger
                 aria-label={`Toggle ${branch.label.toLocaleLowerCase("en-US")} navigation`}
-                className={`group mt-0.5 inline-flex size-10 items-center justify-center rounded-xl text-ink-tertiary transition-colors hover:bg-paper/80 hover:text-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`}
+                className={`group mt-0.5 inline-flex size-10 items-center justify-center rounded-instrument text-ink-tertiary ${respondColorsClassName} hover:bg-paper-glass hover:text-ink ${focusClassName}`}
               >
                 <ChevronRightIcon
                   aria-hidden
-                  className={`size-4 transition-transform duration-150 group-data-[panel-open]:rotate-90 ${stillUnderReducedMotion}`}
+                  className={`size-4 transition-transform ${
+                    transitionClassName("respond")
+                  } group-data-[panel-open]:rotate-90 ${stillUnderReducedMotion}`}
                 />
               </Collapsible.Trigger>
             </Layer>
             <Collapsible.Panel
-              className={`h-[var(--collapsible-panel-height)] overflow-hidden transition-[height,opacity] duration-150 data-[ending-style]:h-0 data-[ending-style]:opacity-0 data-[starting-style]:h-0 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`}
+              className={`h-[var(--collapsible-panel-height)] overflow-hidden transition-[height,opacity] ${
+                transitionClassName("enter")
+              } data-[ending-style]:h-0 data-[ending-style]:opacity-0 data-[starting-style]:h-0 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`}
             >
               {branchContent}
             </Collapsible.Panel>

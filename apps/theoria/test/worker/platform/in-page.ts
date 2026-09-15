@@ -1502,3 +1502,18 @@ export const boxEdges = (elements: ReadonlyArray<Element>): ReadonlyArray<{
     const box = element.getBoundingClientRect()
     return { top: box.top, bottom: box.bottom }
   })
+
+/**
+ * The chrome an element wears as the browser resolved it: its corner, how
+ * long its transition takes, how high it stands and how it is positioned —
+ * the values the layout and motion contracts' tokens should have produced.
+ */
+export const resolvedChrome = (element: Element) => {
+  const style = getComputedStyle(element)
+  return {
+    radius: style.borderTopLeftRadius,
+    duration: style.transitionDuration,
+    zIndex: style.zIndex,
+    position: style.position
+  }
+}

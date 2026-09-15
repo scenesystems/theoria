@@ -3,7 +3,7 @@ import { BookOpenIcon } from "@heroicons/react/20/solid"
 
 import { wordmarkPhaseAtom } from "../../atoms/wordmark.js"
 import { GitHubMark } from "./BrandMarks.js"
-import { headerChromeGlyphClassName, headerChromeLinkClassName } from "./HeaderChrome.js"
+import { headerChromeClassName, headerChromeGlyphClassName, headerChromeLinkClassName } from "./HeaderChrome.js"
 import { Cluster, Header } from "./Layout.js"
 import { ExternalLink, InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
@@ -21,7 +21,7 @@ export const SiteHeader = () => {
   const tellWordmark = useAtomSet(wordmarkPhaseAtom)
 
   return (
-    <Header className="pb-2 pt-2">
+    <Header className={headerChromeClassName("floating")}>
       <Cluster className="justify-between gap-4">
         {/* Reaching the wordmark by keyboard meets it the way a pointer does. */}
         <InternalLink href="/" onFocus={() => tellWordmark("replayAsked")}>

@@ -1,7 +1,7 @@
 import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { focusEdgeClassName, litChipClassName } from "../designSystem.js"
+import { focusClassName, litChipClassName, respondColorsClassName } from "../designSystem.js"
 import { DocsLink } from "../DocsLink.js"
 import { Layer } from "../Layout.js"
 import { SemanticText } from "../SemanticText.js"
@@ -20,7 +20,7 @@ export const CodeAnnotation = Schema.Struct({
 export type CodeAnnotation = typeof CodeAnnotation.Type
 
 const linkClassName =
-  `rounded-[3px] underline decoration-dotted decoration-ink-tertiary/70 underline-offset-[3px] transition-colors duration-150 hover:bg-instrument hover:decoration-solid hover:decoration-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
+  `rounded-mark underline decoration-dotted decoration-ink-tertiary-glass underline-offset-[3px] ${respondColorsClassName} hover:bg-instrument hover:decoration-solid hover:decoration-ink ${focusClassName}`
 
 const Tokens = ({ tokens }: { readonly tokens: ReadonlyArray<HighlightToken> }) => (
   <>
@@ -56,7 +56,7 @@ const Segment = ({ segment }: { readonly segment: LineSegment }) =>
 export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
   <Layer
     render={<span />}
-    className={`${litChipClassName} my-1 inline-flex items-center gap-1.5 rounded-md border border-hairline-strong/85 bg-canvas/95 px-2 py-0.5`}
+    className={`${litChipClassName} my-1 inline-flex items-center gap-1.5 rounded-mark border border-hairline-strong-veil bg-canvas-veil px-2 py-0.5`}
     data-code-annotation
   >
     <Layer aria-hidden render={<span />} className="inline-block size-1.5 rounded-full bg-ink-tertiary" />

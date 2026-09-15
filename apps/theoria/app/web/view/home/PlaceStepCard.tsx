@@ -1,6 +1,6 @@
 import { Button } from "@base-ui/react/button"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
@@ -10,7 +10,12 @@ import type { Id as CardId } from "../../../contracts/id.js"
 import type { StepSpine } from "../../../contracts/layout.js"
 import { placeActAttribute } from "../../atoms/imagined-place-experience.js"
 import { placeStepAtom } from "../../atoms/imagined-place.js"
-import { litMarkClassName, markClassName } from "../primitives/designSystem.js"
+import {
+  litMarkClassName,
+  markClassName,
+  respondColorsClassName,
+  stillUnderReducedMotion
+} from "../primitives/designSystem.js"
 import { Cluster, Layer } from "../primitives/Layout.js"
 import { PackageName } from "../primitives/PackageName.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -21,7 +26,7 @@ import { type PlaceStep, placeStepDefinition } from "./placeSteps.js"
 const packageNames = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
   Arr.filterMap(ids, (id) =>
     Option.map(
-      Arr.findFirst(cards, (card) => card.id === id),
+      Arr.findFirst(cards, (card) => Equal.equals(card.id, id)),
       (card) => <PackageName id={card.id} key={card.id} />
     ))
 
@@ -36,8 +41,13 @@ const spineDot = (active: boolean) => (
   <Layer aria-hidden className="relative hidden w-3 justify-center self-center lg:col-start-1 lg:row-start-1 lg:flex">
     <Layer
       render={<span />}
-      className={`inline-flex size-2.5 shrink-0 rounded-full border transition-colors duration-150 ease-theme motion-reduce:transition-none ${
-        active ? "border-emphasis bg-emphasis" : "border-accent bg-paper"
+      className={`inline-flex size-2.5 shrink-0 rounded-full border ${respondColorsClassName} ${stillUnderReducedMotion} ${
+        Bool.match(active, {
+          onTrue: () =>
+            "border-emphasis bg-emphasis",
+          onFalse: () =>
+            "border-accent bg-paper"
+        })
       }`}
       data-place-spine-dot
     />
@@ -45,9 +55,15 @@ const spineDot = (active: boolean) => (
 )
 
 const cardClassName = (spine: StepSpine): string =>
-  spine === "spine"
-    ? "grid grid-cols-1 gap-y-3.5 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-3.5"
-    : "grid grid-cols-1 gap-y-3.5"
+  Match.value(spine).pipe(
+    Match.when(
+      "spine",
+      () =>
+        "grid grid-cols-1 gap-y-3.5 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-3.5"
+    ),
+    Match.when("none", () => "grid grid-cols-1 gap-y-3.5"),
+    Match.exhaustive
+  )
 
 /**
  * The step's name is set small in capitals, its packages in monospace: two
@@ -56,10 +72,18 @@ const cardClassName = (spine: StepSpine): string =>
  * the names.
  */
 const headerClassName = (spine: StepSpine): string =>
-  spine === "spine" ? "gap-x-2.5 gap-y-1.5 lg:col-start-2 lg:row-start-1" : "gap-x-2.5 gap-y-1.5"
+  Match.value(spine).pipe(
+    Match.when("spine", () => "gap-x-2.5 gap-y-1.5 lg:col-start-2 lg:row-start-1"),
+    Match.when("none", () => "gap-x-2.5 gap-y-1.5"),
+    Match.exhaustive
+  )
 
 const bodyClassName = (spine: StepSpine): string =>
-  spine === "spine" ? "min-w-0 lg:col-start-2 lg:row-start-2" : "min-w-0"
+  Match.value(spine).pipe(
+    Match.when("spine", () => "min-w-0 lg:col-start-2 lg:row-start-2"),
+    Match.when("none", () => "min-w-0"),
+    Match.exhaustive
+  )
 
 const actOf = Schema.decodeUnknownOption(PlaceAct)
 
@@ -68,9 +92,14 @@ const actOf = Schema.decodeUnknownOption(PlaceAct)
  * when it is read. The stage's own step is not an act; it is what answers.
  */
 const landmark = (spine: StepSpine, step: PlaceStep): { readonly [placeActAttribute]?: PlaceAct } =>
-  spine === "spine"
-    ? Option.match(actOf(step), { onNone: () => ({}), onSome: (act) => ({ [placeActAttribute]: act }) })
-    : {}
+  Match.value(spine).pipe(
+    Match.when(
+      "spine",
+      () => Option.match(actOf(step), { onNone: () => ({}), onSome: (act) => ({ [placeActAttribute]: act }) })
+    ),
+    Match.when("none", () => ({})),
+    Match.exhaustive
+  )
 
 /**
  * One step of the story: its name, the packages that do the work, and the
@@ -80,7 +109,7 @@ const landmark = (spine: StepSpine, step: PlaceStep): { readonly [placeActAttrib
 export const PlaceStepCard = (
   { children, spine, step }: { readonly children: ReactNode; readonly spine: StepSpine; readonly step: PlaceStep }
 ) => {
-  const active = useAtomValue(placeStepAtom) === step
+  const active = Equal.equals(useAtomValue(placeStepAtom), step)
   const setStep = useAtomSet(placeStepAtom)
   const definition = placeStepDefinition(step)
 
@@ -89,10 +118,14 @@ export const PlaceStepCard = (
       render={<article />}
       className={cardClassName(spine)}
       data-place-step={step}
-      data-place-step-active={active ? "true" : "false"}
+      data-place-step-active={Bool.match(active, { onTrue: () => "true", onFalse: () => "false" })}
       {...landmark(spine, step)}
     >
-      {spine === "spine" ? spineDot(active) : null}
+      {Match.value(spine).pipe(
+        Match.when("spine", () => spineDot(active)),
+        Match.when("none", () => null),
+        Match.exhaustive
+      )}
       <Cluster align="baseline" className={headerClassName(spine)} data-place-step-header>
         <Button
           aria-pressed={active}
@@ -104,7 +137,7 @@ export const PlaceStepCard = (
         >
           <SemanticText
             as="span"
-            className={active ? "text-ink" : "text-ink-secondary"}
+            className={Bool.match(active, { onTrue: () => "text-ink", onFalse: () => "text-ink-secondary" })}
             role="row-label"
             text={definition.name}
             variant="compact"

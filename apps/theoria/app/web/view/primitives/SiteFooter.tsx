@@ -3,6 +3,7 @@ import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { siteMetadata } from "../../../contracts/metadata.js"
+import { respondColorsClassName } from "./designSystem.js"
 import { Cluster, Section, Stack } from "./Layout.js"
 import { ExternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
@@ -30,7 +31,7 @@ const footerDestinations: ReadonlyArray<FooterDestination> = [
 ]
 
 const footerLinkClassName =
-  "inline-flex min-w-0 items-center gap-1.5 text-ink-tertiary transition-colors duration-150 hover:text-ink"
+  `inline-flex min-w-0 items-center gap-1.5 text-ink-tertiary ${respondColorsClassName} hover:text-ink`
 
 const FooterLink = ({ destination }: { readonly destination: FooterDestination }) => (
   <ExternalLink className={footerLinkClassName} href={destination.href}>
@@ -42,7 +43,7 @@ const FooterLink = ({ destination }: { readonly destination: FooterDestination }
 export const SiteFooter = () => (
   <Section
     render={<footer />}
-    className="mt-region border-t border-hairline/90 pb-3 pt-4 md:pt-5"
+    className="mt-region border-t border-hairline-veil pb-3 pt-4 md:pt-5"
     data-site-footer
   >
     <Stack className="items-center gap-2 md:items-stretch">
