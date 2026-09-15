@@ -31,7 +31,7 @@ export const program = Effect.gen(function* () {
   const contentId = yield* digest("blake3-256", { score: 42, user: "alice" })
   const eventId = yield* digestSchemaValue(Event, {
     name: "deploy",
-    occurredAt: new Date("2026-07-22T00:00:00.000Z")
+    occurredAt: yield* Schema.decode(Schema.DateFromString)("2026-07-22T00:00:00.000Z")
   })
   return { contentId, eventId }
 })
@@ -47,12 +47,12 @@ Both return `<algorithm>:<base64url>`; a 256-bit digest has 43 unpadded base64ur
 
 ```ts typecheck
 import { digestSchemaValueWithByteLimit } from "@scenesystems/digest"
-import { Effect, Schema } from "effect"
+import { Effect, Number as N, Schema } from "effect"
 
 const Payload = Schema.Struct({ id: Schema.String, tags: Schema.Array(Schema.String) })
 
 export const identify = (payload: typeof Payload.Type) =>
-  digestSchemaValueWithByteLimit(Payload, payload, 64 * 1024).pipe(
+  digestSchemaValueWithByteLimit(Payload, payload, N.multiply(64, 1024)).pipe(
     Effect.map((result) => ({ id: result.digest, bytes: result.canonicalByteLength })),
     Effect.catchTag("CanonicalByteLimitExceeded", () => Effect.succeed({ id: "too-large", bytes: -1 }))
   )
@@ -93,6 +93,24 @@ export const authenticatorBytes = (key: Uint8Array, payload: Uint8Array) =>
 
 Compare a received authenticator with a recomputed one using a constant-time comparison, and bind the algorithm, key identity, and message domain in the surrounding protocol. Secret text must be encoded to bytes with `encodeUtf8` or decoded from its wire encoding with `fromBase64Url` or `fromHex` before it is used as a key.
 
+## Unicode scalar construction
+
+`fromUnicodeScalar(number)` constructs a string containing exactly one Unicode scalar. `UnicodeScalar` is the numeric Schema and brand: it admits integers from 0 through 0x10FFFF, excluding 0xD800–0xDFFF. Invalid input fails through Effect's `ParseError`; values are never truncated, clamped, or coerced from strings.
+
+The constructor composes Effect arithmetic and collections for the scalar's RFC 3629 byte representation, then uses Effect's UTF-8 decoder. U+FEFF is explicitly preserved as text rather than consumed as a byte-order signature. Supplementary scalars occupy two UTF-16 code units; NUL, controls, unassigned scalars, and noncharacters remain valid. No normalization occurs.
+
+```ts typecheck
+import { encodeUtf8, fromUnicodeScalar, toHex } from "@scenesystems/digest"
+import { Effect } from "effect"
+
+export const character = Effect.gen(function* () {
+  const text = yield* fromUnicodeScalar(0x233b4)
+  return { text, utf8Hex: toHex(yield* encodeUtf8(text)) } // "𣎴", "f0a38eb4"
+})
+```
+
+This belongs to the existing encoding surface, not the typography/layout package `effect-text`. It does not parse XML, decode entity syntax, or impose XML's narrower character restrictions. A protocol parser applies those rules before using the constructor.
+
 ## Public surface
 
 The package exports plain functions and schemas from a single entrypoint.
@@ -105,8 +123,8 @@ The package exports plain functions and schemas from a single entrypoint.
 | Streams         | `digestByteStream`, `digestUtf8Stream`, their `Base64Url` and `Hex` variants                |
 | Authentication  | `hmacSha256`, `hmacSha1`, `blake3Mac`, and their encoded variants                           |
 | Key derivation  | `hkdfSha256`, `hkdfSha512`, `blake3DeriveKey`                                               |
-| Encoding        | `encodeUtf8`, `toBase64Url`, `fromBase64Url`, `toHex`, `fromHex`                            |
-| Schemas         | `DigestAlgorithm`, `Digest256`, `ContentDigest`, and the error classes                      |
+| Encoding        | `fromUnicodeScalar`, `encodeUtf8`, `toBase64Url`, `fromBase64Url`, `toHex`, `fromHex`       |
+| Schemas         | `UnicodeScalar`, `DigestAlgorithm`, `Digest256`, `ContentDigest`, and the error classes     |
 
 The full list with signatures is in the [API reference](./src/index.ts).
 
