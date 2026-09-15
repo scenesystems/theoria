@@ -4,7 +4,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Match, Option, Schema, SchemaAST } from "effect"
+import { Array as Arr, Inspectable, Option, Record, Schema, SchemaAST } from "effect"
 import { FieldDescriptionId } from "./annotations.js"
 import { FieldInfo } from "./model.js"
 
@@ -25,16 +25,10 @@ export const extractSingleFieldInfo = (
   propertySignature: SchemaAST.PropertySignature
 ): FieldInfo =>
   new FieldInfo({
-    name: String(propertySignature.name),
+    name: Inspectable.toStringUnknown(propertySignature.name),
     description: descriptionFromPropertySignature(propertySignature),
     isOptional: propertySignature.isOptional
   })
-
-const propertySignaturesFromFields = (fields: Schema.Struct.Fields): ReadonlyArray<SchemaAST.PropertySignature> =>
-  Match.value(Schema.Struct(fields).ast).pipe(
-    Match.when(SchemaAST.isTypeLiteral, (typeLiteral) => typeLiteral.propertySignatures),
-    Match.orElse(() => Arr.empty<SchemaAST.PropertySignature>())
-  )
 
 /**
  * Converts struct fields to metadata in AST property order.
@@ -46,5 +40,27 @@ const propertySignaturesFromFields = (fields: Schema.Struct.Fields): ReadonlyArr
  * @since 0.1.0
  * @category utils
  */
-export const fieldsToInfoArray = (fields: Schema.Struct.Fields): ReadonlyArray<FieldInfo> =>
-  Arr.map(propertySignaturesFromFields(fields), extractSingleFieldInfo)
+export const fieldsToInfoArray = (fields: Schema.Struct.Fields) =>
+  Arr.map(SchemaAST.getPropertySignatures(Schema.typeSchema(Schema.Struct(fields)).ast), extractSingleFieldInfo)
+
+/**
+ * Projects each field's wire name and optionality while retaining its description.
+ * Single-field projections keep renamed properties paired with their annotations
+ * without assuming positional correspondence between two independently projected ASTs.
+ *
+ * @since 0.4.0
+ * @category utils
+ */
+export const encodedFieldsToInfoArray = (fields: Schema.Struct.Fields) =>
+  Arr.flatMap(Record.toEntries(fields), ([name, field]) => {
+    const declaration = Record.singleton(name, field)
+    const description = Arr.head(fieldsToInfoArray(declaration)).pipe(Option.flatMap((info) => info.description))
+    return Arr.map(
+      SchemaAST.getPropertySignatures(Schema.encodedBoundSchema(Schema.Struct(declaration)).ast),
+      (property) =>
+        new FieldInfo({
+          ...extractSingleFieldInfo(property),
+          description: Option.orElse(description, () => descriptionFromPropertySignature(property))
+        })
+    )
+  })

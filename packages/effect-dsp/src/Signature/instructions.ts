@@ -3,19 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Option, String } from "effect"
 import type { FieldInfo } from "./model.js"
 
 const renderField = (field: FieldInfo): string =>
   Option.match(field.description, {
     onNone: () => field.name,
-    onSome: (description) => `${field.name} (${description})`
+    onSome: (description) => Arr.join(Arr.make(field.name, " (", description, ")"), "")
   })
 
 const renderFieldSection = (
   sectionName: string,
-  fields: ReadonlyArray<FieldInfo>
-): string => `${sectionName}: ${Arr.join(Arr.map(fields, renderField), ", ")}`
+  fields: Iterable<FieldInfo>
+): string => Arr.join(Arr.make(sectionName, ": ", Arr.join(Arr.map(Arr.fromIterable(fields), renderField), ", ")), "")
 
 /**
  * Renders the initial instruction prompt from task and field metadata.
@@ -35,11 +35,14 @@ const renderFieldSection = (
  */
 export const deriveInstruction = (
   description: string,
-  inputFields: ReadonlyArray<FieldInfo>,
-  outputFields: ReadonlyArray<FieldInfo>
+  inputFields: Iterable<FieldInfo>,
+  outputFields: Iterable<FieldInfo>
 ): string =>
-  [
-    `Task: ${description}`,
-    renderFieldSection("Input fields", inputFields),
-    renderFieldSection("Output fields", outputFields)
-  ].join("\n")
+  Arr.join(
+    Arr.make(
+      String.concat("Task: ", description),
+      renderFieldSection("Input fields", inputFields),
+      renderFieldSection("Output fields", outputFields)
+    ),
+    "\n"
+  )

@@ -5,7 +5,7 @@
  */
 import { Array as Arr, Effect, Option, Record, Schema } from "effect"
 import { SignatureError } from "../Errors/signature.js"
-import { fieldsToInfoArray } from "./fields.js"
+import { encodedFieldsToInfoArray, fieldsToInfoArray } from "./fields.js"
 import { deriveInstruction } from "./instructions.js"
 import { Signature } from "./model.js"
 
@@ -103,7 +103,11 @@ export const make = <
     const inputFieldInfo = fieldsToInfoArray(inputFields)
     const outputFieldInfo = fieldsToInfoArray(outputFields)
     const fields = Arr.appendAll(inputFieldInfo, outputFieldInfo)
-    const instructions = deriveInstruction(description, inputFieldInfo, outputFieldInfo)
+    const instructions = deriveInstruction(
+      description,
+      encodedFieldsToInfoArray(inputFields),
+      encodedFieldsToInfoArray(outputFields)
+    )
 
     return new Signature({
       description,

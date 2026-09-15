@@ -5,19 +5,16 @@
  * @category internal
  * @internal
  */
-import { Array as Arr, Boolean, Data, HashMap, HashSet, Order } from "effect"
+import { Array as Arr, Boolean, Data, Equivalence, Graph, HashMap, Order } from "effect"
 import type { Ref, Schema } from "effect"
-import type { ModuleNode } from "../contracts/ModuleNode.js"
+import type { DemoContract } from "../contracts/DemoContract.js"
+import { type ModuleNode, moduleNodeGraph } from "../contracts/ModuleNode.js"
 import type { ModuleParams } from "../contracts/ModuleParams.js"
 import type { Module } from "../Module/model.js"
 
 const moduleNodeOrder: Order.Order<ModuleNode> = Order.mapInput(Order.string, (node) => node.name)
 
-const sortedChildNodes = (subModules: ModuleNode["subModules"]) =>
-  Arr.sort(
-    Arr.map(Arr.fromIterable(HashMap.toEntries(subModules)), ([, node]) => node),
-    moduleNodeOrder
-  )
+const ownerIdentity = Equivalence.strict<ModuleNode["params"]>()
 
 /**
  * A reference to a single module's mutable parameters, paired with the
@@ -33,37 +30,17 @@ const sortedChildNodes = (subModules: ModuleNode["subModules"]) =>
 export class ModuleParamRef extends Data.Class<{
   readonly name: string
   readonly params: Ref.Ref<ModuleParams>
+  readonly demoContract: DemoContract
 }> {}
-
-class TraversalState extends Data.Class<{
-  readonly seen: HashSet.HashSet<string>
-  readonly refs: Arr.NonEmptyArray<ModuleParamRef>
-}> {}
-
-const visitNode = (node: ModuleNode, state: TraversalState): TraversalState =>
-  Boolean.match(HashSet.has(state.seen, node.name), {
-    onTrue: () => state,
-    onFalse: () =>
-      Arr.reduce(
-        sortedChildNodes(node.subModules),
-        new TraversalState({
-          seen: HashSet.add(state.seen, node.name),
-          refs: Arr.append(
-            state.refs,
-            new ModuleParamRef({ name: node.name, params: node.params })
-          )
-        }),
-        (nextState, child) => visitNode(child, nextState)
-      )
-  })
 
 /**
  * Performs a deterministic depth-first traversal of the module graph,
  * starting from the root module, and returns parameter refs in a stable
  * order that is consistent across repeated calls.
  *
- * Each module is visited at most once (by name), so diamond dependencies
- * in the module graph do not produce duplicate refs.
+ * Each live parameter owner is visited once, so separate projections in diamond
+ * dependencies do not duplicate refs. Distinct owners are never lost by name;
+ * composition and persistence validate name collisions before any writes.
  *
  * @since 0.1.0
  * @category utils
@@ -74,20 +51,26 @@ export const collectModuleParamRefs = <
   O extends Schema.Struct.Fields,
   E,
   R
->(module: Module<I, O, E, R>): Arr.NonEmptyArray<ModuleParamRef> =>
-  Arr.reduce(
-    sortedChildNodes(module.subModules),
-    initialTraversalState(module),
-    (state, node) => visitNode(node, state)
-  ).refs
-
-const initialTraversalState = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields,
-  E,
-  R
->(module: Module<I, O, E, R>): TraversalState =>
-  new TraversalState({
-    seen: HashSet.make(module.name),
-    refs: Arr.make(new ModuleParamRef({ name: module.name, params: module.params }))
-  })
+>(module: Module<I, O, E, R>): Arr.NonEmptyArray<ModuleParamRef> => {
+  const children = Arr.sort(Arr.fromIterable(HashMap.values(module.subModules)), moduleNodeOrder)
+  const graph = moduleNodeGraph(children)
+  const starts = Arr.filterMap(
+    children,
+    (child) => Graph.findNode(graph, (node) => ownerIdentity(node.params, child.params))
+  )
+  const descendants = Arr.filter(
+    Arr.fromIterable(Graph.values(Graph.dfs(graph, { start: Arr.reverse(starts) }))),
+    (node) => Boolean.not(ownerIdentity(node.params, module.params))
+  )
+  return Arr.prepend(
+    Arr.map(
+      descendants,
+      (node) => new ModuleParamRef({ name: node.name, params: node.params, demoContract: node.demoContract })
+    ),
+    new ModuleParamRef({
+      name: module.name,
+      params: module.params,
+      demoContract: module.signature.demoContract
+    })
+  )
+}

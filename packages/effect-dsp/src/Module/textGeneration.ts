@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Option } from "effect"
+import { Array as Arr, Boolean, Option, String as Str } from "effect"
 
 export { callLmText as generateText } from "../internal/lm.js"
 
@@ -19,10 +19,14 @@ export { callLmText as generateText } from "../internal/lm.js"
  */
 export const extractInstruction = (response: string, fallback: string): string => {
   const backtickPattern = /```(?:\w*\n)?([\s\S]*?)```/
-  const match = backtickPattern.exec(response)
-  const extracted = Option.fromNullable(match?.[1]?.trim())
+  const nonEmpty = (text: string): boolean => Boolean.not(Str.isEmpty(text))
+  const fullResponse = Option.liftPredicate(nonEmpty)(Str.trim(response))
+  const extracted = Str.match(backtickPattern)(response).pipe(
+    Option.flatMap((match) => Arr.get(match, 1)),
+    Option.map(Str.trim)
+  )
   return Option.match(extracted, {
-    onNone: () => response.trim().length > 0 ? response.trim() : fallback,
-    onSome: (instruction) => instruction.length > 0 ? instruction : fallback
+    onNone: () => Option.getOrElse(fullResponse, () => fallback),
+    onSome: (instruction) => Option.getOrElse(Option.liftPredicate(nonEmpty)(instruction), () => fallback)
   })
 }

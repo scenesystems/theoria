@@ -37,6 +37,8 @@ export * from "./Payload.js"
 
 export * from "./ModuleParams.js"
 
+export * from "./DemoContract.js"
+
 export * from "./ModuleNode.js"
 
 export * from "./ModuleGraph.js"

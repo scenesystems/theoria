@@ -6,7 +6,7 @@
 import * as Response from "@effect/ai/Response"
 import type { ParseResult } from "effect"
 import { Effect, Schema } from "effect"
-import type { Entry } from "../Trace/model.js"
+import { Entry } from "../Trace/model.js"
 import { ModuleId } from "./ModuleId.js"
 import { Payload } from "./Payload.js"
 
@@ -31,6 +31,8 @@ export class TraceObjectiveProjection extends Schema.Class<TraceObjectiveProject
   prompt: Schema.String,
   /** Schema-encoded module output document. */
   output: Payload,
+  /** Whether the output is a completed answer or intermediate ReAct evidence. */
+  outcome: Entry.fields.outcome,
   /** Evaluation score when one has been attached to the trace. */
   score: Schema.Option(Schema.Number),
   /** Unredacted provider response text. */
@@ -63,6 +65,7 @@ export const projectTraceObjectiveProjection = (
         input: entry.input,
         prompt: entry.prompt,
         output: entry.output,
+        outcome: entry.outcome,
         score: entry.score,
         rawResponse: entry.rawResponse,
         usage: entry.usage,

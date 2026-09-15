@@ -3,7 +3,8 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option, Record, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, HashMap, Option, Ref, Schema } from "effect"
+import type { ModuleParams } from "../contracts/ModuleParams.js"
 import { SaveLoadError } from "../Errors/save-load.js"
 import { collectModuleParamRefs, type ModuleParamRef } from "../internal/module-params.js"
 import type { Module } from "./model.js"
@@ -23,26 +24,41 @@ const decodeSavedState = (input: unknown) =>
 const entryRecord = (entries: SavedState["modules"]) =>
   Effect.reduce(
     entries,
-    Record.empty<string, SavedState["modules"][number]["params"]>(),
+    HashMap.empty<string, ModuleParams>(),
     (state, entry) =>
-      Record.has(state, entry.name)
-        ? Effect.fail(
-          new SaveLoadError({
-            message: `Saved state has duplicate module entry '${entry.name}'`,
-            operation: "load"
-          })
-        )
-        : Effect.succeed(Record.set(state, entry.name, entry.params))
+      Effect.if(HashMap.has(state, entry.name), {
+        onTrue: () =>
+          Effect.fail(
+            new SaveLoadError({
+              message: Arr.join(Arr.make("Saved state has duplicate module entry '", entry.name, "'"), ""),
+              operation: "load"
+            })
+          ),
+        onFalse: () => Effect.succeed(HashMap.set(state, entry.name, entry.params))
+      })
   )
 
-const refsRecord = (
-  refs: Iterable<ModuleParamRef>
-): Record.ReadonlyRecord<string, Ref.Ref<SavedState["modules"][number]["params"]>> =>
-  Arr.reduce(
+const refsRecord = (refs: Iterable<ModuleParamRef>) =>
+  Effect.reduce(
     refs,
-    Record.empty<string, Ref.Ref<SavedState["modules"][number]["params"]>>(),
-    (state, ref) => Record.set(state, ref.name, ref.params)
+    HashMap.empty<string, Ref.Ref<ModuleParams>>(),
+    (state, ref) =>
+      Effect.if(HashMap.has(state, ref.name), {
+        onTrue: () =>
+          Effect.fail(
+            new SaveLoadError({
+              message: Arr.join(Arr.make("Multiple target module owners share name '", ref.name, "'"), ""),
+              operation: "load"
+            })
+          ),
+        onFalse: () => Effect.succeed(HashMap.set(state, ref.name, ref.params))
+      })
   )
+
+class ParameterUpdate extends Data.Class<{
+  readonly ref: Ref.Ref<ModuleParams>
+  readonly params: ModuleParams
+}> {}
 
 /**
  * Reads the root and owned child parameters into a version-1 snapshot.
@@ -89,12 +105,13 @@ export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
  * @remarks
  * Accepts a version-1 {@link SavedState} or an unknown value that decodes as
  * one. Before writing, it rejects duplicate names, unknown names, and missing
- * target names. Validated refs are updated sequentially in canonical target
+ * target names, and validates every demo against its destination's encoded
+ * schemas, rejecting excess fields. Validated refs are updated in canonical target
  * order without interruption, so validation failure and cancellation before
  * the write phase leave the tree unchanged.
  *
- * Compatibility is by module name and envelope schema, not object identity or
- * composition alias. Metadata is ignored. Concurrent writes by other effects
+ * Compatibility is by module name, envelope, and demonstration schemas, not
+ * object identity or composition alias. Metadata is ignored. Concurrent writes by other effects
  * are not coordinated.
  *
  * @typeParam I - Root module input fields.
@@ -117,34 +134,45 @@ export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
     const decoded = yield* decodeSavedState(state)
     const refs = collectModuleParamRefs(module)
     const savedByName = yield* entryRecord(decoded.modules)
-    const targetByName = refsRecord(refs)
+    const targetByName = yield* refsRecord(refs)
 
     yield* Effect.forEach(
-      Record.keys(savedByName),
+      HashMap.keys(savedByName),
       (savedName) =>
-        Record.has(targetByName, savedName)
-          ? Effect.void
-          : Effect.fail(
-            new SaveLoadError({
-              message: `Saved state contains unknown module '${savedName}'`,
-              operation: "load"
-            })
-          ),
+        Effect.if(HashMap.has(targetByName, savedName), {
+          onTrue: () => Effect.void,
+          onFalse: () =>
+            Effect.fail(
+              new SaveLoadError({
+                message: Arr.join(Arr.make("Saved state contains unknown module '", savedName, "'"), ""),
+                operation: "load"
+              })
+            )
+        }),
       { discard: true }
     )
 
     const updates = yield* Effect.forEach(
       refs,
       (target) =>
-        Option.match(Option.fromNullable(savedByName[target.name]), {
+        Option.match(HashMap.get(savedByName, target.name), {
           onNone: () =>
             Effect.fail(
               new SaveLoadError({
-                message: `Saved state is missing params for module '${target.name}'`,
+                message: Arr.join(Arr.make("Saved state is missing params for module '", target.name, "'"), ""),
                 operation: "load"
               })
             ),
-          onSome: (params) => Effect.succeed({ ref: target.params, params })
+          onSome: (params) =>
+            Effect.forEach(params.demos, target.demoContract.decode, { discard: true }).pipe(
+              Effect.mapError(() =>
+                new SaveLoadError({
+                  message: Arr.join(Arr.make("Saved demonstrations do not match module '", target.name, "'"), ""),
+                  operation: "load"
+                })
+              ),
+              Effect.as(new ParameterUpdate({ ref: target.params, params }))
+            )
         })
     )
 

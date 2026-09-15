@@ -6,7 +6,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
 import { Demo } from "@scenesystems/effect-dsp/Example"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Schema } from "effect"
+import { Array as Arr, Effect, Schema } from "effect"
 import { buildPrompt } from "../../src/internal/prompt/render.js"
 import { qaPromptWithDemo, qaPromptWithoutDemos } from "../fixtures/prompt/qa-prompt.fixture.js"
 
@@ -23,17 +23,17 @@ const makeQaSignature = () =>
 
 const paramsWithDemo = new ModuleParams({
   instructions: "Keep answers short.",
-  demos: [
+  demos: Arr.make(
     new Demo({
       input: { question: "What is the capital of France?" },
       output: { answer: "Paris" }
     })
-  ]
+  )
 })
 
 const paramsWithoutDemos = new ModuleParams({
   instructions: "Keep answers short.",
-  demos: []
+  demos: Arr.empty()
 })
 
 describe("internal/prompt", () => {

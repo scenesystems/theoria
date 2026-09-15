@@ -24,6 +24,28 @@ const makeQaSignature = () =>
 const decodeModuleId = Schema.decodeUnknown(Contracts.ModuleId)
 
 describe("Module.compose", () => {
+  it.effect("retains the destination demonstration contract on projected children", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const qa = yield* Module.predict("qa", signature)
+      const root = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "root",
+          signature,
+          subModules: Record.singleton("qa", qa),
+          forward: ({ input }) => qa.forward(input)
+        })
+      )
+      const qaId = yield* decodeModuleId("qa")
+      const node = yield* HashMap.get(root.subModules, qaId)
+      const demo = yield* node.demoContract.decode({ input: { question: "Where?" }, output: { answer: "Here" } })
+      const invalid = yield* Effect.flip(
+        node.demoContract.decode({ input: { question: 42 }, output: { answer: "Here" } })
+      )
+      expect(demo.input).toEqual({ question: "Where?" })
+      expect(invalid._tag).toBe("ParseError")
+    }))
+
   it.effect("builds explicit graph contracts with stable traversal and lineage", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
@@ -84,13 +106,16 @@ describe("Module.compose", () => {
         signature.description,
         signature.instructions
       )
-      const loopNode = new Contracts.ModuleNode({
+      const loopNode: Contracts.ModuleNode = {
         moduleId: loopId,
         name: "loop",
         signature: loopSignature,
+        demoContract: signature.demoContract,
         params: paramsRef,
-        subModules: HashMap.empty()
-      })
+        get subModules() {
+          return HashMap.make(Tuple.make(loopId, loopNode))
+        }
+      }
       const loopModule = new Module.Module({
         name: "loop",
         signature,
@@ -108,6 +133,136 @@ describe("Module.compose", () => {
 
       expect(error._tag).toBe("CompositionError")
       expect(error.message).toContain("cycle detected")
+    }))
+
+  it.effect("rejects direct and nested children that collide with the root before touching params", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const child = yield* Module.predict("root", signature)
+      const branch = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "branch",
+          signature,
+          subModules: Record.singleton("child", child),
+          forward: ({ input }) => child.forward(input)
+        })
+      )
+      const before = yield* Ref.get(child.params)
+      yield* Effect.forEach(Arr.make(child, branch), (owned) =>
+        Effect.gen(function*() {
+          const error = yield* Effect.flip(Module.compose(
+            new Module.ComposeOptions({
+              name: "root",
+              signature,
+              subModules: Record.singleton("child", owned),
+              forward: ({ input }) => child.forward(input)
+            })
+          ))
+          expect(error.message).toContain("collides with composed module id")
+          expect(yield* Ref.get(child.params)).toEqual(before)
+        }))
+    }))
+
+  it.effect("rejects conflicting identities attached to the same live owner", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const child = yield* Module.predict("child", signature)
+      const renamed = new Module.Module({ ...child, name: "renamed" })
+      const error = yield* Effect.flip(Module.composeGraph(
+        new Module.ComposeGraphOptions({
+          name: "root",
+          signature,
+          subModules: Record.set(Record.singleton("child", child), "renamed", renamed)
+        })
+      ))
+      expect(error.message).toContain("child id 'renamed'")
+    }))
+
+  it.effect("rejects distinct deep owners and direct-versus-deep owners with the same id", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const leftLeaf = yield* Module.predict("leaf", signature)
+      const rightLeaf = yield* Module.predict("leaf", signature)
+      const left = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "left",
+          signature,
+          subModules: Record.singleton("leaf", leftLeaf),
+          forward: ({ input }) => leftLeaf.forward(input)
+        })
+      )
+      const right = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "right",
+          signature,
+          subModules: Record.singleton("leaf", rightLeaf),
+          forward: ({ input }) => rightLeaf.forward(input)
+        })
+      )
+      yield* Effect.forEach(Arr.make(right, rightLeaf), (other) =>
+        Effect.gen(function*() {
+          const error = yield* Effect.flip(Module.compose(
+            new Module.ComposeOptions({
+              name: "root",
+              signature,
+              subModules: Record.set(Record.singleton("left", left), "other", other),
+              forward: ({ input }) => left.forward(input)
+            })
+          ))
+          expect(error.message).toContain("share id 'leaf'")
+        }))
+    }))
+
+  it.effect("validates every deep declared key, moduleId, and name", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const leaf = yield* Module.predict("leaf", signature)
+      const leafId = yield* decodeModuleId("leaf")
+      const wrongId = yield* decodeModuleId("wrong")
+      const branchId = yield* decodeModuleId("branch")
+      const metadata = Contracts.makeModuleNodeSignature(signature.description, signature.instructions)
+      yield* Effect.forEach(
+        Arr.make(
+          Tuple.make(wrongId, leafId, "leaf"),
+          Tuple.make(leafId, wrongId, "leaf"),
+          Tuple.make(leafId, leafId, "wrong")
+        ),
+        ([declaredId, moduleId, name]) =>
+          Effect.gen(function*() {
+            const badNode = new Contracts.ModuleNode({
+              moduleId,
+              name,
+              signature: metadata,
+              demoContract: signature.demoContract,
+              params: leaf.params,
+              subModules: HashMap.empty()
+            })
+            const branch = new Contracts.ModuleNode({
+              moduleId: branchId,
+              name: "branch",
+              signature: metadata,
+              demoContract: signature.demoContract,
+              params: yield* Ref.make(Contracts.makeDefaultModuleParams(signature.instructions)),
+              subModules: HashMap.make(Tuple.make(declaredId, badNode))
+            })
+            const parent = new Module.Module({
+              name: "parent",
+              signature,
+              params: yield* Ref.make(Contracts.makeDefaultModuleParams(signature.instructions)),
+              subModules: HashMap.make(Tuple.make(branchId, branch)),
+              forward: () => Effect.succeed({ answer: "unused" })
+            })
+            const error = yield* Effect.flip(Module.compose(
+              new Module.ComposeOptions({
+                name: "root",
+                signature,
+                subModules: Record.singleton("parent", parent),
+                forward: ({ input }) => parent.forward(input)
+              })
+            ))
+            expect(error.message).toContain("child id")
+          })
+      )
     }))
 
   it.effect("preserves deterministic trace order with graph lineage through composed runtime", () =>

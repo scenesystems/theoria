@@ -6,9 +6,10 @@
  */
 import * as AiError from "@effect/ai/AiError"
 import * as Prompt from "@effect/ai/Prompt"
-import { Array as Arr, Effect, Equal, Option, Predicate, Record, Schema, String } from "effect"
+import { Array as Arr, Effect, Option, Predicate, Record, Schema, String } from "effect"
 import type { ModuleParams } from "../../contracts/ModuleParams.js"
 import { encodePayload } from "../../contracts/Payload.js"
+import { encodedFieldsToInfoArray } from "../../Signature/fields.js"
 import type { FieldInfo, Signature } from "../../Signature/model.js"
 import { renderFieldMarker, renderOutputRequirements, renderOutputTemplate } from "./protocol.js"
 
@@ -31,15 +32,9 @@ const renderFieldLine = (name: string, description: Option.Option<string>): stri
     onSome: (value) => Arr.join(Arr.make("- ", name, ": ", value), "")
   })
 
-const renderFieldSection = (fieldNames: Iterable<string>, fields: Iterable<FieldInfo>): string =>
+const renderFieldSection = (fields: Iterable<FieldInfo>): string =>
   Arr.join(
-    Arr.map(Arr.fromIterable(fieldNames), (name) =>
-      renderFieldLine(
-        name,
-        Arr.findFirst(fields, (field) => Equal.equals(field.name, name)).pipe(
-          Option.flatMap((field) => field.description)
-        )
-      )),
+    Arr.map(Arr.fromIterable(fields), (field) => renderFieldLine(field.name, field.description)),
     "\n"
   )
 
@@ -69,19 +64,20 @@ export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Str
   feedback: Option.Option<string> = Option.none()
 ): Effect.Effect<Prompt.Prompt, AiError.MalformedInput, Schema.Schema.Context<Schema.Struct<I>>> =>
   Effect.gen(function*() {
-    const inputNames = Record.keys(signature.inputFields)
-    const outputNames = Record.keys(signature.outputFields)
+    const inputFields = encodedFieldsToInfoArray(signature.inputFields)
+    const outputFields = encodedFieldsToInfoArray(signature.outputFields)
+    const outputNames = Arr.map(outputFields, (field) => field.name)
     const encoded = yield* Schema.encode(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
-    const content = yield* renderFieldBlock(Schema.encodedSchema(signature.inputSchema), encoded)
+    const content = yield* renderFieldBlock(Schema.encodedBoundSchema(signature.inputSchema), encoded)
     const demonstrations = yield* Effect.forEach(params.demos, (demo) =>
       Effect.gen(function*() {
-        const input = yield* Schema.decodeUnknown(Schema.encodedSchema(signature.inputSchema))(demo.input).pipe(
+        const input = yield* Schema.decodeUnknown(Schema.encodedBoundSchema(signature.inputSchema))(demo.input).pipe(
           Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.encodedSchema(signature.inputSchema), record))
+          Effect.flatMap((record) => renderFieldBlock(Schema.encodedBoundSchema(signature.inputSchema), record))
         )
-        const output = yield* Schema.decodeUnknown(Schema.encodedSchema(signature.outputSchema))(demo.output).pipe(
+        const output = yield* Schema.decodeUnknown(Schema.encodedBoundSchema(signature.outputSchema))(demo.output).pipe(
           Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.encodedSchema(signature.outputSchema), record))
+          Effect.flatMap((record) => renderFieldBlock(Schema.encodedBoundSchema(signature.outputSchema), record))
         )
         return Arr.make(
           Prompt.userMessage({ content: Arr.make(Prompt.textPart({ text: input })) }),
@@ -95,8 +91,8 @@ export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Str
             Arr.make(
               String.concat("Task: ", signature.description),
               String.concat("Instructions: ", params.instructions),
-              String.concat("Input fields:\n", renderFieldSection(inputNames, signature.fields)),
-              String.concat("Output fields:\n", renderFieldSection(outputNames, signature.fields)),
+              String.concat("Input fields:\n", renderFieldSection(inputFields)),
+              String.concat("Output fields:\n", renderFieldSection(outputFields)),
               String.concat("Output template:\n", renderOutputTemplate(outputNames))
             ),
             "\n\n"
