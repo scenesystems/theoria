@@ -1,6 +1,6 @@
 import { Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Config, Console, Effect } from "effect"
+import { Config, Effect, Number } from "effect"
 
 import { checkBuildOutput } from "../app/server/config/build-output.js"
 
@@ -22,10 +22,13 @@ const program = Effect.gen(function*() {
     Config.map((value) => path.resolve(value))
   )
   const summary = yield* checkBuildOutput(root)
-  yield* Console.log(
-    `Build output in ${summary.root} is deployable: ${String(summary.assets)} assets, Worker ${
-      String(Math.round(summary.workerBytes / 1024))
-    } KiB, homepage scripts ${String(Math.round(summary.homepageScriptGzipBytes / 1024))} KiB gzip`
+  yield* Effect.log("Build output is deployable").pipe(
+    Effect.annotateLogs({
+      root: summary.root,
+      assets: summary.assets,
+      workerKiB: Number.round(Number.unsafeDivide(summary.workerBytes, 1024), 0),
+      homepageScriptGzipKiB: Number.round(Number.unsafeDivide(summary.homepageScriptGzipBytes, 1024), 0)
+    })
   )
 })
 

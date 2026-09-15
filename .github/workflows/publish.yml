@@ -41,22 +41,13 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version-file: .bun-version
+      - uses: ./.github/actions/setup
       - uses: ./.github/actions/theoria-candidate
         id: candidate
         with:
           run-id: ${{ inputs.run_id }}
           reviewed-run-id: ${{ inputs.reviewed_run_id }}
-      - name: Bind the publishing event to the candidate
-        env:
-          CANDIDATE_SHA: ${{ steps.candidate.outputs.build-sha }}
-        run: |
-          if [ "$GITHUB_REF" != refs/heads/main ]; then
-            test "$GITHUB_REF" = "refs/tags/theoria-candidate-$CANDIDATE_SHA"
-            test "$GITHUB_SHA" = "$CANDIDATE_SHA"
-          fi
+          publication-event: "true"
 
   pin:
     name: Start publication at the immutable candidate ref
@@ -68,35 +59,20 @@ jobs:
       contents: write
       actions: write
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
       # npm provenance and changesets/action tags use the EVENT SHA, not the
       # checkout SHA. Dispatch again on the pinned ref; never override CI vars.
       - name: Pin the candidate and dispatch its publishing run
         env:
           GH_TOKEN: ${{ github.token }}
-          CANDIDATE_SHA: ${{ needs.resolve.outputs.build-sha }}
+          BUILD_SHA: ${{ needs.resolve.outputs.build-sha }}
           RUN_ID: ${{ inputs.run_id }}
           REVIEWED_RUN_ID: ${{ inputs.reviewed_run_id }}
-        run: |
-          set -euo pipefail
-          tag="theoria-candidate-$CANDIDATE_SHA"
-          refs=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag")
-          existing=$(jq -c --arg ref "refs/tags/$tag" '[.[] | select(.ref == $ref)]' <<< "$refs")
-          if [ "$(jq length <<< "$existing")" = 0 ]; then
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$CANDIDATE_SHA"
-          else
-            jq -e --arg sha "$CANDIDATE_SHA" 'length == 1 and .[0].object.type == "commit" and .[0].object.sha == $sha' <<< "$existing" > /dev/null
-          fi
-          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" \
-            -f run_id="$RUN_ID" -f reviewed_run_id="$REVIEWED_RUN_ID"
-          {
-            echo "## Pinned publication started; packages are not published yet"
-            echo
-            echo "Candidate $RUN_ID uses ref $tag. Wait for its [Publish Packages run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/publish.yml?query=branch%3A$tag) to succeed."
-            echo "Production remains unchanged. Later promote the same run_id with Theoria Production."
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: bun scripts/release.ts pin
 
   # Everything that executes repository or dependency code (type checks, lint,
-  # tests, build) runs here, without the OpenID Connect token. The tarballs it
+  # tests, packing) runs here, without the OpenID Connect token. The tarballs it
   # produces are the only thing the publish job receives.
   pack:
     name: Pack Packages
@@ -116,6 +92,15 @@ jobs:
           ref: ${{ needs.resolve.outputs.build-sha }}
           fetch-depth: 0
 
+      # Changesets uses npm pack even in a Bun workspace. Pin the same npm used to publish.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+
+      - name: Install npm for deterministic packing
+        run: npm install --global npm@11.5.2
+
       - uses: ./.github/actions/setup
 
       - uses: ./.github/actions/theoria-candidate
@@ -123,11 +108,16 @@ jobs:
         with:
           run-id: ${{ inputs.run_id }}
           reviewed-run-id: ${{ inputs.reviewed_run_id }}
+          publication-event: "true"
 
-      - name: Reject changed packages under already published versions
-        env:
-          CANDIDATE: ${{ steps.candidate.outputs.path }}
-        run: bash scripts/release/release.sh check "$CANDIDATE"
+      - name: Download staged package output
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ steps.candidate.outputs.package-artifact-id }}
+          merge-multiple: true
+          path: packages
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id }}
 
       # `version` when unreleased changesets exist, `publish` when a package version is
       # missing from npm, `none` when the registry already matches the repository.
@@ -135,21 +125,30 @@ jobs:
         id: mode
         uses: changesets/action/select-mode@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
 
-      - name: Refuse to publish with pending changesets
-        if: steps.mode.outputs.mode == 'version'
-        run: |
-          echo "::error::Pending changesets remain. Merge the Version Packages PR before publishing."
-          exit 1
+      - name: Require finalized package versions
+        env:
+          CHANGESETS_MODE: ${{ steps.mode.outputs.mode }}
+        run: bun scripts/release.ts ready
 
-      - name: Report an already published release
-        if: steps.mode.outputs.mode == 'none'
-        run: echo "::notice::Every package version is already published."
-
-      # The root build ends with scripts/resolve-workspace-deps.ts, which rewrites
-      # `workspace:` ranges in each dist manifest to the released semver ranges.
-      - name: Verify and build the workspace
+      - name: Typecheck workspace
         if: steps.mode.outputs.mode == 'publish'
-        run: bun run release:check
+        run: bun run check:all
+
+      - name: Lint workspace
+        if: steps.mode.outputs.mode == 'publish'
+        run: bun run lint
+
+      - name: Test workspace
+        if: steps.mode.outputs.mode == 'publish'
+        run: bun run test
+
+      # Checks run before this comparison so they cannot silently alter what is packed.
+      # Packages were built and version-resolved alongside the staged website; never rebuild here.
+      - name: Verify staged output and reject changed already-published versions
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+          RELEASE_OUTPUT: ${{ runner.temp }}/package-check.json
+        run: bun scripts/release.ts check
 
       - name: Pack the unpublished package versions
         if: steps.mode.outputs.mode == 'publish'
@@ -157,6 +156,23 @@ jobs:
         uses: changesets/action/pack@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
           publish-plan-artifact-id: ${{ steps.mode.outputs.publish-plan-artifact-id }}
+        env:
+          NPM_CONFIG_IGNORE_SCRIPTS: "true"
+
+      - name: Download packed tarballs for verification
+        if: steps.mode.outputs.mode == 'publish'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ steps.pack.outputs.pack-dir-artifact-id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/theoria-packed
+
+      - name: Verify the exact tarballs before allowing npm credentials
+        if: steps.mode.outputs.mode == 'publish'
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+          PACKED_DIRECTORY: ${{ runner.temp }}/theoria-packed
+        run: bun scripts/release.ts packed
 
   # Holds the OpenID Connect token for npm Trusted Publishing. It installs the
   # workspace only to resolve the Changesets CLI and publishes the packed
@@ -229,9 +245,7 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.build-sha }}
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version-file: .bun-version
+      - uses: ./.github/actions/setup
       - uses: ./.github/actions/theoria-candidate
         id: candidate
         with:
@@ -240,15 +254,8 @@ jobs:
       - name: Verify registry publication evidence
         env:
           CANDIDATE: ${{ steps.candidate.outputs.path }}
-          RUN_ID: ${{ inputs.run_id }}
-        run: |
-          bash scripts/release/release.sh published "$CANDIDATE" > "$RUNNER_TEMP/publication.json"
-          {
-            echo "## Packages published; website promotion is a separate choice"
-            echo
-            echo "All package versions for candidate $RUN_ID match npm provenance and release inputs."
-            echo "To promote this candidate, run Theoria Production on main with run_id: $RUN_ID."
-          } >> "$GITHUB_STEP_SUMMARY"
+          RELEASE_OUTPUT: ${{ runner.temp }}/publication.json
+        run: bun scripts/release.ts published
       - name: Save publication record
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

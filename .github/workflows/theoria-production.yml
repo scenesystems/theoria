@@ -36,21 +36,18 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version-file: .bun-version
+      - uses: ./.github/actions/setup
       - uses: ./.github/actions/theoria-candidate
         id: candidate
         with:
           run-id: ${{ inputs.run_id }}
           reviewed-run-id: ${{ inputs.reviewed_run_id }}
 
-      - name: Require matching published package inputs
+      - name: Require matching published package content
         env:
           CANDIDATE: ${{ steps.candidate.outputs.path }}
-        run: |
-          bash scripts/release/release.sh published "$CANDIDATE" > "$RUNNER_TEMP/production-release.json"
-          echo "All candidate packages match npm publication records. Website promotion is ready." >> "$GITHUB_STEP_SUMMARY"
+          RELEASE_OUTPUT: ${{ runner.temp }}/production-release.json
+        run: bun scripts/release.ts published
 
       - name: Record production release evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -94,34 +91,8 @@ jobs:
           path: apps/theoria
 
       - name: Deploy production
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/theoria
-          packageManager: bun
-          command: >-
-            deploy .wrangler-out/worker.js --no-bundle --env=""
-            --var BUILD_SHA:${{ needs.resolve.outputs.build-sha }}
-            --tag ${{ needs.resolve.outputs.build-sha }}
-
-      # The verify action waits up to ten minutes for DNS and, on a first
-      # deploy, the certificate. See "Taking over a hostname" in the runbook.
-      - uses: ./.github/actions/theoria-verify-deployment
-        with:
-          url: https://theoria.scenesystems.io
-          build-sha: ${{ needs.resolve.outputs.build-sha }}
-          noindex: "false"
-
-      - name: Report the promoted build
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           BUILD_SHA: ${{ needs.resolve.outputs.build-sha }}
-          RUN_ID: ${{ inputs.run_id }}
-        run: |
-          {
-            echo "## Production verified"
-            echo
-            echo "Promoted [commit $BUILD_SHA]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$BUILD_SHA) from [staging run $RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID)."
-            echo
-            echo "[Open production](https://theoria.scenesystems.io)"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: bun scripts/release.ts deploy --target production

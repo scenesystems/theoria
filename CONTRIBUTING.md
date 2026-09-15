@@ -62,7 +62,7 @@ provenance and GitHub releases identify the selected commit, not a newer `main`.
 Wait for that tag run's publication verification to succeed. Publishing does
 not deploy the production website; **Theoria Production** separately promotes
 the same candidate after checking package compatibility. Website-only releases
-can reuse already published packages with matching release inputs. See the
+can reuse already published packages with matching prepared content. See the
 [deployment runbook](apps/theoria/DEPLOYMENT.md#promote-staging-to-production)
 for version-only review carry-forward, ordering, and recovery.
 
@@ -79,7 +79,7 @@ Published workspace packages use public npm access and provenance attestations f
 | Environment          | `npm`          |
 | Allowed action       | `npm publish`  |
 
-The publish workflow uses npm's OpenID Connect flow and does not require a long-lived npm token. Its `pack` job verifies and builds the workspace and packs the unpublished versions into tarballs without the token; its `publish` job runs on a GitHub-hosted runner with `id-token: write`, publishes those tarballs, and executes no build or test code. Every public package keeps `publishConfig.provenance` enabled so npm can link the published tarball to this repository and workflow.
+The publish workflow uses npm's OpenID Connect flow and does not require a long-lived npm token. Its `pack` job downloads the staged package output, checks the workspace and content identity, and packs unpublished versions without rebuilding or holding the token; its `publish` job runs on a GitHub-hosted runner with `id-token: write`, publishes those tarballs, and executes no build or test code. Every public package keeps `publishConfig.provenance` enabled so npm can link the published tarball to this repository and workflow.
 
 The GitHub `npm` environment must allow deployment **tags** matching
 `theoria-candidate-*`; keep other tags/branches restricted. The Trusted Publisher

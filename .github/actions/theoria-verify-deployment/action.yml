@@ -1,143 +1,30 @@
 name: Verify Theoria deployment
-description: >
-  Probe a deployed Theoria site until it serves the expected build, then check the
-  routes and indexing policy described in `apps/theoria/DEPLOYMENT.md`.
-
+description: Verify deployed SHA, routes, indexing policy, demo API and static assets through the Effect release program.
 inputs:
   url:
-    description: Origin of the deployment, for example `https://theoria.staging.scenesystems.io`
+    description: Deployment origin
     required: true
   build-sha:
-    description: Commit SHA the deployment must report as `meta.buildSha`
+    description: Expected deployed commit
     required: true
   noindex:
-    description: Whether every response must carry the noindex robots header (`true` for staging and previews)
+    description: Require noindex for staging and previews
     required: true
   attempts:
-    description: >
-      How many times to poll `/api/health/live` before giving up. The default
-      covers ten minutes: the first deployment to a hostname waits for Cloudflare
-      to issue its certificate, and a resolver that answered for the hostname
-      before the record existed keeps the zone's wildcard answer for that record's
-      TTL (300 seconds), which the runner cannot bypass.
+    description: Health polls (allows time for first-deploy DNS and certificate propagation)
     default: "60"
   delay-seconds:
-    description: Seconds to wait between polls
+    description: Seconds between health polls
     default: "10"
-
 runs:
   using: composite
   steps:
-    - name: Wait for the build to go live
+    - name: Verify deployment
       shell: bash
       env:
         BASE_URL: ${{ inputs.url }}
         BUILD_SHA: ${{ inputs.build-sha }}
+        NOINDEX: ${{ inputs.noindex }}
         ATTEMPTS: ${{ inputs.attempts }}
         DELAY_SECONDS: ${{ inputs.delay-seconds }}
-      run: |
-        set -euo pipefail
-        base="${BASE_URL%/}"
-
-        body=$(mktemp)
-
-        for attempt in $(seq 1 "$ATTEMPTS"); do
-          : > "$body"
-          # `outcome` is the HTTP status, or curl's error message when no response arrived.
-          outcome=$(curl --silent --show-error --max-time 20 --output "$body" --write-out '%{http_code}' "$base/api/health/live" 2>&1 | tr -s '\r\n' ' ' || true)
-          served=$(jq -r '.meta.buildSha // empty' "$body" 2>/dev/null || true)
-          if [ "$served" = "$BUILD_SHA" ]; then
-            echo "$base serves build $BUILD_SHA (attempt $attempt)"
-            exit 0
-          fi
-          echo "Attempt $attempt/$ATTEMPTS: $base answered '${outcome}' with build '${served:-<none>}', waiting for $BUILD_SHA"
-          sleep "$DELAY_SECONDS"
-        done
-
-        echo "$base did not serve build $BUILD_SHA within $ATTEMPTS attempts" >&2
-        exit 1
-
-    - name: Check routes and indexing policy
-      shell: bash
-      env:
-        BASE_URL: ${{ inputs.url }}
-        NOINDEX: ${{ inputs.noindex }}
-      run: |
-        set -euo pipefail
-        base="${BASE_URL%/}"
-        failures=0
-        headers=$(mktemp)
-        body=$(mktemp)
-
-        # header_value <name>: value of the first matching response header, or empty
-        header_value() {
-          { grep -i "^$1:" "$headers" || true; } | head -n1 | cut -d' ' -f2- | tr -d '\r'
-        }
-
-        # check <path> <expected status> <content-type prefix or "-"> [json body]
-        # A fourth argument turns the probe into a POST with that JSON body.
-        check() {
-          local path="$1" expected_status="$2" expected_type="$3" payload="${4:-}"
-          local status content_type robots
-          local -a request=()
-          if [ -n "$payload" ]; then
-            request=(--request POST --header 'content-type: application/json' --data "$payload")
-          fi
-          status=$(curl --silent --max-time 60 "${request[@]}" --output "$body" --dump-header "$headers" --write-out '%{http_code}' "$base$path" || true)
-          content_type=$(header_value content-type)
-          robots=$(header_value x-robots-tag)
-
-          if [ "$status" != "$expected_status" ]; then
-            echo "FAIL $path: status $status, expected $expected_status" >&2
-            failures=$((failures + 1))
-            return
-          fi
-          if [ "$expected_type" != "-" ] && [[ "$content_type" != "$expected_type"* ]]; then
-            echo "FAIL $path: content-type '$content_type', expected '$expected_type'" >&2
-            failures=$((failures + 1))
-            return
-          fi
-          if [ "$NOINDEX" = "true" ] && [[ "$robots" != *noindex* ]]; then
-            echo "FAIL $path: expected X-Robots-Tag: noindex, got '$robots'" >&2
-            failures=$((failures + 1))
-            return
-          fi
-          if [ "$NOINDEX" != "true" ] && [ -n "$robots" ]; then
-            echo "FAIL $path: production must not send X-Robots-Tag, got '$robots'" >&2
-            failures=$((failures + 1))
-            return
-          fi
-          echo "ok   $path → $status ${content_type:-}"
-        }
-
-        check / 200 text/html
-        check /docs 200 text/html
-        check /docs/not-a-package/not-a-page 404 text/html
-        check /api/version 200 application/json
-        check /sitemap.xml 200 application/xml
-
-        # The home-page demo builds a place inside the Worker; this is the one
-        # request that exercises the packages the site is about.
-        check /api/imagined-place/build 200 application/json \
-          '{"scenario":"unfinished-light","brief":"A small reading room with one window.","acceptNeighbor":true,"acceptProgram":false}'
-        if [ "$(jq -r '.ok' "$body" 2>/dev/null || true)" != "true" ]; then
-          echo "FAIL /api/imagined-place/build: response envelope is not ok" >&2
-          failures=$((failures + 1))
-        fi
-
-        # A content-hashed script from the HTML shell is served directly by the
-        # assets layer, so this exercises `public/_headers` rather than the Worker.
-        curl --silent --max-time 20 "$base/" > "$body"
-        asset=$(grep -o -m1 '/assets/[^"]*\.js' "$body" || true)
-        if [ -n "$asset" ]; then
-          check "$asset" 200 text/javascript
-        else
-          echo "FAIL /: HTML shell references no /assets/*.js bundle" >&2
-          failures=$((failures + 1))
-        fi
-
-        if [ "$failures" -ne 0 ]; then
-          echo "$failures check(s) failed against $base" >&2
-          exit 1
-        fi
-        echo "All checks passed against $base"
+      run: bun scripts/release.ts verify

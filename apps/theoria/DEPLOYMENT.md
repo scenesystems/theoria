@@ -276,7 +276,8 @@ The [Theoria workflow](../../.github/workflows/theoria.yml) builds the site once
 per commit. It first runs the app's typecheck and unit tests (`bun run
 check:apps`, `bun run test:apps`), so an artifact never comes from a tree that
 fails its own checks even though the Check workflow runs separately. It then
-builds (`bun run build:web`, then `wrangler deploy --dry-run` to bundle
+builds the website and publishable packages (`bun run build` from the repository
+root, then `wrangler deploy --dry-run` to bundle
 `worker.ts` for workerd), checks the output with
 [`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml),
 and uploads `dist/` and `.wrangler-out/` as the artifact `theoria-<sha>`. The
@@ -285,7 +286,8 @@ again, and run their shard of the workerd and Chromium suite against it (`bun
 run test:worker -- --shard=i/n`, see above). Every deployment then uploads that
 exact artifact with `wrangler deploy --no-bundle`, so staging, production, and
 previews serve byte-identical builds of a commit, and none is deployed before
-every shard has passed.
+every shard has passed. Main builds also retain `packages/*/dist` in
+`theoria-packages-<sha>` for later publication without rebuilding.
 
 | Event                                   | Job         | Target                                                          |
 | --------------------------------------- | ----------- | --------------------------------------------------------------- |
@@ -297,17 +299,19 @@ every shard has passed.
 | manual Theoria run on `main`            | Staging     | rebuild, test, and deploy staging only                          |
 | manual Theoria Production run on `main` | Production  | `theoria.scenesystems.io`, from a chosen successful staging run |
 
-Each deployment ends with
-[`theoria-verify-deployment`](../../.github/actions/theoria-verify-deployment/action.yml),
-which polls `/api/health/live` until `meta.buildSha` matches the commit and then
-runs the checklist below against the live hostname.
+Staging and production use `bun scripts/release.ts deploy`; previews use the
+same verifier through `theoria-verify-deployment`. The Effect program polls
+`/api/health/live` until HTTP 200 and `meta.buildSha` match the commit, then
+runs the checklist below against the live hostname. Requests and subprocesses
+have scoped lifetimes; failed verification fails the release.
 
 ### Promote staging to production
 
 Pushes to `main` stop after staging verification. A successful staging job
-uploads a `theoria-candidate` record: the commit SHA, staging run ID, immutable
-website artifact ID, and each public package's version and release-input
-fingerprint. Both [Publish Packages](../../.github/workflows/publish.yml) and
+uploads a schema-v2 `theoria-candidate` record: the commit SHA, staging run ID
+and attempt, immutable website and package artifact IDs, and each public
+package's version and prepared-content SHA-256 digest.
+Both [Publish Packages](../../.github/workflows/publish.yml) and
 [Theoria Production](../../.github/workflows/theoria-production.yml) select
 this record with the same `run_id`; neither follows a moving `main` or staging
 site after selection.
@@ -326,7 +330,7 @@ site after selection.
    not mean packages were published.
 5. Whenever ready, open **Actions → Theoria Production → Run workflow**, select
    `main`, and enter the same `run_id`. It first requires matching published
-   package inputs, then deploys the selected website artifact.
+   package content, then deploys the selected website artifact.
 
 The equivalent CLI commands are:
 
@@ -338,7 +342,7 @@ gh workflow run theoria-production.yml --ref main -f run_id=STAGING_RUN_ID
 
 **Staging ahead, npm published, website promotion pending** is a supported
 state. A later staging deployment does not alter the selected release. A
-website-only candidate can skip Publish Packages if its package inputs match
+website-only candidate can skip Publish Packages if its package content matches
 the versions already on npm. Publishing never promotes the website, and
 website promotion never publishes packages.
 
@@ -380,27 +384,35 @@ or staging checks.
 
 ### Package compatibility and publication records
 
-`scripts/release/release.sh` checks npm's registry-hosted provenance against
-the published tarball's SHA-512 integrity, this repository, and `publish.yml`.
-The provenance source commit is the durable publication record. The workflow
-recomputes that commit's release-input fingerprint and compares it with the
-candidate, rather than trusting that a version number exists on npm.
+`scripts/release.ts` composes `@effect/cli`, Effect Schema and platform services.
+Its modules separate candidate evidence, Git/version comparison, npm content,
+GitHub transport, and website deployment. YAML retains GitHub triggers, job
+dependencies, permissions, environments and vendor Actions. No Bash or jq
+implements release policy. The CLI runs on Linux/Bun (including GitHub's Ubuntu
+runners); argument acquisition uses procfs. GitHub CLI handles paginated API
+responses and artifact downloads. The repository-pinned Wrangler handles
+Cloudflare deployment.
 
-Fingerprints cover package code, exports, manifests with resolved workspace
-dependency versions, package build files, shared TypeScript/build configuration,
-root dependency declarations, and their transitive locked dependency entries.
-README, changelog, example and test content are excluded so documentation-only
-and website-only changes need no npm release. All locked instances of a used
-dependency are included conservatively; changes to shared tooling can require
-new package versions even when TypeScript source is unchanged. The policy
-assumes builds use the checked-in build scripts and inputs; update this policy
-when introducing another build-input location.
+The npm check validates registry-hosted provenance against the published
+tarball's SHA-512 integrity, this repository, and `publish.yml`. It downloads
+the tarball, verifies the bytes against that integrity, rejects unsafe archive
+paths, links and special files, and compares its content with the staged
+packages. GNU tar and sha512sum run through scoped Effect commands with checked
+exit status; the downloaded package code is never executed.
 
-An already published version with different inputs blocks both publishing and
+Content identity covers the actual shipped files: JavaScript, declarations,
+source, maps, exports, dependency ranges and other manifest fields. Only root
+README/changelog and descriptive manifest fields (description, homepage,
+repository, bugs, keywords) are excluded. Website-only and README changes need
+no npm release when the package content is unchanged. A compiler or dependency
+change matters when it changes shipped output; there is no manually maintained
+inventory of possible build inputs.
+
+An already published version with different content blocks both publishing and
 promotion: add a changeset, merge the version PR, and stage the resulting
 candidate. Missing provenance or registry errors also fail closed. Packages
 published before this workflow can be reused when their existing npm
-provenance and source inputs match; there is no version-exists-only migration
+provenance and package content match; there is no version-exists-only migration
 bypass. The publication and production workflows save JSON evidence for 90
 days and summarize their state. Future website-only releases use the durable
 npm provenance, not an expired Actions evidence artifact.
@@ -409,9 +421,12 @@ The publisher runs on the immutable candidate tag because npm provenance and
 the Changesets action's GitHub tags use the workflow **event SHA**, not merely
 the checked-out SHA. The main dispatcher never publishes. The tag run checks
 its event SHA and tag name against the selected staging record before any npm
-credentials are requested. It builds package tarballs from that commit, keeps
-the existing credential-free pack / OIDC publish separation, and verifies the
-registry afterwards. If registry propagation or recording fails after publish,
+credentials are requested. It downloads the staged package output, runs checks,
+verifies that output still matches the candidate, then packs it without rebuilding.
+Packing uses pinned npm with lifecycle scripts disabled. The packed artifact is
+downloaded and its tarball integrity and content checked against staging before
+the OIDC publish job can start. Publication verifies the registry afterwards.
+If registry propagation or recording fails after publish,
 retry the pinned publication: existing matching versions are checked and not
 republished. Never move a `theoria-candidate-*` tag.
 
@@ -490,7 +505,7 @@ Repository Actions must permit the dispatcher's scoped `contents: write` and
 `actions: write` token to create the candidate ref and dispatch the tag run.
 
 Rollout requires a new successful Theoria staging run after these workflows
-merge: older runs do not contain the candidate record. No live deployment,
+merge: older runs lack the schema-v2 candidate and prepared package artifact. No live deployment,
 package publication, or environment-policy change is part of installing this
 workflow change.
 

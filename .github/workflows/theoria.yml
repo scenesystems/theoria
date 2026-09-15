@@ -34,9 +34,10 @@ jobs:
       group: theoria-build-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     outputs:
-      artifact: ${{ steps.artifact.outputs.name }}
-      build-sha: ${{ steps.artifact.outputs.build-sha }}
+      artifact: theoria-${{ env.BUILD_SHA }}
+      build-sha: ${{ env.BUILD_SHA }}
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      package-artifact-id: ${{ steps.packages.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup
@@ -49,8 +50,8 @@ jobs:
           bun run check:apps
           bun run test:apps
 
-      - name: Build web bundle
-        run: bun run --cwd apps/theoria build:web
+      - name: Build website and prepare publishable packages
+        run: bun run build
 
       - name: Bundle Worker
         run: bun run --cwd apps/theoria deploy:dry-run
@@ -59,19 +60,11 @@ jobs:
         with:
           path: apps/theoria
 
-      - name: Name artifact
-        id: artifact
-        run: |
-          {
-            echo "name=theoria-${BUILD_SHA}"
-            echo "build-sha=${BUILD_SHA}"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Upload build
         id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: ${{ steps.artifact.outputs.name }}
+          name: theoria-${{ env.BUILD_SHA }}
           path: |
             apps/theoria/dist
             apps/theoria/.wrangler-out
@@ -79,6 +72,17 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'pull_request' && 1 || 7 }}
+
+      - name: Upload prepared packages
+        id: packages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: theoria-packages-${{ env.BUILD_SHA }}
+          path: packages/*/dist
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
 
   # Runs the bundle that will be deployed inside workerd against the built
   # `dist/` (routing, `_headers`, indexing policy, API, demo build) over HTTP
@@ -149,30 +153,23 @@ jobs:
           path: apps/theoria
 
       - name: Deploy staging
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/theoria
-          packageManager: bun
-          command: >-
-            deploy .wrangler-out/worker.js --no-bundle --env staging
-            --var BUILD_SHA:${{ needs.build.outputs.build-sha }}
-            --tag ${{ needs.build.outputs.build-sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bun scripts/release.ts deploy --target staging
 
-      - uses: ./.github/actions/theoria-verify-deployment
+      - name: Download prepared packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          url: https://theoria.staging.scenesystems.io
-          build-sha: ${{ needs.build.outputs.build-sha }}
-          noindex: "true"
+          name: theoria-packages-${{ env.BUILD_SHA }}
+          path: packages
 
       - name: Record the verified release candidate
         env:
-          STAGED_SHA: ${{ needs.build.outputs.build-sha }}
           SITE_ARTIFACT_ID: ${{ needs.build.outputs.artifact-id }}
-        run: |
-          bash scripts/release/release.sh candidate "$STAGED_SHA" "$GITHUB_RUN_ID" "$SITE_ARTIFACT_ID" \
-            > "$RUNNER_TEMP/release-candidate.json"
+          PACKAGE_ARTIFACT_ID: ${{ needs.build.outputs.package-artifact-id }}
+          RELEASE_OUTPUT: ${{ runner.temp }}/release-candidate.json
+        run: bun scripts/release.ts record
 
       - name: Upload candidate record
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -181,21 +178,3 @@ jobs:
           path: ${{ runner.temp }}/release-candidate.json
           if-no-files-found: error
           retention-days: 7
-
-      - name: Show production promotion instructions
-        env:
-          STAGED_SHA: ${{ needs.build.outputs.build-sha }}
-        run: |
-          {
-            echo "## Staging verified; production is unchanged"
-            echo
-            echo "Review [staging](https://theoria.staging.scenesystems.io) for [commit $STAGED_SHA]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$STAGED_SHA)."
-            echo
-            echo "Candidate run_id: $GITHUB_RUN_ID. Later staging deployments do not change this candidate."
-            echo
-            echo "1. For new package versions, run [Publish Packages]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/publish.yml) on main with this run_id. It publishes this candidate, not newer main."
-            echo "2. When ready, run [Theoria Production]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/theoria-production.yml) on main with the same run_id. It requires matching published package inputs and promotes this tested artifact without rebuilding."
-            echo
-            echo "If this finalizes a previously reviewed build's versions, optionally enter its reviewed_run_id in either workflow. Only verified version-only differences can carry that review forward."
-            echo "The website artifact and candidate record expire seven days after upload."
-          } >> "$GITHUB_STEP_SUMMARY"
