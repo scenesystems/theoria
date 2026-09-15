@@ -4,7 +4,6 @@
  *
  * @since 0.1.0
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -20,9 +19,14 @@ import { extractInstruction, generateText } from "../../../Module/textGeneration
 import { evaluateMutationAcceptance } from "../accept.js"
 import { GEPAEvent } from "../events.js"
 import { GEPAState, PredictorInstruction, ProgramCandidate } from "../model.js"
-import { buildReflectiveDataset, buildReflectivePrompt, selectPredictorRoundRobin } from "../reflect.js"
+import {
+  buildReflectiveDataset,
+  buildReflectivePrompt,
+  selectPredictorRoundRobin,
+  selectReflectiveSamples
+} from "../reflect.js"
 
-import { evaluateCandidate } from "./evaluate.js"
+import { CandidateEvaluationWindow, evaluateCandidate } from "./evaluate.js"
 import { chooseParentIndex, instructionForPredictor } from "./helpers.js"
 import type { GEPAEventSink, GEPAOptions } from "./options.js"
 
@@ -88,7 +92,6 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
   iteration: number,
   mutationSeed: number,
   initialCandidate: ProgramCandidate,
-  initialInstruction: string,
   emit: GEPAEventSink
 ) =>
   Effect.gen(function*() {
@@ -102,17 +105,15 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
       ),
       () => options.module.name
     )
-    const currentInstruction = Option.getOrElse(instructionForPredictor(parentCandidate, predictorName), () =>
-      initialInstruction)
+    const currentInstruction = Option.getOrElse(instructionForPredictor(parentCandidate, predictorName), () => "")
     const reflectivePrompt = buildReflectivePrompt({
       predictorName,
       currentInstruction,
-      examples: buildReflectiveDataset(parentEvaluation.samples)
+      examples: buildReflectiveDataset(selectReflectiveSamples(parentEvaluation.samples, predictorName))
     })
     const mutatedInstruction = yield* Effect.map(
       generateText(reflectivePrompt),
-      (response) =>
-        extractInstruction(response, currentInstruction)
+      (response) => extractInstruction(response, currentInstruction)
     )
     const mutatedCandidate = buildMutationCandidate(parentCandidate, predictorName, mutatedInstruction, iteration)
 
@@ -126,22 +127,37 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
       })
     )
 
-    const mutatedEvaluation = yield* evaluateCandidate(options, mutatedCandidate)
-    const subsampleSize = Numeric.min(
-      Numeric.min(3, Arr.length(parentEvaluation.scores)),
-      Arr.length(mutatedEvaluation.scores)
+    const subsampleSize = Num.min(3, Arr.length(parentEvaluation.scores))
+    const mutatedSubsampleEvaluation = yield* evaluateCandidate(
+      options,
+      mutatedCandidate,
+      new CandidateEvaluationWindow({
+        startIndex: 0,
+        rowCount: Option.some(subsampleSize)
+      })
     )
     const acceptance = yield* evaluateMutationAcceptance({
       previousSubsampleScores: Arr.take(parentEvaluation.scores, subsampleSize),
-      mutatedSubsampleScores: Arr.take(mutatedEvaluation.scores, subsampleSize),
-      evaluateFullValset: Effect.succeed(mutatedEvaluation.scores)
+      mutatedSubsampleScores: mutatedSubsampleEvaluation.scores,
+      evaluateFullValset: evaluateCandidate(
+        options,
+        mutatedCandidate,
+        new CandidateEvaluationWindow({
+          startIndex: subsampleSize,
+          rowCount: Option.none()
+        })
+      ).pipe(
+        Effect.map((remainingEvaluation) =>
+          Arr.appendAll(mutatedSubsampleEvaluation.scores, remainingEvaluation.scores)
+        )
+      )
     })
     const accepted = Bool.match(acceptance.gate1Passed, {
       onFalse: () => false,
       onTrue: () => Option.isSome(acceptance.fullValsetScores)
     })
     const stateAfterAcceptance = new GEPAState({
-      ...stateAfterMerge,
+      iteration: stateAfterMerge.iteration,
       candidates: Bool.match(accepted, {
         onFalse: () => stateAfterMerge.candidates,
         onTrue: () => Arr.append(stateAfterMerge.candidates, mutatedCandidate)
@@ -151,10 +167,13 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
         onTrue: () =>
           Arr.append(
             stateAfterMerge.scoreVectors,
-            Option.getOrElse(acceptance.fullValsetScores, () => mutatedEvaluation.scores)
+            Option.getOrElse(acceptance.fullValsetScores, () => mutatedSubsampleEvaluation.scores)
           )
       }),
-      lastIterationFoundNew: accepted
+      paretoSnapshot: stateAfterMerge.paretoSnapshot,
+      mergeBudgetRemaining: stateAfterMerge.mergeBudgetRemaining,
+      lastIterationFoundNew: accepted,
+      seed: stateAfterMerge.seed
     })
 
     yield* emit(

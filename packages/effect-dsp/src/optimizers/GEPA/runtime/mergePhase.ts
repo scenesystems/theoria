@@ -115,9 +115,13 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
                             )
 
                             return new GEPAState({
-                              ...state,
-                              ...mergeState,
-                              scoreVectors: Arr.append(state.scoreVectors, mergedEvaluation.scores)
+                              iteration: state.iteration,
+                              candidates: mergeState.candidates,
+                              scoreVectors: Arr.append(state.scoreVectors, mergedEvaluation.scores),
+                              paretoSnapshot: state.paretoSnapshot,
+                              mergeBudgetRemaining: mergeState.mergeBudgetRemaining,
+                              lastIterationFoundNew: state.lastIterationFoundNew,
+                              seed: state.seed
                             })
                           }),
                         onFalse: () =>

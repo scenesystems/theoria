@@ -10,12 +10,11 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Match, Number as Num, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
-import { withModuleParamsInstructions } from "../../contracts/ModuleParams.js"
+import { collectModuleParamRefs } from "../../internal/module-params.js"
 import { GEPAEvent } from "./events.js"
 import { GEPAState, PredictorInstruction, ProgramCandidate } from "./model.js"
 import { deriveParetoKernelSnapshot } from "./pareto.js"
-import { evaluateCandidate } from "./runtime/evaluate.js"
-import { instructionForPredictor } from "./runtime/helpers.js"
+import { commitCandidateInstructions, evaluateCandidate } from "./runtime/evaluate.js"
 import { runMergePhase } from "./runtime/mergePhase.js"
 import { runMutationPhase } from "./runtime/mutation.js"
 import { DEFAULT_MAX_MERGE_INVOCATIONS, type GEPAEventSink, type GEPAOptions, noGEPAEvents } from "./runtime/options.js"
@@ -39,13 +38,14 @@ export { noGEPAEvents }
  * then proposes one mutation, evaluates acceptance, updates the Pareto
  * frontier, and emits `IterationCompleted`.
  *
- * Typed language-model failures during mutation proposal fall back to the
- * current instruction. Module and metric failures remain in the Effect error
- * channel. Schema decode failures inside candidate evaluation become defects.
+ * Mutation-proposal language-model failures remain checked failures; no
+ * replacement instruction is invented. Module, metric, and Schema failures
+ * remain in the Effect error channel, including candidate decoding failures.
  * Temporary candidate instructions are restored after each evaluation. At
- * completion, the instruction from the first index in the final Pareto
- * frontier is written to `options.module`; the same module object is returned.
- * GEPA does not reduce the final frontier to a scalar score ranking.
+ * completion, all owned instructions from the first index in the final Pareto
+ * frontier are written to the root and descendant parameter refs; the same
+ * module object is returned. GEPA does not reduce the final frontier to a
+ * scalar score ranking.
  *
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored during candidate evaluation.
@@ -68,13 +68,17 @@ export const gepaWithEvents = <
   emit: GEPAEventSink
 ) =>
   Effect.gen(function*() {
-    const initialParams = yield* Ref.get(options.module.params)
+    const paramRefs = collectModuleParamRefs(options.module)
+    const initialInstructions = yield* Effect.forEach(paramRefs, (owner) =>
+      Ref.get(owner.params).pipe(
+        Effect.map((params) =>
+          new PredictorInstruction({ predictorName: owner.name, instruction: params.instructions })
+        )
+      ))
     const initialCandidate = new ProgramCandidate({
       candidateId: "candidate-0",
       parentIds: Arr.empty<string>(),
-      predictorInstructions: Arr.make(
-        new PredictorInstruction({ predictorName: options.module.name, instruction: initialParams.instructions })
-      )
+      predictorInstructions: initialInstructions
     })
     const initialEvaluation = yield* evaluateCandidate(options, initialCandidate)
     const initialSnapshot = deriveParetoKernelSnapshot(Arr.make(initialEvaluation.scores))
@@ -114,14 +118,16 @@ export const gepaWithEvents = <
             iteration,
             mutationSeed,
             initialCandidate,
-            initialParams.instructions,
             emit
           )
           const updatedSnapshot = deriveParetoKernelSnapshot(mutationResult.stateAfterAcceptance.scoreVectors)
           const nextState = new GEPAState({
-            ...mutationResult.stateAfterAcceptance,
             iteration,
+            candidates: mutationResult.stateAfterAcceptance.candidates,
+            scoreVectors: mutationResult.stateAfterAcceptance.scoreVectors,
             paretoSnapshot: updatedSnapshot,
+            mergeBudgetRemaining: mutationResult.stateAfterAcceptance.mergeBudgetRemaining,
+            lastIterationFoundNew: mutationResult.stateAfterAcceptance.lastIterationFoundNew,
             seed: nextDeterministicSeed(mutationSeed)
           })
 
@@ -149,15 +155,7 @@ export const gepaWithEvents = <
     const finalState = yield* Ref.get(stateRef)
     const bestIndex = Option.getOrElse(Arr.head(finalState.paretoSnapshot.frontierIndices), () => 0)
     const bestCandidate = Option.getOrElse(Arr.get(finalState.candidates, bestIndex), () => initialCandidate)
-    const currentParams = yield* Ref.get(options.module.params)
-
-    yield* Ref.set(
-      options.module.params,
-      withModuleParamsInstructions(
-        currentParams,
-        Option.getOrElse(instructionForPredictor(bestCandidate, options.module.name), () => currentParams.instructions)
-      )
-    )
+    yield* commitCandidateInstructions(paramRefs, bestCandidate)
 
     yield* emit(
       GEPAEvent.OptimizationCompleted({
@@ -173,8 +171,8 @@ export const gepaWithEvents = <
 /**
  * Evolves a module while discarding lifecycle events.
  *
- * @returns The supplied module after its instruction is replaced by the first
- * candidate in the final Pareto frontier.
+ * @returns The supplied module after its owned instructions are replaced by
+ * the first candidate in the final Pareto frontier.
  *
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored during candidate evaluation.
@@ -200,7 +198,7 @@ export const gepa = <
  *
  * @remarks
  * The stream completes after `OptimizationCompleted`. The optimized module is
- * retained through the mutation of `options.module` and is not a stream
+ * retained through mutation of its owned parameter graph and is not a stream
  * element. Module and metric failures fail the stream.
  *
  * @typeParam I - Input fields accepted by the optimized module.
