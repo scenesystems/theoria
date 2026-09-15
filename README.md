@@ -13,6 +13,7 @@ _Theoria_ (θεωρία) is the Greek word for observation that produces knowled
 | Package                                                                   | What it does                                                                                                           |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | [`@scenesystems/effect-math`](./packages/effect-math/README.md)           | Numerics, linear algebra, statistics, probability, and optimization kernels, as pure functions or policy-aware Effects |
+| [`@scenesystems/effect-study`](./packages/effect-study/README.md)         | Fixed-input evaluation, trial history, cooperative stopping, event streams, and schema-driven artifact persistence     |
 | [`@scenesystems/effect-search`](./packages/effect-search/README.md)       | Black-box optimization: TPE, CMA-ES, GP-BO, HyperBand, BOHB, multi-objective search, resumable studies                 |
 | [`@scenesystems/effect-dsp`](./packages/effect-dsp/README.md)             | Typed signatures and modules for language model programs, with evaluation, tracing, and prompt optimizers              |
 | [`@scenesystems/effect-inference`](./packages/effect-inference/README.md) | Provider-blind model runtime resolution with recorded evidence for every execution                                     |
@@ -63,6 +64,8 @@ Arrows point from a package to the packages that depend on it.
 
 Computation starts with something that can be measured. `effect-math` supplies the numerical operations, either as pure kernels or as validated variants that read runtime policy for precision, backend, and diagnostics.
 
+`effect-study` supplies evaluation and artifact foundations without depending on search. Search, DSP optimizer streams, and fixed-profile text calibration consume it directly. Observations can be structured values rather than numeric objectives.
+
 Once an outcome can be measured it can be searched over. `effect-search` turns any Effect objective into a study: it samples a typed search space, records every trial, supports conditional dimensions and competing objectives, and persists its state so a run can be resumed. It uses `effect-math` for its numerical work and `digest` to key caches and identify artifacts.
 
 The same loop drives language model programs. `effect-dsp` replaces prompt strings with typed signatures and composable modules, evaluates them against examples, and optimizes instructions and demonstrations with algorithms built on `effect-search`. `effect-inference` provides the `LanguageModel` layer, resolving a requested provider through `@effect/ai` and returning evidence about the runtime that answered.
@@ -80,10 +83,10 @@ npm install @scenesystems/effect-search effect @effect/platform @effect/experime
 ```
 
 ```ts typecheck
-import { Effect } from "effect"
+import { Effect, Number as Num } from "effect"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
-const program = Effect.gen(function* () {
+export const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
     x: SearchSpace.float(-5, 5),
     y: SearchSpace.float(-5, 5)
@@ -92,12 +95,14 @@ const program = Effect.gen(function* () {
   return yield* Study.minimize({
     space,
     sampler: Sampler.tpe({ seed: 42 }),
-    objective: ({ x, y }) => Effect.succeed((x - 2) ** 2 + (y + 1) ** 2),
+    objective: ({ x, y }) => {
+      const dx = Num.subtract(x, 2)
+      const dy = Num.sum(y, 1)
+      return Effect.succeed(Num.sum(Num.multiply(dx, dx), Num.multiply(dy, dy)))
+    },
     trials: 50
   })
 })
-
-Effect.runPromise(program)
 ```
 
 The objective is an ordinary Effect, so it can run a benchmark, call a model, or use any service in your program. The fixed seed makes the study reproducible. Each package README opens with a comparable first example and continues with topic guides; each `packages/<name>/examples/` directory holds runnable programs you can execute with `bun run`.

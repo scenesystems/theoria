@@ -18,6 +18,8 @@ import * as Evaluation from "../src/Evaluation.js"
 class Rejected extends Schema.TaggedError<Rejected>()("Rejected", { input: Schema.Number }) {}
 class Prefix extends Context.Tag("study-test/Prefix")<Prefix, string>() {}
 
+const Observation = Schema.Struct({ prefix: Schema.String, config: Schema.Number, trialNumber: Schema.Number })
+
 it.effect("evaluates fixed inputs with typed services and preserves input order across concurrent completion", () =>
   Effect.gen(function*() {
     const fastFinished = yield* Deferred.make<void>()
@@ -28,7 +30,7 @@ it.effect("evaluates fixed inputs with typed services and preserves input order 
           const prefix = yield* Prefix
           yield* Effect.sleep(Num.multiply(config, 100))
           yield* Deferred.succeed(fastFinished, undefined).pipe(Effect.when(() => Num.Equivalence(config, 1)))
-          return { prefix, config, trialNumber }
+          return Observation.make({ prefix, config, trialNumber })
         }),
       { concurrency: 2 }
     ).pipe(Effect.provide(Layer.succeed(Prefix, "fixed")), Effect.fork)

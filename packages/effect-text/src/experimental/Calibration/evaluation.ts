@@ -3,7 +3,9 @@
  *
  * @since 0.1.0
  */
+import * as Evaluation from "@scenesystems/effect-study/Evaluation"
 import { Effect } from "effect"
+import * as Arr from "effect/Array"
 
 import { EngineProfile } from "../../contracts/index.js"
 import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
@@ -31,16 +33,19 @@ import type { CalibrationCaseType, CalibrationProfileType, CalibrationReportType
  */
 export const evaluateProfile = (
   profile: CalibrationProfileType,
-  cases: ReadonlyArray<CalibrationCaseType>
+  cases: Iterable<CalibrationCaseType>
 ): Effect.Effect<CalibrationReportType, MeasurementFailed, WordSegmenter | MeasurementCache> =>
-  Effect.forEach(cases, (calibrationCase) =>
+  Evaluation.run(cases, (calibrationCase) =>
     prepareWithSegments(calibrationCase.prepare).pipe(
       Effect.provideService(EngineProfile, profile.engineProfile),
-      Effect.map((prepared) => ({
-        actual: layout(prepared, calibrationCase.layout),
-        actualLines: layoutLines(prepared, calibrationCase.layout)
-      })),
-      Effect.map(({ actual, actualLines }) => makeCaseResult(calibrationCase, actual, actualLines))
+      Effect.map((prepared) =>
+        makeCaseResult(
+          calibrationCase,
+          layout(prepared, calibrationCase.layout),
+          layoutLines(prepared, calibrationCase.layout)
+        )
+      )
     )).pipe(
+      Effect.map((trials) => Arr.map(trials, (trial) => trial.state.value)),
       Effect.map((results) => summarizeReport(profile, results))
     )
