@@ -1,8 +1,8 @@
-import { Effect, Option } from "effect"
+import { Effect, Option, Stream } from "effect"
 
 import { hkdfSha256 } from "@scenesystems/digest"
-import { seal, unpackEnvelope, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
-import { deriveSharedSecret } from "@scenesystems/sign"
+import { type Cipher, Envelope } from "@scenesystems/seal"
+import { deriveSharedSecret, utf8ToBytes } from "@scenesystems/sign"
 
 import type { SealedNote } from "../../contracts/imagined-place-result.js"
 import type { ParticipantRole } from "../../contracts/imagined-place.js"
@@ -32,16 +32,20 @@ export const sendSealedNote = (
   from: ParticipantRole,
   to: ParticipantRole,
   text: string
-): Effect.Effect<SealedNote, PlaceBuildError, Participants> =>
+): Effect.Effect<SealedNote, PlaceBuildError, Participants | Cipher.Cipher> =>
   Effect.gen(function*() {
     const participants = yield* Participants
     const sender = participants[from]
     const recipient = participants[to]
 
-    const envelope = yield* seal("xchacha20-poly1305", yield* sealingKey(sender, recipient), utf8ToBytes(text))
-    const packed = yield* unpackEnvelope(envelope)
+    const envelope = yield* Envelope.encrypt(
+      "xchacha20-poly1305",
+      yield* sealingKey(sender, recipient),
+      utf8ToBytes(text)
+    )
+    const packed = yield* Envelope.toBytes(envelope)
 
-    const opened = yield* unseal(yield* sealingKey(recipient, sender), envelope)
+    const opened = yield* Envelope.decrypt(yield* sealingKey(recipient, sender), envelope)
 
     const note: SealedNote = {
       from,
@@ -50,7 +54,10 @@ export const sendSealedNote = (
       kdf: "hkdf-sha256",
       algorithm: "xchacha20-poly1305",
       envelopeBytes: packed.length,
-      openedText: utf8FromBytes(opened)
+      openedText: yield* Stream.make(opened).pipe(
+        Stream.decodeText(),
+        Stream.runFold("", (left, right) => left + right)
+      )
     }
     return note
   }).pipe(Effect.mapError((cause) => new PlaceBuildError({ stage: "seal", message: String(cause) })))

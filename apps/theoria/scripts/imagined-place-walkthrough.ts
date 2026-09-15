@@ -5,6 +5,7 @@
  *   bun apps/theoria/scripts/imagined-place-walkthrough.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
+import { Cipher } from "@scenesystems/seal"
 import { Console, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -158,6 +159,6 @@ const program = Effect.gen(function*() {
       short(Option.getOrElse(versionTwo(both), () => "?"))
     } differs from neighbor-only ${short(Option.getOrElse(versionTwo(result), () => "?"))}`
   )
-}).pipe(Effect.provide(ParticipantsLive))
+}).pipe(Effect.provide([ParticipantsLive, Cipher.layer]))
 
 BunRuntime.runMain(program)

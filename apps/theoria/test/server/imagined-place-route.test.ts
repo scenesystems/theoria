@@ -1,6 +1,7 @@
 import type { HttpServerRequest } from "@effect/platform"
 import { Headers, HttpServerResponse } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
+import { Cipher } from "@scenesystems/seal"
 import { Data, Effect, Layer, Ref, Schema } from "effect"
 import * as Arr from "effect/Array"
 
@@ -13,7 +14,7 @@ import { imaginedPlacePath, imaginedPlaceRoute } from "../../app/server/routes/i
 import { serverRequest } from "./platform/web-request.js"
 
 const RuntimeInfoTest = Layer.succeed(RuntimeInfo, { buildSha: "test-sha", startedAtMs: 0 })
-const RouteLive = Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, unlimited)
+const RouteLive = Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, Cipher.layer, unlimited)
 
 /** Refuses every build and records the actors it was asked about. */
 const refusing = (seen: Ref.Ref<ReadonlyArray<string>>) =>
@@ -132,7 +133,7 @@ describe("server/routes/imagined-place", () => {
 
       const { envelope, headers, status } = yield* call(
         fromAddress,
-        Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, refusing(seen))
+        Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, Cipher.layer, refusing(seen))
       )
       expect(status).toBe(429)
       expect(headers["retry-after"]).toBe("60")
