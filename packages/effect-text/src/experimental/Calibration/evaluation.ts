@@ -11,7 +11,7 @@ import type { MeasurementFailed } from "../../Errors/index.js"
 import { prepareWithSegments } from "../../Text/constructors.js"
 import { layout, layoutLines } from "../../Text/layout.js"
 import { makeCaseResult, summarizeReport } from "./internal/evaluation.js"
-import type { CalibrationCaseType, CalibrationProfileType, CalibrationReportType } from "./schema.js"
+import type { CalibrationCasesType, CalibrationProfileType, CalibrationReportType } from "./schema.js"
 
 /**
  * Evaluates a candidate engine profile against expected aggregate geometry and
@@ -31,16 +31,18 @@ import type { CalibrationCaseType, CalibrationProfileType, CalibrationReportType
  */
 export const evaluateProfile = (
   profile: CalibrationProfileType,
-  cases: ReadonlyArray<CalibrationCaseType>
+  cases: CalibrationCasesType
 ): Effect.Effect<CalibrationReportType, MeasurementFailed, WordSegmenter | MeasurementCache> =>
   Effect.forEach(cases, (calibrationCase) =>
     prepareWithSegments(calibrationCase.prepare).pipe(
       Effect.provideService(EngineProfile, profile.engineProfile),
-      Effect.map((prepared) => ({
-        actual: layout(prepared, calibrationCase.layout),
-        actualLines: layoutLines(prepared, calibrationCase.layout)
-      })),
-      Effect.map(({ actual, actualLines }) => makeCaseResult(calibrationCase, actual, actualLines))
+      Effect.map((prepared) =>
+        makeCaseResult(
+          calibrationCase,
+          layout(prepared, calibrationCase.layout),
+          layoutLines(prepared, calibrationCase.layout)
+        )
+      )
     )).pipe(
       Effect.map((results) => summarizeReport(profile, results))
     )

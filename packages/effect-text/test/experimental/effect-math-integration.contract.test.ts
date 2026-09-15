@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler } from "@scenesystems/effect-search"
-import { Effect } from "effect"
+import { Array as Arr, Effect, Number as Num } from "effect"
 
 import { scoreCalibrationReportSync } from "../../src/experimental/Calibration/internal/scoring.js"
 import { Experimental } from "../../src/index.js"
@@ -17,13 +17,12 @@ const manualScore = (
   objective: Experimental.Calibration.CalibrationObjectiveMetadataType
 ): number =>
   Numeric.sum(
-    report.results.map((result) =>
-      Numeric.sum([
-        result.lineMismatchCount * objective.scoreWeights.lineMismatchCount,
-        Numeric.abs(result.lineCountDelta) * objective.scoreWeights.lineCountError,
-        Numeric.abs(result.maxLineWidthDelta) * objective.scoreWeights.maxLineWidthError
-      ])
-    )
+    Arr.map(report.results, (result) =>
+      Numeric.sum(Arr.make(
+        Num.multiply(result.lineMismatchCount, objective.scoreWeights.lineMismatchCount),
+        Num.multiply(Numeric.abs(result.lineCountDelta), objective.scoreWeights.lineCountError),
+        Num.multiply(Numeric.abs(result.maxLineWidthDelta), objective.scoreWeights.maxLineWidthError)
+      )))
   )
 
 describe("Experimental.Calibration effect-math integration contracts", () => {
@@ -42,16 +41,47 @@ describe("Experimental.Calibration effect-math integration contracts", () => {
       )
     }))
 
-  it.effect("calibration scoring stays cache-backed without mutating public report objects", () =>
+  it.effect("changed reports and objectives always produce freshly derived scores", () =>
     Effect.gen(function*() {
       const report = yield* Experimental.Calibration.evaluateProfile(
         defaultCalibrationProfile,
         canonicalCalibrationCases
       ).pipe(Effect.provide(calibrationServices))
-      const firstScore = scoreCalibrationReportSync(report, Experimental.Calibration.DefaultCalibrationObjective)
-      const secondScore = scoreCalibrationReportSync(report, Experimental.Calibration.DefaultCalibrationObjective)
+      const changedReport: Experimental.Calibration.CalibrationReportType = {
+        ...report,
+        results: Arr.map(report.results, (result) => ({
+          ...result,
+          lineMismatchCount: Num.increment(result.lineMismatchCount)
+        }))
+      }
+      const changedObjective: Experimental.Calibration.CalibrationObjectiveMetadataType = {
+        ...Experimental.Calibration.DefaultCalibrationObjective,
+        scoreWeights: {
+          ...Experimental.Calibration.DefaultCalibrationObjective.scoreWeights,
+          lineMismatchCount: 3
+        }
+      }
+      const baseline = scoreCalibrationReportSync(report, Experimental.Calibration.DefaultCalibrationObjective)
+      const reportScore = scoreCalibrationReportSync(
+        changedReport,
+        Experimental.Calibration.DefaultCalibrationObjective
+      )
+      const objectiveScore = scoreCalibrationReportSync(changedReport, changedObjective)
 
-      expect(firstScore).toEqual(secondScore)
-      expect(Object.getOwnPropertySymbols(report)).toEqual([])
+      expect(reportScore.total).toBe(
+        Num.sum(
+          baseline.total,
+          Num.multiply(
+            Arr.length(report.results),
+            Experimental.Calibration.DefaultCalibrationObjective.scoreWeights.lineMismatchCount
+          )
+        )
+      )
+      expect(objectiveScore.total).toBe(
+        Num.sum(
+          baseline.total,
+          Num.multiply(Arr.length(report.results), changedObjective.scoreWeights.lineMismatchCount)
+        )
+      )
     }))
 })

@@ -5,10 +5,11 @@
  */
 import type { Study } from "@scenesystems/effect-search"
 import { Sampler, SearchSpace } from "@scenesystems/effect-search"
-import { Effect, Option } from "effect"
+import { Data, Effect, Option } from "effect"
 import type { Layer } from "effect"
 
 import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
+import type { EngineProfileType } from "../../Text/schema.js"
 import { evaluateProfile } from "./evaluation.js"
 import { scoreCalibrationReportSync } from "./internal/scoring.js"
 import {
@@ -22,10 +23,55 @@ import {
 } from "./internal/search.js"
 import { runFreshCalibrationStudy, runResumedCalibrationStudy } from "./internal/study.js"
 import type {
-  CalibrationCaseType,
+  CalibrationCasesType,
   CalibrationObjectiveMetadataType,
+  CalibrationOptimizationReportType,
+  CalibrationProfileType,
+  CalibrationReportType,
   CalibrationSearchDescriptorType
 } from "./schema.js"
+
+/**
+ * Configures one fresh or resumed experimental calibration optimization.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export class OptimizeProfileOptions extends Data.Class<{
+  /** Calibration corpus evaluated for every candidate. */
+  readonly cases: CalibrationCasesType
+  /** Segmentation and measurement-cache layer acquired for candidate evaluation. */
+  readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
+  /** Fresh or additional trial budget; must be a non-negative integer. */
+  readonly trials: number
+  /** Weighted minimization policy; defaults to `DefaultCalibrationObjective`. */
+  readonly objective?: CalibrationObjectiveMetadataType
+  /** Candidate sampler; defaults to seed-zero TPE. */
+  readonly sampler?: Sampler.Sampler
+  /** Preferred engine-profile dimension descriptor. */
+  readonly searchDescriptor?: CalibrationSearchDescriptorType
+  /** Prior checkpoint whose completed trials seed the resumed study. */
+  readonly snapshot?: Study.StudySnapshot
+  /** Optional Effect Search persistence service for trial logs and checkpoints. */
+  readonly studyStorage?: Study.StudyStorageApi
+}> {}
+
+/**
+ * Selected profile, evaluated report, study result, and resumable artifacts.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export class CalibrationOptimizationResult extends Data.Class<{
+  /** Lowest-loss profile selected by the completed study. */
+  readonly bestProfile: CalibrationProfileType
+  /** Final evaluation of the selected profile. */
+  readonly bestReport: CalibrationReportType
+  /** Effect Search single-objective result. */
+  readonly studyResult: Study.SingleObjectiveResult<EngineProfileType>
+  /** Persistable optimization metadata and artifacts. */
+  readonly optimization: CalibrationOptimizationReportType
+}> {}
 
 /**
  * Weighted-sum objective with multipliers 10,000 for line mismatches, 1,000 for
@@ -102,28 +148,18 @@ export const makeProfileSearchSpace = (
  * @since 0.2.0
  * @category search
  */
-export const optimizeProfile = (options: {
-  /** Calibration corpus evaluated for every candidate. */
-  readonly cases: ReadonlyArray<CalibrationCaseType>
-  /** Segmentation and measurement-cache layer acquired for candidate evaluation. */
-  readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
-  /** Fresh or additional trial budget; must be a non-negative integer. */
-  readonly trials: number
-  /** Weighted minimization policy; defaults to `DefaultCalibrationObjective`. */
-  readonly objective?: CalibrationObjectiveMetadataType
-  /** Candidate sampler; defaults to seed-zero TPE. */
-  readonly sampler?: Sampler.Sampler
-  /** Preferred engine-profile dimension descriptor. */
-  readonly searchDescriptor?: CalibrationSearchDescriptorType
-  /** Prior checkpoint whose completed trials seed the resumed study. */
-  readonly snapshot?: Study.StudySnapshot
-  /** Optional Effect Search persistence service for trial logs and checkpoints. */
-  readonly studyStorage?: Study.StudyStorageApi
-}) =>
+export const optimizeProfile = (options: OptimizeProfileOptions) =>
   Effect.gen(function*() {
-    const objective = options.objective ?? DefaultCalibrationObjective
-    const searchDescriptor = options.searchDescriptor ?? DefaultCalibrationSearchDescriptor
-    const sampler = options.sampler ?? Sampler.tpe({ seed: 0 })
+    const objective = Option.fromNullable(options.objective).pipe(
+      Option.getOrElse(() => DefaultCalibrationObjective)
+    )
+    const searchDescriptor = Option.fromNullable(options.searchDescriptor).pipe(
+      Option.getOrElse(() => DefaultCalibrationSearchDescriptor)
+    )
+    const sampler = Option.fromNullable(options.sampler).pipe(
+      Option.getOrElse(() => Sampler.tpe({ seed: 0 }))
+    )
+    const storage = Option.fromNullable(options.studyStorage)
     const space = yield* makeProfileSearchSpace(searchDescriptor)
     const study = yield* Option.fromNullable(options.snapshot).pipe(
       Option.match({
@@ -133,7 +169,7 @@ export const optimizeProfile = (options: {
             objective,
             sampler,
             services: options.services,
-            storage: Option.fromNullable(options.studyStorage),
+            storage,
             space,
             trials: options.trials
           }),
@@ -144,7 +180,7 @@ export const optimizeProfile = (options: {
             sampler,
             services: options.services,
             snapshot,
-            storage: Option.fromNullable(options.studyStorage),
+            storage,
             space,
             trials: options.trials
           })
@@ -155,7 +191,7 @@ export const optimizeProfile = (options: {
     const bestReport = yield* evaluateProfile(bestProfile, options.cases).pipe(Effect.provide(options.services))
     const bestScore = scoreCalibrationReportSync(bestReport, objective)
 
-    return {
+    return new CalibrationOptimizationResult({
       bestProfile,
       bestReport,
       studyResult: study.studyResult,
@@ -170,5 +206,5 @@ export const optimizeProfile = (options: {
           eventLog: study.eventLog
         }
       }
-    }
+    })
   })

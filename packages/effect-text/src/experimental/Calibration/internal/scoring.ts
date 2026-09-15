@@ -8,31 +8,16 @@
  * @since 0.2.0
  */
 import { Numeric, Statistics } from "@scenesystems/effect-math"
-import { Chunk, Effect, HashMap, Number as Num, Option } from "effect"
-import * as MutableRef from "effect/MutableRef"
+import { Array as Arr, Chunk, Effect, Number as Num } from "effect"
 
 import type {
+  CalibrationCaseLossesType,
   CalibrationCaseResultType,
   CalibrationLossSummaryType,
   CalibrationObjectiveMetadataType,
-  CalibrationReportType
+  CalibrationReportType,
+  CalibrationScoreType
 } from "../schema.js"
-
-const scoreCache = MutableRef.make(
-  HashMap.empty<
-    CalibrationReportType,
-    HashMap.HashMap<
-      CalibrationObjectiveMetadataType,
-      {
-        readonly caseLosses: ReadonlyArray<number>
-        readonly summary: CalibrationLossSummaryType
-        readonly total: number
-      }
-    >
-  >()
-)
-
-const absoluteValue = (value: number): number => Num.lessThan(value, 0) ? Num.negate(value) : value
 
 const zeroLossSummary = (): CalibrationLossSummaryType => ({
   count: 0,
@@ -67,9 +52,9 @@ export const scoreCaseResult = (
   Num.sum(
     Num.sum(
       Num.multiply(result.lineMismatchCount, objective.scoreWeights.lineMismatchCount),
-      Num.multiply(absoluteValue(result.lineCountDelta), objective.scoreWeights.lineCountError)
+      Num.multiply(Numeric.abs(result.lineCountDelta), objective.scoreWeights.lineCountError)
     ),
-    Num.multiply(absoluteValue(result.maxLineWidthDelta), objective.scoreWeights.maxLineWidthError)
+    Num.multiply(Numeric.abs(result.maxLineWidthDelta), objective.scoreWeights.maxLineWidthError)
   )
 
 /**
@@ -79,52 +64,14 @@ export const scoreCaseResult = (
  * @category internals
  */
 export const summarizeCaseLosses = (
-  caseLosses: ReadonlyArray<number>
+  caseLosses: CalibrationCaseLossesType
 ) => Effect.succeed(summarizeCaseLossesSync(caseLosses))
 
-const getCachedScore = (
-  report: CalibrationReportType,
-  objective: CalibrationObjectiveMetadataType
-): Option.Option<{
-  readonly caseLosses: ReadonlyArray<number>
-  readonly summary: CalibrationLossSummaryType
-  readonly total: number
-}> =>
-  HashMap.get(MutableRef.get(scoreCache), report).pipe(
-    Option.flatMap((reportCache) => HashMap.get(reportCache, objective))
-  )
-
-const setCachedScore = (
-  report: CalibrationReportType,
-  objective: CalibrationObjectiveMetadataType,
-  score: {
-    readonly caseLosses: ReadonlyArray<number>
-    readonly summary: CalibrationLossSummaryType
-    readonly total: number
-  }
-) => {
-  MutableRef.update(scoreCache, (cache) => {
-    const reportCache = HashMap.get(cache, report).pipe(Option.getOrElse(() => HashMap.empty()))
-
-    return HashMap.set(cache, report, HashMap.set(reportCache, objective, score))
+const summarizeCaseLossesSync = (caseLosses: CalibrationCaseLossesType): CalibrationLossSummaryType =>
+  Arr.match(caseLosses, {
+    onEmpty: zeroLossSummary,
+    onNonEmpty: (losses) => calibrationLossSummaryFromStatistics(Statistics.summaryStatistics(Chunk.make(...losses)))
   })
-
-  return score
-}
-
-const summarizeCaseLossesSync = (caseLosses: ReadonlyArray<number>): CalibrationLossSummaryType => {
-  if (caseLosses.length <= 0) {
-    return zeroLossSummary()
-  }
-
-  const caseLossesChunk = Chunk.unsafeFromArray(caseLosses)
-
-  if (!Chunk.isNonEmpty(caseLossesChunk)) {
-    return zeroLossSummary()
-  }
-
-  return calibrationLossSummaryFromStatistics(Statistics.summaryStatistics(caseLossesChunk))
-}
 
 /**
  * Pure scoring kernel for experimental calibration reports.
@@ -135,31 +82,25 @@ const summarizeCaseLossesSync = (caseLosses: ReadonlyArray<number>): Calibration
 const computeCalibrationReportScore = (
   report: CalibrationReportType,
   objective: CalibrationObjectiveMetadataType
-): {
-  readonly caseLosses: ReadonlyArray<number>
-  readonly summary: CalibrationLossSummaryType
-  readonly total: number
-} => {
-  if (report.results.length <= 0) {
-    return {
-      caseLosses: [],
+): CalibrationScoreType => {
+  const caseLosses = Arr.map(report.results, (result) => scoreCaseResult(result, objective))
+
+  return Arr.match(caseLosses, {
+    onEmpty: () => ({
+      caseLosses: Arr.empty(),
       summary: zeroLossSummary(),
       total: 0
-    }
-  }
-
-  const caseLosses = report.results.map((result) => scoreCaseResult(result, objective))
-  const summary = summarizeCaseLossesSync(caseLosses)
-
-  return {
-    caseLosses,
-    summary,
-    total: Numeric.sum(caseLosses)
-  }
+    }),
+    onNonEmpty: (losses) => ({
+      caseLosses: losses,
+      summary: summarizeCaseLossesSync(losses),
+      total: Numeric.sum(losses)
+    })
+  })
 }
 
 /**
- * Pure scoring kernel for experimental calibration reports with cache reuse.
+ * Pure scoring kernel for experimental calibration reports.
  *
  * @since 0.2.0
  * @category internals
@@ -167,14 +108,7 @@ const computeCalibrationReportScore = (
 export const scoreCalibrationReportSync = (
   report: CalibrationReportType,
   objective: CalibrationObjectiveMetadataType
-) => {
-  const cached = getCachedScore(report, objective)
-
-  return Option.getOrElse(
-    cached,
-    () => setCachedScore(report, objective, computeCalibrationReportScore(report, objective))
-  )
-}
+): CalibrationScoreType => computeCalibrationReportScore(report, objective)
 
 /**
  * Collapse one calibration report into a scalar optimization score plus a
