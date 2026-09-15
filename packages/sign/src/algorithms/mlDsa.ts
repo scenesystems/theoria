@@ -13,7 +13,7 @@
  * @module
  */
 import { ml_dsa44, ml_dsa65, ml_dsa87 } from "@noble/post-quantum/ml-dsa.js"
-import { Effect, Option } from "effect"
+import { Boolean as B, Effect, identity, Number as N, Record, Schema, Struct } from "effect"
 import {
   hasInvalidMlDsa65HintEncoding,
   ML_DSA_65_ENTROPY_BYTES,
@@ -23,6 +23,7 @@ import {
 } from "../internal/mlDsa65.js"
 import { makePqOps } from "../internal/pqSignatureOps.js"
 import {
+  copyBytes,
   detachMlDsaVerificationInputs,
   DIRECT_VERIFICATION_MAX_MESSAGE_BYTES,
   ML_DSA_MAX_CONTEXT_BYTES
@@ -31,13 +32,31 @@ import { InvalidVerificationInput, SigningFailed, VerificationUnavailable } from
 import { Signature } from "../schemas/Signature.js"
 
 const dsa44 = makePqOps("ml-dsa-44", ml_dsa44)
-const EMPTY_CONTEXT = new Uint8Array(0)
-const dsa65 = makePqOps("ml-dsa-65", {
-  keygen: ml_dsa65.keygen,
-  sign: (message, secretKey) => ml_dsa65.sign(message, secretKey, { context: EMPTY_CONTEXT, extraEntropy: false }),
-  verify: (signature, message, publicKey) => ml_dsa65.verify(signature, message, publicKey, { context: EMPTY_CONTEXT })
-})
+const dsa65 = makePqOps(
+  "ml-dsa-65",
+  Struct.evolve(ml_dsa65, {
+    sign: (sign) => (message: Uint8Array, secretKey: Uint8Array) => sign(message, secretKey, { extraEntropy: false })
+  })
+)
 const dsa87 = makePqOps("ml-dsa-87", ml_dsa87)
+
+const HedgedInput = Schema.Struct({
+  message: Schema.Uint8ArrayFromSelf.pipe(
+    Schema.filter((bytes) => N.lessThanOrEqualTo(bytes.length, DIRECT_VERIFICATION_MAX_MESSAGE_BYTES))
+  ),
+  secretKey: Schema.Uint8ArrayFromSelf.pipe(
+    Schema.filter((bytes) => N.Equivalence(bytes.length, ML_DSA_65_SECRET_KEY_BYTES))
+  ),
+  publicKey: Schema.Uint8ArrayFromSelf.pipe(
+    Schema.filter((bytes) => N.Equivalence(bytes.length, ML_DSA_65_PUBLIC_KEY_BYTES))
+  ),
+  context: Schema.Uint8ArrayFromSelf.pipe(
+    Schema.filter((bytes) => N.lessThanOrEqualTo(bytes.length, ML_DSA_MAX_CONTEXT_BYTES))
+  ),
+  entropy: Schema.Uint8ArrayFromSelf.pipe(
+    Schema.filter((bytes) => N.Equivalence(bytes.length, ML_DSA_65_ENTROPY_BYTES))
+  )
+})
 
 /**
  * Produces a 2,420-byte pure ML-DSA-44 signature with Noble's default hedged
@@ -105,38 +124,21 @@ export const mlDsa65SignHedged = (
   entropy32: Uint8Array
 ): Effect.Effect<Signature, SigningFailed> =>
   Effect.try({
-    try: () =>
-      !(message instanceof Uint8Array) ||
-        !(secretKey instanceof Uint8Array) ||
-        !(publicKey instanceof Uint8Array) ||
-        !(context instanceof Uint8Array) ||
-        !(entropy32 instanceof Uint8Array) ||
-        message.length > DIRECT_VERIFICATION_MAX_MESSAGE_BYTES ||
-        secretKey.length !== ML_DSA_65_SECRET_KEY_BYTES ||
-        publicKey.length !== ML_DSA_65_PUBLIC_KEY_BYTES ||
-        context.length > ML_DSA_MAX_CONTEXT_BYTES ||
-        entropy32.length !== ML_DSA_65_ENTROPY_BYTES
-        ? Option.none()
-        : Option.some({
-          message: Uint8Array.from(message),
-          secretKey: Uint8Array.from(secretKey),
-          publicKey: Uint8Array.from(publicKey),
-          context: Uint8Array.from(context),
-          entropy: Uint8Array.from(entropy32)
-        }),
+    try: () => Schema.decodeUnknownEither(HedgedInput)({ message, secretKey, publicKey, context, entropy: entropy32 }),
     catch: () => new SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" })
   }).pipe(
-    Effect.flatMap(Option.match({
-      onNone: () => Effect.fail(new SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" })),
-      onSome: (input) =>
-        Effect.try({
-          try: () =>
-            ml_dsa65.sign(input.message, input.secretKey, { context: input.context, extraEntropy: input.entropy }),
-          catch: () => new SigningFailed({ algorithm: "ml-dsa-65", reason: "backend unavailable" })
-        }).pipe(
-          Effect.map((signature) => new Signature({ algorithm: "ml-dsa-65", signature, publicKey: input.publicKey }))
-        )
-    }))
+    Effect.flatMap(identity),
+    Effect.flatMap((input) => Effect.all(Record.map(input, copyBytes))),
+    Effect.mapError(() => new SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" })),
+    Effect.flatMap((input) =>
+      Effect.try({
+        try: () =>
+          ml_dsa65.sign(input.message, input.secretKey, { context: input.context, extraEntropy: input.entropy }),
+        catch: () => new SigningFailed({ algorithm: "ml-dsa-65", reason: "backend unavailable" })
+      }).pipe(
+        Effect.map((signature) => new Signature({ algorithm: "ml-dsa-65", signature, publicKey: input.publicKey }))
+      )
+    )
   )
 
 /**
@@ -167,22 +169,26 @@ export const mlDsa65Verify = (
   context: Uint8Array
 ): Effect.Effect<boolean, InvalidVerificationInput | VerificationUnavailable> => {
   const detached = detachMlDsaVerificationInputs(signature, message, publicKey, context)
-  return detached.pipe(Effect.flatMap((input) =>
-    Effect.gen(function*() {
-      if (
-        input.signature.length !== ML_DSA_65_SIGNATURE_BYTES ||
-        input.publicKey.length !== ML_DSA_65_PUBLIC_KEY_BYTES ||
-        hasInvalidMlDsa65HintEncoding(input.signature)
-      ) {
-        return yield* new InvalidVerificationInput({})
-      }
-
-      return yield* Effect.try({
+  return detached.pipe(
+    Effect.filterOrFail(
+      (input) =>
+        B.and(
+          N.Equivalence(input.signature.length, ML_DSA_65_SIGNATURE_BYTES),
+          N.Equivalence(input.publicKey.length, ML_DSA_65_PUBLIC_KEY_BYTES)
+        ),
+      () => new InvalidVerificationInput({})
+    ),
+    Effect.filterOrFail(
+      (input) => B.not(hasInvalidMlDsa65HintEncoding(input.signature)),
+      () => new InvalidVerificationInput({})
+    ),
+    Effect.flatMap((input) =>
+      Effect.try({
         try: () => ml_dsa65.verify(input.signature, input.message, input.publicKey, { context: input.context }),
         catch: () => new VerificationUnavailable({})
       })
-    })
-  ))
+    )
+  )
 }
 
 /**

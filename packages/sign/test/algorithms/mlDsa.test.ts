@@ -12,8 +12,6 @@
  * - Wrong public key rejection
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
-import * as Arr from "effect/Array"
 import {
   mlDsa44Keygen,
   mlDsa44Sign,
@@ -23,13 +21,14 @@ import {
   mlDsa65Verify,
   mlDsa87Keygen,
   mlDsa87Sign,
-  mlDsa87Verify
-} from "../../src/algorithms/mlDsa.js"
-import { utf8ToBytes } from "../../src/encoding.js"
+  mlDsa87Verify,
+  utf8ToBytes
+} from "@scenesystems/sign"
+import { Array as Arr, Effect, Number as N, Schema } from "effect"
 import { hasInvalidMlDsa65HintEncoding } from "../../src/internal/mlDsa65.js"
 
 const message = utf8ToBytes("post-quantum hello")
-const EMPTY_CONTEXT = new Uint8Array(0)
+const EMPTY_CONTEXT = utf8ToBytes("")
 
 describe("ML-DSA-44 — algorithm contracts", () => {
   it.effect("sign → verify roundtrip", () =>
@@ -71,13 +70,6 @@ describe("ML-DSA-44 — algorithm contracts", () => {
       const valid = yield* mlDsa44Verify(sig.signature, message, kp2.publicKey)
       expect(valid).toBe(false)
     }))
-
-  it.effect("Signature carries correct algorithm tag", () =>
-    Effect.gen(function*() {
-      const kp = yield* mlDsa44Keygen()
-      const sig = yield* mlDsa44Sign(message, kp.secretKey, kp.publicKey)
-      expect(sig.algorithm).toBe("ml-dsa-44")
-    }))
 })
 
 describe("ML-DSA-65 — algorithm contracts", () => {
@@ -117,24 +109,51 @@ describe("ML-DSA-65 — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* mlDsa65Keygen()
       const sig = yield* mlDsa65SignDeterministic(message, kp.secretKey, kp.publicKey)
-      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 0 ? byte ^ 0xff : byte)
+      const tampered = yield* Schema.decode(Schema.Uint8Array)(
+        Arr.modify(Arr.fromIterable(sig.signature), 0, (byte) => N.subtract(255, byte))
+      )
       const valid = yield* mlDsa65Verify(tampered, message, kp.publicKey, EMPTY_CONTEXT)
       expect(valid).toBe(false)
     }))
 
-  it.effect("a hint block is invalid unless all six endpoint bytes are present", () =>
+  it.effect("admits empty hint segments and rejects endpoint, ordering, padding, and truncation errors", () =>
     Effect.gen(function*() {
       const kp = yield* mlDsa65Keygen()
       const sig = yield* mlDsa65SignDeterministic(message, kp.secretKey, kp.publicKey)
-      const endpointOffset = 3_303
-
-      // A well-formed block: a real signature, and the canonical empty hint (all zero).
       expect(hasInvalidMlDsa65HintEncoding(sig.signature)).toBe(false)
-      expect(hasInvalidMlDsa65HintEncoding(new Uint8Array(endpointOffset + 6))).toBe(false)
-      // Zero-filled bytes would pass every per-endpoint check; only the missing bytes can reject them.
-      expect(
-        Arr.map(Arr.range(0, 5), (present) => hasInvalidMlDsa65HintEncoding(new Uint8Array(endpointOffset + present)))
-      ).toEqual(Arr.replicate(true, 6))
+
+      // Indices [4, 9], then an empty segment, then [4]: ordering is local to each segment.
+      const canonical = Arr.appendAll(
+        Arr.appendAll(Arr.appendAll(Arr.replicate(0, 3_248), Arr.make(4, 9, 4)), Arr.replicate(0, 52)),
+        Arr.make(2, 2, 3, 3, 3, 3)
+      )
+      const full = Arr.appendAll(
+        Arr.appendAll(Arr.replicate(0, 3_248), Arr.range(0, 54)),
+        Arr.replicate(55, 6)
+      )
+      yield* Effect.forEach(Arr.make(Arr.replicate(0, 3_309), canonical, full), (bytes) =>
+        Effect.gen(function*() {
+          expect(hasInvalidMlDsa65HintEncoding(yield* Schema.decode(Schema.Uint8Array)(bytes))).toBe(false)
+        }))
+      yield* Effect.forEach(
+        Arr.make(
+          Arr.replace(canonical, 3_303, 56),
+          Arr.replace(canonical, 3_304, 1),
+          Arr.replace(canonical, 3_249, 4),
+          Arr.replace(canonical, 3_249, 3),
+          Arr.replace(canonical, 3_251, 1)
+        ),
+        (bytes) =>
+          Effect.gen(function*() {
+            expect(hasInvalidMlDsa65HintEncoding(yield* Schema.decode(Schema.Uint8Array)(bytes))).toBe(true)
+          })
+      )
+      // Zero-filled bytes pass per-endpoint checks; missing endpoint bytes must still reject.
+      yield* Effect.forEach(Arr.range(0, 5), (present) =>
+        Effect.gen(function*() {
+          const bytes = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, N.sum(3_303, present)))
+          expect(hasInvalidMlDsa65HintEncoding(bytes)).toBe(true)
+        }))
     }))
 })
 

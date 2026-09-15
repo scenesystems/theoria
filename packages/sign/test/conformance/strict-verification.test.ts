@@ -1,107 +1,105 @@
 import { describe, expect, it } from "@effect/vitest"
 import { p256 } from "@noble/curves/nist.js"
-import { Effect } from "effect"
-import { ed25519Keygen, ed25519Sign, ed25519Verify } from "../../src/algorithms/ed25519.js"
 import {
+  ed25519Keygen,
+  ed25519Sign,
+  ed25519Verify,
+  InvalidVerificationInput,
   mlDsa65Keygen,
   mlDsa65SignDeterministic,
   mlDsa65SignHedged,
-  mlDsa65Verify
-} from "../../src/algorithms/mlDsa.js"
-import { p256Sha256P1363LowSVerify } from "../../src/algorithms/p256.js"
-import { utf8ToBytes } from "../../src/encoding.js"
-import type { InvalidVerificationInput, VerificationUnavailable } from "../../src/schemas/errors.js"
+  mlDsa65Verify,
+  p256Sha256P1363LowSVerify,
+  SigningFailed,
+  utf8ToBytes
+} from "@scenesystems/sign"
+import { Array as Arr, BigInt as BI, Effect, Encoding, Schema, Tuple } from "effect"
+import { P256Fixture } from "../../scripts/fixture-contract.js"
+import p256Corpus from "../fixtures/conformance/p256.json" with { type: "json" }
 
-const EMPTY_CONTEXT = new Uint8Array(0)
+const EMPTY_CONTEXT = utf8ToBytes("")
 const message = utf8ToBytes("strict direct verification")
-
-const failureTag = <A>(effect: Effect.Effect<A, InvalidVerificationInput | VerificationUnavailable>) =>
-  Effect.flip(effect).pipe(Effect.map((error) => error._tag))
 
 describe("strict direct verification suites", () => {
   it.effect("rejects malformed Ed25519 input and does not mutate admitted input", () =>
     Effect.gen(function*() {
       const keyPair = yield* ed25519Keygen()
       const signed = yield* ed25519Sign(message, keyPair.secretKey, keyPair.publicKey)
-      const signature = Uint8Array.from(signed.signature)
-      const publicKey = Uint8Array.from(keyPair.publicKey)
-      const detachedMessage = Uint8Array.from(message)
-      const expectedSignature = Uint8Array.from(signature)
-      const expectedPublicKey = Uint8Array.from(publicKey)
-      const expectedMessage = Uint8Array.from(detachedMessage)
-      const executionMessage = Uint8Array.from(detachedMessage)
-      const executionVerification = ed25519Verify(signature, executionMessage, publicKey)
-      executionMessage.fill(0, 0, 1)
-      const smallOrderKey = new Uint8Array(32)
-      smallOrderKey[0] = 1
-      const smallOrderR = Uint8Array.from(signature)
-      smallOrderR.fill(0, 0, 32)
-      smallOrderR[0] = 1
+      const signature = signed.signature
+      const publicKey = keyPair.publicKey
+      const inputs = Tuple.make(signature, message, publicKey)
+      const before = yield* Schema.encode(Schema.Array(Schema.Uint8Array))(inputs)
+      const smallOrderKey = yield* Schema.decode(Schema.Uint8Array)(Arr.prepend(Arr.replicate(0, 31), 1))
+      const smallOrderR = yield* Schema.decode(Schema.Uint8Array)(Arr.appendAll(
+        Arr.fromIterable(smallOrderKey),
+        Arr.drop(Arr.fromIterable(signature), 32)
+      ))
+      const shortSignature = yield* Schema.decode(Schema.Uint8Array)(Arr.drop(Arr.fromIterable(signature), 1))
 
-      expect(yield* ed25519Verify(signature, detachedMessage, publicKey)).toBe(true)
-      expect(yield* executionVerification).toBe(false)
-      executionMessage.set(detachedMessage.subarray(0, 1), 0)
-      expect(yield* executionVerification).toBe(true)
-      expect(yield* failureTag(ed25519Verify(signature.subarray(1), detachedMessage, publicKey)))
-        .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(ed25519Verify(signature, detachedMessage, smallOrderKey)))
-        .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(ed25519Verify(smallOrderR, detachedMessage, publicKey)))
-        .toBe("InvalidVerificationInput")
-      expect(signature).toEqual(expectedSignature)
-      expect(publicKey).toEqual(expectedPublicKey)
-      expect(detachedMessage).toEqual(expectedMessage)
+      expect(yield* ed25519Verify(signature, message, publicKey)).toBe(true)
+      expect(yield* ed25519Verify(signature, utf8ToBytes("different message"), publicKey)).toBe(false)
+      yield* Effect.forEach(
+        Arr.make(
+          ed25519Verify(shortSignature, message, publicKey),
+          ed25519Verify(signature, message, smallOrderKey),
+          ed25519Verify(smallOrderR, message, publicKey)
+        ),
+        (verification) =>
+          Effect.gen(function*() {
+            expect(yield* Effect.flip(verification)).toEqual(new InvalidVerificationInput({}))
+          })
+      )
+      expect(yield* Schema.encode(Schema.Array(Schema.Uint8Array))(inputs)).toEqual(before)
     }))
 
   it.effect("rejects P-256 alternate encodings, out-of-range scalars, and high-S", () =>
     Effect.gen(function*() {
-      const privateKey = new Uint8Array(32)
-      privateKey[31] = 1
-      const publicKey = p256.getPublicKey(privateKey, false)
-      const compressedPublicKey = p256.getPublicKey(privateKey, true)
-      const executionMessage = Uint8Array.from(message)
-      const signature = p256.sign(executionMessage, privateKey, { lowS: true, prehash: true })
+      const vector = Arr.headNonEmpty(
+        (yield* Schema.decodeUnknown(Schema.typeSchema(P256Fixture))(p256Corpus)).cases
+      )
+      const publicKey = yield* Encoding.decodeHex(vector.publicKey.uncompressed)
+      const message = yield* Encoding.decodeHex(vector.message)
+      const signature = yield* Encoding.decodeHex(vector.signature)
+      const compressedPublicKey = p256.Point.fromBytes(publicKey).toBytes(true)
       const parsedSignature = p256.Signature.fromBytes(signature, "compact")
       const forcedHighSignature = new p256.Signature(
         parsedSignature.r,
-        p256.Point.Fn.ORDER - parsedSignature.s
+        BI.subtract(p256.Point.Fn.ORDER, parsedSignature.s)
       ).toBytes("compact")
       const derSignature = parsedSignature.toBytes("der")
-      const offCurvePublicKey = new Uint8Array(65)
-      offCurvePublicKey[0] = 0x04
-      const zeroR = Uint8Array.from(signature)
-      zeroR.fill(0, 0, 32)
-      const expectedSignature = Uint8Array.from(signature)
-      const expectedPublicKey = Uint8Array.from(publicKey)
-      const expectedMessage = Uint8Array.from(executionMessage)
-      const executionVerification = p256Sha256P1363LowSVerify(signature, executionMessage, publicKey)
-      executionMessage.fill(0, 0, 1)
+      const offCurvePublicKey = yield* Schema.decode(Schema.Uint8Array)(Arr.prepend(Arr.replicate(0, 64), 0x04))
+      const zeroR = yield* Schema.decode(Schema.Uint8Array)(Arr.appendAll(
+        Arr.replicate(0, 32),
+        Arr.drop(Arr.fromIterable(signature), 32)
+      ))
+      const shortSignature = yield* Schema.decode(Schema.Uint8Array)(Arr.drop(Arr.fromIterable(signature), 1))
+      const inputs = Tuple.make(signature, message, publicKey)
+      const before = yield* Schema.encode(Schema.Array(Schema.Uint8Array))(inputs)
 
-      expect(yield* executionVerification).toBe(false)
-      executionMessage.set(message.subarray(0, 1), 0)
-      expect(yield* executionVerification).toBe(true)
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature, executionMessage, compressedPublicKey)))
-        .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature.subarray(1), executionMessage, publicKey)))
-        .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(derSignature, executionMessage, publicKey)))
-        .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature, executionMessage, offCurvePublicKey)))
-        .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(zeroR, executionMessage, publicKey)))
-        .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(forcedHighSignature, executionMessage, publicKey)))
-        .toBe("InvalidVerificationInput")
-      expect(signature).toEqual(expectedSignature)
-      expect(publicKey).toEqual(expectedPublicKey)
-      expect(executionMessage).toEqual(expectedMessage)
+      expect(yield* p256Sha256P1363LowSVerify(signature, message, publicKey)).toBe(true)
+      expect(yield* p256Sha256P1363LowSVerify(signature, utf8ToBytes("different message"), publicKey)).toBe(false)
+      yield* Effect.forEach(
+        Arr.make(
+          p256Sha256P1363LowSVerify(signature, message, compressedPublicKey),
+          p256Sha256P1363LowSVerify(shortSignature, message, publicKey),
+          p256Sha256P1363LowSVerify(derSignature, message, publicKey),
+          p256Sha256P1363LowSVerify(signature, message, offCurvePublicKey),
+          p256Sha256P1363LowSVerify(zeroR, message, publicKey),
+          p256Sha256P1363LowSVerify(forcedHighSignature, message, publicKey)
+        ),
+        (verification) =>
+          Effect.gen(function*() {
+            expect(yield* Effect.flip(verification)).toEqual(new InvalidVerificationInput({}))
+          })
+      )
+      expect(yield* Schema.encode(Schema.Array(Schema.Uint8Array))(inputs)).toEqual(before)
     }))
 
   it.effect("freezes explicit ML-DSA-65 context, canonical hints, and signing entropy", () =>
     Effect.gen(function*() {
       const keyPair = yield* mlDsa65Keygen()
-      const entropy = new Uint8Array(32).fill(0x42)
-      const otherEntropy = new Uint8Array(32).fill(0x24)
+      const entropy = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, 32))
+      const otherEntropy = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x24, 32))
       const first = yield* mlDsa65SignHedged(
         message,
         keyPair.secretKey,
@@ -125,58 +123,69 @@ describe("strict direct verification suites", () => {
       )
       const deterministicA = yield* mlDsa65SignDeterministic(message, keyPair.secretKey, keyPair.publicKey)
       const deterministicB = yield* mlDsa65SignDeterministic(message, keyPair.secretKey, keyPair.publicKey)
-      const malformedHint = Uint8Array.from(first.signature)
-      malformedHint[3_303] = 56
-      const executionContext = Uint8Array.of(0x11)
+      const malformedHint = yield* Schema.decode(Schema.Uint8Array)(
+        Arr.replace(Arr.fromIterable(first.signature), 3_303, 56)
+      )
+      const context = yield* Schema.decode(Schema.Uint8Array)(Arr.of(0x11))
       const contextSignature = yield* mlDsa65SignHedged(
         message,
         keyPair.secretKey,
         keyPair.publicKey,
-        executionContext,
+        context,
         entropy
       )
-      const executionVerification = mlDsa65Verify(
-        contextSignature.signature,
-        message,
-        keyPair.publicKey,
-        executionContext
-      )
-      const expectedSignature = Uint8Array.from(contextSignature.signature)
-      const expectedPublicKey = Uint8Array.from(keyPair.publicKey)
-      const expectedMessage = Uint8Array.from(message)
-      const expectedContext = Uint8Array.from(executionContext)
-      executionContext.fill(0x12)
+      const inputs = Tuple.make(contextSignature.signature, message, keyPair.publicKey, context)
+      const before = yield* Schema.encode(Schema.Array(Schema.Uint8Array))(inputs)
 
       expect(first.signature).toEqual(repeated.signature)
       expect(first.signature).not.toEqual(changedEntropy.signature)
       expect(deterministicA.signature).toEqual(deterministicB.signature)
-      expect(yield* executionVerification).toBe(false)
-      executionContext.fill(0x11)
-      expect(yield* executionVerification).toBe(true)
+      expect(yield* mlDsa65Verify(contextSignature.signature, message, keyPair.publicKey, context)).toBe(true)
+      expect(yield* mlDsa65Verify(contextSignature.signature, message, keyPair.publicKey, EMPTY_CONTEXT)).toBe(false)
       expect(yield* mlDsa65Verify(first.signature, message, keyPair.publicKey, EMPTY_CONTEXT)).toBe(true)
-      expect(yield* mlDsa65Verify(first.signature, message, keyPair.publicKey, Uint8Array.of(1))).toBe(false)
-      expect(yield* failureTag(mlDsa65Verify(malformedHint, message, keyPair.publicKey, EMPTY_CONTEXT)))
-        .toBe("InvalidVerificationInput")
-      expect(
-        yield* failureTag(mlDsa65Verify(
-          first.signature,
-          message,
-          keyPair.publicKey,
-          new Uint8Array(256)
-        ))
-      ).toBe("InvalidVerificationInput")
-      expect(
-        yield* Effect.flip(mlDsa65SignHedged(
-          message,
-          keyPair.secretKey,
-          keyPair.publicKey,
-          EMPTY_CONTEXT,
-          new Uint8Array(31)
-        )).pipe(Effect.map((error) => error._tag))
-      ).toBe("SigningFailed")
-      expect(contextSignature.signature).toEqual(expectedSignature)
-      expect(keyPair.publicKey).toEqual(expectedPublicKey)
-      expect(message).toEqual(expectedMessage)
-      expect(executionContext).toEqual(expectedContext)
+      expect(yield* Effect.flip(mlDsa65Verify(malformedHint, message, keyPair.publicKey, EMPTY_CONTEXT)))
+        .toEqual(new InvalidVerificationInput({}))
+      expect(yield* Schema.encode(Schema.Array(Schema.Uint8Array))(inputs)).toEqual(before)
+
+      const maximumMessage = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x37, 8_192))
+      const maximumContext = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x19, 255))
+      const maximum = yield* mlDsa65SignHedged(
+        maximumMessage,
+        keyPair.secretKey,
+        keyPair.publicKey,
+        maximumContext,
+        entropy
+      )
+      expect(yield* mlDsa65Verify(maximum.signature, maximumMessage, keyPair.publicKey, maximumContext)).toBe(true)
+      const excessContext = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x19, 256))
+      const excessMessage = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x37, 8_193))
+      expect(yield* Effect.flip(mlDsa65Verify(maximum.signature, maximumMessage, keyPair.publicKey, excessContext)))
+        .toEqual(new InvalidVerificationInput({}))
+      yield* Effect.forEach(
+        Arr.make(
+          mlDsa65SignHedged(excessMessage, keyPair.secretKey, keyPair.publicKey, context, entropy),
+          mlDsa65SignHedged(message, keyPair.secretKey, keyPair.publicKey, excessContext, entropy),
+          mlDsa65SignHedged(
+            message,
+            keyPair.secretKey,
+            keyPair.publicKey,
+            context,
+            yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, 31))
+          ),
+          mlDsa65SignHedged(
+            message,
+            keyPair.secretKey,
+            keyPair.publicKey,
+            context,
+            yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, 33))
+          )
+        ),
+        (signing) =>
+          Effect.gen(function*() {
+            expect(yield* Effect.flip(signing)).toEqual(
+              new SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" })
+            )
+          })
+      )
     }), 30_000)
 })

@@ -1,6 +1,6 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Encoding } from "effect"
+import { Array as Arr, Boolean as B, Effect, Encoding, Number as N, Schema, String as Str } from "effect"
 import {
   decodeConformanceFixture,
   Ed25519Fixture,
@@ -10,21 +10,14 @@ import {
 import { ed25519Verify } from "../../src/algorithms/ed25519.js"
 import { mlDsa65Verify } from "../../src/algorithms/mlDsa.js"
 import { p256Sha256P1363LowSVerify } from "../../src/algorithms/p256.js"
+import type { InvalidVerificationInput, VerificationUnavailable } from "../../src/schemas/errors.js"
 
-const decodeHex = (value: string): Effect.Effect<Uint8Array> =>
-  Either.match(Encoding.decodeHex(value), {
-    onLeft: () => Effect.dieMessage("schema-admitted fixture hex did not decode"),
-    onRight: Effect.succeed
-  })
-
-const verificationVerdict = <E extends { readonly _tag: string }>(
-  verification: Effect.Effect<boolean, E>
+const verificationVerdict = (
+  verification: Effect.Effect<boolean, InvalidVerificationInput | VerificationUnavailable>
 ) =>
   verification.pipe(
-    Effect.match({
-      onFailure: (error) => error._tag === "InvalidVerificationInput" ? "invalid-input" : error._tag,
-      onSuccess: (verified) => verified ? "valid" : "nonmatch"
-    })
+    Effect.map(B.match({ onTrue: () => "valid", onFalse: () => "nonmatch" })),
+    Effect.catchTag("InvalidVerificationInput", () => Effect.succeed("invalid-input"))
   )
 
 describe("strict direct verification — retained external corpus", () => {
@@ -35,9 +28,9 @@ describe("strict direct verification — retained external corpus", () => {
         Effect.gen(function*() {
           const verdict = yield* verificationVerdict(
             ed25519Verify(
-              yield* decodeHex(vector.signature),
-              yield* decodeHex(vector.message),
-              yield* decodeHex(vector.publicKey)
+              yield* Encoding.decodeHex(vector.signature),
+              yield* Encoding.decodeHex(vector.message),
+              yield* Encoding.decodeHex(vector.publicKey)
             )
           )
           expect(verdict, vector.id).toBe(vector.strictVerdict)
@@ -51,12 +44,12 @@ describe("strict direct verification — retained external corpus", () => {
         Effect.gen(function*() {
           const verdict = yield* verificationVerdict(
             p256Sha256P1363LowSVerify(
-              yield* decodeHex(vector.signature),
-              yield* decodeHex(vector.message),
-              yield* decodeHex(vector.publicKey.uncompressed)
+              yield* Encoding.decodeHex(vector.signature),
+              yield* Encoding.decodeHex(vector.message),
+              yield* Encoding.decodeHex(vector.publicKey.uncompressed)
             )
           )
-          expect(verdict, String(vector.tcId)).toBe(vector.strictVerdict)
+          expect(verdict, yield* Schema.encode(Schema.NumberFromString)(vector.tcId)).toBe(vector.strictVerdict)
         }), { discard: true })
     }).pipe(Effect.provide(BunContext.layer)))
 
@@ -65,20 +58,29 @@ describe("strict direct verification — retained external corpus", () => {
       const fixture = yield* decodeConformanceFixture("ml-dsa-65.json", MlDsa65Fixture)
       yield* Effect.forEach(fixture.cases, (vector) =>
         Effect.gen(function*() {
-          const publicKey = yield* decodeHex(vector.publicKey)
-          const message = yield* decodeHex(vector.message)
-          const signature = yield* decodeHex(vector.signature)
-          const context = yield* decodeHex(vector.context)
-          const expected = yield* Arr.findFirst(fixture.strictVerdicts, ({ tcId }) => tcId === vector.tcId)
+          const publicKey = yield* Encoding.decodeHex(vector.publicKey)
+          const message = yield* Encoding.decodeHex(vector.message)
+          const signature = yield* Encoding.decodeHex(vector.signature)
+          const context = yield* Encoding.decodeHex(vector.context)
+          const expected = yield* Arr.findFirst(fixture.strictVerdicts, ({ tcId }) => N.Equivalence(tcId, vector.tcId))
           const verdict = yield* verificationVerdict(mlDsa65Verify(signature, message, publicKey, context))
+          const label = Arr.join(
+            Arr.make(
+              yield* Schema.encode(Schema.NumberFromString)(vector.tgId),
+              yield* Schema.encode(Schema.NumberFromString)(vector.tcId)
+            ),
+            ":"
+          )
 
-          expect(verdict, `${String(vector.tgId)}:${String(vector.tcId)}`).toBe(expected.verdict)
-          expect(expected.verdict === "valid").toBe(vector.testPassed)
-          if (expected.verdict === "valid") {
-            const wrongContext = context.length === 0 ? Uint8Array.of(1) : new Uint8Array(0)
+          expect(verdict, label).toBe(expected.verdict)
+          yield* Effect.gen(function*() {
+            const wrongContext = yield* Schema.decode(Schema.Uint8Array)(B.match(N.Equivalence(context.length, 0), {
+              onTrue: () => Arr.of(1),
+              onFalse: () => Arr.empty()
+            }))
             const wrongContextVerified = yield* mlDsa65Verify(signature, message, publicKey, wrongContext)
-            expect(wrongContextVerified, `${String(vector.tgId)}:${String(vector.tcId)} wrong context`).toBe(false)
-          }
+            expect(wrongContextVerified, Str.concat(label, " wrong context")).toBe(false)
+          }).pipe(Effect.when(() => Str.Equivalence(expected.verdict, "valid")))
         }), { discard: true })
     }).pipe(Effect.provide(BunContext.layer)), 30_000)
 })

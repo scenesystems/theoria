@@ -5,7 +5,7 @@
  * @category signing
  * @module
  */
-import { Effect, Match } from "effect"
+import { Effect, Encoding, Match } from "effect"
 import { ed25519Sign, ed25519Verify } from "./algorithms/ed25519.js"
 import { mlDsa44Sign, mlDsa44Verify, mlDsa65Verify, mlDsa87Sign, mlDsa87Verify } from "./algorithms/mlDsa.js"
 import {
@@ -101,7 +101,8 @@ export const verify = (
     Match.when("secp256k1-schnorr", () => secp256k1SchnorrVerify(sig.signature, message, sig.publicKey)),
     Match.when("ml-dsa-44", () => mlDsa44Verify(sig.signature, message, sig.publicKey)),
     Match.when("ml-dsa-65", () =>
-      mlDsa65Verify(sig.signature, message, sig.publicKey, new Uint8Array(0)).pipe(
+      Encoding.decodeHex("").pipe(
+        Effect.flatMap((context) => mlDsa65Verify(sig.signature, message, sig.publicKey, context)),
         Effect.mapError(() => new VerificationFailed({ algorithm: "ml-dsa-65", reason: "verification rejected" }))
       )),
     Match.when("ml-dsa-87", () => mlDsa87Verify(sig.signature, message, sig.publicKey)),

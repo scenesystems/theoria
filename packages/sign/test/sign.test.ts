@@ -13,7 +13,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { ed25519Keygen } from "../src/algorithms/ed25519.js"
-import { mlDsa44Keygen, mlDsa87Keygen } from "../src/algorithms/mlDsa.js"
+import { mlDsa44Keygen, mlDsa65Keygen, mlDsa65SignDeterministic, mlDsa87Keygen } from "../src/algorithms/mlDsa.js"
 import { secp256k1EcdsaKeygen, secp256k1SchnorrKeygen } from "../src/algorithms/secp256k1.js"
 import { slhDsaSha2128fKeygen } from "../src/algorithms/slhDsa.js"
 import { utf8ToBytes } from "../src/encoding.js"
@@ -56,6 +56,13 @@ describe("Unified sign/verify pipeline", () => {
       expect(sig.algorithm).toBe("ml-dsa-44")
       const valid = yield* verify(sig, message)
       expect(valid).toBe(true)
+    }))
+
+  it.effect("verify uses the pure ML-DSA-65 empty-context profile", () =>
+    Effect.gen(function*() {
+      const kp = yield* mlDsa65Keygen()
+      const sig = yield* mlDsa65SignDeterministic(message, kp.secretKey, kp.publicKey)
+      expect(yield* verify(sig, message)).toBe(true)
     }))
 
   it.effect("sign('ml-dsa-87') → verify roundtrip", () =>

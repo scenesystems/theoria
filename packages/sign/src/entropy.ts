@@ -14,7 +14,7 @@
  */
 
 import { randomBytes as _randomBytes } from "@noble/hashes/utils.js"
-import { Effect } from "effect"
+import { Effect, Inspectable, Match, Predicate, String as Str } from "effect"
 
 import { EntropyGenerationFailed } from "./schemas/errors.js"
 
@@ -46,5 +46,12 @@ export const generateEntropy = (
 ): Effect.Effect<Uint8Array, EntropyGenerationFailed> =>
   Effect.try({
     try: () => _randomBytes(length),
-    catch: (cause) => new EntropyGenerationFailed({ length, reason: String(cause) })
+    catch: (cause) =>
+      new EntropyGenerationFailed({
+        length,
+        reason: Match.value(cause).pipe(
+          Match.when(Predicate.isError, ({ name, message }) => Str.concat(Str.concat(name, ": "), message)),
+          Match.orElse(Inspectable.toStringUnknown)
+        )
+      })
   })

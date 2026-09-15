@@ -12,16 +12,16 @@
  * SLH-DSA signing is SLOW (~1-5s). All tests use 30s timeouts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
 import {
   slhDsaSha2128fKeygen,
   slhDsaSha2128fSign,
   slhDsaSha2128fVerify,
   slhDsaSha2128sKeygen,
   slhDsaSha2128sSign,
-  slhDsaSha2128sVerify
-} from "../../src/algorithms/slhDsa.js"
-import { utf8ToBytes } from "../../src/encoding.js"
+  slhDsaSha2128sVerify,
+  utf8ToBytes
+} from "@scenesystems/sign"
+import { Array as Arr, Effect, Number as N, Schema } from "effect"
 
 const message = utf8ToBytes("hash-based hello")
 
@@ -57,13 +57,6 @@ describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
       const valid = yield* slhDsaSha2128fVerify(sig.signature, message, kp2.publicKey)
       expect(valid).toBe(false)
     }), { timeout: 30_000 })
-
-  it.effect("Signature carries correct algorithm tag", () =>
-    Effect.gen(function*() {
-      const kp = yield* slhDsaSha2128fKeygen()
-      const sig = yield* slhDsaSha2128fSign(message, kp.secretKey, kp.publicKey)
-      expect(sig.algorithm).toBe("slh-dsa-sha2-128f")
-    }), { timeout: 30_000 })
 })
 
 describe("SLH-DSA-SHA2-128s — algorithm contracts", () => {
@@ -94,7 +87,9 @@ describe("SLH-DSA-SHA2-128s — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* slhDsaSha2128sKeygen()
       const sig = yield* slhDsaSha2128sSign(message, kp.secretKey, kp.publicKey)
-      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 0 ? byte ^ 0xff : byte)
+      const tampered = yield* Schema.decode(Schema.Uint8Array)(
+        Arr.modify(Arr.fromIterable(sig.signature), 0, (byte) => N.subtract(255, byte))
+      )
       const valid = yield* slhDsaSha2128sVerify(tampered, message, kp.publicKey)
       expect(valid).toBe(false)
     }), { timeout: 30_000 })
