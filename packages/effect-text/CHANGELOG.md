@@ -1,5 +1,12 @@
 # effect-text
 
+## 0.4.2
+
+### Patch Changes
+
+- Updated dependencies [[`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a)]:
+  - @scenesystems/effect-search@0.6.0
+
 ## 0.4.1
 
 ### Patch Changes

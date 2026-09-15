@@ -1,5 +1,25 @@
 # effect-search
 
+## 0.6.0
+
+### Minor Changes
+
+- [#104](https://github.com/scenesystems/theoria/pull/104) [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Fix cache publication races: serialize reads, writes, removals, and miss computations per key within one service instance, including simultaneous acquisition of a previously unused key. Different keys progress independently. Failed lookups are immediately retryable; failed or interrupted mutations invalidate uncertain local state without hiding failures. Cancelled waiters do not encode values or mutate the backend.
+
+  **Breaking (0.x):**
+
+  - Direct `makeSchemaCache()` callers must provide `Scope` for reference-counted per-key locks. `SchemaCacheLive` owns that scope when used as a Layer.
+  - Pass the configuration Schema to `StudyObjectiveCache`: use `resolve(new StudyObjectiveCacheRequest({ schema, config, compute }))` and `invalidate(schema, config)`. Each operation encodes the configuration once and fingerprints its encoded form; existing identity-Schema fingerprints remain unchanged.
+
+  Expose `SchemaCacheRequest` and Schema-derived `SchemaCacheResult` tuples. Keep key encoding lazy and validate SQL result rows through `SqlSchema`.
+
+  Use native Effect models, traversal, and arithmetic for objective aggregation and result selection, preserving coordinate-wise means, population variance, reported costs, and typed rejection.
+
+### Patch Changes
+
+- Updated dependencies [[`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a), [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a)]:
+  - @scenesystems/digest@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes

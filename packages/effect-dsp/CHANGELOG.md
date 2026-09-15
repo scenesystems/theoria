@@ -1,5 +1,21 @@
 # effect-dsp
 
+## 0.4.0
+
+### Minor Changes
+
+- [#104](https://github.com/scenesystems/theoria/pull/104) [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Expose `DspCacheKeyRequest` and `DspCacheRequest` as native Effect data models, preserving input, parameter, encoded-output, failure, and service relationships. Cache resolution returns the shared Schema-derived `SchemaCacheResult` tuple with its value and hit/miss status.
+
+  **Breaking (0.x):** `DspCache.resolve` type parameters change from `<Output, Error, R>` to `<Input, Params, Output, Failure, Requirement, EncodedOutput?>`. Prefer inference by removing explicit type arguments, or update them to the new order.
+
+  Use the updated schema-cache Layers so concurrent reads and mutations cannot restore stale values within one cache instance. Caller-facing Layer requirements remain unchanged.
+
+### Patch Changes
+
+- Updated dependencies [[`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a), [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a), [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a)]:
+  - @scenesystems/digest@0.6.0
+  - @scenesystems/effect-search@0.6.0
+
 ## 0.3.0
 
 ### Minor Changes

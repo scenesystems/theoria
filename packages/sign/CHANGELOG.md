@@ -1,5 +1,19 @@
 # @scenesystems/sign
 
+## 0.4.0
+
+### Minor Changes
+
+- [#104](https://github.com/scenesystems/theoria/pull/104) [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add `Ed25519Seed` and `ed25519KeyPairFromSeed` to reconstruct an RFC 8032 identity from exactly 32 seed bytes without entropy. Validate and copy the seed on execution; returned keys do not alias the input, and typed failures retain no key material.
+
+  **Behavior change:** `ed25519Sign` now rejects a supplied public key that does not match the secret seed. Random key generation uses the same reconstruction operation through the package entropy API.
+
+- [#104](https://github.com/scenesystems/theoria/pull/104) [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add `rsaPublicKeyFromJwk` and `rsaSha256Verify` for canonical public JWK import and RSASSA-PKCS1-v1_5 SHA-256 verification. Support 2048–4096-bit moduli, odd public exponents from 3 through 2³²−1, and messages up to 8192 bytes. Invalid input and backend unavailability have distinct, material-free failures; an admitted nonmatch returns `false`.
+
+  Add `Jwt.verifyRs256` with unique key selection, explicit issuer/audience/lifetime policy, and Effect Clock validation. Issuance and not-before are inclusive; expiry is exclusive, with no clock skew. Application claim Schemas run after authentication and preserve requirements and interruption. Callers own JWKS trust and authorization policy; retain integer Schema refinements when fractional NumericDates are not permitted.
+
+  Add independent Wycheproof and OpenSSL coverage, including signed Access-policy fixtures, and exercise the packed RSA/JWT APIs in Bun and workerd without Node compatibility. Local workerd CPU measurements are not production budget guarantees. The new RSA composition uses existing public Noble primitives but is not covered by Noble's dependency audits; no production RSA signer is added.
+
 ## 0.3.0
 
 ### Minor Changes

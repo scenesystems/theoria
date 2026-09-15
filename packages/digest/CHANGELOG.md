@@ -1,5 +1,20 @@
 # @scenesystems/digest
 
+## 0.6.0
+
+### Minor Changes
+
+- [#104](https://github.com/scenesystems/theoria/pull/104) [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Replace reflection-based admission and the bespoke Schema AST interpreter with native Effect traversal and public Schema encoding.
+
+  - **Breaking (0.x):** canonicalization reads dense array elements and own enumerable string-keyed record fields normally. It omits inherited, non-enumerable, and symbol-keyed record fields and extra array properties instead of rejecting them. Descriptor/prototype checks and their `UnsupportedValue` reasons are removed. Supply a stable input graph; use the caller's Schema to encode non-JSON runtime values.
+  - Track ancestors by reference identity, keeping deep Data values and Schema classes stack-safe while rejecting cycles and malformed Unicode with redacted errors.
+  - Encode each Schema value once with `Schema.encode` or `Schema.encodeEither`, preserving the encoder's requirements and semantics.
+  - Bounded digests reject the first emitted UTF-8 segment exceeding the inclusive byte limit, before completing oversized output. They no longer promise to stop at exactly `maximumBytes + 1` bytes. Traversal yields between batches; Schema transforms, key enumeration/sorting, final joining, and UTF-8 materialization remain synchronous boundaries.
+
+- [#104](https://github.com/scenesystems/theoria/pull/104) [`44a540d`](https://github.com/scenesystems/theoria/commit/44a540df4745f7de0c3cea2528a24010fe0e1f0a) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add the branded `UnicodeScalar` Schema and `fromUnicodeScalar(number): Effect<string, ParseError>`. Construct one scalar through native Effect APIs, preserving U+FEFF and supplementary characters without normalization. Reject surrogates, non-integers, and values outside U+0000–U+10FFFF. XML entity syntax and character restrictions remain caller responsibilities.
+
+  Move shared Unicode validation, UTF-8 byte counting, and streamed surrogate handling to native Effect APIs while preserving absolute error indices, chunk-independent results, interruption, and finalization.
+
 ## 0.5.3
 
 ### Patch Changes
