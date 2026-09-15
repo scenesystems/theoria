@@ -16,7 +16,7 @@
  * @module
  */
 
-import { Data, Effect, Option, Stream } from "effect"
+import { Boolean as B, Data, Effect, Number as N, Option, Schema, Stream, String as Str, Tuple } from "effect"
 import { toBase64Url, toHex } from "./encoding.js"
 import {
   finalizeIncrementalHasher,
@@ -28,21 +28,22 @@ import { encodeUtf8Unchecked, unicodeFault } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import { InvalidUnicode } from "./schemas/errors.js"
 
-const HIGH_SURROGATE_START = 0xd800
-const HIGH_SURROGATE_END = 0xdbff
-
 const isTrailingHighSurrogate = (text: string): boolean =>
-  text.length > 0 &&
-  text.charCodeAt(text.length - 1) >= HIGH_SURROGATE_START &&
-  text.charCodeAt(text.length - 1) <= HIGH_SURROGATE_END
+  Option.exists(
+    Str.charCodeAt(text, N.decrement(Str.length(text))),
+    N.between({ minimum: 0xd800, maximum: 0xdbff })
+  )
 
-const splitTextForUtf8Boundary = (text: string): readonly [emit: string, carry: string] =>
-  isTrailingHighSurrogate(text) ? [text.slice(0, -1), text.slice(-1)] : [text, ""]
+const splitTextForUtf8Boundary = (text: string) =>
+  B.match(isTrailingHighSurrogate(text), {
+    onTrue: () => Tuple.make(Str.slice(0, -1)(text), Str.slice(-1)(text)),
+    onFalse: () => Tuple.make(text, "")
+  })
 
-class CarriedHighSurrogate extends Data.Class<{
-  readonly value: string
-  readonly codeUnitIndex: number
-}> {}
+class CarriedHighSurrogate extends Schema.Class<CarriedHighSurrogate>("CarriedHighSurrogate")({
+  value: Schema.String,
+  codeUnitIndex: Schema.NonNegativeInt
+}) {}
 
 class TextDigestState extends Data.Class<{
   readonly hasher: IncrementalHasher
@@ -56,7 +57,7 @@ const foldTextChunk = (
 ): Effect.Effect<TextDigestState, InvalidUnicode> => {
   const window = Option.match(state.carriedHighSurrogate, {
     onNone: () => chunk,
-    onSome: (carry) => carry.value + chunk
+    onSome: (carry) => Str.concat(carry.value, chunk)
   })
   const windowStart = Option.match(state.carriedHighSurrogate, {
     onNone: () => state.consumedCodeUnits,
@@ -66,27 +67,25 @@ const foldTextChunk = (
 
   return Option.match(unicodeFault(emit), {
     onNone: () =>
-      Effect.sync(() => {
-        if (emit.length > 0) updateIncrementalHasher(state.hasher, encodeUtf8Unchecked(emit))
-
-        return new TextDigestState({
-          hasher: state.hasher,
-          carriedHighSurrogate: nextCarry.length > 0
-            ? Option.some(
-              new CarriedHighSurrogate({
-                value: nextCarry,
-                codeUnitIndex: windowStart + emit.length
-              })
-            )
-            : Option.none(),
-          consumedCodeUnits: state.consumedCodeUnits + chunk.length
-        })
-      }),
+      Effect.sync(() => updateIncrementalHasher(state.hasher, encodeUtf8Unchecked(emit))).pipe(
+        Effect.when(() => Str.isNonEmpty(emit)),
+        Effect.as(
+          new TextDigestState({
+            hasher: state.hasher,
+            carriedHighSurrogate: Option.liftPredicate(Str.isNonEmpty)(nextCarry).pipe(
+              Option.map((value) =>
+                new CarriedHighSurrogate({ value, codeUnitIndex: N.sum(windowStart, Str.length(emit)) })
+              )
+            ),
+            consumedCodeUnits: N.sum(state.consumedCodeUnits, Str.length(chunk))
+          })
+        )
+      ),
     onSome: (fault) =>
       Effect.fail(
         new InvalidUnicode({
           kind: fault.kind,
-          codeUnitIndex: windowStart + fault.codeUnitIndex
+          codeUnitIndex: N.sum(windowStart, fault.codeUnitIndex)
         })
       )
   })
@@ -120,19 +119,17 @@ const finishTextDigest = (state: TextDigestState): Effect.Effect<Uint8Array, Inv
  * @example
  * ```ts
  * import { digestByteStream, encodeUtf8, toHex } from "@scenesystems/digest"
- * import { Effect, Stream } from "effect"
+ * import { Effect, Stream, String as Str } from "effect"
  *
  * export const sameDigest = Effect.gen(function*() {
  *   const first = yield* encodeUtf8("scene-")
  *   const second = yield* encodeUtf8("systems")
- *   const split = yield* digestByteStream("blake3-256", Stream.fromIterable([first, second]))
- *   const joined = yield* digestByteStream(
- *     "blake3-256",
- *     Stream.make(new Uint8Array([...first, ...second]))
- *   )
+ *   const split = yield* digestByteStream("blake3-256", Stream.make(first, second))
+ *   const whole = yield* encodeUtf8("scene-systems")
+ *   const joined = yield* digestByteStream("blake3-256", Stream.make(whole))
  *   return yield* Effect.succeed(split).pipe(
  *     Effect.filterOrFail(
- *       (digest) => toHex(digest) === toHex(joined),
+ *       (digest) => Str.Equivalence(toHex(digest), toHex(joined)),
  *       () => "ChunkBoundaryChangedDigest"
  *     )
  *   )

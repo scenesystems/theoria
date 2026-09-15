@@ -3,7 +3,22 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Exit, FastCheck as fc, Stream } from "effect"
+import {
+  Array as Arr,
+  Boolean as B,
+  Deferred,
+  Effect,
+  Exit,
+  FastCheck as fc,
+  Fiber,
+  Number as N,
+  Option,
+  Ref,
+  Schema,
+  Stream,
+  String as Str,
+  Tuple
+} from "effect"
 import {
   digestBytes,
   digestBytesBase64Url,
@@ -20,41 +35,43 @@ import {
 } from "../src/index.js"
 import { encodeFixtureUtf8 } from "./helpers/bytes.js"
 
-const concatBytes = (chunks: ReadonlyArray<Uint8Array>): Uint8Array =>
-  Arr.reduce(chunks, new Uint8Array(0), (acc, chunk) => {
-    const merged = new Uint8Array(acc.length + chunk.length)
-    merged.set(acc)
-    merged.set(chunk, acc.length)
-    return merged
-  })
+const ByteChunks = Schema.Array(Schema.Uint8ArrayFromSelf)
+const SplitPoints = Schema.Array(Schema.NonNegativeInt)
+const SplitDecisions = Schema.Array(Schema.Boolean)
+const Partitions = Schema.Array(SplitPoints)
 
-const partitionAt = (text: string, cuts: ReadonlyArray<number>): ReadonlyArray<string> => {
-  const boundaries = Arr.append(Arr.prepend(cuts, 0), text.length)
+const concatBytes = (chunks: typeof ByteChunks.Type) =>
+  Schema.decode(Schema.Uint8Array)(Arr.flatMap(chunks, Arr.fromIterable))
+
+const partitionAt = (text: string, cuts: typeof SplitPoints.Type) => {
+  const boundaries = Arr.append(Arr.prepend(cuts, 0), Str.length(text))
   return Arr.map(
     Arr.zip(Arr.dropRight(boundaries, 1), Arr.drop(boundaries, 1)),
-    ([start, end]) => text.slice(start, end)
+    ([start, end]) => Str.slice(start, end)(text)
   )
 }
 
-const everyPartition = (text: string): ReadonlyArray<ReadonlyArray<string>> =>
-  Arr.map(
-    Arr.makeBy(2 ** Math.max(0, text.length - 1), (mask) => mask),
-    (mask) =>
-      partitionAt(
-        text,
-        Arr.filter(
-          Arr.makeBy(Math.max(0, text.length - 1), (index) => index + 1),
-          (boundary) => (mask & (1 << (boundary - 1))) !== 0
-        )
+const everyPartition = (text: string) => {
+  const boundaries = Arr.makeBy(N.max(0, N.decrement(Str.length(text))), N.increment)
+  const choices = Arr.reduce<number, typeof Partitions.Type>(
+    boundaries,
+    Arr.of(Arr.empty<number>()),
+    (cuts, boundary) =>
+      Arr.cartesianWith(
+        cuts,
+        Arr.make(false, true),
+        (cut, split) => B.match(split, { onFalse: () => cut, onTrue: () => Arr.append(cut, boundary) })
       )
   )
+  return Arr.map(choices, (cuts) => partitionAt(text, cuts))
+}
 
-const randomPartition = (text: string, splitAfter: ReadonlyArray<boolean>): ReadonlyArray<string> =>
+const randomPartition = (text: string, splitAfter: typeof SplitDecisions.Type) =>
   partitionAt(
     text,
     Arr.filter(
-      Arr.makeBy(Math.max(0, text.length - 1), (index) => index + 1),
-      (boundary) => splitAfter[boundary - 1] === true
+      Arr.makeBy(N.max(0, N.decrement(Str.length(text))), N.increment),
+      (boundary) => Option.contains(true)(Arr.get(splitAfter, N.decrement(boundary)))
     )
   )
 
@@ -64,32 +81,42 @@ const randomChunkBoundaries = fc.array(fc.boolean(), { maxLength: 64 })
 describe("digestByteStream — chunked byte hashing", () => {
   it.effect("matches one-shot digestBytes for BLAKE3", () =>
     Effect.gen(function*() {
-      const chunks = [encodeFixtureUtf8("hello "), encodeFixtureUtf8("streaming "), encodeFixtureUtf8("digest")]
+      const chunks = Arr.make(encodeFixtureUtf8("hello "), encodeFixtureUtf8("streaming "), encodeFixtureUtf8("digest"))
       const streamed = yield* digestByteStream("blake3-256", Stream.fromIterable(chunks))
-      const oneShot = yield* digestBytes("blake3-256", concatBytes(chunks))
+      const oneShot = yield* digestBytes("blake3-256", yield* concatBytes(chunks))
       expect(streamed).toEqual(oneShot)
     }))
 
   it.effect("matches one-shot digestBytes for SHA-256", () =>
     Effect.gen(function*() {
-      const chunks = [encodeFixtureUtf8("hello "), encodeFixtureUtf8("streaming "), encodeFixtureUtf8("digest")]
+      const chunks = Arr.make(encodeFixtureUtf8("hello "), encodeFixtureUtf8("streaming "), encodeFixtureUtf8("digest"))
       const streamed = yield* digestByteStream("sha256", Stream.fromIterable(chunks))
-      const oneShot = yield* digestBytes("sha256", concatBytes(chunks))
+      const oneShot = yield* digestBytes("sha256", yield* concatBytes(chunks))
       expect(streamed).toEqual(oneShot)
     }))
 
   it.effect("empty stream matches empty-input digest", () =>
     Effect.gen(function*() {
-      const streamed = yield* digestByteStream("blake3-256", Stream.fromIterable<Uint8Array>([]))
-      const oneShot = yield* digestBytes("blake3-256", new Uint8Array(0))
+      const streamed = yield* digestByteStream("blake3-256", Stream.empty)
+      const oneShot = yield* digestBytes("blake3-256", yield* Schema.decode(Schema.Uint8Array)(Arr.empty()))
       expect(streamed).toEqual(oneShot)
     }))
 
   it.effect("chunk boundaries do not change digest value", () =>
     Effect.gen(function*() {
-      const whole = encodeFixtureUtf8("boundary-invariant-payload")
-      const splitA = [whole.slice(0, 8), whole.slice(8)]
-      const splitB = [whole.slice(0, 1), whole.slice(1, 5), whole.slice(5, 13), whole.slice(13)]
+      const whole = Arr.fromIterable(encodeFixtureUtf8("boundary-invariant-payload"))
+      const splitA = yield* Effect.forEach(Arr.make(Arr.take(whole, 8), Arr.drop(whole, 8)), (bytes) =>
+        Schema.decode(Schema.Uint8Array)(bytes))
+      const splitB = yield* Effect.forEach(
+        Arr.make(
+          Arr.take(whole, 1),
+          Arr.take(Arr.drop(whole, 1), 4),
+          Arr.take(Arr.drop(whole, 5), 8),
+          Arr.drop(whole, 13)
+        ),
+        (bytes) =>
+          Schema.decode(Schema.Uint8Array)(bytes)
+      )
 
       const a = yield* digestByteStream("sha256", Stream.fromIterable(splitA))
       const b = yield* digestByteStream("sha256", Stream.fromIterable(splitB))
@@ -98,8 +125,8 @@ describe("digestByteStream — chunked byte hashing", () => {
 
   it.effect("chunk order affects digest value", () =>
     Effect.gen(function*() {
-      const forward = [encodeFixtureUtf8("A"), encodeFixtureUtf8("B"), encodeFixtureUtf8("C")]
-      const reverse = [encodeFixtureUtf8("C"), encodeFixtureUtf8("B"), encodeFixtureUtf8("A")]
+      const forward = Arr.make(encodeFixtureUtf8("A"), encodeFixtureUtf8("B"), encodeFixtureUtf8("C"))
+      const reverse = Arr.reverse(forward)
 
       const a = yield* digestByteStream("blake3-256", Stream.fromIterable(forward))
       const b = yield* digestByteStream("blake3-256", Stream.fromIterable(reverse))
@@ -108,7 +135,7 @@ describe("digestByteStream — chunked byte hashing", () => {
 
   it.effect("re-running the same digest effect yields stable output", () =>
     Effect.gen(function*() {
-      const chunks = [encodeFixtureUtf8("reuse-"), encodeFixtureUtf8("safe")]
+      const chunks = Arr.make(encodeFixtureUtf8("reuse-"), encodeFixtureUtf8("safe"))
       const program = digestByteStreamBase64Url("sha256", Stream.fromIterable(chunks))
 
       const first = yield* program
@@ -131,10 +158,31 @@ describe("digestUtf8Stream — chunked string hashing", () => {
         }))
     }))
 
+  it.effect("preserves a carried pair across empty chunks and retains an initial U+FEFF", () =>
+    Effect.gen(function*() {
+      const chunks = Stream.make("", "\ufeffA\ud83d", "", "", "\ude00B", "")
+      expect(yield* digestUtf8Stream("sha256", chunks)).toEqual(yield* digestUtf8("sha256", "\ufeffA😀B"))
+      expect(yield* digestUtf8Stream("sha256", Stream.make("", ""))).toEqual(yield* digestUtf8("sha256", ""))
+    }))
+
+  it.effect("interrupts a pending surrogate stream and releases the upstream resource", () =>
+    Effect.gen(function*() {
+      const waiting = yield* Deferred.make<void>()
+      const finalized = yield* Ref.make(false)
+      const chunks = Stream.concat(
+        Stream.make("x\ud800"),
+        Stream.fromEffect(Deferred.succeed(waiting, undefined).pipe(Effect.zipRight(Effect.never)))
+      ).pipe(Stream.ensuring(Ref.set(finalized, true)))
+      const fiber = yield* digestUtf8Stream("sha256", chunks).pipe(Effect.fork)
+      yield* Deferred.await(waiting)
+      expect(Exit.isInterrupted(yield* Fiber.interrupt(fiber))).toBe(true)
+      expect(yield* Ref.get(finalized)).toBe(true)
+    }))
+
   it.effect("rejects a leading low surrogate", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(
-        digestUtf8Stream("blake3-256", Stream.fromIterable(["ab", "\uDC00c"]))
+        digestUtf8Stream("blake3-256", Stream.make("ab", "\uDC00c"))
       )
 
       expect(exit).toStrictEqual(Exit.fail(
@@ -148,7 +196,7 @@ describe("digestUtf8Stream — chunked string hashing", () => {
   it.effect("rejects a mismatched carried pair", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(
-        digestUtf8Stream("sha256", Stream.fromIterable(["ab\uD800", "\uD801c"]))
+        digestUtf8Stream("sha256", Stream.make("ab\uD800", "\uD801c"))
       )
 
       expect(exit).toStrictEqual(Exit.fail(
@@ -161,7 +209,7 @@ describe("digestUtf8Stream — chunked string hashing", () => {
 
   it.effect("fails an unresolved final carry", () =>
     Effect.gen(function*() {
-      const chunks = Stream.fromIterable(["ab", "\uD800"])
+      const chunks = Stream.make("ab", "\uD800")
       const expected = Exit.fail(
         new InvalidUnicode({
           kind: "lone-high-surrogate",
@@ -187,7 +235,7 @@ describe("digestUtf8Stream — chunked string hashing", () => {
 
   it.effect.prop(
     "well-formed output is partition invariant",
-    [wellFormedString, randomChunkBoundaries],
+    Tuple.make(wellFormedString, randomChunkBoundaries),
     ([text, splitAfter]) =>
       Effect.gen(function*() {
         const streamed = yield* digestUtf8Stream(
@@ -203,7 +251,7 @@ describe("digestUtf8Stream — chunked string hashing", () => {
 
   it.effect("malformed kind and absolute index are partition invariant", () =>
     Effect.forEach(
-      [
+      Arr.make(
         {
           text: "a\uD800b",
           expected: new InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 1 })
@@ -216,7 +264,7 @@ describe("digestUtf8Stream — chunked string hashing", () => {
           text: "a\uD800\uD801b",
           expected: new InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 1 })
         }
-      ],
+      ),
       ({ expected, text }) =>
         Effect.forEach(everyPartition(text), (chunks) =>
           Effect.gen(function*() {
@@ -229,36 +277,36 @@ describe("digestUtf8Stream — chunked string hashing", () => {
 describe("digestByteStream encoded variants", () => {
   it.effect("digestByteStreamBase64Url matches digestBytesBase64Url", () =>
     Effect.gen(function*() {
-      const chunks = [encodeFixtureUtf8("stream"), encodeFixtureUtf8("ing"), encodeFixtureUtf8("-b64")]
+      const chunks = Arr.make(encodeFixtureUtf8("stream"), encodeFixtureUtf8("ing"), encodeFixtureUtf8("-b64"))
       const streamed = yield* digestByteStreamBase64Url("blake3-256", Stream.fromIterable(chunks))
-      const oneShot = yield* digestBytesBase64Url("blake3-256", concatBytes(chunks))
+      const oneShot = yield* digestBytesBase64Url("blake3-256", yield* concatBytes(chunks))
       expect(streamed).toBe(oneShot)
       expect(streamed).toMatch(/^[A-Za-z0-9_-]{43}$/)
     }))
 
   it.effect("digestByteStreamHex matches digestBytesHex", () =>
     Effect.gen(function*() {
-      const chunks = [encodeFixtureUtf8("stream"), encodeFixtureUtf8("ing"), encodeFixtureUtf8("-hex")]
+      const chunks = Arr.make(encodeFixtureUtf8("stream"), encodeFixtureUtf8("ing"), encodeFixtureUtf8("-hex"))
       const streamed = yield* digestByteStreamHex("sha256", Stream.fromIterable(chunks))
-      const oneShot = yield* digestBytesHex("sha256", concatBytes(chunks))
+      const oneShot = yield* digestBytesHex("sha256", yield* concatBytes(chunks))
       expect(streamed).toBe(oneShot)
       expect(streamed).toMatch(/^[0-9a-f]{64}$/)
     }))
 
   it.effect("digestUtf8StreamBase64Url matches digestUtf8Base64Url", () =>
     Effect.gen(function*() {
-      const chunks = ["stream", "ing", "-utf8-b64"]
+      const chunks = Arr.make("stream", "ing", "-utf8-b64")
       const streamed = yield* digestUtf8StreamBase64Url("sha256", Stream.fromIterable(chunks))
-      const oneShot = yield* digestUtf8Base64Url("sha256", chunks.join(""))
+      const oneShot = yield* digestUtf8Base64Url("sha256", Arr.join(chunks, ""))
       expect(streamed).toBe(oneShot)
       expect(streamed).toMatch(/^[A-Za-z0-9_-]{43}$/)
     }))
 
   it.effect("digestUtf8StreamHex matches byte-stream hex for equivalent payload", () =>
     Effect.gen(function*() {
-      const chunks = ["stream", "ing", "-utf8-hex"]
+      const chunks = Arr.make("stream", "ing", "-utf8-hex")
       const streamed = yield* digestUtf8StreamHex("blake3-256", Stream.fromIterable(chunks))
-      const asBytes = chunks.map(encodeFixtureUtf8)
+      const asBytes = Arr.map(chunks, encodeFixtureUtf8)
       const byteStream = yield* digestByteStreamHex("blake3-256", Stream.fromIterable(asBytes))
       expect(streamed).toBe(byteStream)
       expect(streamed).toMatch(/^[0-9a-f]{64}$/)

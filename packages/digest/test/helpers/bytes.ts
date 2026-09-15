@@ -7,8 +7,7 @@
  * @since 0.1.0
  * @category test-helpers
  */
-import type { Effect } from "effect"
-import { Array as Arr, Stream } from "effect"
+import { Chunk, Effect, Encoding, type ParseResult, Schema, Stream } from "effect"
 
 import { encodeUtf8Unchecked } from "../../src/internal/unicode.js"
 
@@ -32,30 +31,21 @@ export const encodeFixtureUtf8 = (text: string): Uint8Array => encodeUtf8Uncheck
  * @since 0.3.0
  * @category test-helpers
  */
-export const oracleUtf8 = (text: string): Effect.Effect<Uint8Array> =>
-  Stream.encodeText(Stream.make(text)).pipe(Stream.runFold(new Uint8Array(0), concatBytes))
-
-const concatBytes = (left: Uint8Array, right: Uint8Array): Uint8Array => {
-  const joined = new Uint8Array(left.byteLength + right.byteLength)
-  joined.set(left, 0)
-  joined.set(right, left.byteLength)
-  return joined
-}
+export const oracleUtf8 = (text: string): Effect.Effect<Uint8Array, ParseResult.ParseError> =>
+  Stream.encodeText(Stream.make(text)).pipe(
+    Stream.flatMap(Stream.fromIterable),
+    Stream.runCollect,
+    Effect.flatMap((bytes) => Schema.decode(Schema.Uint8Array)(Chunk.toReadonlyArray(bytes)))
+  )
 
 /**
- * Convert hex string to Uint8Array.
+ * Decode a trusted fixture's hexadecimal bytes. Invalid checked-in fixture
+ * text is a test-setup error, not an application decoding result.
  *
  * @since 0.1.0
  * @category test-helpers
  */
-export const hexToBytes = (hex: string): Uint8Array => {
-  const indices = Arr.range(0, hex.length / 2 - 1)
-  const bytes = new Uint8Array(hex.length / 2)
-  Arr.forEach(indices, (i: number) => {
-    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
-  })
-  return bytes
-}
+export const hexToBytes = Schema.decodeSync(Schema.Uint8ArrayFromHex)
 
 /**
  * Convert Uint8Array to hex string.
@@ -63,5 +53,4 @@ export const hexToBytes = (hex: string): Uint8Array => {
  * @since 0.1.0
  * @category test-helpers
  */
-export const bytesToHex = (bytes: Uint8Array): string =>
-  Arr.fromIterable(bytes).map((b: number) => b.toString(16).padStart(2, "0")).join("")
+export const bytesToHex = (bytes: Uint8Array): string => Encoding.encodeHex(bytes)
