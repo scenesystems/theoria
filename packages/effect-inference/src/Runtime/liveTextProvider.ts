@@ -18,7 +18,7 @@ import type { InvalidRuntimeConfig } from "../Errors/Config.js"
 import {
   descriptorForLiveTextProvider,
   type LiveTextProvider,
-  type LiveTextProviderRuntimeOptions,
+  LiveTextProviderRuntimeOptions,
   type ResolvedLiveTextProviderConfig,
   resolveLiveTextProviderConfig
 } from "./liveTextProviderConfig.js"
@@ -111,15 +111,17 @@ const providerLayer = (
  * @category constructors
  */
 export const resolveLiveTextProviderRuntime = (
-  options: LiveTextProviderRuntimeOptions = {}
+  options: LiveTextProviderRuntimeOptions = new LiveTextProviderRuntimeOptions({})
 ): Effect.Effect<ResolvedLiveTextProviderRuntime, InvalidRuntimeConfig> =>
   resolveLiveTextProviderConfig(options).pipe(
-    Effect.map((config) => ({
-      provider: config.provider,
-      model: config.model,
-      desired: descriptorForLiveTextProvider(config),
-      languageModelLayer: providerLayer(config)
-    }))
+    Effect.map((config) =>
+      new ResolvedLiveTextProviderRuntime({
+        provider: config.provider,
+        model: config.model,
+        desired: descriptorForLiveTextProvider(config),
+        languageModelLayer: providerLayer(config)
+      })
+    )
   )
 
 /**
@@ -131,7 +133,7 @@ export const resolveLiveTextProviderRuntime = (
  * @category layers
  */
 export const liveTextProviderLayer = (
-  options: LiveTextProviderRuntimeOptions = {}
+  options: LiveTextProviderRuntimeOptions = new LiveTextProviderRuntimeOptions({})
 ): Layer.Layer<LanguageModel.LanguageModel, InvalidRuntimeConfig, never> =>
   Layer.unwrapEffect(resolveLiveTextProviderRuntime(options).pipe(Effect.map((runtime) => runtime.languageModelLayer)))
 
@@ -149,6 +151,6 @@ export const liveTextProviderLayer = (
  */
 export const withLiveTextProvider = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-  options: LiveTextProviderRuntimeOptions = {}
+  options: LiveTextProviderRuntimeOptions = new LiveTextProviderRuntimeOptions({})
 ): Effect.Effect<A, E | InvalidRuntimeConfig, Exclude<R, LanguageModel.LanguageModel>> =>
   effect.pipe(Effect.provide(liveTextProviderLayer(options)))
