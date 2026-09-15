@@ -6,51 +6,42 @@
  */
 
 import { BunRuntime } from "@effect/platform-bun"
-import {
-  decapsulate,
-  encapsulate,
-  equalBytes,
-  generateEntropy,
-  generateKeyPair,
-  mlDsa65SignHedged,
-  mlDsa65Verify,
-  utf8ToBytes
-} from "@scenesystems/sign"
-import { Effect } from "effect"
+import { Bytes, Entropy, MlDsa, XWing } from "@scenesystems/sign"
+import { Effect, Encoding } from "effect"
 
 const program = Effect.gen(function*() {
-  const sigKeys = yield* generateKeyPair("ml-dsa-65")
+  const sigKeys = yield* MlDsa.generateKeyPair65()
   yield* Effect.log("ML-DSA-65 key pair", {
     publicKeyBytes: sigKeys.publicKey.length,
     secretKeyBytes: sigKeys.secretKey.length
   })
 
-  const message = utf8ToBytes("quantum-resistant document signing")
-  const context = new Uint8Array(0)
-  const entropy32 = yield* generateEntropy()
-  const sig = yield* mlDsa65SignHedged(message, sigKeys.secretKey, sigKeys.publicKey, context, entropy32)
-  const valid = yield* mlDsa65Verify(sig.signature, message, sigKeys.publicKey, context)
+  const message = Bytes.fromString("quantum-resistant document signing")
+  const context = yield* Encoding.decodeHex("")
+  const entropy32 = yield* Entropy.bytes(MlDsa.entropyBytes)
+  const sig = yield* MlDsa.sign65Hedged(message, sigKeys.secretKey, sigKeys.publicKey, context, entropy32)
+  const valid = yield* MlDsa.verify65(sig.signature, message, sigKeys.publicKey, context)
   yield* Effect.log("ML-DSA-65 signature", {
     signatureBytes: sig.signature.length,
     verified: valid
   })
 
-  const recipient = yield* generateKeyPair("xwing")
+  const recipient = yield* XWing.generateKeyPair()
   yield* Effect.log("XWing key pair", {
     publicKeyBytes: recipient.publicKey.length,
     secretKeyBytes: recipient.secretKey.length
   })
 
-  const encap = yield* encapsulate("xwing", recipient.publicKey)
+  const encap = yield* XWing.encapsulate(recipient.publicKey)
   yield* Effect.log("Encapsulated", {
     ciphertextBytes: encap.ciphertext.length,
     sharedSecretBytes: encap.sharedSecret.length
   })
 
-  const decapSecret = yield* decapsulate("xwing", encap.ciphertext, recipient.secretKey)
+  const decapSecret = yield* XWing.decapsulate(encap.ciphertext, recipient.secretKey)
   yield* Effect.log("Decapsulated", {
-    sharedSecretsMatch: equalBytes(encap.sharedSecret, decapSecret)
+    sharedSecretsMatch: Bytes.equal(encap.sharedSecret, decapSecret)
   })
-})
+}).pipe(Effect.provide(Entropy.layer))
 
 BunRuntime.runMain(program)

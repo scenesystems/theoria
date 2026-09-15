@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Encoding, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { ed25519Verify, utf8ToBytes } from "@scenesystems/sign"
+import { Bytes, Ed25519 } from "@scenesystems/sign"
 
 import { description, descriptionInput } from "../../app/contracts/demo/imagined-place-arrangement.js"
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
@@ -112,8 +112,8 @@ describe("server/imagined-place", () => {
           const publicKey = participants[record.signer].signing.publicKey
           const signature = yield* Encoding.decodeHex(record.signatureHex)
           expect(record.valid).toBe(true)
-          expect(yield* ed25519Verify(signature, utf8ToBytes(record.subject), publicKey)).toBe(true)
-          expect(yield* ed25519Verify(signature, utf8ToBytes(`${record.subject}x`), publicKey)).toBe(false)
+          expect(yield* Ed25519.verify(signature, Bytes.fromString(record.subject), publicKey)).toBe(true)
+          expect(yield* Ed25519.verify(signature, Bytes.fromString(`${record.subject}x`), publicKey)).toBe(false)
         }))
 
       const signers = Arr.map(result.evidence.signatures, (record) => record.signer)
@@ -121,7 +121,7 @@ describe("server/imagined-place", () => {
       const wrongKey = participants.author.signing.publicKey
       const neighborRecord = yield* Arr.get(result.evidence.signatures, 2)
       const neighborSignature = yield* Encoding.decodeHex(neighborRecord.signatureHex)
-      expect(yield* ed25519Verify(neighborSignature, utf8ToBytes(neighborRecord.subject), wrongKey)).toBe(false)
+      expect(yield* Ed25519.verify(neighborSignature, Bytes.fromString(neighborRecord.subject), wrongKey)).toBe(false)
     }).pipe(Effect.provide(ParticipantsLive)))
 
   it.effect("seals the neighbor's note to the author and the author can open it", () =>
@@ -129,7 +129,7 @@ describe("server/imagined-place", () => {
       const result = yield* build()
       expect(result.evidence.sealedNote.openedText).toBe(scenarioById("unfinished-light").neighbor.note)
       expect(result.evidence.sealedNote.envelopeBytes).toBeGreaterThan(
-        utf8ToBytes(result.evidence.sealedNote.openedText).length
+        Bytes.fromString(result.evidence.sealedNote.openedText).length
       )
       expect(result.evidence.sealedNote.from).toBe("neighbor")
       expect(result.evidence.sealedNote.to).toBe("author")

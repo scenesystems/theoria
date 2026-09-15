@@ -2,7 +2,7 @@ import { Effect, Option } from "effect"
 
 import { hkdfSha256 } from "@scenesystems/digest"
 import { seal, unpackEnvelope, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
-import { deriveSharedSecret } from "@scenesystems/sign"
+import { X25519 } from "@scenesystems/sign"
 
 import type { SealedNote } from "../../contracts/imagined-place-result.js"
 import type { ParticipantRole } from "../../contracts/imagined-place.js"
@@ -20,7 +20,7 @@ const noteContext = utf8ToBytes("theoria/imagined-place/sealed-note/v1")
  */
 const sealingKey = (mine: ParticipantKeys, theirs: ParticipantKeys) =>
   Effect.gen(function*() {
-    const shared = yield* deriveSharedSecret("x25519", mine.agreement.secretKey, theirs.agreement.publicKey)
+    const shared = yield* X25519.deriveSharedSecret(mine.agreement.secretKey, theirs.agreement.publicKey)
     return yield* hkdfSha256(shared.sharedSecret, Option.none(), noteContext, 32)
   })
 

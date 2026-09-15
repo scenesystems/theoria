@@ -69,8 +69,8 @@ const program = Effect.gen(function*() {
   yield* fs.makeDirectory(path.join(temporary, "test/worker"))
   yield* Effect.forEach(
     Arr.make(
-      "test/rsa.test.ts",
-      "test/jwt.test.ts",
+      "test/Rsa.test.ts",
+      "test/Jwt.test.ts",
       "scripts/worker/protocol.ts",
       "scripts/worker/entry.ts",
       "scripts/worker/runtime.ts",
@@ -93,7 +93,7 @@ const program = Effect.gen(function*() {
     "install isolated packed consumer"
   )
   yield* execute(
-    Command.make("bun", "run", "--bun", "vitest", "run", "test/rsa.test.ts", "test/jwt.test.ts").pipe(
+    Command.make("bun", "run", "--bun", "vitest", "run", "test/Rsa.test.ts", "test/Jwt.test.ts").pipe(
       Command.workingDirectory(temporary)
     ),
     "verify packed public API"
