@@ -10,3 +10,5 @@ Fix cache publication races: serialize reads, writes, removals, and miss computa
 - Pass the configuration Schema to `StudyObjectiveCache`: use `resolve(new StudyObjectiveCacheRequest({ schema, config, compute }))` and `invalidate(schema, config)`. Each operation encodes the configuration once and fingerprints its encoded form; existing identity-Schema fingerprints remain unchanged.
 
 Expose `SchemaCacheRequest` and Schema-derived `SchemaCacheResult` tuples. Keep key encoding lazy and validate SQL result rows through `SqlSchema`.
+
+Use native Effect models, traversal, and arithmetic for objective aggregation and result selection, preserving coordinate-wise means, population variance, reported costs, and typed rejection.

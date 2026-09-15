@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Match, Option } from "effect"
+import { Array as Arr, Data, Effect, Match, Option, type Schema } from "effect"
 
 import { matchObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
 import { NoSuccessfulTrials, type SearchError } from "../../Errors/index.js"
@@ -14,6 +14,8 @@ import { pickBestTrial } from "../best.js"
 import { paretoFrontFromCompleted } from "../pareto.js"
 import { type ExecuteOutcome } from "../runtime.js"
 import { type SnapshotMetadata } from "../snapshot/metadata.js"
+
+type Trials<Config> = Schema.Schema.Type<Schema.mutable<Schema.Array$<Schema.Schema<Trial.Trial<Config>>>>>
 
 /**
  * Retains the earliest trial with the best scalar value and all study trials
@@ -33,7 +35,7 @@ export class SingleObjectiveResult<Config = unknown> extends Data.Class<{
   /** Best completed scalar trial; equal values retain the earlier trial. */
   readonly bestTrial: Trial.NumericCompletedTrial<Config>
   /** Running and terminal trials sorted by trial number. */
-  readonly trials: Array<Trial.Trial<Config>>
+  readonly trials: Trials<Config>
   /** Condition that stopped admission of new trials. */
   readonly completionReason: StudyEvent.CompletionReason
   /** Bracket and round results, present only for scheduled execution. */
@@ -56,9 +58,9 @@ export class MultiObjectiveResult<Config = unknown> extends Data.Class<{
   /** Compatibility data needed to create and validate a resume snapshot. */
   readonly snapshotMetadata: SnapshotMetadata
   /** Non-dominated completed trials under the requested directions and epsilon. */
-  readonly paretoFront: Array<Trial.CompletedTrial<Config>>
+  readonly paretoFront: Schema.Schema.Type<Schema.mutable<Schema.Array$<Schema.Schema<Trial.CompletedTrial<Config>>>>>
   /** Running and terminal trials sorted by trial number. */
-  readonly trials: Array<Trial.Trial<Config>>
+  readonly trials: Trials<Config>
   /** Condition that stopped admission of new trials. */
   readonly completionReason: StudyEvent.CompletionReason
   /** Bracket and round results, present only for scheduled execution. */
@@ -74,7 +76,9 @@ export class MultiObjectiveResult<Config = unknown> extends Data.Class<{
  * @since 0.1.0
  * @category type-level
  */
-export type StudyResult<Config = unknown> = SingleObjectiveResult<Config> | MultiObjectiveResult<Config>
+export type StudyResult<Config = unknown> = Schema.Schema.Type<
+  Schema.Union<[Schema.Schema<SingleObjectiveResult<Config>>, Schema.Schema<MultiObjectiveResult<Config>>]>
+>
 
 /**
  * Converts an ExecuteOutcome into a typed StudyResult, selecting best trial (single) or Pareto front (multi).
@@ -93,7 +97,7 @@ export const studyResultFromOutcome = <Config>(
           (trial): trial is Trial.NumericCompletedTrial<Config> => Trial.isNumericCompletedTrial(trial)
         )
         const best = yield* Option.match(pickBestTrial(direction, numericCompleted), {
-          onNone: () => Effect.fail(new NoSuccessfulTrials({ trialCount: outcome.trials.length })),
+          onNone: () => Effect.fail(new NoSuccessfulTrials({ trialCount: Arr.length(outcome.trials) })),
           onSome: Effect.succeed
         })
 
@@ -116,8 +120,8 @@ export const studyResultFromOutcome = <Config>(
         const paretoFront = paretoFrontFromCompleted(outcome.completed, directions, outcome.epsilon)
 
         yield* Effect.when(
-          Effect.fail(new NoSuccessfulTrials({ trialCount: outcome.trials.length })),
-          () => paretoFront.length <= 0
+          Effect.fail(new NoSuccessfulTrials({ trialCount: Arr.length(outcome.trials) })),
+          () => Arr.isEmptyArray(paretoFront)
         )
 
         return new MultiObjectiveResult<Config>({
@@ -148,7 +152,7 @@ export const studyResultFromOutcome = <Config>(
  */
 export const pareto = <Config>(
   result: StudyResult<Config>
-): Effect.Effect<Array<Trial.CompletedTrial<Config>>> =>
+): Effect.Effect<MultiObjectiveResult<Config>["paretoFront"]> =>
   Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial }) => Effect.succeed(Arr.of(bestTrial))),
     Match.tag("MultiObjective", ({ paretoFront }) => Effect.succeed(paretoFront)),

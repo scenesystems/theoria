@@ -3,11 +3,10 @@
  *
  * @since 0.1.0
  */
-import type { Effect, Schema } from "effect"
-import { Data } from "effect"
+import { type Effect, Schema } from "effect"
 
 import type { SchemaCacheResult } from "../../../Cache/index.js"
-import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
+import { type ObjectiveValue, ObjectiveValueSchema } from "../../../contracts/ObjectiveValue.js"
 import type { ArtifactStorageError, TrialError } from "../../../Errors/index.js"
 import type { StudyObjectiveCacheApi, StudyObjectiveCacheRequest } from "../../studyObjectiveCache.js"
 
@@ -17,13 +16,13 @@ import type { StudyObjectiveCacheApi, StudyObjectiveCacheRequest } from "../../s
  * @since 0.1.0
  * @category models
  */
-export class ObjectiveAttempt extends Data.Class<{
-  readonly value: ObjectiveValue
-  readonly retryCount: number
-  readonly evaluationCount: number
-  readonly cost?: number
-  readonly variance?: number
-}> {}
+export class ObjectiveAttempt extends Schema.Class<ObjectiveAttempt>("ObjectiveAttempt")({
+  value: ObjectiveValueSchema,
+  retryCount: Schema.Number,
+  evaluationCount: Schema.Number,
+  cost: Schema.optional(Schema.Number),
+  variance: Schema.optional(Schema.Number)
+}) {}
 
 /**
  * Single objective evaluation sample before aggregation, carrying value, retry count, and optional cost.
@@ -31,11 +30,11 @@ export class ObjectiveAttempt extends Data.Class<{
  * @since 0.1.0
  * @category models
  */
-export class ObjectiveSample extends Data.Class<{
-  readonly value: ObjectiveValue
-  readonly retryCount: number
-  readonly cost?: number
-}> {}
+export class ObjectiveSample extends Schema.Class<ObjectiveSample>("ObjectiveSample")({
+  value: ObjectiveValueSchema,
+  retryCount: Schema.Number,
+  cost: Schema.optional(Schema.Number)
+}) {}
 
 /**
  * @since 0.1.0
