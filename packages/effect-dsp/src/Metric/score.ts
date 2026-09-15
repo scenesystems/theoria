@@ -3,17 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Match, Option, Predicate, Record } from "effect"
-import type { MetricPayload } from "../contracts/MetricFn.js"
+import { Array as Arr, Boolean, Match, Number, Option, Predicate, Record, Schema, String } from "effect"
 
-const normalize = (value: string): string => value.trim().toLowerCase()
+const normalize = (value: string): string => String.toLowerCase(String.trim(value))
 
-const scalarString = (value: unknown): Option.Option<string> =>
+const Scalar = Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
+
+const scalarString = (value: typeof Scalar.Type): Option.Option<string> =>
   Match.value(value).pipe(
     Match.when(Predicate.isString, (text) => Option.some(text)),
-    Match.when(Predicate.isNumber, (numberValue) => Option.some(String(numberValue))),
-    Match.when(Predicate.isBoolean, (booleanValue) => Option.some(String(booleanValue))),
-    Match.orElse(() => Option.none<string>())
+    Match.when(Predicate.isNumber, Schema.encodeOption(Schema.NumberFromString)),
+    Match.when(Predicate.isBoolean, (value) =>
+      Option.some(Boolean.match(value, { onTrue: () => "true", onFalse: () => "false" }))),
+    Match.exhaustive
   )
 
 /**
@@ -23,23 +25,18 @@ const scalarString = (value: unknown): Option.Option<string> =>
  * @since 0.1.0
  * @category helpers
  */
-export const fieldString = (payload: MetricPayload, field: string): Option.Option<string> =>
-  Option.map(
-    Option.flatMap(
-      Option.fromNullable(payload[field]),
-      scalarString
-    ),
-    normalize
+export const fieldString = (payload: typeof Schema.Object.Type, field: string): Option.Option<string> =>
+  Schema.decodeUnknownOption(
+    Schema.Struct(Record.singleton(field, Schema.optional(Scalar)))
+  )(payload).pipe(
+    Option.flatMap(Record.get(field)),
+    Option.flatMap(Option.fromNullable),
+    Option.flatMap(scalarString),
+    Option.map(normalize)
   )
 
 const nonEmptyToken = (token: string): Option.Option<string> =>
-  Option.fromNullable(token.trim()).pipe(
-    Option.flatMap((value) =>
-      value.length === 0
-        ? Option.none<string>()
-        : Option.some(value)
-    )
-  )
+  Option.some(String.trim(token)).pipe(Option.filter(String.isNonEmpty))
 
 /**
  * Read a field as normalized whitespace-delimited tokens. Returns
@@ -48,24 +45,26 @@ const nonEmptyToken = (token: string): Option.Option<string> =>
  * @since 0.1.0
  * @category helpers
  */
-export const tokenizedField = (payload: MetricPayload, field: string): Option.Option<ReadonlyArray<string>> =>
-  Option.map(fieldString(payload, field), (value) => Arr.filterMap(value.split(/\s+/), nonEmptyToken))
+export const tokenizedField = (
+  payload: typeof Schema.Object.Type,
+  field: string
+) => Option.map(fieldString(payload, field), (value) => Arr.filterMap(String.split(value, /\s+/), nonEmptyToken))
 
-const tokenCounts = (tokens: ReadonlyArray<string>): Readonly<Record<string, number>> =>
+const tokenCounts = (tokens: Iterable<string>) =>
   Arr.reduce(tokens, Record.empty<string, number>(), (counts, token) =>
     Record.set(
       counts,
       token,
       Option.getOrElse(
-        Option.map(Record.get(counts, token), (count) => count + 1),
+        Option.map(Record.get(counts, token), Number.increment),
         () => 1
       )
     ))
 
-class OverlapState extends Data.Class<{
-  readonly overlap: number
-  readonly rightCounts: Readonly<Record<string, number>>
-}> {}
+class OverlapState extends Schema.Class<OverlapState>("MetricOverlapState")({
+  overlap: Schema.Number,
+  rightCounts: Schema.Record({ key: Schema.String, value: Schema.Number })
+}) {}
 
 /**
  * Compute multiset token overlap between two token arrays — counts each token
@@ -74,23 +73,25 @@ class OverlapState extends Data.Class<{
  * @since 0.1.0
  * @category helpers
  */
-export const tokenOverlap = (left: ReadonlyArray<string>, right: ReadonlyArray<string>): number =>
+export const tokenOverlap = (left: Iterable<string>, right: Iterable<string>): number =>
   Arr.reduce(
     left,
-    {
+    new OverlapState({
       overlap: 0,
       rightCounts: tokenCounts(right)
-    },
+    }),
     (state, token): OverlapState =>
       Option.match(Record.get(state.rightCounts, token), {
         onNone: () => state,
         onSome: (count) =>
-          count <= 0
-            ? state
-            : {
-              overlap: state.overlap + 1,
-              rightCounts: Record.set(state.rightCounts, token, count - 1)
-            }
+          Boolean.match(Number.lessThanOrEqualTo(count, 0), {
+            onTrue: () => state,
+            onFalse: () =>
+              new OverlapState({
+                overlap: Number.increment(state.overlap),
+                rightCounts: Record.set(state.rightCounts, token, Number.decrement(count))
+              })
+          })
       })
   ).overlap
 
@@ -101,10 +102,10 @@ export const tokenOverlap = (left: ReadonlyArray<string>, right: ReadonlyArray<s
  * @since 0.1.0
  * @category helpers
  */
-export const averageNumbers = (scores: ReadonlyArray<number>): number =>
-  scores.length === 0
-    ? 0
-    : Arr.reduce(scores, 0, (sum, score) => sum + score) / scores.length
+export const averageNumbers = (scores: Iterable<number>): number => {
+  const values = Arr.fromIterable(scores)
+  return Option.getOrElse(Number.divide(Number.sumAll(values), Arr.length(values)), () => 0)
+}
 
 /**
  * Convert a boolean condition to a `{0, 1}` score for deterministic binary
@@ -113,4 +114,5 @@ export const averageNumbers = (scores: ReadonlyArray<number>): number =>
  * @since 0.1.0
  * @category helpers
  */
-export const binaryScore = (condition: boolean): number => (condition ? 1 : 0)
+export const binaryScore = (condition: boolean): number =>
+  Boolean.match(condition, { onTrue: () => 1, onFalse: () => 0 })

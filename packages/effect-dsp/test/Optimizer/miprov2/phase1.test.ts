@@ -6,7 +6,7 @@ import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Number as Num, Ref, Schema } from "effect"
 import { collectModuleParamRefs } from "../../../src/internal/module-params.js"
 import { generateDemoCandidates } from "../../../src/optimizers/MIPROv2/bootstrap.js"
 
@@ -36,27 +36,10 @@ const trainingSet = Arr.make(
   })
 )
 
-const uniqueParams = (params: ReadonlyArray<ModuleParams>): ReadonlyArray<ModuleParams> =>
-  Arr.reduce(params, Arr.empty<ModuleParams>(), (unique, candidate) =>
-    Arr.some(
-        unique,
-        (existing) =>
-          Data.struct(existing).instructions === Data.struct(candidate).instructions &&
-          Data.struct(existing).demos.length === Data.struct(candidate).demos.length &&
-          Data.struct(existing).outputStrategy === Data.struct(candidate).outputStrategy
-      )
-      ? unique
-      : Arr.append(unique, candidate))
+const uniqueParams = (params: Iterable<ModuleParams>) =>
+  Arr.dedupeWith(Arr.fromIterable(params), Schema.equivalence(ModuleParams))
 
-const uniqueNumbers = (numbers: ReadonlyArray<number>): ReadonlyArray<number> =>
-  Arr.reduce(
-    numbers,
-    Arr.empty<number>(),
-    (unique, numberValue) =>
-      Arr.some(unique, (existing) => existing === numberValue)
-        ? unique
-        : Arr.append(unique, numberValue)
-  )
+const uniqueNumbers = (numbers: Iterable<number>) => Arr.dedupeWith(Arr.fromIterable(numbers), Num.Equivalence)
 
 describe("MIPROv2 Phase 1", () => {
   it.effect("includes anchor candidates, then N-3 shuffled bootstrap variants with bounded random demo counts", () =>
@@ -68,7 +51,7 @@ describe("MIPROv2 Phase 1", () => {
         module.params,
         new ModuleParams({
           instructions: "Answer with one factual phrase",
-          demos: [],
+          demos: Arr.empty(),
           outputStrategy: "text"
         })
       )
@@ -82,26 +65,18 @@ describe("MIPROv2 Phase 1", () => {
         seed: 11
       })
 
-      const rootOption = Arr.head(candidateSets)
-
-      expect(Option.isSome(rootOption)).toBe(true)
-
-      if (Option.isNone(rootOption)) {
-        return
-      }
-
-      const root = rootOption.value
+      const root = yield* Arr.head(candidateSets)
       const shuffled = Arr.drop(root.candidates, 3)
-      const shuffledDemoCounts = Arr.map(shuffled, (candidate) => candidate.params.demos.length)
+      const shuffledDemoCounts = Arr.map(shuffled, (candidate) => Arr.length(candidate.params.demos))
 
       expect(root.candidates).toHaveLength(6)
       expect(Arr.map(Arr.take(root.candidates, 3), (candidate) => candidate.kind)).toEqual(
         Arr.make("zero-shot", "labels-only", "bootstrap-unshuffled")
       )
       expect(shuffled).toHaveLength(3)
-      expect(Arr.every(shuffled, (candidate) => candidate.kind === "bootstrap-shuffled")).toBe(true)
-      expect(Arr.every(shuffledDemoCounts, (count) => count >= 1 && count <= 2)).toBe(true)
-      expect(uniqueNumbers(shuffledDemoCounts).length).toBeGreaterThan(1)
+      expect(Arr.every(shuffled, (candidate) => Equal.equals(candidate.kind, "bootstrap-shuffled"))).toBe(true)
+      expect(Arr.every(shuffledDemoCounts, Num.between({ minimum: 1, maximum: 2 }))).toBe(true)
+      expect(Arr.length(uniqueNumbers(shuffledDemoCounts))).toBeGreaterThan(1)
     }))
 
   it.effect("is unique and deterministic for a fixed seed", () =>
@@ -125,19 +100,11 @@ describe("MIPROv2 Phase 1", () => {
         maxBootstrappedDemos: 2,
         seed: 7
       })
-      const firstRootOption = Arr.head(first)
-
-      expect(Option.isSome(firstRootOption)).toBe(true)
-
-      if (Option.isNone(firstRootOption)) {
-        return
-      }
-
-      const firstRoot = firstRootOption.value
+      const firstRoot = yield* Arr.head(first)
 
       expect(second).toEqual(first)
       expect(uniqueParams(Arr.map(firstRoot.candidates, (candidate) => candidate.params))).toHaveLength(
-        firstRoot.candidates.length
+        Arr.length(firstRoot.candidates)
       )
     }))
 
@@ -153,7 +120,7 @@ describe("MIPROv2 Phase 1", () => {
         seed: 19
       })
 
-      expect(candidateSets).toHaveLength(refs.length)
+      expect(candidateSets).toHaveLength(Arr.length(refs))
       expect(Arr.map(candidateSets, (candidateSet) => candidateSet.predictorName)).toEqual(
         Arr.map(refs, (ref) => ref.name)
       )

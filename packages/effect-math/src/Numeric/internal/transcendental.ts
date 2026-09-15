@@ -8,6 +8,7 @@
  * @since 0.1.0
  * @category internal
  */
+import { Array as Arr, Boolean, Data, Match, Number as N, Predicate, Schema, Tuple } from "effect"
 
 // ---------------------------------------------------------------------------
 // DataView bit-decomposition infrastructure
@@ -23,58 +24,64 @@ const SMALL_LOG1P_THRESHOLD = 1e-4
 const SMALL_EXPM1_THRESHOLD = 1e-5
 const LN_2 = 0.6931471805599453
 const E = 2.718281828459045
+const isNaN = Predicate.not(Schema.is(Schema.NonNaN))
+
+const Decomposition = Schema.Tuple(Schema.Number, Schema.Number)
+
+class SeriesState extends Data.Class<{
+  readonly term: number
+  readonly total: number
+}> {}
 
 const FLOAT64_BUFFER = new ArrayBuffer(8)
 const FLOAT64_VIEW = new DataView(FLOAT64_BUFFER)
 
-const mantissaFromBits = (high: number, low: number): number => (high & 0x000f_ffff) * MANTISSA_HIGH_SCALE + low
+const mantissaFromBits = (high: number, low: number): number =>
+  N.sum(N.multiply(high & 0x000f_ffff, MANTISSA_HIGH_SCALE), low)
 
-const decomposeNormalized = (value: number): readonly [exponent: number, mantissa: number] => {
+const decomposeNormalized = (value: number): typeof Decomposition.Type => {
   FLOAT64_VIEW.setFloat64(0, value, false)
   const high = FLOAT64_VIEW.getUint32(0, false)
   const low = FLOAT64_VIEW.getUint32(4, false)
   const exponentBits = (high >>> 20) & 0x7ff
-  const exponent = exponentBits - 1023
+  const exponent = N.subtract(exponentBits, 1023)
   const mantissaBits = mantissaFromBits(high, low)
-  const mantissa = 1 + mantissaBits / MANTISSA_SCALE
-  return [exponent, mantissa]
+  const mantissa = N.sum(1, N.unsafeDivide(mantissaBits, MANTISSA_SCALE))
+  return Tuple.make(exponent, mantissa)
 }
 
-const decompose = (value: number): readonly [exponent: number, mantissa: number] => {
+const decompose = (value: number): typeof Decomposition.Type => {
   FLOAT64_VIEW.setFloat64(0, value, false)
   const high = FLOAT64_VIEW.getUint32(0, false)
   const exponentBits = (high >>> 20) & 0x7ff
 
-  if (exponentBits === 0) {
-    const [scaledExp, scaledMant] = decomposeNormalized(value * MANTISSA_SCALE)
-    return [scaledExp - SUBNORMAL_EXPONENT_OFFSET, scaledMant]
-  }
-  return decomposeNormalized(value)
+  return Boolean.match(N.Equivalence(exponentBits, 0), {
+    onTrue: () => {
+      const [scaledExp, scaledMant] = decomposeNormalized(N.multiply(value, MANTISSA_SCALE))
+      return Tuple.make(N.subtract(scaledExp, SUBNORMAL_EXPONENT_OFFSET), scaledMant)
+    },
+    onFalse: () => decomposeNormalized(value)
+  })
 }
 
-const lnMantissaSeries = (
-  zSquared: number,
-  term: number,
-  denominator: number,
-  remaining: number,
-  total: number
-): number =>
-  remaining <= 0
-    ? total
-    : lnMantissaSeries(
-      zSquared,
-      term * zSquared,
-      denominator + 2,
-      remaining - 1,
-      total + term / denominator
-    )
-
-const lnMantissa = (value: number): number => {
-  if (value === 1) return 0
-  const z = (value - 1) / (value + 1)
-  const zSquared = z * z
-  return 2 * lnMantissaSeries(zSquared, z, 1, LOG_SERIES_TERMS, 0)
-}
+const lnMantissa = (value: number): number =>
+  Boolean.match(N.Equivalence(value, 1), {
+    onTrue: () => 0,
+    onFalse: () => {
+      const z = N.unsafeDivide(N.subtract(value, 1), N.sum(value, 1))
+      const zSquared = N.multiply(z, z)
+      const state = Arr.reduce(
+        Arr.range(0, N.decrement(LOG_SERIES_TERMS)),
+        new SeriesState({ term: z, total: 0 }),
+        (current, index) =>
+          new SeriesState({
+            term: N.multiply(current.term, zSquared),
+            total: N.sum(current.total, N.unsafeDivide(current.term, N.sum(N.multiply(index, 2), 1)))
+          })
+      )
+      return N.multiply(2, state.total)
+    }
+  })
 
 /**
  * Strict `log` kernel using DataView bit-decomposition + Taylor series.
@@ -83,35 +90,41 @@ const lnMantissa = (value: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const logStrict = (value: number): number => {
-  if (Number.isNaN(value)) return NaN
-  if (value === Infinity) return Infinity
-  if (value === 0) return -Infinity
-  if (value < 0) return NaN
-  const [exponent, mantissa] = decompose(value)
-  return lnMantissa(mantissa) + exponent * LN_2
-}
+export const logStrict = (value: number): number =>
+  Match.value(value).pipe(
+    Match.when(isNaN, () => NaN),
+    Match.when(Infinity, () => Infinity),
+    Match.when(0, () => N.negate(Infinity)),
+    Match.when(N.lessThan(0), () => NaN),
+    Match.orElse((positive) => {
+      const [exponent, mantissa] = decompose(positive)
+      return N.sum(lnMantissa(mantissa), N.multiply(exponent, LN_2))
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // log1p
 // ---------------------------------------------------------------------------
 
-const log1pSeries = (
-  x: number,
-  power: number,
-  index: number,
-  remaining: number,
-  total: number
-): number =>
-  remaining <= 0
-    ? total
-    : log1pSeries(
-      x,
-      power * x,
-      index + 1,
-      remaining - 1,
-      total + (index % 2 === 1 ? 1 : -1) * power / index
-    )
+const log1pSeries = (value: number): number =>
+  Arr.reduce(
+    Arr.range(1, LOG1P_SERIES_TERMS),
+    new SeriesState({ term: value, total: 0 }),
+    (current, index) =>
+      new SeriesState({
+        term: N.multiply(current.term, value),
+        total: N.sum(
+          current.total,
+          N.unsafeDivide(
+            Boolean.match(N.Equivalence(N.remainder(index, 2), 1), {
+              onTrue: () => current.term,
+              onFalse: () => N.negate(current.term)
+            }),
+            index
+          )
+        )
+      })
+  ).total
 
 /**
  * Relaxed `log1p` — direct `Math.log1p` delegation.
@@ -128,46 +141,38 @@ export const log1pRelaxed: (value: number) => number = Math.log1p
  * @since 0.1.0
  * @category internal
  */
-export const log1pStrict = (value: number): number => {
-  if (Number.isNaN(value)) return NaN
-  if (value === -1) return -Infinity
-  if (value < -1) return NaN
-  return Math.abs(value) < SMALL_LOG1P_THRESHOLD
-    ? log1pSeries(value, value, 1, LOG1P_SERIES_TERMS, 0)
-    : logStrict(1 + value)
-}
+export const log1pStrict = (value: number): number =>
+  Match.value(value).pipe(
+    Match.when(isNaN, () => NaN),
+    Match.when(0, (zero) => zero),
+    Match.when(-1, () => N.negate(Infinity)),
+    Match.when(N.lessThan(-1), () => NaN),
+    Match.when((input) => N.lessThan(N.max(input, N.negate(input)), SMALL_LOG1P_THRESHOLD), log1pSeries),
+    Match.orElse((input) => logStrict(N.sum(1, input)))
+  )
 
 // ---------------------------------------------------------------------------
 // expm1
 // ---------------------------------------------------------------------------
 
-const abs = (value: number): number => (value < 0 ? -value : value)
-
 const exp = (value: number): number =>
-  Number.isNaN(value)
-    ? NaN
-    : value === Infinity
-    ? Infinity
-    : value === -Infinity
-    ? 0
-    : E ** value
+  Match.value(value).pipe(
+    Match.when(isNaN, () => NaN),
+    Match.when(Infinity, () => Infinity),
+    Match.when(N.negate(Infinity), () => 0),
+    Match.orElse((input) => E ** input)
+  )
 
-const expm1Series = (
-  x: number,
-  term: number,
-  index: number,
-  remaining: number,
-  total: number
-): number =>
-  remaining <= 0
-    ? total
-    : expm1Series(
-      x,
-      (term * x) / (index + 1),
-      index + 1,
-      remaining - 1,
-      total + term
-    )
+const expm1Series = (value: number): number =>
+  Arr.reduce(
+    Arr.range(1, EXPM1_SERIES_TERMS),
+    new SeriesState({ term: value, total: 0 }),
+    (current, index) =>
+      new SeriesState({
+        term: N.unsafeDivide(N.multiply(current.term, value), N.increment(index)),
+        total: N.sum(current.total, current.term)
+      })
+  ).total
 
 /**
  * Relaxed `expm1` — direct `Math.expm1` delegation.
@@ -184,11 +189,12 @@ export const expm1Relaxed: (value: number) => number = Math.expm1
  * @since 0.1.0
  * @category internal
  */
-export const expm1Strict = (value: number): number => {
-  if (Number.isNaN(value)) return NaN
-  if (value === Infinity) return Infinity
-  if (value === -Infinity) return -1
-  return abs(value) < SMALL_EXPM1_THRESHOLD
-    ? expm1Series(value, value, 1, EXPM1_SERIES_TERMS, 0)
-    : exp(value) - 1
-}
+export const expm1Strict = (value: number): number =>
+  Match.value(value).pipe(
+    Match.when(isNaN, () => NaN),
+    Match.when(0, (zero) => zero),
+    Match.when(Infinity, () => Infinity),
+    Match.when(N.negate(Infinity), () => -1),
+    Match.when((input) => N.lessThan(N.max(input, N.negate(input)), SMALL_EXPM1_THRESHOLD), expm1Series),
+    Match.orElse((input) => N.subtract(exp(input), 1))
+  )

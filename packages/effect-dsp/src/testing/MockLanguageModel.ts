@@ -5,23 +5,11 @@
  */
 import * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
-import type * as Prompt from "@effect/ai/Prompt"
+import * as Prompt from "@effect/ai/Prompt"
 import * as Response from "@effect/ai/Response"
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import {
-  Array as Arr,
-  Data,
-  Effect,
-  Layer,
-  Match,
-  Option,
-  Order,
-  Predicate,
-  Record as Rec,
-  Ref,
-  Schema,
-  Stream
-} from "effect"
+import * as Toolkit from "@effect/ai/Toolkit"
+import { Array as Arr, Data, Effect, Layer, Match, Number, Option, Predicate, Ref, Schema, Stream } from "effect"
+import { encodePayload } from "../contracts/Payload.js"
 
 const MethodSchema = Schema.Literal("generateText", "generateObject")
 type Method = typeof MethodSchema.Type
@@ -54,61 +42,49 @@ export class MockCall extends Schema.Class<MockCall>("MockCall")({
   prompt: Schema.String
 }) {}
 
-/**
- * Always returns the configured response.
- *
- * @since 0.1.0
- * @category models
- */
-class FixedResponseStrategy extends Data.TaggedClass("Fixed")<{
-  readonly response: unknown
-}> {}
+const StrategyResponses = Schema.Array(Schema.Unknown)
+type StrategyResponses = typeof StrategyResponses.Type
 
-/** Computes a response synchronously from normalized prompt text. */
-class MappedResponseStrategy extends Data.TaggedClass("Map")<{
-  readonly resolve: (prompt: string) => unknown
-}> {}
+const SyncResolver = Schema.declare(
+  (input): input is (prompt: string) => unknown => Predicate.isFunction(input)
+)
 
-/** Returns responses in order, then repeats the final response. */
-class SequenceResponseStrategy extends Data.TaggedClass("Sequence")<{
-  readonly responses: ReadonlyArray<unknown>
-}> {}
+const EffectResolver = Schema.declare(
+  (input): input is (prompt: string) => Effect.Effect<unknown, unknown> => Predicate.isFunction(input)
+)
 
-/** Computes a response effectfully from normalized prompt text. */
-class FunctionResponseStrategy extends Data.TaggedClass("Function")<{
-  readonly resolve: (prompt: string) => Effect.Effect<unknown, unknown, never>
-}> {}
-
-/** Fails every generation with an `AiError.UnknownError`. */
-class FailingResponseStrategy extends Data.TaggedClass("Failing")<{
-  readonly error: unknown
-}> {}
+const ResponseStrategySchema = Schema.Union(
+  Schema.TaggedStruct("Fixed", { response: Schema.Unknown }),
+  Schema.TaggedStruct("Map", { resolve: SyncResolver }),
+  Schema.TaggedStruct("Sequence", { responses: StrategyResponses }),
+  Schema.TaggedStruct("Function", { resolve: EffectResolver }),
+  Schema.TaggedStruct("Failing", { error: Schema.Unknown })
+)
 
 /**
  * Response behavior selected when constructing a mock service.
  *
  * @remarks
- * Strategy outputs become text for text generation and deterministic JSON for
- * object generation. Provider response-part arrays pass through unchanged,
- * apart from insertion of a missing finish part.
+ * Strategy outputs become text for text generation and schema-encoded JSON for
+ * object generation. Native or encoded provider response parts pass through
+ * after public `Response.Part` validation and insertion of a missing finish
+ * part.
  *
  * @since 0.1.0
  * @category models
  */
-export type ResponseStrategy =
-  | FixedResponseStrategy
-  | MappedResponseStrategy
-  | SequenceResponseStrategy
-  | FunctionResponseStrategy
-  | FailingResponseStrategy
+export type ResponseStrategy = typeof ResponseStrategySchema.Type
 
 /**
- * Tagged-enum constructors and matchers for inspecting response strategies.
+ * Tagged-enum constructors and matchers for response strategies.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const ResponseStrategy = Data.taggedEnum<ResponseStrategy>()
+
+const MockCalls = Schema.Array(MockCall)
+type MockCalls = typeof MockCalls.Type
 
 /**
  * A mock service and its mutable, in-memory call log.
@@ -124,121 +100,60 @@ export class MockLanguageModelRuntime extends Data.TaggedClass("MockLanguageMode
   /** Language-model service supplied to code under test. */
   readonly service: LanguageModel.Service
   /** Append-only successful-call log owned by this runtime. */
-  readonly calls: Ref.Ref<ReadonlyArray<MockCall>>
+  readonly calls: Ref.Ref<MockCalls>
 }> {}
 
-const isTextPart = (candidate: unknown): candidate is { readonly type: "text"; readonly text: string } =>
-  Predicate.hasProperty(candidate, "type") &&
-  candidate.type === "text" &&
-  Predicate.hasProperty(candidate, "text") &&
-  Predicate.isString(candidate.text)
+const textFromPart = Match.type<Prompt.Part>().pipe(
+  Match.discriminatorsExhaustive("type")({
+    text: (part) => Option.some(part.text),
+    reasoning: () => Option.none<string>(),
+    file: () => Option.none<string>(),
+    "tool-call": () => Option.none<string>(),
+    "tool-result": () => Option.none<string>()
+  })
+)
 
-const hasContentProperty = (candidate: unknown): candidate is { readonly content: unknown } =>
-  Predicate.hasProperty(candidate, "content")
+const textFromParts = (parts: Iterable<Prompt.Part>): string =>
+  Arr.join(Arr.filterMap(Arr.fromIterable(parts), textFromPart), "\n")
 
-const hasContentArray = (candidate: unknown): candidate is { readonly content: ReadonlyArray<unknown> } =>
-  Predicate.hasProperty(candidate, "content") && Arr.isArray(candidate.content)
-
-const textFromUnknown = (value: unknown): string =>
-  Match.value(value).pipe(
-    Match.when(Predicate.isString, (text) => text),
-    Match.when(Predicate.isNumber, (numberValue) => String(numberValue)),
-    Match.when(Predicate.isBoolean, (booleanValue) => String(booleanValue)),
-    Match.orElse(() => "[non-text-response]")
-  )
-
-const textFromPart = (part: unknown): Option.Option<string> =>
-  Match.value(part).pipe(
-    Match.when(isTextPart, (candidate) => Option.some(candidate.text)),
-    Match.orElse(() => Option.none<string>())
-  )
-
-const textFromMessageContent = (content: unknown): string =>
-  Match.value(content).pipe(
-    Match.when(Predicate.isString, (text) => text),
-    Match.when(Arr.isArray, (parts) => Arr.join(Arr.filterMap(parts, textFromPart), "\n")),
-    Match.orElse(() => "")
-  )
-
-const messageContent = (message: unknown): Option.Option<unknown> =>
-  Match.value(message).pipe(
-    Match.when(hasContentProperty, (candidate) => Option.some(candidate.content)),
-    Match.orElse(() => Option.none<unknown>())
-  )
-
-const textFromMessages = (messages: ReadonlyArray<unknown>): string =>
-  Arr.join(
-    Arr.filterMap(messages, (message) => Option.map(messageContent(message), textFromMessageContent)),
-    "\n\n"
-  )
-
-const textFromPromptEnvelope = (prompt: Prompt.RawInput): Option.Option<string> =>
-  Match.value(prompt).pipe(
-    Match.when(hasContentArray, (candidate) => Option.some(textFromMessages(candidate.content))),
-    Match.orElse(() => Option.none<string>())
-  )
-
-const textFromPromptIterable = (prompt: unknown): Option.Option<string> =>
-  Match.value(prompt).pipe(
-    Match.when(Predicate.isIterable, (iterablePrompt) =>
-      Option.some(textFromMessages(Arr.fromIterable<unknown>(iterablePrompt)))),
-    Match.orElse(() =>
-      Option.none<string>()
-    )
-  )
+const textFromMessage = Match.type<Prompt.Message>().pipe(
+  Match.discriminatorsExhaustive("role")({
+    system: (message) => message.content,
+    user: (message) => textFromParts(message.content),
+    assistant: (message) => textFromParts(message.content),
+    tool: (message) => textFromParts(message.content)
+  })
+)
 
 const promptToText = (prompt: Prompt.RawInput): string =>
-  Match.value(prompt).pipe(
-    Match.when(Predicate.isString, (text) => text),
-    Match.orElse((rawPrompt) =>
-      Option.match(textFromPromptEnvelope(rawPrompt), {
-        onSome: (text) => text,
-        onNone: () =>
-          Option.match(textFromPromptIterable(rawPrompt), {
-            onSome: (text) => text,
-            onNone: () => ""
-          })
-      })
-    )
-  )
+  Arr.join(Arr.map(Prompt.make(prompt).content, textFromMessage), "\n\n")
 
 const appendCall = (
-  calls: Ref.Ref<ReadonlyArray<MockCall>>,
+  calls: Ref.Ref<MockCalls>,
   method: Method,
   prompt: string
 ): Effect.Effect<void> => Ref.update(calls, (entries) => Arr.append(entries, new MockCall({ method, prompt })))
 
 const resolveSequenceResponse = (
-  responses: ReadonlyArray<unknown>,
+  responses: StrategyResponses,
   sequenceIndex: Ref.Ref<number>
 ): Effect.Effect<unknown, AiError.UnknownError> =>
-  Effect.gen(function*() {
-    const index = yield* Ref.get(sequenceIndex)
-
-    const resolvedIndex = Match.value(responses.length).pipe(
-      Match.when((length) => length === 0, () => 0),
-      Match.orElse(() =>
-        Match.value(index).pipe(
-          Match.when((current) => current < responses.length, () => index),
-          Match.orElse(() => responses.length - 1)
+  Arr.match(responses, {
+    onEmpty: () =>
+      Effect.fail(
+        mockError(
+          "sequence",
+          "MockLanguageModel.sequence requires at least one response"
         )
-      )
-    )
-
-    const response = Arr.get(responses, resolvedIndex)
-
-    yield* Ref.update(sequenceIndex, (current) => current + 1)
-
-    return yield* Option.match(response, {
-      onSome: (value) => Effect.succeed(value),
-      onNone: () =>
-        Effect.fail(
-          mockError(
-            "sequence",
-            "MockLanguageModel.sequence requires at least one response"
+      ),
+    onNonEmpty: (available) =>
+      Ref.getAndUpdate(sequenceIndex, Number.increment).pipe(
+        Effect.map((index) =>
+          Arr.get(available, Number.min(index, Number.decrement(Arr.length(available)))).pipe(
+            Option.getOrElse(() => Arr.lastNonEmpty(available))
           )
         )
-    })
+      )
   })
 
 const resolveStrategyResponse = (
@@ -279,81 +194,56 @@ const resolveStrategyResponse = (
       )
   })(strategy)
 
-const escapeJsonString = (value: string): string =>
-  value
-    .replaceAll("\\", "\\\\")
-    .replaceAll("\"", "\\\"")
-    .replaceAll("\b", "\\b")
-    .replaceAll("\f", "\\f")
-    .replaceAll("\n", "\\n")
-    .replaceAll("\r", "\\r")
-    .replaceAll("\t", "\\t")
-
-const encodeJsonArray = (values: ReadonlyArray<unknown>): Option.Option<string> =>
-  Option.map(
-    Arr.reduce(
-      values,
-      Option.some(Arr.empty<string>()),
-      (encodedValuesOption, value) =>
-        Option.flatMap(encodedValuesOption, (encodedValues) =>
-          Option.map(encodeJsonValue(value), (encodedValue) => Arr.append(encodedValues, encodedValue)))
+const encodeJson = <A, I, R>(response: unknown, schema: Schema.Schema<A, I, R>) => {
+  const encoded = Schema.encodedSchema(schema)
+  return Schema.decodeUnknown(encoded)(response, { onExcessProperty: "error" }).pipe(
+    Effect.mapError((error) =>
+      AiError.MalformedOutput.fromParseError({ module: "MockLanguageModel", method: "generateObject", error })
     ),
-    (encodedValues) =>
-      `[${Arr.join(encodedValues, ",")}]`
-  )
-
-const encodeJsonRecord = (record: Readonly<Record<string, unknown>>): Option.Option<string> => {
-  const sortedKeys = Arr.sort(Rec.keys(record), Order.string)
-
-  const encodedEntriesOption = Arr.reduce(
-    sortedKeys,
-    Option.some(Arr.empty<string>()),
-    (encodedEntriesState, key) =>
-      Option.flatMap(
-        encodedEntriesState,
-        (encodedEntries) =>
-          Option.map(encodeJsonValue(record[key]), (encodedValue) =>
-            Arr.append(encodedEntries, `"${escapeJsonString(key)}":${encodedValue}`))
+    Effect.flatMap((value) =>
+      encodePayload(encoded, value).pipe(
+        Effect.mapError((cause) =>
+          mockError("generateObject", "MockLanguageModel JSON encoding would lose response information", cause)
+        )
       )
+    )
   )
-
-  return Option.map(encodedEntriesOption, (encodedEntries) => `{${Arr.join(encodedEntries, ",")}}`)
 }
 
-const encodeJsonValue = (value: unknown): Option.Option<string> =>
-  Match.value(value).pipe(
-    Match.when(Predicate.isNull, () => Option.some("null")),
-    Match.when(Predicate.isString, (text) => Option.some(`"${escapeJsonString(text)}"`)),
-    Match.when(
-      (candidate: unknown) => Predicate.isNumber(candidate) && Numeric.isFinite(candidate),
-      (numberValue) => Option.some(String(numberValue))
-    ),
-    Match.when(Predicate.isBoolean, (booleanValue) => Option.some(String(booleanValue))),
-    Match.when(Arr.isArray, encodeJsonArray),
-    Match.when(Predicate.isRecord, encodeJsonRecord),
-    Match.orElse(() => Option.none<string>())
+const encodeTextResponse = (response: unknown): Effect.Effect<string, AiError.UnknownError> =>
+  Match.value(response).pipe(
+    Match.when(Predicate.isString, (value) => Effect.succeed(value)),
+    Match.when(Schema.is(Schema.Finite), (value) =>
+      Schema.encode(Schema.NumberFromString)(value).pipe(
+        Effect.mapError((cause) => mockError("generateText", "Could not encode numeric strategy output", cause))
+      )),
+    Match.when(Predicate.isBoolean, (value) =>
+      Schema.encode(Schema.BooleanFromString)(value).pipe(
+        Effect.mapError((cause) => mockError("generateText", "Could not encode boolean strategy output", cause))
+      )),
+    Match.orElse((cause) =>
+      Effect.fail(
+        mockError(
+          "generateText",
+          "MockLanguageModel text responses must be strings, finite numbers, or booleans",
+          cause
+        )
+      )
+    )
   )
 
 const toProviderText = (
   response: unknown,
   responseFormat: LanguageModel.ProviderOptions["responseFormat"]
-): Effect.Effect<string, AiError.UnknownError> =>
-  Effect.if(responseFormat.type === "json", {
-    onTrue: () =>
-      Option.match(encodeJsonValue(response), {
-        onSome: (encoded) => Effect.succeed(encoded),
-        onNone: () =>
-          Effect.fail(
-            mockError(
-              "generateObject",
-              "MockLanguageModel could not encode strategy output as deterministic JSON"
-            )
-          )
-      }),
-    onFalse: () => Effect.succeed(textFromUnknown(response))
-  })
+): Effect.Effect<string, AiError.AiError> =>
+  Match.value(responseFormat).pipe(
+    Match.discriminatorsExhaustive("type")({
+      text: () => encodeTextResponse(response),
+      json: ({ schema }) => encodeJson(response, schema)
+    })
+  )
 
-const makeUsage = (): Response.Usage =>
+const unknownUsage = (): Response.Usage =>
   new Response.Usage({
     inputTokens: undefined,
     outputTokens: undefined,
@@ -362,41 +252,61 @@ const makeUsage = (): Response.Usage =>
     cachedInputTokens: undefined
   })
 
-const makeProviderResponse = (text: string): Array<Response.PartEncoded> =>
-  Arr.make(
-    Response.textPart({ text, metadata: {} }),
-    Response.finishPart({
-      reason: "stop",
-      usage: makeUsage(),
-      metadata: {}
-    })
+const ProviderResponseCandidate = Schema.Array(Schema.Unknown)
+
+const encodeProviderParts = (payload: unknown, options: LanguageModel.ProviderOptions) => {
+  const parts = Schema.mutable(Schema.Array(Response.Part(Toolkit.make(...options.tools))))
+
+  return Schema.decodeUnknown(Schema.Union(Schema.typeSchema(parts), parts))(payload).pipe(
+    Effect.map((decoded) =>
+      Option.match(Arr.findFirst(decoded, Schema.is(Response.FinishPart)), {
+        onSome: () => decoded,
+        onNone: () => Arr.append(decoded, Response.finishPart({ reason: "stop", usage: unknownUsage() }))
+      })
+    ),
+    Effect.flatMap(Schema.encode(parts)),
+    Effect.mapError((cause) =>
+      mockError(
+        "generateText",
+        "MockLanguageModel received invalid provider response parts",
+        cause
+      )
+    )
+  )
+}
+
+const makeProviderResponse = (text: string, options: LanguageModel.ProviderOptions) =>
+  encodeProviderParts(
+    Arr.make(
+      Response.textPart({ text }),
+      Response.finishPart({
+        reason: "stop",
+        usage: unknownUsage()
+      })
+    ),
+    options
   )
 
-const isResponsePartEncoded = (candidate: unknown): candidate is Response.PartEncoded =>
-  Predicate.hasProperty(candidate, "type") && Predicate.isString(candidate.type)
-
-const isProviderResponsePayload = (candidate: unknown): candidate is ReadonlyArray<Response.PartEncoded> =>
-  Arr.isArray(candidate) && Arr.every(candidate, isResponsePartEncoded)
-
-const ensureProviderFinishPart = (
-  payload: ReadonlyArray<Response.PartEncoded>
-): Array<Response.PartEncoded> =>
-  Option.match(Arr.findFirst(payload, (part) => part.type === "finish"), {
-    onSome: () => Arr.fromIterable(payload),
-    onNone: () =>
-      Arr.append(
-        Arr.fromIterable(payload),
-        Response.finishPart({
-          reason: "stop",
-          usage: makeUsage(),
-          metadata: {}
-        })
+const toProviderResponse = (response: unknown, options: LanguageModel.ProviderOptions) =>
+  Match.value(response).pipe(
+    Match.when(Schema.is(ProviderResponseCandidate), (payload) => encodeProviderParts(payload, options)),
+    Match.orElse((value) =>
+      toProviderText(value, options.responseFormat).pipe(
+        Effect.flatMap((text) => makeProviderResponse(text, options))
       )
+    )
+  )
+
+const methodFromResponseFormat = Match.type<LanguageModel.ProviderOptions["responseFormat"]>().pipe(
+  Match.discriminatorsExhaustive("type")({
+    text: (): Method => "generateText",
+    json: (): Method => "generateObject"
   })
+)
 
 const makeService = (
   strategy: ResponseStrategy,
-  calls: Ref.Ref<ReadonlyArray<MockCall>>,
+  calls: Ref.Ref<MockCalls>,
   sequenceIndex: Ref.Ref<number>
 ): Effect.Effect<LanguageModel.Service> =>
   LanguageModel.make({
@@ -404,25 +314,19 @@ const makeService = (
       Effect.gen(function*() {
         const prompt = promptToText(options.prompt)
         const strategyResponse = yield* resolveStrategyResponse(strategy, prompt, sequenceIndex)
-        const method: Method = options.responseFormat.type === "json" ? "generateObject" : "generateText"
+        const providerResponse = yield* toProviderResponse(strategyResponse, options)
 
-        const providerResponse = yield* Match.value(strategyResponse).pipe(
-          Match.when(
-            isProviderResponsePayload,
-            (payload) => Effect.succeed(ensureProviderFinishPart(payload))
-          ),
-          Match.orElse((response) =>
-            toProviderText(response, options.responseFormat).pipe(
-              Effect.map(makeProviderResponse)
-            )
-          )
-        )
-
-        yield* appendCall(calls, method, prompt)
+        yield* appendCall(calls, methodFromResponseFormat(options.responseFormat), prompt)
 
         return providerResponse
       }),
-    streamText: (_options) => Stream.empty
+    streamText: () =>
+      Stream.fail(
+        mockError(
+          "streamText",
+          "MockLanguageModel does not support streamText"
+        )
+      )
   })
 
 /**
@@ -430,9 +334,11 @@ const makeService = (
  *
  * @remarks
  * Generation is deterministic for deterministic strategy callbacks. The mock
- * does not simulate streaming: `streamText` is empty. Strategy failures,
- * exceptions from `map`, and values that cannot be encoded for object
- * generation fail as `AiError.UnknownError`.
+ * does not simulate streaming: `streamText` fails with `AiError.UnknownError`.
+ * Strategy failures, exceptions from `map`, unsupported text values, and
+ * lossy JSON encoding fail as `AiError.UnknownError`. Object responses must
+ * satisfy the requested schema's encoded form; mismatches fail with
+ * `AiError.MalformedOutput` before any successful call is recorded.
  *
  * @since 0.1.0
  * @category constructors
@@ -446,20 +352,20 @@ export const MockLanguageModel = {
    * Returns responses in order and repeats the final item after exhaustion.
    * An empty sequence fails each generation call with `AiError.UnknownError`.
    */
-  sequence: (responses: ReadonlyArray<unknown>): ResponseStrategy => ResponseStrategy.Sequence({ responses }),
+  sequence: (responses: StrategyResponses): ResponseStrategy => ResponseStrategy.Sequence({ responses }),
   /**
    * Computes each response with an Effect. Any failure is wrapped in
    * `AiError.UnknownError`.
    */
   fromFunction: (
-    resolve: (prompt: string) => Effect.Effect<unknown, unknown, never>
+    resolve: (prompt: string) => Effect.Effect<unknown, unknown>
   ): ResponseStrategy => ResponseStrategy.Function({ resolve }),
   /** Fails every generation call with an `AiError.UnknownError` carrying `error` as its cause. */
   failing: (error: unknown): ResponseStrategy => ResponseStrategy.Failing({ error }),
   /** Allocates an independent mock service, call log, and sequence cursor. */
   make: (strategy: ResponseStrategy): Effect.Effect<MockLanguageModelRuntime> =>
     Effect.gen(function*() {
-      const calls = yield* Ref.make<ReadonlyArray<MockCall>>([])
+      const calls = yield* Ref.make<MockCalls>(Arr.empty())
       const sequenceIndex = yield* Ref.make(0)
       const service = yield* makeService(strategy, calls, sequenceIndex)
 

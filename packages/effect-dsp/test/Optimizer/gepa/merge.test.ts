@@ -2,8 +2,9 @@
  * GEPA merge and crossover contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option, Schema, String as Str } from "effect"
 import {
+  classifyMergeComparisonBucket,
   findNearestCommonAncestor,
   prepareCommonAncestorMerge,
   recordAcceptedMerge,
@@ -35,7 +36,7 @@ const makeCandidate = (options: {
 }): ProgramCandidate =>
   new ProgramCandidate({
     candidateId: options.id,
-    parentIds: options.parentIds ?? [],
+    parentIds: Option.getOrElse(Option.fromNullable(options.parentIds), Arr.empty<string>),
     predictorInstructions: makePredictorInstructions(options.qa, options.judge)
   })
 
@@ -45,7 +46,7 @@ const findInstruction = (
 ): Option.Option<string> =>
   Arr.findFirst(
     candidate.predictorInstructions,
-    (entry) => entry.predictorName === predictorName
+    (entry) => Str.Equivalence(entry.predictorName, predictorName)
   ).pipe(Option.map((entry) => entry.instruction))
 
 describe("GEPA merge/crossover", () => {
@@ -99,8 +100,13 @@ describe("GEPA merge/crossover", () => {
         scheduleFixture.payload.attemptDecisions,
         (decision) =>
           Effect.sync(() => {
-            const shouldAttempt = decision.lastIterationFoundNew && decision.mergeBudgetRemaining > 0 &&
-              decision.candidateCount >= 2
+            const shouldAttempt = Bool.every(
+              Arr.make(
+                decision.lastIterationFoundNew,
+                Num.greaterThan(decision.mergeBudgetRemaining, 0),
+                Num.greaterThanOrEqualTo(decision.candidateCount, 2)
+              )
+            )
             expect(shouldAttempt).toBe(decision.expectedShouldAttempt)
           }),
         { discard: true }
@@ -134,9 +140,9 @@ describe("GEPA merge/crossover", () => {
     Effect.gen(function*() {
       const candidates = Arr.make(
         makeCandidate({ id: "root-a", qa: "root-a", judge: "root-a" }),
-        makeCandidate({ id: "a1", parentIds: ["root-a"], qa: "a1", judge: "a1" }),
+        makeCandidate({ id: "a1", parentIds: Arr.make("root-a"), qa: "a1", judge: "a1" }),
         makeCandidate({ id: "root-b", qa: "root-b", judge: "root-b" }),
-        makeCandidate({ id: "b1", parentIds: ["root-b"], qa: "b1", judge: "b1" })
+        makeCandidate({ id: "b1", parentIds: Arr.make("root-b"), qa: "b1", judge: "b1" })
       )
 
       const preparation = prepareCommonAncestorMerge({
@@ -153,23 +159,23 @@ describe("GEPA merge/crossover", () => {
 
       expect(preparation.event._tag).toBe("MergeSkippedNoCommonAncestor")
       expect(preparation.candidate).toEqual(Option.none())
-      expect(preparation.subsample).toEqual([])
+      expect(preparation.subsample).toEqual(Arr.empty())
     }))
 
   it.effect("selects the nearest discoverable common ancestor across branched lineage", () =>
     Effect.gen(function*() {
       const candidates = Arr.make(
         makeCandidate({ id: "root", qa: "root", judge: "root" }),
-        makeCandidate({ id: "distant", parentIds: ["root"], qa: "distant", judge: "distant" }),
-        makeCandidate({ id: "close", parentIds: ["root"], qa: "close", judge: "close" }),
-        makeCandidate({ id: "branch-a", parentIds: ["distant"], qa: "branch-a", judge: "branch-a" }),
+        makeCandidate({ id: "distant", parentIds: Arr.make("root"), qa: "distant", judge: "distant" }),
+        makeCandidate({ id: "close", parentIds: Arr.make("root"), qa: "close", judge: "close" }),
+        makeCandidate({ id: "branch-a", parentIds: Arr.make("distant"), qa: "branch-a", judge: "branch-a" }),
         makeCandidate({
           id: "parent-a",
-          parentIds: ["branch-a", "close"],
+          parentIds: Arr.make("branch-a", "close"),
           qa: "qa-parent-a",
           judge: "judge-parent-a"
         }),
-        makeCandidate({ id: "parent-b", parentIds: ["close"], qa: "qa-parent-b", judge: "judge-parent-b" })
+        makeCandidate({ id: "parent-b", parentIds: Arr.make("close"), qa: "qa-parent-b", judge: "judge-parent-b" })
       )
 
       const nearest = findNearestCommonAncestor(candidates, "parent-a", "parent-b")
@@ -214,16 +220,68 @@ describe("GEPA merge/crossover", () => {
         selectedIds,
         Arr.empty<string>(),
         (acc, id) =>
-          Arr.some(acc, (knownId) => knownId === id)
-            ? acc
-            : Arr.append(acc, id)
+          Bool.match(Arr.some(acc, (knownId) => Str.Equivalence(knownId, id)), {
+            onFalse: () => Arr.append(acc, id),
+            onTrue: () => acc
+          })
       )
 
-      expect(selectedA.length).toBe(5)
+      expect(Arr.length(selectedA)).toBe(5)
       expect(selectedA).toEqual(selectedB)
-      expect(uniqueIds.length).toBe(selectedA.length)
-      expect(Arr.some(selectedA, (entry) => entry.exampleId === "e-7")).toBe(true)
-      expect(Arr.some(selectedA, (entry) => entry.exampleId === "e-8")).toBe(true)
+      expect(Arr.length(uniqueIds)).toBe(Arr.length(selectedA))
+      expect(Arr.some(selectedA, (entry) => Str.Equivalence(entry.exampleId, "e-7"))).toBe(true)
+      expect(Arr.some(selectedA, (entry) => Str.Equivalence(entry.exampleId, "e-8"))).toBe(true)
+    }))
+
+  it.effect("classifies unordered scores and equal infinities as ties", () =>
+    Effect.sync(() => {
+      const buckets = Arr.map(
+        Arr.make(
+          new MergeComparison({ exampleId: "nan-a", parentAScore: Number.NaN, parentBScore: 1 }),
+          new MergeComparison({ exampleId: "nan-b", parentAScore: 1, parentBScore: Number.NaN }),
+          new MergeComparison({
+            exampleId: "positive-infinity",
+            parentAScore: Number.POSITIVE_INFINITY,
+            parentBScore: Number.POSITIVE_INFINITY
+          }),
+          new MergeComparison({
+            exampleId: "negative-infinity",
+            parentAScore: Number.NEGATIVE_INFINITY,
+            parentBScore: Number.NEGATIVE_INFINITY
+          })
+        ),
+        classifyMergeComparisonBucket
+      )
+
+      expect(buckets).toEqual(Arr.make("tie", "tie", "tie", "tie"))
+    }))
+
+  it.effect("uses parent B for unordered merge ranking while preserving finite ties", () =>
+    Effect.sync(() => {
+      const ancestor = makeCandidate({ id: "root", qa: "root", judge: "root" })
+      const parentA = makeCandidate({ id: "parent-a", parentIds: Arr.make("root"), qa: "from-a", judge: "root" })
+      const parentB = makeCandidate({ id: "parent-b", parentIds: Arr.make("root"), qa: "from-b", judge: "root" })
+      const candidates = Arr.make(ancestor, parentA, parentB)
+      const prepare = (parentAScore: number, parentBScore: number) =>
+        prepareCommonAncestorMerge({
+          candidates,
+          parentAId: "parent-a",
+          parentBId: "parent-b",
+          parentAScore,
+          parentBScore,
+          mergedCandidateId: "merged",
+          comparisons: Arr.empty<MergeComparison>(),
+          mergeBudgetRemaining: 1,
+          seed: 1
+        })
+      const instruction = (parentAScore: number, parentBScore: number) =>
+        prepare(parentAScore, parentBScore).candidate.pipe(
+          Option.flatMap((candidate) => findInstruction(candidate, "qa"))
+        )
+
+      expect(instruction(Number.NaN, 1)).toEqual(Option.some("from-b"))
+      expect(instruction(1, Number.NaN)).toEqual(Option.some("from-b"))
+      expect(instruction(1, 1)).toEqual(Option.some("from-a"))
     }))
 
   it.effect("records lineage and decrements merge budget when merge is accepted", () =>
@@ -231,13 +289,13 @@ describe("GEPA merge/crossover", () => {
       const seed = makeCandidate({ id: "seed", qa: "qa-seed", judge: "judge-seed" })
       const parentA = makeCandidate({
         id: "parent-a",
-        parentIds: ["seed"],
+        parentIds: Arr.make("seed"),
         qa: "qa-from-a",
         judge: "judge-seed"
       })
       const parentB = makeCandidate({
         id: "parent-b",
-        parentIds: ["seed"],
+        parentIds: Arr.make("seed"),
         qa: "qa-seed",
         judge: "judge-from-b"
       })
@@ -278,9 +336,9 @@ describe("GEPA merge/crossover", () => {
 
       expect(findInstruction(acceptedCandidate, "qa")).toEqual(Option.some("qa-from-a"))
       expect(findInstruction(acceptedCandidate, "judge")).toEqual(Option.some("judge-from-b"))
-      expect(acceptedCandidate.parentIds).toEqual(["parent-a", "parent-b"])
+      expect(acceptedCandidate.parentIds).toEqual(Arr.make("parent-a", "parent-b"))
       expect(updatedState.mergeBudgetRemaining).toBe(1)
-      expect(updatedState.candidates.length).toBe(4)
+      expect(Arr.length(updatedState.candidates)).toBe(4)
       expect(Arr.last(updatedState.candidates).pipe(Option.map((candidate) => candidate.candidateId))).toEqual(
         Option.some("merged-1")
       )

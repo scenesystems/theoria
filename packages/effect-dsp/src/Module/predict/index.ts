@@ -5,16 +5,16 @@
  * @module
  */
 import type { Schema } from "effect"
-import { Data, Effect, HashMap, Option, Ref } from "effect"
+import { Array as Arr, Data, Effect, HashMap, Option, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { Signature } from "../../Signature/model.js"
 import { Module } from "../model.js"
-import { makePredictPolicy, type PredictPolicyOverrides } from "./policy.js"
-import { makeForward } from "./runtime.js"
+import { makePredictPolicy, PredictPolicyOverrides } from "./policy.js"
+import { makeForward, RuntimeOptions } from "./runtime.js"
 
-const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
+const EMPTY_PREDICT_POLICY_OVERRIDES = new PredictPolicyOverrides({})
 
 /**
  * Configures text-output parsing for one predictor.
@@ -27,7 +27,7 @@ export class PredictOptions extends Data.Class<{
   readonly policy?: PredictPolicyOverrides
 }> {}
 
-const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
+const EMPTY_PREDICT_OPTIONS = new PredictOptions({})
 
 const makeInitialParams = <
   I extends Schema.Struct.Fields,
@@ -37,7 +37,7 @@ const makeInitialParams = <
 ): ModuleParams =>
   new ModuleParams({
     instructions: signature.instructions,
-    demos: []
+    demos: Arr.empty()
   })
 
 /**
@@ -53,8 +53,9 @@ const makeInitialParams = <
  * parses field markers and retries parse failures according to the resolved
  * policy, adding the preceding diagnostics to the next prompt. Provider errors
  * are not retried by the parse policy. Discovery registration occurs before the
- * model call; trace and usage records are appended only after a successful call
- * and trace projection.
+ * model call. Every model invocation records its terminal call independently of
+ * parsing and trace projection; successful trace entries retain only the final
+ * invocation's selected usage, preferring early observation over returned usage.
  *
  * @typeParam I - Input fields inferred from the signature.
  * @typeParam O - Output fields inferred from the signature.
@@ -89,14 +90,16 @@ export const predict = <
       signature,
       params: paramsRef,
       subModules: HashMap.empty<ModuleId, ModuleNode>(),
-      forward: makeForward({
-        moduleName: name,
-        signature,
-        inputSchema: signature.inputSchema,
-        outputSchema: signature.outputSchema,
-        paramsRef,
-        policy
-      })
+      forward: makeForward(
+        new RuntimeOptions({
+          moduleName: name,
+          signature,
+          inputSchema: signature.inputSchema,
+          outputSchema: signature.outputSchema,
+          paramsRef,
+          policy
+        })
+      )
     })
   })
 

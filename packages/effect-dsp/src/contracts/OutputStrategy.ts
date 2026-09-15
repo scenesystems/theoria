@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Match, Schema } from "effect"
+import { Boolean, Match, Number, Schema } from "effect"
 
 /**
  * Decodes the three output-rendering policies accepted by module parameters.
@@ -25,12 +25,13 @@ export const OutputStrategySchema = Schema.Literal("text", "structured", "auto")
  */
 export type OutputStrategy = Schema.Schema.Type<typeof OutputStrategySchema>
 
-const resolveAutoStrategy = (demoCount: number): "text" | "structured" =>
-  Match.value(demoCount).pipe(
-    Match.withReturnType<"text" | "structured">(),
-    Match.when((count) => count > 0, () => "text"),
-    Match.orElse(() => "structured")
-  )
+const ConcreteStrategy = OutputStrategySchema.pipe(Schema.pickLiteral("text", "structured"))
+
+const resolveAutoStrategy = (demoCount: number): typeof ConcreteStrategy.Type =>
+  Boolean.match(Number.greaterThan(demoCount, 0), {
+    onTrue: () => "text",
+    onFalse: () => "structured"
+  })
 
 /**
  * Resolves an output policy before a module invokes the language model.
@@ -47,9 +48,11 @@ const resolveAutoStrategy = (demoCount: number): "text" | "structured" =>
  * @since 0.1.0
  * @category combinators
  */
-export const resolveStrategy = (strategy: OutputStrategy, demoCount: number): "text" | "structured" =>
+export const resolveStrategy = (strategy: OutputStrategy, demoCount: number): typeof ConcreteStrategy.Type =>
   Match.value(strategy).pipe(
-    Match.withReturnType<"text" | "structured">(),
+    Match.withReturnType<typeof ConcreteStrategy.Type>(),
     Match.when("auto", () => resolveAutoStrategy(demoCount)),
-    Match.orElse((value) => value)
+    Match.when("text", () => "text"),
+    Match.when("structured", () => "structured"),
+    Match.exhaustive
   )

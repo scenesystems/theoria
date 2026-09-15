@@ -4,17 +4,29 @@
  *
  * @since 0.1.0
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Option } from "effect"
-import type { Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Inspectable,
+  Number as Num,
+  Option,
+  Schema,
+  String as Str
+} from "effect"
 
 import { extractInstruction, generateText } from "../../../Module/textGeneration.js"
 import { evaluateMutationAcceptance } from "../accept.js"
 import { GEPAEvent } from "../events.js"
 import { GEPAState, PredictorInstruction, ProgramCandidate } from "../model.js"
-import { buildReflectiveDataset, buildReflectivePrompt, selectPredictorRoundRobin } from "../reflect.js"
+import {
+  buildReflectiveDataset,
+  buildReflectivePrompt,
+  selectPredictorRoundRobin,
+  selectReflectiveSamples
+} from "../reflect.js"
 
-import { evaluateCandidate } from "./evaluate.js"
+import { CandidateEvaluationWindow, evaluateCandidate } from "./evaluate.js"
 import { chooseParentIndex, instructionForPredictor } from "./helpers.js"
 import type { GEPAEventSink, GEPAOptions } from "./options.js"
 
@@ -25,10 +37,10 @@ import type { GEPAEventSink, GEPAOptions } from "./options.js"
  * @since 0.1.0
  * @category models
  */
-export class MutationPhaseResult extends Data.Class<{
-  readonly stateAfterAcceptance: GEPAState
-  readonly accepted: boolean
-}> {}
+export class MutationPhaseResult extends Schema.Class<MutationPhaseResult>("GEPAMutationPhaseResult")({
+  stateAfterAcceptance: GEPAState,
+  accepted: Schema.Boolean
+}) {}
 
 const buildMutationCandidate = (
   parentCandidate: ProgramCandidate,
@@ -37,27 +49,33 @@ const buildMutationCandidate = (
   iteration: number
 ): ProgramCandidate => {
   const mutatedCandidate = new ProgramCandidate({
-    candidateId: `mut-${iteration}`,
+    candidateId: Str.concat("mut-", Inspectable.toStringUnknown(iteration)),
     parentIds: Arr.make(parentCandidate.candidateId),
     predictorInstructions: Arr.map(parentCandidate.predictorInstructions, (entry) =>
       new PredictorInstruction({
         predictorName: entry.predictorName,
-        instruction: entry.predictorName === predictorName
-          ? mutatedInstruction
-          : entry.instruction
+        instruction: Bool.match(Str.Equivalence(entry.predictorName, predictorName), {
+          onFalse: () => entry.instruction,
+          onTrue: () => mutatedInstruction
+        })
       }))
   })
 
-  return Arr.some(mutatedCandidate.predictorInstructions, (entry) => entry.predictorName === predictorName)
-    ? mutatedCandidate
-    : new ProgramCandidate({
-      candidateId: mutatedCandidate.candidateId,
-      parentIds: mutatedCandidate.parentIds,
-      predictorInstructions: Arr.append(
-        mutatedCandidate.predictorInstructions,
-        new PredictorInstruction({ predictorName, instruction: mutatedInstruction })
-      )
-    })
+  return Bool.match(
+    Arr.some(mutatedCandidate.predictorInstructions, (entry) => Str.Equivalence(entry.predictorName, predictorName)),
+    {
+      onTrue: () => mutatedCandidate,
+      onFalse: () =>
+        new ProgramCandidate({
+          candidateId: mutatedCandidate.candidateId,
+          parentIds: mutatedCandidate.parentIds,
+          predictorInstructions: Arr.append(
+            mutatedCandidate.predictorInstructions,
+            new PredictorInstruction({ predictorName, instruction: mutatedInstruction })
+          )
+        })
+    }
+  )
 }
 
 /**
@@ -68,13 +86,12 @@ const buildMutationCandidate = (
  * @since 0.1.0
  * @category combinators
  */
-export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
-  options: GEPAOptions<I, O, ME, MR>,
+export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: GEPAOptions<I, O, ME, MR, E, R>,
   stateAfterMerge: GEPAState,
   iteration: number,
   mutationSeed: number,
   initialCandidate: ProgramCandidate,
-  initialInstruction: string,
   emit: GEPAEventSink
 ) =>
   Effect.gen(function*() {
@@ -84,21 +101,19 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
     const predictorName = Option.getOrElse(
       selectPredictorRoundRobin(
         Arr.map(parentCandidate.predictorInstructions, (entry) => entry.predictorName),
-        iteration - 1
+        Num.decrement(iteration)
       ),
       () => options.module.name
     )
-    const currentInstruction = Option.getOrElse(instructionForPredictor(parentCandidate, predictorName), () =>
-      initialInstruction)
+    const currentInstruction = Option.getOrElse(instructionForPredictor(parentCandidate, predictorName), () => "")
     const reflectivePrompt = buildReflectivePrompt({
       predictorName,
       currentInstruction,
-      examples: buildReflectiveDataset(parentEvaluation.samples)
+      examples: buildReflectiveDataset(selectReflectiveSamples(parentEvaluation.samples, predictorName))
     })
     const mutatedInstruction = yield* Effect.map(
       generateText(reflectivePrompt),
-      (response) =>
-        extractInstruction(response, currentInstruction)
+      (response) => extractInstruction(response, currentInstruction)
     )
     const mutatedCandidate = buildMutationCandidate(parentCandidate, predictorName, mutatedInstruction, iteration)
 
@@ -112,29 +127,53 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
       })
     )
 
-    const mutatedEvaluation = yield* evaluateCandidate(options, mutatedCandidate)
-    const subsampleSize = Numeric.min(
-      Numeric.min(3, parentEvaluation.scores.length),
-      mutatedEvaluation.scores.length
+    const subsampleSize = Num.min(3, Arr.length(parentEvaluation.scores))
+    const mutatedSubsampleEvaluation = yield* evaluateCandidate(
+      options,
+      mutatedCandidate,
+      new CandidateEvaluationWindow({
+        startIndex: 0,
+        rowCount: Option.some(subsampleSize)
+      })
     )
     const acceptance = yield* evaluateMutationAcceptance({
       previousSubsampleScores: Arr.take(parentEvaluation.scores, subsampleSize),
-      mutatedSubsampleScores: Arr.take(mutatedEvaluation.scores, subsampleSize),
-      evaluateFullValset: Effect.succeed(mutatedEvaluation.scores)
-    })
-    const accepted = acceptance.gate1Passed && Option.isSome(acceptance.fullValsetScores)
-    const stateAfterAcceptance = new GEPAState({
-      ...stateAfterMerge,
-      candidates: accepted
-        ? Arr.append(stateAfterMerge.candidates, mutatedCandidate)
-        : stateAfterMerge.candidates,
-      scoreVectors: accepted
-        ? Arr.append(
-          stateAfterMerge.scoreVectors,
-          Option.getOrElse(acceptance.fullValsetScores, () => mutatedEvaluation.scores)
+      mutatedSubsampleScores: mutatedSubsampleEvaluation.scores,
+      evaluateFullValset: evaluateCandidate(
+        options,
+        mutatedCandidate,
+        new CandidateEvaluationWindow({
+          startIndex: subsampleSize,
+          rowCount: Option.none()
+        })
+      ).pipe(
+        Effect.map((remainingEvaluation) =>
+          Arr.appendAll(mutatedSubsampleEvaluation.scores, remainingEvaluation.scores)
         )
-        : stateAfterMerge.scoreVectors,
-      lastIterationFoundNew: accepted
+      )
+    })
+    const accepted = Bool.match(acceptance.gate1Passed, {
+      onFalse: () => false,
+      onTrue: () => Option.isSome(acceptance.fullValsetScores)
+    })
+    const stateAfterAcceptance = new GEPAState({
+      iteration: stateAfterMerge.iteration,
+      candidates: Bool.match(accepted, {
+        onFalse: () => stateAfterMerge.candidates,
+        onTrue: () => Arr.append(stateAfterMerge.candidates, mutatedCandidate)
+      }),
+      scoreVectors: Bool.match(accepted, {
+        onFalse: () => stateAfterMerge.scoreVectors,
+        onTrue: () =>
+          Arr.append(
+            stateAfterMerge.scoreVectors,
+            Option.getOrElse(acceptance.fullValsetScores, () => mutatedSubsampleEvaluation.scores)
+          )
+      }),
+      paretoSnapshot: stateAfterMerge.paretoSnapshot,
+      mergeBudgetRemaining: stateAfterMerge.mergeBudgetRemaining,
+      lastIterationFoundNew: accepted,
+      seed: stateAfterMerge.seed
     })
 
     yield* emit(
@@ -148,8 +187,8 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
       })
     )
 
-    return {
+    return new MutationPhaseResult({
       stateAfterAcceptance,
       accepted
-    }
+    })
   })

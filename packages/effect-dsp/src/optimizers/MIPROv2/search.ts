@@ -6,18 +6,27 @@
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Array as Arr, Effect, Option, Ref } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { projectSingleObjective } from "../../contracts/ObjectiveProjection.js"
+import { AllTrialsFailed } from "../../Errors/optimizer.js"
 import * as Evaluate from "../../Evaluate/index.js"
-import type { Example } from "../../Example/index.js"
-import { noPhase3Events, Phase3Diagnostics, type RunPhase3SearchOptions } from "./phase3-model.js"
+import type { MIPROExamples } from "./index.js"
+import { noPhase3Events, Phase3Diagnostics, Phase3SearchResult, type RunPhase3SearchOptions } from "./phase3-model.js"
 import {
   normalizePositive,
   phase3TrialBudget as phase3TrialBudgetFormula,
   resolvePhase3Cadence
 } from "./runtime/budget.js"
-import { applyPhase3Config, evaluateBaseline, evaluateTrial, makePhase3TrialRefs } from "./runtime/evaluate.js"
+import {
+  applyPhase3Config,
+  ApplyPhase3ConfigOptions,
+  evaluateBaseline,
+  EvaluateBaselineOptions,
+  evaluateTrial,
+  EvaluateTrialOptions,
+  makePhase3TrialRefs
+} from "./runtime/evaluate.js"
 import { demoDimensionName, instructionDimensionName, type Phase3Config } from "./runtime/model.js"
 import {
   baselineConfig,
@@ -25,7 +34,8 @@ import {
   maxCandidateCount,
   objectiveScore,
   resolveBestConfig,
-  resolveBindings
+  resolveBindings,
+  ResolveBindingsOptions
 } from "./runtime/search-space.js"
 
 export { noPhase3Events, Phase3Diagnostics } from "./phase3-model.js"
@@ -65,6 +75,10 @@ export const phase3TrialBudget = phase3TrialBudgetFormula
  *
  * Missing candidate sets, unsupported dimension sizes, malformed sampled
  * indexes, and an empty winning result fail with `AllTrialsFailed`. Failures
+ * of every example in an evaluation also fail with `AllTrialsFailed`, before
+ * report projection; reports with some successful examples remain scoreable.
+ * A failed baseline aborts search, and failed study trials cannot beat the
+ * successful baseline prior, including when all new trials fail. Failures
  * raised inside the effect-search study retain the study's `SearchError`
  * channel. Baseline evaluation also retains its metric, module, Schema, and
  * language-model error channels.
@@ -84,23 +98,28 @@ export const runPhase3Search = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 >(
-  options: RunPhase3SearchOptions<I, O, ME, MR>
+  options: RunPhase3SearchOptions<I, O, ME, MR, E, R>
 ) =>
   Effect.gen(function*() {
     const evaluationContext = yield* Effect.context<
       | LanguageModel.LanguageModel
       | MR
+      | R
       | Schema.Schema.Context<Schema.Struct<I>>
       | Schema.Schema.Context<Schema.Struct<O>>
     >()
     const emit = Option.getOrElse(Option.fromNullable(options.emit), () => noPhase3Events)
-    const bindings = yield* resolveBindings({
-      module: options.module,
-      demoCandidates: options.demoCandidates,
-      instructionCandidates: options.instructionCandidates
-    })
+    const bindings = yield* resolveBindings(
+      new ResolveBindingsOptions({
+        module: options.module,
+        demoCandidates: options.demoCandidates,
+        instructionCandidates: options.instructionCandidates
+      })
+    )
     const dimensions = yield* buildSearchDimensions(bindings)
     const space = yield* SearchSpace.make(dimensions)
     const cadence = resolvePhase3Cadence({
@@ -117,14 +136,15 @@ export const runPhase3Search = <
         onSome: (fullEvalEvery) => ({ fullEvalEvery })
       })
     })
-    const demoCandidateCount = maxCandidateCount(bindings, (binding) => binding.demos.candidates.length)
-    const instructionCandidateCount = maxCandidateCount(bindings, (binding) => binding.instructions.candidates.length)
+    const demoCandidateCount = maxCandidateCount(bindings, (binding) => Arr.length(binding.demos.candidates))
+    const instructionCandidateCount = maxCandidateCount(bindings, (binding) =>
+      Arr.length(binding.instructions.candidates))
     const trialBudget = normalizePositive(
       Option.getOrElse(
         Option.fromNullable(options.trialBudget),
         () =>
           phase3TrialBudget({
-            predictorCount: bindings.length,
+            predictorCount: Arr.length(bindings),
             demoCandidateCount,
             instructionCandidateCount
           })
@@ -133,13 +153,15 @@ export const runPhase3Search = <
     )
     const minibatchExamples = Arr.take(options.valset, cadence.minibatchSize)
     const refs = yield* makePhase3TrialRefs
-    const evaluateOn = (config: Phase3Config, examples: ReadonlyArray<Example>) =>
+    const evaluateOn = (config: Phase3Config, examples: MIPROExamples) =>
       Effect.gen(function*() {
-        yield* applyPhase3Config({
-          config,
-          bindings,
-          trialBudget
-        })
+        yield* applyPhase3Config(
+          new ApplyPhase3ConfigOptions({
+            config,
+            bindings,
+            trialBudget
+          })
+        )
 
         const report = yield* Evaluate.run({
           module: options.module,
@@ -149,49 +171,65 @@ export const runPhase3Search = <
           },
           concurrency: 1
         }).pipe(Effect.provide(evaluationContext))
+        yield* Effect.when(
+          Effect.fail(
+            new AllTrialsFailed({
+              message: "MIPROv2 Phase 3 evaluation produced zero successful examples",
+              trialCount: Arr.length(examples)
+            })
+          ),
+          () =>
+            Num.lessThanOrEqualTo(report.successCount, 0)
+        )
         const projection = yield* projectSingleObjective(report, Option.some("miprov2"))
 
         return yield* objectiveScore(projection.objective)
       })
     const baseline = baselineConfig(bindings)
-    const baselineResult = yield* evaluateBaseline({
-      baselineConfig: baseline,
-      valset: options.valset,
-      refs,
-      evaluateOn
-    })
+    const [baselineObjective, priorTrial] = yield* evaluateBaseline(
+      new EvaluateBaselineOptions({
+        baselineConfig: baseline,
+        valset: options.valset,
+        refs,
+        evaluateOn
+      })
+    )
 
     const studyResult = yield* Study.maximize({
       space,
       sampler: SearchSampler.tpe({ seed: cadence.seed, multivariate: true }),
       trials: trialBudget,
       objective: (config) =>
-        evaluateTrial({
-          config,
-          refs,
-          minibatchExamples,
-          valset: options.valset,
-          fullEvalEvery: cadence.fullEvalEvery,
-          emit,
-          evaluateOn
-        }),
-      priorTrials: Arr.make(baselineResult.priorTrial),
+        evaluateTrial(
+          new EvaluateTrialOptions({
+            config,
+            refs,
+            minibatchExamples,
+            valset: options.valset,
+            fullEvalEvery: cadence.fullEvalEvery,
+            emit,
+            evaluateOn
+          })
+        ),
+      priorTrials: Arr.make(priorTrial),
       concurrency: 1
     })
 
     const bestConfig = yield* resolveBestConfig(studyResult, trialBudget)
 
-    yield* applyPhase3Config({
-      config: bestConfig,
-      bindings,
-      trialBudget
-    })
+    yield* applyPhase3Config(
+      new ApplyPhase3ConfigOptions({
+        config: bestConfig,
+        bindings,
+        trialBudget
+      })
+    )
 
     const fullEvalTrialNumbers = yield* Ref.get(refs.fullEvalTrialsRef)
     const minibatchTrialNumbers = yield* Ref.get(refs.minibatchTrialsRef)
-    const bestScore = yield* Ref.get(refs.bestScoreRef)
+    const bestScore = Option.getOrElse(yield* Ref.get(refs.bestScoreRef), () => baselineObjective)
 
-    return {
+    return new Phase3SearchResult<I, O, E, R>({
       module: options.module,
       studyResult,
       diagnostics: new Phase3Diagnostics({
@@ -208,8 +246,8 @@ export const runPhase3Search = <
         fullEvalTrialNumbers,
         minibatchTrialNumbers,
         priorTrialCount: 1,
-        baselineObjective: baselineResult.baselineObjective,
+        baselineObjective,
         bestScore
       })
-    }
+    })
   })

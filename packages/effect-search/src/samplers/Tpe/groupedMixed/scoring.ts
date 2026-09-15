@@ -3,7 +3,8 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Match, Option, Predicate, Record, Tuple } from "effect"
+import type { Schema } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Match, Number as Num, Option, Predicate, Record, Tuple } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
 import type * as Rng from "../../../internal/rng.js"
@@ -25,7 +26,7 @@ class GroupCandidate extends Data.Class<{
 }> {}
 
 const independentTraceValue = <A>(
-  values: ReadonlyArray<A>,
+  values: Schema.Array$<Schema.Schema<A>>["Type"],
   index: number,
   reason: string
 ): Effect.Effect<A, InvalidSamplerConfig> =>
@@ -39,7 +40,7 @@ const independentTraceValue = <A>(
 const multivariateTraceForGroup = (
   rng: Rng.Rng,
   nCandidates: number,
-  parameters: ReadonlyArray<SearchSpace.ParameterMetadata>,
+  parameters: SearchSpace.SearchSpace["params"],
   split: TrialSplit,
   settings: GroupedMixedSettings,
   acquisition: AcquisitionOption
@@ -48,7 +49,7 @@ const multivariateTraceForGroup = (
     Match.when(false, () => Effect.succeedNone),
     Match.orElse(() => {
       const continuous = Arr.filter(parameters, (parameter) => isContinuousParameter(parameter))
-      return Match.value(continuous.length >= 2).pipe(
+      return Match.value(Num.greaterThanOrEqualTo(Arr.length(continuous), 2)).pipe(
         Match.when(false, () => Effect.succeedNone),
         Match.orElse(() => multivariateContinuousCandidateTrace(rng, nCandidates, continuous, split, acquisition))
       )
@@ -65,28 +66,28 @@ const multivariateTraceForGroup = (
  * @category sampling
  */
 export const mergeConfigs = (left: unknown, right: unknown): unknown =>
-  Record.fromEntries([
-    ...Match.value(left).pipe(
+  Record.fromEntries(Arr.appendAll(
+    Match.value(left).pipe(
       Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
       Match.orElse(() => Arr.empty<readonly [string, unknown]>())
     ),
-    ...Match.value(right).pipe(
+    Match.value(right).pipe(
       Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
       Match.orElse(() => Arr.empty<readonly [string, unknown]>())
     )
-  ])
+  ))
 
 const candidateCount = (
-  independentTraces: ReadonlyArray<NamedDimensionScoreTrace>,
+  independentTraces: Schema.Array$<Schema.Schema<NamedDimensionScoreTrace>>["Type"],
   multivariateTrace: Option.Option<MultivariateContinuousTrace>
 ): Option.Option<number> =>
   Option.match(multivariateTrace, {
-    onNone: () => Arr.head(independentTraces).pipe(Option.map((trace) => trace.trace.candidates.length)),
-    onSome: (trace) => Option.some(trace.candidateConfigs.length)
+    onNone: () => Arr.head(independentTraces).pipe(Option.map((trace) => Arr.length(trace.trace.candidates))),
+    onSome: (trace) => Option.some(Arr.length(trace.candidateConfigs))
   })
 
 const groupCandidateAtIndex = (
-  independentTraces: ReadonlyArray<NamedDimensionScoreTrace>,
+  independentTraces: Schema.Array$<Schema.Schema<NamedDimensionScoreTrace>>["Type"],
   multivariateTrace: Option.Option<MultivariateContinuousTrace>,
   split: TrialSplit,
   index: number,
@@ -128,7 +129,7 @@ const groupCandidateAtIndex = (
           })
         ),
       onSome: (trace) =>
-        Effect.all([
+        Effect.all(Tuple.make(
           independentTraceValue(
             trace.candidateConfigs,
             index,
@@ -144,7 +145,7 @@ const groupCandidateAtIndex = (
             index,
             `tpe grouped candidate trace missing multivariate logG at index ${index}`
           )
-        ]).pipe(
+        )).pipe(
           Effect.map(([multivariateConfig, multivariateLogL, multivariateLogG]) => {
             const mergedConfig = mergeConfigs(independentConfig, multivariateConfig)
             return new GroupCandidate({
@@ -177,7 +178,7 @@ const groupCandidateAtIndex = (
 export const suggestGroup = (
   rng: Rng.Rng,
   nCandidates: number,
-  parameters: ReadonlyArray<SearchSpace.ParameterMetadata>,
+  parameters: SearchSpace.SearchSpace["params"],
   split: TrialSplit,
   settings: GroupedMixedSettings,
   noiseOptions: NoiseBandwidthOptions,
@@ -195,7 +196,7 @@ export const suggestGroup = (
     )
     const independentParameters = Option.match(multivariateTrace, {
       onNone: () => parameters,
-      onSome: () => Arr.filter(parameters, (parameter) => !isContinuousParameter(parameter))
+      onSome: () => Arr.filter(parameters, (parameter) => Boolean.not(isContinuousParameter(parameter)))
     })
     const independentTraces = yield* Effect.forEach(independentParameters, (parameter) =>
       traceForParameter(rng, nCandidates, parameter, groupSplit, noiseOptions, acquisition))

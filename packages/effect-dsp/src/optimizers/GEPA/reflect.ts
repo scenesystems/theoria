@@ -6,13 +6,12 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Match, Option, Predicate, Record } from "effect"
+import { Array as Arr, Boolean, Match, Number, Option, Schema, String } from "effect"
 import type { MetricResult } from "../../contracts/MetricResult.js"
 import { ReflectiveExample } from "./model.js"
 import type { ReflectiveDatasetSample } from "./model.js"
 
 const EMPTY_FEEDBACK = ""
-const NON_SCALAR_FALLBACK = "[non-scalar]"
 
 const normalizeIteration = (iteration: number): number => {
   const finiteIteration = Match.value(iteration).pipe(
@@ -20,39 +19,34 @@ const normalizeIteration = (iteration: number): number => {
     Match.orElse(() => 0)
   )
 
-  return Match.value(finiteIteration).pipe(
-    Match.when((value) => value < 0, () => 0),
-    Match.orElse((value) => value)
-  )
+  return Number.max(0, finiteIteration)
 }
 
-const renderUnknown = (value: unknown): string =>
-  Match.value(value).pipe(
-    Match.when(Predicate.isString, (text) => text),
-    Match.when(Predicate.isNumber, (numberValue) => String(numberValue)),
-    Match.when(Predicate.isBoolean, (booleanValue) => String(booleanValue)),
-    Match.when(Predicate.isNull, () => "null"),
-    Match.orElse(() => NON_SCALAR_FALLBACK)
+const renderReflectiveExampleSection = (example: ReflectiveExample, index: number): string => {
+  const labels = Match.value(example.evidenceScope).pipe(
+    Match.when("predictor-execution", () =>
+      Arr.make(
+        "## Inputs (Actual Target Predictor Execution)",
+        "## Generated Outputs (Actual Target Predictor Execution)"
+      )),
+    Match.orElse(() => Arr.make("## Inputs (Program-level Evidence)", "## Generated Outputs (Program-level Evidence)"))
   )
 
-const renderFieldRecord = (record: ReflectiveExample["inputs"]): string =>
-  Arr.join(
-    Arr.map(Record.toEntries(record), ([key, value]) => `${key}: ${renderUnknown(value)}`),
-    "\n"
+  return Arr.join(
+    Arr.make(
+      String.concat("# Example ", Schema.encodeSync(Schema.NumberFromString)(Number.increment(index))),
+      Arr.headNonEmpty(labels),
+      example.inputs,
+      Arr.lastNonEmpty(labels),
+      example.generatedOutputs,
+      "## Expected Output (Program-level; Not a Child Predictor Label)",
+      example.expectedOutput,
+      "## Feedback (Program-level Metric)",
+      example.feedback
+    ),
+    "\n\n"
   )
-
-const renderReflectiveExampleSection = (example: ReflectiveExample, index: number): string =>
-  [
-    `# Example ${index + 1}`,
-    "## Inputs",
-    renderFieldRecord(example.inputs),
-    "## Generated Outputs",
-    renderFieldRecord(example.generatedOutputs),
-    "## Expected Output",
-    renderFieldRecord(example.expectedOutput),
-    "## Feedback",
-    example.feedback
-  ].join("\n\n")
+}
 
 /**
  * Prefix for explicit parse-failure feedback injected when an LLM response
@@ -71,7 +65,7 @@ export const PARSE_FAILURE_FEEDBACK_PREFIX = "Your output failed to parse. Follo
  * @category constructors
  */
 export const formatParseFailureFeedback = (structureInstruction: string): string =>
-  `${PARSE_FAILURE_FEEDBACK_PREFIX}${structureInstruction}`
+  String.concat(PARSE_FAILURE_FEEDBACK_PREFIX, structureInstruction)
 
 /**
  * Normalize `MetricResult.feedback` into a required string — empty feedback
@@ -83,7 +77,7 @@ export const formatParseFailureFeedback = (structureInstruction: string): string
 export const normalizeMetricFeedback = (metricResult: MetricResult): string =>
   Option.match(Option.fromNullable(metricResult.feedback), {
     onNone: () => EMPTY_FEEDBACK,
-    onSome: (feedback) => feedback.trim()
+    onSome: String.trim
   })
 
 const reflectiveFeedback = (sample: ReflectiveDatasetSample): string =>
@@ -103,6 +97,7 @@ export const buildReflectiveExample = (sample: ReflectiveDatasetSample): Reflect
   new ReflectiveExample({
     exampleId: sample.exampleId,
     predictorName: sample.predictorName,
+    evidenceScope: sample.evidenceScope,
     inputs: sample.inputs,
     generatedOutputs: sample.generatedOutputs,
     expectedOutput: sample.expectedOutput,
@@ -117,8 +112,35 @@ export const buildReflectiveExample = (sample: ReflectiveDatasetSample): Reflect
  * @category constructors
  */
 export const buildReflectiveDataset = (
-  samples: ReadonlyArray<ReflectiveDatasetSample>
-): ReadonlyArray<ReflectiveExample> => Arr.map(samples, buildReflectiveExample)
+  samples: Iterable<ReflectiveDatasetSample>
+) => Arr.map(Arr.fromIterable(samples), buildReflectiveExample)
+
+/**
+ * Select actual executions of the target predictor, falling back to explicitly
+ * labeled program-level evidence when that predictor emitted no trace entries.
+ *
+ * @since 0.4.0
+ * @category combinators
+ */
+export const selectReflectiveSamples = (
+  samples: Iterable<ReflectiveDatasetSample>,
+  predictorName: string
+) => {
+  const materialized = Arr.fromIterable(samples)
+  const predictorExecutions = Arr.filter(
+    materialized,
+    (sample) =>
+      Boolean.and(
+        String.Equivalence(sample.predictorName, predictorName),
+        String.Equivalence(sample.evidenceScope, "predictor-execution")
+      )
+  )
+
+  return Arr.match(predictorExecutions, {
+    onEmpty: () => Arr.filter(materialized, (sample) => String.Equivalence(sample.evidenceScope, "program")),
+    onNonEmpty: (executions) => executions
+  })
+}
 
 /**
  * Select a predictor name using deterministic round-robin cycling across
@@ -128,13 +150,24 @@ export const buildReflectiveDataset = (
  * @category combinators
  */
 export const selectPredictorRoundRobin = (
-  predictorNames: ReadonlyArray<string>,
+  predictorNames: Iterable<string>,
   iteration: number
 ): Option.Option<string> =>
-  Option.match(Arr.head(predictorNames), {
-    onNone: () => Option.none<string>(),
-    onSome: () => Arr.get(predictorNames, normalizeIteration(iteration) % predictorNames.length)
+  Arr.match(Arr.fromIterable(predictorNames), {
+    onEmpty: () => Option.none<string>(),
+    onNonEmpty: (names) => Arr.get(names, Number.remainder(normalizeIteration(iteration), Arr.length(names)))
   })
+
+/**
+ * Instructions and schema-encoded failure examples for reflective mutation.
+ * @since 0.4.0
+ * @category schemas
+ */
+export const ReflectivePromptOptions = Schema.Struct({
+  predictorName: Schema.String,
+  currentInstruction: Schema.String,
+  examples: Schema.Array(ReflectiveExample)
+})
 
 /**
  * Assemble the reflective mutation prompt for one predictor — includes
@@ -145,27 +178,30 @@ export const selectPredictorRoundRobin = (
  * @since 0.1.0
  * @category constructors
  */
-export const buildReflectivePrompt = (options: {
-  readonly predictorName: string
-  readonly currentInstruction: string
-  readonly examples: ReadonlyArray<ReflectiveExample>
-}): string =>
-  [
-    "I provided an assistant with the following instructions to perform a task for me:",
-    "```",
-    options.currentInstruction,
-    "```",
-    "The following are examples of different task inputs provided to the assistant",
-    "along with the assistant's response for each of them, and some feedback on",
-    "how the assistant's response could be better:",
-    Arr.join(Arr.map(options.examples, renderReflectiveExampleSection), "\n\n"),
-    "Your task is to write a new instruction for the assistant.",
-    "Read the inputs carefully and identify the input format and infer detailed",
-    "task description about the task I wish to solve with the assistant.",
-    "Read all the assistant responses and the corresponding feedback. Identify",
-    "all niche and domain specific factual information about the task and include",
-    "it in the instruction. The assistant may have utilized a generalizable",
-    "strategy to solve the task, if so, include that in the instruction as well.",
-    `Target predictor: ${options.predictorName}`,
-    "Provide the new instructions within ``` blocks."
-  ].join("\n\n")
+export const buildReflectivePrompt = (options: typeof ReflectivePromptOptions.Type): string =>
+  Arr.join(
+    Arr.make(
+      "I provided an assistant with the following instructions to perform a task for me:",
+      "```",
+      options.currentInstruction,
+      "```",
+      "The following are examples of different task inputs provided to the assistant",
+      "along with the assistant's response for each of them, and some feedback on",
+      "how the assistant's response could be better:",
+      "Evidence marked as an actual target-predictor execution contains that predictor's",
+      "successful runtime input and output. Expected outputs and metric feedback remain",
+      "program-level signals; they are not labels for an intermediate child predictor.",
+      "Program-level evidence is used only when no target-predictor execution is available.",
+      Arr.join(Arr.map(options.examples, renderReflectiveExampleSection), "\n\n"),
+      "Your task is to write a new instruction for the assistant.",
+      "Read the inputs carefully and identify the input format and infer detailed",
+      "task description about the task I wish to solve with the assistant.",
+      "Read all the assistant responses and the corresponding feedback. Identify",
+      "all niche and domain specific factual information about the task and include",
+      "it in the instruction. The assistant may have utilized a generalizable",
+      "strategy to solve the task, if so, include that in the instruction as well.",
+      String.concat("Target predictor: ", options.predictorName),
+      "Provide the new instructions within ``` blocks."
+    ),
+    "\n\n"
+  )

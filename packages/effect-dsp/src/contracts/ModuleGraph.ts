@@ -3,94 +3,89 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, HashMap, Option, Order, Schema } from "effect"
+import { Array as Arr, Data, Equivalence, Graph, HashMap, Option, Order, Schema, Tuple } from "effect"
 import { ModuleId } from "./ModuleId.js"
 import { ModuleNodeSignature } from "./ModuleNode.js"
 
 const moduleIdOrder: Order.Order<ModuleId> = Order.mapInput(Order.string, (moduleId: ModuleId) => moduleId)
 
-const uniqueSortedModuleIds = (moduleIds: ReadonlyArray<ModuleId>): ReadonlyArray<ModuleId> => {
-  const sorted = Arr.sort(moduleIds, moduleIdOrder)
-
-  return Arr.reduce(sorted, Arr.empty<ModuleId>(), (acc, moduleId) =>
-    Option.match(Arr.last(acc), {
-      onNone: () => Arr.make(moduleId),
-      onSome: (last) =>
-        last === moduleId
-          ? acc
-          : Arr.append(acc, moduleId)
-    }))
-}
+const uniqueSortedModuleIds = (moduleIds: Iterable<ModuleId>): ModuleGraphNode["subModuleIds"] =>
+  Arr.dedupeWith(Arr.sort(moduleIds, moduleIdOrder), Equivalence.string)
 
 const graphNodeOrder: Order.Order<ModuleGraphNode> = Order.mapInput(moduleIdOrder, (node) => node.moduleId)
 
 const graphEdgeOrder: Order.Order<ModuleGraphEdge> = Order.mapInput(
   Order.string,
-  (edge) => `${edge.parentId}->${edge.childId}`
+  (edge) => Arr.join(Arr.make(edge.parentId, "->", edge.childId), "")
 )
 
-class TraversalState extends Data.Class<{
-  readonly order: ReadonlyArray<ModuleId>
-  readonly visited: ReadonlyArray<ModuleId>
+class NativeModuleGraph extends Data.Class<{
+  readonly graph: Graph.DirectedGraph<ModuleId, ModuleId>
+  readonly root: Graph.NodeIndex
 }> {}
 
-const nodeLookup = (graph: ModuleGraph): HashMap.HashMap<ModuleId, ModuleGraphNode> =>
-  Arr.reduce(
-    graph.nodes,
-    HashMap.empty<ModuleId, ModuleGraphNode>(),
-    (lookup, node) => HashMap.set(lookup, node.moduleId, node)
+const nativeModuleGraph = (source: ModuleGraph): NativeModuleGraph => {
+  const graph = Graph.beginMutation(Graph.directed<ModuleId, ModuleId>())
+  const root = Graph.addNode(graph, source.rootId)
+  const lookup = HashMap.fromIterable(Arr.map(source.nodes, (node) => Tuple.make(node.moduleId, node)))
+  const identities = Arr.dedupe(
+    Arr.flatMap(Arr.fromIterable(HashMap.values(lookup)), (node) => Arr.prepend(node.subModuleIds, node.moduleId))
   )
+  const indices = Arr.reduce(
+    identities,
+    HashMap.make(Tuple.make(source.rootId, root)),
+    (state, moduleId) =>
+      Option.match(HashMap.get(state, moduleId), {
+        onSome: () => state,
+        onNone: () => HashMap.set(state, moduleId, Graph.addNode(graph, moduleId))
+      })
+  )
+  Arr.forEach(HashMap.values(lookup), (node) => {
+    const parent = Option.getOrThrow(HashMap.get(indices, node.moduleId))
+    Arr.forEach(node.subModuleIds, (childId) => {
+      Graph.addEdge(graph, parent, Option.getOrThrow(HashMap.get(indices, childId)), childId)
+    })
+  })
+  return new NativeModuleGraph({ graph: Graph.endMutation(graph), root })
+}
 
-const traverseNode = (
-  lookup: HashMap.HashMap<ModuleId, ModuleGraphNode>,
-  moduleId: ModuleId,
-  visited: ReadonlyArray<ModuleId>
-): TraversalState =>
-  visited.includes(moduleId)
-    ? {
-      order: Arr.empty<ModuleId>(),
-      visited
-    }
-    : Option.match(HashMap.get(lookup, moduleId), {
-      onNone: () => ({
-        order: Arr.make(moduleId),
-        visited: Arr.append(visited, moduleId)
-      }),
-      onSome: (node) => {
-        const seed: TraversalState = {
-          order: Arr.make(moduleId),
-          visited: Arr.append(visited, moduleId)
-        }
+class DiscoveredLineage extends Data.Class<{
+  readonly rank: number
+  readonly lineage: ModuleLineage
+}> {}
 
-        return Arr.reduce(node.subModuleIds, seed, (state, childId) => {
-          const childState = traverseNode(lookup, childId, state.visited)
+const discoveryOrder: Order.Order<DiscoveredLineage> = Order.mapInput(Order.number, (entry) => entry.rank)
 
-          return {
-            order: Arr.appendAll(state.order, childState.order),
-            visited: childState.visited
-          }
+// A node's latest already-discovered predecessor is its DFS discovery parent:
+// any predecessor discovered later than that parent would have discovered the
+// node itself. Fold native DFS output rather than replaying traversal or using
+// a shortest-path algorithm. Later back/cross edges cannot replace a lineage.
+const nativeLineages = (native: NativeModuleGraph) =>
+  Arr.reduce(
+    Graph.entries(Graph.dfs(native.graph, { start: Arr.make(native.root) })),
+    HashMap.empty<Graph.NodeIndex, DiscoveredLineage>(),
+    (discovered, [index, targetId], rank) => {
+      const parent = Arr.last(Arr.sort(
+        Arr.filterMap(Graph.predecessors(native.graph, index), (predecessor) => HashMap.get(discovered, predecessor)),
+        discoveryOrder
+      ))
+      const path = Arr.append(
+        Option.match(parent, {
+          onNone: () => Arr.empty<ModuleId>(),
+          onSome: (entry) => entry.lineage.path
+        }),
+        targetId
+      )
+      return HashMap.set(
+        discovered,
+        index,
+        new DiscoveredLineage({
+          rank,
+          lineage: new ModuleLineage({ targetId, path })
         })
-      }
-    })
-
-const findLineagePath = (
-  lookup: HashMap.HashMap<ModuleId, ModuleGraphNode>,
-  currentId: ModuleId,
-  targetId: ModuleId,
-  visited: ReadonlyArray<ModuleId>
-): Option.Option<ReadonlyArray<ModuleId>> =>
-  visited.includes(currentId)
-    ? Option.none()
-    : currentId === targetId
-    ? Option.some(Arr.append(visited, currentId))
-    : Option.match(HashMap.get(lookup, currentId), {
-      onNone: () => Option.none(),
-      onSome: (node) =>
-        Arr.reduce(node.subModuleIds, Option.none<ReadonlyArray<ModuleId>>(), (found, childId) =>
-          Option.isSome(found)
-            ? found
-            : findLineagePath(lookup, childId, targetId, Arr.append(visited, currentId)))
-    })
+      )
+    }
+  )
 
 /**
  * Stores prompt metadata and immediate child identities for one module.
@@ -182,11 +177,7 @@ const normalizeNode = (node: ModuleGraphNode): ModuleGraphNode =>
  * @since 0.1.0
  * @category constructors
  */
-export const makeModuleGraph = (options: {
-  readonly rootId: ModuleId
-  readonly nodes: ReadonlyArray<ModuleGraphNode>
-  readonly edges: ReadonlyArray<ModuleGraphEdge>
-}): ModuleGraph =>
+export const makeModuleGraph = (options: ModuleGraph): ModuleGraph =>
   new ModuleGraph({
     rootId: options.rootId,
     nodes: Arr.sort(Arr.map(options.nodes, normalizeNode), graphNodeOrder),
@@ -207,8 +198,10 @@ export const makeModuleGraph = (options: {
  * @since 0.1.0
  * @category combinators
  */
-export const stableModuleGraphTraversal = (graph: ModuleGraph): ReadonlyArray<ModuleId> =>
-  traverseNode(nodeLookup(graph), graph.rootId, Arr.empty<ModuleId>()).order
+export const stableModuleGraphTraversal = (graph: ModuleGraph): ModuleGraphNode["subModuleIds"] => {
+  const native = nativeModuleGraph(graph)
+  return Arr.fromIterable(Graph.values(Graph.dfs(native.graph, { start: Arr.make(native.root) })))
+}
 
 /**
  * Finds the first root-to-target path in stored child order.
@@ -227,11 +220,14 @@ export const stableModuleGraphTraversal = (graph: ModuleGraph): ReadonlyArray<Mo
 export const moduleGraphLineage = (
   graph: ModuleGraph,
   targetId: ModuleId
-): Option.Option<ModuleLineage> =>
-  Option.map(
-    findLineagePath(nodeLookup(graph), graph.rootId, targetId, Arr.empty<ModuleId>()),
-    (path) => new ModuleLineage({ targetId, path })
+): Option.Option<ModuleLineage> => {
+  const native = nativeModuleGraph(graph)
+  const lineages = nativeLineages(native)
+  return Graph.findNode(native.graph, (moduleId) => Equivalence.string(moduleId, targetId)).pipe(
+    Option.flatMap((index) => HashMap.get(lineages, index)),
+    Option.map((entry) => entry.lineage)
   )
+}
 
 /**
  * Stores traversal order and reachable lineages computed from a module graph.
@@ -248,9 +244,6 @@ export class ModuleGraphProjection extends Schema.Class<ModuleGraphProjection>("
   lineages: Schema.Array(ModuleLineage)
 }) {}
 
-const graphLineages = (graph: ModuleGraph): ReadonlyArray<ModuleLineage> =>
-  Arr.filterMap(graph.nodes, (node) => moduleGraphLineage(graph, node.moduleId))
-
 /**
  * Computes traversal order and reachable node lineages once.
  *
@@ -265,9 +258,15 @@ const graphLineages = (graph: ModuleGraph): ReadonlyArray<ModuleLineage> =>
  * @since 0.1.0
  * @category combinators
  */
-export const projectModuleGraph = (graph: ModuleGraph): ModuleGraphProjection =>
-  new ModuleGraphProjection({
+export const projectModuleGraph = (graph: ModuleGraph): ModuleGraphProjection => {
+  const native = nativeModuleGraph(graph)
+  const discovered = Arr.sort(Arr.fromIterable(HashMap.values(nativeLineages(native))), discoveryOrder)
+  const lineages = HashMap.fromIterable(
+    Arr.map(discovered, (entry) => Tuple.make(entry.lineage.targetId, entry.lineage))
+  )
+  return new ModuleGraphProjection({
     rootId: graph.rootId,
-    traversal: stableModuleGraphTraversal(graph),
-    lineages: graphLineages(graph)
+    traversal: Arr.map(discovered, (entry) => entry.lineage.targetId),
+    lineages: Arr.filterMap(graph.nodes, (node) => HashMap.get(lineages, node.moduleId))
   })
+}

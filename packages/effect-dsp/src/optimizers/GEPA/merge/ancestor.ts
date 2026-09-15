@@ -5,45 +5,55 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Match, Option, Order, Tuple } from "effect"
-import type { ProgramCandidate } from "../model.js"
+import { Array as Arr, Match, Number as Num, Option, Order, Schema, String as Str, Tuple } from "effect"
+import { ProgramCandidate, ProgramCandidates } from "../model.js"
 
-export class ResolveMergeInputsOptions extends Data.Class<{
-  readonly candidates: ReadonlyArray<ProgramCandidate>
-  readonly parentAId: string
-  readonly parentBId: string
-}> {}
-
-export class MergeInputs extends Data.Class<{
-  readonly commonAncestorId: string
-  readonly ancestor: ProgramCandidate
-  readonly parentA: ProgramCandidate
-  readonly parentB: ProgramCandidate
-}> {}
-
-class AncestorDistance extends Data.Class<{
-  readonly candidateId: string
-  readonly distance: number
-}> {}
-
-class CommonAncestorCandidate extends Data.Class<{
-  readonly candidateId: string
-  readonly parentADistance: number
-  readonly parentBDistance: number
-}> {}
-
-const makeAncestorDistance = (candidateId: string, distance: number): AncestorDistance => ({
-  candidateId,
-  distance
+export const ResolveMergeInputsOptions = Schema.Struct({
+  candidates: ProgramCandidates,
+  parentAId: Schema.String,
+  parentBId: Schema.String
 })
+
+export type ResolveMergeInputsOptions = typeof ResolveMergeInputsOptions.Type
+
+export class MergeInputs extends Schema.Class<MergeInputs>("GEPAMergeInputs")({
+  commonAncestorId: Schema.String,
+  ancestor: ProgramCandidate,
+  parentA: ProgramCandidate,
+  parentB: ProgramCandidate
+}) {}
+
+class AncestorDistance extends Schema.Class<AncestorDistance>("GEPAAncestorDistance")({
+  candidateId: Schema.String,
+  distance: Schema.Number
+}) {}
+
+const AncestorDistances = Schema.Array(AncestorDistance)
+
+type AncestorDistances = typeof AncestorDistances.Type
+
+class CommonAncestorCandidate extends Schema.Class<CommonAncestorCandidate>("GEPACommonAncestorCandidate")({
+  candidateId: Schema.String,
+  parentADistance: Schema.Number,
+  parentBDistance: Schema.Number
+}) {}
+
+const CommonAncestorCandidates = Schema.Array(CommonAncestorCandidate)
+
+type CommonAncestorCandidates = typeof CommonAncestorCandidates.Type
+
+const makeAncestorDistance = (candidateId: string, distance: number): AncestorDistance =>
+  new AncestorDistance({
+    candidateId,
+    distance
+  })
 
 const commonAncestorOrder: Order.Order<CommonAncestorCandidate> = Order.mapInput(
   Order.tuple(Order.number, Order.number, Order.number, Order.number, Order.string),
   (candidate) =>
     Tuple.make(
-      Numeric.max(candidate.parentADistance, candidate.parentBDistance),
-      candidate.parentADistance + candidate.parentBDistance,
+      Num.max(candidate.parentADistance, candidate.parentBDistance),
+      Num.sum(candidate.parentADistance, candidate.parentBDistance),
       candidate.parentADistance,
       candidate.parentBDistance,
       candidate.candidateId
@@ -51,14 +61,15 @@ const commonAncestorOrder: Order.Order<CommonAncestorCandidate> = Order.mapInput
 )
 
 const findCandidate = (
-  candidates: ReadonlyArray<ProgramCandidate>,
+  candidates: ProgramCandidates,
   candidateId: string
-): Option.Option<ProgramCandidate> => Arr.findFirst(candidates, (candidate) => candidate.candidateId === candidateId)
+): Option.Option<ProgramCandidate> =>
+  Arr.findFirst(candidates, (candidate) => Str.Equivalence(candidate.candidateId, candidateId))
 
 const parentIdsForCandidate = (
-  candidates: ReadonlyArray<ProgramCandidate>,
+  candidates: ProgramCandidates,
   candidateId: string
-): ReadonlyArray<string> =>
+): ProgramCandidate["parentIds"] =>
   findCandidate(candidates, candidateId).pipe(
     Option.match({
       onNone: () => Arr.empty<string>(),
@@ -67,49 +78,49 @@ const parentIdsForCandidate = (
   )
 
 const distanceForCandidate = (
-  distances: ReadonlyArray<AncestorDistance>,
+  distances: AncestorDistances,
   candidateId: string
 ): Option.Option<number> =>
-  Arr.findFirst(distances, (entry) => entry.candidateId === candidateId).pipe(
+  Arr.findFirst(distances, (entry) => Str.Equivalence(entry.candidateId, candidateId)).pipe(
     Option.map((entry) => entry.distance)
   )
 
 const replaceDistance = (
-  distances: ReadonlyArray<AncestorDistance>,
+  distances: AncestorDistances,
   candidateId: string,
   distance: number
-): ReadonlyArray<AncestorDistance> =>
+): AncestorDistances =>
   Arr.map(distances, (entry) =>
-    Match.value(entry.candidateId === candidateId).pipe(
+    Match.value(Str.Equivalence(entry.candidateId, candidateId)).pipe(
       Match.when(true, () => makeAncestorDistance(candidateId, distance)),
       Match.orElse(() => entry)
     ))
 
 const upsertDistance = (
-  distances: ReadonlyArray<AncestorDistance>,
+  distances: AncestorDistances,
   candidateId: string,
   distance: number
-): ReadonlyArray<AncestorDistance> =>
+): AncestorDistances =>
   Option.match(distanceForCandidate(distances, candidateId), {
     onNone: () => Arr.append(distances, makeAncestorDistance(candidateId, distance)),
     onSome: () => replaceDistance(distances, candidateId, distance)
   })
 
 const shouldExploreCandidate = (
-  distances: ReadonlyArray<AncestorDistance>,
+  distances: AncestorDistances,
   candidateId: string,
   distance: number
 ): boolean =>
   Option.match(distanceForCandidate(distances, candidateId), {
     onNone: () => true,
-    onSome: (knownDistance) => distance < knownDistance
+    onSome: (knownDistance) => Num.lessThan(distance, knownDistance)
   })
 
 const collectAncestorDistances = (
-  candidates: ReadonlyArray<ProgramCandidate>,
-  pending: ReadonlyArray<AncestorDistance>,
-  distances: ReadonlyArray<AncestorDistance>
-): ReadonlyArray<AncestorDistance> =>
+  candidates: ProgramCandidates,
+  pending: AncestorDistances,
+  distances: AncestorDistances
+): AncestorDistances =>
   Arr.head(pending).pipe(
     Option.match({
       onNone: () => distances,
@@ -122,7 +133,7 @@ const collectAncestorDistances = (
             const updatedDistances = upsertDistance(distances, current.candidateId, current.distance)
             const parentDistances = Arr.map(
               parentIdsForCandidate(candidates, current.candidateId),
-              (parentId) => makeAncestorDistance(parentId, current.distance + 1)
+              (parentId) => makeAncestorDistance(parentId, Num.increment(current.distance))
             )
 
             return collectAncestorDistances(
@@ -137,18 +148,20 @@ const collectAncestorDistances = (
   )
 
 const sharedAncestorCandidates = (
-  parentADistances: ReadonlyArray<AncestorDistance>,
-  parentBDistances: ReadonlyArray<AncestorDistance>
-): ReadonlyArray<CommonAncestorCandidate> =>
+  parentADistances: AncestorDistances,
+  parentBDistances: AncestorDistances
+): CommonAncestorCandidates =>
   Arr.filterMap(
     parentADistances,
     (parentAEntry) =>
       distanceForCandidate(parentBDistances, parentAEntry.candidateId).pipe(
-        Option.map((parentBDistance) => ({
-          candidateId: parentAEntry.candidateId,
-          parentADistance: parentAEntry.distance,
-          parentBDistance
-        }))
+        Option.map((parentBDistance) =>
+          new CommonAncestorCandidate({
+            candidateId: parentAEntry.candidateId,
+            parentADistance: parentAEntry.distance,
+            parentBDistance
+          })
+        )
       )
   )
 
@@ -160,7 +173,7 @@ const sharedAncestorCandidates = (
  * @category combinators
  */
 export const findNearestCommonAncestor = (
-  candidates: ReadonlyArray<ProgramCandidate>,
+  candidates: ProgramCandidates,
   parentAId: string,
   parentBId: string
 ): Option.Option<string> => {
@@ -196,7 +209,7 @@ export const resolveMergeInputs = (
           findCandidate(options.candidates, options.parentBId).pipe(
             Option.flatMap((parentB) =>
               findCandidate(options.candidates, commonAncestorId).pipe(
-                Option.map((ancestor) => ({ commonAncestorId, ancestor, parentA, parentB }))
+                Option.map((ancestor) => new MergeInputs({ commonAncestorId, ancestor, parentA, parentB }))
               )
             )
           )

@@ -10,7 +10,7 @@ import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLangua
 import type * as EmbeddingModel from "@effect/ai/EmbeddingModel"
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
-import { Layer, Option } from "effect"
+import { Boolean, Data, Layer, Option } from "effect"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import type { RuntimeCapabilities } from "../contracts/RuntimeCapabilities.js"
@@ -20,10 +20,12 @@ import { ResolvedModelLayers, RuntimeResolution } from "../Runtime/services.js"
 import { planCompatibleTransport } from "./config.js"
 import { makeOpenAiCompatibleRoute } from "./metadata.js"
 
-const compatibleLanguageLayer = (options: {
+class CompatibleModelOptions extends Data.Class<{
   readonly model: string
   readonly baseUrl: string
-}): Layer.Layer<LanguageModel.LanguageModel, never, never> =>
+}> {}
+
+const compatibleLanguageLayer = (options: CompatibleModelOptions): Layer.Layer<LanguageModel.LanguageModel> =>
   Layer.provide(
     Layer.provide(
       OpenRouterLanguageModel.layer({ model: options.model }),
@@ -32,10 +34,7 @@ const compatibleLanguageLayer = (options: {
     FetchHttpClient.layer
   )
 
-const compatibleEmbeddingLayer = (options: {
-  readonly model: string
-  readonly baseUrl: string
-}): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> =>
+const compatibleEmbeddingLayer = (options: CompatibleModelOptions): Layer.Layer<EmbeddingModel.EmbeddingModel> =>
   Layer.provide(
     Layer.provide(
       OpenAiEmbeddingModel.layerBatched({ model: options.model }),
@@ -44,18 +43,22 @@ const compatibleEmbeddingLayer = (options: {
     FetchHttpClient.layer
   )
 
-const resolvedModelLayers = (options: {
+class ResolvedModelOptions extends Data.Class<{
   readonly capabilities: RuntimeCapabilities
   readonly model: string
   readonly baseUrl: string
-}): ResolvedModelLayers =>
+}> {}
+
+const resolvedModelLayers = (options: ResolvedModelOptions): ResolvedModelLayers =>
   new ResolvedModelLayers({
-    languageModel: options.capabilities.textGeneration
-      ? Option.some(compatibleLanguageLayer({ model: options.model, baseUrl: options.baseUrl }))
-      : Option.none(),
-    embeddingModel: options.capabilities.embeddings
-      ? Option.some(compatibleEmbeddingLayer({ model: options.model, baseUrl: options.baseUrl }))
-      : Option.none()
+    languageModel: Boolean.match(options.capabilities.textGeneration, {
+      onTrue: () => Option.some(compatibleLanguageLayer(options)),
+      onFalse: () => Option.none()
+    }),
+    embeddingModel: Boolean.match(options.capabilities.embeddings, {
+      onTrue: () => Option.some(compatibleEmbeddingLayer(options)),
+      onFalse: () => Option.none()
+    })
   })
 
 /**
@@ -66,10 +69,9 @@ const resolvedModelLayers = (options: {
  * @since 0.1.0
  * @category layers
  */
-export const OpenAiCompatibleLive = (options: {
-  readonly model: string
-  readonly baseUrl: string
-}): Layer.Layer<LanguageModel.LanguageModel, never, never> => compatibleLanguageLayer(options)
+export const OpenAiCompatibleLive = (
+  options: CompatibleModelOptions
+): Layer.Layer<LanguageModel.LanguageModel, never, never> => compatibleLanguageLayer(options)
 
 /**
  * Constructs a fully provided `EmbeddingModel` for OpenAI-compatible batched
@@ -79,10 +81,9 @@ export const OpenAiCompatibleLive = (options: {
  * @since 0.1.0
  * @category layers
  */
-export const OpenAiCompatibleEmbeddingsLive = (options: {
-  readonly model: string
-  readonly baseUrl: string
-}): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> => compatibleEmbeddingLayer(options)
+export const OpenAiCompatibleEmbeddingsLive = (
+  options: CompatibleModelOptions
+): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> => compatibleEmbeddingLayer(options)
 
 /**
  * Resolves a descriptor without network I/O. A missing route becomes an
@@ -98,12 +99,12 @@ export const makeOpenAiCompatibleResolution = (
   baseUrl: string
 ): RuntimeResolution => {
   const route = planCompatibleTransport(
-    descriptor.route ??
+    Option.getOrElse(Option.fromNullable(descriptor.route), () =>
       makeOpenAiCompatibleRoute({
         baseUrl,
         serveMode: "local-runtime",
         authMethod: "none"
-      })
+      }))
   ).route
   const capabilities = defaultRuntimeCapabilities({ route })
 

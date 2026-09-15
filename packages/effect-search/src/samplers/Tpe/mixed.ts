@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import type { Schema } from "effect"
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Predicate, Record, Tuple } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
@@ -51,14 +52,16 @@ export class NamedDimensionScoreTrace extends Data.Class<{
  * @category models
  */
 export class MixedCandidateSelection extends Data.Class<{
-  readonly candidateConfigs: Array<unknown>
-  readonly jointScores: Array<number>
+  readonly candidateConfigs: DimensionScoreTrace<unknown>["candidates"]
+  readonly jointScores: DimensionScoreTrace<number>["scores"]
   readonly bestIndex: number
   readonly bestConfig: unknown
 }> {}
 
-const candidateCount = (traces: ReadonlyArray<NamedDimensionScoreTrace>): Option.Option<number> =>
-  Arr.head(traces).pipe(Option.map((entry) => entry.trace.candidates.length))
+type NamedDimensionScoreTraces = Schema.Array$<Schema.Schema<NamedDimensionScoreTrace>>["Type"]
+
+const candidateCount = (traces: NamedDimensionScoreTraces): Option.Option<number> =>
+  Arr.head(traces).pipe(Option.map((entry) => Arr.length(entry.trace.candidates)))
 
 const candidateAt = (trace: DimensionScoreTrace<unknown>, index: number): Option.Option<unknown> =>
   Arr.get(trace.candidates, index)
@@ -83,7 +86,7 @@ const normalizedCandidateValue = (name: string, candidate: unknown): unknown =>
   )
 
 const configAtIndex = (
-  traces: ReadonlyArray<NamedDimensionScoreTrace>,
+  traces: NamedDimensionScoreTraces,
   index: number
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Effect.forEach(traces, (entry) =>
@@ -98,13 +101,13 @@ const configAtIndex = (
     )).pipe(Effect.map((entries) => Record.fromEntries(entries)))
 
 const jointScoreAtIndex = (
-  traces: ReadonlyArray<NamedDimensionScoreTrace>,
+  traces: NamedDimensionScoreTraces,
   split: TrialSplit,
   candidateConfig: unknown,
   index: number,
   acquisition: AcquisitionOption
 ): Effect.Effect<number, InvalidSamplerConfig> =>
-  Effect.all([
+  Effect.all(Tuple.make(
     Effect.forEach(traces, (entry) =>
       logLAt(entry.trace, index).pipe(
         Option.match({
@@ -125,7 +128,7 @@ const jointScoreAtIndex = (
           onSome: Effect.succeed
         })
       ))
-  ]).pipe(
+  )).pipe(
     Effect.map(([logLContributions, logGContributions]) =>
       scoreJointAcquisition(
         logLContributions,
@@ -138,7 +141,7 @@ const jointScoreAtIndex = (
   )
 
 const scoreTraceAt = (
-  traces: ReadonlyArray<NamedDimensionScoreTrace>,
+  traces: NamedDimensionScoreTraces,
   split: TrialSplit,
   index: number,
   acquisition: AcquisitionOption
@@ -162,7 +165,7 @@ const scoreTraceAt = (
  * @category scoring
  */
 export const selectBestMixedCandidate = (
-  traces: ReadonlyArray<NamedDimensionScoreTrace>,
+  traces: NamedDimensionScoreTraces,
   split: TrialSplit,
   acquisition: AcquisitionOption = defaultAcquisitionName,
   reason = "tpe mixed-space joint candidate selection produced no candidate"

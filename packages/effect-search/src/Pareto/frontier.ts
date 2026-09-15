@@ -4,18 +4,31 @@
  * @since 0.1.0
  */
 
-import { Array as Arr, Equal, HashSet, Match, Number as Num, Option } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Array as Arr, Boolean, Equal, HashSet, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
-import type { Direction } from "../contracts/Direction.js"
+import type { Direction, DirectionSchema } from "../contracts/Direction.js"
 import { dominatesNormalized, normalizeMatrix, validateRectangular } from "./dominance.js"
-import { ObjectiveFrontierHolding, type ObjectiveVector } from "./model.js"
+import { ObjectiveFrontierHolding } from "./model.js"
+import type { ObjectiveVector, ObjectiveVectorSchema } from "./model.js"
 
-const buildIndices = (count: number): ReadonlyArray<number> =>
-  count <= 0 ? Arr.empty<number>() : Arr.range(0, count - 1)
+type DirectionArray = Schema.Array$<typeof DirectionSchema>["Type"]
+type NumberArray = Schema.Array$<typeof Schema.Number>["Type"]
+type NumberMatrix = Schema.Array$<Schema.Array$<typeof Schema.Number>>["Type"]
+type ObjectiveMatrix = Schema.Array$<typeof ObjectiveVectorSchema>["Type"]
+type ObjectiveHoldings = Schema.Array$<typeof ObjectiveFrontierHolding>["Type"]
+
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const buildIndices = (count: number): NumberArray =>
+  Boolean.match(Num.lessThanOrEqualTo(count, 0), {
+    onFalse: () => Arr.range(0, Num.decrement(count)),
+    onTrue: () => Arr.empty<number>()
+  })
 
 const defaultDirection = (): Direction => "minimize"
 
-const directionAt = (directions: ReadonlyArray<Direction>, index: number): Direction =>
+const directionAt = (directions: DirectionArray, index: number): Direction =>
   Arr.get(directions, index).pipe(Option.getOrElse(defaultDirection))
 
 const defaultCoordinateValue = (direction: Direction): number =>
@@ -28,21 +41,25 @@ const defaultCoordinateValue = (direction: Direction): number =>
 const coordinateAt = (point: ObjectiveVector, index: number, direction: Direction): number =>
   Arr.get(point, index).pipe(Option.getOrElse(() => defaultCoordinateValue(direction)))
 
-const pointAt = (points: ReadonlyArray<ObjectiveVector>, index: number): ObjectiveVector =>
+const pointAt = (points: ObjectiveMatrix, index: number): ObjectiveVector =>
   Arr.get(points, index).pipe(Option.getOrElse(() => Arr.empty<number>()))
 
-const objectiveDimensionCount = (points: ReadonlyArray<ObjectiveVector>): number =>
-  Arr.head(points).pipe(Option.match({ onNone: () => 0, onSome: (p) => p.length }))
+const objectiveDimensionCount = (points: ObjectiveMatrix): number =>
+  Arr.head(points).pipe(Option.match({ onNone: () => 0, onSome: Arr.length }))
 
-const normalizedAt = (normalized: ReadonlyArray<ObjectiveVector>, index: number): ObjectiveVector =>
+const normalizedAt = (normalized: ObjectiveMatrix, index: number): ObjectiveVector =>
   Arr.get(normalized, index).pipe(Option.getOrElse(() => Arr.empty<number>()))
 
 const isBetter = (a: number, b: number, d: Direction): boolean =>
-  Match.value(d).pipe(
-    Match.when("maximize", () => a > b),
-    Match.when("minimize", () => a < b),
-    Match.exhaustive
-  )
+  Boolean.match(Boolean.and(isNonNaN(a), isNonNaN(b)), {
+    onFalse: () => false,
+    onTrue: () =>
+      Match.value(d).pipe(
+        Match.when("maximize", () => Num.greaterThan(a, b)),
+        Match.when("minimize", () => Num.lessThan(a, b)),
+        Match.exhaustive
+      )
+  })
 
 /**
  * Selects the input indices that no other candidate dominates.
@@ -57,21 +74,22 @@ const isBetter = (a: number, b: number, d: Direction): boolean =>
  * @category frontier
  */
 export const nonDominatedIndices = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  points: ObjectiveMatrix,
+  directions: DirectionArray = Arr.empty(),
   epsilon = 0
-): ReadonlyArray<number> =>
-  Match.value(validateRectangular(points)).pipe(
-    Match.when(false, () => Arr.empty<number>()),
-    Match.when(true, () => {
+): NumberArray =>
+  Boolean.match(validateRectangular(points), {
+    onFalse: () => Arr.empty<number>(),
+    onTrue: () => {
       const normalized = normalizeMatrix(points, directions)
-      return Arr.filter(buildIndices(points.length), (index) =>
+      return Arr.filter(buildIndices(Arr.length(points)), (index) =>
         Arr.every(normalized, (candidate, ci) =>
-          Equal.equals(ci, index) ||
-          !dominatesNormalized(candidate, normalizedAt(normalized, index), epsilon)))
-    }),
-    Match.exhaustive
-  )
+          Boolean.or(
+            Equal.equals(ci, index),
+            Boolean.not(dominatesNormalized(candidate, normalizedAt(normalized, index), epsilon))
+          )))
+    }
+  })
 
 /**
  * Partitions candidates into successive non-dominated fronts in input order.
@@ -85,66 +103,79 @@ export const nonDominatedIndices = (
  * @category frontier
  */
 export const nonDominatedSort = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  points: ObjectiveMatrix,
+  directions: DirectionArray = Arr.empty(),
   epsilon = 0
-): ReadonlyArray<ReadonlyArray<number>> =>
-  Match.value(validateRectangular(points)).pipe(
-    Match.when(false, () => Arr.empty<ReadonlyArray<number>>()),
-    Match.when(true, () => {
-      const n = points.length
+): NumberMatrix =>
+  Boolean.match(validateRectangular(points), {
+    onFalse: () => Arr.empty<NumberArray>(),
+    onTrue: () => {
+      const n = Arr.length(points)
       const indices = buildIndices(n)
       const normalized = normalizeMatrix(points, directions)
 
-      const zeroCounts: ReadonlyArray<number> = Arr.replicate(0, n)
-      const emptyDominated: ReadonlyArray<ReadonlyArray<number>> = Arr.replicate(Arr.empty<number>(), n)
+      const zeroCounts: NumberArray = Arr.replicate(0, n)
+      const emptyDominated: NumberMatrix = Arr.replicate(Arr.empty<number>(), n)
 
-      const initial = Arr.reduce(indices, {
-        counts: zeroCounts,
-        dominated: emptyDominated
-      }, (state, i) =>
+      const initial = Arr.reduce(indices, Tuple.make(zeroCounts, emptyDominated), (state, i) =>
         Arr.reduce(indices, state, (acc, j) =>
-          Equal.equals(i, j)
-            ? acc
-            : dominatesNormalized(normalizedAt(normalized, i), normalizedAt(normalized, j), epsilon)
-            ? ({
-              counts: Arr.modify(acc.counts, j, (c) => c + 1),
-              dominated: Arr.modify(acc.dominated, i, (l) => Arr.append(l, j))
-            })
-            : acc))
+          Boolean.match(Equal.equals(i, j), {
+            onFalse: () =>
+              Boolean.match(dominatesNormalized(normalizedAt(normalized, i), normalizedAt(normalized, j), epsilon), {
+                onFalse: () =>
+                  acc,
+                onTrue: () =>
+                  Tuple.make(
+                    Arr.modify(Tuple.getFirst(acc), j, Num.increment),
+                    Arr.modify(Tuple.getSecond(acc), i, (dominated) =>
+                      Arr.append(dominated, j))
+                  )
+              }),
+            onTrue: () => acc
+          })))
 
       const peel = (
-        counts: ReadonlyArray<number>,
+        counts: NumberArray,
         remaining: HashSet.HashSet<number>,
-        fronts: ReadonlyArray<ReadonlyArray<number>>
-      ): ReadonlyArray<ReadonlyArray<number>> =>
-        HashSet.size(remaining) <= 0 ?
-          fronts
-          : (() => {
+        fronts: NumberMatrix
+      ): NumberMatrix =>
+        Boolean.match(Num.lessThanOrEqualTo(HashSet.size(remaining), 0), {
+          onFalse: () => {
             const front = Arr.filter(
               indices,
-              (i) => HashSet.has(remaining, i) && Equal.equals(Arr.get(counts, i).pipe(Option.getOrElse(() => 0)), 0)
+              (i) =>
+                Boolean.and(
+                  HashSet.has(remaining, i),
+                  Equal.equals(
+                    Arr.get(counts, i).pipe(Option.getOrElse(() =>
+                      0
+                    )),
+                    0
+                  )
+                )
             )
 
-            return Arr.isEmptyReadonlyArray(front) ?
-              fronts
-              : (() => {
+            return Boolean.match(Arr.isEmptyReadonlyArray(front), {
+              onFalse: () => {
                 const nextRemaining = HashSet.difference(remaining, HashSet.fromIterable(front))
                 const nextCounts = Arr.reduce(front, counts, (cs, i) =>
                   Arr.reduce(
-                    Arr.get(initial.dominated, i).pipe(Option.getOrElse(() => Arr.empty<number>())),
+                    Arr.get(Tuple.getSecond(initial), i).pipe(Option.getOrElse(() => Arr.empty<number>())),
                     cs,
-                    (inner, j) => Arr.modify(inner, j, (c) => c - 1)
+                    (inner, j) => Arr.modify(inner, j, Num.decrement)
                   ))
 
                 return peel(nextCounts, nextRemaining, Arr.append(fronts, front))
-              })()
-          })()
+              },
+              onTrue: () => fronts
+            })
+          },
+          onTrue: () => fronts
+        })
 
-      return peel(initial.counts, HashSet.fromIterable(indices), Arr.empty<ReadonlyArray<number>>())
-    }),
-    Match.exhaustive
-  )
+      return peel(Tuple.getFirst(initial), HashSet.fromIterable(indices), Arr.empty<NumberArray>())
+    }
+  })
 
 /**
  * Assigns each candidate its zero-based position in successive non-dominated fronts.
@@ -157,10 +188,10 @@ export const nonDominatedSort = (
  * @category frontier
  */
 export const nonDominatedRanks = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  points: ObjectiveMatrix,
+  directions: DirectionArray = Arr.empty(),
   epsilon = 0
-): ReadonlyArray<number> => {
+): NumberArray => {
   const fronts = nonDominatedSort(points, directions, epsilon)
   const indexSets = Arr.map(fronts, HashSet.fromIterable)
 
@@ -185,31 +216,37 @@ export const nonDominatedRanks = (
  * @category frontier
  */
 export const objectiveFrontierHoldings = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  points: ObjectiveMatrix,
+  directions: DirectionArray = Arr.empty(),
   epsilon = 0
-): ReadonlyArray<ObjectiveFrontierHolding> =>
-  Match.value(validateRectangular(points)).pipe(
-    Match.when(false, () => Arr.empty<ObjectiveFrontierHolding>()),
-    Match.when(true, () =>
+): ObjectiveHoldings =>
+  Boolean.match(validateRectangular(points), {
+    onFalse: () => Arr.empty<ObjectiveFrontierHolding>(),
+    onTrue: () =>
       Arr.map(buildIndices(objectiveDimensionCount(points)), (objectiveIndex) => {
         const direction = directionAt(directions, objectiveIndex)
-        const allIndices = buildIndices(points.length)
+        const allIndices = buildIndices(Arr.length(points))
 
         const bestValue = Arr.reduce(allIndices, defaultCoordinateValue(direction), (best, ci) => {
           const v = coordinateAt(pointAt(points, ci), objectiveIndex, direction)
-          return isBetter(v, best, direction) ? v : best
+          return Boolean.match(isBetter(v, best, direction), {
+            onFalse: () => best,
+            onTrue: () => v
+          })
         })
 
         const holders = Arr.filter(allIndices, (ci) => {
           const v = coordinateAt(pointAt(points, ci), objectiveIndex, direction)
-          return epsilon > 0
-            ? Num.lessThanOrEqualTo(Math.abs(v - bestValue), epsilon) &&
-              (Equal.equals(v, bestValue) || isBetter(v, bestValue, direction))
-            : Equal.equals(v, bestValue)
+          return Boolean.match(Num.greaterThan(epsilon, 0), {
+            onFalse: () => Equal.equals(v, bestValue),
+            onTrue: () =>
+              Boolean.and(
+                Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(v, bestValue)), epsilon),
+                Boolean.or(Equal.equals(v, bestValue), isBetter(v, bestValue, direction))
+              )
+          })
         })
 
         return new ObjectiveFrontierHolding({ objectiveIndex, bestValue, holders })
-      })),
-    Match.exhaustive
-  )
+      })
+  })

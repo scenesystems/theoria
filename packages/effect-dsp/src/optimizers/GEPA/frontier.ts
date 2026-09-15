@@ -10,44 +10,42 @@ import {
   frontierSnapshot,
   maximizeDirections,
   nonDominatedIndices,
+  type ObjectiveFrontierHolding,
   objectiveFrontierHoldings,
+  type ObjectiveFrontierWeight,
   objectiveFrontierWeights
 } from "@scenesystems/effect-search/Pareto"
 import { Array as Arr, Option } from "effect"
 
 import {
+  type CandidateIndices,
+  type CandidateScoreMatrix,
   type CandidateScoreVector,
   ExampleFrontierHolding,
   ParentSelectionWeight,
+  type ParentSelectionWeights,
   ParetoKernelSnapshot
 } from "./model.js"
 
-const objectiveCount = (scoreVectors: ReadonlyArray<CandidateScoreVector>): number =>
+const objectiveCount = (scoreVectors: CandidateScoreMatrix): number =>
   Arr.head(scoreVectors).pipe(
     Option.match({
       onNone: () => 0,
-      onSome: (scores) => scores.length
+      onSome: Arr.length
     })
   )
 
-const maximizeObjectiveDirections = (scoreVectors: ReadonlyArray<CandidateScoreVector>) =>
+const maximizeObjectiveDirections = (scoreVectors: CandidateScoreMatrix) =>
   maximizeDirections(objectiveCount(scoreVectors))
 
-const toExampleFrontierHolding = (holding: {
-  readonly objectiveIndex: number
-  readonly bestValue: number
-  readonly holders: ReadonlyArray<number>
-}): ExampleFrontierHolding =>
+const toExampleFrontierHolding = (holding: ObjectiveFrontierHolding): ExampleFrontierHolding =>
   new ExampleFrontierHolding({
     exampleIndex: holding.objectiveIndex,
     bestScore: holding.bestValue,
     holders: holding.holders
   })
 
-const toParentSelectionWeight = (weight: {
-  readonly candidateIndex: number
-  readonly weight: number
-}): ParentSelectionWeight =>
+const toParentSelectionWeight = (weight: ObjectiveFrontierWeight): ParentSelectionWeight =>
   new ParentSelectionWeight({
     candidateIndex: weight.candidateIndex,
     weight: weight.weight
@@ -62,8 +60,8 @@ const toParentSelectionWeight = (weight: {
  * @category combinators
  */
 export const nonDominatedCandidateIndices = (
-  scoreVectors: ReadonlyArray<CandidateScoreVector>
-): ReadonlyArray<number> => nonDominatedIndices(scoreVectors, maximizeObjectiveDirections(scoreVectors))
+  scoreVectors: CandidateScoreMatrix
+): CandidateIndices => nonDominatedIndices(scoreVectors, maximizeObjectiveDirections(scoreVectors))
 
 /**
  * Reports whether the left score vector Pareto-dominates the right under
@@ -75,7 +73,7 @@ export const nonDominatedCandidateIndices = (
 export const dominatesCandidateVector = (
   left: CandidateScoreVector,
   right: CandidateScoreVector
-): boolean => dominates(left, right, maximizeDirections(left.length))
+): boolean => dominates(left, right, maximizeDirections(Arr.length(left)))
 
 /**
  * Compute which candidates hold the best score for each validation example.
@@ -85,8 +83,8 @@ export const dominatesCandidateVector = (
  * @category combinators
  */
 export const perExampleFrontierHoldings = (
-  scoreVectors: ReadonlyArray<CandidateScoreVector>
-): ReadonlyArray<ExampleFrontierHolding> =>
+  scoreVectors: CandidateScoreMatrix
+): ParetoKernelSnapshot["exampleHoldings"] =>
   Arr.map(objectiveFrontierHoldings(scoreVectors, maximizeObjectiveDirections(scoreVectors)), toExampleFrontierHolding)
 
 /**
@@ -98,8 +96,8 @@ export const perExampleFrontierHoldings = (
  * @category combinators
  */
 export const deriveParentSelectionWeights = (
-  scoreVectors: ReadonlyArray<CandidateScoreVector>
-): ReadonlyArray<ParentSelectionWeight> =>
+  scoreVectors: CandidateScoreMatrix
+): ParentSelectionWeights =>
   Arr.map(objectiveFrontierWeights(scoreVectors, maximizeObjectiveDirections(scoreVectors)), toParentSelectionWeight)
 
 /**
@@ -110,7 +108,7 @@ export const deriveParentSelectionWeights = (
  * @category combinators
  */
 export const deriveParetoKernelSnapshot = (
-  scoreVectors: ReadonlyArray<CandidateScoreVector>
+  scoreVectors: CandidateScoreMatrix
 ): ParetoKernelSnapshot => {
   const directions = maximizeObjectiveDirections(scoreVectors)
   const snapshot = frontierSnapshot(scoreVectors, directions)

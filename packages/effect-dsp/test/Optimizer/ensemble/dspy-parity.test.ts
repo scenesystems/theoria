@@ -5,19 +5,62 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Option, Record as Rec, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Effect,
+  Inspectable,
+  Layer,
+  Number as Num,
+  Option,
+  Record as Rec,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 
 import { EnsembleMajorityVoteFixtureSchema, loadFixture } from "../../helpers/dspy-fixtures/index.js"
+
+const QaInput = Schema.Struct({
+  question: Signature.describe(Schema.String, "The question to answer")
+})
+
+const QaOutput = Schema.Struct({
+  answer: Signature.describe(Schema.String, "A concise factual answer")
+})
+
+const IndexedAnswer = Schema.Struct({
+  index: Schema.Number,
+  answer: Schema.String,
+  instruction: Schema.String
+})
 
 const makeQaSignature = () =>
   Signature.make(
     "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
+    QaInput.fields,
+    QaOutput.fields
+  )
+
+const formatProgramInstruction = (index: number, caseName: string) =>
+  Arr.join(
+    Arr.make(
+      "DSPy parity program ",
+      Inspectable.toStringUnknown(Num.increment(index)),
+      " - ",
+      caseName
+    ),
+    ""
+  )
+
+const formatProgramName = (index: number, caseName: string) =>
+  Arr.join(
+    Arr.make(
+      "qa-ensemble-dspy-parity-",
+      caseName,
+      "-",
+      Inspectable.toStringUnknown(Num.increment(index))
+    ),
+    ""
   )
 
 const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
@@ -32,7 +75,7 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
       program.params,
       new ModuleParams({
         instructions,
-        demos: [],
+        demos: Arr.empty(),
         outputStrategy: "structured"
       })
     )
@@ -53,17 +96,18 @@ describe("Optimizer.ensemble DSPy parity", () => {
             const signature = yield* makeQaSignature()
             const indexedAnswers = Arr.map(
               fixtureCase.programAnswers,
-              (answer, index) => ({
-                index,
-                answer,
-                instruction: `DSPy parity program ${index + 1} - ${fixtureCase.name}`
-              })
+              (answer, index) =>
+                IndexedAnswer.make({
+                  index,
+                  answer,
+                  instruction: formatProgramInstruction(index, fixtureCase.name)
+                })
             )
             const programs = yield* Effect.forEach(
               indexedAnswers,
               (entry) =>
                 makeProgram(
-                  `qa-ensemble-dspy-parity-${fixtureCase.name}-${entry.index + 1}`,
+                  formatProgramName(entry.index, fixtureCase.name),
                   signature,
                   entry.instruction
                 )
@@ -74,20 +118,22 @@ describe("Optimizer.ensemble DSPy parity", () => {
               (state, entry) => Rec.set(state, entry.instruction, entry.answer)
             )
             const mock = yield* MockLanguageModel.make(
-              MockLanguageModel.map((prompt) => ({
-                answer: Option.getOrElse(
-                  Arr.findFirst(
-                    Rec.toEntries(answerByInstruction),
-                    ([instruction]) => prompt.includes(instruction)
-                  ).pipe(Option.map(([, answer]) => answer)),
-                  () => fixtureCase.programAnswers[0] ?? ""
-                )
-              }))
+              MockLanguageModel.map((prompt) =>
+                QaOutput.make({
+                  answer: Option.getOrElse(
+                    Arr.findFirst(
+                      Rec.toEntries(answerByInstruction),
+                      ([instruction]) => Str.includes(instruction)(prompt)
+                    ).pipe(Option.map(([, answer]) => answer)),
+                    () => Option.getOrElse(Arr.head(fixtureCase.programAnswers), () => "")
+                  )
+                })
+              )
             )
             const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
             const ensemble = yield* Optimizer.ensemble({
               programs,
-              name: `ensemble-dspy-parity-${fixtureCase.name}`
+              name: Str.concat("ensemble-dspy-parity-", fixtureCase.name)
             })
 
             const result = yield* ensemble.forward({
@@ -96,7 +142,7 @@ describe("Optimizer.ensemble DSPy parity", () => {
             const calls = yield* Ref.get(mock.calls)
 
             expect(result.answer).toBe(fixtureCase.expectedAnswer)
-            expect(calls).toHaveLength(fixtureCase.programAnswers.length)
+            expect(calls).toHaveLength(Arr.length(fixtureCase.programAnswers))
           }),
         { discard: true }
       )

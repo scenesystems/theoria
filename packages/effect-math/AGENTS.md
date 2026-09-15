@@ -29,7 +29,7 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 - **`Match.exhaustive`** for all dispatch — no `switch`, no `if/else` chains
 - **`Effect.filterOrFail`** for all validation — no `if` statements
 - **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
-- **`Math.sqrt`** is the only allowed plain JS math function (deterministic IEEE 754 leaf)
+- Numerical operations must consume public native Effect APIs where available. A missing API is not an automatic exception: research the installed version and obtain explicit authorization for each unresolved host operation before introducing or treating it as permitted.
 
 ## Domain Architecture
 

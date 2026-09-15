@@ -5,80 +5,37 @@
  * @since 0.1.0
  * @module
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { Data, Effect, Option, Ref } from "effect"
 import type { Schema } from "effect"
-import { Array as Arr, Data, Effect, Match, Option, Order, Ref } from "effect"
-import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
 import { withModuleParamsDemos } from "../../contracts/ModuleParams.js"
-import { Demo, type Example } from "../../Example/index.js"
 import { collectModuleParamRefs } from "../../internal/module-params.js"
 import type { Module } from "../../Module/model.js"
-
-class ScoredDemo extends Data.Class<{
-  readonly score: number
-  readonly demo: Demo
-}> {}
-
-class SamplingState extends Data.Class<{
-  readonly seed: number
-  readonly scored: ReadonlyArray<ScoredDemo>
-}> {}
-
-const scoredDemoOrder: Order.Order<ScoredDemo> = Order.mapInput(Order.number, (entry) => entry.score)
+import { labeledDemos, type LabeledExamples, selectRandomDemos } from "./internal/sampling.js"
 
 /**
  * Configures seeded demonstration replacement without model execution.
  *
- * @typeParam I - Root module input fields; examples remain unvalidated here.
- * @typeParam O - Root module output fields; examples remain unvalidated here.
+ * @typeParam I - Root module input fields.
+ * @typeParam O - Root module output fields.
  *
  * @since 0.1.0
  * @category models
  */
-export class LabeledFewShotOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+export class LabeledFewShotOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
+> extends Data.Class<{
   /** Module whose root and discovered submodule parameter refs are updated. */
-  readonly module: Module<I, O>
+  readonly module: Module<I, O, E, R>
   /** Source examples; entries without `output` are ignored. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: LabeledExamples
   /** Selection cap, rounded down; negative and non-finite values select none. */
   readonly k: number
   /** Pseudo-random selection seed. Defaults to `1`. */
   readonly seed?: number
 }> {}
-
-const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<Demo> =>
-  Arr.filterMap(
-    trainset,
-    (example) =>
-      Option.map(
-        Option.fromNullable(example.output),
-        (output) => new Demo({ input: example.input, output })
-      )
-  )
-
-const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number): ReadonlyArray<Demo> => {
-  const normalizedK = Match.value(k).pipe(
-    Match.when(Numeric.isFinite, (value) => Numeric.max(0, Numeric.floor(value))),
-    Match.orElse(() => 0)
-  )
-  const scored = Arr.reduce(
-    demos,
-    new SamplingState({ seed: normalizeDeterministicSeed(seed), scored: Arr.empty<ScoredDemo>() }),
-    (state, demo) => {
-      const next = nextDeterministicSeed(state.seed)
-
-      return new SamplingState({
-        seed: next,
-        scored: Arr.append(state.scored, new ScoredDemo({ score: next, demo }))
-      })
-    }
-  ).scored
-
-  return Arr.take(
-    Arr.map(Arr.sort(scored, scoredDemoOrder), (entry) => entry.demo),
-    normalizedK
-  )
-}
 
 /**
  * Replaces demonstrations across a module ownership tree with one labeled subset.
@@ -87,11 +44,12 @@ const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number):
  * Entries without `output` are ignored. The remaining examples receive seeded
  * pseudo-random scores, are sorted by score, and are truncated to the normalized
  * `k`. The same selected array replaces demonstrations on the root and every
- * owned child parameter ref. Inputs and outputs are copied without Schema
- * decoding.
+ * owned child parameter ref. Every destination validates the selected wire
+ * values with its own encoded signature before any parameters change.
  *
- * Ref updates run sequentially and are not rolled back on interruption. The
- * operation performs no model or metric calls and returns the supplied module.
+ * Incompatible stages fail with a checked ParseError; use trace bootstrapping
+ * to derive stage-specific demonstrations. The final ref updates are
+ * uninterruptible. No model or metric calls are performed.
  *
  * @typeParam I - Root module input fields, used only to retain its type.
  * @typeParam O - Root module output fields, used only to retain its type.
@@ -104,18 +62,20 @@ const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number):
  */
 export const labeledFewShot = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: LabeledFewShotOptions<I, O>) =>
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
+>(options: LabeledFewShotOptions<I, O, E, R>) =>
   Effect.gen(function*() {
     const seed = Option.getOrElse(Option.fromNullable(options.seed), () => 1)
-    const demos = yield* Effect.sync(() => selectRandomDemos(labeledDemos(options.trainset), options.k, seed))
+    const demos = selectRandomDemos(labeledDemos(options.trainset), options.k, seed)
     const refs = collectModuleParamRefs(options.module)
 
-    yield* Effect.forEach(
-      refs,
-      (entry) => Ref.update(entry.params, (params) => withModuleParamsDemos(params, demos)),
-      { discard: true }
-    )
+    const replacements = yield* Effect.forEach(refs, (entry) =>
+      Effect.forEach(demos, entry.demoContract.decode).pipe(
+        Effect.map((validated) => Ref.update(entry.params, (params) => withModuleParamsDemos(params, validated)))
+      ))
+    yield* Effect.all(replacements, { discard: true }).pipe(Effect.uninterruptible)
 
     return options.module
   })

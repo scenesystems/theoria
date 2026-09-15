@@ -6,7 +6,7 @@
  */
 import { matchObjectiveSpec, type ObjectiveSpec } from "../../../contracts/ObjectiveSpec.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
-import type { SuggestCompletedTrial } from "../../../Sampler/index.js"
+import type { SuggestContext } from "../../../Sampler/index.js"
 import { splitMultiObjective } from "./multiSplit.js"
 import { splitSingleObjective } from "./singleSplit.js"
 
@@ -17,7 +17,7 @@ import { splitSingleObjective } from "./singleSplit.js"
  * @category experimental
  */
 export const splitByObjectiveSpec = (
-  completed: ReadonlyArray<SuggestCompletedTrial>,
+  completed: SuggestContext["completed"],
   objectiveSpec: ObjectiveSpec,
   epsilon = 0
 ): TrialSplit =>

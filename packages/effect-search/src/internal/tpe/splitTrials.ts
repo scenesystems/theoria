@@ -21,6 +21,8 @@ export const TrialSplitSchema = Schema.Struct({
 
 export type TrialSplit = Schema.Schema.Type<typeof TrialSplitSchema>
 
+export type CompletedTrialsForSplit = TrialSplit["below"]
+
 const splitOrder = Order.mapInput(
   Order.tuple(Order.number, Order.number, Order.number),
   (trial: CompletedTrialForSplit) =>
@@ -40,11 +42,11 @@ const splitCount = (size: number, gamma: (nCompletedTrials: number) => number): 
   })
 
 export const splitTrials = (
-  trials: ReadonlyArray<CompletedTrialForSplit>,
+  trials: CompletedTrialsForSplit,
   gamma = defaultGamma
 ): TrialSplit => {
   const sortedByScore = Arr.sort(trials, splitOrder)
-  const split = splitCount(sortedByScore.length, gamma)
+  const split = splitCount(Arr.length(sortedByScore), gamma)
   const below = Arr.take(sortedByScore, split)
   const above = Arr.drop(sortedByScore, split)
 

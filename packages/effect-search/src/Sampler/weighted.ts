@@ -3,7 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Match, Option, Order, Schema } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Array as Arr, Boolean, Equal, Match, Number as Num, Option, Order, Schema, Tuple } from "effect"
+import { PCGRandom } from "effect/Utils"
 
 import { buildIndices, nextDeterministicSeed, normalizeDeterministicSeed } from "./deterministic.js"
 
@@ -12,9 +14,8 @@ import { buildIndices, nextDeterministicSeed, normalizeDeterministicSeed } from 
  *
  * @remarks
  * The schema accepts fractional and non-finite numbers. Selection uses only
- * entries whose weight is greater than zero, so callers that need finite
- * integer identifiers or finite weights must enforce those constraints before
- * decoding.
+ * finite entries whose weight is greater than zero. Callers that need finite
+ * integer identifiers must enforce that constraint before decoding.
  * @since 0.1.0
  * @category schemas
  */
@@ -77,46 +78,53 @@ export const SampleWeightedPairOptions = Schema.Struct({
 })
 export type SampleWeightedPairOptions = typeof SampleWeightedPairOptions.Type
 
-class CumulativeWeight extends Data.Class<{
-  readonly index: number
-  readonly cumulativeWeight: number
-}> {}
-
-class WeightedSamplingState extends Data.Class<{
-  readonly seed: number
-  readonly indices: ReadonlyArray<number>
-}> {}
+type WeightedIndices = Schema.Array$<typeof Schema.Number>["Type"]
+type WeightedIndexArray = Schema.Array$<typeof WeightedIndexSchema>["Type"]
+type CumulativeWeight = Schema.Tuple2<typeof Schema.Number, typeof Schema.Number>["Type"]
+type CumulativeWeights = Schema.Array$<Schema.Tuple2<typeof Schema.Number, typeof Schema.Number>>["Type"]
+type WeightedPair = Schema.Tuple2<typeof Schema.Number, typeof Schema.Number>["Type"]
 
 const weightedIndexOrder: Order.Order<WeightedIndex> = Order.mapInput(
   Order.number,
   (entry) => entry.index
 )
 
-const sortedWeights = (weights: ReadonlyArray<WeightedIndex>): ReadonlyArray<WeightedIndex> =>
-  Arr.sort(weights, weightedIndexOrder)
+const sortedWeights = (weights: WeightedIndexArray): WeightedIndexArray => Arr.sort(weights, weightedIndexOrder)
 
-const sortedPositiveWeights = (weights: ReadonlyArray<WeightedIndex>): ReadonlyArray<WeightedIndex> =>
-  sortedWeights(Arr.filter(weights, (entry) => entry.weight > 0))
+const sortedPositiveWeights = (weights: WeightedIndexArray): WeightedIndexArray =>
+  sortedWeights(
+    Arr.filter(
+      weights,
+      (entry) => Boolean.and(Numeric.isFinite(entry.weight), Num.greaterThan(entry.weight, 0))
+    )
+  )
 
-const cumulativeWeights = (weights: ReadonlyArray<WeightedIndex>): ReadonlyArray<CumulativeWeight> =>
+const normalizedPositiveWeights = (weights: WeightedIndexArray): WeightedIndexArray => {
+  const positive = sortedPositiveWeights(weights)
+  const maximumWeight = Arr.reduce(positive, 0, (maximum, entry) => Num.max(maximum, entry.weight))
+
+  return Arr.map(positive, (entry) => ({
+    index: entry.index,
+    weight: Numeric.unsafeDivide(entry.weight, maximumWeight)
+  }))
+}
+
+const cumulativeWeights = (weights: WeightedIndexArray): CumulativeWeights =>
   Arr.reduce(weights, Arr.empty<CumulativeWeight>(), (acc, weight) => {
     const previous = Arr.last(acc).pipe(
       Option.match({
         onNone: () => 0,
-        onSome: (entry) => entry.cumulativeWeight
+        onSome: Tuple.getSecond
       })
     )
 
     return Arr.append(
       acc,
-      new CumulativeWeight({
-        index: weight.index,
-        cumulativeWeight: previous + weight.weight
-      })
+      Tuple.make(weight.index, Num.sum(previous, weight.weight))
     )
   })
 
-const fallbackIndex = (weights: ReadonlyArray<WeightedIndex>): number =>
+const fallbackIndex = (weights: WeightedIndexArray): number =>
   Arr.head(sortedWeights(weights)).pipe(
     Option.match({
       onNone: () => 0,
@@ -125,12 +133,12 @@ const fallbackIndex = (weights: ReadonlyArray<WeightedIndex>): number =>
   )
 
 const fallbackSeedModuloIndex = (
-  weights: ReadonlyArray<WeightedIndex>,
+  weights: WeightedIndexArray,
   seed: number
 ): number => {
   const sorted = sortedWeights(weights)
-  const moduloCount = Math.max(1, sorted.length)
-  const fallbackPosition = normalizeDeterministicSeed(seed) % moduloCount
+  const moduloCount = Num.max(1, Arr.length(sorted))
+  const fallbackPosition = Num.remainder(normalizeDeterministicSeed(seed), moduloCount)
 
   return Arr.get(sorted, fallbackPosition).pipe(
     Option.match({
@@ -150,64 +158,72 @@ const zeroWeightFallbackFromNullable = (
   )
 
 const fallbackIndexForPolicy = (
-  weights: ReadonlyArray<WeightedIndex>,
+  weights: WeightedIndexArray,
   seed: number,
   zeroWeightFallback: WeightedZeroWeightFallback
 ): number =>
   Match.value(zeroWeightFallback).pipe(
     Match.when("seed-modulo", () => fallbackSeedModuloIndex(weights, seed)),
-    Match.orElse(() => fallbackIndex(weights))
+    Match.when("lowest-index", () => fallbackIndex(weights)),
+    Match.exhaustive
   )
 
-const selectWeightedIndexWithSeed = (
-  weights: ReadonlyArray<WeightedIndex>,
-  seed: number,
+const selectWeightedIndexWithUnit = (
+  weights: WeightedIndexArray,
+  unit: number,
+  fallbackSeed: number,
   zeroWeightFallback: WeightedZeroWeightFallback
 ): number => {
-  const positive = sortedPositiveWeights(weights)
+  const positive = normalizedPositiveWeights(weights)
   const cumulative = cumulativeWeights(positive)
   const totalWeight = Arr.last(cumulative).pipe(
     Option.match({
       onNone: () => 0,
-      onSome: (entry) => entry.cumulativeWeight
+      onSome: Tuple.getSecond
     })
   )
 
-  return Match.value(totalWeight > 0).pipe(
-    Match.when(false, () => fallbackIndexForPolicy(weights, seed, zeroWeightFallback)),
-    Match.when(true, () => {
-      const roll = seed % totalWeight
+  return Boolean.match(Num.greaterThan(totalWeight, 0), {
+    onFalse: () => fallbackIndexForPolicy(weights, fallbackSeed, zeroWeightFallback),
+    onTrue: () => {
+      const threshold = Num.multiply(unit, totalWeight)
 
-      return Arr.findFirst(cumulative, (entry) => roll < entry.cumulativeWeight).pipe(
+      return Arr.findFirst(cumulative, (entry) => Num.lessThan(threshold, Tuple.getSecond(entry))).pipe(
         Option.match({
-          onNone: () => fallbackIndex(weights),
-          onSome: (entry) => entry.index
+          onNone: () =>
+            Arr.last(positive).pipe(Option.match({
+              onNone: () => fallbackIndex(weights),
+              onSome: (entry) => entry.index
+            })),
+          onSome: Tuple.getFirst
         })
       )
-    }),
-    Match.exhaustive
-  )
+    }
+  })
 }
 
 const normalizeDrawCount = (drawCount: number): number => {
-  const finite = Number.isFinite(drawCount)
-    ? Math.trunc(drawCount)
-    : 0
+  const finite = Boolean.match(Numeric.isFinite(drawCount), {
+    onFalse: () => 0,
+    onTrue: () => Numeric.truncate(drawCount)
+  })
 
-  return Match.value(finite).pipe(
-    Match.when((count) => count < 0, () => 0),
-    Match.orElse((count) => count)
-  )
+  return Boolean.match(Num.lessThan(finite, 0), {
+    onFalse: () => finite,
+    onTrue: () => 0
+  })
 }
 
 /**
  * Selects one numeric identifier according to positive relative weights.
  *
  * @remarks
- * The normalized seed is stepped once. Candidate order does not affect the
- * result because entries are sorted by index. Non-positive and `NaN` weights do
- * not participate. If no positive weight remains, the lowest sorted index is
- * returned, or `0` when the input is empty.
+ * Candidate order does not affect the result because entries are sorted by
+ * index. Non-positive and non-finite weights do not participate. Finite
+ * positive weights are scaled by their maximum before summation, avoiding
+ * overflow without changing their relative probabilities. If no valid positive
+ * weight remains, the lowest sorted index is returned, or `0` when the input is
+ * empty.
  *
  * @param weights - Candidate identifiers and relative weights; the array is not modified.
  * @param seed - Arbitrary numeric seed normalized before selection.
@@ -215,7 +231,7 @@ const normalizeDrawCount = (drawCount: number): number => {
  * @category combinators
  */
 export const selectWeightedIndex = (
-  weights: ReadonlyArray<WeightedIndex>,
+  weights: WeightedIndexArray,
   seed: number
 ): number => selectWeightedIndexWithPolicy(weights, seed)
 
@@ -224,24 +240,29 @@ export const selectWeightedIndex = (
  *
  * @remarks
  * Positive-weight selection matches {@link selectWeightedIndex}. The fallback
- * option is consulted only when no positive cumulative weight is available.
+ * option is consulted only when no finite positive cumulative weight is
+ * available. The normalized seed initializes Effect's `PCGRandom`; the stepped
+ * deterministic seed remains reserved for the fallback policy.
  *
  * @param weights - Candidate identifiers and relative weights; the array is not modified.
- * @param seed - Arbitrary numeric seed normalized and stepped before selection.
+ * @param seed - Arbitrary numeric seed normalized before selection.
  * @param options - Uses `"lowest-index"` when omitted.
  * @since 0.1.0
  * @category combinators
  */
 export const selectWeightedIndexWithPolicy = (
-  weights: ReadonlyArray<WeightedIndex>,
+  weights: WeightedIndexArray,
   seed: number,
   options?: SelectWeightedIndexOptions
 ): number => {
   const zeroWeightFallback = zeroWeightFallbackFromNullable(options?.zeroWeightFallback)
+  const normalizedSeed = normalizeDeterministicSeed(seed)
+  const generator = new PCGRandom(normalizedSeed)
 
-  return selectWeightedIndexWithSeed(
+  return selectWeightedIndexWithUnit(
     weights,
-    nextDeterministicSeed(normalizeDeterministicSeed(seed)),
+    generator.number(),
+    nextDeterministicSeed(normalizedSeed),
     zeroWeightFallback
   )
 }
@@ -250,9 +271,11 @@ export const selectWeightedIndexWithPolicy = (
  * Draws a reproducible sequence with replacement from positive relative weights.
  *
  * @remarks
- * The normalized seed advances once per draw. The count is truncated;
- * non-finite and negative counts produce an empty array. Each all-non-positive
- * draw uses the `"lowest-index"` fallback.
+ * A local Effect `PCGRandom` supplies one successive unit draw per result. This
+ * corrects the former integer-remainder behavior, so seeded traces intentionally
+ * differ from earlier releases. The count is truncated; non-finite and negative
+ * counts produce an empty array. Each draw with no valid positive weight uses
+ * the `"lowest-index"` fallback.
  *
  * @param weights - Candidate identifiers and relative weights; the array is not modified.
  * @param drawCount - Maximum number of returned identifiers after normalization.
@@ -261,39 +284,46 @@ export const selectWeightedIndexWithPolicy = (
  * @category combinators
  */
 export const sampleWeightedIndices = (
-  weights: ReadonlyArray<WeightedIndex>,
+  weights: WeightedIndexArray,
   drawCount: number,
   seed: number
-): ReadonlyArray<number> =>
-  Arr.reduce(
-    buildIndices(normalizeDrawCount(drawCount)),
-    new WeightedSamplingState({
-      seed: normalizeDeterministicSeed(seed),
-      indices: Arr.empty<number>()
-    }),
-    (state) => {
-      const nextSeed = nextDeterministicSeed(state.seed)
+): WeightedIndices => {
+  const normalizedSeed = normalizeDeterministicSeed(seed)
+  const generator = new PCGRandom(normalizedSeed)
 
-      return new WeightedSamplingState({
-        seed: nextSeed,
-        indices: Arr.append(state.indices, selectWeightedIndexWithSeed(weights, nextSeed, defaultZeroWeightFallback()))
-      })
-    }
-  ).indices
+  return Tuple.getSecond(
+    Arr.reduce(
+      buildIndices(normalizeDrawCount(drawCount)),
+      Tuple.make(normalizedSeed, Arr.empty<number>()),
+      (state) => {
+        const nextSeed = nextDeterministicSeed(Tuple.getFirst(state))
+
+        return Tuple.make(
+          nextSeed,
+          Arr.append(
+            Tuple.getSecond(state),
+            selectWeightedIndexWithUnit(weights, generator.number(), nextSeed, defaultZeroWeightFallback())
+          )
+        )
+      }
+    )
+  )
+}
 
 const weightsWithoutIndex = (
-  weights: ReadonlyArray<WeightedIndex>,
+  weights: WeightedIndexArray,
   index: number
-): ReadonlyArray<WeightedIndex> => {
-  const filtered = Arr.filter(weights, (entry) => entry.index !== index)
+): WeightedIndexArray => {
+  const filtered = Arr.filter(weights, (entry) => Boolean.not(Equal.equals(entry.index, index)))
 
-  return filtered.length <= 0
-    ? weights
-    : filtered
+  return Boolean.match(Num.lessThanOrEqualTo(Arr.length(filtered), 0), {
+    onFalse: () => filtered,
+    onTrue: () => weights
+  })
 }
 
 /**
- * Draws two weighted identifiers from consecutive deterministic seed steps.
+ * Draws two weighted identifiers from successive Effect `PCGRandom` values.
  *
  * @remarks
  * With `distinct: true`, the second draw excludes all candidates whose index
@@ -307,20 +337,22 @@ const weightsWithoutIndex = (
  * @category combinators
  */
 export const sampleWeightedPair = (
-  weights: ReadonlyArray<WeightedIndex>,
+  weights: WeightedIndexArray,
   seed: number,
   options?: SampleWeightedPairOptions
-): readonly [number, number] => {
+): WeightedPair => {
   const zeroWeightFallback = zeroWeightFallbackFromNullable(options?.zeroWeightFallback)
   const distinct = Option.fromNullable(options?.distinct).pipe(Option.getOrElse(() => false))
-  const firstSeed = nextDeterministicSeed(normalizeDeterministicSeed(seed))
+  const normalizedSeed = normalizeDeterministicSeed(seed)
+  const generator = new PCGRandom(normalizedSeed)
+  const firstSeed = nextDeterministicSeed(normalizedSeed)
   const secondSeed = nextDeterministicSeed(firstSeed)
-  const first = selectWeightedIndexWithSeed(weights, firstSeed, zeroWeightFallback)
-  const secondWeights = Match.value(distinct).pipe(
-    Match.when(true, () => weightsWithoutIndex(weights, first)),
-    Match.orElse(() => weights)
-  )
-  const second = selectWeightedIndexWithSeed(secondWeights, secondSeed, zeroWeightFallback)
+  const first = selectWeightedIndexWithUnit(weights, generator.number(), firstSeed, zeroWeightFallback)
+  const secondWeights = Boolean.match(distinct, {
+    onFalse: () => weights,
+    onTrue: () => weightsWithoutIndex(weights, first)
+  })
+  const second = selectWeightedIndexWithUnit(secondWeights, generator.number(), secondSeed, zeroWeightFallback)
 
-  return Data.tuple(first, second)
+  return Tuple.make(first, second)
 }

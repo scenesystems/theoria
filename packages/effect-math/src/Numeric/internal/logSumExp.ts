@@ -4,23 +4,37 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N } from "effect"
+import { Chunk, Match, Number as N, Schema } from "effect"
+
+const NEGATIVE_INFINITY = N.negate(Infinity)
+const isNonNaN = Schema.is(Schema.NonNaN)
 
 /**
  * logSumExp(xs) = log(Σ exp(xᵢ)) computed as max + log(Σ exp(xᵢ - max)).
- * Returns -Infinity for empty chunks.
+ * Returns -Infinity for empty chunks. NaN propagates; otherwise positive
+ * infinity dominates the sum.
  *
  * @since 0.1.0
  * @category internal
  */
 export const logSumExpChunk = (xs: Chunk.Chunk<number>): number => {
-  const len = Chunk.size(xs)
-  if (len === 0) return -Infinity
-  if (len === 1) return Chunk.unsafeGet(xs, 0)
-
-  const max = Chunk.reduce(xs, -Infinity, N.max)
-  if (max === -Infinity) return -Infinity
-
-  const sumExp = Chunk.reduce(xs, 0, (acc, x) => N.sum(acc, Math.exp(x - max)))
-  return max + Math.log(sumExp)
+  return Match.value(Chunk.every(xs, isNonNaN)).pipe(
+    Match.when(false, () => NaN),
+    Match.when(true, () =>
+      Match.value(Chunk.size(xs)).pipe(
+        Match.when(0, () => NEGATIVE_INFINITY),
+        Match.when(1, () => Chunk.unsafeGet(xs, 0)),
+        Match.orElse(() =>
+          Match.value(Chunk.reduce(xs, NEGATIVE_INFINITY, N.max)).pipe(
+            Match.when(NEGATIVE_INFINITY, () => NEGATIVE_INFINITY),
+            Match.when(Infinity, () => Infinity),
+            Match.orElse((max) => {
+              const sumExp = Chunk.reduce(xs, 0, (acc, x) => N.sum(acc, Math.exp(N.subtract(x, max))))
+              return N.sum(max, Math.log(sumExp))
+            })
+          )
+        )
+      )),
+    Match.exhaustive
+  )
 }

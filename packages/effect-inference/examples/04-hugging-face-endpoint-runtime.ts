@@ -1,13 +1,13 @@
 /**
  * Resolves a dedicated Hugging Face endpoint, embeds two inputs, and records
- * the deployment and observed embedding width as runtime evidence.
+ * the configured deployment and observed embedding width. EmbeddingModel does
+ * not expose a response model identity, so this does not invent one.
  */
 import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect } from "effect"
+import { Array as Arr, Boolean, Effect, Function, Option } from "effect"
 
 import * as HuggingFace from "@scenesystems/effect-inference/HuggingFace"
-import * as Runtime from "@scenesystems/effect-inference/Runtime"
 
 export const program = Effect.gen(function*() {
   const resolution = yield* HuggingFace.resolveLiveRuntimeFromConfig({
@@ -16,30 +16,20 @@ export const program = Effect.gen(function*() {
   })
   const embeddingLayer = yield* HuggingFace.embeddingModelLayer(resolution)
   const embeddings = yield* EmbeddingModel.EmbeddingModel.pipe(
-    Effect.flatMap((model) => model.embedMany(["runtime provenance", "package-owned evidence"])),
+    Effect.flatMap((model) => model.embedMany(Arr.make("runtime provenance", "package-owned evidence"))),
     Effect.provide(embeddingLayer)
   )
-  const evidence = Runtime.makeRuntimeEvidence({
-    resolution,
-    resolvedRuntime: {
-      responseModel: resolution.resolvedRoute.providerModel ?? resolution.desired.artifact.modelRef,
-      providerMetadata: {
-        huggingface: typeof embeddings[0]?.length === "number"
-          ? { embeddingDimensions: embeddings[0].length }
-          : {}
-      }
-    }
-  })
+  const dimensions = Option.map(Arr.head(embeddings), Arr.length)
 
   return yield* Effect.log({
-    requestedModel: evidence.desired.artifact.modelRef,
-    endpointId: evidence.resolvedRoute.route.endpointId,
-    deployment: evidence.resolvedRoute.selectedDeployment,
-    responseModel: evidence.resolvedRuntime.responseModel,
-    embeddingDimensions: embeddings[0]?.length
+    requestedModel: resolution.desired.artifact.modelRef,
+    endpointId: Option.fromNullable(resolution.resolvedRoute.route.endpointId),
+    deployment: Option.fromNullable(resolution.resolvedRoute.selectedDeployment),
+    embeddingDimensions: dimensions
   })
 })
 
-if (import.meta.main) {
-  BunRuntime.runMain(program)
-}
+Boolean.match(import.meta.main, {
+  onTrue: () => BunRuntime.runMain(program),
+  onFalse: Function.constVoid
+})

@@ -1,135 +1,126 @@
 /**
- * Usage and cache-key trace contracts.
+ * Canonical provider-usage aggregation contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
+import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Contracts from "@scenesystems/effect-dsp/contracts"
-import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, FastCheck as fc, Layer, Option, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Number, Option, Schema, Tuple } from "effect"
 
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
-
-const usageSampleArbitrary = fc.record({
-  inputTokens: fc.option(fc.integer({ min: 0, max: 1_000 }), { nil: null }),
-  outputTokens: fc.option(fc.integer({ min: 0, max: 1_000 }), { nil: null }),
-  cached: fc.boolean()
+const completeUsage = new Response.Usage({
+  inputTokens: 17,
+  outputTokens: 5,
+  totalTokens: 29,
+  reasoningTokens: 7,
+  cachedInputTokens: 3
 })
 
+const call = (usage: Option.Option<Response.Usage>, outcome: Trace.Call["outcome"] = "success") =>
+  new Trace.Call({
+    operation: "generateObject",
+    usage,
+    outcome,
+    durationMs: 4,
+    timestamp: 1_700_000_000_000
+  })
+
 describe("Trace usage", () => {
-  it.effect("accumulates call counters inside withUsageTracking scope", () =>
+  it.effect("preserves all five independently reported counters", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", qa)
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
-      )
-      const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
+      const aggregate = Contracts.accumulateUsage(Contracts.emptyUsage, Option.some(completeUsage))
 
+      expect(Equal.equals(aggregate.tokens, completeUsage)).toBe(true)
+      expect(aggregate.callCount).toBe(1)
+    }))
+
+  it.effect("preserves omitted counters versus real zero through native JSON parsing", () =>
+    Effect.gen(function*() {
+      const codec = Schema.parseJson(Response.Usage)
+      const omitted = yield* Schema.decode(codec)("{}")
+      const zero = yield* Schema.decode(codec)(
+        "{\"inputTokens\":0,\"outputTokens\":0,\"totalTokens\":0,\"reasoningTokens\":0,\"cachedInputTokens\":0}"
+      )
+      const omittedRoundTrip = yield* Schema.encode(codec)(omitted)
+      const zeroRoundTrip = yield* Schema.encode(codec)(zero)
+      const decodedOmitted = yield* Schema.decode(codec)(omittedRoundTrip)
+      const decodedZero = yield* Schema.decode(codec)(zeroRoundTrip)
+
+      expect(Option.isNone(Option.fromNullable(decodedOmitted.inputTokens))).toBe(true)
+      expect(Option.contains(Option.fromNullable(decodedZero.inputTokens), 0)).toBe(true)
+      expect(Option.contains(Option.fromNullable(decodedZero.cachedInputTokens), 0)).toBe(true)
+    }))
+
+  it.effect("propagates unknown counters without inferring totals or missing values", () =>
+    Effect.gen(function*() {
+      const partial = new Response.Usage({
+        inputTokens: 2,
+        outputTokens: 0,
+        totalTokens: undefined,
+        reasoningTokens: 1
+      })
+      const afterPartial = Contracts.accumulateUsage(Contracts.emptyUsage, Option.some(partial))
+      const afterComplete = Contracts.accumulateUsage(afterPartial, Option.some(completeUsage))
+      const afterMissing = Contracts.accumulateUsage(afterComplete, Option.none())
+
+      expect(afterPartial.tokens.inputTokens).toBe(2)
+      expect(afterPartial.tokens.outputTokens).toBe(0)
+      expect(Option.isNone(Option.fromNullable(afterPartial.tokens.totalTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(afterPartial.tokens.cachedInputTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(afterComplete.tokens.totalTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(afterComplete.tokens.cachedInputTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(afterMissing.tokens.inputTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullable(afterMissing.tokens.reasoningTokens))).toBe(true)
+      expect(afterMissing.callCount).toBe(3)
+    }))
+
+  it.effect("represents retries as multiple explicit calls", () =>
+    Effect.gen(function*() {
+      const first = new Response.Usage({
+        inputTokens: 10,
+        outputTokens: 2,
+        totalTokens: 12,
+        reasoningTokens: 0,
+        cachedInputTokens: 1
+      })
+      const second = new Response.Usage({
+        inputTokens: 7,
+        outputTokens: 3,
+        totalTokens: 17,
+        reasoningTokens: 7,
+        cachedInputTokens: 2
+      })
       const tracked = yield* Trace.withUsageTracking(
-        module.forward({ question: "What is the capital of France?" }).pipe(
-          Effect.provide(lmLayer)
+        Effect.all(
+          Arr.make(
+            Trace.appendCall(call(Option.some(first), "failure")),
+            Trace.appendCall(call(Option.some(second)))
+          ),
+          { discard: true }
         )
       )
+      const usage = Tuple.getSecond(tracked)
 
-      const usage = tracked[1]
-
-      expect(usage.callCount).toBe(1)
-      expect(usage.cachedCount).toBe(0)
-      expect(usage.inputTokens).toBe(0)
-      expect(usage.outputTokens).toBe(0)
+      expect(usage.callCount).toBe(2)
+      expect(usage.tokens.inputTokens).toBe(17)
+      expect(usage.tokens.outputTokens).toBe(5)
+      expect(usage.tokens.totalTokens).toBe(29)
+      expect(usage.tokens.reasoningTokens).toBe(7)
+      expect(usage.tokens.cachedInputTokens).toBe(3)
     }))
 
-  it.effect("avoids double counting under nested usage-tracking scopes", () =>
+  it.effect("atomically aggregates concurrent child calls", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", qa)
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
-      )
-      const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-
-      const nested = yield* Trace.withUsageTracking(
-        Trace.withUsageTracking(
-          module.forward({ question: "What is the capital of France?" }).pipe(
-            Effect.provide(lmLayer)
-          )
+      const tracked = yield* Trace.withUsageTracking(
+        Effect.forEach(
+          Arr.make(completeUsage, completeUsage, completeUsage),
+          (usage) => Trace.appendCall(call(Option.some(usage))),
+          { concurrency: "unbounded", discard: true }
         )
       )
+      const usage = Tuple.getSecond(tracked)
 
-      const innerUsage = nested[0][1]
-      const outerUsage = nested[1]
-
-      expect(innerUsage.callCount).toBe(1)
-      expect(outerUsage.callCount).toBe(1)
-      expect(innerUsage.cachedCount).toBe(0)
-      expect(outerUsage.cachedCount).toBe(0)
-    }))
-
-  it.effect.prop("accumulates usage monotonically from canonical usage samples", [
-    fc.array(usageSampleArbitrary, { maxLength: 32 })
-  ], ([samples]) =>
-    Effect.sync(() => {
-      const folded = samples.reduce(
-        (state, sample) => {
-          const next = Contracts.accumulateUsage(
-            state.previous,
-            new Contracts.UsageSample({
-              inputTokens: Option.fromNullable(sample.inputTokens),
-              outputTokens: Option.fromNullable(sample.outputTokens),
-              cached: sample.cached
-            })
-          )
-
-          return {
-            previous: next,
-            monotonic: state.monotonic &&
-              next.inputTokens >= state.previous.inputTokens &&
-              next.outputTokens >= state.previous.outputTokens &&
-              next.callCount >= state.previous.callCount &&
-              next.cachedCount >= state.previous.cachedCount
-          }
-        },
-        { previous: Contracts.emptyUsage, monotonic: true }
-      )
-
-      return (
-        folded.monotonic &&
-        folded.previous.callCount === samples.length &&
-        folded.previous.cachedCount <= folded.previous.callCount
-      )
-    }))
-
-  it.effect("records stable optimization fields on trace entries", () =>
-    Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", qa)
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
-      )
-      const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-
-      const traced = yield* Trace.withTracing(
-        module.forward({ question: "What is the capital of France?" }).pipe(
-          Effect.provide(lmLayer)
-        )
-      )
-
-      const entry = yield* Arr.head(traced[1])
-
-      expect(entry.prompt.length > 0).toBe(true)
-      expect(entry.rawResponse.length > 0).toBe(true)
-      expect(entry.durationMs).toBeGreaterThanOrEqual(0)
+      expect(usage.callCount).toBe(3)
+      expect(usage.tokens.inputTokens).toBe(Number.multiply(17, 3))
+      expect(usage.tokens.totalTokens).toBe(Number.multiply(29, 3))
     }))
 })

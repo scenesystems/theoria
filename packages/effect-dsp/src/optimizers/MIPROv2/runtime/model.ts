@@ -5,7 +5,7 @@
  * @internal
  */
 import type { Ref } from "effect"
-import { Data } from "effect"
+import { Data, Schema, String } from "effect"
 import type { ModuleParams } from "../../../contracts/ModuleParams.js"
 import type { PredictorDemoCandidates } from "../bootstrap.js"
 import type { PredictorInstructionCandidates } from "../propose.js"
@@ -17,7 +17,10 @@ import type { PredictorInstructionCandidates } from "../propose.js"
  * @since 0.1.0
  * @category type-level
  */
-export type Phase3DimensionIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+export const Phase3DimensionIndex = Schema.Literal(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+
+/** @internal */
+export type Phase3DimensionIndex = typeof Phase3DimensionIndex.Type
 
 /**
  * A full trial configuration mapping each search dimension name to the
@@ -29,7 +32,10 @@ export type Phase3DimensionIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
  * @see {@link demoDimensionName}
  * @see {@link instructionDimensionName}
  */
-export type Phase3Config = Readonly<Record<string, Phase3DimensionIndex>>
+export const Phase3Config = Schema.Record({ key: Schema.String, value: Phase3DimensionIndex })
+
+/** @internal */
+export type Phase3Config = typeof Phase3Config.Type
 
 /**
  * Live binding for a single predictor during Phase 3 search.
@@ -58,10 +64,10 @@ export class PredictorBinding extends Data.Class<{
  * @category models
  * @see {@link Phase3Config}
  */
-export class BestAveragingCandidate extends Data.Class<{
-  readonly config: Phase3Config
-  readonly score: number
-}> {}
+export class BestAveragingCandidate extends Schema.Class<BestAveragingCandidate>("MIPROv2BestAveragingCandidate")({
+  config: Phase3Config,
+  score: Schema.Number
+}) {}
 
 /**
  * Derives the search-space dimension name for a predictor's demo candidates.
@@ -69,7 +75,7 @@ export class BestAveragingCandidate extends Data.Class<{
  * @since 0.1.0
  * @category helpers
  */
-export const demoDimensionName = (predictorName: string): string => `${predictorName}__demo`
+export const demoDimensionName = (predictorName: string): string => String.concat(predictorName, "__demo")
 
 /**
  * Derives the search-space dimension name for a predictor's instruction
@@ -78,4 +84,4 @@ export const demoDimensionName = (predictorName: string): string => `${predictor
  * @since 0.1.0
  * @category helpers
  */
-export const instructionDimensionName = (predictorName: string): string => `${predictorName}__instruction`
+export const instructionDimensionName = (predictorName: string): string => String.concat(predictorName, "__instruction")

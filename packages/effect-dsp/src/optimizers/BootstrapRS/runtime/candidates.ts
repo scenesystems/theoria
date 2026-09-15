@@ -7,16 +7,48 @@
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Match, Option, Schema } from "effect"
+import {
+  Array as Arr,
+  Data,
+  Effect,
+  Inspectable,
+  Match,
+  Number as Num,
+  Option,
+  Ref,
+  Schema,
+  String as Str,
+  Tuple
+} from "effect"
 import type * as Layer from "effect/Layer"
+import { withModuleParamsDemos } from "../../../contracts/ModuleParams.js"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
 import * as Evaluate from "../../../Evaluate/index.js"
-import type { Example } from "../../../Example/index.js"
+import { Example } from "../../../Example/index.js"
+import { collectModuleParamRefs } from "../../../internal/module-params.js"
 import type { Metric } from "../../../Metric/model.js"
 import * as Module from "../../../Module/index.js"
 import type { Module as DspModule } from "../../../Module/model.js"
-import { bootstrapFewShot } from "../../BootstrapFewShot/index.js"
-import { labeledFewShot } from "../../LabeledFewShot/index.js"
+import { bootstrapFewShot, BootstrapFewShotOptions } from "../../BootstrapFewShot/index.js"
+import { labeledDemos, selectRandomDemos } from "../../LabeledFewShot/internal/sampling.js"
+
+/** @internal */
+export const BootstrapRSExamples = Schema.Array(Example)
+
+/** @internal */
+export type BootstrapRSExamples = typeof BootstrapRSExamples.Type
+
+/** @internal */
+export const BootstrapRSSeeds = Schema.Array(Schema.Number)
+
+/** @internal */
+export type BootstrapRSSeeds = typeof BootstrapRSSeeds.Type
+
+/** @internal */
+export class ResolveSeedsOptions extends Schema.Class<ResolveSeedsOptions>("BootstrapRSResolveSeedsOptions")({
+  numCandidates: Schema.Number,
+  seeds: Schema.optional(BootstrapRSSeeds)
+}) {}
 
 /**
  * Clamps a number to a non-negative value, replacing any negative input with zero.
@@ -42,26 +74,15 @@ export const normalizeNonNegative = (value: number): number =>
  * @category utils
  * @internal
  */
-export const rotateExamples = (examples: ReadonlyArray<Example>, seed: number): ReadonlyArray<Example> => {
-  const length = examples.length
+export const rotateExamples = (examples: BootstrapRSExamples, seed: number): BootstrapRSExamples =>
+  Arr.match(examples, {
+    onEmpty: () => examples,
+    onNonEmpty: (nonEmptyExamples) => {
+      const offset = Num.remainder(normalizeNonNegative(seed), Arr.length(nonEmptyExamples))
 
-  if (length <= 0) {
-    return examples
-  }
-
-  const offset = normalizeNonNegative(seed) % length
-
-  return Arr.appendAll(Arr.drop(examples, offset), Arr.take(examples, offset))
-}
-
-const buildSeeds = (
-  count: number,
-  next: number,
-  acc: ReadonlyArray<number>
-): ReadonlyArray<number> =>
-  count <= 0
-    ? acc
-    : buildSeeds(count - 1, next + 1, Arr.append(acc, next))
+      return Arr.appendAll(Arr.drop(nonEmptyExamples, offset), Arr.take(nonEmptyExamples, offset))
+    }
+  })
 
 /**
  * Resolves the seed sequence for candidate generation.
@@ -73,14 +94,15 @@ const buildSeeds = (
  * @category utils
  * @internal
  */
-export const resolveSeeds = (options: {
-  readonly numCandidates: number
-  readonly seeds?: ReadonlyArray<number>
-}): ReadonlyArray<number> => {
+export const resolveSeeds = (options: ResolveSeedsOptions): BootstrapRSSeeds => {
   const normalizedCandidateCount = normalizeNonNegative(options.numCandidates)
 
   return Option.match(Option.fromNullable(options.seeds), {
-    onNone: () => buildSeeds(normalizedCandidateCount, 0, Arr.empty<number>()),
+    onNone: () =>
+      Match.value(normalizedCandidateCount).pipe(
+        Match.when(0, () => Arr.empty<number>()),
+        Match.orElse((count) => Arr.range(0, Num.decrement(count)))
+      ),
     onSome: (provided) => Arr.take(provided, normalizedCandidateCount)
   })
 }
@@ -101,6 +123,51 @@ export class CandidateState extends Schema.Class<CandidateState>("BootstrapRSCan
   state: Module.SavedState
 }) {}
 
+/** @internal */
+export const CandidateStates = Schema.Array(CandidateState)
+
+/** @internal */
+export type CandidateStates = typeof CandidateStates.Type
+
+/** @internal */
+export class EvaluateCandidateOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME,
+  MR,
+  E,
+  R
+> extends Data.Class<{
+  readonly module: DspModule<I, O, E, R>
+  readonly candidate: CandidateState
+  readonly valset: BootstrapRSExamples
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+}> {}
+
+/** @internal */
+export class BuildCandidateStatesOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME,
+  MR,
+  E,
+  R
+> extends Data.Class<{
+  readonly module: DspModule<I, O, E, R>
+  readonly initialState: Module.SavedState
+  readonly trainset: BootstrapRSExamples
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+  readonly seeds: BootstrapRSSeeds
+  readonly maxRounds: number
+  readonly maxBootstrappedDemos: number
+  readonly maxLabeledDemos?: number
+  readonly threshold?: number
+  readonly fallbackToLabeledFewShot?: boolean
+  readonly fallbackLabeledDemoCount?: number
+  readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
+  readonly baselineLabeledCount: number
+}> {}
+
 /**
  * Loads a candidate's saved parameters into the module, runs the evaluation
  * metric against the validation set, and returns the aggregate score.
@@ -116,13 +183,10 @@ export const evaluateCandidate = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
->(options: {
-  readonly module: DspModule<I, O>
-  readonly candidate: CandidateState
-  readonly valset: ReadonlyArray<Example>
-  readonly metric: Metric<ME, MR>
-}) =>
+  MR,
+  E,
+  R
+>(options: EvaluateCandidateOptions<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
     yield* Module.load(options.module, options.candidate.state)
     const report = yield* Evaluate.run({
@@ -134,12 +198,17 @@ export const evaluateCandidate = <
       concurrency: 1
     })
 
-    if (report.successCount <= 0) {
-      return yield* new AllTrialsFailed({
-        message: `Candidate '${options.candidate.label}' produced zero successful evaluation examples`,
-        trialCount: 0
-      })
-    }
+    yield* Effect.if(Num.lessThanOrEqualTo(report.successCount, 0), {
+      onFalse: () => Effect.void,
+      onTrue: () =>
+        new AllTrialsFailed({
+          message: Str.concat(
+            Str.concat("Candidate '", options.candidate.label),
+            "' produced zero successful evaluation examples"
+          ),
+          trialCount: 0
+        })
+    })
 
     return Option.getOrElse(Option.fromNullable(report.overallScores.bootstrapRS), () => 0)
   })
@@ -149,9 +218,13 @@ export const evaluateCandidate = <
  *
  * **Candidates produced:**
  * - An uncompiled baseline using the module's initial state
- * - A labeled-few-shot baseline using the first seed
+ * - A destination-aware labeled baseline using the first seed
  * - One bootstrap-few-shot candidate per seed, each trained on a rotated
  *   view of the training set
+ *
+ * Each destination validates all labeled examples before seeded selection;
+ * incompatible examples are omitted for that destination, and a destination
+ * with no compatible labels receives an empty demonstration array.
  *
  * A bootstrap that fails to load, train or save fails candidate generation;
  * the optimizer does not report a winner from a partially built pool.
@@ -164,31 +237,31 @@ export const buildCandidateStates = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
->(options: {
-  readonly module: DspModule<I, O>
-  readonly initialState: Module.SavedState
-  readonly trainset: ReadonlyArray<Example>
-  readonly metric: Metric<ME, MR>
-  readonly seeds: ReadonlyArray<number>
-  readonly maxRounds: number
-  readonly maxBootstrappedDemos: number
-  readonly maxLabeledDemos?: number
-  readonly threshold?: number
-  readonly fallbackToLabeledFewShot?: boolean
-  readonly fallbackLabeledDemoCount?: number
-  readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
-  readonly baselineLabeledCount: number
-}) =>
+  MR,
+  E,
+  R
+>(options: BuildCandidateStatesOptions<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
     const labeledBaseline = yield* Effect.gen(function*() {
       yield* Module.load(options.module, options.initialState)
-      yield* labeledFewShot({
-        module: options.module,
-        trainset: options.trainset,
-        k: options.baselineLabeledCount,
-        seed: Option.getOrElse(Arr.head(options.seeds), () => 0)
-      })
+      const seed = Option.getOrElse(Arr.head(options.seeds), () => 0)
+      const labels = labeledDemos(options.trainset)
+      const replacements = yield* Effect.forEach(collectModuleParamRefs(options.module), (entry) =>
+        Effect.forEach(labels, (demo) =>
+          entry.demoContract.decode(demo).pipe(Effect.option)).pipe(
+            Effect.map((compatible) =>
+              Tuple.make(
+                entry.params,
+                selectRandomDemos(Arr.getSomes(compatible), options.baselineLabeledCount, seed)
+              )
+            )
+          ))
+      yield* Effect.forEach(
+        replacements,
+        ([params, demos]) =>
+          Ref.update(params, (current) => withModuleParamsDemos(current, demos)),
+        { discard: true }
+      ).pipe(Effect.uninterruptible)
       const state = yield* Module.save(options.module)
 
       return new CandidateState({
@@ -202,37 +275,39 @@ export const buildCandidateStates = <
       (seed) =>
         Effect.gen(function*() {
           yield* Module.load(options.module, options.initialState)
-          yield* bootstrapFewShot({
-            module: options.module,
-            trainset: rotateExamples(options.trainset, seed),
-            metric: options.metric,
-            maxRounds: options.maxRounds,
-            maxBootstrappedDemos: options.maxBootstrappedDemos,
-            ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
-              onNone: () => ({}),
-              onSome: (value) => ({ maxLabeledDemos: value })
-            }),
-            ...Option.match(Option.fromNullable(options.threshold), {
-              onNone: () => ({}),
-              onSome: (value) => ({ threshold: value })
-            }),
-            ...Option.match(Option.fromNullable(options.teacher), {
-              onNone: () => ({}),
-              onSome: (teacher) => ({ teacher })
-            }),
-            ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
-              onNone: () => ({ fallbackToLabeledFewShot: false }),
-              onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
-            }),
-            ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
-              onNone: () => ({}),
-              onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
+          yield* bootstrapFewShot(
+            new BootstrapFewShotOptions({
+              module: options.module,
+              trainset: rotateExamples(options.trainset, seed),
+              metric: options.metric,
+              maxRounds: options.maxRounds,
+              maxBootstrappedDemos: options.maxBootstrappedDemos,
+              ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
+                onNone: () => ({}),
+                onSome: (value) => ({ maxLabeledDemos: value })
+              }),
+              ...Option.match(Option.fromNullable(options.threshold), {
+                onNone: () => ({}),
+                onSome: (value) => ({ threshold: value })
+              }),
+              ...Option.match(Option.fromNullable(options.teacher), {
+                onNone: () => ({}),
+                onSome: (teacher) => ({ teacher })
+              }),
+              ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
+                onNone: () => ({ fallbackToLabeledFewShot: false }),
+                onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
+              }),
+              ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
+                onNone: () => ({}),
+                onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
+              })
             })
-          })
+          )
           const state = yield* Module.save(options.module)
 
           return new CandidateState({
-            label: `bootstrap-${seed}`,
+            label: Str.concat("bootstrap-", Inspectable.toStringUnknown(seed)),
             state
           })
         }),

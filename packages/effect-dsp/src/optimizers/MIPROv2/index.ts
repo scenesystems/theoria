@@ -6,14 +6,13 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Data, Effect } from "effect"
-import type { Schema } from "effect"
-import type { Example } from "../../Example/index.js"
+import { Array as Arr, Data, Effect, Number as Num, Schema } from "effect"
+import { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
 import type { Module as DspModule } from "../../Module/model.js"
-import { generateDemoCandidates, type PredictorDemoCandidates } from "./bootstrap.js"
+import { generateDemoCandidates, type PredictorDemoCandidateSets } from "./bootstrap.js"
 import { MIPROv2Event, type MIPROv2Event as MIPROv2EventType } from "./events.js"
-import { type PredictorInstructionCandidates, proposeInstructionCandidates } from "./propose.js"
+import { type PredictorInstructionCandidateSets, proposeInstructionCandidates } from "./propose.js"
 import {
   type MIPROOptionLike,
   resolvePhase3TrialBudget,
@@ -23,6 +22,38 @@ import {
 } from "./runtime/options.js"
 import { streamMIPROv2Events } from "./runtime/stream.js"
 import { runPhase3Search } from "./search.js"
+
+/**
+ * Ordered dataset rows consumed by all MIPROv2 phases.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const MIPROExamples = Schema.Array(Example)
+
+/**
+ * Ordered dataset rows consumed by all MIPROv2 phases.
+ *
+ * @since 0.1.0
+ * @category type-level
+ */
+export type MIPROExamples = typeof MIPROExamples.Type
+
+/**
+ * Proposal hints selected by MIPROv2 Phase 2.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const MIPROTipVocabulary = Schema.Array(Schema.String)
+
+/**
+ * Proposal hints selected by MIPROv2 Phase 2.
+ *
+ * @since 0.1.0
+ * @category type-level
+ */
+export type MIPROTipVocabulary = typeof MIPROTipVocabulary.Type
 
 /**
  * Configures candidate construction, instruction generation, and TPE selection.
@@ -39,16 +70,18 @@ export class MIPROv2Options<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Module tree mutated during evaluation and left with the selected configuration on success. */
-  readonly module: DspModule<I, O>
+  readonly module: DspModule<I, O, E, R>
   /** Examples used for proposal context; only entries with `output` become demonstrations. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: MIPROExamples
   /** Phase 3 evaluation set. Defaults to `trainset`; no automatic split is performed. */
-  readonly valset?: ReadonlyArray<Example>
+  readonly valset?: MIPROExamples
   /** Single objective used for baseline, minibatch, and full-set evaluations. */
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   /** Total demonstration candidates per predictor; fractional values round down and invalid counts become one. */
   readonly numCandidates: number
   /** Total instruction candidates per predictor, including the baseline at index zero. */
@@ -62,7 +95,7 @@ export class MIPROv2Options<
   /** Numeric hint rendered into each proposal prompt. Defaults to `1`; it does not configure the model provider. */
   readonly diversityTemperature?: number
   /** Proposal hints selected cyclically. An empty or omitted array uses the built-in vocabulary. */
-  readonly tipVocabulary?: ReadonlyArray<string>
+  readonly tipVocabulary?: MIPROTipVocabulary
   /** Phase 3 study trials; invalid counts become one and omission uses {@link phase3TrialBudget}. */
   readonly trialBudget?: number
   /** Prefix size of `valset` used for every trial objective. Defaults to `50` and is normalized to a positive integer. */
@@ -89,7 +122,7 @@ export type MIPROv2EventSink = (event: MIPROv2EventType) => Effect.Effect<void>
 export const noMIPROv2Events: MIPROv2EventSink = () => Effect.void
 
 const emitPhase1Candidates = (
-  demoCandidates: ReadonlyArray<PredictorDemoCandidates>,
+  demoCandidates: PredictorDemoCandidateSets,
   emit: MIPROv2EventSink
 ) =>
   Effect.forEach(
@@ -106,7 +139,7 @@ const emitPhase1Candidates = (
   )
 
 const emitPhase2Candidates = (
-  instructionCandidates: ReadonlyArray<PredictorInstructionCandidates>,
+  instructionCandidates: PredictorInstructionCandidateSets,
   emit: MIPROv2EventSink
 ) =>
   Effect.forEach(
@@ -123,12 +156,13 @@ const emitPhase2Candidates = (
   )
 
 const totalDemoCandidates = (
-  demoCandidates: ReadonlyArray<PredictorDemoCandidates>
-): number => Arr.reduce(demoCandidates, 0, (count, candidateSet) => count + candidateSet.candidates.length)
+  demoCandidates: PredictorDemoCandidateSets
+): number => Arr.reduce(demoCandidates, 0, (count, candidateSet) => Num.sum(count, Arr.length(candidateSet.candidates)))
 
 const totalInstructionCandidates = (
-  instructionCandidates: ReadonlyArray<PredictorInstructionCandidates>
-): number => Arr.reduce(instructionCandidates, 0, (count, candidateSet) => count + candidateSet.candidates.length)
+  instructionCandidates: PredictorInstructionCandidateSets
+): number =>
+  Arr.reduce(instructionCandidates, 0, (count, candidateSet) => Num.sum(count, Arr.length(candidateSet.candidates)))
 
 /**
  * Runs all MIPROv2 phases and reports their lifecycle events.
@@ -166,13 +200,15 @@ export const miprov2WithEvents = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 >(
-  options: MIPROv2Options<I, O, ME, MR>,
+  options: MIPROv2Options<I, O, ME, MR, E, R>,
   emit: MIPROv2EventSink
 ) =>
   Effect.gen(function*() {
-    const optionBag: MIPROOptionLike<I, O, ME, MR> = options
+    const optionBag: MIPROOptionLike<I, O, ME, MR, E, R> = options
 
     yield* emit(MIPROv2Event.Phase1Started({ numCandidates: options.numCandidates }))
 
@@ -233,9 +269,11 @@ export const miprov2 = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 >(
-  options: MIPROv2Options<I, O, ME, MR>
+  options: MIPROv2Options<I, O, ME, MR, E, R>
 ) => miprov2WithEvents(options, noMIPROv2Events)
 
 /**
@@ -259,9 +297,11 @@ export const miprov2Stream = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 >(
-  options: MIPROv2Options<I, O, ME, MR>
+  options: MIPROv2Options<I, O, ME, MR, E, R>
 ) => streamMIPROv2Events((emit) => miprov2WithEvents(options, emit))
 
 export * from "./bootstrap.js"

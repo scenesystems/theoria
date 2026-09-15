@@ -6,24 +6,19 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Option } from "effect"
+import { Array as Arr, Option } from "effect"
 import type { Schema } from "effect"
-import type { Example } from "../../../Example/index.js"
-import type { Metric } from "../../../Metric/model.js"
-import type { Module as DspModule } from "../../../Module/model.js"
-import type { GenerateDemoCandidatesOptions, PredictorDemoCandidates } from "../bootstrap.js"
-import type { RunPhase3SearchOptions } from "../phase3-model.js"
-import type { PredictorInstructionCandidates, ProposeInstructionCandidatesOptions } from "../propose.js"
+import { GenerateDemoCandidatesOptions, type PredictorDemoCandidateSets } from "../bootstrap.js"
+import type { MIPROv2Options } from "../index.js"
+import { RunPhase3SearchOptions } from "../phase3-model.js"
+import { type PredictorInstructionCandidateSets, ProposeInstructionCandidatesOptions } from "../propose.js"
 import { phase3TrialBudget } from "./budget.js"
 
 /**
- * Superset of every user-configurable knob accepted by the MIPROv2
- * optimizer.
+ * Canonical internal alias for the user-facing MIPROv2 options.
  *
- * Optional fields carry sensible defaults when omitted. Phase-specific
- * adapter functions (`toPhase1Options`, `toPhase2Options`,
- * `toPhase3Options`) project this superset down to exactly the options
- * each phase requires.
+ * Phase-specific adapter functions project the public model down to exactly
+ * the options each phase requires without duplicating its data contract.
  *
  * @since 0.1.0
  * @category models
@@ -31,36 +26,28 @@ import { phase3TrialBudget } from "./budget.js"
  * @see {@link toPhase2Options} — instruction-proposal projection
  * @see {@link toPhase3Options} — search projection
  */
-export class MIPROOptionLike<
+export type MIPROOptionLike<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
-> extends Data.Class<{
-  readonly module: DspModule<I, O>
-  readonly trainset: ReadonlyArray<Example>
-  readonly valset?: ReadonlyArray<Example>
-  readonly metric: Metric<ME, MR>
-  readonly numCandidates: number
-  readonly numInstructions: number
-  readonly seed?: number
-  readonly maxLabeledDemos?: number
-  readonly maxBootstrappedDemos?: number
-  readonly diversityTemperature?: number
-  readonly tipVocabulary?: ReadonlyArray<string>
-  readonly trialBudget?: number
-  readonly minibatchSize?: number
-  readonly fullEvalEvery?: number
-}> {}
+  MR,
+  E,
+  R
+> = MIPROv2Options<I, O, ME, MR, E, R>
 
-class CandidateSet<Candidate> extends Data.Class<{
-  readonly candidates: ReadonlyArray<Candidate>
-}> {}
+const maxDemoCandidateCount = (candidateSets: PredictorDemoCandidateSets): number =>
+  Arr.reduce(
+    candidateSets,
+    1,
+    (currentMax, candidateSet) => Numeric.max(currentMax, Arr.length(candidateSet.candidates))
+  )
 
-const maxCandidateCount = <Candidate>(
-  candidateSets: ReadonlyArray<CandidateSet<Candidate>>
-): number =>
-  Arr.reduce(candidateSets, 1, (currentMax, candidateSet) => Numeric.max(currentMax, candidateSet.candidates.length))
+const maxInstructionCandidateCount = (candidateSets: PredictorInstructionCandidateSets): number =>
+  Arr.reduce(
+    candidateSets,
+    1,
+    (currentMax, candidateSet) => Numeric.max(currentMax, Arr.length(candidateSet.candidates))
+  )
 
 /**
  * Returns the explicit validation set when provided, falling back to the
@@ -69,9 +56,9 @@ const maxCandidateCount = <Candidate>(
  * @since 0.1.0
  * @category helpers
  */
-export const resolveValset = (
-  options: { readonly trainset: ReadonlyArray<Example>; readonly valset?: ReadonlyArray<Example> }
-): ReadonlyArray<Example> => Option.getOrElse(Option.fromNullable(options.valset), () => options.trainset)
+export const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: MIPROOptionLike<I, O, ME, MR, E, R>
+) => Option.getOrElse(Option.fromNullable(options.valset), () => options.trainset)
 
 /**
  * Determines how many Phase 3 trials to run.
@@ -87,19 +74,21 @@ export const resolvePhase3TrialBudget = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
+  MR,
+  E,
+  R
 >(
-  options: MIPROOptionLike<I, O, ME, MR>,
-  demoCandidates: ReadonlyArray<PredictorDemoCandidates>,
-  instructionCandidates: ReadonlyArray<PredictorInstructionCandidates>
+  options: MIPROOptionLike<I, O, ME, MR, E, R>,
+  demoCandidates: PredictorDemoCandidateSets,
+  instructionCandidates: PredictorInstructionCandidateSets
 ): number =>
   Option.getOrElse(
     Option.fromNullable(options.trialBudget),
     () =>
       phase3TrialBudget({
-        predictorCount: demoCandidates.length,
-        demoCandidateCount: maxCandidateCount(demoCandidates),
-        instructionCandidateCount: maxCandidateCount(instructionCandidates)
+        predictorCount: Arr.length(demoCandidates),
+        demoCandidateCount: maxDemoCandidateCount(demoCandidates),
+        instructionCandidateCount: maxInstructionCandidateCount(instructionCandidates)
       })
   )
 
@@ -119,26 +108,29 @@ export const toPhase1Options = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
+  MR,
+  E,
+  R
 >(
-  options: MIPROOptionLike<I, O, ME, MR>
-): GenerateDemoCandidatesOptions<I, O> => ({
-  module: options.module,
-  trainset: options.trainset,
-  numCandidates: options.numCandidates,
-  ...Option.match(Option.fromNullable(options.seed), {
-    onNone: () => ({}),
-    onSome: (seed) => ({ seed })
-  }),
-  ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
-    onNone: () => ({}),
-    onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
-  }),
-  ...Option.match(Option.fromNullable(options.maxBootstrappedDemos), {
-    onNone: () => ({}),
-    onSome: (maxBootstrappedDemos) => ({ maxBootstrappedDemos })
+  options: MIPROOptionLike<I, O, ME, MR, E, R>
+): GenerateDemoCandidatesOptions<I, O, E, R> =>
+  new GenerateDemoCandidatesOptions({
+    module: options.module,
+    trainset: options.trainset,
+    numCandidates: options.numCandidates,
+    ...Option.match(Option.fromNullable(options.seed), {
+      onNone: () => ({}),
+      onSome: (seed) => ({ seed })
+    }),
+    ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
+      onNone: () => ({}),
+      onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
+    }),
+    ...Option.match(Option.fromNullable(options.maxBootstrappedDemos), {
+      onNone: () => ({}),
+      onSome: (maxBootstrappedDemos) => ({ maxBootstrappedDemos })
+    })
   })
-})
 
 /**
  * Projects `MIPROOptionLike` into the options required by Phase 2
@@ -156,28 +148,31 @@ export const toPhase2Options = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
+  MR,
+  E,
+  R
 >(
-  options: MIPROOptionLike<I, O, ME, MR>,
-  demoCandidates: ReadonlyArray<PredictorDemoCandidates>
-): ProposeInstructionCandidatesOptions<I, O> => ({
-  module: options.module,
-  trainset: options.trainset,
-  demoCandidates,
-  numInstructions: options.numInstructions,
-  ...Option.match(Option.fromNullable(options.seed), {
-    onNone: () => ({}),
-    onSome: (seed) => ({ seed })
-  }),
-  ...Option.match(Option.fromNullable(options.diversityTemperature), {
-    onNone: () => ({}),
-    onSome: (diversityTemperature) => ({ diversityTemperature })
-  }),
-  ...Option.match(Option.fromNullable(options.tipVocabulary), {
-    onNone: () => ({}),
-    onSome: (tipVocabulary) => ({ tipVocabulary })
+  options: MIPROOptionLike<I, O, ME, MR, E, R>,
+  demoCandidates: PredictorDemoCandidateSets
+): ProposeInstructionCandidatesOptions<I, O, E, R> =>
+  new ProposeInstructionCandidatesOptions({
+    module: options.module,
+    trainset: options.trainset,
+    demoCandidates,
+    numInstructions: options.numInstructions,
+    ...Option.match(Option.fromNullable(options.seed), {
+      onNone: () => ({}),
+      onSome: (seed) => ({ seed })
+    }),
+    ...Option.match(Option.fromNullable(options.diversityTemperature), {
+      onNone: () => ({}),
+      onSome: (diversityTemperature) => ({ diversityTemperature })
+    }),
+    ...Option.match(Option.fromNullable(options.tipVocabulary), {
+      onNone: () => ({}),
+      onSome: (tipVocabulary) => ({ tipVocabulary })
+    })
   })
-})
 
 /**
  * Projects `MIPROOptionLike` into the options required by Phase 3
@@ -195,34 +190,37 @@ export const toPhase3Options = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
+  MR,
+  E,
+  R
 >(
-  options: MIPROOptionLike<I, O, ME, MR>,
-  emit: RunPhase3SearchOptions<I, O, ME, MR>["emit"],
+  options: MIPROOptionLike<I, O, ME, MR, E, R>,
+  emit: RunPhase3SearchOptions<I, O, ME, MR, E, R>["emit"],
   trialBudget: number,
-  demoCandidates: ReadonlyArray<PredictorDemoCandidates>,
-  instructionCandidates: ReadonlyArray<PredictorInstructionCandidates>
-): RunPhase3SearchOptions<I, O, ME, MR> => ({
-  module: options.module,
-  valset: resolveValset(options),
-  metric: options.metric,
-  trialBudget,
-  demoCandidates,
-  instructionCandidates,
-  ...Option.match(Option.fromNullable(options.minibatchSize), {
-    onNone: () => ({}),
-    onSome: (minibatchSize) => ({ minibatchSize })
-  }),
-  ...Option.match(Option.fromNullable(options.fullEvalEvery), {
-    onNone: () => ({}),
-    onSome: (fullEvalEvery) => ({ fullEvalEvery })
-  }),
-  ...Option.match(Option.fromNullable(options.seed), {
-    onNone: () => ({}),
-    onSome: (seed) => ({ seed })
-  }),
-  ...Option.match(Option.fromNullable(emit), {
-    onNone: () => ({}),
-    onSome: (phase3Emit) => ({ emit: phase3Emit })
+  demoCandidates: PredictorDemoCandidateSets,
+  instructionCandidates: PredictorInstructionCandidateSets
+): RunPhase3SearchOptions<I, O, ME, MR, E, R> =>
+  new RunPhase3SearchOptions({
+    module: options.module,
+    valset: resolveValset(options),
+    metric: options.metric,
+    trialBudget,
+    demoCandidates,
+    instructionCandidates,
+    ...Option.match(Option.fromNullable(options.minibatchSize), {
+      onNone: () => ({}),
+      onSome: (minibatchSize) => ({ minibatchSize })
+    }),
+    ...Option.match(Option.fromNullable(options.fullEvalEvery), {
+      onNone: () => ({}),
+      onSome: (fullEvalEvery) => ({ fullEvalEvery })
+    }),
+    ...Option.match(Option.fromNullable(options.seed), {
+      onNone: () => ({}),
+      onSome: (seed) => ({ seed })
+    }),
+    ...Option.match(Option.fromNullable(emit), {
+      onNone: () => ({}),
+      onSome: (phase3Emit) => ({ emit: phase3Emit })
+    })
   })
-})

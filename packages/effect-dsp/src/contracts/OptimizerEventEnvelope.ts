@@ -5,13 +5,13 @@
  */
 import { Schema } from "effect"
 import { OptimizerKind } from "./OptimizerKind.js"
+import { Payload } from "./Payload.js"
 
 /**
  * Associates an optimizer and event tag with an encoded event payload.
  *
  * @remarks
- * The envelope validates payload values only as a string-keyed record of
- * `unknown`; consumers must decode the payload with the event schema selected by
+ * The envelope retains a JSON document; consumers decode it with the event schema selected by
  * `optimizer` and `eventTag`.
  *
  * @since 0.1.0
@@ -22,6 +22,6 @@ export class OptimizerEventEnvelope extends Schema.Class<OptimizerEventEnvelope>
   optimizer: OptimizerKind,
   /** Optimizer-specific event discriminant. */
   eventTag: Schema.String,
-  /** Encoded event fields requiring event-specific decoding by the consumer. */
-  payload: Schema.Record({ key: Schema.String, value: Schema.Unknown })
+  /** Encoded event document requiring event-specific decoding by the consumer. */
+  payload: Payload
 }) {}

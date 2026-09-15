@@ -80,16 +80,54 @@ describe("documentation view model", () => {
   it.effect("ranks exact symbol matches ahead of package summaries", () =>
     Effect.sync(() => {
       const results = search("runStudy", Option.some("effect-search"))
-      expect(results[0]?.id).toBe("effect-search/Study#runStudy")
+      expect(Option.map(Arr.head(results), (entry) => entry.id)).toEqual(
+        Option.some("effect-search/Study#runStudy")
+      )
     }))
 
-  it.effect("finds relevant documentation through spacing and typing errors", () =>
+  it.effect("finds relevant documentation through camel-case spacing, transposition, and subsequence typos", () =>
     Effect.sync(() => {
       const symbolResults = search("run stduy", Option.some("effect-search"))
       const packageResults = search("effect native optimiztion", Option.none())
 
-      expect(symbolResults[0]?.id).toBe("effect-search/Study#runStudy")
-      expect(packageResults[0]?.id).toBe("effect-search")
+      expect(Option.map(Arr.head(symbolResults), (entry) => entry.id)).toEqual(
+        Option.some("effect-search/Study#runStudy")
+      )
+      expect(Option.map(Arr.head(packageResults), (entry) => entry.id)).toEqual(Option.some("effect-search"))
+    }))
+
+  it.effect("normalizes compatibility characters, accents, case, and punctuation", () =>
+    Effect.gen(function*() {
+      const packageEntry = yield* Arr.head(docsSearchIndexFixture.entries)
+      const normalizedIndex = prepareDocsSearchIndex(Arr.of({
+        ...packageEntry,
+        id: "normalized-entry",
+        name: "ＲÉSUMÉ",
+        qualifiedName: "Guides/ＲÉSUMÉ"
+      }))
+      const result = yield* Arr.head(searchDocs(normalizedIndex, "  resume!!!  ", {
+        limit: 20,
+        packageSlug: Option.none()
+      }))
+
+      expect(result.id).toBe("normalized-entry")
+    }))
+
+  it.effect("keeps equal-score results stable and returns no results for an empty index", () =>
+    Effect.gen(function*() {
+      const packageEntry = yield* Arr.head(docsSearchIndexFixture.entries)
+      const stableIndex = prepareDocsSearchIndex(Arr.make(
+        { ...packageEntry, id: "first", path: "/docs/first" },
+        { ...packageEntry, id: "second", path: "/docs/second" }
+      ))
+      const stableResults = searchDocs(stableIndex, "", { limit: 20, packageSlug: Option.none() })
+      const emptyResults = searchDocs(prepareDocsSearchIndex(Arr.empty()), "", {
+        limit: 20,
+        packageSlug: Option.none()
+      })
+
+      expect(Arr.map(stableResults, (entry) => entry.id)).toEqual(Arr.make("first", "second"))
+      expect(emptyResults).toEqual(Arr.empty())
     }))
 
   it.effect("resolves a selected export from the URL fragment", () =>

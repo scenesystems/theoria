@@ -6,26 +6,8 @@
 
 import { Schema } from "effect"
 
-/**
- * Decodes the ordered objective coordinates for one candidate.
- *
- * @remarks
- * The schema accepts empty arrays and non-finite numbers. It does not establish
- * the equal-length and finite-coordinate preconditions of Pareto operations.
- *
- * @since 0.1.0
- * @category schemas
- */
-export const ObjectiveVectorSchema = Schema.Array(Schema.Number)
-
-/**
- * Ordered objective coordinates for one candidate. Coordinate positions must
- * match the corresponding direction vector and every other candidate under comparison.
- *
- * @since 0.1.0
- * @category models
- */
-export type ObjectiveVector = Schema.Schema.Type<typeof ObjectiveVectorSchema>
+export { ObjectiveVectorSchema } from "../contracts/ObjectiveValue.js"
+export type { ObjectiveVector } from "../contracts/ObjectiveValue.js"
 
 /**
  * Records the best value for one objective coordinate and the input indices

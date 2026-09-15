@@ -1,15 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Boolean, Effect, Equal, Schema, String as Str } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 
-type Bucket = "parent-a-better" | "parent-b-better" | "tie"
+const BucketSchema = Schema.Literal("parent-a-better", "parent-b-better", "tie")
+type Bucket = typeof BucketSchema.Type
 
 const PARENT_A_BETTER: Bucket = "parent-a-better"
 const PARENT_B_BETTER: Bucket = "parent-b-better"
 const TIE: Bucket = "tie"
 
-const bucketOrder: ReadonlyArray<Bucket> = Arr.make(PARENT_A_BETTER, PARENT_B_BETTER, TIE)
+const bucketOrder: Schema.Array$<typeof BucketSchema>["Type"] = Arr.make(PARENT_A_BETTER, PARENT_B_BETTER, TIE)
 
 const mergeBuckets = {
   "parent-a-better": Arr.make("a-1", "a-2", "a-3"),
@@ -36,16 +37,33 @@ describe("Sampler stratified utilities", () => {
         first,
         Arr.empty<string>(),
         (acc, value) =>
-          Arr.some(acc, (seen) => seen === value)
-            ? acc
-            : Arr.append(acc, value)
+          Boolean.match(Arr.some(acc, (seen) => Equal.equals(seen, value)), {
+            onFalse: () => Arr.append(acc, value),
+            onTrue: () => acc
+          })
       )
 
       expect(second).toEqual(first)
-      expect(first.length).toBe(5)
-      expect(unique.length).toBe(first.length)
-      expect(Arr.some(first, (entry) => entry.startsWith("b-"))).toBe(true)
-      expect(Arr.some(first, (entry) => entry.startsWith("t-"))).toBe(true)
+      expect(Arr.length(first)).toBe(5)
+      expect(Arr.length(unique)).toBe(Arr.length(first))
+      expect(Arr.some(first, Str.startsWith("b-"))).toBe(true)
+      expect(Arr.some(first, Str.startsWith("t-"))).toBe(true)
+    }))
+
+  it.effect("preserves bucket visitation order while skipping asymmetrically exhausted buckets", () =>
+    Effect.sync(() => {
+      const result = Sampler.sampleStratifiedRoundRobin({
+        buckets: {
+          "parent-a-better": Arr.make("a-1", "a-2", "a-3", "a-4"),
+          "parent-b-better": Arr.make("b-1"),
+          tie: Arr.make("t-1", "t-2")
+        },
+        bucketOrder: Arr.make(PARENT_B_BETTER, PARENT_A_BETTER, TIE),
+        targetSize: 7,
+        seed: 42
+      })
+
+      expect(result).toEqual(Arr.make("b-1", "a-4", "t-1", "a-2", "t-2", "a-3", "a-1"))
     }))
 
   it.effect("handles empty bucket orders and clamps oversized/negative target sizes", () =>
@@ -71,6 +89,6 @@ describe("Sampler stratified utilities", () => {
 
       expect(emptyOrder).toEqual([])
       expect(negativeTarget).toEqual([])
-      expect(oversizedTarget.length).toBe(6)
+      expect(Arr.length(oversizedTarget)).toBe(6)
     }))
 })

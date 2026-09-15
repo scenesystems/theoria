@@ -5,20 +5,22 @@
  */
 import type { Study } from "@scenesystems/effect-search"
 import { Data, Effect, Schema } from "effect"
-import type { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
 import type { Module as DspModule } from "../../Module/model.js"
-import type { PredictorDemoCandidates } from "./bootstrap.js"
+import type { PredictorDemoCandidateSets } from "./bootstrap.js"
 import type { MIPROv2Event as MIPROv2EventType } from "./events.js"
-import type { PredictorInstructionCandidates } from "./propose.js"
+import type { MIPROExamples } from "./index.js"
+import type { PredictorInstructionCandidateSets } from "./propose.js"
 import type { Phase3Config } from "./runtime/model.js"
 
 /**
  * Records the configured search shape and observed evaluation indexes.
  *
  * @remarks
- * `bestScore` is the maximum recorded baseline, minibatch, or full-set score;
- * it may describe a different configuration from `studyResult.bestTrial`.
+ * `bestScore` is the maximum recorded baseline, minibatch, or full-set score
+ * from successful attempts. An attempt whose full checkpoint fails does not
+ * promote its minibatch score. The maximum may describe a different
+ * configuration from `studyResult.bestTrial`.
  *
  * @since 0.1.0
  * @category models
@@ -44,7 +46,7 @@ export class Phase3Diagnostics extends Schema.Class<Phase3Diagnostics>("MIPROv2P
   priorTrialCount: Schema.Number,
   /** Full validation-set score for the index-zero configuration. */
   baselineObjective: Schema.Number,
-  /** Maximum score observed across baseline, minibatch, and full-set evaluations. */
+  /** Maximum baseline, minibatch, or full-set score from successful attempts. */
   bestScore: Schema.Number
 }) {}
 
@@ -63,18 +65,20 @@ export class RunPhase3SearchOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Module tree mutated during evaluation and left with the selected configuration. */
-  readonly module: DspModule<I, O>
+  readonly module: DspModule<I, O, E, R>
   /** Full evaluation set; trial objectives use its leading `minibatchSize` entries. */
-  readonly valset: ReadonlyArray<Example>
+  readonly valset: MIPROExamples
   /** Single objective used by all Phase 3 evaluations. */
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   /** Demonstration candidates matched to module predictors by exact name. */
-  readonly demoCandidates: ReadonlyArray<PredictorDemoCandidates>
+  readonly demoCandidates: PredictorDemoCandidateSets
   /** Instruction candidates matched to module predictors by exact name. */
-  readonly instructionCandidates: ReadonlyArray<PredictorInstructionCandidates>
+  readonly instructionCandidates: PredictorInstructionCandidateSets
   /** Number of new study trials; defaults from {@link phase3TrialBudget} and normalizes to a positive integer. */
   readonly trialBudget?: number
   /** Leading validation-set prefix size. Defaults to `50` and normalizes to a positive integer. */
@@ -98,10 +102,12 @@ export class RunPhase3SearchOptions<
  */
 export class Phase3SearchResult<
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Same module instance supplied to `runPhase3Search`. */
-  readonly module: DspModule<I, O>
+  readonly module: DspModule<I, O, E, R>
   /** Completed study including the prior baseline and new trials. */
   readonly studyResult: Study.StudyResult<Phase3Config>
   /** Search configuration and evaluation indexes observed during this run. */

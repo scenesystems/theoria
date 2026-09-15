@@ -1,4 +1,4 @@
-import { Array as Arr, Match, Option, Schema, Tuple } from "effect"
+import { Array as Arr, Boolean, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
 import type { Direction } from "../../contracts/Direction.js"
 
@@ -14,14 +14,24 @@ export class PrunedTrialScore extends Schema.Class<PrunedTrialScore>("effect-sea
   value: Schema.Number
 }) {}
 
+type PrunedIntermediateValues = Schema.Array$<typeof PrunedIntermediateValue>["Type"]
+
+const isFinite = Schema.is(Schema.Finite)
+const isNonNaN = Schema.is(Schema.NonNaN)
+
 const latestIntermediateValue = (
-  intermediateValues: ReadonlyArray<PrunedIntermediateValue>
+  intermediateValues: PrunedIntermediateValues
 ): Option.Option<PrunedIntermediateValue> =>
   Arr.reduce(intermediateValues, Option.none<PrunedIntermediateValue>(), (current, value) =>
     Option.match(current, {
       onNone: () => Option.some(value),
       onSome: (latest) =>
-        Match.value(latest.step <= value.step).pipe(
+        Match.value(
+          Boolean.and(
+            Boolean.and(isNonNaN(latest.step), isNonNaN(value.step)),
+            Num.lessThanOrEqualTo(latest.step, value.step)
+          )
+        ).pipe(
           Match.when(true, () => Option.some(value)),
           Match.orElse(() => Option.some(latest))
         )
@@ -29,25 +39,26 @@ const latestIntermediateValue = (
 
 const directionalScore = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => -value),
-    Match.orElse(() => value)
+    Match.when("maximize", () => Num.negate(value)),
+    Match.when("minimize", () => value),
+    Match.exhaustive
   )
 
 const finiteScore = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
+  Match.value(isFinite(value)).pipe(
     Match.when(true, () => value),
     Match.orElse(() => Number.POSITIVE_INFINITY)
   )
 
 export const prunedTrialScore = (
-  intermediateValues: ReadonlyArray<PrunedIntermediateValue>,
+  intermediateValues: PrunedIntermediateValues,
   direction: Direction
 ): PrunedTrialScore =>
   latestIntermediateValue(intermediateValues).pipe(
     Option.match({
       onNone: () =>
         new PrunedTrialScore({
-          step: -1,
+          step: Num.negate(1),
           value: Number.POSITIVE_INFINITY
         }),
       onSome: (latest) =>

@@ -8,7 +8,7 @@ import * as AnthropicLanguageModel from "@effect/ai-anthropic/AnthropicLanguageM
 import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
 import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
-import { Layer, Match, Option } from "effect"
+import { Boolean, Data, Layer, Match, Option } from "effect"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
@@ -49,7 +49,14 @@ const languageModelLayerForRoute = (route: ExecutionRoute, model: string) =>
             baseUrl: route.baseUrl,
             selectionPolicy: route.selectionPolicy
           })),
-        Match.orElse(() => HuggingFaceEndpointLive({ model, baseUrl: route.baseUrl }))
+        Match.whenOr(
+          "hosted-api",
+          "dedicated-endpoint",
+          "self-hosted",
+          "local-runtime",
+          () => HuggingFaceEndpointLive({ model, baseUrl: route.baseUrl })
+        ),
+        Match.exhaustive
       )),
     Match.exhaustive
   )
@@ -71,17 +78,23 @@ const embeddingModelLayerForRoute = (route: ExecutionRoute, model: string) =>
               route
             })
           )),
-        Match.orElse(() =>
+        Match.whenOr("hosted-api", "dedicated-endpoint", "self-hosted", "local-runtime", () =>
           Option.some(
             HuggingFaceEndpointEmbeddingsLive({
               model,
               route
             })
-          )
-        )
+          )),
+        Match.exhaustive
       )),
     Match.exhaustive
   )
+
+class ModelLayerOptions extends Data.Class<{
+  readonly descriptor: DesiredRuntimeDescriptor
+  readonly route: ExecutionRoute
+  readonly capabilities: RuntimeCapabilities
+}> {}
 
 /**
  * Builds real model layers for the resolved runtime without emitting any
@@ -89,16 +102,14 @@ const embeddingModelLayerForRoute = (route: ExecutionRoute, model: string) =>
  *
  * @since 0.1.0
  */
-export const makeResolvedModelLayers = (options: {
-  readonly descriptor: DesiredRuntimeDescriptor
-  readonly route: ExecutionRoute
-  readonly capabilities: RuntimeCapabilities
-}): ResolvedModelLayers =>
+export const makeResolvedModelLayers = (options: ModelLayerOptions): ResolvedModelLayers =>
   new ResolvedModelLayers({
-    languageModel: options.capabilities.textGeneration
-      ? Option.some(languageModelLayerForRoute(options.route, options.descriptor.artifact.modelRef))
-      : Option.none(),
-    embeddingModel: options.capabilities.embeddings
-      ? embeddingModelLayerForRoute(options.route, options.descriptor.artifact.modelRef)
-      : Option.none()
+    languageModel: Boolean.match(options.capabilities.textGeneration, {
+      onTrue: () => Option.some(languageModelLayerForRoute(options.route, options.descriptor.artifact.modelRef)),
+      onFalse: () => Option.none()
+    }),
+    embeddingModel: Boolean.match(options.capabilities.embeddings, {
+      onTrue: () => embeddingModelLayerForRoute(options.route, options.descriptor.artifact.modelRef),
+      onFalse: () => Option.none()
+    })
   })

@@ -4,7 +4,20 @@
  * @since 0.1.0
  */
 import type { Ref } from "effect"
-import { Array as Arr, Effect, FiberRef, HashMap, Option, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Data,
+  Effect,
+  Equal,
+  Equivalence,
+  FiberRef,
+  HashMap,
+  Option,
+  Schema,
+  SynchronizedRef
+} from "effect"
+import type { ModuleGraphNode } from "../../contracts/ModuleGraph.js"
 import { ModuleId } from "../../contracts/ModuleId.js"
 import { makeModuleNodeSignature } from "../../contracts/ModuleNode.js"
 import type { ModuleParams } from "../../contracts/ModuleParams.js"
@@ -18,25 +31,31 @@ import {
 } from "./model.js"
 
 /**
- * Stores discovery registrations in the current FiberRef lineage.
+ * Stores the optional shared collector for the current discovery lineage.
  *
  * @remarks
- * The default value is empty. Prefer {@link discoverModules},
- * {@link discoverModuleGraph}, or {@link withDiscoveryScope} over changing this
- * ref directly because those combinators restore the enclosing value.
+ * The default is `None`, so no mutable collector is global. Registration
+ * outside an explicit discovery scope lazily installs a collector in the
+ * current fiber; children forked afterward share it. {@link discoverModules},
+ * {@link discoverModuleGraph}, and {@link withDiscoveryScope} each install a
+ * fresh `Some<SynchronizedRef<HashMap<...>>>`, which is the concurrent
+ * discovery boundary and is restored when that scope ends.
  *
  * @since 0.1.0
  * @category refs
  */
-export const ModuleRegistryRef: FiberRef.FiberRef<ReadonlyArray<ModuleRegistration>> = FiberRef.unsafeMake<
-  ReadonlyArray<ModuleRegistration>
->([])
+export const ModuleRegistryRef: FiberRef.FiberRef<
+  Option.Option<SynchronizedRef.SynchronizedRef<HashMap.HashMap<ModuleId, ModuleRegistration>>>
+> = FiberRef.unsafeMake(Option.none())
 
 const decodeModuleId = (moduleName: string): Effect.Effect<ModuleId, CompositionError> =>
   Schema.decodeUnknown(ModuleId)(moduleName).pipe(
     Effect.mapError(() =>
       new CompositionError({
-        message: `Invalid module id '${moduleName}' for discovery registration`,
+        message: Arr.join(
+          Arr.make("Invalid module id '", moduleName, "' for discovery registration"),
+          ""
+        ),
         moduleName
       })
     )
@@ -45,48 +64,60 @@ const decodeModuleId = (moduleName: string): Effect.Effect<ModuleId, Composition
 const signaturesMatch = (
   left: RegisteredSignature,
   right: RegisteredSignature
-): boolean =>
-  left.description === right.description &&
-  left.instructions === right.instructions
+): boolean => Equal.equals(left, right)
+
+const moduleIdEquivalence: Equivalence.Equivalence<ModuleId> = Equivalence.string
+
+const moduleIdListEquivalence = Arr.getEquivalence(moduleIdEquivalence)
+
+const paramsIdentity = Equivalence.strict<Ref.Ref<ModuleParams>>()
 
 const sameSubModuleIds = (
-  left: ReadonlyArray<ModuleId>,
-  right: ReadonlyArray<ModuleId>
-): boolean => left.length === right.length && left.every((moduleId, index) => moduleId === right[index])
+  left: ModuleGraphNode["subModuleIds"],
+  right: ModuleGraphNode["subModuleIds"]
+): boolean => moduleIdListEquivalence(left, right)
 
 const sameRegistration = (
   left: ModuleRegistration,
   right: ModuleRegistration
 ): boolean =>
-  left.params === right.params &&
-  signaturesMatch(left.signature, right.signature) &&
-  sameSubModuleIds(left.subModuleIds, right.subModuleIds)
+  Boolean.every(Arr.make(
+    paramsIdentity(left.params, right.params),
+    signaturesMatch(left.signature, right.signature),
+    sameSubModuleIds(left.subModuleIds, right.subModuleIds)
+  ))
 
 const registerConflict = (
   left: ModuleRegistration,
   right: ModuleRegistration
 ): CompositionError =>
   new CompositionError({
-    message: `Discovery registration conflict for module id '${left.id}'`,
+    message: Arr.join(Arr.make("Discovery registration conflict for module id '", left.id, "'"), ""),
     moduleName: right.id
   })
 
 const mergeRegistration = (
-  registrations: ReadonlyArray<ModuleRegistration>,
+  registrations: HashMap.HashMap<ModuleId, ModuleRegistration>,
   registration: ModuleRegistration
-): Effect.Effect<ReadonlyArray<ModuleRegistration>, CompositionError> =>
+): Effect.Effect<HashMap.HashMap<ModuleId, ModuleRegistration>, CompositionError> =>
   Option.match(
-    Arr.findFirst(registrations, (candidate) => candidate.id === registration.id),
+    HashMap.get(registrations, registration.id),
     {
-      onNone: () => Effect.succeed(Arr.append(registrations, registration)),
+      onNone: () => Effect.succeed(HashMap.set(registrations, registration.id, registration)),
       onSome: (existing) =>
-        sameRegistration(existing, registration)
-          ? Effect.succeed(registrations)
-          : Effect.fail(registerConflict(existing, registration))
+        Boolean.match(sameRegistration(existing, registration), {
+          onTrue: () => Effect.succeed(registrations),
+          onFalse: () => Effect.fail(registerConflict(existing, registration))
+        })
     }
   )
 
-const moduleSubModuleIds = (module: Module): ReadonlyArray<ModuleId> =>
+const moduleSubModuleIds = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  E,
+  R
+>(module: Module<I, O, E, R>): ModuleGraphNode["subModuleIds"] =>
   canonicalSubModuleIds(Arr.fromIterable(HashMap.keys(module.subModules)))
 
 /**
@@ -107,11 +138,42 @@ export const register = (
   registration: ModuleRegistration
 ): Effect.Effect<void, CompositionError> =>
   Effect.gen(function*() {
-    const existing = yield* FiberRef.get(ModuleRegistryRef)
-    const merged = yield* mergeRegistration(existing, registration)
+    const current = yield* FiberRef.get(ModuleRegistryRef)
+    const collector = yield* Option.match(current, {
+      onNone: () =>
+        Effect.gen(function*() {
+          const initialized = yield* SynchronizedRef.make(
+            HashMap.empty<ModuleId, ModuleRegistration>()
+          )
+          yield* FiberRef.set(ModuleRegistryRef, Option.some(initialized))
 
-    return yield* FiberRef.set(ModuleRegistryRef, canonicalModuleRegistrations(merged))
+          return initialized
+        }),
+      onSome: Effect.succeed
+    })
+
+    return yield* SynchronizedRef.updateEffect(
+      collector,
+      (registrations) => mergeRegistration(registrations, registration)
+    )
   })
+
+/**
+ * Carries runtime identity and live module metadata into discovery registration.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class RuntimeRegistrationOptions extends Data.Class<{
+  /** Untrusted identity decoded with the public `ModuleId` schema. */
+  readonly moduleName: string
+  /** Live parameter ref retained in the registration. */
+  readonly params: Ref.Ref<ModuleParams>
+  /** Signature description and instructions retained for graph projection. */
+  readonly signature: RegisteredSignature
+  /** Direct children; omission records no children. */
+  readonly subModuleIds?: ModuleGraphNode["subModuleIds"]
+}> {}
 
 /**
  * Validates a module name and records runtime discovery metadata.
@@ -127,25 +189,20 @@ export const register = (
  * @since 0.1.0
  * @category combinators
  */
-export const registerRuntime = (options: {
-  /** Untrusted identity decoded with the public `ModuleId` schema. */
-  readonly moduleName: string
-  /** Live parameter ref retained in the registration. */
-  readonly params: Ref.Ref<ModuleParams>
-  /** Signature description and instructions retained for graph projection. */
-  readonly signature: RegisteredSignature
-  /** Direct children; omission records no children. */
-  readonly subModuleIds?: ReadonlyArray<ModuleId>
-}): Effect.Effect<void, CompositionError> =>
+export const registerRuntime = (options: RuntimeRegistrationOptions): Effect.Effect<void, CompositionError> =>
   Effect.gen(function*() {
     const moduleId = yield* decodeModuleId(options.moduleName)
+    const subModuleIds = Option.getOrElse(
+      Option.fromNullable(options.subModuleIds),
+      () => Arr.empty<ModuleId>()
+    )
 
     return yield* register(
       new ModuleRegistration({
         id: moduleId,
         params: options.params,
         signature: options.signature,
-        subModuleIds: canonicalSubModuleIds(options.subModuleIds ?? Arr.empty<ModuleId>())
+        subModuleIds: canonicalSubModuleIds(subModuleIds)
       })
     )
   })
@@ -159,16 +216,23 @@ export const registerRuntime = (options: {
  * @since 0.1.0
  * @category combinators
  */
-export const registerModule = (module: Module): Effect.Effect<void, CompositionError> =>
-  registerRuntime({
-    moduleName: module.name,
-    params: module.params,
-    signature: makeModuleNodeSignature(
-      module.signature.description,
-      module.signature.instructions
-    ),
-    subModuleIds: moduleSubModuleIds(module)
-  })
+export const registerModule = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  E,
+  R
+>(module: Module<I, O, E, R>): Effect.Effect<void, CompositionError> =>
+  registerRuntime(
+    new RuntimeRegistrationOptions({
+      moduleName: module.name,
+      params: module.params,
+      signature: makeModuleNodeSignature(
+        module.signature.description,
+        module.signature.instructions
+      ),
+      subModuleIds: moduleSubModuleIds(module)
+    })
+  )
 
 /**
  * Reads the current registry as new, identity-sorted registration values.
@@ -179,6 +243,11 @@ export const registerModule = (module: Module): Effect.Effect<void, CompositionE
  * @since 0.1.0
  * @category combinators
  */
-export const registrySnapshot: Effect.Effect<ReadonlyArray<ModuleRegistration>> = FiberRef.get(ModuleRegistryRef).pipe(
+export const registrySnapshot = FiberRef.get(ModuleRegistryRef).pipe(
+  Effect.flatMap(Option.match({
+    onNone: () => Effect.succeed(HashMap.empty<ModuleId, ModuleRegistration>()),
+    onSome: SynchronizedRef.get
+  })),
+  Effect.map(HashMap.values),
   Effect.map(canonicalModuleRegistrations)
 )

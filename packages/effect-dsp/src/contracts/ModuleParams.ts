@@ -3,8 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Data, Schema } from "effect"
-import { Option } from "effect"
+import { Array as Arr, Schema } from "effect"
 import { Demo } from "../Example/index.js"
 import { OutputStrategySchema } from "./OutputStrategy.js"
 
@@ -45,40 +44,14 @@ export class ModuleParams extends Schema.Class<ModuleParams>("ModuleParams")({
 export const makeDefaultModuleParams = (instructions: string): ModuleParams =>
   new ModuleParams({
     instructions,
-    demos: []
-  })
-
-class ModuleParamsPatch extends Data.Class<{
-  readonly instructions?: string
-  readonly demos?: ReadonlyArray<Demo>
-}> {}
-
-const optionalNumberField = (
-  key: "temperature" | "maxTokens",
-  value: Option.Option<number>
-): Readonly<Record<string, number>> =>
-  Option.match(value, {
-    onNone: () => ({}),
-    onSome: (numberValue) => ({ [key]: numberValue })
-  })
-
-const mergeModuleParams = (
-  params: ModuleParams,
-  patch: ModuleParamsPatch
-): ModuleParams =>
-  new ModuleParams({
-    instructions: patch.instructions ?? params.instructions,
-    demos: patch.demos ?? params.demos,
-    outputStrategy: params.outputStrategy,
-    ...optionalNumberField("temperature", Option.fromNullable(params.temperature)),
-    ...optionalNumberField("maxTokens", Option.fromNullable(params.maxTokens))
+    demos: Arr.empty()
   })
 
 /**
  * Replaces demonstrations while retaining all other module parameters.
  *
  * @remarks
- * The returned value retains the supplied array; demonstrations are not cloned.
+ * The constructor validates the replacement; array identity is not guaranteed.
  *
  * @param params - Existing parameter state.
  * @param demos - Ordered replacement demonstrations.
@@ -89,14 +62,14 @@ const mergeModuleParams = (
  */
 export const withModuleParamsDemos = (
   params: ModuleParams,
-  demos: ReadonlyArray<Demo>
-): ModuleParams => mergeModuleParams(params, { demos })
+  demos: ModuleParams["demos"]
+): ModuleParams => new ModuleParams({ ...params, demos })
 
 /**
  * Replaces instructions and demonstrations while retaining rendering and generation settings.
  *
  * @param params - Existing parameter state.
- * @param demos - Ordered replacement demonstrations, retained without cloning.
+ * @param demos - Ordered replacement demonstrations, validated by the constructor.
  * @param instructions - Replacement instruction text.
  * @returns A copy that retains `outputStrategy`, `temperature`, and `maxTokens` from `params`.
  *
@@ -105,20 +78,16 @@ export const withModuleParamsDemos = (
  */
 export const withModuleParamsDemosAndInstructions = (
   params: ModuleParams,
-  demos: ReadonlyArray<Demo>,
+  demos: ModuleParams["demos"],
   instructions: string
-): ModuleParams =>
-  mergeModuleParams(params, {
-    demos,
-    instructions
-  })
+): ModuleParams => new ModuleParams({ ...params, demos, instructions })
 
 /**
  * Replaces instructions while retaining demonstrations and generation settings.
  *
  * @param params - Existing parameter state.
  * @param instructions - Replacement instruction text.
- * @returns A new parameter value sharing the original demonstrations array.
+ * @returns A validated parameter value retaining the original demonstrations.
  *
  * @since 0.1.0
  * @category combinators
@@ -126,4 +95,4 @@ export const withModuleParamsDemosAndInstructions = (
 export const withModuleParamsInstructions = (
   params: ModuleParams,
   instructions: string
-): ModuleParams => mergeModuleParams(params, { instructions })
+): ModuleParams => new ModuleParams({ ...params, instructions })

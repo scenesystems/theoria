@@ -8,7 +8,19 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Inspectable,
+  Layer,
+  Match,
+  Number as Num,
+  Option,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
 import { resolvePhase3Cadence } from "../../../src/optimizers/MIPROv2/runtime/budget.js"
@@ -60,10 +72,11 @@ const materializeTemplate = (
   proposalIndex: number,
   seed: number
 ): string =>
-  template
-    .replace("{predictorName}", predictorName)
-    .replace("{proposalIndex}", String(proposalIndex))
-    .replace("{seed}", String(seed))
+  Str.replace("{seed}", Inspectable.toStringUnknown(seed))(
+    Str.replace("{proposalIndex}", Inspectable.toStringUnknown(proposalIndex))(
+      Str.replace("{predictorName}", predictorName)(template)
+    )
+  )
 
 describe("MIPROv2 DSPy phase parity", () => {
   it.effect("matches fixture-defined phase defaults and orchestration order", () =>
@@ -89,12 +102,13 @@ describe("MIPROv2 DSPy phase parity", () => {
 
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const events = yield* Ref.make<ReadonlyArray<string>>(Arr.empty<string>())
+      const events = yield* Ref.make(Arr.empty<string>())
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
-            ? "Use concise factual answers"
-            : { answer: "Paris" }
+          Bool.match(Str.includes("[miprov2-proposal:")(prompt), {
+            onFalse: () => ({ answer: "Paris" }),
+            onTrue: () => "Use concise factual answers"
+          })
         )
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
@@ -125,8 +139,20 @@ describe("MIPROv2 DSPy phase parity", () => {
         { discard: true }
       )
 
-      expect(tags.indexOf("Phase1Started")).toBeLessThan(tags.indexOf("Phase2Started"))
-      expect(tags.indexOf("Phase2Started")).toBeLessThan(tags.indexOf("Phase3Started"))
+      const phase1Index = Option.getOrElse(
+        Arr.findFirstIndex(tags, (tag) => Str.Equivalence(tag, "Phase1Started")),
+        () => -1
+      )
+      const phase2Index = Option.getOrElse(
+        Arr.findFirstIndex(tags, (tag) => Str.Equivalence(tag, "Phase2Started")),
+        () => -1
+      )
+      const phase3Index = Option.getOrElse(
+        Arr.findFirstIndex(tags, (tag) => Str.Equivalence(tag, "Phase3Started")),
+        () => -1
+      )
+      expect(Num.lessThan(phase1Index, phase2Index)).toBe(true)
+      expect(Num.lessThan(phase2Index, phase3Index)).toBe(true)
     }))
 
   it.effect("matches fixture-defined tip vocabulary and marker template", () =>

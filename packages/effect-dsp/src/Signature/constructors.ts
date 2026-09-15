@@ -5,7 +5,7 @@
  */
 import { Array as Arr, Effect, Option, Record, Schema } from "effect"
 import { SignatureError } from "../Errors/signature.js"
-import { fieldsToInfoArray } from "./fields.js"
+import { encodedFieldsToInfoArray, fieldsToInfoArray } from "./fields.js"
 import { deriveInstruction } from "./instructions.js"
 import { Signature } from "./model.js"
 
@@ -57,7 +57,7 @@ const validateFieldCollections = (
  * @example
  * ```ts
  * import * as Signature from "@scenesystems/effect-dsp/Signature"
- * import { Array as Arr, Effect, Option, Schema } from "effect"
+ * import { Array as Arr, Boolean, Effect, Equal, Option, Schema } from "effect"
  *
  * export const program = Effect.gen(function*() {
  *   const signature = yield* Signature.make(
@@ -68,7 +68,7 @@ const validateFieldCollections = (
  *
  *   const input: Signature.Input<typeof signature> = { question: "What is 2 + 2?" }
  *   const question = yield* Option.match(
- *     Arr.findFirst(signature.fields, (field) => field.name === "question"),
+ *     Arr.findFirst(signature.fields, (field) => Equal.equals(field.name, "question")),
  *     {
  *       onNone: () => Effect.fail("MissingQuestionField"),
  *       onSome: Effect.succeed
@@ -77,7 +77,7 @@ const validateFieldCollections = (
  *
  *   return yield* Effect.succeed(input).pipe(
  *     Effect.filterOrFail(
- *       (current) => current.question === "What is 2 + 2?" && Option.isSome(question.description),
+ *       (current) => Boolean.and(Equal.equals(current.question, "What is 2 + 2?"), Option.isSome(question.description)),
  *       () => "UnexpectedSignatureMetadata"
  *     )
  *   )
@@ -103,7 +103,11 @@ export const make = <
     const inputFieldInfo = fieldsToInfoArray(inputFields)
     const outputFieldInfo = fieldsToInfoArray(outputFields)
     const fields = Arr.appendAll(inputFieldInfo, outputFieldInfo)
-    const instructions = deriveInstruction(description, inputFieldInfo, outputFieldInfo)
+    const instructions = deriveInstruction(
+      description,
+      encodedFieldsToInfoArray(inputFields),
+      encodedFieldsToInfoArray(outputFields)
+    )
 
     return new Signature({
       description,

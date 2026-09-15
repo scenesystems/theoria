@@ -5,25 +5,29 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { sampleStratifiedRoundRobin } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Match } from "effect"
-import type { MergeComparison, MergeComparisonBucket } from "../model.js"
+import { Array as Arr, Boolean as Bool, Match, Number as Num, Schema } from "effect"
+import { type MergeComparison, type MergeComparisonBucket, MergeComparisons } from "../model.js"
 
-type MergeBuckets = Readonly<Record<MergeComparisonBucket, ReadonlyArray<MergeComparison>>>
+class MergeBuckets extends Schema.Class<MergeBuckets>("GEPAMergeBuckets")({
+  "parent-a-better": MergeComparisons,
+  "parent-b-better": MergeComparisons,
+  tie: MergeComparisons
+}) {}
 
 const MERGE_SUBSAMPLE_TARGET_SIZE = 5
 const PARENT_A_BETTER: MergeComparisonBucket = "parent-a-better"
 const PARENT_B_BETTER: MergeComparisonBucket = "parent-b-better"
 const TIE: MergeComparisonBucket = "tie"
 
-const emptyMergeBuckets: MergeBuckets = {
+const emptyMergeBuckets = new MergeBuckets({
   [PARENT_A_BETTER]: Arr.empty<MergeComparison>(),
   [PARENT_B_BETTER]: Arr.empty<MergeComparison>(),
   [TIE]: Arr.empty<MergeComparison>()
-}
+})
 
-const bucketOrder: ReadonlyArray<MergeComparisonBucket> = Arr.make(PARENT_A_BETTER, PARENT_B_BETTER, TIE)
+const bucketOrder = Arr.make(PARENT_A_BETTER, PARENT_B_BETTER, TIE)
+const isNonNaN = Schema.is(Schema.NonNaN)
 
 /**
  * Classify one merge comparison into parent-a-better / parent-b-better / tie buckets.
@@ -32,20 +36,41 @@ const bucketOrder: ReadonlyArray<MergeComparisonBucket> = Arr.make(PARENT_A_BETT
  * @category combinators
  */
 export const classifyMergeComparisonBucket = (comparison: MergeComparison): MergeComparisonBucket =>
-  Match.value(comparison.parentAScore - comparison.parentBScore).pipe(
-    Match.when((delta) => delta > 0, () => PARENT_A_BETTER),
-    Match.when((delta) => delta < 0, () => PARENT_B_BETTER),
-    Match.orElse(() => TIE)
-  )
+  Bool.match(Bool.and(isNonNaN(comparison.parentAScore), isNonNaN(comparison.parentBScore)), {
+    onFalse: () => TIE,
+    onTrue: () =>
+      Match.value(comparison.parentAScore).pipe(
+        Match.when(Num.greaterThan(comparison.parentBScore), () => PARENT_A_BETTER),
+        Match.when(Num.lessThan(comparison.parentBScore), () => PARENT_B_BETTER),
+        Match.orElse(() => TIE)
+      )
+  })
 
-const partitionMergeComparisons = (comparisons: ReadonlyArray<MergeComparison>): MergeBuckets =>
+const partitionMergeComparisons = (comparisons: MergeComparisons): MergeBuckets =>
   Arr.reduce(comparisons, emptyMergeBuckets, (buckets, comparison) => {
     const bucket = classifyMergeComparisonBucket(comparison)
 
-    return {
-      ...buckets,
-      [bucket]: Arr.append(buckets[bucket], comparison)
-    }
+    return Match.value(bucket).pipe(
+      Match.when(PARENT_A_BETTER, () =>
+        new MergeBuckets({
+          [PARENT_A_BETTER]: Arr.append(buckets[PARENT_A_BETTER], comparison),
+          [PARENT_B_BETTER]: buckets[PARENT_B_BETTER],
+          [TIE]: buckets[TIE]
+        })),
+      Match.when(PARENT_B_BETTER, () =>
+        new MergeBuckets({
+          [PARENT_A_BETTER]: buckets[PARENT_A_BETTER],
+          [PARENT_B_BETTER]: Arr.append(buckets[PARENT_B_BETTER], comparison),
+          [TIE]: buckets[TIE]
+        })),
+      Match.when(TIE, () =>
+        new MergeBuckets({
+          [PARENT_A_BETTER]: buckets[PARENT_A_BETTER],
+          [PARENT_B_BETTER]: buckets[PARENT_B_BETTER],
+          [TIE]: Arr.append(buckets[TIE], comparison)
+        })),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -57,12 +82,12 @@ const partitionMergeComparisons = (comparisons: ReadonlyArray<MergeComparison>):
  * @category combinators
  */
 export const selectBalancedMergeSubsample = (
-  comparisons: ReadonlyArray<MergeComparison>,
+  comparisons: MergeComparisons,
   seed: number
-): ReadonlyArray<MergeComparison> =>
+): MergeComparisons =>
   sampleStratifiedRoundRobin({
     buckets: partitionMergeComparisons(comparisons),
     bucketOrder,
-    targetSize: Numeric.min(MERGE_SUBSAMPLE_TARGET_SIZE, comparisons.length),
+    targetSize: Num.min(MERGE_SUBSAMPLE_TARGET_SIZE, Arr.length(comparisons)),
     seed
   })

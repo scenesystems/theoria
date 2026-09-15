@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Option, Schema } from "effect"
+import { Array as Arr, Boolean, Effect, Either, Match, Number as Num, Option, Schema } from "effect"
 
 import * as Float64 from "../../src/internal/float64.js"
 import {
@@ -21,7 +21,7 @@ type TruncatedFixtureCase = Schema.Schema.Type<typeof TruncatedNormalFixtureSche
 
 const toParams = (entry: TruncatedFixtureCase): TruncatedNormalParams => new TruncatedNormalParams(entry.params)
 
-const numberAt = (values: ReadonlyArray<number>, index: number): number =>
+const numberAt = (values: Schema.Array$<typeof Schema.Number>["Type"], index: number): number =>
   Arr.get(values, index).pipe(Option.getOrElse(() => Number.NaN))
 
 const loadTruncatedFixture = loadFixture("truncated-normal.edge-cases").pipe(
@@ -33,18 +33,21 @@ const firstParams = (
   fixture: Schema.Schema.Type<typeof TruncatedNormalFixtureSchema>
 ): Option.Option<TruncatedNormalParams> => Arr.head(fixture.payload.cases).pipe(Option.map(toParams))
 
+const isFinite = Schema.is(Schema.Finite)
+const isNonNaN = Schema.is(Schema.NonNaN)
+
 const assertAbsoluteTolerance = (actual: number, expected: number, tolerance: number): void => {
-  if (Number.isNaN(expected)) {
-    expect(Number.isNaN(actual)).toBe(true)
-    return
-  }
-
-  if (!Number.isFinite(expected)) {
-    expect(actual).toBe(expected)
-    return
-  }
-
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  Match.value(expected).pipe(
+    Match.when((value) => Boolean.not(isNonNaN(value)), () => {
+      expect(Boolean.not(isNonNaN(actual))).toBe(true)
+    }),
+    Match.when((value) => Boolean.not(isFinite(value)), () => {
+      expect(actual).toBe(expected)
+    }),
+    Match.orElse(() => {
+      expect(Float64.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+    })
+  )
 }
 
 describe("truncated normal fixture parity", () => {
@@ -136,10 +139,14 @@ describe("truncated normal fixture parity", () => {
           Effect.sync(() => {
             const params = toParams(entry)
 
-            expect(Float64.abs(sample(0, params) - params.low)).toBeLessThanOrEqual(SAMPLE_ABSOLUTE_TOLERANCE)
-            expect(Float64.abs(sample(1, params) - params.high)).toBeLessThanOrEqual(SAMPLE_ABSOLUTE_TOLERANCE)
-            expect(Float64.abs(cdf(params.low, params) - 0)).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
-            expect(Float64.abs(cdf(params.high, params) - 1)).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
+            expect(Float64.abs(Num.subtract(sample(0, params), params.low))).toBeLessThanOrEqual(
+              SAMPLE_ABSOLUTE_TOLERANCE
+            )
+            expect(Float64.abs(Num.subtract(sample(1, params), params.high))).toBeLessThanOrEqual(
+              SAMPLE_ABSOLUTE_TOLERANCE
+            )
+            expect(Float64.abs(Num.subtract(cdf(params.low, params), 0))).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
+            expect(Float64.abs(Num.subtract(cdf(params.high, params), 1))).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
           }),
         { discard: true }
       )
@@ -160,18 +167,15 @@ describe("truncated normal fixture parity", () => {
         expect(Option.isSome(centeredParamsOption)).toBe(true)
       })
 
-      if (Option.isNone(centeredParamsOption)) {
-        return
-      }
-      const centeredParams = centeredParamsOption.value
+      const centeredParams = yield* centeredParamsOption
 
       yield* Effect.sync(() => {
         expect(logPdf(-0.1, centeredParams)).toBe(Number.NEGATIVE_INFINITY)
         expect(logPdf(1.1, centeredParams)).toBe(Number.NEGATIVE_INFINITY)
 
-        expect(Number.isNaN(logPdf(0, invalidParams))).toBe(true)
-        expect(Number.isNaN(cdf(0, invalidParams))).toBe(true)
-        expect(Number.isNaN(sample(0.5, invalidParams))).toBe(true)
+        expect(Boolean.not(isNonNaN(logPdf(0, invalidParams)))).toBe(true)
+        expect(Boolean.not(isNonNaN(cdf(0, invalidParams)))).toBe(true)
+        expect(Boolean.not(isNonNaN(sample(0.5, invalidParams)))).toBe(true)
       })
     }))
 
@@ -195,17 +199,18 @@ describe("truncated normal fixture parity", () => {
       expect(Either.isLeft(invalidCdf)).toBe(true)
       expect(Either.isLeft(invalidSample)).toBe(true)
 
-      if (Either.isLeft(invalidLogPdf)) {
-        expect(invalidLogPdf.left._tag).toBe("effect-search/InvalidMathInput")
-      }
-
-      if (Either.isLeft(invalidCdf)) {
-        expect(invalidCdf.left._tag).toBe("effect-search/InvalidMathInput")
-      }
-
-      if (Either.isLeft(invalidSample)) {
-        expect(invalidSample.left._tag).toBe("effect-search/InvalidMathInput")
-      }
+      Either.match(invalidLogPdf, {
+        onLeft: (error) => expect(error._tag).toBe("effect-search/InvalidMathInput"),
+        onRight: () => expect.unreachable("invalid logPdf unexpectedly succeeded")
+      })
+      Either.match(invalidCdf, {
+        onLeft: (error) => expect(error._tag).toBe("effect-search/InvalidMathInput"),
+        onRight: () => expect.unreachable("invalid cdf unexpectedly succeeded")
+      })
+      Either.match(invalidSample, {
+        onLeft: (error) => expect(error._tag).toBe("effect-search/InvalidMathInput"),
+        onRight: () => expect.unreachable("invalid sample unexpectedly succeeded")
+      })
     }))
 
   it.effect("effectful math matches pure outputs on valid inputs", () =>
@@ -217,10 +222,7 @@ describe("truncated normal fixture parity", () => {
         expect(Option.isSome(centeredParamsOption)).toBe(true)
       })
 
-      if (Option.isNone(centeredParamsOption)) {
-        return
-      }
-      const centeredParams = centeredParamsOption.value
+      const centeredParams = yield* centeredParamsOption
 
       const q = 0.37
       const x = 0.62
@@ -228,12 +230,26 @@ describe("truncated normal fixture parity", () => {
       const effectCdf = yield* cdfEffect(x, centeredParams)
       const effectLogPdf = yield* logPdfEffect(x, centeredParams)
 
-      expect(Float64.abs(effectSample - sample(q, centeredParams))).toBeLessThanOrEqual(
+      expect(Float64.abs(Num.subtract(effectSample, sample(q, centeredParams)))).toBeLessThanOrEqual(
         SAMPLE_ABSOLUTE_TOLERANCE
       )
-      expect(Float64.abs(effectCdf - cdf(x, centeredParams))).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
-      expect(Float64.abs(effectLogPdf - logPdf(x, centeredParams))).toBeLessThanOrEqual(
+      expect(Float64.abs(Num.subtract(effectCdf, cdf(x, centeredParams)))).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
+      expect(Float64.abs(Num.subtract(effectLogPdf, logPdf(x, centeredParams)))).toBeLessThanOrEqual(
         LOG_PDF_ABSOLUTE_TOLERANCE
       )
+    }))
+})
+
+describe("float64 host mathematical leaves", () => {
+  it.effect("preserves signed zero, NaN, and infinity behavior", () =>
+    Effect.sync(() => {
+      expect(Float64.abs(-0)).toBe(-0)
+      expect(Float64.sqrt(4)).toBe(2)
+      expect(Boolean.not(isNonNaN(Float64.sqrt(-1)))).toBe(true)
+      expect(Boolean.not(isNonNaN(Float64.sqrt(Number.NaN)))).toBe(true)
+      expect(Float64.sqrt(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY)
+      expect(Boolean.not(isNonNaN(Float64.exp(Number.NaN)))).toBe(true)
+      expect(Float64.exp(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY)
+      expect(Float64.exp(Number.NEGATIVE_INFINITY)).toBe(0)
     }))
 })

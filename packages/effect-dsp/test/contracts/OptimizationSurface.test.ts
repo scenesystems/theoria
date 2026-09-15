@@ -1,58 +1,70 @@
 /**
  * Optimization surface contracts for effect-search objective/dimension seams.
  */
+import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Contracts from "@scenesystems/effect-dsp/contracts"
 import { Demo } from "@scenesystems/effect-dsp/Example"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Option, Schema, Tuple } from "effect"
+import { decodePayload, encodePayload } from "../../src/contracts/Payload.js"
 
-const decodeModuleId = (moduleName: string) =>
-  Schema.decodeUnknown(Contracts.ModuleId)(moduleName).pipe(
-    Effect.orDie
-  )
+const decodeModuleId = Schema.decodeUnknown(Contracts.ModuleId)
+const Input = Schema.Struct({ question: Schema.String })
+const Output = Schema.Struct({ answer: Schema.String })
 
 describe("contracts/OptimizationSurface", () => {
   it.effect("projects module params into deterministic parameter and dimension surfaces", () =>
     Effect.gen(function*() {
       const params = new Contracts.ModuleParams({
         instructions: "Answer with one token.",
-        demos: [
+        demos: Arr.make(
           new Demo({
             input: { question: "What is the capital of France?" },
             output: { answer: "Paris" }
           })
-        ],
+        ),
         outputStrategy: "structured",
         temperature: 0.25,
         maxTokens: 32
       })
 
-      const projectionA = Contracts.projectOptimizationParameters(params)
-      const projectionB = Contracts.projectOptimizationParameters(params)
+      const projection = Contracts.projectOptimizationParameters(params)
       const dimensions = Contracts.projectOptimizationDimensions(params)
 
-      expect(projectionA).toEqual(projectionB)
-      expect(dimensions.map((dimension) => dimension.name)).toEqual([
-        "instructions",
-        "demoCount",
-        "outputStrategy",
-        "temperature",
-        "maxTokens"
-      ])
+      expect(projection.instructions).toBe("Answer with one token.")
+      expect(projection.demoCount).toBe(1)
+      expect(projection.outputStrategy).toBe("structured")
+      expect(projection.temperature).toEqual(Option.some(0.25))
+      expect(projection.maxTokens).toEqual(Option.some(32))
+      expect(Arr.map(dimensions, (dimension) => Tuple.make(dimension.name, dimension.value))).toEqual(Arr.make(
+        Tuple.make("instructions", "Answer with one token."),
+        Tuple.make("demoCount", 1),
+        Tuple.make("outputStrategy", "structured"),
+        Tuple.make("temperature", 0.25),
+        Tuple.make("maxTokens", 32)
+      ))
     }))
 
   it.effect("projects trace entries into stable objective payload contracts", () =>
     Effect.gen(function*() {
+      const usage = new Response.Usage({
+        inputTokens: 18,
+        outputTokens: 2,
+        totalTokens: 23,
+        reasoningTokens: 3,
+        cachedInputTokens: 4
+      })
+      const input = yield* encodePayload(Input, { question: "What is the capital of France?" })
+      const output = yield* encodePayload(Output, { answer: "Paris" })
       const traceEntry = new Trace.Entry({
         moduleName: "qa",
         signatureDescription: "Answer questions with concise factual answers",
-        input: { question: "What is the capital of France?" },
-        output: { answer: "Paris" },
+        input,
+        output,
         prompt: "Question: What is the capital of France?",
         rawResponse: "Paris",
-        inputTokens: Option.some(18),
-        outputTokens: Option.some(2),
+        usage,
         durationMs: 12,
         score: Trace.noScore,
         timestamp: 1_700_000_000_000
@@ -65,9 +77,11 @@ describe("contracts/OptimizationSurface", () => {
       expect(projected.prompt).toBe(traceEntry.prompt)
       expect(projected.score).toEqual(traceEntry.score)
       expect(projected.durationMs).toBe(traceEntry.durationMs)
-      expect(projected.usage.inputTokens).toEqual(traceEntry.inputTokens)
-      expect(projected.usage.outputTokens).toEqual(traceEntry.outputTokens)
-      expect(projected.usage.cached).toBe(false)
+      expect(projected.rawResponse).toBe("Paris")
+      expect(yield* decodePayload(Output, projected.output)).toEqual({ answer: "Paris" })
+      expect(Equal.equals(projected.usage, usage)).toBe(true)
+      expect(projected.usage.reasoningTokens).toBe(3)
+      expect(projected.usage.cachedInputTokens).toBe(4)
     }))
 
   it.effect("projects module graphs into deterministic optimization traversal surfaces", () =>
@@ -77,34 +91,36 @@ describe("contracts/OptimizationSurface", () => {
       const qaId = yield* decodeModuleId("c-qa")
       const graph = Contracts.makeModuleGraph({
         rootId,
-        nodes: [
+        nodes: Arr.make(
           new Contracts.ModuleGraphNode({
             moduleId: rootId,
             signature: Contracts.makeModuleNodeSignature("Root", "Root instructions"),
-            subModuleIds: [pipelineId]
+            subModuleIds: Arr.make(pipelineId)
           }),
           new Contracts.ModuleGraphNode({
             moduleId: pipelineId,
             signature: Contracts.makeModuleNodeSignature("Pipeline", "Pipeline instructions"),
-            subModuleIds: [qaId]
+            subModuleIds: Arr.make(qaId)
           }),
           new Contracts.ModuleGraphNode({
             moduleId: qaId,
             signature: Contracts.makeModuleNodeSignature("QA", "QA instructions"),
-            subModuleIds: []
+            subModuleIds: Arr.empty()
           })
-        ],
-        edges: [
+        ),
+        edges: Arr.make(
           new Contracts.ModuleGraphEdge({ parentId: rootId, childId: pipelineId }),
           new Contracts.ModuleGraphEdge({ parentId: pipelineId, childId: qaId })
-        ]
+        )
       })
 
-      const projectionA = Contracts.projectOptimizationModuleGraph(graph)
-      const projectionB = Contracts.projectOptimizationModuleGraph(graph)
+      const projection = Contracts.projectOptimizationModuleGraph(graph)
 
-      expect(projectionA).toEqual(projectionB)
-      expect(projectionA.traversal).toEqual([rootId, pipelineId, qaId])
-      expect(projectionA.lineages).toHaveLength(3)
+      expect(projection.traversal).toEqual(Arr.make(rootId, pipelineId, qaId))
+      expect(Arr.map(projection.lineages, (lineage) => lineage.path)).toEqual(Arr.make(
+        Arr.make(rootId),
+        Arr.make(rootId, pipelineId),
+        Arr.make(rootId, pipelineId, qaId)
+      ))
     }))
 })

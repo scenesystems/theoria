@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Data } from "effect"
+import { Schema } from "effect"
 
 /**
  * Feature flags controlling whether TPE uses correlated multivariate
@@ -17,7 +17,7 @@ import { Data } from "effect"
  * @since 0.1.0
  * @category models
  */
-export class GroupedMixedSettings extends Data.Class<{
-  readonly multivariate: boolean
-  readonly groupDimensions: boolean
-}> {}
+export class GroupedMixedSettings extends Schema.Class<GroupedMixedSettings>("effect-search/GroupedMixedSettings")({
+  multivariate: Schema.Boolean,
+  groupDimensions: Schema.Boolean
+}) {}

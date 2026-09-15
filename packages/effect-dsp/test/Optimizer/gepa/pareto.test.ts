@@ -2,7 +2,8 @@
  * GEPA Pareto kernel contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option, Schema } from "effect"
 import { ExampleFrontierHolding, ParentSelectionWeight } from "../../../src/optimizers/GEPA/model.js"
 import {
   deriveParetoKernelSnapshot,
@@ -10,15 +11,11 @@ import {
   nonDominatedCandidateIndices,
   sampleWeightedParents
 } from "../../../src/optimizers/GEPA/pareto.js"
-import {
-  type GepaParetoScoreMatrixFixture,
-  GepaParetoScoreMatrixFixtureSchema,
-  loadFixture
-} from "../../helpers/dspy-fixtures/index.js"
+import { GepaParetoScoreMatrixFixtureSchema, loadFixture } from "../../helpers/dspy-fixtures/index.js"
 
 const loadScoreMatrixFixture = (
   name: "dspy.gepa.pareto.score-matrix.basic" | "dspy.gepa.pareto.score-matrix.ties"
-): Effect.Effect<GepaParetoScoreMatrixFixture, unknown> =>
+) =>
   loadFixture(name).pipe(
     Effect.flatMap(Schema.decodeUnknown(GepaParetoScoreMatrixFixtureSchema))
   )
@@ -33,9 +30,10 @@ const countSelections = (samples: ReadonlyArray<number>, candidateIndex: number)
     samples,
     0,
     (count, selected) =>
-      selected === candidateIndex
-        ? count + 1
-        : count
+      Bool.match(Num.Equivalence(selected, candidateIndex), {
+        onFalse: () => count,
+        onTrue: () => Num.increment(count)
+      })
   )
 
 describe("GEPA Pareto kernel", () => {
@@ -85,18 +83,21 @@ describe("GEPA Pareto kernel", () => {
         fixture.payload.sampling.draws,
         fixture.payload.sampling.seed
       )
-      const positiveWeights = Arr.filter(snapshot.parentWeights, (weight) => weight.weight > 0)
-      const totalWeight = Arr.reduce(positiveWeights, 0, (sum, weight) => sum + weight.weight)
-      const sampleCount = samples.length
+      const positiveWeights = Arr.filter(snapshot.parentWeights, (weight) => Num.greaterThan(weight.weight, 0))
+      const totalWeight = Arr.reduce(positiveWeights, 0, (sum, weight) => Num.sum(sum, weight.weight))
+      const sampleCount = Arr.length(samples)
       const withinTolerance = Arr.every(positiveWeights, (weight) => {
-        const observed = countSelections(samples, weight.candidateIndex) / sampleCount
-        const expected = weight.weight / totalWeight
+        const observed = Num.unsafeDivide(countSelections(samples, weight.candidateIndex), sampleCount)
+        const expected = Num.unsafeDivide(weight.weight, totalWeight)
 
-        return Math.abs(observed - expected) <= fixture.payload.sampling.tolerance
+        return Num.lessThanOrEqualTo(
+          Numeric.abs(Num.subtract(observed, expected)),
+          fixture.payload.sampling.tolerance
+        )
       })
       const zeroWeightsNeverSelected = Arr.every(
-        Arr.filter(snapshot.parentWeights, (weight) => weight.weight === 0),
-        (weight) => countSelections(samples, weight.candidateIndex) === 0
+        Arr.filter(snapshot.parentWeights, (weight) => Num.Equivalence(weight.weight, 0)),
+        (weight) => Num.Equivalence(countSelections(samples, weight.candidateIndex), 0)
       )
 
       expect(sampleCount).toBe(fixture.payload.sampling.draws)

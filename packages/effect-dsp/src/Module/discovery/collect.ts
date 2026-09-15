@@ -3,18 +3,18 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Effect, Equal, HashMap, Option, SynchronizedRef } from "effect"
 import type { ModuleGraph } from "../../contracts/ModuleGraph.js"
 import { makeModuleGraph, ModuleGraphEdge, ModuleGraphNode } from "../../contracts/ModuleGraph.js"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import { CompositionError } from "../../Errors/module.js"
-import { canonicalModuleRegistrations, type ModuleRegistration } from "./model.js"
+import type { ModuleRegistration } from "./model.js"
 import { ModuleRegistryRef, registrySnapshot } from "./registry.js"
 
 const hasRootRegistration = (
   rootId: ModuleId,
-  registrations: ReadonlyArray<ModuleRegistration>
-): boolean => Option.isSome(Arr.findFirst(registrations, (registration) => registration.id === rootId))
+  registrations: Iterable<ModuleRegistration>
+): boolean => Arr.some(Arr.fromIterable(registrations), (registration) => Equal.equals(registration.id, rootId))
 
 const registrationNode = (registration: ModuleRegistration): ModuleGraphNode =>
   new ModuleGraphNode({
@@ -25,7 +25,7 @@ const registrationNode = (registration: ModuleRegistration): ModuleGraphNode =>
 
 const registrationEdges = (
   registration: ModuleRegistration
-): ReadonlyArray<ModuleGraphEdge> =>
+): ModuleGraph["edges"] =>
   Arr.map(
     registration.subModuleIds,
     (subModuleId) =>
@@ -52,31 +52,41 @@ const registrationEdges = (
  */
 export const registrationsToModuleGraph = (
   rootId: ModuleId,
-  registrations: ReadonlyArray<ModuleRegistration>
+  registrations: Iterable<ModuleRegistration>
 ): Effect.Effect<ModuleGraph, CompositionError> =>
-  hasRootRegistration(rootId, registrations)
-    ? Effect.succeed(
-      makeModuleGraph({
-        rootId,
-        nodes: Arr.map(registrations, registrationNode),
-        edges: Arr.flatMap(registrations, registrationEdges)
-      })
-    )
-    : Effect.fail(
-      new CompositionError({
-        message: `Discovery root '${rootId}' was not observed in registry snapshot`,
-        moduleName: rootId
-      })
-    )
+  Effect.suspend(() => {
+    const snapshot = Arr.fromIterable(registrations)
+    return Effect.if(hasRootRegistration(rootId, snapshot), {
+      onTrue: () =>
+        Effect.sync(() =>
+          makeModuleGraph({
+            rootId,
+            nodes: Arr.map(snapshot, registrationNode),
+            edges: Arr.flatMap(snapshot, registrationEdges)
+          })
+        ),
+      onFalse: () =>
+        Effect.fail(
+          new CompositionError({
+            message: Arr.join(
+              Arr.make("Discovery root '", rootId, "' was not observed in registry snapshot"),
+              ""
+            ),
+            moduleName: rootId
+          })
+        )
+    })
+  })
 
 /**
  * Runs a program and returns registrations written to its local registry.
  *
  * @remarks
  * The program's successful value is discarded. Failure, defects, and
- * interruption propagate without a snapshot. The previous registry value is
- * restored when the scope ends. Registrations made by detached child fibers do
- * not join back into the parent FiberRef.
+ * interruption propagate without a snapshot. A fresh synchronized collector
+ * is shared by fibers forked inside this scope, and the previous collector is
+ * restored when the scope ends. The final snapshot observes registrations
+ * completed before the awaited program completes.
  *
  * @typeParam A - Successful program value, discarded after execution.
  * @typeParam E - Program failure preserved by discovery.
@@ -89,14 +99,7 @@ export const registrationsToModuleGraph = (
  */
 export const discoverModules = <A, E, R>(
   program: Effect.Effect<A, E, R>
-): Effect.Effect<ReadonlyArray<ModuleRegistration>, E, R> =>
-  Effect.gen(function*() {
-    yield* program
-    return yield* registrySnapshot
-  }).pipe(
-    Effect.locally(ModuleRegistryRef, Arr.empty<ModuleRegistration>()),
-    Effect.map(canonicalModuleRegistrations)
-  )
+) => withDiscoveryScope(program.pipe(Effect.zipRight(registrySnapshot)))
 
 /**
  * Runs a program and projects its registrations into a module graph.
@@ -119,7 +122,7 @@ export const discoverModules = <A, E, R>(
 export const discoverModuleGraph = <A, E, R>(
   rootId: ModuleId,
   program: Effect.Effect<A, E, R>
-): Effect.Effect<ModuleGraph, E | CompositionError, R> =>
+) =>
   discoverModules(program).pipe(
     Effect.flatMap((registrations) => registrationsToModuleGraph(rootId, registrations))
   )
@@ -129,7 +132,9 @@ export const discoverModuleGraph = <A, E, R>(
  *
  * @remarks
  * Use this when nested execution should not add registrations to an enclosing
- * discovery scope. Program failures and requirements are unchanged.
+ * discovery scope. The fresh synchronized collector is shared by fibers forked
+ * by the program. Program failures and requirements are unchanged, and the
+ * enclosing collector is restored after success, failure, or interruption.
  *
  * @typeParam A - Successful value returned unchanged.
  * @typeParam E - Failure returned unchanged.
@@ -143,6 +148,10 @@ export const discoverModuleGraph = <A, E, R>(
 export const withDiscoveryScope = <A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R> =>
-  program.pipe(
-    Effect.locally(ModuleRegistryRef, Arr.empty<ModuleRegistration>())
+  Effect.flatMap(
+    SynchronizedRef.make(HashMap.empty<ModuleId, ModuleRegistration>()),
+    (collector) =>
+      program.pipe(
+        Effect.locally(ModuleRegistryRef, Option.some(collector))
+      )
   )

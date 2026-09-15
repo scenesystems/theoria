@@ -6,30 +6,26 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Number as Num, Option, Ref, Schema } from "effect"
 import { ModuleParams } from "../../contracts/ModuleParams.js"
-import type { Example } from "../../Example/index.js"
 import { collectModuleParamRefs } from "../../internal/module-params.js"
 import type { Module as DspModule } from "../../Module/model.js"
-import { assemblePredictorCandidates, labeledDemos, sortDemos } from "./runtime/anchors.js"
+import type { MIPROExamples } from "./index.js"
+import { assemblePredictorCandidates, labeledDemos, Phase1CandidateKind, sortDemos } from "./runtime/anchors.js"
 import { normalizeCount, normalizeSeed } from "./runtime/random.js"
 
 /**
  * Decodes the four demonstration layouts produced by Phase 1.
  *
  * @remarks
- * The two `bootstrap-*` variants use labeled examples in original or seeded
- * order. Phase 1 does not execute a teacher or collect module traces.
+ * The two `bootstrap-*` variants use existing destination demos (including
+ * prior trace bootstrapping) followed by compatible labels, in original or
+ * seeded order. Phase 1 does not execute a teacher or collect traces.
  *
  * @since 0.1.0
  * @category models
  */
-export const DemoCandidateKindSchema = Schema.Literal(
-  "zero-shot",
-  "labels-only",
-  "bootstrap-unshuffled",
-  "bootstrap-shuffled"
-)
+export const DemoCandidateKindSchema = Phase1CandidateKind
 
 /**
  * Identifies the empty, labeled-prefix, original-order, or seeded-order
@@ -74,6 +70,22 @@ export class PredictorDemoCandidates extends Schema.Class<PredictorDemoCandidate
 }) {}
 
 /**
+ * Ordered Phase 1 candidate sets, one per predictor.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const PredictorDemoCandidateSets = Schema.Array(PredictorDemoCandidates)
+
+/**
+ * Ordered Phase 1 candidate sets, one per predictor.
+ *
+ * @since 0.1.0
+ * @category type-level
+ */
+export type PredictorDemoCandidateSets = typeof PredictorDemoCandidateSets.Type
+
+/**
  * Configures labeled demonstration selection for every owned predictor.
  *
  * @typeParam I - Input fields accepted by the module tree.
@@ -84,12 +96,14 @@ export class PredictorDemoCandidates extends Schema.Class<PredictorDemoCandidate
  */
 export class GenerateDemoCandidatesOptions<
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Root whose parameter refs are read without mutation. */
-  readonly module: DspModule<I, O>
+  readonly module: DspModule<I, O, E, R>
   /** Source examples; entries without `output` are excluded from every candidate. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: MIPROExamples
   /** Total candidates per predictor, normalized to a positive integer. */
   readonly numCandidates: number
   /** Seed used to order shuffled candidates. Defaults to `1` after normalization. */
@@ -108,7 +122,10 @@ export class GenerateDemoCandidatesOptions<
  * order begins with zero-shot, labels-only, and original-order bootstrap
  * layouts, truncated when `numCandidates` is below three. Additional slots use
  * seeded orderings and a seeded demonstration count. Inputs and outputs are
- * copied without Schema decoding. The module parameter refs remain unchanged.
+ * validated against each destination's encoded signature. Incompatible labels
+ * are not candidates for that stage; existing invalid demos fail with a checked
+ * ParseError. Stages with no compatible evidence remain zero-shot. Parameter
+ * refs remain unchanged; run BootstrapFewShot first to collect stage evidence.
  *
  * @param options - Module tree, labeled-example source, candidate count, and limits.
  * @returns Candidate sets in the module tree's parameter-ref order.
@@ -120,9 +137,11 @@ export class GenerateDemoCandidatesOptions<
  */
 export const generateDemoCandidates = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 >(
-  options: GenerateDemoCandidatesOptions<I, O>
+  options: GenerateDemoCandidatesOptions<I, O, E, R>
 ) =>
   Effect.gen(function*() {
     const refs = collectModuleParamRefs(options.module)
@@ -131,13 +150,13 @@ export const generateDemoCandidates = <
     const maxLabeledDemos = normalizeCount(
       Option.getOrElse(
         Option.fromNullable(options.maxLabeledDemos),
-        () => Numeric.max(1, Numeric.min(4, allLabeled.length))
+        () => Numeric.max(1, Numeric.min(4, Arr.length(allLabeled)))
       )
     )
     const maxBootstrappedDemos = normalizeCount(
       Option.getOrElse(
         Option.fromNullable(options.maxBootstrappedDemos),
-        () => Numeric.max(1, Numeric.min(4, allLabeled.length))
+        () => Numeric.max(1, Numeric.min(4, Arr.length(allLabeled)))
       )
     )
     const seed = normalizeSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 1))
@@ -145,14 +164,19 @@ export const generateDemoCandidates = <
     return yield* Effect.forEach(refs, (ref, predictorIndex) =>
       Effect.gen(function*() {
         const params = yield* Ref.get(ref.params)
+        const compatibleLabels = Arr.getSomes(
+          yield* Effect.forEach(allLabeled, (demo) => ref.demoContract.decode(demo).pipe(Effect.option))
+        )
+        const existing = yield* Effect.forEach(params.demos, ref.demoContract.decode)
         const assembledCandidates = assemblePredictorCandidates({
           predictorName: ref.name,
           params,
-          demos: allLabeled,
+          demos: compatibleLabels,
+          bootstrappedDemos: Arr.appendAll(existing, compatibleLabels),
           requestedCandidates,
           maxLabeledDemos,
           maxBootstrappedDemos,
-          seed: seed + predictorIndex
+          seed: Num.sum(seed, predictorIndex)
         })
 
         return new PredictorDemoCandidates({

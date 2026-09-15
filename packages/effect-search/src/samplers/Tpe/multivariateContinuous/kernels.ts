@@ -3,9 +3,15 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Data, Effect, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
+import * as Float64 from "../../../internal/float64.js"
 import * as Rng from "../../../internal/rng.js"
+import {
+  type GaussianComponents,
+  type GaussianVector,
+  GaussianVectorSchema
+} from "../../../internal/tpe/multivariateGaussian.js"
 
 /**
  * Random draws used to sample a single candidate from a diagonal Gaussian
@@ -18,12 +24,22 @@ import * as Rng from "../../../internal/rng.js"
  * @since 0.1.0
  * @category models
  */
-export class MultivariateCandidateRoll extends Data.Class<{
-  readonly componentRoll: number
-  readonly valueRolls: ReadonlyArray<number>
+export class MultivariateCandidateRoll extends Schema.Class<MultivariateCandidateRoll>(
+  "effect-search/MultivariateCandidateRoll"
+)({
+  componentRoll: Schema.Number,
+  valueRolls: GaussianVectorSchema
+}) {}
+
+class DimensionStats extends Data.Class<{
+  readonly mean: number
+  readonly stddev: number
 }> {}
 
-const indices = (count: number): ReadonlyArray<number> =>
+type DimensionStatsVector = Schema.Array$<Schema.Schema<DimensionStats>>["Type"]
+type MultivariateCandidateRolls = Schema.Array$<typeof MultivariateCandidateRoll>["Type"]
+
+const indices = (count: number): GaussianVector =>
   Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(count, (index) => index))
@@ -40,28 +56,28 @@ const indices = (count: number): ReadonlyArray<number> =>
  * @since 0.1.0
  * @category constructors
  */
-export const valueAt = (values: ReadonlyArray<number>, index: number, fallback: number): number =>
+export const valueAt = (values: GaussianVector, index: number, fallback: number): number =>
   Arr.get(values, index).pipe(Option.getOrElse(() => fallback))
 
-const average = (values: ReadonlyArray<number>): number =>
-  Match.value(Num.lessThanOrEqualTo(values.length, 0)).pipe(
+const average = (values: GaussianVector): number =>
+  Match.value(Arr.isEmptyReadonlyArray(values)).pipe(
     Match.when(true, () => 0),
-    Match.orElse(() => Num.unsafeDivide(Arr.reduce(values, 0, (sum, value) => Num.sum(sum, value)), values.length))
+    Match.orElse(() => Num.unsafeDivide(Arr.reduce(values, 0, (sum, value) => Num.sum(sum, value)), Arr.length(values)))
   )
 
-const stddev = (values: ReadonlyArray<number>, mean: number): number =>
-  Match.value(Num.lessThanOrEqualTo(values.length, 0)).pipe(
+const stddev = (values: GaussianVector, mean: number): number =>
+  Match.value(Arr.isEmptyReadonlyArray(values)).pipe(
     Match.when(true, () => 1),
     Match.orElse(() => {
       const variance = Num.unsafeDivide(
         Arr.reduce(values, 0, (sum, value) => {
-          const centered = value - mean
-          return Num.sum(sum, centered * centered)
+          const centered = Num.subtract(value, mean)
+          return Num.sum(sum, Num.multiply(centered, centered))
         }),
-        values.length
+        Arr.length(values)
       )
 
-      return Math.sqrt(variance)
+      return Float64.sqrt(variance)
     })
   )
 
@@ -78,16 +94,16 @@ const stddev = (values: ReadonlyArray<number>, mean: number): number =>
  * @category scoring
  */
 export const statsByDimension = (
-  vectors: ReadonlyArray<ReadonlyArray<number>>,
+  vectors: GaussianComponents,
   dimensionCount: number
-): ReadonlyArray<{ readonly mean: number; readonly stddev: number }> =>
+): DimensionStatsVector =>
   Arr.makeBy(dimensionCount, (dimensionIndex) => {
     const values = Arr.map(vectors, (vector) => valueAt(vector, dimensionIndex, 0))
     const mean = average(values)
-    return {
+    return new DimensionStats({
       mean,
       stddev: stddev(values, mean)
-    }
+    })
   })
 
 /**
@@ -102,7 +118,7 @@ export const statsByDimension = (
  * @since 0.1.0
  * @category constructors
  */
-export const uniformWeights = (componentCount: number): ReadonlyArray<number> =>
+export const uniformWeights = (componentCount: number): GaussianVector =>
   Match.value(Num.lessThanOrEqualTo(componentCount, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount)))
@@ -124,12 +140,12 @@ export const drawMultivariateRolls = (
   rng: Rng.Rng,
   nCandidates: number,
   dimensionCount: number
-): Effect.Effect<ReadonlyArray<MultivariateCandidateRoll>> =>
+): Effect.Effect<MultivariateCandidateRolls> =>
   Effect.forEach(indices(nCandidates), () =>
-    Effect.all([
+    Effect.all(Tuple.make(
       Rng.nextFloat(rng),
       Effect.forEach(indices(dimensionCount), () => Rng.nextFloat(rng))
-    ]).pipe(
+    )).pipe(
       Effect.map(([componentRoll, valueRolls]) =>
         new MultivariateCandidateRoll({
           componentRoll,

@@ -3,18 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean, Effect, Inspectable, Option, Ref, Schema, String as Str, Tuple } from "effect"
 
-import { FieldRecord } from "../../../contracts/FieldValue.js"
 import { MetricResult } from "../../../contracts/MetricResult.js"
+import type { ModuleParams } from "../../../contracts/ModuleParams.js"
 import { withModuleParamsInstructions } from "../../../contracts/ModuleParams.js"
-import type { Example } from "../../../Example/index.js"
-
+import { encodePayload } from "../../../contracts/Payload.js"
+import { collectModuleParamRefs, type ModuleParamRef } from "../../../internal/module-params.js"
+import { withTracing } from "../../../Trace/index.js"
 import { ReflectiveDatasetSample } from "../model.js"
-import type { CandidateScoreVector, ProgramCandidate } from "../model.js"
+import { CandidateScoreVector, type ProgramCandidate } from "../model.js"
 
-import { instructionForPredictor, withFeedback } from "./helpers.js"
-import type { GEPAOptions } from "./options.js"
+import { instructionForPredictor } from "./helpers.js"
+import type { GEPAExamples, GEPAOptions } from "./options.js"
 
 /**
  * Materialized candidate evaluation rows.
@@ -22,18 +23,100 @@ import type { GEPAOptions } from "./options.js"
  * @since 0.1.0
  * @category models
  */
-export class CandidateEvaluation extends Data.Class<{
-  readonly scores: CandidateScoreVector
-  readonly samples: ReadonlyArray<ReflectiveDatasetSample>
-}> {}
+export class CandidateEvaluation extends Schema.Class<CandidateEvaluation>("GEPACandidateEvaluation")({
+  scores: CandidateScoreVector,
+  samples: Schema.Array(ReflectiveDatasetSample)
+}) {}
 
-const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
-  options: GEPAOptions<I, O, ME, MR>
-): ReadonlyArray<Example> =>
+/**
+ * Selects a contiguous validation-set window while retaining each row's
+ * position in the complete score vector.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class CandidateEvaluationWindow
+  extends Schema.Class<CandidateEvaluationWindow>("GEPACandidateEvaluationWindow")({
+    startIndex: Schema.Number,
+    rowCount: Schema.OptionFromSelf(Schema.Number)
+  })
+{}
+
+const FULL_CANDIDATE_EVALUATION_WINDOW = new CandidateEvaluationWindow({
+  startIndex: 0,
+  rowCount: Option.none()
+})
+
+class CandidateEvaluationRow extends Schema.Class<CandidateEvaluationRow>("GEPACandidateEvaluationRow")({
+  score: Schema.Number,
+  samples: Schema.Array(ReflectiveDatasetSample)
+}) {}
+
+const candidateParams = (
+  owner: ModuleParamRef,
+  params: ModuleParams,
+  candidate: ProgramCandidate
+): ModuleParams =>
+  withModuleParamsInstructions(
+    params,
+    Option.getOrElse(instructionForPredictor(candidate, owner.name), () => params.instructions)
+  )
+
+type ParameterSnapshot = Schema.Tuple2<Schema.Schema<ModuleParamRef>, typeof ModuleParams>["Type"]
+
+const setCandidateInstructions = (
+  snapshots: Iterable<ParameterSnapshot>,
+  candidate: ProgramCandidate
+) =>
+  Effect.forEach(
+    snapshots,
+    ([owner, params]) => Ref.set(owner.params, candidateParams(owner, params, candidate)),
+    { discard: true }
+  ).pipe(Effect.uninterruptible)
+
+const restoreSnapshots = (snapshots: Iterable<ParameterSnapshot>) =>
+  Effect.forEach(snapshots, ([owner, params]) => Ref.set(owner.params, params), { discard: true }).pipe(
+    Effect.uninterruptible
+  )
+
+/**
+ * Writes a candidate's instructions to every owned parameter ref without an
+ * interruptible partial-commit boundary.
+ *
+ * @since 0.4.0
+ * @category combinators
+ */
+export const commitCandidateInstructions = (
+  owners: Iterable<ModuleParamRef>,
+  candidate: ProgramCandidate
+) =>
+  Effect.forEach(owners, (owner) => Ref.get(owner.params).pipe(Effect.map((params) => Tuple.make(owner, params)))).pipe(
+    Effect.flatMap((snapshots) => setCandidateInstructions(snapshots, candidate)),
+    Effect.uninterruptible
+  )
+
+const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: GEPAOptions<I, O, ME, MR, E, R>
+): GEPAExamples =>
   Arr.filter(
     Option.getOrElse(Option.fromNullable(options.valset), () => options.trainset),
     (example) => Option.isSome(Option.fromNullable(example.output))
   )
+
+const selectEvaluationRows = (
+  examples: GEPAExamples,
+  window: CandidateEvaluationWindow
+) => {
+  const available = Arr.drop(
+    Arr.map(examples, (example, index) => Tuple.make(index, example)),
+    window.startIndex
+  )
+
+  return Option.match(window.rowCount, {
+    onNone: () => available,
+    onSome: (rowCount) => Arr.take(available, rowCount)
+  })
+}
 
 /**
  * Evaluate one candidate against the resolved validation set.
@@ -41,59 +124,86 @@ const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
  * @since 0.1.0
  * @category constructors
  */
-export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
-  options: GEPAOptions<I, O, ME, MR>,
-  candidate: ProgramCandidate
+export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: GEPAOptions<I, O, ME, MR, E, R>,
+  candidate: ProgramCandidate,
+  window: CandidateEvaluationWindow = FULL_CANDIDATE_EVALUATION_WINDOW
 ) =>
   Effect.acquireUseRelease(
-    Ref.get(options.module.params).pipe(
-      Effect.tap((original) =>
-        Ref.set(
-          options.module.params,
-          withModuleParamsInstructions(
-            original,
-            Option.getOrElse(instructionForPredictor(candidate, options.module.name), () => original.instructions)
-          )
+    Effect.forEach(collectModuleParamRefs(options.module), (owner) =>
+      Ref.get(owner.params).pipe(Effect.map((params) => Tuple.make(owner, params)))).pipe(
+        Effect.tap((snapshots) =>
+          setCandidateInstructions(snapshots, candidate)
         )
-      )
-    ),
+      ),
     () => {
       const decodeInput = Schema.decodeUnknown(options.module.signature.inputSchema)
       const decodeOutput = Schema.decodeUnknown(options.module.signature.outputSchema)
-      const decodeFieldRecord = Schema.decodeUnknown(FieldRecord)
 
-      return Effect.forEach(resolveValset(options), (example, index) =>
+      return Effect.forEach(selectEvaluationRows(resolveValset(options), window), ([index, example]) =>
         Effect.gen(function*() {
-          const expectedOutputRaw = Option.getOrElse(Option.fromNullable(example.output), () => example.input)
+          const expectedOutputRaw = Option.getOrElse(Option.fromNullable(example.output), () =>
+            example.input)
           const moduleInput = yield* decodeInput(example.input)
           const expectedOutput = yield* decodeOutput(expectedOutputRaw)
-          const prediction = yield* options.module.forward(moduleInput)
-          const metricInput = yield* decodeFieldRecord(moduleInput)
-          const metricPrediction = yield* decodeFieldRecord(prediction)
-          const metricExpectedOutput = yield* decodeFieldRecord(expectedOutput)
-          const metricResult = yield* options.metric.score(metricPrediction, metricExpectedOutput)
-          const normalizedMetric = new MetricResult({
-            score: metricResult.score,
-            ...withFeedback(Option.fromNullable(metricResult.feedback))
+          const [prediction, traceEntries] = yield* withTracing(options.module.forward(moduleInput))
+          const programInputs = yield* encodePayload(options.module.signature.inputSchema, moduleInput)
+          const programGeneratedOutputs = yield* encodePayload(options.module.signature.outputSchema, prediction)
+          const expectedDocument = yield* encodePayload(options.module.signature.outputSchema, expectedOutput)
+          const metricResult = yield* options.metric.score(prediction, expectedOutput)
+          const normalizedMetric = Option.match(Option.fromNullable(metricResult.feedback), {
+            onNone: () => new MetricResult({ score: metricResult.score }),
+            onSome: (feedback) => new MetricResult({ score: metricResult.score, feedback })
           })
 
-          return {
+          const executionSamples = Arr.map(
+            Arr.filter(traceEntries, (entry) => Str.Equivalence(entry.outcome, "completed")),
+            (entry) =>
+              new ReflectiveDatasetSample({
+                exampleId: Str.concat("example-", Inspectable.toStringUnknown(index)),
+                predictorName: entry.moduleName,
+                evidenceScope: "predictor-execution",
+                inputs: entry.input,
+                generatedOutputs: entry.output,
+                expectedOutput: expectedDocument,
+                metricResult: normalizedMetric
+              })
+          )
+          const hasRootExecution = Arr.some(
+            executionSamples,
+            (sample) => Str.Equivalence(sample.predictorName, options.module.name)
+          )
+          const samples = Boolean.match(hasRootExecution, {
+            onTrue: () => executionSamples,
+            onFalse: () =>
+              Arr.append(
+                executionSamples,
+                new ReflectiveDatasetSample({
+                  exampleId: Str.concat("example-", Inspectable.toStringUnknown(index)),
+                  predictorName: options.module.name,
+                  evidenceScope: "program",
+                  inputs: programInputs,
+                  generatedOutputs: programGeneratedOutputs,
+                  expectedOutput: expectedDocument,
+                  metricResult: normalizedMetric
+                })
+              )
+          })
+
+          return new CandidateEvaluationRow({
             score: metricResult.score,
-            sample: new ReflectiveDatasetSample({
-              exampleId: `example-${index}`,
-              predictorName: options.module.name,
-              inputs: metricInput,
-              generatedOutputs: metricPrediction,
-              expectedOutput: metricExpectedOutput,
-              metricResult: normalizedMetric
-            })
-          }
+            samples
+          })
         }), { concurrency: "inherit" }).pipe(
-          Effect.map((rows): CandidateEvaluation => ({
-            scores: Arr.map(rows, (row) => row.score),
-            samples: Arr.map(rows, (row) => row.sample)
-          }))
+          Effect.map((rows) =>
+            new CandidateEvaluation({
+              scores: Arr.map(rows, (row) =>
+                row.score),
+              samples: Arr.flatMap(rows, (row) =>
+                row.samples)
+            })
+          )
         )
     },
-    (original) => Ref.set(options.module.params, original)
+    restoreSnapshots
   )

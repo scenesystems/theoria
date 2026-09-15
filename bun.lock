@@ -14,6 +14,7 @@
         "@changesets/cli": "^3.0.1",
         "@effect/ai": "0.37.0",
         "@effect/ai-anthropic": "0.27.0",
+        "@effect/ai-google": "0.16.0",
         "@effect/ai-openai": "0.41.0",
         "@effect/ai-openrouter": "0.12.0",
         "@effect/build-utils": "^0.8.9",
@@ -136,6 +137,7 @@
       "version": "0.3.0",
       "dependencies": {
         "@effect/ai-anthropic": "0.27.0",
+        "@effect/ai-google": "0.16.0",
         "@effect/ai-openai": "0.41.0",
         "@effect/ai-openrouter": "0.12.0",
         "@effect/platform": "0.97.1",
@@ -395,6 +397,8 @@
     "@effect/ai": ["@effect/ai@0.37.0", "", { "dependencies": { "find-my-way-ts": "^0.1.6" }, "peerDependencies": { "@effect/experimental": "^0.61.0", "@effect/platform": "^0.97.0", "@effect/rpc": "^0.76.0", "effect": "^3.22.0" } }, "sha512-tHkDg/p2tNxKhXZATOokl5vGGqrV7K5FA/qdIExRTjFUOEVvKCWoVxqtUuj+NAp9BeSVuysJMPrHB9XjFPsUiQ=="],
 
     "@effect/ai-anthropic": ["@effect/ai-anthropic@0.27.0", "", { "dependencies": { "@anthropic-ai/tokenizer": "^0.0.4" }, "peerDependencies": { "@effect/ai": "^0.37.0", "@effect/experimental": "^0.61.0", "@effect/platform": "^0.97.0", "effect": "^3.22.0" } }, "sha512-6mhwPfId22p/QrHIpHMJkOQpuYOFtISWajDA+5mzhibbIovTEV7qUN2heKI5M/pSGjyZwYGx7dBkkvghH8d23g=="],
+
+    "@effect/ai-google": ["@effect/ai-google@0.16.0", "", { "peerDependencies": { "@effect/ai": "^0.37.0", "@effect/experimental": "^0.61.0", "@effect/platform": "^0.97.0", "effect": "^3.22.0" } }, "sha512-y4sjEUFhFGf/qIVZqFaCjmLxipmb5zpSATktlJ5kKw5g4Ajoxwz8APVYiHY4b0MrwrdC985OkkuxzksdlajWKg=="],
 
     "@effect/ai-openai": ["@effect/ai-openai@0.41.0", "", { "dependencies": { "gpt-tokenizer": "^2.9.0" }, "peerDependencies": { "@effect/ai": "^0.37.0", "@effect/experimental": "^0.61.0", "@effect/platform": "^0.97.0", "effect": "^3.22.0" } }, "sha512-+WE8ec+BP3ttg9YepHgV5x0YL/qelGT4ziWdBvGerIif0doY0LcaM7LHX0MObdlys4bh2VtERMkPcX5TyLVZGQ=="],
 

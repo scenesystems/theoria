@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Option, Schema } from "effect"
 
 import {
   diagonalGaussianLogDensity,
@@ -10,6 +10,9 @@ import {
   scottsFactor
 } from "../../../src/internal/tpe/multivariateGaussian.js"
 import { FixtureRegistryLive, loadFixture, MultivariateGaussianFixtureSchema } from "../../helpers/fixtures/index.js"
+
+const valueAt = (values: Schema.Array$<typeof Schema.Number>["Type"], index: number): number =>
+  Arr.get(values, index).pipe(Option.getOrElse(() => Number.NaN))
 
 const densityFixtures = Arr.make(
   {
@@ -79,9 +82,9 @@ describe("multivariate gaussian parity", () => {
         Effect.sync(() => {
           const actual = sampleDiagonalGaussian(fixture.mean, fixture.sigmas, fixture.rolls)
 
-          expect(actual).toHaveLength(fixture.expected.length)
-          fixture.expected.forEach((expectedValue, index) => {
-            expect(actual[index]).toBeCloseTo(expectedValue, 12)
+          expect(actual).toHaveLength(Arr.length(fixture.expected))
+          Arr.forEach(fixture.expected, (expectedValue, index) => {
+            expect(valueAt(actual, index)).toBeCloseTo(expectedValue, 12)
           })
         }),
       { discard: true }
@@ -103,8 +106,8 @@ describe("multivariate gaussian parity", () => {
         [0.35, 0.7]
       )
 
-      expect(actual[0]).toBeCloseTo(0.16146795335924322, 12)
-      expect(actual[1]).toBeCloseTo(-0.1951198974583919, 12)
+      expect(valueAt(actual, 0)).toBeCloseTo(0.16146795335924322, 12)
+      expect(valueAt(actual, 1)).toBeCloseTo(-0.1951198974583919, 12)
     }))
 
   it.effect("replays fixture-backed FM-14 multivariate gaussian parity", () =>
@@ -143,9 +146,9 @@ describe("multivariate gaussian parity", () => {
           Effect.sync(() => {
             const sample = sampleDiagonalGaussian(entry.mean, entry.sigmas, entry.rolls)
 
-            expect(sample).toHaveLength(entry.expectedSample.length)
-            entry.expectedSample.forEach((expectedValue, index) => {
-              expect(sample[index]).toBeCloseTo(expectedValue, 12)
+            expect(sample).toHaveLength(Arr.length(entry.expectedSample))
+            Arr.forEach(entry.expectedSample, (expectedValue, index) => {
+              expect(valueAt(sample, index)).toBeCloseTo(expectedValue, 12)
             })
           }),
         { discard: true }
@@ -161,8 +164,8 @@ describe("multivariate gaussian parity", () => {
       )
 
       yield* Effect.sync(() => {
-        mixture.expectedSample.forEach((expectedValue, index) => {
-          expect(sample[index]).toBeCloseTo(expectedValue, 12)
+        Arr.forEach(mixture.expectedSample, (expectedValue, index) => {
+          expect(valueAt(sample, index)).toBeCloseTo(expectedValue, 12)
         })
         expect(diagonalGaussianMixtureLogDensity(sample, mixture.means, mixture.sigmas, mixture.weights)).toBeCloseTo(
           mixture.expectedLogDensity,

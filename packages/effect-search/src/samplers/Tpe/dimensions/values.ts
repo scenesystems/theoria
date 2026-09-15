@@ -3,26 +3,25 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Equal, Match, Option, Schema } from "effect"
+import { Array as Arr, Equal, Match, Number as Num, Option, Schema } from "effect"
 
 import { type PrimitiveChoice, PrimitiveChoiceSchema } from "../../../contracts/Distribution.js"
 import { type SamplerConfig, valueFromConfig } from "../../../internal/configAccess.js"
-import type { CompletedTrialForSplit } from "../../../internal/tpe/splitTrials.js"
+import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 
 const primitiveChoiceGuard = Schema.is(PrimitiveChoiceSchema)
+const finiteNumberGuard = Schema.is(Schema.Finite)
+
+const NumericParameterValuesSchema = Schema.Array(Schema.Number)
+type NumericParameterValues = Schema.Schema.Type<typeof NumericParameterValuesSchema>
+
+const PrimitiveParameterValuesSchema = Schema.Array(PrimitiveChoiceSchema)
+type PrimitiveParameterValues = Schema.Schema.Type<typeof PrimitiveParameterValuesSchema>
 
 const configValue = valueFromConfig
 
-const asFiniteNumber = (value: unknown): Option.Option<number> =>
-  Match.value(value).pipe(
-    Match.when(Match.number, (numberValue) =>
-      Match.value(Number.isFinite(numberValue)).pipe(
-        Match.when(true, () => Option.some(numberValue)),
-        Match.orElse(() => Option.none())
-      )),
-    Match.orElse(() => Option.none())
-  )
+const asFiniteNumber = (value: unknown): Option.Option<number> => Option.liftPredicate(finiteNumberGuard)(value)
 
 const asPrimitiveChoice = (value: unknown): Option.Option<PrimitiveChoice> =>
   Option.liftPredicate(primitiveChoiceGuard)(value)
@@ -40,46 +39,49 @@ const matchesCondition = (
 
 const matchesAllConditions = (
   config: SamplerConfig,
-  conditions: ReadonlyArray<SearchSpace.ActivationCondition>
-): boolean => conditions.every((condition) => matchesCondition(config, condition))
+  conditions: SearchSpace.ParameterMetadata["activeWhen"]
+): boolean => Arr.every(conditions, (condition) => matchesCondition(config, condition))
 
 const conditionFallbackLadder = (
-  conditions: ReadonlyArray<SearchSpace.ActivationCondition>
-): Array<ReadonlyArray<SearchSpace.ActivationCondition>> =>
-  Arr.makeBy(conditions.length + 1, (index) => conditions.slice(0, conditions.length - index))
+  conditions: SearchSpace.ParameterMetadata["activeWhen"]
+) =>
+  Arr.makeBy(
+    Num.increment(Arr.length(conditions)),
+    (index) => Arr.take(conditions, Num.subtract(Arr.length(conditions), index))
+  )
 
 const collectValues = <A>(
   parameter: SearchSpace.ParameterMetadata,
-  trials: ReadonlyArray<CompletedTrialForSplit>,
-  conditions: ReadonlyArray<SearchSpace.ActivationCondition>,
+  trials: TrialSplit["below"],
+  conditions: SearchSpace.ParameterMetadata["activeWhen"],
   normalize: (value: unknown) => Option.Option<A>
-): Array<A> =>
-  trials.flatMap((trial) =>
+) =>
+  Arr.flatMap(trials, (trial) =>
     Match.value(matchesAllConditions(trial.config, conditions)).pipe(
       Match.when(true, () =>
         configValue(trial.config, parameter.name).pipe(
           Option.flatMap(normalize),
           Option.match({
-            onNone: () => [],
-            onSome: (value) => [value]
+            onNone: () => Arr.empty<A>(),
+            onSome: Arr.of
           })
         )),
-      Match.orElse(() => [])
-    )
-  )
+      Match.orElse(() => Arr.empty<A>())
+    ))
 
 const valuesWithFallback = <A>(
   parameter: SearchSpace.ParameterMetadata,
-  trials: ReadonlyArray<CompletedTrialForSplit>,
+  trials: TrialSplit["below"],
   normalize: (value: unknown) => Option.Option<A>
-): Array<A> =>
-  conditionFallbackLadder(parameter.activeWhen).reduce<Array<A>>(
+) =>
+  Arr.reduce(
+    conditionFallbackLadder(parameter.activeWhen),
+    Arr.empty<A>(),
     (selected, conditions) =>
-      Match.value(selected.length > 0).pipe(
+      Match.value(Arr.isNonEmptyReadonlyArray(selected)).pipe(
         Match.when(true, () => selected),
         Match.orElse(() => collectValues(parameter, trials, conditions, normalize))
-      ),
-    []
+      )
   )
 
 /**
@@ -95,8 +97,8 @@ const valuesWithFallback = <A>(
  */
 export const numericValuesForParameter = (
   parameter: SearchSpace.ParameterMetadata,
-  trials: ReadonlyArray<CompletedTrialForSplit>
-): Array<number> => valuesWithFallback(parameter, trials, asFiniteNumber)
+  trials: TrialSplit["below"]
+): NumericParameterValues => valuesWithFallback(parameter, trials, asFiniteNumber)
 
 /**
  * Extracts primitive choice values for a categorical parameter from completed
@@ -111,5 +113,5 @@ export const numericValuesForParameter = (
  */
 export const primitiveValuesForParameter = (
   parameter: SearchSpace.ParameterMetadata,
-  trials: ReadonlyArray<CompletedTrialForSplit>
-): Array<PrimitiveChoice> => valuesWithFallback(parameter, trials, asPrimitiveChoice)
+  trials: TrialSplit["below"]
+): PrimitiveParameterValues => valuesWithFallback(parameter, trials, asPrimitiveChoice)

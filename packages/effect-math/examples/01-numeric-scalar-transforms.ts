@@ -6,7 +6,7 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Console, Effect } from "effect"
+import { Array as Arr, Chunk, Console, Effect } from "effect"
 
 import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import { expm1, log1p, sum, sumValidated, sumWithPolicies } from "@scenesystems/effect-math/Numeric"
@@ -20,16 +20,16 @@ const program = Effect.gen(function*() {
   const e = expm1(1e-15)
   yield* Console.log("expm1(1e-15):", e)
 
-  const s = sum([1.1, 2.2, 3.3, 4.4])
+  const s = sum(Arr.make(1.1, 2.2, 3.3, 4.4))
   yield* Console.log("sum([1.1, 2.2, 3.3, 4.4]):", s)
 
   // Schema-validated boundary
-  const validated = yield* sumValidated({ values: [10, 20, 30, 40, 50] })
+  const validated = yield* sumValidated({ values: Arr.make(10, 20, 30, 40, 50) })
   yield* Console.log("sumValidated({ values: [10..50] }):", validated)
   // Output: sumValidated({ values: [10..50] }): 150
 
   // Runtime policies
-  const policyResult = yield* sumWithPolicies([100, 200, 300, 400]).pipe(
+  const policyResult = yield* sumWithPolicies(Chunk.make(100, 200, 300, 400)).pipe(
     Effect.provide(
       makeDeterministicRuntimePoliciesLayer({
         seed: Seed.make(42),

@@ -39,5 +39,5 @@ Optimizer implementations live in `src/optimizers/` (self-contained per optimize
 
 - `internal/*` blocked from consumers via exports map
 - `optimizers/*` blocked from consumers via exports map
-- Only `src/internal/lm.ts` imports `@effect/ai` at runtime — sole import site
+- `src/internal/lm.ts` owns model execution. Models and projections consume native `@effect/ai` schemas directly; do not duplicate their contracts.
 - Each optimizer under `src/optimizers/` is self-contained

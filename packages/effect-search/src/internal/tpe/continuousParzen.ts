@@ -1,4 +1,4 @@
-export { ContinuousKernel, ContinuousParzen } from "./continuousParzen/model.js"
+export { ContinuousKernel, ContinuousParzen, type ContinuousValues } from "./continuousParzen/model.js"
 
 export { buildContinuousParzen } from "./continuousParzen/build.js"
 

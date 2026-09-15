@@ -33,15 +33,15 @@ export {
   type ArtifactSinkApi
 } from "./ArtifactEnvelope.js"
 
-export * from "./FieldValue.js"
+export * from "./Payload.js"
 
 export * from "./ModuleParams.js"
+
+export * from "./DemoContract.js"
 
 export * from "./ModuleNode.js"
 
 export * from "./ModuleGraph.js"
-
-export * from "./PayloadProjection.js"
 
 export * from "./OptimizationSurface.js"
 

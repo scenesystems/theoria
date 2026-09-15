@@ -3,7 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Match, Order } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Array as Arr, Boolean, Number as Num, Order, Tuple } from "effect"
+import type { Schema } from "effect"
 
 const LCG_MULTIPLIER = 1664525
 const LCG_INCREMENT = 1013904223
@@ -19,14 +21,15 @@ const LCG_MODULUS = 4294967296
  * @category combinators
  */
 export const normalizeDeterministicSeed = (seed: number): number => {
-  const finite = Number.isFinite(seed)
-    ? Math.abs(Math.trunc(seed))
-    : 1
+  const finite = Boolean.match(Numeric.isFinite(seed), {
+    onFalse: () => 1,
+    onTrue: () => Numeric.abs(Numeric.truncate(seed))
+  })
 
-  return Match.value(finite).pipe(
-    Match.when((value) => value <= 0, () => 1),
-    Match.orElse((value) => value)
-  )
+  return Boolean.match(Num.lessThanOrEqualTo(finite, 0), {
+    onFalse: () => finite,
+    onTrue: () => 1
+  })
 }
 
 /**
@@ -40,7 +43,11 @@ export const normalizeDeterministicSeed = (seed: number): number => {
  * @since 0.1.0
  * @category combinators
  */
-export const nextDeterministicSeed = (seed: number): number => ((seed * LCG_MULTIPLIER) + LCG_INCREMENT) % LCG_MODULUS
+export const nextDeterministicSeed = (seed: number): number =>
+  Num.remainder(
+    Num.sum(Num.multiply(seed, LCG_MULTIPLIER), LCG_INCREMENT),
+    LCG_MODULUS
+  )
 
 /**
  * Converts a numeric count to an integer of at least `1`.
@@ -52,26 +59,31 @@ export const nextDeterministicSeed = (seed: number): number => ((seed * LCG_MULT
  * @category combinators
  */
 export const normalizePositiveCount = (value: number): number => {
-  const finite = Number.isFinite(value)
-    ? Math.trunc(value)
-    : 0
+  const finite = Boolean.match(Numeric.isFinite(value), {
+    onFalse: () => 0,
+    onTrue: () => Numeric.truncate(value)
+  })
 
-  return Match.value(finite).pipe(
-    Match.when((count) => count <= 0, () => 1),
-    Match.orElse((count) => count)
-  )
+  return Boolean.match(Num.lessThanOrEqualTo(finite, 0), {
+    onFalse: () => finite,
+    onTrue: () => 1
+  })
 }
 
 const normalizeNonNegativeCount = (value: number): number => {
-  const finite = Number.isFinite(value)
-    ? Math.trunc(value)
-    : 0
+  const finite = Boolean.match(Numeric.isFinite(value), {
+    onFalse: () => 0,
+    onTrue: () => Numeric.truncate(value)
+  })
 
-  return Match.value(finite).pipe(
-    Match.when((count) => count <= 0, () => 0),
-    Match.orElse((count) => count)
-  )
+  return Boolean.match(Num.lessThanOrEqualTo(finite, 0), {
+    onFalse: () => finite,
+    onTrue: () => 0
+  })
 }
+
+type ImmutableArray<A> = Schema.Array$<Schema.Schema<A>>["Type"]
+type ScoredValue<A> = Schema.Tuple2<typeof Schema.Number, Schema.Schema<A>>["Type"]
 
 /**
  * Builds consecutive zero-based indices up to the normalized count.
@@ -82,16 +94,16 @@ const normalizeNonNegativeCount = (value: number): number => {
  * @since 0.1.0
  * @category combinators
  */
-export const buildIndices = (count: number): ReadonlyArray<number> => {
+export const buildIndices = (count: number): Schema.Array$<typeof Schema.Number>["Type"] => {
   const normalized = normalizeNonNegativeCount(count)
 
-  return Match.value(normalized <= 0).pipe(
-    Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() => Arr.range(0, normalized - 1))
-  )
+  return Boolean.match(Num.lessThanOrEqualTo(normalized, 0), {
+    onFalse: () => Arr.range(0, Num.decrement(normalized)),
+    onTrue: () => Arr.empty<number>()
+  })
 }
 
-const scoredOrder = <A>(): Order.Order<readonly [number, A]> => Order.mapInput(Order.number, ([score]) => score)
+const scoredOrder = <A>(): Order.Order<ScoredValue<A>> => Order.mapInput(Order.number, Tuple.getFirst)
 
 /**
  * Returns a reproducible permutation without modifying the input array.
@@ -106,24 +118,21 @@ const scoredOrder = <A>(): Order.Order<readonly [number, A]> => Order.mapInput(O
  * @since 0.1.0
  * @category combinators
  */
-export const shuffleBySeed = <A>(values: ReadonlyArray<A>, seed: number): ReadonlyArray<A> => {
+export const shuffleBySeed = <A>(values: ImmutableArray<A>, seed: number): ImmutableArray<A> => {
   const sampled = Arr.reduce(
     values,
-    Data.struct({
-      seed: normalizeDeterministicSeed(seed),
-      scored: Arr.empty<readonly [number, A]>()
-    }),
+    Tuple.make(normalizeDeterministicSeed(seed), Arr.empty<ScoredValue<A>>()),
     (state, value) => {
-      const next = nextDeterministicSeed(state.seed)
+      const next = nextDeterministicSeed(Tuple.getFirst(state))
 
-      return Data.struct({
-        seed: next,
-        scored: Arr.append(state.scored, Data.tuple(next, value))
-      })
+      return Tuple.make(
+        next,
+        Arr.append(Tuple.getSecond(state), Tuple.make(next, value))
+      )
     }
   )
 
-  return Arr.map(Arr.sort(sampled.scored, scoredOrder<A>()), ([, value]) => value)
+  return Arr.map(Arr.sort(Tuple.getSecond(sampled), scoredOrder<A>()), Tuple.getSecond)
 }
 
 /**
@@ -138,5 +147,5 @@ export const shuffleBySeed = <A>(values: ReadonlyArray<A>, seed: number): Readon
 export const sampleBoundedCount = (seed: number, maxCount: number): number => {
   const upperBound = normalizePositiveCount(maxCount)
 
-  return (nextDeterministicSeed(normalizeDeterministicSeed(seed)) % upperBound) + 1
+  return Num.increment(Num.remainder(nextDeterministicSeed(normalizeDeterministicSeed(seed)), upperBound))
 }

@@ -1,17 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Order, Schema } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Order, Schema } from "effect"
 
+import * as Float64 from "../../../src/internal/float64.js"
 import {
   buildConstraintDensityModels,
   constraintDensityRatioProduct
 } from "../../../src/internal/tpe/constrainedDensity.js"
-import { makeSuggestCompletedTrial } from "../../../src/Sampler/index.js"
+import type { ContinuousValues } from "../../../src/internal/tpe/continuousParzen.js"
+import { SuggestCompletedTrial } from "../../../src/Sampler/index.js"
 import { splitSingleObjective } from "../../../src/samplers/Tpe/split/singleSplit.js"
 import { ConstrainedTpeFixtureSchema, FixtureRegistryLive, loadFixture } from "../../helpers/fixtures.js"
 
 const SCORE_TOLERANCE = 1e-9
 
-const valueAt = (values: ReadonlyArray<number>, index: number): number =>
+const valueAt = (values: ContinuousValues, index: number): number =>
   Arr.get(values, index).pipe(
     Option.getOrElse(() => Number.NaN)
   )
@@ -21,19 +23,25 @@ const expectWithinTolerance = (
   expected: number,
   tolerance: number
 ): void => {
-  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(Float64.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
-const descendingRatioOrder = (ratios: ReadonlyArray<number>): ReadonlyArray<number> =>
+class RatioEntry extends Schema.Class<RatioEntry>("effect-search/test/RatioEntry")({
+  index: Schema.Number,
+  ratio: Schema.Number
+}) {}
+
+const descendingRatioOrder = (ratios: ContinuousValues): ContinuousValues =>
   Arr.map(
     Arr.sortBy(
-      Order.mapInput(Order.number, (entry: { readonly index: number; readonly ratio: number }) => -entry.ratio),
-      Order.mapInput(Order.number, (entry: { readonly index: number; readonly ratio: number }) => entry.index)
+      Order.mapInput(Order.number, (entry: RatioEntry) => Num.negate(entry.ratio)),
+      Order.mapInput(Order.number, (entry: RatioEntry) => entry.index)
     )(
-      Arr.makeBy(ratios.length, (index) => ({
-        index,
-        ratio: valueAt(ratios, index)
-      }))
+      Arr.makeBy(Arr.length(ratios), (index) =>
+        new RatioEntry({
+          index,
+          ratio: valueAt(ratios, index)
+        }))
     ),
     (entry) => entry.index
   )
@@ -73,15 +81,12 @@ describe("constrained fixture parity", () => {
       const splitCase = fixture.payload.splitCase
       const split = splitSingleObjective(
         Arr.map(splitCase.trials, (trial) =>
-          makeSuggestCompletedTrial(
-            trial.trialNumber,
-            { trialNumber: trial.trialNumber },
-            trial.value,
-            undefined,
-            undefined,
-            undefined,
-            trial.constraints
-          )),
+          new SuggestCompletedTrial({
+            trialNumber: trial.trialNumber,
+            config: { trialNumber: trial.trialNumber },
+            value: trial.value,
+            constraints: trial.constraints
+          })),
         splitCase.direction
       )
 

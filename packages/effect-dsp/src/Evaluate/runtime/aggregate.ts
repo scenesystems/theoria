@@ -5,21 +5,23 @@
  * @category internal
  * @internal
  */
-import { Array as Arr, Data, Option, Record } from "effect"
+import { Array as Arr, Boolean, Data, Number, Option, Record, Tuple } from "effect"
 import { averageNumbers } from "../../Metric/score.js"
 import { type ExampleFailure, Report } from "../report.js"
 import type { ExampleOutcome, MetricEntry } from "./example.js"
 
 const outcomeScore = (metricName: string, outcome: ExampleOutcome): Option.Option<number> =>
-  outcome.success
-    ? Option.fromNullable(outcome.result.scores[metricName])
-    : Option.none<number>()
+  Boolean.match(outcome.success, {
+    onTrue: () => Record.get(outcome.result.scores, metricName),
+    onFalse: () => Option.none<number>()
+  })
 
-const overallScores = (
-  metricEntries: ReadonlyArray<MetricEntry<unknown, unknown>>,
-  outcomes: ReadonlyArray<ExampleOutcome>
-): Readonly<Record<string, number>> =>
-  Arr.reduce(metricEntries, Record.empty<string, number>(), (scores, [metricName]) => {
+const overallScores = <ME, MR, A>(
+  metricEntries: Iterable<MetricEntry<ME, MR, A>>,
+  outcomes: Iterable<ExampleOutcome>
+): Record.ReadonlyRecord<string, number> =>
+  Arr.reduce(metricEntries, Record.empty<string, number>(), (scores, entry) => {
+    const metricName = Tuple.getFirst(entry)
     const values = Arr.filterMap(outcomes, (outcome) => outcomeScore(metricName, outcome))
 
     return Record.set(scores, metricName, averageNumbers(values))
@@ -36,29 +38,42 @@ export class AggregateResult extends Data.Class<{
   readonly averageScore: number
 }> {}
 
+export class AggregateOptions<ME, MR, A> extends Data.Class<{
+  readonly metricEntries: Iterable<MetricEntry<ME, MR, A>>
+  readonly outcomes: Iterable<ExampleOutcome>
+  readonly total: number
+}> {}
+
 /**
  * @since 0.1.0
  * @internal
  */
-export const aggregateOutcomes = (options: {
-  readonly metricEntries: ReadonlyArray<MetricEntry<unknown, unknown>>
-  readonly outcomes: ReadonlyArray<ExampleOutcome>
-  readonly total: number
-}): AggregateResult => {
-  const results = Arr.map(options.outcomes, (outcome) => outcome.result)
-  const failures = Arr.filterMap(options.outcomes, outcomeFailure)
-  const successCount = Arr.reduce(options.outcomes, 0, (count, outcome) => count + (outcome.success ? 1 : 0))
-  const failureCount = options.total - successCount
+export const aggregateOutcomes = <ME, MR, A>(options: AggregateOptions<ME, MR, A>): AggregateResult => {
+  const metricEntries = Arr.fromIterable(options.metricEntries)
+  const outcomes = Arr.fromIterable(options.outcomes)
+  const results = Arr.map(outcomes, (outcome) => outcome.result)
+  const failures = Arr.filterMap(outcomes, outcomeFailure)
+  const successCount = Arr.reduce(
+    outcomes,
+    0,
+    (count, outcome) =>
+      Number.sum(
+        count,
+        Boolean.match(outcome.success, { onTrue: () => 1, onFalse: () => 0 })
+      )
+  )
+  const failureCount = Number.subtract(options.total, successCount)
   const averageScore = averageNumbers(
-    Arr.filterMap(options.outcomes, (outcome) =>
-      outcome.success
-        ? Option.some(outcome.averageScore)
-        : Option.none<number>())
+    Arr.filterMap(outcomes, (outcome) =>
+      Boolean.match(outcome.success, {
+        onTrue: () => Option.some(outcome.averageScore),
+        onFalse: () => Option.none<number>()
+      }))
   )
 
-  return {
+  return new AggregateResult({
     report: new Report({
-      overallScores: overallScores(options.metricEntries, options.outcomes),
+      overallScores: overallScores(metricEntries, outcomes),
       results,
       failures,
       totalExamples: options.total,
@@ -66,5 +81,5 @@ export const aggregateOutcomes = (options: {
       failureCount
     }),
     averageScore
-  }
+  })
 }

@@ -3,8 +3,8 @@
  *
  * @since 0.1.0
  */
-import { Data, Schema } from "effect"
-import { MergeComparison, ProgramCandidate } from "../model.js"
+import { Schema } from "effect"
+import { MergeComparisons, ProgramCandidate, ProgramCandidates } from "../model.js"
 
 /**
  * Inputs for common-ancestor merge preparation.
@@ -12,17 +12,37 @@ import { MergeComparison, ProgramCandidate } from "../model.js"
  * @since 0.1.0
  * @category models
  */
-export class PrepareCommonAncestorMergeOptions extends Data.Class<{
-  readonly candidates: ReadonlyArray<ProgramCandidate>
-  readonly parentAId: string
-  readonly parentBId: string
-  readonly parentAScore: number
-  readonly parentBScore: number
-  readonly mergedCandidateId: string
-  readonly comparisons: ReadonlyArray<MergeComparison>
-  readonly mergeBudgetRemaining: number
-  readonly seed: number
-}> {}
+export const PrepareCommonAncestorMergeOptions = Schema.Struct({
+  candidates: ProgramCandidates,
+  parentAId: Schema.String,
+  parentBId: Schema.String,
+  parentAScore: Schema.Number,
+  parentBScore: Schema.Number,
+  mergedCandidateId: Schema.String,
+  comparisons: MergeComparisons,
+  mergeBudgetRemaining: Schema.Number,
+  seed: Schema.Number
+})
+
+/**
+ * Inputs for common-ancestor merge preparation.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type PrepareCommonAncestorMergeOptions = typeof PrepareCommonAncestorMergeOptions.Type
+
+/** @internal */
+export const MergePredictorInstructionsOptions = Schema.Struct({
+  ancestor: ProgramCandidate,
+  parentA: ProgramCandidate,
+  parentB: ProgramCandidate,
+  parentAScore: Schema.Number,
+  parentBScore: Schema.Number
+})
+
+/** @internal */
+export type MergePredictorInstructionsOptions = typeof MergePredictorInstructionsOptions.Type
 
 /**
  * Merge/crossover preparation event emitted before acceptance evaluation.
@@ -59,6 +79,6 @@ export type MergePreparationEvent = typeof MergePreparationEventSchema.Type
 export class MergePreparation extends Schema.Class<MergePreparation>("GEPAMergePreparation")({
   event: MergePreparationEventSchema,
   candidate: Schema.OptionFromSelf(ProgramCandidate),
-  subsample: Schema.Array(MergeComparison),
+  subsample: MergeComparisons,
   mergeBudgetRemaining: Schema.Number
 }) {}
