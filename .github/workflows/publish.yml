@@ -1,11 +1,22 @@
 name: Publish Packages
+run-name: Publish Theoria candidate ${{ inputs.run_id }} (${{ github.ref_name }})
 
 on:
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Theoria staging candidate run ID
+        required: true
+        type: string
+      reviewed_run_id:
+        description: Optional earlier reviewed staging run; only version-only changes may follow it
+        required: false
+        type: string
 
 concurrency:
-  group: npm-publish
-  # Publishing must never be interrupted or overlap another publish.
+  # The main dispatcher must not hold the lock needed by its pinned tag run.
+  # All actual tag publications share one lock and never interrupt each other.
+  group: npm-publish-${{ github.ref_type }}
   cancel-in-progress: false
 
 permissions: {}
@@ -14,23 +25,109 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  resolve:
+    name: Resolve staged candidate
+    if: >-
+      github.repository_owner == 'scenesystems' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/theoria-candidate-'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      build-sha: ${{ steps.candidate.outputs.build-sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - uses: ./.github/actions/theoria-candidate
+        id: candidate
+        with:
+          run-id: ${{ inputs.run_id }}
+          reviewed-run-id: ${{ inputs.reviewed_run_id }}
+      - name: Bind the publishing event to the candidate
+        env:
+          CANDIDATE_SHA: ${{ steps.candidate.outputs.build-sha }}
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            test "$GITHUB_REF" = "refs/tags/theoria-candidate-$CANDIDATE_SHA"
+            test "$GITHUB_SHA" = "$CANDIDATE_SHA"
+          fi
+
+  pin:
+    name: Start publication at the immutable candidate ref
+    needs: resolve
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      # npm provenance and changesets/action tags use the EVENT SHA, not the
+      # checkout SHA. Dispatch again on the pinned ref; never override CI vars.
+      - name: Pin the candidate and dispatch its publishing run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ needs.resolve.outputs.build-sha }}
+          RUN_ID: ${{ inputs.run_id }}
+          REVIEWED_RUN_ID: ${{ inputs.reviewed_run_id }}
+        run: |
+          set -euo pipefail
+          tag="theoria-candidate-$CANDIDATE_SHA"
+          refs=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag")
+          existing=$(jq -c --arg ref "refs/tags/$tag" '[.[] | select(.ref == $ref)]' <<< "$refs")
+          if [ "$(jq length <<< "$existing")" = 0 ]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$CANDIDATE_SHA"
+          else
+            jq -e --arg sha "$CANDIDATE_SHA" 'length == 1 and .[0].object.type == "commit" and .[0].object.sha == $sha' <<< "$existing" > /dev/null
+          fi
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" \
+            -f run_id="$RUN_ID" -f reviewed_run_id="$REVIEWED_RUN_ID"
+          {
+            echo "## Pinned publication started; packages are not published yet"
+            echo
+            echo "Candidate $RUN_ID uses ref $tag. Wait for its [Publish Packages run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/publish.yml?query=branch%3A$tag) to succeed."
+            echo "Production remains unchanged. Later promote the same run_id with Theoria Production."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Everything that executes repository or dependency code (type checks, lint,
   # tests, build) runs here, without the OpenID Connect token. The tarballs it
   # produces are the only thing the publish job receives.
   pack:
     name: Pack Packages
-    if: github.repository_owner == 'scenesystems' && github.ref == 'refs/heads/main'
+    needs: resolve
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
+      actions: read
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
       pack-dir-artifact-id: ${{ steps.pack.outputs.pack-dir-artifact-id }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.resolve.outputs.build-sha }}
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup
+
+      - uses: ./.github/actions/theoria-candidate
+        id: candidate
+        with:
+          run-id: ${{ inputs.run_id }}
+          reviewed-run-id: ${{ inputs.reviewed_run_id }}
+
+      - name: Reject changed packages under already published versions
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+        run: bash scripts/release/release.sh check "$CANDIDATE"
 
       # `version` when unreleased changesets exist, `publish` when a package version is
       # missing from npm, `none` when the registry already matches the repository.
@@ -67,7 +164,7 @@ jobs:
   # through the GitHub API with the app token, so the job token stays read-only.
   publish:
     name: Publish Packages
-    needs: pack
+    needs: [resolve, pack]
     if: needs.pack.outputs.mode == 'publish'
     environment: npm
     runs-on: ubuntu-latest
@@ -85,6 +182,7 @@ jobs:
 
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ needs.resolve.outputs.build-sha }}
           token: ${{ steps.app-token.outputs.token }}
 
       # Digest release evidence is certified on Node 22. npm Trusted
@@ -114,3 +212,47 @@ jobs:
           pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
         env:
           HUSKY: "0"
+
+  record:
+    name: Verify and record package publication
+    needs: [resolve, pack, publish]
+    if: >-
+      always() && needs.pack.result == 'success' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.resolve.outputs.build-sha }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - uses: ./.github/actions/theoria-candidate
+        id: candidate
+        with:
+          run-id: ${{ inputs.run_id }}
+          reviewed-run-id: ${{ inputs.reviewed_run_id }}
+      - name: Verify registry publication evidence
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          bash scripts/release/release.sh published "$CANDIDATE" > "$RUNNER_TEMP/publication.json"
+          {
+            echo "## Packages published; website promotion is a separate choice"
+            echo
+            echo "All package versions for candidate $RUN_ID match npm provenance and release inputs."
+            echo "To promote this candidate, run Theoria Production on main with run_id: $RUN_ID."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Save publication record
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: theoria-publication-record
+          path: ${{ runner.temp }}/publication.json
+          if-no-files-found: error
+          retention-days: 90

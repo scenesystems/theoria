@@ -55,6 +55,17 @@ bun run changeset
 
 Maintainers handle version bumps and publishing.
 
+Merge the **Version Packages** PR, then select the successful Theoria staging
+candidate with `run_id` in **Publish Packages** on `main`. The dispatcher starts
+the actual publication on an immutable `theoria-candidate-<sha>` tag so npm
+provenance and GitHub releases identify the selected commit, not a newer `main`.
+Wait for that tag run's publication verification to succeed. Publishing does
+not deploy the production website; **Theoria Production** separately promotes
+the same candidate after checking package compatibility. Website-only releases
+can reuse already published packages with matching release inputs. See the
+[deployment runbook](apps/theoria/DEPLOYMENT.md#promote-staging-to-production)
+for version-only review carry-forward, ordering, and recovery.
+
 ### npm Trusted Publishing
 
 Published workspace packages use public npm access and provenance attestations from this public repository. Keep Trusted Publishing configured separately on every npm package with these values:
@@ -69,5 +80,12 @@ Published workspace packages use public npm access and provenance attestations f
 | Allowed action       | `npm publish`  |
 
 The publish workflow uses npm's OpenID Connect flow and does not require a long-lived npm token. Its `pack` job verifies and builds the workspace and packs the unpublished versions into tarballs without the token; its `publish` job runs on a GitHub-hosted runner with `id-token: write`, publishes those tarballs, and executes no build or test code. Every public package keeps `publishConfig.provenance` enabled so npm can link the published tarball to this repository and workflow.
+
+The GitHub `npm` environment must allow deployment **tags** matching
+`theoria-candidate-*`; keep other tags/branches restricted. The Trusted Publisher
+workflow filename and environment remain `publish.yml` and `npm`. The workflow
+validates the tag's event SHA against a successful main staging candidate before
+requesting that environment. This one-time environment rule requires maintainer
+approval; the workflow does not modify repository access controls.
 
 Configure the Trusted Publisher before attempting the first automated release of a new package. Existing versions published without provenance cannot be changed retroactively; subsequent versions receive their own attestations.

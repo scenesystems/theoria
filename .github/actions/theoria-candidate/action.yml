@@ -1,0 +1,58 @@
+name: Resolve Theoria release candidate
+description: Validate a main staging run and optional version-only predecessor; requires a full checkout and Bun.
+inputs:
+  run-id:
+    description: Successful Theoria staging run ID
+    required: true
+  reviewed-run-id:
+    description: Optional earlier staging run whose review is carried forward through version-only changes
+    default: ""
+outputs:
+  build-sha:
+    description: Candidate commit
+    value: ${{ steps.candidate.outputs.build-sha }}
+  artifact-id:
+    description: Immutable staged website artifact ID
+    value: ${{ steps.candidate.outputs.artifact-id }}
+  path:
+    description: Validated candidate record
+    value: ${{ steps.candidate.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - name: Resolve the selected candidate
+      id: candidate
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RUN_ID: ${{ inputs.run-id }}
+        REVIEWED_RUN_ID: ${{ inputs.reviewed-run-id }}
+      run: |
+        set -euo pipefail
+        record="$RUNNER_TEMP/theoria-candidate/release-candidate.json"
+        bash scripts/release/staging-run.sh "$RUN_ID" "$(dirname "$record")" > /dev/null
+        sha=$(jq -r .sha "$record")
+        if [ -n "$REVIEWED_RUN_ID" ]; then
+          reviewed_sha=$(bash scripts/release/staging-run.sh "$REVIEWED_RUN_ID")
+          bash scripts/release/release.sh review "$reviewed_sha" "$sha"
+        fi
+        {
+          echo "build-sha=$sha"
+          echo "artifact-id=$(jq -r .artifact_id "$record")"
+          echo "path=$record"
+        } >> "$GITHUB_OUTPUT"
+        {
+          echo "## Selected release candidate"
+          echo
+          echo "[Staging run $RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID) · [commit $sha]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$sha)"
+          echo
+          if [ -n "$REVIEWED_RUN_ID" ]; then
+            echo "Version-only successor of reviewed staging run $REVIEWED_RUN_ID."
+          else
+            echo "This dispatch approves the selected candidate directly."
+          fi
+          echo
+          echo '| Package | Version |'
+          echo '| --- | --- |'
+          jq -r '.packages[] | "| \(.name) | \(.version) |"' "$record"
+        } >> "$GITHUB_STEP_SUMMARY"
