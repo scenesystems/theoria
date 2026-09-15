@@ -233,5 +233,23 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           })
         })
       ))
+
+    it.scoped("inline mark labels inherit HighlightText from their pressed button", () =>
+      inForcedColors((page) =>
+        Effect.gen(function*() {
+          const highlightText = yield* system(page, "HighlightText")
+          yield* Effect.forEach([
+            page.locator("[data-place-features] button").first(),
+            page.locator("[data-place-proposal] dt button").first()
+          ], (mark) =>
+            Effect.gen(function*() {
+              yield* click(mark)
+              yield* visible(page.locator("[data-place-provenance]"))
+              yield* eventually(() => mark.evaluate(textColour), highlightText)
+              yield* eventually(() => mark.locator("span").first().evaluate(textColour), highlightText)
+              yield* press(page, "Escape")
+            }))
+        })
+      ))
   }
 )

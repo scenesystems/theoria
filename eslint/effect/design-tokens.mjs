@@ -5,6 +5,9 @@
  * (`rounded-instrument`, `transitionClassName(relation)`,
  * `elevationClassName(layer)`, `measureClassName(measure)`), and a colour's
  * translucency only through the palette contract's levels (`bg-paper-veil`).
+ * Typography comes from TextRole through SemanticText, SemanticContent or
+ * semanticClassName, including in primitives: no second size, weight,
+ * tracking, leading or case scale is allowed beside the contract.
  * Tailwind's own scale, arbitrary values and alpha modifiers are not a second
  * vocabulary for them.
  *
@@ -32,6 +35,18 @@ const classStringRule = (pattern, message) => [
 const utility = "(^|[\\s:])"
 
 export const DESIGN_TOKEN_RULES = [
+  ...classStringRule(
+    `${utility}text-((xs|sm|base|lg|xl|[2-9]xl)([^a-zA-Z0-9-]|$)|\\[(length:|[0-9.]|calc\\(|clamp\\(|var\\())`,
+    "Text sizes come from TextRole: use SemanticText, SemanticContent or semanticClassName(role, variant), not a Tailwind size."
+  ),
+  ...classStringRule(
+    `${utility}font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black|\\[)`,
+    "Text weights come from TextRole; do not override a role's weight at its call site."
+  ),
+  ...classStringRule(
+    `${utility}(tracking-(tighter|tight|normal|wide|wider|widest|\\[)|leading-(none|tight|snug|normal|relaxed|loose|[0-9]|\\[)|(uppercase|lowercase|capitalize|normal-case)(\\s|$))`,
+    "Tracking, leading and case come from TextRole, not a view's typography override."
+  ),
   ...classStringRule(
     `${utility}rounded-(sm|md|lg|xl|2xl|3xl|\\[)`,
     "Radii come from the layout contract: rounded-mark, rounded-control, rounded-instrument or rounded-sheet, or surfaceClassName(role)."

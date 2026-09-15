@@ -107,7 +107,6 @@ export const CodeBlock = ({
         <Cluster className="shrink-0 gap-2">
           <SemanticText
             as="span"
-            className="text-ink-tertiary"
             role="row-label"
             text={languageLabel(language)}
             variant="expanded"

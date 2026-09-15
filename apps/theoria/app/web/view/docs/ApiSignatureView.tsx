@@ -8,6 +8,7 @@ import { linkTextClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
+import { SemanticText } from "../primitives/SemanticText.js"
 import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { DocsRichText } from "./DocsRichText.js"
 
@@ -62,17 +63,19 @@ const definitionListClassName =
   "divide-y divide-hairline-glass rounded-instrument border border-hairline-veil bg-canvas-mist px-4"
 
 export const ApiTypeParametersView = ({
-  headingAs = "h3",
+  headingAs = "h2",
   parameters
 }: {
-  readonly headingAs?: "h3" | "h5"
+  readonly headingAs?: "h2" | "h4"
   readonly parameters: ReadonlyArray<ApiTypeParameter>
 }) =>
   Arr.match(parameters, {
     onEmpty: () => null,
     onNonEmpty: (present) => (
       <Stack className="gap-2">
-        <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Type parameters</SemanticContent>
+        <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+          Type parameters
+        </SemanticContent>
         <Stack render={<dl />} className={definitionListClassName}>
           {Arr.map(present, (parameter) => (
             <DefinitionRow
@@ -92,14 +95,16 @@ const Parameters = ({
   headingAs,
   parameters
 }: {
-  readonly headingAs: "h3" | "h5"
+  readonly headingAs: "h2" | "h4"
   readonly parameters: ReadonlyArray<ApiParameter>
 }) =>
   Arr.match(parameters, {
     onEmpty: () => null,
     onNonEmpty: (present) => (
       <Stack className="gap-2">
-        <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Parameters</SemanticContent>
+        <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+          Parameters
+        </SemanticContent>
         <Stack render={<dl />} className={definitionListClassName}>
           {Arr.map(present, (parameter) => (
             <DefinitionRow
@@ -123,23 +128,25 @@ const signatureLabel = (total: number, index: number): string =>
   })
 
 export const ApiSignatureView = ({
-  headingAs = "h3",
+  headingAs = "h2",
   index,
   signature,
   total
 }: {
-  readonly headingAs?: "h3" | "h5"
+  readonly headingAs?: "h2" | "h4"
   readonly index: number
   readonly signature: ApiSignature
   readonly total: number
 }) => (
   <Stack className="gap-5">
-    <ApiDocumentationView docs={signature.docs} />
+    <ApiDocumentationView docs={signature.docs} headingAs={headingAs} />
     <CodeBlock label={signatureLabel(total, index)} source={signature.code} />
     <ApiTypeParametersView headingAs={headingAs} parameters={signature.typeParameters} />
     <Parameters headingAs={headingAs} parameters={signature.parameters} />
     <Stack className="gap-2">
-      <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Returns</SemanticContent>
+      <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+        Returns
+      </SemanticContent>
       <Cluster
         align="start"
         className="gap-x-4 gap-y-2 rounded-instrument border border-hairline-veil bg-canvas-mist px-4 py-3"
@@ -156,10 +163,10 @@ export const ApiSignatureView = ({
       </Cluster>
     </Stack>
     <ExternalLink
-      className={`w-fit font-body text-sm font-medium text-ink-tertiary ${linkTextClassName}`}
+      className={`w-fit text-ink-secondary ${linkTextClassName}`}
       href={signature.sourceUrl}
     >
-      Source
+      <SemanticText as="span" role="button-label" text="Source" />
     </ExternalLink>
   </Stack>
 )

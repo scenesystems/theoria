@@ -23,7 +23,7 @@ export const DocsOnThisPage = ({ anchors }: { readonly anchors: ReadonlyArray<Do
     onNonEmpty: (present) => (
       <Nav aria-label="On this page">
         <Stack className="gap-3 border-l border-hairline-strong-glass pl-4">
-          <SemanticText as="h2" className="text-ink" role="row-label" text="On this page" />
+          <SemanticText as="h2" role="row-label" text="On this page" />
           <Stack className="gap-2">
             {Arr.map(present, ([id, label]) => (
               <AnchorLink
@@ -38,7 +38,7 @@ export const DocsOnThisPage = ({ anchors }: { readonly anchors: ReadonlyArray<Do
                 href={`#${id}`}
                 key={id}
               >
-                <SemanticText as="span" className="text-inherit" role="status" text={label} variant="compact" />
+                <SemanticText as="span" role="row-value" text={label} variant="compact" />
               </AnchorLink>
             ))}
           </Stack>

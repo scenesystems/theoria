@@ -4,12 +4,12 @@ import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
 import { focusClassName, surfaceClassName, type ToneClasses } from "./designSystem.js"
+import { semanticClassName } from "./semanticTextClasses.js"
 
 /** Grows with its content where the browser supports `field-sizing`; `rows` is the floor everywhere. */
-const controlClassName =
-  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink placeholder:text-ink-tertiary ${focusClassName} ${
-    surfaceClassName("instrument")
-  }`
+const controlClassName = `field-sizing-content w-full resize-none border px-4 py-3 placeholder:text-ink-tertiary ${
+  semanticClassName("body", "expanded")
+} ${focusClassName} ${surfaceClassName("instrument")}`
 
 /**
  * A labelled field. Base UI wires `id`/`htmlFor`/`aria-describedby` between
@@ -67,6 +67,8 @@ export const TextAreaField = ({
     onValueChange={onValueChange}
     placeholder={placeholder}
     render={<textarea rows={rows} />}
+    // `field-sizing: content` ignores `rows`: reserve its line boxes plus this control's padding and border.
+    style={{ minHeight: `calc(${String(rows)} * 1lh + var(--spacing) * 6 + 2px)` }}
     value={value}
   />
 )

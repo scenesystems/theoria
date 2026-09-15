@@ -13,7 +13,7 @@ const RichParagraph = ({ parts }: { readonly parts: ApiDocumentation["summary"] 
   Arr.match(parts, {
     onEmpty: () => null,
     onNonEmpty: (present) => (
-      <SemanticContent as="p" className="text-ink-secondary" role="row-value">
+      <SemanticContent as="p" role="body">
         <DocsRichText parts={present} />
       </SemanticContent>
     )
@@ -26,7 +26,10 @@ const exampleLabel = (total: number, index: number): string =>
     onFalse: () => `Example ${String(Num.increment(index))}`
   })
 
-export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation }) => (
+export const ApiDocumentationView = ({ docs, headingAs = "h2" }: {
+  readonly docs: ApiDocumentation
+  readonly headingAs?: "h2" | "h4"
+}) => (
   <Stack className="gap-5">
     <RichParagraph parts={docs.summary} />
     {Option.match(docs.deprecated, {
@@ -34,8 +37,8 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
       onSome: (deprecated) => (
         <Layer className={noticeClassName}>
           <Stack className="gap-1.5">
-            <SemanticText as="p" className="text-ink-strong" role="row-label" text="Deprecated" />
-            <SemanticContent as="p" className="text-ink" role="row-value">
+            <SemanticText as="p" role="row-label" text="Deprecated" />
+            <SemanticContent as="p" role="body">
               <DocsRichText parts={deprecated} />
             </SemanticContent>
           </Stack>
@@ -46,7 +49,9 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
       onEmpty: () => null,
       onNonEmpty: (remarks) => (
         <Stack className="gap-2">
-          <SemanticContent as="h4" className="text-ink" role="selection-title">Remarks</SemanticContent>
+          <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+            Remarks
+          </SemanticContent>
           <RichParagraph parts={remarks} />
         </Stack>
       )
@@ -69,11 +74,13 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
       onEmpty: () => null,
       onNonEmpty: (see) => (
         <Stack className="gap-2">
-          <SemanticContent as="h4" className="text-ink" role="selection-title">See also</SemanticContent>
-          <Stack render={<ul />} className="ml-5 list-disc gap-1.5 text-ink-secondary">
+          <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+            See also
+          </SemanticContent>
+          <Stack render={<ul />} className="ml-5 list-disc gap-1.5">
             {Arr.map(see, (parts, index) => (
               <li className="pl-1" key={`see:${String(index)}`}>
-                <SemanticContent as="span" role="row-value">
+                <SemanticContent as="span" role="body">
                   <DocsRichText parts={parts} />
                 </SemanticContent>
               </li>

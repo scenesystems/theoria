@@ -27,6 +27,7 @@ import {
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { semanticClassName } from "../primitives/semanticTextClasses.js"
 
 export const DocsSearchTrigger = () => {
   const setOpen = useAtomSet(setDocsSearchOpenAtom)
@@ -94,7 +95,9 @@ const SearchCombobox = ({
           <Combobox.Input
             aria-label="Search"
             autoFocus
-            className={`h-11 w-full rounded-instrument border border-hairline-veil bg-canvas-glass px-4 font-body text-ink ${focusClassName} placeholder:text-ink-tertiary`}
+            className={`h-11 w-full rounded-instrument border border-hairline-veil bg-canvas-glass px-4 ${
+              semanticClassName("body", "expanded")
+            } ${focusClassName} placeholder:text-ink-tertiary`}
             placeholder="Package, module, or symbol"
           />
         </Layer>
@@ -105,12 +108,12 @@ const SearchCombobox = ({
       {Result.match(searchIndex, {
         onInitial: () => (
           <Stack className="gap-2 px-5 py-10">
-            <SemanticText as="p" className="text-ink-tertiary" role="status" text="Loading search…" />
+            <SemanticText as="p" className="text-ink-tertiary" role="row-value" text="Loading search…" />
           </Stack>
         ),
         onFailure: () => (
           <Stack className="gap-2 px-5 py-10">
-            <SemanticText as="p" className="text-ink" role="row-label" text="Search unavailable" />
+            <SemanticText as="p" role="row-label" text="Search unavailable" />
             <ActionButton
               className={secondaryActionClassName}
               disabled={false}
@@ -125,11 +128,11 @@ const SearchCombobox = ({
             onEmpty: () => (
               <Stack className="items-center gap-2 px-5 py-10 text-center">
                 <MagnifyingGlassIcon aria-hidden className="h-6 w-6 text-ink-tertiary" />
-                <SemanticText as="p" className="text-ink" role="row-label" text="No results" />
+                <SemanticText as="p" role="row-label" text="No results" />
                 <SemanticText
                   as="p"
                   className="text-ink-tertiary"
-                  role="status"
+                  role="row-value"
                   text="Try a package, module, or symbol."
                 />
               </Stack>
@@ -159,7 +162,7 @@ const SearchCombobox = ({
                         text={entry.qualifiedName}
                       />
                     </Stack>
-                    <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={entry.kind} />
+                    <SemanticText as="span" role="row-label" text={entry.kind} />
                   </Combobox.Item>
                 ))}
               </Combobox.List>
@@ -190,7 +193,7 @@ export const DocsSearchDialog = ({
               <Dialog.Title render={<SemanticText as="h2" className="sr-only" role="hero-title" text="Search" />} />
               <Dialog.Description
                 render={
-                  <SemanticText as="p" className="sr-only" role="status" text="Search Theoria packages and APIs." />
+                  <SemanticText as="p" className="sr-only" role="row-value" text="Search Theoria packages and APIs." />
                 }
               />
               <SearchCombobox activePackageSlug={activePackageSlug} manifest={manifest} />

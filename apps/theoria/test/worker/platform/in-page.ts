@@ -9,6 +9,20 @@
  * `locator.evaluate`, `locator.evaluateAll` or `page.waitForFunction`.
  */
 
+/** The glyph metrics and foreground actually painted, rather than the role or classes requested. */
+export const typographyOf = (element: Element) => {
+  const style = getComputedStyle(element)
+  return {
+    family: style.fontFamily,
+    size: style.fontSize,
+    weight: style.fontWeight,
+    leading: style.lineHeight,
+    tracking: style.letterSpacing,
+    color: style.color,
+    transform: style.textTransform
+  }
+}
+
 /** The resolved value of a CSS system colour in the page's current colour scheme. */
 export const systemColour = (name: string): string => {
   const probe = document.createElement("span")
@@ -1561,4 +1575,12 @@ export const resolvedChrome = (element: Element) => {
     zIndex: style.zIndex,
     position: style.position
   }
+}
+
+/** How many lines fit inside a textarea's content box, excluding its padding and border. */
+export const textAreaVisibleRows = (element: Element): number => {
+  const style = getComputedStyle(element)
+  const inset = [style.paddingTop, style.paddingBottom, style.borderTopWidth, style.borderBottomWidth]
+    .map(Number.parseFloat).reduce((total, width) => total + width, 0)
+  return (element.getBoundingClientRect().height - inset) / Number.parseFloat(style.lineHeight)
 }

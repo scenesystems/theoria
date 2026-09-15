@@ -38,7 +38,7 @@ export const DocsNavigationDrawer = ({
             <Stack className="gap-6 p-5">
               <Cluster className="justify-between gap-4">
                 <Drawer.Title
-                  render={<SemanticText as="h2" className="text-ink" role="section-title" text="Menu" />}
+                  render={<SemanticText as="h2" role="section-title" text="Menu" />}
                 />
                 <Drawer.Close aria-label="Close navigation" className={iconButtonClassName}>
                   <XMarkIcon aria-hidden className="h-5 w-5" />
@@ -49,7 +49,7 @@ export const DocsNavigationDrawer = ({
                   <SemanticText
                     as="p"
                     className="sr-only"
-                    role="status"
+                    role="row-value"
                     text="Select a package, guide, or API module."
                   />
                 }

@@ -71,7 +71,7 @@ const Summary = ({ text }: { readonly text: Option.Option<string> }) =>
         <SemanticText
           as="p"
           className="text-ink-secondary"
-          role="status"
+          role="row-value"
           text={value}
           variant="compact"
           wrapAuthority="native-browser"
@@ -108,7 +108,6 @@ const Preview = ({ destination, href, title }: {
           <Cluster align="baseline" className="gap-x-2">
             <SemanticText
               as="span"
-              className="text-ink-secondary"
               role="row-label"
               text={destination.docsPackage.slug}
             />
@@ -121,7 +120,7 @@ const Preview = ({ destination, href, title }: {
           </Cluster>
           <SemanticText
             as="span"
-            className="shrink-0 text-ink-tertiary"
+            className="shrink-0"
             role="row-label"
             text={pageKind(destination)}
           />
@@ -129,7 +128,7 @@ const Preview = ({ destination, href, title }: {
         <Popover.Title render={<Layer className="min-w-0" />}>
           <SemanticText
             as="code"
-            className="block truncate text-ink"
+            className="block truncate"
             role="selection-title"
             text={docsLinkTitle(destination, title)}
           />

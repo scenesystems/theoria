@@ -29,7 +29,7 @@ const FeatureSlot = ({ children, first }: { readonly children: ReactNode; readon
       onTrue: () => null,
       onFalse: () => (
         <Layer aria-hidden render={<span />} className="inline-flex text-ink-tertiary">
-          <SemanticText as="span" role="selection-title" text="·" />
+          <SemanticText as="span" className="text-inherit" role="selection-title" text="·" />
         </Layer>
       )
     })}
@@ -40,8 +40,11 @@ const FeatureSlot = ({ children, first }: { readonly children: ReactNode; readon
 /** A feature the composer named, said in the line in the author's accent: the same accent as its marker on the stage. */
 const FeatureName = ({ feature, first }: { readonly feature: PlaceFeature; readonly first: boolean }) => (
   <FeatureSlot first={first}>
-    <ProvenanceMark className={inlineMarkClassName} mark={{ _tag: "Feature", name: feature.name }}>
-      <SemanticText as="span" className={authorTone.textStrong} role="selection-title" text={feature.name} />
+    <ProvenanceMark
+      className={`${inlineMarkClassName} ${authorTone.textStrong}`}
+      mark={{ _tag: "Feature", name: feature.name }}
+    >
+      <SemanticText as="span" className="text-inherit" role="selection-title" text={feature.name} />
     </ProvenanceMark>
   </FeatureSlot>
 )
@@ -71,8 +74,7 @@ const Title = ({ build, outline }: {
       onNone: () => (
         <GhostText
           as="p"
-          className="text-ink"
-          role="card-title"
+          role="section-title"
           text={outline.composition.title}
           variant="compact"
         />
@@ -80,8 +82,7 @@ const Title = ({ build, outline }: {
       onSome: (value) => (
         <SemanticText
           as="p"
-          className="text-ink"
-          role="card-title"
+          role="section-title"
           text={value.artifact.composition.title}
           variant="compact"
           wrapAuthority="native-browser"
@@ -108,7 +109,7 @@ const Features = ({ build, outline }: {
   <Stack className="gap-2">
     <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
       <Layer render={<span />} data-place-features-label>
-        <SemanticText as="span" className="text-ink" role="row-label" text="Features" variant="compact" />
+        <SemanticText as="span" role="row-label" text="Features" variant="compact" />
       </Layer>
       <StatusMark label="Recorded inference" mark={{ _tag: "Inference" }} tone={inferenceTone} />
     </Layer>

@@ -4,6 +4,7 @@ import * as Arr from "effect/Array"
 import { mark, markStroke } from "../../../contracts/brand.js"
 import { markPointsAttribute, markViewBoxAttribute } from "../../brand/brandAssets.js"
 import { classNames } from "./classNames.js"
+import { semanticClassName } from "./semanticTextClasses.js"
 import { WordmarkMorph } from "./WordmarkMorph.js"
 
 /** How the wordmark behaves: still, or crossfading between "Theoria" and "θεωρία". */
@@ -65,7 +66,7 @@ export const TheoriaLogo = ({
   readonly animation: LogoAnimation
   readonly className?: string
 }) => {
-  const base = "inline-flex items-center gap-[0.25em] font-display font-semibold tracking-tight select-none"
+  const base = `inline-flex items-center gap-[0.25em] select-none ${semanticClassName("wordmark", "compact")}`
 
   return (
     <span className={classNames(base, className)}>

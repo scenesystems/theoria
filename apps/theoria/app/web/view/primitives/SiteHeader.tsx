@@ -25,7 +25,7 @@ export const SiteHeader = () => {
       <Cluster className="justify-between gap-4">
         {/* Reaching the wordmark by keyboard meets it the way a pointer does. */}
         <InternalLink href="/" onFocus={() => tellWordmark("replayAsked")}>
-          <TheoriaLogo animation="glossary" className="text-2xl" />
+          <TheoriaLogo animation="glossary" />
         </InternalLink>
         {/* The gap keeps neighbouring 44px hit areas from overlapping when only glyphs show. */}
         <Cluster render={<nav aria-label="Site" />} className="gap-4">

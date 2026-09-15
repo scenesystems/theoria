@@ -22,6 +22,8 @@ const withPage = (
 describe("API page presentation", () => {
   it.effect("indexes exports by category and summary without rendering a declaration dump", () =>
     withPage(<ApiPageView page={docsApiModuleIndexFixture} />, "Run a study.", (container) => {
+      expect(container.querySelector("h1")?.textContent).toBe("Study")
+      expect(container.querySelector("h2")?.textContent).toBe("Remarks")
       expect(container.querySelector("a[href=\"#api-runStudy\"]")).not.toBeNull()
       expect(container.querySelector("a[href=\"#api-StudyResult\"]")).not.toBeNull()
       expect(container.textContent).not.toContain("runStudy<A>")
@@ -39,6 +41,12 @@ describe("API page presentation", () => {
       <ApiPageView page={docsApiModuleIndexFixture} selectedExport={Option.some(docsApiExportPageFixture(0).export)} />,
       "runStudy<A>",
       (container) => {
+        expect(container.querySelector("h1")?.textContent).toBe("runStudy")
+        expect(Arr.fromIterable(container.querySelectorAll("h2")).map((heading) => heading.textContent)).toEqual([
+          "Type parameters",
+          "Parameters",
+          "Returns"
+        ])
         expect(container.textContent).toContain("Type parameters")
         expect(container.textContent).toContain("Study input.")
         expect(container.textContent).toContain("Input configuration.")
@@ -58,6 +66,12 @@ describe("API page presentation", () => {
       <ApiPageView page={docsApiModuleIndexFixture} selectedExport={Option.some(docsApiExportPageFixture(1).export)} />,
       "readonly value: A",
       (container) => {
+        expect(container.querySelector("h1")?.textContent).toBe("StudyResult")
+        expect(Arr.fromIterable(container.querySelectorAll("h2")).map((heading) => heading.textContent)).toEqual([
+          "Type parameters",
+          "Members"
+        ])
+        expect(container.querySelector("h3")?.textContent).toBe("value")
         expect(container.textContent).toContain("The selected value.")
         expect(container.textContent).not.toContain("runStudy<A>")
       }

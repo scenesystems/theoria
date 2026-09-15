@@ -32,7 +32,7 @@ export const ToggleSwitch = ({
   readonly tone: ToneClasses
 }) => (
   <Rail className="gap-2.5">
-    <SemanticText as="span" className="shrink-0 text-ink-secondary" role="row-label" text={label} variant="expanded" />
+    <SemanticText as="span" className="shrink-0" role="row-label" text={label} variant="expanded" />
     <Switch.Root
       aria-label={Option.match(Option.fromNullable(subject), {
         onNone: () => label,

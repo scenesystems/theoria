@@ -210,7 +210,7 @@ const Knot = ({ build, last, offered, shape, shapes }: {
       <Stack className={knotEntryClassName(last)}>
         <SemanticText
           as="p"
-          className="min-w-0 text-ink"
+          className="min-w-0"
           role="row-label"
           text={knotLabel(shape)}
           variant="compact"
@@ -220,7 +220,7 @@ const Knot = ({ build, last, offered, shape, shapes }: {
             as="p"
             className="text-ink-secondary"
             key={line}
-            role="status"
+            role="row-value"
             text={line}
             variant="compact"
             wrapAuthority="native-browser"

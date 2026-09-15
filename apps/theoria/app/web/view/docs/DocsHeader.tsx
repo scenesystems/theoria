@@ -49,7 +49,7 @@ export const DocsHeader = ({
             className={`inline-flex min-w-0 items-baseline text-ink ${focusClassName}`}
             href="/"
           >
-            <TheoriaLogo animation="none" className="text-[1.55rem] sm:text-[1.7rem]" />
+            <TheoriaLogo animation="none" />
           </InternalLink>
           <Layer className="hidden h-5 w-px bg-hairline-strong sm:block" />
           <InternalLink
@@ -57,7 +57,7 @@ export const DocsHeader = ({
             className={`hidden text-ink-tertiary ${focusClassName} hover:text-ink sm:inline-flex`}
             href="/docs"
           >
-            <SemanticText as="span" className="text-inherit" role="status" text="Docs" variant="compact" />
+            <SemanticText as="span" role="row-value" text="Docs" variant="compact" />
           </InternalLink>
         </Cluster>
         <Layer className="hidden min-w-0 flex-1 justify-center lg:flex">

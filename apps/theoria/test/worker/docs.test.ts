@@ -7,6 +7,7 @@ import * as Str from "effect/String"
 import { cards } from "../../app/contracts/card.js"
 import { elevationIndex } from "../../app/contracts/layout.js"
 import { motionDuration } from "../../app/contracts/motion.js"
+import { ColorMode } from "../../app/contracts/palette.js"
 import { introDelaySeconds } from "../../app/web/view/primitives/wordmarkMorph.js"
 import {
   act,
@@ -25,6 +26,7 @@ import {
   observeRequests,
   openPage,
   press,
+  setColorScheme,
   setViewport,
   until,
   urlMatches,
@@ -38,13 +40,84 @@ import {
   presence,
   resolvedChrome,
   scrollAffordance,
-  setRootFontSize
+  setRootFontSize,
+  systemColour,
+  typographyOf
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria docs in Chromium",
   (it) => {
+    it.scoped("guide, module and export pages share title and prose metrics in both modes and across the narrow breakpoint", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        const pages = [
+          { path: "/docs/effect-search/getting-started", title: "Getting started" },
+          { path: "/docs/effect-search/api/Study", title: "Study" },
+          { path: "/docs/effect-search/api/Study#api-ask", title: "ask" }
+        ]
+        yield* Effect.forEach(ColorMode.literals, (scheme) =>
+          Effect.gen(function*() {
+            yield* setColorScheme(page, scheme)
+            yield* Effect.forEach([
+              { width: 639, size: "32px", leading: "38px", tracking: "-0.64px" },
+              { width: 640, size: "38px", leading: "44px", tracking: "-0.76px" }
+            ], (viewport) =>
+              Effect.gen(function*() {
+                yield* setViewport(page, { width: viewport.width, height: 900 })
+                yield* Effect.forEach(pages, (route) =>
+                  Effect.gen(function*() {
+                    yield* goto(page, route.path)
+                    const title = page.getByRole("heading", { level: 1, name: route.title, exact: true })
+                    yield* visible(title)
+                    const metrics = yield* act(() => title.evaluate(typographyOf))
+                    expect(metrics.family).toContain("Figtree Variable")
+                    expect(metrics).toMatchObject({
+                      size: viewport.size,
+                      leading: viewport.leading,
+                      tracking: viewport.tracking,
+                      weight: "600",
+                      transform: "none",
+                      color: yield* act(() => page.evaluate(systemColour, "var(--th-ink-strong)"))
+                    })
+                    const prose = page.locator("main p").first()
+                    yield* visible(prose)
+                    expect(yield* act(() => prose.evaluate(typographyOf))).toMatchObject({
+                      size: "16px",
+                      leading: "26px",
+                      weight: "400",
+                      tracking: "normal",
+                      color: yield* act(() => page.evaluate(systemColour, "var(--th-ink)"))
+                    })
+                    expect(yield* act(() => page.locator("main h2").first().evaluate(typographyOf))).toMatchObject({
+                      size: viewport.width === 639 ? "21px" : "24px",
+                      leading: viewport.width === 639 ? "28px" : "32px",
+                      weight: "600",
+                      transform: "none",
+                      color: yield* act(() => page.evaluate(systemColour, "var(--th-ink-strong)"))
+                    })
+                    expect(yield* act(() => page.locator("header a[href=\"/\"] > span").evaluate(typographyOf)))
+                      .toMatchObject({
+                        size: "24px",
+                        leading: "32px",
+                        weight: "600",
+                        tracking: "-0.6px"
+                      })
+                    const source = page.getByRole("link", { exact: true, name: "Source" }).first()
+                    expect(yield* act(() => source.locator("span").evaluate(typographyOf))).toMatchObject({
+                      size: "12px",
+                      leading: "16px",
+                      weight: "600",
+                      color: (yield* act(() => source.evaluate(typographyOf))).color
+                    })
+                    expect(yield* fitsViewport(page)).toBe(true)
+                  }))
+              }))
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("landing links enter the package documentation without a reload", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()

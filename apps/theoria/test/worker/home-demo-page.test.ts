@@ -388,7 +388,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             })
 
             yield* goto(page, "/docs")
-            const card = page.locator("[class*=\"--st-fs-card-summary\"]").first()
+            const card = page.locator("main article p").first()
             yield* visible(card)
             const cardMetrics = yield* act(() =>
               card.evaluate((element) => {
@@ -399,11 +399,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 }
               })
             )
-            expect(cardMetrics).toEqual(
-              viewport.width === 390
-                ? { fontSize: "15px", lineHeight: "22px" }
-                : { fontSize: "16px", lineHeight: "26px" }
-            )
+            expect(cardMetrics).toEqual({ fontSize: "16px", lineHeight: "26px" })
           }))
         expect(yield* failures).toEqual([])
       }))

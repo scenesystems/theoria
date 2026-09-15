@@ -46,10 +46,10 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
           <ApiTypeParametersView parameters={facet.typeParameters} />
           <RelationList facet={facet} />
           <ExternalLink
-            className={`w-fit font-body text-sm font-medium text-ink-tertiary ${linkTextClassName}`}
+            className={`w-fit text-ink-secondary ${linkTextClassName}`}
             href={facet.sourceUrl}
           >
-            Source
+            <SemanticText as="span" role="button-label" text="Source" />
           </ExternalLink>
         </Stack>
       ),
@@ -73,7 +73,7 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
       onEmpty: () => null,
       onNonEmpty: (members) => (
         <Stack className="gap-7 pt-2">
-          <SemanticContent as="h3" className="text-ink" role="section-title">Members</SemanticContent>
+          <SemanticContent as="h2" role="section-title">Members</SemanticContent>
           {Arr.map(members, (member) => <ApiMemberView key={member.anchor} member={member} />)}
         </Stack>
       )
@@ -95,11 +95,11 @@ export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) 
   >
     <Stack className="gap-7">
       <Stack className="gap-3">
-        <SemanticText as="h1" className="break-words text-ink-strong" role="section-title" text={apiExport.name} />
+        <SemanticText as="h1" className="break-words" role="hero-title" text={apiExport.name} />
         <Cluster className="gap-2">
           <SemanticText
             as="span"
-            className="rounded-mark bg-instrument px-2 py-1 text-ink-tertiary"
+            className="rounded-mark bg-instrument px-2 py-1"
             role="row-label"
             text={apiExport.category}
           />

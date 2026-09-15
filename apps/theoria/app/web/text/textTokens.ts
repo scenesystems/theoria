@@ -67,6 +67,12 @@ export const semanticTextCandidates = (semantics: TextSemantics): ReadonlyArray<
 const sourceLine = (semantics: TextSemantics): string =>
   `@source inline("${Arr.join(semanticTextCandidates(semantics), " ")}");`
 
+/** Defaults sit below utilities so a participant or interactive state still owns its foreground. */
+const roleDefaults = (semantics: TextSemantics): string =>
+  `  :where(.st-${semantics.role}) { color: ${
+    semantics.foreground === "inherit" ? "inherit" : `var(--th-${semantics.foreground})`
+  }; text-transform: ${semantics.transform}; }`
+
 export const renderTextTokensCss = (): string =>
   Arr.join([
     "/* Typography and motion tokens (generated — do not edit; run `bun run gen:text-tokens`) */",
@@ -77,6 +83,10 @@ export const renderTextTokensCss = (): string =>
     "}",
     "",
     ...Arr.getSomes(Arr.map(viewports, viewportBlock)),
+    "",
+    "@layer components {",
+    ...Arr.map(textSemantics, roleDefaults),
+    "}",
     "",
     "/* Stand-in faces, scaled to the served faces' metrics so the swap moves nothing (generated — do not edit) */",
     typefaceFallbackFaces,

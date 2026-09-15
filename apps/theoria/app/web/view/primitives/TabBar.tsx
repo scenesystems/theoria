@@ -78,7 +78,7 @@ export const Tab = ({
   <Tabs.Tab className={classNames(tabClassName, className)} value={value}>
     <Cluster className="gap-1.5 whitespace-nowrap">
       {icon}
-      <SemanticText as="span" className="whitespace-nowrap" role="tab-label" text={label} variant="expanded" />
+      <SemanticText as="span" className="whitespace-nowrap" role="button-label" text={label} variant="expanded" />
     </Cluster>
   </Tabs.Tab>
 )

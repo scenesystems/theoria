@@ -15,10 +15,10 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
   <Section className="scroll-mt-28 border-l border-hairline-strong-glass pl-4 sm:pl-5" id={member.anchor}>
     <Stack className="gap-5">
       <Cluster className="gap-2">
-        <SemanticContent as="h4" className="text-ink-strong" role="selection-title">{member.name}</SemanticContent>
-        <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={member.kind} />
+        <SemanticContent as="h3" role="subsection-title">{member.name}</SemanticContent>
+        <SemanticText as="span" role="row-label" text={member.kind} />
         {Bool.match(member.inherited, {
-          onTrue: () => <SemanticText as="span" className="text-ink-tertiary" role="row-label" text="inherited" />,
+          onTrue: () => <SemanticText as="span" role="row-label" text="inherited" />,
           onFalse: () =>
             null
         })}
@@ -26,13 +26,13 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
       {Arr.match(member.signatures, {
         onEmpty: () => (
           <Stack className="gap-4">
-            <ApiDocumentationView docs={member.docs} />
+            <ApiDocumentationView docs={member.docs} headingAs="h4" />
             <CodeBlock label="Type" source={member.declaration} />
             <ExternalLink
-              className={`w-fit font-body text-sm font-medium text-ink-tertiary ${linkTextClassName}`}
+              className={`w-fit text-ink-secondary ${linkTextClassName}`}
               href={member.sourceUrl}
             >
-              Source
+              <SemanticText as="span" role="button-label" text="Source" />
             </ExternalLink>
           </Stack>
         ),
@@ -42,7 +42,7 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
               signatures,
               (signature, index) => (
                 <ApiSignatureView
-                  headingAs="h5"
+                  headingAs="h4"
                   index={index}
                   key={`${signature.kind}:${String(index)}`}
                   signature={signature}

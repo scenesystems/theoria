@@ -147,7 +147,7 @@ export const StatusMarkPending = ({ className = "", label, tone }: {
 }) => (
   <Layer render={<span />} className={`${inlineMarkRoomClassName} gap-1.5 ${className}`} data-place-status-pending>
     <Layer aria-hidden render={<span />} className={`inline-flex size-1.5 shrink-0 rounded-full ${tone.dot}`} />
-    <GhostText as="span" className={tone.text} role="tab-label" text={label} variant="compact" />
+    <GhostText as="span" className={tone.text} role="button-label" text={label} variant="compact" />
   </Layer>
 )
 
@@ -222,7 +222,7 @@ const CopyValue = ({ value }: { readonly value: string }) => {
       <SemanticText
         as="span"
         className="text-ink-tertiary"
-        role="tab-label"
+        role="button-label"
         text={copyLabel({ copied, failed })}
         variant="compact"
       />
@@ -243,7 +243,6 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
         <Popover.Title render={<Layer className="min-w-0" />}>
           <SemanticText
             as="h3"
-            className="text-ink"
             role="selection-title"
             text={provenance.title}
             variant="compact"
@@ -259,7 +258,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
             <SemanticText
               as="p"
               className="text-ink-secondary"
-              role="status"
+              role="row-value"
               text={detail}
               variant="compact"
               wrapAuthority="native-browser"
@@ -271,7 +270,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
       <Layer render={<dl />} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
         {Arr.map(provenance.facts, (fact) => (
           <Fragment key={fact.label}>
-            <SemanticText as="dt" className="text-ink-tertiary" role="row-label" text={fact.label} variant="compact" />
+            <SemanticText as="dt" role="row-label" text={fact.label} variant="compact" />
             <SemanticText
               as="dd"
               className="min-w-0 break-words text-ink"

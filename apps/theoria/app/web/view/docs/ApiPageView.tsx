@@ -29,11 +29,11 @@ const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: DocsApiExportSu
         <Cluster className="gap-2.5">
           <SemanticText
             as="h3"
-            className={`break-words text-ink-strong ${linkTitleClassName}`}
+            className={`break-words ${linkTitleClassName}`}
             role="selection-title"
             text={apiExport.name}
           />
-          <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={apiExport.importKind} />
+          <SemanticText as="span" role="row-label" text={apiExport.importKind} />
         </Cluster>
         <SemanticText as="p" className="text-ink-tertiary" role="row-value" text={apiExport.summary} />
       </Stack>
@@ -50,7 +50,7 @@ const ApiCategoryIndex = ({
 }) => (
   <Section className="scroll-mt-28" id={apiCategoryAnchor(category.name)}>
     <Stack className="gap-4">
-      <SemanticText as="h2" className="capitalize text-ink-strong" role="section-title" text={category.name} />
+      <SemanticText as="h2" role="section-title" text={category.name} />
       <Stack render={<ul />} className="divide-y divide-hairline-glass border-y border-hairline-glass py-1">
         {Arr.filterMap(category.exportIds, (id) =>
           Option.map(
@@ -67,27 +67,21 @@ const ApiModuleHeader = ({ page }: { readonly page: DocsApiModuleIndex }) => (
     <Stack className="gap-5">
       <Stack className="gap-3">
         <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
-        <SemanticText
-          as="h1"
-          className="font-light tracking-[-0.04em] text-ink-strong"
-          role="hero-title"
-          text={page.module.name}
-        />
+        <SemanticText as="h1" role="hero-title" text={page.module.name} />
         <ApiDocumentationView docs={page.module.docs} />
       </Stack>
       <Cluster className="gap-4">
-        <SemanticText as="span" className="text-ink-tertiary" role="status" text={`v${page.package.version}`} />
+        <SemanticText as="span" role="caption" text={`v${page.package.version}`} />
         <SemanticText
           as="span"
-          className="text-ink-tertiary"
-          role="code-meta"
+          role="caption"
           text={`${String(Arr.length(page.exports))} exports`}
         />
         <ExternalLink
-          className={`font-body text-sm font-medium text-ink-secondary ${linkTextClassName}`}
+          className={`text-ink-secondary ${linkTextClassName}`}
           href={page.module.sourceUrl}
         >
-          Source
+          <SemanticText as="span" role="button-label" text="Source" />
         </ExternalLink>
       </Cluster>
     </Stack>
@@ -105,10 +99,10 @@ const SelectedApiExport = ({
     <Stack className="gap-2">
       <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
       <AnchorLink
-        className={`w-fit font-body text-sm font-medium text-ink-tertiary ${focusClassName} hover:text-ink-strong`}
+        className={`w-fit text-ink-tertiary ${focusClassName} hover:text-ink-strong`}
         href="#module"
       >
-        ← {page.module.name}
+        <SemanticText as="span" role="button-label" text={`← ${page.module.name}`} />
       </AnchorLink>
     </Stack>
     <ApiExportView apiExport={apiExport} />

@@ -146,7 +146,7 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
             <SemanticText
               as="span"
               className="text-ink-secondary"
-              role="tab-label"
+              role="button-label"
               text={keptTrialLabel(search)}
               variant="expanded"
             />
@@ -192,7 +192,7 @@ const StageFailed = ({ failure }: { readonly failure: StageFailure }) => {
         <SemanticText
           as="span"
           className="text-ink-secondary"
-          role="tab-label"
+          role="button-label"
           text={stageFailureActionLabel(failure)}
           variant="expanded"
         />

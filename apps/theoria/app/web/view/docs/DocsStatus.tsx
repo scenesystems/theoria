@@ -77,7 +77,7 @@ const ApiSkeleton = () => (
 
 export const DocsLoadingSkeleton = ({ kind }: { readonly kind: DocsLoadingKind }) => (
   <Stack aria-busy="true" className="w-full" data-docs-skeleton={kind}>
-    <SemanticText as="p" className="sr-only" role="status" text="Loading" />
+    <SemanticText as="p" className="sr-only" role="row-value" text="Loading" />
     {Match.value(kind).pipe(
       Match.when("index", () => <IndexSkeleton />),
       Match.when("guide", () => <GuideSkeleton />),
@@ -89,7 +89,7 @@ export const DocsLoadingSkeleton = ({ kind }: { readonly kind: DocsLoadingKind }
 
 const Notice = ({ action, title }: { readonly action: ReactNode; readonly title: string }) => (
   <Stack className="items-start gap-3 py-16">
-    <SemanticText as="h1" className="text-ink-strong" role="section-title" text={title} />
+    <SemanticText as="h1" role="hero-title" text={title} />
     {action}
   </Stack>
 )

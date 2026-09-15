@@ -215,7 +215,7 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
       <Reach marker={marker} />
       {Option.match(labelWidth, {
         onNone: () => (
-          <SemanticText as="span" className={tone.textStrong} role="tab-label" text={String(Num.increment(index))} />
+          <SemanticText as="span" className={tone.textStrong} role="button-label" text={String(Num.increment(index))} />
         ),
         onSome: (width) => (
           <Layer className={labelClassName} style={{ width: `${width.toFixed(1)}px` }}>

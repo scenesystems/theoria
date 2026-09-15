@@ -175,7 +175,7 @@ export const SkeletonPreview = ({ className = "" }: { readonly className?: strin
 
 export const ContentPlaceholder = ({ text }: { readonly text: string }) => (
   <Layer className="flex min-h-32 items-center justify-center rounded-mark border border-dashed border-hairline-veil p-4">
-    <SemanticText as="span" className="text-ink-secondary" role="status" text={text} variant="expanded" />
+    <SemanticText as="span" className="text-ink-secondary" role="row-value" text={text} variant="expanded" />
   </Layer>
 )
 
@@ -214,7 +214,7 @@ export const RunningState = ({ text }: { readonly text: Option.Option<string> })
       <SemanticText
         as="span"
         className="text-ink-tertiary"
-        role="status"
+        role="row-value"
         text={Option.getOrElse(text, () => "Generating evidence…")}
         variant="expanded"
       />
@@ -238,7 +238,7 @@ export const FailureState = ({
           <SemanticText
             as="span"
             className={dangerStatusTone.text}
-            role="status"
+            role="row-value"
             text={description}
             variant="expanded"
           />
@@ -270,7 +270,7 @@ export const EmptyState = ({
       <SemanticText
         as="span"
         className="text-ink-tertiary"
-        role="status"
+        role="row-value"
         text={Option.getOrElse(description, () => "Run the demo to generate reproducible evidence.")}
         variant="expanded"
       />

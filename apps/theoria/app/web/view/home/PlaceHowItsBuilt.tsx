@@ -52,7 +52,7 @@ const commitLinkClassName =
 
 const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly title: string }) => (
   <Stack aria-label={title} render={<section />} className="gap-1.5">
-    <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={title} variant="compact" />
+    <SemanticText as="span" role="row-label" text={title} variant="compact" />
     <Stack render={<ul />} className="gap-0.5">{children}</Stack>
   </Stack>
 )
@@ -211,7 +211,6 @@ export const PlaceHowItsBuilt = () => {
         <Cluster className="justify-between gap-x-6 gap-y-3">
           <SemanticText
             as="h3"
-            className="text-ink"
             role="subsection-title"
             text="How it's built"
             variant="expanded"

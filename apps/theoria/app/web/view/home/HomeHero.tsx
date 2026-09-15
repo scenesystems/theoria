@@ -25,7 +25,7 @@ export const HomeHero = () => (
     <Stack className="gap-6 sm:gap-8">
       <SemanticText
         as="h1"
-        className="text-balance text-ink-strong"
+        className="text-balance"
         role="display"
         text="Scientific computing and model programming with Effect"
         variant="expanded"
@@ -33,7 +33,6 @@ export const HomeHero = () => (
       />
       <SemanticText
         as="p"
-        className="text-ink-secondary"
         role="lead"
         text="Theoria is an open-source collection of TypeScript libraries for reproducible computational work in Effect applications."
         variant="expanded"

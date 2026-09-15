@@ -82,12 +82,10 @@ const Field = ({ children, label, mark = Option.none() }: {
   <>
     <Layer render={<dt />} className="pt-2 first:pt-0 sm:flex sm:min-h-(--st-lh-row-value) sm:items-center sm:pt-0">
       {Option.match(mark, {
-        onNone: () => (
-          <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={label} variant="compact" />
-        ),
+        onNone: () => <SemanticText as="span" role="row-label" text={label} variant="compact" />,
         onSome: (value) => (
-          <ProvenanceMark className={inlineMarkClassName} mark={value}>
-            <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={label} variant="compact" />
+          <ProvenanceMark className={`${inlineMarkClassName} text-ink-tertiary`} mark={value}>
+            <SemanticText as="span" className="text-inherit" role="row-label" text={label} variant="compact" />
           </ProvenanceMark>
         )
       })}
@@ -124,14 +122,14 @@ const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
       <SemanticText
         as="span"
         className={`hidden group-data-[panel-open]/fold:inline ${sealTone.text}`}
-        role="tab-label"
+        role="button-label"
         text="Opened with your key"
         variant="compact"
       />
       <SemanticText
         as="span"
         className={`group-data-[panel-open]/fold:hidden ${sealTone.text}`}
-        role="tab-label"
+        role="button-label"
         text={sealedNoteLabel(note)}
         variant="compact"
       />
@@ -159,7 +157,7 @@ const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
 const SealedNoteFoldPending = () => (
   <Layer render={<span />} className={foldTriggerLayoutClassName} data-place-sealed-note-pending>
     <LockClosedIcon aria-hidden className={`size-3.5 shrink-0 ${sealTone.text}`} />
-    <GhostText as="span" className={sealTone.text} role="tab-label" text={sealedNoteLabelShape} variant="compact" />
+    <GhostText as="span" className={sealTone.text} role="button-label" text={sealedNoteLabelShape} variant="compact" />
   </Layer>
 )
 
@@ -206,7 +204,7 @@ const recordOf = (build: PlaceBuild, role: ParticipantRole): Option.Option<Propo
  * line is the one the mark will stand in.
  */
 const FeatureTitle = ({ name, recorded }: { readonly name: string; readonly recorded: boolean }) => (
-  <SemanticContent as="h3" className="self-start text-ink" role="card-title" variant="compact">
+  <SemanticContent as="h3" className="self-start" role="section-title" variant="compact">
     {Bool.match(recorded, {
       onTrue: () => (
         <ProvenanceMark className={inlineMarkClassName} data-place-feature={name} mark={{ _tag: "Feature", name }}>
@@ -215,7 +213,7 @@ const FeatureTitle = ({ name, recorded }: { readonly name: string; readonly reco
       ),
       onFalse: () => (
         <Layer render={<span />} className={inlineMarkRoomClassName}>
-          <GhostText as="span" role="card-title" text={name} variant="compact" />
+          <GhostText as="span" role="section-title" text={name} variant="compact" />
         </Layer>
       )
     })}

@@ -40,7 +40,7 @@ const NavigationLink = ({
     href={destination.href}
     onClick={onNavigate}
   >
-    <SemanticText as="span" className="min-w-0 text-inherit" role="status" text={destination.label} variant="compact" />
+    <SemanticText as="span" className="min-w-0" role="row-value" text={destination.label} variant="compact" />
   </InternalLink>
 )
 
@@ -75,7 +75,7 @@ const NavigationBranch = ({
     <Stack className="gap-2">
       <SemanticText
         as="h2"
-        className="px-3 text-ink-tertiary"
+        className="px-3"
         role="row-label"
         text={branch.label}
         variant="expanded"

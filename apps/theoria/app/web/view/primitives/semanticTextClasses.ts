@@ -13,23 +13,21 @@ const trackingVar = (role: TextRole): string => `--st-tr-${role}`
 const fontFamilyVar = (role: TextRole): string => `--st-ff-${role}`
 const maxWidthCssVar = (role: TextRole, variant: SurfaceVariant): string => `--st-mw-${role}-${variant}`
 
-const textTransformFor = (role: TextRole): string => role === "row-label" ? "uppercase" : ""
-
 /**
  * Tailwind's `font-(…)` utility sets the weight from a variable, and the family
  * when the variable is tagged `family-name:`; there is no `font-weight-(…)`.
  */
 export const glyphClassName = (role: TextRole): string =>
   [
+    `st-${role}`,
     `text-(length:${fontSizeVar(role)})`,
     `font-(${fontWeightVar(role)})`,
     `tracking-(${trackingVar(role)})`,
-    `font-(family-name:${fontFamilyVar(role)})`,
-    textTransformFor(role)
-  ].filter((className) => className.length > 0).join(" ")
+    `font-(family-name:${fontFamilyVar(role)})`
+  ].join(" ")
 
 /** Roles whose width is their control's, not a measure of their own: a label is as wide as what it labels. */
-const controlSizedRoles: ReadonlyArray<TextRole> = ["button-label", "tab-label", "marker-label"]
+const controlSizedRoles: ReadonlyArray<TextRole> = ["button-label", "marker-label", "wordmark"]
 
 export const maxWidthClassName = (role: TextRole, variant: SurfaceVariant): string =>
   Arr.contains(controlSizedRoles, role) ? "" : `max-w-(${maxWidthCssVar(role, variant)})`

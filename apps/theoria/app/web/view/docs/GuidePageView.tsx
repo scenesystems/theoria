@@ -32,10 +32,10 @@ const GuideHeading = ({ block }: { readonly block: HeadingBlock }) => {
     <SemanticContent
       as={headingElement(block.depth)}
       className={Bool.match(isSection, {
-        onTrue: () => "scroll-mt-28 pt-5 text-ink-strong",
-        onFalse: () => "scroll-mt-28 pt-2 text-ink"
+        onTrue: () => "scroll-mt-28 pt-5",
+        onFalse: () => "scroll-mt-28 pt-2"
       })}
-      role={Bool.match(isSection, { onTrue: () => "section-title", onFalse: () => "selection-title" })}
+      role={block.depth === 2 ? "section-title" : block.depth === 3 ? "subsection-title" : "selection-title"}
     >
       <a
         className={`${focusClassName} ${anchorHeadingClassName}`}
@@ -64,10 +64,10 @@ const GuideList = ({ items, ordered }: {
   const marker = Bool.match(ordered, { onTrue: () => "list-decimal", onFalse: () => "list-disc" })
 
   return (
-    <Component className={`ml-6 space-y-2 text-ink-secondary ${marker}`}>
+    <Component className={`ml-6 space-y-2 ${marker}`}>
       {Arr.map(items, (parts, index) => (
         <li className="pl-1" key={partsKey(index, parts)}>
-          <SemanticContent as="span" role="row-value">
+          <SemanticContent as="span" role="body">
             <DocsRichText parts={parts} />
           </SemanticContent>
         </li>
@@ -119,7 +119,7 @@ const GuideBlockView = ({ block }: { readonly block: GuideBlock }) =>
     Match.when(
       { kind: "paragraph" },
       ({ parts }) => (
-        <SemanticContent as="p" className="text-ink-secondary" role="card-summary">
+        <SemanticContent as="p" role="body">
           <DocsRichText parts={parts} />
         </SemanticContent>
       )
@@ -136,7 +136,7 @@ const GuideBlockView = ({ block }: { readonly block: GuideBlock }) =>
       { kind: "quote" },
       ({ parts }) => (
         <Layer render={<blockquote />} className="border-l-2 border-accent pl-5">
-          <SemanticContent as="p" className="text-ink-tertiary" role="card-summary">
+          <SemanticContent as="p" role="body">
             <DocsRichText parts={parts} />
           </SemanticContent>
         </Layer>
@@ -151,19 +151,14 @@ export const GuidePageView = ({ page }: { readonly page: GuidePage }) => (
     <Section className="border-b border-hairline-veil pb-8">
       <Stack className="gap-4">
         <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
-        <SemanticText
-          as="h1"
-          className="font-light tracking-[-0.04em] text-ink-strong"
-          role="hero-title"
-          text={page.title}
-        />
+        <SemanticText as="h1" role="hero-title" text={page.title} />
         <Cluster className="gap-4">
-          <SemanticText as="span" className="text-ink-tertiary" role="status" text={`v${page.package.version}`} />
+          <SemanticText as="span" role="caption" text={`v${page.package.version}`} />
           <ExternalLink
-            className={`font-body text-sm font-medium text-ink-secondary ${linkTextClassName}`}
+            className={`text-ink-secondary ${linkTextClassName}`}
             href={page.sourceUrl}
           >
-            Source
+            <SemanticText as="span" role="button-label" text="Source" />
           </ExternalLink>
         </Cluster>
       </Stack>

@@ -104,7 +104,7 @@ export const ChoiceGroup = ({
           <SemanticText
             as={labelElement(appearance)}
             className={labelClassName(appearance, active)}
-            role="tab-label"
+            role="button-label"
             text={option.label}
             variant="expanded"
           />

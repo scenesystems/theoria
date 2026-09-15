@@ -35,7 +35,7 @@ const footerLinkClassName =
 
 const FooterLink = ({ destination }: { readonly destination: FooterDestination }) => (
   <ExternalLink className={footerLinkClassName} href={destination.href}>
-    <SemanticText as="span" className="text-ink-secondary" role="status" text={destination.label} variant="compact" />
+    <SemanticText as="span" role="row-value" text={destination.label} variant="compact" />
     <ArrowTopRightOnSquareIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
   </ExternalLink>
 )
@@ -49,11 +49,11 @@ export const SiteFooter = () => (
     <Stack className="items-center gap-2 md:items-stretch">
       <Cluster align="baseline" className="justify-center gap-x-3 gap-y-2 md:justify-between">
         <Cluster align="baseline" className="gap-3">
-          <TheoriaLogo animation="glossary" className="text-[1.45rem] md:text-[1.55rem]" />
+          <TheoriaLogo animation="glossary" />
           <SemanticText
             as="p"
-            className="hidden text-ink-tertiary md:block"
-            role="status"
+            className="hidden md:block"
+            role="caption"
             text={siteMetadata.tagline}
             variant="compact"
             wrapAuthority="native-browser"
@@ -69,8 +69,8 @@ export const SiteFooter = () => (
 
       <SemanticText
         as="p"
-        className="text-ink-tertiary md:hidden"
-        role="status"
+        className="md:hidden"
+        role="caption"
         text={siteMetadata.tagline}
         variant="compact"
         wrapAuthority="native-browser"
@@ -85,8 +85,8 @@ export const SiteFooter = () => (
 
       <SemanticText
         as="p"
-        className="text-center text-ink-tertiary md:text-left"
-        role="status"
+        className="text-center md:text-left"
+        role="caption"
         text={`© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`}
         variant="compact"
       />
