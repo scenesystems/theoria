@@ -17,8 +17,22 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Contracts, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Array as Arr, Effect, Match, Option, Ref, Schema, Stream } from "effect"
+import { Contracts, SearchSpace, Study, Trial } from "@scenesystems/effect-search"
+import {
+  Array as Arr,
+  Boolean,
+  Effect,
+  Inspectable,
+  Match,
+  Number,
+  Option,
+  Predicate,
+  Record,
+  Ref,
+  Schema,
+  Stream,
+  String
+} from "effect"
 import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 /**
@@ -234,7 +248,7 @@ const conversationalRecallScenarios = Arr.make(
 
 const logExampleStage = (
   stage: string,
-  payload: Readonly<Record<string, unknown>>
+  payload: typeof Schema.Object.Type
 ) =>
   Effect.log("example:14 stage", {
     stage,
@@ -250,86 +264,73 @@ const logExampleEvent = (
     line
   })
 
-const readStringField = (record: Readonly<Record<string, unknown>>, field: string): string =>
-  Option.getOrElse(
-    Option.fromNullable(record[field]).pipe(
-      Option.filter((value): value is string => typeof value === "string")
+const formatObjectives = (names: Iterable<string>, values: Iterable<number>) =>
+  Record.fromEntries(Arr.zip(
+    names,
+    Arr.map(Arr.fromIterable(values), (value) => {
+      const parts = String.split(Inspectable.toStringUnknown(Number.round(value, 3)), ".")
+      return Arr.join(
+        Arr.make(
+          Arr.headNonEmpty(parts),
+          String.padEnd(3, "0")(Option.getOrElse(Arr.get(parts, 1), () => ""))
+        ),
+        "."
+      )
+    })
+  ))
+
+const ProtocolOutput = Schema.Struct({
+  networkCondition: Signature.describe(Schema.String, "Topology decision: clustered or nonclustered"),
+  sequencingPolicy: Signature.describe(Schema.String, "Scheduling decision: cluster-first or bridge-early"),
+  turnTakingPolicy: Signature.describe(
+    Schema.String,
+    "Turn-taking policy: strict-alternation, balanced-free-recall, or bridge-speaker-priority"
+  ),
+  convergenceForecast: Signature.describe(Schema.String, "Expected convergence regime: high/moderate/low"),
+  protocolAdjustment: Signature.describe(Schema.String, "Concrete protocol adjustment"),
+  analysisPlan: Signature.describe(Schema.String, "Analysis plan linked to convergence and alignment")
+})
+
+const normalizeLabel = (value: string): string => String.trim(String.replaceAll("_", "-")(String.toLowerCase(value)))
+
+const normalizeNetworkCondition = (value: string): string =>
+  Match.value(normalizeLabel(value)).pipe(
+    Match.when(
+      Predicate.and(Predicate.or(String.includes("non"), String.includes("single")), String.includes("cluster")),
+      () => "nonclustered"
     ),
-    () => ""
+    Match.when(String.includes("cluster"), () => "clustered"),
+    Match.orElse(() => "")
   )
 
-const normalizeLabel = (value: string): string =>
-  value
-    .toLowerCase()
-    .replaceAll("_", "-")
-    .trim()
+const normalizeSequencingPolicy = (value: string): string =>
+  Match.value(normalizeLabel(value)).pipe(
+    Match.when(
+      Predicate.or(String.includes("bridge"), Predicate.and(String.includes("cross"), String.includes("cluster"))),
+      () => "bridge-early"
+    ),
+    Match.when(Predicate.or(String.includes("cluster"), String.includes("within")), () => "cluster-first"),
+    Match.orElse(() => "")
+  )
 
-const normalizeNetworkCondition = (value: string): string => {
-  const normalized = normalizeLabel(value)
+const normalizeTurnTakingPolicy = (value: string): string =>
+  Match.value(normalizeLabel(value)).pipe(
+    Match.when(Predicate.or(String.includes("strict"), String.includes("alternat")), () => "strict-alternation"),
+    Match.when(Predicate.or(String.includes("bridge"), String.includes("priority")), () => "bridge-speaker-priority"),
+    Match.when(Predicate.or(String.includes("balanced"), String.includes("free")), () => "balanced-free-recall"),
+    Match.orElse(() => "")
+  )
 
-  if (
-    (normalized.includes("non") && normalized.includes("cluster"))
-    || (normalized.includes("single") && normalized.includes("cluster"))
-  ) {
-    return "nonclustered"
-  }
-
-  if (normalized.includes("cluster")) {
-    return "clustered"
-  }
-
-  return ""
-}
-
-const normalizeSequencingPolicy = (value: string): string => {
-  const normalized = normalizeLabel(value)
-
-  if (normalized.includes("bridge") || (normalized.includes("cross") && normalized.includes("cluster"))) {
-    return "bridge-early"
-  }
-
-  if (normalized.includes("cluster") || normalized.includes("within")) {
-    return "cluster-first"
-  }
-
-  return ""
-}
-
-const normalizeTurnTakingPolicy = (value: string): string => {
-  const normalized = normalizeLabel(value)
-
-  if (normalized.includes("strict") || normalized.includes("alternat")) {
-    return "strict-alternation"
-  }
-
-  if (normalized.includes("bridge") || normalized.includes("priority")) {
-    return "bridge-speaker-priority"
-  }
-
-  if (normalized.includes("balanced") || normalized.includes("free")) {
-    return "balanced-free-recall"
-  }
-
-  return ""
-}
-
-const normalizeConvergenceForecast = (value: string): string => {
-  const normalized = normalizeLabel(value)
-
-  if (normalized.includes("high") || normalized.includes("strong")) {
-    return "high"
-  }
-
-  if (normalized.includes("moderate") || normalized.includes("medium") || normalized.includes("mixed")) {
-    return "moderate"
-  }
-
-  if (normalized.includes("low") || normalized.includes("weak")) {
-    return "low"
-  }
-
-  return ""
-}
+const normalizeConvergenceForecast = (value: string): string =>
+  Match.value(normalizeLabel(value)).pipe(
+    Match.when(Predicate.or(String.includes("high"), String.includes("strong")), () => "high"),
+    Match.when(
+      Predicate.some(Arr.make(String.includes("moderate"), String.includes("medium"), String.includes("mixed"))),
+      () => "moderate"
+    ),
+    Match.when(Predicate.or(String.includes("low"), String.includes("weak")), () => "low"),
+    Match.orElse(() => "")
+  )
 
 const STOP_WORDS = Arr.make(
   "about",
@@ -351,45 +352,27 @@ const STOP_WORDS = Arr.make(
 
 const clampUnitScore = (score: number): number => Numeric.clamp(score, { minimum: 0, maximum: 1 })
 
-const averageScore = (scores: ReadonlyArray<number>): number =>
-  scores.length === 0
-    ? 0
-    : Arr.reduce(scores, 0, (sum, score) => sum + score) / scores.length
+const averageScore = (scores: Iterable<number>): number => {
+  const values = Arr.fromIterable(scores)
+  return Option.getOrElse(Number.divide(Number.sumAll(values), Arr.length(values)), () => 0)
+}
 
 const normalizeNarrative = (value: string): string =>
-  value
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, " ")
-    .trim()
+  String.trim(String.replaceAll(/[^a-z0-9]+/g, " ")(String.toLowerCase(value)))
 
-const dedupeTokens = (tokens: ReadonlyArray<string>): ReadonlyArray<string> =>
-  Arr.reduce(tokens, Arr.empty<string>(), (deduped, token) =>
-    Arr.contains(deduped, token)
-      ? deduped
-      : Arr.append(deduped, token))
-
-const narrativeTokens = (value: string): ReadonlyArray<string> =>
-  dedupeTokens(
-    normalizeNarrative(value)
-      .split(" ")
-      .filter((token) => token.length > 3 && !Arr.contains(STOP_WORDS, token))
+const narrativeTokens = (value: string) =>
+  Arr.dedupe(
+    Arr.filter(String.split(normalizeNarrative(value), " "), (token) =>
+      Boolean.and(Number.greaterThan(String.length(token), 3), Boolean.not(Arr.contains(STOP_WORDS, token))))
   )
 
 const tokenOverlapScore = (predicted: string, expected: string): number => {
   const expectedTokens = narrativeTokens(expected)
 
-  if (expectedTokens.length === 0) {
-    return 0
-  }
-
   const predictedTokens = narrativeTokens(predicted)
-  const overlapCount = Arr.reduce(
-    expectedTokens,
-    0,
-    (count, token) => count + (Arr.contains(predictedTokens, token) ? 1 : 0)
-  )
+  const overlapCount = Arr.length(Arr.intersection(expectedTokens, predictedTokens))
 
-  return overlapCount / expectedTokens.length
+  return Option.getOrElse(Number.divide(overlapCount, Arr.length(expectedTokens)), () => 0)
 }
 
 /**
@@ -404,21 +387,21 @@ const tokenOverlapScore = (predicted: string, expected: string): number => {
  */
 const protocolMetric = Metric.fromEffect(
   "conversationalRecallProtocolFit",
-  (prediction, expected) =>
+  (prediction: typeof ProtocolOutput.Type, expected) =>
     Effect.sync(() => {
-      const predictedConditionRaw = readStringField(prediction, "networkCondition")
-      const predictedSequencingRaw = readStringField(prediction, "sequencingPolicy")
-      const predictedTurnPolicyRaw = readStringField(prediction, "turnTakingPolicy")
-      const predictedForecastRaw = readStringField(prediction, "convergenceForecast")
-      const predictedAdjustmentRaw = readStringField(prediction, "protocolAdjustment")
-      const predictedAnalysisPlanRaw = readStringField(prediction, "analysisPlan")
+      const predictedConditionRaw = prediction.networkCondition
+      const predictedSequencingRaw = prediction.sequencingPolicy
+      const predictedTurnPolicyRaw = prediction.turnTakingPolicy
+      const predictedForecastRaw = prediction.convergenceForecast
+      const predictedAdjustmentRaw = prediction.protocolAdjustment
+      const predictedAnalysisPlanRaw = prediction.analysisPlan
 
-      const expectedConditionRaw = readStringField(expected, "networkCondition")
-      const expectedSequencingRaw = readStringField(expected, "sequencingPolicy")
-      const expectedTurnPolicyRaw = readStringField(expected, "turnTakingPolicy")
-      const expectedForecastRaw = readStringField(expected, "convergenceForecast")
-      const expectedAdjustmentRaw = readStringField(expected, "protocolAdjustment")
-      const expectedAnalysisPlanRaw = readStringField(expected, "analysisPlan")
+      const expectedConditionRaw = expected.networkCondition
+      const expectedSequencingRaw = expected.sequencingPolicy
+      const expectedTurnPolicyRaw = expected.turnTakingPolicy
+      const expectedForecastRaw = expected.convergenceForecast
+      const expectedAdjustmentRaw = expected.protocolAdjustment
+      const expectedAnalysisPlanRaw = expected.analysisPlan
 
       const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
       const predictedSequencing = normalizeSequencingPolicy(predictedSequencingRaw)
@@ -430,10 +413,22 @@ const protocolMetric = Metric.fromEffect(
       const expectedTurnPolicy = normalizeTurnTakingPolicy(expectedTurnPolicyRaw)
       const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
 
-      const conditionScore = predictedCondition === expectedCondition ? 1 : 0
-      const sequencingScore = predictedSequencing === expectedSequencing ? 1 : 0
-      const turnPolicyScore = predictedTurnPolicy === expectedTurnPolicy ? 1 : 0
-      const forecastScore = predictedForecast === expectedForecast ? 1 : 0
+      const conditionScore = Boolean.match(String.Equivalence(predictedCondition, expectedCondition), {
+        onTrue: () => 1,
+        onFalse: () => 0
+      })
+      const sequencingScore = Boolean.match(String.Equivalence(predictedSequencing, expectedSequencing), {
+        onTrue: () => 1,
+        onFalse: () => 0
+      })
+      const turnPolicyScore = Boolean.match(String.Equivalence(predictedTurnPolicy, expectedTurnPolicy), {
+        onTrue: () => 1,
+        onFalse: () => 0
+      })
+      const forecastScore = Boolean.match(String.Equivalence(predictedForecast, expectedForecast), {
+        onTrue: () => 1,
+        onFalse: () => 0
+      })
       const narrativeScore = averageScore(
         Arr.make(
           tokenOverlapScore(predictedAdjustmentRaw, expectedAdjustmentRaw),
@@ -442,33 +437,77 @@ const protocolMetric = Metric.fromEffect(
       )
 
       const score = clampUnitScore(
-        (conditionScore * 0.25)
-          + (sequencingScore * 0.25)
-          + (turnPolicyScore * 0.2)
-          + (forecastScore * 0.15)
-          + (narrativeScore * 0.15)
+        Number.sumAll(
+          Arr.make(
+            Number.multiply(conditionScore, 0.25),
+            Number.multiply(sequencingScore, 0.25),
+            Number.multiply(turnPolicyScore, 0.2),
+            Number.multiply(forecastScore, 0.15),
+            Number.multiply(narrativeScore, 0.15)
+          )
+        )
       )
 
       const mismatchLines = Arr.filter(
         Arr.make(
-          conditionScore === 1 ? "" : `networkCondition expected='${expectedCondition}' got='${predictedCondition}'`,
-          sequencingScore === 1 ? "" : `sequencingPolicy expected='${expectedSequencing}' got='${predictedSequencing}'`,
-          turnPolicyScore === 1 ? "" : `turnTakingPolicy expected='${expectedTurnPolicy}' got='${predictedTurnPolicy}'`,
-          forecastScore === 1 ? "" : `convergenceForecast expected='${expectedForecast}' got='${predictedForecast}'`
+          Boolean.match(Number.Equivalence(conditionScore, 1), {
+            onTrue: () => "",
+            onFalse: () =>
+              Arr.join(
+                Arr.make("networkCondition expected='", expectedCondition, "' got='", predictedCondition, "'"),
+                ""
+              )
+          }),
+          Boolean.match(Number.Equivalence(sequencingScore, 1), {
+            onTrue: () => "",
+            onFalse: () =>
+              Arr.join(
+                Arr.make("sequencingPolicy expected='", expectedSequencing, "' got='", predictedSequencing, "'"),
+                ""
+              )
+          }),
+          Boolean.match(Number.Equivalence(turnPolicyScore, 1), {
+            onTrue: () => "",
+            onFalse: () =>
+              Arr.join(
+                Arr.make("turnTakingPolicy expected='", expectedTurnPolicy, "' got='", predictedTurnPolicy, "'"),
+                ""
+              )
+          }),
+          Boolean.match(Number.Equivalence(forecastScore, 1), {
+            onTrue: () => "",
+            onFalse: () =>
+              Arr.join(
+                Arr.make("convergenceForecast expected='", expectedForecast, "' got='", predictedForecast, "'"),
+                ""
+              )
+          })
         ),
-        (line) => line.length > 0
+        String.isNonEmpty
       )
 
-      const mismatchSummary = mismatchLines.length > 0
-        ? mismatchLines.join("; ")
-        : "decisionLabels=aligned"
+      const mismatchSummary = Arr.match(mismatchLines, {
+        onEmpty: () => "decisionLabels=aligned",
+        onNonEmpty: (lines) => Arr.join(lines, "; ")
+      })
 
-      const feedback = `condition=${conditionScore.toFixed(2)} `
-        + `sequencing=${sequencingScore.toFixed(2)} `
-        + `turnPolicy=${turnPolicyScore.toFixed(2)} `
-        + `forecast=${forecastScore.toFixed(2)} `
-        + `narrative=${narrativeScore.toFixed(2)} `
-        + mismatchSummary
+      const feedback = Arr.join(
+        Arr.make(
+          "condition=",
+          Inspectable.toStringUnknown(Number.round(conditionScore, 2)),
+          " sequencing=",
+          Inspectable.toStringUnknown(Number.round(sequencingScore, 2)),
+          " turnPolicy=",
+          Inspectable.toStringUnknown(Number.round(turnPolicyScore, 2)),
+          " forecast=",
+          Inspectable.toStringUnknown(Number.round(forecastScore, 2)),
+          " narrative=",
+          Inspectable.toStringUnknown(Number.round(narrativeScore, 2)),
+          " ",
+          mismatchSummary
+        ),
+        ""
+      )
 
       return new Metric.Result({ score, feedback })
     })
@@ -517,17 +556,7 @@ const program = Effect.gen(function*() {
       turnRisk: Signature.describe(Schema.String, "Diagnosed turn asymmetry risk"),
       diagnosis: Signature.describe(Schema.String, "Mechanism diagnosis summary")
     },
-    {
-      networkCondition: Signature.describe(Schema.String, "Topology decision: clustered or nonclustered"),
-      sequencingPolicy: Signature.describe(Schema.String, "Scheduling decision: cluster-first or bridge-early"),
-      turnTakingPolicy: Signature.describe(
-        Schema.String,
-        "Turn-taking policy: strict-alternation, balanced-free-recall, or bridge-speaker-priority"
-      ),
-      convergenceForecast: Signature.describe(Schema.String, "Expected convergence regime: high/moderate/low"),
-      protocolAdjustment: Signature.describe(Schema.String, "Concrete protocol adjustment"),
-      analysisPlan: Signature.describe(Schema.String, "Analysis plan linked to convergence and alignment")
-    }
+    ProtocolOutput.fields
   )
 
   const panelSignature = yield* Signature.make(
@@ -540,17 +569,7 @@ const program = Effect.gen(function*() {
       analysisFocus: Signature.describe(Schema.String, "Primary analysis target"),
       protocolConstraint: Signature.describe(Schema.String, "Hard protocol constraints")
     },
-    {
-      networkCondition: Signature.describe(Schema.String, "Topology decision: clustered or nonclustered"),
-      sequencingPolicy: Signature.describe(Schema.String, "Scheduling decision: cluster-first or bridge-early"),
-      turnTakingPolicy: Signature.describe(
-        Schema.String,
-        "Turn-taking policy: strict-alternation, balanced-free-recall, or bridge-speaker-priority"
-      ),
-      convergenceForecast: Signature.describe(Schema.String, "Expected convergence regime: high/moderate/low"),
-      protocolAdjustment: Signature.describe(Schema.String, "Concrete protocol adjustment"),
-      analysisPlan: Signature.describe(Schema.String, "Analysis plan linked to convergence and alignment")
-    }
+    ProtocolOutput.fields
   )
 
   const dynamicsAnalyst = yield* Module.chainOfThought(
@@ -620,7 +639,7 @@ const program = Effect.gen(function*() {
 
   // Evaluate baseline protocol quality.
   yield* logExampleStage("baseline-evaluation-started", {
-    evalExampleCount: evalset.length
+    evalExampleCount: Arr.length(evalset)
   })
 
   const baseline = yield* Evaluate.run({
@@ -632,7 +651,7 @@ const program = Effect.gen(function*() {
 
   // Evolve planner instructions with GEPA.
   yield* logExampleStage("gepa-stream-started", {
-    trainExampleCount: trainset.length,
+    trainExampleCount: Arr.length(trainset),
     maxIterations: 4,
     maxMergeInvocations: 4,
     seed: 140
@@ -662,8 +681,8 @@ const program = Effect.gen(function*() {
   const gepaEventSummary = Optimizer.summarizeGEPAEvents(gepaEvents)
   const panelParamsAfterGEPA = yield* Ref.get(methodsPanel.params)
 
-  const baselineScore = baseline.overallScores.protocolFit ?? 0
-  const optimizedScore = optimized.overallScores.protocolFit ?? 0
+  const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
+  const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
   const gepaOutcome = Optimizer.summarizeGEPAOutcome({
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
@@ -707,7 +726,7 @@ const program = Effect.gen(function*() {
 
   // Define the protocol control space.
   const protocolSpace = yield* SearchSpace.make({
-    topology: SearchSpace.categorical(["clustered", "nonclustered"]),
+    topology: SearchSpace.categorical(Arr.make("clustered", "nonclustered")),
     bridgeRound: SearchSpace.int(1, 3),
     bridgeTieFraction: SearchSpace.float(0.2, 1, { step: 0.1 }),
     turnInequality: SearchSpace.float(0, 0.6, { step: 0.05 }),
@@ -724,69 +743,110 @@ const program = Effect.gen(function*() {
    */
   const evaluateProtocolDynamics = (config: SearchSpace.Type<typeof protocolSpace>) => {
     const scenarioScores = Arr.map(conversationalRecallScenarios, (scenario) => {
-      const scheduleIntensity = (scenario.conversationsPerParticipant * 60) / scenario.conversationSeconds
-      const topologyBase = config.topology === "nonclustered"
-        ? 0.48 - (scenario.diameterPressure * 0.08)
-        : 0.37 + (scenario.diameterPressure * 0.06)
-      const bridgeDiffusion = config.bridgeTieFraction * ((4 - config.bridgeRound) / 3) * 0.24
-      const reinforcementGain = config.reinforcementWeight * 0.14
-      const recapGain = (config.recapWindowSeconds / 60) * 0.07
-      const turnPenalty = config.turnInequality * (0.18 + (scenario.turnRigidityDemand * 0.1))
-      const suppressionPenalty = (1 - config.suppressionGuard) * scenario.suppressionSensitivity * 0.2
+      const scheduleIntensity = Number.unsafeDivide(
+        Number.multiply(scenario.conversationsPerParticipant, 60),
+        scenario.conversationSeconds
+      )
+      const topologyBase = Boolean.match(String.Equivalence(config.topology, "nonclustered"), {
+        onTrue: () => Number.subtract(0.48, Number.multiply(scenario.diameterPressure, 0.08)),
+        onFalse: () => Number.sum(0.37, Number.multiply(scenario.diameterPressure, 0.06))
+      })
+      const bridgeDiffusion = Number.multiply(
+        Number.multiply(config.bridgeTieFraction, Number.unsafeDivide(Number.subtract(4, config.bridgeRound), 3)),
+        0.24
+      )
+      const reinforcementGain = Number.multiply(config.reinforcementWeight, 0.14)
+      const recapGain = Number.multiply(Number.unsafeDivide(config.recapWindowSeconds, 60), 0.07)
+      const turnPenalty = Number.multiply(
+        config.turnInequality,
+        Number.sum(0.18, Number.multiply(scenario.turnRigidityDemand, 0.1))
+      )
+      const suppressionPenalty = Number.multiply(
+        Number.multiply(Number.subtract(1, config.suppressionGuard), scenario.suppressionSensitivity),
+        0.2
+      )
 
-      const conditionAlignment = config.topology === priorCondition
-        ? 0.03
-        : -0.02
-      const sequencingLabel = config.bridgeRound === 1
-        ? "bridge-early"
-        : "cluster-first"
-      const sequencingAlignment = sequencingLabel === priorSequencing
-        ? 0.02
-        : -0.01
+      const conditionAlignment = Boolean.match(String.Equivalence(config.topology, priorCondition), {
+        onTrue: () => 0.03,
+        onFalse: () => Number.negate(0.02)
+      })
+      const sequencingLabel = Boolean.match(Number.Equivalence(config.bridgeRound, 1), {
+        onTrue: () => "bridge-early",
+        onFalse: () => "cluster-first"
+      })
+      const sequencingAlignment = Boolean.match(String.Equivalence(sequencingLabel, priorSequencing), {
+        onTrue: () => 0.02,
+        onFalse: () => Number.negate(0.01)
+      })
       const turnPolicyAlignment = Match.value(priorTurnPolicy).pipe(
-        Match.when("strict-alternation", () => 0.02 - (config.turnInequality * 0.05)),
-        Match.when("balanced-free-recall", () => 0.015 - Numeric.abs(config.turnInequality - 0.2)),
-        Match.when("bridge-speaker-priority", () => 0.01 + (config.bridgeTieFraction * 0.02)),
+        Match.when("strict-alternation", () => Number.subtract(0.02, Number.multiply(config.turnInequality, 0.05))),
+        Match.when(
+          "balanced-free-recall",
+          () => Number.subtract(0.015, Numeric.abs(Number.subtract(config.turnInequality, 0.2)))
+        ),
+        Match.when("bridge-speaker-priority", () => Number.sum(0.01, Number.multiply(config.bridgeTieFraction, 0.02))),
         Match.orElse(() => 0)
       )
 
       const convergenceLift = clampUnitScore(
-        topologyBase
-          + bridgeDiffusion
-          + reinforcementGain
-          + recapGain
-          + conditionAlignment
-          + sequencingAlignment
-          + turnPolicyAlignment
-          + (scheduleIntensity * 0.04)
-          - turnPenalty
-          - suppressionPenalty
+        Number.subtract(
+          Number.subtract(
+            Number.sumAll(Arr.make(
+              topologyBase,
+              bridgeDiffusion,
+              reinforcementGain,
+              recapGain,
+              conditionAlignment,
+              sequencingAlignment,
+              turnPolicyAlignment,
+              Number.multiply(scheduleIntensity, 0.04)
+            )),
+            turnPenalty
+          ),
+          suppressionPenalty
+        )
       )
 
-      const realizedSlope = (config.topology === "clustered" ? 0.2 : 0.12)
-        + (((config.bridgeRound - 1) / 2) * 0.07)
-        + ((1 - config.bridgeTieFraction) * 0.05)
-        + (config.turnInequality * 0.05)
-      const slopeError = Numeric.abs(realizedSlope - scenario.targetSlope)
+      const realizedSlope = Number.sumAll(Arr.make(
+        Boolean.match(String.Equivalence(config.topology, "clustered"), { onTrue: () => 0.2, onFalse: () => 0.12 }),
+        Number.multiply(Number.unsafeDivide(Number.decrement(config.bridgeRound), 2), 0.07),
+        Number.multiply(Number.subtract(1, config.bridgeTieFraction), 0.05),
+        Number.multiply(config.turnInequality, 0.05)
+      ))
+      const slopeError = Numeric.abs(Number.subtract(realizedSlope, scenario.targetSlope))
 
       const turnInequality = clampUnitScore(
-        (config.turnInequality * 0.9)
-          + (scenario.turnRigidityDemand * 0.1)
+        Number.sum(Number.multiply(config.turnInequality, 0.9), Number.multiply(scenario.turnRigidityDemand, 0.1))
       )
 
       const suppressionRisk = clampUnitScore(
-        ((1 - config.suppressionGuard) * 0.58)
-          + (config.reinforcementWeight * 0.18)
-          + (config.topology === "nonclustered" ? 0.08 : 0.04)
-          + (config.bridgeRound === 1 ? 0.05 : 0.02)
-          + (scenario.suppressionSensitivity * 0.15)
+        Number.sumAll(Arr.make(
+          Number.multiply(Number.subtract(1, config.suppressionGuard), 0.58),
+          Number.multiply(config.reinforcementWeight, 0.18),
+          Boolean.match(String.Equivalence(config.topology, "nonclustered"), {
+            onTrue: () => 0.08,
+            onFalse: () => 0.04
+          }),
+          Boolean.match(Number.Equivalence(config.bridgeRound, 1), { onTrue: () => 0.05, onFalse: () => 0.02 }),
+          Number.multiply(scenario.suppressionSensitivity, 0.15)
+        ))
       )
 
       const bridgePropagation = clampUnitScore(
-        (config.bridgeTieFraction * ((4 - config.bridgeRound) / 3) * 0.55)
-          + (config.topology === "nonclustered" ? 0.22 : 0.12)
-          + (convergenceLift * 0.2)
-          - (suppressionRisk * 0.18)
+        Number.subtract(
+          Number.sumAll(Arr.make(
+            Number.multiply(
+              Number.multiply(config.bridgeTieFraction, Number.unsafeDivide(Number.subtract(4, config.bridgeRound), 3)),
+              0.55
+            ),
+            Boolean.match(String.Equivalence(config.topology, "nonclustered"), {
+              onTrue: () => 0.22,
+              onFalse: () => 0.12
+            }),
+            Number.multiply(convergenceLift, 0.2)
+          )),
+          Number.multiply(suppressionRisk, 0.18)
+        )
       )
 
       return {
@@ -808,39 +868,39 @@ const program = Effect.gen(function*() {
         bridgePropagation: 0
       },
       (acc, score) => ({
-        convergenceLift: acc.convergenceLift + score.convergenceLift,
-        slopeError: acc.slopeError + score.slopeError,
-        turnInequality: acc.turnInequality + score.turnInequality,
-        suppressionRisk: acc.suppressionRisk + score.suppressionRisk,
-        bridgePropagation: acc.bridgePropagation + score.bridgePropagation
+        convergenceLift: Number.sum(acc.convergenceLift, score.convergenceLift),
+        slopeError: Number.sum(acc.slopeError, score.slopeError),
+        turnInequality: Number.sum(acc.turnInequality, score.turnInequality),
+        suppressionRisk: Number.sum(acc.suppressionRisk, score.suppressionRisk),
+        bridgePropagation: Number.sum(acc.bridgePropagation, score.bridgePropagation)
       })
     )
 
-    const scenarioCount = conversationalRecallScenarios.length
+    const scenarioCount = Arr.length(conversationalRecallScenarios)
 
     return {
-      convergenceLift: sums.convergenceLift / scenarioCount,
-      slopeError: sums.slopeError / scenarioCount,
-      turnInequality: sums.turnInequality / scenarioCount,
-      suppressionRisk: sums.suppressionRisk / scenarioCount,
-      bridgePropagation: sums.bridgePropagation / scenarioCount
+      convergenceLift: Number.unsafeDivide(sums.convergenceLift, scenarioCount),
+      slopeError: Number.unsafeDivide(sums.slopeError, scenarioCount),
+      turnInequality: Number.unsafeDivide(sums.turnInequality, scenarioCount),
+      suppressionRisk: Number.unsafeDivide(sums.suppressionRisk, scenarioCount),
+      bridgePropagation: Number.unsafeDivide(sums.bridgePropagation, scenarioCount)
     }
   }
 
   // Run the convergence-priority direction flow.
-  const convergencePriorityDirections: ReadonlyArray<Contracts.Direction> = [
+  const convergencePriorityDirections = Arr.make<Arr.NonEmptyArray<Contracts.Direction>>(
     "maximize",
     "minimize",
     "minimize",
     "minimize"
-  ]
+  )
 
   // Run the bridge-amplification direction flow.
-  const bridgeAmplificationDirections: ReadonlyArray<Contracts.Direction> = [
+  const bridgeAmplificationDirections = Arr.make<Arr.NonEmptyArray<Contracts.Direction>>(
     "maximize",
     "maximize",
     "minimize"
-  ]
+  )
 
   yield* logExampleStage("effect-search-flow-started", {
     flow: "convergence-priority",
@@ -881,9 +941,13 @@ const program = Effect.gen(function*() {
         const vectors = Arr.filterMap(
           trials,
           (trial) =>
-            trial.state._tag === "Completed"
-              ? Option.some(Contracts.normalizeObjectiveVector(trial.state.value))
-              : Option.none()
+            Trial.matchState({
+              Completed: (state) => Option.some(Contracts.normalizeObjectiveVector(state.value)),
+              Running: () => Option.none(),
+              Failed: () => Option.none(),
+              Pruned: () => Option.none(),
+              Cancelled: () => Option.none()
+            })(trial.state)
         )
         const recomputedFrontierIndices = Optimizer.effectSearchInterop.pareto.nonDominatedIndices(
           vectors,
@@ -892,23 +956,23 @@ const program = Effect.gen(function*() {
 
         yield* logExampleStage("convergence-priority-summary", {
           completionReason,
-          trialCount: trials.length,
-          paretoFrontierSize: paretoFront.length,
-          recomputedFrontierSize: recomputedFrontierIndices.length,
+          trialCount: Arr.length(trials),
+          paretoFrontierSize: Arr.length(paretoFront),
+          recomputedFrontierSize: Arr.length(recomputedFrontierIndices),
           summaryKind: convergenceFlowSummary.kind,
           summaryParetoCount: convergenceFlowSummary.paretoCount
         })
 
-        yield* Effect.forEach(paretoFront.slice(0, 4), (trial) =>
+        yield* Effect.forEach(Arr.take(paretoFront, 4), (trial) =>
           Effect.gen(function*() {
             const vector = Contracts.normalizeObjectiveVector(trial.state.value)
 
             yield* Effect.log("example:14 convergence-priority pareto solution", {
               trialNumber: trial.trialNumber,
-              convergenceLift: vector[0]?.toFixed(3),
-              degreeSlopeError: vector[1]?.toFixed(3),
-              turnInequality: vector[2]?.toFixed(3),
-              suppressionRisk: vector[3]?.toFixed(3),
+              ...formatObjectives(
+                Arr.make("convergenceLift", "degreeSlopeError", "turnInequality", "suppressionRisk"),
+                vector
+              ),
               config: trial.config
             })
           }), { discard: true })
@@ -918,7 +982,7 @@ const program = Effect.gen(function*() {
       ({ completionReason, trials }) =>
         logExampleStage("convergence-priority-unexpected-single-objective", {
           completionReason,
-          trialCount: trials.length
+          trialCount: Arr.length(trials)
         })
     ),
     Match.exhaustive
@@ -962,9 +1026,13 @@ const program = Effect.gen(function*() {
         const vectors = Arr.filterMap(
           trials,
           (trial) =>
-            trial.state._tag === "Completed"
-              ? Option.some(Contracts.normalizeObjectiveVector(trial.state.value))
-              : Option.none()
+            Trial.matchState({
+              Completed: (state) => Option.some(Contracts.normalizeObjectiveVector(state.value)),
+              Running: () => Option.none(),
+              Failed: () => Option.none(),
+              Pruned: () => Option.none(),
+              Cancelled: () => Option.none()
+            })(trial.state)
         )
         const recomputedFrontierIndices = Optimizer.effectSearchInterop.pareto.nonDominatedIndices(
           vectors,
@@ -973,22 +1041,20 @@ const program = Effect.gen(function*() {
 
         yield* logExampleStage("bridge-amplification-summary", {
           completionReason,
-          trialCount: trials.length,
-          paretoFrontierSize: paretoFront.length,
-          recomputedFrontierSize: recomputedFrontierIndices.length,
+          trialCount: Arr.length(trials),
+          paretoFrontierSize: Arr.length(paretoFront),
+          recomputedFrontierSize: Arr.length(recomputedFrontierIndices),
           summaryKind: bridgeFlowSummary.kind,
           summaryParetoCount: bridgeFlowSummary.paretoCount
         })
 
-        yield* Effect.forEach(paretoFront.slice(0, 4), (trial) =>
+        yield* Effect.forEach(Arr.take(paretoFront, 4), (trial) =>
           Effect.gen(function*() {
             const vector = Contracts.normalizeObjectiveVector(trial.state.value)
 
             yield* Effect.log("example:14 bridge-amplification pareto solution", {
               trialNumber: trial.trialNumber,
-              bridgePropagation: vector[0]?.toFixed(3),
-              convergenceLift: vector[1]?.toFixed(3),
-              suppressionRisk: vector[2]?.toFixed(3),
+              ...formatObjectives(Arr.make("bridgePropagation", "convergenceLift", "suppressionRisk"), vector),
               config: trial.config
             })
           }), { discard: true })
@@ -998,7 +1064,7 @@ const program = Effect.gen(function*() {
       ({ completionReason, trials }) =>
         logExampleStage("bridge-amplification-unexpected-single-objective", {
           completionReason,
-          trialCount: trials.length
+          trialCount: Arr.length(trials)
         })
     ),
     Match.exhaustive
@@ -1019,7 +1085,11 @@ const program = Effect.gen(function*() {
   const sharedTopologySignal = Arr.reduce(
     convergenceFlowTopologies,
     0,
-    (count, topology) => count + (Arr.contains(bridgeFlowTopologies, topology) ? 1 : 0)
+    (count, topology) =>
+      Number.sum(
+        count,
+        Boolean.match(Arr.contains(bridgeFlowTopologies, topology), { onTrue: () => 1, onFalse: () => 0 })
+      )
   )
 
   yield* logExampleStage("final-summary", {
@@ -1029,7 +1099,7 @@ const program = Effect.gen(function*() {
     convergenceFlowParetoCount: convergenceFlowSummary.paretoCount,
     bridgeFlowParetoCount: bridgeFlowSummary.paretoCount,
     sharedTopologySignal,
-    scenarioCount: conversationalRecallScenarios.length,
+    scenarioCount: Arr.length(conversationalRecallScenarios),
     pnasDesignAnchor: "10 participants, 3 dyadic turn-taking conversations, 150 seconds per conversation"
   })
 })

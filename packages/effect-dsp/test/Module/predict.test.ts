@@ -10,6 +10,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Layer, Option, Ref, Schedule, Schema, TestClock } from "effect"
+import { decodePayload } from "../../src/contracts/Payload.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -41,7 +42,43 @@ describe("Module.predict", () => {
       expect(call.prompt).toContain("[[ ## facts ## ]]\n{\"count\":\"17\",\"countries\":[\"France\",\"Japan\"]}")
       expect(call.prompt).toContain("[[ ## empty ## ]]\nnull")
       expect(entry.prompt).toBe(call.prompt)
-      expect(entry.input).toEqual({ facts: { count: "17", countries: Arr.make("France", "Japan") }, empty: null })
+      expect(yield* decodePayload(Schema.encodedSchema(signature.inputSchema), entry.input)).toEqual({
+        facts: { count: "17", countries: Arr.make("France", "Japan") },
+        empty: null
+      })
+    }))
+
+  it.effect("preserves structured demonstrations and distinguishes omitted optional input from present text", () =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make("Render optional facts", {
+        question: Schema.String,
+        context: Schema.optional(Schema.String)
+      }, { facts: Schema.Struct({ count: Schema.NumberFromString }) })
+      const module = yield* Module.predict("demo-input", signature)
+      yield* Ref.update(module.params, (params) =>
+        new ModuleParams({
+          ...params,
+          outputStrategy: "structured",
+          demos: Arr.make(
+            new Demo({
+              input: { question: "example question" },
+              output: { facts: { count: "3" } }
+            })
+          )
+        }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ facts: { count: "7" } }))
+      const [withoutContext, withContext] = yield* Effect.all(Arr.make(
+        module.forward({ question: "without context" }),
+        module.forward({ question: "with context", context: "literal context" })
+      )).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+      const calls = yield* Ref.get(mock.calls)
+      const absent = yield* Arr.head(calls)
+      const present = yield* Arr.get(calls, 1)
+      expect(withoutContext).toEqual({ facts: { count: 7 } })
+      expect(withContext).toEqual({ facts: { count: 7 } })
+      expect(absent.prompt).toContain("[[ ## facts ## ]]\n{\"count\":\"3\"}")
+      expect(absent.prompt).not.toContain("[[ ## context ## ]]")
+      expect(present.prompt).toContain("[[ ## context ## ]]\nliteral context")
     }))
 
   it.effect("stops after the default three parse retries and carries diagnostic feedback", () =>

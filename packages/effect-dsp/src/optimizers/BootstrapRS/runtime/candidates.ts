@@ -127,7 +127,7 @@ export class EvaluateCandidateOptions<
   readonly module: DspModule<I, O, E, R>
   readonly candidate: CandidateState
   readonly valset: BootstrapRSExamples
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
 }> {}
 
 /** @internal */
@@ -142,7 +142,7 @@ export class BuildCandidateStatesOptions<
   readonly module: DspModule<I, O, E, R>
   readonly initialState: Module.SavedState
   readonly trainset: BootstrapRSExamples
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   readonly seeds: BootstrapRSSeeds
   readonly maxRounds: number
   readonly maxBootstrappedDemos: number

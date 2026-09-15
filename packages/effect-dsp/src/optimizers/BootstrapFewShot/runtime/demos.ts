@@ -6,7 +6,7 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Equal, Match, Option } from "effect"
+import { Array as Arr, Boolean, Data, Equal, Inspectable, Match, Number, Option, String } from "effect"
 import type { Demo, Example } from "../../../Example/index.js"
 import { DemoMerge } from "./model.js"
 
@@ -17,37 +17,46 @@ export const normalizeNonNegative = (value: number): number =>
   )
 
 const stableFieldRecordEquals = (
-  left: Readonly<Record<string, unknown>>,
-  right: Readonly<Record<string, unknown>>
+  left: Demo["input"],
+  right: Demo["input"]
 ): boolean => Equal.equals(Data.struct(left), Data.struct(right))
 
 const stableDemoEquals = (left: Demo, right: Demo): boolean =>
-  stableFieldRecordEquals(left.input, right.input) && stableFieldRecordEquals(left.output, right.output)
+  Boolean.match(stableFieldRecordEquals(left.input, right.input), {
+    onFalse: () => false,
+    onTrue: () => stableFieldRecordEquals(left.output, right.output)
+  })
 
-export const mergeAcceptedDemos = (options: {
-  readonly existing: ReadonlyArray<Demo>
-  readonly accepted: ReadonlyArray<Demo>
+class MergeAcceptedDemosOptions extends Data.Class<{
+  readonly existing: Iterable<Demo>
+  readonly accepted: Iterable<Demo>
   readonly maxBootstrappedDemos: number
-}): DemoMerge =>
+}> {}
+
+export const mergeAcceptedDemos = (options: MergeAcceptedDemosOptions): DemoMerge =>
   Arr.reduce(
     options.accepted,
     new DemoMerge({ demos: Arr.take(options.existing, options.maxBootstrappedDemos), added: 0 }),
     (state, demo) =>
-      state.demos.length >= options.maxBootstrappedDemos ||
-        Arr.some(state.demos, (existing) => stableDemoEquals(existing, demo))
-        ? state
-        : new DemoMerge({ demos: Arr.append(state.demos, demo), added: state.added + 1 })
+      Boolean.match(Number.greaterThanOrEqualTo(Arr.length(state.demos), options.maxBootstrappedDemos), {
+        onTrue: () => state,
+        onFalse: () =>
+          Boolean.match(Arr.some(state.demos, (existing) => stableDemoEquals(existing, demo)), {
+            onTrue: () => state,
+            onFalse: () => new DemoMerge({ demos: Arr.append(state.demos, demo), added: Number.increment(state.added) })
+          })
+      })
   )
 
 export const roundInstructions = (instructions: string, round: number): string =>
-  `${instructions}\n\n[bootstrap-round:${round}]`
+  String.concat(instructions, Arr.join(Arr.make("\n\n[bootstrap-round:", Inspectable.toStringUnknown(round), "]"), ""))
 
 export const labeledTrainset = (
-  trainset: ReadonlyArray<Example>,
+  trainset: Iterable<Example>,
   maxLabeledDemos: Option.Option<number>
-): ReadonlyArray<Example> => {
+) => {
   const labeled = Arr.filter(trainset, (example) => Option.isSome(Option.fromNullable(example.output)))
-  const normalizedLimit = Option.filter(maxLabeledDemos, (limit) => normalizeNonNegative(limit) > 0)
+  const normalizedLimit = Option.filter(maxLabeledDemos, (limit) => Number.greaterThan(normalizeNonNegative(limit), 0))
 
   return Option.match(normalizedLimit, {
     onNone: () => labeled,

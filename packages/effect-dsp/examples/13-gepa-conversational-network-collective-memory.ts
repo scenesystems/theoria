@@ -16,7 +16,21 @@
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Effect,
+  Layer,
+  Match,
+  Number,
+  Option,
+  Predicate,
+  Record,
+  Ref,
+  Schema,
+  Stream,
+  String
+} from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -192,7 +206,7 @@ const evalset = Arr.make(
 
 const logExampleStage = (
   stage: string,
-  payload: Readonly<Record<string, unknown>>
+  payload: typeof Schema.Object.Type
 ) =>
   Effect.log("example:13 stage", {
     stage,
@@ -208,104 +222,122 @@ const logExampleEvent = (
     line
   })
 
-/**
- * Read a string field from dynamic metric payloads.
- */
-const readStringField = (record: Readonly<Record<string, unknown>>, field: string): string =>
-  Option.getOrElse(
-    Option.fromNullable(record[field]).pipe(
-      Option.filter((value): value is string => typeof value === "string")
+const ProtocolOutput = Schema.Struct({
+  networkCondition: Signature.describe(Schema.String, "Chosen topology: clustered or nonclustered"),
+  sequencingPolicy: Signature.describe(Schema.String, "Chosen ordering policy: cluster-first or bridge-early"),
+  convergenceForecast: Signature.describe(Schema.String, "Expected convergence lift: high, moderate, or low"),
+  protocolAdjustment: Signature.describe(Schema.String, "Specific design adjustment"),
+  rationale: Signature.describe(Schema.String, "Rationale grounded in network and memory dynamics")
+})
+
+const normalizeLabel = (value: string): string => String.trim(String.replaceAll("_", "-")(String.toLowerCase(value)))
+
+const normalizeNetworkCondition = (value: string): string =>
+  Match.value(normalizeLabel(value)).pipe(
+    Match.when(
+      Predicate.and(Predicate.or(String.includes("non"), String.includes("single")), String.includes("cluster")),
+      () => "nonclustered"
     ),
-    () => ""
+    Match.when(String.includes("cluster"), () => "clustered"),
+    Match.orElse(() => "")
   )
 
-const normalizeLabel = (value: string): string =>
-  value
-    .toLowerCase()
-    .replaceAll("_", "-")
-    .trim()
+const normalizeSequencingPolicy = (value: string): string =>
+  Match.value(normalizeLabel(value)).pipe(
+    Match.when(
+      Predicate.or(String.includes("bridge"), Predicate.and(String.includes("cross"), String.includes("cluster"))),
+      () => "bridge-early"
+    ),
+    Match.when(Predicate.or(String.includes("cluster"), String.includes("within")), () => "cluster-first"),
+    Match.orElse(() => "")
+  )
 
-const normalizeNetworkCondition = (value: string): string => {
-  const normalized = normalizeLabel(value)
-
-  if (
-    (normalized.includes("non") && normalized.includes("cluster")) ||
-    (normalized.includes("single") && normalized.includes("cluster"))
-  ) {
-    return "nonclustered"
-  }
-
-  if (normalized.includes("cluster")) {
-    return "clustered"
-  }
-
-  return ""
-}
-
-const normalizeSequencingPolicy = (value: string): string => {
-  const normalized = normalizeLabel(value)
-
-  if (normalized.includes("bridge") || (normalized.includes("cross") && normalized.includes("cluster"))) {
-    return "bridge-early"
-  }
-
-  if (normalized.includes("cluster") || normalized.includes("within")) {
-    return "cluster-first"
-  }
-
-  return ""
-}
-
-const normalizeConvergenceForecast = (value: string): string => {
-  const normalized = normalizeLabel(value)
-
-  if (normalized.includes("high") || normalized.includes("strong")) {
-    return "high"
-  }
-
-  if (normalized.includes("moderate") || normalized.includes("medium") || normalized.includes("mixed")) {
-    return "moderate"
-  }
-
-  if (normalized.includes("low") || normalized.includes("weak")) {
-    return "low"
-  }
-
-  return ""
-}
+const normalizeConvergenceForecast = (value: string): string =>
+  Match.value(normalizeLabel(value)).pipe(
+    Match.when(Predicate.or(String.includes("high"), String.includes("strong")), () => "high"),
+    Match.when(
+      Predicate.some(Arr.make(String.includes("moderate"), String.includes("medium"), String.includes("mixed"))),
+      () => "moderate"
+    ),
+    Match.when(Predicate.or(String.includes("low"), String.includes("weak")), () => "low"),
+    Match.orElse(() => "")
+  )
 
 /**
  * Protocol-fit metric with rich feedback for GEPA reflection.
  */
-const protocolMetric = Metric.fromEffect("collectiveMemoryProtocolFit", (prediction, expected) =>
-  Effect.sync(() => {
-    const predictedConditionRaw = readStringField(prediction, "networkCondition")
-    const predictedSequenceRaw = readStringField(prediction, "sequencingPolicy")
-    const predictedForecastRaw = readStringField(prediction, "convergenceForecast")
+const protocolMetric = Metric.fromEffect(
+  "collectiveMemoryProtocolFit",
+  (prediction: typeof ProtocolOutput.Type, expected) =>
+    Effect.sync(() => {
+      const predictedConditionRaw = prediction.networkCondition
+      const predictedSequenceRaw = prediction.sequencingPolicy
+      const predictedForecastRaw = prediction.convergenceForecast
 
-    const expectedConditionRaw = readStringField(expected, "networkCondition")
-    const expectedSequenceRaw = readStringField(expected, "sequencingPolicy")
-    const expectedForecastRaw = readStringField(expected, "convergenceForecast")
+      const expectedConditionRaw = expected.networkCondition
+      const expectedSequenceRaw = expected.sequencingPolicy
+      const expectedForecastRaw = expected.convergenceForecast
 
-    const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
-    const predictedSequence = normalizeSequencingPolicy(predictedSequenceRaw)
-    const predictedForecast = normalizeConvergenceForecast(predictedForecastRaw)
+      const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
+      const predictedSequence = normalizeSequencingPolicy(predictedSequenceRaw)
+      const predictedForecast = normalizeConvergenceForecast(predictedForecastRaw)
 
-    const expectedCondition = normalizeNetworkCondition(expectedConditionRaw)
-    const expectedSequence = normalizeSequencingPolicy(expectedSequenceRaw)
-    const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
+      const expectedCondition = normalizeNetworkCondition(expectedConditionRaw)
+      const expectedSequence = normalizeSequencingPolicy(expectedSequenceRaw)
+      const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
 
-    const conditionScore = predictedCondition === expectedCondition ? 1 : 0
-    const sequenceScore = predictedSequence === expectedSequence ? 1 : 0
-    const forecastScore = predictedForecast === expectedForecast ? 1 : 0
-    const score = (conditionScore + sequenceScore + forecastScore) / 3
+      const conditionScore = Boolean.match(String.Equivalence(predictedCondition, expectedCondition), {
+        onTrue: () => 1,
+        onFalse: () => 0
+      })
+      const sequenceScore = Boolean.match(String.Equivalence(predictedSequence, expectedSequence), {
+        onTrue: () => 1,
+        onFalse: () => 0
+      })
+      const forecastScore = Boolean.match(String.Equivalence(predictedForecast, expectedForecast), {
+        onTrue: () => 1,
+        onFalse: () => 0
+      })
+      const score = Number.unsafeDivide(Number.sumAll(Arr.make(conditionScore, sequenceScore, forecastScore)), 3)
 
-    const feedback = score === 1
-      ? "Protocol decisions match target network method and convergence forecast."
-      : `Expected condition '${expectedCondition}' (raw='${expectedConditionRaw}'), sequence '${expectedSequence}' (raw='${expectedSequenceRaw}'), forecast '${expectedForecast}' (raw='${expectedForecastRaw}'), but received '${predictedCondition}' (raw='${predictedConditionRaw}'), '${predictedSequence}' (raw='${predictedSequenceRaw}'), '${predictedForecast}' (raw='${predictedForecastRaw}').`
+      const feedback = Boolean.match(Number.Equivalence(score, 1), {
+        onTrue: () => "Protocol decisions match target network method and convergence forecast.",
+        onFalse: () =>
+          Arr.join(
+            Arr.make(
+              "Expected condition '",
+              expectedCondition,
+              "' (raw='",
+              expectedConditionRaw,
+              "'), sequence '",
+              expectedSequence,
+              "' (raw='",
+              expectedSequenceRaw,
+              "'), forecast '",
+              expectedForecast,
+              "' (raw='",
+              expectedForecastRaw,
+              "'), but received '",
+              predictedCondition,
+              "' (raw='",
+              predictedConditionRaw,
+              "'), '",
+              predictedSequence,
+              "' (raw='",
+              predictedSequenceRaw,
+              "'), '",
+              predictedForecast,
+              "' (raw='",
+              predictedForecastRaw,
+              "')."
+            ),
+            ""
+          )
+      })
 
-    return new Metric.Result({ score, feedback })
-  }))
+      return new Metric.Result({ score, feedback })
+    })
+)
 
 const program = Effect.gen(function*() {
   const artifacts = yield* createExampleArtifacts(EXAMPLE_NAME)
@@ -343,22 +375,7 @@ const program = Effect.gen(function*() {
       alignmentReach: Signature.describe(Schema.String, "Diagnosed alignment reach"),
       diagnosis: Signature.describe(Schema.String, "Mechanism diagnosis summary")
     },
-    {
-      networkCondition: Signature.describe(
-        Schema.String,
-        "Chosen topology: clustered or nonclustered"
-      ),
-      sequencingPolicy: Signature.describe(
-        Schema.String,
-        "Chosen ordering policy: cluster-first or bridge-early"
-      ),
-      convergenceForecast: Signature.describe(
-        Schema.String,
-        "Expected convergence lift: high, moderate, or low"
-      ),
-      protocolAdjustment: Signature.describe(Schema.String, "Specific design adjustment"),
-      rationale: Signature.describe(Schema.String, "Rationale grounded in network and memory dynamics")
-    }
+    ProtocolOutput.fields
   )
 
   const panelSignature = yield* Signature.make(
@@ -370,22 +387,7 @@ const program = Effect.gen(function*() {
       degreeProfile: Signature.describe(Schema.String, "Distance-dependent alignment profile"),
       designConstraint: Signature.describe(Schema.String, "Hard methodological constraints")
     },
-    {
-      networkCondition: Signature.describe(
-        Schema.String,
-        "Chosen topology: clustered or nonclustered"
-      ),
-      sequencingPolicy: Signature.describe(
-        Schema.String,
-        "Chosen ordering policy: cluster-first or bridge-early"
-      ),
-      convergenceForecast: Signature.describe(
-        Schema.String,
-        "Expected convergence lift: high, moderate, or low"
-      ),
-      protocolAdjustment: Signature.describe(Schema.String, "Specific design adjustment"),
-      rationale: Signature.describe(Schema.String, "Rationale grounded in network and memory dynamics")
-    }
+    ProtocolOutput.fields
   )
 
   const dynamicsAnalyst = yield* Module.chainOfThought(
@@ -447,7 +449,7 @@ const program = Effect.gen(function*() {
   const plannerParamsBeforeOptimization = yield* Ref.get(protocolPlanner.params)
 
   yield* logExampleStage("baseline-evaluation-started", {
-    evalExampleCount: evalset.length
+    evalExampleCount: Arr.length(evalset)
   })
 
   const baseline = yield* Evaluate.run({
@@ -458,7 +460,7 @@ const program = Effect.gen(function*() {
   })
 
   yield* logExampleStage("gepa-stream-started", {
-    trainExampleCount: trainset.length,
+    trainExampleCount: Arr.length(trainset),
     maxIterations: 4,
     maxMergeInvocations: 4,
     seed: 41
@@ -489,8 +491,8 @@ const program = Effect.gen(function*() {
   const plannerParamsAfterOptimization = yield* Ref.get(protocolPlanner.params)
   const plannerSavedState = yield* Module.save(protocolPlanner)
 
-  const baselineScore = baseline.overallScores.protocolFit ?? 0
-  const optimizedScore = optimized.overallScores.protocolFit ?? 0
+  const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
+  const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
   const outcomeSummary = Optimizer.summarizeGEPAOutcome({
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
@@ -504,7 +506,7 @@ const program = Effect.gen(function*() {
     metricName: "collectiveMemoryProtocolFit",
     baselineScore,
     optimizedScore,
-    eventCount: gepaEvents.length,
+    eventCount: Arr.length(gepaEvents),
     optimizationSummary: {
       gepa: gepaEventSummary,
       gepaOutcome: outcomeSummary
@@ -515,15 +517,17 @@ const program = Effect.gen(function*() {
       maxMergeInvocations: 4,
       seed: 41
     },
-    trainsetSize: trainset.length,
-    valsetSize: evalset.length,
-    evalsetSize: evalset.length,
+    trainsetSize: Arr.length(trainset),
+    valsetSize: Arr.length(evalset),
+    evalsetSize: Arr.length(evalset),
     instructionBefore: plannerParamsBeforeOptimization.instructions,
     instructionAfter: plannerParamsAfterOptimization.instructions,
-    demoCountBefore: plannerParamsBeforeOptimization.demos.length,
-    demoCountAfter: plannerParamsAfterOptimization.demos.length,
-    demosLearnedDuringOptimization: plannerParamsAfterOptimization.demos.length -
-      plannerParamsBeforeOptimization.demos.length,
+    demoCountBefore: Arr.length(plannerParamsBeforeOptimization.demos),
+    demoCountAfter: Arr.length(plannerParamsAfterOptimization.demos),
+    demosLearnedDuringOptimization: Number.subtract(
+      Arr.length(plannerParamsAfterOptimization.demos),
+      Arr.length(plannerParamsBeforeOptimization.demos)
+    ),
     extras: {
       baseline,
       optimized,
@@ -559,7 +563,7 @@ const program = Effect.gen(function*() {
     instructionChanged: outcomeSummary.instructionChanged,
     instructionLengthBeforeOptimization: outcomeSummary.instructionLengthBeforeOptimization,
     instructionLengthAfterOptimization: outcomeSummary.instructionLengthAfterOptimization,
-    evolvedInstructionPreview: plannerParamsAfterOptimization.instructions.slice(0, 180),
+    evolvedInstructionPreview: String.slice(0, 180)(plannerParamsAfterOptimization.instructions),
     iterationStartedCount: outcomeSummary.eventSummary.iterationStartedCount,
     mergeCheckedCount: outcomeSummary.eventSummary.mergeCheckedCount,
     mutationProposedCount: outcomeSummary.eventSummary.mutationProposedCount,

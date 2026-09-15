@@ -3,11 +3,12 @@
  *
  * @since 0.1.0
  */
-import { Option } from "effect"
+import type { Schema } from "effect"
+import { Array as Arr, Number, Option, String } from "effect"
 import type { MetricResult } from "../contracts/MetricResult.js"
 import { make } from "./constructors.js"
 import { Result } from "./model.js"
-import { averageNumbers, binaryScore, fieldString, tokenizedField, tokenOverlap } from "./score.js"
+import { binaryScore, fieldString, tokenizedField, tokenOverlap } from "./score.js"
 
 const singleScoreResult = (score: number): MetricResult => new Result({ score })
 
@@ -25,7 +26,7 @@ const singleScoreResult = (score: number): MetricResult => new Result({ score })
  * @category metrics
  */
 export const exactMatch = (field: string) =>
-  make(`exactMatch(${field})`, (prediction, expected) => {
+  make(String.concat(String.concat("exactMatch(", field), ")"), (prediction: typeof Schema.Object.Type, expected) => {
     const score = Option.match(
       fieldString(prediction, field),
       {
@@ -33,7 +34,7 @@ export const exactMatch = (field: string) =>
         onSome: (left) =>
           Option.match(fieldString(expected, field), {
             onNone: () => 0,
-            onSome: (right) => binaryScore(left === right)
+            onSome: (right) => binaryScore(String.Equivalence(left, right))
           })
       }
     )
@@ -41,7 +42,8 @@ export const exactMatch = (field: string) =>
     return singleScoreResult(score)
   })
 
-const safeDivision = (numerator: number, denominator: number): number => denominator === 0 ? 0 : numerator / denominator
+const safeDivision = (numerator: number, denominator: number): number =>
+  Option.getOrElse(Number.divide(numerator, denominator), () => 0)
 
 /**
  * Computes multiset token F1 after scalar normalization and whitespace
@@ -57,7 +59,7 @@ const safeDivision = (numerator: number, denominator: number): number => denomin
  * @category metrics
  */
 export const f1 = (field: string) =>
-  make(`f1(${field})`, (prediction, expected) => {
+  make(String.concat(String.concat("f1(", field), ")"), (prediction: typeof Schema.Object.Type, expected) => {
     const score = Option.match(
       tokenizedField(prediction, field),
       {
@@ -67,10 +69,10 @@ export const f1 = (field: string) =>
             onNone: () => 0,
             onSome: (expectedTokens) => {
               const overlap = tokenOverlap(predictionTokens, expectedTokens)
-              const precision = safeDivision(overlap, predictionTokens.length)
-              const recall = safeDivision(overlap, expectedTokens.length)
+              const precision = safeDivision(overlap, Arr.length(predictionTokens))
+              const recall = safeDivision(overlap, Arr.length(expectedTokens))
 
-              return averageNumbers([safeDivision(2 * precision * recall, precision + recall)])
+              return safeDivision(Number.multiply(Number.multiply(2, precision), recall), Number.sum(precision, recall))
             }
           })
       }
@@ -95,14 +97,17 @@ export const f1 = (field: string) =>
  * @category metrics
  */
 export const contains = (field: string, target: string) => {
-  const normalizedTarget = target.trim().toLowerCase()
+  const normalizedTarget = String.toLowerCase(String.trim(target))
 
-  return make(`contains(${field},${normalizedTarget})`, (prediction) => {
-    const score = Option.match(fieldString(prediction, field), {
-      onNone: () => 0,
-      onSome: (value) => binaryScore(value.includes(normalizedTarget))
-    })
+  return make(
+    Arr.join(Arr.make("contains(", field, ",", normalizedTarget, ")"), ""),
+    (prediction: typeof Schema.Object.Type) => {
+      const score = Option.match(fieldString(prediction, field), {
+        onNone: () => 0,
+        onSome: (value) => binaryScore(String.includes(normalizedTarget)(value))
+      })
 
-    return singleScoreResult(score)
-  })
+      return singleScoreResult(score)
+    }
+  )
 }

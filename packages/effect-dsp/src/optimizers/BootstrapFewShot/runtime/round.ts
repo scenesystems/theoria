@@ -7,10 +7,21 @@
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean as Bool, Data, Effect, Number as Num, Option, Ref, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Effect,
+  Number as Num,
+  Option,
+  Ref,
+  Schema,
+  String as Str,
+  Tuple
+} from "effect"
 import type * as Layer from "effect/Layer"
-import { MetricPayload } from "../../../contracts/MetricFn.js"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
+import { decodePayload } from "../../../contracts/Payload.js"
 import { BootstrapFailed } from "../../../Errors/optimizer.js"
 import { Demo, type Example } from "../../../Example/index.js"
 import type { Metric } from "../../../Metric/model.js"
@@ -61,7 +72,7 @@ class EvaluateExampleOptions<
 > extends Data.Class<{
   readonly module: Module<I, O, E, R>
   readonly example: Example
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   readonly threshold: number
   readonly emit: BootstrapEventSink
   readonly teacher: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
@@ -79,7 +90,7 @@ export class BootstrapRoundOptions<
   readonly state: BootstrapState
   readonly module: Module<I, O, E, R>
   readonly trainset: BootstrapExamples
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   readonly threshold: number
   readonly emit: BootstrapEventSink
   readonly teacher: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
@@ -88,12 +99,12 @@ export class BootstrapRoundOptions<
   readonly initialInstructions: string
 }> {}
 
-const decodeMetricPayload = (payload: unknown) =>
-  Schema.decodeUnknown(MetricPayload)(payload).pipe(
+const decodeExpectedOutput = <A, I, R>(schema: Schema.Schema<A, I, R>, payload: unknown) =>
+  Schema.decodeUnknown(schema)(payload).pipe(
     Effect.mapError(
       () =>
         new BootstrapFailed({
-          message: "BootstrapFewShot requires metric payloads compatible with MetricPayload",
+          message: "expected output does not match module output schema",
           roundsAttempted: 0,
           totalTraces: 0,
           threshold: 0,
@@ -144,13 +155,14 @@ const evaluateExample = <
         ),
       onSome: (output) => Effect.succeed(output)
     })
-    const expectedPayload = yield* decodeMetricPayload(expectedOutput)
+    const expected = yield* decodeExpectedOutput(options.module.signature.outputSchema, expectedOutput)
     const traced = yield* withTracing(
       provideTeacherLayer(options.module.forward(decodedInput), options.teacher)
     )
-    const predictionPayload = yield* decodeMetricPayload(traced[0])
-    const metricResult = yield* options.metric.score(predictionPayload, expectedPayload)
-    const rootTrace = Arr.last(Arr.filter(traced[1], (entry) => Str.Equivalence(entry.moduleName, options.module.name)))
+    const metricResult = yield* options.metric.score(Tuple.getFirst(traced), expected)
+    const rootTrace = Arr.last(
+      Arr.filter(Tuple.getSecond(traced), (entry) => Str.Equivalence(entry.moduleName, options.module.name))
+    )
 
     return yield* Option.match(rootTrace, {
       onNone: () =>
@@ -176,21 +188,28 @@ const evaluateExample = <
           ),
           {
             onTrue: () =>
-              options.emit(
-                BootstrapEvent.TraceAccepted({
-                  moduleName: traceEntry.moduleName,
-                  score: metricResult.score
-                })
-              ).pipe(
-                Effect.as(
-                  new ExampleEvaluation({
-                    demo: Option.some(new Demo({ input: traceEntry.input, output: traceEntry.output })),
-                    traceCount: 1,
-                    accepted: true,
+              Effect.gen(function*() {
+                const input = yield* decodePayload(
+                  Schema.encodedSchema(options.module.signature.inputSchema),
+                  traceEntry.input
+                )
+                const output = yield* decodePayload(
+                  Schema.encodedSchema(options.module.signature.outputSchema),
+                  traceEntry.output
+                )
+                yield* options.emit(
+                  BootstrapEvent.TraceAccepted({
+                    moduleName: traceEntry.moduleName,
                     score: metricResult.score
                   })
                 )
-              ),
+                return new ExampleEvaluation({
+                  demo: Option.some(new Demo({ input, output })),
+                  traceCount: 1,
+                  accepted: true,
+                  score: metricResult.score
+                })
+              }),
             onFalse: () =>
               options.emit(
                 BootstrapEvent.TraceRejected({

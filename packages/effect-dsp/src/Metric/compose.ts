@@ -3,37 +3,31 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Option, Order, Record } from "effect"
-import type { MetricPayload } from "../contracts/MetricFn.js"
-import type { MetricResult } from "../contracts/MetricResult.js"
+import type { Schema } from "effect"
+import { Array as Arr, Effect, Option, Order, Record, String, Tuple } from "effect"
 import { fromEffect } from "./constructors.js"
 import { type Metric, Result } from "./model.js"
 import { averageNumbers } from "./score.js"
 
-type MetricEntry<E, R> = [string, Metric<E, R>]
+type MetricEntry<E, R, A> = Schema.Tuple2<typeof Schema.String, Schema.Schema<Metric<E, R, A>>>["Type"]
+type NamedResult = Schema.Tuple2<typeof Schema.String, typeof Result>["Type"]
 
-const sortMetricEntries = <E, R>(
-  entries: ReadonlyArray<MetricEntry<E, R>>
-): ReadonlyArray<MetricEntry<E, R>> => {
-  const metricNameOrder: Order.Order<MetricEntry<E, R>> = Order.mapInput(Order.string, (entry) => entry[0])
+const sortedEntries = <E, R, A>(
+  metrics: Record.ReadonlyRecord<string, Metric<E, R, A>>
+) =>
+  Arr.sort(
+    Record.toEntries(metrics),
+    Order.mapInput(Order.string, (entry: MetricEntry<E, R, A>) => Tuple.getFirst(entry))
+  )
 
-  return Arr.sort(entries, metricNameOrder)
-}
-
-const sortedEntries = <E, R>(metrics: Readonly<Record<string, Metric<E, R>>>): ReadonlyArray<MetricEntry<E, R>> =>
-  sortMetricEntries(Record.toEntries(metrics))
-
-const optionalFeedback = (feedback: Option.Option<string>): Readonly<Record<string, string>> =>
-  Option.match(feedback, {
-    onNone: () => ({}),
-    onSome: (value) => ({ feedback: value })
-  })
-
-const combineFeedback = (scores: ReadonlyArray<readonly [string, MetricResult]>): Option.Option<string> => {
+const combineFeedback = (scores: Iterable<NamedResult>): Option.Option<string> => {
   const lines = Arr.filterMap(
     scores,
-    ([metricName, result]) =>
-      Option.map(Option.fromNullable(result.feedback), (feedback) => `[${metricName}] ${feedback}`)
+    (entry) =>
+      Option.map(
+        Option.fromNullable(Tuple.getSecond(entry).feedback),
+        (feedback) => String.concat(String.concat(String.concat("[", Tuple.getFirst(entry)), "] "), feedback)
+      )
   )
 
   return Option.match(Arr.head(lines), {
@@ -41,16 +35,6 @@ const combineFeedback = (scores: ReadonlyArray<readonly [string, MetricResult]>)
     onSome: () => Option.some(Arr.join(lines, "\n"))
   })
 }
-
-const scoreList = (scores: ReadonlyArray<readonly [string, MetricResult]>): ReadonlyArray<number> =>
-  Arr.map(scores, ([, result]) => result.score)
-
-const scoreMap = (scores: ReadonlyArray<readonly [string, MetricResult]>): Readonly<Record<string, number>> =>
-  Arr.reduce(
-    scores,
-    Record.empty<string, number>(),
-    (current, [name, result]) => Record.set(current, name, result.score)
-  )
 
 /**
  * Combines named metrics with an equal-weight arithmetic mean.
@@ -64,27 +48,31 @@ const scoreMap = (scores: ReadonlyArray<readonly [string, MetricResult]>): Reado
  * @returns A metric whose requirement and error channels match its children.
  * @typeParam E - Expected failure shared by the child metrics.
  * @typeParam R - Services required by the child metrics.
+ * @typeParam A - Decoded output values accepted by every child metric.
  *
  * @since 0.1.0
  * @category combinators
  */
-export const compose = <E = never, R = never>(
-  metrics: Readonly<Record<string, Metric<E, R>>>
-): Metric<E, R> =>
-  fromEffect<E, R>("compose", (prediction: MetricPayload, expected: MetricPayload) =>
+export const compose = <E = never, R = never, A = unknown>(
+  metrics: Record.ReadonlyRecord<string, Metric<E, R, A>>
+): Metric<E, R, A> =>
+  fromEffect("compose", (prediction: A, expected: A) =>
     Effect.gen(function*() {
       const entries = sortedEntries(metrics)
-      const scores = yield* Effect.forEach(entries, ([metricName, metric]) =>
-        metric.score(prediction, expected).pipe(
-          Effect.map((result) => Data.tuple(metricName, result))
+      const scores = yield* Effect.forEach(entries, (entry) =>
+        Tuple.getSecond(entry).score(prediction, expected).pipe(
+          Effect.map((result) => Tuple.make(Tuple.getFirst(entry), result))
         ))
 
       const feedback = combineFeedback(scores)
-      const meanScore = averageNumbers(scoreList(scores))
+      const meanScore = averageNumbers(Arr.map(scores, (entry) => Tuple.getSecond(entry).score))
 
       return new Result({
         score: meanScore,
-        ...optionalFeedback(feedback)
+        ...Option.match(feedback, {
+          onNone: () => ({}),
+          onSome: (feedback) => ({ feedback })
+        })
       })
     }))
 
@@ -100,4 +88,9 @@ export const compose = <E = never, R = never>(
  * @since 0.1.0
  * @category combinators
  */
-export const composedScoreMap = scoreMap
+export const composedScoreMap = (scores: Iterable<NamedResult>) =>
+  Arr.reduce(
+    scores,
+    Record.empty<string, number>(),
+    (current, entry) => Record.set(current, Tuple.getFirst(entry), Tuple.getSecond(entry).score)
+  )

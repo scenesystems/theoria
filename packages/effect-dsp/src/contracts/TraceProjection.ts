@@ -7,8 +7,8 @@ import * as Response from "@effect/ai/Response"
 import type { ParseResult } from "effect"
 import { Effect, Schema } from "effect"
 import type { Entry } from "../Trace/model.js"
-import { FieldRecord } from "./FieldValue.js"
 import { ModuleId } from "./ModuleId.js"
+import { Payload } from "./Payload.js"
 
 /**
  * Retains module input, output, prompt, response, usage, timing, and score data.
@@ -25,12 +25,12 @@ export class TraceObjectiveProjection extends Schema.Class<TraceObjectiveProject
   moduleId: ModuleId,
   /** Description copied from the module signature. */
   signatureDescription: Schema.String,
-  /** Encoded module input fields. */
-  input: FieldRecord,
+  /** Schema-encoded module input document. */
+  input: Payload,
   /** Rendered prompt sent to the provider. */
   prompt: Schema.String,
-  /** Encoded module output fields. */
-  output: FieldRecord,
+  /** Schema-encoded module output document. */
+  output: Payload,
   /** Evaluation score when one has been attached to the trace. */
   score: Schema.Option(Schema.Number),
   /** Unredacted provider response text. */

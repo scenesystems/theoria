@@ -6,8 +6,8 @@
  * @since 0.1.0
  */
 import { Schema } from "effect"
-import { FieldRecord } from "../../contracts/FieldValue.js"
 import { MetricResult } from "../../contracts/MetricResult.js"
+import { Payload } from "../../contracts/Payload.js"
 
 /**
  * Per-example score array for one candidate program across the validation set.
@@ -104,9 +104,9 @@ export class ParetoKernelSnapshot extends Schema.Class<ParetoKernelSnapshot>("GE
 export class ReflectiveExample extends Schema.Class<ReflectiveExample>("GEPAReflectiveExample")({
   exampleId: Schema.String,
   predictorName: Schema.String,
-  inputs: FieldRecord,
-  generatedOutputs: FieldRecord,
-  expectedOutput: FieldRecord,
+  inputs: Payload,
+  generatedOutputs: Payload,
+  expectedOutput: Payload,
   feedback: Schema.String,
   score: Schema.Number
 }) {}
@@ -122,9 +122,9 @@ export class ReflectiveExample extends Schema.Class<ReflectiveExample>("GEPARefl
 export class ReflectiveDatasetSample extends Schema.Class<ReflectiveDatasetSample>("GEPAReflectiveDatasetSample")({
   exampleId: Schema.String,
   predictorName: Schema.String,
-  inputs: FieldRecord,
-  generatedOutputs: FieldRecord,
-  expectedOutput: FieldRecord,
+  inputs: Payload,
+  generatedOutputs: Payload,
+  expectedOutput: Payload,
   metricResult: MetricResult,
   parseFailureStructure: Schema.optional(Schema.String)
 }) {}

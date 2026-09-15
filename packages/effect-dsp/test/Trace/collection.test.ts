@@ -4,7 +4,11 @@
 import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Option, Tuple } from "effect"
+import { Array as Arr, Effect, Option, Schema, Tuple } from "effect"
+import { encodePayload } from "../../src/contracts/Payload.js"
+
+const Input = Schema.Struct({ question: Schema.String })
+const Output = Schema.Struct({ answer: Schema.String })
 
 const usage = new Response.Usage({
   inputTokens: 17,
@@ -15,17 +19,21 @@ const usage = new Response.Usage({
 })
 
 const entry = (moduleName: string) =>
-  new Trace.Entry({
-    moduleName,
-    signatureDescription: "Answer questions",
-    input: { question: "Capital?" },
-    output: { answer: "Paris" },
-    prompt: "Capital?",
-    rawResponse: "Paris",
-    usage,
-    durationMs: 12,
-    score: Trace.noScore,
-    timestamp: 1_700_000_000_000
+  Effect.gen(function*() {
+    const input = yield* encodePayload(Input, { question: "Capital?" })
+    const output = yield* encodePayload(Output, { answer: "Paris" })
+    return new Trace.Entry({
+      moduleName,
+      signatureDescription: "Answer questions",
+      input,
+      output,
+      prompt: "Capital?",
+      rawResponse: "Paris",
+      usage,
+      durationMs: 12,
+      score: Trace.noScore,
+      timestamp: 1_700_000_000_000
+    })
   })
 
 const call = new Trace.Call({
@@ -39,7 +47,7 @@ const call = new Trace.Call({
 describe("Trace collection", () => {
   it.effect("is a no-op outside lexical scopes", () =>
     Effect.gen(function*() {
-      yield* Trace.append(entry("outside"))
+      yield* entry("outside").pipe(Effect.flatMap(Trace.append))
       yield* Trace.appendCall(call)
 
       const entries = yield* Trace.get
@@ -55,7 +63,7 @@ describe("Trace collection", () => {
   it.effect("collects entries and calls in their independent scopes", () =>
     Effect.gen(function*() {
       const traced = yield* Trace.withTracing(
-        Trace.append(entry("qa")).pipe(Effect.as("trace-result"))
+        entry("qa").pipe(Effect.flatMap(Trace.append), Effect.as("trace-result"))
       )
       const called = yield* Trace.withCalls(
         Trace.appendCall(call).pipe(Effect.as("call-result"))

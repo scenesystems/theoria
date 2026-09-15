@@ -143,7 +143,7 @@ describe("native Module E/R propagation", () => {
       expectTypeOf<Effect.Effect.Context<typeof refinedOperation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()
-      const metric = Metric.make("exact", (prediction, expected) =>
+      const metric = Metric.make("exact", (prediction: typeof NativeModuleOutput.Type, expected) =>
         new MetricResult({
           score: Boolean.match(Equal.equals(prediction.answer, expected.answer), {
             onTrue: () => 1,

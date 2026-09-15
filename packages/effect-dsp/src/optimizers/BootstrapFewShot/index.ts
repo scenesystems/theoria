@@ -87,7 +87,7 @@ export class BootstrapFewShotOptions<
   /** Training examples used for teacher runs and labeled fallback. */
   readonly trainset: BootstrapExamples
   /** Scores each module output; values greater than or equal to `threshold` are accepted. */
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   /** Maximum filtered-trainset passes. Zero skips trace collection. */
   readonly maxRounds: number
   /** Trace-demo cap, including retained existing demos but excluding labeled fallback. */

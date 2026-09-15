@@ -1,0 +1,84 @@
+/**
+ * Bootstrap demonstration equality and capacity preserve lazy evaluation.
+ */
+import { describe, expect, it } from "@effect/vitest"
+import { Demo, Example } from "@scenesystems/effect-dsp/Example"
+import { Array as Arr, Data, Effect, Equal, Hash, Match, MutableRef, Number, Option, Schema, String } from "effect"
+import {
+  labeledTrainset,
+  mergeAcceptedDemos,
+  roundInstructions
+} from "../../../src/optimizers/BootstrapFewShot/runtime/demos.js"
+
+class ObservedAnswer extends Data.Class<{
+  readonly value: string
+  readonly reads: MutableRef.MutableRef<number>
+}> {
+  [Equal.symbol](other: Equal.Equal): boolean {
+    MutableRef.increment(this.reads)
+    return Match.value(other).pipe(
+      Match.when(
+        Schema.is(Schema.Struct({ value: Schema.String })),
+        (that) => String.Equivalence(this.value, that.value)
+      ),
+      Match.orElse(() => false)
+    )
+  }
+
+  [Hash.symbol](): number {
+    return Hash.string(this.value)
+  }
+}
+
+describe("bootstrap demonstration helpers", () => {
+  it.effect("compares outputs only for matching inputs while capacity remains", () =>
+    Effect.gen(function*() {
+      const reads = MutableRef.make(0)
+      const makeDemo = (question: string) =>
+        new Demo({
+          input: { question },
+          output: { answer: new ObservedAnswer({ value: "Paris", reads }) }
+        })
+      const existing = makeDemo("France")
+      const different = makeDemo("Another question")
+      const duplicate = makeDemo("France")
+
+      const distinct = mergeAcceptedDemos({
+        existing: Arr.make(existing),
+        accepted: Arr.make(different),
+        maxBootstrappedDemos: 2
+      })
+      expect(distinct.added).toBe(1)
+      expect(Arr.length(distinct.demos)).toBe(2)
+      expect(MutableRef.get(reads)).toBe(0)
+
+      const deduped = mergeAcceptedDemos({
+        existing: Arr.make(existing),
+        accepted: Arr.make(duplicate),
+        maxBootstrappedDemos: 2
+      })
+      expect(deduped.added).toBe(0)
+      expect(Arr.length(deduped.demos)).toBe(1)
+      expect(Number.greaterThan(MutableRef.get(reads), 0)).toBe(true)
+      MutableRef.set(reads, 0)
+
+      const merged = mergeAcceptedDemos({
+        existing: Arr.make(existing),
+        accepted: Arr.make(duplicate),
+        maxBootstrappedDemos: 1
+      })
+      expect(merged.added).toBe(0)
+      expect(Arr.length(merged.demos)).toBe(1)
+      expect(MutableRef.get(reads)).toBe(0)
+    }))
+
+  it.effect("filters unlabeled examples, normalizes limits, and retains round markers", () =>
+    Effect.gen(function*() {
+      const first = new Example({ input: { question: "France" }, output: { answer: "Paris" } })
+      const second = new Example({ input: { question: "Japan" }, output: { answer: "Tokyo" } })
+      const rows = Arr.make(new Example({ input: { question: "Unlabeled" } }), first, second)
+      expect(labeledTrainset(rows, Option.some(1.8))).toEqual(Arr.make(first))
+      expect(labeledTrainset(rows, Option.some(0))).toEqual(Arr.make(first, second))
+      expect(roundInstructions("Answer briefly", 3)).toBe("Answer briefly\n\n[bootstrap-round:3]")
+    }))
+})

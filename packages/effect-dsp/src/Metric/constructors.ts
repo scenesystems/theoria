@@ -14,6 +14,7 @@ import { Metric } from "./model.js"
  * The function runs each time `score` is executed. Synchronous exceptions become
  * Effect defects rather than typed failures.
  *
+ * @typeParam A - Decoded output type inferred from the scorer's parameter.
  * @param name - Diagnostic name retained on the metric.
  * @param score - Synchronous scorer for prediction and expected payloads.
  * @returns A metric with no typed error or service requirements.
@@ -21,20 +22,21 @@ import { Metric } from "./model.js"
  * @example
  * ```ts
  * import * as Metric from "@scenesystems/effect-dsp/Metric"
- * import { Effect, Match } from "effect"
+ * import { Boolean, Effect, Equal, Schema } from "effect"
  *
- * const accuracy = Metric.make("accuracy", (prediction, expected) =>
+ * const Output = Schema.Struct({ answer: Schema.String })
+ * const accuracy = Metric.make("accuracy", (prediction: typeof Output.Type, expected) =>
  *   new Metric.Result({
- *     score: Match.value(prediction["answer"] === expected["answer"]).pipe(
- *       Match.when(true, () => 1),
- *       Match.orElse(() => 0)
- *     )
+ *     score: Boolean.match(Equal.equals(prediction.answer, expected.answer), {
+ *       onTrue: () => 1,
+ *       onFalse: () => 0
+ *     })
  *   })
  * )
  *
  * export const program = accuracy.score({ answer: "Paris" }, { answer: "Paris" }).pipe(
  *   Effect.filterOrFail(
- *     (result) => result.score === 1,
+ *     (result) => Equal.equals(result.score, 1),
  *     () => "UnexpectedScore"
  *   )
  * )
@@ -43,13 +45,10 @@ import { Metric } from "./model.js"
  * @since 0.1.0
  * @category constructors
  */
-export const make = (name: string, score: PureMetricFn): Metric =>
+export const make = <A>(name: string, score: PureMetricFn<A>): Metric<never, never, A> =>
   new Metric({
     name,
-    score: (prediction, expected) =>
-      Effect.succeed(
-        score(prediction, expected)
-      )
+    score: (prediction, expected) => Effect.sync(() => score(prediction, expected))
   })
 
 /**
@@ -57,6 +56,7 @@ export const make = (name: string, score: PureMetricFn): Metric =>
  *
  * @typeParam E - Expected scoring failure.
  * @typeParam R - Services used during scoring.
+ * @typeParam A - Decoded output type inferred from the scorer's parameter.
  * @param name - Diagnostic name retained on the metric.
  * @param score - Effectful scorer invoked for each prediction and expected pair.
  * @returns A metric with the scorer's original error and requirement channels.
@@ -64,17 +64,18 @@ export const make = (name: string, score: PureMetricFn): Metric =>
  * @example
  * ```ts
  * import * as Metric from "@scenesystems/effect-dsp/Metric"
- * import { Effect, Match, Ref } from "effect"
+ * import { Boolean, Effect, Equal, Number, Ref, Schema } from "effect"
  *
+ * const Output = Schema.Struct({ answer: Schema.String })
  * export const program = Effect.gen(function*() {
  *   const calls = yield* Ref.make(0)
- *   const graded = Metric.fromEffect("graded", (prediction, expected) => Effect.gen(function*() {
- *     yield* Ref.update(calls, (count) => count + 1)
+ *   const graded = Metric.fromEffect("graded", (prediction: typeof Output.Type, expected) => Effect.gen(function*() {
+ *     yield* Ref.update(calls, Number.increment)
  *     return new Metric.Result({
- *       score: Match.value(prediction["answer"] === expected["answer"]).pipe(
- *         Match.when(true, () => 1),
- *         Match.orElse(() => 0)
- *       )
+ *       score: Boolean.match(Equal.equals(prediction.answer, expected.answer), {
+ *         onTrue: () => 1,
+ *         onFalse: () => 0
+ *       })
  *     })
  *   }))
  *
@@ -83,7 +84,7 @@ export const make = (name: string, score: PureMetricFn): Metric =>
  *
  *   return yield* Effect.succeed(result).pipe(
  *     Effect.filterOrFail(
- *       (current) => current.score === 1 && callCount === 1,
+ *       (current) => Boolean.and(Equal.equals(current.score, 1), Equal.equals(callCount, 1)),
  *       () => "UnexpectedMetricResult"
  *     )
  *   )
@@ -93,7 +94,7 @@ export const make = (name: string, score: PureMetricFn): Metric =>
  * @since 0.1.0
  * @category constructors
  */
-export const fromEffect = <E, R>(name: string, score: MetricFn<E, R>): Metric<E, R> =>
+export const fromEffect = <E, R, A = unknown>(name: string, score: MetricFn<A, E, R>): Metric<E, R, A> =>
   new Metric({
     name,
     score

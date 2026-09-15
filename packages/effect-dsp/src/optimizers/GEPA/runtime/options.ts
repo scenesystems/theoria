@@ -43,7 +43,7 @@ export class GEPAOptions<
   /** Candidate evaluation and reflection examples. Defaults to `trainset`; rows without `output` are ignored. */
   readonly valset?: GEPAExamples
   /** Scores each prediction and may supply feedback for the next mutation prompt. */
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   /** Iteration count, rounded down; negative and non-finite values become zero. */
   readonly maxIterations: number
   /** Merge budget, rounded down and normalized like `maxIterations`; defaults to `5`. */

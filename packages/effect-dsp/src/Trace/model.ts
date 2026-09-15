@@ -5,13 +5,31 @@
  */
 import * as Response from "@effect/ai/Response"
 import { Option, Schema } from "effect"
-import { FieldRecord } from "../contracts/FieldValue.js"
+import { Payload } from "../contracts/Payload.js"
 
 /**
- * Captures one successful module invocation for diagnostics and evaluation.
+ * The output document of a ReAct iteration that has no decoded answer yet.
+ * Decode intermediate entry output with this schema; completed answers use
+ * the module's output schema. Tool-only iterations have no parse error.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const UnparsedOutput = Schema.Struct({
+  response: Schema.String,
+  parseError: Schema.Option(Schema.String),
+  toolCallCount: Schema.Number,
+  toolResultCount: Schema.Number
+})
+
+/**
+ * Captures a successful module invocation or one ReAct iteration.
  *
  * @remarks
- * Input, output, prompt, and raw response data are retained verbatim. The usage
+ * Input and decoded answers are schema-encoded JSON documents; use
+ * `decodePayload` with the invocation's signature to recover typed values.
+ * Intermediate ReAct output uses {@link UnparsedOutput}. Prompt and raw response
+ * data are retained verbatim. For successful invocations, usage
  * is the final successful invocation's selected native usage, not a retry total.
  * Provider observation takes precedence over returned-response usage wholesale.
  *
@@ -23,10 +41,10 @@ export class Entry extends Schema.Class<Entry>("TraceEntry")({
   moduleName: Schema.String,
   /** Description from the module signature. */
   signatureDescription: Schema.String,
-  /** Decoded module input fields. */
-  input: FieldRecord,
-  /** Decoded module output fields. */
-  output: FieldRecord,
+  /** Schema-encoded input document, decoded with the input signature. */
+  input: Payload,
+  /** Schema-encoded answer or intermediate {@link UnparsedOutput} document. */
+  output: Payload,
   /** Rendered prompt sent to the language model. */
   prompt: Schema.String,
   /** Unparsed language-model response text. */

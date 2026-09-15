@@ -9,7 +9,7 @@ import * as Prompt from "@effect/ai/Prompt"
 import * as Response from "@effect/ai/Response"
 import * as Toolkit from "@effect/ai/Toolkit"
 import { Array as Arr, Data, Effect, Layer, Match, Number, Option, Predicate, Ref, Schema, Stream } from "effect"
-import { FieldValue } from "../contracts/FieldValue.js"
+import { encodePayload } from "../contracts/Payload.js"
 
 const MethodSchema = Schema.Literal("generateText", "generateObject")
 type Method = typeof MethodSchema.Type
@@ -194,31 +194,21 @@ const resolveStrategyResponse = (
       )
   })(strategy)
 
-const JsonValue = Schema.parseJson(FieldValue)
-const fieldValueEquivalence = Schema.equivalence(FieldValue)
-
-const encodeJson = (response: unknown): Effect.Effect<string, AiError.UnknownError> =>
-  Schema.decodeUnknown(FieldValue)(response).pipe(
-    Effect.flatMap((value) =>
-      Schema.encode(JsonValue)(value).pipe(
-        Effect.tap((text) =>
-          Schema.decode(JsonValue)(text).pipe(
-            Effect.filterOrFail(
-              (decoded) => fieldValueEquivalence(value, decoded),
-              () => mockError("generateObject", "MockLanguageModel JSON encoding would lose response information")
-            )
-          )
-        )
-      )
+const encodeJson = <A, I, R>(response: unknown, schema: Schema.Schema<A, I, R>) => {
+  const encoded = Schema.encodedSchema(schema)
+  return Schema.decodeUnknown(encoded)(response, { onExcessProperty: "error" }).pipe(
+    Effect.mapError((error) =>
+      AiError.MalformedOutput.fromParseError({ module: "MockLanguageModel", method: "generateObject", error })
     ),
-    Effect.mapError((cause) =>
-      mockError(
-        "generateObject",
-        "MockLanguageModel could not encode strategy output as JSON",
-        cause
+    Effect.flatMap((value) =>
+      encodePayload(encoded, value).pipe(
+        Effect.mapError((cause) =>
+          mockError("generateObject", "MockLanguageModel JSON encoding would lose response information", cause)
+        )
       )
     )
   )
+}
 
 const encodeTextResponse = (response: unknown): Effect.Effect<string, AiError.UnknownError> =>
   Match.value(response).pipe(
@@ -245,11 +235,11 @@ const encodeTextResponse = (response: unknown): Effect.Effect<string, AiError.Un
 const toProviderText = (
   response: unknown,
   responseFormat: LanguageModel.ProviderOptions["responseFormat"]
-): Effect.Effect<string, AiError.UnknownError> =>
+): Effect.Effect<string, AiError.AiError> =>
   Match.value(responseFormat).pipe(
     Match.discriminatorsExhaustive("type")({
       text: () => encodeTextResponse(response),
-      json: () => encodeJson(response)
+      json: ({ schema }) => encodeJson(response, schema)
     })
   )
 
@@ -346,8 +336,9 @@ const makeService = (
  * Generation is deterministic for deterministic strategy callbacks. The mock
  * does not simulate streaming: `streamText` fails with `AiError.UnknownError`.
  * Strategy failures, exceptions from `map`, unsupported text values, and
- * values that cannot be encoded for object generation also fail as
- * `AiError.UnknownError`.
+ * lossy JSON encoding fail as `AiError.UnknownError`. Object responses must
+ * satisfy the requested schema's encoded form; mismatches fail with
+ * `AiError.MalformedOutput` before any successful call is recorded.
  *
  * @since 0.1.0
  * @category constructors

@@ -12,13 +12,12 @@ import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import type { Record } from "effect"
 import { Array as Arr, Data, Effect, Number, Option, Schema, String } from "effect"
-import type { FieldRecord } from "../../contracts/FieldValue.js"
-import { projectFieldRecord } from "../../contracts/PayloadProjection.js"
+import { encodePayload, type Payload } from "../../contracts/Payload.js"
 import type { ParseOutputError } from "../../Errors/module.js"
 import { TraceError } from "../../Errors/trace.js"
 import { promptToTraceText } from "../../internal/prompt/trace.js"
 import type { Signature } from "../../Signature/model.js"
-import { append, Entry, noScore } from "../../Trace/index.js"
+import { append, Entry, noScore, UnparsedOutput } from "../../Trace/index.js"
 import { defaultParseFeedbackTemplate } from "../predict/policy.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "../predict/trace.js"
 
@@ -101,7 +100,7 @@ export class ReactTraceOptions<
 > extends Data.Class<{
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly traceInput: FieldRecord
+  readonly traceInput: Payload
   readonly outputSchema: Schema.Struct<O>
   readonly output: Option.Option<Schema.Schema.Type<Schema.Struct<O>>>
   readonly parseError: Option.Option<string>
@@ -139,15 +138,15 @@ export const appendReactTraceEntry = <
           })
         ),
       onNone: () =>
-        projectFieldRecord(
+        encodePayload(
+          UnparsedOutput,
           {
             response: options.response.text,
-            parseError: Option.getOrElse(options.parseError, () => "none"),
+            parseError: options.parseError,
             toolCallCount: Arr.length(options.response.toolCalls),
             toolResultCount: Arr.length(options.response.toolResults)
-          },
-          () => traceProjectionError(options.moduleName)
-        )
+          }
+        ).pipe(Effect.mapError(() => traceProjectionError(options.moduleName)))
     })
 
     const entry = new Entry({

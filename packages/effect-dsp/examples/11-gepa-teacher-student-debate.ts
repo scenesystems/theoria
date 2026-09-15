@@ -14,7 +14,7 @@
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Boolean, Effect, Layer, Number, Option, Record, Ref, Schema, Stream, String } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -106,25 +106,33 @@ const evalset = Arr.make(
   })
 )
 
+const Recommendation = Schema.Struct({
+  intervention: Signature.describe(Schema.String, "Final intervention: norms, incentives, or information"),
+  rationale: Signature.describe(Schema.String, "Decision rationale that references both analysts")
+})
+
 const recommendationMetric = Metric.fromEffect(
   "recommendationExactMatchWithFeedback",
-  (prediction, expected) =>
+  (prediction: typeof Recommendation.Type, expected) =>
     Effect.sync(() => {
-      const predictedIntervention = Option.getOrElse(
-        Option.fromNullable(prediction.intervention).pipe(Option.filter((value) => typeof value === "string")),
-        () => ""
-      )
-      const expectedIntervention = Option.getOrElse(
-        Option.fromNullable(expected.intervention).pipe(Option.filter((value) => typeof value === "string")),
-        () => ""
-      )
-
-      const score = predictedIntervention === expectedIntervention
-        ? 1
-        : 0
-      const feedback = predictedIntervention === expectedIntervention
-        ? `Correctly selected intervention '${expectedIntervention}'.`
-        : `Expected '${expectedIntervention}' but produced '${predictedIntervention}'. Prioritize mechanism-level fit over stylistic rhetoric.`
+      const predictedIntervention = prediction.intervention
+      const expectedIntervention = expected.intervention
+      const correct = String.Equivalence(predictedIntervention, expectedIntervention)
+      const score = Boolean.match(correct, { onTrue: () => 1, onFalse: () => 0 })
+      const feedback = Boolean.match(correct, {
+        onTrue: () => Arr.join(Arr.make("Correctly selected intervention '", expectedIntervention, "'."), ""),
+        onFalse: () =>
+          Arr.join(
+            Arr.make(
+              "Expected '",
+              expectedIntervention,
+              "' but produced '",
+              predictedIntervention,
+              "'. Prioritize mechanism-level fit over stylistic rhetoric."
+            ),
+            ""
+          )
+      })
 
       return new Metric.Result({
         score,
@@ -135,7 +143,7 @@ const recommendationMetric = Metric.fromEffect(
 
 const logExampleStage = (
   stage: string,
-  payload: Readonly<Record<string, unknown>>
+  payload: typeof Schema.Object.Type
 ) =>
   Effect.log("example:11 stage", {
     stage,
@@ -172,10 +180,7 @@ const program = Effect.gen(function*() {
       observation: Signature.describe(Schema.String, "Observed field behavior"),
       population: Signature.describe(Schema.String, "Studied population")
     },
-    {
-      intervention: Signature.describe(Schema.String, "Final intervention: norms, incentives, or information"),
-      rationale: Signature.describe(Schema.String, "Decision rationale that references both analysts")
-    }
+    Recommendation.fields
   )
 
   const judgeSignature = yield* Signature.make(
@@ -186,10 +191,7 @@ const program = Effect.gen(function*() {
       teacherArgument: Signature.describe(Schema.String, "Teacher analyst position"),
       studentArgument: Signature.describe(Schema.String, "Student analyst position")
     },
-    {
-      intervention: Signature.describe(Schema.String, "Final intervention: norms, incentives, or information"),
-      rationale: Signature.describe(Schema.String, "Decision rationale that references both analysts")
-    }
+    Recommendation.fields
   )
 
   const teacherAnalyst = yield* Module.chainOfThought("teacher-analyst", analystSignature)
@@ -222,8 +224,8 @@ const program = Effect.gen(function*() {
         return yield* judge.forward({
           observation: input.observation,
           population: input.population,
-          teacherArgument: `${teacherArgument.intervention}: ${teacherArgument.argument}`,
-          studentArgument: `${studentArgument.intervention}: ${studentArgument.argument}`
+          teacherArgument: Arr.join(Arr.make(teacherArgument.intervention, teacherArgument.argument), ": "),
+          studentArgument: Arr.join(Arr.make(studentArgument.intervention, studentArgument.argument), ": ")
         })
       })
   })
@@ -242,7 +244,7 @@ const program = Effect.gen(function*() {
   })
 
   yield* logExampleStage("baseline-evaluation-started", {
-    evalExampleCount: evalset.length
+    evalExampleCount: Arr.length(evalset)
   })
 
   const baseline = yield* Evaluate.run({
@@ -254,7 +256,7 @@ const program = Effect.gen(function*() {
   const judgeParamsBeforeOptimization = yield* Ref.get(judge.params)
 
   yield* logExampleStage("gepa-stream-started", {
-    trainExampleCount: trainset.length,
+    trainExampleCount: Arr.length(trainset),
     maxIterations: 3,
     seed: 29
   })
@@ -283,8 +285,8 @@ const program = Effect.gen(function*() {
   const judgeParams = yield* Ref.get(judge.params)
   const debateSavedState = yield* Module.save(debateModule)
 
-  const baselineScore = baseline.overallScores.exactMatch ?? 0
-  const optimizedScore = optimized.overallScores.exactMatch ?? 0
+  const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "exactMatch"), () => 0)
+  const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "exactMatch"), () => 0)
   const outcomeSummary = Optimizer.summarizeGEPAOutcome({
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
@@ -298,7 +300,7 @@ const program = Effect.gen(function*() {
     metricName: "recommendationExactMatchWithFeedback",
     baselineScore,
     optimizedScore,
-    eventCount: gepaEvents.length,
+    eventCount: Arr.length(gepaEvents),
     optimizationSummary: {
       gepa: gepaEventSummary,
       gepaOutcome: outcomeSummary
@@ -308,14 +310,17 @@ const program = Effect.gen(function*() {
       maxIterations: 3,
       seed: 29
     },
-    trainsetSize: trainset.length,
-    valsetSize: evalset.length,
-    evalsetSize: evalset.length,
+    trainsetSize: Arr.length(trainset),
+    valsetSize: Arr.length(evalset),
+    evalsetSize: Arr.length(evalset),
     instructionBefore: judgeParamsBeforeOptimization.instructions,
     instructionAfter: judgeParams.instructions,
-    demoCountBefore: judgeParamsBeforeOptimization.demos.length,
-    demoCountAfter: judgeParams.demos.length,
-    demosLearnedDuringOptimization: judgeParams.demos.length - judgeParamsBeforeOptimization.demos.length,
+    demoCountBefore: Arr.length(judgeParamsBeforeOptimization.demos),
+    demoCountAfter: Arr.length(judgeParams.demos),
+    demosLearnedDuringOptimization: Number.subtract(
+      Arr.length(judgeParams.demos),
+      Arr.length(judgeParamsBeforeOptimization.demos)
+    ),
     extras: {
       baseline,
       optimized,
@@ -351,7 +356,7 @@ const program = Effect.gen(function*() {
     instructionChanged: outcomeSummary.instructionChanged,
     instructionLengthBeforeOptimization: outcomeSummary.instructionLengthBeforeOptimization,
     instructionLengthAfterOptimization: outcomeSummary.instructionLengthAfterOptimization,
-    evolvedInstructionPreview: judgeParams.instructions.slice(0, 180),
+    evolvedInstructionPreview: String.slice(0, 180)(judgeParams.instructions),
     acceptanceEvaluatedCount: outcomeSummary.eventSummary.acceptanceEvaluatedCount,
     acceptanceAcceptedCount: outcomeSummary.eventSummary.acceptanceAcceptedCount,
     gate1PassedCount: outcomeSummary.eventSummary.gate1PassedCount,

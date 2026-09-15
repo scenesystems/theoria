@@ -6,7 +6,18 @@
  * @internal
  */
 import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Array as Arr, Data, Effect, Inspectable, Match, Number as Num, Option, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Data,
+  Effect,
+  Inspectable,
+  Match,
+  Number as Num,
+  Option,
+  Schema,
+  String as Str,
+  Tuple
+} from "effect"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
 import type { Metric } from "../../../Metric/model.js"
 import type { Module as DspModule } from "../../../Module/model.js"
@@ -51,7 +62,7 @@ export class ScoreCandidatesOptions<
   readonly module: DspModule<I, O, E, R>
   readonly candidates: CandidateStates
   readonly valset: BootstrapRSExamples
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
 }> {}
 
 /**
@@ -127,7 +138,7 @@ export const selectBestCandidate = (scoredCandidates: ScoredCandidates) =>
                 trialCount: Arr.length(scoredCandidates)
               })
             ),
-          onSome: (entry) => Effect.succeed(entry[1])
+          onSome: (entry) => Effect.succeed(Tuple.getSecond(entry))
         }),
       trials: Arr.length(scoredCandidates),
       concurrency: 1
@@ -150,6 +161,6 @@ export const selectBestCandidate = (scoredCandidates: ScoredCandidates) =>
             trialCount: Arr.length(scoredCandidates)
           })
         ),
-      onSome: (candidate) => Effect.succeed(candidate[0])
+      onSome: (candidate) => Effect.succeed(Tuple.getFirst(candidate))
     })
   })

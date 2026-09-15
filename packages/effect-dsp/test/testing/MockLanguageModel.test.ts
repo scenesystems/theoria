@@ -77,7 +77,7 @@ describe("MockLanguageModel", () => {
         Effect.flip
       )
 
-      expect(rejection._tag).toBe("UnknownError")
+      expect(rejection._tag).toBe("MalformedOutput")
 
       const invalidSchemaMock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ value: 42 })
@@ -101,8 +101,9 @@ describe("MockLanguageModel", () => {
           note: Schema.optional(Schema.String)
         })
       })
+      const infinity = yield* Schema.decode(Schema.NumberFromString)("Infinity")
       const payloads = Arr.make(
-        { value: { score: Number.POSITIVE_INFINITY } },
+        { value: { score: infinity } },
         { value: { score: 7, note: () => "discarded by JSON" } }
       )
       const failures = yield* Effect.forEach(payloads, (payload) =>
@@ -116,7 +117,7 @@ describe("MockLanguageModel", () => {
           return failure
         }))
 
-      expect(Arr.map(failures, (failure) => failure._tag)).toEqual(Arr.make("UnknownError", "UnknownError"))
+      expect(Arr.map(failures, (failure) => failure._tag)).toEqual(Arr.make("UnknownError", "MalformedOutput"))
     }))
 
   it.effect("returns sequence responses in order and repeats the final response", () =>
@@ -242,8 +243,10 @@ describe("MockLanguageModel", () => {
       })
       expect(Arr.length(calls)).toBe(0)
 
+      const nonFinite = yield* Effect.forEach(Arr.make("NaN", "Infinity", "-Infinity"), (value) =>
+        Schema.decode(Schema.NumberFromString)(value))
       const nonFiniteFailures = yield* Effect.forEach(
-        Arr.make(Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY),
+        nonFinite,
         (value) =>
           Effect.gen(function*() {
             const nonFiniteMock = yield* MockLanguageModel.make(MockLanguageModel.fixed(value))
@@ -255,13 +258,14 @@ describe("MockLanguageModel", () => {
           })
       )
 
-      expect(Arr.map(nonFiniteFailures, (nonFiniteFailure) => nonFiniteFailure.description)).toEqual(
-        Arr.make(
-          "MockLanguageModel text responses must be strings, finite numbers, or booleans",
-          "MockLanguageModel text responses must be strings, finite numbers, or booleans",
-          "MockLanguageModel text responses must be strings, finite numbers, or booleans"
+      expect(Arr.map(nonFiniteFailures, (nonFiniteFailure) =>
+        nonFiniteFailure.description)).toEqual(
+          Arr.make(
+            "MockLanguageModel text responses must be strings, finite numbers, or booleans",
+            "MockLanguageModel text responses must be strings, finite numbers, or booleans",
+            "MockLanguageModel text responses must be strings, finite numbers, or booleans"
+          )
         )
-      )
     }))
 
   it.effect("preserves valid native structured and tool-call responses", () =>
