@@ -4,9 +4,14 @@
  * @since 0.2.0
  */
 import type { Cache, Scope } from "effect"
-import { Data, Effect, Fiber, Option } from "effect"
+import { Effect, Fiber, Option, Schema } from "effect"
 
-import type { FontDescriptorType } from "../schema.js"
+import { FontDescriptor, type FontDescriptorType } from "../schema.js"
+
+const FontKeyFields = {
+  ...FontDescriptor.omit("weight").fields,
+  weight: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
+}
 
 /**
  * Font as the measurement caches see it: an omitted weight is the normal
@@ -16,11 +21,7 @@ import type { FontDescriptorType } from "../schema.js"
  * @since 0.4.0
  * @category internals
  */
-export class FontKey extends Data.Class<{
-  readonly family: string
-  readonly size: number
-  readonly weight: number
-}> {}
+export class FontKey extends Schema.Class<FontKey>("effect-text/FontKey")(FontKeyFields) {}
 
 /**
  * Normalizes a font descriptor into its cache key.
@@ -29,7 +30,11 @@ export class FontKey extends Data.Class<{
  * @category internals
  */
 export const fontKey = (font: FontDescriptorType): FontKey =>
-  new FontKey({ family: font.family, size: font.size, weight: font.weight ?? 400 })
+  new FontKey({
+    family: font.family,
+    size: font.size,
+    weight: Option.fromNullable(font.weight).pipe(Option.getOrElse(() => 400))
+  })
 
 /**
  * The descriptor a cache lookup measures with; the weight is always explicit.
@@ -49,10 +54,10 @@ export const fontDescriptor = (key: FontKey): FontDescriptorType => ({
  * @since 0.4.0
  * @category internals
  */
-export class MeasurementKey extends Data.Class<{
-  readonly font: FontKey
-  readonly text: string
-}> {}
+export class MeasurementKey extends Schema.Class<MeasurementKey>("effect-text/MeasurementKey")({
+  font: FontKey,
+  text: Schema.String
+}) {}
 
 /**
  * Reads `key`, evicting it when the lookup failed. `Cache` stores the lookup's

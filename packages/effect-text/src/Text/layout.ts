@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Option, Stream, Tuple } from "effect"
+import { Number, Option, Schema, Stream, Tuple } from "effect"
 
 import {
   makeInitialCursor,
@@ -15,14 +15,24 @@ import {
   walkLineRanges as walkLineRangesFromCore
 } from "./internal/layout.js"
 import type { PreparedText, PreparedTextWithSegments } from "./model.js"
-import { preparedTextCore, preparedTextWithSegmentsCore } from "./model.js"
 import type {
   LayoutCursorType,
-  LayoutLineRangeType,
+  LayoutLineRangesType,
+  LayoutLineStepType,
+  LayoutLinesType,
+  LayoutLinesWithSummaryType,
   LayoutLineType,
   LayoutRequestType,
   LayoutSummaryType
 } from "./schema.js"
+
+class StreamLineState extends Schema.Class<StreamLineState>("effect-text/StreamLineState")({
+  cursor: Schema.Struct({
+    graphemeIndex: Schema.Number,
+    segmentIndex: Schema.Number
+  }),
+  lineIndex: Schema.Number
+}) {}
 
 /**
  * Supplies a positive finite width for each zero-based output line. Whole-layout
@@ -56,7 +66,7 @@ export const initialCursor = (): LayoutCursorType => makeInitialCursor({ segment
 export const layoutLines = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType
-): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextWithSegmentsCore(prepared), request)
+): LayoutLinesType => materializeLines(prepared, request)
 
 /**
  * Materializes lines using the width returned for each zero-based line index.
@@ -73,7 +83,7 @@ export const layoutLinesWith = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType,
   resolveMaxWidth: LineWidthResolver
-): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextWithSegmentsCore(prepared), request, resolveMaxWidth)
+): LayoutLinesType => materializeLines(prepared, request, resolveMaxWidth)
 
 /**
  * Computes line widths and half-open logical cursor bounds without constructing
@@ -91,8 +101,7 @@ export const walkLineRanges = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType,
   resolveMaxWidth: LineWidthResolver = () => request.maxWidth
-): ReadonlyArray<LayoutLineRangeType> =>
-  walkLineRangesFromCore(preparedTextWithSegmentsCore(prepared), request, resolveMaxWidth)
+): LayoutLineRangesType => walkLineRangesFromCore(prepared, request, resolveMaxWidth)
 
 /**
  * Returns the painted width of the widest hard-break-delimited chunk without
@@ -101,8 +110,7 @@ export const walkLineRanges = (
  * @since 0.2.0
  * @category layout
  */
-export const measureNaturalWidth = (prepared: PreparedText): number =>
-  measureNaturalWidthFromCore(preparedTextCore(prepared))
+export const measureNaturalWidth = (prepared: PreparedText): number => measureNaturalWidthFromCore(prepared)
 
 /**
  * Materializes visual lines and derives their aggregate geometry in one walk.
@@ -113,8 +121,7 @@ export const measureNaturalWidth = (prepared: PreparedText): number =>
 export const layoutLinesWithSummary = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType
-): { readonly summary: LayoutSummaryType; readonly lines: ReadonlyArray<LayoutLineType> } =>
-  materializeLinesWithSummary(preparedTextWithSegmentsCore(prepared), request)
+): LayoutLinesWithSummaryType => materializeLinesWithSummary(prepared, request)
 
 /**
  * Computes line count, `lineCount * lineHeight`, and maximum painted width from
@@ -124,7 +131,7 @@ export const layoutLinesWithSummary = (
  * @category layout
  */
 export const layout = (prepared: PreparedText, request: LayoutRequestType): LayoutSummaryType =>
-  summarizeLines(preparedTextCore(prepared), request)
+  summarizeLines(prepared, request)
 
 /**
  * Materializes the line beginning at `cursor` and pairs it with the next logical
@@ -143,10 +150,7 @@ export const layoutNextLine = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType,
   cursor: LayoutCursorType
-): Option.Option<readonly [LayoutLineType, LayoutCursorType]> =>
-  materializeLineAtCursor(prepared, request, cursor).pipe(
-    Option.map(([line, nextCursor]) => Tuple.make(line, nextCursor))
-  )
+): Option.Option<LayoutLineStepType> => materializeLineAtCursor(prepared, request, cursor)
 
 /**
  * Lazily unfolds visual lines from the initial cursor. Each run starts at the
@@ -160,16 +164,15 @@ export const streamLines = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType
 ): Stream.Stream<LayoutLineType> =>
-  Stream.unfold({ cursor: initialCursor(), lineIndex: 0 }, (state) =>
+  Stream.unfold(new StreamLineState({ cursor: initialCursor(), lineIndex: 0 }), (state) =>
     Option.map(
-      materializeLineAtCursor(prepared, request, state.cursor, state.lineIndex),
-      (
-        [line, nextCursor]
-      ): readonly [LayoutLineType, { readonly cursor: LayoutCursorType; readonly lineIndex: number }] => [
-        line,
-        {
-          cursor: nextCursor,
-          lineIndex: state.lineIndex + 1
-        }
-      ]
+      materializeLineAtCursor(prepared, request, state.cursor, Option.some(state.lineIndex)),
+      ([line, nextCursor]) =>
+        Tuple.make(
+          line,
+          new StreamLineState({
+            cursor: nextCursor,
+            lineIndex: Number.increment(state.lineIndex)
+          })
+        )
     ))

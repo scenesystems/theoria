@@ -3,12 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Data, Effect, Option, ParseResult, Schema } from "effect"
+import { Boolean, Effect, Option, ParseResult, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import {
   EngineProfile,
   HyphenationDictionary,
+  type HyphenationDictionaryApi,
   MeasurementCache,
   type TextPreparationServices,
   WordSegmenter
@@ -16,33 +17,31 @@ import {
 import { type MeasurementFailed, type PrepareError, TextLayoutDecodeError } from "../Errors/index.js"
 import { normalizeHyphenationLocale } from "./internal/hyphenation.js"
 import { prepareSegments, resolvePreparedBaseDirection } from "./internal/preparation.js"
-import type {
+import {
   PreparedText,
-  PreparedTextCore,
-  PreparedTextLogicalSurfaceType,
-  PreparedTextWithSegments,
-  PreparedTextWithSegmentsCore
+  PreparedTextKernel,
+  PreparedTextLogicalSurface,
+  PreparedTextMeta,
+  PreparedTextWithSegments
 } from "./model.js"
-import { preparedTextFromCore, preparedTextWithSegmentsFromCore } from "./model.js"
 import { PrepareInput, type PrepareInputType } from "./schema.js"
 
-class PreparedTextCompilation extends Data.Class<{
-  core: PreparedTextCore
-  logicalSurface: PreparedTextLogicalSurfaceType
-}> {}
-
-class HyphenationDictionaryCapabilities extends Data.Class<{
-  hyphenateWord: (locale: string, word: string) => Effect.Effect<ReadonlyArray<number>>
-  supportsLocale?: (locale: string) => Effect.Effect<boolean>
-}> {}
+const PreparedTextCompilation = Schema.Struct({
+  core: Schema.Struct(PreparedText.fields),
+  logicalSurface: PreparedTextLogicalSurface
+})
+type PreparedTextCompilation = typeof PreparedTextCompilation.Type
 
 const hyphenationLocaleIsAvailable = (
-  dictionary: HyphenationDictionaryCapabilities,
+  dictionary: HyphenationDictionaryApi,
   locale: string
 ): Effect.Effect<boolean> =>
-  typeof dictionary.supportsLocale === "function"
-    ? dictionary.supportsLocale(locale)
-    : Effect.succeed(true)
+  Option.fromNullable(dictionary.supportsLocale).pipe(
+    Option.match({
+      onNone: () => Effect.succeed(true),
+      onSome: (supportsLocale) => supportsLocale(locale)
+    })
+  )
 
 const prepareCore = (
   input: PrepareInputType
@@ -52,7 +51,10 @@ const prepareCore = (
     const cache = yield* MeasurementCache
     const engineProfile = yield* EngineProfile
     const hyphenationDictionaryOption = yield* Effect.serviceOption(HyphenationDictionary)
-    const normalizedFont = { ...input.font, weight: input.font.weight ?? 400 }
+    const normalizedFont = {
+      ...input.font,
+      weight: Option.fromNullable(input.font.weight).pipe(Option.getOrElse(() => 400))
+    }
     const hyphenationLocaleOption = Option.fromNullable(input.hyphenationLocale).pipe(
       Option.map(normalizeHyphenationLocale)
     )
@@ -73,36 +75,35 @@ const prepareCore = (
       baseDirection,
       (text) => cache.measure(normalizedFont, text),
       (word) =>
-        !dictionaryHyphenationActive
-          ? Effect.succeed(Arr.empty<number>())
-          : Option.match(hyphenationLocaleOption, {
-            onNone: () => Effect.succeed(Arr.empty<number>()),
-            onSome: (hyphenationLocale) =>
-              Option.match(hyphenationDictionaryOption, {
-                onNone: () => Effect.succeed(Arr.empty<number>()),
-                onSome: (dictionary) => dictionary.hyphenateWord(hyphenationLocale, word)
-              })
-          }),
+        Boolean.match(dictionaryHyphenationActive, {
+          onFalse: () => Effect.succeed(Arr.empty<number>()),
+          onTrue: () =>
+            Option.match(hyphenationLocaleOption, {
+              onNone: () => Effect.succeed(Arr.empty<number>()),
+              onSome: (hyphenationLocale) =>
+                Option.match(hyphenationDictionaryOption, {
+                  onNone: () => Effect.succeed(Arr.empty<number>()),
+                  onSome: (dictionary) => dictionary.hyphenateWord(hyphenationLocale, word)
+                })
+            })
+        }),
       dictionaryHyphenationActive
     )
 
     return {
       core: {
-        kernel: {
+        kernel: new PreparedTextKernel({
           baseDirection,
           lineFitEpsilon: engineProfile.lineFitEpsilon,
           preferEarlySoftHyphenBreak: engineProfile.preferEarlySoftHyphenBreak,
           runtime: prepared.kernelRuntime,
           whiteSpace: input.whiteSpace
-        },
-        meta: {
+        }),
+        meta: new PreparedTextMeta({
           font: normalizedFont,
-          ...Option.match(hyphenationLocaleOption, {
-            onNone: () => ({}),
-            onSome: (hyphenationLocale) => ({ hyphenationLocale })
-          }),
+          hyphenationLocale: hyphenationLocaleOption,
           text: input.text
-        }
+        })
       },
       logicalSurface: prepared.logicalSurface
     }
@@ -119,7 +120,7 @@ const prepareCore = (
  *
  * @example
  * ```ts
- * import { Array, Effect, Option } from "effect"
+ * import { Array, Effect, Option, String } from "effect"
  * import { Text } from "@scenesystems/effect-text"
  *
  * export const program = Effect.gen(function*() {
@@ -136,7 +137,7 @@ const prepareCore = (
  *
  *   return yield* Effect.succeed(first).pipe(
  *     Effect.filterOrFail(
- *       ({ text }) => text === "alpha beta",
+ *       ({ text }) => String.Equivalence(text, "alpha beta"),
  *       () => "UnexpectedLayoutText"
  *     )
  *   )
@@ -150,18 +151,16 @@ export const prepareWithSegments = (
   input: PrepareInputType
 ): Effect.Effect<PreparedTextWithSegments, MeasurementFailed, TextPreparationServices> =>
   prepareCore(input).pipe(
-    Effect.map((compilation) => {
-      const core: PreparedTextWithSegmentsCore = {
+    Effect.map((compilation) =>
+      new PreparedTextWithSegments({
         ...compilation.core,
         logicalSurface: compilation.logicalSurface
-      }
-
-      return preparedTextWithSegmentsFromCore(core)
-    })
+      })
+    )
   )
 
 /**
- * Segments and measures text into an opaque summary-only handle.
+ * Segments and measures text into a summary-only handle.
  *
  * @remarks
  * The result supports `layout` and `measureNaturalWidth`; use
@@ -173,7 +172,7 @@ export const prepareWithSegments = (
 export const prepare = (
   input: PrepareInputType
 ): Effect.Effect<PreparedText, MeasurementFailed, TextPreparationServices> =>
-  prepareCore(input).pipe(Effect.map((compilation) => preparedTextFromCore(compilation.core)))
+  prepareCore(input).pipe(Effect.map((compilation) => new PreparedText(compilation.core)))
 
 /**
  * Strictly decodes unknown input, then performs the same compilation as

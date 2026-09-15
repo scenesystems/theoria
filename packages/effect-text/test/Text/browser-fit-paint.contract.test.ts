@@ -1,38 +1,55 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Layer, Match, Number, String } from "effect"
 import * as Arr from "effect/Array"
 
-import * as Browser from "../../src/Browser/index.js"
-import { browserParityCasesForProfile, browserParityLayer } from "../../src/Browser/index.js"
-import { Text } from "../../src/index.js"
-import { preparedTextWithSegmentsCore } from "../../src/Text/model.js"
+import { Browser, Contracts, Text } from "../../src/index.js"
 
-const fitPaintCase = (profile: Browser.BrowserSupportProfileType) =>
-  Arr.findFirst(browserParityCasesForProfile(profile), (entry) => entry.caseId === "fit-paint-divergence")
+const profile = Browser.DefaultBrowserSupportProfile
 
-describe("Text browser fit-paint kernel contracts", () => {
-  it.effect("keeps fit and paint runtime tables distinct when browser measurement diverges", () =>
-    Effect.gen(function*() {
-      const profile = Browser.browserSupportProfile("canvas-monospace")
-      const entry = yield* Option.match(fitPaintCase(profile), {
-        onNone: () => Effect.dieMessage("Missing fit-paint synthetic regression case"),
-        onSome: Effect.succeed
-      })
-      const prepared = yield* Text.prepareWithSegments(entry.prepare).pipe(
-        Effect.provide(browserParityLayer(profile))
+class ShapingCanvasContext {
+  direction: Browser.CanvasTextDirectionType = "inherit"
+  font = "10px Mono"
+  textBaseline: Browser.CanvasTextBaselineType = "alphabetic"
+
+  measureText(text: string): Browser.CanvasTextMetricsType {
+    return {
+      width: Match.value(text).pipe(
+        Match.when("f", () => 10),
+        Match.when("i", () => 10),
+        Match.when("ff", () => 18),
+        Match.when("fi", () => 16),
+        Match.when("ffi", () => 24),
+        Match.orElse((measured) => Number.multiply(String.length(measured), 10))
       )
-      const core = preparedTextWithSegmentsCore(prepared)
+    }
+  }
+}
 
-      expect(core.kernel.runtime.fitAdvances[0]).toBe(24)
-      expect(core.kernel.runtime.paintAdvances[0]).toBe(30)
-      expect(core.kernel.runtime.breakablePrefixWidths[0]).toEqual([10, 18, 24])
-      expect(core.kernel.runtime.breakableGraphemeWidths[0]).toEqual([10, 10, 10])
-      expect(Text.layout(prepared, entry.request)).toEqual({
+const layer = Layer.mergeAll(
+  Text.WordSegmenterLive,
+  Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
+  Browser.BrowserMeasurementCacheLive({
+    fontReadinessRevision: Browser.initialFontReadinessRevision(),
+    profileId: profile.id
+  }).pipe(Layer.provide(Browser.CanvasTextMeasurerLive({ context: new ShapingCanvasContext() })))
+)
+
+describe("Text browser fit-paint contracts", () => {
+  it.effect("fits with shaped prefixes while painting additive grapheme advances", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "ffi",
+        font: { family: profile.defaultFontFamily, size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(layer))
+      const request: Text.LayoutRequestType = { maxWidth: 24, lineHeight: 12 }
+
+      expect(Text.layout(prepared, request)).toEqual({
         lineCount: 1,
         height: 12,
         maxLineWidth: 30
       })
-      expect(Text.layoutLines(prepared, entry.request)).toEqual([
+      expect(Text.layoutLines(prepared, request)).toEqual(Arr.of(
         {
           baseDirection: "ltr",
           index: 0,
@@ -40,6 +57,6 @@ describe("Text browser fit-paint kernel contracts", () => {
           text: "ffi",
           width: 30
         }
-      ])
+      ))
     }))
 })

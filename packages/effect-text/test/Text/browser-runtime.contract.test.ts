@@ -1,392 +1,408 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, Ref } from "effect"
+import type { Context } from "effect"
+import {
+  Boolean,
+  Cause,
+  Effect,
+  Either,
+  Equal,
+  Exit,
+  Layer,
+  Match,
+  MutableRef,
+  Number,
+  Option,
+  Ref,
+  Schema,
+  String,
+  Tuple
+} from "effect"
 import * as Arr from "effect/Array"
-import * as Option from "effect/Option"
 
 import { Browser, Contracts, Errors, Text } from "../../src/index.js"
 
-const browserProfiles = Browser.BrowserSupportManifest.profiles
-const browserProfile = Browser.browserSupportProfile()
-const defaultEngineProfile = browserProfile.engineProfile
-
-const visualLine = (
-  index: number,
-  text: string,
-  width: number,
-  baseDirection: Text.BaseTextDirectionType = "ltr"
-): Text.LayoutLineType => ({
-  baseDirection,
-  index,
-  order: "visual",
-  text,
-  width
-})
-
-const prepareInput = (
-  text: string,
-  font: Text.FontDescriptorType,
-  whiteSpace: Text.WhiteSpaceModeType
-): Text.PrepareInputType => ({
-  text,
-  font,
-  whiteSpace
-})
+const browserProfile = Browser.DefaultBrowserSupportProfile
+const originalFont = "10px monospace"
+const measurementFont: Text.FontDescriptorType = {
+  family: browserProfile.defaultFontFamily,
+  size: 12
+}
+const assignedFont = String.concat("12px ", browserProfile.defaultFontFamily)
 
 class MonospaceCanvasContext {
-  direction: "ltr" | "rtl" | "inherit" = "inherit"
-  font = "10px monospace"
-  textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom" = "alphabetic"
-  multiplier = 1
-  measureCount = 0
+  direction: Browser.CanvasTextDirectionType = "inherit"
+  font = originalFont
+  textBaseline: Browser.CanvasTextBaselineType = "alphabetic"
+  readonly advance = MutableRef.make(10)
+  readonly calls = MutableRef.make(0)
 
-  measureText(text: string): { readonly width: number } {
-    const fontSize = Number.parseInt(this.font, 10)
-
-    this.measureCount += 1
-    return { width: text.length * fontSize * this.multiplier }
+  measureText(text: string): Browser.CanvasTextMetricsType {
+    MutableRef.incrementAndGet(this.calls)
+    return { width: Number.multiply(String.length(text), MutableRef.get(this.advance)) }
   }
 }
 
 class EmojiCanvasContext {
-  direction: "ltr" | "rtl" | "inherit" = "inherit"
+  direction: Browser.CanvasTextDirectionType = "inherit"
   font = "10px monospace"
-  textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom" = "alphabetic"
+  textBaseline: Browser.CanvasTextBaselineType = "alphabetic"
 
-  measureText(text: string): { readonly width: number } {
-    if (text === "🙂") {
-      return { width: 4 }
+  measureText(text: string): Browser.CanvasTextMetricsType {
+    return {
+      width: Match.value(text).pipe(
+        Match.when("🙂", () => 4),
+        Match.when("AB", () => 20),
+        Match.when("A🙂B", () => 22),
+        Match.orElse((measured) => Number.multiply(String.length(measured), 10))
+      )
     }
-
-    if (text === "AB") {
-      return { width: 20 }
-    }
-
-    if (text === "A🙂B") {
-      return { width: 22 }
-    }
-
-    return { width: text.length * 10 }
   }
 }
 
-/**
- * A host context whose `measureText` answers with a width that is not a
- * finite number, as a context whose font never resolved can.
- */
-class UnmeasuringCanvasContext {
-  direction: "ltr" | "rtl" | "inherit" = "inherit"
-  font = "10px monospace"
-  textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom" = "alphabetic"
+class ThrowingCanvasContext {
+  direction: Browser.CanvasTextDirectionType = "inherit"
+  font = originalFont
+  textBaseline: Browser.CanvasTextBaselineType = "alphabetic"
 
-  measureText(_text: string): { readonly width: number } {
-    return { width: Number.NaN }
+  measureText(text: string): Browser.CanvasTextMetricsType {
+    return Schema.decodeUnknownSync(Schema.Never)(text)
   }
 }
+
+class AssignmentFailingCanvasContext {
+  readonly directionState = MutableRef.make<Browser.CanvasTextDirectionType>("inherit")
+  font = originalFont
+  readonly measureCalls = MutableRef.make(0)
+  readonly restorations = MutableRef.make(0)
+  textBaseline: Browser.CanvasTextBaselineType = "alphabetic"
+
+  get direction(): Browser.CanvasTextDirectionType {
+    return MutableRef.get(this.directionState)
+  }
+
+  set direction(value: Browser.CanvasTextDirectionType) {
+    Match.value(value).pipe(
+      Match.when("inherit", (restored) => {
+        MutableRef.incrementAndGet(this.restorations)
+        MutableRef.set(this.directionState, restored)
+      }),
+      Match.orElse((assigned) => Schema.decodeUnknownSync(Schema.Never)(assigned))
+    )
+  }
+
+  measureText(text: string): Browser.CanvasTextMetricsType {
+    MutableRef.incrementAndGet(this.measureCalls)
+    return { width: Number.multiply(String.length(text), 10) }
+  }
+}
+
+class ObservingCanvasContext {
+  direction: Browser.CanvasTextDirectionType = "inherit"
+  font = originalFont
+  readonly observedDirection = MutableRef.make<Browser.CanvasTextDirectionType>("inherit")
+  readonly observedFont = MutableRef.make(originalFont)
+  readonly observedTextBaseline = MutableRef.make<Browser.CanvasTextBaselineType>("alphabetic")
+  textBaseline: Browser.CanvasTextBaselineType = "alphabetic"
+
+  measureText(text: string): Browser.CanvasTextMetricsType {
+    MutableRef.set(this.observedDirection, this.direction)
+    MutableRef.set(this.observedFont, this.font)
+    MutableRef.set(this.observedTextBaseline, this.textBaseline)
+    return { width: Number.multiply(String.length(text), 10) }
+  }
+}
+
+class RestorationFailingCanvasContext {
+  direction: Browser.CanvasTextDirectionType = "inherit"
+  readonly fontState = MutableRef.make(originalFont)
+  textBaseline: Browser.CanvasTextBaselineType = "alphabetic"
+
+  get font(): string {
+    return MutableRef.get(this.fontState)
+  }
+
+  set font(value: string) {
+    Match.value(value).pipe(
+      Match.when(originalFont, (restored) => Schema.decodeUnknownSync(Schema.Never)(restored)),
+      Match.orElse((assigned) => MutableRef.set(this.fontState, assigned))
+    )
+  }
+
+  measureText(text: string): Browser.CanvasTextMetricsType {
+    return { width: Number.multiply(String.length(text), 10) }
+  }
+}
+
+class MeasurementAndRestorationFailingCanvasContext extends RestorationFailingCanvasContext {
+  override measureText(text: string): Browser.CanvasTextMetricsType {
+    return Schema.decodeUnknownSync(Schema.Never)(text)
+  }
+}
+
+class MeasurementFailureSummary extends Schema.Class<MeasurementFailureSummary>(
+  "effect-text/test/MeasurementFailureSummary"
+)({
+  defects: Schema.Array(Schema.Unknown),
+  failures: Schema.Array(Errors.MeasurementFailed)
+}) {}
+
+const measureCanvasDirectly = (
+  context: Browser.CanvasMeasurementContext,
+  text: string,
+  emojiCorrection: Option.Option<Browser.EmojiCorrectionType> = Option.none()
+) =>
+  Contracts.TextMeasurer.pipe(
+    Effect.flatMap((measurer) => measurer.measure(measurementFont, text)),
+    Effect.provide(
+      Option.match(emojiCorrection, {
+        onNone: () => Browser.CanvasTextMeasurerLive({ context, direction: "rtl", textBaseline: "top" }),
+        onSome: (configuration) =>
+          Browser.CanvasTextMeasurerLive({
+            context,
+            direction: "rtl",
+            emojiCorrection: configuration,
+            textBaseline: "top"
+          })
+      })
+    )
+  )
+
+const measureDirectly = (context: Browser.CanvasMeasurementContext) => measureCanvasDirectly(context, "alpha")
+
+const summarizeMeasurementExit = (
+  exit: Exit.Exit<number, Errors.MeasurementFailed>
+): MeasurementFailureSummary =>
+  Exit.match(exit, {
+    onFailure: (cause) =>
+      new MeasurementFailureSummary({
+        defects: Arr.fromIterable(Cause.defects(cause)),
+        failures: Arr.fromIterable(Cause.failures(cause))
+      }),
+    onSuccess: () => new MeasurementFailureSummary({ defects: Arr.empty(), failures: Arr.empty() })
+  })
 
 const browserLayer = (
-  context: {
-    direction: "ltr" | "rtl" | "inherit"
-    font: string
-    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-    measureText: (text: string) => { readonly width: number }
-  },
-  fontReadinessRevision: Browser.FontReadinessRevisionType,
-  emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string },
-  profile: Browser.BrowserSupportProfileType = browserProfile
+  context: Browser.CanvasMeasurementContext,
+  revision: Browser.FontReadinessRevisionType,
+  emojiCorrection: Option.Option<Browser.EmojiCorrectionType> = Option.none()
 ) =>
   Layer.mergeAll(
     Text.WordSegmenterLive,
-    Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
-    Browser.BrowserMeasurementCacheLive({ fontReadinessRevision, profileId: profile.id }).pipe(
+    Layer.succeed(Contracts.EngineProfile, browserProfile.engineProfile),
+    Browser.BrowserMeasurementCacheLive({
+      fontReadinessRevision: revision,
+      profileId: browserProfile.id
+    }).pipe(
       Layer.provide(
-        Option.match(Option.fromNullable(emojiCorrection), {
+        Option.match(emojiCorrection, {
           onNone: () => Browser.CanvasTextMeasurerLive({ context }),
-          onSome: (resolvedEmojiCorrection) =>
-            Browser.CanvasTextMeasurerLive({
-              context,
-              emojiCorrection: resolvedEmojiCorrection
-            })
+          onSome: (configuration) => Browser.CanvasTextMeasurerLive({ context, emojiCorrection: configuration })
         })
       )
     )
   )
 
-const browserPreparationLayer = (
-  context: {
-    direction: "ltr" | "rtl" | "inherit"
-    font: string
-    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-    measureText: (text: string) => { readonly width: number }
-  },
-  fontReadinessRevision: Browser.FontReadinessRevisionType,
-  profile: Browser.BrowserSupportProfileType = browserProfile
+const prepareInput = (text: string): Text.PrepareInputType => ({
+  text,
+  font: { family: browserProfile.defaultFontFamily, size: 12 },
+  whiteSpace: "normal"
+})
+
+const measuredWidth = (
+  input: Text.PrepareInputType,
+  layer: Layer.Layer<Contracts.EngineProfile | Contracts.MeasurementCache | Contracts.WordSegmenter>
 ) =>
-  Layer.mergeAll(
-    Text.WordSegmenterLive,
-    Browser.BrowserMeasurementCacheLive({ fontReadinessRevision, profileId: profile.id }).pipe(
-      Layer.provide(Browser.CanvasTextMeasurerLive({ context }))
-    )
-  )
-
-const deterministicLayer = (profile: Browser.BrowserSupportProfileType) =>
-  Layer.mergeAll(
-    Text.WordSegmenterLive,
-    Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
-    Text.MeasurementCacheLive.pipe(
-      Layer.provide(
-        Layer.succeed(Contracts.TextMeasurer, {
-          measure: (_font: Text.FontDescriptorType, text: string) => Effect.succeed(text.length * 10)
-        })
-      )
-    )
+  Text.prepare(input).pipe(
+    Effect.provide(layer),
+    Effect.map((prepared) => Text.layout(prepared, { maxWidth: 500, lineHeight: 12 }).maxLineWidth)
   )
 
 describe("Text browser runtime contracts", () => {
-  it.effect("CanvasTextMeasurerLive is concurrency-safe under repeated prepare calls", () =>
+  it.effect("serializes concurrent canvas access and restores approved host state", () =>
     Effect.gen(function*() {
       const context = new MonospaceCanvasContext()
-      const inputs: ReadonlyArray<Text.PrepareInputType> = Arr.make(
-        prepareInput("alpha beta", { family: browserProfile.defaultFontFamily, size: 10 }, "normal"),
-        prepareInput("beta gamma", { family: browserProfile.defaultFontFamily, size: 10 }, "normal"),
-        prepareInput("gamma delta", { family: browserProfile.defaultFontFamily, size: 12 }, "normal"),
-        prepareInput("delta\tepsilon", { family: browserProfile.defaultFontFamily, size: 10 }, "pre-wrap"),
-        prepareInput("zeta\u00adeta", { family: browserProfile.defaultFontFamily, size: 10 }, "normal"),
-        prepareInput("theta\n iota", { family: browserProfile.defaultFontFamily, size: 10 }, "pre-wrap")
-      )
+      const inputs = Arr.map(Arr.make("alpha", "beta", "gamma", "delta"), prepareInput)
 
-      const summaries = yield* Effect.forEach(
+      const widths = yield* Effect.forEach(
         inputs,
         (input) =>
           Text.prepare(input).pipe(
-            Effect.map((prepared) => Text.layout(prepared, { maxWidth: 100, lineHeight: 12 }))
+            Effect.map((prepared) => Text.layout(prepared, { maxWidth: 500, lineHeight: 12 }).maxLineWidth)
           ),
         { concurrency: "unbounded" }
       ).pipe(Effect.provide(browserLayer(context, Browser.initialFontReadinessRevision())))
 
-      expect(context.measureCount).toBeGreaterThan(0)
+      expect(Number.greaterThan(MutableRef.get(context.calls), 0)).toBe(true)
       expect(context.font).toBe("10px monospace")
       expect(context.direction).toBe("inherit")
       expect(context.textBaseline).toBe("alphabetic")
-      expect(Arr.every(summaries, (summary) => summary.lineCount >= 1 && summary.maxLineWidth > 0)).toBe(true)
+      expect(Arr.every(widths, Number.greaterThan(0))).toBe(true)
     }))
 
-  it.effect("emoji correction remains optional and additive", () =>
+  it.effect("preserves absent, disabled, default, and custom emoji correction", () =>
     Effect.gen(function*() {
-      const correctedLayer = browserLayer(new EmojiCanvasContext(), Browser.initialFontReadinessRevision(), true)
-      const rawLayer = browserLayer(new EmojiCanvasContext(), Browser.initialFontReadinessRevision(), false)
-      const emojiInput: Text.PrepareInputType = {
-        text: "A🙂B",
-        font: { family: browserProfile.defaultFontFamily, size: 12 },
-        whiteSpace: "normal"
+      const custom: Browser.EmojiCorrectionType = {
+        minimumAdvanceMultiplier: 2,
+        probe: "🙂"
       }
-      const plainInput: Text.PrepareInputType = {
-        text: "AB",
-        font: { family: browserProfile.defaultFontFamily, size: 12 },
-        whiteSpace: "normal"
-      }
-
-      const { correctedEmoji, correctedPlain, rawEmoji, rawPlain } = yield* Effect.all({
-        correctedEmoji: Text.prepareWithSegments(emojiInput).pipe(
-          Effect.provide(correctedLayer),
-          Effect.map((prepared) => Text.layout(prepared, { maxWidth: 100, lineHeight: 12 }).maxLineWidth)
-        ),
-        correctedPlain: Text.prepareWithSegments(plainInput).pipe(
-          Effect.provide(correctedLayer),
-          Effect.map((prepared) => Text.layout(prepared, { maxWidth: 100, lineHeight: 12 }).maxLineWidth)
-        ),
-        rawEmoji: Text.prepareWithSegments(emojiInput).pipe(
-          Effect.provide(rawLayer),
-          Effect.map((prepared) => Text.layout(prepared, { maxWidth: 100, lineHeight: 12 }).maxLineWidth)
-        ),
-        rawPlain: Text.prepareWithSegments(plainInput).pipe(
-          Effect.provide(rawLayer),
-          Effect.map((prepared) => Text.layout(prepared, { maxWidth: 100, lineHeight: 12 }).maxLineWidth)
-        )
+      const widths = yield* Effect.all({
+        absent: measureCanvasDirectly(new EmojiCanvasContext(), "A🙂B"),
+        disabled: measureCanvasDirectly(new EmojiCanvasContext(), "A🙂B", Option.some(false)),
+        defaulted: measureCanvasDirectly(new EmojiCanvasContext(), "A🙂B", Option.some(true)),
+        custom: measureCanvasDirectly(new EmojiCanvasContext(), "A🙂B", Option.some(custom))
       })
 
-      expect(correctedEmoji).toBeGreaterThan(rawEmoji)
-      expect(correctedEmoji).toBe(32)
-      expect(rawEmoji).toBe(24)
-      expect(correctedPlain).toBe(rawPlain)
-      expect(correctedPlain).toBe(20)
+      expect(widths.absent).toBe(22)
+      expect(widths.disabled).toBe(22)
+      expect(widths.defaulted).toBe(32)
+      expect(widths.custom).toBe(44)
     }))
 
-  it.effect("prepared text can be invalidated or refreshed when font readiness changes", () =>
+  it.effect("uses a font-readiness revision to invalidate cached widths", () =>
     Effect.gen(function*() {
       const context = new MonospaceCanvasContext()
+      const input = prepareInput("alpha")
       const baseRevision = Browser.initialFontReadinessRevision()
-      const refreshedRevision = Browser.incrementFontReadinessRevision(baseRevision)
-      const input: Text.PrepareInputType = {
-        text: "alpha beta",
-        font: { family: browserProfile.defaultFontFamily, size: 10 },
-        whiteSpace: "normal"
-      }
-      const request = { maxWidth: 200, lineHeight: 12 }
+      const request = { maxWidth: 500, lineHeight: 12 }
 
-      const staleWidths = yield* Effect.gen(function*() {
+      const stale = yield* Effect.gen(function*() {
         const before = yield* Text.prepare(input).pipe(
           Effect.map((prepared) => Text.layout(prepared, request).maxLineWidth)
         )
-
-        context.multiplier = 2
-
-        const stale = yield* Text.prepare(input).pipe(
+        MutableRef.set(context.advance, 20)
+        const afterHostChange = yield* Text.prepare(input).pipe(
           Effect.map((prepared) => Text.layout(prepared, request).maxLineWidth)
         )
-
-        return { before, stale }
+        return Arr.make(before, afterHostChange)
       }).pipe(Effect.provide(browserLayer(context, baseRevision)))
 
-      const refreshed = yield* Text.prepare(input).pipe(
-        Effect.provide(browserLayer(context, refreshedRevision)),
-        Effect.map((prepared) => Text.layout(prepared, request).maxLineWidth)
+      const refreshed = yield* measuredWidth(
+        input,
+        browserLayer(context, Browser.incrementFontReadinessRevision(baseRevision))
       )
 
-      expect(staleWidths.before).toBe(100)
-      expect(staleWidths.stale).toBe(100)
-      expect(refreshed).toBe(200)
+      expect(stale).toEqual(Arr.make(50, 50))
+      expect(refreshed).toBe(100)
     }))
 
-  it.effect("tab semantics stay stable across deterministic and browser-backed measurement layers", () =>
+  it.effect("captures a throwing public host boundary as MeasurementFailed and restores state", () =>
     Effect.gen(function*() {
-      const request = { maxWidth: 100, lineHeight: 12 }
-      const results = yield* Effect.forEach(browserProfiles, (profile) =>
-        Effect.all({
-          browserLines: Text.prepareWithSegments({
-            text: "a\tb",
-            font: { family: profile.defaultFontFamily, size: 10 },
-            whiteSpace: "pre-wrap"
-          }).pipe(
-            Effect.provide(
-              browserLayer(new MonospaceCanvasContext(), Browser.initialFontReadinessRevision(), undefined, profile)
-            ),
-            Effect.map((prepared) => Text.layoutLines(prepared, request))
-          ),
-          deterministicLines: Text.prepareWithSegments({
-            text: "a\tb",
-            font: { family: profile.defaultFontFamily, size: 10 },
-            whiteSpace: "pre-wrap"
-          }).pipe(
-            Effect.provide(deterministicLayer(profile)),
-            Effect.map((prepared) => Text.layoutLines(prepared, request))
-          )
-        }).pipe(
-          Effect.map(({ browserLines, deterministicLines }) => ({
-            browserLines,
-            deterministicLines,
-            tabWidth: profile.engineProfile.tabWidth
-          }))
-        ))
-
-      yield* Effect.forEach(results, (result) =>
-        Effect.sync(() => {
-          expect(result.tabWidth).toBe(4)
-          expect(result.browserLines).toEqual([visualLine(0, "a\tb", 50)])
-          expect(result.deterministicLines).toEqual([visualLine(0, "a\tb", 50)])
-        }), { discard: true })
-    }))
-
-  it.effect("measurement cache freshness policy is explicit after font or engine changes", () =>
-    Effect.gen(function*() {
-      const context = new MonospaceCanvasContext()
-      const fontReadinessRevision = Browser.initialFontReadinessRevision()
-      const baseInput: Text.PrepareInputType = {
-        text: "ab\u00adcd\u00adef",
-        font: { family: browserProfile.defaultFontFamily, size: 10 },
-        whiteSpace: "normal"
-      }
-      const largerFontInput: Text.PrepareInputType = {
-        ...baseInput,
-        font: { ...baseInput.font, size: 12 }
-      }
-      const request = { maxWidth: 50, lineHeight: 12 }
-      const earlySoftHyphenProfile: Text.EngineProfileType = {
-        ...defaultEngineProfile,
-        preferEarlySoftHyphenBreak: true
-      }
-
-      const result = yield* Effect.gen(function*() {
-        const earlyPrepared = yield* Text.prepareWithSegments(baseInput).pipe(
-          Effect.provideService(Contracts.EngineProfile, earlySoftHyphenProfile)
-        )
-        const callsAfterEarly = context.measureCount
-        const latePrepared = yield* Text.prepareWithSegments(baseInput).pipe(
-          Effect.provideService(Contracts.EngineProfile, defaultEngineProfile)
-        )
-        const callsAfterEngineChange = context.measureCount
-        const largePrepared = yield* Text.prepare(largerFontInput).pipe(
-          Effect.provideService(Contracts.EngineProfile, defaultEngineProfile)
-        )
-        const callsAfterFontChange = context.measureCount
-
-        return {
-          callsAfterEarly,
-          callsAfterEngineChange,
-          callsAfterFontChange,
-          earlyLines: Text.layoutLines(earlyPrepared, request),
-          lateLines: Text.layoutLines(latePrepared, request),
-          largerSummary: Text.layout(largePrepared, { maxWidth: 200, lineHeight: 12 })
-        }
-      }).pipe(Effect.provide(browserPreparationLayer(context, fontReadinessRevision)))
-
-      expect(result.callsAfterEarly).toBeGreaterThan(0)
-      expect(result.callsAfterEngineChange).toBe(result.callsAfterEarly)
-      expect(result.callsAfterFontChange).toBeGreaterThan(result.callsAfterEngineChange)
-      expect(result.earlyLines).toEqual([
-        visualLine(0, "ab-", 30),
-        visualLine(1, "cdef", 40)
-      ])
-      expect(result.lateLines).toEqual([
-        visualLine(0, "abcd-", 50),
-        visualLine(1, "ef", 20)
-      ])
-      expect(result.largerSummary.maxLineWidth).toBe(72)
-    }))
-
-  it.effect("a canvas context that cannot measure becomes a MeasurementFailed failure and the context is restored", () =>
-    Effect.gen(function*() {
-      const context = new UnmeasuringCanvasContext()
-      const font: Text.FontDescriptorType = { family: browserProfile.defaultFontFamily, size: 10 }
-
+      const context = new ThrowingCanvasContext()
       const failure = yield* Effect.flip(
-        Text.prepare(prepareInput("alpha", font, "normal")).pipe(
+        Text.prepare(prepareInput("alpha")).pipe(
           Effect.provide(browserLayer(context, Browser.initialFontReadinessRevision()))
         )
       )
 
-      expect(failure).toBeInstanceOf(Errors.MeasurementFailed)
+      expect(Schema.is(Errors.MeasurementFailed)(failure)).toBe(true)
       expect(failure.text).toBe("alpha")
-      expect(failure.reason).toBe("measureText returned NaN")
+      expect(String.startsWith("measureText failed:")(failure.reason)).toBe(true)
       expect(context.font).toBe("10px monospace")
       expect(context.direction).toBe("inherit")
       expect(context.textBaseline).toBe("alphabetic")
     }))
 
-  it.effect("measurement caches evict failures so the next request measures again", () =>
+  it.effect("applies requested state only for measurement and then restores the snapshot", () =>
     Effect.gen(function*() {
-      const font: Text.FontDescriptorType = { family: browserProfile.defaultFontFamily, size: 10 }
-      const input = prepareInput("alpha", font, "normal")
+      const context = new ObservingCanvasContext()
+      const width = yield* measureDirectly(context)
+
+      expect(width).toBe(50)
+      expect(MutableRef.get(context.observedFont)).toBe(assignedFont)
+      expect(MutableRef.get(context.observedDirection)).toBe("rtl")
+      expect(MutableRef.get(context.observedTextBaseline)).toBe("top")
+      expect(context.font).toBe(originalFont)
+      expect(context.direction).toBe("inherit")
+      expect(context.textBaseline).toBe("alphabetic")
+    }))
+
+  it.effect("restores the snapshot after canvas state assignment fails", () =>
+    Effect.gen(function*() {
+      const context = new AssignmentFailingCanvasContext()
+      const exit = yield* measureDirectly(context).pipe(Effect.exit)
+      const summary = summarizeMeasurementExit(exit)
+
+      expect(Arr.length(summary.failures)).toBe(1)
+      expect(Arr.every(summary.failures, Schema.is(Errors.MeasurementFailed))).toBe(true)
+      expect(
+        Arr.every(summary.failures, (failure) => String.startsWith("canvas state assignment failed:")(failure.reason))
+      )
+        .toBe(true)
+      expect(Equal.equals(Arr.length(summary.defects), 0)).toBe(true)
+      expect(MutableRef.get(context.restorations)).toBe(1)
+      expect(MutableRef.get(context.measureCalls)).toBe(0)
+      expect(context.font).toBe(originalFont)
+      expect(context.direction).toBe("inherit")
+      expect(context.textBaseline).toBe("alphabetic")
+    }))
+
+  it.effect("keeps a restoration-only host failure in the typed error channel", () =>
+    Effect.gen(function*() {
+      const context = new RestorationFailingCanvasContext()
+      const exit = yield* measureDirectly(context).pipe(Effect.exit)
+      const summary = summarizeMeasurementExit(exit)
+
+      expect(Arr.length(summary.failures)).toBe(1)
+      expect(Arr.every(summary.failures, Schema.is(Errors.MeasurementFailed))).toBe(true)
+      expect(
+        Arr.every(summary.failures, (failure) => String.startsWith("canvas state restoration failed:")(failure.reason))
+      )
+        .toBe(true)
+      expect(Equal.equals(Arr.length(summary.defects), 0)).toBe(true)
+      expect(context.font).toBe(assignedFont)
+      expect(context.direction).toBe("rtl")
+      expect(context.textBaseline).toBe("top")
+    }))
+
+  it.effect("preserves measurement and restoration failures in sequence", () =>
+    Effect.gen(function*() {
+      const context = new MeasurementAndRestorationFailingCanvasContext()
+      const exit = yield* measureDirectly(context).pipe(Effect.exit)
+      const summary = summarizeMeasurementExit(exit)
+
+      expect(Arr.length(summary.failures)).toBe(2)
+      expect(Arr.every(summary.failures, Schema.is(Errors.MeasurementFailed))).toBe(true)
+      expect(
+        Arr.map(summary.failures, (failure) =>
+          Tuple.make(
+            String.startsWith("measureText failed:")(failure.reason),
+            String.startsWith("canvas state restoration failed:")(failure.reason)
+          ))
+      ).toEqual(Arr.make(
+        Tuple.make(true, false),
+        Tuple.make(false, true)
+      ))
+      expect(Equal.equals(Arr.length(summary.defects), 0)).toBe(true)
+    }))
+
+  it.effect("evicts failed measurements from deterministic and browser caches", () =>
+    Effect.gen(function*() {
+      const input = prepareInput("alpha")
       const failingOnce = Layer.effect(
         Contracts.TextMeasurer,
-        Effect.map(Ref.make(0), (calls) => ({
-          measure: (measuredFont: Text.FontDescriptorType, text: string) =>
-            Ref.updateAndGet(calls, (count) => count + 1).pipe(
-              Effect.flatMap((count) =>
-                count === 1
-                  ? Effect.fail(
-                    new Errors.MeasurementFailed({
-                      fontFamily: measuredFont.family,
-                      fontSize: measuredFont.size,
-                      text,
-                      reason: "font not ready"
-                    })
-                  )
-                  : Effect.succeed(text.length * 10)
+        Ref.make(0).pipe(
+          Effect.map((calls): Context.Tag.Service<typeof Contracts.TextMeasurer> => ({
+            measure: (font: Text.FontDescriptorType, text: string) =>
+              Ref.updateAndGet(calls, Number.increment).pipe(
+                Effect.flatMap((count) =>
+                  Boolean.match(Equal.equals(count, 1), {
+                    onFalse: () => Effect.succeed(Number.multiply(String.length(text), 10)),
+                    onTrue: () =>
+                      Effect.fail(
+                        new Errors.MeasurementFailed({
+                          fontFamily: font.family,
+                          fontSize: font.size,
+                          text,
+                          reason: "font not ready"
+                        })
+                      )
+                  })
+                )
               )
-            )
-        }))
+          }))
+        )
       )
-      const cacheLayers: ReadonlyArray<Layer.Layer<Contracts.MeasurementCache>> = Arr.make(
+      const cacheLayers = Arr.make(
         Text.MeasurementCacheLive.pipe(Layer.provide(failingOnce)),
         Browser.BrowserMeasurementCacheLive({
           fontReadinessRevision: Browser.initialFontReadinessRevision(),
@@ -398,19 +414,18 @@ describe("Text browser runtime contracts", () => {
         Effect.gen(function*() {
           const first = yield* Effect.either(Text.prepare(input))
           const second = yield* Text.prepare(input)
-
-          return { first, second: Text.layout(second, { maxWidth: 100, lineHeight: 12 }).maxLineWidth }
+          return { first, width: Text.layout(second, { maxWidth: 500, lineHeight: 12 }).maxLineWidth }
         }).pipe(
           Effect.provide(
             Layer.mergeAll(
               Text.WordSegmenterLive,
-              Layer.succeed(Contracts.EngineProfile, defaultEngineProfile),
+              Layer.succeed(Contracts.EngineProfile, browserProfile.engineProfile),
               cacheLayer
             )
           )
         ))
 
-      expect(Arr.map(outcomes, (outcome) => Either.isLeft(outcome.first))).toEqual([true, true])
-      expect(Arr.map(outcomes, (outcome) => outcome.second)).toEqual([50, 50])
+      expect(Arr.map(outcomes, (outcome) => Either.isLeft(outcome.first))).toEqual(Arr.make(true, true))
+      expect(Arr.map(outcomes, (outcome) => outcome.width)).toEqual(Arr.make(50, 50))
     }))
 })

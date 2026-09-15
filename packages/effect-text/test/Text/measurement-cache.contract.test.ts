@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref, Scope } from "effect"
+import { Context, Deferred, Effect, Exit, Fiber, Layer, Match, Number, Option, Ref, Scope, String } from "effect"
 
 import { Contracts, Errors, Text } from "../../src/index.js"
 
@@ -14,8 +14,8 @@ const makeGatedMeasurer = Effect.gen(function*() {
   const measurerLayer = Layer.succeed(Contracts.TextMeasurer, {
     measure: (_font, text: string) =>
       Deferred.await(gate).pipe(
-        Effect.zipRight(Ref.update(measurements, (count) => count + 1)),
-        Effect.as(text.length * 5)
+        Effect.zipRight(Ref.update(measurements, Number.increment)),
+        Effect.as(Number.multiply(String.length(text), 5))
       )
   })
   return { gate, measurements, measurerLayer }
@@ -108,18 +108,20 @@ describe("Text measurement cache contracts", () => {
       const attempts = yield* Ref.make(0)
       const measurerLayer = Layer.succeed(Contracts.TextMeasurer, {
         measure: (_font, text: string) =>
-          Ref.updateAndGet(attempts, (count) => count + 1).pipe(
+          Ref.updateAndGet(attempts, Number.increment).pipe(
             Effect.flatMap((attempt) =>
-              attempt === 1
-                ? Effect.fail(
-                  new Errors.MeasurementFailed({
-                    fontFamily: font.family,
-                    fontSize: font.size,
-                    text,
-                    reason: "not ready"
-                  })
-                )
-                : Effect.succeed(text.length * 5)
+              Match.value(attempt).pipe(
+                Match.when(1, () =>
+                  Effect.fail(
+                    new Errors.MeasurementFailed({
+                      fontFamily: font.family,
+                      fontSize: font.size,
+                      text,
+                      reason: "not ready"
+                    })
+                  )),
+                Match.orElse(() => Effect.succeed(Number.multiply(String.length(text), 5)))
+              )
             )
           )
       })

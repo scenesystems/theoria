@@ -10,11 +10,24 @@
  * @since 0.1.0
  * @module
  */
-import { Context } from "effect"
+import { Context, Schema } from "effect"
 import type { Effect } from "effect"
 
 import type { MeasurementFailed } from "../Errors/index.js"
-import type { EngineProfileType, FontDescriptorType, TextSegmentType, WhiteSpaceModeType } from "../Text/schema.js"
+import { TextSegment } from "../Text/schema.js"
+import type { EngineProfileType, FontDescriptorType, WhiteSpaceModeType } from "../Text/schema.js"
+import type { HyphenationBreakPointsType } from "./hyphenationSupport.js"
+
+export {
+  HyphenationBreakPoints,
+  type HyphenationBreakPointsType,
+  HyphenationSupportManifest,
+  HyphenationSupportManifestSchema,
+  type HyphenationSupportManifestType
+} from "./hyphenationSupport.js"
+
+const TextSegments = Schema.Array(TextSegment)
+type TextSegmentsType = typeof TextSegments.Type
 
 /**
  * Marks preparation service interfaces as covered by stable compatibility guarantees.
@@ -41,7 +54,7 @@ export class WordSegmenter extends Context.Tag("effect-text/WordSegmenter")<
     readonly segment: (
       text: string,
       whiteSpace: WhiteSpaceModeType
-    ) => Effect.Effect<ReadonlyArray<TextSegmentType>>
+    ) => Effect.Effect<TextSegmentsType>
   }
 >() {}
 
@@ -102,9 +115,19 @@ export class HyphenationDictionary extends Context.Tag("effect-text/HyphenationD
   HyphenationDictionary,
   {
     /** Returns valid break offsets for `word`, or an empty array when none apply. */
-    readonly hyphenateWord: (locale: string, word: string) => Effect.Effect<ReadonlyArray<number>>
+    readonly hyphenateWord: (locale: string, word: string) => Effect.Effect<HyphenationBreakPointsType>
+    /** Reports locale availability before preparation requests any words. */
+    readonly supportsLocale?: (locale: string) => Effect.Effect<boolean>
   }
 >() {}
+
+/**
+ * Canonical API implemented by hyphenation dictionary providers.
+ *
+ * @since 0.2.0
+ * @category services
+ */
+export type HyphenationDictionaryApi = Context.Tag.Service<typeof HyphenationDictionary>
 
 /**
  * Supplies fit tolerance, tab width, fallback direction, and break preferences

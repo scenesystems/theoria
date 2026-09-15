@@ -6,7 +6,9 @@
  *
  * @since 0.2.0
  */
-export const deHyphenationPatternSource = {
+import { HyphenationPatternSource } from "./schema.js"
+
+export const deHyphenationPatternSource = HyphenationPatternSource.make({
   "id": "de",
   "leftmin": 2,
   "rightmin": 2,
@@ -34,4 +36,4 @@ export const deHyphenationPatternSource = {
   "charSubstitution": {
     "ſ": "s"
   }
-}
+})

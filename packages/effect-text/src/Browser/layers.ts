@@ -3,34 +3,52 @@
  *
  * @since 0.2.0
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Cache, Data, Effect, Layer, Option } from "effect"
+import { Cache, Data, Effect, Layer, Number, Option, Schema } from "effect"
 
 import { MeasurementCache, TextMeasurer } from "../contracts/index.js"
-import { fontDescriptor, type FontKey, fontKey, getOrEvict } from "../Text/internal/cache.js"
+import { fontDescriptor, type FontKey, fontKey, getOrEvict, MeasurementKey } from "../Text/internal/cache.js"
 import type { FontDescriptorType } from "../Text/schema.js"
-import { type FontReadinessRevisionType, initialFontReadinessRevision } from "./fontReadiness.js"
+import { FontReadinessRevision, initialFontReadinessRevision } from "./fontReadiness.js"
 import {
   type CanvasMeasurementContext,
+  type CanvasTextBaselineType,
+  type CanvasTextDirectionType,
   correctEmojiWidth,
+  type EmojiCorrectionType,
   measureCanvasText,
-  normalizeEmojiCorrection,
-  stripEmojiClusters
+  normalizeEmojiCorrection
 } from "./internal/canvas.js"
-import { BrowserSupportManifest, type BrowserSupportProfileIdType } from "./supportManifest.js"
+import { BrowserSupportManifest, BrowserSupportProfileIdSchema } from "./supportManifest.js"
+
+export {
+  type CanvasMeasurementContext,
+  CanvasTextBaseline,
+  type CanvasTextBaselineType,
+  CanvasTextDirection,
+  type CanvasTextDirectionType,
+  CanvasTextMetrics,
+  type CanvasTextMetricsType,
+  EmojiCorrection,
+  EmojiCorrectionConfiguration,
+  type EmojiCorrectionType
+} from "./internal/canvas.js"
 
 /** One measured string in one font, under one support profile and font-readiness generation. */
-class BrowserMeasurementKey extends Data.Class<{
-  readonly profileId: BrowserSupportProfileIdType
-  readonly fontReadinessRevision: FontReadinessRevisionType
-  readonly font: FontKey
-  readonly text: string
-}> {}
+class BrowserMeasurementKey extends MeasurementKey.extend<BrowserMeasurementKey>(
+  "effect-text/BrowserMeasurementKey"
+)({
+  profileId: BrowserSupportProfileIdSchema,
+  fontReadinessRevision: FontReadinessRevision
+}) {}
 
-const makeBrowserMeasurementCache = (options: {
-  readonly fontReadinessRevision: FontReadinessRevisionType
-  readonly profileId: BrowserSupportProfileIdType
-}) =>
+class NormalizedBrowserMeasurementCacheOptions extends Schema.Class<NormalizedBrowserMeasurementCacheOptions>(
+  "effect-text/NormalizedBrowserMeasurementCacheOptions"
+)({
+  fontReadinessRevision: FontReadinessRevision,
+  profileId: BrowserSupportProfileIdSchema
+}) {}
+
+const makeBrowserMeasurementCache = (options: NormalizedBrowserMeasurementCacheOptions) =>
   Effect.gen(function*() {
     const measurer = yield* TextMeasurer
     const owner = yield* Effect.scope
@@ -40,7 +58,7 @@ const makeBrowserMeasurementCache = (options: {
       lookup: (key: BrowserMeasurementKey) => measurer.measure(fontDescriptor(key.font), key.text)
     })
 
-    return {
+    return MeasurementCache.of({
       measure: (font: FontDescriptorType, text: string) =>
         getOrEvict(
           cache,
@@ -52,25 +70,27 @@ const makeBrowserMeasurementCache = (options: {
             text
           })
         )
-    }
+    })
   })
 
 class CanvasTextMeasurerOptions extends Data.Class<{
   /** Mutable canvas-like context retained for the layer lifetime. */
-  context: CanvasMeasurementContext
+  readonly context: CanvasMeasurementContext
   /** Direction assigned before each measurement. */
-  direction?: "ltr" | "rtl" | "inherit"
+  readonly direction?: CanvasTextDirectionType
   /** Optional correction for canvas implementations that under-report emoji. */
-  emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
+  readonly emojiCorrection?: EmojiCorrectionType
   /** Baseline assigned before each measurement. */
-  textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
+  readonly textBaseline?: CanvasTextBaselineType
 }> {}
 
 const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
   Effect.gen(function*() {
     const contextSemaphore = yield* Effect.makeSemaphore(1)
     const owner = yield* Effect.scope
-    const emojiCorrection = normalizeEmojiCorrection(options.emojiCorrection)
+    const direction = Option.fromNullable(options.direction)
+    const textBaseline = Option.fromNullable(options.textBaseline)
+    const emojiCorrection = normalizeEmojiCorrection(Option.fromNullable(options.emojiCorrection))
     const emojiAdvanceCache = yield* (
       Option.match(emojiCorrection, {
         onNone: () => Effect.succeedNone,
@@ -84,42 +104,43 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
               return measureCanvasText(
                 options.context,
                 font,
-                correction[0],
-                options.direction,
-                options.textBaseline
+                correction.probe,
+                direction,
+                textBaseline
               ).pipe(
-                Effect.map((width) => Numeric.max(width, font.size * correction[1]))
+                Effect.map((width) =>
+                  Number.max(width, Number.multiply(font.size, correction.minimumAdvanceMultiplier))
+                )
               )
             }
           }).pipe(Effect.asSome)
       })
     )
 
-    return {
+    return TextMeasurer.of({
       measure: (font: FontDescriptorType, text: string) =>
         contextSemaphore.withPermits(1)(
-          measureCanvasText(options.context, font, text, options.direction, options.textBaseline).pipe(
+          measureCanvasText(options.context, font, text, direction, textBaseline).pipe(
             Effect.flatMap((rawWidth) =>
               Option.match(emojiAdvanceCache, {
                 onNone: () => Effect.succeed(rawWidth),
                 onSome: (cache) =>
                   getOrEvict(cache, owner, fontKey(font)).pipe(
-                    Effect.flatMap((emojiAdvance) => {
-                      const [strippedText] = stripEmojiClusters(text)
-
-                      return correctEmojiWidth(
+                    Effect.flatMap((emojiAdvance) =>
+                      correctEmojiWidth(
                         text,
                         rawWidth,
                         emojiAdvance,
-                        measureCanvasText(options.context, font, strippedText, options.direction, options.textBaseline)
+                        (strippedText) =>
+                          measureCanvasText(options.context, font, strippedText, direction, textBaseline)
                       )
-                    })
+                    )
                   )
               })
             )
           )
         )
-    }
+    })
   })
 
 /**
@@ -157,16 +178,41 @@ export const CanvasTextMeasurerLive = (options: CanvasTextMeasurerOptions) =>
  * @since 0.2.0
  * @category layers
  */
-export const BrowserMeasurementCacheLive = (options?: {
+export const BrowserMeasurementCacheOptions = Schema.Struct({
   /** Generation included in every cache key; defaults to zero. */
-  readonly fontReadinessRevision?: FontReadinessRevisionType
+  fontReadinessRevision: Schema.optional(FontReadinessRevision),
   /** Support profile included in every cache key; defaults to the manifest default. */
-  readonly profileId?: BrowserSupportProfileIdType
-}) =>
+  profileId: Schema.optional(BrowserSupportProfileIdSchema)
+})
+
+/**
+ * Decoded options for the browser measurement cache layer.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type BrowserMeasurementCacheOptionsType = typeof BrowserMeasurementCacheOptions.Type
+
+/**
+ * Acquires a browser measurement cache whose identity includes browser profile
+ * and font-readiness revision.
+ *
+ * @since 0.2.0
+ * @category layers
+ */
+export const BrowserMeasurementCacheLive = (options?: BrowserMeasurementCacheOptionsType) =>
   Layer.scoped(
     MeasurementCache,
-    makeBrowserMeasurementCache({
-      fontReadinessRevision: options?.fontReadinessRevision ?? initialFontReadinessRevision(),
-      profileId: options?.profileId ?? BrowserSupportManifest.defaultProfileId
-    })
+    makeBrowserMeasurementCache(
+      new NormalizedBrowserMeasurementCacheOptions({
+        fontReadinessRevision: Option.fromNullable(options).pipe(
+          Option.flatMap((value) => Option.fromNullable(value.fontReadinessRevision)),
+          Option.getOrElse(initialFontReadinessRevision)
+        ),
+        profileId: Option.fromNullable(options).pipe(
+          Option.flatMap((value) => Option.fromNullable(value.profileId)),
+          Option.getOrElse(() => BrowserSupportManifest.defaultProfileId)
+        )
+      })
+    )
   )

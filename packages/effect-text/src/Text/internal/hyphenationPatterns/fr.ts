@@ -6,7 +6,9 @@
  *
  * @since 0.2.0
  */
-export const frHyphenationPatternSource = {
+import { HyphenationPatternSource } from "./schema.js"
+
+export const frHyphenationPatternSource = HyphenationPatternSource.make({
   "id": "fr",
   "leftmin": 2,
   "rightmin": 3,
@@ -37,4 +39,4 @@ export const frHyphenationPatternSource = {
     "15": "grandilo3quent_",
     "16": "_chè2vre3feuille"
   }
-}
+})

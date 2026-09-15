@@ -4,10 +4,11 @@
  * @since 0.2.0
  */
 import { Schema } from "effect"
+import * as Arr from "effect/Array"
 
-import { bidiMirrorPairs } from "./bidiSupport.js"
+import { BidiMirrorPairs, bidiMirrorPairs } from "./bidiSupport.js"
 import { BrowserSupportManifest, BrowserSupportManifestSchema } from "./browserSupport.js"
-import { HyphenationSupportManifest } from "./hyphenationSupport.js"
+import { HyphenationSupportManifest, HyphenationSupportManifestSchema } from "./hyphenationSupport.js"
 
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 const PositiveNumber = Schema.Number.pipe(Schema.greaterThan(0))
@@ -18,9 +19,9 @@ const OverflowBreakKind = Schema.Literal(
   "explicit-break",
   "grapheme-fallback"
 )
+type OverflowBreakKindType = typeof OverflowBreakKind.Type
 const ExperimentalStabilitySchema = Schema.Literal("unstable")
-const NonEmptyOverflowBreakArray = Schema.Array(OverflowBreakKind).pipe(Schema.minItems(1))
-const NonEmptyMirrorPairArray = Schema.Array(Schema.Tuple(Schema.String, Schema.String)).pipe(Schema.minItems(1))
+const NonEmptyOverflowBreakArray = Schema.NonEmptyArray(OverflowBreakKind)
 
 /**
  * Decodes the package's browser, hyphenation, overflow, bidi, benchmark, and
@@ -29,16 +30,13 @@ const NonEmptyMirrorPairArray = Schema.Array(Schema.Tuple(Schema.String, Schema.
  * @since 0.2.0
  * @category schemas
  */
-export const EffectTextSupportManifestSchema = Schema.Struct({
+export class EffectTextSupportManifestSchema extends Schema.Class<EffectTextSupportManifestSchema>(
+  "effect-text/EffectTextSupportManifest"
+)({
   /** Browser measurement profiles and synthetic scenario coverage. */
   browser: BrowserSupportManifestSchema,
   /** Bundled dictionaries and locale fallback policy. */
-  hyphenation: Schema.Struct({
-    /** Lookup order that tries an exact locale before its base language. */
-    localeFallback: Schema.Literal("exact-or-base-language"),
-    /** Locale tags with a bundled hyphenation dictionary. */
-    locales: Schema.Array(Schema.String).pipe(Schema.minItems(1))
-  }),
+  hyphenation: HyphenationSupportManifestSchema,
   /** Break ordering and single-grapheme overflow policy. */
   overflow: Schema.Struct({
     breakPrecedence: NonEmptyOverflowBreakArray,
@@ -46,7 +44,7 @@ export const EffectTextSupportManifestSchema = Schema.Struct({
   }),
   /** Mirrored punctuation data and unsupported-control behavior. */
   bidi: Schema.Struct({
-    mirroredPairs: NonEmptyMirrorPairArray,
+    mirroredPairs: BidiMirrorPairs,
     unsupportedControlPolicy: Schema.Literal("prepare-time-detect-and-decline")
   }),
   /** Iteration counts and slowdown bound used by package benchmarks. */
@@ -66,7 +64,7 @@ export const EffectTextSupportManifestSchema = Schema.Struct({
     React: Schema.Literal("provisional"),
     Text: Schema.Literal("provisional")
   })
-})
+}) {}
 
 /**
  * Decoded package support manifest.
@@ -74,7 +72,7 @@ export const EffectTextSupportManifestSchema = Schema.Struct({
  * @since 0.2.0
  * @category models
  */
-export type EffectTextSupportManifestType = typeof EffectTextSupportManifestSchema.Type
+export type EffectTextSupportManifestType = EffectTextSupportManifestSchema
 
 /**
  * Runtime policies and verification budgets consumed by package harnesses.
@@ -82,17 +80,17 @@ export type EffectTextSupportManifestType = typeof EffectTextSupportManifestSche
  * @since 0.2.0
  * @category manifests
  */
-export const EffectTextSupportManifest: EffectTextSupportManifestType = {
+export const EffectTextSupportManifest = new EffectTextSupportManifestSchema({
   browser: BrowserSupportManifest,
   hyphenation: HyphenationSupportManifest,
   overflow: {
-    breakPrecedence: [
+    breakPrecedence: Arr.make<Arr.NonEmptyArray<OverflowBreakKindType>>(
       "hard-break",
       "soft-hyphen",
       "dictionary-hyphen",
       "explicit-break",
       "grapheme-fallback"
-    ],
+    ),
     maxWidthPolicy: "allow-overflow-only-when-single-grapheme-exceeds-width"
   },
   bidi: {
@@ -114,4 +112,4 @@ export const EffectTextSupportManifest: EffectTextSupportManifestType = {
     React: "provisional",
     Text: "provisional"
   }
-}
+})

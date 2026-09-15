@@ -5,7 +5,6 @@ import {
   Array as Arr,
   Boolean as Bool,
   type Context,
-  Data,
   Effect,
   Exit,
   Layer,
@@ -23,10 +22,6 @@ import {
   defaultSearchDescriptor,
   exploratorySearchDescriptor
 } from "./fixtures.js"
-
-class EvictingStudyStorage extends Data.Class<Study.StudyStorageApi> {}
-
-class CountedTextMeasurer extends Data.Class<Context.Tag.Service<typeof Contracts.TextMeasurer>> {}
 
 const calibrationCaseAt = (index: number) =>
   Arr.get(canonicalCalibrationCases, index).pipe(
@@ -65,22 +60,23 @@ describe("Experimental.Calibration boundary contracts", () => {
   it.effect("optimizeProfile does not make layout effectful", () =>
     Effect.gen(function*() {
       const measurementCount = yield* Ref.make(0)
-      const countedMeasurerLayer = Layer.succeed(
-        Contracts.TextMeasurer,
-        new CountedTextMeasurer({
-          measure: (font: Text.FontDescriptorType, text: string) =>
-            Ref.update(measurementCount, Num.increment).pipe(
-              Effect.as(
-                Num.multiply(
-                  Str.length(text),
-                  Bool.match(Str.Equivalence(font.family, "system-ui"), {
-                    onFalse: () => 5,
-                    onTrue: () => 10
-                  })
-                )
+      const countedTextMeasurer: Context.Tag.Service<typeof Contracts.TextMeasurer> = {
+        measure: (font, text) =>
+          Ref.update(measurementCount, Num.increment).pipe(
+            Effect.as(
+              Num.multiply(
+                Str.length(text),
+                Bool.match(Str.Equivalence(font.family, "system-ui"), {
+                  onFalse: () => 5,
+                  onTrue: () => 10
+                })
               )
             )
-        })
+          )
+      }
+      const countedMeasurerLayer = Layer.succeed(
+        Contracts.TextMeasurer,
+        countedTextMeasurer
       )
       const countedServices = Layer.mergeAll(
         Text.WordSegmenterLive,
@@ -156,13 +152,13 @@ describe("Experimental.Calibration boundary contracts", () => {
   it.effect("optimizeProfile fails with CalibrationSnapshotMissing when storage drops its snapshot", () =>
     Effect.gen(function*() {
       const trialLog = yield* Ref.make<Experimental.Calibration.CalibrationTrialLogType>(Arr.empty())
-      const evictingStorage = new EvictingStudyStorage({
+      const evictingStorage: Study.StudyStorageApi = {
         appendTrial: (trial) => Ref.update(trialLog, (trials) => Arr.append(trials, trial)),
         loadSnapshot: () => Effect.succeedNone,
         loadTrialLog: () => Ref.get(trialLog),
         replayTrialLog: () => Ref.get(trialLog),
         writeSnapshot: () => Effect.void
-      })
+      }
 
       const exit = yield* Experimental.Calibration.optimizeProfile({
         cases: canonicalCalibrationCases,

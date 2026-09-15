@@ -5,6 +5,7 @@
  */
 import { Schema } from "effect"
 
+import { BrowserParityCase } from "../contracts/browserSupport.js"
 import * as Text from "../Text/index.js"
 import { BrowserSupportProfileIdSchema } from "./supportManifest.js"
 
@@ -14,15 +15,7 @@ import { BrowserSupportProfileIdSchema } from "./supportManifest.js"
  * @since 0.2.0
  * @category schemas
  */
-export const BrowserParityCaseIdSchema = Schema.Literal(
-  "white-space-normal",
-  "white-space-pre-wrap",
-  "trailing-whitespace-hard-breaks",
-  "tab-advances",
-  "soft-hyphen",
-  "mixed-inline-punctuation",
-  "fit-paint-divergence"
-)
+export const BrowserParityCaseIdSchema = BrowserParityCase
 
 /**
  * Identifier for a checked-in synthetic canvas scenario.
@@ -73,11 +66,11 @@ export const BrowserParityArtifactSchema = Schema.Struct({
   /** Profile font-selection policy. */
   fontSelection: Schema.String,
   /** Ordered fallback stack recorded with the artifact. */
-  fontStack: Schema.Array(Schema.String).pipe(Schema.minItems(1)),
+  fontStack: Schema.NonEmptyArray(Schema.String),
   /** Scenarios claimed by the profile. */
-  parityCases: Schema.Array(BrowserParityCaseIdSchema).pipe(Schema.minItems(1)),
+  parityCases: Schema.NonEmptyArray(BrowserParityCaseIdSchema),
   /** Non-empty ordered scenario results. */
-  cases: Schema.Array(BrowserParityArtifactCaseSchema).pipe(Schema.minItems(1))
+  cases: Schema.NonEmptyArray(BrowserParityArtifactCaseSchema)
 })
 
 /**

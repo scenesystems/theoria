@@ -3,7 +3,7 @@
  *
  * @since 0.2.0
  */
-import { Schema } from "effect"
+import { Number, Schema } from "effect"
 
 /**
  * Non-negative generation counter included in browser width-cache keys.
@@ -45,4 +45,4 @@ export const initialFontReadinessRevision = (): FontReadinessRevisionType => 0
  */
 export const incrementFontReadinessRevision = (
   revision: FontReadinessRevisionType
-): FontReadinessRevisionType => revision + 1
+): FontReadinessRevisionType => Number.increment(revision)
