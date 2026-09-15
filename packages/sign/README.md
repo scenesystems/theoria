@@ -33,6 +33,23 @@ export const program = Effect.gen(function* () {
 
 Prefer a direct verifier whenever your protocol fixes the algorithm and authenticates the public key independently. The generic `verify(signature, message)` dispatches on the algorithm and public key carried inside the `Signature`, which is only appropriate when that self-describing model is deliberately part of the protocol.
 
+## Recover an Ed25519 identity
+
+`ed25519KeyPairFromSeed(seed)` reconstructs the matching public key from an existing, exact 32-byte RFC 8032 secret seed. It draws no randomness and accepts neither an expanded 64-byte secret key nor a serialized key container. Use it after deriving a deployment seed with HKDF, or when restoring a stored identity. `Ed25519Seed` exposes the same size validation as a Schema.
+
+The operation validates and copies the seed when its Effect executes. Returned key bytes belong to the caller. Invalid seeds fail with the material-free `InvalidEd25519Seed`; primitive failure is reported as `KeyGenerationFailed` without backend diagnostics. `ed25519Sign` now checks that the supplied public key belongs to the seed and rejects mismatched pairs with `SigningFailed`.
+
+```ts typecheck
+import { ed25519KeyPairFromSeed } from "@scenesystems/sign"
+import { Effect, Encoding } from "effect"
+
+// Public RFC 8032 test vector, not a production secret.
+export const restoredIdentity = Effect.gen(function* () {
+  const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+  return yield* ed25519KeyPairFromSeed(seed)
+})
+```
+
 ## Supported families
 
 | Family     | Algorithms                                                                                                           | Operations                                     |
@@ -69,7 +86,7 @@ export const agree = Effect.gen(function* () {
 | Malformed, noncanonical, wrong-length, or unsupported primitive input | `InvalidVerificationInput` |
 | Admitted input reaches an unavailable backend                         | `VerificationUnavailable`  |
 
-Both errors carry no material: no algorithm, key, signature, message, context, provider reason, or underlying exception. Inputs are admitted and copied on every execution of the returned Effect, so a buffer mutated between runs is rejected rather than silently reread. Primitive calls run synchronously and cannot be interrupted.
+Both errors carry no material: no algorithm, key, signature, message, context, provider reason, or underlying exception. Inputs are admitted and copied on every execution of the returned Effect. A buffer changed between runs is validated again; malformed changes fail admission and admitted nonmatches return `false`. Primitive calls run synchronously and cannot be interrupted.
 
 The profiles are fixed and reject alternate encodings:
 
