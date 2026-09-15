@@ -23,6 +23,7 @@ import {
 } from "./browser.js"
 import { drawn } from "./demo.js"
 import {
+  boxOf,
   headerControls,
   mountWrappedBaselineRow,
   pressableCursors,
@@ -130,14 +131,33 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the footer names the company as it is incorporated", () =>
+    it.scoped("the footer aligns its two desktop rows, stacks centrally on narrow screens, and names the legal company", () =>
       Effect.gen(function*() {
-        const { failures, page } = yield* openPage()
+        const { failures, page } = yield* openPage({ viewport: desktop, reducedMotion: "reduce" })
         yield* goto(page, "/")
+        yield* drawn(page)
+        const footer = page.locator("[data-site-footer]")
         yield* containsText(
-          page.locator("[data-site-footer]"),
+          footer,
           `© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`
         )
+        // Centre the whole signature — its cube and wordmark — not the wordmark alone.
+        const brand = footer.locator("span:has(> svg)")
+        const links = footer.getByRole("navigation", { name: "Footer" })
+        const tagline = footer.getByText(siteMetadata.tagline, { exact: true })
+        const legal = footer.getByText(`© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`, {
+          exact: true
+        })
+        const brandBox = yield* act(() => brand.evaluate(boxOf))
+        const linksBox = yield* act(() => links.evaluate(boxOf))
+        alike([brandBox.centreY, linksBox.centreY], "brand and links share a row centre")
+        alike(yield* baselines(footer.locator("p")), "tagline and copyright rest on one baseline")
+
+        yield* setViewport(page, phone)
+        const rows = yield* Effect.forEach([brand, tagline, links, legal], (row) => act(() => row.evaluate(boxOf)))
+        alike(Arr.map(rows, (row) => row.centreX), "the narrow footer has one centred column")
+        expect(Arr.every(Arr.zip(rows, Arr.drop(rows, 1)), ([before, after]) => after.top > before.bottom))
+          .toBe(true)
         expect(yield* failures).toEqual([])
       }))
 

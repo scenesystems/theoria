@@ -65,7 +65,7 @@ export type Measure = typeof Measure.Type
 export const measureCss = (measure: Measure): string =>
   Match.value(measure).pipe(
     Match.when("reading", () => "54rem"),
-    Match.when("page", () => "88rem"),
+    Match.when("page", () => "100rem"),
     Match.when("workbench", () => "96rem"),
     Match.exhaustive
   )

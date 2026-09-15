@@ -44,10 +44,11 @@ describe("layout contract", () => {
       expect(elevationIndex("answer")).toBeLessThan(elevationIndex("preview"))
     }))
 
-  it.effect("grows the radii and the measures with the literal, so a sheet is rounder than a control and a workbench wider than a page", () =>
+  it.effect("grows corners from controls to sheets and keeps reading narrower than either page shell", () =>
     Effect.sync(() => {
       expect(strictlyAscending(Arr.map(Radius.literals, (radius) => remValue(radiusCss(radius))))).toBe(true)
-      expect(strictlyAscending(Arr.map(Measure.literals, (measure) => remValue(measureCss(measure))))).toBe(true)
+      expect(remValue(measureCss("reading"))).toBeLessThan(remValue(measureCss("page")))
+      expect(remValue(measureCss("reading"))).toBeLessThan(remValue(measureCss("workbench")))
       expect(radiusCss("control")).toBe("0.5rem")
       expect(measureCss("reading")).toBe("54rem")
     }))

@@ -71,7 +71,7 @@ export const PlaceActs = () => {
               <PlaceArrive />
             </Stack>
             <Layer
-              className="grid gap-x-12 gap-y-act lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,44rem)]"
+              className="grid gap-x-12 gap-y-act lg:grid-cols-[minmax(24rem,1fr)_minmax(28rem,45rem)]"
               data-place-columns
             >
               {/* The stage column is the grid track's at `lg` and the section's below it: the paper takes the column up to `stageMaxWidth`, and is centred in it, at every width. */}

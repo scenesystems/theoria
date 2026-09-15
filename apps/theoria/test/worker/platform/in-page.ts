@@ -23,6 +23,21 @@ export const typographyOf = (element: Element) => {
   }
 }
 
+/** The painted box, including its centre, for alignment and containment checks. */
+export const boxOf = (element: Element) => {
+  const box = element.getBoundingClientRect()
+  return {
+    left: box.left,
+    right: box.right,
+    top: box.top,
+    bottom: box.bottom,
+    width: box.width,
+    height: box.height,
+    centreX: box.left + box.width / 2,
+    centreY: box.top + box.height / 2
+  }
+}
+
 /** The resolved value of a CSS system colour in the page's current colour scheme. */
 export const systemColour = (name: string): string => {
   const probe = document.createElement("span")

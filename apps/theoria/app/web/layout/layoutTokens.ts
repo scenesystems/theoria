@@ -4,7 +4,7 @@ import * as Str from "effect/String"
 
 import { Elevation, elevationIndex, Measure, measureCss, Radius, radiusCss } from "../../contracts/layout.js"
 import { MotionRelation } from "../../contracts/motion.js"
-import { elevationClassName, transitionClassName } from "../view/primitives/designSystem.js"
+import { elevationClassName, measureClassName, transitionClassName } from "../view/primitives/designSystem.js"
 
 /**
  * The stylesheet derived from the layout contract: each radius and measure as
@@ -38,15 +38,16 @@ export const elevationTokens: ReadonlyArray<Token> = Arr.map(
   (elevation) => token(elevationTokenName(elevation), String(elevationIndex(elevation)))
 )
 
-/** Every class the design system composes from an elevation or a motion relation, each once, for Tailwind to keep. */
+/** Every class the design system composes from a measure, elevation or motion relation, for Tailwind to keep. */
 export const layoutClassCandidates: ReadonlyArray<string> = Arr.dedupe(
-  Arr.appendAll(
+  Arr.flatten([
+    Arr.map(Measure.literals, measureClassName),
     Arr.map(Elevation.literals, elevationClassName),
     Arr.flatMap(
       MotionRelation.literals,
       (relation) => Arr.filter(Str.split(transitionClassName(relation), " "), Str.isNonEmpty)
     )
-  )
+  ])
 )
 
 const declaration = (indent: string) => ([name, value]: Token): string => `${indent}${name}: ${value};`
@@ -62,7 +63,7 @@ export const renderLayoutTokensCss = (): string =>
       ["}", "", "@layer base {", "  :root {"],
       Arr.map(elevationTokens, declaration("    ")),
       ["  }", "}", ""],
-      ["/* Design-system candidates: each elevation's class and each relation's transition (generated — do not edit) */"],
+      ["/* Design-system candidates: measures, elevations and transitions (generated — do not edit) */"],
       [`@source inline("${Arr.join(layoutClassCandidates, " ")}");`, ""]
     ]),
     "\n"
