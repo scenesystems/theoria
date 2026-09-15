@@ -56,6 +56,15 @@ export * as OpenAiCompatible from "./OpenAiCompatible/index.js"
 export * as HuggingFace from "./HuggingFace/index.js"
 
 /**
+ * Usage observers that decorate native Effect AI provider clients without
+ * changing their language-model integrations.
+ *
+ * @since 0.4.0
+ * @category observability
+ */
+export * as Usage from "./Usage/index.js"
+
+/**
  * Testing fixtures and deterministic runtime-resolution helpers.
  *
  * @since 0.1.0
