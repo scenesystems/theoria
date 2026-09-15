@@ -1,9 +1,10 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Data, Effect, Match, Number, Option, Record, Schema } from "effect"
 
 import * as Numeric from "../../src/Numeric/index.js"
 import { bisect, goldenSection } from "../../src/Optimization/operations.js"
-import { FixtureRegistryLive, loadFixture, OptimizationSolverParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { loadFixture, OptimizationSolverParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const ABSOLUTE_TOLERANCE = 1e-6
 
@@ -68,5 +69,5 @@ describe("Optimization SciPy fixture parity", () => {
           ),
           Match.exhaustive
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

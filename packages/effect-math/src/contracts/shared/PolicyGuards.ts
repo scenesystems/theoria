@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Clock, Data, Effect, Match, Number, Record, Schema } from "effect"
+import { Array, Clock, Data, Effect, Match, Number, Record, Schema, String } from "effect"
 
 import { DiagnosticsPolicyService, PrecisionPolicyService } from "./RuntimePolicies.js"
 
@@ -107,7 +107,7 @@ export const withScalarPolicyGuards = <E>(options: ScalarPolicyGuardOptions<E>) 
       makeError: options.makeError,
       annotations: options.annotations
     }),
-    (result) => `Non-finite ${options.operation} result: ${encodeNumber(result)}`
+    (result) => Array.join(Array.make("Non-finite ", options.operation, " result: ", encodeNumber(result)), "")
   )
 
 /**
@@ -131,5 +131,5 @@ export const withScalarPolicyGuards = <E>(options: ScalarPolicyGuardOptions<E>) 
 export const withCustomPolicyGuards = <A, E>(options: CustomPolicyGuardOptions<A, E>) =>
   withPolicyGuards(
     options,
-    () => `Non-finite ${options.operation} result`
+    () => String.concat(String.concat("Non-finite ", options.operation), " result")
   )

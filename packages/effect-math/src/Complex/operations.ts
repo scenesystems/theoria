@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Number, Schema, Tuple } from "effect"
+import { Array, Chunk, Effect, Number, Schema, Tuple } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import * as Numeric from "../Numeric/index.js"
@@ -637,7 +637,10 @@ export const absWithPolicies = (z: Complex) =>
     operation: "Complex.absWithPolicies",
     compute: () => Arithmetic.abs(z.re, z.im),
     makeError: (message) => new ComplexDomainViolationError({ operation: "absWithPolicies", message }),
-    annotations: (result) => ({ input: `${encodeNumber(z.re)}+${encodeNumber(z.im)}i`, result: encodeNumber(result) })
+    annotations: (result) => ({
+      input: Array.join(Array.make(encodeNumber(z.re), "+", encodeNumber(z.im), "i"), ""),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -652,7 +655,10 @@ export const argWithPolicies = (z: Complex) =>
     operation: "Complex.argWithPolicies",
     compute: () => Arithmetic.arg(z.re, z.im),
     makeError: (message) => new ComplexDomainViolationError({ operation: "argWithPolicies", message }),
-    annotations: (result) => ({ input: `${encodeNumber(z.re)}+${encodeNumber(z.im)}i`, result: encodeNumber(result) })
+    annotations: (result) => ({
+      input: Array.join(Array.make(encodeNumber(z.re), "+", encodeNumber(z.im), "i"), ""),
+      result: encodeNumber(result)
+    })
   })
 
 /**

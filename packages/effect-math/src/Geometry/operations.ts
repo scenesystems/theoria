@@ -5,13 +5,15 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Match, Number, Schema } from "effect"
+import { Chunk, Effect, Match, Number, Schema, String } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { GeometryDecodeError, GeometryDomainViolationError, GeometryShapeMismatchError } from "./errors.js"
 import * as Metric from "./internal/metric.js"
 import { GeometryDomainModel } from "./model.js"
 import { CentroidInput, DistanceInput, MidpointInput } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Yields the immutable descriptor used to register Geometry capabilities.
@@ -103,8 +105,8 @@ export const distanceValidated = (input: unknown) =>
       (d) =>
         new GeometryShapeMismatchError({
           operation: "distance",
-          expected: `length ${Chunk.size(d.a)}`,
-          actual: `length ${Chunk.size(d.b)}`,
+          expected: String.concat("length ", encodeNumber(Chunk.size(d.a))),
+          actual: String.concat("length ", encodeNumber(Chunk.size(d.b))),
           message: `Distance requires points of equal dimensionality`
         })
     )
@@ -144,8 +146,8 @@ export const midpointValidated = (input: unknown) =>
       (d) =>
         new GeometryShapeMismatchError({
           operation: "midpoint",
-          expected: `length ${Chunk.size(d.a)}`,
-          actual: `length ${Chunk.size(d.b)}`,
+          expected: String.concat("length ", encodeNumber(Chunk.size(d.a))),
+          actual: String.concat("length ", encodeNumber(Chunk.size(d.b))),
           message: `Midpoint requires points of equal dimensionality`
         })
     )
@@ -182,7 +184,7 @@ export const centroidValidated = (input: unknown) =>
       () =>
         new GeometryShapeMismatchError({
           operation: "centroid",
-          expected: `all points length ${firstLength}`,
+          expected: String.concat("all points length ", encodeNumber(firstLength)),
           actual: `mixed lengths`,
           message: `Centroid requires all points to have equal dimensionality`
         })
@@ -238,7 +240,7 @@ export const centroidValidated = (input: unknown) =>
 export const distanceWithPolicies = (
   a: Chunk.Chunk<number>,
   b: Chunk.Chunk<number>,
-  metric: "euclidean" | "manhattan" | "chebyshev"
+  metric: typeof DistanceInput.Type["metric"]
 ) =>
   withScalarPolicyGuards({
     operation: "Geometry.distanceWithPolicies",
@@ -252,7 +254,7 @@ export const distanceWithPolicies = (
     makeError: (message) => new GeometryDomainViolationError({ operation: "distanceWithPolicies", message }),
     annotations: (result) => ({
       metric,
-      dimensionality: `${Chunk.size(a)}`,
-      result: `${result}`
+      dimensionality: encodeNumber(Chunk.size(a)),
+      result: encodeNumber(result)
     })
   })

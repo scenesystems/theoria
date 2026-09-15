@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Schema } from "effect"
+import { Array, Chunk, Effect, Schema } from "effect"
 
 import { withCustomPolicyGuards, withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { AlgebraDecodeError, AlgebraDomainViolationError } from "./errors.js"
@@ -13,6 +13,8 @@ import * as Integer from "./internal/integer.js"
 import * as Polynomial from "./internal/polynomial.js"
 import { AlgebraDomainModel } from "./model.js"
 import { FactorialInput, GcdInput, LcmInput, PolyDerivativeInput, PolyEvalInput } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Yields the immutable descriptor used to register Algebra capabilities.
@@ -231,8 +233,16 @@ export const polyEvalWithPolicies = (coefficients: Chunk.Chunk<number>, x: numbe
     compute: () => Polynomial.polyEval(coefficients, x),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "polyEvalWithPolicies", message }),
     annotations: (result) => ({
-      input: `coefficients=[${Chunk.join(Chunk.map(coefficients, (coefficient) => `${coefficient}`), ",")}], x=${x}`,
-      result: `${result}`
+      input: Array.join(
+        Array.make(
+          "coefficients=[",
+          Chunk.join(Chunk.map(coefficients, (coefficient) => encodeNumber(coefficient)), ","),
+          "], x=",
+          encodeNumber(x)
+        ),
+        ""
+      ),
+      result: encodeNumber(result)
     })
   })
 
@@ -253,8 +263,18 @@ export const polyDerivativeWithPolicies = (coefficients: Chunk.Chunk<number>) =>
     isValid: (result) => Chunk.every(result, Schema.is(Schema.Finite)),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "polyDerivativeWithPolicies", message }),
     annotations: (result) => ({
-      input: `coefficients=[${Chunk.join(Chunk.map(coefficients, (coefficient) => `${coefficient}`), ",")}]`,
-      result: `[${Chunk.join(Chunk.map(result, (coefficient) => `${coefficient}`), ",")}]`
+      input: Array.join(
+        Array.make(
+          "coefficients=[",
+          Chunk.join(Chunk.map(coefficients, (coefficient) => encodeNumber(coefficient)), ","),
+          "]"
+        ),
+        ""
+      ),
+      result: Array.join(
+        Array.make("[", Chunk.join(Chunk.map(result, (coefficient) => encodeNumber(coefficient)), ","), "]"),
+        ""
+      )
     })
   })
 
@@ -274,7 +294,7 @@ export const factorialWithPolicies = (n: number) =>
     operation: "Algebra.factorialWithPolicies",
     compute: () => Integer.factorial(n),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "factorialWithPolicies", message }),
-    annotations: (result) => ({ input: `${n}`, result: `${result}` })
+    annotations: (result) => ({ input: encodeNumber(n), result: encodeNumber(result) })
   })
 
 /**
@@ -293,7 +313,10 @@ export const gcdWithPolicies = (a: number, b: number) =>
     operation: "Algebra.gcdWithPolicies",
     compute: () => Integer.gcd(a, b),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "gcdWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: `${result}` })
+    annotations: (result) => ({
+      input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -312,5 +335,8 @@ export const lcmWithPolicies = (a: number, b: number) =>
     operation: "Algebra.lcmWithPolicies",
     compute: () => Integer.lcm(a, b),
     makeError: (message) => new AlgebraDomainViolationError({ operation: "lcmWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: `${result}` })
+    annotations: (result) => ({
+      input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
+      result: encodeNumber(result)
+    })
   })

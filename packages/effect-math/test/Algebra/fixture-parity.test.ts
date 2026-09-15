@@ -1,8 +1,9 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Equal, Match, Schema } from "effect"
 
 import { factorial, gcd, lcm, polyDerivative, polyEval } from "../../src/Algebra/operations.js"
-import { AlgebraPolynomialParityFixtureSchema, FixtureRegistryLive, loadFixture } from "../helpers/fixtures/index.js"
+import { AlgebraPolynomialParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 describe("Algebra SciPy fixture parity", () => {
   it.effect("all polynomial-parity cases match SciPy reference values", () =>
@@ -35,5 +36,5 @@ describe("Algebra SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

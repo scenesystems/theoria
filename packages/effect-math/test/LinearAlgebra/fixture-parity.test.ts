@@ -1,9 +1,10 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema, Tuple } from "effect"
 
 import { dot, frobeniusNorm, matvec, normL1, normL2, normLinf } from "../../src/LinearAlgebra/operations.js"
 import { abs } from "../../src/Numeric/index.js"
-import { FixtureRegistryLive, LinalgVectorParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
+import { LinalgVectorParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 const DOT_NORM_TOLERANCE = 1e-12
 const MATVEC_FROBENIUS_TOLERANCE = 1e-10
@@ -68,5 +69,5 @@ describe("LinearAlgebra SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

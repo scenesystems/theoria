@@ -1,8 +1,9 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Number, Schema } from "effect"
 
 import { abs, expm1, log1p, sum } from "../../src/Numeric/operations.js"
-import { FixtureRegistryLive, loadFixture, NumericScalarParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { loadFixture, NumericScalarParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const LOG1P_EXPM1_TOLERANCE = 1e-15
 const SUM_TOLERANCE = 1.5
@@ -30,5 +31,5 @@ describe("Numeric SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

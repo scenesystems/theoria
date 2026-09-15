@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Effect, Schema } from "effect"
+import { Array, Effect, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { SpecialDecodeError, SpecialDomainViolationError } from "./errors.js"
@@ -331,7 +331,10 @@ export const betaWithPolicies = (a: number, b: number) =>
     operation: "Special.betaWithPolicies",
     compute: () => Beta.betaFromGamma(a, b),
     makeError: (message) => new SpecialDomainViolationError({ operation: "betaWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${encodeNumber(a)}, b=${encodeNumber(b)}`, result: encodeNumber(result) })
+    annotations: (result) => ({
+      input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -555,5 +558,8 @@ export const gammaincWithPolicies = (a: number, x: number) =>
     operation: "Special.gammaincWithPolicies",
     compute: () => Gammainc.gammainc(a, x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "gammaincWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${encodeNumber(a)}, x=${encodeNumber(x)}`, result: encodeNumber(result) })
+    annotations: (result) => ({
+      input: Array.join(Array.make("a=", encodeNumber(a), ", x=", encodeNumber(x)), ""),
+      result: encodeNumber(result)
+    })
   })

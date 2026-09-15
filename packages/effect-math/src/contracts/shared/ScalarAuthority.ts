@@ -332,7 +332,15 @@ export const resolveScalarKind = (request: ScalarResolutionRequestType) =>
               () => authority.policy.primaryKind
             ),
             availableKinds,
-            message: `No scalar lane resolved for ${request.operationCategory}; attempted order: ${attemptedOrder}`
+            message: Array.join(
+              Array.make(
+                "No scalar lane resolved for ",
+                request.operationCategory,
+                "; attempted order: ",
+                attemptedOrder
+              ),
+              ""
+            )
           })
         ),
       onSome: (candidate) =>

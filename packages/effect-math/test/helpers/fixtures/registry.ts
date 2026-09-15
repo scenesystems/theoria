@@ -1,4 +1,3 @@
-import { BunContext } from "@effect/platform-bun"
 import { Effect, Option } from "effect"
 
 import { FixtureNotFoundError } from "./errors.js"
@@ -7,8 +6,6 @@ import type { FixtureName } from "./schemas.js"
 
 const defaultRootDirectory = directoryBeside(import.meta.url, "../../fixtures/scipy/")
 const DEFAULT_MANIFEST_FILE = "manifest.json"
-
-export const FixtureRegistryLive = BunContext.layer
 
 export const loadFixture = (
   name: FixtureName

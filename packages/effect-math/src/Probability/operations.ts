@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Number, Schema } from "effect"
+import { Array, Chunk, Effect, Number, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { ProbabilityDecodeError, ProbabilityDomainViolationError, ProbabilityParameterError } from "./errors.js"
@@ -172,7 +172,15 @@ export const uniformPdfValidated = (input: unknown) =>
       (d) =>
         new ProbabilityParameterError({
           operation: "uniformPdf",
-          message: `Uniform distribution requires low < high, got low=${d.low}, high=${d.high}`
+          message: Array.join(
+            Array.make(
+              "Uniform distribution requires low < high, got low=",
+              encodeNumber(d.low),
+              ", high=",
+              encodeNumber(d.high)
+            ),
+            ""
+          )
         })
     )
 
@@ -206,7 +214,15 @@ export const uniformCdfValidated = (input: unknown) =>
       (d) =>
         new ProbabilityParameterError({
           operation: "uniformCdf",
-          message: `Uniform distribution requires low < high, got low=${d.low}, high=${d.high}`
+          message: Array.join(
+            Array.make(
+              "Uniform distribution requires low < high, got low=",
+              encodeNumber(d.low),
+              ", high=",
+              encodeNumber(d.high)
+            ),
+            ""
+          )
         })
     )
 

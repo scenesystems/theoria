@@ -1,3 +1,4 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema } from "effect"
 
@@ -68,7 +69,7 @@ import {
   uniformVariance
 } from "../../src/Distribution/operations.js"
 import { abs } from "../../src/Numeric/index.js"
-import { DistributionAlgebraParityFixtureSchema, FixtureRegistryLive, loadFixture } from "../helpers/fixtures/index.js"
+import { DistributionAlgebraParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 const PDF_TOL = 1e-12
 const CDF_TOL = 2e-12
@@ -371,5 +372,5 @@ describe("Distribution SciPy fixture parity", () => {
             Match.exhaustive
           )
         }))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

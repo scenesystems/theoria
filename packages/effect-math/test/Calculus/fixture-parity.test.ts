@@ -1,3 +1,4 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Chunk, Data, Effect, Match, Number, Option, Record, Schema } from "effect"
 
@@ -15,7 +16,7 @@ import {
   trapezoid
 } from "../../src/Calculus/operations.js"
 import * as Numeric from "../../src/Numeric/index.js"
-import { CalculusNumericalParityFixtureSchema, FixtureRegistryLive, loadFixture } from "../helpers/fixtures/index.js"
+import { CalculusNumericalParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 class UnknownFixtureFunction extends Data.TaggedError("UnknownFixtureFunction")<{ readonly name: string }> {}
 
@@ -217,5 +218,5 @@ describe("Calculus SciPy fixture parity", () => {
               ))),
           Match.exhaustive
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

@@ -1,9 +1,10 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Effect, Match, Number, Schema } from "effect"
 
 import { abs } from "../../src/Numeric/index.js"
 import { betainc, erfcinv, erfinv, gammainc, gammaincc, polygamma } from "../../src/Special/operations.js"
-import { FixtureRegistryLive, loadFixture, SpecialInverseParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { loadFixture, SpecialInverseParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const RELATIVE_TOLERANCE = 1e-9
 const ERFINV_ABSOLUTE_TOLERANCE = 1e-9
@@ -47,5 +48,5 @@ describe("Special inverse SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

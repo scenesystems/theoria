@@ -284,7 +284,10 @@ export const resolveEscalatedScalarKind = (request: PrecisionEscalationRequestTy
                           operation: request.operation,
                           requestedKind: request.currentKind,
                           attempts: request.attempts,
-                          message: `Current scalar kind ${request.currentKind} is not declared in escalation order`
+                          message: String.concat(
+                            String.concat("Current scalar kind ", request.currentKind),
+                            " is not declared in escalation order"
+                          )
                         })
                       ),
                     onSome: Effect.succeed

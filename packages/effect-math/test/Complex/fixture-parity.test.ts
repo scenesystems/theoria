@@ -1,3 +1,4 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Effect, Match, Number, Schema } from "effect"
 
@@ -25,7 +26,7 @@ import {
   toPolar
 } from "../../src/Complex/operations.js"
 import * as Numeric from "../../src/Numeric/index.js"
-import { ComplexArithmeticParityFixtureSchema, FixtureRegistryLive, loadFixture } from "../helpers/fixtures/index.js"
+import { ComplexArithmeticParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 const ARITHMETIC_TOLERANCE = 1e-12
 const TRIG_TOLERANCE = 1e-14
@@ -158,5 +159,5 @@ describe("Complex arithmetic SciPy fixture parity", () => {
             )
           )
         }))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

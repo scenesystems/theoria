@@ -151,7 +151,7 @@ export const resolveBackendKind = (request: BackendResolutionRequestType) =>
             operation: request.operation,
             requestedBackend,
             availableBackends,
-            message: `No backend can satisfy scalar lane ${request.scalarKind}`
+            message: String.concat("No backend can satisfy scalar lane ", request.scalarKind)
           })
         ),
       onSome: (kind) => Effect.succeed(kind)

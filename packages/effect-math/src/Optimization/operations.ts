@@ -9,7 +9,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Effect, Inspectable, Match, Predicate, Schema } from "effect"
+import { Array, Effect, Inspectable, Match, Predicate, Schema } from "effect"
 
 import { KernelExecutionError } from "../contracts/shared/AdvancedComputationErrors.js"
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
@@ -258,7 +258,7 @@ export const bisectWithPolicies = (f: (x: number) => number, a: number, b: numbe
         compute: () => result,
         makeError: (message) => new OptimizationDomainViolationError({ operation: "bisectWithPolicies", message }),
         annotations: (value) => ({
-          input: `a=${encodeNumber(a)}, b=${encodeNumber(b)}`,
+          input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
           result: encodeNumber(value)
         })
       })
@@ -292,7 +292,7 @@ export const goldenSectionWithPolicies = (f: (x: number) => number, a: number, b
         makeError: (message) =>
           new OptimizationDomainViolationError({ operation: "goldenSectionWithPolicies", message }),
         annotations: (value) => ({
-          input: `a=${encodeNumber(a)}, b=${encodeNumber(b)}`,
+          input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
           result: encodeNumber(value)
         })
       })

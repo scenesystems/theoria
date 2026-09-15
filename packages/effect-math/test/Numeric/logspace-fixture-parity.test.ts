@@ -1,3 +1,4 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Match, Number, Schema } from "effect"
 
@@ -11,7 +12,7 @@ import {
   xlog1py,
   xlogy
 } from "../../src/Numeric/operations.js"
-import { FixtureRegistryLive, loadFixture, NumericLogspaceParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { loadFixture, NumericLogspaceParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const RELATIVE_TOLERANCE = 1e-12
 const ABSOLUTE_TOLERANCE = 1e-12
@@ -43,5 +44,5 @@ describe("Numeric logspace SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

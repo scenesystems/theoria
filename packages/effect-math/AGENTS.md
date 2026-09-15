@@ -89,15 +89,18 @@ Fixture generation uses [uv](https://docs.astral.sh/uv/) with PEP 723 inline met
 
 - Committed fixture JSON in `test/fixtures/scipy/` is the test source of truth
 - `bun run fixtures:check` schema-decodes every committed fixture through the TS `KnownFixtureSchema` union — catches generator ↔ schema drift
-- `bun run fixtures:generate` regenerates fixtures from the generator script
+- `bun run fixtures:generate` runs the Effect entrypoint `scripts/generate-scipy-fixtures.ts`
 - `bun run fixtures:lock` pins exact Python dependency versions (run after changing PEP 723 deps)
-- Generator is decomposed: `scripts/fixtures/` has one module per domain; `generate-scipy-fixtures.py` is the orchestrator
+- Python is explicitly authorized for SciPy/NumPy reference computation, result conversion, and the JSON stdin/stdout protocol. These dependencies remain Python; this authorization does not extend to TypeScript computation or orchestration.
+- Effect owns discovery, scoped Python processes, bounded concurrency, schema validation, filesystem writes, and manifest construction. `generate-scipy-fixtures.py` evaluates one requested family; `scripts/fixtures/` has one module per domain.
+- `SCIPY_FIXTURE_OUTPUT_DIRECTORY` selects an alternate output directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the reproducible default timestamp `2026-03-23T00:00:00Z`.
+- Provenance records the SciPy, NumPy, and Python versions actually used. Review numerical changes independently; do not weaken tolerances to accept regenerated output.
 
 ### Fixture Architecture
 
 - **Python generators** (`scripts/fixtures/*.py`): one module per domain, each exports `generate(generated_at) -> list[dict]`
-- **TS schemas** (`test/helpers/fixtures/schemas.ts`): typed discriminated unions per domain, `KnownFixtureSchema` union of all 9
-- **TS registry** (`test/helpers/fixtures/registry.ts`): `FixtureRegistry` Context.Tag, `loadFixture` helper, `@effect/platform` + `@effect/platform-bun` for file I/O
+- **TS schemas** (`test/helpers/fixtures/schemas.ts`): discriminated unions per domain; `KnownFixtureSchema` owns the fixture vocabulary, with names derived from its members
+- **TS registry** (`test/helpers/fixtures/registry.ts`): `loadFixture` reads the manifest and schema-decodes the requested document using `@effect/platform` services provided by `BunContext.layer`
 - **Fixture-parity tests** (`test/{Domain}/fixture-parity.test.ts`): load via registry, decode through domain schema, dispatch via `Match.exhaustive`
 
 ### Rules

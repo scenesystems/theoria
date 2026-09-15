@@ -9,7 +9,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Match, Number, Schema } from "effect"
+import { Chunk, Effect, Match, Number, Schema, String } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { BackendPolicyService } from "../contracts/shared/RuntimePolicies.js"
@@ -19,6 +19,8 @@ import * as Solver from "./internal/solver.js"
 import * as Vector from "./internal/vector.js"
 import { LinearAlgebraDomainModel } from "./model.js"
 import { DotProductInput, MatvecInput, NormInput, TransposeInput } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Returns the canonical provisional dense-linear-algebra descriptor for
@@ -280,8 +282,8 @@ export const dotValidated = (input: unknown) =>
       (d) =>
         new ShapeMismatchError({
           operation: "dot",
-          expected: `length ${Chunk.size(d.a)}`,
-          actual: `length ${Chunk.size(d.b)}`,
+          expected: String.concat("length ", encodeNumber(Chunk.size(d.a))),
+          actual: String.concat("length ", encodeNumber(Chunk.size(d.b))),
           message: `Dot product requires vectors of equal length`
         })
     )
@@ -335,8 +337,8 @@ export const matvecValidated = (input: unknown) =>
       (d) =>
         new ShapeMismatchError({
           operation: "matvec",
-          expected: `data length ${Number.multiply(d.rows, d.cols)}`,
-          actual: `data length ${Chunk.size(d.data)}`,
+          expected: String.concat("data length ", encodeNumber(Number.multiply(d.rows, d.cols))),
+          actual: String.concat("data length ", encodeNumber(Chunk.size(d.data))),
           message: `Matrix data length must equal rows * cols`
         })
     )
@@ -347,8 +349,8 @@ export const matvecValidated = (input: unknown) =>
       (d) =>
         new ShapeMismatchError({
           operation: "matvec",
-          expected: `vector length ${d.cols}`,
-          actual: `vector length ${Chunk.size(d.x)}`,
+          expected: String.concat("vector length ", encodeNumber(d.cols)),
+          actual: String.concat("vector length ", encodeNumber(Chunk.size(d.x))),
           message: `Vector length must equal number of columns`
         })
     )
@@ -425,8 +427,8 @@ export const transposeValidated = (input: unknown) =>
       (d) =>
         new ShapeMismatchError({
           operation: "transpose",
-          expected: `data length ${Number.multiply(d.rows, d.cols)}`,
-          actual: `data length ${Chunk.size(d.data)}`,
+          expected: String.concat("data length ", encodeNumber(Number.multiply(d.rows, d.cols))),
+          actual: String.concat("data length ", encodeNumber(Chunk.size(d.data))),
           message: `Matrix data length must equal rows * cols`
         })
     )
@@ -496,8 +498,8 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
       makeError: (message) => new LinearAlgebraDomainViolationError({ operation: "dotWithPolicies", message }),
       annotations: (result) => ({
         backend: backend.policy,
-        vectorLength: `${Chunk.size(a)}`,
-        result: `${result}`
+        vectorLength: encodeNumber(Chunk.size(a)),
+        result: encodeNumber(result)
       })
     })
   })
@@ -515,7 +517,7 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
  * @since 0.1.0
  * @category operations
  */
-export const normWithPolicies = (values: Chunk.Chunk<number>, kind: "L1" | "L2" | "Linf") =>
+export const normWithPolicies = (values: Chunk.Chunk<number>, kind: typeof NormInput.Type["kind"]) =>
   withScalarPolicyGuards({
     operation: "LinearAlgebra.normWithPolicies",
     compute: () =>
@@ -528,7 +530,7 @@ export const normWithPolicies = (values: Chunk.Chunk<number>, kind: "L1" | "L2" 
     makeError: (message) => new LinearAlgebraDomainViolationError({ operation: "normWithPolicies", message }),
     annotations: (result) => ({
       kind,
-      vectorLength: `${Chunk.size(values)}`,
-      result: `${result}`
+      vectorLength: encodeNumber(Chunk.size(values)),
+      result: encodeNumber(result)
     })
   })

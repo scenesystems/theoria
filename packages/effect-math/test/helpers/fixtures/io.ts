@@ -111,7 +111,10 @@ const decodeFixture = (
         new FixtureSchemaDecodeError({
           fixture: fixtureName,
           path,
-          cause: `Fixture name mismatch: expected ${fixtureName}, received ${fixture.fixture}`
+          cause: Array.join(
+            Array.make("Fixture name mismatch: expected ", fixtureName, ", received ", fixture.fixture),
+            ""
+          )
         })
     )
   )

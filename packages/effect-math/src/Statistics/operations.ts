@@ -10,7 +10,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Match, Number, Schema } from "effect"
+import { Chunk, Effect, Match, Number, Schema, String } from "effect"
 import type { Option } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
@@ -20,6 +20,8 @@ import { StatisticsDecodeError, StatisticsDomainViolationError, StatisticsShapeE
 import * as Estimators from "./internal/estimators.js"
 import { StatisticsDomainModel } from "./model.js"
 import { SampleInput, SummaryStatistics, TwoSampleInput } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Loads the provisional Statistics descriptor used for capability discovery.
@@ -191,7 +193,7 @@ export const varianceValidated = (input: unknown) =>
         new StatisticsShapeError({
           operation: "variance",
           expected: "at least 2 samples",
-          actual: `${Chunk.size(decoded.values)} sample(s)`,
+          actual: String.concat(encodeNumber(Chunk.size(decoded.values)), " sample(s)"),
           message: "Bessel-corrected variance requires at least 2 samples"
         })
     )
@@ -244,7 +246,7 @@ export const summaryStatisticsValidated = (input: unknown) =>
         new StatisticsShapeError({
           operation: "summaryStatistics",
           expected: "at least 2 samples",
-          actual: `${Chunk.size(decoded.values)} sample(s)`,
+          actual: String.concat(encodeNumber(Chunk.size(decoded.values)), " sample(s)"),
           message: "Summary statistics requires at least 2 samples for variance"
         })
     )
@@ -296,8 +298,8 @@ export const covarianceValidated = (input: unknown) =>
       (d) =>
         new StatisticsShapeError({
           operation: "covariance",
-          expected: `length ${Chunk.size(d.a)}`,
-          actual: `length ${Chunk.size(d.b)}`,
+          expected: String.concat("length ", encodeNumber(Chunk.size(d.a))),
+          actual: String.concat("length ", encodeNumber(Chunk.size(d.b))),
           message: "Covariance requires samples of equal length"
         })
     )
@@ -309,7 +311,7 @@ export const covarianceValidated = (input: unknown) =>
         new StatisticsShapeError({
           operation: "covariance",
           expected: "at least 2 samples",
-          actual: `${Chunk.size(decoded.a)} sample(s)`,
+          actual: String.concat(encodeNumber(Chunk.size(decoded.a)), " sample(s)"),
           message: "Bessel-corrected covariance requires at least 2 samples"
         })
     )
@@ -427,7 +429,7 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
         new StatisticsShapeError({
           operation: "summaryStatisticsWithPolicies",
           expected: "at least 2 samples",
-          actual: `${n} sample(s)`,
+          actual: String.concat(encodeNumber(n), " sample(s)"),
           message: "Summary statistics requires at least 2 samples for variance"
         })
     )
@@ -455,7 +457,7 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
       Effect.mapError((error) =>
         new StatisticsDomainViolationError({
           operation: "summaryStatisticsWithPolicies",
-          message: `Summary statistics result violates the finite schema: ${error.message}`
+          message: String.concat("Summary statistics result violates the finite schema: ", error.message)
         })
       )
     )
@@ -465,7 +467,7 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
         Effect.logDebug("Statistics.summaryStatisticsWithPolicies").pipe(
           Effect.annotateLogs({
             precision: precision.policy,
-            sampleSize: `${count}`
+            sampleSize: encodeNumber(count)
           })
         )),
       Match.when("disabled", () => Effect.void),
@@ -496,7 +498,7 @@ export const meanWithPolicies = (values: Chunk.Chunk<number>) =>
     operation: "Statistics.meanWithPolicies",
     compute: () => Estimators.mean(values),
     makeError: (message) => new StatisticsDomainViolationError({ operation: "meanWithPolicies", message }),
-    annotations: (result) => ({ sampleSize: `${Chunk.size(values)}`, result: `${result}` })
+    annotations: (result) => ({ sampleSize: encodeNumber(Chunk.size(values)), result: encodeNumber(result) })
   })
 
 /**
@@ -525,7 +527,7 @@ export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
         new StatisticsShapeError({
           operation: "varianceWithPolicies",
           expected: "at least 2 samples",
-          actual: `${n} sample(s)`,
+          actual: String.concat(encodeNumber(n), " sample(s)"),
           message: "Bessel-corrected variance requires at least 2 samples"
         })
     )
@@ -533,7 +535,7 @@ export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
       operation: "Statistics.varianceWithPolicies",
       compute: () => Estimators.variance(values),
       makeError: (message) => new StatisticsDomainViolationError({ operation: "varianceWithPolicies", message }),
-      annotations: (result) => ({ sampleSize: `${Chunk.size(values)}`, result: `${result}` })
+      annotations: (result) => ({ sampleSize: encodeNumber(Chunk.size(values)), result: encodeNumber(result) })
     })
   })
 
@@ -563,8 +565,8 @@ export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<nu
       ({ aLen, bLen }) =>
         new StatisticsShapeError({
           operation: "covarianceWithPolicies",
-          expected: `length ${aLen}`,
-          actual: `length ${bLen}`,
+          expected: String.concat("length ", encodeNumber(aLen)),
+          actual: String.concat("length ", encodeNumber(bLen)),
           message: "Covariance requires samples of equal length"
         })
     )
@@ -576,7 +578,7 @@ export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<nu
         new StatisticsShapeError({
           operation: "covarianceWithPolicies",
           expected: "at least 2 samples",
-          actual: `${n} sample(s)`,
+          actual: String.concat(encodeNumber(n), " sample(s)"),
           message: "Bessel-corrected covariance requires at least 2 samples"
         })
     )
@@ -585,6 +587,6 @@ export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<nu
       operation: "Statistics.covarianceWithPolicies",
       compute: () => Estimators.covariance(a, b),
       makeError: (message) => new StatisticsDomainViolationError({ operation: "covarianceWithPolicies", message }),
-      annotations: (result) => ({ sampleSize: `${Chunk.size(a)}`, result: `${result}` })
+      annotations: (result) => ({ sampleSize: encodeNumber(Chunk.size(a)), result: encodeNumber(result) })
     })
   })

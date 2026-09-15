@@ -153,6 +153,14 @@ Pure kernels have no error channel. They do what their documentation says for va
 
 The [examples directory](./examples/) contains one runnable program per domain, each showing the pure, validated, and policy-aware forms side by side: [numeric transforms](./examples/01-numeric-scalar-transforms.ts), [linear algebra](./examples/02-linear-algebra-vectors.ts), [geometry](./examples/03-geometry-distances.ts), [probability](./examples/04-probability-distributions.ts), [statistics](./examples/05-statistics-summary.ts), [special functions](./examples/06-special-functions.ts), [algebra](./examples/07-algebra-polynomials.ts), [calculus](./examples/08-calculus-numerical.ts), [optimization](./examples/09-optimization-solvers.ts), and [distributions](./examples/10-distributions.ts).
 
+## Reference fixtures
+
+Committed SciPy/NumPy fixtures provide independent numerical expectations. From this package directory, run `bun run fixtures:check` to validate them or `bun run fixtures:generate` to regenerate them. Generation requires [uv](https://docs.astral.sh/uv/); `bun run fixtures:lock` updates the Python dependency lock after dependency changes.
+
+The Effect entrypoint discovers reference families, runs Python processes in scopes with bounded concurrency, decodes their JSON responses through the fixture schemas, and writes the fixture files and manifest. Python owns SciPy/NumPy reference computation, result conversion, and JSON input/output. The manifest records the actual SciPy, NumPy, and Python versions used.
+
+Set `SCIPY_FIXTURE_OUTPUT_DIRECTORY` to generate into a separate directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the default reproducible timestamp `2026-03-23T00:00:00Z`. Generator failures and invalid responses fail the command before any fixture files are written. Filesystem write failures can leave partial output, so use a separate output directory when reviewing regenerated references.
+
 ## Status
 
 This package is pre-1.0. All domain APIs are provisional: minor releases may change signatures and behavior. Pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading. The `Experimental` module may change or be removed with less migration support than the domain modules.

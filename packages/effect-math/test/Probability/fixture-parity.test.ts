@@ -1,13 +1,10 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema } from "effect"
 
 import { abs } from "../../src/Numeric/index.js"
 import { normalCdf, normalPdf, shannonEntropy, uniformCdf, uniformPdf } from "../../src/Probability/operations.js"
-import {
-  FixtureRegistryLive,
-  loadFixture,
-  ProbabilityDistributionParityFixtureSchema
-} from "../helpers/fixtures/index.js"
+import { loadFixture, ProbabilityDistributionParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const NORMAL_PDF_TOLERANCE = 1e-14
 const NORMAL_CDF_TOLERANCE = 2e-14
@@ -53,5 +50,5 @@ describe("Probability SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

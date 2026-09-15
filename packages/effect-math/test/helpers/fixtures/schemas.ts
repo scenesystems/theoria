@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Array, Schema } from "effect"
 
 const FixtureMetadataSchema = Schema.Struct({
   generatedAt: Schema.String,
@@ -1723,24 +1723,6 @@ export const DistributionAlgebraParityFixtureSchema = Schema.Struct({
 // Fixture name literal union + known fixture union
 // ---------------------------------------------------------------------------
 
-export const FixtureNameSchema = Schema.Literal(
-  "algebra.polynomial-parity",
-  "calculus.numerical-parity",
-  "complex.arithmetic-parity",
-  "distribution.algebra-parity",
-  "numeric.scalar-parity",
-  "numeric.logspace-parity",
-  "linalg.vector-parity",
-  "geometry.distance-parity",
-  "probability.distribution-parity",
-  "statistics.estimator-parity",
-  "special.function-parity",
-  "special.inverse-parity",
-  "optimization.solver-parity"
-)
-
-export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
-
 export const KnownFixtureSchema = Schema.Union(
   AlgebraPolynomialParityFixtureSchema,
   CalculusNumericalParityFixtureSchema,
@@ -1756,6 +1738,12 @@ export const KnownFixtureSchema = Schema.Union(
   SpecialInverseParityFixtureSchema,
   OptimizationSolverParityFixtureSchema
 )
+
+export const FixtureNameSchema = Schema.Union(
+  ...Array.map(KnownFixtureSchema.members, (schema) => schema.fields.fixture)
+)
+
+export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
 
 export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>
 

@@ -1,9 +1,10 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema, Tuple } from "effect"
 
 import { chebyshevDistance, euclideanDistance, manhattanDistance, midpoint } from "../../src/Geometry/operations.js"
 import { abs } from "../../src/Numeric/index.js"
-import { FixtureRegistryLive, GeometryDistanceParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
+import { GeometryDistanceParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 const DISTANCE_TOLERANCE = 1e-12
 
@@ -51,5 +52,5 @@ describe("Geometry SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

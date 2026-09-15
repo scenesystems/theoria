@@ -1,9 +1,10 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Option, Schema } from "effect"
 
 import { abs } from "../../src/Numeric/index.js"
 import { covariance, maximum, mean, minimum, standardDeviation, variance } from "../../src/Statistics/operations.js"
-import { FixtureRegistryLive, loadFixture, StatisticsEstimatorParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { loadFixture, StatisticsEstimatorParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const MEAN_VAR_STDDEV_TOLERANCE = 1e-12
 const COVARIANCE_TOLERANCE = 1e-10
@@ -61,5 +62,5 @@ describe("Statistics SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

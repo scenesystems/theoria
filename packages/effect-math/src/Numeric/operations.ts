@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Clock, Effect, Match, Number, Option, Schema } from "effect"
+import { Array, Chunk, Clock, Effect, Match, Number, Option, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import {
@@ -390,7 +390,15 @@ export const unsafeDivideValidated = (input: unknown) =>
       onNone: () =>
         new NumericDomainViolationError({
           operation: "unsafeDivide",
-          message: `Division by zero: ${decoded.dividend} / ${decoded.divisor}`
+          message: Array.join(
+            Array.make(
+              "Division by zero: ",
+              encodeNumber(decoded.dividend),
+              " / ",
+              encodeNumber(decoded.divisor)
+            ),
+            ""
+          )
         }),
       onSome: Effect.succeed
     })
@@ -524,7 +532,7 @@ export const sumWithPolicies = (values: Iterable<number>) =>
           () =>
             new NumericDomainViolationError({
               operation: "sumWithPolicies",
-              message: `Non-finite sum result: ${result}`
+              message: Array.join(Array.make("Non-finite sum result: ", encodeNumber(result)), "")
             })
         ).pipe(Effect.asVoid)),
       Match.when("relaxed", () => Effect.void),
@@ -822,7 +830,7 @@ export const logaddexpWithPolicies = (a: number, b: number) =>
     compute: () => Logspace.logaddexp(a, b),
     makeError: (message) => new NumericDomainViolationError({ operation: "logaddexpWithPolicies", message }),
     annotations: (result) => ({
-      input: `a=${encodeNumber(a)}, b=${encodeNumber(b)}`,
+      input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
       result: encodeNumber(result)
     })
   })

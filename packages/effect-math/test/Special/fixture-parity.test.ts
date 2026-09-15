@@ -1,9 +1,10 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Effect, Match, Number, Schema } from "effect"
 
 import { abs } from "../../src/Numeric/index.js"
 import { beta, digamma, erf, erfc, gamma, lnGamma } from "../../src/Special/operations.js"
-import { FixtureRegistryLive, loadFixture, SpecialFunctionParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { loadFixture, SpecialFunctionParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const RELATIVE_TOLERANCE = 1e-7
 const ABSOLUTE_TOLERANCE = 1e-12
@@ -40,5 +41,5 @@ describe("Special SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })
