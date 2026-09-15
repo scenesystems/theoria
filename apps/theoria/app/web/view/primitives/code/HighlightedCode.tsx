@@ -1,17 +1,31 @@
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Number as Num, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import { Fragment, type ReactNode } from "react"
 
 import { CodeSource, highlightedLinesAtom } from "../../../atoms/syntax-highlighting.js"
 
-import { annotationFor, type CodeAnnotation, CodeAnnotationRow, CodeLine, lineMatches, lineText } from "./CodeLine.js"
+import { respondColorsClassName, stillUnderReducedMotion } from "../designSystem.js"
+import {
+  annotationFor,
+  type CodeAnnotation,
+  CodeAnnotationRow,
+  CodeLine,
+  lineMatches,
+  lineText,
+  tokenKey,
+  tokenText
+} from "./CodeLine.js"
 import type { CodeLink } from "./codeLinks.js"
 import { tokenClassName } from "./highlighter.js"
 import type { CodeLanguage, HighlightToken } from "./highlighter.js"
 
 const useHighlightedLines = (language: CodeLanguage, source: string): ReadonlyArray<ReadonlyArray<HighlightToken>> =>
   useAtomValue(highlightedLinesAtom(new CodeSource({ language, source })))
+
+/** A line's key among the sample: its place, then how many tokens it holds. */
+const lineKey = (lineIndex: number, line: ReadonlyArray<HighlightToken>): string =>
+  `${String(lineIndex)}:${String(Arr.length(line))}`
 
 const HighlightTokens = ({
   line,
@@ -24,8 +38,8 @@ const HighlightTokens = ({
     {Arr.map(
       line,
       (token, tokenIndex) => (
-        <span className={tokenClassName(token.kind)} key={`${lineIndex}:${tokenIndex}:${token.value.length}`}>
-          {token.value.length === 0 ? " " : token.value}
+        <span className={tokenClassName(token.kind)} key={`${String(lineIndex)}:${tokenKey(tokenIndex, token.value)}`}>
+          {tokenText(token.value)}
         </span>
       )
     )}
@@ -48,8 +62,8 @@ export const InlineHighlightedCode = ({
       className={`whitespace-pre-wrap break-words text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) tracking-(--st-tr-code-meta) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-meta) ${className}`}
     >
       {Arr.map(lines, (line, lineIndex) => (
-        <span key={`${lineIndex}:${line.length}`}>
-          {lineIndex === 0 ? null : "\n"}
+        <span key={lineKey(lineIndex, line)}>
+          {Bool.match(Equal.equals(lineIndex, 0), { onTrue: () => null, onFalse: () => "\n" })}
           <HighlightTokens line={line} lineIndex={lineIndex} />
         </span>
       ))}
@@ -66,11 +80,12 @@ const lineRowClassName =
   "grid grid-cols-[2rem_minmax(0,1fr)] gap-2 items-start sm:grid-cols-[2.45rem_minmax(0,1fr)] sm:gap-3"
 
 /**
- * A line the page is pointing at: washed across its row, a little wider than
- * the text, with the colour easing in and out.
+ * A line the page is pointing at: the instrument across its row, a little
+ * wider than the text, with the colour easing in and out — the same wash a
+ * mark wears while it is answered, so a line and the mark that lit it match.
  */
 const focusableLineRowClassName =
-  `${lineRowClassName} -mx-2 rounded-md px-2 transition-colors duration-200 ease-theme data-[code-line-focused]:bg-stage-100/80 forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] motion-reduce:transition-none`
+  `${lineRowClassName} -mx-2 rounded-mark px-2 ${respondColorsClassName} data-[code-line-focused]:bg-instrument forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] ${stillUnderReducedMotion}`
 
 const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
 
@@ -113,15 +128,18 @@ export const HighlightedCode = ({
   const lines = useHighlightedLines(language, source)
 
   return (
-    <code className="block text-(length:--st-fs-code-block) font-(--st-fw-code-block) tracking-(--st-tr-code-block) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-block) text-ink-900 [tab-size:2]">
+    <code className="block text-(length:--st-fs-code-block) font-(--st-fw-code-block) tracking-(--st-tr-code-block) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-block) text-ink [tab-size:2]">
       {Arr.map(lines, (line, lineIndex) => (
-        <Fragment key={`${lineIndex}:${line.length}`}>
+        <Fragment key={lineKey(lineIndex, line)}>
           <span
             className={focusableLineRowClassName}
-            data-code-line-focused={lineMatches(line, focusedMatch) ? "" : undefined}
+            data-code-line-focused={Bool.match(lineMatches(line, focusedMatch), {
+              onTrue: () => "",
+              onFalse: () => undefined
+            })}
           >
-            <span className="block select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-700">
-              {renderLineNumber(new GutterLine({ number: lineIndex + 1, text: lineText(line) }))}
+            <span className="block select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-secondary">
+              {renderLineNumber(new GutterLine({ number: Num.increment(lineIndex), text: lineText(line) }))}
             </span>
             <span className="whitespace-pre">
               <CodeLine links={links} tokens={line} />

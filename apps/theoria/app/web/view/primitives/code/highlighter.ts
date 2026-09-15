@@ -46,7 +46,7 @@ export const highlightTokenPaint: Record<HighlightTokenKind, {
   readonly scope: ReadonlyArray<string>
   readonly fontStyle: Option.Option<"italic">
 }> = {
-  plain: { variable: "var(--th-ink-900)", className: "text-ink-900", scope: [], fontStyle: Option.none() },
+  plain: { variable: "var(--th-ink)", className: "text-ink", scope: [], fontStyle: Option.none() },
   comment: {
     variable: "var(--th-code-comment)",
     className: "text-code-comment italic",

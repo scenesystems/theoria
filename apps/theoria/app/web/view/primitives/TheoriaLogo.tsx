@@ -1,139 +1,91 @@
-import { LinearAlgebra } from "@scenesystems/effect-math"
-import { Chunk } from "effect"
+import { Match, Schema } from "effect"
+import * as Arr from "effect/Array"
 
+import { mark, markStroke } from "../../../contracts/brand.js"
+import { markPointsAttribute, markViewBoxAttribute } from "../../brand/brandAssets.js"
 import { classNames } from "./classNames.js"
+import { semanticClassName } from "./semanticTextClasses.js"
 import { WordmarkMorph } from "./WordmarkMorph.js"
 
-type Vector3 = readonly [number, number, number]
-type Point2 = readonly [number, number]
+/** How the wordmark behaves: still, or crossfading between "Theoria" and "θεωρία". */
+export const LogoAnimation = Schema.Literal("glossary", "none")
 
-const toChunk = (v: Vector3): Chunk.Chunk<number> => Chunk.fromIterable(v)
+export type LogoAnimation = typeof LogoAnimation.Type
 
-const CANONICAL_ROTATION = {
-  cosX: Math.cos(Math.atan(Math.sqrt(2))),
-  sinX: Math.sin(Math.atan(Math.sqrt(2))),
-  cosY: Math.cos(Math.PI / 4),
-  sinY: Math.sin(Math.PI / 4)
-}
+/** The full signature, or just its mark below the workbench's desktop breakpoint. */
+export const LogoVariant = Schema.Literal("full", "responsive")
+export type LogoVariant = typeof LogoVariant.Type
 
-const FACE_DEFS: ReadonlyArray<{
-  readonly vertices: ReadonlyArray<Vector3>
-  readonly normal: Vector3
-}> = [
-  { vertices: [[-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5]], normal: [0, 0, 1] },
-  { vertices: [[0.5, -0.5, -0.5], [-0.5, -0.5, -0.5], [-0.5, 0.5, -0.5], [0.5, 0.5, -0.5]], normal: [0, 0, -1] },
-  { vertices: [[-0.5, 0.5, -0.5], [-0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5]], normal: [0, 1, 0] },
-  { vertices: [[-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5]], normal: [0, -1, 0] },
-  { vertices: [[0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5]], normal: [1, 0, 0] },
-  { vertices: [[-0.5, -0.5, 0.5], [-0.5, -0.5, -0.5], [-0.5, 0.5, -0.5], [-0.5, 0.5, 0.5]], normal: [-1, 0, 0] }
-]
-
-const LIGHT_DIR: Vector3 = [0.3, -0.3, 0.9]
-
-const rotatePoint = (point: Vector3): Vector3 => {
-  const { cosX, sinX, cosY, sinY } = CANONICAL_ROTATION
-  const mx = Chunk.fromIterable([1, 0, 0, 0, cosX, -sinX, 0, sinX, cosX])
-  const my = Chunk.fromIterable([cosY, 0, sinY, 0, 1, 0, -sinY, 0, cosY])
-  const r1 = LinearAlgebra.matvec(mx, 3, 3, toChunk(point))
-  const r2 = LinearAlgebra.matvec(my, 3, 3, r1)
-  const [x = 0, y = 0, z = 0] = Chunk.toReadonlyArray(r2)
-  return [x, y, z]
-}
-
-const normalizeV3 = (v: Vector3): Vector3 => {
-  const len = LinearAlgebra.normL2(toChunk(v))
-  if (len === 0) return [0, 0, 0]
-  const [a = 0, b = 0, c = 0] = Chunk.toReadonlyArray(LinearAlgebra.vectorScale(1 / len, toChunk(v)))
-  return [a, b, c]
-}
-
-const normLight = normalizeV3(LIGHT_DIR)
-
-const visibleFaces = FACE_DEFS.flatMap((def) => {
-  const rn = rotatePoint(def.normal)
-  if (rn[2] <= 0) return []
-  const normRn = normalizeV3(rn)
-  const intensity = Math.max(0.25, LinearAlgebra.dot(toChunk(normRn), toChunk(normLight)) * 0.5 + 0.55)
-  const rv = def.vertices.map(rotatePoint)
-  const depth = rv.reduce((s, v) => s + v[2], 0) / rv.length
-  const points: ReadonlyArray<Point2> = rv.map((v) => [v[0], -v[1]])
-  return [{ points, depth, opacity: 0.6 + intensity * 0.3 }]
-}).sort((a, b) => a.depth - b.depth)
-
-const allPoints = visibleFaces.flatMap((f) => f.points)
-const boundsMinX = Math.min(...allPoints.map(([x]) => x))
-const boundsMaxX = Math.max(...allPoints.map(([x]) => x))
-const boundsMinY = Math.min(...allPoints.map(([, y]) => y))
-const boundsMaxY = Math.max(...allPoints.map(([, y]) => y))
-const boundsW = boundsMaxX - boundsMinX
-const boundsH = boundsMaxY - boundsMinY
-const PAD = 0.06
-const vbX = boundsMinX - PAD
-const vbY = boundsMinY - PAD
-const vbW = boundsW + PAD * 2
-const vbH = boundsH + PAD * 2
-
-const VIEWBOX = `${vbX.toFixed(4)} ${vbY.toFixed(4)} ${vbW.toFixed(4)} ${vbH.toFixed(4)}`
-
-const toPointsAttr = (pts: ReadonlyArray<Point2>): string =>
-  pts.map(([x, y]) => `${x.toFixed(4)},${y.toFixed(4)}`).join(" ")
-
-const CubeMark = ({ className }: { readonly className?: string }) => (
+const CubeMark = ({ className }: { readonly className: string }) => (
   <svg
     aria-hidden
     className={className}
     fill="none"
     preserveAspectRatio="xMidYMid meet"
-    viewBox={VIEWBOX}
+    viewBox={markViewBoxAttribute(mark.viewBox)}
   >
-    {visibleFaces.map((face, i) => (
+    {Arr.map(mark.faces, (face) => (
       <polygon
-        key={i}
+        key={markPointsAttribute(face)}
         fill="currentColor"
-        fillOpacity={face.opacity}
-        points={toPointsAttr(face.points)}
+        fillOpacity={face.fillOpacity}
+        points={markPointsAttribute(face)}
         stroke="currentColor"
         strokeLinejoin="round"
-        strokeOpacity={0.3}
-        strokeWidth={0.02}
+        strokeOpacity={markStroke.opacity}
+        strokeWidth={markStroke.width}
       />
     ))}
   </svg>
 )
 
+const wordmark = (animation: LogoAnimation) =>
+  Match.value(animation).pipe(
+    Match.when("none", () => <span className="text-ink">Theoria</span>),
+    Match.when("glossary", () => (
+      <span aria-label="Theoria" role="img">
+        <WordmarkMorph />
+      </span>
+    )),
+    Match.exhaustive
+  )
+
 /**
  * Branded Theoria logo — isometric cube mark + wordmark.
  *
- * The cube is a single voxel projected via @scenesystems/effect-math `LinearAlgebra.matvec`
- * at the canonical isometric angle (atan(√2), π/4). The viewBox is computed
- * from the tight bounding box of the projected faces so the cube is
- * perfectly centered with no wasted space.
+ * The cube is the brand contract's mark (`app/contracts/brand.ts`): a single
+ * voxel projected at the canonical isometric angle, the same geometry that
+ * `favicon.svg` and the share cards carry, in `currentColor`.
  *
- * When `animation="glossary"`, the wordmark renders via `WordmarkMorph`,
+ * When `animation` is `"glossary"`, the wordmark renders via `WordmarkMorph`,
  * which crossfades per-character between "Theoria" and "θεωρία" once as the
  * session begins, rests, and plays again when a reader meets it.
  *
  * @since 0.1.0
  */
 export const TheoriaLogo = ({
-  animation = "none",
-  className = ""
+  animation,
+  className = "",
+  variant = "full"
 }: {
-  readonly animation?: "glossary" | "none"
+  readonly animation: LogoAnimation
   readonly className?: string
+  readonly variant?: LogoVariant
 }) => {
-  const base = "inline-flex items-center gap-[0.25em] font-display font-semibold tracking-tight select-none"
+  const base = `inline-flex items-center gap-[0.25em] select-none ${semanticClassName("wordmark", "compact")}`
 
   return (
     <span className={classNames(base, className)}>
       <CubeMark className="h-[0.85em] shrink-0" />
-      {animation === "none"
-        ? <span className="text-ink-900">Theoria</span>
-        : (
-          <span aria-label="Theoria" role="img">
-            <WordmarkMorph />
-          </span>
+      <span
+        className={Match.value(variant).pipe(
+          Match.when("full", () => "inline-flex"),
+          Match.when("responsive", () => "hidden lg:inline-flex"),
+          Match.exhaustive
         )}
+      >
+        {wordmark(animation)}
+      </span>
     </span>
   )
 }

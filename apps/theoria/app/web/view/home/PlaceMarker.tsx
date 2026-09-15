@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Match, Option } from "effect"
+import { Boolean as Bool, Match, Option, Schema } from "effect"
+import * as Num from "effect/Number"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
@@ -7,9 +8,15 @@ import type { CSSProperties } from "react"
 import type { PlaceSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
-import type { PlaceDiscDrawn } from "../../atoms/imagined-place-render.js"
+import { PlaceDiscDrawn } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
-import { forcedColorsAnsweringOutlineClassName, forcedColorsFocusClassName } from "../primitives/designSystem.js"
+import {
+  focusRingClassName,
+  forcedColorsAnsweringOutlineClassName,
+  forcedColorsFocusClassName,
+  stillUnderReducedMotion,
+  transitionClassName
+} from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { departed, exitTransition } from "../primitives/motion.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -25,11 +32,13 @@ import {
 } from "./placeViewModel.js"
 
 /** The diameter a disc is drawn at, to the tenth of a pixel. */
-const drawnDiameter = (marker: Marker): number => Number((marker.radius * 2).toFixed(1))
+const drawnDiameter = (marker: Marker): number => Num.round(Num.multiply(marker.radius, 2), 1)
 
 /** Position with `translate`, which changes without re-laying out the text. */
 const markerStyle = (marker: Marker): CSSProperties => ({
-  translate: `${(marker.x - marker.radius).toFixed(1)}px ${(marker.y - marker.radius).toFixed(1)}px`,
+  translate: `${Num.subtract(marker.x, marker.radius).toFixed(1)}px ${
+    Num.subtract(marker.y, marker.radius).toFixed(1)
+  }px`,
   width: `${String(drawnDiameter(marker))}px`,
   height: `${String(drawnDiameter(marker))}px`
 })
@@ -70,7 +79,9 @@ const filling = (preference: MotionPreference) =>
  * beside it.
  */
 const triggerClassName =
-  `absolute left-0 top-0 z-10 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 ${forcedColorsFocusClassName} ${forcedColorsAnsweringOutlineClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0`
+  `absolute left-0 top-0 z-10 flex items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] ${
+    transitionClassName("enter")
+  } ${stillUnderReducedMotion} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${forcedColorsFocusClassName} ${forcedColorsAnsweringOutlineClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-paper data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-paper`
 
 /** A named disc's label is clipped to the width it was measured to fit. */
 const labelClassName = "shrink-0 overflow-hidden"
@@ -91,8 +102,8 @@ const reachClassName = "absolute rounded-full"
  * stand a snapped fraction short of the promise or into a neighbour's reach.
  */
 const reachStyle = (marker: Marker): CSSProperties => {
-  const across = 2 * (marker.radius + marker.reach)
-  const offset = `${((drawnDiameter(marker) - across) / 2).toFixed(2)}px`
+  const across = Num.multiply(Num.sum(marker.radius, marker.reach), 2)
+  const offset = `${Num.unsafeDivide(Num.subtract(drawnDiameter(marker), across), 2).toFixed(2)}px`
   return {
     width: `${across.toFixed(2)}px`,
     height: `${across.toFixed(2)}px`,
@@ -101,13 +112,22 @@ const reachStyle = (marker: Marker): CSSProperties => {
   }
 }
 
+/** A disc reaches only when its touch target is larger than it is drawn. */
+const reaching = (marker: Marker): boolean => Num.greaterThan(marker.reach, 0)
+
 const Reach = ({ marker }: { readonly marker: Marker }) =>
-  marker.reach > 0
-    ? <Layer aria-hidden className={reachClassName} data-place-reach style={reachStyle(marker)} />
-    : null
+  Bool.match(reaching(marker), {
+    onTrue: () => <Layer aria-hidden className={reachClassName} data-place-reach style={reachStyle(marker)} />,
+    onFalse: () => null
+  })
 
 /** A disc the visitor can point at: settled on the stage, or a trial's, placed outright as the trace is scrubbed. */
-type DiscPresent = Exclude<PlaceDiscDrawn, "arriving" | "leaving">
+const DiscPresent = PlaceDiscDrawn.pipe(Schema.pickLiteral("settled", "trial"))
+type DiscPresent = typeof DiscPresent.Type
+
+/** A disc standing in the drawing: present, or leaving where it stood. */
+const DiscStanding = PlaceDiscDrawn.pipe(Schema.pickLiteral("settled", "trial", "leaving"))
+type DiscStanding = typeof DiscStanding.Type
 
 /**
  * A settled disc fills in where it stands, and fades there only if its
@@ -184,7 +204,7 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
   return (
     <ProvenanceMark
       aria-label={markerLabel(marker)}
-      className={`${triggerClassName} ${discClassName(role)} ${tone.focusRing} ${discFocusRing(role)} ${
+      className={`${triggerClassName} ${discClassName(role)} ${focusRingClassName} ${discFocusRing(role)} ${
         discActOutline(act, marker)
       }`}
       data-place-marker={marker.name}
@@ -194,7 +214,9 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
     >
       <Reach marker={marker} />
       {Option.match(labelWidth, {
-        onNone: () => <SemanticText as="span" className={tone.textStrong} role="tab-label" text={String(index + 1)} />,
+        onNone: () => (
+          <SemanticText as="span" className={tone.textStrong} role="button-label" text={String(Num.increment(index))} />
+        ),
         onSome: (width) => (
           <Layer className={labelClassName} style={{ width: `${width.toFixed(1)}px` }}>
             <SemanticText
@@ -229,7 +251,7 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
  * disc held by Motion while it leaves is not redrawn by frames it is not in.
  */
 const Standing = ({ drawn, index, labelWidth, marker, source }: {
-  readonly drawn: Exclude<PlaceDiscDrawn, "arriving">
+  readonly drawn: DiscStanding
   readonly index: number
   readonly labelWidth: Option.Option<number>
   readonly marker: Marker

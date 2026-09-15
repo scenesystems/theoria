@@ -1,6 +1,6 @@
 import { Collapsible } from "@base-ui/react/collapsible"
 import { LockClosedIcon, LockOpenIcon } from "@heroicons/react/20/solid"
-import { Option } from "effect"
+import { Boolean as Bool, Equal, Option } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
@@ -14,10 +14,14 @@ import {
 } from "../../../contracts/imagined-place.js"
 import {
   dangerStatusTone,
-  focusEdgeClassName,
+  firmUnderPointerClassName,
+  focusClassName,
   inlineStatusToneFor,
   neutralStatusTone,
-  toneClassesFor
+  respondColorsClassName,
+  stillUnderReducedMotion,
+  toneClassesFor,
+  transitionClassName
 } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ParticipantName } from "../primitives/ParticipantName.js"
@@ -45,9 +49,11 @@ import {
   signatureLabelShape
 } from "./placeViewModel.js"
 
-const sealTone = toneClassesFor("seal")
+/** The note is the sender's: its seal, its words and their rule wear the sender's tone. */
+const sealTone = toneClassesFor(participantTone(sealedNoteSender))
 
-const signatureTone = (valid: boolean) => valid ? neutralStatusTone : dangerStatusTone
+const signatureTone = (valid: boolean) =>
+  Bool.match(valid, { onTrue: () => neutralStatusTone, onFalse: () => dangerStatusTone })
 
 /**
  * The voice's rule: a proposer's accent while their proposal is merged, a
@@ -55,7 +61,10 @@ const signatureTone = (valid: boolean) => valid ? neutralStatusTone : dangerStat
  * proposal has; there is no box behind the words.
  */
 const voiceClassName = (accepted: boolean, tone: { readonly border: string }): string =>
-  accepted ? `border-solid ${tone.border}` : "border-dashed border-rule-strong"
+  Bool.match(accepted, {
+    onTrue: () => `border-solid ${tone.border}`,
+    onFalse: () => "border-dashed border-hairline-strong"
+  })
 
 /**
  * One labelled part of the proposal: the label names what the text is. A
@@ -73,12 +82,10 @@ const Field = ({ children, label, mark = Option.none() }: {
   <>
     <Layer render={<dt />} className="pt-2 first:pt-0 sm:flex sm:min-h-(--st-lh-row-value) sm:items-center sm:pt-0">
       {Option.match(mark, {
-        onNone: () => (
-          <SemanticText as="span" className="text-ink-500" role="row-label" text={label} variant="compact" />
-        ),
+        onNone: () => <SemanticText as="span" role="row-label" text={label} variant="compact" />,
         onSome: (value) => (
-          <ProvenanceMark className={inlineMarkClassName} mark={value}>
-            <SemanticText as="span" className="text-ink-500" role="row-label" text={label} variant="compact" />
+          <ProvenanceMark className={`${inlineMarkClassName} text-ink-tertiary`} mark={value}>
+            <SemanticText as="span" className="text-inherit" role="row-label" text={label} variant="compact" />
           </ProvenanceMark>
         )
       })}
@@ -87,18 +94,19 @@ const Field = ({ children, label, mark = Option.none() }: {
   </>
 )
 
-const foldTriggerLayoutClassName = "-mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1"
+const foldTriggerLayoutClassName = "-mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-mark px-1.5 py-1"
 
 const foldTriggerClassName =
-  `group/fold ${foldTriggerLayoutClassName} text-left transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `group/fold ${foldTriggerLayoutClassName} text-left ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
-const foldPanelClassName =
-  "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 motion-reduce:transition-none"
+const foldPanelClassName = `h-(--collapsible-panel-height) overflow-hidden transition-[height] ${
+  transitionClassName("enter")
+} data-[ending-style]:h-0 data-[starting-style]:h-0 ${stillUnderReducedMotion}`
 
 /**
  * The neighbor's note is a fold. Closed, it is the envelope: the seal and its
  * size, which is all anyone but the author can see. Opened with the author's
- * key, it is their words, quoted, on the seal tone's rule.
+ * key, it is their words, quoted, on a rule in the sender's tone.
  */
 const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
   <Collapsible.Root className="min-w-0" data-place-sealed-note>
@@ -114,14 +122,14 @@ const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
       <SemanticText
         as="span"
         className={`hidden group-data-[panel-open]/fold:inline ${sealTone.text}`}
-        role="tab-label"
+        role="button-label"
         text="Opened with your key"
         variant="compact"
       />
       <SemanticText
         as="span"
         className={`group-data-[panel-open]/fold:hidden ${sealTone.text}`}
-        role="tab-label"
+        role="button-label"
         text={sealedNoteLabel(note)}
         variant="compact"
       />
@@ -130,7 +138,7 @@ const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
       <Layer render={<blockquote />} className={`mt-2 border-l-2 pl-3 ${sealTone.border}`}>
         <SemanticText
           as="p"
-          className="text-ink-800"
+          className="text-ink"
           role="row-value"
           text={`“${note.openedText}”`}
           variant="compact"
@@ -149,7 +157,7 @@ const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
 const SealedNoteFoldPending = () => (
   <Layer render={<span />} className={foldTriggerLayoutClassName} data-place-sealed-note-pending>
     <LockClosedIcon aria-hidden className={`size-3.5 shrink-0 ${sealTone.text}`} />
-    <GhostText as="span" className={sealTone.text} role="tab-label" text={sealedNoteLabelShape} variant="compact" />
+    <GhostText as="span" className={sealTone.text} role="button-label" text={sealedNoteLabelShape} variant="compact" />
   </Layer>
 )
 
@@ -164,26 +172,28 @@ const NoteField = ({ build, role }: {
 }) =>
   Option.match(build, {
     onNone: () =>
-      role === sealedNoteSender
-        ? (
+      Bool.match(Equal.equals(role, sealedNoteSender), {
+        onTrue: () => (
           <Field label="Note">
             <SealedNoteFoldPending />
           </Field>
-        )
-        : null,
+        ),
+        onFalse: () => null
+      }),
     onSome: (value) =>
-      value.evidence.sealedNote.from === role
-        ? (
+      Bool.match(Equal.equals(value.evidence.sealedNote.from, role), {
+        onTrue: () => (
           <Field label="Note" mark={Option.some<PlaceMark>({ _tag: "Note" })}>
             <SealedNoteFold note={value.evidence.sealedNote} />
           </Field>
-        )
-        : null
+        ),
+        onFalse: () => null
+      })
   })
 
 /** The build's record of a proposer's proposal: what it signed and whether the author took it. */
 const recordOf = (build: PlaceBuild, role: ParticipantRole): Option.Option<ProposalRecord> =>
-  Arr.findFirst(build.proposals, (record) => record.proposal.proposer === role)
+  Arr.findFirst(build.proposals, (record) => Equal.equals(record.proposal.proposer, role))
 
 /**
  * The feature's name: what its disc on the stage is labelled with once the
@@ -194,25 +204,27 @@ const recordOf = (build: PlaceBuild, role: ParticipantRole): Option.Option<Propo
  * line is the one the mark will stand in.
  */
 const FeatureTitle = ({ name, recorded }: { readonly name: string; readonly recorded: boolean }) => (
-  <SemanticContent as="h3" className="self-start text-ink-900" role="card-title" variant="compact">
-    {recorded
-      ? (
+  <SemanticContent as="h3" className="self-start" role="section-title" variant="compact">
+    {Bool.match(recorded, {
+      onTrue: () => (
         <ProvenanceMark className={inlineMarkClassName} data-place-feature={name} mark={{ _tag: "Feature", name }}>
           {name}
         </ProvenanceMark>
-      )
-      : (
+      ),
+      onFalse: () => (
         <Layer render={<span />} className={inlineMarkRoomClassName}>
-          <GhostText as="span" role="card-title" text={name} variant="compact" />
+          <GhostText as="span" role="section-title" text={name} variant="compact" />
         </Layer>
-      )}
+      )
+    })}
   </SemanticContent>
 )
 
-/** Appears when the build records the merge: the same digest tone as the version it names. */
-const recordedTone = inlineStatusToneFor("digest")
-const recordedClassName =
-  "transition-[opacity,translate] duration-300 ease-out starting:translate-x-1 starting:opacity-0 motion-reduce:transition-none"
+/** Appears when the build records the merge: in the reader's tone, as the version it names is theirs. */
+const recordedTone = inlineStatusToneFor(participantTone("author"))
+const recordedClassName = `transition-[opacity,translate] ${
+  transitionClassName("enter")
+} starting:translate-x-1 starting:opacity-0 ${stillUnderReducedMotion}`
 
 /**
  * One proposal offered to the author, spoken in their voice: marginalia with
@@ -251,7 +263,8 @@ export const PlaceProposal = ({
   const recorded = Option.map(record, (value) => value.accepted)
   const pending = Option.match(recorded, {
     onNone: () => ({}),
-    onSome: (value) => accepted === value ? {} : { "data-place-pending": "" }
+    onSome: (value) =>
+      Bool.match(Equal.equals(accepted, value), { onTrue: () => ({}), onFalse: () => ({ "data-place-pending": "" }) })
   })
   // What the build signed, once it is here; the recording's words, which are the same words, before.
   const feature = Option.match(record, {
@@ -262,11 +275,15 @@ export const PlaceProposal = ({
   return (
     <Stack
       render={<article />}
-      className={`h-full gap-3 border-l-2 pl-4 transition-colors duration-300 ${voiceClassName(accepted, tone)}`}
+      className={`h-full gap-3 border-l-2 pl-4 transition-colors ${transitionClassName("enter")} ${
+        voiceClassName(accepted, tone)
+      }`}
       data-place-proposal={role}
       {...Option.match(recorded, {
         onNone: () => ({}),
-        onSome: (value) => ({ "data-place-recorded": value ? "true" : "false" })
+        onSome: (value) => ({
+          "data-place-recorded": Bool.match(value, { onTrue: () => "true", onFalse: () => "false" })
+        })
       })}
       {...pending}
     >
@@ -275,20 +292,22 @@ export const PlaceProposal = ({
           <ParticipantName name={participantLabel(role)} tone={tone} />
           {Option.match(build, {
             onNone: () =>
-              offered.accepted
-                ? <StatusMarkPending label={mergedIntoText(mergedInto)} tone={recordedTone} />
-                : null,
+              Bool.match(offered.accepted, {
+                onTrue: () => <StatusMarkPending label={mergedIntoText(mergedInto)} tone={recordedTone} />,
+                onFalse: () => null
+              }),
             onSome: (value) =>
-              Option.getOrElse(recorded, () => false)
-                ? (
+              Bool.match(Option.getOrElse(recorded, () => false), {
+                onTrue: () => (
                   <StatusMark
                     className={recordedClassName}
                     label={mergedIntoText(currentVersion(value.evidence))}
                     mark={{ _tag: "Digest", contentId: currentVersion(value.evidence).contentId }}
                     tone={recordedTone}
                   />
-                )
-                : null
+                ),
+                onFalse: () => null
+              })
           })}
         </Cluster>
         <Layer className="ml-auto">
@@ -312,7 +331,7 @@ export const PlaceProposal = ({
         <Field label="Adds">
           <SemanticText
             as="p"
-            className="text-ink-800"
+            className="text-ink"
             role="row-value"
             text={feature.description}
             variant="compact"
@@ -322,7 +341,7 @@ export const PlaceProposal = ({
         <Field label="Why">
           <SemanticText
             as="p"
-            className="text-ink-600"
+            className="text-ink-tertiary"
             role="row-value"
             text={feature.rationale}
             variant="compact"

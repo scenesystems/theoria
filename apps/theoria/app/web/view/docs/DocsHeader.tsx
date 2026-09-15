@@ -1,72 +1,81 @@
 import { Button } from "@base-ui/react/button"
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Bars3Icon } from "@heroicons/react/20/solid"
-import { Option } from "effect"
+import { Boolean as Bool } from "effect"
 
-import type { DocsPackageSummary } from "@theoria/docs-model"
+import { siteMetadata } from "../../../contracts/metadata.js"
 import { setDocsNavigationOpenAtom } from "../../atoms/docs.js"
-import { focusEdgeClassName } from "../primitives/designSystem.js"
-import { docsTheme } from "../primitives/docsSystem.js"
+import { GitHubMark } from "../primitives/BrandMarks.js"
+import { focusClassName, workbenchTheme } from "../primitives/designSystem.js"
+import {
+  headerChromeBrandLinkClassName,
+  headerChromeClassName,
+  headerChromeGlyphClassName,
+  headerChromeIconButtonClassName,
+  headerChromeLinkClassName
+} from "../primitives/HeaderChrome.js"
 import { Cluster, Header, Layer } from "../primitives/Layout.js"
-import { InternalLink } from "../primitives/Link.js"
+import { ExternalLink, InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 import { ThemeToggle } from "../primitives/ThemeToggle.js"
 import { TheoriaLogo } from "../primitives/TheoriaLogo.js"
-import { DocsPackagePicker } from "./DocsPackagePicker.js"
 import { DocsSearchTrigger } from "./DocsSearchDialog.js"
 
 export const DocsHeader = ({
-  activePackage,
   loading = false,
-  packages
+  navigation = false
 }: {
-  readonly activePackage: Option.Option<DocsPackageSummary>
   readonly loading?: boolean
-  readonly packages: ReadonlyArray<DocsPackageSummary>
+  readonly navigation?: boolean
 }) => {
   const setNavigationOpen = useAtomSet(setDocsNavigationOpenAtom)
 
   return (
-    <Header className={docsTheme.header}>
-      <Cluster className={docsTheme.headerContent}>
-        <Cluster className="min-w-0 shrink-0 gap-3">
-          {Option.match(activePackage, {
-            onNone: () => null,
-            onSome: () => (
+    <Header className={headerChromeClassName("workbench")}>
+      <Cluster className={workbenchTheme.headerContent}>
+        <Cluster className="min-w-0 shrink-0 gap-4">
+          {Bool.match(navigation, {
+            onFalse: () => null,
+            onTrue: () => (
               <Button
                 aria-label="Open navigation"
-                className={`${docsTheme.iconButton} lg:hidden`}
+                className={headerChromeIconButtonClassName("lg:hidden")}
                 onClick={() => setNavigationOpen(true)}
                 type="button"
               >
-                <Bars3Icon aria-hidden className="h-5 w-5" />
+                <Bars3Icon aria-hidden className={headerChromeGlyphClassName("heroicon-20-solid")} />
               </Button>
             )
           })}
           <InternalLink
             aria-label="Theoria home"
-            className={`inline-flex min-w-0 items-baseline text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`}
+            className={headerChromeBrandLinkClassName}
             href="/"
           >
-            <TheoriaLogo className="text-[1.55rem] sm:text-[1.7rem]" />
+            <TheoriaLogo animation="none" variant="responsive" />
           </InternalLink>
-          <Layer className="hidden h-5 w-px bg-stage-300 sm:block" />
+          <Layer className="hidden h-5 w-px bg-hairline-strong sm:block" />
           <InternalLink
             aria-label="Documentation home"
-            className={`hidden text-ink-600 ${focusEdgeClassName} hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:inline-flex`}
+            className={`hidden text-ink-tertiary ${focusClassName} hover:text-ink sm:inline-flex`}
             href="/docs"
           >
-            <SemanticText as="span" className="text-inherit" role="status" text="Docs" variant="compact" />
+            <SemanticText as="span" role="row-value" text="Docs" variant="compact" />
           </InternalLink>
         </Cluster>
-        <Layer className="hidden min-w-0 flex-1 justify-center lg:flex">
-          {loading ?
-            <ShimmerLine className="h-11 rounded-xl" width="w-72" /> :
-            <DocsPackagePicker activePackage={activePackage} packages={packages} />}
-        </Layer>
-        <Cluster className="min-w-0 shrink-0 justify-end gap-2">
-          {loading ? <ShimmerLine className="hidden h-11 rounded-xl sm:block" width="w-40" /> : <DocsSearchTrigger />}
+        <Cluster className="min-w-0 shrink-0 justify-end gap-4">
+          {Bool.match(loading, {
+            onTrue: () => <ShimmerLine className="hidden h-11 rounded-instrument sm:block" width="w-40" />,
+            onFalse: () => <DocsSearchTrigger />
+          })}
+          <ExternalLink
+            aria-label="Theoria on GitHub"
+            className={headerChromeLinkClassName()}
+            href={siteMetadata.repositoryUrl}
+          >
+            <GitHubMark className={headerChromeGlyphClassName("brand-mark")} />
+          </ExternalLink>
           <ThemeToggle />
         </Cluster>
       </Cluster>

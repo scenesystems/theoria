@@ -1,7 +1,7 @@
 import { Button } from "@base-ui/react/button"
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Boolean as Bool, Equal, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
@@ -38,6 +38,8 @@ import { PlaceStage } from "./PlaceStage.js"
 import { StageKnots } from "./PlaceStrand.js"
 import {
   drawablePresets,
+  isKept,
+  isLast,
   keptTrialLabel,
   participantLabel,
   participantTone,
@@ -50,8 +52,8 @@ import {
   stagePresetLabel
 } from "./placeViewModel.js"
 
-const presetTone = toneClassesFor("text")
-const searchTone = toneClassesFor("search")
+const presetTone = toneClassesFor("primary")
+const searchTone = toneClassesFor("primary")
 
 /**
  * The same version drawn for another screen. Only presets the column can show
@@ -61,27 +63,33 @@ const StagePresets = () => {
   const setRequested = useAtomSet(placeStageRequestAtom)
   const drawn = useAtomValue(placeStageWidthAtom)
   const presets = drawablePresets(placeStagePresets, useAtomValue(placeStageMaxDrawableAtom))
-  const activeIndex = Option.getOrElse(Arr.findFirstIndex(presets, (preset) => preset === drawn), () => -1)
+  const activeIndex = Option.getOrElse(Arr.findFirstIndex(presets, (preset) => Equal.equals(preset, drawn)), () => -1)
 
-  return presets.length === 0 ? null : (
-    <Cluster className="gap-2.5" data-place-presets>
-      <SemanticText as="span" className="text-ink-500" role="code-meta" text="Drawn at" />
-      <ChoiceGroup
-        activeIndex={activeIndex}
-        className="gap-1.5"
-        disabled={false}
-        label="Stage width"
-        onSelect={(index) => {
-          // The last preset is the whole column: keep following it if the column changes.
-          setRequested(
-            index === presets.length - 1 ? placeStageMaxWidth : Option.getOrElse(Arr.get(presets, index), () => drawn)
-          )
-        }}
-        options={Arr.map(presets, (preset, index) => ({ index, label: stagePresetLabel(preset) }))}
-        tone={presetTone}
-      />
-    </Cluster>
-  )
+  return Arr.match(presets, {
+    onEmpty: () => null,
+    onNonEmpty: () => (
+      <Cluster className="gap-2.5" data-place-presets>
+        <SemanticText as="span" className="text-ink-tertiary" role="code-meta" text="Drawn at" />
+        <ChoiceGroup
+          activeIndex={activeIndex}
+          className="gap-1.5"
+          disabled={false}
+          label="Stage width"
+          onSelect={(index) => {
+            // The last preset is the whole column: keep following it if the column changes.
+            setRequested(
+              Bool.match(isLast(index, Arr.length(presets)), {
+                onTrue: () => placeStageMaxWidth,
+                onFalse: () => Option.getOrElse(Arr.get(presets, index), () => drawn)
+              })
+            )
+          }}
+          options={Arr.map(presets, (preset, index) => ({ index, label: stagePresetLabel(preset) }))}
+          tone={presetTone}
+        />
+      </Cluster>
+    )
+  })
 }
 
 /**
@@ -119,29 +127,32 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
       >
         <SemanticText
           as="span"
-          className="block truncate tabular-nums text-ink-500"
+          className="block truncate tabular-nums text-ink-tertiary"
           role="code-meta"
           text={renderProgressText(search, shown)}
         />
       </ProvenanceMark>
-      {shown === search.bestIndex ? null : (
-        <Button
-          className={`shrink-0 ${pillButtonClassName({ active: false, tone: searchTone })}`}
-          data-place-show-kept
-          onClick={() => {
-            setPreview(Option.none())
-          }}
-          type="button"
-        >
-          <SemanticText
-            as="span"
-            className="text-ink-700"
-            role="tab-label"
-            text={keptTrialLabel(search)}
-            variant="expanded"
-          />
-        </Button>
-      )}
+      {Bool.match(isKept(search, shown), {
+        onTrue: () => null,
+        onFalse: () => (
+          <Button
+            className={`shrink-0 ${pillButtonClassName({ active: false, tone: searchTone })}`}
+            data-place-show-kept
+            onClick={() => {
+              setPreview(Option.none())
+            }}
+            type="button"
+          >
+            <SemanticText
+              as="span"
+              className="text-ink-secondary"
+              role="button-label"
+              text={keptTrialLabel(search)}
+              variant="expanded"
+            />
+          </Button>
+        )
+      })}
     </Rail>
   )
 }
@@ -150,7 +161,7 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
 const SearchCaptionPending = () => (
   <Rail aria-busy className="min-h-9 min-w-0 gap-2.5" data-place-search-caption-pending>
     <Layer render={<span />} className={inlineMarkRoomClassName}>
-      <GhostText as="span" className="tabular-nums text-ink-500" role="code-meta" text={searchCaptionShape} />
+      <GhostText as="span" className="tabular-nums text-ink-tertiary" role="code-meta" text={searchCaptionShape} />
     </Layer>
   </Rail>
 )
@@ -180,8 +191,8 @@ const StageFailed = ({ failure }: { readonly failure: StageFailure }) => {
       >
         <SemanticText
           as="span"
-          className="text-ink-700"
-          role="tab-label"
+          className="text-ink-secondary"
+          role="button-label"
           text={stageFailureActionLabel(failure)}
           variant="expanded"
         />

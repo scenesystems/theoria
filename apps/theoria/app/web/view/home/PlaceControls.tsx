@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Equal, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import { briefMaxLength, placeScenarioMeta, placeScenarios } from "../../../contracts/imagined-place.js"
 import {
@@ -23,7 +24,7 @@ const scenarioOptions = Arr.map(placeScenarios, (scenario, index) => ({
   label: placeScenarioMeta[scenario].label
 }))
 
-const tone = toneClassesFor("dsp")
+const tone = toneClassesFor("primary")
 
 /**
  * The scenario: which recorded story the demonstration tells. Choosing one
@@ -37,7 +38,7 @@ export const ScenarioChoice = ({ disabled }: { readonly disabled: boolean }) => 
   const controls = useAtomValue(placeControlsAtom)
   const chooseScenario = useAtomSet(chooseScenarioAtom)
   const activeIndex = Option.getOrElse(
-    Arr.findFirstIndex(placeScenarios, (scenario) => scenario === controls.scenario),
+    Arr.findFirstIndex(placeScenarios, (scenario) => Equal.equals(scenario, controls.scenario)),
     () => 0
   )
 
@@ -71,21 +72,21 @@ export const BriefField = ({ disabled }: { readonly disabled: boolean }) => {
     <FieldGroup className="gap-3" dirty={edited} disabled={disabled}>
       <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
         <FieldLabel>
-          <SemanticText as="span" className="text-ink-900" role="row-label" text="Brief" variant="compact" />
+          <SemanticText as="span" role="row-label" text="Brief" variant="compact" />
         </FieldLabel>
         <FieldDescription>
           <SemanticText
             as="span"
-            className="text-ink-500"
+            className="text-ink-tertiary"
             role="code-meta"
-            text={briefCountText(brief.length, briefMaxLength)}
+            text={briefCountText(Str.length(brief), briefMaxLength)}
             variant="compact"
           />
         </FieldDescription>
       </Layer>
       <TextAreaField
         onValueChange={(next) => {
-          setDraft(Option.some({ scenario, text: next.slice(0, briefMaxLength) }))
+          setDraft(Option.some({ scenario, text: Str.takeLeft(next, briefMaxLength) }))
         }}
         placeholder="Describe the place you want to share…"
         rows={5}

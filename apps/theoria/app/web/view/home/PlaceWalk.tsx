@@ -1,11 +1,14 @@
 import { useAtomValue } from "@effect-atom/atom-react"
-import { Match } from "effect"
+import { Boolean as Bool, Match } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 import * as m from "motion/react-m"
 
 import type { PlaceMarker } from "../../../contracts/imagined-place-result.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { walkDrawTransition } from "../primitives/motion.js"
+
+import { isFirst } from "./placeViewModel.js"
 
 /**
  * The walk through the place: one dotted line through the markers in the
@@ -15,9 +18,15 @@ import { walkDrawTransition } from "../primitives/motion.js"
  */
 const walkPath = (markers: ReadonlyArray<PlaceMarker>): string =>
   Arr.join(
-    Arr.map(markers, (marker, index) => `${index === 0 ? "M" : "L"}${marker.x.toFixed(1)} ${marker.y.toFixed(1)}`),
+    Arr.map(markers, (marker, index) => `${pathCommand(index)}${marker.x.toFixed(1)} ${marker.y.toFixed(1)}`),
     " "
   )
+
+/** The path moves to its first point and draws a line to each after. */
+const pathCommand = (index: number): string => Bool.match(isFirst(index), { onTrue: () => "M", onFalse: () => "L" })
+
+/** One point is a place, not a walk: the line needs two to go between. */
+const walkable = (markers: ReadonlyArray<PlaceMarker>): boolean => Num.greaterThanOrEqualTo(Arr.length(markers), 2)
 
 const undrawn = { pathLength: 0 }
 const drawn = { pathLength: 1 }
@@ -47,35 +56,38 @@ export const PlaceWalk = ({ height, markers, width }: {
   readonly width: number
 }) => {
   const d = walkPath(markers)
-  const maskId = `place-walk-${String(width)}-${String(markers.length)}`
+  const maskId = `place-walk-${String(width)}-${String(Arr.length(markers))}`
   const preference = useAtomValue(motionPreferenceAtom)
-  return markers.length < 2 ? null : (
-    <svg
-      aria-hidden
-      className="pointer-events-none absolute left-0 top-0 overflow-visible"
-      data-place-walk
-      height={height}
-      viewBox={`0 0 ${String(width)} ${String(height)}`}
-      width={width}
-    >
-      {/* Alpha mask: any opaque stroke reveals, so the theme's colours do not matter here. */}
-      <mask id={maskId} maskUnits="userSpaceOnUse" style={{ maskType: "alpha" }}>
-        <m.path
-          className="fill-none stroke-ink-900"
+  return Bool.match(walkable(markers), {
+    onFalse: () => null,
+    onTrue: () => (
+      <svg
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 overflow-visible"
+        data-place-walk
+        height={height}
+        viewBox={`0 0 ${String(width)} ${String(height)}`}
+        width={width}
+      >
+        {/* Alpha mask: any opaque stroke reveals, so the theme's colours do not matter here. */}
+        <mask id={maskId} maskUnits="userSpaceOnUse" style={{ maskType: "alpha" }}>
+          <m.path
+            className="fill-none stroke-ink"
+            d={d}
+            strokeLinecap="round"
+            strokeWidth={8}
+            {...drawing(preference)}
+          />
+        </mask>
+        <path
+          className="fill-none stroke-accent"
           d={d}
+          mask={`url(#${maskId})`}
+          strokeDasharray="1 7"
           strokeLinecap="round"
-          strokeWidth={8}
-          {...drawing(preference)}
+          strokeWidth={2}
         />
-      </mask>
-      <path
-        className="fill-none stroke-stage-400"
-        d={d}
-        mask={`url(#${maskId})`}
-        strokeDasharray="1 7"
-        strokeLinecap="round"
-        strokeWidth={2}
-      />
-    </svg>
-  )
+      </svg>
+    )
+  })
 }

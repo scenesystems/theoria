@@ -1,15 +1,21 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
-import { Match, Option, Schema } from "effect"
+import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsManifest } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
-import { Id } from "../../../contracts/id.js"
 import { docsManifestAtom } from "../../atoms/docs-data.js"
 import { docsKeyboardShortcutsAtom } from "../../atoms/docs.js"
-import { focusEdgeClassName, neutralToneClasses, toneClassesForCard } from "../primitives/designSystem.js"
-import { docsTheme } from "../primitives/docsSystem.js"
+import {
+  appTheme,
+  firmUnderPointerClassName,
+  focusEdgeClassName,
+  measureClassName,
+  neutralToneClasses,
+  respondColorsClassName,
+  workbenchTheme
+} from "../primitives/designSystem.js"
 import { Layer, Main, Stack } from "../primitives/Layout.js"
 import { CardLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -20,61 +26,53 @@ import { DocsSearchDialog } from "./DocsSearchDialog.js"
 import { DocsStatus } from "./DocsStatus.js"
 import { DocsPackageShell, DocsResourceFrame, DocsRouteEntrance } from "./DocsWorkbench.js"
 
-const isCardId = Schema.is(Id)
-
 const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
-  <Layer className={docsTheme.root}>
-    <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
+  <Layer className={appTheme.root}>
+    <DocsHeader />
     <Main
-      className={`mx-auto w-full max-w-[82rem] px-5 py-10 sm:px-8 sm:py-14 ${docsTheme.routeFocus}`}
+      className={`${workbenchTheme.index} ${workbenchTheme.routeFocus}`}
       data-route-focus
       tabIndex={-1}
     >
       <DocsRouteEntrance className="flex min-w-0 flex-col gap-8">
-        <SemanticText as="h1" className="text-ink-950" role="hero-title" text="Packages" />
-        <Layer className="grid gap-x-10 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
+        <SemanticText as="h1" role="hero-title" text="Packages" />
+        <Layer className={workbenchTheme.packageGrid}>
           {Arr.map(
             manifest.packages,
-            (docsPackage) => {
-              const tone = isCardId(docsPackage.slug) ? toneClassesForCard(docsPackage.slug) : neutralToneClasses
-
-              return (
-                <Layer
-                  render={<article />}
-                  className={`group relative flex h-full flex-col border-l-2 py-1 pl-5 ${tone.border}`}
-                  data-docs-package={docsPackage.slug}
-                  key={docsPackage.slug}
-                >
-                  <Stack className="h-full gap-5">
-                    <Stack className="gap-2">
-                      <CardLink
-                        className={`${focusEdgeClassName} focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ink-900/20`}
-                        href={docsPackage.overview.path}
-                      >
-                        <SemanticText
-                          as="h2"
-                          className="text-ink-950 group-hover:text-ink-700"
-                          role="card-title"
-                          text={docsPackage.name}
-                        />
-                      </CardLink>
+            (docsPackage) => (
+              <Layer
+                render={<article />}
+                className={`relative flex h-full flex-col border-l-2 py-1 pl-5 ${respondColorsClassName} ${firmUnderPointerClassName} focus-within:bg-instrument-glass ${neutralToneClasses.border} ${neutralToneClasses.borderHover}`}
+                data-docs-package={docsPackage.slug}
+                key={docsPackage.slug}
+              >
+                <Stack className="h-full gap-5">
+                  <Stack className="gap-2">
+                    <CardLink
+                      className={`${focusEdgeClassName} focus-visible:after:rounded-control focus-visible:after:ring-2 focus-visible:after:ring-focus`}
+                      href={docsPackage.overview.path}
+                    >
                       <SemanticText
-                        as="p"
-                        className="text-ink-600"
-                        role="card-summary"
-                        text={docsPackage.description}
+                        as="h2"
+                        role="package-title"
+                        text={docsPackage.name}
                       />
-                    </Stack>
+                    </CardLink>
                     <SemanticText
-                      as="span"
-                      className="mt-auto text-ink-500"
-                      role="code-meta"
-                      text={`v${docsPackage.version}`}
+                      as="p"
+                      role="body"
+                      text={docsPackage.description}
                     />
                   </Stack>
-                </Layer>
-              )
-            }
+                  <SemanticText
+                    as="span"
+                    className="mt-auto"
+                    role="caption"
+                    text={`v${docsPackage.version}`}
+                  />
+                </Stack>
+              </Layer>
+            )
           )}
         </Layer>
       </DocsRouteEntrance>
@@ -84,9 +82,13 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
 )
 
 const MissingRoute = ({ manifest }: { readonly manifest: DocsManifest }) => (
-  <Layer className={docsTheme.root}>
-    <DocsHeader activePackage={Option.none()} packages={manifest.packages} />
-    <Main className={`mx-auto w-full max-w-3xl px-5 py-20 ${docsTheme.routeFocus}`} data-route-focus tabIndex={-1}>
+  <Layer className={appTheme.root}>
+    <DocsHeader />
+    <Main
+      className={`mx-auto w-full ${measureClassName("reading")} px-5 py-20 ${workbenchTheme.routeFocus}`}
+      data-route-focus
+      tabIndex={-1}
+    >
       <DocsStatus state="not-found" />
     </Main>
     <DocsSearchDialog activePackageSlug={Option.none()} manifest={manifest} />
@@ -147,16 +149,16 @@ export const DocsPage = ({ route }: { readonly route: DocsRoute }) => {
 
   return Result.match(manifest, {
     onInitial: () => (
-      <Layer className={docsTheme.root}>
-        <DocsHeader activePackage={Option.none()} loading packages={[]} />
-        <Main className="mx-auto w-full max-w-[82rem] px-5 py-10 sm:px-8 sm:py-14">
+      <Layer className={appTheme.root}>
+        <DocsHeader loading />
+        <Main className={workbenchTheme.index}>
           <DocsStatus kind="index" state="loading" />
         </Main>
       </Layer>
     ),
     onFailure: () => (
-      <Layer className={docsTheme.root}>
-        <Main className="mx-auto max-w-3xl px-5 py-20">
+      <Layer className={appTheme.root}>
+        <Main className={`mx-auto ${measureClassName("reading")} px-5 py-20`}>
           <DocsStatus retry={refresh} state="failure" />
         </Main>
       </Layer>

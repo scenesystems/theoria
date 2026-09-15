@@ -193,7 +193,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         /font-family:\s*["']?Figtree Variable Fallback\\?: Arial["']?;\s*src:\s*local\(["']?Arial["']?\)[^}]*ascent-override:/u
       )
       expect(css).toMatch(
-        /font-family:\s*["']?JetBrains Mono Variable Fallback\\?: Courier New["']?;\s*src:\s*local\(["']?Courier New["']?\)[^}]*ascent-override:/u
+        /font-family:\s*["']?Geist Mono Variable Fallback\\?: Courier New["']?;\s*src:\s*local\(["']?Courier New["']?\)[^}]*ascent-override:/u
       )
     }))
 
@@ -219,6 +219,35 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       })
 
       expect(header(yield* site.fetch("/"), "link")).toEqual(Option.some(`</llms.txt>; rel="describedby"`))
+    }))
+
+  it.effect("serves the shell already in the reader's colour mode, from the cookie the app writes", () =>
+    Effect.gen(function*() {
+      const site = yield* Site
+      const shellFor = (cookie: Option.Option<string>) =>
+        site.fetch(
+          `${productionHost}/`,
+          new SiteRequest(
+            Option.match(cookie, { onNone: () => ({}), onSome: (header) => ({ headers: { cookie: header } }) })
+          )
+        )
+
+      const dark = yield* shellFor(Option.some("theoria-color-mode=%22dark%22"))
+      expect(dark.status).toBe(200)
+      expect(yield* text(dark)).toContain("<html lang=\"en\" class=\"dark\">")
+      // Two bodies for one URL: any cache between the Worker and the reader must key on the cookie.
+      expect(header(dark, "vary")).toEqual(Option.some("Cookie"))
+
+      const system = yield* shellFor(Option.some("theoria-color-mode=%22system%22"))
+      expect(yield* text(system)).toContain("<html lang=\"en\">")
+      expect(yield* text(system)).not.toContain("class=\"dark\"")
+
+      const first = yield* shellFor(Option.none())
+      expect(yield* text(first)).not.toContain("class=\"dark\"")
+
+      const garbage = yield* shellFor(Option.some("theoria-color-mode=purple"))
+      expect(garbage.status).toBe(200)
+      expect(yield* text(garbage)).not.toContain("class=\"dark\"")
     }))
 
   it.effect("keeps non-production hostnames out of search indexes", () =>

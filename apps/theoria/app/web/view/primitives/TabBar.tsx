@@ -3,16 +3,18 @@ import { Option } from "effect"
 import type { ReactNode } from "react"
 
 import { classNames } from "./classNames.js"
-import { focusEdgeClassName, stillUnderReducedMotion } from "./designSystem.js"
+import { focusClassName, respondColorsClassName, stillUnderReducedMotion, transitionClassName } from "./designSystem.js"
 import { Cluster } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 const tabClassName =
-  `inline-flex min-h-9 items-center px-3 py-2 text-ink-600 transition-colors duration-150 ease-out hover:text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-900/20 data-[active]:text-ink-950`
+  `inline-flex min-h-9 shrink-0 items-center px-2 py-2 text-ink-tertiary sm:px-3 ${respondColorsClassName} hover:text-ink ${focusClassName} focus-visible:ring-inset data-[active]:text-ink-strong`
 
 /** The 2 px line under the active tab; Base UI measures the tab and hands the geometry over as CSS variables. */
 const indicatorClassName =
-  `absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-ink-900 forced-colors:bg-[CanvasText] transition-[translate,width] duration-200 ease-out ${stillUnderReducedMotion}`
+  `absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-emphasis forced-colors:bg-[CanvasText] transition-[translate,width] ${
+    transitionClassName("respond")
+  } ${stillUnderReducedMotion}`
 
 /**
  * A controlled tab group over a closed set of string values. Base UI reports
@@ -45,8 +47,8 @@ export const TabGroup = <A extends string>({
 )
 
 /**
- * The strip of tabs: words on a hairline, the active one underlined. Base UI
- * owns roving focus and the `tablist` role.
+ * One scrollable row of tabs, never wrapped or squeezed. Base UI owns roving
+ * focus and the `tablist` role; the active word is underlined on the hairline.
  */
 export const TabBar = ({
   className = "",
@@ -55,7 +57,9 @@ export const TabBar = ({
   readonly className?: string
   readonly children: ReactNode
 }) => (
-  <Tabs.List className={classNames("relative flex gap-1 border-b border-rule", className)}>
+  <Tabs.List
+    className={classNames("relative flex flex-nowrap gap-1 overflow-x-auto border-b border-hairline", className)}
+  >
     {children}
     <Tabs.Indicator className={indicatorClassName} data-tab-indicator renderBeforeHydration />
   </Tabs.List>
@@ -76,7 +80,7 @@ export const Tab = ({
   <Tabs.Tab className={classNames(tabClassName, className)} value={value}>
     <Cluster className="gap-1.5 whitespace-nowrap">
       {icon}
-      <SemanticText as="span" className="whitespace-nowrap" role="tab-label" text={label} variant="expanded" />
+      <SemanticText as="span" className="whitespace-nowrap" role="button-label" text={label} variant="expanded" />
     </Cluster>
   </Tabs.Tab>
 )

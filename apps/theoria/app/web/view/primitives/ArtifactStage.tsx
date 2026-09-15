@@ -21,7 +21,7 @@ export const artifactStageBorderPx = (frame: ArtifactStageFrame): number =>
 const frameSurfaceClassName = (frame: ArtifactStageFrame): string =>
   Match.value(frame).pipe(
     Match.when("none", () => ""),
-    Match.when("instrument", () => "rounded-instrument border-solid border-rule bg-stage-0"),
+    Match.when("instrument", () => "rounded-instrument border-solid border-hairline bg-paper"),
     Match.exhaustive
   )
 

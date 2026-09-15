@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
@@ -8,7 +9,7 @@ import type { CSSProperties } from "react"
 import type { ProposalRecord } from "../../../contracts/imagined-place-result.js"
 import { placeGhostsAtom } from "../../atoms/imagined-place-experience.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
-import { focusEdgeClassName } from "../primitives/designSystem.js"
+import { focusClassName } from "../primitives/designSystem.js"
 import { departed, exitTransition } from "../primitives/motion.js"
 
 import { ProvenanceMark } from "./PlaceProvenance.js"
@@ -24,14 +25,19 @@ import { ghostClassName, participantLabel } from "./placeViewModel.js"
 const ghostDiameter = 14
 const ghostGap = 8
 
+/** Ghosts stand in a column down the margin, one pitch apart: a ghost and the gap after it. */
+const ghostPitch = Num.sum(ghostDiameter, ghostGap)
+
 const ghostStyle = (stageWidth: number, padding: number, index: number): CSSProperties => ({
-  translate: `${String(stageWidth - ghostDiameter - 1)}px ${String(padding + index * (ghostDiameter + ghostGap))}px`,
+  translate: `${String(Num.subtract(stageWidth, Num.increment(ghostDiameter)))}px ${
+    String(Num.sum(padding, Num.multiply(index, ghostPitch)))
+  }px`,
   width: `${String(ghostDiameter)}px`,
   height: `${String(ghostDiameter)}px`
 })
 
 const ghostBaseClassName =
-  `absolute left-0 top-0 cursor-default rounded-full border-2 border-dashed before:absolute before:-inset-2 before:rounded-full before:content-[''] ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 data-[popup-open]:ring-2 data-[popup-open]:ring-ink-900/20 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 forced-colors:border-[CanvasText]`
+  `absolute left-0 top-0 rounded-full border-2 border-dashed before:absolute before:-inset-2 before:rounded-full before:content-[''] ${focusClassName} focus-visible:ring-offset-2 focus-visible:ring-offset-paper data-[popup-open]:ring-2 data-[popup-open]:ring-focus data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-paper forced-colors:border-[CanvasText]`
 
 const appearedFrom = { opacity: 0, scale: 0.8 }
 const appeared = { opacity: 1, scale: 1 }

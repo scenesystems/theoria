@@ -27,8 +27,10 @@ import {
   bandDiscNames,
   beforeRuleCentreX,
   scrollPast,
+  textAreaVisibleRows,
   topmostAt,
-  topmostAtItsCentre
+  topmostAtItsCentre,
+  typographyOf
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -225,6 +227,26 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(built.locator("h3 ~ p"), 0)
         expect(yield* failures).toEqual([])
       }))
+
+    it.scoped("the brief uses body metrics, keeps its five-row floor, and grows for longer drafts", () =>
+      Effect.forEach([390, 1280], (width) =>
+        Effect.gen(function*() {
+          const { failures, page } = yield* openPage({ viewport: { width, height: 900 } })
+          yield* goto(page, "/")
+          yield* drawn(page)
+          const field = page.getByRole("textbox", { name: "Brief" })
+          expect(yield* act(() => field.evaluate(typographyOf))).toMatchObject({ size: "16px", leading: "26px" })
+          yield* Effect.forEach([
+            { text: "A quiet inlet.", rows: 5 },
+            { text: Arr.join(Arr.replicate("A quiet inlet.", 7), "\n"), rows: 7 },
+            { text: "A small harbour.", rows: 5 }
+          ], (draft) =>
+            Effect.gen(function*() {
+              yield* fill(field, draft.text)
+              expect(yield* act(() => field.evaluate(textAreaVisibleRows))).toBe(draft.rows)
+            }))
+          expect(yield* failures).toEqual([])
+        })))
 
     it.scoped("the Compose act reads down: the stories, the title, the brief, the features", () =>
       Effect.gen(function*() {

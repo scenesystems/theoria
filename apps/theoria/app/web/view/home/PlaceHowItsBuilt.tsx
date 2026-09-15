@@ -1,22 +1,29 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
-import { Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 import type { ReactNode } from "react"
 
 import { codeSiteOnLine } from "../../../contracts/demo/imagined-place-provenance.js"
-import { toneForCard } from "../../../contracts/theme.js"
 import { placeCodeSiteAttribute, placeFocusedSiteAtom } from "../../atoms/imagined-place-experience.js"
 import { placeSearchAtom, placeShownGeometryAtom } from "../../atoms/imagined-place-render.js"
 import { placeBuildShaAtom, placeBuiltAtom, placeStepAtom } from "../../atoms/imagined-place.js"
 import { CodeAnnotationRow } from "../primitives/code/CodeLine.js"
 import { type GutterLine, gutterNumber } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
-import { focusEdgeClassName, litMarkClassName, markClassName, toneClassesFor } from "../primitives/designSystem.js"
+import {
+  firmUnderPointerClassName,
+  focusClassName,
+  litMarkClassName,
+  markClassName,
+  respondColorsClassName
+} from "../primitives/designSystem.js"
 import { DocsLink } from "../primitives/DocsLink.js"
 import { Cluster, Layer, Rail, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
+import { SemanticContent } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { Tab, TabBar, TabGroup, TabPanel } from "../primitives/TabBar.js"
 
@@ -25,61 +32,63 @@ import { placeLiveValues } from "./placeLiveValues.js"
 import { ProvenanceMark } from "./PlaceProvenance.js"
 import {
   commitUrl,
+  isLocalBuild,
   type PlaceReference,
   placeReferences,
   placeSourceFiles,
   referenceLinks,
   sourceLabel,
-  sourceRef,
   sourceUrl
 } from "./placeReferences.js"
 import { PlaceStep, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
 
 const rowLinkClassName =
-  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `-mx-2 flex min-w-0 flex-col items-start gap-1 rounded-mark px-2 py-1.5 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const sourceLinkClassName =
-  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `-mx-2 flex min-w-0 items-baseline gap-1.5 rounded-mark px-2 py-1.5 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const commitLinkClassName =
-  `inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-ink-600 transition-colors duration-150 hover:bg-stage-100/80 hover:text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `inline-flex min-h-8 items-center gap-1.5 rounded-mark px-2 text-ink-tertiary ${respondColorsClassName} ${firmUnderPointerClassName} hover:text-ink ${focusClassName}`
 
 const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly title: string }) => (
   <Stack aria-label={title} render={<section />} className="gap-1.5">
-    <SemanticText as="span" className="text-ink-500" role="row-label" text={title} variant="compact" />
+    <SemanticText as="span" role="row-label" text={title} variant="compact" />
     <Stack render={<ul />} className="gap-0.5">{children}</Stack>
   </Stack>
 )
 
-/** One symbol the sample calls, linked to its page in the reference, in its package's tone. */
-const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => {
-  const tone = toneClassesFor(toneForCard(reference.package))
-  return (
-    <Layer render={<li />}>
-      <DocsLink
-        className={rowLinkClassName}
-        data-place-reference={reference.text}
-        href={reference.href}
-        title={reference.text}
-      >
-        <SemanticText as="code" className="text-ink-900" role="code-meta" text={reference.text} />
-        <SemanticText as="span" className={`shrink-0 ${tone.text}`} role="code-meta" text={reference.package} />
-      </DocsLink>
-    </Layer>
-  )
-}
+/** One symbol the sample calls, with its package consistently below; long identifiers wrap within the rail. */
+const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => (
+  <Layer render={<li />}>
+    <DocsLink
+      className={rowLinkClassName}
+      data-place-reference={reference.text}
+      href={reference.href}
+      title={reference.text}
+    >
+      <SemanticContent as="code" className="min-w-0 max-w-full wrap-anywhere text-ink" role="code-meta">
+        {reference.text}
+      </SemanticContent>
+      <SemanticText as="span" className="shrink-0 text-ink-tertiary" role="code-meta" text={reference.package} />
+    </DocsLink>
+  </Layer>
+)
 
 /** The file in this repository that does what the sample shows, at the commit the server was built from. */
 const SourceRow = ({ path, sha }: { readonly path: string; readonly sha: string }) => (
   <Layer render={<li />}>
     <ExternalLink className={sourceLinkClassName} data-place-source={path} href={sourceUrl(sha, path)}>
-      <SemanticText as="code" className="text-ink-800" role="code-meta" text={sourceLabel(path)} />
-      <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 text-ink-400" />
+      <SemanticContent as="code" className="min-w-0 wrap-anywhere text-ink" role="code-meta">
+        {sourceLabel(path)}
+      </SemanticContent>
+      <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 text-ink-tertiary" />
     </ExternalLink>
   </Layer>
 )
 
-const commitLabel = (sha: string): string => sourceRef(sha) === "HEAD" ? "Source" : `Source · ${sha.slice(0, 7)}`
+const commitLabel = (sha: string): string =>
+  Bool.match(isLocalBuild(sha), { onTrue: () => "Source", onFalse: () => `Source · ${Str.takeLeft(sha, 7)}` })
 
 const CommitLink = ({ sha }: { readonly sha: string }) => (
   <ExternalLink
@@ -88,12 +97,12 @@ const CommitLink = ({ sha }: { readonly sha: string }) => (
     href={commitUrl(sha)}
   >
     <SemanticText as="code" className="text-inherit" role="code-meta" text={commitLabel(sha)} />
-    <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 self-center text-ink-400" />
+    <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 self-center text-ink-tertiary" />
   </ExternalLink>
 )
 
 const StepTabs = () => (
-  <TabBar className="w-fit max-w-full flex-wrap">
+  <TabBar className="w-fit max-w-full">
     {Arr.map(
       placeStepDefinitions,
       (candidate) => <Tab key={candidate.id} label={candidate.name} value={candidate.id} />
@@ -113,7 +122,7 @@ const StepTabs = () => (
 const annotationMarkClassName = `${markClassName} inline-flex`
 
 const gutterMarkClassName =
-  `${markClassName} ${litMarkClassName} -mx-1 inline-flex w-[calc(100%+0.5rem)] justify-end px-1 text-right text-inherit data-[place-focused]:text-ink-900 data-[popup-open]:text-ink-900`
+  `${markClassName} ${litMarkClassName} -mx-1 inline-flex w-[calc(100%+0.5rem)] justify-end px-1 text-right text-inherit data-[place-focused]:text-ink data-[popup-open]:text-ink`
 
 /** A line's number: the line's mark where the line made something on the page, a number where it did not. */
 const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
@@ -151,7 +160,7 @@ const StepCode = ({ step }: { readonly step: PlaceStep }) => {
       <CodeBlock
         annotations={placeLiveValues(step, build, search, shown)}
         focusedMatch={Option.map(
-          Option.filter(focusedSite, (site) => site.step === step),
+          Option.filter(focusedSite, (site) => Equal.equals(site.step, step)),
           (site) => site.match
         )}
         label={definition.name}
@@ -198,7 +207,7 @@ export const PlaceHowItsBuilt = () => {
   return (
     <Section
       aria-label="How it's built"
-      className="scroll-mt-6 border-t border-stage-200/85 pt-6 lg:pt-8"
+      className="scroll-mt-6 border-t border-hairline-veil pt-6 lg:pt-8"
       data-place-act="build"
       data-place-how-its-built
       id={howItsBuiltSectionId}
@@ -207,7 +216,6 @@ export const PlaceHowItsBuilt = () => {
         <Cluster className="justify-between gap-x-6 gap-y-3">
           <SemanticText
             as="h3"
-            className="text-ink-900"
             role="subsection-title"
             text="How it's built"
             variant="expanded"

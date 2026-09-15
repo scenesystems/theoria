@@ -16,7 +16,7 @@ describe("semantic text classes", () => {
   it.effect("control-sized roles carry no measure of their own", () =>
     Effect.sync(() => {
       expect(maxWidthClassName("button-label", "compact")).toBe("")
-      expect(maxWidthClassName("tab-label", "expanded")).toBe("")
+      expect(maxWidthClassName("wordmark", "expanded")).toBe("")
       expect(maxWidthClassName("marker-label", "compact")).toBe("")
     }))
 
@@ -24,7 +24,7 @@ describe("semantic text classes", () => {
     Effect.sync(() => {
       const measured = Arr.filter(
         TextRole.literals,
-        (role) => role !== "button-label" && role !== "tab-label" && role !== "marker-label"
+        (role) => role !== "button-label" && role !== "wordmark" && role !== "marker-label"
       )
       expect(measured.length).toBeGreaterThan(0)
       Arr.forEach(measured, (role) => {

@@ -1,6 +1,6 @@
 /* Typography and motion tokens (generated — do not edit; run `bun run gen:text-tokens`) */
 @theme inline {
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono Variable Fallback: Courier New", "JetBrains Mono Variable Fallback: Liberation Mono", "JetBrains Mono Variable Fallback: Roboto Mono", "JetBrains Mono Variable Fallback: Noto Sans Mono", "Courier New", "Liberation Mono", "Roboto Mono", "Noto Sans Mono", monospace;
+  --font-mono: "Geist Mono Variable", "Geist Mono Variable Fallback: Courier New", "Geist Mono Variable Fallback: Liberation Mono", "Geist Mono Variable Fallback: Roboto Mono", "Geist Mono Variable Fallback: Noto Sans Mono", "Courier New", "Liberation Mono", "Roboto Mono", "Noto Sans Mono", monospace;
   --font-body: "Figtree Variable", "Figtree Variable Fallback: Segoe UI", "Figtree Variable Fallback: Helvetica Neue", "Figtree Variable Fallback: Arial", "Figtree Variable Fallback: Liberation Sans", "Figtree Variable Fallback: Roboto", "Figtree Variable Fallback: Noto Sans", "Segoe UI", "Helvetica Neue", Arial, "Liberation Sans", Roboto, "Noto Sans", sans-serif;
   --font-display: "Figtree Variable", "Figtree Variable Fallback: Segoe UI", "Figtree Variable Fallback: Helvetica Neue", "Figtree Variable Fallback: Arial", "Figtree Variable Fallback: Liberation Sans", "Figtree Variable Fallback: Roboto", "Figtree Variable Fallback: Noto Sans", "Segoe UI", "Helvetica Neue", Arial, "Liberation Sans", Roboto, "Noto Sans", sans-serif;
   --st-fs-display: 44px;
@@ -24,27 +24,20 @@
   --st-ff-hero-title: var(--font-display);
   --st-mw-hero-title-compact: 680px;
   --st-mw-hero-title-expanded: 920px;
-  --st-fs-subsection-title: 22px;
-  --st-lh-subsection-title: 30px;
+  --st-fs-subsection-title: 20px;
+  --st-lh-subsection-title: 28px;
   --st-fw-subsection-title: 600;
-  --st-tr-subsection-title: -0.01em;
+  --st-tr-subsection-title: 0;
   --st-ff-subsection-title: var(--font-display);
   --st-mw-subsection-title-compact: 520px;
   --st-mw-subsection-title-expanded: 1120px;
-  --st-fs-card-title: 24px;
-  --st-lh-card-title: 32px;
-  --st-fw-card-title: 600;
-  --st-tr-card-title: -0.01em;
-  --st-ff-card-title: var(--font-display);
-  --st-mw-card-title-compact: 520px;
-  --st-mw-card-title-expanded: 1120px;
-  --st-fs-card-summary: 16px;
-  --st-lh-card-summary: 26px;
-  --st-fw-card-summary: 400;
-  --st-tr-card-summary: 0;
-  --st-ff-card-summary: var(--font-body);
-  --st-mw-card-summary-compact: 720px;
-  --st-mw-card-summary-expanded: 1400px;
+  --st-fs-body: 16px;
+  --st-lh-body: 26px;
+  --st-fw-body: 400;
+  --st-tr-body: 0;
+  --st-ff-body: var(--font-body);
+  --st-mw-body-compact: 720px;
+  --st-mw-body-expanded: 1400px;
   --st-fs-stage-prose: 16px;
   --st-lh-stage-prose: 26px;
   --st-fw-stage-prose: 400;
@@ -52,20 +45,13 @@
   --st-ff-stage-prose: var(--font-body);
   --st-mw-stage-prose-compact: 720px;
   --st-mw-stage-prose-expanded: 1400px;
-  --st-fs-status: 14px;
-  --st-lh-status: 22px;
-  --st-fw-status: 400;
-  --st-tr-status: 0;
-  --st-ff-status: var(--font-body);
-  --st-mw-status-compact: 760px;
-  --st-mw-status-expanded: 1400px;
-  --st-fs-tab-label: 12px;
-  --st-lh-tab-label: 16px;
-  --st-fw-tab-label: 600;
-  --st-tr-tab-label: 0.02em;
-  --st-ff-tab-label: var(--font-body);
-  --st-mw-tab-label-compact: 180px;
-  --st-mw-tab-label-expanded: 220px;
+  --st-fs-caption: 12px;
+  --st-lh-caption: 18px;
+  --st-fw-caption: 400;
+  --st-tr-caption: 0;
+  --st-ff-caption: var(--font-body);
+  --st-mw-caption-compact: 760px;
+  --st-mw-caption-expanded: 1400px;
   --st-fs-selection-title: 14px;
   --st-lh-selection-title: 20px;
   --st-fw-selection-title: 600;
@@ -76,10 +62,17 @@
   --st-fs-section-title: 24px;
   --st-lh-section-title: 32px;
   --st-fw-section-title: 600;
-  --st-tr-section-title: 0;
+  --st-tr-section-title: -0.01em;
   --st-ff-section-title: var(--font-display);
   --st-mw-section-title-compact: 900px;
   --st-mw-section-title-expanded: 1400px;
+  --st-fs-package-title: 24px;
+  --st-lh-package-title: 32px;
+  --st-fw-package-title: 600;
+  --st-tr-package-title: -0.01em;
+  --st-ff-package-title: var(--font-display);
+  --st-mw-package-title-compact: 900px;
+  --st-mw-package-title-expanded: 1400px;
   --st-fs-row-label: 11px;
   --st-lh-row-label: 16px;
   --st-fw-row-label: 600;
@@ -122,10 +115,20 @@
   --st-ff-marker-label: var(--font-body);
   --st-mw-marker-label-compact: 160px;
   --st-mw-marker-label-expanded: 200px;
+  --st-fs-wordmark: 24px;
+  --st-lh-wordmark: 32px;
+  --st-fw-wordmark: 600;
+  --st-tr-wordmark: -0.025em;
+  --st-ff-wordmark: var(--font-display);
+  --st-mw-wordmark-compact: 180px;
+  --st-mw-wordmark-expanded: 180px;
   --th-motion-duration-enter: 240ms;
   --th-motion-duration-shift: 320ms;
   --th-motion-duration-exit: 120ms;
+  --th-motion-duration-respond: 150ms;
+  --th-motion-duration-follow: 300ms;
   --ease-theme: cubic-bezier(0.2, 0, 0, 1);
+  --ease-follow: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (width < 40rem) {
@@ -136,12 +139,10 @@
     --st-lh-lead: 26px;
     --st-fs-hero-title: 32px;
     --st-lh-hero-title: 38px;
-    --st-fs-subsection-title: clamp(14px, 4.6vw, 18px);
-    --st-lh-subsection-title: 24px;
-    --st-fs-card-summary: 15px;
-    --st-lh-card-summary: 22px;
     --st-fs-section-title: 21px;
     --st-lh-section-title: 28px;
+    --st-fs-package-title: clamp(16px, 5vw, 24px);
+    --st-lh-package-title: clamp(22px, 6.875vw, 32px);
   }
 }
 @media (width >= 64rem) {
@@ -149,6 +150,26 @@
     --st-fs-display: 64px;
     --st-lh-display: 68px;
   }
+}
+
+@layer components {
+  :where(.st-display) { color: var(--th-ink-strong); text-transform: none; }
+  :where(.st-lead) { color: var(--th-ink-secondary); text-transform: none; }
+  :where(.st-hero-title) { color: var(--th-ink-strong); text-transform: none; }
+  :where(.st-subsection-title) { color: var(--th-ink-strong); text-transform: none; }
+  :where(.st-body) { color: var(--th-ink); text-transform: none; }
+  :where(.st-stage-prose) { color: inherit; text-transform: none; }
+  :where(.st-caption) { color: var(--th-ink-tertiary); text-transform: none; }
+  :where(.st-selection-title) { color: var(--th-ink-strong); text-transform: none; }
+  :where(.st-section-title) { color: var(--th-ink-strong); text-transform: none; }
+  :where(.st-package-title) { color: var(--th-ink-strong); text-transform: none; }
+  :where(.st-row-label) { color: var(--th-ink-tertiary); text-transform: uppercase; }
+  :where(.st-row-value) { color: inherit; text-transform: none; }
+  :where(.st-code-meta) { color: inherit; text-transform: none; }
+  :where(.st-code-block) { color: inherit; text-transform: none; }
+  :where(.st-button-label) { color: inherit; text-transform: none; }
+  :where(.st-marker-label) { color: inherit; text-transform: none; }
+  :where(.st-wordmark) { color: var(--th-ink); text-transform: none; }
 }
 
 /* Stand-in faces, scaled to the served faces' metrics so the swap moves nothing (generated — do not edit) */
@@ -198,47 +219,47 @@
   size-adjust: 94.7257%;
 }
 @font-face {
-  font-family: "JetBrains Mono Variable Fallback: Courier New";
+  font-family: "Geist Mono Variable Fallback: Courier New";
   src: local('Courier New'), local('CourierNewPSMT');
-  ascent-override: 102.0166%;
-  descent-override: 30.0049%;
+  ascent-override: 100.5164%;
+  descent-override: 29.5048%;
   size-adjust: 99.9837%;
 }
 @font-face {
-  font-family: "JetBrains Mono Variable Fallback: Liberation Mono";
+  font-family: "Geist Mono Variable Fallback: Liberation Mono";
   src: local('Liberation Mono'), local('LiberationMono');
-  ascent-override: 102.0166%;
-  descent-override: 30.0049%;
+  ascent-override: 100.5164%;
+  descent-override: 29.5048%;
   size-adjust: 99.9837%;
 }
 @font-face {
-  font-family: "JetBrains Mono Variable Fallback: Roboto Mono";
+  font-family: "Geist Mono Variable Fallback: Roboto Mono";
   src: local('Roboto Mono Regular'), local('RobotoMono-Regular');
-  ascent-override: 102.0166%;
-  descent-override: 30.0049%;
+  ascent-override: 100.5164%;
+  descent-override: 29.5048%;
   size-adjust: 99.9837%;
 }
 @font-face {
-  font-family: "JetBrains Mono Variable Fallback: Noto Sans Mono";
+  font-family: "Geist Mono Variable Fallback: Noto Sans Mono";
   src: local('Noto Sans Mono Regular'), local('NotoSansMono-Regular');
-  ascent-override: 102%;
-  descent-override: 30%;
+  ascent-override: 100.5%;
+  descent-override: 29.5%;
 }
 /* SemanticText candidates, one line per role (generated — do not edit) */
-@source inline("text-(length:--st-fs-display) font-(--st-fw-display) tracking-(--st-tr-display) font-(family-name:--st-ff-display) leading-(--st-lh-display) max-w-(--st-mw-display-compact) max-w-(--st-mw-display-expanded)");
-@source inline("text-(length:--st-fs-lead) font-(--st-fw-lead) tracking-(--st-tr-lead) font-(family-name:--st-ff-lead) leading-(--st-lh-lead) max-w-(--st-mw-lead-compact) max-w-(--st-mw-lead-expanded)");
-@source inline("text-(length:--st-fs-hero-title) font-(--st-fw-hero-title) tracking-(--st-tr-hero-title) font-(family-name:--st-ff-hero-title) leading-(--st-lh-hero-title) max-w-(--st-mw-hero-title-compact) max-w-(--st-mw-hero-title-expanded)");
-@source inline("text-(length:--st-fs-subsection-title) font-(--st-fw-subsection-title) tracking-(--st-tr-subsection-title) font-(family-name:--st-ff-subsection-title) leading-(--st-lh-subsection-title) max-w-(--st-mw-subsection-title-compact) max-w-(--st-mw-subsection-title-expanded)");
-@source inline("text-(length:--st-fs-card-title) font-(--st-fw-card-title) tracking-(--st-tr-card-title) font-(family-name:--st-ff-card-title) leading-(--st-lh-card-title) max-w-(--st-mw-card-title-compact) max-w-(--st-mw-card-title-expanded)");
-@source inline("text-(length:--st-fs-card-summary) font-(--st-fw-card-summary) tracking-(--st-tr-card-summary) font-(family-name:--st-ff-card-summary) leading-(--st-lh-card-summary) max-w-(--st-mw-card-summary-compact) max-w-(--st-mw-card-summary-expanded)");
-@source inline("text-(length:--st-fs-stage-prose) font-(--st-fw-stage-prose) tracking-(--st-tr-stage-prose) font-(family-name:--st-ff-stage-prose) leading-(--st-lh-stage-prose) max-w-(--st-mw-stage-prose-compact) max-w-(--st-mw-stage-prose-expanded)");
-@source inline("text-(length:--st-fs-status) font-(--st-fw-status) tracking-(--st-tr-status) font-(family-name:--st-ff-status) leading-(--st-lh-status) max-w-(--st-mw-status-compact) max-w-(--st-mw-status-expanded)");
-@source inline("text-(length:--st-fs-tab-label) font-(--st-fw-tab-label) tracking-(--st-tr-tab-label) font-(family-name:--st-ff-tab-label) leading-(--st-lh-tab-label)");
-@source inline("text-(length:--st-fs-selection-title) font-(--st-fw-selection-title) tracking-(--st-tr-selection-title) font-(family-name:--st-ff-selection-title) leading-(--st-lh-selection-title) max-w-(--st-mw-selection-title-compact) max-w-(--st-mw-selection-title-expanded)");
-@source inline("text-(length:--st-fs-section-title) font-(--st-fw-section-title) tracking-(--st-tr-section-title) font-(family-name:--st-ff-section-title) leading-(--st-lh-section-title) max-w-(--st-mw-section-title-compact) max-w-(--st-mw-section-title-expanded)");
-@source inline("text-(length:--st-fs-row-label) font-(--st-fw-row-label) tracking-(--st-tr-row-label) font-(family-name:--st-ff-row-label) uppercase leading-(--st-lh-row-label) max-w-(--st-mw-row-label-compact) max-w-(--st-mw-row-label-expanded)");
-@source inline("text-(length:--st-fs-row-value) font-(--st-fw-row-value) tracking-(--st-tr-row-value) font-(family-name:--st-ff-row-value) leading-(--st-lh-row-value) max-w-(--st-mw-row-value-compact) max-w-(--st-mw-row-value-expanded)");
-@source inline("text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) tracking-(--st-tr-code-meta) font-(family-name:--st-ff-code-meta) leading-(--st-lh-code-meta) max-w-(--st-mw-code-meta-compact) max-w-(--st-mw-code-meta-expanded)");
-@source inline("text-(length:--st-fs-code-block) font-(--st-fw-code-block) tracking-(--st-tr-code-block) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-block) max-w-(--st-mw-code-block-compact) max-w-(--st-mw-code-block-expanded)");
-@source inline("text-(length:--st-fs-button-label) font-(--st-fw-button-label) tracking-(--st-tr-button-label) font-(family-name:--st-ff-button-label) leading-(--st-lh-button-label)");
-@source inline("text-(length:--st-fs-marker-label) font-(--st-fw-marker-label) tracking-(--st-tr-marker-label) font-(family-name:--st-ff-marker-label) leading-(--st-lh-marker-label)");
+@source inline("st-display text-(length:--st-fs-display) font-(--st-fw-display) tracking-(--st-tr-display) font-(family-name:--st-ff-display) leading-(--st-lh-display) max-w-(--st-mw-display-compact) max-w-(--st-mw-display-expanded)");
+@source inline("st-lead text-(length:--st-fs-lead) font-(--st-fw-lead) tracking-(--st-tr-lead) font-(family-name:--st-ff-lead) leading-(--st-lh-lead) max-w-(--st-mw-lead-compact) max-w-(--st-mw-lead-expanded)");
+@source inline("st-hero-title text-(length:--st-fs-hero-title) font-(--st-fw-hero-title) tracking-(--st-tr-hero-title) font-(family-name:--st-ff-hero-title) leading-(--st-lh-hero-title) max-w-(--st-mw-hero-title-compact) max-w-(--st-mw-hero-title-expanded)");
+@source inline("st-subsection-title text-(length:--st-fs-subsection-title) font-(--st-fw-subsection-title) tracking-(--st-tr-subsection-title) font-(family-name:--st-ff-subsection-title) leading-(--st-lh-subsection-title) max-w-(--st-mw-subsection-title-compact) max-w-(--st-mw-subsection-title-expanded)");
+@source inline("st-body text-(length:--st-fs-body) font-(--st-fw-body) tracking-(--st-tr-body) font-(family-name:--st-ff-body) leading-(--st-lh-body) max-w-(--st-mw-body-compact) max-w-(--st-mw-body-expanded)");
+@source inline("st-stage-prose text-(length:--st-fs-stage-prose) font-(--st-fw-stage-prose) tracking-(--st-tr-stage-prose) font-(family-name:--st-ff-stage-prose) leading-(--st-lh-stage-prose) max-w-(--st-mw-stage-prose-compact) max-w-(--st-mw-stage-prose-expanded)");
+@source inline("st-caption text-(length:--st-fs-caption) font-(--st-fw-caption) tracking-(--st-tr-caption) font-(family-name:--st-ff-caption) leading-(--st-lh-caption) max-w-(--st-mw-caption-compact) max-w-(--st-mw-caption-expanded)");
+@source inline("st-selection-title text-(length:--st-fs-selection-title) font-(--st-fw-selection-title) tracking-(--st-tr-selection-title) font-(family-name:--st-ff-selection-title) leading-(--st-lh-selection-title) max-w-(--st-mw-selection-title-compact) max-w-(--st-mw-selection-title-expanded)");
+@source inline("st-section-title text-(length:--st-fs-section-title) font-(--st-fw-section-title) tracking-(--st-tr-section-title) font-(family-name:--st-ff-section-title) leading-(--st-lh-section-title) max-w-(--st-mw-section-title-compact) max-w-(--st-mw-section-title-expanded)");
+@source inline("st-package-title text-(length:--st-fs-package-title) font-(--st-fw-package-title) tracking-(--st-tr-package-title) font-(family-name:--st-ff-package-title) leading-(--st-lh-package-title) max-w-(--st-mw-package-title-compact) max-w-(--st-mw-package-title-expanded)");
+@source inline("st-row-label text-(length:--st-fs-row-label) font-(--st-fw-row-label) tracking-(--st-tr-row-label) font-(family-name:--st-ff-row-label) leading-(--st-lh-row-label) max-w-(--st-mw-row-label-compact) max-w-(--st-mw-row-label-expanded)");
+@source inline("st-row-value text-(length:--st-fs-row-value) font-(--st-fw-row-value) tracking-(--st-tr-row-value) font-(family-name:--st-ff-row-value) leading-(--st-lh-row-value) max-w-(--st-mw-row-value-compact) max-w-(--st-mw-row-value-expanded)");
+@source inline("st-code-meta text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) tracking-(--st-tr-code-meta) font-(family-name:--st-ff-code-meta) leading-(--st-lh-code-meta) max-w-(--st-mw-code-meta-compact) max-w-(--st-mw-code-meta-expanded)");
+@source inline("st-code-block text-(length:--st-fs-code-block) font-(--st-fw-code-block) tracking-(--st-tr-code-block) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-block) max-w-(--st-mw-code-block-compact) max-w-(--st-mw-code-block-expanded)");
+@source inline("st-button-label text-(length:--st-fs-button-label) font-(--st-fw-button-label) tracking-(--st-tr-button-label) font-(family-name:--st-ff-button-label) leading-(--st-lh-button-label)");
+@source inline("st-marker-label text-(length:--st-fs-marker-label) font-(--st-fw-marker-label) tracking-(--st-tr-marker-label) font-(family-name:--st-ff-marker-label) leading-(--st-lh-marker-label)");
+@source inline("st-wordmark text-(length:--st-fs-wordmark) font-(--st-fw-wordmark) tracking-(--st-tr-wordmark) font-(family-name:--st-ff-wordmark) leading-(--st-lh-wordmark)");

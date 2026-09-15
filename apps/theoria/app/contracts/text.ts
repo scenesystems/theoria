@@ -2,8 +2,8 @@ import { createFontStack } from "@capsizecss/core"
 import arial from "@capsizecss/metrics/arial"
 import courierNew from "@capsizecss/metrics/courierNew"
 import figtree from "@capsizecss/metrics/figtree"
+import geistMono from "@capsizecss/metrics/geistMono"
 import helveticaNeue from "@capsizecss/metrics/helveticaNeue"
-import jetBrainsMono from "@capsizecss/metrics/jetBrainsMono"
 import notoSans from "@capsizecss/metrics/notoSans"
 import notoSansMono from "@capsizecss/metrics/notoSansMono"
 import roboto from "@capsizecss/metrics/roboto"
@@ -58,7 +58,7 @@ const typefaceOf = (family: FontFamily): Typeface =>
 
 const servedFaces = HashMap.make(
   entry("sans", { ...figtree, familyName: "Figtree Variable" }),
-  entry("mono", { ...jetBrainsMono, familyName: "JetBrains Mono Variable" })
+  entry("mono", { ...geistMono, familyName: "Geist Mono Variable" })
 )
 
 /**
@@ -166,19 +166,19 @@ export const TextRole = Schema.Literal(
   "lead",
   "hero-title",
   "subsection-title",
-  "card-title",
-  "card-summary",
+  "body",
   "stage-prose",
-  "status",
-  "tab-label",
+  "caption",
   "selection-title",
   "section-title",
+  "package-title",
   "row-label",
   "row-value",
   "code-meta",
   "code-block",
   "button-label",
-  "marker-label"
+  "marker-label",
+  "wordmark"
 )
 
 export type TextRole = typeof TextRole.Type
@@ -238,12 +238,21 @@ export const ResponsiveMetrics = Schema.Struct({
 })
 export type ResponsiveMetrics = typeof ResponsiveMetrics.Type
 
+/** Prose owns its ink; labels inside controls and measured marks inherit their owner's state. */
+export const TextForeground = Schema.Literal("inherit", "ink-strong", "ink", "ink-secondary", "ink-tertiary")
+export type TextForeground = typeof TextForeground.Type
+
+export const TextTransform = Schema.Literal("none", "uppercase")
+export type TextTransform = typeof TextTransform.Type
+
 export const TextSemantics = Schema.Struct({
   role: TextRole,
   family: FontFamily,
   fontSize: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
   weight: FontWeight,
   tracking: Schema.Number.pipe(Schema.finite()),
+  foreground: TextForeground,
+  transform: TextTransform,
   wrapAuthority: TextWrapAuthority,
   lineBreaks: LineBreakBehavior,
   whiteSpace: Text.WhiteSpaceMode,
@@ -267,6 +276,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 44,
     weight: "semibold",
     tracking: -0.02,
+    foreground: "ink-strong",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
@@ -285,6 +296,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 18,
     weight: "normal",
     tracking: 0,
+    foreground: "ink-secondary",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
@@ -298,6 +311,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 38,
     weight: "semibold",
     tracking: -0.02,
+    foreground: "ink-strong",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
@@ -308,41 +323,32 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
   "subsection-title": {
     role: "subsection-title",
     family: "display",
-    fontSize: 22,
+    fontSize: 20,
     weight: "semibold",
-    tracking: -0.01,
-    wrapAuthority: "native-browser",
-    lineBreaks: "nowrap",
-    whiteSpace: "normal",
-    lineHeight: 30,
-    maxWidth: { compact: 520, expanded: 1120 },
-    at: { narrow: { fontSize: { min: 14, vw: 4.6, max: 18 }, lineHeight: 24 } }
-  },
-  "card-title": {
-    role: "card-title",
-    family: "display",
-    fontSize: 24,
-    weight: "semibold",
-    tracking: -0.01,
+    tracking: 0,
+    foreground: "ink-strong",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
-    lineHeight: 32,
+    lineHeight: 28,
     maxWidth: { compact: 520, expanded: 1120 },
     at: {}
   },
-  "card-summary": {
-    role: "card-summary",
+  body: {
+    role: "body",
     family: "body",
     fontSize: 16,
     weight: "normal",
     tracking: 0,
+    foreground: "ink",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 26,
     maxWidth: { compact: 720, expanded: 1400 },
-    at: { narrow: { fontSize: 15, lineHeight: 22 } }
+    at: {}
   },
   "stage-prose": {
     role: "stage-prose",
@@ -350,6 +356,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 16,
     weight: "normal",
     tracking: 0,
+    foreground: "inherit",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
@@ -357,30 +365,19 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     maxWidth: { compact: 720, expanded: 1400 },
     at: {}
   },
-  status: {
-    role: "status",
+  caption: {
+    role: "caption",
     family: "body",
-    fontSize: 14,
+    fontSize: 12,
     weight: "normal",
     tracking: 0,
+    foreground: "ink-tertiary",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
-    lineHeight: 22,
+    lineHeight: 18,
     maxWidth: { compact: 760, expanded: 1400 },
-    at: {}
-  },
-  "tab-label": {
-    role: "tab-label",
-    family: "body",
-    fontSize: 12,
-    weight: "semibold",
-    tracking: 0.02,
-    wrapAuthority: "native-browser",
-    lineBreaks: "nowrap",
-    whiteSpace: "normal",
-    lineHeight: 16,
-    maxWidth: { compact: 180, expanded: 220 },
     at: {}
   },
   "selection-title": {
@@ -389,6 +386,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 14,
     weight: "semibold",
     tracking: 0,
+    foreground: "ink-strong",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "nowrap",
     whiteSpace: "normal",
@@ -401,7 +400,9 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     family: "display",
     fontSize: 24,
     weight: "semibold",
-    tracking: 0,
+    tracking: -0.01,
+    foreground: "ink-strong",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
@@ -409,12 +410,33 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     maxWidth: { compact: 900, expanded: 1400 },
     at: { narrow: { fontSize: 21, lineHeight: 28 } }
   },
+  // Package identifiers stay intact. The card grid preserves their desktop measure; on a
+  // narrow viewport every title scales together rather than shrinking individual names.
+  "package-title": {
+    role: "package-title",
+    family: "display",
+    fontSize: 24,
+    weight: "semibold",
+    tracking: -0.01,
+    foreground: "ink-strong",
+    transform: "none",
+    wrapAuthority: "native-browser",
+    lineBreaks: "nowrap",
+    whiteSpace: "normal",
+    lineHeight: 32,
+    maxWidth: { compact: 900, expanded: 1400 },
+    at: {
+      narrow: { fontSize: { min: 16, vw: 5, max: 24 }, lineHeight: { min: 22, vw: 6.875, max: 32 } }
+    }
+  },
   "row-label": {
     role: "row-label",
     family: "body",
     fontSize: 11,
     weight: "semibold",
     tracking: 0.04,
+    foreground: "ink-tertiary",
+    transform: "uppercase",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
@@ -428,6 +450,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 14,
     weight: "normal",
     tracking: 0,
+    foreground: "inherit",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
@@ -441,6 +465,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "normal",
     tracking: 0,
+    foreground: "inherit",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
@@ -454,6 +480,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "normal",
     tracking: 0,
+    foreground: "inherit",
+    transform: "none",
     wrapAuthority: "effect-text-projected",
     lineBreaks: "wrap",
     whiteSpace: "pre-wrap",
@@ -467,6 +495,8 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "semibold",
     tracking: 0.02,
+    foreground: "inherit",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "nowrap",
     whiteSpace: "normal",
@@ -481,11 +511,29 @@ export const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     weight: "semibold",
     // The label is clipped to its measured fit; the measurer sees no tracking, so the label paints none.
     tracking: 0,
+    foreground: "inherit",
+    transform: "none",
     wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 14,
     maxWidth: { compact: 160, expanded: 200 },
+    at: {}
+  },
+  // The lockup is identical in both headers and the footer; its inline segments retain natural shaping.
+  wordmark: {
+    role: "wordmark",
+    family: "display",
+    fontSize: 24,
+    weight: "semibold",
+    tracking: -0.025,
+    foreground: "ink",
+    transform: "none",
+    wrapAuthority: "native-browser",
+    lineBreaks: "nowrap",
+    whiteSpace: "normal",
+    lineHeight: 32,
+    maxWidth: { compact: 180, expanded: 180 },
     at: {}
   }
 }
@@ -495,20 +543,19 @@ export const textSemantics: ReadonlyArray<TextSemantics> = [
   textSemanticsByRole.lead,
   textSemanticsByRole["hero-title"],
   textSemanticsByRole["subsection-title"],
-  textSemanticsByRole["card-title"],
-  textSemanticsByRole["card-summary"],
+  textSemanticsByRole.body,
   textSemanticsByRole["stage-prose"],
-
-  textSemanticsByRole.status,
-  textSemanticsByRole["tab-label"],
+  textSemanticsByRole.caption,
   textSemanticsByRole["selection-title"],
   textSemanticsByRole["section-title"],
+  textSemanticsByRole["package-title"],
   textSemanticsByRole["row-label"],
   textSemanticsByRole["row-value"],
   textSemanticsByRole["code-meta"],
   textSemanticsByRole["code-block"],
   textSemanticsByRole["button-label"],
-  textSemanticsByRole["marker-label"]
+  textSemanticsByRole["marker-label"],
+  textSemanticsByRole.wordmark
 ]
 
 export const semanticsFor = (role: TextRole): TextSemantics => textSemanticsByRole[role]

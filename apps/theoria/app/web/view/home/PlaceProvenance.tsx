@@ -1,7 +1,7 @@
 import { Button } from "@base-ui/react/button"
 import { Popover } from "@base-ui/react/popover"
 import { useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Boolean as Bool, Equal, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type ComponentProps, Fragment, useId, useMemo, useRef } from "react"
 
@@ -27,12 +27,17 @@ import {
 } from "../../atoms/imagined-place-experience.js"
 import {
   elevationClassName,
+  firmUnderPointerClassName,
+  focusClassName,
   focusEdgeClassName,
   type InlineStatusTone,
   litMarkClassName,
   markClassName,
+  neutralToneClasses,
+  respondColorsClassName,
+  stillUnderReducedMotion,
   surfaceClassName,
-  toneClassesFor
+  transitionClassName
 } from "../primitives/designSystem.js"
 import { InlineStatus } from "../primitives/InlineStatus.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -42,6 +47,7 @@ import { SemanticText } from "../primitives/SemanticText.js"
 import { GhostText } from "../primitives/Skeleton.js"
 
 import { howItsBuiltSectionId } from "./HomeHero.js"
+import { focusedAttribute } from "./placeViewModel.js"
 
 /**
  * The page has one answer surface. Every mark on it — a disc, a content ID,
@@ -78,7 +84,7 @@ export const ProvenanceMark = ({
   const encoded = encodeMark(mark)
   const focused = useAtomValue(placeMarkFocusedAtom(encoded))
   const generatedId = useId()
-  const triggerId = id ?? `place-mark-${generatedId}`
+  const triggerId = Option.getOrElse(Option.fromNullable(id), () => `place-mark-${generatedId}`)
   const markLeft = useAtomSet(placeMarkLeftAtom)
   // The mark says it has left at the commit its element leaves the page, so
   // an answer about it goes with it rather than lingering over nothing.
@@ -89,7 +95,7 @@ export const ProvenanceMark = ({
       ref={leaving}
       {...props}
       {...{ [provenanceAttribute]: encoded }}
-      data-place-focused={focused ? "" : undefined}
+      {...focusedAttribute(focused)}
       handle={provenanceHandle}
       id={triggerId}
       nativeButton={nativeButton}
@@ -141,7 +147,7 @@ export const StatusMarkPending = ({ className = "", label, tone }: {
 }) => (
   <Layer render={<span />} className={`${inlineMarkRoomClassName} gap-1.5 ${className}`} data-place-status-pending>
     <Layer aria-hidden render={<span />} className={`inline-flex size-1.5 shrink-0 rounded-full ${tone.dot}`} />
-    <GhostText as="span" className={tone.text} role="tab-label" text={label} variant="compact" />
+    <GhostText as="span" className={tone.text} role="button-label" text={label} variant="compact" />
   </Layer>
 )
 
@@ -152,39 +158,40 @@ export const StatusMarkPending = ({ className = "", label, tone }: {
  */
 const positionerClassName = `${elevationClassName("answer")} w-(--positioner-width) h-(--positioner-height)`
 
-const popupClassName = [
+const popupClassName = Arr.join([
   surfaceClassName("overlay"),
   `w-(--popup-width) h-(--popup-height) max-w-[min(22rem,calc(100vw-1.5rem))] ${focusEdgeClassName}`,
-  "origin-(--transform-origin) transition-[opacity,transform,width,height] duration-150 ease-theme",
+  `origin-(--transform-origin) transition-[opacity,transform,width,height] ${transitionClassName("enter")}`,
   "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
   "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
-  "motion-reduce:transition-none"
-].join(" ")
+  stillUnderReducedMotion
+], " ")
 
 /**
  * Between two answers the old one fades where it is and the new one fades in
  * over it; the popup's size eases from one to the other underneath.
  */
-const viewportClassName = [
+const viewportClassName = Arr.join([
   "relative overflow-clip",
   "[&>[data-previous]]:inset-0 [&>[data-previous]]:w-(--popup-width) [&>[data-previous]]:h-(--popup-height)",
-  "[&>[data-previous]]:transition-opacity [&>[data-previous]]:duration-150 [&>[data-previous]]:ease-theme",
+  "[&>[data-previous]]:transition-opacity [&>[data-previous]]:duration-(--th-motion-duration-respond) [&>[data-previous]]:ease-theme",
   "[&>[data-previous][data-ending-style]]:opacity-0",
-  "[&>[data-current]]:transition-opacity [&>[data-current]]:duration-150 [&>[data-current]]:ease-theme",
+  "[&>[data-current]]:transition-opacity [&>[data-current]]:duration-(--th-motion-duration-respond) [&>[data-current]]:ease-theme",
   "[&>[data-current][data-starting-style]]:opacity-0",
   "motion-reduce:[&>[data-current]]:transition-none motion-reduce:[&>[data-previous]]:transition-none"
-].join(" ")
+], " ")
 
 const codeLinkClassName =
-  `-mx-1.5 inline-flex min-w-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 motion-reduce:transition-none hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `-mx-1.5 inline-flex min-w-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} ${stillUnderReducedMotion} ${firmUnderPointerClassName} ${focusClassName}`
 
 const copyButtonClassName =
-  `-mx-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
-
-const digestTone = toneClassesFor("digest")
+  `-mx-1.5 inline-flex shrink-0 items-center rounded-mark px-1.5 py-1 ${respondColorsClassName} ${firmUnderPointerClassName} ${focusClassName}`
 
 const copyLabel = ({ copied, failed }: { readonly copied: boolean; readonly failed: boolean }): string =>
-  copied ? "Copied" : failed ? "Copy failed" : "Copy"
+  Bool.match(copied, {
+    onTrue: () => "Copied",
+    onFalse: () => Bool.match(failed, { onTrue: () => "Copy failed", onFalse: () => "Copy" })
+  })
 
 /**
  * The whole of a value the page shows cut short — a content ID to the last
@@ -193,7 +200,7 @@ const copyLabel = ({ copied, failed }: { readonly copied: boolean; readonly fail
  */
 const WholeValue = ({ value }: { readonly value: string }) => (
   <Layer data-place-provenance-value={value}>
-    <SemanticText as="p" className={`break-all ${digestTone.textStrong}`} role="code-meta" text={value} />
+    <SemanticText as="p" className={`break-all ${neutralToneClasses.textStrong}`} role="code-meta" text={value} />
   </Layer>
 )
 
@@ -214,8 +221,8 @@ const CopyValue = ({ value }: { readonly value: string }) => {
     >
       <SemanticText
         as="span"
-        className="text-ink-600"
-        role="tab-label"
+        className="text-ink-tertiary"
+        role="button-label"
         text={copyLabel({ copied, failed })}
         variant="compact"
       />
@@ -236,7 +243,6 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
         <Popover.Title render={<Layer className="min-w-0" />}>
           <SemanticText
             as="h3"
-            className="text-ink-900"
             role="selection-title"
             text={provenance.title}
             variant="compact"
@@ -251,8 +257,8 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
           <Popover.Description render={<Layer />}>
             <SemanticText
               as="p"
-              className="text-ink-700"
-              role="status"
+              className="text-ink-secondary"
+              role="row-value"
               text={detail}
               variant="compact"
               wrapAuthority="native-browser"
@@ -264,10 +270,10 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
       <Layer render={<dl />} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
         {Arr.map(provenance.facts, (fact) => (
           <Fragment key={fact.label}>
-            <SemanticText as="dt" className="text-ink-500" role="row-label" text={fact.label} variant="compact" />
+            <SemanticText as="dt" role="row-label" text={fact.label} variant="compact" />
             <SemanticText
               as="dd"
-              className="min-w-0 break-words text-ink-800"
+              className="min-w-0 break-words text-ink"
               role="row-value"
               text={fact.value}
               variant="compact"
@@ -280,7 +286,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
         onNone: () => null,
         onSome: (value) => <WholeValue value={value} />
       })}
-      <Cluster align="baseline" className="justify-between gap-x-3 gap-y-1 border-t border-rule pt-2">
+      <Cluster align="baseline" className="justify-between gap-x-3 gap-y-1 border-t border-hairline pt-2">
         <AnchorLink
           className={codeLinkClassName}
           data-place-provenance-code={provenance.site.id}
@@ -292,7 +298,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
         >
           <SemanticText
             as="code"
-            className="truncate text-ink-700"
+            className="truncate text-ink-secondary"
             role="code-meta"
             text={`${codeSiteCall(provenance.site)}()`}
           />
@@ -308,10 +314,11 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
 
 /** The mark a press landed on, read back from the trigger the popover names. */
 const pressOn = (details: Popover.Root.ChangeEventDetails): Option.Option<MarkTrigger> =>
-  Option.all({
-    triggerId: Option.fromNullable(details.trigger?.id),
-    mark: decodeMark(details.trigger?.getAttribute(provenanceAttribute))
-  })
+  Option.flatMap(Option.fromNullable(details.trigger), (trigger) =>
+    Option.all({
+      triggerId: Option.some(trigger.id),
+      mark: decodeMark(trigger.getAttribute(provenanceAttribute))
+    }))
 
 /**
  * Mounted once, beside the demonstration. The answer is owned here, in
@@ -340,7 +347,7 @@ export const PlaceProvenanceOverlay = () => {
   // this whenever its trigger changes hands as well — the answer moving from
   // one mark to the next — and, told anything but no, would hand focus back
   // to the mark just left while the answer stands open on the next.
-  const finalFocus = () => Option.isNone(answer) && focusReturn !== "stays"
+  const finalFocus = () => Bool.and(Option.isNone(answer), Bool.not(Equal.equals(focusReturn, "stays")))
   // Opened from the keyboard, the answer itself takes focus, and Tab reaches
   // its marks. The default would focus the first mark inside — and a line of
   // the prose, a composite item, presses when Space goes down, so the key
@@ -350,14 +357,13 @@ export const PlaceProvenanceOverlay = () => {
 
   const onOpenChange = (open: boolean, details: Popover.Root.ChangeEventDetails) => {
     Option.match(
-      details.reason === "trigger-press" ? pressOn(details) : Option.none(),
+      Bool.match(Equal.equals(details.reason, "trigger-press"), {
+        onTrue: () => pressOn(details),
+        onFalse: () => Option.none()
+      }),
       {
         onSome: (pressed) => setAnswer(answerAfterPress({ opening: open, pressed })),
-        onNone: () => {
-          if (!open) {
-            setAnswer(Option.none())
-          }
-        }
+        onNone: () => Bool.match(open, { onTrue: () => undefined, onFalse: () => setAnswer(Option.none()) })
       }
     )
   }
@@ -383,7 +389,8 @@ export const PlaceProvenanceOverlay = () => {
               ref={popupRef}
               className={popupClassName}
               data-place-provenance
-              initialFocus={(openType) => openType === "keyboard" ? popupRef.current : true}
+              initialFocus={(openType) =>
+                Bool.match(Equal.equals(openType, "keyboard"), { onTrue: () => popupRef.current, onFalse: () => true })}
               finalFocus={finalFocus}
             >
               <Popover.Viewport className={viewportClassName}>

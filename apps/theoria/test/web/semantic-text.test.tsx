@@ -109,8 +109,8 @@ describe("SemanticText", () => {
       156,
       <SemanticText
         as="p"
-        className="max-w-none whitespace-nowrap text-ink-700"
-        role="status"
+        className="max-w-none whitespace-nowrap text-ink-secondary"
+        role="row-value"
         text="Semantic text should keep reflowing from the prepared effect-text projection on narrow screens."
         variant="expanded"
         wrapAuthority="effect-text-projected"
@@ -125,12 +125,12 @@ describe("SemanticText", () => {
         })
     ))
 
-  it.live("keeps scoped package titles on one native browser line", () =>
+  it.live("renders subsection titles with native browser wrapping", () =>
     withRenderedSemanticText(
       220,
       <SemanticText
         as="h3"
-        className="text-ink-900"
+        className="text-ink"
         role="subsection-title"
         text="@scenesystems/effect-inference"
         variant="compact"
@@ -143,15 +143,15 @@ describe("SemanticText", () => {
         })
     ))
 
-  it.live("limits projected card summaries to two lines while reserving two-line height", () =>
+  it.live("limits projected prose to two lines while reserving two-line height", () =>
     withRenderedSemanticText(
       220,
       <SemanticText
         as="p"
-        className="text-ink-700"
+        className="text-ink-secondary"
         lineLimit={2}
         reserveLines={2}
-        role="card-summary"
+        role="body"
         text="Prepare once, lay out many times across browser-backed text surfaces, obstacle-aware projections, and downstream calibration work."
         variant="compact"
         wrapAuthority="effect-text-projected"

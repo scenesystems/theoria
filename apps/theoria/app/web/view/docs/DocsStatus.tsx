@@ -1,8 +1,9 @@
-import { Schema } from "effect"
+import { Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import type { ReactNode } from "react"
 
 import { ActionButton, ActionLink } from "../primitives/ActionControl.js"
-import { docsTheme } from "../primitives/docsSystem.js"
+import { secondaryActionClassName } from "../primitives/designSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { PulseLayer, ShimmerLine } from "../primitives/Skeleton.js"
@@ -20,7 +21,10 @@ const IndexSkeleton = () => (
       {Arr.map(
         Arr.range(0, 5),
         (index) => (
-          <Stack className="min-h-44 gap-5 rounded-2xl border border-stage-200/80 bg-stage-0/72 p-5" key={index}>
+          <Stack
+            className="min-h-44 gap-5 rounded-instrument border border-hairline-glass bg-paper-glass p-5"
+            key={index}
+          >
             <ShimmerLine className="h-5" width="w-2/3" />
             <Stack className="gap-3">
               <ShimmerLine width="w-full" />
@@ -36,7 +40,7 @@ const IndexSkeleton = () => (
 
 const GuideSkeleton = () => (
   <Stack className="gap-9">
-    <Stack className="gap-5 border-b border-stage-200/80 pb-8">
+    <Stack className="gap-5 border-b border-hairline-glass pb-8">
       <ShimmerLine width="w-24" />
       <ShimmerLine className="h-10" width="w-3/4" />
       <ShimmerLine width="w-full" />
@@ -46,14 +50,14 @@ const GuideSkeleton = () => (
       <ShimmerLine className="h-7" width="w-2/5" />
       <ShimmerLine width="w-full" />
       <ShimmerLine width="w-11/12" />
-      <PulseLayer className="mt-2 h-52 rounded-2xl border border-stage-300/70 bg-ink-950/90" />
+      <PulseLayer className="mt-2 h-52 rounded-instrument border border-hairline-strong-glass bg-ink-strong-veil" />
     </Stack>
   </Stack>
 )
 
 const ApiSkeleton = () => (
   <Stack className="gap-8">
-    <Stack className="gap-5 border-b border-stage-200/80 pb-8">
+    <Stack className="gap-5 border-b border-hairline-glass pb-8">
       <ShimmerLine width="w-28" />
       <ShimmerLine className="h-10" width="w-3/5" />
       <ShimmerLine width="w-4/5" />
@@ -61,9 +65,9 @@ const ApiSkeleton = () => (
     {Arr.map(
       Arr.range(0, 2),
       (index) => (
-        <Stack className="gap-4 rounded-2xl border border-stage-200/80 bg-stage-0/70 p-5" key={index}>
+        <Stack className="gap-4 rounded-instrument border border-hairline-glass bg-paper-glass p-5" key={index}>
           <ShimmerLine className="h-6" width="w-1/3" />
-          <PulseLayer className="h-24 rounded-xl bg-ink-950/90" />
+          <PulseLayer className="h-24 rounded-control bg-ink-strong-veil" />
           <ShimmerLine width="w-5/6" />
         </Stack>
       )
@@ -73,8 +77,20 @@ const ApiSkeleton = () => (
 
 export const DocsLoadingSkeleton = ({ kind }: { readonly kind: DocsLoadingKind }) => (
   <Stack aria-busy="true" className="w-full" data-docs-skeleton={kind}>
-    <SemanticText as="p" className="sr-only" role="status" text="Loading" />
-    {kind === "index" ? <IndexSkeleton /> : kind === "guide" ? <GuideSkeleton /> : <ApiSkeleton />}
+    <SemanticText as="p" className="sr-only" role="row-value" text="Loading" />
+    {Match.value(kind).pipe(
+      Match.when("index", () => <IndexSkeleton />),
+      Match.when("guide", () => <GuideSkeleton />),
+      Match.when("api", () => <ApiSkeleton />),
+      Match.exhaustive
+    )}
+  </Stack>
+)
+
+const Notice = ({ action, title }: { readonly action: ReactNode; readonly title: string }) => (
+  <Stack className="items-start gap-3 py-16">
+    <SemanticText as="h1" role="hero-title" text={title} />
+    {action}
   </Stack>
 )
 
@@ -83,30 +99,33 @@ export const DocsStatus = (
     | { readonly kind?: DocsLoadingKind; readonly state: "loading" }
     | { readonly state: "not-found" }
     | { readonly retry: () => void; readonly state: "failure" }
-) => {
-  if (props.state === "loading") {
-    return <DocsLoadingSkeleton kind={props.kind ?? "guide"} />
-  }
-
-  return (
-    <Stack className="items-start gap-3 py-16">
-      <SemanticText
-        as="h1"
-        className="text-ink-950"
-        role="section-title"
-        text={props.state === "failure" ? "Documentation unavailable" : "Not found"}
+) =>
+  Match.value(props).pipe(
+    Match.when(
+      { state: "loading" },
+      ({ kind }) => <DocsLoadingSkeleton kind={Option.getOrElse(Option.fromNullable(kind), () => "guide")} />
+    ),
+    Match.when({ state: "not-found" }, () => (
+      <Notice
+        action={
+          <ActionLink className={secondaryActionClassName} href="/docs" label="View packages" variant="expanded" />
+        }
+        title="Not found"
       />
-      {props.state === "failure" ?
-        (
+    )),
+    Match.when({ state: "failure" }, ({ retry }) => (
+      <Notice
+        action={
           <ActionButton
-            className={docsTheme.secondaryAction}
+            className={secondaryActionClassName}
             disabled={false}
             label="Try again"
-            onClick={props.retry}
+            onClick={retry}
             variant="expanded"
           />
-        ) :
-        <ActionLink className={docsTheme.secondaryAction} href="/docs" label="View packages" variant="expanded" />}
-    </Stack>
+        }
+        title="Documentation unavailable"
+      />
+    )),
+    Match.exhaustive
   )
-}

@@ -12,6 +12,7 @@
     "app/**/*.tsx",
     "test/**/*.ts",
     "test/**/*.tsx",
+    "scripts/**/*.ts",
     "vite.config.ts",
     "vitest.config.ts",
     "vitest.worker.config.ts",

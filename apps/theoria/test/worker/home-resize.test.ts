@@ -21,6 +21,7 @@ import {
 } from "./browser.js"
 import { drawn, expectClearance, framesUntil, searchSettlesWithin } from "./demo.js"
 import {
+  boxOf,
   leaveAndReturn,
   recordedFrameFit,
   recordedPaperFrames,
@@ -87,6 +88,31 @@ const stageFillsItsStep = (page: Page, where: string) =>
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
+    it.scoped("wide screens leave reading margins while Arrange reaches 720px, with chrome on the same edges", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: { width: 1920, height: 1080 } })
+        yield* goto(page, "/")
+        yield* drawn(page)
+        yield* Effect.forEach([1920, 2560], (width) =>
+          Effect.gen(function*() {
+            yield* setViewport(page, { width, height: 1080 })
+            const stage = yield* stageFillsItsStep(page, `${String(width)}px`)
+            expect(stage.stage).toBe(720)
+            const columns = yield* act(() => page.locator("[data-place-columns]").evaluate(boxOf))
+            expect(columns.width).toBe(1504)
+            expect(columns.left).toBeGreaterThan(190)
+            const header = yield* act(() =>
+              page.locator("header").filter({ has: page.getByRole("navigation", { name: "Site" }) }).evaluate(boxOf)
+            )
+            const footer = yield* act(() => page.locator("[data-site-footer]").evaluate(boxOf))
+            expect(header.left).toBe(columns.left)
+            expect(footer.right).toBe(columns.right)
+            const canvas = yield* act(() => page.locator("main").evaluate(boxOf))
+            expect(columns.centreX).toBe(canvas.centreX)
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("below lg the stage takes the whole reading column, as wide as the widest stage, and centres beyond it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })

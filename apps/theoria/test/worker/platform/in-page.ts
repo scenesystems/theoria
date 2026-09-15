@@ -9,6 +9,46 @@
  * `locator.evaluate`, `locator.evaluateAll` or `page.waitForFunction`.
  */
 
+/** The glyph metrics and foreground actually painted, rather than the role or classes requested. */
+export const typographyOf = (element: Element) => {
+  const style = getComputedStyle(element)
+  return {
+    family: style.fontFamily,
+    size: style.fontSize,
+    weight: style.fontWeight,
+    leading: style.lineHeight,
+    tracking: style.letterSpacing,
+    color: style.color,
+    transform: style.textTransform
+  }
+}
+
+/** The painted box, including its centre, for alignment and containment checks. */
+export const boxOf = (element: Element) => {
+  const box = element.getBoundingClientRect()
+  return {
+    left: box.left,
+    right: box.right,
+    top: box.top,
+    bottom: box.bottom,
+    width: box.width,
+    height: box.height,
+    centreX: box.left + box.width / 2,
+    centreY: box.top + box.height / 2
+  }
+}
+
+/** Every text fragment must fit its link, including fragments hidden by an ancestor's clipping. */
+export const textFitsBox = (element: Element): boolean => {
+  const box = element.getBoundingClientRect()
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  return [...range.getClientRects()].filter((line) => line.width > 0).every((line) =>
+    line.left >= box.left - 1 && line.right <= box.right + 1 &&
+    line.top >= box.top - 1 && line.bottom <= box.bottom + 1
+  )
+}
+
 /** The resolved value of a CSS system colour in the page's current colour scheme. */
 export const systemColour = (name: string): string => {
   const probe = document.createElement("span")
@@ -111,6 +151,7 @@ export const surfaceBudget = (root: Element) => {
 export const typefaces = (served: string) => ({
   status: document.fonts.status,
   servedInHand: document.fonts.check(served),
+  loaded: [...document.fonts].filter((face) => face.status === "loaded").map((face) => face.family),
   standIns: [...document.fonts].filter((face) => face.family.includes("Fallback")).map((face) => ({
     family: face.family,
     status: face.status,
@@ -146,6 +187,31 @@ export const presence = (element: Element) => ({
     && animation.effect.getKeyframes().some((keyframe) => "opacity" in keyframe)
   )
 })
+
+/**
+ * Every control under `root` that can be pressed right now, by what it is
+ * rendered as (`span[role=radio]`, `button`, `div[role=button]`…) and the
+ * cursor it wears; disabled controls are not pressable and are left out.
+ * `text` names the control for the message when one is wrong.
+ */
+export const pressableCursors = (root: Element): ReadonlyArray<{
+  readonly rendered: string
+  readonly cursor: string
+  readonly text: string
+}> =>
+  [...root.querySelectorAll(
+    "button, summary, [role='button'], [role='tab'], [role='radio'], [role='switch'], [role='checkbox'], [role='menuitem'], [role='option'], [role='link']"
+  )]
+    .filter((element) => !element.matches(":disabled, [aria-disabled='true'], [data-disabled]"))
+    .map((element) => ({
+      rendered: `${element.tagName.toLowerCase()}${
+        [...element.attributes].filter((attribute) => attribute.name === "role").map((attribute) =>
+          `[role=${attribute.value}]`
+        ).join("")
+      }`,
+      cursor: getComputedStyle(element).cursor,
+      text: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 40)
+    }))
 
 /** How Greek each segment of the wordmark under `root` is painted right now: 0 Latin, 1 Greek. */
 export const greekFaceOpacities = (root: Element): ReadonlyArray<number> =>
@@ -1138,6 +1204,26 @@ export const scrollPast = (element: Element) => {
 /** The element's top edge in the document, which scrolling cannot move: where it stands in the flow. */
 export const documentTop = (element: Element) => Math.round(element.getBoundingClientRect().top + window.scrollY)
 
+/**
+ * The colours a probe wearing `classNames` paints, read from a span appended
+ * to the body for the reading and removed after it. A class the stylesheet
+ * lacks — one Tailwind purged for want of a candidate — leaves the property
+ * at its initial value: transparent, or the inherited ink.
+ */
+export const paintedByClasses = (classNames: string): {
+  readonly backgroundColor: string
+  readonly borderColor: string
+  readonly color: string
+} => {
+  const probe = document.createElement("span")
+  probe.className = classNames
+  document.body.append(probe)
+  const style = getComputedStyle(probe)
+  const painted = { backgroundColor: style.backgroundColor, borderColor: style.borderTopColor, color: style.color }
+  probe.remove()
+  return painted
+}
+
 /** The colour scheme the page shows: the theme's class on `<html>`, set by the app once it has read the media query. */
 export const colorSchemeShown = (): "dark" | "light" =>
   document.documentElement.classList.contains("dark") ? "dark" : "light"
@@ -1330,7 +1416,7 @@ export const motionSample = (): {
 
 /**
  * The lowest WCAG contrast ratio between the prose on the paper and the two
- * colours the paper is painted with, `--th-stage-50` and `--th-stage-0`, in
+ * colours the paper is painted with, `--th-canvas` and `--th-paper`, in
  * the mode the root is in now. The paper is a gradient between the two, so
  * the prose must read against both.
  * Colours are read as the browser paints them: a probe element takes each
@@ -1356,7 +1442,7 @@ export const paperProseContrast = (): number => {
     probe.remove()
     return colour
   }
-  const papers = [painted("--th-stage-50"), painted("--th-stage-0")]
+  const papers = [painted("--th-canvas"), painted("--th-paper")]
   const ratios = [...document.querySelectorAll("[data-place-line] span")].flatMap((line) => {
     const ink = getComputedStyle(line).color
     return papers.map((paper) => contrast(ink, paper))
@@ -1502,3 +1588,26 @@ export const boxEdges = (elements: ReadonlyArray<Element>): ReadonlyArray<{
     const box = element.getBoundingClientRect()
     return { top: box.top, bottom: box.bottom }
   })
+
+/**
+ * The chrome an element wears as the browser resolved it: its corner, how
+ * long its transition takes, how high it stands and how it is positioned —
+ * the values the layout and motion contracts' tokens should have produced.
+ */
+export const resolvedChrome = (element: Element) => {
+  const style = getComputedStyle(element)
+  return {
+    radius: style.borderTopLeftRadius,
+    duration: style.transitionDuration,
+    zIndex: style.zIndex,
+    position: style.position
+  }
+}
+
+/** How many lines fit inside a textarea's content box, excluding its padding and border. */
+export const textAreaVisibleRows = (element: Element): number => {
+  const style = getComputedStyle(element)
+  const inset = [style.paddingTop, style.paddingBottom, style.borderTopWidth, style.borderBottomWidth]
+    .map(Number.parseFloat).reduce((total, width) => total + width, 0)
+  return (element.getBoundingClientRect().height - inset) / Number.parseFloat(style.lineHeight)
+}

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Equal, Layer, Option, Predicate } from "effect"
 import * as Arr from "effect/Array"
 
 import { siteMetadata } from "../../app/contracts/metadata.js"
@@ -23,8 +23,10 @@ import {
 } from "./browser.js"
 import { drawn } from "./demo.js"
 import {
+  boxOf,
   headerControls,
   mountWrappedBaselineRow,
+  pressableCursors,
   textBaselines,
   underlineDrawn,
   unmountWrappedBaselineRow
@@ -50,6 +52,11 @@ const alike = (distances: ReadonlyArray<number>, message: string) => {
 const baselines = (elements: Locator) => act(() => elements.evaluateAll(textBaselines))
 
 const siteNav = (page: Page) => page.getByRole("navigation", { name: "Site" })
+
+/** The theme control's names through its cycle; following the system, it also says which mode that is. */
+const followingSystem = /^Following system, currently (light|dark) — switch to light mode$/u
+const pinnedLight = "Light mode — switch to dark mode"
+const pinnedDark = "Dark mode — follow the system"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
@@ -80,17 +87,18 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             yield* setViewport(page, viewport)
             yield* visible(siteNav(page).getByRole("link", { name: "Docs" }))
-            // Measured with the moon showing, then the sun, and left as found.
+            // Measured following the system, then pinned light, then pinned dark, and left as found.
             yield* Effect.forEach(
               [
-                { offered: "Switch to dark mode", thenOffered: "Switch to light mode" },
-                { offered: "Switch to light mode", thenOffered: "Switch to dark mode" }
+                { offered: followingSystem, thenOffered: pinnedLight },
+                { offered: pinnedLight, thenOffered: pinnedDark },
+                { offered: pinnedDark, thenOffered: followingSystem }
               ],
               ({ offered, thenOffered }) =>
                 Effect.gen(function*() {
                   yield* visible(page.getByRole("button", { name: offered }))
                   const controls = yield* act(() => siteNav(page).locator(":scope > *").evaluateAll(headerControls))
-                  const at = `at ${String(viewport.width)}px offering "${offered}"`
+                  const at = `at ${String(viewport.width)}px offering "${String(offered)}"`
                   expect(controls.length, `${at}: docs, the repository, the other theme`).toBe(3)
                   const gaps = Arr.zipWith(
                     Arr.drop(controls, 1),
@@ -123,14 +131,55 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the footer names the company as it is incorporated", () =>
+    it.scoped("the footer aligns its two desktop rows, stacks centrally on narrow screens, and names the legal company", () =>
       Effect.gen(function*() {
-        const { failures, page } = yield* openPage()
+        const { failures, page } = yield* openPage({ viewport: desktop, reducedMotion: "reduce" })
         yield* goto(page, "/")
+        yield* drawn(page)
+        const footer = page.locator("[data-site-footer]")
         yield* containsText(
-          page.locator("[data-site-footer]"),
+          footer,
           `© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`
         )
+        // Centre the whole signature — its cube and wordmark — not the wordmark alone.
+        const brand = footer.locator("span:has(> svg)")
+        const links = footer.getByRole("navigation", { name: "Footer" })
+        const tagline = footer.getByText(siteMetadata.tagline, { exact: true })
+        const legal = footer.getByText(`© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`, {
+          exact: true
+        })
+        const brandBox = yield* act(() => brand.evaluate(boxOf))
+        const linksBox = yield* act(() => links.evaluate(boxOf))
+        alike([brandBox.centreY, linksBox.centreY], "brand and links share a row centre")
+        alike(yield* baselines(footer.locator("p")), "tagline and copyright rest on one baseline")
+
+        yield* setViewport(page, phone)
+        const rows = yield* Effect.forEach([brand, tagline, links, legal], (row) => act(() => row.evaluate(boxOf)))
+        alike(Arr.map(rows, (row) => row.centreX), "the narrow footer has one centred column")
+        expect(Arr.every(Arr.zip(rows, Arr.drop(rows, 1)), ([before, after]) => after.top > before.bottom))
+          .toBe(true)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("whatever can be pressed wears the hand, however it is rendered", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ viewport: desktop })
+        yield* goto(page, "/")
+        yield* drawn(page)
+
+        const controls = yield* act(() => page.locator("body").evaluate(pressableCursors))
+        // The page renders its controls every way the rule must reach: a button, a mark set as a div, Base UI's
+        // radios and switches as spans, its tabs as buttons in a role. Each kind is present, or the check is hollow.
+        const rendered = Arr.dedupe(Arr.map(controls, (control) => control.rendered))
+        yield* Effect.forEach(
+          ["button", "div[role=button]", "span[role=radio]", "span[role=switch]", "button[role=tab]"],
+          (kind) =>
+            Effect.sync(() => {
+              expect(rendered, `the page renders a control as ${kind}`).toContain(kind)
+            })
+        )
+        const otherwise = Arr.filter(controls, Predicate.not((control) => Equal.equals(control.cursor, "pointer")))
+        expect(otherwise, "every pressable control wears the hand").toEqual([])
         expect(yield* failures).toEqual([])
       }))
 

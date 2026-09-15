@@ -19,6 +19,7 @@
 
 import { FRAMEWORK_CONFIG_PATTERNS } from "./base.mjs"
 import { BROWSER_GLOBALS } from "./effect/builtins.mjs"
+import { DESIGN_TOKEN_RULES } from "./effect/design-tokens.mjs"
 import { EFFECT_RULES } from "./effect/index.mjs"
 
 /**
@@ -29,6 +30,9 @@ import { EFFECT_RULES } from "./effect/index.mjs"
  */
 const PLATFORM_MODULE_PATTERNS = ["apps/*/app/web/platform/**", "apps/*/test/*/platform/**"]
 
+/** The web views, whose class strings read the layout and motion contracts' tokens and no other scale. */
+const WEB_VIEW_PATTERNS = ["apps/*/app/web/**/*.{ts,tsx}"]
+
 /**
  * @returns {import('eslint').Linter.Config[]}
  */
@@ -38,6 +42,11 @@ export const scopes = () => [
     files: ["**/*.{ts,tsx,mts,cts}"],
     ignores: FRAMEWORK_CONFIG_PATTERNS,
     rules: { "no-restricted-syntax": ["error", ...EFFECT_RULES] }
+  },
+  {
+    name: "theoria/effect/design-tokens",
+    files: WEB_VIEW_PATTERNS,
+    rules: { "no-restricted-syntax": ["error", ...EFFECT_RULES, ...DESIGN_TOKEN_RULES] }
   },
   {
     name: "theoria/effect/browser-boundary",

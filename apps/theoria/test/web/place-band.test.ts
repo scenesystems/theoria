@@ -1,10 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match } from "effect"
+import { Effect, Equal, Predicate } from "effect"
 import * as Arr from "effect/Array"
 
 import { ParticipantRole } from "../../app/contracts/imagined-place.js"
 import { PlaceDiscDrawn } from "../../app/web/atoms/imagined-place-render.js"
-import { bandDiscClassName, bandDiscPlacing, bandLabel, bandRow } from "../../app/web/view/home/placeViewModel.js"
+import {
+  bandDiscClassName,
+  bandDiscPlacing,
+  bandLabel,
+  bandRow,
+  participantTone
+} from "../../app/web/view/home/placeViewModel.js"
+import { discSlotClassName } from "../../app/web/view/primitives/designSystem.js"
 import { departed, shiftTransition } from "../../app/web/view/primitives/motion.js"
 import { onStage } from "../helpers/place-on-stage.js"
 
@@ -85,26 +92,24 @@ describe("place band", () => {
 
   /**
    * The strip and the discs' fills are near neighbours in both themes, so a
-   * settled disc is bounded by a stroke in its contributor's 500 stop — the
+   * settled disc is bounded by a stroke in its contributor's tone — the
    * boundary is what must stand out (WCAG 1.4.11) — and focus deepens that
-   * ring rather than being the only one.
+   * ring rather than being the only one. The palette contract holds the
+   * stroke's contrast on the fill; here the disc is checked to wear the slots.
    */
   it.effect("a settled disc is bounded by its contributor's ring, and focus deepens it", () =>
     Effect.sync(() => {
       Arr.forEach(ParticipantRole.literals, (role) => {
-        const tone = Match.value(role).pipe(
-          Match.when("author", () => "sign"),
-          Match.when("neighbor", () => "seal"),
-          Match.when("program", () => "dsp"),
-          Match.exhaustive
-        )
-        Arr.forEach(Arr.filter(PlaceDiscDrawn.literals, (drawn) => drawn !== "arriving"), (drawn) => {
+        const tone = participantTone(role)
+        const drawnSettled = Arr.filter(PlaceDiscDrawn.literals, Predicate.not(Equal.equals("arriving")))
+        Arr.forEach(drawnSettled, (drawn) => {
           const resting = bandDiscClassName(role, drawn, false)
           const focused = bandDiscClassName(role, drawn, true)
-          expect(resting).toContain(`fill-tone-${tone}-300`)
-          expect(resting).toContain(`stroke-tone-${tone}-500`)
+          expect(resting).toContain(discSlotClassName(tone, "bandFill"))
+          expect(resting).toContain(discSlotClassName(tone, "bandStroke"))
           expect(resting).not.toContain("stroke-transparent")
-          expect(focused).toContain(`stroke-tone-${tone}-700`)
+          expect(focused).toContain(discSlotClassName(tone, "bandFocusedStroke"))
+          expect(focused).not.toContain(discSlotClassName(tone, "bandStroke"))
           expect(focused).toContain("stroke-[3]")
         })
       })

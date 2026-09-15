@@ -1,4 +1,4 @@
-import { Match, Option, Schema } from "effect"
+import { Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceStep, placeSteps } from "../../../contracts/demo/imagined-place-provenance.js"
@@ -93,4 +93,4 @@ export const placeStepDefinition = (step: PlaceStep): PlaceStepDefinition =>
 export const placeStepDefinitions: ReadonlyArray<PlaceStepDefinition> = Arr.map(placeSteps, placeStepDefinition)
 
 export const placeStepIndex = (step: PlaceStep): number =>
-  Option.getOrElse(Arr.findFirstIndex(placeSteps, (candidate) => candidate === step), () => 0)
+  Option.getOrElse(Arr.findFirstIndex(placeSteps, (candidate) => Equal.equals(candidate, step)), () => 0)

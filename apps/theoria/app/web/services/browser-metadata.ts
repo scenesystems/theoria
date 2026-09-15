@@ -39,6 +39,7 @@ const applyEntry = (entry: HeadEntry): Effect.Effect<void, never, BrowserDocumen
           element.textContent = json
         })
     ),
+    Match.tag("RootClass", ({ name, present }) => BrowserDocument.toggleRootClass(name, present)),
     Match.exhaustive
   )
 

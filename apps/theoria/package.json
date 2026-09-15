@@ -22,6 +22,9 @@
     "preview:worker": "bun run build:web && wrangler dev --env=\"\"",
     "deploy:dry-run": "wrangler deploy --env=\"\" --dry-run --outdir .wrangler-out",
     "gen:text-tokens": "bun scripts/generate-text-tokens.ts",
+    "gen:palette-tokens": "bun scripts/generate-palette-tokens.ts",
+    "gen:layout-tokens": "bun scripts/generate-layout-tokens.ts",
+    "gen:brand-assets": "bun scripts/generate-brand-assets.ts",
     "gen:social-assets": "bun scripts/generate-social-assets.ts"
   },
   "dependencies": {
@@ -35,7 +38,7 @@
     "@effect/platform-browser": "0.77.1",
     "@effect/platform-bun": "0.91.2",
     "@fontsource-variable/figtree": "5.3.0",
-    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
     "@heroicons/react": "^2.2.0",
     "@scenesystems/digest": "workspace:^",
     "@scenesystems/effect-dsp": "workspace:^",

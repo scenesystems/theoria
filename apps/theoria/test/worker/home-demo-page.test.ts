@@ -34,6 +34,7 @@ import {
 import {
   activeElementOpensDocsLink,
   activeElementRole,
+  boxOf,
   canvasColour,
   currentLocation,
   documentTop,
@@ -47,7 +48,8 @@ import {
   stageAndColumnWidths,
   storyDrawn,
   surfacePaint,
-  textColour
+  textColour,
+  textFitsBox
 } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
@@ -154,6 +156,58 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             return widths.stage
           }))
         expect(Arr.lastNonEmpty(stages)).toBeGreaterThan(Arr.headNonEmpty(stages))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("how it's built keeps tabs on one row and wraps references without clipping or misaligning package labels", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* goto(page, "/")
+        yield* drawn(page)
+        const section = page.locator("[data-place-how-its-built]")
+        yield* Effect.forEach([280, 320, 639, 640, 900, 1600], (width) =>
+          Effect.gen(function*() {
+            yield* setViewport(page, { width, height: 900 })
+            yield* Effect.forEach(placeStepDefinitions, (step) =>
+              Effect.gen(function*() {
+                const tab = section.getByRole("tab", { name: step.name })
+                yield* click(tab)
+                yield* until(
+                  Effect.gen(function*() {
+                    const selected = yield* act(() => tab.evaluate(boxOf))
+                    const first = yield* act(() => section.getByRole("tab").first().evaluate(boxOf))
+                    const indicator = yield* act(() => section.locator("[data-tab-indicator]").evaluate(boxOf))
+                    return { selected, first, indicator }
+                  }),
+                  ({ first, indicator, selected }) =>
+                    selected.top === first.top &&
+                    Math.abs(indicator.bottom - selected.bottom) <= 1 &&
+                    Math.abs(indicator.left - selected.left) <= 1 &&
+                    Math.abs(indicator.right - selected.right) <= 1,
+                  "all tabs stay on one row and the underline follows the selection"
+                )
+                const references = section.locator("[data-place-reference]")
+                yield* visible(references.first())
+                const referenceCount = yield* act(() => references.count())
+                expect(referenceCount).toBeGreaterThan(0)
+                yield* Effect.forEach(Arr.range(0, referenceCount - 1), (index) =>
+                  Effect.gen(function*() {
+                    const reference = references.nth(index)
+                    expect(yield* act(() => reference.evaluate(textFitsBox))).toBe(true)
+                    const symbol = yield* act(() => reference.locator(":scope > code").evaluate(boxOf))
+                    const pkg = yield* act(() => reference.locator(":scope > span").evaluate(boxOf))
+                    expect(pkg.top).toBeGreaterThanOrEqual(symbol.bottom)
+                    expect(pkg.left).toBe(symbol.left)
+                  }))
+                const sources = section.locator("[data-place-source]")
+                const sourceCount = yield* act(() => sources.count())
+                expect(sourceCount).toBeGreaterThan(0)
+                yield* Effect.forEach(Arr.range(0, sourceCount - 1), (index) =>
+                  Effect.gen(function*() {
+                    expect(yield* act(() => sources.nth(index).evaluate(textFitsBox))).toBe(true)
+                  }))
+              }))
+          }))
         expect(yield* failures).toEqual([])
       }))
 
@@ -388,7 +442,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             })
 
             yield* goto(page, "/docs")
-            const card = page.locator("[class*=\"--st-fs-card-summary\"]").first()
+            const card = page.locator("main article p").first()
             yield* visible(card)
             const cardMetrics = yield* act(() =>
               card.evaluate((element) => {
@@ -399,11 +453,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 }
               })
             )
-            expect(cardMetrics).toEqual(
-              viewport.width === 390
-                ? { fontSize: "15px", lineHeight: "22px" }
-                : { fontSize: "16px", lineHeight: "26px" }
-            )
+            expect(cardMetrics).toEqual({ fontSize: "16px", lineHeight: "26px" })
           }))
         expect(yield* failures).toEqual([])
       }))

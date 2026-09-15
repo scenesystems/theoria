@@ -21,7 +21,7 @@ describe("Theoria Code Highlighter", () => {
         expect(tokenClassName(kind)).toBe(highlightTokenPaint[kind].className)
         expect(tokenKindFor(Option.some(highlightTokenPaint[kind].variable))).toBe(kind)
       })
-      expect(tokenClassName("plain")).toBe("text-ink-900")
+      expect(tokenClassName("plain")).toBe("text-ink")
       expect(tokenClassName("comment")).toBe("text-code-comment italic")
       // A colour the theme never paints, or none, is plain: the one open edge, named.
       expect(tokenKindFor(Option.some("#ff0000"))).toBe("plain")

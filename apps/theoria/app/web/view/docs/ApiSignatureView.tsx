@@ -1,12 +1,14 @@
-import { Option } from "effect"
+import { Boolean as Bool, Equal, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import type { ApiParameter, ApiSignature, ApiTypeParameter } from "@theoria/docs-model"
+import type { ApiDocPart, ApiParameter, ApiSignature, ApiTypeParameter } from "@theoria/docs-model"
 import { InlineHighlightedCode } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
+import { linkTextClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
+import { SemanticText } from "../primitives/SemanticText.js"
 import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { DocsRichText } from "./DocsRichText.js"
 
@@ -15,137 +17,156 @@ const typeParameterValue = (parameter: ApiTypeParameter): string =>
     Option.match(parameter.constraint, { onNone: () => "", onSome: (value) => ` extends ${value}` })
   }${Option.match(parameter.default, { onNone: () => "", onSome: (value) => ` = ${value}` })}`
 
+/** A rest parameter is spread; an optional one is marked as such. */
+const parameterValue = (parameter: ApiParameter): string =>
+  `${Bool.match(parameter.rest, { onTrue: () => "...", onFalse: () => "" })}${parameter.name}${
+    Bool.match(parameter.optional, { onTrue: () => "?", onFalse: () => "" })
+  }: ${parameter.type}${Option.match(parameter.defaultValue, { onNone: () => "", onSome: (value) => ` = ${value}` })}`
+
+/**
+ * One row of a definition list: the term, and beside it the description when
+ * there is one. A documented row lays term and description out in two columns
+ * from the small breakpoint; an undocumented one is the term alone.
+ */
+const DefinitionRow = ({
+  description,
+  documentedClassName,
+  termClassName,
+  value
+}: {
+  readonly description: ReadonlyArray<ApiDocPart>
+  readonly documentedClassName: string
+  readonly termClassName: string
+  readonly value: string
+}) =>
+  Arr.match(description, {
+    onEmpty: () => (
+      <Layer className="py-3">
+        <Layer render={<dt />} className={termClassName}>
+          <InlineHighlightedCode source={value} />
+        </Layer>
+      </Layer>
+    ),
+    onNonEmpty: (parts) => (
+      <Layer className={documentedClassName}>
+        <Layer render={<dt />} className={termClassName}>
+          <InlineHighlightedCode source={value} />
+        </Layer>
+        <SemanticContent as="dd" className="text-ink-tertiary" role="row-value">
+          <DocsRichText parts={parts} />
+        </SemanticContent>
+      </Layer>
+    )
+  })
+
+const definitionListClassName =
+  "divide-y divide-hairline-glass rounded-instrument border border-hairline-veil bg-canvas-mist px-4"
+
 export const ApiTypeParametersView = ({
-  headingAs = "h3",
+  headingAs = "h2",
   parameters
 }: {
-  readonly headingAs?: "h3" | "h5"
+  readonly headingAs?: "h2" | "h4"
   readonly parameters: ReadonlyArray<ApiTypeParameter>
 }) =>
-  parameters.length === 0
-    ? null
-    : (
+  Arr.match(parameters, {
+    onEmpty: () => null,
+    onNonEmpty: (present) => (
       <Stack className="gap-2">
-        <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Type parameters</SemanticContent>
-        <Stack
-          render={<dl />}
-          className="divide-y divide-stage-200/75 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4"
-        >
-          {Arr.map(
-            parameters,
-            (parameter) => {
-              const documented = parameter.description.length > 0
-
-              return (
-                <Layer
-                  className={documented
-                    ? "grid gap-1 py-3 sm:grid-cols-[minmax(10rem,0.45fr)_minmax(0,1fr)] sm:gap-5"
-                    : "py-3"}
-                  key={parameter.name}
-                >
-                  <Layer render={<dt />} className="text-ink-900">
-                    <InlineHighlightedCode source={typeParameterValue(parameter)} />
-                  </Layer>
-                  {documented
-                    ? (
-                      <SemanticContent as="dd" className="text-ink-600" role="row-value">
-                        <DocsRichText parts={parameter.description} />
-                      </SemanticContent>
-                    )
-                    : null}
-                </Layer>
-              )
-            }
-          )}
+        <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+          Type parameters
+        </SemanticContent>
+        <Stack render={<dl />} className={definitionListClassName}>
+          {Arr.map(present, (parameter) => (
+            <DefinitionRow
+              description={parameter.description}
+              documentedClassName="grid gap-1 py-3 sm:grid-cols-[minmax(10rem,0.45fr)_minmax(0,1fr)] sm:gap-5"
+              key={parameter.name}
+              termClassName="text-ink"
+              value={typeParameterValue(parameter)}
+            />
+          ))}
         </Stack>
       </Stack>
     )
-
-const parameterValue = (parameter: ApiParameter): string =>
-  `${parameter.rest ? "..." : ""}${parameter.name}${parameter.optional ? "?" : ""}: ${parameter.type}${
-    Option.match(parameter.defaultValue, { onNone: () => "", onSome: (value) => ` = ${value}` })
-  }`
+  })
 
 const Parameters = ({
   headingAs,
   parameters
 }: {
-  readonly headingAs: "h3" | "h5"
+  readonly headingAs: "h2" | "h4"
   readonly parameters: ReadonlyArray<ApiParameter>
 }) =>
-  parameters.length === 0
-    ? null
-    : (
+  Arr.match(parameters, {
+    onEmpty: () => null,
+    onNonEmpty: (present) => (
       <Stack className="gap-2">
-        <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Parameters</SemanticContent>
-        <Stack
-          render={<dl />}
-          className="divide-y divide-stage-200/75 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4"
-        >
-          {Arr.map(
-            parameters,
-            (parameter) => {
-              const documented = parameter.description.length > 0
-
-              return (
-                <Layer
-                  className={documented
-                    ? "grid gap-1 py-3 sm:grid-cols-[minmax(12rem,0.48fr)_minmax(0,1fr)] sm:gap-5"
-                    : "py-3"}
-                  key={parameter.name}
-                >
-                  <Layer render={<dt />} className="break-words text-ink-900">
-                    <InlineHighlightedCode source={parameterValue(parameter)} />
-                  </Layer>
-                  {documented
-                    ? (
-                      <SemanticContent as="dd" className="text-ink-600" role="row-value">
-                        <DocsRichText parts={parameter.description} />
-                      </SemanticContent>
-                    )
-                    : null}
-                </Layer>
-              )
-            }
-          )}
+        <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+          Parameters
+        </SemanticContent>
+        <Stack render={<dl />} className={definitionListClassName}>
+          {Arr.map(present, (parameter) => (
+            <DefinitionRow
+              description={parameter.description}
+              documentedClassName="grid gap-1 py-3 sm:grid-cols-[minmax(12rem,0.48fr)_minmax(0,1fr)] sm:gap-5"
+              key={parameter.name}
+              termClassName="break-words text-ink"
+              value={parameterValue(parameter)}
+            />
+          ))}
         </Stack>
       </Stack>
     )
+  })
+
+/** A lone signature is "Signature"; among overloads, each is numbered from one. */
+const signatureLabel = (total: number, index: number): string =>
+  Bool.match(Equal.equals(total, 1), {
+    onTrue: () => "Signature",
+    onFalse: () => `Overload ${String(Num.increment(index))}`
+  })
 
 export const ApiSignatureView = ({
-  headingAs = "h3",
+  headingAs = "h2",
   index,
   signature,
   total
 }: {
-  readonly headingAs?: "h3" | "h5"
+  readonly headingAs?: "h2" | "h4"
   readonly index: number
   readonly signature: ApiSignature
   readonly total: number
 }) => (
   <Stack className="gap-5">
-    <ApiDocumentationView docs={signature.docs} />
-    <CodeBlock label={total === 1 ? "Signature" : `Overload ${String(index + 1)}`} source={signature.code} />
+    <ApiDocumentationView docs={signature.docs} headingAs={headingAs} />
+    <CodeBlock label={signatureLabel(total, index)} source={signature.code} />
     <ApiTypeParametersView headingAs={headingAs} parameters={signature.typeParameters} />
     <Parameters headingAs={headingAs} parameters={signature.parameters} />
     <Stack className="gap-2">
-      <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Returns</SemanticContent>
-      <Cluster align="start" className="gap-x-4 gap-y-2 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4 py-3">
-        <InlineHighlightedCode className="min-w-0 max-w-full text-ink-900" source={signature.returns.type} />
-        {signature.returns.description.length > 0
-          ? (
-            <SemanticContent as="span" className="text-ink-600" role="row-value">
-              <DocsRichText parts={signature.returns.description} />
+      <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+        Returns
+      </SemanticContent>
+      <Cluster
+        align="start"
+        className="gap-x-4 gap-y-2 rounded-instrument border border-hairline-veil bg-canvas-mist px-4 py-3"
+      >
+        <InlineHighlightedCode className="min-w-0 max-w-full text-ink" source={signature.returns.type} />
+        {Arr.match(signature.returns.description, {
+          onEmpty: () => null,
+          onNonEmpty: (parts) => (
+            <SemanticContent as="span" className="text-ink-tertiary" role="row-value">
+              <DocsRichText parts={parts} />
             </SemanticContent>
           )
-          : null}
+        })}
       </Cluster>
     </Stack>
     <ExternalLink
-      className="w-fit font-body text-sm font-medium text-ink-600 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
+      className={`w-fit text-ink-secondary ${linkTextClassName}`}
       href={signature.sourceUrl}
     >
-      Source
+      <SemanticText as="span" role="button-label" text="Source" />
     </ExternalLink>
   </Stack>
 )

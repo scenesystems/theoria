@@ -1,33 +1,44 @@
+import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import type { GuideBlock, GuideInline, GuidePage } from "@theoria/docs-model"
 import { CodeBlock, codeLanguageFor } from "../primitives/CodeBlock.js"
-import { focusEdgeClassName } from "../primitives/designSystem.js"
+import { anchorHeadingClassName, focusClassName, linkTextClassName } from "../primitives/designSystem.js"
 import { Cluster, Layer, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
-import { SemanticContent } from "../primitives/SemanticContent.js"
+import { SemanticContent, type SemanticContentElement } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { DocsRichText } from "./DocsRichText.js"
 
-const GuideHeading = ({ block }: { readonly block: Extract<GuideBlock, { readonly kind: "heading" }> }) => {
-  const element = block.depth === 2 ?
-    "h2"
-    : block.depth === 3 ?
-    "h3"
-    : block.depth === 4 ?
-    "h4"
-    : block.depth === 5 ?
-    "h5"
-    : "h6"
+type HeadingBlock = Extract<GuideBlock, { readonly kind: "heading" }>
+
+/** A guide's heading depth is the element's level: the page title is the h1 above the blocks. */
+const headingElement = (depth: HeadingBlock["depth"]): SemanticContentElement =>
+  Match.value(depth).pipe(
+    Match.withReturnType<SemanticContentElement>(),
+    Match.when(2, () => "h2"),
+    Match.when(3, () => "h3"),
+    Match.when(4, () => "h4"),
+    Match.when(5, () => "h5"),
+    Match.when(6, () => "h6"),
+    Match.exhaustive
+  )
+
+const GuideHeading = ({ block }: { readonly block: HeadingBlock }) => {
+  const isSection = Equal.equals(block.depth, 2)
 
   return (
     <SemanticContent
-      as={element}
-      className={block.depth === 2 ? "scroll-mt-28 pt-5 text-ink-950" : "scroll-mt-28 pt-2 text-ink-900"}
-      role={block.depth === 2 ? "section-title" : "selection-title"}
+      as={headingElement(block.depth)}
+      className={Bool.match(isSection, {
+        onTrue: () => "scroll-mt-28 pt-5",
+        onFalse: () => "scroll-mt-28 pt-2"
+      })}
+      role={block.depth === 2 ? "section-title" : block.depth === 3 ? "subsection-title" : "selection-title"}
     >
       <a
-        className={`${focusEdgeClassName} hover:text-ink-700 focus-visible:ring-2 focus-visible:ring-ink-900/20`}
+        className={`${focusClassName} ${anchorHeadingClassName}`}
         href={`#${block.id}`}
         id={block.id}
       >
@@ -37,17 +48,26 @@ const GuideHeading = ({ block }: { readonly block: Extract<GuideBlock, { readonl
   )
 }
 
+/** A guide list is ordered or not; the element says which. */
+const ListElement = Schema.Literal("ol", "ul")
+type ListElement = typeof ListElement.Type
+
+/** A list of parts is keyed by its place and its size, since two lists may read alike. */
+const partsKey = (index: number, parts: ReadonlyArray<GuideInline>): string =>
+  `${String(index)}:${String(Arr.length(parts))}`
+
 const GuideList = ({ items, ordered }: {
   readonly items: ReadonlyArray<ReadonlyArray<GuideInline>>
   readonly ordered: boolean
 }) => {
-  const Component = ordered ? "ol" : "ul"
+  const Component = Bool.match(ordered, { onTrue: (): ListElement => "ol", onFalse: (): ListElement => "ul" })
+  const marker = Bool.match(ordered, { onTrue: () => "list-decimal", onFalse: () => "list-disc" })
 
   return (
-    <Component className={`ml-6 space-y-2 text-ink-700 ${ordered ? "list-decimal" : "list-disc"}`}>
+    <Component className={`ml-6 space-y-2 ${marker}`}>
       {Arr.map(items, (parts, index) => (
-        <li className="pl-1" key={`${String(index)}:${parts.length}`}>
-          <SemanticContent as="span" role="row-value">
+        <li className="pl-1" key={partsKey(index, parts)}>
+          <SemanticContent as="span" role="body">
             <DocsRichText parts={parts} />
           </SemanticContent>
         </li>
@@ -57,12 +77,12 @@ const GuideList = ({ items, ordered }: {
 }
 
 const GuideTable = ({ block }: { readonly block: Extract<GuideBlock, { readonly kind: "table" }> }) => (
-  <Layer className="overflow-x-auto rounded-xl border border-stage-200/90 bg-stage-0/72">
+  <Layer className="overflow-x-auto rounded-instrument border border-hairline-veil bg-paper-glass">
     <table className="w-full min-w-[32rem] border-collapse text-left">
-      <thead className="border-b border-stage-200 bg-stage-100/65">
+      <thead className="border-b border-hairline bg-instrument-glass">
         <tr>
           {Arr.map(block.headers, (parts, index) => (
-            <th className="px-4 py-3" key={`${String(index)}:${parts.length}`}>
+            <th className="px-4 py-3" key={partsKey(index, parts)}>
               <SemanticContent as="span" role="row-label">
                 <DocsRichText parts={parts} />
               </SemanticContent>
@@ -70,14 +90,14 @@ const GuideTable = ({ block }: { readonly block: Extract<GuideBlock, { readonly 
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-stage-200/75">
+      <tbody className="divide-y divide-hairline-glass">
         {Arr.map(block.rows, (row, rowIndex) => (
-          <tr key={`${String(rowIndex)}:${row.length}`}>
+          <tr key={`${String(rowIndex)}:${String(Arr.length(row))}`}>
             {Arr.map(
               row,
               (parts, columnIndex) => (
-                <td className="px-4 py-3 align-top" key={`${String(columnIndex)}:${parts.length}`}>
-                  <SemanticContent as="span" className="text-ink-700" role="row-value">
+                <td className="px-4 py-3 align-top" key={partsKey(columnIndex, parts)}>
+                  <SemanticContent as="span" className="text-ink-secondary" role="row-value">
                     <DocsRichText parts={parts} />
                   </SemanticContent>
                 </td>
@@ -90,50 +110,55 @@ const GuideTable = ({ block }: { readonly block: Extract<GuideBlock, { readonly 
   </Layer>
 )
 
-const GuideBlockView = ({ block, index }: { readonly block: GuideBlock; readonly index: number }) => {
-  const content = block.kind === "paragraph"
-    ? (
-      <SemanticContent as="p" className="text-ink-700" role="card-summary">
-        <DocsRichText parts={block.parts} />
-      </SemanticContent>
-    )
-    : block.kind === "heading" ?
-    <GuideHeading block={block} />
-    : block.kind === "code"
-    ? <CodeBlock label={block.language || "text"} language={codeLanguageFor(block.language)} source={block.source} />
-    : block.kind === "list" ?
-    <GuideList items={block.items} ordered={block.ordered} />
-    : block.kind === "quote"
-    ? (
-      <Layer render={<blockquote />} className="border-l-2 border-stage-400 pl-5">
-        <SemanticContent as="p" className="text-ink-600" role="card-summary">
-          <DocsRichText parts={block.parts} />
-        </SemanticContent>
-      </Layer>
-    )
-    : <GuideTable block={block} />
+/** A code block with no language named is labelled as plain text. */
+const codeLabel = (language: string): string =>
+  Option.getOrElse(Option.liftPredicate(language, Str.isNonEmpty), () => "text")
 
-  return <Layer key={`${block.kind}:${String(index)}`}>{content}</Layer>
-}
+const GuideBlockView = ({ block }: { readonly block: GuideBlock }) =>
+  Match.value(block).pipe(
+    Match.when(
+      { kind: "paragraph" },
+      ({ parts }) => (
+        <SemanticContent as="p" role="body">
+          <DocsRichText parts={parts} />
+        </SemanticContent>
+      )
+    ),
+    Match.when({ kind: "heading" }, (heading) => <GuideHeading block={heading} />),
+    Match.when(
+      { kind: "code" },
+      ({ language, source }) => (
+        <CodeBlock label={codeLabel(language)} language={codeLanguageFor(language)} source={source} />
+      )
+    ),
+    Match.when({ kind: "list" }, ({ items, ordered }) => <GuideList items={items} ordered={ordered} />),
+    Match.when(
+      { kind: "quote" },
+      ({ parts }) => (
+        <Layer render={<blockquote />} className="border-l-2 border-accent pl-5">
+          <SemanticContent as="p" role="body">
+            <DocsRichText parts={parts} />
+          </SemanticContent>
+        </Layer>
+      )
+    ),
+    Match.when({ kind: "table" }, (table) => <GuideTable block={table} />),
+    Match.exhaustive
+  )
 
 export const GuidePageView = ({ page }: { readonly page: GuidePage }) => (
   <Stack className="gap-9 sm:gap-11">
-    <Section className="border-b border-stage-200/90 pb-8">
+    <Section className="border-b border-hairline-veil pb-8">
       <Stack className="gap-4">
-        <SemanticText as="code" className="text-ink-500" role="code-meta" text={page.package.name} />
-        <SemanticText
-          as="h1"
-          className="font-light tracking-[-0.04em] text-ink-950"
-          role="hero-title"
-          text={page.title}
-        />
+        <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
+        <SemanticText as="h1" role="hero-title" text={page.title} />
         <Cluster className="gap-4">
-          <SemanticText as="span" className="text-ink-500" role="status" text={`v${page.package.version}`} />
+          <SemanticText as="span" role="caption" text={`v${page.package.version}`} />
           <ExternalLink
-            className="font-body text-sm font-medium text-ink-700 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
+            className={`text-ink-secondary ${linkTextClassName}`}
             href={page.sourceUrl}
           >
-            Source
+            <SemanticText as="span" role="button-label" text="Source" />
           </ExternalLink>
         </Cluster>
       </Stack>
@@ -141,7 +166,11 @@ export const GuidePageView = ({ page }: { readonly page: GuidePage }) => (
     <Stack className="gap-6 sm:gap-7">
       {Arr.map(
         page.blocks,
-        (block, index) => <GuideBlockView block={block} index={index} key={`${block.kind}:${String(index)}`} />
+        (block, index) => (
+          <Layer key={`${block.kind}:${String(index)}`}>
+            <GuideBlockView block={block} />
+          </Layer>
+        )
       )}
     </Stack>
   </Stack>

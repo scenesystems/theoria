@@ -1,6 +1,8 @@
 import type { HttpServerResponse } from "@effect/platform"
 import { Context, type Effect, HashMap, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+import * as Str from "effect/String"
 
 /**
  * Read access to the built web bundle (`apps/theoria/dist`).
@@ -67,10 +69,11 @@ const contentTypes = HashMap.make(
 )
 
 const extensionOf = (pathname: string): Option.Option<string> =>
-  Option.flatMap(Arr.last(pathname.split("/")), (name) => {
-    const dot = name.lastIndexOf(".")
-    return dot > 0 ? Option.some(name.slice(dot)) : Option.none()
-  })
+  Option.flatMap(Arr.last(Str.split(pathname, "/")), (name) =>
+    Option.map(
+      Option.filter(Str.lastIndexOf(".")(name), Num.greaterThan(0)),
+      (dot) => Str.slice(dot)(name)
+    ))
 
 /** `content-type` for a served pathname; `None` when the file type is not one the site serves. */
 export const contentTypeForPath = (pathname: string): Option.Option<string> =>

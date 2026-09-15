@@ -28,6 +28,6 @@ export const InlineStatus = ({
     className={classNames("inline-flex min-w-0 items-center gap-1.5", className)}
   >
     <Layer aria-hidden render={<span />} className={`inline-flex size-1.5 shrink-0 rounded-full ${tone.dot}`} />
-    <SemanticText as="span" className={tone.text} role="tab-label" text={label} variant="compact" />
+    <SemanticText as="span" className={tone.text} role="button-label" text={label} variant="compact" />
   </Layer>
 )

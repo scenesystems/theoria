@@ -2,14 +2,21 @@ import { Popover } from "@base-ui/react/popover"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowRightIcon } from "@heroicons/react/20/solid"
-import { Match, Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Predicate } from "effect"
 import type { ComponentProps, MouseEvent as ReactMouseEvent, ReactNode } from "react"
 import { useRef } from "react"
 
-import { Id } from "../../../contracts/id.js"
 import { docsApiModuleIndexAtom, docsManifestAtom } from "../../atoms/docs-data.js"
 
-import { elevationClassName, focusEdgeClassName, neutralToneClasses, toneClassesForCard } from "./designSystem.js"
+import {
+  elevationClassName,
+  focusClassName,
+  focusEdgeClassName,
+  primaryActionClassName,
+  respondColorsClassName,
+  stillUnderReducedMotion,
+  transitionClassName
+} from "./designSystem.js"
 import {
   docsLinkModuleAsset,
   docsLinkPath,
@@ -18,21 +25,17 @@ import {
   docsLinkTarget,
   docsLinkTitle
 } from "./docsLinkTarget.js"
-import { docsTheme } from "./docsSystem.js"
 import { Cluster, Layer, Rail, Stack } from "./Layout.js"
 import { InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 
-const popupClassName = [
-  `w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-stage-200/90 bg-stage-0/97 shadow-chip ${focusEdgeClassName} backdrop-blur-sm`,
-  "origin-[var(--transform-origin)] transition-[opacity,transform] duration-150",
-  "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
-  "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
-  "motion-reduce:transition-none"
-].join(" ")
+const popupClassName =
+  `w-[min(24rem,calc(100vw-1.5rem))] rounded-instrument border border-hairline-veil bg-paper-veil shadow-chip ${focusEdgeClassName} backdrop-blur-sm origin-[var(--transform-origin)] transition-[opacity,transform] ${
+    transitionClassName("enter")
+  } data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 ${stillUnderReducedMotion}`
 
 const openLinkClassName =
-  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
+  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-control border px-3 py-1.5 ${respondColorsClassName} ${focusClassName} ${primaryActionClassName}`
 
 /**
  * A press with a modifier or a non-primary button is the browser's: a new tab,
@@ -40,11 +43,16 @@ const openLinkClassName =
  * four events; only mouse and pointer events carry a button.
  */
 const isModifiedPress = (event: MouseEvent | PointerEvent | TouchEvent | KeyboardEvent): boolean =>
-  event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || ("button" in event && event.button !== 0)
-
-const isCardId = Schema.is(Id)
-
-const toneFor = (slug: string) => isCardId(slug) ? toneClassesForCard(slug) : neutralToneClasses
+  Bool.some([
+    event.metaKey,
+    event.ctrlKey,
+    event.shiftKey,
+    event.altKey,
+    Option.exists(
+      Option.liftPredicate(event, Predicate.hasProperty("button")),
+      (pressed) => Bool.not(Equal.equals(pressed.button, 0))
+    )
+  ])
 
 /** What kind of page opens: the package overview, a guide, or an API module's reference. */
 const pageKind = (target: DocsLinkTarget): string =>
@@ -62,8 +70,8 @@ const Summary = ({ text }: { readonly text: Option.Option<string> }) =>
       <Popover.Description render={<Layer />}>
         <SemanticText
           as="p"
-          className="text-ink-700"
-          role="status"
+          className="text-ink-secondary"
+          role="row-value"
           text={value}
           variant="compact"
           wrapAuthority="native-browser"
@@ -83,32 +91,44 @@ const Preview = ({ destination, href, title }: {
   readonly href: string
   readonly title: string
 }) => {
-  const tone = toneFor(destination.docsPackage.slug)
   const openRef = useRef<HTMLAnchorElement>(null)
 
   return (
     <Popover.Popup
       className={popupClassName}
       data-docs-link-preview={href}
-      initialFocus={(openType) => openType === "keyboard" ? openRef.current : true}
+      initialFocus={(openType) =>
+        Bool.match(Equal.equals(openType, "keyboard"), {
+          onTrue: () => openRef.current,
+          onFalse: () => true
+        })}
     >
       <Stack className="gap-1.5 px-3.5 pt-3 pb-3">
         <Rail className="justify-between gap-3">
           <Cluster align="baseline" className="gap-x-2">
-            <SemanticText as="span" className={tone.text} role="row-label" text={destination.docsPackage.slug} />
             <SemanticText
               as="span"
-              className="text-ink-500"
+              role="row-label"
+              text={destination.docsPackage.slug}
+            />
+            <SemanticText
+              as="span"
+              className="text-ink-tertiary"
               role="code-meta"
               text={`v${destination.docsPackage.version}`}
             />
           </Cluster>
-          <SemanticText as="span" className="shrink-0 text-ink-500" role="row-label" text={pageKind(destination)} />
+          <SemanticText
+            as="span"
+            className="shrink-0"
+            role="row-label"
+            text={pageKind(destination)}
+          />
         </Rail>
         <Popover.Title render={<Layer className="min-w-0" />}>
           <SemanticText
             as="code"
-            className="block truncate text-ink-900"
+            className="block truncate"
             role="selection-title"
             text={docsLinkTitle(destination, title)}
           />
@@ -118,15 +138,15 @@ const Preview = ({ destination, href, title }: {
           onSome: (asset) => <ExportSummary asset={asset} destination={destination} />
         })}
       </Stack>
-      <Rail className="justify-between gap-3 border-t border-stage-200/80 px-3.5 py-2.5">
+      <Rail className="justify-between gap-3 border-t border-hairline-glass px-3.5 py-2.5">
         <SemanticText
           as="code"
-          className="block min-w-0 flex-1 truncate text-ink-500"
+          className="block min-w-0 flex-1 truncate text-ink-tertiary"
           role="code-meta"
           text={docsLinkPath(destination)}
         />
         <InternalLink className={openLinkClassName} data-docs-link-open href={href} ref={openRef}>
-          <SemanticText as="span" className="text-stage-0" role="button-label" text="Open" />
+          <SemanticText as="span" className="text-on-emphasis" role="button-label" text="Open" />
           <ArrowRightIcon aria-hidden className="size-4" />
         </InternalLink>
       </Rail>
@@ -140,17 +160,25 @@ const PreviewLink = ({ children, className, destination, href, title, ...props }
   readonly href: string
   readonly title: string
 }) => {
-  const keepForPreview = (event: ReactMouseEvent<HTMLAnchorElement>) => {
-    if (!isModifiedPress(event.nativeEvent)) event.preventDefault()
-  }
+  const keepForPreview = (event: ReactMouseEvent<HTMLAnchorElement>) =>
+    Bool.match(isModifiedPress(event.nativeEvent), {
+      onTrue: () => undefined,
+      onFalse: () => event.preventDefault()
+    })
 
   return (
     <Popover.Root
       modal={false}
-      onOpenChange={(open, details) => {
+      onOpenChange={(open, details) =>
         // Modifier and middle presses keep their native meaning; only a plain press opens the preview.
-        if (open && details.reason === "trigger-press" && isModifiedPress(details.event)) details.cancel()
-      }}
+        Match.value(details).pipe(
+          Match.when({ reason: "trigger-press" }, (press) =>
+            Bool.match(Bool.and(open, isModifiedPress(press.event)), {
+              onTrue: () => press.cancel(),
+              onFalse: () => undefined
+            })),
+          Match.orElse(() => undefined)
+        )}
     >
       <Popover.Trigger
         nativeButton={false}

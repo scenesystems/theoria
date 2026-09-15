@@ -1,6 +1,6 @@
 import { ArrowDownIcon } from "@heroicons/react/20/solid"
 
-import { primaryActionClassName, textActionClassName } from "../primitives/ActionButton.js"
+import { filledActionClassName, textActionClassName } from "../primitives/ActionButton.js"
 import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { AnchorLink, InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -25,7 +25,7 @@ export const HomeHero = () => (
     <Stack className="gap-6 sm:gap-8">
       <SemanticText
         as="h1"
-        className="text-balance text-ink-950"
+        className="text-balance"
         role="display"
         text="Scientific computing and model programming with Effect"
         variant="expanded"
@@ -33,15 +33,14 @@ export const HomeHero = () => (
       />
       <SemanticText
         as="p"
-        className="text-ink-700"
         role="lead"
         text="Theoria is an open-source collection of TypeScript libraries for reproducible computational work in Effect applications."
         variant="expanded"
         wrapAuthority="native-browser"
       />
       <Cluster className="gap-x-3 gap-y-2 pt-1">
-        <InternalLink className={primaryActionClassName} href="/docs">
-          <SemanticText as="span" className="text-stage-0" role="button-label" text="Browse the packages" />
+        <InternalLink className={filledActionClassName} href="/docs">
+          <SemanticText as="span" className="text-on-emphasis" role="button-label" text="Browse the packages" />
         </InternalLink>
         <AnchorLink className={textActionClassName} href={`#${howItsBuiltSectionId}`}>
           <SemanticText as="span" className="text-inherit" role="button-label" text={howItsBuiltActionLabel} />

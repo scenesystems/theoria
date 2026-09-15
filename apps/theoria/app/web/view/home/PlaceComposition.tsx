@@ -1,20 +1,20 @@
-import { Option } from "effect"
+import { Boolean as Bool, Option } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceFeature, PlaceOutline } from "../../../contracts/imagined-place.js"
-import { inlineStatusToneFor, toneClassesFor } from "../primitives/designSystem.js"
+import { neutralStatusTone, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { GhostText } from "../primitives/Skeleton.js"
 
 import { BriefField, ScenarioChoice } from "./PlaceControls.js"
 import { inlineMarkClassName, inlineMarkRoomClassName, ProvenanceMark, StatusMark } from "./PlaceProvenance.js"
-import { participantTone } from "./placeViewModel.js"
+import { buildPresence, isFirst, participantTone } from "./placeViewModel.js"
 
 const authorTone = toneClassesFor(participantTone("author"))
-const inferenceTone = inlineStatusToneFor("dsp")
+const inferenceTone = neutralStatusTone
 
 /**
  * A feature's place in the row: after the first, a dot stands before it. The
@@ -25,11 +25,14 @@ const inferenceTone = inlineStatusToneFor("dsp")
  */
 const FeatureSlot = ({ children, first }: { readonly children: ReactNode; readonly first: boolean }) => (
   <Layer render={<span />} className="inline-flex items-baseline gap-2">
-    {first ? null : (
-      <Layer aria-hidden render={<span />} className="inline-flex text-ink-400">
-        <SemanticText as="span" role="selection-title" text="·" />
-      </Layer>
-    )}
+    {Bool.match(first, {
+      onTrue: () => null,
+      onFalse: () => (
+        <Layer aria-hidden render={<span />} className="inline-flex text-ink-tertiary">
+          <SemanticText as="span" className="text-inherit" role="selection-title" text="·" />
+        </Layer>
+      )
+    })}
     {children}
   </Layer>
 )
@@ -37,8 +40,11 @@ const FeatureSlot = ({ children, first }: { readonly children: ReactNode; readon
 /** A feature the composer named, said in the line in the author's accent: the same accent as its marker on the stage. */
 const FeatureName = ({ feature, first }: { readonly feature: PlaceFeature; readonly first: boolean }) => (
   <FeatureSlot first={first}>
-    <ProvenanceMark className={inlineMarkClassName} mark={{ _tag: "Feature", name: feature.name }}>
-      <SemanticText as="span" className={authorTone.textStrong} role="selection-title" text={feature.name} />
+    <ProvenanceMark
+      className={`${inlineMarkClassName} ${authorTone.textStrong}`}
+      mark={{ _tag: "Feature", name: feature.name }}
+    >
+      <SemanticText as="span" className="text-inherit" role="selection-title" text={feature.name} />
     </ProvenanceMark>
   </FeatureSlot>
 )
@@ -68,8 +74,7 @@ const Title = ({ build, outline }: {
       onNone: () => (
         <GhostText
           as="p"
-          className="text-ink-900"
-          role="card-title"
+          role="section-title"
           text={outline.composition.title}
           variant="compact"
         />
@@ -77,8 +82,7 @@ const Title = ({ build, outline }: {
       onSome: (value) => (
         <SemanticText
           as="p"
-          className="text-ink-900"
-          role="card-title"
+          role="section-title"
           text={value.artifact.composition.title}
           variant="compact"
           wrapAuthority="native-browser"
@@ -105,21 +109,21 @@ const Features = ({ build, outline }: {
   <Stack className="gap-2">
     <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
       <Layer render={<span />} data-place-features-label>
-        <SemanticText as="span" className="text-ink-900" role="row-label" text="Features" variant="compact" />
+        <SemanticText as="span" role="row-label" text="Features" variant="compact" />
       </Layer>
       <StatusMark label="Recorded inference" mark={{ _tag: "Inference" }} tone={inferenceTone} />
     </Layer>
-    <Cluster className="gap-x-2 gap-y-1" data-place-features={Option.isSome(build) ? "built" : "pending"}>
+    <Cluster className="gap-x-2 gap-y-1" data-place-features={buildPresence(build)}>
       {Option.match(build, {
         onNone: () =>
           Arr.map(
             outline.composition.features,
-            (feature, index) => <FeatureNamePending feature={feature} first={index === 0} key={feature.name} />
+            (feature, index) => <FeatureNamePending feature={feature} first={isFirst(index)} key={feature.name} />
           ),
         onSome: (value) =>
           Arr.map(
             value.artifact.composition.features,
-            (feature, index) => <FeatureName feature={feature} first={index === 0} key={feature.name} />
+            (feature, index) => <FeatureName feature={feature} first={isFirst(index)} key={feature.name} />
           )
       })}
     </Cluster>

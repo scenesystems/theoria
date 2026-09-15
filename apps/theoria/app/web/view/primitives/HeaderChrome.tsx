@@ -1,10 +1,31 @@
 import { Match, Schema } from "effect"
 
 import { classNames } from "./classNames.js"
-import { focusEdgeClassName } from "./designSystem.js"
+import { elevationClassName, focusClassName, respondColorsClassName } from "./designSystem.js"
 
-const headerChromeFocusClassName =
-  `${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-50`
+/**
+ * What a page's header is. The home page's floats: the wordmark and three
+ * ways off the page set on the canvas, scrolling away with it, so the first
+ * thing the page says is that it is not a card. The documentation's is a
+ * workbench's: pinned over everything the page scrolls, on a veil of the
+ * canvas that blurs what passes under it, with a hairline beneath. Both are
+ * the one header; this is the difference between a story and a workbench,
+ * not drift.
+ */
+export const HeaderChrome = Schema.Literal("floating", "workbench")
+export type HeaderChrome = typeof HeaderChrome.Type
+
+export const headerChromeClassName = (chrome: HeaderChrome): string =>
+  Match.value(chrome).pipe(
+    Match.when("floating", () => "pb-2 pt-2"),
+    Match.when(
+      "workbench",
+      () => `sticky top-0 ${elevationClassName("header")} border-b border-hairline-veil bg-canvas-veil backdrop-blur-xl`
+    ),
+    Match.exhaustive
+  )
+
+const headerChromeFocusClassName = `${focusClassName} focus-visible:ring-offset-2 focus-visible:ring-offset-canvas`
 
 /**
  * What every header control is: ink that darkens under the pointer, nothing
@@ -16,7 +37,7 @@ const headerChromeFocusClassName =
  * neighbours.
  */
 const headerChromeControlClassName =
-  "relative inline-flex min-h-11 items-center gap-2 rounded-control px-1.5 text-ink-700 transition-colors duration-150 hover:text-ink-950 before:absolute before:inset-y-0 before:left-1/2 before:w-[max(100%,2.75rem)] before:-translate-x-1/2"
+  `relative inline-flex min-h-11 items-center gap-2 rounded-control text-ink-secondary ${respondColorsClassName} hover:text-ink-strong before:absolute before:inset-y-0 before:left-1/2 before:w-[max(100%,2.75rem)] before:-translate-x-1/2`
 
 /**
  * The ink of every header glyph — the part of it that is drawn — is one
@@ -25,15 +46,24 @@ const headerChromeControlClassName =
  */
 const headerChromeGlyphInkClassName = "[--header-chrome-glyph-ink:1rem]"
 
+/** The brand sits on the content edge, with the same focus and hit area but no extra text-control inset. */
+export const headerChromeBrandLinkClassName = `${headerChromeControlClassName} ${headerChromeFocusClassName}`
+
 /** A header destination as words beside a glyph. */
 export const headerChromeLinkClassName = (className = ""): string =>
-  classNames(headerChromeControlClassName, headerChromeGlyphInkClassName, headerChromeFocusClassName, className)
+  classNames(
+    headerChromeControlClassName,
+    "px-1.5",
+    headerChromeGlyphInkClassName,
+    headerChromeFocusClassName,
+    className
+  )
 
 /** A header control that is only its glyph: the same ink, the same hover, the same room and reach. */
 export const headerChromeIconButtonClassName = (className = ""): string =>
   classNames(
     headerChromeControlClassName,
-    "justify-center",
+    "justify-center px-1.5",
     headerChromeGlyphInkClassName,
     headerChromeFocusClassName,
     className

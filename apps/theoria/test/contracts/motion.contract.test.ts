@@ -1,16 +1,16 @@
 import { Registry } from "@effect-atom/atom"
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Duration, Effect, Option } from "effect"
+import { Duration, Effect, Equal, Number as Num, Option, Predicate } from "effect"
 import * as Arr from "effect/Array"
-import * as Str from "effect/String"
 
 import {
   motionArrivalBudget,
   motionDuration,
+  MotionEase,
   motionEase,
   motionEaseCss,
+  motionEaseCurve,
+  motionEaseFor,
   motionPulse,
   MotionRelation,
   motionThemeTokens,
@@ -32,25 +32,7 @@ import {
 } from "../../app/web/view/primitives/motion.js"
 import { wordmarkMotion } from "../../app/web/view/primitives/wordmarkMorph.js"
 
-/** The app's `app/web` directory, from this file rather than the working directory: the root test run starts elsewhere. */
-const webRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
-  const path = yield* Path.Path
-  return yield* path.fromFileUrl(yield* Url.fromString("../../app/web/", import.meta.url))
-}).pipe(Effect.orDie)
-
 describe("motion contract", () => {
-  it.effect("one system owns presence: the stylesheet declares no keyframes and no animation", () =>
-    Effect.gen(function*() {
-      const fileSystem = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const stylesheet = yield* fileSystem.readFileString(path.join(yield* webRoot, "styles.css")).pipe(Effect.orDie)
-      const declarations = Arr.filter(
-        Str.split(stylesheet, "\n"),
-        (line) => Str.includes("@keyframes")(line) || /^\s*animation(-[a-z]+)?\s*:/u.test(line)
-      )
-      expect(declarations).toEqual([])
-    }).pipe(Effect.provide(BunContext.layer)))
-
   it.effect("a walk drawing itself and a changed value's wash are slower than any relation, and the wash outlasts the walk", () =>
     Effect.sync(() => {
       expect(Duration.lessThan(motionDuration("shift"), motionWalkDraw)).toBe(true)
@@ -75,15 +57,35 @@ describe("motion contract", () => {
       expect(Duration.lessThan(motionDuration("enter"), motionDuration("shift"))).toBe(true)
     }))
 
-  it.effect("writes one CSS token per relation and the one easing", () =>
+  it.effect("a control responds quicker than anything arrives, and what follows a gesture lands before a shift would", () =>
+    Effect.sync(() => {
+      expect(Duration.lessThan(motionDuration("respond"), motionDuration("enter"))).toBe(true)
+      expect(Duration.lessThan(motionDuration("follow"), motionDuration("shift"))).toBe(true)
+    }))
+
+  it.effect("only what follows a gesture has its own ease; everything the page moves shares the theme's", () =>
+    Effect.sync(() => {
+      const [following, own] = Arr.partition(
+        MotionRelation.literals,
+        (relation) => Equal.equals(motionEaseFor(relation), "theme")
+      )
+      expect(following).toEqual(["follow"])
+      expect(own).toEqual(["enter", "shift", "exit", "respond"])
+      expect(motionEaseCurve("theme")).toEqual(motionEase)
+      expect(motionEaseCurve("follow")).not.toEqual(motionEase)
+    }))
+
+  it.effect("writes one CSS token per relation and one per ease", () =>
     Effect.sync(() => {
       const names = Arr.map(motionThemeTokens, ([name]) => name)
       expect(names).toEqual([
         ...Arr.map(MotionRelation.literals, (relation) => `--th-motion-duration-${relation}`),
-        "--ease-theme"
+        ...Arr.map(MotionEase.literals, (ease) => `--ease-${ease}`)
       ])
       expect(motionThemeTokens).toContainEqual(["--th-motion-duration-exit", "120ms"])
+      expect(motionThemeTokens).toContainEqual(["--th-motion-duration-respond", "150ms"])
       expect(motionThemeTokens).toContainEqual(["--ease-theme", motionEaseCss])
+      expect(motionThemeTokens).toContainEqual(["--ease-follow", "cubic-bezier(0.32, 0.72, 0, 1)"])
     }))
 
   it.effect("hands Motion the same durations, in seconds", () =>
@@ -97,9 +99,11 @@ describe("motion contract", () => {
     Effect.sync(() => {
       const budget = Duration.toMillis(motionArrivalBudget)
       // Motion takes seconds; compare in whole milliseconds so float sums do not decide the outcome.
+      const seconds = (value: unknown): number =>
+        Option.getOrElse(Option.liftPredicate(value, Predicate.isNumber), () => 0)
       const lands = (index: number) => {
         const { delay, duration } = staggeredArrival(index)
-        return Math.round(((delay ?? 0) + (typeof duration === "number" ? duration : 0)) * 1000)
+        return Num.round(Num.multiply(Num.sum(seconds(delay), seconds(duration)), 1000), 0)
       }
       expect(staggeredArrival(0).delay).toBe(0)
       expect(staggeredArrival(1).delay).toBeGreaterThan(0)

@@ -1,5 +1,7 @@
-import { Match, Option, Order, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+import * as Str from "effect/String"
 
 import { contributorsOf } from "../../../contracts/demo/imagined-place-arrangement.js"
 import type { PlaceAct } from "../../../contracts/demo/imagined-place-provenance.js"
@@ -20,10 +22,16 @@ import {
   type PlaceOutline,
   type VersionShape
 } from "../../../contracts/imagined-place.js"
-import type { CardTone } from "../../../contracts/theme.js"
+import type { Tone } from "../../../contracts/theme.js"
 import type { PlaceDiscDrawn, PlaceSearch, PlaceWait, StageFailure } from "../../atoms/imagined-place-render.js"
 import type { MotionPreference } from "../../atoms/motion.js"
-import { silentOutlineClassName, type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
+import {
+  discFillClassName,
+  discSlotClassName,
+  silentOutlineClassName,
+  type ToneClasses,
+  toneClassesFor
+} from "../primitives/designSystem.js"
 import { departed, shiftTransition } from "../primitives/motion.js"
 import type { PlaceholderMotion } from "../primitives/Skeleton.js"
 
@@ -33,7 +41,10 @@ import type { PlaceholderMotion } from "../primitives/Skeleton.js"
  */
 
 /** Content IDs look like `blake3-256:…`; the short form keeps the first characters of the digest itself. */
-export const shortId = (id: string): string => `${id.slice(id.indexOf(":") + 1, id.indexOf(":") + 11)}…`
+export const shortId = (id: string): string => {
+  const start = Option.match(Str.indexOf(":")(id), { onNone: () => 0, onSome: Num.increment })
+  return `${Str.slice(start, Num.sum(start, 10))(id)}…`
+}
 
 /**
  * The room the build's evidence takes before it is here. A digest has the
@@ -41,17 +52,19 @@ export const shortId = (id: string): string => `${id.slice(id.indexOf(":") + 1, 
  * either form is as long as the one that arrives; a key is named by eight of
  * its digits. The digits are room, not a digest: nothing reads them.
  */
-const unknownDigest = "0".repeat(64)
+const unknownDigest = Str.repeat(64)("0")
 export const contentIdShape = `blake3-256:${unknownDigest}`
-const keyDigits = (fingerprint: string): string => fingerprint.slice(0, 8)
-
-const participants: ReadonlyArray<ParticipantRole> = ["author", "neighbor", "program"]
+const keyDigits = (fingerprint: string): string => Str.takeLeft(fingerprint, 8)
 
 /** Who has a feature in this version: the author always, and each proposer whose proposal was merged. */
 export const presentParticipants = (place: PlaceOutline): ReadonlyArray<ParticipantRole> =>
   Arr.filter(
-    participants,
-    (role) => role === "author" || Arr.some(place.accepted, (proposal) => proposal.proposer === role)
+    ParticipantRole.literals,
+    (role) =>
+      Bool.or(
+        Equal.equals(role, "author"),
+        Arr.some(place.accepted, (proposal) => Equal.equals(proposal.proposer, role))
+      )
   )
 
 export const participantLabel = (role: ParticipantRole): string =>
@@ -63,15 +76,17 @@ export const participantLabel = (role: ParticipantRole): string =>
   )
 
 /**
- * One accent per participant, used everywhere that participant appears: on
- * markers, proposal cards, signature pills and the legend. The author's is the
- * signing tone, the neighbor's the sealing tone, the program's the dsp tone.
+ * One tone per participant, used everywhere that participant appears: on
+ * markers, proposal cards, signature pills and the legend. The reader's own
+ * voice is the primary, the neighbor's the secondary, the program's the
+ * tertiary — colour on the page says who, and nothing else.
  */
-export const participantTone = (role: ParticipantRole): CardTone =>
+export const participantTone = (role: ParticipantRole): Tone =>
   Match.value(role).pipe(
-    Match.when("author", (): CardTone => "sign"),
-    Match.when("neighbor", (): CardTone => "seal"),
-    Match.when("program", (): CardTone => "dsp"),
+    Match.withReturnType<Tone>(),
+    Match.when("author", () => "primary"),
+    Match.when("neighbor", () => "secondary"),
+    Match.when("program", () => "tertiary"),
     Match.exhaustive
   )
 
@@ -109,16 +124,15 @@ const discEdgeClassName = "forced-colors:border forced-colors:border-[CanvasText
 
 /**
  * The disc itself: a soft radial fill lit from the upper left, an inset ring
- * in the contributor's tone. Full literals per participant
- * because Tailwind purges anything assembled at run time.
+ * in the contributor's tone. Composed from the tone's disc slots; the palette
+ * generator declares every composition for Tailwind to keep.
  */
-export const discClassName = (role: ParticipantRole): string =>
-  Match.value(role).pipe(
-    Match.when("author", () => `bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60 ${discEdgeClassName}`),
-    Match.when("neighbor", () => `bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60 ${discEdgeClassName}`),
-    Match.when("program", () => `bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60 ${discEdgeClassName}`),
-    Match.exhaustive
-  )
+export const discClassName = (role: ParticipantRole): string => {
+  const tone = participantTone(role)
+  return `${discFillClassName(tone)} ring-1 ring-inset ${discSlotClassName(tone, "ring")} ${discEdgeClassName}`
+}
+
+const actOutline = (tone: Tone): string => discSlotClassName(tone, "actOutline")
 
 /**
  * The outline a disc wears while an act is in view. The outline is always
@@ -129,73 +143,64 @@ export const discClassName = (role: ParticipantRole): string =>
 export const discActOutline = (act: PlaceAct, marker: PlaceMarker): string => {
   const proposer = Option.fromNullable(marker.contributedBy)
   return Match.value(act).pipe(
-    Match.when("compose", () => Option.isNone(proposer) ? "outline-tone-sign-400/70" : silentOutlineClassName),
+    Match.when("compose", () =>
+      Option.match(proposer, {
+        onNone: () => actOutline(participantTone("author")),
+        onSome: () => silentOutlineClassName
+      })),
     Match.when("propose", () =>
       Option.match(proposer, {
         onNone: () => silentOutlineClassName,
-        onSome: (role) =>
-          Match.value(role).pipe(
-            Match.when("author", () => "outline-tone-sign-400/70"),
-            Match.when("neighbor", () => "outline-tone-seal-400/70"),
-            Match.when("program", () => "outline-tone-dsp-400/70"),
-            Match.exhaustive
-          )
+        onSome: (role) => actOutline(participantTone(role))
       })),
-    Match.when("record", () => Option.isSome(proposer) ? "outline-tone-digest-400/70" : silentOutlineClassName),
-    Match.when("arrive", () => silentOutlineClassName),
-    Match.when("build", () => silentOutlineClassName),
+    Match.when("record", () =>
+      Option.match(proposer, {
+        onNone: () => silentOutlineClassName,
+        onSome: () => actOutline(participantTone("author"))
+      })),
+    Match.whenOr("arrive", "build", () => silentOutlineClassName),
     Match.exhaustive
   )
 }
 
 /** The ring a disc wears while the code line that placed it is under the pointer. */
 export const discFocusRing = (role: ParticipantRole): string =>
-  Match.value(role).pipe(
-    Match.when("author", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-sign-300"),
-    Match.when("neighbor", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-seal-300"),
-    Match.when("program", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-dsp-300"),
-    Match.exhaustive
-  )
+  `data-[place-focused]:ring-2 ${discSlotClassName(participantTone(role), "focusRing")}`
 
 /**
  * A disc in the band's miniature: the contributor's tone as a flat fill, or
  * as a dashed ring while the search is still making room for it; a disc
  * leaving keeps its fill as it shrinks. The stroke is kept at one width
  * whatever the miniature's scale; a disc answering the code line that made
- * it wears the contributor's ring, as on the stage.
+ * it wears the contributor's ring, as on the stage. The fills sit close to
+ * the strip in both modes, so the stroke in the tone's accent is the boundary
+ * that stands out from the fill (≥ 3:1, held by the palette contract); focus
+ * deepens and thickens it.
  */
-export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, focused: boolean): string =>
-  Match.value(drawn).pipe(
-    Match.when("arriving", () =>
-      Match.value(role).pipe(
-        Match.when("author", () =>
-          "fill-none stroke-tone-sign-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
-        Match.when("neighbor", () =>
-          "fill-none stroke-tone-seal-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
-        Match.when("program", () =>
-          "fill-none stroke-tone-dsp-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
-        Match.exhaustive
-      )),
-    // The fills sit close to the strip in both themes, so the ring in the contributor's 500 stop is the
-    // boundary that stands out from it (≥ 3:1); focus deepens and thickens that ring.
+export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, focused: boolean): string => {
+  const tone = participantTone(role)
+  return Match.value(drawn).pipe(
+    Match.when(
+      "arriving",
+      () =>
+        `fill-none ${
+          discSlotClassName(tone, "bandArrivingStroke")
+        } stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]`
+    ),
     Match.whenOr("settled", "trial", "leaving", () =>
-      Match.value(role).pipe(
-        Match.when("author", () =>
-          focused
-            ? "fill-tone-sign-300 stroke-tone-sign-700 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-sign-300 stroke-tone-sign-500 stroke-2 [vector-effect:non-scaling-stroke]"),
-        Match.when("neighbor", () =>
-          focused
-            ? "fill-tone-seal-300 stroke-tone-seal-700 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-seal-300 stroke-tone-seal-500 stroke-2 [vector-effect:non-scaling-stroke]"),
-        Match.when("program", () =>
-          focused
-            ? "fill-tone-dsp-300 stroke-tone-dsp-700 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-2 [vector-effect:non-scaling-stroke]"),
-        Match.exhaustive
-      )),
+      Bool.match(focused, {
+        onTrue: () =>
+          `${discSlotClassName(tone, "bandFill")} ${
+            discSlotClassName(tone, "bandFocusedStroke")
+          } stroke-[3] [vector-effect:non-scaling-stroke]`,
+        onFalse: () =>
+          `${discSlotClassName(tone, "bandFill")} ${
+            discSlotClassName(tone, "bandStroke")
+          } stroke-2 [vector-effect:non-scaling-stroke]`
+      })),
     Match.exhaustive
   )
+}
 
 /** A disc of the place set in the band's row: the marker at its centre there. */
 export const BandDisc = Schema.Struct({
@@ -228,16 +233,25 @@ const bandGap = 10
  */
 export const bandRow = (projection: PlaceProjection): BandRow =>
   Arr.match(projection.markers, {
-    onEmpty: () => ({ width: bandMargin * 2, height: bandMargin * 2, cy: bandMargin, discs: [] }),
+    onEmpty: () => ({
+      width: Num.multiply(bandMargin, 2),
+      height: Num.multiply(bandMargin, 2),
+      cy: bandMargin,
+      discs: []
+    }),
     onNonEmpty: (markers) => {
       // Each disc's left edge; the last entry is where one more would start.
-      const lefts = Arr.scan(markers, bandMargin, (left, marker) => left + marker.radius * 2 + bandGap)
-      const tallest = Arr.max(Arr.map(markers, (marker) => marker.radius), Order.number)
+      const lefts = Arr.scan(
+        markers,
+        bandMargin,
+        (left, marker) => Num.sumAll([left, Num.multiply(marker.radius, 2), bandGap])
+      )
+      const tallest = Arr.max(Arr.map(markers, (marker) => marker.radius), Num.Order)
       return {
-        width: Arr.lastNonEmpty(lefts) - bandGap + bandMargin,
-        height: tallest * 2 + bandMargin * 2,
-        cy: tallest + bandMargin,
-        discs: Arr.zipWith(markers, lefts, (marker, left) => ({ marker, cx: left + marker.radius }))
+        width: Num.sum(Num.subtract(Arr.lastNonEmpty(lefts), bandGap), bandMargin),
+        height: Num.multiply(Num.sum(tallest, bandMargin), 2),
+        cy: Num.sum(tallest, bandMargin),
+        discs: Arr.zipWith(markers, lefts, (marker, left) => ({ marker, cx: Num.sum(left, marker.radius) }))
       }
     }
   })
@@ -273,19 +287,32 @@ export const bandDiscPlacing = (preference: MotionPreference, cx: number) =>
   )
 
 /** A declined proposal's ghost: a dashed ring in the proposer's tone. */
-export const ghostClassName = (role: ParticipantRole): string =>
-  Match.value(role).pipe(
-    Match.when("author", () => "border-tone-sign-400/80"),
-    Match.when("neighbor", () => "border-tone-seal-400/80"),
-    Match.when("program", () => "border-tone-dsp-400/80"),
-    Match.exhaustive
-  )
+export const ghostClassName = (role: ParticipantRole): string => discSlotClassName(participantTone(role), "ghost")
 
 export const markerLabel = (marker: PlaceMarker): string =>
   Option.match(Option.fromNullable(marker.contributedBy), {
     onNone: () => marker.name,
-    onSome: (role) => `${marker.name}, added by ${participantLabel(role).toLocaleLowerCase("en-US")}`
+    onSome: (role) => `${marker.name}, added by ${Str.toLocaleLowerCase("en-US")(participantLabel(role))}`
   })
+
+/**
+ * The attribute a focused element wears, as props to spread: present and
+ * empty while focused, absent otherwise.
+ */
+export const focusedAttribute = (focused: boolean): { readonly "data-place-focused"?: "" } =>
+  Bool.match(focused, { onTrue: () => ({ "data-place-focused": "" }), onFalse: () => ({}) })
+
+/** What a region built from the place says of the build: here, or still pending. */
+export const BuildPresence = Schema.Literal("built", "pending")
+export type BuildPresence = typeof BuildPresence.Type
+export const buildPresence = (build: Option.Option<unknown>): BuildPresence =>
+  Option.match(build, { onNone: (): BuildPresence => "pending", onSome: (): BuildPresence => "built" })
+
+/** Whether an index is the first of a sequence: the one nothing stands before. */
+export const isFirst = (index: number): boolean => Equal.equals(index, 0)
+
+/** Whether an index is the last of a sequence this long. */
+export const isLast = (index: number, count: number): boolean => Equal.equals(index, Num.decrement(count))
 
 /**
  * A valid signature proves possession of a session key, not who a person is,
@@ -293,7 +320,10 @@ export const markerLabel = (marker: PlaceMarker): string =>
  */
 const verifiedLabel = (fingerprint: string): string => `Verified · key ${keyDigits(fingerprint)}`
 export const signatureLabel = (signature: SignatureRecord): string =>
-  signature.valid ? verifiedLabel(signature.keyFingerprint) : "Signature did not verify"
+  Bool.match(signature.valid, {
+    onTrue: () => verifiedLabel(signature.keyFingerprint),
+    onFalse: () => "Signature did not verify"
+  })
 /** The room a proposal's signature takes before the build: verified, by a key yet to be named. */
 export const signatureLabelShape = verifiedLabel(unknownDigest)
 
@@ -301,16 +331,17 @@ export const signatureLabelShape = verifiedLabel(unknownDigest)
 const signedLabel = (signer: ParticipantRole, fingerprint: string): string =>
   `${participantLabel(signer)} signed · key ${keyDigits(fingerprint)}`
 export const versionSignatureLabel = (signature: SignatureRecord): string =>
-  signature.valid
-    ? signedLabel(signature.signer, signature.keyFingerprint)
-    : `${participantLabel(signature.signer)} signed · did not verify`
+  Bool.match(signature.valid, {
+    onTrue: () => signedLabel(signature.signer, signature.keyFingerprint),
+    onFalse: () => `${participantLabel(signature.signer)} signed · did not verify`
+  })
 /** The room a version's signature takes before the build: the author's, by a key yet to be named. */
 export const versionSignatureLabelShape = signedLabel("author", unknownDigest)
 
 export const signatureFor = (
   signatures: ReadonlyArray<SignatureRecord>,
   subject: string
-): Option.Option<SignatureRecord> => Arr.findFirst(signatures, (signature) => signature.subject === subject)
+): Option.Option<SignatureRecord> => Arr.findFirst(signatures, (signature) => Equal.equals(signature.subject, subject))
 
 /** The version being drawn: the last in the lineage. */
 export const currentVersion = (evidence: PlaceEvidence): Version => Arr.lastNonEmpty(evidence.lineage)
@@ -319,15 +350,18 @@ export const currentVersion = (evidence: PlaceEvidence): Version => Arr.lastNonE
 export const mergedIntoText = (current: VersionShape): string => `In v${String(current.version)}`
 
 export const isCurrentVersion = (evidence: PlaceEvidence, version: Version): boolean =>
-  currentVersion(evidence).contentId === version.contentId
+  Equal.equals(currentVersion(evidence).contentId, version.contentId)
+
+/** The first version in a lineage: the origin. */
+const isOrigin = (shape: VersionShape): boolean => Equal.equals(shape.version, 1)
 
 /** The knot's label: the first version is the origin; every later one is the current version while it is last. */
 export const knotLabel = (shape: VersionShape): string =>
-  `V${String(shape.version)} · ${shape.version === 1 ? "Origin" : "Current"}`
+  `V${String(shape.version)} · ${Bool.match(isOrigin(shape), { onTrue: () => "Origin", onFalse: () => "Current" })}`
 
 /** The version a knot on the strand records, once the build is here: the one of the knot's shape. */
 export const versionOf = (evidence: PlaceEvidence, shape: VersionShape): Option.Option<Version> =>
-  Arr.findFirst(evidence.lineage, (version) => version.version === shape.version)
+  Arr.findFirst(evidence.lineage, (version) => Equal.equals(version.version, shape.version))
 
 const sealedNoteText = (bytes: string): string => `Sealed note · ${bytes} bytes`
 /** The envelope as anyone but the author sees it: sealed, and this big. */
@@ -336,7 +370,7 @@ export const sealedNoteLabel = (note: SealedNote): string => sealedNoteText(Stri
 export const sealedNoteLabelShape = sealedNoteText("000")
 
 /** The text with its spaces taken out: where the lines break — between words or, on a narrow stage, inside one — no longer shows. */
-const lettersOf = (text: string): string => text.replaceAll(/\s+/gu, "")
+const lettersOf = (text: string): string => Str.replaceAll(/\s+/gu, "")(text)
 
 /**
  * The line of the drawn prose where a proposal's sentence begins, once it is
@@ -346,28 +380,35 @@ const lettersOf = (text: string): string => text.replaceAll(/\s+/gu, "")
  * holds its first word. Declined proposals have no line, as they are not in
  * the prose.
  */
-export const proposalAnchorLine = (projection: PlaceProjection, record: ProposalRecord): Option.Option<number> => {
-  if (!record.accepted) return Option.none()
-  const letters = Arr.map(projection.lines, (line) => lettersOf(line.text))
-  const start = Arr.join(letters, "").indexOf(lettersOf(record.proposal.feature.description))
-  // Where each line's letters end in the prose: the sentence begins on the first line that ends past its first letter.
-  const ends = Arr.drop(Arr.scan(letters, 0, (sum, text) => sum + text.length), 1)
-  return start < 0 ? Option.none() : Arr.findFirstIndex(ends, (end) => end > start)
-}
+export const proposalAnchorLine = (projection: PlaceProjection, record: ProposalRecord): Option.Option<number> =>
+  Bool.match(record.accepted, {
+    onFalse: () => Option.none(),
+    onTrue: () => {
+      const letters = Arr.map(projection.lines, (line) => lettersOf(line.text))
+      // Where each line's letters end in the prose: the sentence begins on the first line that ends past its first letter.
+      const ends = Arr.drop(Arr.scan(letters, 0, (sum, text) => Num.sum(sum, Str.length(text))), 1)
+      return Option.flatMap(
+        Str.indexOf(lettersOf(record.proposal.feature.description))(Arr.join(letters, "")),
+        (start) => Arr.findFirstIndex(ends, (end) => Num.greaterThan(end, start))
+      )
+    }
+  })
 
 /** What the version added: the origin's feature count, or each merged proposal with who offered it. */
 export const versionChanges = (offered: ReadonlyArray<OfferedProposal>, shape: VersionShape): ReadonlyArray<string> =>
-  shape.version === 1
-    ? [`${String(shape.featureCount)} features from your brief`]
-    : Arr.map(
-      Arr.filter(offered, (proposal) => proposal.accepted),
-      (proposal) => `+ ${proposal.proposal.feature.name} · ${participantLabel(proposal.proposal.proposer)}`
-    )
+  Bool.match(isOrigin(shape), {
+    onTrue: () => [`${String(shape.featureCount)} features from your brief`],
+    onFalse: () =>
+      Arr.map(
+        Arr.filter(offered, (proposal) => proposal.accepted),
+        (proposal) => `+ ${proposal.proposal.feature.name} · ${participantLabel(proposal.proposal.proposer)}`
+      )
+  })
 
 /** The trial the stage draws: the one chosen from the trace if it exists, else the best. */
 export const shownTrialIndex = (search: PlaceSearch, preview: Option.Option<number>): number =>
   Option.getOrElse(
-    Option.filter(preview, (index) => index >= 0 && index < search.tried.length),
+    Option.filter(preview, (index) => Option.isSome(Arr.get(search.tried, index))),
     () => search.bestIndex
   )
 
@@ -388,6 +429,12 @@ export const searching = (search: PlaceSearch): boolean =>
 const lossOf = (search: PlaceSearch, index: number): Option.Option<number> =>
   Option.map(Arr.get(search.tried, index), (arrangement) => arrangement.quality.loss)
 
+/** Trials are numbered from one for the reader, and from zero in the trace. */
+const trialOrdinal = (index: number): string => String(Num.increment(index))
+
+/** Whether the trial at this index is the one the search kept. */
+export const isKept = (search: PlaceSearch, index: number): boolean => Equal.equals(index, search.bestIndex)
+
 const searchingText = (tried: number): string => `Searching arrangements · ${String(tried)} of ${String(renderTrials)}`
 /** The room the caption takes before the search has started: the search, with nothing tried yet. */
 export const searchCaptionShape = searchingText(0)
@@ -398,18 +445,23 @@ export const searchCaptionShape = searchingText(0)
  * is the word the code panel uses for the same number.
  */
 export const renderProgressText = (search: PlaceSearch, shown: number): string =>
-  searching(search)
-    ? searchingText(search.tried.length)
-    : Option.match(lossOf(search, shown), {
-      onNone: () => `${String(search.tried.length)} arrangements tried`,
-      onSome: (loss) =>
-        shown === search.bestIndex
-          ? `Kept trial ${String(shown + 1)} of ${String(search.tried.length)} · loss ${loss.toFixed(3)}`
-          : `Trial ${String(shown + 1)} of ${String(search.tried.length)} · loss ${loss.toFixed(3)} · not kept`
-    })
+  Bool.match(searching(search), {
+    onTrue: () => searchingText(Arr.length(search.tried)),
+    onFalse: () =>
+      Option.match(lossOf(search, shown), {
+        onNone: () => `${String(Arr.length(search.tried))} arrangements tried`,
+        onSome: (loss) =>
+          Bool.match(isKept(search, shown), {
+            onTrue: () =>
+              `Kept trial ${trialOrdinal(shown)} of ${String(Arr.length(search.tried))} · loss ${loss.toFixed(3)}`,
+            onFalse: () =>
+              `Trial ${trialOrdinal(shown)} of ${String(Arr.length(search.tried))} · loss ${loss.toFixed(3)} · not kept`
+          })
+      })
+  })
 
 /** The way back from a rejected trial: the kept one, by number. */
-export const keptTrialLabel = (search: PlaceSearch): string => `Kept trial ${String(search.bestIndex + 1)}`
+export const keptTrialLabel = (search: PlaceSearch): string => `Kept trial ${trialOrdinal(search.bestIndex)}`
 
 /**
  * What the caption's row says in the search's place when the stage has
@@ -443,10 +495,10 @@ export const stageFailureActionLabel = (failure: StageFailure): string =>
 /** What a screen reader hears for the trace thumb. */
 export const trialValueText = (search: PlaceSearch, index: number): string =>
   Option.match(lossOf(search, index), {
-    onNone: () => `Trial ${String(index + 1)}, not tried yet`,
+    onNone: () => `Trial ${trialOrdinal(index)}, not tried yet`,
     onSome: (loss) =>
-      `Trial ${String(index + 1)} of ${String(search.tried.length)}, loss ${loss.toFixed(3)}${
-        index === search.bestIndex ? ", kept" : ""
+      `Trial ${trialOrdinal(index)} of ${String(Arr.length(search.tried))}, loss ${loss.toFixed(3)}${
+        Bool.match(isKept(search, index), { onTrue: () => ", kept", onFalse: () => "" })
       }`
   })
 
@@ -461,10 +513,13 @@ const presetGapMin = 80
  */
 export const drawablePresets = (presets: ReadonlyArray<number>, maxDrawable: number): ReadonlyArray<number> => {
   const fitting = Arr.append(
-    Arr.filter(presets, (preset) => preset + presetGapMin <= maxDrawable),
+    Arr.filter(presets, (preset) => Num.lessThanOrEqualTo(Num.sum(preset, presetGapMin), maxDrawable)),
     maxDrawable
   )
-  return fitting.length >= 2 ? fitting : []
+  return Bool.match(Num.greaterThanOrEqualTo(Arr.length(fitting), 2), {
+    onTrue: () => fitting,
+    onFalse: () => Arr.empty<number>()
+  })
 }
 
 export const briefCountText = (length: number, max: number): string => `${String(length)} / ${String(max)}`

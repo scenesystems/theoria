@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
 
-import { focusEdgeClassName } from "./designSystem.js"
+import { focusEdgeClassName, respondColorsClassName } from "./designSystem.js"
 import { ExternalLink, InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -13,12 +13,12 @@ const actionControlClassName = (variant: SurfaceVariant): string =>
     Match.when(
       "expanded",
       () =>
-        `inline-flex min-h-8 max-w-full items-center justify-center rounded-lg border px-3.5 py-1.5 text-ink-800 transition-colors duration-150 ease-out ${focusEdgeClassName} disabled:cursor-not-allowed disabled:opacity-60`
+        `inline-flex min-h-8 max-w-full items-center justify-center rounded-control border px-3.5 py-1.5 text-ink ${respondColorsClassName} ${focusEdgeClassName} disabled:cursor-not-allowed disabled:opacity-60`
     ),
     Match.when(
       "compact",
       () =>
-        `inline-flex min-h-9 max-w-full items-center justify-center rounded-lg border px-3.5 py-2 text-ink-800 transition-colors duration-150 ease-out ${focusEdgeClassName} disabled:cursor-not-allowed disabled:opacity-60`
+        `inline-flex min-h-9 max-w-full items-center justify-center rounded-control border px-3.5 py-2 text-ink ${respondColorsClassName} ${focusEdgeClassName} disabled:cursor-not-allowed disabled:opacity-60`
     ),
     Match.exhaustive
   )

@@ -16,4 +16,4 @@ export const ParticipantName = ({
   readonly className?: string
   readonly name: string
   readonly tone: ToneClasses
-}) => <SemanticText as="span" className={`${tone.textStrong} ${className}`} role="tab-label" text={name} />
+}) => <SemanticText as="span" className={`${tone.textStrong} ${className}`} role="button-label" text={name} />

@@ -1,8 +1,12 @@
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
-import { defineConfig, type HtmlTagDescriptor, type Plugin } from "vite"
+import { Boolean as Bool, Match, Option } from "effect"
+import * as Arr from "effect/Array"
+import * as Record from "effect/Record"
+import * as Str from "effect/String"
+import { defineConfig, type HtmlTagDescriptor, type Plugin, type Rollup } from "vite"
 
-const apiPort = process.env.THEORIA_PORT ?? "3876"
+const apiPort = Option.getOrElse(Option.fromNullable(process.env.THEORIA_PORT), () => "3876")
 const vitePort = 5175
 
 /**
@@ -13,9 +17,20 @@ const vitePort = 5175
  * the bundle rather than by hand: the stylesheet's URL and the preload's are
  * the same file, and a version bump moves both.
  */
-const preloadedFaces = ["figtree-latin-wght-normal.woff2", "jetbrains-mono-latin-wght-normal.woff2"]
+const preloadedFaces = ["figtree-latin-wght-normal.woff2", "geist-mono-latin-wght-normal.woff2"]
 
-const isTypeface = (fileName: string): boolean => fileName.endsWith(".woff2")
+const isTypeface = Str.endsWith(".woff2")
+
+/** The emitted asset whose source file is `face`, if the build wrote one. */
+const emittedFace = (emitted: ReadonlyArray<Rollup.OutputAsset | Rollup.OutputChunk>, face: string) =>
+  Arr.findFirst(
+    Arr.filterMap(emitted, (output) =>
+      Match.value(output).pipe(
+        Match.when({ type: "asset" }, (asset) => Option.some(asset)),
+        Match.orElse(() => Option.none())
+      )),
+    (asset) => Arr.some(asset.originalFileNames, Str.endsWith(`/${face}`))
+  )
 
 const preloadTag = (href: string): HtmlTagDescriptor => ({
   tag: "link",
@@ -29,16 +44,19 @@ const preloadTypefaces = (): Plugin => ({
   transformIndexHtml: {
     order: "post",
     handler: (_html, context) => {
-      const emitted = Object.values(context.bundle ?? {})
-      return preloadedFaces.map((face) => {
-        const asset = emitted.find((output) =>
-          output.type === "asset" && output.originalFileNames.some((original) => original.endsWith(`/${face}`))
-        )
-        if (asset === undefined) {
-          throw new Error(`The build emitted no asset for the preloaded face ${face}; is it still declared?`)
-        }
-        return preloadTag(`/${asset.fileName}`)
+      const emitted = Option.match(Option.fromNullable(context.bundle), {
+        onNone: () => Arr.empty<Rollup.OutputAsset | Rollup.OutputChunk>(),
+        onSome: Record.values
       })
+      return Arr.map(preloadedFaces, (face) =>
+        preloadTag(
+          `/${
+            Option.getOrThrowWith(
+              emittedFace(emitted, face),
+              () => new Error(`The build emitted no asset for the preloaded face ${face}; is it still declared?`)
+            ).fileName
+          }`
+        ))
     }
   }
 })
@@ -72,8 +90,9 @@ const chunkGroups = [
  * production build is untouched: `optimizeDeps` applies to `serve` only.
  */
 const prebundledWorkspacePackages = [
-  "@scenesystems/effect-math",
   "@scenesystems/effect-math/Geometry",
+  "@scenesystems/effect-math/LinearAlgebra",
+  "@scenesystems/effect-math/Numeric",
   "@scenesystems/effect-math/Statistics",
   "@scenesystems/effect-search",
   "@scenesystems/effect-text",
@@ -93,7 +112,8 @@ export default defineConfig({
     sourcemap: false,
     // A typeface is never inlined into the stylesheet: a small subset as a data URL would weigh on every
     // page's render-blocking CSS to save a request made only when one of its glyphs is shown.
-    assetsInlineLimit: (fileName) => isTypeface(fileName) ? false : undefined,
+    assetsInlineLimit: (fileName) =>
+      Bool.match(isTypeface(fileName), { onTrue: () => false, onFalse: () => undefined }),
     rolldownOptions: {
       output: {
         codeSplitting: {
