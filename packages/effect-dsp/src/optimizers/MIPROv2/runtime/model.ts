@@ -64,10 +64,10 @@ export class PredictorBinding extends Data.Class<{
  * @category models
  * @see {@link Phase3Config}
  */
-export class BestAveragingCandidate extends Data.Class<{
-  readonly config: Phase3Config
-  readonly score: number
-}> {}
+export class BestAveragingCandidate extends Schema.Class<BestAveragingCandidate>("MIPROv2BestAveragingCandidate")({
+  config: Phase3Config,
+  score: Schema.Number
+}) {}
 
 /**
  * Derives the search-space dimension name for a predictor's demo candidates.

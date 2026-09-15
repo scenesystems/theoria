@@ -4,9 +4,11 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Match, Stream } from "effect"
+import { Array as Arr, Boolean as Bool, Inspectable, Match, Number as Num, Schema, Stream, String as Str } from "effect"
 import type { Effect } from "effect"
-import type { MIPROv2Event } from "./events.js"
+import { type MIPROv2Event, MIPROv2EventSchema } from "./events.js"
+
+const MIPROv2EventTag = Schema.typeSchema(Schema.pluck(MIPROv2EventSchema, "_tag"))
 
 /**
  * Carries a MIPROv2 event tag with progress text that omits complete instructions.
@@ -14,43 +16,56 @@ import type { MIPROv2Event } from "./events.js"
  * @since 0.1.0
  * @category models
  */
-export class MIPROv2ProgressLine extends Data.Class<{
+export class MIPROv2ProgressLine extends Schema.Class<MIPROv2ProgressLine>("MIPROv2ProgressLine")({
   /** Original event discriminator. */
-  readonly tag: MIPROv2Event["_tag"]
+  tag: MIPROv2EventTag,
   /** Space-separated key-value fields selected for display. */
-  readonly details: string
+  details: Schema.String,
   /** Event tag followed by `details` when details are present. */
-  readonly text: string
-}> {}
+  text: Schema.String
+}) {}
+
+const renderValue = (label: string, value: unknown): string => Str.concat(label, Inspectable.toStringUnknown(value))
+
+const joinDetails = (details: Iterable<string>): string => Arr.join(Arr.fromIterable(details), " ")
 
 const toProgressLine = (
   tag: MIPROv2ProgressLine["tag"],
   details: string
-): MIPROv2ProgressLine => ({
-  tag,
-  details,
-  text: details.length > 0
-    ? `${tag} ${details}`
-    : tag
-})
+): MIPROv2ProgressLine =>
+  new MIPROv2ProgressLine({
+    tag,
+    details,
+    text: Bool.match(Str.isNonEmpty(details), {
+      onFalse: () => tag,
+      onTrue: () => Str.concat(Str.concat(tag, " "), details)
+    })
+  })
 
 const detailsFromEvent = (event: MIPROv2Event): string =>
   Match.value(event).pipe(
-    Match.tag("Phase1Started", ({ numCandidates }) => `numCandidates=${numCandidates}`),
+    Match.tag("Phase1Started", ({ numCandidates }) => renderValue("numCandidates=", numCandidates)),
     Match.tag("DemoCandidate", ({ predictorIndex, candidateIndex }) =>
-      `predictorIndex=${predictorIndex} candidateIndex=${candidateIndex}`),
-    Match.tag("Phase1Completed", ({ totalCandidates }) =>
-      `totalCandidates=${totalCandidates}`),
-    Match.tag("Phase2Started", ({ numInstructions }) => `numInstructions=${numInstructions}`),
+      joinDetails(
+        Arr.make(renderValue("predictorIndex=", predictorIndex), renderValue("candidateIndex=", candidateIndex))
+      )),
+    Match.tag("Phase1Completed", ({ totalCandidates }) => renderValue("totalCandidates=", totalCandidates)),
+    Match.tag("Phase2Started", ({ numInstructions }) => renderValue("numInstructions=", numInstructions)),
     Match.tag("InstructionProposed", ({ predictorIndex, instruction }) =>
-      `predictorIndex=${predictorIndex} instructionLength=${instruction.length}`),
-    Match.tag("Phase2Completed", ({ totalInstructions }) =>
-      `totalInstructions=${totalInstructions}`),
-    Match.tag("Phase3Started", ({ numTrials }) =>
-      `numTrials=${numTrials}`),
-    Match.tag("TrialEvaluated", ({ trial, score }) => `trial=${trial} score=${score}`),
-    Match.tag("FullEvalCompleted", ({ bestScore }) => `bestScore=${bestScore}`),
-    Match.tag("Phase3Completed", ({ bestScore, totalTrials }) => `bestScore=${bestScore} totalTrials=${totalTrials}`),
+      joinDetails(
+        Arr.make(
+          renderValue("predictorIndex=", predictorIndex),
+          renderValue("instructionLength=", Str.length(instruction))
+        )
+      )),
+    Match.tag("Phase2Completed", ({ totalInstructions }) => renderValue("totalInstructions=", totalInstructions)),
+    Match.tag("Phase3Started", ({ numTrials }) => renderValue("numTrials=", numTrials)),
+    Match.tag("TrialEvaluated", ({ trial, score }) =>
+      joinDetails(Arr.make(renderValue("trial=", trial), renderValue("score=", score)))),
+    Match.tag("FullEvalCompleted", ({ bestScore }) =>
+      renderValue("bestScore=", bestScore)),
+    Match.tag("Phase3Completed", ({ bestScore, totalTrials }) =>
+      joinDetails(Arr.make(renderValue("bestScore=", bestScore), renderValue("totalTrials=", totalTrials)))),
     Match.exhaustive
   )
 
@@ -111,32 +126,32 @@ export const tapMIPROv2Progress =
  * @since 0.1.0
  * @category models
  */
-export class MIPROv2EventSummary extends Data.Class<{
+export class MIPROv2EventSummary extends Schema.Class<MIPROv2EventSummary>("MIPROv2EventSummary")({
   /** Number of input events across all tags. */
-  readonly totalEvents: number
+  totalEvents: Schema.Number,
   /** Number of `DemoCandidate` events. */
-  readonly demoCandidateCount: number
+  demoCandidateCount: Schema.Number,
   /** Number of `InstructionProposed` events, including emitted baselines. */
-  readonly instructionProposedCount: number
+  instructionProposedCount: Schema.Number,
   /** Number of minibatch `TrialEvaluated` events. */
-  readonly trialEvaluatedCount: number
+  trialEvaluatedCount: Schema.Number,
   /** Number of `FullEvalCompleted` events. */
-  readonly fullEvalCompletedCount: number
+  fullEvalCompletedCount: Schema.Number,
   /** Whether a `Phase3Started` event was observed. */
-  readonly phase3StartedSeen: boolean
+  phase3StartedSeen: Schema.Boolean,
   /** Whether a `Phase3Completed` event was observed. */
-  readonly phase3CompletedSeen: boolean
+  phase3CompletedSeen: Schema.Boolean,
   /** Trial count from the most recent `Phase3Started` event. */
-  readonly phase3ConfiguredTrials: number
+  phase3ConfiguredTrials: Schema.Number,
   /** Trial count from the most recent `Phase3Completed` event. */
-  readonly phase3CompletedTrials: number
+  phase3CompletedTrials: Schema.Number,
   /** Whether any trial, full-set, or completion score was observed. */
-  readonly phase3BestScoreSeen: boolean
+  phase3BestScoreSeen: Schema.Boolean,
   /** Maximum score across all observed Phase 3 score-bearing events. */
-  readonly phase3BestScore: number
-}> {}
+  phase3BestScore: Schema.Number
+}) {}
 
-const EMPTY_MIPROV2_EVENT_SUMMARY: MIPROv2EventSummary = {
+const EMPTY_MIPROV2_EVENT_SUMMARY = new MIPROv2EventSummary({
   totalEvents: 0,
   demoCandidateCount: 0,
   instructionProposedCount: 0,
@@ -148,69 +163,74 @@ const EMPTY_MIPROV2_EVENT_SUMMARY: MIPROv2EventSummary = {
   phase3CompletedTrials: 0,
   phase3BestScoreSeen: false,
   phase3BestScore: 0
-}
+})
 
 const withBestScore = (
   summary: MIPROv2EventSummary,
   candidateScore: number
-): MIPROv2EventSummary => ({
-  ...summary,
-  phase3BestScoreSeen: true,
-  phase3BestScore: summary.phase3BestScoreSeen
-    ? Numeric.max(summary.phase3BestScore, candidateScore)
-    : candidateScore
-})
+): MIPROv2EventSummary =>
+  new MIPROv2EventSummary({
+    ...summary,
+    phase3BestScoreSeen: true,
+    phase3BestScore: Bool.match(summary.phase3BestScoreSeen, {
+      onFalse: () => candidateScore,
+      onTrue: () => Numeric.max(summary.phase3BestScore, candidateScore)
+    })
+  })
 
 const summarizeEvent = (
   summary: MIPROv2EventSummary,
   event: MIPROv2Event
 ): MIPROv2EventSummary => {
-  const incremented: MIPROv2EventSummary = {
+  const incremented = new MIPROv2EventSummary({
     ...summary,
-    totalEvents: summary.totalEvents + 1
-  }
+    totalEvents: Num.increment(summary.totalEvents)
+  })
 
   return Match.value(event).pipe(
     Match.tag("Phase1Started", () => incremented),
-    Match.tag("DemoCandidate", () => ({
-      ...incremented,
-      demoCandidateCount: incremented.demoCandidateCount + 1
-    })),
+    Match.tag("DemoCandidate", () =>
+      new MIPROv2EventSummary({
+        ...incremented,
+        demoCandidateCount: Num.increment(incremented.demoCandidateCount)
+      })),
     Match.tag("Phase1Completed", () => incremented),
     Match.tag("Phase2Started", () => incremented),
-    Match.tag("InstructionProposed", () => ({
-      ...incremented,
-      instructionProposedCount: incremented.instructionProposedCount + 1
-    })),
+    Match.tag("InstructionProposed", () =>
+      new MIPROv2EventSummary({
+        ...incremented,
+        instructionProposedCount: Num.increment(incremented.instructionProposedCount)
+      })),
     Match.tag("Phase2Completed", () => incremented),
-    Match.tag("Phase3Started", ({ numTrials }) => ({
-      ...incremented,
-      phase3StartedSeen: true,
-      phase3ConfiguredTrials: numTrials
-    })),
+    Match.tag("Phase3Started", ({ numTrials }) =>
+      new MIPROv2EventSummary({
+        ...incremented,
+        phase3StartedSeen: true,
+        phase3ConfiguredTrials: numTrials
+      })),
     Match.tag("TrialEvaluated", ({ score }) =>
       withBestScore(
-        {
+        new MIPROv2EventSummary({
           ...incremented,
-          trialEvaluatedCount: incremented.trialEvaluatedCount + 1
-        },
+          trialEvaluatedCount: Num.increment(incremented.trialEvaluatedCount)
+        }),
         score
       )),
     Match.tag("FullEvalCompleted", ({ bestScore }) =>
       withBestScore(
-        {
+        new MIPROv2EventSummary({
           ...incremented,
-          fullEvalCompletedCount: incremented.fullEvalCompletedCount + 1
-        },
+          fullEvalCompletedCount: Num.increment(incremented.fullEvalCompletedCount)
+        }),
         bestScore
       )),
     Match.tag("Phase3Completed", ({ bestScore, totalTrials }) =>
       withBestScore(
-        {
+        new MIPROv2EventSummary({
           ...incremented,
           phase3CompletedSeen: true,
           phase3CompletedTrials: totalTrials
-        },
+        }),
         bestScore
       )),
     Match.exhaustive
@@ -231,5 +251,5 @@ const summarizeEvent = (
  * @category combinators
  */
 export const summarizeMIPROv2Events = (
-  events: ReadonlyArray<MIPROv2Event>
+  events: Iterable<MIPROv2Event>
 ): MIPROv2EventSummary => Arr.reduce(events, EMPTY_MIPROV2_EVENT_SUMMARY, summarizeEvent)

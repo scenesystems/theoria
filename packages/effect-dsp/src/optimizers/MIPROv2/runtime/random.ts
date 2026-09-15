@@ -6,6 +6,9 @@
  * @internal
  */
 import * as Sampler from "@scenesystems/effect-search/Sampler"
+import type { Schema } from "effect"
+
+type ImmutableArray<A> = Schema.Array$<Schema.Schema<A>>["Type"]
 
 /**
  * Normalizes a seed to a deterministic positive integer suitable for
@@ -32,7 +35,7 @@ export const normalizeCount = (value: number): number => Sampler.normalizePositi
  * @since 0.1.0
  * @category constructors
  */
-export const buildIndices = (count: number): ReadonlyArray<number> => Sampler.buildIndices(count)
+export const buildIndices = (count: number): Schema.Array$<typeof Schema.Number>["Type"] => Sampler.buildIndices(count)
 
 /**
  * Deterministically shuffles an array using a seeded permutation.
@@ -42,7 +45,7 @@ export const buildIndices = (count: number): ReadonlyArray<number> => Sampler.bu
  * @since 0.1.0
  * @category utils
  */
-export const shuffleBySeed = <A>(values: ReadonlyArray<A>, seed: number): ReadonlyArray<A> =>
+export const shuffleBySeed = <A>(values: ImmutableArray<A>, seed: number): ImmutableArray<A> =>
   Sampler.shuffleBySeed(values, seed)
 
 /**

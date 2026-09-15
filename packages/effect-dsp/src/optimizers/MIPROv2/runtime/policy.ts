@@ -5,8 +5,11 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Inspectable, Number as Num, Option } from "effect"
+import type { Schema } from "effect"
 import { buildIndices, normalizeCount, normalizeSeed } from "./random.js"
+
+type TipVocabulary = Schema.Array$<typeof Schema.String>["Type"]
 
 /**
  * Built-in diversity tip vocabulary used when no custom tips are supplied.
@@ -52,8 +55,10 @@ export const resolveSeed = (seed?: number): number =>
  * @since 0.1.0
  * @category helpers
  */
-export const proposalIndices = (requestedInstructionCount: number): ReadonlyArray<number> =>
-  buildIndices(Numeric.max(0, normalizeInstructionCount(requestedInstructionCount) - 1))
+export const proposalIndices = (
+  requestedInstructionCount: number
+): Schema.Array$<typeof Schema.Number>["Type"] =>
+  buildIndices(Numeric.max(0, Num.subtract(normalizeInstructionCount(requestedInstructionCount), 1)))
 
 /**
  * Returns the provided tip vocabulary when non-empty, otherwise falls back
@@ -62,9 +67,9 @@ export const proposalIndices = (requestedInstructionCount: number): ReadonlyArra
  * @since 0.1.0
  * @category utils
  */
-export const resolveTipVocabulary = (tipVocabulary?: ReadonlyArray<string>): ReadonlyArray<string> =>
+export const resolveTipVocabulary = (tipVocabulary?: TipVocabulary): TipVocabulary =>
   Option.getOrElse(
-    Option.filter(Option.fromNullable(tipVocabulary), (vocabulary) => vocabulary.length > 0),
+    Option.filter(Option.fromNullable(tipVocabulary), Arr.isNonEmptyReadonlyArray),
     () => DEFAULT_TIP_VOCABULARY
   )
 
@@ -75,9 +80,9 @@ export const resolveTipVocabulary = (tipVocabulary?: ReadonlyArray<string>): Rea
  * @since 0.1.0
  * @category helpers
  */
-export const tipAt = (tips: ReadonlyArray<string>, index: number): string =>
+export const tipAt = (tips: TipVocabulary, index: number): string =>
   Option.getOrElse(
-    Arr.get(tips, index % tips.length),
+    Arr.get(tips, Num.remainder(index, Arr.length(tips))),
     () => "none"
   )
 
@@ -90,7 +95,18 @@ export const tipAt = (tips: ReadonlyArray<string>, index: number): string =>
  * @category helpers
  */
 export const proposalMarker = (predictorName: string, proposalIndex: number, seed: number): string =>
-  `[miprov2-proposal:${predictorName}:${proposalIndex}:seed:${seed}]`
+  Arr.join(
+    Arr.make(
+      "[miprov2-proposal:",
+      predictorName,
+      ":",
+      Inspectable.toStringUnknown(proposalIndex),
+      ":seed:",
+      Inspectable.toStringUnknown(seed),
+      "]"
+    ),
+    ""
+  )
 
 /**
  * Resolves an optional diversity temperature, defaulting to `1` when

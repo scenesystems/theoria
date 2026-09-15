@@ -6,8 +6,33 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Match, Option } from "effect"
+import { Match, Number as Num, Option, Schema } from "effect"
 import { normalizeSeed } from "./random.js"
+
+const Phase3TrialBudgetOptions = Schema.Struct({
+  predictorCount: Schema.Number,
+  demoCandidateCount: Schema.Number,
+  instructionCandidateCount: Schema.Number,
+  minimum: Schema.optional(Schema.Number)
+})
+
+type Phase3TrialBudgetOptions = typeof Phase3TrialBudgetOptions.Type
+
+const Phase3CadenceOptions = Schema.Struct({
+  seed: Schema.optional(Schema.Number),
+  minibatchSize: Schema.optional(Schema.Number),
+  fullEvalEvery: Schema.optional(Schema.Number)
+})
+
+type Phase3CadenceOptions = typeof Phase3CadenceOptions.Type
+
+const Phase3Cadence = Schema.Struct({
+  seed: Schema.Number,
+  minibatchSize: Schema.Number,
+  fullEvalEvery: Schema.Number
+})
+
+type Phase3Cadence = typeof Phase3Cadence.Type
 
 /**
  * Converts a finite value to a positive integer. Fractional values round down;
@@ -23,7 +48,7 @@ export const normalizePositive = (value: number, fallback: number): number => {
   )
 
   return Match.value(integer).pipe(
-    Match.when((candidate) => candidate <= 0, () => fallback),
+    Match.when(Num.lessThanOrEqualTo(0), () => fallback),
     Match.orElse((candidate) => candidate)
   )
 }
@@ -39,12 +64,7 @@ export const normalizePositive = (value: number, fallback: number): number => {
  * @since 0.1.0
  * @category utils
  */
-export const phase3TrialBudget = (options: {
-  readonly predictorCount: number
-  readonly demoCandidateCount: number
-  readonly instructionCandidateCount: number
-  readonly minimum?: number
-}): number => {
+export const phase3TrialBudget = (options: Phase3TrialBudgetOptions): number => {
   const safePredictorCount = normalizePositive(options.predictorCount, 1)
   const safeCandidateCount = Numeric.max(
     1,
@@ -53,8 +73,8 @@ export const phase3TrialBudget = (options: {
       normalizePositive(options.instructionCandidateCount, 1)
     )
   )
-  const logarithmicBudget = 2 * safePredictorCount * Numeric.log(safeCandidateCount)
-  const explorationBudget = (3 * safeCandidateCount) / 2
+  const logarithmicBudget = Num.multiply(Num.multiply(2, safePredictorCount), Numeric.log(safeCandidateCount))
+  const explorationBudget = Num.multiply(Num.multiply(3, safeCandidateCount), 0.5)
 
   return Numeric.max(
     normalizePositive(Option.getOrElse(Option.fromNullable(options.minimum), () => 1), 1),
@@ -72,11 +92,7 @@ export const phase3TrialBudget = (options: {
  * @since 0.1.0
  * @category utils
  */
-export const resolvePhase3Cadence = (options: {
-  readonly seed?: number
-  readonly minibatchSize?: number
-  readonly fullEvalEvery?: number
-}) => ({
+export const resolvePhase3Cadence = (options: Phase3CadenceOptions): Phase3Cadence => ({
   seed: normalizeSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 1)),
   minibatchSize: normalizePositive(Option.getOrElse(Option.fromNullable(options.minibatchSize), () => 50), 1),
   fullEvalEvery: normalizePositive(Option.getOrElse(Option.fromNullable(options.fullEvalEvery), () => 5), 1)
