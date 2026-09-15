@@ -53,6 +53,34 @@ import { SiteLive } from "./site.js"
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria docs in Chromium",
   (it) => {
+    it.scoped("the package picker keeps its field height when API navigation overflows the sidebar", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* Effect.forEach([1200, 720, 500], (height) =>
+          Effect.gen(function*() {
+            yield* setViewport(page, { width: 1440, height })
+            yield* goto(page, "/docs/digest")
+            const sidebar = page.getByRole("complementary", { name: "Documentation navigation" })
+            const picker = sidebar.getByRole("button", { name: "Choose package" })
+            yield* visible(picker)
+            expect((yield* act(() => picker.evaluate(boxOf))).height, `overview at ${String(height)}px`).toBe(44)
+
+            yield* click(sidebar.getByRole("link", { name: "API reference", exact: true }))
+            yield* urlMatches(page, /\/docs\/digest\/api$/u)
+            yield* visible(sidebar.getByRole("link", { name: "algorithms/blake3", exact: true }))
+            const box = yield* act(() => picker.evaluate(boxOf))
+            expect(box.height, `expanded API navigation at ${String(height)}px`).toBe(44)
+            expect(yield* act(() => picker.evaluate(textFitsBox))).toBe(true)
+
+            yield* click(picker)
+            yield* visible(page.getByRole("menu"))
+            yield* click(page.getByRole("menuitem").filter({ hasText: "@scenesystems/effect-math" }))
+            yield* urlMatches(page, /\/docs\/effect-math$/u)
+            expect(yield* fitsViewport(page)).toBe(true)
+          }))
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("docs chrome reaches both edges and the package index shares the header's left alignment", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })

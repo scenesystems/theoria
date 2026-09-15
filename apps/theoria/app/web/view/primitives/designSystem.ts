@@ -366,7 +366,7 @@ export const iconButtonClassName =
 
 /** The control that opens a search or a picker: a field's height, paper that firms under the pointer. */
 export const pickerTriggerClassName =
-  `flex h-11 min-w-0 items-center gap-2.5 rounded-instrument border border-hairline-veil bg-paper-glass px-3 text-ink-tertiary shadow-chip transition-[border-color,background-color,color] ${
+  `flex h-11 min-w-0 shrink-0 items-center gap-2.5 rounded-instrument border border-hairline-veil bg-paper-glass px-3 text-ink-tertiary shadow-chip transition-[border-color,background-color,color] ${
     transitionClassName("respond")
   } hover:border-hairline-strong hover:bg-paper-veil hover:text-ink active:bg-instrument ${focusClassName}`
 
