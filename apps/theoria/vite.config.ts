@@ -72,7 +72,6 @@ const chunkGroups = [
  * production build is untouched: `optimizeDeps` applies to `serve` only.
  */
 const prebundledWorkspacePackages = [
-  "@scenesystems/effect-math",
   "@scenesystems/effect-math/Geometry",
   "@scenesystems/effect-math/LinearAlgebra",
   "@scenesystems/effect-math/Numeric",

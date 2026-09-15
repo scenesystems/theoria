@@ -1,24 +1,17 @@
 import { Command, FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Console, Effect, Option, Schema } from "effect"
+import { Boolean as Bool, Console, Effect, Equal, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
+import { mark } from "../app/contracts/brand.js"
 import { siteMetadata } from "../app/contracts/metadata.js"
-import {
-  type Face,
-  favicon,
-  Fonts,
-  type Mark,
-  packageCard,
-  palette,
-  siteCard,
-  solidIcon
-} from "./social-assets/cards.js"
+import { favicon, Fonts, packageCard, siteCard, solidIcon } from "./social-assets/cards.js"
 
 /**
- * Renders the committed share images and icons under `public/` from the
- * canonical mark in `public/favicon.svg`:
+ * Renders the committed share images and icons under `public/` from the mark
+ * in the brand contract (`app/contracts/brand.ts`), which `gen:brand-assets`
+ * also writes as `public/favicon.svg`:
  *
  *   social/theoria.png     1200×630 site card (Open Graph / Twitter)
  *   social/<slug>.png      1200×630 card per published package
@@ -35,33 +28,8 @@ import {
 const PackageManifest = Schema.parseJson(Schema.Struct({
   name: Schema.String,
   description: Schema.String,
-  private: Schema.optional(Schema.Boolean)
+  private: Schema.optionalWith(Schema.Boolean, { as: "Option" })
 }))
-
-const polygonPattern = /<polygon fill-opacity="([0-9.]+)" points="([^"]+)"/gu
-const viewBoxPattern = /viewBox="([^"]+)"/u
-
-const numbers = (text: string): ReadonlyArray<number> => Arr.map(text.trim().split(/[\s,]+/u), Number)
-
-const parseFace = (match: RegExpMatchArray): Face => {
-  const coordinates = numbers(match[2] ?? "")
-  return {
-    fillOpacity: Number(match[1]),
-    points: Arr.map(Arr.chunksOf(coordinates, 2), ([x = 0, y = 0]) => [x, y])
-  }
-}
-
-const parseMark = (svg: string): Effect.Effect<Mark> =>
-  Option.match(Option.fromNullable(svg.match(viewBoxPattern)?.[1]), {
-    onNone: () => Effect.dieMessage("favicon.svg has no viewBox"),
-    onSome: (viewBox) => {
-      const [x = 0, y = 0, width = 1, height = 1] = numbers(viewBox)
-      return Effect.succeed({
-        viewBox: { x, y, width, height },
-        faces: Arr.map(Arr.fromIterable(svg.matchAll(polygonPattern)), parseFace)
-      })
-    }
-  })
 
 const magick = (args: ReadonlyArray<string>, cwd: string) =>
   Effect.gen(function*() {
@@ -70,44 +38,12 @@ const magick = (args: ReadonlyArray<string>, cwd: string) =>
       Command.stderr("inherit"),
       Command.exitCode
     )
-    return yield* Number(exitCode) === 0
-      ? Effect.void
-      : Effect.dieMessage(`magick exited with ${String(exitCode)} for ${Arr.join(Arr.takeRight(args, 1), "")}`)
+    return yield* Bool.match(Equal.equals(exitCode, 0), {
+      onTrue: () => Effect.void,
+      onFalse: () =>
+        Effect.dieMessage(`magick exited with ${String(exitCode)} for ${Arr.join(Arr.takeRight(args, 1), "")}`)
+    })
   })
-
-const WebManifest = Schema.parseJson(
-  Schema.Struct({
-    name: Schema.String,
-    short_name: Schema.String,
-    description: Schema.String,
-    start_url: Schema.String,
-    display: Schema.String,
-    background_color: Schema.String,
-    theme_color: Schema.String,
-    icons: Schema.Array(Schema.Struct({
-      src: Schema.String,
-      sizes: Schema.String,
-      type: Schema.String,
-      purpose: Schema.String
-    }))
-  }),
-  { space: 2 }
-)
-
-const webManifest = (description: string) =>
-  Schema.encode(WebManifest)({
-    name: siteMetadata.siteName,
-    short_name: siteMetadata.siteName,
-    description,
-    start_url: "/",
-    display: "browser",
-    background_color: palette.stage,
-    theme_color: palette.stage,
-    icons: [
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
-    ]
-  }).pipe(Effect.map((json) => `${json}\n`))
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
@@ -123,14 +59,17 @@ const program = Effect.gen(function*() {
   })
   const host = yield* Effect.map(Url.fromString(siteMetadata.siteUrl), (url) => url.host)
 
-  const mark = yield* fileSystem.readFileString(path.join(publicRoot, "favicon.svg")).pipe(Effect.flatMap(parseMark))
-
   const packageDirectories = yield* fileSystem.readDirectory(path.join(repositoryRoot, "packages"))
   const packages = yield* Effect.forEach(Arr.sort(packageDirectories, Str.Order), (slug) => {
     const manifestPath = path.join(repositoryRoot, "packages", slug, "package.json")
     return fileSystem.readFileString(manifestPath).pipe(
       Effect.flatMap(Schema.decode(PackageManifest)),
-      Effect.map((manifest) => manifest.private === true ? Option.none() : Option.some({ slug, ...manifest })),
+      Effect.map((manifest) =>
+        Bool.match(Option.getOrElse(manifest.private, () => false), {
+          onTrue: Option.none,
+          onFalse: () => Option.some({ slug, name: manifest.name, description: manifest.description })
+        })
+      ),
       // Entries under packages/ that are not package directories (`.gitkeep`).
       Effect.catchTag("SystemError", () => Effect.succeedNone)
     )
@@ -156,12 +95,8 @@ const program = Effect.gen(function*() {
   ]
 
   yield* Effect.forEach(jobs, (args) => magick(args, publicRoot), { concurrency: 4 })
-  yield* fileSystem.writeFileString(
-    path.join(publicRoot, "manifest.webmanifest"),
-    yield* webManifest(siteMetadata.defaultDescription)
-  )
 
-  yield* Console.log(`Rendered ${String(jobs.length)} images and manifest.webmanifest into ${publicRoot}`)
+  yield* Console.log(`Rendered ${String(Arr.length(jobs))} images into ${publicRoot}`)
 })
 
 BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

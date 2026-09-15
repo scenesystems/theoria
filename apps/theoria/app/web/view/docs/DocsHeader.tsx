@@ -49,7 +49,7 @@ export const DocsHeader = ({
             className={`inline-flex min-w-0 items-baseline text-ink ${focusClassName}`}
             href="/"
           >
-            <TheoriaLogo className="text-[1.55rem] sm:text-[1.7rem]" />
+            <TheoriaLogo animation="none" className="text-[1.55rem] sm:text-[1.7rem]" />
           </InternalLink>
           <Layer className="hidden h-5 w-px bg-hairline-strong sm:block" />
           <InternalLink

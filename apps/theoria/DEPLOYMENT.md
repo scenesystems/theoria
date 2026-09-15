@@ -238,12 +238,17 @@ the same manifest: each package links its README as raw markdown at the
 documented revision and its docs overview page. HTML responses carry
 `Link: </llms.txt>; rel="describedby"`. `/robots.txt` is static.
 
-Share images and icons under `public/` (`social/*.png`, `apple-touch-icon.png`,
-`icon-*.png`, `favicon.ico`, `manifest.webmanifest`) are committed files
-rendered from `public/favicon.svg` by `bun run gen:social-assets`, which needs
-ImageMagick 7 (`magick`) on the machine that runs it. Re-run it after changing
-the mark, the site description, or a package's `package.json` description, and
-commit the output.
+The brand contract (`app/contracts/brand.ts`: the mark's geometry and the
+canvas and ink it is painted in) renders every brand artefact. `bun run
+gen:brand-assets` writes `public/favicon.svg`, `public/manifest.webmanifest`
+and the `theme-color` metas in `index.html`; `bun run gen:social-assets`
+renders the committed rasters under `public/` (`social/*.png`,
+`apple-touch-icon.png`, `icon-*.png`, `favicon.ico`) from the same mark and
+palette, and needs ImageMagick 7 (`magick`) on the machine that runs it. Re-run
+both after changing the mark or the palette's canvas and ink, and the second
+after changing the site description or a package's `package.json` description;
+commit the output. `test/contracts/brand.contract.test.ts` holds the text
+artefacts to their renderings.
 
 ### Local commands
 

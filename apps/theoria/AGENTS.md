@@ -35,8 +35,9 @@ React + Tailwind CSS v4 + effect-atom application showcasing Scene Systems packa
 8. **No inline styles for colors** — use CSS vars via className: `bg-(--my-var)`.
 9. **No Tailwind scale for radii, motion, stacking or widths** — a view wears `rounded-mark|control|instrument|sheet` (or `surfaceClassName(role)`), `transitionClassName(relation)` / `respondColorsClassName`, `elevationClassName(layer)`, `measureClassName(measure)` and `focusClassName`; never `rounded-xl`, `duration-150`, `ease-out`, `z-[80]`, `max-w-[88rem]` or `ring-ink/20`. The tokens come from `contracts/layout.ts` and `contracts/motion.ts` through `layoutTokens.ts`; an eslint rule (`eslint/effect/design-tokens.mjs`) holds this in `app/web`.
 10. **No alpha modifiers on colours** — a colour's translucency is one of the palette contract's levels, `solid | veil | glass | mist` (`contracts/palette.ts` `Translucency`), worn as the level's own utility: `bg-paper-veil`, `border-hairline-glass`, `bg-ink-strong-mist`; never `bg-paper/86`. The same eslint rule holds this in `app/web`; the contract test holds every ink to AA over every translucent surface.
-11. **No `forwardRef`** — React 19: `ref` is a prop.
-12. **Schema is single source of truth** — all types derive from Schema. No `as` assertions, no `satisfies`.
+11. **No brand colour or geometry outside the brand contract** — `index.html` `theme-color`, `manifest.webmanifest`, `favicon.svg`, the raster icons and share cards, and `TheoriaLogo` all follow `contracts/brand.ts` (the mark, and `brandColor("canvas"|"ink", mode)` = the palette's role). Change the contract, run `bun run gen:brand-assets` then `bun run gen:social-assets`, and commit; never edit an artefact by hand. `test/contracts/brand.contract.test.ts` holds each text artefact to its rendering.
+12. **No `forwardRef`** — React 19: `ref` is a prop.
+13. **Schema is single source of truth** — all types derive from Schema. No `as` assertions, no `satisfies`.
 
 ---
 

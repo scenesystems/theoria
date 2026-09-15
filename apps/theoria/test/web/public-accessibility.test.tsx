@@ -29,7 +29,7 @@ describe("public-site accessibility", () => {
     Effect.gen(function*() {
       const { container } = yield* mountReact(
         <>
-          <TheoriaLogo />
+          <TheoriaLogo animation="none" />
           <TheoriaLogo animation="glossary" />
         </>
       )
