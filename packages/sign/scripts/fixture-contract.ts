@@ -62,6 +62,34 @@ export const MlDsa65Fixture = Schema.parseJson(
   })
 )
 
+export const RsaWycheproofFixture = Schema.parseJson(Schema.Struct({
+  testGroups: Schema.NonEmptyArray(Schema.Struct({
+    keyJwk: Schema.Struct({ kty: Schema.Literal("RSA"), n: Schema.NonEmptyString, e: Schema.NonEmptyString }),
+    tests: Schema.NonEmptyArray(Schema.Struct({
+      tcId: Schema.Int.pipe(Schema.positive()),
+      msg: Hex,
+      sig: Hex,
+      result: Schema.Literal("valid", "invalid", "acceptable")
+    }))
+  }))
+}))
+
+export const RsaOpenSslFixture = Schema.parseJson(Schema.Struct({
+  generator: Schema.NonEmptyString,
+  groups: Schema.NonEmptyArray(Schema.Struct({
+    name: Schema.NonEmptyString,
+    bits: Schema.Int.pipe(Schema.positive()),
+    jwk: Schema.Struct({ kty: Schema.Literal("RSA"), n: Schema.NonEmptyString, e: Schema.NonEmptyString }),
+    cases: Schema.NonEmptyArray(Schema.Struct({
+      name: Schema.NonEmptyString,
+      message: Hex,
+      signature: Hex,
+      alteredMessage: Hex,
+      alteredSignature: Hex
+    }))
+  }))
+}))
+
 const Sha256Hex = Schema.String.pipe(Schema.pattern(/^[a-f0-9]{64}$/))
 const Source = Schema.Struct({
   locator: Schema.String.pipe(Schema.pattern(/^https:\/\//)),
@@ -70,30 +98,48 @@ const Source = Schema.Struct({
   selector: Schema.NonEmptyString
 })
 
+const VerdictRemap = Schema.Union(
+  Schema.Struct({ caseIds: Schema.NonEmptyArray(Schema.NonEmptyString) }),
+  Schema.Struct({ tcId: Schema.Int.pipe(Schema.positive()) }),
+  Schema.Struct({ tcIds: Schema.NonEmptyArray(Schema.Int.pipe(Schema.positive())) })
+).pipe(Schema.extend(Schema.Struct({
+  upstreamResult: Schema.NonEmptyString,
+  localVerdict: StrictVerdict,
+  reason: Schema.NonEmptyString
+})))
+
+export const ConformancePayload = Schema.Struct({
+  file: Schema.Literal(
+    "ed25519.json",
+    "p256.json",
+    "ml-dsa-65.json",
+    "rsa-wycheproof.json",
+    "rsa-openssl.json",
+    "jwt-openssl.json",
+    "jwt-access-openssl.json"
+  ),
+  sha256: Sha256Hex,
+  sources: Schema.NonEmptyArray(Source),
+  licenseNotice: Schema.NonEmptyString,
+  transformations: Schema.NonEmptyArray(Schema.NonEmptyString),
+  exclusions: Schema.Array(Schema.NonEmptyString),
+  localVerdictRemaps: Schema.Array(VerdictRemap)
+})
+
 export const ConformanceManifest = Schema.parseJson(
   Schema.Struct({
     schema: Schema.Literal("@scenesystems/sign conformance provenance manifest v1"),
-    retrievalDate: Schema.Literal("2026-07-30"),
-    payloads: Schema.NonEmptyArray(
-      Schema.Struct({
-        file: Schema.Literal("ed25519.json", "p256.json", "ml-dsa-65.json"),
-        sha256: Sha256Hex,
-        sources: Schema.NonEmptyArray(Source),
-        licenseNotice: Schema.NonEmptyString,
-        transformations: Schema.NonEmptyArray(Schema.NonEmptyString),
-        exclusions: Schema.Array(Schema.NonEmptyString),
-        localVerdictRemaps: Schema.Array(Schema.Unknown)
-      })
-    )
+    retrievalDate: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
+    payloads: Schema.NonEmptyArray(ConformancePayload)
   })
 )
 
-const fixturePath = (file: string): Effect.Effect<string, never, Path.Path> =>
+const fixturePath = (file: string) =>
   Effect.gen(function*() {
     const path = yield* Path.Path
     const root = yield* path.fromFileUrl(yield* Url.fromString("../test/fixtures/conformance/", import.meta.url))
     return path.join(root, file)
-  }).pipe(Effect.orDie)
+  })
 
 export const readConformanceFixture = (file: string) =>
   Effect.gen(function*() {

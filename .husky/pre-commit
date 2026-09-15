@@ -20,7 +20,7 @@ echo "Secrets scan passed"
 # 2. Lint & Format staged files
 echo ""
 echo "[2/3] Linting and formatting staged files..."
-bunx lint-staged
+bunx lint-staged --no-stash
 echo "Lint and format passed"
 
 # 3. Type checking (sources, tests, examples, scripts, benchmarks). The full test suite runs in CI.

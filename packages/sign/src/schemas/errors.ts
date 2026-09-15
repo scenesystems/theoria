@@ -13,6 +13,18 @@ import { CryptoAlgorithm } from "./KeyPair.js"
 import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
 
 /**
+ * Ed25519 reconstruction requires exactly 32 secret seed bytes.
+ * Rejected seed material is never retained by this error.
+ *
+ * @since 0.4.0
+ * @category errors
+ */
+export class InvalidEd25519Seed extends Schema.TaggedError<InvalidEd25519Seed>()(
+  "InvalidEd25519Seed",
+  {}
+) {}
+
+/**
  * A direct verifier received input outside its frozen suite profile.
  *
  * @remarks

@@ -2,7 +2,7 @@
 
 `@scenesystems/digest` computes content identifiers, hashes, message authentication codes, and derived keys for programs built with [Effect](https://effect.website). Use it when two processes must agree on the identity of a JSON value, when a cache or store is keyed by content, when a webhook body must be authenticated, or when key material must be derived from a shared secret.
 
-The content digest model is a fixed pipeline: an admitted plain-data value is canonicalized with RFC 8785 JSON Canonicalization Scheme, encoded as strict UTF-8, hashed with BLAKE3-256 or SHA-256, and rendered as `<algorithm>:<base64url>`. A digest therefore identifies exactly one byte sequence, and any two producers that follow the same pipeline agree on it. The primitives come from [Noble Hashes](https://paulmillr.com/noble/), which are audited, dependency-free, and run in every JavaScript runtime.
+The content digest model is a fixed pipeline: an admitted JSON-visible value is canonicalized with RFC 8785 JSON Canonicalization Scheme, encoded as strict UTF-8, hashed with BLAKE3-256 or SHA-256, and rendered as `<algorithm>:<base64url>`. A digest therefore identifies exactly one byte sequence, and any two producers that follow the same pipeline agree on it. The primitives come from [Noble Hashes](https://paulmillr.com/noble/), which are audited, dependency-free, and run in every JavaScript runtime.
 
 [`@scenesystems/effect-search`](../effect-search/README.md) and [`@scenesystems/effect-math`](../effect-math/README.md) use this package for cache keys and artifact identities. [`@scenesystems/seal`](../seal/README.md) and [`@scenesystems/sign`](../sign/README.md) provide encryption and signatures, which hashing alone does not.
 
@@ -16,7 +16,7 @@ Effect `^3.22.1` is a required peer dependency. The package has one entrypoint, 
 
 ## Basic use
 
-`digest` canonicalizes a plain value and returns its tagged digest. `digestSchemaValue` encodes a value through an Effect `Schema` first, so the digest reflects the wire representation rather than the in-memory one.
+`digest` canonicalizes a JSON-visible value and returns its tagged digest. `digestSchemaValue` encodes a value through an Effect `Schema` first, so the digest reflects the wire representation rather than the in-memory one.
 
 ```ts typecheck
 import { digest, digestSchemaValue } from "@scenesystems/digest"
@@ -31,7 +31,7 @@ export const program = Effect.gen(function* () {
   const contentId = yield* digest("blake3-256", { score: 42, user: "alice" })
   const eventId = yield* digestSchemaValue(Event, {
     name: "deploy",
-    occurredAt: new Date("2026-07-22T00:00:00.000Z")
+    occurredAt: yield* Schema.decode(Schema.DateFromString)("2026-07-22T00:00:00.000Z")
   })
   return { contentId, eventId }
 })
@@ -43,30 +43,32 @@ Both return `<algorithm>:<base64url>`; a 256-bit digest has 43 unpadded base64ur
 
 `digest(algorithm, value)` is the general entry point, with `blake3-256` and `sha256` as the supported algorithms. `durableFingerprint(value)` is the same pipeline fixed to BLAKE3-256, intended for identifiers that are stored and compared across releases. `canonicalize(value)` returns the canonical JSON string and `canonicalJsonBytes(value)` its UTF-8 bytes, for callers that need the preimage itself.
 
-`digestSchemaValue(schema, value, algorithm?)` applies `Schema.encode` and keeps any service requirements the schema declares. When the value comes from an untrusted source and could be large, use `digestSchemaValueWithByteLimit(schema, value, maximumBytes, algorithm?)`. It stops emitting canonical bytes at the inclusive limit, fails with `CanonicalByteLimitExceeded`, and on success returns the digest with the exact `canonicalByteLength`. `digestSchemaValueWithByteLimitSync` has the same contract and returns an `Either` for small, owner-controlled values in code that cannot run an Effect.
+`digestSchemaValue(schema, value, algorithm?)` delegates the complete runtime-to-wire conversion to the caller's `Schema.encode` and keeps any service requirements the schema declares. There is no package-specific Schema AST interpreter: transforms and encoded forms belong to Schema. When the value could produce a large canonical preimage, use `digestSchemaValueWithByteLimit(schema, value, maximumBytes, algorithm?)`. It counts serializer-emitted UTF-8 segments, rejects the first segment that would exceed the inclusive limit with `CanonicalByteLimitExceeded`, and on success returns the digest with the exact `canonicalByteLength`. `digestSchemaValueWithByteLimitSync` uses `Schema.encodeEither` and returns an `Either` for small, owner-controlled values in code that cannot run an Effect.
 
 ```ts typecheck
 import { digestSchemaValueWithByteLimit } from "@scenesystems/digest"
-import { Effect, Schema } from "effect"
+import { Effect, Number as N, Schema } from "effect"
 
 const Payload = Schema.Struct({ id: Schema.String, tags: Schema.Array(Schema.String) })
 
 export const identify = (payload: typeof Payload.Type) =>
-  digestSchemaValueWithByteLimit(Payload, payload, 64 * 1024).pipe(
+  digestSchemaValueWithByteLimit(Payload, payload, N.multiply(64, 1024)).pipe(
     Effect.map((result) => ({ id: result.digest, bytes: result.canonicalByteLength })),
     Effect.catchTag("CanonicalByteLimitExceeded", () => Effect.succeed({ id: "too-large", bytes: -1 }))
   )
 ```
 
-The byte limit bounds output, not traversal. Structurally unbounded input, such as deeply nested or extremely wide objects, must be limited by the caller before it reaches canonicalization.
+The byte limit stops before producing the complete oversized output; it does not deliberately traverse to exactly `maximumBytes + 1`. It bounds admitted output, not Schema encoding, input traversal, property count, key sorting, or the work inside one emitted segment. Apply structural limits before canonicalization when the input is not already owner-controlled.
 
 ## Canonicalization contract
 
-`canonicalize` accepts `null`, booleans, finite numbers, well-formed Unicode strings, dense arrays of accepted values, and plain records whose prototype is `Object.prototype` or `null`. Record properties must be own, enumerable, string-keyed data properties. Everything else is rejected with `UnsupportedValue`: `undefined`, `NaN` and infinities, `bigint`, functions, symbols, sparse arrays, typed arrays, dates, regular expressions, maps, sets, promises, accessors, and class instances. Cycles are reported as `CyclicValue`. Getters are never evaluated.
+`canonicalize` accepts `null`, booleans, finite numbers, well-formed Unicode strings, dense array elements, and record values traversed through their own enumerable string keys. It ignores inherited, non-enumerable, and symbol-keyed record fields and non-element array properties. It does not inspect descriptors or prototypes: visible fields and elements are read normally, so supply a stable data graph rather than relying on reflection or accessor behavior. Unsupported runtime values such as `undefined`, `NaN` and infinities, `bigint`, functions, symbols, sparse arrays, `Uint8Array` values, dates, regular expressions, maps, sets, and promises fail with `UnsupportedValue`. Cycles fail with `CyclicValue`.
 
-Strings must be well-formed UTF-16. A lone surrogate is reported as `InvalidUnicode` with its index; valid text is preserved byte for byte without Unicode normalization. Keys sort by UTF-16 code unit as RFC 8785 requires. The input must not be mutated while canonicalization runs.
+Strings and record keys must be well-formed UTF-16. A lone surrogate is reported as `InvalidUnicode` with its index; valid text is preserved exactly without Unicode normalization. Record keys come from Effect's `Record.keys` and sort by UTF-16 code unit as RFC 8785 requires. The input graph must remain unchanged until the Effect completes.
 
-The contract is deliberately narrow so that a digest computed in one runtime, language, or release matches a digest computed in another. Convert domain objects to plain data with a `Schema` before digesting them; that is what `digestSchemaValue` does for you.
+Canonical traversal is stack-safe and yields between bounded traversal batches. Native synchronous Schema transforms, `Record.keys` and key sorting for an individual record, and the final canonical string join and UTF-8 materialization are synchronous and are not bounded interruption points. Each execution keeps mutable traversal state invocation-local and interruption publishes no partial result; an Effect retained by its caller may still retain the input captured in that Effect's closure.
+
+The contract is deliberately narrow so that a digest computed in one runtime, language, or release matches a digest computed in another. Convert non-JSON runtime data with the actual caller-selected `Schema` before digesting it; `digestSchemaValue` canonicalizes exactly the representation emitted by that encoder.
 
 ## Bytes, streams, and authentication
 
@@ -93,6 +95,24 @@ export const authenticatorBytes = (key: Uint8Array, payload: Uint8Array) =>
 
 Compare a received authenticator with a recomputed one using a constant-time comparison, and bind the algorithm, key identity, and message domain in the surrounding protocol. Secret text must be encoded to bytes with `encodeUtf8` or decoded from its wire encoding with `fromBase64Url` or `fromHex` before it is used as a key.
 
+## Unicode scalar construction
+
+`fromUnicodeScalar(number)` constructs a string containing exactly one Unicode scalar. `UnicodeScalar` is the numeric Schema and brand: it admits integers from 0 through 0x10FFFF, excluding 0xD800–0xDFFF. Invalid input fails through Effect's `ParseError`; values are never truncated, clamped, or coerced from strings.
+
+The constructor composes Effect arithmetic and collections for the scalar's RFC 3629 byte representation, then uses Effect's UTF-8 decoder. U+FEFF is explicitly preserved as text rather than consumed as a byte-order signature. Supplementary scalars occupy two UTF-16 code units; NUL, controls, unassigned scalars, and noncharacters remain valid. No normalization occurs.
+
+```ts typecheck
+import { encodeUtf8, fromUnicodeScalar, toHex } from "@scenesystems/digest"
+import { Effect } from "effect"
+
+export const character = Effect.gen(function* () {
+  const text = yield* fromUnicodeScalar(0x233b4)
+  return { text, utf8Hex: toHex(yield* encodeUtf8(text)) } // "𣎴", "f0a38eb4"
+})
+```
+
+This belongs to the existing encoding surface, not the typography/layout package `effect-text`. It does not parse XML, decode entity syntax, or impose XML's narrower character restrictions. A protocol parser applies those rules before using the constructor.
+
 ## Public surface
 
 The package exports plain functions and schemas from a single entrypoint.
@@ -105,8 +125,8 @@ The package exports plain functions and schemas from a single entrypoint.
 | Streams         | `digestByteStream`, `digestUtf8Stream`, their `Base64Url` and `Hex` variants                |
 | Authentication  | `hmacSha256`, `hmacSha1`, `blake3Mac`, and their encoded variants                           |
 | Key derivation  | `hkdfSha256`, `hkdfSha512`, `blake3DeriveKey`                                               |
-| Encoding        | `encodeUtf8`, `toBase64Url`, `fromBase64Url`, `toHex`, `fromHex`                            |
-| Schemas         | `DigestAlgorithm`, `Digest256`, `ContentDigest`, and the error classes                      |
+| Encoding        | `fromUnicodeScalar`, `encodeUtf8`, `toBase64Url`, `fromBase64Url`, `toHex`, `fromHex`       |
+| Schemas         | `UnicodeScalar`, `DigestAlgorithm`, `Digest256`, `ContentDigest`, and the error classes     |
 
 The full list with signatures is in the [API reference](./src/index.ts).
 

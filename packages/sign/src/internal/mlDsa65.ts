@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Boolean as B, Number as N, Option } from "effect"
 
 export const ML_DSA_65_PUBLIC_KEY_BYTES = 1_952
 export const ML_DSA_65_SECRET_KEY_BYTES = 4_032
@@ -7,7 +7,7 @@ export const ML_DSA_65_ENTROPY_BYTES = 32
 
 const HINT_OFFSET = 3_248
 const HINT_INDEX_BYTES = 55
-const HINT_ENDPOINT_OFFSET = HINT_OFFSET + HINT_INDEX_BYTES
+const HINT_ENDPOINT_OFFSET = N.sum(HINT_OFFSET, HINT_INDEX_BYTES)
 const HINT_ENDPOINT_BYTES = 6
 
 /**
@@ -17,22 +17,39 @@ const HINT_ENDPOINT_BYTES = 6
  * too; a partial endpoint block is never inspected.
  */
 export const hasInvalidMlDsa65HintEncoding = (signature: Uint8Array): boolean => {
-  const endpoints = Arr.fromIterable(
-    signature.subarray(HINT_ENDPOINT_OFFSET, HINT_ENDPOINT_OFFSET + HINT_ENDPOINT_BYTES)
-  )
-  return endpoints.length !== HINT_ENDPOINT_BYTES || Option.match(Arr.last(endpoints), {
-    onNone: () => true,
-    onSome: (lastEndpoint) => {
-      // Each hint segment runs from the previous endpoint (0 for the first) to its own endpoint.
-      const segments = Arr.zip([0, ...Arr.dropRight(endpoints, 1)], endpoints)
-      const invalidEndpoint = segments.some(([start, endpoint]) => endpoint > HINT_INDEX_BYTES || endpoint < start)
-      const invalidSegment = segments.some(([start, endpoint]) => {
-        const segment = Arr.fromIterable(signature.subarray(HINT_OFFSET + start, HINT_OFFSET + endpoint))
-        return Arr.zip(segment, Arr.drop(segment, 1)).some(([previous, next]) => next <= previous)
+  const bytes = Arr.fromIterable(signature)
+  const endpoints = Arr.take(Arr.drop(bytes, HINT_ENDPOINT_OFFSET), HINT_ENDPOINT_BYTES)
+  return B.match(N.Equivalence(Arr.length(endpoints), HINT_ENDPOINT_BYTES), {
+    onFalse: () => true,
+    onTrue: () =>
+      Option.match(Arr.last(endpoints), {
+        onNone: () => true,
+        onSome: (lastEndpoint) => {
+          // Equal endpoints are empty segments; index ordering restarts for each segment.
+          const segments = Arr.zip(Arr.prepend(Arr.dropRight(endpoints, 1), 0), endpoints)
+          const invalidEndpoint = Arr.some(segments, ([start, endpoint]) =>
+            B.or(N.greaterThan(endpoint, HINT_INDEX_BYTES), N.lessThan(endpoint, start)))
+          return B.match(invalidEndpoint, {
+            onTrue: () =>
+              true,
+            onFalse: () => {
+              const invalidSegment = Arr.some(segments, ([start, endpoint]) => {
+                const segment = Arr.take(Arr.drop(bytes, N.sum(HINT_OFFSET, start)), N.subtract(endpoint, start))
+                return Arr.some(Arr.zip(segment, Arr.drop(segment, 1)), ([previous, next]) =>
+                  N.lessThanOrEqualTo(next, previous))
+              })
+              const padding = Arr.take(
+                Arr.drop(bytes, N.sum(HINT_OFFSET, lastEndpoint)),
+                N.subtract(HINT_INDEX_BYTES, lastEndpoint)
+              )
+              return B.or(
+                invalidSegment,
+                Arr.some(padding, (value) =>
+                  B.not(N.Equivalence(value, 0)))
+              )
+            }
+          })
+        }
       })
-      const invalidPadding = Arr.fromIterable(signature.subarray(HINT_OFFSET + lastEndpoint, HINT_ENDPOINT_OFFSET))
-        .some((value) => value !== 0)
-      return invalidEndpoint || invalidSegment || invalidPadding
-    }
   })
 }

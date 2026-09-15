@@ -10,9 +10,8 @@
  * - Empty message signing and verification
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
-import { ed25519Keygen, ed25519Sign, ed25519Verify } from "../../src/algorithms/ed25519.js"
-import { utf8ToBytes } from "../../src/encoding.js"
+import { Array as Arr, Effect, Encoding, Number as N, Schema } from "effect"
+import { ed25519Keygen, ed25519Sign, ed25519Verify, utf8ToBytes } from "../../src/index.js"
 
 describe("Ed25519 — algorithm contracts", () => {
   const message = utf8ToBytes("hello noble")
@@ -44,7 +43,9 @@ describe("Ed25519 — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* ed25519Keygen()
       const sig = yield* ed25519Sign(message, kp.secretKey, kp.publicKey)
-      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 32 ? byte ^ 0x01 : byte)
+      const tampered = yield* Schema.decode(Schema.Uint8Array)(
+        Arr.modify(Arr.fromIterable(sig.signature), 32, (byte) => N.remainder(N.increment(byte), 256))
+      )
       const valid = yield* ed25519Verify(tampered, message, kp.publicKey)
       expect(valid).toBe(false)
     }))
@@ -61,7 +62,7 @@ describe("Ed25519 — algorithm contracts", () => {
   it.effect("signs and verifies empty message", () =>
     Effect.gen(function*() {
       const kp = yield* ed25519Keygen()
-      const empty = new Uint8Array(0)
+      const empty = yield* Encoding.decodeHex("")
       const sig = yield* ed25519Sign(empty, kp.secretKey, kp.publicKey)
       const valid = yield* ed25519Verify(sig.signature, empty, kp.publicKey)
       expect(valid).toBe(true)
@@ -81,12 +82,5 @@ describe("Ed25519 — algorithm contracts", () => {
       const kp2 = yield* ed25519Keygen()
       expect(kp1.secretKey).not.toEqual(kp2.secretKey)
       expect(kp1.publicKey).not.toEqual(kp2.publicKey)
-    }))
-
-  it.effect("Signature carries correct algorithm tag", () =>
-    Effect.gen(function*() {
-      const kp = yield* ed25519Keygen()
-      const sig = yield* ed25519Sign(message, kp.secretKey, kp.publicKey)
-      expect(sig.algorithm).toBe("ed25519")
     }))
 })

@@ -178,7 +178,7 @@
     },
     "packages/effect-text": {
       "name": "@scenesystems/effect-text",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "dependencies": {
         "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",

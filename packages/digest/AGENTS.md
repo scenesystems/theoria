@@ -45,20 +45,23 @@ The package has one public entrypoint, `@scenesystems/digest`. Effect is a requi
 `src/internal/*` is blocked by the exports map.
 
 - `src/internal/unicode.ts` is the only Unicode scalar-well-formedness and unchecked UTF-8 kernel.
-- `src/internal/admission.ts` snapshots and admits the strict plain-data canonical domain without evaluating getters.
-- `src/internal/jcs.ts` serializes with an explicit stack-safe state machine.
+- `src/internal/jcs-machine.ts` owns invocation-local traversal state and the cooperative and synchronous drivers.
+- `src/internal/jcs-model.ts` defines serializer frames, buffered segments, and redacted failure state.
+- `src/internal/jcs-serialization-machine.ts` serializes through Effect's public collection, `Record`, `Schema`, and ordering APIs.
 
-Do not create a second canonicalization law, text encoder, public subpath, mutable algorithm registry, injectable crypto provider, or owner-specific identity policy here.
+Do not create a descriptor/prototype admission layer, bespoke Schema AST interpreter, second canonicalization law, text encoder, public subpath, mutable algorithm registry, injectable crypto provider, or owner-specific identity policy here.
 
 ## Canonicalization law
 
-- Admit only `null`, booleans, finite numbers, well-formed Unicode strings, dense arrays, and plain records with `Object.prototype` or `null` prototype and own enumerable string-keyed data properties.
-- Treat an array's own non-enumerable symbol-keyed data descriptors as provider metadata: validate their shape without reading their values, then omit them from canonicalization. Reject array symbol accessors, enumerable array symbols, every record symbol, and every string-keyed array extra.
-- Keep every package-owned reference to input arrays, symbol descriptor values, descriptor snapshots, and traversal arrays invocation-local. Never cache, intern, register, publish, return, or retain those references after normal completion or interruption; returned errors, text, and bytes contain none of them. Symbol data values are neither read nor traversed. This is a non-retention ownership law, not an immediate-garbage-collection guarantee.
+- Admit `null`, booleans, finite numbers, well-formed Unicode strings, dense array elements, and record values traversed through their own enumerable string keys. Sort record keys by UTF-16 code unit order. Ignore inherited, non-enumerable, and symbol-keyed record fields and non-element array properties.
+- Use JSON-visible property and element reads. Do not inspect descriptors or prototypes and do not impose a hostile-object or reflection contract. The caller must keep the input graph stable until the operation completes.
+- Keep mutable traversal state and package-owned traversal references invocation-local, and publish no partial output after interruption. This non-retention law does not promise that an Effect value retained by its caller forgets the input captured by its closure.
 - Validate strings and keys before encoding. Preserve valid text exactly; never normalize or replace malformed text.
-- Reject unsupported values, hostile descriptors/reflection, and cycles through the closed `CanonicalizationError` union.
+- Reject unsupported runtime values, malformed Unicode, and cycles through the closed `CanonicalizationError` union. Callers must use their actual `Schema` encoder to convert non-JSON runtime data to the intended encoded representation.
 - Keep errors bounded and deterministic: no rejected text, keys, paths, or preimages.
-- Keep one-shot traversal deterministic and stack-safe. Do not inject scheduling behavior; workload bounds belong to consumers before the call.
+- Keep canonical traversal deterministic, stack-safe, and cooperative between bounded traversal batches. `Record.keys` and key sorting, native synchronous Schema transforms, final string joining, and final UTF-8 materialization remain synchronous work and are not bounded interruption points.
+- Delegate Schema-aware encoding to public `Schema.encode` or `Schema.encodeEither`; Schema owns transforms and encoded forms. Never interpret Schema ASTs in this package.
+- For bounded Schema digests, count serializer-emitted UTF-8 segments and reject the first segment that would exceed the inclusive limit. Stop before producing the complete oversized output; do not claim to inspect exactly `maximumBytes + 1` bytes.
 - Preserve upstream `E` and `R` in stream APIs. Text stream failures report partition-independent absolute UTF-16 code-unit indices.
 
 ## Effect and test discipline

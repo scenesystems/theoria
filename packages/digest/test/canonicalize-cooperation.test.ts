@@ -1,202 +1,144 @@
 import { expect, it } from "@effect/vitest"
 import {
   Array as Arr,
-  Chunk,
+  Deferred,
   Effect,
+  Either,
   Exit,
   Fiber,
-  MutableList,
-  MutableRef,
-  Record as Rec,
+  Number as N,
+  Record,
   Ref,
-  Scheduler
+  Schema,
+  String as Str,
+  Tuple
 } from "effect"
 
-import { canonicalize } from "../src/canonicalize.js"
-import { canonicalJsonBytes } from "../src/convenience.js"
-import { canonicalizeSegments, canonicalizeWithByteLimit, encodeCanonicalSegments } from "../src/internal/jcs.js"
-import { CanonicalByteLimitExceeded, type CanonicalizationError } from "../src/schemas/errors.js"
+import {
+  CanonicalByteLimitExceeded,
+  canonicalize,
+  canonicalJsonBytes,
+  DigestAlgorithm,
+  digestBytesBase64Url,
+  digestSchemaValueWithByteLimit,
+  digestSchemaValueWithByteLimitSync,
+  encodeUtf8,
+  InvalidUnicode
+} from "../src/index.js"
 
-const WIDTH = 65_536
-const INTERRUPT_WIDTH = 262_144
-const LONG_TEXT = "value".repeat(WIDTH)
+const longText = Str.repeat(65_536)("value")
+const workloads = Arr.make(
+  Tuple.make("array", Arr.makeBy(4_096, (index) => Arr.make(index, N.sum(index, 0.5)))),
+  Tuple.make(
+    "record",
+    Record.fromEntries(
+      Arr.makeBy(
+        4_096,
+        (index) => Tuple.make(Str.concat("key-", Schema.encodeSync(Schema.NumberFromString)(index)), index)
+      )
+    )
+  ),
+  Tuple.make("string", longText),
+  Tuple.make("record key", Record.singleton(longText, true))
+)
 
-const wideArray = (): ReadonlyArray<ReadonlyArray<number>> => Arr.makeBy(WIDTH, (index) => [index, index + 0.5])
-
-const wideRecord = (): Readonly<Record<string, number>> =>
-  Rec.fromEntries(
-    Arr.makeBy(WIDTH, (index): readonly [string, number] => [`key-${String(index).padStart(5, "0")}`, index])
-  )
-
-/**
- * Counts how often a one-millisecond sleeper fiber wakes while `effect`
- * runs. A traversal that never yields starves the sleeper, so a positive
- * count shows the operation hands control back to the runtime's timers.
- */
-const hostTimerTicksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<number, E> =>
-  Effect.scoped(
-    Effect.gen(function*() {
+it.live.each(workloads)(
+  "allows host timers to run during a wide %s traversal",
+  ([, value]) =>
+    Effect.scoped(Effect.gen(function*() {
       const ticks = yield* Ref.make(0)
+      const started = yield* Deferred.make<void>()
       yield* Effect.forkScoped(
-        Effect.forever(Effect.zipRight(Effect.sleep("1 millis"), Ref.update(ticks, (n) => n + 1)))
+        Deferred.succeed(started, undefined).pipe(
+          Effect.zipRight(
+            Effect.forever(Effect.sleep("1 millis").pipe(Effect.zipRight(Ref.update(ticks, N.increment))))
+          )
+        )
       )
-      yield* effect
-      return yield* Ref.get(ticks)
-    })
-  )
+      yield* Deferred.await(started)
+      const ticksBefore = yield* Ref.get(ticks)
+      const result = yield* canonicalJsonBytes(value)
+      expect(result.byteLength).toBeGreaterThan(0)
+      expect(yield* Ref.get(ticks)).toBeGreaterThan(ticksBefore)
+    })),
+  30_000
+)
 
-const scheduledTasksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<number, E> =>
-  Effect.suspend(() => {
-    const scheduled = MutableRef.make(0)
-    const scheduler = Scheduler.make(
-      (task, priority, fiber) => {
-        MutableRef.update(scheduled, (count) => count + 1)
-        Scheduler.defaultScheduler.scheduleTask(task, priority, fiber)
-      },
-      () => false
+it.live("interrupts canonical byte traversal without publishing a partial result", () =>
+  Effect.gen(function*() {
+    const published = yield* Ref.make(false)
+    const finalized = yield* Ref.make(false)
+    const value = Arr.makeBy(65_536, (index) => Arr.make(index, N.sum(index, 0.5)))
+    const fiber = yield* canonicalJsonBytes(value).pipe(
+      Effect.tap(() => Ref.set(published, true)),
+      Effect.ensuring(Ref.set(finalized, true)),
+      Effect.fork
     )
-    return Effect.map(Effect.withScheduler(effect, scheduler), () => MutableRef.get(scheduled))
-  })
-
-it.effect("single-batch canonicalJsonBytes does not schedule terminal no-progress yields", () =>
-  Effect.gen(function*() {
-    const scheduled = yield* scheduledTasksDuring(canonicalJsonBytes({ value: 1 }))
-    expect(scheduled).toBe(0)
-  }))
-
-it.effect("multi-batch traversal, segment encoding, and segment copying retain continuing yields", () =>
-  Effect.gen(function*() {
-    const traversalTasks = yield* scheduledTasksDuring(canonicalizeSegments(Arr.makeBy(1_024, (index) => index)))
-    const assemblyTasks = yield* scheduledTasksDuring(
-      encodeCanonicalSegments(Chunk.fromIterable(Arr.makeBy(5, (index) => String(index))))
-    )
-    expect(traversalTasks).toBeGreaterThan(0)
-    expect(assemblyTasks).toBe(2)
-  }))
-
-it.effect("multi-batch canonical byte assembly remains interruptible", () =>
-  Effect.gen(function*() {
-    const segments = Chunk.fromIterable(Arr.makeBy(512, (index) => String(index)))
-    const fiber = yield* Effect.fork(encodeCanonicalSegments(segments))
-    yield* Effect.yieldNow()
-    const exit = yield* Fiber.interrupt(fiber)
-    expect(Exit.isInterrupted(exit)).toBe(true)
-  }))
-
-it.live("canonicalJsonBytes yields to the host timer during a moderately wide traversal", () =>
-  Effect.gen(function*() {
-    const value = Arr.makeBy(512, (index) => [index, index + 0.5])
-    const ticks = yield* hostTimerTicksDuring(canonicalJsonBytes(value))
-    expect(ticks).toBeGreaterThan(0)
-  }), 30_000)
-
-it.effect("bounded sink segments preserve canonical text, UTF-8 bytes, and the exact final byte count", () =>
-  Effect.gen(function*() {
-    const value = { z: LONG_TEXT, a: ["é", "😀", "\n"] }
-    const delivered = MutableList.empty<string>()
-    const canonicalByteLength = yield* canonicalizeWithByteLimit(
-      value,
-      Number.MAX_SAFE_INTEGER,
-      (segment) => void MutableList.append(delivered, segment)
-    )
-    const segments = Chunk.fromIterable(delivered)
-    const text = yield* canonicalize(value)
-    const bytes = yield* canonicalJsonBytes(value)
-    const deliveredBytes = yield* encodeCanonicalSegments(segments)
-
-    expect(Chunk.size(segments)).toBeGreaterThan(1)
-    expect(Chunk.join(segments, "")).toBe(text)
-    expect(deliveredBytes).toStrictEqual(bytes)
-    expect(canonicalByteLength).toBe(bytes.byteLength)
-  }))
-
-it.effect("bounded sink flushes the final pending segment only on traversal success", () =>
-  Effect.gen(function*() {
-    const successful = MutableList.empty<string>()
-    const failed = MutableList.empty<string>()
-    const canonicalByteLength = yield* canonicalizeWithByteLimit(
-      "value",
-      7,
-      (segment) => void MutableList.append(successful, segment)
-    )
-    const failure = yield* Effect.exit(
-      canonicalizeWithByteLimit(
-        "a".repeat(32 * 1024 + 1),
-        32 * 1024,
-        (segment) => void MutableList.append(failed, segment)
-      )
-    )
-
-    expect(Chunk.fromIterable(successful)).toStrictEqual(Chunk.make("\"value\""))
-    expect(canonicalByteLength).toBe(7)
-    expect(failure).toStrictEqual(Exit.fail(new CanonicalByteLimitExceeded({})))
-    expect(MutableList.length(failed)).toBe(0)
-  }))
-
-it.effect("bounded sink remains interruptible after incremental segment delivery", () =>
-  Effect.gen(function*() {
-    const delivered = MutableRef.make(0)
-    const fiber = yield* Effect.fork(
-      canonicalizeWithByteLimit(
-        LONG_TEXT,
-        Number.MAX_SAFE_INTEGER,
-        () => void MutableRef.increment(delivered)
-      )
-    )
-    yield* Effect.iterate(0, {
-      while: (attempt) => attempt < 256 && MutableRef.get(delivered) === 0,
-      body: (attempt) => Effect.as(Effect.yieldNow(), attempt + 1)
-    })
-    const exit = yield* Fiber.interrupt(fiber)
-
-    expect(MutableRef.get(delivered)).toBeGreaterThan(0)
-    expect(Exit.isInterrupted(exit)).toBe(true)
-  }))
-
-it.live.each<readonly [string, () => Effect.Effect<Uint8Array, CanonicalizationError>]>(
-  [
-    ["array", () => canonicalJsonBytes(wideArray())],
-    ["record", () => canonicalJsonBytes(wideRecord())],
-    ["long string", () => canonicalJsonBytes(LONG_TEXT)],
-    ["long record key", () => canonicalJsonBytes({ [LONG_TEXT]: true })]
-  ]
-)("canonicalJsonBytes yields to the host timer while traversing a wide %s", ([, operation]) =>
-  Effect.gen(function*() {
-    const ticks = yield* hostTimerTicksDuring(operation())
-    expect(ticks).toBeGreaterThan(0)
-  }), 30_000)
-
-it.live("canonicalJsonBytes can be interrupted before a wide traversal publishes bytes", () =>
-  Effect.gen(function*() {
-    const target = Arr.makeBy(INTERRUPT_WIDTH, (index) => [index, index + 0.5])
-    const probe = { descriptors: 0 }
-    const value = new Proxy(target, {
-      getOwnPropertyDescriptor: (proxied, key) => {
-        probe.descriptors += 1
-        return Reflect.getOwnPropertyDescriptor(proxied, key)
-      }
-    })
-    const fiber = yield* Effect.fork(canonicalJsonBytes(value))
     yield* Effect.sleep(0)
-    const exit = yield* Fiber.interrupt(fiber)
-    expect(Exit.isInterrupted(exit)).toBe(true)
-    expect(probe.descriptors).toBeLessThan(INTERRUPT_WIDTH)
+    expect(yield* Fiber.interrupt(fiber)).toSatisfy(Exit.isInterrupted)
+    expect(yield* Ref.get(published)).toBe(false)
+    expect(yield* Ref.get(finalized)).toBe(true)
   }), 30_000)
 
-it.live("canonicalJsonBytes assembles canonical UTF-8 segments cooperatively", () =>
+it.live("interrupts bounded hashing without publishing a partial digest", () =>
   Effect.gen(function*() {
-    const segment = "😀".repeat(16 * 1024)
-    const segments = Chunk.fromIterable(Arr.makeBy(512, () => segment))
-    const ticks = yield* hostTimerTicksDuring(encodeCanonicalSegments(segments))
-    expect(ticks).toBeGreaterThan(0)
+    const published = yield* Ref.make(false)
+    const fiber = yield* digestSchemaValueWithByteLimit(Schema.String, Str.repeat(128)(longText), 100_000_000).pipe(
+      Effect.tap(() => Ref.set(published, true)),
+      Effect.fork
+    )
+    yield* Effect.sleep(0)
+    expect(yield* Fiber.interrupt(fiber)).toSatisfy(Exit.isInterrupted)
+    expect(yield* Ref.get(published)).toBe(false)
   }), 30_000)
 
-it.effect("one canonicalJsonBytes Effect is fresh when executed more than once", () => {
-  const canonical = canonicalJsonBytes({ z: [3, 2, 1], a: "value" })
-  return Effect.gen(function*() {
-    const first = yield* canonical
-    yield* Effect.yieldNow()
-    const second = yield* canonical
-    expect(second).toStrictEqual(first)
-  })
-})
+it.effect("preserves multibyte and escaped text across incremental hash segments", () =>
+  Effect.gen(function*() {
+    const value = Str.repeat(8_193)("😀é\n")
+    // Independently construct the expected JSON text instead of using canonicalize.
+    const expectedText = Str.concat(Str.concat("\"", Str.repeat(8_193)("😀é\\n")), "\"")
+    const bytes = yield* encodeUtf8(expectedText)
+    expect(yield* canonicalJsonBytes(value)).toStrictEqual(bytes)
+    yield* Effect.forEach(DigestAlgorithm.literals, (algorithm) =>
+      Effect.gen(function*() {
+        const expected = Str.concat(Str.concat(algorithm, ":"), yield* digestBytesBase64Url(algorithm, bytes))
+        const bounded = yield* digestSchemaValueWithByteLimit(Schema.String, value, 65_546, algorithm)
+        const synchronous = digestSchemaValueWithByteLimitSync(Schema.String, value, 65_546, algorithm)
+        expect(bounded.digest).toBe(expected)
+        expect(bounded.canonicalByteLength).toBe(65_546)
+        expect(synchronous).toStrictEqual(Either.right(bounded))
+        expect(yield* Effect.exit(digestSchemaValueWithByteLimit(Schema.String, value, 65_545, algorithm)))
+          .toStrictEqual(
+            Exit.fail(new CanonicalByteLimitExceeded({}))
+          )
+      }))
+  }))
+
+it.effect("preserves a surrogate pair spanning a text batch and absolute indices for later faults", () =>
+  Effect.gen(function*() {
+    const prefix = Str.repeat(1_023)("a")
+    const valid = Str.concat(prefix, "😀z")
+    const invalid = Str.concat(valid, "\udc00")
+    expect(yield* canonicalize(valid)).toBe(Str.concat(Str.concat("\"", valid), "\""))
+    expect(yield* Effect.exit(canonicalize(invalid))).toStrictEqual(
+      Exit.fail(new InvalidUnicode({ kind: "lone-low-surrogate", codeUnitIndex: 1_026 }))
+    )
+  }))
+
+it.effect("stops at the byte limit before a later invalid value is traversed", () =>
+  Effect.gen(function*() {
+    const value = Arr.make(longText, undefined)
+    const expected = new CanonicalByteLimitExceeded({})
+    expect(yield* Effect.exit(digestSchemaValueWithByteLimit(Schema.Unknown, value, 64))).toStrictEqual(
+      Exit.fail(expected)
+    )
+    expect(digestSchemaValueWithByteLimitSync(Schema.Unknown, value, 64)).toStrictEqual(Either.left(expected))
+  }))
+
+it.effect("one canonicalJsonBytes Effect produces the complete result on repeated execution", () =>
+  Effect.gen(function*() {
+    const operation = canonicalJsonBytes({ z: Arr.make(3, 2, 1), a: "value" })
+    const expected = yield* encodeUtf8("{\"a\":\"value\",\"z\":[3,2,1]}")
+    expect(yield* operation).toStrictEqual(expected)
+    expect(yield* operation).toStrictEqual(expected)
+  }))

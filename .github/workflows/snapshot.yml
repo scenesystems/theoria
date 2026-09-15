@@ -32,5 +32,8 @@ jobs:
       - name: Build packages
         run: bun run build
 
+      - name: Verify packed signatures
+        run: bun run --filter @scenesystems/sign test:packed
+
       - name: Publish snapshot
         run: bunx pkg-pr-new publish ./packages/*/dist

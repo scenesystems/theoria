@@ -6,45 +6,74 @@
  * Usage: bun run fixtures:check
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import type * as PlatformError from "@effect/platform/Error"
+import * as PlatformError from "@effect/platform/Error"
 import { sha256 } from "@noble/hashes/sha2.js"
-import type { ParseResult, Schema } from "effect"
-import { Array as Arr, Console, Data, Effect, Encoding, Match, Option } from "effect"
+import {
+  Array as Arr,
+  Cause,
+  Console,
+  Effect,
+  Encoding,
+  Match,
+  Option,
+  ParseResult,
+  Schema,
+  String as Str
+} from "effect"
+import type { ConformancePayload } from "./fixture-contract.js"
 import {
   ConformanceManifest,
   decodeConformanceFixture,
   Ed25519Fixture,
   MlDsa65Fixture,
   P256Fixture,
-  readConformanceFixtureBytes
+  readConformanceFixtureBytes,
+  RsaOpenSslFixture,
+  RsaWycheproofFixture
 } from "./fixture-contract.js"
+import { JwtFixture } from "./jwt-fixture-contract.js"
 
-class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
-  readonly file: string
-  readonly reason: string
-  readonly cause: Option.Option<PlatformError.PlatformError | ParseResult.ParseError>
-}> {
+class FixtureCheckError extends Schema.TaggedError<FixtureCheckError>()("FixtureCheckError", {
+  file: Schema.String,
+  reason: Schema.String,
+  cause: Schema.Option(
+    Schema.Union(
+      PlatformError.BadArgument,
+      PlatformError.SystemError,
+      Schema.instanceOf(ParseResult.ParseError),
+      Schema.instanceOf(Cause.IllegalArgumentException)
+    )
+  )
+}) {
   override get message() {
-    return `${this.file}: ${this.reason}${
-      Option.match(this.cause, {
-        onNone: () => "",
-        onSome: (cause) => `: ${cause.message}`
-      })
-    }`
+    return Arr.join(
+      Arr.make(
+        this.file,
+        ": ",
+        this.reason,
+        Option.match(this.cause, {
+          onNone: () => "",
+          onSome: (cause) => Str.concat(": ", cause.message)
+        })
+      ),
+      ""
+    )
   }
 }
 
-type ManifestPayload = Schema.Schema.Type<typeof ConformanceManifest>["payloads"][number]
-
-const decodePayload = (file: ManifestPayload["file"]) =>
+const decodePayload = (file: typeof ConformancePayload.fields.file.Type) =>
   Match.value(file).pipe(
     Match.when("ed25519.json", (name) => decodeConformanceFixture(name, Ed25519Fixture)),
     Match.when("p256.json", (name) => decodeConformanceFixture(name, P256Fixture)),
     Match.when("ml-dsa-65.json", (name) => decodeConformanceFixture(name, MlDsa65Fixture)),
+    Match.when("rsa-wycheproof.json", (name) => decodeConformanceFixture(name, RsaWycheproofFixture)),
+    Match.when("rsa-openssl.json", (name) => decodeConformanceFixture(name, RsaOpenSslFixture)),
+    Match.when("jwt-openssl.json", (name) => decodeConformanceFixture(name, Schema.parseJson(JwtFixture))),
+    Match.when("jwt-access-openssl.json", (name) => decodeConformanceFixture(name, Schema.parseJson(JwtFixture))),
     Match.exhaustive
   )
 
-const checkPayload = (payload: ManifestPayload) =>
+const checkPayload = (payload: typeof ConformancePayload.Type) =>
   Effect.gen(function*() {
     const bytes = yield* readConformanceFixtureBytes(payload.file).pipe(
       Effect.mapError((error) =>
@@ -59,13 +88,15 @@ const checkPayload = (payload: ManifestPayload) =>
     )
 
     const actualSha256 = Encoding.encodeHex(sha256(bytes))
-    if (actualSha256 !== payload.sha256) {
-      return yield* new FixtureCheckError({
-        file: payload.file,
-        reason: `sha256 mismatch: expected ${payload.sha256}, got ${actualSha256}`,
-        cause: Option.none()
-      })
-    }
+    yield* Effect.succeed(actualSha256).pipe(Effect.filterOrFail(
+      (actual) => Str.Equivalence(actual, payload.sha256),
+      () =>
+        new FixtureCheckError({
+          file: payload.file,
+          reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actualSha256), ""),
+          cause: Option.none()
+        })
+    ))
 
     return payload.file
   })
@@ -84,20 +115,20 @@ const program = Effect.gen(function*() {
   const results = yield* Effect.forEach(manifest.payloads, (payload) => Effect.either(checkPayload(payload)))
   const [errors, passed] = Arr.separate(results)
 
-  yield* Console.log(`Checking ${manifest.payloads.length} conformance payloads...`)
+  yield* Console.log("Checking", Arr.length(manifest.payloads), "conformance payloads...")
   yield* Console.log()
-  yield* Effect.forEach(passed, (file) => Console.log(`✓ ${file}`), { discard: true })
-  yield* Effect.forEach(errors, (error) => Console.log(`✗ ${error.message}`), { discard: true })
+  yield* Effect.forEach(passed, (file) => Console.log("✓", file), { discard: true })
+  yield* Effect.forEach(errors, (error) => Console.log("✗", error.message), { discard: true })
   yield* Console.log()
-  yield* Console.log(`Results: ${passed.length} passed, ${errors.length} failed`)
+  yield* Console.log("Results:", Arr.length(passed), "passed,", Arr.length(errors), "failed")
 
-  if (Arr.isNonEmptyArray(errors)) {
-    return yield* new FixtureCheckError({
+  yield* Effect.fail(
+    new FixtureCheckError({
       file: "summary",
-      reason: `${errors.length} fixture check failure(s)`,
+      reason: "conformance fixture check failed",
       cause: Option.none()
     })
-  }
+  ).pipe(Effect.when(() => Arr.isNonEmptyArray(errors)))
 })
 
 BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

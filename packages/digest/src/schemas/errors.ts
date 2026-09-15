@@ -82,15 +82,9 @@ export class UnsupportedValue extends Schema.TaggedError<UnsupportedValue>()(
       "typed-array",
       "map",
       "set",
-      "weak-collection",
       "promise",
-      "unsupported-prototype",
-      "accessor-property",
-      "symbol-property",
-      "non-enumerable-property",
       "sparse-array",
-      "array-extra-property",
-      "reflection-failure"
+      "unsupported-value"
     )
   }
 ) {}

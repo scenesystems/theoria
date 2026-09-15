@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array as Arr, Effect, String as Str } from "effect"
 import { blake3Hash } from "../src/algorithms/blake3.js"
 import { canonicalize } from "../src/canonicalize.js"
 import { digest } from "../src/digest.js"
@@ -53,7 +53,7 @@ describe("digest — pipeline composition", () => {
       const bytes = yield* encodeUtf8(canonical)
       const hash = yield* blake3Hash(bytes)
       const encoded = toBase64Url(hash)
-      const manual = `blake3-256:${encoded}`
+      const manual = Str.concat("blake3-256:", encoded)
       const pipeline = yield* digest("blake3-256", input)
       expect(pipeline).toBe(manual)
     }))
@@ -76,7 +76,7 @@ describe("digest — structural handling", () => {
 
   it.effect("handles arrays", () =>
     Effect.gen(function*() {
-      const result = yield* digest("blake3-256", { items: [1, 2, 3] })
+      const result = yield* digest("blake3-256", { items: Arr.make(1, 2, 3) })
       expect(result).toMatch(/^blake3-256:[A-Za-z0-9_-]{43}$/)
     }))
 

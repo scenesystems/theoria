@@ -7,7 +7,7 @@
 
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Match, Record, Schema, Tuple } from "effect"
 import { JcsFixtureSchema, UnicodeAdversarialFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { canonicalize } from "../../src/canonicalize.js"
 import {
@@ -21,18 +21,15 @@ describe("external conformance — jcs", () => {
   it.effect("canonicalizes every external jcs fixture exactly", () =>
     Effect.gen(function*() {
       const manifest = yield* loadExternalFixtureManifest
-      const jcsSources = Arr.filter(manifest.sources, (source) => source.kind === "jcs")
+      const jcsSources = selectExternalSourcesByKind(manifest, "jcs")
 
       const fixtures = yield* Effect.forEach(jcsSources, (source) =>
         readExternalFixture(source.fixturePath).pipe(
           Effect.flatMap(Schema.decodeUnknown(JcsFixtureSchema)),
-          Effect.map((fixture) => ({
-            source,
-            fixture
-          }))
+          Effect.map((fixture) => Tuple.make(source, fixture))
         ))
 
-      yield* Effect.forEach(fixtures, ({ source, fixture }) =>
+      yield* Effect.forEach(fixtures, ([source, fixture]) =>
         Effect.forEach(fixture.cases, (vector) =>
           Effect.gen(function*() {
             const canonical = yield* canonicalize(vector.input)
@@ -64,7 +61,11 @@ describe("external conformance — jcs", () => {
       const cases = Arr.flatMap(fixtures, ({ cases }) => cases)
       yield* Effect.forEach(cases, (vector) =>
         Effect.gen(function*() {
-          const input = vector.target === "key" ? { [vector.input]: "value" } : vector.input
+          const input = Match.value(vector.target).pipe(
+            Match.when("key", () => Record.singleton(vector.input, "value")),
+            Match.when("value", () => vector.input),
+            Match.exhaustive
+          )
           const error = yield* Effect.flip(canonicalize(input))
 
           expect(error).toMatchObject({

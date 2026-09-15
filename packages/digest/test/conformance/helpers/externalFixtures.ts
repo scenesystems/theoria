@@ -6,7 +6,7 @@
  */
 
 import { FileSystem, Path, Url } from "@effect/platform"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Schema, String as Str } from "effect"
 import { FixtureKindSchema, FixtureManifestSchema, FixtureSourceSchema } from "../../../scripts/fixture-schemas.js"
 
 export const ExternalFixtureKindSchema = FixtureKindSchema
@@ -39,4 +39,4 @@ export const loadExternalFixtureManifest = readExternalFixture("sources.manifest
 export const selectExternalSourcesByKind = (
   manifest: ExternalFixtureManifest,
   kind: ExternalFixtureKind
-): ReadonlyArray<ExternalFixtureSource> => Arr.filter(manifest.sources, (source) => source.kind === kind)
+) => Arr.filter(manifest.sources, (source) => Str.Equivalence(source.kind, kind))

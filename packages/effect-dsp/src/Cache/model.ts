@@ -6,10 +6,10 @@
 import {
   CacheCorrupt,
   type CacheError,
-  type CacheResolution,
-  durableFingerprint
+  durableFingerprint,
+  type SchemaCacheResult
 } from "@scenesystems/effect-search/Cache"
-import { Effect, FiberRef, Schema } from "effect"
+import { Data, Effect, FiberRef, Schema, String as Str } from "effect"
 
 import { RolloutRef } from "./refs.js"
 
@@ -39,6 +39,47 @@ export class DspCacheKey extends Schema.Class<DspCacheKey>("DspCacheKey")({
 const DSP_CACHE_NAMESPACE = "effect-dsp/lm-cache"
 
 /**
+ * Carries the caller identities and values used to build one language-model
+ * cache key.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class DspCacheKeyRequest<Input, Params> extends Data.Class<{
+  /** Stable identity of the module implementation and prompt contract. */
+  readonly moduleFingerprint: string
+  /** Stable identity of the language-model runtime configuration. */
+  readonly runtimeFingerprint: string
+  /** Value included in the cache key through durable fingerprinting. */
+  readonly input: Input
+  /** Generation parameters included in the cache key through durable fingerprinting. */
+  readonly params: Params
+}> {}
+
+/**
+ * Carries one language-model cache request while preserving all generic
+ * relationships among its input, parameters, output codec, computation error,
+ * and computation requirements.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class DspCacheRequest<Input, Params, Output, Failure, Requirement, EncodedOutput = Output> extends Data.Class<{
+  /** Stable identity of the module implementation and prompt contract. */
+  readonly moduleFingerprint: string
+  /** Stable identity of the language-model runtime configuration. */
+  readonly runtimeFingerprint: string
+  /** Value included in the cache key through durable fingerprinting. */
+  readonly input: Input
+  /** Generation parameters included in the cache key through durable fingerprinting. */
+  readonly params: Params
+  /** Codec used to persist and validate successful results. */
+  readonly outputSchema: Schema.Schema<Output, EncodedOutput, never>
+  /** Operation evaluated only after a cache miss. */
+  readonly compute: Effect.Effect<Output, Failure, Requirement>
+}> {}
+
+/**
  * Memoizes decoded language-model results under content-derived keys.
  *
  * @remarks
@@ -58,36 +99,21 @@ export class DspCache extends Effect.Tag("effect-dsp/Cache/DspCache")<
      * Reads a matching value or evaluates `compute` and stores its successful
      * result. Calls for the same key are serialized by the configured cache.
      */
-    readonly resolve: <O, E, R>(request: {
-      /** Stable identity of the module implementation and prompt contract. */
-      readonly moduleFingerprint: string
-      /** Stable identity of the language-model runtime configuration. */
-      readonly runtimeFingerprint: string
-      /** Value included in the cache key through durable fingerprinting. */
-      readonly input: unknown
-      /** Generation parameters included in the cache key through durable fingerprinting. */
-      readonly params: unknown
-      /** Codec used to persist and validate successful results. */
-      readonly outputSchema: Schema.Schema<O>
-      /** Operation evaluated only after a cache miss. */
-      readonly compute: Effect.Effect<O, E, R>
-    }) => Effect.Effect<
-      readonly [O, CacheResolution],
-      E | CacheError,
-      R
-    >
+    readonly resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
+      request: DspCacheRequest<Input, Params, Output, Failure, Requirement, EncodedOutput>
+    ) => Effect.Effect<SchemaCacheResult<Output>, Failure | CacheError, Requirement>
   }
 >() {}
 
-const fingerprintOrCorrupt = (
-  value: unknown,
+const fingerprintOrCorrupt = <Value>(
+  value: Value,
   label: string
 ): Effect.Effect<string, CacheCorrupt> =>
   durableFingerprint(value).pipe(
     Effect.mapError((cause) =>
       new CacheCorrupt({
         key: DSP_CACHE_NAMESPACE,
-        reason: `${label} fingerprint: ${cause._tag}`
+        reason: Str.concat(label, Str.concat(" fingerprint: ", cause._tag))
       })
     )
   )
@@ -108,12 +134,9 @@ const fingerprintOrCorrupt = (
  * @since 0.1.0
  * @category constructors
  */
-export const buildDspCacheKey = (request: {
-  readonly moduleFingerprint: string
-  readonly runtimeFingerprint: string
-  readonly input: unknown
-  readonly params: unknown
-}): Effect.Effect<DspCacheKey, CacheCorrupt> =>
+export const buildDspCacheKey = <Input, Params>(
+  request: DspCacheKeyRequest<Input, Params>
+): Effect.Effect<DspCacheKey, CacheCorrupt> =>
   Effect.all({
     inputHash: fingerprintOrCorrupt(request.input, "input"),
     paramsHash: fingerprintOrCorrupt(request.params, "params"),

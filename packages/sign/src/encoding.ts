@@ -7,7 +7,7 @@
  */
 
 import { equalBytes as _equalBytes } from "@noble/curves/utils.js"
-import { bytesToHex as _bytesToHex, utf8ToBytes as _utf8ToBytes } from "@noble/hashes/utils.js"
+import { Either, Encoding } from "effect"
 
 /**
  * Encodes a JavaScript string as UTF-8 bytes.
@@ -18,7 +18,8 @@ import { bytesToHex as _bytesToHex, utf8ToBytes as _utf8ToBytes } from "@noble/h
  * @since 0.1.0
  * @category encoding
  */
-export const utf8ToBytes = (str: string): Uint8Array => _utf8ToBytes(str)
+export const utf8ToBytes = (str: string): Uint8Array =>
+  Either.getOrThrow(Encoding.decodeBase64(Encoding.encodeBase64(str)))
 
 /**
  * Encodes bytes as lowercase hexadecimal.
@@ -29,7 +30,7 @@ export const utf8ToBytes = (str: string): Uint8Array => _utf8ToBytes(str)
  * @since 0.1.0
  * @category encoding
  */
-export const toHex = (bytes: Uint8Array): string => _bytesToHex(bytes)
+export const toHex = (bytes: Uint8Array): string => Encoding.encodeHex(bytes)
 
 /**
  * Compares equal-length byte arrays without a data-dependent early exit.

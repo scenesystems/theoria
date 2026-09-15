@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type * as SqlClient from "@effect/sql/SqlClient"
-import { Data, Effect, Layer, Option, ParseResult, Schema } from "effect"
+import { Data, Effect, Layer, Match, Option, ParseResult, Schema, String as Str, Tuple } from "effect"
 import type * as Context from "effect/Context"
 
 import * as Cache from "../Cache/index.js"
@@ -29,34 +29,23 @@ export class StudyObjectiveCacheOptions extends Data.Class<{
 }> {}
 
 /**
- * Deterministic key shape accepted by StudyObjectiveCache.
+ * Couples a configuration schema and decoded value with a lazy objective computation.
  *
+ * @typeParam A - Decoded configuration accepted by the objective.
+ * @typeParam I - Encoded configuration fingerprinted by the cache.
+ * @typeParam E - Objective computation error.
+ * @typeParam R - Objective computation requirements.
  * @since 0.1.0
- * @category type-level
+ * @category models
  */
-export type StudyObjectiveCacheKey =
-  | string
-  | number
-  | boolean
-  | null
-  | ReadonlyArray<StudyObjectiveCacheKey>
-  | { readonly [key: string]: StudyObjectiveCacheKey }
-
-const StudyObjectiveCacheKeyPrimitiveSchema = Schema.Union(
-  Schema.String,
-  Schema.JsonNumber,
-  Schema.Boolean,
-  Schema.Null
-)
-
-const StudyObjectiveCacheKeySchema: Schema.Schema<StudyObjectiveCacheKey> = Schema.Union(
-  StudyObjectiveCacheKeyPrimitiveSchema,
-  Schema.Array(Schema.suspend(() => StudyObjectiveCacheKeySchema)),
-  Schema.Record({
-    key: Schema.String,
-    value: Schema.suspend(() => StudyObjectiveCacheKeySchema)
-  })
-)
+export class StudyObjectiveCacheRequest<A, I, E, R> extends Data.Class<{
+  /** Schema defining both the objective configuration and its persisted identity. */
+  readonly schema: Schema.Schema<A, I, never>
+  /** Decoded configuration supplied to the objective. */
+  readonly config: A
+  /** Evaluation run only after lookup misses. */
+  readonly compute: Effect.Effect<ObjectiveValue, E, R>
+}> {}
 
 const DEFAULT_OPTIONS = new StudyObjectiveCacheOptions({ scope: DEFAULT_SCOPE })
 
@@ -69,20 +58,27 @@ const DEFAULT_OPTIONS = new StudyObjectiveCacheOptions({ scope: DEFAULT_SCOPE })
 export const studyObjectiveCacheOptions = (scope: string): StudyObjectiveCacheOptions =>
   new StudyObjectiveCacheOptions({ scope })
 
-const descriptorFor = (options: StudyObjectiveCacheOptions) =>
-  Cache.makeDescriptor(`${options.scope}/objective`, "v1", StudyObjectiveCacheKeySchema, ObjectiveValueSchema)
+const descriptorFor = <A, I>(
+  options: StudyObjectiveCacheOptions,
+  schema: Schema.Schema<A, I, never>
+): Cache.CacheDescriptor<I, ObjectiveValue, I> =>
+  Cache.makeDescriptor(
+    Str.concat(options.scope, "/objective"),
+    "v1",
+    Schema.encodedSchema(schema),
+    ObjectiveValueSchema
+  )
 
-const descriptorPrefix = (descriptor: Cache.CacheDescriptor<StudyObjectiveCacheKey, ObjectiveValue>): string =>
-  `${descriptor.namespace}:${descriptor.version}:`
+const descriptorPrefix = <I>(descriptor: Cache.CacheDescriptor<I, ObjectiveValue, I>): string =>
+  Str.concat(descriptor.namespace, Str.concat(":", Str.concat(descriptor.version, ":")))
 
-const prepareKey = (
-  descriptor: Cache.CacheDescriptor<StudyObjectiveCacheKey, ObjectiveValue>,
-  config: unknown
-): Effect.Effect<{
-  readonly encoded: StudyObjectiveCacheKey
-  readonly fingerprint: string
-}, Cache.CacheCorrupt> =>
-  Schema.encodeUnknown(descriptor.keySchema)(config).pipe(
+const prepareKey = <A, I>(
+  options: StudyObjectiveCacheOptions,
+  schema: Schema.Schema<A, I, never>,
+  config: A
+) => {
+  const descriptor = descriptorFor(options, schema)
+  return Effect.suspend(() => Schema.encode(schema)(config)).pipe(
     Effect.mapError((error) =>
       new Cache.CacheCorrupt({
         key: descriptorPrefix(descriptor),
@@ -91,26 +87,29 @@ const prepareKey = (
     ),
     Effect.flatMap((encoded) =>
       Cache.durableFingerprint(encoded).pipe(
-        Effect.map((fingerprint) => ({ encoded, fingerprint })),
+        Effect.map((fingerprint) => Tuple.make(descriptor, encoded, fingerprint)),
         Effect.mapError((cause) =>
           new Cache.CacheCorrupt({
             key: descriptorPrefix(descriptor),
-            reason: `fingerprint failure: ${cause._tag}`
+            reason: Str.concat("fingerprint failure: ", cause._tag)
           })
         )
       )
     )
   )
+}
 
 /**
  * Reuses objective values for configurations with the same canonical JSON identity.
  *
  * @remarks
- * Configurations are validated as recursive JSON values before lookup. Resolution
- * serializes concurrent computation of the same key within one cache service. A
- * successful miss is cached; computation failures are returned unchanged and are
- * not cached. Key encoding, value encoding, and backend failures use the cache
- * error channel.
+ * The caller's schema encodes each configuration exactly once. Its encoded schema
+ * then identifies that encoded representation to the underlying schema cache, so
+ * transformed configurations are fingerprinted by their wire preimage without a
+ * second transform. Resolution serializes concurrent computation of the same key
+ * within one cache service. A successful miss is cached; computation failures are
+ * returned unchanged and are not cached. Key encoding, value encoding, and backend
+ * failures use the cache error channel.
  *
  * @since 0.1.0
  * @category services
@@ -122,14 +121,14 @@ export class StudyObjectiveCache extends Effect.Tag("effect-search/Study/StudyOb
      * Reads a cached value or runs `compute` once for a missing configuration.
      * The tuple identifies whether the returned value was a `hit` or `miss`.
      */
-    readonly resolve: <E, Requirement>(args: {
-      /** JSON-safe configuration used as the canonical cache key. */
-      readonly config: unknown
-      /** Evaluation run only after lookup misses; its errors and requirements are preserved. */
-      readonly compute: Effect.Effect<ObjectiveValue, E, Requirement>
-    }) => Effect.Effect<readonly [ObjectiveValue, Cache.CacheResolution], Cache.CacheError | E, Requirement>
-    /** Removes the entry for a JSON-safe configuration, if present. */
-    readonly invalidate: (config: unknown) => Effect.Effect<void, Cache.CacheError>
+    readonly resolve: <A, I, E, R>(
+      request: StudyObjectiveCacheRequest<A, I, E, R>
+    ) => Effect.Effect<Cache.SchemaCacheResult<ObjectiveValue>, Cache.CacheError | E, R>
+    /** Removes the entry for a schema-defined decoded configuration, if present. */
+    readonly invalidate: <A, I>(
+      schema: Schema.Schema<A, I, never>,
+      config: A
+    ) => Effect.Effect<void, Cache.CacheError>
   }
 >() {}
 
@@ -164,7 +163,6 @@ export const makeStudyObjectiveCache = (
 ): Effect.Effect<StudyObjectiveCacheApi, never, Cache.SchemaCache> =>
   Effect.gen(function*() {
     const schemaCache = yield* Cache.SchemaCache
-    const descriptor = descriptorFor(options)
     const observerOption = yield* Effect.serviceOption(CacheObserver)
 
     const emitObservation = (event: CacheObservabilityEvent): Effect.Effect<void> =>
@@ -174,9 +172,9 @@ export const makeStudyObjectiveCache = (
       })
 
     return {
-      resolve: ({ config, compute }) =>
-        prepareKey(descriptor, config).pipe(
-          Effect.flatMap(({ encoded, fingerprint }) =>
+      resolve: ({ schema, config, compute }) =>
+        prepareKey(options, schema, config).pipe(
+          Effect.flatMap(([descriptor, encoded, fingerprint]) =>
             schemaCache.resolve({
               descriptor,
               key: encoded,
@@ -184,19 +182,21 @@ export const makeStudyObjectiveCache = (
             }).pipe(
               Effect.tap(([, resolution]) =>
                 emitObservation(
-                  resolution === "hit"
-                    ? { _tag: "Hit", fingerprint, scope: options.scope }
-                    : { _tag: "Miss", fingerprint, scope: options.scope }
+                  Match.value(resolution).pipe(
+                    Match.when("hit", () => Cache.CacheHit({ fingerprint, scope: options.scope })),
+                    Match.when("miss", () => Cache.CacheMiss({ fingerprint, scope: options.scope })),
+                    Match.exhaustive
+                  )
                 )
               )
             )
           )
         ),
-      invalidate: (config) =>
-        prepareKey(descriptor, config).pipe(
-          Effect.flatMap(({ encoded, fingerprint }) =>
+      invalidate: (schema, config) =>
+        prepareKey(options, schema, config).pipe(
+          Effect.flatMap(([descriptor, encoded, fingerprint]) =>
             schemaCache.remove(descriptor, encoded).pipe(
-              Effect.tap(() => emitObservation({ _tag: "Invalidation", fingerprint, scope: options.scope }))
+              Effect.tap(() => emitObservation(Cache.CacheInvalidation({ fingerprint, scope: options.scope })))
             )
           )
         )
@@ -220,7 +220,7 @@ export const StudyObjectiveCacheLive = (options: StudyObjectiveCacheOptions = DE
  * Stores objective values for the lifetime of one in-memory Layer instance.
  *
  * @remarks
- * A fresh Layer starts empty, has no requirements, and performs no release action.
+ * A fresh Layer starts empty and has no requirements. Its schema cache owns scoped per-key locks.
  *
  * @since 0.1.0
  * @category layers

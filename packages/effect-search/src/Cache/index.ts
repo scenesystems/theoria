@@ -3,8 +3,10 @@
  *
  * @remarks
  * A descriptor partitions persisted entries and defines their codecs. `SchemaCache`
- * serializes concurrent resolution of the same key within one service instance and
- * leaves computation failures in the caller's error channel without caching them.
+ * serializes every lookup, mutation, and resolution of the same persistence key within
+ * one service instance while allowing different keys to progress independently. It
+ * leaves computation failures in the caller's error channel without caching them and
+ * immediately discards failed backing lookups so a following call can retry.
  *
  * @since 0.1.0
  * @module
@@ -29,5 +31,7 @@ export {
   SchemaCacheFileSystem,
   SchemaCacheLive,
   SchemaCacheMemory,
+  SchemaCacheRequest,
+  type SchemaCacheResult,
   SchemaCacheSql
 } from "./schemaCache.js"

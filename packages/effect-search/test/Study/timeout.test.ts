@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Ref, Stream } from "effect"
+import { Cause, Chunk, Deferred, Duration, Effect, Exit, Fiber, Option, Predicate, Stream, TestClock } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
+import { evaluateObjectiveWithTimeout } from "../../src/Study/runtime/objectiveTimeout.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -11,50 +12,108 @@ const makeSpace = () =>
   })
 
 describe("Study objective timeout", () => {
-  it.live("cancels timed-out trials and emits TrialCancelled events", () =>
+  it.effect("cancels timed-out trials and emits TrialCancelled events", () =>
     Effect.gen(function*() {
-      const events = yield* Stream.runCollect(
-        Study.optimizeStream({
-          space: yield* makeSpace(),
-          sampler: Sampler.random({ seed: 17 }),
-          direction: "minimize",
-          trials: 1,
-          trialTimeout: "10 millis",
-          objective: () => Effect.sleep("50 millis").pipe(Effect.as(0.25))
-        })
+      const started = yield* Deferred.make<void>()
+      const eventsFiber = yield* Effect.fork(
+        Stream.runCollect(
+          Study.optimizeStream({
+            space: yield* makeSpace(),
+            sampler: Sampler.random({ seed: 17 }),
+            direction: "minimize",
+            trials: 1,
+            trialTimeout: "10 millis",
+            objective: () =>
+              Deferred.succeed(started, undefined).pipe(
+                Effect.zipRight(Effect.never),
+                Effect.as(0.25)
+              )
+          })
+        )
       )
-      const eventList = Chunk.toReadonlyArray(events)
-      const tags = eventList.map((event) => event._tag)
-      const cancelledReasons = eventList.flatMap((event) =>
-        event._tag === "TrialCancelled"
-          ? [event.reason]
-          : []
+
+      yield* Deferred.await(started)
+      yield* TestClock.adjust("10 millis")
+
+      const events = yield* Fiber.join(eventsFiber)
+      const tags = Chunk.map(events, (event) => event._tag)
+      const cancelledReasons = Chunk.map(
+        Chunk.filter(events, (event) => Predicate.isTagged(event, "TrialCancelled")),
+        ({ reason }) => reason
       )
 
       expect(tags).toContain("TrialCancelled")
       expect(tags).not.toContain("TrialFailed")
-      expect(cancelledReasons).toEqual(["timeout"])
+      expect(cancelledReasons).toEqual(Chunk.of("timeout"))
     }))
 
-  it.live("interrupts objective fibers and runs cleanup finalizers on timeout", () =>
+  it.effect("returns None for a plain timeout interruption after running cleanup", () =>
     Effect.gen(function*() {
-      const interruptedRef = yield* Ref.make(false)
+      const started = yield* Deferred.make<void>()
+      const cleaned = yield* Deferred.make<void>()
+      const resultFiber = yield* Effect.fork(
+        evaluateObjectiveWithTimeout(
+          Deferred.succeed(started, undefined).pipe(
+            Effect.zipRight(Effect.never),
+            Effect.ensuring(Deferred.succeed(cleaned, undefined))
+          ),
+          Duration.millis(10)
+        )
+      )
 
-      yield* Stream.runCollect(
-        Study.optimizeStream({
-          space: yield* makeSpace(),
-          sampler: Sampler.random({ seed: 23 }),
-          direction: "minimize",
-          trials: 1,
-          trialTimeout: "10 millis",
-          objective: () =>
-            Effect.never.pipe(
-              Effect.ensuring(Ref.set(interruptedRef, true)),
-              Effect.as(0.25)
-            )
+      yield* Deferred.await(started)
+      yield* TestClock.adjust(Duration.millis(10))
+
+      const result = yield* Fiber.join(resultFiber)
+      yield* Deferred.await(cleaned)
+
+      expect(result).toEqual(Option.none())
+    }))
+
+  it.effect("preserves the full interruption and cleanup-defect cause on timeout", () =>
+    Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const resultFiber = yield* Effect.fork(
+        evaluateObjectiveWithTimeout(
+          Deferred.succeed(started, undefined).pipe(
+            Effect.zipRight(Effect.never),
+            Effect.ensuring(Effect.die("cleanup-defect"))
+          ),
+          Duration.millis(10)
+        )
+      )
+
+      yield* Deferred.await(started)
+      yield* TestClock.adjust(Duration.millis(10))
+
+      const result = yield* Fiber.join(resultFiber)
+      const cause = Option.flatMap(
+        result,
+        Exit.match({
+          onSuccess: () => Option.none(),
+          onFailure: Option.some
         })
       )
 
-      expect(yield* Ref.get(interruptedRef)).toBe(true)
+      expect(Option.map(cause, Cause.isInterrupted)).toEqual(Option.some(true))
+      expect(Option.map(cause, Cause.defects)).toEqual(Option.some(Chunk.of("cleanup-defect")))
+    }))
+
+  it.effect("returns the successful Exit when the objective completes before its timeout", () =>
+    Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const complete = yield* Deferred.make<number>()
+      const resultFiber = yield* Effect.fork(
+        evaluateObjectiveWithTimeout(
+          Deferred.succeed(started, undefined).pipe(Effect.zipRight(Deferred.await(complete))),
+          Duration.millis(10)
+        )
+      )
+
+      yield* Deferred.await(started)
+      yield* TestClock.adjust(Duration.millis(9))
+      yield* Deferred.succeed(complete, 0.25)
+
+      expect(yield* Fiber.join(resultFiber)).toEqual(Option.some(Exit.succeed(0.25)))
     }))
 })

@@ -6,7 +6,7 @@
  * @module
  */
 import { p256 } from "@noble/curves/nist.js"
-import { Effect } from "effect"
+import { Array as Arr, Boolean as B, Effect, Number as N, Option } from "effect"
 import { detachVerificationInputs } from "../internal/verificationInput.js"
 import { InvalidVerificationInput, VerificationUnavailable } from "../schemas/errors.js"
 
@@ -39,37 +39,39 @@ export const p256Sha256P1363LowSVerify = (
   publicKey: Uint8Array
 ): Effect.Effect<boolean, InvalidVerificationInput | VerificationUnavailable> => {
   const detached = detachVerificationInputs(signature, message, publicKey)
-  return detached.pipe(Effect.flatMap((input) =>
-    Effect.gen(function*() {
-      if (
-        input.signature.length !== 64 ||
-        input.publicKey.length !== 65 ||
-        input.publicKey[0] !== 0x04
-      ) {
-        return yield* new InvalidVerificationInput({})
-      }
+  return detached.pipe(
+    Effect.filterOrFail(
+      (input) => B.and(N.Equivalence(input.signature.length, 64), N.Equivalence(input.publicKey.length, 65)),
+      () => new InvalidVerificationInput({})
+    ),
+    Effect.filterOrFail(
+      (input) => Option.containsWith(N.Equivalence)(Arr.head(Arr.fromIterable(input.publicKey)), 0x04),
+      () => new InvalidVerificationInput({})
+    ),
+    Effect.flatMap((input) =>
+      Effect.gen(function*() {
+        yield* Effect.try({
+          try: () => p256.Point.fromBytes(input.publicKey),
+          catch: () => new InvalidVerificationInput({})
+        })
+        yield* Effect.try({
+          try: () => p256.Signature.fromBytes(input.signature, "compact"),
+          catch: () => new InvalidVerificationInput({})
+        }).pipe(Effect.filterOrFail(
+          (signature) => B.not(signature.hasHighS()),
+          () => new InvalidVerificationInput({})
+        ))
 
-      yield* Effect.try({
-        try: () => p256.Point.fromBytes(input.publicKey),
-        catch: () => new InvalidVerificationInput({})
+        return yield* Effect.try({
+          try: () =>
+            p256.verify(input.signature, input.message, input.publicKey, {
+              format: "compact",
+              lowS: true,
+              prehash: true
+            }),
+          catch: () => new VerificationUnavailable({})
+        })
       })
-      const parsedSignature = yield* Effect.try({
-        try: () => p256.Signature.fromBytes(input.signature, "compact"),
-        catch: () => new InvalidVerificationInput({})
-      })
-      if (parsedSignature.hasHighS()) {
-        return yield* new InvalidVerificationInput({})
-      }
-
-      return yield* Effect.try({
-        try: () =>
-          p256.verify(input.signature, input.message, input.publicKey, {
-            format: "compact",
-            lowS: true,
-            prehash: true
-          }),
-        catch: () => new VerificationUnavailable({})
-      })
-    })
-  ))
+    )
+  )
 }

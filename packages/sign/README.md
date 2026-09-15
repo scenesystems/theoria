@@ -4,7 +4,7 @@
 
 The three families are kept apart because their security roles differ. Signatures prove possession of a signing key under an identity policy you define. Agreement and encapsulation produce raw shared secret material that must pass through a key derivation function before it becomes a key. Each family has its own operations and its own tagged result schemas: `Signature`, `SharedSecret`, and `KemCiphertext`, with `KeyPair` shared across all algorithms. Primitive implementations come from the Noble Curves, Hashes, and Post-Quantum projects.
 
-The package does not provide identity, authorization, certificates, trust roots, key storage, rotation, transcript construction, or protocol policy. A KEM is unauthenticated on its own, so a protocol must bind recipient keys and transcripts through an authenticated channel. [`@scenesystems/digest`](../digest/README.md) supplies HKDF and BLAKE3 key derivation for the shared secrets this package produces, and [`@scenesystems/seal`](../seal/README.md) encrypts under the derived keys.
+The package does not establish identity, certificates, trust roots, key storage, or rotation. The separate `Jwt` module verifies a fixed RS256 token profile against caller-trusted keys and explicit claim policy; applications still own authorization decisions. A KEM is unauthenticated on its own, so a protocol must bind recipient keys and transcripts through an authenticated channel. [`@scenesystems/digest`](../digest/README.md) supplies HKDF and BLAKE3 key derivation for the shared secrets this package produces, and [`@scenesystems/seal`](../seal/README.md) encrypts under the derived keys.
 
 ## Installation
 
@@ -32,6 +32,23 @@ export const program = Effect.gen(function* () {
 ```
 
 Prefer a direct verifier whenever your protocol fixes the algorithm and authenticates the public key independently. The generic `verify(signature, message)` dispatches on the algorithm and public key carried inside the `Signature`, which is only appropriate when that self-describing model is deliberately part of the protocol.
+
+## Recover an Ed25519 identity
+
+`ed25519KeyPairFromSeed(seed)` reconstructs the matching public key from an existing, exact 32-byte RFC 8032 secret seed. It draws no randomness and accepts neither an expanded 64-byte secret key nor a serialized key container. Use it after deriving a deployment seed with HKDF, or when restoring a stored identity. `Ed25519Seed` exposes the same size validation as a Schema.
+
+The operation validates and copies the seed when its Effect executes. Returned key bytes belong to the caller. Invalid seeds fail with the material-free `InvalidEd25519Seed`; primitive failure is reported as `KeyGenerationFailed` without backend diagnostics. `ed25519Sign` now checks that the supplied public key belongs to the seed and rejects mismatched pairs with `SigningFailed`.
+
+```ts typecheck
+import { ed25519KeyPairFromSeed } from "@scenesystems/sign"
+import { Effect, Encoding } from "effect"
+
+// Public RFC 8032 test vector, not a production secret.
+export const restoredIdentity = Effect.gen(function* () {
+  const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+  return yield* ed25519KeyPairFromSeed(seed)
+})
+```
 
 ## Supported families
 
@@ -69,7 +86,7 @@ export const agree = Effect.gen(function* () {
 | Malformed, noncanonical, wrong-length, or unsupported primitive input | `InvalidVerificationInput` |
 | Admitted input reaches an unavailable backend                         | `VerificationUnavailable`  |
 
-Both errors carry no material: no algorithm, key, signature, message, context, provider reason, or underlying exception. Inputs are admitted and copied on every execution of the returned Effect, so a buffer mutated between runs is rejected rather than silently reread. Primitive calls run synchronously and cannot be interrupted.
+Both errors carry no material: no algorithm, key, signature, message, context, provider reason, or underlying exception. Inputs are admitted and copied on every execution of the returned Effect. A buffer changed between runs is validated again; malformed changes fail admission and admitted nonmatches return `false`. Primitive calls run synchronously and cannot be interrupted.
 
 The profiles are fixed and reject alternate encodings:
 
@@ -78,6 +95,49 @@ The profiles are fixed and reject alternate encodings:
 - ML-DSA-65 follows FIPS 204 with an explicit context. Public keys are 1,952 bytes and signatures 3,309 bytes with canonical hint encoding. An empty context and a nonempty context define distinct profiles.
 
 Direct verification admits messages up to 8,192 bytes and rejects longer input before the primitive runs. This bound protects the verifier; it is not a wire-format limit, and your protocol must still define its own message-size policy.
+
+## RSA public keys and RS256 verification
+
+`rsaPublicKeyFromJwk(jwk)` admits canonical, unpadded Base64urlUInt `n` and `e` into the Schema-owned `RsaPublicKey`. The modulus must be odd and 2048–4096 bits; the exponent must be odd and between 3 and 2³²−1. Optional `alg`, `use`, and `key_ops` must permit RS256 verification. Invalid keys fail with the material-free `InvalidRsaPublicKey`. Admission validates public parameters, not prime factorization, certificate chains, or provenance.
+
+`rsaSha256Verify(signature, message, key)` verifies RSASSA-PKCS1-v1_5 with SHA-256, hashing the message once. It requires a modulus-width signature whose integer is less than the modulus, and compares the complete RFC 8017 encoding: padding, DER DigestInfo, NULL parameters, and digest. BER variants and missing-NULL encodings do not verify. It shares the 8192-byte message bound and material-free `InvalidVerificationInput` / `VerificationUnavailable` contract. It does not add RSA signing, encryption, PSS, or dispatch through `Signature`.
+
+This implementation adds no dependency. It composes the existing Noble public arithmetic and hash APIs. **The new RSA scheme composition is not covered by Noble's audits.** The tests retain all 259 cases from a pinned Wycheproof corpus, including strict rejection of its optional missing-NULL compatibility case.
+
+Independent OpenSSL fixtures cover 2048-, 2049-, 3072-, and 4096-bit keys, including the minimum and maximum admitted exponents. They verify genuine signatures and reject altered messages/signatures, alongside tests for modulus bit lengths, signature widths and representatives, and the inclusive 8192-byte message limit. CI checks both RSA fixture schemas and hashes with `bun run --filter @scenesystems/sign fixtures:check`; see [fixture provenance and regeneration](./test/fixtures/RSA-PROVENANCE.md).
+
+## JWT verification has explicit trust and application policy
+
+`Jwt.verifyRs256(token, trustedJwks, policy, claimsSchema)` verifies the original `header.payload` bytes, then enforces issuer, audience, issuance, expiry, optional not-before, maximum lifetime, and the application's claim Schema. The token is `Redacted<string>`. The application Schema may require services or perform effectful refinements; those requirements and interruption semantics are preserved.
+
+The caller must authenticate the JWKS for the configured issuer, for example by fetching a configured Cloudflare Access issuer's certificates using Effect Platform `HttpClient`. `Jwt` performs no HTTP or implicit caching and never follows token-supplied URLs. It requires exactly one matching `kid` in a JWKS of at most 100 keys; identical duplicates also fail. The protected header accepts only `alg: RS256`, `kid`, and optional `typ: JWT`. Compact input is bounded to 8876 characters, with the signed portion subject to the RSA message limit. Base64url must be canonical; malformed UTF-8 and a leading BOM are rejected, not replaced or stripped. JSON duplicate members use the last-member semantics permitted by RFC 7519.
+
+This profile requires `iss`, `aud`, `iat`, and `exp`. Audiences may be a string or nonempty array. Comparisons are case-sensitive; expiry is exclusive, issuance/not-before inclusive, and no clock skew is applied. `Jwt.Rejected` identifies the rejected stage without carrying input material. `VerificationUnavailable` remains a distinct backend failure.
+
+```ts typecheck
+import { Jwt } from "@scenesystems/sign"
+import { HashSet, Redacted, Schema } from "effect"
+
+const allowedEmails = HashSet.make("reader@example.test")
+const Identity = Schema.Struct({
+  sub: Schema.NonEmptyString,
+  email: Schema.NonEmptyString.pipe(Schema.filter((email) => HashSet.has(allowedEmails, email)))
+})
+const policy = new Jwt.Policy({
+  issuer: "https://team.cloudflareaccess.com",
+  audience: "configured-application-audience",
+  maxLifetimeSeconds: 86400
+})
+
+export const authenticate = (token: Redacted.Redacted<string>, trustedJwks: unknown) =>
+  Jwt.verifyRs256(token, trustedJwks, policy, Identity)
+```
+
+The protocol tests use OpenSSL-signed fixtures, not signatures generated by the verifier under test. They check that rejected tokens cannot reach a downstream Effect and that effectful application policy is interruptible with finalization.
+
+For Worker consumers, `test:packed` executes the packed public RSA/JWT APIs inside native workerd without `nodejs_compat`, including an independently signed 27-case Access profile. The [fixture provenance](./test/fixtures/RSA-PROVENANCE.md) records the reproducible Linux process-CPU and HTTP-latency baseline and its limits. This is release-build evidence, not verification of a subsequently published registry artifact or a Cloudflare CPU-budget guarantee.
+
+Applications upgrading to these APIs still own trusted HTTPS issuer validation, authenticated JWKS fetching/caching, token-header redaction, and email authorization through their claim Schema. Preserve their typed application errors and clock-boundary tests when replacing local verification with `Jwt.verifyRs256`. Identity reconstruction uses `ed25519KeyPairFromSeed`; no production RSA signer is needed to consume the independent fixtures. These are integration responsibilities, not implicit behavior supplied by `Jwt`.
 
 ## Post-quantum signatures
 

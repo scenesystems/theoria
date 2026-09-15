@@ -3,11 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Cause, Effect, Exit, Fiber, Option } from "effect"
-
-import type { OptimizeSettings } from "../options.js"
-
-type TrialTimeout = NonNullable<OptimizeSettings["trialTimeout"]>
+import { Boolean as Bool, Cause, type Duration, Effect, Exit, Fiber, Option } from "effect"
 
 /**
  * Wraps an objective evaluation with a timeout. When the deadline elapses the
@@ -23,7 +19,7 @@ type TrialTimeout = NonNullable<OptimizeSettings["trialTimeout"]>
  */
 export const evaluateObjectiveWithTimeout = <A, E, R>(
   objectiveEffect: Effect.Effect<A, E, R>,
-  trialTimeout: TrialTimeout
+  trialTimeout: Duration.Duration
 ): Effect.Effect<Option.Option<Exit.Exit<A, E>>, never, R> =>
   Effect.gen(function*() {
     const objectiveFiber = yield* Effect.fork(objectiveEffect)
@@ -36,7 +32,11 @@ export const evaluateObjectiveWithTimeout = <A, E, R>(
           Effect.map(
             Exit.match({
               onSuccess: (value) => Option.some(Exit.succeed(value)),
-              onFailure: (cause) => Cause.isInterruptedOnly(cause) ? Option.none() : Option.some(Exit.failCause(cause))
+              onFailure: (cause) =>
+                Bool.match(Cause.isInterruptedOnly(cause), {
+                  onTrue: () => Option.none(),
+                  onFalse: () => Option.some(Exit.failCause(cause))
+                })
             })
           )
         )
