@@ -10,16 +10,16 @@ import type * as SqlClient from "@effect/sql/SqlClient"
 import {
   type CacheBackendError,
   type CacheError,
-  type CacheResolution,
   makeDescriptor,
   SchemaCache,
   SchemaCacheFileSystem,
   SchemaCacheMemory,
+  type SchemaCacheResult,
   SchemaCacheSql
 } from "@scenesystems/effect-search/Cache"
-import { Effect, Layer, type Schema } from "effect"
+import { Effect, Layer } from "effect"
 
-import { buildDspCacheKey, DspCache, DspCacheKey } from "./model.js"
+import { buildDspCacheKey, DspCache, DspCacheKey, type DspCacheRequest } from "./model.js"
 
 const DSP_CACHE_NAMESPACE = "effect-dsp/lm-cache"
 const DSP_CACHE_VERSION = "v1"
@@ -42,18 +42,9 @@ export const DspCacheLive: Layer.Layer<DspCache, never, SchemaCache> = Layer.eff
     const schemaCache = yield* SchemaCache
 
     return DspCache.of({
-      resolve: <O, E, R>(request: {
-        readonly moduleFingerprint: string
-        readonly runtimeFingerprint: string
-        readonly input: unknown
-        readonly params: unknown
-        readonly outputSchema: Schema.Schema<O>
-        readonly compute: Effect.Effect<O, E, R>
-      }): Effect.Effect<
-        readonly [O, CacheResolution],
-        E | CacheError,
-        R
-      > =>
+      resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
+        request: DspCacheRequest<Input, Params, Output, Failure, Requirement, EncodedOutput>
+      ): Effect.Effect<SchemaCacheResult<Output>, Failure | CacheError, Requirement> =>
         buildDspCacheKey(request).pipe(
           Effect.flatMap((key) => {
             const descriptor = makeDescriptor(

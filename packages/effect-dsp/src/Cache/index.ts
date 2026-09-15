@@ -13,6 +13,6 @@
 
 export { RolloutRef, withRollout } from "./refs.js"
 
-export { buildDspCacheKey, DspCache, DspCacheKey } from "./model.js"
+export { buildDspCacheKey, DspCache, DspCacheKey, DspCacheKeyRequest, DspCacheRequest } from "./model.js"
 
 export { DspCacheFileSystem, DspCacheLive, DspCacheMemory, DspCacheSql } from "./layer.js"
