@@ -12,6 +12,7 @@ import { Contracts, Text } from "@scenesystems/effect-text"
 
 const services = Layer.mergeAll(
   Text.WordSegmenterLive,
+  Text.NoHyphenationDictionaryLive,
   Layer.succeed(Contracts.EngineProfile, {
     lineFitEpsilon: 0.01,
     tabWidth: 8,

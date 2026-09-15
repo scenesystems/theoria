@@ -36,13 +36,13 @@ export const program = Effect.gen(function* () {
 }).pipe(Effect.provide(Text.TextLayoutLive))
 ```
 
-`Text.TextLayoutLive` bundles the default services: an `Intl`-based word segmenter, a deterministic width estimator, an in-memory measurement cache, the default engine profile, and the bundled hyphenation dictionaries. It is enough for tests, servers, and any place where estimated widths are acceptable. Browser applications replace the measurer with a canvas-backed one, described below.
+`Text.TextLayoutLive` is the public Effect Layer composition of the default services: the Unicode 17.0 UAX #29 grapheme scanner and deterministic word segmenter, a deterministic width estimator, an in-memory measurement cache, the default engine profile, and the bundled hyphenation dictionaries. It is enough for tests, servers, and any place where estimated widths are acceptable. Browser applications replace the measurer with a canvas-backed one, described below.
 
 ## Preparation and layout
 
 `PrepareInput` has three required fields and one optional one. `text` is the string. `font` names the family, size, and optional weight that the measurer will use. `whiteSpace` is `normal`, which collapses runs of whitespace, or `pre-wrap`, which preserves spaces, tabs, and hard breaks. `hyphenationLocale` opts a string into dictionary hyphenation.
 
-Two preparation functions return different handles. `Text.prepare` returns a `PreparedText` that supports summaries and `Text.measureNaturalWidth`, the width of the widest unbroken chunk. `Text.prepareWithSegments` returns a `PreparedTextWithSegments` that also retains the logical segments needed to materialize lines, step cursors, and vary the width per line. Choose the smaller handle when you only need geometry. `Text.prepareUnknown` decodes untrusted input against the schema before preparing it.
+Two preparation functions return different concrete `Schema.Class` handles. `Text.prepare` returns a `PreparedText` that supports summaries and `Text.measureNaturalWidth`, the width of the widest unbroken chunk. `Text.prepareWithSegments` returns a `PreparedTextWithSegments` that also retains the logical segments needed to materialize lines, step cursors, and vary the width per line. Choose the smaller handle when you only need geometry. `Text.prepareUnknown` decodes untrusted input against the schema before preparing it.
 
 Layout functions take a handle and a `LayoutRequest` with a positive `maxWidth` and `lineHeight`:
 
@@ -58,7 +58,7 @@ Layout functions take a handle and a `LayoutRequest` with a positive `maxWidth` 
 `Text.layoutLinesWith` is how text flows around obstacles or into a shaped container: return a different `maxWidth` for each line. `Text.layoutNextLine` with `Text.initialCursor()` and `Text.streamLines` serve virtualized rendering, where only the first visible lines are needed.
 
 ```ts typecheck
-import { Chunk, Effect, Stream } from "effect"
+import { Array as Arr, Effect, Number, Stream } from "effect"
 import { Text } from "@scenesystems/effect-text"
 
 export const program = Effect.gen(function* () {
@@ -69,18 +69,20 @@ export const program = Effect.gen(function* () {
   })
   const request = { maxWidth: 160, lineHeight: 18 }
 
-  const shaped = Text.layoutLinesWith(prepared, request, (lineIndex) => 160 - lineIndex * 20)
+  const shaped = Text.layoutLinesWith(prepared, request, (lineIndex) =>
+    Number.subtract(160, Number.multiply(lineIndex, 20))
+  )
   const firstThree = yield* Text.streamLines(prepared, request).pipe(Stream.take(3), Stream.runCollect)
 
-  return { shaped, firstThree: Chunk.toReadonlyArray(firstThree) }
+  return { shaped, firstThree: Arr.fromIterable(firstThree) }
 }).pipe(Effect.provide(Text.TextLayoutLive))
 ```
 
-Line breaking prefers hard breaks, then soft hyphens, then dictionary hyphens, then explicit break opportunities, and falls back to breaking between graphemes only when a single grapheme exceeds the width. Tabs align to four-column stops.
+Line breaking prefers hard breaks, then soft hyphens, then dictionary hyphens, then explicit break opportunities, and falls back to grapheme boundaries when an otherwise unbreakable run does not fit. Tabs align to four-column stops.
 
 ## Measurement services
 
-Preparation requires five services, all declared in `Contracts`: `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, and `HyphenationDictionary`. `Text.TextLayoutLive` provides all of them. To replace one, compose the individual layers instead.
+Preparation requires `WordSegmenter`, `MeasurementCache`, and `EngineProfile`, all declared in `Contracts`. The cache layer requires a `TextMeasurer`; preparation uses an available `HyphenationDictionary` only when `hyphenationLocale` is set. `Text.TextLayoutLive` provides all five services. To replace one, compose the individual layers instead.
 
 ```ts typecheck
 import { Effect, Layer } from "effect"
@@ -115,9 +117,7 @@ In a browser, measure with the real font. `Browser.CanvasTextMeasurerLive` wraps
 import { Effect, Layer } from "effect"
 import { Browser, Contracts, Text } from "@scenesystems/effect-text"
 
-type CanvasContext = Parameters<typeof Browser.CanvasTextMeasurerLive>[0]["context"]
-
-export const layoutOnCanvas = (context: CanvasContext, text: string, maxWidth: number) => {
+export const layoutOnCanvas = (context: Browser.CanvasMeasurementContext, text: string, maxWidth: number) => {
   const profile = Browser.browserSupportProfile("canvas-system-ui")
   const services = Layer.mergeAll(
     Text.WordSegmenterLive,
@@ -142,17 +142,17 @@ Widths are in the measurer's units, which for canvas measurement are CSS pixels.
 
 Set `hyphenationLocale` on the prepare input to break words at dictionary hyphenation points. The default layer bundles `en-us`, `en-gb`, `de`, `fr`, and `es`, and falls back from an exact tag to its base language. `Text.HyphenationSupport` lists the bundled locales.
 
-`Text.HyphenationDictionaryLive({ dictionaries })` adds or overrides entries; each word maps to the indexes where a hyphen may be inserted. `Text.NoHyphenationDictionaryLive` disables dictionary hyphenation while keeping soft hyphens (`U+00AD`) in the text as break opportunities.
+`Text.HyphenationDictionaryLive({ dictionaries })` supplies the supported locale map; each word maps to the indexes where a hyphen may be inserted. Sources are compiled on the first word request for a locale and reused through the layer-owned cache. Preparation without dictionary hyphenation leaves those sources uncompiled. `Text.NoHyphenationDictionaryLive` disables dictionary hyphenation while keeping soft hyphens (`U+00AD`) in the text as break opportunities.
 
 ```ts typecheck
-import { Effect, Layer } from "effect"
+import { Array as Arr, Effect, Layer } from "effect"
 import { Text } from "@scenesystems/effect-text"
 
 const services = Layer.mergeAll(
   Text.WordSegmenterLive,
   Text.EngineProfileLive,
   Text.MeasurementCacheLive.pipe(Layer.provide(Text.TextMeasurerLive)),
-  Text.HyphenationDictionaryLive({ dictionaries: { "en-gb": { colouration: [3, 6] } } })
+  Text.HyphenationDictionaryLive({ dictionaries: { "en-gb": { colouration: Arr.make(3, 6) } } })
 )
 
 export const program = Text.prepareWithSegments({
@@ -170,7 +170,7 @@ export const program = Text.prepareWithSegments({
 
 The `React` module contains no components or hooks. It provides the two pieces that a React integration needs and that are easy to get wrong: a stable cache identity for prepared handles and a pure projection for render time.
 
-`React.prepareIdentityFor` combines the prepare input, engine profile, support-profile id, and font-readiness revision into a `PrepareIdentity`, a structural `Data.Class` whose equality and hash follow its fields, so it is directly usable as a `HashMap` key or an `Atom.family` argument. Two inputs with equal identities produce the same prepared handle, so the application can run preparation once per identity and keep the handle in state; `React.prepareInputFromIdentity` recovers the prepare input on a cache miss. `React.projectPreparedLayout` is `Text.layoutLinesWithSummary` under a name that signals it is safe to call during render: it measures nothing and touches no services.
+`React.prepareIdentityFor` combines the prepare input, engine profile, support-profile id, and font-readiness revision into a structural `Schema.Class` identity whose equality and hash follow its fields, so it is directly usable as a `HashMap` key or an `Atom.family` argument. Two inputs with equal identities produce the same prepared handle, so the application can run preparation once per identity and keep the handle in state; `React.prepareInputFromIdentity` recovers the prepare input on a cache miss. `React.projectPreparedLayout` is `Text.layoutLinesWithSummary` under a name that signals it is safe to call during render: it measures nothing and touches no services.
 
 The application owns the rest: running preparation effects, storing handles, bumping the font-readiness revision when `document.fonts` changes, and calling the projection in render or resize work.
 

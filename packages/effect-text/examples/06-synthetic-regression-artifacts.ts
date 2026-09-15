@@ -5,52 +5,35 @@
  *
  * Run with `bun run packages/effect-text/examples/06-synthetic-regression-artifacts.ts`.
  */
-import { BunRuntime } from "@effect/platform-bun"
-import { BunContext } from "@effect/platform-bun"
-import { Effect } from "effect"
+import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { Effect, Schema } from "effect"
 
-import { Text } from "@scenesystems/effect-text"
-import {
-  browserParityArtifactRelativePath,
-  browserParityCasesForProfile,
-  browserParityLayer,
-  BrowserSupportManifest,
-  type BrowserSupportProfileType
-} from "@scenesystems/effect-text/browser"
+import * as Browser from "@scenesystems/effect-text/browser"
 
-const renderProfileReport = (profile: BrowserSupportProfileType) =>
-  Effect.gen(function*() {
-    const cases = yield* Effect.forEach(browserParityCasesForProfile(profile), (entry) =>
-      Text.prepareWithSegments(entry.prepare).pipe(
-        Effect.provide(browserParityLayer(profile)),
-        Effect.map((prepared) => ({
-          caseId: entry.caseId,
-          request: entry.request,
-          summary: Text.layout(prepared, entry.request),
-          lines: Text.layoutLines(prepared, entry.request)
-        }))
-      ))
+class SyntheticRegressionReport extends Schema.Class<SyntheticRegressionReport>(
+  "effect-text/SyntheticRegressionReport"
+)({
+  artifact: Browser.BrowserParityArtifactSchema,
+  artifactPath: Schema.String,
+  profile: Browser.BrowserSupportProfileSchema
+}) {}
 
-    return {
-      profileId: profile.id,
-      defaultFontFamily: profile.defaultFontFamily,
-      fontSelection: profile.fontSelection,
-      fontStack: profile.fontStack,
-      parityTolerancePx: profile.parityTolerancePx,
-      whiteSpaceModes: profile.whiteSpaceModes,
-      tabPolicy: profile.tabPolicy,
-      parityCases: profile.parityCases,
-      caveats: profile.caveats,
-      regressionArtifact: browserParityArtifactRelativePath(profile.id),
-      cases
-    }
-  })
+const renderProfileReport = (profile: Browser.BrowserSupportProfileType) =>
+  Browser.renderBrowserParityArtifact(profile).pipe(
+    Effect.map((artifact) =>
+      new SyntheticRegressionReport({
+        artifact,
+        artifactPath: Browser.browserParityArtifactRelativePath(profile.id),
+        profile
+      })
+    )
+  )
 
 const program = Effect.gen(function*() {
-  const reports = yield* Effect.forEach(BrowserSupportManifest.profiles, renderProfileReport)
+  const reports = yield* Effect.forEach(Browser.BrowserSupportManifest.profiles, renderProfileReport)
 
   yield* Effect.log("effect-text synthetic regression artifacts", {
-    defaultProfileId: BrowserSupportManifest.defaultProfileId,
+    defaultProfileId: Browser.BrowserSupportManifest.defaultProfileId,
     reports
   })
 }).pipe(Effect.provide(BunContext.layer))
