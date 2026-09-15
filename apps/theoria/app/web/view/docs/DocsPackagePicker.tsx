@@ -25,12 +25,12 @@ export const DocsPackagePicker = ({
     >
       <SemanticText
         as="span"
-        className="min-w-0 truncate text-ink-900"
+        className="min-w-0 truncate text-ink"
         role="button-label"
         text={Option.match(activePackage, { onNone: () => "Packages", onSome: (value) => value.name })}
         variant="compact"
       />
-      <ChevronDownIcon aria-hidden className="h-4 w-4 shrink-0 text-ink-500" />
+      <ChevronDownIcon aria-hidden className="h-4 w-4 shrink-0 text-ink-tertiary" />
     </Menu.Trigger>
     <Menu.Portal>
       <Menu.Positioner
@@ -41,7 +41,7 @@ export const DocsPackagePicker = ({
         sideOffset={8}
       >
         <Menu.Popup
-          className={`max-h-[min(32rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] origin-[var(--transform-origin)] overflow-y-auto overscroll-contain rounded-2xl border border-stage-300/90 bg-stage-0 p-2 shadow-hero ring-1 ring-stage-0/70 transition-[opacity,transform] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`}
+          className={`max-h-[min(32rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] origin-[var(--transform-origin)] overflow-y-auto overscroll-contain rounded-2xl border border-hairline-strong/90 bg-paper p-2 shadow-hero ring-1 ring-paper/70 transition-[opacity,transform] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 ${stillUnderReducedMotion}`}
         >
           {Arr.map(packages, (docsPackage) => {
             const active = Option.exists(activePackage, (value) => docsPackage.slug === value.slug)
@@ -52,7 +52,7 @@ export const DocsPackagePicker = ({
                 key={docsPackage.slug}
                 render={
                   <InternalLink
-                    className={`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-ink-700 ${focusEdgeClassName} hover:bg-stage-100/80 focus:bg-stage-100/80`}
+                    className={`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-ink-secondary ${focusEdgeClassName} hover:bg-instrument/80 focus:bg-instrument/80`}
                     href={docsPackage.overview.path}
                     onClick={onNavigate}
                   />
@@ -60,11 +60,11 @@ export const DocsPackagePicker = ({
               >
                 <CheckIcon
                   aria-hidden
-                  className={`h-4 w-4 shrink-0 ${active ? "text-ink-900 opacity-100" : "opacity-0"}`}
+                  className={`h-4 w-4 shrink-0 ${active ? "text-ink opacity-100" : "opacity-0"}`}
                 />
                 <SemanticText
                   as="span"
-                  className="min-w-0 truncate text-ink-900"
+                  className="min-w-0 truncate text-ink"
                   role="button-label"
                   text={docsPackage.name}
                   variant="compact"

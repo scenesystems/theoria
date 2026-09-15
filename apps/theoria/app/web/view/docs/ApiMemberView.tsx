@@ -10,13 +10,13 @@ import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { ApiSignatureView } from "./ApiSignatureView.js"
 
 export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
-  <Section className="scroll-mt-28 border-l border-stage-300/80 pl-4 sm:pl-5" id={member.anchor}>
+  <Section className="scroll-mt-28 border-l border-hairline-strong/80 pl-4 sm:pl-5" id={member.anchor}>
     <Stack className="gap-5">
       <Cluster className="gap-2">
-        <SemanticContent as="h4" className="text-ink-950" role="selection-title">{member.name}</SemanticContent>
-        <SemanticText as="span" className="text-ink-400" role="row-label" text={member.kind} />
+        <SemanticContent as="h4" className="text-ink-strong" role="selection-title">{member.name}</SemanticContent>
+        <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={member.kind} />
         {member.inherited
-          ? <SemanticText as="span" className="text-ink-400" role="row-label" text="inherited" />
+          ? <SemanticText as="span" className="text-ink-tertiary" role="row-label" text="inherited" />
           : null}
       </Cluster>
       {member.signatures.length === 0
@@ -25,7 +25,7 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
             <ApiDocumentationView docs={member.docs} />
             <CodeBlock label="Type" source={member.declaration} />
             <ExternalLink
-              className="w-fit font-body text-sm font-medium text-ink-600 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
+              className="w-fit font-body text-sm font-medium text-ink-tertiary underline decoration-accent underline-offset-4 hover:text-ink-strong"
               href={member.sourceUrl}
             >
               Source

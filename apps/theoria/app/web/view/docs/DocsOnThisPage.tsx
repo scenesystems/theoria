@@ -11,7 +11,7 @@ import { SemanticText } from "../primitives/SemanticText.js"
 export type DocsPageAnchor = readonly [id: string, label: string]
 
 const anchorClassName =
-  `rounded-sm transition-colors ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-50`
+  `rounded-sm transition-colors ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas`
 
 export const DocsOnThisPage = ({ anchors }: { readonly anchors: ReadonlyArray<DocsPageAnchor> }) => {
   const anchorKey = Arr.map(anchors, ([id]) => id).join("\u0000")
@@ -21,15 +21,15 @@ export const DocsOnThisPage = ({ anchors }: { readonly anchors: ReadonlyArray<Do
     ? null
     : (
       <Nav aria-label="On this page">
-        <Stack className="gap-3 border-l border-stage-300/80 pl-4">
-          <SemanticText as="h2" className="text-ink-900" role="row-label" text="On this page" />
+        <Stack className="gap-3 border-l border-hairline-strong/80 pl-4">
+          <SemanticText as="h2" className="text-ink" role="row-label" text="On this page" />
           <Stack className="gap-2">
             {Arr.map(anchors, ([id, label]) => (
               <AnchorLink
                 aria-current={activeAnchor === id ? "location" : undefined}
                 className={activeAnchor === id
-                  ? `${anchorClassName} text-ink-950`
-                  : `${anchorClassName} text-ink-500 hover:text-ink-900 focus-visible:text-ink-900`}
+                  ? `${anchorClassName} text-ink-strong`
+                  : `${anchorClassName} text-ink-tertiary hover:text-ink focus-visible:text-ink`}
                 href={`#${id}`}
                 key={id}
               >

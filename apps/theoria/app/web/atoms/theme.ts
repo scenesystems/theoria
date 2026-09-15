@@ -2,13 +2,10 @@ import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Match, Schema, Stream } from "effect"
 
+import { type ColorMode } from "../../contracts/palette.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
 import { appRuntime } from "./runtime.js"
-
-export const ColorMode = Schema.Literal("light", "dark")
-
-export type ColorMode = typeof ColorMode.Type
 
 /** What the reader asked for: a fixed mode, or whatever the operating system says, followed live. */
 export const ColorModePreference = Schema.Literal("system", "light", "dark")

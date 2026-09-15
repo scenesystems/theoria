@@ -1,4 +1,4 @@
-import { Match, Option, Order, Schema } from "effect"
+import { Boolean as Bool, Match, Option, Order, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { contributorsOf } from "../../../contracts/demo/imagined-place-arrangement.js"
@@ -23,7 +23,13 @@ import {
 import type { CardTone } from "../../../contracts/theme.js"
 import type { PlaceDiscDrawn, PlaceSearch, PlaceWait, StageFailure } from "../../atoms/imagined-place-render.js"
 import type { MotionPreference } from "../../atoms/motion.js"
-import { silentOutlineClassName, type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
+import {
+  discFillClassName,
+  discSlotClassName,
+  silentOutlineClassName,
+  type ToneClasses,
+  toneClassesFor
+} from "../primitives/designSystem.js"
 import { departed, shiftTransition } from "../primitives/motion.js"
 import type { PlaceholderMotion } from "../primitives/Skeleton.js"
 
@@ -109,16 +115,15 @@ const discEdgeClassName = "forced-colors:border forced-colors:border-[CanvasText
 
 /**
  * The disc itself: a soft radial fill lit from the upper left, an inset ring
- * in the contributor's tone. Full literals per participant
- * because Tailwind purges anything assembled at run time.
+ * in the contributor's tone. Composed from the tone's disc slots; the palette
+ * generator declares every composition for Tailwind to keep.
  */
-export const discClassName = (role: ParticipantRole): string =>
-  Match.value(role).pipe(
-    Match.when("author", () => `bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60 ${discEdgeClassName}`),
-    Match.when("neighbor", () => `bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60 ${discEdgeClassName}`),
-    Match.when("program", () => `bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60 ${discEdgeClassName}`),
-    Match.exhaustive
-  )
+export const discClassName = (role: ParticipantRole): string => {
+  const tone = participantTone(role)
+  return `${discFillClassName(tone)} ring-1 ring-inset ${discSlotClassName(tone, "ring")} ${discEdgeClassName}`
+}
+
+const actOutline = (tone: CardTone): string => discSlotClassName(tone, "actOutline")
 
 /**
  * The outline a disc wears while an act is in view. The outline is always
@@ -129,73 +134,64 @@ export const discClassName = (role: ParticipantRole): string =>
 export const discActOutline = (act: PlaceAct, marker: PlaceMarker): string => {
   const proposer = Option.fromNullable(marker.contributedBy)
   return Match.value(act).pipe(
-    Match.when("compose", () => Option.isNone(proposer) ? "outline-tone-sign-400/70" : silentOutlineClassName),
+    Match.when("compose", () =>
+      Option.match(proposer, {
+        onNone: () => actOutline(participantTone("author")),
+        onSome: () => silentOutlineClassName
+      })),
     Match.when("propose", () =>
       Option.match(proposer, {
         onNone: () => silentOutlineClassName,
-        onSome: (role) =>
-          Match.value(role).pipe(
-            Match.when("author", () => "outline-tone-sign-400/70"),
-            Match.when("neighbor", () => "outline-tone-seal-400/70"),
-            Match.when("program", () => "outline-tone-dsp-400/70"),
-            Match.exhaustive
-          )
+        onSome: (role) => actOutline(participantTone(role))
       })),
-    Match.when("record", () => Option.isSome(proposer) ? "outline-tone-digest-400/70" : silentOutlineClassName),
-    Match.when("arrive", () => silentOutlineClassName),
-    Match.when("build", () => silentOutlineClassName),
+    Match.when("record", () =>
+      Option.match(proposer, {
+        onNone: () => silentOutlineClassName,
+        onSome: () => actOutline("digest")
+      })),
+    Match.whenOr("arrive", "build", () => silentOutlineClassName),
     Match.exhaustive
   )
 }
 
 /** The ring a disc wears while the code line that placed it is under the pointer. */
 export const discFocusRing = (role: ParticipantRole): string =>
-  Match.value(role).pipe(
-    Match.when("author", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-sign-300"),
-    Match.when("neighbor", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-seal-300"),
-    Match.when("program", () => "data-[place-focused]:ring-2 data-[place-focused]:ring-tone-dsp-300"),
-    Match.exhaustive
-  )
+  `data-[place-focused]:ring-2 ${discSlotClassName(participantTone(role), "focusRing")}`
 
 /**
  * A disc in the band's miniature: the contributor's tone as a flat fill, or
  * as a dashed ring while the search is still making room for it; a disc
  * leaving keeps its fill as it shrinks. The stroke is kept at one width
  * whatever the miniature's scale; a disc answering the code line that made
- * it wears the contributor's ring, as on the stage.
+ * it wears the contributor's ring, as on the stage. The fills sit close to
+ * the strip in both modes, so the stroke in the tone's accent is the boundary
+ * that stands out from the fill (≥ 3:1, held by the palette contract); focus
+ * deepens and thickens it.
  */
-export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, focused: boolean): string =>
-  Match.value(drawn).pipe(
-    Match.when("arriving", () =>
-      Match.value(role).pipe(
-        Match.when("author", () =>
-          "fill-none stroke-tone-sign-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
-        Match.when("neighbor", () =>
-          "fill-none stroke-tone-seal-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
-        Match.when("program", () =>
-          "fill-none stroke-tone-dsp-400 stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]"),
-        Match.exhaustive
-      )),
-    // The fills sit close to the strip in both themes, so the ring in the contributor's 500 stop is the
-    // boundary that stands out from it (≥ 3:1); focus deepens and thickens that ring.
+export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, focused: boolean): string => {
+  const tone = participantTone(role)
+  return Match.value(drawn).pipe(
+    Match.when(
+      "arriving",
+      () =>
+        `fill-none ${
+          discSlotClassName(tone, "bandArrivingStroke")
+        } stroke-2 [stroke-dasharray:4_3] [vector-effect:non-scaling-stroke]`
+    ),
     Match.whenOr("settled", "trial", "leaving", () =>
-      Match.value(role).pipe(
-        Match.when("author", () =>
-          focused
-            ? "fill-tone-sign-300 stroke-tone-sign-700 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-sign-300 stroke-tone-sign-500 stroke-2 [vector-effect:non-scaling-stroke]"),
-        Match.when("neighbor", () =>
-          focused
-            ? "fill-tone-seal-300 stroke-tone-seal-700 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-seal-300 stroke-tone-seal-500 stroke-2 [vector-effect:non-scaling-stroke]"),
-        Match.when("program", () =>
-          focused
-            ? "fill-tone-dsp-300 stroke-tone-dsp-700 stroke-[3] [vector-effect:non-scaling-stroke]"
-            : "fill-tone-dsp-300 stroke-tone-dsp-500 stroke-2 [vector-effect:non-scaling-stroke]"),
-        Match.exhaustive
-      )),
+      Bool.match(focused, {
+        onTrue: () =>
+          `${discSlotClassName(tone, "bandFill")} ${
+            discSlotClassName(tone, "bandFocusedStroke")
+          } stroke-[3] [vector-effect:non-scaling-stroke]`,
+        onFalse: () =>
+          `${discSlotClassName(tone, "bandFill")} ${
+            discSlotClassName(tone, "bandStroke")
+          } stroke-2 [vector-effect:non-scaling-stroke]`
+      })),
     Match.exhaustive
   )
+}
 
 /** A disc of the place set in the band's row: the marker at its centre there. */
 export const BandDisc = Schema.Struct({
@@ -273,13 +269,7 @@ export const bandDiscPlacing = (preference: MotionPreference, cx: number) =>
   )
 
 /** A declined proposal's ghost: a dashed ring in the proposer's tone. */
-export const ghostClassName = (role: ParticipantRole): string =>
-  Match.value(role).pipe(
-    Match.when("author", () => "border-tone-sign-400/80"),
-    Match.when("neighbor", () => "border-tone-seal-400/80"),
-    Match.when("program", () => "border-tone-dsp-400/80"),
-    Match.exhaustive
-  )
+export const ghostClassName = (role: ParticipantRole): string => discSlotClassName(participantTone(role), "ghost")
 
 export const markerLabel = (marker: PlaceMarker): string =>
   Option.match(Option.fromNullable(marker.contributedBy), {

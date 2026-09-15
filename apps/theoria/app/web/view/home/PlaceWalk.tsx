@@ -61,7 +61,7 @@ export const PlaceWalk = ({ height, markers, width }: {
       {/* Alpha mask: any opaque stroke reveals, so the theme's colours do not matter here. */}
       <mask id={maskId} maskUnits="userSpaceOnUse" style={{ maskType: "alpha" }}>
         <m.path
-          className="fill-none stroke-ink-900"
+          className="fill-none stroke-ink"
           d={d}
           strokeLinecap="round"
           strokeWidth={8}
@@ -69,7 +69,7 @@ export const PlaceWalk = ({ height, markers, width }: {
         />
       </mask>
       <path
-        className="fill-none stroke-stage-400"
+        className="fill-none stroke-accent"
         d={d}
         mask={`url(#${maskId})`}
         strokeDasharray="1 7"

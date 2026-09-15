@@ -30,7 +30,7 @@ React + Tailwind CSS v4 + effect-atom application showcasing Scene Systems packa
 3. **No `useState` for domain state** — use `Atom.make` at module level.
 4. **No raw HTML** — use layout primitives (Stack, Cluster, Layer, Section) and SemanticText for all text.
 5. **No hardcoded colors** — all from theme tokens via CSS variables.
-6. **No dynamic Tailwind class construction** — `bg-${x}-500` is BANNED. Use `Match.exhaustive` with full literal strings.
+6. **No hand-typed colour utilities** — a view names a slot (`toneClassesFor(tone).text`, `discSlotClassName(tone, "ring")`) or a neutral role (`bg-paper`, `text-ink-secondary`); it never spells a palette step. A class composed at run time is allowed only when a generator emits every candidate into a generated stylesheet through `@source inline(...)` (`textTokens.ts`, `paletteTokens.ts` do this); anywhere else, `Match.exhaustive` with full literal strings.
 7. **No `dark:` utility classes for color theming** — CSS variable swap handles dark mode automatically.
 8. **No inline styles for colors** — use CSS vars via className: `bg-(--my-var)`.
 9. **No `forwardRef`** — React 19: `ref` is a prop.

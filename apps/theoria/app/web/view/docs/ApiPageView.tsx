@@ -16,20 +16,20 @@ const exportFor = (page: DocsApiModuleIndex, id: string): Option.Option<DocsApiE
 const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: DocsApiExportSummary }) => (
   <li>
     <AnchorLink
-      className={`group block rounded-xl px-3 py-4 ${focusEdgeClassName} transition-colors hover:bg-stage-0/72 focus-visible:bg-stage-0/72 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:px-4`}
+      className={`group block rounded-xl px-3 py-4 ${focusEdgeClassName} transition-colors hover:bg-paper/72 focus-visible:bg-paper/72 focus-visible:ring-2 focus-visible:ring-ink/20 sm:px-4`}
       href={`#${apiExport.anchor}`}
     >
       <Stack className="gap-1.5">
         <Cluster className="gap-2.5">
           <SemanticText
             as="h3"
-            className="break-words text-ink-950 group-hover:text-ink-700"
+            className="break-words text-ink-strong group-hover:text-ink-secondary"
             role="selection-title"
             text={apiExport.name}
           />
-          <SemanticText as="span" className="text-ink-400" role="row-label" text={apiExport.importKind} />
+          <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={apiExport.importKind} />
         </Cluster>
-        <SemanticText as="p" className="text-ink-600" role="row-value" text={apiExport.summary} />
+        <SemanticText as="p" className="text-ink-tertiary" role="row-value" text={apiExport.summary} />
       </Stack>
     </AnchorLink>
   </li>
@@ -44,8 +44,8 @@ const ApiCategoryIndex = ({
 }) => (
   <Section className="scroll-mt-28" id={apiCategoryAnchor(category.name)}>
     <Stack className="gap-4">
-      <SemanticText as="h2" className="capitalize text-ink-950" role="section-title" text={category.name} />
-      <Stack render={<ul />} className="divide-y divide-stage-200/80 border-y border-stage-200/80 py-1">
+      <SemanticText as="h2" className="capitalize text-ink-strong" role="section-title" text={category.name} />
+      <Stack render={<ul />} className="divide-y divide-hairline/80 border-y border-hairline/80 py-1">
         {Arr.filterMap(category.exportIds, (id) =>
           Option.map(
             exportFor(page, id),
@@ -57,28 +57,28 @@ const ApiCategoryIndex = ({
 )
 
 const ApiModuleHeader = ({ page }: { readonly page: DocsApiModuleIndex }) => (
-  <Section className="scroll-mt-28 border-b border-stage-200/90 pb-8" id="module">
+  <Section className="scroll-mt-28 border-b border-hairline/90 pb-8" id="module">
     <Stack className="gap-5">
       <Stack className="gap-3">
-        <SemanticText as="code" className="text-ink-500" role="code-meta" text={page.package.name} />
+        <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
         <SemanticText
           as="h1"
-          className="font-light tracking-[-0.04em] text-ink-950"
+          className="font-light tracking-[-0.04em] text-ink-strong"
           role="hero-title"
           text={page.module.name}
         />
         <ApiDocumentationView docs={page.module.docs} />
       </Stack>
       <Cluster className="gap-4">
-        <SemanticText as="span" className="text-ink-500" role="status" text={`v${page.package.version}`} />
+        <SemanticText as="span" className="text-ink-tertiary" role="status" text={`v${page.package.version}`} />
         <SemanticText
           as="span"
-          className="text-ink-500"
+          className="text-ink-tertiary"
           role="code-meta"
           text={`${String(page.exports.length)} exports`}
         />
         <ExternalLink
-          className="font-body text-sm font-medium text-ink-700 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
+          className="font-body text-sm font-medium text-ink-secondary underline decoration-accent underline-offset-4 hover:text-ink-strong"
           href={page.module.sourceUrl}
         >
           Source
@@ -97,9 +97,9 @@ const SelectedApiExport = ({
 }) => (
   <Stack className="gap-6">
     <Stack className="gap-2">
-      <SemanticText as="code" className="text-ink-500" role="code-meta" text={page.package.name} />
+      <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
       <AnchorLink
-        className={`w-fit font-body text-sm font-medium text-ink-600 ${focusEdgeClassName} hover:text-ink-950 focus-visible:ring-2 focus-visible:ring-ink-900/20`}
+        className={`w-fit font-body text-sm font-medium text-ink-tertiary ${focusEdgeClassName} hover:text-ink-strong focus-visible:ring-2 focus-visible:ring-ink/20`}
         href="#module"
       >
         ← {page.module.name}

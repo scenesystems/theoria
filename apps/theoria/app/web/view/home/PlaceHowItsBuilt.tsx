@@ -36,17 +36,17 @@ import {
 import { PlaceStep, placeStepDefinition, placeStepDefinitions, placeStepIndex } from "./placeSteps.js"
 
 const rowLinkClassName =
-  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `-mx-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
 
 const sourceLinkClassName =
-  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `-mx-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
 
 const commitLinkClassName =
-  `inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-ink-600 transition-colors duration-150 hover:bg-stage-100/80 hover:text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-ink-tertiary transition-colors duration-150 hover:bg-instrument/80 hover:text-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
 
 const RailGroup = ({ children, title }: { readonly children: ReactNode; readonly title: string }) => (
   <Stack aria-label={title} render={<section />} className="gap-1.5">
-    <SemanticText as="span" className="text-ink-500" role="row-label" text={title} variant="compact" />
+    <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={title} variant="compact" />
     <Stack render={<ul />} className="gap-0.5">{children}</Stack>
   </Stack>
 )
@@ -62,7 +62,7 @@ const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => 
         href={reference.href}
         title={reference.text}
       >
-        <SemanticText as="code" className="text-ink-900" role="code-meta" text={reference.text} />
+        <SemanticText as="code" className="text-ink" role="code-meta" text={reference.text} />
         <SemanticText as="span" className={`shrink-0 ${tone.text}`} role="code-meta" text={reference.package} />
       </DocsLink>
     </Layer>
@@ -73,8 +73,8 @@ const ReferenceRow = ({ reference }: { readonly reference: PlaceReference }) => 
 const SourceRow = ({ path, sha }: { readonly path: string; readonly sha: string }) => (
   <Layer render={<li />}>
     <ExternalLink className={sourceLinkClassName} data-place-source={path} href={sourceUrl(sha, path)}>
-      <SemanticText as="code" className="text-ink-800" role="code-meta" text={sourceLabel(path)} />
-      <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 text-ink-400" />
+      <SemanticText as="code" className="text-ink" role="code-meta" text={sourceLabel(path)} />
+      <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 text-ink-tertiary" />
     </ExternalLink>
   </Layer>
 )
@@ -88,7 +88,7 @@ const CommitLink = ({ sha }: { readonly sha: string }) => (
     href={commitUrl(sha)}
   >
     <SemanticText as="code" className="text-inherit" role="code-meta" text={commitLabel(sha)} />
-    <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 self-center text-ink-400" />
+    <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 shrink-0 self-center text-ink-tertiary" />
   </ExternalLink>
 )
 
@@ -113,7 +113,7 @@ const StepTabs = () => (
 const annotationMarkClassName = `${markClassName} inline-flex`
 
 const gutterMarkClassName =
-  `${markClassName} ${litMarkClassName} -mx-1 inline-flex w-[calc(100%+0.5rem)] justify-end px-1 text-right text-inherit data-[place-focused]:text-ink-900 data-[popup-open]:text-ink-900`
+  `${markClassName} ${litMarkClassName} -mx-1 inline-flex w-[calc(100%+0.5rem)] justify-end px-1 text-right text-inherit data-[place-focused]:text-ink data-[popup-open]:text-ink`
 
 /** A line's number: the line's mark where the line made something on the page, a number where it did not. */
 const stepLineNumber = (step: PlaceStep) => (line: GutterLine): ReactNode =>
@@ -198,7 +198,7 @@ export const PlaceHowItsBuilt = () => {
   return (
     <Section
       aria-label="How it's built"
-      className="scroll-mt-6 border-t border-stage-200/85 pt-6 lg:pt-8"
+      className="scroll-mt-6 border-t border-hairline/85 pt-6 lg:pt-8"
       data-place-act="build"
       data-place-how-its-built
       id={howItsBuiltSectionId}
@@ -207,7 +207,7 @@ export const PlaceHowItsBuilt = () => {
         <Cluster className="justify-between gap-x-6 gap-y-3">
           <SemanticText
             as="h3"
-            className="text-ink-900"
+            className="text-ink"
             role="subsection-title"
             text="How it's built"
             variant="expanded"

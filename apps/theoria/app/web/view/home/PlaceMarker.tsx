@@ -70,7 +70,7 @@ const filling = (preference: MotionPreference) =>
  * beside it.
  */
 const triggerClassName =
-  `absolute left-0 top-0 z-10 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-0 ${forcedColorsFocusClassName} ${forcedColorsAnsweringOutlineClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-stage-0 data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-stage-0`
+  `absolute left-0 top-0 z-10 flex cursor-default items-center justify-center rounded-full px-1 text-center outline outline-2 outline-offset-2 transition-[outline-color,box-shadow] duration-300 ease-theme motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${forcedColorsFocusClassName} ${forcedColorsAnsweringOutlineClassName} data-[popup-open]:ring-2 data-[popup-open]:ring-offset-2 data-[popup-open]:ring-offset-paper data-[place-focused]:ring-offset-2 data-[place-focused]:ring-offset-paper`
 
 /** A named disc's label is clipped to the width it was measured to fit. */
 const labelClassName = "shrink-0 overflow-hidden"

@@ -3,7 +3,8 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { MoonIcon, SunIcon } from "@heroicons/react/20/solid"
 import { Match } from "effect"
 
-import { type ColorMode, colorModeAtom, colorModePreferenceAtom } from "../../atoms/theme.js"
+import type { ColorMode } from "../../../contracts/palette.js"
+import { colorModeAtom, colorModePreferenceAtom } from "../../atoms/theme.js"
 
 import { headerChromeGlyphClassName, headerChromeIconButtonClassName } from "./HeaderChrome.js"
 

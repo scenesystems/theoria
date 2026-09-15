@@ -7,49 +7,12 @@
 @import "@fontsource-variable/jetbrains-mono";
 @import "./text-tokens.generated.css";
 
+@import "./palette-tokens.generated.css";
+
 @theme inline {
-  --color-stage-0: var(--th-stage-0);
-  --color-stage-50: var(--th-stage-50);
-  --color-stage-100: var(--th-stage-100);
-  --color-stage-200: var(--th-stage-200);
-  --color-stage-300: var(--th-stage-300);
-  --color-stage-400: var(--th-stage-400);
-
-  --color-ink-300: var(--th-ink-300);
-  --color-ink-400: var(--th-ink-400);
-  --color-ink-500: var(--th-ink-500);
-  --color-ink-600: var(--th-ink-600);
-  --color-ink-700: var(--th-ink-700);
-  --color-ink-800: var(--th-ink-800);
-  --color-ink-900: var(--th-ink-900);
-  --color-ink-950: var(--th-ink-950);
-
-  /* Surface vocabulary: hairlines, the instrument fill, and the two radii a surface may take */
-  --color-rule: var(--th-rule);
-  --color-rule-strong: var(--th-rule-strong);
-  --color-instrument: var(--th-instrument);
+  /* Surface vocabulary: the two radii a surface may take */
   --radius-instrument: 0.75rem;
   --radius-control: 0.5rem;
-
-  --color-danger-50: var(--th-danger-50);
-  --color-danger-200: var(--th-danger-200);
-  --color-danger-400: var(--th-danger-400);
-  --color-danger-500: var(--th-danger-500);
-  --color-danger-600: var(--th-danger-600);
-  --color-danger-700: var(--th-danger-700);
-
-  /* Syntax highlighting — flips with theme */
-  --color-code-comment: var(--th-code-comment);
-  --color-code-keyword: var(--th-code-keyword);
-  --color-code-string: var(--th-code-string);
-  --color-code-number: var(--th-code-number);
-  --color-code-type: var(--th-code-type);
-  --color-code-function: var(--th-code-function);
-  --color-code-operator: var(--th-code-operator);
-
-  --shadow-surface: var(--th-shadow-surface);
-  --shadow-hero: var(--th-shadow-hero);
-  --shadow-chip: var(--th-shadow-chip);
 
   /* The hero's rhythm above and below scales with viewport height, bounded, so the demonstration shares the first viewport. */
   --spacing-hero-lead: clamp(2.5rem, 7svh, 6rem);
@@ -64,281 +27,7 @@
   --spacing-region: clamp(4.5rem, 2.5rem + 5vw, 6rem);
 }
 
-@theme {
-  --color-tone-text-100: #e9f1ff;
-  --color-tone-text-200: #d5e3fa;
-  --color-tone-text-300: #b8cced;
-  --color-tone-text-400: #93add9;
-  --color-tone-text-500: #627fab;
-  --color-tone-text-600: #587296;
-  --color-tone-text-700: #4d668b;
-  --color-tone-text-800: #3b506f;
-  --color-tone-text-900: #2a3c57;
-
-  --color-tone-search-100: #f8f2e6;
-  --color-tone-search-200: #ecdfc7;
-  --color-tone-search-300: #d8c5a0;
-  --color-tone-search-400: #bca47f;
-  --color-tone-search-500: #8d724d;
-  --color-tone-search-600: #7c6443;
-  --color-tone-search-700: #6c5639;
-  --color-tone-search-800: #59482f;
-  --color-tone-search-900: #443722;
-
-  --color-tone-math-100: #eaf4ef;
-  --color-tone-math-200: #d4e6dc;
-  --color-tone-math-300: #b3d0bf;
-  --color-tone-math-400: #86b19a;
-  --color-tone-math-500: #4f7e67;
-  --color-tone-math-600: #47715c;
-  --color-tone-math-700: #3f6452;
-  --color-tone-math-800: #345343;
-  --color-tone-math-900: #284036;
-
-  --color-tone-dsp-100: #f5edf2;
-  --color-tone-dsp-200: #e3d2dc;
-  --color-tone-dsp-300: #c9adbc;
-  --color-tone-dsp-400: #ab8599;
-  --color-tone-dsp-500: #7a5568;
-  --color-tone-dsp-600: #6d4c5e;
-  --color-tone-dsp-700: #604353;
-  --color-tone-dsp-800: #4f3644;
-  --color-tone-dsp-900: #3c2833;
-
-  --color-tone-digest-100: #e6f4f4;
-  --color-tone-digest-200: #c8e5e5;
-  --color-tone-digest-300: #a0cfcf;
-  --color-tone-digest-400: #71b1b1;
-  --color-tone-digest-500: #468585;
-  --color-tone-digest-600: #3e7777;
-  --color-tone-digest-700: #376969;
-  --color-tone-digest-800: #2d5656;
-  --color-tone-digest-900: #224242;
-
-  --color-tone-sign-100: #faf0e4;
-  --color-tone-sign-200: #f0dbc3;
-  --color-tone-sign-300: #ddbf99;
-  --color-tone-sign-400: #c49c6e;
-  --color-tone-sign-500: #946b3e;
-  --color-tone-sign-600: #846037;
-  --color-tone-sign-700: #735430;
-  --color-tone-sign-800: #5f4528;
-  --color-tone-sign-900: #49341e;
-
-  --color-tone-seal-100: #edebf6;
-  --color-tone-seal-200: #d8d4ea;
-  --color-tone-seal-300: #bab4d5;
-  --color-tone-seal-400: #9790ba;
-  --color-tone-seal-500: #6a6192;
-  --color-tone-seal-600: #5f5783;
-  --color-tone-seal-700: #544d74;
-  --color-tone-seal-800: #453f60;
-  --color-tone-seal-900: #34304a;
-}
-
 @layer base {
-  :root {
-    color-scheme: light;
-
-    /* Light theme — surfaces are bright, ink is dark */
-    --th-stage-0: #ffffff;
-    --th-stage-50: #f5f7fb;
-    --th-stage-100: #edf1f7;
-    --th-stage-200: #dde4ee;
-    --th-stage-300: #c8d3e3;
-    --th-stage-400: #a8b7cc;
-
-    --th-ink-300: #c8d3e3;
-    --th-ink-400: #a8b7cc;
-    --th-ink-500: #607086;
-    --th-ink-600: #5d6f88;
-    --th-ink-700: #44546b;
-    --th-ink-800: #2b3950;
-    --th-ink-900: #172339;
-    --th-ink-950: #0b1326;
-
-    /* Hairlines and the instrument fill: the same greys the stage scale uses, named for their job */
-    --th-rule: #dde4ee;
-    --th-rule-strong: #c8d3e3;
-    --th-instrument: #edf1f7;
-
-    --th-danger-50: #fef2f2;
-    --th-danger-200: #fecaca;
-    --th-danger-400: #f87171;
-    --th-danger-500: #ef4444;
-    --th-danger-600: #dc2626;
-    --th-danger-700: #b91c1c;
-
-    /* Syntax highlighting — saturated tones for light background */
-    --th-code-comment: #6b7d99;
-    --th-code-keyword: #3b5998;
-    --th-code-string: #2e7d57;
-    --th-code-number: #b07d2e;
-    --th-code-type: #7b5ea7;
-    --th-code-function: #275f8f;
-    --th-code-operator: #44546b;
-
-    --th-shadow-surface: 0 28px 72px -54px rgb(11 19 38 / 30%);
-    --th-shadow-hero: 0 42px 110px -72px rgb(23 35 57 / 34%);
-    --th-shadow-chip: 0 16px 32px -26px rgb(11 19 38 / 24%);
-
-    /* Place discs — lit from the upper left; the lightest stop is the highlight in both themes */
-    --th-place-disc-sign: radial-gradient(
-      circle at 32% 28%,
-      var(--th-stage-0) 0%,
-      var(--color-tone-sign-100) 45%,
-      var(--color-tone-sign-200) 100%
-    );
-    --th-place-disc-seal: radial-gradient(
-      circle at 32% 28%,
-      var(--th-stage-0) 0%,
-      var(--color-tone-seal-100) 45%,
-      var(--color-tone-seal-200) 100%
-    );
-    --th-place-disc-dsp: radial-gradient(
-      circle at 32% 28%,
-      var(--th-stage-0) 0%,
-      var(--color-tone-dsp-100) 45%,
-      var(--color-tone-dsp-200) 100%
-    );
-  }
-
-  :root.dark {
-    color-scheme: dark;
-
-    /* Dark theme — surfaces are dark, ink is light */
-    --th-stage-0: #0b1326;
-    --th-stage-50: #0f1a30;
-    --th-stage-100: #152038;
-    --th-stage-200: #1c2944;
-    --th-stage-300: #263550;
-    --th-stage-400: #44546b;
-
-    --th-ink-300: #263550;
-    --th-ink-400: #44546b;
-    --th-ink-500: #8494aa;
-    --th-ink-600: #96a5bb;
-    --th-ink-700: #a8b7cc;
-    --th-ink-800: #c8d3e3;
-    --th-ink-900: #edf1f7;
-    --th-ink-950: #ffffff;
-
-    --th-rule: #1c2944;
-    --th-rule-strong: #263550;
-    --th-instrument: #152038;
-
-    --th-danger-50: #2a1215;
-    --th-danger-200: #5c2022;
-    --th-danger-400: #dc4444;
-    --th-danger-500: #ef5555;
-    --th-danger-600: #f87171;
-    --th-danger-700: #fca5a5;
-
-    /* Tone scales invert so low steps remain tinted surfaces and high steps remain readable ink. */
-    --color-tone-text-100: #2a3c57;
-    --color-tone-text-200: #3b506f;
-    --color-tone-text-300: #4d668b;
-    --color-tone-text-400: #587296;
-    --color-tone-text-500: #93add9;
-    --color-tone-text-600: #b8cced;
-    --color-tone-text-700: #b8cced;
-    --color-tone-text-800: #d5e3fa;
-    --color-tone-text-900: #e9f1ff;
-
-    --color-tone-search-100: #443722;
-    --color-tone-search-200: #59482f;
-    --color-tone-search-300: #6c5639;
-    --color-tone-search-400: #7c6443;
-    --color-tone-search-500: #bca47f;
-    --color-tone-search-600: #d8c5a0;
-    --color-tone-search-700: #d8c5a0;
-    --color-tone-search-800: #ecdfc7;
-    --color-tone-search-900: #f8f2e6;
-
-    --color-tone-math-100: #284036;
-    --color-tone-math-200: #345343;
-    --color-tone-math-300: #3f6452;
-    --color-tone-math-400: #47715c;
-    --color-tone-math-500: #86b19a;
-    --color-tone-math-600: #b3d0bf;
-    --color-tone-math-700: #b3d0bf;
-    --color-tone-math-800: #d4e6dc;
-    --color-tone-math-900: #eaf4ef;
-
-    --color-tone-dsp-100: #3c2833;
-    --color-tone-dsp-200: #4f3644;
-    --color-tone-dsp-300: #604353;
-    --color-tone-dsp-400: #6d4c5e;
-    --color-tone-dsp-500: #ab8599;
-    --color-tone-dsp-600: #c9adbc;
-    --color-tone-dsp-700: #c9adbc;
-    --color-tone-dsp-800: #e3d2dc;
-    --color-tone-dsp-900: #f5edf2;
-
-    --color-tone-digest-100: #224242;
-    --color-tone-digest-200: #2d5656;
-    --color-tone-digest-300: #376969;
-    --color-tone-digest-400: #3e7777;
-    --color-tone-digest-500: #71b1b1;
-    --color-tone-digest-600: #a0cfcf;
-    --color-tone-digest-700: #a0cfcf;
-    --color-tone-digest-800: #c8e5e5;
-    --color-tone-digest-900: #e6f4f4;
-
-    --color-tone-sign-100: #49341e;
-    --color-tone-sign-200: #5f4528;
-    --color-tone-sign-300: #735430;
-    --color-tone-sign-400: #846037;
-    --color-tone-sign-500: #c49c6e;
-    --color-tone-sign-600: #ddbf99;
-    --color-tone-sign-700: #ddbf99;
-    --color-tone-sign-800: #f0dbc3;
-    --color-tone-sign-900: #faf0e4;
-
-    --color-tone-seal-100: #34304a;
-    --color-tone-seal-200: #453f60;
-    --color-tone-seal-300: #544d74;
-    --color-tone-seal-400: #5f5783;
-    --color-tone-seal-500: #9790ba;
-    --color-tone-seal-600: #bab4d5;
-    --color-tone-seal-700: #bab4d5;
-    --color-tone-seal-800: #d8d4ea;
-    --color-tone-seal-900: #edebf6;
-
-    /* Syntax highlighting — pastel tones for dark background */
-    --th-code-comment: #7f91ad;
-    --th-code-keyword: #98b6ff;
-    --th-code-string: #9cd7bb;
-    --th-code-number: #e9c98b;
-    --th-code-type: #d0bee8;
-    --th-code-function: #8fc8f4;
-    --th-code-operator: #bed1ea;
-
-    --th-shadow-surface: 0 28px 72px -54px rgb(0 0 0 / 50%);
-    --th-shadow-hero: 0 42px 110px -72px rgb(0 0 0 / 55%);
-    --th-shadow-chip: 0 16px 32px -26px rgb(0 0 0 / 40%);
-
-    /* Dark tone scales run the other way (100 nearest the background), so the highlight is the 300 stop */
-    --th-place-disc-sign: radial-gradient(
-      circle at 32% 28%,
-      var(--color-tone-sign-300) 0%,
-      var(--color-tone-sign-200) 45%,
-      var(--color-tone-sign-100) 100%
-    );
-    --th-place-disc-seal: radial-gradient(
-      circle at 32% 28%,
-      var(--color-tone-seal-300) 0%,
-      var(--color-tone-seal-200) 45%,
-      var(--color-tone-seal-100) 100%
-    );
-    --th-place-disc-dsp: radial-gradient(
-      circle at 32% 28%,
-      var(--color-tone-dsp-300) 0%,
-      var(--color-tone-dsp-200) 45%,
-      var(--color-tone-dsp-100) 100%
-    );
-  }
-
   * {
     box-sizing: border-box;
   }
@@ -366,8 +55,8 @@
   body {
     margin: 0;
     min-height: 100vh;
-    background-color: var(--color-stage-50);
-    color: var(--color-ink-900);
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
   }
 
   /* The light on the canvas: washes at the page's top corners, on a fixed
@@ -385,8 +74,8 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--color-stage-100) 88%, transparent) 0%, transparent 46%),
-      radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--color-stage-100) 60%, transparent) 0%, transparent 42%);
+      radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--color-instrument) 88%, transparent) 0%, transparent 46%),
+      radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--color-instrument) 60%, transparent) 0%, transparent 42%);
   }
 }
 
@@ -405,7 +94,7 @@
    */
   .ghost-words {
     color: transparent;
-    background-image: linear-gradient(--alpha(var(--color-stage-200) / 60%), --alpha(var(--color-stage-200) / 60%));
+    background-image: linear-gradient(--alpha(var(--color-hairline) / 60%), --alpha(var(--color-hairline) / 60%));
     background-size: 100% 70%;
     background-position: center;
     background-repeat: no-repeat;
@@ -413,18 +102,5 @@
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
     user-select: none;
-  }
-
-  /* One feature on the imagined place's stage, coloured by who added it. */
-  .bg-place-disc-sign {
-    background-image: var(--th-place-disc-sign);
-  }
-
-  .bg-place-disc-seal {
-    background-image: var(--th-place-disc-seal);
-  }
-
-  .bg-place-disc-dsp {
-    background-image: var(--th-place-disc-dsp);
   }
 }

@@ -46,15 +46,15 @@ export const DocsHeader = ({
           })}
           <InternalLink
             aria-label="Theoria home"
-            className={`inline-flex min-w-0 items-baseline text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`}
+            className={`inline-flex min-w-0 items-baseline text-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`}
             href="/"
           >
             <TheoriaLogo className="text-[1.55rem] sm:text-[1.7rem]" />
           </InternalLink>
-          <Layer className="hidden h-5 w-px bg-stage-300 sm:block" />
+          <Layer className="hidden h-5 w-px bg-hairline-strong sm:block" />
           <InternalLink
             aria-label="Documentation home"
-            className={`hidden text-ink-600 ${focusEdgeClassName} hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:inline-flex`}
+            className={`hidden text-ink-tertiary ${focusEdgeClassName} hover:text-ink focus-visible:ring-2 focus-visible:ring-ink/20 sm:inline-flex`}
             href="/docs"
           >
             <SemanticText as="span" className="text-inherit" role="status" text="Docs" variant="compact" />

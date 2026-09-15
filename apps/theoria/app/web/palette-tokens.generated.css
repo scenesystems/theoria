@@ -1,0 +1,284 @@
+/* Palette tokens (generated — do not edit; run `bun run gen:palette-tokens`) */
+@theme inline {
+  --color-canvas: var(--th-canvas);
+  --color-paper: var(--th-paper);
+  --color-instrument: var(--th-instrument);
+  --color-hairline: var(--th-hairline);
+  --color-hairline-strong: var(--th-hairline-strong);
+  --color-accent: var(--th-accent);
+  --color-ink-tertiary: var(--th-ink-tertiary);
+  --color-ink-secondary: var(--th-ink-secondary);
+  --color-ink: var(--th-ink);
+  --color-ink-strong: var(--th-ink-strong);
+  --color-emphasis: var(--th-emphasis);
+  --color-emphasis-hover: var(--th-emphasis-hover);
+  --color-on-emphasis: var(--th-on-emphasis);
+  --color-tone-text-surface: var(--th-tone-text-surface);
+  --color-tone-text-wash: var(--th-tone-text-wash);
+  --color-tone-text-edge: var(--th-tone-text-edge);
+  --color-tone-text-accent-soft: var(--th-tone-text-accent-soft);
+  --color-tone-text-accent: var(--th-tone-text-accent);
+  --color-tone-text-ink: var(--th-tone-text-ink);
+  --color-tone-text-ink-strong: var(--th-tone-text-ink-strong);
+  --color-tone-search-surface: var(--th-tone-search-surface);
+  --color-tone-search-wash: var(--th-tone-search-wash);
+  --color-tone-search-edge: var(--th-tone-search-edge);
+  --color-tone-search-accent-soft: var(--th-tone-search-accent-soft);
+  --color-tone-search-accent: var(--th-tone-search-accent);
+  --color-tone-search-ink: var(--th-tone-search-ink);
+  --color-tone-search-ink-strong: var(--th-tone-search-ink-strong);
+  --color-tone-math-surface: var(--th-tone-math-surface);
+  --color-tone-math-wash: var(--th-tone-math-wash);
+  --color-tone-math-edge: var(--th-tone-math-edge);
+  --color-tone-math-accent-soft: var(--th-tone-math-accent-soft);
+  --color-tone-math-accent: var(--th-tone-math-accent);
+  --color-tone-math-ink: var(--th-tone-math-ink);
+  --color-tone-math-ink-strong: var(--th-tone-math-ink-strong);
+  --color-tone-dsp-surface: var(--th-tone-dsp-surface);
+  --color-tone-dsp-wash: var(--th-tone-dsp-wash);
+  --color-tone-dsp-edge: var(--th-tone-dsp-edge);
+  --color-tone-dsp-accent-soft: var(--th-tone-dsp-accent-soft);
+  --color-tone-dsp-accent: var(--th-tone-dsp-accent);
+  --color-tone-dsp-ink: var(--th-tone-dsp-ink);
+  --color-tone-dsp-ink-strong: var(--th-tone-dsp-ink-strong);
+  --color-tone-digest-surface: var(--th-tone-digest-surface);
+  --color-tone-digest-wash: var(--th-tone-digest-wash);
+  --color-tone-digest-edge: var(--th-tone-digest-edge);
+  --color-tone-digest-accent-soft: var(--th-tone-digest-accent-soft);
+  --color-tone-digest-accent: var(--th-tone-digest-accent);
+  --color-tone-digest-ink: var(--th-tone-digest-ink);
+  --color-tone-digest-ink-strong: var(--th-tone-digest-ink-strong);
+  --color-tone-sign-surface: var(--th-tone-sign-surface);
+  --color-tone-sign-wash: var(--th-tone-sign-wash);
+  --color-tone-sign-edge: var(--th-tone-sign-edge);
+  --color-tone-sign-accent-soft: var(--th-tone-sign-accent-soft);
+  --color-tone-sign-accent: var(--th-tone-sign-accent);
+  --color-tone-sign-ink: var(--th-tone-sign-ink);
+  --color-tone-sign-ink-strong: var(--th-tone-sign-ink-strong);
+  --color-tone-seal-surface: var(--th-tone-seal-surface);
+  --color-tone-seal-wash: var(--th-tone-seal-wash);
+  --color-tone-seal-edge: var(--th-tone-seal-edge);
+  --color-tone-seal-accent-soft: var(--th-tone-seal-accent-soft);
+  --color-tone-seal-accent: var(--th-tone-seal-accent);
+  --color-tone-seal-ink: var(--th-tone-seal-ink);
+  --color-tone-seal-ink-strong: var(--th-tone-seal-ink-strong);
+  --color-danger-accent: var(--th-danger-accent);
+  --color-danger-ink: var(--th-danger-ink);
+  --color-code-comment: var(--th-code-comment);
+  --color-code-keyword: var(--th-code-keyword);
+  --color-code-string: var(--th-code-string);
+  --color-code-number: var(--th-code-number);
+  --color-code-type: var(--th-code-type);
+  --color-code-function: var(--th-code-function);
+  --color-code-operator: var(--th-code-operator);
+  --shadow-surface: var(--th-shadow-surface);
+  --shadow-hero: var(--th-shadow-hero);
+  --shadow-chip: var(--th-shadow-chip);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --th-canvas: rgb(245 247 251);
+    --th-paper: rgb(255 255 255);
+    --th-instrument: rgb(237 241 247);
+    --th-hairline: rgb(221 228 238);
+    --th-hairline-strong: rgb(201 211 227);
+    --th-accent: rgb(125 138 159);
+    --th-ink-tertiary: rgb(93 107 130);
+    --th-ink-secondary: rgb(69 84 107);
+    --th-ink: rgb(22 35 57);
+    --th-ink-strong: rgb(8 20 38);
+    --th-emphasis: rgb(22 35 57);
+    --th-emphasis-hover: rgb(43 57 80);
+    --th-on-emphasis: rgb(255 255 255);
+    --th-tone-text-surface: rgb(235 241 251);
+    --th-tone-text-wash: rgb(212 224 244);
+    --th-tone-text-edge: rgb(181 201 233);
+    --th-tone-text-accent-soft: rgb(141 166 206);
+    --th-tone-text-accent: rgb(79 105 148);
+    --th-tone-text-ink: rgb(71 91 125);
+    --th-tone-text-ink-strong: rgb(43 58 81);
+    --th-tone-search-surface: rgb(246 240 230);
+    --th-tone-search-wash: rgb(234 222 202);
+    --th-tone-search-edge: rgb(217 196 163);
+    --th-tone-search-accent-soft: rgb(186 161 118);
+    --th-tone-search-accent: rgb(128 100 51);
+    --th-tone-search-ink: rgb(109 87 50);
+    --th-tone-search-ink-strong: rgb(70 55 29);
+    --th-tone-math-surface: rgb(232 244 238);
+    --th-tone-math-wash: rgb(207 230 218);
+    --th-tone-math-edge: rgb(171 210 189);
+    --th-tone-math-accent-soft: rgb(128 178 152);
+    --th-tone-math-accent: rgb(61 118 92);
+    --th-tone-math-ink: rgb(58 101 80);
+    --th-tone-math-ink-strong: rgb(34 65 50);
+    --th-tone-dsp-surface: rgb(249 237 243);
+    --th-tone-dsp-wash: rgb(239 216 228);
+    --th-tone-dsp-edge: rgb(224 187 207);
+    --th-tone-dsp-accent-soft: rgb(195 149 174);
+    --th-tone-dsp-accent: rgb(136 87 115);
+    --th-tone-dsp-ink: rgb(115 77 99);
+    --th-tone-dsp-ink-strong: rgb(74 48 63);
+    --th-tone-digest-surface: rgb(230 244 244);
+    --th-tone-digest-wash: rgb(202 230 230);
+    --th-tone-digest-edge: rgb(162 210 210);
+    --th-tone-digest-accent-soft: rgb(114 178 178);
+    --th-tone-digest-accent: rgb(39 118 119);
+    --th-tone-digest-ink: rgb(44 101 102);
+    --th-tone-digest-ink-strong: rgb(24 64 65);
+    --th-tone-sign-surface: rgb(248 239 230);
+    --th-tone-sign-wash: rgb(237 221 203);
+    --th-tone-sign-edge: rgb(221 194 165);
+    --th-tone-sign-accent-soft: rgb(191 158 120);
+    --th-tone-sign-accent: rgb(133 97 54);
+    --th-tone-sign-ink: rgb(113 85 52);
+    --th-tone-sign-ink-strong: rgb(72 53 30);
+    --th-tone-seal-surface: rgb(241 239 250);
+    --th-tone-seal-wash: rgb(224 220 242);
+    --th-tone-seal-edge: rgb(200 194 230);
+    --th-tone-seal-accent-soft: rgb(166 157 202);
+    --th-tone-seal-accent: rgb(106 97 144);
+    --th-tone-seal-ink: rgb(92 85 122);
+    --th-tone-seal-ink-strong: rgb(58 53 79);
+    --th-danger-accent: rgb(236 73 72);
+    --th-danger-ink: rgb(185 27 37);
+    --th-code-comment: rgb(91 107 133);
+    --th-code-keyword: rgb(61 88 152);
+    --th-code-string: rgb(32 116 81);
+    --th-code-number: rgb(129 91 11);
+    --th-code-type: rgb(118 87 158);
+    --th-code-function: rgb(35 96 142);
+    --th-code-operator: rgb(67 84 107);
+    --th-shadow-surface: 0 28px 72px -54px rgb(8 20 38 / 30%);
+    --th-shadow-hero: 0 42px 110px -72px rgb(8 20 38 / 34%);
+    --th-shadow-chip: 0 16px 32px -26px rgb(8 20 38 / 24%);
+    --th-place-disc-text: radial-gradient(circle at 32% 28%, var(--th-paper) 0%, var(--th-tone-text-surface) 45%, var(--th-tone-text-wash) 100%);
+    --th-place-disc-search: radial-gradient(circle at 32% 28%, var(--th-paper) 0%, var(--th-tone-search-surface) 45%, var(--th-tone-search-wash) 100%);
+    --th-place-disc-math: radial-gradient(circle at 32% 28%, var(--th-paper) 0%, var(--th-tone-math-surface) 45%, var(--th-tone-math-wash) 100%);
+    --th-place-disc-dsp: radial-gradient(circle at 32% 28%, var(--th-paper) 0%, var(--th-tone-dsp-surface) 45%, var(--th-tone-dsp-wash) 100%);
+    --th-place-disc-digest: radial-gradient(circle at 32% 28%, var(--th-paper) 0%, var(--th-tone-digest-surface) 45%, var(--th-tone-digest-wash) 100%);
+    --th-place-disc-sign: radial-gradient(circle at 32% 28%, var(--th-paper) 0%, var(--th-tone-sign-surface) 45%, var(--th-tone-sign-wash) 100%);
+    --th-place-disc-seal: radial-gradient(circle at 32% 28%, var(--th-paper) 0%, var(--th-tone-seal-surface) 45%, var(--th-tone-seal-wash) 100%);
+  }
+
+  :root.dark {
+    color-scheme: dark;
+
+    --th-canvas: rgb(13 26 48);
+    --th-paper: rgb(8 20 38);
+    --th-instrument: rgb(19 33 56);
+    --th-hairline: rgb(26 42 68);
+    --th-hairline-strong: rgb(37 53 80);
+    --th-accent: rgb(101 117 143);
+    --th-ink-tertiary: rgb(133 147 170);
+    --th-ink-secondary: rgb(169 183 204);
+    --th-ink: rgb(237 241 247);
+    --th-ink-strong: rgb(255 255 255);
+    --th-emphasis: rgb(237 241 247);
+    --th-emphasis-hover: rgb(201 211 227);
+    --th-on-emphasis: rgb(8 20 38);
+    --th-tone-text-surface: rgb(42 57 83);
+    --th-tone-text-wash: rgb(59 78 108);
+    --th-tone-text-edge: rgb(74 97 134);
+    --th-tone-text-accent-soft: rgb(84 108 149);
+    --th-tone-text-accent: rgb(145 172 216);
+    --th-tone-text-ink: rgb(179 201 236);
+    --th-tone-text-ink-strong: rgb(234 242 254);
+    --th-tone-search-surface: rgb(71 54 25);
+    --th-tone-search-wash: rgb(93 74 39);
+    --th-tone-search-edge: rgb(116 92 51);
+    --th-tone-search-accent-soft: rgb(129 103 59);
+    --th-tone-search-accent: rgb(194 166 120);
+    --th-tone-search-ink: rgb(218 196 159);
+    --th-tone-search-ink-strong: rgb(248 240 228);
+    --th-tone-math-surface: rgb(31 65 49);
+    --th-tone-math-wash: rgb(46 87 67);
+    --th-tone-math-edge: rgb(59 108 85);
+    --th-tone-math-accent-soft: rgb(68 121 95);
+    --th-tone-math-accent: rgb(130 185 157);
+    --th-tone-math-ink: rgb(168 211 188);
+    --th-tone-math-ink-strong: rgb(231 245 237);
+    --th-tone-dsp-surface: rgb(76 46 63);
+    --th-tone-dsp-wash: rgb(100 64 84);
+    --th-tone-dsp-edge: rgb(124 81 105);
+    --th-tone-dsp-accent-soft: rgb(137 91 117);
+    --th-tone-dsp-accent: rgb(204 153 181);
+    --th-tone-dsp-ink: rgb(227 186 207);
+    --th-tone-dsp-ink-strong: rgb(251 237 244);
+    --th-tone-digest-surface: rgb(17 65 66);
+    --th-tone-digest-wash: rgb(32 87 87);
+    --th-tone-digest-edge: rgb(42 108 109);
+    --th-tone-digest-accent-soft: rgb(50 120 121);
+    --th-tone-digest-accent: rgb(116 185 185);
+    --th-tone-digest-ink: rgb(158 211 211);
+    --th-tone-digest-ink-strong: rgb(228 245 245);
+    --th-tone-sign-surface: rgb(74 52 27);
+    --th-tone-sign-wash: rgb(97 71 41);
+    --th-tone-sign-edge: rgb(121 90 53);
+    --th-tone-sign-accent-soft: rgb(134 101 61);
+    --th-tone-sign-accent: rgb(200 164 122);
+    --th-tone-sign-ink: rgb(223 194 161);
+    --th-tone-sign-ink-strong: rgb(249 239 228);
+    --th-tone-seal-surface: rgb(58 52 81);
+    --th-tone-seal-wash: rgb(78 71 106);
+    --th-tone-seal-edge: rgb(98 89 131);
+    --th-tone-seal-accent-soft: rgb(109 100 145);
+    --th-tone-seal-accent: rgb(172 163 212);
+    --th-tone-seal-ink: rgb(200 193 233);
+    --th-tone-seal-ink-strong: rgb(241 239 253);
+    --th-danger-accent: rgb(239 85 82);
+    --th-danger-ink: rgb(252 166 159);
+    --th-code-comment: rgb(127 145 173);
+    --th-code-keyword: rgb(151 183 252);
+    --th-code-string: rgb(158 215 185);
+    --th-code-number: rgb(236 199 140);
+    --th-code-type: rgb(207 190 233);
+    --th-code-function: rgb(146 199 245);
+    --th-code-operator: rgb(190 209 234);
+    --th-shadow-surface: 0 28px 72px -54px rgb(0 0 0 / 50%);
+    --th-shadow-hero: 0 42px 110px -72px rgb(0 0 0 / 55%);
+    --th-shadow-chip: 0 16px 32px -26px rgb(0 0 0 / 40%);
+    --th-place-disc-text: radial-gradient(circle at 32% 28%, var(--th-tone-text-edge) 0%, var(--th-tone-text-wash) 45%, var(--th-tone-text-surface) 100%);
+    --th-place-disc-search: radial-gradient(circle at 32% 28%, var(--th-tone-search-edge) 0%, var(--th-tone-search-wash) 45%, var(--th-tone-search-surface) 100%);
+    --th-place-disc-math: radial-gradient(circle at 32% 28%, var(--th-tone-math-edge) 0%, var(--th-tone-math-wash) 45%, var(--th-tone-math-surface) 100%);
+    --th-place-disc-dsp: radial-gradient(circle at 32% 28%, var(--th-tone-dsp-edge) 0%, var(--th-tone-dsp-wash) 45%, var(--th-tone-dsp-surface) 100%);
+    --th-place-disc-digest: radial-gradient(circle at 32% 28%, var(--th-tone-digest-edge) 0%, var(--th-tone-digest-wash) 45%, var(--th-tone-digest-surface) 100%);
+    --th-place-disc-sign: radial-gradient(circle at 32% 28%, var(--th-tone-sign-edge) 0%, var(--th-tone-sign-wash) 45%, var(--th-tone-sign-surface) 100%);
+    --th-place-disc-seal: radial-gradient(circle at 32% 28%, var(--th-tone-seal-edge) 0%, var(--th-tone-seal-wash) 45%, var(--th-tone-seal-surface) 100%);
+  }
+}
+
+@layer utilities {
+  .bg-place-disc-text {
+    background-image: var(--th-place-disc-text);
+  }
+
+  .bg-place-disc-search {
+    background-image: var(--th-place-disc-search);
+  }
+
+  .bg-place-disc-math {
+    background-image: var(--th-place-disc-math);
+  }
+
+  .bg-place-disc-dsp {
+    background-image: var(--th-place-disc-dsp);
+  }
+
+  .bg-place-disc-digest {
+    background-image: var(--th-place-disc-digest);
+  }
+
+  .bg-place-disc-sign {
+    background-image: var(--th-place-disc-sign);
+  }
+
+  .bg-place-disc-seal {
+    background-image: var(--th-place-disc-seal);
+  }
+}
+
+/* Design-system candidates: the class each slot wears in each tone (generated — do not edit) */
+@source inline("border-accent border-hairline/95 focus-visible:ring-hairline-strong bg-accent text-ink-secondary text-ink stroke-ink-secondary bg-instrument/45 bg-hairline border-tone-text-accent border-tone-text-wash/95 focus-visible:ring-tone-text-edge bg-tone-text-accent-soft text-tone-text-ink text-tone-text-ink-strong stroke-tone-text-accent bg-tone-text-accent bg-tone-text-surface/45 bg-tone-text-wash border-tone-search-accent border-tone-search-wash/95 focus-visible:ring-tone-search-edge bg-tone-search-accent-soft text-tone-search-ink text-tone-search-ink-strong stroke-tone-search-accent bg-tone-search-accent bg-tone-search-surface/45 bg-tone-search-wash border-tone-math-accent border-tone-math-wash/95 focus-visible:ring-tone-math-edge bg-tone-math-accent-soft text-tone-math-ink text-tone-math-ink-strong stroke-tone-math-accent bg-tone-math-accent bg-tone-math-surface/45 bg-tone-math-wash border-tone-dsp-accent border-tone-dsp-wash/95 focus-visible:ring-tone-dsp-edge bg-tone-dsp-accent-soft text-tone-dsp-ink text-tone-dsp-ink-strong stroke-tone-dsp-accent bg-tone-dsp-accent bg-tone-dsp-surface/45 bg-tone-dsp-wash border-tone-digest-accent border-tone-digest-wash/95 focus-visible:ring-tone-digest-edge bg-tone-digest-accent-soft text-tone-digest-ink text-tone-digest-ink-strong stroke-tone-digest-accent bg-tone-digest-accent bg-tone-digest-surface/45 bg-tone-digest-wash border-tone-sign-accent border-tone-sign-wash/95 focus-visible:ring-tone-sign-edge bg-tone-sign-accent-soft text-tone-sign-ink text-tone-sign-ink-strong stroke-tone-sign-accent bg-tone-sign-accent bg-tone-sign-surface/45 bg-tone-sign-wash border-tone-seal-accent border-tone-seal-wash/95 focus-visible:ring-tone-seal-edge bg-tone-seal-accent-soft text-tone-seal-ink text-tone-seal-ink-strong stroke-tone-seal-accent bg-tone-seal-accent bg-tone-seal-surface/45 bg-tone-seal-wash ring-tone-text-edge/60 outline-tone-text-accent-soft/70 data-[place-focused]:ring-tone-text-edge border-tone-text-accent-soft/80 stroke-tone-text-accent-soft fill-tone-text-wash stroke-tone-text-ink ring-tone-search-edge/60 outline-tone-search-accent-soft/70 data-[place-focused]:ring-tone-search-edge border-tone-search-accent-soft/80 stroke-tone-search-accent-soft fill-tone-search-wash stroke-tone-search-ink ring-tone-math-edge/60 outline-tone-math-accent-soft/70 data-[place-focused]:ring-tone-math-edge border-tone-math-accent-soft/80 stroke-tone-math-accent-soft fill-tone-math-wash stroke-tone-math-ink ring-tone-dsp-edge/60 outline-tone-dsp-accent-soft/70 data-[place-focused]:ring-tone-dsp-edge border-tone-dsp-accent-soft/80 stroke-tone-dsp-accent-soft fill-tone-dsp-wash stroke-tone-dsp-ink ring-tone-digest-edge/60 outline-tone-digest-accent-soft/70 data-[place-focused]:ring-tone-digest-edge border-tone-digest-accent-soft/80 stroke-tone-digest-accent-soft fill-tone-digest-wash stroke-tone-digest-ink ring-tone-sign-edge/60 outline-tone-sign-accent-soft/70 data-[place-focused]:ring-tone-sign-edge border-tone-sign-accent-soft/80 stroke-tone-sign-accent-soft fill-tone-sign-wash stroke-tone-sign-ink ring-tone-seal-edge/60 outline-tone-seal-accent-soft/70 data-[place-focused]:ring-tone-seal-edge border-tone-seal-accent-soft/80 stroke-tone-seal-accent-soft fill-tone-seal-wash stroke-tone-seal-ink");

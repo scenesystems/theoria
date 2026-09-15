@@ -8,7 +8,7 @@ import { ExternalLink, InternalLink } from "../primitives/Link.js"
 type RichPart = ApiDocPart | GuideInline
 
 const richLink = (href: string, text: string, key: string): ReactNode => {
-  const className = "font-medium text-ink-800 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
+  const className = "font-medium text-ink underline decoration-accent underline-offset-4 hover:text-ink-strong"
 
   return href.startsWith("/") || href.startsWith("#")
     ? <InternalLink className={className} href={href} key={key}>{text}</InternalLink>
@@ -20,7 +20,7 @@ const richPart = (part: RichPart, key: string): ReactNode => {
   if (part.kind === "code") {
     return (
       <code
-        className="rounded-md border border-stage-200/80 bg-stage-100/72 px-1.5 py-0.5 font-mono text-[0.88em] text-ink-900"
+        className="rounded-md border border-hairline/80 bg-instrument/72 px-1.5 py-0.5 font-mono text-[0.88em] text-ink"
         key={key}
       >
         {part.text}

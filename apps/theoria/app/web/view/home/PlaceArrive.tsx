@@ -17,7 +17,7 @@ export const PlaceArrive = () => (
   <Stack className="gap-4" data-place-act="arrive" data-place-arrive>
     <SemanticText
       as="h2"
-      className="text-balance text-ink-950"
+      className="text-balance text-ink-strong"
       role="hero-title"
       text={placeArriveTitle}
       variant="expanded"
@@ -25,7 +25,7 @@ export const PlaceArrive = () => (
     />
     <SemanticText
       as="p"
-      className="text-ink-700"
+      className="text-ink-secondary"
       role="lead"
       text={placeArriveText}
       variant="expanded"

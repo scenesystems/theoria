@@ -30,19 +30,19 @@ const footerDestinations: ReadonlyArray<FooterDestination> = [
 ]
 
 const footerLinkClassName =
-  "inline-flex min-w-0 items-center gap-1.5 text-ink-600 transition-colors duration-150 hover:text-ink-900"
+  "inline-flex min-w-0 items-center gap-1.5 text-ink-tertiary transition-colors duration-150 hover:text-ink"
 
 const FooterLink = ({ destination }: { readonly destination: FooterDestination }) => (
   <ExternalLink className={footerLinkClassName} href={destination.href}>
-    <SemanticText as="span" className="text-ink-700" role="status" text={destination.label} variant="compact" />
-    <ArrowTopRightOnSquareIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink-400" />
+    <SemanticText as="span" className="text-ink-secondary" role="status" text={destination.label} variant="compact" />
+    <ArrowTopRightOnSquareIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
   </ExternalLink>
 )
 
 export const SiteFooter = () => (
   <Section
     render={<footer />}
-    className="mt-region border-t border-stage-200/90 pb-3 pt-4 md:pt-5"
+    className="mt-region border-t border-hairline/90 pb-3 pt-4 md:pt-5"
     data-site-footer
   >
     <Stack className="items-center gap-2 md:items-stretch">
@@ -51,7 +51,7 @@ export const SiteFooter = () => (
           <TheoriaLogo animation="glossary" className="text-[1.45rem] md:text-[1.55rem]" />
           <SemanticText
             as="p"
-            className="hidden text-ink-500 md:block"
+            className="hidden text-ink-tertiary md:block"
             role="status"
             text={siteMetadata.tagline}
             variant="compact"
@@ -68,7 +68,7 @@ export const SiteFooter = () => (
 
       <SemanticText
         as="p"
-        className="text-ink-500 md:hidden"
+        className="text-ink-tertiary md:hidden"
         role="status"
         text={siteMetadata.tagline}
         variant="compact"
@@ -84,7 +84,7 @@ export const SiteFooter = () => (
 
       <SemanticText
         as="p"
-        className="text-center text-ink-500 md:text-left"
+        className="text-center text-ink-tertiary md:text-left"
         role="status"
         text={`© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`}
         variant="compact"

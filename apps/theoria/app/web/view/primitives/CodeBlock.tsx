@@ -65,11 +65,11 @@ export const CodeBlock = ({
 
   return (
     <Section aria-label={`${label} code example`} className={docsTheme.code}>
-      <Rail className="justify-between gap-3 border-b border-stage-200/78 bg-stage-50/60 px-4 py-2.5 sm:px-5">
+      <Rail className="justify-between gap-3 border-b border-hairline/78 bg-canvas/60 px-4 py-2.5 sm:px-5">
         <Layer className="min-w-0 flex-1">
           <SemanticText
             as="code"
-            className="block truncate text-ink-600"
+            className="block truncate text-ink-tertiary"
             role="code-meta"
             text={label}
             variant="expanded"
@@ -78,7 +78,7 @@ export const CodeBlock = ({
         <Cluster className="shrink-0 gap-2">
           <SemanticText
             as="span"
-            className="text-ink-500"
+            className="text-ink-tertiary"
             role="row-label"
             text={languageLabel(language)}
             variant="expanded"
@@ -115,10 +115,10 @@ export const CodeBlock = ({
           </ScrollArea.Content>
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar
-          className="flex h-2.5 touch-none select-none bg-stage-100/70 p-0.5"
+          className="flex h-2.5 touch-none select-none bg-instrument/70 p-0.5"
           orientation="horizontal"
         >
-          <ScrollArea.Thumb className="h-full min-w-8 rounded-full bg-ink-700/35" />
+          <ScrollArea.Thumb className="h-full min-w-8 rounded-full bg-ink-secondary/35" />
         </ScrollArea.Scrollbar>
         {
           /* A block taller than its viewport is cut and scrolls; the scrollbar is painted for as long as there
@@ -128,7 +128,7 @@ export const CodeBlock = ({
           className="flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/code:opacity-100 motion-reduce:transition-none"
           orientation="vertical"
         >
-          <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
+          <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-secondary/35" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </Section>

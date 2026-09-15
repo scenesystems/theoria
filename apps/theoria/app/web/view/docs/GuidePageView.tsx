@@ -23,11 +23,11 @@ const GuideHeading = ({ block }: { readonly block: Extract<GuideBlock, { readonl
   return (
     <SemanticContent
       as={element}
-      className={block.depth === 2 ? "scroll-mt-28 pt-5 text-ink-950" : "scroll-mt-28 pt-2 text-ink-900"}
+      className={block.depth === 2 ? "scroll-mt-28 pt-5 text-ink-strong" : "scroll-mt-28 pt-2 text-ink"}
       role={block.depth === 2 ? "section-title" : "selection-title"}
     >
       <a
-        className={`${focusEdgeClassName} hover:text-ink-700 focus-visible:ring-2 focus-visible:ring-ink-900/20`}
+        className={`${focusEdgeClassName} hover:text-ink-secondary focus-visible:ring-2 focus-visible:ring-ink/20`}
         href={`#${block.id}`}
         id={block.id}
       >
@@ -44,7 +44,7 @@ const GuideList = ({ items, ordered }: {
   const Component = ordered ? "ol" : "ul"
 
   return (
-    <Component className={`ml-6 space-y-2 text-ink-700 ${ordered ? "list-decimal" : "list-disc"}`}>
+    <Component className={`ml-6 space-y-2 text-ink-secondary ${ordered ? "list-decimal" : "list-disc"}`}>
       {Arr.map(items, (parts, index) => (
         <li className="pl-1" key={`${String(index)}:${parts.length}`}>
           <SemanticContent as="span" role="row-value">
@@ -57,9 +57,9 @@ const GuideList = ({ items, ordered }: {
 }
 
 const GuideTable = ({ block }: { readonly block: Extract<GuideBlock, { readonly kind: "table" }> }) => (
-  <Layer className="overflow-x-auto rounded-xl border border-stage-200/90 bg-stage-0/72">
+  <Layer className="overflow-x-auto rounded-xl border border-hairline/90 bg-paper/72">
     <table className="w-full min-w-[32rem] border-collapse text-left">
-      <thead className="border-b border-stage-200 bg-stage-100/65">
+      <thead className="border-b border-hairline bg-instrument/65">
         <tr>
           {Arr.map(block.headers, (parts, index) => (
             <th className="px-4 py-3" key={`${String(index)}:${parts.length}`}>
@@ -70,14 +70,14 @@ const GuideTable = ({ block }: { readonly block: Extract<GuideBlock, { readonly 
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-stage-200/75">
+      <tbody className="divide-y divide-hairline/75">
         {Arr.map(block.rows, (row, rowIndex) => (
           <tr key={`${String(rowIndex)}:${row.length}`}>
             {Arr.map(
               row,
               (parts, columnIndex) => (
                 <td className="px-4 py-3 align-top" key={`${String(columnIndex)}:${parts.length}`}>
-                  <SemanticContent as="span" className="text-ink-700" role="row-value">
+                  <SemanticContent as="span" className="text-ink-secondary" role="row-value">
                     <DocsRichText parts={parts} />
                   </SemanticContent>
                 </td>
@@ -93,7 +93,7 @@ const GuideTable = ({ block }: { readonly block: Extract<GuideBlock, { readonly 
 const GuideBlockView = ({ block, index }: { readonly block: GuideBlock; readonly index: number }) => {
   const content = block.kind === "paragraph"
     ? (
-      <SemanticContent as="p" className="text-ink-700" role="card-summary">
+      <SemanticContent as="p" className="text-ink-secondary" role="card-summary">
         <DocsRichText parts={block.parts} />
       </SemanticContent>
     )
@@ -105,8 +105,8 @@ const GuideBlockView = ({ block, index }: { readonly block: GuideBlock; readonly
     <GuideList items={block.items} ordered={block.ordered} />
     : block.kind === "quote"
     ? (
-      <Layer render={<blockquote />} className="border-l-2 border-stage-400 pl-5">
-        <SemanticContent as="p" className="text-ink-600" role="card-summary">
+      <Layer render={<blockquote />} className="border-l-2 border-accent pl-5">
+        <SemanticContent as="p" className="text-ink-tertiary" role="card-summary">
           <DocsRichText parts={block.parts} />
         </SemanticContent>
       </Layer>
@@ -118,19 +118,19 @@ const GuideBlockView = ({ block, index }: { readonly block: GuideBlock; readonly
 
 export const GuidePageView = ({ page }: { readonly page: GuidePage }) => (
   <Stack className="gap-9 sm:gap-11">
-    <Section className="border-b border-stage-200/90 pb-8">
+    <Section className="border-b border-hairline/90 pb-8">
       <Stack className="gap-4">
-        <SemanticText as="code" className="text-ink-500" role="code-meta" text={page.package.name} />
+        <SemanticText as="code" className="text-ink-tertiary" role="code-meta" text={page.package.name} />
         <SemanticText
           as="h1"
-          className="font-light tracking-[-0.04em] text-ink-950"
+          className="font-light tracking-[-0.04em] text-ink-strong"
           role="hero-title"
           text={page.title}
         />
         <Cluster className="gap-4">
-          <SemanticText as="span" className="text-ink-500" role="status" text={`v${page.package.version}`} />
+          <SemanticText as="span" className="text-ink-tertiary" role="status" text={`v${page.package.version}`} />
           <ExternalLink
-            className="font-body text-sm font-medium text-ink-700 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
+            className="font-body text-sm font-medium text-ink-secondary underline decoration-accent underline-offset-4 hover:text-ink-strong"
             href={page.sourceUrl}
           >
             Source

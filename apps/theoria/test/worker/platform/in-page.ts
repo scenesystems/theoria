@@ -1330,7 +1330,7 @@ export const motionSample = (): {
 
 /**
  * The lowest WCAG contrast ratio between the prose on the paper and the two
- * colours the paper is painted with, `--th-stage-50` and `--th-stage-0`, in
+ * colours the paper is painted with, `--th-canvas` and `--th-paper`, in
  * the mode the root is in now. The paper is a gradient between the two, so
  * the prose must read against both.
  * Colours are read as the browser paints them: a probe element takes each
@@ -1356,7 +1356,7 @@ export const paperProseContrast = (): number => {
     probe.remove()
     return colour
   }
-  const papers = [painted("--th-stage-50"), painted("--th-stage-0")]
+  const papers = [painted("--th-canvas"), painted("--th-paper")]
   const ratios = [...document.querySelectorAll("[data-place-line] span")].flatMap((line) => {
     const ink = getComputedStyle(line).color
     return papers.map((paper) => contrast(ink, paper))

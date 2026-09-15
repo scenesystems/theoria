@@ -75,7 +75,7 @@ export const ShimmerLine = ({
   readonly className?: string
   readonly motion?: PlaceholderMotion
   readonly width: string
-}) => <PulseLayer className={`h-3 rounded bg-stage-200/60 ${width} ${className}`} motion={motion} />
+}) => <PulseLayer className={`h-3 rounded bg-hairline/60 ${width} ${className}`} motion={motion} />
 
 /**
  * A line standing in for text of a known role: the line box is exactly the
@@ -86,7 +86,7 @@ export const ShimmerLine = ({
 export const ShimmerText = ({ role, width }: { readonly role: TextRole; readonly width: string }) => (
   <Layer aria-hidden className={`flex ${width} items-center`} style={{ height: `var(${lineHeightVar(role)})` }}>
     <PulseLayer
-      className="w-full rounded bg-stage-200/60"
+      className="w-full rounded bg-hairline/60"
       style={{ height: `calc(var(${fontSizeVar(role)}) * 0.7)` }}
     />
   </Layer>
@@ -163,7 +163,7 @@ export const SkeletonSection = () => (
 export const SkeletonPreview = ({ className = "" }: { readonly className?: string }) => (
   <Stack className={classNames("gap-0", className)}>
     <SkeletonSection />
-    <Separator className="h-px bg-stage-200/80" />
+    <Separator className="h-px bg-hairline/80" />
     <SkeletonSection />
   </Stack>
 )
@@ -174,8 +174,8 @@ export const SkeletonPreview = ({ className = "" }: { readonly className?: strin
 // ---------------------------------------------------------------------------
 
 export const ContentPlaceholder = ({ text }: { readonly text: string }) => (
-  <Layer className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-stage-200/95 p-4">
-    <SemanticText as="span" className="text-ink-700" role="status" text={text} variant="expanded" />
+  <Layer className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-hairline/95 p-4">
+    <SemanticText as="span" className="text-ink-secondary" role="status" text={text} variant="expanded" />
   </Layer>
 )
 
@@ -195,7 +195,7 @@ export const LoadingIndicator = ({
 }) => (
   <Cluster className={`gap-1.5 transition-opacity duration-150 ${active ? "opacity-100" : "invisible"}`}>
     <PulseLayer ariaHidden className={`inline-flex size-1.5 rounded-full ${tone.dot}`} />
-    <SemanticText as="span" className="text-ink-700" role="code-meta" text={text} variant="expanded" />
+    <SemanticText as="span" className="text-ink-secondary" role="code-meta" text={text} variant="expanded" />
   </Cluster>
 )
 
@@ -206,10 +206,10 @@ export const LoadingIndicator = ({
 export const RunningState = ({ text }: { readonly text?: string }) => (
   <Stack className="gap-4 py-4">
     <Cluster className="gap-2">
-      <PulseLayer ariaHidden className="inline-flex size-2 rounded-full bg-ink-400" />
+      <PulseLayer ariaHidden className="inline-flex size-2 rounded-full bg-accent" />
       <SemanticText
         as="span"
-        className="text-ink-600"
+        className="text-ink-tertiary"
         role="status"
         text={text ?? "Generating evidence…"}
         variant="expanded"
@@ -265,7 +265,7 @@ export const EmptyState = ({
       {action}
       <SemanticText
         as="span"
-        className="text-ink-500"
+        className="text-ink-tertiary"
         role="status"
         text={description ?? "Run the demo to generate reproducible evidence."}
         variant="expanded"

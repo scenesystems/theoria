@@ -71,12 +71,12 @@ export const BriefField = ({ disabled }: { readonly disabled: boolean }) => {
     <FieldGroup className="gap-3" dirty={edited} disabled={disabled}>
       <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
         <FieldLabel>
-          <SemanticText as="span" className="text-ink-900" role="row-label" text="Brief" variant="compact" />
+          <SemanticText as="span" className="text-ink" role="row-label" text="Brief" variant="compact" />
         </FieldLabel>
         <FieldDescription>
           <SemanticText
             as="span"
-            className="text-ink-500"
+            className="text-ink-tertiary"
             role="code-meta"
             text={briefCountText(brief.length, briefMaxLength)}
             variant="compact"

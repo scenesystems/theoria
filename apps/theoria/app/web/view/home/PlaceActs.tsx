@@ -31,7 +31,7 @@ const Acts = ({ build, offered, outline }: {
   readonly outline: PlaceOutline
 }) => (
   <Stack
-    className="relative gap-act lg:before:absolute lg:before:bottom-3 lg:before:left-[calc(0.375rem-0.5px)] lg:before:top-3 lg:before:w-px lg:before:bg-rule-strong"
+    className="relative gap-act lg:before:absolute lg:before:bottom-3 lg:before:left-[calc(0.375rem-0.5px)] lg:before:top-3 lg:before:w-px lg:before:bg-hairline-strong"
     data-place-acts
   >
     <PlaceStepCard spine="spine" step="compose">

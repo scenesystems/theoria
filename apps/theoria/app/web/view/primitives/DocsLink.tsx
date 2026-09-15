@@ -24,7 +24,7 @@ import { InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 
 const popupClassName = [
-  `w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-stage-200/90 bg-stage-0/97 shadow-chip ${focusEdgeClassName} backdrop-blur-sm`,
+  `w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-hairline/90 bg-paper/97 shadow-chip ${focusEdgeClassName} backdrop-blur-sm`,
   "origin-[var(--transform-origin)] transition-[opacity,transform] duration-150",
   "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
   "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
@@ -32,7 +32,7 @@ const popupClassName = [
 ].join(" ")
 
 const openLinkClassName =
-  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
+  `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors duration-150 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-1 ${docsTheme.primaryAction}`
 
 /**
  * A press with a modifier or a non-primary button is the browser's: a new tab,
@@ -62,7 +62,7 @@ const Summary = ({ text }: { readonly text: Option.Option<string> }) =>
       <Popover.Description render={<Layer />}>
         <SemanticText
           as="p"
-          className="text-ink-700"
+          className="text-ink-secondary"
           role="status"
           text={value}
           variant="compact"
@@ -98,17 +98,22 @@ const Preview = ({ destination, href, title }: {
             <SemanticText as="span" className={tone.text} role="row-label" text={destination.docsPackage.slug} />
             <SemanticText
               as="span"
-              className="text-ink-500"
+              className="text-ink-tertiary"
               role="code-meta"
               text={`v${destination.docsPackage.version}`}
             />
           </Cluster>
-          <SemanticText as="span" className="shrink-0 text-ink-500" role="row-label" text={pageKind(destination)} />
+          <SemanticText
+            as="span"
+            className="shrink-0 text-ink-tertiary"
+            role="row-label"
+            text={pageKind(destination)}
+          />
         </Rail>
         <Popover.Title render={<Layer className="min-w-0" />}>
           <SemanticText
             as="code"
-            className="block truncate text-ink-900"
+            className="block truncate text-ink"
             role="selection-title"
             text={docsLinkTitle(destination, title)}
           />
@@ -118,15 +123,15 @@ const Preview = ({ destination, href, title }: {
           onSome: (asset) => <ExportSummary asset={asset} destination={destination} />
         })}
       </Stack>
-      <Rail className="justify-between gap-3 border-t border-stage-200/80 px-3.5 py-2.5">
+      <Rail className="justify-between gap-3 border-t border-hairline/80 px-3.5 py-2.5">
         <SemanticText
           as="code"
-          className="block min-w-0 flex-1 truncate text-ink-500"
+          className="block min-w-0 flex-1 truncate text-ink-tertiary"
           role="code-meta"
           text={docsLinkPath(destination)}
         />
         <InternalLink className={openLinkClassName} data-docs-link-open href={href} ref={openRef}>
-          <SemanticText as="span" className="text-stage-0" role="button-label" text="Open" />
+          <SemanticText as="span" className="text-on-emphasis" role="button-label" text="Open" />
           <ArrowRightIcon aria-hidden className="size-4" />
         </InternalLink>
       </Rail>

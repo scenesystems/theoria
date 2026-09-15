@@ -51,7 +51,7 @@ const bandClassName = "flex justify-center pt-3"
  * row scales down to fit beside the arrow.
  */
 const linkClassName =
-  `inline-flex max-w-full items-center gap-2 rounded-full bg-stage-50 px-2.5 py-1.5 ring-1 ring-rule-strong shadow-surface ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 forced-colors:border forced-colors:border-[CanvasText]`
+  `inline-flex max-w-full items-center gap-2 rounded-full bg-canvas px-2.5 py-1.5 ring-1 ring-hairline-strong shadow-surface ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 forced-colors:border forced-colors:border-[CanvasText]`
 
 const Disc = ({ cy, disc }: { readonly cy: number; readonly disc: BandDisc }) => {
   const drawn = useAtomValue(placeDiscDrawnAtom(disc.marker.name))
@@ -106,7 +106,7 @@ const Band = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
     >
       <AnchorLink aria-label={bandLabel(row)} className={linkClassName} href={`#${imaginedPlaceSectionId}`}>
         <Row row={row} />
-        <ArrowUpIcon aria-hidden className="size-3.5 shrink-0 text-ink-500" data-place-band-icon />
+        <ArrowUpIcon aria-hidden className="size-3.5 shrink-0 text-ink-tertiary" data-place-band-icon />
       </AnchorLink>
     </Layer>
   )

@@ -40,7 +40,7 @@ const isCurrentShape = (shapes: ReadonlyArray<VersionShape>, shape: VersionShape
 /** A knot on the strand: filled for the version being drawn, open for the ones before it. */
 const knotClassName = (current: boolean, size: "strand" | "stage"): string =>
   `inline-flex shrink-0 rounded-full border-2 ${digestTone.border} forced-colors:border-[CanvasText] ${
-    current ? `${digestTone.bg} forced-colors:bg-[CanvasText]` : "bg-stage-0 forced-colors:bg-[Canvas]"
+    current ? `${digestTone.bg} forced-colors:bg-[CanvasText]` : "bg-paper forced-colors:bg-[Canvas]"
   } ${size === "strand" ? "size-3" : "size-2"}`
 
 /**
@@ -76,7 +76,7 @@ export const StageKnots = ({ evidence, outline }: {
           <Layer className="flex min-w-0 items-center gap-1.5">
             <GhostText
               as="span"
-              className="tabular-nums text-ink-500"
+              className="tabular-nums text-ink-tertiary"
               role="code-meta"
               text={`V${String(current.version)} ·`}
             />
@@ -87,7 +87,7 @@ export const StageKnots = ({ evidence, outline }: {
           <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5" tone={digestTone}>
             <SemanticText
               as="span"
-              className="tabular-nums text-ink-500"
+              className="tabular-nums text-ink-tertiary"
               role="code-meta"
               text={`V${String(version.version)} ·`}
             />
@@ -166,7 +166,7 @@ const Knot = ({ build, last, offered, shape, shapes }: {
       <Stack className={`min-w-0 gap-1.5 ${last ? "" : "pb-5"}`}>
         <SemanticText
           as="p"
-          className="min-w-0 text-ink-900"
+          className="min-w-0 text-ink"
           role="row-label"
           text={knotLabel(shape)}
           variant="compact"
@@ -174,7 +174,7 @@ const Knot = ({ build, last, offered, shape, shapes }: {
         {Arr.map(versionChanges(offered, shape), (line) => (
           <SemanticText
             as="p"
-            className="text-ink-700"
+            className="text-ink-secondary"
             key={line}
             role="status"
             text={line}

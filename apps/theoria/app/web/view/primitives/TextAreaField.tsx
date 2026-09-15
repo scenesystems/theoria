@@ -6,7 +6,7 @@ import { focusEdgeClassName, surfaceClassName, type ToneClasses } from "./design
 
 /** Grows with its content where the browser supports `field-sizing`; `rows` is the floor everywhere. */
 const controlClassName =
-  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink-900 placeholder:text-ink-400 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-offset-1 ${
+  `field-sizing-content min-h-28 w-full resize-none border px-4 py-3 text-sm leading-relaxed text-ink placeholder:text-ink-tertiary ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-offset-1 ${
     surfaceClassName("instrument")
   }`
 
@@ -61,7 +61,7 @@ export const TextAreaField = ({
   readonly value: string
 }) => (
   <Field.Control
-    className={(state) => `${controlClassName} ${state.dirty ? tone.border : "border-rule"} ${tone.focusRing}`}
+    className={(state) => `${controlClassName} ${state.dirty ? tone.border : "border-hairline"} ${tone.focusRing}`}
     onValueChange={onValueChange}
     placeholder={placeholder}
     render={<textarea rows={rows} />}

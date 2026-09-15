@@ -65,7 +65,7 @@ export const ChoiceGroup = ({
         >
           <SemanticText
             as={appearance === "segment" ? "p" : "span"}
-            className={`${active ? "text-ink-900" : "text-ink-700"} ${appearance === "segment" ? "text-center" : ""}`}
+            className={`${active ? "text-ink" : "text-ink-secondary"} ${appearance === "segment" ? "text-center" : ""}`}
             role="tab-label"
             text={option.label}
             variant="expanded"

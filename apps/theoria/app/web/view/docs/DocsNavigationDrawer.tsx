@@ -33,7 +33,7 @@ export const DocsNavigationDrawer = ({
             <Stack className="gap-6 p-5">
               <Cluster className="justify-between gap-4">
                 <Drawer.Title
-                  render={<SemanticText as="h2" className="text-ink-900" role="section-title" text="Menu" />}
+                  render={<SemanticText as="h2" className="text-ink" role="section-title" text="Menu" />}
                 />
                 <Drawer.Close aria-label="Close navigation" className={docsTheme.iconButton}>
                   <XMarkIcon aria-hidden className="h-5 w-5" />

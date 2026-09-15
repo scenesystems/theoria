@@ -12,7 +12,7 @@ const RichParagraph = ({ parts }: { readonly parts: ApiDocumentation["summary"] 
   parts.length === 0
     ? null
     : (
-      <SemanticContent as="p" className="text-ink-700" role="row-value">
+      <SemanticContent as="p" className="text-ink-secondary" role="row-value">
         <DocsRichText parts={parts} />
       </SemanticContent>
     )
@@ -23,10 +23,10 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
     {Option.match(docs.deprecated, {
       onNone: () => null,
       onSome: (deprecated) => (
-        <Layer className="rounded-xl border border-tone-search-300/70 bg-tone-search-100/45 px-4 py-3">
+        <Layer className="rounded-xl border border-tone-search-edge/70 bg-tone-search-surface/45 px-4 py-3">
           <Stack className="gap-1.5">
-            <SemanticText as="p" className="text-tone-search-900" role="row-label" text="Deprecated" />
-            <SemanticContent as="p" className="text-tone-search-900" role="row-value">
+            <SemanticText as="p" className="text-tone-search-ink-strong" role="row-label" text="Deprecated" />
+            <SemanticContent as="p" className="text-tone-search-ink-strong" role="row-value">
               <DocsRichText parts={deprecated} />
             </SemanticContent>
           </Stack>
@@ -37,7 +37,7 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
       ? null
       : (
         <Stack className="gap-2">
-          <SemanticContent as="h4" className="text-ink-900" role="selection-title">Remarks</SemanticContent>
+          <SemanticContent as="h4" className="text-ink" role="selection-title">Remarks</SemanticContent>
           <RichParagraph parts={docs.remarks} />
         </Stack>
       )}
@@ -59,8 +59,8 @@ export const ApiDocumentationView = ({ docs }: { readonly docs: ApiDocumentation
       ? null
       : (
         <Stack className="gap-2">
-          <SemanticContent as="h4" className="text-ink-900" role="selection-title">See also</SemanticContent>
-          <Stack render={<ul />} className="ml-5 list-disc gap-1.5 text-ink-700">
+          <SemanticContent as="h4" className="text-ink" role="selection-title">See also</SemanticContent>
+          <Stack render={<ul />} className="ml-5 list-disc gap-1.5 text-ink-secondary">
             {Arr.map(docs.see, (parts, index) => (
               <li className="pl-1" key={`see:${String(index)}`}>
                 <SemanticContent as="span" role="row-value">

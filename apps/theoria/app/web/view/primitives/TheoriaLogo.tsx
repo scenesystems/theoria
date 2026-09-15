@@ -128,7 +128,7 @@ export const TheoriaLogo = ({
     <span className={classNames(base, className)}>
       <CubeMark className="h-[0.85em] shrink-0" />
       {animation === "none"
-        ? <span className="text-ink-900">Theoria</span>
+        ? <span className="text-ink">Theoria</span>
         : (
           <span aria-label="Theoria" role="img">
             <WordmarkMorph />

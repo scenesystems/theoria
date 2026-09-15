@@ -109,7 +109,7 @@ describe("SemanticText", () => {
       156,
       <SemanticText
         as="p"
-        className="max-w-none whitespace-nowrap text-ink-700"
+        className="max-w-none whitespace-nowrap text-ink-secondary"
         role="status"
         text="Semantic text should keep reflowing from the prepared effect-text projection on narrow screens."
         variant="expanded"
@@ -130,7 +130,7 @@ describe("SemanticText", () => {
       220,
       <SemanticText
         as="h3"
-        className="text-ink-900"
+        className="text-ink"
         role="subsection-title"
         text="@scenesystems/effect-inference"
         variant="compact"
@@ -148,7 +148,7 @@ describe("SemanticText", () => {
       220,
       <SemanticText
         as="p"
-        className="text-ink-700"
+        className="text-ink-secondary"
         lineLimit={2}
         reserveLines={2}
         role="card-summary"

@@ -65,7 +65,7 @@ const StagePresets = () => {
 
   return presets.length === 0 ? null : (
     <Cluster className="gap-2.5" data-place-presets>
-      <SemanticText as="span" className="text-ink-500" role="code-meta" text="Drawn at" />
+      <SemanticText as="span" className="text-ink-tertiary" role="code-meta" text="Drawn at" />
       <ChoiceGroup
         activeIndex={activeIndex}
         className="gap-1.5"
@@ -119,7 +119,7 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
       >
         <SemanticText
           as="span"
-          className="block truncate tabular-nums text-ink-500"
+          className="block truncate tabular-nums text-ink-tertiary"
           role="code-meta"
           text={renderProgressText(search, shown)}
         />
@@ -135,7 +135,7 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
         >
           <SemanticText
             as="span"
-            className="text-ink-700"
+            className="text-ink-secondary"
             role="tab-label"
             text={keptTrialLabel(search)}
             variant="expanded"
@@ -150,7 +150,7 @@ const SearchCaption = ({ search }: { readonly search: PlaceSearch }) => {
 const SearchCaptionPending = () => (
   <Rail aria-busy className="min-h-9 min-w-0 gap-2.5" data-place-search-caption-pending>
     <Layer render={<span />} className={inlineMarkRoomClassName}>
-      <GhostText as="span" className="tabular-nums text-ink-500" role="code-meta" text={searchCaptionShape} />
+      <GhostText as="span" className="tabular-nums text-ink-tertiary" role="code-meta" text={searchCaptionShape} />
     </Layer>
   </Rail>
 )
@@ -180,7 +180,7 @@ const StageFailed = ({ failure }: { readonly failure: StageFailure }) => {
       >
         <SemanticText
           as="span"
-          className="text-ink-700"
+          className="text-ink-secondary"
           role="tab-label"
           text={stageFailureActionLabel(failure)}
           variant="expanded"

@@ -26,10 +26,10 @@ export const ApiTypeParametersView = ({
     ? null
     : (
       <Stack className="gap-2">
-        <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Type parameters</SemanticContent>
+        <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Type parameters</SemanticContent>
         <Stack
           render={<dl />}
-          className="divide-y divide-stage-200/75 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4"
+          className="divide-y divide-hairline/75 rounded-xl border border-hairline/90 bg-canvas/45 px-4"
         >
           {Arr.map(
             parameters,
@@ -43,12 +43,12 @@ export const ApiTypeParametersView = ({
                     : "py-3"}
                   key={parameter.name}
                 >
-                  <Layer render={<dt />} className="text-ink-900">
+                  <Layer render={<dt />} className="text-ink">
                     <InlineHighlightedCode source={typeParameterValue(parameter)} />
                   </Layer>
                   {documented
                     ? (
-                      <SemanticContent as="dd" className="text-ink-600" role="row-value">
+                      <SemanticContent as="dd" className="text-ink-tertiary" role="row-value">
                         <DocsRichText parts={parameter.description} />
                       </SemanticContent>
                     )
@@ -77,10 +77,10 @@ const Parameters = ({
     ? null
     : (
       <Stack className="gap-2">
-        <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Parameters</SemanticContent>
+        <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Parameters</SemanticContent>
         <Stack
           render={<dl />}
-          className="divide-y divide-stage-200/75 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4"
+          className="divide-y divide-hairline/75 rounded-xl border border-hairline/90 bg-canvas/45 px-4"
         >
           {Arr.map(
             parameters,
@@ -94,12 +94,12 @@ const Parameters = ({
                     : "py-3"}
                   key={parameter.name}
                 >
-                  <Layer render={<dt />} className="break-words text-ink-900">
+                  <Layer render={<dt />} className="break-words text-ink">
                     <InlineHighlightedCode source={parameterValue(parameter)} />
                   </Layer>
                   {documented
                     ? (
-                      <SemanticContent as="dd" className="text-ink-600" role="row-value">
+                      <SemanticContent as="dd" className="text-ink-tertiary" role="row-value">
                         <DocsRichText parts={parameter.description} />
                       </SemanticContent>
                     )
@@ -129,12 +129,12 @@ export const ApiSignatureView = ({
     <ApiTypeParametersView headingAs={headingAs} parameters={signature.typeParameters} />
     <Parameters headingAs={headingAs} parameters={signature.parameters} />
     <Stack className="gap-2">
-      <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Returns</SemanticContent>
-      <Cluster align="start" className="gap-x-4 gap-y-2 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4 py-3">
-        <InlineHighlightedCode className="min-w-0 max-w-full text-ink-900" source={signature.returns.type} />
+      <SemanticContent as={headingAs} className="text-ink-tertiary" role="row-label">Returns</SemanticContent>
+      <Cluster align="start" className="gap-x-4 gap-y-2 rounded-xl border border-hairline/90 bg-canvas/45 px-4 py-3">
+        <InlineHighlightedCode className="min-w-0 max-w-full text-ink" source={signature.returns.type} />
         {signature.returns.description.length > 0
           ? (
-            <SemanticContent as="span" className="text-ink-600" role="row-value">
+            <SemanticContent as="span" className="text-ink-tertiary" role="row-value">
               <DocsRichText parts={signature.returns.description} />
             </SemanticContent>
           )
@@ -142,7 +142,7 @@ export const ApiSignatureView = ({
       </Cluster>
     </Stack>
     <ExternalLink
-      className="w-fit font-body text-sm font-medium text-ink-600 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
+      className="w-fit font-body text-sm font-medium text-ink-tertiary underline decoration-accent underline-offset-4 hover:text-ink-strong"
       href={signature.sourceUrl}
     >
       Source

@@ -37,7 +37,7 @@ const spineDot = (active: boolean) => (
     <Layer
       render={<span />}
       className={`inline-flex size-2.5 shrink-0 rounded-full border transition-colors duration-150 ease-theme motion-reduce:transition-none ${
-        active ? "border-ink-900 bg-ink-900" : "border-stage-400 bg-stage-0"
+        active ? "border-emphasis bg-emphasis" : "border-accent bg-paper"
       }`}
       data-place-spine-dot
     />
@@ -104,7 +104,7 @@ export const PlaceStepCard = (
         >
           <SemanticText
             as="span"
-            className={active ? "text-ink-900" : "text-ink-700"}
+            className={active ? "text-ink" : "text-ink-secondary"}
             role="row-label"
             text={definition.name}
             variant="compact"

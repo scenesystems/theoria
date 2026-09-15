@@ -31,7 +31,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
       tabIndex={-1}
     >
       <DocsRouteEntrance className="flex min-w-0 flex-col gap-8">
-        <SemanticText as="h1" className="text-ink-950" role="hero-title" text="Packages" />
+        <SemanticText as="h1" className="text-ink-strong" role="hero-title" text="Packages" />
         <Layer className="grid gap-x-10 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
           {Arr.map(
             manifest.packages,
@@ -48,26 +48,26 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
                   <Stack className="h-full gap-5">
                     <Stack className="gap-2">
                       <CardLink
-                        className={`${focusEdgeClassName} focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ink-900/20`}
+                        className={`${focusEdgeClassName} focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ink/20`}
                         href={docsPackage.overview.path}
                       >
                         <SemanticText
                           as="h2"
-                          className="text-ink-950 group-hover:text-ink-700"
+                          className="text-ink-strong group-hover:text-ink-secondary"
                           role="card-title"
                           text={docsPackage.name}
                         />
                       </CardLink>
                       <SemanticText
                         as="p"
-                        className="text-ink-600"
+                        className="text-ink-tertiary"
                         role="card-summary"
                         text={docsPackage.description}
                       />
                     </Stack>
                     <SemanticText
                       as="span"
-                      className="mt-auto text-ink-500"
+                      className="mt-auto text-ink-tertiary"
                       role="code-meta"
                       text={`v${docsPackage.version}`}
                     />

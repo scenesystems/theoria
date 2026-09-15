@@ -26,7 +26,7 @@ const inferenceTone = inlineStatusToneFor("dsp")
 const FeatureSlot = ({ children, first }: { readonly children: ReactNode; readonly first: boolean }) => (
   <Layer render={<span />} className="inline-flex items-baseline gap-2">
     {first ? null : (
-      <Layer aria-hidden render={<span />} className="inline-flex text-ink-400">
+      <Layer aria-hidden render={<span />} className="inline-flex text-ink-tertiary">
         <SemanticText as="span" role="selection-title" text="·" />
       </Layer>
     )}
@@ -68,7 +68,7 @@ const Title = ({ build, outline }: {
       onNone: () => (
         <GhostText
           as="p"
-          className="text-ink-900"
+          className="text-ink"
           role="card-title"
           text={outline.composition.title}
           variant="compact"
@@ -77,7 +77,7 @@ const Title = ({ build, outline }: {
       onSome: (value) => (
         <SemanticText
           as="p"
-          className="text-ink-900"
+          className="text-ink"
           role="card-title"
           text={value.artifact.composition.title}
           variant="compact"
@@ -105,7 +105,7 @@ const Features = ({ build, outline }: {
   <Stack className="gap-2">
     <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
       <Layer render={<span />} data-place-features-label>
-        <SemanticText as="span" className="text-ink-900" role="row-label" text="Features" variant="compact" />
+        <SemanticText as="span" className="text-ink" role="row-label" text="Features" variant="compact" />
       </Layer>
       <StatusMark label="Recorded inference" mark={{ _tag: "Inference" }} tone={inferenceTone} />
     </Layer>

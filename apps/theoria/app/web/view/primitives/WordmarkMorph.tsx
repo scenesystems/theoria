@@ -91,7 +91,7 @@ const MeasureLayer = memo(() => (
   </span>
 ))
 
-const rootClassName = "inline-grid items-baseline text-ink-900"
+const rootClassName = "inline-grid items-baseline text-ink"
 
 /** A pass that was playing has ended; a `rest` completing is not a pass. */
 const passEnded = (definition: AnimationDefinition): boolean =>

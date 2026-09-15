@@ -55,7 +55,7 @@ const signatureTone = (valid: boolean) => valid ? neutralStatusTone : dangerStat
  * proposal has; there is no box behind the words.
  */
 const voiceClassName = (accepted: boolean, tone: { readonly border: string }): string =>
-  accepted ? `border-solid ${tone.border}` : "border-dashed border-rule-strong"
+  accepted ? `border-solid ${tone.border}` : "border-dashed border-hairline-strong"
 
 /**
  * One labelled part of the proposal: the label names what the text is. A
@@ -74,11 +74,11 @@ const Field = ({ children, label, mark = Option.none() }: {
     <Layer render={<dt />} className="pt-2 first:pt-0 sm:flex sm:min-h-(--st-lh-row-value) sm:items-center sm:pt-0">
       {Option.match(mark, {
         onNone: () => (
-          <SemanticText as="span" className="text-ink-500" role="row-label" text={label} variant="compact" />
+          <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={label} variant="compact" />
         ),
         onSome: (value) => (
           <ProvenanceMark className={inlineMarkClassName} mark={value}>
-            <SemanticText as="span" className="text-ink-500" role="row-label" text={label} variant="compact" />
+            <SemanticText as="span" className="text-ink-tertiary" role="row-label" text={label} variant="compact" />
           </ProvenanceMark>
         )
       })}
@@ -90,7 +90,7 @@ const Field = ({ children, label, mark = Option.none() }: {
 const foldTriggerLayoutClassName = "-mx-1.5 -my-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1"
 
 const foldTriggerClassName =
-  `group/fold ${foldTriggerLayoutClassName} text-left transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `group/fold ${foldTriggerLayoutClassName} text-left transition-colors duration-150 hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
 
 const foldPanelClassName =
   "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 motion-reduce:transition-none"
@@ -130,7 +130,7 @@ const SealedNoteFold = ({ note }: { readonly note: SealedNote }) => (
       <Layer render={<blockquote />} className={`mt-2 border-l-2 pl-3 ${sealTone.border}`}>
         <SemanticText
           as="p"
-          className="text-ink-800"
+          className="text-ink"
           role="row-value"
           text={`“${note.openedText}”`}
           variant="compact"
@@ -194,7 +194,7 @@ const recordOf = (build: PlaceBuild, role: ParticipantRole): Option.Option<Propo
  * line is the one the mark will stand in.
  */
 const FeatureTitle = ({ name, recorded }: { readonly name: string; readonly recorded: boolean }) => (
-  <SemanticContent as="h3" className="self-start text-ink-900" role="card-title" variant="compact">
+  <SemanticContent as="h3" className="self-start text-ink" role="card-title" variant="compact">
     {recorded
       ? (
         <ProvenanceMark className={inlineMarkClassName} data-place-feature={name} mark={{ _tag: "Feature", name }}>
@@ -312,7 +312,7 @@ export const PlaceProposal = ({
         <Field label="Adds">
           <SemanticText
             as="p"
-            className="text-ink-800"
+            className="text-ink"
             role="row-value"
             text={feature.description}
             variant="compact"
@@ -322,7 +322,7 @@ export const PlaceProposal = ({
         <Field label="Why">
           <SemanticText
             as="p"
-            className="text-ink-600"
+            className="text-ink-tertiary"
             role="row-value"
             text={feature.rationale}
             variant="compact"

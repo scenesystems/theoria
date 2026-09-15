@@ -51,7 +51,7 @@ const NavigationBranch = ({
   const active = destinationIsActive(branch.root, route) ||
     Arr.some(branch.children, (destination) => destinationIsActive(destination, route))
   const branchContent = (
-    <Stack className="ml-3 mt-1 gap-1 border-l border-stage-300/80 pl-3">
+    <Stack className="ml-3 mt-1 gap-1 border-l border-hairline-strong/80 pl-3">
       {Arr.map(branch.children, (destination) => (
         <NavigationLink
           active={destinationIsActive(destination, route)}
@@ -66,7 +66,13 @@ const NavigationBranch = ({
 
   return (
     <Stack className="gap-2">
-      <SemanticText as="h2" className="px-3 text-ink-500" role="row-label" text={branch.label} variant="expanded" />
+      <SemanticText
+        as="h2"
+        className="px-3 text-ink-tertiary"
+        role="row-label"
+        text={branch.label}
+        variant="expanded"
+      />
       {branch.children.length === 0 ?
         (
           <NavigationLink
@@ -85,7 +91,7 @@ const NavigationBranch = ({
               />
               <Collapsible.Trigger
                 aria-label={`Toggle ${branch.label.toLocaleLowerCase("en-US")} navigation`}
-                className={`group mt-0.5 inline-flex size-10 items-center justify-center rounded-xl text-ink-500 transition-colors hover:bg-stage-0/80 hover:text-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`}
+                className={`group mt-0.5 inline-flex size-10 items-center justify-center rounded-xl text-ink-tertiary transition-colors hover:bg-paper/80 hover:text-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`}
               >
                 <ChevronRightIcon
                   aria-hidden

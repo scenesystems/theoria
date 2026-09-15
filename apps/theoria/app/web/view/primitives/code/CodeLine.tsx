@@ -20,7 +20,7 @@ export const CodeAnnotation = Schema.Struct({
 export type CodeAnnotation = typeof CodeAnnotation.Type
 
 const linkClassName =
-  `rounded-[3px] underline decoration-dotted decoration-ink-500/70 underline-offset-[3px] transition-colors duration-150 hover:bg-stage-100 hover:decoration-solid hover:decoration-ink-900 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `rounded-[3px] underline decoration-dotted decoration-ink-tertiary/70 underline-offset-[3px] transition-colors duration-150 hover:bg-instrument hover:decoration-solid hover:decoration-ink ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
 
 const Tokens = ({ tokens }: { readonly tokens: ReadonlyArray<HighlightToken> }) => (
   <>
@@ -56,11 +56,11 @@ const Segment = ({ segment }: { readonly segment: LineSegment }) =>
 export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
   <Layer
     render={<span />}
-    className={`${litChipClassName} my-1 inline-flex items-center gap-1.5 rounded-md border border-stage-300/85 bg-stage-50/95 px-2 py-0.5`}
+    className={`${litChipClassName} my-1 inline-flex items-center gap-1.5 rounded-md border border-hairline-strong/85 bg-canvas/95 px-2 py-0.5`}
     data-code-annotation
   >
-    <Layer aria-hidden render={<span />} className="inline-block size-1.5 rounded-full bg-ink-500" />
-    <SemanticText as="span" className="text-ink-700" role="code-meta" text={text} />
+    <Layer aria-hidden render={<span />} className="inline-block size-1.5 rounded-full bg-ink-tertiary" />
+    <SemanticText as="span" className="text-ink-secondary" role="code-meta" text={text} />
   </Layer>
 )
 

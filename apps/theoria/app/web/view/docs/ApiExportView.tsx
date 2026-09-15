@@ -23,7 +23,7 @@ const RelationList = ({ facet }: { readonly facet: ApiFacet }) => {
       <Cluster className="gap-2">
         {Arr.map(relations, (relation) => (
           <Layer
-            className="rounded-lg border border-stage-200/90 bg-stage-100/60 px-2.5 py-1 text-ink-600"
+            className="rounded-lg border border-hairline/90 bg-instrument/60 px-2.5 py-1 text-ink-tertiary"
             key={relation}
           >
             <InlineHighlightedCode source={relation} />
@@ -43,7 +43,7 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
           <ApiTypeParametersView parameters={facet.typeParameters} />
           <RelationList facet={facet} />
           <ExternalLink
-            className="w-fit font-body text-sm font-medium text-ink-600 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
+            className="w-fit font-body text-sm font-medium text-ink-tertiary underline decoration-accent underline-offset-4 hover:text-ink-strong"
             href={facet.sourceUrl}
           >
             Source
@@ -69,7 +69,7 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
       ? null
       : (
         <Stack className="gap-7 pt-2">
-          <SemanticContent as="h3" className="text-ink-900" role="section-title">Members</SemanticContent>
+          <SemanticContent as="h3" className="text-ink" role="section-title">Members</SemanticContent>
           {Arr.map(facet.members, (member) => <ApiMemberView key={member.anchor} member={member} />)}
         </Stack>
       )}
@@ -77,18 +77,18 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
 )
 
 export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) => (
-  <Section className="scroll-mt-28 border-t border-stage-200/90 pt-9 first:border-t-0 first:pt-0" id={apiExport.anchor}>
+  <Section className="scroll-mt-28 border-t border-hairline/90 pt-9 first:border-t-0 first:pt-0" id={apiExport.anchor}>
     <Stack className="gap-7">
       <Stack className="gap-3">
-        <SemanticText as="h1" className="break-words text-ink-950" role="section-title" text={apiExport.name} />
+        <SemanticText as="h1" className="break-words text-ink-strong" role="section-title" text={apiExport.name} />
         <Cluster className="gap-2">
           <SemanticText
             as="span"
-            className="rounded-md bg-stage-100 px-2 py-1 text-ink-600"
+            className="rounded-md bg-instrument px-2 py-1 text-ink-tertiary"
             role="row-label"
             text={apiExport.category}
           />
-          <SemanticText as="span" className="text-ink-500" role="code-meta" text={`since ${apiExport.since}`} />
+          <SemanticText as="span" className="text-ink-tertiary" role="code-meta" text={`since ${apiExport.since}`} />
         </Cluster>
       </Stack>
       <Stack className="gap-9">
@@ -96,7 +96,7 @@ export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) 
           apiExport.facets,
           (facet, index) => (
             <Layer
-              className={index === 0 ? "" : "border-t border-stage-200/75 pt-8"}
+              className={index === 0 ? "" : "border-t border-hairline/75 pt-8"}
               key={`${facet.kind}:${String(index)}`}
             >
               <ApiFacetView facet={facet} />

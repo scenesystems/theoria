@@ -70,7 +70,7 @@ const lineRowClassName =
  * the text, with the colour easing in and out.
  */
 const focusableLineRowClassName =
-  `${lineRowClassName} -mx-2 rounded-md px-2 transition-colors duration-200 ease-theme data-[code-line-focused]:bg-stage-100/80 forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] motion-reduce:transition-none`
+  `${lineRowClassName} -mx-2 rounded-md px-2 transition-colors duration-200 ease-theme data-[code-line-focused]:bg-instrument/80 forced-colors:data-[code-line-focused]:bg-[Highlight] forced-colors:data-[code-line-focused]:text-[HighlightText] motion-reduce:transition-none`
 
 const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
 
@@ -113,14 +113,14 @@ export const HighlightedCode = ({
   const lines = useHighlightedLines(language, source)
 
   return (
-    <code className="block text-(length:--st-fs-code-block) font-(--st-fw-code-block) tracking-(--st-tr-code-block) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-block) text-ink-900 [tab-size:2]">
+    <code className="block text-(length:--st-fs-code-block) font-(--st-fw-code-block) tracking-(--st-tr-code-block) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-block) text-ink [tab-size:2]">
       {Arr.map(lines, (line, lineIndex) => (
         <Fragment key={`${lineIndex}:${line.length}`}>
           <span
             className={focusableLineRowClassName}
             data-code-line-focused={lineMatches(line, focusedMatch) ? "" : undefined}
           >
-            <span className="block select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-700">
+            <span className="block select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-secondary">
               {renderLineNumber(new GutterLine({ number: lineIndex + 1, text: lineText(line) }))}
             </span>
             <span className="whitespace-pre">

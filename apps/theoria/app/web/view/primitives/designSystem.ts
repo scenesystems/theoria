@@ -1,186 +1,111 @@
-import { Match, Schema } from "effect"
+import { Boolean as Bool, Match, Number as Num, Schema } from "effect"
+import * as Arr from "effect/Array"
 
 import type { Id as CardId } from "../../../contracts/id.js"
 import type { Elevation, SurfaceRole } from "../../../contracts/layout.js"
+import {
+  type DiscSlot,
+  discSlotRole,
+  neutralSlotRole,
+  type ToneRole,
+  ToneSlot,
+  toneSlotRole
+} from "../../../contracts/palette.js"
 import { type CardTone, toneForCard } from "../../../contracts/theme.js"
 
 // ---------------------------------------------------------------------------
-// ToneClasses — derived Tailwind class sets for per-tone UI elements.
-// Every class string is a full literal — Tailwind v4 purges dynamic names.
+// ToneClasses — the class a component's slot wears in a tone, derived from the
+// palette contract: the slot says which role it reads (`toneSlotRole`), and
+// this file says which utility paints it. Tailwind cannot see a class composed
+// here, so the palette generator declares every one as a candidate
+// (`@source inline`) in the generated stylesheet; a contract test holds that.
 // ---------------------------------------------------------------------------
 
-export const ToneClasses = Schema.Struct({
-  indicator: Schema.String,
-  border: Schema.String,
-  borderSubtle: Schema.String,
-  borderHover: Schema.String,
-  focusRing: Schema.String,
-  dot: Schema.String,
-  text: Schema.String,
-  textStrong: Schema.String,
-  textMuted: Schema.String,
-  fill: Schema.String,
-  fillMuted: Schema.String,
-  stroke: Schema.String,
-  bg: Schema.String,
-  bgSubtle: Schema.String,
-  bgTinted: Schema.String,
-  /** The wash a value just changed is lit with, before it settles to nothing. */
-  wash: Schema.String
-})
-export type ToneClasses = typeof ToneClasses.Type
-
-export const neutralToneClasses: ToneClasses = {
-  indicator: "bg-stage-400",
-  border: "border-stage-400",
-  borderSubtle: "border-stage-200/95",
-  borderHover: "hover:border-stage-300",
-  focusRing: "focus-visible:ring-stage-300",
-  dot: "bg-stage-400",
-  text: "text-ink-700",
-  textStrong: "text-ink-900",
-  textMuted: "text-ink-500",
-  fill: "fill-ink-700",
-  fillMuted: "fill-ink-400",
-  stroke: "stroke-ink-700",
-  bg: "bg-stage-400",
-  bgSubtle: "bg-stage-100",
-  bgTinted: "bg-stage-100/70",
-  wash: "bg-stage-200"
-}
-
-export const toneClassesFor = (tone: CardTone): ToneClasses =>
-  Match.value(tone).pipe(
-    Match.when("text", () => ({
-      indicator: "bg-tone-text-500",
-      border: "border-tone-text-500",
-      borderSubtle: "border-tone-text-200/95",
-      borderHover: "hover:border-tone-text-300",
-      focusRing: "focus-visible:ring-tone-text-300",
-      dot: "bg-tone-text-400",
-      text: "text-tone-text-700",
-      textStrong: "text-tone-text-900",
-      textMuted: "text-tone-text-500",
-      fill: "fill-tone-text-500",
-      fillMuted: "fill-tone-text-300",
-      stroke: "stroke-tone-text-500",
-      bg: "bg-tone-text-500",
-      bgSubtle: "bg-tone-text-100",
-      bgTinted: "bg-tone-text-100/45",
-      wash: "bg-tone-text-200"
-    })),
-    Match.when("search", () => ({
-      indicator: "bg-tone-search-500",
-      border: "border-tone-search-500",
-      borderSubtle: "border-tone-search-200/95",
-      borderHover: "hover:border-tone-search-300",
-      focusRing: "focus-visible:ring-tone-search-300",
-      dot: "bg-tone-search-400",
-      text: "text-tone-search-700",
-      textStrong: "text-tone-search-900",
-      textMuted: "text-tone-search-500",
-      fill: "fill-tone-search-500",
-      fillMuted: "fill-tone-search-300",
-      stroke: "stroke-tone-search-500",
-      bg: "bg-tone-search-500",
-      bgSubtle: "bg-tone-search-100",
-      bgTinted: "bg-tone-search-100/45",
-      wash: "bg-tone-search-200"
-    })),
-    Match.when("math", () => ({
-      indicator: "bg-tone-math-500",
-      border: "border-tone-math-500",
-      borderSubtle: "border-tone-math-200/95",
-      borderHover: "hover:border-tone-math-300",
-      focusRing: "focus-visible:ring-tone-math-300",
-      dot: "bg-tone-math-400",
-      text: "text-tone-math-700",
-      textStrong: "text-tone-math-900",
-      textMuted: "text-tone-math-500",
-      fill: "fill-tone-math-500",
-      fillMuted: "fill-tone-math-300",
-      stroke: "stroke-tone-math-500",
-      bg: "bg-tone-math-500",
-      bgSubtle: "bg-tone-math-100",
-      bgTinted: "bg-tone-math-100/45",
-      wash: "bg-tone-math-200"
-    })),
-    Match.when("dsp", () => ({
-      indicator: "bg-tone-dsp-500",
-      border: "border-tone-dsp-500",
-      borderSubtle: "border-tone-dsp-200/95",
-      borderHover: "hover:border-tone-dsp-300",
-      focusRing: "focus-visible:ring-tone-dsp-300",
-      dot: "bg-tone-dsp-400",
-      text: "text-tone-dsp-700",
-      textStrong: "text-tone-dsp-900",
-      textMuted: "text-tone-dsp-500",
-      fill: "fill-tone-dsp-500",
-      fillMuted: "fill-tone-dsp-300",
-      stroke: "stroke-tone-dsp-500",
-      bg: "bg-tone-dsp-500",
-      bgSubtle: "bg-tone-dsp-100",
-      bgTinted: "bg-tone-dsp-100/45",
-      wash: "bg-tone-dsp-200"
-    })),
-    Match.when("digest", () => ({
-      indicator: "bg-tone-digest-500",
-      border: "border-tone-digest-500",
-      borderSubtle: "border-tone-digest-200/95",
-      borderHover: "hover:border-tone-digest-300",
-      focusRing: "focus-visible:ring-tone-digest-300",
-      dot: "bg-tone-digest-400",
-      text: "text-tone-digest-700",
-      textStrong: "text-tone-digest-900",
-      textMuted: "text-tone-digest-500",
-      fill: "fill-tone-digest-500",
-      fillMuted: "fill-tone-digest-300",
-      stroke: "stroke-tone-digest-500",
-      bg: "bg-tone-digest-500",
-      bgSubtle: "bg-tone-digest-100",
-      bgTinted: "bg-tone-digest-100/45",
-      wash: "bg-tone-digest-200"
-    })),
-    Match.when("sign", () => ({
-      indicator: "bg-tone-sign-500",
-      border: "border-tone-sign-500",
-      borderSubtle: "border-tone-sign-200/95",
-      borderHover: "hover:border-tone-sign-300",
-      focusRing: "focus-visible:ring-tone-sign-300",
-      dot: "bg-tone-sign-400",
-      text: "text-tone-sign-700",
-      textStrong: "text-tone-sign-900",
-      textMuted: "text-tone-sign-500",
-      fill: "fill-tone-sign-500",
-      fillMuted: "fill-tone-sign-300",
-      stroke: "stroke-tone-sign-500",
-      bg: "bg-tone-sign-500",
-      bgSubtle: "bg-tone-sign-100",
-      bgTinted: "bg-tone-sign-100/45",
-      wash: "bg-tone-sign-200"
-    })),
-    Match.when("seal", () => ({
-      indicator: "bg-tone-seal-500",
-      border: "border-tone-seal-500",
-      borderSubtle: "border-tone-seal-200/95",
-      borderHover: "hover:border-tone-seal-300",
-      focusRing: "focus-visible:ring-tone-seal-300",
-      dot: "bg-tone-seal-400",
-      text: "text-tone-seal-700",
-      textStrong: "text-tone-seal-900",
-      textMuted: "text-tone-seal-500",
-      fill: "fill-tone-seal-500",
-      fillMuted: "fill-tone-seal-300",
-      stroke: "stroke-tone-seal-500",
-      bg: "bg-tone-seal-500",
-      bgSubtle: "bg-tone-seal-100",
-      bgTinted: "bg-tone-seal-100/45",
-      wash: "bg-tone-seal-200"
-    })),
+/** The utility a slot is worn as: the property it paints, with the variant that lights it. */
+const slotUtility = (slot: ToneSlot): string =>
+  Match.value(slot).pipe(
+    Match.whenOr("border", "borderSubtle", () => "border"),
+    Match.when("focusRing", () => "focus-visible:ring"),
+    Match.whenOr("dot", "bg", "bgTinted", "wash", () => "bg"),
+    Match.whenOr("text", "textStrong", () => "text"),
+    Match.when("stroke", () => "stroke"),
     Match.exhaustive
   )
 
+/** The translucency a slot is painted at: a chosen pill's edge and fill let the paper through; the rest are solid. */
+const slotAlpha = (slot: ToneSlot): string =>
+  Match.value(slot).pipe(
+    Match.when("borderSubtle", () => "/95"),
+    Match.when("bgTinted", () => "/45"),
+    Match.whenOr("border", "focusRing", "dot", "text", "textStrong", "stroke", "bg", "wash", () => ""),
+    Match.exhaustive
+  )
+
+/** The name Tailwind knows a tone's role by, as the generated bridge declares it. */
+export const toneColorName = (tone: CardTone, role: ToneRole): string => `tone-${tone}-${role}`
+
+const toneSlotClassName = (tone: CardTone, slot: ToneSlot): string =>
+  `${slotUtility(slot)}-${toneColorName(tone, toneSlotRole(slot))}${slotAlpha(slot)}`
+
+const neutralSlotClassName = (slot: ToneSlot): string =>
+  `${slotUtility(slot)}-${neutralSlotRole(slot)}${slotAlpha(slot)}`
+
+export const ToneClasses = Schema.Record({ key: ToneSlot, value: Schema.String })
+export type ToneClasses = typeof ToneClasses.Type
+
+const slotClasses = (className: (slot: ToneSlot) => string): ToneClasses => ({
+  border: className("border"),
+  borderSubtle: className("borderSubtle"),
+  focusRing: className("focusRing"),
+  dot: className("dot"),
+  text: className("text"),
+  textStrong: className("textStrong"),
+  stroke: className("stroke"),
+  bg: className("bg"),
+  bgTinted: className("bgTinted"),
+  wash: className("wash")
+})
+
+export const neutralToneClasses: ToneClasses = slotClasses(neutralSlotClassName)
+
+export const toneClassesFor = (tone: CardTone): ToneClasses => slotClasses((slot) => toneSlotClassName(tone, slot))
+
 export const toneClassesForCard = (id: CardId): ToneClasses => toneClassesFor(toneForCard(id))
+
+/** Every class a set of tone classes may wear, one per slot, for the generator to declare. */
+export const toneClassCandidates = (classes: ToneClasses): ReadonlyArray<string> =>
+  Arr.map(ToneSlot.literals, (slot) => classes[slot])
+
+// ---------------------------------------------------------------------------
+// Discs — what a disc of the imagined place wears in its contributor's tone.
+// ---------------------------------------------------------------------------
+
+const discSlotUtility = (slot: DiscSlot): string =>
+  Match.value(slot).pipe(
+    Match.when("ring", () => "ring"),
+    Match.when("actOutline", () => "outline"),
+    Match.when("focusRing", () => "data-[place-focused]:ring"),
+    Match.when("ghost", () => "border"),
+    Match.whenOr("bandArrivingStroke", "bandStroke", "bandFocusedStroke", () => "stroke"),
+    Match.when("bandFill", () => "fill"),
+    Match.exhaustive
+  )
+
+/** A disc's ring, act outline and ghost let the disc's own fill through; the band's flat paint is solid. */
+const discSlotAlpha = (slot: DiscSlot): string =>
+  Match.value(slot).pipe(
+    Match.when("ring", () => "/60"),
+    Match.when("actOutline", () => "/70"),
+    Match.when("ghost", () => "/80"),
+    Match.whenOr("focusRing", "bandArrivingStroke", "bandFill", "bandStroke", "bandFocusedStroke", () => ""),
+    Match.exhaustive
+  )
+
+export const discSlotClassName = (tone: CardTone, slot: DiscSlot): string =>
+  `${discSlotUtility(slot)}-${toneColorName(tone, discSlotRole(slot))}${discSlotAlpha(slot)}`
+
+/** The disc's soft radial fill in its tone: a utility the generated stylesheet declares per tone. */
+export const discFillClassName = (tone: CardTone): string => `bg-place-disc-${tone}`
 
 // ---------------------------------------------------------------------------
 // Surfaces — the three things a surface can be, and how each is drawn.
@@ -191,7 +116,7 @@ export const surfaceClassName = (role: SurfaceRole): string =>
   Match.value(role).pipe(
     Match.when("canvas", () => ""),
     Match.when("instrument", () => "rounded-instrument bg-instrument"),
-    Match.when("overlay", () => "rounded-instrument bg-stage-0 shadow-surface"),
+    Match.when("overlay", () => "rounded-instrument bg-paper shadow-surface"),
     Match.exhaustive
   )
 
@@ -258,15 +183,15 @@ export const forcedColorsAnsweringOutlineClassName =
 
 /** A mark's box: pointable and focusable. The wash is added by whichever box wears it. */
 export const markClassName =
-  `group/mark cursor-default rounded-md transition-colors duration-150 ease-theme ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 ${stillUnderReducedMotion}`
+  `group/mark cursor-default rounded-md transition-colors duration-150 ease-theme ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 ${stillUnderReducedMotion}`
 
 /** The wash on a mark's own box. */
 export const litMarkClassName =
-  "hover:bg-stage-100/80 data-[place-focused]:bg-stage-100/80 data-[popup-open]:bg-stage-100/80 forced-colors:hover:bg-[Highlight] forced-colors:hover:text-[HighlightText] forced-colors:data-[place-focused]:bg-[Highlight] forced-colors:data-[place-focused]:text-[HighlightText] forced-colors:data-[popup-open]:bg-[Highlight] forced-colors:data-[popup-open]:text-[HighlightText]"
+  "hover:bg-instrument/80 data-[place-focused]:bg-instrument/80 data-[popup-open]:bg-instrument/80 forced-colors:hover:bg-[Highlight] forced-colors:hover:text-[HighlightText] forced-colors:data-[place-focused]:bg-[Highlight] forced-colors:data-[place-focused]:text-[HighlightText] forced-colors:data-[popup-open]:bg-[Highlight] forced-colors:data-[popup-open]:text-[HighlightText]"
 
 /** The wash on a chip set inside a mark, in place of the chip's own paper. */
 export const litChipClassName =
-  `transition-colors duration-150 ease-theme ${stillUnderReducedMotion} group-hover/mark:bg-stage-100/80 group-data-[place-focused]/mark:bg-stage-100/80 group-data-[popup-open]/mark:bg-stage-100/80 forced-colors:group-hover/mark:bg-[Highlight] forced-colors:group-hover/mark:text-[HighlightText] forced-colors:group-data-[place-focused]/mark:bg-[Highlight] forced-colors:group-data-[place-focused]/mark:text-[HighlightText] forced-colors:group-data-[popup-open]/mark:bg-[Highlight] forced-colors:group-data-[popup-open]/mark:text-[HighlightText]`
+  `transition-colors duration-150 ease-theme ${stillUnderReducedMotion} group-hover/mark:bg-instrument/80 group-data-[place-focused]/mark:bg-instrument/80 group-data-[popup-open]/mark:bg-instrument/80 forced-colors:group-hover/mark:bg-[Highlight] forced-colors:group-hover/mark:text-[HighlightText] forced-colors:group-data-[place-focused]/mark:bg-[Highlight] forced-colors:group-data-[place-focused]/mark:text-[HighlightText] forced-colors:group-data-[popup-open]/mark:bg-[Highlight] forced-colors:group-data-[popup-open]/mark:text-[HighlightText]`
 
 // ---------------------------------------------------------------------------
 // InlineStatusTone — a glyph and a colour for a status said in the text's own
@@ -286,10 +211,10 @@ export const inlineStatusToneFor = (tone: CardTone): InlineStatusTone => {
 
 export const neutralStatusTone: InlineStatusTone = { dot: neutralToneClasses.dot, text: neutralToneClasses.text }
 
-export const dangerStatusTone: InlineStatusTone = { dot: "bg-danger-500", text: "text-danger-700" }
+export const dangerStatusTone: InlineStatusTone = { dot: "bg-danger-accent", text: "text-danger-ink" }
 
 const pillButtonBaseClassName =
-  `inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-colors duration-150 ease-out ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
+  `inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-colors duration-150 ease-out ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
 
 export const pillButtonClassName = ({
   active,
@@ -298,11 +223,13 @@ export const pillButtonClassName = ({
   readonly active: boolean
   readonly tone: ToneClasses
 }): string =>
-  active
-    ? `${pillButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted}`
-    : `${pillButtonBaseClassName} border-transparent bg-stage-100/70 hover:bg-stage-100`
+  Bool.match(active, {
+    onTrue: () => `${pillButtonBaseClassName} ${tone.borderSubtle} ${tone.bgTinted}`,
+    onFalse: () => `${pillButtonBaseClassName} border-transparent bg-instrument/70 hover:bg-instrument`
+  })
 
-const segmentedControlRailBaseClassName = "grid min-w-0 gap-1 rounded-instrument border border-rule bg-instrument p-1"
+const segmentedControlRailBaseClassName =
+  "grid min-w-0 gap-1 rounded-instrument border border-hairline bg-instrument p-1"
 
 /**
  * A segmented control is one row of equal cells at every width the cells can
@@ -310,14 +237,14 @@ const segmentedControlRailBaseClassName = "grid min-w-0 gap-1 rounded-instrument
  * the small breakpoint.
  */
 export const segmentedControlRailClassName = (count: number): string =>
-  count <= 2
-    ? `${segmentedControlRailBaseClassName} grid-cols-2`
-    : count === 3
-    ? `${segmentedControlRailBaseClassName} grid-cols-3`
-    : `${segmentedControlRailBaseClassName} grid-cols-2 sm:grid-cols-4`
+  Match.value(count).pipe(
+    Match.when(Num.lessThanOrEqualTo(2), () => `${segmentedControlRailBaseClassName} grid-cols-2`),
+    Match.when(3, () => `${segmentedControlRailBaseClassName} grid-cols-3`),
+    Match.orElse(() => `${segmentedControlRailBaseClassName} grid-cols-2 sm:grid-cols-4`)
+  )
 
 const segmentedControlButtonBaseClassName =
-  `inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 transition-colors duration-150 ease-out ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
+  `inline-flex min-h-10 min-w-0 items-center justify-center rounded-control border border-transparent px-3 py-2 transition-colors duration-150 ease-out ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55`
 
 export const segmentedControlButtonClassName = ({
   active,
@@ -326,9 +253,10 @@ export const segmentedControlButtonClassName = ({
   readonly active: boolean
   readonly tone: ToneClasses
 }): string =>
-  active
-    ? `${segmentedControlButtonBaseClassName} border-rule bg-stage-0 ${tone.bgTinted}`
-    : `${segmentedControlButtonBaseClassName} hover:bg-stage-0/60`
+  Bool.match(active, {
+    onTrue: () => `${segmentedControlButtonBaseClassName} border-hairline bg-paper ${tone.bgTinted}`,
+    onFalse: () => `${segmentedControlButtonBaseClassName} hover:bg-paper/60`
+  })
 
 const toggleTrackBaseClassName =
   `inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55 forced-colors:border-[CanvasText]`
@@ -340,9 +268,11 @@ export const toggleTrackClassName = ({
   readonly checked: boolean
   readonly tone: ToneClasses
 }): string =>
-  checked
-    ? `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing} forced-colors:bg-[Highlight]`
-    : `${toggleTrackBaseClassName} border-stage-200/90 bg-stage-50/90 ${tone.focusRing}`
+  Bool.match(checked, {
+    onTrue: () =>
+      `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing} forced-colors:bg-[Highlight]`,
+    onFalse: () => `${toggleTrackBaseClassName} border-hairline/90 bg-canvas/90 ${tone.focusRing}`
+  })
 
 /**
  * The page is the canvas: one column of content on the document's own
@@ -355,6 +285,6 @@ export const toggleTrackClassName = ({
  */
 export const appTheme = {
   root:
-    "relative min-h-screen overflow-x-clip font-body text-ink-900 antialiased selection:bg-tone-text-200/60 selection:text-ink-950",
+    "relative min-h-screen overflow-x-clip font-body text-ink antialiased selection:bg-tone-text-wash/60 selection:text-ink-strong",
   content: "relative mx-auto flex w-full max-w-[88rem] flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12"
 }

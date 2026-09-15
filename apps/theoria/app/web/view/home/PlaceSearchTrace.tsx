@@ -55,9 +55,9 @@ const dotStyle = (point: Point): CSSProperties => ({ left: `${point.x.toFixed(2)
 
 const dotClassName = (kind: "tried" | "best" | "shown"): string =>
   kind === "best"
-    ? `absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-stage-0 ${searchTone.bg}`
+    ? `absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-paper ${searchTone.bg}`
     : kind === "shown"
-    ? "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink-900 ring-2 ring-stage-0"
+    ? "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emphasis ring-2 ring-paper"
     : `absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70 ${searchTone.dot}`
 
 /** Dots for every trial and the step line beneath them; the chosen and the kept trial stand out. */
@@ -99,7 +99,7 @@ const thumbClassName =
  * the ring is dropped, so the line itself turns to the system's `Highlight`.
  */
 const thumbLineClassName =
-  "pointer-events-none block h-full w-0.5 rounded-full bg-ink-900/55 transition-[background-color,box-shadow] duration-150 group-hover:bg-ink-900 group-has-[:focus-visible]:bg-ink-900 group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-ink-900/25 group-data-[disabled]:bg-ink-900/25 forced-colors:bg-[CanvasText] forced-colors:group-has-[:focus-visible]:bg-[Highlight]"
+  "pointer-events-none block h-full w-0.5 rounded-full bg-emphasis/55 transition-[background-color,box-shadow] duration-150 group-hover:bg-emphasis group-has-[:focus-visible]:bg-emphasis group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-ink/25 group-data-[disabled]:bg-emphasis/25 forced-colors:bg-[CanvasText] forced-colors:group-has-[:focus-visible]:bg-[Highlight]"
 
 /** The chart's height, shared by the trace and the rows held for it. */
 export const traceHeightClassName = "h-16"

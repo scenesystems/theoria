@@ -74,6 +74,8 @@ const chunkGroups = [
 const prebundledWorkspacePackages = [
   "@scenesystems/effect-math",
   "@scenesystems/effect-math/Geometry",
+  "@scenesystems/effect-math/LinearAlgebra",
+  "@scenesystems/effect-math/Numeric",
   "@scenesystems/effect-math/Statistics",
   "@scenesystems/effect-search",
   "@scenesystems/effect-text",

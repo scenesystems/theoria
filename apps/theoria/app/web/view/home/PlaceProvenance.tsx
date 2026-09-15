@@ -176,10 +176,10 @@ const viewportClassName = [
 ].join(" ")
 
 const codeLinkClassName =
-  `-mx-1.5 inline-flex min-w-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 motion-reduce:transition-none hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `-mx-1.5 inline-flex min-w-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 motion-reduce:transition-none hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
 
 const copyButtonClassName =
-  `-mx-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-stage-100/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/20`
+  `-mx-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-instrument/80 ${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/20`
 
 const digestTone = toneClassesFor("digest")
 
@@ -214,7 +214,7 @@ const CopyValue = ({ value }: { readonly value: string }) => {
     >
       <SemanticText
         as="span"
-        className="text-ink-600"
+        className="text-ink-tertiary"
         role="tab-label"
         text={copyLabel({ copied, failed })}
         variant="compact"
@@ -236,7 +236,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
         <Popover.Title render={<Layer className="min-w-0" />}>
           <SemanticText
             as="h3"
-            className="text-ink-900"
+            className="text-ink"
             role="selection-title"
             text={provenance.title}
             variant="compact"
@@ -251,7 +251,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
           <Popover.Description render={<Layer />}>
             <SemanticText
               as="p"
-              className="text-ink-700"
+              className="text-ink-secondary"
               role="status"
               text={detail}
               variant="compact"
@@ -264,10 +264,10 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
       <Layer render={<dl />} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
         {Arr.map(provenance.facts, (fact) => (
           <Fragment key={fact.label}>
-            <SemanticText as="dt" className="text-ink-500" role="row-label" text={fact.label} variant="compact" />
+            <SemanticText as="dt" className="text-ink-tertiary" role="row-label" text={fact.label} variant="compact" />
             <SemanticText
               as="dd"
-              className="min-w-0 break-words text-ink-800"
+              className="min-w-0 break-words text-ink"
               role="row-value"
               text={fact.value}
               variant="compact"
@@ -280,7 +280,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
         onNone: () => null,
         onSome: (value) => <WholeValue value={value} />
       })}
-      <Cluster align="baseline" className="justify-between gap-x-3 gap-y-1 border-t border-rule pt-2">
+      <Cluster align="baseline" className="justify-between gap-x-3 gap-y-1 border-t border-hairline pt-2">
         <AnchorLink
           className={codeLinkClassName}
           data-place-provenance-code={provenance.site.id}
@@ -292,7 +292,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
         >
           <SemanticText
             as="code"
-            className="truncate text-ink-700"
+            className="truncate text-ink-secondary"
             role="code-meta"
             text={`${codeSiteCall(provenance.site)}()`}
           />

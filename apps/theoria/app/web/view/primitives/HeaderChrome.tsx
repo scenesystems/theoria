@@ -4,7 +4,7 @@ import { classNames } from "./classNames.js"
 import { focusEdgeClassName } from "./designSystem.js"
 
 const headerChromeFocusClassName =
-  `${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-2 focus-visible:ring-offset-stage-50`
+  `${focusEdgeClassName} focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas`
 
 /**
  * What every header control is: ink that darkens under the pointer, nothing
@@ -16,7 +16,7 @@ const headerChromeFocusClassName =
  * neighbours.
  */
 const headerChromeControlClassName =
-  "relative inline-flex min-h-11 items-center gap-2 rounded-control px-1.5 text-ink-700 transition-colors duration-150 hover:text-ink-950 before:absolute before:inset-y-0 before:left-1/2 before:w-[max(100%,2.75rem)] before:-translate-x-1/2"
+  "relative inline-flex min-h-11 items-center gap-2 rounded-control px-1.5 text-ink-secondary transition-colors duration-150 hover:text-ink-strong before:absolute before:inset-y-0 before:left-1/2 before:w-[max(100%,2.75rem)] before:-translate-x-1/2"
 
 /**
  * The ink of every header glyph — the part of it that is drawn — is one

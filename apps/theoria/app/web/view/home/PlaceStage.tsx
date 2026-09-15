@@ -166,7 +166,7 @@ const Lines = ({ drawing, preference, projection, prose }: {
           >
             <SemanticText
               as="span"
-              className="block whitespace-nowrap text-ink-900"
+              className="block whitespace-nowrap text-ink"
               role="stage-prose"
               text={line.text.length === 0 ? "\u00a0" : line.text}
               variant="expanded"
@@ -257,13 +257,13 @@ const Drawing = ({ drawn, fit, frame, shown }: {
  * in every story, so choosing another place changes the drawing and nothing
  * of the page around it.
  */
-const paperSurfaceClassName = "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0"
+const paperSurfaceClassName = "group/stage relative bg-radial-[at_20%_0%] from-canvas to-paper"
 const paperClassName = (fit: number): string =>
   fit < 1
     ? paperSurfaceClassName
     : `${paperSurfaceClassName} transition-[width] duration-200 ease-out motion-reduce:transition-none`
 const fadeClassName =
-  "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-stage-0 via-stage-0/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
+  "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-paper via-paper/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
 const scrollbarClassName =
   "flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/stage:opacity-100"
 
@@ -322,7 +322,7 @@ const Paper = ({
         <>
           <Layer className={fadeClassName} data-place-stage-fade />
           <ScrollArea.Scrollbar className={scrollbarClassName} orientation="vertical">
-            <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
+            <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-secondary/35" />
           </ScrollArea.Scrollbar>
         </>
       )

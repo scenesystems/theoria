@@ -24,9 +24,9 @@ export const LegendItem = ({
     {Option.match(Option.fromNullable(index), {
       onNone: () => null,
       onSome: (value) => (
-        <SemanticText as="span" className="tabular-nums text-ink-500" role="row-value" text={String(value)} />
+        <SemanticText as="span" className="tabular-nums text-ink-tertiary" role="row-value" text={String(value)} />
       )
     })}
-    <SemanticText as="span" className="text-ink-700" role="row-value" text={label} />
+    <SemanticText as="span" className="text-ink-secondary" role="row-value" text={label} />
   </Cluster>
 )
