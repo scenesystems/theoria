@@ -22,7 +22,6 @@ import {
   Array as Arr,
   Boolean,
   Effect,
-  Inspectable,
   Iterable as Iter,
   Layer,
   Match,
@@ -43,6 +42,7 @@ import {
 } from "./shared/example-report-contract.js"
 import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 import { createExampleArtifacts, noopArtifactSinkLayer } from "./shared/output-artifacts.js"
+import { formatScore } from "./shared/score-format.js"
 
 const EXAMPLE_NAME = "12-miprov2-collective-memory-network-dynamics"
 
@@ -433,11 +433,11 @@ const protocolMetric = Metric.fromEffect(
       const feedback = Arr.join(
         Arr.make(
           "decisionTuple=",
-          Inspectable.toStringUnknown(Number.round(decisionTupleScore, 2)),
+          formatScore(decisionTupleScore, 2),
           " mechanismSupport=",
-          Inspectable.toStringUnknown(Number.round(mechanismSupportScore, 2)),
+          formatScore(mechanismSupportScore, 2),
           " explanationAlignment=",
-          Inspectable.toStringUnknown(Number.round(explanationAlignmentScore, 2)),
+          formatScore(explanationAlignmentScore, 2),
           " ",
           mismatchSummary
         ),

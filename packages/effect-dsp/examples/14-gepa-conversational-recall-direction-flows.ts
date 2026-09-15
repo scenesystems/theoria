@@ -22,7 +22,6 @@ import {
   Array as Arr,
   Boolean,
   Effect,
-  Inspectable,
   Match,
   Number,
   Option,
@@ -34,6 +33,7 @@ import {
   String
 } from "effect"
 import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
+import { formatScore } from "./shared/score-format.js"
 
 /**
  * Labeled optimization training cases for GEPA.
@@ -267,16 +267,7 @@ const logExampleEvent = (
 const formatObjectives = (names: Iterable<string>, values: Iterable<number>) =>
   Record.fromEntries(Arr.zip(
     names,
-    Arr.map(Arr.fromIterable(values), (value) => {
-      const parts = String.split(Inspectable.toStringUnknown(Number.round(value, 3)), ".")
-      return Arr.join(
-        Arr.make(
-          Arr.headNonEmpty(parts),
-          String.padEnd(3, "0")(Option.getOrElse(Arr.get(parts, 1), () => ""))
-        ),
-        "."
-      )
-    })
+    Arr.map(Arr.fromIterable(values), (value) => formatScore(value, 3))
   ))
 
 const ProtocolOutput = Schema.Struct({
@@ -494,15 +485,15 @@ const protocolMetric = Metric.fromEffect(
       const feedback = Arr.join(
         Arr.make(
           "condition=",
-          Inspectable.toStringUnknown(Number.round(conditionScore, 2)),
+          formatScore(conditionScore, 2),
           " sequencing=",
-          Inspectable.toStringUnknown(Number.round(sequencingScore, 2)),
+          formatScore(sequencingScore, 2),
           " turnPolicy=",
-          Inspectable.toStringUnknown(Number.round(turnPolicyScore, 2)),
+          formatScore(turnPolicyScore, 2),
           " forecast=",
-          Inspectable.toStringUnknown(Number.round(forecastScore, 2)),
+          formatScore(forecastScore, 2),
           " narrative=",
-          Inspectable.toStringUnknown(Number.round(narrativeScore, 2)),
+          formatScore(narrativeScore, 2),
           " ",
           mismatchSummary
         ),
