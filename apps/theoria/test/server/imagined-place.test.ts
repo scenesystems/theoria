@@ -1,5 +1,4 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Cipher } from "@scenesystems/seal"
 import { Effect, Encoding, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -37,8 +36,7 @@ const acceptances: ReadonlyArray<PlaceAcceptances> = [
   { acceptNeighbor: true, acceptProgram: true }
 ]
 
-const build = (variant: PlaceBuildRequest = request) =>
-  buildPlace(variant).pipe(Effect.provide([ParticipantsLive, Cipher.layer]))
+const build = (variant: PlaceBuildRequest = request) => buildPlace(variant).pipe(Effect.provide(ParticipantsLive))
 
 describe("server/imagined-place", () => {
   it.effect("composes and proposes for every scenario through the typed programs", () =>
@@ -124,7 +122,7 @@ describe("server/imagined-place", () => {
       const neighborRecord = yield* Arr.get(result.evidence.signatures, 2)
       const neighborSignature = yield* Encoding.decodeHex(neighborRecord.signatureHex)
       expect(yield* ed25519Verify(neighborSignature, utf8ToBytes(neighborRecord.subject), wrongKey)).toBe(false)
-    }).pipe(Effect.provide([ParticipantsLive, Cipher.layer])))
+    }).pipe(Effect.provide(ParticipantsLive)))
 
   it.effect("seals the neighbor's note to the author and the author can open it", () =>
     Effect.gen(function*() {

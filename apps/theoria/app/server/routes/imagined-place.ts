@@ -1,5 +1,4 @@
 import { type HttpServerError, HttpServerRequest } from "@effect/platform"
-import type { Cipher } from "@scenesystems/seal"
 import { Clock, Effect, Either, Match, Option, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
@@ -113,7 +112,7 @@ const decodeBody = HttpServerRequest.schemaBodyJson(PlaceBuildRequest)
 /** Reads and validates the body, builds the place, and turns any failure into an error model. */
 const build = (
   request: HttpServerRequest.HttpServerRequest
-): Effect.Effect<Either.Either<PlaceBuild, ErrorModel>, never, Participants | Cipher.Cipher> =>
+): Effect.Effect<Either.Either<PlaceBuild, ErrorModel>, never, Participants> =>
   decodeBody.pipe(
     Effect.provideService(HttpServerRequest.HttpServerRequest, request),
     Effect.flatMap(buildPlace),

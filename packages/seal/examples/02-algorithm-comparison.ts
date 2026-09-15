@@ -6,32 +6,39 @@
  */
 
 import { BunRuntime } from "@effect/platform-bun"
-import * as Cipher from "@scenesystems/seal/Cipher"
-import * as Envelope from "@scenesystems/seal/Envelope"
-import { Effect, Encoding } from "effect"
+import type { SealAlgorithm } from "@scenesystems/seal"
+import { generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
+import { Effect } from "effect"
+
+const algorithms: Array<typeof SealAlgorithm.Type> = [
+  "xchacha20-poly1305",
+  "aes-256-gcm-siv",
+  "aes-256-gcm"
+]
 
 const program = Effect.gen(function*() {
-  const key = yield* Cipher.generateKey
-  const plaintext = Uint8Array.of(0, 1, 2, 127, 128, 255)
+  const key = yield* generateKey(32)
+  const plaintext = utf8ToBytes("same message, three algorithms")
 
   yield* Effect.forEach(
-    Cipher.Algorithm.literals,
+    algorithms,
     (algorithm) =>
       Effect.gen(function*() {
-        const envelope = yield* Envelope.encrypt(algorithm, key, plaintext)
-        const recovered = yield* Envelope.decrypt(key, envelope)
+        const envelope = yield* seal(algorithm, key, plaintext)
+        const recovered = yield* unseal(key, envelope)
+        const text = utf8FromBytes(recovered)
         yield* Effect.log(algorithm, {
           nonceChars: envelope.nonce.length,
           ciphertextChars: envelope.ciphertext.length,
-          roundTrip: Encoding.encodeHex(recovered) === "0001027f80ff"
+          roundTrip: text === "same message, three algorithms"
         })
       }),
     { concurrency: 1 }
   )
 
-  const envelope = yield* Envelope.encrypt("xchacha20-poly1305", key, plaintext)
-  const wrongKey = yield* Cipher.generateKey
-  const wrongKeyResult = yield* Envelope.decrypt(wrongKey, envelope).pipe(
+  const envelope = yield* seal("xchacha20-poly1305", key, plaintext)
+  const wrongKey = yield* generateKey(32)
+  const wrongKeyResult = yield* unseal(wrongKey, envelope).pipe(
     Effect.catchTags({
       DecryptionFailed: (e) => Effect.succeed(`caught DecryptionFailed: ${e.reason}`),
       InvalidKey: (e) => Effect.succeed(`caught InvalidKey: expected ${e.expected}, got ${e.received}`)
@@ -39,10 +46,10 @@ const program = Effect.gen(function*() {
   )
   yield* Effect.log("Wrong key", { result: wrongKeyResult })
 
-  const badKeyResult = yield* Envelope.encrypt("aes-256-gcm", new Uint8Array(16), plaintext).pipe(
+  const badKeyResult = yield* seal("aes-256-gcm", new Uint8Array(16), plaintext).pipe(
     Effect.catchTag("InvalidKey", (e) => Effect.succeed(`caught InvalidKey: expected ${e.expected}, got ${e.received}`))
   )
   yield* Effect.log("Bad key length", { result: badKeyResult })
-}).pipe(Effect.provide(Cipher.layer))
+})
 
 BunRuntime.runMain(program)

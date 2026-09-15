@@ -1,5 +1,4 @@
 import { HttpMiddleware } from "@effect/platform"
-import { Cipher } from "@scenesystems/seal"
 import { Layer } from "effect"
 
 import { AnalyticsLive } from "./config/analytics.js"
@@ -29,7 +28,6 @@ export const publicApp = app.pipe(
 const ReleaseStageCheck = Layer.effectDiscard(releaseStageConfig)
 
 export const AppLayer = Layer.mergeAll(
-  Cipher.layer,
   ParticipantsLive,
   DocsManifestStoreLive,
   RuntimeInfoLive,
