@@ -10,12 +10,13 @@ import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Data, Effect } from "effect"
 import type { Effect as EffectType, HashMap, Ref, Schema } from "effect"
 import type { ModuleGraph } from "../../contracts/ModuleGraph.js"
+import type { ModuleGraphNode } from "../../contracts/ModuleGraph.js"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import type { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { DspError } from "../../Errors/union.js"
 import type { Signature } from "../../Signature/model.js"
-import { RegisteredSignature, registerRuntime } from "../discovery/index.js"
+import { RegisteredSignature, registerRuntime, RuntimeRegistrationOptions } from "../discovery/index.js"
 import type { Module } from "../model.js"
 
 /**
@@ -58,16 +59,34 @@ export class ComposeForwardContext<
  */
 export type ComposeForward<
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 > = (
   context: ComposeForwardContext<I>
 ) => EffectType.Effect<
   Schema.Schema.Type<Schema.Struct<O>>,
-  AiError.AiError | DspError,
+  AiError.AiError | DspError | E,
   | LanguageModel.LanguageModel
   | Schema.Schema.Context<Schema.Struct<I>>
   | Schema.Schema.Context<Schema.Struct<O>>
+  | R
 >
+
+class ComposeForwardOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  E,
+  R
+> extends Data.Class<{
+  readonly moduleName: string
+  readonly signature: Signature<I, O>
+  readonly paramsRef: Ref.Ref<ModuleParams>
+  readonly rootChildIds: ModuleGraphNode["subModuleIds"]
+  readonly graph: ModuleGraph
+  readonly subModuleNodes: HashMap.HashMap<ModuleId, ModuleNode>
+  readonly forward: ComposeForward<I, O, E, R>
+}> {}
 
 /**
  * Build a typed `forward` function for a composed module.
@@ -77,33 +96,33 @@ export type ComposeForward<
  */
 export const makeComposeForward = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  readonly moduleName: string
-  readonly signature: Signature<I, O>
-  readonly paramsRef: Ref.Ref<ModuleParams>
-  readonly rootChildIds: ReadonlyArray<ModuleId>
-  readonly graph: ModuleGraph
-  readonly subModuleNodes: HashMap.HashMap<ModuleId, ModuleNode>
-  readonly forward: ComposeForward<I, O>
-}): Module<I, O>["forward"] => {
+  O extends Schema.Struct.Fields,
+  E,
+  R
+>(options: ComposeForwardOptions<I, O, E, R>): Module<I, O, E, R>["forward"] => {
   return Effect.fn(options.moduleName)((input) =>
     Effect.gen(function*() {
-      yield* registerRuntime({
-        moduleName: options.moduleName,
-        params: options.paramsRef,
-        signature: new RegisteredSignature({
-          description: options.signature.description,
-          instructions: options.signature.instructions
-        }),
-        subModuleIds: options.rootChildIds
-      })
+      yield* registerRuntime(
+        new RuntimeRegistrationOptions({
+          moduleName: options.moduleName,
+          params: options.paramsRef,
+          signature: new RegisteredSignature({
+            description: options.signature.description,
+            instructions: options.signature.instructions
+          }),
+          subModuleIds: options.rootChildIds
+        })
+      )
 
-      return yield* options.forward({
-        input,
-        subModuleNodes: options.subModuleNodes,
-        graph: options.graph
-      })
+      return yield* options.forward(
+        new ComposeForwardContext({
+          input,
+          subModuleNodes: options.subModuleNodes,
+          graph: options.graph
+        })
+      )
     })
   )
 }
+
+export { ComposeForwardOptions }

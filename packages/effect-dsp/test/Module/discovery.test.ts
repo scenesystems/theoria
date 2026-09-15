@@ -7,7 +7,8 @@ import * as Contracts from "@scenesystems/effect-dsp/contracts"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Option, Schema } from "effect"
+import type { Option } from "effect"
+import { Array as Arr, Data, Effect, Equal, Layer, Record, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -20,55 +21,60 @@ const makeQaSignature = () =>
     }
   )
 
-const decodeModuleId = (moduleName: string) =>
-  Schema.decodeUnknown(Contracts.ModuleId)(moduleName).pipe(
-    Effect.orDie
-  )
+class RegistrationProjection extends Data.Class<{
+  readonly id: string
+  readonly subModuleIds: Module.ModuleRegistration["subModuleIds"]
+}> {}
 
 const registrationProjection = (
-  registrations: ReadonlyArray<Module.ModuleRegistration>
-): ReadonlyArray<{
-  readonly id: string
-  readonly subModuleIds: ReadonlyArray<string>
-}> =>
-  Arr.map(registrations, (registration) => ({
-    id: registration.id,
-    subModuleIds: registration.subModuleIds
-  }))
+  registrations: Iterable<Module.ModuleRegistration>
+) =>
+  Arr.map(Arr.fromIterable(registrations), (registration) =>
+    new RegistrationProjection({
+      id: registration.id,
+      subModuleIds: registration.subModuleIds
+    }))
 
 const registrationById = (
-  registrations: ReadonlyArray<Module.ModuleRegistration>,
+  registrations: Iterable<Module.ModuleRegistration>,
   moduleId: string
 ): Option.Option<Module.ModuleRegistration> =>
-  Arr.findFirst(registrations, (registration) => registration.id === moduleId)
+  Arr.findFirst(
+    Arr.fromIterable(registrations),
+    (registration) => Equal.equals(registration.id, moduleId)
+  )
 
 describe("Module discovery", () => {
   it.effect("dedupes composed-of-composed modules by id deterministically", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const qa = yield* Module.predict("qa", signature)
-      const pipeline = yield* Module.compose({
-        name: "qa-pipeline",
-        signature,
-        subModules: { qa },
-        forward: ({ input }) => qa.forward(input)
-      })
-      const root = yield* Module.compose({
-        name: "qa-root",
-        signature,
-        subModules: { pipeline, qa },
-        forward: ({ input }) =>
-          Effect.gen(function*() {
-            const nested = yield* pipeline.forward(input)
+      const pipeline = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-pipeline",
+          signature,
+          subModules: Record.singleton("qa", qa),
+          forward: ({ input }) => qa.forward(input)
+        })
+      )
+      const root = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-root",
+          signature,
+          subModules: Record.set(Record.singleton("pipeline", pipeline), "qa", qa),
+          forward: ({ input }) =>
+            Effect.gen(function*() {
+              const nested = yield* pipeline.forward(input)
 
-            yield* qa.forward(input)
+              yield* qa.forward(input)
 
-            return nested
-          })
-      })
-      const qaId = yield* decodeModuleId(qa.name)
-      const pipelineId = yield* decodeModuleId(pipeline.name)
-      const rootId = yield* decodeModuleId(root.name)
+              return nested
+            })
+        })
+      )
+      const qaId = yield* Schema.decodeUnknown(Contracts.ModuleId)(qa.name)
+      const pipelineId = yield* Schema.decodeUnknown(Contracts.ModuleId)(pipeline.name)
+      const rootId = yield* Schema.decodeUnknown(Contracts.ModuleId)(root.name)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
       )
@@ -80,33 +86,18 @@ describe("Module discovery", () => {
       const second = yield* Module.discoverModules(program)
 
       expect(registrationProjection(first)).toEqual(registrationProjection(second))
-      expect(Arr.map(first, (registration) => registration.id)).toEqual([
+      expect(Arr.map(first, (registration) => registration.id)).toEqual(Arr.make(
         qaId,
         pipelineId,
         rootId
-      ])
+      ))
 
-      const qaRegistration = registrationById(first, qaId)
-      const pipelineRegistration = registrationById(first, pipelineId)
-      const rootRegistration = registrationById(first, rootId)
+      const qaRegistration = yield* registrationById(first, qaId)
+      const pipelineRegistration = yield* registrationById(first, pipelineId)
+      const rootRegistration = yield* registrationById(first, rootId)
 
-      expect(Option.isSome(qaRegistration)).toBe(true)
-      expect(Option.isSome(pipelineRegistration)).toBe(true)
-      expect(Option.isSome(rootRegistration)).toBe(true)
-
-      if (Option.isSome(qaRegistration)) {
-        expect(qaRegistration.value.subModuleIds).toEqual([])
-      }
-
-      if (Option.isSome(pipelineRegistration)) {
-        expect(pipelineRegistration.value.subModuleIds).toEqual([qaId])
-      }
-
-      if (Option.isSome(rootRegistration)) {
-        expect(rootRegistration.value.subModuleIds).toEqual([
-          qaId,
-          pipelineId
-        ])
-      }
+      expect(qaRegistration.subModuleIds).toEqual(Arr.empty())
+      expect(pipelineRegistration.subModuleIds).toEqual(Arr.make(qaId))
+      expect(rootRegistration.subModuleIds).toEqual(Arr.make(qaId, pipelineId))
     }))
 })

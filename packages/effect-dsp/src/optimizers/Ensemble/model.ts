@@ -29,6 +29,19 @@ export type ProgramInput<I extends Schema.Struct.Fields> = Schema.Schema.Type<Sc
 export type ProgramOutput<O extends Schema.Struct.Fields> = Schema.Schema.Type<Schema.Struct<O>>
 
 /**
+ * Values supplied to an ensemble reducer after all selected programs succeed.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class EnsembleReduceOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+  /** Original decoded input passed to every selected module. */
+  readonly input: ProgramInput<I>
+  /** Successful outputs in selected-program order. */
+  readonly outputs: Schema.Array$<Schema.Struct<O>>["Type"]
+}> {}
+
+/**
  * Reduces successful selected-module outputs to one ensemble result.
  *
  * @remarks
@@ -45,12 +58,9 @@ export type ProgramOutput<O extends Schema.Struct.Fields> = Schema.Schema.Type<S
  * @since 0.1.0
  * @category models
  */
-export type EnsembleReduceFn<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = (options: {
-  /** Original decoded input passed to every selected module. */
-  readonly input: ProgramInput<I>
-  /** Successful outputs in selected-program order. */
-  readonly outputs: ReadonlyArray<ProgramOutput<O>>
-}) => Effect.Effect<ProgramOutput<O>, DspError>
+export type EnsembleReduceFn<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = (
+  options: EnsembleReduceOptions<I, O>
+) => Effect.Effect<ProgramOutput<O>, DspError>
 
 /**
  * Configures a construction-time subset and its reducer.
@@ -71,9 +81,14 @@ export type EnsembleReduceFn<I extends Schema.Struct.Fields, O extends Schema.St
  * @since 0.1.0
  * @category models
  */
-export class EnsembleOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+export class EnsembleOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
+> extends Data.Class<{
   /** Candidate modules. The first supplies the ensemble signature; all are retained as sub-modules. */
-  readonly programs: ReadonlyArray<DspModule<I, O>>
+  readonly programs: Schema.Array$<Schema.Schema<DspModule<I, O, E, R>>>["Type"]
   /**
    * Combines selected outputs with the original input. Defaults to structural
    * majority vote over whole outputs, with first-observed output winning ties.

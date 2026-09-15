@@ -5,8 +5,16 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Option } from "effect"
-import type { Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Inspectable,
+  Number as Num,
+  Option,
+  Schema,
+  String as Str
+} from "effect"
 
 import { extractInstruction, generateText } from "../../../Module/textGeneration.js"
 import { evaluateMutationAcceptance } from "../accept.js"
@@ -25,10 +33,10 @@ import type { GEPAEventSink, GEPAOptions } from "./options.js"
  * @since 0.1.0
  * @category models
  */
-export class MutationPhaseResult extends Data.Class<{
-  readonly stateAfterAcceptance: GEPAState
-  readonly accepted: boolean
-}> {}
+export class MutationPhaseResult extends Schema.Class<MutationPhaseResult>("GEPAMutationPhaseResult")({
+  stateAfterAcceptance: GEPAState,
+  accepted: Schema.Boolean
+}) {}
 
 const buildMutationCandidate = (
   parentCandidate: ProgramCandidate,
@@ -37,27 +45,33 @@ const buildMutationCandidate = (
   iteration: number
 ): ProgramCandidate => {
   const mutatedCandidate = new ProgramCandidate({
-    candidateId: `mut-${iteration}`,
+    candidateId: Str.concat("mut-", Inspectable.toStringUnknown(iteration)),
     parentIds: Arr.make(parentCandidate.candidateId),
     predictorInstructions: Arr.map(parentCandidate.predictorInstructions, (entry) =>
       new PredictorInstruction({
         predictorName: entry.predictorName,
-        instruction: entry.predictorName === predictorName
-          ? mutatedInstruction
-          : entry.instruction
+        instruction: Bool.match(Str.Equivalence(entry.predictorName, predictorName), {
+          onFalse: () => entry.instruction,
+          onTrue: () => mutatedInstruction
+        })
       }))
   })
 
-  return Arr.some(mutatedCandidate.predictorInstructions, (entry) => entry.predictorName === predictorName)
-    ? mutatedCandidate
-    : new ProgramCandidate({
-      candidateId: mutatedCandidate.candidateId,
-      parentIds: mutatedCandidate.parentIds,
-      predictorInstructions: Arr.append(
-        mutatedCandidate.predictorInstructions,
-        new PredictorInstruction({ predictorName, instruction: mutatedInstruction })
-      )
-    })
+  return Bool.match(
+    Arr.some(mutatedCandidate.predictorInstructions, (entry) => Str.Equivalence(entry.predictorName, predictorName)),
+    {
+      onTrue: () => mutatedCandidate,
+      onFalse: () =>
+        new ProgramCandidate({
+          candidateId: mutatedCandidate.candidateId,
+          parentIds: mutatedCandidate.parentIds,
+          predictorInstructions: Arr.append(
+            mutatedCandidate.predictorInstructions,
+            new PredictorInstruction({ predictorName, instruction: mutatedInstruction })
+          )
+        })
+    }
+  )
 }
 
 /**
@@ -68,8 +82,8 @@ const buildMutationCandidate = (
  * @since 0.1.0
  * @category combinators
  */
-export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
-  options: GEPAOptions<I, O, ME, MR>,
+export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: GEPAOptions<I, O, ME, MR, E, R>,
   stateAfterMerge: GEPAState,
   iteration: number,
   mutationSeed: number,
@@ -84,7 +98,7 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
     const predictorName = Option.getOrElse(
       selectPredictorRoundRobin(
         Arr.map(parentCandidate.predictorInstructions, (entry) => entry.predictorName),
-        iteration - 1
+        Num.decrement(iteration)
       ),
       () => options.module.name
     )
@@ -114,26 +128,32 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
 
     const mutatedEvaluation = yield* evaluateCandidate(options, mutatedCandidate)
     const subsampleSize = Numeric.min(
-      Numeric.min(3, parentEvaluation.scores.length),
-      mutatedEvaluation.scores.length
+      Numeric.min(3, Arr.length(parentEvaluation.scores)),
+      Arr.length(mutatedEvaluation.scores)
     )
     const acceptance = yield* evaluateMutationAcceptance({
       previousSubsampleScores: Arr.take(parentEvaluation.scores, subsampleSize),
       mutatedSubsampleScores: Arr.take(mutatedEvaluation.scores, subsampleSize),
       evaluateFullValset: Effect.succeed(mutatedEvaluation.scores)
     })
-    const accepted = acceptance.gate1Passed && Option.isSome(acceptance.fullValsetScores)
+    const accepted = Bool.match(acceptance.gate1Passed, {
+      onFalse: () => false,
+      onTrue: () => Option.isSome(acceptance.fullValsetScores)
+    })
     const stateAfterAcceptance = new GEPAState({
       ...stateAfterMerge,
-      candidates: accepted
-        ? Arr.append(stateAfterMerge.candidates, mutatedCandidate)
-        : stateAfterMerge.candidates,
-      scoreVectors: accepted
-        ? Arr.append(
-          stateAfterMerge.scoreVectors,
-          Option.getOrElse(acceptance.fullValsetScores, () => mutatedEvaluation.scores)
-        )
-        : stateAfterMerge.scoreVectors,
+      candidates: Bool.match(accepted, {
+        onFalse: () => stateAfterMerge.candidates,
+        onTrue: () => Arr.append(stateAfterMerge.candidates, mutatedCandidate)
+      }),
+      scoreVectors: Bool.match(accepted, {
+        onFalse: () => stateAfterMerge.scoreVectors,
+        onTrue: () =>
+          Arr.append(
+            stateAfterMerge.scoreVectors,
+            Option.getOrElse(acceptance.fullValsetScores, () => mutatedEvaluation.scores)
+          )
+      }),
       lastIterationFoundNew: accepted
     })
 
@@ -148,8 +168,8 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
       })
     )
 
-    return {
+    return new MutationPhaseResult({
       stateAfterAcceptance,
       accepted
-    }
+    })
   })

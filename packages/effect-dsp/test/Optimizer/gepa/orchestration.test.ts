@@ -2,6 +2,7 @@
  * GEPA orchestration contracts.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
+import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -9,8 +10,24 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Option, Order, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Order, Schema, Stream, String as Str } from "effect"
 import { GepaOrchestrationEventOrderFixtureSchema, loadFixture } from "../../helpers/dspy-fixtures/index.js"
+
+class AnswerResponse extends Schema.Class<AnswerResponse>("AnswerResponse")({
+  answer: Schema.String
+}) {}
+
+const reflectiveResponse = Arr.of(
+  Response.textPart({
+    text: "```\nAnswer each question concisely using the most accurate fact available.\n```"
+  })
+)
+
+const responseForPrompt = (prompt: string) =>
+  Match.value(prompt).pipe(
+    Match.when(Str.includes("Your task is to write a new instruction"), () => reflectiveResponse),
+    Match.orElse(() => new AnswerResponse({ answer: "Paris" }))
+  )
 
 const makeQaSignature = () =>
   Signature.make(
@@ -32,7 +49,7 @@ describe("Optimizer.gepa orchestration", () => {
       )
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Paris" }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.map(responseForPrompt))
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
       const events = yield* Stream.runCollect(
         Optimizer.gepaStream({
@@ -59,7 +76,7 @@ describe("Optimizer.gepa orchestration", () => {
       const firstAppearance = Option.all(
         Arr.map(
           eventOrderFixture.payload.expectedWithinIterationOrder,
-          (tag) => Arr.findFirstIndex(tags, (candidate) => candidate === tag)
+          (tag) => Arr.findFirstIndex(tags, (candidate) => Str.Equivalence(candidate, tag))
         )
       )
 

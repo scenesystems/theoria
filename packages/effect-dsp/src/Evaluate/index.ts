@@ -9,9 +9,8 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Effect, Ref, Stream } from "effect"
-import type { Schema } from "effect"
-import type { EvaluationEventType } from "./events.js"
+import { Array as Arr, Effect, Ref, Schema, Stream } from "effect"
+import { EvaluationEventSchema, type EvaluationEventType } from "./events.js"
 import { evaluateKernel, type EvaluateOptions, noEvents } from "./runtime/kernel.js"
 
 export * from "./report.js"
@@ -20,9 +19,11 @@ export * from "./events.js"
 
 export { type EvaluateOptions } from "./runtime/kernel.js"
 
-const appendEvent =
-  (eventsRef: Ref.Ref<ReadonlyArray<EvaluationEventType>>) => (event: EvaluationEventType): Effect.Effect<void> =>
-    Ref.update(eventsRef, (events) => Arr.append(events, event))
+const EvaluationEvents = Schema.Array(EvaluationEventSchema)
+type EvaluationEvents = typeof EvaluationEvents.Type
+
+const appendEvent = (eventsRef: Ref.Ref<EvaluationEvents>) => (event: EvaluationEventType): Effect.Effect<void> =>
+  Ref.update(eventsRef, (events) => Arr.append(events, event))
 
 /**
  * Evaluates a module against labeled examples and returns their report.
@@ -51,9 +52,11 @@ export const run = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 >(
-  options: EvaluateOptions<I, O, ME, MR>
+  options: EvaluateOptions<I, O, ME, MR, E, R>
 ) => evaluateKernel(options, noEvents)
 
 /**
@@ -82,13 +85,15 @@ export const stream = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 >(
-  options: EvaluateOptions<I, O, ME, MR>
+  options: EvaluateOptions<I, O, ME, MR, E, R>
 ) =>
   Stream.unwrap(
     Effect.gen(function*() {
-      const eventsRef = yield* Ref.make<ReadonlyArray<EvaluationEventType>>(Arr.empty<EvaluationEventType>())
+      const eventsRef = yield* Ref.make<EvaluationEvents>(Arr.empty<EvaluationEventType>())
 
       yield* evaluateKernel(options, appendEvent(eventsRef))
 

@@ -3,14 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Data, Effect } from "effect"
-import type { Schema } from "effect"
+import { Data, Effect, Schema } from "effect"
 
-import type { Example } from "../../../Example/index.js"
+import { Example } from "../../../Example/index.js"
 import type { Metric } from "../../../Metric/model.js"
 import type { Module as DspModule } from "../../../Module/model.js"
 
 import type { GEPAEvent as GEPAEventType } from "../events.js"
+
+/** @internal */
+export const GEPAExamples = Schema.Array(Example)
+
+/** @internal */
+export type GEPAExamples = typeof GEPAExamples.Type
 
 /**
  * Configures candidate evaluation, reflective mutation, and merge attempts.
@@ -27,14 +32,16 @@ export class GEPAOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Module whose instructions are replaced by the selected frontier candidate. */
-  readonly module: DspModule<I, O>
+  readonly module: DspModule<I, O, E, R>
   /** Default validation examples when `valset` is omitted. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: GEPAExamples
   /** Candidate evaluation and reflection examples. Defaults to `trainset`; rows without `output` are ignored. */
-  readonly valset?: ReadonlyArray<Example>
+  readonly valset?: GEPAExamples
   /** Scores each prediction and may supply feedback for the next mutation prompt. */
   readonly metric: Metric<ME, MR>
   /** Iteration count, rounded down; negative and non-finite values become zero. */

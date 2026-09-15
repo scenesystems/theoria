@@ -4,38 +4,41 @@
  * @since 0.1.0
  * @internal
  */
-import type * as Prompt from "@effect/ai/Prompt"
-import { Array as Arr, Match, Option, Predicate, Schema } from "effect"
+import * as Prompt from "@effect/ai/Prompt"
+import { Array as Arr, Effect, Match, Schema } from "effect"
+import { TraceError } from "../../Errors/trace.js"
 
-const hasStringContent = Schema.is(Schema.Struct({ content: Schema.String }))
+const partText = Match.type<Prompt.Part>().pipe(
+  Match.discriminatorsExhaustive("type")({
+    text: (part) => Effect.succeed(part.text),
+    reasoning: (part) => Effect.succeed(part.text),
+    file: Schema.encode(Schema.parseJson(Prompt.FilePart)),
+    "tool-call": Schema.encode(Schema.parseJson(Prompt.ToolCallPart)),
+    "tool-result": Schema.encode(Schema.parseJson(Prompt.ToolResultPart))
+  })
+)
 
-const messageContentToText = (message: unknown): Option.Option<string> =>
-  Match.value(message).pipe(
-    Match.when(
-      hasStringContent,
-      (candidate) => Option.some(candidate.content)
-    ),
-    Match.orElse(() => Option.none<string>())
-  )
+const partsText = (parts: Iterable<Prompt.Part>) => Effect.forEach(parts, partText).pipe(Effect.map(Arr.join("\n")))
+
+const messageText = Match.type<Prompt.Message>().pipe(
+  Match.discriminatorsExhaustive("role")({
+    system: (message) => Effect.succeed(message.content),
+    user: (message) => partsText(message.content),
+    assistant: (message) => partsText(message.content),
+    tool: (message) => partsText(message.content)
+  })
+)
 
 /**
- * Flattens a raw prompt payload into a single plain-text string suitable
- * for inclusion in trace entries.
- *
- * Handles string prompts directly and message-array prompts by extracting
- * and joining the `content` field of each message.
+ * Normalizes native or encoded prompts and retains structured parts in trace
+ * text. Serialization failures remain checked trace-projection failures.
  *
  * @since 0.1.0
  * @category formatters
  * @internal
  */
-export const promptToTraceText = (prompt: Prompt.RawInput): string =>
-  Match.value(prompt).pipe(
-    Match.when(Predicate.isString, (text) => text),
-    Match.when(Predicate.isIterable, (messages) =>
-      Arr.join(
-        Arr.filterMap(Arr.fromIterable<unknown>(messages), messageContentToText),
-        "\n\n"
-      )),
-    Match.orElse(() => "")
+export const promptToTraceText = (prompt: Prompt.RawInput): Effect.Effect<string, TraceError> =>
+  Effect.forEach(Prompt.make(prompt).content, messageText).pipe(
+    Effect.map(Arr.join("\n\n")),
+    Effect.mapError(() => new TraceError({ message: "Prompt could not be serialized for tracing" }))
   )

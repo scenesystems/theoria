@@ -20,7 +20,7 @@ const decodeSavedState = (input: unknown) =>
     )
   )
 
-const entryRecord = (entries: ReadonlyArray<SavedState["modules"][number]>) =>
+const entryRecord = (entries: SavedState["modules"]) =>
   Effect.reduce(
     entries,
     Record.empty<string, SavedState["modules"][number]["params"]>(),
@@ -36,8 +36,8 @@ const entryRecord = (entries: ReadonlyArray<SavedState["modules"][number]>) =>
   )
 
 const refsRecord = (
-  refs: ReadonlyArray<ModuleParamRef>
-): Readonly<Record<string, Ref.Ref<SavedState["modules"][number]["params"]>>> =>
+  refs: Iterable<ModuleParamRef>
+): Record.ReadonlyRecord<string, Ref.Ref<SavedState["modules"][number]["params"]>> =>
   Arr.reduce(
     refs,
     Record.empty<string, Ref.Ref<SavedState["modules"][number]["params"]>>(),
@@ -64,7 +64,9 @@ const refsRecord = (
  * @since 0.1.0
  * @category constructors
  */
-export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(module: Module<I, O>) =>
+export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  module: Module<I, O, E, R>
+) =>
   Effect.gen(function*() {
     const refs = collectModuleParamRefs(module)
     const modules = yield* Effect.forEach(refs, (entry) =>
@@ -107,8 +109,8 @@ export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
  * @since 0.1.0
  * @category constructors
  */
-export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
-  module: Module<I, O>,
+export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  module: Module<I, O, E, R>,
   state: unknown
 ) =>
   Effect.gen(function*() {

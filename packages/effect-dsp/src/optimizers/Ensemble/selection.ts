@@ -5,20 +5,30 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Match, Option, Order } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Data, Match, Number as Num, Option, Order } from "effect"
 import type { Schema } from "effect"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
 import type { Module as DspModule } from "../../Module/model.js"
+import type { EnsembleOptions } from "./model.js"
 
-class ProgramSample<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+class ProgramSample<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R> extends Data.Class<{
   readonly score: number
-  readonly program: DspModule<I, O>
+  readonly program: DspModule<I, O, E, R>
 }> {}
 
-class SamplingState<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+class SamplingState<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R> extends Data.Class<{
   readonly seed: number
-  readonly samples: Array<ProgramSample<I, O>>
+  readonly samples: Chunk.Chunk<ProgramSample<I, O, E, R>>
 }> {}
+
+/** @internal */
+export class ChooseProgramsOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>
+  extends Data.Class<{
+    readonly programs: EnsembleOptions<I, O, E, R>["programs"]
+    readonly size: number
+    readonly seed: number
+  }>
+{}
 
 /**
  * Clamp the requested subset size to `[1, programCount]`, returning `0` only
@@ -29,15 +39,15 @@ class SamplingState<I extends Schema.Struct.Fields, O extends Schema.Struct.Fiel
  */
 export const resolveSelectionSize = (programCount: number, requested: Option.Option<number>): number =>
   Match.value(programCount).pipe(
-    Match.when((count) => count <= 0, () => 0),
+    Match.when((count) => Num.lessThanOrEqualTo(count, 0), () => 0),
     Match.orElse((count) =>
       Option.match(requested, {
         onNone: () => count,
         onSome: (size) =>
           Match.value(size).pipe(
-            Match.when((value) => !Numeric.isFinite(value), () => 1),
-            Match.when((value) => value <= 0, () => 1),
-            Match.when((value) => value >= count, () => count),
+            Match.when((value) => Bool.not(Numeric.isFinite(value)), () => 1),
+            Match.when((value) => Num.lessThanOrEqualTo(value, 0), () => 1),
+            Match.when((value) => Num.greaterThanOrEqualTo(value, count), () => count),
             Match.orElse(Numeric.floor)
           )
       })
@@ -52,34 +62,38 @@ export const resolveSelectionSize = (programCount: number, requested: Option.Opt
  * @since 0.1.0
  * @category constructors
  */
-export const choosePrograms = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(options: {
-  readonly programs: ReadonlyArray<DspModule<I, O>>
-  readonly size: number
-  readonly seed: number
-}): ReadonlyArray<DspModule<I, O>> => {
-  const initialState: SamplingState<I, O> = {
+export const choosePrograms = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  options: ChooseProgramsOptions<I, O, E, R>
+) => {
+  const initialState = new SamplingState<I, O, E, R>({
     seed: normalizeDeterministicSeed(options.seed),
-    samples: Arr.empty<ProgramSample<I, O>>()
-  }
+    samples: Chunk.empty<ProgramSample<I, O, E, R>>()
+  })
   const scored = Arr.reduce(
     options.programs,
     initialState,
     (state, program) => {
       const next = nextDeterministicSeed(state.seed)
 
-      return {
+      return new SamplingState<I, O, E, R>({
         seed: next,
-        samples: Arr.append(state.samples, {
-          score: next,
-          program
-        })
-      }
+        samples: Chunk.append(
+          state.samples,
+          new ProgramSample<I, O, E, R>({
+            score: next,
+            program
+          })
+        )
+      })
     }
   ).samples
 
   return Arr.map(
     Arr.take(
-      Arr.sort(scored, Order.mapInput(Order.number, (sample: ProgramSample<I, O>) => sample.score)),
+      Arr.sort(
+        Arr.fromIterable(scored),
+        Order.mapInput(Num.Order, (sample: ProgramSample<I, O, E, R>) => sample.score)
+      ),
       options.size
     ),
     (sample) => sample.program

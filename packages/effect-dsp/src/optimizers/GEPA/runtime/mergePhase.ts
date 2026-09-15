@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Effect, Inspectable, Number as Num, Option, String as Str } from "effect"
 import type { Schema } from "effect"
 
 import { evaluateMergeAcceptance } from "../accept.js"
@@ -20,17 +20,17 @@ import {
 } from "./helpers.js"
 import type { GEPAEventSink, GEPAOptions } from "./options.js"
 
-const mergeCheckedEvent = (options: {
-  readonly iteration: number
-  readonly attempted: boolean
-  readonly accepted: boolean
-  readonly mergeBudgetRemaining: number
-}) =>
+const mergeCheckedEvent = (
+  iteration: number,
+  attempted: boolean,
+  accepted: boolean,
+  mergeBudgetRemaining: number
+) =>
   GEPAEvent.MergeChecked({
-    iteration: options.iteration,
-    attempted: options.attempted,
-    accepted: options.accepted,
-    mergeBudgetRemaining: options.mergeBudgetRemaining
+    iteration,
+    attempted,
+    accepted,
+    mergeBudgetRemaining
   })
 
 /**
@@ -39,8 +39,8 @@ const mergeCheckedEvent = (options: {
  * @since 0.1.0
  * @category combinators
  */
-export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
-  options: GEPAOptions<I, O, ME, MR>,
+export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: GEPAOptions<I, O, ME, MR, E, R>,
   state: GEPAState,
   iteration: number,
   mergeSeed: number,
@@ -49,12 +49,7 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
   Effect.if(shouldAttemptMerge(state), {
     onFalse: () =>
       emit(
-        mergeCheckedEvent({
-          iteration,
-          attempted: false,
-          accepted: false,
-          mergeBudgetRemaining: state.mergeBudgetRemaining
-        })
+        mergeCheckedEvent(iteration, false, false, state.mergeBudgetRemaining)
       ).pipe(Effect.as(state)),
     onTrue: () =>
       Effect.gen(function*() {
@@ -65,12 +60,7 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
           {
             onNone: () =>
               emit(
-                mergeCheckedEvent({
-                  iteration,
-                  attempted: false,
-                  accepted: false,
-                  mergeBudgetRemaining: state.mergeBudgetRemaining
-                })
+                mergeCheckedEvent(iteration, false, false, state.mergeBudgetRemaining)
               ).pipe(Effect.as(state)),
             onSome: ([parentA, parentB]) =>
               Effect.gen(function*() {
@@ -82,11 +72,9 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
                   candidates: state.candidates,
                   parentAId: parentA.candidateId,
                   parentBId: parentB.candidateId,
-                  parentAScore: Arr.reduce(parentAScores, 0, (sum, score) =>
-                    sum + score),
-                  parentBScore: Arr.reduce(parentBScores, 0, (sum, score) =>
-                    sum + score),
-                  mergedCandidateId: `merge-${iteration}`,
+                  parentAScore: Arr.reduce(parentAScores, 0, Num.sum),
+                  parentBScore: Arr.reduce(parentBScores, 0, Num.sum),
+                  mergedCandidateId: Str.concat("merge-", Inspectable.toStringUnknown(iteration)),
                   comparisons: buildMergeComparisons(parentAScores, parentBScores),
                   mergeBudgetRemaining: state.mergeBudgetRemaining,
                   seed: mergeSeed
@@ -95,12 +83,7 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
                 return yield* Option.match(preparation.candidate, {
                   onNone: () =>
                     emit(
-                      mergeCheckedEvent({
-                        iteration,
-                        attempted: true,
-                        accepted: false,
-                        mergeBudgetRemaining: state.mergeBudgetRemaining
-                      })
+                      mergeCheckedEvent(iteration, true, false, state.mergeBudgetRemaining)
                     ).pipe(Effect.as(state)),
                   onSome: (candidate) =>
                     Effect.gen(function*() {
@@ -112,7 +95,8 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
                         ),
                         parentASubsampleScores: Arr.map(preparation.subsample, (comparison) =>
                           comparison.parentAScore),
-                        parentBSubsampleScores: Arr.map(preparation.subsample, (comparison) => comparison.parentBScore)
+                        parentBSubsampleScores: Arr.map(preparation.subsample, (comparison) =>
+                          comparison.parentBScore)
                       })
 
                       return yield* Effect.if(mergeAcceptance.accepted, {
@@ -127,12 +111,7 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
                             )
 
                             yield* emit(
-                              mergeCheckedEvent({
-                                iteration,
-                                attempted: true,
-                                accepted: true,
-                                mergeBudgetRemaining: mergeState.mergeBudgetRemaining
-                              })
+                              mergeCheckedEvent(iteration, true, true, mergeState.mergeBudgetRemaining)
                             )
 
                             return new GEPAState({
@@ -143,12 +122,7 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
                           }),
                         onFalse: () =>
                           emit(
-                            mergeCheckedEvent({
-                              iteration,
-                              attempted: true,
-                              accepted: false,
-                              mergeBudgetRemaining: state.mergeBudgetRemaining
-                            })
+                            mergeCheckedEvent(iteration, true, false, state.mergeBudgetRemaining)
                           ).pipe(Effect.as(state))
                       })
                     })

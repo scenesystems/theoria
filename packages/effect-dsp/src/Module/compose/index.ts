@@ -5,13 +5,13 @@
  * @module
  */
 import type { Schema } from "effect"
-import { Effect, Ref } from "effect"
+import { Array as Arr, Data, Effect, Ref } from "effect"
 import { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { CompositionError } from "../../Errors/module.js"
 import type { Signature } from "../../Signature/model.js"
 import { Module } from "../model.js"
-import { buildCompositionGraph, type ComposeSubModules } from "./graph.js"
-import { type ComposeForward, makeComposeForward } from "./runtime.js"
+import { buildCompositionGraph, ComposeGraphOptions, type ComposeSubModules } from "./graph.js"
+import { type ComposeForward, ComposeForwardOptions, makeComposeForward } from "./runtime.js"
 
 const makeInitialParams = <
   I extends Schema.Struct.Fields,
@@ -21,8 +21,30 @@ const makeInitialParams = <
 ): ModuleParams =>
   new ModuleParams({
     instructions: signature.instructions,
-    demos: []
+    demos: Arr.empty()
   })
+
+/**
+ * Declares a composed module's root contract, children, and execution callback.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class ComposeOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
+> extends Data.Class<{
+  /** Root identity used as the graph root, discovery id, and forward span name. */
+  readonly name: string
+  /** Input and output contract for the callback boundary. */
+  readonly signature: Signature<I, O>
+  /** Direct children whose nested ownership graphs are included in validation. */
+  readonly subModules: ComposeSubModules
+  /** Operation invoked once by each root `forward` call. */
+  readonly forward: ComposeForward<I, O, E, R>
+}> {}
 
 /**
  * Constructs a module with a validated child ownership graph.
@@ -53,42 +75,39 @@ const makeInitialParams = <
  */
 export const compose = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  /** Root identity used as the graph root, discovery id, and forward span name. */
-  readonly name: string
-  /** Input and output contract for the callback boundary. */
-  readonly signature: Signature<I, O>
-  /** Direct children whose nested ownership graphs are included in validation. */
-  readonly subModules: ComposeSubModules
-  /** Operation invoked once by each root `forward` call. */
-  readonly forward: ComposeForward<I, O>
-}): Effect.Effect<Module<I, O>, CompositionError> =>
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
+>(options: ComposeOptions<I, O, E, R>): Effect.Effect<Module<I, O, E, R>, CompositionError> =>
   Effect.gen(function*() {
     const paramsRef = yield* Ref.make(makeInitialParams(options.signature))
-    const composition = yield* buildCompositionGraph({
-      name: options.name,
-      signature: options.signature,
-      subModules: options.subModules
-    })
+    const composition = yield* buildCompositionGraph(
+      new ComposeGraphOptions({
+        name: options.name,
+        signature: options.signature,
+        subModules: options.subModules
+      })
+    )
 
     return new Module({
       name: options.name,
       signature: options.signature,
       params: paramsRef,
       subModules: composition.subModuleNodesById,
-      forward: makeComposeForward({
-        moduleName: options.name,
-        signature: options.signature,
-        paramsRef,
-        rootChildIds: composition.rootChildIds,
-        graph: composition.graph,
-        subModuleNodes: composition.subModuleNodesById,
-        forward: options.forward
-      })
+      forward: makeComposeForward(
+        new ComposeForwardOptions({
+          moduleName: options.name,
+          signature: options.signature,
+          paramsRef,
+          rootChildIds: composition.rootChildIds,
+          graph: composition.graph,
+          subModuleNodes: composition.subModuleNodesById,
+          forward: options.forward
+        })
+      )
     })
   })
 
-export { composeGraph, type ComposeSubModules } from "./graph.js"
+export { composeGraph, ComposeGraphOptions, type ComposeSubModules } from "./graph.js"
 
 export { type ComposeForward, type ComposeForwardContext } from "./runtime.js"

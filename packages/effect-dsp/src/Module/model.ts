@@ -57,13 +57,17 @@ export class SavedState extends Schema.Class<SavedState>("ProgramParams")({
  *
  * @typeParam I - Fields defining decoded input and input Schema requirements.
  * @typeParam O - Fields defining decoded output and output Schema requirements.
+ * @typeParam E - Additional checked failures from the module implementation.
+ * @typeParam R - Additional services required by the module implementation.
  *
  * @since 0.1.0
  * @category models
  */
 export class Module<
   I extends Schema.Struct.Fields = Schema.Struct.Fields,
-  O extends Schema.Struct.Fields = Schema.Struct.Fields
+  O extends Schema.Struct.Fields = Schema.Struct.Fields,
+  E = never,
+  R = never
 > extends Data.TaggedClass("Module")<{
   /** Name used by discovery, tracing, and parameter persistence. */
   readonly name: string
@@ -78,9 +82,10 @@ export class Module<
     input: Schema.Schema.Type<Schema.Struct<I>>
   ) => Effect.Effect<
     Schema.Schema.Type<Schema.Struct<O>>,
-    AiError.AiError | DspError,
+    AiError.AiError | DspError | E,
     | LanguageModel.LanguageModel
     | Schema.Schema.Context<Schema.Struct<I>>
     | Schema.Schema.Context<Schema.Struct<O>>
+    | R
   >
 }> {}

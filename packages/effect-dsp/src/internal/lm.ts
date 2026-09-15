@@ -9,14 +9,8 @@ import type * as Prompt from "@effect/ai/Prompt"
 import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import type { Record, Schema } from "effect"
-import { Data, Effect } from "effect"
+import { Effect, Option } from "effect"
 import { trackCall } from "../Trace/call.js"
-
-class TextCallOptions<
-  Tools extends Record.ReadonlyRecord<string, Tool.Any> = Toolkit.Tools<typeof Toolkit.empty>
-> extends Data.Class<{
-  readonly toolkit?: Toolkit.WithHandler<Tools>
-}> {}
 
 /**
  * Executes native structured generation, recording its exit independently of
@@ -56,13 +50,22 @@ export const callLmTextResponse = <
   Tools extends Record.ReadonlyRecord<string, Tool.Any> = Toolkit.Tools<typeof Toolkit.empty>
 >(
   prompt: Prompt.RawInput,
-  options: TextCallOptions<Tools> = new TextCallOptions<Tools>({})
-) =>
-  trackCall(
+  toolkit: Option.Option<Toolkit.WithHandler<Tools>> = Option.none()
+) => {
+  const program = Option.match(toolkit, {
+    onNone: () => LanguageModel.generateText({ prompt }),
+    onSome: (toolkit) => LanguageModel.generateText({ prompt, toolkit })
+  })
+  return trackCall<
+    Effect.Effect.Success<typeof program>,
+    Effect.Effect.Error<typeof program>,
+    Effect.Effect.Context<typeof program>
+  >(
     "generateText",
-    LanguageModel.generateText({ prompt, toolkit: options.toolkit }),
+    program,
     (response) => response.usage
   )
+}
 
 /**
  * Returns native completion text while retaining call evidence in the active
@@ -76,5 +79,5 @@ export const callLmText = <
   Tools extends Record.ReadonlyRecord<string, Tool.Any> = Toolkit.Tools<typeof Toolkit.empty>
 >(
   prompt: Prompt.RawInput,
-  options: TextCallOptions<Tools> = new TextCallOptions<Tools>({})
-) => callLmTextResponse(prompt, options).pipe(Effect.map(([response]) => response.text))
+  toolkit: Option.Option<Toolkit.WithHandler<Tools>> = Option.none()
+) => callLmTextResponse(prompt, toolkit).pipe(Effect.map(([response]) => response.text))

@@ -1,6 +1,7 @@
 /**
  * Prompt construction golden fixtures.
  */
+import * as Prompt from "@effect/ai/Prompt"
 import { describe, expect, it } from "@effect/vitest"
 import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
 import { Demo } from "@scenesystems/effect-dsp/Example"
@@ -39,24 +40,24 @@ describe("internal/prompt", () => {
   it.effect("builds system + demo + final-input prompt using golden fixture", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
-      const prompt = buildPrompt(
+      const prompt = yield* buildPrompt(
         qa,
         paramsWithDemo,
         { question: "What is the capital of Japan?" }
       )
 
-      expect(prompt).toEqual(qaPromptWithDemo)
+      expect(prompt).toEqual(Prompt.make(qaPromptWithDemo))
     }))
 
   it.effect("builds system + final-input prompt when no demos are present", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
-      const prompt = buildPrompt(
+      const prompt = yield* buildPrompt(
         qa,
         paramsWithoutDemos,
         { question: "What is the capital of Japan?" }
       )
 
-      expect(prompt).toEqual(qaPromptWithoutDemos)
+      expect(prompt).toEqual(Prompt.make(qaPromptWithoutDemos))
     }))
 })

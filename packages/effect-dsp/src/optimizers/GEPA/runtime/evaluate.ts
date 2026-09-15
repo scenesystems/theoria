@@ -3,18 +3,16 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Inspectable, Option, Ref, Schema, String as Str } from "effect"
 
 import { FieldRecord } from "../../../contracts/FieldValue.js"
 import { MetricResult } from "../../../contracts/MetricResult.js"
 import { withModuleParamsInstructions } from "../../../contracts/ModuleParams.js"
-import type { Example } from "../../../Example/index.js"
-
 import { ReflectiveDatasetSample } from "../model.js"
-import type { CandidateScoreVector, ProgramCandidate } from "../model.js"
+import { CandidateScoreVector, type ProgramCandidate } from "../model.js"
 
 import { instructionForPredictor, withFeedback } from "./helpers.js"
-import type { GEPAOptions } from "./options.js"
+import type { GEPAExamples, GEPAOptions } from "./options.js"
 
 /**
  * Materialized candidate evaluation rows.
@@ -22,14 +20,19 @@ import type { GEPAOptions } from "./options.js"
  * @since 0.1.0
  * @category models
  */
-export class CandidateEvaluation extends Data.Class<{
-  readonly scores: CandidateScoreVector
-  readonly samples: ReadonlyArray<ReflectiveDatasetSample>
-}> {}
+export class CandidateEvaluation extends Schema.Class<CandidateEvaluation>("GEPACandidateEvaluation")({
+  scores: CandidateScoreVector,
+  samples: Schema.Array(ReflectiveDatasetSample)
+}) {}
 
-const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
-  options: GEPAOptions<I, O, ME, MR>
-): ReadonlyArray<Example> =>
+class CandidateEvaluationRow extends Schema.Class<CandidateEvaluationRow>("GEPACandidateEvaluationRow")({
+  score: Schema.Number,
+  sample: ReflectiveDatasetSample
+}) {}
+
+const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: GEPAOptions<I, O, ME, MR, E, R>
+): GEPAExamples =>
   Arr.filter(
     Option.getOrElse(Option.fromNullable(options.valset), () => options.trainset),
     (example) => Option.isSome(Option.fromNullable(example.output))
@@ -41,8 +44,8 @@ const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
  * @since 0.1.0
  * @category constructors
  */
-export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(
-  options: GEPAOptions<I, O, ME, MR>,
+export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: GEPAOptions<I, O, ME, MR, E, R>,
   candidate: ProgramCandidate
 ) =>
   Effect.acquireUseRelease(
@@ -77,22 +80,24 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
             ...withFeedback(Option.fromNullable(metricResult.feedback))
           })
 
-          return {
+          return new CandidateEvaluationRow({
             score: metricResult.score,
             sample: new ReflectiveDatasetSample({
-              exampleId: `example-${index}`,
+              exampleId: Str.concat("example-", Inspectable.toStringUnknown(index)),
               predictorName: options.module.name,
               inputs: metricInput,
               generatedOutputs: metricPrediction,
               expectedOutput: metricExpectedOutput,
               metricResult: normalizedMetric
             })
-          }
+          })
         }), { concurrency: "inherit" }).pipe(
-          Effect.map((rows): CandidateEvaluation => ({
-            scores: Arr.map(rows, (row) => row.score),
-            samples: Arr.map(rows, (row) => row.sample)
-          }))
+          Effect.map((rows) =>
+            new CandidateEvaluation({
+              scores: Arr.map(rows, (row) => row.score),
+              samples: Arr.map(rows, (row) => row.sample)
+            })
+          )
         )
     },
     (original) => Ref.set(options.module.params, original)

@@ -6,11 +6,10 @@
  * @module
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import type { Schema } from "effect"
-import { Array as Arr, Data, Effect, Match, Option, Order, Ref } from "effect"
+import { Array as Arr, Chunk, Data, Effect, Match, Number as Num, Option, Order, Ref, Schema } from "effect"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
 import { withModuleParamsDemos } from "../../contracts/ModuleParams.js"
-import { Demo, type Example } from "../../Example/index.js"
+import { Demo, Example } from "../../Example/index.js"
 import { collectModuleParamRefs } from "../../internal/module-params.js"
 import type { Module } from "../../Module/model.js"
 
@@ -21,10 +20,16 @@ class ScoredDemo extends Data.Class<{
 
 class SamplingState extends Data.Class<{
   readonly seed: number
-  readonly scored: ReadonlyArray<ScoredDemo>
+  readonly scored: Chunk.Chunk<ScoredDemo>
 }> {}
 
-const scoredDemoOrder: Order.Order<ScoredDemo> = Order.mapInput(Order.number, (entry) => entry.score)
+const scoredDemoOrder: Order.Order<ScoredDemo> = Order.mapInput(Num.Order, (entry) => entry.score)
+
+const LabeledExamples = Schema.Array(Example)
+type LabeledExamples = typeof LabeledExamples.Type
+
+const LabeledDemos = Schema.Array(Demo)
+type LabeledDemos = typeof LabeledDemos.Type
 
 /**
  * Configures seeded demonstration replacement without model execution.
@@ -35,18 +40,23 @@ const scoredDemoOrder: Order.Order<ScoredDemo> = Order.mapInput(Order.number, (e
  * @since 0.1.0
  * @category models
  */
-export class LabeledFewShotOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+export class LabeledFewShotOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
+> extends Data.Class<{
   /** Module whose root and discovered submodule parameter refs are updated. */
-  readonly module: Module<I, O>
+  readonly module: Module<I, O, E, R>
   /** Source examples; entries without `output` are ignored. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: LabeledExamples
   /** Selection cap, rounded down; negative and non-finite values select none. */
   readonly k: number
   /** Pseudo-random selection seed. Defaults to `1`. */
   readonly seed?: number
 }> {}
 
-const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<Demo> =>
+const labeledDemos = (trainset: LabeledExamples): LabeledDemos =>
   Arr.filterMap(
     trainset,
     (example) =>
@@ -56,26 +66,26 @@ const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<Demo> =>
       )
   )
 
-const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number): ReadonlyArray<Demo> => {
+const selectRandomDemos = (demos: LabeledDemos, k: number, seed: number): LabeledDemos => {
   const normalizedK = Match.value(k).pipe(
     Match.when(Numeric.isFinite, (value) => Numeric.max(0, Numeric.floor(value))),
     Match.orElse(() => 0)
   )
   const scored = Arr.reduce(
     demos,
-    new SamplingState({ seed: normalizeDeterministicSeed(seed), scored: Arr.empty<ScoredDemo>() }),
+    new SamplingState({ seed: normalizeDeterministicSeed(seed), scored: Chunk.empty<ScoredDemo>() }),
     (state, demo) => {
       const next = nextDeterministicSeed(state.seed)
 
       return new SamplingState({
         seed: next,
-        scored: Arr.append(state.scored, new ScoredDemo({ score: next, demo }))
+        scored: Chunk.append(state.scored, new ScoredDemo({ score: next, demo }))
       })
     }
   ).scored
 
   return Arr.take(
-    Arr.map(Arr.sort(scored, scoredDemoOrder), (entry) => entry.demo),
+    Arr.map(Arr.sort(Arr.fromIterable(scored), scoredDemoOrder), (entry) => entry.demo),
     normalizedK
   )
 }
@@ -104,8 +114,10 @@ const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number):
  */
 export const labeledFewShot = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: LabeledFewShotOptions<I, O>) =>
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
+>(options: LabeledFewShotOptions<I, O, E, R>) =>
   Effect.gen(function*() {
     const seed = Option.getOrElse(Option.fromNullable(options.seed), () => 1)
     const demos = yield* Effect.sync(() => selectRandomDemos(labeledDemos(options.trainset), options.k, seed))

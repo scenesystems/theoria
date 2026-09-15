@@ -61,15 +61,15 @@ export const trackCall = <A, E, R>(
   operation: Call["operation"],
   program: Effect.Effect<A, E, R>,
   usageOf: (value: A) => Response.Usage
-): Effect.Effect<readonly [A, Response.Usage], E, R> =>
+) =>
   Effect.uninterruptibleMask((restore) =>
     Effect.gen(function*() {
       const startedAt = yield* Clock.currentTimeMillis
       const usageRef = yield* Ref.make<Option.Option<Response.Usage>>(Option.none())
-      const exit = yield* restore(program).pipe(
-        Effect.provideService(InvocationUsage, usageRef),
-        Effect.exit
+      const invocation: Effect.Effect<A, E, R> = restore(program).pipe(
+        Effect.provideService(InvocationUsage, usageRef)
       )
+      const exit = yield* Effect.exit(invocation)
       const observed = yield* Ref.get(usageRef)
       const result = Exit.map(exit, (value) => Data.tuple(value, Option.getOrElse(observed, () => usageOf(value))))
       const timestamp = yield* Clock.currentTimeMillis

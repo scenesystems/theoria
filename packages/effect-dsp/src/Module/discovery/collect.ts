@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Effect, Equal, HashMap } from "effect"
 import type { ModuleGraph } from "../../contracts/ModuleGraph.js"
 import { makeModuleGraph, ModuleGraphEdge, ModuleGraphNode } from "../../contracts/ModuleGraph.js"
 import type { ModuleId } from "../../contracts/ModuleId.js"
@@ -13,8 +13,8 @@ import { ModuleRegistryRef, registrySnapshot } from "./registry.js"
 
 const hasRootRegistration = (
   rootId: ModuleId,
-  registrations: ReadonlyArray<ModuleRegistration>
-): boolean => Option.isSome(Arr.findFirst(registrations, (registration) => registration.id === rootId))
+  registrations: Iterable<ModuleRegistration>
+): boolean => Arr.some(Arr.fromIterable(registrations), (registration) => Equal.equals(registration.id, rootId))
 
 const registrationNode = (registration: ModuleRegistration): ModuleGraphNode =>
   new ModuleGraphNode({
@@ -25,7 +25,7 @@ const registrationNode = (registration: ModuleRegistration): ModuleGraphNode =>
 
 const registrationEdges = (
   registration: ModuleRegistration
-): ReadonlyArray<ModuleGraphEdge> =>
+): ModuleGraph["edges"] =>
   Arr.map(
     registration.subModuleIds,
     (subModuleId) =>
@@ -52,22 +52,27 @@ const registrationEdges = (
  */
 export const registrationsToModuleGraph = (
   rootId: ModuleId,
-  registrations: ReadonlyArray<ModuleRegistration>
-): Effect.Effect<ModuleGraph, CompositionError> =>
-  hasRootRegistration(rootId, registrations)
-    ? Effect.succeed(
-      makeModuleGraph({
-        rootId,
-        nodes: Arr.map(registrations, registrationNode),
-        edges: Arr.flatMap(registrations, registrationEdges)
-      })
-    )
-    : Effect.fail(
-      new CompositionError({
-        message: `Discovery root '${rootId}' was not observed in registry snapshot`,
-        moduleName: rootId
-      })
-    )
+  registrations: Iterable<ModuleRegistration>
+): Effect.Effect<ModuleGraph, CompositionError> => {
+  const snapshot = Arr.fromIterable(registrations)
+  const graph = makeModuleGraph({
+    rootId,
+    nodes: Arr.map(snapshot, registrationNode),
+    edges: Arr.flatMap(snapshot, registrationEdges)
+  })
+  const missingRoot = new CompositionError({
+    message: Arr.join(
+      Arr.make("Discovery root '", rootId, "' was not observed in registry snapshot"),
+      ""
+    ),
+    moduleName: rootId
+  })
+
+  return Effect.if(hasRootRegistration(rootId, snapshot), {
+    onTrue: () => Effect.succeed(graph),
+    onFalse: () => Effect.fail(missingRoot)
+  })
+}
 
 /**
  * Runs a program and returns registrations written to its local registry.
@@ -89,12 +94,12 @@ export const registrationsToModuleGraph = (
  */
 export const discoverModules = <A, E, R>(
   program: Effect.Effect<A, E, R>
-): Effect.Effect<ReadonlyArray<ModuleRegistration>, E, R> =>
+) =>
   Effect.gen(function*() {
     yield* program
     return yield* registrySnapshot
   }).pipe(
-    Effect.locally(ModuleRegistryRef, Arr.empty<ModuleRegistration>()),
+    Effect.locally(ModuleRegistryRef, HashMap.empty()),
     Effect.map(canonicalModuleRegistrations)
   )
 
@@ -144,5 +149,5 @@ export const withDiscoveryScope = <A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R> =>
   program.pipe(
-    Effect.locally(ModuleRegistryRef, Arr.empty<ModuleRegistration>())
+    Effect.locally(ModuleRegistryRef, HashMap.empty())
   )

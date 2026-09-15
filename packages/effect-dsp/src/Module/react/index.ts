@@ -7,14 +7,14 @@
 import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import type { Schema } from "effect"
-import { Data, Effect, HashMap, Match, Ref } from "effect"
+import type { Record } from "effect"
+import { Data, Effect, HashMap, Match, Number, Option, Ref, Schema } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { makeDefaultModuleParams, type ModuleParams } from "../../contracts/ModuleParams.js"
 import type { Signature } from "../../Signature/model.js"
 import { Module } from "../model.js"
-import { makeReactForward } from "./runtime.js"
+import { makeReactForward, ReactRuntimeOptions } from "./runtime.js"
 
 /**
  * Limits ReAct model calls to five when no per-module value is supplied.
@@ -37,7 +37,7 @@ export const DEFAULT_REACT_MAX_ITERATIONS = 5
 export class ReactOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
-  Tools extends Record<string, Tool.Any>
+  Tools extends Record.ReadonlyRecord<string, Tool.Any>
 > extends Data.Class<{
   /** Identity used for discovery, tracing, and failure diagnostics. */
   readonly name: string
@@ -51,7 +51,7 @@ export class ReactOptions<
 
 const normalizeMaxIterations = (maxIterations: number): number =>
   Match.value(maxIterations).pipe(
-    Match.when(Numeric.isFinite, (value) => Numeric.max(1, Numeric.floor(value))),
+    Match.when(Schema.is(Schema.Finite), (value) => Number.max(1, Numeric.floor(value))),
     Match.orElse(() => 1)
   )
 
@@ -67,14 +67,15 @@ const makeInitialParams = <
  *
  * @remarks
  * Each `forward` call snapshots the current module parameters and uses text
- * generation regardless of `outputStrategy`. A response with tool calls adds
- * all returned tool results to the feedback history. The next model call omits
+ * generation regardless of `outputStrategy`. Native prompt continuation retains
+ * encoded tool calls and results, including return-mode failures. The next model call omits
  * the toolkit, allowing the model to consume those observations. Responses
  * without tool calls are parsed against the signature output schema; parse
  * diagnostics become feedback for a later call.
  *
  * Every completed model response records trace and usage data. Provider
- * failures become `TraceError`. Exhausting the call cap without parsed output
+ * and checked tool failures retain their native types and requirements.
+ * Exhausting the call cap without parsed output
  * fails with `ParseOutputError` containing the last response and diagnostics.
  * The cap defaults to {@link DEFAULT_REACT_MAX_ITERATIONS}; finite values are
  * rounded down, while values below one and non-finite values become one.
@@ -94,14 +95,14 @@ const makeInitialParams = <
 export const react = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
-  Tools extends Record<string, Tool.Any>
+  Tools extends Record.ReadonlyRecord<string, Tool.Any>
 >(
   options: ReactOptions<I, O, Tools>
-): Effect.Effect<Module<I, O>> =>
+): Effect.Effect<Module<I, O, Tool.HandlerError<Tools[keyof Tools]>, Tool.Requirements<Tools[keyof Tools]>>> =>
   Effect.gen(function*() {
     const paramsRef = yield* Ref.make(makeInitialParams(options.signature))
     const maxIterations = normalizeMaxIterations(
-      options.maxIterations ?? DEFAULT_REACT_MAX_ITERATIONS
+      Option.getOrElse(Option.fromNullable(options.maxIterations), () => DEFAULT_REACT_MAX_ITERATIONS)
     )
 
     return new Module({
@@ -109,14 +110,16 @@ export const react = <
       signature: options.signature,
       params: paramsRef,
       subModules: HashMap.empty<ModuleId, ModuleNode>(),
-      forward: makeReactForward({
-        moduleName: options.name,
-        signature: options.signature,
-        inputSchema: options.signature.inputSchema,
-        outputSchema: options.signature.outputSchema,
-        paramsRef,
-        toolkit: options.toolkit,
-        maxIterations
-      })
+      forward: makeReactForward(
+        new ReactRuntimeOptions({
+          moduleName: options.name,
+          signature: options.signature,
+          inputSchema: options.signature.inputSchema,
+          outputSchema: options.signature.outputSchema,
+          paramsRef,
+          toolkit: options.toolkit,
+          maxIterations
+        })
+      )
     })
   })

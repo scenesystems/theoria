@@ -2,6 +2,7 @@
  * GEPA integration contract.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
+import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -9,8 +10,26 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Option, Predicate, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Match, Option, Ref, Schema, Stream, String as Str } from "effect"
 import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
+
+class AnswerResponse extends Schema.Class<AnswerResponse>("AnswerResponse")({
+  answer: Schema.String
+}) {}
+
+const reflectiveResponse = Arr.of(
+  Response.textPart({
+    text: "```\nAnswer geography questions with concise, factually correct capital city names.\n```"
+  })
+)
+
+const responseForPrompt = (prompt: string) =>
+  Match.value(prompt).pipe(
+    Match.when(Str.includes("Your task is to write a new instruction"), () => reflectiveResponse),
+    Match.when(Str.includes("France"), () => new AnswerResponse({ answer: "Paris" })),
+    Match.when(Str.includes("Japan"), () => new AnswerResponse({ answer: "Tokyo" })),
+    Match.orElse(() => new AnswerResponse({ answer: "Lyon" }))
+  )
 
 const makeQaSignature = () =>
   Signature.make(
@@ -23,12 +42,10 @@ const makeQaSignature = () =>
     }
   )
 
-const answerText = (record: Readonly<Record<string, unknown>>): string =>
-  Option.getOrElse(
-    Option.fromNullable(record.answer).pipe(
-      Option.filter(Predicate.isString)
-    ),
-    () => ""
+const answerText = (record: unknown): string =>
+  Schema.decodeUnknownOption(AnswerResponse)(record).pipe(
+    Option.map((response) => response.answer),
+    Option.getOrElse(() => Str.empty)
   )
 
 describe("GEPA integration", () => {
@@ -41,28 +58,26 @@ describe("GEPA integration", () => {
         const signature = yield* makeQaSignature()
         const module = yield* Module.predict("qa", signature)
         const mock = yield* MockLanguageModel.make(
-          MockLanguageModel.map((prompt) =>
-            prompt.includes("France")
-              ? { answer: "Paris" }
-              : prompt.includes("Japan")
-              ? { answer: "Tokyo" }
-              : { answer: "Lyon" }
-          )
+          MockLanguageModel.map(responseForPrompt)
         )
         const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
         const feedbackMetric = Metric.fromEffect("feedbackExactMatch", (prediction, expected) =>
           Effect.sync(() => {
             const predicted = answerText(prediction)
             const expectedAnswer = answerText(expected)
-            const correct = predicted === expectedAnswer
+            const correct = Str.Equivalence(predicted, expectedAnswer)
 
-            return new Metric.Result({
-              score: correct
-                ? 1
-                : 0,
-              feedback: correct
-                ? "correct"
-                : `expected ${expectedAnswer}, got ${predicted}`
+            return Bool.match(correct, {
+              onFalse: () =>
+                new Metric.Result({
+                  score: 0,
+                  feedback: `expected ${expectedAnswer}, got ${predicted}`
+                }),
+              onTrue: () =>
+                new Metric.Result({
+                  score: 1,
+                  feedback: "correct"
+                })
             })
           }))
 
@@ -93,8 +108,8 @@ describe("GEPA integration", () => {
         const paretoEvents = Arr.filter(eventList, Optimizer.GEPAEvent.$is("ParetoUpdated"))
         const params = yield* Ref.get(module.params)
 
-        expect(paretoEvents.length).toBeGreaterThan(0)
-        expect(params.instructions.length).toBeGreaterThan(0)
+        expect(Arr.length(paretoEvents)).toBeGreaterThan(0)
+        expect(Str.length(params.instructions)).toBeGreaterThan(0)
         expect(Option.isSome(Arr.findFirst(eventList, Optimizer.GEPAEvent.$is("AcceptanceEvaluated")))).toBe(true)
       })
   )
