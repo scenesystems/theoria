@@ -29,6 +29,22 @@ export const PrimitiveChoiceSchema = Schema.Union(
 export type PrimitiveChoice = Schema.Schema.Type<typeof PrimitiveChoiceSchema>
 
 /**
+ * Decodes the coordinate scale used by continuous search dimensions.
+ *
+ * @since 0.5.0
+ * @category schemas
+ */
+export const FloatScaleSchema = Schema.Literal("linear", "log")
+
+/**
+ * Selects linear or logarithmic coordinates for a float distribution.
+ *
+ * @since 0.5.0
+ * @category type-level
+ */
+export type FloatScale = Schema.Schema.Type<typeof FloatScaleSchema>
+
+/**
  * Describes a continuous or stepped numeric dimension with linear or logarithmic scale.
  *
  * @remarks
@@ -43,7 +59,7 @@ export const FloatDistributionSchema = Schema.Struct({
   type: Schema.Literal("float"),
   low: Schema.Number,
   high: Schema.Number,
-  scale: Schema.optional(Schema.Literal("linear", "log")),
+  scale: Schema.optional(FloatScaleSchema),
   step: Schema.optional(Schema.Number)
 })
 

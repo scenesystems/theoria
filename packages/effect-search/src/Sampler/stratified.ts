@@ -3,11 +3,22 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Match, Option, Record } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Array as Arr, Boolean, Data, Number as Num, Option, Record, Tuple } from "effect"
+import type { Schema } from "effect"
 
 import { buildIndices, nextDeterministicSeed, normalizeDeterministicSeed, shuffleBySeed } from "./deterministic.js"
 
-type StratifiedBuckets<Bucket extends string, A> = Readonly<Record<Bucket, ReadonlyArray<A>>>
+type ImmutableArray<A> = Schema.Array$<Schema.Schema<A>>["Type"]
+type StratifiedBuckets<Bucket extends string, A> = Schema.Record$<
+  Schema.Schema<Bucket>,
+  Schema.Array$<Schema.Schema<A>>
+>["Type"]
+type SelectionState<Bucket extends string, A> = Schema.Tuple<[
+  Schema.Schema<StratifiedBuckets<Bucket, A>>,
+  Schema.Array$<Schema.Schema<A>>,
+  typeof Schema.Number
+]>["Type"]
 
 /**
  * Describes the buckets visible to a stratified draw and their visitation order.
@@ -24,101 +35,108 @@ type StratifiedBuckets<Bucket extends string, A> = Readonly<Record<Bucket, Reado
  */
 export class StratifiedRoundRobinOptions<Bucket extends string, A> extends Data.Class<{
   readonly buckets: StratifiedBuckets<Bucket, A>
-  readonly bucketOrder: ReadonlyArray<Bucket>
+  readonly bucketOrder: ImmutableArray<Bucket>
   readonly targetSize: number
   readonly seed: number
 }> {}
 
-class SelectionState<Bucket extends string, A> extends Data.Class<{
-  readonly buckets: StratifiedBuckets<Bucket, A>
-  readonly selected: ReadonlyArray<A>
-  readonly cursor: number
-}> {}
-
 const normalizeTargetSize = (targetSize: number): number => {
-  const finite = Number.isFinite(targetSize)
-    ? Math.trunc(targetSize)
-    : 0
+  const finite = Boolean.match(Numeric.isFinite(targetSize), {
+    onFalse: () => 0,
+    onTrue: () => Numeric.truncate(targetSize)
+  })
 
-  return Match.value(finite).pipe(
-    Match.when((count) => count <= 0, () => 0),
-    Match.orElse((count) => count)
-  )
+  return Boolean.match(Num.lessThanOrEqualTo(finite, 0), {
+    onFalse: () => finite,
+    onTrue: () => 0
+  })
 }
 
 const bucketValues = <Bucket extends string, A>(
   buckets: StratifiedBuckets<Bucket, A>,
   bucket: Bucket
-): ReadonlyArray<A> => Option.getOrElse(Record.get(buckets, bucket), () => Arr.empty<A>())
+): ImmutableArray<A> => Option.getOrElse(Record.get(buckets, bucket), () => Arr.empty<A>())
 
 const availableCount = <Bucket extends string, A>(
   buckets: StratifiedBuckets<Bucket, A>,
-  bucketOrder: ReadonlyArray<Bucket>
-): number => Arr.reduce(bucketOrder, 0, (total, bucket) => total + bucketValues(buckets, bucket).length)
+  bucketOrder: ImmutableArray<Bucket>
+): number => Arr.reduce(bucketOrder, 0, (total, bucket) => Num.sum(total, Arr.length(bucketValues(buckets, bucket))))
 
 const seedBuckets = <Bucket extends string, A>(
   buckets: StratifiedBuckets<Bucket, A>,
-  bucketOrder: ReadonlyArray<Bucket>,
+  bucketOrder: ImmutableArray<Bucket>,
   seed: number
 ): StratifiedBuckets<Bucket, A> =>
-  Arr.reduce(
-    bucketOrder,
-    { seed: normalizeDeterministicSeed(seed), buckets },
-    (state, bucket) => {
-      const nextSeed = nextDeterministicSeed(state.seed)
+  Tuple.getSecond(
+    Arr.reduce(
+      bucketOrder,
+      Tuple.make(normalizeDeterministicSeed(seed), buckets),
+      (state, bucket) => {
+        const nextSeed = nextDeterministicSeed(Tuple.getFirst(state))
 
-      return {
-        seed: nextSeed,
-        buckets: Record.set(state.buckets, bucket, shuffleBySeed(bucketValues(state.buckets, bucket), nextSeed))
+        return Tuple.make(
+          nextSeed,
+          Record.set(
+            Tuple.getSecond(state),
+            bucket,
+            shuffleBySeed(bucketValues(Tuple.getSecond(state), bucket), nextSeed)
+          )
+        )
       }
-    }
-  ).buckets
+    )
+  )
 
 const takeFromBucket = <Bucket extends string, A>(
   state: SelectionState<Bucket, A>,
   bucket: Bucket
 ): SelectionState<Bucket, A> => {
-  const values = bucketValues(state.buckets, bucket)
+  const [buckets, selected, cursor] = state
+  const values = bucketValues(buckets, bucket)
   const head = Arr.head(values)
 
-  return {
-    buckets: Record.set(state.buckets, bucket, Arr.drop(values, 1)),
-    selected: Option.match(head, {
-      onNone: () => state.selected,
-      onSome: (value) => Arr.append(state.selected, value)
+  return Tuple.make(
+    Record.set(buckets, bucket, Arr.drop(values, 1)),
+    Option.match(head, {
+      onNone: () => selected,
+      onSome: (value) => Arr.append(selected, value)
     }),
-    cursor: state.cursor + 1
-  }
+    Num.increment(cursor)
+  )
 }
 
-const roundRobinStepCount = (targetSize: number, bucketCount: number): number => targetSize * bucketCount
+const roundRobinStepCount = (targetSize: number, bucketCount: number): number => Num.multiply(targetSize, bucketCount)
 
 const selectRoundRobin = <Bucket extends string, A>(
   initialState: SelectionState<Bucket, A>,
-  bucketOrder: ReadonlyArray<Bucket>,
+  bucketOrder: ImmutableArray<Bucket>,
   targetSize: number
 ): SelectionState<Bucket, A> =>
   Arr.reduce(
-    buildIndices(roundRobinStepCount(targetSize, bucketOrder.length)),
+    buildIndices(roundRobinStepCount(targetSize, Arr.length(bucketOrder))),
     initialState,
-    (currentState) =>
-      Match.value(
-        currentState.selected.length >= targetSize ||
-          availableCount(currentState.buckets, bucketOrder) <= 0
-      ).pipe(
-        Match.when(true, () => currentState),
-        Match.orElse(() =>
-          Option.match(
-            Arr.get(bucketOrder, currentState.cursor % bucketOrder.length).pipe(
-              Option.orElse(() => Arr.head(bucketOrder))
+    (currentState) => {
+      const [buckets, selected, cursor] = currentState
+
+      return Boolean.match(
+        Boolean.or(
+          Num.greaterThanOrEqualTo(Arr.length(selected), targetSize),
+          Num.lessThanOrEqualTo(availableCount(buckets, bucketOrder), 0)
+        ),
+        {
+          onFalse: () =>
+            Option.match(
+              Arr.get(bucketOrder, Num.remainder(cursor, Arr.length(bucketOrder))).pipe(
+                Option.orElse(() => Arr.head(bucketOrder))
+              ),
+              {
+                onNone: () => currentState,
+                onSome: (bucket) => takeFromBucket(currentState, bucket)
+              }
             ),
-            {
-              onNone: () => currentState,
-              onSome: (bucket) => takeFromBucket(currentState, bucket)
-            }
-          )
-        )
+          onTrue: () => currentState
+        }
       )
+    }
   )
 
 /**
@@ -138,25 +156,28 @@ const selectRoundRobin = <Bucket extends string, A>(
  */
 export const sampleStratifiedRoundRobin = <Bucket extends string, A>(
   options: StratifiedRoundRobinOptions<Bucket, A>
-): ReadonlyArray<A> => {
+): ImmutableArray<A> => {
   const seededBuckets = seedBuckets(options.buckets, options.bucketOrder, options.seed)
-  const targetSize = Math.min(
+  const targetSize = Num.min(
     normalizeTargetSize(options.targetSize),
     availableCount(seededBuckets, options.bucketOrder)
   )
 
-  return Match.value(options.bucketOrder.length <= 0 || targetSize <= 0).pipe(
-    Match.when(true, () => Arr.empty<A>()),
-    Match.orElse(() =>
-      selectRoundRobin(
-        {
-          buckets: seededBuckets,
-          selected: Arr.empty<A>(),
-          cursor: 0
-        },
-        options.bucketOrder,
-        targetSize
-      ).selected
-    )
+  return Boolean.match(
+    Boolean.or(
+      Num.lessThanOrEqualTo(Arr.length(options.bucketOrder), 0),
+      Num.lessThanOrEqualTo(targetSize, 0)
+    ),
+    {
+      onFalse: () => {
+        const [, selected] = selectRoundRobin(
+          Tuple.make(seededBuckets, Arr.empty<A>(), 0),
+          options.bucketOrder,
+          targetSize
+        )
+        return selected
+      },
+      onTrue: () => Arr.empty<A>()
+    }
   )
 }

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect } from "effect"
+import type { Schema } from "effect"
 
-import type { Direction } from "../../src/contracts/index.js"
+import type { DirectionSchema } from "../../src/contracts/index.js"
 import * as Pareto from "../../src/Pareto/index.js"
 
-const directions = (...values: ReadonlyArray<Direction>): ReadonlyArray<Direction> => Arr.fromIterable(values)
+const directions = (
+  ...values: Schema.Array$<typeof DirectionSchema>["Type"]
+): Schema.Array$<typeof DirectionSchema>["Type"] => Arr.fromIterable(values)
 
 describe("Pareto objective frontier holdings", () => {
   it.effect("tracks maximize-direction holders and ties for each objective", () =>
@@ -31,6 +34,33 @@ describe("Pareto objective frontier holdings", () => {
           objectiveIndex: 2,
           bestValue: 0.6,
           holders: Arr.make(0)
+        })
+      ])
+    }))
+
+  it.effect("does not promote unordered maximize coordinates", () =>
+    Effect.sync(() => {
+      const holdings = Pareto.objectiveFrontierHoldings(
+        Arr.make(Arr.make(1), Arr.make(Number.NaN), Arr.make(0)),
+        directions("maximize")
+      )
+      const unorderedOnly = Pareto.objectiveFrontierHoldings(
+        Arr.make(Arr.make(Number.NaN)),
+        directions("maximize")
+      )
+
+      expect(holdings).toEqual([
+        new Pareto.ObjectiveFrontierHolding({
+          objectiveIndex: 0,
+          bestValue: 1,
+          holders: Arr.make(0)
+        })
+      ])
+      expect(unorderedOnly).toEqual([
+        new Pareto.ObjectiveFrontierHolding({
+          objectiveIndex: 0,
+          bestValue: Number.NEGATIVE_INFINITY,
+          holders: Arr.empty<number>()
         })
       ])
     }))
@@ -62,7 +92,7 @@ describe("Pareto objective frontier holdings", () => {
 
   it.effect("returns an empty holdings vector for an empty point set", () =>
     Effect.sync(() => {
-      expect(Pareto.objectiveFrontierHoldings(Arr.empty<ReadonlyArray<number>>())).toEqual([])
+      expect(Pareto.objectiveFrontierHoldings(Arr.empty<Pareto.ObjectiveVector>())).toEqual([])
     }))
 
   it.effect("derives per-candidate weights from objective frontier holdings", () =>

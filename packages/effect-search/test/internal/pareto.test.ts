@@ -1,11 +1,21 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect } from "effect"
+import type { Schema } from "effect"
 
-import type { Direction } from "../../src/contracts/index.js"
+import type { DirectionSchema } from "../../src/contracts/index.js"
 
-import { dominates, nonDominatedIndices, nonDominatedRanks, nonDominatedSort } from "../../src/internal/pareto.js"
+import {
+  dominates,
+  dominatesNormalized,
+  nonDominatedIndices,
+  nonDominatedRanks,
+  nonDominatedSort,
+  normalizePoint
+} from "../../src/internal/pareto.js"
 
-const makeDirections = (...values: ReadonlyArray<Direction>): ReadonlyArray<Direction> => Arr.fromIterable(values)
+const makeDirections = (
+  ...values: Schema.Array$<typeof DirectionSchema>["Type"]
+): Schema.Array$<typeof DirectionSchema>["Type"] => Arr.fromIterable(values)
 
 const MINIMIZE_DIRECTIONS = makeDirections("minimize", "minimize")
 const MIXED_DIRECTIONS = makeDirections("minimize", "maximize")
@@ -65,5 +75,33 @@ describe("pareto kernel", () => {
       expect(dominates(incumbent, nearTie, MINIMIZE_DIRECTIONS)).toBe(true)
       expect(dominates(incumbent, nearTie, MINIMIZE_DIRECTIONS, 0.1)).toBe(false)
       expect(dominates(incumbent, clearlyDominated, MIXED_DIRECTIONS, 0.1)).toBe(true)
+    }))
+
+  it.effect("treats NaN in either normalized operand as unordered", () =>
+    Effect.sync(() => {
+      const nan = Arr.make(Number.NaN)
+      const finite = Arr.make(1)
+
+      expect(dominatesNormalized(nan, finite)).toBe(false)
+      expect(dominatesNormalized(finite, nan)).toBe(false)
+      expect(dominatesNormalized(nan, finite, 0.1)).toBe(false)
+      expect(dominatesNormalized(finite, nan, 0.1)).toBe(false)
+    }))
+
+  it.effect("does not derive an epsilon improvement from equal infinities", () =>
+    Effect.sync(() => {
+      expect(dominatesNormalized(Arr.make(Number.POSITIVE_INFINITY), Arr.make(Number.POSITIVE_INFINITY), 0.1))
+        .toBe(false)
+      expect(dominatesNormalized(Arr.make(Number.NEGATIVE_INFINITY), Arr.make(Number.NEGATIVE_INFINITY), 0.1))
+        .toBe(false)
+    }))
+
+  it.effect("preserves non-finite normalization before direction conversion", () =>
+    Effect.sync(() => {
+      const point = Arr.make(Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY)
+
+      expect(normalizePoint(point, makeDirections("minimize", "maximize", "minimize"))).toEqual(
+        Arr.make(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY)
+      )
     }))
 })

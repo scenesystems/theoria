@@ -4,21 +4,30 @@
  * @since 0.1.0
  */
 
-import { Array as Arr, HashSet } from "effect"
+import { Array as Arr, Boolean, HashSet, Number as Num } from "effect"
+import type { Schema } from "effect"
 
-import type { Direction } from "../contracts/Direction.js"
+import type { DirectionSchema } from "../contracts/Direction.js"
 import { nonDominatedIndices, objectiveFrontierHoldings } from "./frontier.js"
 import { FrontierSnapshot, ObjectiveFrontierWeight } from "./model.js"
-import type { ObjectiveFrontierHolding, ObjectiveVector } from "./model.js"
+import type { ObjectiveFrontierHolding, ObjectiveVectorSchema } from "./model.js"
 
-const buildIndices = (
-  count: number
-): ReadonlyArray<number> => count <= 0 ? Arr.empty<number>() : Arr.range(0, count - 1)
+type DirectionArray = Schema.Array$<typeof DirectionSchema>["Type"]
+type NumberArray = Schema.Array$<typeof Schema.Number>["Type"]
+type ObjectiveMatrix = Schema.Array$<typeof ObjectiveVectorSchema>["Type"]
+type ObjectiveHoldings = Schema.Array$<typeof ObjectiveFrontierHolding>["Type"]
+type ObjectiveWeights = Schema.Array$<typeof ObjectiveFrontierWeight>["Type"]
+
+const buildIndices = (count: number): NumberArray =>
+  Boolean.match(Num.lessThanOrEqualTo(count, 0), {
+    onFalse: () => Arr.range(0, Num.decrement(count)),
+    onTrue: () => Arr.empty<number>()
+  })
 
 const objectiveWeightsFromHoldings = (
   pointCount: number,
-  holdings: ReadonlyArray<ObjectiveFrontierHolding>
-): ReadonlyArray<ObjectiveFrontierWeight> => {
+  holdings: ObjectiveHoldings
+): ObjectiveWeights => {
   const holderSets = Arr.map(holdings, (h) => HashSet.fromIterable(h.holders))
 
   return Arr.map(buildIndices(pointCount), (candidateIndex) =>
@@ -28,20 +37,21 @@ const objectiveWeightsFromHoldings = (
         holderSets,
         0,
         (total, holderSet) =>
-          HashSet.has(holderSet, candidateIndex)
-            ? total + 1
-            : total
+          Boolean.match(HashSet.has(holderSet, candidateIndex), {
+            onFalse: () => total,
+            onTrue: () => Num.increment(total)
+          })
       )
     }))
 }
 
 const dominatedIndicesFromFrontier = (
   pointCount: number,
-  frontier: ReadonlyArray<number>
-): ReadonlyArray<number> => {
+  frontier: NumberArray
+): NumberArray => {
   const frontierSet = HashSet.fromIterable(frontier)
 
-  return Arr.filter(buildIndices(pointCount), (index) => !HashSet.has(frontierSet, index))
+  return Arr.filter(buildIndices(pointCount), (index) => Boolean.not(HashSet.has(frontierSet, index)))
 }
 
 /**
@@ -55,7 +65,7 @@ const dominatedIndicesFromFrontier = (
  * @since 0.1.0
  * @category frontier
  */
-export const maximizeDirections = (objectiveCount: number): ReadonlyArray<Direction> =>
+export const maximizeDirections = (objectiveCount: number): DirectionArray =>
   Arr.map(buildIndices(objectiveCount), () => "maximize")
 
 /**
@@ -69,13 +79,13 @@ export const maximizeDirections = (objectiveCount: number): ReadonlyArray<Direct
  * @category frontier
  */
 export const dominatedIndices = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  points: ObjectiveMatrix,
+  directions: DirectionArray = Arr.empty(),
   epsilon = 0
-): ReadonlyArray<number> => {
+): NumberArray => {
   const frontier = nonDominatedIndices(points, directions, epsilon)
 
-  return dominatedIndicesFromFrontier(points.length, frontier)
+  return dominatedIndicesFromFrontier(Arr.length(points), frontier)
 }
 
 /**
@@ -89,13 +99,13 @@ export const dominatedIndices = (
  * @category frontier
  */
 export const objectiveFrontierWeights = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  points: ObjectiveMatrix,
+  directions: DirectionArray = Arr.empty(),
   epsilon = 0
-): ReadonlyArray<ObjectiveFrontierWeight> => {
+): ObjectiveWeights => {
   const holdings = objectiveFrontierHoldings(points, directions, epsilon)
 
-  return objectiveWeightsFromHoldings(points.length, holdings)
+  return objectiveWeightsFromHoldings(Arr.length(points), holdings)
 }
 
 /**
@@ -110,8 +120,8 @@ export const objectiveFrontierWeights = (
  * @category frontier
  */
 export const frontierSnapshot = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  points: ObjectiveMatrix,
+  directions: DirectionArray = Arr.empty(),
   epsilon = 0
 ): FrontierSnapshot => {
   const frontierIndices = nonDominatedIndices(points, directions, epsilon)
@@ -119,8 +129,8 @@ export const frontierSnapshot = (
 
   return new FrontierSnapshot({
     frontierIndices,
-    dominatedIndices: dominatedIndicesFromFrontier(points.length, frontierIndices),
+    dominatedIndices: dominatedIndicesFromFrontier(Arr.length(points), frontierIndices),
     objectiveHoldings,
-    holdingWeights: objectiveWeightsFromHoldings(points.length, objectiveHoldings)
+    holdingWeights: objectiveWeightsFromHoldings(Arr.length(points), objectiveHoldings)
   })
 }
