@@ -99,7 +99,7 @@
     },
     "packages/digest": {
       "name": "@scenesystems/digest",
-      "version": "0.5.3",
+      "version": "0.6.0",
       "dependencies": {
         "@noble/hashes": "2.4.0",
       },
@@ -117,11 +117,12 @@
     },
     "packages/effect-dsp": {
       "name": "@scenesystems/effect-dsp",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
+        "@scenesystems/effect-study": "workspace:^",
       },
       "devDependencies": {
         "@scenesystems/effect-inference": "workspace:^",
@@ -158,10 +159,11 @@
     },
     "packages/effect-search": {
       "name": "@scenesystems/effect-search",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-math": "workspace:^",
+        "@scenesystems/effect-study": "workspace:^",
       },
       "devDependencies": {
         "@scenesystems/effect-inference": "workspace:^",
@@ -176,12 +178,24 @@
         "@effect/sql",
       ],
     },
+    "packages/effect-study": {
+      "name": "@scenesystems/effect-study",
+      "version": "0.0.0",
+      "dependencies": {
+        "@scenesystems/digest": "workspace:^",
+      },
+      "peerDependencies": {
+        "@effect/platform": "^0.97.1",
+        "effect": "^3.22.1",
+      },
+    },
     "packages/effect-text": {
       "name": "@scenesystems/effect-text",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "dependencies": {
         "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
+        "@scenesystems/effect-study": "workspace:^",
       },
       "peerDependencies": {
         "effect": "^3.22.1",
@@ -199,7 +213,7 @@
     },
     "packages/sign": {
       "name": "@scenesystems/sign",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "@noble/curves": "2.4.0",
         "@noble/hashes": "2.4.0",
@@ -746,6 +760,8 @@
     "@scenesystems/effect-math": ["@scenesystems/effect-math@workspace:packages/effect-math"],
 
     "@scenesystems/effect-search": ["@scenesystems/effect-search@workspace:packages/effect-search"],
+
+    "@scenesystems/effect-study": ["@scenesystems/effect-study@workspace:packages/effect-study"],
 
     "@scenesystems/effect-text": ["@scenesystems/effect-text@workspace:packages/effect-text"],
 

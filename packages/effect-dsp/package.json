@@ -60,7 +60,8 @@
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
     "@scenesystems/effect-math": "workspace:^",
-    "@scenesystems/effect-search": "workspace:^"
+    "@scenesystems/effect-search": "workspace:^",
+    "@scenesystems/effect-study": "workspace:^"
   },
   "devDependencies": {
     "@scenesystems/effect-inference": "workspace:^"

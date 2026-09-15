@@ -8,6 +8,7 @@
   "references": [
     { "path": "./packages/digest/tsconfig.build.json" },
     { "path": "./packages/docs-model/tsconfig.build.json" },
+    { "path": "./packages/effect-study/tsconfig.build.json" },
     { "path": "./packages/effect-dsp/tsconfig.build.json" },
     { "path": "./packages/effect-math/tsconfig.build.json" },
     { "path": "./packages/effect-search/tsconfig.build.json" },
