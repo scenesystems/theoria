@@ -1,18 +1,22 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Number as N, Schema } from "effect"
+import { Array as Arr, Boolean, Effect, Match, Number as N, Schema } from "effect"
 
+import { abs } from "../../src/Numeric/index.js"
 import { beta, digamma, erf, erfc, gamma, lnGamma } from "../../src/Special/operations.js"
 import { FixtureRegistryLive, loadFixture, SpecialFunctionParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const RELATIVE_TOLERANCE = 1e-7
 const ABSOLUTE_TOLERANCE = 1e-12
-const ERF_ABSOLUTE_TOLERANCE = 2e-7
+const ERF_ABSOLUTE_TOLERANCE = 2e-15
 const DIGAMMA_ABSOLUTE_TOLERANCE = 2e-12
 
 const expectParity = (actual: number, expected: number, absoluteTol: number = ABSOLUTE_TOLERANCE) => {
-  const absExpected = Math.abs(expected)
-  const tolerance = absExpected > 1 ? N.multiply(absExpected, RELATIVE_TOLERANCE) : absoluteTol
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  const absoluteExpected = abs(expected)
+  const tolerance = Boolean.match(N.greaterThan(absoluteExpected, 1), {
+    onFalse: () => absoluteTol,
+    onTrue: () => N.multiply(absoluteExpected, RELATIVE_TOLERANCE)
+  })
+  expect(abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 describe("Special SciPy fixture parity", () => {
