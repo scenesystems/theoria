@@ -4,7 +4,7 @@
  * arrival. Their metric-matched stand-ins are in the generated tokens beneath, from the same contract that
  * names the stacks. */
 @import "@fontsource-variable/figtree";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/geist-mono";
 @import "./text-tokens.generated.css";
 
 @import "./palette-tokens.generated.css";

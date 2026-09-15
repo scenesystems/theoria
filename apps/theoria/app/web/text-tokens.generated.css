@@ -1,6 +1,6 @@
 /* Typography and motion tokens (generated — do not edit; run `bun run gen:text-tokens`) */
 @theme inline {
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono Variable Fallback: Courier New", "JetBrains Mono Variable Fallback: Liberation Mono", "JetBrains Mono Variable Fallback: Roboto Mono", "JetBrains Mono Variable Fallback: Noto Sans Mono", "Courier New", "Liberation Mono", "Roboto Mono", "Noto Sans Mono", monospace;
+  --font-mono: "Geist Mono Variable", "Geist Mono Variable Fallback: Courier New", "Geist Mono Variable Fallback: Liberation Mono", "Geist Mono Variable Fallback: Roboto Mono", "Geist Mono Variable Fallback: Noto Sans Mono", "Courier New", "Liberation Mono", "Roboto Mono", "Noto Sans Mono", monospace;
   --font-body: "Figtree Variable", "Figtree Variable Fallback: Segoe UI", "Figtree Variable Fallback: Helvetica Neue", "Figtree Variable Fallback: Arial", "Figtree Variable Fallback: Liberation Sans", "Figtree Variable Fallback: Roboto", "Figtree Variable Fallback: Noto Sans", "Segoe UI", "Helvetica Neue", Arial, "Liberation Sans", Roboto, "Noto Sans", sans-serif;
   --font-display: "Figtree Variable", "Figtree Variable Fallback: Segoe UI", "Figtree Variable Fallback: Helvetica Neue", "Figtree Variable Fallback: Arial", "Figtree Variable Fallback: Liberation Sans", "Figtree Variable Fallback: Roboto", "Figtree Variable Fallback: Noto Sans", "Segoe UI", "Helvetica Neue", Arial, "Liberation Sans", Roboto, "Noto Sans", sans-serif;
   --st-fs-display: 44px;
@@ -209,31 +209,31 @@
   size-adjust: 94.7257%;
 }
 @font-face {
-  font-family: "JetBrains Mono Variable Fallback: Courier New";
+  font-family: "Geist Mono Variable Fallback: Courier New";
   src: local('Courier New'), local('CourierNewPSMT');
-  ascent-override: 102.0166%;
-  descent-override: 30.0049%;
+  ascent-override: 100.5164%;
+  descent-override: 29.5048%;
   size-adjust: 99.9837%;
 }
 @font-face {
-  font-family: "JetBrains Mono Variable Fallback: Liberation Mono";
+  font-family: "Geist Mono Variable Fallback: Liberation Mono";
   src: local('Liberation Mono'), local('LiberationMono');
-  ascent-override: 102.0166%;
-  descent-override: 30.0049%;
+  ascent-override: 100.5164%;
+  descent-override: 29.5048%;
   size-adjust: 99.9837%;
 }
 @font-face {
-  font-family: "JetBrains Mono Variable Fallback: Roboto Mono";
+  font-family: "Geist Mono Variable Fallback: Roboto Mono";
   src: local('Roboto Mono Regular'), local('RobotoMono-Regular');
-  ascent-override: 102.0166%;
-  descent-override: 30.0049%;
+  ascent-override: 100.5164%;
+  descent-override: 29.5048%;
   size-adjust: 99.9837%;
 }
 @font-face {
-  font-family: "JetBrains Mono Variable Fallback: Noto Sans Mono";
+  font-family: "Geist Mono Variable Fallback: Noto Sans Mono";
   src: local('Noto Sans Mono Regular'), local('NotoSansMono-Regular');
-  ascent-override: 102%;
-  descent-override: 30%;
+  ascent-override: 100.5%;
+  descent-override: 29.5%;
 }
 /* SemanticText candidates, one line per role (generated — do not edit) */
 @source inline("st-display text-(length:--st-fs-display) font-(--st-fw-display) tracking-(--st-tr-display) font-(family-name:--st-ff-display) leading-(--st-lh-display) max-w-(--st-mw-display-compact) max-w-(--st-mw-display-expanded)");

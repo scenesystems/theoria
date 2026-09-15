@@ -193,7 +193,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         /font-family:\s*["']?Figtree Variable Fallback\\?: Arial["']?;\s*src:\s*local\(["']?Arial["']?\)[^}]*ascent-override:/u
       )
       expect(css).toMatch(
-        /font-family:\s*["']?JetBrains Mono Variable Fallback\\?: Courier New["']?;\s*src:\s*local\(["']?Courier New["']?\)[^}]*ascent-override:/u
+        /font-family:\s*["']?Geist Mono Variable Fallback\\?: Courier New["']?;\s*src:\s*local\(["']?Courier New["']?\)[^}]*ascent-override:/u
       )
     }))
 

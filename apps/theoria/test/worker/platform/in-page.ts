@@ -125,6 +125,7 @@ export const surfaceBudget = (root: Element) => {
 export const typefaces = (served: string) => ({
   status: document.fonts.status,
   servedInHand: document.fonts.check(served),
+  loaded: [...document.fonts].filter((face) => face.status === "loaded").map((face) => face.family),
   standIns: [...document.fonts].filter((face) => face.family.includes("Fallback")).map((face) => ({
     family: face.family,
     status: face.status,

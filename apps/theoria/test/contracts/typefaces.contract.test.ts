@@ -20,11 +20,11 @@ describe("Typefaces contract", () => {
     Effect.sync(() => {
       expect(servedFontFamily("body")).toBe("Figtree Variable")
       expect(servedFontFamily("display")).toBe("Figtree Variable")
-      expect(servedFontFamily("mono")).toBe("JetBrains Mono Variable")
+      expect(servedFontFamily("mono")).toBe("Geist Mono Variable")
       expect(fontFamilyCss("body")).toBe(fontFamilyCss("display"))
       expect(Str.startsWith("\"Figtree Variable\", \"Figtree Variable Fallback: ")(fontFamilyCss("body"))).toBe(true)
       expect(Str.endsWith(", sans-serif")(fontFamilyCss("body"))).toBe(true)
-      expect(Str.startsWith("\"JetBrains Mono Variable\", \"JetBrains Mono Variable Fallback: ")(fontFamilyCss("mono")))
+      expect(Str.startsWith("\"Geist Mono Variable\", \"Geist Mono Variable Fallback: ")(fontFamilyCss("mono")))
         .toBe(true)
       expect(Str.endsWith(", monospace")(fontFamilyCss("mono"))).toBe(true)
     }))
@@ -72,21 +72,29 @@ describe("Typefaces contract", () => {
       expect(face).toMatchObject({ value: expect.stringContaining("line-gap-override: 0%") })
     }))
 
-  it.effect("Courier New stands in for JetBrains Mono at the same advance, so code does not rewrap", () =>
+  it.effect("Courier New stands in for Geist Mono at its advance and vertical metrics, so code does not rewrap or shift", () =>
     Effect.sync(() => {
-      // JetBrains Mono: 600/1000 per character; Courier New: 1229/2048 — 0.6001, the same advance.
+      // Geist Mono 1.701: 1000 units/em, 600 advance, 1005 ascent, -295 descent, no line gap.
+      // Courier New: 1229/2048 per character — 0.6001, almost the same advance.
+      const sizeAdjust = (600 / 1000) / (1229 / 2048)
       const face = Arr.findFirst(
         Str.split(typefaceFallbackFaces, "@font-face"),
-        Str.includes("font-family: \"JetBrains Mono Variable Fallback: Courier New\";")
+        Str.includes("font-family: \"Geist Mono Variable Fallback: Courier New\";")
       )
       expect(face).toMatchObject({
-        value: expect.stringContaining(`size-adjust: ${percent((600 / 1000) / (1229 / 2048))}`)
+        value: expect.stringContaining(`size-adjust: ${percent(sizeAdjust)}`)
+      })
+      expect(face).toMatchObject({
+        value: expect.stringContaining(`ascent-override: ${percent(1005 / (1000 * sizeAdjust))}`)
+      })
+      expect(face).toMatchObject({
+        value: expect.stringContaining(`descent-override: ${percent(295 / (1000 * sizeAdjust))}`)
       })
     }))
 
   it.effect("the faces measured before drawing are the served ones at their normal weight", () =>
     Effect.sync(() => {
       expect(measuredFont("body")).toBe("400 16px \"Figtree Variable\"")
-      expect(measuredFont("mono")).toBe("400 16px \"JetBrains Mono Variable\"")
+      expect(measuredFont("mono")).toBe("400 16px \"Geist Mono Variable\"")
     }))
 })

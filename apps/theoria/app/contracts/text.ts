@@ -2,8 +2,8 @@ import { createFontStack } from "@capsizecss/core"
 import arial from "@capsizecss/metrics/arial"
 import courierNew from "@capsizecss/metrics/courierNew"
 import figtree from "@capsizecss/metrics/figtree"
+import geistMono from "@capsizecss/metrics/geistMono"
 import helveticaNeue from "@capsizecss/metrics/helveticaNeue"
-import jetBrainsMono from "@capsizecss/metrics/jetBrainsMono"
 import notoSans from "@capsizecss/metrics/notoSans"
 import notoSansMono from "@capsizecss/metrics/notoSansMono"
 import roboto from "@capsizecss/metrics/roboto"
@@ -58,7 +58,7 @@ const typefaceOf = (family: FontFamily): Typeface =>
 
 const servedFaces = HashMap.make(
   entry("sans", { ...figtree, familyName: "Figtree Variable" }),
-  entry("mono", { ...jetBrainsMono, familyName: "JetBrains Mono Variable" })
+  entry("mono", { ...geistMono, familyName: "Geist Mono Variable" })
 )
 
 /**

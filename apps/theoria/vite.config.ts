@@ -17,7 +17,7 @@ const vitePort = 5175
  * the bundle rather than by hand: the stylesheet's URL and the preload's are
  * the same file, and a version bump moves both.
  */
-const preloadedFaces = ["figtree-latin-wght-normal.woff2", "jetbrains-mono-latin-wght-normal.woff2"]
+const preloadedFaces = ["figtree-latin-wght-normal.woff2", "geist-mono-latin-wght-normal.woff2"]
 
 const isTypeface = Str.endsWith(".woff2")
 

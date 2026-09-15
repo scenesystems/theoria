@@ -20,7 +20,8 @@ import { favicon, Fonts, packageCard, siteCard, solidIcon } from "./social-asset
  *   favicon.ico            16/32/48
  *
  * Requires ImageMagick 7 (`magick`). Fonts ship with the script under
- * `social-assets/fonts` (SIL Open Font License). Run from `apps/theoria`:
+ * `social-assets/fonts` (SIL Open Font License). Geist Mono Medium comes
+ * from the vercel/geist-font v1.7.2 release archive. Run from `apps/theoria`:
  *
  *   bun run gen:social-assets
  */
@@ -55,7 +56,7 @@ const program = Effect.gen(function*() {
   const fonts: Fonts = Fonts.make({
     sans: path.join(fontsRoot, "Figtree-Regular.ttf"),
     sansSemiBold: path.join(fontsRoot, "Figtree-SemiBold.ttf"),
-    mono: path.join(fontsRoot, "JetBrainsMono-Medium.ttf")
+    mono: path.join(fontsRoot, "GeistMono-Medium.ttf")
   })
   const host = yield* Effect.map(Url.fromString(siteMetadata.siteUrl), (url) => url.host)
 

@@ -111,6 +111,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                       weight: "600",
                       color: (yield* act(() => source.evaluate(typographyOf))).color
                     })
+                    expect(yield* act(() => page.locator("main code").first().evaluate(typographyOf))).toMatchObject({
+                      family: expect.stringContaining("Geist Mono Variable"),
+                      size: "12px",
+                      leading: "18px",
+                      tracking: "normal"
+                    })
                     expect(yield* fitsViewport(page)).toBe(true)
                   }))
               }))

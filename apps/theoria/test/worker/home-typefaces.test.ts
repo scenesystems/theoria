@@ -111,6 +111,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           const before = yield* act(() => page.evaluate(typefaces, measuredFont("body")))
           expect(before.status, where).toBe("loading")
           expect(before.servedInHand, where).toBe(false)
+          expect((yield* act(() => page.evaluate(typefaces, measuredFont("mono")))).servedInHand, where).toBe(false)
           expect(before.standIns.length, where).toBeGreaterThanOrEqual(8)
           Arr.forEach(before.standIns, (standIn) => {
             expect(standIn.ascentOverride, `${where}: ${standIn.family}`).not.toBe("normal")
@@ -145,6 +146,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             `${where}: the faces loaded`
           )
           expect(after.servedInHand, where).toBe(true)
+          expect(after.loaded, where).toContain("Geist Mono Variable")
           yield* until(
             paperPhases(page),
             (phases) => landings(phases) >= 2,
