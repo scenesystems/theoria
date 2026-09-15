@@ -17,12 +17,12 @@ import { majorityVote } from "./vote.js"
 const defaultProgramName = (index: number): string =>
   Str.concat("program-", Inspectable.toStringUnknown(Num.increment(index)))
 
-const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
-  programs: EnsembleOptions<I, O, E, R>["programs"]
+const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, MemberE, MemberR>(
+  programs: EnsembleOptions<I, O, MemberE, MemberR>["programs"]
 ): Module.ComposeSubModules =>
   Arr.reduce(
     Arr.map(programs, (program, index) => Data.tuple(defaultProgramName(index), program)),
-    Record.empty<string, DspModule<I, O, E, R>>(),
+    Record.empty<string, DspModule<I, O, MemberE, MemberR>>(),
     (state, [alias, program]) => Record.set(state, alias, program)
   )
 
@@ -32,10 +32,16 @@ const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.St
  * @remarks
  * An empty `programs` array fails with `AllTrialsFailed`. Composition may also
  * fail when program names do not form a valid ownership graph. The selected
- * subset and its order remain fixed for the ensemble's lifetime.
+ * subset and its order remain fixed for the ensemble's lifetime. Selected
+ * member and reducer checked failures and service requirements are combined in
+ * the returned module without recovery or conversion to defects.
  *
  * @typeParam I - Input fields shared by every program.
  * @typeParam O - Output fields expected from every program and the reducer.
+ * @typeParam MemberE - Additional checked failures from selected modules.
+ * @typeParam MemberR - Additional services required by selected modules.
+ * @typeParam ReducerE - Checked failures from the reducer.
+ * @typeParam ReducerR - Services required by the reducer.
  * @param options - Candidate modules, subset controls, identity, and reducer.
  * @returns A composite module using the first program's signature.
  *
@@ -43,9 +49,16 @@ const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.St
  * @since 0.1.0
  * @category constructors
  */
-export const ensemble = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E = never, R = never>(
-  options: EnsembleOptions<I, O, E, R>
-): Effect.Effect<DspModule<I, O, E, R>, DspError> =>
+export const ensemble = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  MemberE = never,
+  MemberR = never,
+  ReducerE = DspError,
+  ReducerR = never
+>(
+  options: EnsembleOptions<I, O, MemberE, MemberR, ReducerE, ReducerR>
+): Effect.Effect<DspModule<I, O, MemberE | ReducerE, MemberR | ReducerR>, DspError> =>
   Effect.gen(function*() {
     const lead = yield* Option.match(Arr.head(options.programs), {
       onNone: () =>
@@ -65,7 +78,7 @@ export const ensemble = <I extends Schema.Struct.Fields, O extends Schema.Struct
       })
     )
 
-    return yield* Module.compose({
+    return yield* Module.compose<I, O, MemberE | ReducerE, MemberR | ReducerR>({
       name: Option.getOrElse(Option.fromNullable(options.name), () => "ensemble"),
       signature: lead.signature,
       subModules: toComposeSubModules(options.programs),

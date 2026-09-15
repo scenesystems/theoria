@@ -1,25 +1,65 @@
 /**
  * Ensemble optimizer contracts.
  */
+import type * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
-import { describe, expect, it } from "@effect/vitest"
+import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { AllTrialsFailed } from "@scenesystems/effect-dsp/Errors"
+import { AllTrialsFailed, type DspError } from "@scenesystems/effect-dsp/Errors"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Effect, Either, Layer, Option, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Cause,
+  Context,
+  Effect,
+  Either,
+  identity,
+  Layer,
+  Match,
+  Option,
+  Record,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
+
+const QaInput = Schema.Struct({
+  question: Signature.describe(Schema.String, "The question to answer")
+})
+
+const QaOutput = Schema.Struct({
+  answer: Signature.describe(Schema.String, "A concise factual answer")
+})
+
+class MemberRejected extends Schema.TaggedError<MemberRejected>()(
+  "MemberRejected",
+  { message: Schema.String }
+) {}
+
+class MemberBehavior extends Context.Tag("effect-dsp/test/ensemble/MemberBehavior")<
+  MemberBehavior,
+  Effect.Effect<typeof QaOutput.Type, MemberRejected>
+>() {}
+
+class ReducerRejected extends Schema.TaggedError<ReducerRejected>()(
+  "ReducerRejected",
+  { message: Schema.String }
+) {}
+
+class ReducerDependency extends Context.Tag("effect-dsp/test/ensemble/ReducerDependency")<
+  ReducerDependency,
+  string
+>() {}
 
 const makeQaSignature = () =>
   Signature.make(
     "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
+    QaInput.fields,
+    QaOutput.fields
   )
 
 const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
@@ -34,7 +74,7 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
       program.params,
       new ModuleParams({
         instructions,
-        demos: [],
+        demos: Arr.empty(),
         outputStrategy: "structured"
       })
     )
@@ -43,6 +83,40 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
   })
 
 describe("Optimizer.ensemble", () => {
+  it.effect("unions member and reducer channels while preserving reducer failure identity", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const program = yield* Module.compose({
+        name: "qa-member-channels",
+        signature,
+        subModules: Record.empty(),
+        forward: () => Effect.flatMap(MemberBehavior, identity)
+      })
+      const failure = new ReducerRejected({ message: "reducer unavailable" })
+      const ensemble = yield* Optimizer.ensemble({
+        programs: Arr.make(program),
+        reduceFn: () => ReducerDependency.pipe(Effect.zipRight(Effect.fail(failure)))
+      })
+      const operation = ensemble.forward({ question: "Reduce this" })
+
+      expectTypeOf<Effect.Effect.Error<typeof operation>>().toEqualTypeOf<
+        AiError.AiError | DspError | MemberRejected | ReducerRejected
+      >()
+      expectTypeOf<Effect.Effect.Context<typeof operation>>().toEqualTypeOf<
+        LanguageModel.LanguageModel | MemberBehavior | ReducerDependency
+      >()
+
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Candidate" }))
+      const observed = yield* operation.pipe(
+        Effect.provideService(MemberBehavior, Effect.succeed(QaOutput.make({ answer: "Candidate" }))),
+        Effect.provideService(ReducerDependency, "available"),
+        Effect.provideService(LanguageModel.LanguageModel, mock.service),
+        Effect.flip
+      )
+
+      expect(Cause.originalError(observed)).toBe(failure)
+    }))
+
   it.effect("uses majorityVote by default", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
@@ -52,16 +126,17 @@ describe("Optimizer.ensemble", () => {
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("Program B")
-            ? { answer: "London" }
-            : { answer: "Paris" }
+          Boolean.match(Str.includes("Program B")(prompt), {
+            onTrue: () => QaOutput.make({ answer: "London" }),
+            onFalse: () => QaOutput.make({ answer: "Paris" })
+          })
         )
       )
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const ensemble = yield* Optimizer.ensemble({
-        programs: [programA, programB, programC]
+        programs: Arr.make(programA, programB, programC)
       })
 
       const result = yield* ensemble.forward({
@@ -82,18 +157,19 @@ describe("Optimizer.ensemble", () => {
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("Program A")
-            ? { answer: "Paris" }
-            : { answer: "Tokyo" }
+          Boolean.match(Str.includes("Program A")(prompt), {
+            onTrue: () => QaOutput.make({ answer: "Paris" }),
+            onFalse: () => QaOutput.make({ answer: "Tokyo" })
+          })
         )
       )
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const ensemble = yield* Optimizer.ensemble({
-        programs: [programA, programB],
+        programs: Arr.make(programA, programB),
         reduceFn: ({ outputs }) =>
-          Option.match(Option.fromNullable(outputs[1]), {
+          Option.match(Arr.get(outputs, 1), {
             onNone: () =>
               Effect.fail(
                 new AllTrialsFailed({
@@ -121,31 +197,24 @@ describe("Optimizer.ensemble", () => {
       const programD = yield* makeProgram("qa-d", signature, "Program D")
 
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.map((prompt) => {
-          if (prompt.includes("Program A")) {
-            return { answer: "A" }
-          }
-
-          if (prompt.includes("Program B")) {
-            return { answer: "B" }
-          }
-
-          if (prompt.includes("Program C")) {
-            return { answer: "C" }
-          }
-
-          return { answer: "D" }
-        })
+        MockLanguageModel.map((prompt) =>
+          Match.value(prompt).pipe(
+            Match.when(Str.includes("Program A"), () => QaOutput.make({ answer: "A" })),
+            Match.when(Str.includes("Program B"), () => QaOutput.make({ answer: "B" })),
+            Match.when(Str.includes("Program C"), () => QaOutput.make({ answer: "C" })),
+            Match.orElse(() => QaOutput.make({ answer: "D" }))
+          )
+        )
       )
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const ensemble = yield* Optimizer.ensemble({
-        programs: [programA, programB, programC, programD],
+        programs: Arr.make(programA, programB, programC, programD),
         size: 2,
         seed: 17,
         reduceFn: ({ outputs }) =>
-          Option.match(Option.fromNullable(outputs[0]), {
+          Option.match(Arr.head(outputs), {
             onNone: () =>
               Effect.fail(
                 new AllTrialsFailed({
@@ -171,6 +240,34 @@ describe("Optimizer.ensemble", () => {
       expect(first).toEqual(second)
     }))
 
+  it.effect("runs one selected program when a positive fractional size rounds below one", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const programA = yield* makeProgram("qa-a", signature, "Program A")
+      const programB = yield* makeProgram("qa-b", signature, "Program B")
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.map((prompt) =>
+          Boolean.match(Str.includes("Program A")(prompt), {
+            onTrue: () => QaOutput.make({ answer: "A" }),
+            onFalse: () => QaOutput.make({ answer: "B" })
+          })
+        )
+      )
+      const ensemble = yield* Optimizer.ensemble({
+        programs: Arr.make(programA, programB),
+        size: 0.5,
+        seed: 1
+      })
+
+      const result = yield* ensemble.forward({
+        question: "Which program was selected?"
+      }).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+      const calls = yield* Ref.get(mock.calls)
+
+      expect(result).toEqual({ answer: "A" })
+      expect(calls).toHaveLength(1)
+    }))
+
   it.effect("breaks majority-vote ties deterministically by first observed output", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
@@ -180,19 +277,24 @@ describe("Optimizer.ensemble", () => {
       const programD = yield* makeProgram("qa-d", signature, "Program D")
 
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.map((prompt) => {
-          if (prompt.includes("Program A") || prompt.includes("Program D")) {
-            return { answer: "Paris" }
-          }
-
-          return { answer: "London" }
-        })
+        MockLanguageModel.map((prompt) =>
+          Boolean.match(
+            Boolean.or(
+              Str.includes("Program A")(prompt),
+              Str.includes("Program D")(prompt)
+            ),
+            {
+              onTrue: () => QaOutput.make({ answer: "Paris" }),
+              onFalse: () => QaOutput.make({ answer: "London" })
+            }
+          )
+        )
       )
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const ensemble = yield* Optimizer.ensemble({
-        programs: [programA, programB, programC, programD]
+        programs: Arr.make(programA, programB, programC, programD)
       })
 
       const result = yield* ensemble.forward({
@@ -209,7 +311,7 @@ describe("Optimizer.ensemble", () => {
       const failing = yield* Module.compose({
         name: "qa-failure",
         signature,
-        subModules: {},
+        subModules: Record.empty(),
         forward: () =>
           Effect.fail(
             new AllTrialsFailed({
@@ -223,7 +325,7 @@ describe("Optimizer.ensemble", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
       const ensemble = yield* Optimizer.ensemble({
-        programs: [successful, failing]
+        programs: Arr.make(successful, failing)
       })
 
       const result = yield* Effect.either(
@@ -247,20 +349,16 @@ describe("Optimizer.ensemble", () => {
       const signature = yield* makeQaSignature()
       const result = yield* Effect.either(
         Optimizer.ensemble({
-          programs: [],
-          name: `ensemble-${signature.description}`
+          programs: Arr.empty(),
+          name: Str.concat("ensemble-", signature.description)
         })
       )
 
-      expect(Either.isLeft(result)).toBe(true)
-
-      if (Either.isLeft(result)) {
-        expect(result.left).toEqual(
-          new AllTrialsFailed({
-            message: "Optimizer.ensemble requires at least one program",
-            trialCount: 0
-          })
-        )
-      }
+      expect(result).toEqual(Either.left(
+        new AllTrialsFailed({
+          message: "Optimizer.ensemble requires at least one program",
+          trialCount: 0
+        })
+      ))
     }))
 })

@@ -1,15 +1,48 @@
 /**
  * Module.bestOfN contracts.
  */
+import type * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
-import { describe, expect, it } from "@effect/vitest"
-import { MetricResult, RolloutCount } from "@scenesystems/effect-dsp/contracts"
+import { describe, expect, expectTypeOf, it } from "@effect/vitest"
+import {
+  MetricResult,
+  moduleGraphLineage,
+  ModuleId,
+  RolloutCount,
+  withModuleParamsInstructions
+} from "@scenesystems/effect-dsp/contracts"
+import type { DspError } from "@scenesystems/effect-dsp/Errors"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Equal, FiberRef, Layer, Match, Option, Ref, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Cause,
+  Context,
+  Effect,
+  Equal,
+  FiberRef,
+  identity,
+  Layer,
+  Match,
+  Option,
+  Record,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 import { RolloutRef } from "../../src/Cache/refs.js"
+
+class RewardRejected extends Schema.TaggedError<RewardRejected>()(
+  "RewardRejected",
+  { message: Schema.String }
+) {}
+
+class RewardBehavior extends Context.Tag("effect-dsp/test/bestOfN/RewardBehavior")<
+  RewardBehavior,
+  Effect.Effect<MetricResult, RewardRejected>
+>() {}
 
 const QaInput = Schema.Struct({
   question: Signature.describe(Schema.String, "The question to answer")
@@ -27,6 +60,117 @@ const makeQaSignature = () =>
   )
 
 describe("Module.bestOfN", () => {
+  it.effect("discovers the executed wrapper, inner composition, and descendant", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const predictor = yield* Module.predict("best-discovery-predictor", signature)
+      const inner = yield* Module.compose({
+        name: "best-discovery-pipeline",
+        signature,
+        subModules: Record.singleton("predictor", predictor),
+        forward: ({ input }) => predictor.forward(input)
+      })
+      const wrapper = yield* Module.bestOfN({
+        name: "best-discovery-wrapper",
+        module: inner,
+        N: RolloutCount.make(1),
+        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+      })
+      const wrapperId = yield* Schema.decodeUnknown(ModuleId)(wrapper.name)
+      const innerId = yield* Schema.decodeUnknown(ModuleId)(inner.name)
+      const predictorId = yield* Schema.decodeUnknown(ModuleId)(predictor.name)
+      const model = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Observed" }))
+
+      const graph = yield* Module.discoverModuleGraph(
+        wrapperId,
+        wrapper.forward({ question: "Discover this execution" }).pipe(
+          Effect.provideService(LanguageModel.LanguageModel, model.service)
+        )
+      )
+      const lineage = yield* moduleGraphLineage(graph, predictorId)
+
+      expect(lineage.path).toEqual(Arr.make(wrapperId, innerId, predictorId))
+      expect(yield* Ref.get(model.calls)).toHaveLength(1)
+    }))
+
+  it.effect("restores the live inner parameter graph before executing a loaded wrapper", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const predictor = yield* Module.predict("predictor", signature)
+      yield* Ref.update(predictor.params, (params) => withModuleParamsInstructions(params, "Answer saved-city"))
+      const inner = yield* Module.compose({
+        name: "pipeline",
+        signature,
+        subModules: Record.singleton("predictor", predictor),
+        forward: ({ input }) => predictor.forward(input)
+      })
+      const wrapper = yield* Module.bestOfN({
+        name: "best-pipeline",
+        module: inner,
+        N: RolloutCount.make(1),
+        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+      })
+      const saved = yield* Module.save(wrapper)
+      const original = yield* Ref.get(inner.params)
+      yield* Ref.update(inner.params, (params) => withModuleParamsInstructions(params, "Changed pipeline"))
+      yield* Ref.update(predictor.params, (params) => withModuleParamsInstructions(params, "Answer changed-city"))
+      yield* Module.load(wrapper, saved)
+      const model = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({
+        answer: Match.value(Str.includes("Answer saved-city")(prompt)).pipe(
+          Match.when(true, () => "saved-city"),
+          Match.orElse(() => "changed-city")
+        )
+      })))
+      const result = yield* wrapper.forward({ question: "Which city?" }).pipe(
+        Effect.provideService(LanguageModel.LanguageModel, model.service)
+      )
+      expect(result.answer).toBe("saved-city")
+      expect(yield* Ref.get(inner.params)).toEqual(original)
+    }))
+
+  it.effect("rejects a wrapper identity that collides with the inner owner", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const inner = yield* Module.predict("same-owner", signature)
+      const error = yield* Module.bestOfN({
+        name: "same-owner",
+        module: inner,
+        N: RolloutCount.make(1),
+        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+      }).pipe(Effect.flip)
+      expect(error._tag).toBe("CompositionError")
+    }))
+
+  it.effect("preserves a reward service requirement and checked failure identity", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Candidate" }))
+      const inner = yield* Module.predict("qa-reward-channels", qa)
+      const failure = new RewardRejected({ message: "reward unavailable" })
+      const bestOf = yield* Module.bestOfN({
+        name: "qa-best-of-reward-channels",
+        module: inner,
+        N: RolloutCount.make(1),
+        reward: () => Effect.flatMap(RewardBehavior, identity)
+      })
+      const operation = bestOf.forward({ question: "Score this" })
+
+      expectTypeOf<Effect.Effect.Error<typeof operation>>().toEqualTypeOf<
+        AiError.AiError | DspError | RewardRejected
+      >()
+      expectTypeOf<Effect.Effect.Context<typeof operation>>().toEqualTypeOf<
+        LanguageModel.LanguageModel | RewardBehavior
+      >()
+
+      const observed = yield* operation.pipe(
+        Effect.provideService(RewardBehavior, Effect.fail(failure)),
+        Effect.provideService(LanguageModel.LanguageModel, mock.service),
+        Effect.flip
+      )
+
+      expect(Cause.originalError(observed)).toBe(failure)
+    }))
+
   it.effect("returns the highest-scoring candidate across N rollouts", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()

@@ -39,12 +39,14 @@ const appendFeedback = (
 export const makeRefineForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
-  E,
-  R
+  ModuleE,
+  ModuleR,
+  RewardE,
+  RewardR
 >(
-  options: RefineOptions<I, O, E, R>,
+  options: RefineOptions<I, O, ModuleE, ModuleR, RewardE, RewardR>,
   forwardLock: Effect.Semaphore
-): Module<I, O, E, R>["forward"] => {
+): Module<I, O, ModuleE | RewardE, ModuleR | RewardR>["forward"] => {
   type Output = Schema.Schema.Type<Schema.Struct<O>>
 
   const encodeNumber = (value: number) =>
