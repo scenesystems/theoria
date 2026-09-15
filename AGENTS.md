@@ -71,7 +71,7 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, tooling, and configuration logic alike. Framework-required configuration syntax does not exempt computation or orchestration from native Effect composition. Use `it.effect()` in tests.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
@@ -90,14 +90,14 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError`                                                                                                                               |
 | `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                     |
 | `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                            |
-| `for`, `while`, `do...while`                                      | `Arr.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                            |
+| `for`, `while`, `do...while`                                      | `Array.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                          |
 | `switch`                                                          | `Match` from effect                                                                                                                                                      |
 | `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                                                        |
 | `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                                                          |
 | `as` assertions, `satisfies`                                      | `Schema.decodeUnknown`, `Schema.is`                                                                                                                                      |
 | `JSON.parse/stringify`                                            | `Schema.decode` / `Schema.encode`                                                                                                                                        |
 | `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                              |
-| `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                           |
+| `Array.push`                                                      | `Array.append` / `Array.appendAll`                                                                                                                                       |
 | `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
 | `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                   |
 | TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                       |
