@@ -4,12 +4,13 @@ import {
   Headers,
   HttpClient,
   HttpClientRequest,
-  type HttpMethod,
+  HttpMethod,
   Path,
   Url
 } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import {
+  BigDecimal,
   Chunk,
   Config,
   type ConfigError,
@@ -17,6 +18,7 @@ import {
   Data,
   DateTime,
   Effect,
+  Inspectable,
   Layer,
   Match,
   Option,
@@ -27,6 +29,8 @@ import {
   Struct
 } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+import * as Record from "effect/Record"
 import * as Str from "effect/String"
 import {
   convertV4MiniflareOptions,
@@ -68,12 +72,14 @@ export const productionHost = "https://theoria.scenesystems.io"
 export const stagingHost = "https://theoria.staging.scenesystems.io"
 export const previewHost = "https://theoria-pr-7.staging.scenesystems.io"
 
+const SiteHttpMethod = Schema.declare(HttpMethod.isHttpMethod)
+
 /** Request shape the tests need. */
-export class SiteRequest extends Data.Class<{
-  readonly method?: HttpMethod.HttpMethod
-  readonly headers?: Record<string, string>
-  readonly body?: string
-}> {}
+export class SiteRequest extends Schema.Class<SiteRequest>("test/worker/SiteRequest")({
+  method: Schema.optionalWith(SiteHttpMethod, { exact: true }),
+  headers: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { exact: true }),
+  body: Schema.optionalWith(Schema.String, { exact: true })
+}) {}
 
 /** Response shape the tests read: the status, the headers, and the body read once as text or JSON. */
 export class SiteResponse extends Data.Class<{
@@ -89,15 +95,17 @@ export class SiteError extends Data.TaggedError("test/worker/SiteError")<{
   readonly cause: unknown
 }> {}
 
-/** Runs one harness call. */
-const harness = <A>(run: () => Promise<A>): Effect.Effect<A, SiteError> =>
-  Effect.tryPromise({
-    try: run,
-    catch: (cause) => new SiteError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
+const operationalError = (cause: unknown) =>
+  new SiteError({
+    message: Match.value(cause).pipe(
+      Match.when(Predicate.isError, (error) => error.message),
+      Match.orElse(Inspectable.toStringUnknown)
+    ),
+    cause
   })
 
-const operationalError = (cause: unknown) =>
-  new SiteError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
+const SiteLogLines = Schema.Array(Schema.String)
+type SiteLogLines = typeof SiteLogLines.Type
 
 export class Site extends Context.Tag("test/worker/Site")<Site, {
   /** Origin of the site, without a trailing slash. */
@@ -116,7 +124,7 @@ export class Site extends Context.Tag("test/worker/Site")<Site, {
    * is Cloudflare's to set and a client that sends it is refused (error
    * 1000), so a deployment's visitors are all one address: this machine's.
    */
-  readonly visitorHeaders: (visitor: number) => Readonly<Record<string, string>>
+  readonly visitorHeaders: (visitor: number) => Record.ReadonlyRecord<string, string>
   /**
    * What the Workers runtime has logged since the server started, oldest
    * first, each line stamped and levelled — the Worker's own logs and the
@@ -124,7 +132,7 @@ export class Site extends Context.Tag("test/worker/Site")<Site, {
    * exception in the Worker. For a failure report; nothing is cleared. A
    * deployment's logs are not readable from outside it, so they are empty.
    */
-  readonly logs: Effect.Effect<ReadonlyArray<string>>
+  readonly logs: Effect.Effect<SiteLogLines>
 }>() {}
 
 export const text = (response: SiteResponse) => response.text
@@ -145,7 +153,17 @@ const respond = (status: number, headers: Headers.Headers, body: string) =>
 
 /** Visitor addresses are drawn from TEST-NET-3 (203.0.113.0/24) and the documentation nets above it. */
 const visitorAddress = (visitor: number): string =>
-  `203.0.${String(113 + Math.floor(visitor / 256))}.${String(visitor % 256)}`
+  Arr.join(
+    Arr.make(
+      "203",
+      "0",
+      Schema.encodeSync(Schema.NumberFromString)(
+        Num.sum(113, BigDecimal.unsafeToNumber(BigDecimal.floor(BigDecimal.fromNumber(Num.unsafeDivide(visitor, 256)))))
+      ),
+      Schema.encodeSync(Schema.NumberFromString)(Num.remainder(visitor, 256))
+    ),
+    "."
+  )
 
 /** A `<script type="module" src="/assets/…js">` in the shell: the first content-hashed script the shell loads. */
 const shellScript = /<script type="module"[^>]* src="(\/assets\/[^"]+\.js)"/
@@ -175,15 +193,24 @@ const describeSite = (serve: SiteService["fetch"]) =>
 
 const missingBuild = (file: string) =>
   Effect.dieMessage(
-    `${file} is missing. The Worker tests run the deployable bundle; build it first with ` +
-      "`bun run build:web && bun run deploy:dry-run` in apps/theoria."
+    Arr.join(
+      Arr.make(
+        file,
+        " is missing. The Worker tests run the deployable bundle; build it first with ",
+        "`bun run build:web && bun run deploy:dry-run` in apps/theoria."
+      ),
+      Str.empty
+    )
   )
 
 const requireFile = (file: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const exists = yield* fileSystem.exists(file).pipe(Effect.mapError(operationalError))
-    return yield* exists ? Effect.void : missingBuild(file)
+    return yield* Effect.if(exists, {
+      onTrue: () => Effect.void,
+      onFalse: () => missingBuild(file)
+    })
   })
 
 /** The entry module `wrangler deploy --dry-run --outdir` writes; every other module is named relative to it. */
@@ -196,7 +223,10 @@ const workerEntry = "worker.js"
  * text; the source map and README are not modules.
  */
 const bundleModule = (path: Path.Path, workerDir: string) => (file: string): Option.Option<V4ModuleDefinition> =>
-  Match.value(file === workerEntry ? "entry" : path.extname(file)).pipe(
+  Match.value(file).pipe(
+    Match.when(workerEntry, () => "entry"),
+    Match.orElse(path.extname),
+    Match.value,
     Match.withReturnType<Option.Option<V4ModuleDefinition["type"]>>(),
     Match.when("entry", () => Option.some("ESModule")),
     Match.when(".wasm", () => Option.some("CompiledWasm")),
@@ -212,7 +242,7 @@ const bundleModules = (workerDir: string) =>
     const path = yield* Path.Path
     const fileSystem = yield* FileSystem.FileSystem
     const files = yield* fileSystem.readDirectory(workerDir).pipe(Effect.mapError(operationalError))
-    const [entry, others] = Arr.partition(Arr.sort(files, Str.Order), (file) => file !== workerEntry)
+    const [others, entry] = Arr.partition(Arr.sort(files, Str.Order), (file) => Str.Equivalence(file, workerEntry))
     return Arr.filterMap(Arr.appendAll(entry, others), bundleModule(path, workerDir))
   })
 
@@ -250,42 +280,56 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
     const arriving = yield* Queue.unbounded<WorkerdStructuredLog>()
     const recorded = yield* Ref.make(Chunk.empty<string>())
     const runtime = yield* Effect.acquireRelease(
-      Effect.sync(() =>
-        new Miniflare(convertV4MiniflareOptions({
-          log: new NoOpLog(),
-          logRequests: false,
-          handleStructuredLogs: (log) => {
-            Queue.unsafeOffer(arriving, log)
-          },
-          workers: [
-            {
+      Effect.try({
+        try: () =>
+          new Miniflare(convertV4MiniflareOptions({
+            log: new NoOpLog(),
+            logRequests: false,
+            handleStructuredLogs: (log) => {
+              Queue.unsafeOffer(arriving, log)
+            },
+            workers: Arr.prepend(externalWorkers, {
               ...Struct.omit(workerOptions, "modulesRules"),
               modulesRoot: workerDir,
               modules,
               bindings: {
-                ...Option.getOrElse(Option.fromNullable(workerOptions.bindings), () => ({})),
+                ...Option.getOrElse(Option.fromNullable(workerOptions.bindings), Record.empty),
                 BUILD_SHA: buildSha,
                 GA_MEASUREMENT_ID: testMeasurementId,
                 CF_WEB_ANALYTICS_TOKEN: testBeaconToken
               }
-            },
-            ...externalWorkers
-          ]
-        }))
-      ),
-      (running) => Effect.orDie(harness(() => running.dispose()))
+            })
+          })),
+        catch: operationalError
+      }),
+      (running) =>
+        Effect.tryPromise({
+          try: () => running.dispose(),
+          catch: operationalError
+        }).pipe(Effect.orDie)
     )
-    const listening = yield* harness(() => runtime.ready)
+    const listening = yield* Effect.tryPromise({
+      try: () => runtime.ready,
+      catch: operationalError
+    })
 
     // Miniflare dispatches to the runtime whatever host the URL names, and
     // the Worker sees that host — so absolute URLs still choose the hostname.
     const fetch: SiteService["fetch"] = (input, init) =>
       Url.fromString(input, listening).pipe(
         Effect.mapError(operationalError),
-        Effect.flatMap((target) => harness(() => runtime.dispatchFetch(target, init))),
+        Effect.flatMap((target) =>
+          Effect.tryPromise({
+            try: () => runtime.dispatchFetch(target, init),
+            catch: operationalError
+          })
+        ),
         Effect.flatMap((response) =>
           Effect.map(
-            harness(() => response.text()),
+            Effect.tryPromise({
+              try: () => response.text(),
+              catch: operationalError
+            }),
             (body) => respond(response.status, Headers.fromInput(response.headers), body)
           )
         )
@@ -297,12 +341,16 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
       fetch,
       manifest,
       hashedScript,
-      visitorHeaders: (visitor) => ({ "cf-connecting-ip": visitorAddress(visitor) }),
+      visitorHeaders: (visitor) => Record.singleton("cf-connecting-ip", visitorAddress(visitor)),
       logs: Effect.gen(function*() {
         const fresh = yield* Queue.takeAll(arriving)
         const lines = Chunk.map(
           fresh,
-          (log) => `${DateTime.formatIso(DateTime.unsafeMake(log.timestamp))} ${log.level}: ${log.message}`
+          (log) =>
+            Arr.join(
+              Arr.make(DateTime.formatIso(DateTime.unsafeMake(log.timestamp)), " ", log.level, ": ", log.message),
+              Str.empty
+            )
         )
         return Chunk.toReadonlyArray(yield* Ref.updateAndGet(recorded, Chunk.appendAll(lines)))
       })
@@ -320,7 +368,9 @@ export const SiteRemote: Layer.Layer<Site, SiteError | ConfigError.ConfigError> 
     const fetch: SiteService["fetch"] = (input, init = new SiteRequest({})) =>
       Effect.gen(function*() {
         const target = yield* Url.fromString(input, origin)
-        const request = HttpClientRequest.make(init.method ?? "GET")(target, { headers: init.headers })
+        const request = HttpClientRequest.make(
+          Option.getOrElse(Option.fromNullable(init.method), () => "GET")
+        )(target, { headers: init.headers })
         const response = yield* client.execute(
           Option.match(Option.fromNullable(init.body), {
             onNone: () => request,
@@ -337,8 +387,8 @@ export const SiteRemote: Layer.Layer<Site, SiteError | ConfigError.ConfigError> 
       fetch,
       manifest,
       hashedScript,
-      visitorHeaders: () => ({}),
-      logs: Effect.succeed([])
+      visitorHeaders: Record.empty,
+      logs: Effect.succeed(Arr.empty<string>())
     })
   })
 ).pipe(Layer.provide(FetchHttpClient.layer))

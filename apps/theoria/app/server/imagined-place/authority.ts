@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from "effect"
+import { Context, Effect, Inspectable, Layer, Schema, String as Str } from "effect"
 
 import { digestBytesHex, digestSchemaValue } from "@scenesystems/digest"
 import {
@@ -51,7 +51,8 @@ export const ParticipantsLive = Layer.effect(
   Effect.all({ author: participantKeys, neighbor: participantKeys, program: participantKeys })
 )
 
-const identityError = (cause: unknown) => new PlaceBuildError({ stage: "identity", message: String(cause) })
+const identityError = (cause: unknown) =>
+  new PlaceBuildError({ stage: "identity", message: Inspectable.toStringUnknown(cause) })
 
 /**
  * Content identity is a BLAKE3 digest of the canonical encoding of a value.
@@ -65,7 +66,7 @@ export const proposalId = (proposal: Proposal): Effect.Effect<string, PlaceBuild
   digestSchemaValue(ProposalSchema, proposal, "blake3-256").pipe(Effect.mapError(identityError))
 
 export const fingerprint = (publicKey: Uint8Array): Effect.Effect<string> =>
-  Effect.map(digestBytesHex("blake3-256", publicKey), (hex) => hex.slice(0, 16))
+  Effect.map(digestBytesHex("blake3-256", publicKey), Str.takeLeft(16))
 
 /**
  * Signs a content ID with the participant's session key, then verifies it
@@ -91,4 +92,6 @@ export const signAs = (
       valid
     }
     return record
-  }).pipe(Effect.mapError((cause) => new PlaceBuildError({ stage: "signature", message: String(cause) })))
+  }).pipe(
+    Effect.mapError((cause) => new PlaceBuildError({ stage: "signature", message: Inspectable.toStringUnknown(cause) }))
+  )
