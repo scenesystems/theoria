@@ -4,12 +4,15 @@
  * @internal
  * @since 0.2.0
  */
-import { Option } from "effect"
+import type { SearchSpace } from "@scenesystems/effect-search"
+import { Array as Arr, Option } from "effect"
 
 import type { EngineProfileType } from "../../../Text/schema.js"
 import type {
   CalibrationBooleanDimensionType,
+  CalibrationBooleansType,
   CalibrationDirectionDimensionType,
+  CalibrationDirectionsType,
   CalibrationFloatDimensionType,
   CalibrationIntDimensionType,
   CalibrationObjectiveMetadataType,
@@ -17,12 +20,8 @@ import type {
   CalibrationSearchDescriptorType
 } from "../schema.js"
 
-const choiceTuple = <Choice>(
-  values: readonly [Choice, ...ReadonlyArray<Choice>]
-): readonly [Choice, ...Array<Choice>] => {
-  const [head, ...tail] = values
-  return [head, ...tail]
-}
+const LTR_DIRECTION: EngineProfileType["defaultDirection"] = "ltr"
+const RTL_DIRECTION: EngineProfileType["defaultDirection"] = "rtl"
 
 /**
  * Explicit default score policy for experimental calibration studies.
@@ -62,13 +61,13 @@ export const defaultSearchDescriptor: CalibrationSearchDescriptorType = {
     step: 1
   },
   defaultDirection: {
-    values: ["ltr", "rtl"]
+    values: Arr.make(LTR_DIRECTION, RTL_DIRECTION)
   },
   preferEarlySoftHyphenBreak: {
-    values: [false, true]
+    values: Arr.make(false, true)
   },
   preferPrefixWidthsForBreakableRuns: {
-    values: [true, false]
+    values: Arr.make(true, false)
   }
 }
 
@@ -89,7 +88,7 @@ export const calibrationProfile = (name: string, engineProfile: EngineProfileTyp
  * @since 0.1.0
  * @category internals
  */
-export const floatOptions = (dimension: CalibrationFloatDimensionType): { readonly step?: number } =>
+export const floatOptions = (dimension: CalibrationFloatDimensionType): SearchSpace.FloatOptions =>
   Option.fromNullable(dimension.step).pipe(
     Option.match({
       onNone: () => ({}),
@@ -103,7 +102,7 @@ export const floatOptions = (dimension: CalibrationFloatDimensionType): { readon
  * @since 0.1.0
  * @category internals
  */
-export const intOptions = (dimension: CalibrationIntDimensionType): { readonly step?: number } =>
+export const intOptions = (dimension: CalibrationIntDimensionType): SearchSpace.IntOptions =>
   Option.fromNullable(dimension.step).pipe(
     Option.match({
       onNone: () => ({}),
@@ -120,8 +119,7 @@ export const intOptions = (dimension: CalibrationIntDimensionType): { readonly s
  */
 export const directionChoices = (
   dimension: CalibrationDirectionDimensionType
-): readonly [EngineProfileType["defaultDirection"], ...Array<EngineProfileType["defaultDirection"]>] =>
-  choiceTuple(dimension.values)
+): CalibrationDirectionsType => dimension.values
 
 /**
  * Unwrap a categorical boolean-dimension into the choices consumed by
@@ -132,4 +130,4 @@ export const directionChoices = (
  */
 export const booleanChoices = (
   dimension: CalibrationBooleanDimensionType
-): readonly [boolean, ...Array<boolean>] => choiceTuple(dimension.values)
+): CalibrationBooleansType => dimension.values

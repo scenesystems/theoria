@@ -3,12 +3,13 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts as SearchContracts, Sampler, Study } from "@scenesystems/effect-search"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Number as Num, Option, Schema } from "effect"
 
 import { Experimental } from "../../src/index.js"
 import {
   calibrationServices,
   canonicalCalibrationCases,
+  defaultCalibrationProfile,
   defaultSearchDescriptor,
   exploratorySearchDescriptor
 } from "./fixtures.js"
@@ -18,40 +19,112 @@ const manualScore = (
   objective: Experimental.Calibration.CalibrationObjectiveMetadataType
 ): number =>
   Numeric.sum(
-    report.results.map((result) =>
-      Numeric.sum([
-        result.lineMismatchCount * objective.scoreWeights.lineMismatchCount,
-        Numeric.abs(result.lineCountDelta) * objective.scoreWeights.lineCountError,
-        Numeric.abs(result.maxLineWidthDelta) * objective.scoreWeights.maxLineWidthError
-      ])
-    )
+    Arr.map(report.results, (result) =>
+      Numeric.sum(Arr.make(
+        Num.multiply(result.lineMismatchCount, objective.scoreWeights.lineMismatchCount),
+        Num.multiply(Numeric.abs(result.lineCountDelta), objective.scoreWeights.lineCountError),
+        Num.multiply(Numeric.abs(result.maxLineWidthDelta), objective.scoreWeights.maxLineWidthError)
+      )))
   )
 
-const makeEnvelopeContextLayer = (options: {
-  readonly runIdText: string
-  readonly studyId: string
-}) =>
+const makeEnvelopeContextLayer = (runIdText: string, studyId: string) =>
   Effect.gen(function*() {
     const packageVersion = yield* Schema.decode(SearchContracts.PackageVersion)("0.2.0")
-    const runId = yield* Schema.decode(SearchContracts.RunId)(options.runIdText)
+    const runId = yield* Schema.decode(SearchContracts.RunId)(runIdText)
 
     return SearchContracts.EnvelopeContextLive({
       packageVersion,
       runId,
-      studyId: options.studyId
+      studyId
     })
   }).pipe(Layer.unwrapEffect)
 
-const makeStudyStorage = (options: {
-  readonly directory: string
-  readonly runIdText: string
-  readonly studyId: string
-}) =>
-  Study.makeStudyStorage(Study.studyStorageOptions(options.directory)).pipe(
-    Effect.provide(Layer.merge(SearchContracts.fileSystemSink(options.directory), makeEnvelopeContextLayer(options)))
+const makeStudyStorage = (directory: string, runIdText: string, studyId: string) =>
+  Study.makeStudyStorage(Study.studyStorageOptions(directory)).pipe(
+    Effect.provide(Layer.merge(SearchContracts.fileSystemSink(directory), makeEnvelopeContextLayer(runIdText, studyId)))
   )
 
 describe("Experimental.Calibration reporting contracts", () => {
+  it.effect("an explicitly empty expected layout matches empty text without a phantom line mismatch", () =>
+    Effect.gen(function*() {
+      const report = yield* Experimental.Calibration.evaluateProfile(
+        defaultCalibrationProfile,
+        Arr.of({
+          name: "empty-layout",
+          prepare: { text: "", font: { family: "Mono", size: 10 }, whiteSpace: "normal" },
+          layout: { maxWidth: 20, lineHeight: 12 },
+          expected: { lineCount: 0, maxLineWidth: 0, lines: Arr.empty() }
+        })
+      ).pipe(Effect.provide(calibrationServices))
+
+      expect(report.matchedCaseCount).toBe(1)
+      expect(report.totalLineMismatchCount).toBe(0)
+      expect(Arr.map(report.results, (result) => result.actualLines)).toEqual(Arr.of(Arr.empty()))
+    }))
+
+  it.effect("evaluation retains asymmetric signed deltas and distinguishes absent from empty expected lines", () =>
+    Effect.gen(function*() {
+      const calibrationCase = yield* Arr.get(canonicalCalibrationCases, 0).pipe(
+        Option.match({
+          onNone: () => Effect.fail("CanonicalCalibrationCaseMissing"),
+          onSome: Effect.succeed
+        })
+      )
+      const report = yield* Experimental.Calibration.evaluateProfile(
+        {
+          name: "signed-error-boundaries",
+          engineProfile: {
+            lineFitEpsilon: 0.005,
+            tabWidth: 4,
+            defaultDirection: "ltr",
+            preferEarlySoftHyphenBreak: false,
+            preferPrefixWidthsForBreakableRuns: true
+          }
+        },
+        Arr.make(
+          {
+            ...calibrationCase,
+            name: "negative-deltas-without-line-expectations",
+            expected: {
+              lineCount: Num.increment(calibrationCase.expected.lineCount),
+              maxLineWidth: Num.sum(calibrationCase.expected.maxLineWidth, 1)
+            }
+          },
+          {
+            ...calibrationCase,
+            name: "positive-deltas-with-empty-line-expectations",
+            expected: {
+              lineCount: Num.decrement(calibrationCase.expected.lineCount),
+              maxLineWidth: Num.subtract(calibrationCase.expected.maxLineWidth, 1),
+              lines: Arr.empty()
+            }
+          }
+        )
+      ).pipe(Effect.provide(calibrationServices))
+
+      expect(
+        Arr.map(report.results, (result) => ({
+          lineCountDelta: result.lineCountDelta,
+          maxLineWidthDelta: result.maxLineWidthDelta,
+          lineMismatchCount: result.lineMismatchCount,
+          matched: result.matched
+        }))
+      ).toEqual(Arr.make(
+        {
+          lineCountDelta: Num.negate(1),
+          maxLineWidthDelta: Num.negate(1),
+          lineMismatchCount: 0,
+          matched: false
+        },
+        {
+          lineCountDelta: 1,
+          maxLineWidthDelta: 1,
+          lineMismatchCount: 1,
+          matched: false
+        }
+      ))
+    }))
+
   it.effect("optimizeProfile emits a StudySnapshot and ordered StudyEvent log", () =>
     Effect.gen(function*() {
       const optimized = yield* Experimental.Calibration.optimizeProfile({
@@ -63,8 +136,12 @@ describe("Experimental.Calibration reporting contracts", () => {
       })
 
       expect(Schema.is(Experimental.Calibration.CalibrationStudyArtifacts)(optimized.optimization.artifacts)).toBe(true)
-      expect(optimized.optimization.artifacts.eventLog[0]?._tag).toBe("TrialStarted")
-      expect(optimized.optimization.artifacts.eventLog.at(-1)?._tag).toBe("StudyCompleted")
+      expect(
+        Arr.head(optimized.optimization.artifacts.eventLog).pipe(Option.map((event) => event._tag))
+      ).toEqual(Option.some("TrialStarted"))
+      expect(
+        Arr.last(optimized.optimization.artifacts.eventLog).pipe(Option.map((event) => event._tag))
+      ).toEqual(Option.some("StudyCompleted"))
       expect(optimized.optimization.artifacts.snapshot.completedCount).toBe(2)
     }))
 
@@ -95,58 +172,65 @@ describe("Experimental.Calibration reporting contracts", () => {
 
       expect(resumed.bestProfile).toEqual(baseline.bestProfile)
       expect(resumed.optimization.bestScore).toBe(baseline.optimization.bestScore)
-      expect(resumed.optimization.artifacts.eventLog[0]?._tag).toBe("TrialStarted")
-      expect(resumed.optimization.artifacts.eventLog.at(-1)?._tag).toBe("StudyCompleted")
+      expect(
+        Arr.head(resumed.optimization.artifacts.eventLog).pipe(Option.map((event) => event._tag))
+      ).toEqual(Option.some("TrialStarted"))
+      expect(
+        Arr.last(resumed.optimization.artifacts.eventLog).pipe(Option.map((event) => event._tag))
+      ).toEqual(Option.some("StudyCompleted"))
       expect(resumed.optimization.artifacts.snapshot.completedCount).toBe(4)
     }))
 
-  it.scoped("optimization studies can persist and resume through effect-search StudyStorage", () =>
-    Effect.gen(function*() {
-      const fileSystem = yield* FileSystem.FileSystem
-      const directory = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "effect-text-calibration-study-"
-      })
-      const firstLegStorage = yield* makeStudyStorage({
-        directory,
-        runIdText: "01HZ0000000000000000000000",
-        studyId: "effect-text-calibration-first-leg"
-      })
-      const firstLeg = yield* Experimental.Calibration.optimizeProfile({
-        cases: canonicalCalibrationCases,
-        services: calibrationServices,
-        trials: 2,
-        sampler: Sampler.random({ seed: 91 }),
-        searchDescriptor: exploratorySearchDescriptor,
-        studyStorage: firstLegStorage
-      })
-      const resumedStorage = yield* makeStudyStorage({
-        directory,
-        runIdText: "01HZ0000000000000000000001",
-        studyId: "effect-text-calibration-resume-leg"
-      })
-      const resumed = yield* Experimental.Calibration.optimizeProfile({
-        cases: canonicalCalibrationCases,
-        services: calibrationServices,
-        trials: 2,
-        sampler: Sampler.random({ seed: 91 }),
-        searchDescriptor: exploratorySearchDescriptor,
-        snapshot: firstLeg.optimization.artifacts.snapshot,
-        studyStorage: resumedStorage
-      })
-      const persistedSnapshot = yield* resumedStorage.loadSnapshot()
-      const persistedTrials = yield* resumedStorage.loadTrialLog()
+  it.effect("optimization studies can persist and resume through effect-search StudyStorage", () =>
+    Effect.scoped(
+      Effect.gen(function*() {
+        const fileSystem = yield* FileSystem.FileSystem
+        const directory = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: "effect-text-calibration-study-"
+        })
+        const firstLegStorage = yield* makeStudyStorage(
+          directory,
+          "01HZ0000000000000000000000",
+          "effect-text-calibration-first-leg"
+        )
+        const firstLeg = yield* Experimental.Calibration.optimizeProfile({
+          cases: canonicalCalibrationCases,
+          services: calibrationServices,
+          trials: 2,
+          sampler: Sampler.random({ seed: 91 }),
+          searchDescriptor: exploratorySearchDescriptor,
+          studyStorage: firstLegStorage
+        })
+        const resumedStorage = yield* makeStudyStorage(
+          directory,
+          "01HZ0000000000000000000001",
+          "effect-text-calibration-resume-leg"
+        )
+        const resumed = yield* Experimental.Calibration.optimizeProfile({
+          cases: canonicalCalibrationCases,
+          services: calibrationServices,
+          trials: 2,
+          sampler: Sampler.random({ seed: 91 }),
+          searchDescriptor: exploratorySearchDescriptor,
+          snapshot: firstLeg.optimization.artifacts.snapshot,
+          studyStorage: resumedStorage
+        })
+        const persistedSnapshot = yield* resumedStorage.loadSnapshot()
+        const persistedTrials = yield* resumedStorage.loadTrialLog()
 
-      expect(Option.isSome(persistedSnapshot)).toBe(true)
-      expect(persistedTrials).toHaveLength(4)
-      expect(resumed.optimization.artifacts.snapshot.completedCount).toBe(4)
-      expect(resumed.optimization.artifacts.eventLog[0]?._tag).toBe("TrialStarted")
-      expect(resumed.optimization.artifacts.eventLog.at(-1)?._tag).toBe("StudyCompleted")
-
-      if (Option.isSome(persistedSnapshot)) {
-        expect(persistedSnapshot.value.completedCount).toBe(4)
-        expect(persistedSnapshot.value.nextTrialNumber).toBe(4)
-      }
-    }).pipe(Effect.provide(BunContext.layer)))
+        expect(Option.isSome(persistedSnapshot)).toBe(true)
+        expect(persistedTrials).toHaveLength(4)
+        expect(resumed.optimization.artifacts.snapshot.completedCount).toBe(4)
+        expect(
+          Arr.head(resumed.optimization.artifacts.eventLog).pipe(Option.map((event) => event._tag))
+        ).toEqual(Option.some("TrialStarted"))
+        expect(
+          Arr.last(resumed.optimization.artifacts.eventLog).pipe(Option.map((event) => event._tag))
+        ).toEqual(Option.some("StudyCompleted"))
+        expect(persistedSnapshot.pipe(Option.map((snapshot) => snapshot.completedCount))).toEqual(Option.some(4))
+        expect(persistedSnapshot.pipe(Option.map((snapshot) => snapshot.nextTrialNumber))).toEqual(Option.some(4))
+      }).pipe(Effect.provide(BunContext.layer))
+    ))
 
   it.effect("score weights and objective metadata are explicit inputs rather than hidden constants", () =>
     Effect.gen(function*() {

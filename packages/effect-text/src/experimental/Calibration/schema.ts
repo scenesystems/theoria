@@ -45,6 +45,22 @@ export const CalibrationTargetLine = Schema.Struct({
 export type CalibrationTargetLineType = typeof CalibrationTargetLine.Type
 
 /**
+ * Ordered exact line projections for one calibration target.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const CalibrationTargetLines = Schema.Array(CalibrationTargetLine)
+
+/**
+ * Ordered exact line projections derived from {@link CalibrationTargetLines}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationTargetLinesType = typeof CalibrationTargetLines.Type
+
+/**
  * Expected layout summary for a calibration sample.
  *
  * @remarks
@@ -60,7 +76,7 @@ export const CalibrationTarget = Schema.Struct({
   /** Expected greatest painted line width. */
   maxLineWidth: NonNegativeNumber,
   /** Optional exact visual lines; omission disables line-level comparison. */
-  lines: Schema.optional(Schema.Array(CalibrationTargetLine))
+  lines: Schema.optional(CalibrationTargetLines)
 })
 
 /**
@@ -97,6 +113,22 @@ export const CalibrationCase = Schema.Struct({
 export type CalibrationCaseType = typeof CalibrationCase.Type
 
 /**
+ * Ordered corpus evaluated by a calibration run.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const CalibrationCases = Schema.Array(CalibrationCase)
+
+/**
+ * Ordered calibration corpus derived from {@link CalibrationCases}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationCasesType = typeof CalibrationCases.Type
+
+/**
  * Engine settings named for comparison against an expected-layout corpus.
  *
  * @since 0.1.0
@@ -118,6 +150,22 @@ export const CalibrationProfile = Schema.Struct({
 export type CalibrationProfileType = typeof CalibrationProfile.Type
 
 /**
+ * Ordered visual lines materialized by one calibration evaluation.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const CalibrationLayoutLines = Schema.Array(LayoutLine)
+
+/**
+ * Materialized visual lines derived from {@link CalibrationLayoutLines}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationLayoutLinesType = typeof CalibrationLayoutLines.Type
+
+/**
  * Per-case evaluation result for a candidate profile.
  *
  * @since 0.1.0
@@ -131,7 +179,7 @@ export const CalibrationCaseResult = Schema.Struct({
   /** Aggregate geometry produced by the candidate. */
   actual: LayoutSummary,
   /** Visual lines produced by the candidate. */
-  actualLines: Schema.Array(LayoutLine),
+  actualLines: CalibrationLayoutLines,
   /** Signed `actual.lineCount - expected.lineCount`. */
   lineCountDelta: SignedInt,
   /** Signed `actual.maxLineWidth - expected.maxLineWidth`. */
@@ -149,6 +197,22 @@ export const CalibrationCaseResult = Schema.Struct({
  * @category models
  */
 export type CalibrationCaseResultType = typeof CalibrationCaseResult.Type
+
+/**
+ * Ordered per-case results retained by a calibration report.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const CalibrationCaseResults = Schema.Array(CalibrationCaseResult)
+
+/**
+ * Ordered per-case results derived from {@link CalibrationCaseResults}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationCaseResultsType = typeof CalibrationCaseResults.Type
 
 /**
  * Aggregate report returned from profile evaluation.
@@ -170,7 +234,7 @@ export const CalibrationReport = Schema.Struct({
   /** Sum of positional line mismatches. */
   totalLineMismatchCount: NonNegativeInt,
   /** Case results in corpus order. */
-  results: Schema.Array(CalibrationCaseResult)
+  results: CalibrationCaseResults
 })
 
 /**
@@ -276,6 +340,45 @@ export const CalibrationLossSummary = Schema.Union(EmptyCalibrationLossSummary, 
 export type CalibrationLossSummaryType = typeof CalibrationLossSummary.Type
 
 /**
+ * Ordered non-negative per-case losses produced by weighted scoring.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const CalibrationCaseLosses = Schema.Array(NonNegativeNumber)
+
+/**
+ * Per-case weighted losses derived from {@link CalibrationCaseLosses}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationCaseLossesType = typeof CalibrationCaseLosses.Type
+
+/**
+ * Canonical result of scoring one calibration report.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const CalibrationScore = Schema.Struct({
+  /** Weighted loss for each report result in report order. */
+  caseLosses: CalibrationCaseLosses,
+  /** Descriptive statistics over the per-case losses. */
+  summary: CalibrationLossSummary,
+  /** Sum of every per-case loss. */
+  total: NonNegativeNumber
+})
+
+/**
+ * Weighted report score derived from {@link CalibrationScore}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationScoreType = typeof CalibrationScore.Type
+
+/**
  * Float dimension bounds used when compiling an engine-profile search space.
  *
  * @since 0.1.0
@@ -327,9 +430,25 @@ export type CalibrationIntDimensionType = typeof CalibrationIntDimension.Type
  * @since 0.2.0
  * @category schemas
  */
+export const CalibrationDirections = Schema.NonEmptyArray(BaseTextDirection)
+
+/**
+ * Ordered non-empty direction choices derived from {@link CalibrationDirections}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationDirectionsType = typeof CalibrationDirections.Type
+
+/**
+ * Explicit categorical choices for the base-direction search dimension.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
 export const CalibrationDirectionDimension = Schema.Struct({
   /** Ordered non-empty direction choices supplied to the sampler. */
-  values: Schema.NonEmptyArray(BaseTextDirection)
+  values: CalibrationDirections
 })
 
 /**
@@ -346,9 +465,25 @@ export type CalibrationDirectionDimensionType = typeof CalibrationDirectionDimen
  * @since 0.2.0
  * @category schemas
  */
+export const CalibrationBooleans = Schema.NonEmptyArray(Schema.Boolean)
+
+/**
+ * Ordered non-empty toggle choices derived from {@link CalibrationBooleans}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationBooleansType = typeof CalibrationBooleans.Type
+
+/**
+ * Explicit boolean choices for one experimental search toggle.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
 export const CalibrationBooleanDimension = Schema.Struct({
   /** Ordered non-empty toggle choices supplied to the sampler. */
-  values: Schema.NonEmptyArray(Schema.Boolean)
+  values: CalibrationBooleans
 })
 
 /**
@@ -392,6 +527,38 @@ export const CalibrationSearchDescriptor = Schema.Struct({
 export type CalibrationSearchDescriptorType = typeof CalibrationSearchDescriptor.Type
 
 /**
+ * Ordered study events emitted by one optimization invocation.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const CalibrationStudyEventLog = Schema.Array(StudyEvent.StudyEventSchema)
+
+/**
+ * Ordered study events derived from {@link CalibrationStudyEventLog}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationStudyEventLogType = typeof CalibrationStudyEventLog.Type
+
+/**
+ * Mutable trial log required by the Effect Search storage protocol.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const CalibrationTrialLog = Schema.mutable(Schema.Array(Study.SnapshotTrialSchema))
+
+/**
+ * Storage-protocol trial log derived from {@link CalibrationTrialLog}.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export type CalibrationTrialLogType = typeof CalibrationTrialLog.Type
+
+/**
  * Machine-readable study artifacts emitted by experimental optimization runs.
  *
  * @since 0.2.0
@@ -401,7 +568,7 @@ export const CalibrationStudyArtifacts = Schema.Struct({
   /** Cumulative checkpoint after the requested trials finish. */
   snapshot: Study.StudySnapshot,
   /** Events emitted by the current invocation in emission order. */
-  eventLog: Schema.Array(StudyEvent.StudyEventSchema)
+  eventLog: CalibrationStudyEventLog
 })
 
 /**

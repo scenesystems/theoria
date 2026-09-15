@@ -5,21 +5,27 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Number as Num, Option } from "effect"
+import { Boolean as Bool, Number as Num, Option, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import type { LayoutLineType, LayoutSummaryType } from "../../../Text/schema.js"
 import type {
+  CalibrationCaseResultsType,
   CalibrationCaseResultType,
   CalibrationCaseType,
+  CalibrationLayoutLinesType,
   CalibrationProfileType,
   CalibrationReportType,
+  CalibrationTargetLinesType,
   CalibrationTargetLineType,
   CalibrationTargetType
 } from "../schema.js"
 
 const matchesSummary = (expected: CalibrationTargetType, actual: LayoutSummaryType): boolean =>
-  expected.lineCount === actual.lineCount && expected.maxLineWidth === actual.maxLineWidth
+  Bool.and(
+    Num.Equivalence(expected.lineCount, actual.lineCount),
+    Num.Equivalence(expected.maxLineWidth, actual.maxLineWidth)
+  )
 
 const matchesLine = (
   expected: Option.Option<CalibrationTargetLineType>,
@@ -29,30 +35,38 @@ const matchesLine = (
     Option.match({
       onNone: () => false,
       onSome: ({ expected: expectedLine, actual: actualLine }) =>
-        expectedLine.text === actualLine.text &&
-        expectedLine.width === actualLine.width
+        Bool.and(
+          Str.Equivalence(expectedLine.text, actualLine.text),
+          Num.Equivalence(expectedLine.width, actualLine.width)
+        )
     })
   )
 
 const lineMismatchCount = (
-  expected: Option.Option<ReadonlyArray<CalibrationTargetLineType>>,
-  actual: ReadonlyArray<LayoutLineType>
+  expected: Option.Option<CalibrationTargetLinesType>,
+  actual: CalibrationLayoutLinesType
 ): number =>
   expected.pipe(
     Option.match({
       onNone: () => 0,
       onSome: (expectedLines) =>
         Arr.reduce(
-          Arr.makeBy(Numeric.max(expectedLines.length, actual.length), (index) => index),
+          Arr.union(
+            Arr.map(expectedLines, (_line, index) => index),
+            Arr.map(actual, (_line, index) => index)
+          ),
           0,
           (mismatchCount, index) =>
-            mismatchCount +
-            (matchesLine(Option.fromNullable(expectedLines[index]), Option.fromNullable(actual[index])) ? 0 : 1)
+            Num.sum(
+              mismatchCount,
+              Bool.match(matchesLine(Arr.get(expectedLines, index), Arr.get(actual, index)), {
+                onFalse: () => 1,
+                onTrue: () => 0
+              })
+            )
         )
     })
   )
-
-const absoluteValue = (value: number): number => Num.lessThan(value, 0) ? Num.negate(value) : value
 
 /**
  * Builds one case result by comparing expected calibration targets against actual layout output.
@@ -63,7 +77,7 @@ const absoluteValue = (value: number): number => Num.lessThan(value, 0) ? Num.ne
 export const makeCaseResult = (
   calibrationCase: CalibrationCaseType,
   actual: LayoutSummaryType,
-  actualLines: ReadonlyArray<LayoutLineType>
+  actualLines: CalibrationLayoutLinesType
 ): CalibrationCaseResultType => {
   const mismatchCount = lineMismatchCount(Option.fromNullable(calibrationCase.expected.lines), actualLines)
 
@@ -72,10 +86,10 @@ export const makeCaseResult = (
     expected: calibrationCase.expected,
     actual,
     actualLines,
-    lineCountDelta: actual.lineCount - calibrationCase.expected.lineCount,
-    maxLineWidthDelta: actual.maxLineWidth - calibrationCase.expected.maxLineWidth,
+    lineCountDelta: Num.subtract(actual.lineCount, calibrationCase.expected.lineCount),
+    maxLineWidthDelta: Num.subtract(actual.maxLineWidth, calibrationCase.expected.maxLineWidth),
     lineMismatchCount: mismatchCount,
-    matched: matchesSummary(calibrationCase.expected, actual) && mismatchCount === 0
+    matched: Bool.and(matchesSummary(calibrationCase.expected, actual), Num.Equivalence(mismatchCount, 0))
   }
 }
 
@@ -92,7 +106,7 @@ export const emptyReport = (profile: CalibrationProfileType): CalibrationReportT
   totalLineCountError: 0,
   totalMaxLineWidthError: 0,
   totalLineMismatchCount: 0,
-  results: []
+  results: Arr.empty()
 })
 
 /**
@@ -103,17 +117,21 @@ export const emptyReport = (profile: CalibrationProfileType): CalibrationReportT
  */
 export const summarizeReport = (
   profile: CalibrationProfileType,
-  results: ReadonlyArray<CalibrationCaseResultType>
+  results: CalibrationCaseResultsType
 ): CalibrationReportType =>
-  results.reduce(
+  Arr.reduce(
+    results,
+    emptyReport(profile),
     (report, result) => ({
       profile: report.profile,
       caseCount: Num.increment(report.caseCount),
-      matchedCaseCount: result.matched ? Num.increment(report.matchedCaseCount) : report.matchedCaseCount,
-      totalLineCountError: Num.sum(report.totalLineCountError, absoluteValue(result.lineCountDelta)),
-      totalMaxLineWidthError: Num.sum(report.totalMaxLineWidthError, absoluteValue(result.maxLineWidthDelta)),
+      matchedCaseCount: Bool.match(result.matched, {
+        onFalse: () => report.matchedCaseCount,
+        onTrue: () => Num.increment(report.matchedCaseCount)
+      }),
+      totalLineCountError: Num.sum(report.totalLineCountError, Numeric.abs(result.lineCountDelta)),
+      totalMaxLineWidthError: Num.sum(report.totalMaxLineWidthError, Numeric.abs(result.maxLineWidthDelta)),
       totalLineMismatchCount: Num.sum(report.totalLineMismatchCount, result.lineMismatchCount),
-      results: [...report.results, result]
-    }),
-    emptyReport(profile)
+      results: Arr.append(report.results, result)
+    })
   )
