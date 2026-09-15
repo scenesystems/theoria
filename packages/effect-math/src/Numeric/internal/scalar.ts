@@ -4,7 +4,9 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as EffectNumber, Option, pipe } from "effect"
+import { Boolean, Number as EffectNumber, Option, pipe, Schema } from "effect"
+
+const isFinite = Schema.is(Schema.Finite)
 
 /**
  * Finite-guarded safe division. Returns `None` when divisor is zero,
@@ -14,9 +16,11 @@ import { Number as EffectNumber, Option, pipe } from "effect"
  * @category internal
  */
 export const safeDivideFinite = (dividend: number, divisor: number): Option.Option<number> =>
-  Number.isFinite(dividend) && Number.isFinite(divisor)
-    ? pipe(
-      EffectNumber.divide(dividend, divisor),
-      Option.filter(Number.isFinite)
-    )
-    : Option.none()
+  Boolean.match(Boolean.and(isFinite(dividend), isFinite(divisor)), {
+    onFalse: Option.none,
+    onTrue: () =>
+      pipe(
+        EffectNumber.divide(dividend, divisor),
+        Option.filter(isFinite)
+      )
+  })

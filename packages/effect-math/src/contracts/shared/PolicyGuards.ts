@@ -4,9 +4,27 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Clock, Effect, Match, Number as N } from "effect"
+import { Clock, Data, Effect, Inspectable, Match, Number as N, Schema } from "effect"
 
 import { DiagnosticsPolicyService, PrecisionPolicyService } from "./RuntimePolicies.js"
+
+const LogAnnotations = Schema.Record({ key: Schema.String, value: Schema.String })
+const isFinite = Schema.is(Schema.Finite)
+
+class ScalarPolicyGuardOptions<E> extends Data.Class<{
+  readonly operation: string
+  readonly compute: () => number
+  readonly makeError: (message: string) => E
+  readonly annotations: (result: number) => typeof LogAnnotations.Type
+}> {}
+
+class CustomPolicyGuardOptions<A, E> extends Data.Class<{
+  readonly operation: string
+  readonly compute: () => A
+  readonly isValid: (result: A) => boolean
+  readonly makeError: (message: string) => E
+  readonly annotations: (result: A) => typeof LogAnnotations.Type
+}> {}
 
 /**
  * Evaluates a numeric computation under precision and diagnostics policies.
@@ -26,12 +44,7 @@ import { DiagnosticsPolicyService, PrecisionPolicyService } from "./RuntimePolic
  * @since 0.1.0
  * @category combinators
  */
-export const withScalarPolicyGuards = <E>(options: {
-  readonly operation: string
-  readonly compute: () => number
-  readonly makeError: (message: string) => E
-  readonly annotations: (result: number) => Record<string, string>
-}) =>
+export const withScalarPolicyGuards = <E>(options: ScalarPolicyGuardOptions<E>) =>
   Effect.gen(function*() {
     const precision = yield* PrecisionPolicyService
     const diagnostics = yield* DiagnosticsPolicyService
@@ -42,15 +55,20 @@ export const withScalarPolicyGuards = <E>(options: {
       Match.exhaustive
     )
 
-    const result = options.compute()
+    const result = yield* Effect.sync(options.compute)
 
     yield* Match.value(precision.policy).pipe(
       Match.when("strict", () =>
-        Number.isFinite(result)
-          ? Effect.void
-          : Effect.fail(options.makeError(
-            `Non-finite ${options.operation} result: ${result}`
-          ))),
+        Effect.succeed(result).pipe(
+          Effect.filterOrFail(
+            isFinite,
+            () =>
+              options.makeError(
+                `Non-finite ${options.operation} result: ${Inspectable.toStringUnknown(result)}`
+              )
+          ),
+          Effect.asVoid
+        )),
       Match.when("relaxed", () => Effect.void),
       Match.exhaustive
     )
@@ -59,11 +77,12 @@ export const withScalarPolicyGuards = <E>(options: {
       Match.when("enabled", () =>
         Effect.gen(function*() {
           const elapsed = yield* Clock.currentTimeMillis
+          const annotations = yield* Effect.sync(() => options.annotations(result))
           yield* Effect.logDebug(options.operation).pipe(
             Effect.annotateLogs({
               precision: precision.policy,
-              ...options.annotations(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
+              ...annotations,
+              elapsedMs: Inspectable.toStringUnknown(N.subtract(elapsed, startedAt))
             })
           )
         })),
@@ -92,13 +111,7 @@ export const withScalarPolicyGuards = <E>(options: {
  * @since 0.1.0
  * @category combinators
  */
-export const withCustomPolicyGuards = <A, E>(options: {
-  readonly operation: string
-  readonly compute: () => A
-  readonly isValid: (result: A) => boolean
-  readonly makeError: (message: string) => E
-  readonly annotations: (result: A) => Record<string, string>
-}) =>
+export const withCustomPolicyGuards = <A, E>(options: CustomPolicyGuardOptions<A, E>) =>
   Effect.gen(function*() {
     const precision = yield* PrecisionPolicyService
     const diagnostics = yield* DiagnosticsPolicyService
@@ -109,15 +122,17 @@ export const withCustomPolicyGuards = <A, E>(options: {
       Match.exhaustive
     )
 
-    const result = options.compute()
+    const result = yield* Effect.sync(options.compute)
 
     yield* Match.value(precision.policy).pipe(
       Match.when("strict", () =>
-        options.isValid(result)
-          ? Effect.void
-          : Effect.fail(options.makeError(
-            `Non-finite ${options.operation} result`
-          ))),
+        Effect.succeed(result).pipe(
+          Effect.filterOrFail(
+            options.isValid,
+            () => options.makeError(`Non-finite ${options.operation} result`)
+          ),
+          Effect.asVoid
+        )),
       Match.when("relaxed", () => Effect.void),
       Match.exhaustive
     )
@@ -126,11 +141,12 @@ export const withCustomPolicyGuards = <A, E>(options: {
       Match.when("enabled", () =>
         Effect.gen(function*() {
           const elapsed = yield* Clock.currentTimeMillis
+          const annotations = yield* Effect.sync(() => options.annotations(result))
           yield* Effect.logDebug(options.operation).pipe(
             Effect.annotateLogs({
               precision: precision.policy,
-              ...options.annotations(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
+              ...annotations,
+              elapsedMs: Inspectable.toStringUnknown(N.subtract(elapsed, startedAt))
             })
           )
         })),

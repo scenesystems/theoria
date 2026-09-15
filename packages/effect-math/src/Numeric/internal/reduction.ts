@@ -4,59 +4,39 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as EffectNumber } from "effect"
-import * as Arr from "effect/Array"
+import { Chunk, Number as EffectNumber, Schema } from "effect"
+
+class CompensatedSumState extends Schema.Class<CompensatedSumState>("CompensatedSumState")({
+  compensation: Schema.Number,
+  sum: Schema.Number
+}) {}
 
 /**
- * Sum over any `Iterable<number>` via `Number.sumAll`.
+ * Sum a dense `Chunk<number>` in iteration order via `Number.sumAll`.
  *
  * @since 0.1.0
  * @category internal
  */
-export const sumScalar: (values: Iterable<number>) => number = EffectNumber.sumAll
+export const sumScalar = (values: Chunk.Chunk<number>): number => EffectNumber.sumAll(values)
 
 /**
- * Kahan-compensated sum over a `Float64Array` carrier via `Array.reduce`.
+ * Kahan-compensated sum over a dense `Chunk<number>` carrier.
  *
  * @since 0.1.0
  * @category internal
  */
-export const sumTypedArray = (values: Float64Array): number => {
-  const { s } = Arr.reduce(
-    Arr.fromIterable(values),
-    { s: 0, c: 0 },
-    (acc, v) => {
-      const y = v - acc.c
-      const t = acc.s + y
-      return { s: t, c: (t - acc.s) - y }
+export const sumCompensated = (values: Chunk.Chunk<number>): number => {
+  const state = Chunk.reduce(
+    values,
+    new CompensatedSumState({ compensation: 0, sum: 0 }),
+    (current, value) => {
+      const corrected = EffectNumber.subtract(value, current.compensation)
+      const nextSum = EffectNumber.sum(current.sum, corrected)
+      return new CompensatedSumState({
+        compensation: EffectNumber.subtract(EffectNumber.subtract(nextSum, current.sum), corrected),
+        sum: nextSum
+      })
     }
   )
-  return s
-}
-
-/**
- * Sum over a `Chunk<number>` via `Number.sumAll`.
- *
- * @since 0.1.0
- * @category internal
- */
-export const sumChunk = (values: Chunk.Chunk<number>): number => EffectNumber.sumAll(Chunk.toReadonlyArray(values))
-
-/**
- * Kahan-compensated sum of natural logs over a `Float64Array` carrier.
- *
- * @since 0.1.0
- * @category internal
- */
-export const sumLogTypedArray = (values: Float64Array): number => {
-  const { s } = Arr.reduce(
-    Arr.fromIterable(values),
-    { s: 0, c: 0 },
-    (acc, v) => {
-      const y = Math.log(v) - acc.c
-      const t = acc.s + y
-      return { s: t, c: (t - acc.s) - y }
-    }
-  )
-  return s
+  return state.sum
 }
