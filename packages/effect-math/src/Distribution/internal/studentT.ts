@@ -9,11 +9,17 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Iterable, Number, Option, Schema, Tuple } from "effect"
 
-import { betaincKernel } from "../../Special/internal/betainc.js"
-import { erfinvKernel } from "../../Special/internal/erfinv.js"
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
+import { abs, exp, log, pi, sqrt } from "../../Numeric/index.js"
+import { betainc, erfinv, lnGamma } from "../../Special/index.js"
+
+const SQRT_2 = sqrt(2)
+
+class StudentTQuantileState extends Schema.Class<StudentTQuantileState>("StudentTQuantileState")({
+  x: Schema.Number,
+  remaining: Schema.Number
+}) {}
 
 /**
  * Student's t PDF:
@@ -23,17 +29,17 @@ import { lnGammaLanczos } from "../../Special/internal/gamma.js"
  * @category internal
  */
 export const studentTPdf = (x: number, df: number): number => {
-  const halfDfP1 = N.unsafeDivide(N.sum(df, 1), 2)
-  const halfDf = N.unsafeDivide(df, 2)
-  return Math.exp(
-    N.subtract(
-      N.subtract(
-        lnGammaLanczos(halfDfP1),
-        lnGammaLanczos(halfDf)
+  const halfDfP1 = Number.unsafeDivide(Number.sum(df, 1), 2)
+  const halfDf = Number.unsafeDivide(df, 2)
+  return exp(
+    Number.subtract(
+      Number.subtract(
+        lnGamma(halfDfP1),
+        lnGamma(halfDf)
       ),
-      N.sum(
-        N.multiply(0.5, Math.log(N.multiply(df, Math.PI))),
-        N.multiply(halfDfP1, Math.log(N.sum(1, N.unsafeDivide(N.multiply(x, x), df))))
+      Number.sum(
+        Number.multiply(0.5, log(Number.multiply(df, pi))),
+        Number.multiply(halfDfP1, log(Number.sum(1, Number.unsafeDivide(Number.multiply(x, x), df))))
       )
     )
   )
@@ -47,16 +53,16 @@ export const studentTPdf = (x: number, df: number): number => {
  * @category internal
  */
 export const studentTLogpdf = (x: number, df: number): number => {
-  const halfDfP1 = N.unsafeDivide(N.sum(df, 1), 2)
-  const halfDf = N.unsafeDivide(df, 2)
-  return N.subtract(
-    N.subtract(
-      lnGammaLanczos(halfDfP1),
-      lnGammaLanczos(halfDf)
+  const halfDfP1 = Number.unsafeDivide(Number.sum(df, 1), 2)
+  const halfDf = Number.unsafeDivide(df, 2)
+  return Number.subtract(
+    Number.subtract(
+      lnGamma(halfDfP1),
+      lnGamma(halfDf)
     ),
-    N.sum(
-      N.multiply(0.5, Math.log(N.multiply(df, Math.PI))),
-      N.multiply(halfDfP1, Math.log(N.sum(1, N.unsafeDivide(N.multiply(x, x), df))))
+    Number.sum(
+      Number.multiply(0.5, log(Number.multiply(df, pi))),
+      Number.multiply(halfDfP1, log(Number.sum(1, Number.unsafeDivide(Number.multiply(x, x), df))))
     )
   )
 }
@@ -71,16 +77,17 @@ export const studentTLogpdf = (x: number, df: number): number => {
  * @category internal
  */
 export const studentTCdf = (x: number, df: number): number => {
-  const t2 = N.multiply(x, x)
-  const bx = N.unsafeDivide(df, N.sum(df, t2))
-  const ib = betaincKernel(N.unsafeDivide(df, 2), 0.5, bx)
-  return x >= 0
-    ? N.subtract(1, N.multiply(0.5, ib))
-    : N.multiply(0.5, ib)
+  const t2 = Number.multiply(x, x)
+  const bx = Number.unsafeDivide(df, Number.sum(df, t2))
+  const incompleteBeta = betainc(Number.unsafeDivide(df, 2), 0.5, bx)
+  return Boolean.match(Number.greaterThanOrEqualTo(x, 0), {
+    onTrue: () => Number.subtract(1, Number.multiply(0.5, incompleteBeta)),
+    onFalse: () => Number.multiply(0.5, incompleteBeta)
+  })
 }
 
 /**
- * Tail-recursive Newton–Raphson loop for the Student's t quantile.
+ * Schema-state Newton–Raphson iteration for the Student's t quantile.
  *
  * @since 0.1.0
  * @category internal
@@ -91,13 +98,31 @@ const studentTQuantileLoop = (
   x: number,
   remaining: number
 ): number => {
-  if (remaining === 0) return x
-  const f = N.subtract(studentTCdf(x, df), p)
-  const fprime = studentTPdf(x, df)
-  if (fprime < 1e-30) return x
-  if (Math.abs(f) < 1e-12) return x
-  const xNext = N.subtract(x, N.unsafeDivide(f, fprime))
-  return studentTQuantileLoop(p, df, xNext, N.subtract(remaining, 1))
+  const initial = new StudentTQuantileState({ x, remaining })
+  return Iterable.reduce(
+    Iterable.unfold(initial, (state) => {
+      const difference = Number.subtract(studentTCdf(state.x, df), p)
+      const density = studentTPdf(state.x, df)
+      return Boolean.match(
+        Boolean.or(
+          Number.Equivalence(state.remaining, 0),
+          Boolean.or(Number.lessThan(density, 1e-30), Number.lessThan(abs(difference), 1e-12))
+        ),
+        {
+          onTrue: Option.none,
+          onFalse: () => {
+            const next = new StudentTQuantileState({
+              x: Number.subtract(state.x, Number.unsafeDivide(difference, density)),
+              remaining: Number.subtract(state.remaining, 1)
+            })
+            return Option.some(Tuple.make(next.x, next))
+          }
+        }
+      )
+    }),
+    x,
+    (_x, next) => next
+  )
 }
 
 /**
@@ -109,9 +134,9 @@ const studentTQuantileLoop = (
  * @category internal
  */
 export const studentTQuantile = (p: number, df: number): number => {
-  const guess = N.multiply(
-    Math.SQRT2,
-    erfinvKernel(N.subtract(N.multiply(2, p), 1))
+  const guess = Number.multiply(
+    SQRT_2,
+    erfinv(Number.subtract(Number.multiply(2, p), 1))
   )
   return studentTQuantileLoop(p, df, guess, 50)
 }
@@ -122,7 +147,8 @@ export const studentTQuantile = (p: number, df: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const studentTMean = (df: number): number => df > 1 ? 0 : NaN
+export const studentTMean = (df: number): number =>
+  Boolean.match(Number.greaterThan(df, 1), { onTrue: () => 0, onFalse: () => NaN })
 
 /**
  * Student's t variance: ν/(ν−2) for ν > 2, Infinity for 1 < ν ≤ 2,
@@ -132,7 +158,12 @@ export const studentTMean = (df: number): number => df > 1 ? 0 : NaN
  * @category internal
  */
 export const studentTVariance = (df: number): number => {
-  if (df > 2) return N.unsafeDivide(df, N.subtract(df, 2))
-  if (df > 1) return Infinity
-  return NaN
+  return Boolean.match(Number.greaterThan(df, 2), {
+    onTrue: () => Number.unsafeDivide(df, Number.subtract(df, 2)),
+    onFalse: () =>
+      Boolean.match(Number.greaterThan(df, 1), {
+        onTrue: () => Infinity,
+        onFalse: () => NaN
+      })
+  })
 }

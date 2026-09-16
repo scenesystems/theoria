@@ -18,25 +18,22 @@ describe("Probability runtime boundary contracts", () => {
 
   it.effect("rejects excess properties on normalPdf with typed decode error", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(normalPdfValidated({ x: 0, mu: 0, sigma: 1, extra: true }))
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("ProbabilityDecodeError")
-      }
+      const error = yield* Effect.flip(normalPdfValidated({ x: 0, mu: 0, sigma: 1, extra: true }))
+      expect(error._tag).toBe("ProbabilityDecodeError")
+      expect(error.operation).toBe("normalPdf")
     }))
 
   it.effect("rejects excess properties on uniformPdf with typed decode error", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(uniformPdfValidated({ x: 0.5, low: 0, high: 1, extra: true }))
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("ProbabilityDecodeError")
-      }
+      const error = yield* Effect.flip(uniformPdfValidated({ x: 0.5, low: 0, high: 1, extra: true }))
+      expect(error._tag).toBe("ProbabilityDecodeError")
+      expect(error.operation).toBe("uniformPdf")
     }))
 
   it.effect("rejects malformed input with wrong types", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(normalPdfValidated({ x: "bad", mu: 0, sigma: 1 }))
-      expect(result._tag).toBe("Left")
+      const error = yield* Effect.flip(normalPdfValidated({ x: "bad", mu: 0, sigma: 1 }))
+      expect(error._tag).toBe("ProbabilityDecodeError")
+      expect(error.operation).toBe("normalPdf")
     }))
 })

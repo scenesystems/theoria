@@ -8,7 +8,7 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Context, Effect, Layer, Match, Option, Schema } from "effect"
+import { Context, Data, Effect, Layer, Match, Option, Schema } from "effect"
 
 import type {
   AutodiffUnavailableError,
@@ -23,7 +23,7 @@ import {
   AutodiffResolutionMethod,
   resolveAutodiffMode
 } from "./AutodiffAuthority.js"
-import type { AutodiffAuthorityService, AutodiffModeType } from "./AutodiffAuthority.js"
+import type { AutodiffAuthorityService } from "./AutodiffAuthority.js"
 import { BackendKind, resolveBackendKind } from "./BackendAuthority.js"
 import {
   ConvergenceObservation,
@@ -43,11 +43,12 @@ import {
 import type { ScalarAuthorityService } from "./ScalarAuthority.js"
 
 const ComputationDifferentiationMethod = Schema.Union(Schema.Literal("none"), AutodiffResolutionMethod)
-const NO_AUTODIFF_RESOLUTION: {
-  readonly method: "none"
-  readonly mode: Option.Option<AutodiffModeType>
-  readonly usedFiniteDifferenceFallback: false
-} = {
+const NoAutodiffResolution = Schema.Struct({
+  method: Schema.Literal("none"),
+  mode: Schema.OptionFromSelf(AutodiffMode),
+  usedFiniteDifferenceFallback: Schema.Literal(false)
+})
+const NO_AUTODIFF_RESOLUTION: typeof NoAutodiffResolution.Type = {
   method: "none",
   mode: Option.none(),
   usedFiniteDifferenceFallback: false
@@ -155,13 +156,21 @@ export type ComputationDispatchRequirements =
  * @since 0.1.0
  * @category contracts
  */
+export class ComputationDispatcherModel extends Data.Class<{
+  readonly plan: (
+    request: ComputationDispatchRequestType
+  ) => Effect.Effect<ComputationDispatchPlanType, ComputationDispatchError, ComputationDispatchRequirements>
+}> {}
+
+/**
+ * Supplies a computation-plan implementation to advanced dispatch callers.
+ *
+ * @since 0.1.0
+ * @category services
+ */
 export class ComputationDispatcher extends Context.Tag("effect-math/contracts/shared/ComputationDispatcher")<
   ComputationDispatcher,
-  {
-    readonly plan: (
-      request: ComputationDispatchRequestType
-    ) => Effect.Effect<ComputationDispatchPlanType, ComputationDispatchError, ComputationDispatchRequirements>
-  }
+  ComputationDispatcherModel
 >() {}
 
 const decodeComputationDispatchRequest = (input: unknown) =>
@@ -199,16 +208,22 @@ const decodeComputationDispatchRequest = (input: unknown) =>
  */
 export const planComputationFromAuthorities = (request: ComputationDispatchRequestType) =>
   Effect.gen(function*() {
-    const initialScalarRequest = {
-      operation: request.operationName,
-      operationCategory: request.operationCategory,
-      ...Option.match(Option.fromNullable(request.requestedScalarKind), {
-        onNone: () => ({}),
-        onSome: (requestedKind) => ({ requestedKind })
-      })
-    }
-
-    const initialScalarResolution = yield* resolveScalarKind(initialScalarRequest)
+    const initialScalarResolution = yield* Option.match(
+      Option.fromNullable(request.requestedScalarKind),
+      {
+        onNone: () =>
+          resolveScalarKind({
+            operation: request.operationName,
+            operationCategory: request.operationCategory
+          }),
+        onSome: (requestedKind) =>
+          resolveScalarKind({
+            operation: request.operationName,
+            operationCategory: request.operationCategory,
+            requestedKind
+          })
+      }
+    )
 
     const precisionDecision = yield* Option.match(Option.fromNullable(request.convergence), {
       onNone: () =>
@@ -237,16 +252,22 @@ export const planComputationFromAuthorities = (request: ComputationDispatchReque
 
     // Runtime backend policy remains authoritative; caller preference is
     // carried for diagnostics only.
-    const backendRequest = {
-      operation: request.operationName,
-      scalarKind: resolvedScalarKind,
-      ...Option.match(Option.fromNullable(request.preferredBackend), {
-        onNone: () => ({}),
-        onSome: (preferredBackend) => ({ preferredBackend })
-      })
-    }
-
-    const resolvedBackendKind = yield* resolveBackendKind(backendRequest)
+    const resolvedBackendKind = yield* Option.match(
+      Option.fromNullable(request.preferredBackend),
+      {
+        onNone: () =>
+          resolveBackendKind({
+            operation: request.operationName,
+            scalarKind: resolvedScalarKind
+          }),
+        onSome: (preferredBackend) =>
+          resolveBackendKind({
+            operation: request.operationName,
+            scalarKind: resolvedScalarKind,
+            preferredBackend
+          })
+      }
+    )
 
     const autodiffResolution = yield* Match.value(request.requiresAutodiff).pipe(
       Match.when(false, () => Effect.succeed(NO_AUTODIFF_RESOLUTION)),
@@ -306,9 +327,12 @@ export const ComputationDispatchAuthoritiesLive = Layer.mergeAll(
  * @since 0.1.0
  * @category contracts
  */
-export const ComputationDispatcherLive = Layer.succeed(ComputationDispatcher, {
-  plan: (request) => planComputationFromAuthorities(request)
-})
+export const ComputationDispatcherLive = Layer.succeed(
+  ComputationDispatcher,
+  new ComputationDispatcherModel({
+    plan: planComputationFromAuthorities
+  })
+)
 
 /**
  * Supplies the default dispatcher and all authority services needed to run it.
@@ -336,7 +360,7 @@ export const ComputationDispatchLive = Layer.mergeAll(ComputationDispatcherLive,
  *   ComputationDispatchLive,
  *   planAdvancedComputation
  * } from "@scenesystems/effect-math/contracts"
- * import { Effect } from "effect"
+ * import { Boolean, Effect, String } from "effect"
  *
  * export const program = planAdvancedComputation({
  *     operationCategory: "numeric",
@@ -347,8 +371,13 @@ export const ComputationDispatchLive = Layer.mergeAll(ComputationDispatcherLive,
  * }).pipe(
  *   Effect.provide(ComputationDispatchLive),
  *   Effect.filterOrFail(
- *     (plan) => plan.scalarKind === "float64" &&
- *       plan.backendKind === "scalar" && plan.uncertaintyEnvelope,
+ *     (plan) => Boolean.and(
+ *       Boolean.and(
+ *         String.Equivalence(plan.scalarKind, "float64"),
+ *         String.Equivalence(plan.backendKind, "scalar")
+ *       ),
+ *       plan.uncertaintyEnvelope
+ *     ),
  *     () => "UnexpectedComputationPlan"
  *   )
  * )

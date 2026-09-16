@@ -11,10 +11,10 @@
 import { Effect } from "effect"
 import type { Chunk } from "effect"
 
-import * as AdaptiveSimpsonKernel from "../internal/adaptive-simpson.js"
-import * as IntegrationKernel from "../internal/integration.js"
-import * as MultivariateKernel from "../internal/multivariate.js"
-import * as RidderKernel from "../internal/ridder.js"
+import * as AdaptiveSimpson from "../internal/adaptive-simpson.js"
+import * as Integration from "../internal/integration.js"
+import * as Multivariate from "../internal/multivariate.js"
+import * as Ridder from "../internal/ridder.js"
 import { CalculusDomainModel } from "../model.js"
 import type { DerivativeLimitEstimate, RidderMethodInputType } from "../schema.js"
 
@@ -36,13 +36,16 @@ export const loadCalculusDomain = Effect.succeed(CalculusDomainModel)
  * @example
  * ```ts
  * import { Calculus, Numeric } from "@scenesystems/effect-math"
- * import { Effect } from "effect"
+ * import { Boolean, Effect } from "effect"
  *
  * export const program = Effect.sync(() =>
  *   Calculus.derivativeLimit((x) => Numeric.pow(x, 2), 2)
  * ).pipe(
  *   Effect.filterOrFail(
- *     (estimate) => estimate.converged && Numeric.between(estimate.value, { minimum: 3.999, maximum: 4.001 }),
+ *     (estimate) => Boolean.and(
+ *       estimate.converged,
+ *       Numeric.between(estimate.value, { minimum: 3.999, maximum: 4.001 })
+ *     ),
  *     () => "DerivativeDidNotConverge"
  *   )
  * )
@@ -55,7 +58,7 @@ export const derivativeLimit = (
   f: (x: number) => number,
   x: number,
   config?: RidderMethodInputType
-): DerivativeLimitEstimate => RidderKernel.derivativeLimitRidder(f, x, config)
+): DerivativeLimitEstimate => Ridder.derivativeLimitRidder(f, x, config)
 
 /**
  * Estimates a second derivative by symmetric differences and Ridder extrapolation.
@@ -71,7 +74,7 @@ export const secondDerivativeLimit = (
   f: (x: number) => number,
   x: number,
   config?: RidderMethodInputType
-): DerivativeLimitEstimate => RidderKernel.secondDerivativeLimitRidder(f, x, config)
+): DerivativeLimitEstimate => Ridder.secondDerivativeLimitRidder(f, x, config)
 
 /**
  * Returns the selected first-derivative value and discards convergence metadata.
@@ -102,7 +105,7 @@ export const secondDerivative = (
  * @since 0.1.0
  * @category operations
  */
-export const trapezoid = IntegrationKernel.trapezoidalRule
+export const trapezoid = Integration.trapezoidalRule
 
 /**
  * Integrates evenly spaced samples with composite Simpson quadrature.
@@ -115,7 +118,7 @@ export const trapezoid = IntegrationKernel.trapezoidalRule
  * @since 0.1.0
  * @category operations
  */
-export const simpson = IntegrationKernel.simpsonsRule
+export const simpson = Integration.simpsonsRule
 
 /**
  * Integrates a synchronous scalar function with adaptive Simpson quadrature.
@@ -136,7 +139,7 @@ export const adaptiveSimpson = (
   relativeTolerance?: number,
   maxDepth?: number
 ): number =>
-  AdaptiveSimpsonKernel.adaptiveSimpsonIntegral(
+  AdaptiveSimpson.adaptiveSimpsonIntegral(
     f,
     a,
     b,
@@ -157,7 +160,7 @@ export const gradient = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): Chunk.Chunk<number> => MultivariateKernel.gradientLimit(f, point, config)
+): Chunk.Chunk<number> => Multivariate.gradientLimit(f, point, config)
 
 /**
  * Estimates a Jacobian with rows in output-component order and columns in input-coordinate order.
@@ -173,7 +176,7 @@ export const jacobian = (
   f: (point: Chunk.Chunk<number>) => Chunk.Chunk<number>,
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): Chunk.Chunk<Chunk.Chunk<number>> => MultivariateKernel.jacobianLimit(f, point, config)
+): Chunk.Chunk<Chunk.Chunk<number>> => Multivariate.jacobianLimit(f, point, config)
 
 /**
  * Estimates a square Hessian in input-coordinate order.
@@ -189,7 +192,7 @@ export const hessian = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): Chunk.Chunk<Chunk.Chunk<number>> => MultivariateKernel.hessianLimit(f, point, config)
+): Chunk.Chunk<Chunk.Chunk<number>> => Multivariate.hessianLimit(f, point, config)
 
 /**
  * Projects the estimated gradient onto the normalized direction vector.
@@ -205,7 +208,7 @@ export const directionalDerivative = (
   point: Chunk.Chunk<number>,
   direction: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): number => MultivariateKernel.directionalDerivativeLimit(f, point, direction, config)
+): number => Multivariate.directionalDerivativeLimit(f, point, direction, config)
 
 /**
  * Sums the diagonal of a numerically estimated vector-field Jacobian.
@@ -219,7 +222,7 @@ export const divergence = (
   f: (point: Chunk.Chunk<number>) => Chunk.Chunk<number>,
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): number => MultivariateKernel.divergenceLimit(f, point, config)
+): number => Multivariate.divergenceLimit(f, point, config)
 
 /**
  * Sums the diagonal of a numerically estimated Hessian.
@@ -231,4 +234,4 @@ export const laplacian = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): number => MultivariateKernel.laplacianLimit(f, point, config)
+): number => Multivariate.laplacianLimit(f, point, config)

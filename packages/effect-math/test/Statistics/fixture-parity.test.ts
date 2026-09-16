@@ -1,16 +1,17 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Number as N, Option, Schema } from "effect"
+import { Array, Chunk, Effect, Match, Number, Option, Schema } from "effect"
 
-import { maximum, minimum } from "../../src/Statistics/internal/estimators.js"
-import { covariance, mean, standardDeviation, variance } from "../../src/Statistics/operations.js"
-import { FixtureRegistryLive, loadFixture, StatisticsEstimatorParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { abs } from "../../src/Numeric/index.js"
+import { covariance, maximum, mean, minimum, standardDeviation, variance } from "../../src/Statistics/operations.js"
+import { loadFixture, StatisticsEstimatorParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const MEAN_VAR_STDDEV_TOLERANCE = 1e-12
 const COVARIANCE_TOLERANCE = 1e-10
 const MINMAX_TOLERANCE = 1e-15
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(Number.lessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
 
 describe("Statistics SciPy fixture parity", () => {
   it.effect("all estimator-parity cases match SciPy reference values", () =>
@@ -20,7 +21,7 @@ describe("Statistics SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "mean" }, (v) =>
@@ -61,5 +62,5 @@ describe("Statistics SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

@@ -1,44 +1,28 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array, Chunk, Effect, Equal } from "effect"
 
 import { distanceValidated, midpointValidated } from "../../src/Geometry/operations.js"
 
 describe("Geometry runtime boundary contracts", () => {
-  it.effect("accepts canonical valid distance input", () =>
+  it.effect("accepts canonical distance and midpoint inputs", () =>
     Effect.gen(function*() {
-      const result = yield* distanceValidated({ a: [0, 0], b: [3, 4], metric: "euclidean" })
-      expect(result).toBe(5)
+      expect(yield* distanceValidated({ a: Array.make(0, 0), b: Array.make(3, 4), metric: "euclidean" })).toBe(5)
+      const midpoint = yield* midpointValidated({ a: Array.make(0, 0), b: Array.make(4, 6) })
+      expect(Equal.equals(midpoint, Chunk.make(2, 3))).toBe(true)
     }))
 
-  it.effect("accepts canonical valid midpoint input", () =>
+  it.effect("reports excess midpoint fields as typed decode failures", () =>
     Effect.gen(function*() {
-      const result = yield* midpointValidated({ a: [0, 0], b: [4, 6] })
-      expect(result).toStrictEqual([2, 3])
+      const error = yield* Effect.flip(midpointValidated({ a: Array.make(0, 0), b: Array.make(4, 6), extra: true }))
+      expect(error._tag).toBe("GeometryDecodeError")
+      expect(error.operation).toBe("midpoint")
     }))
 
-  it.effect("rejects excess properties on distance with typed decode error", () =>
+  it.effect("reports incompatible point dimensions as typed shape failures", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(
-        distanceValidated({ a: [0, 0], b: [3, 4], metric: "euclidean", extra: true })
+      const error = yield* Effect.flip(
+        distanceValidated({ a: Array.make(1, 2, 3), b: Array.make(1, 2), metric: "manhattan" })
       )
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("GeometryDecodeError")
-      }
-    }))
-
-  it.effect("rejects excess properties on midpoint with typed decode error", () =>
-    Effect.gen(function*() {
-      const result = yield* Effect.either(midpointValidated({ a: [0, 0], b: [4, 6], extra: true }))
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("GeometryDecodeError")
-      }
-    }))
-
-  it.effect("rejects malformed input with wrong types", () =>
-    Effect.gen(function*() {
-      const result = yield* Effect.either(distanceValidated({ a: "bad", b: [3, 4], metric: "euclidean" }))
-      expect(result._tag).toBe("Left")
+      expect(error._tag).toBe("GeometryShapeMismatchError")
     }))
 })

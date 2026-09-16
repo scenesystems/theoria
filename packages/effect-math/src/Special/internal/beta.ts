@@ -8,8 +8,9 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Number } from "effect"
 
+import { exp } from "../../Numeric/index.js"
 import { lnGammaLanczos } from "./gamma.js"
 
 /**
@@ -19,4 +20,4 @@ import { lnGammaLanczos } from "./gamma.js"
  * @category internal
  */
 export const betaFromGamma = (a: number, b: number): number =>
-  Math.exp(N.subtract(N.sum(lnGammaLanczos(a), lnGammaLanczos(b)), lnGammaLanczos(N.sum(a, b))))
+  exp(Number.subtract(Number.sum(lnGammaLanczos(a), lnGammaLanczos(b)), lnGammaLanczos(Number.sum(a, b))))

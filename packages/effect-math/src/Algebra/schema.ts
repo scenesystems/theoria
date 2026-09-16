@@ -15,10 +15,18 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
  * @since 0.1.0
  * @category schemas
  */
-export const AlgebraDomainSchema = Schema.Struct({
+export class AlgebraDomain extends Schema.Class<AlgebraDomain>("AlgebraDomain")({
   domain: Schema.Literal("Algebra"),
   stability: DomainStability
-})
+}) {}
+
+/**
+ * Schema for Algebra discovery metadata.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const AlgebraDomainSchema = AlgebraDomain
 
 /**
  * Admits algebra capability metadata only when its discriminator is
@@ -73,33 +81,30 @@ export type AlgebraSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeErr
  * @since 0.1.0
  * @category models
  */
-export type AlgebraDomain = typeof AlgebraDomainSchema.Type
-
 // ---------------------------------------------------------------------------
 // Operation input schemas
 // ---------------------------------------------------------------------------
 
 /**
  * Accepts a coefficient array in lowest-degree-first order and a finite
- * evaluation point. Coefficients may contain non-finite numbers.
+ * evaluation point.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const PolyEvalInput = Schema.Struct({
-  coefficients: Schema.Array(Schema.Number),
-  x: Schema.Number.pipe(Schema.finite())
+  coefficients: Schema.Chunk(Schema.Finite),
+  x: Schema.Finite
 }).annotations({ identifier: "PolyEvalInput" })
 
 /**
- * Accepts a coefficient array in lowest-degree-first order. Coefficients may
- * contain non-finite numbers.
+ * Accepts finite coefficients in lowest-degree-first order.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const PolyDerivativeInput = Schema.Struct({
-  coefficients: Schema.Array(Schema.Number)
+  coefficients: Schema.Chunk(Schema.Finite)
 }).annotations({ identifier: "PolyDerivativeInput" })
 
 /**
@@ -109,8 +114,8 @@ export const PolyDerivativeInput = Schema.Struct({
  * @category schemas
  */
 export const GcdInput = Schema.Struct({
-  a: Schema.Number.pipe(Schema.int()),
-  b: Schema.Number.pipe(Schema.int())
+  a: Schema.Int,
+  b: Schema.Int
 }).annotations({ identifier: "GcdInput" })
 
 /**
@@ -120,8 +125,8 @@ export const GcdInput = Schema.Struct({
  * @category schemas
  */
 export const LcmInput = Schema.Struct({
-  a: Schema.Number.pipe(Schema.int()),
-  b: Schema.Number.pipe(Schema.int())
+  a: Schema.Int,
+  b: Schema.Int
 }).annotations({ identifier: "LcmInput" })
 
 /**
@@ -131,5 +136,5 @@ export const LcmInput = Schema.Struct({
  * @category schemas
  */
 export const FactorialInput = Schema.Struct({
-  n: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+  n: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0))
 }).annotations({ identifier: "FactorialInput" })

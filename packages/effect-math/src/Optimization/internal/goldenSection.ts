@@ -1,65 +1,116 @@
 /**
- * Golden section search for 1D minimization.
- *
- * Uses the golden ratio φ = (√5 − 1) / 2 to progressively narrow the
- * bracket containing the minimum.
+ * Golden-section search for one-dimensional minimization.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Iterable, Number, Option, Schema, Struct, Tuple } from "effect"
 
-const PHI = N.multiply(0.5, N.subtract(Math.sqrt(5), 1))
-const RESP = N.subtract(1, PHI)
+import * as Numeric from "../../Numeric/index.js"
 
+const PHI = Number.multiply(0.5, Number.subtract(Numeric.sqrt(5), 1))
+const COMPLEMENT = Number.subtract(1, PHI)
 const DEFAULT_TOLERANCE = 1e-12
 const DEFAULT_MAX_ITERATIONS = 100
 
+class GoldenSectionState extends Schema.Class<GoldenSectionState>("GoldenSectionState")({
+  a: Schema.Number,
+  b: Schema.Number,
+  x1: Schema.Number,
+  x2: Schema.Number,
+  f1: Schema.Number,
+  f2: Schema.Number,
+  iteration: Schema.Number,
+  result: Schema.OptionFromSelf(Schema.Number)
+}) {}
+
+const midpoint = (a: number, b: number): number => Number.multiply(0.5, Number.sum(a, b))
+
+const advance = (
+  f: (x: number) => number,
+  tolerance: number,
+  maxIterations: number,
+  state: GoldenSectionState
+): GoldenSectionState => {
+  const complete = Boolean.or(
+    Number.lessThan(Numeric.abs(Number.subtract(state.b, state.a)), tolerance),
+    Number.greaterThanOrEqualTo(state.iteration, maxIterations)
+  )
+  return Boolean.match(complete, {
+    onTrue: () =>
+      new GoldenSectionState(
+        Struct.evolve(state, { result: () => Option.some(midpoint(state.a, state.b)) })
+      ),
+    onFalse: () =>
+      Boolean.match(Number.lessThan(state.f1, state.f2), {
+        onTrue: () => {
+          const b = state.x2
+          const x1 = Number.sum(state.a, Number.multiply(COMPLEMENT, Number.subtract(b, state.a)))
+          return new GoldenSectionState({
+            a: state.a,
+            b,
+            x1,
+            x2: state.x1,
+            f1: f(x1),
+            f2: state.f1,
+            iteration: Number.increment(state.iteration),
+            result: Option.none()
+          })
+        },
+        onFalse: () => {
+          const a = state.x1
+          const x2 = Number.sum(a, Number.multiply(PHI, Number.subtract(state.b, a)))
+          return new GoldenSectionState({
+            a,
+            b: state.b,
+            x1: state.x2,
+            x2,
+            f1: state.f2,
+            f2: f(x2),
+            iteration: Number.increment(state.iteration),
+            result: Option.none()
+          })
+        }
+      })
+  })
+}
+
 /**
- * Golden section search kernel.
+ * Golden-section minimization kernel.
  *
  * @since 0.1.0
  * @category internal
  */
-export const goldenSectionKernel = (
+export const goldenSection = (
   f: (x: number) => number,
   a: number,
   b: number,
   tolerance: number = DEFAULT_TOLERANCE,
   maxIterations: number = DEFAULT_MAX_ITERATIONS
 ): number => {
-  const x1 = N.sum(a, N.multiply(RESP, N.subtract(b, a)))
-  const x2 = N.sum(a, N.multiply(PHI, N.subtract(b, a)))
-  return step(f, a, b, x1, x2, f(x1), f(x2), tolerance, maxIterations, 0)
-}
-
-const step = (
-  f: (x: number) => number,
-  a: number,
-  b: number,
-  x1: number,
-  x2: number,
-  f1: number,
-  f2: number,
-  tolerance: number,
-  maxIterations: number,
-  iteration: number
-): number => {
-  if (Math.abs(N.subtract(b, a)) < tolerance || iteration >= maxIterations) {
-    return N.multiply(0.5, N.sum(a, b))
-  }
-
-  if (f1 < f2) {
-    const newB = x2
-    const newX2 = x1
-    const newF2 = f1
-    const newX1 = N.sum(a, N.multiply(RESP, N.subtract(newB, a)))
-    return step(f, a, newB, newX1, newX2, f(newX1), newF2, tolerance, maxIterations, N.sum(iteration, 1))
-  }
-
-  const newA = x1
-  const newX1 = x2
-  const newF1 = f2
-  const newX2 = N.sum(newA, N.multiply(PHI, N.subtract(b, newA)))
-  return step(f, newA, b, newX1, newX2, newF1, f(newX2), tolerance, maxIterations, N.sum(iteration, 1))
+  const x1 = Number.sum(a, Number.multiply(COMPLEMENT, Number.subtract(b, a)))
+  const x2 = Number.sum(a, Number.multiply(PHI, Number.subtract(b, a)))
+  const initial = new GoldenSectionState({
+    a,
+    b,
+    x1,
+    x2,
+    f1: f(x1),
+    f2: f(x2),
+    iteration: 0,
+    result: Option.none()
+  })
+  const final = Iterable.reduce(
+    Iterable.unfold(initial, (state) =>
+      Option.match(state.result, {
+        onSome: Option.none,
+        onNone: () => {
+          const next = advance(f, tolerance, maxIterations, state)
+          return Option.some(Tuple.make(next, next))
+        }
+      })),
+    initial,
+    (_state, next) => next
+  )
+  return Option.getOrElse(final.result, () => midpoint(final.a, final.b))
 }

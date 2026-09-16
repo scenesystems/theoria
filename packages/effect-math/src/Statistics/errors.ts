@@ -37,7 +37,7 @@ export class StatisticsDomainBoundaryError
  */
 export class StatisticsDecodeError extends Schema.TaggedError<StatisticsDecodeError>()("StatisticsDecodeError", {
   /** Public estimator whose sample input failed decoding. */
-  operation: Schema.String,
+  operation: Schema.Literal("mean", "variance", "summaryStatistics", "covariance", "minimum", "maximum"),
   /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
@@ -55,7 +55,14 @@ export class StatisticsDecodeError extends Schema.TaggedError<StatisticsDecodeEr
  */
 export class StatisticsShapeError extends Schema.TaggedError<StatisticsShapeError>()("StatisticsShapeError", {
   /** Estimator that received too few or incompatible observations. */
-  operation: Schema.String,
+  operation: Schema.Literal(
+    "variance",
+    "summaryStatistics",
+    "covariance",
+    "summaryStatisticsWithPolicies",
+    "varianceWithPolicies",
+    "covarianceWithPolicies"
+  ),
   /** Required sample count or relationship. */
   expected: Schema.String,
   /** Sample count or relationship found in the rejected input. */
@@ -77,7 +84,12 @@ export class StatisticsShapeError extends Schema.TaggedError<StatisticsShapeErro
 export class StatisticsDomainViolationError
   extends Schema.TaggedError<StatisticsDomainViolationError>()("StatisticsDomainViolationError", {
     /** Strict-policy estimator that produced a non-finite result. */
-    operation: Schema.String,
+    operation: Schema.Literal(
+      "summaryStatisticsWithPolicies",
+      "meanWithPolicies",
+      "varianceWithPolicies",
+      "covarianceWithPolicies"
+    ),
     /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })

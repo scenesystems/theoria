@@ -9,14 +9,29 @@
  * @since 0.1.0
  * @category operations
  */
-import { Effect, Schema } from "effect"
+import { Array, Effect, Inspectable, Match, Predicate, Schema } from "effect"
 
+import { KernelExecutionError } from "../contracts/shared/AdvancedComputationErrors.js"
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { OptimizationDecodeError, OptimizationDomainViolationError } from "./errors.js"
 import * as Bisect from "./internal/bisect.js"
 import * as GoldenSection from "./internal/goldenSection.js"
 import { OptimizationDomainModel } from "./model.js"
 import { BisectInput, GoldenSectionInput } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+
+const formatKernelErrorMessage = (error: unknown): string =>
+  Match.value(error).pipe(
+    Match.when(Predicate.isError, (cause) => cause.message),
+    Match.orElse((cause) => Inspectable.toStringUnknown(cause, 0))
+  )
+
+const executeKernel = (operation: string, kernel: () => number) =>
+  Effect.try({
+    try: kernel,
+    catch: (error) => new KernelExecutionError({ operation, message: formatKernelErrorMessage(error) })
+  })
 
 /**
  * Returns the canonical provisional root-finding and minimization descriptor
@@ -42,14 +57,14 @@ export const loadOptimizationDomain = Effect.succeed(OptimizationDomainModel)
  *
  * @example
  * ```ts
- * import { Numeric, Optimization } from "@scenesystems/effect-math"
- * import { Effect } from "effect"
+ * import { Optimization } from "@scenesystems/effect-math"
+ * import { Effect, Number } from "effect"
  *
  * export const program = Effect.sync(() =>
- *   Optimization.bisect((x) => Numeric.sum([Numeric.pow(x, 2), -2]), 0, 2)
+ *   Optimization.bisect((x) => Number.subtract(Number.multiply(x, x), 2), 0, 2)
  * ).pipe(
  *   Effect.filterOrFail(
- *     (root) => Numeric.between(root, { minimum: 1.4142, maximum: 1.4143 }),
+ *     (root) => Number.between(root, { minimum: 1.4142, maximum: 1.4143 }),
  *     () => "UnexpectedRoot"
  *   )
  * )
@@ -70,7 +85,7 @@ export const bisect: (
   b: number,
   tolerance?: number,
   maxIterations?: number
-) => number = Bisect.bisectKernel
+) => number = Bisect.bisect
 
 /**
  * Approximates the minimizer of a unimodal scalar function by golden-section reduction.
@@ -83,18 +98,18 @@ export const bisect: (
  *
  * @example
  * ```ts
- * import { Numeric, Optimization } from "@scenesystems/effect-math"
- * import { Effect } from "effect"
+ * import { Optimization } from "@scenesystems/effect-math"
+ * import { Effect, Number } from "effect"
  *
  * export const program = Effect.sync(() =>
  *   Optimization.goldenSection(
- *     (x) => Numeric.pow(Numeric.sum([x, -3]), 2),
+ *     (x) => Number.multiply(Number.subtract(x, 3), Number.subtract(x, 3)),
  *     0,
  *     6
  *   )
  * ).pipe(
  *   Effect.filterOrFail(
- *     (minimizer) => Numeric.between(minimizer, { minimum: 2.999, maximum: 3.001 }),
+ *     (minimizer) => Number.between(minimizer, { minimum: 2.999, maximum: 3.001 }),
  *     () => "UnexpectedMinimizer"
  *   )
  * )
@@ -115,7 +130,7 @@ export const goldenSection: (
   b: number,
   tolerance?: number,
   maxIterations?: number
-) => number = GoldenSection.goldenSectionKernel
+) => number = GoldenSection.goldenSection
 
 // ---------------------------------------------------------------------------
 // Validated boundary operations
@@ -127,7 +142,7 @@ export const goldenSection: (
  * @remarks
  * Excess fields are rejected. A sign-changing bracket and ordered endpoints
  * remain caller preconditions. Reaching the iteration budget succeeds with the
- * final midpoint. Exceptions from `f` become Effect defects.
+ * final midpoint. Exceptions from `f` fail with {@link KernelExecutionError}.
  *
  * @param f - Synchronous function whose root is bracketed.
  * @param input - Untrusted bisection settings decoded by {@link BisectInput}.
@@ -149,7 +164,10 @@ export const bisectValidated = (f: (x: number) => number, input: unknown) =>
         })
       )
     )
-    return Bisect.bisectKernel(f, decoded.a, decoded.b, decoded.tolerance, decoded.maxIterations)
+    return yield* executeKernel(
+      "bisect",
+      () => Bisect.bisect(f, decoded.a, decoded.b, decoded.tolerance, decoded.maxIterations)
+    )
   })
 
 /**
@@ -158,7 +176,7 @@ export const bisectValidated = (f: (x: number) => number, input: unknown) =>
  * @remarks
  * Excess fields are rejected. Endpoint ordering and unimodality remain caller
  * preconditions. Reaching the iteration budget succeeds with the final
- * midpoint. Exceptions from `f` become Effect defects.
+ * midpoint. Exceptions from `f` fail with {@link KernelExecutionError}.
  *
  * @param f - Synchronous objective function.
  * @param input - Untrusted search settings decoded by {@link GoldenSectionInput}.
@@ -180,7 +198,10 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
         })
       )
     )
-    return GoldenSection.goldenSectionKernel(f, decoded.a, decoded.b, decoded.tolerance, decoded.maxIterations)
+    return yield* executeKernel(
+      "goldenSection",
+      () => GoldenSection.goldenSection(f, decoded.a, decoded.b, decoded.tolerance, decoded.maxIterations)
+    )
   })
 
 // ---------------------------------------------------------------------------
@@ -194,12 +215,12 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
  * Strict precision rejects a non-finite midpoint. Relaxed precision returns it.
  * Enabled diagnostics emit one debug log with the bracket, result, precision
  * mode, and elapsed milliseconds. Bracketing and endpoint ordering are not
- * validated. Exceptions from `f` become Effect defects.
+ * validated. Exceptions from `f` fail with {@link KernelExecutionError}.
  *
  * @example
  * ```ts
- * import { Numeric, Optimization } from "@scenesystems/effect-math"
- * import { Effect, Layer } from "effect"
+ * import { Optimization } from "@scenesystems/effect-math"
+ * import { Effect, Layer, Number } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
@@ -210,11 +231,11 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const fn = (x: number) => Numeric.sum([Numeric.pow(x, 2), -2])
+ * const fn = (x: number) => Number.subtract(Number.multiply(x, x), 2)
  * export const program = Optimization.bisectWithPolicies(fn, 0, 2).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (root) => Numeric.between(root, { minimum: 1.4142, maximum: 1.4143 }),
+ *     (root) => Number.between(root, { minimum: 1.4142, maximum: 1.4143 }),
  *     () => "UnexpectedRoot"
  *   )
  * )
@@ -230,12 +251,19 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
  * @category operations
  */
 export const bisectWithPolicies = (f: (x: number) => number, a: number, b: number) =>
-  withScalarPolicyGuards({
-    operation: "Optimization.bisectWithPolicies",
-    compute: () => Bisect.bisectKernel(f, a, b),
-    makeError: (message) => new OptimizationDomainViolationError({ operation: "bisectWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
-  })
+  executeKernel("bisectWithPolicies", () => Bisect.bisect(f, a, b)).pipe(
+    Effect.flatMap((result) =>
+      withScalarPolicyGuards({
+        operation: "Optimization.bisectWithPolicies",
+        compute: () => result,
+        makeError: (message) => new OptimizationDomainViolationError({ operation: "bisectWithPolicies", message }),
+        annotations: (value) => ({
+          input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
+          result: encodeNumber(value)
+        })
+      })
+    )
+  )
 
 /**
  * Approximates a scalar minimizer with default stopping settings and applies runtime policies.
@@ -244,7 +272,7 @@ export const bisectWithPolicies = (f: (x: number) => number, a: number, b: numbe
  * Strict precision rejects a non-finite midpoint. Relaxed precision returns it.
  * Enabled diagnostics emit one debug log with the interval, result, precision
  * mode, and elapsed milliseconds. Endpoint ordering and unimodality are not
- * validated. Exceptions from `f` become Effect defects.
+ * validated. Exceptions from `f` fail with {@link KernelExecutionError}.
  *
  * @param f - Synchronous objective function.
  * @param a - First search endpoint.
@@ -256,9 +284,17 @@ export const bisectWithPolicies = (f: (x: number) => number, a: number, b: numbe
  * @category operations
  */
 export const goldenSectionWithPolicies = (f: (x: number) => number, a: number, b: number) =>
-  withScalarPolicyGuards({
-    operation: "Optimization.goldenSectionWithPolicies",
-    compute: () => GoldenSection.goldenSectionKernel(f, a, b),
-    makeError: (message) => new OptimizationDomainViolationError({ operation: "goldenSectionWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
-  })
+  executeKernel("goldenSectionWithPolicies", () => GoldenSection.goldenSection(f, a, b)).pipe(
+    Effect.flatMap((result) =>
+      withScalarPolicyGuards({
+        operation: "Optimization.goldenSectionWithPolicies",
+        compute: () => result,
+        makeError: (message) =>
+          new OptimizationDomainViolationError({ operation: "goldenSectionWithPolicies", message }),
+        annotations: (value) => ({
+          input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
+          result: encodeNumber(value)
+        })
+      })
+    )
+  )

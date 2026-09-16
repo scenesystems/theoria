@@ -6,7 +6,18 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N, Option, pipe } from "effect"
+import { Boolean, Chunk, Iterable, Number, Option, pipe, Tuple } from "effect"
+
+import { hypot } from "../../Numeric/index.js"
+
+const indices = (size: number): Chunk.Chunk<number> =>
+  Chunk.fromIterable(
+    Iterable.unfold(0, (index) =>
+      Boolean.match(Number.lessThan(index, size), {
+        onFalse: Option.none,
+        onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
+      }))
+  )
 
 /**
  * Read element (i, j) from a row-major chunk with stride/offset.
@@ -21,7 +32,7 @@ export const getElement = (
   offset: number,
   i: number,
   j: number
-): Option.Option<number> => Chunk.get(data, N.sum(offset, N.sum(N.multiply(i, stride), j)))
+): Option.Option<number> => Chunk.get(data, Number.sum(offset, Number.sum(Number.multiply(i, stride), j)))
 
 /**
  * Read element (i, j) from a row-major chunk, defaulting to 0.
@@ -51,15 +62,15 @@ export const matvec = (
   offset: number,
   x: Chunk.Chunk<number>
 ): Chunk.Chunk<number> =>
-  Chunk.makeBy(rows, (i) =>
+  Chunk.map(indices(rows), (i) =>
     Chunk.reduce(
-      Chunk.makeBy(cols, (j) =>
-        N.multiply(
+      Chunk.map(indices(cols), (j) =>
+        Number.multiply(
           getOr0(data, stride, offset, i, j),
           Option.getOrElse(Chunk.get(x, j), () => 0)
         )),
       0,
-      N.sum
+      Number.sum
     ))
 
 /**
@@ -76,14 +87,12 @@ export const transpose = (
   offset: number
 ): Chunk.Chunk<number> =>
   pipe(
-    Chunk.makeBy(cols, (j) => Chunk.makeBy(rows, (i) => getOr0(data, stride, offset, i, j))),
+    Chunk.map(indices(cols), (j) => Chunk.map(indices(rows), (i) => getOr0(data, stride, offset, i, j))),
     Chunk.flatMap((row) => row)
   )
 
 /**
  * Frobenius norm of a matrix.
- *
- * `Math.sqrt` is a deterministic IEEE 754 primitive.
  *
  * @since 0.1.0
  * @category internal
@@ -95,18 +104,9 @@ export const frobeniusNorm = (
   stride: number,
   offset: number
 ): number =>
-  Math.sqrt(
-    Chunk.reduce(
-      Chunk.makeBy(rows, (i) =>
-        Chunk.reduce(
-          Chunk.makeBy(cols, (j) => {
-            const v = getOr0(data, stride, offset, i, j)
-            return N.multiply(v, v)
-          }),
-          0,
-          N.sum
-        )),
-      0,
-      N.sum
+  hypot(
+    Chunk.flatMap(
+      indices(rows),
+      (i) => Chunk.map(indices(cols), (j) => getOr0(data, stride, offset, i, j))
     )
   )

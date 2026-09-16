@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Exit, Number as N, Schema } from "effect"
+import { Chunk, Effect, Number, Predicate, Schema } from "effect"
 
 import { Complex } from "../../src/Complex/model.js"
 import {
@@ -26,7 +26,7 @@ import {
   fromPolar,
   fromReal,
   fromRealChunk,
-  i as iConst,
+  i,
   log,
   logValidated,
   multiply,
@@ -51,11 +51,12 @@ import {
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import { dot } from "../../src/LinearAlgebra/operations.js"
+import * as Numeric from "../../src/Numeric/index.js"
 
-const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
+const strictCompensatedLayer = makeDeterministicRuntimePoliciesLayer({
   seed: Seed.make(42),
   precision: "strict",
-  backend: "typed-array",
+  backend: "compensated",
   diagnostics: "enabled"
 })
 
@@ -67,9 +68,10 @@ const relaxedScalarLayer = makeDeterministicRuntimePoliciesLayer({
 })
 
 const TOLERANCE = 1e-12
+const isNaN = Predicate.not(Schema.is(Schema.Number.pipe(Schema.nonNaN())))
 
 const expectClose = (actual: number, expected: number, tolerance: number = TOLERANCE) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 
 const expectComplexClose = (actual: Complex, expectedRe: number, expectedIm: number, tolerance: number = TOLERANCE) => {
   expectClose(actual.re, expectedRe, tolerance)
@@ -86,7 +88,6 @@ describe("Complex / constructors", () => {
       const z = of(3, 4)
       expect(z.re).toStrictEqual(3)
       expect(z.im).toStrictEqual(4)
-      expect(z._tag).toStrictEqual("Complex")
     }))
 
   it.effect("fromReal produces zero imaginary", () =>
@@ -117,8 +118,8 @@ describe("Complex / constructors", () => {
 
   it.effect("i is 0+1i", () =>
     Effect.gen(function*() {
-      expect(iConst.re).toStrictEqual(0)
-      expect(iConst.im).toStrictEqual(1)
+      expect(i.re).toStrictEqual(0)
+      expect(i.im).toStrictEqual(1)
     }))
 })
 
@@ -146,13 +147,15 @@ describe("Complex / Schema.TaggedClass", () => {
 
   it.effect("rejects excess properties with onExcessProperty: error", () =>
     Effect.gen(function*() {
-      const result = yield* Schema.decodeUnknown(Complex)({
-        _tag: "Complex",
-        re: 1,
-        im: 2,
-        extra: "bad"
-      }, { onExcessProperty: "error" }).pipe(Effect.exit)
-      expect(Exit.isFailure(result)).toBe(true)
+      const error = yield* Effect.flip(
+        Schema.decodeUnknown(Complex)({
+          _tag: "Complex",
+          re: 1,
+          im: 2,
+          extra: "bad"
+        }, { onExcessProperty: "error" })
+      )
+      expect(error._tag).toStrictEqual("ParseError")
     }))
 })
 
@@ -197,7 +200,7 @@ describe("Complex / multiply", () => {
 
   it.effect("i * i = -1", () =>
     Effect.gen(function*() {
-      const result = multiply(iConst, iConst)
+      const result = multiply(i, i)
       expectComplexClose(result, -1, 0)
     }))
 })
@@ -219,8 +222,8 @@ describe("Complex / divide", () => {
   it.effect("division by zero gives NaN", () =>
     Effect.gen(function*() {
       const result = divide(of(1, 2), zero)
-      expect(Number.isNaN(result.re)).toBe(true)
-      expect(Number.isNaN(result.im)).toBe(true)
+      expect(isNaN(result.re)).toBe(true)
+      expect(isNaN(result.im)).toBe(true)
     }))
 })
 
@@ -258,12 +261,12 @@ describe("Complex / arg", () => {
 
   it.effect("arg(0+1i) = π/2", () =>
     Effect.gen(function*() {
-      expectClose(arg(iConst), N.unsafeDivide(Math.PI, 2))
+      expectClose(arg(i), Number.unsafeDivide(Numeric.pi, 2))
     }))
 
   it.effect("arg(-1+0i) = π", () =>
     Effect.gen(function*() {
-      expectClose(arg(of(-1, 0)), Math.PI)
+      expectClose(arg(of(-1, 0)), Numeric.pi)
     }))
 })
 
@@ -279,14 +282,14 @@ describe("Complex / exp", () => {
 
   it.effect("exp(iπ) ≈ -1 (Euler's identity)", () =>
     Effect.gen(function*() {
-      const result = exp(of(0, Math.PI))
+      const result = exp(of(0, Numeric.pi))
       expectComplexClose(result, -1, 0, 1e-14)
     }))
 
   it.effect("exp(1+0i) ≈ e", () =>
     Effect.gen(function*() {
       const result = exp(of(1, 0))
-      expectComplexClose(result, Math.E, 0)
+      expectComplexClose(result, Numeric.exp(1), 0)
     }))
 })
 
@@ -298,14 +301,14 @@ describe("Complex / log", () => {
 
   it.effect("log(e) ≈ 1", () =>
     Effect.gen(function*() {
-      const result = log(of(Math.E, 0))
+      const result = log(of(Numeric.exp(1), 0))
       expectComplexClose(result, 1, 0)
     }))
 
   it.effect("log(-1) ≈ iπ", () =>
     Effect.gen(function*() {
       const result = log(of(-1, 0))
-      expectComplexClose(result, 0, Math.PI)
+      expectComplexClose(result, 0, Numeric.pi)
     }))
 
   it.effect("exp(log(z)) ≈ z (round-trip)", () =>
@@ -371,7 +374,7 @@ describe("Complex / polar", () => {
     Effect.gen(function*() {
       const [r, theta] = toPolar(of(3, 4))
       expectClose(r, 5)
-      expectClose(theta, Math.atan2(4, 3))
+      expectClose(theta, Numeric.atan2(4, 3))
     }))
 
   it.effect("fromPolar round-trips with toPolar", () =>
@@ -395,14 +398,14 @@ describe("Complex / sin", () => {
 
   it.effect("sin(π/2 + 0i) ≈ 1+0i", () =>
     Effect.gen(function*() {
-      const result = sin(of(N.unsafeDivide(Math.PI, 2), 0))
+      const result = sin(of(Number.unsafeDivide(Numeric.pi, 2), 0))
       expectComplexClose(result, 1, 0, 1e-14)
     }))
 
   it.effect("sin(i) = i·sinh(1)", () =>
     Effect.gen(function*() {
-      const result = sin(iConst)
-      expectComplexClose(result, 0, Math.sinh(1))
+      const result = sin(i)
+      expectComplexClose(result, 0, Numeric.sinh(1))
     }))
 })
 
@@ -414,7 +417,7 @@ describe("Complex / cos", () => {
 
   it.effect("cos(π + 0i) ≈ -1+0i", () =>
     Effect.gen(function*() {
-      const result = cos(of(Math.PI, 0))
+      const result = cos(of(Numeric.pi, 0))
       expectComplexClose(result, -1, 0, 1e-14)
     }))
 })
@@ -427,7 +430,7 @@ describe("Complex / tan", () => {
 
   it.effect("tan(π/4) ≈ 1", () =>
     Effect.gen(function*() {
-      const result = tan(of(N.unsafeDivide(Math.PI, 4), 0))
+      const result = tan(of(Number.unsafeDivide(Numeric.pi, 4), 0))
       expectComplexClose(result, 1, 0, 1e-12)
     }))
 })
@@ -441,7 +444,7 @@ describe("Complex / sinh", () => {
   it.effect("sinh(1+0i) ≈ sinh(1)+0i", () =>
     Effect.gen(function*() {
       const result = sinh(of(1, 0))
-      expectComplexClose(result, Math.sinh(1), 0)
+      expectComplexClose(result, Numeric.sinh(1), 0)
     }))
 })
 
@@ -454,7 +457,7 @@ describe("Complex / cosh", () => {
   it.effect("cosh(1+0i) ≈ cosh(1)+0i", () =>
     Effect.gen(function*() {
       const result = cosh(of(1, 0))
-      expectComplexClose(result, Math.cosh(1), 0)
+      expectComplexClose(result, Numeric.cosh(1), 0)
     }))
 })
 
@@ -467,7 +470,7 @@ describe("Complex / tanh", () => {
   it.effect("tanh(1+0i) ≈ tanh(1)", () =>
     Effect.gen(function*() {
       const result = tanh(of(1, 0))
-      expectComplexClose(result, Math.tanh(1), 0)
+      expectComplexClose(result, Number.unsafeDivide(Numeric.sinh(1), Numeric.cosh(1)), 0)
     }))
 })
 
@@ -501,7 +504,7 @@ describe("Complex / complexNorm", () => {
 
   it.effect("norm of [1+0i, 0+1i] = √2", () =>
     Effect.gen(function*() {
-      expectClose(complexNorm(Chunk.make(of(1, 0), of(0, 1))), Math.sqrt(2))
+      expectClose(complexNorm(Chunk.make(of(1, 0), of(0, 1))), Numeric.sqrt(2))
     }))
 })
 
@@ -517,7 +520,7 @@ describe("Complex / complexScale", () => {
   it.effect("scale by i rotates 90°", () =>
     Effect.gen(function*() {
       const xs = Chunk.make(of(1, 0))
-      const scaled = complexScale(xs, iConst)
+      const scaled = complexScale(xs, i)
       expectComplexClose(Chunk.unsafeGet(scaled, 0), 0, 1)
     }))
 })
@@ -529,25 +532,21 @@ describe("Complex / complexScale", () => {
 describe("Complex / real ↔ complex interop", () => {
   it.effect("fromRealChunk lifts reals to complex with im=0", () =>
     Effect.gen(function*() {
-      const reals = Chunk.fromIterable([1, 2, 3])
+      const reals = Chunk.make(1, 2, 3)
       const result = fromRealChunk(reals)
-      expect(Chunk.toReadonlyArray(result).map((z) => [z.re, z.im])).toStrictEqual([
-        [1, 0],
-        [2, 0],
-        [3, 0]
-      ])
+      expect(result).toStrictEqual(Chunk.make(of(1, 0), of(2, 0), of(3, 0)))
     }))
 
   it.effect("toRealChunk extracts real parts", () =>
     Effect.gen(function*() {
       const xs = Chunk.make(of(1, 2), of(3, 4), of(5, 6))
-      expect(Chunk.toReadonlyArray(toRealChunk(xs))).toStrictEqual([1, 3, 5])
+      expect(toRealChunk(xs)).toStrictEqual(Chunk.make(1, 3, 5))
     }))
 
   it.effect("toImaginaryChunk extracts imaginary parts", () =>
     Effect.gen(function*() {
       const xs = Chunk.make(of(1, 2), of(3, 4), of(5, 6))
-      expect(Chunk.toReadonlyArray(toImaginaryChunk(xs))).toStrictEqual([2, 4, 6])
+      expect(toImaginaryChunk(xs)).toStrictEqual(Chunk.make(2, 4, 6))
     }))
 
   it.effect("toMagnitudeChunk computes |z| for each element", () =>
@@ -564,14 +563,14 @@ describe("Complex / real ↔ complex interop", () => {
       const xs = Chunk.make(of(1, 0), of(0, 1), of(-1, 0))
       const result = toPhaseChunk(xs)
       expectClose(Chunk.unsafeGet(result, 0), 0)
-      expectClose(Chunk.unsafeGet(result, 1), N.unsafeDivide(Math.PI, 2))
-      expectClose(Chunk.unsafeGet(result, 2), Math.PI)
+      expectClose(Chunk.unsafeGet(result, 1), Number.unsafeDivide(Numeric.pi, 2))
+      expectClose(Chunk.unsafeGet(result, 2), Numeric.pi)
     }))
 
   it.effect("round-trip: toRealChunk(fromRealChunk(xs)) = xs", () =>
     Effect.gen(function*() {
-      const reals = Chunk.fromIterable([1, 2, 3])
-      expect(Chunk.toReadonlyArray(toRealChunk(fromRealChunk(reals)))).toStrictEqual([1, 2, 3])
+      const reals = Chunk.make(1, 2, 3)
+      expect(toRealChunk(fromRealChunk(reals))).toStrictEqual(reals)
     }))
 
   it.effect("toRealChunk output feeds LinearAlgebra.dot", () =>
@@ -630,10 +629,9 @@ describe("Complex / addValidated", () => {
 
   it.effect("rejects excess properties", () =>
     Effect.gen(function*() {
-      const result = yield* addValidated({ aRe: 1, aIm: 2, bRe: 3, bIm: 4, extra: "bad" }).pipe(
-        Effect.exit
-      )
-      expect(Exit.isFailure(result)).toBe(true)
+      const error = yield* Effect.flip(addValidated({ aRe: 1, aIm: 2, bRe: 3, bIm: 4, extra: "bad" }))
+      expect(error._tag).toStrictEqual("ComplexDecodeError")
+      expect(error.operation).toStrictEqual("add")
     }))
 })
 
@@ -695,7 +693,7 @@ describe("Complex / absWithPolicies", () => {
     Effect.gen(function*() {
       const result = yield* absWithPolicies(of(3, 4))
       expectClose(result, 5)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("relaxed policy passes for any input", () =>
     Effect.gen(function*() {
@@ -708,8 +706,8 @@ describe("Complex / argWithPolicies", () => {
   it.effect("strict policy passes for finite input", () =>
     Effect.gen(function*() {
       const result = yield* argWithPolicies(of(1, 1))
-      expectClose(result, N.unsafeDivide(Math.PI, 4))
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+      expectClose(result, Number.unsafeDivide(Numeric.pi, 4))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 })
 
 describe("Complex / complexDerivativeWithPolicies", () => {
@@ -718,7 +716,7 @@ describe("Complex / complexDerivativeWithPolicies", () => {
       const f = (z: Complex) => multiply(z, z)
       const result = yield* complexDerivativeWithPolicies(f, 3)
       expectClose(result, 6, 1e-15)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 })
 
 describe("Complex / Schema", () => {

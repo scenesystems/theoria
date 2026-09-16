@@ -10,13 +10,16 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect } from "effect"
+import { Chunk, Effect, Option, Schema } from "effect"
 
 import { withCustomPolicyGuards, withScalarPolicyGuards } from "../../../contracts/shared/PolicyGuards.js"
 import { CalculusDomainViolationError } from "../../errors.js"
 import type { RidderMethodInputType } from "../../schema.js"
 import { adaptiveSimpson, derivativeLimit, secondDerivativeLimit, simpson, trapezoid } from "../pure.js"
 import { estimateIsFinite, executeKernel } from "../shared.js"
+
+const encodeBoolean = Schema.encodeSync(Schema.BooleanFromString)
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Estimates a first derivative and applies policies to its value and absolute error.
@@ -48,10 +51,10 @@ export const derivativeLimitWithPolicies = (
             message
           }),
         annotations: (result) => ({
-          x: String(x),
-          value: String(result.value),
-          absoluteError: String(result.absoluteError),
-          converged: String(result.converged)
+          x: encodeNumber(x),
+          value: encodeNumber(result.value),
+          absoluteError: encodeNumber(result.absoluteError),
+          converged: encodeBoolean(result.converged)
         })
       })
     )
@@ -87,10 +90,10 @@ export const secondDerivativeLimitWithPolicies = (
             message
           }),
         annotations: (result) => ({
-          x: String(x),
-          value: String(result.value),
-          absoluteError: String(result.absoluteError),
-          converged: String(result.converged)
+          x: encodeNumber(x),
+          value: encodeNumber(result.value),
+          absoluteError: encodeNumber(result.absoluteError),
+          converged: encodeBoolean(result.converged)
         })
       })
     )
@@ -158,9 +161,9 @@ export const trapezoidWithPolicies = (values: Chunk.Chunk<number>, dx: number) =
             message
           }),
         annotations: (value) => ({
-          inputSize: String(Chunk.size(values)),
-          dx: String(dx),
-          result: String(value)
+          inputSize: encodeNumber(Chunk.size(values)),
+          dx: encodeNumber(dx),
+          result: encodeNumber(value)
         })
       })
     )
@@ -190,9 +193,9 @@ export const simpsonWithPolicies = (values: Chunk.Chunk<number>, dx: number) =>
             message
           }),
         annotations: (value) => ({
-          inputSize: String(Chunk.size(values)),
-          dx: String(dx),
-          result: String(value)
+          inputSize: encodeNumber(Chunk.size(values)),
+          dx: encodeNumber(dx),
+          result: encodeNumber(value)
         })
       })
     )
@@ -233,12 +236,12 @@ export const adaptiveSimpsonWithPolicies = (
             message
           }),
         annotations: (value) => ({
-          a: String(a),
-          b: String(b),
-          absoluteTolerance: String(absoluteTolerance ?? 1e-10),
-          relativeTolerance: String(relativeTolerance ?? 1e-10),
-          maxDepth: String(maxDepth ?? 16),
-          result: String(value)
+          a: encodeNumber(a),
+          b: encodeNumber(b),
+          absoluteTolerance: encodeNumber(Option.getOrElse(Option.fromNullable(absoluteTolerance), () => 1e-10)),
+          relativeTolerance: encodeNumber(Option.getOrElse(Option.fromNullable(relativeTolerance), () => 1e-10)),
+          maxDepth: encodeNumber(Option.getOrElse(Option.fromNullable(maxDepth), () => 16)),
+          result: encodeNumber(value)
         })
       })
     )

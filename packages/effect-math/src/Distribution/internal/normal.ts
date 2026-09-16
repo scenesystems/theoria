@@ -2,16 +2,15 @@
  * Normal (Gaussian) distribution kernels.
  * Full algebra: pdf, logpdf, cdf, quantile, mean, variance, entropy.
  *
- * CDF delegates to erf from Special/internal/erf.js.
- * Quantile delegates to erfinv from Special/internal/erfinv.js.
+ * CDF and quantile delegate to canonical public Special operations.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Number } from "effect"
 
-import { erfAbramowitzStegun } from "../../Special/internal/erf.js"
-import { erfinvKernel } from "../../Special/internal/erfinv.js"
+import { exp, log, pi, sqrt } from "../../Numeric/index.js"
+import { erf, erfinv } from "../../Special/index.js"
 
 /**
  * Precomputed √(2π) for the normal PDF denominator.
@@ -19,7 +18,8 @@ import { erfinvKernel } from "../../Special/internal/erfinv.js"
  * @since 0.1.0
  * @category internal
  */
-const SQRT_2PI = Math.sqrt(N.multiply(2, Math.PI))
+const SQRT_2 = sqrt(2)
+const SQRT_2PI = sqrt(Number.multiply(2, pi))
 
 /**
  * Precomputed 0.5 · ln(2π) for logpdf.
@@ -27,7 +27,7 @@ const SQRT_2PI = Math.sqrt(N.multiply(2, Math.PI))
  * @since 0.1.0
  * @category internal
  */
-const LOG_SQRT_2PI = N.multiply(0.5, Math.log(N.multiply(2, Math.PI)))
+const LOG_SQRT_2PI = Number.multiply(0.5, log(Number.multiply(2, pi)))
 
 /**
  * Precomputed 0.5 + 0.5 · ln(2π) for entropy.
@@ -35,7 +35,7 @@ const LOG_SQRT_2PI = N.multiply(0.5, Math.log(N.multiply(2, Math.PI)))
  * @since 0.1.0
  * @category internal
  */
-const HALF_LOG_2PI_E = N.sum(0.5, N.multiply(0.5, Math.log(N.multiply(2, Math.PI))))
+const HALF_LOG_2PI_E = Number.sum(0.5, LOG_SQRT_2PI)
 
 /**
  * Normal PDF: φ(x; μ, σ) = (1 / (σ√(2π))) · exp(−½((x − μ) / σ)²).
@@ -44,10 +44,10 @@ const HALF_LOG_2PI_E = N.sum(0.5, N.multiply(0.5, Math.log(N.multiply(2, Math.PI
  * @category internal
  */
 export const normalPdf = (x: number, mu: number, sigma: number): number => {
-  const z = N.unsafeDivide(N.subtract(x, mu), sigma)
-  return N.multiply(
-    N.unsafeDivide(1, N.multiply(sigma, SQRT_2PI)),
-    Math.exp(N.multiply(-0.5, N.multiply(z, z)))
+  const z = Number.unsafeDivide(Number.subtract(x, mu), sigma)
+  return Number.multiply(
+    Number.unsafeDivide(1, Number.multiply(sigma, SQRT_2PI)),
+    exp(Number.multiply(-0.5, Number.multiply(z, z)))
   )
 }
 
@@ -58,10 +58,10 @@ export const normalPdf = (x: number, mu: number, sigma: number): number => {
  * @category internal
  */
 export const normalLogpdf = (x: number, mu: number, sigma: number): number => {
-  const z = N.unsafeDivide(N.subtract(x, mu), sigma)
-  return N.subtract(
-    N.subtract(N.negate(LOG_SQRT_2PI), Math.log(sigma)),
-    N.multiply(0.5, N.multiply(z, z))
+  const z = Number.unsafeDivide(Number.subtract(x, mu), sigma)
+  return Number.subtract(
+    Number.subtract(Number.negate(LOG_SQRT_2PI), log(sigma)),
+    Number.multiply(0.5, Number.multiply(z, z))
   )
 }
 
@@ -72,12 +72,12 @@ export const normalLogpdf = (x: number, mu: number, sigma: number): number => {
  * @category internal
  */
 export const normalCdf = (x: number, mu: number, sigma: number): number =>
-  N.multiply(
+  Number.multiply(
     0.5,
-    N.sum(
+    Number.sum(
       1,
-      erfAbramowitzStegun(
-        N.unsafeDivide(N.subtract(x, mu), N.multiply(sigma, Math.SQRT2))
+      erf(
+        Number.unsafeDivide(Number.subtract(x, mu), Number.multiply(sigma, SQRT_2))
       )
     )
   )
@@ -89,11 +89,11 @@ export const normalCdf = (x: number, mu: number, sigma: number): number =>
  * @category internal
  */
 export const normalQuantile = (p: number, mu: number, sigma: number): number =>
-  N.sum(
+  Number.sum(
     mu,
-    N.multiply(
-      N.multiply(sigma, Math.SQRT2),
-      erfinvKernel(N.subtract(N.multiply(2, p), 1))
+    Number.multiply(
+      Number.multiply(sigma, SQRT_2),
+      erfinv(Number.subtract(Number.multiply(2, p), 1))
     )
   )
 
@@ -111,7 +111,7 @@ export const normalMean = (mu: number, _sigma: number): number => mu
  * @since 0.1.0
  * @category internal
  */
-export const normalVariance = (_mu: number, sigma: number): number => N.multiply(sigma, sigma)
+export const normalVariance = (_mu: number, sigma: number): number => Number.multiply(sigma, sigma)
 
 /**
  * Normal differential entropy: H(X) = 0.5 + 0.5·ln(2π) + ln(σ).
@@ -119,4 +119,4 @@ export const normalVariance = (_mu: number, sigma: number): number => N.multiply
  * @since 0.1.0
  * @category internal
  */
-export const normalEntropy = (_mu: number, sigma: number): number => N.sum(HALF_LOG_2PI_E, Math.log(sigma))
+export const normalEntropy = (_mu: number, sigma: number): number => Number.sum(HALF_LOG_2PI_E, log(sigma))

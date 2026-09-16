@@ -4,28 +4,38 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as EffectNumber, Option, pipe } from "effect"
-import * as Arr from "effect/Array"
+import { Boolean, Chunk, Number, Option, pipe, Schema } from "effect"
 
-/**
- * Returns the index of the maximum element. `None` for empty arrays.
- * Ties broken by first index.
- *
- * @since 0.1.0
- * @category internal
- */
-export const argmaxIndex = (values: ReadonlyArray<number>): Option.Option<number> =>
-  pipe(
-    Arr.head(values),
-    Option.map((first) => {
-      const { bestIdx } = Arr.reduce(
-        Arr.drop(values, 1),
-        { index: 1, bestIdx: 0, bestVal: first },
-        (acc, val) =>
-          EffectNumber.greaterThan(val, acc.bestVal)
-            ? { index: acc.index + 1, bestIdx: acc.index, bestVal: val }
-            : { index: acc.index + 1, bestIdx: acc.bestIdx, bestVal: acc.bestVal }
+class MaximumState extends Schema.Class<MaximumState>("MaximumState")({
+  bestIndex: Schema.Number,
+  bestValue: Schema.Number,
+  index: Schema.Number
+}) {}
+
+/** Returns the first index of the maximum element, or `None` when empty. */
+export const argmaxIndex = (values: Iterable<number>): Option.Option<number> =>
+  pipe(Chunk.fromIterable(values), (values) =>
+    pipe(
+      Chunk.head(values),
+      Option.map((first) =>
+        Chunk.reduce(
+          Chunk.drop(values, 1),
+          new MaximumState({ bestIndex: 0, bestValue: first, index: 1 }),
+          (state, value) =>
+            Boolean.match(Number.greaterThan(value, state.bestValue), {
+              onTrue: () =>
+                new MaximumState({
+                  bestIndex: state.index,
+                  bestValue: value,
+                  index: Number.increment(state.index)
+                }),
+              onFalse: () =>
+                new MaximumState({
+                  bestIndex: state.bestIndex,
+                  bestValue: state.bestValue,
+                  index: Number.increment(state.index)
+                })
+            })
+        ).bestIndex
       )
-      return bestIdx
-    })
-  )
+    ))

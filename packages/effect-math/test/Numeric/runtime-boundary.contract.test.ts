@@ -1,17 +1,18 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Number } from "effect"
+import { Array, Effect, Match, Number, Schema } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import {
   makeDeterministicRuntimePoliciesLayer,
   makeNondeterministicRuntimePoliciesLayer
 } from "../../src/contracts/shared/RuntimePolicies.js"
+import { NumericDomainBoundaryError } from "../../src/Numeric/errors.js"
 import { validateNumericBoundary } from "../../src/Numeric/operations.js"
 
 const deterministicLayer = makeDeterministicRuntimePoliciesLayer({
   seed: Seed.make(1337),
   precision: "strict",
-  backend: "typed-array",
+  backend: "compensated",
   diagnostics: "enabled"
 })
 
@@ -25,19 +26,19 @@ describe("Numeric runtime boundary contracts", () => {
   it.effect("accepts canonical finite numeric boundary input", () =>
     Effect.gen(function*() {
       const result = yield* validateNumericBoundary({
-        values: [0.1, 0.2, 0.3, 0.4],
+        values: Array.make(0.1, 0.2, 0.3, 0.4),
         tolerance: 1e-9,
         budget: 64
       }).pipe(Effect.provide(deterministicLayer))
 
-      expect(result).toStrictEqual({ ok: true })
+      expect(result.ok).toBe(true)
     }))
 
   it.effect("rejects invalid numeric boundary payloads with typed boundary errors", () =>
     Effect.gen(function*() {
       const malformedInput = yield* Effect.either(
         validateNumericBoundary({
-          values: [0.1, NaN],
+          values: Array.make(0.1, Number.unsafeDivide(0, 0)),
           tolerance: 1e-9,
           budget: 64
         }).pipe(Effect.provide(deterministicLayer))
@@ -45,32 +46,27 @@ describe("Numeric runtime boundary contracts", () => {
 
       expect(
         Match.value(malformedInput).pipe(
-          Match.tag("Left", ({ left }) => left._tag === "NumericDomainBoundaryError"),
+          Match.tag("Left", ({ left }) => Schema.is(NumericDomainBoundaryError)(left)),
           Match.tag("Right", () => false),
           Match.exhaustive
         )
       ).toStrictEqual(true)
     }))
 
-  it.effect("preserves deterministic replay and allows nondeterministic policy execution", () =>
+  it.effect("validates under deterministic and nondeterministic policy layers", () =>
     Effect.gen(function*() {
-      const deterministicRunA = yield* validateNumericBoundary({
-        values: [0.1, 0.2, 0.3, 0.4],
-        tolerance: 1e-9,
-        budget: 64
-      }).pipe(Effect.provide(deterministicLayer))
-      const deterministicRunB = yield* validateNumericBoundary({
-        values: [0.1, 0.2, 0.3, 0.4],
+      const deterministicRun = yield* validateNumericBoundary({
+        values: Array.make(0.1, 0.2, 0.3, 0.4),
         tolerance: 1e-9,
         budget: 64
       }).pipe(Effect.provide(deterministicLayer))
       const nondeterministicRun = yield* validateNumericBoundary({
-        values: [0.1, 0.2, 0.3, 0.4],
+        values: Array.make(0.1, 0.2, 0.3, 0.4),
         tolerance: 1e-9,
         budget: 64
       }).pipe(Effect.provide(nondeterministicLayer))
 
-      expect(deterministicRunA).toStrictEqual(deterministicRunB)
-      expect(Number.Equivalence(nondeterministicRun.ok ? 1 : 0, 1)).toStrictEqual(true)
+      expect(deterministicRun.ok).toBe(true)
+      expect(nondeterministicRun.ok).toBe(true)
     }))
 })

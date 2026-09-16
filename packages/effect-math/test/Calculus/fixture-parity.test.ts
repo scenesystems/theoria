@@ -1,5 +1,6 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Data, Effect, Match, Number as N, Option, Record, Schema } from "effect"
+import { Array, Boolean, Chunk, Data, Effect, Match, Number, Option, Record, Schema } from "effect"
 
 import {
   adaptiveSimpson,
@@ -14,41 +15,48 @@ import {
   simpson,
   trapezoid
 } from "../../src/Calculus/operations.js"
-import { CalculusNumericalParityFixtureSchema, FixtureRegistryLive, loadFixture } from "../helpers/fixtures/index.js"
+import * as Numeric from "../../src/Numeric/index.js"
+import { CalculusNumericalParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 class UnknownFixtureFunction extends Data.TaggedError("UnknownFixtureFunction")<{ readonly name: string }> {}
 
-const lookup = <F>(registry: Record<string, F>, name: string): Effect.Effect<F, UnknownFixtureFunction> =>
+const lookup = <F>(
+  registry: Record.ReadonlyRecord<string, F>,
+  name: string
+): Effect.Effect<F, UnknownFixtureFunction> =>
   Option.match(Record.get(registry, name), {
     onNone: () => Effect.fail(new UnknownFixtureFunction({ name })),
     onSome: Effect.succeed
   })
 
-const testFunctions: Record<string, (x: number) => number> = {
-  x_squared: (x) => N.multiply(x, x),
-  x_cubed: (x) => N.multiply(N.multiply(x, x), x),
-  sin: Math.sin,
-  exp: Math.exp,
-  ln: Math.log,
-  cubic_plus_linear: (x) => N.sum(N.multiply(N.multiply(x, x), x), N.multiply(2, x))
+const testFunctions: Record.ReadonlyRecord<string, (x: number) => number> = {
+  x_squared: (x) => Number.multiply(x, x),
+  x_cubed: (x) => Number.multiply(Number.multiply(x, x), x),
+  sin: Numeric.sin,
+  exp: Numeric.exp,
+  ln: Numeric.log,
+  cubic_plus_linear: (x) => Number.sum(Number.multiply(Number.multiply(x, x), x), Number.multiply(2, x))
 }
 
-const scalarSurfaceFunctions: Record<string, (point: Chunk.Chunk<number>) => number> = {
+const scalarSurfaceFunctions: Record.ReadonlyRecord<string, (point: Chunk.Chunk<number>) => number> = {
   quadratic_surface: (point) => {
     const x = Chunk.unsafeGet(point, 0)
     const y = Chunk.unsafeGet(point, 1)
-    return N.sum(N.sum(N.multiply(x, x), N.multiply(3, N.multiply(x, y))), N.multiply(y, y))
+    return Number.sum(
+      Number.sum(Number.multiply(x, x), Number.multiply(3, Number.multiply(x, y))),
+      Number.multiply(y, y)
+    )
   }
 }
 
-const vectorFieldFunctions: Record<string, (point: Chunk.Chunk<number>) => Chunk.Chunk<number>> = {
+const vectorFieldFunctions: Record.ReadonlyRecord<string, (point: Chunk.Chunk<number>) => Chunk.Chunk<number>> = {
   coupled_field: (point) => {
     const x = Chunk.unsafeGet(point, 0)
     const y = Chunk.unsafeGet(point, 1)
-    return Chunk.fromIterable([
-      N.sum(N.multiply(x, x), y),
-      N.sum(N.multiply(x, y), Math.sin(x))
-    ])
+    return Chunk.make(
+      Number.sum(Number.multiply(x, x), y),
+      Number.sum(Number.multiply(x, y), Numeric.sin(x))
+    )
   }
 }
 
@@ -58,37 +66,48 @@ const expectParity = (
   absoluteTolerance: number,
   relativeTolerance: number
 ) => {
-  const absExpected = Math.abs(expected)
-  const tolerance = absExpected > 1 ? N.multiply(absExpected, relativeTolerance) : absoluteTolerance
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  const absExpected = Numeric.abs(expected)
+  const tolerance = Boolean.match(Number.greaterThan(absExpected, 1), {
+    onTrue: () => Number.multiply(absExpected, relativeTolerance),
+    onFalse: () => absoluteTolerance
+  })
+  expect(Numeric.abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 const expectVectorParity = (
-  actual: ReadonlyArray<number>,
-  expected: ReadonlyArray<number>,
+  actual: Chunk.Chunk<number>,
+  expected: Chunk.Chunk<number>,
   absoluteTolerance: number,
   relativeTolerance: number
 ) => {
-  expect(actual.length).toStrictEqual(expected.length)
-  actual.forEach((value, index) =>
-    expectParity(value, expected[index] ?? Number.NaN, absoluteTolerance, relativeTolerance)
-  )
+  expect(Chunk.size(actual)).toStrictEqual(Chunk.size(expected))
+  Chunk.forEach(actual, (value, index) =>
+    expectParity(
+      value,
+      Option.getOrElse(Chunk.get(expected, index), () => Number.unsafeDivide(0, 0)),
+      absoluteTolerance,
+      relativeTolerance
+    ))
 }
 
 const expectMatrixParity = (
-  actual: ReadonlyArray<ReadonlyArray<number>>,
-  expected: ReadonlyArray<ReadonlyArray<number>>,
+  actual: Chunk.Chunk<Chunk.Chunk<number>>,
+  expected: Chunk.Chunk<Chunk.Chunk<number>>,
   absoluteTolerance: number,
   relativeTolerance: number
 ) => {
-  expect(actual.length).toStrictEqual(expected.length)
-  actual.forEach((row, rowIndex) =>
-    expectVectorParity(row, expected[rowIndex] ?? [], absoluteTolerance, relativeTolerance)
-  )
+  expect(Chunk.size(actual)).toStrictEqual(Chunk.size(expected))
+  Chunk.forEach(actual, (row, rowIndex) =>
+    expectVectorParity(
+      row,
+      Option.getOrElse(Chunk.get(expected, rowIndex), Chunk.empty),
+      absoluteTolerance,
+      relativeTolerance
+    ))
 }
 
-const chunkMatrixToReadonly = (matrix: Chunk.Chunk<Chunk.Chunk<number>>) =>
-  Chunk.toReadonlyArray(Chunk.map(matrix, (row) => Chunk.toReadonlyArray(row)))
+const chunkMatrix = (matrix: Iterable<Iterable<number>>): Chunk.Chunk<Chunk.Chunk<number>> =>
+  Chunk.fromIterable(Array.map(Array.fromIterable(matrix), Chunk.fromIterable))
 
 describe("Calculus SciPy fixture parity", () => {
   it.effect("all numerical-parity cases match authoritative tolerances", () =>
@@ -98,7 +117,7 @@ describe("Calculus SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
         Match.value(c).pipe(
           Match.when({ operation: "derivative" }, (v) =>
             Effect.map(lookup(testFunctions, v.input.function), (fn) =>
@@ -160,24 +179,24 @@ describe("Calculus SciPy fixture parity", () => {
           Match.when({ operation: "gradient" }, (v) =>
             Effect.map(lookup(scalarSurfaceFunctions, v.input.function), (fn) =>
               expectVectorParity(
-                Chunk.toReadonlyArray(gradient(fn, Chunk.fromIterable(v.input.point))),
-                v.expected,
+                gradient(fn, Chunk.fromIterable(v.input.point)),
+                Chunk.fromIterable(v.expected),
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
               ))),
           Match.when({ operation: "jacobian" }, (v) =>
             Effect.map(lookup(vectorFieldFunctions, v.input.function), (fn) =>
               expectMatrixParity(
-                chunkMatrixToReadonly(jacobian(fn, Chunk.fromIterable(v.input.point))),
-                v.expected,
+                jacobian(fn, Chunk.fromIterable(v.input.point)),
+                chunkMatrix(v.expected),
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
               ))),
           Match.when({ operation: "hessian" }, (v) =>
             Effect.map(lookup(scalarSurfaceFunctions, v.input.function), (fn) =>
               expectMatrixParity(
-                chunkMatrixToReadonly(hessian(fn, Chunk.fromIterable(v.input.point))),
-                v.expected,
+                hessian(fn, Chunk.fromIterable(v.input.point)),
+                chunkMatrix(v.expected),
                 v.assertion.absoluteTolerance,
                 v.assertion.relativeTolerance
               ))),
@@ -199,5 +218,5 @@ describe("Calculus SciPy fixture parity", () => {
               ))),
           Match.exhaustive
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

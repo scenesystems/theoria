@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Context, Effect, Layer, Match, Option, Schema } from "effect"
+import { Array, Boolean, Context, Effect, Layer, Match, Option, Schema, String } from "effect"
 
 import { ScalarLaneUnsupportedError } from "./AdvancedComputationErrors.js"
 
@@ -150,6 +150,27 @@ export const ScalarAuthorityState = Schema.Struct({
 export type ScalarAuthorityStateType = typeof ScalarAuthorityState.Type
 
 /**
+ * Accepts operation metadata and an optional requested scalar lane.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const ScalarResolutionRequest = Schema.Struct({
+  operation: Schema.String,
+  operationCategory: ScalarOperationCategory,
+  requestedKind: Schema.optional(ScalarKind),
+  enforceRequestedKind: Schema.optional(Schema.Boolean)
+})
+
+/**
+ * A decoded scalar selection request.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type ScalarResolutionRequestType = typeof ScalarResolutionRequest.Type
+
+/**
  * Supplies scalar policy and capabilities to computation planning.
  *
  * @since 0.1.0
@@ -170,23 +191,26 @@ export class ScalarAuthorityService extends Context.Tag("effect-math/contracts/s
  * @since 0.1.0
  * @category contracts
  */
-export const DefaultScalarAuthority: ScalarAuthorityStateType = {
+export const DefaultScalarAuthority = Schema.decodeUnknownSync(ScalarAuthorityState)({
   policy: {
     primaryKind: "float64",
-    fallbackOrder: ["float64", "bigdecimal"]
+    fallbackOrder: Array.make("float64", "bigdecimal")
   },
-  capabilities: [{
-    kind: "float64",
-    supportedCategories: ["numeric", "linear-algebra", "calculus", "optimization"],
-    deterministic: true,
-    supportsExactArithmetic: false
-  }, {
-    kind: "bigdecimal",
-    supportedCategories: ["numeric", "linear-algebra", "calculus", "optimization"],
-    deterministic: true,
-    supportsExactArithmetic: true
-  }]
-}
+  capabilities: Array.make(
+    {
+      kind: "float64",
+      supportedCategories: Array.make("numeric", "linear-algebra", "calculus", "optimization"),
+      deterministic: true,
+      supportsExactArithmetic: false
+    },
+    {
+      kind: "bigdecimal",
+      supportedCategories: Array.make("numeric", "linear-algebra", "calculus", "optimization"),
+      deterministic: true,
+      supportsExactArithmetic: true
+    }
+  )
+})
 
 /**
  * Supplies {@link DefaultScalarAuthority} as {@link ScalarAuthorityService}.
@@ -201,7 +225,7 @@ export const ScalarAuthorityLive = Layer.succeed(ScalarAuthorityService, Default
 
 type ScalarCandidate = ScalarResolutionType
 
-const EMPTY_CANDIDATES: ReadonlyArray<ScalarCandidate> = []
+const EMPTY_CANDIDATES = Array.empty<ScalarCandidate>()
 const REQUESTED_SOURCE: ScalarResolutionSourceType = "requested"
 const POLICY_PRIMARY_SOURCE: ScalarResolutionSourceType = "policy-primary"
 const POLICY_FALLBACK_SOURCE: ScalarResolutionSourceType = "policy-fallback"
@@ -212,19 +236,19 @@ const makeRequestedCandidate = (kind: ScalarKindType): ScalarCandidate => ({
 })
 
 const sourceFromPolicyKind = (kind: ScalarKindType, primaryKind: ScalarKindType): ScalarResolutionSourceType =>
-  Match.value(kind === primaryKind).pipe(
+  Match.value(String.Equivalence(kind, primaryKind)).pipe(
     Match.when(true, () => POLICY_PRIMARY_SOURCE),
     Match.when(false, () => POLICY_FALLBACK_SOURCE),
     Match.exhaustive
   )
 
-const dedupeCandidates = (candidates: ReadonlyArray<ScalarCandidate>): ReadonlyArray<ScalarCandidate> =>
-  candidates.filter((candidate, index, all) => all.findIndex((entry) => entry.kind === candidate.kind) === index)
+const dedupeCandidates = (candidates: typeof EMPTY_CANDIDATES) =>
+  Array.dedupeWith(candidates, (self, that) => String.Equivalence(self.kind, that.kind))
 
 const supportsOperationCategory = (
   capability: ScalarCapabilityType,
   operationCategory: ScalarOperationCategoryType
-): boolean => capability.supportedCategories.includes(operationCategory)
+): boolean => Array.containsWith(String.Equivalence)(capability.supportedCategories, operationCategory)
 
 /**
  * Selects the first declared scalar lane that supports an operation family.
@@ -242,62 +266,81 @@ const supportsOperationCategory = (
  * @since 0.1.0
  * @category contracts
  */
-export const resolveScalarKind = (request: {
-  readonly operation: string
-  readonly operationCategory: ScalarOperationCategoryType
-  readonly requestedKind?: ScalarKindType
-  readonly enforceRequestedKind?: boolean
-}) =>
+export const resolveScalarKind = (request: ScalarResolutionRequestType) =>
   Effect.gen(function*() {
     const authority = yield* ScalarAuthorityService
-    const availableKinds = authority.capabilities
-      .filter((capability) => supportsOperationCategory(capability, request.operationCategory))
-      .map((capability) => capability.kind)
+    const availableKinds = Array.map(
+      Array.filter(
+        authority.capabilities,
+        (capability) => supportsOperationCategory(capability, request.operationCategory)
+      ),
+      (capability) => capability.kind
+    )
 
     const requestedCandidates = Option.match(Option.fromNullable(request.requestedKind), {
       onNone: () => EMPTY_CANDIDATES,
-      onSome: (requestedKind) => [makeRequestedCandidate(requestedKind)]
+      onSome: (requestedKind) => Array.of(makeRequestedCandidate(requestedKind))
     })
 
-    const policyCandidates = dedupeCandidates([
-      {
-        kind: authority.policy.primaryKind,
-        source: POLICY_PRIMARY_SOURCE
-      },
-      ...authority.policy.fallbackOrder.map((kind) => ({
-        kind,
-        source: sourceFromPolicyKind(kind, authority.policy.primaryKind)
-      }))
-    ])
+    const policyCandidates = dedupeCandidates(
+      Array.prepend(
+        Array.map(authority.policy.fallbackOrder, (kind) => ({
+          kind,
+          source: sourceFromPolicyKind(kind, authority.policy.primaryKind)
+        })),
+        {
+          kind: authority.policy.primaryKind,
+          source: POLICY_PRIMARY_SOURCE
+        }
+      )
+    )
 
     const hasRequestedKind = Option.isSome(Option.fromNullable(request.requestedKind))
 
     // `enforceRequestedKind` is used by precision escalation to ensure a
     // policy-selected lane cannot silently fall back again.
-    const orderedCandidates = Match.value(request.enforceRequestedKind === true && hasRequestedKind).pipe(
+    const orderedCandidates = Match.value(
+      Boolean.and(
+        Option.getOrElse(Option.fromNullable(request.enforceRequestedKind), () => false),
+        hasRequestedKind
+      )
+    ).pipe(
       Match.when(true, () => requestedCandidates),
-      Match.when(false, () => dedupeCandidates([...requestedCandidates, ...policyCandidates])),
+      Match.when(false, () => dedupeCandidates(Array.appendAll(requestedCandidates, policyCandidates))),
       Match.exhaustive
     )
 
-    const resolved = Option.fromNullable(orderedCandidates.find((candidate) =>
-      authority.capabilities.some((capability) =>
-        capability.kind === candidate.kind && supportsOperationCategory(capability, request.operationCategory)
-      )
-    ))
+    const resolved = Array.findFirst(orderedCandidates, (candidate) =>
+      Array.some(
+        authority.capabilities,
+        (capability) =>
+          Boolean.and(
+            String.Equivalence(capability.kind, candidate.kind),
+            supportsOperationCategory(capability, request.operationCategory)
+          )
+      ))
 
-    const attemptedOrder = orderedCandidates.map((candidate) =>
-      candidate.kind
-    ).join(" -> ")
+    const attemptedOrder = Array.join(Array.map(orderedCandidates, (candidate) => candidate.kind), " -> ")
 
     return yield* Option.match(resolved, {
       onNone: () =>
         Effect.fail(
           new ScalarLaneUnsupportedError({
             operation: request.operation,
-            requestedKind: request.requestedKind ?? authority.policy.primaryKind,
+            requestedKind: Option.getOrElse(
+              Option.fromNullable(request.requestedKind),
+              () => authority.policy.primaryKind
+            ),
             availableKinds,
-            message: `No scalar lane resolved for ${request.operationCategory}; attempted order: ${attemptedOrder}`
+            message: Array.join(
+              Array.make(
+                "No scalar lane resolved for ",
+                request.operationCategory,
+                "; attempted order: ",
+                attemptedOrder
+              ),
+              ""
+            )
           })
         ),
       onSome: (candidate) =>

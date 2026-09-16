@@ -14,9 +14,9 @@ describe("advanced computation dispatcher seam contracts", () => {
         escalationAttempt: 0,
         requiresAutodiff: false,
         requiresUncertaintyEnvelope: false
-      }).pipe(Effect.provide(makeComputationDispatcherLayer({ backendPolicy: "typed-array" })))
+      }).pipe(Effect.provide(makeComputationDispatcherLayer({ backendPolicy: "compensated" })))
 
-      expect(plan.backendKind).toStrictEqual("typed-array")
+      expect(plan.backendKind).toStrictEqual("compensated")
       expect(plan.differentiationMethod).toStrictEqual("none")
     }))
 })

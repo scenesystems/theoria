@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Effect, Schema } from "effect"
+import { Array, Effect, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { SpecialDecodeError, SpecialDomainViolationError } from "./errors.js"
@@ -29,6 +29,8 @@ import {
   LnGammaInput,
   PolygammaInput
 } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Yields the immutable descriptor used to register Special capabilities.
@@ -77,7 +79,7 @@ export const beta: (a: number, b: number) => number = Beta.betaFromGamma
  * @since 0.1.0
  * @category operations
  */
-export const erf: (x: number) => number = Erf.erfAbramowitzStegun
+export const erf: (x: number) => number = Erf.erfCephes
 
 /**
  * Computes the complementary error function directly in the positive tail,
@@ -85,7 +87,7 @@ export const erf: (x: number) => number = Erf.erfAbramowitzStegun
  * @since 0.1.0
  * @category operations
  */
-export const erfc: (x: number) => number = Erf.erfcAbramowitzStegun
+export const erfc: (x: number) => number = Erf.erfcCephes
 
 /**
  * Approximates the logarithmic derivative of gamma. Inputs below `7` are
@@ -94,7 +96,7 @@ export const erfc: (x: number) => number = Erf.erfcAbramowitzStegun
  * @since 0.1.0
  * @category operations
  */
-export const digamma: (x: number) => number = Digamma.digammaKernel
+export const digamma: (x: number) => number = Digamma.digamma
 
 // ---------------------------------------------------------------------------
 // Validated boundary operations
@@ -182,7 +184,7 @@ export const erfValidated = (input: unknown) =>
         })
       )
     )
-    return Erf.erfAbramowitzStegun(decoded.x)
+    return Erf.erfCephes(decoded.x)
   })
 
 /**
@@ -203,7 +205,7 @@ export const erfcValidated = (input: unknown) =>
         })
       )
     )
-    return Erf.erfcAbramowitzStegun(decoded.x)
+    return Erf.erfcCephes(decoded.x)
   })
 
 /**
@@ -224,7 +226,7 @@ export const digammaValidated = (input: unknown) =>
         })
       )
     )
-    return Digamma.digammaKernel(decoded.x)
+    return Digamma.digamma(decoded.x)
   })
 
 // ---------------------------------------------------------------------------
@@ -243,7 +245,7 @@ export const digammaValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Special } from "@scenesystems/effect-math"
- * import { Effect, Layer } from "effect"
+ * import { Boolean, Effect, Layer, Number } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
@@ -257,7 +259,7 @@ export const digammaValidated = (input: unknown) =>
  * export const program = Special.gammaWithPolicies(5).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (result) => result > 23.999 && result < 24.001,
+ *     (result) => Boolean.and(Number.greaterThan(result, 23.999), Number.lessThan(result, 24.001)),
  *     () => "UnexpectedGammaResult"
  *   )
  * )
@@ -270,7 +272,7 @@ export const gammaWithPolicies = (x: number) =>
     operation: "Special.gammaWithPolicies",
     compute: () => Gamma.gammaLanczos(x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "gammaWithPolicies", message }),
-    annotations: (result) => ({ input: String(x), result: String(result) })
+    annotations: (result) => ({ input: encodeNumber(x), result: encodeNumber(result) })
   })
 
 /**
@@ -287,9 +289,9 @@ export const gammaWithPolicies = (x: number) =>
 export const erfWithPolicies = (x: number) =>
   withScalarPolicyGuards({
     operation: "Special.erfWithPolicies",
-    compute: () => Erf.erfAbramowitzStegun(x),
+    compute: () => Erf.erfCephes(x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "erfWithPolicies", message }),
-    annotations: (result) => ({ input: String(x), result: String(result) })
+    annotations: (result) => ({ input: encodeNumber(x), result: encodeNumber(result) })
   })
 
 /**
@@ -310,7 +312,7 @@ export const lnGammaWithPolicies = (x: number) =>
     operation: "Special.lnGammaWithPolicies",
     compute: () => Gamma.lnGammaLanczos(x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "lnGammaWithPolicies", message }),
-    annotations: (result) => ({ input: String(x), result: String(result) })
+    annotations: (result) => ({ input: encodeNumber(x), result: encodeNumber(result) })
   })
 
 /**
@@ -329,7 +331,10 @@ export const betaWithPolicies = (a: number, b: number) =>
     operation: "Special.betaWithPolicies",
     compute: () => Beta.betaFromGamma(a, b),
     makeError: (message) => new SpecialDomainViolationError({ operation: "betaWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
+    annotations: (result) => ({
+      input: Array.join(Array.make("a=", encodeNumber(a), ", b=", encodeNumber(b)), ""),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -346,9 +351,9 @@ export const betaWithPolicies = (a: number, b: number) =>
 export const erfcWithPolicies = (x: number) =>
   withScalarPolicyGuards({
     operation: "Special.erfcWithPolicies",
-    compute: () => Erf.erfcAbramowitzStegun(x),
+    compute: () => Erf.erfcCephes(x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "erfcWithPolicies", message }),
-    annotations: (result) => ({ input: String(x), result: String(result) })
+    annotations: (result) => ({ input: encodeNumber(x), result: encodeNumber(result) })
   })
 
 /**
@@ -365,9 +370,9 @@ export const erfcWithPolicies = (x: number) =>
 export const digammaWithPolicies = (x: number) =>
   withScalarPolicyGuards({
     operation: "Special.digammaWithPolicies",
-    compute: () => Digamma.digammaKernel(x),
+    compute: () => Digamma.digamma(x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "digammaWithPolicies", message }),
-    annotations: (result) => ({ input: String(x), result: String(result) })
+    annotations: (result) => ({ input: encodeNumber(x), result: encodeNumber(result) })
   })
 
 // ---------------------------------------------------------------------------
@@ -381,7 +386,7 @@ export const digammaWithPolicies = (x: number) =>
  * @since 0.1.0
  * @category operations
  */
-export const erfinv: (x: number) => number = Erfinv.erfinvKernel
+export const erfinv: (x: number) => number = Erfinv.erfinv
 
 /**
  * Computes inverse complementary error as `erfinv(1 - x)`. It returns
@@ -390,7 +395,7 @@ export const erfinv: (x: number) => number = Erfinv.erfinvKernel
  * @since 0.1.0
  * @category operations
  */
-export const erfcinv: (x: number) => number = Erfinv.erfcinvKernel
+export const erfcinv: (x: number) => number = Erfinv.erfcinv
 
 /**
  * Approximates the regularized lower incomplete gamma ratio `P(a, x)`. The
@@ -399,7 +404,7 @@ export const erfcinv: (x: number) => number = Erfinv.erfcinvKernel
  * @since 0.1.0
  * @category operations
  */
-export const gammainc: (a: number, x: number) => number = Gammainc.gammaincKernel
+export const gammainc: (a: number, x: number) => number = Gammainc.gammainc
 
 /**
  * Approximates the regularized upper incomplete gamma ratio `Q(a, x)`. The
@@ -409,7 +414,7 @@ export const gammainc: (a: number, x: number) => number = Gammainc.gammaincKerne
  * @since 0.1.0
  * @category operations
  */
-export const gammaincc: (a: number, x: number) => number = Gammainc.gammainccKernel
+export const gammaincc: (a: number, x: number) => number = Gammainc.gammaincc
 
 /**
  * Approximates the regularized incomplete beta ratio `I_x(a, b)`. The formula
@@ -418,7 +423,7 @@ export const gammaincc: (a: number, x: number) => number = Gammainc.gammainccKer
  * @since 0.1.0
  * @category operations
  */
-export const betainc: (a: number, b: number, x: number) => number = Betainc.betaincKernel
+export const betainc: (a: number, b: number, x: number) => number = Betainc.betainc
 
 /**
  * Approximates the `n`th derivative of digamma by recurrence and asymptotic
@@ -427,7 +432,7 @@ export const betainc: (a: number, b: number, x: number) => number = Betainc.beta
  * @since 0.1.0
  * @category operations
  */
-export const polygamma: (n: number, x: number) => number = Polygamma.polygammaKernel
+export const polygamma: (n: number, x: number) => number = Polygamma.polygamma
 
 // ---------------------------------------------------------------------------
 // Inverse and incomplete validated operations
@@ -451,7 +456,7 @@ export const erfinvValidated = (input: unknown) =>
         })
       )
     )
-    return Erfinv.erfinvKernel(decoded.x)
+    return Erfinv.erfinv(decoded.x)
   })
 
 /**
@@ -473,7 +478,7 @@ export const gammaincValidated = (input: unknown) =>
         })
       )
     )
-    return Gammainc.gammaincKernel(decoded.a, decoded.x)
+    return Gammainc.gammainc(decoded.a, decoded.x)
   })
 
 /**
@@ -495,7 +500,7 @@ export const betaincValidated = (input: unknown) =>
         })
       )
     )
-    return Betainc.betaincKernel(decoded.a, decoded.b, decoded.x)
+    return Betainc.betainc(decoded.a, decoded.b, decoded.x)
   })
 
 /**
@@ -517,7 +522,7 @@ export const polygammaValidated = (input: unknown) =>
         })
       )
     )
-    return Polygamma.polygammaKernel(decoded.n, decoded.x)
+    return Polygamma.polygamma(decoded.n, decoded.x)
   })
 
 // ---------------------------------------------------------------------------
@@ -535,9 +540,9 @@ export const polygammaValidated = (input: unknown) =>
 export const erfinvWithPolicies = (x: number) =>
   withScalarPolicyGuards({
     operation: "Special.erfinvWithPolicies",
-    compute: () => Erfinv.erfinvKernel(x),
+    compute: () => Erfinv.erfinv(x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "erfinvWithPolicies", message }),
-    annotations: (result) => ({ input: String(x), result: String(result) })
+    annotations: (result) => ({ input: encodeNumber(x), result: encodeNumber(result) })
   })
 
 /**
@@ -551,7 +556,10 @@ export const erfinvWithPolicies = (x: number) =>
 export const gammaincWithPolicies = (a: number, x: number) =>
   withScalarPolicyGuards({
     operation: "Special.gammaincWithPolicies",
-    compute: () => Gammainc.gammaincKernel(a, x),
+    compute: () => Gammainc.gammainc(a, x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "gammaincWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, x=${x}`, result: String(result) })
+    annotations: (result) => ({
+      input: Array.join(Array.make("a=", encodeNumber(a), ", x=", encodeNumber(x)), ""),
+      result: encodeNumber(result)
+    })
   })

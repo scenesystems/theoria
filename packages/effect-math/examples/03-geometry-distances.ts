@@ -6,7 +6,7 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Console, Effect } from "effect"
+import { Array, Chunk, Console, Effect } from "effect"
 
 import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import {
@@ -21,8 +21,8 @@ import {
 } from "@scenesystems/effect-math/Geometry"
 
 const program = Effect.gen(function*() {
-  const origin = Chunk.fromIterable([0, 0])
-  const point = Chunk.fromIterable([3, 4])
+  const origin = Chunk.make(0, 0)
+  const point = Chunk.make(3, 4)
 
   // Direct kernels
   yield* Console.log("euclidean([0,0], [3,4]):", euclideanDistance(origin, point))
@@ -31,16 +31,18 @@ const program = Effect.gen(function*() {
   yield* Console.log("chebyshev([0,0], [3,4]):", chebyshevDistance(origin, point))
 
   const mid = midpoint(origin, point)
-  yield* Console.log("midpoint([0,0], [3,4]):", Chunk.toReadonlyArray(mid))
+  yield* Console.log("midpoint([0,0], [3,4]):", mid)
 
   // Schema-validated boundary
-  const distEuclid = yield* distanceValidated({ a: [0, 0], b: [3, 4], metric: "euclidean" })
+  const distEuclid = yield* distanceValidated({ a: Array.make(0, 0), b: Array.make(3, 4), metric: "euclidean" })
   yield* Console.log("distanceValidated (euclidean):", distEuclid)
 
-  const midResult = yield* midpointValidated({ a: [0, 0, 0], b: [6, 8, 10] })
+  const midResult = yield* midpointValidated({ a: Array.make(0, 0, 0), b: Array.make(6, 8, 10) })
   yield* Console.log("midpointValidated ([0,0,0], [6,8,10]):", midResult)
 
-  const centResult = yield* centroidValidated({ points: [[0, 0], [4, 0], [2, 6]] })
+  const centResult = yield* centroidValidated({
+    points: Array.make(Array.make(0, 0), Array.make(4, 0), Array.make(2, 6))
+  })
   yield* Console.log("centroidValidated (triangle):", centResult)
   // Output: centroidValidated (triangle): [ 2, 2 ]
 

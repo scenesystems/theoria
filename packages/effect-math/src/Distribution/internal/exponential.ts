@@ -5,7 +5,12 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Number, Schema } from "effect"
+
+import { exp, expm1, log, log1p } from "../../Numeric/index.js"
+
+const isNonNaN = Schema.is(Schema.NonNaN)
+const isInSupport = (value: number): boolean => Boolean.and(isNonNaN(value), Number.greaterThanOrEqualTo(value, 0))
 
 /**
  * Exponential PDF: f(x; λ) = λ · exp(−λx) for x ≥ 0, else 0.
@@ -14,9 +19,10 @@ import { Number as N } from "effect"
  * @category internal
  */
 export const exponentialPdf = (x: number, rate: number): number =>
-  N.greaterThanOrEqualTo(x, 0)
-    ? N.multiply(rate, Math.exp(N.negate(N.multiply(rate, x))))
-    : 0
+  Boolean.match(isInSupport(x), {
+    onTrue: () => Number.multiply(rate, exp(Number.negate(Number.multiply(rate, x)))),
+    onFalse: () => 0
+  })
 
 /**
  * Exponential log-PDF: ln f(x; λ) = ln(λ) − λx for x ≥ 0, else −∞.
@@ -25,9 +31,10 @@ export const exponentialPdf = (x: number, rate: number): number =>
  * @category internal
  */
 export const exponentialLogpdf = (x: number, rate: number): number =>
-  N.greaterThanOrEqualTo(x, 0)
-    ? N.subtract(Math.log(rate), N.multiply(rate, x))
-    : -Infinity
+  Boolean.match(isInSupport(x), {
+    onTrue: () => Number.subtract(log(rate), Number.multiply(rate, x)),
+    onFalse: () => -Infinity
+  })
 
 /**
  * Exponential CDF: F(x; λ) = 1 − exp(−λx) for x ≥ 0, else 0.
@@ -36,9 +43,10 @@ export const exponentialLogpdf = (x: number, rate: number): number =>
  * @category internal
  */
 export const exponentialCdf = (x: number, rate: number): number =>
-  N.greaterThanOrEqualTo(x, 0)
-    ? N.subtract(1, Math.exp(N.negate(N.multiply(rate, x))))
-    : 0
+  Boolean.match(isInSupport(x), {
+    onTrue: () => Number.negate(expm1(Number.negate(Number.multiply(rate, x)))),
+    onFalse: () => 0
+  })
 
 /**
  * Exponential quantile (inverse CDF): Q(p; λ) = −ln(1 − p) / λ.
@@ -47,7 +55,7 @@ export const exponentialCdf = (x: number, rate: number): number =>
  * @category internal
  */
 export const exponentialQuantile = (p: number, rate: number): number =>
-  N.unsafeDivide(N.negate(Math.log(N.subtract(1, p))), rate)
+  Number.unsafeDivide(Number.negate(log1p(Number.negate(p))), rate)
 
 /**
  * Exponential mean: E[X] = 1 / λ.
@@ -55,7 +63,7 @@ export const exponentialQuantile = (p: number, rate: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const exponentialMean = (rate: number): number => N.unsafeDivide(1, rate)
+export const exponentialMean = (rate: number): number => Number.unsafeDivide(1, rate)
 
 /**
  * Exponential variance: Var(X) = 1 / λ².
@@ -63,7 +71,7 @@ export const exponentialMean = (rate: number): number => N.unsafeDivide(1, rate)
  * @since 0.1.0
  * @category internal
  */
-export const exponentialVariance = (rate: number): number => N.unsafeDivide(1, N.multiply(rate, rate))
+export const exponentialVariance = (rate: number): number => Number.unsafeDivide(1, Number.multiply(rate, rate))
 
 /**
  * Exponential differential entropy: H(X) = 1 − ln(λ).
@@ -71,4 +79,4 @@ export const exponentialVariance = (rate: number): number => N.unsafeDivide(1, N
  * @since 0.1.0
  * @category internal
  */
-export const exponentialEntropy = (rate: number): number => N.subtract(1, Math.log(rate))
+export const exponentialEntropy = (rate: number): number => Number.subtract(1, log(rate))

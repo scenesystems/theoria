@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array, Effect, Schema } from "effect"
 
 import { ComputationDispatchLive, planAdvancedComputation } from "../../src/contracts/shared/ComputationDispatch.js"
-import { type PrecisionEscalationPolicyType } from "../../src/contracts/shared/PrecisionEscalation.js"
+import {
+  PrecisionEscalationPolicy,
+  type PrecisionEscalationPolicyType
+} from "../../src/contracts/shared/PrecisionEscalation.js"
 import { makeComputationDispatcherLayer } from "./shared/computation-dispatch-layer.js"
 
 const convergedObservation = {
@@ -17,16 +20,18 @@ const divergentObservation = {
   iterations: 64
 }
 
-const precisionPrimaryBigdecimalPolicy: PrecisionEscalationPolicyType = {
+const precisionPrimaryBigdecimalPolicy: PrecisionEscalationPolicyType = Schema.decodeUnknownSync(
+  PrecisionEscalationPolicy
+)({
   primaryKind: "bigdecimal",
-  escalationOrder: ["bigdecimal", "float64"],
+  escalationOrder: Array.make("bigdecimal", "float64"),
   maxEscalations: 2,
   convergenceGate: {
     absoluteTolerance: 1e-10,
     relativeTolerance: 1e-8,
     maxIterations: 16
   }
-}
+})
 
 const precisionPrimaryBigdecimalLayer = makeComputationDispatcherLayer({
   precisionEscalation: precisionPrimaryBigdecimalPolicy

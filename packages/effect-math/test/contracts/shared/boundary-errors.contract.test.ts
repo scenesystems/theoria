@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Schema, String as EffectString } from "effect"
+import { Effect, Match, Schema, String } from "effect"
 
 import { BoundaryDecodeError, BoundaryEncodeError } from "../../../src/contracts/shared/BoundaryErrors.js"
 
@@ -19,8 +19,8 @@ describe("shared boundary error contracts", () => {
         message: "invalid boundary output"
       })
 
-      expect(EffectString.Equivalence(decodeError._tag, "BoundaryDecodeError")).toStrictEqual(true)
-      expect(EffectString.Equivalence(encodeError._tag, "BoundaryEncodeError")).toStrictEqual(true)
+      expect(String.Equivalence(decodeError._tag, "BoundaryDecodeError")).toStrictEqual(true)
+      expect(String.Equivalence(encodeError._tag, "BoundaryEncodeError")).toStrictEqual(true)
     }))
 
   it.effect("rejects malformed boundary error payloads", () =>

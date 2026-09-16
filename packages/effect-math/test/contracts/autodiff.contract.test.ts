@@ -1,25 +1,32 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Array, Effect, Option, Schema } from "effect"
 
-import { type AutodiffAuthorityStateType } from "../../src/contracts/shared/AutodiffAuthority.js"
+import {
+  AutodiffAuthorityState,
+  type AutodiffAuthorityStateType
+} from "../../src/contracts/shared/AutodiffAuthority.js"
 import { ComputationDispatchLive, planAdvancedComputation } from "../../src/contracts/shared/ComputationDispatch.js"
 import { makeComputationDispatcherLayer } from "./shared/computation-dispatch-layer.js"
 
 const makeUnavailableAutodiffAuthority = (
   allowFiniteDifferenceFallback: boolean
-): AutodiffAuthorityStateType => ({
-  policy: {
-    preferredOrder: ["reverse", "forward"],
-    allowFiniteDifferenceFallback
-  },
-  capabilities: [{
-    mode: "reverse",
-    available: false
-  }, {
-    mode: "forward",
-    available: false
-  }]
-})
+): AutodiffAuthorityStateType =>
+  Schema.decodeUnknownSync(AutodiffAuthorityState)({
+    policy: {
+      preferredOrder: Array.make("reverse", "forward"),
+      allowFiniteDifferenceFallback
+    },
+    capabilities: Array.make(
+      {
+        mode: "reverse",
+        available: false
+      },
+      {
+        mode: "forward",
+        available: false
+      }
+    )
+  })
 
 const makeDispatcherLayer = (allowFiniteDifferenceFallback: boolean) =>
   makeComputationDispatcherLayer({

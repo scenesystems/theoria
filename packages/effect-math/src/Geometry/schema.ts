@@ -20,10 +20,18 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
  * @since 0.1.0
  * @category schemas
  */
-export const GeometryDomainSchema = Schema.Struct({
+export class GeometryDomain extends Schema.Class<GeometryDomain>("GeometryDomain")({
   domain: Schema.Literal("Geometry"),
   stability: DomainStability
-})
+}) {}
+
+/**
+ * Schema for Geometry discovery metadata.
+ *
+ * @since 0.4.0
+ * @category schemas
+ */
+export const GeometryDomainSchema = GeometryDomain
 
 /**
  * Validated descriptor for metric and point-set Geometry support.
@@ -31,8 +39,6 @@ export const GeometryDomainSchema = Schema.Struct({
  * @since 0.1.0
  * @category models
  */
-export type GeometryDomain = typeof GeometryDomainSchema.Type
-
 /**
  * Decodes a Geometry discovery descriptor and rejects unknown fields.
  *
@@ -81,7 +87,7 @@ export type GeometrySchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeEr
 // Shared finite number schema
 // ---------------------------------------------------------------------------
 
-const FiniteNumber = Schema.Number.pipe(Schema.finite())
+const FiniteNumber = Schema.Finite
 
 // ---------------------------------------------------------------------------
 // Operation input schemas
@@ -96,8 +102,8 @@ const FiniteNumber = Schema.Number.pipe(Schema.finite())
  * @category schemas
  */
 export const DistanceInput = Schema.Struct({
-  a: Schema.Array(FiniteNumber),
-  b: Schema.Array(FiniteNumber),
+  a: Schema.Chunk(FiniteNumber),
+  b: Schema.Chunk(FiniteNumber),
   metric: Schema.Literal("euclidean", "manhattan", "chebyshev")
 }).annotations({ identifier: "DistanceInput" })
 
@@ -109,8 +115,8 @@ export const DistanceInput = Schema.Struct({
  * @category schemas
  */
 export const MidpointInput = Schema.Struct({
-  a: Schema.Array(FiniteNumber),
-  b: Schema.Array(FiniteNumber)
+  a: Schema.Chunk(FiniteNumber),
+  b: Schema.Chunk(FiniteNumber)
 }).annotations({ identifier: "MidpointInput" })
 
 /**
@@ -121,5 +127,5 @@ export const MidpointInput = Schema.Struct({
  * @category schemas
  */
 export const CentroidInput = Schema.Struct({
-  points: Schema.NonEmptyArray(Schema.Array(FiniteNumber))
+  points: Schema.NonEmptyChunk(Schema.Chunk(FiniteNumber))
 }).annotations({ identifier: "CentroidInput" })

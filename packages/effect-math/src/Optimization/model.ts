@@ -4,8 +4,10 @@
  * @since 0.1.0
  * @category models
  */
+import { Schema } from "effect"
+
 import { OptimizationDomainContract } from "./contract.js"
-import type { OptimizationDomain } from "./schema.js"
+import { OptimizationDomainSchema } from "./schema.js"
 
 /**
  * Classifies the Optimization domain as provisional in discovery results.
@@ -13,7 +15,7 @@ import type { OptimizationDomain } from "./schema.js"
  * @since 0.1.0
  * @category models
  */
-export const OptimizationDomainModel: OptimizationDomain = {
+export const OptimizationDomainModel = Schema.decodeSync(OptimizationDomainSchema)({
   domain: OptimizationDomainContract,
   stability: "provisional"
-}
+})

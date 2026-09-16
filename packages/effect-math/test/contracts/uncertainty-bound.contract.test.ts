@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { BigDecimal, Effect, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import { ComputationDispatchLive, planAdvancedComputation } from "../../src/contracts/shared/ComputationDispatch.js"
 import { UncertaintyEnvelope } from "../../src/contracts/shared/UncertaintyEnvelope.js"
@@ -46,12 +46,15 @@ describe("advanced uncertainty envelope contracts", () => {
 
   it.effect("rejects bigdecimal envelopes with negative absolute error", () =>
     Effect.gen(function*() {
+      const value = yield* Schema.decodeUnknown(Schema.BigDecimal)("1.0")
+      const absoluteError = yield* Schema.decodeUnknown(Schema.BigDecimal)("-0.1")
+      const relativeError = yield* Schema.decodeUnknown(Schema.BigDecimal)("0.1")
       const decoded = yield* Effect.either(
         Schema.decodeUnknown(UncertaintyEnvelope)({
           scalarKind: "bigdecimal",
-          value: BigDecimal.unsafeFromString("1.0"),
-          absoluteError: BigDecimal.unsafeFromString("-0.1"),
-          relativeError: BigDecimal.unsafeFromString("0.1")
+          value,
+          absoluteError,
+          relativeError
         }, { onExcessProperty: "error" })
       )
 
@@ -60,15 +63,20 @@ describe("advanced uncertainty envelope contracts", () => {
 
   it.effect("rejects bigdecimal intervals where lower exceeds upper", () =>
     Effect.gen(function*() {
+      const value = yield* Schema.decodeUnknown(Schema.BigDecimal)("1.0")
+      const absoluteError = yield* Schema.decodeUnknown(Schema.BigDecimal)("0.1")
+      const relativeError = yield* Schema.decodeUnknown(Schema.BigDecimal)("0.05")
+      const lower = yield* Schema.decodeUnknown(Schema.BigDecimal)("2.0")
+      const upper = yield* Schema.decodeUnknown(Schema.BigDecimal)("1.0")
       const decoded = yield* Effect.either(
         Schema.decodeUnknown(UncertaintyEnvelope)({
           scalarKind: "bigdecimal",
-          value: BigDecimal.unsafeFromString("1.0"),
-          absoluteError: BigDecimal.unsafeFromString("0.1"),
-          relativeError: BigDecimal.unsafeFromString("0.05"),
+          value,
+          absoluteError,
+          relativeError,
           interval: {
-            lower: BigDecimal.unsafeFromString("2.0"),
-            upper: BigDecimal.unsafeFromString("1.0")
+            lower,
+            upper
           }
         }, { onExcessProperty: "error" })
       )

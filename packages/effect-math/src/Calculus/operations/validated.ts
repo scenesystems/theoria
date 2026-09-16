@@ -8,7 +8,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect } from "effect"
+import { Chunk, Effect, Number } from "effect"
 
 import {
   AdaptiveSimpsonInput,
@@ -36,7 +36,7 @@ import {
   simpson,
   trapezoid
 } from "./pure.js"
-import { decodeOperationInput, ensureParameters, executeKernel, matrixToReadonly, ridderConfigFrom } from "./shared.js"
+import { decodeOperationInput, ensureParameters, executeKernel } from "./shared.js"
 
 /**
  * Decodes a finite point and Ridder controls before estimating a first derivative.
@@ -51,7 +51,7 @@ import { decodeOperationInput, ensureParameters, executeKernel, matrixToReadonly
 export const derivativeLimitValidated = (f: (x: number) => number, input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* decodeOperationInput(DerivativeInput, "derivativeLimit", input)
-    return yield* executeKernel("derivativeLimit", () => derivativeLimit(f, decoded.x, ridderConfigFrom(decoded)))
+    return yield* executeKernel("derivativeLimit", () => derivativeLimit(f, decoded.x, decoded))
   })
 
 /**
@@ -67,8 +67,7 @@ export const derivativeLimitValidated = (f: (x: number) => number, input: unknow
 export const secondDerivativeLimitValidated = (f: (x: number) => number, input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* decodeOperationInput(SecondDerivativeInput, "secondDerivativeLimit", input)
-    return yield* executeKernel("secondDerivativeLimit", () =>
-      secondDerivativeLimit(f, decoded.x, ridderConfigFrom(decoded)))
+    return yield* executeKernel("secondDerivativeLimit", () => secondDerivativeLimit(f, decoded.x, decoded))
   })
 
 /**
@@ -110,7 +109,7 @@ export const secondDerivativeValidated = (f: (x: number) => number, input: unkno
 export const trapezoidValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* decodeOperationInput(TrapezoidInput, "trapezoid", input)
-    return yield* executeKernel("trapezoid", () => trapezoid(Chunk.fromIterable(decoded.values), decoded.dx))
+    return yield* executeKernel("trapezoid", () => trapezoid(decoded.values, decoded.dx))
   })
 
 /**
@@ -129,7 +128,7 @@ export const trapezoidValidated = (input: unknown) =>
 export const simpsonValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* decodeOperationInput(SimpsonInput, "simpson", input)
-    return yield* executeKernel("simpson", () => simpson(Chunk.fromIterable(decoded.values), decoded.dx))
+    return yield* executeKernel("simpson", () => simpson(decoded.values, decoded.dx))
   })
 
 /**
@@ -162,7 +161,7 @@ export const adaptiveSimpsonValidated = (f: (x: number) => number, input: unknow
 /**
  * Decodes a non-empty finite point before estimating one partial derivative per coordinate.
  *
- * @returns A new readonly array in input-coordinate order.
+ * @returns A new `Chunk` in input-coordinate order.
  * @throws {@link CalculusDecodeError} when the input contract is invalid.
  * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
@@ -172,14 +171,13 @@ export const adaptiveSimpsonValidated = (f: (x: number) => number, input: unknow
 export const gradientValidated = (f: (point: Chunk.Chunk<number>) => number, input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* decodeOperationInput(GradientInput, "gradient", input)
-    return yield* executeKernel("gradient", () =>
-      Chunk.toReadonlyArray(gradient(f, Chunk.fromIterable(decoded.point), ridderConfigFrom(decoded))))
+    return yield* executeKernel("gradient", () => gradient(f, decoded.point, decoded))
   })
 
 /**
  * Decodes a non-empty finite point before estimating a vector field's Jacobian.
  *
- * @returns New readonly rows in output-component order, with columns in
+ * @returns New `Chunk` rows in output-component order, with columns in
  * input-coordinate order.
  * @throws {@link CalculusDecodeError} when the input contract is invalid.
  * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
@@ -193,14 +191,13 @@ export const jacobianValidated = (
 ) =>
   Effect.gen(function*() {
     const decoded = yield* decodeOperationInput(JacobianInput, "jacobian", input)
-    return yield* executeKernel("jacobian", () =>
-      matrixToReadonly(jacobian(f, Chunk.fromIterable(decoded.point), ridderConfigFrom(decoded))))
+    return yield* executeKernel("jacobian", () => jacobian(f, decoded.point, decoded))
   })
 
 /**
  * Decodes a non-empty finite point before estimating a scalar function's Hessian.
  *
- * @returns A new square readonly matrix in input-coordinate order.
+ * @returns A new square matrix of `Chunk` rows in input-coordinate order.
  * @throws {@link CalculusDecodeError} when the input contract is invalid.
  * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
@@ -210,8 +207,7 @@ export const jacobianValidated = (
 export const hessianValidated = (f: (point: Chunk.Chunk<number>) => number, input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* decodeOperationInput(HessianInput, "hessian", input)
-    return yield* executeKernel("hessian", () =>
-      matrixToReadonly(hessian(f, Chunk.fromIterable(decoded.point), ridderConfigFrom(decoded))))
+    return yield* executeKernel("hessian", () => hessian(f, decoded.point, decoded))
   })
 
 /**
@@ -237,17 +233,16 @@ export const directionalDerivativeValidated = (
       "directionalDerivative",
       input
     )
-    const point = Chunk.fromIterable(decoded.point)
-    const direction = Chunk.fromIterable(decoded.direction)
+    const point = decoded.point
+    const direction = decoded.direction
 
     yield* ensureParameters(
       "directionalDerivative",
-      Chunk.size(point) === Chunk.size(direction),
+      Number.Equivalence(Chunk.size(point), Chunk.size(direction)),
       "Point and direction dimensions must match"
     )
 
-    return yield* executeKernel("directionalDerivative", () =>
-      directionalDerivative(f, point, direction, ridderConfigFrom(decoded)))
+    return yield* executeKernel("directionalDerivative", () => directionalDerivative(f, point, direction, decoded))
   })
 
 /**
@@ -271,16 +266,16 @@ export const divergenceValidated = (
 ) =>
   Effect.gen(function*() {
     const decoded = yield* decodeOperationInput(DivergenceInput, "divergence", input)
-    const point = Chunk.fromIterable(decoded.point)
+    const point = decoded.point
     const baseline = yield* executeKernel("divergence", () => f(point))
 
     yield* ensureParameters(
       "divergence",
-      Chunk.size(baseline) === Chunk.size(point),
+      Number.Equivalence(Chunk.size(baseline), Chunk.size(point)),
       "Vector-field output dimensions must match point dimensions"
     )
 
-    return yield* executeKernel("divergence", () => divergence(f, point, ridderConfigFrom(decoded)))
+    return yield* executeKernel("divergence", () => divergence(f, point, decoded))
   })
 
 /**
@@ -297,6 +292,6 @@ export const laplacianValidated = (f: (point: Chunk.Chunk<number>) => number, in
     const decoded = yield* decodeOperationInput(LaplacianInput, "laplacian", input)
     return yield* executeKernel(
       "laplacian",
-      () => laplacian(f, Chunk.fromIterable(decoded.point), ridderConfigFrom(decoded))
+      () => laplacian(f, decoded.point, decoded)
     )
   })

@@ -1,26 +1,45 @@
 /**
- * Log-sum-exp over Chunk<number> with max-shift numerical stability.
+ * Stable log-sum-exp over dense immutable chunks.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N } from "effect"
+import { Chunk, Match, Number } from "effect"
 
-/**
- * logSumExp(xs) = log(Σ exp(xᵢ)) computed as max + log(Σ exp(xᵢ - max)).
- * Returns -Infinity for empty chunks.
- *
- * @since 0.1.0
- * @category internal
- */
-export const logSumExpChunk = (xs: Chunk.Chunk<number>): number => {
-  const len = Chunk.size(xs)
-  if (len === 0) return -Infinity
-  if (len === 1) return Chunk.unsafeGet(xs, 0)
+import * as Binary from "./binary.js"
+import { exp, log } from "./transcendental.js"
 
-  const max = Chunk.reduce(xs, -Infinity, N.max)
-  if (max === -Infinity) return -Infinity
-
-  const sumExp = Chunk.reduce(xs, 0, (acc, x) => N.sum(acc, Math.exp(x - max)))
-  return max + Math.log(sumExp)
-}
+/** Returns `log(Σ exp(xᵢ))`, or negative infinity for an empty chunk. */
+export const logSumExpChunk = (values: Chunk.Chunk<number>): number =>
+  Match.value(values).pipe(
+    Match.when((values) => Chunk.some(values, Binary.isNaN), () => Binary.notANumber),
+    Match.when(
+      (values) => Chunk.some(values, (value) => Number.Equivalence(value, Binary.positiveInfinity)),
+      () => Binary.positiveInfinity
+    ),
+    Match.orElse((values) =>
+      Match.value(Chunk.size(values)).pipe(
+        Match.when(0, () => Binary.negativeInfinity),
+        Match.when(1, () => Chunk.unsafeGet(values, 0)),
+        Match.orElse(() => {
+          const maximum = Chunk.reduce(values, Binary.negativeInfinity, Number.max)
+          return Match.value(maximum).pipe(
+            Match.when(
+              (maximum) => Number.Equivalence(maximum, Binary.negativeInfinity),
+              () => Binary.negativeInfinity
+            ),
+            Match.orElse((maximum) =>
+              Number.sum(
+                maximum,
+                log(Chunk.reduce(
+                  values,
+                  0,
+                  (total, value) => Number.sum(total, exp(Number.subtract(value, maximum)))
+                ))
+              )
+            )
+          )
+        })
+      )
+    )
+  )

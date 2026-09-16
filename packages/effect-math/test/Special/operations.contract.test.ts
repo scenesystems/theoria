@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit, Number as N } from "effect"
+import { Effect, Number } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
+import { abs, isFinite, pi, sqrt } from "../../src/Numeric/index.js"
 import {
   beta,
   betaValidated,
@@ -24,10 +25,10 @@ import {
   lnGammaWithPolicies
 } from "../../src/Special/operations.js"
 
-const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
+const strictCompensatedLayer = makeDeterministicRuntimePoliciesLayer({
   seed: Seed.make(42),
   precision: "strict",
-  backend: "typed-array",
+  backend: "compensated",
   diagnostics: "enabled"
 })
 
@@ -42,7 +43,7 @@ const KERNEL_TOLERANCE = 1e-10
 const DIGAMMA_TOLERANCE = 1e-11
 
 const expectClose = (actual: number, expected: number, tolerance: number) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 
 // ---------------------------------------------------------------------------
 // Pure kernel operations — gamma
@@ -61,7 +62,7 @@ describe("Special / gamma", () => {
 
   it.effect("Γ(0.5) ≈ √π", () =>
     Effect.gen(function*() {
-      expectClose(gamma(0.5), Math.sqrt(Math.PI), KERNEL_TOLERANCE)
+      expectClose(gamma(0.5), sqrt(pi), KERNEL_TOLERANCE)
     }))
 
   it.effect("Γ(2) ≈ 1", () =>
@@ -83,7 +84,7 @@ describe("Special / lnGamma", () => {
   it.effect("ln(Γ(100)) is finite and positive", () =>
     Effect.gen(function*() {
       const result = lnGamma(100)
-      expect(Number.isFinite(result)).toBe(true)
+      expect(isFinite(result)).toBe(true)
       expect(result).toBeGreaterThan(0)
     }))
 })
@@ -100,7 +101,7 @@ describe("Special / beta", () => {
 
   it.effect("B(0.5,0.5) ≈ π", () =>
     Effect.gen(function*() {
-      expect(Math.abs(N.subtract(beta(0.5, 0.5), Math.PI))).toBeLessThan(1e-10)
+      expect(abs(Number.subtract(beta(0.5, 0.5), pi))).toBeLessThan(1e-10)
     }))
 })
 
@@ -116,12 +117,12 @@ describe("Special / erf", () => {
 
   it.effect("erf is odd: erf(-x) = -erf(x)", () =>
     Effect.gen(function*() {
-      expect(erf(-1)).toStrictEqual(N.subtract(0, erf(1)))
+      expect(erf(-1)).toStrictEqual(Number.subtract(0, erf(1)))
     }))
 
   it.effect("erf(large) ≈ 1", () =>
     Effect.gen(function*() {
-      expect(Math.abs(N.subtract(erf(4), 1))).toBeLessThan(1e-7)
+      expect(abs(Number.subtract(erf(4), 1))).toBeLessThan(1e-7)
     }))
 })
 
@@ -133,7 +134,7 @@ describe("Special / erfc", () => {
 
   it.effect("erf(x) + erfc(x) = 1", () =>
     Effect.gen(function*() {
-      expect(Math.abs(N.subtract(N.sum(erf(1), erfc(1)), 1))).toBeLessThan(1e-15)
+      expect(abs(Number.subtract(Number.sum(erf(1), erfc(1)), 1))).toBeLessThan(1e-15)
     }))
 })
 
@@ -145,13 +146,13 @@ describe("Special / digamma", () => {
   it.effect("ψ(1) ≈ -γ (Euler–Mascheroni)", () =>
     Effect.gen(function*() {
       const eulerMascheroni = 0.5772156649015329
-      expectClose(digamma(1), N.negate(eulerMascheroni), DIGAMMA_TOLERANCE)
+      expectClose(digamma(1), Number.negate(eulerMascheroni), DIGAMMA_TOLERANCE)
     }))
 
   it.effect("ψ(2) ≈ 1 - γ", () =>
     Effect.gen(function*() {
       const eulerMascheroni = 0.5772156649015329
-      expectClose(digamma(2), N.subtract(1, eulerMascheroni), DIGAMMA_TOLERANCE)
+      expectClose(digamma(2), Number.subtract(1, eulerMascheroni), DIGAMMA_TOLERANCE)
     }))
 })
 
@@ -168,8 +169,9 @@ describe("Special / gammaValidated", () => {
 
   it.effect("rejects excess properties", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(gammaValidated({ x: 5, extra: true }))
-      expect(Exit.isFailure(result)).toBe(true)
+      const error = yield* Effect.flip(gammaValidated({ x: 5, extra: true }))
+      expect(error._tag).toStrictEqual("SpecialDecodeError")
+      expect(error.operation).toStrictEqual("gamma")
     }))
 })
 
@@ -190,8 +192,9 @@ describe("Special / betaValidated", () => {
 
   it.effect("rejects excess properties", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(betaValidated({ a: 1, b: 1, extra: true }))
-      expect(Exit.isFailure(result)).toBe(true)
+      const error = yield* Effect.flip(betaValidated({ a: 1, b: 1, extra: true }))
+      expect(error._tag).toStrictEqual("SpecialDecodeError")
+      expect(error.operation).toStrictEqual("beta")
     }))
 })
 
@@ -216,7 +219,7 @@ describe("Special / digammaValidated", () => {
     Effect.gen(function*() {
       const result = yield* digammaValidated({ x: 1 })
       const eulerMascheroni = 0.5772156649015329
-      expectClose(result, N.negate(eulerMascheroni), DIGAMMA_TOLERANCE)
+      expectClose(result, Number.negate(eulerMascheroni), DIGAMMA_TOLERANCE)
     }))
 })
 
@@ -225,11 +228,11 @@ describe("Special / digammaValidated", () => {
 // ---------------------------------------------------------------------------
 
 describe("Special / gammaWithPolicies", () => {
-  it.effect("returns correct result under strict+typed-array", () =>
+  it.effect("returns correct result under strict+compensated", () =>
     Effect.gen(function*() {
       const result = yield* gammaWithPolicies(5)
       expectClose(result, 24, KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns correct result under relaxed+scalar", () =>
     Effect.gen(function*() {
@@ -239,14 +242,15 @@ describe("Special / gammaWithPolicies", () => {
 
   it.effect("strict rejects non-finite result", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(gammaWithPolicies(0))
-      expect(Exit.isFailure(result)).toBe(true)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+      const error = yield* Effect.flip(gammaWithPolicies(0))
+      expect(error._tag).toStrictEqual("SpecialDomainViolationError")
+      expect(error.operation).toStrictEqual("gammaWithPolicies")
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("relaxed passes through non-finite result", () =>
     Effect.gen(function*() {
       const result = yield* gammaWithPolicies(0)
-      expect(Number.isFinite(result)).toBe(false)
+      expect(isFinite(result)).toBe(false)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })
 
@@ -255,7 +259,7 @@ describe("Special / erfWithPolicies", () => {
     Effect.gen(function*() {
       const result = yield* erfWithPolicies(0)
       expect(result).toStrictEqual(0) // erf(0) is exactly 0 by special-case
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 })
 
 describe("Special / lnGammaWithPolicies", () => {
@@ -263,12 +267,12 @@ describe("Special / lnGammaWithPolicies", () => {
     Effect.gen(function*() {
       const result = yield* lnGammaWithPolicies(1)
       expectClose(result, 0, KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns finite result for large input under relaxed", () =>
     Effect.gen(function*() {
       const result = yield* lnGammaWithPolicies(100)
-      expect(Number.isFinite(result)).toBe(true)
+      expect(isFinite(result)).toBe(true)
       expect(result).toBeGreaterThan(0)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })
@@ -278,12 +282,12 @@ describe("Special / betaWithPolicies", () => {
     Effect.gen(function*() {
       const result = yield* betaWithPolicies(1, 1)
       expectClose(result, 1, KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns B(0.5,0.5) ≈ π under relaxed", () =>
     Effect.gen(function*() {
       const result = yield* betaWithPolicies(0.5, 0.5)
-      expectClose(result, Math.PI, KERNEL_TOLERANCE)
+      expectClose(result, pi, KERNEL_TOLERANCE)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })
 
@@ -292,12 +296,12 @@ describe("Special / erfcWithPolicies", () => {
     Effect.gen(function*() {
       const result = yield* erfcWithPolicies(0)
       expect(result).toStrictEqual(1)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns correct result under relaxed", () =>
     Effect.gen(function*() {
       const result = yield* erfcWithPolicies(1)
-      expect(Math.abs(N.subtract(N.sum(result, erf(1)), 1))).toBeLessThan(1e-15)
+      expect(abs(Number.subtract(Number.sum(result, erf(1)), 1))).toBeLessThan(1e-15)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })
 
@@ -306,13 +310,13 @@ describe("Special / digammaWithPolicies", () => {
     Effect.gen(function*() {
       const eulerMascheroni = 0.5772156649015329
       const result = yield* digammaWithPolicies(1)
-      expectClose(result, N.negate(eulerMascheroni), DIGAMMA_TOLERANCE)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
+      expectClose(result, Number.negate(eulerMascheroni), DIGAMMA_TOLERANCE)
+    }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns ψ(2) ≈ 1 - γ under relaxed", () =>
     Effect.gen(function*() {
       const eulerMascheroni = 0.5772156649015329
       const result = yield* digammaWithPolicies(2)
-      expectClose(result, N.subtract(1, eulerMascheroni), DIGAMMA_TOLERANCE)
+      expectClose(result, Number.subtract(1, eulerMascheroni), DIGAMMA_TOLERANCE)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })

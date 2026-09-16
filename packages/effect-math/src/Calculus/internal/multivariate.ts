@@ -4,11 +4,14 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, HashMap, Number as N, Option } from "effect"
+import { Boolean, Chunk, HashMap, Number, Option, Tuple } from "effect"
 
+import * as Numeric from "../../Numeric/index.js"
 import type { RidderMethodInputType } from "../schema.js"
-import { memoizeVectorField, mixedPartialKey } from "./multivariate/cache.js"
-import { ridderExtrapolation } from "./ridder.js"
+import { evaluateVectorField, type MixedPartialKey, mixedPartialKey, VectorFieldCache } from "./multivariate/cache.js"
+import { ridderExtrapolation, ridderExtrapolationWithState, StatefulStepResult } from "./ridder/core.js"
+
+const NOT_A_NUMBER = Number.unsafeDivide(0, 0)
 
 const getOr = (values: Chunk.Chunk<number>, index: number, fallback: number): number =>
   Option.getOrElse(Chunk.get(values, index), () => fallback)
@@ -18,10 +21,11 @@ const perturbAxis = (
   axis: number,
   delta: number
 ): Chunk.Chunk<number> =>
-  Chunk.makeBy(Chunk.size(point), (index) => {
-    const value = Chunk.unsafeGet(point, index)
-    return N.Equivalence(index, axis) ? N.sum(value, delta) : value
-  })
+  Chunk.map(point, (value, index) =>
+    Boolean.match(Number.Equivalence(index, axis), {
+      onTrue: () => Number.sum(value, delta),
+      onFalse: () => value
+    }))
 
 const perturbAxes = (
   point: Chunk.Chunk<number>,
@@ -30,18 +34,21 @@ const perturbAxes = (
   deltaA: number,
   deltaB: number
 ): Chunk.Chunk<number> =>
-  Chunk.makeBy(Chunk.size(point), (index) => {
-    const value = Chunk.unsafeGet(point, index)
-
-    if (N.Equivalence(index, axisA) && N.Equivalence(index, axisB)) {
-      return N.sum(value, N.sum(deltaA, deltaB))
-    }
-
-    if (N.Equivalence(index, axisA)) {
-      return N.sum(value, deltaA)
-    }
-
-    return N.Equivalence(index, axisB) ? N.sum(value, deltaB) : value
+  Chunk.map(point, (value, index) => {
+    const onAxisA = Number.Equivalence(index, axisA)
+    const onAxisB = Number.Equivalence(index, axisB)
+    return Boolean.match(Boolean.and(onAxisA, onAxisB), {
+      onTrue: () => Number.sum(value, Number.sum(deltaA, deltaB)),
+      onFalse: () =>
+        Boolean.match(onAxisA, {
+          onTrue: () => Number.sum(value, deltaA),
+          onFalse: () =>
+            Boolean.match(onAxisB, {
+              onTrue: () => Number.sum(value, deltaB),
+              onFalse: () => value
+            })
+        })
+    })
   })
 
 const partialDerivative = (
@@ -52,8 +59,8 @@ const partialDerivative = (
 ): number =>
   ridderExtrapolation((step) => {
     const plus = f(perturbAxis(point, axis, step))
-    const minus = f(perturbAxis(point, axis, N.negate(step)))
-    return N.unsafeDivide(N.subtract(plus, minus), N.multiply(2, step))
+    const minus = f(perturbAxis(point, axis, Number.negate(step)))
+    return Number.unsafeDivide(Number.subtract(plus, minus), Number.multiply(2, step))
   }, config).value
 
 const secondPartialDerivative = (
@@ -63,14 +70,12 @@ const secondPartialDerivative = (
   config?: RidderMethodInputType
 ): number => {
   const center = f(point)
-
   return ridderExtrapolation((step) => {
     const plus = f(perturbAxis(point, axis, step))
-    const minus = f(perturbAxis(point, axis, N.negate(step)))
-
-    return N.unsafeDivide(
-      N.sum(N.subtract(plus, N.multiply(2, center)), minus),
-      N.multiply(step, step)
+    const minus = f(perturbAxis(point, axis, Number.negate(step)))
+    return Number.unsafeDivide(
+      Number.sum(Number.subtract(plus, Number.multiply(2, center)), minus),
+      Number.multiply(step, step)
     )
   }, config).value
 }
@@ -84,13 +89,12 @@ const mixedSecondPartialDerivative = (
 ): number =>
   ridderExtrapolation((step) => {
     const plusPlus = f(perturbAxes(point, axisA, axisB, step, step))
-    const plusMinus = f(perturbAxes(point, axisA, axisB, step, N.negate(step)))
-    const minusPlus = f(perturbAxes(point, axisA, axisB, N.negate(step), step))
-    const minusMinus = f(perturbAxes(point, axisA, axisB, N.negate(step), N.negate(step)))
-
-    return N.unsafeDivide(
-      N.subtract(N.subtract(plusPlus, plusMinus), N.subtract(minusPlus, minusMinus)),
-      N.multiply(4, N.multiply(step, step))
+    const plusMinus = f(perturbAxes(point, axisA, axisB, step, Number.negate(step)))
+    const minusPlus = f(perturbAxes(point, axisA, axisB, Number.negate(step), step))
+    const minusMinus = f(perturbAxes(point, axisA, axisB, Number.negate(step), Number.negate(step)))
+    return Number.unsafeDivide(
+      Number.subtract(Number.subtract(plusPlus, plusMinus), Number.subtract(minusPlus, minusMinus)),
+      Number.multiply(4, Number.multiply(step, step))
     )
   }, config).value
 
@@ -104,7 +108,34 @@ export const gradientLimit = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): Chunk.Chunk<number> => Chunk.makeBy(Chunk.size(point), (axis) => partialDerivative(f, point, axis, config))
+): Chunk.Chunk<number> => Chunk.map(point, (_coordinate, axis) => partialDerivative(f, point, axis, config))
+
+const cachedPartialDerivative = (
+  f: (point: Chunk.Chunk<number>) => Chunk.Chunk<number>,
+  point: Chunk.Chunk<number>,
+  row: number,
+  column: number,
+  cache: VectorFieldCache,
+  config?: RidderMethodInputType
+) =>
+  ridderExtrapolationWithState(
+    (step, currentCache) => {
+      const plus = evaluateVectorField(f, currentCache, perturbAxis(point, column, step))
+      const minus = evaluateVectorField(f, plus.cache, perturbAxis(point, column, Number.negate(step)))
+      return new StatefulStepResult({
+        value: Number.unsafeDivide(
+          Number.subtract(
+            getOr(plus.value, row, NOT_A_NUMBER),
+            getOr(minus.value, row, NOT_A_NUMBER)
+          ),
+          Number.multiply(2, step)
+        ),
+        state: minus.cache
+      })
+    },
+    cache,
+    config
+  )
 
 /**
  * Jacobian via per-component, per-axis limit derivatives.
@@ -117,23 +148,48 @@ export const jacobianLimit = (
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
 ): Chunk.Chunk<Chunk.Chunk<number>> => {
-  const evaluate = memoizeVectorField(f)
-  const baseline = evaluate(point)
-  const outputDimensions = Chunk.size(baseline)
-  const inputDimensions = Chunk.size(point)
+  const baseline = f(point)
+  const rows = Chunk.map(baseline, (_component, row) => row)
+  const columns = Chunk.map(point, (_coordinate, column) => column)
+  const initialCache = new VectorFieldCache({ values: HashMap.make(Tuple.make(point, baseline)) })
+  const [_cache, values] = Chunk.mapAccum(rows, initialCache, (cache, row) => {
+    const [nextCache, rowValues] = Chunk.mapAccum(columns, cache, (currentCache, column) => {
+      const result = cachedPartialDerivative(f, point, row, column, currentCache, config)
+      return Tuple.make(result.state, result.estimate.value)
+    })
+    return Tuple.make(nextCache, rowValues)
+  })
 
-  return Chunk.makeBy(outputDimensions, (row) =>
-    Chunk.makeBy(inputDimensions, (column) =>
-      partialDerivative(
-        (candidate) => getOr(evaluate(candidate), row, Number.NaN),
-        point,
-        column,
-        config
-      )))
+  return values
+}
+
+const resolveHessianEntry = (
+  f: (point: Chunk.Chunk<number>) => number,
+  point: Chunk.Chunk<number>,
+  row: number,
+  column: number,
+  cache: HashMap.HashMap<MixedPartialKey, number>,
+  config?: RidderMethodInputType
+) => {
+  const key = mixedPartialKey(row, column)
+  return Boolean.match(Number.Equivalence(row, column), {
+    onTrue: () => {
+      const value = secondPartialDerivative(f, point, row, config)
+      return Tuple.make(HashMap.set(cache, key, value), value)
+    },
+    onFalse: () =>
+      Option.match(HashMap.get(cache, key), {
+        onSome: (value) => Tuple.make(cache, value),
+        onNone: () => {
+          const value = mixedSecondPartialDerivative(f, point, row, column, config)
+          return Tuple.make(HashMap.set(cache, key, value), value)
+        }
+      })
+  })
 }
 
 /**
- * Hessian via diagonal and mixed second partial limit derivatives.
+ * Hessian via diagonal and cached symmetric mixed partial derivatives.
  *
  * @since 0.1.0
  * @category internal
@@ -143,24 +199,21 @@ export const hessianLimit = (
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
 ): Chunk.Chunk<Chunk.Chunk<number>> => {
-  const dimensions = Chunk.size(point)
-  const state = { cache: HashMap.empty<string, number>() }
+  const axes = Chunk.map(point, (_coordinate, axis) => axis)
+  const [_cache, values] = Chunk.mapAccum(
+    axes,
+    HashMap.empty<MixedPartialKey, number>(),
+    (cache, row) => {
+      const [nextCache, rowValues] = Chunk.mapAccum(
+        axes,
+        cache,
+        (currentCache, column) => resolveHessianEntry(f, point, row, column, currentCache, config)
+      )
+      return Tuple.make(nextCache, rowValues)
+    }
+  )
 
-  const resolveMixedPartial = (axisA: number, axisB: number): number => {
-    const key = mixedPartialKey(axisA, axisB)
-
-    return Option.getOrElse(HashMap.get(state.cache, key), () => {
-      const mixed = mixedSecondPartialDerivative(f, point, axisA, axisB, config)
-      state.cache = HashMap.set(state.cache, key, mixed)
-      return mixed
-    })
-  }
-
-  return Chunk.makeBy(dimensions, (row) =>
-    Chunk.makeBy(dimensions, (column) =>
-      N.Equivalence(row, column)
-        ? secondPartialDerivative(f, point, row, config)
-        : resolveMixedPartial(row, column)))
+  return values
 }
 
 /**
@@ -174,29 +227,23 @@ export const directionalDerivativeLimit = (
   point: Chunk.Chunk<number>,
   direction: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): number => {
-  const dimensionsMatch = N.Equivalence(Chunk.size(point), Chunk.size(direction))
-  if (dimensionsMatch === false) {
-    return Number.NaN
-  }
-
-  const directionNorm = Math.sqrt(
-    Chunk.reduce(direction, 0, (acc, value) => N.sum(acc, N.multiply(value, value)))
-  )
-
-  if (N.lessThanOrEqualTo(directionNorm, 0)) {
-    return Number.NaN
-  }
-
-  const gradient = gradientLimit(f, point, config)
-  const numerator = Chunk.reduce(
-    gradient,
-    0,
-    (acc, value, index) => N.sum(acc, N.multiply(value, getOr(direction, index, 0)))
-  )
-
-  return N.unsafeDivide(numerator, directionNorm)
-}
+): number =>
+  Boolean.match(Number.Equivalence(Chunk.size(point), Chunk.size(direction)), {
+    onFalse: () => NOT_A_NUMBER,
+    onTrue: () => {
+      const directionNorm = Numeric.sqrt(
+        Chunk.reduce(direction, 0, (acc, value) => Number.sum(acc, Number.multiply(value, value)))
+      )
+      return Boolean.match(Number.lessThanOrEqualTo(directionNorm, 0), {
+        onTrue: () => NOT_A_NUMBER,
+        onFalse: () => {
+          const gradient = gradientLimit(f, point, config)
+          const numerator = Chunk.reduce(Chunk.zipWith(gradient, direction, Number.multiply), 0, Number.sum)
+          return Number.unsafeDivide(numerator, directionNorm)
+        }
+      })
+    }
+  })
 
 /**
  * Divergence as trace of Jacobian for vector fields with matching dimensions.
@@ -210,13 +257,10 @@ export const divergenceLimit = (
   config?: RidderMethodInputType
 ): number => {
   const jacobian = jacobianLimit(f, point, config)
-  const inputDimensions = Chunk.size(point)
-
-  if (N.Equivalence(Chunk.size(jacobian), inputDimensions) === false) {
-    return Number.NaN
-  }
-
-  return Chunk.reduce(jacobian, 0, (acc, row, index) => N.sum(acc, getOr(row, index, Number.NaN)))
+  return Boolean.match(Number.Equivalence(Chunk.size(jacobian), Chunk.size(point)), {
+    onFalse: () => NOT_A_NUMBER,
+    onTrue: () => Chunk.reduce(jacobian, 0, (acc, row, index) => Number.sum(acc, getOr(row, index, NOT_A_NUMBER)))
+  })
 }
 
 /**
@@ -229,8 +273,9 @@ export const laplacianLimit = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,
   config?: RidderMethodInputType
-): number => {
-  const hessian = hessianLimit(f, point, config)
-
-  return Chunk.reduce(hessian, 0, (acc, row, index) => N.sum(acc, getOr(row, index, Number.NaN)))
-}
+): number =>
+  Chunk.reduce(
+    hessianLimit(f, point, config),
+    0,
+    (acc, row, index) => Number.sum(acc, getOr(row, index, NOT_A_NUMBER))
+  )

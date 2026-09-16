@@ -12,7 +12,9 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N } from "effect"
+import { Boolean, Chunk, Number } from "effect"
+
+import { abs, log, sqrt } from "../../Numeric/index.js"
 
 /**
  * Evaluate polynomial via Horner's method. Coefficients are ordered
@@ -24,7 +26,7 @@ import { Chunk, Number as N } from "effect"
  * @category internal
  */
 const evalPoly = (coeffs: Chunk.Chunk<number>, t: number): number =>
-  Chunk.reduce(Chunk.reverse(coeffs), 0, (acc, c) => N.sum(N.multiply(acc, t), c))
+  Chunk.reduce(Chunk.reverse(coeffs), 0, (acc, c) => Number.sum(Number.multiply(acc, t), c))
 
 // ---------------------------------------------------------------------------
 // Region 1: p ≤ 0.5 — result = g * (Y + R(p)) where g = p(p+10)
@@ -32,7 +34,7 @@ const evalPoly = (coeffs: Chunk.Chunk<number>, t: number): number =>
 
 const Y1 = 0.089131474494934082
 
-const P1: Chunk.Chunk<number> = Chunk.fromIterable([
+const P1: Chunk.Chunk<number> = Chunk.make(
   -0.00050878194965828065,
   -0.0083687481974173677,
   0.033480662540974461,
@@ -41,9 +43,9 @@ const P1: Chunk.Chunk<number> = Chunk.fromIterable([
   0.021987868111116891,
   0.0082268787467691569,
   -0.0053877296507124292
-])
+)
 
-const Q1: Chunk.Chunk<number> = Chunk.fromIterable([
+const Q1: Chunk.Chunk<number> = Chunk.make(
   1,
   -0.97000504330329063,
   -1.5657455823417585,
@@ -54,7 +56,7 @@ const Q1: Chunk.Chunk<number> = Chunk.fromIterable([
   0.079528368734157168,
   -0.0023339375937419002,
   0.00088621639045642468
-])
+)
 
 // ---------------------------------------------------------------------------
 // Region 2: q ≥ 0.25 — result = g / (Y + R(xs))
@@ -63,7 +65,7 @@ const Q1: Chunk.Chunk<number> = Chunk.fromIterable([
 
 const Y2 = 2.249481201171875
 
-const P2: Chunk.Chunk<number> = Chunk.fromIterable([
+const P2: Chunk.Chunk<number> = Chunk.make(
   -0.20243350835593876,
   0.10526468069939171,
   8.3705032834311996,
@@ -73,9 +75,9 @@ const P2: Chunk.Chunk<number> = Chunk.fromIterable([
   17.445385985570866,
   21.129465544834051,
   -3.6719225470772936
-])
+)
 
-const Q2: Chunk.Chunk<number> = Chunk.fromIterable([
+const Q2: Chunk.Chunk<number> = Chunk.make(
   1,
   6.2426412485424754,
   3.9713437953343869,
@@ -85,7 +87,7 @@ const Q2: Chunk.Chunk<number> = Chunk.fromIterable([
   10.826866735546016,
   -22.643693341313973,
   1.7211476576120028
-])
+)
 
 // ---------------------------------------------------------------------------
 // Region 3a: x < 3 (where x = sqrt(-log(q)))
@@ -94,7 +96,7 @@ const Q2: Chunk.Chunk<number> = Chunk.fromIterable([
 
 const Y3A = 0.807220458984375
 
-const P3A: Chunk.Chunk<number> = Chunk.fromIterable([
+const P3A: Chunk.Chunk<number> = Chunk.make(
   -0.1311027816799519,
   -0.16379404719331705,
   0.11703015634199525,
@@ -106,9 +108,9 @@ const P3A: Chunk.Chunk<number> = Chunk.fromIterable([
   -6.7946557518112632e-7,
   2.8522533178221704e-8,
   -6.8114995685377697e-10
-])
+)
 
-const Q3A: Chunk.Chunk<number> = Chunk.fromIterable([
+const Q3A: Chunk.Chunk<number> = Chunk.make(
   1,
   3.4662540724256723,
   5.3816834570700687,
@@ -117,7 +119,7 @@ const Q3A: Chunk.Chunk<number> = Chunk.fromIterable([
   0.84885434345790201,
   0.15226433829533179,
   0.011059242293464892
-])
+)
 
 // ---------------------------------------------------------------------------
 // Region 3b: x < 6, xs = x - 3
@@ -125,7 +127,7 @@ const Q3A: Chunk.Chunk<number> = Chunk.fromIterable([
 
 const Y3B = 0.93995571136474609
 
-const P3B: Chunk.Chunk<number> = Chunk.fromIterable([
+const P3B: Chunk.Chunk<number> = Chunk.make(
   -0.0350353787183178,
   -0.0022242652921344794,
   0.018557330651423107,
@@ -135,9 +137,9 @@ const P3B: Chunk.Chunk<number> = Chunk.fromIterable([
   0.0000046046989058431797,
   -2.3040477691188261e-10,
   2.6633922742578204e-12
-])
+)
 
-const Q3B: Chunk.Chunk<number> = Chunk.fromIterable([
+const Q3B: Chunk.Chunk<number> = Chunk.make(
   1,
   1.3653349817554064,
   0.76205916455362344,
@@ -145,7 +147,7 @@ const Q3B: Chunk.Chunk<number> = Chunk.fromIterable([
   0.03415891436709477,
   0.0026386167665701601,
   0.000076467529230279444
-])
+)
 
 // ---------------------------------------------------------------------------
 // Region 3c: x < 18, xs = x - 6
@@ -153,7 +155,7 @@ const Q3B: Chunk.Chunk<number> = Chunk.fromIterable([
 
 const Y3C = 0.98362827301025391
 
-const P3C: Chunk.Chunk<number> = Chunk.fromIterable([
+const P3C: Chunk.Chunk<number> = Chunk.make(
   -0.016743100507663373,
   -0.0011295143874558028,
   0.001056288621524929,
@@ -163,9 +165,9 @@ const P3C: Chunk.Chunk<number> = Chunk.fromIterable([
   4.6259616352287857e-9,
   -2.8112873562883179e-14,
   9.9055709973310331e-17
-])
+)
 
-const Q3C: Chunk.Chunk<number> = Chunk.fromIterable([
+const Q3C: Chunk.Chunk<number> = Chunk.make(
   1,
   0.59142934488641752,
   0.13815186574908331,
@@ -173,7 +175,7 @@ const Q3C: Chunk.Chunk<number> = Chunk.fromIterable([
   0.00096401180700516557,
   0.000027533547476472603,
   2.8224317201610801e-7
-])
+)
 
 // ---------------------------------------------------------------------------
 // Region 3d: x < 44, xs = x - 18
@@ -181,7 +183,7 @@ const Q3C: Chunk.Chunk<number> = Chunk.fromIterable([
 
 const Y3D = 0.99714565277099609
 
-const P3D: Chunk.Chunk<number> = Chunk.fromIterable([
+const P3D: Chunk.Chunk<number> = Chunk.make(
   -0.0024978212791898131,
   -0.0000077919071922905396,
   0.000025472303741302746,
@@ -190,9 +192,9 @@ const P3D: Chunk.Chunk<number> = Chunk.fromIterable([
   4.1163283119094419e-10,
   1.4559628671867504e-12,
   -1.1676501239718427e-18
-])
+)
 
-const Q3D: Chunk.Chunk<number> = Chunk.fromIterable([
+const Q3D: Chunk.Chunk<number> = Chunk.make(
   1,
   0.20712311221442251,
   0.01694108381209759,
@@ -200,7 +202,7 @@ const Q3D: Chunk.Chunk<number> = Chunk.fromIterable([
   0.000014500735981823264,
   1.4443775662814415e-7,
   5.0976127659977847e-10
-])
+)
 
 // ---------------------------------------------------------------------------
 // Region 3e: x >= 44, xs = x - 44
@@ -208,7 +210,7 @@ const Q3D: Chunk.Chunk<number> = Chunk.fromIterable([
 
 const Y3E = 0.99941349029541016
 
-const P3E: Chunk.Chunk<number> = Chunk.fromIterable([
+const P3E: Chunk.Chunk<number> = Chunk.make(
   -0.00053904291101907853,
   -2.8398759004727723e-7,
   8.994651148922914e-7,
@@ -217,9 +219,9 @@ const P3E: Chunk.Chunk<number> = Chunk.fromIterable([
   9.478466275030226e-13,
   1.3588013010892486e-15,
   -3.4889039339994887e-22
-])
+)
 
-const Q3E: Chunk.Chunk<number> = Chunk.fromIterable([
+const Q3E: Chunk.Chunk<number> = Chunk.make(
   1,
   0.084574623400189938,
   0.002820929847262647,
@@ -227,7 +229,7 @@ const Q3E: Chunk.Chunk<number> = Chunk.fromIterable([
   3.999688121938621e-7,
   1.6180929088790448e-9,
   2.315586083102596e-12
-])
+)
 
 /**
  * Core erfinv implementation operating on p ∈ [0, 1] and q = 1 − p.
@@ -236,50 +238,57 @@ const Q3E: Chunk.Chunk<number> = Chunk.fromIterable([
  * @since 0.1.0
  * @category internal
  */
-const erfinvCore = (p: number, q: number): number => {
-  if (p <= 0.5) {
-    const g = N.multiply(p, N.sum(p, 10))
-    const r = evalPoly(P1, p) / evalPoly(Q1, p)
-    return N.multiply(g, N.sum(Y1, r))
-  }
-
-  if (q >= 0.25) {
-    const g = Math.sqrt(N.multiply(-2, Math.log(q)))
-    const xs = N.subtract(q, 0.25)
-    const r = evalPoly(P2, xs) / evalPoly(Q2, xs)
-    return g / N.sum(Y2, r)
-  }
-
-  const x = Math.sqrt(N.negate(Math.log(q)))
-
-  if (x < 3) {
-    const xs = N.subtract(x, 1.125)
-    const r = evalPoly(P3A, xs) / evalPoly(Q3A, xs)
-    return N.multiply(x, N.sum(Y3A, r))
-  }
-
-  if (x < 6) {
-    const xs = N.subtract(x, 3)
-    const r = evalPoly(P3B, xs) / evalPoly(Q3B, xs)
-    return N.multiply(x, N.sum(Y3B, r))
-  }
-
-  if (x < 18) {
-    const xs = N.subtract(x, 6)
-    const r = evalPoly(P3C, xs) / evalPoly(Q3C, xs)
-    return N.multiply(x, N.sum(Y3C, r))
-  }
-
-  if (x < 44) {
-    const xs = N.subtract(x, 18)
-    const r = evalPoly(P3D, xs) / evalPoly(Q3D, xs)
-    return N.multiply(x, N.sum(Y3D, r))
-  }
-
-  const xs = N.subtract(x, 44)
-  const r = evalPoly(P3E, xs) / evalPoly(Q3E, xs)
-  return N.multiply(x, N.sum(Y3E, r))
+const rationalResult = (
+  x: number,
+  shift: number,
+  y: number,
+  numerator: Chunk.Chunk<number>,
+  denominator: Chunk.Chunk<number>
+): number => {
+  const shifted = Number.subtract(x, shift)
+  return Number.multiply(
+    x,
+    Number.sum(y, Number.unsafeDivide(evalPoly(numerator, shifted), evalPoly(denominator, shifted)))
+  )
 }
+
+const erfinvCore = (p: number, q: number): number =>
+  Boolean.match(Number.lessThanOrEqualTo(p, 0.5), {
+    onTrue: () => {
+      const g = Number.multiply(p, Number.sum(p, 10))
+      return Number.multiply(g, Number.sum(Y1, Number.unsafeDivide(evalPoly(P1, p), evalPoly(Q1, p))))
+    },
+    onFalse: () =>
+      Boolean.match(Number.greaterThanOrEqualTo(q, 0.25), {
+        onTrue: () => {
+          const g = sqrt(Number.multiply(-2, log(q)))
+          const shifted = Number.subtract(q, 0.25)
+          return Number.unsafeDivide(
+            g,
+            Number.sum(Y2, Number.unsafeDivide(evalPoly(P2, shifted), evalPoly(Q2, shifted)))
+          )
+        },
+        onFalse: () => {
+          const x = sqrt(Number.negate(log(q)))
+          return Boolean.match(Number.lessThan(x, 3), {
+            onTrue: () => rationalResult(x, 1.125, Y3A, P3A, Q3A),
+            onFalse: () =>
+              Boolean.match(Number.lessThan(x, 6), {
+                onTrue: () => rationalResult(x, 3, Y3B, P3B, Q3B),
+                onFalse: () =>
+                  Boolean.match(Number.lessThan(x, 18), {
+                    onTrue: () => rationalResult(x, 6, Y3C, P3C, Q3C),
+                    onFalse: () =>
+                      Boolean.match(Number.lessThan(x, 44), {
+                        onTrue: () => rationalResult(x, 18, Y3D, P3D, Q3D),
+                        onFalse: () => rationalResult(x, 44, Y3E, P3E, Q3E)
+                      })
+                  })
+              })
+          })
+        }
+      })
+  })
 
 /**
  * erfinv(x) — inverse of the error function.
@@ -292,17 +301,27 @@ const erfinvCore = (p: number, q: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const erfinvKernel = (x: number): number => {
-  if (x === 0) return 0
-  if (x === 1) return Infinity
-  if (x === -1) return -Infinity
-  if (x < -1 || x > 1) return NaN
-
-  const sign = x < 0 ? -1 : 1
-  const p = Math.abs(x)
-  const q = N.subtract(1, p)
-
-  return N.multiply(sign, erfinvCore(p, q))
+export const erfinv = (x: number): number => {
+  return Boolean.match(Number.Equivalence(x, 0), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.Equivalence(x, 1), {
+        onTrue: () => Infinity,
+        onFalse: () =>
+          Boolean.match(Number.Equivalence(x, -1), {
+            onTrue: () => -Infinity,
+            onFalse: () =>
+              Boolean.match(Boolean.or(Number.lessThan(x, -1), Number.greaterThan(x, 1)), {
+                onTrue: () => NaN,
+                onFalse: () => {
+                  const sign = Boolean.match(Number.lessThan(x, 0), { onTrue: () => -1, onFalse: () => 1 })
+                  const p = abs(x)
+                  return Number.multiply(sign, erfinvCore(p, Number.subtract(1, p)))
+                }
+              })
+          })
+      })
+  })
 }
 
 /**
@@ -313,4 +332,4 @@ export const erfinvKernel = (x: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const erfcinvKernel = (x: number): number => erfinvKernel(N.subtract(1, x))
+export const erfcinv = (x: number): number => erfinv(Number.subtract(1, x))

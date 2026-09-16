@@ -1,21 +1,22 @@
 /**
  * Pure metric-space kernels over `Chunk` carriers using Effect primitives.
- * All arithmetic uses `Number.sum`, `Number.multiply`, `Number.subtract`,
- * `Number.negate`, `Number.max`. `Math.sqrt` is the only plain JS function
- * used (deterministic IEEE 754 leaf).
+ * Arithmetic and square roots delegate to the public Numeric authority.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N, Option, pipe } from "effect"
+import { Boolean, Chunk, Iterable, Number, Option, pipe, Tuple } from "effect"
 
-/**
- * Absolute value via `Number.negate` and `Number.max` — avoids `Math.abs`.
- *
- * @since 0.1.0
- * @category internal
- */
-const abs = (x: number): number => N.max(x, N.negate(x))
+import { abs, hypot } from "../../Numeric/index.js"
+
+const indices = (size: number): Chunk.Chunk<number> =>
+  Chunk.fromIterable(
+    Iterable.unfold(0, (index) =>
+      Boolean.match(Number.lessThan(index, size), {
+        onFalse: Option.none,
+        onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
+      }))
+  )
 
 /**
  * Squared Euclidean distance: `Σ (aᵢ − bᵢ)²`. Both chunks must have equal
@@ -28,10 +29,10 @@ const abs = (x: number): number => N.max(x, N.negate(x))
 export const squaredEuclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
   pipe(
     Chunk.zipWith(a, b, (ai, bi) => {
-      const diff = N.subtract(ai, bi)
-      return N.multiply(diff, diff)
+      const diff = Number.subtract(ai, bi)
+      return Number.multiply(diff, diff)
     }),
-    Chunk.reduce(0, N.sum)
+    Chunk.reduce(0, Number.sum)
   )
 
 /**
@@ -43,7 +44,7 @@ export const squaredEuclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<
  * @category internal
  */
 export const euclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
-  Math.sqrt(squaredEuclideanDistance(a, b))
+  hypot(Chunk.zipWith(a, b, Number.subtract))
 
 /**
  * Manhattan distance: `Σ |aᵢ − bᵢ|`. Both chunks must have equal length.
@@ -53,8 +54,8 @@ export const euclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>
  */
 export const manhattanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
   pipe(
-    Chunk.zipWith(a, b, (ai, bi) => abs(N.subtract(ai, bi))),
-    Chunk.reduce(0, N.sum)
+    Chunk.zipWith(a, b, (ai, bi) => abs(Number.subtract(ai, bi))),
+    Chunk.reduce(0, Number.sum)
   )
 
 /**
@@ -65,8 +66,8 @@ export const manhattanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>
  */
 export const chebyshevDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
   pipe(
-    Chunk.zipWith(a, b, (ai, bi) => abs(N.subtract(ai, bi))),
-    Chunk.reduce(0, N.max)
+    Chunk.zipWith(a, b, (ai, bi) => abs(Number.subtract(ai, bi))),
+    Chunk.reduce(0, Number.max)
   )
 
 /**
@@ -76,7 +77,7 @@ export const chebyshevDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>
  * @category internal
  */
 export const midpoint = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): Chunk.Chunk<number> =>
-  Chunk.zipWith(a, b, (ai, bi) => N.multiply(N.sum(ai, bi), 0.5))
+  Chunk.zipWith(a, b, (ai, bi) => Number.multiply(Number.sum(ai, bi), 0.5))
 
 /**
  * Centroid (arithmetic mean) of a non-empty collection of points. Each point
@@ -92,13 +93,13 @@ export const centroid = (
   const n = Chunk.size(points)
   const firstPoint = Option.getOrElse(Chunk.get(points, 0), () => Chunk.empty<number>())
   const dim = Chunk.size(firstPoint)
-  return Chunk.makeBy(dim, (j) =>
-    N.multiply(
+  return Chunk.map(indices(dim), (j) =>
+    Number.multiply(
       Chunk.reduce(
         points,
         0,
-        (acc, pt) => N.sum(acc, Option.getOrElse(Chunk.get(pt, j), () => 0))
+        (acc, pt) => Number.sum(acc, Option.getOrElse(Chunk.get(pt, j), () => 0))
       ),
-      N.unsafeDivide(1, n)
+      Number.unsafeDivide(1, n)
     ))
 }

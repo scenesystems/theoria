@@ -7,7 +7,9 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number as N } from "effect"
+import { Boolean, Chunk, Number } from "effect"
+
+const NOT_A_NUMBER = Number.unsafeDivide(0, 0)
 
 /**
  * Composite trapezoidal rule for evenly-spaced samples.
@@ -19,27 +21,28 @@ import { Chunk, Number as N } from "effect"
  * @category internal
  */
 export const trapezoidalRule = (values: Chunk.Chunk<number>, dx: number): number => {
-  if (N.lessThan(Chunk.size(values), 2)) {
-    return Number.NaN
-  }
+  const hasEnoughSamples = Number.greaterThanOrEqualTo(Chunk.size(values), 2)
+  return Boolean.match(hasEnoughSamples, {
+    onFalse: () => NOT_A_NUMBER,
+    onTrue: () => {
+      const n = Number.decrement(Chunk.size(values))
+      const first = Chunk.unsafeGet(values, 0)
+      const last = Chunk.unsafeGet(values, n)
+      const interiorSum = Chunk.reduce(
+        Chunk.drop(Chunk.take(values, n), 1),
+        0,
+        Number.sum
+      )
 
-  const n = N.subtract(Chunk.size(values), 1)
-  const first = Chunk.unsafeGet(values, 0)
-  const last = Chunk.unsafeGet(values, n)
-
-  const interiorSum = Chunk.reduce(
-    Chunk.drop(Chunk.take(values, n), 1),
-    0,
-    (acc, y) => N.sum(acc, y)
-  )
-
-  return N.multiply(
-    dx,
-    N.sum(
-      N.sum(N.unsafeDivide(first, 2), interiorSum),
-      N.unsafeDivide(last, 2)
-    )
-  )
+      return Number.multiply(
+        dx,
+        Number.sum(
+          Number.sum(Number.unsafeDivide(first, 2), interiorSum),
+          Number.unsafeDivide(last, 2)
+        )
+      )
+    }
+  })
 }
 
 /**
@@ -55,32 +58,31 @@ export const trapezoidalRule = (values: Chunk.Chunk<number>, dx: number): number
  */
 export const simpsonsRule = (values: Chunk.Chunk<number>, dx: number): number => {
   const size = Chunk.size(values)
-  if (N.lessThan(size, 2)) {
-    return Number.NaN
-  }
+  return Boolean.match(Number.lessThan(size, 2), {
+    onTrue: () => NOT_A_NUMBER,
+    onFalse: () =>
+      Boolean.match(Number.Equivalence(size, 2), {
+        onTrue: () => trapezoidalRule(values, dx),
+        onFalse: () => {
+          const intervals = Number.decrement(size)
+          const evenIntervals = Number.Equivalence(Number.remainder(intervals, 2), 0)
+          const simpsonIntervals = Boolean.match(evenIntervals, {
+            onTrue: () => intervals,
+            onFalse: () => Number.decrement(intervals)
+          })
+          const simpsonResult = simpsonCore(Chunk.take(values, Number.increment(simpsonIntervals)), dx)
 
-  if (N.Equivalence(size, 2)) {
-    return trapezoidalRule(values, dx)
-  }
-
-  const intervals = N.subtract(size, 1)
-
-  // Number of intervals that can be handled by Simpson's (must be even)
-  const simpsonIntervals = N.remainder(intervals, 2) === 0 ? intervals : N.subtract(intervals, 1)
-  const simpsonPoints = N.sum(simpsonIntervals, 1)
-
-  const simpsonValues = Chunk.take(values, simpsonPoints)
-  const simpsonResult = simpsonCore(simpsonValues, dx)
-
-  if (simpsonIntervals === intervals) {
-    return simpsonResult
-  }
-
-  // Handle the remaining last interval with trapezoidal rule
-  const lastTwo = Chunk.drop(values, N.subtract(size, 2))
-  const trapResult = trapezoidalRule(lastTwo, dx)
-
-  return N.sum(simpsonResult, trapResult)
+          return Boolean.match(evenIntervals, {
+            onTrue: () => simpsonResult,
+            onFalse: () =>
+              Number.sum(
+                simpsonResult,
+                trapezoidalRule(Chunk.drop(values, Number.subtract(size, 2)), dx)
+              )
+          })
+        }
+      })
+  })
 }
 
 /**
@@ -89,19 +91,27 @@ export const simpsonsRule = (values: Chunk.Chunk<number>, dx: number): number =>
  * S = (dx/3) · (y₀ + 4·y₁ + 2·y₂ + 4·y₃ + ... + 4·y_{n−1} + yₙ)
  */
 const simpsonCore = (values: Chunk.Chunk<number>, dx: number): number => {
-  const n = N.subtract(Chunk.size(values), 1)
+  const n = Number.subtract(Chunk.size(values), 1)
 
   const weightedSum = Chunk.reduce(
     values,
     0,
-    (acc, y, i) => {
-      if (i === 0 || i === n) {
-        return N.sum(acc, y)
-      }
-      const weight = N.remainder(i, 2) === 1 ? 4 : 2
-      return N.sum(acc, N.multiply(weight, y))
-    }
+    (acc, y, i) =>
+      Boolean.match(Boolean.or(Number.Equivalence(i, 0), Number.Equivalence(i, n)), {
+        onTrue: () => Number.sum(acc, y),
+        onFalse: () =>
+          Number.sum(
+            acc,
+            Number.multiply(
+              Boolean.match(Number.Equivalence(Number.remainder(i, 2), 1), {
+                onTrue: () => 4,
+                onFalse: () => 2
+              }),
+              y
+            )
+          )
+      })
   )
 
-  return N.multiply(N.unsafeDivide(dx, 3), weightedSum)
+  return Number.multiply(Number.unsafeDivide(dx, 3), weightedSum)
 }

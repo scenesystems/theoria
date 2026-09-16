@@ -1,9 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Exit, Number as N } from "effect"
+import { Array, Chunk, Effect, Number, Schema } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
+import { NumericDecodeError, NumericDomainViolationError } from "../../src/Numeric/errors.js"
 import {
+  abs,
+  isFinite,
   log1mexp,
   log1pexp,
   logaddexp,
@@ -17,204 +20,111 @@ import {
   xlogy
 } from "../../src/Numeric/operations.js"
 
-const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
+const strictLayer = makeDeterministicRuntimePoliciesLayer({
   seed: Seed.make(42),
   precision: "strict",
-  backend: "typed-array",
+  backend: "compensated",
   diagnostics: "enabled"
 })
 
-const relaxedScalarLayer = makeDeterministicRuntimePoliciesLayer({
+const relaxedLayer = makeDeterministicRuntimePoliciesLayer({
   seed: Seed.make(42),
   precision: "relaxed",
   backend: "scalar",
   diagnostics: "disabled"
 })
 
-const KERNEL_TOLERANCE = 1e-12
+const TOLERANCE = 1e-12
+const closeTo = (actual: number, expected: number) =>
+  expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(TOLERANCE)
 
-const expectClose = (actual: number, expected: number, tolerance: number) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
-
-// ---------------------------------------------------------------------------
-// Pure kernel operations — logaddexp
-// ---------------------------------------------------------------------------
-
-describe("Numeric / logaddexp", () => {
-  it.effect("logaddexp(1, 1) ≈ 1 + ln(2)", () =>
+describe("Numeric log-space kernels", () => {
+  it.effect("adds finite log-weights without materializing their exponentials", () =>
     Effect.gen(function*() {
-      expectClose(logaddexp(1, 1), N.sum(1, Math.LN2), KERNEL_TOLERANCE)
+      closeTo(logaddexp(1, 1), 1.6931471805599454)
+      closeTo(logaddexp(1_000, 999), 1000.3132616875182)
+      expect(logaddexp(5, Number.unsafeDivide(-1, 0))).toBe(5)
+      expect(logaddexp(Number.unsafeDivide(1, 0), Number.unsafeDivide(1, 0))).toBe(Number.unsafeDivide(1, 0))
+      expect(logaddexp(Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0))).toBeNaN()
     }))
 
-  it.effect("logaddexp(a, -Infinity) ≈ a", () =>
+  it.effect("subtracts only inside the strict positive-difference domain", () =>
     Effect.gen(function*() {
-      expectClose(logaddexp(5, -Infinity), 5, KERNEL_TOLERANCE)
+      closeTo(logsubexp(5, 3), 4.854586542131141)
+      expect(logsubexp(3, 3)).toBeNaN()
+      expect(logsubexp(2, 3)).toBeNaN()
     }))
 
-  it.effect("logaddexp(0, 0) ≈ ln(2)", () =>
+  it.effect("uses cancellation-safe branches around zero and negative ln(2)", () =>
     Effect.gen(function*() {
-      expectClose(logaddexp(0, 0), Math.LN2, KERNEL_TOLERANCE)
-    }))
-})
-
-// ---------------------------------------------------------------------------
-// Pure kernel operations — logsubexp
-// ---------------------------------------------------------------------------
-
-describe("Numeric / logsubexp", () => {
-  it.effect("logsubexp(5, 3) ≈ 4.8546", () =>
-    Effect.gen(function*() {
-      expectClose(logsubexp(5, 3), 4.854586542131141, KERNEL_TOLERANCE)
+      closeTo(log1mexp(-1), -0.45867514538708193)
+      closeTo(log1mexp(-1e-15), -34.538776394910684)
+      expect(log1mexp(Number.unsafeDivide(-1, 0))).toBe(-0)
+      expect(log1mexp(0)).toBeNaN()
+      closeTo(log1pexp(0), 0.6931471805599453)
+      expect(log1pexp(40)).toBe(40)
+      closeTo(log1pexp(-40), 4.248354255291589e-18)
     }))
 
-  it.effect("logsubexp(b >= a) returns NaN", () =>
+  it.effect("honors zero-multiplier conventions without masking nonzero domain errors", () =>
     Effect.gen(function*() {
-      expect(Number.isNaN(logsubexp(3, 3))).toBe(true)
-    }))
-})
-
-// ---------------------------------------------------------------------------
-// Pure kernel operations — log1mexp
-// ---------------------------------------------------------------------------
-
-describe("Numeric / log1mexp", () => {
-  it.effect("log1mexp(-1) ≈ -0.4587", () =>
-    Effect.gen(function*() {
-      expectClose(log1mexp(-1), -0.45867514538708193, KERNEL_TOLERANCE)
+      expect(xlogy(0, 0)).toBe(0)
+      closeTo(xlogy(2, 10), 4.605170185988092)
+      expect(xlogy(1, -1)).toBeNaN()
+      expect(xlog1py(0, -1)).toBe(0)
+      closeTo(xlog1py(1, 1), 0.6931471805599453)
     }))
 
-  it.effect("log1mexp(0) returns NaN", () =>
+  it.effect("handles empty, singleton, shifted, and infinite log-sum-exp inputs", () =>
     Effect.gen(function*() {
-      expect(Number.isNaN(log1mexp(0))).toBe(true)
+      expect(logSumExp(Chunk.empty())).toBe(Number.unsafeDivide(-1, 0))
+      expect(logSumExp(Chunk.of(42))).toBe(42)
+      closeTo(logSumExp(Chunk.make(1, 2, 3)), 3.40760596444438)
+      closeTo(logSumExp(Chunk.make(1_000, 999, 998)), 1000.4076059644444)
+      expect(logSumExp(Chunk.make(Number.unsafeDivide(1, 0), 2))).toBe(Number.unsafeDivide(1, 0))
+      expect(logSumExp(Chunk.make(Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0)))).toBeNaN()
     }))
 })
 
-// ---------------------------------------------------------------------------
-// Pure kernel operations — log1pexp
-// ---------------------------------------------------------------------------
-
-describe("Numeric / log1pexp", () => {
-  it.effect("log1pexp(0) ≈ ln(2)", () =>
+describe("Numeric log-space boundaries", () => {
+  it.effect("decodes finite operands and vectors", () =>
     Effect.gen(function*() {
-      expectClose(log1pexp(0), Math.LN2, KERNEL_TOLERANCE)
+      const pair = yield* logaddexpValidated({ a: 1, b: 2 })
+      const vector = yield* logSumExpValidated({ values: Array.make(1, 2, 3) })
+      expect(isFinite(pair)).toBe(true)
+      closeTo(vector, 3.40760596444438)
     }))
 
-  it.effect("log1pexp(40) ≈ 40", () =>
+  it.effect("returns typed decode failures for excess, empty, and non-numeric vectors", () =>
     Effect.gen(function*() {
-      expectClose(log1pexp(40), 40, KERNEL_TOLERANCE)
-    }))
-})
-
-// ---------------------------------------------------------------------------
-// Pure kernel operations — xlogy / xlog1py
-// ---------------------------------------------------------------------------
-
-describe("Numeric / xlogy", () => {
-  it.effect("xlogy(0, 5) === 0", () =>
-    Effect.gen(function*() {
-      expect(xlogy(0, 5)).toStrictEqual(0)
-    }))
-
-  it.effect("xlogy(2, 10) ≈ 4.6052", () =>
-    Effect.gen(function*() {
-      expectClose(xlogy(2, 10), 4.605170185988092, KERNEL_TOLERANCE)
+      const excess = yield* Effect.flip(logaddexpValidated({ a: 1, b: 2, extra: true }))
+      const empty = yield* Effect.flip(logSumExpValidated({ values: Array.empty<number>() }))
+      const invalid = yield* Effect.flip(logSumExpValidated({ values: Array.make("a", "b") }))
+      expect(Schema.is(NumericDecodeError)(excess)).toBe(true)
+      expect(Schema.is(NumericDecodeError)(empty)).toBe(true)
+      expect(Schema.is(NumericDecodeError)(invalid)).toBe(true)
     }))
 })
 
-describe("Numeric / xlog1py", () => {
-  it.effect("xlog1py(0, 100) === 0", () =>
+describe("Numeric log-space policy operations", () => {
+  it.effect("computes finite results under strict and relaxed policies", () =>
     Effect.gen(function*() {
-      expect(xlog1py(0, 100)).toStrictEqual(0)
+      const strictPair = yield* logaddexpWithPolicies(1, 1).pipe(Effect.provide(strictLayer))
+      const relaxedPair = yield* logaddexpWithPolicies(1, 1).pipe(Effect.provide(relaxedLayer))
+      const strictVector = yield* logSumExpWithPolicies(Chunk.make(1, 2, 3)).pipe(Effect.provide(strictLayer))
+      const relaxedVector = yield* logSumExpWithPolicies(Chunk.make(1, 2, 3)).pipe(Effect.provide(relaxedLayer))
+      closeTo(strictPair, 1.6931471805599454)
+      closeTo(relaxedPair, 1.6931471805599454)
+      closeTo(strictVector, 3.40760596444438)
+      closeTo(relaxedVector, 3.40760596444438)
     }))
 
-  it.effect("xlog1py(1, 1) ≈ ln(2)", () =>
+  it.effect("rejects an infinite result only under strict precision", () =>
     Effect.gen(function*() {
-      expectClose(xlog1py(1, 1), Math.LN2, KERNEL_TOLERANCE)
+      const infinity = Number.unsafeDivide(1, 0)
+      const error = yield* Effect.flip(logaddexpWithPolicies(infinity, 1).pipe(Effect.provide(strictLayer)))
+      const result = yield* logaddexpWithPolicies(infinity, 1).pipe(Effect.provide(relaxedLayer))
+      expect(Schema.is(NumericDomainViolationError)(error)).toBe(true)
+      expect(result).toBe(infinity)
     }))
-})
-
-// ---------------------------------------------------------------------------
-// Pure kernel operations — logSumExp
-// ---------------------------------------------------------------------------
-
-describe("Numeric / logSumExp", () => {
-  it.effect("logSumExp([1, 2, 3]) ≈ 3.4076", () =>
-    Effect.gen(function*() {
-      expectClose(logSumExp(Chunk.fromIterable([1, 2, 3])), 3.40760596444438, KERNEL_TOLERANCE)
-    }))
-
-  it.effect("logSumExp empty chunk → -Infinity", () =>
-    Effect.gen(function*() {
-      expect(logSumExp(Chunk.empty())).toStrictEqual(-Infinity)
-    }))
-})
-
-// ---------------------------------------------------------------------------
-// Validated boundary operations
-// ---------------------------------------------------------------------------
-
-describe("Numeric / logaddexpValidated", () => {
-  it.effect("decodes valid input", () =>
-    Effect.gen(function*() {
-      const result = yield* logaddexpValidated({ a: 1, b: 2 })
-      expect(Number.isFinite(result)).toBe(true)
-    }))
-
-  it.effect("rejects excess properties", () =>
-    Effect.gen(function*() {
-      const result = yield* Effect.exit(logaddexpValidated({ a: 1, b: 2, extra: true }))
-      expect(Exit.isFailure(result)).toBe(true)
-    }))
-})
-
-describe("Numeric / logSumExpValidated", () => {
-  it.effect("decodes valid input", () =>
-    Effect.gen(function*() {
-      const result = yield* logSumExpValidated({ values: [1, 2, 3] })
-      expectClose(result, 3.40760596444438, KERNEL_TOLERANCE)
-    }))
-
-  it.effect("rejects excess properties", () =>
-    Effect.gen(function*() {
-      const result = yield* Effect.exit(logSumExpValidated({ values: [1, 2], extra: true }))
-      expect(Exit.isFailure(result)).toBe(true)
-    }))
-
-  it.effect("rejects non-numeric values", () =>
-    Effect.gen(function*() {
-      const result = yield* Effect.exit(logSumExpValidated({ values: ["a", "b"] }))
-      expect(Exit.isFailure(result)).toBe(true)
-    }))
-})
-
-// ---------------------------------------------------------------------------
-// Policy-aware operations
-// ---------------------------------------------------------------------------
-
-describe("Numeric / logaddexpWithPolicies", () => {
-  it.effect("returns correct result under strict+typed-array", () =>
-    Effect.gen(function*() {
-      const result = yield* logaddexpWithPolicies(1, 1)
-      expectClose(result, N.sum(1, Math.LN2), KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
-
-  it.effect("returns correct result under relaxed+scalar", () =>
-    Effect.gen(function*() {
-      const result = yield* logaddexpWithPolicies(1, 1)
-      expectClose(result, N.sum(1, Math.LN2), KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(relaxedScalarLayer)))
-})
-
-describe("Numeric / logSumExpWithPolicies", () => {
-  it.effect("returns correct result under strict+typed-array", () =>
-    Effect.gen(function*() {
-      const result = yield* logSumExpWithPolicies([1, 2, 3])
-      expectClose(result, 3.40760596444438, KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(strictTypedArrayLayer)))
-
-  it.effect("returns correct result under relaxed+scalar", () =>
-    Effect.gen(function*() {
-      const result = yield* logSumExpWithPolicies([1, 2, 3])
-      expectClose(result, 3.40760596444438, KERNEL_TOLERANCE)
-    }).pipe(Effect.provide(relaxedScalarLayer)))
 })

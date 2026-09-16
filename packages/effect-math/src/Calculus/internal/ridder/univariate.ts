@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Number } from "effect"
 
 import type { DerivativeLimitEstimate, RidderMethodInputType } from "../../schema.js"
 import { ridderExtrapolation } from "./core.js"
@@ -21,7 +21,11 @@ export const derivativeLimitRidder = (
   config?: RidderMethodInputType
 ): DerivativeLimitEstimate =>
   ridderExtrapolation(
-    (step) => N.unsafeDivide(N.subtract(f(N.sum(x, step)), f(N.subtract(x, step))), N.multiply(2, step)),
+    (step) =>
+      Number.unsafeDivide(
+        Number.subtract(f(Number.sum(x, step)), f(Number.subtract(x, step))),
+        Number.multiply(2, step)
+      ),
     config
   )
 
@@ -39,12 +43,12 @@ export const secondDerivativeLimitRidder = (
   const center = f(x)
 
   return ridderExtrapolation((step) => {
-    const forward = f(N.sum(x, step))
-    const backward = f(N.subtract(x, step))
+    const forward = f(Number.sum(x, step))
+    const backward = f(Number.subtract(x, step))
 
-    return N.unsafeDivide(
-      N.sum(N.subtract(forward, N.multiply(2, center)), backward),
-      N.multiply(step, step)
+    return Number.unsafeDivide(
+      Number.sum(Number.subtract(forward, Number.multiply(2, center)), backward),
+      Number.multiply(step, step)
     )
   }, config)
 }

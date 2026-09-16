@@ -9,40 +9,8 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { Seed } from "./BrandedScalars.js"
 
 const PrecisionPolicy = Schema.Literal("strict", "relaxed")
-const BackendPolicy = Schema.Literal("typed-array", "scalar")
+const BackendPolicy = Schema.Literal("compensated", "scalar")
 const DiagnosticsPolicy = Schema.Literal("enabled", "disabled")
-
-/**
- * Accepts one RNG, precision, backend, and diagnostics policy snapshot.
- *
- * @remarks
- * The deterministic branch records a {@link Seed}. It does not construct or
- * advance a random-number generator. Backend and diagnostics fields configure
- * consumers; the aggregate itself performs no dispatch or logging.
- *
- * @since 0.1.0
- * @category contracts
- */
-export const RuntimePolicies = Schema.Struct({
-  rngPolicy: Schema.Union(
-    Schema.Struct({
-      policy: Schema.Literal("deterministic"),
-      seed: Seed
-    }),
-    Schema.Struct({
-      policy: Schema.Literal("nondeterministic")
-    })
-  ),
-  precisionPolicy: Schema.Struct({
-    policy: PrecisionPolicy
-  }),
-  backendPolicy: Schema.Struct({
-    policy: BackendPolicy
-  }),
-  diagnosticsPolicy: Schema.Struct({
-    policy: DiagnosticsPolicy
-  })
-})
 
 /**
  * Records nondeterministic selection or a deterministic selection with a seed.
@@ -77,7 +45,7 @@ export const PrecisionPolicySchema = Schema.Struct({
 })
 
 /**
- * Selects scalar-first or typed-array-first backend preference.
+ * Selects scalar-first or compensated-first backend preference.
  *
  * @remarks
  * The policy allocates no backend. Individual operations may use the value
@@ -101,6 +69,25 @@ export const BackendPolicySchema = Schema.Struct({
  */
 export const DiagnosticsPolicySchema = Schema.Struct({
   policy: DiagnosticsPolicy
+})
+
+/**
+ * Accepts one RNG, precision, backend, and diagnostics policy snapshot.
+ *
+ * @remarks
+ * The deterministic branch records a {@link Seed}. It does not construct or
+ * advance a random-number generator. Backend and diagnostics fields configure
+ * consumers; the aggregate itself performs no dispatch or logging. Each field
+ * composes the canonical service-value Schema.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const RuntimePolicies = Schema.Struct({
+  rngPolicy: RngPolicySchema,
+  precisionPolicy: PrecisionPolicySchema,
+  backendPolicy: BackendPolicySchema,
+  diagnosticsPolicy: DiagnosticsPolicySchema
 })
 
 /**
@@ -189,7 +176,7 @@ type NondeterministicRuntimePoliciesInputType = typeof NondeterministicRuntimePo
  *
  * @example
  * ```ts
- * import { Effect, Schema } from "effect"
+ * import { Effect, Match, Number, Schema } from "effect"
  * import {
  *   collectRuntimePolicies,
  *   makeDeterministicRuntimePoliciesLayer,
@@ -208,8 +195,13 @@ type NondeterministicRuntimePoliciesInputType = typeof NondeterministicRuntimePo
  *   )
  * }).pipe(
  *   Effect.filterOrFail(
- *     (policies) => policies.rngPolicy.policy === "deterministic" &&
- *       policies.rngPolicy.seed === 42,
+ *     (policies) => Match.value(policies.rngPolicy).pipe(
+ *       Match.when(
+ *         { policy: "deterministic" },
+ *         ({ seed }) => Number.Equivalence(seed, 42)
+ *       ),
+ *       Match.orElse(() => false)
+ *     ),
  *     () => "UnexpectedRngPolicy"
  *   )
  * )
@@ -312,7 +304,7 @@ export type RngPolicy = typeof RngPolicySchema.Type
 export type PrecisionPolicyType = typeof PrecisionPolicySchema.Type
 
 /**
- * Decoded typed-array-first or scalar-first backend preference.
+ * Decoded compensated-first or scalar-first backend preference.
  *
  * @since 0.1.0
  * @category models

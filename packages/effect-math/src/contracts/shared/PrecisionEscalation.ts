@@ -4,10 +4,10 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Context, Effect, Layer, Match, Number as N, Option, Schema } from "effect"
+import { Array, Boolean, Context, Effect, Layer, Match, Number, Option, Schema, String } from "effect"
 
 import { PrecisionEscalationExhaustedError } from "./AdvancedComputationErrors.js"
-import { ScalarKind, type ScalarKindType, type ScalarResolutionSourceType } from "./ScalarAuthority.js"
+import { ScalarKind, ScalarResolutionSource } from "./ScalarAuthority.js"
 
 const PositiveFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
@@ -127,6 +127,28 @@ export const PrecisionEscalationPolicy = Schema.Struct({
 export type PrecisionEscalationPolicyType = typeof PrecisionEscalationPolicy.Type
 
 /**
+ * Accepts a failed or successful convergence observation for scalar escalation.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const PrecisionEscalationRequest = Schema.Struct({
+  operation: Schema.String,
+  currentKind: ScalarKind,
+  attempts: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  convergence: ConvergenceObservation,
+  scalarResolutionSource: ScalarResolutionSource
+})
+
+/**
+ * A decoded scalar-escalation request.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type PrecisionEscalationRequestType = typeof PrecisionEscalationRequest.Type
+
+/**
  * Supplies convergence and scalar-escalation policy to computation planning.
  *
  * @since 0.1.0
@@ -146,16 +168,16 @@ export class PrecisionEscalationService extends Context.Tag(
  * @since 0.1.0
  * @category contracts
  */
-export const DefaultPrecisionEscalationPolicy: PrecisionEscalationPolicyType = {
+export const DefaultPrecisionEscalationPolicy = Schema.decodeUnknownSync(PrecisionEscalationPolicy)({
   primaryKind: "float64",
-  escalationOrder: ["float64", "bigdecimal"],
+  escalationOrder: Array.make("float64", "bigdecimal"),
   maxEscalations: 2,
   convergenceGate: {
     absoluteTolerance: 1e-10,
     relativeTolerance: 1e-8,
     maxIterations: 16
   }
-}
+})
 
 /**
  * Supplies {@link DefaultPrecisionEscalationPolicy} as {@link PrecisionEscalationService}.
@@ -168,29 +190,34 @@ export const DefaultPrecisionEscalationPolicy: PrecisionEscalationPolicyType = {
  */
 export const PrecisionEscalationLive = Layer.succeed(PrecisionEscalationService, DefaultPrecisionEscalationPolicy)
 
-const orderedEscalationKinds = (policy: PrecisionEscalationPolicyType): ReadonlyArray<ScalarKindType> =>
-  [policy.primaryKind, ...policy.escalationOrder].filter(
-    (kind, index, all) => all.findIndex((candidate) => candidate === kind) === index
+const orderedEscalationKinds = (policy: PrecisionEscalationPolicyType) =>
+  Array.dedupeWith(
+    Array.prepend(policy.escalationOrder, policy.primaryKind),
+    String.Equivalence
   )
 
 const convergedWithinGate = (observation: ConvergenceObservationType, gate: ConvergenceGateType): boolean =>
-  N.lessThanOrEqualTo(observation.absoluteError, gate.absoluteTolerance)
-  && N.lessThanOrEqualTo(observation.relativeError, gate.relativeTolerance)
-  && N.lessThanOrEqualTo(observation.iterations, gate.maxIterations)
+  Boolean.and(
+    Boolean.and(
+      Number.lessThanOrEqualTo(observation.absoluteError, gate.absoluteTolerance),
+      Number.lessThanOrEqualTo(observation.relativeError, gate.relativeTolerance)
+    ),
+    Number.lessThanOrEqualTo(observation.iterations, gate.maxIterations)
+  )
 
 // Promote on the first failed convergence only when the current lane came
 // from policy resolution rather than an explicit caller request.
 const shouldPromoteToPrimaryKind = (
-  request: {
-    readonly currentKind: ScalarKindType
-    readonly attempts: number
-    readonly scalarResolutionSource: ScalarResolutionSourceType
-  },
+  request: PrecisionEscalationRequestType,
   policy: PrecisionEscalationPolicyType
 ): boolean =>
-  request.scalarResolutionSource !== "requested"
-  && request.currentKind !== policy.primaryKind
-  && N.Equivalence(request.attempts, 0)
+  Boolean.and(
+    Boolean.and(
+      Boolean.not(String.Equivalence(request.scalarResolutionSource, "requested")),
+      Boolean.not(String.Equivalence(request.currentKind, policy.primaryKind))
+    ),
+    Number.Equivalence(request.attempts, 0)
+  )
 
 /**
  * Retains a converged scalar lane or selects the next configured lane.
@@ -209,13 +236,7 @@ const shouldPromoteToPrimaryKind = (
  * @since 0.1.0
  * @category contracts
  */
-export const resolveEscalatedScalarKind = (request: {
-  readonly operation: string
-  readonly currentKind: ScalarKindType
-  readonly attempts: number
-  readonly convergence: ConvergenceObservationType
-  readonly scalarResolutionSource: ScalarResolutionSourceType
-}) =>
+export const resolveEscalatedScalarKind = (request: PrecisionEscalationRequestType) =>
   Effect.gen(function*() {
     const policy = yield* PrecisionEscalationService
     const converged = convergedWithinGate(request.convergence, policy.convergenceGate)
@@ -232,7 +253,7 @@ export const resolveEscalatedScalarKind = (request: {
         Effect.gen(function*() {
           yield* Effect.filterOrFail(
             Effect.succeed(request.attempts),
-            (attempts) => N.lessThan(attempts, policy.maxEscalations),
+            (attempts) => Number.lessThan(attempts, policy.maxEscalations),
             () =>
               new PrecisionEscalationExhaustedError({
                 operation: request.operation,
@@ -254,21 +275,26 @@ export const resolveEscalatedScalarKind = (request: {
               })),
             Match.when(false, () =>
               Effect.gen(function*() {
-                const currentIndex = escalationOrder.findIndex((kind) => kind === request.currentKind)
-
-                const resolvedIndex = yield* Effect.filterOrFail(
-                  Effect.succeed(currentIndex),
-                  (index) => N.greaterThanOrEqualTo(index, 0),
-                  () =>
-                    new PrecisionEscalationExhaustedError({
-                      operation: request.operation,
-                      requestedKind: request.currentKind,
-                      attempts: request.attempts,
-                      message: `Current scalar kind ${request.currentKind} is not declared in escalation order`
-                    })
+                const resolvedIndex = yield* Option.match(
+                  Array.findFirstIndex(escalationOrder, (kind) => String.Equivalence(kind, request.currentKind)),
+                  {
+                    onNone: () =>
+                      Effect.fail(
+                        new PrecisionEscalationExhaustedError({
+                          operation: request.operation,
+                          requestedKind: request.currentKind,
+                          attempts: request.attempts,
+                          message: String.concat(
+                            String.concat("Current scalar kind ", request.currentKind),
+                            " is not declared in escalation order"
+                          )
+                        })
+                      ),
+                    onSome: Effect.succeed
+                  }
                 )
 
-                const nextKind = Option.fromNullable(escalationOrder.at(N.increment(resolvedIndex)))
+                const nextKind = Array.get(escalationOrder, Number.increment(resolvedIndex))
 
                 return yield* Option.match(nextKind, {
                   onNone: () =>

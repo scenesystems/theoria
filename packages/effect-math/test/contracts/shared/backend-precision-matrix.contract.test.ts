@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Layer, Number as EffectNumber } from "effect"
+import { Array, Boolean, Chunk, Effect, Layer, Number, Schema } from "effect"
 
 import { polyEvalWithPolicies } from "../../../src/Algebra/operations.js"
 import { trapezoidWithPolicies } from "../../../src/Calculus/operations.js"
@@ -18,13 +18,17 @@ import { gammaWithPolicies } from "../../../src/Special/operations.js"
 import { summaryStatisticsWithPolicies } from "../../../src/Statistics/operations.js"
 
 const seed = Seed.make(42)
+const NOT_A_NUMBER = Schema.decodeUnknownSync(Schema.NumberFromString)("NaN")
+const SQRT_TWO = 1.4142135623730951
+const isNaN = (value: number) => Boolean.not(Schema.is(Schema.NonNaN)(value))
+const isNonFinite = (value: number) => Boolean.not(Schema.is(Schema.Finite)(value))
 
 // ── Full backend × precision layers (Numeric, LinearAlgebra) ──
 
-const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
+const strictCompensatedLayer = makeDeterministicRuntimePoliciesLayer({
   seed,
   precision: "strict",
-  backend: "typed-array",
+  backend: "compensated",
   diagnostics: "disabled"
 })
 
@@ -35,10 +39,10 @@ const strictScalarLayer = makeDeterministicRuntimePoliciesLayer({
   diagnostics: "disabled"
 })
 
-const relaxedTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
+const relaxedCompensatedLayer = makeDeterministicRuntimePoliciesLayer({
   seed,
   precision: "relaxed",
-  backend: "typed-array",
+  backend: "compensated",
   diagnostics: "disabled"
 })
 
@@ -51,9 +55,9 @@ const relaxedScalarLayer = makeDeterministicRuntimePoliciesLayer({
 
 // ── Precision-only layers (all other domains) ──
 
-const strictPolicy: { readonly policy: "strict" } = { policy: "strict" }
-const relaxedPolicy: { readonly policy: "relaxed" } = { policy: "relaxed" }
-const disabledDiag: { readonly policy: "disabled" } = { policy: "disabled" }
+const strictPolicy = PrecisionPolicyService.of({ policy: "strict" })
+const relaxedPolicy = PrecisionPolicyService.of({ policy: "relaxed" })
+const disabledDiag = DiagnosticsPolicyService.of({ policy: "disabled" })
 
 const strictDisabledLayer = Layer.mergeAll(
   Layer.succeed(PrecisionPolicyService, strictPolicy),
@@ -72,40 +76,42 @@ const relaxedDisabledLayer = Layer.mergeAll(
 describe("backend × precision policy matrix", () => {
   it.effect("all 4 cells produce equivalent results for finite inputs (small array)", () =>
     Effect.gen(function*() {
-      const values = [0.1, 0.2, 0.3, 0.4, 0.5]
+      const values = Array.make(0.1, 0.2, 0.3, 0.4, 0.5)
 
-      const strictTypedArray = yield* sumWithPolicies(values).pipe(Effect.provide(strictTypedArrayLayer))
+      const strictCompensated = yield* sumWithPolicies(values).pipe(Effect.provide(strictCompensatedLayer))
       const strictScalar = yield* sumWithPolicies(values).pipe(Effect.provide(strictScalarLayer))
-      const relaxedTypedArray = yield* sumWithPolicies(values).pipe(Effect.provide(relaxedTypedArrayLayer))
+      const relaxedCompensated = yield* sumWithPolicies(values).pipe(Effect.provide(relaxedCompensatedLayer))
       const relaxedScalar = yield* sumWithPolicies(values).pipe(Effect.provide(relaxedScalarLayer))
 
-      expect(EffectNumber.Equivalence(strictTypedArray, strictScalar)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictTypedArray, relaxedTypedArray)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictTypedArray, relaxedScalar)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictScalar, relaxedScalar)).toStrictEqual(true)
+      expect(strictCompensated).toStrictEqual(1.5)
+      expect(Number.Equivalence(strictCompensated, strictScalar)).toStrictEqual(true)
+      expect(Number.Equivalence(strictCompensated, relaxedCompensated)).toStrictEqual(true)
+      expect(Number.Equivalence(strictCompensated, relaxedScalar)).toStrictEqual(true)
+      expect(Number.Equivalence(strictScalar, relaxedScalar)).toStrictEqual(true)
     }))
 
   it.effect("all 4 cells produce equivalent results for finite inputs (larger array)", () =>
     Effect.gen(function*() {
-      const values = [1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.0]
+      const values = Array.make(1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.0)
 
-      const strictTypedArray = yield* sumWithPolicies(values).pipe(Effect.provide(strictTypedArrayLayer))
+      const strictCompensated = yield* sumWithPolicies(values).pipe(Effect.provide(strictCompensatedLayer))
       const strictScalar = yield* sumWithPolicies(values).pipe(Effect.provide(strictScalarLayer))
-      const relaxedTypedArray = yield* sumWithPolicies(values).pipe(Effect.provide(relaxedTypedArrayLayer))
+      const relaxedCompensated = yield* sumWithPolicies(values).pipe(Effect.provide(relaxedCompensatedLayer))
       const relaxedScalar = yield* sumWithPolicies(values).pipe(Effect.provide(relaxedScalarLayer))
 
-      expect(EffectNumber.Equivalence(strictTypedArray, strictScalar)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictTypedArray, relaxedTypedArray)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictTypedArray, relaxedScalar)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictScalar, relaxedScalar)).toStrictEqual(true)
+      expect(strictCompensated).toStrictEqual(59.5)
+      expect(Number.Equivalence(strictCompensated, strictScalar)).toStrictEqual(true)
+      expect(Number.Equivalence(strictCompensated, relaxedCompensated)).toStrictEqual(true)
+      expect(Number.Equivalence(strictCompensated, relaxedScalar)).toStrictEqual(true)
+      expect(Number.Equivalence(strictScalar, relaxedScalar)).toStrictEqual(true)
     }))
 
-  it.effect("strict + typed-array rejects NaN while relaxed does not", () =>
+  it.effect("strict + compensated rejects NaN while relaxed does not", () =>
     Effect.gen(function*() {
-      const valuesWithNaN = [1.0, NaN, 3.0]
+      const valuesWithNaN = Array.make(1.0, NOT_A_NUMBER, 3.0)
 
       const strictError = yield* Effect.flip(
-        sumWithPolicies(valuesWithNaN).pipe(Effect.provide(strictTypedArrayLayer))
+        sumWithPolicies(valuesWithNaN).pipe(Effect.provide(strictCompensatedLayer))
       )
       expect(strictError._tag).toStrictEqual("NumericDomainViolationError")
       expect(strictError.operation).toStrictEqual("sumWithPolicies")
@@ -113,38 +119,38 @@ describe("backend × precision policy matrix", () => {
       const relaxedResult = yield* sumWithPolicies(valuesWithNaN).pipe(
         Effect.provide(relaxedScalarLayer)
       )
-      expect(Number.isNaN(relaxedResult)).toStrictEqual(true)
+      expect(isNaN(relaxedResult)).toStrictEqual(true)
     }))
 })
 
 // ══════════════════════════════════════════════════════════════
-// LinearAlgebra — backend × precision (2×2, uses BackendPolicyService)
+// LinearAlgebra — backend-preference metadata × precision (2×2, uses BackendPolicyService)
 // ══════════════════════════════════════════════════════════════
 
-describe("LinearAlgebra precision × backend matrix", () => {
-  it.effect("all 4 cells produce equivalent dot product for finite inputs", () =>
+describe("LinearAlgebra precision × backend-preference metadata matrix", () => {
+  it.effect("the documented dot result is equivalent across all 4 policy cells", () =>
     Effect.gen(function*() {
-      const a = Chunk.fromIterable([1, 2, 3])
-      const b = Chunk.fromIterable([4, 5, 6])
+      const a = Chunk.make(1, 2, 3)
+      const b = Chunk.make(4, 5, 6)
 
-      const strictTypedArray = yield* dotWithPolicies(a, b).pipe(Effect.provide(strictTypedArrayLayer))
+      const strictCompensated = yield* dotWithPolicies(a, b).pipe(Effect.provide(strictCompensatedLayer))
       const strictScalar = yield* dotWithPolicies(a, b).pipe(Effect.provide(strictScalarLayer))
-      const relaxedTypedArray = yield* dotWithPolicies(a, b).pipe(Effect.provide(relaxedTypedArrayLayer))
+      const relaxedCompensated = yield* dotWithPolicies(a, b).pipe(Effect.provide(relaxedCompensatedLayer))
       const relaxedScalar = yield* dotWithPolicies(a, b).pipe(Effect.provide(relaxedScalarLayer))
 
-      expect(strictTypedArray).toStrictEqual(32)
-      expect(EffectNumber.Equivalence(strictTypedArray, strictScalar)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictTypedArray, relaxedTypedArray)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictTypedArray, relaxedScalar)).toStrictEqual(true)
+      expect(strictCompensated).toStrictEqual(32)
+      expect(Number.Equivalence(strictCompensated, strictScalar)).toStrictEqual(true)
+      expect(Number.Equivalence(strictCompensated, relaxedCompensated)).toStrictEqual(true)
+      expect(Number.Equivalence(strictCompensated, relaxedScalar)).toStrictEqual(true)
     }))
 
   it.effect("strict rejects NaN while relaxed passes through", () =>
     Effect.gen(function*() {
-      const a = Chunk.fromIterable([1, NaN, 3])
-      const b = Chunk.fromIterable([4, 5, 6])
+      const a = Chunk.make(1, NOT_A_NUMBER, 3)
+      const b = Chunk.make(4, 5, 6)
 
       const strictError = yield* Effect.flip(
-        dotWithPolicies(a, b).pipe(Effect.provide(strictTypedArrayLayer))
+        dotWithPolicies(a, b).pipe(Effect.provide(strictCompensatedLayer))
       )
       expect(strictError._tag).toStrictEqual("LinearAlgebraDomainViolationError")
       expect(strictError.operation).toStrictEqual("dotWithPolicies")
@@ -152,7 +158,7 @@ describe("LinearAlgebra precision × backend matrix", () => {
       const relaxedResult = yield* dotWithPolicies(a, b).pipe(
         Effect.provide(relaxedScalarLayer)
       )
-      expect(Number.isNaN(relaxedResult)).toStrictEqual(true)
+      expect(isNaN(relaxedResult)).toStrictEqual(true)
     }))
 })
 
@@ -163,20 +169,20 @@ describe("LinearAlgebra precision × backend matrix", () => {
 describe("Geometry precision policy matrix", () => {
   it.effect("both precision policies produce equivalent distance for finite inputs", () =>
     Effect.gen(function*() {
-      const a = Chunk.fromIterable([0, 0])
-      const b = Chunk.fromIterable([3, 4])
+      const a = Chunk.make(0, 0)
+      const b = Chunk.make(3, 4)
 
       const strictResult = yield* distanceWithPolicies(a, b, "euclidean").pipe(Effect.provide(strictDisabledLayer))
       const relaxedResult = yield* distanceWithPolicies(a, b, "euclidean").pipe(Effect.provide(relaxedDisabledLayer))
 
       expect(strictResult).toStrictEqual(5)
-      expect(EffectNumber.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
+      expect(Number.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
     }))
 
   it.effect("strict rejects NaN while relaxed passes through", () =>
     Effect.gen(function*() {
-      const a = Chunk.fromIterable([1, NaN])
-      const b = Chunk.fromIterable([3, 4])
+      const a = Chunk.make(1, NOT_A_NUMBER)
+      const b = Chunk.make(3, 4)
 
       const strictError = yield* Effect.flip(
         distanceWithPolicies(a, b, "euclidean").pipe(Effect.provide(strictDisabledLayer))
@@ -187,7 +193,7 @@ describe("Geometry precision policy matrix", () => {
       const relaxedResult = yield* distanceWithPolicies(a, b, "euclidean").pipe(
         Effect.provide(relaxedDisabledLayer)
       )
-      expect(Number.isNaN(relaxedResult)).toStrictEqual(true)
+      expect(isNaN(relaxedResult)).toStrictEqual(true)
     }))
 })
 
@@ -202,7 +208,7 @@ describe("Probability precision policy matrix", () => {
       const relaxedResult = yield* normalPdfWithPolicies(0, 0, 1).pipe(Effect.provide(relaxedDisabledLayer))
 
       expect(strictResult).toBeCloseTo(0.3989, 3)
-      expect(EffectNumber.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
+      expect(Number.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
     }))
 
   it.effect("strict rejects non-finite normalPdf while relaxed passes through", () =>
@@ -217,7 +223,7 @@ describe("Probability precision policy matrix", () => {
       const relaxedResult = yield* normalPdfWithPolicies(0, 0, 0).pipe(
         Effect.provide(relaxedDisabledLayer)
       )
-      expect(Number.isFinite(relaxedResult)).toStrictEqual(false)
+      expect(isNonFinite(relaxedResult)).toStrictEqual(true)
     }))
 })
 
@@ -228,21 +234,21 @@ describe("Probability precision policy matrix", () => {
 describe("Statistics precision policy matrix", () => {
   it.effect("both precision policies produce equivalent summaryStatistics for finite inputs", () =>
     Effect.gen(function*() {
-      const values = Chunk.fromIterable([2, 4, 6, 8])
+      const values = Chunk.make(2, 4, 6, 8)
 
       const strictResult = yield* summaryStatisticsWithPolicies(values).pipe(Effect.provide(strictDisabledLayer))
       const relaxedResult = yield* summaryStatisticsWithPolicies(values).pipe(Effect.provide(relaxedDisabledLayer))
 
       expect(strictResult.mean).toStrictEqual(5)
-      expect(EffectNumber.Equivalence(strictResult.mean, relaxedResult.mean)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictResult.variance, relaxedResult.variance)).toStrictEqual(true)
-      expect(EffectNumber.Equivalence(strictResult.standardDeviation, relaxedResult.standardDeviation))
+      expect(Number.Equivalence(strictResult.mean, relaxedResult.mean)).toStrictEqual(true)
+      expect(Number.Equivalence(strictResult.variance, relaxedResult.variance)).toStrictEqual(true)
+      expect(Number.Equivalence(strictResult.standardDeviation, relaxedResult.standardDeviation))
         .toStrictEqual(true)
     }))
 
   it.effect("strict rejects NaN with domain violation error", () =>
     Effect.gen(function*() {
-      const values = Chunk.fromIterable([1, NaN, 3, 4])
+      const values = Chunk.make(1, NOT_A_NUMBER, 3, 4)
 
       const strictError = yield* Effect.flip(
         summaryStatisticsWithPolicies(values).pipe(Effect.provide(strictDisabledLayer))
@@ -251,17 +257,23 @@ describe("Statistics precision policy matrix", () => {
       expect(strictError.operation).toStrictEqual("summaryStatisticsWithPolicies")
     }))
 
-  it.effect("relaxed allows NaN past precision check but constructor rejects non-finite", () =>
+  it.effect("relaxed reports non-finite result-schema violations as typed failures", () =>
     Effect.gen(function*() {
-      const values = Chunk.fromIterable([1, NaN, 3, 4])
-
-      // Relaxed precision passes the NaN through the policy gate, but the
-      // SummaryStatistics Schema.TaggedClass constructor requires FiniteNumber
-      // fields, so a ParseError is raised instead.
-      const exit = yield* Effect.exit(
-        summaryStatisticsWithPolicies(values).pipe(Effect.provide(relaxedDisabledLayer))
+      const nonFiniteInputError = yield* Effect.flip(
+        summaryStatisticsWithPolicies(Chunk.make(1, NOT_A_NUMBER, 3, 4)).pipe(
+          Effect.provide(relaxedDisabledLayer)
+        )
       )
-      expect(exit._tag).toStrictEqual("Failure")
+      expect(nonFiniteInputError._tag).toStrictEqual("StatisticsDomainViolationError")
+      expect(nonFiniteInputError.operation).toStrictEqual("summaryStatisticsWithPolicies")
+
+      const overflowingFiniteInputError = yield* Effect.flip(
+        summaryStatisticsWithPolicies(Chunk.make(1e308, -1e308)).pipe(
+          Effect.provide(relaxedDisabledLayer)
+        )
+      )
+      expect(overflowingFiniteInputError._tag).toStrictEqual("StatisticsDomainViolationError")
+      expect(overflowingFiniteInputError.operation).toStrictEqual("summaryStatisticsWithPolicies")
     }))
 })
 
@@ -276,7 +288,7 @@ describe("Special precision policy matrix", () => {
       const relaxedResult = yield* gammaWithPolicies(5).pipe(Effect.provide(relaxedDisabledLayer))
 
       expect(strictResult).toBeCloseTo(24, 5)
-      expect(EffectNumber.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
+      expect(Number.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
     }))
 
   it.effect("strict rejects non-finite gamma while relaxed passes through", () =>
@@ -291,7 +303,7 @@ describe("Special precision policy matrix", () => {
       const relaxedResult = yield* gammaWithPolicies(0).pipe(
         Effect.provide(relaxedDisabledLayer)
       )
-      expect(Number.isFinite(relaxedResult)).toStrictEqual(false)
+      expect(isNonFinite(relaxedResult)).toStrictEqual(true)
     }))
 })
 
@@ -303,18 +315,18 @@ describe("Algebra precision policy matrix", () => {
   it.effect("both precision policies produce equivalent polyEval for finite inputs", () =>
     Effect.gen(function*() {
       // P(x) = 1 - 2x + x² → P(3) = 1 - 6 + 9 = 4
-      const coefficients = Chunk.fromIterable([1, -2, 1])
+      const coefficients = Chunk.make(1, -2, 1)
 
       const strictResult = yield* polyEvalWithPolicies(coefficients, 3).pipe(Effect.provide(strictDisabledLayer))
       const relaxedResult = yield* polyEvalWithPolicies(coefficients, 3).pipe(Effect.provide(relaxedDisabledLayer))
 
       expect(strictResult).toStrictEqual(4)
-      expect(EffectNumber.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
+      expect(Number.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
     }))
 
   it.effect("strict rejects NaN coefficients while relaxed passes through", () =>
     Effect.gen(function*() {
-      const coefficients = Chunk.fromIterable([1, NaN, 1])
+      const coefficients = Chunk.make(1, NOT_A_NUMBER, 1)
 
       const strictError = yield* Effect.flip(
         polyEvalWithPolicies(coefficients, 3).pipe(Effect.provide(strictDisabledLayer))
@@ -325,7 +337,7 @@ describe("Algebra precision policy matrix", () => {
       const relaxedResult = yield* polyEvalWithPolicies(coefficients, 3).pipe(
         Effect.provide(relaxedDisabledLayer)
       )
-      expect(Number.isNaN(relaxedResult)).toStrictEqual(true)
+      expect(isNaN(relaxedResult)).toStrictEqual(true)
     }))
 })
 
@@ -336,18 +348,18 @@ describe("Algebra precision policy matrix", () => {
 describe("Calculus precision policy matrix", () => {
   it.effect("both precision policies produce equivalent trapezoid for finite inputs", () =>
     Effect.gen(function*() {
-      const values = Chunk.fromIterable([0, 1, 4, 9, 16])
+      const values = Chunk.make(0, 1, 4, 9, 16)
 
       const strictResult = yield* trapezoidWithPolicies(values, 1).pipe(Effect.provide(strictDisabledLayer))
       const relaxedResult = yield* trapezoidWithPolicies(values, 1).pipe(Effect.provide(relaxedDisabledLayer))
 
       expect(strictResult).toStrictEqual(22)
-      expect(EffectNumber.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
+      expect(Number.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
     }))
 
   it.effect("strict rejects NaN while relaxed passes through", () =>
     Effect.gen(function*() {
-      const values = Chunk.fromIterable([0, NaN, 4, 9, 16])
+      const values = Chunk.make(0, NOT_A_NUMBER, 4, 9, 16)
 
       const strictError = yield* Effect.flip(
         trapezoidWithPolicies(values, 1).pipe(Effect.provide(strictDisabledLayer))
@@ -358,7 +370,7 @@ describe("Calculus precision policy matrix", () => {
       const relaxedResult = yield* trapezoidWithPolicies(values, 1).pipe(
         Effect.provide(relaxedDisabledLayer)
       )
-      expect(Number.isNaN(relaxedResult)).toStrictEqual(true)
+      expect(isNaN(relaxedResult)).toStrictEqual(true)
     }))
 })
 
@@ -369,12 +381,12 @@ describe("Calculus precision policy matrix", () => {
 describe("Optimization precision policy matrix", () => {
   it.effect("both precision policies produce equivalent bisect for finite inputs", () =>
     Effect.gen(function*() {
-      const f = (x: number) => x * x - 2
+      const f = (x: number) => Number.subtract(Number.multiply(x, x), 2)
 
       const strictResult = yield* bisectWithPolicies(f, 0, 2).pipe(Effect.provide(strictDisabledLayer))
       const relaxedResult = yield* bisectWithPolicies(f, 0, 2).pipe(Effect.provide(relaxedDisabledLayer))
 
-      expect(strictResult).toBeCloseTo(Math.SQRT2, 5)
-      expect(EffectNumber.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
+      expect(strictResult).toBeCloseTo(SQRT_TWO, 5)
+      expect(Number.Equivalence(strictResult, relaxedResult)).toStrictEqual(true)
     }))
 })

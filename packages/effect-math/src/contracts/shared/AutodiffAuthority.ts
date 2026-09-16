@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Context, Effect, Layer, Match, Option, Schema } from "effect"
+import { Array, Boolean, Context, Effect, Layer, Match, Option, Schema, String } from "effect"
 
 import { AutodiffUnavailableError } from "./AdvancedComputationErrors.js"
 
@@ -70,8 +70,7 @@ export type AutodiffResolutionMethodType = typeof AutodiffResolutionMethod.Type
 const AUTODIFF_METHOD: AutodiffResolutionMethodType = "autodiff"
 const FINITE_DIFFERENCE_METHOD: AutodiffResolutionMethodType = "finite-difference"
 
-const dedupeModes = (modes: ReadonlyArray<AutodiffModeType>): ReadonlyArray<AutodiffModeType> =>
-  modes.filter((mode, index, all) => all.findIndex((candidate) => candidate === mode) === index)
+const dedupeModes = Array.dedupeWith(String.Equivalence)
 
 /**
  * Describes the differentiation method and fallback provenance selected by a resolver.
@@ -142,6 +141,25 @@ export const AutodiffAuthorityState = Schema.Struct({
 export type AutodiffAuthorityStateType = typeof AutodiffAuthorityState.Type
 
 /**
+ * Accepts an operation identity and an optional preferred autodiff mode.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const AutodiffResolutionRequest = Schema.Struct({
+  operation: Schema.String,
+  preferredMode: Schema.optional(AutodiffMode)
+})
+
+/**
+ * A decoded autodiff selection request.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type AutodiffResolutionRequestType = typeof AutodiffResolutionRequest.Type
+
+/**
  * Supplies autodiff policy and capabilities to computation planning.
  *
  * @since 0.1.0
@@ -162,19 +180,22 @@ export class AutodiffAuthorityService extends Context.Tag("effect-math/contracts
  * @since 0.1.0
  * @category contracts
  */
-export const DefaultAutodiffAuthority: AutodiffAuthorityStateType = {
+export const DefaultAutodiffAuthority = Schema.decodeUnknownSync(AutodiffAuthorityState)({
   policy: {
-    preferredOrder: ["reverse", "forward"],
+    preferredOrder: Array.make("reverse", "forward"),
     allowFiniteDifferenceFallback: true
   },
-  capabilities: [{
-    mode: "reverse",
-    available: true
-  }, {
-    mode: "forward",
-    available: true
-  }]
-}
+  capabilities: Array.make(
+    {
+      mode: "reverse",
+      available: true
+    },
+    {
+      mode: "forward",
+      available: true
+    }
+  )
+})
 
 /**
  * Supplies {@link DefaultAutodiffAuthority} as {@link AutodiffAuthorityService}.
@@ -202,29 +223,27 @@ export const AutodiffAuthorityLive = Layer.succeed(AutodiffAuthorityService, Def
  * @since 0.1.0
  * @category contracts
  */
-export const resolveAutodiffMode = (request: {
-  readonly operation: string
-  readonly preferredMode?: AutodiffModeType
-}) =>
+export const resolveAutodiffMode = (request: AutodiffResolutionRequestType) =>
   Effect.gen(function*() {
     const authority = yield* AutodiffAuthorityService
 
     const orderedModes = dedupeModes(
       Option.match(Option.fromNullable(request.preferredMode), {
         onNone: () => authority.policy.preferredOrder,
-        onSome: (preferredMode) => [preferredMode, ...authority.policy.preferredOrder]
+        onSome: (preferredMode) => Array.prepend(authority.policy.preferredOrder, preferredMode)
       })
     )
 
-    const resolved = Option.fromNullable(orderedModes.find((mode) =>
-      authority.capabilities.some((candidate) => candidate.mode === mode && candidate.available)
-    ))
+    const resolved = Array.findFirst(orderedModes, (mode) =>
+      Array.some(
+        authority.capabilities,
+        (candidate) => Boolean.and(String.Equivalence(candidate.mode, mode), candidate.available)
+      ))
 
-    const availableModes = authority.capabilities
-      .filter((candidate) =>
-        candidate.available
-      )
-      .map((candidate) => candidate.mode)
+    const availableModes = Array.map(
+      Array.filter(authority.capabilities, (candidate) => candidate.available),
+      (candidate) => candidate.mode
+    )
 
     return yield* Option.match(resolved, {
       onNone: () =>
@@ -239,7 +258,10 @@ export const resolveAutodiffMode = (request: {
             Effect.fail(
               new AutodiffUnavailableError({
                 operation: request.operation,
-                requestedMode: request.preferredMode ?? "policy-default",
+                requestedMode: Option.getOrElse(
+                  Option.fromNullable(request.preferredMode),
+                  () => "policy-default"
+                ),
                 availableModes,
                 message: "No autodiff mode is currently available"
               })

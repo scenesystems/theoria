@@ -1,8 +1,10 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Number as N, Schema } from "effect"
+import { Array, Boolean, Effect, Match, Number, Schema } from "effect"
 
+import { abs } from "../../src/Numeric/index.js"
 import { betainc, erfcinv, erfinv, gammainc, gammaincc, polygamma } from "../../src/Special/operations.js"
-import { FixtureRegistryLive, loadFixture, SpecialInverseParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { loadFixture, SpecialInverseParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const RELATIVE_TOLERANCE = 1e-9
 const ERFINV_ABSOLUTE_TOLERANCE = 1e-9
@@ -12,9 +14,12 @@ const POLYGAMMA_ABSOLUTE_TOLERANCE = 1e-10
 const DEFAULT_ABSOLUTE_TOLERANCE = 1e-10
 
 const expectParity = (actual: number, expected: number, absoluteTol: number = DEFAULT_ABSOLUTE_TOLERANCE) => {
-  const absExpected = Math.abs(expected)
-  const tolerance = absExpected > 1 ? N.multiply(absExpected, RELATIVE_TOLERANCE) : absoluteTol
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  const absExpected = abs(expected)
+  const tolerance = Boolean.match(Number.greaterThan(absExpected, 1), {
+    onTrue: () => Number.multiply(absExpected, RELATIVE_TOLERANCE),
+    onFalse: () => absoluteTol
+  })
+  expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 describe("Special inverse SciPy fixture parity", () => {
@@ -25,7 +30,7 @@ describe("Special inverse SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "erfinv" }, (v) =>
@@ -43,5 +48,5 @@ describe("Special inverse SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

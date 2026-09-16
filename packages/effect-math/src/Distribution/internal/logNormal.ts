@@ -3,16 +3,15 @@
  * Parameters: mu (log-space mean), sigma (log-space stddev).
  * X ~ LogNormal(mu, sigma) iff ln(X) ~ Normal(mu, sigma).
  *
- * CDF delegates to erf from Special/internal/erf.js.
- * Quantile delegates to erfinv from Special/internal/erfinv.js.
+ * CDF and quantile delegate to canonical public Special operations.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Number as N } from "effect"
+import { Boolean, Number } from "effect"
 
-import { erfAbramowitzStegun } from "../../Special/internal/erf.js"
-import { erfinvKernel } from "../../Special/internal/erfinv.js"
+import { exp, log, pi, sqrt } from "../../Numeric/index.js"
+import { erf, erfinv } from "../../Special/index.js"
 
 /**
  * Precomputed √(2π) for the log-normal PDF denominator.
@@ -20,7 +19,8 @@ import { erfinvKernel } from "../../Special/internal/erfinv.js"
  * @since 0.1.0
  * @category internal
  */
-const SQRT_2PI = Math.sqrt(N.multiply(2, Math.PI))
+const SQRT_2 = sqrt(2)
+const SQRT_2PI = sqrt(Number.multiply(2, pi))
 
 /**
  * Precomputed 0.5 · ln(2π) for logpdf.
@@ -28,7 +28,7 @@ const SQRT_2PI = Math.sqrt(N.multiply(2, Math.PI))
  * @since 0.1.0
  * @category internal
  */
-const LOG_SQRT_2PI = N.multiply(0.5, Math.log(N.multiply(2, Math.PI)))
+const LOG_SQRT_2PI = Number.multiply(0.5, log(Number.multiply(2, pi)))
 
 /**
  * Precomputed 0.5 + 0.5 · ln(2π) for entropy.
@@ -36,7 +36,7 @@ const LOG_SQRT_2PI = N.multiply(0.5, Math.log(N.multiply(2, Math.PI)))
  * @since 0.1.0
  * @category internal
  */
-const HALF_LOG_2PI_E = N.sum(0.5, N.multiply(0.5, Math.log(N.multiply(2, Math.PI))))
+const HALF_LOG_2PI_E = Number.sum(0.5, LOG_SQRT_2PI)
 
 /**
  * Log-normal PDF: f(x; μ, σ) = (1 / (xσ√(2π))) · exp(−½((ln x − μ) / σ)²)
@@ -46,16 +46,17 @@ const HALF_LOG_2PI_E = N.sum(0.5, N.multiply(0.5, Math.log(N.multiply(2, Math.PI
  * @category internal
  */
 export const logNormalPdf = (x: number, mu: number, sigma: number): number =>
-  N.greaterThan(x, 0)
-    ? (() => {
-      const lnx = Math.log(x)
-      const z = N.unsafeDivide(N.subtract(lnx, mu), sigma)
-      return N.multiply(
-        N.unsafeDivide(1, N.multiply(x, N.multiply(sigma, SQRT_2PI))),
-        Math.exp(N.multiply(-0.5, N.multiply(z, z)))
+  Boolean.match(Number.greaterThan(x, 0), {
+    onTrue: () => {
+      const lnx = log(x)
+      const z = Number.unsafeDivide(Number.subtract(lnx, mu), sigma)
+      return Number.multiply(
+        Number.unsafeDivide(1, Number.multiply(x, Number.multiply(sigma, SQRT_2PI))),
+        exp(Number.multiply(-0.5, Number.multiply(z, z)))
       )
-    })()
-    : 0
+    },
+    onFalse: () => 0
+  })
 
 /**
  * Log-normal log-PDF: ln f(x; μ, σ) = −ln(x) − ln(σ) − 0.5·ln(2π) − 0.5·((ln x − μ) / σ)²
@@ -65,19 +66,20 @@ export const logNormalPdf = (x: number, mu: number, sigma: number): number =>
  * @category internal
  */
 export const logNormalLogpdf = (x: number, mu: number, sigma: number): number =>
-  N.greaterThan(x, 0)
-    ? (() => {
-      const lnx = Math.log(x)
-      const z = N.unsafeDivide(N.subtract(lnx, mu), sigma)
-      return N.subtract(
-        N.subtract(
-          N.subtract(N.negate(lnx), Math.log(sigma)),
+  Boolean.match(Number.greaterThan(x, 0), {
+    onTrue: () => {
+      const lnx = log(x)
+      const z = Number.unsafeDivide(Number.subtract(lnx, mu), sigma)
+      return Number.subtract(
+        Number.subtract(
+          Number.subtract(Number.negate(lnx), log(sigma)),
           LOG_SQRT_2PI
         ),
-        N.multiply(0.5, N.multiply(z, z))
+        Number.multiply(0.5, Number.multiply(z, z))
       )
-    })()
-    : -Infinity
+    },
+    onFalse: () => -Infinity
+  })
 
 /**
  * Log-normal CDF: F(x; μ, σ) = ½(1 + erf((ln x − μ) / (σ√2)))
@@ -87,17 +89,19 @@ export const logNormalLogpdf = (x: number, mu: number, sigma: number): number =>
  * @category internal
  */
 export const logNormalCdf = (x: number, mu: number, sigma: number): number =>
-  N.greaterThan(x, 0)
-    ? N.multiply(
-      0.5,
-      N.sum(
-        1,
-        erfAbramowitzStegun(
-          N.unsafeDivide(N.subtract(Math.log(x), mu), N.multiply(sigma, Math.SQRT2))
+  Boolean.match(Number.greaterThan(x, 0), {
+    onTrue: () =>
+      Number.multiply(
+        0.5,
+        Number.sum(
+          1,
+          erf(
+            Number.unsafeDivide(Number.subtract(log(x), mu), Number.multiply(sigma, SQRT_2))
+          )
         )
-      )
-    )
-    : 0
+      ),
+    onFalse: () => 0
+  })
 
 /**
  * Log-normal quantile (inverse CDF): Q(p; μ, σ) = exp(μ + σ√2 · erfinv(2p − 1)).
@@ -106,12 +110,12 @@ export const logNormalCdf = (x: number, mu: number, sigma: number): number =>
  * @category internal
  */
 export const logNormalQuantile = (p: number, mu: number, sigma: number): number =>
-  Math.exp(
-    N.sum(
+  exp(
+    Number.sum(
       mu,
-      N.multiply(
-        N.multiply(sigma, Math.SQRT2),
-        erfinvKernel(N.subtract(N.multiply(2, p), 1))
+      Number.multiply(
+        Number.multiply(sigma, SQRT_2),
+        erfinv(Number.subtract(Number.multiply(2, p), 1))
       )
     )
   )
@@ -123,7 +127,7 @@ export const logNormalQuantile = (p: number, mu: number, sigma: number): number 
  * @category internal
  */
 export const logNormalMean = (mu: number, sigma: number): number =>
-  Math.exp(N.sum(mu, N.multiply(0.5, N.multiply(sigma, sigma))))
+  exp(Number.sum(mu, Number.multiply(0.5, Number.multiply(sigma, sigma))))
 
 /**
  * Log-normal variance: Var(X) = (exp(σ²) − 1) · exp(2μ + σ²).
@@ -132,10 +136,10 @@ export const logNormalMean = (mu: number, sigma: number): number =>
  * @category internal
  */
 export const logNormalVariance = (mu: number, sigma: number): number => {
-  const sigma2 = N.multiply(sigma, sigma)
-  return N.multiply(
-    N.subtract(Math.exp(sigma2), 1),
-    Math.exp(N.sum(N.multiply(2, mu), sigma2))
+  const sigma2 = Number.multiply(sigma, sigma)
+  return Number.multiply(
+    Number.subtract(exp(sigma2), 1),
+    exp(Number.sum(Number.multiply(2, mu), sigma2))
   )
 }
 
@@ -145,4 +149,5 @@ export const logNormalVariance = (mu: number, sigma: number): number => {
  * @since 0.1.0
  * @category internal
  */
-export const logNormalEntropy = (mu: number, sigma: number): number => N.sum(mu, N.sum(HALF_LOG_2PI_E, Math.log(sigma)))
+export const logNormalEntropy = (mu: number, sigma: number): number =>
+  Number.sum(mu, Number.sum(HALF_LOG_2PI_E, log(sigma)))

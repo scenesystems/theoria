@@ -15,7 +15,7 @@ import {
 const deterministicInput = Schema.decodeUnknownSync(DeterministicRuntimePoliciesInputSchema)({
   seed: Seed.make(42),
   precision: "strict",
-  backend: "typed-array",
+  backend: "compensated",
   diagnostics: "enabled"
 })
 
@@ -56,7 +56,7 @@ describe("shared runtime policy contracts", () => {
         Match.value(deterministic).pipe(
           Match.when(
             {
-              backendPolicy: { policy: "typed-array" },
+              backendPolicy: { policy: "compensated" },
               precisionPolicy: { policy: "strict" },
               diagnosticsPolicy: { policy: "enabled" }
             },

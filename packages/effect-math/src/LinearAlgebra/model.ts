@@ -5,7 +5,7 @@
  * @category models
  */
 import { LinearAlgebraDomainContract } from "./contract.js"
-import type { LinearAlgebraDomain } from "./schema.js"
+import { LinearAlgebraDomain } from "./schema.js"
 
 /**
  * Classifies the LinearAlgebra domain as provisional in discovery results.
@@ -13,7 +13,7 @@ import type { LinearAlgebraDomain } from "./schema.js"
  * @since 0.1.0
  * @category models
  */
-export const LinearAlgebraDomainModel: LinearAlgebraDomain = {
+export const LinearAlgebraDomainModel = new LinearAlgebraDomain({
   domain: LinearAlgebraDomainContract,
   stability: "provisional"
-}
+})

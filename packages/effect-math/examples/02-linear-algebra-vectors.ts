@@ -6,7 +6,7 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Console, Effect } from "effect"
+import { Array, Chunk, Console, Effect } from "effect"
 
 import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import {
@@ -25,8 +25,8 @@ import {
 } from "@scenesystems/effect-math/LinearAlgebra"
 
 const program = Effect.gen(function*() {
-  const a = Chunk.fromIterable([1, 2, 3])
-  const b = Chunk.fromIterable([4, 5, 6])
+  const a = Chunk.make(1, 2, 3)
+  const b = Chunk.make(4, 5, 6)
 
   // Direct kernels
   yield* Console.log("dot([1,2,3], [4,5,6]):", dot(a, b))
@@ -36,26 +36,26 @@ const program = Effect.gen(function*() {
   yield* Console.log("normLinf([1,2,3]):", normLinf(a))
 
   const added = vectorAdd(a, b)
-  yield* Console.log("vectorAdd:", Chunk.toReadonlyArray(added))
+  yield* Console.log("vectorAdd:", added)
 
   const scaled = vectorScale(2.5, a)
-  yield* Console.log("vectorScale(2.5):", Chunk.toReadonlyArray(scaled))
+  yield* Console.log("vectorScale(2.5):", scaled)
 
   // 2×3 matrix times 3-vector
-  const matrix = Chunk.fromIterable([1, 0, 0, 0, 1, 0])
-  const x = Chunk.fromIterable([7, 8, 9])
+  const matrix = Chunk.make(1, 0, 0, 0, 1, 0)
+  const x = Chunk.make(7, 8, 9)
   const y = matvec(matrix, 2, 3, x)
-  yield* Console.log("matvec(2×3 · [7,8,9]):", Chunk.toReadonlyArray(y))
+  yield* Console.log("matvec(2×3 · [7,8,9]):", y)
   // Output: matvec(2×3 · [7,8,9]): [ 7, 8 ]
 
   const t = transpose(matrix, 2, 3)
-  yield* Console.log("transpose(2×3):", Chunk.toReadonlyArray(t))
+  yield* Console.log("transpose(2×3):", t)
 
-  const frob = frobeniusNorm(Chunk.fromIterable([1, 2, 3, 4]), 2, 2)
+  const frob = frobeniusNorm(Chunk.make(1, 2, 3, 4), 2, 2)
   yield* Console.log("frobeniusNorm(2×2):", frob)
 
   // Schema-validated boundary
-  const dotVal = yield* dotValidated({ a: [1, 2, 3], b: [4, 5, 6] })
+  const dotVal = yield* dotValidated({ a: Array.make(1, 2, 3), b: Array.make(4, 5, 6) })
   yield* Console.log("dotValidated:", dotVal)
 
   // Runtime policies

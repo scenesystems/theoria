@@ -5,14 +5,16 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Number as N, Schema } from "effect"
+import { Array, Chunk, Effect, Number, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { ProbabilityDecodeError, ProbabilityDomainViolationError, ProbabilityParameterError } from "./errors.js"
 import * as Distributions from "./internal/distributions.js"
-import * as EntropyKernel from "./internal/entropy.js"
+import * as Entropy from "./internal/entropy.js"
 import { ProbabilityDomainModel } from "./model.js"
 import { EntropyInput, NormalEvalInput, UniformEvalInput } from "./schema.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Yields the immutable descriptor used to register Probability capabilities.
@@ -42,9 +44,8 @@ export const standardNormalPdf: (x: number) => number = Distributions.standardNo
 export const normalPdf: (x: number, mu: number, sigma: number) => number = Distributions.normalPdf
 
 /**
- * Approximates the standard normal cumulative distribution function using
- * Abramowitz and Stegun formula 7.1.26, with maximum absolute error about
- * `1.5e-7`.
+ * Approximates the standard normal cumulative distribution function through
+ * the public Special domain's multi-region Cephes error function.
  * @since 0.1.0
  * @category operations
  */
@@ -93,7 +94,7 @@ export const uniformCdf: (x: number, low: number, high: number) => number = Dist
  * @since 0.1.0
  * @category operations
  */
-export const shannonEntropy: (probabilities: Chunk.Chunk<number>) => number = EntropyKernel.shannonEntropy
+export const shannonEntropy: (probabilities: Chunk.Chunk<number>) => number = Entropy.shannonEntropy
 
 // ---------------------------------------------------------------------------
 // Schema-validated operations
@@ -167,11 +168,19 @@ export const uniformPdfValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.lessThan(d.low, d.high),
+      (d) => Number.lessThan(d.low, d.high),
       (d) =>
         new ProbabilityParameterError({
           operation: "uniformPdf",
-          message: `Uniform distribution requires low < high, got low=${d.low}, high=${d.high}`
+          message: Array.join(
+            Array.make(
+              "Uniform distribution requires low < high, got low=",
+              encodeNumber(d.low),
+              ", high=",
+              encodeNumber(d.high)
+            ),
+            ""
+          )
         })
     )
 
@@ -201,11 +210,19 @@ export const uniformCdfValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => N.lessThan(d.low, d.high),
+      (d) => Number.lessThan(d.low, d.high),
       (d) =>
         new ProbabilityParameterError({
           operation: "uniformCdf",
-          message: `Uniform distribution requires low < high, got low=${d.low}, high=${d.high}`
+          message: Array.join(
+            Array.make(
+              "Uniform distribution requires low < high, got low=",
+              encodeNumber(d.low),
+              ", high=",
+              encodeNumber(d.high)
+            ),
+            ""
+          )
         })
     )
 
@@ -233,7 +250,7 @@ export const entropyValidated = (input: unknown) =>
       )
     )
 
-    return EntropyKernel.shannonEntropy(Chunk.fromIterable(decoded.probabilities))
+    return Entropy.shannonEntropy(Chunk.fromIterable(decoded.probabilities))
   })
 
 // ---------------------------------------------------------------------------
@@ -251,7 +268,7 @@ export const entropyValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Effect, Layer } from "effect"
+ * import { Boolean, Effect, Layer, Number } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService,
@@ -266,7 +283,7 @@ export const entropyValidated = (input: unknown) =>
  * export const program = Probability.normalPdfWithPolicies(0, 0, 1).pipe(
  *   Effect.provide(policies),
  *   Effect.filterOrFail(
- *     (density) => density > 0.398 && density < 0.399,
+ *     (density) => Boolean.and(Number.greaterThan(density, 0.398), Number.lessThan(density, 0.399)),
  *     () => "UnexpectedNormalDensity"
  *   )
  * )
@@ -280,7 +297,12 @@ export const normalPdfWithPolicies = (x: number, mu: number, sigma: number) =>
     operation: "Probability.normalPdfWithPolicies",
     compute: () => Distributions.normalPdf(x, mu, sigma),
     makeError: (message) => new ProbabilityDomainViolationError({ operation: "normalPdfWithPolicies", message }),
-    annotations: (result) => ({ x: String(x), mu: String(mu), sigma: String(sigma), result: String(result) })
+    annotations: (result) => ({
+      x: encodeNumber(x),
+      mu: encodeNumber(mu),
+      sigma: encodeNumber(sigma),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -300,7 +322,12 @@ export const normalCdfWithPolicies = (x: number, mu: number, sigma: number) =>
     operation: "Probability.normalCdfWithPolicies",
     compute: () => Distributions.normalCdf(x, mu, sigma),
     makeError: (message) => new ProbabilityDomainViolationError({ operation: "normalCdfWithPolicies", message }),
-    annotations: (result) => ({ x: String(x), mu: String(mu), sigma: String(sigma), result: String(result) })
+    annotations: (result) => ({
+      x: encodeNumber(x),
+      mu: encodeNumber(mu),
+      sigma: encodeNumber(sigma),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -319,7 +346,12 @@ export const uniformPdfWithPolicies = (x: number, low: number, high: number) =>
     operation: "Probability.uniformPdfWithPolicies",
     compute: () => Distributions.uniformPdf(x, low, high),
     makeError: (message) => new ProbabilityDomainViolationError({ operation: "uniformPdfWithPolicies", message }),
-    annotations: (result) => ({ x: String(x), low: String(low), high: String(high), result: String(result) })
+    annotations: (result) => ({
+      x: encodeNumber(x),
+      low: encodeNumber(low),
+      high: encodeNumber(high),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -339,7 +371,12 @@ export const uniformCdfWithPolicies = (x: number, low: number, high: number) =>
     operation: "Probability.uniformCdfWithPolicies",
     compute: () => Distributions.uniformCdf(x, low, high),
     makeError: (message) => new ProbabilityDomainViolationError({ operation: "uniformCdfWithPolicies", message }),
-    annotations: (result) => ({ x: String(x), low: String(low), high: String(high), result: String(result) })
+    annotations: (result) => ({
+      x: encodeNumber(x),
+      low: encodeNumber(low),
+      high: encodeNumber(high),
+      result: encodeNumber(result)
+    })
   })
 
 /**
@@ -356,7 +393,7 @@ export const uniformCdfWithPolicies = (x: number, low: number, high: number) =>
 export const entropyWithPolicies = (probabilities: Chunk.Chunk<number>) =>
   withScalarPolicyGuards({
     operation: "Probability.entropyWithPolicies",
-    compute: () => EntropyKernel.shannonEntropy(probabilities),
+    compute: () => Entropy.shannonEntropy(probabilities),
     makeError: (message) => new ProbabilityDomainViolationError({ operation: "entropyWithPolicies", message }),
-    annotations: (result) => ({ inputSize: String(Chunk.size(probabilities)), result: String(result) })
+    annotations: (result) => ({ inputSize: encodeNumber(Chunk.size(probabilities)), result: encodeNumber(result) })
   })

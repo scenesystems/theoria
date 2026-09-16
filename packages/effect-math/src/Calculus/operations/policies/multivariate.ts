@@ -10,13 +10,15 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect } from "effect"
+import { Chunk, Effect, Schema } from "effect"
 
 import { withCustomPolicyGuards, withScalarPolicyGuards } from "../../../contracts/shared/PolicyGuards.js"
 import { CalculusDomainViolationError } from "../../errors.js"
 import type { RidderMethodInputType } from "../../schema.js"
 import { directionalDerivative, divergence, gradient, hessian, jacobian, laplacian } from "../pure.js"
 import { executeKernel, matrixIsFinite, vectorIsFinite } from "../shared.js"
+
+const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 /**
  * Estimates a gradient and applies policies to every component.
@@ -47,8 +49,8 @@ export const gradientWithPolicies = (
             message
           }),
         annotations: (value) => ({
-          dimensions: String(Chunk.size(point)),
-          resultDimensions: String(Chunk.size(value))
+          dimensions: encodeNumber(Chunk.size(point)),
+          resultDimensions: encodeNumber(Chunk.size(value))
         })
       })
     )
@@ -80,8 +82,8 @@ export const jacobianWithPolicies = (
             message
           }),
         annotations: (value) => ({
-          inputDimensions: String(Chunk.size(point)),
-          outputDimensions: String(Chunk.size(value))
+          inputDimensions: encodeNumber(Chunk.size(point)),
+          outputDimensions: encodeNumber(Chunk.size(value))
         })
       })
     )
@@ -113,7 +115,7 @@ export const hessianWithPolicies = (
             message
           }),
         annotations: (value) => ({
-          dimensions: String(Chunk.size(value))
+          dimensions: encodeNumber(Chunk.size(value))
         })
       })
     )
@@ -149,8 +151,8 @@ export const directionalDerivativeWithPolicies = (
             message
           }),
         annotations: (value) => ({
-          dimensions: String(Chunk.size(point)),
-          result: String(value)
+          dimensions: encodeNumber(Chunk.size(point)),
+          result: encodeNumber(value)
         })
       })
     )
@@ -185,8 +187,8 @@ export const divergenceWithPolicies = (
             message
           }),
         annotations: (value) => ({
-          dimensions: String(Chunk.size(point)),
-          result: String(value)
+          dimensions: encodeNumber(Chunk.size(point)),
+          result: encodeNumber(value)
         })
       })
     )
@@ -217,8 +219,8 @@ export const laplacianWithPolicies = (
             message
           }),
         annotations: (value) => ({
-          dimensions: String(Chunk.size(point)),
-          result: String(value)
+          dimensions: encodeNumber(Chunk.size(point)),
+          result: encodeNumber(value)
         })
       })
     )

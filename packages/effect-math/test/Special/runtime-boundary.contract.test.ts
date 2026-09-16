@@ -18,25 +18,22 @@ describe("Special runtime boundary contracts", () => {
 
   it.effect("rejects excess properties on gamma with typed decode error", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(gammaValidated({ x: 5, extra: true }))
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("SpecialDecodeError")
-      }
+      const error = yield* Effect.flip(gammaValidated({ x: 5, extra: true }))
+      expect(error._tag).toBe("SpecialDecodeError")
+      expect(error.operation).toBe("gamma")
     }))
 
   it.effect("rejects excess properties on erf with typed decode error", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(erfValidated({ x: 0, extra: true }))
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("SpecialDecodeError")
-      }
+      const error = yield* Effect.flip(erfValidated({ x: 0, extra: true }))
+      expect(error._tag).toBe("SpecialDecodeError")
+      expect(error.operation).toBe("erf")
     }))
 
   it.effect("rejects malformed input with wrong types", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(gammaValidated({ x: "bad" }))
-      expect(result._tag).toBe("Left")
+      const error = yield* Effect.flip(gammaValidated({ x: "bad" }))
+      expect(error._tag).toBe("SpecialDecodeError")
+      expect(error.operation).toBe("gamma")
     }))
 })

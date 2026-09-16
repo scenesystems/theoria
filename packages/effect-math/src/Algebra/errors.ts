@@ -30,7 +30,7 @@ export class AlgebraDomainBoundaryError
  */
 export class AlgebraDecodeError extends Schema.TaggedError<AlgebraDecodeError>()("AlgebraDecodeError", {
   /** Public calculation whose input failed decoding. */
-  operation: Schema.String,
+  operation: Schema.Literal("polyEval", "polyDerivative", "gcd", "lcm", "factorial"),
   /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
@@ -45,7 +45,13 @@ export class AlgebraDecodeError extends Schema.TaggedError<AlgebraDecodeError>()
 export class AlgebraDomainViolationError
   extends Schema.TaggedError<AlgebraDomainViolationError>()("AlgebraDomainViolationError", {
     /** Strict-policy calculation that produced a non-finite result. */
-    operation: Schema.String,
+    operation: Schema.Literal(
+      "polyEvalWithPolicies",
+      "polyDerivativeWithPolicies",
+      "gcdWithPolicies",
+      "lcmWithPolicies",
+      "factorialWithPolicies"
+    ),
     /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })
@@ -60,7 +66,7 @@ export class AlgebraDomainViolationError
  */
 export class AlgebraParameterError extends Schema.TaggedError<AlgebraParameterError>()("AlgebraParameterError", {
   /** Calculation whose decoded parameters violate a mathematical precondition. */
-  operation: Schema.String,
+  operation: Schema.Literal("factorial"),
   /** Diagnostic identifying the failed parameter condition. */
   message: Schema.String
 }) {}
