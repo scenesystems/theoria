@@ -4,12 +4,13 @@
  * @since 0.1.0
  * @module
  */
-import { Match, Option } from "effect"
+import type { Schema } from "effect"
+import { Data, Match, Option } from "effect"
 
 import { sumLogDensities } from "../../../internal/tpe/expectedImprovement.js"
 import { eiAcquisition } from "./ei.js"
 import {
-  type AcquisitionContext,
+  AcquisitionContext,
   type AcquisitionImplementation,
   type AcquisitionOption,
   type BuiltInAcquisitionName,
@@ -20,7 +21,7 @@ import { piAcquisition } from "./pi.js"
 import { thompsonAcquisition } from "./thompson.js"
 
 export {
-  type AcquisitionContext,
+  AcquisitionContext,
   type AcquisitionImplementation,
   type AcquisitionOption,
   type BuiltInAcquisitionName,
@@ -48,14 +49,17 @@ export const defaultAcquisitionName: BuiltInAcquisitionName = "ei"
  * @since 0.1.0
  * @category configuration
  */
-export const builtinAcquisitionRegistry: Record<
-  BuiltInAcquisitionName,
-  AcquisitionImplementation
-> = {
+class BuiltInAcquisitionRegistry extends Data.Class<{
+  readonly ei: AcquisitionImplementation
+  readonly pi: AcquisitionImplementation
+  readonly thompson: AcquisitionImplementation
+}> {}
+
+export const builtinAcquisitionRegistry = new BuiltInAcquisitionRegistry({
   ei: eiAcquisition,
   pi: piAcquisition,
   thompson: thompsonAcquisition
-}
+})
 
 const defaultAcquisition = builtinAcquisitionRegistry[defaultAcquisitionName]
 
@@ -116,15 +120,18 @@ export const scoreAcquisition = (
  * @category scoring
  */
 export const scoreJointAcquisition = (
-  logLContributions: ReadonlyArray<number>,
-  logGContributions: ReadonlyArray<number>,
+  logLContributions: Schema.Array$<typeof Schema.Number>["Type"],
+  logGContributions: Schema.Array$<typeof Schema.Number>["Type"],
   estimatedCost: Option.Option<number>,
   roll: Option.Option<number>,
   acquisition?: AcquisitionOption
 ): number =>
-  scoreAcquisition({
-    logL: sumLogDensities(logLContributions),
-    logG: sumLogDensities(logGContributions),
-    estimatedCost,
-    roll
-  }, acquisition)
+  scoreAcquisition(
+    new AcquisitionContext({
+      logL: sumLogDensities(logLContributions),
+      logG: sumLogDensities(logGContributions),
+      estimatedCost,
+      roll
+    }),
+    acquisition
+  )

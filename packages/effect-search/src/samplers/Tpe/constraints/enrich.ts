@@ -3,14 +3,17 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Effect, Equal, Option, Schema } from "effect"
 
-import { SuggestCompletedTrial } from "../../../Sampler/index.js"
-import type { TpeConstraintEvaluator } from "../options.js"
+import { SuggestCompletedTrial, type SuggestContext } from "../../../Sampler/index.js"
+import type { TpeConstraintEvaluators } from "../options.js"
+
+const ConstraintScoresSchema = Schema.Array(Schema.Number)
+type ConstraintScores = Schema.Schema.Type<typeof ConstraintScoresSchema>
 
 const cloneWithConstraints = (
   trial: SuggestCompletedTrial,
-  constraints: ReadonlyArray<number>
+  constraints: ConstraintScores
 ): SuggestCompletedTrial =>
   new SuggestCompletedTrial({
     trialNumber: trial.trialNumber,
@@ -34,22 +37,22 @@ const cloneWithConstraints = (
         onSome: (variance) => ({ variance })
       })
     ),
-    constraints: [...constraints]
+    constraints: Arr.fromIterable(constraints)
   })
 
 const existingConstraints = (
   trial: SuggestCompletedTrial,
   constraintCount: number
-): Option.Option<ReadonlyArray<number>> =>
+): Option.Option<ConstraintScores> =>
   Option.fromNullable(trial.constraints).pipe(
-    Option.filter((constraints) => constraints.length === constraintCount)
+    Option.filter((constraints) => Equal.equals(Arr.length(constraints), constraintCount))
   )
 
 const evaluateConstraintsForTrial = (
   trial: SuggestCompletedTrial,
-  constraints: ReadonlyArray<TpeConstraintEvaluator>
+  constraints: TpeConstraintEvaluators
 ): Effect.Effect<SuggestCompletedTrial> =>
-  existingConstraints(trial, constraints.length).pipe(
+  existingConstraints(trial, Arr.length(constraints)).pipe(
     Option.match({
       onNone: () =>
         Effect.forEach(constraints, (evaluateConstraint) => evaluateConstraint(trial.config)).pipe(
@@ -71,9 +74,9 @@ const evaluateConstraintsForTrial = (
  * @category constructors
  */
 export const enrichCompletedTrialsWithConstraints = (
-  completed: ReadonlyArray<SuggestCompletedTrial>,
-  constraints: ReadonlyArray<TpeConstraintEvaluator>
-): Effect.Effect<ReadonlyArray<SuggestCompletedTrial>> =>
+  completed: SuggestContext["completed"],
+  constraints: TpeConstraintEvaluators
+): Effect.Effect<SuggestContext["completed"]> =>
   Arr.head(constraints).pipe(
     Option.match({
       onNone: () => Effect.succeed(completed),

@@ -3,8 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Match, Number as Num, Option, Tuple } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
+import type { FloatScale } from "../../../contracts/Distribution.js"
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
 import * as Float64 from "../../../internal/float64.js"
 import type * as Rng from "../../../internal/rng.js"
@@ -12,13 +13,20 @@ import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../in
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
-import { type AcquisitionOption, defaultAcquisitionName, scoreAcquisition } from "../acquisition/index.js"
+import {
+  AcquisitionContext,
+  type AcquisitionOption,
+  defaultAcquisitionName,
+  scoreAcquisition
+} from "../acquisition/index.js"
 import { chooseBestCandidate, drawRollPairs } from "../candidates.js"
 import { objectiveVarianceFromSplit } from "../costModel.js"
 import { invalidConfig } from "../options.js"
 import { rollFromCandidatePair } from "./rolls.js"
-import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
+import { type CandidateRollPairSchema, DimensionScoreTrace } from "./trace.js"
 import { numericValuesForParameter } from "./values.js"
+
+type CandidateRollPairs = Schema.Array$<typeof CandidateRollPairSchema>["Type"]
 
 class FloatModel extends Data.Class<{
   readonly low: number
@@ -33,7 +41,7 @@ const quantizeWithStep = (
   high: number,
   step: number
 ): number =>
-  Num.clamp(low + Num.round(Num.unsafeDivide(value - low, step), 0) * step, {
+  Num.clamp(Num.sum(low, Num.multiply(Num.round(Num.unsafeDivide(Num.subtract(value, low), step), 0), step)), {
     minimum: low,
     maximum: high
   })
@@ -78,14 +86,22 @@ export const expandedBoundsForStep = (
 ): readonly [number, number] =>
   Option.match(step, {
     onNone: () => Tuple.make(low, high),
-    onSome: (stride) => Tuple.make(low - Num.unsafeDivide(stride, 2), high + Num.unsafeDivide(stride, 2))
+    onSome: (stride) =>
+      Tuple.make(
+        Num.subtract(low, Num.unsafeDivide(stride, 2)),
+        Num.sum(high, Num.unsafeDivide(stride, 2))
+      )
   })
+
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const nonPositive = (value: number): boolean => Boolean.and(isNonNaN(value), Num.lessThanOrEqualTo(value, 0))
 
 const floatModel = (
   name: string,
   low: number,
   high: number,
-  scale: Option.Option<"linear" | "log">,
+  scale: Option.Option<FloatScale>,
   step: Option.Option<number>
 ): Effect.Effect<FloatModel, InvalidSamplerConfig> =>
   Option.match(scale, {
@@ -103,7 +119,7 @@ const floatModel = (
     onSome: (s) =>
       Match.value(s).pipe(
         Match.when("log", () =>
-          Match.value(Num.lessThanOrEqualTo(low, 0) || Num.lessThanOrEqualTo(high, 0)).pipe(
+          Match.value(Boolean.or(nonPositive(low), nonPositive(high))).pipe(
             Match.when(
               true,
               () => Effect.fail(invalidConfig(`tpe log-scaled float dimension "${name}" requires low > 0 and high > 0`))
@@ -150,7 +166,7 @@ export const suggestFloatParameter = (
   parameter: SearchSpace.ParameterMetadata,
   low: number,
   high: number,
-  scale: Option.Option<"linear" | "log">,
+  scale: Option.Option<FloatScale>,
   step: Option.Option<number>,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
@@ -193,10 +209,10 @@ export const floatCandidateTraceFromRolls = (
   parameter: SearchSpace.ParameterMetadata,
   low: number,
   high: number,
-  scale: Option.Option<"linear" | "log">,
+  scale: Option.Option<FloatScale>,
   step: Option.Option<number>,
   split: TrialSplit,
-  rolls: ReadonlyArray<CandidateRollPair>,
+  rolls: CandidateRollPairs,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
   acquisition: AcquisitionOption = defaultAcquisitionName
 ): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
@@ -204,14 +220,14 @@ export const floatCandidateTraceFromRolls = (
     const model = yield* floatModel(parameter.name, low, high, scale, step)
     const empiricalVariance = objectiveVarianceFromSplit(split)
     const belowParzen = buildContinuousParzen(
-      numericValuesForParameter(parameter, split.below).map(model.toModel),
+      Arr.map(numericValuesForParameter(parameter, split.below), model.toModel),
       model.low,
       model.high,
       noiseOptions,
       empiricalVariance
     )
     const aboveParzen = buildContinuousParzen(
-      numericValuesForParameter(parameter, split.above).map(model.toModel),
+      Arr.map(numericValuesForParameter(parameter, split.above), model.toModel),
       model.low,
       model.high,
       noiseOptions,
@@ -230,12 +246,15 @@ export const floatCandidateTraceFromRolls = (
       logG: Arr.map(logPairs, ([_logL, logG]) =>
         logG),
       scores: Arr.map(logPairs, ([logL, logG], index) =>
-        scoreAcquisition({
-          logL,
-          logG,
-          estimatedCost: Option.none(),
-          roll: rollFromCandidatePair(rolls, index)
-        }, acquisition))
+        scoreAcquisition(
+          new AcquisitionContext({
+            logL,
+            logG,
+            estimatedCost: Option.none(),
+            roll: rollFromCandidatePair(rolls, index)
+          }),
+          acquisition
+        ))
     })
   })
 
@@ -257,7 +276,7 @@ export const floatCandidateTrace = (
   parameter: SearchSpace.ParameterMetadata,
   low: number,
   high: number,
-  scale: Option.Option<"linear" | "log">,
+  scale: Option.Option<FloatScale>,
   step: Option.Option<number>,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,

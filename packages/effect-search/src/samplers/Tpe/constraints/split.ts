@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Match, Number as Num, Option, Order } from "effect"
+import { Array as Arr, Boolean, Equal, Match, Number as Num, Option, Order, Schema } from "effect"
 
 import {
   buildConstraintDensityModels,
@@ -24,15 +24,21 @@ import { CompletedTrialForSplit, splitTrials, type TrialSplit } from "../../../i
  * @since 0.1.0
  * @category models
  */
-export class ConstraintAwareSplitTrial extends Data.Class<{
-  readonly trial: CompletedTrialForSplit
-  readonly constraints: ReadonlyArray<number>
-}> {}
+export class ConstraintAwareSplitTrial extends Schema.Class<ConstraintAwareSplitTrial>(
+  "effect-search/ConstraintAwareSplitTrial"
+)({
+  trial: CompletedTrialForSplit,
+  constraints: Schema.Array(Schema.Number)
+}) {}
 
-class InfeasibleRankingEntry extends Data.Class<{
-  readonly original: CompletedTrialForSplit
-  readonly ranked: CompletedTrialForSplit
-}> {}
+export type ConstraintAwareSplitTrials = Schema.Array$<typeof ConstraintAwareSplitTrial>["Type"]
+
+class InfeasibleRankingEntry extends Schema.Class<InfeasibleRankingEntry>("effect-search/InfeasibleRankingEntry")({
+  original: CompletedTrialForSplit,
+  ranked: CompletedTrialForSplit
+}) {}
+
+type InfeasibleRankingEntries = Schema.Array$<typeof InfeasibleRankingEntry>["Type"]
 
 const trialNumberOrder = Order.mapInput(
   Order.number,
@@ -40,24 +46,24 @@ const trialNumberOrder = Order.mapInput(
 )
 
 const sortByTrialNumber = (
-  trials: ReadonlyArray<CompletedTrialForSplit>
-): ReadonlyArray<CompletedTrialForSplit> => Arr.sortBy(trialNumberOrder)(trials)
+  trials: TrialSplit["below"]
+): TrialSplit["below"] => Arr.sortBy(trialNumberOrder)(trials)
 
-const constraintCount = (trials: ReadonlyArray<ConstraintAwareSplitTrial>): number =>
-  Arr.reduce(trials, 0, (count, trial) => Num.max(count, trial.constraints.length))
+const constraintCount = (trials: ConstraintAwareSplitTrials): number =>
+  Arr.reduce(trials, 0, (count, trial) => Num.max(count, Arr.length(trial.constraints)))
 
 const normalizeConstraints = (
-  constraints: ReadonlyArray<number>,
+  constraints: ConstraintAwareSplitTrial["constraints"],
   count: number
-): ReadonlyArray<number> =>
+): ConstraintAwareSplitTrial["constraints"] =>
   Arr.makeBy(count, (index) =>
     Arr.get(constraints, index).pipe(
       Option.getOrElse(() => Number.POSITIVE_INFINITY)
     ))
 
 const normalizeTrials = (
-  trials: ReadonlyArray<ConstraintAwareSplitTrial>
-): ReadonlyArray<ConstraintAwareSplitTrial> => {
+  trials: ConstraintAwareSplitTrials
+): ConstraintAwareSplitTrials => {
   const count = constraintCount(trials)
 
   return Arr.map(trials, (trial) =>
@@ -88,7 +94,7 @@ const rankedTrial = (
   new CompletedTrialForSplit({
     trialNumber: trial.trialNumber,
     config: trial.config,
-    value: -logDensityProduct,
+    value: Num.negate(logDensityProduct),
     sortStep: trial.value,
     ...Option.fromNullable(trial.observationWeight).pipe(
       Option.match({
@@ -111,16 +117,16 @@ const rankedTrial = (
   })
 
 const originalTrialsFromRankedSelection = (
-  selected: ReadonlyArray<CompletedTrialForSplit>,
-  rankedEntries: ReadonlyArray<InfeasibleRankingEntry>
-): ReadonlyArray<CompletedTrialForSplit> =>
+  selected: TrialSplit["below"],
+  rankedEntries: InfeasibleRankingEntries
+): TrialSplit["below"] =>
   Arr.flatMap(
     selected,
     (trial) =>
-      Arr.findFirst(rankedEntries, (entry) => entry.original.trialNumber === trial.trialNumber).pipe(
+      Arr.findFirst(rankedEntries, (entry) => Equal.equals(entry.original.trialNumber, trial.trialNumber)).pipe(
         Option.match({
-          onNone: () => [],
-          onSome: (entry) => [entry.original]
+          onNone: () => Arr.empty<CompletedTrialForSplit>(),
+          onSome: (entry) => Arr.of(entry.original)
         })
       )
   )
@@ -138,69 +144,74 @@ const originalTrialsFromRankedSelection = (
  * @category sampling
  */
 export const splitWithConstraintFeasibility = (
-  trials: ReadonlyArray<ConstraintAwareSplitTrial>,
+  trials: ConstraintAwareSplitTrials,
   nBelowOverride?: number
 ): Option.Option<TrialSplit> => {
   const normalizedTrials = normalizeTrials(trials)
   const count = constraintCount(normalizedTrials)
 
-  if (count <= 0) {
-    return Option.none()
-  }
-
-  const feasible = Arr.filter(normalizedTrials, (trial) => isConstraintVectorFeasible(trial.constraints))
-  const infeasible = Arr.filter(normalizedTrials, (trial) => !isConstraintVectorFeasible(trial.constraints))
-
-  if (feasible.length <= 0) {
-    return Option.none()
-  }
-
-  const targetBelow = splitCount(normalizedTrials.length, nBelowOverride)
-  const feasibleTrials = Arr.map(feasible, (trial) => trial.trial)
-  const models = buildConstraintDensityModels(
-    Arr.map(normalizedTrials, (trial) => trial.constraints)
-  )
-  const rankedInfeasible = Arr.map(infeasible, (trial) => {
-    const logDensityProduct = constraintDensityRatioLogProduct(
-      models,
-      trial.constraints
-    )
-
-    return new InfeasibleRankingEntry({
-      original: trial.trial,
-      ranked: rankedTrial(trial.trial, logDensityProduct)
-    })
-  })
-  const infeasibleTrials = Arr.map(rankedInfeasible, (trial) => trial.original)
-
-  return Match.value(targetBelow <= feasibleTrials.length).pipe(
-    Match.when(true, () => {
-      const feasibleSplit = splitTrials(feasibleTrials, () => targetBelow)
-
-      return Option.some({
-        below: sortByTrialNumber(feasibleSplit.below),
-        above: sortByTrialNumber(Arr.appendAll(feasibleSplit.above, infeasibleTrials))
-      })
-    }),
+  return Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+    Match.when(true, () => Option.none()),
     Match.orElse(() => {
-      const neededInfeasible = Num.max(targetBelow - feasibleTrials.length, 0)
-      const infeasibleSplit = splitTrials(
-        Arr.map(rankedInfeasible, (trial) => trial.ranked),
-        () => neededInfeasible
-      )
-      const selectedInfeasible = originalTrialsFromRankedSelection(
-        infeasibleSplit.below,
-        rankedInfeasible
-      )
-      const remainingInfeasible = originalTrialsFromRankedSelection(
-        infeasibleSplit.above,
-        rankedInfeasible
+      const feasible = Arr.filter(normalizedTrials, (trial) => isConstraintVectorFeasible(trial.constraints))
+      const infeasible = Arr.filter(
+        normalizedTrials,
+        (trial) => Boolean.not(isConstraintVectorFeasible(trial.constraints))
       )
 
-      return Option.some({
-        below: sortByTrialNumber(Arr.appendAll(feasibleTrials, selectedInfeasible)),
-        above: sortByTrialNumber(remainingInfeasible)
-      })
+      return Match.value(Arr.isEmptyReadonlyArray(feasible)).pipe(
+        Match.when(true, () => Option.none()),
+        Match.orElse(() => {
+          const targetBelow = splitCount(Arr.length(normalizedTrials), nBelowOverride)
+          const feasibleTrials = Arr.map(feasible, (trial) => trial.trial)
+          const models = buildConstraintDensityModels(
+            Arr.map(normalizedTrials, (trial) => trial.constraints)
+          )
+          const rankedInfeasible = Arr.map(infeasible, (trial) => {
+            const logDensityProduct = constraintDensityRatioLogProduct(
+              models,
+              trial.constraints
+            )
+
+            return new InfeasibleRankingEntry({
+              original: trial.trial,
+              ranked: rankedTrial(trial.trial, logDensityProduct)
+            })
+          })
+          const infeasibleTrials = Arr.map(rankedInfeasible, (trial) => trial.original)
+
+          return Match.value(Num.lessThanOrEqualTo(targetBelow, Arr.length(feasibleTrials))).pipe(
+            Match.when(true, () => {
+              const feasibleSplit = splitTrials(feasibleTrials, () => targetBelow)
+
+              return Option.some({
+                below: sortByTrialNumber(feasibleSplit.below),
+                above: sortByTrialNumber(Arr.appendAll(feasibleSplit.above, infeasibleTrials))
+              })
+            }),
+            Match.orElse(() => {
+              const neededInfeasible = Num.max(Num.subtract(targetBelow, Arr.length(feasibleTrials)), 0)
+              const infeasibleSplit = splitTrials(
+                Arr.map(rankedInfeasible, (trial) => trial.ranked),
+                () => neededInfeasible
+              )
+              const selectedInfeasible = originalTrialsFromRankedSelection(
+                infeasibleSplit.below,
+                rankedInfeasible
+              )
+              const remainingInfeasible = originalTrialsFromRankedSelection(
+                infeasibleSplit.above,
+                rankedInfeasible
+              )
+
+              return Option.some({
+                below: sortByTrialNumber(Arr.appendAll(feasibleTrials, selectedInfeasible)),
+                above: sortByTrialNumber(remainingInfeasible)
+              })
+            })
+          )
+        })
+      )
     })
   )
 }

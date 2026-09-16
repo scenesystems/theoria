@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean, Effect, Match, Number as Num, Option } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
 import type * as Rng from "../../internal/rng.js"
@@ -14,7 +14,12 @@ import {
 } from "../../internal/tpe/multivariateGaussian.js"
 import { type TrialSplit } from "../../internal/tpe/splitTrials.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
-import { type AcquisitionOption, defaultAcquisitionName, scoreAcquisition } from "./acquisition/index.js"
+import {
+  AcquisitionContext,
+  type AcquisitionOption,
+  defaultAcquisitionName,
+  scoreAcquisition
+} from "./acquisition/index.js"
 import { estimateCostForConfig } from "./costModel.js"
 import {
   adapterForParameter,
@@ -43,81 +48,93 @@ export { MultivariateContinuousTrace }
 export const multivariateContinuousCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,
-  parameters: ReadonlyArray<SearchSpace.ParameterMetadata>,
+  parameters: SearchSpace.SearchSpace["params"],
   split: TrialSplit,
   acquisition: AcquisitionOption = defaultAcquisitionName
 ): Effect.Effect<Option.Option<MultivariateContinuousTrace>, InvalidSamplerConfig> =>
-  Match.value(Num.lessThan(parameters.length, 2)).pipe(
+  Match.value(Num.lessThan(Arr.length(parameters), 2)).pipe(
     Match.when(true, () => Effect.succeedNone),
     Match.orElse(() =>
       Effect.gen(function*() {
         const adapters = yield* Effect.forEach(parameters, (parameter) => adapterForParameter(parameter))
         const belowVectors = vectorsFromSplit(adapters, split.below)
         const aboveVectors = vectorsFromSplit(adapters, split.above)
-        const hasSufficientHistory = belowVectors.length > 2 && aboveVectors.length > 2
-
-        if (!hasSufficientHistory) {
-          return Option.none()
-        }
-
-        const dimensionCount = adapters.length
-        const belowStats = statsByDimension(belowVectors, dimensionCount)
-        const aboveStats = statsByDimension(aboveVectors, dimensionCount)
-        const belowSigmaVector = scottsBandwidthVector(
-          belowVectors.length,
-          dimensionCount,
-          Arr.map(belowStats, (entry) => entry.stddev)
+        const hasSufficientHistory = Boolean.and(
+          Num.greaterThan(Arr.length(belowVectors), 2),
+          Num.greaterThan(Arr.length(aboveVectors), 2)
         )
-        const aboveSigmaVector = scottsBandwidthVector(
-          aboveVectors.length,
-          dimensionCount,
-          Arr.map(aboveStats, (entry) => entry.stddev)
-        )
-        const belowSigmas = Arr.makeBy(belowVectors.length, () => belowSigmaVector)
-        const aboveSigmas = Arr.makeBy(aboveVectors.length, () => aboveSigmaVector)
-        const belowWeights = uniformWeights(belowVectors.length)
-        const aboveWeights = uniformWeights(aboveVectors.length)
-        const rolls = yield* drawMultivariateRolls(rng, nCandidates, dimensionCount)
-        const modelCandidates = Arr.map(rolls, (roll) =>
-          sampleDiagonalGaussianMixture(
-            belowVectors,
-            belowSigmas,
-            belowWeights,
-            roll.componentRoll,
-            roll.valueRolls
-          ))
 
-        const normalizedCandidates = yield* Effect.forEach(modelCandidates, (candidate, candidateIndex) =>
-          normalizeModelCandidate(adapters, candidate, candidateIndex))
-        const candidateConfigs = Arr.map(normalizedCandidates, (candidateValues) =>
-          configFromCandidate(adapters, candidateValues))
-        const logL = Arr.map(modelCandidates, (candidate) =>
-          diagonalGaussianMixtureLogDensity(candidate, belowVectors, belowSigmas, belowWeights))
-        const logG = Arr.map(modelCandidates, (candidate) =>
-          diagonalGaussianMixtureLogDensity(candidate, aboveVectors, aboveSigmas, aboveWeights))
-        const scores = Arr.makeBy(modelCandidates.length, (index) =>
-          scoreAcquisition({
-            logL: valueAt(logL, index, Number.NEGATIVE_INFINITY),
-            logG: valueAt(logG, index, Number.NEGATIVE_INFINITY),
-            estimatedCost: Arr.get(candidateConfigs, index).pipe(
-              Option.flatMap((candidateConfig) =>
-                estimateCostForConfig(split, candidateConfig)
+        return yield* Match.value(hasSufficientHistory).pipe(
+          Match.when(false, () => Effect.succeedNone),
+          Match.orElse(() =>
+            Effect.gen(function*() {
+              const dimensionCount = Arr.length(adapters)
+              const belowStats = statsByDimension(belowVectors, dimensionCount)
+              const aboveStats = statsByDimension(aboveVectors, dimensionCount)
+              const belowSigmaVector = scottsBandwidthVector(
+                Arr.length(belowVectors),
+                dimensionCount,
+                Arr.map(belowStats, (entry) => entry.stddev)
               )
-            ),
-            roll: Arr.get(rolls, index).pipe(Option.map((candidateRoll) =>
-              candidateRoll.componentRoll
-            ))
-          }, acquisition))
+              const aboveSigmaVector = scottsBandwidthVector(
+                Arr.length(aboveVectors),
+                dimensionCount,
+                Arr.map(aboveStats, (entry) => entry.stddev)
+              )
+              const belowSigmas = Arr.makeBy(Arr.length(belowVectors), () => belowSigmaVector)
+              const aboveSigmas = Arr.makeBy(Arr.length(aboveVectors), () => aboveSigmaVector)
+              const belowWeights = uniformWeights(Arr.length(belowVectors))
+              const aboveWeights = uniformWeights(Arr.length(aboveVectors))
+              const rolls = yield* drawMultivariateRolls(rng, nCandidates, dimensionCount)
+              const modelCandidates = Arr.map(rolls, (roll) =>
+                sampleDiagonalGaussianMixture(
+                  belowVectors,
+                  belowSigmas,
+                  belowWeights,
+                  roll.componentRoll,
+                  roll.valueRolls
+                ))
 
-        return Option.some(
-          new MultivariateContinuousTrace({
-            parameterNames: Arr.map(adapters, (adapter) =>
-              adapter.name),
-            candidateConfigs,
-            logL,
-            logG,
-            scores
-          })
+              const normalizedCandidates = yield* Effect.forEach(
+                modelCandidates,
+                (candidate, candidateIndex) => normalizeModelCandidate(adapters, candidate, candidateIndex)
+              )
+              const candidateConfigs = Arr.map(
+                normalizedCandidates,
+                (candidateValues) => configFromCandidate(adapters, candidateValues)
+              )
+              const logL = Arr.map(
+                modelCandidates,
+                (candidate) => diagonalGaussianMixtureLogDensity(candidate, belowVectors, belowSigmas, belowWeights)
+              )
+              const logG = Arr.map(
+                modelCandidates,
+                (candidate) => diagonalGaussianMixtureLogDensity(candidate, aboveVectors, aboveSigmas, aboveWeights)
+              )
+              const scores = Arr.makeBy(Arr.length(modelCandidates), (index) =>
+                scoreAcquisition(
+                  new AcquisitionContext({
+                    logL: valueAt(logL, index, Number.NEGATIVE_INFINITY),
+                    logG: valueAt(logG, index, Number.NEGATIVE_INFINITY),
+                    estimatedCost: Arr.get(candidateConfigs, index).pipe(
+                      Option.flatMap((candidateConfig) => estimateCostForConfig(split, candidateConfig))
+                    ),
+                    roll: Arr.get(rolls, index).pipe(Option.map((candidateRoll) => candidateRoll.componentRoll))
+                  }),
+                  acquisition
+                ))
+
+              return Option.some(
+                new MultivariateContinuousTrace({
+                  parameterNames: Arr.map(adapters, (adapter) => adapter.name),
+                  candidateConfigs,
+                  logL,
+                  logG,
+                  scores
+                })
+              )
+            })
+          )
         )
       })
     )

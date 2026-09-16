@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Equal, HashMap, Match, Number as Num, Option, Record } from "effect"
+import { Array as Arr, Boolean, Effect, Equal, HashMap, Match, Number as Num, Option, Record } from "effect"
 
 import type { InvalidSamplerConfig, SearchError } from "../../Errors/index.js"
 import type * as Rng from "../../internal/rng.js"
@@ -23,7 +23,7 @@ import { suggestFloatParameter } from "./dimensions/float.js"
 import { suggestIntParameter } from "./dimensions/int.js"
 import { GroupedMixedSettings, suggestGroupedMixedJoint } from "./groupedMixed.js"
 import { suggestMixedJoint } from "./mixed.js"
-import type { TpeConstraintEvaluator } from "./options.js"
+import type { TpeConstraintEvaluators } from "./options.js"
 import { splitByObjectiveSpec } from "./split/index.js"
 
 const suggestIndependentParameter = (
@@ -65,42 +65,21 @@ const suggestIndependent = (
   noiseOptions: NoiseBandwidthOptions,
   acquisition: AcquisitionImplementation
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
-  Effect.gen(function*() {
-    const configObject = (raw: HashMap.HashMap<string, unknown>): unknown => Record.fromEntries(HashMap.toEntries(raw))
-
-    const go = (
-      index: number,
-      raw: HashMap.HashMap<string, unknown>
-    ): Effect.Effect<HashMap.HashMap<string, unknown>, InvalidSamplerConfig> =>
-      Arr.get(space.params, index).pipe(
-        Option.match({
-          onNone: () => Effect.succeed(raw),
-          onSome: (parameter) =>
-            Match.value(SearchSpace.isParameterActive(parameter, configObject(raw))).pipe(
-              Match.when(false, () => go(index + 1, raw)),
-              Match.orElse(() =>
-                suggestIndependentParameter(
-                  rng,
-                  nCandidates,
-                  parameter,
-                  split,
-                  noiseOptions,
-                  acquisition
-                ).pipe(
-                  Effect.flatMap((value) => go(index + 1, HashMap.set(raw, parameter.name, value)))
-                )
-              )
-            )
-        })
-      )
-
-    const raw = yield* go(0, HashMap.empty<string, unknown>())
-
-    return configObject(raw)
-  })
+  Effect.reduce(
+    space.params,
+    HashMap.empty<string, unknown>(),
+    (raw, parameter) =>
+      Effect.if(SearchSpace.isParameterActive(parameter, Record.fromEntries(HashMap.toEntries(raw))), {
+        onFalse: () => Effect.succeed(raw),
+        onTrue: () =>
+          suggestIndependentParameter(rng, nCandidates, parameter, split, noiseOptions, acquisition).pipe(
+            Effect.map((value) => HashMap.set(raw, parameter.name, value))
+          )
+      })
+  ).pipe(Effect.map((raw) => Record.fromEntries(HashMap.toEntries(raw))))
 
 const hasConditionalParameters = (space: SearchSpace.SearchSpace): boolean =>
-  Arr.some(space.params, (parameter) => parameter.activeWhen.length > 0)
+  Arr.some(space.params, (parameter) => Arr.isNonEmptyReadonlyArray(parameter.activeWhen))
 
 const suggestModelDriven = (
   seed: number,
@@ -108,7 +87,7 @@ const suggestModelDriven = (
   multivariate: boolean,
   groupDimensions: boolean,
   noiseOptions: NoiseBandwidthOptions,
-  constraints: ReadonlyArray<TpeConstraintEvaluator>,
+  constraints: TpeConstraintEvaluators,
   acquisition: AcquisitionImplementation,
   space: SearchSpace.SearchSpace,
   context: SuggestContext
@@ -124,13 +103,18 @@ const suggestModelDriven = (
       groupDimensions
     })
 
-    return yield* Match.value(Equal.equals(dimensions.length, space.params.length) && !containsConditionalParameters)
+    return yield* Match.value(
+      Boolean.and(
+        Equal.equals(Arr.length(dimensions), Arr.length(space.params)),
+        Boolean.not(containsConditionalParameters)
+      )
+    )
       .pipe(
         Match.when(true, () => suggestMultivariateCategorical(rng, nCandidates, space, split, dimensions, acquisition)),
         Match.orElse(() =>
           Match.value(multivariate).pipe(
             Match.when(true, () =>
-              Match.value(containsConditionalParameters && !groupDimensions).pipe(
+              Match.value(Boolean.and(containsConditionalParameters, Boolean.not(groupDimensions))).pipe(
                 Match.when(true, () => suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition)),
                 Match.orElse(() =>
                   suggestGroupedMixedJoint(
@@ -146,7 +130,8 @@ const suggestModelDriven = (
               )),
             Match.orElse(() =>
               Match.value(containsConditionalParameters).pipe(
-                Match.when(true, () => suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition)),
+                Match.when(true, () =>
+                  suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition)),
                 Match.orElse(() => suggestMixedJoint(rng, nCandidates, space, split, noiseOptions, acquisition))
               )
             )
@@ -176,12 +161,12 @@ export const suggestWithStartup = (
   multivariate: boolean,
   groupDimensions: boolean,
   noiseOptions: NoiseBandwidthOptions,
-  constraints: ReadonlyArray<TpeConstraintEvaluator>,
+  constraints: TpeConstraintEvaluators,
   acquisition: AcquisitionImplementation,
   space: SearchSpace.SearchSpace,
   context: SuggestContext
 ): Effect.Effect<unknown, SearchError> =>
-  Match.value(Num.lessThan(context.completed.length, startupTrials)).pipe(
+  Match.value(Num.lessThan(Arr.length(context.completed), startupTrials)).pipe(
     Match.when(true, () => randomSampler.suggest(space, context)),
     Match.orElse(() =>
       suggestModelDriven(

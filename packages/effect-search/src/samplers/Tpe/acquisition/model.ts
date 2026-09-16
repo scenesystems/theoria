@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type { Option } from "effect"
-import { Data, Predicate } from "effect"
+import { Boolean, Data, Match, Predicate } from "effect"
 
 import type { BuiltInAcquisitionName } from "../../../contracts/Acquisition.js"
 
@@ -86,8 +86,11 @@ export type AcquisitionOption = BuiltInAcquisitionName | AcquisitionImplementati
 export const isAcquisitionImplementation = (
   input: unknown
 ): input is AcquisitionImplementation =>
-  Predicate.isRecord(input) &&
-  Predicate.hasProperty(input, "name") &&
-  Predicate.isString(input.name) &&
-  Predicate.hasProperty(input, "score") &&
-  Predicate.isFunction(input.score)
+  Match.value(input).pipe(
+    Match.when(Predicate.isRecord, (record) =>
+      Boolean.and(
+        Boolean.and(Predicate.hasProperty(record, "name"), Predicate.isString(record.name)),
+        Boolean.and(Predicate.hasProperty(record, "score"), Predicate.isFunction(record.score))
+      )),
+    Match.orElse(() => false)
+  )

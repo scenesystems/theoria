@@ -3,9 +3,12 @@
  *
  * @since 0.1.0
  */
+import type { Schema } from "effect"
 import { Array as Arr, Option } from "effect"
 
-import type { CandidateRollPair } from "./trace.js"
+import type { CandidateRollPairSchema } from "./trace.js"
+
+type CandidateRollPairs = Schema.Array$<typeof CandidateRollPairSchema>["Type"]
 
 /**
  * Extract the value roll from a candidate roll pair at the given index.
@@ -15,6 +18,6 @@ import type { CandidateRollPair } from "./trace.js"
  * @since 0.1.0
  */
 export const rollFromCandidatePair = (
-  rolls: ReadonlyArray<CandidateRollPair>,
+  rolls: CandidateRollPairs,
   index: number
 ): Option.Option<number> => Arr.get(rolls, index).pipe(Option.map(([_kernelRoll, valueRoll]) => valueRoll))

@@ -7,13 +7,14 @@ import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
 import * as Rng from "../../internal/rng.js"
+import type { CandidateRolls } from "../../internal/tpe/candidates.js"
 import { argmax } from "../../internal/tpe/expectedImprovement.js"
-import { type CandidateRollPair, makeCandidateRollPair } from "./dimensions/trace.js"
+import { type CandidateRollPair, type DimensionScoreTrace, makeCandidateRollPair } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
 
-const indices = (count: number): Array<number> =>
+const indices = (count: number): CandidateRolls =>
   Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
-    Match.when(true, () => []),
+    Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(count, (index) => index))
   )
 
@@ -29,11 +30,11 @@ const indices = (count: number): Array<number> =>
  * @category sampling
  */
 export const chooseBestCandidate = <A>(
-  candidates: ReadonlyArray<A>,
-  scores: ReadonlyArray<number>,
+  candidates: DimensionScoreTrace<A>["candidates"],
+  scores: DimensionScoreTrace<A>["scores"],
   reason: string
 ): Effect.Effect<A, InvalidSamplerConfig> => {
-  const bestIndex = argmax([...scores])
+  const bestIndex = argmax(Arr.fromIterable(scores))
 
   return Arr.get(candidates, bestIndex).pipe(
     Option.match({
@@ -56,7 +57,7 @@ export const chooseBestCandidate = <A>(
 export const drawRolls = (
   rng: Rng.Rng,
   count: number
-): Effect.Effect<Array<number>> => Effect.forEach(indices(count), () => Rng.nextFloat(rng))
+): Effect.Effect<CandidateRolls> => Effect.forEach(indices(count), () => Rng.nextFloat(rng))
 
 /**
  * Draws `count` pairs of random floats (kernel roll + value roll) for
@@ -72,8 +73,5 @@ export const drawRolls = (
 export const drawRollPairs = (
   rng: Rng.Rng,
   count: number
-): Effect.Effect<Array<CandidateRollPair>> =>
-  Effect.forEach(indices(count), () =>
-    Effect.all([Rng.nextFloat(rng), Rng.nextFloat(rng)]).pipe(
-      Effect.map(([kernelRoll, valueRoll]) => makeCandidateRollPair(kernelRoll, valueRoll))
-    ))
+): Effect.Effect<DimensionScoreTrace<CandidateRollPair>["candidates"]> =>
+  Effect.forEach(indices(count), () => Effect.zipWith(Rng.nextFloat(rng), Rng.nextFloat(rng), makeCandidateRollPair))

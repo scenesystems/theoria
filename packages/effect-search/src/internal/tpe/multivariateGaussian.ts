@@ -1,23 +1,34 @@
 import { logStrict, logSumExp } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Chunk, Equal, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean, Chunk, Equal, Match, Number as Num, Option, Schema } from "effect"
 
 import { ndtriExp } from "./truncatedNormal/normal.js"
 
-const LOG_SQRT_2PI = 0.5 * logStrict(2 * 3.141592653589793)
+const LOG_SQRT_2PI = Num.multiply(0.5, logStrict(Num.multiply(2, 3.141592653589793)))
 const EPSILON = 1e-12
 
-const valueAt = (values: ReadonlyArray<number>, index: number, fallback: number): number =>
+export const GaussianVectorSchema = Schema.Array(Schema.Number)
+export type GaussianVector = Schema.Schema.Type<typeof GaussianVectorSchema>
+
+export const GaussianComponentsSchema = Schema.Array(GaussianVectorSchema)
+export type GaussianComponents = Schema.Schema.Type<typeof GaussianComponentsSchema>
+
+const isFinite = Schema.is(Schema.Finite)
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const positive = (value: number): boolean => Boolean.and(isNonNaN(value), Num.greaterThan(value, 0))
+
+const valueAt = (values: GaussianVector, index: number, fallback: number): number =>
   Arr.get(values, index).pipe(Option.getOrElse(() => fallback))
 
 const validSigma = (sigma: number): number =>
-  Match.value(Number.isFinite(sigma) && sigma > 0).pipe(
+  Match.value(Boolean.and(isFinite(sigma), positive(sigma))).pipe(
     Match.when(true, () => sigma),
     Match.when(false, () => EPSILON),
     Match.exhaustive
   )
 
 const validWeight = (weight: number): number =>
-  Match.value(Number.isFinite(weight) && weight > 0).pipe(
+  Match.value(Boolean.and(isFinite(weight), positive(weight))).pipe(
     Match.when(true, () => weight),
     Match.when(false, () => 0),
     Match.exhaustive
@@ -25,73 +36,73 @@ const validWeight = (weight: number): number =>
 
 const validProbability = (roll: number): number =>
   Num.clamp(
-    Match.value(Number.isFinite(roll)).pipe(
+    Match.value(isFinite(roll)).pipe(
       Match.when(true, () => roll),
       Match.when(false, () => 0.5),
       Match.exhaustive
     ),
     {
       minimum: EPSILON,
-      maximum: 1 - EPSILON
+      maximum: Num.subtract(1, EPSILON)
     }
   )
 
 const hasMatchingDimensions = (
-  point: ReadonlyArray<number>,
-  mean: ReadonlyArray<number>,
-  sigmas: ReadonlyArray<number>
-): boolean => Equal.equals(point.length, mean.length) && Equal.equals(mean.length, sigmas.length)
+  point: GaussianVector,
+  mean: GaussianVector,
+  sigmas: GaussianVector
+): boolean =>
+  Boolean.and(
+    Equal.equals(Arr.length(point), Arr.length(mean)),
+    Equal.equals(Arr.length(mean), Arr.length(sigmas))
+  )
 
 const componentAt = (
-  components: ReadonlyArray<ReadonlyArray<number>>,
+  components: GaussianComponents,
   index: number
-): ReadonlyArray<number> => Arr.get(components, index).pipe(Option.getOrElse(() => Arr.empty<number>()))
+): GaussianVector => Arr.get(components, index).pipe(Option.getOrElse(() => Arr.empty<number>()))
 
-const cumulativeWeights = (weights: ReadonlyArray<number>): ReadonlyArray<number> =>
-  Arr.reduce(weights, Arr.empty<number>(), (accumulator, weight) => {
-    const previous = valueAt(accumulator, accumulator.length - 1, 0)
-    return Arr.append(accumulator, Num.sum(previous, weight))
+const cumulativeWeights = (weights: GaussianVector): GaussianVector => Arr.tailNonEmpty(Arr.scan(weights, 0, Num.sum))
+
+const uniformWeights = (componentCount: number): GaussianVector =>
+  Boolean.match(Num.lessThanOrEqualTo(componentCount, 0), {
+    onTrue: () => Arr.empty<number>(),
+    onFalse: () => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount))
   })
-
-const uniformWeights = (componentCount: number): ReadonlyArray<number> =>
-  Match.value(Num.lessThanOrEqualTo(componentCount, 0)).pipe(
-    Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount)))
-  )
 
 const normalizeWeights = (
   componentCount: number,
-  weights: ReadonlyArray<number>
-): ReadonlyArray<number> => {
+  weights: GaussianVector
+): GaussianVector => {
   const clamped = Arr.makeBy(componentCount, (index) => validWeight(valueAt(weights, index, 0)))
   const total = Arr.reduce(clamped, 0, (accumulator, weight) => Num.sum(accumulator, weight))
 
-  return Match.value(Num.greaterThan(total, 0)).pipe(
-    Match.when(true, () => Arr.map(clamped, (weight) => Num.unsafeDivide(weight, total))),
-    Match.orElse(() => uniformWeights(componentCount))
-  )
+  return Boolean.match(Num.greaterThan(total, 0), {
+    onTrue: () => Arr.map(clamped, (weight) => Num.unsafeDivide(weight, total)),
+    onFalse: () => uniformWeights(componentCount)
+  })
 }
 
-const chooseComponentIndex = (weights: ReadonlyArray<number>, componentRoll: number): number =>
-  Match.value(Num.lessThanOrEqualTo(weights.length, 0)).pipe(
-    Match.when(true, () => 0),
-    Match.orElse(() => {
+const chooseComponentIndex = (weights: GaussianVector, componentRoll: number): number =>
+  Boolean.match(Num.lessThanOrEqualTo(Arr.length(weights), 0), {
+    onTrue: () => 0,
+    onFalse: () => {
       const cumulative = cumulativeWeights(weights)
       const index = Arr.findFirstIndex(
         cumulative,
         (weight) => Num.greaterThanOrEqualTo(weight, validProbability(componentRoll))
-      ).pipe(Option.getOrElse(() => weights.length - 1))
+      ).pipe(Option.getOrElse(() => Num.decrement(Arr.length(weights))))
 
-      return Num.clamp(index, { minimum: 0, maximum: weights.length - 1 })
-    })
-  )
+      return Num.clamp(index, { minimum: 0, maximum: Num.decrement(Arr.length(weights)) })
+    }
+  })
 
 const quantileFromRoll = (roll: number): number => ndtriExp(logStrict(validProbability(roll)))
 
 export const diagonalGaussianLogDensity = (
-  point: ReadonlyArray<number>,
-  mean: ReadonlyArray<number>,
-  sigmas: ReadonlyArray<number>
+  point: GaussianVector,
+  mean: GaussianVector,
+  sigmas: GaussianVector
 ): number =>
   Match.value(hasMatchingDimensions(point, mean, sigmas)).pipe(
     Match.when(false, () => Number.NEGATIVE_INFINITY),
@@ -99,76 +110,81 @@ export const diagonalGaussianLogDensity = (
       Arr.reduce(point, 0, (accumulator, coordinate, index) => {
         const currentMean = valueAt(mean, index, 0)
         const sigma = validSigma(valueAt(sigmas, index, EPSILON))
-        const normalized = (coordinate - currentMean) / sigma
+        const normalized = Num.unsafeDivide(Num.subtract(coordinate, currentMean), sigma)
 
-        return accumulator + (-LOG_SQRT_2PI - logStrict(sigma) - 0.5 * normalized * normalized)
+        return Num.sum(
+          accumulator,
+          Num.subtract(
+            Num.subtract(Num.negate(LOG_SQRT_2PI), logStrict(sigma)),
+            Num.multiply(Num.multiply(0.5, normalized), normalized)
+          )
+        )
       })),
     Match.exhaustive
   )
 
 export const diagonalGaussianMixtureLogDensity = (
-  point: ReadonlyArray<number>,
-  means: ReadonlyArray<ReadonlyArray<number>>,
-  sigmas: ReadonlyArray<ReadonlyArray<number>>,
-  weights: ReadonlyArray<number>
+  point: GaussianVector,
+  means: GaussianComponents,
+  sigmas: GaussianComponents,
+  weights: GaussianVector
 ): number => {
-  const componentCount = means.length
+  const componentCount = Arr.length(means)
   const normalizedWeights = normalizeWeights(componentCount, weights)
   const componentLogDensities = Arr.makeBy(componentCount, (index) => {
     const mean = componentAt(means, index)
     const sigma = componentAt(sigmas, index)
     const weight = valueAt(normalizedWeights, index, 0)
 
-    return Match.value(Num.lessThanOrEqualTo(weight, 0)).pipe(
-      Match.when(true, () => Number.NEGATIVE_INFINITY),
-      Match.orElse(() => logStrict(weight) + diagonalGaussianLogDensity(point, mean, sigma))
-    )
+    return Boolean.match(Num.lessThanOrEqualTo(weight, 0), {
+      onTrue: () => Number.NEGATIVE_INFINITY,
+      onFalse: () => Num.sum(logStrict(weight), diagonalGaussianLogDensity(point, mean, sigma))
+    })
   })
 
   return logSumExp(Chunk.fromIterable(componentLogDensities))
 }
 
 export const sampleDiagonalGaussian = (
-  mean: ReadonlyArray<number>,
-  sigmas: ReadonlyArray<number>,
-  rolls: ReadonlyArray<number>
-): ReadonlyArray<number> =>
-  Match.value(hasMatchingDimensions(mean, mean, sigmas)).pipe(
-    Match.when(false, () => Arr.empty<number>()),
-    Match.orElse(() =>
+  mean: GaussianVector,
+  sigmas: GaussianVector,
+  rolls: GaussianVector
+): GaussianVector =>
+  Boolean.match(hasMatchingDimensions(mean, mean, sigmas), {
+    onFalse: () => Arr.empty<number>(),
+    onTrue: () =>
       Arr.map(mean, (currentMean, index) => {
         const sigma = validSigma(valueAt(sigmas, index, EPSILON))
         const quantile = quantileFromRoll(valueAt(rolls, index, 0.5))
-        return currentMean + sigma * quantile
+        return Num.sum(currentMean, Num.multiply(sigma, quantile))
       })
-    )
-  )
+  })
 
 export const sampleDiagonalGaussianMixture = (
-  means: ReadonlyArray<ReadonlyArray<number>>,
-  sigmas: ReadonlyArray<ReadonlyArray<number>>,
-  weights: ReadonlyArray<number>,
+  means: GaussianComponents,
+  sigmas: GaussianComponents,
+  weights: GaussianVector,
   componentRoll: number,
-  valueRolls: ReadonlyArray<number>
-): ReadonlyArray<number> => {
-  const normalizedWeights = normalizeWeights(means.length, weights)
+  valueRolls: GaussianVector
+): GaussianVector => {
+  const normalizedWeights = normalizeWeights(Arr.length(means), weights)
   const componentIndex = chooseComponentIndex(normalizedWeights, componentRoll)
 
   return sampleDiagonalGaussian(componentAt(means, componentIndex), componentAt(sigmas, componentIndex), valueRolls)
 }
 
 export const scottsFactor = (sampleCount: number, dimensions: number): number =>
-  Match.value(sampleCount > 0 && dimensions > 0).pipe(
-    Match.when(true, () => sampleCount ** (-1 / (dimensions + 4))),
+  Match.value(Boolean.and(positive(sampleCount), positive(dimensions))).pipe(
+    Match.when(true, () => sampleCount ** Num.negate(Num.unsafeDivide(1, Num.sum(dimensions, 4)))),
     Match.when(false, () => 1),
     Match.exhaustive
   )
 
 export const scottsBandwidth = (sampleCount: number, dimensions: number, stddev: number): number =>
-  validSigma(stddev) * scottsFactor(sampleCount, dimensions)
+  Num.multiply(validSigma(stddev), scottsFactor(sampleCount, dimensions))
 
 export const scottsBandwidthVector = (
   sampleCount: number,
   dimensions: number,
-  stddevs: ReadonlyArray<number>
-): ReadonlyArray<number> => Arr.map(stddevs, (stddev) => scottsBandwidth(sampleCount, dimensions, stddev))
+  stddevs: GaussianVector
+): GaussianVector => Arr.map(stddevs, (stddev) => scottsBandwidth(sampleCount, dimensions, stddev))

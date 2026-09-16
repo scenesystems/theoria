@@ -3,139 +3,154 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean, Match, Number as Num, Option, Schema } from "effect"
 
-import type { Direction } from "../../../contracts/Direction.js"
-import { normalizeObjectiveVector } from "../../../contracts/ObjectiveValue.js"
-import type { SamplerConfig } from "../../../internal/configAccess.js"
+import type { DirectionVector } from "../../../contracts/Direction.js"
+import { normalizeObjectiveVector, type ObjectiveVector } from "../../../contracts/ObjectiveValue.js"
+import { SamplerConfigSchema } from "../../../internal/configAccess.js"
 import { nonDominatedSort } from "../../../internal/pareto.js"
 import { defaultGamma } from "../../../internal/tpe/gammaSplit.js"
 import { computeMultiObjectiveWeights } from "../../../internal/tpe/multiObjectiveWeights.js"
 import { CompletedTrialForSplit, splitTrials, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
-import type { SuggestCompletedTrial } from "../../../Sampler/index.js"
-import { ConstraintAwareSplitTrial, splitWithConstraintFeasibility } from "../constraints/split.js"
+import type { SuggestCompletedTrial, SuggestContext } from "../../../Sampler/index.js"
+import {
+  ConstraintAwareSplitTrial,
+  type ConstraintAwareSplitTrials,
+  splitWithConstraintFeasibility
+} from "../constraints/split.js"
 
 const WEIGHT_EPSILON = 1e-12
 
-class MultiObjectiveTrial extends Data.Class<{
-  readonly trialNumber: number
-  readonly config: SamplerConfig
-  readonly vector: ReadonlyArray<number>
-  readonly observationWeight?: number
-  readonly cost?: number
-  readonly variance?: number
-  readonly constraints?: ReadonlyArray<number>
-}> {}
+class MultiObjectiveTrial extends Schema.Class<MultiObjectiveTrial>("effect-search/MultiObjectiveTrial")({
+  trialNumber: Schema.Number,
+  config: SamplerConfigSchema,
+  vector: Schema.Array(Schema.Number),
+  observationWeight: Schema.optional(Schema.Number),
+  cost: Schema.optional(Schema.Number),
+  variance: Schema.optional(Schema.Number),
+  constraints: Schema.optional(Schema.Array(Schema.Number))
+}) {}
+
+type MultiObjectiveTrials = Schema.Array$<typeof MultiObjectiveTrial>["Type"]
+
+const isFinite = Schema.is(Schema.Finite)
 
 const finiteVector = (
-  vector: ReadonlyArray<number>,
+  vector: ObjectiveVector,
   dimensions: number
-): boolean => vector.length === dimensions && Arr.every(vector, (entry) => Number.isFinite(entry))
+): boolean => Boolean.and(Num.Equivalence(Arr.length(vector), dimensions), Arr.every(vector, isFinite))
 
 const asMultiObjectiveTrials = (
-  completed: ReadonlyArray<SuggestCompletedTrial>,
+  completed: SuggestContext["completed"],
   dimensions: number
-): Array<MultiObjectiveTrial> =>
+): MultiObjectiveTrials =>
   Arr.filterMap(completed, (trial) => {
     const vector = normalizeObjectiveVector(trial.value)
 
-    return finiteVector(vector, dimensions)
-      ? Option.some(
-        new MultiObjectiveTrial({
-          trialNumber: trial.trialNumber,
-          config: trial.config,
-          vector,
-          ...Option.fromNullable(trial.observationWeight).pipe(
-            Option.match({
-              onNone: () => ({}),
-              onSome: (observationWeight) => ({ observationWeight })
-            })
-          ),
-          ...Option.fromNullable(trial.cost).pipe(
-            Option.match({
-              onNone: () => ({}),
-              onSome: (cost) => ({ cost })
-            })
-          ),
-          ...Option.fromNullable(trial.variance).pipe(
-            Option.match({
-              onNone: () => ({}),
-              onSome: (variance) => ({ variance })
-            })
-          ),
-          ...Option.fromNullable(trial.constraints).pipe(
-            Option.match({
-              onNone: () => ({}),
-              onSome: (constraints) => ({ constraints })
-            })
-          )
-        })
-      )
-      : Option.none()
+    return Match.value(finiteVector(vector, dimensions)).pipe(
+      Match.when(true, () =>
+        Option.some(
+          new MultiObjectiveTrial({
+            trialNumber: trial.trialNumber,
+            config: trial.config,
+            vector,
+            ...Option.fromNullable(trial.observationWeight).pipe(
+              Option.match({
+                onNone: () => ({}),
+                onSome: (observationWeight) => ({ observationWeight })
+              })
+            ),
+            ...Option.fromNullable(trial.cost).pipe(
+              Option.match({
+                onNone: () => ({}),
+                onSome: (cost) => ({ cost })
+              })
+            ),
+            ...Option.fromNullable(trial.variance).pipe(
+              Option.match({
+                onNone: () => ({}),
+                onSome: (variance) => ({ variance })
+              })
+            ),
+            ...Option.fromNullable(trial.constraints).pipe(
+              Option.match({
+                onNone: () => ({}),
+                onSome: (constraints) => ({ constraints })
+              })
+            )
+          })
+        )),
+      Match.orElse(() => Option.none())
+    )
   })
 
 const trialAt = (
-  trials: ReadonlyArray<MultiObjectiveTrial>,
+  trials: MultiObjectiveTrials,
   index: number
 ): Option.Option<MultiObjectiveTrial> => Arr.get(trials, index)
 
 const weightAt = (
-  weights: ReadonlyArray<number>,
+  weights: ObjectiveVector,
   index: number
 ): number =>
   Arr.get(weights, index).pipe(
-    Option.filter((value) => Number.isFinite(value)),
+    Option.filter(isFinite),
     Option.getOrElse(() => WEIGHT_EPSILON)
   )
 
 const scalarizedValue = (rank: number, weight: number): number =>
-  rank +
-  (1 -
-    Num.clamp(weight, {
-      minimum: WEIGHT_EPSILON,
-      maximum: 1
-    }))
+  Num.sum(
+    rank,
+    Num.subtract(
+      1,
+      Num.clamp(weight, {
+        minimum: WEIGHT_EPSILON,
+        maximum: 1
+      })
+    )
+  )
 
 const weightedFrontTrials = (
-  trials: ReadonlyArray<MultiObjectiveTrial>,
-  front: ReadonlyArray<number>,
+  trials: MultiObjectiveTrials,
+  front: ObjectiveVector,
   rank: number,
-  weights: ReadonlyArray<number>
-): Array<ConstraintAwareSplitTrial> =>
+  weights: ObjectiveVector
+): ConstraintAwareSplitTrials =>
   Arr.flatMap(front, (index) =>
     trialAt(trials, index).pipe(
       Option.match({
-        onNone: () => [],
-        onSome: (trial) => [
-          new ConstraintAwareSplitTrial({
-            trial: new CompletedTrialForSplit({
-              trialNumber: trial.trialNumber,
-              config: trial.config,
-              value: scalarizedValue(rank, weightAt(weights, index)),
-              ...Option.fromNullable(trial.observationWeight).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (observationWeight) => ({ observationWeight })
-                })
-              ),
-              ...Option.fromNullable(trial.cost).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (cost) => ({ cost })
-                })
-              ),
-              ...Option.fromNullable(trial.variance).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (variance) => ({ variance })
-                })
+        onNone: () => Arr.empty<ConstraintAwareSplitTrial>(),
+        onSome: (trial) =>
+          Arr.of(
+            new ConstraintAwareSplitTrial({
+              trial: new CompletedTrialForSplit({
+                trialNumber: trial.trialNumber,
+                config: trial.config,
+                value: scalarizedValue(rank, weightAt(weights, index)),
+                ...Option.fromNullable(trial.observationWeight).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (observationWeight) => ({ observationWeight })
+                  })
+                ),
+                ...Option.fromNullable(trial.cost).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (cost) => ({ cost })
+                  })
+                ),
+                ...Option.fromNullable(trial.variance).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (variance) => ({ variance })
+                  })
+                )
+              }),
+              constraints: Option.fromNullable(trial.constraints).pipe(
+                Option.getOrElse(() => Arr.empty<number>())
               )
-            }),
-            constraints: Option.fromNullable(trial.constraints).pipe(
-              Option.getOrElse(() => [])
-            )
-          })
-        ]
+            })
+          )
       })
     ))
 
@@ -161,30 +176,31 @@ const splitCount = (size: number, nBelowOverride?: number): number => {
  * @category sampling
  */
 export const splitMultiObjective = (
-  completed: ReadonlyArray<SuggestCompletedTrial>,
-  directions: ReadonlyArray<Direction>,
+  completed: Schema.Array$<typeof SuggestCompletedTrial>["Type"],
+  directions: DirectionVector,
   nBelowOverride?: number,
   epsilon = 0
 ): TrialSplit => {
-  if (directions.length <= 0) {
-    return {
-      below: [],
-      above: []
-    }
-  }
+  return Match.value(Arr.isEmptyReadonlyArray(directions)).pipe(
+    Match.when(true, () => ({
+      below: Arr.empty<CompletedTrialForSplit>(),
+      above: Arr.empty<CompletedTrialForSplit>()
+    })),
+    Match.orElse(() => {
+      const trials = asMultiObjectiveTrials(completed, Arr.length(directions))
+      const points = Arr.map(trials, (trial) => trial.vector)
+      const weights = computeMultiObjectiveWeights(points, undefined, directions)
+      const fronts = nonDominatedSort(points, directions, epsilon)
+      const scalarized = Arr.flatMap(fronts, (front, rank) => weightedFrontTrials(trials, front, rank, weights))
 
-  const trials = asMultiObjectiveTrials(completed, directions.length)
-  const points = Arr.map(trials, (trial) => trial.vector)
-  const weights = computeMultiObjectiveWeights(points, undefined, directions)
-  const fronts = nonDominatedSort(points, directions, epsilon)
-  const scalarized = Arr.flatMap(fronts, (front, rank) => weightedFrontTrials(trials, front, rank, weights))
-
-  return splitWithConstraintFeasibility(scalarized, nBelowOverride).pipe(
-    Option.getOrElse(() =>
-      splitTrials(
-        Arr.map(scalarized, (trial) => trial.trial),
-        () => splitCount(scalarized.length, nBelowOverride)
+      return splitWithConstraintFeasibility(scalarized, nBelowOverride).pipe(
+        Option.getOrElse(() =>
+          splitTrials(
+            Arr.map(scalarized, (trial) => trial.trial),
+            () => splitCount(Arr.length(scalarized), nBelowOverride)
+          )
+        )
       )
-    )
+    })
   )
 }

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Option } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Record } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
 import type * as Rng from "../../internal/rng.js"
@@ -48,8 +48,8 @@ export const suggestGroupedMixedJoint = (
         onSome: (group) => {
           const activeParameters = activeGroupParameters(space, group, partialConfig)
 
-          return Match.value(activeParameters.length <= 0).pipe(
-            Match.when(true, () => go(index + 1, partialConfig)),
+          return Match.value(Arr.isEmptyReadonlyArray(activeParameters)).pipe(
+            Match.when(true, () => go(Num.increment(index), partialConfig)),
             Match.orElse(() =>
               suggestGroup(
                 rng,
@@ -60,7 +60,9 @@ export const suggestGroupedMixedJoint = (
                 noiseOptions,
                 acquisition
               ).pipe(
-                Effect.flatMap((groupSuggestion) => go(index + 1, mergeConfigs(partialConfig, groupSuggestion)))
+                Effect.flatMap((groupSuggestion) =>
+                  go(Num.increment(index), mergeConfigs(partialConfig, groupSuggestion))
+                )
               )
             )
           )
@@ -68,5 +70,5 @@ export const suggestGroupedMixedJoint = (
       })
     )
 
-  return go(0, {})
+  return go(0, Record.empty<string, unknown>())
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Option } from "effect"
+import { Array as Arr, Boolean, Effect, Either, Number as Num, Option, Schema } from "effect"
 
+import * as Float64 from "../../../src/internal/float64.js"
 import { buildContinuousParzen } from "../../../src/internal/tpe/continuousParzen.js"
+import type { ContinuousValues } from "../../../src/internal/tpe/continuousParzen.js"
 import { defaultNoiseBandwidthOptions, NoiseBandwidthOptions } from "../../../src/internal/tpe/noiseEstimator.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
 import { rngByTrial } from "../../../src/Sampler/shared/rngByTrial.js"
@@ -9,8 +11,10 @@ import { traceForParameter } from "../../../src/samplers/Tpe/mixed.js"
 import { validateOptions } from "../../../src/samplers/Tpe/options.js"
 import * as SearchSpace from "../../../src/SearchSpace/index.js"
 
-const sigmaAt = (values: ReadonlyArray<number>, index: number): number =>
-  Option.fromNullable(values[index]).pipe(Option.getOrElse(() => 0))
+const sigmaAt = (values: ContinuousValues, index: number): number =>
+  Arr.get(values, index).pipe(Option.getOrElse(() => 0))
+
+const isNonNaN = Schema.is(Schema.NonNaN)
 
 describe("noise-aware bandwidth", () => {
   it.effect("widens continuous KDE sigmas when noise-aware mode is enabled", () =>
@@ -30,10 +34,12 @@ describe("noise-aware bandwidth", () => {
       const widenedSigmas = Arr.map(noiseAware.kernels, (kernel) => kernel.sigma)
 
       expect(
-        Arr.every(widenedSigmas, (sigma, index) => sigma >= sigmaAt(baselineSigmas, index))
+        Arr.every(widenedSigmas, (sigma, index) =>
+          Boolean.and(isNonNaN(sigma), Num.greaterThanOrEqualTo(sigma, sigmaAt(baselineSigmas, index))))
       ).toBe(true)
       expect(
-        Arr.some(widenedSigmas, (sigma, index) => sigma - sigmaAt(baselineSigmas, index) > 1e-12)
+        Arr.some(widenedSigmas, (sigma, index) =>
+          Num.greaterThan(Num.subtract(sigma, sigmaAt(baselineSigmas, index)), 1e-12))
       ).toBe(true)
     }))
 
@@ -50,7 +56,8 @@ describe("noise-aware bandwidth", () => {
       const empiricalSigmas = Arr.map(empiricalAware.kernels, (kernel) => kernel.sigma)
 
       expect(
-        Arr.some(empiricalSigmas, (sigma, index) => sigma - sigmaAt(bootstrapSigmas, index) > 1e-12)
+        Arr.some(empiricalSigmas, (sigma, index) =>
+          Num.greaterThan(Num.subtract(sigma, sigmaAt(bootstrapSigmas, index)), 1e-12))
       ).toBe(true)
     }))
 
@@ -80,12 +87,12 @@ describe("noise-aware bandwidth", () => {
         lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
         optimizer: SearchSpace.categorical(["adam", "sgd"])
       })
-      const parameter = Option.fromNullable(space.params[0]).pipe(
+      const parameter = Arr.get(space.params, 0).pipe(
         Option.getOrElse(() =>
           new SearchSpace.ParameterMetadata({
             name: "lr",
             distribution: { type: "float", low: 1e-4, high: 1e-1, scale: "log" },
-            activeWhen: []
+            activeWhen: Arr.empty()
           })
         )
       )
@@ -147,7 +154,10 @@ describe("noise-aware bandwidth", () => {
       yield* Effect.sync(() => {
         expect(
           Arr.some(baselineTrace.trace.scores, (score, index) =>
-            Math.abs(score - sigmaAt(noiseAwareTrace.trace.scores, index)) > 1e-10)
+            Num.greaterThan(
+              Float64.abs(Num.subtract(score, sigmaAt(noiseAwareTrace.trace.scores, index))),
+              1e-10
+            ))
         ).toBe(true)
       })
     }))
