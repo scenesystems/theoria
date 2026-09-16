@@ -4,12 +4,14 @@
  * @since 0.7.0
  * @module
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import type * as Journal from "@scenesystems/effect-study/Journal"
 import type * as Stop from "@scenesystems/effect-study/Stop"
-import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Predicate, Schema } from "effect"
 import type { Effect } from "effect"
 
 import { Direction } from "./Direction.js"
-import type { ArtifactStorageError, InvalidObjectiveReport } from "./SearchError.js"
+import type { InvalidObjectiveReport } from "./SearchError.js"
 
 /** One accepted intermediate objective value. @since 0.7.0 @category schemas */
 export class Report extends Schema.Class<Report>("effect-search/Pruning/Report")({
@@ -62,7 +64,7 @@ export const never = new Policy({ name: "never-prune", decide: () => continueEva
 const directionFactor = (direction: Direction): number =>
   Match.value(direction).pipe(
     Match.when("minimize", () => 1),
-    Match.when("maximize", () => -1),
+    Match.when("maximize", () => Num.negate(1)),
     Match.exhaustive
   )
 
@@ -97,9 +99,9 @@ export class Runtime extends Data.Class<{
   readonly report: (
     step: number,
     value: number
-  ) => Effect.Effect<Decision, InvalidObjectiveReport | ArtifactStorageError>
+  ) => Effect.Effect<Decision, InvalidObjectiveReport | Journal.Failure>
   readonly heartbeat: Effect.Effect<Stop.Decision>
-  readonly requestStop: (reason?: string) => Effect.Effect<void, ArtifactStorageError>
+  readonly requestStop: (reason?: string) => Effect.Effect<void, Journal.Failure>
   readonly resource: Effect.Effect<Option.Option<number>>
 }> {}
 
@@ -136,7 +138,7 @@ export class PercentileContext extends Schema.Class<PercentileContext>("effect-s
   currentReports: Reports
 }) {}
 
-const finiteValues = (values: Iterable<number>) => Arr.filter(values, (value) => Number.isFinite(value))
+const finiteValues = (values: Iterable<number>) => Arr.filter(values, Numeric.isFinite)
 
 const percentileValue = (values: Iterable<number>, percentile: number): Option.Option<number> => {
   const ordered = Arr.sort(finiteValues(values), Num.Order)
@@ -146,8 +148,8 @@ const percentileValue = (values: Iterable<number>, percentile: number): Option.O
         Num.unsafeDivide(Num.clamp(percentile, { minimum: 0, maximum: 100 }), 100),
         Num.decrement(Arr.length(ordered))
       )
-      const lowerIndex = Math.floor(rank)
-      const upperIndex = Math.ceil(rank)
+      const lowerIndex = Numeric.floor(rank)
+      const upperIndex = Numeric.ceil(rank)
       const lower = Arr.get(ordered, lowerIndex).pipe(Option.getOrElse(() => Number.NaN))
       const upper = Arr.get(ordered, upperIndex).pipe(Option.getOrElse(() => Number.NaN))
       return Num.sum(lower, Num.multiply(Num.subtract(upper, lower), Num.subtract(rank, lowerIndex)))
@@ -176,17 +178,17 @@ export const shouldPruneByPercentile = (context: PercentileContext): boolean => 
       Match.orElse(() => false)
     ))
   const intervalSteps = Match.value(Num.greaterThan(context.settings.intervalSteps, 0)).pipe(
-    Match.when(true, () => Math.floor(context.settings.intervalSteps)),
+    Match.when(true, () => Numeric.floor(context.settings.intervalSteps)),
     Match.orElse(() => 1)
   )
   const interval = Num.subtract(context.step, context.settings.warmupSteps)
   const nearestLower = Num.sum(
-    Num.multiply(Math.floor(Num.unsafeDivide(interval, intervalSteps)), intervalSteps),
+    Num.multiply(Numeric.floor(Num.unsafeDivide(interval, intervalSteps)), intervalSteps),
     context.settings.warmupSteps
   )
   const previousStep = Arr.reduce(
     context.currentReports,
-    -1,
+    Num.negate(1),
     (current, report) =>
       Match.value(Bool.and(
         Bool.not(Num.Equivalence(report.step, context.step)),
@@ -217,32 +219,33 @@ export const shouldPruneByPercentile = (context: PercentileContext): boolean => 
   return Match.value(eligible).pipe(
     Match.when(false, () => false),
     Match.orElse(() =>
-      Match.value(Arr.some(context.currentReports, (report) => Number.isNaN(report.value))).pipe(
-        Match.when(true, () => true),
-        Match.orElse(() =>
-          Option.all({
-            best: bestReport(context.currentReports, context.direction),
-            threshold: percentileValue(
-              peers,
-              Match.value(context.direction).pipe(
-                Match.when("minimize", () => context.settings.percentile),
-                Match.when("maximize", () => Num.subtract(100, context.settings.percentile)),
-                Match.exhaustive
-              )
-            )
-          }).pipe(
-            Option.match({
-              onNone: () => false,
-              onSome: ({ best, threshold }) =>
+      Match.value(Arr.some(context.currentReports, (report) => Predicate.not(Schema.is(Schema.NonNaN))(report.value)))
+        .pipe(
+          Match.when(true, () => true),
+          Match.orElse(() =>
+            Option.all({
+              best: bestReport(context.currentReports, context.direction),
+              threshold: percentileValue(
+                peers,
                 Match.value(context.direction).pipe(
-                  Match.when("minimize", () => Num.greaterThan(best, threshold)),
-                  Match.when("maximize", () => Num.lessThan(best, threshold)),
+                  Match.when("minimize", () => context.settings.percentile),
+                  Match.when("maximize", () => Num.subtract(100, context.settings.percentile)),
                   Match.exhaustive
                 )
-            })
+              )
+            }).pipe(
+              Option.match({
+                onNone: () => false,
+                onSome: ({ best, threshold }) =>
+                  Match.value(context.direction).pipe(
+                    Match.when("minimize", () => Num.greaterThan(best, threshold)),
+                    Match.when("maximize", () => Num.lessThan(best, threshold)),
+                    Match.exhaustive
+                  )
+              })
+            )
           )
         )
-      )
     )
   )
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as Journal from "@scenesystems/effect-study/Journal"
 import { Effect, Either, Schema } from "effect"
 
 import { isSearchError, SearchError, TrialError } from "../../src/SearchError.js"
@@ -17,9 +18,7 @@ describe("SearchError guard", () => {
 
       expect(isSearchError(instance)).toBe(true)
       expect(Either.isRight(decoded)).toBe(true)
-      if (Either.isRight(decoded)) {
-        expect(isSearchError(decoded.right)).toBe(true)
-      }
+      expect(isSearchError(Either.getOrThrow(decoded))).toBe(true)
     }))
 
   it.effect("rejects a recognized tag with invalid fields", () =>
@@ -30,5 +29,13 @@ describe("SearchError guard", () => {
         message: "boom",
         cause: "cause"
       })).toBe(false)
+    }))
+
+  it.effect("recognizes the shared persistence failure", () =>
+    Effect.sync(() => {
+      const failure = new Journal.Failure({ operation: "read", path: "records.jsonl", line: 2, detail: "torn" })
+
+      expect(isSearchError(failure)).toBe(true)
+      expect(Schema.is(SearchError)(failure)).toBe(true)
     }))
 })

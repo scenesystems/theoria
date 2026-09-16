@@ -1,5 +1,5 @@
 /**
- * Terminal study progress formatting and reporting.
+ * Terminal optimization progress formatting and reporting.
  *
  * @since 0.7.0
  * @module
@@ -7,7 +7,7 @@
 import { Array as Arr, Console, Data, Effect, Match, Option, Schema, Stream, String as Str } from "effect"
 
 import { type Value, Vector } from "./Objective.js"
-import type * as StudyEvent from "./StudyEvent.js"
+import type * as OptimizationEvent from "./OptimizationEvent.js"
 
 const ansiReset = "\u001b[0m"
 const ansiBlue = "\u001b[36m"
@@ -70,7 +70,7 @@ const color = (mode: RenderMode, code: string, text: string): string =>
 const stdout = (text: string): Line => new Line({ channel: "stdout", text })
 const stderr = (text: string): Line => new Line({ channel: "stderr", text })
 
-const formatEvent = (event: StudyEvent.StudyEvent, mode: RenderMode): Line =>
+const formatEvent = (event: OptimizationEvent.OptimizationEvent, mode: RenderMode): Line =>
   Match.value(event).pipe(
     Match.tag("TrialStarted", ({ trialNumber }) => stdout(color(mode, ansiBlue, `trial#${trialNumber} started`))),
     Match.tag("TrialReported", ({ trialNumber, step, value, decision }) =>
@@ -137,12 +137,12 @@ const formatEvent = (event: StudyEvent.StudyEvent, mode: RenderMode): Line =>
         )
       )),
     Match.tag("Completed", ({ completionReason }) =>
-      stdout(color(mode, ansiGreen, `study completed reason=${completionReason}`))),
+      stdout(color(mode, ansiGreen, `optimization completed reason=${completionReason}`))),
     Match.exhaustive
   )
 
 /** Formats one event into routed lines. @since 0.7.0 @category formatters */
-export const format = (event: StudyEvent.StudyEvent, mode: RenderMode = "plain"): typeof Lines.Type =>
+export const format = (event: OptimizationEvent.OptimizationEvent, mode: RenderMode = "plain"): typeof Lines.Type =>
   Arr.of(formatEvent(event, mode))
 
 /** Writes lines sequentially. @since 0.7.0 @category combinators */
@@ -163,18 +163,19 @@ export const make = (sink: Sink = defaultSink) =>
   sink.supportsAnsi.pipe(
     Effect.map((supportsAnsi) =>
       Match.value(supportsAnsi).pipe(
-        Match.when(true, () => (event: StudyEvent.StudyEvent) => write(sink, format(event, "tty"))),
-        Match.orElse(() => (event: StudyEvent.StudyEvent) => write(sink, format(event, "plain")))
+        Match.when(true, () => (event: OptimizationEvent.OptimizationEvent) => write(sink, format(event, "tty"))),
+        Match.orElse(() => (event: OptimizationEvent.OptimizationEvent) => write(sink, format(event, "plain")))
       )
     )
   )
 
 /** Reports one event. @since 0.7.0 @category combinators */
-export const report = (event: StudyEvent.StudyEvent, sink: Sink = defaultSink): Effect.Effect<void> =>
+export const report = (event: OptimizationEvent.OptimizationEvent, sink: Sink = defaultSink): Effect.Effect<void> =>
   make(sink).pipe(Effect.flatMap((emit) => emit(event)))
 
 /** Reports events without changing stream values or order. @since 0.7.0 @category combinators */
-export const tap =
-  (sink: Sink = defaultSink) =>
-  <E, R>(stream: Stream.Stream<StudyEvent.StudyEvent, E, R>): Stream.Stream<StudyEvent.StudyEvent, E, R> =>
-    Stream.unwrap(make(sink).pipe(Effect.map((emit) => Stream.tap(stream, emit))))
+export const tap = (sink: Sink = defaultSink) =>
+<E, R>(
+  stream: Stream.Stream<OptimizationEvent.OptimizationEvent, E, R>
+): Stream.Stream<OptimizationEvent.OptimizationEvent, E, R> =>
+  Stream.unwrap(make(sink).pipe(Effect.map((emit) => Stream.tap(stream, emit))))

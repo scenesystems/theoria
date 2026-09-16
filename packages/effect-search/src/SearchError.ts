@@ -4,6 +4,7 @@
  * @since 0.1.0
  * @module
  */
+import * as Journal from "@scenesystems/effect-study/Journal"
 import { Schema } from "effect"
 
 import { Value } from "./Objective.js"
@@ -66,9 +67,9 @@ export class SamplerObjectiveUnsupported extends Schema.TaggedError<SamplerObjec
   }
 ) {}
 
-/** Invalid study configuration or persisted state. @since 0.1.0 @category errors */
-export class InvalidStudyConfig extends Schema.TaggedError<InvalidStudyConfig>()(
-  "effect-search/InvalidStudyConfig",
+/** Invalid optimization configuration or persisted state. @since 0.1.0 @category errors */
+export class InvalidOptimizationConfig extends Schema.TaggedError<InvalidOptimizationConfig>()(
+  "effect-search/InvalidOptimizationConfig",
   { reason: Schema.String }
 ) {}
 
@@ -124,18 +125,8 @@ export class NotImplemented extends Schema.TaggedError<NotImplemented>()(
   { feature: Schema.String }
 ) {}
 
-/** Artifact journal read or write failure. @since 0.4.4 @category errors */
-export class ArtifactStorageError extends Schema.TaggedError<ArtifactStorageError>()(
-  "effect-search/ArtifactStorageError",
-  {
-    operation: Schema.Literal("write", "read"),
-    path: Schema.String,
-    detail: Schema.String
-  }
-) {}
-
 /**
- * Every expected package-owned search failure.
+ * Every expected search failure, including shared persistence failures.
  *
  * @since 0.1.0
  * @category schemas
@@ -147,14 +138,14 @@ export const SearchError = Schema.Union(
   GridIncompatible,
   SamplerSearchSpaceUnsupported,
   SamplerObjectiveUnsupported,
-  InvalidStudyConfig,
+  InvalidOptimizationConfig,
   InvalidObjectiveValue,
   InvalidObjectiveReport,
   TrialError,
   NoSuccessfulTrials,
   InvalidMathInput,
   NotImplemented,
-  ArtifactStorageError
+  Journal.Failure
 )
 
 /** Expected search failure decoded by {@link SearchError}. @since 0.1.0 @category models */

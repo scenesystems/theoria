@@ -1,20 +1,27 @@
 /**
- * Compares linear and tree models in one study while activating only the
+ * Compares linear and tree models in one optimization while activating only the
  * parameters that belong to the selected model family.
  *
  * Run: bun run examples/07-conditional-spaces.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Effect, Match } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Number as Num, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const linearLoss = (learningRate: number, regularization: number): number =>
-  Numeric.pow(Numeric.log10(learningRate) - Numeric.log10(0.02), 2) + regularization * 0.4
+  Num.sum(
+    Numeric.pow(Num.subtract(Numeric.log10(learningRate), Numeric.log10(0.02)), 2),
+    Num.multiply(regularization, 0.4)
+  )
 
 const treeLoss = (maxDepth: number, minSamplesLeaf: number): number =>
-  Numeric.pow((maxDepth - 7) / 7, 2) + Numeric.pow((minSamplesLeaf - 2) / 4, 2) + 0.05
+  Num.sumAll(Arr.make(
+    Numeric.pow(Num.unsafeDivide(Num.subtract(maxDepth, 7), 7), 2),
+    Numeric.pow(Num.unsafeDivide(Num.subtract(minSamplesLeaf, 2), 4), 2),
+    0.05
+  ))
 
 const program = Effect.gen(function*() {
   const linearBranch = yield* SearchSpace.make({
@@ -28,7 +35,7 @@ const program = Effect.gen(function*() {
   })
 
   const space = yield* SearchSpace.makeConditional(
-    { model: SearchSpace.categorical(["linear", "tree"]) },
+    { model: SearchSpace.categorical(Tuple.make("linear", "tree")) },
     SearchSpace.switchOn(
       "model",
       Chunk.make(
@@ -38,7 +45,7 @@ const program = Effect.gen(function*() {
     )
   )
 
-  const result = yield* Study.minimize({
+  const result = yield* Optimization.minimize({
     space,
     sampler: Sampler.tpe({ seed: 17 }),
     trials: 45,

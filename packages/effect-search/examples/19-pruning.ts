@@ -5,10 +5,10 @@
  * Run: bun run examples/19-pruning.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Chunk, Effect, Match, Stream } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Effect, Match, Number as Num, Stream } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Pruning, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, OptimizationEvent, Pruning, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -23,16 +23,16 @@ const program = Effect.gen(function*() {
     Effect.iterate(
       { step: 0, stopped: false, value: 0 },
       {
-        while: ({ step, stopped }) => step < 6 && !stopped,
+        while: ({ step, stopped }) => Bool.and(Num.lessThan(step, 6), Bool.not(stopped)),
         body: ({ step }) => {
-          const rawLoss = Numeric.abs(config.x - 0.6) * 8 + 1
-          const nextValue = rawLoss / (step + 1)
+          const rawLoss = Num.sum(Num.multiply(Numeric.abs(Num.subtract(config.x, 0.6)), 8), 1)
+          const nextValue = Num.unsafeDivide(rawLoss, Num.increment(step))
 
           return runtime.report(step, nextValue).pipe(
             Effect.map((decision) =>
               Match.value(decision).pipe(
                 Match.tag("Prune", () => ({ step: 6, stopped: true, value: nextValue })),
-                Match.tag("Continue", () => ({ step: step + 1, stopped: false, value: nextValue })),
+                Match.tag("Continue", () => ({ step: Num.increment(step), stopped: false, value: nextValue })),
                 Match.exhaustive
               )
             )
@@ -41,7 +41,7 @@ const program = Effect.gen(function*() {
       }
     ).pipe(Effect.map(({ value }) => value))
 
-  const events = yield* Study.optimizeStream({
+  const events = yield* Optimization.stream({
     space,
     sampler: Sampler.tpe({ seed: 90 }),
     direction: "minimize",
@@ -53,9 +53,9 @@ const program = Effect.gen(function*() {
     Effect.map(Chunk.toReadonlyArray)
   )
 
-  const prunedTrials = Arr.length(Arr.filter(events, (event) => event._tag === "TrialPruned"))
-  const completedTrials = Arr.length(Arr.filter(events, (event) => event._tag === "TrialCompleted"))
-  const reportedSteps = Arr.length(Arr.filter(events, (event) => event._tag === "TrialReported"))
+  const prunedTrials = Arr.length(Arr.filter(events, OptimizationEvent.is("TrialPruned")))
+  const completedTrials = Arr.length(Arr.filter(events, OptimizationEvent.is("TrialCompleted")))
+  const reportedSteps = Arr.length(Arr.filter(events, OptimizationEvent.is("TrialReported")))
 
   yield* Effect.log("Pruning stream complete", {
     prunedTrials,

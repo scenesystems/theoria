@@ -8,7 +8,7 @@ import { Chunk, Data, type Effect, Number as Num, Schema } from "effect"
 
 import * as Constructors from "./internal/scheduler.js"
 import type { Sampler, TpeOptions } from "./Sampler.js"
-import type { InvalidStudyConfig } from "./SearchError.js"
+import type { InvalidOptimizationConfig } from "./SearchError.js"
 
 /** Scheduler algorithm. @since 0.7.0 @category schemas */
 export const Scheduler = Schema.Literal("hyperband", "bohb")
@@ -88,7 +88,7 @@ export const totalTrials = (plan: Plan): number =>
   )
 
 /** Builds a Hyperband plan. @since 0.7.0 @category constructors */
-export const hyperband = (options: HyperbandOptions): Effect.Effect<Plan, InvalidStudyConfig> =>
+export const hyperband = (options: HyperbandOptions): Effect.Effect<Plan, InvalidOptimizationConfig> =>
   Constructors.hyperband(options)
 /** Builds a BOHB plan. @since 0.7.0 @category constructors */
-export const bohb = (options: BohbOptions): Effect.Effect<Plan, InvalidStudyConfig> => Constructors.bohb(options)
+export const bohb = (options: BohbOptions): Effect.Effect<Plan, InvalidOptimizationConfig> => Constructors.bohb(options)

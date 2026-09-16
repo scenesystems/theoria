@@ -5,9 +5,10 @@
  * Run: bun run examples/04-multi-objective.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Effect, Iterable, Match, Option, Record } from "effect"
+import { Array as Arr, Effect, Iterable, Match, Number as Num, Option, Record, Tuple } from "effect"
 
-import { Objective, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { type Direction, Objective, Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const latencyCost: Readonly<Record<string, number>> = {
   baseline: 0.3,
@@ -33,34 +34,38 @@ const qualityLoss: Readonly<Record<string, number>> = {
   recall: 1.4
 }
 
-const formatValue = (values: ReadonlyArray<number>, index: number): string =>
+const formatValue = (values: Objective.Vector, index: number): string =>
   Option.match(Arr.get(values, index), {
     onNone: () => "?",
-    onSome: (n) => n.toFixed(1)
+    onSome: (n) => String(Numeric.round(n, 1))
   })
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
-    instruction: SearchSpace.categorical(["baseline", "detailed", "socratic"]),
-    demos: SearchSpace.categorical(["none", "few", "curated"]),
-    scoring: SearchSpace.categorical(["strict", "balanced", "recall"])
+    instruction: SearchSpace.categorical(Tuple.make("baseline", "detailed", "socratic")),
+    demos: SearchSpace.categorical(Tuple.make("none", "few", "curated")),
+    scoring: SearchSpace.categorical(Tuple.make("strict", "balanced", "recall"))
   })
 
-  const result = yield* Study.optimize({
+  const result = yield* Optimization.run({
     space,
     sampler: Sampler.tpe({ seed: 919 }),
-    directions: ["minimize", "minimize"],
+    directions: Arr.replicate<Direction.Direction>("minimize", 2),
     trials: 27,
     objective: (config) => {
       const valueOrZero = (values: Readonly<Record<string, number>>, key: string) =>
         Option.getOrElse(Record.get(values, key), () => 0)
-      const latency = valueOrZero(latencyCost, config.instruction)
-        + valueOrZero(latencyCost, config.demos)
-        + valueOrZero(latencyCost, config.scoring)
-      const quality = valueOrZero(qualityLoss, config.instruction)
-        + valueOrZero(qualityLoss, config.demos)
-        + valueOrZero(qualityLoss, config.scoring)
-      return Effect.succeed([latency, quality])
+      const latency = Num.sumAll(Arr.make(
+        valueOrZero(latencyCost, config.instruction),
+        valueOrZero(latencyCost, config.demos),
+        valueOrZero(latencyCost, config.scoring)
+      ))
+      const quality = Num.sumAll(Arr.make(
+        valueOrZero(qualityLoss, config.instruction),
+        valueOrZero(qualityLoss, config.demos),
+        valueOrZero(qualityLoss, config.scoring)
+      ))
+      return Effect.succeed(Tuple.make(latency, quality))
     }
   })
 

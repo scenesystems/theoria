@@ -6,10 +6,22 @@
  * Run: bun run examples/applications/03-product-rollout-policy.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Either, Iterable, Match, Option, Record, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Either,
+  Iterable,
+  Match,
+  Number as Num,
+  Option,
+  Record,
+  Schema,
+  Tuple
+} from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const ADOPTION_LIFT: Readonly<Record<string, number>> = {
   inline: 0.08,
@@ -26,38 +38,57 @@ const ADOPTION_LIFT: Readonly<Record<string, number>> = {
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
     rolloutPercent: SearchSpace.int(5, 100, { step: 5 }),
-    onboarding: SearchSpace.categorical(["inline", "guided", "cohort"]),
-    notificationCadence: SearchSpace.categorical(["off", "weekly", "adaptive"]),
-    rankingModel: SearchSpace.categorical(["baseline", "balanced", "aggressive"]),
+    onboarding: SearchSpace.categorical(Tuple.make("inline", "guided", "cohort")),
+    notificationCadence: SearchSpace.categorical(Tuple.make("off", "weekly", "adaptive")),
+    rankingModel: SearchSpace.categorical(Tuple.make("baseline", "balanced", "aggressive")),
     supportAutomation: SearchSpace.boolean()
   })
   const churnRisk = (config: SearchSpace.Type<typeof space>): number =>
-    0.08
-    + config.rolloutPercent / 540
-    + (config.notificationCadence === "adaptive" ? 0.05 : 0)
-    + (config.rankingModel === "aggressive" ? 0.06 : 0)
-    + (config.supportAutomation ? 0.015 : 0.04)
+    Num.sumAll(Arr.make(
+      0.08,
+      Num.unsafeDivide(config.rolloutPercent, 540),
+      Match.value(config.notificationCadence).pipe(
+        Match.when("adaptive", () => 0.05),
+        Match.orElse(() => 0)
+      ),
+      Match.value(config.rankingModel).pipe(
+        Match.when("aggressive", () => 0.06),
+        Match.orElse(() => 0)
+      ),
+      Bool.match(config.supportAutomation, { onFalse: () => 0.04, onTrue: () => 0.015 })
+    ))
   const p95LatencyMs = (config: SearchSpace.Type<typeof space>): number =>
-    170
-    + (config.rankingModel === "aggressive" ? 95 : config.rankingModel === "balanced" ? 42 : 0)
-    + (config.notificationCadence === "adaptive" ? 24 : 0)
-    + config.rolloutPercent * 0.72
+    Num.sumAll(Arr.make(
+      170,
+      Match.value(config.rankingModel).pipe(
+        Match.when("aggressive", () => 95),
+        Match.when("balanced", () => 42),
+        Match.orElse(() => 0)
+      ),
+      Match.value(config.notificationCadence).pipe(
+        Match.when("adaptive", () => 24),
+        Match.orElse(() => 0)
+      ),
+      Num.multiply(config.rolloutPercent, 0.72)
+    ))
   const businessLiftScore = (config: SearchSpace.Type<typeof space>): number => {
     const lift = (key: string) => Option.getOrElse(Record.get(ADOPTION_LIFT, key), () => 0)
     const onboardingLift = lift(config.onboarding)
     const cadenceLift = lift(config.notificationCadence)
     const rankingLift = lift(config.rankingModel)
-    const churnViolation = Numeric.max(0, churnRisk(config) - 0.24)
-    const latencyViolation = Numeric.max(0, p95LatencyMs(config) - 260) / 220
+    const churnViolation = Numeric.max(0, Num.subtract(churnRisk(config), 0.24))
+    const latencyViolation = Num.unsafeDivide(Numeric.max(0, Num.subtract(p95LatencyMs(config), 260)), 220)
 
-    return 0.45
-      + onboardingLift
-      + cadenceLift
-      + rankingLift
-      + (config.supportAutomation ? 0.03 : 0)
-      - Numeric.abs(config.rolloutPercent - 65) / 420
-      - churnViolation * 2.2
-      - latencyViolation
+    return Num.sumAll(Arr.make(
+      0.45,
+      onboardingLift,
+      cadenceLift,
+      rankingLift,
+      Bool.match(config.supportAutomation, { onFalse: () => 0, onTrue: () => 0.03 }),
+      Num.negate(Num.unsafeDivide(Numeric.abs(Num.subtract(config.rolloutPercent, 65)), 420)),
+      Num.negate(Num.multiply(churnViolation, 2.2)),
+      Num.negate(latencyViolation)
+    ))
   }
 
   const decodeConfig = Schema.decodeUnknownEither(space.schema)
@@ -67,7 +98,7 @@ const program = Effect.gen(function*() {
       decodeConfig(rawConfig).pipe(
         Either.match({
           onLeft: () => 1,
-          onRight: (config) => churnRisk(config) - 0.24
+          onRight: (config) => Num.subtract(churnRisk(config), 0.24)
         })
       )
     )
@@ -77,18 +108,18 @@ const program = Effect.gen(function*() {
       decodeConfig(rawConfig).pipe(
         Either.match({
           onLeft: () => 1,
-          onRight: (config) => p95LatencyMs(config) - 260
+          onRight: (config) => Num.subtract(p95LatencyMs(config), 260)
         })
       )
     )
 
-  const result = yield* Study.maximize({
+  const result = yield* Optimization.maximize({
     space,
     sampler: Sampler.tpe({
       seed: 2801,
       nStartupTrials: 12,
       multivariate: true,
-      constraints: [churnConstraint, latencyConstraint]
+      constraints: Arr.make(churnConstraint, latencyConstraint)
     }),
     trials: 70,
     objective: (config) => Effect.succeed(businessLiftScore(config))
@@ -105,7 +136,10 @@ const program = Effect.gen(function*() {
           bestConfig: bestTrial.config,
           churnRisk: churnRisk(bestTrial.config),
           p95LatencyMs: p95LatencyMs(bestTrial.config),
-          feasible: churnRisk(bestTrial.config) <= 0.24 && p95LatencyMs(bestTrial.config) <= 260
+          feasible: Bool.and(
+            Num.lessThanOrEqualTo(churnRisk(bestTrial.config), 0.24),
+            Num.lessThanOrEqualTo(p95LatencyMs(bestTrial.config), 260)
+          )
         })
     ),
     Match.tag("MultiObjective", () => Effect.void),

@@ -8,7 +8,7 @@ import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Iterable, Match, Number as Num, Ref } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -18,7 +18,7 @@ const program = Effect.gen(function*() {
   const activeRef = yield* Ref.make(0)
   const maxActiveRef = yield* Ref.make(0)
 
-  const result = yield* Study.minimize({
+  const result = yield* Optimization.minimize({
     space,
     sampler: Sampler.random({ seed: 221 }),
     trials: 24,
@@ -31,7 +31,10 @@ const program = Effect.gen(function*() {
         () =>
           Effect.sleep("20 millis").pipe(
             Effect.as(
-              Numeric.pow(config.x - 0.4, 2) + Numeric.pow(config.y + 0.2, 2)
+              Num.sum(
+                Numeric.pow(Num.subtract(config.x, 0.4), 2),
+                Numeric.pow(Num.sum(config.y, 0.2), 2)
+              )
             )
           ),
         () => Ref.update(activeRef, Num.decrement)

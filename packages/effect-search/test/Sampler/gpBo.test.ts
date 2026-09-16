@@ -1,12 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
 import { Name } from "../../src/Acquisition.js"
+import * as Direction from "../../src/Direction.js"
 import * as Objective from "../../src/Objective.js"
 import { Context, emptyContext, observation } from "../../src/Sampler.js"
 import * as Sampler from "../../src/Sampler.js"
 import {
-  InvalidStudyConfig,
+  InvalidOptimizationConfig,
   SamplerObjectiveUnsupported,
   SamplerSearchSpaceUnsupported
 } from "../../src/SearchError.js"
@@ -17,21 +18,21 @@ const continuousSpace = SearchSpace.make({
   dropout: SearchSpace.float(0, 0.6)
 })
 
-const acquisitionNames = Schema.decodeSync(Schema.Array(Name))(["ei", "pi", "thompson"])
+const acquisitionNames = Schema.decodeSync(Schema.Array(Name))(Schema.Literal("ei", "pi", "thompson").literals)
 
 const categoricalSpace = SearchSpace.make({
-  optimizer: SearchSpace.categorical(["adam", "sgd"]),
+  optimizer: SearchSpace.categorical(Arr.make("adam", "sgd")),
   learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
 })
 
 const completedContext = (nextTrialNumber: number) =>
   new Context({
-    completed: [
+    completed: Arr.make(
       observation(0, { learningRate: 0.01, dropout: 0.2 }, 1.4),
       observation(1, { learningRate: 0.02, dropout: 0.1 }, 0.8),
       observation(2, { learningRate: 0.005, dropout: 0.3 }, 1.1)
-    ],
-    pending: [],
+    ),
+    pending: Arr.empty(),
     objectiveSpec: Objective.single("minimize"),
     nextTrialNumber,
     epsilon: 0
@@ -39,12 +40,12 @@ const completedContext = (nextTrialNumber: number) =>
 
 const multiContext = (nextTrialNumber: number) =>
   new Context({
-    completed: [
-      observation(0, { learningRate: 0.01, dropout: 0.2 }, [1.4, 0.8]),
-      observation(1, { learningRate: 0.02, dropout: 0.1 }, [0.8, 1.2])
-    ],
-    pending: [],
-    objectiveSpec: Objective.multi(["minimize", "minimize"]),
+    completed: Arr.make(
+      observation(0, { learningRate: 0.01, dropout: 0.2 }, Arr.make(1.4, 0.8)),
+      observation(1, { learningRate: 0.02, dropout: 0.1 }, Arr.make(0.8, 1.2))
+    ),
+    pending: Arr.empty(),
+    objectiveSpec: Objective.multi(Tuple.make(Direction.minimize, Direction.minimize)),
     nextTrialNumber,
     epsilon: 0
   })
@@ -72,7 +73,7 @@ describe("Sampler.gpBo", () => {
           completedContext(3)
         ))
 
-      outcomes.forEach((candidate) => {
+      Arr.forEach(outcomes, (candidate) => {
         const decoded = decode(candidate)
         expect(Either.isRight(decoded)).toBe(true)
       })
@@ -86,9 +87,7 @@ describe("Sampler.gpBo", () => {
 
       expect(Either.isLeft(outcome)).toBe(true)
 
-      if (Either.isLeft(outcome)) {
-        expect(outcome.left).toBeInstanceOf(SamplerSearchSpaceUnsupported)
-      }
+      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(SamplerSearchSpaceUnsupported))
     }))
 
   it.effect("rejects multi-objective suggestion contexts with typed sampler errors", () =>
@@ -99,9 +98,7 @@ describe("Sampler.gpBo", () => {
 
       expect(Either.isLeft(outcome)).toBe(true)
 
-      if (Either.isLeft(outcome)) {
-        expect(outcome.left).toBeInstanceOf(SamplerObjectiveUnsupported)
-      }
+      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(SamplerObjectiveUnsupported))
     }))
 
   it.effect("fails checkpoint restore when persisted checkpoint mismatches runtime sampler parameters", () =>
@@ -113,7 +110,7 @@ describe("Sampler.gpBo", () => {
           _tag: "GpBo",
           seed,
           nStartupTrials,
-          nCandidates: nCandidates + 1,
+          nCandidates: Num.increment(nCandidates),
           lengthScale,
           noise
         })),
@@ -123,9 +120,7 @@ describe("Sampler.gpBo", () => {
 
       expect(Either.isLeft(outcome)).toBe(true)
 
-      if (Either.isLeft(outcome)) {
-        expect(outcome.left).toBeInstanceOf(InvalidStudyConfig)
-      }
+      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(InvalidOptimizationConfig))
     }))
 
   it.effect("fails checkpoint restore when GP hyperparameters drift across resume", () =>
@@ -151,9 +146,7 @@ describe("Sampler.gpBo", () => {
 
       expect(Either.isLeft(outcome)).toBe(true)
 
-      if (Either.isLeft(outcome)) {
-        expect(outcome.left).toBeInstanceOf(InvalidStudyConfig)
-      }
+      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(InvalidOptimizationConfig))
     }))
 
   it.effect("produces schema-decodable suggestions within declared bounds", () =>
@@ -169,8 +162,6 @@ describe("Sampler.gpBo", () => {
 
       expect(Either.isRight(decoded)).toBe(true)
 
-      if (Either.isRight(decoded)) {
-        expect(Option.isSome(Option.fromNullable(decoded.right.learningRate))).toBe(true)
-      }
+      Either.map(decoded, (config) => expect(Option.isSome(Option.fromNullable(config.learningRate))).toBe(true))
     }))
 })

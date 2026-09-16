@@ -1,34 +1,35 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
+import * as Direction from "../../src/Direction.js"
 import * as Objective from "../../src/Objective.js"
 import { Context, emptyContext, observation } from "../../src/Sampler.js"
 import * as Sampler from "../../src/Sampler.js"
 import {
-  InvalidStudyConfig,
+  InvalidOptimizationConfig,
   SamplerObjectiveUnsupported,
   SamplerSearchSpaceUnsupported
 } from "../../src/SearchError.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
 const continuousSpace = SearchSpace.make({
-  x: SearchSpace.float(-4, 4),
-  y: SearchSpace.float(-2, 2)
+  x: SearchSpace.float(Num.negate(4), 4),
+  y: SearchSpace.float(Num.negate(2), 2)
 })
 
 const categoricalSpace = SearchSpace.make({
-  optimizer: SearchSpace.categorical(["adam", "sgd"]),
-  x: SearchSpace.float(-4, 4)
+  optimizer: SearchSpace.categorical(Arr.make("adam", "sgd")),
+  x: SearchSpace.float(Num.negate(4), 4)
 })
 
 const multiContext = (nextTrialNumber: number) =>
   new Context({
-    completed: [
-      observation(0, { x: 0, y: 0 }, [1, 2]),
-      observation(1, { x: 1, y: 1 }, [0.5, 1.5])
-    ],
-    pending: [],
-    objectiveSpec: Objective.multi(["minimize", "minimize"]),
+    completed: Arr.make(
+      observation(0, { x: 0, y: 0 }, Arr.make(1, 2)),
+      observation(1, { x: 1, y: 1 }, Arr.make(0.5, 1.5))
+    ),
+    pending: Arr.empty(),
+    objectiveSpec: Objective.multi(Tuple.make(Direction.minimize, Direction.minimize)),
     nextTrialNumber,
     epsilon: 0
   })
@@ -61,9 +62,7 @@ describe("Sampler.cmaEs", () => {
 
       expect(Either.isLeft(outcome)).toBe(true)
 
-      if (Either.isLeft(outcome)) {
-        expect(outcome.left).toBeInstanceOf(SamplerSearchSpaceUnsupported)
-      }
+      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(SamplerSearchSpaceUnsupported))
     }))
 
   it.effect("rejects multi-objective suggestion contexts with typed sampler errors", () =>
@@ -74,9 +73,7 @@ describe("Sampler.cmaEs", () => {
 
       expect(Either.isLeft(outcome)).toBe(true)
 
-      if (Either.isLeft(outcome)) {
-        expect(outcome.left).toBeInstanceOf(SamplerObjectiveUnsupported)
-      }
+      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(SamplerObjectiveUnsupported))
     }))
 
   it.effect("fails checkpoint restore when persisted checkpoint mismatches runtime sampler parameters", () =>
@@ -86,7 +83,7 @@ describe("Sampler.cmaEs", () => {
       const corruptCheckpoint = Match.value(checkpoint).pipe(
         Match.tag("CmaEs", ({ seed, sigma, populationSize }): Sampler.Checkpoint => ({
           _tag: "CmaEs",
-          seed: seed + 1,
+          seed: Num.increment(seed),
           sigma,
           populationSize
         })),
@@ -96,9 +93,7 @@ describe("Sampler.cmaEs", () => {
       const outcome = yield* Effect.either(Sampler.restore(sampler, corruptCheckpoint))
       expect(Either.isLeft(outcome)).toBe(true)
 
-      if (Either.isLeft(outcome)) {
-        expect(outcome.left).toBeInstanceOf(InvalidStudyConfig)
-      }
+      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(InvalidOptimizationConfig))
     }))
 
   it.effect("produces schema-decodable suggestions within declared bounds", () =>
@@ -114,29 +109,27 @@ describe("Sampler.cmaEs", () => {
 
       expect(Either.isRight(decoded)).toBe(true)
 
-      if (Either.isLeft(decoded)) {
-        return
-      }
-
-      expect(decoded.right.x).toBeGreaterThanOrEqual(-4)
-      expect(decoded.right.x).toBeLessThanOrEqual(4)
-      expect(decoded.right.y).toBeGreaterThanOrEqual(-2)
-      expect(decoded.right.y).toBeLessThanOrEqual(2)
+      Either.map(decoded, (config) => {
+        expect(config.x).toBeGreaterThanOrEqual(Num.negate(4))
+        expect(config.x).toBeLessThanOrEqual(4)
+        expect(config.y).toBeGreaterThanOrEqual(Num.negate(2))
+        expect(config.y).toBeLessThanOrEqual(2)
+      })
     }))
 
   it.effect("tracks sampled improvements from completed history", () =>
     Effect.gen(function*() {
       const sampler = Sampler.cmaEs({ seed: 37, sigma: 0.5, populationSize: 8 })
       const space = yield* continuousSpace
-      const completed = [
-        observation(0, { x: -2, y: -1 }, 12),
+      const completed = Arr.make(
+        observation(0, { x: Num.negate(2), y: Num.negate(1) }, 12),
         observation(1, { x: 1, y: 1 }, 2),
         observation(2, { x: 0.8, y: 0.9 }, 1.8),
         observation(3, { x: 2, y: 1.5 }, 6)
-      ]
+      )
       const context = new Context({
         completed,
-        pending: [],
+        pending: Arr.empty(),
         objectiveSpec: Objective.single("minimize"),
         nextTrialNumber: 4,
         epsilon: 0
@@ -147,8 +140,6 @@ describe("Sampler.cmaEs", () => {
 
       expect(Either.isRight(decoded)).toBe(true)
 
-      if (Either.isRight(decoded)) {
-        expect(Option.isSome(Option.fromNullable(decoded.right.x))).toBe(true)
-      }
+      Either.map(decoded, (config) => expect(Option.isSome(Option.fromNullable(config.x))).toBe(true))
     }))
 })

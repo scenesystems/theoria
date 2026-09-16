@@ -1,24 +1,24 @@
 /**
  * Reuses objective results for repeated configurations through a scoped
- * `StudyObjectiveCache` and reports the number of actual evaluations.
+ * `ObjectiveCache` and reports the number of actual evaluations.
  *
  * Run: bun run examples/12-trial-cache.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Iterable, Match, Number as Num, Ref } from "effect"
+import { Effect, Iterable, Match, Number as Num, Ref, Tuple } from "effect"
 
-import { ObjectiveCache, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { ObjectiveCache, Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
-    choice: SearchSpace.categorical(["only"])
+    choice: SearchSpace.categorical(Tuple.make("only"))
   })
   const objectiveCalls = yield* Ref.make(0)
 
   const cachedRuns = Effect.gen(function*() {
     const objective = () => Ref.updateAndGet(objectiveCalls, Num.increment)
 
-    const first = yield* Study.minimize({
+    const first = yield* Optimization.minimize({
       space,
       sampler: Sampler.random({ seed: 31 }),
       trials: 4,
@@ -26,7 +26,7 @@ const program = Effect.gen(function*() {
       objective
     })
 
-    const second = yield* Study.minimize({
+    const second = yield* Optimization.minimize({
       space,
       sampler: Sampler.random({ seed: 31 }),
       trials: 4,

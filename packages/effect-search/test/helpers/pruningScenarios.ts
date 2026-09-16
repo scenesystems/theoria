@@ -1,11 +1,11 @@
 import { Array as Arr, Cause, Effect, Match, Number as Num, Option, Ref, Schema } from "effect"
 
-import { EventRuntime, noopEventPublisher } from "../../src/internal/study/events.js"
+import { EventRuntime, noopEventPublisher } from "../../src/internal/optimization/events.js"
+import type * as Optimization from "../../src/Optimization.js"
 import * as Pruning from "../../src/Pruning.js"
 import { pendingAsZeroPolicy } from "../../src/Sampler.js"
 import * as Sampler from "../../src/Sampler.js"
 import { InvalidObjectiveReport } from "../../src/SearchError.js"
-import type * as Study from "../../src/Study.js"
 import * as Trial from "../../src/Trial.js"
 import { decodeSlotConfig, makeSlotSpace } from "../fixtures/scenarios/slot.js"
 
@@ -51,8 +51,8 @@ export const sequentialSlotSampler = new Sampler.Sampler({
 })
 
 export const pruningSingleObjectiveResult = (
-  result: Study.Result
-): Option.Option<Study.SingleObjectiveResult> =>
+  result: Optimization.Result
+): Option.Option<Optimization.SingleObjectiveResult> =>
   Match.value(result).pipe(
     Match.tag("SingleObjective", (single) => Option.some(single)),
     Match.orElse(() => Option.none())
@@ -105,7 +105,7 @@ export const invalidReportObjective = (raw: unknown, runtime: Pruning.Runtime) =
   })
 
 export const stoppingSlotObjective = (
-  heartbeatRef: Ref.Ref<Array<string>>,
+  heartbeatRef: Ref.Ref<Iterable<string>>,
   stopReason: string
 ) =>
 (raw: unknown, runtime: Pruning.Runtime) =>
@@ -120,22 +120,22 @@ export const stoppingSlotObjective = (
     return config.slot
   })
 
-export const invalidReportReasons = (trials: Iterable<Trial.Trial<unknown>>): Array<string> => {
+export const invalidReportReasons = (trials: Iterable<Trial.Trial<unknown>>) => {
   const isInvalidObjectiveReport = Schema.is(InvalidObjectiveReport)
-  const reasonFromFailure = (failure: unknown): Array<string> =>
+  const reasonFromFailure = (failure: unknown) =>
     Option.liftPredicate(failure, isInvalidObjectiveReport).pipe(
       Option.match({
-        onNone: () => [],
-        onSome: (invalidReport) => [invalidReport.reason]
+        onNone: Arr.empty,
+        onSome: (invalidReport) => Arr.of(invalidReport.reason)
       })
     )
 
   return Arr.flatMap(Arr.fromIterable(trials), (trial) =>
     Trial.matchState({
-      Running: () => [],
-      Completed: () => [],
-      Pruned: () => [],
-      Cancelled: () => [],
+      Running: Arr.empty,
+      Completed: Arr.empty,
+      Pruned: Arr.empty,
+      Cancelled: Arr.empty,
       Failed: ({ error }) =>
         Option.liftPredicate(Cause.isCause)(error.cause).pipe(
           Option.match({
@@ -143,7 +143,7 @@ export const invalidReportReasons = (trials: Iterable<Trial.Trial<unknown>>): Ar
             onSome: (cause) =>
               Cause.failureOption(cause).pipe(
                 Option.match({
-                  onNone: () => [],
+                  onNone: Arr.empty,
                   onSome: reasonFromFailure
                 })
               )

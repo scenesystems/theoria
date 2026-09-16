@@ -2,28 +2,28 @@
 
 `@scenesystems/effect-search` is black-box optimization for programs built with [Effect](https://effect.website). Use it when you can evaluate a configuration but cannot express its quality as a closed-form or differentiable function: benchmark scores, model quality, operating cost, or the outcome of an experiment.
 
-A `SearchSpace` describes the valid configurations and infers their TypeScript type. A `Study` asks a `Sampler` for a configuration, runs your Effect objective, records the resulting `Trial`, and returns that history to the sampler before its next suggestion. Because the study owns trial states, sampler checkpoints, and search-space identity, an optimization can be inspected, snapshotted, and resumed.
+A `SearchSpace` describes the valid configurations and infers their TypeScript type. An `Optimization` asks a `Sampler` for a configuration, runs your Effect objective, records the resulting `Trial`, and returns that history to the sampler before its next suggestion. Because the optimization owns trial states, sampler checkpoints, and search-space identity, it can be inspected, snapshotted, and resumed.
 
-The samplers compute with [`@scenesystems/effect-math`](../effect-math/README.md). Cached objective inputs and study artifacts get stable content identities from [`@scenesystems/digest`](../digest/README.md). [`@scenesystems/effect-dsp`](../effect-dsp/README.md) builds its prompt optimizers on this package.
+The samplers compute with [`@scenesystems/effect-math`](../effect-math/README.md). Cached objective inputs and search artifacts get stable content identities from [`@scenesystems/digest`](../digest/README.md). [`@scenesystems/effect-dsp`](../effect-dsp/README.md) builds its prompt optimizers on this package.
 
-Reusable trial schemas, history, stop controls, event streams, and artifact persistence live in [`@scenesystems/effect-study`](../effect-study/README.md). Use that package directly for fixed-input evaluation or non-numeric observations. Existing search entrypoints and snapshot formats remain available here; sampling, ranking, pruning, and search recovery remain search responsibilities.
+Reusable trial schemas, history, stop controls, event streams, generic schema-parameterized storage, and artifact persistence live in [`@scenesystems/effect-study`](../effect-study/README.md). `effect-search` depends on that lower-level package and specializes it with optimization schemas, checkpoints, and replay policy; `effect-study` does not depend on `effect-search`. Use `effect-study` directly for fixed-input evaluation or non-numeric observations. Sampling, ranking, pruning, and optimization recovery remain `effect-search` responsibilities.
 
 ## Installation
 
 ```sh
-npm install @scenesystems/effect-search effect @effect/platform @effect/experimental
+bun add @scenesystems/effect-search effect @effect/platform @effect/experimental
 ```
 
 Effect `^3.22.1` is a required peer dependency, together with `@effect/platform` and `@effect/experimental`. `@effect/sql` is an optional peer that is needed only for the SQL-backed cache layers.
 
 ## Basic use
 
-The study below minimizes a two-dimensional function. `SearchSpace.make` validates the definition and carries the inferred configuration type through the objective and the result.
+The optimization below minimizes a two-dimensional function. `SearchSpace.make` validates the definition and carries the inferred configuration type through the objective and the result.
 
 ```ts typecheck
 import { Effect, Match, Number as Num } from "effect"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 export const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
@@ -31,7 +31,7 @@ export const program = Effect.gen(function* () {
     y: SearchSpace.float(-5, 5)
   })
 
-  const result = yield* Study.minimize({
+  const result = yield* Optimization.minimize({
     space,
     sampler: Sampler.tpe({ seed: 42 }),
     objective: ({ x, y }) => Effect.succeed(Num.sum(Numeric.pow(Num.subtract(x, 2), 2), Numeric.pow(Num.sum(y, 1), 2))),
@@ -48,7 +48,7 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-The objective is an ordinary Effect, so it can use services, fail with typed errors, and run concurrently. Each trial records its configuration and a lifecycle state: running, completed, failed, pruned, or cancelled. The result is a tagged union because the same study machinery returns a Pareto front when there are several objectives.
+The objective is an ordinary Effect, so it can use services, fail with typed errors, and run concurrently. Each trial records its configuration and a lifecycle state: running, completed, failed, pruned, or cancelled. The result is a tagged union because the same optimization machinery returns a Pareto front when there are several objectives.
 
 ## Search spaces
 
@@ -59,7 +59,7 @@ Conditional spaces branch on a categorical value. `SearchSpace.makeConditional` 
 ```ts typecheck
 import { Chunk, Effect, Match, Number as Num } from "effect"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 export const program = Effect.gen(function* () {
   const linear = yield* SearchSpace.make({
@@ -75,7 +75,7 @@ export const program = Effect.gen(function* () {
     SearchSpace.switchOn("model", Chunk.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
   )
 
-  return yield* Study.minimize({
+  return yield* Optimization.minimize({
     space,
     sampler: Sampler.tpe({ seed: 17 }),
     trials: 45,
@@ -93,7 +93,7 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-`SearchSpace.Type<typeof space>` names the configuration type when you need it outside the study. `SearchSpace.extend` composes an existing space with additional dimensions.
+`SearchSpace.Type<typeof space>` names the configuration type when you need it outside the optimization. `SearchSpace.extend` composes an existing space with additional dimensions.
 
 ## Samplers and schedulers
 
@@ -107,15 +107,15 @@ export const program = Effect.gen(function* () {
 | `Scheduler.hyperband()` | Spaces with a fidelity dimension         | Successive halving across budgets                        |
 | `Scheduler.bohb()`      | Spaces with a fidelity dimension         | HyperBand allocation with TPE suggestions                |
 
-Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Study.optimize` as the `scheduler` option in place of a `sampler`.
+Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Optimization.run` as the `scheduler` option in place of a `sampler`.
 
-A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The study as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
+A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The optimization as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
 
 TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or a custom `Acquisition.Acquisition` created with `Acquisition.make`. Use `Acquisition.isAcquisition` when narrowing unknown extension values.
 
-## Running studies
+## Running optimizations
 
-`Study.minimize` and `Study.maximize` run a single-objective study to completion. `Study.optimize` takes an explicit `direction` or a `directions` array and accepts a `scheduler`. All three share the same options:
+`Optimization.minimize` and `Optimization.maximize` run a single-objective optimization to completion. `Optimization.run` takes an explicit `direction` or a `directions` array and accepts a `scheduler`. All three share the same options:
 
 - Stopping: `trials`, `maxDuration`, `maxCost`, `targetValue`, or `noImprovementWindow`, combined by `stopMode`.
 - Concurrency: `concurrency` runs trials in parallel while the sampler keeps suggesting from imputed pending results.
@@ -127,8 +127,8 @@ With several `directions`, the objective returns a vector and the result is `Mul
 `Pruning.threshold` creates the built-in threshold policy. Objective callbacks receive `Pruning.Runtime` as their second argument, with `report`, `heartbeat`, `requestStop`, and scheduled `resource` controls.
 
 ```ts typecheck
-import { Array as Arr, Effect, Iterable, Match, Number as Num } from "effect"
-import { Direction, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Array as Arr, Effect, Iterable, Match, Number as Num, Tuple } from "effect"
+import { type Direction, Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 export const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
@@ -136,7 +136,7 @@ export const program = Effect.gen(function* () {
     cacheMb: SearchSpace.int(64, 1024, { step: 64 })
   })
 
-  const result = yield* Study.optimize({
+  const result = yield* Optimization.run({
     space,
     sampler: Sampler.tpe({ seed: 919 }),
     directions: Arr.replicate<Direction.Direction>("minimize", 2),
@@ -144,7 +144,7 @@ export const program = Effect.gen(function* () {
     objective: ({ replicas, cacheMb }) => {
       const latency = Num.sum(Num.unsafeDivide(100, replicas), Num.unsafeDivide(2000, cacheMb))
       const cost = Num.sum(Num.multiply(replicas, 1.5), Num.unsafeDivide(cacheMb, 256))
-      return Effect.succeed(Arr.make(latency, cost))
+      return Effect.succeed(Tuple.make(latency, cost))
     }
   })
 
@@ -156,15 +156,15 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-`Study.optimizeStream` runs the same study but emits typed `StudyEvent.StudyEvent` values for every trial and study lifecycle change. Fold, filter, or publish the stream with ordinary `Stream` operators; `Progress.tap()` adds the ready-made terminal progress reporter without changing stream values.
+`Optimization.stream` runs the same optimization but emits typed `OptimizationEvent.OptimizationEvent` values for every trial and optimization lifecycle change. Fold, filter, or publish the stream with ordinary `Stream` operators; `Progress.tap()` adds the ready-made terminal progress reporter without changing stream values.
 
 ## Persistence and resumption
 
-`Study.snapshot` captures the trials, the next trial number, the sampler checkpoint, and compatibility metadata from a result or an open handle. `StudySnapshot.StudySnapshot` is the schema, so encode it for storage and decode it later. `Study.resume` validates the space and settings against the snapshot before continuing.
+`Optimization.snapshot` captures the trials, the next trial number, the sampler checkpoint, and compatibility metadata from a result or an open handle. `OptimizationSnapshot.OptimizationSnapshot` is the schema, so encode it for storage and decode it later. `Optimization.resume` validates the space and settings against the snapshot before continuing.
 
 ```ts typecheck
 import { Effect, Number as Num, Schema } from "effect"
-import { Sampler, SearchSpace, Study, StudySnapshot } from "@scenesystems/effect-search"
+import { Optimization, OptimizationSnapshot, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 export const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({ x: SearchSpace.float(-5, 5) })
@@ -173,11 +173,11 @@ export const program = Effect.gen(function* () {
     return Effect.succeed(Num.multiply(distance, distance))
   }
 
-  const firstLeg = yield* Study.minimize({ space, sampler: Sampler.tpe({ seed: 404 }), trials: 20, objective })
-  const stored = yield* Schema.encode(StudySnapshot.StudySnapshot)(yield* Study.snapshot(firstLeg))
+  const firstLeg = yield* Optimization.minimize({ space, sampler: Sampler.tpe({ seed: 404 }), trials: 20, objective })
+  const stored = yield* Schema.encode(OptimizationSnapshot.OptimizationSnapshot)(yield* Optimization.snapshot(firstLeg))
 
-  const snapshot = yield* Schema.decode(StudySnapshot.StudySnapshot)(stored)
-  return yield* Study.resume({
+  const snapshot = yield* Schema.decode(OptimizationSnapshot.OptimizationSnapshot)(stored)
+  return yield* Optimization.resume({
     space,
     sampler: Sampler.tpe({ seed: 404 }),
     snapshot,
@@ -188,24 +188,26 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-For long-running work, `StudyStorage.layer(new StudyStorage.Options({ directory, fileName }))` installs the durable study service over `ArtifactSink` and `ArtifactContext`. It keeps an append-only trial log and snapshots; `Study.resumeFromStorage` or `Study.resumeFromStorageStream` continue from that state. Filesystem-backed storage also needs the platform `FileSystem` and `Path` services, which `@effect/platform-bun` or `@effect/platform-node` provide.
+For long-running work, import `StudyStorage` from `@scenesystems/effect-study/StudyStorage` and install `OptimizationStorage.layerFileSystem(StudyStorage.fileSystemOptions(directory))`. Generic storage owns the JSON-lines journal and defaults to `study-storage.jsonl`; `OptimizationStorage` supplies the optimization trial and snapshot schemas. `Optimization.resumeFromStorage` or `Optimization.resumeFromStorageStream` continue from that state. `OptimizationStorage.makeFileSystem` is the effectful filesystem constructor. `OptimizationStorage.make` is an Effect that specializes an ambient `StudyStorage`, while `OptimizationStorage.layer` provides that ambient specialization as a `Layer`. Filesystem-backed storage also needs the platform `FileSystem` and `Path` services, which `@effect/platform-bun` or `@effect/platform-node` provide. Optimization persistence does not require an artifact sink or artifact context.
 
-Objective caching is a separate concern. A cache avoids re-running the objective for an input that was already evaluated, keyed by a content digest of that input, while storage preserves the study lifecycle. Construct `ObjectiveCache.Options` with a scope and install `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The lower-level `Cache` module owns schema-keyed cache descriptors and backend services.
+Artifacts are independent from checkpoints. Import `ArtifactContext` and `ArtifactSink` from `@scenesystems/effect-study/ArtifactContext` and `@scenesystems/effect-study/ArtifactSink`. `ArtifactContext.Options` takes `packageVersion` and `runId`—not an optimization or study ID. Emit with `sink.emit(schema, artifact)`. For a filesystem sink use `ArtifactSink.layerFileSystem(directory, fileName?)`; `ArtifactSink.makeFileSystem` remains the effectful constructor, while `ArtifactSink.layer` installs an already-created generic sink.
+
+Objective caching is a separate concern. A cache avoids re-running the objective for an input that was already evaluated, keyed by a content digest of that input, while storage preserves the optimization lifecycle. Construct `ObjectiveCache.Options` with a scope and install `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The lower-level `Cache` module owns schema-keyed cache descriptors and backend services; it fingerprints schema-encoded keys with the canonical identity implementation from `@scenesystems/digest`.
 
 ## Ask and tell
 
-When another process owns evaluation, such as a job queue or a remote worker, the study can hand out configurations instead of running the objective itself. `Study.open` creates a scoped handle. `Study.ask` reserves the next typed configuration, and `Study.tell`, `Study.fail`, or `Study.cancel` completes that reservation. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Study.result`.
+When another process owns evaluation, such as a job queue or a remote worker, the optimization can hand out configurations instead of running the objective itself. `Optimization.open` creates a scoped handle. `Optimization.ask` reserves the next typed configuration, and `Optimization.tell`, `Optimization.fail`, or `Optimization.cancel` completes that reservation. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Optimization.result`.
 
 ```ts typecheck
 import { Effect, Number as Num } from "effect"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 export const program = Effect.scoped(
   Effect.gen(function* () {
     const space = yield* SearchSpace.make({ x: SearchSpace.float(-4, 4) })
     const evaluateRemotely = (config: SearchSpace.Type<typeof space>) =>
       Effect.succeed(Num.multiply(config.x, config.x))
-    const handle = yield* Study.open({
+    const handle = yield* Optimization.open({
       space,
       sampler: Sampler.random({ seed: 25 }),
       direction: "minimize",
@@ -213,48 +215,48 @@ export const program = Effect.scoped(
       objective: evaluateRemotely
     })
 
-    const asked = yield* Study.ask(handle)
-    const value = yield* evaluateRemotely(asked.config)
-    yield* Study.tell(handle, asked.trialNumber, value)
+    yield* Effect.gen(function* () {
+      const asked = yield* Optimization.ask(handle)
+      const value = yield* evaluateRemotely(asked.config)
+      yield* Optimization.tell(handle, asked.trialNumber, value)
+    }).pipe(Effect.repeatN(3))
 
-    return yield* Study.result(handle)
+    return yield* Optimization.result(handle)
   })
 )
 ```
 
 ## Public surface
 
-Every module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-search/Study`.
+Every module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-search/Optimization`.
 
-| Module                                        | Scope                                                                           |
-| --------------------------------------------- | ------------------------------------------------------------------------------- |
-| [`Acquisition`](./src/Acquisition.ts)         | Built-in and custom acquisition scoring strategies                              |
-| [`Artifact`](./src/Artifact.ts)               | Search artifact provenance, payloads, and envelopes                             |
-| [`ArtifactContext`](./src/ArtifactContext.ts) | Run-scoped artifact identity allocation                                         |
-| [`ArtifactSink`](./src/ArtifactSink.ts)       | Artifact delivery and filesystem journals                                       |
-| [`Cache`](./src/Cache.ts)                     | Schema-keyed cache descriptors, results, observers, and backend layers          |
-| [`Direction`](./src/Direction.ts)             | Objective comparison polarity                                                   |
-| [`Distribution`](./src/Distribution.ts)       | Sampling distributions and schema annotations                                   |
-| [`Objective`](./src/Objective.ts)             | Objective specifications, scalar/vector values, and normalization               |
-| [`ObjectiveCache`](./src/ObjectiveCache.ts)   | Study objective caching and memory, filesystem, and SQL layers                  |
-| [`Pareto`](./src/Pareto.ts)                   | Dominance, fronts, weights, and two-dimensional hypervolume                     |
-| [`Progress`](./src/Progress.ts)               | Terminal event formatting, sinks, and stream tapping                            |
-| [`Pruning`](./src/Pruning.ts)                 | Intermediate reports, objective runtime controls, and pruning policies          |
-| [`Sampler`](./src/Sampler.ts)                 | Suggestion strategies, options, extension contract, and checkpoints             |
-| [`Scheduler`](./src/Scheduler.ts)             | HyperBand and BOHB plans and summaries                                          |
-| [`SearchError`](./src/SearchError.ts)         | Typed expected failures for spaces, studies, samplers, storage, and trials      |
-| [`SearchSpace`](./src/SearchSpace.ts)         | Dimensions, conditional branches, composition, and inferred configuration types |
-| [`Study`](./src/Study.ts)                     | Optimization, streaming, ask/tell coordination, resumption, and results         |
-| [`StudyEvent`](./src/StudyEvent.ts)           | Study lifecycle event schema, constructors, guards, and matching                |
-| [`StudySnapshot`](./src/StudySnapshot.ts)     | Snapshot schema, compatibility validation, and recovery                         |
-| [`StudyStorage`](./src/StudyStorage.ts)       | Durable trial logs and snapshots                                                |
-| [`Trial`](./src/Trial.ts)                     | Search trial states, records, guards, and matching                              |
+| Module                                                  | Scope                                                                           |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [`Acquisition`](./src/Acquisition.ts)                   | Built-in and custom acquisition scoring strategies                              |
+| [`Artifact`](./src/Artifact.ts)                         | Search artifact provenance, payloads, and envelopes                             |
+| [`Cache`](./src/Cache.ts)                               | Schema-keyed cache descriptors, results, observers, and backend layers          |
+| [`Direction`](./src/Direction.ts)                       | Objective comparison polarity                                                   |
+| [`Distribution`](./src/Distribution.ts)                 | Sampling distributions and schema annotations                                   |
+| [`Objective`](./src/Objective.ts)                       | Objective specifications, scalar/vector values, and normalization               |
+| [`ObjectiveCache`](./src/ObjectiveCache.ts)             | Objective caching and memory, filesystem, and SQL layers                        |
+| [`Optimization`](./src/Optimization.ts)                 | Execution, streaming, ask/tell coordination, resumption, and results            |
+| [`OptimizationEvent`](./src/OptimizationEvent.ts)       | Optimization lifecycle schema, constructors, guards, and matching               |
+| [`OptimizationSnapshot`](./src/OptimizationSnapshot.ts) | Snapshot schema, compatibility validation, and recovery                         |
+| [`OptimizationStorage`](./src/OptimizationStorage.ts)   | Optimization schemas, checkpoints, and replay over generic study storage        |
+| [`Pareto`](./src/Pareto.ts)                             | Dominance, fronts, weights, and two-dimensional hypervolume                     |
+| [`Progress`](./src/Progress.ts)                         | Terminal event formatting, sinks, and stream tapping                            |
+| [`Pruning`](./src/Pruning.ts)                           | Intermediate reports, objective runtime controls, and pruning policies          |
+| [`Sampler`](./src/Sampler.ts)                           | Suggestion strategies, options, extension contract, and checkpoints             |
+| [`Scheduler`](./src/Scheduler.ts)                       | HyperBand and BOHB plans and summaries                                          |
+| [`SearchError`](./src/SearchError.ts)                   | Typed expected failures for spaces, optimization, samplers, storage, and trials |
+| [`SearchSpace`](./src/SearchSpace.ts)                   | Dimensions, conditional branches, composition, and inferred configuration types |
+| [`Trial`](./src/Trial.ts)                               | Search trial states, records, guards, and matching                              |
 
 Paths under `internal` are not exported.
 
 ## Errors and boundaries
 
-Failures surface in the Effect error channel as `Schema.TaggedError` values, so `Effect.catchTag` and `Effect.catchTags` work on them directly. `InvalidSearchSpace` and `InvalidStudyConfig` reject definitions before any trial runs. `InvalidSamplerConfig`, `SamplerSearchSpaceUnsupported`, and `SamplerObjectiveUnsupported` report a sampler that cannot serve the space or the objective shape. `TrialError` wraps an objective failure with its trial number, `NoSuccessfulTrials` means a completed study has no best trial to report, and `SamplerExhausted` means a finite sampler has nothing left to suggest.
+Failures surface in the Effect error channel as `Schema.TaggedError` values, so `Effect.catchTag` and `Effect.catchTags` work on them directly. `InvalidSearchSpace` and `InvalidOptimizationConfig` reject definitions before any trial runs. `InvalidSamplerConfig`, `SamplerSearchSpaceUnsupported`, and `SamplerObjectiveUnsupported` report a sampler that cannot serve the space or the objective shape. `TrialError` wraps an objective failure with its trial number, `NoSuccessfulTrials` means a completed optimization has no best trial to report, and `SamplerExhausted` means a finite sampler has nothing left to suggest.
 
 The package owns the search loop and its state. It does not own the objective's resources, retries beyond the schedule you pass, or the durability of the directory or database behind storage and caches. Reproducibility of the objective itself remains your responsibility.
 

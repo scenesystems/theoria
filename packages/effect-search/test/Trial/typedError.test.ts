@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 
+import * as OptimizationEvent from "../../src/OptimizationEvent.js"
+import { fromTrial, toTrial } from "../../src/OptimizationSnapshot.js"
 import { TrialError } from "../../src/SearchError.js"
-import * as StudyEvent from "../../src/StudyEvent.js"
-import { fromTrial, toTrial } from "../../src/StudySnapshot.js"
 import * as Trial from "../../src/Trial.js"
 
 describe("Trial / typed error", () => {
@@ -22,21 +22,20 @@ describe("Trial / typed error", () => {
       expect(Trial.isState("Failed")(failed.state)).toBe(true)
       expect(Trial.isState("Failed")(restored.state)).toBe(true)
 
-      if (Trial.isState("Failed")(restored.state)) {
-        expect(restored.state.error).toBeInstanceOf(TrialError)
-        expect(restored.state.error._tag).toBe("effect-search/TrialError")
-        expect(restored.state.error.trialNumber).toBe(3)
-      }
+      const failure = Option.liftPredicate(restored.state, Trial.isState("Failed")).pipe(Option.getOrThrow)
+      expect(failure.error).toBeInstanceOf(TrialError)
+      expect(failure.error._tag).toBe("effect-search/TrialError")
+      expect(failure.error.trialNumber).toBe(3)
     }))
 
-  it.effect("threads TrialError into StudyEvent.trialFailed", () =>
+  it.effect("threads TrialError into OptimizationEvent.TrialFailed", () =>
     Effect.sync(() => {
       const trialError = new TrialError({
         trialNumber: 9,
         message: "objective timeout",
         cause: { timeout: true }
       })
-      const event = StudyEvent.trialFailed({ trialNumber: 9, error: trialError })
+      const event = OptimizationEvent.TrialFailed({ trialNumber: 9, error: trialError })
 
       expect(event._tag).toBe("TrialFailed")
       expect(event.error).toBeInstanceOf(TrialError)

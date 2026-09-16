@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Either, Match, Number as Num, Ref, Schema } from "effect"
 
-import { makeReportRefs, recordReport } from "../../src/internal/study/runtime/controls.js"
+import { makeReportRefs, recordReport } from "../../src/internal/optimization/runtime/controls.js"
 import * as Pruning from "../../src/Pruning.js"
 import {
   FixtureRegistryLive,
@@ -23,7 +23,7 @@ describe("pruning fixture replay contracts", () => {
           Effect.gen(function*() {
             const runtime = yield* makePruningEventRuntime()
             const reportRefs = yield* makeReportRefs
-            const trialNumber = 400 + index
+            const trialNumber = Num.sum(400, index)
 
             yield* Effect.forEach(
               entry.initialReports,
@@ -50,7 +50,7 @@ describe("pruning fixture replay contracts", () => {
               )
             )
             const reports = yield* Ref.get(reportRefs.reportsRef)
-            const expectedReports = entry.expectedReports.map((report) => ({
+            const expectedReports = Arr.map(entry.expectedReports, (report) => ({
               step: report.step,
               value: decodePruningTraceValue(report.value)
             }))
@@ -67,9 +67,7 @@ describe("pruning fixture replay contracts", () => {
               Match.orElse(() => {
                 expect(result._tag).toBe("Left")
 
-                if (result._tag === "Left") {
-                  expect(result.left._tag).toBe("effect-search/InvalidObjectiveReport")
-                }
+                Either.mapLeft(result, (failure) => expect(failure._tag).toBe("effect-search/InvalidObjectiveReport"))
               })
             )
           }),
@@ -91,15 +89,15 @@ describe("pruning fixture replay contracts", () => {
               settings: entry.settings,
               trialNumber: entry.trialNumber,
               step: entry.step,
-              history: entry.history.map((trial) => ({
+              history: Arr.map(entry.history, (trial) => ({
                 trialNumber: trial.trialNumber,
                 state: trial.state,
-                reports: trial.reports.map((report) => ({
+                reports: Arr.map(trial.reports, (report) => ({
                   step: report.step,
                   value: decodePruningTraceValue(report.value)
                 }))
               })),
-              currentReports: [{ step: entry.step, value: entry.currentValue }]
+              currentReports: Arr.of({ step: entry.step, value: entry.currentValue })
             })
             const shouldPrune = Pruning.shouldPruneByPercentile(context)
 

@@ -19,14 +19,13 @@ import { dual } from "effect/Function"
 import type * as Scope from "effect/Scope"
 
 import * as cache from "./internal/cache/cache.js"
-import * as runtime from "./internal/cache/runtimeFingerprint.js"
 
 /**
  * Binds key and value codecs to one persisted cache keyspace.
  *
  * @remarks
- * Persistence keys use `namespace:version:<fingerprint>`. Changing the
- * namespace or version selects a distinct keyspace. Both schemas must encode
+ * Persistence keys use `namespace:<fingerprint>`. Changing the
+ * namespace selects a distinct keyspace. Both schemas must encode
  * without Effect requirements.
  *
  * @since 0.1.0
@@ -34,7 +33,6 @@ import * as runtime from "./internal/cache/runtimeFingerprint.js"
  */
 export class KeySpace<Key, Value, EncodedKey = Key, EncodedValue = Value> extends Data.Class<{
   readonly namespace: string
-  readonly version: string
   readonly keySchema: Schema.Schema<Key, EncodedKey, never>
   readonly valueSchema: Schema.Schema<Value, EncodedValue, never>
 }> {}
@@ -131,17 +129,6 @@ export class Observer extends Effect.Tag("effect-search/Cache/Observer")<
     readonly record: (event: Event) => Effect.Effect<void>
   }
 >() {}
-
-/**
- * Rejects runtime values outside the supported structural fingerprint domain.
- *
- * @since 0.3.0
- * @category errors
- */
-export class RuntimeFingerprintError extends Schema.TaggedError<RuntimeFingerprintError>()(
-  "effect-search/RuntimeFingerprintError",
-  { reason: Schema.Literal("function", "symbol", "unsupported-value") }
-) {}
 
 /**
  * Reads and writes typed values under identities derived from encoded keys.
@@ -253,22 +240,6 @@ export const resolve: {
     request: Request<Key, Value, ComputeError, Requirements, EncodedKey, EncodedValue>
   ) => self.resolve(request)
 )
-
-/**
- * Canonicalizes a portable encoded key and computes its durable BLAKE3-256 identity.
- *
- * @since 0.1.0
- * @category fingerprinting
- */
-export { durableFingerprint } from "@scenesystems/digest"
-
-/**
- * Computes process-local structural identity for the supported runtime value domain.
- *
- * @since 0.1.0
- * @category fingerprinting
- */
-export const runtimeFingerprint = runtime.runtimeFingerprint
 
 /** Allocates cache lookup state and per-key locks. @since 0.1.0 @category constructors */
 export const make = (): Effect.Effect<Service, never, KeyValueStore.KeyValueStore | Scope.Scope> => cache.make()

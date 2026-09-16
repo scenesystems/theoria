@@ -3,12 +3,12 @@
  *
  * @since 0.1.0
  */
-import { ceil, floor, log, pow } from "@scenesystems/effect-math/Numeric"
+import { ceil, floor, isFinite, log, pow } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Chunk, Effect, Match, Number as Num, Option } from "effect"
 
 import * as Sampler from "../Sampler.js"
 import { type BohbOptions, Bracket, type HyperbandOptions, Plan, Round } from "../Scheduler.js"
-import { InvalidStudyConfig } from "../SearchError.js"
+import { InvalidOptimizationConfig } from "../SearchError.js"
 
 /**
  * Configures a Hyperband topology and its suggestion strategy.
@@ -16,8 +16,8 @@ import { InvalidStudyConfig } from "../SearchError.js"
  * @since 0.1.0
  * @category type-level
  */
-const invalidSchedulerConfig = (reason: string): InvalidStudyConfig =>
-  new InvalidStudyConfig({
+const invalidSchedulerConfig = (reason: string): InvalidOptimizationConfig =>
+  new InvalidOptimizationConfig({
     reason: `Scheduler.${reason}`
   })
 
@@ -66,15 +66,15 @@ const bracketAtLevel = (
 const validateSchedulerNumbers = (
   maxResource: number,
   reductionFactor: number
-): Effect.Effect<void, InvalidStudyConfig> =>
+): Effect.Effect<void, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
     yield* Effect.when(
       Effect.fail(invalidSchedulerConfig("hyperband requires maxResource >= 1")),
-      () => Bool.or(Bool.not(Number.isFinite(maxResource)), Num.lessThan(maxResource, 1))
+      () => Bool.or(Bool.not(isFinite(maxResource)), Num.lessThan(maxResource, 1))
     )
     yield* Effect.when(
       Effect.fail(invalidSchedulerConfig("hyperband requires reductionFactor >= 2")),
-      () => Bool.or(Bool.not(Number.isFinite(reductionFactor)), Num.lessThan(reductionFactor, 2))
+      () => Bool.or(Bool.not(isFinite(reductionFactor)), Num.lessThan(reductionFactor, 2))
     )
   })
 
@@ -93,12 +93,12 @@ const buildBrackets = (
     })
   )
 
-const bohbExplorationRatio = (candidate: Option.Option<number>): Effect.Effect<number, InvalidStudyConfig> =>
+const bohbExplorationRatio = (candidate: Option.Option<number>): Effect.Effect<number, InvalidOptimizationConfig> =>
   Option.match(candidate, {
     onNone: () => Effect.succeed(0.33),
     onSome: (ratio) =>
       Match.value(Bool.or(
-        Bool.not(Number.isFinite(ratio)),
+        Bool.not(isFinite(ratio)),
         Bool.or(Num.lessThan(ratio, 0), Num.greaterThan(ratio, 1))
       )).pipe(
         Match.when(true, () => Effect.fail(invalidSchedulerConfig("bohb explorationRatio must be between 0 and 1"))),
@@ -113,7 +113,7 @@ const bohbExplorationRatio = (candidate: Option.Option<number>): Effect.Effect<n
  * Round resources and configuration counts use integer floors with a minimum of
  * `1`. Brackets run sequentially; evaluations within each round use the Study
  * concurrency setting. Non-finite or out-of-range topology values fail with
- * `InvalidStudyConfig` before a scheduler is returned.
+ * `InvalidOptimizationConfig` before a scheduler is returned.
  *
  * @param options - Topology bounds and sampler used for new configurations.
  *
@@ -122,7 +122,7 @@ const bohbExplorationRatio = (candidate: Option.Option<number>): Effect.Effect<n
  */
 export const hyperband = (
   options: HyperbandOptions
-): Effect.Effect<Plan, InvalidStudyConfig> =>
+): Effect.Effect<Plan, InvalidOptimizationConfig> =>
   buildBrackets(options.maxResource, options.reductionFactor).pipe(
     Effect.map(
       (brackets) =>
@@ -146,7 +146,7 @@ export const hyperband = (
  * which retains its own startup threshold. The top-level seed is copied into
  * TPE options only when `tpeOptions.seed` is absent.
  *
- * Invalid topology values or exploration ratios fail with `InvalidStudyConfig`.
+ * Invalid topology values or exploration ratios fail with `InvalidOptimizationConfig`.
  * TPE option validation remains deferred until the sampler suggests a value.
  *
  * @param options - Topology bounds, TPE settings, exploration ratio, and seed.
@@ -156,7 +156,7 @@ export const hyperband = (
  */
 export const bohb = (
   options: BohbOptions
-): Effect.Effect<Plan, InvalidStudyConfig> =>
+): Effect.Effect<Plan, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
     const brackets = yield* buildBrackets(options.maxResource, options.reductionFactor)
     const explorationRatio = yield* bohbExplorationRatio(Option.fromNullable(options.explorationRatio))

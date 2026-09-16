@@ -5,13 +5,14 @@
  * @module
  */
 import type * as SqlClient from "@effect/sql/SqlClient"
+import { durableFingerprint } from "@scenesystems/digest"
 import { Data, Effect, Layer, Match, Option, ParseResult, Schema, String as Str } from "effect"
 import type * as Context from "effect/Context"
 
 import * as Cache from "./Cache.js"
 import { Value } from "./Objective.js"
 
-const defaultScope = "study"
+const defaultScope = "optimization"
 
 /**
  * Selects the namespace used for objective values.
@@ -49,13 +50,12 @@ const keySpaceFor = <Configuration, Encoded>(
 ): Cache.KeySpace<Encoded, Value, Encoded> =>
   new Cache.KeySpace({
     namespace: Str.concat(options.scope, "/objective"),
-    version: "v1",
     keySchema: Schema.encodedSchema(schema),
     valueSchema: Value
   })
 
 const keySpacePrefix = <Encoded>(keySpace: Cache.KeySpace<Encoded, Value, Encoded>): string =>
-  Str.concat(keySpace.namespace, Str.concat(":", Str.concat(keySpace.version, ":")))
+  Str.concat(keySpace.namespace, ":")
 
 const prepareKey = <Configuration, Encoded>(
   options: Options,
@@ -71,7 +71,7 @@ const prepareKey = <Configuration, Encoded>(
       })
     ),
     Effect.flatMap((encoded) =>
-      Cache.durableFingerprint(encoded).pipe(
+      durableFingerprint(encoded).pipe(
         Effect.map((fingerprint) => new PreparedKey({ encoded, fingerprint, keySpace })),
         Effect.mapError((cause) =>
           new Cache.Corrupt({

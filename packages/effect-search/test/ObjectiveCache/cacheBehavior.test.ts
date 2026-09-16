@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest"
+import { durableFingerprint } from "@scenesystems/digest"
 import { Chunk, Effect, Number as Num, Ref, Schema } from "effect"
 
 import * as Cache from "../../src/Cache.js"
@@ -24,7 +25,7 @@ it.effect("resolves, observes, invalidates, and recomputes objective values", ()
       config,
       compute: Ref.updateAndGet(computes, Num.increment)
     })
-    const fingerprint = yield* Cache.durableFingerprint(config)
+    const fingerprint = yield* durableFingerprint(config)
 
     expect(yield* objectiveCache.resolve(request)).toEqual(new Cache.Result({ value: 1, resolution: "miss" }))
     expect(yield* objectiveCache.resolve(request)).toEqual(new Cache.Result({ value: 1, resolution: "hit" }))

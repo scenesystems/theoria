@@ -31,7 +31,6 @@ import * as Cache from "../../src/Cache.js"
 const Rows = Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 const keySpace = new Cache.KeySpace({
   namespace: "rows",
-  version: "v1",
   keySchema: Schema.String,
   valueSchema: Schema.Number
 })
@@ -139,7 +138,7 @@ it.effect("defers synchronous key encoding until each cache operation executes",
         return Str.toUpperCase(key)
       }
     })
-    const keyed = new Cache.KeySpace({ namespace: "lazy", version: "v1", keySchema, valueSchema: Schema.Number })
+    const keyed = new Cache.KeySpace({ namespace: "lazy", keySchema, valueSchema: Schema.Number })
     const cache = yield* Cache.Cache
     const write = cache.set(keyed, "key", 73)
     const read = cache.get(keyed, "key")
@@ -287,7 +286,6 @@ it.scoped("does not encode or persist a queued write cancelled before acquiring 
     })
     const encodedKeySpace = new Cache.KeySpace({
       namespace: "rows",
-      version: "v1",
       keySchema: Schema.String,
       valueSchema
     })
@@ -328,7 +326,6 @@ it.scoped("allows a caller queued on a same-key lock to be cancelled", () =>
     })
     const queuedKeySpace = new Cache.KeySpace({
       namespace: "queued",
-      version: "v1",
       keySchema,
       valueSchema: Schema.Number
     })
@@ -495,7 +492,7 @@ it.scoped("encodes the persistence key exactly once during resolve", () =>
         return Str.toUpperCase(key)
       }
     })
-    const keyed = new Cache.KeySpace({ namespace: "once", version: "v1", keySchema, valueSchema: Schema.Number })
+    const keyed = new Cache.KeySpace({ namespace: "once", keySchema, valueSchema: Schema.Number })
     const cache = yield* Cache.Cache
 
     expect(

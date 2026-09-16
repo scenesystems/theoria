@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Option, Ref, Schedule, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Option, Ref, Schedule, Stream, Tuple } from "effect"
 
+import * as Optimization from "../../src/Optimization.js"
 import * as Pruning from "../../src/Pruning.js"
-import * as Study from "../../src/Study.js"
 import * as Trial from "../../src/Trial.js"
 import { decodeSlotConfig } from "../fixtures/scenarios/slot.js"
 import {
@@ -16,10 +16,16 @@ import {
   stoppingSlotObjective
 } from "../helpers/pruningScenarios.js"
 
-describe("Study pruning and early stop contracts", () => {
+const requireSome = <A>(option: Option.Option<A>): Effect.Effect<A> =>
+  Option.match(option, {
+    onNone: () => Effect.dieMessage("expected Some"),
+    onSome: Effect.succeed
+  })
+
+describe("Optimization pruning and early stop contracts", () => {
   it.effect("marks pruned trials with typed metadata and excludes them from best selection", () =>
     Effect.gen(function*() {
-      const optimized = yield* Study.optimize({
+      const optimized = yield* Optimization.run({
         space: yield* pruningSlotSpace,
         sampler: sequentialSlotSampler,
         direction: "minimize",
@@ -31,29 +37,27 @@ describe("Study pruning and early stop contracts", () => {
       const resultOption = pruningSingleObjectiveResult(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
 
-      if (Option.isNone(resultOption)) {
-        return
-      }
-
-      const result = resultOption.value
+      const result = yield* requireSome(resultOption)
       const trials = Arr.fromIterable(result.trials)
       const trialTags = Arr.map(trials, (trial) => trial.state._tag)
 
-      expect(trialTags).toEqual(["Pruned", "Pruned", "Completed", "Completed"])
+      expect(trialTags).toEqual(Arr.make("Pruned", "Pruned", "Completed", "Completed"))
       expect(result.bestTrial.trialNumber).toBe(2)
       expect(result.bestTrial.state.value).toBe(2)
 
-      const firstPruned = Arr.get(trials, 0).pipe(Option.getOrThrow)
-      if (firstPruned && Trial.isState("Pruned")(firstPruned.state)) {
-        expect(firstPruned.state.step).toBe(0)
-        expect(firstPruned.state.reason).toBe("slot-below-two")
-        expect(firstPruned.state.policy).toBe("slot-pruner")
-      }
+      const firstPruned = yield* requireSome(Arr.get(trials, 0))
+      Option.liftPredicate(firstPruned.state, Trial.isState("Pruned")).pipe(
+        Option.map((state) => {
+          expect(state.step).toBe(0)
+          expect(state.reason).toBe("slot-below-two")
+          expect(state.policy).toBe("slot-pruner")
+        })
+      )
     }))
 
   it.effect("surfaces invalid report semantics through typed InvalidObjectiveReport failures", () =>
     Effect.gen(function*() {
-      const optimized = yield* Study.optimize({
+      const optimized = yield* Optimization.run({
         space: yield* pruningSlotSpace,
         sampler: sequentialSlotSampler,
         direction: "minimize",
@@ -65,11 +69,7 @@ describe("Study pruning and early stop contracts", () => {
       const resultOption = pruningSingleObjectiveResult(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
 
-      if (Option.isNone(resultOption)) {
-        return
-      }
-
-      const result = resultOption.value
+      const result = yield* requireSome(resultOption)
       const reasons = invalidReportReasons(result.trials)
 
       expect(reasons).toHaveLength(3)
@@ -81,10 +81,10 @@ describe("Study pruning and early stop contracts", () => {
 
   it.effect("honors Drain and Interrupt stop modes with deterministic heartbeat semantics", () =>
     Effect.gen(function*() {
-      const drainHeartbeatRef = yield* Ref.make<Array<string>>([])
-      const interruptHeartbeatRef = yield* Ref.make<Array<string>>([])
+      const drainHeartbeatRef = yield* Ref.make<Iterable<string>>(Arr.empty())
+      const interruptHeartbeatRef = yield* Ref.make<Iterable<string>>(Arr.empty())
 
-      const drainResult = yield* Study.optimize({
+      const drainResult = yield* Optimization.run({
         space: yield* pruningSlotSpace,
         sampler: sequentialSlotSampler,
         direction: "minimize",
@@ -92,7 +92,7 @@ describe("Study pruning and early stop contracts", () => {
         stopMode: "Drain",
         objective: stoppingSlotObjective(drainHeartbeatRef, "drain-stop")
       })
-      const interruptResult = yield* Study.optimize({
+      const interruptResult = yield* Optimization.run({
         space: yield* pruningSlotSpace,
         sampler: sequentialSlotSampler,
         direction: "minimize",
@@ -106,23 +106,24 @@ describe("Study pruning and early stop contracts", () => {
       expect(Option.isSome(drainOption)).toBe(true)
       expect(Option.isSome(interruptOption)).toBe(true)
 
-      if (Option.isNone(drainOption) || Option.isNone(interruptOption)) {
-        return
-      }
+      const [drain, interrupt] = yield* Effect.all(Tuple.make(
+        requireSome(drainOption),
+        requireSome(interruptOption)
+      ))
 
-      expect(drainOption.value.completionReason).toBe("interrupted")
-      expect(interruptOption.value.completionReason).toBe("interrupted")
-      expect(drainOption.value.trials).toHaveLength(1)
-      expect(interruptOption.value.trials).toHaveLength(1)
+      expect(drain.completionReason).toBe("interrupted")
+      expect(interrupt.completionReason).toBe("interrupted")
+      expect(drain.trials).toHaveLength(1)
+      expect(interrupt.trials).toHaveLength(1)
 
-      expect(yield* Ref.get(drainHeartbeatRef)).toEqual(["Continue"])
-      expect(yield* Ref.get(interruptHeartbeatRef)).toEqual(["Stop"])
+      expect(yield* Ref.get(drainHeartbeatRef)).toEqual(Arr.of("Continue"))
+      expect(yield* Ref.get(interruptHeartbeatRef)).toEqual(Arr.of("Stop"))
     }))
 
   it.effect("emits pruning and stop lifecycle events for semantic replay assertions", () =>
     Effect.gen(function*() {
       const events = yield* Stream.runCollect(
-        Study.optimizeStream({
+        Optimization.stream({
           space: yield* pruningSlotSpace,
           sampler: sequentialSlotSampler,
           direction: "minimize",
@@ -147,11 +148,11 @@ describe("Study pruning and early stop contracts", () => {
         })
       )
 
-      const tags = Chunk.toReadonlyArray(events).map((event) => event._tag)
+      const tags = Arr.map(Chunk.toReadonlyArray(events), (event) => event._tag)
 
       expect(tags).toContain("TrialReported")
       expect(tags).toContain("TrialPruned")
       expect(tags).toContain("StopRequested")
-      expect(tags[tags.length - 1]).toBe("Completed")
+      expect(Arr.last(tags).pipe(Option.getOrElse(() => "missing"))).toBe("Completed")
     }))
 })

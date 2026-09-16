@@ -6,10 +6,10 @@
  * Run: bun run examples/applications/02-social-dynamics-intervention.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Effect, Iterable, Match, Option, Record } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Iterable, Match, Number as Num, Option, Record, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Objective, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { type Direction, Objective, Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const CONTACT_LOAD: Readonly<Record<string, number>> = {
   daily: 1.0,
@@ -34,42 +34,47 @@ const valueOrZero = (values: Readonly<Record<string, number>>, key: string): num
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
-    cadence: SearchSpace.categorical(["daily", "twice-weekly", "weekly"]),
-    framing: SearchSpace.categorical(["norms", "reflective", "peer-story"]),
+    cadence: SearchSpace.categorical(Tuple.make("daily", "twice-weekly", "weekly")),
+    framing: SearchSpace.categorical(Tuple.make("norms", "reflective", "peer-story")),
     escalationThreshold: SearchSpace.float(0.2, 0.9),
     peerPairing: SearchSpace.boolean(),
     sessionMinutes: SearchSpace.int(15, 60, { step: 5 })
   })
   const conflictRiskScore = (config: SearchSpace.Type<typeof space>): number =>
-    1.1
-    - valueOrZero(FRAMING_TRUST_GAIN, config.framing)
-    + Numeric.abs(config.escalationThreshold - 0.58) * 1.25
-    + (config.peerPairing ? -0.17 : 0.14)
-    + Numeric.abs(config.sessionMinutes - 35) / 90
+    Num.sumAll(Arr.make(
+      Num.subtract(1.1, valueOrZero(FRAMING_TRUST_GAIN, config.framing)),
+      Num.multiply(Numeric.abs(Num.subtract(config.escalationThreshold, 0.58)), 1.25),
+      Bool.match(config.peerPairing, { onFalse: () => 0.14, onTrue: () => Num.negate(0.17) }),
+      Num.unsafeDivide(Numeric.abs(Num.subtract(config.sessionMinutes, 35)), 90)
+    ))
   const disengagementRiskScore = (config: SearchSpace.Type<typeof space>): number =>
-    0.3
-    + valueOrZero(FRAMING_REACTANCE, config.framing)
-    + valueOrZero(CONTACT_LOAD, config.cadence) * 0.26
-    + (config.sessionMinutes > 45 ? 0.2 : 0)
-    + (config.peerPairing ? -0.07 : 0.05)
+    Num.sumAll(Arr.make(
+      0.3,
+      valueOrZero(FRAMING_REACTANCE, config.framing),
+      Num.multiply(valueOrZero(CONTACT_LOAD, config.cadence), 0.26),
+      Bool.match(Num.greaterThan(config.sessionMinutes, 45), { onFalse: () => 0, onTrue: () => 0.2 }),
+      Bool.match(config.peerPairing, { onFalse: () => 0.05, onTrue: () => Num.negate(0.07) })
+    ))
   const facilitatorLoadScore = (config: SearchSpace.Type<typeof space>): number =>
-    0.15
-    + valueOrZero(CONTACT_LOAD, config.cadence)
-    + config.sessionMinutes / 38
-    + (config.peerPairing ? 0.22 : 0.36)
-    + (config.escalationThreshold < 0.35 ? 0.24 : 0)
+    Num.sumAll(Arr.make(
+      0.15,
+      valueOrZero(CONTACT_LOAD, config.cadence),
+      Num.unsafeDivide(config.sessionMinutes, 38),
+      Bool.match(config.peerPairing, { onFalse: () => 0.36, onTrue: () => 0.22 }),
+      Bool.match(Num.lessThan(config.escalationThreshold, 0.35), { onFalse: () => 0, onTrue: () => 0.24 })
+    ))
 
-  const result = yield* Study.optimize({
+  const result = yield* Optimization.run({
     space,
     sampler: Sampler.tpe({ seed: 2701, multivariate: true, noiseAware: true }),
-    directions: ["minimize", "minimize", "minimize"],
+    directions: Arr.replicate<Direction.Direction>("minimize", 3),
     trials: 81,
     objective: (config) => {
       const conflictRisk = conflictRiskScore(config)
       const disengagementRisk = disengagementRiskScore(config)
       const facilitatorLoad = facilitatorLoadScore(config)
 
-      return Effect.succeed([conflictRisk, disengagementRisk, facilitatorLoad])
+      return Effect.succeed(Tuple.make(conflictRisk, disengagementRisk, facilitatorLoad))
     }
   })
 
@@ -87,7 +92,7 @@ const program = Effect.gen(function*() {
           const formatValue = (index: number) =>
             Option.match(Arr.get(values, index), {
               onNone: () => "unavailable",
-              onSome: (value) => value.toFixed(3)
+              onSome: (value) => value
             })
 
           return Effect.log("Pareto intervention", {

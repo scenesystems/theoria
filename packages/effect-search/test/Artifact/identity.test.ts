@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Number as Num, Option, Schema, Tuple } from "effect"
 
 import * as Acquisition from "../../src/Acquisition.js"
 import * as Direction from "../../src/Direction.js"
@@ -23,7 +23,7 @@ describe("domain schemas", () => {
     Effect.sync(() => {
       const distribution: Distribution.Distribution = {
         type: "float",
-        low: -1,
+        low: Num.negate(1),
         high: 1,
         scale: "linear"
       }
@@ -41,18 +41,18 @@ describe("domain schemas", () => {
       const scalar = Objective.fromOptions({})
       const vector = Objective.fromOptions({
         direction: "minimize",
-        directions: ["maximize", "minimize"]
+        directions: Tuple.make(Direction.maximize, Direction.minimize)
       })
-      const decoded = yield* Schema.decode(Objective.Value)([1, Number.POSITIVE_INFINITY])
+      const decoded = yield* Schema.decode(Objective.Value)(Arr.make(1, Number.POSITIVE_INFINITY))
 
       expect(Objective.dimensions(scalar)).toBe(1)
       expect(Objective.dimensions(vector)).toBe(2)
       expect(Objective.directionAt(vector, 0)).toEqual(Option.some("maximize"))
       expect(Objective.directionAt(vector, 2)).toEqual(Option.none())
       expect(Objective.dimensionCount(decoded)).toBe(2)
-      expect(Objective.hasDimensions([])).toBe(false)
+      expect(Objective.hasDimensions(Arr.empty())).toBe(false)
       expect(Objective.isFiniteValue(decoded)).toBe(false)
-      expect(Objective.toVector(3)).toEqual([3])
+      expect(Objective.toVector(3)).toEqual(Arr.of(3))
     }))
 
   it.effect("rejects unknown directions", () =>

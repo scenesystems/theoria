@@ -1,15 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Number as Num, Option, Ref, Schema, Stream, String as Str } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+
+import * as Optimization from "../../src/Optimization.js"
 import * as Progress from "../../src/Progress.js"
 import * as Sampler from "../../src/Sampler.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
-import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(-1, 1),
-    y: SearchSpace.float(-1, 1)
+    x: SearchSpace.float(Num.negate(1), 1),
+    y: SearchSpace.float(Num.negate(1), 1)
   })
 
 const objectiveFromSpace = (space: SearchSpace.SearchSpace) => {
@@ -17,18 +19,21 @@ const objectiveFromSpace = (space: SearchSpace.SearchSpace) => {
 
   return (raw: unknown) => {
     const config = decode(raw)
-    return Effect.succeed((config.x - 0.3) ** 2 + (config.y + 0.1) ** 2)
+    return Effect.succeed(
+      Num.sum(Numeric.pow(Num.subtract(config.x, 0.3), 2), Numeric.pow(Num.sum(config.y, 0.1), 2))
+    )
   }
 }
 
-const asSingleObjective = (result: Study.Result) =>
-  result._tag === "SingleObjective"
-    ? Option.some(result)
-    : Option.none()
+const asSingleObjective = (result: Optimization.Result): Option.Option<Optimization.SingleObjectiveResult> =>
+  Match.value(result).pipe(
+    Match.tag("SingleObjective", (single) => Option.some(single)),
+    Match.orElse(() => Option.none())
+  )
 
 const memorySink = Effect.gen(function*() {
-  const stdout = yield* Ref.make<ReadonlyArray<string>>([])
-  const stderr = yield* Ref.make<ReadonlyArray<string>>([])
+  const stdout = yield* Ref.make(Arr.empty<string>())
+  const stderr = yield* Ref.make(Arr.empty<string>())
 
   return {
     sink: Progress.makeSink({
@@ -42,12 +47,12 @@ const memorySink = Effect.gen(function*() {
 })
 
 describe("terminal reporter stream composition", () => {
-  it.effect("keeps optimizeStream event sequence unchanged while emitting terminal lines", () =>
+  it.effect("keeps stream event sequence unchanged while emitting terminal lines", () =>
     Effect.gen(function*() {
       const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
       const baselineEvents = yield* Stream.runCollect(
-        Study.optimizeStream({
+        Optimization.stream({
           space,
           sampler: Sampler.random({ seed: 343 }),
           direction: "minimize",
@@ -57,7 +62,7 @@ describe("terminal reporter stream composition", () => {
       )
       const sinkCapture = yield* memorySink
       const instrumentedEvents = yield* Stream.runCollect(
-        Study.optimizeStream({
+        Optimization.stream({
           space,
           sampler: Sampler.random({ seed: 343 }),
           direction: "minimize",
@@ -66,21 +71,21 @@ describe("terminal reporter stream composition", () => {
         }).pipe(Progress.tap(sinkCapture.sink))
       )
 
-      const baselineTags = Chunk.toReadonlyArray(baselineEvents).map((event) => event._tag)
-      const instrumentedTags = Chunk.toReadonlyArray(instrumentedEvents).map((event) => event._tag)
+      const baselineTags = Arr.map(Chunk.toReadonlyArray(baselineEvents), (event) => event._tag)
+      const instrumentedTags = Arr.map(Chunk.toReadonlyArray(instrumentedEvents), (event) => event._tag)
 
       expect(instrumentedTags).toEqual(baselineTags)
-      expect(instrumentedTags[instrumentedTags.length - 1]).toBe("Completed")
+      expect(Arr.last(instrumentedTags).pipe(Option.getOrElse(() => "missing"))).toBe("Completed")
 
       const stdoutLines = yield* Ref.get(sinkCapture.stdout)
-      expect(stdoutLines.length).toBeGreaterThan(0)
+      expect(Arr.length(stdoutLines)).toBeGreaterThan(0)
     }))
 
   it.effect("composes with resumeStream and emits completion output through the same reporter boundary", () =>
     Effect.gen(function*() {
       const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
-      const initial = yield* Study.optimize({
+      const initial = yield* Optimization.run({
         space,
         sampler: Sampler.random({ seed: 512 }),
         direction: "minimize",
@@ -91,14 +96,13 @@ describe("terminal reporter stream composition", () => {
 
       expect(Option.isSome(single)).toBe(true)
 
-      if (Option.isNone(single)) {
-        return
-      }
-
-      const snapshot = yield* Study.snapshot(single.value)
+      const snapshot = yield* Option.match(single, {
+        onNone: () => Effect.dieMessage("expected a single-objective result"),
+        onSome: (result: Optimization.SingleObjectiveResult) => Optimization.snapshot(result)
+      })
       const sinkCapture = yield* memorySink
       const resumedEvents = yield* Stream.runCollect(
-        Study.resumeStream({
+        Optimization.resumeStream({
           space,
           sampler: Sampler.random({ seed: 512 }),
           snapshot,
@@ -108,11 +112,11 @@ describe("terminal reporter stream composition", () => {
         }).pipe(Progress.tap(sinkCapture.sink))
       )
 
-      const tags = Chunk.toReadonlyArray(resumedEvents).map((event) => event._tag)
+      const tags = Arr.map(Chunk.toReadonlyArray(resumedEvents), (event) => event._tag)
       expect(tags).toContain("Completed")
-      expect(tags[tags.length - 1]).toBe("Completed")
+      expect(Arr.last(tags).pipe(Option.getOrElse(() => "missing"))).toBe("Completed")
 
       const stdoutLines = yield* Ref.get(sinkCapture.stdout)
-      expect(stdoutLines.some((line) => line.includes("study completed reason="))).toBe(true)
+      expect(Arr.some(stdoutLines, Str.includes("optimization completed reason="))).toBe(true)
     }))
 })

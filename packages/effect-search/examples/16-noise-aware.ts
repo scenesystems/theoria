@@ -5,10 +5,10 @@
  * Run: bun run examples/16-noise-aware.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Iterable, Match, Number as Num, Ref } from "effect"
+import { Array as Arr, Effect, Iterable, Match, Number as Num, Ref } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -20,14 +20,20 @@ const program = Effect.gen(function*() {
   const noisyObjective = (config: SearchSpace.Type<typeof space>) =>
     Ref.updateAndGet(objectiveCallsRef, Num.increment).pipe(
       Effect.map((callIndex) => {
-        const stableTerm = Numeric.pow(config.learningRate - 0.03, 2) + Numeric.pow(config.dropout - 0.15, 2)
-        const deterministicNoise = Numeric.sin(callIndex * 0.7) * 0.05 + Numeric.cos(callIndex * 0.3) * 0.03
+        const stableTerm = Num.sum(
+          Numeric.pow(Num.subtract(config.learningRate, 0.03), 2),
+          Numeric.pow(Num.subtract(config.dropout, 0.15), 2)
+        )
+        const deterministicNoise = Num.sumAll(Arr.make(
+          Num.multiply(Numeric.sin(Num.multiply(callIndex, 0.7)), 0.05),
+          Num.multiply(Numeric.cos(Num.multiply(callIndex, 0.3)), 0.03)
+        ))
 
-        return stableTerm + deterministicNoise
+        return Num.sum(stableTerm, deterministicNoise)
       })
     )
 
-  const result = yield* Study.minimize({
+  const result = yield* Optimization.minimize({
     space,
     sampler: Sampler.tpe({
       seed: 117,

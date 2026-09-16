@@ -1,14 +1,14 @@
 /**
- * Drives trial evaluation through `Study.ask` and `Study.tell`, then reads a
- * snapshot and final result from the same study handle.
+ * Drives trial evaluation through `Optimization.ask` and `Optimization.tell`,
+ * then reads a snapshot and final result from the same optimization handle.
  *
  * Run: bun run examples/25-ask-tell.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Effect, Iterable, Match } from "effect"
+import { Array as Arr, Effect, Iterable, Match, Number as Num } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.scoped(
   Effect.gen(function*() {
@@ -18,14 +18,18 @@ const program = Effect.scoped(
       depth: SearchSpace.int(1, 4)
     })
     const objectiveValue = (config: SearchSpace.Type<typeof space>): number =>
-      Numeric.pow(config.x - 1.5, 2) + Numeric.pow(config.y + 0.75, 2) + config.depth / 20
+      Num.sumAll(Arr.make(
+        Numeric.pow(Num.subtract(config.x, 1.5), 2),
+        Numeric.pow(Num.sum(config.y, 0.75), 2),
+        Num.unsafeDivide(config.depth, 20)
+      ))
 
-    const evaluateReservedTrial = (handle: Study.Study<typeof space>) =>
-      Study.ask(handle).pipe(
-        Effect.tap((asked) => Study.tell(handle, asked.trialNumber, objectiveValue(asked.config)))
+    const evaluateReservedTrial = (handle: Optimization.Optimization<typeof space>) =>
+      Optimization.ask(handle).pipe(
+        Effect.tap((asked) => Optimization.tell(handle, asked.trialNumber, objectiveValue(asked.config)))
       )
 
-    const handle = yield* Study.open({
+    const handle = yield* Optimization.open({
       space,
       sampler: Sampler.random({ seed: 25 }),
       direction: "minimize",
@@ -36,19 +40,24 @@ const program = Effect.scoped(
     const first = yield* evaluateReservedTrial(handle)
     const second = yield* evaluateReservedTrial(handle)
 
-    const checkpoint = yield* Study.snapshot(handle)
+    const checkpoint = yield* Optimization.snapshot(handle)
 
     const third = yield* evaluateReservedTrial(handle)
     const fourth = yield* evaluateReservedTrial(handle)
 
-    const summary = yield* Study.result(handle)
+    const summary = yield* Optimization.result(handle)
 
     yield* Match.value(summary).pipe(
       Match.tag(
         "SingleObjective",
         ({ bestTrial, completionReason, trials }) =>
           Effect.log("Ask/tell orchestration complete", {
-            reservedTrialNumbers: [first.trialNumber, second.trialNumber, third.trialNumber, fourth.trialNumber],
+            reservedTrialNumbers: Arr.make(
+              first.trialNumber,
+              second.trialNumber,
+              third.trialNumber,
+              fourth.trialNumber
+            ),
             checkpointTrialCount: Arr.length(checkpoint.trials),
             checkpointNextTrial: checkpoint.nextTrialNumber,
             completionReason,

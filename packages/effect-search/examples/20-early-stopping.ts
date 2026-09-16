@@ -1,5 +1,5 @@
 /**
- * Runs separate studies that stop at a target value, after a no-improvement
+ * Runs an optimization that stops at a target value, after a no-improvement
  * window, or when the maximum duration expires.
  *
  * Run: bun run examples/20-early-stopping.ts
@@ -7,14 +7,14 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Iterable, Match } from "effect"
 
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
 
-  const result = yield* Study.minimize({
+  const result = yield* Optimization.minimize({
     space,
     sampler: Sampler.random({ seed: 707 }),
     trials: 200,

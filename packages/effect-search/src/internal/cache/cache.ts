@@ -31,8 +31,7 @@ const lookupCacheCapacity = 1024
 const lookupCacheTtl = "24 hours"
 const sqliteCacheTable = "effect_search_cache_entries"
 
-const keyPrefix = (namespace: string, version: string): string =>
-  Str.concat(namespace, Str.concat(":", Str.concat(version, ":")))
+const keyPrefix = (namespace: string): string => Str.concat(namespace, ":")
 
 const platformErrorFromCause = (operation: string) => (cause: unknown): PlatformError.PlatformError =>
   new PlatformError.SystemError({
@@ -50,16 +49,16 @@ const resolvedKey = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
   Effect.suspend(() => Schema.encode(keySpace.keySchema)(key)).pipe(
     Effect.mapError((error) =>
       new Corrupt({
-        key: keyPrefix(keySpace.namespace, keySpace.version),
+        key: keyPrefix(keySpace.namespace),
         reason: ParseResult.TreeFormatter.formatIssueSync(error.issue)
       })
     ),
     Effect.flatMap((encoded) =>
       durableFingerprint(encoded).pipe(
-        Effect.map((fingerprint) => Str.concat(keyPrefix(keySpace.namespace, keySpace.version), fingerprint)),
+        Effect.map((fingerprint) => Str.concat(keyPrefix(keySpace.namespace), fingerprint)),
         Effect.mapError((cause) =>
           new Corrupt({
-            key: keyPrefix(keySpace.namespace, keySpace.version),
+            key: keyPrefix(keySpace.namespace),
             reason: Str.concat("fingerprint failure: ", cause._tag)
           })
         )

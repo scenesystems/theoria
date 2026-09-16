@@ -5,7 +5,7 @@
  * @module
  */
 import * as StudyTrial from "@scenesystems/effect-study/Trial"
-import { Data, Match, Number as Num, Option, Schema } from "effect"
+import { Data, Match, Option, Schema } from "effect"
 import { dual } from "effect/Function"
 
 import { Value } from "./Objective.js"
@@ -91,11 +91,11 @@ export type NumericCompletedTrial<Config> = StudyTrial.Trial<Config, NumericComp
 
 /** Creates a running trial. @since 0.7.0 @category constructors */
 export const makeRunning = <Config>(trialNumber: number, config: Config, startedAt: number): Trial<Config> =>
-  Data.struct({ trialNumber, config, state: Running({ startedAt }) })
+  StudyTrial.makeRunning(trialNumber, config, startedAt)
 
 const durationFromState = (state: State, now: number): number =>
   Match.value(state).pipe(
-    Match.tag("Running", ({ startedAt }) => Num.subtract(now, startedAt)),
+    Match.tag("Running", (running) => StudyTrial.duration(running, now)),
     Match.orElse(() => 0)
   )
 
@@ -162,7 +162,10 @@ export const fail: {
 } = dual(
   3,
   <Config>(self: Trial<Config>, error: TrialError, now: number) =>
-    Data.struct({ ...self, state: Failed({ error, duration: durationFromState(self.state, now) }) })
+    Match.value(self.state).pipe(
+      Match.tag("Running", (state) => StudyTrial.fail(Data.struct({ ...self, state }), error, now)),
+      Match.orElse(() => Data.struct({ ...self, state: Failed({ error, duration: 0 }) }))
+    )
 )
 
 /** Records a terminal pruning decision. @since 0.7.0 @category combinators */
@@ -176,7 +179,7 @@ export const prune: {
 )
 
 /** Records terminal cancellation. @since 0.7.0 @category combinators */
-export const cancel = <Config>(self: Trial<Config>): Trial<Config> => Data.struct({ ...self, state: Cancelled({}) })
+export const cancel = <Config>(self: Trial<Config>): Trial<Config> => StudyTrial.cancel(self)
 
 /** Narrows a completed trial to a scalar result. @since 0.7.0 @category guards */
 export const isNumericCompleted = <Config>(trial: CompletedTrial<Config>): trial is NumericCompletedTrial<Config> =>

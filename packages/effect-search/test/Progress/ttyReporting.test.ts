@@ -1,14 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Ref } from "effect"
+import { Array as Arr, Effect, Option, Ref, String as Str } from "effect"
 
+import * as OptimizationEvent from "../../src/OptimizationEvent.js"
 import * as Progress from "../../src/Progress.js"
 import * as SearchError from "../../src/SearchError.js"
-import * as StudyEvent from "../../src/StudyEvent.js"
 
 const makeCaptureSink = (supportsAnsi: boolean) =>
   Effect.gen(function*() {
-    const stdout = yield* Ref.make<ReadonlyArray<string>>([])
-    const stderr = yield* Ref.make<ReadonlyArray<string>>([])
+    const stdout = yield* Ref.make(Arr.empty<string>())
+    const stderr = yield* Ref.make(Arr.empty<string>())
 
     return {
       sink: Progress.makeSink({
@@ -24,7 +24,7 @@ const makeCaptureSink = (supportsAnsi: boolean) =>
 describe("terminal reporter tty behavior", () => {
   it.effect("applies ANSI styling only when sink reports TTY support", () =>
     Effect.gen(function*() {
-      const completed = StudyEvent.trialCompleted({ trialNumber: 3, value: 0.5 })
+      const completed = OptimizationEvent.TrialCompleted({ trialNumber: 3, value: 0.5 })
       const ttyCapture = yield* makeCaptureSink(true)
       const plainCapture = yield* makeCaptureSink(false)
 
@@ -34,15 +34,15 @@ describe("terminal reporter tty behavior", () => {
       const ttyStdout = yield* Ref.get(ttyCapture.stdout)
       const plainStdout = yield* Ref.get(plainCapture.stdout)
 
-      expect(ttyStdout.length).toBe(1)
-      expect(plainStdout.length).toBe(1)
-      expect(ttyStdout[0]?.includes("\u001b[")).toBe(true)
-      expect(plainStdout[0]?.includes("\u001b[")).toBe(false)
+      expect(Arr.length(ttyStdout)).toBe(1)
+      expect(Arr.length(plainStdout)).toBe(1)
+      expect(Arr.head(ttyStdout).pipe(Option.map(Str.includes("\u001b[")), Option.getOrElse(() => false))).toBe(true)
+      expect(Arr.head(plainStdout).pipe(Option.map(Str.includes("\u001b[")), Option.getOrElse(() => false))).toBe(false)
     }))
 
   it.effect("routes failures to stderr while still respecting tty style selection", () =>
     Effect.gen(function*() {
-      const failed = StudyEvent.trialFailed({
+      const failed = OptimizationEvent.TrialFailed({
         trialNumber: 11,
         error: new SearchError.TrialError({
           trialNumber: 11,
@@ -57,8 +57,8 @@ describe("terminal reporter tty behavior", () => {
       const stdout = yield* Ref.get(ttyCapture.stdout)
       const stderr = yield* Ref.get(ttyCapture.stderr)
 
-      expect(stdout).toEqual([])
-      expect(stderr.length).toBe(1)
-      expect(stderr[0]?.includes("\u001b[")).toBe(true)
+      expect(stdout).toEqual(Arr.empty())
+      expect(Arr.length(stderr)).toBe(1)
+      expect(Arr.head(stderr).pipe(Option.map(Str.includes("\u001b[")), Option.getOrElse(() => false))).toBe(true)
     }))
 })
