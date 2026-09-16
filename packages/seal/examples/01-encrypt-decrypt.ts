@@ -6,23 +6,23 @@
  */
 
 import { BunRuntime } from "@effect/platform-bun"
-import { Cipher, Envelope } from "@scenesystems/seal"
-import { Effect, Encoding } from "effect"
+import { generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
+import { Effect } from "effect"
 
 const program = Effect.gen(function*() {
-  const key = yield* Cipher.generateKey
-  const plaintext = Uint8Array.of(0, 1, 2, 127, 128, 255)
+  const key = yield* generateKey(32)
+  const plaintext = utf8ToBytes("hello, authenticated encryption!")
 
-  const envelope = yield* Envelope.encrypt("xchacha20-poly1305", key, plaintext)
+  const envelope = yield* seal("xchacha20-poly1305", key, plaintext)
   yield* Effect.log("Sealed", {
     algorithm: envelope.algorithm,
     nonceLength: envelope.nonce.length,
     ciphertextLength: envelope.ciphertext.length
   })
 
-  const recovered = yield* Envelope.decrypt(key, envelope)
-  const hex = Encoding.encodeHex(recovered)
-  yield* Effect.log("Unsealed", { hex, roundTrip: hex === "0001027f80ff" })
-}).pipe(Effect.provide(Cipher.layer))
+  const recovered = yield* unseal(key, envelope)
+  const text = utf8FromBytes(recovered)
+  yield* Effect.log("Unsealed", { text, roundTrip: text === "hello, authenticated encryption!" })
+})
 
 BunRuntime.runMain(program)

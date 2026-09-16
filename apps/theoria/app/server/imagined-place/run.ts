@@ -1,4 +1,3 @@
-import type { Cipher } from "@scenesystems/seal"
 import { Clock, Effect } from "effect"
 import * as Arr from "effect/Array"
 
@@ -30,7 +29,7 @@ import { scenarioById } from "./scenarios.js"
  */
 export const buildPlace = (
   request: PlaceBuildRequest
-): Effect.Effect<PlaceBuild, PlaceBuildError, Participants | Cipher.Cipher> =>
+): Effect.Effect<PlaceBuild, PlaceBuildError, Participants> =>
   Effect.gen(function*() {
     const startedAt = yield* Clock.currentTimeMillis
     const scenario = scenarioById(request.scenario)
