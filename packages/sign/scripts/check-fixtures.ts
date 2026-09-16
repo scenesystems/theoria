@@ -7,9 +7,20 @@
  */
 import * as BunContext from "@effect/platform-bun/BunContext"
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import * as PlatformError from "@effect/platform/Error"
+import type * as PlatformError from "@effect/platform/Error"
 import { digestBytesHex } from "@scenesystems/digest"
-import { Array as Arr, Cause, Console, Effect, Match, Option, ParseResult, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  type Cause,
+  Console,
+  Data,
+  Effect,
+  Match,
+  Option,
+  type ParseResult,
+  Schema,
+  String as Str
+} from "effect"
 import type { ConformancePayload } from "./fixture-contract.js"
 import {
   ConformanceManifest,
@@ -23,18 +34,11 @@ import {
 } from "./fixture-contract.js"
 import { JwtFixture } from "./jwt-fixture-contract.js"
 
-class FixtureCheckError extends Schema.TaggedError<FixtureCheckError>()("FixtureCheckError", {
-  file: Schema.String,
-  reason: Schema.String,
-  cause: Schema.Option(
-    Schema.Union(
-      PlatformError.BadArgument,
-      PlatformError.SystemError,
-      Schema.instanceOf(ParseResult.ParseError),
-      Schema.instanceOf(Cause.IllegalArgumentException)
-    )
-  )
-}) {
+class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
+  readonly file: string
+  readonly reason: string
+  readonly cause: Option.Option<PlatformError.PlatformError | ParseResult.ParseError | Cause.IllegalArgumentException>
+}> {
   override get message() {
     return Arr.join(
       Arr.make(

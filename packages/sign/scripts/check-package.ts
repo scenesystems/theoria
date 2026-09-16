@@ -2,11 +2,11 @@
 import { Command, FileSystem, Path, Url } from "@effect/platform"
 import * as BunContext from "@effect/platform-bun/BunContext"
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import { Array as Arr, Config, Effect, Number as N, Schema, String as Str } from "effect"
+import { Array as Arr, Config, Data, Effect, Number as N, Schema, String as Str } from "effect"
 
-class PackageCheckFailed extends Schema.TaggedError<PackageCheckFailed>()("PackageCheckFailed", {
-  operation: Schema.String
-}) {}
+class PackageCheckFailed extends Data.TaggedError("PackageCheckFailed")<{
+  readonly operation: string
+}> {}
 
 const execute = (command: Command.Command, operation: string) =>
   command.pipe(

@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Jwt } from "@scenesystems/sign"
 import {
   Array as Arr,
+  Data,
   Deferred,
   Effect,
   Encoding,
@@ -24,7 +25,7 @@ const Identity = Schema.Struct({ sub: Schema.NonEmptyString, email: Schema.Liter
 const policy = new Jwt.Policy({ issuer: "https://team.example", audience: "app", maxLifetimeSeconds: 3600 })
 const accessPolicy = new Jwt.Policy({ issuer: "https://team.example", audience: "app", maxLifetimeSeconds: 86_400 })
 
-class ApplicationPolicyDefect extends Schema.TaggedError<ApplicationPolicyDefect>()("ApplicationPolicyDefect", {}) {}
+class ApplicationPolicyDefect extends Data.TaggedError("ApplicationPolicyDefect") {}
 
 describe("Jwt RS256 protocol", () => {
   it.effect("enforces the Access identity, issuer, audience, time, and 24-hour lifetime profile", () =>
@@ -246,7 +247,7 @@ describe("Jwt RS256 protocol", () => {
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
       const fixture = yield* Schema.decodeUnknown(JwtFixture)(corpus)
-      const defect = new ApplicationPolicyDefect({})
+      const defect = new ApplicationPolicyDefect()
       const application = Identity.pipe(Schema.filterEffect(() => Effect.die(defect)))
       const exit = yield* Jwt.verifyRs256(
         Redacted.make(Arr.headNonEmpty(fixture.cases).token),

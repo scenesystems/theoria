@@ -1,6 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Bytes, Ed25519, Entropy, KeyPair, MlDsa, Secp256k1, SlhDsa, X25519, XWing } from "@scenesystems/sign"
-import { Array as Arr, Chunk, Data, Effect, Encoding, Ref, Schema, Tuple } from "effect"
+import {
+  Bytes,
+  Ed25519,
+  Entropy,
+  KeyPair,
+  MlDsa,
+  Secp256k1,
+  Signature,
+  SlhDsa,
+  X25519,
+  XWing
+} from "@scenesystems/sign"
+import { Array as Arr, Cause, Chunk, Data, Deferred, Effect, Encoding, Exit, Fiber, Ref, Schema, Tuple } from "effect"
 
 const deterministicBytes = (byte: number, length: number) =>
   Schema.decode(Schema.Uint8Array)(Arr.take(Arr.replicate(byte, length), length)).pipe(
@@ -69,6 +80,74 @@ describe("Entropy", () => {
           expect(yield* Ref.get(requests)).toEqual(Arr.of(expectedLength))
         })
     ))
+
+  it.effect("fails signing and encapsulation before using keys when the entropy provider fails", () =>
+    Effect.gen(function*() {
+      const empty = Bytes.fromString("")
+      const requests = yield* Ref.make(Arr.empty<number>())
+      const source = Entropy.Entropy.of({
+        bytes: (length) =>
+          Ref.update(requests, Arr.append(length)).pipe(
+            Effect.zipRight(Effect.fail(new Entropy.GenerationFailed({ length, reason: "source unavailable" })))
+          )
+      })
+      // Invalid keys make premature backend execution distinguishable from source failure.
+      expect(
+        yield* Effect.flip(
+          Secp256k1.signSchnorr(empty, empty, empty).pipe(
+            Effect.provideService(Entropy.Entropy, source)
+          )
+        )
+      ).toEqual(new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: "Signing entropy unavailable" }))
+      expect(
+        yield* Effect.flip(
+          MlDsa.sign44(empty, empty, empty).pipe(
+            Effect.provideService(Entropy.Entropy, source)
+          )
+        )
+      ).toEqual(new Signature.SigningFailed({ algorithm: "ml-dsa-44", reason: "Signing entropy unavailable" }))
+      expect(
+        yield* Effect.flip(
+          XWing.encapsulate(empty).pipe(
+            Effect.provideService(Entropy.Entropy, source)
+          )
+        )
+      ).toEqual(new XWing.Failed({ algorithm: "xwing", reason: "Encapsulation entropy unavailable" }))
+      expect(yield* Ref.get(requests)).toEqual(Arr.make(32, 32, 64))
+    }))
+
+  it.effect("interrupts pending entropy acquisition and waits for the provider's release", () =>
+    Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const released = yield* Deferred.make<Exit.Exit<never>>()
+      const fiber = yield* MlDsa.generateKeyPair65().pipe(
+        Effect.provideService(Entropy.Entropy, {
+          bytes: () =>
+            Effect.acquireUseRelease(
+              Deferred.succeed(started, undefined),
+              () => Effect.never,
+              (_, exit) => Deferred.succeed(released, exit)
+            )
+        }),
+        Effect.fork
+      )
+      yield* Deferred.await(started)
+      const exit = yield* Fiber.interrupt(fiber)
+      expect(yield* Deferred.isDone(released)).toBe(true)
+      const providerExit = yield* Deferred.await(released)
+      expect(Exit.match(providerExit, { onFailure: Cause.isInterruptedOnly, onSuccess: () => false })).toBe(true)
+      expect(Exit.match(exit, { onFailure: Cause.isInterruptedOnly, onSuccess: () => false })).toBe(true)
+    }))
+
+  it.effect("preserves provider defects rather than relabeling them as expected generation failures", () =>
+    Effect.gen(function*() {
+      const defect = new Cause.RuntimeException("entropy provider defect")
+      const exit = yield* Ed25519.generateKeyPair().pipe(
+        Effect.provideService(Entropy.Entropy, { bytes: () => Effect.die(defect) }),
+        Effect.exit
+      )
+      expect(exit).toEqual(Exit.die(defect))
+    }))
 
   it.effect("randomized signatures depend on supplied entropy, not ambient defaults", () =>
     Effect.gen(function*() {

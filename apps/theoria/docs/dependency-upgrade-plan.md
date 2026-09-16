@@ -248,21 +248,25 @@ With the fix the production build emits:
 import it, so the runtime is in the production bundle; the redesign builds on
 that footprint rather than adding a second animation runtime.
 
-**Vitest 4 removed the options the root config set.** `poolOptions` became
-top-level `maxWorkers: process.env.CI ? 2 : 4`. The root `coverage` block had
-sat outside `test`, where Vitest ignored it, and nothing ran coverage; it and
-`@vitest/coverage-v8` were removed rather than migrated. Every config now sets
-`passWithNoTests: false`, and `bunfig.toml` (which pointed `bun test` at an
-empty directory so it exited 0) is gone: an empty run is a failure, and
-`bun test` fails on `@effect/vitest` instead of passing silently.
+**The test runner follows the Effect integration's supported version.**
+`@effect/vitest` 0.30 requires Vitest 3.2, so the root now uses Vitest 3.2.7
+rather than Vitest 4. CI worker limits come from Effect's `Config.boolean`
+and `Boolean.match`. The application retains Vite 8 independently. The root
+`coverage` block had sat outside `test`, where Vitest ignored it, and nothing
+ran coverage; it and `@vitest/coverage-v8` were removed. `bunfig.toml`, which
+pointed `bun test` at an empty directory, is gone; use `bun run test` to run
+the Effect Vitest suites. Empty runs fail rather than silently passing.
 
 **Base UI renamed its package at 1.0.0.** Twenty-four import sites moved from
 `@base-ui-components/react/<part>` to `@base-ui/react/<part>`; no component
 API changed.
 
 **`@noble/post-quantum` 0.7 removed the `XWing` alias.**
-`packages/sign/src/algorithms/hybrid.ts` now imports `ml_kem768_x25519`. The
-`sign`, `seal` and `digest` known-answer tests pass on noble 2.4.
+The public `XWing` concern in `@scenesystems/sign/XWing` owns key generation,
+encapsulation, and decapsulation, using Noble's `ml_kem768_x25519` primitive
+privately. Its profile is draft-connolly-cfrg-xwing-kem-06, verified against
+the draft authors' independent known-answer vector. The `sign`, `seal`, and
+`digest` known-answer tests pass on Noble 2.4.
 
 ## Records and absence are Effect-native
 

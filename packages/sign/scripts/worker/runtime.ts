@@ -4,9 +4,9 @@ import { Array as Arr, Config, Data, Effect, Number as N, Option, Schema, Stream
 
 import { RequestBody, Result } from "./protocol.js"
 
-class WorkerUnavailable extends Schema.TaggedError<WorkerUnavailable>()("WorkerUnavailable", {
-  reason: Schema.String
-}) {}
+class WorkerUnavailable extends Data.TaggedError("WorkerUnavailable")<{
+  readonly reason: string
+}> {}
 
 const Listening = Schema.parseJson(Schema.Struct({
   event: Schema.Literal("listen"),
