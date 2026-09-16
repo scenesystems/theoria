@@ -15,13 +15,12 @@ import {
   Tuple
 } from "effect"
 
-import * as Cache from "../../src/Cache/index.js"
-import type { CacheObservabilityEvent } from "../../src/Cache/observer.js"
-import { CacheObserver } from "../../src/Cache/observer.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
-import type * as Trial from "../../src/Trial/index.js"
+import * as Cache from "../../src/Cache.js"
+import * as ObjectiveCache from "../../src/ObjectiveCache.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
+import type * as Trial from "../../src/Trial.js"
 
 class SchemaConfig extends Schema.Class<SchemaConfig>("SchemaConfig")({
   label: Schema.String,
@@ -39,7 +38,7 @@ const NestedConfigSchema = Schema.Struct({
 })
 
 const completedWithValue = (expected: number) =>
-  Match.type<Trial.TrialState>().pipe(
+  Match.type<Trial.State>().pipe(
     Match.tag("Completed", ({ value }) =>
       Match.value(value).pipe(
         Match.when(Match.number, Num.between({ minimum: expected, maximum: expected })),
@@ -65,13 +64,13 @@ describe("StudyObjectiveCache", () => {
         trials: 4,
         concurrency: 1,
         objective: () => Ref.updateAndGet(invocations, Num.increment)
-      }).pipe(Effect.provide(Study.StudyObjectiveCacheMemory(Study.studyObjectiveCacheOptions("study-cache"))))
+      }).pipe(Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "study-cache" }))))
 
       const calls = yield* Ref.get(invocations)
 
       expect(calls).toBe(1)
       expect(result.trials).toHaveLength(4)
-      expect(Arr.every(result.trials, (trial) => completedWithValue(1)(trial.state))).toBe(true)
+      expect(Arr.every(Arr.fromIterable(result.trials), (trial) => completedWithValue(1)(trial.state))).toBe(true)
     }))
 
   it.live("single-flights per key under maximum contention", () =>
@@ -89,13 +88,15 @@ describe("StudyObjectiveCache", () => {
           Ref.updateAndGet(invocations, Num.increment).pipe(
             Effect.zipLeft(Effect.sleep("10 millis"))
           )
-      }).pipe(Effect.provide(Study.StudyObjectiveCacheMemory(Study.studyObjectiveCacheOptions("stress-single-flight"))))
+      }).pipe(
+        Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "stress-single-flight" })))
+      )
 
       const calls = yield* Ref.get(invocations)
 
       expect(calls).toBe(1)
       expect(result.trials).toHaveLength(12)
-      expect(Arr.every(result.trials, (trial) => completedWithValue(1)(trial.state))).toBe(true)
+      expect(Arr.every(Arr.fromIterable(result.trials), (trial) => completedWithValue(1)(trial.state))).toBe(true)
     }))
 
   it.scoped("isolates cached objective values by configured study scope", () =>
@@ -114,7 +115,7 @@ describe("StudyObjectiveCache", () => {
           trials: 2,
           concurrency: 1,
           objective: evaluate
-        }).pipe(Effect.provide(Study.StudyObjectiveCacheFileSystem(directory, Study.studyObjectiveCacheOptions(scope))))
+        }).pipe(Effect.provide(ObjectiveCache.layerFileSystem(directory, new ObjectiveCache.Options({ scope }))))
 
       yield* runScoped("scope-a")
       yield* runScoped("scope-a")
@@ -141,25 +142,25 @@ describe("StudyObjectiveCache", () => {
 
   it.effect("propagates cache decode corruption failures instead of treating them as misses", () =>
     Effect.gen(function*() {
-      const schemaCache = yield* Cache.SchemaCache
-      const corruption = new Cache.CacheCorrupt({
+      const cache = yield* Cache.Cache
+      const corruption = new Cache.Corrupt({
         key: "study:v1:forced-corrupt",
         reason: "forced-corrupt"
       })
 
-      const corruptedSchemaCache: Cache.SchemaCacheApi = {
-        get: schemaCache.get,
-        set: schemaCache.set,
-        remove: schemaCache.remove,
+      const corruptedCache: Cache.Service = {
+        get: cache.get,
+        set: cache.set,
+        remove: cache.remove,
         resolve: () => Effect.fail(corruption)
       }
 
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
-        Effect.provideService(Cache.SchemaCache, corruptedSchemaCache)
+      const objectiveCache = yield* ObjectiveCache.make().pipe(
+        Effect.provideService(Cache.Cache, corruptedCache)
       )
 
       const resolved = yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema: Schema.Struct({ trial: Schema.Number }),
           config: { trial: 1 },
           compute: Effect.succeed(0.5)
@@ -167,21 +168,21 @@ describe("StudyObjectiveCache", () => {
       ).pipe(Effect.either)
 
       expect(resolved).toEqual(Either.left(corruption))
-    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+    }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("propagates backend failures on invalidate", () =>
     Effect.gen(function*() {
-      const schemaCache = yield* Cache.SchemaCache
-      const backendFailure = new Cache.CacheBackendError({
+      const cache = yield* Cache.Cache
+      const backendFailure = new Cache.BackendError({
         operation: "remove",
         reason: "forced-backend-failure"
       })
 
       const removed = yield* Ref.make(false)
-      const failingSchemaCache: Cache.SchemaCacheApi = {
-        get: schemaCache.get,
-        set: schemaCache.set,
-        resolve: schemaCache.resolve,
+      const failingCache: Cache.Service = {
+        get: cache.get,
+        set: cache.set,
+        resolve: cache.resolve,
         remove: () =>
           Effect.gen(function*() {
             yield* Ref.set(removed, true)
@@ -189,8 +190,8 @@ describe("StudyObjectiveCache", () => {
           })
       }
 
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
-        Effect.provideService(Cache.SchemaCache, failingSchemaCache)
+      const objectiveCache = yield* ObjectiveCache.make().pipe(
+        Effect.provideService(Cache.Cache, failingCache)
       )
 
       const invalidated = yield* objectiveCache.invalidate(
@@ -200,29 +201,29 @@ describe("StudyObjectiveCache", () => {
 
       expect(yield* Ref.get(removed)).toBe(true)
       expect(invalidated).toEqual(Either.left(backendFailure))
-    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+    }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("CacheObserver receives Miss on first resolve and Hit on second", () =>
     Effect.gen(function*() {
-      const events = yield* Ref.make(Arr.empty<CacheObservabilityEvent>())
-      const observerLayer = Layer.succeed(CacheObserver, {
+      const events = yield* Ref.make(Arr.empty<Cache.Event>())
+      const observerLayer = Layer.succeed(Cache.Observer, {
         record: (event) => Ref.update(events, Arr.append(event))
       })
 
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+      const objectiveCache = yield* ObjectiveCache.make().pipe(
         Effect.provide(observerLayer)
       )
 
       const schema = Schema.Struct({ x: Schema.Number })
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema,
           config: { x: 1 },
           compute: Effect.succeed(42)
         })
       )
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema,
           config: { x: 1 },
           compute: Effect.succeed(42)
@@ -237,21 +238,21 @@ describe("StudyObjectiveCache", () => {
 
       const second = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected second event"))
       expect(Either.map(second, (result) => result._tag)).toEqual(Either.right("Hit"))
-    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+    }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("CacheObserver receives Invalidation event on invalidate", () =>
     Effect.gen(function*() {
-      const events = yield* Ref.make(Arr.empty<CacheObservabilityEvent>())
-      const observerLayer = Layer.succeed(CacheObserver, {
+      const events = yield* Ref.make(Arr.empty<Cache.Event>())
+      const observerLayer = Layer.succeed(Cache.Observer, {
         record: (event) => Ref.update(events, Arr.append(event))
       })
 
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+      const objectiveCache = yield* ObjectiveCache.make().pipe(
         Effect.provide(observerLayer)
       )
 
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema: Schema.String,
           config: "key-a",
           compute: Effect.succeed(10)
@@ -264,15 +265,15 @@ describe("StudyObjectiveCache", () => {
 
       const invalidation = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected invalidation event"))
       expect(Either.map(invalidation, (result) => result._tag)).toEqual(Either.right("Invalidation"))
-    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+    }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("preserves known identity-schema fingerprints and supports nested schema configs", () =>
     Effect.gen(function*() {
-      const events = yield* Ref.make(Arr.empty<CacheObservabilityEvent>())
-      const observerLayer = Layer.succeed(CacheObserver, {
+      const events = yield* Ref.make(Arr.empty<Cache.Event>())
+      const observerLayer = Layer.succeed(Cache.Observer, {
         record: (event) => Ref.update(events, Arr.append(event))
       })
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+      const objectiveCache = yield* ObjectiveCache.make().pipe(
         Effect.provide(observerLayer)
       )
       const firstSchema = new SchemaConfig({ label: "shared", value: 1 })
@@ -282,42 +283,42 @@ describe("StudyObjectiveCache", () => {
       const distinctConfig = { label: "shared", value: 2 }
 
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema: SchemaConfig,
           config: firstSchema,
           compute: Effect.succeed(1)
         })
       )
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema: SchemaConfig,
           config: repeatedSchema,
           compute: Effect.succeed(1)
         })
       )
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema: SchemaConfig,
           config: distinctSchema,
           compute: Effect.succeed(2)
         })
       )
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema: ConfigSchema,
           config: firstConfig,
           compute: Effect.succeed(1)
         })
       )
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema: ConfigSchema,
           config: distinctConfig,
           compute: Effect.succeed(2)
         })
       )
       yield* objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema: NestedConfigSchema,
           config: { label: "nested", nested: { value: 3 } },
           compute: Effect.succeed(3)
@@ -336,16 +337,16 @@ describe("StudyObjectiveCache", () => {
         yield* Cache.durableFingerprint({ label: "nested", nested: { value: 3 } })
       ])
       expect(Arr.map(recorded, ({ _tag }) => _tag)).toEqual(["Miss", "Hit", "Miss", "Hit", "Hit", "Miss"])
-    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+    }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("fingerprints a transformed config by its encoded preimage without double encoding", () =>
     Effect.gen(function*() {
-      const events = yield* Ref.make(Arr.empty<CacheObservabilityEvent>())
+      const events = yield* Ref.make(Arr.empty<Cache.Event>())
       const invocations = yield* Ref.make(0)
-      const observerLayer = Layer.succeed(CacheObserver, {
+      const observerLayer = Layer.succeed(Cache.Observer, {
         record: (event) => Ref.update(events, Arr.append(event))
       })
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(Effect.provide(observerLayer))
+      const objectiveCache = yield* ObjectiveCache.make().pipe(Effect.provide(observerLayer))
       const compute = Ref.updateAndGet(invocations, Num.increment)
       const encodes = MutableRef.make(0)
       const schema = Schema.transform(Schema.NumberFromString, Schema.Number, {
@@ -357,7 +358,7 @@ describe("StudyObjectiveCache", () => {
         }
       })
       const operation = objectiveCache.resolve(
-        new Study.StudyObjectiveCacheRequest({
+        new ObjectiveCache.Request({
           schema,
           config: 42,
           compute
@@ -371,8 +372,8 @@ describe("StudyObjectiveCache", () => {
       const expectedFingerprint = yield* Cache.durableFingerprint("42")
       const recorded = yield* Ref.get(events)
 
-      expect(first).toEqual(Tuple.make(1, "miss"))
-      expect(second).toEqual(Tuple.make(1, "hit"))
+      expect(first).toEqual(new Cache.Result({ value: 1, resolution: "miss" }))
+      expect(second).toEqual(new Cache.Result({ value: 1, resolution: "hit" }))
       expect(yield* Ref.get(invocations)).toBe(1)
       expect(Arr.map(recorded, ({ fingerprint }) => fingerprint)).toEqual([
         expectedFingerprint,
@@ -381,36 +382,36 @@ describe("StudyObjectiveCache", () => {
       expect(Arr.map(recorded, ({ _tag }) => _tag)).toEqual(["Miss", "Hit"])
       yield* invalidate
       expect(MutableRef.get(encodes)).toBe(3)
-      expect(yield* operation).toEqual(Tuple.make(2, "miss"))
+      expect(yield* operation).toEqual(new Cache.Result({ value: 2, resolution: "miss" }))
       expect(MutableRef.get(encodes)).toBe(4)
-    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+    }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("fails key preparation without compute, backend, or observer side effects", () =>
     Effect.gen(function*() {
-      const schemaCache = yield* Cache.SchemaCache
-      const events = yield* Ref.make(Arr.empty<CacheObservabilityEvent>())
+      const cache = yield* Cache.Cache
+      const events = yield* Ref.make(Arr.empty<Cache.Event>())
       const computed = yield* Ref.make(false)
       const backendCalled = yield* Ref.make(false)
-      const observerLayer = Layer.succeed(CacheObserver, {
+      const observerLayer = Layer.succeed(Cache.Observer, {
         record: (event) => Ref.update(events, Arr.append(event))
       })
-      const permissiveSchemaCache: Cache.SchemaCacheApi = {
-        get: schemaCache.get,
-        set: schemaCache.set,
+      const permissiveCache: Cache.Service = {
+        get: cache.get,
+        set: cache.set,
         resolve: ({ compute }) =>
           Ref.set(backendCalled, true).pipe(
             Effect.zipRight(compute),
-            Effect.map((value) => Tuple.make(value, "miss"))
+            Effect.map((value) => new Cache.Result({ value, resolution: "miss" }))
           ),
         remove: () => Ref.set(backendCalled, true)
       }
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+      const objectiveCache = yield* ObjectiveCache.make().pipe(
         Effect.provide(observerLayer),
-        Effect.provideService(Cache.SchemaCache, permissiveSchemaCache)
+        Effect.provideService(Cache.Cache, permissiveCache)
       )
       const malformedValue = yield* Effect.either(
         objectiveCache.resolve(
-          new Study.StudyObjectiveCacheRequest({
+          new ObjectiveCache.Request({
             schema: Schema.Struct({ text: Schema.String }),
             config: { text: "\uD800" },
             compute: Ref.set(computed, true).pipe(Effect.as(1))
@@ -425,14 +426,14 @@ describe("StudyObjectiveCache", () => {
       )
       const encodingFailure = yield* Effect.either(
         objectiveCache.resolve(
-          new Study.StudyObjectiveCacheRequest({
+          new ObjectiveCache.Request({
             schema: Schema.Struct({ text: Schema.NonEmptyString }),
             config: { text: "" },
             compute: Ref.set(computed, true).pipe(Effect.as(1))
           })
         )
       )
-      const expected = new Cache.CacheCorrupt({
+      const expected = new Cache.Corrupt({
         key: "study/objective:v1:",
         reason: "fingerprint failure: InvalidUnicode"
       })
@@ -455,5 +456,5 @@ describe("StudyObjectiveCache", () => {
       expect(yield* Ref.get(computed)).toBe(false)
       expect(yield* Ref.get(backendCalled)).toBe(false)
       expect(yield* Ref.get(events)).toEqual([])
-    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+    }).pipe(Effect.provide(Cache.layerMemory)))
 })

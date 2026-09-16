@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { InvalidUnicode, UnsupportedValue } from "@scenesystems/digest"
 import { Effect, Exit, Schema } from "effect"
 
-import { durableFingerprint, runtimeFingerprint, RuntimeFingerprintError } from "../../src/Cache/index.js"
+import { durableFingerprint, runtimeFingerprint, RuntimeFingerprintError } from "../../src/Cache.js"
 
 describe("Cache/runtimeFingerprint", () => {
   it.effect("rejects malformed Unicode without replacement encoding", () =>
