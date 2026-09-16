@@ -1,35 +1,20 @@
-import { Context, Effect, Inspectable, Layer, Schema, String as Str } from "effect"
+import { Context, Effect, Encoding, Inspectable, Layer, Schema, String as Str, Struct } from "effect"
 
 import { digestBytesHex, digestSchemaValue } from "@scenesystems/digest"
-import {
-  ed25519Keygen,
-  ed25519Sign,
-  ed25519Verify,
-  generateKeyPair,
-  type KeyGenerationFailed,
-  KeyPair,
-  toHex,
-  utf8ToBytes
-} from "@scenesystems/sign"
+import { Bytes, Ed25519, Entropy, KeyPair, X25519 } from "@scenesystems/sign"
 
-import type { SignatureRecord } from "../../contracts/imagined-place-result.js"
-import type { ParticipantRole, PlaceArtifact, Proposal } from "../../contracts/imagined-place.js"
-import {
-  PlaceArtifact as PlaceArtifactSchema,
-  PlaceBuildError,
-  Proposal as ProposalSchema
-} from "../../contracts/imagined-place.js"
+import { SignatureRecord } from "../../contracts/imagined-place-result.js"
+import { ParticipantRole, PlaceArtifact, PlaceBuildError, Proposal } from "../../contracts/imagined-place.js"
 
 /**
  * One participant's keys: an Ed25519 pair for signing and an X25519 pair for
  * agreeing on a sealing key with another participant.
  */
-export const ParticipantKeys = Schema.Struct({ signing: KeyPair, agreement: KeyPair })
+export const ParticipantKeys = Schema.Struct({ signing: KeyPair.KeyPair, agreement: KeyPair.KeyPair })
 export type ParticipantKeys = typeof ParticipantKeys.Type
 
-export type ParticipantSet = {
-  readonly [Role in ParticipantRole]: ParticipantKeys
-}
+export const ParticipantSet = Schema.Record({ key: ParticipantRole, value: ParticipantKeys })
+export type ParticipantSet = typeof ParticipantSet.Type
 
 /**
  * Session keys for the three participants. They are generated once per
@@ -41,15 +26,17 @@ export class Participants extends Context.Tag("theoria/imagined-place/Participan
   ParticipantSet
 >() {}
 
-const participantKeys: Effect.Effect<ParticipantKeys, KeyGenerationFailed> = Effect.all({
-  signing: ed25519Keygen(),
-  agreement: generateKeyPair("x25519")
-})
+const participantKeys: Effect.Effect<ParticipantKeys, KeyPair.GenerationFailed, Entropy.Entropy> = Effect.all({
+  signing: Ed25519.generateKeyPair(),
+  agreement: X25519.generateKeyPair()
+}).pipe(Effect.map(ParticipantKeys.make))
 
 export const ParticipantsLive = Layer.effect(
   Participants,
-  Effect.all({ author: participantKeys, neighbor: participantKeys, program: participantKeys })
-)
+  Effect.all({ author: participantKeys, neighbor: participantKeys, program: participantKeys }).pipe(
+    Effect.map(ParticipantSet.make)
+  )
+).pipe(Layer.provide(Entropy.layer))
 
 const identityError = (cause: unknown) =>
   new PlaceBuildError({ stage: "identity", message: Inspectable.toStringUnknown(cause) })
@@ -60,10 +47,10 @@ const identityError = (cause: unknown) =>
  * identity that survives being merged into something else.
  */
 export const versionId = (artifact: PlaceArtifact): Effect.Effect<string, PlaceBuildError> =>
-  digestSchemaValue(PlaceArtifactSchema, artifact, "blake3-256").pipe(Effect.mapError(identityError))
+  digestSchemaValue(PlaceArtifact, artifact, "blake3-256").pipe(Effect.mapError(identityError))
 
 export const proposalId = (proposal: Proposal): Effect.Effect<string, PlaceBuildError> =>
-  digestSchemaValue(ProposalSchema, proposal, "blake3-256").pipe(Effect.mapError(identityError))
+  digestSchemaValue(Proposal, proposal, "blake3-256").pipe(Effect.mapError(identityError))
 
 export const fingerprint = (publicKey: Uint8Array): Effect.Effect<string> =>
   Effect.map(digestBytesHex("blake3-256", publicKey), Str.takeLeft(16))
@@ -78,20 +65,19 @@ export const signAs = (
 ): Effect.Effect<SignatureRecord, PlaceBuildError, Participants> =>
   Effect.gen(function*() {
     const participants = yield* Participants
-    const key = participants[signer].signing
-    const message = utf8ToBytes(subject)
-    const signature = yield* ed25519Sign(message, key.secretKey, key.publicKey)
-    const valid = yield* ed25519Verify(signature.signature, message, key.publicKey)
+    const key = Struct.get(signer)(participants).signing
+    const message = Bytes.fromString(subject)
+    const signature = yield* Ed25519.sign(message, key.secretKey, key.publicKey)
+    const valid = yield* Ed25519.verify(signature.signature, message, key.publicKey)
     const keyFingerprint = yield* fingerprint(key.publicKey)
-    const record: SignatureRecord = {
+    return SignatureRecord.make({
       signer,
       subject,
       algorithm: "ed25519",
       keyFingerprint,
-      signatureHex: toHex(signature.signature),
+      signatureHex: Encoding.encodeHex(signature.signature),
       valid
-    }
-    return record
+    })
   }).pipe(
     Effect.mapError((cause) => new PlaceBuildError({ stage: "signature", message: Inspectable.toStringUnknown(cause) }))
   )

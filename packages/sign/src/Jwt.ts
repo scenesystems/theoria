@@ -19,10 +19,9 @@ import {
   Schema,
   String as Str
 } from "effect"
-import { rsaPublicKeyFromJwk, rsaSha256Verify } from "./algorithms/rsa.js"
-import { utf8ToBytes } from "./encoding.js"
-import { DIRECT_VERIFICATION_MAX_MESSAGE_BYTES } from "./internal/verificationInput.js"
-import type { VerificationUnavailable } from "./schemas/errors.js"
+import * as Bytes from "./Bytes.js"
+import * as Rsa from "./Rsa.js"
+import * as Verification from "./Verification.js"
 
 /**
  * A token was rejected without retaining the token, claims, key, or diagnostics.
@@ -30,8 +29,11 @@ import type { VerificationUnavailable } from "./schemas/errors.js"
  * @since 0.4.0
  * @category errors
  */
-export class Rejected extends Schema.TaggedError<Rejected>()("JwtRejected", {
+export class Rejected extends Schema.TaggedError<Rejected>("@scenesystems/sign/Jwt/Rejected")("JwtRejected", {
   reason: Schema.Literal("MalformedToken", "KeySelection", "InvalidKey", "Signature", "Claims", "Policy")
+}, {
+  title: "JWT rejected",
+  description: "An RS256 token failed structural, key, signature, claims, or policy validation."
 }) {}
 
 /**
@@ -40,10 +42,13 @@ export class Rejected extends Schema.TaggedError<Rejected>()("JwtRejected", {
  * @since 0.4.0
  * @category schemas
  */
-export class Policy extends Schema.Class<Policy>("JwtPolicy")({
+export class Policy extends Schema.Class<Policy>("@scenesystems/sign/Jwt/Policy")({
   issuer: Schema.NonEmptyString,
   audience: Schema.NonEmptyString,
   maxLifetimeSeconds: Schema.Number.pipe(Schema.finite(), Schema.positive())
+}, {
+  title: "JWT verification policy",
+  description: "Trusted issuer, audience, and maximum token lifetime for RS256 verification."
 }) {}
 
 const NumericDate = Schema.Number.pipe(Schema.finite())
@@ -62,7 +67,7 @@ const Header = Schema.Struct({
 })
 
 const Segment = Schema.NonEmptyString.pipe(Schema.pattern(/^[A-Za-z0-9_-]+$/))
-const Compact = Schema.String.pipe(Schema.maxLength(N.sum(DIRECT_VERIFICATION_MAX_MESSAGE_BYTES, 684)))
+const Compact = Schema.String.pipe(Schema.maxLength(N.sum(Verification.maxMessageBytes, 684)))
 const Jwks = Schema.Struct({ keys: Schema.Array(Schema.Unknown).pipe(Schema.maxItems(100)) })
 const KeyId = Schema.Struct({ kid: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }) })
 
@@ -101,7 +106,7 @@ export const verifyRs256 = <A, I, R>(
   trustedJwks: unknown,
   policy: Policy,
   claimsSchema: Schema.Schema<A, I, R>
-): Effect.Effect<A, Rejected | VerificationUnavailable, R> =>
+): Effect.Effect<A, Rejected | Verification.Unavailable, R> =>
   Effect.gen(function*() {
     const admittedPolicy = yield* Schema.decode(Policy)({
       issuer: policy.issuer,
@@ -138,7 +143,7 @@ export const verifyRs256 = <A, I, R>(
     const [selected] = yield* Schema.decodeUnknown(Schema.Tuple(Schema.Unknown))(candidates).pipe(
       Effect.mapError(() => new Rejected({ reason: "KeySelection" }))
     )
-    const key = yield* rsaPublicKeyFromJwk(selected).pipe(
+    const key = yield* Rsa.publicKeyFromJwk(selected).pipe(
       Effect.mapError(() => new Rejected({ reason: "InvalidKey" }))
     )
     const signature = yield* Encoding.decodeBase64Url(encodedSignature).pipe(
@@ -148,7 +153,7 @@ export const verifyRs256 = <A, I, R>(
         () => new Rejected({ reason: "MalformedToken" })
       )
     )
-    yield* rsaSha256Verify(signature, utf8ToBytes(Arr.join(Arr.make(encodedHeader, encodedPayload), ".")), key).pipe(
+    yield* Rsa.verify(signature, Bytes.fromString(Arr.join(Arr.make(encodedHeader, encodedPayload), ".")), key).pipe(
       Effect.catchTag("InvalidVerificationInput", () => Effect.fail(new Rejected({ reason: "Signature" }))),
       Effect.filterOrFail(identity, () => new Rejected({ reason: "Signature" }))
     )
