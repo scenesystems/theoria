@@ -74,6 +74,28 @@ export const confidence = standardNormalCdf(1.96)
 export const fairCoinEntropy = entropy(Chunk.make(0.5, 0.5))
 ```
 
+## Mathematical conventions
+
+For vectors $a,b \in \mathbb{R}^n$ of the same length, `LinearAlgebra.dot(a, b)` computes the real inner product:
+
+$$
+\langle a,b\rangle = \sum_{i=1}^{n} a_i b_i
+$$
+
+`Distribution.normalPdf(x, mean, stdDev)` uses the standard deviation $\sigma > 0$, not the variance $\sigma^2$. Its density is:
+
+$$
+f(x;\mu,\sigma) = \frac{1}{\sigma\sqrt{2\pi}}\exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+$$
+
+For normalized probability masses $p_i \ge 0$ with $\sum_i p_i = 1$, `Probability.entropy` uses natural logarithms and returns nats:
+
+$$
+H(p) = -\sum_i p_i\ln p_i, \qquad 0\,\ln\,0 \coloneqq 0
+$$
+
+Thus a fair coin has entropy $\ln 2$, rather than one bit. These formulas describe the mathematical quantities; floating-point operations remain subject to the numerical behavior documented by each operation.
+
 ## Naming and vocabulary
 
 Effect imports retain their public module names: `Number.sum`, `Array.map`, `Boolean.match`, `String.concat`, `BigDecimal.multiply`, and `BigInt.gcd`. Concern imports retain their mathematical names. When operations overlap, qualify them with their owning namespace rather than inventing an alias:
