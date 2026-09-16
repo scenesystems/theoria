@@ -2,6 +2,7 @@ import { Boolean as Bool, Equal, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 
+import { proposalSignatureSite, versionSignatureSite } from "../../../contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceSearch, ShownGeometry } from "../../atoms/imagined-place-render.js"
@@ -43,7 +44,7 @@ const proposeValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
       "digestSchemaValue(Proposal,",
       Option.map(neighbor, (record) => `neighbor's proposal · ${shortId(record.contentId)}`)
     ),
-    annotation("ed25519Sign(proposer.secretKey", Option.map(neighbor, (record) => signatureLabel(record.signature))),
+    annotation(proposalSignatureSite.match, Option.map(neighbor, (record) => signatureLabel(record.signature))),
     annotation(
       "seal(\"xchacha20-poly1305\"",
       Option.some(`${String(note.envelopeBytes)} bytes · opened with your key`)
@@ -63,7 +64,7 @@ const recordValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
       Option.map(Arr.get(lineage, 1), (version) => `v2 · ${shortId(version.contentId)}`)
     ),
     annotation(
-      "ed25519Sign(author.secretKey",
+      versionSignatureSite.match,
       Option.map(
         signatureFor(build.evidence.signatures, currentVersion(build.evidence).contentId),
         signatureLabel
