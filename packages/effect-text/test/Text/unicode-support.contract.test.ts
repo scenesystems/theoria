@@ -1,9 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Boolean, Effect, Layer, Number, Schema, String } from "effect"
 import * as Arr from "effect/Array"
 
 import { Contracts, Text } from "../../src/index.js"
-import { preparedTextWithSegmentsCore } from "../../src/Text/model.js"
 import { unicodeOverflowFixtures, unicodeSegmentationFixtures } from "../fixtures/unicodeSupport.js"
 
 const makeTestLayer = Layer.mergeAll(
@@ -12,35 +11,25 @@ const makeTestLayer = Layer.mergeAll(
   Text.MeasurementCacheLive.pipe(
     Layer.provide(
       Layer.succeed(Contracts.TextMeasurer, {
-        measure: (_font, text: string) => Effect.succeed(text.length * 5)
+        measure: (_font, text: string) => Effect.succeed(Number.multiply(String.length(text), 5))
       })
     )
   )
 )
 
-const visibleText = (text: string): string => text.replace(/\u200b/gu, "")
-const normalizedVisibleText = (text: string): string => visibleText(text).replace(/ /gu, "")
+const visibleText = (text: string): string => String.replace(/\u200b/gu, "")(text)
+const normalizedVisibleText = (text: string): string => String.replace(/ /gu, "")(visibleText(text))
+const isWideText = Schema.is(Schema.String.pipe(Schema.pattern(/^W+$/u)))
 
 describe("Text unicode support fixtures", () => {
-  it.effect("matches the checked-in segmentation fixtures for the released unicode support envelope", () =>
+  it.effect("matches explicit segmentation results through the public WordSegmenter contract", () =>
     Effect.forEach(
       unicodeSegmentationFixtures,
       (fixture) =>
-        Text.prepareWithSegments({
-          text: fixture.text,
-          font: { family: "Mono", size: 10 },
-          whiteSpace: fixture.whiteSpace
-        }).pipe(
-          Effect.provide(makeTestLayer),
-          Effect.map((prepared) => {
-            const core = preparedTextWithSegmentsCore(prepared)
-
-            expect(Arr.map(core.logicalSurface.segments, (segment) => segment.text), fixture.name).toEqual(
-              fixture.expectedSegments
-            )
-            expect(core.kernel.runtime.breakKinds, fixture.name).toEqual(fixture.expectedBreakKinds)
-          })
-        ),
+        Effect.gen(function*() {
+          const segmenter = yield* Contracts.WordSegmenter
+          expect(yield* segmenter.segment(fixture.text, fixture.whiteSpace), fixture.name).toEqual(fixture.expected)
+        }).pipe(Effect.provide(Text.WordSegmenterLive)),
       { discard: true }
     ))
 
@@ -57,10 +46,14 @@ describe("Text unicode support fixtures", () => {
           Effect.map((prepared) => {
             const lines = Text.layoutLines(prepared, { maxWidth: fixture.maxWidth, lineHeight: 12 })
 
-            expect(normalizedVisibleText(Arr.reduce(lines, "", (text, line) => text + line.text)), fixture.name).toBe(
-              normalizedVisibleText(fixture.text)
-            )
-            expect(Arr.every(lines, (line) => line.width <= fixture.maxWidth + 0.01), fixture.name).toBe(true)
+            expect(
+              normalizedVisibleText(Arr.reduce(lines, "", (text, line) => String.concat(line.text)(text))),
+              fixture.name
+            ).toBe(normalizedVisibleText(fixture.text))
+            expect(
+              Arr.every(lines, (line) => Number.lessThanOrEqualTo(line.width, Number.sum(fixture.maxWidth, 0.01))),
+              fixture.name
+            ).toBe(true)
           })
         ),
       { discard: true }
@@ -74,7 +67,13 @@ describe("Text unicode support fixtures", () => {
         Text.MeasurementCacheLive.pipe(
           Layer.provide(
             Layer.succeed(Contracts.TextMeasurer, {
-              measure: (_font, text: string) => Effect.succeed(/^W+$/u.test(text) ? text.length * 40 : text.length * 5)
+              measure: (_font, text: string) =>
+                Effect.succeed(
+                  Number.multiply(
+                    String.length(text),
+                    Boolean.match(isWideText(text), { onFalse: () => 5, onTrue: () => 40 })
+                  )
+                )
             })
           )
         )
@@ -86,9 +85,9 @@ describe("Text unicode support fixtures", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(oversizedLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 20, lineHeight: 12 })).toEqual([
+      expect(Text.layoutLines(prepared, { maxWidth: 20, lineHeight: 12 })).toEqual(Arr.make(
         { baseDirection: "ltr", index: 0, order: "visual", text: "W", width: 40 },
         { baseDirection: "ltr", index: 1, order: "visual", text: "W", width: 40 }
-      ])
+      ))
     }))
 })

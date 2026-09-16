@@ -1,10 +1,11 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Chunk, Clock, Console, Effect, Option, Schema, Stream } from "effect"
+import { Chunk, Clock, Console, Effect, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+import * as Str from "effect/String"
 
 import { type Errors, Text } from "../src/index.js"
-import { preparedTextWithSegmentsCore } from "../src/Text/model.js"
 import {
   type BenchmarkCaseReportType,
   type BenchmarkComparisonCaseReportType,
@@ -17,19 +18,21 @@ import {
   type BenchmarkMetricSampleType,
   type BenchmarkMetricType,
   BenchmarkReportSchema,
-  type BenchmarkReportType
+  type BenchmarkReportType,
+  MissingBenchmarkBaselineError
 } from "./corpus.js"
 
-const resultPath = (fileName: string): Effect.Effect<string, never, Path.Path> =>
+const resultPath = (fileName: string) =>
   Effect.gen(function*() {
     const pathService = yield* Path.Path
-    const url = yield* Url.fromString(`./results/${fileName}`, import.meta.url)
+    const url = yield* Url.fromString(Str.concat("./results/", fileName), import.meta.url)
     return yield* pathService.fromFileUrl(url)
-  }).pipe(Effect.orDie)
+  })
 const BenchmarkReportJsonSchema = Schema.parseJson(BenchmarkReportSchema)
 const BenchmarkComparisonReportJsonSchema = Schema.parseJson(BenchmarkComparisonReportSchema)
 
-const meanDuration = (totalDurationMs: number, iterations: number): number => totalDurationMs / iterations
+const meanDuration = (totalDurationMs: number, iterations: number): number =>
+  Num.unsafeDivide(totalDurationMs, iterations)
 
 const measureEffect = <A, E>(
   iterations: number,
@@ -43,7 +46,7 @@ const measureEffect = <A, E>(
 
     const finishedAt = yield* Clock.currentTimeMillis
     const sample = yield* run()
-    const totalDurationMs = finishedAt - startedAt
+    const totalDurationMs = Num.subtract(finishedAt, startedAt)
 
     return {
       status: "recorded",
@@ -66,7 +69,7 @@ const measurePure = <A>(
 
     const finishedAt = yield* Clock.currentTimeMillis
     const sample = yield* Effect.sync(run)
-    const totalDurationMs = finishedAt - startedAt
+    const totalDurationMs = Num.subtract(finishedAt, startedAt)
 
     return {
       status: "recorded",
@@ -81,11 +84,7 @@ const collectCursorLines = (
   prepared: Text.PreparedTextWithSegments,
   request: BenchmarkCorpusCase["request"],
   cursor = Text.initialCursor()
-): ReadonlyArray<Text.LayoutLineType> =>
-  Option.match(Text.layoutNextLine(prepared, request, cursor), {
-    onNone: () => [],
-    onSome: ([line, nextCursor]) => [line, ...collectCursorLines(prepared, request, nextCursor)]
-  })
+) => Arr.unfold(cursor, (currentCursor) => Text.layoutNextLine(prepared, request, currentCursor))
 
 const benchmarkCase = (
   corpusCase: BenchmarkCorpusCase
@@ -101,7 +100,7 @@ const benchmarkCase = (
           benchmarkIterations,
           () => Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive)),
           (preparedText) => ({
-            segmentCount: preparedTextWithSegmentsCore(preparedText).logicalSurface.segments.length
+            segmentCount: Arr.length(preparedText.logicalSurface.segments)
           })
         ),
         layout: yield* measurePure(
@@ -112,12 +111,12 @@ const benchmarkCase = (
         layoutLines: yield* measurePure(
           benchmarkIterations,
           () => Text.layoutLines(prepared, corpusCase.request),
-          (lines) => ({ lineCount: lines.length })
+          (lines) => ({ lineCount: Arr.length(lines) })
         ),
         layoutNextLine: yield* measurePure(
           benchmarkIterations,
           () => collectCursorLines(prepared, corpusCase.request),
-          (lines) => ({ lineCount: lines.length })
+          (lines) => ({ lineCount: Arr.length(lines) })
         ),
         streamLines: yield* measureEffect(
           benchmarkIterations,
@@ -126,12 +125,12 @@ const benchmarkCase = (
               Stream.runCollect,
               Effect.map(Chunk.toReadonlyArray)
             ),
-          (lines) => ({ lineCount: lines.length })
+          (lines) => ({ lineCount: Arr.length(lines) })
         ),
         walkLineRanges: yield* measurePure(
           benchmarkIterations,
           () => Text.walkLineRanges(prepared, corpusCase.request),
-          (ranges) => ({ lineCount: ranges.length })
+          (ranges) => ({ lineCount: Arr.length(ranges) })
         )
       }
     }
@@ -140,34 +139,61 @@ const benchmarkCase = (
 const compareMetric = (
   baselineMetric: BenchmarkMetricType,
   walkerMetric: BenchmarkMetricType
-): BenchmarkComparisonMetricType => {
-  if (baselineMetric.status === "recorded" && walkerMetric.status === "recorded") {
-    return {
-      status: "compared",
-      baselineMeanDurationMs: baselineMetric.meanDurationMs,
-      walkerMeanDurationMs: walkerMetric.meanDurationMs,
-      deltaMeanDurationMs: walkerMetric.meanDurationMs - baselineMetric.meanDurationMs,
-      baselineTotalDurationMs: baselineMetric.totalDurationMs,
-      walkerTotalDurationMs: walkerMetric.totalDurationMs
-    }
-  }
-
-  if (baselineMetric.status === "missing-api" && walkerMetric.status === "recorded") {
-    return {
-      status: "new-surface",
-      baselineStatus: baselineMetric.status,
-      walkerMeanDurationMs: walkerMetric.meanDurationMs,
-      walkerTotalDurationMs: walkerMetric.totalDurationMs,
-      sample: walkerMetric.sample
-    }
-  }
-
-  return {
-    status: "unavailable",
-    baselineStatus: baselineMetric.status,
-    walkerStatus: walkerMetric.status
-  }
-}
+): BenchmarkComparisonMetricType =>
+  Match.value(baselineMetric).pipe(
+    Match.when(
+      { status: "recorded" },
+      (baseline) =>
+        Match.value(walkerMetric).pipe(
+          Match.when(
+            { status: "recorded" },
+            (walker): BenchmarkComparisonMetricType => ({
+              status: "compared",
+              baselineMeanDurationMs: baseline.meanDurationMs,
+              walkerMeanDurationMs: walker.meanDurationMs,
+              deltaMeanDurationMs: Num.subtract(walker.meanDurationMs, baseline.meanDurationMs),
+              baselineTotalDurationMs: baseline.totalDurationMs,
+              walkerTotalDurationMs: walker.totalDurationMs
+            })
+          ),
+          Match.when(
+            { status: "missing-api" },
+            (walker): BenchmarkComparisonMetricType => ({
+              status: "unavailable",
+              baselineStatus: baseline.status,
+              walkerStatus: walker.status
+            })
+          ),
+          Match.exhaustive
+        )
+    ),
+    Match.when(
+      { status: "missing-api" },
+      (baseline) =>
+        Match.value(walkerMetric).pipe(
+          Match.when(
+            { status: "recorded" },
+            (walker): BenchmarkComparisonMetricType => ({
+              status: "new-surface",
+              baselineStatus: baseline.status,
+              walkerMeanDurationMs: walker.meanDurationMs,
+              walkerTotalDurationMs: walker.totalDurationMs,
+              sample: walker.sample
+            })
+          ),
+          Match.when(
+            { status: "missing-api" },
+            (walker): BenchmarkComparisonMetricType => ({
+              status: "unavailable",
+              baselineStatus: baseline.status,
+              walkerStatus: walker.status
+            })
+          ),
+          Match.exhaustive
+        )
+    ),
+    Match.exhaustive
+  )
 
 const compareCaseReports = (
   baselineCase: BenchmarkCaseReportType,
@@ -188,11 +214,19 @@ const compareCaseReports = (
 const findBaselineCase = (
   baselineReport: BenchmarkReportType,
   walkerCase: BenchmarkCaseReportType
-): Effect.Effect<BenchmarkCaseReportType> =>
-  Option.match(Arr.findFirst(baselineReport.corpus, (baselineCase) => baselineCase.name === walkerCase.name), {
-    onNone: () => Effect.dieMessage(`Missing materialize baseline for benchmark case: ${walkerCase.name}`),
-    onSome: Effect.succeed
-  })
+): Effect.Effect<BenchmarkCaseReportType, MissingBenchmarkBaselineError> =>
+  Arr.findFirst(baselineReport.corpus, (baselineCase) => Str.Equivalence(baselineCase.name, walkerCase.name)).pipe(
+    Option.match({
+      onNone: () =>
+        Effect.fail(
+          new MissingBenchmarkBaselineError({
+            caseName: walkerCase.name,
+            message: Str.concat("Missing materialize baseline for benchmark case: ", walkerCase.name)
+          })
+        ),
+      onSome: Effect.succeed
+    })
+  )
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
@@ -224,10 +258,10 @@ const program = Effect.gen(function*() {
   const encodedComparisonReport = yield* Schema.encode(BenchmarkComparisonReportJsonSchema)(comparisonReport)
 
   yield* fileSystem.makeDirectory(outputDirectory, { recursive: true })
-  yield* fileSystem.writeFileString(walkerPath, `${encodedWalkerReport}\n`)
-  yield* fileSystem.writeFileString(comparisonPath, `${encodedComparisonReport}\n`)
-  yield* Console.log(`Wrote effect-text walker benchmark: ${walkerPath}`)
-  yield* Console.log(`Wrote effect-text walker comparison: ${comparisonPath}`)
+  yield* fileSystem.writeFileString(walkerPath, Str.concat(encodedWalkerReport, "\n"))
+  yield* fileSystem.writeFileString(comparisonPath, Str.concat(encodedComparisonReport, "\n"))
+  yield* Console.log(Str.concat("Wrote effect-text walker benchmark: ", walkerPath))
+  yield* Console.log(Str.concat("Wrote effect-text walker comparison: ", comparisonPath))
 })
 
 BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

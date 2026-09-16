@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Match, Ref } from "effect"
+import { Effect, Layer, Match, Number, Ref, String } from "effect"
 import * as Arr from "effect/Array"
 import * as MutableRef from "effect/MutableRef"
 
 import { Contracts, Text } from "../../src/index.js"
 
-const maxWidthAtLine = (request: { readonly maxWidth: number }, lineIndex: number): number =>
+const maxWidthAtLine = (request: Text.LayoutRequestType, lineIndex: number): number =>
   Match.value(lineIndex).pipe(
     Match.when(0, () => request.maxWidth),
     Match.orElse(() => 40)
@@ -14,7 +14,8 @@ const maxWidthAtLine = (request: { readonly maxWidth: number }, lineIndex: numbe
 const makeTestContext = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)
   const measurerLayer = Layer.succeed(Contracts.TextMeasurer, {
-    measure: (_font, text: string) => Ref.update(measurements, (count) => count + 1).pipe(Effect.as(text.length * 5))
+    measure: (_font, text: string) =>
+      Ref.update(measurements, Number.increment).pipe(Effect.as(Number.multiply(String.length(text), 5)))
   })
 
   return {
@@ -47,9 +48,14 @@ describe("Text variable-width contracts", () => {
       const afterProjection = yield* Ref.get(measurements)
 
       expect(afterProjection).toBe(afterPrepare)
-      expect(MutableRef.get(widthResolutionCount)).toBe(projected.length)
-      expect(projected.length).toBeGreaterThan(uniform.length)
-      expect(Arr.every(projected, (line) => line.width <= maxWidthAtLine(request, line.index) + 0.01)).toBe(true)
+      expect(MutableRef.get(widthResolutionCount)).toBe(Arr.length(projected))
+      expect(Arr.length(projected)).toBeGreaterThan(Arr.length(uniform))
+      expect(
+        Arr.every(
+          projected,
+          (line) => Number.lessThanOrEqualTo(line.width, Number.sum(maxWidthAtLine(request, line.index), 0.01))
+        )
+      ).toBe(true)
     }))
 
   it.effect("variable-width projection does not re-enter measurement or service lookup after preparation", () =>
@@ -69,5 +75,23 @@ describe("Text variable-width contracts", () => {
 
       expect(afterProjection).toBe(afterPrepare)
       expect(Arr.map(narrow, (line) => line.text)).not.toEqual(Arr.map(wide, (line) => line.text))
+    }))
+
+  it.effect("does not resolve a width when prepared text emits no lines", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const widthResolutionCount = MutableRef.make(0)
+      const prepared = yield* Text.prepareWithSegments({
+        text: "",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(layer))
+      const lines = Text.layoutLinesWith(prepared, { maxWidth: 80, lineHeight: 14 }, () => {
+        MutableRef.increment(widthResolutionCount)
+        return 80
+      })
+
+      expect(lines).toEqual(Arr.empty())
+      expect(MutableRef.get(widthResolutionCount)).toBe(0)
     }))
 })

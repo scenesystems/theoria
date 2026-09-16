@@ -11,25 +11,24 @@
  * @since 0.2.0
  * @module
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Data, Option, Schema } from "effect"
+import { Number, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import type { FontReadinessRevisionType } from "../Browser/fontReadiness.js"
-import type { BrowserSupportProfileIdType } from "../Browser/supportManifest.js"
+import { FontReadinessRevision } from "../Browser/fontReadiness.js"
+import { BrowserSupportProfileIdSchema } from "../Browser/supportManifest.js"
 import { layoutLinesWithSummary } from "../Text/layout.js"
 import type { PreparedTextWithSegments } from "../Text/model.js"
 import {
-  type BaseTextDirectionType,
-  type EngineProfileType,
-  type HyphenationLocaleType,
-  LayoutLine,
-  type LayoutLineType,
+  EngineProfile,
+  FontDescriptor,
+  HyphenationLocale,
+  type LayoutLinesType,
+  LayoutLinesWithSummary,
   type LayoutRequestType,
-  LayoutSummary,
   type LayoutSummaryType,
+  PrepareInput,
   type PrepareInputType,
-  type WhiteSpaceModeType
+  WhiteSpaceMode
 } from "../Text/schema.js"
 
 /**
@@ -47,14 +46,14 @@ export const ReactStability = "provisional"
  * @since 0.4.0
  * @category models
  */
-export class PrepareIdentityFont extends Data.Class<{
+export class PrepareIdentityFont extends Schema.Class<PrepareIdentityFont>("effect-text/PrepareIdentityFont")({
   /** CSS font-family value passed to the measurement service. */
-  readonly family: string
+  family: FontDescriptor.fields.family,
   /** Positive font size in CSS pixels. */
-  readonly size: number
+  size: FontDescriptor.fields.size,
   /** Positive integer font weight when the preparation named one. */
-  readonly weight: Option.Option<number>
-}> {}
+  weight: Schema.OptionFromSelf(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)))
+}) {}
 
 /**
  * Engine settings captured during preparation, compared field by field.
@@ -62,18 +61,9 @@ export class PrepareIdentityFont extends Data.Class<{
  * @since 0.4.0
  * @category models
  */
-export class PrepareIdentityEngineProfile extends Data.Class<{
-  /** Non-negative tolerance added when deciding whether a run fits. */
-  readonly lineFitEpsilon: number
-  /** Positive number of space columns represented by a tab stop. */
-  readonly tabWidth: number
-  /** Paragraph direction used when source text has no strong direction. */
-  readonly defaultDirection: BaseTextDirectionType
-  /** Whether an earlier soft-hyphen break wins over a later fit. */
-  readonly preferEarlySoftHyphenBreak: boolean
-  /** Whether prepared prefix measurements drive breakable-run fitting. */
-  readonly preferPrefixWidthsForBreakableRuns: boolean
-}> {}
+export class PrepareIdentityEngineProfile extends Schema.Class<PrepareIdentityEngineProfile>(
+  "effect-text/PrepareIdentityEngineProfile"
+)(EngineProfile) {}
 
 /**
  * Inputs whose equality permits reuse of one measured prepared handle.
@@ -86,22 +76,31 @@ export class PrepareIdentityEngineProfile extends Data.Class<{
  * @since 0.2.0
  * @category models
  */
-export class PrepareIdentity extends Data.Class<{
+export class PrepareIdentity extends Schema.Class<PrepareIdentity>("effect-text/PrepareIdentity")({
   /** Source text whose measurements are cached. */
-  readonly text: string
+  text: PrepareInput.fields.text,
   /** Font whose measurements are cached. */
-  readonly font: PrepareIdentityFont
+  font: PrepareIdentityFont,
   /** Whitespace policy captured during preparation. */
-  readonly whiteSpace: WhiteSpaceModeType
+  whiteSpace: WhiteSpaceMode,
   /** Dictionary locale captured during preparation. */
-  readonly hyphenationLocale: Option.Option<HyphenationLocaleType>
+  hyphenationLocale: Schema.OptionFromSelf(HyphenationLocale),
   /** Engine settings captured during preparation. */
-  readonly engineProfile: PrepareIdentityEngineProfile
+  engineProfile: PrepareIdentityEngineProfile,
   /** Browser support profile used for measurement. */
-  readonly supportProfileId: BrowserSupportProfileIdType
+  supportProfileId: BrowserSupportProfileIdSchema,
   /** Font-readiness generation used by the measurement cache. */
-  readonly fontReadinessRevision: FontReadinessRevisionType
-}> {}
+  fontReadinessRevision: FontReadinessRevision
+}) {}
+
+const PrepareIdentityOptions = Schema.Struct({
+  prepare: PrepareInput,
+  engineProfile: EngineProfile,
+  supportProfileId: BrowserSupportProfileIdSchema,
+  fontReadinessRevision: FontReadinessRevision
+})
+
+type PrepareIdentityOptionsType = typeof PrepareIdentityOptions.Type
 
 /**
  * Layout geometry and visual lines projected without repeating measurement.
@@ -109,12 +108,7 @@ export class PrepareIdentity extends Data.Class<{
  * @since 0.2.0
  * @category schemas
  */
-export const PreparedLayoutProjection = Schema.Struct({
-  /** Aggregate layout geometry. */
-  summary: LayoutSummary,
-  /** Materialized lines in visual order. */
-  lines: Schema.Array(LayoutLine)
-})
+export const PreparedLayoutProjection = LayoutLinesWithSummary
 
 /**
  * Decoded geometry and visual lines produced from one prepared handle.
@@ -132,12 +126,7 @@ export type PreparedLayoutProjectionType = typeof PreparedLayoutProjection.Type
  * @since 0.2.0
  * @category identities
  */
-export const prepareIdentityFor = (options: {
-  readonly prepare: PrepareInputType
-  readonly engineProfile: EngineProfileType
-  readonly supportProfileId: BrowserSupportProfileIdType
-  readonly fontReadinessRevision: FontReadinessRevisionType
-}): PrepareIdentity =>
+export const prepareIdentityFor = (options: PrepareIdentityOptionsType): PrepareIdentity =>
   new PrepareIdentity({
     text: options.prepare.text,
     font: new PrepareIdentityFont({
@@ -190,12 +179,12 @@ export const prepareInputFromIdentity = (identity: PrepareIdentity): PrepareInpu
  * @category projection
  */
 export const layoutSummaryFromLines = (
-  lines: ReadonlyArray<LayoutLineType>,
+  lines: LayoutLinesType,
   lineHeight: number
 ): LayoutSummaryType => ({
-  lineCount: lines.length,
-  height: lines.length * lineHeight,
-  maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Numeric.max(maxWidth, line.width))
+  lineCount: Arr.length(lines),
+  height: Number.multiply(Arr.length(lines), lineHeight),
+  maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Number.max(maxWidth, line.width))
 })
 
 /**

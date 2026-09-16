@@ -1,58 +1,69 @@
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Exit, Schema } from "effect"
 import * as Arr from "effect/Array"
+
 import * as Browser from "../../src/Browser/index.js"
+import { Text } from "../../src/index.js"
 
-import {
-  BrowserParityArtifactJsonSchema,
-  browserParityArtifactRelativePath,
-  browserParityCaseIds,
-  BrowserParityCasesMissing,
-  renderBrowserParityArtifact
-} from "../../src/Browser/index.js"
+const profile = Browser.DefaultBrowserSupportProfile
+const browserLayer = Browser.browserParityLayer(profile)
+const font: Text.FontDescriptorType = { family: profile.defaultFontFamily, size: 10 }
 
-const readSyntheticRegressionArtifact = (profileId: Browser.BrowserSupportProfileIdType) =>
-  Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const packageRoot = yield* path.fromFileUrl(yield* Url.fromString("../../", import.meta.url))
-    const content = yield* fileSystem.readFileString(
-      path.join(packageRoot, browserParityArtifactRelativePath(profileId))
-    )
-    return yield* Schema.decode(BrowserParityArtifactJsonSchema)(content)
-  }).pipe(Effect.provide(BunContext.layer))
+const layoutLines = (
+  text: string,
+  whiteSpace: Text.WhiteSpaceModeType,
+  request: Text.LayoutRequestType
+) =>
+  Text.prepareWithSegments({ text, font, whiteSpace }).pipe(
+    Effect.provide(browserLayer),
+    Effect.map((prepared) => Text.layoutLines(prepared, request))
+  )
 
-describe("Text synthetic browser regression contracts", () => {
-  it.effect("renders the checked-in synthetic artifact for every shipped browser profile", () =>
-    Effect.forEach(
-      Browser.BrowserSupportManifest.profiles,
-      (profile) =>
-        Effect.gen(function*() {
-          const artifact = yield* readSyntheticRegressionArtifact(profile.id)
-          expect(yield* renderBrowserParityArtifact(profile)).toEqual(artifact)
-        }),
-      { discard: true }
-    ))
+describe("Text browser-backed behavior contracts", () => {
+  it.effect("collapses normal whitespace and preserves pre-wrap whitespace", () =>
+    Effect.gen(function*() {
+      const request: Text.LayoutRequestType = { maxWidth: 200, lineHeight: 12 }
+      const normal = yield* layoutLines("alpha  beta", "normal", request)
+      const preWrap = yield* layoutLines("alpha  beta", "pre-wrap", request)
 
-  it.effect("a profile that declares only some released scenarios fails before preparation", () =>
-    Effect.forEach(
-      Browser.BrowserSupportManifest.profiles,
-      (profile) =>
-        Effect.gen(function*() {
-          const declared = Arr.take(profile.parityCases, 1)
-          const exit = yield* Effect.exit(renderBrowserParityArtifact({ ...profile, parityCases: declared }))
+      expect(normal).toEqual(Arr.of(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "alpha beta", width: 100 }
+      ))
+      expect(preWrap).toEqual(Arr.of(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "alpha  beta", width: 110 }
+      ))
+    }))
 
-          expect(exit).toStrictEqual(
-            Exit.fail(
-              new BrowserParityCasesMissing({
-                profileId: profile.id,
-                missing: Arr.filter(browserParityCaseIds, (caseId) => !Arr.contains(declared, caseId))
-              })
-            )
-          )
-        }),
-      { discard: true }
-    ))
+  it.effect("expands tabs by profile columns and paints soft-hyphen breaks", () =>
+    Effect.gen(function*() {
+      const tab = yield* layoutLines("a\tb", "pre-wrap", { maxWidth: 100, lineHeight: 12 })
+      const softHyphen = yield* layoutLines("alpha\u00adbeta", "normal", { maxWidth: 60, lineHeight: 12 })
+
+      expect(tab).toEqual(Arr.of(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "a\tb", width: 50 }
+      ))
+      expect(softHyphen).toEqual(Arr.make(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "alpha-", width: 60 },
+        { baseDirection: "ltr", index: 1, order: "visual", text: "beta", width: 40 }
+      ))
+    }))
+
+  it.effect("rejects invalid browser options and strict preparation input", () =>
+    Effect.gen(function*() {
+      const invalidCorrection = yield* Effect.exit(
+        Schema.decodeUnknown(Browser.EmojiCorrection)({ minimumAdvanceMultiplier: 0 })
+      )
+      const invalidProfile = yield* Effect.exit(
+        Schema.decodeUnknown(Browser.BrowserSupportProfileIdSchema)("unknown-browser")
+      )
+      const invalidPrepare = yield* Effect.exit(Text.prepareUnknown({
+        text: "invalid",
+        font: { family: "Mono", size: 0 },
+        whiteSpace: "normal"
+      }))
+
+      expect(Exit.isFailure(invalidCorrection)).toBe(true)
+      expect(Exit.isFailure(invalidProfile)).toBe(true)
+      expect(Exit.isFailure(invalidPrepare)).toBe(true)
+    }).pipe(Effect.provide(browserLayer)))
 })

@@ -3,466 +3,458 @@
  *
  * @since 0.1.0
  */
-import { Match, Option } from "effect"
+import { Boolean, Match, Number, Option, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
-import type { BaseTextDirectionType, TextSegmentType, WhiteSpaceModeType } from "../schema.js"
+import { type BaseTextDirectionType, TextSegment, type WhiteSpaceModeType } from "../schema.js"
+import { graphemeClusters } from "./grapheme.js"
 
-/**
- * Author-provided discretionary hyphen marker preserved through preparation.
- *
- * @since 0.1.0
- * @category internals
- */
+export { graphemeClusters } from "./grapheme.js"
+
+/** Author-provided discretionary hyphen marker preserved through preparation. */
 export const SOFT_HYPHEN = "\u00ad"
 
-/**
- * Non-breaking space character treated as glue by the segment classifier.
- *
- * @since 0.1.0
- * @category internals
- */
+/** Non-breaking space character treated as glue by the segment classifier. */
 export const NO_BREAK_SPACE = "\u00a0"
 
-/**
- * Word-joiner control character that suppresses breaks inside a run.
- *
- * @since 0.1.0
- * @category internals
- */
+/** Word-joiner control character that suppresses breaks inside a run. */
 export const WORD_JOINER = "\u2060"
 
-/**
- * Zero-width break marker preserved as an explicit break opportunity.
- *
- * @since 0.1.0
- * @category internals
- */
+/** Zero-width break marker preserved as an explicit break opportunity. */
 export const ZERO_WIDTH_SPACE = "\u200b"
 
 const TAB = "\t"
 const LINE_FEED = "\n"
-const RTL_PATTERN = /[\u0590-\u08ff\uFB1D-\uFDFD\uFE70-\uFEFC]/u
-const STRONG_PATTERN = /\p{Letter}|\p{Number}/u
-const LETTER_PATTERN = /\p{Letter}/u
-const NUMBER_PATTERN = /\p{Number}/u
-const EMOJI_PATTERN = /\p{Extended_Pictographic}/u
-const CJK_SCRIPT_PATTERN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u
-const NO_SPACE_SCRIPT_PATTERN = /[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u
-const OPENING_PUNCTUATION_PATTERN =
-  /^[([{\u2018\u201C\u00AB\u2039\u3008\u300A\u300C\u300E\u3010\u3014\uFF08\uFF3B\uFF5B]+$/u
-const CLOSING_PUNCTUATION_PATTERN =
-  /^[)\]}\u2019\u201D\u00BB\u203A\u3001\u3002\u3009\u300B\u300D\u300F\u3011\u3015\uFF09\uFF3D\uFF5D\uFF0C\uFF0E!?;,.:]+$/u
-const RUN_CONNECTOR_PATTERN = /^[-._~,/:@?&=#%+]+$/u
 
-/**
- * Internal logical direction classification used by preparation and bidi projection.
- *
- * @since 0.1.0
- * @category internals
- */
-export type TextDirection = "ltr" | "rtl" | "neutral"
+const isRtlCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/[\u0590-\u08ff\uFB1D-\uFDFD\uFE70-\uFEFC]/u)))
+const isStrongCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Letter}|\p{Number}/u)))
+const isLetter = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Letter}/u)))
+const isNumber = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Number}/u)))
+const isEmoji = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Extended_Pictographic}/u)))
+const isCjkScript = Schema.is(
+  Schema.String.pipe(Schema.pattern(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u))
+)
+const isNoSpaceScript = Schema.is(
+  Schema.String.pipe(Schema.pattern(/[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u))
+)
+const isOpeningPunctuation = Schema.is(
+  Schema.String.pipe(
+    Schema.pattern(/^[([{\u2018\u201C\u00AB\u2039\u3008\u300A\u300C\u300E\u3010\u3014\uFF08\uFF3B\uFF5B]+$/u)
+  )
+)
+const isClosingPunctuation = Schema.is(
+  Schema.String.pipe(
+    Schema.pattern(
+      /^[)\]}\u2019\u201D\u00BB\u203A\u3001\u3002\u3009\u300B\u300D\u300F\u3011\u3015\uFF09\uFF3D\uFF5D\uFF0C\uFF0E!?;,.:]+$/u
+    )
+  )
+)
+const isRunConnector = Schema.is(Schema.String.pipe(Schema.pattern(/^[-._~,/:@?&=#%+]+$/u)))
 
-type WhitespaceToken = readonly [kind: "space" | "tab", text: string]
-type SoftHyphenPiece = readonly [text: string, breakAfter: boolean]
-type TextBreakClass =
-  | "alphabetic"
-  | "cjk"
-  | "closing-punctuation"
-  | "connector"
-  | "glue"
-  | "no-space-script"
-  | "numeric"
-  | "opening-punctuation"
-  | "other"
-  | "soft-hyphen"
-  | "zero-width-break"
-type AtomicToken =
-  | {
-    readonly breakClass: TextBreakClass
-    readonly kind: "text"
-    readonly text: string
-  }
-  | {
-    readonly kind: "hard-break" | "space" | "tab"
-    readonly text: string
-  }
-type TextAtomicToken = Extract<AtomicToken, { readonly kind: "text" }>
+/** Internal logical direction classification used by preparation and bidi projection. */
+export const TextDirection = Schema.Literal("ltr", "rtl", "neutral")
 
-const textSegment = (text: string): TextSegmentType => ({ kind: "text", text })
-const spaceSegment = (text: string): TextSegmentType => ({ kind: "space", text })
-const hardBreakSegment = (): TextSegmentType => ({ kind: "hard-break", text: LINE_FEED })
-const emptyTextSegments = (): ReadonlyArray<TextSegmentType> => []
+/** Internal logical direction classification used by preparation and bidi projection. */
+export type TextDirection = typeof TextDirection.Type
 
-const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+const WhitespaceTokenKind = Schema.Literal("space", "tab")
 
-const normalizeLineBreaks = (text: string): string => text.replace(/\r\n?/gu, LINE_FEED)
+/** Grouped spaces or one tab emitted for preparation-time measurement. */
+export class WhitespaceToken extends Schema.Class<WhitespaceToken>("effect-text/WhitespaceToken")({
+  kind: WhitespaceTokenKind,
+  text: Schema.String
+}) {}
 
-const isOrdinaryWhitespaceCharacter = (char: string): boolean =>
-  char === " " || char === TAB || char === LINE_FEED || char === "\u000b" || char === "\u000c"
+/** One non-empty soft-hyphen-delimited piece and its break ownership. */
+export class SoftHyphenPiece extends Schema.Class<SoftHyphenPiece>("effect-text/SoftHyphenPiece")({
+  breakAfter: Schema.Boolean,
+  text: Schema.String
+}) {}
+
+const TextBreakClass = Schema.Literal(
+  "alphabetic",
+  "cjk",
+  "closing-punctuation",
+  "connector",
+  "glue",
+  "no-space-script",
+  "numeric",
+  "opening-punctuation",
+  "other",
+  "soft-hyphen",
+  "zero-width-break"
+)
+type TextBreakClass = typeof TextBreakClass.Type
+
+class TextAtomicToken extends Schema.Class<TextAtomicToken>("effect-text/TextAtomicToken")({
+  breakClass: TextBreakClass,
+  kind: Schema.Literal("text"),
+  text: Schema.String
+}) {}
+
+class HardBreakAtomicToken extends Schema.Class<HardBreakAtomicToken>("effect-text/HardBreakAtomicToken")({
+  kind: Schema.Literal("hard-break"),
+  text: Schema.String
+}) {}
+
+class SpaceAtomicToken extends Schema.Class<SpaceAtomicToken>("effect-text/SpaceAtomicToken")({
+  kind: Schema.Literal("space"),
+  text: Schema.String
+}) {}
+
+class TabAtomicToken extends Schema.Class<TabAtomicToken>("effect-text/TabAtomicToken")({
+  kind: Schema.Literal("tab"),
+  text: Schema.String
+}) {}
+
+const AtomicToken = Schema.Union(TextAtomicToken, HardBreakAtomicToken, SpaceAtomicToken, TabAtomicToken)
+type AtomicToken = typeof AtomicToken.Type
+const AtomicTokens = Schema.Array(AtomicToken)
+type AtomicTokens = typeof AtomicTokens.Type
+const AtomicTokenGroup = Schema.NonEmptyArray(AtomicToken)
+const AtomicTokenGroups = Schema.Array(AtomicTokenGroup)
+type AtomicTokenGroups = typeof AtomicTokenGroups.Type
+const TextAtomicTokens = Schema.Array(TextAtomicToken)
+type TextAtomicTokens = typeof TextAtomicTokens.Type
+const TextSegments = Schema.Array(TextSegment)
+type TextSegments = typeof TextSegments.Type
+const WhitespaceTokens = Schema.Array(WhitespaceToken)
+type WhitespaceTokens = typeof WhitespaceTokens.Type
+const SoftHyphenPieces = Schema.Array(SoftHyphenPiece)
+type SoftHyphenPieces = typeof SoftHyphenPieces.Type
+
+class GroupedTextAtomicToken extends Schema.Class<GroupedTextAtomicToken>("effect-text/GroupedTextAtomicToken")({
+  group: Schema.Number,
+  token: TextAtomicToken
+}) {}
+
+const WhitespaceAtomicToken = Schema.Union(SpaceAtomicToken, TabAtomicToken)
+const isTextAtomicToken = Schema.is(TextAtomicToken)
+const isWhitespaceAtomicToken = Schema.is(WhitespaceAtomicToken)
+
+/** Text after stripping emoji grapheme clusters, plus the number stripped. */
+export class EmojiStripResult extends Schema.Class<EmojiStripResult>("effect-text/EmojiStripResult")({
+  count: Schema.Number,
+  text: Schema.String
+}) {}
+
+const textSegment = (text: string): typeof TextSegment.Type => ({ kind: "text", text })
+const spaceSegment = (text: string): typeof TextSegment.Type => ({ kind: "space", text })
+const hardBreakSegment = (): typeof TextSegment.Type => ({ kind: "hard-break", text: LINE_FEED })
+
+const normalizeLineBreaks = (text: string): string => String.replace(/\r\n?/gu, LINE_FEED)(text)
+
+const isOrdinaryWhitespaceCharacter = (character: string): boolean =>
+  Match.value(character).pipe(
+    Match.when(" ", () => true),
+    Match.when(TAB, () => true),
+    Match.when(LINE_FEED, () => true),
+    Match.when("\u000b", () => true),
+    Match.when("\u000c", () => true),
+    Match.orElse(() => false)
+  )
 
 const isOrdinaryWhitespace = (text: string): boolean =>
-  text.length > 0 && Arr.every(Arr.fromIterable(text), isOrdinaryWhitespaceCharacter)
-
-const isClosingPunctuation = (text: string): boolean => CLOSING_PUNCTUATION_PATTERN.test(text)
-
-const isOpeningPunctuation = (text: string): boolean => OPENING_PUNCTUATION_PATTERN.test(text)
-
-const isRunConnector = (text: string): boolean => RUN_CONNECTOR_PATTERN.test(text)
-
-const breakClass = (value: TextBreakClass): TextBreakClass => value
-const hardBreakToken = (text: string): AtomicToken => ({ kind: "hard-break", text })
-const spaceToken = (text: string): AtomicToken => ({ kind: "space", text })
-const tabToken = (text: string): AtomicToken => ({ kind: "tab", text })
-const textAtomicToken = (text: string): AtomicToken => ({ breakClass: classifyTextCluster(text), kind: "text", text })
+  Boolean.and(Boolean.not(String.isEmpty(text)), Arr.every(Arr.fromIterable(text), isOrdinaryWhitespaceCharacter))
 
 const classifyTextCluster = (text: string): TextBreakClass =>
   Match.value(text).pipe(
-    Match.when(SOFT_HYPHEN, () => breakClass("soft-hyphen")),
-    Match.when(NO_BREAK_SPACE, () => breakClass("glue")),
-    Match.when(WORD_JOINER, () => breakClass("glue")),
-    Match.when(ZERO_WIDTH_SPACE, () => breakClass("zero-width-break")),
-    Match.orElse((value) =>
-      isRunConnector(value)
-        ? "connector"
-        : isOpeningPunctuation(value)
-        ? "opening-punctuation"
-        : isClosingPunctuation(value)
-        ? "closing-punctuation"
-        : CJK_SCRIPT_PATTERN.test(value)
-        ? "cjk"
-        : NO_SPACE_SCRIPT_PATTERN.test(value)
-        ? "no-space-script"
-        : NUMBER_PATTERN.test(value)
-        ? "numeric"
-        : LETTER_PATTERN.test(value)
-        ? "alphabetic"
-        : "other"
-    )
+    Match.withReturnType<TextBreakClass>(),
+    Match.when(SOFT_HYPHEN, () => "soft-hyphen"),
+    Match.when(NO_BREAK_SPACE, () => "glue"),
+    Match.when(WORD_JOINER, () => "glue"),
+    Match.when(ZERO_WIDTH_SPACE, () => "zero-width-break"),
+    Match.when(isRunConnector, () => "connector"),
+    Match.when(isOpeningPunctuation, () => "opening-punctuation"),
+    Match.when(isClosingPunctuation, () => "closing-punctuation"),
+    Match.when(isCjkScript, () => "cjk"),
+    Match.when(isNoSpaceScript, () => "no-space-script"),
+    Match.when(isNumber, () => "numeric"),
+    Match.when(isLetter, () => "alphabetic"),
+    Match.orElse(() => "other")
   )
+
+const textAtomicToken = (text: string): TextAtomicToken =>
+  new TextAtomicToken({ breakClass: classifyTextCluster(text), kind: "text", text })
 
 const atomicTokenFor = (cluster: string): AtomicToken =>
   Match.value(cluster).pipe(
-    Match.when(LINE_FEED, hardBreakToken),
-    Match.when(TAB, tabToken),
-    Match.orElse((text) =>
-      isOrdinaryWhitespace(text)
-        ? spaceToken(text)
-        : textAtomicToken(text)
-    )
+    Match.when(LINE_FEED, (text) => new HardBreakAtomicToken({ kind: "hard-break", text })),
+    Match.when(TAB, (text) => new TabAtomicToken({ kind: "tab", text })),
+    Match.when(isOrdinaryWhitespace, (text) => new SpaceAtomicToken({ kind: "space", text })),
+    Match.orElse(textAtomicToken)
   )
 
-const tokenizeText = (text: string): ReadonlyArray<AtomicToken> =>
+const tokenizeText = (text: string): AtomicTokens =>
   Arr.map(graphemeClusters(normalizeLineBreaks(text)), atomicTokenFor)
 
 const isRunEndpoint = (token: TextAtomicToken): boolean =>
-  token.breakClass === "alphabetic" || token.breakClass === "cjk" || token.breakClass === "numeric"
+  Match.value(token.breakClass).pipe(
+    Match.when("alphabetic", () => true),
+    Match.when("cjk", () => true),
+    Match.when("numeric", () => true),
+    Match.when("closing-punctuation", () => false),
+    Match.when("connector", () => false),
+    Match.when("glue", () => false),
+    Match.when("no-space-script", () => false),
+    Match.when("opening-punctuation", () => false),
+    Match.when("other", () => false),
+    Match.when("soft-hyphen", () => false),
+    Match.when("zero-width-break", () => false),
+    Match.exhaustive
+  )
 
 const continuesConnectorRun = (token: TextAtomicToken): boolean =>
-  token.breakClass === "closing-punctuation" ||
-  token.breakClass === "connector" ||
-  isRunEndpoint(token)
+  Match.value(token.breakClass).pipe(
+    Match.when("alphabetic", () => true),
+    Match.when("cjk", () => true),
+    Match.when("closing-punctuation", () => true),
+    Match.when("connector", () => true),
+    Match.when("numeric", () => true),
+    Match.when("glue", () => false),
+    Match.when("no-space-script", () => false),
+    Match.when("opening-punctuation", () => false),
+    Match.when("other", () => false),
+    Match.when("soft-hyphen", () => false),
+    Match.when("zero-width-break", () => false),
+    Match.exhaustive
+  )
+
+const isBreakBoundary = (breakClass: TextBreakClass): boolean =>
+  Match.value(breakClass).pipe(
+    Match.when("glue", () => true),
+    Match.when("zero-width-break", () => true),
+    Match.when("alphabetic", () => false),
+    Match.when("cjk", () => false),
+    Match.when("closing-punctuation", () => false),
+    Match.when("connector", () => false),
+    Match.when("no-space-script", () => false),
+    Match.when("numeric", () => false),
+    Match.when("opening-punctuation", () => false),
+    Match.when("other", () => false),
+    Match.when("soft-hyphen", () => false),
+    Match.exhaustive
+  )
 
 const shouldMergeTextAtoms = (
   previous: TextAtomicToken,
   current: TextAtomicToken,
   next: Option.Option<TextAtomicToken>
-): boolean => {
-  if (previous.breakClass === "glue" || previous.breakClass === "zero-width-break") {
-    return false
-  }
+): boolean =>
+  Boolean.match(Boolean.or(isBreakBoundary(previous.breakClass), isBreakBoundary(current.breakClass)), {
+    onTrue: () => false,
+    onFalse: () =>
+      Boolean.match(String.Equivalence(previous.breakClass, "opening-punctuation"), {
+        onTrue: () => true,
+        onFalse: () =>
+          Boolean.match(String.Equivalence(current.breakClass, "closing-punctuation"), {
+            onTrue: () => true,
+            onFalse: () =>
+              Boolean.match(
+                Boolean.or(
+                  String.Equivalence(previous.breakClass, "soft-hyphen"),
+                  String.Equivalence(current.breakClass, "soft-hyphen")
+                ),
+                {
+                  onTrue: () => true,
+                  onFalse: () =>
+                    Boolean.match(
+                      Boolean.and(
+                        String.Equivalence(previous.breakClass, "cjk"),
+                        String.Equivalence(current.breakClass, "cjk")
+                      ),
+                      {
+                        onTrue: () => true,
+                        onFalse: () =>
+                          Boolean.match(
+                            Boolean.or(
+                              String.Equivalence(previous.breakClass, "no-space-script"),
+                              String.Equivalence(current.breakClass, "no-space-script")
+                            ),
+                            {
+                              onTrue: () => false,
+                              onFalse: () =>
+                                Boolean.match(String.Equivalence(previous.breakClass, "connector"), {
+                                  onTrue: () => continuesConnectorRun(current),
+                                  onFalse: () =>
+                                    Boolean.match(String.Equivalence(current.breakClass, "connector"), {
+                                      onTrue: () =>
+                                        Boolean.or(
+                                          Boolean.or(
+                                            isRunEndpoint(previous),
+                                            String.Equivalence(previous.breakClass, "closing-punctuation")
+                                          ),
+                                          Option.exists(next, continuesConnectorRun)
+                                        ),
+                                      onFalse: () => Boolean.and(isRunEndpoint(previous), isRunEndpoint(current))
+                                    })
+                                })
+                            }
+                          )
+                      }
+                    )
+                }
+              )
+          })
+      })
+  })
 
-  if (current.breakClass === "glue" || current.breakClass === "zero-width-break") {
-    return false
-  }
-
-  if (previous.breakClass === "opening-punctuation") {
-    return true
-  }
-
-  if (current.breakClass === "closing-punctuation") {
-    return true
-  }
-
-  if (previous.breakClass === "soft-hyphen" || current.breakClass === "soft-hyphen") {
-    return true
-  }
-
-  if (previous.breakClass === "cjk" && current.breakClass === "cjk") {
-    return true
-  }
-
-  if (previous.breakClass === "no-space-script" || current.breakClass === "no-space-script") {
-    return false
-  }
-
-  if (previous.breakClass === "connector") {
-    return continuesConnectorRun(current)
-  }
-
-  if (current.breakClass === "connector") {
-    return isRunEndpoint(previous) ||
-      previous.breakClass === "closing-punctuation" ||
-      Option.exists(next, continuesConnectorRun)
-  }
-
-  return isRunEndpoint(previous) && isRunEndpoint(current)
+const textSegmentsFromAtoms = (atoms: TextAtomicTokens): TextSegments => {
+  const grouped = Tuple.getSecond(Arr.mapAccum(atoms, 0, (group, token, index) => {
+    const continues = Arr.get(atoms, Number.decrement(index)).pipe(
+      Option.exists((previous) => shouldMergeTextAtoms(previous, token, Arr.get(atoms, Number.increment(index))))
+    )
+    const nextGroup = Boolean.match(continues, { onTrue: () => group, onFalse: () => Number.increment(group) })
+    return Tuple.make(nextGroup, new GroupedTextAtomicToken({ group: nextGroup, token }))
+  }))
+  return Arr.match(grouped, {
+    onEmpty: () => Arr.empty(),
+    onNonEmpty: (nonEmpty) =>
+      Arr.map(
+        Arr.groupWith(nonEmpty, (self, that) => Number.Equivalence(self.group, that.group)),
+        (group) => textSegment(Arr.join(Arr.map(group, (item) => item.token.text), ""))
+      )
+  })
 }
 
-const textSegmentsFromAtoms = (atoms: ReadonlyArray<TextAtomicToken>): ReadonlyArray<TextSegmentType> => {
-  const reduced = atoms.reduce<{
-    readonly current: string
-    readonly previous: Option.Option<TextAtomicToken>
-    readonly segments: ReadonlyArray<TextSegmentType>
-  }>(
-    (state, atom, index) =>
-      Option.match(state.previous, {
-        onNone: () => ({
-          current: atom.text,
-          previous: Option.some(atom),
-          segments: state.segments
-        }),
-        onSome: (previous) =>
-          shouldMergeTextAtoms(previous, atom, Option.fromNullable(atoms[index + 1]))
-            ? {
-              current: state.current + atom.text,
-              previous: Option.some(atom),
-              segments: state.segments
-            }
-            : {
-              current: atom.text,
-              previous: Option.some(atom),
-              segments: state.current.length === 0 ? state.segments : [...state.segments, textSegment(state.current)]
-            }
-      }),
-    {
-      current: "",
-      previous: Option.none<TextAtomicToken>(),
-      segments: emptyTextSegments()
-    }
-  )
+const spaceSegmentsFromText = (text: string): TextSegments =>
+  Arr.map(splitWhitespaceTokens(text), (token) => spaceSegment(token.text))
 
-  return reduced.current.length === 0 ? reduced.segments : [...reduced.segments, textSegment(reduced.current)]
-}
+const isTextTokenGroup = (group: typeof AtomicTokenGroup.Type): boolean => isTextAtomicToken(Arr.headNonEmpty(group))
 
-const spaceSegmentsFromText = (text: string): ReadonlyArray<TextSegmentType> =>
-  Arr.map(splitWhitespaceTokens(text), (token) => spaceSegment(token[1]))
+const groupTextAndNonTextTokens = (tokens: AtomicTokens) =>
+  Arr.match(tokens, {
+    onEmpty: () => Arr.empty(),
+    onNonEmpty: (nonEmptyTokens) =>
+      Arr.groupWith(
+        nonEmptyTokens,
+        (self, that) => Boolean.Equivalence(isTextAtomicToken(self), isTextAtomicToken(that))
+      )
+  })
 
-/**
- * Splits text into grapheme clusters with `Intl.Segmenter`.
- *
- * @since 0.1.0
- * @category internals
- */
-export const graphemeClusters = (text: string): ReadonlyArray<string> =>
-  Arr.map(Arr.fromIterable(graphemeSegmenter.segment(text)), (part) => part.segment)
-
-const segmentNormalText = (text: string): ReadonlyArray<TextSegmentType> =>
-  ((state: {
-    readonly pendingSpace: boolean
-    readonly segments: ReadonlyArray<TextSegmentType>
-    readonly textRun: ReadonlyArray<TextAtomicToken>
-  }) => [...state.segments, ...textSegmentsFromAtoms(state.textRun)])(
-    tokenizeText(text).reduce<{
-      readonly pendingSpace: boolean
-      readonly segments: ReadonlyArray<TextSegmentType>
-      readonly textRun: ReadonlyArray<TextAtomicToken>
-    }>(
-      (state, token) =>
-        token.kind === "text"
-          ? {
-            pendingSpace: false,
-            segments: state.pendingSpace && state.segments.length > 0 && state.textRun.length === 0
-              ? [...state.segments, spaceSegment(" ")]
-              : state.segments,
-            textRun: [...state.textRun, token]
-          }
-          : {
-            pendingSpace: state.pendingSpace || state.textRun.length > 0 || state.segments.length > 0,
-            segments: [
-              ...state.segments,
-              ...textSegmentsFromAtoms(state.textRun)
-            ],
-            textRun: []
-          },
-      {
-        pendingSpace: false,
-        segments: emptyTextSegments(),
-        textRun: []
-      }
+const trimNonTextTokenGroups = (groups: AtomicTokenGroups) =>
+  Arr.reverse(
+    Arr.dropWhile(
+      Arr.reverse(Arr.dropWhile(groups, (group) => Boolean.not(isTextTokenGroup(group)))),
+      (group) => Boolean.not(isTextTokenGroup(group))
     )
   )
 
-const segmentPreWrapText = (text: string): ReadonlyArray<TextSegmentType> =>
-  ((state: {
-    readonly segments: ReadonlyArray<TextSegmentType>
-    readonly textRun: ReadonlyArray<TextAtomicToken>
-    readonly whitespace: string
-  }) => [
-    ...state.segments,
-    ...textSegmentsFromAtoms(state.textRun),
-    ...spaceSegmentsFromText(state.whitespace)
-  ])(
-    tokenizeText(text).reduce<{
-      readonly segments: ReadonlyArray<TextSegmentType>
-      readonly textRun: ReadonlyArray<TextAtomicToken>
-      readonly whitespace: string
-    }>(
-      (state, token) =>
-        token.kind === "text"
-          ? {
-            segments: state.whitespace.length === 0
-              ? state.segments
-              : [
-                ...state.segments,
-                ...textSegmentsFromAtoms(state.textRun),
-                ...spaceSegmentsFromText(state.whitespace)
-              ],
-            textRun: state.whitespace.length === 0 ? [...state.textRun, token] : [token],
-            whitespace: ""
-          }
-          : token.kind === "hard-break"
-          ? {
-            segments: [
-              ...state.segments,
-              ...textSegmentsFromAtoms(state.textRun),
-              ...spaceSegmentsFromText(state.whitespace),
-              hardBreakSegment()
-            ],
-            textRun: [],
-            whitespace: ""
-          }
-          : {
-            segments: [...state.segments, ...textSegmentsFromAtoms(state.textRun)],
-            textRun: [],
-            whitespace: state.whitespace + token.text
-          },
-      {
-        segments: emptyTextSegments(),
-        textRun: [],
-        whitespace: ""
-      }
-    )
+const segmentNormalText = (text: string): TextSegments =>
+  Arr.flatMap(
+    trimNonTextTokenGroups(groupTextAndNonTextTokens(tokenizeText(text))),
+    (group) =>
+      Boolean.match(isTextTokenGroup(group), {
+        onFalse: () => Arr.of(spaceSegment(" ")),
+        onTrue: () => textSegmentsFromAtoms(Arr.filter(group, isTextAtomicToken))
+      })
   )
 
-/**
- * Builds text, space, and hard-break segments from canonical grapheme and
- * break-class analysis, using `Intl.Segmenter` grapheme boundaries when available
- * and a deterministic fallback otherwise.
- *
- * @since 0.1.0
- * @category internals
- */
-export const segmentText = (text: string, whiteSpace: WhiteSpaceModeType): ReadonlyArray<TextSegmentType> =>
-  whiteSpace === "normal"
-    ? segmentNormalText(text)
-    : segmentPreWrapText(text)
+const groupPreWrapTokens = (tokens: AtomicTokens) =>
+  Arr.match(tokens, {
+    onEmpty: () => Arr.empty(),
+    onNonEmpty: (nonEmptyTokens) =>
+      Arr.groupWith(nonEmptyTokens, (self, that) =>
+        Boolean.or(
+          String.Equivalence(self.kind, that.kind),
+          Boolean.and(isWhitespaceAtomicToken(self), isWhitespaceAtomicToken(that))
+        ))
+  })
 
-/**
- * Detects the first strong text direction present in a string.
- *
- * @since 0.1.0
- * @category internals
- */
-export const detectTextDirection = (text: string): TextDirection => {
-  const strongCharacter = Arr.fromIterable(text).find((char) => RTL_PATTERN.test(char) || STRONG_PATTERN.test(char))
-
-  return Option.fromNullable(strongCharacter).pipe(
-    Option.match({
-      onNone: () => "neutral",
-      onSome: (char) => (RTL_PATTERN.test(char) ? "rtl" : "ltr")
+const segmentPreWrapGroup = (group: typeof AtomicTokenGroup.Type): TextSegments =>
+  Match.value(Arr.headNonEmpty(group)).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      text: () => textSegmentsFromAtoms(Arr.filter(group, isTextAtomicToken)),
+      "hard-break": () => Arr.map(group, hardBreakSegment),
+      space: () => spaceSegmentsFromText(Arr.join(Arr.map(group, (token) => token.text), "")),
+      tab: () => spaceSegmentsFromText(Arr.join(Arr.map(group, (token) => token.text), ""))
     })
   )
-}
 
-/**
- * Resolves the base direction for preparation, falling back when input is neutral.
- *
- * @since 0.1.0
- * @category internals
- */
-export const resolveBaseDirection = (text: string, fallback: BaseTextDirectionType): BaseTextDirectionType => {
-  const direction = detectTextDirection(text)
-  return direction === "neutral" ? fallback : direction
-}
+const segmentPreWrapText = (text: string): TextSegments =>
+  Arr.flatMap(groupPreWrapTokens(tokenizeText(text)), segmentPreWrapGroup)
 
-/**
- * Maps logical text direction into the line-level bidi level used by the visual projector.
- *
- * @since 0.1.0
- * @category internals
- */
-export const bidiLevelForDirection = (direction: TextDirection, baseDirection: BaseTextDirectionType): number =>
-  direction === "neutral"
-    ? baseDirection === "rtl"
-      ? 1
-      : 0
-    : direction === baseDirection
-    ? baseDirection === "rtl"
-      ? 1
-      : 0
-    : baseDirection === "rtl"
-    ? 2
-    : 1
-
-/**
- * Splits whitespace into grouped spaces and single tab tokens for later measurement.
- *
- * @since 0.1.0
- * @category internals
- */
-export const splitWhitespaceTokens = (text: string): ReadonlyArray<WhitespaceToken> =>
-  Arr.fromIterable(text).reduce<ReadonlyArray<WhitespaceToken>>((tokens, char) => {
-    const token: WhitespaceToken = char === TAB ? ["tab", char] : ["space", char]
-
-    return Option.fromNullable(tokens[tokens.length - 1]).pipe(
-      Option.match({
-        onNone: () => [...tokens, token],
-        onSome: (previous) =>
-          previous[0] === token[0] && token[0] === "space"
-            ? [...tokens.slice(0, -1), ["space", previous[1] + char]]
-            : [...tokens, token]
-      })
-    )
-  }, [])
-
-/**
- * Splits author-provided soft hyphens into pieces while preserving discretionary break ownership.
- *
- * @since 0.1.0
- * @category internals
- */
-export const splitSoftHyphenPieces = (text: string): ReadonlyArray<SoftHyphenPiece> =>
-  text.split(SOFT_HYPHEN).reduce<ReadonlyArray<SoftHyphenPiece>>((pieces, part, index, parts) => {
-    if (part.length === 0) {
-      return pieces
-    }
-
-    return [...pieces, [part, index < parts.length - 1]]
-  }, [])
-
-/**
- * Detects whether a string contains extended pictographic graphemes.
- *
- * @since 0.1.0
- * @category internals
- */
-export const containsEmoji = (text: string): boolean => EMOJI_PATTERN.test(text)
-
-/**
- * Removes emoji grapheme clusters while counting how many clusters were stripped.
- *
- * @since 0.1.0
- * @category internals
- */
-export const stripEmojiClusters = (text: string): readonly [string, number] => {
-  const result = graphemeClusters(text).reduce(
-    (state, cluster) =>
-      EMOJI_PATTERN.test(cluster)
-        ? { text: state.text, count: state.count + 1 }
-        : { text: state.text + cluster, count: state.count },
-    { text: "", count: 0 }
+/** Builds text, space, and hard-break segments from canonical grapheme and break-class analysis. */
+export const segmentText = (text: string, whiteSpace: WhiteSpaceModeType): TextSegments =>
+  Match.value(whiteSpace).pipe(
+    Match.when("normal", () => segmentNormalText(text)),
+    Match.when("pre-wrap", () => segmentPreWrapText(text)),
+    Match.exhaustive
   )
 
-  return [result.text, result.count]
+/** Detects the first strong text direction present in a string. */
+export const detectTextDirection = (text: string): TextDirection =>
+  Arr.findFirst(
+    Arr.fromIterable(text),
+    (character) => Boolean.or(isRtlCharacter(character), isStrongCharacter(character))
+  ).pipe(
+    Option.match({
+      onNone: (): TextDirection => "neutral",
+      onSome: (character): TextDirection =>
+        Boolean.match(isRtlCharacter(character), { onFalse: () => "ltr", onTrue: () => "rtl" })
+    })
+  )
+
+/** Resolves the base direction for preparation, falling back when input is neutral. */
+export const resolveBaseDirection = (text: string, fallback: BaseTextDirectionType): BaseTextDirectionType =>
+  Match.value(detectTextDirection(text)).pipe(
+    Match.withReturnType<BaseTextDirectionType>(),
+    Match.when("neutral", () => fallback),
+    Match.when("ltr", () => "ltr"),
+    Match.when("rtl", () => "rtl"),
+    Match.exhaustive
+  )
+
+/** Maps logical text direction into the line-level bidi level used by the visual projector. */
+export const bidiLevelForDirection = (direction: TextDirection, baseDirection: BaseTextDirectionType): number =>
+  Match.value(direction).pipe(
+    Match.when(
+      "neutral",
+      () => Match.value(baseDirection).pipe(Match.when("ltr", () => 0), Match.when("rtl", () => 1), Match.exhaustive)
+    ),
+    Match.when(
+      "ltr",
+      () => Match.value(baseDirection).pipe(Match.when("ltr", () => 0), Match.when("rtl", () => 2), Match.exhaustive)
+    ),
+    Match.when(
+      "rtl",
+      () => Match.value(baseDirection).pipe(Match.when("ltr", () => 1), Match.when("rtl", () => 1), Match.exhaustive)
+    ),
+    Match.exhaustive
+  )
+
+/** Splits whitespace into grouped spaces and single tab tokens for later measurement. */
+export const splitWhitespaceTokens = (text: string): WhitespaceTokens =>
+  Arr.map(Arr.filter(String.split(/(\t)/u)(text), String.isNonEmpty), (part) =>
+    new WhitespaceToken({
+      kind: Boolean.match(String.Equivalence(part, TAB), { onFalse: () => "space", onTrue: () => "tab" }),
+      text: part
+    }))
+
+/** Splits author-provided soft hyphens into pieces while preserving discretionary break ownership. */
+export const splitSoftHyphenPieces = (text: string): SoftHyphenPieces => {
+  const parts = String.split(SOFT_HYPHEN)(text)
+  return Arr.filter(
+    Arr.map(
+      parts,
+      (part, index) =>
+        new SoftHyphenPiece({ breakAfter: Number.lessThan(index, Number.decrement(Arr.length(parts))), text: part })
+    ),
+    (piece) => String.isNonEmpty(piece.text)
+  )
 }
+
+/** Detects whether a string contains extended pictographic graphemes. */
+export const containsEmoji = isEmoji
+
+/** Removes emoji grapheme clusters while counting how many clusters were stripped. */
+export const stripEmojiClusters = (text: string): EmojiStripResult =>
+  Arr.reduce(
+    graphemeClusters(text),
+    new EmojiStripResult({ count: 0, text: "" }),
+    (state, cluster) =>
+      Boolean.match(isEmoji(cluster), {
+        onTrue: () => new EmojiStripResult({ count: Number.increment(state.count), text: state.text }),
+        onFalse: () => new EmojiStripResult({ count: state.count, text: String.concat(cluster)(state.text) })
+      })
+  )

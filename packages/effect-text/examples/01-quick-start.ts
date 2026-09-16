@@ -4,8 +4,7 @@
  *
  * Run with `bun run packages/effect-text/examples/01-quick-start.ts`.
  */
-import { BunRuntime } from "@effect/platform-bun"
-import { BunContext } from "@effect/platform-bun"
+import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
 
 import { Text } from "@scenesystems/effect-text"

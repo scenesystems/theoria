@@ -3,92 +3,61 @@
  *
  * @since 0.2.0
  */
-import { Data, Effect, Layer, Schema } from "effect"
+import { Boolean, Effect, Equal, Layer, Match, Number, Schema, String } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import { EngineProfile } from "../contracts/index.js"
 import type { MeasurementFailed } from "../Errors/index.js"
 import * as Text from "../Text/index.js"
 import { initialFontReadinessRevision } from "./fontReadiness.js"
-import { BrowserMeasurementCacheLive, CanvasTextMeasurerLive } from "./layers.js"
 import {
-  BrowserParityArtifactCaseSchema as BrowserParityArtifactCaseSchemaInternal,
-  type BrowserParityArtifactCaseType as BrowserParityArtifactCaseTypeInternal,
-  BrowserParityArtifactJsonSchema as BrowserParityArtifactJsonSchemaInternal,
-  BrowserParityArtifactSchema as BrowserParityArtifactSchemaInternal,
-  type BrowserParityArtifactType as BrowserParityArtifactTypeInternal,
-  BrowserParityCaseIdSchema as BrowserParityCaseIdSchemaInternal,
-  type BrowserParityCaseIdType as BrowserParityCaseIdTypeInternal
+  BrowserMeasurementCacheLive,
+  type CanvasTextBaselineType,
+  type CanvasTextDirectionType,
+  CanvasTextMeasurerLive,
+  type CanvasTextMetricsType
+} from "./layers.js"
+import {
+  BrowserParityArtifactCaseSchema,
+  type BrowserParityArtifactCaseType,
+  BrowserParityArtifactSchema,
+  type BrowserParityArtifactType,
+  BrowserParityCaseIdSchema
 } from "./paritySchema.js"
 import { type BrowserSupportProfileIdType, type BrowserSupportProfileType } from "./supportManifest.js"
 
 /**
- * Decoder for one synthetic scenario's prepare input and projected layout.
+ * Canonical schemas and models for deterministic browser parity artifacts.
  *
  * @since 0.2.0
- * @category schemas
  */
-export const BrowserParityArtifactCaseSchema = BrowserParityArtifactCaseSchemaInternal
-
-/**
- * JSON-string codec for complete synthetic regression artifacts.
- *
- * @since 0.2.0
- * @category schemas
- */
-export const BrowserParityArtifactJsonSchema = BrowserParityArtifactJsonSchemaInternal
-
-/**
- * Decoder for a profile-specific collection of parity results.
- *
- * @since 0.2.0
- * @category schemas
- */
-export const BrowserParityArtifactSchema = BrowserParityArtifactSchemaInternal
-
-/**
- * Decoder for the package's checked-in parity scenario IDs.
- *
- * @since 0.2.0
- * @category schemas
- */
-export const BrowserParityCaseIdSchema = BrowserParityCaseIdSchemaInternal
-
-/**
- * Decoded prepare input and layout result for one parity scenario.
- *
- * @since 0.2.0
- * @category models
- */
-export type BrowserParityArtifactCaseType = BrowserParityArtifactCaseTypeInternal
-
-/**
- * Decoded profile-specific synthetic regression artifact.
- *
- * @since 0.2.0
- * @category models
- */
-export type BrowserParityArtifactType = BrowserParityArtifactTypeInternal
-
-/**
- * Identifier for one package-owned synthetic canvas scenario.
- *
- * @since 0.2.0
- * @category models
- */
-export type BrowserParityCaseIdType = BrowserParityCaseIdTypeInternal
+export {
+  BrowserParityArtifactCaseSchema,
+  type BrowserParityArtifactCaseType,
+  BrowserParityArtifactJsonSchema,
+  BrowserParityArtifactSchema,
+  type BrowserParityArtifactType,
+  BrowserParityCaseIdSchema,
+  type BrowserParityCaseIdType
+} from "./paritySchema.js"
 
 const baseFontSize = 10
-class BrowserParityCaseTemplate extends Data.Class<{
-  caseId: BrowserParityCaseIdType
-  request: {
-    readonly lineHeight: number
-    readonly maxWidth: number
-  }
-  text: string
-  whiteSpace: Text.WhiteSpaceModeType
-}> {}
-type MeasurementOverride = readonly [text: string, width: number]
+class BrowserParityCaseTemplate extends Schema.Class<BrowserParityCaseTemplate>(
+  "effect-text/BrowserParityCaseTemplate"
+)({
+  caseId: BrowserParityCaseIdSchema,
+  request: Text.LayoutRequest,
+  text: Schema.String,
+  whiteSpace: Text.WhiteSpaceMode
+}) {}
+
+class MeasurementOverride extends Schema.Class<MeasurementOverride>("effect-text/MeasurementOverride")({
+  text: Schema.String,
+  width: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
+}) {}
+
+const MeasurementOverrides = Schema.NonEmptyArray(MeasurementOverride)
+type MeasurementOverridesType = typeof MeasurementOverrides.Type
 
 /**
  * Resolved synthetic scenario inputs for one browser profile.
@@ -96,95 +65,101 @@ type MeasurementOverride = readonly [text: string, width: number]
  * @since 0.2.0
  * @category models
  */
-export class BrowserParityResolvedCase extends Data.Class<{
+export class BrowserParityResolvedCase extends Schema.Class<BrowserParityResolvedCase>(
+  "effect-text/BrowserParityResolvedCase"
+)({
   /** Released scenario identifier. */
-  caseId: BrowserParityCaseIdType
+  caseId: BrowserParityCaseIdSchema,
   /** Profile-specific input prepared by the harness. */
-  prepare: Text.PrepareInputType
+  prepare: Text.PrepareInput,
   /** Fixed geometry for the scenario. */
-  request: {
-    readonly lineHeight: number
-    readonly maxWidth: number
-  }
-}> {}
-const browserParityCaseTemplates: ReadonlyArray<BrowserParityCaseTemplate> = [
-  {
+  request: Text.LayoutRequest
+}) {}
+const BrowserParityResolvedCases = Schema.NonEmptyArray(BrowserParityResolvedCase)
+type BrowserParityResolvedCasesType = typeof BrowserParityResolvedCases.Type
+const browserParityCaseTemplates = Arr.make(
+  new BrowserParityCaseTemplate({
     caseId: "white-space-normal",
-    request: { lineHeight: 12, maxWidth: 100 },
+    request: Text.LayoutRequest.make({ lineHeight: 12, maxWidth: 100 }),
     text: "alpha beta gamma",
     whiteSpace: "normal"
-  },
-  {
+  }),
+  new BrowserParityCaseTemplate({
     caseId: "white-space-pre-wrap",
-    request: { lineHeight: 12, maxWidth: 200 },
+    request: Text.LayoutRequest.make({ lineHeight: 12, maxWidth: 200 }),
     text: "alpha  beta",
     whiteSpace: "pre-wrap"
-  },
-  {
+  }),
+  new BrowserParityCaseTemplate({
     caseId: "trailing-whitespace-hard-breaks",
-    request: { lineHeight: 12, maxWidth: 200 },
+    request: Text.LayoutRequest.make({ lineHeight: 12, maxWidth: 200 }),
     text: "alpha  \nbeta",
     whiteSpace: "pre-wrap"
-  },
-  {
+  }),
+  new BrowserParityCaseTemplate({
     caseId: "tab-advances",
-    request: { lineHeight: 12, maxWidth: 100 },
+    request: Text.LayoutRequest.make({ lineHeight: 12, maxWidth: 100 }),
     text: "a\tb",
     whiteSpace: "pre-wrap"
-  },
-  {
+  }),
+  new BrowserParityCaseTemplate({
     caseId: "soft-hyphen",
-    request: { lineHeight: 12, maxWidth: 60 },
+    request: Text.LayoutRequest.make({ lineHeight: 12, maxWidth: 60 }),
     text: "alpha\u00adbeta",
     whiteSpace: "normal"
-  },
-  {
+  }),
+  new BrowserParityCaseTemplate({
     caseId: "mixed-inline-punctuation",
-    request: { lineHeight: 12, maxWidth: 200 },
+    request: Text.LayoutRequest.make({ lineHeight: 12, maxWidth: 200 }),
     text: "(שלום) hello",
     whiteSpace: "normal"
-  },
-  {
+  }),
+  new BrowserParityCaseTemplate({
     caseId: "fit-paint-divergence",
-    request: { lineHeight: 12, maxWidth: 24 },
+    request: Text.LayoutRequest.make({ lineHeight: 12, maxWidth: 24 }),
     text: "ffi",
     whiteSpace: "normal"
-  }
-]
+  })
+)
 const browserParityMeasurementOverrides = (
   profileId: BrowserSupportProfileIdType
-): ReadonlyArray<MeasurementOverride> =>
-  profileId === "canvas-system-ui"
-    ? [
-      ["f", 10],
-      ["i", 10],
-      ["ff", 19],
-      ["fi", 17],
-      ["ffi", 25]
-    ]
-    : [
-      ["f", 10],
-      ["i", 10],
-      ["ff", 18],
-      ["fi", 16],
-      ["ffi", 24]
-    ]
-const defaultMeasurementWidth = (text: string): number => Arr.fromIterable(text).length * baseFontSize
+): MeasurementOverridesType =>
+  Match.value(profileId).pipe(
+    Match.when("canvas-monospace", () =>
+      Arr.make(
+        new MeasurementOverride({ text: "f", width: 10 }),
+        new MeasurementOverride({ text: "i", width: 10 }),
+        new MeasurementOverride({ text: "ff", width: 18 }),
+        new MeasurementOverride({ text: "fi", width: 16 }),
+        new MeasurementOverride({ text: "ffi", width: 24 })
+      )),
+    Match.when("canvas-system-ui", () =>
+      Arr.make(
+        new MeasurementOverride({ text: "f", width: 10 }),
+        new MeasurementOverride({ text: "i", width: 10 }),
+        new MeasurementOverride({ text: "ff", width: 19 }),
+        new MeasurementOverride({ text: "fi", width: 17 }),
+        new MeasurementOverride({ text: "ffi", width: 25 })
+      )),
+    Match.exhaustive
+  )
+const defaultMeasurementWidth = (text: string): number =>
+  Number.multiply(Arr.length(Arr.fromIterable(text)), baseFontSize)
 const measurementWidth = (profileId: BrowserSupportProfileIdType, text: string): number =>
-  Arr.findFirst(browserParityMeasurementOverrides(profileId), (entry) => entry[0] === text).pipe(
+  Arr.findFirst(browserParityMeasurementOverrides(profileId), (entry) => Equal.equals(entry.text, text)).pipe(
     Option.match({
       onNone: () => defaultMeasurementWidth(text),
-      onSome: (entry) => entry[1]
+      onSome: (entry) => entry.width
     })
   )
 class BrowserParityCanvasContext {
-  direction: "ltr" | "rtl" | "inherit" = "inherit"
-  font = `${baseFontSize}px Mono`
-  textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom" = "alphabetic"
+  direction: CanvasTextDirectionType = "inherit"
+  font = "10px Mono"
+  textBaseline: CanvasTextBaselineType = "alphabetic"
 
   constructor(readonly profileId: BrowserSupportProfileIdType) {}
 
-  measureText(text: string): { readonly width: number } {
+  measureText(text: string): CanvasTextMetricsType {
     return { width: measurementWidth(this.profileId, text) }
   }
 }
@@ -194,7 +169,7 @@ class BrowserParityCanvasContext {
  * @since 0.2.0
  * @category parity
  */
-export const browserParityCaseIds: ReadonlyArray<BrowserParityCaseIdType> = Arr.map(
+export const browserParityCaseIds = Arr.map(
   browserParityCaseTemplates,
   (template) => template.caseId
 )
@@ -206,16 +181,17 @@ export const browserParityCaseIds: ReadonlyArray<BrowserParityCaseIdType> = Arr.
  */
 export const browserParityCasesForProfile = (
   profile: BrowserSupportProfileType
-): ReadonlyArray<BrowserParityResolvedCase> =>
-  Arr.map(browserParityCaseTemplates, (template) => ({
-    caseId: template.caseId,
-    prepare: {
-      text: template.text,
-      font: { family: profile.defaultFontFamily, size: baseFontSize },
-      whiteSpace: template.whiteSpace
-    },
-    request: template.request
-  }))
+): BrowserParityResolvedCasesType =>
+  Arr.map(browserParityCaseTemplates, (template) =>
+    new BrowserParityResolvedCase({
+      caseId: template.caseId,
+      prepare: Text.PrepareInput.make({
+        text: template.text,
+        font: Text.FontDescriptor.make({ family: profile.defaultFontFamily, size: baseFontSize }),
+        whiteSpace: template.whiteSpace
+      }),
+      request: template.request
+    }))
 
 /**
  * Installs the synthetic canvas context used to reproduce checked-in parity
@@ -247,7 +223,7 @@ export const browserParityLayer = (profile: BrowserSupportProfileType) =>
  * @category parity
  */
 export const browserParityArtifactRelativePath = (profileId: BrowserSupportProfileIdType): string =>
-  `examples/live/artifacts/${profileId}.json`
+  String.concat("examples/live/artifacts/", String.concat(profileId, ".json"))
 
 /**
  * A browser profile does not declare every released synthetic scenario, so no
@@ -262,7 +238,7 @@ export class BrowserParityCasesMissing extends Schema.TaggedError<BrowserParityC
     /** The profile whose `parityCases` are incomplete. */
     profileId: Schema.String,
     /** Released scenarios the profile does not declare. */
-    missing: Schema.Array(BrowserParityCaseIdSchemaInternal)
+    missing: Schema.Array(BrowserParityCaseIdSchema)
   }
 ) {}
 
@@ -278,31 +254,37 @@ export class BrowserParityCasesMissing extends Schema.TaggedError<BrowserParityC
 export const renderBrowserParityArtifact = (
   profile: BrowserSupportProfileType
 ): Effect.Effect<BrowserParityArtifactType, BrowserParityCasesMissing | MeasurementFailed> =>
-  Effect.gen(function*() {
-    const missing = Arr.filter(browserParityCaseIds, (caseId) => !profile.parityCases.includes(caseId))
-    if (Arr.isNonEmptyReadonlyArray(missing)) {
-      return yield* new BrowserParityCasesMissing({ profileId: profile.id, missing })
-    }
-
-    return {
-      profileId: profile.id,
-      fontFamily: profile.defaultFontFamily,
-      fontSelection: profile.fontSelection,
-      fontStack: profile.fontStack,
-      parityCases: profile.parityCases,
-      cases: yield* Effect.forEach(
-        browserParityCasesForProfile(profile),
-        (entry) =>
-          Text.prepareWithSegments(entry.prepare).pipe(
-            Effect.provide(browserParityLayer(profile)),
-            Effect.map((prepared): BrowserParityArtifactCaseType => ({
-              caseId: entry.caseId,
-              prepare: entry.prepare,
-              request: entry.request,
-              summary: Text.layout(prepared, entry.request),
-              lines: Text.layoutLines(prepared, entry.request)
-            }))
+  Arr.match(
+    Arr.filter(browserParityCaseIds, (caseId) => Boolean.not(Arr.contains(profile.parityCases, caseId))),
+    {
+      onEmpty: () =>
+        Effect.forEach(
+          browserParityCasesForProfile(profile),
+          (entry) =>
+            Text.prepareWithSegments(entry.prepare).pipe(
+              Effect.provide(browserParityLayer(profile)),
+              Effect.map((prepared): BrowserParityArtifactCaseType =>
+                BrowserParityArtifactCaseSchema.make({
+                  caseId: entry.caseId,
+                  prepare: entry.prepare,
+                  request: entry.request,
+                  summary: Text.layout(prepared, entry.request),
+                  lines: Text.layoutLines(prepared, entry.request)
+                })
+              )
+            )
+        ).pipe(
+          Effect.map((cases) =>
+            BrowserParityArtifactSchema.make({
+              profileId: profile.id,
+              fontFamily: profile.defaultFontFamily,
+              fontSelection: profile.fontSelection,
+              fontStack: profile.fontStack,
+              parityCases: profile.parityCases,
+              cases
+            })
           )
-      )
+        ),
+      onNonEmpty: (missing) => Effect.fail(new BrowserParityCasesMissing({ profileId: profile.id, missing }))
     }
-  })
+  )

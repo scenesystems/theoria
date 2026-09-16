@@ -1,18 +1,31 @@
 /**
- * Opaque handles compiled once for repeated text-layout projections.
+ * Schema-owned handles compiled once for repeated text-layout projections.
  *
  * @since 0.1.0
  */
-import { Schema } from "effect"
+import { Array as Arr, Order, RedBlackTree, Schema, Tuple } from "effect"
 import * as HashMap from "effect/HashMap"
 import * as MutableRef from "effect/MutableRef"
 
 import { BaseTextDirection, FontDescriptor, HyphenationLocale, WhiteSpaceMode } from "./schema.js"
 
-const PreparedSegmentKindSchema = Schema.Literal("text", "space", "hard-break", "tab")
-const PreparedSegmentDirectionSchema = Schema.Literal("ltr", "rtl", "neutral")
-const PreparedBreakOpportunitySchema = Schema.Literal("none", "space", "soft-hyphen", "dictionary-hyphen")
-const PreparedBreakKindSchema = Schema.Literal(
+const NonNegativeFinite = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
+const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+const StringValues = Schema.Array(Schema.String)
+const NonNegativeFiniteValues = Schema.Array(NonNegativeFinite)
+const NonNegativeIntValues = Schema.Array(NonNegativeInt)
+
+/** Internal prepared segment kinds. */
+export const PreparedSegmentKind = Schema.Literal("text", "space", "hard-break", "tab")
+
+/** Internal prepared segment directions. */
+export const PreparedSegmentDirection = Schema.Literal("ltr", "rtl", "neutral")
+
+/** Internal discretionary break opportunities. */
+export const PreparedBreakOpportunity = Schema.Literal("none", "space", "soft-hyphen", "dictionary-hyphen")
+
+/** Internal break kinds consumed by the walker. */
+export const PreparedBreakKind = Schema.Literal(
   "text",
   "space",
   "preserved-space",
@@ -24,77 +37,80 @@ const PreparedBreakKindSchema = Schema.Literal(
   "zero-width-break"
 )
 
-const PreparedSegmentSchema = Schema.Struct({
-  kind: PreparedSegmentKindSchema,
-  text: Schema.String,
-  width: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
-  fitWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
-  direction: PreparedSegmentDirectionSchema,
-  bidiLevel: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-  breakOpportunity: PreparedBreakOpportunitySchema,
+/** Internal prepared segment representation. */
+export class PreparedSegment extends Schema.Class<PreparedSegment>("effect-text/PreparedSegment")({
+  bidiLevel: NonNegativeInt,
+  breakOpportunity: PreparedBreakOpportunity,
   breakText: Schema.String,
-  breakWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
-  graphemes: Schema.Array(Schema.String),
-  graphemeAdvances: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))),
-  fitPrefixWidths: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))),
-  graphemeBidiLevels: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))),
-  mirroredGraphemes: Schema.Array(Schema.String)
-})
-
-const _PreparedLineChunkSchema = Schema.Struct({
-  startSegmentIndex: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-  endSegmentIndex: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-  consumedEndSegmentIndex: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-})
-
-const PreparedRuntimeTablesSchema = Schema.Struct({
-  breakKinds: Schema.Array(PreparedBreakKindSchema),
-  fitAdvances: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))),
-  paintAdvances: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))),
-  chunkStartIndices: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))),
-  chunkConsumedEndIndices: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))),
-  breakableGraphemeWidths: Schema.Array(
-    Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)))
-  ),
-  breakablePrefixWidths: Schema.Array(
-    Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)))
-  ),
-  graphemeBidiLevels: Schema.Array(
-    Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)))
-  ),
-  mirroredGraphemes: Schema.Array(Schema.Array(Schema.String)),
-  discretionaryHyphenWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
-  tabStopAdvance: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
-})
-
-const PreparedTextMetaSchema = Schema.Struct({
+  breakWidth: NonNegativeFinite,
+  direction: PreparedSegmentDirection,
+  fitPrefixWidths: NonNegativeFiniteValues,
+  fitWidth: NonNegativeFinite,
+  graphemeAdvances: NonNegativeFiniteValues,
+  graphemeBidiLevels: NonNegativeIntValues,
+  graphemes: StringValues,
+  kind: PreparedSegmentKind,
+  mirroredGraphemes: StringValues,
   text: Schema.String,
+  width: NonNegativeFinite
+}) {}
+
+/** One coherent walker record compiled for a logical segment. */
+export class PreparedRuntimeSegment extends Schema.Class<PreparedRuntimeSegment>(
+  "effect-text/PreparedRuntimeSegment"
+)({
+  breakKind: PreparedBreakKind,
+  breakableGraphemeWidths: NonNegativeFiniteValues,
+  breakablePrefixWidths: NonNegativeFiniteValues,
+  fitAdvance: NonNegativeFinite,
+  graphemeBidiLevels: NonNegativeIntValues,
+  mirroredGraphemes: StringValues,
+  paintAdvance: NonNegativeFinite
+}) {}
+
+/** Hard-break-delimited walker chunk. */
+export class PreparedLineChunk extends Schema.Class<PreparedLineChunk>("effect-text/PreparedLineChunk")({
+  consumedEndSegmentIndex: NonNegativeInt,
+  startSegmentIndex: NonNegativeInt
+}) {}
+
+/** Coherent runtime records compiled during preparation. */
+export class PreparedRuntimeTables extends Schema.Class<PreparedRuntimeTables>(
+  "effect-text/PreparedRuntimeTables"
+)({
+  chunks: Schema.Array(PreparedLineChunk),
+  discretionaryHyphenWidth: NonNegativeFinite,
+  segments: Schema.Array(PreparedRuntimeSegment),
+  tabStopAdvance: NonNegativeFinite
+}) {
+  readonly chunksByEnd = RedBlackTree.fromIterable(
+    Arr.map(this.chunks, (chunk) => Tuple.make(chunk.consumedEndSegmentIndex, chunk)),
+    Order.number
+  )
+}
+
+/** Stable metadata retained alongside the kernel. */
+export class PreparedTextMeta extends Schema.Class<PreparedTextMeta>("effect-text/PreparedTextMeta")({
   font: FontDescriptor,
-  hyphenationLocale: Schema.optional(HyphenationLocale)
-})
+  hyphenationLocale: Schema.OptionFromSelf(HyphenationLocale),
+  text: Schema.String
+}) {}
 
-const PreparedTextKernelSchema = Schema.Struct({
-  whiteSpace: WhiteSpaceMode,
+/** Runtime tables and policies consumed by the line walker. */
+export class PreparedTextKernel extends Schema.Class<PreparedTextKernel>("effect-text/PreparedTextKernel")({
   baseDirection: BaseTextDirection,
-  lineFitEpsilon: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
+  lineFitEpsilon: NonNegativeFinite,
   preferEarlySoftHyphenBreak: Schema.Boolean,
-  runtime: PreparedRuntimeTablesSchema
-})
+  runtime: PreparedRuntimeTables,
+  whiteSpace: WhiteSpaceMode
+}) {}
 
-const PreparedTextLogicalSurfaceSchema = Schema.Struct({
-  segments: Schema.Array(PreparedSegmentSchema)
-})
-
-const _PreparedTextCoreSchema = Schema.Struct({
-  meta: PreparedTextMetaSchema,
-  kernel: PreparedTextKernelSchema
-})
-
-const _PreparedTextWithSegmentsCoreSchema = Schema.Struct({
-  meta: PreparedTextMetaSchema,
-  kernel: PreparedTextKernelSchema,
-  logicalSurface: PreparedTextLogicalSurfaceSchema
-})
+/** Retained logical surface used only for materialization support. */
+export class PreparedTextLogicalSurface extends Schema.Class<PreparedTextLogicalSurface>(
+  "effect-text/PreparedTextLogicalSurface"
+)({
+  segments: Schema.Array(PreparedSegment)
+}) {}
 
 /**
  * Marks prepared-handle representation and layout projection contracts as provisional.
@@ -104,216 +120,65 @@ const _PreparedTextWithSegmentsCoreSchema = Schema.Struct({
  */
 export const TextStability = "provisional"
 
-/**
- * Internal compiled break kind for the walker kernel.
- *
- * @since 0.1.0
- * @category internals
- */
-export type PreparedBreakKindType = typeof PreparedBreakKindSchema.Type
+/** @since 0.1.0 @category internals */
+export type PreparedBreakKindType = typeof PreparedBreakKind.Type
+/** @since 0.1.0 @category internals */
+export type PreparedSegmentType = PreparedSegment
+/** @since 0.1.0 @category internals */
+export type PreparedLineChunkType = PreparedLineChunk
+/** @since 0.1.0 @category internals */
+export type PreparedRuntimeSegmentType = PreparedRuntimeSegment
+/** @since 0.1.0 @category internals */
+export type PreparedRuntimeTablesType = PreparedRuntimeTables
+/** @since 0.2.0 @category internals */
+export type PreparedTextMetaType = PreparedTextMeta
+/** @since 0.2.0 @category internals */
+export type PreparedTextKernelType = PreparedTextKernel
+/** @since 0.2.0 @category internals */
+export type PreparedTextLogicalSurfaceType = PreparedTextLogicalSurface
+
+/** Handle-local cursor hint key with structural Effect equality. */
+export class PreparedTextCursorHintKey extends Schema.Class<PreparedTextCursorHintKey>(
+  "effect-text/PreparedTextCursorHintKey"
+)({
+  graphemeIndex: Schema.Number,
+  maxWidth: Schema.Number,
+  segmentIndex: Schema.Number
+}) {}
 
 /**
- * Internal prepared segment representation.
- *
- * @since 0.1.0
- * @category internals
- */
-export type PreparedSegmentType = typeof PreparedSegmentSchema.Type
-
-/**
- * Internal hard-break chunk boundaries used while compiling kernel tables.
- *
- * @since 0.1.0
- * @category internals
- */
-export type PreparedLineChunkType = typeof _PreparedLineChunkSchema.Type
-
-/**
- * Internal parallel runtime tables compiled during preparation.
- *
- * @since 0.1.0
- * @category internals
- */
-export type PreparedRuntimeTablesType = typeof PreparedRuntimeTablesSchema.Type
-
-/**
- * Internal stable metadata retained alongside the kernel.
- *
- * @since 0.2.0
- * @category internals
- */
-export type PreparedTextMetaType = typeof PreparedTextMetaSchema.Type
-
-/**
- * Internal runtime tables and policies consumed by the line walker.
- *
- * @since 0.2.0
- * @category internals
- */
-export type PreparedTextKernelType = typeof PreparedTextKernelSchema.Type
-
-/**
- * Internal retained logical surface used only for materialization support.
- *
- * @since 0.2.0
- * @category internals
- */
-export type PreparedTextLogicalSurfaceType = typeof PreparedTextLogicalSurfaceSchema.Type
-
-/**
- * Internal summary prepared representation.
- *
- * @since 0.1.0
- * @category internals
- */
-export type PreparedTextCore = typeof _PreparedTextCoreSchema.Type
-
-/**
- * Internal prepared representation that retains logical-surface materialization data.
- *
- * @since 0.2.0
- * @category internals
- */
-export type PreparedTextWithSegmentsCore = typeof _PreparedTextWithSegmentsCoreSchema.Type
-
-type PreparedTextCursorHintKey = readonly [number, number, number]
-type PreparedTextCursorHints = MutableRef.MutableRef<HashMap.HashMap<PreparedTextCursorHintKey, number>>
-
-const preparedTextConstructionToken = Symbol("PreparedTextConstructionToken")
-type PreparedTextConstructionToken = typeof preparedTextConstructionToken
-const preparedTextCoreSymbol = Symbol("PreparedTextCore")
-const preparedTextWithSegmentsCoreSymbol = Symbol("PreparedTextWithSegmentsCore")
-const preparedTextCursorHintsSymbol = Symbol("PreparedTextCursorHints")
-
-const summaryCoreFromWithSegmentsCore = (core: PreparedTextWithSegmentsCore): PreparedTextCore => ({
-  kernel: core.kernel,
-  meta: core.meta
-})
-
-const preparedTextCursorHints = (): PreparedTextCursorHints =>
-  MutableRef.make(HashMap.empty<PreparedTextCursorHintKey, number>())
-
-/**
- * Opaque summary-only result of `Text.prepare` and `Text.prepareUnknown`.
+ * Summary-only result of `Text.prepare` and `Text.prepareUnknown`.
  *
  * @remarks
- * The handle exposes no measured tables or text segments to callers. It can be
- * reused by the pure `Text.layout` and `Text.measureNaturalWidth` projections,
- * which need only the compiled summary kernel. It cannot materialize line
- * text, ranges, cursors, or streams; request `PreparedTextWithSegments` via
- * `Text.prepareWithSegments` for those projections. That richer handle extends
- * this type, so it also supports both summary projections.
+ * The representation is provisional. It retains only the state required by
+ * `Text.layout` and `Text.measureNaturalWidth`; request
+ * `PreparedTextWithSegments` for materialized lines, ranges, cursors, or streams.
  *
  * @since 0.1.0
  * @category models
  */
-export class PreparedText {
-  /**
-   * Non-enumerable compiled state reserved for package layout projections.
-   *
-   * @since 0.1.0
-   * @category models
-   */
-  declare readonly [preparedTextCoreSymbol]: PreparedTextCore
-
-  constructor(_token: PreparedTextConstructionToken, core: PreparedTextCore) {
-    Object.defineProperty(this, preparedTextCoreSymbol, {
-      value: core,
-      enumerable: false,
-      configurable: false,
-      writable: false
-    })
-  }
-}
+export class PreparedText extends Schema.Class<PreparedText>("effect-text/PreparedText")({
+  kernel: PreparedTextKernel,
+  meta: PreparedTextMeta
+}) {}
 
 /**
- * Prepared handle retaining the logical segments needed to materialize visual
- * lines and cursor ranges.
- *
- * @remarks
- * This handle also supports the summary projections accepted by `PreparedText`.
+ * Prepared handle retaining the logical segments needed for materialization.
  *
  * @since 0.1.0
  * @category models
  */
-export class PreparedTextWithSegments extends PreparedText {
-  /**
-   * Non-enumerable compiled state reserved for package materialization operations.
-   *
-   * @since 0.2.0
-   * @category models
-   */
-  declare readonly [preparedTextWithSegmentsCoreSymbol]: PreparedTextWithSegmentsCore
-
-  /**
-   * Non-enumerable line-index hints populated by incremental walks.
-   *
-   * @since 0.2.0
-   * @category models
-   */
-  declare readonly [preparedTextCursorHintsSymbol]: PreparedTextCursorHints
-
-  constructor(token: PreparedTextConstructionToken, core: PreparedTextWithSegmentsCore) {
-    super(token, summaryCoreFromWithSegmentsCore(core))
-
-    Object.defineProperty(this, preparedTextWithSegmentsCoreSymbol, {
-      value: core,
-      enumerable: false,
-      configurable: false,
-      writable: false
-    })
-
-    Object.defineProperty(this, preparedTextCursorHintsSymbol, {
-      value: preparedTextCursorHints(),
-      enumerable: false,
-      configurable: false,
-      writable: false
-    })
-  }
+export class PreparedTextWithSegments extends PreparedText.extend<PreparedTextWithSegments>(
+  "effect-text/PreparedTextWithSegments"
+)({
+  logicalSurface: PreparedTextLogicalSurface
+}) {
+  readonly cursorHints = MutableRef.make(HashMap.empty<PreparedTextCursorHintKey, number>())
 }
 
-/**
- * Constructs the summary-only prepared handle used by `Text.prepare`.
- *
- * @since 0.2.0
- * @category internals
- */
-export const preparedTextFromCore = (core: PreparedTextCore): PreparedText =>
-  new PreparedText(preparedTextConstructionToken, core)
+const PreparedTextWithSegmentsCoreSchema = Schema.Struct(PreparedTextWithSegments.fields)
 
-/**
- * Constructs the materializing prepared handle used by `Text.prepareWithSegments`.
- *
- * @since 0.2.0
- * @category internals
- */
-export const preparedTextWithSegmentsFromCore = (core: PreparedTextWithSegmentsCore): PreparedTextWithSegments =>
-  new PreparedTextWithSegments(preparedTextConstructionToken, core)
-
-/**
- * Reads the hidden summary core from a prepared handle.
- *
- * @since 0.2.0
- * @category internals
- */
-export const preparedTextCore = (self: PreparedText): PreparedTextCore => self[preparedTextCoreSymbol]
-
-/**
- * Reads the hidden materialization core from a rich prepared handle.
- *
- * @since 0.2.0
- * @category internals
- */
-export const preparedTextWithSegmentsCore = (
-  self: PreparedTextWithSegments
-): PreparedTextWithSegmentsCore => self[preparedTextWithSegmentsCoreSymbol]
-
-/**
- * Reads the handle-scoped cursor-hint cache used for sequential walking.
- *
- * @since 0.2.0
- * @category internals
- */
-export const preparedTextWithSegmentsCursorHints = (
-  self: PreparedTextWithSegments
-): PreparedTextCursorHints => self[preparedTextCursorHintsSymbol]
+/** @since 0.1.0 @category internals */
+export type PreparedTextCore = PreparedText
+/** @since 0.2.0 @category internals */
+export type PreparedTextWithSegmentsCore = typeof PreparedTextWithSegmentsCoreSchema.Type

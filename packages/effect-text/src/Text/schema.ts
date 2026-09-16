@@ -220,6 +220,38 @@ export const LayoutLine = Schema.Struct({
 export type LayoutLineType = typeof LayoutLine.Type
 
 /**
+ * Materialized visual lines returned by whole-layout projections.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const LayoutLines = Schema.Array(LayoutLine)
+
+/**
+ * Materialized visual lines in output order.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type LayoutLinesType = typeof LayoutLines.Type
+
+/**
+ * One cursor projection step: the materialized line and its successor cursor.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const LayoutLineStep = Schema.Tuple(LayoutLine, LayoutCursor)
+
+/**
+ * A materialized line paired with its successor cursor.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type LayoutLineStepType = typeof LayoutLineStep.Type
+
+/**
  * Non-materialized line geometry and logical cursor bounds for visually ordered output.
  *
  * @remarks
@@ -248,6 +280,22 @@ export const LayoutLineRange = Schema.Struct({
 export type LayoutLineRangeType = typeof LayoutLineRange.Type
 
 /**
+ * Non-materialized ranges returned by whole-layout projections.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const LayoutLineRanges = Schema.Array(LayoutLineRange)
+
+/**
+ * Ordered logical cursor ranges and painted widths.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type LayoutLineRangesType = typeof LayoutLineRanges.Type
+
+/**
  * Aggregate geometry: painted maximum width and `lineCount * lineHeight`.
  *
  * @since 0.1.0
@@ -269,6 +317,25 @@ export const LayoutSummary = Schema.Struct({
  * @category models
  */
 export type LayoutSummaryType = typeof LayoutSummary.Type
+
+/**
+ * Materialized lines paired with summary geometry from the same walk.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const LayoutLinesWithSummary = Schema.Struct({
+  lines: LayoutLines,
+  summary: LayoutSummary
+})
+
+/**
+ * Visual lines and aggregate geometry from the same layout walk.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type LayoutLinesWithSummaryType = typeof LayoutLinesWithSummary.Type
 
 /**
  * Preparation-time fit tolerance, tab columns, bidi fallback, and discretionary

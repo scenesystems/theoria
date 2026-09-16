@@ -3,9 +3,8 @@
  *
  * @since 0.2.0
  */
-import { Schema } from "effect"
+import { Match, Schema } from "effect"
 import * as Arr from "effect/Array"
-import * as Option from "effect/Option"
 
 import { EngineProfile, WhiteSpaceMode } from "../Text/schema.js"
 
@@ -17,7 +16,13 @@ const BrowserFreshnessMode = Schema.Literal("font-readiness-revision")
 const BrowserEmojiCorrectionMode = Schema.Literal("optional")
 const BrowserFontSelectionMode = Schema.Literal("named-family", "browser-default-stack")
 const BrowserTabPolicyMode = Schema.Literal("space-columns")
-const BrowserParityCase = Schema.Literal(
+/**
+ * Concrete browser behavior scenarios covered by first-party contract tests.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const BrowserParityCase = Schema.Literal(
   "white-space-normal",
   "white-space-pre-wrap",
   "trailing-whitespace-hard-breaks",
@@ -26,9 +31,10 @@ const BrowserParityCase = Schema.Literal(
   "mixed-inline-punctuation",
   "fit-paint-divergence"
 )
-const NonEmptyStringArray = Schema.Array(Schema.String).pipe(Schema.minItems(1))
-const NonEmptyWhiteSpaceModeArray = Schema.Array(WhiteSpaceMode).pipe(Schema.minItems(1))
-const NonEmptyParityCaseArray = Schema.Array(BrowserParityCase).pipe(Schema.minItems(1))
+type BrowserParityCaseType = typeof BrowserParityCase.Type
+const NonEmptyStringArray = Schema.NonEmptyArray(Schema.String)
+const NonEmptyWhiteSpaceModeArray = Schema.NonEmptyArray(WhiteSpaceMode)
+const NonEmptyParityCaseArray = Schema.NonEmptyArray(BrowserParityCase)
 
 const BrowserTabPolicySchema = Schema.Struct({
   columns: PositiveInt,
@@ -58,7 +64,9 @@ export type BrowserSupportProfileIdType = typeof BrowserSupportProfileIdSchema.T
  * @since 0.2.0
  * @category schemas
  */
-export const BrowserSupportProfileSchema = Schema.Struct({
+export class BrowserSupportProfileSchema extends Schema.Class<BrowserSupportProfileSchema>(
+  "effect-text/BrowserSupportProfile"
+)({
   /** Stable profile identifier used in cache keys and artifacts. */
   id: BrowserSupportProfileIdSchema,
   /** Browser measurement API used by the profile. */
@@ -87,7 +95,7 @@ export const BrowserSupportProfileSchema = Schema.Struct({
   parityTolerancePx: NonNegativeFiniteNumber,
   /** Explicit exclusions from the profile's support statement. */
   caveats: Schema.Array(Schema.String)
-})
+}) {}
 
 /**
  * Decoded configuration for one canvas measurement profile.
@@ -95,7 +103,7 @@ export const BrowserSupportProfileSchema = Schema.Struct({
  * @since 0.2.0
  * @category models
  */
-export type BrowserSupportProfileType = typeof BrowserSupportProfileSchema.Type
+export type BrowserSupportProfileType = BrowserSupportProfileSchema
 
 /**
  * Decodes a non-empty profile catalog whose default names one catalog entry.
@@ -103,12 +111,14 @@ export type BrowserSupportProfileType = typeof BrowserSupportProfileSchema.Type
  * @since 0.2.0
  * @category schemas
  */
-export const BrowserSupportManifestSchema = Schema.Struct({
+export class BrowserSupportManifestSchema extends Schema.Class<BrowserSupportManifestSchema>(
+  "effect-text/BrowserSupportManifest"
+)({
   /** Profile selected when a caller omits an ID. */
   defaultProfileId: BrowserSupportProfileIdSchema,
   /** Non-empty catalog of shipped profiles. */
-  profiles: Schema.Array(BrowserSupportProfileSchema).pipe(Schema.minItems(1))
-})
+  profiles: Schema.NonEmptyArray(BrowserSupportProfileSchema)
+}) {}
 
 /**
  * Decoded browser profile catalog.
@@ -116,9 +126,9 @@ export const BrowserSupportManifestSchema = Schema.Struct({
  * @since 0.2.0
  * @category models
  */
-export type BrowserSupportManifestType = typeof BrowserSupportManifestSchema.Type
+export type BrowserSupportManifestType = BrowserSupportManifestSchema
 
-const parityCases: BrowserSupportProfileType["parityCases"] = [
+const parityCases: BrowserSupportProfileType["parityCases"] = Arr.make<Arr.NonEmptyArray<BrowserParityCaseType>>(
   "white-space-normal",
   "white-space-pre-wrap",
   "trailing-whitespace-hard-breaks",
@@ -126,64 +136,64 @@ const parityCases: BrowserSupportProfileType["parityCases"] = [
   "soft-hyphen",
   "mixed-inline-punctuation",
   "fit-paint-divergence"
-]
+)
 
-const tabPolicy: BrowserSupportProfileType["tabPolicy"] = {
+const tabPolicy: BrowserSupportProfileType["tabPolicy"] = BrowserTabPolicySchema.make({
   columns: 4,
   mode: "space-columns"
-}
+})
 
-const defaultBrowserSupportProfile: BrowserSupportProfileType = {
+const defaultBrowserSupportProfile = new BrowserSupportProfileSchema({
   id: "canvas-monospace",
   measurement: "canvas-2d",
   freshness: "font-readiness-revision",
   emojiCorrection: "optional",
   defaultFontFamily: "Mono",
   fontSelection: "named-family",
-  fontStack: ["Mono", "monospace"],
-  whiteSpaceModes: ["normal", "pre-wrap"],
+  fontStack: Arr.make("Mono", "monospace"),
+  whiteSpaceModes: Arr.make<Arr.NonEmptyArray<typeof WhiteSpaceMode.Type>>("normal", "pre-wrap"),
   defaultWhiteSpaceMode: "normal",
-  engineProfile: {
+  engineProfile: EngineProfile.make({
     lineFitEpsilon: 0.005,
     tabWidth: tabPolicy.columns,
     defaultDirection: "ltr",
     preferEarlySoftHyphenBreak: false,
     preferPrefixWidthsForBreakableRuns: true
-  },
+  }),
   tabPolicy,
   parityCases,
   parityTolerancePx: 0,
-  caveats: [
+  caveats: Arr.make(
     "The synthetic regression context uses the Mono control family and a fixed width table; it does not establish measurements for an installed font.",
     "The released scenarios cover `normal` and `pre-wrap` whitespace behavior. Browser engines, alternate fonts, fallback changes, and shaping behavior require validation in the consuming application."
-  ]
-}
+  )
+})
 
-const systemUiBrowserSupportProfile: BrowserSupportProfileType = {
+const systemUiBrowserSupportProfile = new BrowserSupportProfileSchema({
   id: "canvas-system-ui",
   measurement: "canvas-2d",
   freshness: "font-readiness-revision",
   emojiCorrection: "optional",
   defaultFontFamily: "system-ui",
   fontSelection: "browser-default-stack",
-  fontStack: ["system-ui", "sans-serif"],
-  whiteSpaceModes: ["normal", "pre-wrap"],
+  fontStack: Arr.make("system-ui", "sans-serif"),
+  whiteSpaceModes: Arr.make<Arr.NonEmptyArray<typeof WhiteSpaceMode.Type>>("normal", "pre-wrap"),
   defaultWhiteSpaceMode: "normal",
-  engineProfile: {
+  engineProfile: EngineProfile.make({
     lineFitEpsilon: 0.01,
     tabWidth: tabPolicy.columns,
     defaultDirection: "ltr",
     preferEarlySoftHyphenBreak: false,
     preferPrefixWidthsForBreakableRuns: true
-  },
+  }),
   tabPolicy,
   parityCases,
   parityTolerancePx: 0,
-  caveats: [
+  caveats: Arr.make(
     "The browser chooses the concrete UI font for this profile. Widths therefore depend on the user agent, operating system, and installed fonts.",
     "The released scenarios cover `normal` and `pre-wrap` whitespace behavior. User-agent fallback changes and shaping behavior require validation in the consuming application."
-  ]
-}
+  )
+})
 
 /**
  * Shipped canvas profiles and their synthetic regression coverage.
@@ -191,24 +201,27 @@ const systemUiBrowserSupportProfile: BrowserSupportProfileType = {
  * @since 0.2.0
  * @category manifests
  */
-export const BrowserSupportManifest: BrowserSupportManifestType = {
+export const BrowserSupportManifest = new BrowserSupportManifestSchema({
   defaultProfileId: defaultBrowserSupportProfile.id,
-  profiles: [defaultBrowserSupportProfile, systemUiBrowserSupportProfile]
-}
+  profiles: Arr.make(defaultBrowserSupportProfile, systemUiBrowserSupportProfile)
+})
+
+const profileForId = Match.type<BrowserSupportProfileIdType>().pipe(
+  Match.when("canvas-monospace", () => defaultBrowserSupportProfile),
+  Match.when("canvas-system-ui", () => systemUiBrowserSupportProfile),
+  Match.exhaustive
+)
 
 /**
- * Selects a shipped profile. Omission and unknown runtime values both return
- * `canvas-monospace`.
+ * Selects a shipped profile. Omission selects the manifest default; the closed
+ * profile identifier is resolved exhaustively without an unknown-value fallback.
  *
  * @since 0.2.0
  * @category manifests
  */
 export const browserSupportProfile = (
   profileId: BrowserSupportProfileIdType = BrowserSupportManifest.defaultProfileId
-): BrowserSupportProfileType =>
-  Arr.findFirst(BrowserSupportManifest.profiles, (profile) => profile.id === profileId).pipe(
-    Option.getOrElse(() => defaultBrowserSupportProfile)
-  )
+): BrowserSupportProfileType => profileForId(profileId)
 
 /**
  * The shipped `canvas-monospace` profile used when callers omit a profile ID.

@@ -6,6 +6,7 @@
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
+import * as Arr from "effect/Array"
 
 import { Text } from "@scenesystems/effect-text"
 
@@ -27,7 +28,7 @@ const baseServices = Layer.mergeAll(
 
 const customDictionaryServices = Layer.mergeAll(
   baseServices,
-  Text.HyphenationDictionaryLive({ dictionaries: { "en-gb": { colouration: [3, 6] } } })
+  Text.HyphenationDictionaryLive({ dictionaries: { "en-gb": { colouration: Arr.make(3, 6) } } })
 )
 
 const noDictionaryServices = Layer.mergeAll(baseServices, Text.NoHyphenationDictionaryLive)
@@ -51,7 +52,7 @@ const program = Effect.gen(function*() {
     forcedFallbackLines,
     hyphenationLocale: prepareInput.hyphenationLocale,
     shippedDictionaryLines,
-    supportedLocales: ["en-us", "en-gb", "de", "fr", "es"]
+    supportedLocales: Text.HyphenationSupport.locales
   })
 })
 

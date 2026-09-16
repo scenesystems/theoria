@@ -6,7 +6,9 @@
  *
  * @since 0.2.0
  */
-export const esHyphenationPatternSource = {
+import { HyphenationPatternSource } from "./schema.js"
+
+export const esHyphenationPatternSource = HyphenationPatternSource.make({
   "id": "es",
   "leftmin": 2,
   "rightmin": 2,
@@ -41,4 +43,4 @@ export const esHyphenationPatternSource = {
     "16": "4i3gá3mos3melas_4i3gá3mos3telas_",
     "17": "_de3s4in3ter2e3sa_de3s4in3ter2e3sá_de3s4in3ter2e3se_de3s4in3ter2e3sé_de3s4in3ter2e3so_de3s4in3ter2e3só"
   }
-}
+})

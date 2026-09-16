@@ -3,10 +3,8 @@
  *
  * @since 0.1.0
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { Boolean, Number, Option, Schema, String } from "effect"
 import * as Arr from "effect/Array"
-import * as Data from "effect/Data"
-import * as Option from "effect/Option"
 
 import {
   containsMirroredCharacters,
@@ -14,197 +12,150 @@ import {
   mirrorCharacter
 } from "./bidiData.js"
 
-type LevelSpan = readonly [number, number]
+class LevelBounds extends Schema.Class<LevelBounds>("effect-text/BidiLevelBounds")({
+  maxLevel: Schema.Number,
+  minimumOddLevel: Schema.OptionFromSelf(Schema.Number)
+}) {}
 
-class LevelBounds extends Data.Class<{
-  maxLevel: number
-  minimumOddLevel: number
-}> {}
+/** Internal line-local unit used while deriving visual order from prepared metadata. */
+export class VisualOrderUnit extends Schema.Class<VisualOrderUnit>("effect-text/VisualOrderUnit")({
+  level: Schema.Number,
+  logicalIndex: Schema.Number,
+  mirroredText: Schema.String,
+  text: Schema.String
+}) {}
 
-const noOddLevel = -1
+const VisualOrderUnits = Schema.Array(VisualOrderUnit)
+type VisualOrderUnits = typeof VisualOrderUnits.Type
 
-/**
- * Internal line-local unit used while deriving visual order from prepared metadata.
- *
- * @since 0.2.0
- * @category internals
- */
-export class VisualOrderUnit extends Data.Class<{
-  text: string
-  mirroredText: string
-  level: number
-  logicalIndex: number
-}> {}
+const VisualPermutation = Schema.Array(Schema.Number)
 
-/**
- * Internal visual run after line-local reordering.
- *
- * @since 0.2.0
- * @category internals
- */
-export class VisualRun extends Data.Class<{
-  level: number
-  units: ReadonlyArray<VisualOrderUnit>
-}> {}
+/** Internal visual-order projection for a walked line. */
+export class VisualOrderProjection extends Schema.Class<VisualOrderProjection>("effect-text/VisualOrderProjection")({
+  permutation: VisualPermutation,
+  text: Schema.String
+}) {}
 
-/**
- * Internal visual-order projection for a walked line.
- *
- * @since 0.2.0
- * @category internals
- */
-export class VisualOrderProjection extends Data.Class<{
-  permutation: ReadonlyArray<number>
-  text: string
-}> {}
+const isOddLevel = (level: number): boolean => Number.Equivalence(Number.remainder(level, 2), 1)
 
-const levelSpan = (start: number, end: number): LevelSpan => [start, end]
-
-/**
- * Mirrors paired punctuation glyphs for visually ordered odd-level runs.
- *
- * @since 0.2.0
- * @category internals
- */
+/** Mirrors paired punctuation glyphs for visually ordered odd-level runs. */
 export const mirrorText = (text: string): string =>
-  containsMirroredCharacters(text)
-    ? Arr.reduce(Arr.fromIterable(text), "", (mirrored, character) => mirrored + mirrorCharacter(character))
-    : text
-
-/**
- * Re-exports unsupported bidi-control detection so preparation and visual projection share one decision point.
- *
- * @since 0.2.0
- * @category internals
- */
-export const containsUnsupportedBidiControls = containsUnsupportedBidiControlsFromData
-
-const scanLevelBounds = (units: ReadonlyArray<VisualOrderUnit>): LevelBounds =>
-  Arr.reduce(
-    units,
-    { maxLevel: 0, minimumOddLevel: noOddLevel },
-    (bounds, unit) => ({
-      maxLevel: Numeric.max(bounds.maxLevel, unit.level),
-      minimumOddLevel:
-        unit.level % 2 === 1 && (bounds.minimumOddLevel === noOddLevel || unit.level < bounds.minimumOddLevel)
-          ? unit.level
-          : bounds.minimumOddLevel
-    })
-  )
-
-const collectLevelSpans = (units: ReadonlyArray<VisualOrderUnit>, level: number): ReadonlyArray<LevelSpan> => {
-  const state = Arr.reduce(
-    units,
-    { activeStart: noOddLevel, spans: Arr.empty<LevelSpan>() },
-    (current, unit, index) =>
-      unit.level >= level
-        ? {
-          activeStart: current.activeStart === noOddLevel ? index : current.activeStart,
-          spans: current.spans
-        }
-        : current.activeStart === noOddLevel
-        ? current
-        : {
-          activeStart: noOddLevel,
-          spans: Arr.append(current.spans, levelSpan(current.activeStart, index))
-        }
-  )
-
-  return state.activeStart === noOddLevel
-    ? state.spans
-    : Arr.append(state.spans, levelSpan(state.activeStart, units.length))
-}
-
-const reverseRange = <A>(values: ReadonlyArray<A>, start: number, end: number): ReadonlyArray<A> => [
-  ...values.slice(0, start),
-  ...values.slice(start, end).slice().reverse(),
-  ...values.slice(end)
-]
-
-const reverseLevelSpans = <A>(values: ReadonlyArray<A>, spans: ReadonlyArray<LevelSpan>): ReadonlyArray<A> =>
-  Arr.reduce(spans, values, (reordered, [start, end]) => reverseRange(reordered, start, end))
-
-const reorderVisualUnits = (units: ReadonlyArray<VisualOrderUnit>): ReadonlyArray<VisualOrderUnit> => {
-  const bounds = scanLevelBounds(units)
-
-  return bounds.minimumOddLevel === noOddLevel
-    ? units
-    : Arr.reduceRight(
-      Arr.range(bounds.minimumOddLevel, bounds.maxLevel),
-      units,
-      (reordered, level) => reverseLevelSpans(reordered, collectLevelSpans(reordered, level))
-    )
-}
-
-const appendInsertedTextUnits = (
-  units: ReadonlyArray<VisualOrderUnit>,
-  insertedText: string,
-  fallbackLevel: number
-): ReadonlyArray<VisualOrderUnit> =>
-  insertedText.length === 0
-    ? units
-    : Arr.appendAll(
-      units,
-      Arr.map(Arr.fromIterable(insertedText), (text, index) => ({
-        level: fallbackLevel,
-        logicalIndex: units.length + index,
-        mirroredText: mirrorText(text),
-        text
-      }))
-    )
-
-const groupVisualRuns = (units: ReadonlyArray<VisualOrderUnit>): ReadonlyArray<VisualRun> =>
-  Arr.reduce(units, Arr.empty<VisualRun>(), (runs, unit) => {
-    const lastRun = Arr.last(runs)
-
-    return Option.isNone(lastRun) || lastRun.value.level !== unit.level
-      ? Arr.append(runs, { level: unit.level, units: Arr.make(unit) })
-      : Arr.append(
-        runs.slice(0, runs.length - 1),
-        { level: lastRun.value.level, units: Arr.append(lastRun.value.units, unit) }
+  Boolean.match(containsMirroredCharacters(text), {
+    onFalse: () => text,
+    onTrue: () =>
+      Arr.reduce(
+        Arr.fromIterable(text),
+        "",
+        (mirrored, character) => String.concat(mirrorCharacter(character))(mirrored)
       )
   })
 
-const renderVisualRunText = (run: VisualRun): string =>
+/** Re-exports unsupported bidi-control detection so preparation and projection share one decision point. */
+export const containsUnsupportedBidiControls = containsUnsupportedBidiControlsFromData
+
+const minimumOddLevel = (current: Option.Option<number>, level: number): Option.Option<number> =>
+  Boolean.match(isOddLevel(level), {
+    onFalse: () => current,
+    onTrue: () =>
+      current.pipe(
+        Option.match({
+          onNone: () => Option.some(level),
+          onSome: (minimum) => Option.some(Number.min(minimum, level))
+        })
+      )
+  })
+
+const scanLevelBounds = (units: VisualOrderUnits): LevelBounds =>
   Arr.reduce(
-    run.units,
-    "",
-    (text, unit) => text + (run.level % 2 === 1 ? unit.mirroredText : unit.text)
+    units,
+    new LevelBounds({ maxLevel: 0, minimumOddLevel: Option.none() }),
+    (bounds, unit) =>
+      new LevelBounds({
+        maxLevel: Number.max(bounds.maxLevel, unit.level),
+        minimumOddLevel: minimumOddLevel(bounds.minimumOddLevel, unit.level)
+      })
   )
 
-/**
- * Resolves visually ordered text for a line without forcing permutation allocation.
- *
- * @since 0.2.0
- * @category internals
- */
-export const projectVisualText = (
-  units: ReadonlyArray<VisualOrderUnit>,
+// UAX #9 L2: at each descending level, reverse each contiguous run whose
+// levels meet the threshold. Group membership is a Boolean equivalence.
+const reverseLevelRuns = (units: VisualOrderUnits, level: number): VisualOrderUnits =>
+  Arr.match(units, {
+    onEmpty: Arr.empty<VisualOrderUnit>,
+    onNonEmpty: (nonEmpty) =>
+      Arr.flatMap(
+        Arr.groupWith(nonEmpty, (left, right) =>
+          Boolean.Equivalence(
+            Number.greaterThanOrEqualTo(left.level, level),
+            Number.greaterThanOrEqualTo(right.level, level)
+          )),
+        (run) =>
+          Boolean.match(Number.greaterThanOrEqualTo(Arr.headNonEmpty(run).level, level), {
+            onTrue: () => Arr.reverse(run),
+            onFalse: () => run
+          })
+      )
+  })
+
+const reorderVisualUnits = (units: VisualOrderUnits): VisualOrderUnits => {
+  const bounds = scanLevelBounds(units)
+  return bounds.minimumOddLevel.pipe(
+    Option.match({
+      onNone: () => units,
+      onSome: (minimumOdd) =>
+        Arr.reduceRight(
+          Arr.range(minimumOdd, bounds.maxLevel),
+          units,
+          reverseLevelRuns
+        )
+    })
+  )
+}
+
+const appendInsertedTextUnits = (
+  units: VisualOrderUnits,
   insertedText: string,
   fallbackLevel: number
-): string =>
-  Arr.reduce(
-    groupVisualRuns(reorderVisualUnits(appendInsertedTextUnits(units, insertedText, fallbackLevel))),
-    "",
-    (text, run) => text + renderVisualRunText(run)
+): VisualOrderUnits =>
+  Boolean.match(String.isEmpty(insertedText), {
+    onTrue: () => units,
+    onFalse: () =>
+      Arr.appendAll(
+        units,
+        Arr.map(
+          Arr.fromIterable(insertedText),
+          (text, index) =>
+            new VisualOrderUnit({
+              level: fallbackLevel,
+              logicalIndex: Number.sum(Arr.length(units), index),
+              mirroredText: mirrorText(text),
+              text
+            })
+        )
+      )
+  })
+
+const renderVisualText = (units: VisualOrderUnits): string =>
+  Arr.join(
+    Arr.map(units, (unit) =>
+      Boolean.match(isOddLevel(unit.level), {
+        onFalse: () => unit.text,
+        onTrue: () => unit.mirroredText
+      })),
+    ""
   )
 
-/**
- * Resolves visual-order text and the logical-to-visual permutation for a line.
- *
- * @since 0.2.0
- * @category internals
- */
-export const projectVisualOrder = (units: ReadonlyArray<VisualOrderUnit>): VisualOrderProjection => {
-  const reordered = reorderVisualUnits(units)
-  const runs = groupVisualRuns(reordered)
+/** Resolves visually ordered text for a line without forcing permutation allocation. */
+export const projectVisualText = (
+  units: VisualOrderUnits,
+  insertedText: string,
+  fallbackLevel: number
+): string => renderVisualText(reorderVisualUnits(appendInsertedTextUnits(units, insertedText, fallbackLevel)))
 
-  return {
-    permutation: Arr.reduce(
-      runs,
-      Arr.empty<number>(),
-      (logicalIndices, run) => Arr.appendAll(logicalIndices, Arr.map(run.units, (unit) => unit.logicalIndex))
-    ),
-    text: Arr.reduce(runs, "", (text, run) => text + renderVisualRunText(run))
-  }
+/** Resolves visual-order text and the logical-to-visual permutation for a line. */
+export const projectVisualOrder = (units: VisualOrderUnits): VisualOrderProjection => {
+  const reordered = reorderVisualUnits(units)
+  return new VisualOrderProjection({
+    permutation: Arr.map(reordered, (unit) => unit.logicalIndex),
+    text: renderVisualText(reordered)
+  })
 }

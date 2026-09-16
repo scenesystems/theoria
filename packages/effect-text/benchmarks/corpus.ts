@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import * as Arr from "effect/Array"
 
 import { EffectTextSupportManifest } from "../src/contracts/supportManifest.js"
 import { LayoutRequest, PrepareInput } from "../src/Text/schema.js"
@@ -16,6 +17,8 @@ export const BenchmarkCorpusCaseSchema = Schema.Struct({
 })
 
 export type BenchmarkCorpusCase = typeof BenchmarkCorpusCaseSchema.Type
+
+export const BenchmarkCorpusSchema = Schema.Array(BenchmarkCorpusCaseSchema)
 
 export const BenchmarkMetricSampleSchema = Schema.Struct({
   segmentCount: Schema.optional(NonNegativeInt),
@@ -125,10 +128,18 @@ export const BenchmarkComparisonReportSchema = Schema.Struct({
 
 export type BenchmarkComparisonReportType = typeof BenchmarkComparisonReportSchema.Type
 
+export class MissingBenchmarkBaselineError extends Schema.TaggedError<MissingBenchmarkBaselineError>()(
+  "MissingBenchmarkBaselineError",
+  {
+    caseName: Schema.String,
+    message: Schema.String
+  }
+) {}
+
 export const benchmarkIterations = EffectTextSupportManifest.benchmarks.walkerKernel.iterations
 
-export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
-  {
+export const benchmarkCorpus = Schema.decodeUnknownSync(BenchmarkCorpusSchema)(
+  Arr.make({
     name: "short-prose",
     prepare: {
       text: "Effect keeps preparation effectful and the layout hot path pure.",
@@ -136,8 +147,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "normal"
     },
     request: { maxWidth: 160, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "hard-breaks",
     prepare: {
       text: "Line one\nLine two\nLine three",
@@ -145,8 +155,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "pre-wrap"
     },
     request: { maxWidth: 120, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "tabs",
     prepare: {
       text: "col1\tcol2\tcol3",
@@ -154,8 +163,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "pre-wrap"
     },
     request: { maxWidth: 140, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "bidi",
     prepare: {
       text: "שלום hello עולם world",
@@ -163,8 +171,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "normal"
     },
     request: { maxWidth: 120, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "cjk",
     prepare: {
       text: "東京の空は静かに青く澄んでいる",
@@ -172,8 +179,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "normal"
     },
     request: { maxWidth: 80, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "long-token-overflow",
     prepare: {
       text: "supercalifragilisticexpialidocious",
@@ -181,5 +187,5 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "normal"
     },
     request: { maxWidth: 50, lineHeight: 18 }
-  }
-]
+  })
+)

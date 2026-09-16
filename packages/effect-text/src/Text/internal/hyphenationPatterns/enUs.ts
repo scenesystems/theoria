@@ -6,7 +6,9 @@
  *
  * @since 0.2.0
  */
-export const enUsHyphenationPatternSource = {
+import { HyphenationPatternSource } from "./schema.js"
+
+export const enUsHyphenationPatternSource = HyphenationPatternSource.make({
   "id": [
     "en-us",
     "en"
@@ -34,4 +36,4 @@ export const enUsHyphenationPatternSource = {
       "pseu3d6o3f2s2t1ant5shimi1n2ut1estpseu3d6o3d25tab1o1lismpo3lyph1onophi5lat1e3ltravers3a3bschro1ding12g1o4n3i1zat1ro1pol3it3trop1o5lis3trop1o5lesle3g6en2dreeth1y6l1eneor4tho3ni4t",
     "12": "3ra4m5e1triz1e6p3i3neph1"
   }
-}
+})
