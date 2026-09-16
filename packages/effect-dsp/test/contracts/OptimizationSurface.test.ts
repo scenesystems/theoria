@@ -7,8 +7,11 @@ import * as Contracts from "@scenesystems/effect-dsp/contracts"
 import { Demo } from "@scenesystems/effect-dsp/Example"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Equal, Option, Schema, Tuple } from "effect"
+import { decodePayload, encodePayload } from "../../src/contracts/Payload.js"
 
 const decodeModuleId = Schema.decodeUnknown(Contracts.ModuleId)
+const Input = Schema.Struct({ question: Schema.String })
+const Output = Schema.Struct({ answer: Schema.String })
 
 describe("contracts/OptimizationSurface", () => {
   it.effect("projects module params into deterministic parameter and dimension surfaces", () =>
@@ -52,11 +55,13 @@ describe("contracts/OptimizationSurface", () => {
         reasoningTokens: 3,
         cachedInputTokens: 4
       })
+      const input = yield* encodePayload(Input, { question: "What is the capital of France?" })
+      const output = yield* encodePayload(Output, { answer: "Paris" })
       const traceEntry = new Trace.Entry({
         moduleName: "qa",
         signatureDescription: "Answer questions with concise factual answers",
-        input: { question: "What is the capital of France?" },
-        output: { answer: "Paris" },
+        input,
+        output,
         prompt: "Question: What is the capital of France?",
         rawResponse: "Paris",
         usage,
@@ -73,7 +78,7 @@ describe("contracts/OptimizationSurface", () => {
       expect(projected.score).toEqual(traceEntry.score)
       expect(projected.durationMs).toBe(traceEntry.durationMs)
       expect(projected.rawResponse).toBe("Paris")
-      expect(projected.output).toEqual({ answer: "Paris" })
+      expect(yield* decodePayload(Output, projected.output)).toEqual({ answer: "Paris" })
       expect(Equal.equals(projected.usage, usage)).toBe(true)
       expect(projected.usage.reasoningTokens).toBe(3)
       expect(projected.usage.cachedInputTokens).toBe(4)

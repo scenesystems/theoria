@@ -8,8 +8,8 @@
 import type * as Response from "@effect/ai/Response"
 import type { Schema } from "effect"
 import { Data } from "effect"
-import type { FieldRecord as FieldRecordType } from "../../contracts/FieldValue.js"
 import type { ModuleParams } from "../../contracts/ModuleParams.js"
+import type { Payload } from "../../contracts/Payload.js"
 import type { Signature } from "../../Signature/model.js"
 import type { PredictPolicy } from "./policy.js"
 
@@ -36,7 +36,7 @@ export class ForwardOptions<I extends Schema.Struct.Fields, O extends Schema.Str
  */
 export class ForwardExecution<A> extends Data.Class<{
   readonly output: A
-  readonly traceOutput: FieldRecordType
+  readonly traceOutput: Payload
   readonly promptText: string
   readonly rawResponse: string
   readonly usage: Response.Usage

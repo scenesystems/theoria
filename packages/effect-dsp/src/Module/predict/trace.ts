@@ -6,8 +6,7 @@
  * @internal
  */
 import { Array as Arr, Data, Effect, Number, Schema } from "effect"
-import type { FieldRecord as FieldRecordType } from "../../contracts/FieldValue.js"
-import { encodeAndProjectFieldRecord } from "../../contracts/PayloadProjection.js"
+import { encodePayload, type Payload } from "../../contracts/Payload.js"
 import { TraceError } from "../../Errors/trace.js"
 import type { Signature } from "../../Signature/model.js"
 import { append, Entry, noScore } from "../../Trace/index.js"
@@ -33,20 +32,18 @@ export class PayloadOptions<A, I, R> extends Data.Class<{
 }> {}
 
 /**
- * Encode a typed payload through its schema and project it into `FieldRecord`.
+ * Encode a typed payload through its schema into a lossless JSON document.
  *
  * @since 0.1.0
  * @internal
  */
 export const tracePayloadFromEncoded = <A, I, R>(options: PayloadOptions<A, I, R>): Effect.Effect<
-  FieldRecordType,
+  Payload,
   TraceError,
   R
 > =>
-  encodeAndProjectFieldRecord(
-    options.schema,
-    options.value,
-    () => traceCarrierError(options.moduleName, options.carrier)
+  encodePayload(options.schema, options.value).pipe(
+    Effect.mapError(() => traceCarrierError(options.moduleName, options.carrier))
   )
 
 /** @internal */

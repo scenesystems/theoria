@@ -5,6 +5,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Layer, Option, Schema, String, Tuple } from "effect"
+import { decodePayload } from "../../src/contracts/Payload.js"
 
 import {
   loadFixture,
@@ -47,8 +48,10 @@ describe("Trace DSPy contracts", () => {
 
       expect(Tuple.getSecond(singleRunTrace)).toHaveLength(1)
       expect(Tuple.getFirst(singleRunTrace)).toEqual(entryFixture.payload.samplePrediction)
-      expect(singleRunEntry.input).toEqual(entryFixture.payload.sampleInput)
-      expect(singleRunEntry.output).toEqual(entryFixture.payload.samplePrediction)
+      expect(yield* decodePayload(qa.inputSchema, singleRunEntry.input)).toEqual(entryFixture.payload.sampleInput)
+      expect(yield* decodePayload(qa.outputSchema, singleRunEntry.output)).toEqual(
+        entryFixture.payload.samplePrediction
+      )
       expect(singleRunEntry.moduleName).toBe("qa-trace-dspy-parity")
 
       const scopeRuns = isolationFixture.payload.scopeRuns
@@ -88,23 +91,27 @@ describe("Trace DSPy contracts", () => {
             const traceEntry = yield* Arr.head(entries)
 
             expect(entries).toHaveLength(run.traceLength)
-            expect(traceEntry.input).toEqual({ question: run.traceInputQuestion })
-            expect(traceEntry.output).toEqual({ answer: run.expectedAnswer })
+            expect(yield* decodePayload(qa.inputSchema, traceEntry.input)).toEqual({ question: run.traceInputQuestion })
+            expect(yield* decodePayload(qa.outputSchema, traceEntry.output)).toEqual({ answer: run.expectedAnswer })
             expect(Tuple.getFirst(traced)).toEqual({ answer: run.expectedAnswer })
           }),
         { discard: true }
       )
 
-      const observedInputs = Arr.map(
+      const observedInputs = yield* Effect.forEach(
         scopedTraces,
-        (traced) => Option.map(Arr.head(Tuple.getSecond(traced)), (entry) => entry.input)
+        (traced) =>
+          Arr.head(Tuple.getSecond(traced)).pipe(Effect.flatMap((entry) => decodePayload(qa.inputSchema, entry.input)))
       )
-      const observedOutputs = Arr.map(
+      const observedOutputs = yield* Effect.forEach(
         scopedTraces,
-        (traced) => Option.map(Arr.head(Tuple.getSecond(traced)), (entry) => entry.output)
+        (traced) =>
+          Arr.head(Tuple.getSecond(traced)).pipe(
+            Effect.flatMap((entry) => decodePayload(qa.outputSchema, entry.output))
+          )
       )
 
-      expect(observedInputs).toEqual(Arr.map(scopeRuns, (run) => Option.some({ question: run.question })))
-      expect(observedOutputs).toEqual(Arr.map(scopeRuns, (run) => Option.some({ answer: run.expectedAnswer })))
+      expect(observedInputs).toEqual(Arr.map(scopeRuns, (run) => ({ question: run.question })))
+      expect(observedOutputs).toEqual(Arr.map(scopeRuns, (run) => ({ answer: run.expectedAnswer })))
     }))
 })

@@ -1,11 +1,11 @@
 /**
- * GEPA reflective mutation contracts.
+ * GEPA reflection preserves schema-owned examples and meaningful feedback.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Order, Predicate, Record, Schema } from "effect"
-import { FieldRecord } from "../../../src/contracts/FieldValue.js"
+import { Array as Arr, Effect, Number, Option, Order, Schema, String } from "effect"
 import { MetricResult } from "../../../src/contracts/MetricResult.js"
-import { ReflectiveDatasetSample, ReflectiveExample } from "../../../src/optimizers/GEPA/model.js"
+import { encodePayload } from "../../../src/contracts/Payload.js"
+import { ReflectiveDatasetSample } from "../../../src/optimizers/GEPA/model.js"
 import {
   buildReflectiveDataset,
   buildReflectivePrompt,
@@ -13,162 +13,113 @@ import {
   selectPredictorRoundRobin
 } from "../../../src/optimizers/GEPA/reflect.js"
 import {
-  GepaReflectDatasetShapeFixtureSchema,
   GepaReflectFormatFailureFeedbackFixtureSchema,
   GepaReflectPromptTemplateFixtureSchema,
   loadFixture
 } from "../../helpers/dspy-fixtures/index.js"
 
-const ReflectiveDatasetSchema = Schema.Array(ReflectiveExample)
+const Input = Schema.Struct({
+  question: Schema.String,
+  evidence: Schema.Array(Schema.Struct({ city: Schema.String, rank: Schema.NumberFromString }))
+})
+const Output = Schema.Struct({ answer: Schema.String, rejected: Schema.Array(Schema.String) })
 
-const decodeFieldRecord = Schema.decodeUnknownSync(FieldRecord)
-
-const toFieldValueRecord = (record: Readonly<Record<string, unknown>>) =>
-  decodeFieldRecord(
-    Record.fromEntries(
-      Arr.map(Record.toEntries(record), ([key, value]) => [
-        key,
-        Predicate.isString(value) || Predicate.isNumber(value) || Predicate.isBoolean(value) || Predicate.isNull(value)
-          ? value
-          : String(value)
-      ])
-    )
-  )
-
-const reflectiveSamples = Arr.make(
-  new ReflectiveDatasetSample({
-    exampleId: "ex-1",
-    predictorName: "qa",
-    inputs: { question: "What is the capital of France?" },
-    generatedOutputs: { answer: "Lyon" },
-    expectedOutput: { answer: "Paris" },
-    metricResult: new MetricResult({ score: 0, feedback: " Needs correction " })
-  }),
-  new ReflectiveDatasetSample({
-    exampleId: "ex-2",
-    predictorName: "qa",
-    inputs: { question: "What is the capital of Japan?" },
-    generatedOutputs: { answer: "Tokyo" },
-    expectedOutput: { answer: "Tokyo" },
-    metricResult: new MetricResult({ score: 1, feedback: "" })
-  }),
-  new ReflectiveDatasetSample({
-    exampleId: "ex-3",
-    predictorName: "qa",
-    inputs: { question: "What is the capital of Italy?" },
-    generatedOutputs: { answer: "```json" },
-    expectedOutput: { answer: "Rome" },
-    metricResult: new MetricResult({ score: 0 }),
-    parseFailureStructure: "[[ ## answer ## ]]"
+const reflectiveSamples = Effect.gen(function*() {
+  const inputs = yield* encodePayload(Input, {
+    question: "What is the capital of France?",
+    evidence: Arr.make({ city: "Paris", rank: 1 })
   })
-)
+  const generatedOutputs = yield* encodePayload(Output, { answer: "Lyon", rejected: Arr.make("Paris") })
+  const expectedOutput = yield* encodePayload(Output, { answer: "Paris", rejected: Arr.make("Lyon") })
+  return Arr.make(
+    new ReflectiveDatasetSample({
+      exampleId: "ex-1",
+      predictorName: "qa",
+      inputs,
+      generatedOutputs,
+      expectedOutput,
+      metricResult: new MetricResult({ score: 0, feedback: " Needs correction " })
+    }),
+    new ReflectiveDatasetSample({
+      exampleId: "ex-2",
+      predictorName: "qa",
+      inputs,
+      generatedOutputs: expectedOutput,
+      expectedOutput,
+      metricResult: new MetricResult({ score: 1 })
+    }),
+    new ReflectiveDatasetSample({
+      exampleId: "ex-3",
+      predictorName: "qa",
+      inputs,
+      generatedOutputs,
+      expectedOutput,
+      metricResult: new MetricResult({ score: 0, feedback: "Must not hide parse failure" }),
+      parseFailureStructure: "[[ ## answer ## ]]"
+    })
+  )
+})
 
 describe("GEPA reflective mutation", () => {
-  it.effect("builds fixture-declared reflective datasets and preserves feedback normalization", () =>
+  it.effect("normalizes metric feedback and gives parse failure guidance precedence", () =>
     Effect.gen(function*() {
-      const rawDatasetFixture = yield* loadFixture("dspy.gepa.reflect.dataset-shape")
-      const datasetFixture = yield* Schema.decodeUnknown(GepaReflectDatasetShapeFixtureSchema)(rawDatasetFixture)
-      const fixtureSamples = Arr.map(
-        datasetFixture.payload.samples,
-        (sample) =>
-          new ReflectiveDatasetSample({
-            ...sample,
-            inputs: toFieldValueRecord(sample.inputs),
-            generatedOutputs: toFieldValueRecord(sample.generatedOutputs),
-            expectedOutput: toFieldValueRecord(sample.expectedOutput),
-            metricResult: new MetricResult(sample.metricResult)
-          })
-      )
-      const dataset = buildReflectiveDataset(fixtureSamples)
-      const decoded = yield* Schema.decodeUnknown(ReflectiveDatasetSchema)(dataset)
-
-      expect(decoded).toEqual(dataset)
-      expect(dataset.length).toBe(datasetFixture.payload.samples.length)
-      expect(Arr.map(dataset, (example) => example.feedback)).toEqual(
-        Arr.map(datasetFixture.payload.samples, (sample) => sample.metricResult.feedback ?? "")
-      )
+      const dataset = buildReflectiveDataset(yield* reflectiveSamples)
+      expect(Arr.map(dataset, (example) => example.feedback)).toEqual(Arr.make(
+        "Needs correction",
+        "",
+        "Your output failed to parse. Follow this structure:\n[[ ## answer ## ]]"
+      ))
+      expect(Arr.map(dataset, (example) => example.score)).toEqual(Arr.make(0, 1, 0))
     }))
 
-  it.effect("builds reflective datasets that decode against the frozen ReflectiveExample schema", () =>
+  it.effect("cycles predictors and normalizes negative, fractional and non-finite iterations", () =>
     Effect.gen(function*() {
-      const dataset = buildReflectiveDataset(reflectiveSamples)
-      const decoded = yield* Schema.decodeUnknown(ReflectiveDatasetSchema)(dataset)
-
-      expect(decoded).toEqual(dataset)
-      expect(Arr.get(dataset, 0).pipe(Option.map((example) => example.feedback))).toEqual(
-        Option.some("Needs correction")
-      )
-      expect(Arr.get(dataset, 1).pipe(Option.map((example) => example.feedback))).toEqual(
-        Option.some("")
-      )
-      expect(Arr.get(dataset, 2).pipe(Option.map((example) => example.feedback))).toEqual(
-        Option.some(formatParseFailureFeedback("[[ ## answer ## ]]"))
-      )
-    }))
-
-  it.effect("selects predictors in deterministic round-robin order", () =>
-    Effect.gen(function*() {
-      const predictorNames = Arr.make("qa", "judge", "rewrite")
-      const selected = Arr.map(
-        Arr.makeBy(7, (iteration) => iteration),
-        (iteration) => Option.getOrElse(selectPredictorRoundRobin(predictorNames, iteration), () => "[none]")
-      )
-
-      expect(selected).toEqual([
-        "qa",
-        "judge",
-        "rewrite",
-        "qa",
-        "judge",
-        "rewrite",
-        "qa"
-      ])
+      const names = Arr.make("qa", "judge", "rewrite")
+      const selected = Arr.map(Arr.range(0, 6), (iteration) => selectPredictorRoundRobin(names, iteration))
+      expect(selected).toEqual(Arr.map(Arr.make("qa", "judge", "rewrite", "qa", "judge", "rewrite", "qa"), Option.some))
       expect(selectPredictorRoundRobin(Arr.empty<string>(), 0)).toEqual(Option.none())
+      expect(selectPredictorRoundRobin(names, -1)).toEqual(Option.some("qa"))
+      expect(selectPredictorRoundRobin(names, 4.9)).toEqual(Option.some("judge"))
+      const infinity = yield* Schema.decode(Schema.NumberFromString)("Infinity")
+      expect(selectPredictorRoundRobin(names, infinity)).toEqual(Option.some("qa"))
     }))
 
-  it.effect("renders reflection prompts with instruction and explicit input/output/feedback sections", () =>
+  it.effect("retains nested encoded evidence and output arrays in the golden prompt sections", () =>
     Effect.gen(function*() {
-      const rawDatasetFixture = yield* loadFixture("dspy.gepa.reflect.dataset-shape")
-      const datasetFixture = yield* Schema.decodeUnknown(GepaReflectDatasetShapeFixtureSchema)(rawDatasetFixture)
-      const rawPromptFixture = yield* loadFixture("dspy.gepa.reflect.prompt-template.basic")
-      const promptFixture = yield* Schema.decodeUnknown(GepaReflectPromptTemplateFixtureSchema)(rawPromptFixture)
-      const dataset = buildReflectiveDataset(reflectiveSamples)
+      const fixture = yield* loadFixture("dspy.gepa.reflect.prompt-template.basic").pipe(
+        Effect.flatMap(Schema.decodeUnknown(GepaReflectPromptTemplateFixtureSchema))
+      )
       const prompt = buildReflectivePrompt({
-        predictorName: datasetFixture.payload.predictorName,
-        currentInstruction: promptFixture.payload.currentInstruction,
-        examples: dataset
+        predictorName: "qa",
+        currentInstruction: fixture.payload.currentInstruction,
+        examples: buildReflectiveDataset(yield* reflectiveSamples)
       })
-
-      expect(prompt.includes(promptFixture.payload.currentInstruction)).toBe(true)
-      expect(prompt.includes("Target predictor: qa")).toBe(true)
-      expect(prompt.includes("question: What is the capital of France?")).toBe(true)
-      expect(prompt.includes("answer: Paris")).toBe(true)
-
+      expect(prompt).toContain(fixture.payload.currentInstruction)
+      expect(prompt).toContain("Target predictor: qa")
+      expect(prompt).toContain(
+        "\"question\":\"What is the capital of France?\",\"evidence\":[{\"city\":\"Paris\",\"rank\":\"1\"}]"
+      )
+      expect(prompt).toContain("\"answer\":\"Lyon\",\"rejected\":[\"Paris\"]")
+      expect(prompt).toContain("\"answer\":\"Paris\",\"rejected\":[\"Lyon\"]")
       yield* Effect.forEach(
-        promptFixture.payload.requiredSubstrings,
-        (value) =>
-          Effect.sync(() => {
-            expect(prompt.includes(value)).toBe(true)
-          }),
-        { discard: true }
+        fixture.payload.requiredSubstrings,
+        (text) => Effect.sync(() => expect(prompt).toContain(text))
       )
-
-      const sectionPositions = Arr.map(
-        promptFixture.payload.expectedSectionOrder,
-        (section) => prompt.indexOf(section)
+      const positions = yield* Effect.forEach(
+        fixture.payload.expectedSectionOrder,
+        (section) => String.indexOf(section)(prompt)
       )
-
-      expect(Arr.every(sectionPositions, (position) => position >= 0)).toBe(true)
-      expect(sectionPositions).toEqual(Arr.sort(sectionPositions, Order.number))
+      expect(Arr.every(positions, Number.greaterThanOrEqualTo(0))).toBe(true)
+      expect(positions).toEqual(Arr.sort(positions, Order.number))
     }))
 
-  it.effect("uses the committed format-failure feedback contract", () =>
+  it.effect("uses the reference parse-failure feedback contract", () =>
     Effect.gen(function*() {
-      const rawFixture = yield* loadFixture("dspy.gepa.reflect.format-failure-feedback")
-      const fixture = yield* Schema.decodeUnknown(GepaReflectFormatFailureFeedbackFixtureSchema)(rawFixture)
+      const fixture = yield* loadFixture("dspy.gepa.reflect.format-failure-feedback").pipe(
+        Effect.flatMap(Schema.decodeUnknown(GepaReflectFormatFailureFeedbackFixtureSchema))
+      )
       const feedback = formatParseFailureFeedback(fixture.payload.structureInstruction)
-
       expect(feedback).toBe(fixture.payload.expectedFeedback)
-      expect(feedback.startsWith(fixture.payload.expectedPrefix)).toBe(true)
+      expect(String.startsWith(fixture.payload.expectedPrefix)(feedback)).toBe(true)
     }))
 })

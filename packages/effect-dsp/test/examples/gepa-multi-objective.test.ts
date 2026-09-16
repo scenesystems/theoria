@@ -26,15 +26,9 @@ import {
   String as Str
 } from "effect"
 
-class AnswerResponse extends Schema.Class<AnswerResponse>("AnswerResponse")({
-  answer: Schema.String
-}) {}
-
-const answerText = (record: unknown): string =>
-  Schema.decodeUnknownOption(AnswerResponse)(record).pipe(
-    Option.map((response) => response.answer),
-    Option.getOrElse(() => Str.empty)
-  )
+const AnswerResponse = Schema.Struct({
+  answer: Signature.describe(Schema.String, "The capital city name")
+})
 
 const reflectiveResponse = Arr.of(
   Response.textPart({
@@ -67,26 +61,26 @@ const valset = Arr.make(
 const responseForPrompt = (prompt: string) =>
   Match.value(prompt).pipe(
     Match.when(Str.includes("Your task is to write a new instruction"), () => reflectiveResponse),
-    Match.when(Str.includes("France"), () => new AnswerResponse({ answer: "Paris" })),
-    Match.when(Str.includes("Japan"), () => new AnswerResponse({ answer: "Tokyo" })),
-    Match.when(Str.includes("Germany"), () => new AnswerResponse({ answer: "Berlin" })),
-    Match.when(Str.includes("Italy"), () => new AnswerResponse({ answer: "Rome" })),
-    Match.orElse(() => new AnswerResponse({ answer: "Unknown" }))
+    Match.when(Str.includes("France"), () => AnswerResponse.make({ answer: "Paris" })),
+    Match.when(Str.includes("Japan"), () => AnswerResponse.make({ answer: "Tokyo" })),
+    Match.when(Str.includes("Germany"), () => AnswerResponse.make({ answer: "Berlin" })),
+    Match.when(Str.includes("Italy"), () => AnswerResponse.make({ answer: "Rome" })),
+    Match.orElse(() => AnswerResponse.make({ answer: "Unknown" }))
   )
 
 const feedbackMetric = Metric.fromEffect(
   "feedback-exact",
-  (prediction, expected) =>
+  (prediction: typeof AnswerResponse.Type, expected) =>
     Effect.sync(() => {
-      const predicted = answerText(prediction)
-      const expectedAnswer = answerText(expected)
+      const predicted = prediction.answer
+      const expectedAnswer = expected.answer
       const correct = Str.Equivalence(predicted, expectedAnswer)
 
       return Bool.match(correct, {
         onFalse: () =>
           new Metric.Result({
             score: 0,
-            feedback: `expected ${expectedAnswer}, got ${predicted}`
+            feedback: Arr.join(Arr.make("expected ", expectedAnswer, ", got ", predicted), "")
           }),
         onTrue: () =>
           new Metric.Result({
@@ -103,9 +97,7 @@ const runGepaMultiObjective = Effect.gen(function*() {
     {
       question: Signature.describe(Schema.String, "Geography question to answer")
     },
-    {
-      answer: Signature.describe(Schema.String, "The capital city name")
-    }
+    AnswerResponse.fields
   )
 
   const module = yield* Module.predict("qa-gepa-multi", signature)
@@ -185,7 +177,8 @@ describe("examples/15-gepa-multi-objective-mock", () => {
         concurrency: 1
       }).pipe(Effect.provide(layer))
 
-      expect(report.overallScores.exactMatch).toBeGreaterThanOrEqual(0)
-      expect(report.overallScores.composed).toBeGreaterThanOrEqual(0)
+      expect(report.successCount).toBe(1)
+      expect(report.overallScores.exactMatch).toBe(1)
+      expect(report.overallScores.composed).toBe(1)
     }))
 })

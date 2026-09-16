@@ -72,7 +72,7 @@ export class RunPhase3SearchOptions<
   /** Full evaluation set; trial objectives use its leading `minibatchSize` entries. */
   readonly valset: MIPROExamples
   /** Single objective used by all Phase 3 evaluations. */
-  readonly metric: Metric<ME, MR>
+  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   /** Demonstration candidates matched to module predictors by exact name. */
   readonly demoCandidates: PredictorDemoCandidateSets
   /** Instruction candidates matched to module predictors by exact name. */

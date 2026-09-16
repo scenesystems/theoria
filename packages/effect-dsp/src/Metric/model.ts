@@ -23,19 +23,19 @@ export const Result = MetricResult
  * Associates a diagnostic name with an effectful scoring operation.
  *
  * @remarks
- * The scorer receives untyped record payloads because signatures differ across
- * modules. Its typed failures and requirements flow through evaluation and
- * optimization unchanged.
+ * Both scorer arguments have the output schema's decoded type. Its typed
+ * failures and requirements flow through evaluation and optimization unchanged.
  *
  * @typeParam E - Expected scoring failure.
  * @typeParam R - Services required while scoring.
+ * @typeParam A - Decoded output values accepted by the scorer.
  *
  * @since 0.1.0
  * @category models
  */
-export class Metric<E = never, R = never> extends Data.TaggedClass("Metric")<{
+export class Metric<E = never, R = never, A = unknown> extends Data.TaggedClass("Metric")<{
   /** Diagnostic name; evaluation report keys come from the containing metric record. */
   readonly name: string
   /** Scorer whose expected failure and requirements remain in callers' Effect types. */
-  readonly score: MetricFn<E, R>
+  readonly score: MetricFn<A, E, R>
 }> {}

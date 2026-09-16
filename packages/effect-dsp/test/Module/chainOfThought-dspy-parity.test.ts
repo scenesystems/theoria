@@ -4,7 +4,8 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Effect, Layer, Record, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Record, Schema } from "effect"
+import { decodePayload } from "../../src/contracts/Payload.js"
 
 import { ChainOfThoughtReasoningFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -32,19 +33,21 @@ describe("Module.chainOfThought DSPy parity", () => {
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const traced = yield* Trace.withTracing(
+      const [result, entries] = yield* Trace.withTracing(
         cot.forward(fixture.payload.sampleInput).pipe(
           Effect.provide(lmLayer)
         )
       )
-      const result = traced[0]
-      const entries = traced[1]
-      const firstEntry = entries[0]
+      const firstEntry = yield* Arr.head(entries)
 
       expect(Record.keys(cot.signature.outputFields)).toStrictEqual(fixture.payload.outputFieldOrder)
       expect(result).toStrictEqual(fixture.payload.sampleOutput)
       expect(entries).toHaveLength(fixture.payload.traceLength)
-      expect(Record.keys(firstEntry?.input ?? {})).toStrictEqual(fixture.payload.traceInputKeys)
-      expect(Record.keys(firstEntry?.output ?? {})).toStrictEqual(fixture.payload.tracePredictionKeys)
+      expect(yield* decodePayload(cot.signature.inputSchema, firstEntry.input)).toStrictEqual(
+        fixture.payload.sampleInput
+      )
+      expect(yield* decodePayload(cot.signature.outputSchema, firstEntry.output)).toStrictEqual(
+        fixture.payload.sampleOutput
+      )
     }))
 })

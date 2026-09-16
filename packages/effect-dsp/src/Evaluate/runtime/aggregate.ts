@@ -5,22 +5,23 @@
  * @category internal
  * @internal
  */
-import { Array as Arr, Boolean, Data, Number, Option, Record } from "effect"
+import { Array as Arr, Boolean, Data, Number, Option, Record, Tuple } from "effect"
 import { averageNumbers } from "../../Metric/score.js"
 import { type ExampleFailure, Report } from "../report.js"
 import type { ExampleOutcome, MetricEntry } from "./example.js"
 
 const outcomeScore = (metricName: string, outcome: ExampleOutcome): Option.Option<number> =>
   Boolean.match(outcome.success, {
-    onTrue: () => Option.fromNullable(outcome.result.scores[metricName]),
+    onTrue: () => Record.get(outcome.result.scores, metricName),
     onFalse: () => Option.none<number>()
   })
 
-const overallScores = <ME, MR>(
-  metricEntries: Iterable<MetricEntry<ME, MR>>,
+const overallScores = <ME, MR, A>(
+  metricEntries: Iterable<MetricEntry<ME, MR, A>>,
   outcomes: Iterable<ExampleOutcome>
 ): Record.ReadonlyRecord<string, number> =>
-  Arr.reduce(metricEntries, Record.empty<string, number>(), (scores, [metricName]) => {
+  Arr.reduce(metricEntries, Record.empty<string, number>(), (scores, entry) => {
+    const metricName = Tuple.getFirst(entry)
     const values = Arr.filterMap(outcomes, (outcome) => outcomeScore(metricName, outcome))
 
     return Record.set(scores, metricName, averageNumbers(values))
@@ -37,8 +38,8 @@ export class AggregateResult extends Data.Class<{
   readonly averageScore: number
 }> {}
 
-export class AggregateOptions<ME, MR> extends Data.Class<{
-  readonly metricEntries: Iterable<MetricEntry<ME, MR>>
+export class AggregateOptions<ME, MR, A> extends Data.Class<{
+  readonly metricEntries: Iterable<MetricEntry<ME, MR, A>>
   readonly outcomes: Iterable<ExampleOutcome>
   readonly total: number
 }> {}
@@ -47,7 +48,7 @@ export class AggregateOptions<ME, MR> extends Data.Class<{
  * @since 0.1.0
  * @internal
  */
-export const aggregateOutcomes = <ME, MR>(options: AggregateOptions<ME, MR>): AggregateResult => {
+export const aggregateOutcomes = <ME, MR, A>(options: AggregateOptions<ME, MR, A>): AggregateResult => {
   const metricEntries = Arr.fromIterable(options.metricEntries)
   const outcomes = Arr.fromIterable(options.outcomes)
   const results = Arr.map(outcomes, (outcome) => outcome.result)

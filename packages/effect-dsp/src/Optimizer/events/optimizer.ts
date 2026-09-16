@@ -4,9 +4,10 @@
  * @since 0.1.0
  */
 import { StudyEventSchema as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
+import type { ParseResult } from "effect"
 import { Data, Effect, Schema } from "effect"
 import { OptimizerEventEnvelope } from "../../contracts/OptimizerEventEnvelope.js"
-import { encodeAndProjectFieldRecord } from "../../contracts/PayloadProjection.js"
+import { encodePayload } from "../../contracts/Payload.js"
 import { type BootstrapEvent as BootstrapEventType, BootstrapEventSchema } from "./bootstrap.js"
 import { EvaluationEventSchema } from "./evaluation.js"
 import { type GEPAEvent as GEPAEventType, GEPAEventSchema } from "./gepa.js"
@@ -20,7 +21,7 @@ export { StudyEventSchema as EffectSearchInteropEventSchema } from "@scenesystem
  * @remarks
  * The outer tag selects the schema for `event`. This union retains the complete
  * typed event and differs from {@link OptimizerEventEnvelope}, whose payload is
- * projected into a string-keyed transport record.
+ * serialized into a schema-bound JSON document.
  *
  * @since 0.1.0
  * @category events
@@ -65,24 +66,19 @@ export type OptimizerEvent = typeof OptimizerEventSchema.Type
 export const OptimizerEvent = Data.taggedEnum<OptimizerEvent>()
 
 /**
- * Encodes a Bootstrap event into a transport-oriented payload record.
+ * Encodes a Bootstrap event into a schema-bound JSON document.
  *
  * @remarks
  * The envelope uses optimizer ID `bootstrapFewShot` and preserves the event's
- * `_tag`. Encoding or payload projection failure becomes a defect.
+ * `_tag`. Encoding failures remain native typed parse failures.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const bootstrapEventEnvelope = (
   event: BootstrapEventType
-): Effect.Effect<OptimizerEventEnvelope> =>
-  encodeAndProjectFieldRecord(
-    BootstrapEventSchema,
-    event,
-    () => Data.struct({ message: "Bootstrap event payload projection failed" })
-  ).pipe(
-    Effect.orDie,
+): Effect.Effect<OptimizerEventEnvelope, ParseResult.ParseError> =>
+  encodePayload(BootstrapEventSchema, event).pipe(
     Effect.map((payload) =>
       new OptimizerEventEnvelope({
         optimizer: "bootstrapFewShot",
@@ -93,24 +89,19 @@ export const bootstrapEventEnvelope = (
   )
 
 /**
- * Encodes a MIPROv2 event into a transport-oriented payload record.
+ * Encodes a MIPROv2 event into a schema-bound JSON document.
  *
  * @remarks
  * The envelope uses optimizer ID `miprov2` and preserves the event's `_tag`.
- * Encoding or payload projection failure becomes a defect.
+ * Encoding failures remain native typed parse failures.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const miprov2EventEnvelope = (
   event: MIPROv2EventType
-): Effect.Effect<OptimizerEventEnvelope> =>
-  encodeAndProjectFieldRecord(
-    MIPROv2EventSchema,
-    event,
-    () => Data.struct({ message: "MIPROv2 event payload projection failed" })
-  ).pipe(
-    Effect.orDie,
+): Effect.Effect<OptimizerEventEnvelope, ParseResult.ParseError> =>
+  encodePayload(MIPROv2EventSchema, event).pipe(
     Effect.map((payload) =>
       new OptimizerEventEnvelope({
         optimizer: "miprov2",
@@ -121,24 +112,19 @@ export const miprov2EventEnvelope = (
   )
 
 /**
- * Encodes a GEPA event into a transport-oriented payload record.
+ * Encodes a GEPA event into a schema-bound JSON document.
  *
  * @remarks
  * The envelope uses optimizer ID `gepa` and preserves the event's `_tag`.
- * Encoding or payload projection failure becomes a defect.
+ * Encoding failures remain native typed parse failures.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const gepaEventEnvelope = (
   event: GEPAEventType
-): Effect.Effect<OptimizerEventEnvelope> =>
-  encodeAndProjectFieldRecord(
-    GEPAEventSchema,
-    event,
-    () => Data.struct({ message: "GEPA event payload projection failed" })
-  ).pipe(
-    Effect.orDie,
+): Effect.Effect<OptimizerEventEnvelope, ParseResult.ParseError> =>
+  encodePayload(GEPAEventSchema, event).pipe(
     Effect.map((payload) =>
       new OptimizerEventEnvelope({
         optimizer: "gepa",

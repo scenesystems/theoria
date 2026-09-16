@@ -6,6 +6,7 @@ import * as Response from "@effect/ai/Response"
 import * as Tool from "@effect/ai/Tool"
 import * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
+import { decodePayload } from "@scenesystems/effect-dsp/contracts"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
@@ -105,6 +106,16 @@ describe("Module.react", () => {
       expect(first.rawResponse).toContain("Thought")
       expect(second.prompt).toContain("Tool observations")
       expect(second.rawResponse).toBe("malformed")
+      const toolOutput = yield* decodePayload(Trace.UnparsedOutput, first.output)
+      const failedOutput = yield* decodePayload(Trace.UnparsedOutput, second.output)
+      expect(toolOutput.toolCallCount).toBe(1)
+      expect(toolOutput.toolResultCount).toBe(1)
+      expect(toolOutput.parseError).toEqual(Option.none())
+      expect(failedOutput.response).toBe("malformed")
+      expect(failedOutput.toolCallCount).toBe(0)
+      expect(failedOutput.toolResultCount).toBe(0)
+      expect(Option.isSome(failedOutput.parseError)).toBe(true)
+      expect(yield* decodePayload(qa.outputSchema, last.output)).toEqual({ answer: "Paris" })
       expect(last.prompt).toContain("Parse feedback:")
       expect(Arr.map(entries, (entry) => entry.usage)).toEqual(Arr.make(observedUsage, observedUsage, observedUsage))
       expect(Arr.map(calls, (call) => call.usage)).toEqual(

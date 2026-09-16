@@ -44,7 +44,7 @@ export class EvaluateOptions<
   /** Labeled examples. An example without an output is reported as a failure. */
   readonly examples: EvaluationExamples
   /** Named metrics applied to every successful prediction, in name-sorted order. */
-  readonly metrics: Record.ReadonlyRecord<string, Metric<ME, MR>>
+  readonly metrics: Record.ReadonlyRecord<string, Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>>
   /** Maximum concurrent example evaluations passed to Effect; omitted values use `1`. */
   readonly concurrency?: number
 }> {}

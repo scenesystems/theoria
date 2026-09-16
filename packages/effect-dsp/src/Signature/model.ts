@@ -55,7 +55,7 @@ export class Signature<
   /** Struct schema used to decode module outputs. */
   readonly outputSchema: Schema.Struct<O>
   /** Input metadata followed by output metadata, preserving field order. */
-  readonly fields: ReadonlyArray<FieldInfo>
+  readonly fields: Schema.Array$<typeof FieldInfo>["Type"]
 }> {}
 
 /**

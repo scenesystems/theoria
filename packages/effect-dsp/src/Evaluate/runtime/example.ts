@@ -17,9 +17,8 @@ import {
   Predicate,
   Record,
   Schema,
-  String
+  Tuple
 } from "effect"
-import { MetricPayload } from "../../contracts/MetricFn.js"
 import { EvaluationFailed } from "../../Errors/metric.js"
 import type { Example as ExampleModel } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
@@ -39,7 +38,7 @@ export type EvaluationEventSink = (event: EvaluationEventType) => Effect.Effect<
  * @since 0.1.0
  * @internal
  */
-export type MetricEntry<ME, MR> = Schema.Tuple2<typeof Schema.String, Schema.Schema<Metric<ME, MR>>>["Type"]
+export type MetricEntry<ME, MR, A> = Schema.Tuple2<typeof Schema.String, Schema.Schema<Metric<ME, MR, A>>>["Type"]
 
 /**
  * @since 0.1.0
@@ -54,15 +53,15 @@ export class ExampleOutcome extends Data.Class<{
 
 type ExampleScore = ExampleResult["scores"]
 
-const metricEntryOrder = <ME, MR>(): Order.Order<MetricEntry<ME, MR>> =>
-  Order.mapInput(Order.string, ([name]: MetricEntry<ME, MR>) => name)
+const metricEntryOrder = <ME, MR, A>(): Order.Order<MetricEntry<ME, MR, A>> =>
+  Order.mapInput(Order.string, (entry: MetricEntry<ME, MR, A>) => Tuple.getFirst(entry))
 
 /**
  * @since 0.1.0
  * @internal
  */
-export const sortedMetricEntries = <ME, MR>(metrics: Record.ReadonlyRecord<string, Metric<ME, MR>>) =>
-  Arr.sort(Record.toEntries(metrics), metricEntryOrder<ME, MR>())
+export const sortedMetricEntries = <ME, MR, A>(metrics: Record.ReadonlyRecord<string, Metric<ME, MR, A>>) =>
+  Arr.sort(Record.toEntries(metrics), metricEntryOrder<ME, MR, A>())
 
 const failureMessageFromUnknown = (error: unknown): string =>
   Match.value(error).pipe(
@@ -92,19 +91,6 @@ const evaluateMissingOutput = (index: number) =>
     })
   )
 
-const PayloadRole = Schema.Literal("prediction", "expected")
-
-const decodeMetricPayload = (index: number, role: typeof PayloadRole.Type, payload: unknown) =>
-  Schema.decodeUnknown(MetricPayload)(payload).pipe(
-    Effect.mapError(
-      () =>
-        new EvaluationFailed({
-          index,
-          message: String.concat(role, " payload must satisfy MetricPayload")
-        })
-    )
-  )
-
 /** @internal */
 export class EvaluateExampleOptions<
   I extends Schema.Struct.Fields,
@@ -118,7 +104,7 @@ export class EvaluateExampleOptions<
   readonly total: number
   readonly example: ExampleModel
   readonly module: Module<I, O, E, R>
-  readonly metrics: Iterable<MetricEntry<ME, MR>>
+  readonly metrics: Iterable<MetricEntry<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>>
   readonly emit: EvaluationEventSink
 }> {}
 
@@ -139,19 +125,25 @@ const scoreExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
       onSome: (value) => Effect.succeed(value)
     })
     const prediction = yield* options.module.forward(decodedInput)
-    const expectedPayload = yield* decodeMetricPayload(options.index, "expected", expected)
-    const predictionPayload = yield* decodeMetricPayload(options.index, "prediction", prediction)
-    const scores = yield* Effect.forEach(options.metrics, ([metricName, metric]) =>
-      metric.score(predictionPayload, expectedPayload).pipe(
+    const expectedOutput = yield* Schema.decodeUnknown(options.module.signature.outputSchema)(expected).pipe(
+      Effect.mapError(() =>
+        new EvaluationFailed({
+          index: options.index,
+          message: "expected output does not match module output schema"
+        })
+      )
+    )
+    const scores = yield* Effect.forEach(options.metrics, (entry) =>
+      Tuple.getSecond(entry).score(prediction, expectedOutput).pipe(
         Effect.map((result) =>
-          Data.tuple(metricName, result.score)
+          Tuple.make(Tuple.getFirst(entry), result.score)
         )
       ))
 
     const scoresByName: ExampleScore = Record.fromEntries(scores)
     return Data.struct({
       scores: scoresByName,
-      averageScore: averageNumbers(Arr.map(scores, ([, score]) => score))
+      averageScore: averageNumbers(Arr.map(scores, Tuple.getSecond))
     })
   })
 

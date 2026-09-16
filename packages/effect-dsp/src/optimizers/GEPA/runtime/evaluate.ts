@@ -5,9 +5,9 @@
  */
 import { Array as Arr, Effect, Inspectable, Option, Ref, Schema, String as Str } from "effect"
 
-import { FieldRecord } from "../../../contracts/FieldValue.js"
 import { MetricResult } from "../../../contracts/MetricResult.js"
 import { withModuleParamsInstructions } from "../../../contracts/ModuleParams.js"
+import { encodePayload } from "../../../contracts/Payload.js"
 import { ReflectiveDatasetSample } from "../model.js"
 import { CandidateScoreVector, type ProgramCandidate } from "../model.js"
 
@@ -63,7 +63,6 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
     () => {
       const decodeInput = Schema.decodeUnknown(options.module.signature.inputSchema)
       const decodeOutput = Schema.decodeUnknown(options.module.signature.outputSchema)
-      const decodeFieldRecord = Schema.decodeUnknown(FieldRecord)
 
       return Effect.forEach(resolveValset(options), (example, index) =>
         Effect.gen(function*() {
@@ -71,10 +70,10 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
           const moduleInput = yield* decodeInput(example.input)
           const expectedOutput = yield* decodeOutput(expectedOutputRaw)
           const prediction = yield* options.module.forward(moduleInput)
-          const metricInput = yield* decodeFieldRecord(moduleInput)
-          const metricPrediction = yield* decodeFieldRecord(prediction)
-          const metricExpectedOutput = yield* decodeFieldRecord(expectedOutput)
-          const metricResult = yield* options.metric.score(metricPrediction, metricExpectedOutput)
+          const inputs = yield* encodePayload(options.module.signature.inputSchema, moduleInput)
+          const generatedOutputs = yield* encodePayload(options.module.signature.outputSchema, prediction)
+          const expectedDocument = yield* encodePayload(options.module.signature.outputSchema, expectedOutput)
+          const metricResult = yield* options.metric.score(prediction, expectedOutput)
           const normalizedMetric = new MetricResult({
             score: metricResult.score,
             ...withFeedback(Option.fromNullable(metricResult.feedback))
@@ -85,9 +84,9 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
             sample: new ReflectiveDatasetSample({
               exampleId: Str.concat("example-", Inspectable.toStringUnknown(index)),
               predictorName: options.module.name,
-              inputs: metricInput,
-              generatedOutputs: metricPrediction,
-              expectedOutput: metricExpectedOutput,
+              inputs,
+              generatedOutputs,
+              expectedOutput: expectedDocument,
               metricResult: normalizedMetric
             })
           })
