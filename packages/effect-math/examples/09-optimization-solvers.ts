@@ -8,7 +8,6 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Console, Effect, Number } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   bisect,
@@ -18,6 +17,7 @@ import {
   goldenSectionValidated,
   goldenSectionWithPolicies
 } from "@scenesystems/effect-math/Optimization"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   // Bisection root-finding
@@ -47,8 +47,8 @@ const program = Effect.gen(function*() {
   // Output: goldenSectionValidated(x², {a:-2, b:2}): ≈ 0
 
   // Strict runtime policy
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
     backend: "scalar",
     diagnostics: "disabled"

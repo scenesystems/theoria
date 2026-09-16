@@ -14,8 +14,8 @@ import {
   secondDerivative,
   simpson,
   trapezoid
-} from "../../src/Calculus/operations.js"
-import * as Numeric from "../../src/Numeric/index.js"
+} from "../../src/Calculus.js"
+import * as Numeric from "../../src/Numeric.js"
 import { CalculusNumericalParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 class UnknownFixtureFunction extends Data.TaggedError("UnknownFixtureFunction")<{ readonly name: string }> {}

@@ -2,11 +2,11 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Number, Schema } from "effect"
 
-import { abs, expm1, log1p, sum } from "../../src/Numeric/operations.js"
+import { abs, expm1, log1p, sum } from "../../src/Numeric.js"
 import { loadFixture, NumericScalarParityFixtureSchema } from "../helpers/fixtures/index.js"
 
-const LOG1P_EXPM1_TOLERANCE = 1e-15
-const SUM_TOLERANCE = 1.5
+const log1pExpm1Tolerance = 1e-15
+const sumTolerance = 1.5
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
   expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
@@ -23,11 +23,11 @@ describe("Numeric SciPy fixture parity", () => {
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "log1p" }, (v) =>
-              expectWithinTolerance(log1p(v.input.x), v.expected, LOG1P_EXPM1_TOLERANCE)),
+              expectWithinTolerance(log1p(v.input.x), v.expected, log1pExpm1Tolerance)),
             Match.when({ operation: "expm1" }, (v) =>
-              expectWithinTolerance(expm1(v.input.x), v.expected, LOG1P_EXPM1_TOLERANCE)),
+              expectWithinTolerance(expm1(v.input.x), v.expected, log1pExpm1Tolerance)),
             Match.when({ operation: "sum" }, (v) =>
-              expectWithinTolerance(sum(v.input.values), v.expected, SUM_TOLERANCE)),
+              expectWithinTolerance(sum(v.input.values), v.expected, sumTolerance)),
             Match.exhaustive
           )
         ))

@@ -113,7 +113,7 @@ const aboutY = Chunk.make(cosY, 0, sinY, 0, 1, 0, Num.negate(sinY), 0, cosY)
 const rotate = (v: Vector): Vector => LinearAlgebra.matvec(aboutY, 3, 3, LinearAlgebra.matvec(aboutX, 3, 3, v))
 
 /** The vector at unit length; every vector normalised here is a constant of non-zero length. */
-const normalise = (v: Vector): Vector => LinearAlgebra.vectorScale(Numeric.unsafeDivide(1, LinearAlgebra.normL2(v)), v)
+const normalise = (v: Vector): Vector => LinearAlgebra.scale(v, Numeric.unsafeDivide(1, LinearAlgebra.normL2(v)))
 
 const light = normalise(vector(0.3, -0.3, 0.9))
 

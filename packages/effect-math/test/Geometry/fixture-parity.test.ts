@@ -2,11 +2,11 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema, Tuple } from "effect"
 
-import { chebyshevDistance, euclideanDistance, manhattanDistance, midpoint } from "../../src/Geometry/operations.js"
-import { abs } from "../../src/Numeric/index.js"
+import { chebyshevDistance, euclideanDistance, manhattanDistance, midpoint } from "../../src/Geometry.js"
+import { abs } from "../../src/Numeric.js"
 import { GeometryDistanceParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
-const DISTANCE_TOLERANCE = 1e-12
+const distanceTolerance = 1e-12
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
   expect(Number.lessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
@@ -43,11 +43,11 @@ describe("Geometry SciPy fixture parity", () => {
                 Match.when("chebyshev", () => chebyshevDistance(a, b)),
                 Match.exhaustive
               )
-              expectWithinTolerance(result, v.expected, DISTANCE_TOLERANCE)
+              expectWithinTolerance(result, v.expected, distanceTolerance)
             }),
             Match.when({ operation: "midpoint" }, (v) => {
               const result = midpoint(Chunk.fromIterable(v.input.a), Chunk.fromIterable(v.input.b))
-              expectChunkWithinTolerance(result, Chunk.fromIterable(v.expected), DISTANCE_TOLERANCE)
+              expectChunkWithinTolerance(result, Chunk.fromIterable(v.expected), distanceTolerance)
             }),
             Match.exhaustive
           )

@@ -2,14 +2,15 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema } from "effect"
 
-import { abs } from "../../src/Numeric/index.js"
-import { normalCdf, normalPdf, shannonEntropy, uniformCdf, uniformPdf } from "../../src/Probability/operations.js"
+import { normalCdf, normalPdf, uniformCdf, uniformPdf } from "../../src/Distribution.js"
+import { abs } from "../../src/Numeric.js"
+import { entropy } from "../../src/Probability.js"
 import { loadFixture, ProbabilityDistributionParityFixtureSchema } from "../helpers/fixtures/index.js"
 
-const NORMAL_PDF_TOLERANCE = 1e-14
-const NORMAL_CDF_TOLERANCE = 2e-14
-const UNIFORM_TOLERANCE = 1e-14
-const ENTROPY_TOLERANCE = 1e-12
+const normalPdfTolerance = 1e-14
+const normalCdfTolerance = 2e-14
+const uniformTolerance = 1e-14
+const entropyTolerance = 1e-12
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
   expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
@@ -26,26 +27,26 @@ describe("Probability SciPy fixture parity", () => {
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "normalPdf" }, (v) =>
-              expectWithinTolerance(normalPdf(v.input.x, v.input.mu, v.input.sigma), v.expected, NORMAL_PDF_TOLERANCE)),
+              expectWithinTolerance(normalPdf(v.input.x, v.input.mu, v.input.sigma), v.expected, normalPdfTolerance)),
             Match.when({ operation: "normalCdf" }, (v) =>
-              expectWithinTolerance(normalCdf(v.input.x, v.input.mu, v.input.sigma), v.expected, NORMAL_CDF_TOLERANCE)),
+              expectWithinTolerance(normalCdf(v.input.x, v.input.mu, v.input.sigma), v.expected, normalCdfTolerance)),
             Match.when({ operation: "uniformPdf" }, (v) =>
               expectWithinTolerance(
                 uniformPdf(v.input.x, v.input.low, v.input.high),
                 v.expected,
-                UNIFORM_TOLERANCE
+                uniformTolerance
               )),
             Match.when({ operation: "uniformCdf" }, (v) =>
               expectWithinTolerance(
                 uniformCdf(v.input.x, v.input.low, v.input.high),
                 v.expected,
-                UNIFORM_TOLERANCE
+                uniformTolerance
               )),
             Match.when({ operation: "entropy" }, (v) =>
               expectWithinTolerance(
-                shannonEntropy(Chunk.fromIterable(v.input.probabilities)),
+                entropy(Chunk.fromIterable(v.input.probabilities)),
                 v.expected,
-                ENTROPY_TOLERANCE
+                entropyTolerance
               )),
             Match.exhaustive
           )

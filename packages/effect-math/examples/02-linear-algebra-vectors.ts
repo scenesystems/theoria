@@ -8,8 +8,8 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Array, Chunk, Console, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import {
+  add,
   dot,
   dotValidated,
   dotWithPolicies,
@@ -19,10 +19,10 @@ import {
   normL2,
   normLinf,
   normWithPolicies,
-  transpose,
-  vectorAdd,
-  vectorScale
+  scale,
+  transpose
 } from "@scenesystems/effect-math/LinearAlgebra"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   const a = Chunk.make(1, 2, 3)
@@ -35,11 +35,11 @@ const program = Effect.gen(function*() {
   yield* Console.log("normL2([1,2,3]):", normL2(a))
   yield* Console.log("normLinf([1,2,3]):", normLinf(a))
 
-  const added = vectorAdd(a, b)
-  yield* Console.log("vectorAdd:", added)
+  const added = add(a, b)
+  yield* Console.log("add:", added)
 
-  const scaled = vectorScale(2.5, a)
-  yield* Console.log("vectorScale(2.5):", scaled)
+  const scaled = scale(a, 2.5)
+  yield* Console.log("scale(2.5):", scaled)
 
   // 2×3 matrix times 3-vector
   const matrix = Chunk.make(1, 0, 0, 0, 1, 0)
@@ -59,8 +59,8 @@ const program = Effect.gen(function*() {
   yield* Console.log("dotValidated:", dotVal)
 
   // Runtime policies
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
     backend: "scalar",
     diagnostics: "disabled"

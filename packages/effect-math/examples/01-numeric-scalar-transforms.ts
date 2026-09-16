@@ -8,8 +8,8 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Array, Chunk, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import { expm1, log1p, sum, sumValidated, sumWithPolicies } from "@scenesystems/effect-math/Numeric"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   // Direct kernels
@@ -29,8 +29,8 @@ const program = Effect.gen(function*() {
   // Runtime policies
   const policyResult = yield* sumWithPolicies(Chunk.make(100, 200, 300, 400)).pipe(
     Effect.provide(
-      makeDeterministicRuntimePoliciesLayer({
-        seed: Seed.make(42),
+      Policy.layerDeterministic({
+        seed: Policy.Seed.make(42),
         precision: "strict",
         backend: "compensated",
         diagnostics: "disabled"

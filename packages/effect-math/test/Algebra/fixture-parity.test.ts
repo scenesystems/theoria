@@ -2,7 +2,7 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Equal, Match, Schema } from "effect"
 
-import { factorial, gcd, lcm, polyDerivative, polyEval } from "../../src/Algebra/operations.js"
+import { factorial, gcd, lcm, polyDerivative, polyEval } from "../../src/Algebra.js"
 import { AlgebraPolynomialParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 describe("Algebra SciPy fixture parity", () => {

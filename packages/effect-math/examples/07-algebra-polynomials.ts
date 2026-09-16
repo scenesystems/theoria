@@ -19,7 +19,7 @@ import {
   polyEvalValidated,
   polyEvalWithPolicies
 } from "@scenesystems/effect-math/Algebra"
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   // Polynomial evaluation
@@ -65,8 +65,8 @@ const program = Effect.gen(function*() {
   // Output: factorialValidated(n=10): 3628800
 
   // Strict runtime policy
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
     backend: "scalar",
     diagnostics: "disabled"

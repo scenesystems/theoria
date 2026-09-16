@@ -8,7 +8,6 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Array, Chunk, Console, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import {
   centroidValidated,
   chebyshevDistance,
@@ -19,6 +18,7 @@ import {
   midpoint,
   midpointValidated
 } from "@scenesystems/effect-math/Geometry"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   const origin = Chunk.make(0, 0)
@@ -47,8 +47,8 @@ const program = Effect.gen(function*() {
   // Output: centroidValidated (triangle): [ 2, 2 ]
 
   // Strict precision with diagnostics
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(0),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(0),
     precision: "strict",
     backend: "scalar",
     diagnostics: "enabled"

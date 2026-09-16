@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { BigDecimal, Chunk, Effect, Equal, FastCheck, Iterable, Number, Option } from "effect"
 
-import { abs, ceil, floor, hypot, sqrt, toBigDecimal, toBigInt, truncate } from "../../src/Numeric/index.js"
+import { abs, ceil, floor, hypot, sqrt, toBigDecimal, toBigInt, truncate } from "../../src/Numeric.js"
 
 const infinity = Number.unsafeDivide(1, 0)
 const nan = Number.unsafeDivide(0, 0)
