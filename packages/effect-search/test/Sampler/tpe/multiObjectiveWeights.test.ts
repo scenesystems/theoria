@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Number as Num, Order, Schema } from "effect"
+import { Array as Arr, Boolean, Effect, Equal, Function as Fn, Number as Num, Option, Order, Schema } from "effect"
 
 import * as Float64 from "../../../src/internal/float64.js"
 import { hypervolumeContribution2d } from "../../../src/internal/hypervolume.js"
@@ -17,8 +17,13 @@ import {
 } from "../../helpers/fixtures.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(Float64.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
+
+type NumberArray = Schema.Array$<typeof Schema.Number>["Type"]
+
+const numberAt = (values: NumberArray, index: number, fallback = 0): number =>
+  Arr.get(values, index).pipe(Option.getOrElse(() => fallback))
 
 describe("Wave 2 / MOTPE selection-depth parity", () => {
   it.effect("FM-6: matches expanded fixture parity for hypervolume contributions and normalized weights", () =>
@@ -41,15 +46,15 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
           fixture.payload.directions
         )
 
-        expect(contributions).toHaveLength(fixture.payload.expectedContributions.length)
-        expect(weights).toHaveLength(fixture.payload.expectedWeights.length)
+        expect(contributions).toHaveLength(Arr.length(fixture.payload.expectedContributions))
+        expect(weights).toHaveLength(Arr.length(fixture.payload.expectedWeights))
 
         Arr.forEach(fixture.payload.expectedContributions, (expected, index) => {
-          expectApprox(contributions[index] ?? 0, expected, 1e-9)
+          expectApprox(numberAt(contributions, index), expected, 1e-9)
         })
 
         Arr.forEach(fixture.payload.expectedWeights, (expected, index) => {
-          expectApprox(weights[index] ?? 0, expected, 1e-9)
+          expectApprox(numberAt(weights, index), expected, 1e-9)
         })
       })
     }).pipe(Effect.provide(FixtureRegistryLive)))
@@ -60,24 +65,27 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       const fixture = yield* Schema.decodeUnknown(MotpeReferenceFixtureSchema)(loaded)
 
       Arr.forEach(fixture.payload.cases, (entry) => {
-        const reference = computeReferencePoint([entry.worstPoint], entry.directions)
+        const reference = computeReferencePoint(Arr.of(entry.worstPoint), entry.directions)
 
-        expect(reference).toHaveLength(entry.expectedReferencePoint.length)
+        expect(reference).toHaveLength(Arr.length(entry.expectedReferencePoint))
 
         Arr.forEach(entry.expectedReferencePoint, (expected, index) => {
-          expectApprox(reference[index] ?? 0, expected, 1e-9)
+          expectApprox(numberAt(reference, index), expected, 1e-9)
         })
       })
 
-      const zeroCase = Arr.findFirst(fixture.payload.cases, (entry) => entry.id === "zero")
+      const zeroCase = Arr.findFirst(fixture.payload.cases, (entry) => Equal.equals(entry.id, "zero"))
 
       expect(zeroCase._tag).toBe("Some")
 
-      if (zeroCase._tag === "Some") {
-        const reference = computeReferencePoint([zeroCase.value.worstPoint], zeroCase.value.directions)
-        expect(reference[0]).toBeGreaterThanOrEqual(fixture.payload.epsilon)
-        expect(reference[1]).toBeGreaterThanOrEqual(fixture.payload.epsilon)
-      }
+      Option.match(zeroCase, {
+        onNone: Fn.constVoid,
+        onSome: (entry) => {
+          const reference = computeReferencePoint(Arr.of(entry.worstPoint), entry.directions)
+          expect(numberAt(reference, 0)).toBeGreaterThanOrEqual(fixture.payload.epsilon)
+          expect(numberAt(reference, 1)).toBeGreaterThanOrEqual(fixture.payload.epsilon)
+        }
+      })
     }).pipe(Effect.provide(FixtureRegistryLive)))
 
   it.effect("FM-4: preserves rank boundaries and HSSP tie-break membership at split boundaries", () =>
@@ -89,36 +97,44 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       const ranks = nonDominatedRanks(points, fixture.payload.directions)
 
       Arr.forEach(fixture.payload.trials, (trial, index) => {
-        expect(ranks[index] ?? Number.POSITIVE_INFINITY).toBe(trial.rank)
+        expect(numberAt(ranks, index, Number.POSITIVE_INFINITY)).toBe(trial.rank)
       })
 
       const selectedBoundaryRank = Arr.reduce(
         fixture.payload.trials,
         Number.NEGATIVE_INFINITY,
         (acc, trial) =>
-          Arr.some(fixture.payload.expectedBelow, (trialNumber) => trialNumber === trial.trialNumber)
-            ? Num.max(acc, trial.rank)
-            : acc
+          Boolean.match(
+            Arr.some(fixture.payload.expectedBelow, (trialNumber) => Equal.equals(trialNumber, trial.trialNumber)),
+            {
+              onFalse: () => acc,
+              onTrue: () => Num.max(acc, trial.rank)
+            }
+          )
       )
 
       const boundaryTrials = Arr.filter(
         fixture.payload.trials,
-        (trial) => trial.rank === selectedBoundaryRank
+        (trial) => Num.Equivalence(trial.rank, selectedBoundaryRank)
       )
 
       const selectedLowerRankCount = Arr.reduce(
         fixture.payload.trials,
         0,
-        (count, trial) => count + (trial.rank < selectedBoundaryRank ? 1 : 0)
+        (count, trial) =>
+          Boolean.match(Num.lessThan(trial.rank, selectedBoundaryRank), {
+            onFalse: () => count,
+            onTrue: () => Num.increment(count)
+          })
       )
       const neededFromBoundary = Num.max(
-        fixture.payload.nBelow - selectedLowerRankCount,
+        Num.subtract(fixture.payload.nBelow, selectedLowerRankCount),
         0
       )
       const rankedBoundaryTrials = Arr.sortBy(
         Order.mapInput(
           Order.number,
-          (trial: (typeof boundaryTrials)[number]) => -trial.hsspScore
+          (trial: (typeof boundaryTrials)[number]) => Num.negate(trial.hsspScore)
         ),
         Order.mapInput(
           Order.number,
@@ -144,13 +160,13 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       const actualBoundarySelection = Arr.map(
         Arr.filter(
           split.below,
-          (trial) => Arr.some(boundaryTrials, (candidate) => candidate.trialNumber === trial.trialNumber)
+          (trial) => Arr.some(boundaryTrials, (candidate) => Equal.equals(candidate.trialNumber, trial.trialNumber))
         ),
         (trial) => trial.trialNumber
       )
 
       expect(actualBoundarySelection).toEqual(expectedBoundarySelection)
-      expect(split.below.map((trial) => trial.trialNumber)).toEqual(fixture.payload.expectedBelow)
-      expect(split.above.map((trial) => trial.trialNumber)).toEqual(fixture.payload.expectedAbove)
+      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(fixture.payload.expectedBelow)
+      expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(fixture.payload.expectedAbove)
     }).pipe(Effect.provide(FixtureRegistryLive)))
 })

@@ -4,29 +4,49 @@
  * @since 0.1.0
  */
 
-import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Array as Arr, Boolean, Equal, Match, Number as Num, Option, Schema } from "effect"
 
-import type { Direction } from "../contracts/Direction.js"
-import type { ObjectiveVector } from "./model.js"
+import { type Direction, directionOrDefault, type DirectionVector } from "../contracts/Direction.js"
+import type { ObjectiveVector, ObjectiveVectorSchema } from "./model.js"
 
-const defaultDirection = (): Direction => "minimize"
+type ObjectiveMatrix = Schema.Array$<typeof ObjectiveVectorSchema>["Type"]
 
-const directionAt = (directions: ReadonlyArray<Direction>, index: number): Direction =>
-  Arr.get(directions, index).pipe(Option.getOrElse(defaultDirection))
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const lessThanWhenOrdered = (left: number, right: number): boolean =>
+  Boolean.match(Boolean.and(isNonNaN(left), isNonNaN(right)), {
+    onFalse: () => false,
+    onTrue: () => Num.lessThan(left, right)
+  })
+
+const lessThanOrEqualToWhenOrdered = (left: number, right: number): boolean =>
+  Boolean.match(Boolean.and(isNonNaN(left), isNonNaN(right)), {
+    onFalse: () => false,
+    onTrue: () => Num.lessThanOrEqualTo(left, right)
+  })
+
+const greaterThanOrEqualToWhenOrdered = (left: number, right: number): boolean =>
+  Boolean.match(Boolean.and(isNonNaN(left), isNonNaN(right)), {
+    onFalse: () => false,
+    onTrue: () => Num.greaterThanOrEqualTo(left, right)
+  })
+
+const directionAt = (directions: DirectionVector, index: number): Direction =>
+  directionOrDefault(Arr.get(directions, index))
 
 const rawValueAt = (vector: ObjectiveVector, index: number): number =>
   Arr.get(vector, index).pipe(Option.getOrElse(() => Number.POSITIVE_INFINITY))
 
 const finiteOrInfinity = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
-    Match.when(true, () => value),
-    Match.when(false, () => Number.POSITIVE_INFINITY),
-    Match.exhaustive
-  )
+  Boolean.match(Numeric.isFinite(value), {
+    onFalse: () => Number.POSITIVE_INFINITY,
+    onTrue: () => value
+  })
 
 const normalizeCoordinate = (value: number, direction: Direction): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => -value),
+    Match.when("maximize", () => Num.negate(value)),
     Match.when("minimize", () => value),
     Match.exhaustive
   )
@@ -39,7 +59,7 @@ const normalizeCoordinate = (value: number, direction: Direction): number =>
  * @since 0.1.0
  * @category normalization
  */
-export const normalizePoint = (point: ObjectiveVector, directions: ReadonlyArray<Direction>): ObjectiveVector =>
+export const normalizePoint = (point: ObjectiveVector, directions: DirectionVector): ObjectiveVector =>
   Arr.map(point, (value, index) =>
     normalizeCoordinate(
       finiteOrInfinity(value),
@@ -53,9 +73,9 @@ export const normalizePoint = (point: ObjectiveVector, directions: ReadonlyArray
  * @category normalization
  */
 export const normalizeMatrix = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction>
-): ReadonlyArray<ObjectiveVector> => Arr.map(points, (point) => normalizePoint(point, directions))
+  points: ObjectiveMatrix,
+  directions: DirectionVector
+): ObjectiveMatrix => Arr.map(points, (point) => normalizePoint(point, directions))
 
 /**
  * Reports whether every row has the first row's arity. An empty matrix is rectangular.
@@ -63,20 +83,20 @@ export const normalizeMatrix = (
  * @since 0.1.0
  * @category validation
  */
-export const validateRectangular = (points: ReadonlyArray<ObjectiveVector>): boolean =>
+export const validateRectangular = (points: ObjectiveMatrix): boolean =>
   Arr.match(points, {
     onEmpty: () => true,
     onNonEmpty: (nonEmpty) => {
-      const expectedLength = Arr.headNonEmpty(nonEmpty).length
-      return Arr.every(nonEmpty, (point) => Equal.equals(point.length, expectedLength))
+      const expectedLength = Arr.length(Arr.headNonEmpty(nonEmpty))
+      return Arr.every(nonEmpty, (point) => Equal.equals(Arr.length(point), expectedLength))
     }
   })
 
 const normalizedEpsilon = (epsilon: number): number =>
-  Match.value(Number.isFinite(epsilon) && Num.greaterThan(epsilon, 0)).pipe(
-    Match.when(true, () => epsilon),
-    Match.orElse(() => 0)
-  )
+  Boolean.match(Boolean.and(Numeric.isFinite(epsilon), Num.greaterThan(epsilon, 0)), {
+    onFalse: () => 0,
+    onTrue: () => epsilon
+  })
 
 const dominatesExactly = (
   normalizedLeft: ObjectiveVector,
@@ -84,11 +104,14 @@ const dominatesExactly = (
 ): boolean => {
   const noWorse = Arr.every(
     normalizedLeft,
-    (value, index) => value <= rawValueAt(normalizedRight, index)
+    (value, index) => lessThanOrEqualToWhenOrdered(value, rawValueAt(normalizedRight, index))
   )
-  const strictlyBetter = Arr.some(normalizedLeft, (value, index) => value < rawValueAt(normalizedRight, index))
+  const strictlyBetter = Arr.some(
+    normalizedLeft,
+    (value, index) => lessThanWhenOrdered(value, rawValueAt(normalizedRight, index))
+  )
 
-  return noWorse && strictlyBetter
+  return Boolean.and(noWorse, strictlyBetter)
 }
 
 const dominatesWithEpsilon = (
@@ -98,7 +121,7 @@ const dominatesWithEpsilon = (
 ): boolean =>
   Arr.every(
     normalizedLeft,
-    (value, index) => Num.greaterThanOrEqualTo(rawValueAt(normalizedRight, index) - value, epsilon)
+    (value, index) => greaterThanOrEqualToWhenOrdered(Num.subtract(rawValueAt(normalizedRight, index), value), epsilon)
   )
 
 /**
@@ -116,18 +139,17 @@ export const dominatesNormalized = (
   normalizedRight: ObjectiveVector,
   epsilon = 0
 ): boolean =>
-  Match.value(Equal.equals(normalizedLeft.length, normalizedRight.length)).pipe(
-    Match.when(true, () => {
+  Boolean.match(Equal.equals(Arr.length(normalizedLeft), Arr.length(normalizedRight)), {
+    onFalse: () => false,
+    onTrue: () => {
       const margin = normalizedEpsilon(epsilon)
 
-      return Match.value(Num.lessThanOrEqualTo(margin, 0)).pipe(
-        Match.when(true, () => dominatesExactly(normalizedLeft, normalizedRight)),
-        Match.orElse(() => dominatesWithEpsilon(normalizedLeft, normalizedRight, margin))
-      )
-    }),
-    Match.when(false, () => false),
-    Match.exhaustive
-  )
+      return Boolean.match(Num.lessThanOrEqualTo(margin, 0), {
+        onFalse: () => dominatesWithEpsilon(normalizedLeft, normalizedRight, margin),
+        onTrue: () => dominatesExactly(normalizedLeft, normalizedRight)
+      })
+    }
+  })
 
 /**
  * Reports whether `left` Pareto-dominates `right` under the supplied directions.
@@ -146,14 +168,15 @@ export const dominatesNormalized = (
  *
  * @example
  * ```ts
- * import { Effect } from "effect"
+ * import { Array as Arr, Effect } from "effect"
  * import { Pareto } from "@scenesystems/effect-search"
+ * import type { Direction } from "@scenesystems/effect-search/contracts"
  *
  * export const program = Effect.sync(() =>
  *   Pareto.dominates(
- *     [0.2, 0.8],
- *     [0.3, 0.7],
- *     ["minimize", "maximize"]
+ *     Arr.make(0.2, 0.8),
+ *     Arr.make(0.3, 0.7),
+ *     Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "maximize")
  *   )
  * ).pipe(
  *   Effect.filterOrFail(
@@ -169,7 +192,7 @@ export const dominatesNormalized = (
 export const dominates = (
   left: ObjectiveVector,
   right: ObjectiveVector,
-  directions: ReadonlyArray<Direction> = [],
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): boolean => {
   const normalizedLeft = normalizePoint(left, directions)

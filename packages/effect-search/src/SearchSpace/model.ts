@@ -8,7 +8,7 @@ import type { HashMap } from "effect"
 import type { NonEmptyReadonlyArray } from "effect/Array"
 
 import type { PrimitiveChoice } from "../contracts/Distribution.js"
-import { DistributionSchema, PrimitiveChoiceSchema } from "../contracts/Distribution.js"
+import { DistributionSchema, FloatScaleSchema, PrimitiveChoiceSchema } from "../contracts/Distribution.js"
 
 /**
  * Decodes optional scale and quantization metadata for a float distribution.
@@ -20,7 +20,7 @@ import { DistributionSchema, PrimitiveChoiceSchema } from "../contracts/Distribu
  * @category schemas
  */
 export const FloatOptionsSchema = Schema.Struct({
-  scale: Schema.optional(Schema.Literal("linear", "log")),
+  scale: Schema.optional(FloatScaleSchema),
   step: Schema.optional(Schema.Number)
 })
 

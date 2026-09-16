@@ -5,7 +5,14 @@
  */
 import { Array as Arr, Data, Match, Option, Schema } from "effect"
 
-import { defaultDirection, type Direction, directionOrDefault, DirectionSchema } from "./Direction.js"
+import {
+  defaultDirection,
+  type Direction,
+  directionOrDefault,
+  DirectionSchema,
+  type DirectionVector,
+  DirectionVectorSchema
+} from "./Direction.js"
 
 /**
  * Decodes scalar objective direction or an ordered direction vector.
@@ -22,7 +29,7 @@ export const ObjectiveSpecSchema = Schema.Union(
     direction: DirectionSchema
   }),
   Schema.TaggedStruct("Multi", {
-    directions: Schema.Array(DirectionSchema)
+    directions: DirectionVectorSchema
   })
 )
 
@@ -89,7 +96,7 @@ export const singleObjectiveSpec = (direction: Direction = defaultDirection()): 
  * @since 0.1.0
  * @category constructors
  */
-export const multiObjectiveSpec = (directions: ReadonlyArray<Direction>): ObjectiveSpec =>
+export const multiObjectiveSpec = (directions: DirectionVector): ObjectiveSpec =>
   Multi({ directions: Arr.fromIterable(directions) })
 
 /**
