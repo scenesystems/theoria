@@ -19,8 +19,10 @@ import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import * as Usage from "@scenesystems/effect-inference/Usage"
-import { observeGoogle } from "@scenesystems/effect-inference/Usage/Google"
+import * as AnthropicUsage from "@scenesystems/effect-inference/AnthropicUsage"
+import * as GoogleUsage from "@scenesystems/effect-inference/GoogleUsage"
+import * as OpenAiUsage from "@scenesystems/effect-inference/OpenAiUsage"
+import * as OpenRouterUsage from "@scenesystems/effect-inference/OpenRouterUsage"
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
 import { projectTraceObjectiveProjection } from "../../src/contracts/TraceProjection.js"
 
@@ -131,7 +133,7 @@ describe("Trace provider integration", () => {
             )
           )
           const model = yield* OpenAiLanguageModel.make({ model: "gpt-4o" }).pipe(
-            Effect.provideService(OpenAiClient.OpenAiClient, Usage.observeOpenAi(client, Trace.observeUsage))
+            Effect.provideService(OpenAiClient.OpenAiClient, OpenAiUsage.observe(client, Trace.observeUsage))
           )
           const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
           const module = yield* Module.predict(Arr.join(Arr.make("openai", name, "usage"), "-"), signature, {
@@ -180,7 +182,7 @@ describe("Trace provider integration", () => {
       const model = yield* AnthropicLanguageModel.make({ model: "claude-sonnet-4-5" }).pipe(
         Effect.provideService(
           AnthropicClient.AnthropicClient,
-          Usage.observeAnthropic(client, (observation) => Trace.observeUsage(observation.usage))
+          AnthropicUsage.observe(client, (observation) => Trace.observeUsage(observation.usage))
         )
       )
       const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
@@ -215,7 +217,7 @@ describe("Trace provider integration", () => {
         )
       )
       const model = yield* OpenRouterLanguageModel.make({ model: "openai/gpt-4o-mini" }).pipe(
-        Effect.provideService(OpenRouterClient.OpenRouterClient, Usage.observeOpenRouter(client, Trace.observeUsage))
+        Effect.provideService(OpenRouterClient.OpenRouterClient, OpenRouterUsage.observe(client, Trace.observeUsage))
       )
       const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
       const module = yield* Module.predict("provider-usage", signature)
@@ -270,7 +272,7 @@ describe("Trace provider integration", () => {
         )
       )
       const model = yield* GoogleLanguageModel.make({ model: "gemini-2.5-flash" }).pipe(
-        Effect.provideService(GoogleClient.GoogleClient, observeGoogle(client, Trace.observeUsage))
+        Effect.provideService(GoogleClient.GoogleClient, GoogleUsage.observe(client, Trace.observeUsage))
       )
       const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
       const module = yield* Module.predict("google-usage", signature)
@@ -321,7 +323,7 @@ describe("Trace provider integration", () => {
         )
       )
       const model = yield* GoogleLanguageModel.make({ model: "gemini-2.5-flash" }).pipe(
-        Effect.provideService(GoogleClient.GoogleClient, observeGoogle(client, Trace.observeUsage))
+        Effect.provideService(GoogleClient.GoogleClient, GoogleUsage.observe(client, Trace.observeUsage))
       )
       const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
       const module = yield* Module.predict("google-success-usage", signature)

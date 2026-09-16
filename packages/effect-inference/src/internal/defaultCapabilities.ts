@@ -1,20 +1,19 @@
 /**
- * Internal default capability helpers shared by the initial runtime skeleton.
+ * Conservative capability defaults by runtime route and flavor.
  *
  * @since 0.1.0
  */
 import { Match, Option, Schema } from "effect"
 
-import { type ExecutionRoute, ExecutionRouteSchema } from "../contracts/ExecutionRoute.js"
-import { type RuntimeCapabilities, RuntimeCapabilitiesSchema } from "../contracts/RuntimeCapabilities.js"
-import { defaultRuntimeFlavor, type RuntimeFlavor } from "../contracts/RuntimeFlavor.js"
+import { Capabilities } from "../Capabilities.js"
+import { defaultFlavor, type Flavor, Route } from "../Route.js"
 
-const DefaultRuntimeCapabilitiesOptions = Schema.Struct({
-  route: Schema.optionalWith(ExecutionRouteSchema, { exact: true }),
-  overrides: Schema.optionalWith(Schema.partialWith(RuntimeCapabilitiesSchema, { exact: true }), { exact: true })
+const Options = Schema.Struct({
+  route: Schema.optionalWith(Route, { exact: true }),
+  overrides: Schema.optionalWith(Schema.partialWith(Capabilities, { exact: true }), { exact: true })
 })
 
-const hostedOpenAiCompatibleCapabilities: RuntimeCapabilities = {
+const hostedOpenAiCompatibleCapabilities: Capabilities = {
   textGeneration: true,
   embeddings: true,
   streaming: true,
@@ -24,7 +23,7 @@ const hostedOpenAiCompatibleCapabilities: RuntimeCapabilities = {
   multimodalInput: false
 }
 
-const selfHostedCompatibleCapabilities: RuntimeCapabilities = {
+const selfHostedCompatibleCapabilities: Capabilities = {
   textGeneration: true,
   embeddings: false,
   streaming: true,
@@ -34,7 +33,7 @@ const selfHostedCompatibleCapabilities: RuntimeCapabilities = {
   multimodalInput: false
 }
 
-const openAiResponsesCapabilities: RuntimeCapabilities = {
+const openAiResponsesCapabilities: Capabilities = {
   textGeneration: true,
   embeddings: false,
   streaming: true,
@@ -44,7 +43,7 @@ const openAiResponsesCapabilities: RuntimeCapabilities = {
   multimodalInput: false
 }
 
-const anthropicMessagesCapabilities: RuntimeCapabilities = {
+const anthropicMessagesCapabilities: Capabilities = {
   textGeneration: true,
   embeddings: false,
   streaming: true,
@@ -54,7 +53,7 @@ const anthropicMessagesCapabilities: RuntimeCapabilities = {
   multimodalInput: false
 }
 
-const huggingFaceRoutedCapabilities: RuntimeCapabilities = {
+const huggingFaceRoutedCapabilities: Capabilities = {
   textGeneration: true,
   embeddings: true,
   streaming: true,
@@ -64,7 +63,7 @@ const huggingFaceRoutedCapabilities: RuntimeCapabilities = {
   multimodalInput: false
 }
 
-const huggingFaceEndpointCapabilities: RuntimeCapabilities = {
+const huggingFaceEndpointCapabilities: Capabilities = {
   textGeneration: true,
   embeddings: true,
   streaming: true,
@@ -74,7 +73,7 @@ const huggingFaceEndpointCapabilities: RuntimeCapabilities = {
   multimodalInput: false
 }
 
-const huggingFaceTgiEndpointCapabilities: RuntimeCapabilities = {
+const huggingFaceTgiEndpointCapabilities: Capabilities = {
   textGeneration: true,
   embeddings: false,
   streaming: true,
@@ -84,7 +83,7 @@ const huggingFaceTgiEndpointCapabilities: RuntimeCapabilities = {
   multimodalInput: false
 }
 
-const capabilitiesForCompatibleFlavor = (runtimeFlavor: RuntimeFlavor): RuntimeCapabilities =>
+const capabilitiesForCompatibleFlavor = (runtimeFlavor: Flavor): Capabilities =>
   Match.value(runtimeFlavor).pipe(
     Match.when("ollama", () => ({
       ...selfHostedCompatibleCapabilities,
@@ -98,10 +97,10 @@ const capabilitiesForCompatibleFlavor = (runtimeFlavor: RuntimeFlavor): RuntimeC
     Match.exhaustive
   )
 
-const runtimeFlavorForRoute = (route: ExecutionRoute): RuntimeFlavor =>
-  Option.fromNullable(route.runtimeFlavorHint).pipe(Option.getOrElse(defaultRuntimeFlavor))
+const runtimeFlavorForRoute = (route: Route): Flavor =>
+  Option.fromNullable(route.runtimeFlavorHint).pipe(Option.getOrElse(() => defaultFlavor))
 
-const capabilitiesForHuggingFaceEndpoint = (route: ExecutionRoute): RuntimeCapabilities =>
+const capabilitiesForHuggingFaceEndpoint = (route: Route): Capabilities =>
   Match.value(runtimeFlavorForRoute(route)).pipe(
     Match.when("tgi", () => huggingFaceTgiEndpointCapabilities),
     Match.when("unknown", () => huggingFaceEndpointCapabilities),
@@ -112,8 +111,8 @@ const capabilitiesForHuggingFaceEndpoint = (route: ExecutionRoute): RuntimeCapab
   )
 
 const capabilitiesForHuggingFaceRoute = (
-  route: ExecutionRoute
-): RuntimeCapabilities =>
+  route: Route
+): Capabilities =>
   Match.value(route.serveMode).pipe(
     Match.when("routed-marketplace", () => huggingFaceRoutedCapabilities),
     Match.when("hosted-api", () => capabilitiesForHuggingFaceEndpoint(route)),
@@ -123,7 +122,7 @@ const capabilitiesForHuggingFaceRoute = (
     Match.exhaustive
   )
 
-const capabilitiesForRoute = (route: ExecutionRoute): RuntimeCapabilities =>
+const capabilitiesForRoute = (route: Route): Capabilities =>
   Match.value(route.family).pipe(
     Match.when("OpenAiCompatible", () =>
       Match.value(route.serveMode).pipe(
@@ -147,9 +146,9 @@ const capabilitiesForRoute = (route: ExecutionRoute): RuntimeCapabilities =>
  *
  * @since 0.1.0
  */
-export const defaultRuntimeCapabilities = (
-  options?: typeof DefaultRuntimeCapabilitiesOptions.Type
-): RuntimeCapabilities => {
+export const defaultCapabilities = (
+  options?: typeof Options.Type
+): Capabilities => {
   const route = Option.fromNullable(options).pipe(
     Option.flatMap((resolvedOptions) => Option.fromNullable(resolvedOptions.route))
   )
@@ -158,7 +157,7 @@ export const defaultRuntimeCapabilities = (
   )
 
   const baseCapabilities = Option.match(route, {
-    onNone: () => capabilitiesForCompatibleFlavor(defaultRuntimeFlavor()),
+    onNone: () => capabilitiesForCompatibleFlavor(defaultFlavor),
     onSome: (resolvedRoute) => capabilitiesForRoute(resolvedRoute)
   })
 

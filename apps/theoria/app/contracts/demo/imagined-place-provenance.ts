@@ -1,4 +1,4 @@
-import { type Equivalence, type Option, Schema } from "effect"
+import { type Equivalence, Option, Predicate, Schema, String } from "effect"
 import * as Arr from "effect/Array"
 import type * as Record from "effect/Record"
 
@@ -15,7 +15,9 @@ import { type PlaceBuild } from "../imagined-place-result.js"
  */
 export const PlaceStep = Schema.Literal("compose", "propose", "record", "arrange")
 export type PlaceStep = typeof PlaceStep.Type
-export const placeSteps: ReadonlyArray<PlaceStep> = PlaceStep.literals
+const PlaceSteps = Schema.Array(PlaceStep)
+type PlaceSteps = typeof PlaceSteps.Type
+export const placeSteps: PlaceSteps = PlaceStep.literals
 
 /**
  * The acts of the story as the page lays them out: the arrival, the three
@@ -78,7 +80,7 @@ const site = (id: CodeSiteId, step: PlaceStep, match: string, pkg: CardId): Code
  * line. The order within a step is the order of the lines in the sample.
  */
 export const composeSite = site("compose", "compose", "composer.forward(", "effect-inference")
-export const inferenceSite = site("inference", "compose", "InferenceTesting.staticLanguageModel(", "effect-inference")
+export const inferenceSite = site("inference", "compose", "InferenceTesting.languageModel(", "effect-inference")
 export const proposalDigestSite = site("proposal-digest", "propose", "digestSchemaValue(Proposal,", "digest")
 export const proposalSignatureSite = site("proposal-signature", "propose", "ed25519Sign(proposer.secretKey", "sign")
 export const sealSite = site("seal", "propose", "seal(\"xchacha20-poly1305\"", "seal")
@@ -106,7 +108,9 @@ const codeSites: Record<CodeSiteId, CodeSite> = {
 /** The canonical site named by `id`. */
 export const codeSite = (id: CodeSiteId): CodeSite => codeSites[id]
 
-export const allCodeSites: ReadonlyArray<CodeSite> = Arr.map(CodeSiteId.literals, codeSite)
+const CodeSites = Schema.Array(CodeSite)
+type CodeSites = typeof CodeSites.Type
+export const allCodeSites: CodeSites = Arr.map(CodeSiteId.literals, codeSite)
 
 /**
  * Which build a drawing is of: the content ID of the version being drawn.
@@ -193,15 +197,31 @@ export const decodeMark: (value: unknown) => Option.Option<PlaceMark> = Schema.d
 )
 
 /** The call a site's line makes, by name: `composer.forward(` is `composer.forward`. */
-export const codeSiteCall = (site: CodeSite): string => site.match.slice(0, site.match.indexOf("("))
+export const codeSiteCall = (site: CodeSite): string =>
+  String.slice(
+    0,
+    Option.getOrElse(String.indexOf("(")(site.match), () => String.length(site.match))
+  )(site.match)
 
 /** The code site a code-line mark names, if the sample has such a line. */
 export const codeSiteOf = (step: PlaceStep, match: string): Option.Option<CodeSite> =>
-  Arr.findFirst(allCodeSites, (candidate) => candidate.step === step && candidate.match === match)
+  Arr.findFirst(
+    allCodeSites,
+    Predicate.and(
+      (candidate: CodeSite) => String.Equivalence(candidate.step, step),
+      (candidate) => String.Equivalence(candidate.match, match)
+    )
+  )
 
 /** The code site a line of `step`'s sample is, if the line is one that made something on the page. */
 export const codeSiteOnLine = (step: PlaceStep, line: string): Option.Option<CodeSite> =>
-  Arr.findFirst(allCodeSites, (candidate) => candidate.step === step && line.includes(candidate.match))
+  Arr.findFirst(
+    allCodeSites,
+    Predicate.and(
+      (candidate: CodeSite) => String.Equivalence(candidate.step, step),
+      (candidate) => String.includes(candidate.match)(line)
+    )
+  )
 
 /**
  * What a visitor pointing at a mark is told: what it is, the facts about it

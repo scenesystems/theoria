@@ -5,9 +5,8 @@
  */
 import { Boolean, Effect, Inspectable, Match, Number, Option, String } from "effect"
 
-import type { CapabilityRequirements } from "../contracts/CapabilityRequirements.js"
-import type { RuntimeCapabilities } from "../contracts/RuntimeCapabilities.js"
-import { CapabilityMismatch } from "../Errors/Capability.js"
+import type { Capabilities, Requirements } from "../Capabilities.js"
+import { CapabilityMismatch } from "../InferenceError.js"
 
 const validateBooleanRequirement = (
   capability: string,
@@ -32,8 +31,8 @@ const validateBooleanRequirement = (
   )
 
 const validateStructuredOutputRequirement = (
-  required: Option.Option<RuntimeCapabilities["structuredOutput"]>,
-  supported: RuntimeCapabilities["structuredOutput"]
+  required: Option.Option<Capabilities["structuredOutput"]>,
+  supported: Capabilities["structuredOutput"]
 ): Effect.Effect<void, CapabilityMismatch> =>
   required.pipe(
     Option.match({
@@ -106,8 +105,8 @@ const validateMinimumContextTokens = (
  * @since 0.1.0
  */
 export const ensureCapabilityRequirements = (
-  requirements: Option.Option<CapabilityRequirements>,
-  capabilities: RuntimeCapabilities
+  requirements: Option.Option<Requirements>,
+  capabilities: Capabilities
 ): Effect.Effect<void, CapabilityMismatch> =>
   requirements.pipe(
     Option.match({

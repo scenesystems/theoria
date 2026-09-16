@@ -1,10 +1,10 @@
-import { Match, Option } from "effect"
+import { Boolean, Match, Number, Option, Schema, String } from "effect"
 import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceSearch, ShownGeometry } from "../../atoms/imagined-place-render.js"
-import type { CodeAnnotation } from "../primitives/code/CodeLine.js"
+import { CodeAnnotation } from "../primitives/code/CodeLine.js"
 
 import type { PlaceStep } from "./placeSteps.js"
 import { currentVersion, searching, shortId, signatureFor, signatureLabel } from "./placeViewModel.js"
@@ -17,25 +17,46 @@ import { currentVersion, searching, shortId, signatureFor, signatureLabel } from
 const annotation = (match: string, text: Option.Option<string>): Option.Option<CodeAnnotation> =>
   Option.map(text, (value) => ({ match, text: value }))
 
-const composeValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> =>
+const CodeAnnotations = Schema.Array(CodeAnnotation)
+type CodeAnnotations = typeof CodeAnnotations.Type
+
+const numberText = Schema.encodeSync(Schema.NumberFromString)
+
+const fixedDecimal = (value: number, places: number): string => {
+  const parts = String.split(numberText(Number.round(value, places)), ".")
+  return Arr.join(
+    Arr.make(
+      Arr.headNonEmpty(parts),
+      String.padEnd(places, "0")(Option.getOrElse(Arr.get(parts, 1), () => ""))
+    ),
+    "."
+  )
+}
+
+const composeValues = (build: PlaceBuild): CodeAnnotations =>
   Arr.getSomes([
     annotation(
       "composer.forward(",
       Option.some(
-        `“${build.artifact.composition.title}” · ${String(build.artifact.composition.features.length)} features`
+        `“${build.artifact.composition.title}” · ${
+          numberText(Arr.length(build.artifact.composition.features))
+        } features`
       )
     ),
     annotation(
-      "InferenceTesting.staticLanguageModel(",
+      "InferenceTesting.languageModel(",
       Option.map(
-        Arr.findFirst(build.evidence.inference, (evidence) => evidence.program === "theoria-place-composer"),
+        Arr.findFirst(
+          build.evidence.inference,
+          (evidence) => String.Equivalence(evidence.program, "theoria-place-composer")
+        ),
         (evidence) => evidence.responseModel
       )
     )
   ])
 
-const proposeValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
-  const neighbor = Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "neighbor")
+const proposeValues = (build: PlaceBuild): CodeAnnotations => {
+  const neighbor = Arr.findFirst(build.proposals, (record) => String.Equivalence(record.proposal.proposer, "neighbor"))
   const note = build.evidence.sealedNote
   return Arr.getSomes([
     annotation(
@@ -45,12 +66,12 @@ const proposeValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
     annotation("ed25519Sign(proposer.secretKey", Option.map(neighbor, (record) => signatureLabel(record.signature))),
     annotation(
       "seal(\"xchacha20-poly1305\"",
-      Option.some(`${String(note.envelopeBytes)} bytes · opened with your key`)
+      Option.some(`${numberText(note.envelopeBytes)} bytes · opened with your key`)
     )
   ])
 }
 
-const recordValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
+const recordValues = (build: PlaceBuild): CodeAnnotations => {
   const lineage = build.evidence.lineage
   return Arr.getSomes([
     annotation(
@@ -76,22 +97,25 @@ const recordValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
  * where the search stands: the two are read from different things, since
  * the drawing shown need not be the best the search has found.
  */
-const arrangeValues = (search: PlaceSearch, shown: ShownGeometry): ReadonlyArray<CodeAnnotation> => {
+const arrangeValues = (search: PlaceSearch, shown: ShownGeometry): CodeAnnotations => {
   const { evidence } = search.best
   return [
     {
       match: "Text.layoutLinesWith(",
-      text: `${String(shown.lineCount)} lines at ${String(shown.stageWidth)} px`
+      text: `${numberText(shown.lineCount)} lines at ${numberText(shown.stageWidth)} px`
     },
     {
       match: "Statistics.minimum(",
-      text: `closest markers ${String(Math.round(shown.minimumSeparation * 100))}% of width apart`
+      text: `closest markers ${
+        numberText(Number.round(Number.multiply(shown.minimumSeparation, 100), 0))
+      }% of width apart`
     },
     {
       match: "Study.tell(",
-      text: searching(search)
-        ? `trial ${String(search.tried.length)} of ${String(renderTrials)}`
-        : `${String(evidence.trials)} tried · best loss ${evidence.bestLoss.toFixed(3)}`
+      text: Boolean.match(searching(search), {
+        onTrue: () => `trial ${numberText(Arr.length(search.tried))} of ${numberText(renderTrials)}`,
+        onFalse: () => `${numberText(evidence.trials)} tried · best loss ${fixedDecimal(evidence.bestLoss, 3)}`
+      })
     }
   ]
 }
@@ -101,7 +125,7 @@ export const placeLiveValues = (
   build: Option.Option<PlaceBuild>,
   search: Option.Option<PlaceSearch>,
   shown: Option.Option<ShownGeometry>
-): ReadonlyArray<CodeAnnotation> =>
+): CodeAnnotations =>
   Match.value(step).pipe(
     Match.when("compose", () => Option.match(build, { onNone: () => [], onSome: composeValues })),
     Match.when("propose", () => Option.match(build, { onNone: () => [], onSome: proposeValues })),

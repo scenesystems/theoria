@@ -1,4 +1,4 @@
-import { Match, Option, Schema } from "effect"
+import { Match, Option, Schema, String } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceStep, placeSteps } from "../../../contracts/demo/imagined-place-provenance.js"
@@ -20,10 +20,13 @@ export const PlaceStepDefinition = Schema.Struct({
 })
 export type PlaceStepDefinition = typeof PlaceStepDefinition.Type
 
+const PlaceStepDefinitions = Schema.Array(PlaceStepDefinition)
+type PlaceStepDefinitions = typeof PlaceStepDefinitions.Type
+
 const define = (
   id: PlaceStep,
   name: string,
-  packages: ReadonlyArray<CardId>,
+  packages: PlaceStepDefinition["packages"],
   code: string
 ): PlaceStepDefinition => ({ id, name, packages, code })
 
@@ -38,7 +41,7 @@ const composer = yield* Module.predict("theoria-place-composer", signature)
 
 // The model's answer was recorded once; the program still checks it every time.
 const composition = yield* composer.forward({ brief }).pipe(
-  Effect.provide(InferenceTesting.staticLanguageModel(recorded))
+  Effect.provide(InferenceTesting.languageModel(recorded))
 )
 const origin = { brief, composition, accepted: [] }`
 
@@ -67,11 +70,12 @@ const lines = Text.layoutLinesWith(prepared, { maxWidth, lineHeight }, widthBesi
 // Six numbers describe how the markers meander down the stage. An arrangement
 // costs more when markers crowd or lines get squeezed; lower is better.
 const space = yield* SearchSpace.make({
-  edge: SearchSpace.float(0.5, 0.9), swing: SearchSpace.float(0, 0.3), phase: SearchSpace.float(-Math.PI, Math.PI),
+  edge: SearchSpace.float(0.5, 0.9), swing: SearchSpace.float(0, 0.3),
+  phase: SearchSpace.float(Number.negate(Numeric.pi), Numeric.pi),
   turns: SearchSpace.float(0.5, 2.5), top: SearchSpace.float(0.04, 0.6), step: SearchSpace.float(0.03, 0.24)
 })
 const separation = Statistics.minimum(Chunk.map(pairs, ([a, b]) => Geometry.euclideanDistance(a, b)))
-const raggedness = Statistics.standardDeviation(Chunk.map(lines, (line) => line.width / maxWidth))
+const raggedness = Statistics.standardDeviation(Chunk.map(lines, (line) => Number.unsafeDivide(line.width, maxWidth)))
 
 // The same seeded search runs here and on the server; each trial is one frame.
 const handle = yield* Study.open({ space, sampler: Sampler.tpe({ seed: 42 }), objective, trials: 36 })
@@ -90,7 +94,7 @@ export const placeStepDefinition = (step: PlaceStep): PlaceStepDefinition =>
     Match.exhaustive
   )
 
-export const placeStepDefinitions: ReadonlyArray<PlaceStepDefinition> = Arr.map(placeSteps, placeStepDefinition)
+export const placeStepDefinitions: PlaceStepDefinitions = Arr.map(placeSteps, placeStepDefinition)
 
 export const placeStepIndex = (step: PlaceStep): number =>
-  Option.getOrElse(Arr.findFirstIndex(placeSteps, (candidate) => candidate === step), () => 0)
+  Option.getOrElse(Arr.findFirstIndex(placeSteps, (candidate) => String.Equivalence(candidate, step)), () => 0)

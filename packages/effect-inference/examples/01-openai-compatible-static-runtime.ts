@@ -3,35 +3,31 @@
  * OpenAI-compatible endpoint without contacting the endpoint.
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect } from "effect"
+import { Boolean, Effect, Function } from "effect"
 
-import type { DesiredRuntimeDescriptor } from "@scenesystems/effect-inference/Contracts"
 import * as OpenAiCompatible from "@scenesystems/effect-inference/OpenAiCompatible"
-import * as Runtime from "@scenesystems/effect-inference/Runtime"
+import * as RuntimeEvidence from "@scenesystems/effect-inference/RuntimeEvidence"
+import type * as RuntimeRequest from "@scenesystems/effect-inference/RuntimeRequest"
 
-const desired: DesiredRuntimeDescriptor = {
-  artifact: { modelRef: "local/llama-3.2" }
+const request: RuntimeRequest.RuntimeRequest = {
+  model: { modelRef: "local/llama-3.2" }
 }
 
-const resolution = OpenAiCompatible.makeOpenAiCompatibleResolution(
-  desired,
+const resolution = OpenAiCompatible.resolve(
+  request,
   "http://localhost:11434/v1"
 )
 
-const evidence = Runtime.makeRuntimeEvidence({
-  resolution,
-  resolvedRuntime: {
-    responseModel: "local/llama-3.2"
-  }
-})
+const evidence = RuntimeEvidence.make(resolution, { responseModel: "local/llama-3.2" })
 
 export const program = Effect.log({
-  requestedModel: evidence.desired.artifact.modelRef,
-  routeFamily: evidence.resolvedRoute.route.family,
-  baseUrl: evidence.resolvedRoute.route.baseUrl,
-  responseModel: evidence.resolvedRuntime.responseModel
+  requestedModel: evidence.request.model.modelRef,
+  routeFamily: evidence.route.route.family,
+  baseUrl: evidence.route.route.baseUrl,
+  responseModel: evidence.response.responseModel
 })
 
-if (import.meta.main) {
-  BunRuntime.runMain(program)
-}
+Boolean.match(import.meta.main, {
+  onTrue: () => BunRuntime.runMain(program),
+  onFalse: Function.constVoid
+})
