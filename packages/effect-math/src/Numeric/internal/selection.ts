@@ -4,28 +4,34 @@
  * @since 0.1.0
  * @category internal
  */
-import { Number as EffectNumber, Option, pipe } from "effect"
-import * as Arr from "effect/Array"
+import { Boolean, Chunk, Number as EffectNumber, Option, Schema } from "effect"
+
+class ArgmaxState extends Schema.Class<ArgmaxState>("ArgmaxState")({
+  bestIndex: Schema.NonNegativeInt,
+  bestValue: Schema.Number
+}) {}
+const isNonNaN = Schema.is(Schema.NonNaN)
 
 /**
- * Returns the index of the maximum element. `None` for empty arrays.
- * Ties broken by first index.
+ * Returns the index of the maximum element. `None` for an empty chunk.
+ * Ties use the first index. Ordered values supersede NaN; an all-NaN chunk
+ * retains its first index.
  *
  * @since 0.1.0
  * @category internal
  */
-export const argmaxIndex = (values: ReadonlyArray<number>): Option.Option<number> =>
-  pipe(
-    Arr.head(values),
-    Option.map((first) => {
-      const { bestIdx } = Arr.reduce(
-        Arr.drop(values, 1),
-        { index: 1, bestIdx: 0, bestVal: first },
-        (acc, val) =>
-          EffectNumber.greaterThan(val, acc.bestVal)
-            ? { index: acc.index + 1, bestIdx: acc.index, bestVal: val }
-            : { index: acc.index + 1, bestIdx: acc.bestIdx, bestVal: acc.bestVal }
-      )
-      return bestIdx
-    })
+export const argmaxIndex = (values: Chunk.Chunk<number>): Option.Option<number> =>
+  Option.map(
+    Chunk.reduce(values, Option.none<ArgmaxState>(), (state, value, index) =>
+      Option.match(state, {
+        onNone: () => Option.some(new ArgmaxState({ bestIndex: index, bestValue: value })),
+        onSome: (current) =>
+          Option.some(
+            Boolean.match(Boolean.and(isNonNaN(value), EffectNumber.greaterThan(value, current.bestValue)), {
+              onFalse: () => current,
+              onTrue: () => new ArgmaxState({ bestIndex: index, bestValue: value })
+            })
+          )
+      })),
+    (state) => state.bestIndex
   )

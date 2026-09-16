@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category operations
  */
-import { BigDecimal, Chunk, Clock, Effect, Match, Number as EffectNumber, Option, Schema } from "effect"
+import { BigDecimal, Chunk, Clock, Effect, Inspectable, Match, Number as EffectNumber, Option, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import {
@@ -45,7 +45,7 @@ import {
  * @example
  * ```ts
  * import { Numeric } from "@scenesystems/effect-math"
- * import { Effect, Option, pipe } from "effect"
+ * import { Boolean, Effect, Number as N, Option, pipe } from "effect"
  *
  * export const program = Effect.gen(function*() {
  *   const quotient = yield* Option.match(Numeric.safeDivide(10, 2), {
@@ -63,7 +63,10 @@ import {
  *
  *   return yield* Effect.succeed({ quotient, zeroFallback, curried }).pipe(
  *     Effect.filterOrFail(
- *       (result) => result.quotient === 5 && result.zeroFallback === 0 && result.curried === 2,
+ *       (result) => Boolean.and(
+ *         N.Equivalence(result.quotient, 5),
+ *         Boolean.and(N.Equivalence(result.zeroFallback, 0), N.Equivalence(result.curried, 2))
+ *       ),
  *       () => "UnexpectedDivisionResult"
  *     )
  *   )
@@ -73,10 +76,7 @@ import {
  * @since 0.1.0
  * @category operations
  */
-export const safeDivide: {
-  (divisor: number): (dividend: number) => Option.Option<number>
-  (dividend: number, divisor: number): Option.Option<number>
-} = EffectNumber.divide
+export const safeDivide: typeof EffectNumber.divide = EffectNumber.divide
 
 /**
  * Divides with JavaScript's IEEE 754 behavior, including infinite and `NaN`
@@ -84,10 +84,7 @@ export const safeDivide: {
  * @since 0.1.0
  * @category operations
  */
-export const unsafeDivide: {
-  (divisor: number): (dividend: number) => number
-  (dividend: number, divisor: number): number
-} = EffectNumber.unsafeDivide
+export const unsafeDivide: typeof EffectNumber.unsafeDivide = EffectNumber.unsafeDivide
 
 /**
  * Divides finite operands and returns `None` for a zero divisor or non-finite
@@ -95,7 +92,7 @@ export const unsafeDivide: {
  * @since 0.1.0
  * @category operations
  */
-export const safeDivideFinite: (dividend: number, divisor: number) => Option.Option<number> = Scalar.safeDivideFinite
+export const safeDivideFinite = Scalar.safeDivideFinite
 
 /**
  * Accepts finite numbers and rejects positive infinity, negative infinity, and
@@ -110,20 +107,14 @@ export const isFinite: (value: number) => boolean = Schema.is(FiniteScalar)
  * @since 0.4.0
  * @category operations
  */
-export const min: {
-  (that: number): (self: number) => number
-  (self: number, that: number): number
-} = EffectNumber.min
+export const min: typeof EffectNumber.min = EffectNumber.min
 
 /**
  * Chooses the larger ordered number and supports data-first or pipeable calls.
  * @since 0.4.0
  * @category operations
  */
-export const max: {
-  (that: number): (self: number) => number
-  (self: number, that: number): number
-} = EffectNumber.max
+export const max: typeof EffectNumber.max = EffectNumber.max
 
 /**
  * Returns the non-negative magnitude of a number. Negative zero becomes
@@ -131,7 +122,7 @@ export const max: {
  * @since 0.4.0
  * @category operations
  */
-export const abs: (value: number) => number = Math.abs
+export const abs = (value: number): number => EffectNumber.sum(EffectNumber.max(value, EffectNumber.negate(value)), 0)
 
 /**
  * Returns the principal square root. Negative input produces `NaN`, positive
@@ -184,10 +175,7 @@ export const pow: (base: number, exponent: number) => number = Math.pow
  * @since 0.4.0
  * @category operations
  */
-export const round: {
-  (precision: number): (self: number) => number
-  (self: number, precision: number): number
-} = EffectNumber.round
+export const round: typeof EffectNumber.round = EffectNumber.round
 
 const mapFiniteToInteger = (
   value: number,
@@ -282,16 +270,16 @@ export const expm1Strict: (value: number) => number = Transcendental.expm1Strict
  * @since 0.1.0
  * @category operations
  */
-export const sum: (values: Iterable<number>) => number = EffectNumber.sumAll
+export const sum: typeof EffectNumber.sumAll = EffectNumber.sumAll
 
 /**
  * Finds the zero-based index of the maximum element, or `None` for
- * empty arrays. When multiple elements share the maximum value, returns
+ * an empty chunk. When multiple elements share the maximum value, returns
  * the index of the first occurrence.
  * @since 0.1.0
  * @category operations
  */
-export const argmaxIndex: (values: ReadonlyArray<number>) => Option.Option<number> = Selection.argmaxIndex
+export const argmaxIndex = Selection.argmaxIndex
 
 /**
  * Constrains a value to the closed interval `[minimum, maximum]`. Values
@@ -300,10 +288,7 @@ export const argmaxIndex: (values: ReadonlyArray<number>) => Option.Option<numbe
  * @since 0.1.0
  * @category operations
  */
-export const clamp: {
-  (options: { readonly minimum: number; readonly maximum: number }): (self: number) => number
-  (self: number, options: { readonly minimum: number; readonly maximum: number }): number
-} = EffectNumber.clamp
+export const clamp: typeof EffectNumber.clamp = EffectNumber.clamp
 
 /**
  * Tests whether a value belongs to the closed interval
@@ -311,10 +296,7 @@ export const clamp: {
  * @since 0.1.0
  * @category operations
  */
-export const between: {
-  (options: { readonly minimum: number; readonly maximum: number }): (self: number) => boolean
-  (self: number, options: { readonly minimum: number; readonly maximum: number }): boolean
-} = EffectNumber.between
+export const between: typeof EffectNumber.between = EffectNumber.between
 
 /**
  * Yields the immutable descriptor used to register Numeric capabilities.
@@ -367,7 +349,9 @@ export const unsafeDivideValidated = (input: unknown) =>
       onNone: () =>
         new NumericDomainViolationError({
           operation: "unsafeDivide",
-          message: `Division by zero: ${decoded.dividend} / ${decoded.divisor}`
+          message: `Division by zero: ${Inspectable.toStringUnknown(decoded.dividend)} / ${
+            Inspectable.toStringUnknown(decoded.divisor)
+          }`
         }),
       onSome: Effect.succeed
     })
@@ -434,22 +418,23 @@ export const argmaxValidated = (input: unknown) =>
         })
       )
     )
-    return Selection.argmaxIndex(decoded.values)
+    return Selection.argmaxIndex(Chunk.fromIterable(decoded.values))
   })
 
 /**
- * Adds an array using the configured backend and finite-result policy.
+ * Adds a dense chunk using the configured backend and finite-result policy.
  *
  * @remarks
- * The `"typed-array"` backend uses Kahan-compensated `Float64Array`
- * accumulation. The `"scalar"` backend adds in array order. Strict precision
+ * The legacy `"typed-array"` backend policy selects Kahan-compensated chunk
+ * accumulation without changing the dense carrier. The `"scalar"` backend
+ * adds in chunk order. Strict precision
  * rejects a non-finite result with `NumericDomainViolationError`. Enabled
  * diagnostics logs the selected policies, input size, and elapsed milliseconds.
  *
  * @example
  * ```ts
  * import { Numeric } from "@scenesystems/effect-math"
- * import { Effect, Layer } from "effect"
+ * import { Chunk, Effect, Layer, Number as N } from "effect"
  * import {
  *   BackendPolicyService,
  *   DiagnosticsPolicyService,
@@ -462,10 +447,10 @@ export const argmaxValidated = (input: unknown) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * export const program = Numeric.sumWithPolicies([1e15, 1, -1e15]).pipe(
+ * export const program = Numeric.sumWithPolicies(Chunk.make(1e15, 1, N.negate(1e15))).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (sum) => sum === 1,
+ *     (sum) => N.Equivalence(sum, 1),
  *     () => "UnexpectedCompensatedSum"
  *   )
  * )
@@ -474,7 +459,7 @@ export const argmaxValidated = (input: unknown) =>
  * @since 0.1.0
  * @category operations
  */
-export const sumWithPolicies = (values: ReadonlyArray<number>) =>
+export const sumWithPolicies = (values: Chunk.Chunk<number>) =>
   Effect.gen(function*() {
     const backend = yield* BackendPolicyService
     const precision = yield* PrecisionPolicyService
@@ -487,7 +472,7 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
     )
 
     const result = yield* Match.value(backend.policy).pipe(
-      Match.when("typed-array", () => Effect.sync(() => Reduction.sumTypedArray(new Float64Array(values)))),
+      Match.when("typed-array", () => Effect.succeed(Reduction.sumCompensated(values))),
       Match.when("scalar", () => Effect.succeed(Reduction.sumScalar(values))),
       Match.exhaustive
     )
@@ -496,11 +481,11 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
       Match.when("strict", () =>
         Effect.filterOrFail(
           Effect.succeed(result),
-          Number.isFinite,
+          Schema.is(Schema.Finite),
           () =>
             new NumericDomainViolationError({
               operation: "sumWithPolicies",
-              message: `Non-finite sum result: ${result}`
+              message: `Non-finite sum result: ${Inspectable.toStringUnknown(result)}`
             })
         ).pipe(Effect.asVoid)),
       Match.when("relaxed", () => Effect.void),
@@ -515,8 +500,8 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
             Effect.annotateLogs({
               backend: backend.policy,
               precision: precision.policy,
-              inputSize: String(values.length),
-              elapsedMs: String(EffectNumber.subtract(elapsed, startedAt))
+              inputSize: Inspectable.toStringUnknown(Chunk.size(values)),
+              elapsedMs: Inspectable.toStringUnknown(EffectNumber.subtract(elapsed, startedAt))
             })
           )
         })),
@@ -539,7 +524,7 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
  * @example
  * ```ts
  * import { Numeric } from "@scenesystems/effect-math"
- * import { Effect, Layer } from "effect"
+ * import { Boolean, Effect, Layer, Number as N } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
@@ -553,7 +538,7 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
  * export const program = Numeric.log1pWithPolicies(1e-15).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (result) => result > 0 && result < 1e-14,
+ *     (result) => Boolean.and(N.greaterThan(result, 0), N.lessThan(result, 1e-14)),
  *     () => "UnexpectedLog1pResult"
  *   )
  * )
@@ -578,8 +563,8 @@ export const log1pWithPolicies = (value: number) =>
         Effect.logDebug("Numeric.log1pWithPolicies").pipe(
           Effect.annotateLogs({
             precision: precision.policy,
-            input: String(value),
-            result: String(result)
+            input: Inspectable.toStringUnknown(value),
+            result: Inspectable.toStringUnknown(result)
           })
         )),
       Match.when("disabled", () => Effect.void),
@@ -616,8 +601,8 @@ export const expm1WithPolicies = (value: number) =>
         Effect.logDebug("Numeric.expm1WithPolicies").pipe(
           Effect.annotateLogs({
             precision: precision.policy,
-            input: String(value),
-            result: String(result)
+            input: Inspectable.toStringUnknown(value),
+            result: Inspectable.toStringUnknown(result)
           })
         )),
       Match.when("disabled", () => Effect.void),
@@ -799,7 +784,10 @@ export const logaddexpWithPolicies = (a: number, b: number) =>
     operation: "Numeric.logaddexpWithPolicies",
     compute: () => Logspace.logaddexp(a, b),
     makeError: (message) => new NumericDomainViolationError({ operation: "logaddexpWithPolicies", message }),
-    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
+    annotations: (result) => ({
+      input: Inspectable.toStringUnknown(Chunk.make(a, b)),
+      result: Inspectable.toStringUnknown(result)
+    })
   })
 
 /**
@@ -808,10 +796,13 @@ export const logaddexpWithPolicies = (a: number, b: number) =>
  * @since 0.2.0
  * @category operations
  */
-export const logSumExpWithPolicies = (values: ReadonlyArray<number>) =>
+export const logSumExpWithPolicies = (values: Chunk.Chunk<number>) =>
   withScalarPolicyGuards({
     operation: "Numeric.logSumExpWithPolicies",
-    compute: () => LogSumExp.logSumExpChunk(Chunk.fromIterable(values)),
+    compute: () => LogSumExp.logSumExpChunk(values),
     makeError: (message) => new NumericDomainViolationError({ operation: "logSumExpWithPolicies", message }),
-    annotations: (result) => ({ inputSize: String(values.length), result: String(result) })
+    annotations: (result) => ({
+      inputSize: Inspectable.toStringUnknown(Chunk.size(values)),
+      result: Inspectable.toStringUnknown(result)
+    })
   })
