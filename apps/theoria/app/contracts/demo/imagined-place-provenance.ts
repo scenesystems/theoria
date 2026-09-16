@@ -79,11 +79,21 @@ const site = (id: CodeSiteId, step: PlaceStep, match: string, pkg: CardId): Code
  */
 export const composeSite = site("compose", "compose", "composer.forward(", "effect-inference")
 export const inferenceSite = site("inference", "compose", "InferenceTesting.staticLanguageModel(", "effect-inference")
-export const proposalDigestSite = site("proposal-digest", "propose", "digestSchemaValue(Proposal,", "digest")
+export const proposalDigestSite = site("proposal-digest", "propose", "ContentDigest.fromSchema(Proposal,", "digest")
 export const proposalSignatureSite = site("proposal-signature", "propose", "ed25519Sign(proposer.secretKey", "sign")
 export const sealSite = site("seal", "propose", "seal(\"xchacha20-poly1305\"", "seal")
-export const originDigestSite = site("origin-digest", "record", "digestSchemaValue(PlaceArtifact, origin,", "digest")
-export const mergedDigestSite = site("merged-digest", "record", "digestSchemaValue(PlaceArtifact, merged,", "digest")
+export const originDigestSite = site(
+  "origin-digest",
+  "record",
+  "ContentDigest.fromSchema(PlaceArtifact, origin,",
+  "digest"
+)
+export const mergedDigestSite = site(
+  "merged-digest",
+  "record",
+  "ContentDigest.fromSchema(PlaceArtifact, merged,",
+  "digest"
+)
 export const versionSignatureSite = site("version-signature", "record", "ed25519Sign(author.secretKey", "sign")
 export const layoutSite = site("layout", "arrange", "Text.layoutLinesWith(", "effect-text")
 export const separationSite = site("separation", "arrange", "Statistics.minimum(", "effect-math")
