@@ -13,9 +13,50 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Bytes, Entropy, SlhDsa } from "@scenesystems/sign"
-import { Array as Arr, Effect, Number as N, Schema } from "effect"
+import { Array as Arr, Data, Effect, Encoding, Layer, Match, Number as N, Schema } from "effect"
+import { PublicSignatureKatFixture } from "../scripts/fixture-contract.js"
+import katCorpus from "./fixtures/conformance/sign-public-kat.json" with { type: "json" }
 
 const message = Bytes.fromString("hash-based hello")
+
+const deterministicEntropy = (entropy: Uint8Array) =>
+  Layer.succeed(
+    Entropy.Entropy,
+    Data.struct({
+      bytes: (length: number) =>
+        Effect.succeed(entropy).pipe(
+          Effect.filterOrFail(
+            (bytes) => N.Equivalence(bytes.length, length),
+            () => new Entropy.GenerationFailed({ length, reason: "unexpected deterministic entropy request" })
+          )
+        )
+    })
+  )
+
+describe("SLH-DSA independent ACVP conformance", () => {
+  it.effect("reproduces every exposed SHA2 FIPS 205 key-generation answer", () =>
+    Effect.gen(function*() {
+      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(PublicSignatureKatFixture))(katCorpus)
+      yield* Effect.forEach(fixture.slhDsa, (vector) =>
+        Effect.gen(function*() {
+          const entropy = yield* Encoding.decodeHex(vector.entropy)
+          const keys = yield* Match.value(vector.parameterSet).pipe(
+            Match.when("SLH-DSA-SHA2-128s", () => SlhDsa.generateSha2128sKeyPair()),
+            Match.when("SLH-DSA-SHA2-128f", () => SlhDsa.generateSha2128fKeyPair()),
+            Match.when("SLH-DSA-SHA2-192f", () => SlhDsa.generateSha2192fKeyPair()),
+            Match.when("SLH-DSA-SHA2-256f", () => SlhDsa.generateSha2256fKeyPair()),
+            Match.exhaustive,
+            Effect.provide(deterministicEntropy(entropy))
+          )
+          expect(Encoding.encodeHex(keys.publicKey)).toBe(
+            Encoding.encodeHex(yield* Encoding.decodeHex(vector.publicKey))
+          )
+          expect(Encoding.encodeHex(keys.secretKey)).toBe(
+            Encoding.encodeHex(yield* Encoding.decodeHex(vector.secretKey))
+          )
+        }))
+    }))
+})
 
 describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
   it.effect("sign → verify roundtrip", () =>

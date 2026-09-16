@@ -1,10 +1,49 @@
 /** ML-DSA FIPS 204 behavior through the public concern API. */
 import { describe, expect, it } from "@effect/vitest"
 import { Bytes, Entropy, MlDsa } from "@scenesystems/sign"
-import { Array as Arr, Effect, Number as N, Schema } from "effect"
+import { Array as Arr, Data, Effect, Encoding, Layer, Match, Number as N, Schema } from "effect"
+import { PublicSignatureKatFixture } from "../scripts/fixture-contract.js"
+import katCorpus from "./fixtures/conformance/sign-public-kat.json" with { type: "json" }
 
 const message = Bytes.fromString("post-quantum hello")
 const emptyContext = Bytes.fromString("")
+
+const deterministicEntropy = (entropy: Uint8Array) =>
+  Layer.succeed(
+    Entropy.Entropy,
+    Data.struct({
+      bytes: (length: number) =>
+        Effect.succeed(entropy).pipe(
+          Effect.filterOrFail(
+            (bytes) => N.Equivalence(bytes.length, length),
+            () => new Entropy.GenerationFailed({ length, reason: "unexpected deterministic entropy request" })
+          )
+        )
+    })
+  )
+
+describe("ML-DSA independent ACVP conformance", () => {
+  it.effect("reproduces ML-DSA-44 and ML-DSA-87 FIPS 204 key-generation answers", () =>
+    Effect.gen(function*() {
+      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(PublicSignatureKatFixture))(katCorpus)
+      yield* Effect.forEach(fixture.mlDsa, (vector) =>
+        Effect.gen(function*() {
+          const entropy = yield* Encoding.decodeHex(vector.entropy)
+          const keys = yield* Match.value(vector.parameterSet).pipe(
+            Match.when("ML-DSA-44", () => MlDsa.generateKeyPair44()),
+            Match.when("ML-DSA-87", () => MlDsa.generateKeyPair87()),
+            Match.exhaustive,
+            Effect.provide(deterministicEntropy(entropy))
+          )
+          expect(Encoding.encodeHex(keys.publicKey)).toBe(
+            Encoding.encodeHex(yield* Encoding.decodeHex(vector.publicKey))
+          )
+          expect(Encoding.encodeHex(keys.secretKey)).toBe(
+            Encoding.encodeHex(yield* Encoding.decodeHex(vector.secretKey))
+          )
+        }))
+    }))
+})
 
 describe("ML-DSA-44", () => {
   it.effect("signs and verifies with the specified carrier sizes", () =>

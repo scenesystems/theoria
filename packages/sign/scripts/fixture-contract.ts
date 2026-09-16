@@ -81,6 +81,61 @@ export const MlDsa65Fixture = Schema.parseJson(
   })
 )
 
+export const PublicSignatureKatKeyPair = Schema.Struct({
+  sourceId: Schema.NonEmptyString,
+  parameterSet: Schema.NonEmptyString,
+  entropy: Hex,
+  publicKey: Hex,
+  secretKey: Hex
+})
+
+export const PublicSignatureKatVerification = Schema.Struct({
+  sourceId: Schema.NonEmptyString,
+  publicKey: Hex,
+  message: Hex,
+  signature: Hex,
+  expected: Schema.Boolean
+})
+
+const MlDsaKeyPair = PublicSignatureKatKeyPair.pipe(
+  Schema.omit("parameterSet"),
+  Schema.extend(Schema.Struct({ parameterSet: Schema.Literal("ML-DSA-44", "ML-DSA-87") }))
+)
+const SlhDsaKeyPair = PublicSignatureKatKeyPair.pipe(
+  Schema.omit("parameterSet"),
+  Schema.extend(Schema.Struct({
+    parameterSet: Schema.Literal("SLH-DSA-SHA2-128s", "SLH-DSA-SHA2-128f", "SLH-DSA-SHA2-192f", "SLH-DSA-SHA2-256f")
+  }))
+)
+
+export const PublicSignatureKat = Schema.Struct({
+  schema: Schema.Literal("@scenesystems/sign public signature KAT conformance v1"),
+  secp256k1: Schema.Struct({
+    ecdsa: Schema.Tuple(PublicSignatureKatVerification, PublicSignatureKatVerification),
+    bip340: Schema.Tuple(
+      Schema.Struct({
+        sourceId: Schema.NonEmptyString,
+        secretKey: Hex,
+        publicKey: Hex,
+        auxiliaryRandomness: Hex,
+        message: Hex,
+        signature: Hex,
+        expected: Schema.Literal(true)
+      }),
+      PublicSignatureKatVerification
+    )
+  }),
+  mlDsa: Schema.Tuple(MlDsaKeyPair, MlDsaKeyPair),
+  slhDsa: Schema.Tuple(
+    SlhDsaKeyPair,
+    SlhDsaKeyPair,
+    SlhDsaKeyPair,
+    SlhDsaKeyPair
+  )
+})
+
+export const PublicSignatureKatFixture = Schema.parseJson(PublicSignatureKat, { space: 2 })
+
 export const RsaWycheproofFixture = Schema.parseJson(Schema.Struct({
   testGroups: Schema.NonEmptyArray(Schema.Struct({
     keyJwk: RsaPublicJwk,
@@ -138,6 +193,7 @@ export const ConformancePayload = Schema.Struct({
     "ed25519.json",
     "p256.json",
     "ml-dsa-65.json",
+    "sign-public-kat.json",
     "rsa-wycheproof.json",
     "rsa-openssl.json",
     "jwt-openssl.json",
@@ -151,13 +207,13 @@ export const ConformancePayload = Schema.Struct({
   localVerdictRemaps: Schema.Array(VerdictRemap)
 })
 
-export const ConformanceManifest = Schema.parseJson(
-  Schema.Struct({
-    schema: Schema.Literal("@scenesystems/sign conformance provenance manifest v1"),
-    retrievalDate: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
-    payloads: Schema.NonEmptyArray(ConformancePayload)
-  })
-)
+export const ConformanceManifestData = Schema.Struct({
+  schema: Schema.Literal("@scenesystems/sign conformance provenance manifest v1"),
+  retrievalDate: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
+  payloads: Schema.NonEmptyArray(ConformancePayload)
+})
+
+export const ConformanceManifest = Schema.parseJson(ConformanceManifestData, { space: 2 })
 
 const fixturePath = (file: string) =>
   Effect.gen(function*() {

@@ -11,7 +11,62 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Bytes, Entropy, Secp256k1 } from "@scenesystems/sign"
-import { Array as Arr, Effect, Number as N, Schema } from "effect"
+import { Array as Arr, Data, Effect, Encoding, Layer, Number as N, Schema, Tuple } from "effect"
+import { PublicSignatureKatFixture } from "../scripts/fixture-contract.js"
+import katCorpus from "./fixtures/conformance/sign-public-kat.json" with { type: "json" }
+
+const deterministicEntropy = (entropy: Uint8Array) =>
+  Layer.succeed(
+    Entropy.Entropy,
+    Data.struct({
+      bytes: (length: number) =>
+        Effect.succeed(entropy).pipe(
+          Effect.filterOrFail(
+            (bytes) => N.Equivalence(bytes.length, length),
+            () => new Entropy.GenerationFailed({ length, reason: "unexpected deterministic entropy request" })
+          )
+        )
+    })
+  )
+
+describe("secp256k1 independent conformance", () => {
+  it.effect("accepts and rejects pinned Wycheproof ECDSA P1363 vectors", () =>
+    Effect.gen(function*() {
+      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(PublicSignatureKatFixture))(katCorpus)
+      yield* Effect.forEach(fixture.secp256k1.ecdsa, (vector) =>
+        Effect.gen(function*() {
+          const signature = yield* Encoding.decodeHex(vector.signature)
+          const message = yield* Encoding.decodeHex(vector.message)
+          const publicKey = yield* Encoding.decodeHex(vector.publicKey)
+          expect(yield* Secp256k1.verifyEcdsa(signature, message, publicKey)).toBe(vector.expected)
+        }))
+    }))
+
+  it.effect("reproduces BIP-340 vector 0 with deterministic auxiliary randomness", () =>
+    Effect.gen(function*() {
+      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(PublicSignatureKatFixture))(katCorpus)
+      const vector = Tuple.getFirst(fixture.secp256k1.bip340)
+      const secretKey = yield* Encoding.decodeHex(vector.secretKey)
+      const publicKey = yield* Encoding.decodeHex(vector.publicKey)
+      const auxiliaryRandomness = yield* Encoding.decodeHex(vector.auxiliaryRandomness)
+      const message = yield* Encoding.decodeHex(vector.message)
+      const signed = yield* Secp256k1.signSchnorr(message, secretKey, publicKey).pipe(
+        Effect.provide(deterministicEntropy(auxiliaryRandomness))
+      )
+      expect(Encoding.encodeHex(signed.signature)).toBe(Encoding.encodeHex(yield* Encoding.decodeHex(vector.signature)))
+      expect(yield* Secp256k1.verifySchnorr(signed.signature, message, publicKey)).toBe(true)
+    }))
+
+  it.effect("rejects the official BIP-340 negated-message signature", () =>
+    Effect.gen(function*() {
+      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(PublicSignatureKatFixture))(katCorpus)
+      const vector = Tuple.getSecond(fixture.secp256k1.bip340)
+      const signature = yield* Encoding.decodeHex(vector.signature)
+      const message = yield* Encoding.decodeHex(vector.message)
+      const publicKey = yield* Encoding.decodeHex(vector.publicKey)
+      expect(yield* Secp256k1.verifySchnorr(signature, message, publicKey)).toBe(false)
+    }))
+})
 
 describe("secp256k1 ECDSA — algorithm contracts", () => {
   const message = Bytes.fromString("hello secp256k1")

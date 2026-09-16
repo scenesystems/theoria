@@ -28,6 +28,7 @@ import {
   Ed25519Fixture,
   MlDsa65Fixture,
   P256Fixture,
+  PublicSignatureKatFixture,
   readConformanceFixtureBytes,
   RsaOpenSslFixture,
   RsaWycheproofFixture
@@ -60,6 +61,7 @@ const decodePayload = (file: typeof ConformancePayload.fields.file.Type) =>
     Match.when("ed25519.json", (name) => decodeConformanceFixture(name, Ed25519Fixture)),
     Match.when("p256.json", (name) => decodeConformanceFixture(name, P256Fixture)),
     Match.when("ml-dsa-65.json", (name) => decodeConformanceFixture(name, MlDsa65Fixture)),
+    Match.when("sign-public-kat.json", (name) => decodeConformanceFixture(name, PublicSignatureKatFixture)),
     Match.when("rsa-wycheproof.json", (name) => decodeConformanceFixture(name, RsaWycheproofFixture)),
     Match.when("rsa-openssl.json", (name) => decodeConformanceFixture(name, RsaOpenSslFixture)),
     Match.when("jwt-openssl.json", (name) => decodeConformanceFixture(name, Schema.parseJson(JwtFixture))),
