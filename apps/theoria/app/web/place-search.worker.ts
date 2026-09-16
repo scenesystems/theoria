@@ -1,6 +1,7 @@
 import { WorkerRunner } from "@effect/platform"
 import { BrowserRuntime, BrowserWorkerRunner } from "@effect/platform-browser"
-import { type Errors, Study } from "@scenesystems/effect-search"
+import type { SearchError } from "@scenesystems/effect-search/SearchError"
+import * as Study from "@scenesystems/effect-search/Study"
 import { Effect, type Scope } from "effect"
 
 import { AskedMeander, meanderSpace, renderSampler, renderTrials } from "../contracts/demo/imagined-place-search.js"
@@ -14,7 +15,7 @@ import { OpenedStudy, PlaceSearchStudies } from "./services/PlaceSearchStudies.j
  * without calling it).
  */
 
-const openStudy: Effect.Effect<OpenedStudy, Errors.SearchError, Scope.Scope> = Effect.gen(function*() {
+const openStudy: Effect.Effect<OpenedStudy, SearchError, Scope.Scope> = Effect.gen(function*() {
   const space = yield* meanderSpace
   const handle = yield* Study.open({
     space,

@@ -1,6 +1,8 @@
-import { Schema } from "effect"
+import { Number as Num, Schema } from "effect"
 
-import { Sampler, SearchSpace } from "@scenesystems/effect-search"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 
 /**
  * The arrangement search as driven from another thread. The sampler (TPE,
@@ -29,12 +31,22 @@ export const Meander = Schema.Struct({
 })
 export type Meander = typeof Meander.Type
 
-type Bounds = readonly [low: number, high: number]
+export const Bounds = Schema.Tuple(Schema.Number, Schema.Number)
+export type Bounds = typeof Bounds.Type
 
-export const meanderBounds: Record<keyof Meander, Bounds> = {
+export const MeanderBounds = Schema.Struct({
+  edge: Bounds,
+  swing: Bounds,
+  phase: Bounds,
+  turns: Bounds,
+  top: Bounds,
+  step: Bounds
+})
+
+export const meanderBounds: typeof MeanderBounds.Type = {
   edge: [0.5, 0.9],
   swing: [0, 0.3],
-  phase: [-Math.PI, Math.PI],
+  phase: [Num.multiply(-1, Numeric.pi), Numeric.pi],
   turns: [0.5, 2.5],
   top: [0.04, 0.6],
   step: [0.03, 0.24]
