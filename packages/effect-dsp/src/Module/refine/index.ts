@@ -20,11 +20,14 @@ import { makeRefineForward } from "./runtime.js"
  *
  * @remarks
  * Attempts are sequential and stop when the best score reaches `threshold` or
- * `N` attempts have run. Below-threshold feedback is
+ * `N` attempts have run. Feedback while the threshold remains unmet is
  * accumulated into the inner module's instructions for subsequent attempts.
  * The original parameter snapshot is restored after success, failure,
  * interruption, or a defect. Equal scores retain the earlier output, and a
- * `NaN` score never replaces an earlier output.
+ * `NaN` score never replaces an earlier output or meets the threshold. A later
+ * ordered score replaces an initial `NaN`; all-`NaN` runs exhaust `N` attempts
+ * and retain the first output. Infinities remain ordered scores. A `NaN`
+ * threshold cannot be met.
  *
  * @see {@link refine} for construction.
  * @see {@link RewardFn} for the scoring callback contract.
@@ -55,7 +58,7 @@ export class RefineOptions<
   readonly N: RolloutCount
   /** Scores each attempt and may supply feedback for the next attempt. */
   readonly reward: RewardFn<I, O, RewardE, RewardR>
-  /** Score that ends refinement early when reached or exceeded. */
+  /** Score that ends refinement early when reached or exceeded; `NaN` never stops early. */
   readonly threshold: number
 }> {}
 

@@ -18,6 +18,7 @@ import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import {
   Array as Arr,
+  Boolean,
   Cause,
   Context,
   Deferred,
@@ -117,10 +118,10 @@ describe("Module.refine", () => {
       yield* Ref.update(predictor.params, (params) => withModuleParamsInstructions(params, "Answer changed-city"))
       yield* Module.load(wrapper, saved)
       const model = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({
-        answer: Match.value(Str.includes("Answer saved-city")(prompt)).pipe(
-          Match.when(true, () => "saved-city"),
-          Match.orElse(() => "changed-city")
-        )
+        answer: Boolean.match(Str.includes("Answer saved-city")(prompt), {
+          onTrue: () => "saved-city",
+          onFalse: () => "changed-city"
+        })
       })))
       const result = yield* wrapper.forward({ question: "Which city?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, model.service)
@@ -263,10 +264,10 @@ describe("Module.refine", () => {
         typeof QaInput.fields,
         typeof QaOutput.fields
       > = (_input, output) => {
-        const score = Match.value(Equal.equals(output.answer, "Excellent")).pipe(
-          Match.when(true, () => 0.95),
-          Match.orElse(() => 0.3)
-        )
+        const score = Boolean.match(Equal.equals(output.answer, "Excellent"), {
+          onTrue: () => 0.95,
+          onFalse: () => 0.3
+        })
         return Effect.succeed(new MetricResult({ score }))
       }
 
@@ -544,7 +545,127 @@ describe("Module.refine", () => {
       expect(yield* Ref.get(mock.calls)).toHaveLength(3)
     }))
 
-  it.effect("returns the first output when every score is NaN", () =>
+  it.effect("continues after an initial NaN, carries feedback, and stops at a later ordered threshold", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence(Arr.make(
+          { answer: "Unscorable" },
+          { answer: "Meets threshold" },
+          { answer: "Must not run" }
+        ))
+      )
+      const inner = yield* Module.predict("qa", qa)
+      const original = yield* Ref.get(inner.params)
+      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const refined = yield* Module.refine({
+        name: "qa-initial-nan",
+        module: inner,
+        N: RolloutCount.make(3),
+        reward: (_input, output) =>
+          Effect.succeed(
+            new MetricResult({
+              score: Match.value(output.answer).pipe(
+                Match.when("Unscorable", () => nan),
+                Match.orElse(() => 0.8)
+              ),
+              feedback: "Supply a verifiable answer"
+            })
+          ),
+        threshold: 0.8
+      })
+
+      const result = yield* refined.forward({ question: "Recover after NaN" }).pipe(
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      )
+      const calls = yield* Ref.get(mock.calls)
+
+      expect(result.answer).toBe("Meets threshold")
+      expect(calls).toHaveLength(2)
+      expect((yield* Arr.get(calls, 1)).prompt).toContain("Attempt 1 (score: NaN): Supply a verifiable answer")
+      expect(yield* Ref.get(inner.params)).toBe(original)
+    }))
+
+  it.effect("accepts either infinity as an ordered score and threshold after an initial NaN", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+
+      yield* Effect.forEach(Arr.make("-Infinity", "Infinity"), (encodedThreshold) =>
+        Effect.gen(function*() {
+          const threshold = yield* Schema.decode(Schema.NumberFromString)(encodedThreshold)
+          const suffix = Str.toLowerCase(Str.replace("-", "negative-")(encodedThreshold))
+          const inner = yield* Module.predict(Str.concat("qa-", suffix), qa)
+          const mock = yield* MockLanguageModel.make(
+            MockLanguageModel.sequence(Arr.make(
+              { answer: "Unordered" },
+              { answer: "Ordered" },
+              { answer: "Must not run" }
+            ))
+          )
+          const refined = yield* Module.refine({
+            name: Str.concat("qa-infinite-threshold-", suffix),
+            module: inner,
+            N: RolloutCount.make(3),
+            reward: (_input, output) =>
+              Effect.succeed(
+                new MetricResult({
+                  score: Match.value(output.answer).pipe(
+                    Match.when("Unordered", () => nan),
+                    Match.orElse(() => threshold)
+                  )
+                })
+              ),
+            threshold
+          })
+
+          const result = yield* refined.forward({ question: "Order infinite rewards" }).pipe(
+            Effect.provideService(LanguageModel.LanguageModel, mock.service)
+          )
+
+          expect(result.answer).toBe("Ordered")
+          expect(yield* Ref.get(mock.calls)).toHaveLength(2)
+        }))
+    }))
+
+  it.effect("exhausts attempts for an unordered threshold and retains the highest ordered reward", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const inner = yield* Module.predict("qa", qa)
+      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence(Arr.make(
+          { answer: "Best" },
+          { answer: "Unordered" },
+          { answer: "Lower" }
+        ))
+      )
+      const refined = yield* Module.refine({
+        name: "qa-nan-threshold",
+        module: inner,
+        N: RolloutCount.make(3),
+        reward: (_input, output) =>
+          Effect.succeed(
+            new MetricResult({
+              score: Match.value(output.answer).pipe(
+                Match.when("Best", () => 0.7),
+                Match.when("Lower", () => 0.2),
+                Match.orElse(() => nan)
+              )
+            })
+          ),
+        threshold: nan
+      })
+
+      const result = yield* refined.forward({ question: "Unreachable threshold" }).pipe(
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      )
+
+      expect(result.answer).toBe("Best")
+      expect(yield* Ref.get(mock.calls)).toHaveLength(3)
+    }))
+
+  it.effect("exhausts attempts and returns the first output when every score is NaN", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
@@ -571,7 +692,7 @@ describe("Module.refine", () => {
       )
 
       expect(result).toEqual({ answer: "First" })
-      expect(yield* Ref.get(mock.calls)).toHaveLength(1)
+      expect(yield* Ref.get(mock.calls)).toHaveLength(2)
     }))
 
   it.effect("rejects a non-positive attempt count at the RolloutCount boundary", () =>
