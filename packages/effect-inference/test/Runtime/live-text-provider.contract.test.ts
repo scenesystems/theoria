@@ -1,10 +1,10 @@
-import { describe, expect, it } from "@effect/vitest"
+import type * as LanguageModel from "@effect/ai/LanguageModel"
+import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import { ConfigProvider, Effect, Option, Redacted } from "effect"
 import type { Layer } from "effect"
 
+import type { InvalidRuntimeConfig } from "../../src/Errors/index.js"
 import * as Runtime from "../../src/Runtime/index.js"
-
-const assertLayer = <A, E, R>(_: Layer.Layer<A, E, R>): true => true
 
 describe("Runtime/live-text-provider", () => {
   it.effect("builds direct hosted-provider descriptors and live layers from package-owned config helpers", () =>
@@ -24,7 +24,7 @@ describe("Runtime/live-text-provider", () => {
       expect(Option.fromNullable(runtime.desired.route).pipe(Option.map((route) => route.baseUrl))).toEqual(
         Option.some("https://api.openai.com/v1")
       )
-      expect(assertLayer(runtime.languageModelLayer)).toBe(true)
+      expectTypeOf(runtime.languageModelLayer).toEqualTypeOf<Layer.Layer<LanguageModel.LanguageModel>>()
     }))
 
   it.effect("maps brokered openrouter config onto the stable OpenAI-compatible route family", () =>
@@ -47,13 +47,13 @@ describe("Runtime/live-text-provider", () => {
           Option.flatMap((route) => Option.fromNullable(route.gatewayId))
         )
       ).toEqual(Option.some("openrouter"))
-      expect(assertLayer(Runtime.liveTextProviderLayer(
+      expectTypeOf(Runtime.liveTextProviderLayer(
         new Runtime.LiveTextProviderRuntimeOptions({
           provider: "openrouter",
           model: "openai/gpt-4o-mini",
           apiKey: Redacted.make("test-key")
         })
-      ))).toBe(true)
+      )).toEqualTypeOf<Layer.Layer<LanguageModel.LanguageModel, InvalidRuntimeConfig>>()
     }))
 
   it.effect("prefers provider-specific env overrides over generic DSP provider defaults", () =>

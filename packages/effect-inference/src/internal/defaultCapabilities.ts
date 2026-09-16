@@ -3,11 +3,16 @@
  *
  * @since 0.1.0
  */
-import { Match, Option } from "effect"
+import { Match, Option, Schema } from "effect"
 
-import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
-import type { RuntimeCapabilities } from "../contracts/RuntimeCapabilities.js"
+import { type ExecutionRoute, ExecutionRouteSchema } from "../contracts/ExecutionRoute.js"
+import { type RuntimeCapabilities, RuntimeCapabilitiesSchema } from "../contracts/RuntimeCapabilities.js"
 import { defaultRuntimeFlavor, type RuntimeFlavor } from "../contracts/RuntimeFlavor.js"
+
+const DefaultRuntimeCapabilitiesOptions = Schema.Struct({
+  route: Schema.optionalWith(ExecutionRouteSchema, { exact: true }),
+  overrides: Schema.optionalWith(Schema.partialWith(RuntimeCapabilitiesSchema, { exact: true }), { exact: true })
+})
 
 const hostedOpenAiCompatibleCapabilities: RuntimeCapabilities = {
   textGeneration: true,
@@ -86,7 +91,24 @@ const capabilitiesForCompatibleFlavor = (runtimeFlavor: RuntimeFlavor): RuntimeC
       toolCalling: true,
       usageReporting: true
     })),
-    Match.orElse(() => selfHostedCompatibleCapabilities)
+    Match.when("unknown", () => selfHostedCompatibleCapabilities),
+    Match.when("vllm", () => selfHostedCompatibleCapabilities),
+    Match.when("tgi", () => selfHostedCompatibleCapabilities),
+    Match.when("lm-studio", () => selfHostedCompatibleCapabilities),
+    Match.exhaustive
+  )
+
+const runtimeFlavorForRoute = (route: ExecutionRoute): RuntimeFlavor =>
+  Option.fromNullable(route.runtimeFlavorHint).pipe(Option.getOrElse(defaultRuntimeFlavor))
+
+const capabilitiesForHuggingFaceEndpoint = (route: ExecutionRoute): RuntimeCapabilities =>
+  Match.value(runtimeFlavorForRoute(route)).pipe(
+    Match.when("tgi", () => huggingFaceTgiEndpointCapabilities),
+    Match.when("unknown", () => huggingFaceEndpointCapabilities),
+    Match.when("vllm", () => huggingFaceEndpointCapabilities),
+    Match.when("ollama", () => huggingFaceEndpointCapabilities),
+    Match.when("lm-studio", () => huggingFaceEndpointCapabilities),
+    Match.exhaustive
   )
 
 const capabilitiesForHuggingFaceRoute = (
@@ -94,12 +116,11 @@ const capabilitiesForHuggingFaceRoute = (
 ): RuntimeCapabilities =>
   Match.value(route.serveMode).pipe(
     Match.when("routed-marketplace", () => huggingFaceRoutedCapabilities),
-    Match.orElse(() =>
-      Match.value(route.runtimeFlavorHint ?? defaultRuntimeFlavor()).pipe(
-        Match.when("tgi", () => huggingFaceTgiEndpointCapabilities),
-        Match.orElse(() => huggingFaceEndpointCapabilities)
-      )
-    )
+    Match.when("hosted-api", () => capabilitiesForHuggingFaceEndpoint(route)),
+    Match.when("dedicated-endpoint", () => capabilitiesForHuggingFaceEndpoint(route)),
+    Match.when("self-hosted", () => capabilitiesForHuggingFaceEndpoint(route)),
+    Match.when("local-runtime", () => capabilitiesForHuggingFaceEndpoint(route)),
+    Match.exhaustive
   )
 
 const capabilitiesForRoute = (route: ExecutionRoute): RuntimeCapabilities =>
@@ -109,18 +130,13 @@ const capabilitiesForRoute = (route: ExecutionRoute): RuntimeCapabilities =>
         Match.when("hosted-api", () => hostedOpenAiCompatibleCapabilities),
         Match.when("routed-marketplace", () => hostedOpenAiCompatibleCapabilities),
         Match.when("dedicated-endpoint", () => hostedOpenAiCompatibleCapabilities),
-        Match.when("self-hosted", () =>
-          capabilitiesForCompatibleFlavor(route.runtimeFlavorHint ?? defaultRuntimeFlavor())),
-        Match.when("local-runtime", () =>
-          capabilitiesForCompatibleFlavor(route.runtimeFlavorHint ?? defaultRuntimeFlavor())),
+        Match.when("self-hosted", () => capabilitiesForCompatibleFlavor(runtimeFlavorForRoute(route))),
+        Match.when("local-runtime", () => capabilitiesForCompatibleFlavor(runtimeFlavorForRoute(route))),
         Match.exhaustive
       )),
-    Match.when("OpenAiResponses", () =>
-      openAiResponsesCapabilities),
-    Match.when("AnthropicMessages", () =>
-      anthropicMessagesCapabilities),
-    Match.when("HuggingFace", () =>
-      capabilitiesForHuggingFaceRoute(route)),
+    Match.when("OpenAiResponses", () => openAiResponsesCapabilities),
+    Match.when("AnthropicMessages", () => anthropicMessagesCapabilities),
+    Match.when("HuggingFace", () => capabilitiesForHuggingFaceRoute(route)),
     Match.exhaustive
   )
 
@@ -131,19 +147,9 @@ const capabilitiesForRoute = (route: ExecutionRoute): RuntimeCapabilities =>
  *
  * @since 0.1.0
  */
-export const defaultRuntimeCapabilities = (options?: {
-  readonly route?: ExecutionRoute
-  readonly overrides?: {
-    readonly textGeneration?: boolean
-    readonly embeddings?: boolean
-    readonly streaming?: boolean
-    readonly toolCalling?: boolean
-    readonly structuredOutput?: RuntimeCapabilities["structuredOutput"]
-    readonly usageReporting?: boolean
-    readonly multimodalInput?: boolean
-    readonly maxContextTokens?: number
-  }
-}): RuntimeCapabilities => {
+export const defaultRuntimeCapabilities = (
+  options?: typeof DefaultRuntimeCapabilitiesOptions.Type
+): RuntimeCapabilities => {
   const route = Option.fromNullable(options).pipe(
     Option.flatMap((resolvedOptions) => Option.fromNullable(resolvedOptions.route))
   )
