@@ -1,16 +1,18 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Option } from "effect"
 
+import { rngByTrial } from "../../../src/internal/sampler/shared/rngByTrial.js"
 import { buildContinuousParzen } from "../../../src/internal/tpe/continuousParzen.js"
+import { traceForParameter } from "../../../src/internal/tpe/mixed.js"
 import { defaultNoiseBandwidthOptions, NoiseBandwidthOptions } from "../../../src/internal/tpe/noiseEstimator.js"
+import { validateOptions } from "../../../src/internal/tpe/options.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
-import { rngByTrial } from "../../../src/Sampler/shared/rngByTrial.js"
-import { traceForParameter } from "../../../src/samplers/Tpe/mixed.js"
-import { validateOptions } from "../../../src/samplers/Tpe/options.js"
-import * as SearchSpace from "../../../src/SearchSpace/index.js"
+import * as SearchSpace from "../../../src/SearchSpace.js"
 
-const sigmaAt = (values: ReadonlyArray<number>, index: number): number =>
-  Option.fromNullable(values[index]).pipe(Option.getOrElse(() => 0))
+const sigmaAt = (valuesInput: Iterable<number>, index: number): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Option.fromNullable(values[index]).pipe(Option.getOrElse(() => 0))
+}
 
 describe("noise-aware bandwidth", () => {
   it.effect("widens continuous KDE sigmas when noise-aware mode is enabled", () =>
@@ -82,7 +84,7 @@ describe("noise-aware bandwidth", () => {
       })
       const parameter = Option.fromNullable(space.params[0]).pipe(
         Option.getOrElse(() =>
-          new SearchSpace.ParameterMetadata({
+          new SearchSpace.Parameter({
             name: "lr",
             distribution: { type: "float", low: 1e-4, high: 1e-1, scale: "log" },
             activeWhen: []

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Match, Option } from "effect"
 
-import { InvalidStudyConfig } from "../../../src/Errors/index.js"
 import * as Sampler from "../../../src/Sampler/index.js"
-import * as Study from "../../../src/Study/index.js"
+import { InvalidStudyConfig } from "../../../src/SearchError.js"
+import * as Study from "../../../src/Study.js"
+import * as StudySnapshot from "../../../src/StudySnapshot.js"
 import { asSingleObjective, makeIncompatibleSpace, makeSpace, objectiveVector, singleObjective } from "./helpers.js"
 
 describe("Study snapshot-resume validation boundaries", () => {
@@ -240,7 +241,7 @@ describe("Study snapshot-resume validation boundaries", () => {
         ),
         Match.exhaustive
       )
-      const corruptSnapshot = new Study.StudySnapshot({
+      const corruptSnapshot = new StudySnapshot.Snapshot({
         ...snapshot,
         samplerCheckpoint: corruptCheckpoint
       })

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { TrialError } from "../../src/Errors/index.js"
-import { snapshotToTrial, trialToSnapshot } from "../../src/Study/snapshot/stateCodec.js"
-import * as StudyEvent from "../../src/StudyEvent/index.js"
-import * as Trial from "../../src/Trial/index.js"
+import { TrialError } from "../../src/SearchError.js"
+import * as StudyEvent from "../../src/StudyEvent.js"
+import { fromTrial, toTrial } from "../../src/StudySnapshot.js"
+import * as Trial from "../../src/Trial.js"
 
 describe("Trial / typed error", () => {
   it.effect("stores TrialError in Failed state and preserves it through snapshot codec", () =>
@@ -16,8 +16,8 @@ describe("Trial / typed error", () => {
         cause: "network"
       })
       const failed = Trial.fail(running, error, 145)
-      const snapshot = trialToSnapshot(failed)
-      const restored = snapshotToTrial(snapshot, running.config)
+      const snapshot = fromTrial(failed)
+      const restored = toTrial(snapshot, running.config)
 
       expect(Trial.isState("Failed")(failed.state)).toBe(true)
       expect(Trial.isState("Failed")(restored.state)).toBe(true)
@@ -29,14 +29,14 @@ describe("Trial / typed error", () => {
       }
     }))
 
-  it.effect("threads TrialError into StudyEvent.TrialFailed", () =>
+  it.effect("threads TrialError into StudyEvent.trialFailed", () =>
     Effect.sync(() => {
       const trialError = new TrialError({
         trialNumber: 9,
         message: "objective timeout",
         cause: { timeout: true }
       })
-      const event = StudyEvent.TrialFailed({ trialNumber: 9, error: trialError })
+      const event = StudyEvent.trialFailed({ trialNumber: 9, error: trialError })
 
       expect(event._tag).toBe("TrialFailed")
       expect(event.error).toBeInstanceOf(TrialError)

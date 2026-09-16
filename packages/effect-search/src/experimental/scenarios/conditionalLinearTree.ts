@@ -3,9 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Effect, Schema } from "effect"
+import { Chunk, Effect, Schema } from "effect"
 
-import * as SearchSpace from "../../SearchSpace/index.js"
+import * as SearchSpace from "../../SearchSpace.js"
 
 /**
  * Lists the model discriminators used by the schema and search space.
@@ -101,6 +101,6 @@ export const makeLinearTreeConditionalSpace = () =>
       {
         model: SearchSpace.categorical(LinearTreeModelChoices)
       },
-      SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
+      SearchSpace.switchOn("model", Chunk.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
     )
   })

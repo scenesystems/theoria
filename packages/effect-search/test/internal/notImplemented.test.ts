@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either } from "effect"
 
-import { NotImplemented } from "../../src/Errors/index.js"
 import { notImplemented } from "../../src/internal/notImplemented.js"
+import { NotImplemented } from "../../src/SearchError.js"
 
 describe("internal notImplemented", () => {
   it.effect("fails with a catchable NotImplemented tagged error", () =>

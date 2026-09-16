@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 
-import type { InvalidSamplerConfig } from "../../../Errors/index.js"
+import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import { sample as sampleTruncated, sampleEffect as sampleTruncatedEffect } from "../truncatedNormal.js"
 import type { TruncatedNormalParams } from "../truncatedNormal.js"
 import { samplerMathError } from "./errors.js"

@@ -1,14 +1,11 @@
 import { Schema } from "effect"
 
-import { BuiltInAcquisitionNameSchema } from "../../../src/contracts/Acquisition.js"
-import { DirectionSchema } from "../../../src/contracts/Direction.js"
-import { PrimitiveChoiceSchema } from "../../../src/contracts/Distribution.js"
+import { Name } from "../../../src/Acquisition.js"
+import { Direction } from "../../../src/Direction.js"
+import { Choice } from "../../../src/Distribution.js"
 import { PromptCategoricalConfigSchema } from "../../../src/experimental/scenarios/promptCategorical.js"
-import { CandidateRollPairSchema } from "../../../src/samplers/Tpe/dimensions/trace.js"
-import {
-  PercentilePrunerSettingsSchema,
-  PercentilePrunerTrialStateSchema
-} from "../../../src/Study/runtime/percentilePruning.js"
+import { CandidateRollPairSchema } from "../../../src/internal/tpe/dimensions/trace.js"
+import { PercentileOptions, PercentileTrialState } from "../../../src/Pruning.js"
 
 const FixtureMetadataSchema = Schema.Struct({
   generatedAt: Schema.String,
@@ -33,7 +30,7 @@ const IntermediateValueSchema = Schema.Struct({
 
 const PrimitiveConfigSchema = Schema.Record({
   key: Schema.String,
-  value: PrimitiveChoiceSchema
+  value: Choice
 })
 
 const ObjectivePointSchema = Schema.Array(Schema.Number)
@@ -51,15 +48,15 @@ const CategoricalParzenExpectedSchema = Schema.Struct({
   probabilities: Schema.Array(Schema.Number),
   kernels: Schema.Array(Schema.Array(Schema.Number)),
   candidateRolls: Schema.Array(Schema.Number),
-  expectedCandidates: Schema.Array(PrimitiveChoiceSchema)
+  expectedCandidates: Schema.Array(Choice)
 })
 
 export const CategoricalParzenFixtureSchema = Schema.Struct({
   fixture: CategoricalParzenFixtureNameSchema,
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    choices: Schema.Array(PrimitiveChoiceSchema),
-    observations: Schema.Array(PrimitiveChoiceSchema),
+    choices: Schema.Array(Choice),
+    observations: Schema.Array(Choice),
     distanceMetric: Schema.optional(CategoricalDistanceMetricSchema),
     expected: CategoricalParzenExpectedSchema
   })
@@ -95,7 +92,7 @@ const SplitTrialSchema = Schema.Struct({
 
 const SplitTrialsCaseSchema = Schema.Struct({
   id: Schema.String,
-  direction: DirectionSchema,
+  direction: Direction,
   nBelow: Schema.Number,
   trials: Schema.Array(SplitTrialSchema),
   expectedBelow: Schema.Array(Schema.Number),
@@ -124,7 +121,7 @@ export const PrunedScoreFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("pruned-score.pruned-ordering"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    direction: DirectionSchema,
+    direction: Direction,
     cases: Schema.Array(PrunedScoreCaseSchema),
     expectedOrder: Schema.Array(Schema.Number)
   })
@@ -345,7 +342,7 @@ const MixedSpaceCategoricalDimensionTraceSchema = Schema.Struct({
   kind: Schema.Literal("categorical"),
   name: Schema.String,
   candidateRolls: Schema.Array(Schema.Number),
-  candidates: Schema.Array(PrimitiveChoiceSchema),
+  candidates: Schema.Array(Choice),
   logL: Schema.Array(Schema.Number),
   logG: Schema.Array(Schema.Number),
   scores: Schema.Array(Schema.Number)
@@ -380,7 +377,7 @@ const MixedSpaceDimensionTraceSchema = Schema.Union(
 const MixedSpaceSearchSpaceSchema = Schema.Struct({
   optimizer: Schema.Struct({
     type: Schema.Literal("categorical"),
-    choices: Schema.Array(PrimitiveChoiceSchema)
+    choices: Schema.Array(Choice)
   }),
   lr: Schema.Struct({
     type: Schema.Literal("float"),
@@ -440,7 +437,7 @@ export const MotpeSplitFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("motpe-split.multi-rank-hssp"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    directions: Schema.Array(DirectionSchema),
+    directions: Schema.Array(Direction),
     nBelow: Schema.Number,
     trials: Schema.Array(MotpeSplitTrialSchema),
     expectedBelow: Schema.Array(Schema.Number),
@@ -452,7 +449,7 @@ export type MotpeSplitFixture = Schema.Schema.Type<typeof MotpeSplitFixtureSchem
 
 const MotpeReferenceCaseSchema = Schema.Struct({
   id: Schema.String,
-  directions: Schema.Array(DirectionSchema),
+  directions: Schema.Array(Direction),
   worstPoint: ObjectivePointSchema,
   expectedReferencePoint: ObjectivePointSchema
 })
@@ -478,7 +475,7 @@ export const MotpeWeightsFixtureSchema = Schema.Struct({
   fixture: MotpeWeightsFixtureNameSchema,
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    directions: Schema.Array(DirectionSchema),
+    directions: Schema.Array(Direction),
     points: Schema.Array(ObjectivePointSchema),
     referencePoint: ObjectivePointSchema,
     expectedContributions: Schema.Array(Schema.Number),
@@ -493,7 +490,7 @@ export const MotpeStudyFixtureSchema = Schema.Struct({
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
     sampler: TpeReplaySamplerSchema,
-    directions: Schema.Array(DirectionSchema),
+    directions: Schema.Array(Direction),
     expected: Schema.Struct({
       paretoTrialNumbers: Schema.Array(Schema.Number),
       paretoValues: Schema.Array(ObjectivePointSchema),
@@ -519,7 +516,7 @@ const ConstrainedSplitTrialSchema = Schema.Struct({
 })
 
 const ConstrainedSplitCaseSchema = Schema.Struct({
-  direction: DirectionSchema,
+  direction: Direction,
   nBelow: Schema.Number,
   trials: Schema.Array(ConstrainedSplitTrialSchema),
   expectedBelow: Schema.Array(Schema.Number),
@@ -600,14 +597,14 @@ export type PruningReportContractFixture = Schema.Schema.Type<typeof PruningRepo
 
 const PercentilePrunerCaseSchema = Schema.Struct({
   id: Schema.String,
-  settings: PercentilePrunerSettingsSchema,
+  settings: PercentileOptions,
   trialNumber: Schema.Number,
   step: Schema.Number,
   currentValue: Schema.Number,
   history: Schema.Array(
     Schema.Struct({
       trialNumber: Schema.Number,
-      state: PercentilePrunerTrialStateSchema,
+      state: PercentileTrialState,
       reports: Schema.Array(IntermediateValueSchema)
     })
   ),
@@ -618,7 +615,7 @@ export const PercentilePrunerFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("pruning.percentile-pruner"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    direction: DirectionSchema,
+    direction: Direction,
     cases: Schema.Array(PercentilePrunerCaseSchema)
   })
 })
@@ -676,7 +673,7 @@ export const AdvancedGpBoFixtureSchema = Schema.Struct({
       nCandidates: Schema.Number,
       lengthScale: Schema.Number,
       noise: Schema.Number,
-      acquisition: BuiltInAcquisitionNameSchema
+      acquisition: Name
     }),
     expected: Schema.Struct({
       x: Schema.Number,

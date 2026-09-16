@@ -25,9 +25,9 @@ describe("DspCache rollout partition", () => {
         )
       })
 
-      const [r0, res0] = yield* withRollout(0, cache.resolve(makeRequest("answer-0")))
-      const [r1, res1] = yield* withRollout(1, cache.resolve(makeRequest("answer-1")))
-      const [r2, res2] = yield* withRollout(2, cache.resolve(makeRequest("answer-2")))
+      const { value: r0, resolution: res0 } = yield* withRollout(0, cache.resolve(makeRequest("answer-0")))
+      const { value: r1, resolution: res1 } = yield* withRollout(1, cache.resolve(makeRequest("answer-1")))
+      const { value: r2, resolution: res2 } = yield* withRollout(2, cache.resolve(makeRequest("answer-2")))
 
       expect(res0).toBe("miss")
       expect(res1).toBe("miss")
@@ -55,9 +55,9 @@ describe("DspCache rollout partition", () => {
       }
 
       yield* withRollout(5, cache.resolve(request))
-      const [result, resolution] = yield* withRollout(5, cache.resolve(request))
+      const { value, resolution } = yield* withRollout(5, cache.resolve(request))
 
-      expect(result).toEqual({ answer: "4" })
+      expect(value).toEqual({ answer: "4" })
       expect(resolution).toBe("hit")
       expect(yield* Ref.get(computeCount)).toBe(1)
     }).pipe(Effect.provide(DspCacheMemory)))
@@ -79,9 +79,9 @@ describe("DspCache rollout partition", () => {
       }
 
       yield* cache.resolve(request)
-      const [result, resolution] = yield* cache.resolve(request)
+      const { value, resolution } = yield* cache.resolve(request)
 
-      expect(result).toEqual({ answer: "4" })
+      expect(value).toEqual({ answer: "4" })
       expect(resolution).toBe("hit")
       expect(yield* Ref.get(computeCount)).toBe(1)
     }).pipe(Effect.provide(DspCacheMemory)))
@@ -102,8 +102,8 @@ describe("DspCache rollout partition", () => {
         )
       })
 
-      const [rNone, resNone] = yield* cache.resolve(makeRequest("no-rollout"))
-      const [rZero, resZero] = yield* withRollout(0, cache.resolve(makeRequest("rollout-0")))
+      const { value: rNone, resolution: resNone } = yield* cache.resolve(makeRequest("no-rollout"))
+      const { value: rZero, resolution: resZero } = yield* withRollout(0, cache.resolve(makeRequest("rollout-0")))
 
       expect(resNone).toBe("miss")
       expect(resZero).toBe("miss")

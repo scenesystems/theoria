@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as History from "@scenesystems/effect-study/History"
 import { Effect, Tuple } from "effect"
 
 import {
@@ -8,11 +9,9 @@ import {
   readStudyState,
   restoreRuntime,
   setRuntimeLifecycle,
-  snapshotRuntime,
-  StudyClockLayer
-} from "../../src/Study/runtime/runtimeState.js"
-import { trialsFromState, withReservedTrial } from "../../src/Study/state.js"
-import * as Trial from "../../src/Trial/index.js"
+  snapshotRuntime
+} from "../../src/internal/study/runtime/runtimeState.js"
+import * as Trial from "../../src/Trial.js"
 import { makeSettings } from "./machine/helpers.js"
 
 describe("machine snapshot", () => {
@@ -20,21 +19,20 @@ describe("machine snapshot", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const settings = yield* makeSettings()
-        const runtime = yield* initializeRuntime(settings).pipe(Effect.provide(StudyClockLayer))
+        const runtime = yield* initializeRuntime(settings)
 
         const running = Trial.makeRunning(0, { x: 0, depth: 1 }, 0)
-        yield* modifyStudyState(runtime, (state) =>
-          Effect.succeed(Tuple.make(undefined, withReservedTrial(state, running))))
+        yield* modifyStudyState(runtime, (state) => Effect.succeed(Tuple.make(undefined, History.set(state, running))))
         yield* setRuntimeLifecycle(runtime, "Running")
         yield* setRuntimeLifecycle(runtime, "Paused")
 
         const snapshot = yield* snapshotRuntime(runtime)
-        const restored = yield* restoreRuntime(settings, snapshot).pipe(Effect.provide(StudyClockLayer))
+        const restored = yield* restoreRuntime(settings, snapshot)
         const restoredRuntimeState = yield* readRuntimeState(restored)
         const restoredStudyState = yield* readStudyState(restored)
 
         expect(restoredRuntimeState.lifecycle).toBe("Paused")
-        expect(trialsFromState(restoredStudyState)).toHaveLength(1)
+        expect(History.values(restoredStudyState)).toHaveLength(1)
       })
     ))
 })

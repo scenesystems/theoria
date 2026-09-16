@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 
 import { hypervolume2d } from "../../src/internal/hypervolume.js"
 import { dominates } from "../../src/internal/pareto.js"
-import { betterByDirection } from "../../src/Study/best.js"
+import { betterByDirection } from "../../src/internal/study/best.js"
 
 describe("match exhaustive directional behavior", () => {
   it("handles both minimize and maximize branches across directional helpers", () => {

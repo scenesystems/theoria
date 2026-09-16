@@ -1,6 +1,5 @@
-import { Chunk, Effect, Match, Option, Ref, Schema, Stream } from "effect"
+import { Chunk, Effect, Match, Option, Schema, Stream } from "effect"
 
-import { normalizeObjectiveVector, objectiveSpecFromOptions } from "../../../src/contracts/index.js"
 import {
   decodePromptCategoricalConfig,
   makePromptCategoricalSpace,
@@ -8,12 +7,13 @@ import {
 } from "../../../src/experimental/scenarios/promptCategorical.js"
 import { decodeSlotConfig, makeSlotSpace } from "../../../src/experimental/scenarios/slot.js"
 import * as Float64 from "../../../src/internal/float64.js"
+import { toVector } from "../../../src/Objective.js"
+import * as Pruning from "../../../src/Pruning.js"
 import { pendingAsZeroImputationPolicy } from "../../../src/Sampler/index.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as SearchSpace from "../../../src/SearchSpace/index.js"
-import { EventPublisher } from "../../../src/Study/events.js"
-import * as Study from "../../../src/Study/index.js"
-import type * as StudyEvent from "../../../src/StudyEvent/index.js"
+import * as Study from "../../../src/Study.js"
+import type * as StudyEvent from "../../../src/StudyEvent.js"
 
 export const makeSpace = SearchSpace.make({
   x: SearchSpace.float(-2, 2),
@@ -86,10 +86,10 @@ export const objectiveVector = (raw: unknown) =>
     ])
   )
 
-export const asSingleObjective = (result: Study.StudyResult) =>
+export const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
-export const asMultiObjective = (result: Study.StudyResult) =>
+export const asMultiObjective = (result: Study.Result) =>
   result._tag === "MultiObjective" ? Option.some(result) : Option.none()
 
 export const singleConfigTrace = (result: Study.SingleObjectiveResult) =>
@@ -113,13 +113,13 @@ export const multiConfigTrace = (result: Study.MultiObjectiveResult) =>
 export const multiValueTrace = (result: Study.MultiObjectiveResult) =>
   result.trials.flatMap((trial) =>
     Match.value(trial.state).pipe(
-      Match.tag("Completed", ({ value }) => [normalizeObjectiveVector(value)]),
+      Match.tag("Completed", ({ value }) => [toVector(value)]),
       Match.orElse(() => [])
     )
   )
 
 export const multiParetoValueTrace = (result: Study.MultiObjectiveResult) =>
-  result.paretoFront.map((trial) => normalizeObjectiveVector(trial.state.value))
+  result.paretoFront.map((trial) => toVector(trial.state.value))
 
 export const pruneStopSpace = makeSlotSpace(64)
 
@@ -131,19 +131,19 @@ export const deterministicSampler = new Sampler.Sampler({
   suggest: (_space, context) => Effect.succeed({ slot: context.nextTrialNumber })
 })
 
-export const pruneStopPolicy = new Study.PruningPolicy({
+export const pruneStopPolicy = new Pruning.Policy({
   name: "even-slot-pruner",
   decide: ({ latestReport }) =>
     latestReport.value % 2 === 0
-      ? Study.PruneTrialDecision({
+      ? Pruning.prune({
         step: latestReport.step,
         reason: "even-slot",
         policy: "even-slot-pruner"
       })
-      : Study.ContinuePruneDecision()
+      : Pruning.continueEvaluation()
 })
 
-export const pruneStopObjective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
+export const pruneStopObjective = (raw: unknown, runtime: Pruning.Runtime) =>
   Effect.gen(function*() {
     const config = yield* decodeSlotConfig(raw)
 
@@ -156,7 +156,7 @@ export const pruneStopObjective = (raw: unknown, runtime: Study.ObjectiveTrialRu
     return config.slot
   })
 
-export const projectEvent = (event: StudyEvent.StudyEvent): string =>
+export const projectEvent = (event: StudyEvent.Event): string =>
   Match.value(event).pipe(
     Match.tag("TrialStarted", ({ trialNumber }) => `start:${trialNumber}`),
     Match.tag("TrialReported", ({ trialNumber, step, value, decision }) =>
@@ -189,14 +189,14 @@ export const projectEvent = (event: StudyEvent.StudyEvent): string =>
       `round-completed:${bracketIndex}:${roundIndex}:${nConfigs}:${resource}:${completed}`),
     Match.tag("BracketCompleted", ({ bracketIndex, rounds }) =>
       `bracket-completed:${bracketIndex}:${rounds}`),
-    Match.tag("StudyStopRequested", ({ mode, requestedByTrialNumber, reason }) =>
+    Match.tag("StopRequested", ({ mode, requestedByTrialNumber, reason }) =>
       `stop:${mode}:${requestedByTrialNumber}:${reason}`),
-    Match.tag("StudyCompleted", ({ completionReason }) =>
+    Match.tag("Completed", ({ completionReason }) =>
       `completed:${completionReason}`),
     Match.exhaustive
   )
 
-export const eventTrialNumber = (event: StudyEvent.StudyEvent): Option.Option<number> =>
+export const eventTrialNumber = (event: StudyEvent.Event): Option.Option<number> =>
   Match.value(event).pipe(
     Match.tag("TrialStarted", ({ trialNumber }) => Option.some(trialNumber)),
     Match.tag("TrialReported", ({ trialNumber }) => Option.some(trialNumber)),
@@ -211,69 +211,30 @@ export const eventTrialNumber = (event: StudyEvent.StudyEvent): Option.Option<nu
     Match.tag("RoundStarted", () => Option.none()),
     Match.tag("RoundCompleted", () => Option.none()),
     Match.tag("BracketCompleted", () => Option.none()),
-    Match.tag("StudyStopRequested", ({ requestedByTrialNumber }) => Option.some(requestedByTrialNumber)),
-    Match.tag("StudyCompleted", () => Option.none()),
+    Match.tag("StopRequested", ({ requestedByTrialNumber }) => Option.some(requestedByTrialNumber)),
+    Match.tag("Completed", () => Option.none()),
     Match.exhaustive
   )
 
 export const resumeWithEvents = (options: Study.ResumeOptions) =>
   Effect.gen(function*() {
-    const snapshotCodec = yield* Study.SnapshotCodec
-    const studyKernel = yield* Study.StudyKernel
-    const resumePlan = yield* Study.resumePlanFromOptions(options)
-    const optimizePlan = Study.optimizePlanFromResume(resumePlan)
-    const objectiveSpec = objectiveSpecFromOptions({
-      ...Option.fromNullable(options.direction).pipe(
-        Option.match({
-          onNone: () => ({}),
-          onSome: (direction) => ({ direction })
-        })
-      ),
-      ...Option.fromNullable(options.directions).pipe(
-        Option.match({
-          onNone: () => ({}),
-          onSome: (directions) => ({ directions })
-        })
-      )
-    })
-    const stopMode = Study.stopModeOrDefault(Option.fromNullable(options.stopMode))
-    const seed = yield* snapshotCodec.restore(
-      options.space,
-      options.sampler,
-      objectiveSpec,
-      stopMode,
-      options.snapshot
-    )
-    const eventsRef = yield* Ref.make<ReadonlyArray<StudyEvent.StudyEvent>>([])
-    const outcome = yield* studyKernel.execute(
-      new Study.ExecuteRequest({
-        options: optimizePlan,
-        seed: Option.some(seed),
-        eventPublisher: Option.some(
-          new EventPublisher({
-            publish: (event) => Ref.update(eventsRef, (events) => [...events, event])
-          })
-        )
-      })
-    )
-
+    const events = yield* Study.resumeStream(options).pipe(Stream.runCollect)
     return {
-      events: yield* Ref.get(eventsRef),
-      outcome
+      events: Chunk.toReadonlyArray(events)
     }
-  }).pipe(Effect.provide(Study.StudyServicesLive))
+  })
 
 export const baselineTailEvents = (
-  events: Chunk.Chunk<StudyEvent.StudyEvent>,
+  events: Chunk.Chunk<StudyEvent.Event>,
   firstLegTrials: number
-): Array<StudyEvent.StudyEvent> =>
+): Array<StudyEvent.Event> =>
   Chunk.toReadonlyArray(events).filter((event) =>
     Option.match(eventTrialNumber(event), {
-      onNone: () => event._tag === "StudyCompleted",
+      onNone: () => event._tag === "Completed",
       onSome: (trialNumber) => trialNumber >= firstLegTrials
     })
   )
 
-export const eventTrace = (events: ReadonlyArray<StudyEvent.StudyEvent>): Array<string> => events.map(projectEvent)
+export const eventTrace = (events: ReadonlyArray<StudyEvent.Event>): Array<string> => events.map(projectEvent)
 
-export const collectEvents = (options: Study.OptimizeOptions) => Stream.runCollect(Study.optimizeStream(options))
+export const collectEvents = (options: Study.Options) => Stream.runCollect(Study.optimizeStream(options))

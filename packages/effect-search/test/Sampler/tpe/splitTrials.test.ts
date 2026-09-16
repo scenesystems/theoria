@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Option, Schema } from "effect"
 
-import type { Direction } from "../../../src/contracts/Direction.js"
+import type { Direction } from "../../../src/Direction.js"
 import { PrunedIntermediateValue, prunedTrialScore } from "../../../src/internal/tpe/prunedScore.js"
 import { CompletedTrialForSplit, splitTrials } from "../../../src/internal/tpe/splitTrials.js"
 import {
@@ -34,7 +34,7 @@ const directionalScore = (direction: Direction, value: number): number =>
 
 const normalizedIntermediateValues = (
   trial: SplitFixtureTrial
-): Array<PrunedIntermediateValue> =>
+) =>
   trial.intermediateValues.map(
     (entry) =>
       new PrunedIntermediateValue({
@@ -87,9 +87,10 @@ const splitTrialFromFixture = (
 
 const splitTrialsFromFixtureCase = (
   direction: Direction,
-  trials: ReadonlyArray<SplitFixtureTrial>
-): Array<CompletedTrialForSplit> =>
-  trials.flatMap((trial) =>
+  trialsInput: Iterable<SplitFixtureTrial>
+) => {
+  const trials = Arr.fromIterable(trialsInput)
+  return trials.flatMap((trial) =>
     splitTrialFromFixture(direction, trial).pipe(
       Option.match({
         onNone: () => [],
@@ -97,6 +98,7 @@ const splitTrialsFromFixtureCase = (
       })
     )
   )
+}
 
 const makeTrial = (trialNumber: number, value: number) =>
   new CompletedTrialForSplit({

@@ -3,7 +3,7 @@ import { Number as Num } from "effect"
 import * as Float64 from "../../float64.js"
 
 export const SQRT_TWO = Float64.SQRT_2
-export const SQRT_TWO_PI = Float64.sqrt(2 * Float64.PI)
+export const SQRT_TWO_PI = Float64.sqrt(Num.multiply(2, Float64.PI))
 export const LOG_SQRT_TWO_PI = Float64.log(SQRT_TWO_PI)
 export const INV_SQRT_TWO = Num.unsafeDivide(1, SQRT_TWO)
 

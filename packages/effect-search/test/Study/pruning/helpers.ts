@@ -1,12 +1,13 @@
 import { Cause, Effect, Match, Option, Ref, Schema } from "effect"
 
-import { InvalidObjectiveReport } from "../../../src/Errors/index.js"
 import { decodeSlotConfig, makeSlotSpace } from "../../../src/experimental/scenarios/slot.js"
+import { EventRuntime, noopEventPublisher } from "../../../src/internal/study/events.js"
+import * as Pruning from "../../../src/Pruning.js"
 import { pendingAsZeroImputationPolicy } from "../../../src/Sampler/index.js"
 import * as Sampler from "../../../src/Sampler/index.js"
-import { EventRuntime, noopEventPublisher } from "../../../src/Study/events.js"
-import * as Study from "../../../src/Study/index.js"
-import * as Trial from "../../../src/Trial/index.js"
+import { InvalidObjectiveReport } from "../../../src/SearchError.js"
+import type * as Study from "../../../src/Study.js"
+import * as Trial from "../../../src/Trial.js"
 
 export const decodeTraceValue = (value: number | "NaN" | "Infinity" | "-Infinity"): number =>
   Match.value(value).pipe(
@@ -16,7 +17,7 @@ export const decodeTraceValue = (value: number | "NaN" | "Infinity" | "-Infinity
     Match.orElse((numeric) => numeric)
   )
 
-export const reportSnapshot = (reports: ReadonlyArray<Study.IntermediateReport>) =>
+export const reportSnapshot = (reports: ReadonlyArray<Pruning.Report>) =>
   reports.map((report) => ({
     step: report.step,
     value: report.value
@@ -49,22 +50,22 @@ export const deterministicSampler = new Sampler.Sampler({
   suggest: (_space, context) => Effect.succeed({ slot: context.nextTrialNumber })
 })
 
-export const asSingleObjective = (result: Study.StudyResult) =>
+export const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
-export const pruneLowSlotPolicy = new Study.PruningPolicy({
+export const pruneLowSlotPolicy = new Pruning.Policy({
   name: "slot-pruner",
   decide: ({ latestReport }) =>
     latestReport.value < 2
-      ? Study.PruneTrialDecision({
+      ? Pruning.prune({
         step: latestReport.step,
         reason: "slot-below-two",
         policy: "slot-pruner"
       })
-      : Study.ContinuePruneDecision()
+      : Pruning.continueEvaluation()
 })
 
-export const objectiveWithReports = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
+export const objectiveWithReports = (raw: unknown, runtime: Pruning.Runtime) =>
   Effect.gen(function*() {
     const config = yield* decodeSlotConfig(raw)
 
@@ -74,7 +75,7 @@ export const objectiveWithReports = (raw: unknown, runtime: Study.ObjectiveTrial
     return config.slot
   })
 
-export const objectiveWithInvalidReports = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
+export const objectiveWithInvalidReports = (raw: unknown, runtime: Pruning.Runtime) =>
   Effect.gen(function*() {
     const config = yield* decodeSlotConfig(raw)
 
@@ -104,7 +105,7 @@ export const objectiveWithStopProbe = (
   heartbeatRef: Ref.Ref<ReadonlyArray<string>>,
   stopReason: string
 ) =>
-(raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
+(raw: unknown, runtime: Pruning.Runtime) =>
   Effect.gen(function*() {
     const config = yield* decodeSlotConfig(raw)
 

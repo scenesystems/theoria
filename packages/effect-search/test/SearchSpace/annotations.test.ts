@@ -2,11 +2,11 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import type { Schema } from "effect"
 
-import { readDistribution } from "../../src/contracts/Distribution.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import { fromAST } from "../../src/Distribution.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 const expectDistribution = (schema: Schema.Schema.AnyNoContext, expected: unknown) => {
-  const distribution = readDistribution(schema.ast)
+  const distribution = fromAST(schema.ast)
   expect(Option.isSome(distribution)).toBe(true)
 
   if (Option.isSome(distribution)) {

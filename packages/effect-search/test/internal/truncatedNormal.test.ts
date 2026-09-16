@@ -21,8 +21,10 @@ type TruncatedFixtureCase = Schema.Schema.Type<typeof TruncatedNormalFixtureSche
 
 const toParams = (entry: TruncatedFixtureCase): TruncatedNormalParams => new TruncatedNormalParams(entry.params)
 
-const numberAt = (values: ReadonlyArray<number>, index: number): number =>
-  Arr.get(values, index).pipe(Option.getOrElse(() => Number.NaN))
+const numberAt = (valuesInput: Iterable<number>, index: number): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.get(values, index).pipe(Option.getOrElse(() => Number.NaN))
+}
 
 const loadTruncatedFixture = loadFixture("truncated-normal.edge-cases").pipe(
   Effect.provide(FixtureRegistryLive),

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { StudyEventSchema as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
+import { Event as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
 import { Data, Effect, Schema } from "effect"
 import { OptimizerEventEnvelope } from "../../contracts/OptimizerEventEnvelope.js"
 import { encodeAndProjectFieldRecord } from "../../contracts/PayloadProjection.js"
@@ -12,7 +12,7 @@ import { EvaluationEventSchema } from "./evaluation.js"
 import { type GEPAEvent as GEPAEventType, GEPAEventSchema } from "./gepa.js"
 import { type MIPROv2Event as MIPROv2EventType, MIPROv2EventSchema } from "./miprov2.js"
 
-export { StudyEventSchema as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
+export { Event as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
 
 /**
  * Decodes a tagged wrapper around one domain-specific event.

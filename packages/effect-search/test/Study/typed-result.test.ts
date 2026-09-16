@@ -3,7 +3,7 @@ import { Array as Arr, Chunk, Effect, Option, Stream } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeTypedSpace = () =>
   SearchSpace.make({
@@ -14,7 +14,7 @@ const makeTypedSpace = () =>
 const expectTypedConfig = (config: { readonly lr: number; readonly optimizer: "adam" | "sgd" }) => config
 
 describe("Study typed results", () => {
-  it.effect("infers objective config and threads it into StudyResult.bestTrial.config", () =>
+  it.effect("infers objective config and threads it into Result.bestTrial.config", () =>
     Effect.gen(function*() {
       const space = yield* makeTypedSpace()
       const optimized = yield* Study.optimize({
@@ -27,7 +27,7 @@ describe("Study typed results", () => {
           return Effect.succeed(typed.lr + (typed.optimizer === "adam" ? 0 : 1))
         }
       })
-      const typedResult: Study.StudyResult<SearchSpace.Type<typeof space>> = optimized
+      const typedResult: Study.Result<SearchSpace.Type<typeof space>> = optimized
 
       const singleObjective = yield* Option.liftPredicate(
         typedResult,
@@ -57,7 +57,7 @@ describe("Study typed results", () => {
         "TrialStarted",
         "TrialCompleted",
         "BestUpdated",
-        "StudyCompleted"
+        "Completed"
       ])
     }))
 

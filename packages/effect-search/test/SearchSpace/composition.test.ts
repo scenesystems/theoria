@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Schema } from "effect"
+import { Chunk, Effect, Either, Schema } from "effect"
 
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 const learningRateSpace = SearchSpace.make({
   lr: SearchSpace.float(0.0001, 0.1, { scale: "log" })
@@ -25,7 +25,7 @@ const conditionalSpace = Effect.gen(function*() {
       model: SearchSpace.categorical(["linear", "tree"]),
       seed: SearchSpace.int(0, 10)
     },
-    SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
+    SearchSpace.switchOn("model", Chunk.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
   )
 })
 

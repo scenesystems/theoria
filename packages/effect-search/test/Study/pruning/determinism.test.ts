@@ -2,9 +2,10 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 
 import { decodeSlotConfig, makeSlotSpace, SlotConfigSchema } from "../../../src/experimental/scenarios/slot.js"
+import * as Pruning from "../../../src/Pruning.js"
 import * as Sampler from "../../../src/Sampler/index.js"
-import * as Study from "../../../src/Study/index.js"
-import type * as Trial from "../../../src/Trial/index.js"
+import * as Study from "../../../src/Study.js"
+import type * as Trial from "../../../src/Trial.js"
 
 const space = makeSlotSpace(40)
 
@@ -16,7 +17,7 @@ const runOptions = {
   concurrency: 4
 }
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(SlotConfigSchema)))
@@ -25,7 +26,7 @@ const encodeTrialConfigTrace = (
   trials: ReadonlyArray<Trial.Trial<unknown>>
 ) => Effect.forEach(trials, (trial) => decodeSlotConfig(trial.config)).pipe(Effect.map(encodeConfigTrace))
 
-const objective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
+const objective = (raw: unknown, runtime: Pruning.Runtime) =>
   Effect.gen(function*() {
     const config = yield* decodeSlotConfig(raw)
 
@@ -34,16 +35,16 @@ const objective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
     return config.slot
   })
 
-const pruningPolicy = new Study.PruningPolicy({
+const pruningPolicy = new Pruning.Policy({
   name: "upper-slot-pruner",
   decide: ({ latestReport }) =>
     latestReport.value >= 24
-      ? Study.PruneTrialDecision({
+      ? Pruning.prune({
         step: latestReport.step,
         reason: "slot-above-threshold",
         policy: "upper-slot-pruner"
       })
-      : Study.ContinuePruneDecision()
+      : Pruning.continueEvaluation()
 })
 
 const optimizeWithPruning = (trials: number) =>

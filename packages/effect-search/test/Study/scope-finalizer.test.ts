@@ -1,10 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Data, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Layer, Match, Option, Predicate, Ref, Schema } from "effect"
 
 import { noPendingImputationPolicy } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
+import type * as StudySnapshot from "../../src/StudySnapshot.js"
+import * as StudyStorage from "../../src/StudyStorage.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -91,28 +93,26 @@ describe("Study scoped execution", () => {
       expect(yield* Ref.get(releaseCallsRef)).toBe(1)
     }))
 
-  it.live("persists a restorable interruption snapshot from executeStudy finalizer", () =>
+  it.live("persists a restorable interruption snapshot through ambient optional storage", () =>
     Effect.gen(function*() {
       const checkpointCallsRef = yield* Ref.make(0)
-      const interruptionSnapshotRef = yield* Ref.make<Option.Option<Study.StudySnapshot>>(Option.none())
+      const interruptionSnapshotRef = yield* Ref.make<Option.Option<StudySnapshot.Snapshot>>(Option.none())
       const sampler = trackedSampler(trackedRefs(checkpointCallsRef))
-      const studyKernel = yield* Study.StudyKernel
-      const optimizePlan = yield* Study.optimizePlanFromOptions({
+      const storageLayer = Layer.succeed(StudyStorage.StudyStorage, {
+        appendTrial: () => Effect.void,
+        writeSnapshot: (snapshot) => Ref.set(interruptionSnapshotRef, Option.some(snapshot)),
+        loadSnapshot: () => Ref.get(interruptionSnapshotRef),
+        loadTrialLog: () => Effect.succeed(Arr.empty()),
+        replayTrialLog: () => Effect.succeed(Arr.empty())
+      })
+      const interrupted = yield* Study.optimize({
         space: yield* makeSpace(),
         sampler,
         direction: "minimize",
         trials: 40,
         concurrency: 2,
         objective: () => Effect.sleep("20 millis").pipe(Effect.as(1))
-      })
-      const interrupted = yield* studyKernel.execute(
-        new Study.ExecuteRequest({
-          options: optimizePlan,
-          seed: Option.none(),
-          eventPublisher: Option.none(),
-          interruptionSnapshotSink: (snapshot) => Ref.set(interruptionSnapshotRef, Option.some(snapshot))
-        })
-      ).pipe(Effect.timeoutOption("40 millis"))
+      }).pipe(Effect.provide(storageLayer), Effect.timeoutOption("40 millis"))
 
       expect(Option.isNone(interrupted)).toBe(true)
 
@@ -131,7 +131,7 @@ describe("Study scoped execution", () => {
         trials: 2,
         objective: () => Effect.succeed(1)
       })
-      const resumedSingle = resumed._tag === "SingleObjective" ? Option.some(resumed) : Option.none()
+      const resumedSingle = Option.liftPredicate(resumed, Predicate.isTagged("SingleObjective"))
 
       expect(Option.isSome(resumedSingle)).toBe(true)
 
@@ -139,8 +139,8 @@ describe("Study scoped execution", () => {
         return
       }
 
-      expect(resumedSingle.value.trials.length).toBeGreaterThanOrEqual(2)
-    }).pipe(Effect.provide(Study.StudyServicesLive)))
+      expect(Arr.length(Arr.fromIterable(resumedSingle.value.trials))).toBeGreaterThanOrEqual(2)
+    }))
 
   it.live("drains heterogeneous trial durations without starvation", () =>
     Effect.gen(function*() {
@@ -155,11 +155,16 @@ describe("Study scoped execution", () => {
         objective: (raw) =>
           Schema.decodeUnknown(space.schema)(raw).pipe(
             Effect.flatMap((config) =>
-              Effect.sleep(config.slot === 0 ? "60 millis" : "5 millis").pipe(Effect.as(config.slot))
+              Effect.sleep(
+                Match.value(config.slot).pipe(
+                  Match.when(0, () => "60 millis"),
+                  Match.orElse(() => "5 millis")
+                )
+              ).pipe(Effect.as(config.slot))
             )
           )
       })
-      const single = result._tag === "SingleObjective" ? Option.some(result) : Option.none()
+      const single = Option.liftPredicate(result, Predicate.isTagged("SingleObjective"))
 
       expect(Option.isSome(single)).toBe(true)
 
@@ -167,8 +172,9 @@ describe("Study scoped execution", () => {
         return
       }
 
-      expect(single.value.trials).toHaveLength(8)
-      expect(single.value.trials.map((trial) => trial.trialNumber)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
-      expect(single.value.trials.every((trial) => trial.state._tag === "Completed")).toBe(true)
+      const trials = Arr.fromIterable(single.value.trials)
+      expect(trials).toHaveLength(8)
+      expect(Arr.map(trials, (trial) => trial.trialNumber)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+      expect(Arr.every(trials, (trial) => Predicate.isTagged("Completed")(trial.state))).toBe(true)
     }))
 })

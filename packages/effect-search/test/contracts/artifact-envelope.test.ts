@@ -1,103 +1,110 @@
 import { describe, expect, it } from "@effect/vitest"
-import { DateTime, Effect, Schema } from "effect"
+import * as StudyArtifact from "@scenesystems/effect-study/Artifact"
+import { Array as Arr, DateTime, Effect, Either, FastCheck, Schema } from "effect"
 
-import * as Contracts from "../../src/contracts/index.js"
+import * as Artifact from "../../src/Artifact.js"
 
-const testRunId = "01HZ0000000000000000000000"
+const runIdText = "01HZ0000000000000000000000"
 
-const makeTestLineage = Effect.gen(function*() {
-  const runId = yield* Schema.decode(Contracts.RunId)(testRunId)
+const makeMetadata = Effect.gen(function*() {
+  const runId = yield* Schema.decode(StudyArtifact.RunId)(runIdText)
+  const packageVersion = yield* Schema.decode(StudyArtifact.PackageVersion)("0.7.0")
+  const component = yield* Schema.decode(StudyArtifact.ComponentPath)(Arr.make("Study", "artifact"))
   const emittedAt = yield* DateTime.make("2024-01-01T00:00:00Z")
-  const sourceRef = new Contracts.SourceRef({
+  const sourceRef = yield* Schema.decodeUnknown(Artifact.Source)({
     origin: "effect-search",
     domain: "study",
-    segments: ["snapshot"]
+    segments: Arr.of("custom")
   })
-  const artifactId = new Contracts.ArtifactId({
-    runId,
-    sequence: 0
-  })
-  return new Contracts.ArtifactLineage({
-    sourceRef,
-    artifactId,
-    emittedAt
-  })
+  return {
+    producer: Artifact.EffectSearch({ packageVersion, component, runId }),
+    lineage: {
+      sourceRef,
+      artifactId: new StudyArtifact.Id({ runId, sequence: 0 }),
+      emittedAt
+    },
+    relations: Arr.of(StudyArtifact.Run({ ref: runId }))
+  }
 })
 
-const makeTestProducer = Effect.gen(function*() {
-  const packageVersion = yield* Schema.decode(Contracts.PackageVersion)("0.1.0")
-  const runId = yield* Schema.decode(Contracts.RunId)(testRunId)
-  const component = yield* Schema.decode(Contracts.ComponentPath)(["Study", "snapshot"])
-  return Contracts.EffectSearch({
-    packageVersion,
-    component,
-    runId
-  })
-})
+describe("Artifact", () => {
+  it.effect.prop(
+    "round-trips recursive JSON custom payloads",
+    { payload: FastCheck.jsonValue() },
+    ({ payload }) =>
+      Effect.gen(function*() {
+        const metadata = yield* makeMetadata
+        const validated = yield* Schema.decodeUnknown(Artifact.Payload)(payload)
+        const envelope = Artifact.Custom({
+          schemaVersion: "artifact-envelope/v1",
+          ...metadata,
+          payload: validated
+        })
+        const codec = Schema.parseJson(Artifact.Envelope)
+        const encoded = yield* Schema.encode(codec)(envelope)
+        const decoded = yield* Schema.decode(codec)(encoded)
 
-describe("contracts/ArtifactEnvelope", () => {
-  it.effect("round-trips a Custom envelope through ArtifactEnvelopeSchema encode/decode", () =>
-    Effect.gen(function*() {
-      const lineage = yield* makeTestLineage
-      const producer = yield* makeTestProducer
-
-      const envelope = Contracts.Custom({
-        schemaVersion: "artifact-envelope/v1",
-        producer,
-        lineage,
-        payload: { nextTrialNumber: 12, completedCount: 8 }
+        expect(decoded).toEqual(envelope)
       })
+  )
 
-      const encoded = yield* Schema.encode(Contracts.ArtifactEnvelopeSchema)(envelope)
-      const decoded = yield* Schema.decode(Contracts.ArtifactEnvelopeSchema)(encoded)
+  it.effect("preserves non-finite numbers outside JSON transport", () =>
+    Effect.gen(function*() {
+      const payload: Artifact.Payload = { values: Arr.make(Number.NaN, Number.POSITIVE_INFINITY, -0) }
+      const encoded = yield* Schema.encode(Artifact.Payload)(payload)
+      const decoded = yield* Schema.decode(Artifact.Payload)(encoded)
 
-      expect(decoded._tag).toBe("Custom")
-      expect(decoded.schemaVersion).toBe("artifact-envelope/v1")
-      expect(decoded.lineage.sourceRef.origin).toBe("effect-search")
+      expect(decoded).toEqual(payload)
     }))
 
-  it.effect("round-trips a TrialLog envelope through ArtifactEnvelopeSchema encode/decode", () =>
+  it.effect("preserves own prototype-named keys", () =>
     Effect.gen(function*() {
-      const lineage = yield* makeTestLineage
-      const producer = yield* makeTestProducer
+      const json = "[{\"__proto__\":{\"nested\":[true,null]},\"constructor\":\"own\",\"toString\":7}]"
+      const codec = Schema.parseJson(Artifact.Payload)
+      const decoded = yield* Schema.decode(codec)(json)
+      const encoded = yield* Schema.encode(codec)(decoded)
 
-      const envelope = Contracts.TrialLog({
+      expect(encoded).toBe(json)
+    }))
+
+  it.effect("rejects unsupported recursive leaves", () =>
+    Effect.gen(function*() {
+      const result = yield* Schema.decodeUnknown(Artifact.Payload)({
+        nested: Arr.of({ unsupported: undefined })
+      }).pipe(Effect.either)
+
+      expect(Either.isLeft(result)).toBe(true)
+    }))
+
+  it.effect("round-trips trial and event payload variants", () =>
+    Effect.gen(function*() {
+      const metadata = yield* makeMetadata
+      const trial = yield* Schema.decodeUnknown(Artifact.Envelope)({
+        _tag: "TrialLog",
         schemaVersion: "artifact-envelope/v1",
-        producer,
-        lineage,
+        ...metadata,
         trial: {
           trialNumber: 0,
-          config: {},
-          state: { _tag: "Completed", value: 1.0, duration: 100, retryCount: 0 }
+          config: { learningRate: 0.1 },
+          state: { _tag: "Completed", value: 1, duration: 12, retryCount: 0 }
         }
       })
-
-      const encoded = yield* Schema.encode(Contracts.ArtifactEnvelopeSchema)(envelope)
-      const decoded = yield* Schema.decode(Contracts.ArtifactEnvelopeSchema)(encoded)
-
-      expect(decoded._tag).toBe("TrialLog")
-      expect(decoded.schemaVersion).toBe("artifact-envelope/v1")
-    }))
-
-  it.effect("matchEnvelope exhaustive pattern matching", () =>
-    Effect.gen(function*() {
-      const lineage = yield* makeTestLineage
-      const producer = yield* makeTestProducer
-
-      const envelope = Contracts.Custom({
+      const event = yield* Schema.decodeUnknown(Artifact.Envelope)({
+        _tag: "StudyEvent",
         schemaVersion: "artifact-envelope/v1",
-        producer,
-        lineage,
-        payload: "hello"
+        ...metadata,
+        event: { _tag: "TrialCompleted", trialNumber: 0, value: 1 }
       })
 
-      const result = Contracts.matchEnvelope({
-        TrialLog: () => "trial-log",
-        StudySnapshot: () => "study-snapshot",
-        StudyEvent: () => "study-event",
-        Custom: (c) => `custom:${c.payload}`
-      })(envelope)
-
-      expect(result).toBe("custom:hello")
+      expect(Artifact.is("TrialLog")(trial)).toBe(true)
+      expect(Artifact.is("StudyEvent")(event)).toBe(true)
+      expect(
+        Artifact.match({
+          TrialLog: () => "trial",
+          StudySnapshot: () => "snapshot",
+          StudyEvent: () => "event",
+          Custom: () => "custom"
+        })(event)
+      ).toBe("event")
     }))
 })

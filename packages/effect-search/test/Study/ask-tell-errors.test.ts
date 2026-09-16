@@ -3,7 +3,7 @@ import { Effect, Either } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -11,6 +11,25 @@ const makeSpace = () =>
   })
 
 describe("Study ask-tell typed transition errors", () => {
+  it.effect("prevents reservations after the opening scope closes", () =>
+    Effect.gen(function*() {
+      const study = yield* Effect.scoped(
+        Study.open({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 221 }),
+          direction: "minimize",
+          trials: 1,
+          objective: () => Effect.succeed(0)
+        })
+      )
+
+      const reservation = yield* Effect.either(Study.ask(study))
+      expect(Either.isLeft(reservation)).toBe(true)
+      if (Either.isLeft(reservation)) {
+        expect(reservation.left._tag).toBe("effect-search/InvalidStudyConfig")
+      }
+    }))
+
   it.effect("fails invalid transitions with typed SearchError variants and never defects", () =>
     Effect.scoped(
       Effect.gen(function*() {

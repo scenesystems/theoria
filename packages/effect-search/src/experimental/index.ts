@@ -9,7 +9,7 @@
  * @module
  */
 
-import { splitByObjectiveSpec as _splitTpeTrialsByObjectiveSpec } from "../samplers/Tpe/split/index.js"
+import { splitByObjective as splitTpeTrialsByObjective } from "../internal/tpe/split.js"
 
 /**
  * Partitions completed observations into the groups fitted by TPE.
@@ -31,7 +31,7 @@ import { splitByObjectiveSpec as _splitTpeTrialsByObjectiveSpec } from "../sampl
  * @since 0.1.0
  * @category experimental
  */
-export const splitTpeTrialsByObjectiveSpec = _splitTpeTrialsByObjectiveSpec
+export { splitTpeTrialsByObjective }
 
 /**
  * Defines fixed search-space fixtures and matching configuration decoders for tests.

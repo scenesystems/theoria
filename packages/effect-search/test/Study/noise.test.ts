@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Number as Num, Option, Ref } from "effect"
 
-import type { Direction } from "../../src/contracts/Direction.js"
+import type { Direction } from "../../src/Direction.js"
 import { pendingAsZeroImputationPolicy, type SuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
-import * as Trial from "../../src/Trial/index.js"
+import * as Study from "../../src/Study.js"
+import * as Trial from "../../src/Trial.js"
 
 const makeSpace = () =>
   SearchSpace.make({

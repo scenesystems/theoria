@@ -6,6 +6,8 @@ A `SearchSpace` describes the valid configurations and infers their TypeScript t
 
 The samplers compute with [`@scenesystems/effect-math`](../effect-math/README.md). Cached objective inputs and study artifacts get stable content identities from [`@scenesystems/digest`](../digest/README.md). [`@scenesystems/effect-dsp`](../effect-dsp/README.md) builds its prompt optimizers on this package.
 
+Reusable trial schemas, history, stop controls, event streams, and artifact persistence live in [`@scenesystems/effect-study`](../effect-study/README.md). Use that package directly for fixed-input evaluation or non-numeric observations. Existing search entrypoints and snapshot formats remain available here; sampling, ranking, pruning, and search recovery remain search responsibilities.
+
 ## Installation
 
 ```sh
@@ -19,7 +21,8 @@ Effect `^3.22.1` is a required peer dependency, together with `@effect/platform`
 The study below minimizes a two-dimensional function. `SearchSpace.make` validates the definition and carries the inferred configuration type through the objective and the result.
 
 ```ts typecheck
-import { Effect, Match } from "effect"
+import { Effect, Match, Number as Num } from "effect"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 export const program = Effect.gen(function* () {
@@ -31,7 +34,7 @@ export const program = Effect.gen(function* () {
   const result = yield* Study.minimize({
     space,
     sampler: Sampler.tpe({ seed: 42 }),
-    objective: ({ x, y }) => Effect.succeed((x - 2) ** 2 + (y + 1) ** 2),
+    objective: ({ x, y }) => Effect.succeed(Num.sum(Numeric.pow(Num.subtract(x, 2), 2), Numeric.pow(Num.sum(y, 1), 2))),
     trials: 50
   })
 
@@ -54,7 +57,8 @@ A space is a record of dimensions. `SearchSpace.float` takes bounds, an optional
 Conditional spaces branch on a categorical value. `SearchSpace.makeConditional` combines shared dimensions with a `SearchSpace.switch` over `SearchSpace.when` branches, and the inferred type is a discriminated union that `Match` can exhaust.
 
 ```ts typecheck
-import { Effect, Match } from "effect"
+import { Array as Arr, Effect, Match, Number as Num } from "effect"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 export const program = Effect.gen(function* () {
@@ -67,8 +71,8 @@ export const program = Effect.gen(function* () {
     minSamplesLeaf: SearchSpace.int(1, 6)
   })
   const space = yield* SearchSpace.makeConditional(
-    { model: SearchSpace.categorical(["linear", "tree"]) },
-    SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
+    { model: SearchSpace.categorical(Arr.make("linear", "tree")) },
+    SearchSpace.switch("model", Arr.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
   )
 
   return yield* Study.minimize({
@@ -77,8 +81,12 @@ export const program = Effect.gen(function* () {
     trials: 45,
     objective: (config) =>
       Match.value(config).pipe(
-        Match.when({ model: "linear" }, ({ learningRate }) => Effect.succeed(Math.log10(learningRate) ** 2)),
-        Match.when({ model: "tree" }, ({ maxDepth }) => Effect.succeed(((maxDepth - 7) / 7) ** 2)),
+        Match.when({ model: "linear" }, ({ learningRate }) =>
+          Effect.succeed(Numeric.pow(Numeric.log10(learningRate), 2))
+        ),
+        Match.when({ model: "tree" }, ({ maxDepth }) =>
+          Effect.succeed(Numeric.pow(Num.unsafeDivide(Num.subtract(maxDepth, 7), 7), 2))
+        ),
         Match.exhaustive
       )
   })
@@ -115,8 +123,8 @@ A seeded sampler reproduces its suggestions when it sees the same ordered trial 
 With several `directions`, the objective returns a vector and the result is `MultiObjective` with a `paretoFront`. The `Pareto` module provides dominance checks, front extraction, and two-dimensional hypervolume for comparing runs.
 
 ```ts typecheck
-import { Effect, Match } from "effect"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Array as Arr, Effect, Match, Number as Num } from "effect"
+import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 export const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
@@ -127,17 +135,17 @@ export const program = Effect.gen(function* () {
   const result = yield* Study.optimize({
     space,
     sampler: Sampler.tpe({ seed: 919 }),
-    directions: ["minimize", "minimize"],
+    directions: Arr.replicate<Contracts.Direction>("minimize", 2),
     trials: 40,
     objective: ({ replicas, cacheMb }) => {
-      const latency = 100 / replicas + 2000 / cacheMb
-      const cost = replicas * 1.5 + cacheMb / 256
-      return Effect.succeed([latency, cost])
+      const latency = Num.sum(Num.unsafeDivide(100, replicas), Num.unsafeDivide(2000, cacheMb))
+      const cost = Num.sum(Num.multiply(replicas, 1.5), Num.unsafeDivide(cacheMb, 256))
+      return Effect.succeed(Arr.make(latency, cost))
     }
   })
 
   return Match.value(result).pipe(
-    Match.tag("MultiObjective", ({ paretoFront }) => paretoFront.length),
+    Match.tag("MultiObjective", ({ paretoFront }) => Arr.length(paretoFront)),
     Match.tag("SingleObjective", () => 1),
     Match.exhaustive
   )
@@ -151,12 +159,15 @@ export const program = Effect.gen(function* () {
 `Study.snapshot` captures the trials, the next trial number, the sampler checkpoint, and compatibility metadata from a result or an open handle. `Study.StudySnapshot` is a Schema, so encode it for storage and decode it later. `Study.resume` validates the space and settings against the snapshot before continuing.
 
 ```ts typecheck
-import { Effect, Schema } from "effect"
+import { Effect, Number as Num, Schema } from "effect"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 export const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({ x: SearchSpace.float(-5, 5) })
-  const objective = ({ x }: SearchSpace.Type<typeof space>) => Effect.succeed((x - 1.25) ** 2)
+  const objective = ({ x }: SearchSpace.Type<typeof space>) => {
+    const distance = Num.subtract(x, 1.25)
+    return Effect.succeed(Num.multiply(distance, distance))
+  }
 
   const firstLeg = yield* Study.minimize({ space, sampler: Sampler.tpe({ seed: 404 }), trials: 20, objective })
   const stored = yield* Schema.encode(Study.StudySnapshot)(yield* Study.snapshot(firstLeg))
@@ -182,14 +193,14 @@ Objective caching is a separate concern. A cache avoids re-running the objective
 When another process owns evaluation, such as a job queue or a remote worker, the study can hand out configurations instead of running the objective itself. `Study.open` creates a scoped handle. `Study.ask` reserves the next typed configuration, and `Study.tell`, `Study.fail`, or `Study.cancel` completes that reservation. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Study.result`.
 
 ```ts typecheck
-import { Effect } from "effect"
+import { Effect, Number as Num } from "effect"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
-
-const evaluateRemotely = (config: { readonly x: number }) => Effect.succeed(config.x ** 2)
 
 export const program = Effect.scoped(
   Effect.gen(function* () {
     const space = yield* SearchSpace.make({ x: SearchSpace.float(-4, 4) })
+    const evaluateRemotely = (config: SearchSpace.Type<typeof space>) =>
+      Effect.succeed(Num.multiply(config.x, config.x))
     const handle = yield* Study.open({
       space,
       sampler: Sampler.random({ seed: 25 }),

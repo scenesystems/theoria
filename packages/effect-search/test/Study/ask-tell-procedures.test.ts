@@ -3,8 +3,7 @@ import { Effect } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import { isStudyHandle } from "../../src/Study/api/askTell.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -23,8 +22,8 @@ describe("Study handle guard", () => {
           objective: () => Effect.succeed(0)
         })
 
-        expect(isStudyHandle(handle)).toBe(true)
-        expect(isStudyHandle({ _tag: "effect-search/StudyHandle" })).toBe(false)
+        expect(Study.isStudy(handle)).toBe(true)
+        expect(Study.isStudy({ _tag: "effect-search/Study" })).toBe(false)
       })
     ))
 })

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
-import * as Contracts from "../../src/contracts/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import * as Objective from "../../src/Objective.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 import {
   AdvancedCmaEsFixtureSchema,
   AdvancedGpBoFixtureSchema,
@@ -11,11 +11,11 @@ import {
   loadFixture
 } from "../helpers/fixtures/index.js"
 
+type CmaPayload = typeof AdvancedCmaEsFixtureSchema.Type["payload"]
+type GpPayload = typeof AdvancedGpBoFixtureSchema.Type["payload"]
+
 const makeSpace = (
-  space: {
-    readonly x: { readonly low: number; readonly high: number }
-    readonly y: { readonly low: number; readonly high: number }
-  }
+  space: CmaPayload["space"] | GpPayload["space"]
 ) =>
   SearchSpace.make({
     x: SearchSpace.float(space.x.low, space.x.high),
@@ -23,21 +23,12 @@ const makeSpace = (
   })
 
 const makeContext = (
-  context: {
-    readonly nextTrialNumber: number
-    readonly completed: ReadonlyArray<{
-      readonly trialNumber: number
-      readonly config: { readonly x: number; readonly y: number }
-      readonly value: number
-    }>
-  }
+  context: CmaPayload["context"] | GpPayload["context"]
 ) =>
-  new Sampler.SuggestContext({
-    completed: context.completed.map((entry) =>
-      Sampler.makeSuggestCompletedTrial(entry.trialNumber, entry.config, entry.value)
-    ),
+  new Sampler.Context({
+    completed: context.completed.map((entry) => Sampler.observation(entry.trialNumber, entry.config, entry.value)),
     pending: [],
-    objectiveSpec: Contracts.singleObjectiveSpec("minimize"),
+    objectiveSpec: Objective.single("minimize"),
     nextTrialNumber: context.nextTrialNumber,
     epsilon: 0
   })

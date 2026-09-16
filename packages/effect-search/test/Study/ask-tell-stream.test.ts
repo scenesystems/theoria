@@ -3,7 +3,7 @@ import { Chunk, Effect, Fiber, Match, Option, Stream } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -40,11 +40,11 @@ describe("Study ask-tell stream", () => {
         const tags = Chunk.toReadonlyArray(eventsOption.value).map((event) => event._tag)
         expect(tags).toContain("TrialStarted")
         expect(tags).toContain("TrialCompleted")
-        expect(tags).toContain("StudyCompleted")
+        expect(tags).toContain("Completed")
 
         const completedReason = Chunk.toReadonlyArray(eventsOption.value).flatMap((event) =>
           Match.value(event).pipe(
-            Match.tag("StudyCompleted", ({ completionReason }) => [completionReason]),
+            Match.tag("Completed", ({ completionReason }) => [completionReason]),
             Match.orElse(() => [])
           )
         )

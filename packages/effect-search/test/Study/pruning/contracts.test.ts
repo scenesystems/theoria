@@ -2,8 +2,9 @@ import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Option, Ref, Schedule, Stream } from "effect"
 
 import { decodeSlotConfig } from "../../../src/experimental/scenarios/slot.js"
-import * as Study from "../../../src/Study/index.js"
-import * as Trial from "../../../src/Trial/index.js"
+import * as Pruning from "../../../src/Pruning.js"
+import * as Study from "../../../src/Study.js"
+import * as Trial from "../../../src/Trial.js"
 import {
   asSingleObjective,
   deterministicSampler,
@@ -129,7 +130,7 @@ describe("Study pruning and early stop contracts", () => {
           pruningPolicy: {
             name: "always-prune",
             decide: ({ latestReport }) =>
-              Study.PruneTrialDecision({
+              Pruning.prune({
                 step: latestReport.step,
                 reason: "always",
                 policy: "always-prune"
@@ -149,7 +150,7 @@ describe("Study pruning and early stop contracts", () => {
 
       expect(tags).toContain("TrialReported")
       expect(tags).toContain("TrialPruned")
-      expect(tags).toContain("StudyStopRequested")
-      expect(tags[tags.length - 1]).toBe("StudyCompleted")
+      expect(tags).toContain("StopRequested")
+      expect(tags[tags.length - 1]).toBe("Completed")
     }))
 })

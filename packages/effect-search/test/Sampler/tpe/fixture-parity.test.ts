@@ -22,8 +22,10 @@ const expectWithinTolerance = (actual: number, expected: number, tolerance: numb
   expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
 }
 
-const numberAt = (values: ReadonlyArray<number>, index: number): number =>
-  Arr.get(values, index).pipe(Option.getOrElse(() => Number.NaN))
+const numberAt = (valuesInput: Iterable<number>, index: number): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.get(values, index).pipe(Option.getOrElse(() => Number.NaN))
+}
 
 const asDistanceInput = (value: Option.Option<unknown>): number =>
   Option.match(value, {

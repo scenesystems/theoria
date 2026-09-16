@@ -1,20 +1,24 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Chunk, Effect, Schema } from "effect"
 
-import * as Sampler from "../../src/Sampler/index.js"
+import * as Sampler from "../../src/Sampler.js"
+
+const Seeds = Schema.Array(Schema.Number)
 
 const steppedSeeds = (
   seed: number,
   steps: number,
-  acc: ReadonlyArray<number> = Arr.empty<number>()
-): ReadonlyArray<number> =>
-  steps <= 0
+  accInput: Iterable<number> = Arr.empty<number>()
+): typeof Seeds.Type => {
+  const acc = Arr.fromIterable(accInput)
+  return steps <= 0
     ? acc
     : (() => {
       const next = Sampler.nextDeterministicSeed(seed)
 
       return steppedSeeds(next, steps - 1, Arr.append(acc, next))
     })()
+}
 
 describe("Sampler deterministic utilities", () => {
   it.effect("normalizes non-finite and non-positive values to deterministic positive seeds", () =>
@@ -46,7 +50,7 @@ describe("Sampler deterministic utilities", () => {
     Effect.sync(() => {
       const values = Arr.make(1, 2, 3, 4, 5)
 
-      expect(Sampler.shuffleBySeed(values, 42)).toEqual(Arr.make(2, 4, 1, 5, 3))
+      expect(Sampler.shuffleBySeed(values, 42)).toEqual(Chunk.make(2, 4, 1, 5, 3))
       expect(Sampler.shuffleBySeed(values, 42)).toEqual(Sampler.shuffleBySeed(values, 42))
       expect(Sampler.shuffleBySeed(values, 43)).not.toEqual(Sampler.shuffleBySeed(values, 42))
     }))

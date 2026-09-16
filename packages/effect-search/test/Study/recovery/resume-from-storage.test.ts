@@ -1,11 +1,15 @@
 import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import { PackageVersion, RunId } from "@scenesystems/effect-study/Artifact"
 import { Array as Arr, Effect, Layer, Option, Schema } from "effect"
 
-import { EnvelopeContextLive, fileSystemSink, PackageVersion, RunId } from "../../../src/contracts/index.js"
+import * as ArtifactContext from "../../../src/ArtifactContext.js"
+import * as ArtifactSink from "../../../src/ArtifactSink.js"
 import * as Sampler from "../../../src/Sampler/index.js"
-import * as Study from "../../../src/Study/index.js"
+import * as Study from "../../../src/Study.js"
+import * as StudySnapshot from "../../../src/StudySnapshot.js"
+import * as StudyStorage from "../../../src/StudyStorage.js"
 import {
   asSingleObjective,
   encodeConfigTrace,
@@ -19,7 +23,7 @@ import {
 const makeTestEnvelopeContextLayer = Effect.gen(function*() {
   const runId = yield* Schema.decode(RunId)("01HZ0000000000000000000000")
   const packageVersion = yield* Schema.decode(PackageVersion)("0.1.0")
-  return EnvelopeContextLive({ packageVersion, runId, studyId: "test-study" })
+  return ArtifactContext.layer(new ArtifactContext.Options({ packageVersion, runId, studyId: "test-study" }))
 }).pipe(Layer.unwrapEffect)
 
 describe("recovery resume-from-storage", () => {
@@ -29,9 +33,9 @@ describe("recovery resume-from-storage", () => {
       const directory = yield* fileSystem.makeTempDirectoryScoped({
         prefix: "effect-search-recovery-resume-storage-"
       })
-      const storageOptions = Study.studyStorageOptions(directory)
-      const storage = yield* Study.makeStudyStorage(storageOptions).pipe(
-        Effect.provide(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+      const storageOptions = StudyStorage.options(directory)
+      const storage = yield* StudyStorage.make(storageOptions).pipe(
+        Effect.provide(Layer.merge(ArtifactSink.layerFileSystem(directory), makeTestEnvelopeContextLayer))
       )
 
       const seed = 2301
@@ -65,7 +69,7 @@ describe("recovery resume-from-storage", () => {
       }
 
       const stagedSnapshot = yield* Study.snapshot(stagedSingle.value)
-      const checkpoint = new Study.StudySnapshot({
+      const checkpoint = new StudySnapshot.Snapshot({
         ...stagedSnapshot,
         nextTrialNumber: checkpointTrials,
         trials: Arr.take(stagedSnapshot.trials, checkpointTrials),
@@ -83,8 +87,8 @@ describe("recovery resume-from-storage", () => {
         objective: singleObjective
       }).pipe(
         Effect.provide(
-          Study.StudyStorageLive(storageOptions).pipe(
-            Layer.provideMerge(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+          StudyStorage.layer(storageOptions).pipe(
+            Layer.provideMerge(Layer.merge(ArtifactSink.layerFileSystem(directory), makeTestEnvelopeContextLayer))
           )
         )
       )

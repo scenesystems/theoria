@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Cause, Chunk, Deferred, Duration, Effect, Exit, Fiber, Option, Predicate, Stream, TestClock } from "effect"
 
+import { evaluateObjectiveWithTimeout } from "../../src/internal/study/runtime/objectiveTimeout.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
-import { evaluateObjectiveWithTimeout } from "../../src/Study/runtime/objectiveTimeout.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({

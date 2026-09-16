@@ -1,22 +1,22 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import * as Errors from "../../../src/Errors/index.js"
-import * as Study from "../../../src/Study/index.js"
-import * as StudyEvent from "../../../src/StudyEvent/index.js"
+import * as Progress from "../../../src/Progress.js"
+import * as Errors from "../../../src/SearchError.js"
+import * as StudyEvent from "../../../src/StudyEvent.js"
 
 describe("terminal reporter event rendering", () => {
   it.effect("renders deterministic event lines for completed, best, pruned, failed, and completion variants", () =>
     Effect.gen(function*() {
-      const completed = StudyEvent.TrialCompleted({ trialNumber: 4, value: [0.25, 1.5] })
-      const bestUpdated = StudyEvent.BestUpdated({ trialNumber: 4, value: 0.25 })
-      const pruned = StudyEvent.TrialPruned({
+      const completed = StudyEvent.trialCompleted({ trialNumber: 4, value: [0.25, 1.5] })
+      const bestUpdated = StudyEvent.bestUpdated({ trialNumber: 4, value: 0.25 })
+      const pruned = StudyEvent.trialPruned({
         trialNumber: 6,
         step: 2,
         reason: "threshold",
         policy: "threshold-pruner"
       })
-      const failed = StudyEvent.TrialFailed({
+      const failed = StudyEvent.trialFailed({
         trialNumber: 7,
         error: new Errors.TrialError({
           trialNumber: 7,
@@ -24,45 +24,45 @@ describe("terminal reporter event rendering", () => {
           cause: "synthetic"
         })
       })
-      const completedStudy = StudyEvent.StudyCompleted({ completionReason: "budgetExhausted" })
+      const completedStudy = StudyEvent.completed({ completionReason: "budgetExhausted" })
 
-      expect(Study.formatTerminalProgressEvent(completed, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Progress.format(completed, "plain")).toEqual([
+        new Progress.Line({
           channel: "stdout",
           text: "trial#4 completed value=[0.25, 1.5]"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(bestUpdated, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Progress.format(bestUpdated, "plain")).toEqual([
+        new Progress.Line({
           channel: "stdout",
           text: "best-updated trial#4 value=0.25"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(pruned, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Progress.format(pruned, "plain")).toEqual([
+        new Progress.Line({
           channel: "stdout",
           text: "trial#6 pruned step=2 policy=threshold-pruner reason=threshold"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(failed, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Progress.format(failed, "plain")).toEqual([
+        new Progress.Line({
           channel: "stderr",
           text: "trial#7 failed error=effect-search/TrialError message=objective crashed"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(completedStudy, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Progress.format(completedStudy, "plain")).toEqual([
+        new Progress.Line({
           channel: "stdout",
           text: "study completed reason=budgetExhausted"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(pruned, { renderMode: "plain" })).toEqual(
-        Study.formatTerminalProgressEvent(pruned, { renderMode: "plain" })
+      expect(Progress.format(pruned, "plain")).toEqual(
+        Progress.format(pruned, "plain")
       )
     }))
 })

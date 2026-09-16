@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
 import * as Float64 from "../../src/internal/float64.js"
-import { hypervolume2d, hypervolumeContribution2d } from "../../src/internal/hypervolume.js"
+import { hypervolume2d, hypervolumeContribution2d } from "../../src/Pareto.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
   expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)

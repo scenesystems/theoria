@@ -2,10 +2,11 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Option, Schema } from "effect"
 
 import * as Sampler from "../../../src/Sampler/index.js"
-import * as Study from "../../../src/Study/index.js"
+import * as Study from "../../../src/Study.js"
+import * as StudySnapshot from "../../../src/StudySnapshot.js"
 import { asSingleObjective, makeSpace, singleObjective } from "./helpers.js"
 
-const legacyPayloadFromSnapshot = (snapshot: Study.StudySnapshot): unknown => {
+const legacyPayloadFromSnapshot = (snapshot: StudySnapshot.Snapshot): unknown => {
   const { snapshotFormatVersion: _snapshotFormatVersion, ...legacy } = snapshot
 
   return {
@@ -33,7 +34,7 @@ describe("snapshot format versioning", () => {
       }
 
       const snapshot = yield* Study.snapshot(single.value)
-      const decodedWithVariant = yield* Schema.decodeUnknown(Study.StudySnapshotFormatVariantSchema)(snapshot)
+      const decodedWithVariant = yield* Schema.decodeUnknown(StudySnapshot.Snapshot)(snapshot)
 
       expect(snapshot.snapshotFormatVersion).toBe(1)
       expect(decodedWithVariant.snapshotFormatVersion).toBe(1)
@@ -58,8 +59,8 @@ describe("snapshot format versioning", () => {
 
       const snapshot = yield* Study.snapshot(single.value)
 
-      const decodedA = yield* Study.decodeStudySnapshot(snapshot)
-      const decodedB = yield* Study.decodeStudySnapshot(snapshot)
+      const decodedA = yield* StudySnapshot.decode(snapshot)
+      const decodedB = yield* StudySnapshot.decode(snapshot)
 
       expect(decodedA).toEqual(decodedB)
       expect(decodedA.snapshotFormatVersion).toBe(1)
@@ -84,7 +85,7 @@ describe("snapshot format versioning", () => {
 
       const snapshot = yield* Study.snapshot(single.value)
       const legacyPayload = legacyPayloadFromSnapshot(snapshot)
-      const decoded = yield* Effect.either(Study.decodeStudySnapshot(legacyPayload))
+      const decoded = yield* Effect.either(StudySnapshot.decode(legacyPayload))
 
       expect(Either.isLeft(decoded)).toBe(true)
     }))

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
-import * as Study from "../../../src/Study/index.js"
+import * as Study from "../../../src/Study.js"
 import {
   asSingleObjective,
   baselineTailEvents,
@@ -20,7 +20,7 @@ describe("Study snapshot-resume prune/stop replay", () => {
       const totalTrials = 8
       const firstLegTrials = 3
       const secondLegTrials = totalTrials - firstLegTrials
-      const runOptions: Study.OptimizeOptions = {
+      const runOptions: Study.Options = {
         space: yield* pruneStopSpace,
         sampler: deterministicSampler,
         direction: "minimize",

@@ -2,8 +2,8 @@
  * Ask/tell + progress composition through the effectSearchInterop seam.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { SearchSpace } from "@scenesystems/effect-search"
-import { Array as Arr, Effect, Fiber, Option, Ref, Stream } from "effect"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import { Array as Arr, Effect, Fiber, Option, Ref, Stream, String as Str } from "effect"
 import { effectSearchInterop } from "../../src/optimizers/effectSearchInterop/index.js"
 
 const makeSpace = SearchSpace.make({
@@ -48,7 +48,7 @@ describe("integration/effectSearchInterop ask/tell", () => {
         expect(Option.isSome(summary.bestTrialNumber)).toBe(true)
         expect(eventTags).toContain("TrialStarted")
         expect(eventTags).toContain("TrialCompleted")
-        expect(eventTags).toContain("StudyCompleted")
+        expect(eventTags).toContain("Completed")
       })
     ))
 
@@ -85,9 +85,9 @@ describe("integration/effectSearchInterop ask/tell", () => {
         const progressEventTags = Arr.map(Arr.fromIterable(progressEvents), (event) => event._tag)
         const telemetry = yield* Ref.get(telemetryRef)
 
-        expect(progressEventTags).toContain("StudyCompleted")
-        expect(telemetry.length).toBeGreaterThan(0)
-        expect(Arr.some(telemetry, (line) => line.includes("trial#0"))).toBe(true)
+        expect(progressEventTags).toContain("Completed")
+        expect(Arr.length(telemetry)).toBeGreaterThan(0)
+        expect(Arr.some(telemetry, Str.includes("trial#0"))).toBe(true)
       })
     ))
 })

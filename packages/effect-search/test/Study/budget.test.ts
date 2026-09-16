@@ -3,7 +3,7 @@ import { Array as Arr, Chunk, Effect, Number as Num, Predicate, Schedule, Stream
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -51,7 +51,7 @@ describe("budget-aware stopping", () => {
       )
 
       const costed = Chunk.filter(events, (event) => Predicate.isTagged(event, "TrialCosted"))
-      const completed = Chunk.filter(events, (event) => Predicate.isTagged(event, "StudyCompleted"))
+      const completed = Chunk.filter(events, (event) => Predicate.isTagged(event, "Completed"))
 
       expect(Chunk.toReadonlyArray(Chunk.map(costed, (event) => event.cumulativeCost))).toEqual(Arr.make(3, 6))
       expect(Chunk.size(completed)).toBe(1)

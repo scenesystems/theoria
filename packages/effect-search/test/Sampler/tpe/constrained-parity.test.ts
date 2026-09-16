@@ -5,16 +5,18 @@ import {
   buildConstraintDensityModels,
   constraintDensityRatioProduct
 } from "../../../src/internal/tpe/constrainedDensity.js"
-import { makeSuggestCompletedTrial } from "../../../src/Sampler/index.js"
-import { splitSingleObjective } from "../../../src/samplers/Tpe/split/singleSplit.js"
+import { splitSingleObjective } from "../../../src/internal/tpe/split/singleSplit.js"
+import { observation } from "../../../src/Sampler.js"
 import { ConstrainedTpeFixtureSchema, FixtureRegistryLive, loadFixture } from "../../helpers/fixtures.js"
 
 const SCORE_TOLERANCE = 1e-9
 
-const valueAt = (values: ReadonlyArray<number>, index: number): number =>
-  Arr.get(values, index).pipe(
+const valueAt = (valuesInput: Iterable<number>, index: number): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.get(values, index).pipe(
     Option.getOrElse(() => Number.NaN)
   )
+}
 
 const expectWithinTolerance = (
   actual: number,
@@ -24,8 +26,9 @@ const expectWithinTolerance = (
   expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
 }
 
-const descendingRatioOrder = (ratios: ReadonlyArray<number>): ReadonlyArray<number> =>
-  Arr.map(
+const descendingRatioOrder = (ratiosInput: Iterable<number>) => {
+  const ratios = Arr.fromIterable(ratiosInput)
+  return Arr.map(
     Arr.sortBy(
       Order.mapInput(Order.number, (entry: { readonly index: number; readonly ratio: number }) => -entry.ratio),
       Order.mapInput(Order.number, (entry: { readonly index: number; readonly ratio: number }) => entry.index)
@@ -37,6 +40,7 @@ const descendingRatioOrder = (ratios: ReadonlyArray<number>): ReadonlyArray<numb
     ),
     (entry) => entry.index
   )
+}
 
 describe("constrained fixture parity", () => {
   it.effect("matches Optuna-derived constrained density ratios and feasibility ordering", () =>
@@ -73,14 +77,11 @@ describe("constrained fixture parity", () => {
       const splitCase = fixture.payload.splitCase
       const split = splitSingleObjective(
         Arr.map(splitCase.trials, (trial) =>
-          makeSuggestCompletedTrial(
+          observation(
             trial.trialNumber,
             { trialNumber: trial.trialNumber },
             trial.value,
-            undefined,
-            undefined,
-            undefined,
-            trial.constraints
+            { constraints: trial.constraints }
           )),
         splitCase.direction
       )

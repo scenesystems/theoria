@@ -6,8 +6,8 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
-import { Sampler } from "@scenesystems/effect-search"
-import { Effect } from "effect"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import { Array as Arr, Effect } from "effect"
 
 import { Experimental } from "@scenesystems/effect-text"
 
@@ -31,9 +31,9 @@ const program = Effect.gen(function*() {
     bestReport: optimized.bestReport,
     bestValue: optimized.studyResult.bestTrial.state.value,
     bestLossSummary: optimized.optimization.bestLossSummary,
-    firstEvent: optimized.optimization.artifacts.eventLog[0]?._tag,
-    lastEvent: optimized.optimization.artifacts.eventLog.at(-1)?._tag,
-    eventCount: optimized.optimization.artifacts.eventLog.length,
+    firstEvent: Arr.head(optimized.optimization.artifacts.eventLog),
+    lastEvent: Arr.last(optimized.optimization.artifacts.eventLog),
+    eventCount: Arr.length(optimized.optimization.artifacts.eventLog),
     snapshotNextTrialNumber: optimized.optimization.artifacts.snapshot.nextTrialNumber
   })
 })

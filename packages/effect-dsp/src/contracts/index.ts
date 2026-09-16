@@ -24,15 +24,6 @@ export * from "./Usage.js"
 
 export * from "./OptimizerEventEnvelope.js"
 
-export * from "./ArtifactEnvelope.js"
-
-export {
-  type ArtifactEnvelope,
-  type ArtifactProducer,
-  type ArtifactRelation,
-  type ArtifactSinkApi
-} from "./ArtifactEnvelope.js"
-
 export * from "./FieldValue.js"
 
 export * from "./ModuleParams.js"

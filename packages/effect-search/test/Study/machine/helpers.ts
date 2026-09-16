@@ -1,8 +1,8 @@
 import { Effect } from "effect"
 
+import { normalizeSettings } from "../../../src/internal/study/options/settings.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as SearchSpace from "../../../src/SearchSpace/index.js"
-import { normalizeSettings } from "../../../src/Study/options.js"
 
 export const makeSpace = () =>
   SearchSpace.make({

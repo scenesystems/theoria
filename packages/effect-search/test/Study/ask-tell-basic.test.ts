@@ -3,7 +3,7 @@ import { Effect, Match } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -14,7 +14,7 @@ const makeSpace = () =>
 const score = (config: { readonly x: number; readonly depth: number }) => config.x + config.depth
 
 describe("Study ask-tell basic", () => {
-  it.effect("supports deterministic ask -> tell accumulation and returns StudyResult contracts", () =>
+  it.effect("supports deterministic ask -> tell accumulation and returns Result contracts", () =>
     Effect.scoped(
       Effect.gen(function*() {
         const space = yield* makeSpace()

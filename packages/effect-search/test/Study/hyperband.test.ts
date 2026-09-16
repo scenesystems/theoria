@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Either, Match, Option, Stream } from "effect"
 
+import type * as Pruning from "../../src/Pruning.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Scheduler from "../../src/Scheduler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const space = () =>
   SearchSpace.make({
@@ -14,7 +15,7 @@ const space = () =>
 
 const objective = (
   config: { readonly x: number; readonly budget: number },
-  runtime: Study.ObjectiveTrialRuntime
+  runtime: Pruning.Runtime
 ): Effect.Effect<number> =>
   Effect.gen(function*() {
     const resource = yield* runtime.resource.pipe(Effect.map(Option.getOrElse(() => 1)))
@@ -22,7 +23,7 @@ const objective = (
     return (config.x - 0.4) * (config.x - 0.4) + 1 / resource
   })
 
-const bestValue = <Config>(result: Study.StudyResult<Config>): number =>
+const bestValue = <Config>(result: Study.Result<Config>): number =>
   Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial }) => bestTrial.state.value),
     Match.tag("MultiObjective", () => Number.POSITIVE_INFINITY),
@@ -93,7 +94,7 @@ describe("hyperband scheduler", () => {
       expect(tags).toContain("RoundStarted")
       expect(tags).toContain("RoundCompleted")
       expect(tags).toContain("BracketCompleted")
-      expect(tags[tags.length - 1]).toBe("StudyCompleted")
+      expect(tags[tags.length - 1]).toBe("Completed")
       expect(result.trials).toHaveLength(Scheduler.totalTrials(scheduler))
       expect(Option.isSome(Option.fromNullable(result.schedulerSummary))).toBe(true)
       expect(bestValue(result)).toBeLessThan(0.5)
