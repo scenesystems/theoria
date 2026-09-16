@@ -3,8 +3,8 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, FastCheck as fc, Schema } from "effect"
-import { ParentSelectionWeight } from "../../src/optimizers/GEPA/model.js"
-import { sampleWeightedParents } from "../../src/optimizers/GEPA/pareto.js"
+import { ParentSelectionWeight } from "../../src/internal/gepa/model.js"
+import { sampleWeightedParents } from "../../src/internal/gepa/sampling.js"
 import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
 const weightVectorArbitrary = fc.array(fc.integer({ min: 1, max: 10 }), { minLength: 2, maxLength: 6 })

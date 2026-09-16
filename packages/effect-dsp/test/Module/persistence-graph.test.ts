@@ -2,14 +2,14 @@
  * Live shared-owner persistence and validation atomicity.
  */
 import { describe, expect, it } from "@effect/vitest"
-import * as Contracts from "@scenesystems/effect-dsp/contracts"
-import { Demo } from "@scenesystems/effect-dsp/Example"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, HashMap, Record, Ref, Schema, Tuple } from "effect"
 
 const makeSignature = () => Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
-const params = (instructions: string) => new Contracts.ModuleParams({ instructions, demos: Arr.empty() })
+const params = (instructions: string) => new ModuleParameters({ instructions, demos: Arr.empty() })
 
 describe("graph parameter persistence", () => {
   it.effect("round-trips every distinct Ref through projected diamonds and direct shared children", () =>
@@ -117,9 +117,12 @@ describe("graph parameter persistence", () => {
       const originalLeaf = yield* Ref.get(leaf.params)
       const rootEntry = { name: "root", params: params("new root") }
       const invalidDemos = Arr.make(
-        new Demo({ input: { facts: { count: 7 } }, output: { result: { count: "3" } } }),
-        new Demo({ input: { facts: { count: "007", provenance: "source-A" } }, output: { result: { count: "3" } } }),
-        new Demo({ input: { facts: { count: "007" } }, output: { result: { count: "3", extra: true } } })
+        new Demonstration({ input: { facts: { count: 7 } }, output: { result: { count: "3" } } }),
+        new Demonstration({
+          input: { facts: { count: "007", provenance: "source-A" } },
+          output: { result: { count: "3" } }
+        }),
+        new Demonstration({ input: { facts: { count: "007" } }, output: { result: { count: "3", extra: true } } })
       )
       yield* Effect.forEach(invalidDemos, (demo) =>
         Effect.gen(function*() {
@@ -129,7 +132,7 @@ describe("graph parameter persistence", () => {
               version: 1,
               modules: Arr.make(rootEntry, {
                 name: "leaf",
-                params: new Contracts.ModuleParams({ instructions: "invalid child", demos: Arr.make(demo) })
+                params: new ModuleParameters({ instructions: "invalid child", demos: Arr.make(demo) })
               })
             })
           ).pipe(Effect.flip)
@@ -138,14 +141,14 @@ describe("graph parameter persistence", () => {
           expect(yield* Ref.get(root.params)).toBe(originalRoot)
           expect(yield* Ref.get(leaf.params)).toBe(originalLeaf)
         }))
-      const valid = new Demo({ input: { facts: { count: "007" } }, output: { result: { count: "03" } } })
+      const valid = new Demonstration({ input: { facts: { count: "007" } }, output: { result: { count: "03" } } })
       yield* Module.load(
         root,
         new Module.SavedState({
           version: 1,
           modules: Arr.make(rootEntry, {
             name: "leaf",
-            params: new Contracts.ModuleParams({ instructions: "valid child", demos: Arr.make(valid) })
+            params: new ModuleParameters({ instructions: "valid child", demos: Arr.make(valid) })
           })
         })
       )
@@ -156,14 +159,14 @@ describe("graph parameter persistence", () => {
   it.effect("rejects ambiguous raw target owners before writing either parameter Ref", () =>
     Effect.gen(function*() {
       const signature = yield* makeSignature()
-      const moduleId = yield* Schema.decodeUnknown(Contracts.ModuleId)("same")
+      const moduleId = yield* Schema.decodeUnknown(Module.Id)("same")
       const first = yield* Ref.make(params("first"))
       const second = yield* Ref.make(params("second"))
-      const node = new Contracts.ModuleNode({
+      const node = new Module.Node({
         moduleId,
         name: "same",
-        signature: Contracts.makeModuleNodeSignature("Answer", signature.instructions),
-        demoContract: signature.demoContract,
+        signature: new Module.NodeSignature({ description: "Answer", instructions: signature.instructions }),
+        demonstrationCodec: signature.demonstrationCodec,
         params: second,
         subModules: HashMap.empty()
       })

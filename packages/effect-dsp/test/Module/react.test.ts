@@ -6,10 +6,10 @@ import * as Response from "@effect/ai/Response"
 import * as Tool from "@effect/ai/Tool"
 import * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
-import { decodePayload } from "@scenesystems/effect-dsp/contracts"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { decode } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Match, Option, Ref, Schema, String as Str } from "effect"
 
@@ -107,8 +107,8 @@ describe("Module.react", () => {
       expect(first.rawResponse).toContain("Thought")
       expect(second.prompt).toContain("Tool observations")
       expect(second.rawResponse).toBe("malformed")
-      const toolOutput = yield* decodePayload(Trace.UnparsedOutput, first.output)
-      const failedOutput = yield* decodePayload(Trace.UnparsedOutput, second.output)
+      const toolOutput = yield* decode(Trace.UnparsedOutput, first.output)
+      const failedOutput = yield* decode(Trace.UnparsedOutput, second.output)
       expect(toolOutput.toolCallCount).toBe(1)
       expect(toolOutput.toolResultCount).toBe(1)
       expect(toolOutput.parseError).toEqual(Option.none())
@@ -116,7 +116,7 @@ describe("Module.react", () => {
       expect(failedOutput.toolCallCount).toBe(0)
       expect(failedOutput.toolResultCount).toBe(0)
       expect(Option.isSome(failedOutput.parseError)).toBe(true)
-      expect(yield* decodePayload(qa.outputSchema, last.output)).toEqual({ answer: "Paris" })
+      expect(yield* decode(qa.outputSchema, last.output)).toEqual({ answer: "Paris" })
       expect(last.prompt).toContain("Parse feedback:")
       expect(Arr.map(entries, (entry) => entry.usage)).toEqual(Arr.make(observedUsage, observedUsage, observedUsage))
       expect(Arr.map(calls, (call) => call.usage)).toEqual(

@@ -7,10 +7,10 @@
 import * as AiError from "@effect/ai/AiError"
 import * as Prompt from "@effect/ai/Prompt"
 import { Array as Arr, Effect, Option, Predicate, Record, Schema, String } from "effect"
-import type { ModuleParams } from "../../contracts/ModuleParams.js"
-import { encodePayload } from "../../contracts/Payload.js"
-import { encodedFieldsToInfoArray } from "../../Signature/fields.js"
-import type { FieldInfo, Signature } from "../../Signature/model.js"
+import type { ModuleParameters } from "../../ModuleParameters.js"
+import { encode } from "../../Payload.js"
+import type { FieldInfo, Signature } from "../../Signature.js"
+import { encodedFieldsToInfoArray } from "../signature/fields.js"
 import { renderFieldMarker, renderOutputRequirements, renderOutputTemplate } from "./protocol.js"
 
 const promptError = () =>
@@ -23,7 +23,7 @@ const promptError = () =>
 const renderValue = <A>(schema: Schema.Schema<A>, value: A): Effect.Effect<string, AiError.MalformedInput> =>
   Option.match(Option.liftPredicate(Predicate.isString)(value), {
     onSome: (text) => Effect.succeed(text),
-    onNone: () => encodePayload(schema, value).pipe(Effect.mapError(promptError))
+    onNone: () => encode(schema, value).pipe(Effect.mapError(promptError))
   })
 
 const renderFieldLine = (name: string, description: Option.Option<string>): string =>
@@ -59,7 +59,7 @@ const renderFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(sche
  */
 export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
   signature: Signature<I, O>,
-  params: ModuleParams,
+  params: ModuleParameters,
   input: Schema.Schema.Type<Schema.Struct<I>>,
   feedback: Option.Option<string> = Option.none()
 ): Effect.Effect<Prompt.Prompt, AiError.MalformedInput, Schema.Schema.Context<Schema.Struct<I>>> =>

@@ -4,15 +4,14 @@
 import type * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
-import { MetricResult, RolloutCount } from "@scenesystems/effect-dsp/contracts"
-import type { DspError } from "@scenesystems/effect-dsp/Errors"
+import type { DspError } from "@scenesystems/effect-dsp/DspError"
+import * as Ensemble from "@scenesystems/effect-dsp/Ensemble"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Boolean, Context, Data, Effect, Equal, Inspectable, Layer, Record, Schema, String } from "effect"
 
 class NativeModuleFailure extends Schema.TaggedError<NativeModuleFailure>()(
@@ -78,11 +77,12 @@ describe("native Module E/R propagation", () => {
             forward: () => Effect.succeed(output)
           })
         ))
-      const ensemble = yield* Optimizer.ensemble({ programs })
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("unused"))
+      const ensemble = yield* Ensemble.make({ programs })
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("unused"))
       const result = yield* ensemble.forward({ question: "Which cities?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
+
       expect(result.answer.cities).toEqual(Arr.make("Paris", "Tokyo"))
     }))
 
@@ -96,12 +96,12 @@ describe("native Module E/R propagation", () => {
       expectTypeOf<Effect.Effect.Context<typeof nativeOperation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "unused" }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "unused" }))
       const wrapped = yield* Module.bestOfN({
         name: "native-best-of-n",
         module: nativeModule,
-        N: RolloutCount.make(1),
-        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+        N: Module.RolloutCount.make(1),
+        reward: () => Effect.succeed(new Metric.Result({ score: 1 }))
       })
       const wrappedOperation = wrapped.forward({ question: "question" })
       expectTypeOf<Effect.Effect.Error<typeof wrappedOperation>>().toEqualTypeOf<
@@ -128,12 +128,12 @@ describe("native Module E/R propagation", () => {
   it.effect("uses native requirements through refine and evaluation", () =>
     Effect.gen(function*() {
       const nativeModule = yield* makeNativeModule
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "unused" }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "unused" }))
       const refined = yield* Module.refine({
         name: "native-refine",
         module: nativeModule,
-        N: RolloutCount.make(1),
-        reward: () => Effect.succeed(new MetricResult({ score: 1 })),
+        N: Module.RolloutCount.make(1),
+        reward: () => Effect.succeed(new Metric.Result({ score: 1 })),
         threshold: 1
       })
       const refinedOperation = refined.forward({ question: "question" })
@@ -144,7 +144,7 @@ describe("native Module E/R propagation", () => {
         LanguageModel.LanguageModel | NativeModuleDependency
       >()
       const metric = Metric.make("exact", (prediction: typeof NativeModuleOutput.Type, expected) =>
-        new MetricResult({
+        new Metric.Result({
           score: Boolean.match(Equal.equals(prediction.answer, expected.answer), {
             onTrue: () => 1,
             onFalse: () => 0

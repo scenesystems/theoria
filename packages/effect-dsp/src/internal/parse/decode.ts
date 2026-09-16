@@ -6,8 +6,8 @@
  */
 import { Array as Arr, Data, Effect, Match, Option, Predicate, Record, Schema, Tuple } from "effect"
 import * as ParseResult from "effect/ParseResult"
-import { ParseFieldDiagnostic, ParseOutputError } from "../../Errors/module.js"
-import { encodedFieldsToInfoArray } from "../../Signature/fields.js"
+import { ParseFieldDiagnostic, ParseOutputError } from "../../DspError.js"
+import { encodedFieldsToInfoArray } from "../signature/fields.js"
 import { extractMarkedRecord, markerDiagnostics } from "./protocol.js"
 
 const pathSegmentToField = (segment: PropertyKey): string =>

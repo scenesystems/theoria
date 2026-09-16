@@ -3,10 +3,9 @@
  */
 import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
-import * as Contracts from "@scenesystems/effect-dsp/contracts"
+import { decode, encode } from "@scenesystems/effect-dsp/Payload"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Equal, Option, Schema } from "effect"
-import { decodePayload, encodePayload } from "../../src/contracts/Payload.js"
 
 const Input = Schema.Struct({
   question: Schema.String,
@@ -23,11 +22,11 @@ const usage = new Response.Usage({
 })
 
 const makeTraceEntry = Effect.gen(function*() {
-  const input = yield* encodePayload(Input, {
+  const input = yield* encode(Input, {
     question: "What is the capital of France?",
     facts: Arr.make({ count: 17 })
   })
-  const output = yield* encodePayload(Output, { answer: "Paris" })
+  const output = yield* encode(Output, { answer: "Paris" })
   return new Trace.Entry({
     moduleName: "qa",
     signatureDescription: "Answer questions with concise factual answers",
@@ -54,22 +53,22 @@ describe("Trace projection", () => {
       expect(reEncoded).toEqual(encoded)
       expect(decoded.usage.totalTokens).toBe(29)
       expect(decoded.score).toEqual(Option.none())
-      expect(yield* decodePayload(Input, decoded.input)).toEqual({
+      expect(yield* decode(Input, decoded.input)).toEqual({
         question: "What is the capital of France?",
         facts: Arr.make({ count: 17 })
       })
-      expect(yield* decodePayload(Schema.encodedSchema(Input), decoded.input)).toEqual({
+      expect(yield* decode(Schema.encodedSchema(Input), decoded.input)).toEqual({
         question: "What is the capital of France?",
         facts: Arr.make({ count: "17" })
       })
-      expect(yield* decodePayload(Output, decoded.output)).toEqual({ answer: "Paris" })
+      expect(yield* decode(Output, decoded.output)).toEqual({ answer: "Paris" })
     }))
 
   it.effect("retains native usage through optimization projection round trips", () =>
     Effect.gen(function*() {
       const entry = yield* makeTraceEntry
-      const projection = yield* Contracts.projectOptimizationObjective(entry)
-      const codec = Schema.parseJson(Contracts.OptimizationObjectiveSurface)
+      const projection = yield* Trace.projectObjective(entry)
+      const codec = Schema.parseJson(Trace.ObjectiveProjection)
       const encoded = yield* Schema.encode(codec)(projection)
       const decoded = yield* Schema.decode(codec)(encoded)
       const reEncoded = yield* Schema.encode(codec)(decoded)

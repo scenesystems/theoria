@@ -2,7 +2,8 @@
  * Output parsing tests for structured and text paths.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { ParseOutputError } from "@scenesystems/effect-dsp/Errors"
+import { ParseOutputError } from "@scenesystems/effect-dsp/DspError"
+import { defaultParseFeedbackTemplate, defaultParseRetrySchedule } from "@scenesystems/effect-dsp/Module"
 import {
   Array as Arr,
   Cause,
@@ -19,7 +20,6 @@ import {
 } from "effect"
 import { parseStructuredOutput, parseTextOutput } from "../../src/internal/parse/decode.js"
 import { parseTextWithRetry, ParseTextWithRetryOptions } from "../../src/internal/parse/retry.js"
-import { defaultParseFeedbackTemplate, defaultParseRetrySchedule } from "../../src/Module/predict/policy.js"
 
 const AnswerSchema = Schema.Struct({ answer: Schema.String })
 const TextResponses = Schema.Array(Schema.String)

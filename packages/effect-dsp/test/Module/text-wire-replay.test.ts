@@ -4,14 +4,15 @@
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { ParseOutputError } from "@scenesystems/effect-dsp/Errors"
-import { Demo, Example } from "@scenesystems/effect-dsp/Example"
+import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
+import { ParseOutputError } from "@scenesystems/effect-dsp/DspError"
+import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import {
   Array as Arr,
   Boolean,
@@ -48,7 +49,7 @@ const makeTextPredict = <O extends Schema.Struct.Fields>(output: Schema.Struct<O
   Effect.gen(function*() {
     const signature = yield* Signature.make("Replay encoded fields", Input.fields, output.fields)
     const module = yield* Module.predict(name, signature, noRetries)
-    yield* Ref.update(module.params, (params) => new ModuleParams({ ...params, outputStrategy: "text" }))
+    yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
     return module
   })
 
@@ -64,9 +65,9 @@ describe("Module marker wire replay", () => {
           Match.exhaustive
         )
         yield* Ref.update(module.params, (params) =>
-          new ModuleParams({
+          new ModuleParameters({
             ...params,
-            demos: Arr.make(new Demo({ input: { prompt: "training" }, output: { wire: { count: "03" } } }))
+            demos: Arr.make(new Demonstration({ input: { prompt: "training" }, output: { wire: { count: "03" } } }))
           }))
         const mock = yield* MockLanguageModel.make(MockLanguageModel.fromFunction((prompt) =>
           Effect.gen(function*() {
@@ -93,8 +94,8 @@ describe("Module marker wire replay", () => {
     Effect.gen(function*() {
       const signature = yield* renamedSignature
       const module = yield* Module.predict("renamed-errors", signature, noRetries)
-      yield* Ref.update(module.params, (params) => new ModuleParams({ ...params, outputStrategy: "text" }))
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("[[ ## result ## ]]\n{}"))
+      yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("[[ ## result ## ]]\n{}"))
       const failure = yield* module.forward({ question: "count" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip,
@@ -113,7 +114,7 @@ describe("Module marker wire replay", () => {
       const output = Schema.Struct({ result: Counter })
       const signature = yield* Signature.make("Count", Input.fields, output.fields)
       const module = yield* Module.predict("bootstrap-replay", signature, noRetries)
-      const teacher = yield* MockLanguageModel.make(MockLanguageModel.fixed({ result: { count: "7" } }))
+      const teacher = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const metric = Metric.make("exact-count", (prediction: typeof output.Type, expected) =>
         new Metric.Result({
           score: Boolean.match(Equal.equals(prediction.result.count, expected.result.count), {
@@ -121,7 +122,7 @@ describe("Module marker wire replay", () => {
             onFalse: () => 0
           })
         }))
-      yield* Optimizer.bootstrapFewShot({
+      yield* BootstrapFewShot.run({
         module,
         trainset: Arr.make(new Example({ input: { question: "training" }, output: { result: { count: "7" } } })),
         metric,
@@ -134,12 +135,16 @@ describe("Module marker wire replay", () => {
       const demo = yield* Arr.head(params.demos)
       expect(params.outputStrategy).toBe("auto")
       expect(demo.output).toEqual({ result: { count: "7" } })
-      const replay = yield* MockLanguageModel.make(MockLanguageModel.fixed("[[ ## result ## ]]\n{\"count\":\"7\"}"))
+
+      const replay = yield* MockLanguageModel.make(
+        MockLanguageModel.succeed("[[ ## result ## ]]\n{\"count\":\"7\"}")
+      )
       const result = yield* module.forward({ question: "replay" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, replay.service)
       )
       const teacherCall = yield* Ref.get(teacher.calls).pipe(Effect.flatMap(Arr.head))
       const replayCall = yield* Ref.get(replay.calls).pipe(Effect.flatMap(Arr.head))
+
       expect(result).toEqual({ result: { count: 7 } })
       expect(teacherCall.method).toBe("generateObject")
       expect(replayCall.method).toBe("generateText")
@@ -160,7 +165,7 @@ describe("Module marker wire replay", () => {
         empty: Schema.Null
       })
       const module = yield* makeTextPredict(output)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed(Arr.join(
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed(Arr.join(
         Arr.make(
           "[[ ## result ## ]]\n{\"count\":\"7\",\"values\":[\"03\",\"11\"]}",
           "[[ ## rows ## ]]\n[{\"count\":\"2\"},{\"count\":\"13\"}]",
@@ -252,7 +257,7 @@ describe("Module marker wire replay", () => {
       const tools = Toolkit.make()
       const toolkit = yield* tools.pipe(Effect.provide(tools.toLayer({})))
       const react = yield* Module.react({ name: "react-wire", signature, toolkit, maxIterations: 1 })
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed(
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed(
         "[[ ## result ## ]]\n{\"count\":\"7\"}\n[[ ## direct ## ]]\n03"
       ))
       const prediction = predict.forward({ question: "predict" })
@@ -288,7 +293,7 @@ describe("Module marker wire replay", () => {
         refined: Schema.Union(Schema.String.pipe(Schema.startsWith("id:")), Schema.Number),
         accepted: Schema.Union(Schema.String.pipe(Schema.startsWith("id:")), Schema.Number)
       }))
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed(Arr.join(
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed(Arr.join(
         Arr.make(
           "[[ ## stringFirst ## ]]\n{\"count\":\"7\"}",
           "[[ ## objectFirst ## ]]\n{\"count\":\"7\"}",
@@ -314,7 +319,7 @@ describe("Module marker wire replay", () => {
   it.effect("does not unquote rejected literal strings or use JSON fallback after a domain failure", () =>
     Effect.gen(function*() {
       const literal = yield* makeTextPredict(Schema.Struct({ answer: Schema.Literal("accepted") }))
-      const quoted = yield* MockLanguageModel.make(MockLanguageModel.fixed("[[ ## answer ## ]]\n\"accepted\""))
+      const quoted = yield* MockLanguageModel.make(MockLanguageModel.succeed("[[ ## answer ## ]]\n\"accepted\""))
       const literalFailure = yield* literal.forward({ question: "quoted" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, quoted.service),
         Effect.flip
@@ -332,7 +337,7 @@ describe("Module marker wire replay", () => {
         Schema.Struct({ result: Schema.Union(guarded, Schema.Number) }),
         "guarded-wire"
       )
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("[[ ## result ## ]]\n7"))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("[[ ## result ## ]]\n7"))
       const operation = module.forward({ question: "domain failure" })
       expectTypeOf<Effect.Effect.Context<typeof operation>>().toEqualTypeOf<LanguageModel.LanguageModel | Offset>()
       const failure = yield* operation.pipe(
@@ -359,7 +364,7 @@ describe("Module marker wire replay", () => {
       const module = yield* Module.predict("wire-retry", signature, {
         policy: { parse: { maxRetries: 1, retrySchedule: Schedule.recurs } }
       })
-      yield* Ref.update(module.params, (params) => new ModuleParams({ ...params, outputStrategy: "text" }))
+      yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
       const invalid = "[[ ## result ## ]]\n{\"count\":"
       const mock = yield* MockLanguageModel.make(MockLanguageModel.sequence(Arr.make(
         invalid,

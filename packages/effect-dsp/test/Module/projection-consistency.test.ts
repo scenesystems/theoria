@@ -2,8 +2,8 @@
  * Shared live owners must expose one consistent projection at every depth.
  */
 import { describe, expect, it } from "@effect/vitest"
-import * as Contracts from "@scenesystems/effect-dsp/contracts"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { make as makeParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Data, Effect, HashMap, Record, Ref, Schema, Tuple } from "effect"
 
@@ -39,12 +39,10 @@ describe("shared owner projection consistency", () => {
       const distinctX = yield* Module.predict("x", signature)
       const sameIdDifferentOwner = new Module.Module({
         ...first,
-        subModules: HashMap.map(first.subModules, (node) =>
-          new Contracts.ModuleNode({ ...node, params: distinctX.params }))
+        subModules: HashMap.map(first.subModules, (node) => new Module.Node({ ...node, params: distinctX.params }))
       })
       const refs = Arr.make(first.params, x.params, y.params, distinctX.params)
-      const before = yield* Effect.forEach(refs, (ref) =>
-        Ref.get(ref))
+      const before = yield* Effect.forEach(refs, (ref) => Ref.get(ref))
       yield* Effect.forEach(Arr.make(second, sameIdDifferentOwner), (conflicting) =>
         Effect.gen(function*() {
           const error = yield* Effect.flip(Module.compose(
@@ -114,7 +112,7 @@ describe("shared owner projection consistency", () => {
           Arr.reverse(
             Arr.map(
               HashMap.toEntries(first.subModules),
-              ([id, node]) => Tuple.make(id, new Contracts.ModuleNode({ ...node }))
+              ([id, node]) => Tuple.make(id, new Module.Node({ ...node }))
             )
           )
         )
@@ -153,13 +151,13 @@ describe("shared owner projection consistency", () => {
       )
       yield* Effect.forEach(
         expected,
-        ([ref, instructions]) => Ref.set(ref, Contracts.makeDefaultModuleParams(instructions))
+        ([ref, instructions]) => Ref.set(ref, makeParameters(instructions))
       )
       const saved = yield* Module.save(root)
       expect(Arr.map(saved.modules, (entry) => entry.params.instructions)).toEqual(
         Arr.make("root params", "left params", "shared params", "x params", "y params", "right params")
       )
-      yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, Contracts.makeDefaultModuleParams("changed")))
+      yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, makeParameters("changed")))
       yield* Module.load(root, saved)
       yield* Effect.forEach(expected, ([ref, instructions]) =>
         Effect.gen(function*() {
@@ -179,26 +177,32 @@ describe("shared owner projection consistency", () => {
           forward: () => Effect.succeed({ answer: "unused" })
         })
       )
-      const sharedId = yield* Schema.decodeUnknown(Contracts.ModuleId)("shared")
+      const sharedId = yield* Schema.decodeUnknown(Module.Id)("shared")
       const node = yield* HashMap.get(left.subModules, sharedId)
       yield* Effect.forEach(
         Arr.make(
           Tuple.make(
-            new Contracts.ModuleNode({
+            new Module.Node({
               ...node,
-              signature: Contracts.makeModuleNodeSignature("changed description", signature.instructions)
+              signature: new Module.NodeSignature({
+                description: "changed description",
+                instructions: signature.instructions
+              })
             }),
             "inconsistent signature metadata"
           ),
           Tuple.make(
-            new Contracts.ModuleNode({
+            new Module.Node({
               ...node,
-              signature: Contracts.makeModuleNodeSignature(signature.description, "changed instructions")
+              signature: new Module.NodeSignature({
+                description: signature.description,
+                instructions: "changed instructions"
+              })
             }),
             "inconsistent signature metadata"
           ),
           Tuple.make(
-            new Contracts.ModuleNode({ ...node, demoContract: otherSignature.demoContract }),
+            new Module.Node({ ...node, demonstrationCodec: otherSignature.demonstrationCodec }),
             "inconsistent demonstration contract"
           )
         ),
@@ -207,7 +211,7 @@ describe("shared owner projection consistency", () => {
             const right = new Module.Module({
               name: "right",
               signature,
-              params: yield* Ref.make(Contracts.makeDefaultModuleParams("right")),
+              params: yield* Ref.make(makeParameters("right")),
               subModules: HashMap.make(Tuple.make(sharedId, projection)),
               forward: () => Effect.succeed({ answer: "unused" })
             })

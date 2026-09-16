@@ -15,9 +15,9 @@
  * Run: bun run examples/14-gepa-conversational-recall-direction-flows.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import { Evaluate, Example, GEPA, Metric, Module, Signature } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Contracts, SearchSpace, Study, Trial } from "@scenesystems/effect-search"
+import { Contracts, Pareto, Sampler, SearchSpace, Study, Trial } from "@scenesystems/effect-search"
 import {
   Array as Arr,
   Boolean,
@@ -264,7 +264,7 @@ const logExampleEvent = (
     line
   })
 
-const formatObjectives = (names: Iterable<string>, values: Iterable<number>) =>
+const formatObjectives = (names: ReadonlyArray<string>, values: ReadonlyArray<number>) =>
   Record.fromEntries(Arr.zip(
     names,
     Arr.map(Arr.fromIterable(values), (value) => formatScore(value, 3))
@@ -343,7 +343,7 @@ const STOP_WORDS = Arr.make(
 
 const clampUnitScore = (score: number): number => Numeric.clamp(score, { minimum: 0, maximum: 1 })
 
-const averageScore = (scores: Iterable<number>): number => {
+const averageScore = (scores: ReadonlyArray<number>): number => {
   const values = Arr.fromIterable(scores)
   return Option.getOrElse(Number.divide(Number.sumAll(values), Arr.length(values)), () => 0)
 }
@@ -648,7 +648,7 @@ const program = Effect.gen(function*() {
     seed: 140
   })
 
-  const gepaEventsChunk = yield* Optimizer.gepaStream({
+  const gepaEventsChunk = yield* GEPA.stream({
     module: methodsPanel,
     trainset,
     valset: evalset,
@@ -657,7 +657,7 @@ const program = Effect.gen(function*() {
     maxMergeInvocations: 4,
     seed: 140
   }).pipe(
-    Optimizer.tapGEPAProgress((line) => logExampleEvent("gepa", line.text)),
+    GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
     Stream.runCollect
   )
 
@@ -669,17 +669,17 @@ const program = Effect.gen(function*() {
   })
 
   const gepaEvents = Arr.fromIterable(gepaEventsChunk)
-  const gepaEventSummary = Optimizer.summarizeGEPAEvents(gepaEvents)
+  const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
   const panelParamsAfterGEPA = yield* Ref.get(methodsPanel.params)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
-  const gepaOutcome = Optimizer.summarizeGEPAOutcome({
-    baselineExactMatch: baselineScore,
-    optimizedExactMatch: optimizedScore,
-    instructionBeforeOptimization: panelParamsBeforeGEPA.instructions,
-    instructionAfterOptimization: panelParamsAfterGEPA.instructions,
-    eventSummary: gepaEventSummary
+  const gepaOutcome = GEPA.summarizeOutcome({
+    baselineScore,
+    optimizedScore,
+    instructionBefore: panelParamsBeforeGEPA.instructions,
+    instructionAfter: panelParamsAfterGEPA.instructions,
+    events: gepaEventSummary
   })
 
   yield* logExampleStage("gepa-summary", {
@@ -903,7 +903,7 @@ const program = Effect.gen(function*() {
 
   const convergenceFlowResult = yield* Study.optimize({
     space: protocolSpace,
-    sampler: Optimizer.effectSearchInterop.makeTpeSampler({
+    sampler: Sampler.tpe({
       seed: 4401,
       multivariate: true,
       acquisition: "thompson"
@@ -924,8 +924,6 @@ const program = Effect.gen(function*() {
     }
   })
 
-  const convergenceFlowSummary = Optimizer.effectSearchInterop.resultSummary(convergenceFlowResult)
-
   yield* Match.value(convergenceFlowResult).pipe(
     Match.tag("MultiObjective", ({ paretoFront, completionReason, trials }) =>
       Effect.gen(function*() {
@@ -940,7 +938,7 @@ const program = Effect.gen(function*() {
               Cancelled: () => Option.none()
             })(trial.state)
         )
-        const recomputedFrontierIndices = Optimizer.effectSearchInterop.pareto.nonDominatedIndices(
+        const recomputedFrontierIndices = Pareto.nonDominatedIndices(
           vectors,
           convergencePriorityDirections
         )
@@ -950,8 +948,8 @@ const program = Effect.gen(function*() {
           trialCount: Arr.length(trials),
           paretoFrontierSize: Arr.length(paretoFront),
           recomputedFrontierSize: Arr.length(recomputedFrontierIndices),
-          summaryKind: convergenceFlowSummary.kind,
-          summaryParetoCount: convergenceFlowSummary.paretoCount
+          summaryKind: "MultiObjective",
+          summaryParetoCount: Arr.length(paretoFront)
         })
 
         yield* Effect.forEach(Arr.take(paretoFront, 4), (trial) =>
@@ -989,7 +987,7 @@ const program = Effect.gen(function*() {
 
   const bridgeFlowResult = yield* Study.optimize({
     space: protocolSpace,
-    sampler: Optimizer.effectSearchInterop.makeTpeSampler({
+    sampler: Sampler.tpe({
       seed: 4402,
       multivariate: true,
       acquisition: "pi"
@@ -1009,8 +1007,6 @@ const program = Effect.gen(function*() {
     }
   })
 
-  const bridgeFlowSummary = Optimizer.effectSearchInterop.resultSummary(bridgeFlowResult)
-
   yield* Match.value(bridgeFlowResult).pipe(
     Match.tag("MultiObjective", ({ paretoFront, completionReason, trials }) =>
       Effect.gen(function*() {
@@ -1025,7 +1021,7 @@ const program = Effect.gen(function*() {
               Cancelled: () => Option.none()
             })(trial.state)
         )
-        const recomputedFrontierIndices = Optimizer.effectSearchInterop.pareto.nonDominatedIndices(
+        const recomputedFrontierIndices = Pareto.nonDominatedIndices(
           vectors,
           bridgeAmplificationDirections
         )
@@ -1035,8 +1031,8 @@ const program = Effect.gen(function*() {
           trialCount: Arr.length(trials),
           paretoFrontierSize: Arr.length(paretoFront),
           recomputedFrontierSize: Arr.length(recomputedFrontierIndices),
-          summaryKind: bridgeFlowSummary.kind,
-          summaryParetoCount: bridgeFlowSummary.paretoCount
+          summaryKind: "MultiObjective",
+          summaryParetoCount: Arr.length(paretoFront)
         })
 
         yield* Effect.forEach(Arr.take(paretoFront, 4), (trial) =>
@@ -1087,8 +1083,16 @@ const program = Effect.gen(function*() {
     gepaBaselineProtocolFit: gepaOutcome.baselineExactMatch,
     gepaOptimizedProtocolFit: gepaOutcome.optimizedExactMatch,
     gepaScoreDelta: gepaOutcome.scoreDelta,
-    convergenceFlowParetoCount: convergenceFlowSummary.paretoCount,
-    bridgeFlowParetoCount: bridgeFlowSummary.paretoCount,
+    convergenceFlowParetoCount: Match.value(convergenceFlowResult).pipe(
+      Match.tag("MultiObjective", ({ paretoFront }) => Arr.length(paretoFront)),
+      Match.tag("SingleObjective", () => 1),
+      Match.exhaustive
+    ),
+    bridgeFlowParetoCount: Match.value(bridgeFlowResult).pipe(
+      Match.tag("MultiObjective", ({ paretoFront }) => Arr.length(paretoFront)),
+      Match.tag("SingleObjective", () => 1),
+      Match.exhaustive
+    ),
     sharedTopologySignal,
     scenarioCount: Arr.length(conversationalRecallScenarios),
     pnasDesignAnchor: "10 participants, 3 dyadic turn-taking conversations, 150 seconds per conversation"

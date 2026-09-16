@@ -6,7 +6,7 @@
  */
 import { Data, Effect, Number, Option, Ref, Schema } from "effect"
 import type * as Schedule from "effect/Schedule"
-import { ParseOutputError } from "../../Errors/module.js"
+import { ParseOutputError } from "../../DspError.js"
 import { parseTextOutput } from "./decode.js"
 
 /**

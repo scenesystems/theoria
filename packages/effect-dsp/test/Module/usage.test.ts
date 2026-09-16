@@ -4,10 +4,10 @@
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Match, Option, Ref, Schedule, Schema, String as Str } from "effect"
 
@@ -44,7 +44,7 @@ describe("Module usage evidence", () => {
     Effect.gen(function*() {
       const module = yield* Module.predict("usage", yield* signature)
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed(response("{\"answer\":\"Paris\"}", usage))
+        MockLanguageModel.succeed(response("{\"answer\":\"Paris\"}", usage))
       )
       const [[[output, entries], calls], aggregate] = yield* Trace.withUsageTracking(
         Trace.withCalls(Trace.withTracing(module.forward({ question: "Capital of France?" })))
@@ -65,7 +65,7 @@ describe("Module usage evidence", () => {
       const module = yield* Module.predict("retry-usage", yield* signature, {
         policy: { parse: { maxRetries: 1, retrySchedule: Schedule.recurs } }
       })
-      yield* Ref.update(module.params, (params) => new ModuleParams({ ...params, outputStrategy: "text" }))
+      yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
       const mock = yield* MockLanguageModel.make(MockLanguageModel.fromFunction((prompt) =>
         Match.value(prompt).pipe(
           Match.when(Str.includes("Parse feedback:"), () =>
@@ -101,8 +101,8 @@ describe("Module usage evidence", () => {
       const module = yield* Module.predict("exhausted-usage", yield* signature, {
         policy: { parse: { maxRetries: 1, retrySchedule: Schedule.recurs } }
       })
-      yield* Ref.update(module.params, (params) => new ModuleParams({ ...params, outputStrategy: "text" }))
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed(response("malformed", usage)))
+      yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed(response("malformed", usage)))
       const [[failure, entries], aggregate] = yield* Trace.withUsageTracking(
         Trace.withTracing(Effect.flip(module.forward({ question: "Capital of France?" })))
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
@@ -117,7 +117,7 @@ describe("Module usage evidence", () => {
   it.effect("records provider failure without inventing a token report", () =>
     Effect.gen(function*() {
       const module = yield* Module.predict("failed-usage", yield* signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.failing("offline"))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fail("offline"))
       const [[failure, calls], aggregate] = yield* Trace.withUsageTracking(
         Trace.withCalls(Effect.flip(module.forward({ question: "Capital of France?" })))
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))

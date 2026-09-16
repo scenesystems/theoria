@@ -5,11 +5,11 @@ import * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
+import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -117,7 +117,7 @@ describe("GEPA integration", () => {
         )
       )
       const events = yield* Stream.runCollect(
-        Optimizer.gepaStream({
+        GEPA.stream({
           module: root,
           trainset: Arr.make(
             new Example({
@@ -135,7 +135,7 @@ describe("GEPA integration", () => {
       )
       const childParams = yield* Ref.get(child.params)
       const rootParams = yield* Ref.get(root.params)
-      const mutationEvents = Arr.filter(Arr.fromIterable(events), Optimizer.GEPAEvent.$is("MutationProposed"))
+      const mutationEvents = Arr.filter(Arr.fromIterable(events), GEPA.events.$is("MutationProposed"))
       const childReflection = yield* Ref.get(composedMock.calls).pipe(
         Effect.flatMap((calls) =>
           Arr.findFirst(calls, (call) => Str.includes("Target predictor: child-drafter")(call.prompt))
@@ -198,7 +198,7 @@ describe("GEPA integration", () => {
         )
 
         const events = yield* Stream.runCollect(
-          Optimizer.gepaStream({
+          GEPA.stream({
             module,
             trainset: Arr.make(
               new Example({
@@ -221,12 +221,12 @@ describe("GEPA integration", () => {
         ).pipe(Effect.provide(layer))
 
         const eventList = Arr.fromIterable(events)
-        const paretoEvents = Arr.filter(eventList, Optimizer.GEPAEvent.$is("ParetoUpdated"))
+        const paretoEvents = Arr.filter(eventList, GEPA.events.$is("ParetoUpdated"))
         const params = yield* Ref.get(module.params)
 
         expect(Num.greaterThan(Arr.length(paretoEvents), 0)).toBe(true)
         expect(Num.greaterThan(Str.length(params.instructions), 0)).toBe(true)
-        expect(Option.isSome(Arr.findFirst(eventList, Optimizer.GEPAEvent.$is("AcceptanceEvaluated")))).toBe(true)
+        expect(Option.isSome(Arr.findFirst(eventList, GEPA.events.$is("AcceptanceEvaluated")))).toBe(true)
       })
   )
 })

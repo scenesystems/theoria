@@ -2,14 +2,14 @@
  * Module params + Ref mutation contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import {
-  ModuleParams,
-  withModuleParamsDemos,
-  withModuleParamsDemosAndInstructions,
-  withModuleParamsInstructions
-} from "@scenesystems/effect-dsp/contracts"
-import { Demo } from "@scenesystems/effect-dsp/Example"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import {
+  ModuleParameters,
+  withDemos,
+  withDemosAndInstructions,
+  withInstructions
+} from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Ref, Schema } from "effect"
 
@@ -42,10 +42,10 @@ describe("Module params", () => {
 
       yield* Ref.set(
         module.params,
-        new ModuleParams({
+        new ModuleParameters({
           instructions: "Use one token answers.",
           demos: Arr.make(
-            new Demo({
+            new Demonstration({
               input: { question: "What is the capital of France?" },
               output: { answer: "Paris" }
             })
@@ -63,17 +63,19 @@ describe("Module params", () => {
 
   it.effect("replaces only requested parameters while retaining generation settings and demonstration values", () =>
     Effect.gen(function*() {
-      const original = new ModuleParams({
+      const original = new ModuleParameters({
         instructions: "Answer briefly",
         demos: Arr.empty(),
         outputStrategy: "text",
         temperature: 0,
         maxTokens: 512
       })
-      const demos = Arr.make(new Demo({ input: { question: "Capital of Japan?" }, output: { answer: "Tokyo" } }))
-      const instructionOnly = withModuleParamsInstructions(original, "Answer precisely")
-      const demosOnly = withModuleParamsDemos(original, demos)
-      const both = withModuleParamsDemosAndInstructions(original, demos, "Answer with a city")
+      const demos = Arr.make(
+        new Demonstration({ input: { question: "Capital of Japan?" }, output: { answer: "Tokyo" } })
+      )
+      const instructionOnly = withInstructions(original, "Answer precisely")
+      const demosOnly = withDemos(original, demos)
+      const both = withDemosAndInstructions(original, demos, "Answer with a city")
 
       Arr.forEach(Arr.make(instructionOnly, demosOnly, both), (params) => {
         expect(params.outputStrategy).toBe("text")
@@ -89,8 +91,8 @@ describe("Module params", () => {
       expect(original.instructions).toBe("Answer briefly")
       expect(original.demos).toEqual(Arr.empty())
 
-      const defaults = new ModuleParams({ instructions: "Default", demos: Arr.empty() })
-      const encoded = yield* Schema.encode(ModuleParams)(withModuleParamsInstructions(defaults, "Replaced"))
+      const defaults = new ModuleParameters({ instructions: "Default", demos: Arr.empty() })
+      const encoded = yield* Schema.encode(ModuleParameters)(withInstructions(defaults, "Replaced"))
       expect(encoded).toEqual({ instructions: "Replaced", demos: Arr.empty(), outputStrategy: "auto" })
     }))
 })

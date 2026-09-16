@@ -15,8 +15,8 @@ import * as HttpClient from "@effect/platform/HttpClient"
 import * as HttpClientResponse from "@effect/platform/HttpClientResponse"
 import * as HttpServerResponse from "@effect/platform/HttpServerResponse"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import * as AnthropicUsage from "@scenesystems/effect-inference/AnthropicUsage"
@@ -24,7 +24,6 @@ import * as GoogleUsage from "@scenesystems/effect-inference/GoogleUsage"
 import * as OpenAiUsage from "@scenesystems/effect-inference/OpenAiUsage"
 import * as OpenRouterUsage from "@scenesystems/effect-inference/OpenRouterUsage"
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
-import { projectTraceObjectiveProjection } from "../../src/contracts/TraceProjection.js"
 
 const jsonHttpClient = (body: unknown): HttpClient.HttpClient =>
   HttpClient.make((request) =>
@@ -139,13 +138,13 @@ describe("Trace provider integration", () => {
           const module = yield* Module.predict(Arr.join(Arr.make("openai", name, "usage"), "-"), signature, {
             policy: { parse: { maxRetries: 0 } }
           })
-          yield* Ref.update(module.params, (params) => new ModuleParams({ ...params, outputStrategy: "text" }))
+          yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
           const [[[output, entries], calls], aggregate] = yield* Trace.withUsageTracking(
             Trace.withCalls(Trace.withTracing(module.forward({ question: "Capital?" })))
           ).pipe(Effect.provideService(LanguageModel.LanguageModel, model))
           const call = yield* Arr.head(calls)
           const entry = yield* Arr.head(entries)
-          const projection = yield* projectTraceObjectiveProjection(entry)
+          const projection = yield* Trace.projectObjective(entry)
           const codec = Schema.parseJson(Trace.Entry)
           const persisted = yield* Schema.encode(codec)(entry)
           const restored = yield* Schema.decode(codec)(persisted)
@@ -192,7 +191,7 @@ describe("Trace provider integration", () => {
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, model))
       const call = yield* Arr.head(calls)
       const entry = yield* Arr.head(entries)
-      const projection = yield* projectTraceObjectiveProjection(entry)
+      const projection = yield* Trace.projectObjective(entry)
       const expected = new Response.Usage({
         inputTokens: 17,
         outputTokens: 5,
@@ -332,7 +331,7 @@ describe("Trace provider integration", () => {
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, model))
       const call = yield* Arr.head(calls)
       const entry = yield* Arr.head(entries)
-      const projection = yield* projectTraceObjectiveProjection(entry)
+      const projection = yield* Trace.projectObjective(entry)
       const expected = new Response.Usage({
         inputTokens: 17,
         outputTokens: 5,

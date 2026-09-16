@@ -13,7 +13,7 @@
  * Run: bun run examples/10-miprov2-social-science-panel.ts
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
 import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
 import {
   makeStandardEvents,
@@ -198,7 +198,7 @@ const program = Effect.gen(function*() {
     maxBootstrappedDemos: 3
   })
 
-  const bootstrapEventsChunk = yield* Optimizer.bootstrapFewShotStream({
+  const bootstrapEventsChunk = yield* BootstrapFewShot.stream({
     module: planner,
     trainset,
     metric: Metric.exactMatch("intervention"),
@@ -207,11 +207,11 @@ const program = Effect.gen(function*() {
     threshold: 1,
     teacher: teacherLayer
   }).pipe(
-    Optimizer.tapBootstrapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
+    BootstrapFewShot.tapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
     Stream.runCollect
   )
   const bootstrapEvents = Arr.fromIterable(bootstrapEventsChunk)
-  const bootstrapSummary = Optimizer.summarizeBootstrapEvents(bootstrapEvents)
+  const bootstrapSummary = BootstrapFewShot.summarizeEvents(bootstrapEvents)
 
   yield* logExampleStage("bootstrap-warm-start-completed", {
     totalEvents: bootstrapSummary.totalEvents,
@@ -233,7 +233,7 @@ const program = Effect.gen(function*() {
     seed: 17
   })
 
-  const miproEventsChunk = yield* Optimizer.miprov2Stream({
+  const miproEventsChunk = yield* MIPROv2.stream({
     module: planner,
     trainset,
     valset: evalset,
@@ -243,12 +243,12 @@ const program = Effect.gen(function*() {
     trialBudget: 6,
     seed: 17
   }).pipe(
-    Optimizer.tapMIPROv2Progress((line) => logExampleEvent("miprov2", line.text)),
+    MIPROv2.tapProgress((line) => logExampleEvent("miprov2", line.text)),
     Stream.runCollect
   )
 
   const miproEvents = Arr.fromIterable(miproEventsChunk)
-  const miproEventSummary = Optimizer.summarizeMIPROv2Events(miproEvents)
+  const miproEventSummary = MIPROv2.summarizeEvents(miproEvents)
   const optimized = yield* Evaluate.run({
     module: planner,
     examples: evalset,
@@ -259,12 +259,12 @@ const program = Effect.gen(function*() {
 
   const baselineScore = baseline.overallScores.exactMatch ?? 0
   const optimizedScore = optimized.overallScores.exactMatch ?? 0
-  const outcomeSummary = Optimizer.summarizeMIPROv2Outcome({
-    baselineExactMatch: baselineScore,
-    optimizedExactMatch: optimizedScore,
-    demoCountBeforeOptimization: baselineParams.demos.length,
-    demoCountAfterOptimization: optimizedParams.demos.length,
-    eventSummary: miproEventSummary
+  const outcomeSummary = MIPROv2.summarizeOutcome({
+    baselineScore,
+    optimizedScore,
+    demoCountBefore: baselineParams.demos.length,
+    demoCountAfter: optimizedParams.demos.length,
+    events: miproEventSummary
   })
   const plannerSavedState = yield* Module.save(planner)
   const summaryArtifact = makeStandardSummary({

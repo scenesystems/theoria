@@ -3,9 +3,9 @@
  */
 import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
+import { encode } from "@scenesystems/effect-dsp/Payload"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Option, Schema, Tuple } from "effect"
-import { encodePayload } from "../../src/contracts/Payload.js"
 
 const Input = Schema.Struct({ question: Schema.String })
 const Output = Schema.Struct({ answer: Schema.String })
@@ -20,8 +20,8 @@ const usage = new Response.Usage({
 
 const entry = (moduleName: string) =>
   Effect.gen(function*() {
-    const input = yield* encodePayload(Input, { question: "Capital?" })
-    const output = yield* encodePayload(Output, { answer: "Paris" })
+    const input = yield* encode(Input, { question: "Capital?" })
+    const output = yield* encode(Output, { answer: "Paris" })
     return new Trace.Entry({
       moduleName,
       signatureDescription: "Answer questions",

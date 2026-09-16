@@ -1,16 +1,16 @@
 /**
- * Uses the effect-dsp interop namespace for ask/tell orchestration, acquisition
- * selection, streamed progress, and Pareto-front inspection.
+ * Uses effect-search directly for ask/tell orchestration, acquisition selection,
+ * streamed progress, and Pareto-front inspection.
  *
  * Run: bun run examples/06-effect-search-interop.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { SearchSpace } from "@scenesystems/effect-search"
-import { Array as Arr, Chunk, Effect, Fiber, Ref, Stream } from "effect"
+import { Pareto, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import type { Contracts } from "@scenesystems/effect-search"
+import { Array as Arr, Chunk, Effect, Fiber, Match, Number, Ref, Stream } from "effect"
 
-import { Optimizer } from "@scenesystems/effect-dsp"
-
-const maximizeDirections: ReadonlyArray<"maximize" | "minimize"> = ["maximize", "maximize"]
+const maximize: Contracts.Direction = "maximize"
+const maximizeDirections = Arr.make(maximize, maximize)
 
 const program = Effect.scoped(
   Effect.gen(function*() {
@@ -20,14 +20,19 @@ const program = Effect.scoped(
     })
 
     const objective = (config: SearchSpace.Type<typeof space>) =>
-      Effect.succeed(-(config.x * config.x + config.y * config.y))
+      Effect.succeed(
+        Number.multiply(
+          -1,
+          Number.sum(Number.multiply(config.x, config.x), Number.multiply(config.y, config.y))
+        )
+      )
 
-    const sampler = Optimizer.effectSearchInterop.makeTpeSampler({
+    const sampler = Sampler.tpe({
       seed: 345,
       acquisition: "thompson"
     })
 
-    const handle = yield* Optimizer.effectSearchInterop.open({
+    const handle = yield* Study.open({
       direction: "maximize",
       space,
       sampler,
@@ -37,18 +42,25 @@ const program = Effect.scoped(
     })
 
     const progressLinesRef = yield* Ref.make(Arr.empty<string>())
-    const progressFiber = yield* Optimizer.effectSearchInterop.eventsWithProgress(
-      handle,
-      (line) => Ref.update(progressLinesRef, (lines) => Arr.append(lines, line.text)),
-      { renderMode: "plain" }
-    ).pipe(Stream.runCollect, Effect.map(Chunk.toReadonlyArray), Effect.fork)
+    const progressFiber = yield* Study.events(handle).pipe(
+      Stream.tap((event) =>
+        Effect.forEach(
+          Study.formatTerminalProgressEvent(event, { renderMode: "plain" }),
+          (line) => Ref.update(progressLinesRef, (lines) => Arr.append(lines, line.text)),
+          { discard: true }
+        )
+      ),
+      Stream.runCollect,
+      Effect.map(Chunk.toReadonlyArray),
+      Effect.fork
+    )
 
     const askAndTellInteropTrial = Effect.fn("askAndTellInteropTrial")(function*() {
-      const asked = yield* Optimizer.effectSearchInterop.ask(handle)
-      yield* Optimizer.effectSearchInterop.tell(
+      const asked = yield* Study.ask(handle)
+      yield* Study.tell(
         handle,
         asked.trialNumber,
-        asked.config.x * asked.config.y
+        Number.multiply(asked.config.x, asked.config.y)
       )
 
       return Arr.make(asked.config.x, asked.config.y)
@@ -57,25 +69,37 @@ const program = Effect.scoped(
     const firstObjectiveVector = yield* askAndTellInteropTrial()
     const secondObjectiveVector = yield* askAndTellInteropTrial()
 
-    const studyResult = yield* Optimizer.effectSearchInterop.result(handle)
-    const summary = Optimizer.effectSearchInterop.resultSummary(studyResult)
+    const studyResult = yield* Study.result(handle)
 
     const progressEvents = yield* Fiber.join(progressFiber)
     const progressLines = yield* Ref.get(progressLinesRef)
 
-    const paretoIndices = Optimizer.effectSearchInterop.pareto.nonDominatedIndices(
+    const paretoIndices = Pareto.nonDominatedIndices(
       Arr.make(firstObjectiveVector, secondObjectiveVector),
       maximizeDirections
     )
 
-    yield* Effect.log("effect-search interop summary", {
-      kind: summary.kind,
-      trialCount: summary.trialCount,
-      paretoCount: summary.paretoCount,
-      paretoIndices,
-      progressEventCount: progressEvents.length,
-      progressLineCount: progressLines.length
-    })
+    yield* Match.value(studyResult).pipe(
+      Match.tag("SingleObjective", ({ trials }) =>
+        Effect.log("effect-search summary", {
+          kind: "SingleObjective",
+          trialCount: Arr.length(trials),
+          paretoCount: 1,
+          paretoIndices,
+          progressEventCount: Arr.length(progressEvents),
+          progressLineCount: Arr.length(progressLines)
+        })),
+      Match.tag("MultiObjective", ({ paretoFront, trials }) =>
+        Effect.log("effect-search summary", {
+          kind: "MultiObjective",
+          trialCount: Arr.length(trials),
+          paretoCount: Arr.length(paretoFront),
+          paretoIndices,
+          progressEventCount: Arr.length(progressEvents),
+          progressLineCount: Arr.length(progressLines)
+        })),
+      Match.exhaustive
+    )
   })
 )
 

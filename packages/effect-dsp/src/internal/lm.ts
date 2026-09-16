@@ -10,7 +10,7 @@ import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import type { Record, Schema } from "effect"
 import { Effect, Option } from "effect"
-import { trackCall } from "../Trace/call.js"
+import { trackCall } from "./trace/call.js"
 
 /**
  * Executes native structured generation, recording its exit independently of

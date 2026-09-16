@@ -4,6 +4,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import { Array as Arr, Chunk, Data, Effect, Either, Number, Ref, Schema, Tuple } from "effect"
+import { composedScoreMap } from "../../src/internal/metric/compose.js"
 
 describe("Metric.compose", () => {
   it.effect("aggregates child metrics into a deterministic score", () =>
@@ -80,6 +81,7 @@ describe("Metric.compose", () => {
         Tuple.make("second", new Metric.Result({ score: 0.7 })),
         Tuple.make("first", new Metric.Result({ score: 0.9 }))
       )
-      expect(Metric.composedScoreMap(results)).toEqual({ first: 0.9, second: 0.7 })
+
+      expect(composedScoreMap(results)).toEqual({ first: 0.9, second: 0.7 })
     }))
 })

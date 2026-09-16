@@ -6,11 +6,11 @@ import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import { encodeUtf8 } from "@scenesystems/digest"
 import { Example } from "@scenesystems/effect-dsp/Example"
+import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Data, Effect, Layer, Match, Option, Schema, Stream, String as Str } from "effect"
 
 import { GepaReplaySeedContractFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
@@ -70,7 +70,7 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
     )
     const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
     const events = yield* Stream.runCollect(
-      Optimizer.gepaStream({
+      GEPA.stream({
         module,
         trainset: Arr.make(
           new Example({ input: { question: "What is the capital of France?" }, output: { answer: "Paris" } }),
@@ -83,7 +83,7 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
       })
     ).pipe(Effect.provide(layer))
     const eventList = Arr.fromIterable(events)
-    const finalPareto = Arr.last(Arr.filter(eventList, Optimizer.GEPAEvent.$is("ParetoUpdated")))
+    const finalPareto = Arr.last(Arr.filter(eventList, GEPA.events.$is("ParetoUpdated")))
     const savedState = yield* Module.save(module)
     const savedStateJson = yield* encodeSavedStateJson(savedState)
 

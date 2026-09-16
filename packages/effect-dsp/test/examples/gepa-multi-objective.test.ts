@@ -6,11 +6,11 @@ import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
+import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -105,7 +105,7 @@ const runGepaMultiObjective = Effect.gen(function*() {
   const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
   const events = yield* Stream.runCollect(
-    Optimizer.gepaStream({
+    GEPA.stream({
       module,
       trainset,
       metric: feedbackMetric,
@@ -141,7 +141,7 @@ describe("examples/15-gepa-multi-objective-mock", () => {
   it.effect("produces at least one ParetoUpdated event per iteration", () =>
     Effect.gen(function*() {
       const { eventList } = yield* runGepaMultiObjective
-      const paretoUpdates = Arr.filter(eventList, Optimizer.GEPAEvent.$is("ParetoUpdated"))
+      const paretoUpdates = Arr.filter(eventList, GEPA.events.$is("ParetoUpdated"))
 
       expect(Arr.length(paretoUpdates)).toBeGreaterThanOrEqual(3)
     }))

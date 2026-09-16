@@ -6,13 +6,14 @@ import * as LanguageModel from "@effect/ai/LanguageModel"
 import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
-import { Demo, Example } from "@scenesystems/effect-dsp/Example"
+import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 import { Array as Arr, Chunk, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
 
@@ -28,12 +29,12 @@ const italyEvalset = Arr.make(
   })
 )
 
-const franceDemo = new Demo({
+const franceDemo = new Demonstration({
   input: { question: "What is the capital of France?" },
   output: { answer: "Paris" }
 })
 
-const japanDemo = new Demo({
+const japanDemo = new Demonstration({
   input: { question: "What is the capital of Japan?" },
   output: { answer: "Tokyo" }
 })
@@ -45,7 +46,7 @@ const instructionCandidate = (index: number): string =>
     Match.orElse(() => "Use provided demonstrations to infer the correct city")
   )
 
-const demoCandidate = (index: number): ReadonlyArray<Demo> =>
+const demoCandidate = (index: number): ReadonlyArray<Demonstration> =>
   Match.value(index).pipe(
     Match.when(0, () => Arr.empty()),
     Match.when(1, () => Arr.make(franceDemo)),
@@ -130,7 +131,7 @@ describe("examples/07-miprov2-resume-from-storage", () => {
 
           yield* Ref.set(
             module.params,
-            new ModuleParams({
+            new ModuleParameters({
               instructions: instructionCandidate(config.instructionIndex),
               demos: demoCandidate(config.demoIndex),
               outputStrategy: "structured"

@@ -5,10 +5,10 @@
  * @internal
  */
 import { Array as Arr, Boolean, Function, Number, Option, Record, Schema, String } from "effect"
-import { ParseFieldDiagnostic, type ParseOutputError } from "../../Errors/module.js"
-import { FIELD_MARKER_REGEX, type FieldNames, renderFieldMarker } from "../prompt/protocol.js"
+import { ParseFieldDiagnostic, type ParseOutputError } from "../../DspError.js"
+import { fieldMarkerRegex, type FieldNames, renderFieldMarker } from "../prompt/protocol.js"
 
-const markerMatches = (raw: string) => Arr.fromIterable(String.matchAll(FIELD_MARKER_REGEX)(raw))
+const markerMatches = (raw: string) => Arr.fromIterable(String.matchAll(fieldMarkerRegex)(raw))
 
 const markerField = (match: RegExpMatchArray): Option.Option<string> => Option.map(Arr.get(match, 1), String.trim)
 

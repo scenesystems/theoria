@@ -4,17 +4,13 @@
 import type * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
-import {
-  MetricResult,
-  moduleGraphLineage,
-  ModuleId,
-  RolloutCount,
-  withModuleParamsInstructions
-} from "@scenesystems/effect-dsp/contracts"
-import type { DspError } from "@scenesystems/effect-dsp/Errors"
+import type { DspError } from "@scenesystems/effect-dsp/DspError"
+import { Result } from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
+import { withInstructions } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import {
   Array as Arr,
@@ -73,14 +69,14 @@ describe("Module.refine", () => {
       const wrapper = yield* Module.refine({
         name: "refine-discovery-wrapper",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         threshold: 0.9,
-        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+        reward: () => Effect.succeed(new Result({ score: 1 }))
       })
-      const wrapperId = yield* Schema.decodeUnknown(ModuleId)(wrapper.name)
-      const innerId = yield* Schema.decodeUnknown(ModuleId)(inner.name)
-      const predictorId = yield* Schema.decodeUnknown(ModuleId)(predictor.name)
-      const model = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Observed" }))
+      const wrapperId = yield* Schema.decodeUnknown(Module.Id)(wrapper.name)
+      const innerId = yield* Schema.decodeUnknown(Module.Id)(inner.name)
+      const predictorId = yield* Schema.decodeUnknown(Module.Id)(predictor.name)
+      const model = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Observed" }))
 
       const graph = yield* Module.discoverModuleGraph(
         wrapperId,
@@ -88,7 +84,7 @@ describe("Module.refine", () => {
           Effect.provideService(LanguageModel.LanguageModel, model.service)
         )
       )
-      const lineage = yield* moduleGraphLineage(graph, predictorId)
+      const lineage = yield* ModuleGraph.lineage(graph, predictorId)
 
       expect(lineage.path).toEqual(Arr.make(wrapperId, innerId, predictorId))
       expect(yield* Ref.get(model.calls)).toHaveLength(1)
@@ -98,7 +94,7 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("predictor", signature)
-      yield* Ref.update(predictor.params, (params) => withModuleParamsInstructions(params, "Answer saved-city"))
+      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer saved-city"))
       const inner = yield* Module.compose({
         name: "pipeline",
         signature,
@@ -108,14 +104,14 @@ describe("Module.refine", () => {
       const wrapper = yield* Module.refine({
         name: "refined-pipeline",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         threshold: 0.9,
-        reward: () => Effect.succeed(new MetricResult({ score: 0.2, feedback: "Be precise" }))
+        reward: () => Effect.succeed(new Result({ score: 0.2, feedback: "Be precise" }))
       })
       const saved = yield* Module.save(wrapper)
       const original = yield* Ref.get(inner.params)
-      yield* Ref.update(inner.params, (params) => withModuleParamsInstructions(params, "Changed pipeline"))
-      yield* Ref.update(predictor.params, (params) => withModuleParamsInstructions(params, "Answer changed-city"))
+      yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
+      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer changed-city"))
       yield* Module.load(wrapper, saved)
       const model = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({
         answer: Boolean.match(Str.includes("Answer saved-city")(prompt), {
@@ -138,9 +134,9 @@ describe("Module.refine", () => {
       const error = yield* Module.refine({
         name: "same-owner",
         module: inner,
-        N: RolloutCount.make(1),
+        N: Module.RolloutCount.make(1),
         threshold: 0.9,
-        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+        reward: () => Effect.succeed(new Result({ score: 1 }))
       }).pipe(Effect.flip)
       expect(error._tag).toBe("CompositionError")
     }))
@@ -161,13 +157,13 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-refine-reward-wrapper",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward: () =>
           Effect.flatMap(RefineRewardCalls, (calls) =>
             Ref.getAndUpdate(calls, Num.increment).pipe(
               Effect.flatMap((call) =>
                 Match.value(call).pipe(
-                  Match.when(0, () => Effect.succeed(new MetricResult({ score: 0.2, feedback: "Try again" }))),
+                  Match.when(0, () => Effect.succeed(new Result({ score: 0.2, feedback: "Try again" }))),
                   Match.orElse(() => Effect.fail(failure))
                 )
               )
@@ -217,7 +213,7 @@ describe("Module.refine", () => {
           Match.orElse(() => 0)
         )
         return Effect.succeed(
-          new MetricResult({
+          new Result({
             score,
             feedback: "The answer needs improvement"
           })
@@ -227,7 +223,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-refine",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward,
         threshold: 0.8
       })
@@ -268,13 +264,13 @@ describe("Module.refine", () => {
           onTrue: () => 0.95,
           onFalse: () => 0.3
         })
-        return Effect.succeed(new MetricResult({ score }))
+        return Effect.succeed(new Result({ score }))
       }
 
       const refined = yield* Module.refine({
         name: "qa-early-stop",
         module: inner,
-        N: RolloutCount.make(5),
+        N: Module.RolloutCount.make(5),
         reward,
         threshold: 0.9
       })
@@ -304,12 +300,12 @@ describe("Module.refine", () => {
       const reward: Module.RewardFn<
         typeof QaInput.fields,
         typeof QaOutput.fields
-      > = () => Effect.succeed(new MetricResult({ score: 0.3 }))
+      > = () => Effect.succeed(new Result({ score: 0.3 }))
 
       const refined = yield* Module.refine({
         name: "qa-traced-refine",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -341,12 +337,12 @@ describe("Module.refine", () => {
       const reward: Module.RewardFn<
         typeof QaInput.fields,
         typeof QaOutput.fields
-      > = () => Effect.succeed(new MetricResult({ score: 0.3 }))
+      > = () => Effect.succeed(new Result({ score: 0.3 }))
 
       const refined = yield* Module.refine({
         name: "qa-drift-test",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -387,7 +383,7 @@ describe("Module.refine", () => {
         Ref.getAndUpdate(rewardCalls, Num.increment).pipe(
           Effect.flatMap((call) =>
             Match.value(call).pipe(
-              Match.when(0, () => Effect.succeed(new MetricResult({ score: 0.2, feedback: "Try again" }))),
+              Match.when(0, () => Effect.succeed(new Result({ score: 0.2, feedback: "Try again" }))),
               Match.orElse(() =>
                 Deferred.succeed(secondRewardStarted, undefined).pipe(
                   Effect.zipRight(Effect.never)
@@ -400,7 +396,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-interrupted-refine",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -440,7 +436,7 @@ describe("Module.refine", () => {
           ),
           () =>
             Effect.yieldNow().pipe(
-              Effect.as(new MetricResult({ score: 1 }))
+              Effect.as(new Result({ score: 1 }))
             ),
           () => Ref.update(activeRewards, Num.decrement)
         )
@@ -448,7 +444,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-serialized-refine",
         module: inner,
-        N: RolloutCount.make(1),
+        N: Module.RolloutCount.make(1),
         reward,
         threshold: 0.9
       })
@@ -487,13 +483,13 @@ describe("Module.refine", () => {
           Match.when("Best so far", () => 0.7),
           Match.orElse(() => 0)
         )
-        return Effect.succeed(new MetricResult({ score }))
+        return Effect.succeed(new Result({ score }))
       }
 
       const refined = yield* Module.refine({
         name: "qa-best-overall",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward,
         threshold: 0.95
       })
@@ -523,10 +519,10 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-nan-between-valid-scores",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward: (_input, output) =>
           Effect.succeed(
-            new MetricResult({
+            new Result({
               score: Match.value(output.answer).pipe(
                 Match.when("Valid first", () => 0.4),
                 Match.when("Better last", () => 0.8),
@@ -561,10 +557,10 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-initial-nan",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward: (_input, output) =>
           Effect.succeed(
-            new MetricResult({
+            new Result({
               score: Match.value(output.answer).pipe(
                 Match.when("Unscorable", () => nan),
                 Match.orElse(() => 0.8)
@@ -606,10 +602,10 @@ describe("Module.refine", () => {
           const refined = yield* Module.refine({
             name: Str.concat("qa-infinite-threshold-", suffix),
             module: inner,
-            N: RolloutCount.make(3),
+            N: Module.RolloutCount.make(3),
             reward: (_input, output) =>
               Effect.succeed(
-                new MetricResult({
+                new Result({
                   score: Match.value(output.answer).pipe(
                     Match.when("Unordered", () => nan),
                     Match.orElse(() => threshold)
@@ -643,10 +639,10 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-nan-threshold",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward: (_input, output) =>
           Effect.succeed(
-            new MetricResult({
+            new Result({
               score: Match.value(output.answer).pipe(
                 Match.when("Best", () => 0.7),
                 Match.when("Lower", () => 0.2),
@@ -680,8 +676,8 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-nan-scores",
         module: inner,
-        N: RolloutCount.make(2),
-        reward: () => Effect.succeed(new MetricResult({ score: nan })),
+        N: Module.RolloutCount.make(2),
+        reward: () => Effect.succeed(new Result({ score: nan })),
         threshold: 0.5
       })
 
@@ -697,8 +693,8 @@ describe("Module.refine", () => {
 
   it.effect("rejects a non-positive attempt count at the RolloutCount boundary", () =>
     Effect.gen(function*() {
-      const zero = yield* Schema.decodeUnknown(RolloutCount)(0).pipe(Effect.flip)
-      const fractional = yield* Schema.decodeUnknown(RolloutCount)(1.5).pipe(Effect.flip)
+      const zero = yield* Schema.decodeUnknown(Module.RolloutCount)(0).pipe(Effect.flip)
+      const fractional = yield* Schema.decodeUnknown(Module.RolloutCount)(1.5).pipe(Effect.flip)
 
       expect(zero._tag).toBe("ParseError")
       expect(fractional._tag).toBe("ParseError")

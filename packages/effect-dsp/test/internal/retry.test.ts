@@ -2,8 +2,8 @@
  * Parse retry schedule contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { defaultParseRetrySchedule } from "@scenesystems/effect-dsp/Module"
 import { Cause, Effect, Exit, Fiber, Option, Ref, TestClock } from "effect"
-import { defaultParseRetrySchedule } from "../../src/Module/predict/policy.js"
 
 describe("internal/retry", () => {
   it.effect("retries exactly maxRetries times before succeeding", () =>

@@ -4,17 +4,14 @@
 import type * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
-import {
-  MetricResult,
-  moduleGraphLineage,
-  ModuleId,
-  RolloutCount,
-  withModuleParamsInstructions
-} from "@scenesystems/effect-dsp/contracts"
-import type { DspError } from "@scenesystems/effect-dsp/Errors"
+import * as Cache from "@scenesystems/effect-dsp/Cache"
+import type { DspError } from "@scenesystems/effect-dsp/DspError"
+import { Result } from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
+import { withInstructions } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import {
   Array as Arr,
@@ -22,7 +19,6 @@ import {
   Context,
   Effect,
   Equal,
-  FiberRef,
   identity,
   Layer,
   Match,
@@ -32,7 +28,6 @@ import {
   Schema,
   String as Str
 } from "effect"
-import { RolloutRef } from "../../src/Cache/refs.js"
 
 class RewardRejected extends Schema.TaggedError<RewardRejected>()(
   "RewardRejected",
@@ -41,7 +36,7 @@ class RewardRejected extends Schema.TaggedError<RewardRejected>()(
 
 class RewardBehavior extends Context.Tag("effect-dsp/test/bestOfN/RewardBehavior")<
   RewardBehavior,
-  Effect.Effect<MetricResult, RewardRejected>
+  Effect.Effect<Result, RewardRejected>
 >() {}
 
 const QaInput = Schema.Struct({
@@ -73,13 +68,13 @@ describe("Module.bestOfN", () => {
       const wrapper = yield* Module.bestOfN({
         name: "best-discovery-wrapper",
         module: inner,
-        N: RolloutCount.make(1),
-        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+        N: Module.RolloutCount.make(1),
+        reward: () => Effect.succeed(new Result({ score: 1 }))
       })
-      const wrapperId = yield* Schema.decodeUnknown(ModuleId)(wrapper.name)
-      const innerId = yield* Schema.decodeUnknown(ModuleId)(inner.name)
-      const predictorId = yield* Schema.decodeUnknown(ModuleId)(predictor.name)
-      const model = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Observed" }))
+      const wrapperId = yield* Schema.decodeUnknown(Module.Id)(wrapper.name)
+      const innerId = yield* Schema.decodeUnknown(Module.Id)(inner.name)
+      const predictorId = yield* Schema.decodeUnknown(Module.Id)(predictor.name)
+      const model = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Observed" }))
 
       const graph = yield* Module.discoverModuleGraph(
         wrapperId,
@@ -87,7 +82,7 @@ describe("Module.bestOfN", () => {
           Effect.provideService(LanguageModel.LanguageModel, model.service)
         )
       )
-      const lineage = yield* moduleGraphLineage(graph, predictorId)
+      const lineage = yield* ModuleGraph.lineage(graph, predictorId)
 
       expect(lineage.path).toEqual(Arr.make(wrapperId, innerId, predictorId))
       expect(yield* Ref.get(model.calls)).toHaveLength(1)
@@ -97,7 +92,7 @@ describe("Module.bestOfN", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("predictor", signature)
-      yield* Ref.update(predictor.params, (params) => withModuleParamsInstructions(params, "Answer saved-city"))
+      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer saved-city"))
       const inner = yield* Module.compose({
         name: "pipeline",
         signature,
@@ -107,13 +102,13 @@ describe("Module.bestOfN", () => {
       const wrapper = yield* Module.bestOfN({
         name: "best-pipeline",
         module: inner,
-        N: RolloutCount.make(1),
-        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+        N: Module.RolloutCount.make(1),
+        reward: () => Effect.succeed(new Result({ score: 1 }))
       })
       const saved = yield* Module.save(wrapper)
       const original = yield* Ref.get(inner.params)
-      yield* Ref.update(inner.params, (params) => withModuleParamsInstructions(params, "Changed pipeline"))
-      yield* Ref.update(predictor.params, (params) => withModuleParamsInstructions(params, "Answer changed-city"))
+      yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
+      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer changed-city"))
       yield* Module.load(wrapper, saved)
       const model = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({
         answer: Match.value(Str.includes("Answer saved-city")(prompt)).pipe(
@@ -135,8 +130,8 @@ describe("Module.bestOfN", () => {
       const error = yield* Module.bestOfN({
         name: "same-owner",
         module: inner,
-        N: RolloutCount.make(1),
-        reward: () => Effect.succeed(new MetricResult({ score: 1 }))
+        N: Module.RolloutCount.make(1),
+        reward: () => Effect.succeed(new Result({ score: 1 }))
       }).pipe(Effect.flip)
       expect(error._tag).toBe("CompositionError")
     }))
@@ -144,13 +139,13 @@ describe("Module.bestOfN", () => {
   it.effect("preserves a reward service requirement and checked failure identity", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Candidate" }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Candidate" }))
       const inner = yield* Module.predict("qa-reward-channels", qa)
       const failure = new RewardRejected({ message: "reward unavailable" })
       const bestOf = yield* Module.bestOfN({
         name: "qa-best-of-reward-channels",
         module: inner,
-        N: RolloutCount.make(1),
+        N: Module.RolloutCount.make(1),
         reward: () => Effect.flatMap(RewardBehavior, identity)
       })
       const operation = bestOf.forward({ question: "Score this" })
@@ -193,13 +188,13 @@ describe("Module.bestOfN", () => {
           Match.when("Okay answer", () => 0.5),
           Match.orElse(() => 0)
         )
-        return Effect.succeed(new MetricResult({ score }))
+        return Effect.succeed(new Result({ score }))
       }
 
       const bestOf = yield* Module.bestOfN({
         name: "qa-best-of-3",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward
       })
 
@@ -217,9 +212,9 @@ describe("Module.bestOfN", () => {
       const qa = yield* makeQaSignature()
       const rolloutValues = yield* Ref.make(Arr.empty<Option.Option<number>>())
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fromFunction((_prompt) =>
-          FiberRef.get(RolloutRef).pipe(
-            Effect.tap((rolloutValue) => Ref.update(rolloutValues, Arr.append(rolloutValue))),
+        MockLanguageModel.fromFunction((prompt) =>
+          Cache.key({ moduleFingerprint: "best-of", runtimeFingerprint: "mock", input: prompt, params: {} }).pipe(
+            Effect.tap((cacheKey) => Ref.update(rolloutValues, Arr.append(cacheKey.rolloutId))),
             Effect.as({ answer: "Some answer" })
           )
         )
@@ -229,12 +224,12 @@ describe("Module.bestOfN", () => {
       const reward: Module.RewardFn<
         typeof QaInput.fields,
         typeof QaOutput.fields
-      > = () => Effect.succeed(new MetricResult({ score: 0.5 }))
+      > = () => Effect.succeed(new Result({ score: 0.5 }))
 
       const bestOf = yield* Module.bestOfN({
         name: "qa-rollout-test",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward
       })
 
@@ -274,13 +269,13 @@ describe("Module.bestOfN", () => {
           Match.when(true, () => 0.8),
           Match.orElse(() => 0.2)
         )
-        return Effect.succeed(new MetricResult({ score }))
+        return Effect.succeed(new Result({ score }))
       }
 
       const bestOf = yield* Module.bestOfN({
         name: "qa-threshold",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward,
         threshold: 0.7
       })
@@ -313,13 +308,13 @@ describe("Module.bestOfN", () => {
           Match.when(true, () => 0.4),
           Match.orElse(() => 0.2)
         )
-        return Effect.succeed(new MetricResult({ score }))
+        return Effect.succeed(new Result({ score }))
       }
 
       const bestOf = yield* Module.bestOfN({
         name: "qa-fallback",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -348,12 +343,12 @@ describe("Module.bestOfN", () => {
       const reward: Module.RewardFn<
         typeof QaInput.fields,
         typeof QaOutput.fields
-      > = () => Effect.succeed(new MetricResult({ score: 0.5 }))
+      > = () => Effect.succeed(new Result({ score: 0.5 }))
 
       const bestOf = yield* Module.bestOfN({
         name: "qa-tiebreak",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward
       })
 
@@ -382,10 +377,10 @@ describe("Module.bestOfN", () => {
       const bestOf = yield* Module.bestOfN({
         name: "qa-best-of-nan-between-valid-scores",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward: (_input, output) =>
           Effect.succeed(
-            new MetricResult({
+            new Result({
               score: Match.value(output.answer).pipe(
                 Match.when("Valid first", () => 0.4),
                 Match.when("Better last", () => 0.8),
@@ -417,8 +412,8 @@ describe("Module.bestOfN", () => {
       const bestOf = yield* Module.bestOfN({
         name: "qa-best-of-all-nan",
         module: inner,
-        N: RolloutCount.make(2),
-        reward: () => Effect.succeed(new MetricResult({ score: nan }))
+        N: Module.RolloutCount.make(2),
+        reward: () => Effect.succeed(new Result({ score: nan }))
       })
 
       const result = yield* bestOf.forward({ question: "All NaN scores" }).pipe(
@@ -443,12 +438,12 @@ describe("Module.bestOfN", () => {
       const reward: Module.RewardFn<
         typeof QaInput.fields,
         typeof QaOutput.fields
-      > = () => Effect.succeed(new MetricResult({ score: 0.5 }))
+      > = () => Effect.succeed(new Result({ score: 0.5 }))
 
       const bestOf = yield* Module.bestOfN({
         name: "qa-traced",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward
       })
 

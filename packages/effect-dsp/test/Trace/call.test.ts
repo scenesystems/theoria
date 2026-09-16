@@ -21,7 +21,7 @@ import {
   Tuple
 } from "effect"
 
-import { trackCall } from "../../src/Trace/call.js"
+import { trackCall } from "../../src/internal/trace/call.js"
 
 const Calls = Schema.Array(Trace.Call)
 type Calls = typeof Calls.Type

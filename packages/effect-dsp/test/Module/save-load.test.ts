@@ -2,10 +2,10 @@
  * Module.save / Module.load persistence contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { SaveLoadError } from "@scenesystems/effect-dsp/Errors"
-import { Demo } from "@scenesystems/effect-dsp/Example"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
+import { SaveLoadError } from "@scenesystems/effect-dsp/DspError"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Order, Ref, Schema } from "effect"
 
@@ -25,11 +25,11 @@ describe("Module.save / Module.load", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const expectedParams = new ModuleParams({
+      const expectedParams = new ModuleParameters({
         instructions: "Use one-word factual answers.",
         outputStrategy: "text",
         demos: Arr.make(
-          new Demo({
+          new Demonstration({
             input: { question: "What is the capital of France?" },
             output: { answer: "Paris" }
           })
@@ -44,7 +44,7 @@ describe("Module.save / Module.load", () => {
 
       yield* Ref.set(
         module.params,
-        new ModuleParams({
+        new ModuleParameters({
           instructions: signature.instructions,
           demos: Arr.empty()
         })
@@ -70,20 +70,20 @@ describe("Module.save / Module.load", () => {
         forward: ({ input }) => qa.forward(input)
       })
 
-      const rootExpected = new ModuleParams({
+      const rootExpected = new ModuleParameters({
         instructions: "Root instructions",
         demos: Arr.make(
-          new Demo({
+          new Demonstration({
             input: { question: "Root question" },
             output: { answer: "Root answer" }
           })
         ),
         outputStrategy: "structured"
       })
-      const qaExpected = new ModuleParams({
+      const qaExpected = new ModuleParameters({
         instructions: "Leaf instructions",
         demos: Arr.make(
-          new Demo({
+          new Demonstration({
             input: { question: "Leaf question" },
             output: { answer: "Leaf answer" }
           })
@@ -98,14 +98,14 @@ describe("Module.save / Module.load", () => {
 
       yield* Ref.set(
         root.params,
-        new ModuleParams({
+        new ModuleParameters({
           instructions: "mutated-root",
           demos: Arr.empty()
         })
       )
       yield* Ref.set(
         qa.params,
-        new ModuleParams({
+        new ModuleParameters({
           instructions: "mutated-leaf",
           demos: Arr.empty()
         })
@@ -137,7 +137,7 @@ describe("Module.save / Module.load", () => {
         modules: Arr.make(
           {
             name: "qa-root",
-            params: new ModuleParams({
+            params: new ModuleParameters({
               instructions: "root-only",
               demos: Arr.empty()
             })

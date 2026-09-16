@@ -3,8 +3,8 @@
  */
 import * as Prompt from "@effect/ai/Prompt"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { Demo } from "@scenesystems/effect-dsp/Example"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Schema } from "effect"
 import { buildPrompt } from "../../src/internal/prompt/render.js"
@@ -21,17 +21,17 @@ const makeQaSignature = () =>
     }
   )
 
-const paramsWithDemo = new ModuleParams({
+const paramsWithDemo = new ModuleParameters({
   instructions: "Keep answers short.",
   demos: Arr.make(
-    new Demo({
+    new Demonstration({
       input: { question: "What is the capital of France?" },
       output: { answer: "Paris" }
     })
   )
 })
 
-const paramsWithoutDemos = new ModuleParams({
+const paramsWithoutDemos = new ModuleParameters({
   instructions: "Keep answers short.",
   demos: Arr.empty()
 })

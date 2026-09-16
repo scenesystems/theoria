@@ -15,7 +15,7 @@
  * Run: bun run examples/13-gepa-conversational-network-collective-memory.ts
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import { Evaluate, Example, GEPA, Metric, Module, Signature } from "@scenesystems/effect-dsp"
 import {
   Array as Arr,
   Boolean,
@@ -466,7 +466,7 @@ const program = Effect.gen(function*() {
     seed: 41
   })
 
-  const gepaEventsChunk = yield* Optimizer.gepaStream({
+  const gepaEventsChunk = yield* GEPA.stream({
     module: protocolPlanner,
     trainset,
     valset: evalset,
@@ -475,7 +475,7 @@ const program = Effect.gen(function*() {
     maxMergeInvocations: 4,
     seed: 41
   }).pipe(
-    Optimizer.tapGEPAProgress((line) => logExampleEvent("gepa", line.text)),
+    GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
     Stream.runCollect
   )
 
@@ -487,18 +487,18 @@ const program = Effect.gen(function*() {
   })
 
   const gepaEvents = Arr.fromIterable(gepaEventsChunk)
-  const gepaEventSummary = Optimizer.summarizeGEPAEvents(gepaEvents)
+  const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
   const plannerParamsAfterOptimization = yield* Ref.get(protocolPlanner.params)
   const plannerSavedState = yield* Module.save(protocolPlanner)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
-  const outcomeSummary = Optimizer.summarizeGEPAOutcome({
-    baselineExactMatch: baselineScore,
-    optimizedExactMatch: optimizedScore,
-    instructionBeforeOptimization: plannerParamsBeforeOptimization.instructions,
-    instructionAfterOptimization: plannerParamsAfterOptimization.instructions,
-    eventSummary: gepaEventSummary
+  const outcomeSummary = GEPA.summarizeOutcome({
+    baselineScore,
+    optimizedScore,
+    instructionBefore: plannerParamsBeforeOptimization.instructions,
+    instructionAfter: plannerParamsAfterOptimization.instructions,
+    events: gepaEventSummary
   })
   const summaryArtifact = makeStandardSummary({
     exampleName: EXAMPLE_NAME,

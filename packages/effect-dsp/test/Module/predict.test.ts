@@ -3,14 +3,14 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { Demo } from "@scenesystems/effect-dsp/Example"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
+import { decode } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Layer, Option, Ref, Schedule, Schema, TestClock } from "effect"
-import { decodePayload } from "../../src/contracts/Payload.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -31,7 +31,7 @@ describe("Module.predict", () => {
         empty: Schema.Null
       }, { answer: Schema.String })
       const module = yield* Module.predict("encoded-input", signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "France" }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "France" }))
       const [result, entries] = yield* Trace.withTracing(module.forward({
         facts: { count: 17, countries: Arr.make("France", "Japan") },
         empty: null
@@ -42,7 +42,7 @@ describe("Module.predict", () => {
       expect(call.prompt).toContain("[[ ## facts ## ]]\n{\"count\":\"17\",\"countries\":[\"France\",\"Japan\"]}")
       expect(call.prompt).toContain("[[ ## empty ## ]]\nnull")
       expect(entry.prompt).toBe(call.prompt)
-      expect(yield* decodePayload(Schema.encodedSchema(signature.inputSchema), entry.input)).toEqual({
+      expect(yield* decode(Schema.encodedSchema(signature.inputSchema), entry.input)).toEqual({
         facts: { count: "17", countries: Arr.make("France", "Japan") },
         empty: null
       })
@@ -56,17 +56,17 @@ describe("Module.predict", () => {
       }, { facts: Schema.Struct({ count: Schema.NumberFromString }) })
       const module = yield* Module.predict("demo-input", signature)
       yield* Ref.update(module.params, (params) =>
-        new ModuleParams({
+        new ModuleParameters({
           ...params,
           outputStrategy: "structured",
           demos: Arr.make(
-            new Demo({
+            new Demonstration({
               input: { question: "example question" },
               output: { facts: { count: "3" } }
             })
           )
         }))
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ facts: { count: "7" } }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ facts: { count: "7" } }))
       const [withoutContext, withContext] = yield* Effect.all(Arr.make(
         module.forward({ question: "without context" }),
         module.forward({ question: "with context", context: "literal context" })
@@ -84,9 +84,9 @@ describe("Module.predict", () => {
   it.effect("stops after the default three parse retries and carries diagnostic feedback", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("malformed output"))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("malformed output"))
       const module = yield* Module.predict("qa", qa)
-      yield* Ref.update(module.params, (params) => new ModuleParams({ ...params, outputStrategy: "text" }))
+      yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
       const fiber = yield* module.forward({ question: "Capital?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip,
@@ -107,7 +107,7 @@ describe("Module.predict", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const module = yield* Module.predict("qa", qa)
 
@@ -128,18 +128,18 @@ describe("Module.predict", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed("[[ ## answer ## ]]\nParis")
+        MockLanguageModel.succeed("[[ ## answer ## ]]\nParis")
       )
       const module = yield* Module.predict("qa", qa)
 
       yield* Ref.update(
         module.params,
         (params) =>
-          new ModuleParams({
+          new ModuleParameters({
             instructions: params.instructions,
             outputStrategy: "auto",
             demos: Arr.make(
-              new Demo({
+              new Demonstration({
                 input: { question: "What is the capital of France?" },
                 output: { answer: "Paris" }
               })
@@ -164,7 +164,7 @@ describe("Module.predict", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const module = yield* Module.predict("qa", qa)
 
@@ -200,11 +200,11 @@ describe("Module.predict", () => {
       yield* Ref.update(
         module.params,
         (params) =>
-          new ModuleParams({
+          new ModuleParameters({
             instructions: params.instructions,
             outputStrategy: "auto",
             demos: Arr.make(
-              new Demo({
+              new Demonstration({
                 input: { question: "What is the capital of France?" },
                 output: { answer: "Paris" }
               })
@@ -257,11 +257,11 @@ describe("Module.predict", () => {
       yield* Ref.update(
         module.params,
         (params) =>
-          new ModuleParams({
+          new ModuleParameters({
             instructions: params.instructions,
             outputStrategy: "auto",
             demos: Arr.make(
-              new Demo({
+              new Demonstration({
                 input: { question: "What is the capital of France?" },
                 output: { answer: "Paris" }
               })

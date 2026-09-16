@@ -6,7 +6,7 @@
  */
 import * as Prompt from "@effect/ai/Prompt"
 import { Array as Arr, Effect, Match, Schema } from "effect"
-import { TraceError } from "../../Errors/trace.js"
+import { TraceError } from "../../DspError.js"
 
 const partText = Match.type<Prompt.Part>().pipe(
   Match.discriminatorsExhaustive("type")({

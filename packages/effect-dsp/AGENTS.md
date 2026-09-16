@@ -6,38 +6,43 @@ alwaysApply: true
 
 # @scenesystems/effect-dsp
 
-Effect-native implementation of the DSPy paradigm for TypeScript. Programming — not prompting — language models, with Effect.
+Effect-native typed language-model programs, evaluation, tracing, persistence,
+and optimization. Production code depends on native `@effect/ai` services and
+must remain independent of `@scenesystems/effect-inference`.
 
-Runtime search primitives come from `@scenesystems/effect-search`.
+## Public architecture
 
-## Commands
+Public modules are PascalCase source-root files and matching package subpaths:
+`Signature`, `Module`, `ModuleParameters`, `ModuleGraph`, `Demonstration`,
+`Example`, `Metric`, `Evaluate`, `EvaluationObjective`, `Trace`, `Cache`, `Payload`, `DspError`,
+`OptimizerEvent`, `LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`,
+`MIPROv2`, `MIPROv2Candidates`, `MIPROv2Search`, `GEPA`, `Ensemble`, and `MockLanguageModel`.
 
-| Task       | Command         |
-| ---------- | --------------- |
-| Type check | `bun run check` |
-| Lint       | `bun run lint`  |
-| Test       | `bun run test`  |
-| Build      | `bun run build` |
+Algorithms own their options, lifecycle events, streams, progress formatting,
+and summaries. There is no umbrella Optimizer namespace. Search studies,
+samplers, Pareto operations, deterministic seeds, and artifact envelopes are
+consumed directly from `@scenesystems/effect-search`; DSP does not mirror them.
 
-All four gates must pass clean before any work is considered complete.
-
-## Architecture
-
-Public modules: `Signature`, `Module`, `Optimizer`, `Metric`, `Evaluate`, `Example`, `Trace`, `Errors`, `Cache`.
-
-Optimizer implementations live in `src/optimizers/` (self-contained per optimizer). Internal helpers in `src/internal/`. Test utilities in `src/testing/`.
+Private mechanics live in camelCase paths below `src/internal/`.
+Public MIPROv2 concerns use that exact spelling; private paths use `miprov2`.
+Never add forwarding entrypoints,
+compatibility aliases, generic contracts buckets, or empty experimental modules.
 
 ## Conventions
 
-- **Effect-native discipline** — no async/await, throw/try-catch, new Error(), console.\*, let, for/while, switch
-- **Tests always use `@effect/vitest`** with `it.effect()`
-- **Schema IS the signature** — Schema.Struct with description annotations defines I/O
-- **Module IS an Effect** — factories return branded objects with `forward: Effect.fn(name)(...)`
-- **Provider IS a Layer** — `LanguageModel` from `@effect/ai` is a Context.Tag
+- Schema owns encoded data. Use Data for generic/function-bearing runtime records.
+- Keep module `forward`, metrics, reducers, and optimizer callbacks generic in
+  their Effect error and requirement channels.
+- Demonstration validation and replay use `Demonstration.Codec` compiled from a
+  destination signature's encoded schemas.
+- Trace payloads use the lossless `Payload` codec and retain native AI usage.
+- Use Effect modules for control flow, collections, equality, ordering, numbers,
+  strings, graphs, maps, and randomness. Search randomness uses effect-search
+  Sampler primitives directly.
+- Public names are concern-local (`Options`, `run`, `runWithEvents`, `stream`);
+  do not repeat the module name in symbols.
 
-## Governance
+## Verification
 
-- `internal/*` blocked from consumers via exports map
-- `optimizers/*` blocked from consumers via exports map
-- `src/internal/lm.ts` owns model execution. Models and projections consume native `@effect/ai` schemas directly; do not duplicate their contracts.
-- Each optimizer under `src/optimizers/` is self-contained
+Run `bun run check`, `bun run check:tests`, `bun run check:examples`,
+`bun run lint`, `bun run test`, and `bun run build` from this package.

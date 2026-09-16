@@ -16,7 +16,7 @@
  * Run: bun run examples/12-miprov2-collective-memory-network-dynamics.ts
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
@@ -264,7 +264,7 @@ const STOP_WORDS = Arr.make(
 
 const clampUnitScore = (score: number): number => Numeric.clamp(score, { minimum: 0, maximum: 1 })
 
-const averageScore = (scores: Iterable<number>): number => {
+const averageScore = (scores: ReadonlyArray<number>): number => {
   const values = Arr.fromIterable(scores)
   return Option.getOrElse(Number.divide(Number.sumAll(values), Arr.length(values)), () => 0)
 }
@@ -315,7 +315,7 @@ const forecastKeywords = (forecast: string) =>
 
 const containsNarrativeKeyword = (
   narrative: string,
-  keywords: Iterable<string>
+  keywords: ReadonlyArray<string>
 ): number =>
   Boolean.match(Iter.some(keywords, (keyword) => String.includes(keyword)(narrative)), {
     onTrue: () => 1,
@@ -582,7 +582,7 @@ const program = Effect.gen(function*() {
     threshold: Number.unsafeDivide(2, 3)
   })
 
-  const bootstrapEventsChunk = yield* Optimizer.bootstrapFewShotStream({
+  const bootstrapEventsChunk = yield* BootstrapFewShot.stream({
     module: protocolPanel,
     trainset,
     metric: protocolMetric,
@@ -593,11 +593,11 @@ const program = Effect.gen(function*() {
     fallbackToLabeledFewShot: true,
     fallbackLabeledDemoCount: 3
   }).pipe(
-    Optimizer.tapBootstrapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
+    BootstrapFewShot.tapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
     Stream.runCollect
   )
   const bootstrapEvents = Arr.fromIterable(bootstrapEventsChunk)
-  const bootstrapSummary = Optimizer.summarizeBootstrapEvents(bootstrapEvents)
+  const bootstrapSummary = BootstrapFewShot.summarizeEvents(bootstrapEvents)
   const paramsAfterBootstrap = yield* Ref.get(protocolPanel.params)
   const demosAddedDuringBootstrap = Number.subtract(
     Arr.length(paramsAfterBootstrap.demos),
@@ -628,7 +628,7 @@ const program = Effect.gen(function*() {
     seed: 33
   })
 
-  const miproEventsChunk = yield* Optimizer.miprov2Stream({
+  const miproEventsChunk = yield* MIPROv2.stream({
     module: protocolPanel,
     trainset,
     valset: evalset,
@@ -638,11 +638,11 @@ const program = Effect.gen(function*() {
     trialBudget: 6,
     seed: 33
   }).pipe(
-    Optimizer.tapMIPROv2Progress((line) => logExampleEvent("miprov2", line.text)),
+    MIPROv2.tapProgress((line) => logExampleEvent("miprov2", line.text)),
     Stream.runCollect
   )
   const miproEvents = Arr.fromIterable(miproEventsChunk)
-  const miproEventSummary = Optimizer.summarizeMIPROv2Events(miproEvents)
+  const miproEventSummary = MIPROv2.summarizeEvents(miproEvents)
 
   const optimized = yield* Evaluate.run({
     module: protocolPanel,
@@ -655,14 +655,14 @@ const program = Effect.gen(function*() {
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
-  const miproOutcome = Optimizer.summarizeMIPROv2Outcome({
-    baselineExactMatch: baselineScore,
-    optimizedExactMatch: optimizedScore,
-    demoCountBeforeOptimization: Arr.length(paramsAfterBootstrap.demos),
-    demoCountAfterOptimization: Arr.length(optimizedParams.demos),
-    eventSummary: miproEventSummary
+  const miproOutcome = MIPROv2.summarizeOutcome({
+    baselineScore,
+    optimizedScore,
+    demoCountBefore: Arr.length(paramsAfterBootstrap.demos),
+    demoCountAfter: Arr.length(optimizedParams.demos),
+    events: miproEventSummary
   })
-  const optimizationObservability = Optimizer.summarizeMIPROv2OptimizationObservability({
+  const optimizationObservability = MIPROv2.summarizeOptimization({
     baselineScore,
     optimizedScore,
     eventSummary: miproEventSummary

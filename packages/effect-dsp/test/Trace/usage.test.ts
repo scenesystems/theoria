@@ -3,7 +3,6 @@
  */
 import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
-import * as Contracts from "@scenesystems/effect-dsp/contracts"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Equal, Number, Option, Schema, Tuple } from "effect"
 
@@ -27,7 +26,7 @@ const call = (usage: Option.Option<Response.Usage>, outcome: Trace.Call["outcome
 describe("Trace usage", () => {
   it.effect("preserves all five independently reported counters", () =>
     Effect.gen(function*() {
-      const aggregate = Contracts.accumulateUsage(Contracts.emptyUsage, Option.some(completeUsage))
+      const aggregate = Trace.accumulateUsage(Trace.emptyUsage, Option.some(completeUsage))
 
       expect(Equal.equals(aggregate.tokens, completeUsage)).toBe(true)
       expect(aggregate.callCount).toBe(1)
@@ -58,9 +57,9 @@ describe("Trace usage", () => {
         totalTokens: undefined,
         reasoningTokens: 1
       })
-      const afterPartial = Contracts.accumulateUsage(Contracts.emptyUsage, Option.some(partial))
-      const afterComplete = Contracts.accumulateUsage(afterPartial, Option.some(completeUsage))
-      const afterMissing = Contracts.accumulateUsage(afterComplete, Option.none())
+      const afterPartial = Trace.accumulateUsage(Trace.emptyUsage, Option.some(partial))
+      const afterComplete = Trace.accumulateUsage(afterPartial, Option.some(completeUsage))
+      const afterMissing = Trace.accumulateUsage(afterComplete, Option.none())
 
       expect(afterPartial.tokens.inputTokens).toBe(2)
       expect(afterPartial.tokens.outputTokens).toBe(0)

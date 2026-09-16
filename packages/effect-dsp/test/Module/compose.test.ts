@@ -3,10 +3,11 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import * as Contracts from "@scenesystems/effect-dsp/contracts"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
+import { make as makeParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, HashMap, Layer, Option, Record, Ref, Schema, Tuple } from "effect"
 
@@ -21,7 +22,7 @@ const makeQaSignature = () =>
     }
   )
 
-const decodeModuleId = Schema.decodeUnknown(Contracts.ModuleId)
+const decodeModuleId = Schema.decodeUnknown(Module.Id)
 
 describe("Module.compose", () => {
   it.effect("retains the destination demonstration contract on projected children", () =>
@@ -38,9 +39,9 @@ describe("Module.compose", () => {
       )
       const qaId = yield* decodeModuleId("qa")
       const node = yield* HashMap.get(root.subModules, qaId)
-      const demo = yield* node.demoContract.decode({ input: { question: "Where?" }, output: { answer: "Here" } })
+      const demo = yield* node.demonstrationCodec.decode({ input: { question: "Where?" }, output: { answer: "Here" } })
       const invalid = yield* Effect.flip(
-        node.demoContract.decode({ input: { question: 42 }, output: { answer: "Here" } })
+        node.demonstrationCodec.decode({ input: { question: 42 }, output: { answer: "Here" } })
       )
       expect(demo.input).toEqual({ question: "Where?" })
       expect(invalid._tag).toBe("ParseError")
@@ -68,8 +69,8 @@ describe("Module.compose", () => {
       const rootId = yield* decodeModuleId("qa-root")
       const pipelineId = yield* decodeModuleId(pipeline.name)
       const qaId = yield* decodeModuleId(qa.name)
-      const traversal = Contracts.stableModuleGraphTraversal(rootGraph)
-      const lineage = yield* Contracts.moduleGraphLineage(rootGraph, qaId)
+      const traversal = ModuleGraph.traversal(rootGraph)
+      const lineage = yield* ModuleGraph.lineage(rootGraph, qaId)
 
       expect(traversal).toEqual(Arr.make(
         rootId,
@@ -101,16 +102,16 @@ describe("Module.compose", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const loopId = yield* decodeModuleId("loop")
-      const paramsRef = yield* Ref.make(Contracts.makeDefaultModuleParams(signature.instructions))
-      const loopSignature = Contracts.makeModuleNodeSignature(
-        signature.description,
-        signature.instructions
-      )
-      const loopNode: Contracts.ModuleNode = {
+      const paramsRef = yield* Ref.make(makeParameters(signature.instructions))
+      const loopSignature = new Module.NodeSignature({
+        description: signature.description,
+        instructions: signature.instructions
+      })
+      const loopNode: Module.Node = {
         moduleId: loopId,
         name: "loop",
         signature: loopSignature,
-        demoContract: signature.demoContract,
+        demonstrationCodec: signature.demonstrationCodec,
         params: paramsRef,
         get subModules() {
           return HashMap.make(Tuple.make(loopId, loopNode))
@@ -220,7 +221,10 @@ describe("Module.compose", () => {
       const leafId = yield* decodeModuleId("leaf")
       const wrongId = yield* decodeModuleId("wrong")
       const branchId = yield* decodeModuleId("branch")
-      const metadata = Contracts.makeModuleNodeSignature(signature.description, signature.instructions)
+      const metadata = new Module.NodeSignature({
+        description: signature.description,
+        instructions: signature.instructions
+      })
       yield* Effect.forEach(
         Arr.make(
           Tuple.make(wrongId, leafId, "leaf"),
@@ -229,26 +233,26 @@ describe("Module.compose", () => {
         ),
         ([declaredId, moduleId, name]) =>
           Effect.gen(function*() {
-            const badNode = new Contracts.ModuleNode({
+            const badNode = new Module.Node({
               moduleId,
               name,
               signature: metadata,
-              demoContract: signature.demoContract,
+              demonstrationCodec: signature.demonstrationCodec,
               params: leaf.params,
               subModules: HashMap.empty()
             })
-            const branch = new Contracts.ModuleNode({
+            const branch = new Module.Node({
               moduleId: branchId,
               name: "branch",
               signature: metadata,
-              demoContract: signature.demoContract,
-              params: yield* Ref.make(Contracts.makeDefaultModuleParams(signature.instructions)),
+              demonstrationCodec: signature.demonstrationCodec,
+              params: yield* Ref.make(makeParameters(signature.instructions)),
               subModules: HashMap.make(Tuple.make(declaredId, badNode))
             })
             const parent = new Module.Module({
               name: "parent",
               signature,
-              params: yield* Ref.make(Contracts.makeDefaultModuleParams(signature.instructions)),
+              params: yield* Ref.make(makeParameters(signature.instructions)),
               subModules: HashMap.make(Tuple.make(branchId, branch)),
               forward: () => Effect.succeed({ answer: "unused" })
             })
@@ -296,7 +300,7 @@ describe("Module.compose", () => {
       const qaId = yield* decodeModuleId(qa.name)
       const secondaryId = yield* decodeModuleId(secondary.name)
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
       const program = Module.discoverModuleGraph(
@@ -308,14 +312,14 @@ describe("Module.compose", () => {
       const traced = yield* Trace.withTracing(program)
       const graph = Tuple.getFirst(traced)
       const entries = Tuple.getSecond(traced)
-      const qaLineage = yield* Contracts.moduleGraphLineage(graph, qaId)
-      const secondaryLineage = yield* Contracts.moduleGraphLineage(graph, secondaryId)
+      const qaLineage = yield* ModuleGraph.lineage(graph, qaId)
+      const secondaryLineage = yield* ModuleGraph.lineage(graph, secondaryId)
 
       expect(Arr.map(entries, (entry) => entry.moduleName)).toEqual(Arr.make(
         "qa",
         "secondary"
       ))
-      expect(Contracts.stableModuleGraphTraversal(graph)).toEqual(Arr.make(
+      expect(ModuleGraph.traversal(graph)).toEqual(Arr.make(
         rootId,
         pipelineId,
         qaId,
@@ -353,7 +357,7 @@ describe("Module.compose", () => {
         })
       )
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
       const nested = yield* Trace.withUsageTracking(

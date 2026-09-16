@@ -27,7 +27,7 @@ export const FieldNames = Schema.Array(Schema.String)
  * @category constants
  * @internal
  */
-export const FIELD_MARKER_REGEX = /\[\[\s*##\s*([^#\]]+)\s*##\s*\]\]/g
+export const fieldMarkerRegex = /\[\[\s*##\s*([^#\]]+)\s*##\s*\]\]/g
 
 /**
  * Produces a single `[[ ## fieldName ## ]]` marker string for the given

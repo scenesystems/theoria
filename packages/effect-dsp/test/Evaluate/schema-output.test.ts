@@ -6,9 +6,9 @@ import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Context, Effect, Number, Record, Ref, Schema } from "effect"
 
 const Output = Schema.Struct({ result: Schema.Struct({ count: Schema.NumberFromString }) })
@@ -31,7 +31,7 @@ describe("schema-derived metric values", () => {
   it.effect("preserves structured decoded values and scorer services through composition and evaluation", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("unused"))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("unused"))
       const observed = yield* Ref.make(Arr.empty<number>())
       const difference = Metric.fromEffect(
         "difference",
@@ -65,7 +65,7 @@ describe("schema-derived metric values", () => {
     Effect.gen(function*() {
       const signature = yield* Signature.make("Count", { question: Schema.String }, Output.fields)
       const module = yield* Module.predict("invalid-label", signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ result: { count: "7" } }))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const calls = yield* Ref.make(0)
       const metric = Metric.fromEffect("count", (_prediction: typeof Output.Type) =>
         Ref.update(calls, Number.increment).pipe(Effect.as(new Metric.Result({ score: 1 }))))
@@ -85,7 +85,7 @@ describe("schema-derived metric values", () => {
   it.effect("retains typed scorer failures and captures them as failed evaluations", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("unused"))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("unused"))
       const metric = Metric.fromEffect("checked", (_prediction: typeof Output.Type) =>
         Effect.fail(new ScoringFailed({ message: "judge unavailable" })))
       const scoring = metric.score({ result: { count: 7 } }, { result: { count: 3 } })
