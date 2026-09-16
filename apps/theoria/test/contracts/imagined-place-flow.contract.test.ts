@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Option } from "effect"
+import { Boolean as Bool, Effect, Equal, Layer, Number as Num, Option, Schema, String as Str, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
-import { Contracts, Text } from "@scenesystems/effect-text"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { CanvasProfile, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 
 import {
   drawingOnStage,
@@ -24,61 +25,87 @@ import {
   touchGap,
   touchReach
 } from "../../app/contracts/demo/imagined-place-flow.js"
-import { type Meander, meanderBounds } from "../../app/contracts/demo/imagined-place-search.js"
-import type { PlaceMarker } from "../../app/contracts/imagined-place-result.js"
-import type { ParticipantRole, PlaceFeature } from "../../app/contracts/imagined-place.js"
+import { Meander, meanderBounds } from "../../app/contracts/demo/imagined-place-search.js"
+import { PlaceMarker } from "../../app/contracts/imagined-place-result.js"
+import { ParticipantRole, PlaceFeature } from "../../app/contracts/imagined-place.js"
 
-const features: ReadonlyArray<PlaceFeature> = Arr.makeBy(6, (index) => ({
-  name: `Feature ${String(index + 1)}`,
+const PlaceFeatures = Schema.Array(PlaceFeature)
+type PlaceFeatures = typeof PlaceFeatures.Type
+
+const PlaceMarkers = Schema.Array(PlaceMarker)
+type PlaceMarkers = typeof PlaceMarkers.Type
+
+const OptionalParticipants = Schema.Array(Schema.OptionFromSelf(ParticipantRole))
+type OptionalParticipants = typeof OptionalParticipants.Type
+
+const Meanders = Schema.Array(Meander)
+type Meanders = typeof Meanders.Type
+
+const features: PlaceFeatures = Arr.makeBy(6, (index) => ({
+  name: `Feature ${String(Num.increment(index))}`,
   description: "A feature.",
-  weight: index % 2 === 0 ? 1 : 0.2
+  weight: Bool.match(Equal.equals(Num.remainder(index, 2), 0), { onTrue: () => 1, onFalse: () => 0.2 })
 }))
 
-const noContributors = Arr.map(features, () => Option.none())
+const noContributors: OptionalParticipants = Arr.map(features, () => Option.none())
 
 /** Text measured at a fixed width per character, so the prose flows the same on every run. */
 const fixedWidthText = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(
+  Text.layerSegmenter,
+  Layer.succeed(Text.CurrentProfile, CanvasProfile.monospace.engineProfile),
+  MeasurementCache.layer.pipe(
     Layer.provide(
-      Layer.succeed(Contracts.TextMeasurer, { measure: (_font, text: string) => Effect.succeed(text.length * 5) })
+      Layer.succeed(TextMeasurer.TextMeasurer, {
+        measure: (_font, text: string) => Effect.succeed(Num.multiply(Str.length(text), 5))
+      })
     )
   )
 )
 
 /** The corners of the meander space are where the geometry is most stressed. */
 const corner = (pick: 0 | 1): Meander => ({
-  edge: meanderBounds.edge[pick],
-  swing: meanderBounds.swing[pick],
-  phase: meanderBounds.phase[pick],
-  turns: meanderBounds.turns[pick],
-  top: meanderBounds.top[pick],
-  step: meanderBounds.step[0]
+  edge: Arr.unsafeGet(meanderBounds.edge, pick),
+  swing: Arr.unsafeGet(meanderBounds.swing, pick),
+  phase: Arr.unsafeGet(meanderBounds.phase, pick),
+  turns: Arr.unsafeGet(meanderBounds.turns, pick),
+  top: Arr.unsafeGet(meanderBounds.top, pick),
+  step: Tuple.getFirst(meanderBounds.step)
 })
 
-const corners: ReadonlyArray<Meander> = [corner(0), corner(1)]
+const corners: Meanders = Arr.make(corner(0), corner(1))
 
 /** The meander that leans furthest left: full swing, at the trough of the sine from the first feature on. */
 const leftmost: Meander = {
-  edge: meanderBounds.edge[0],
-  swing: meanderBounds.swing[1],
-  phase: -Math.PI / 2,
-  turns: meanderBounds.turns[0],
-  top: meanderBounds.top[0],
-  step: meanderBounds.step[0]
+  edge: Tuple.getFirst(meanderBounds.edge),
+  swing: Tuple.getSecond(meanderBounds.swing),
+  phase: Num.negate(Num.unsafeDivide(Numeric.pi, 2)),
+  turns: Tuple.getFirst(meanderBounds.turns),
+  top: Tuple.getFirst(meanderBounds.top),
+  step: Tuple.getFirst(meanderBounds.step)
 }
 
-const expectWellPlaced = (stage: Stage, markers: ReadonlyArray<PlaceMarker>) => {
+const distance = (a: PlaceMarker, b: PlaceMarker): number => {
+  const dx = Num.subtract(a.x, b.x)
+  const dy = Num.subtract(a.y, b.y)
+  return Numeric.sqrt(Num.sum(Num.multiply(dx, dx), Num.multiply(dy, dy)))
+}
+
+const expectWellPlaced = (stage: Stage, markers: PlaceMarkers) => {
   Arr.forEach(markers, (m) => {
-    expect(m.x - m.radius).toBeGreaterThanOrEqual(stage.padding + minimumLineWidth + markerGap - 1e-9)
-    expect(m.x + m.radius).toBeLessThanOrEqual(stage.stageWidth - stage.padding + 1e-9)
-    expect(m.y - m.radius).toBeGreaterThanOrEqual(stage.padding - 1e-9)
+    expect(Num.subtract(m.x, m.radius)).toBeGreaterThanOrEqual(
+      Num.subtract(Num.sumAll(Arr.make(stage.padding, minimumLineWidth, markerGap)), 1e-9)
+    )
+    expect(Num.sum(m.x, m.radius)).toBeLessThanOrEqual(
+      Num.sum(Num.subtract(stage.stageWidth, stage.padding), 1e-9)
+    )
+    expect(Num.subtract(m.y, m.radius)).toBeGreaterThanOrEqual(Num.subtract(stage.padding, 1e-9))
   })
 
   Arr.forEach(markers, (a, i) =>
-    Arr.forEach(Arr.drop(markers, i + 1), (b) => {
-      expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(a.radius + b.radius + 10 - 1e-9)
+    Arr.forEach(Arr.drop(markers, Num.increment(i)), (b) => {
+      expect(distance(a, b)).toBeGreaterThanOrEqual(
+        Num.subtract(Num.sumAll(Arr.make(a.radius, b.radius, 10)), 1e-9)
+      )
     }))
 }
 
@@ -88,37 +115,37 @@ const expectWellPlaced = (stage: Stage, markers: ReadonlyArray<PlaceMarker>) => 
  * a disc growing in or shrinking away reaches for its target in proportion,
  * so this is asked of where the drawing lands, not of every step.)
  */
-const expectTouchable = (markers: ReadonlyArray<PlaceMarker>) =>
+const expectTouchable = (markers: PlaceMarkers) =>
   Arr.forEach(markers, (a, i) => {
     expect(a.reach).toBe(touchReach(a.radius))
-    Arr.forEach(Arr.drop(markers, i + 1), (b) => {
-      expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(
-        a.radius + a.reach + b.radius + b.reach + touchGap - 1e-9
+    Arr.forEach(Arr.drop(markers, Num.increment(i)), (b) => {
+      expect(distance(a, b)).toBeGreaterThanOrEqual(
+        Num.subtract(Num.sumAll(Arr.make(a.radius, a.reach, b.radius, b.reach, touchGap)), 1e-9)
       )
     })
   })
 
 /** Steps of a travel between the two corners, as the stage would draw them. */
-const steps = Arr.map(Arr.range(0, 10), (index) => index / 10)
+const steps = Arr.map(Arr.range(0, 10), (index) => Num.unsafeDivide(index, 10))
 
 describe("Imagined place geometry contract", () => {
   it.effect("a disc's reach makes up what its radius lacks of a 44 px touch target, and nothing more", () =>
     Effect.sync(() => {
       const narrow = stageFor(240)
       const small = markerRadius(narrow, 0)
-      expect(small).toBeLessThan(minimumTouchTarget / 2)
-      expect(2 * (small + touchReach(small))).toBeCloseTo(minimumTouchTarget, 10)
-      expect(touchReach(minimumTouchTarget / 2)).toBe(0)
+      expect(small).toBeLessThan(Num.unsafeDivide(minimumTouchTarget, 2))
+      expect(Num.multiply(2, Num.sum(small, touchReach(small)))).toBeCloseTo(minimumTouchTarget, 10)
+      expect(touchReach(Num.unsafeDivide(minimumTouchTarget, 2))).toBe(0)
       expect(touchReach(markerRadius(stageFor(900), 1))).toBe(0)
     }))
 
   it.effect("markers never overlap and never leave the padded stage, whatever the meander", () =>
     Effect.sync(() => {
-      Arr.forEach([240, 640, 900], (width) => {
+      Arr.forEach(Arr.make(240, 640, 900), (width) => {
         const stage = stageFor(width)
         Arr.forEach(corners, (meander) => {
           const markers = placeMarkers(features, noContributors, stage, meander)
-          expect(markers.length).toBe(features.length)
+          expect(Arr.length(markers)).toBe(Arr.length(features))
           expectWellPlaced(stage, markers)
           expectTouchable(markers)
         })
@@ -127,7 +154,7 @@ describe("Imagined place geometry contract", () => {
 
   it.effect("markers on their way between two arrangements keep the same rules at every step", () =>
     Effect.sync(() => {
-      Arr.forEach([240, 640, 900], (width) => {
+      Arr.forEach(Arr.make(240, 640, 900), (width) => {
         const stage = stageFor(width)
         const between = markersBetween(stage)
         const from = placeMarkers(features, noContributors, stage, corner(0))
@@ -149,20 +176,24 @@ describe("Imagined place geometry contract", () => {
       const from = placeMarkers(Arr.take(features, 5), Arr.take(noContributors, 5), stage, corner(0))
       const to = placeMarkers(Arr.drop(features, 1), Arr.drop(noContributors, 1), stage, corner(1))
       const halfway = between(from, to, 0.5)
-      const arriving = Arr.findFirst(halfway, (m) => m.name === "Feature 6")
-      const destination = Arr.findFirst(to, (m) => m.name === "Feature 6")
-      expect(Option.map(arriving, (m) => m.radius)).toEqual(Option.map(destination, (m) => m.radius / 2))
+      const arriving = Arr.findFirst(halfway, (m) => Equal.equals(m.name, "Feature 6"))
+      const destination = Arr.findFirst(to, (m) => Equal.equals(m.name, "Feature 6"))
+      expect(Option.map(arriving, (m) => m.radius)).toEqual(
+        Option.map(destination, (m) => Num.unsafeDivide(m.radius, 2))
+      )
       expect(Option.map(arriving, (m) => m.x)).toEqual(Option.map(destination, (m) => m.x))
       // The leaver is still drawn, half its size, where it stood — so the text is flowed around it while it
       // goes — and it is listed last, so every other disc keeps its number.
-      const leaving = Arr.findFirst(halfway, (m) => m.name === "Feature 1")
-      const origin = Arr.findFirst(from, (m) => m.name === "Feature 1")
-      expect(Option.map(leaving, (m) => m.radius)).toEqual(Option.map(origin, (m) => m.radius / 2))
+      const leaving = Arr.findFirst(halfway, (m) => Equal.equals(m.name, "Feature 1"))
+      const origin = Arr.findFirst(from, (m) => Equal.equals(m.name, "Feature 1"))
+      expect(Option.map(leaving, (m) => m.radius)).toEqual(
+        Option.map(origin, (m) => Num.unsafeDivide(m.radius, 2))
+      )
       expect(Option.map(leaving, (m) => m.x)).toEqual(Option.map(origin, (m) => m.x))
-      expect(Arr.map(halfway, (m) => m.name)).toEqual([...Arr.map(to, (m) => m.name), "Feature 1"])
+      expect(Arr.map(halfway, (m) => m.name)).toEqual(Arr.append(Arr.map(to, (m) => m.name), "Feature 1"))
       expectWellPlaced(stage, halfway)
       // At the start the leaver stands whole; at the end it is gone, and the drawing is the destination itself.
-      const atStart = Arr.findFirst(between(from, to, 0), (m) => m.name === "Feature 1")
+      const atStart = Arr.findFirst(between(from, to, 0), (m) => Equal.equals(m.name, "Feature 1"))
       expect(Option.map(atStart, (m) => m.radius)).toEqual(Option.map(origin, (m) => m.radius))
       expect(Option.map(atStart, (m) => m.x)).toEqual(Option.map(origin, (m) => m.x))
       expect(between(from, to, 1)).toEqual(to)
@@ -184,11 +215,13 @@ describe("Imagined place geometry contract", () => {
         radius: 20,
         reach: touchReach(20)
       })
-      const from = [marker("A", 100), marker("B", 200)]
-      const to = [marker("A", 100), marker("N", 200), marker("B", 250)]
+      const from = Arr.make(marker("A", 100), marker("B", 200))
+      const to = Arr.make(marker("A", 100), marker("N", 200), marker("B", 250))
       const atStart = between(from, to, 0)
-      expect(Arr.map(atStart, (m) => m.name)).toEqual(["A", "N", "B"])
-      expect(Option.map(Arr.findFirst(atStart, (m) => m.name === "B"), (m) => m.y)).not.toEqual(Option.some(200))
+      expect(Arr.map(atStart, (m) => m.name)).toEqual(Arr.make("A", "N", "B"))
+      expect(Option.map(Arr.findFirst(atStart, (m) => Equal.equals(m.name, "B")), (m) => m.y)).not.toEqual(
+        Option.some(200)
+      )
       expectWellPlaced(stage, atStart)
     }))
 
@@ -209,17 +242,17 @@ describe("Imagined place geometry contract", () => {
         radius,
         reach: touchReach(radius)
       })
-      const from = [marker("A", 60)]
-      const first = [marker("A", 32), marker("N", 78)]
+      const from = Arr.make(marker("A", 60))
+      const first = Arr.make(marker("A", 32), marker("N", 78))
       const partWay = between(from, first, 0.1)
-      const arriving = Option.getOrThrow(Arr.findFirst(partWay, (m) => m.name === "N"))
-      expect(arriving.radius).toBeCloseTo(radius * 0.1, 10)
-      expect(arriving.reach).toBeCloseTo(touchReach(radius) * 0.1, 10)
+      const arriving = Option.getOrThrow(Arr.findFirst(partWay, (m) => Equal.equals(m.name, "N")))
+      expect(arriving.radius).toBeCloseTo(Num.multiply(radius, 0.1), 10)
+      expect(arriving.reach).toBeCloseTo(Num.multiply(touchReach(radius), 0.1), 10)
 
-      const second = [marker("A", 32), marker("N", 79)]
+      const second = Arr.make(marker("A", 32), marker("N", 79))
       const retargeted = between(partWay, second, 1e-6)
       Arr.forEach(partWay, (was) => {
-        const now = Option.getOrThrow(Arr.findFirst(retargeted, (m) => m.name === was.name))
+        const now = Option.getOrThrow(Arr.findFirst(retargeted, (m) => Equal.equals(m.name, was.name)))
         expect(now.y, was.name).toBeCloseTo(was.y, 3)
         expect(now.radius, was.name).toBeCloseTo(was.radius, 3)
         expect(now.reach, was.name).toBeCloseTo(was.reach, 3)
@@ -242,7 +275,7 @@ describe("Imagined place geometry contract", () => {
 
   it.effect("every marker leaves the least line beside it, so no line is ever set under a disc, at the narrowest stage and on the way", () =>
     Effect.sync(() => {
-      Arr.forEach([240, 320, 704], (width) => {
+      Arr.forEach(Arr.make(240, 320, 704), (width) => {
         const stage = stageFor(width)
         const landed = placeMarkers(features, noContributors, stage, leftmost)
         expectWellPlaced(stage, landed)
@@ -250,7 +283,9 @@ describe("Imagined place geometry contract", () => {
         Arr.forEach(Arr.range(0, 40), (line) => {
           expect(widthFor(line)).toBeGreaterThanOrEqual(minimumLineWidth)
           Arr.forEach(markersBeside(stage, landed, line), (marker) => {
-            expect(stage.padding + widthFor(line) + markerGap).toBeLessThanOrEqual(marker.x - marker.radius + 1e-9)
+            expect(Num.sumAll(Arr.make(stage.padding, widthFor(line), markerGap))).toBeLessThanOrEqual(
+              Num.sum(Num.subtract(marker.x, marker.radius), 1e-9)
+            )
           })
         })
         const from = placeMarkers(features, noContributors, stageFor(900), leftmost)
@@ -263,18 +298,22 @@ describe("Imagined place geometry contract", () => {
   it.effect("a line keeps the gap from a disc above or below it as it does from one beside it", () =>
     Effect.sync(() => {
       const stage = stageFor(640)
-      const boundary = stage.padding + 2 * stage.lineHeight
+      const boundary = Num.sum(stage.padding, Num.multiply(2, stage.lineHeight))
       const radius = markerRadius(stage, 1)
       const disc = (y: number): PlaceMarker => ({ name: "Disc", description: "", x: 400, y, radius, reach: 0 })
-      const touching = disc(boundary - radius)
-      const clear = disc(boundary - radius - markerGap)
-      const nearlyClear = disc(boundary - radius - markerGap + 0.5)
-      expect(markersBeside(stage, [touching], 2)).toHaveLength(1)
-      expect(markersBeside(stage, [nearlyClear], 2)).toHaveLength(1)
-      expect(markersBeside(stage, [clear], 2)).toHaveLength(0)
-      expect(markersBeside(stage, [clear], 1)).toHaveLength(1)
-      expect(lineWidthFor(stage, [touching])(2)).toBe(touching.x - radius - markerGap - stage.padding)
-      expect(lineWidthFor(stage, [clear])(2)).toBe(stage.stageWidth - 2 * stage.padding)
+      const touching = disc(Num.subtract(boundary, radius))
+      const clear = disc(Num.subtract(Num.subtract(boundary, radius), markerGap))
+      const nearlyClear = disc(Num.sum(Num.subtract(Num.subtract(boundary, radius), markerGap), 0.5))
+      expect(markersBeside(stage, Arr.make(touching), 2)).toHaveLength(1)
+      expect(markersBeside(stage, Arr.make(nearlyClear), 2)).toHaveLength(1)
+      expect(markersBeside(stage, Arr.make(clear), 2)).toHaveLength(0)
+      expect(markersBeside(stage, Arr.make(clear), 1)).toHaveLength(1)
+      expect(lineWidthFor(stage, Arr.make(touching))(2)).toBe(
+        Num.subtract(Num.subtract(Num.subtract(touching.x, radius), markerGap), stage.padding)
+      )
+      expect(lineWidthFor(stage, Arr.make(clear))(2)).toBe(
+        Num.subtract(stage.stageWidth, Num.multiply(2, stage.padding))
+      )
     }))
 
   it.effect("a drawing scaled down to a narrower stage is set back on that stage's rules before it is drawn there", () =>
@@ -285,12 +324,18 @@ describe("Imagined place geometry contract", () => {
       // where a travelling disc would be clamped, and the paper is at least what the discs stand on.
       const wide = stageFor(900)
       const narrow = stageFor(254)
-      const scale = narrow.stageWidth / wide.stageWidth
+      const scale = Num.unsafeDivide(narrow.stageWidth, wide.stageWidth)
       const scaled = drawingScaled(
         new PlaceDrawing({ markers: placeMarkers(features, noContributors, wide, leftmost), paper: wide.stageHeight }),
         scale
       )
-      expect(Arr.some(scaled.markers, (m) => m.x - m.radius < narrow.padding + minimumLineWidth + markerGap)).toBe(true)
+      expect(
+        Arr.some(scaled.markers, (m) =>
+          Num.lessThan(
+            Num.subtract(m.x, m.radius),
+            Num.sumAll(Arr.make(narrow.padding, minimumLineWidth, markerGap))
+          ))
+      ).toBe(true)
 
       const onStage = drawingOnStage(narrow, scaled)
       expectWellPlaced(narrow, onStage.markers)
@@ -310,15 +355,19 @@ describe("Imagined place geometry contract", () => {
       const narrow = stageFor(254)
       const scaled = drawingScaled(
         new PlaceDrawing({ markers: placeMarkers(features, noContributors, wide, leftmost), paper: wide.stageHeight }),
-        narrow.stageWidth / wide.stageWidth
+        Num.unsafeDivide(narrow.stageWidth, wide.stageWidth)
       )
       // A line's ink runs from the padding for its width; a disc beside that line whose left edge is short
       // of the ink's end, less the gap, has the prose through it.
-      const inkThrough = (markers: ReadonlyArray<PlaceMarker>) =>
+      const inkThrough = (markers: PlaceMarkers) =>
         Arr.some(flowLines(prepared, narrow, markers), (line, index) =>
           Arr.some(
             markersBeside(narrow, markers, index),
-            (marker) => marker.x - marker.radius - markerGap < narrow.padding + line.width - 1e-9
+            (marker) =>
+              Num.lessThan(
+                Num.subtract(Num.subtract(marker.x, marker.radius), markerGap),
+                Num.subtract(Num.sum(narrow.padding, line.width), 1e-9)
+              )
           ))
       expect(inkThrough(scaled.markers)).toBe(true)
       expect(inkThrough(drawingOnStage(narrow, scaled).markers)).toBe(false)
@@ -328,7 +377,10 @@ describe("Imagined place geometry contract", () => {
     Effect.sync(() => {
       const stage = stageFor(640)
       const markers = placeMarkers(features, noContributors, stage, leftmost)
-      const drawing = new PlaceDrawing({ markers, paper: paperUnder(stage, markers) + 3 * stage.lineHeight })
+      const drawing = new PlaceDrawing({
+        markers,
+        paper: Num.sum(paperUnder(stage, markers), Num.multiply(3, stage.lineHeight))
+      })
       expect(drawingOnStage(stage, drawing)).toEqual(drawing)
     }))
 
@@ -336,10 +388,14 @@ describe("Imagined place geometry contract", () => {
     Effect.sync(() => {
       const contributors = Arr.map(
         features,
-        (_, index) => (index === 5 ? Option.some<ParticipantRole>("neighbor") : Option.none())
+        (_, index) =>
+          Bool.match(Equal.equals(index, 5), {
+            onTrue: () => Option.some<ParticipantRole>("neighbor"),
+            onFalse: () => Option.none()
+          })
       )
       const markers = placeMarkers(features, contributors, stageFor(640), corner(0))
-      expect(Arr.filter(markers, (m) => m.contributedBy === "neighbor").length).toBe(1)
+      expect(Arr.length(Arr.filter(markers, (m) => Equal.equals(m.contributedBy, "neighbor")))).toBe(1)
     }))
 
   it.effect("the expected paper is whole lines: the prose alone with no features, more for every feature", () =>
@@ -349,13 +405,16 @@ describe("Imagined place geometry contract", () => {
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
       }).pipe(Effect.provide(fixedWidthText))
-      Arr.forEach([240, 640, 900], (width) => {
+      Arr.forEach(Arr.make(240, 640, 900), (width) => {
         const stage = stageFor(width)
-        const proseAlone = flowLines(prepared, stage, []).length * stage.lineHeight + 2 * stage.padding
-        expect(paperExpected(stage, prepared, [])).toBe(proseAlone)
+        const proseAlone = Num.sum(
+          Num.multiply(Arr.length(flowLines(prepared, stage, Arr.empty<PlaceMarker>())), stage.lineHeight),
+          Num.multiply(2, stage.padding)
+        )
+        expect(paperExpected(stage, prepared, Arr.empty<PlaceFeature>())).toBe(proseAlone)
         const withFeatures = paperExpected(stage, prepared, features)
         expect(withFeatures).toBeGreaterThan(proseAlone)
-        expect((withFeatures - 2 * stage.padding) % stage.lineHeight).toBe(0)
+        expect(Num.remainder(Num.subtract(withFeatures, Num.multiply(2, stage.padding)), stage.lineHeight)).toBe(0)
         expect(paperExpected(stage, prepared, Arr.take(features, 2))).toBeLessThanOrEqual(withFeatures)
       })
     }))

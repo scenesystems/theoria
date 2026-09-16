@@ -85,7 +85,7 @@ export const sealSite = site("seal", "propose", "seal(\"xchacha20-poly1305\"", "
 export const originDigestSite = site("origin-digest", "record", "digestSchemaValue(PlaceArtifact, origin,", "digest")
 export const mergedDigestSite = site("merged-digest", "record", "digestSchemaValue(PlaceArtifact, merged,", "digest")
 export const versionSignatureSite = site("version-signature", "record", "ed25519Sign(author.secretKey", "sign")
-export const layoutSite = site("layout", "arrange", "Text.layoutLinesWith(", "effect-text")
+export const layoutSite = site("layout", "arrange", "Text.linesWith(", "effect-text")
 export const separationSite = site("separation", "arrange", "Statistics.minimum(", "effect-math")
 export const searchSite = site("search", "arrange", "Study.tell(", "effect-search")
 

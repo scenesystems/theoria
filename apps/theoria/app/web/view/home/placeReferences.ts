@@ -47,7 +47,7 @@ const recordReferences: ReadonlyArray<PlaceReference> = [
 
 const arrangeReferences: ReadonlyArray<PlaceReference> = [
   ref("effect-text", "Text", "Text.prepareWithSegments", "prepareWithSegments"),
-  ref("effect-text", "Text", "Text.layoutLinesWith", "layoutLinesWith"),
+  ref("effect-text", "Text", "Text.linesWith", "linesWith"),
   ref("effect-search", "SearchSpace", "SearchSpace.make", "make"),
   ref("effect-search", "SearchSpace", "SearchSpace.float", "float"),
   ref("effect-math", "Statistics", "Statistics.minimum", "minimum"),

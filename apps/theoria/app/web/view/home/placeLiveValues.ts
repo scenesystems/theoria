@@ -81,7 +81,7 @@ const arrangeValues = (search: PlaceSearch, shown: ShownGeometry): ReadonlyArray
   const { evidence } = search.best
   return [
     {
-      match: "Text.layoutLinesWith(",
+      match: "Text.linesWith(",
       text: `${String(shown.lineCount)} lines at ${String(shown.stageWidth)} px`
     },
     {

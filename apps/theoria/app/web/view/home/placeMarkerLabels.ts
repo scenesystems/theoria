@@ -1,7 +1,11 @@
-import { type Errors, Text } from "@scenesystems/effect-text"
+import { Text, type TextMeasurer } from "@scenesystems/effect-text"
 import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Bool from "effect/Boolean"
+import * as Num from "effect/Number"
 import * as Record from "effect/Record"
+import * as Str from "effect/String"
+import * as Tuple from "effect/Tuple"
 
 import { markerRadius, type Stage } from "../../../contracts/demo/imagined-place-flow.js"
 import { placeFeatures, type PlaceOutline } from "../../../contracts/imagined-place.js"
@@ -39,35 +43,47 @@ const labelInset = 6
  * turns one long line into a taller, thinner block that can sit inside the
  * circle where the wide one could not.
  */
-const wrapFractions: ReadonlyArray<number> = [1, 0.8, 0.65]
+const wrapFractions = Arr.make(1, 0.8, 0.65)
 
 /**
  * The engine breaks inside a word when nothing else fits; the browser would
  * overflow instead. A layout only counts when its lines rejoin to the name at
  * word boundaries.
  */
-const breaksAtWords = (lines: ReadonlyArray<Text.LayoutLineType>, name: string): boolean =>
-  Arr.join(Arr.map(lines, (line) => line.text), " ") === name
+const breaksAtWords = (lines: Text.Lines, name: string): boolean =>
+  Str.Equivalence(Arr.join(Arr.map(lines, (line) => line.text), " "), name)
 
 /** A block of text sits inside a circle when its diagonal is no longer than the diameter. */
-const fitsCircle = (lines: ReadonlyArray<Text.LayoutLineType>, lineHeight: number, maxWidth: number, inner: number) => {
-  const widest = Arr.reduce(lines, 0, (acc, line) => Math.max(acc, line.width))
-  return widest <= maxWidth && Math.hypot(widest, lines.length * lineHeight) <= inner
+const fitsCircle = (lines: Text.Lines, lineHeight: number, maxWidth: number, inner: number) => {
+  const widest = Arr.reduce(lines, 0, (acc, line) => Num.max(acc, line.width))
+  const height = Num.multiply(Arr.length(lines), lineHeight)
+  return Bool.and(
+    Num.lessThanOrEqualTo(widest, maxWidth),
+    Num.lessThanOrEqualTo(
+      Num.sum(Num.multiply(widest, widest), Num.multiply(height, height)),
+      Num.multiply(inner, inner)
+    )
+  )
 }
 
 export const labelWidthFor = (
-  prepared: Text.PreparedTextWithSegments,
+  prepared: Text.WithSegments,
   name: string,
   diameter: number
 ): Option.Option<number> => {
-  const inner = diameter - 2 * labelInset
+  const inner = Num.subtract(diameter, Num.multiply(2, labelInset))
   const lineHeight = semanticsFor(labelRole).lineHeight
-  return inner <= 0 ? Option.none() : Arr.findFirst(wrapFractions, (fraction) => {
-    const maxWidth = inner * fraction
-    const lines = Text.layoutLines(prepared, { maxWidth, lineHeight })
-    return breaksAtWords(lines, name) && fitsCircle(lines, lineHeight, maxWidth, inner)
-      ? Option.some(maxWidth)
-      : Option.none()
+  return Bool.match(Num.lessThanOrEqualTo(inner, 0), {
+    onFalse: () =>
+      Arr.findFirst(wrapFractions, (fraction) => {
+        const maxWidth = Num.multiply(inner, fraction)
+        const lines = Text.lines(prepared, { maxWidth, lineHeight })
+        return Bool.match(Bool.and(breaksAtWords(lines, name), fitsCircle(lines, lineHeight, maxWidth, inner)), {
+          onFalse: Option.none,
+          onTrue: () => Option.some(maxWidth)
+        })
+      }),
+    onTrue: Option.none
   })
 }
 
@@ -80,15 +96,15 @@ export const labelWidthFor = (
 export const markerLabelWidths = (
   place: PlaceOutline,
   stage: Stage
-): Effect.Effect<MarkerLabelWidths, Errors.MeasurementFailed, BrowserTextLayout> =>
+): Effect.Effect<MarkerLabelWidths, TextMeasurer.Failed, BrowserTextLayout> =>
   Effect.map(
     Effect.forEach(placeFeatures(place), (feature) =>
       Effect.map(
         prepareBrowserText(prepareInputFor(labelRole, feature.name)),
         (prepared) =>
           Option.map(
-            labelWidthFor(prepared, feature.name, markerRadius(stage, feature.weight) * 2),
-            (width): readonly [string, number] => [feature.name, width]
+            labelWidthFor(prepared, feature.name, Num.multiply(markerRadius(stage, feature.weight), 2)),
+            (width) => Tuple.make(feature.name, width)
           )
       )),
     (entries) => Option.getOrElse(Option.map(Option.all(entries), Record.fromEntries), Record.empty)

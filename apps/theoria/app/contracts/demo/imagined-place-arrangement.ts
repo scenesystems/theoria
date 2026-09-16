@@ -42,8 +42,7 @@ export const description = (place: PlaceOutline): string =>
  * flow before that build arrives — the same words, from the recording the
  * server replays — so the stage can be cut to the paper they will want.
  */
-export const descriptionInput = (place: PlaceOutline): Text.PrepareInputType =>
-  prepareInputFor(placeTextRole, description(place))
+export const descriptionInput = (place: PlaceOutline): Text.Input => prepareInputFor(placeTextRole, description(place))
 
 /** Who added each feature, aligned with `placeFeatures(place)`; the composition's own have no contributor but the author. */
 export const contributorsOf = (place: PlaceOutline): ReadonlyArray<Option.Option<ParticipantRole>> =>
@@ -67,7 +66,7 @@ export type Arrangement = typeof Arrangement.Type
  * @since 0.3.0
  */
 export const arrangedAround = (
-  prepared: Text.PreparedTextWithSegments,
+  prepared: Text.WithSegments,
   stage: Stage
 ) =>
 (markers: ReadonlyArray<PlaceMarker>): Arrangement => {
@@ -83,7 +82,7 @@ export const arrangedAround = (
  */
 export const arrange = (
   artifact: PlaceArtifact,
-  prepared: Text.PreparedTextWithSegments,
+  prepared: Text.WithSegments,
   stage: Stage
 ) => {
   const around = arrangedAround(prepared, stage)

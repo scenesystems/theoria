@@ -1,19 +1,23 @@
-import { type Errors, Text } from "@scenesystems/effect-text"
-import { type FontReadinessRevisionType, initialFontReadinessRevision } from "@scenesystems/effect-text/browser"
-import * as TextReact from "@scenesystems/effect-text/react"
-import { Effect } from "effect"
+import { PreparationKey, Text, type TextMeasurer } from "@scenesystems/effect-text"
+import { Data, Effect, Number } from "effect"
 
-import { layoutRequestFor, maxWidthFor, prepareInputFor, TextProjectionRequest } from "../../../contracts/text.js"
+import {
+  layoutRequestFor,
+  maxWidthFor,
+  prepareInputFor,
+  TextProjection,
+  TextProjectionRequest
+} from "../../../contracts/text.js"
 import { browserEngineProfile, browserSupportProfileId, type BrowserTextLayout } from "../../text/browserTextLayout.js"
 
 const TextPrepareRequest = TextProjectionRequest.pick("role", "text")
 type TextPrepareRequest = typeof TextPrepareRequest.Type
 
 /** The contract's layout for the role and variant, narrowed to the measure the surface can actually offer. */
-const layoutRequestWithWidth = (request: TextProjectionRequest, maxWidth: number): Text.LayoutRequestType => {
+const layoutRequestWithWidth = (request: TextProjectionRequest, maxWidth: number): Text.Request => {
   const contractLayout = layoutRequestFor(request.role, request.variant)
 
-  return { ...contractLayout, maxWidth: Math.min(contractLayout.maxWidth, maxWidth) }
+  return { ...contractLayout, maxWidth: Number.min(contractLayout.maxWidth, maxWidth) }
 }
 
 /**
@@ -24,9 +28,9 @@ const layoutRequestWithWidth = (request: TextProjectionRequest, maxWidth: number
  */
 export const prepareIdentityForTextProjection = (
   { role, text }: TextPrepareRequest,
-  fontReadinessRevision: FontReadinessRevisionType
-): TextReact.PrepareIdentity =>
-  TextReact.prepareIdentityFor({
+  fontReadinessRevision: PreparationKey.Revision
+): PreparationKey.PreparationKey =>
+  new PreparationKey.PreparationKey({
     prepare: prepareInputFor(role, text),
     engineProfile: browserEngineProfile,
     supportProfileId: browserSupportProfileId,
@@ -34,36 +38,37 @@ export const prepareIdentityForTextProjection = (
   })
 
 export const prepareTextProjection = (
-  identity: TextReact.PrepareIdentity
-): Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout> =>
-  prepareBrowserText(TextReact.prepareInputFromIdentity(identity))
+  identity: PreparationKey.PreparationKey
+): Effect.Effect<Text.WithSegments, TextMeasurer.Failed, BrowserTextLayout> =>
+  prepareBrowserText(PreparationKey.toInput(identity))
 
 /** Prepares text against the runtime's layout services; `browserTextLayoutLayer` provides them. */
 export const prepareBrowserText = (
-  prepare: Text.PrepareInputType
-): Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout> =>
-  Text.prepareWithSegments(prepare)
+  prepare: Text.Input
+): Effect.Effect<Text.WithSegments, TextMeasurer.Failed, BrowserTextLayout> => Text.prepareWithSegments(prepare)
+
+export class ProjectPreparedTextOptions extends Data.Class<{
+  readonly prepared: Text.WithSegments
+  readonly request: TextProjectionRequest
+  readonly maxWidth: number
+}> {}
 
 export const projectPreparedText = ({
   maxWidth,
   prepared,
   request
-}: {
-  readonly prepared: Text.PreparedTextWithSegments
-  readonly request: TextProjectionRequest
-  readonly maxWidth: number
-}) => {
+}: ProjectPreparedTextOptions): TextProjection => {
   const layout = layoutRequestWithWidth(request, maxWidth)
-  const projection = TextReact.projectPreparedLayout(prepared, layout)
+  const projection = Text.layout(prepared, layout)
 
-  return {
+  return TextProjection.make({
     role: request.role,
     variant: request.variant,
     text: request.text,
     layout,
     summary: projection.summary,
     lines: projection.lines
-  }
+  })
 }
 
 /**
@@ -75,6 +80,6 @@ export const projectText = (
   request: TextProjectionRequest,
   maxWidth: number = maxWidthFor(request.role, request.variant)
 ) =>
-  prepareTextProjection(prepareIdentityForTextProjection(request, initialFontReadinessRevision())).pipe(
+  prepareTextProjection(prepareIdentityForTextProjection(request, PreparationKey.initialRevision)).pipe(
     Effect.map((prepared) => projectPreparedText({ prepared, request, maxWidth }))
   )

@@ -4,18 +4,31 @@
  * @since 0.1.0
  */
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Chunk, Data, Effect, Layer, Number as Num, Option, Stream } from "effect"
+import {
+  Array as Arr,
+  Chunk,
+  Data,
+  Effect,
+  Layer,
+  Number as Num,
+  Option,
+  Predicate,
+  Schema,
+  Stream,
+  Tuple
+} from "effect"
 import type * as Context from "effect/Context"
 
 import { ArtifactSink } from "../contracts/ArtifactSink.js"
 import { EnvelopeContext } from "../contracts/EnvelopeContext.js"
 import { readEnvelopeLog } from "../contracts/sinks/reader.js"
 import { ArtifactStorageError } from "../Errors/Artifact.js"
-import type { SnapshotTrial } from "./snapshot/stateCodec.js"
+import { type SnapshotTrial, SnapshotTrialSchema } from "./snapshot/stateCodec.js"
 import type { StudySnapshot } from "./snapshot/versioning.js"
 import { makeSnapshotEnvelopeFrom, makeTrialLogEnvelopeFrom } from "./storageEnvelopes.js"
 
-const DEFAULT_ENVELOPE_FILE_NAME = "envelopes.jsonl"
+const TrialLog = Schema.mutable(Schema.Array(SnapshotTrialSchema))
+type TrialLog = typeof TrialLog.Type
 
 /**
  * Selects the JSON-lines artifact log read by a study-storage service.
@@ -34,19 +47,14 @@ export class StudyStorageOptions extends Data.Class<{
   readonly envelopeFileName: string
 }> {}
 
-const defaultStudyStorageOptions = (directory: string): StudyStorageOptions =>
-  new StudyStorageOptions({
-    directory,
-    envelopeFileName: DEFAULT_ENVELOPE_FILE_NAME
-  })
-
 /**
  * Reads study data from `envelopes.jsonl` in the supplied directory.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const studyStorageOptions = (directory: string): StudyStorageOptions => defaultStudyStorageOptions(directory)
+export const studyStorageOptions = (directory: string): StudyStorageOptions =>
+  new StudyStorageOptions({ directory, envelopeFileName: "envelopes.jsonl" })
 
 /**
  * Emits study records as artifact envelopes and reads them from a JSON-lines log.
@@ -71,9 +79,9 @@ export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")
     /** Reads the last snapshot envelope, or `None` when the log holds none. */
     readonly loadSnapshot: () => Effect.Effect<Option.Option<StudySnapshot>, ArtifactStorageError>
     /** Reads every trial-log envelope in file order. */
-    readonly loadTrialLog: () => Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError>
+    readonly loadTrialLog: () => Effect.Effect<TrialLog, ArtifactStorageError>
     /** Reads trial-log entries whose number is at least the last snapshot's next trial number. */
-    readonly replayTrialLog: () => Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError>
+    readonly replayTrialLog: () => Effect.Effect<TrialLog, ArtifactStorageError>
   }
 >() {}
 
@@ -143,21 +151,24 @@ export const makeStudyStorage = (
     const loadSnapshot = (): Effect.Effect<Option.Option<StudySnapshot>, ArtifactStorageError> =>
       loadEnvelopes().pipe(
         Effect.map((envelopes) =>
-          Arr.findLast(envelopes, (e) => e._tag === "StudySnapshot").pipe(
-            Option.flatMap((e) => (e._tag === "StudySnapshot" ? Option.some(e.snapshot) : Option.none()))
+          Arr.findLast(envelopes, (envelope) => Predicate.isTagged(envelope, "StudySnapshot")).pipe(
+            Option.map((envelope) => envelope.snapshot)
           )
         )
       )
 
-    const loadTrialLog = (): Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError> =>
+    const loadTrialLog = (): Effect.Effect<TrialLog, ArtifactStorageError> =>
       loadEnvelopes().pipe(
         Effect.map((envelopes) =>
-          Arr.filterMap(envelopes, (e) => e._tag === "TrialLog" ? Option.some(e.trial) : Option.none())
+          Arr.filterMap(envelopes, (envelope) =>
+            Option.liftPredicate(envelope, (entry) => Predicate.isTagged(entry, "TrialLog")).pipe(
+              Option.map((entry) => entry.trial)
+            ))
         )
       )
 
-    const replayTrialLog = (): Effect.Effect<Array<SnapshotTrial>, ArtifactStorageError> =>
-      Effect.all([loadSnapshot(), loadTrialLog()]).pipe(
+    const replayTrialLog = (): Effect.Effect<TrialLog, ArtifactStorageError> =>
+      Effect.all(Tuple.make(loadSnapshot(), loadTrialLog())).pipe(
         Effect.map(([snapshotOption, trials]) =>
           Option.match(snapshotOption, {
             onNone: () => trials,
@@ -167,13 +178,13 @@ export const makeStudyStorage = (
         )
       )
 
-    return {
+    return StudyStorage.of({
       appendTrial,
       writeSnapshot,
       loadSnapshot,
       loadTrialLog,
       replayTrialLog
-    }
+    })
   })
 
 /**

@@ -639,7 +639,7 @@ import.meta.url), { type: "module" })`, which every bundler resolves
       `[data-provenance]` in the demonstration, hover shows an overlay naming
       a package; each annotation's answer names its own title and package
       (`Statistics.minimum(` → effect-math, `Study.tell(` → effect-search,
-      `Text.layoutLinesWith(` → effect-text); a code line lights its discs;
+      `Text.linesWith(` → effect-text); a code line lights its discs;
       the lines answer from the keyboard. _The acts answer on the
       stage_: scrolling to Propose changes `data-place-stage-act` and shows a
       ghost. _Choosing another story changes the drawing and nothing of the
