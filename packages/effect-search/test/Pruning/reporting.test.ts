@@ -1,33 +1,34 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Option, Ref, Schedule, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Option, Ref, Schedule, Stream } from "effect"
 
-import { decodeSlotConfig } from "../../../src/experimental/scenarios/slot.js"
-import * as Study from "../../../src/Study/index.js"
-import * as Trial from "../../../src/Trial/index.js"
+import * as Pruning from "../../src/Pruning.js"
+import * as Study from "../../src/Study.js"
+import * as Trial from "../../src/Trial.js"
+import { decodeSlotConfig } from "../fixtures/scenarios/slot.js"
 import {
-  asSingleObjective,
-  deterministicSampler,
-  makeSpace,
-  objectiveWithInvalidReports,
-  objectiveWithReports,
-  objectiveWithStopProbe,
-  pruneLowSlotPolicy,
-  reportFailureReasons
-} from "./helpers.js"
+  invalidReportObjective,
+  invalidReportReasons,
+  pruneSlotsBelowTwo,
+  pruningSingleObjectiveResult,
+  pruningSlotSpace,
+  reportedSlotObjective,
+  sequentialSlotSampler,
+  stoppingSlotObjective
+} from "../helpers/pruningScenarios.js"
 
 describe("Study pruning and early stop contracts", () => {
   it.effect("marks pruned trials with typed metadata and excludes them from best selection", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: yield* makeSpace,
-        sampler: deterministicSampler,
+        space: yield* pruningSlotSpace,
+        sampler: sequentialSlotSampler,
         direction: "minimize",
         trials: 4,
-        pruningPolicy: pruneLowSlotPolicy,
-        objective: objectiveWithReports
+        pruningPolicy: pruneSlotsBelowTwo,
+        objective: reportedSlotObjective
       })
 
-      const resultOption = asSingleObjective(optimized)
+      const resultOption = pruningSingleObjectiveResult(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
 
       if (Option.isNone(resultOption)) {
@@ -35,13 +36,14 @@ describe("Study pruning and early stop contracts", () => {
       }
 
       const result = resultOption.value
-      const trialTags = result.trials.map((trial) => trial.state._tag)
+      const trials = Arr.fromIterable(result.trials)
+      const trialTags = Arr.map(trials, (trial) => trial.state._tag)
 
       expect(trialTags).toEqual(["Pruned", "Pruned", "Completed", "Completed"])
       expect(result.bestTrial.trialNumber).toBe(2)
       expect(result.bestTrial.state.value).toBe(2)
 
-      const firstPruned = result.trials[0]
+      const firstPruned = Arr.get(trials, 0).pipe(Option.getOrThrow)
       if (firstPruned && Trial.isState("Pruned")(firstPruned.state)) {
         expect(firstPruned.state.step).toBe(0)
         expect(firstPruned.state.reason).toBe("slot-below-two")
@@ -52,15 +54,15 @@ describe("Study pruning and early stop contracts", () => {
   it.effect("surfaces invalid report semantics through typed InvalidObjectiveReport failures", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: yield* makeSpace,
-        sampler: deterministicSampler,
+        space: yield* pruningSlotSpace,
+        sampler: sequentialSlotSampler,
         direction: "minimize",
         trials: 4,
         retrySchedule: Schedule.recurs(0),
-        objective: objectiveWithInvalidReports
+        objective: invalidReportObjective
       })
 
-      const resultOption = asSingleObjective(optimized)
+      const resultOption = pruningSingleObjectiveResult(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
 
       if (Option.isNone(resultOption)) {
@@ -68,7 +70,7 @@ describe("Study pruning and early stop contracts", () => {
       }
 
       const result = resultOption.value
-      const reasons = reportFailureReasons(result.trials)
+      const reasons = invalidReportReasons(result.trials)
 
       expect(reasons).toHaveLength(3)
       expect(reasons).toContain("duplicate-step")
@@ -79,28 +81,28 @@ describe("Study pruning and early stop contracts", () => {
 
   it.effect("honors Drain and Interrupt stop modes with deterministic heartbeat semantics", () =>
     Effect.gen(function*() {
-      const drainHeartbeatRef = yield* Ref.make<ReadonlyArray<string>>([])
-      const interruptHeartbeatRef = yield* Ref.make<ReadonlyArray<string>>([])
+      const drainHeartbeatRef = yield* Ref.make<Array<string>>([])
+      const interruptHeartbeatRef = yield* Ref.make<Array<string>>([])
 
       const drainResult = yield* Study.optimize({
-        space: yield* makeSpace,
-        sampler: deterministicSampler,
+        space: yield* pruningSlotSpace,
+        sampler: sequentialSlotSampler,
         direction: "minimize",
         trials: 3,
         stopMode: "Drain",
-        objective: objectiveWithStopProbe(drainHeartbeatRef, "drain-stop")
+        objective: stoppingSlotObjective(drainHeartbeatRef, "drain-stop")
       })
       const interruptResult = yield* Study.optimize({
-        space: yield* makeSpace,
-        sampler: deterministicSampler,
+        space: yield* pruningSlotSpace,
+        sampler: sequentialSlotSampler,
         direction: "minimize",
         trials: 3,
         stopMode: "Interrupt",
-        objective: objectiveWithStopProbe(interruptHeartbeatRef, "interrupt-stop")
+        objective: stoppingSlotObjective(interruptHeartbeatRef, "interrupt-stop")
       })
 
-      const drainOption = asSingleObjective(drainResult)
-      const interruptOption = asSingleObjective(interruptResult)
+      const drainOption = pruningSingleObjectiveResult(drainResult)
+      const interruptOption = pruningSingleObjectiveResult(interruptResult)
       expect(Option.isSome(drainOption)).toBe(true)
       expect(Option.isSome(interruptOption)).toBe(true)
 
@@ -121,15 +123,15 @@ describe("Study pruning and early stop contracts", () => {
     Effect.gen(function*() {
       const events = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: yield* makeSpace,
-          sampler: deterministicSampler,
+          space: yield* pruningSlotSpace,
+          sampler: sequentialSlotSampler,
           direction: "minimize",
           trials: 3,
           stopMode: "Drain",
           pruningPolicy: {
             name: "always-prune",
             decide: ({ latestReport }) =>
-              Study.PruneTrialDecision({
+              Pruning.prune({
                 step: latestReport.step,
                 reason: "always",
                 policy: "always-prune"
@@ -149,7 +151,7 @@ describe("Study pruning and early stop contracts", () => {
 
       expect(tags).toContain("TrialReported")
       expect(tags).toContain("TrialPruned")
-      expect(tags).toContain("StudyStopRequested")
-      expect(tags[tags.length - 1]).toBe("StudyCompleted")
+      expect(tags).toContain("StopRequested")
+      expect(tags[tags.length - 1]).toBe("Completed")
     }))
 })

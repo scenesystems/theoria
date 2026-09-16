@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Option, Ref, Schema, Stream } from "effect"
 
-import * as Sampler from "../../../src/Sampler/index.js"
-import * as SearchSpace from "../../../src/SearchSpace/index.js"
-import * as Study from "../../../src/Study/index.js"
+import * as Progress from "../../src/Progress.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -20,7 +21,7 @@ const objectiveFromSpace = (space: SearchSpace.SearchSpace) => {
   }
 }
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective"
     ? Option.some(result)
     : Option.none()
@@ -30,7 +31,7 @@ const memorySink = Effect.gen(function*() {
   const stderr = yield* Ref.make<ReadonlyArray<string>>([])
 
   return {
-    sink: Study.makeTerminalSink({
+    sink: Progress.makeSink({
       supportsAnsi: Effect.succeed(false),
       writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
       writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))
@@ -62,14 +63,14 @@ describe("terminal reporter stream composition", () => {
           direction: "minimize",
           trials: 5,
           objective
-        }).pipe(Study.tapTerminalProgress({ sink: sinkCapture.sink }))
+        }).pipe(Progress.tap(sinkCapture.sink))
       )
 
       const baselineTags = Chunk.toReadonlyArray(baselineEvents).map((event) => event._tag)
       const instrumentedTags = Chunk.toReadonlyArray(instrumentedEvents).map((event) => event._tag)
 
       expect(instrumentedTags).toEqual(baselineTags)
-      expect(instrumentedTags[instrumentedTags.length - 1]).toBe("StudyCompleted")
+      expect(instrumentedTags[instrumentedTags.length - 1]).toBe("Completed")
 
       const stdoutLines = yield* Ref.get(sinkCapture.stdout)
       expect(stdoutLines.length).toBeGreaterThan(0)
@@ -104,12 +105,12 @@ describe("terminal reporter stream composition", () => {
           direction: "minimize",
           trials: 2,
           objective
-        }).pipe(Study.tapTerminalProgress({ sink: sinkCapture.sink }))
+        }).pipe(Progress.tap(sinkCapture.sink))
       )
 
       const tags = Chunk.toReadonlyArray(resumedEvents).map((event) => event._tag)
-      expect(tags).toContain("StudyCompleted")
-      expect(tags[tags.length - 1]).toBe("StudyCompleted")
+      expect(tags).toContain("Completed")
+      expect(tags[tags.length - 1]).toBe("Completed")
 
       const stdoutLines = yield* Ref.get(sinkCapture.stdout)
       expect(stdoutLines.some((line) => line.includes("study completed reason="))).toBe(true)

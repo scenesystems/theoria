@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Order, Schema } from "effect"
 
-import { decodeSlotConfig, makeSlotSpace, SlotConfigSchema } from "../../../src/experimental/scenarios/slot.js"
-import * as Sampler from "../../../src/Sampler/index.js"
-import * as Study from "../../../src/Study/index.js"
-import type * as Trial from "../../../src/Trial/index.js"
+import * as Pruning from "../../src/Pruning.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as Study from "../../src/Study.js"
+import type * as Trial from "../../src/Trial.js"
+import { decodeSlotConfig, makeSlotSpace, SlotConfig } from "../fixtures/scenarios/slot.js"
 
 const space = makeSlotSpace(40)
 
@@ -16,16 +17,16 @@ const runOptions = {
   concurrency: 4
 }
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
-const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(SlotConfigSchema)))
+const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(SlotConfig)))
 
 const encodeTrialConfigTrace = (
-  trials: ReadonlyArray<Trial.Trial<unknown>>
+  trials: Iterable<Trial.Trial<unknown>>
 ) => Effect.forEach(trials, (trial) => decodeSlotConfig(trial.config)).pipe(Effect.map(encodeConfigTrace))
 
-const objective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
+const objective = (raw: unknown, runtime: Pruning.Runtime) =>
   Effect.gen(function*() {
     const config = yield* decodeSlotConfig(raw)
 
@@ -34,16 +35,16 @@ const objective = (raw: unknown, runtime: Study.ObjectiveTrialRuntime) =>
     return config.slot
   })
 
-const pruningPolicy = new Study.PruningPolicy({
+const pruningPolicy = new Pruning.Policy({
   name: "upper-slot-pruner",
   decide: ({ latestReport }) =>
     latestReport.value >= 24
-      ? Study.PruneTrialDecision({
+      ? Pruning.prune({
         step: latestReport.step,
         reason: "slot-above-threshold",
         policy: "upper-slot-pruner"
       })
-      : Study.ContinuePruneDecision()
+      : Pruning.continueEvaluation()
 })
 
 const optimizeWithPruning = (trials: number) =>
@@ -64,7 +65,7 @@ const optimizeWithPruning = (trials: number) =>
   })
 
 const traceState = (result: Study.SingleObjectiveResult) =>
-  result.trials.map((trial) => ({
+  Arr.map(Arr.fromIterable(result.trials), (trial) => ({
     trialNumber: trial.trialNumber,
     state: trial.state._tag,
     ...(trial.state._tag === "Completed" ? { value: trial.state.value } : {}),
@@ -78,17 +79,20 @@ const traceState = (result: Study.SingleObjectiveResult) =>
   }))
 
 const comparableFirstLegSlice = (
-  trials: ReadonlyArray<Trial.Trial<unknown>>,
+  trials: Iterable<Trial.Trial<unknown>>,
   firstLegTrials: number
 ) =>
-  trials
-    .filter((trial) => trial.trialNumber < firstLegTrials)
-    .sort((left, right) => left.trialNumber - right.trialNumber)
-    .map((trial) => ({
+  Arr.map(
+    Arr.sort(
+      Arr.filter(Arr.fromIterable(trials), (trial) => trial.trialNumber < firstLegTrials),
+      Order.mapInput(Num.Order, (trial: Trial.Trial<unknown>) => trial.trialNumber)
+    ),
+    (trial) => ({
       trialNumber: trial.trialNumber,
       state: trial.state._tag,
       config: trial.config
-    }))
+    })
+  )
 
 describe("constant-liar + pruning determinism", () => {
   it.effect(
@@ -109,8 +113,12 @@ describe("constant-liar + pruning determinism", () => {
 
         const left = leftOption.value
         const right = rightOption.value
-        const leftPrunedCount = left.trials.filter((trial) => trial.state._tag === "Pruned").length
-        const rightPrunedCount = right.trials.filter((trial) => trial.state._tag === "Pruned").length
+        const leftPrunedCount = Arr.length(
+          Arr.filter(Arr.fromIterable(left.trials), (trial) => trial.state._tag === "Pruned")
+        )
+        const rightPrunedCount = Arr.length(
+          Arr.filter(Arr.fromIterable(right.trials), (trial) => trial.state._tag === "Pruned")
+        )
 
         expect(yield* encodeTrialConfigTrace(left.trials)).toBe(yield* encodeTrialConfigTrace(right.trials))
         expect(traceState(left)).toEqual(traceState(right))
@@ -197,9 +205,13 @@ describe("constant-liar + pruning determinism", () => {
         expect(comparableFirstLegSlice(resumedA.trials, firstLegTrials)).toEqual(firstLegComparable)
         expect(resumedA.completionReason).toBe("budgetExhausted")
         expect(baseline.completionReason).toBe("budgetExhausted")
-        expect(resumedA.trials.filter((trial) => trial.state._tag === "Pruned").length).toBeGreaterThan(0)
-        expect(baseline.trials.filter((trial) => trial.state._tag === "Pruned").length).toBeGreaterThan(0)
-        expect(resumedA.trials.every((trial) => trial.state._tag !== "Running")).toBe(true)
+        expect(
+          Arr.length(Arr.filter(Arr.fromIterable(resumedA.trials), (trial) => trial.state._tag === "Pruned"))
+        ).toBeGreaterThan(0)
+        expect(
+          Arr.length(Arr.filter(Arr.fromIterable(baseline.trials), (trial) => trial.state._tag === "Pruned"))
+        ).toBeGreaterThan(0)
+        expect(Arr.every(Arr.fromIterable(resumedA.trials), (trial) => trial.state._tag !== "Running")).toBe(true)
       }),
     20_000
   )
