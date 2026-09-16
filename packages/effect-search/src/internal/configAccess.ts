@@ -1,4 +1,5 @@
-import { Option, Schema } from "effect"
+import { Record, Schema } from "effect"
+import type { Option } from "effect"
 
 /**
  * Schema for sampler-layer configs.
@@ -25,5 +26,4 @@ export type SamplerConfig = Schema.Schema.Type<typeof SamplerConfigSchema>
  * Single-source implementation for extracting a named parameter value
  * from a trial config in the sampler/TPE layer.
  */
-export const valueFromConfig = (config: SamplerConfig, name: string): Option.Option<unknown> =>
-  Option.fromNullable(config[name])
+export const valueFromConfig = (config: SamplerConfig, name: string): Option.Option<unknown> => Record.get(config, name)

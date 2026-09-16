@@ -26,7 +26,7 @@ const splitOrder = Order.mapInput(
   (trial: CompletedTrialForSplit) =>
     Tuple.make(
       trial.value,
-      Option.fromNullable(trial.sortStep).pipe(Option.getOrElse(() => -1)),
+      Option.fromNullable(trial.sortStep).pipe(Option.getOrElse(() => Num.negate(1))),
       trial.trialNumber
     )
 )
@@ -46,7 +46,7 @@ export const splitTrials = (
   const trials = Arr.fromIterable(trialsInput)
 
   const sortedByScore = Arr.sort(trials, splitOrder)
-  const split = splitCount(sortedByScore.length, gamma)
+  const split = splitCount(Arr.length(sortedByScore), gamma)
   const below = Arr.take(sortedByScore, split)
   const above = Arr.drop(sortedByScore, split)
 

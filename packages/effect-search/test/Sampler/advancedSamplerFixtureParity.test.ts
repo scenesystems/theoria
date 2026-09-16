@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Array as Arr, Effect, Schema } from "effect"
 
 import * as Objective from "../../src/Objective.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -26,8 +26,8 @@ const makeContext = (
   context: CmaPayload["context"] | GpPayload["context"]
 ) =>
   new Sampler.Context({
-    completed: context.completed.map((entry) => Sampler.observation(entry.trialNumber, entry.config, entry.value)),
-    pending: [],
+    completed: Arr.map(context.completed, (entry) => Sampler.observation(entry.trialNumber, entry.config, entry.value)),
+    pending: Arr.empty(),
     objectiveSpec: Objective.single("minimize"),
     nextTrialNumber: context.nextTrialNumber,
     epsilon: 0

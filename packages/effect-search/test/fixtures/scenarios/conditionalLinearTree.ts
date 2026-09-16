@@ -13,7 +13,7 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
  * @since 0.1.0
  * @category models
  */
-export const LinearTreeModelChoices: ["linear", "tree"] = ["linear", "tree"]
+export const LinearTreeModelChoices = Schema.Literal("linear", "tree").literals
 
 /**
  * Decodes the `linear` branch with numeric learning rate and regularization.

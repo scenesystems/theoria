@@ -1,68 +1,58 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Tuple } from "effect"
 
-import * as Float64 from "../../src/internal/float64.js"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import * as Direction from "../../src/Direction.js"
 import { hypervolume2d, hypervolumeContribution2d } from "../../src/Pareto.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 describe("hypervolume kernel", () => {
   it.effect("computes exact 2D hypervolume for a deterministic Pareto front", () =>
     Effect.sync(() => {
-      const points = [
-        [1, 4],
-        [2, 2],
-        [3, 1],
-        [4, 3]
-      ]
-      const reference = [4.4, 4.4]
+      const points = Arr.make(Arr.make(1, 4), Arr.make(2, 2), Arr.make(3, 1), Arr.make(4, 3))
+      const reference = Arr.make(4.4, 4.4)
 
       expectApprox(hypervolume2d(points, reference), 7.56)
     }))
 
   it.effect("computes leave-one-out contributions and zeros dominated points", () =>
     Effect.sync(() => {
-      const points = [
-        [1, 4],
-        [2, 2],
-        [3, 1],
-        [4, 3]
-      ]
-      const reference = [4.4, 4.4]
+      const points = Arr.make(Arr.make(1, 4), Arr.make(2, 2), Arr.make(3, 1), Arr.make(4, 3))
+      const reference = Arr.make(4.4, 4.4)
       const contributions = hypervolumeContribution2d(points, reference)
 
       expect(contributions).toHaveLength(4)
-      expectApprox(contributions[0] ?? 0, 0.4)
-      expectApprox(contributions[1] ?? 0, 2)
-      expectApprox(contributions[2] ?? 0, 1.4)
-      expectApprox(contributions[3] ?? 0, 0)
+      expectApprox(Arr.get(contributions, 0).pipe(Option.getOrElse(() => 0)), 0.4)
+      expectApprox(Arr.get(contributions, 1).pipe(Option.getOrElse(() => 0)), 2)
+      expectApprox(Arr.get(contributions, 2).pipe(Option.getOrElse(() => 0)), 1.4)
+      expectApprox(Arr.get(contributions, 3).pipe(Option.getOrElse(() => 0)), 0)
     }))
 
   it.effect("preserves contribution values under maximize-direction normalization", () =>
     Effect.sync(() => {
-      const minimizePoints = [
-        [1, 4],
-        [2, 2],
-        [3, 1],
-        [4, 3]
-      ]
-      const minimizeReference = [4.4, 4.4]
-      const maximizePoints = minimizePoints.map((point) => [-(point[0] ?? 0), -(point[1] ?? 0)])
-      const maximizeReference = [-4.4, -4.4]
+      const minimizePoints = Arr.make(Arr.make(1, 4), Arr.make(2, 2), Arr.make(3, 1), Arr.make(4, 3))
+      const minimizeReference = Arr.make(4.4, 4.4)
+      const maximizePoints = Arr.map(minimizePoints, (point) =>
+        Arr.make(
+          Num.negate(Arr.get(point, 0).pipe(Option.getOrElse(() => 0))),
+          Num.negate(Arr.get(point, 1).pipe(Option.getOrElse(() => 0)))
+        ))
+      const maximizeReference = Arr.make(Num.negate(4.4), Num.negate(4.4))
 
       const minimizeContrib = hypervolumeContribution2d(minimizePoints, minimizeReference)
       const maximizeContrib = hypervolumeContribution2d(
         maximizePoints,
         maximizeReference,
-        ["maximize", "maximize"]
+        Tuple.make(Direction.maximize, Direction.maximize)
       )
 
-      expect(minimizeContrib).toHaveLength(maximizeContrib.length)
+      expect(minimizeContrib).toHaveLength(Arr.length(maximizeContrib))
 
-      minimizeContrib.forEach((value, index) => {
-        expectApprox(maximizeContrib[index] ?? 0, value)
+      Arr.forEach(minimizeContrib, (value, index) => {
+        expectApprox(Arr.get(maximizeContrib, index).pipe(Option.getOrElse(() => 0)), value)
       })
     }))
 })

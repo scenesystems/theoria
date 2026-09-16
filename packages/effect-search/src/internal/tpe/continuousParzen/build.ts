@@ -18,7 +18,7 @@ export const buildContinuousParzen = (
 ): ContinuousParzen => {
   const observations = Arr.fromIterable(observationsInput)
 
-  const nKernels = Num.increment(observations.length)
+  const nKernels = Num.increment(Arr.length(observations))
   const priorMean = Num.unsafeDivide(Num.sum(low, high), 2)
   const noiseEstimate = estimateNoise(observations, low, high, empiricalObservationVariance)
   const baselineObservationSigmas = Arr.map(
@@ -45,7 +45,7 @@ export const buildContinuousParzen = (
       nKernels
     )
   )
-  const weights = normalizedKernelWeights(observations.length)
+  const weights = normalizedKernelWeights(Arr.length(observations))
   const kernels = Arr.map(means, (mean, index) =>
     new ContinuousKernel({
       mean,

@@ -30,7 +30,7 @@ const toParameterMetadata = (
   return new Parameter({
     name,
     distribution,
-    activeWhen: [...activeWhen]
+    activeWhen
   })
 }
 

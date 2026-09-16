@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Schema } from "effect"
+import { Array as Arr, Effect, Schema } from "effect"
 
 import { Parameter, SearchSpace } from "../../SearchSpace.js"
 import type { Switch } from "../../SearchSpace.js"
@@ -69,7 +69,7 @@ export const make = <
   dimensions: Dimensions
 ) =>
   Effect.gen(function*() {
-    const compiled = yield* compileBase(dimensions, [])
+    const compiled = yield* compileBase(dimensions, Arr.empty())
     const params = yield* ensureUniqueParameterNames(compiled.params)
     const schema = Schema.make<
       Schema.Schema.Type<typeof compiled.schema>,
@@ -115,7 +115,7 @@ export const makeConditional = <
   branch: Switch<BranchSchema>
 ) =>
   Effect.gen(function*() {
-    const base = yield* compileBase(dimensions, [])
+    const base = yield* compileBase(dimensions, Arr.empty())
     const compiled = yield* compileWithBranch(base, branch)
 
     const params = yield* ensureUniqueParameterNames(compiled.params)

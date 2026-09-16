@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Equal, Option, Schema } from "effect"
 
 import { fromAST } from "../../src/Distribution.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
 const distributionFor = (space: SearchSpace.SearchSpace, name: string) =>
-  Option.fromNullable(space.params.find((value) => value.name === name)).pipe(
+  Arr.findFirst(space.params, (value) => Equal.equals(value.name, name)).pipe(
     Option.map((parameter) => parameter.distribution)
   )
 
@@ -25,24 +25,24 @@ describe("SearchSpace.make", () => {
     Effect.gen(function*() {
       const space = yield* SearchSpace.make({
         lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
-        optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"]),
+        optimizer: SearchSpace.categorical(Arr.make("adam", "sgd", "adamw")),
         batchSize: SearchSpace.int(16, 128, { step: 16 }),
         useBatchNorm: SearchSpace.boolean()
       })
 
-      expect(space.params.map((parameter) => parameter.name)).toEqual([
+      expect(Arr.map(space.params, (parameter) => parameter.name)).toEqual(Arr.make(
         "lr",
         "optimizer",
         "batchSize",
         "useBatchNorm"
-      ])
+      ))
 
-      expect(space.params.map((parameter) => parameter.distribution.type)).toEqual([
+      expect(Arr.map(space.params, (parameter) => parameter.distribution.type)).toEqual(Arr.make(
         "float",
         "categorical",
         "int",
         "categorical"
-      ])
+      ))
     }))
 
   it.effect("retains per-parameter distribution metadata that can be discovered from AST annotations", () =>
@@ -50,7 +50,7 @@ describe("SearchSpace.make", () => {
       const space = yield* SearchSpace.make({
         lr: SearchSpace.float(0.01, 1, { scale: "log" }),
         batchSize: SearchSpace.int(8, 128, { step: 8 }),
-        optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"]),
+        optimizer: SearchSpace.categorical(Arr.make("adam", "sgd", "adamw")),
         useBatchNorm: SearchSpace.boolean()
       })
 
@@ -70,12 +70,12 @@ describe("SearchSpace.make", () => {
 
       expectOptionValue(distributionFor(space, "optimizer"), {
         type: "categorical",
-        choices: ["adam", "sgd", "adamw"]
+        choices: Arr.make("adam", "sgd", "adamw")
       })
 
       expectOptionValue(distributionFor(space, "useBatchNorm"), {
         type: "categorical",
-        choices: [true, false]
+        choices: Arr.make(true, false)
       })
     }))
 
@@ -83,7 +83,7 @@ describe("SearchSpace.make", () => {
     Effect.sync(() => {
       const dimensions = {
         lr: SearchSpace.float(0.01, 1, { scale: "log" }),
-        optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"]),
+        optimizer: SearchSpace.categorical(Arr.make("adam", "sgd", "adamw")),
         batchSize: SearchSpace.int(16, 64, { step: 16 }),
         useBatchNorm: SearchSpace.boolean()
       }
@@ -96,7 +96,7 @@ describe("SearchSpace.make", () => {
       })
       expectReadDistribution(dimensions.optimizer, {
         type: "categorical",
-        choices: ["adam", "sgd", "adamw"]
+        choices: Arr.make("adam", "sgd", "adamw")
       })
       expectReadDistribution(dimensions.batchSize, {
         type: "int",
@@ -106,7 +106,7 @@ describe("SearchSpace.make", () => {
       })
       expectReadDistribution(dimensions.useBatchNorm, {
         type: "categorical",
-        choices: [true, false]
+        choices: Arr.make(true, false)
       })
     }))
 
@@ -114,7 +114,7 @@ describe("SearchSpace.make", () => {
     Effect.gen(function*() {
       const space = yield* SearchSpace.make({
         lr: SearchSpace.float(0.001, 0.1),
-        optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"]),
+        optimizer: SearchSpace.categorical(Arr.make("adam", "sgd", "adamw")),
         batchSize: SearchSpace.int(16, 64, { step: 16 })
       })
 

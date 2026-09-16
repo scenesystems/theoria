@@ -13,12 +13,7 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
  * @since 0.1.0
  * @category models
  */
-export const PromptInstructionChoices: ["baseline", "rewrite", "counterexample", "socratic"] = [
-  "baseline",
-  "rewrite",
-  "counterexample",
-  "socratic"
-]
+export const PromptInstructionChoices = Schema.Literal("baseline", "rewrite", "counterexample", "socratic").literals
 
 /**
  * Lists the demonstration-set choices used by the schema and search space.
@@ -26,7 +21,7 @@ export const PromptInstructionChoices: ["baseline", "rewrite", "counterexample",
  * @since 0.1.0
  * @category models
  */
-export const PromptDemoChoices: ["none", "few", "curated"] = ["none", "few", "curated"]
+export const PromptDemoChoices = Schema.Literal("none", "few", "curated").literals
 
 /**
  * Lists the scoring strategies used by the schema and search space.
@@ -34,7 +29,7 @@ export const PromptDemoChoices: ["none", "few", "curated"] = ["none", "few", "cu
  * @since 0.1.0
  * @category models
  */
-export const PromptScoringChoices: ["strict", "balanced", "recall"] = ["strict", "balanced", "recall"]
+export const PromptScoringChoices = Schema.Literal("strict", "balanced", "recall").literals
 
 /**
  * Decodes one declared instruction, demonstration-set, and scoring choice.

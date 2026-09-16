@@ -3,7 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Order, Record, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Inspectable,
+  Match,
+  Number as Num,
+  Option,
+  Order,
+  Record,
+  Schema,
+  String as Str
+} from "effect"
 
 import { ConditionalGroup, type Parameter, type SearchSpace } from "../../../SearchSpace.js"
 
@@ -14,13 +26,13 @@ const conditionalGroupKey = (parameter: Parameter): string =>
   Arr.head(parameter.activeWhen).pipe(
     Option.match({
       onNone: () => "",
-      onSome: (condition) => `${condition.dimension}:${String(condition.equals)}`
+      onSome: (condition) => `${condition.dimension}:${Inspectable.toStringUnknown(condition.equals)}`
     })
   )
 
 const discriminantFromGroupedParameters = (parametersInput: Iterable<Parameter>): string => {
   const parameters = Arr.fromIterable(parametersInput)
-  return Arr.findFirst(parameters, (parameter) => Num.greaterThan(parameter.activeWhen.length, 0)).pipe(
+  return Arr.findFirst(parameters, (parameter) => Num.greaterThan(Arr.length(parameter.activeWhen), 0)).pipe(
     Option.flatMap((parameter) => Arr.head(parameter.activeWhen)),
     Option.match({
       onNone: () => "",
@@ -31,7 +43,7 @@ const discriminantFromGroupedParameters = (parametersInput: Iterable<Parameter>)
 
 const rootDimensions = (space: SearchSpace) =>
   Arr.map(
-    Arr.filter(space.params, (parameter) => Num.Equivalence(parameter.activeWhen.length, 0)),
+    Arr.filter(space.params, (parameter) => Num.Equivalence(Arr.length(parameter.activeWhen), 0)),
     (parameter) => parameter.name
   )
 
@@ -72,11 +84,11 @@ const excludeDimensions = (
 
 const branchAdditions = (space: SearchSpace) => {
   const grouped = Arr.groupBy(
-    Arr.filter(space.params, (parameter) => Num.greaterThan(parameter.activeWhen.length, 0)),
+    Arr.filter(space.params, (parameter) => Num.greaterThan(Arr.length(parameter.activeWhen), 0)),
     conditionalGroupKey
   )
 
-  const nonEmptyGroups = Arr.filter(Record.toEntries(grouped), ([key]) => Num.greaterThan(key.length, 0))
+  const nonEmptyGroups = Arr.filter(Record.toEntries(grouped), ([key]) => Num.greaterThan(Str.length(key), 0))
   const groupedParameterOrder: Order.Order<(typeof nonEmptyGroups)[number]> = Order.mapInput(
     Order.string,
     ([key]) => key
@@ -84,17 +96,17 @@ const branchAdditions = (space: SearchSpace) => {
   const orderedGroups = Arr.sort(nonEmptyGroups, groupedParameterOrder)
   const additions = Arr.map(orderedGroups, ([_key, parameters]) => {
     const discriminant = discriminantFromGroupedParameters(parameters)
-    return uniqueDimensions([discriminant, ...Arr.map(parameters, (parameter) => parameter.name)])
+    return uniqueDimensions(Arr.prepend(Arr.map(parameters, (parameter) => parameter.name), discriminant))
   })
 
-  return Arr.filter(additions, (addition) => Num.greaterThan(addition.length, 0))
+  return Arr.filter(additions, (addition) => Num.greaterThan(Arr.length(addition), 0))
 }
 
 const conditionalAdditions = (space: SearchSpace) => {
   const root = uniqueDimensions(rootDimensions(space))
   const branches = branchAdditions(space)
 
-  return Match.value(Num.greaterThan(root.length, 0)).pipe(
+  return Match.value(Num.greaterThan(Arr.length(root), 0)).pipe(
     Match.when(true, () => Arr.prepend(branches, root)),
     Match.orElse(() => branches)
   )
@@ -123,17 +135,19 @@ const splitByAddition = (
     (state, group) => {
       const overlap = intersectDimensions(group, state.remaining)
       const groupOnly = excludeDimensions(group, state.remaining)
-      const nextGroups = [
-        ...state.groups,
-        ...Match.value(Num.greaterThan(overlap.length, 0)).pipe(
-          Match.when(true, () => [overlap]),
-          Match.orElse(() => emptyGroupDimensions())
+      const nextGroups = Arr.appendAll(
+        Arr.appendAll(
+          state.groups,
+          Match.value(Num.greaterThan(Arr.length(overlap), 0)).pipe(
+            Match.when(true, () => Arr.of(overlap)),
+            Match.orElse(() => emptyGroupDimensions())
+          )
         ),
-        ...Match.value(Num.greaterThan(groupOnly.length, 0)).pipe(
-          Match.when(true, () => [groupOnly]),
+        Match.value(Num.greaterThan(Arr.length(groupOnly), 0)).pipe(
+          Match.when(true, () => Arr.of(groupOnly)),
           Match.orElse(() => emptyGroupDimensions())
         )
-      ]
+      )
 
       return new DecompositionState({
         groups: nextGroups,
@@ -142,7 +156,7 @@ const splitByAddition = (
     }
   )
 
-  return Match.value(Num.greaterThan(reduced.remaining.length, 0)).pipe(
+  return Match.value(Num.greaterThan(Arr.length(reduced.remaining), 0)).pipe(
     Match.when(true, () => Arr.append(reduced.groups, reduced.remaining)),
     Match.orElse(() => Arr.fromIterable(reduced.groups))
   )

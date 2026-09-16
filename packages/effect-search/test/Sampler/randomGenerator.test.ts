@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Effect, Number as Num, Schema } from "effect"
 
 import * as Rng from "../../src/internal/rng.js"
 
@@ -36,11 +36,11 @@ describe("internal rng", () => {
 
   it.effect("keeps nextFloat draws within inclusive bounds", () =>
     Effect.gen(function*() {
-      const low = -3.25
+      const low = Num.negate(3.25)
       const high = 7.5
       const draws = yield* drawFloatSequence(99, 1000, low, high)
 
-      draws.forEach((value) => {
+      Arr.forEach(draws, (value) => {
         expect(value).toBeGreaterThanOrEqual(low)
         expect(value).toBeLessThanOrEqual(high)
       })
@@ -52,13 +52,13 @@ describe("internal rng", () => {
       const high = 9
       const draws = yield* drawIntSequence(123, 2000, low, high)
 
-      draws.forEach((value) => {
-        expect(Number.isInteger(value)).toBe(true)
+      Arr.forEach(draws, (value) => {
+        expect(Schema.is(Schema.Int)(value)).toBe(true)
         expect(value).toBeGreaterThanOrEqual(low)
         expect(value).toBeLessThanOrEqual(high)
       })
 
-      expect(draws.includes(low)).toBe(true)
-      expect(draws.includes(high)).toBe(true)
+      expect(Arr.contains(draws, low)).toBe(true)
+      expect(Arr.contains(draws, high)).toBe(true)
     }))
 })

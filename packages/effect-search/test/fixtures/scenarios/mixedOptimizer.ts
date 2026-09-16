@@ -13,7 +13,7 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
  * @since 0.1.0
  * @category models
  */
-export const MixedOptimizerChoices: ["adam", "sgd", "adamw"] = ["adam", "sgd", "adamw"]
+export const MixedOptimizerChoices = Schema.Literal("adam", "sgd", "adamw").literals
 
 /**
  * Decodes a numeric learning rate, an integer depth, and a declared optimizer.

@@ -1,8 +1,9 @@
+import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option } from "effect"
 
 import type { Vector } from "../../Objective.js"
 
-import * as Float64 from "../float64.js"
+import { exp } from "../exponential.js"
 import { buildContinuousParzen, type ContinuousParzen, logDensity } from "./continuousParzen.js"
 
 const minimumDensityRatio = 1e-12
@@ -28,7 +29,7 @@ export class ConstraintDensityModel extends Data.Class<{
 }> {}
 
 const finiteConstraintValue = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
+  Match.value(isFinite(value)).pipe(
     Match.when(true, () => value),
     Match.orElse(() => Number.POSITIVE_INFINITY)
   )
@@ -42,7 +43,7 @@ export const isConstraintVectorFeasible = (constraintsInput: Iterable<number>): 
 
 const constraintDimensionCount = (constraintsInput: Iterable<Vector>): number => {
   const constraints = Arr.fromIterable(constraintsInput)
-  return Arr.reduce(constraints, 0, (count, values) => Num.max(count, values.length))
+  return Arr.reduce(constraints, 0, (count, values) => Num.max(count, Arr.length(values)))
 }
 
 const constraintValueAt = (constraintsInput: Iterable<number>, index: number): number => {
@@ -64,13 +65,13 @@ const valuesForDimension = (
 const boundsFromValues = (valuesInput: Iterable<number>): ConstraintBounds => {
   const values = Arr.fromIterable(valuesInput)
 
-  const finiteValues = Arr.filter(values, (value) => Number.isFinite(value))
+  const finiteValues = Arr.filter(values, isFinite)
 
   return Arr.get(finiteValues, 0).pipe(
     Option.match({
       onNone: () =>
         new ConstraintBounds({
-          low: -1,
+          low: Num.negate(1),
           high: 1
         }),
       onSome: (firstValue) => {
@@ -100,7 +101,7 @@ const boundsFromValues = (valuesInput: Iterable<number>): ConstraintBounds => {
 
 const gammaFromValues = (valuesInput: Iterable<number>): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(values.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 0.5),
     Match.orElse(() => {
       const feasibleCount = Arr.reduce(
@@ -113,7 +114,7 @@ const gammaFromValues = (valuesInput: Iterable<number>): number => {
           )
       )
 
-      return Num.clamp(Num.unsafeDivide(feasibleCount, values.length), {
+      return Num.clamp(Num.unsafeDivide(feasibleCount, Arr.length(values)), {
         minimum: minimumDensityRatio,
         maximum: Num.subtract(1, minimumDensityRatio)
       })
@@ -132,13 +133,13 @@ const modelFromValues = (valuesInput: Iterable<number>): ConstraintDensityModel 
     gamma: gammaFromValues(values),
     feasibleParzen: buildContinuousParzen(feasibleValues, bounds.low, bounds.high),
     infeasibleParzen: buildContinuousParzen(infeasibleValues, bounds.low, bounds.high),
-    hasFeasible: Num.greaterThan(feasibleValues.length, 0),
-    hasInfeasible: Num.greaterThan(infeasibleValues.length, 0)
+    hasFeasible: Num.greaterThan(Arr.length(feasibleValues), 0),
+    hasInfeasible: Num.greaterThan(Arr.length(infeasibleValues), 0)
   })
 }
 
 const stabilizeRatio = (ratio: number): number =>
-  Match.value(Number.isFinite(ratio)).pipe(
+  Match.value(isFinite(ratio)).pipe(
     Match.when(true, () =>
       Num.clamp(ratio, {
         minimum: minimumDensityRatio,
@@ -171,7 +172,7 @@ export const constraintDensityRatio = (
     Match.orElse(() => {
       const constrainedValue = finiteConstraintValue(value)
       const ratio = stabilizeRatio(
-        Float64.exp(
+        exp(
           Num.subtract(
             logDensity(model.feasibleParzen, constrainedValue),
             logDensity(model.infeasibleParzen, constrainedValue)
@@ -180,7 +181,7 @@ export const constraintDensityRatio = (
       )
       const denominator = Num.sum(Num.multiply(model.gamma, ratio), Num.subtract(1, model.gamma))
 
-      return Match.value(Bool.and(Number.isFinite(denominator), Num.greaterThan(denominator, 0))).pipe(
+      return Match.value(Bool.and(isFinite(denominator), Num.greaterThan(denominator, 0))).pipe(
         Match.when(true, () => stabilizeRatio(Num.unsafeDivide(ratio, denominator))),
         Match.orElse(() => minimumDensityRatio)
       )
@@ -196,7 +197,7 @@ export const constraintDensityRatioLogProduct = (
   return Arr.reduce(models, 0, (sum, model, index) =>
     Num.sum(
       sum,
-      Float64.log(
+      logStrict(
         constraintDensityRatio(model, constraintValueAt(constraints, index))
       )
     ))
@@ -208,5 +209,5 @@ export const constraintDensityRatioProduct = (
 ): number => {
   const models = Arr.fromIterable(modelsInput)
   const constraints = Arr.fromIterable(constraintsInput)
-  return Float64.exp(constraintDensityRatioLogProduct(models, constraints))
+  return exp(constraintDensityRatioLogProduct(models, constraints))
 }

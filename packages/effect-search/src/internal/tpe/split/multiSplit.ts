@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Equal, Match, Number as Num, Option } from "effect"
 
 import type { Vector } from "../../../Objective.js"
@@ -35,8 +36,8 @@ const finiteVector = (
 ): boolean => {
   const vector = Arr.fromIterable(vectorInput)
   return Bool.and(
-    Equal.equals(vector.length, dimensions),
-    Arr.every(vector, (entry) => Number.isFinite(entry))
+    Equal.equals(Arr.length(vector), dimensions),
+    Arr.every(vector, isFinite)
   )
 }
 
@@ -100,7 +101,7 @@ const weightAt = (
 ): number => {
   const weights = Arr.fromIterable(weightsInput)
   return Arr.get(weights, index).pipe(
-    Option.filter((value) => Number.isFinite(value)),
+    Option.filter(isFinite),
     Option.getOrElse(() => minimumWeight)
   )
 }
@@ -129,37 +130,38 @@ const weightedFrontTrials = (
   return Arr.flatMap(front, (index) =>
     trialAt(trials, index).pipe(
       Option.match({
-        onNone: () => [],
-        onSome: (trial) => [
-          new ConstraintAwareSplitTrial({
-            trial: new CompletedTrialForSplit({
-              trialNumber: trial.trialNumber,
-              config: trial.config,
-              value: scalarizedValue(rank, weightAt(weights, index)),
-              ...Option.fromNullable(trial.observationWeight).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (observationWeight) => ({ observationWeight })
-                })
-              ),
-              ...Option.fromNullable(trial.cost).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (cost) => ({ cost })
-                })
-              ),
-              ...Option.fromNullable(trial.variance).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (variance) => ({ variance })
-                })
+        onNone: () => Arr.empty(),
+        onSome: (trial) =>
+          Arr.of(
+            new ConstraintAwareSplitTrial({
+              trial: new CompletedTrialForSplit({
+                trialNumber: trial.trialNumber,
+                config: trial.config,
+                value: scalarizedValue(rank, weightAt(weights, index)),
+                ...Option.fromNullable(trial.observationWeight).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (observationWeight) => ({ observationWeight })
+                  })
+                ),
+                ...Option.fromNullable(trial.cost).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (cost) => ({ cost })
+                  })
+                ),
+                ...Option.fromNullable(trial.variance).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (variance) => ({ variance })
+                  })
+                )
+              }),
+              constraints: Option.fromNullable(trial.constraints).pipe(
+                Option.getOrElse(() => Arr.empty())
               )
-            }),
-            constraints: Option.fromNullable(trial.constraints).pipe(
-              Option.getOrElse(() => [])
-            )
-          })
-        ]
+            })
+          )
       })
     ))
 }
@@ -194,13 +196,13 @@ export const splitMultiObjective = (
   const completed = Arr.fromIterable(completedInput)
   const directions = Arr.fromIterable(directionsInput)
 
-  return Match.value(Num.lessThanOrEqualTo(directions.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(directions), 0)).pipe(
     Match.when(true, () => ({
       below: Arr.empty<CompletedTrialForSplit>(),
       above: Arr.empty<CompletedTrialForSplit>()
     })),
     Match.orElse(() => {
-      const trials = asMultiObjectiveTrials(completed, directions.length)
+      const trials = asMultiObjectiveTrials(completed, Arr.length(directions))
       const points = Arr.map(trials, (trial) => trial.vector)
       const weights = multiObjectiveWeights(points, undefined, directions)
       const fronts = nonDominatedSort(points, directions, epsilon)
@@ -210,7 +212,7 @@ export const splitMultiObjective = (
         Option.getOrElse(() =>
           splitTrials(
             Arr.map(scalarized, (trial) => trial.trial),
-            () => splitCount(scalarized.length, nBelowOverride)
+            () => splitCount(Arr.length(scalarized), nBelowOverride)
           )
         )
       )

@@ -6,7 +6,7 @@
 import { Boolean as Bool, Effect, Equal, Match } from "effect"
 
 import type * as Sampler from "../../../Sampler.js"
-import { InvalidStudyConfig } from "../../../SearchError.js"
+import { InvalidOptimizationConfig } from "../../../SearchError.js"
 
 /**
  * Validates that persisted CMA-ES checkpoint state matches runtime options
@@ -20,7 +20,7 @@ export const restoreCheckpoint = (
   sigma: number,
   populationSize: number,
   checkpoint: Sampler.Checkpoint
-): Effect.Effect<void, InvalidStudyConfig> =>
+): Effect.Effect<void, InvalidOptimizationConfig> =>
   Match.value(checkpoint).pipe(
     Match.tag("CmaEs", ({ seed: checkpointSeed, sigma: checkpointSigma, populationSize: checkpointPopulation }) =>
       Match.value(Bool.and(
@@ -31,17 +31,18 @@ export const restoreCheckpoint = (
           Effect.void),
         Match.orElse(() =>
           Effect.fail(
-            new InvalidStudyConfig({
+            new InvalidOptimizationConfig({
               reason:
-                `Study.resume cma-es sampler checkpoint mismatch: expected { seed: ${seed}, sigma: ${sigma}, populationSize: ${populationSize} }, received { seed: ${checkpointSeed}, sigma: ${checkpointSigma}, populationSize: ${checkpointPopulation} }`
+                `Optimization.resume cma-es sampler checkpoint mismatch: expected { seed: ${seed}, sigma: ${sigma}, populationSize: ${populationSize} }, received { seed: ${checkpointSeed}, sigma: ${checkpointSigma}, populationSize: ${checkpointPopulation} }`
             })
           )
         )
       )),
     Match.orElse((resolved) =>
       Effect.fail(
-        new InvalidStudyConfig({
-          reason: `Study.resume cma-es sampler checkpoint tag mismatch: expected CmaEs, received ${resolved._tag}`
+        new InvalidOptimizationConfig({
+          reason:
+            `Optimization.resume cma-es sampler checkpoint tag mismatch: expected CmaEs, received ${resolved._tag}`
         })
       )
     )

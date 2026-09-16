@@ -99,7 +99,7 @@ const suggestIndependent = (
   })
 
 const hasConditionalParameters = (space: SearchSpace.SearchSpace): boolean =>
-  Arr.some(space.params, (parameter) => Num.greaterThan(parameter.activeWhen.length, 0))
+  Arr.some(space.params, (parameter) => Num.greaterThan(Arr.length(parameter.activeWhen), 0))
 
 const suggestModelDriven = (
   seed: number,
@@ -125,7 +125,7 @@ const suggestModelDriven = (
     })
 
     return yield* Match.value(Bool.and(
-      Equal.equals(dimensions.length, space.params.length),
+      Equal.equals(Arr.length(dimensions), Arr.length(space.params)),
       Bool.not(containsConditionalParameters)
     ))
       .pipe(
@@ -186,7 +186,7 @@ export const suggestWithStartup = (
   context: Context
 ): Effect.Effect<unknown, SearchError> => {
   const constraints = Arr.fromIterable(constraintsInput)
-  return Match.value(Num.lessThan(context.completed.length, startupTrials)).pipe(
+  return Match.value(Num.lessThan(Arr.length(context.completed), startupTrials)).pipe(
     Match.when(true, () => randomSampler.suggest(space, context)),
     Match.orElse(() =>
       suggestModelDriven(

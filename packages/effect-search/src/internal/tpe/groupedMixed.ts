@@ -51,7 +51,7 @@ export const suggestGroupedMixedJoint = (
         onSome: (group) => {
           const activeParameters = activeGroupParameters(space, group, partialConfig)
 
-          return Match.value(Num.lessThanOrEqualTo(activeParameters.length, 0)).pipe(
+          return Match.value(Num.lessThanOrEqualTo(Arr.length(activeParameters), 0)).pipe(
             Match.when(true, () => go(Num.increment(index), partialConfig)),
             Match.orElse(() =>
               suggestGroup(

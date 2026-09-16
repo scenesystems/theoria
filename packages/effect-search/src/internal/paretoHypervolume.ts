@@ -77,11 +77,11 @@ const computeHypervolume2d = (
 export const hypervolume2d = (
   pointsInput: Iterable<Vector>,
   reference: Vector,
-  directionsInput: Iterable<Direction> = []
+  directionsInput: Iterable<Direction> = Arr.empty()
 ): number => {
   const points = Arr.fromIterable(pointsInput)
   const directions = Arr.fromIterable(directionsInput)
-  return Match.value(Equal.equals(reference.length, 2)).pipe(
+  return Match.value(Equal.equals(Arr.length(reference), 2)).pipe(
     Match.when(true, () => computeHypervolume2d(points, reference, directions)),
     Match.when(false, () => 0),
     Match.exhaustive
@@ -102,7 +102,7 @@ export const hypervolume2d = (
 export const hypervolumeContribution2d = (
   pointsInput: Iterable<Vector>,
   reference: Vector,
-  directionsInput: Iterable<Direction> = []
+  directionsInput: Iterable<Direction> = Arr.empty()
 ) => {
   const points = Arr.fromIterable(pointsInput)
   const directions = Arr.fromIterable(directionsInput)

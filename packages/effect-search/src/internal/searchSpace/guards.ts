@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Effect, Match, Option, Schema } from "effect"
 
 import { Choice } from "../../Distribution.js"
@@ -31,7 +32,7 @@ export const ensureChoice = (choice: unknown): Effect.Effect<Choice, InvalidSear
         Match.value(primitiveChoice).pipe(
           Match.when(Match.number, (value) =>
             expectCondition(
-              Number.isFinite(value),
+              isFinite(value),
               "categorical number choices must be finite",
               "categorical"
             ).pipe(Effect.as(primitiveChoice))),

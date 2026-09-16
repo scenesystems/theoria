@@ -7,9 +7,11 @@ import { Array as Arr, Boolean as Bool, Data, Effect, Equal, Match, Number as Nu
 
 import type { Vector } from "../../../Objective.js"
 
+import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { type SamplerConfig, valueFromConfig } from "../../../internal/configAccess.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
+import { exp } from "../../exponential.js"
 import { expandedBoundsForStep, normalizeFloat } from "../dimensions/float.js"
 import { invalidConfig } from "../options.js"
 
@@ -35,7 +37,7 @@ export class ContinuousAdapter extends Data.Class<{
 const finiteNumberFromUnknown = (value: unknown): Option.Option<number> =>
   Match.value(value).pipe(
     Match.when(Match.number, (numericValue) =>
-      Match.value(Number.isFinite(numericValue)).pipe(
+      Match.value(isFinite(numericValue)).pipe(
         Match.when(true, () => Option.some(numericValue)),
         Match.orElse(() => Option.none())
       )),
@@ -92,8 +94,8 @@ export const adapterForParameter = (
                   Effect.succeed(
                     new ContinuousAdapter({
                       name: parameter.name,
-                      toModel: (value: number) => Math.log(value),
-                      normalize: (modelValue: number) => normalizeFloat(Math.exp(modelValue), low, high, stepOption)
+                      toModel: logStrict,
+                      normalize: (modelValue: number) => normalizeFloat(exp(modelValue), low, high, stepOption)
                     })
                   )
                 )
@@ -192,7 +194,7 @@ export const vectorsFromSplit = (
     modelVectorFromConfig(adapters, trial.config).pipe(
       Option.match({
         onNone: () => Arr.empty<Vector>(),
-        onSome: (vector) => [vector]
+        onSome: Arr.of
       })
     ))
 }
@@ -240,11 +242,13 @@ export const normalizeModelCandidate = (
 ) => {
   const adapters = Arr.fromIterable(adaptersInput)
   const modelCandidate = Arr.fromIterable(modelCandidateInput)
-  return Match.value(Equal.equals(modelCandidate.length, adapters.length)).pipe(
+  return Match.value(Equal.equals(Arr.length(modelCandidate), Arr.length(adapters))).pipe(
     Match.when(false, () =>
       Effect.fail(
         invalidConfig(
-          `tpe multivariate candidate ${candidateIndex} has ${modelCandidate.length} coordinates but ${adapters.length} dimensions were expected`
+          `tpe multivariate candidate ${candidateIndex} has ${Arr.length(modelCandidate)} coordinates but ${
+            Arr.length(adapters)
+          } dimensions were expected`
         )
       )),
     Match.orElse(() =>

@@ -3,7 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, type Chunk, Effect, Equal, Match, Number as Num, Option } from "effect"
+import { isFinite } from "@scenesystems/effect-math/Numeric"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  type Chunk,
+  Effect,
+  Equal,
+  Inspectable,
+  Match,
+  Number as Num,
+  Option,
+  Schema
+} from "effect"
 
 import type { Choice, Distribution } from "../../Distribution.js"
 import type { InvalidSearchSpace } from "../../SearchError.js"
@@ -18,7 +30,7 @@ import { ensureChoice } from "./guards.js"
  * @category utils
  */
 export const ensureFiniteNumber = (value: number, label: string): Effect.Effect<void, InvalidSearchSpace> =>
-  expectCondition(Number.isFinite(value), `${label} must be a finite number`)
+  expectCondition(isFinite(value), `${label} must be a finite number`)
 
 /**
  * Fails with InvalidSearchSpace if the optional step value is present but not positive.
@@ -83,7 +95,10 @@ const validateIntDistribution = (
     yield* ensureFiniteNumber(high, `${dimension}.high`)
     yield* ensurePositiveStep(step, dimension)
     yield* expectCondition(
-      Bool.and(Number.isInteger(low), Number.isInteger(high)),
+      Bool.and(
+        Schema.is(Schema.Number.pipe(Schema.int()))(low),
+        Schema.is(Schema.Number.pipe(Schema.int()))(high)
+      ),
       "int bounds must be integers",
       dimension
     )
@@ -96,7 +111,7 @@ const validateCategoricalDistribution = (
 ): Effect.Effect<void, InvalidSearchSpace> => {
   const choices = Arr.fromIterable(choicesInput)
   return Effect.gen(function*() {
-    yield* expectCondition(Num.greaterThan(choices.length, 0), "categorical choices must be non-empty", dimension)
+    yield* expectCondition(Num.greaterThan(Arr.length(choices), 0), "categorical choices must be non-empty", dimension)
     yield* Effect.forEach(choices, (choice) => ensureChoice(choice), { discard: true })
   })
 }
@@ -182,7 +197,9 @@ export const ensureDistinctCaseValues = (
     Option.match(duplicate, {
       onNone: () => "",
       onSome: (entry) =>
-        `switch(${discriminant}) has duplicate branch value "${String(entry.when)}"; branch values must be unique`
+        `switch(${discriminant}) has duplicate branch value "${
+          Inspectable.toStringUnknown(entry.when)
+        }"; branch values must be unique`
     }),
     discriminant
   ).pipe(Effect.as(cases))

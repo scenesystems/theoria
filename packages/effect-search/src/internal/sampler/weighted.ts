@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { truncate } from "@scenesystems/effect-math/Numeric"
+import { isFinite, truncate } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Equal, Match, Number as Num, Option, Order } from "effect"
 
 import type { Vector } from "../../Objective.js"
@@ -109,7 +109,7 @@ const fallbackSeedModuloIndex = (
   const weights = Arr.fromIterable(weightsInput)
 
   const sorted = sortedWeights(weights)
-  const moduloCount = Num.max(1, sorted.length)
+  const moduloCount = Num.max(1, Arr.length(sorted))
   const fallbackPosition = Num.remainder(normalizeDeterministicSeed(seed), moduloCount)
 
   return Arr.get(sorted, fallbackPosition).pipe(
@@ -174,7 +174,7 @@ const selectWeightedIndexWithSeed = (
 }
 
 const normalizeDrawCount = (drawCount: number): number => {
-  const finite = Match.value(Number.isFinite(drawCount)).pipe(
+  const finite = Match.value(isFinite(drawCount)).pipe(
     Match.when(true, () => truncate(drawCount)),
     Match.orElse(() => 0)
   )
@@ -281,7 +281,7 @@ const weightsWithoutIndex = (
 
   const filtered = Arr.filter(weights, (entry) => Bool.not(Equal.equals(entry.index, index)))
 
-  return Match.value(Num.lessThanOrEqualTo(filtered.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(filtered), 0)).pipe(
     Match.when(true, () => weights),
     Match.orElse(() => filtered)
   )

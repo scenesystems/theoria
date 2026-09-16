@@ -4,6 +4,7 @@
  * @since 0.1.0
  */
 
+import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option } from "effect"
 
 import type { Direction } from "../Direction.js"
@@ -20,7 +21,7 @@ const rawValueAt = (vector: Vector, index: number): number =>
   Arr.get(vector, index).pipe(Option.getOrElse(() => Number.POSITIVE_INFINITY))
 
 const finiteOrInfinity = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
+  Match.value(isFinite(value)).pipe(
     Match.when(true, () => value),
     Match.when(false, () => Number.POSITIVE_INFINITY),
     Match.exhaustive
@@ -28,7 +29,7 @@ const finiteOrInfinity = (value: number): number =>
 
 const normalizeCoordinate = (value: number, direction: Direction): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => -value),
+    Match.when("maximize", () => Num.negate(value)),
     Match.when("minimize", () => value),
     Match.exhaustive
   )
@@ -76,14 +77,14 @@ export const validateRectangular = (pointsInput: Iterable<Vector>): boolean => {
   return Arr.match(points, {
     onEmpty: () => true,
     onNonEmpty: (nonEmpty) => {
-      const expectedLength = Arr.headNonEmpty(nonEmpty).length
-      return Arr.every(nonEmpty, (point) => Equal.equals(point.length, expectedLength))
+      const expectedLength = Arr.length(Arr.headNonEmpty(nonEmpty))
+      return Arr.every(nonEmpty, (point) => Equal.equals(Arr.length(point), expectedLength))
     }
   })
 }
 
 const normalizedEpsilon = (epsilon: number): number =>
-  Match.value(Bool.and(Number.isFinite(epsilon), Num.greaterThan(epsilon, 0))).pipe(
+  Match.value(Bool.and(isFinite(epsilon), Num.greaterThan(epsilon, 0))).pipe(
     Match.when(true, () => epsilon),
     Match.orElse(() => 0)
   )
@@ -129,7 +130,7 @@ export const dominatesNormalized = (
   normalizedRight: Vector,
   epsilon = 0
 ): boolean =>
-  Match.value(Equal.equals(normalizedLeft.length, normalizedRight.length)).pipe(
+  Match.value(Equal.equals(Arr.length(normalizedLeft), Arr.length(normalizedRight))).pipe(
     Match.when(true, () => {
       const margin = normalizedEpsilon(epsilon)
 
@@ -163,7 +164,7 @@ export const dominatesNormalized = (
 export const dominates = (
   left: Vector,
   right: Vector,
-  directionsInput: Iterable<Direction> = [],
+  directionsInput: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): boolean => {
   const directions = Arr.fromIterable(directionsInput)

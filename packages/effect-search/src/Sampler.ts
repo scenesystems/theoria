@@ -4,6 +4,7 @@
  * @since 0.7.0
  * @module
  */
+import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Chunk, Data, Effect, type HashMap, Option, Schema } from "effect"
 import { dual } from "effect/Function"
 
@@ -15,7 +16,7 @@ import * as Deterministic from "./internal/sampler/deterministic.js"
 import * as Stratified from "./internal/sampler/stratified.js"
 import * as Weighted from "./internal/sampler/weighted.js"
 import { match as matchObjective, Objective, single, Value, type Vector } from "./Objective.js"
-import type { InvalidStudyConfig, SearchError } from "./SearchError.js"
+import type { InvalidOptimizationConfig, SearchError } from "./SearchError.js"
 import type * as SearchSpace from "./SearchSpace.js"
 
 /** Random-sampler configuration. @since 0.7.0 @category schemas */
@@ -157,7 +158,7 @@ export class Pending extends Schema.Class<Pending>("effect-search/Sampler/Pendin
 /** Untyped sampler configuration keyed by parameter name. @since 0.7.0 @category models */
 export type Config = Observation["config"]
 
-const SuggestionEpsilon = Schema.NonNegative.pipe(Schema.filter(Number.isFinite))
+const SuggestionEpsilon = Schema.NonNegative.pipe(Schema.filter(isFinite))
 
 /** Immutable inputs for one suggestion. @since 0.7.0 @category schemas */
 export class Context extends Schema.Class<Context>("effect-search/Sampler/Context")({
@@ -183,7 +184,7 @@ export const pendingAsZeroPolicy = new PendingPolicy({
   impute: (context) => {
     const value = matchObjective({
       Single: () => 0,
-      Multi: ({ directions }) => Arr.makeBy(directions.length, () => 0)
+      Multi: ({ directions }) => Arr.makeBy(Arr.length(directions), () => 0)
     })(context.objectiveSpec)
 
     return Chunk.fromIterable(Arr.map(context.pending, (entry) =>
@@ -206,7 +207,7 @@ export class Sampler extends Data.Class<{
   readonly release?: Effect.Effect<void>
   readonly suggest: (space: SearchSpace.SearchSpace, context: Context) => Effect.Effect<unknown, SearchError>
   readonly checkpoint: Effect.Effect<Checkpoint, SearchError>
-  readonly restore: (checkpoint: Checkpoint) => Effect.Effect<void, InvalidStudyConfig>
+  readonly restore: (checkpoint: Checkpoint) => Effect.Effect<void, InvalidOptimizationConfig>
 }> {}
 
 /** Suggested configuration reservation. @since 0.7.0 @category models */
@@ -230,8 +231,8 @@ export const checkpoint = (self: Sampler): Effect.Effect<Checkpoint, SearchError
 
 /** Restores resumable state. @since 0.7.0 @category combinators */
 export const restore: {
-  (checkpoint: Checkpoint): (self: Sampler) => Effect.Effect<void, InvalidStudyConfig>
-  (self: Sampler, checkpoint: Checkpoint): Effect.Effect<void, InvalidStudyConfig>
+  (checkpoint: Checkpoint): (self: Sampler) => Effect.Effect<void, InvalidOptimizationConfig>
+  (self: Sampler, checkpoint: Checkpoint): Effect.Effect<void, InvalidOptimizationConfig>
 } = dual(2, (self: Sampler, checkpoint: Checkpoint) => self.restore(checkpoint))
 
 /** Runs optional acquisition. @since 0.7.0 @category lifecycle */
@@ -254,7 +255,13 @@ export const gpBo = (options: GpBoOptions = {}): Sampler => Constructors.gpBo(op
 
 /** Creates an empty suggestion context. @since 0.7.0 @category constructors */
 export const emptyContext = (nextTrialNumber = 0): Context =>
-  new Context({ completed: [], pending: [], objectiveSpec: single(), nextTrialNumber, epsilon: 0 })
+  new Context({
+    completed: Arr.empty(),
+    pending: Arr.empty(),
+    objectiveSpec: single(),
+    nextTrialNumber,
+    epsilon: 0
+  })
 
 /** Creates a completed observation. @since 0.7.0 @category constructors */
 export const observation = (

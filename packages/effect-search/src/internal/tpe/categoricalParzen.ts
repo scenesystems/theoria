@@ -12,9 +12,10 @@ import {
   Tuple
 } from "effect"
 
+import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Choice } from "../../Distribution.js"
 import { InvalidSamplerConfig } from "../../SearchError.js"
-import * as Float64 from "../float64.js"
+import { exp } from "../exponential.js"
 import { defaultWeights } from "./recencyWeights.js"
 
 export const CategoricalKernelSchema = Schema.Struct({
@@ -77,7 +78,7 @@ const weightAt = (weightsInput: Iterable<number>, index: number): number => {
 }
 
 const asFiniteDistance = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
+  Match.value(isFinite(value)).pipe(
     Match.when(true, () => Num.max(value, 0)),
     Match.orElse(() => 0)
   )
@@ -161,15 +162,15 @@ const distanceKernelRaw = (
     Match.orElse(() => Arr.map(distances, (value) => Num.unsafeDivide(value, maxDistance)))
   )
   const coefficient = Num.multiply(
-    Float64.log(Num.unsafeDivide(nKernels, priorWeight)),
-    Num.unsafeDivide(Float64.log(choices.length), Float64.log(6))
+    logStrict(Num.unsafeDivide(nKernels, priorWeight)),
+    Num.unsafeDivide(logStrict(Arr.length(choices)), logStrict(6))
   )
 
   return Arr.map(normalizedDistances, (distanceValue) =>
-    Float64.exp(
+    exp(
       Num.multiply(
         Num.multiply(distanceValue, distanceValue),
-        Num.multiply(coefficient, -1)
+        Num.negate(coefficient)
       )
     ))
 }
@@ -208,18 +209,19 @@ const weightedKernelProbabilities = (
 ) => {
   const kernels = Arr.fromIterable(kernelsInput)
   const kernelWeights = Arr.fromIterable(kernelWeightsInput)
-  return Match.value(Bool.or(Num.lessThanOrEqualTo(kernels.length, 0), Num.lessThanOrEqualTo(choiceCount, 0))).pipe(
-    Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() =>
-      Arr.makeBy(choiceCount, (index) =>
-        Arr.reduce(
-          kernels,
-          0,
-          (total, kernel, kernelIndex) =>
-            Num.sum(total, Num.multiply(probabilityAt(kernel, index), weightAt(kernelWeights, kernelIndex)))
-        ))
+  return Match.value(Bool.or(Num.lessThanOrEqualTo(Arr.length(kernels), 0), Num.lessThanOrEqualTo(choiceCount, 0)))
+    .pipe(
+      Match.when(true, () => Arr.empty<number>()),
+      Match.orElse(() =>
+        Arr.makeBy(choiceCount, (index) =>
+          Arr.reduce(
+            kernels,
+            0,
+            (total, kernel, kernelIndex) =>
+              Num.sum(total, Num.multiply(probabilityAt(kernel, index), weightAt(kernelWeights, kernelIndex)))
+          ))
+      )
     )
-  )
 }
 
 export const buildCategoricalParzen = (
@@ -232,7 +234,7 @@ export const buildCategoricalParzen = (
 ): Effect.Effect<CategoricalParzen, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
   const observations = Arr.fromIterable(observationsInput)
-  return Match.value(Num.lessThanOrEqualTo(choices.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(choices), 0)).pipe(
     Match.when(true, () =>
       Effect.succeed({
         choices,
@@ -244,7 +246,7 @@ export const buildCategoricalParzen = (
       normalizedOptions(options).pipe(
         Effect.map(([resolvedPriorWeight, resolvedDistance]) => {
           const priorWeight = Option.getOrElse(resolvedPriorWeight, () => 1)
-          const nKernels = Num.increment(observations.length)
+          const nKernels = Num.increment(Arr.length(observations))
           const kernels = Arr.append(
             Arr.map(observations, (observation) =>
               observationKernel(
@@ -254,14 +256,14 @@ export const buildCategoricalParzen = (
                 priorWeight,
                 resolvedDistance
               )),
-            priorKernel(choices.length)
+            priorKernel(Arr.length(choices))
           )
-          const kernelWeights = normalize(Arr.append(defaultWeights(observations.length), priorWeight))
+          const kernelWeights = normalize(Arr.append(defaultWeights(Arr.length(observations)), priorWeight))
 
           return {
             choices,
             kernelWeights,
-            probabilities: weightedKernelProbabilities(kernels, kernelWeights, choices.length),
+            probabilities: weightedKernelProbabilities(kernels, kernelWeights, Arr.length(choices)),
             kernels
           }
         })

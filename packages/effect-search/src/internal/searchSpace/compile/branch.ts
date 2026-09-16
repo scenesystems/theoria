@@ -3,7 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Effect, HashMap, Number as Num, Option, Record, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Effect,
+  HashMap,
+  Inspectable,
+  Number as Num,
+  Option,
+  Record,
+  Schema,
+  String as Str
+} from "effect"
 
 import type { Categorical } from "../../../Distribution.js"
 import { type Condition, Parameter, type SearchSpace, type Switch } from "../../../SearchSpace.js"
@@ -43,10 +55,10 @@ export const compileWithBranch = <
 ) =>
   Effect.gen(function*() {
     yield* expectCondition(
-      Num.greaterThan(branch.discriminant.length, 0),
+      Num.greaterThan(Str.length(branch.discriminant), 0),
       "switch discriminant must be a non-empty dimension name"
     )
-    yield* expectCondition(Num.greaterThan(branch.cases.length, 0), "switch requires at least one branch")
+    yield* expectCondition(Num.greaterThan(Chunk.size(branch.cases), 0), "switch requires at least one branch")
 
     const cases = yield* ensureDistinctCaseValues(branch.discriminant, branch.cases)
     const discriminantChoices = yield* Option.match(HashMap.get(base.knownChoices, branch.discriminant), {
@@ -67,7 +79,9 @@ export const compileWithBranch = <
       Option.match(unreachable, {
         onNone: () => "",
         onSome: (entry) =>
-          `switch(${branch.discriminant}) branch value "${String(entry.when)}" is unreachable from discriminant choices`
+          `switch(${branch.discriminant}) branch value "${
+            Inspectable.toStringUnknown(entry.when)
+          }" is unreachable from discriminant choices`
       }),
       branch.discriminant
     )

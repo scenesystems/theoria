@@ -14,7 +14,7 @@ const sum = (valuesInput: Iterable<number>): number => {
 const normalizeIndex = (index: number, modulo: number): number =>
   Num.remainder(
     Match.value(Num.lessThan(index, 0)).pipe(
-      Match.when(true, () => Num.multiply(index, -1)),
+      Match.when(true, () => Num.negate(index)),
       Match.orElse(() => index)
     ),
     modulo
@@ -39,7 +39,7 @@ const positive = (value: number): number =>
 const cumulativeProbabilities = (weightsInput: Iterable<number>) => {
   const weights = Arr.fromIterable(weightsInput)
   return Arr.reduce(weights, Arr.empty<number>(), (acc, weight) => {
-    const previousTotal = valueAt(acc, Num.decrement(acc.length), 0)
+    const previousTotal = valueAt(acc, Num.decrement(Arr.length(acc)), 0)
     return Arr.append(acc, Num.sum(previousTotal, weight))
   })
 }
@@ -54,7 +54,7 @@ const pickByRoll = (
 
   const target = Num.multiply(roll, totalWeight)
   const index = Arr.findFirstIndex(cumulative, (value) => Num.greaterThanOrEqualTo(value, target)).pipe(
-    Option.getOrElse(() => -1)
+    Option.getOrElse(() => Num.negate(1))
   )
   const fallback = Chunk.lastNonEmpty(choices)
 
@@ -79,7 +79,7 @@ export const sampleCategoricalCandidates = (
           const fallback = Arr.headNonEmpty(nonEmptyChoices)
 
           return Arr.makeBy(nCandidates, () => {
-            const index = normalizeIndex(nextIndex(), nonEmptyChoices.length)
+            const index = normalizeIndex(nextIndex(), Arr.length(nonEmptyChoices))
             return valueAt(nonEmptyChoices, index, fallback)
           })
         }
@@ -102,7 +102,8 @@ export const sampleWeightedCategoricalCandidates = (
       Arr.match(choices, {
         onEmpty: () => Arr.empty<Choice>(),
         onNonEmpty: (nonEmptyChoices) => {
-          const weights = Arr.makeBy(nonEmptyChoices.length, (index) => positive(probabilityAt(probabilities, index)))
+          const weights = Arr.makeBy(Arr.length(nonEmptyChoices), (index) =>
+            positive(probabilityAt(probabilities, index)))
           const totalWeight = sum(weights)
 
           return Match.value(Num.lessThanOrEqualTo(totalWeight, 0)).pipe(
@@ -110,7 +111,8 @@ export const sampleWeightedCategoricalCandidates = (
               sampleCategoricalCandidates(
                 nonEmptyChoices,
                 nCandidates,
-                () => Num.round(Num.multiply(nextFloat(), nonEmptyChoices.length), 0)
+                () =>
+                  Num.round(Num.multiply(nextFloat(), Arr.length(nonEmptyChoices)), 0)
               )),
             Match.orElse(() => {
               const cumulative = cumulativeProbabilities(weights)
@@ -134,17 +136,19 @@ export const sampleWeightedCategoricalCandidatesFromRolls = (
   const choices = Arr.fromIterable(choicesInput)
   const probabilities = Arr.fromIterable(probabilitiesInput)
   const rolls = Arr.fromIterable(rollsInput)
-  return Match.value(Num.lessThanOrEqualTo(rolls.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(rolls), 0)).pipe(
     Match.when(true, () => Arr.empty<Choice>()),
     Match.orElse(() =>
       Arr.match(choices, {
         onEmpty: () => Arr.empty<Choice>(),
         onNonEmpty: (nonEmptyChoices) => {
-          const weights = Arr.makeBy(nonEmptyChoices.length, (index) => positive(probabilityAt(probabilities, index)))
+          const weights = Arr.makeBy(Arr.length(nonEmptyChoices), (index) =>
+            positive(probabilityAt(probabilities, index)))
           const totalWeight = sum(weights)
 
           return Match.value(Num.lessThanOrEqualTo(totalWeight, 0)).pipe(
-            Match.when(true, () => sampleCategoricalCandidates(nonEmptyChoices, rolls.length, () => 0)),
+            Match.when(true, () =>
+              sampleCategoricalCandidates(nonEmptyChoices, Arr.length(rolls), () => 0)),
             Match.orElse(() => {
               const cumulative = cumulativeProbabilities(weights)
               return Arr.map(

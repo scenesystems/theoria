@@ -71,7 +71,7 @@ export const suggest = (
 ) =>
   Effect.gen(function*() {
     const dimensions = yield* continuousDimensionsFromSpace("cma-es", space)
-    const dimension = dimensions.length
+    const dimension = Arr.length(dimensions)
     const mu = Num.max(1, floor(Num.unsafeDivide(populationSize, 2)))
     const weights = recombinationWeights(mu)
     const constants = cmaEsConstants(dimension, weights)
@@ -87,7 +87,7 @@ export const suggest = (
         )
       ))
     const orderedByTrial = Arr.sort(observations, trialOrder)
-    const completedGenerations = floor(Num.unsafeDivide(orderedByTrial.length, populationSize))
+    const completedGenerations = floor(Num.unsafeDivide(Arr.length(orderedByTrial), populationSize))
     const generations = Arr.makeBy(
       completedGenerations,
       (generationIndex) =>

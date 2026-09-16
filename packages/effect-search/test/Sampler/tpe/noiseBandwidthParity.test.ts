@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Option, Schema } from "effect"
 
 import { buildContinuousParzen } from "../../../src/internal/tpe/continuousParzen.js"
 import {
@@ -36,11 +36,11 @@ describe("noise-aware bandwidth parity", () => {
             const baselineSigmas = Arr.map(baseline.kernels, (kernel) => kernel.sigma)
             const adjustedSigmas = Arr.map(adjusted.kernels, (kernel) => kernel.sigma)
 
-            entry.expected.baseSigmas.forEach((expected, index) => {
-              expect(baselineSigmas[index]).toBeCloseTo(expected, 9)
+            Arr.forEach(entry.expected.baseSigmas, (expected, index) => {
+              expect(Arr.get(baselineSigmas, index).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(expected, 9)
             })
-            entry.expected.adjustedSigmas.forEach((expected, index) => {
-              expect(adjustedSigmas[index]).toBeCloseTo(expected, 9)
+            Arr.forEach(entry.expected.adjustedSigmas, (expected, index) => {
+              expect(Arr.get(adjustedSigmas, index).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(expected, 9)
             })
             expect(estimate.normalizedNoise).toBeCloseTo(entry.expected.normalizedNoise, 9)
             expect(

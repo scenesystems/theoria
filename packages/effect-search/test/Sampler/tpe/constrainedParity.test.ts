@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Order, Schema } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Order, Schema } from "effect"
+
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 
 import {
   buildConstraintDensityModels,
@@ -23,17 +25,20 @@ const expectWithinTolerance = (
   expected: number,
   tolerance: number
 ): void => {
-  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 const descendingRatioOrder = (ratiosInput: Iterable<number>) => {
   const ratios = Arr.fromIterable(ratiosInput)
   return Arr.map(
     Arr.sortBy(
-      Order.mapInput(Order.number, (entry: { readonly index: number; readonly ratio: number }) => -entry.ratio),
+      Order.mapInput(
+        Order.number,
+        (entry: { readonly index: number; readonly ratio: number }) => Num.negate(entry.ratio)
+      ),
       Order.mapInput(Order.number, (entry: { readonly index: number; readonly ratio: number }) => entry.index)
     )(
-      Arr.makeBy(ratios.length, (index) => ({
+      Arr.makeBy(Arr.length(ratios), (index) => ({
         index,
         ratio: valueAt(ratios, index)
       }))

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Match, Number as Num, Option, Tuple } from "effect"
+
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 
 import * as Sampler from "../../src/Sampler.js"
 
@@ -9,9 +11,10 @@ const countSelections = (samplesInput: Iterable<number>, index: number): number 
     samples,
     0,
     (count, selected) =>
-      selected === index
-        ? count + 1
-        : count
+      Match.value(Equal.equals(selected, index)).pipe(
+        Match.when(true, () => Num.increment(count)),
+        Match.orElse(() => count)
+      )
   )
 }
 
@@ -32,12 +35,14 @@ describe("Sampler weighted utilities", () => {
       const weights = Arr.make(
         { index: 9, weight: 0 },
         { index: 2, weight: 0 },
-        { index: 5, weight: -1 }
+        { index: 5, weight: Num.negate(1) }
       )
       const seed = 11
       const sortedIndices = Arr.make(2, 5, 9)
       const steppedSeed = Sampler.nextDeterministicSeed(Sampler.normalizeDeterministicSeed(seed))
-      const expected = sortedIndices[steppedSeed % sortedIndices.length] ?? 0
+      const expected = Arr.get(sortedIndices, Num.remainder(steppedSeed, Arr.length(sortedIndices))).pipe(
+        Option.getOrElse(() => 0)
+      )
 
       expect(Sampler.selectWeightedIndexWithPolicy(weights, seed, { zeroWeightFallback: "seed-modulo" })).toBe(expected)
     }))
@@ -50,13 +55,13 @@ describe("Sampler weighted utilities", () => {
         { index: 2, weight: 6 }
       )
       const draws = Sampler.sampleWeightedIndices(weights, 10000, 42)
-      const totalWeight = Arr.reduce(weights, 0, (sum, weight) => sum + weight.weight)
-      const sampleCount = draws.length
+      const totalWeight = Arr.reduce(weights, 0, (sum, weight) => Num.sum(sum, weight.weight))
+      const sampleCount = Arr.length(draws)
       const withinTolerance = Arr.every(weights, (weight) => {
-        const observed = countSelections(draws, weight.index) / sampleCount
-        const expected = weight.weight / totalWeight
+        const observed = Num.unsafeDivide(countSelections(draws, weight.index), sampleCount)
+        const expected = Num.unsafeDivide(weight.weight, totalWeight)
 
-        return Math.abs(observed - expected) <= 0.02
+        return Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(observed, expected)), 0.02)
       })
 
       expect(sampleCount).toBe(10000)
@@ -67,8 +72,8 @@ describe("Sampler weighted utilities", () => {
     Effect.sync(() => {
       const weights = Arr.make({ index: 0, weight: 1 })
 
-      expect(Sampler.sampleWeightedIndices(weights, -1, 7)).toEqual([])
-      expect(Sampler.sampleWeightedIndices(weights, Number.NaN, 7)).toEqual([])
+      expect(Sampler.sampleWeightedIndices(weights, Num.negate(1), 7)).toEqual(Arr.empty())
+      expect(Sampler.sampleWeightedIndices(weights, Number.NaN, 7)).toEqual(Arr.empty())
     }))
 
   it.effect("samples deterministic weighted pairs with optional distinct enforcement", () =>
@@ -92,7 +97,8 @@ describe("Sampler weighted utilities", () => {
       )
 
       expect(pairB).toEqual(pairA)
-      expect(distinctPair[0]).not.toBe(distinctPair[1])
-      expect(zeroWeightDistinctPair[0]).not.toBe(zeroWeightDistinctPair[1])
+      expect(Bool.not(Equal.equals(Tuple.getFirst(distinctPair), Tuple.getSecond(distinctPair)))).toBe(true)
+      expect(Bool.not(Equal.equals(Tuple.getFirst(zeroWeightDistinctPair), Tuple.getSecond(zeroWeightDistinctPair))))
+        .toBe(true)
     }))
 })

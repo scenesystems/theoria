@@ -43,7 +43,7 @@ const existingConstraints = (
   constraintCount: number
 ) =>
   Option.fromNullable(trial.constraints).pipe(
-    Option.filter((constraints) => Equal.equals(constraints.length, constraintCount))
+    Option.filter((constraints) => Equal.equals(Arr.length(constraints), constraintCount))
   )
 
 const evaluateConstraintsForTrial = (
@@ -54,7 +54,7 @@ const evaluateConstraintsForTrial = (
 
   const materialized = Arr.fromIterable(constraints)
 
-  return existingConstraints(trial, materialized.length).pipe(
+  return existingConstraints(trial, Arr.length(materialized)).pipe(
     Option.match({
       onNone: () =>
         Effect.forEach(materialized, (evaluateConstraint) => evaluateConstraint(trial.config)).pipe(

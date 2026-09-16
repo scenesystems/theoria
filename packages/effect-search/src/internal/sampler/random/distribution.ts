@@ -3,11 +3,12 @@
  *
  * @since 0.1.0
  */
+import { logStrict } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option } from "effect"
 
 import type { Distribution } from "../../../Distribution.js"
 import { InvalidSamplerConfig } from "../../../SearchError.js"
-import * as Float64 from "../../float64.js"
+import { exp } from "../../exponential.js"
 import * as Rng from "../../rng.js"
 
 const quantize = (value: number, low: number, high: number, step: number): number => {
@@ -26,7 +27,7 @@ const categoricalChoices = (
   choicesInput: Iterable<unknown>
 ) => {
   const choices = Arr.fromIterable(choicesInput)
-  return Match.value(Num.greaterThan(choices.length, 0)).pipe(
+  return Match.value(Num.greaterThan(Arr.length(choices), 0)).pipe(
     Match.when(true, () => Effect.succeed(choices)),
     Match.orElse(() =>
       Effect.fail(
@@ -65,7 +66,7 @@ const sampleCategorical = (
   const choices = Arr.fromIterable(choicesInput)
   return categoricalChoices(choices).pipe(
     Effect.flatMap((resolvedChoices) =>
-      Rng.nextInt(rng, 0, Num.decrement(resolvedChoices.length)).pipe(
+      Rng.nextInt(rng, 0, Num.decrement(Arr.length(resolvedChoices))).pipe(
         Effect.flatMap((index) => sampledCategoricalAt(resolvedChoices, index))
       )
     )
@@ -118,11 +119,11 @@ const sampleLogFloat = (
         )
     ),
     Match.orElse(() => {
-      const logLow = Float64.log(low)
-      const logHigh = Float64.log(high)
+      const logLow = logStrict(low)
+      const logHigh = logStrict(high)
 
       return Rng.nextFloat(rng, logLow, logHigh).pipe(
-        Effect.map((raw) => Float64.exp(raw)),
+        Effect.map((raw) => exp(raw)),
         Effect.map((value) =>
           Option.match(step, {
             onNone: () => value,

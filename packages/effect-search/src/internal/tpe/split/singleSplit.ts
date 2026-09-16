@@ -30,37 +30,38 @@ const asConstraintAwareSplitTrials = (
   return Arr.flatMap(completed, (trial) =>
     numericValue(trial.value).pipe(
       Option.match({
-        onNone: () => [],
-        onSome: (value) => [
-          new ConstraintAwareSplitTrial({
-            trial: new CompletedTrialForSplit({
-              trialNumber: trial.trialNumber,
-              config: trial.config,
-              value: directionalValue(direction, value),
-              ...Option.fromNullable(trial.observationWeight).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (observationWeight) => ({ observationWeight })
-                })
-              ),
-              ...Option.fromNullable(trial.cost).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (cost) => ({ cost })
-                })
-              ),
-              ...Option.fromNullable(trial.variance).pipe(
-                Option.match({
-                  onNone: () => ({}),
-                  onSome: (variance) => ({ variance })
-                })
+        onNone: () => Arr.empty(),
+        onSome: (value) =>
+          Arr.of(
+            new ConstraintAwareSplitTrial({
+              trial: new CompletedTrialForSplit({
+                trialNumber: trial.trialNumber,
+                config: trial.config,
+                value: directionalValue(direction, value),
+                ...Option.fromNullable(trial.observationWeight).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (observationWeight) => ({ observationWeight })
+                  })
+                ),
+                ...Option.fromNullable(trial.cost).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (cost) => ({ cost })
+                  })
+                ),
+                ...Option.fromNullable(trial.variance).pipe(
+                  Option.match({
+                    onNone: () => ({}),
+                    onSome: (variance) => ({ variance })
+                  })
+                )
+              }),
+              constraints: Option.fromNullable(trial.constraints).pipe(
+                Option.getOrElse(() => Arr.empty())
               )
-            }),
-            constraints: Option.fromNullable(trial.constraints).pipe(
-              Option.getOrElse(() => [])
-            )
-          })
-        ]
+            })
+          )
       })
     ))
 }

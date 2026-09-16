@@ -6,16 +6,16 @@
 import { Boolean as Bool, Effect, Equal, Match } from "effect"
 
 import type * as Sampler from "../../Sampler.js"
-import { InvalidStudyConfig } from "../../SearchError.js"
+import { InvalidOptimizationConfig } from "../../SearchError.js"
 
 /**
  * Validates that a persisted TPE sampler checkpoint matches the current
  * seed, startup trials, and candidate count on study resume. Fails with
- * {@link InvalidStudyConfig} if any parameter differs, preventing silent
+ * {@link InvalidOptimizationConfig} if any parameter differs, preventing silent
  * configuration drift across study sessions.
  *
  * @see {@link Sampler.Checkpoint} for the persisted checkpoint structure
- * @see {@link InvalidStudyConfig} for the validation error
+ * @see {@link InvalidOptimizationConfig} for the validation error
  * @since 0.1.0
  * @category configuration
  */
@@ -24,7 +24,7 @@ export const restoreCheckpoint = (
   startupTrials: number,
   nCandidates: number,
   checkpoint: Sampler.Checkpoint
-): Effect.Effect<void, InvalidStudyConfig> =>
+): Effect.Effect<void, InvalidOptimizationConfig> =>
   Match.value(checkpoint).pipe(
     Match.tag("Tpe", ({ seed: checkpointSeed, nStartupTrials, nEiCandidates }) =>
       Match.value(
@@ -36,17 +36,17 @@ export const restoreCheckpoint = (
         Match.when(true, () => Effect.void),
         Match.orElse(() =>
           Effect.fail(
-            new InvalidStudyConfig({
+            new InvalidOptimizationConfig({
               reason:
-                `Study.resume tpe sampler checkpoint mismatch: expected { seed: ${seed}, nStartupTrials: ${startupTrials}, nEiCandidates: ${nCandidates} }, received { seed: ${checkpointSeed}, nStartupTrials: ${nStartupTrials}, nEiCandidates: ${nEiCandidates} }`
+                `Optimization.resume tpe sampler checkpoint mismatch: expected { seed: ${seed}, nStartupTrials: ${startupTrials}, nEiCandidates: ${nCandidates} }, received { seed: ${checkpointSeed}, nStartupTrials: ${nStartupTrials}, nEiCandidates: ${nEiCandidates} }`
             })
           )
         )
       )),
     Match.orElse((resolved) =>
       Effect.fail(
-        new InvalidStudyConfig({
-          reason: `Study.resume tpe sampler checkpoint tag mismatch: expected Tpe, received ${resolved._tag}`
+        new InvalidOptimizationConfig({
+          reason: `Optimization.resume tpe sampler checkpoint tag mismatch: expected Tpe, received ${resolved._tag}`
         })
       )
     )

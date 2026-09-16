@@ -4,7 +4,7 @@
  * @since 0.7.0
  * @module
  */
-import { Schema } from "effect"
+import { Array as Arr, Schema } from "effect"
 
 import { Direction } from "./Direction.js"
 import * as Dominance from "./internal/paretoDominance.js"
@@ -54,43 +54,43 @@ type HoldingWeights = typeof HoldingWeights.Type
 export const dominates = (
   left: Vector,
   right: Vector,
-  directions: Iterable<Direction> = [],
+  directions: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): boolean => Dominance.dominates(left, right, directions, epsilon)
 /** Returns first-front indices. @since 0.7.0 @category combinators */
 export const nonDominatedIndices = (
   points: Iterable<Vector>,
-  directions: Iterable<Direction> = [],
+  directions: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): Weights => FrontierOperations.nonDominatedIndices(points, directions, epsilon)
 /** Returns all fronts in rank order. @since 0.7.0 @category combinators */
 export const nonDominatedSort = (
   points: Iterable<Vector>,
-  directions: Iterable<Direction> = [],
+  directions: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): Fronts => FrontierOperations.nonDominatedSort(points, directions, epsilon)
 /** Returns one rank per candidate. @since 0.7.0 @category combinators */
 export const nonDominatedRanks = (
   points: Iterable<Vector>,
-  directions: Iterable<Direction> = [],
+  directions: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): Weights => FrontierOperations.nonDominatedRanks(points, directions, epsilon)
 /** Computes exact coordinate holdings. @since 0.7.0 @category combinators */
 export const objectiveFrontierHoldings = (
   points: Iterable<Vector>,
-  directions: Iterable<Direction> = [],
+  directions: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): Holdings => FrontierOperations.objectiveFrontierHoldings(points, directions, epsilon)
 /** Computes dominated candidate indices. @since 0.7.0 @category combinators */
 export const dominatedIndices = (
   points: Iterable<Vector>,
-  directions: Iterable<Direction> = [],
+  directions: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): Weights => WeightsOperations.dominatedIndices(points, directions, epsilon)
 /** Computes a full frontier analysis. @since 0.7.0 @category combinators */
 export const frontier = (
   points: Iterable<Vector>,
-  directions: Iterable<Direction> = [],
+  directions: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): Frontier => WeightsOperations.frontierSnapshot(points, directions, epsilon)
 /** Builds maximizing directions. @since 0.7.0 @category constructors */
@@ -99,29 +99,29 @@ export const maximizeDirections = (objectiveCount: number): Directions =>
 /** Counts coordinate holdings. @since 0.7.0 @category combinators */
 export const objectiveFrontierWeights = (
   points: Iterable<Vector>,
-  directions: Iterable<Direction> = [],
+  directions: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): HoldingWeights => WeightsOperations.objectiveFrontierWeights(points, directions, epsilon)
 /** Computes a reference point. @since 0.7.0 @category hypervolume */
 export const referencePoint = (
   points: Iterable<Vector>,
-  directions: Iterable<Direction> = []
+  directions: Iterable<Direction> = Arr.empty()
 ): Vector => MultiObjective.computeReferencePoint(points, directions)
 /** Computes MOTPE candidate weights. @since 0.7.0 @category hypervolume */
 export const multiObjectiveWeights = (
   points: Iterable<Vector>,
   reference?: Vector,
-  directions: Iterable<Direction> = []
+  directions: Iterable<Direction> = Arr.empty()
 ): Weights => MultiObjective.computeMultiObjectiveWeights(points, reference, directions)
 /** Computes two-dimensional hypervolume. @since 0.7.0 @category hypervolume */
 export const hypervolume2d = (
   points: Iterable<Vector>,
   reference: Vector,
-  directions: Iterable<Direction> = []
+  directions: Iterable<Direction> = Arr.empty()
 ): number => Hypervolume.hypervolume2d(points, reference, directions)
 /** Computes leave-one-out hypervolume contribution. @since 0.7.0 @category hypervolume */
 export const hypervolumeContribution2d = (
   points: Iterable<Vector>,
   reference: Vector,
-  directions: Iterable<Direction> = []
+  directions: Iterable<Direction> = Arr.empty()
 ): Weights => Hypervolume.hypervolumeContribution2d(points, reference, directions)

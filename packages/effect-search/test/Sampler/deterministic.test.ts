@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Schema } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Number as Num, Schema } from "effect"
 
 import * as Sampler from "../../src/Sampler.js"
 
@@ -11,37 +11,38 @@ const steppedSeeds = (
   accInput: Iterable<number> = Arr.empty<number>()
 ): typeof Seeds.Type => {
   const acc = Arr.fromIterable(accInput)
-  return steps <= 0
-    ? acc
-    : (() => {
+  return Match.value(Num.lessThanOrEqualTo(steps, 0)).pipe(
+    Match.when(true, () => acc),
+    Match.orElse(() => {
       const next = Sampler.nextDeterministicSeed(seed)
 
-      return steppedSeeds(next, steps - 1, Arr.append(acc, next))
-    })()
+      return steppedSeeds(next, Num.decrement(steps), Arr.append(acc, next))
+    })
+  )
 }
 
 describe("Sampler deterministic utilities", () => {
   it.effect("normalizes non-finite and non-positive values to deterministic positive seeds", () =>
     Effect.sync(() => {
       expect(Sampler.normalizeDeterministicSeed(0)).toBe(1)
-      expect(Sampler.normalizeDeterministicSeed(-4.9)).toBe(4)
+      expect(Sampler.normalizeDeterministicSeed(Num.negate(4.9))).toBe(4)
       expect(Sampler.normalizeDeterministicSeed(Number.NaN)).toBe(1)
       expect(Sampler.normalizeDeterministicSeed(Number.POSITIVE_INFINITY)).toBe(1)
     }))
 
   it.effect("keeps canonical LCG stepping stable", () =>
     Effect.sync(() => {
-      expect(steppedSeeds(Sampler.normalizeDeterministicSeed(1), 3)).toEqual([
+      expect(steppedSeeds(Sampler.normalizeDeterministicSeed(1), 3)).toEqual(Arr.make(
         1015568748,
         1586005467,
         2165703038
-      ])
+      ))
     }))
 
   it.effect("builds deterministic indices and bounded counts", () =>
     Effect.sync(() => {
       expect(Sampler.buildIndices(5)).toEqual(Arr.make(0, 1, 2, 3, 4))
-      expect(Sampler.buildIndices(-4)).toEqual([])
+      expect(Sampler.buildIndices(Num.negate(4))).toEqual(Arr.empty())
       expect(Sampler.sampleBoundedCount(42, 7)).toBeGreaterThanOrEqual(1)
       expect(Sampler.sampleBoundedCount(42, 7)).toBeLessThanOrEqual(7)
     }))

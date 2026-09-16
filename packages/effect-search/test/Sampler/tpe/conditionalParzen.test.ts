@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Equal, Match, Option, Schema } from "effect"
 
 import { numericValuesForParameter, primitiveValuesForParameter } from "../../../src/internal/tpe/dimensions/values.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
@@ -14,54 +14,56 @@ import {
 
 const conditionalSpace = makeLinearTreeConditionalSpace()
 
-const splitHistory = () => [
-  new CompletedTrialForSplit({
-    trialNumber: 0,
-    config: { model: "linear", learningRate: 0.03, regularization: 0.4 },
-    value: 0.5
-  }),
-  new CompletedTrialForSplit({
-    trialNumber: 1,
-    config: { model: "linear", learningRate: 0.01, regularization: 0.2 },
-    value: 0.2
-  }),
-  new CompletedTrialForSplit({
-    trialNumber: 2,
-    config: { model: "tree", maxDepth: 9, minSamplesLeaf: 2 },
-    value: 2.8
-  }),
-  new CompletedTrialForSplit({
-    trialNumber: 3,
-    config: { model: "tree", maxDepth: 4, minSamplesLeaf: 1 },
-    value: 2.1
-  })
-]
+const splitHistory = () =>
+  Arr.make(
+    new CompletedTrialForSplit({
+      trialNumber: 0,
+      config: { model: "linear", learningRate: 0.03, regularization: 0.4 },
+      value: 0.5
+    }),
+    new CompletedTrialForSplit({
+      trialNumber: 1,
+      config: { model: "linear", learningRate: 0.01, regularization: 0.2 },
+      value: 0.2
+    }),
+    new CompletedTrialForSplit({
+      trialNumber: 2,
+      config: { model: "tree", maxDepth: 9, minSamplesLeaf: 2 },
+      value: 2.8
+    }),
+    new CompletedTrialForSplit({
+      trialNumber: 3,
+      config: { model: "tree", maxDepth: 4, minSamplesLeaf: 1 },
+      value: 2.1
+    })
+  )
 
-const completedHistory = () => [
-  new Observation({
-    trialNumber: 0,
-    config: { model: "linear", learningRate: 0.03, regularization: 0.4 },
-    value: 0.5
-  }),
-  new Observation({
-    trialNumber: 1,
-    config: { model: "linear", learningRate: 0.01, regularization: 0.2 },
-    value: 0.2
-  }),
-  new Observation({
-    trialNumber: 2,
-    config: { model: "tree", maxDepth: 9, minSamplesLeaf: 2 },
-    value: 2.8
-  }),
-  new Observation({
-    trialNumber: 3,
-    config: { model: "tree", maxDepth: 4, minSamplesLeaf: 1 },
-    value: 2.1
-  })
-]
+const completedHistory = () =>
+  Arr.make(
+    new Observation({
+      trialNumber: 0,
+      config: { model: "linear", learningRate: 0.03, regularization: 0.4 },
+      value: 0.5
+    }),
+    new Observation({
+      trialNumber: 1,
+      config: { model: "linear", learningRate: 0.01, regularization: 0.2 },
+      value: 0.2
+    }),
+    new Observation({
+      trialNumber: 2,
+      config: { model: "tree", maxDepth: 9, minSamplesLeaf: 2 },
+      value: 2.8
+    }),
+    new Observation({
+      trialNumber: 3,
+      config: { model: "tree", maxDepth: 4, minSamplesLeaf: 1 },
+      value: 2.1
+    })
+  )
 
 const parameterByName = (space: SearchSpace.SearchSpace, name: string) =>
-  Arr.findFirst(space.params, (parameter) => parameter.name === name)
+  Arr.findFirst(space.params, (parameter) => Equal.equals(parameter.name, name))
 
 describe("TPE conditional branch-aware density behavior", () => {
   it.effect("filters branch-local observations from mixed trial history", () =>
@@ -83,9 +85,9 @@ describe("TPE conditional branch-aware density behavior", () => {
 
       const history = splitHistory()
 
-      expect(numericValuesForParameter(tracked.learningRate, history)).toEqual([0.03, 0.01])
-      expect(numericValuesForParameter(tracked.maxDepth, history)).toEqual([9, 4])
-      expect(primitiveValuesForParameter(tracked.model, history)).toEqual(["linear", "linear", "tree", "tree"])
+      expect(numericValuesForParameter(tracked.learningRate, history)).toEqual(Arr.make(0.03, 0.01))
+      expect(numericValuesForParameter(tracked.maxDepth, history)).toEqual(Arr.make(9, 4))
+      expect(primitiveValuesForParameter(tracked.model, history)).toEqual(Arr.make("linear", "linear", "tree", "tree"))
     }))
 
   it.effect("emits only branch-consistent conditional assignments in model-driven mode", () =>
@@ -94,7 +96,7 @@ describe("TPE conditional branch-aware density behavior", () => {
       const sampler = Sampler.tpe({ seed: 77, nStartupTrials: 0, nEiCandidates: 40 })
       const context = new Context({
         completed: completedHistory(),
-        pending: [],
+        pending: Arr.empty(),
         objectiveSpec: single(),
         nextTrialNumber: 4,
         epsilon: 0
@@ -129,14 +131,14 @@ describe("TPE conditional branch-aware density behavior", () => {
       const space = yield* conditionalSpace
       const sampler = Sampler.tpe({ seed: 91, nStartupTrials: 0, nEiCandidates: 32 })
       const context = new Context({
-        completed: [
+        completed: Arr.of(
           new Observation({
             trialNumber: 0,
             config: { model: "tree", maxDepth: 11, minSamplesLeaf: 1 },
             value: 3.5
           })
-        ],
-        pending: [],
+        ),
+        pending: Arr.empty(),
         objectiveSpec: single(),
         nextTrialNumber: 1,
         epsilon: 0

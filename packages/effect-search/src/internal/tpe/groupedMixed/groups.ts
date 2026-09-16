@@ -43,13 +43,13 @@ const parametersInGroup = (
 
 const groupDepth = (parametersInput: Iterable<SearchSpace.Parameter>): number => {
   const parameters = Arr.fromIterable(parametersInput)
-  return Match.value(Num.lessThanOrEqualTo(parameters.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(parameters), 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       Arr.reduce(
         parameters,
         Number.POSITIVE_INFINITY,
-        (depth, parameter) => Num.min(depth, parameter.activeWhen.length)
+        (depth, parameter) => Num.min(depth, Arr.length(parameter.activeWhen))
       )
     )
   )
@@ -76,7 +76,7 @@ export const orderedGroups = (
       true,
       () => Arr.map(SearchSpace.decomposeConditionalGroups(space), (group) => Arr.fromIterable(group.dimensions))
     ),
-    Match.orElse(() => [namesFromSpace(space)])
+    Match.orElse(() => Arr.of(namesFromSpace(space)))
   )
 
   const ordered = Arr.map(groups, (names) => {
@@ -150,7 +150,7 @@ export const splitForParameters = (
   const below = Arr.filter(split.below, (trial) => trialContainsAllParameters(trial.config, parameters))
   const above = Arr.filter(split.above, (trial) => trialContainsAllParameters(trial.config, parameters))
 
-  return Match.value(Bool.and(Num.greaterThan(below.length, 0), Num.greaterThan(above.length, 0))).pipe(
+  return Match.value(Bool.and(Num.greaterThan(Arr.length(below), 0), Num.greaterThan(Arr.length(above), 0))).pipe(
     Match.when(true, () => ({ below, above })),
     Match.orElse(() => split)
   )

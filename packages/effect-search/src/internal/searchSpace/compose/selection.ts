@@ -30,7 +30,7 @@ const validateProjectionNames = (
 
     yield* Effect.filterOrFail(
       Effect.void,
-      () => Num.Equivalence(unknown.length, 0),
+      () => Num.Equivalence(Arr.length(unknown), 0),
       () => projectionFailure(operation, `unknown parameter(s): ${Arr.join(unknown, ", ")}`)
     )
 
@@ -75,7 +75,7 @@ const dependencyClosure = (
   const names = Arr.fromIterable(namesInput)
   return expandDependencyClosure(operation, space, names).pipe(
     Effect.filterOrElse(
-      (expanded) => Equal.equals(expanded.length, names.length),
+      (expanded) => Equal.equals(Arr.length(expanded), Arr.length(names)),
       (expanded) => dependencyClosure(operation, space, expanded)
     )
   )
@@ -104,7 +104,7 @@ const descendantClosure = (space: SearchSpace, omittedNamesInput: Iterable<strin
 
   const expanded = expandDescendantClosure(space, omittedNames)
 
-  return Match.value(Equal.equals(expanded.length, omittedNames.length)).pipe(
+  return Match.value(Equal.equals(Arr.length(expanded), Arr.length(omittedNames))).pipe(
     Match.when(true, () => expanded),
     Match.orElse(() => descendantClosure(space, expanded))
   )
@@ -123,7 +123,7 @@ export const resolvePickProjectionNames = (
   const names = Arr.fromIterable(namesInput)
   return validateProjectionNames("pick", space, names).pipe(
     Effect.filterOrFail(
-      (requested) => Num.greaterThan(requested.length, 0),
+      (requested) => Num.greaterThan(Arr.length(requested), 0),
       () => projectionFailure("pick", "pick requires at least one parameter name")
     ),
     Effect.flatMap((requested) => dependencyClosure("pick", space, requested))

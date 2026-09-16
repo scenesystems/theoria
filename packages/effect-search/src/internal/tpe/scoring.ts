@@ -5,8 +5,8 @@
  */
 import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
 
+import { logStrict } from "@scenesystems/effect-math/Numeric"
 import type { Choice } from "../../Distribution.js"
-import * as Float64 from "../../internal/float64.js"
 
 /**
  * Computes the log-probability of a categorical value under a Parzen density
@@ -27,11 +27,13 @@ export const logProbability = (
   const choices = Arr.fromIterable(choicesInput)
   const probabilities = Arr.fromIterable(probabilitiesInput)
 
-  const index = Arr.findFirstIndex(choices, (choice) => Equal.equals(choice, value)).pipe(Option.getOrElse(() => -1))
+  const index = Arr.findFirstIndex(choices, (choice) => Equal.equals(choice, value)).pipe(
+    Option.getOrElse(() => Num.negate(1))
+  )
   const probability = Arr.get(probabilities, index).pipe(Option.getOrElse(() => 0))
 
   return Match.value(Num.lessThanOrEqualTo(probability, 0)).pipe(
     Match.when(true, () => Number.NEGATIVE_INFINITY),
-    Match.orElse(() => Float64.log(probability))
+    Match.orElse(() => logStrict(probability))
   )
 }

@@ -4,10 +4,23 @@
  * @since 0.1.0
  * @module
  */
-import { Boolean as Bool, Data, HashMap, Match, Number as Num, Option, Predicate, Record, Schema } from "effect"
+import { logStrict } from "@scenesystems/effect-math/Numeric"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  HashMap,
+  Match,
+  Number as Num,
+  Option,
+  Predicate,
+  Record,
+  Schema,
+  Tuple
+} from "effect"
 import { dual } from "effect/Function"
 
-import * as Float64 from "./internal/float64.js"
+import { exp } from "./internal/exponential.js"
 import {
   expectedImprovementScore,
   scoreWithEstimatedCost,
@@ -103,7 +116,7 @@ export const expectedImprovement = make(
 export const probabilityOfImprovement = make(
   "pi",
   ({ estimatedCost, logG, logL }) => {
-    const ratio = Float64.exp(Num.subtract(logL, logG))
+    const ratio = exp(Num.subtract(logL, logG))
     return scoreWithEstimatedCost(Num.unsafeDivide(ratio, Num.increment(ratio)), estimatedCost)
   }
 )
@@ -117,7 +130,7 @@ const clampRoll = (roll: number): number =>
     Match.orElse((value) => value)
   )
 
-const gumbelNoise = (roll: number): number => Num.negate(Float64.log(Num.negate(Float64.log(clampRoll(roll)))))
+const gumbelNoise = (roll: number): number => Num.negate(logStrict(Num.negate(logStrict(clampRoll(roll)))))
 
 /** Thompson-sampling acquisition. @since 0.7.0 @category strategies */
 export const thompson = make(
@@ -132,11 +145,13 @@ export const thompson = make(
     )
 )
 
-const implementations = HashMap.fromIterable<Name, Acquisition>([
-  ["ei", expectedImprovement],
-  ["pi", probabilityOfImprovement],
-  ["thompson", thompson]
-])
+const acquisitionEntry = (name: Name, acquisition: Acquisition) => Tuple.make(name, acquisition)
+
+const implementations = HashMap.fromIterable(Arr.make(
+  acquisitionEntry("ei", expectedImprovement),
+  acquisitionEntry("pi", probabilityOfImprovement),
+  acquisitionEntry("thompson", thompson)
+))
 
 /** Default acquisition strategy. @since 0.7.0 @category strategies */
 export const defaultStrategy = expectedImprovement

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { abs, truncate } from "@scenesystems/effect-math/Numeric"
+import { abs, isFinite, truncate } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Data, Match, Number as Num, Order } from "effect"
 
 const lcgMultiplier = 1664525
@@ -20,7 +20,7 @@ const lcgModulus = 4294967296
  * @category combinators
  */
 export const normalizeDeterministicSeed = (seed: number): number => {
-  const finite = Match.value(Number.isFinite(seed)).pipe(
+  const finite = Match.value(isFinite(seed)).pipe(
     Match.when(true, () => abs(truncate(seed))),
     Match.orElse(() => 1)
   )
@@ -55,7 +55,7 @@ export const nextDeterministicSeed = (seed: number): number =>
  * @category combinators
  */
 export const normalizePositiveCount = (value: number): number => {
-  const finite = Match.value(Number.isFinite(value)).pipe(
+  const finite = Match.value(isFinite(value)).pipe(
     Match.when(true, () => truncate(value)),
     Match.orElse(() => 0)
   )
@@ -67,7 +67,7 @@ export const normalizePositiveCount = (value: number): number => {
 }
 
 const normalizeNonNegativeCount = (value: number): number => {
-  const finite = Match.value(Number.isFinite(value)).pipe(
+  const finite = Match.value(isFinite(value)).pipe(
     Match.when(true, () => truncate(value)),
     Match.orElse(() => 0)
   )

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Option } from "effect"
+import { Array as Arr, Effect, Either, Number as Num, Option } from "effect"
+
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 
 import { rngByTrial } from "../../../src/internal/sampler/rngByTrial.js"
 import { buildContinuousParzen } from "../../../src/internal/tpe/continuousParzen.js"
@@ -11,13 +13,13 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
 
 const sigmaAt = (valuesInput: Iterable<number>, index: number): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Option.fromNullable(values[index]).pipe(Option.getOrElse(() => 0))
+  return Arr.get(values, index).pipe(Option.getOrElse(() => 0))
 }
 
 describe("noise-aware bandwidth", () => {
   it.effect("widens continuous KDE sigmas when noise-aware mode is enabled", () =>
     Effect.sync(() => {
-      const observations = [0.02, 0.91, 0.16, 0.84, 0.28, 0.73]
+      const observations = Arr.make(0.02, 0.91, 0.16, 0.84, 0.28, 0.73)
       const baseline = buildContinuousParzen(observations, 0, 1)
       const noiseAware = buildContinuousParzen(
         observations,
@@ -32,16 +34,17 @@ describe("noise-aware bandwidth", () => {
       const widenedSigmas = Arr.map(noiseAware.kernels, (kernel) => kernel.sigma)
 
       expect(
-        Arr.every(widenedSigmas, (sigma, index) => sigma >= sigmaAt(baselineSigmas, index))
+        Arr.every(widenedSigmas, (sigma, index) => Num.greaterThanOrEqualTo(sigma, sigmaAt(baselineSigmas, index)))
       ).toBe(true)
       expect(
-        Arr.some(widenedSigmas, (sigma, index) => sigma - sigmaAt(baselineSigmas, index) > 1e-12)
+        Arr.some(widenedSigmas, (sigma, index) =>
+          Num.greaterThan(Num.subtract(sigma, sigmaAt(baselineSigmas, index)), 1e-12))
       ).toBe(true)
     }))
 
   it.effect("uses empirical trial variance when available before bootstrap-only fallback", () =>
     Effect.sync(() => {
-      const observations = [0.45, 0.46, 0.47, 0.48, 0.49]
+      const observations = Arr.make(0.45, 0.46, 0.47, 0.48, 0.49)
       const options = new NoiseBandwidthOptions({
         noiseAware: true,
         noiseAlpha: 4
@@ -52,13 +55,14 @@ describe("noise-aware bandwidth", () => {
       const empiricalSigmas = Arr.map(empiricalAware.kernels, (kernel) => kernel.sigma)
 
       expect(
-        Arr.some(empiricalSigmas, (sigma, index) => sigma - sigmaAt(bootstrapSigmas, index) > 1e-12)
+        Arr.some(empiricalSigmas, (sigma, index) =>
+          Num.greaterThan(Num.subtract(sigma, sigmaAt(bootstrapSigmas, index)), 1e-12))
       ).toBe(true)
     }))
 
   it.effect("preserves exact baseline behavior when noiseAware is false", () =>
     Effect.sync(() => {
-      const observations = [0.1, 0.2, 0.7, 0.9]
+      const observations = Arr.make(0.1, 0.2, 0.7, 0.9)
       const baseline = buildContinuousParzen(observations, 0, 1)
       const explicitDisabled = buildContinuousParzen(
         observations,
@@ -80,19 +84,19 @@ describe("noise-aware bandwidth", () => {
     Effect.gen(function*() {
       const space = yield* SearchSpace.make({
         lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
-        optimizer: SearchSpace.categorical(["adam", "sgd"])
+        optimizer: SearchSpace.categorical(Arr.make("adam", "sgd"))
       })
-      const parameter = Option.fromNullable(space.params[0]).pipe(
+      const parameter = Arr.head(space.params).pipe(
         Option.getOrElse(() =>
           new SearchSpace.Parameter({
             name: "lr",
             distribution: { type: "float", low: 1e-4, high: 1e-1, scale: "log" },
-            activeWhen: []
+            activeWhen: Arr.empty()
           })
         )
       )
       const split = {
-        below: [
+        below: Arr.make(
           new CompletedTrialForSplit({
             trialNumber: 0,
             config: { lr: 0.001, optimizer: "adam" },
@@ -108,8 +112,8 @@ describe("noise-aware bandwidth", () => {
             config: { lr: 0.004, optimizer: "adam" },
             value: 0.31
           })
-        ],
-        above: [
+        ),
+        above: Arr.make(
           new CompletedTrialForSplit({
             trialNumber: 3,
             config: { lr: 0.06, optimizer: "adam" },
@@ -125,7 +129,7 @@ describe("noise-aware bandwidth", () => {
             config: { lr: 0.045, optimizer: "adam" },
             value: 0.77
           })
-        ]
+        )
       }
 
       const baselineTrace = yield* traceForParameter(
@@ -149,7 +153,10 @@ describe("noise-aware bandwidth", () => {
       yield* Effect.sync(() => {
         expect(
           Arr.some(baselineTrace.trace.scores, (score, index) =>
-            Math.abs(score - sigmaAt(noiseAwareTrace.trace.scores, index)) > 1e-10)
+            Num.greaterThan(
+              Numeric.abs(Num.subtract(score, sigmaAt(noiseAwareTrace.trace.scores, index))),
+              1e-10
+            ))
         ).toBe(true)
       })
     }))
@@ -168,12 +175,15 @@ describe("noise-aware bandwidth", () => {
 
   it.effect("rejects non-finite and fractional trial counts", () =>
     Effect.gen(function*() {
-      const outcomes = yield* Effect.forEach([
-        validateOptions({ nStartupTrials: Number.NaN }),
-        validateOptions({ nStartupTrials: 1.5 }),
-        validateOptions({ nEiCandidates: Number.POSITIVE_INFINITY }),
-        validateOptions({ nEiCandidates: 2.5 })
-      ], Effect.either)
+      const outcomes = yield* Effect.forEach(
+        Arr.make(
+          validateOptions({ nStartupTrials: Number.NaN }),
+          validateOptions({ nStartupTrials: 1.5 }),
+          validateOptions({ nEiCandidates: Number.POSITIVE_INFINITY }),
+          validateOptions({ nEiCandidates: 2.5 })
+        ),
+        Effect.either
+      )
 
       expect(Arr.every(outcomes, Either.isLeft)).toBe(true)
     }))

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Schema } from "effect"
 
-import * as Float64 from "../../src/internal/float64.js"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Pareto from "../../src/Pareto.js"
 import { FixtureRegistryLive, loadAllFixtures, MotpeWeightsFixture } from "../helpers/fixtures/index.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-9): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 describe("Pareto MOTPE compatibility", () => {
@@ -30,15 +30,15 @@ describe("Pareto MOTPE compatibility", () => {
           fixture.payload.directions
         )
 
-        expect(contributions).toHaveLength(fixture.payload.expectedContributions.length)
-        expect(weights).toHaveLength(fixture.payload.expectedWeights.length)
+        expect(contributions).toHaveLength(Arr.length(fixture.payload.expectedContributions))
+        expect(weights).toHaveLength(Arr.length(fixture.payload.expectedWeights))
 
         Arr.forEach(fixture.payload.expectedContributions, (expected, index) => {
-          expectApprox(contributions[index] ?? 0, expected)
+          expectApprox(Arr.get(contributions, index).pipe(Option.getOrElse(() => 0)), expected)
         })
 
         Arr.forEach(fixture.payload.expectedWeights, (expected, index) => {
-          expectApprox(weights[index] ?? 0, expected)
+          expectApprox(Arr.get(weights, index).pipe(Option.getOrElse(() => 0)), expected)
         })
       })
     }).pipe(Effect.provide(FixtureRegistryLive)))

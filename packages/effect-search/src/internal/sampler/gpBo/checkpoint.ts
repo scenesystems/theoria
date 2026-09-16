@@ -7,7 +7,7 @@ import { Boolean as Bool, Effect, Equal, Match, Option } from "effect"
 
 import type { Name } from "../../../Acquisition.js"
 import type * as Sampler from "../../../Sampler.js"
-import { InvalidStudyConfig } from "../../../SearchError.js"
+import { InvalidOptimizationConfig } from "../../../SearchError.js"
 
 const acquisitionMatches = (
   expected: Option.Option<Name>,
@@ -43,7 +43,7 @@ export const restoreCheckpoint = (
   noise: number,
   acquisition: Option.Option<Name>,
   checkpoint: Sampler.Checkpoint
-): Effect.Effect<void, InvalidStudyConfig> =>
+): Effect.Effect<void, InvalidOptimizationConfig> =>
   Match.value(checkpoint).pipe(
     Match.tag(
       "GpBo",
@@ -78,9 +78,9 @@ export const restoreCheckpoint = (
             Match.when(true, () => Effect.void),
             Match.orElse(() =>
               Effect.fail(
-                new InvalidStudyConfig({
+                new InvalidOptimizationConfig({
                   reason:
-                    `Study.resume gp-bo sampler checkpoint mismatch: expected { seed: ${seed}, nStartupTrials: ${nStartupTrials}, nCandidates: ${nCandidates}, lengthScale: ${lengthScale}, noise: ${noise}, acquisition: ${
+                    `Optimization.resume gp-bo sampler checkpoint mismatch: expected { seed: ${seed}, nStartupTrials: ${nStartupTrials}, nCandidates: ${nCandidates}, lengthScale: ${lengthScale}, noise: ${noise}, acquisition: ${
                       acquisitionLabel(acquisition)
                     } }, received { seed: ${checkpointSeed}, nStartupTrials: ${checkpointStartup}, nCandidates: ${checkpointCandidates}, lengthScale: ${checkpointLengthScale}, noise: ${checkpointNoise}, acquisition: ${
                       acquisitionLabel(checkpointAcquisitionOption)
@@ -93,8 +93,8 @@ export const restoreCheckpoint = (
     ),
     Match.orElse((resolved) =>
       Effect.fail(
-        new InvalidStudyConfig({
-          reason: `Study.resume gp-bo sampler checkpoint tag mismatch: expected GpBo, received ${resolved._tag}`
+        new InvalidOptimizationConfig({
+          reason: `Optimization.resume gp-bo sampler checkpoint tag mismatch: expected GpBo, received ${resolved._tag}`
         })
       )
     )

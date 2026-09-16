@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Number as Num, Option } from "effect"
 
-import * as Float64 from "../../src/internal/float64.js"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Pareto from "../../src/Pareto.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 describe("Pareto hypervolume properties", () => {
@@ -32,9 +32,9 @@ describe("Pareto hypervolume properties", () => {
       const reference = Arr.make(4.4, 4.4)
       const contributions = Pareto.hypervolumeContribution2d(points, reference)
 
-      expect(contributions).toHaveLength(points.length)
-      expect(contributions.every((value) => value >= 0)).toBe(true)
-      expectApprox(contributions[3] ?? 0, 0)
+      expect(contributions).toHaveLength(Arr.length(points))
+      expect(Arr.every(contributions, Num.greaterThanOrEqualTo(0))).toBe(true)
+      expectApprox(Arr.get(contributions, 3).pipe(Option.getOrElse(() => 0)), 0)
     }))
 
   it.effect("matches leave-one-out contribution identity on the non-dominated front", () =>
@@ -45,10 +45,13 @@ describe("Pareto hypervolume properties", () => {
       const contributions = Pareto.hypervolumeContribution2d(points, reference)
 
       Arr.forEach(points, (_point, index) => {
-        const withoutPoint = Arr.filter(points, (_entry, pointIndex) => pointIndex !== index)
+        const withoutPoint = Arr.filter(points, (_entry, pointIndex) => Bool.not(Equal.equals(pointIndex, index)))
         const leaveOneOut = Pareto.hypervolume2d(withoutPoint, reference)
 
-        expectApprox((contributions[index] ?? 0) + leaveOneOut, total)
+        expectApprox(
+          Num.sum(Arr.get(contributions, index).pipe(Option.getOrElse(() => 0)), leaveOneOut),
+          total
+        )
       })
     }))
 })

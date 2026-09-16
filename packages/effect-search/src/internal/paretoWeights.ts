@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 
-import { Array as Arr, HashSet, Match, Number as Num } from "effect"
+import { Array as Arr, Boolean as Bool, HashSet, Match, Number as Num } from "effect"
 
 import { type Direction, maximize } from "../Direction.js"
 import type { Vector } from "../Objective.js"
@@ -50,7 +50,7 @@ const dominatedIndicesFromFrontier = (
 
   const frontierSet = HashSet.fromIterable(frontier)
 
-  return Arr.filter(buildIndices(pointCount), (index) => !HashSet.has(frontierSet, index))
+  return Arr.filter(buildIndices(pointCount), (index) => Bool.not(HashSet.has(frontierSet, index)))
 }
 
 /**
@@ -78,7 +78,7 @@ export const maximizeDirections = (objectiveCount: number) => Arr.map(buildIndic
  */
 export const dominatedIndices = (
   pointsInput: Iterable<Vector>,
-  directionsInput: Iterable<Direction> = [],
+  directionsInput: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ) => {
   const points = Arr.fromIterable(pointsInput)
@@ -86,7 +86,7 @@ export const dominatedIndices = (
 
   const frontier = nonDominatedIndices(points, directions, epsilon)
 
-  return dominatedIndicesFromFrontier(points.length, frontier)
+  return dominatedIndicesFromFrontier(Arr.length(points), frontier)
 }
 
 /**
@@ -101,7 +101,7 @@ export const dominatedIndices = (
  */
 export const objectiveFrontierWeights = (
   pointsInput: Iterable<Vector>,
-  directionsInput: Iterable<Direction> = [],
+  directionsInput: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ) => {
   const points = Arr.fromIterable(pointsInput)
@@ -109,7 +109,7 @@ export const objectiveFrontierWeights = (
 
   const holdings = objectiveFrontierHoldings(points, directions, epsilon)
 
-  return objectiveWeightsFromHoldings(points.length, holdings)
+  return objectiveWeightsFromHoldings(Arr.length(points), holdings)
 }
 
 /**
@@ -125,7 +125,7 @@ export const objectiveFrontierWeights = (
  */
 export const frontierSnapshot = (
   pointsInput: Iterable<Vector>,
-  directionsInput: Iterable<Direction> = [],
+  directionsInput: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ): Frontier => {
   const points = Arr.fromIterable(pointsInput)
@@ -136,8 +136,8 @@ export const frontierSnapshot = (
 
   return new Frontier({
     frontierIndices,
-    dominatedIndices: dominatedIndicesFromFrontier(points.length, frontierIndices),
+    dominatedIndices: dominatedIndicesFromFrontier(Arr.length(points), frontierIndices),
     objectiveHoldings,
-    holdingWeights: objectiveWeightsFromHoldings(points.length, objectiveHoldings)
+    holdingWeights: objectiveWeightsFromHoldings(Arr.length(points), objectiveHoldings)
   })
 }

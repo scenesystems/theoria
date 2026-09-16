@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Chunk, Effect, Match, Option } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Option, Record } from "effect"
 
 import * as Acquisition from "../../../Acquisition.js"
 import { type Choice } from "../../../Distribution.js"
@@ -61,13 +61,14 @@ export const categoricalDimensions = (
 ) =>
   Arr.flatMap(space.params, (parameter) =>
     Match.value(parameter.distribution).pipe(
-      Match.when({ type: "categorical" }, ({ choices }) => [
-        new Multi.CategoricalDimension({
-          name: parameter.name,
-          choices: Arr.fromIterable(choices)
-        })
-      ]),
-      Match.orElse(() => [])
+      Match.when({ type: "categorical" }, ({ choices }) =>
+        Arr.of(
+          new Multi.CategoricalDimension({
+            name: parameter.name,
+            choices: Arr.fromIterable(choices)
+          })
+        )),
+      Match.orElse(() => Arr.empty())
     ))
 
 /**
@@ -240,7 +241,7 @@ export const suggestMultivariateCategorical = (
         Effect.fail(invalidConfig("tpe categorical candidate selection must resolve to a string tuple key"))
       )
     )
-    const bestTuple = yield* Option.fromNullable(lookup[bestKey]).pipe(
+    const bestTuple = yield* Record.get(lookup, bestKey).pipe(
       Option.match({
         onNone: () => Effect.fail(invalidConfig("tpe categorical candidate key lookup failed")),
         onSome: Effect.succeed

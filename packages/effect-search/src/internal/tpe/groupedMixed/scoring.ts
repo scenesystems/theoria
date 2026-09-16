@@ -3,7 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Match, Number as Num, Option, Predicate, Record, Tuple } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Data,
+  Effect,
+  Match,
+  Number as Num,
+  Option,
+  Predicate,
+  Record,
+  Tuple
+} from "effect"
 
 import * as Acquisition from "../../../Acquisition.js"
 import type * as Rng from "../../../internal/rng.js"
@@ -51,7 +63,7 @@ const multivariateTraceForGroup = (
     Match.when(false, () => Effect.succeedNone),
     Match.orElse(() => {
       const continuous = Arr.filter(parameters, (parameter) => isContinuousParameter(parameter))
-      return Match.value(Num.greaterThanOrEqualTo(continuous.length, 2)).pipe(
+      return Match.value(Num.greaterThanOrEqualTo(Arr.length(continuous), 2)).pipe(
         Match.when(false, () => Effect.succeedNone),
         Match.orElse(() => multivariateContinuousCandidateTrace(rng, nCandidates, continuous, split, acquisition))
       )
@@ -69,16 +81,18 @@ const multivariateTraceForGroup = (
  * @category sampling
  */
 export const mergeConfigs = (left: unknown, right: unknown): unknown =>
-  Record.fromEntries([
-    ...Match.value(left).pipe(
-      Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
-      Match.orElse(() => Arr.empty<readonly [string, unknown]>())
-    ),
-    ...Match.value(right).pipe(
-      Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
-      Match.orElse(() => Arr.empty<readonly [string, unknown]>())
+  Record.fromEntries(
+    Arr.appendAll(
+      Match.value(left).pipe(
+        Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
+        Match.orElse(() => Arr.empty<readonly [string, unknown]>())
+      ),
+      Match.value(right).pipe(
+        Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
+        Match.orElse(() => Arr.empty<readonly [string, unknown]>())
+      )
     )
-  ])
+  )
 
 const candidateCount = (
   independentTracesInput: Iterable<NamedDimensionScoreTrace>,
@@ -86,8 +100,8 @@ const candidateCount = (
 ): Option.Option<number> => {
   const independentTraces = Arr.fromIterable(independentTracesInput)
   return Option.match(multivariateTrace, {
-    onNone: () => Arr.head(independentTraces).pipe(Option.map((trace) => trace.trace.candidates.length)),
-    onSome: (trace) => Option.some(trace.candidateConfigs.length)
+    onNone: () => Arr.head(independentTraces).pipe(Option.map((trace) => Chunk.size(trace.trace.candidates))),
+    onSome: (trace) => Option.some(Chunk.size(trace.candidateConfigs))
   })
 }
 
@@ -135,7 +149,7 @@ const groupCandidateAtIndex = (
           })
         ),
       onSome: (trace) =>
-        Effect.all([
+        Effect.all(Tuple.make(
           independentTraceValue(
             trace.candidateConfigs,
             index,
@@ -151,7 +165,7 @@ const groupCandidateAtIndex = (
             index,
             `tpe grouped candidate trace missing multivariate logG at index ${index}`
           )
-        ]).pipe(
+        )).pipe(
           Effect.map(([multivariateConfig, multivariateLogL, multivariateLogG]) => {
             const mergedConfig = mergeConfigs(independentConfig, multivariateConfig)
             return new GroupCandidate({
@@ -204,7 +218,7 @@ export const suggestGroup = (
     )
     const independentParameters = Option.match(multivariateTrace, {
       onNone: () => parameters,
-      onSome: () => Arr.filter(parameters, (parameter) => !isContinuousParameter(parameter))
+      onSome: () => Arr.filter(parameters, (parameter) => Bool.not(isContinuousParameter(parameter)))
     })
     const independentTraces = yield* Effect.forEach(
       independentParameters,

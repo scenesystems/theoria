@@ -3,7 +3,8 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option } from "effect"
+import { isFinite } from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option, Schema } from "effect"
 
 import * as Acquisition from "../../Acquisition.js"
 import { defaultNoiseBandwidthOptions, NoiseBandwidthOptions } from "../../internal/tpe/noiseEstimator.js"
@@ -108,12 +109,12 @@ export const snapshotSafeOptionsFromRuntime = (
   const constraints = Option.map(Option.fromNullable(options.constraints), Arr.fromIterable)
 
   return constraints.pipe(
-    Option.filter((constraints) => Num.greaterThan(constraints.length, 0)),
+    Option.filter((constraints) => Num.greaterThan(Arr.length(constraints), 0)),
     Option.match({
       onNone: () => baseOptions,
       onSome: (constraints) => ({
         ...baseOptions,
-        constraintsCount: constraints.length
+        constraintsCount: Arr.length(constraints)
       })
     })
   )
@@ -296,7 +297,7 @@ export const validateOptions = (
       ),
       () =>
         Bool.or(
-          Bool.or(Bool.not(Number.isFinite(startup)), Bool.not(Number.isInteger(startup))),
+          Bool.or(Bool.not(isFinite(startup)), Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(startup))),
           Num.lessThan(startup, 0)
         )
     )
@@ -310,7 +311,7 @@ export const validateOptions = (
       ),
       () =>
         Bool.or(
-          Bool.or(Bool.not(Number.isFinite(candidates)), Bool.not(Number.isInteger(candidates))),
+          Bool.or(Bool.not(isFinite(candidates)), Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(candidates))),
           Num.lessThan(candidates, 1)
         )
     )
@@ -322,7 +323,7 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () => Bool.not(Number.isFinite(noiseAlpha))
+      () => Bool.not(isFinite(noiseAlpha))
     )
 
     yield* Effect.when(

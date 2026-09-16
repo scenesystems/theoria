@@ -87,15 +87,15 @@ export const tupleKey = (tupleInput: Iterable<Choice>): string => {
 
 export const enumerateChoiceTuples = (dimensionsInput: Iterable<CategoricalDimension>) => {
   const dimensions = Arr.fromIterable(dimensionsInput)
-  return Match.value(Num.lessThanOrEqualTo(dimensions.length, 0)).pipe(
-    Match.when(true, () => [emptyTuple()]),
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(dimensions), 0)).pipe(
+    Match.when(true, () => Arr.of(emptyTuple())),
     Match.orElse(() =>
       Arr.reduce<
         CategoricalDimension,
         typeof ChoiceTuples.Type
       >(
         dimensions,
-        [emptyTuple()],
+        Arr.of(emptyTuple()),
         (tuples, dimension) =>
           Arr.flatMap(tuples, (tuple) => Arr.map(dimension.choices, (choice) => appendChoice(tuple, choice)))
       )

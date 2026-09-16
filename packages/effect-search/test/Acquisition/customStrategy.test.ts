@@ -1,14 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Number as Num, Option } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+
 import * as Acquisition from "../../src/Acquisition.js"
 
 describe("tpe acquisition extension", () => {
   it.effect("dispatches built-in and custom acquisition scorers through a single contract", () =>
     Effect.sync(() => {
       const context = new Acquisition.Context({
-        logL: -0.4,
-        logG: -1.1,
+        logL: Num.negate(0.4),
+        logG: Num.negate(1.1),
         estimatedCost: Option.none(),
         roll: Option.some(0.62)
       })
@@ -21,9 +23,9 @@ describe("tpe acquisition extension", () => {
         Acquisition.make("magnified-gap", ({ logL, logG }) => Num.multiply(Num.subtract(logL, logG), 100))
       )
 
-      expect(Number.isFinite(ei)).toBe(true)
-      expect(Number.isFinite(pi)).toBe(true)
-      expect(Number.isFinite(thompson)).toBe(true)
+      expect(Numeric.isFinite(ei)).toBe(true)
+      expect(Numeric.isFinite(pi)).toBe(true)
+      expect(Numeric.isFinite(thompson)).toBe(true)
       expect(custom).toBeCloseTo(70, 12)
     }))
 })

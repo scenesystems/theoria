@@ -23,7 +23,7 @@ const resolveRequiredParameters = (
   const requiredParams = Arr.fromIterable(requiredParamsInput)
   return Arr.reduce(
     requiredParams,
-    Option.some<SearchSpace["params"]>([]),
+    Option.some<SearchSpace["params"]>(Arr.empty()),
     (resolved, name) =>
       Option.flatMap(resolved, (parameters) =>
         findParameter(space, name).pipe(
@@ -48,7 +48,7 @@ const includesRequiredParameters = (
 const excludedOnlyPartition = (trialsInput: Iterable<ConditionalTraceTrial>): ConditionalTracePartition => {
   const trials = Arr.fromIterable(trialsInput)
   return new ConditionalTracePartition({
-    included: [],
+    included: Arr.empty(),
     excluded: Arr.map(trials, (trial) => trial.trialNumber)
   })
 }
@@ -61,7 +61,7 @@ const partitionByParameters = (
   const requiredParameters = Arr.fromIterable(requiredParametersInput)
   return Arr.reduce(
     trials,
-    new ConditionalTracePartition({ included: [], excluded: [] }),
+    new ConditionalTracePartition({ included: Arr.empty(), excluded: Arr.empty() }),
     (partition, trial) =>
       Match.value(includesRequiredParameters(trial, requiredParameters)).pipe(
         Match.when(

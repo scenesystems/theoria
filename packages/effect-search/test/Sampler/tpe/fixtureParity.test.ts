@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Schema, String as Str } from "effect"
 
-import * as Float64 from "../../../src/internal/float64.js"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { sampleWeightedCategoricalCandidatesFromRolls } from "../../../src/internal/tpe/candidates.js"
 import { buildCategoricalParzen } from "../../../src/internal/tpe/categoricalParzen.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../src/internal/tpe/continuousParzen.js"
@@ -19,7 +19,7 @@ const SIGMA_TOLERANCE = 1e-10
 const SCORE_TOLERANCE = 1e-9
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
 const numberAt = (valuesInput: Iterable<number>, index: number): number => {
@@ -33,14 +33,18 @@ const asDistanceInput = (value: Option.Option<unknown>): number =>
     onSome: (present) =>
       Match.value(present).pipe(
         Match.when(Match.number, (numeric) => numeric),
-        Match.when(Match.boolean, (booleanValue) => (booleanValue ? 1 : 0)),
-        Match.when(Match.string, (text) => text.length),
+        Match.when(Match.boolean, (booleanValue) =>
+          Match.value(booleanValue).pipe(
+            Match.when(true, () => 1),
+            Match.orElse(() => 0)
+          )),
+        Match.when(Match.string, Str.length),
         Match.orElse(() => 0)
       )
   })
 
 const absoluteDistance = (left: unknown, right: unknown): number =>
-  Float64.abs(asDistanceInput(Option.fromNullable(left)) - asDistanceInput(Option.fromNullable(right)))
+  Numeric.abs(Num.subtract(asDistanceInput(Option.fromNullable(left)), asDistanceInput(Option.fromNullable(right))))
 
 describe("fixture-backed parity", () => {
   it.effect("replays categorical parzen probabilities, kernel weights, and candidate rolls", () =>
@@ -55,9 +59,10 @@ describe("fixture-backed parity", () => {
         fixtures,
         (fixture) =>
           Effect.gen(function*() {
-            const options = fixture.payload.distanceMetric === "absolute"
-              ? { distance: absoluteDistance }
-              : {}
+            const options = Match.value(fixture.payload.distanceMetric).pipe(
+              Match.when("absolute", () => ({ distance: absoluteDistance })),
+              Match.orElse(() => ({}))
+            )
             const parzen = yield* buildCategoricalParzen(
               fixture.payload.choices,
               fixture.payload.observations,
@@ -90,7 +95,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = yield* Option.fromNullable(parzen.kernels[kernelIndex])
+                  const actualKernel = yield* Arr.get(parzen.kernels, kernelIndex)
 
                   yield* Effect.forEach(
                     expectedKernel,
@@ -171,7 +176,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = yield* Option.fromNullable(parzen.kernels[kernelIndex])
+                  const actualKernel = yield* Arr.get(parzen.kernels, kernelIndex)
 
                   expectWithinTolerance(actualKernel.mean, expectedKernel.mean, SCORE_TOLERANCE)
                   expectWithinTolerance(actualKernel.sigma, expectedKernel.sigma, SIGMA_TOLERANCE)

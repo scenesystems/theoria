@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Schema } from "effect"
 
 import {
   diagonalGaussianLogDensity,
@@ -14,41 +14,41 @@ import { FixtureRegistryLive, loadFixture, MultivariateGaussianFixture } from ".
 const densityFixtures = Arr.make(
   {
     fixture: "multivariate-gaussian.standard-origin",
-    point: [0, 0],
-    mean: [0, 0],
-    sigmas: [1, 1],
-    expected: -1.8378770664093453
+    point: Arr.make(0, 0),
+    mean: Arr.make(0, 0),
+    sigmas: Arr.make(1, 1),
+    expected: Num.negate(1.8378770664093453)
   },
   {
     fixture: "multivariate-gaussian.unit-offset",
-    point: [1, -1],
-    mean: [0, 0],
-    sigmas: [1, 1],
-    expected: -2.8378770664093453
+    point: Arr.make(1, Num.negate(1)),
+    mean: Arr.make(0, 0),
+    sigmas: Arr.make(1, 1),
+    expected: Num.negate(2.8378770664093453)
   },
   {
     fixture: "multivariate-gaussian.asymmetric-sigma",
-    point: [0.25, -0.5],
-    mean: [0.5, -0.75],
-    sigmas: [0.2, 0.4],
-    expected: -0.28871092210109006
+    point: Arr.make(0.25, Num.negate(0.5)),
+    mean: Arr.make(0.5, Num.negate(0.75)),
+    sigmas: Arr.make(0.2, 0.4),
+    expected: Num.negate(0.28871092210109006)
   }
 )
 
 const samplingFixtures = Arr.make(
   {
     fixture: "multivariate-gaussian.sample.kernel-a",
-    mean: [0.5, -1],
-    sigmas: [0.2, 0.4],
-    rolls: [0.1, 0.9],
-    expected: [0.2436896868910798, -0.4873793737821596]
+    mean: Arr.make(0.5, Num.negate(1)),
+    sigmas: Arr.make(0.2, 0.4),
+    rolls: Arr.make(0.1, 0.9),
+    expected: Arr.make(0.2436896868910798, Num.negate(0.4873793737821596))
   },
   {
     fixture: "multivariate-gaussian.sample.kernel-b",
-    mean: [1.25, 0.75],
-    sigmas: [0.35, 0.15],
-    rolls: [0.6, 0.3],
-    expected: [1.33867148609753, 0.6713399230937939]
+    mean: Arr.make(1.25, 0.75),
+    sigmas: Arr.make(0.35, 0.15),
+    rolls: Arr.make(0.6, 0.3),
+    expected: Arr.make(1.33867148609753, 0.6713399230937939)
   }
 )
 
@@ -79,9 +79,9 @@ describe("multivariate gaussian parity", () => {
         Effect.sync(() => {
           const actual = sampleDiagonalGaussian(fixture.mean, fixture.sigmas, fixture.rolls)
 
-          expect(actual).toHaveLength(fixture.expected.length)
-          fixture.expected.forEach((expectedValue, index) => {
-            expect(actual[index]).toBeCloseTo(expectedValue, 12)
+          expect(actual).toHaveLength(Arr.length(fixture.expected))
+          Arr.forEach(fixture.expected, (expectedValue, index) => {
+            expect(Arr.get(actual, index).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(expectedValue, 12)
           })
         }),
       { discard: true }
@@ -90,21 +90,18 @@ describe("multivariate gaussian parity", () => {
   it.effect("replays deterministic mixture-sampling fixture", () =>
     Effect.sync(() => {
       const actual = sampleDiagonalGaussianMixture(
-        [
-          [0.2, -0.3],
-          [1.1, 0.6]
-        ],
-        [
-          [0.1, 0.2],
-          [0.3, 0.4]
-        ],
-        [0.75, 0.25],
+        Arr.make(Arr.make(0.2, Num.negate(0.3)), Arr.make(1.1, 0.6)),
+        Arr.make(Arr.make(0.1, 0.2), Arr.make(0.3, 0.4)),
+        Arr.make(0.75, 0.25),
         0.2,
-        [0.35, 0.7]
+        Arr.make(0.35, 0.7)
       )
 
-      expect(actual[0]).toBeCloseTo(0.16146795335924322, 12)
-      expect(actual[1]).toBeCloseTo(-0.1951198974583919, 12)
+      expect(Arr.get(actual, 0).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(0.16146795335924322, 12)
+      expect(Arr.get(actual, 1).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(
+        Num.negate(0.1951198974583919),
+        12
+      )
     }))
 
   it.effect("replays fixture-backed FM-14 multivariate gaussian parity", () =>
@@ -143,9 +140,9 @@ describe("multivariate gaussian parity", () => {
           Effect.sync(() => {
             const sample = sampleDiagonalGaussian(entry.mean, entry.sigmas, entry.rolls)
 
-            expect(sample).toHaveLength(entry.expectedSample.length)
-            entry.expectedSample.forEach((expectedValue, index) => {
-              expect(sample[index]).toBeCloseTo(expectedValue, 12)
+            expect(sample).toHaveLength(Arr.length(entry.expectedSample))
+            Arr.forEach(entry.expectedSample, (expectedValue, index) => {
+              expect(Arr.get(sample, index).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(expectedValue, 12)
             })
           }),
         { discard: true }
@@ -161,8 +158,8 @@ describe("multivariate gaussian parity", () => {
       )
 
       yield* Effect.sync(() => {
-        mixture.expectedSample.forEach((expectedValue, index) => {
-          expect(sample[index]).toBeCloseTo(expectedValue, 12)
+        Arr.forEach(mixture.expectedSample, (expectedValue, index) => {
+          expect(Arr.get(sample, index).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(expectedValue, 12)
         })
         expect(diagonalGaussianMixtureLogDensity(sample, mixture.means, mixture.sigmas, mixture.weights)).toBeCloseTo(
           mixture.expectedLogDensity,

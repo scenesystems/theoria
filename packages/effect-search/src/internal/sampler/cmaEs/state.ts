@@ -8,7 +8,7 @@ import { Array as Arr, Data, Match, Number as Num, Option, Order } from "effect"
 
 import type { Vector } from "../../../Objective.js"
 
-import * as Float64 from "../../float64.js"
+import { exp } from "../../exponential.js"
 import { l2Norm } from "../math.js"
 
 /**
@@ -180,7 +180,7 @@ const weightedEliteMean = (
   const weights = Arr.fromIterable(weightsInput)
   return Arr.makeBy(dimension, (index) =>
     Arr.reduce(
-      Arr.makeBy(elite.length, (position) => position),
+      Arr.makeBy(Arr.length(elite), (position) => position),
       0,
       (sum, position) => {
         const weight = Arr.get(weights, position).pipe(Option.getOrElse(() => 0))
@@ -246,7 +246,7 @@ export const updateState = (
       )
   )
   const normPSigma = l2Norm(pSigma)
-  const sigmaScale = Float64.exp(Num.multiply(
+  const sigmaScale = exp(Num.multiply(
     Num.unsafeDivide(constants.cSigma, constants.dSigma),
     Num.decrement(Num.unsafeDivide(normPSigma, constants.expectedNorm))
   ))
@@ -283,7 +283,7 @@ export const updateState = (
   const covarianceDiag = Arr.makeBy(dimension, (index) => {
     const rankOne = Num.multiply(numericValueAt(pC, index), numericValueAt(pC, index))
     const rankMu = Arr.reduce(
-      Arr.makeBy(selectedElite.length, (position) => position),
+      Arr.makeBy(Arr.length(selectedElite), (position) => position),
       0,
       (sum, position) => {
         const observation = Arr.get(selectedElite, position).pipe(

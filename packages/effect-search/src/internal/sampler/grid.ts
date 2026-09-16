@@ -7,7 +7,7 @@ import { Boolean as Bool, Effect, Equal, Match, Option } from "effect"
 
 import type { Context, PendingPolicy } from "../../Sampler.js"
 import * as Sampler from "../../Sampler.js"
-import { InvalidStudyConfig } from "../../SearchError.js"
+import { InvalidOptimizationConfig } from "../../SearchError.js"
 import type * as SearchSpace from "../../SearchSpace.js"
 import { enumerateGrid } from "../grid.js"
 import { configAtCursor } from "./grid/cursor.js"
@@ -19,7 +19,7 @@ const restoreCheckpoint = (
   seed: number,
   shuffle: boolean,
   checkpoint: Sampler.Checkpoint
-): Effect.Effect<void, InvalidStudyConfig> =>
+): Effect.Effect<void, InvalidOptimizationConfig> =>
   Match.value(checkpoint).pipe(
     Match.tag("Grid", ({ seed: checkpointSeed, shuffle: checkpointShuffle }) =>
       Match.value(Bool.and(Equal.equals(seed, checkpointSeed), Equal.equals(shuffle, checkpointShuffle))).pipe(
@@ -27,17 +27,17 @@ const restoreCheckpoint = (
           Effect.void),
         Match.orElse(() =>
           Effect.fail(
-            new InvalidStudyConfig({
+            new InvalidOptimizationConfig({
               reason:
-                `Study.resume grid sampler checkpoint mismatch: expected { seed: ${seed}, shuffle: ${shuffle} }, received { seed: ${checkpointSeed}, shuffle: ${checkpointShuffle} }`
+                `Optimization.resume grid sampler checkpoint mismatch: expected { seed: ${seed}, shuffle: ${shuffle} }, received { seed: ${checkpointSeed}, shuffle: ${checkpointShuffle} }`
             })
           )
         )
       )),
     Match.orElse((resolved) =>
       Effect.fail(
-        new InvalidStudyConfig({
-          reason: `Study.resume grid sampler checkpoint tag mismatch: expected Grid, received ${resolved._tag}`
+        new InvalidOptimizationConfig({
+          reason: `Optimization.resume grid sampler checkpoint tag mismatch: expected Grid, received ${resolved._tag}`
         })
       )
     )

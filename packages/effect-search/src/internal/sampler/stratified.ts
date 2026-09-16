@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { truncate } from "@scenesystems/effect-math/Numeric"
+import { isFinite, truncate } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Chunk, Data, HashMap, Match, Number as Num, Option } from "effect"
 
 import type { StratifiedRoundRobinOptions } from "../../Sampler.js"
@@ -16,7 +16,7 @@ class SelectionState<Bucket, A> extends Data.Class<{
 }> {}
 
 const normalizeTargetSize = (targetSize: number): number => {
-  const finite = Match.value(Number.isFinite(targetSize)).pipe(
+  const finite = Match.value(isFinite(targetSize)).pipe(
     Match.when(true, () => truncate(targetSize)),
     Match.orElse(() => 0)
   )
@@ -37,7 +37,7 @@ const availableCount = <Bucket, A>(
   bucketOrderInput: Iterable<Bucket>
 ): number => {
   const bucketOrder = Arr.fromIterable(bucketOrderInput)
-  return Arr.reduce(bucketOrder, 0, (total, bucket) => Num.sum(total, bucketValues(buckets, bucket).length))
+  return Arr.reduce(bucketOrder, 0, (total, bucket) => Num.sum(total, Chunk.size(bucketValues(buckets, bucket))))
 }
 
 const seedBuckets = <Bucket, A>(
@@ -90,19 +90,19 @@ const selectRoundRobin = <Bucket, A>(
 ): SelectionState<Bucket, A> => {
   const bucketOrder = Arr.fromIterable(bucketOrderInput)
   return Arr.reduce(
-    buildIndices(roundRobinStepCount(targetSize, bucketOrder.length)),
+    buildIndices(roundRobinStepCount(targetSize, Arr.length(bucketOrder))),
     initialState,
     (currentState) =>
       Match.value(
         Bool.or(
-          Num.greaterThanOrEqualTo(currentState.selected.length, targetSize),
+          Num.greaterThanOrEqualTo(Chunk.size(currentState.selected), targetSize),
           Num.lessThanOrEqualTo(availableCount(currentState.buckets, bucketOrder), 0)
         )
       ).pipe(
         Match.when(true, () => currentState),
         Match.orElse(() =>
           Option.match(
-            Arr.get(bucketOrder, Num.remainder(currentState.cursor, bucketOrder.length)).pipe(
+            Arr.get(bucketOrder, Num.remainder(currentState.cursor, Arr.length(bucketOrder))).pipe(
               Option.orElse(() => Arr.head(bucketOrder))
             ),
             {
@@ -140,7 +140,7 @@ export const sampleStratifiedRoundRobin = <Bucket, A>(
   )
 
   return Match.value(Bool.or(
-    Num.lessThanOrEqualTo(options.bucketOrder.length, 0),
+    Num.lessThanOrEqualTo(Chunk.size(options.bucketOrder), 0),
     Num.lessThanOrEqualTo(targetSize, 0)
   )).pipe(
     Match.when(true, Chunk.empty<A>),

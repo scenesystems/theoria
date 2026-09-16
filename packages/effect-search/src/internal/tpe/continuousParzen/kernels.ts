@@ -38,8 +38,8 @@ export const normalizedKernelWeights = (observationCount: number) => {
 
   return Match.value(Num.lessThanOrEqualTo(totalWeight, 0)).pipe(
     Match.when(true, () => {
-      const uniform = Num.unsafeDivide(1, Num.max(kernelWeights.length, 1))
-      return Arr.makeBy(kernelWeights.length, () => uniform)
+      const uniform = Num.unsafeDivide(1, Num.max(Arr.length(kernelWeights), 1))
+      return Arr.makeBy(Arr.length(kernelWeights), () => uniform)
     }),
     Match.orElse(() => Arr.map(kernelWeights, (weight) => Num.unsafeDivide(weight, totalWeight)))
   )
@@ -74,7 +74,7 @@ export const observationSigmas = (
   })
 
   const endpointAdjustedSigmas = Match.value(
-    Bool.and(Bool.not(useEndpoints), Num.greaterThanOrEqualTo(sortedMeansWithEndpoints.length, 4))
+    Bool.and(Bool.not(useEndpoints), Num.greaterThanOrEqualTo(Arr.length(sortedMeansWithEndpoints), 4))
   ).pipe(
     Match.when(true, () =>
       Arr.map(sortedSigmas, (sigma, index) =>
@@ -83,10 +83,10 @@ export const observationSigmas = (
             0,
             () => Num.subtract(valueAt(sortedMeansWithEndpoints, 2, high), valueAt(sortedMeansWithEndpoints, 1, low))
           ),
-          Match.when(Num.decrement(sortedSigmas.length), () =>
+          Match.when(Num.decrement(Arr.length(sortedSigmas)), () =>
             Num.subtract(
-              valueAt(sortedMeansWithEndpoints, Num.subtract(sortedMeansWithEndpoints.length, 2), high),
-              valueAt(sortedMeansWithEndpoints, Num.subtract(sortedMeansWithEndpoints.length, 3), low)
+              valueAt(sortedMeansWithEndpoints, Num.subtract(Arr.length(sortedMeansWithEndpoints), 2), high),
+              valueAt(sortedMeansWithEndpoints, Num.subtract(Arr.length(sortedMeansWithEndpoints), 3), low)
             )),
           Match.orElse(() => sigma)
         ))),
@@ -95,7 +95,7 @@ export const observationSigmas = (
 
   return Arr.map(observations, (_unused, observationIndex) => {
     const sortedIndex = HashMap.get(sortedPositionLookup, observationIndex).pipe(
-      Option.getOrElse(() => -1)
+      Option.getOrElse(() => Num.negate(1))
     )
 
     return valueAt(endpointAdjustedSigmas, sortedIndex, Num.subtract(high, low))
@@ -111,25 +111,25 @@ const positiveKernelWeight = (kernel: ContinuousKernel): number =>
 const cumulativeKernelWeights = (kernelsInput: Iterable<ContinuousKernel>) => {
   const kernels = Arr.fromIterable(kernelsInput)
   return Arr.reduce(kernels, Arr.empty<number>(), (acc, kernel) => {
-    const last = valueAt(acc, Num.decrement(acc.length), 0)
+    const last = valueAt(acc, Num.decrement(Arr.length(acc)), 0)
     return Arr.append(acc, Num.sum(last, positiveKernelWeight(kernel)))
   })
 }
 
 export const chooseKernelIndex = (parzen: ContinuousParzen, roll: number): number => {
   const cumulative = cumulativeKernelWeights(parzen.kernels)
-  const totalWeight = valueAt(cumulative, Num.decrement(cumulative.length), 0)
+  const totalWeight = valueAt(cumulative, Num.decrement(Arr.length(cumulative)), 0)
   const clampedRoll = Num.clamp(roll, {
     minimum: 0,
     maximum: 1
   })
   const target = Num.multiply(clampedRoll, totalWeight)
   const index = Arr.findFirstIndex(cumulative, (value) => Num.greaterThanOrEqualTo(value, target)).pipe(
-    Option.getOrElse(() => -1)
+    Option.getOrElse(() => Num.negate(1))
   )
 
   return Match.value(Num.lessThan(index, 0)).pipe(
-    Match.when(true, () => Num.max(Num.decrement(parzen.kernels.length), 0)),
+    Match.when(true, () => Num.max(Num.decrement(Arr.length(parzen.kernels)), 0)),
     Match.orElse(() => index)
   )
 }

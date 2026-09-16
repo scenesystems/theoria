@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Tuple } from "effect"
 
 import * as Rng from "../../internal/rng.js"
 import { argmax } from "../../internal/tpe/expectedImprovement.js"
@@ -13,7 +13,7 @@ import { invalidConfig } from "./options.js"
 
 const indices = (count: number) =>
   Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
-    Match.when(true, () => []),
+    Match.when(true, () => Arr.empty()),
     Match.orElse(() => Arr.makeBy(count, (index) => index))
   )
 
@@ -36,7 +36,7 @@ export const chooseBestCandidate = <A>(
   const candidates = Arr.fromIterable(candidatesInput)
   const scores = Arr.fromIterable(scoresInput)
 
-  const bestIndex = argmax([...scores])
+  const bestIndex = argmax(scores)
 
   return Arr.get(candidates, bestIndex).pipe(
     Option.match({
@@ -77,6 +77,6 @@ export const drawRollPairs = (
   count: number
 ) =>
   Effect.forEach(indices(count), () =>
-    Effect.all([Rng.nextFloat(rng), Rng.nextFloat(rng)]).pipe(
+    Effect.all(Tuple.make(Rng.nextFloat(rng), Rng.nextFloat(rng))).pipe(
       Effect.map(([kernelRoll, valueRoll]) => makeCandidateRollPair(kernelRoll, valueRoll))
     ))

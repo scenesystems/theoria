@@ -1,6 +1,5 @@
+import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Schema } from "effect"
-
-import * as Float64 from "../float64.js"
 
 export const ExpectedImprovementScoreSchema = Schema.Number
 
@@ -12,7 +11,7 @@ export const expectedImprovementScore = (
 ): ExpectedImprovementScore => Num.subtract(logL, logG)
 
 const finitePositiveCost = (estimatedCost: number): boolean =>
-  Bool.and(Number.isFinite(estimatedCost), Num.greaterThan(estimatedCost, 0))
+  Bool.and(isFinite(estimatedCost), Num.greaterThan(estimatedCost, 0))
 
 export const scoreWithEstimatedCost = (
   score: ExpectedImprovementScore,
@@ -22,7 +21,7 @@ export const scoreWithEstimatedCost = (
     Option.filter(finitePositiveCost),
     Option.match({
       onNone: () => score,
-      onSome: (cost) => Num.subtract(score, Float64.log(cost))
+      onSome: (cost) => Num.subtract(score, logStrict(cost))
     })
   )
 

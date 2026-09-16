@@ -46,7 +46,7 @@ const shuffledGridConfigs = (
     const rng = Rng.make(seed)
     const output = Arr.fromIterable(configs)
 
-    return yield* shuffleAtIndex(output, Num.decrement(output.length), rng)
+    return yield* shuffleAtIndex(output, Num.decrement(Arr.length(output)), rng)
   })
 }
 

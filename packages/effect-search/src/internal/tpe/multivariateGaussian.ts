@@ -1,4 +1,4 @@
-import { logStrict, logSumExp, pow } from "@scenesystems/effect-math/Numeric"
+import { isFinite, logStrict, logSumExp, pow } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Chunk, Equal, Match, Number as Num, Option } from "effect"
 
 import type { Vector } from "../../Objective.js"
@@ -14,14 +14,14 @@ const valueAt = (valuesInput: Iterable<number>, index: number, fallback: number)
 }
 
 const validSigma = (sigma: number): number =>
-  Match.value(Bool.and(Number.isFinite(sigma), Num.greaterThan(sigma, 0))).pipe(
+  Match.value(Bool.and(isFinite(sigma), Num.greaterThan(sigma, 0))).pipe(
     Match.when(true, () => sigma),
     Match.when(false, () => minimumScale),
     Match.exhaustive
   )
 
 const validWeight = (weight: number): number =>
-  Match.value(Bool.and(Number.isFinite(weight), Num.greaterThan(weight, 0))).pipe(
+  Match.value(Bool.and(isFinite(weight), Num.greaterThan(weight, 0))).pipe(
     Match.when(true, () => weight),
     Match.when(false, () => 0),
     Match.exhaustive
@@ -29,7 +29,7 @@ const validWeight = (weight: number): number =>
 
 const validProbability = (roll: number): number =>
   Num.clamp(
-    Match.value(Number.isFinite(roll)).pipe(
+    Match.value(isFinite(roll)).pipe(
       Match.when(true, () => roll),
       Match.when(false, () => 0.5),
       Match.exhaustive
@@ -48,7 +48,10 @@ const hasMatchingDimensions = (
   const point = Arr.fromIterable(pointInput)
   const mean = Arr.fromIterable(meanInput)
   const sigmas = Arr.fromIterable(sigmasInput)
-  return Bool.and(Equal.equals(point.length, mean.length), Equal.equals(mean.length, sigmas.length))
+  return Bool.and(
+    Equal.equals(Arr.length(point), Arr.length(mean)),
+    Equal.equals(Arr.length(mean), Arr.length(sigmas))
+  )
 }
 
 const componentAt = (
@@ -62,7 +65,7 @@ const componentAt = (
 const cumulativeWeights = (weightsInput: Iterable<number>) => {
   const weights = Arr.fromIterable(weightsInput)
   return Arr.reduce(weights, Arr.empty<number>(), (accumulator, weight) => {
-    const previous = valueAt(accumulator, Num.decrement(accumulator.length), 0)
+    const previous = valueAt(accumulator, Num.decrement(Arr.length(accumulator)), 0)
     return Arr.append(accumulator, Num.sum(previous, weight))
   })
 }
@@ -90,16 +93,16 @@ const normalizeWeights = (
 
 const chooseComponentIndex = (weightsInput: Iterable<number>, componentRoll: number): number => {
   const weights = Arr.fromIterable(weightsInput)
-  return Match.value(Num.lessThanOrEqualTo(weights.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(weights), 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() => {
       const cumulative = cumulativeWeights(weights)
       const index = Arr.findFirstIndex(
         cumulative,
         (weight) => Num.greaterThanOrEqualTo(weight, validProbability(componentRoll))
-      ).pipe(Option.getOrElse(() => Num.decrement(weights.length)))
+      ).pipe(Option.getOrElse(() => Num.decrement(Arr.length(weights))))
 
-      return Num.clamp(index, { minimum: 0, maximum: Num.decrement(weights.length) })
+      return Num.clamp(index, { minimum: 0, maximum: Num.decrement(Arr.length(weights)) })
     })
   )
 }
@@ -145,7 +148,7 @@ export const diagonalGaussianMixtureLogDensity = (
   const sigmas = Arr.fromIterable(sigmasInput)
   const weights = Arr.fromIterable(weightsInput)
 
-  const componentCount = means.length
+  const componentCount = Arr.length(means)
   const normalizedWeights = normalizeWeights(componentCount, weights)
   const componentLogDensities = Arr.makeBy(componentCount, (index) => {
     const mean = componentAt(means, index)
@@ -193,7 +196,7 @@ export const sampleDiagonalGaussianMixture = (
   const weights = Arr.fromIterable(weightsInput)
   const valueRolls = Arr.fromIterable(valueRollsInput)
 
-  const normalizedWeights = normalizeWeights(means.length, weights)
+  const normalizedWeights = normalizeWeights(Arr.length(means), weights)
   const componentIndex = chooseComponentIndex(normalizedWeights, componentRoll)
 
   return sampleDiagonalGaussian(componentAt(means, componentIndex), componentAt(sigmas, componentIndex), valueRolls)
@@ -201,7 +204,7 @@ export const sampleDiagonalGaussianMixture = (
 
 export const scottsFactor = (sampleCount: number, dimensions: number): number =>
   Match.value(Bool.and(Num.greaterThan(sampleCount, 0), Num.greaterThan(dimensions, 0))).pipe(
-    Match.when(true, () => pow(sampleCount, Num.unsafeDivide(-1, Num.sum(dimensions, 4)))),
+    Match.when(true, () => pow(sampleCount, Num.unsafeDivide(Num.negate(1), Num.sum(dimensions, 4)))),
     Match.when(false, () => 1),
     Match.exhaustive
   )

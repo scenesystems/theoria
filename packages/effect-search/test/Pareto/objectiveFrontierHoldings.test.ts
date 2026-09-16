@@ -18,7 +18,7 @@ describe("Pareto objective frontier holdings", () => {
         Arr.make(Direction.maximize, Direction.maximize, Direction.maximize)
       )
 
-      expect(holdings).toEqual([
+      expect(holdings).toEqual(Arr.make(
         new Pareto.Holding({
           objectiveIndex: 0,
           bestValue: 0.8,
@@ -34,7 +34,7 @@ describe("Pareto objective frontier holdings", () => {
           bestValue: 0.6,
           holders: Arr.make(0)
         })
-      ])
+      ))
     }))
 
   it.effect("defaults to minimize-direction holdings when directions are omitted", () =>
@@ -48,7 +48,7 @@ describe("Pareto objective frontier holdings", () => {
       )
       const holdings = Pareto.objectiveFrontierHoldings(points)
 
-      expect(holdings).toEqual([
+      expect(holdings).toEqual(Arr.make(
         new Pareto.Holding({
           objectiveIndex: 0,
           bestValue: 1,
@@ -59,12 +59,12 @@ describe("Pareto objective frontier holdings", () => {
           bestValue: 1,
           holders: Arr.make(2)
         })
-      ])
+      ))
     }))
 
   it.effect("returns an empty holdings vector for an empty point set", () =>
     Effect.sync(() => {
-      expect(Pareto.objectiveFrontierHoldings(Arr.empty<Vector>())).toEqual([])
+      expect(Pareto.objectiveFrontierHoldings(Arr.empty<Vector>())).toEqual(Arr.empty())
     }))
 
   it.effect("derives per-candidate weights from objective frontier holdings", () =>
@@ -77,11 +77,11 @@ describe("Pareto objective frontier holdings", () => {
 
       expect(
         Pareto.objectiveFrontierWeights(points, Arr.make(Direction.maximize, Direction.maximize, Direction.maximize))
-      ).toEqual([
+      ).toEqual(Arr.make(
         new Pareto.HoldingWeight({ candidateIndex: 0, weight: 2 }),
         new Pareto.HoldingWeight({ candidateIndex: 1, weight: 1 }),
         new Pareto.HoldingWeight({ candidateIndex: 2, weight: 2 })
-      ])
+      ))
     }))
 
   it.effect("exposes dominated-index complements and maximize direction helpers", () =>

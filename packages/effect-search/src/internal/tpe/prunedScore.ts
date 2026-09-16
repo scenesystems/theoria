@@ -1,3 +1,4 @@
+import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
 import type { Direction } from "../../Direction.js"
@@ -40,7 +41,7 @@ const directionalScore = (direction: Direction, value: number): number =>
   )
 
 const finiteScore = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
+  Match.value(isFinite(value)).pipe(
     Match.when(true, () => value),
     Match.orElse(() => Number.POSITIVE_INFINITY)
   )
@@ -54,7 +55,7 @@ export const prunedTrialScore = (
     Option.match({
       onNone: () =>
         new PrunedTrialScore({
-          step: -1,
+          step: Num.negate(1),
           value: Number.POSITIVE_INFINITY
         }),
       onSome: (latest) =>

@@ -1,11 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, FastCheck as fc } from "effect"
+import { Array as Arr, Effect, FastCheck as fc, Number as Num, Option } from "effect"
 
 import { buildCategoricalParzen } from "../../../src/internal/tpe/categoricalParzen.js"
 
-const sum = (values: ReadonlyArray<number>) => values.reduce((total, value) => total + value, 0)
+const sum = (values: Iterable<number>) => Arr.reduce(values, 0, Num.sum)
 
-const valueAt = (values: ReadonlyArray<string>, index: number) => values[index] ?? values[0] ?? "fallback"
+const valueAt = (values: Iterable<string>, index: number) => {
+  const entries = Arr.fromIterable(values)
+  return Arr.get(entries, index).pipe(Option.orElse(() => Arr.head(entries)), Option.getOrElse(() => "fallback"))
+}
 
 describe("property tests for categorical parzen", () => {
   it.effect.prop(
@@ -16,13 +19,14 @@ describe("property tests for categorical parzen", () => {
     },
     ({ choices, observationIndices }) =>
       Effect.gen(function*() {
-        const observations = observationIndices.map((index) => valueAt(choices, index % choices.length))
+        const observations = Arr.map(observationIndices, (index) =>
+          valueAt(choices, Num.remainder(index, Arr.length(choices))))
         const distribution = yield* buildCategoricalParzen(choices, observations)
 
-        expect(distribution.probabilities).toHaveLength(choices.length)
+        expect(distribution.probabilities).toHaveLength(Arr.length(choices))
         expect(sum(distribution.probabilities)).toBeCloseTo(1, 12)
 
-        distribution.probabilities.forEach((probability) => {
+        Arr.forEach(distribution.probabilities, (probability) => {
           expect(probability).toBeGreaterThan(0)
         })
       })

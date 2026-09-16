@@ -3,13 +3,13 @@
  *
  * @since 0.1.0
  */
-import { logStrict } from "@scenesystems/effect-math/Numeric"
+import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Effect, Equal, Match, Number as Num, Option, Predicate } from "effect"
 
 import type { Distribution } from "../../Distribution.js"
 import type { SamplerConfig } from "../../internal/configAccess.js"
 import { valueFromConfig } from "../../internal/configAccess.js"
-import * as Float64 from "../../internal/float64.js"
+import { exp } from "../../internal/exponential.js"
 import { SamplerSearchSpaceUnsupported } from "../../SearchError.js"
 import type * as SearchSpace from "../../SearchSpace.js"
 
@@ -65,7 +65,7 @@ const validateNumericBounds = (
       Effect.gen(function*() {
         yield* Effect.when(
           unsupported(sampler, "requires finite numeric bounds", dimension.name, distribution.type),
-          () => Bool.or(Bool.not(Number.isFinite(low)), Bool.not(Number.isFinite(high)))
+          () => Bool.or(Bool.not(isFinite(low)), Bool.not(isFinite(high)))
         )
         yield* Effect.when(
           unsupported(sampler, "requires high > low for each dimension", dimension.name, distribution.type),
@@ -84,7 +84,7 @@ const validateNumericBounds = (
       Effect.gen(function*() {
         yield* Effect.when(
           unsupported(sampler, "requires finite numeric bounds", dimension.name, distribution.type),
-          () => Bool.or(Bool.not(Number.isFinite(low)), Bool.not(Number.isFinite(high)))
+          () => Bool.or(Bool.not(isFinite(low)), Bool.not(isFinite(high)))
         )
         yield* Effect.when(
           unsupported(sampler, "requires high > low for each dimension", dimension.name, distribution.type),
@@ -129,7 +129,7 @@ export const continuousDimensionsFromSpace = (
       )
   ).pipe(
     Effect.filterOrElse(
-      (dimensions) => Num.greaterThan(dimensions.length, 0),
+      (dimensions) => Num.greaterThan(Arr.length(dimensions), 0),
       () => unsupported(sampler, "requires at least one continuous dimension")
     )
   )
@@ -174,7 +174,7 @@ const denormalizeValueForDimension = (dimension: ContinuousDimension, normalized
         Match.when("log", () => {
           const logLow = logStrict(low)
           const logHigh = logStrict(high)
-          return Float64.exp(Num.sum(logLow, Num.multiply(clamped, Num.subtract(logHigh, logLow))))
+          return exp(Num.sum(logLow, Num.multiply(clamped, Num.subtract(logHigh, logLow))))
         }),
         Match.orElse(() => Num.sum(low, Num.multiply(clamped, Num.subtract(high, low))))
       )
@@ -210,7 +210,7 @@ export const normalizedVectorFromConfig = (
       Option.flatMap(accumulator, (accumulated) =>
         valueFromConfig(config, dimension.name).pipe(
           Option.filter(Predicate.isNumber),
-          Option.filter(Number.isFinite),
+          Option.filter(isFinite),
           Option.map((value) => Arr.append(accumulated, normalizeValueForDimension(dimension, value)))
         ))
   )
@@ -250,5 +250,5 @@ export const denormalizeVector = (
  */
 export const normalizedCenter = (dimensionsInput: Iterable<ContinuousDimension>) => {
   const dimensions = Arr.fromIterable(dimensionsInput)
-  return Arr.makeBy(dimensions.length, () => 0.5)
+  return Arr.makeBy(Arr.length(dimensions), () => 0.5)
 }

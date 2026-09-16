@@ -74,7 +74,7 @@ const dimensionLength = (pointsInput: Iterable<Vector>): number => {
   return Arr.head(points).pipe(
     Option.match({
       onNone: () => 0,
-      onSome: (point) => point.length
+      onSome: Arr.length
     })
   )
 }
@@ -122,11 +122,11 @@ const normalizeContributions = (contributionsInput: Iterable<number>): Weights =
  */
 export const computeReferencePoint = (
   pointsInput: Iterable<Vector>,
-  directionsInput: Iterable<Direction> = []
+  directionsInput: Iterable<Direction> = Arr.empty()
 ): Vector => {
   const points = Arr.fromIterable(pointsInput)
   const directions = Arr.fromIterable(directionsInput)
-  return Match.value(Num.lessThanOrEqualTo(points.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(points), 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => {
       const lossPoints = Arr.map(points, (point) => toLossSpace(point, directions))
@@ -151,11 +151,11 @@ export const computeReferencePoint = (
 export const computeMultiObjectiveWeights = (
   pointsInput: Iterable<Vector>,
   referencePoint?: Vector,
-  directionsInput: Iterable<Direction> = []
+  directionsInput: Iterable<Direction> = Arr.empty()
 ): Weights => {
   const points = Arr.fromIterable(pointsInput)
   const directions = Arr.fromIterable(directionsInput)
-  return Match.value(Num.lessThanOrEqualTo(points.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(points), 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => {
       const lossPoints = Arr.map(points, (point) => toLossSpace(point, directions))
@@ -166,7 +166,7 @@ export const computeMultiObjectiveWeights = (
         })
       )
 
-      return Match.value(Equal.equals(lossReference.length, 2)).pipe(
+      return Match.value(Equal.equals(Arr.length(lossReference), 2)).pipe(
         Match.when(true, () => normalizeContributions(hypervolumeContribution2d(lossPoints, lossReference))),
         Match.orElse(() => Arr.map(points, () => 1))
       )

@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Boolean as Bool, Effect, Number as Num, Option } from "effect"
 
 import type { CmaEsOptions } from "../../../Sampler.js"
@@ -77,11 +78,11 @@ export const validateOptions = (options: CmaEsOptions): Effect.Effect<void, Inva
 
     yield* Effect.when(
       Effect.fail(invalidConfig("cma-es sampler requires sigma to be finite and > 0")),
-      () => Bool.or(Bool.not(Number.isFinite(sigma)), Num.lessThanOrEqualTo(sigma, 0))
+      () => Bool.or(Bool.not(isFinite(sigma)), Num.lessThanOrEqualTo(sigma, 0))
     )
 
     yield* Effect.when(
       Effect.fail(invalidConfig("cma-es sampler requires populationSize to be finite and >= 2")),
-      () => Bool.or(Bool.not(Number.isFinite(populationSize)), Num.lessThan(populationSize, 2))
+      () => Bool.or(Bool.not(isFinite(populationSize)), Num.lessThan(populationSize, 2))
     )
   })

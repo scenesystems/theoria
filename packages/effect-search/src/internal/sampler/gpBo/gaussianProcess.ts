@@ -14,7 +14,7 @@ import { Array as Arr, Chunk, Data, Match, Number as Num, Option } from "effect"
 
 import type { Vector } from "../../../Objective.js"
 
-import * as Float64 from "../../float64.js"
+import { exp } from "../../exponential.js"
 import { dotProduct, squaredDistance } from "../math.js"
 
 /**
@@ -41,7 +41,7 @@ const varianceFloor = 1e-12
 const rbfKernel = (leftInput: Iterable<number>, rightInput: Iterable<number>, lengthScale: number): number => {
   const left = Arr.fromIterable(leftInput)
   const right = Arr.fromIterable(rightInput)
-  return Float64.exp(
+  return exp(
     Num.negate(
       Num.unsafeDivide(
         squaredDistance(left, right),
@@ -57,9 +57,9 @@ const buildKernelMatrix = (
   noise: number
 ): Chunk.Chunk<number> => {
   const observations = Arr.fromIterable(observationsInput)
-  return Chunk.makeBy(Num.multiply(observations.length, observations.length), (flatIndex) => {
-    const row = floor(Num.unsafeDivide(flatIndex, observations.length))
-    const column = Num.remainder(flatIndex, observations.length)
+  return Chunk.makeBy(Num.multiply(Arr.length(observations), Arr.length(observations)), (flatIndex) => {
+    const row = floor(Num.unsafeDivide(flatIndex, Arr.length(observations)))
+    const column = Num.remainder(flatIndex, Arr.length(observations))
     const rowVector = Arr.get(observations, row).pipe(
       Option.map((observation) => observation.vector),
       Option.getOrElse(() => Arr.empty<number>())
@@ -104,10 +104,10 @@ export const buildPosterior = (
   noise: number
 ): Option.Option<PosteriorModel> => {
   const observations = Arr.fromIterable(observationsInput)
-  return Match.value(Num.lessThanOrEqualTo(observations.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(observations), 0)).pipe(
     Match.when(true, () => Option.none()),
     Match.orElse(() => {
-      const size = observations.length
+      const size = Arr.length(observations)
       const kernel = buildKernelMatrix(observations, lengthScale, noise)
       const rhs = Chunk.fromIterable(Arr.map(observations, (observation) => observation.value))
 
@@ -156,7 +156,7 @@ export const predictPosterior = (
   const mean = dotProduct(crossCovariance, model.alpha)
   const variance = forwardSubstitutionLower(
     model.lower,
-    model.observations.length,
+    Chunk.size(model.observations),
     Chunk.fromIterable(crossCovariance)
   ).pipe(
     Option.match({

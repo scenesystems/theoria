@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Schema } from "effect"
 
 import type { Direction } from "../../../src/Direction.js"
 import { PrunedIntermediateValue, prunedTrialScore } from "../../../src/internal/tpe/prunedScore.js"
@@ -23,14 +23,15 @@ const optionalTraceValueToNumber = (
 
 const directionalScore = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => -value),
+    Match.when("maximize", () => Num.negate(value)),
     Match.orElse(() => value)
   )
 
 const normalizedIntermediateValues = (
   trial: SplitFixtureTrial
 ) =>
-  trial.intermediateValues.map(
+  Arr.map(
+    trial.intermediateValues,
     (entry) =>
       new PrunedIntermediateValue({
         step: entry.step,
@@ -50,7 +51,7 @@ const splitTrialFromFixture = (
             trialNumber: trial.trialNumber,
             config: { trialNumber: trial.trialNumber, state: trial.state },
             value: directionalScore(direction, value),
-            sortStep: -1
+            sortStep: Num.negate(1)
           })
         )
       )),
@@ -61,7 +62,7 @@ const splitTrialFromFixture = (
             trialNumber: trial.trialNumber,
             config: { trialNumber: trial.trialNumber, state: trial.state },
             value: directionalScore(direction, value),
-            sortStep: -1
+            sortStep: Num.negate(1)
           })
         )
       )),
@@ -85,14 +86,13 @@ const splitTrialsFromFixtureCase = (
   trialsInput: Iterable<SplitFixtureTrial>
 ) => {
   const trials = Arr.fromIterable(trialsInput)
-  return trials.flatMap((trial) =>
+  return Arr.flatMap(trials, (trial) =>
     splitTrialFromFixture(direction, trial).pipe(
       Option.match({
-        onNone: () => [],
-        onSome: (resolved) => [resolved]
+        onNone: () => Arr.empty<CompletedTrialForSplit>(),
+        onSome: Arr.of
       })
-    )
-  )
+    ))
 }
 
 const makeTrial = (trialNumber: number, value: number) =>
@@ -100,7 +100,7 @@ const makeTrial = (trialNumber: number, value: number) =>
     trialNumber,
     config: { trialNumber },
     value,
-    sortStep: -1
+    sortStep: Num.negate(1)
   })
 
 describe("tpe split trials fixture parity", () => {
@@ -109,26 +109,26 @@ describe("tpe split trials fixture parity", () => {
       const loaded = yield* loadFixture("split-trials.single-and-liar").pipe(Effect.provide(FixtureRegistryLive))
       const fixture = yield* Schema.decodeUnknown(SplitTrialsFixture)(loaded)
 
-      fixture.payload.cases.forEach((fixtureCase) => {
+      Arr.forEach(fixture.payload.cases, (fixtureCase) => {
         const trials = splitTrialsFromFixtureCase(fixtureCase.direction, fixtureCase.trials)
         const split = splitTrials(trials, () => fixtureCase.nBelow)
 
-        expect(split.below.map((trial) => trial.trialNumber)).toEqual(fixtureCase.expectedBelow)
-        expect(split.above.map((trial) => trial.trialNumber)).toEqual(fixtureCase.expectedAbove)
+        expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(fixtureCase.expectedBelow)
+        expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(fixtureCase.expectedAbove)
       })
     }))
 
   it.effect("uses trialNumber as the final tie key for split membership", () =>
     Effect.sync(() => {
-      const trials = [
+      const trials = Arr.make(
         makeTrial(5, 1),
         makeTrial(1, 1),
         makeTrial(4, 2),
         makeTrial(2, 2)
-      ]
+      )
 
       const split = splitTrials(trials, () => 2)
-      expect(split.below.map((trial) => trial.trialNumber)).toEqual([1, 5])
-      expect(split.above.map((trial) => trial.trialNumber)).toEqual([2, 4])
+      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(Arr.make(1, 5))
+      expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(Arr.make(2, 4))
     }))
 })

@@ -1,8 +1,8 @@
-import { logaddexp } from "@scenesystems/effect-math/Numeric"
+import { abs, expm1Strict, isFinite, log1pStrict, logaddexp, logStrict, sqrt } from "@scenesystems/effect-math/Numeric"
 import { erf, erfc } from "@scenesystems/effect-math/Special"
-import { Boolean as Bool, Equal, Match, Number as Num, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Number as Num, Predicate, Schema } from "effect"
 
-import * as Float64 from "../../float64.js"
+import { exp } from "../../exponential.js"
 import {
   inverseSqrtTwo,
   logNdtrAsymptoticThreshold,
@@ -15,6 +15,8 @@ import {
   newtonRelativeTolerance,
   sqrtTwo
 } from "./constants.js"
+
+const machineEpsilon = 2.220446049250313e-16
 
 class AsymptoticSeriesState extends Schema.Class<AsymptoticSeriesState>("effect-search/AsymptoticSeriesState")({
   lastTotal: Schema.Number,
@@ -39,7 +41,7 @@ export const ndtr = (value: number): number => {
 const asymptoticSeries = (state: AsymptoticSeriesState): number => {
   return Match.value(
     Bool.or(
-      Num.lessThanOrEqualTo(Float64.abs(Num.subtract(state.lastTotal, state.rightHandSide)), Float64.epsilon),
+      Num.lessThanOrEqualTo(abs(Num.subtract(state.lastTotal, state.rightHandSide)), machineEpsilon),
       Num.greaterThanOrEqualTo(state.index, 1_024)
     )
   ).pipe(
@@ -71,7 +73,7 @@ const asymptoticSeries = (state: AsymptoticSeriesState): number => {
 
 const logNdtrAsymptotic = (value: number): number => {
   const logLeftHandSide = Num.subtract(
-    Num.subtract(Num.multiply(Num.multiply(-0.5, value), value), Float64.log(Num.negate(value))),
+    Num.subtract(Num.multiply(Num.multiply(Num.negate(0.5), value), value), logStrict(Num.negate(value))),
     logSqrtTwoPi
   )
   const asymptoticRightHandSide = asymptoticSeries(
@@ -86,20 +88,21 @@ const logNdtrAsymptotic = (value: number): number => {
     })
   )
 
-  return Num.sum(logLeftHandSide, Float64.log(asymptoticRightHandSide))
+  return Num.sum(logLeftHandSide, logStrict(asymptoticRightHandSide))
 }
 
 export const logNdtr = (value: number): number =>
   Match.value(value).pipe(
-    Match.when(Number.isNaN, () => Number.NaN),
+    Match.when(Predicate.not(Schema.is(Schema.NonNaN)), () => Number.NaN),
     Match.when((current) => Equal.equals(current, Number.NEGATIVE_INFINITY), () => Number.NEGATIVE_INFINITY),
     Match.when((current) => Equal.equals(current, Number.POSITIVE_INFINITY), () => 0),
     Match.when(Num.greaterThan(logNdtrRightTailThreshold), (current) => Num.negate(ndtr(Num.negate(current)))),
-    Match.when(Num.greaterThan(logNdtrAsymptoticThreshold), (current) => Float64.log(ndtr(current))),
+    Match.when(Num.greaterThan(logNdtrAsymptoticThreshold), (current) => logStrict(ndtr(current))),
     Match.orElse(logNdtrAsymptotic)
   )
 
-export const logNormPdf = (x: number): number => Num.subtract(Num.multiply(Num.multiply(-0.5, x), x), logSqrtTwoPi)
+export const logNormPdf = (x: number): number =>
+  Num.subtract(Num.multiply(Num.multiply(Num.negate(0.5), x), x), logSqrtTwoPi)
 
 export const logSum = (logP: number, logQ: number): number => logaddexp(logP, logQ)
 
@@ -107,7 +110,7 @@ export const logDiff = (logP: number, logQ: number): number =>
   Match.value(logP).pipe(
     Match.when(() => Equal.equals(logQ, Number.NEGATIVE_INFINITY), () => logP),
     Match.when(Num.lessThanOrEqualTo(logQ), () => Number.NEGATIVE_INFINITY),
-    Match.orElse((current) => Num.sum(current, Float64.log1p(Num.negate(Float64.exp(Num.subtract(logQ, current))))))
+    Match.orElse((current) => Num.sum(current, log1pStrict(Num.negate(exp(Num.subtract(logQ, current))))))
   )
 
 const newtonRefine = (targetLogNdtr: number, current: number, iteration: number): number => {
@@ -118,12 +121,12 @@ const newtonRefine = (targetLogNdtr: number, current: number, iteration: number)
       const logNormPdfAtCurrent = logNormPdf(current)
       const delta = Num.multiply(
         Num.subtract(logNdtrAtCurrent, targetLogNdtr),
-        Float64.exp(Num.subtract(logNdtrAtCurrent, logNormPdfAtCurrent))
+        exp(Num.subtract(logNdtrAtCurrent, logNormPdfAtCurrent))
       )
       const next = Num.subtract(current, delta)
-      const tolerance = Num.multiply(newtonRelativeTolerance, Num.max(1, Float64.abs(next)))
+      const tolerance = Num.multiply(newtonRelativeTolerance, Num.max(1, abs(next)))
 
-      return Match.value(Num.lessThan(Float64.abs(delta), tolerance)).pipe(
+      return Match.value(Num.lessThan(abs(delta), tolerance)).pipe(
         Match.when(true, () => next),
         Match.orElse(() => newtonRefine(targetLogNdtr, next, Num.increment(iteration)))
       )
@@ -134,14 +137,14 @@ const newtonRefine = (targetLogNdtr: number, current: number, iteration: number)
 const solveNdtriExp = (value: number): number => {
   const flipped = Num.greaterThan(value, ndtriExpFlipThreshold)
   const normalized = Match.value(flipped).pipe(
-    Match.when(true, () => Float64.log(Num.negate(Float64.expm1(value)))),
+    Match.when(true, () => logStrict(Num.negate(expm1Strict(value)))),
     Match.orElse(() => value)
   )
 
   const initialGuess = Match.value(Num.lessThan(normalized, ndtriExpSwitch)).pipe(
-    Match.when(true, () => Num.negate(Float64.sqrt(Num.multiply(-2, Num.sum(normalized, logSqrtTwoPi))))),
+    Match.when(true, () => Num.negate(sqrt(Num.multiply(Num.negate(2), Num.sum(normalized, logSqrtTwoPi))))),
     Match.orElse(() =>
-      Num.multiply(Num.negate(ndtriExpApproximationFactor), Float64.log(Float64.expm1(Num.negate(normalized))))
+      Num.multiply(Num.negate(ndtriExpApproximationFactor), logStrict(expm1Strict(Num.negate(normalized))))
     )
   )
 
@@ -157,6 +160,6 @@ export const ndtriExp = (value: number): number =>
   Match.value(value).pipe(
     Match.when((current) => Equal.equals(current, Number.NEGATIVE_INFINITY), () => Number.NEGATIVE_INFINITY),
     Match.when((current) => Equal.equals(current, 0), () => Number.POSITIVE_INFINITY),
-    Match.when((current) => Bool.not(Number.isFinite(current)), () => Number.NaN),
+    Match.when((current) => Bool.not(isFinite(current)), () => Number.NaN),
     Match.orElse(solveNdtriExp)
   )

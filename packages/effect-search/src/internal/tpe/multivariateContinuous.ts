@@ -55,7 +55,7 @@ export const multivariateContinuousCandidateTrace = (
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<Option.Option<MultivariateContinuousTrace>, InvalidSamplerConfig> => {
   const parameters = Arr.fromIterable(parametersInput)
-  return Match.value(Num.lessThan(parameters.length, 2)).pipe(
+  return Match.value(Num.lessThan(Arr.length(parameters), 2)).pipe(
     Match.when(true, () => Effect.succeedNone),
     Match.orElse(() =>
       Effect.gen(function*() {
@@ -63,31 +63,31 @@ export const multivariateContinuousCandidateTrace = (
         const belowVectors = vectorsFromSplit(adapters, split.below)
         const aboveVectors = vectorsFromSplit(adapters, split.above)
         const hasSufficientHistory = Bool.and(
-          Num.greaterThan(belowVectors.length, 2),
-          Num.greaterThan(aboveVectors.length, 2)
+          Num.greaterThan(Arr.length(belowVectors), 2),
+          Num.greaterThan(Arr.length(aboveVectors), 2)
         )
 
         return yield* Match.value(hasSufficientHistory).pipe(
           Match.when(false, () => Effect.succeedNone),
           Match.orElse(() =>
             Effect.gen(function*() {
-              const dimensionCount = adapters.length
+              const dimensionCount = Arr.length(adapters)
               const belowStats = statsByDimension(belowVectors, dimensionCount)
               const aboveStats = statsByDimension(aboveVectors, dimensionCount)
               const belowSigmaVector = scottsBandwidthVector(
-                belowVectors.length,
+                Arr.length(belowVectors),
                 dimensionCount,
                 Arr.map(belowStats, (entry) => entry.stddev)
               )
               const aboveSigmaVector = scottsBandwidthVector(
-                aboveVectors.length,
+                Arr.length(aboveVectors),
                 dimensionCount,
                 Arr.map(aboveStats, (entry) => entry.stddev)
               )
-              const belowSigmas = Arr.makeBy(belowVectors.length, () => belowSigmaVector)
-              const aboveSigmas = Arr.makeBy(aboveVectors.length, () => aboveSigmaVector)
-              const belowWeights = uniformWeights(belowVectors.length)
-              const aboveWeights = uniformWeights(aboveVectors.length)
+              const belowSigmas = Arr.makeBy(Arr.length(belowVectors), () => belowSigmaVector)
+              const aboveSigmas = Arr.makeBy(Arr.length(aboveVectors), () => aboveSigmaVector)
+              const belowWeights = uniformWeights(Arr.length(belowVectors))
+              const aboveWeights = uniformWeights(Arr.length(aboveVectors))
               const rolls = yield* drawMultivariateRolls(rng, nCandidates, dimensionCount)
               const modelCandidates = Arr.map(rolls, (roll) =>
                 sampleDiagonalGaussianMixture(
@@ -113,7 +113,7 @@ export const multivariateContinuousCandidateTrace = (
                 modelCandidates,
                 (candidate) => diagonalGaussianMixtureLogDensity(candidate, aboveVectors, aboveSigmas, aboveWeights)
               )
-              const scores = Arr.makeBy(modelCandidates.length, (index) =>
+              const scores = Arr.makeBy(Arr.length(modelCandidates), (index) =>
                 Acquisition.score({
                   logL: valueAt(logL, index, Number.NEGATIVE_INFINITY),
                   logG: valueAt(logG, index, Number.NEGATIVE_INFINITY),

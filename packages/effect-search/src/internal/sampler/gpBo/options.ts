@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Boolean as Bool, Effect, Number as Num, Option } from "effect"
 
 import type { GpBoOptions } from "../../../Sampler.js"
@@ -102,21 +103,21 @@ export const validateOptions = (options: GpBoOptions): Effect.Effect<void, Inval
 
     yield* Effect.when(
       Effect.fail(invalidConfig("gp-bo sampler requires nStartupTrials >= 0")),
-      () => Bool.or(Bool.not(Number.isFinite(startup)), Num.lessThan(startup, 0))
+      () => Bool.or(Bool.not(isFinite(startup)), Num.lessThan(startup, 0))
     )
 
     yield* Effect.when(
       Effect.fail(invalidConfig("gp-bo sampler requires nCandidates >= 1")),
-      () => Bool.or(Bool.not(Number.isFinite(candidates)), Num.lessThan(candidates, 1))
+      () => Bool.or(Bool.not(isFinite(candidates)), Num.lessThan(candidates, 1))
     )
 
     yield* Effect.when(
       Effect.fail(invalidConfig("gp-bo sampler requires lengthScale to be finite and > 0")),
-      () => Bool.or(Bool.not(Number.isFinite(lengthScale)), Num.lessThanOrEqualTo(lengthScale, 0))
+      () => Bool.or(Bool.not(isFinite(lengthScale)), Num.lessThanOrEqualTo(lengthScale, 0))
     )
 
     yield* Effect.when(
       Effect.fail(invalidConfig("gp-bo sampler requires noise to be finite and >= 0")),
-      () => Bool.or(Bool.not(Number.isFinite(noise)), Num.lessThan(noise, 0))
+      () => Bool.or(Bool.not(isFinite(noise)), Num.lessThan(noise, 0))
     )
   })

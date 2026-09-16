@@ -1,4 +1,4 @@
-import { pow, sqrt } from "@scenesystems/effect-math/Numeric"
+import { isFinite, pow, sqrt } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option } from "effect"
 
 const noiseFloor = 1e-12
@@ -23,12 +23,12 @@ export const defaultNoiseBandwidthOptions = new NoiseBandwidthOptions({
 
 const average = (valuesInput: Iterable<number>): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(values.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       Num.unsafeDivide(
         Arr.reduce(values, 0, (total, value) => Num.sum(total, value)),
-        values.length
+        Arr.length(values)
       )
     )
   )
@@ -39,7 +39,7 @@ const varianceFromMean = (
   mean: number
 ): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(values.length, 1)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 1)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       Num.unsafeDivide(
@@ -47,7 +47,7 @@ const varianceFromMean = (
           const centered = Num.subtract(value, mean)
           return Num.sum(total, Num.multiply(centered, centered))
         }),
-        values.length
+        Arr.length(values)
       )
     )
   )
@@ -65,11 +65,11 @@ const bandwidthFromSample = (
   span: number
 ): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(values.length, 1)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 1)).pipe(
     Match.when(true, () => span),
     Match.orElse(() => {
       const stddev = sqrt(variance(values))
-      const scottFactor = pow(values.length, -0.2)
+      const scottFactor = pow(Arr.length(values), Num.negate(0.2))
       return Num.max(Num.multiply(stddev, scottFactor), noiseFloor)
     })
   )
@@ -97,9 +97,9 @@ const bootstrapSample = (
 ) => {
   const observations = Arr.fromIterable(observationsInput)
   return Arr.makeBy(
-    observations.length,
+    Arr.length(observations),
     (sampleIndex) =>
-      Arr.get(observations, bootstrapIndex(observations.length, replicateIndex, sampleIndex)).pipe(
+      Arr.get(observations, bootstrapIndex(Arr.length(observations), replicateIndex, sampleIndex)).pipe(
         Option.getOrElse(() => 0)
       )
   )
@@ -110,7 +110,7 @@ const bootstrapBandwidthVariance = (
   span: number
 ): number => {
   const observations = Arr.fromIterable(observationsInput)
-  return Match.value(Num.lessThanOrEqualTo(observations.length, 1)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(observations), 1)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       variance(
@@ -123,8 +123,7 @@ const bootstrapBandwidthVariance = (
   )
 }
 
-const finiteNonNegative = (value: number): boolean =>
-  Bool.and(Number.isFinite(value), Num.greaterThanOrEqualTo(value, 0))
+const finiteNonNegative = (value: number): boolean => Bool.and(isFinite(value), Num.greaterThanOrEqualTo(value, 0))
 
 const observationVarianceFromSources = (
   observationsInput: Iterable<number>,

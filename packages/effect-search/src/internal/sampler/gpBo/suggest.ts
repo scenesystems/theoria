@@ -125,9 +125,9 @@ export const suggest = (
       ))
     const rng = rngByTrial("gpbo", seed, context.nextTrialNumber)
 
-    return yield* Match.value(Num.lessThan(observations.length, nStartupTrials)).pipe(
+    return yield* Match.value(Num.lessThan(Arr.length(observations), nStartupTrials)).pipe(
       Match.when(true, () =>
-        sampleUniformVector(rng, dimensions.length).pipe(
+        sampleUniformVector(rng, Arr.length(dimensions)).pipe(
           Effect.map((startupCandidate) => denormalizeVector(dimensions, startupCandidate))
         )),
       Match.orElse(() => {
@@ -140,14 +140,14 @@ export const suggest = (
         return buildPosterior(observations, lengthScale, noise).pipe(
           Option.match({
             onNone: () =>
-              sampleUniformVector(rng, dimensions.length).pipe(
+              sampleUniformVector(rng, Arr.length(dimensions)).pipe(
                 Effect.map((fallbackCandidate) => denormalizeVector(dimensions, fallbackCandidate))
               ),
             onSome: (posterior) =>
               Effect.gen(function*() {
                 const candidateVectors = yield* Effect.forEach(
                   Arr.makeBy(nCandidates, (index) => index),
-                  () => sampleUniformVector(rng, dimensions.length)
+                  () => sampleUniformVector(rng, Arr.length(dimensions))
                 )
                 const candidates = Option.match(incumbent, {
                   onNone: () => candidateVectors,

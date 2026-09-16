@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Equal, Match, Option, Schema } from "effect"
 
 import { emptyContext } from "../../src/Sampler.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -7,7 +7,7 @@ import { GridIncompatible } from "../../src/SearchError.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
 const categoricalOnlySpace = SearchSpace.make({
-  optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"])
+  optimizer: SearchSpace.categorical(Arr.make("adam", "sgd", "adamw"))
 })
 
 const intStepSpace = SearchSpace.make({
@@ -19,13 +19,13 @@ const floatNoStepSpace = SearchSpace.make({
 })
 
 const mixedSpace = SearchSpace.make({
-  optimizer: SearchSpace.categorical(["adam", "sgd"]),
+  optimizer: SearchSpace.categorical(Arr.make("adam", "sgd")),
   width: SearchSpace.int(16, 64, { step: 16 })
 })
 
 const exhaustiveSpace = SearchSpace.make({
-  alpha: SearchSpace.categorical(["a", "b", "c"]),
-  beta: SearchSpace.categorical(["x", "y", "z", "w"]),
+  alpha: SearchSpace.categorical(Arr.make("a", "b", "c")),
+  beta: SearchSpace.categorical(Arr.make("x", "y", "z", "w")),
   useBatchNorm: SearchSpace.boolean()
 })
 
@@ -45,14 +45,14 @@ const choicesFor = (
   space: SearchSpace.SearchSpace,
   name: string
 ) =>
-  Arr.findFirst(space.params, (parameter) => parameter.name === name).pipe(
+  Arr.findFirst(space.params, (parameter) => Equal.equals(parameter.name, name)).pipe(
     Option.flatMap((parameter) =>
       Match.value(parameter.distribution).pipe(
         Match.when({ type: "categorical" }, ({ choices }) => Option.some(choices)),
         Match.orElse(() => Option.none())
       )
     ),
-    Option.getOrElse(() => [])
+    Option.getOrElse(() => Arr.empty())
   )
 
 describe("Sampler.grid", () => {
@@ -75,9 +75,7 @@ describe("Sampler.grid", () => {
 
       expect(Either.isLeft(incompatible)).toBe(true)
 
-      if (Either.isLeft(incompatible)) {
-        expect(incompatible.left).toBeInstanceOf(GridIncompatible)
-      }
+      Either.mapLeft(incompatible, (failure) => expect(failure).toBeInstanceOf(GridIncompatible))
     }))
 
   it.effect("enumerates deterministic 3×4×2 cartesian order with no duplicates", () =>
@@ -88,7 +86,7 @@ describe("Sampler.grid", () => {
       const observedKeys = Arr.map(decoded, configKey)
       const alphaChoices = Arr.map(choicesFor(space, "alpha"), (choice) => String(choice))
       const betaChoices = Arr.map(choicesFor(space, "beta"), (choice) => String(choice))
-      const batchNormChoices = Arr.map(choicesFor(space, "useBatchNorm"), (choice) => choice === true)
+      const batchNormChoices = Arr.map(choicesFor(space, "useBatchNorm"), (choice) => Equal.equals(choice, true))
 
       const expectedKeys = Arr.flatMap(alphaChoices, (alpha) =>
         Arr.flatMap(betaChoices, (beta) =>

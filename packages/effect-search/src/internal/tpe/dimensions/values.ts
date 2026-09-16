@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Equal, Match, Number as Num, Option, Schema } from "effect"
 
 import { Choice } from "../../../Distribution.js"
@@ -17,7 +18,7 @@ const configValue = valueFromConfig
 const asFiniteNumber = (value: unknown): Option.Option<number> =>
   Match.value(value).pipe(
     Match.when(Match.number, (numberValue) =>
-      Match.value(Number.isFinite(numberValue)).pipe(
+      Match.value(isFinite(numberValue)).pipe(
         Match.when(true, () => Option.some(numberValue)),
         Match.orElse(() => Option.none())
       )),
@@ -50,8 +51,8 @@ const conditionFallbackLadder = (
 ) => {
   const conditions = Arr.fromIterable(conditionsInput)
   return Arr.makeBy(
-    Num.increment(conditions.length),
-    (index) => Arr.take(conditions, Num.subtract(conditions.length, index))
+    Num.increment(Arr.length(conditions)),
+    (index) => Arr.take(conditions, Num.subtract(Arr.length(conditions), index))
   )
 }
 
@@ -69,11 +70,11 @@ const collectValues = <A>(
         configValue(trial.config, parameter.name).pipe(
           Option.flatMap(normalize),
           Option.match({
-            onNone: () => [],
-            onSome: (value) => [value]
+            onNone: () => Arr.empty(),
+            onSome: Arr.of
           })
         )),
-      Match.orElse(() => [])
+      Match.orElse(() => Arr.empty())
     ))
 }
 
@@ -87,7 +88,7 @@ const valuesWithFallback = <A>(
     conditionFallbackLadder(parameter.activeWhen),
     Arr.empty<A>(),
     (selected, conditions) =>
-      Match.value(Num.greaterThan(selected.length, 0)).pipe(
+      Match.value(Num.greaterThan(Arr.length(selected), 0)).pipe(
         Match.when(true, () => selected),
         Match.orElse(() => collectValues(parameter, trials, conditions, normalize))
       )

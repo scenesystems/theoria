@@ -157,5 +157,5 @@ export const categorical = <const Choices extends Iterable<Choice>>(
 export const boolean = (): Schema.Schema<boolean> =>
   annotate(Schema.Literal(true, false), {
     type: "categorical",
-    choices: [true, false]
+    choices: Arr.make(true, false)
   })

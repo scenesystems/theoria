@@ -6,7 +6,7 @@
 import { squaredEuclideanDistance } from "@scenesystems/effect-math/Geometry"
 import { dot, normL2 } from "@scenesystems/effect-math/LinearAlgebra"
 import { minimum } from "@scenesystems/effect-math/Statistics"
-import { Array as Arr, Chunk, Data, Option } from "effect"
+import { Array as Arr, Chunk, Data, Number as Num, Option } from "effect"
 
 const vectorValueAt = (
   vectorInput: Iterable<number>,
@@ -25,7 +25,7 @@ const alignVectors = (
   const left = Arr.fromIterable(leftInput)
   const right = Arr.fromIterable(rightInput)
 
-  const dimension = Math.max(left.length, right.length)
+  const dimension = Num.max(Arr.length(left), Arr.length(right))
 
   return Data.tuple(
     Arr.makeBy(dimension, (index) => vectorValueAt(left, index, fallback)),

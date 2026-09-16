@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Option } from "effect"
+import { Array as Arr, Chunk, Effect, Number as Num, Option } from "effect"
 
 import { DimensionScoreTrace } from "../../src/internal/tpe/dimensions/trace.js"
 import {
@@ -12,8 +12,8 @@ import { CompletedTrialForSplit } from "../../src/internal/tpe/splitTrials.js"
 describe("tpe cost-aware acquisition", () => {
   it.effect("applies EI / estimated_cost weighting in log-space scoring", () =>
     Effect.sync(() => {
-      const logL = -0.2
-      const logG = -0.8
+      const logL = Num.negate(0.2)
+      const logG = Num.negate(0.8)
 
       const baseline = expectedImprovementScore(logL, logG)
       const cheap = costWeightedExpectedImprovementScore(logL, logG, Option.some(1))
@@ -25,24 +25,24 @@ describe("tpe cost-aware acquisition", () => {
 
   it.effect("selects lower estimated cost candidates when EI scores tie", () =>
     Effect.gen(function*() {
-      const traces = [
+      const traces = Arr.of(
         new NamedDimensionScoreTrace({
           name: "x",
           trace: new DimensionScoreTrace({
             candidates: Chunk.make({ x: 0.1 }, { x: 0.9 }),
-            logL: [-0.2, -0.2],
-            logG: [-0.7, -0.7],
-            scores: [0.5, 0.5]
+            logL: Arr.make(Num.negate(0.2), Num.negate(0.2)),
+            logG: Arr.make(Num.negate(0.7), Num.negate(0.7)),
+            scores: Arr.make(0.5, 0.5)
           })
         })
-      ]
+      )
 
       const split = {
-        below: [
+        below: Arr.make(
           new CompletedTrialForSplit({ trialNumber: 0, config: { x: 0.1 }, value: 0.1, cost: 12 }),
           new CompletedTrialForSplit({ trialNumber: 1, config: { x: 0.9 }, value: 0.2, cost: 1 })
-        ],
-        above: []
+        ),
+        above: Arr.empty<CompletedTrialForSplit>()
       }
 
       const selection = yield* selectBestMixedCandidate(traces, split)

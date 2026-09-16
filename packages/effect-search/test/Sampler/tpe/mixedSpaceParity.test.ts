@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Data, Effect, Option, Schema } from "effect"
+import { Array as Arr, Data, Effect, Equal, Match, Number as Num, Option, Schema } from "effect"
 
-import * as Float64 from "../../../src/internal/float64.js"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { categoricalCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/categorical.js"
 import { floatCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/float.js"
 import { intCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/int.js"
@@ -30,7 +30,7 @@ const parameterByName = (
   space: SearchSpace.SearchSpace,
   name: string
 ): Effect.Effect<SearchSpace.Parameter, MissingParameterMetadata> =>
-  Arr.findFirst(space.params, (parameter) => parameter.name === name).pipe(
+  Arr.findFirst(space.params, (parameter) => Equal.equals(parameter.name, name)).pipe(
     Option.match({
       onNone: () => Effect.fail(new MissingParameterMetadata({ name })),
       onSome: Effect.succeed
@@ -54,7 +54,7 @@ const expectWithinTolerance = (
   tolerance: number,
   label: string
 ): void => {
-  expect(Float64.abs(actual - expected), label).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Num.subtract(actual, expected)), label).toBeLessThanOrEqual(tolerance)
 }
 
 const splitFromFixture = (
@@ -87,85 +87,91 @@ const traceFromDimension = (
 > =>
   Effect.gen(function*() {
     const parameter = yield* parameterByName(space, dimension.name)
-
-    if (dimension.kind === "categorical") {
-      if (parameter.distribution.type !== "categorical") {
-        return yield* new UnexpectedDistribution({ name: parameter.name, expected: "categorical" })
-      }
-
-      const trace = yield* categoricalCandidateTraceFromRolls(
-        parameter,
-        parameter.distribution.choices,
-        split,
-        dimension.candidateRolls
-      )
-
-      yield* Effect.sync(() => {
-        expect(Arr.fromIterable(trace.candidates)).toEqual(dimension.candidates)
-      })
-      yield* expectNumericVector(trace.logL, dimension.logL, `${dimension.name}.logL`, SCORE_TOLERANCE)
-      yield* expectNumericVector(trace.logG, dimension.logG, `${dimension.name}.logG`, SCORE_TOLERANCE)
-      yield* expectNumericVector(trace.scores, dimension.scores, `${dimension.name}.scores`, SCORE_TOLERANCE)
-
-      return {
-        name: parameter.name,
-        trace
-      }
-    }
-
-    if (dimension.kind === "float") {
-      if (parameter.distribution.type !== "float") {
-        return yield* new UnexpectedDistribution({ name: parameter.name, expected: "float" })
-      }
-
-      const trace = yield* floatCandidateTraceFromRolls(
-        parameter,
-        parameter.distribution.low,
-        parameter.distribution.high,
-        Option.fromNullable(parameter.distribution.scale),
-        Option.fromNullable(parameter.distribution.step),
-        split,
-        dimension.candidateRolls
-      )
-
-      yield* expectNumericVector(
-        trace.candidates,
-        dimension.candidates,
-        `${dimension.name}.candidates`,
-        SCORE_TOLERANCE
-      )
-      yield* expectNumericVector(trace.logL, dimension.logL, `${dimension.name}.logL`, SCORE_TOLERANCE)
-      yield* expectNumericVector(trace.logG, dimension.logG, `${dimension.name}.logG`, SCORE_TOLERANCE)
-      yield* expectNumericVector(trace.scores, dimension.scores, `${dimension.name}.scores`, SCORE_TOLERANCE)
-
-      return {
-        name: parameter.name,
-        trace
-      }
-    }
-
-    if (parameter.distribution.type !== "int") {
-      return yield* new UnexpectedDistribution({ name: parameter.name, expected: "int" })
-    }
-
-    const trace = yield* intCandidateTraceFromRolls(
-      parameter,
-      parameter.distribution.low,
-      parameter.distribution.high,
-      Option.fromNullable(parameter.distribution.step),
-      split,
-      dimension.candidateRolls
+    return yield* Match.value(dimension).pipe(
+      Match.when({ kind: "categorical" }, (categorical) =>
+        Match.value(parameter.distribution).pipe(
+          Match.when({ type: "categorical" }, (distribution) =>
+            categoricalCandidateTraceFromRolls(parameter, distribution.choices, split, categorical.candidateRolls).pipe(
+              Effect.tap((trace) =>
+                Effect.sync(() => expect(Arr.fromIterable(trace.candidates)).toEqual(categorical.candidates))
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.logL, categorical.logL, `${categorical.name}.logL`, SCORE_TOLERANCE)
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.logG, categorical.logG, `${categorical.name}.logG`, SCORE_TOLERANCE)
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.scores, categorical.scores, `${categorical.name}.scores`, SCORE_TOLERANCE)
+              ),
+              Effect.map((trace) => ({ name: parameter.name, trace }))
+            )),
+          Match.orElse(() =>
+            new UnexpectedDistribution({ name: parameter.name, expected: "categorical" })
+          )
+        )),
+      Match.when({ kind: "float" }, (continuous) =>
+        Match.value(parameter.distribution).pipe(
+          Match.when({ type: "float" }, (distribution) =>
+            floatCandidateTraceFromRolls(
+              parameter,
+              distribution.low,
+              distribution.high,
+              Option.fromNullable(distribution.scale),
+              Option.fromNullable(distribution.step),
+              split,
+              continuous.candidateRolls
+            ).pipe(
+              Effect.tap((trace) =>
+                expectNumericVector(
+                  trace.candidates,
+                  continuous.candidates,
+                  `${continuous.name}.candidates`,
+                  SCORE_TOLERANCE
+                )
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.logL, continuous.logL, `${continuous.name}.logL`, SCORE_TOLERANCE)
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.logG, continuous.logG, `${continuous.name}.logG`, SCORE_TOLERANCE)
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.scores, continuous.scores, `${continuous.name}.scores`, SCORE_TOLERANCE)
+              ),
+              Effect.map((trace) => ({ name: parameter.name, trace }))
+            )),
+          Match.orElse(() => new UnexpectedDistribution({ name: parameter.name, expected: "float" }))
+        )),
+      Match.when({ kind: "int" }, (integer) =>
+        Match.value(parameter.distribution).pipe(
+          Match.when({ type: "int" }, (distribution) =>
+            intCandidateTraceFromRolls(
+              parameter,
+              distribution.low,
+              distribution.high,
+              Option.fromNullable(distribution.step),
+              split,
+              integer.candidateRolls
+            ).pipe(
+              Effect.tap((trace) =>
+                expectNumericVector(trace.candidates, integer.candidates, `${integer.name}.candidates`, SCORE_TOLERANCE)
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.logL, integer.logL, `${integer.name}.logL`, SCORE_TOLERANCE)
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.logG, integer.logG, `${integer.name}.logG`, SCORE_TOLERANCE)
+              ),
+              Effect.tap((trace) =>
+                expectNumericVector(trace.scores, integer.scores, `${integer.name}.scores`, SCORE_TOLERANCE)
+              ),
+              Effect.map((trace) => ({ name: parameter.name, trace }))
+            )),
+          Match.orElse(() => new UnexpectedDistribution({ name: parameter.name, expected: "int" }))
+        )),
+      Match.exhaustive
     )
-
-    yield* expectNumericVector(trace.candidates, dimension.candidates, `${dimension.name}.candidates`, SCORE_TOLERANCE)
-    yield* expectNumericVector(trace.logL, dimension.logL, `${dimension.name}.logL`, SCORE_TOLERANCE)
-    yield* expectNumericVector(trace.logG, dimension.logG, `${dimension.name}.logG`, SCORE_TOLERANCE)
-    yield* expectNumericVector(trace.scores, dimension.scores, `${dimension.name}.scores`, SCORE_TOLERANCE)
-
-    return {
-      name: parameter.name,
-      trace
-    }
   })
 
 const decodedConfigs = (
@@ -199,11 +205,14 @@ describe("mixed-space fixture parity", () => {
               expectedConfigs,
               (expectedConfig, index) =>
                 Effect.sync(() => {
-                  const actualConfig = actualConfigs[index]
-                  expect(actualConfig?.optimizer).toBe(expectedConfig.optimizer)
-                  expect(actualConfig?.depth).toBe(expectedConfig.depth)
+                  const actualConfig = Arr.get(actualConfigs, index)
+                  expect(Option.map(actualConfig, (config) =>
+                    config.optimizer)).toEqual(Option.some(expectedConfig.optimizer))
+                  expect(Option.map(actualConfig, (config) =>
+                    config.depth)).toEqual(Option.some(expectedConfig.depth))
                   expectWithinTolerance(
-                    actualConfig?.lr ?? Number.NaN,
+                    Option.map(actualConfig, (config) =>
+                      config.lr).pipe(Option.getOrElse(() => Number.NaN)),
                     expectedConfig.lr,
                     SCORE_TOLERANCE,
                     `candidate[${index}].lr`

@@ -1,6 +1,7 @@
-import { Boolean as Bool, Equal, Match, Number as Num, Schema } from "effect"
+import { isFinite, log1pStrict, logStrict } from "@scenesystems/effect-math/Numeric"
+import { Boolean as Bool, Equal, Match, Number as Num, Predicate, Schema } from "effect"
 
-import * as Float64 from "../../float64.js"
+import { exp } from "../../exponential.js"
 import type { TruncatedNormalParams } from "../truncatedNormal.js"
 import { logDiff, logNdtr, logNormPdf, logSum, ndtr, ndtriExp } from "./normal.js"
 import { isValidParams } from "./validation.js"
@@ -26,7 +27,7 @@ const logGaussMass = (a: number, b: number): number => {
   const massCaseLeft = (left: number, right: number): number => logDiff(logNdtr(right), logNdtr(left))
   const massCaseRight = (left: number, right: number): number => massCaseLeft(Num.negate(right), Num.negate(left))
   const massCaseCentral = (left: number, right: number): number =>
-    Float64.log1p(Num.subtract(Num.negate(ndtr(left)), ndtr(Num.negate(right))))
+    log1pStrict(Num.subtract(Num.negate(ndtr(left)), ndtr(Num.negate(right))))
 
   return Match.value({ a, b }).pipe(
     Match.when(({ b: right }) => Num.lessThanOrEqualTo(right, 0), ({ a: left, b: right }) => massCaseLeft(left, right)),
@@ -35,7 +36,7 @@ const logGaussMass = (a: number, b: number): number => {
   )
 }
 
-const logMachineEpsilon = Float64.log(Float64.epsilon)
+const logMachineEpsilon = logStrict(2.220446049250313e-16)
 
 const ppfFinite = (q: number, a: number, b: number): number => {
   const logMass = logGaussMass(a, b)
@@ -43,7 +44,7 @@ const ppfFinite = (q: number, a: number, b: number): number => {
   return Match.value(a).pipe(
     Match.when(Num.lessThan(0), (left) => {
       const logBase = logNdtr(left)
-      const logIncrement = Num.sum(Float64.log(q), logMass)
+      const logIncrement = Num.sum(logStrict(q), logMass)
       const gap = Num.subtract(logIncrement, logBase)
       return Match.value(Num.lessThan(gap, logMachineEpsilon)).pipe(
         Match.when(true, () => left),
@@ -52,7 +53,7 @@ const ppfFinite = (q: number, a: number, b: number): number => {
     }),
     Match.orElse(() => {
       const logBase = logNdtr(Num.negate(b))
-      const logIncrement = Num.sum(Float64.log1p(Num.negate(q)), logMass)
+      const logIncrement = Num.sum(log1pStrict(Num.negate(q)), logMass)
       const gap = Num.subtract(logIncrement, logBase)
       return Match.value(Num.lessThan(gap, logMachineEpsilon)).pipe(
         Match.when(true, () => b),
@@ -66,8 +67,8 @@ const ppf = (q: number, a: number, b: number): number =>
   Match.value({ q, a, b }).pipe(
     Match.when(({ q: quantile, a: left, b: right }) =>
       Bool.or(
-        Bool.not(Number.isFinite(quantile)),
-        Bool.or(Bool.not(Number.isFinite(left)), Bool.not(Number.isFinite(right)))
+        Bool.not(isFinite(quantile)),
+        Bool.or(Bool.not(isFinite(left)), Bool.not(isFinite(right)))
       ), () => Number.NaN),
     Match.when(({ q: quantile, a: left, b: right }) =>
       Bool.or(
@@ -82,13 +83,13 @@ const ppf = (q: number, a: number, b: number): number =>
 export const logPdf = (x: number, params: TruncatedNormalParams): number => {
   return Match.value({ x, params }).pipe(
     Match.when(({ params: currentParams }) => Bool.not(isValidParams(currentParams)), () => Number.NaN),
-    Match.when(({ x: currentX }) => Number.isNaN(currentX), () => Number.NaN),
+    Match.when(({ x: currentX }) => Predicate.not(Schema.is(Schema.NonNaN))(currentX), () => Number.NaN),
     Match.orElse(({ x: currentX, params: currentParams }) => {
       const bounds = standardizeBounds(currentParams)
 
       return Match.value({ x: currentX, bounds }).pipe(
         Match.when(({ bounds: currentBounds }) => Equal.equals(currentBounds.a, currentBounds.b), () => Number.NaN),
-        Match.when(({ x: value }) => Bool.not(Number.isFinite(value)), () => Number.NEGATIVE_INFINITY),
+        Match.when(({ x: value }) => Bool.not(isFinite(value)), () => Number.NEGATIVE_INFINITY),
         Match.orElse(() => {
           const standardized = Num.unsafeDivide(Num.subtract(currentX, currentParams.mean), currentParams.sigma)
 
@@ -100,7 +101,7 @@ export const logPdf = (x: number, params: TruncatedNormalParams): number => {
             Match.orElse(() =>
               Num.subtract(
                 Num.subtract(logNormPdf(standardized), logGaussMass(bounds.a, bounds.b)),
-                Float64.log(currentParams.sigma)
+                logStrict(currentParams.sigma)
               )
             )
           )
@@ -113,7 +114,7 @@ export const logPdf = (x: number, params: TruncatedNormalParams): number => {
 export const cdf = (x: number, params: TruncatedNormalParams): number => {
   return Match.value({ x, params }).pipe(
     Match.when(({ params: currentParams }) => Bool.not(isValidParams(currentParams)), () => Number.NaN),
-    Match.when(({ x: currentX }) => Number.isNaN(currentX), () => Number.NaN),
+    Match.when(({ x: currentX }) => Predicate.not(Schema.is(Schema.NonNaN))(currentX), () => Number.NaN),
     Match.when(({ params: currentParams }) => Equal.equals(currentParams.low, currentParams.high), () => Number.NaN),
     Match.when(({ x: currentX, params: currentParams }) => Num.lessThanOrEqualTo(currentX, currentParams.low), () => 0),
     Match.when(
@@ -125,7 +126,7 @@ export const cdf = (x: number, params: TruncatedNormalParams): number => {
       const standardized = Num.unsafeDivide(Num.subtract(currentX, currentParams.mean), currentParams.sigma)
       const numerator = logGaussMass(bounds.a, standardized)
       const denominator = logGaussMass(bounds.a, bounds.b)
-      const value = Float64.exp(Num.subtract(numerator, denominator))
+      const value = exp(Num.subtract(numerator, denominator))
 
       return clamp(value, 0, 1)
     })
@@ -136,7 +137,7 @@ export const sample = (random: number, params: TruncatedNormalParams): number =>
   Match.value({ random, params }).pipe(
     Match.when(
       ({ random: currentRandom, params: currentParams }) =>
-        Bool.or(Number.isNaN(currentRandom), Bool.not(isValidParams(currentParams))),
+        Bool.or(Predicate.not(Schema.is(Schema.NonNaN))(currentRandom), Bool.not(isValidParams(currentParams))),
       () => Number.NaN
     ),
     Match.orElse(({ random: currentRandom, params: currentParams }) => {
@@ -148,7 +149,7 @@ export const sample = (random: number, params: TruncatedNormalParams): number =>
         Match.orElse((currentQuantile) => {
           const standardized = ppf(currentQuantile, bounds.a, bounds.b)
 
-          return Match.value(Number.isFinite(standardized)).pipe(
+          return Match.value(isFinite(standardized)).pipe(
             Match.when(
               true,
               () =>

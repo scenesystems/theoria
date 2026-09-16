@@ -28,7 +28,7 @@ const pathStartsWith = (path: ConditionPath, prefix: ConditionPath): boolean =>
     ))
 
 const pathEquals = (left: ConditionPath, right: ConditionPath): boolean =>
-  Bool.and(Equal.equals(left.length, right.length), pathStartsWith(left, right))
+  Bool.and(Equal.equals(Arr.length(left), Arr.length(right)), pathStartsWith(left, right))
 
 const parametersAtPath = (
   parametersInput: Iterable<Parameter>,
@@ -47,7 +47,7 @@ const parametersBelowPath = (
     parameters,
     (parameter) =>
       Bool.and(
-        Num.greaterThan(parameter.activeWhen.length, path.length),
+        Num.greaterThan(Arr.length(parameter.activeWhen), Arr.length(path)),
         pathStartsWith(parameter.activeWhen, path)
       )
   )
@@ -61,7 +61,8 @@ const nextDiscriminantsForPath = (
   return Arr.dedupe(
     Arr.filterMap(
       parametersBelowPath(parameters, path),
-      (parameter) => Arr.get(parameter.activeWhen, path.length).pipe(Option.map((condition) => condition.dimension))
+      (parameter) =>
+        Arr.get(parameter.activeWhen, Arr.length(path)).pipe(Option.map((condition) => condition.dimension))
     )
   )
 }
@@ -91,7 +92,7 @@ const requireCategoricalChoices = (
     Match.when({ type: "categorical" }, ({ choices }) =>
       Effect.filterOrFail(
         Effect.succeed(choices),
-        (values) => Num.greaterThan(values.length, 0),
+        (values) => Num.greaterThan(Arr.length(values), 0),
         () =>
           projectionFailure(operation, `discriminant "${parameter.name}" has no categorical choices`, parameter.name)
       )),
@@ -159,7 +160,7 @@ const buildProjectedSpaceAtPath = (
     const declarations = declarationsFromParameters(localParameters)
     const nextDiscriminants = nextDiscriminantsForPath(parameters, path)
 
-    return yield* Match.value(nextDiscriminants.length).pipe(
+    return yield* Match.value(Arr.length(nextDiscriminants)).pipe(
       Match.when(0, () => make(declarations)),
       Match.when(1, () =>
         Arr.matchLeft(nextDiscriminants, {
@@ -251,6 +252,6 @@ export const projectByNames = (
   const projectedParameters = Arr.filter(space.params, (parameter) => Arr.contains(projectedNames, parameter.name))
 
   return failOnDanglingDependencies(operation, projectedNames, projectedParameters).pipe(
-    Effect.flatMap(() => buildProjectedSpaceAtPath(operation, projectedParameters, []))
+    Effect.flatMap(() => buildProjectedSpaceAtPath(operation, projectedParameters, Arr.empty()))
   )
 }

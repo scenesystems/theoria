@@ -45,7 +45,7 @@ const pointAt = (pointsInput: Iterable<Vector>, index: number): Vector => {
 
 const objectiveDimensionCount = (pointsInput: Iterable<Vector>): number => {
   const points = Arr.fromIterable(pointsInput)
-  return Arr.head(points).pipe(Option.match({ onNone: () => 0, onSome: (p) => p.length }))
+  return Arr.head(points).pipe(Option.match({ onNone: () => 0, onSome: Arr.length }))
 }
 
 const normalizedAt = (normalizedInput: Iterable<Vector>, index: number): Vector => {
@@ -74,7 +74,7 @@ const isBetter = (a: number, b: number, d: Direction): boolean =>
  */
 export const nonDominatedIndices = (
   pointsInput: Iterable<Vector>,
-  directionsInput: Iterable<Direction> = [],
+  directionsInput: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ) => {
   const points = Arr.fromIterable(pointsInput)
@@ -83,7 +83,7 @@ export const nonDominatedIndices = (
     Match.when(false, () => Arr.empty<number>()),
     Match.when(true, () => {
       const normalized = normalizeMatrix(points, directions)
-      return Arr.filter(buildIndices(points.length), (index) =>
+      return Arr.filter(buildIndices(Arr.length(points)), (index) =>
         Arr.every(normalized, (candidate, ci) =>
           Bool.or(
             Equal.equals(ci, index),
@@ -107,7 +107,7 @@ export const nonDominatedIndices = (
  */
 export const nonDominatedSort = (
   pointsInput: Iterable<Vector>,
-  directionsInput: Iterable<Direction> = [],
+  directionsInput: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ) => {
   const points = Arr.fromIterable(pointsInput)
@@ -115,7 +115,7 @@ export const nonDominatedSort = (
   return Match.value(validateRectangular(points)).pipe(
     Match.when(false, () => Arr.empty<Vector>()),
     Match.when(true, () => {
-      const n = points.length
+      const n = Arr.length(points)
       const indices = buildIndices(n)
       const normalized = normalizeMatrix(points, directions)
 
@@ -195,7 +195,7 @@ export const nonDominatedSort = (
  */
 export const nonDominatedRanks = (
   pointsInput: Iterable<Vector>,
-  directionsInput: Iterable<Direction> = [],
+  directionsInput: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ) => {
   const points = Arr.fromIterable(pointsInput)
@@ -226,7 +226,7 @@ export const nonDominatedRanks = (
  */
 export const objectiveFrontierHoldings = (
   pointsInput: Iterable<Vector>,
-  directionsInput: Iterable<Direction> = [],
+  directionsInput: Iterable<Direction> = Arr.empty(),
   epsilon = 0
 ) => {
   const points = Arr.fromIterable(pointsInput)
@@ -236,7 +236,7 @@ export const objectiveFrontierHoldings = (
     Match.when(true, () =>
       Arr.map(buildIndices(objectiveDimensionCount(points)), (objectiveIndex) => {
         const direction = directionAt(directions, objectiveIndex)
-        const allIndices = buildIndices(points.length)
+        const allIndices = buildIndices(Arr.length(points))
 
         const bestValue = Arr.reduce(allIndices, defaultCoordinateValue(direction), (best, ci) => {
           const v = coordinateAt(pointAt(points, ci), objectiveIndex, direction)

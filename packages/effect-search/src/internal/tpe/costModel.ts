@@ -3,8 +3,8 @@
  *
  * @since 0.1.0
  */
-import { abs } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option, Predicate, Record } from "effect"
+import { abs, isFinite } from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option, Predicate, Record, Tuple } from "effect"
 
 import type { Choice } from "../../Distribution.js"
 import { valueFromConfig } from "../../internal/configAccess.js"
@@ -12,10 +12,9 @@ import type { CompletedTrialForSplit, TrialSplit } from "../../internal/tpe/spli
 
 const backgroundSimilarity = 0.25
 
-const finitePositive = (value: number): boolean => Bool.and(Number.isFinite(value), Num.greaterThan(value, 0))
+const finitePositive = (value: number): boolean => Bool.and(isFinite(value), Num.greaterThan(value, 0))
 
-const finiteNonNegative = (value: number): boolean =>
-  Bool.and(Number.isFinite(value), Num.greaterThanOrEqualTo(value, 0))
+const finiteNonNegative = (value: number): boolean => Bool.and(isFinite(value), Num.greaterThanOrEqualTo(value, 0))
 
 const costSamples = (
   split: TrialSplit
@@ -32,7 +31,7 @@ const costSamples = (
 const finiteNumber = (value: unknown): Option.Option<number> =>
   Match.value(value).pipe(
     Match.when(Match.number, (numericValue) =>
-      Match.value(Number.isFinite(numericValue)).pipe(
+      Match.value(isFinite(numericValue)).pipe(
         Match.when(true, () => Option.some(numericValue)),
         Match.orElse(() => Option.none())
       )),
@@ -43,13 +42,13 @@ const meanCost = (
   samplesInput: Iterable<CompletedTrialForSplit & { readonly cost: number }>
 ): Option.Option<number> => {
   const samples = Arr.fromIterable(samplesInput)
-  return Match.value(Num.lessThanOrEqualTo(samples.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(samples), 0)).pipe(
     Match.when(true, () => Option.none()),
     Match.orElse(() =>
       Option.some(
         Num.unsafeDivide(
           Arr.reduce(samples, 0, (total, sample) => Num.sum(total, sample.cost)),
-          samples.length
+          Arr.length(samples)
         )
       )
     )
@@ -152,7 +151,7 @@ const keySimilarity = (
 ): number => {
   const comparableSample = Option.flatMap(sampleValue, finiteNumber)
 
-  return Option.all([finiteNumber(candidateValue), comparableSample]).pipe(
+  return Option.all(Tuple.make(finiteNumber(candidateValue), comparableSample)).pipe(
     Option.match({
       onNone: () =>
         Match.value(Option.exists(sampleValue, (value) => Equal.equals(candidateValue, value))).pipe(
@@ -185,7 +184,7 @@ export const estimateCostForConfig = (
     Match.orElse(() => Arr.empty<readonly [string, unknown]>())
   )
   const weightedSamples = Arr.map(samples, (sample) => {
-    const similarity = Match.value(Num.lessThanOrEqualTo(candidateEntries.length, 0)).pipe(
+    const similarity = Match.value(Num.lessThanOrEqualTo(Arr.length(candidateEntries), 0)).pipe(
       Match.when(true, () => 1),
       Match.orElse(() =>
         Num.unsafeDivide(
@@ -197,7 +196,7 @@ export const estimateCostForConfig = (
                 valueFromConfig(sample.config, key)
               )
             )),
-          candidateEntries.length
+          Arr.length(candidateEntries)
         )
       )
     )
@@ -230,13 +229,13 @@ export const objectiveVarianceFromSplit = (split: TrialSplit): Option.Option<num
     (trial) => Option.fromNullable(trial.variance).pipe(Option.filter(finiteNonNegative))
   )
 
-  return Match.value(Num.lessThanOrEqualTo(variances.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(variances), 0)).pipe(
     Match.when(true, () => Option.none()),
     Match.orElse(() =>
       Option.some(
         Num.unsafeDivide(
           Arr.reduce(variances, 0, (total, variance) => Num.sum(total, variance)),
-          variances.length
+          Arr.length(variances)
         )
       )
     )

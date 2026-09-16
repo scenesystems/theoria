@@ -38,9 +38,12 @@ export const configAtCursor = (
 ): Effect.Effect<GridConfig, SamplerExhausted | InvalidSamplerConfig> => {
   const configs = Arr.fromIterable(configsInput)
   return Match.value(
-    Bool.or(Num.lessThanOrEqualTo(configs.length, 0), Num.greaterThanOrEqualTo(nextTrialNumber, configs.length))
+    Bool.or(
+      Num.lessThanOrEqualTo(Arr.length(configs), 0),
+      Num.greaterThanOrEqualTo(nextTrialNumber, Arr.length(configs))
+    )
   ).pipe(
-    Match.when(true, () => Effect.fail(exhaustedError(nextTrialNumber, configs.length))),
+    Match.when(true, () => Effect.fail(exhaustedError(nextTrialNumber, Arr.length(configs)))),
     Match.orElse(() =>
       Arr.get(configs, nextTrialNumber).pipe(
         Option.match({

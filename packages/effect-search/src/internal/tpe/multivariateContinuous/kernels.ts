@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { sqrt } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Data, Effect, Match, Number as Num, Option, Tuple } from "effect"
 
 import type { Vector } from "../../../Objective.js"
 
@@ -50,15 +50,15 @@ export const valueAt = (valuesInput: Iterable<number>, index: number, fallback: 
 
 const average = (valuesInput: Iterable<number>): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(values.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 0),
-    Match.orElse(() => Num.unsafeDivide(Arr.reduce(values, 0, (sum, value) => Num.sum(sum, value)), values.length))
+    Match.orElse(() => Num.unsafeDivide(Arr.reduce(values, 0, (sum, value) => Num.sum(sum, value)), Arr.length(values)))
   )
 }
 
 const stddev = (valuesInput: Iterable<number>, mean: number): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(values.length, 0)).pipe(
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 1),
     Match.orElse(() => {
       const variance = Num.unsafeDivide(
@@ -66,7 +66,7 @@ const stddev = (valuesInput: Iterable<number>, mean: number): number => {
           const centered = Num.subtract(value, mean)
           return Num.sum(sum, Num.multiply(centered, centered))
         }),
-        values.length
+        Arr.length(values)
       )
 
       return sqrt(variance)
@@ -137,10 +137,10 @@ export const drawMultivariateRolls = (
   dimensionCount: number
 ) =>
   Effect.forEach(indices(nCandidates), () =>
-    Effect.all([
+    Effect.all(Tuple.make(
       Rng.nextFloat(rng),
       Effect.forEach(indices(dimensionCount), () => Rng.nextFloat(rng))
-    ]).pipe(
+    )).pipe(
       Effect.map(([componentRoll, valueRolls]) =>
         new MultivariateCandidateRoll({
           componentRoll,

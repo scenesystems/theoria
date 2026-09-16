@@ -61,7 +61,7 @@ export class MixedCandidateSelection extends Data.Class<{
 
 const candidateCount = (tracesInput: Iterable<NamedDimensionScoreTrace>): Option.Option<number> => {
   const traces = Arr.fromIterable(tracesInput)
-  return Arr.head(traces).pipe(Option.map((entry) => entry.trace.candidates.length))
+  return Arr.head(traces).pipe(Option.map((entry) => Chunk.size(entry.trace.candidates)))
 }
 
 const candidateAt = (trace: DimensionScoreTrace<unknown>, index: number): Option.Option<unknown> =>
@@ -81,7 +81,7 @@ const normalizedCandidateValue = (name: string, candidate: unknown): unknown =>
   Match.value(candidate).pipe(
     Match.when(
       Predicate.isRecord,
-      (record) => Option.fromNullable(record[name]).pipe(Option.getOrElse(() => candidate))
+      (record) => Record.get(record, name).pipe(Option.getOrElse(() => candidate))
     ),
     Match.orElse(() => candidate)
   )
@@ -111,7 +111,7 @@ const jointScoreAtIndex = (
   acquisition: Acquisition.Strategy
 ): Effect.Effect<number, InvalidSamplerConfig> => {
   const traces = Arr.fromIterable(tracesInput)
-  return Effect.all([
+  return Effect.all(Tuple.make(
     Effect.forEach(traces, (entry) =>
       logLAt(entry.trace, index).pipe(
         Option.match({
@@ -132,7 +132,7 @@ const jointScoreAtIndex = (
           onSome: Effect.succeed
         })
       ))
-  ]).pipe(
+  )).pipe(
     Effect.map(([logLContributions, logGContributions]) =>
       Acquisition.scoreJoint(
         logLContributions,

@@ -20,12 +20,12 @@ const GridConfigs = Schema.Array(GridConfigSchema)
 
 export const enumerateGrid = (dimensionsInput: Iterable<FiniteDimension>) => {
   const dimensions = Arr.fromIterable(dimensionsInput)
-  return Match.value(Num.lessThanOrEqualTo(dimensions.length, 0)).pipe(
-    Match.when(true, () => [{}]),
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(dimensions), 0)).pipe(
+    Match.when(true, () => Arr.of({})),
     Match.orElse(() =>
       Arr.reduce<FiniteDimension, typeof GridConfigs.Type>(
         dimensions,
-        [{}],
+        Arr.of({}),
         (configs, dimension) =>
           Arr.flatMap(configs, (config) =>
             Arr.map(dimension.values, (value) => ({

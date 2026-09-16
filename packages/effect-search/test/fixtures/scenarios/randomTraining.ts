@@ -13,7 +13,7 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
  * @since 0.1.0
  * @category models
  */
-export const RandomTrainingOptimizerChoices: ["adam", "sgd", "adamw"] = ["adam", "sgd", "adamw"]
+export const RandomTrainingOptimizerChoices = Schema.Literal("adam", "sgd", "adamw").literals
 
 /**
  * Decodes the field shapes used by the random-training fixture.

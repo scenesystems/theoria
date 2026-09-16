@@ -5,8 +5,9 @@
  */
 import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Match, Number as Num, Option, Tuple } from "effect"
 
+import { logStrict } from "@scenesystems/effect-math/Numeric"
 import * as Acquisition from "../../../Acquisition.js"
-import * as Float64 from "../../../internal/float64.js"
+import { exp } from "../../../internal/exponential.js"
 import type * as Rng from "../../../internal/rng.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
@@ -112,10 +113,10 @@ const floatModel = (
             Match.orElse(() =>
               Effect.succeed(
                 new FloatModel({
-                  low: Float64.log(low),
-                  high: Float64.log(high),
-                  toModel: (value: number) => Float64.log(value),
-                  fromModel: (value: number) => Float64.exp(value)
+                  low: logStrict(low),
+                  high: logStrict(high),
+                  toModel: (value: number) => logStrict(value),
+                  fromModel: (value: number) => exp(value)
                 })
               )
             )

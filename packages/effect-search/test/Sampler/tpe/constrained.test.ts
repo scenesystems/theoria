@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Schema, Tuple } from "effect"
 
+import * as Direction from "../../../src/Direction.js"
 import {
   buildConstraintDensityModels,
   constraintDensityRatioProduct
@@ -32,7 +33,7 @@ describe("constrained tpe", () => {
     Effect.sync(() => {
       const sampler = Sampler.tpe({
         seed: 23,
-        constraints: [() => Effect.succeed(0)]
+        constraints: Arr.of(() => Effect.succeed(0))
       })
       const decode = Schema.decodeUnknownEither(Sampler.Kind)
       const decoded = decode(sampler.kind)
@@ -51,65 +52,67 @@ describe("constrained tpe", () => {
   it.effect("prefers feasible history over infeasible objective winners in single-objective split", () =>
     Effect.sync(() => {
       const split = splitSingleObjective(
-        [
-          completed(0, -100, [2]),
-          completed(1, 1, [-0.2]),
-          completed(2, 2, [-0.1])
-        ],
+        Arr.make(
+          completed(0, Num.negate(100), Arr.of(2)),
+          completed(1, 1, Arr.of(Num.negate(0.2))),
+          completed(2, 2, Arr.of(Num.negate(0.1)))
+        ),
         "minimize"
       )
 
-      expect(split.below.map((trial) => trial.trialNumber)).toEqual([1])
+      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(Arr.of(1))
     }))
 
   it.effect("falls back to unconstrained split when feasible history is absent", () =>
     Effect.sync(() => {
       const split = splitSingleObjective(
-        [
-          completed(0, -10, [1]),
-          completed(1, 0, [0.5]),
-          completed(2, 2, [2])
-        ],
+        Arr.make(
+          completed(0, Num.negate(10), Arr.of(1)),
+          completed(1, 0, Arr.of(0.5)),
+          completed(2, 2, Arr.of(2))
+        ),
         "minimize"
       )
 
-      expect(split.below.map((trial) => trial.trialNumber)).toEqual([0])
+      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(Arr.of(0))
     }))
 
   it.effect("uses constraint density-ratio product to rank infeasible carry-over trials", () =>
     Effect.sync(() => {
       const split = splitMultiObjective(
-        [
-          completed(0, [10, 10], [-0.5]),
-          completed(1, [0, 0], [0.05]),
-          completed(2, [0, 0], [3])
-        ],
-        ["minimize", "minimize"],
+        Arr.make(
+          completed(0, Arr.make(10, 10), Arr.of(Num.negate(0.5))),
+          completed(1, Arr.make(0, 0), Arr.of(0.05)),
+          completed(2, Arr.make(0, 0), Arr.of(3))
+        ),
+        Tuple.make(Direction.minimize, Direction.minimize),
         2
       )
-      const densityModels = buildConstraintDensityModels([[-0.5], [0.05], [3]])
-      const nearBoundaryProduct = constraintDensityRatioProduct(densityModels, [0.05])
-      const farViolationProduct = constraintDensityRatioProduct(densityModels, [3])
+      const densityModels = buildConstraintDensityModels(
+        Arr.make(Arr.of(Num.negate(0.5)), Arr.of(0.05), Arr.of(3))
+      )
+      const nearBoundaryProduct = constraintDensityRatioProduct(densityModels, Arr.of(0.05))
+      const farViolationProduct = constraintDensityRatioProduct(densityModels, Arr.of(3))
 
       expect(nearBoundaryProduct).toBeGreaterThan(farViolationProduct)
-      expect(split.below.map((trial) => trial.trialNumber)).toEqual([0, 1])
-      expect(split.above.map((trial) => trial.trialNumber)).toEqual([2])
+      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(Arr.make(0, 1))
+      expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(Arr.of(2))
     }))
 
   it.effect("enforces feasibility-first behavior for multi-objective split", () =>
     Effect.sync(() => {
       const split = splitMultiObjective(
-        [
-          completed(0, [0, 0], [1]),
-          completed(1, [5, 5], [-0.3]),
-          completed(2, [6, 4], [-0.2])
-        ],
-        ["minimize", "minimize"],
+        Arr.make(
+          completed(0, Arr.make(0, 0), Arr.of(1)),
+          completed(1, Arr.make(5, 5), Arr.of(Num.negate(0.3))),
+          completed(2, Arr.make(6, 4), Arr.of(Num.negate(0.2)))
+        ),
+        Tuple.make(Direction.minimize, Direction.minimize),
         1
       )
-      const selected = split.below.map((trial) => trial.trialNumber)
+      const selected = Arr.map(split.below, (trial) => trial.trialNumber)
 
       expect(selected).toHaveLength(1)
-      expect(selected[0]).not.toBe(0)
+      expect(Arr.head(selected)).not.toEqual(Option.some(0))
     }))
 })
