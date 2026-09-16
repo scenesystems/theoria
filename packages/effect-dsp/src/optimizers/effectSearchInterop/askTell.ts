@@ -3,11 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Pareto, Sampler, Study } from "@scenesystems/effect-search"
-import type { ObjectiveValue } from "@scenesystems/effect-search/Contracts"
-import type { ArtifactStorageError, SearchError } from "@scenesystems/effect-search/Errors"
+import type { Value as ObjectiveValue } from "@scenesystems/effect-search/Objective"
+import * as Pareto from "@scenesystems/effect-search/Pareto"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import type { ArtifactStorageError, SearchError } from "@scenesystems/effect-search/SearchError"
 import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
-import { type Effect, Match, Option } from "effect"
+import * as Study from "@scenesystems/effect-search/Study"
+import { Array as Arr, Data, type Effect, Match, Option } from "effect"
 import type * as Scope from "effect/Scope"
 
 import {
@@ -43,7 +45,7 @@ const resolveTpeSamplerOptions = (options: EffectSearchTpeSamplerInput = {}): Ef
  * @since 0.1.0
  * @category constructors
  */
-export const makeTpeSampler = (options: EffectSearchTpeSamplerInput = {}) => {
+export const makeTpeSampler = (options: EffectSearchTpeSamplerInput = {}): Sampler.Sampler => {
   const resolved = resolveTpeSamplerOptions(options)
 
   return Sampler.tpe({
@@ -58,7 +60,7 @@ export const makeTpeSampler = (options: EffectSearchTpeSamplerInput = {}) => {
 
 const openDirectionalStudy = <Space extends SearchSpace.SearchSpace>(
   options: EffectSearchOpenOptions<Space>
-): Effect.Effect<Study.StudyHandle<Space>, SearchError, Scope.Scope> => {
+): Effect.Effect<Study.Study<Space>, SearchError, Scope.Scope> => {
   const baseOptions = {
     space: options.space,
     sampler: options.sampler,
@@ -196,7 +198,7 @@ export const snapshot = <Space extends SearchSpace.SearchSpace>(
  */
 export const result = <Space extends SearchSpace.SearchSpace>(
   handle: EffectSearchInteropHandle<Space>
-): Effect.Effect<Study.StudyResult<SearchSpace.Type<Space>>, SearchError> => Study.result(handle)
+): Effect.Effect<Study.Result<SearchSpace.Type<Space>>, SearchError> => Study.result(handle)
 
 /**
  * Projects a study result into counts and optional single-objective incumbent data.
@@ -212,14 +214,14 @@ export const result = <Space extends SearchSpace.SearchSpace>(
  * @since 0.1.0
  * @category constructors
  */
-export const resultSummary = <Config>(result: Study.StudyResult<Config>): EffectSearchResultSummary =>
+export const resultSummary = <Config>(result: Study.Result<Config>): EffectSearchResultSummary =>
   Match.value(result).pipe(
     Match.tag(
       "SingleObjective",
       ({ bestTrial, trials }) =>
         new EffectSearchResultSummary({
           kind: "SingleObjective",
-          trialCount: trials.length,
+          trialCount: Arr.length(Arr.fromIterable(trials)),
           bestTrialNumber: Option.some(bestTrial.trialNumber),
           bestObjective: Option.some(bestTrial.state.value),
           paretoCount: 1
@@ -230,10 +232,10 @@ export const resultSummary = <Config>(result: Study.StudyResult<Config>): Effect
       ({ paretoFront, trials }) =>
         new EffectSearchResultSummary({
           kind: "MultiObjective",
-          trialCount: trials.length,
+          trialCount: Arr.length(Arr.fromIterable(trials)),
           bestTrialNumber: Option.none(),
           bestObjective: Option.none(),
-          paretoCount: paretoFront.length
+          paretoCount: Arr.length(Arr.fromIterable(paretoFront))
         })
     ),
     Match.exhaustive
@@ -245,11 +247,20 @@ export const resultSummary = <Config>(result: Study.StudyResult<Config>): Effect
  * @since 0.1.0
  * @category re-exports
  */
-export const pareto = {
+export class ParetoOperations extends Data.Class<{
+  readonly dominates: typeof Pareto.dominates
+  readonly nonDominatedIndices: typeof Pareto.nonDominatedIndices
+  readonly nonDominatedSort: typeof Pareto.nonDominatedSort
+  readonly nonDominatedRanks: typeof Pareto.nonDominatedRanks
+  readonly hypervolume2d: typeof Pareto.hypervolume2d
+  readonly hypervolumeContribution2d: typeof Pareto.hypervolumeContribution2d
+}> {}
+
+export const pareto = new ParetoOperations({
   dominates: Pareto.dominates,
   nonDominatedIndices: Pareto.nonDominatedIndices,
   nonDominatedSort: Pareto.nonDominatedSort,
   nonDominatedRanks: Pareto.nonDominatedRanks,
   hypervolume2d: Pareto.hypervolume2d,
   hypervolumeContribution2d: Pareto.hypervolumeContribution2d
-}
+})

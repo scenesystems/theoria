@@ -5,7 +5,9 @@
  * @since 0.1.0
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import * as SearchSampler from "@scenesystems/effect-search/Sampler"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import * as Study from "@scenesystems/effect-search/Study"
 import { Array as Arr, Effect, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { projectSingleObjective } from "../../contracts/ObjectiveProjection.js"

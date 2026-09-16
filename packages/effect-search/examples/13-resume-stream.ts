@@ -1,16 +1,17 @@
 /**
- * Resumes from a snapshot and consumes the resumed study's lifecycle events as
+ * Resumes from a snapshot and consumes the optimization's lifecycle events as
  * a stream.
  *
  * Run: bun run examples/13-resume-stream.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Effect, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Number as Num, Option, Stream } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, OptimizationEvent, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
-const objectiveValue = (x: number, depth: number): number => Numeric.abs(x - 0.35) + depth * 0.05
+const objectiveValue = (x: number, depth: number): number =>
+  Num.sum(Numeric.abs(Num.subtract(x, 0.35)), Num.multiply(depth, 0.05))
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -19,15 +20,15 @@ const program = Effect.gen(function*() {
   })
   const objective = (config: SearchSpace.Type<typeof space>) => Effect.succeed(objectiveValue(config.x, config.depth))
 
-  const baseline = yield* Study.minimize({
+  const baseline = yield* Optimization.minimize({
     space,
     sampler: Sampler.random({ seed: 813 }),
     trials: 6,
     objective
   })
-  const snapshot = yield* Study.snapshot(baseline)
+  const snapshot = yield* Optimization.snapshot(baseline)
 
-  const events = yield* Study.resumeStream({
+  const events = yield* Optimization.resumeStream({
     space,
     sampler: Sampler.random({ seed: 813 }),
     snapshot,
@@ -40,13 +41,16 @@ const program = Effect.gen(function*() {
     Effect.map(Chunk.toReadonlyArray)
   )
 
-  const studyCompletedEvents = events.filter((event) => event._tag === "StudyCompleted")
+  const optimizationCompletedEvents = Arr.filter(events, OptimizationEvent.is("Completed"))
 
   yield* Effect.log("Resume stream complete", {
     resumedFromTrial: snapshot.nextTrialNumber,
-    emittedEvents: events.length,
-    studyCompletedEvents: studyCompletedEvents.length,
-    lastEvent: events[events.length - 1]?._tag ?? "none"
+    emittedEvents: Arr.length(events),
+    optimizationCompletedEvents: Arr.length(optimizationCompletedEvents),
+    lastEvent: Option.match(Arr.last(events), {
+      onNone: () => "none",
+      onSome: (event) => event._tag
+    })
   })
 })
 

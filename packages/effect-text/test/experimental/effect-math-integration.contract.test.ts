@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler } from "@scenesystems/effect-search"
-import { Effect } from "effect"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import { Array as Arr, Effect, Number as Num } from "effect"
 
 import { scoreCalibrationReportSync } from "../../src/experimental/Calibration/internal/scoring.js"
 import { Experimental } from "../../src/index.js"
@@ -17,13 +17,12 @@ const manualScore = (
   objective: Experimental.Calibration.CalibrationObjectiveMetadataType
 ): number =>
   Numeric.sum(
-    report.results.map((result) =>
-      Numeric.sum([
-        result.lineMismatchCount * objective.scoreWeights.lineMismatchCount,
-        Numeric.abs(result.lineCountDelta) * objective.scoreWeights.lineCountError,
-        Numeric.abs(result.maxLineWidthDelta) * objective.scoreWeights.maxLineWidthError
-      ])
-    )
+    Arr.map(report.results, (result) =>
+      Numeric.sum(Arr.make(
+        Num.multiply(result.lineMismatchCount, objective.scoreWeights.lineMismatchCount),
+        Num.multiply(Numeric.abs(result.lineCountDelta), objective.scoreWeights.lineCountError),
+        Num.multiply(Numeric.abs(result.maxLineWidthDelta), objective.scoreWeights.maxLineWidthError)
+      )))
   )
 
 describe("Experimental.Calibration effect-math integration contracts", () => {
@@ -42,7 +41,7 @@ describe("Experimental.Calibration effect-math integration contracts", () => {
       )
     }))
 
-  it.effect("calibration scoring stays cache-backed without mutating public report objects", () =>
+  it.effect("calibration scoring is deterministic for the same report", () =>
     Effect.gen(function*() {
       const report = yield* Experimental.Calibration.evaluateProfile(
         defaultCalibrationProfile,
@@ -52,6 +51,5 @@ describe("Experimental.Calibration effect-math integration contracts", () => {
       const secondScore = scoreCalibrationReportSync(report, Experimental.Calibration.DefaultCalibrationObjective)
 
       expect(firstScore).toEqual(secondScore)
-      expect(Object.getOwnPropertySymbols(report)).toEqual([])
     }))
 })

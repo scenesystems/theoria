@@ -1,16 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Array as Arr, Effect, Schema } from "effect"
 
 import { defaultGamma, hyperoptGamma } from "../../../src/internal/tpe/gammaSplit.js"
-import { FixtureRegistryLive, GammaFixtureSchema, loadFixture } from "../../helpers/fixtures.js"
+import { FixtureRegistryLive, GammaFixture, loadFixture } from "../../helpers/fixtures/index.js"
 
 describe("tpe gamma fixture parity", () => {
   it.effect("replays default and hyperopt gamma fixtures", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("gamma.default-gamma").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(GammaFixtureSchema)(loaded)
+      const fixture = yield* Schema.decodeUnknown(GammaFixture)(loaded)
 
-      fixture.payload.cases.forEach((entry) => {
+      Arr.forEach(fixture.payload.cases, (entry) => {
         expect(defaultGamma(entry.nTrials)).toBe(entry.defaultGamma)
         expect(hyperoptGamma(entry.nTrials)).toBe(entry.hyperoptGamma)
       })

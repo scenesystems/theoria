@@ -1,6 +1,6 @@
-import { Effect, Match } from "effect"
+import { Array as Arr, Effect, Inspectable, Match, Schema } from "effect"
 
-import { Study } from "@scenesystems/effect-search"
+import * as Study from "@scenesystems/effect-search/Study"
 import { Text } from "@scenesystems/effect-text"
 
 import { arrange, descriptionInput, renderingFor } from "../../contracts/demo/imagined-place-arrangement.js"
@@ -42,11 +42,14 @@ export const render = (artifact: PlaceArtifact, stageWidth: number): Effect.Effe
       arrangement: candidate(best.bestTrial.config),
       bestLoss: best.bestTrial.state.value,
       stage,
-      trials: best.trials.length
+      trials: Arr.length(Arr.fromIterable(best.trials))
     })
   }).pipe(
     Effect.provide(Text.TextLayoutLive),
     Effect.mapError((cause) =>
-      cause instanceof PlaceBuildError ? cause : new PlaceBuildError({ stage: "render", message: String(cause) })
+      Match.value(cause).pipe(
+        Match.when(Schema.is(PlaceBuildError), (error) => error),
+        Match.orElse((error) => new PlaceBuildError({ stage: "render", message: Inspectable.toStringUnknown(error) }))
+      )
     )
   )

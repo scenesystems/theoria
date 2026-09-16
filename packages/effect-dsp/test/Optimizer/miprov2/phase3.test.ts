@@ -208,6 +208,6 @@ describe("MIPROv2 Phase 3", () => {
       expect(result.diagnostics.priorTrialCount).toBe(1)
       expect(result.diagnostics.fullEvalTrialNumbers).toEqual(Arr.make(2, 5))
       expect(result.diagnostics.minibatchTrialNumbers).toEqual(Arr.make(0, 1, 2, 3, 4, 5))
-      expect(Arr.some(result.studyResult.trials, (trial) => trial.prior === true)).toBe(true)
+      expect(Arr.some(Arr.fromIterable(result.studyResult.trials), (trial) => trial.prior === true)).toBe(true)
     }))
 })

@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { ask, cancel, fail, makeTpeSampler, open, pareto, result, resultSummary, snapshot, tell } from "./askTell.js"
-import { EffectSearchAcquisitionStrategySchema, EffectSearchInteropEventSchema } from "./model.js"
+import { EffectSearchAcquisitionStrategySchema } from "./model.js"
 import { events, eventsWithProgress } from "./progress.js"
 
 export {
@@ -31,7 +31,6 @@ export {
  */
 export const effectSearchInterop = {
   EffectSearchAcquisitionStrategySchema,
-  EffectSearchInteropEventSchema,
   makeTpeSampler,
   open,
   ask,

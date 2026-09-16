@@ -5,10 +5,10 @@
  * Run: bun run examples/18-space-composition.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Array as Arr, Effect, Match, Number as Num } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const optimizerSpace = yield* SearchSpace.make({
@@ -22,19 +22,25 @@ const program = Effect.gen(function*() {
   })
 
   const fullSpace = yield* SearchSpace.extend(optimizerSpace, runtimeSpace)
-  const servingSpace = yield* SearchSpace.pick(fullSpace, ["learningRate", "batchSize", "maxTokens"])
-  const noDropoutSpace = yield* SearchSpace.omit(fullSpace, ["dropout"])
+  const servingSpace = yield* SearchSpace.pick(fullSpace, Arr.make("learningRate", "batchSize", "maxTokens"))
+  const noDropoutSpace = yield* SearchSpace.omit(fullSpace, Arr.of("dropout"))
 
-  const result = yield* Study.maximize({
+  const result = yield* Optimization.maximize({
     space: servingSpace,
     sampler: Sampler.tpe({ seed: 78 }),
     trials: 35,
     objective: (config) => {
-      const learningRateScore = 1 - Numeric.abs(Numeric.log10(config.learningRate) - Numeric.log10(0.01))
-      const batchScore = 1 - Numeric.abs(config.batchSize - 64) / 64
-      const tokenPenalty = config.maxTokens / 4096
+      const learningRateScore = Num.subtract(
+        1,
+        Numeric.abs(Num.subtract(Numeric.log10(config.learningRate), Numeric.log10(0.01)))
+      )
+      const batchScore = Num.subtract(
+        1,
+        Num.unsafeDivide(Numeric.abs(Num.subtract(config.batchSize, 64)), 64)
+      )
+      const tokenPenalty = Num.unsafeDivide(config.maxTokens, 4096)
 
-      return Effect.succeed(learningRateScore + batchScore - tokenPenalty)
+      return Effect.succeed(Num.subtract(Num.sum(learningRateScore, batchScore), tokenPenalty))
     }
   })
 
@@ -42,9 +48,9 @@ const program = Effect.gen(function*() {
     Match.tag("SingleObjective", ({ bestTrial, completionReason }) =>
       Effect.log("Space composition complete", {
         completionReason,
-        fullDimensions: fullSpace.params.map((parameter) => parameter.name),
-        servingDimensions: servingSpace.params.map((parameter) => parameter.name),
-        noDropoutDimensions: noDropoutSpace.params.map((parameter) => parameter.name),
+        fullDimensions: Arr.map(fullSpace.params, (parameter) => parameter.name),
+        servingDimensions: Arr.map(servingSpace.params, (parameter) => parameter.name),
+        noDropoutDimensions: Arr.map(noDropoutSpace.params, (parameter) => parameter.name),
         bestValue: bestTrial.state.value,
         bestConfig: bestTrial.config
       })),

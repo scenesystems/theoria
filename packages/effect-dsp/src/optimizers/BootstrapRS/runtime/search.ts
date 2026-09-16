@@ -5,7 +5,9 @@
  * @since 0.1.0
  * @internal
  */
-import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import * as SearchSampler from "@scenesystems/effect-search/Sampler"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import * as Study from "@scenesystems/effect-search/Study"
 import { Array as Arr, Data, Effect, Match, Option } from "effect"
 import type { Schema } from "effect"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"

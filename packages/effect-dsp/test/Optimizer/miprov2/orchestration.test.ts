@@ -9,8 +9,8 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { ArtifactStorageError } from "@scenesystems/effect-search/Errors"
-import * as Study from "@scenesystems/effect-search/Study"
+import { ArtifactStorageError } from "@scenesystems/effect-search/SearchError"
+import * as StudyStorage from "@scenesystems/effect-search/StudyStorage"
 import { Array as Arr, Effect, Either, Equal, Layer, Number as Num, Ref, Schema } from "effect"
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
 
@@ -108,8 +108,8 @@ describe("MIPROv2 orchestration", () => {
         const events = yield* Ref.make<ReadonlyArray<string>>(Arr.empty<string>())
         const appendCalls = yield* Ref.make(0)
         const storage = Layer.succeed(
-          Study.StudyStorage,
-          Study.StudyStorage.of({
+          StudyStorage.StudyStorage,
+          StudyStorage.StudyStorage.of({
             appendTrial: () =>
               Ref.update(appendCalls, Num.increment).pipe(
                 Effect.zipRight(Effect.fail(storageError))

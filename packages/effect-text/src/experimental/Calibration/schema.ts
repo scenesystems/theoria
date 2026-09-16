@@ -4,7 +4,8 @@
  * @since 0.1.0
  */
 import { Statistics } from "@scenesystems/effect-math"
-import { Study, StudyEvent } from "@scenesystems/effect-search"
+import * as StudyEvent from "@scenesystems/effect-search/StudyEvent"
+import * as StudySnapshot from "@scenesystems/effect-search/StudySnapshot"
 import { Schema } from "effect"
 
 import {
@@ -399,9 +400,9 @@ export type CalibrationSearchDescriptorType = typeof CalibrationSearchDescriptor
  */
 export const CalibrationStudyArtifacts = Schema.Struct({
   /** Cumulative checkpoint after the requested trials finish. */
-  snapshot: Study.StudySnapshot,
+  snapshot: StudySnapshot.StudySnapshot,
   /** Events emitted by the current invocation in emission order. */
-  eventLog: Schema.Array(StudyEvent.StudyEventSchema)
+  eventLog: Schema.Array(StudyEvent.StudyEvent)
 })
 
 /**
@@ -424,7 +425,7 @@ export const CalibrationOptimizationReport = Schema.Struct({
   /** Dimensions compiled for candidate sampling. */
   searchDescriptor: CalibrationSearchDescriptor,
   /** Study stop condition reported by Effect Search. */
-  completionReason: StudyEvent.CompletionReasonSchema,
+  completionReason: StudyEvent.CompletionReason,
   /** Weighted total loss of the selected profile. */
   bestScore: NonNegativeNumber,
   /** Distribution of the selected profile's per-case losses. */

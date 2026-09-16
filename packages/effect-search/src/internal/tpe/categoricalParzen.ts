@@ -1,8 +1,21 @@
-import { Array as Arr, Effect, Either, Equal, Match, Number as Num, Option, Predicate, Schema, Tuple } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Either,
+  Equal,
+  Match,
+  Number as Num,
+  Option,
+  Predicate,
+  Schema,
+  Tuple
+} from "effect"
 
-import { type PrimitiveChoice, PrimitiveChoiceSchema } from "../../contracts/Distribution.js"
-import { InvalidSamplerConfig } from "../../Errors/index.js"
-import * as Float64 from "../float64.js"
+import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
+import { Choice } from "../../Distribution.js"
+import { InvalidSamplerConfig } from "../../SearchError.js"
+import { exp } from "../exponential.js"
 import { defaultWeights } from "./recencyWeights.js"
 
 export const CategoricalKernelSchema = Schema.Struct({
@@ -37,7 +50,7 @@ const CategoricalParzenInputOptionsSchema = Schema.Struct({
 type CategoricalParzenInputOptions = Schema.Schema.Type<typeof CategoricalParzenInputOptionsSchema>
 
 export const CategoricalParzenSchema = Schema.Struct({
-  choices: Schema.Array(PrimitiveChoiceSchema),
+  choices: Schema.Array(Choice),
   kernelWeights: Schema.Array(Schema.Number),
   probabilities: Schema.Array(Schema.Number),
   kernels: Schema.Array(CategoricalKernelSchema)
@@ -45,24 +58,34 @@ export const CategoricalParzenSchema = Schema.Struct({
 
 export type CategoricalParzen = Schema.Schema.Type<typeof CategoricalParzenSchema>
 
-const sum = (values: ReadonlyArray<number>): number => Arr.reduce(values, 0, (total, value) => Num.sum(total, value))
+const sum = (valuesInput: Iterable<number>): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.reduce(values, 0, (total, value) => Num.sum(total, value))
+}
 
-const valueAt = <A>(values: ReadonlyArray<A>, index: number, fallback: A): A =>
-  Arr.get(values, index).pipe(
+const valueAt = <A>(valuesInput: Iterable<A>, index: number, fallback: A): A => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.get(values, index).pipe(
     Option.getOrElse(() => fallback)
   )
+}
 
 const probabilityAt = (kernel: CategoricalKernel, index: number): number => valueAt(kernel.probabilities, index, 0)
 
-const weightAt = (weights: ReadonlyArray<number>, index: number): number => valueAt(weights, index, 0)
+const weightAt = (weightsInput: Iterable<number>, index: number): number => {
+  const weights = Arr.fromIterable(weightsInput)
+  return valueAt(weights, index, 0)
+}
 
 const asFiniteDistance = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
+  Match.value(isFinite(value)).pipe(
     Match.when(true, () => Num.max(value, 0)),
     Match.orElse(() => 0)
   )
 
-const normalize = (weights: ReadonlyArray<number>): ReadonlyArray<number> => {
+const normalize = (weightsInput: Iterable<number>) => {
+  const weights = Arr.fromIterable(weightsInput)
+
   const total = sum(weights)
 
   return Match.value(Num.lessThanOrEqualTo(total, 0)).pipe(
@@ -71,7 +94,7 @@ const normalize = (weights: ReadonlyArray<number>): ReadonlyArray<number> => {
   )
 }
 
-const uniform = (count: number): ReadonlyArray<number> =>
+const uniform = (count: number) =>
   Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(count, () => Num.unsafeDivide(1, count)))
@@ -105,7 +128,7 @@ const invalidCategoricalParzenOptions = (): InvalidSamplerConfig =>
 const normalizedOptions = (
   options: CategoricalParzenOptions | {
     readonly priorWeight?: number
-    readonly distance?: (observed: PrimitiveChoice, candidate: PrimitiveChoice) => number
+    readonly distance?: (observed: Choice, candidate: Choice) => number
   }
 ): Effect.Effect<
   readonly [Option.Option<number>, Option.Option<CategoricalDistanceFunction>],
@@ -124,37 +147,43 @@ const normalizedOptions = (
   )
 
 const distanceKernelRaw = (
-  choices: ReadonlyArray<PrimitiveChoice>,
-  observed: PrimitiveChoice,
+  choicesInput: Iterable<Choice>,
+  observed: Choice,
   nKernels: number,
   priorWeight: number,
   distance: CategoricalDistanceFunction
-): ReadonlyArray<number> => {
+) => {
+  const choices = Arr.fromIterable(choicesInput)
+
   const distances = Arr.map(choices, (choice) => asFiniteDistance(distance.evaluate(observed, choice)))
   const maxDistance = Arr.reduce(distances, 0, (currentMax, value) => Num.max(currentMax, value))
   const normalizedDistances = Match.value(Num.lessThanOrEqualTo(maxDistance, 0)).pipe(
     Match.when(true, () => Arr.map(distances, () => 0)),
     Match.orElse(() => Arr.map(distances, (value) => Num.unsafeDivide(value, maxDistance)))
   )
-  const coefficient = Float64.log(Num.unsafeDivide(nKernels, priorWeight)) *
-    Num.unsafeDivide(Float64.log(choices.length), Float64.log(6))
+  const coefficient = Num.multiply(
+    logStrict(Num.unsafeDivide(nKernels, priorWeight)),
+    Num.unsafeDivide(logStrict(Arr.length(choices)), logStrict(6))
+  )
 
   return Arr.map(normalizedDistances, (distanceValue) =>
-    Float64.exp(
+    exp(
       Num.multiply(
         Num.multiply(distanceValue, distanceValue),
-        Num.multiply(coefficient, -1)
+        Num.negate(coefficient)
       )
     ))
 }
 
 const observationKernel = (
-  choices: ReadonlyArray<PrimitiveChoice>,
-  observed: PrimitiveChoice,
+  choicesInput: Iterable<Choice>,
+  observed: Choice,
   nKernels: number,
   priorWeight: number,
   distance: Option.Option<CategoricalDistanceFunction>
 ): CategoricalKernel => {
+  const choices = Arr.fromIterable(choicesInput)
+
   const smoothing = Num.unsafeDivide(priorWeight, nKernels)
   const raw = distance.pipe(
     Option.match({
@@ -174,32 +203,38 @@ const observationKernel = (
 }
 
 const weightedKernelProbabilities = (
-  kernels: ReadonlyArray<CategoricalKernel>,
-  kernelWeights: ReadonlyArray<number>,
+  kernelsInput: Iterable<CategoricalKernel>,
+  kernelWeightsInput: Iterable<number>,
   choiceCount: number
-): ReadonlyArray<number> =>
-  Match.value(Num.lessThanOrEqualTo(kernels.length, 0) || Num.lessThanOrEqualTo(choiceCount, 0)).pipe(
-    Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() =>
-      Arr.makeBy(choiceCount, (index) =>
-        Arr.reduce(
-          kernels,
-          0,
-          (total, kernel, kernelIndex) =>
-            Num.sum(total, Num.multiply(probabilityAt(kernel, index), weightAt(kernelWeights, kernelIndex)))
-        ))
+) => {
+  const kernels = Arr.fromIterable(kernelsInput)
+  const kernelWeights = Arr.fromIterable(kernelWeightsInput)
+  return Match.value(Bool.or(Num.lessThanOrEqualTo(Arr.length(kernels), 0), Num.lessThanOrEqualTo(choiceCount, 0)))
+    .pipe(
+      Match.when(true, () => Arr.empty<number>()),
+      Match.orElse(() =>
+        Arr.makeBy(choiceCount, (index) =>
+          Arr.reduce(
+            kernels,
+            0,
+            (total, kernel, kernelIndex) =>
+              Num.sum(total, Num.multiply(probabilityAt(kernel, index), weightAt(kernelWeights, kernelIndex)))
+          ))
+      )
     )
-  )
+}
 
 export const buildCategoricalParzen = (
-  choices: ReadonlyArray<PrimitiveChoice>,
-  observations: ReadonlyArray<PrimitiveChoice>,
+  choicesInput: Iterable<Choice>,
+  observationsInput: Iterable<Choice>,
   options: CategoricalParzenOptions | {
     readonly priorWeight?: number
-    readonly distance?: (observed: PrimitiveChoice, candidate: PrimitiveChoice) => number
+    readonly distance?: (observed: Choice, candidate: Choice) => number
   } = {}
-): Effect.Effect<CategoricalParzen, InvalidSamplerConfig> =>
-  Match.value(Num.lessThanOrEqualTo(choices.length, 0)).pipe(
+): Effect.Effect<CategoricalParzen, InvalidSamplerConfig> => {
+  const choices = Arr.fromIterable(choicesInput)
+  const observations = Arr.fromIterable(observationsInput)
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(choices), 0)).pipe(
     Match.when(true, () =>
       Effect.succeed({
         choices,
@@ -211,7 +246,7 @@ export const buildCategoricalParzen = (
       normalizedOptions(options).pipe(
         Effect.map(([resolvedPriorWeight, resolvedDistance]) => {
           const priorWeight = Option.getOrElse(resolvedPriorWeight, () => 1)
-          const nKernels = observations.length + 1
+          const nKernels = Num.increment(Arr.length(observations))
           const kernels = Arr.append(
             Arr.map(observations, (observation) =>
               observationKernel(
@@ -221,17 +256,18 @@ export const buildCategoricalParzen = (
                 priorWeight,
                 resolvedDistance
               )),
-            priorKernel(choices.length)
+            priorKernel(Arr.length(choices))
           )
-          const kernelWeights = normalize(Arr.append(defaultWeights(observations.length), priorWeight))
+          const kernelWeights = normalize(Arr.append(defaultWeights(Arr.length(observations)), priorWeight))
 
           return {
             choices,
             kernelWeights,
-            probabilities: weightedKernelProbabilities(kernels, kernelWeights, choices.length),
+            probabilities: weightedKernelProbabilities(kernels, kernelWeights, Arr.length(choices)),
             kernels
           }
         })
       )
     )
   )
+}

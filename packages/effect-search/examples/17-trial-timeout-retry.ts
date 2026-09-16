@@ -5,9 +5,22 @@
  * Run: bun run examples/17-trial-timeout-retry.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Data, Effect, Match, Number as Num, Ref, Schedule, Stream } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Data,
+  Effect,
+  Match,
+  Number as Num,
+  Option,
+  Ref,
+  Schedule,
+  Stream,
+  Tuple
+} from "effect"
 
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, OptimizationEvent, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 class TransientFailure extends Data.TaggedError("TransientFailure")<{
   readonly attempt: number
@@ -15,11 +28,11 @@ class TransientFailure extends Data.TaggedError("TransientFailure")<{
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
-    mode: SearchSpace.categorical(["transient", "timeout"])
+    mode: SearchSpace.categorical(Tuple.make<["transient", "timeout"]>("transient", "timeout"))
   })
   const attemptsRef = yield* Ref.make(0)
 
-  const events = yield* Study.optimizeStream({
+  const events = yield* Optimization.stream({
     space,
     sampler: Sampler.grid({ seed: 17 }),
     direction: "minimize",
@@ -31,9 +44,10 @@ const program = Effect.gen(function*() {
         Match.when("transient", () =>
           Ref.updateAndGet(attemptsRef, Num.increment).pipe(
             Effect.flatMap((attempt) =>
-              attempt <= 2
-                ? Effect.fail(new TransientFailure({ attempt }))
-                : Effect.succeed(0.25)
+              Bool.match(Num.lessThanOrEqualTo(attempt, 2), {
+                onFalse: () => Effect.succeed(0.25),
+                onTrue: () => Effect.fail(new TransientFailure({ attempt }))
+              })
             )
           )),
         Match.when("timeout", () => Effect.sleep("120 millis").pipe(Effect.as(0.9))),
@@ -45,21 +59,21 @@ const program = Effect.gen(function*() {
   )
   const attempts = yield* Ref.get(attemptsRef)
 
-  const retries = events.filter((event) => event._tag === "TrialRetried").length
-  const cancelled = events.filter((event) => event._tag === "TrialCancelled").length
-  const completed = events.filter((event) => event._tag === "TrialCompleted").length
-  const completionReasons = events.flatMap((event) =>
-    event._tag === "StudyCompleted"
-      ? [event.completionReason]
-      : []
-  )
+  const retries = Arr.length(Arr.filter(events, OptimizationEvent.is("TrialRetried")))
+  const cancelled = Arr.length(Arr.filter(events, OptimizationEvent.is("TrialCancelled")))
+  const completed = Arr.length(Arr.filter(events, OptimizationEvent.is("TrialCompleted")))
+  const completionReasons = Arr.flatMap(events, (event) =>
+    Match.value(event).pipe(
+      Match.tag("Completed", ({ completionReason }) => Arr.of(completionReason)),
+      Match.orElse(Arr.empty)
+    ))
 
   yield* Effect.log("Timeout + retry stream complete", {
     attempts,
     retries,
     cancelled,
     completed,
-    completionReason: completionReasons[0] ?? "none"
+    completionReason: Option.getOrElse(Arr.head(completionReasons), () => "none")
   })
 })
 

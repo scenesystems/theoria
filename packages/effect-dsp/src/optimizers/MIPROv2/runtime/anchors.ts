@@ -6,7 +6,7 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Option, Order, Record } from "effect"
+import { Array as Arr, Chunk, Data, Option, Order, Record } from "effect"
 import type { ModuleParams } from "../../../contracts/ModuleParams.js"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
 import { Demo, type Example } from "../../../Example/index.js"
@@ -84,7 +84,10 @@ const bootstrapShuffledCandidates = (options: {
         kind: "bootstrap-shuffled",
         params: candidateParams({
           params: options.params,
-          demos: Arr.take(shuffleBySeed(options.demos, shuffleSeed), demoCount),
+          demos: shuffleBySeed(options.demos, shuffleSeed).pipe(
+            Chunk.take(demoCount),
+            Chunk.toReadonlyArray
+          ),
           predictorName: options.predictorName,
           marker: `shuffled-${index + 1}-count-${demoCount}`
         })

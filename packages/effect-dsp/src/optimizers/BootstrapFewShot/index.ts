@@ -6,31 +6,35 @@
  * @module
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { streamFromEmitter } from "@scenesystems/effect-search/Study"
-import { Array as Arr, Data, Effect, Option, Ref } from "effect"
-import type { Schema, Stream } from "effect"
+import { toStream } from "@scenesystems/effect-study/Emitter"
+import { Array as Arr, Boolean as Bool, Data, Effect, Number as Num, Option, Predicate, Ref, Schema } from "effect"
 import type * as Layer from "effect/Layer"
 import { withModuleParamsDemosAndInstructions } from "../../contracts/ModuleParams.js"
 import { BootstrapFailed } from "../../Errors/optimizer.js"
-import type { Example } from "../../Example/index.js"
+import { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
 import type { Module } from "../../Module/model.js"
-import { BootstrapEvent, type BootstrapEvent as BootstrapEventType } from "../../Optimizer/events/bootstrap.js"
+import { BootstrapEvent } from "../../Optimizer/events/bootstrap.js"
 import { labeledFewShot } from "../LabeledFewShot/index.js"
 import { labeledTrainset, normalizeNonNegative } from "./runtime/demos.js"
 import { BootstrapState, DEFAULT_BOOTSTRAP_FALLBACK_DEMO_COUNT, DEFAULT_BOOTSTRAP_THRESHOLD } from "./runtime/model.js"
 import { type BootstrapEventSink, bootstrapRound } from "./runtime/round.js"
 
-const averageScore = (state: BootstrapState): number =>
-  state.evaluatedExamples > 0
-    ? state.scoreSum / state.evaluatedExamples
-    : 0
+const ExampleArray = Schema.Array(Example)
 
-const bootstrapFailure = (options: {
+const averageScore = (state: BootstrapState): number =>
+  Bool.match(Num.greaterThan(state.evaluatedExamples, 0), {
+    onFalse: () => 0,
+    onTrue: () => Option.getOrElse(Num.divide(state.scoreSum, state.evaluatedExamples), () => 0)
+  })
+
+class FailureDetails extends Data.Class<{
   readonly message: string
   readonly threshold: number
   readonly state: BootstrapState
-}): BootstrapFailed =>
+}> {}
+
+const bootstrapFailure = (options: FailureDetails): BootstrapFailed =>
   new BootstrapFailed({
     message: options.message,
     roundsAttempted: options.state.roundsAttempted,
@@ -70,7 +74,7 @@ export class BootstrapFewShotOptions<
   /** Module mutated in place and returned by the optimizer. */
   readonly module: Module<I, O>
   /** Training examples used for teacher runs and labeled fallback. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: typeof ExampleArray.Type
   /** Scores each module output; values greater than or equal to `threshold` are accepted. */
   readonly metric: Metric<ME, MR>
   /** Maximum filtered-trainset passes. Zero skips trace collection. */
@@ -98,10 +102,6 @@ export type { BootstrapEventSink } from "./runtime/round.js"
  * @category constants
  */
 export const noBootstrapEvents: BootstrapEventSink = () => Effect.void
-
-const streamBootstrapFewShotEvents = <A, E, R>(
-  runWithEvents: (emit: BootstrapEventSink) => Effect.Effect<A, E, R>
-): Stream.Stream<BootstrapEventType, E, R> => streamFromEmitter(runWithEvents)
 
 /**
  * Adds accepted trace demonstrations to a module while emitting lifecycle events.
@@ -179,7 +179,11 @@ export const bootstrapFewShotWithEvents = <
         continue: true
       }),
       {
-        while: (state) => state.continue && state.round <= maxRounds && state.demos.length < maxBootstrappedDemos,
+        while: Predicate.every(Arr.make(
+          (state: BootstrapState) => state.continue,
+          (state: BootstrapState) => Num.lessThanOrEqualTo(state.round, maxRounds),
+          (state: BootstrapState) => Num.lessThan(Arr.length(state.demos), maxBootstrappedDemos)
+        )),
         body: (state) =>
           bootstrapRound({
             state,
@@ -196,71 +200,80 @@ export const bootstrapFewShotWithEvents = <
       }
     )
 
-    if (finalState.demos.length <= 0) {
-      if (fallbackToLabeledFewShot && fallbackLabeledDemoCount > 0) {
-        yield* emit(
-          BootstrapEvent.BootstrapFallbackActivated({
-            threshold,
-            roundsAttempted: finalState.roundsAttempted,
-            acceptedTraces: finalState.acceptedTraces,
-            rejectedTraces: finalState.rejectedTraces,
-            bestScoreSeen: finalState.bestScoreSeen,
-            bestScore: finalState.bestScore,
-            averageScore: averageScore(finalState),
-            fallbackLabeledDemoCount
-          })
-        )
+    return yield* Effect.if(Arr.isEmptyReadonlyArray(finalState.demos), {
+      onTrue: () =>
+        Effect.if(Bool.and(fallbackToLabeledFewShot, Num.greaterThan(fallbackLabeledDemoCount, 0)), {
+          onTrue: () =>
+            Effect.gen(function*() {
+              yield* emit(
+                BootstrapEvent.BootstrapFallbackActivated({
+                  threshold,
+                  roundsAttempted: finalState.roundsAttempted,
+                  acceptedTraces: finalState.acceptedTraces,
+                  rejectedTraces: finalState.rejectedTraces,
+                  bestScoreSeen: finalState.bestScoreSeen,
+                  bestScore: finalState.bestScore,
+                  averageScore: averageScore(finalState),
+                  fallbackLabeledDemoCount
+                })
+              )
 
-        const optimized = yield* labeledFewShot({
-          module: options.module,
-          trainset,
-          k: fallbackLabeledDemoCount
-        })
-        const paramsAfterFallback = yield* Ref.get(options.module.params)
+              const optimized = yield* labeledFewShot({
+                module: options.module,
+                trainset,
+                k: fallbackLabeledDemoCount
+              })
+              const paramsAfterFallback = yield* Ref.get(options.module.params)
 
-        if (paramsAfterFallback.demos.length <= 0) {
-          return yield* bootstrapFailure({
-            message: "BootstrapFewShot produced zero accepted demos and labeled fallback yielded zero demos",
-            threshold,
-            state: finalState
-          })
-        }
-
-        yield* emit(
-          BootstrapEvent.BootstrapFallbackCompleted({
-            fallbackDemosAdded: paramsAfterFallback.demos.length,
-            totalDemos: paramsAfterFallback.demos.length,
-            roundsUsed: finalState.roundsAttempted
-          })
-        )
-
-        yield* emit(
+              return yield* Effect.if(Arr.isEmptyReadonlyArray(paramsAfterFallback.demos), {
+                onTrue: () =>
+                  Effect.fail(
+                    bootstrapFailure({
+                      message: "BootstrapFewShot produced zero accepted demos and labeled fallback yielded zero demos",
+                      threshold,
+                      state: finalState
+                    })
+                  ),
+                onFalse: () =>
+                  emit(
+                    BootstrapEvent.BootstrapFallbackCompleted({
+                      fallbackDemosAdded: Arr.length(paramsAfterFallback.demos),
+                      totalDemos: Arr.length(paramsAfterFallback.demos),
+                      roundsUsed: finalState.roundsAttempted
+                    })
+                  ).pipe(
+                    Effect.andThen(
+                      () =>
+                        emit(
+                          BootstrapEvent.BootstrapCompleted({
+                            totalDemos: Arr.length(paramsAfterFallback.demos),
+                            roundsUsed: finalState.roundsAttempted,
+                            fallbackUsed: true
+                          })
+                        )
+                    ),
+                    Effect.as(optimized)
+                  )
+              })
+            }),
+          onFalse: () =>
+            Effect.fail(
+              bootstrapFailure({
+                message: "BootstrapFewShot produced zero accepted demos",
+                threshold,
+                state: finalState
+              })
+            )
+        }),
+      onFalse: () =>
+        emit(
           BootstrapEvent.BootstrapCompleted({
-            totalDemos: paramsAfterFallback.demos.length,
+            totalDemos: Arr.length(finalState.demos),
             roundsUsed: finalState.roundsAttempted,
-            fallbackUsed: true
+            fallbackUsed: false
           })
-        )
-
-        return optimized
-      }
-
-      return yield* bootstrapFailure({
-        message: "BootstrapFewShot produced zero accepted demos",
-        threshold,
-        state: finalState
-      })
-    }
-
-    yield* emit(
-      BootstrapEvent.BootstrapCompleted({
-        totalDemos: finalState.demos.length,
-        roundsUsed: finalState.roundsAttempted,
-        fallbackUsed: false
-      })
-    )
-
-    return options.module
+        ).pipe(Effect.as(options.module))
+    })
   })
 
 /**
@@ -311,6 +324,6 @@ export const bootstrapFewShotStream = <
   MR = never
 >(
   options: BootstrapFewShotOptions<I, O, ME, MR>
-) => streamBootstrapFewShotEvents((emit) => bootstrapFewShotWithEvents(options, emit))
+) => toStream((emit: BootstrapEventSink) => bootstrapFewShotWithEvents(options, emit))
 
 export * from "./progress.js"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Order, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Match, Order, Schema } from "effect"
 
 import type { PrunedTrialScore } from "../../../src/internal/tpe/prunedScore.js"
 import {
@@ -7,12 +7,7 @@ import {
   prunedTrialOrderKey,
   prunedTrialScore
 } from "../../../src/internal/tpe/prunedScore.js"
-import {
-  FixtureRegistryLive,
-  loadFixture,
-  type PrunedScoreFixture,
-  PrunedScoreFixtureSchema
-} from "../../helpers/fixtures.js"
+import { FixtureRegistryLive, loadFixture, PrunedScoreFixture } from "../../helpers/fixtures/index.js"
 
 type TraceValue = PrunedScoreFixture["payload"]["cases"][number]["intermediateValues"][number]["value"]
 type ExpectedScore = PrunedScoreFixture["payload"]["cases"][number]["expectedScore"]
@@ -26,7 +21,7 @@ const traceValueToNumber = (value: TraceValue | ExpectedScore): number =>
   )
 
 const expectNumericValue = (actual: number, expected: number): void =>
-  Match.value(Number.isNaN(expected)).pipe(
+  Match.value(Bool.not(Schema.is(Schema.NonNaN)(expected))).pipe(
     Match.when(true, () => expect(actual).toBeNaN()),
     Match.orElse(() => expect(actual).toBe(expected))
   )
@@ -41,10 +36,11 @@ describe("pruned-score fixture parity", () => {
   it.effect("replays pruned score traces and deterministic ordering", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("pruned-score.pruned-ordering").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(PrunedScoreFixtureSchema)(loaded)
+      const fixture = yield* Schema.decodeUnknown(PrunedScoreFixture)(loaded)
 
-      const scored = fixture.payload.cases.map((fixtureCase) => {
-        const intermediateValues = fixtureCase.intermediateValues.map(
+      const scored = Arr.map(fixture.payload.cases, (fixtureCase) => {
+        const intermediateValues = Arr.map(
+          fixtureCase.intermediateValues,
           (entry) =>
             new PrunedIntermediateValue({
               step: entry.step,
@@ -63,7 +59,7 @@ describe("pruned-score fixture parity", () => {
         }
       })
 
-      const orderedTrialNumbers = Arr.sort(scored, prunedOrdering).map((entry) => entry.trialNumber)
+      const orderedTrialNumbers = Arr.map(Arr.sort(scored, prunedOrdering), (entry) => entry.trialNumber)
 
       expect(orderedTrialNumbers).toEqual(fixture.payload.expectedOrder)
     }))
