@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
 import {
   Array as Arr,
   Effect,
@@ -11,14 +12,13 @@ import {
   String as Str,
   Tuple
 } from "effect"
-import * as Utf8 from "../../src/Utf8.js"
 
 const scalar = fc.oneof(
   fc.integer({ min: 0, max: 0xd7ff }),
   fc.integer({ min: 0xe000, max: 0x10ffff })
 )
 
-describe("Unicode scalar construction", () => {
+describe("Utf8.fromScalar", () => {
   it.effect("constructs exact RFC 3629 boundary and asymmetric scalars without normalization", () =>
     Effect.forEach(
       Arr.make(

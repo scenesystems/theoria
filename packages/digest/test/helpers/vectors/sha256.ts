@@ -1,5 +1,5 @@
 /**
- * SHA-256 golden test vectors.
+ * SHA-256 golden vectors for Digest.hash and Digest.hashString.
  *
  * Verified against NIST FIPS 180-4 and `shasum -a 256` on macOS.
  * All hex strings are lowercase, 64 characters (256 bits).

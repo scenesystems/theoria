@@ -15,10 +15,10 @@ import {
   Tuple
 } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as ContentDigest from "../../src/ContentDigest.js"
-import * as Digest from "../../src/Digest.js"
-import * as Utf8 from "../../src/Utf8.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
+import * as Digest from "@scenesystems/digest/Digest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
 
 const longText = Str.repeat(65_536)("value")
 const workloads = Arr.make(
@@ -93,7 +93,7 @@ it.live("interrupts bounded hashing without publishing a partial digest", () =>
 it.effect("preserves multibyte and escaped text across incremental hash segments", () =>
   Effect.gen(function*() {
     const value = Str.repeat(8_193)("😀é\n")
-    // Independently construct the expected JSON text instead of using canonicalize.
+    // Construct the expected JSON text independently of CanonicalJson.encode.
     const expectedText = Str.concat(Str.concat("\"", Str.repeat(8_193)("😀é\\n")), "\"")
     const bytes = yield* Utf8.encode(expectedText)
     expect(yield* CanonicalJson.encodeBytes(value)).toStrictEqual(bytes)

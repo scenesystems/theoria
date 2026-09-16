@@ -14,10 +14,7 @@ import {
   Tuple
 } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as ContentDigest from "../../src/ContentDigest.js"
-import * as Digest from "../../src/Digest.js"
-import * as Utf8 from "../../src/Utf8.js"
+import { CanonicalJson, ContentDigest, Digest, Utf8 } from "@scenesystems/digest"
 import { oracleUtf8 } from "../helpers/bytes.js"
 
 const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })

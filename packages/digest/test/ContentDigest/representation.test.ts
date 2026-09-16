@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Equal, Hash, Schema } from "effect"
 
-import * as ContentDigest from "../../src/ContentDigest.js"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 
 const zeroDigest = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
@@ -24,7 +24,7 @@ describe("ContentDigest.Value", () => {
   })
 })
 
-describe("ContentDigest model", () => {
+describe("ContentDigest representation", () => {
   it.effect("round-trips the encoded object and preserves the tagged wire string", () =>
     Effect.gen(function*() {
       const value = yield* Schema.decodeUnknown(ContentDigest.ContentDigest)({

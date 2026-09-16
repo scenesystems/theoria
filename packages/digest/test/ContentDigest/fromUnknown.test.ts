@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Exit } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as ContentDigest from "../../src/ContentDigest.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 
 describe("ContentDigest.fromUnknown", () => {
   it.effect("matches the explicit canonical-byte pipeline", () =>

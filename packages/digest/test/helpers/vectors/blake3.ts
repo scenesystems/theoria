@@ -1,5 +1,5 @@
 /**
- * BLAKE3 golden test vectors.
+ * Blake3 golden test vectors.
  *
  * Generated from @noble/hashes blake3 implementation matching
  * the BLAKE3 reference test vectors. All hex strings verified

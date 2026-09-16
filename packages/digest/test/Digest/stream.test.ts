@@ -3,6 +3,8 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
+import * as Digest from "@scenesystems/digest/Digest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
 import {
   Array as Arr,
   Boolean as B,
@@ -19,8 +21,6 @@ import {
   String as Str,
   Tuple
 } from "effect"
-import * as Digest from "../../src/Digest.js"
-import * as Utf8 from "../../src/Utf8.js"
 import { encodeFixtureUtf8 } from "../helpers/bytes.js"
 
 const ByteChunks = Schema.Array(Schema.Uint8ArrayFromSelf)

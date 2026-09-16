@@ -1,9 +1,8 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Exit, Schema, Tuple } from "effect"
+import { Effect, Schema } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as ContentDigest from "../../src/ContentDigest.js"
-import * as Utf8 from "../../src/Utf8.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 
 it.effect("serializes an actual canonicalization failure without its rejected key", () =>
   Effect.gen(function*() {
@@ -23,28 +22,4 @@ it.effect("preserves invalid-limit versus oversized-preimage failures in the err
     expect(yield* Schema.encodeUnknown(CanonicalJson.ByteLimitError)(oversized)).toStrictEqual({
       _tag: "CanonicalByteLimitExceeded"
     })
-  }))
-
-it.effect.each(Arr.make(
-  Tuple.make("negative", -1),
-  Tuple.make("fractional", 0.5),
-  Tuple.make("unsafe", 9_007_199_254_740_992)
-))("rejects a %s code-unit index in a received Unicode diagnostic", ([, codeUnitIndex]) =>
-  Effect.gen(function*() {
-    expect(
-      yield* Effect.exit(
-        Schema.decodeUnknown(Utf8.InvalidUnicode)({
-          _tag: "InvalidUnicode",
-          kind: "lone-low-surrogate",
-          codeUnitIndex
-        })
-      )
-    ).toSatisfy(Exit.isFailure)
-    expect(
-      yield* Schema.decode(Utf8.InvalidUnicode)({
-        _tag: "InvalidUnicode",
-        kind: "lone-low-surrogate",
-        codeUnitIndex: 0
-      })
-    ).toStrictEqual(new Utf8.InvalidUnicode({ kind: "lone-low-surrogate", codeUnitIndex: 0 }))
   }))

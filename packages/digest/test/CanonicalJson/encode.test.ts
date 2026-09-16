@@ -23,12 +23,13 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit } from "effect"
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as Utf8 from "../../src/Utf8.js"
-import { keySortingVectors, numberVectors, valueTypeVectors } from "../helpers/vectors/jcs.vectors.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as Utf8 from "@scenesystems/digest/Utf8"
+import { Effect, Exit, Number as N, String as Str } from "effect"
+import { oracleUtf8 } from "../helpers/bytes.js"
+import { keySortingVectors, numberVectors, valueTypeVectors } from "../helpers/vectors/canonicalJson.js"
 
-describe("canonicalize — RFC 8785 key sorting", () => {
+describe("CanonicalJson.encode — RFC 8785 key sorting", () => {
   it.effect("sorts object keys lexicographically by UTF-16 code units", () =>
     Effect.gen(function*() {
       const result = yield* CanonicalJson.encode(keySortingVectors.reverseKeys.input)
@@ -54,7 +55,7 @@ describe("canonicalize — RFC 8785 key sorting", () => {
     }))
 })
 
-describe("canonicalize — value types", () => {
+describe("CanonicalJson.encode — value types", () => {
   it.effect("preserves null as literal", () =>
     Effect.gen(function*() {
       const result = yield* CanonicalJson.encode(valueTypeVectors.nullValue.input)
@@ -92,7 +93,7 @@ describe("canonicalize — value types", () => {
     }))
 })
 
-describe("canonicalize — ES2015 number serialization", () => {
+describe("CanonicalJson.encode — ES2015 number serialization", () => {
   it.effect("integer — no decimal point", () =>
     Effect.gen(function*() {
       const result = yield* CanonicalJson.encode(numberVectors.integer.input)
@@ -118,7 +119,7 @@ describe("canonicalize — ES2015 number serialization", () => {
     }))
 })
 
-describe("canonicalize — rejection of non-JSON-safe values", () => {
+describe("CanonicalJson.encode — rejection of non-JSON-safe values", () => {
   it.effect("rejects undefined with UnsupportedValue", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(CanonicalJson.encode({ key: undefined }))
@@ -145,6 +146,15 @@ describe("canonicalize — rejection of non-JSON-safe values", () => {
 })
 
 describe("CanonicalJson.encodeBytes", () => {
+  it.effect("keeps an astral scalar intact across the canonical byte segment boundary", () =>
+    Effect.gen(function*() {
+      const value = Str.concat(Str.repeat(N.subtract(N.multiply(32, 1024), 2))("a"), "😀")
+      const canonical = yield* CanonicalJson.encode(value)
+      const bytes = yield* CanonicalJson.encodeBytes(value)
+
+      expect(bytes).toStrictEqual(yield* oracleUtf8(canonical))
+    }))
+
   it.effect("matches canonical text followed by strict UTF-8 encoding", () =>
     Effect.gen(function*() {
       const value = { z: "😀", a: 1 }

@@ -13,8 +13,8 @@ import {
   String as Str
 } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as ContentDigest from "../../src/ContentDigest.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 
 class EncodingConfig extends Data.Class<{ readonly prefix: string }> {}
 

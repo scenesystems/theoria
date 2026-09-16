@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either } from "effect"
 
-import * as Digest from "../../src/Digest.js"
-import * as Utf8 from "../../src/Utf8.js"
+import * as Digest from "@scenesystems/digest/Digest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
 import { expectDigest } from "../helpers/assertions.js"
-import { hashVectors } from "../helpers/vectors/blake3.vectors.js"
-import { sha256Vectors } from "../helpers/vectors/sha256.vectors.js"
+import { hashVectors } from "../helpers/vectors/blake3.js"
+import { sha256Vectors } from "../helpers/vectors/sha256.js"
 
 describe("Digest.hashString", () => {
   it.effect("matches BLAKE3-256 and SHA-256 known answers", () =>

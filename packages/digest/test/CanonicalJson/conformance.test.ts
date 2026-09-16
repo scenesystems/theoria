@@ -1,31 +1,24 @@
 /**
- * External JCS conformance contract (RED-first).
- *
- * This suite defines the target-state requirement that RFC 8785 and
- * cyberphone corpus fixtures are ingested from checked-in external manifests.
+ * CanonicalJson conformance against RFC 8785 and cyberphone corpus fixtures.
  */
 
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import { Array as Arr, Effect, Match, Record, Schema, Tuple } from "effect"
-import { JcsFixtureSchema, UnicodeAdversarialFixtureSchema } from "../../scripts/fixture-schemas.js"
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import {
-  loadExternalFixtureManifest,
-  readExternalFixture,
-  selectExternalSourcesByKind
-} from "../conformance/helpers/externalFixtures.js"
-import { expectStringMatch } from "../conformance/helpers/mismatchDiagnostics.js"
 
-describe("external conformance — jcs", () => {
+import * as Fixtures from "../../scripts/fixtures.js"
+import { expectStringMatch } from "../helpers/mismatchDiagnostics.js"
+
+describe("CanonicalJson external conformance", () => {
   it.effect("canonicalizes every external jcs fixture exactly", () =>
     Effect.gen(function*() {
-      const manifest = yield* loadExternalFixtureManifest
-      const jcsSources = selectExternalSourcesByKind(manifest, "jcs")
+      const manifest = yield* Fixtures.loadManifest
+      const jcsSources = Fixtures.sourcesOfKind(manifest, "jcs")
 
       const fixtures = yield* Effect.forEach(jcsSources, (source) =>
-        readExternalFixture(source.fixturePath).pipe(
-          Effect.flatMap(Schema.decodeUnknown(JcsFixtureSchema)),
+        Fixtures.read(source.fixturePath).pipe(
+          Effect.flatMap(Schema.decodeUnknown(Fixtures.CanonicalJson)),
           Effect.map((fixture) => Tuple.make(source, fixture))
         ))
 
@@ -47,12 +40,12 @@ describe("external conformance — jcs", () => {
 
   it.effect("rejects every local malformed-Unicode key and value verdict", () =>
     Effect.gen(function*() {
-      const manifest = yield* loadExternalFixtureManifest
-      const sources = selectExternalSourcesByKind(manifest, "unicode-adversarial")
+      const manifest = yield* Fixtures.loadManifest
+      const sources = Fixtures.sourcesOfKind(manifest, "unicode-adversarial")
       const fixtures = yield* Effect.forEach(sources, (source) =>
-        readExternalFixture(source.fixturePath).pipe(
+        Fixtures.read(source.fixturePath).pipe(
           Effect.flatMap((content) =>
-            Schema.decodeUnknown(UnicodeAdversarialFixtureSchema)(content, {
+            Schema.decodeUnknown(Fixtures.UnicodeAdversarial)(content, {
               onExcessProperty: "error"
             })
           )

@@ -17,10 +17,10 @@ import {
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 
-const POINT_COUNT = 65_536
-const WARMUP_SAMPLES = 1
-const MEASURED_SAMPLES = 3
-const TIMER_DURATION = Duration.millis(1)
+const pointCount = 65_536
+const warmupSamples = 1
+const measuredSamples = 3
+const timerDuration = Duration.millis(1)
 
 class Sample extends Schema.Class<Sample>("CanonicalizationResponsivenessSample")({
   wallMs: Schema.Number,
@@ -74,7 +74,7 @@ const maximumValid = Schema.decodeSync(MaximumValid)({
   version: "scene.graph.closed.v1",
   domain: "scene.graph.closed",
   algorithm: "blake3-256",
-  points: Arr.makeBy(POINT_COUNT, (index) =>
+  points: Arr.makeBy(pointCount, (index) =>
     B.match(Num.Equivalence(index, 0), {
       onTrue: () => Arr.empty<string>(),
       onFalse: () => Arr.of(Str.concat("point-", Str.padStart(5, "0")(encodeNumber(index))))
@@ -88,7 +88,7 @@ const maximumValid = Schema.decodeSync(MaximumValid)({
 const currentTime = Effect.map(Clock.currentTimeNanos, Duration.nanos)
 
 const schedulerDelay = (current: Duration.Duration, previous: Duration.Duration): Duration.Duration =>
-  Duration.subtract(Duration.subtract(current, previous), TIMER_DURATION)
+  Duration.subtract(Duration.subtract(current, previous), timerDuration)
 
 /**
  * Samples one canonicalization while a one-millisecond sleeper fiber runs
@@ -101,7 +101,7 @@ const observe: Effect.Effect<Sample> = Effect.scoped(
     const probe = yield* Ref.make(new Probe({ delay: Duration.zero, previous: Duration.zero }))
     const timerStarted = yield* Deferred.make<void>()
     const tick = Effect.gen(function*() {
-      yield* Effect.sleep(TIMER_DURATION)
+      yield* Effect.sleep(timerDuration)
       const now = yield* currentTime
       yield* Ref.update(probe, (state) =>
         new Probe({
@@ -144,15 +144,15 @@ const distribution = (values: Arr.NonEmptyReadonlyArray<number>) => {
 }
 
 const program = Effect.gen(function*() {
-  yield* Effect.forEach(Arr.makeBy(WARMUP_SAMPLES, (index) => index), () => observe, { discard: true })
-  const samples = yield* Effect.forEach(Arr.makeBy(MEASURED_SAMPLES, (index) => index), () => observe)
+  yield* Effect.forEach(Arr.makeBy(warmupSamples, (index) => index), () => observe, { discard: true })
+  const samples = yield* Effect.forEach(Arr.makeBy(measuredSamples, (index) => index), () => observe)
   const report = yield* Schema.encode(ReportJson)(
     new Report({
       workload: new Workload({
-        pointCount: POINT_COUNT,
-        warmupSamples: WARMUP_SAMPLES,
-        measuredSamples: MEASURED_SAMPLES,
-        timerDurationMs: Duration.toMillis(TIMER_DURATION)
+        pointCount,
+        warmupSamples,
+        measuredSamples,
+        timerDurationMs: Duration.toMillis(timerDuration)
       }),
       samples,
       wallMs: distribution(Arr.map(samples, ({ wallMs }) => wallMs)),

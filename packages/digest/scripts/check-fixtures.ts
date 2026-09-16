@@ -11,13 +11,7 @@ import type { ParseResult } from "effect"
 import { Array as Arr, Console, Data, Effect, Either, Encoding, Option, Schema, Stream } from "effect"
 
 import * as Digest from "@scenesystems/digest/Digest"
-import {
-  decodeUnknownJson,
-  EXTERNAL_FIXTURE_ROOT,
-  FixtureManifestSchema,
-  MANIFEST_FILE,
-  validateFixtureByKind
-} from "./fixture-contract.js"
+import * as Fixtures from "./fixtures.js"
 
 class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
   readonly name: string
@@ -59,7 +53,7 @@ const readJsonContent = (
       )
     )
 
-    yield* decodeUnknownJson(content).pipe(
+    yield* Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))(content).pipe(
       Effect.mapError((error) =>
         new FixtureCheckError({ name: "json", file: absolutePath, reason: "malformed JSON", cause: Option.some(error) })
       )
@@ -122,11 +116,11 @@ const program = Effect.gen(function*() {
     Effect.orDie
   )
 
-  const externalRoot = pathService.join(packageRoot, EXTERNAL_FIXTURE_ROOT)
-  const manifestPath = pathService.join(externalRoot, MANIFEST_FILE)
+  const externalRoot = pathService.join(packageRoot, Fixtures.root)
+  const manifestPath = pathService.join(externalRoot, Fixtures.manifestFile)
 
   const manifestContent = yield* readJsonContent(manifestPath)
-  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestContent, {
+  const manifest = yield* Schema.decodeUnknown(Fixtures.Manifest)(manifestContent, {
     onExcessProperty: "error"
   }).pipe(
     Effect.mapError((error) =>
@@ -154,7 +148,7 @@ const program = Effect.gen(function*() {
       )
       const content = yield* toText(bytes)
 
-      yield* validateFixtureByKind(source.kind, content).pipe(
+      yield* Fixtures.validate(source.kind, content).pipe(
         Effect.mapError((error) =>
           new FixtureCheckError({
             name: source.id,
@@ -187,7 +181,7 @@ const program = Effect.gen(function*() {
   const [scanErrors, discoveredJsonFiles] = Arr.separate(externalJsonFiles)
   const scannedFixturePaths = Arr.filter(
     Arr.map(discoveredJsonFiles, (file) => normalizeRelativePath(pathService, file)),
-    (file) => file !== MANIFEST_FILE
+    (file) => file !== Fixtures.manifestFile
   )
 
   const orphanErrors = Arr.filterMap(

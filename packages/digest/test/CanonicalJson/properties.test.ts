@@ -3,7 +3,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Boolean as B, Effect, FastCheck as fc, Record, Schema, String as Str, Tuple } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 
 const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })
 const finiteNumber = fc.double({ noNaN: true, noDefaultInfinity: true })
@@ -23,7 +23,7 @@ const distinctIntegers = fc.uniqueArray(fc.integer(), { minLength: 2, maxLength:
 const JsonString = Schema.parseJson(Schema.String)
 const JsonUnknown = Schema.parseJson(Schema.Unknown)
 
-describe("canonicalize — generated data laws", () => {
+describe("CanonicalJson.encode — generated data laws", () => {
   it.effect.prop("is invariant to record insertion order", [distinctEntries], ([entries]) =>
     Effect.gen(function*() {
       const forward = yield* CanonicalJson.encode(Record.fromEntries(entries))

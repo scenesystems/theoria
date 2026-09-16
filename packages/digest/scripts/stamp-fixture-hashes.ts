@@ -9,7 +9,7 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Console, Data, Effect, Encoding, Option, Schema } from "effect"
 
 import * as Digest from "@scenesystems/digest/Digest"
-import { EXTERNAL_FIXTURE_ROOT, FixtureManifestSchema, MANIFEST_FILE } from "./fixture-contract.js"
+import * as Fixtures from "./fixtures.js"
 
 class FixtureStampError extends Data.TaggedError("FixtureStampError")<{
   readonly file: string
@@ -30,13 +30,13 @@ const program = Effect.gen(function*() {
     Effect.flatMap((url) => pathService.fromFileUrl(url)),
     Effect.orDie
   )
-  const externalRoot = pathService.join(packageRoot, EXTERNAL_FIXTURE_ROOT)
-  const manifestPath = pathService.join(externalRoot, MANIFEST_FILE)
+  const externalRoot = pathService.join(packageRoot, Fixtures.root)
+  const manifestPath = pathService.join(externalRoot, Fixtures.manifestFile)
 
   const manifestRaw = yield* fileSystem.readFileString(manifestPath).pipe(
     Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "manifest file not found" }))
   )
-  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestRaw, {
+  const manifest = yield* Schema.decodeUnknown(Fixtures.Manifest)(manifestRaw, {
     onExcessProperty: "error"
   }).pipe(
     Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "manifest schema decode failed" }))
@@ -80,7 +80,7 @@ const program = Effect.gen(function*() {
     return
   }
 
-  const encoded = yield* Schema.encode(FixtureManifestSchema)(updatedManifest).pipe(
+  const encoded = yield* Schema.encode(Fixtures.Manifest)(updatedManifest).pipe(
     Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "manifest encode failed" }))
   )
 

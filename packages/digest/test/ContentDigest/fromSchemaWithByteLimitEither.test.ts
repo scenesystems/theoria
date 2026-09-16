@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Number as N, Schema, Tuple } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as ContentDigest from "../../src/ContentDigest.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 
 const canonicalByteCountCases = Arr.make(
   Tuple.make("é", 4),

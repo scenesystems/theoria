@@ -6,24 +6,14 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Boolean as B, Effect, Either, Encoding, FastCheck as fc, Number as N, String as Str, Tuple } from "effect"
+import { Boolean as B, Effect, Either, Encoding, FastCheck as fc, String as Str, Tuple } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as Utf8 from "../../src/Utf8.js"
+import * as Utf8 from "@scenesystems/digest/Utf8"
 import { oracleUtf8 } from "../helpers/bytes.js"
 
 const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })
 
 describe("Utf8.encode", () => {
-  it.effect("keeps an astral scalar intact across the canonical byte segment boundary", () =>
-    Effect.gen(function*() {
-      const value = Str.concat(Str.repeat(N.subtract(N.multiply(32, 1024), 2))("a"), "😀")
-      const canonical = yield* CanonicalJson.encode(value)
-      const bytes = yield* CanonicalJson.encodeBytes(value)
-
-      expect(bytes).toStrictEqual(yield* oracleUtf8(canonical))
-    }))
-
   it.effect("encodes ASCII BMP and astral text to exact UTF-8 bytes", () =>
     Effect.gen(function*() {
       const encoded = yield* Utf8.encode("Aé€😀")

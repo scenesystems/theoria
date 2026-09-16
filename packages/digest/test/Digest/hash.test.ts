@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import * as Digest from "../../src/Digest.js"
+import * as Digest from "@scenesystems/digest/Digest"
 import { expectByteLength, expectDigest } from "../helpers/assertions.js"
 import { encodeFixtureUtf8 } from "../helpers/bytes.js"
-import { hashVectors } from "../helpers/vectors/blake3.vectors.js"
-import { sha256Vectors } from "../helpers/vectors/sha256.vectors.js"
+import { hashVectors } from "../helpers/vectors/blake3.js"
+import { sha256Vectors } from "../helpers/vectors/sha256.js"
 
 describe("Digest.hash", () => {
   it.effect("matches independent BLAKE3 vectors", () =>

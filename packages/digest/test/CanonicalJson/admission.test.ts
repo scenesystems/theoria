@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Data, DateTime, Effect, Exit, Schema, Tuple } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as Utf8 from "../../src/Utf8.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as Utf8 from "@scenesystems/digest/Utf8"
 
 const Rejections = Schema.Array(
   Schema.Tuple(Schema.String, Schema.Unknown, CanonicalJson.UnsupportedValue.fields.reason)
@@ -23,7 +23,7 @@ const unsupportedValues = Schema.decodeUnknownSync(Rejections)(Arr.make(
   Tuple.make("Set", Schema.decodeSync(Schema.Set(Schema.Number))(Arr.make(1)), "set")
 ))
 
-describe("canonicalize — encoded data", () => {
+describe("CanonicalJson.encode — admission", () => {
   it.effect.each(unsupportedValues)("rejects unencoded %s", ([, value, reason]) =>
     Effect.gen(function*() {
       expect(yield* Effect.exit(CanonicalJson.encode(value))).toStrictEqual(

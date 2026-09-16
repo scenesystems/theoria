@@ -1,5 +1,5 @@
 /**
- * RFC 8785 JCS canonicalization test vectors.
+ * CanonicalJson test vectors for RFC 8785 JCS.
  *
  * Input/expected pairs verified against the RFC specification
  * and cross-checked with JSON.stringify key ordering behavior.

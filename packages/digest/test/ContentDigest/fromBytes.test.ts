@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import * as ContentDigest from "../../src/ContentDigest.js"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import { encodeFixtureUtf8 } from "../helpers/bytes.js"
 
 it.effect("ContentDigest.fromBytes hashes raw input without canonicalization", () => {

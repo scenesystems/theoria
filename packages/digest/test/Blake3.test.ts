@@ -1,11 +1,15 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either } from "effect"
+import * as Blake3 from "@scenesystems/digest/Blake3"
+import * as Digest from "@scenesystems/digest/Digest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
+import { Array as Arr, Effect, Either, Encoding, Schema } from "effect"
 
-import * as Blake3 from "../../src/Blake3.js"
-import * as Utf8 from "../../src/Utf8.js"
-import { expectByteLength, expectDigest } from "../helpers/assertions.js"
-import { encodeFixtureUtf8 } from "../helpers/bytes.js"
-import { contexts, deriveVectors, macVectors } from "../helpers/vectors/blake3.vectors.js"
+import * as Fixtures from "../scripts/fixtures.js"
+import { expectByteLength, expectDigest } from "./helpers/assertions.js"
+import { encodeFixtureUtf8 } from "./helpers/bytes.js"
+import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
+import { contexts, deriveVectors, macVectors } from "./helpers/vectors/blake3.js"
 
 describe("Blake3.mac", () => {
   const zerosKey = new Uint8Array(32)
@@ -85,4 +89,57 @@ describe("Blake3.deriveKey", () => {
       const canonical = Either.getOrThrow(Blake3.deriveKey("scene/😀/é", input))
       expect(decomposed).not.toEqual(canonical)
     }))
+})
+
+describe("Blake3 external conformance", () => {
+  it.effect("matches all three modes for every official BLAKE3 vector", () =>
+    Effect.gen(function*() {
+      const manifest = yield* Fixtures.loadManifest
+      const sources = Fixtures.sourcesOfKind(manifest, "blake3")
+      const fixtures = yield* Effect.forEach(sources, (source) =>
+        Fixtures.read(source.fixturePath).pipe(
+          Effect.flatMap(Schema.decodeUnknown(Fixtures.Blake3, { onExcessProperty: "error" })),
+          Effect.map((fixture) => ({ fixture, source }))
+        ))
+
+      yield* Effect.forEach(fixtures, ({ fixture, source }) =>
+        Effect.forEach(fixture.cases, (vector) =>
+          Effect.gen(function*() {
+            const input = vector.input_len === 0
+              ? new Uint8Array()
+              : Uint8Array.from(Arr.makeBy(vector.input_len, (index) =>
+                index % 251))
+            const hash = Digest.hash("blake3-256", input)
+            const keyedHash = yield* Blake3.mac(encodeFixtureUtf8(fixture.key), input)
+            const derivedKey = yield* Blake3.deriveKey(fixture.context_string, input)
+
+            expectStringMatch(
+              `blake3:${vector.input_len}:hash`,
+              "blake3-hash",
+              source.id,
+              source.sourceLocator,
+              source.fixturePath,
+              Encoding.encodeHex(hash),
+              vector.hash.slice(0, 64)
+            )
+            expectStringMatch(
+              `blake3:${vector.input_len}:keyed_hash`,
+              "blake3-keyed_hash",
+              source.id,
+              source.sourceLocator,
+              source.fixturePath,
+              Encoding.encodeHex(keyedHash),
+              vector.keyed_hash.slice(0, 64)
+            )
+            expectStringMatch(
+              `blake3:${vector.input_len}:derive_key`,
+              "blake3-derive_key",
+              source.id,
+              source.sourceLocator,
+              source.fixturePath,
+              Encoding.encodeHex(derivedKey),
+              vector.derive_key.slice(0, 64)
+            )
+          })))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

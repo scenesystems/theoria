@@ -1,11 +1,11 @@
 import { expect, it } from "@effect/vitest"
 import { Array as Arr, Data, Effect, Either, Exit, Number as N, Schema, String as Str, Tuple } from "effect"
 
-import * as CanonicalJson from "../../src/CanonicalJson.js"
-import * as ContentDigest from "../../src/ContentDigest.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 
-const DEPTH = 100_000
-const TEST_TIMEOUT_MILLIS = 30_000
+const maximumDepth = 100_000
+const testTimeoutMillis = 30_000
 
 class DeepValueState extends Data.Class<{
   readonly depth: number
@@ -14,11 +14,11 @@ class DeepValueState extends Data.Class<{
 
 const nestedValue = (
   wrap: (value: unknown) => unknown,
-  maximumDepth = DEPTH
+  depthLimit = maximumDepth
 ): Effect.Effect<unknown> =>
   Effect.map(
     Effect.iterate<DeepValueState, never, never>(new DeepValueState({ depth: 0, value: null }), {
-      while: ({ depth }) => N.lessThan(depth, maximumDepth),
+      while: ({ depth }) => N.lessThan(depth, depthLimit),
       body: ({ depth, value }) => Effect.succeed(new DeepValueState({ depth: N.increment(depth), value: wrap(value) }))
     }),
     ({ value }) => value
@@ -28,15 +28,17 @@ it.effect("canonicalizes 100000 nested arrays without stack growth", () =>
   Effect.gen(function*() {
     const value = yield* nestedValue(Arr.of)
     const result = yield* CanonicalJson.encode(value)
-    expect(result).toBe(Arr.join(Arr.make(Str.repeat(DEPTH)("["), "null", Str.repeat(DEPTH)("]")), ""))
-  }), TEST_TIMEOUT_MILLIS)
+    expect(result).toBe(Arr.join(Arr.make(Str.repeat(maximumDepth)("["), "null", Str.repeat(maximumDepth)("]")), ""))
+  }), testTimeoutMillis)
 
 it.effect("canonicalizes 100000 nested records without stack growth", () =>
   Effect.gen(function*() {
     const value = yield* nestedValue((child) => ({ value: child }))
     const result = yield* CanonicalJson.encode(value)
-    expect(result).toBe(Arr.join(Arr.make(Str.repeat(DEPTH)("{\"value\":"), "null", Str.repeat(DEPTH)("}")), ""))
-  }), TEST_TIMEOUT_MILLIS)
+    expect(result).toBe(
+      Arr.join(Arr.make(Str.repeat(maximumDepth)("{\"value\":"), "null", Str.repeat(maximumDepth)("}")), "")
+    )
+  }), testTimeoutMillis)
 
 class NestedRecord extends Schema.Class<NestedRecord>("NestedRecord")({ value: Schema.Unknown }) {}
 
@@ -56,7 +58,7 @@ it.effect.each(structuralValues)(
         Arr.join(Arr.make(Str.repeat(depth)(open), "null", Str.repeat(depth)(close)), "")
       )
     }),
-  TEST_TIMEOUT_MILLIS
+  testTimeoutMillis
 )
 
 it.effect.each(structuralValues)(
@@ -72,5 +74,5 @@ it.effect.each(structuralValues)(
         Either.left(expected)
       )
     }),
-  TEST_TIMEOUT_MILLIS
+  testTimeoutMillis
 )

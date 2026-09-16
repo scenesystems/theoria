@@ -1,5 +1,5 @@
 /**
- * HMAC golden test vectors.
+ * Hmac golden test vectors.
  *
  * HMAC-SHA256 vectors from RFC 4231 (test cases 1–4).
  * HMAC-SHA1 vectors from RFC 2202 (test cases 1–2).

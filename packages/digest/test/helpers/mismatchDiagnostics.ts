@@ -1,6 +1,7 @@
 import { expect } from "@effect/vitest"
 import { Array as Arr, String as Str } from "effect"
 
+/** Includes the independent source when a conformance vector disagrees. */
 const field = (label: string, value: string): string => Str.concat(Str.concat(label, ": "), value)
 
 const formatDiagnostics = (

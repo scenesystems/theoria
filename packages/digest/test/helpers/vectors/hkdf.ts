@@ -1,5 +1,5 @@
 /**
- * HKDF golden test vectors from RFC 5869.
+ * Hkdf golden test vectors from RFC 5869.
  *
  * @since 0.1.0
  * @category test-helpers

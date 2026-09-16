@@ -168,6 +168,8 @@ Compare authenticators using the surrounding protocol's constant-time comparison
 
 The suite checks RFC 8785 JCS, the BLAKE3 specification, FIPS 180-4 SHA-256, RFC 2104 HMAC, and RFC 5869 HKDF, with vectors from RFC 4231, RFC 2202, NIST CAVP, and Project Wycheproof. Fixture source revisions, licenses, transformations, exclusions, verdict mappings, and local hashes live in [`test/fixtures/external/sources.manifest.json`](./test/fixtures/external/sources.manifest.json).
 
+Tests exercise the supported concern imports. Smaller suites live in `test/Blake3.test.ts`, `test/Hmac.test.ts`, and `test/Hkdf.test.ts`; larger suites use concern directories with operation or behavior names. [`scripts/fixtures.ts`](./scripts/fixtures.ts) owns fixture decoding, provenance validation, and loading for both tests and scripts. Run `bun run fixtures:verify` from this package to check all source hashes and execute the conformance suites.
+
 ## Examples
 
 - [content hashing](./examples/01-content-hashing.ts)
