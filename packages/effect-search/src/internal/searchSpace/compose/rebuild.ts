@@ -3,24 +3,20 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Equal, Match, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Effect, Equal, Match, Number as Num, Option, Schema } from "effect"
 
-import {
-  annotateDistribution,
-  type Distribution,
-  type PrimitiveChoice,
-  PrimitiveChoiceSchema
-} from "../../contracts/Distribution.js"
-import type { InvalidSearchSpace } from "../../Errors/index.js"
+import { annotate, Choice, type Distribution } from "../../../Distribution.js"
+import type { InvalidSearchSpace } from "../../../SearchError.js"
+import { Condition, type Parameter, type SearchSpace } from "../../../SearchSpace.js"
 import { make, makeConditional } from "../compile.js"
-import { ActivationCondition, type ParameterMetadata, type SearchSpace as SearchSpaceType } from "../model.js"
 import { switchOn, when } from "../switch.js"
-import { parameterByName, projectionFailure, type ProjectionOperation } from "./common.js"
+import { parameterByName } from "./parameters.js"
+import { projectionFailure, type ProjectionOperation } from "./projection.js"
 
-type ConditionPath = ReadonlyArray<ActivationCondition>
+type ConditionPath = Parameter["activeWhen"]
 
-const conditionEquals = (left: ActivationCondition, right: ActivationCondition): boolean =>
-  left.dimension === right.dimension && Equal.equals(left.equals, right.equals)
+const conditionEquals = (left: Condition, right: Condition): boolean =>
+  Bool.and(Equal.equals(left.dimension, right.dimension), Equal.equals(left.equals, right.equals))
 
 const pathStartsWith = (path: ConditionPath, prefix: ConditionPath): boolean =>
   Arr.every(prefix, (condition, index) =>
@@ -32,44 +28,51 @@ const pathStartsWith = (path: ConditionPath, prefix: ConditionPath): boolean =>
     ))
 
 const pathEquals = (left: ConditionPath, right: ConditionPath): boolean =>
-  left.length === right.length && pathStartsWith(left, right)
+  Bool.and(Equal.equals(left.length, right.length), pathStartsWith(left, right))
 
 const parametersAtPath = (
-  parameters: ReadonlyArray<ParameterMetadata>,
+  parametersInput: Iterable<Parameter>,
   path: ConditionPath
-): Array<ParameterMetadata> => Arr.filter(parameters, (parameter) => pathEquals(parameter.activeWhen, path))
+) => {
+  const parameters = Arr.fromIterable(parametersInput)
+  return Arr.filter(parameters, (parameter) => pathEquals(parameter.activeWhen, path))
+}
 
 const parametersBelowPath = (
-  parameters: ReadonlyArray<ParameterMetadata>,
+  parametersInput: Iterable<Parameter>,
   path: ConditionPath
-): Array<ParameterMetadata> =>
-  Arr.filter(
+) => {
+  const parameters = Arr.fromIterable(parametersInput)
+  return Arr.filter(
     parameters,
-    (parameter) => parameter.activeWhen.length > path.length && pathStartsWith(parameter.activeWhen, path)
+    (parameter) =>
+      Bool.and(
+        Num.greaterThan(parameter.activeWhen.length, path.length),
+        pathStartsWith(parameter.activeWhen, path)
+      )
   )
-
-const emptyDiscriminants = (): Array<string> => []
+}
 
 const nextDiscriminantsForPath = (
-  parameters: ReadonlyArray<ParameterMetadata>,
+  parametersInput: Iterable<Parameter>,
   path: ConditionPath
-): Array<string> =>
-  Arr.reduce(
-    Arr.filterMap(parametersBelowPath(parameters, path), (parameter) =>
-      Arr.get(parameter.activeWhen, path.length).pipe(Option.map((condition) => condition.dimension))),
-    emptyDiscriminants(),
-    (accumulator, discriminant) =>
-      Arr.contains(accumulator, discriminant)
-        ? accumulator
-        : Arr.append(accumulator, discriminant)
+) => {
+  const parameters = Arr.fromIterable(parametersInput)
+  return Arr.dedupe(
+    Arr.filterMap(
+      parametersBelowPath(parameters, path),
+      (parameter) => Arr.get(parameter.activeWhen, path.length).pipe(Option.map((condition) => condition.dimension))
+    )
   )
+}
 
 const requireParameter = (
   operation: ProjectionOperation,
-  parameters: ReadonlyArray<ParameterMetadata>,
+  parametersInput: Iterable<Parameter>,
   name: string
-): Effect.Effect<ParameterMetadata, InvalidSearchSpace> =>
-  parameterByName(parameters, name).pipe(
+): Effect.Effect<Parameter, InvalidSearchSpace> => {
+  const parameters = Arr.fromIterable(parametersInput)
+  return parameterByName(parameters, name).pipe(
     Option.match({
       onNone: () =>
         Effect.fail(
@@ -78,16 +81,17 @@ const requireParameter = (
       onSome: Effect.succeed
     })
   )
+}
 
 const requireCategoricalChoices = (
   operation: ProjectionOperation,
-  parameter: ParameterMetadata
-): Effect.Effect<ReadonlyArray<PrimitiveChoice>, InvalidSearchSpace> =>
+  parameter: Parameter
+) =>
   Match.value(parameter.distribution).pipe(
     Match.when({ type: "categorical" }, ({ choices }) =>
       Effect.filterOrFail(
         Effect.succeed(choices),
-        (values) => values.length > 0,
+        (values) => Num.greaterThan(values.length, 0),
         () =>
           projectionFailure(operation, `discriminant "${parameter.name}" has no categorical choices`, parameter.name)
       )),
@@ -105,11 +109,17 @@ const requireCategoricalChoices = (
 const schemaFromCategoricalChoices = (
   distribution: Distribution & { readonly type: "categorical" }
 ): Schema.Schema.AnyNoContext =>
-  annotateDistribution(
-    PrimitiveChoiceSchema.pipe(
+  annotate(
+    Choice.pipe(
       Schema.filter((value) =>
-        Arr.some(distribution.choices, (choice) => Equal.equals(choice, value)) ||
-        `categorical value must be one of: ${distribution.choices.join(", ")}`
+        Match.value(Arr.some(distribution.choices, (choice) => Equal.equals(choice, value))).pipe(
+          Match.when(true, () => true),
+          Match.orElse(() =>
+            `categorical value must be one of: ${
+              Arr.join(Arr.map(distribution.choices, (choice) => `${choice}`), ", ")
+            }`
+          )
+        )
       )
     ),
     distribution
@@ -117,17 +127,18 @@ const schemaFromCategoricalChoices = (
 
 const schemaFromDistribution = (distribution: Distribution): Schema.Schema.AnyNoContext =>
   Match.value(distribution).pipe(
-    Match.when({ type: "float" }, (resolvedDistribution) => annotateDistribution(Schema.Number, resolvedDistribution)),
-    Match.when({ type: "int" }, (resolvedDistribution) => annotateDistribution(Schema.Int, resolvedDistribution)),
-    Match.when({ type: "fidelity" }, (resolvedDistribution) => annotateDistribution(Schema.Int, resolvedDistribution)),
+    Match.when({ type: "float" }, (resolvedDistribution) => annotate(Schema.Number, resolvedDistribution)),
+    Match.when({ type: "int" }, (resolvedDistribution) => annotate(Schema.Int, resolvedDistribution)),
+    Match.when({ type: "fidelity" }, (resolvedDistribution) => annotate(Schema.Int, resolvedDistribution)),
     Match.when({ type: "categorical" }, (resolvedDistribution) => schemaFromCategoricalChoices(resolvedDistribution)),
     Match.exhaustive
   )
 
 const declarationsFromParameters = (
-  parameters: ReadonlyArray<ParameterMetadata>
-): Record<string, Schema.Schema.AnyNoContext> =>
-  Arr.reduce(
+  parametersInput: Iterable<Parameter>
+): Record<string, Schema.Schema.AnyNoContext> => {
+  const parameters = Arr.fromIterable(parametersInput)
+  return Arr.reduce(
     parameters,
     {},
     (declarations, parameter) => ({
@@ -135,13 +146,15 @@ const declarationsFromParameters = (
       [parameter.name]: schemaFromDistribution(parameter.distribution)
     })
   )
+}
 
 const buildProjectedSpaceAtPath = (
   operation: ProjectionOperation,
-  parameters: ReadonlyArray<ParameterMetadata>,
+  parametersInput: Iterable<Parameter>,
   path: ConditionPath
-): Effect.Effect<SearchSpaceType, InvalidSearchSpace> =>
-  Effect.gen(function*() {
+): Effect.Effect<SearchSpace, InvalidSearchSpace> => {
+  const parameters = Arr.fromIterable(parametersInput)
+  return Effect.gen(function*() {
     const localParameters = parametersAtPath(parameters, path)
     const declarations = declarationsFromParameters(localParameters)
     const nextDiscriminants = nextDiscriminantsForPath(parameters, path)
@@ -162,7 +175,7 @@ const buildProjectedSpaceAtPath = (
                 buildProjectedSpaceAtPath(
                   operation,
                   parameters,
-                  Arr.append(path, new ActivationCondition({ dimension: discriminant, equals: choice }))
+                  Arr.append(path, new Condition({ dimension: discriminant, equals: choice }))
                 ).pipe(Effect.map((branchSpace) => when(choice, branchSpace))))
 
               const conditionalSwitch = yield* Arr.matchLeft(cases, {
@@ -174,7 +187,8 @@ const buildProjectedSpaceAtPath = (
                       discriminant
                     )
                   ),
-                onNonEmpty: (head, tail) => Effect.succeed(switchOn(discriminant, [head, ...tail]))
+                onNonEmpty: (head, tail) =>
+                  Effect.succeed(switchOn(discriminant, Chunk.prepend(Chunk.fromIterable(tail), head)))
               })
 
               return yield* makeConditional(declarations, conditionalSwitch)
@@ -185,22 +199,27 @@ const buildProjectedSpaceAtPath = (
           projectionFailure(
             operation,
             `projection introduces multiple independent discriminants at one activation path: ${
-              nextDiscriminants.join(", ")
+              Arr.join(nextDiscriminants, ", ")
             }`
           )
         )
       )
     )
   })
+}
 
 const failOnDanglingDependencies = (
   operation: ProjectionOperation,
-  projectedNames: ReadonlyArray<string>,
-  projectedParameters: ReadonlyArray<ParameterMetadata>
+  projectedNamesInput: Iterable<string>,
+  projectedParametersInput: Iterable<Parameter>
 ): Effect.Effect<void, InvalidSearchSpace> => {
+  const projectedNames = Arr.fromIterable(projectedNamesInput)
+  const projectedParameters = Arr.fromIterable(projectedParametersInput)
+
   const dangling = Arr.findFirst(
     projectedParameters,
-    (parameter) => Arr.some(parameter.activeWhen, (condition) => !Arr.contains(projectedNames, condition.dimension))
+    (parameter) =>
+      Arr.some(parameter.activeWhen, (condition) => Bool.not(Arr.contains(projectedNames, condition.dimension)))
   )
 
   return Option.match(dangling, {
@@ -224,9 +243,11 @@ const failOnDanglingDependencies = (
  */
 export const projectByNames = (
   operation: ProjectionOperation,
-  space: SearchSpaceType,
-  projectedNames: ReadonlyArray<string>
-): Effect.Effect<SearchSpaceType, InvalidSearchSpace> => {
+  space: SearchSpace,
+  projectedNamesInput: Iterable<string>
+): Effect.Effect<SearchSpace, InvalidSearchSpace> => {
+  const projectedNames = Arr.fromIterable(projectedNamesInput)
+
   const projectedParameters = Arr.filter(space.params, (parameter) => Arr.contains(projectedNames, parameter.name))
 
   return failOnDanglingDependencies(operation, projectedNames, projectedParameters).pipe(

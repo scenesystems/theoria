@@ -5,11 +5,11 @@
  */
 import { Array as Arr, Effect, HashMap, Option, Schema } from "effect"
 
-import type { InvalidSearchSpace } from "../../Errors/index.js"
+import type { InvalidSearchSpace } from "../../../SearchError.js"
+import { SearchSpace } from "../../../SearchSpace.js"
 import { invalidSearchSpace } from "../failure.js"
-import { SearchSpace as SearchSpaceModel, type SearchSpace as SearchSpaceType } from "../model.js"
 import { ensureUniqueParameterNames } from "../validation.js"
-import { parameterByName } from "./common.js"
+import { parameterByName } from "./parameters.js"
 
 const extendFailure = (reason: string, dimension?: string): InvalidSearchSpace =>
   invalidSearchSpace(`SearchSpace.extend: ${reason}`, dimension)
@@ -21,9 +21,9 @@ const extendFailure = (reason: string, dimension?: string): InvalidSearchSpace =
  * @category combinators
  */
 export const extendSpace = (
-  left: SearchSpaceType,
-  right: SearchSpaceType
-): Effect.Effect<SearchSpaceType, InvalidSearchSpace> =>
+  left: SearchSpace,
+  right: SearchSpace
+): Effect.Effect<SearchSpace, InvalidSearchSpace> =>
   Effect.gen(function*() {
     const conflict = Arr.findFirst(
       left.params,
@@ -45,7 +45,7 @@ export const extendSpace = (
     })
     const params = yield* ensureUniqueParameterNames(Arr.appendAll(left.params, right.params))
 
-    return new SearchSpaceModel({
+    return new SearchSpace({
       schema,
       dimensions: HashMap.union(left.dimensions, right.dimensions),
       params

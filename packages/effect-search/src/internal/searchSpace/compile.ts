@@ -5,13 +5,13 @@
  */
 import { Effect, Schema } from "effect"
 
-import { ParameterMetadata as ParameterMetadataClass, SearchSpace } from "../model.js"
-import type { Switch } from "../model.js"
-import { ensureUniqueParameterNames } from "../validation.js"
-import { compileBase } from "./base.js"
-import { compileWithBranch } from "./branch.js"
+import { Parameter, SearchSpace } from "../../SearchSpace.js"
+import type { Switch } from "../../SearchSpace.js"
+import { compileBase } from "./compile/base.js"
+import { compileWithBranch } from "./compile/branch.js"
+import { ensureUniqueParameterNames } from "./validation.js"
 
-const FingerprintSchema = Schema.parseJson(Schema.Array(ParameterMetadataClass))
+const fingerprintSchema = () => Schema.parseJson(Schema.Array(Parameter))
 
 type ConditionalType<
   Dimensions extends {
@@ -40,7 +40,7 @@ type ConditionalEncoded<
  * @since 0.1.0
  * @category fingerprint
  */
-export const fingerprint = (space: SearchSpace): string => Schema.encodeSync(FingerprintSchema)(space.params)
+export const fingerprint = (space: SearchSpace): string => Schema.encodeSync(fingerprintSchema())(space.params)
 
 /**
  * Compiles annotated dimensions into a typed configuration schema.
@@ -54,30 +54,6 @@ export const fingerprint = (space: SearchSpace): string => Schema.encodeSync(Fin
  * The compiled `Schema.Struct` strips excess properties when decoding. Numeric
  * distribution bounds and steps are sampling metadata and are not decode
  * refinements.
- *
- * @example
- * ```ts
- * import { Effect, Schema } from "effect"
- * import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
- *
- * export const program = Effect.gen(function*() {
- *   const space = yield* SearchSpace.make({
- *     optimizer: SearchSpace.categorical(["adam", "sgd"]),
- *     epochs: SearchSpace.int(1, 20)
- *   })
- *   const config = yield* Schema.decodeUnknown(space.schema)({
- *     optimizer: "adam",
- *     epochs: 12
- *   })
- *
- *   return yield* Effect.succeed(config).pipe(
- *     Effect.filterOrFail(
- *       ({ optimizer, epochs }) => optimizer === "adam" && epochs === 12,
- *       () => "UnexpectedConfiguration"
- *     )
- *   )
- * })
- * ```
  *
  * @typeParam Dimensions - Field schemas whose decoded and encoded types form the configuration.
  * @param dimensions - Named schemas annotated with sampler distributions.
@@ -120,41 +96,6 @@ export const make = <
  *
  * The resulting schema strips fields that do not belong to the selected branch.
  * Validation failures use `InvalidSearchSpace`.
- *
- * @example
- * ```ts
- * import { Effect, Match, Schema } from "effect"
- * import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
- *
- * export const program = Effect.gen(function*() {
- *   const adamSpace = yield* SearchSpace.make({ beta1: SearchSpace.float(0.8, 0.99) })
- *   const sgdSpace = yield* SearchSpace.make({ momentum: SearchSpace.float(0, 1) })
- *   const branch = SearchSpace.switch("optimizer", [
- *     SearchSpace.when("adam", adamSpace),
- *     SearchSpace.when("sgd", sgdSpace)
- *   ])
- *   const space = yield* SearchSpace.makeConditional(
- *     { optimizer: SearchSpace.categorical(["adam", "sgd"]) },
- *     branch
- *   )
- *   const config = yield* Schema.decodeUnknown(space.schema)({
- *     optimizer: "sgd",
- *     momentum: 0.9
- *   })
- *
- *   const matchesSgdBranch = Match.value(config).pipe(
- *     Match.when({ optimizer: "sgd", momentum: Match.number }, ({ momentum }) => momentum === 0.9),
- *     Match.orElse(() => false)
- *   )
- *
- *   return yield* Effect.succeed(matchesSgdBranch).pipe(
- *     Effect.filterOrFail(
- *       (matches) => matches,
- *       () => "UnexpectedConfiguration"
- *     )
- *   )
- * })
- * ```
  *
  * @typeParam Dimensions - Root field schemas shared by every branch.
  * @typeParam BranchSchema - Union schema contributed by the switch.

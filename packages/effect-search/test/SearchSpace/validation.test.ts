@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either } from "effect"
 
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 describe("SearchSpace validation", () => {
   it.effect("rejects float dimensions where low is greater than high", () =>

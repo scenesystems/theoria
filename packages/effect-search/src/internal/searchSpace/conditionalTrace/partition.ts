@@ -3,52 +3,63 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Match, Option, Record } from "effect"
+import { Array as Arr, Boolean as Bool, Equal, Match, Option, Record } from "effect"
 
+import {
+  ConditionalTracePartition,
+  type ConditionalTraceTrial,
+  type Parameter,
+  type SearchSpace
+} from "../../../SearchSpace.js"
 import { isParameterActive } from "../activity.js"
-import type { ParameterMetadata, SearchSpace } from "../model.js"
-import type { ConditionalTraceTrial } from "./model.js"
-import { ConditionalTracePartition } from "./model.js"
 
-const findParameter = (space: SearchSpace, name: string): Option.Option<ParameterMetadata> =>
-  Arr.findFirst(space.params, (parameter) => parameter.name === name)
+const findParameter = (space: SearchSpace, name: string): Option.Option<Parameter> =>
+  Arr.findFirst(space.params, (parameter) => Equal.equals(parameter.name, name))
 
 const resolveRequiredParameters = (
   space: SearchSpace,
-  requiredParams: ReadonlyArray<string>
-): Option.Option<Array<ParameterMetadata>> =>
-  Arr.reduce(
+  requiredParamsInput: Iterable<string>
+) => {
+  const requiredParams = Arr.fromIterable(requiredParamsInput)
+  return Arr.reduce(
     requiredParams,
-    Option.some<Array<ParameterMetadata>>([]),
+    Option.some<SearchSpace["params"]>([]),
     (resolved, name) =>
       Option.flatMap(resolved, (parameters) =>
         findParameter(space, name).pipe(
           Option.map((parameter) => Arr.append(parameters, parameter))
         ))
   )
+}
 
 const includesParameter = (trial: ConditionalTraceTrial, name: string): boolean => Record.has(trial.params, name)
 
 const includesRequiredParameters = (
   trial: ConditionalTraceTrial,
-  requiredParameters: ReadonlyArray<ParameterMetadata>
-): boolean =>
-  Arr.every(
+  requiredParametersInput: Iterable<Parameter>
+): boolean => {
+  const requiredParameters = Arr.fromIterable(requiredParametersInput)
+  return Arr.every(
     requiredParameters,
-    (parameter) => isParameterActive(parameter, trial.params) && includesParameter(trial, parameter.name)
+    (parameter) => Bool.and(isParameterActive(parameter, trial.params), includesParameter(trial, parameter.name))
   )
+}
 
-const excludedOnlyPartition = (trials: ReadonlyArray<ConditionalTraceTrial>): ConditionalTracePartition =>
-  new ConditionalTracePartition({
+const excludedOnlyPartition = (trialsInput: Iterable<ConditionalTraceTrial>): ConditionalTracePartition => {
+  const trials = Arr.fromIterable(trialsInput)
+  return new ConditionalTracePartition({
     included: [],
     excluded: Arr.map(trials, (trial) => trial.trialNumber)
   })
+}
 
 const partitionByParameters = (
-  trials: ReadonlyArray<ConditionalTraceTrial>,
-  requiredParameters: ReadonlyArray<ParameterMetadata>
-): ConditionalTracePartition =>
-  Arr.reduce(
+  trialsInput: Iterable<ConditionalTraceTrial>,
+  requiredParametersInput: Iterable<Parameter>
+): ConditionalTracePartition => {
+  const trials = Arr.fromIterable(trialsInput)
+  const requiredParameters = Arr.fromIterable(requiredParametersInput)
+  return Arr.reduce(
     trials,
     new ConditionalTracePartition({ included: [], excluded: [] }),
     (partition, trial) =>
@@ -69,6 +80,7 @@ const partitionByParameters = (
         )
       )
   )
+}
 
 /**
  * Separates trial identities by the availability of required active parameters.
@@ -88,12 +100,15 @@ const partitionByParameters = (
  */
 export const partitionTrialNumbersByRequiredParameters = (
   space: SearchSpace,
-  requiredParams: ReadonlyArray<string>,
-  trials: ReadonlyArray<ConditionalTraceTrial>
-): ConditionalTracePartition =>
-  resolveRequiredParameters(space, requiredParams).pipe(
+  requiredParamsInput: Iterable<string>,
+  trialsInput: Iterable<ConditionalTraceTrial>
+): ConditionalTracePartition => {
+  const requiredParams = Arr.fromIterable(requiredParamsInput)
+  const trials = Arr.fromIterable(trialsInput)
+  return resolveRequiredParameters(space, requiredParams).pipe(
     Option.match({
       onNone: () => excludedOnlyPartition(trials),
       onSome: (requiredParameters) => partitionByParameters(trials, requiredParameters)
     })
   )
+}

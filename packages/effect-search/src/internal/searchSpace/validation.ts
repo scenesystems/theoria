@@ -3,14 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Equal, Match, Option } from "effect"
-import type { NonEmptyReadonlyArray } from "effect/Array"
+import { Array as Arr, Boolean as Bool, type Chunk, Effect, Equal, Match, Number as Num, Option } from "effect"
 
-import type { Distribution, PrimitiveChoice } from "../contracts/Distribution.js"
-import type { InvalidSearchSpace } from "../Errors/index.js"
+import type { Choice, Distribution } from "../../Distribution.js"
+import type { InvalidSearchSpace } from "../../SearchError.js"
+import type { Case, Parameter } from "../../SearchSpace.js"
 import { expectCondition } from "./failure.js"
-import { ensurePrimitiveChoice } from "./guards.js"
-import type { ParameterMetadata, SwitchCase } from "./model.js"
+import { ensureChoice } from "./guards.js"
 
 /**
  * Fails with InvalidSearchSpace if the value is not a finite number.
@@ -33,7 +32,7 @@ export const ensurePositiveStep = (
 ): Effect.Effect<void, InvalidSearchSpace> =>
   Option.match(step, {
     onNone: () => Effect.void,
-    onSome: (value) => expectCondition(value > 0, "step must be greater than 0", dimension)
+    onSome: (value) => expectCondition(Num.greaterThan(value, 0), "step must be greater than 0", dimension)
   })
 
 /**
@@ -42,8 +41,10 @@ export const ensurePositiveStep = (
  * @since 0.1.0
  * @category guards
  */
-export const hasChoice = (choices: ReadonlyArray<PrimitiveChoice>, value: PrimitiveChoice): boolean =>
-  Arr.some(choices, (choice) => Equal.equals(choice, value))
+export const hasChoice = (choicesInput: Iterable<Choice>, value: Choice): boolean => {
+  const choices = Arr.fromIterable(choicesInput)
+  return Arr.some(choices, (choice) => Equal.equals(choice, value))
+}
 
 const validateFloatDistribution = (
   dimension: string,
@@ -56,13 +57,16 @@ const validateFloatDistribution = (
     yield* ensureFiniteNumber(low, `${dimension}.low`)
     yield* ensureFiniteNumber(high, `${dimension}.high`)
     yield* ensurePositiveStep(step, dimension)
-    yield* expectCondition(low <= high, "float low cannot be greater than high", dimension)
+    yield* expectCondition(Num.lessThanOrEqualTo(low, high), "float low cannot be greater than high", dimension)
 
     yield* Option.match(scale, {
       onNone: () => Effect.void,
       onSome: (s) =>
         Match.value(s).pipe(
-          Match.when("log", () => expectCondition(low > 0, "log-scaled float dimensions require low > 0", dimension)),
+          Match.when(
+            "log",
+            () => expectCondition(Num.greaterThan(low, 0), "log-scaled float dimensions require low > 0", dimension)
+          ),
           Match.orElse(() => Effect.void)
         )
     })
@@ -78,18 +82,24 @@ const validateIntDistribution = (
     yield* ensureFiniteNumber(low, `${dimension}.low`)
     yield* ensureFiniteNumber(high, `${dimension}.high`)
     yield* ensurePositiveStep(step, dimension)
-    yield* expectCondition(Number.isInteger(low) && Number.isInteger(high), "int bounds must be integers", dimension)
-    yield* expectCondition(low <= high, "int low cannot be greater than high", dimension)
+    yield* expectCondition(
+      Bool.and(Number.isInteger(low), Number.isInteger(high)),
+      "int bounds must be integers",
+      dimension
+    )
+    yield* expectCondition(Num.lessThanOrEqualTo(low, high), "int low cannot be greater than high", dimension)
   })
 
 const validateCategoricalDistribution = (
   dimension: string,
-  choices: ReadonlyArray<PrimitiveChoice>
-): Effect.Effect<void, InvalidSearchSpace> =>
-  Effect.gen(function*() {
-    yield* expectCondition(choices.length > 0, "categorical choices must be non-empty", dimension)
-    yield* Effect.forEach(choices, (choice) => ensurePrimitiveChoice(choice), { discard: true })
+  choicesInput: Iterable<Choice>
+): Effect.Effect<void, InvalidSearchSpace> => {
+  const choices = Arr.fromIterable(choicesInput)
+  return Effect.gen(function*() {
+    yield* expectCondition(Num.greaterThan(choices.length, 0), "categorical choices must be non-empty", dimension)
+    yield* Effect.forEach(choices, (choice) => ensureChoice(choice), { discard: true })
   })
+}
 
 /**
  * Validates a distribution's bounds, step, scale, and choices according to its type (float, int, fidelity, categorical).
@@ -113,14 +123,20 @@ export const validateDistribution = (
     Match.exhaustive
   )
 
-const duplicateParameterName = (parameters: Array<ParameterMetadata>): Option.Option<string> =>
-  Option.map(
-    Arr.findFirst(parameters, (parameter, index) =>
-      Arr.some(Arr.drop(parameters, index + 1), (candidate) =>
-        Equal.equals(candidate.name, parameter.name))),
-    (parameter) =>
-      parameter.name
+const duplicateParameterName = (parametersInput: Iterable<Parameter>): Option.Option<string> => {
+  const parameters = Arr.fromIterable(parametersInput)
+  return Option.map(
+    Arr.findFirst(
+      parameters,
+      (parameter, index) =>
+        Arr.some(
+          Arr.drop(parameters, Num.increment(index)),
+          (candidate) => Equal.equals(candidate.name, parameter.name)
+        )
+    ),
+    (parameter) => parameter.name
   )
+}
 
 /**
  * Fails with InvalidSearchSpace if any parameter name appears more than once in the metadata array.
@@ -129,8 +145,10 @@ const duplicateParameterName = (parameters: Array<ParameterMetadata>): Option.Op
  * @category utils
  */
 export const ensureUniqueParameterNames = (
-  parameters: Array<ParameterMetadata>
-): Effect.Effect<Array<ParameterMetadata>, InvalidSearchSpace> => {
+  parametersInput: Iterable<Parameter>
+) => {
+  const parameters = Arr.fromIterable(parametersInput)
+
   const duplicate = duplicateParameterName(parameters)
 
   return expectCondition(
@@ -151,11 +169,12 @@ export const ensureUniqueParameterNames = (
  */
 export const ensureDistinctCaseValues = (
   discriminant: string,
-  cases: NonEmptyReadonlyArray<SwitchCase>
-): Effect.Effect<NonEmptyReadonlyArray<SwitchCase>, InvalidSearchSpace> => {
+  cases: Chunk.NonEmptyChunk<Case>
+): Effect.Effect<Chunk.NonEmptyChunk<Case>, InvalidSearchSpace> => {
   const duplicate = Arr.findFirst(
     cases,
-    (current, index) => Arr.some(Arr.drop(cases, index + 1), (candidate) => Equal.equals(candidate.when, current.when))
+    (current, index) =>
+      Arr.some(Arr.drop(cases, Num.increment(index)), (candidate) => Equal.equals(candidate.when, current.when))
   )
 
   return expectCondition(

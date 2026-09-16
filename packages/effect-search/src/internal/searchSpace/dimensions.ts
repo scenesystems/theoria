@@ -3,12 +3,11 @@
  *
  * @since 0.1.0
  */
-import { Option, Schema } from "effect"
-import type { NonEmptyReadonlyArray } from "effect/Array"
+import { Array as Arr, Option, Schema } from "effect"
 
-import { annotateDistribution } from "../contracts/Distribution.js"
-import type { Distribution, PrimitiveChoice } from "../contracts/Distribution.js"
-import type { FloatOptions, IntOptions } from "./model.js"
+import { annotate } from "../../Distribution.js"
+import type { Choice, Distribution } from "../../Distribution.js"
+import type { FloatOptions, IntOptions } from "../../SearchSpace.js"
 
 const makeFloatDistribution = (
   low: number,
@@ -75,7 +74,7 @@ const makeIntDistribution = (
  * @category constructors
  */
 export const float = (low: number, high: number, options: FloatOptions = {}): Schema.Schema<number> => {
-  return annotateDistribution(Schema.Number, makeFloatDistribution(low, high, options))
+  return annotate(Schema.Number, makeFloatDistribution(low, high, options))
 }
 
 /**
@@ -94,7 +93,7 @@ export const float = (low: number, high: number, options: FloatOptions = {}): Sc
  * @category constructors
  */
 export const int = (low: number, high: number, options: IntOptions = {}): Schema.Schema<number> => {
-  return annotateDistribution(Schema.Int, makeIntDistribution(low, high, options))
+  return annotate(Schema.Int, makeIntDistribution(low, high, options))
 }
 
 /**
@@ -112,7 +111,7 @@ export const int = (low: number, high: number, options: IntOptions = {}): Schema
  * @category constructors
  */
 export const fidelity = (low: number, high: number): Schema.Schema<number> =>
-  annotateDistribution(Schema.Int, {
+  annotate(Schema.Int, {
     type: "fidelity",
     low,
     high
@@ -132,16 +131,21 @@ export const fidelity = (low: number, high: number): Schema.Schema<number> =>
  * @since 0.1.0
  * @category constructors
  */
-export const categorical = <const Choices extends NonEmptyReadonlyArray<PrimitiveChoice>>(
+export const categorical = <const Choices extends Iterable<Choice>>(
   choices: Choices
-): Schema.Schema<Choices[number]> => {
-  return annotateDistribution(
-    Schema.Literal(...choices),
+): Schema.Schema<Choices extends Iterable<infer Value> ? Value : never> => {
+  const materialized = Arr.fromIterable(choices)
+  const head = Arr.head(materialized).pipe(Option.getOrElse((): Choice => null))
+
+  const schema = annotate(
+    Schema.Literal(head, ...Arr.drop(materialized, 1)),
     {
       type: "categorical",
-      choices
+      choices: materialized
     }
   )
+
+  return Schema.make<Choices extends Iterable<infer Value> ? Value : never>(schema.ast)
 }
 
 /**
@@ -151,7 +155,7 @@ export const categorical = <const Choices extends NonEmptyReadonlyArray<Primitiv
  * @category constructors
  */
 export const boolean = (): Schema.Schema<boolean> =>
-  annotateDistribution(Schema.Literal(true, false), {
+  annotate(Schema.Literal(true, false), {
     type: "categorical",
     choices: [true, false]
   })

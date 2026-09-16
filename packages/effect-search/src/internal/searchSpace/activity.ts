@@ -5,11 +5,11 @@
  */
 import { Array as Arr, Equal, Match, Option, Predicate, Record } from "effect"
 
-import type { PrimitiveChoice } from "../contracts/Distribution.js"
-import { ActivationCondition } from "./model.js"
-import type { ParameterMetadata, SearchSpace } from "./model.js"
+import type { Choice } from "../../Distribution.js"
+import { Condition } from "../../SearchSpace.js"
+import type { Parameter, SearchSpace } from "../../SearchSpace.js"
 
-const conditionSatisfied = (config: unknown, condition: ActivationCondition): boolean =>
+const conditionSatisfied = (config: unknown, condition: Condition): boolean =>
   Match.value(config).pipe(
     Match.when(Predicate.isRecord, (record) =>
       Option.match(Record.get(record, condition.dimension), {
@@ -33,7 +33,7 @@ const conditionSatisfied = (config: unknown, condition: ActivationCondition): bo
  * @since 0.1.0
  * @category guards
  */
-export const isParameterActive = (parameter: ParameterMetadata, config: unknown): boolean =>
+export const isParameterActive = (parameter: Parameter, config: unknown): boolean =>
   Arr.every(parameter.activeWhen, (condition) => conditionSatisfied(config, condition))
 
 /**
@@ -45,7 +45,7 @@ export const isParameterActive = (parameter: ParameterMetadata, config: unknown)
  * @since 0.1.0
  * @category combinators
  */
-export const activeParameters = (space: SearchSpace, config: unknown): Array<ParameterMetadata> =>
+export const activeParameters = (space: SearchSpace, config: unknown) =>
   Arr.filter(space.params, (parameter) => isParameterActive(parameter, config))
 
 /**
@@ -54,5 +54,4 @@ export const activeParameters = (space: SearchSpace, config: unknown): Array<Par
  * @since 0.1.0
  * @category constructors
  */
-export const branchCondition = (dimension: string, equals: PrimitiveChoice): ActivationCondition =>
-  new ActivationCondition({ dimension, equals })
+export const branchCondition = (dimension: string, equals: Choice): Condition => new Condition({ dimension, equals })

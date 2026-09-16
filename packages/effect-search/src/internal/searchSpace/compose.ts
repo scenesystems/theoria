@@ -3,13 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Effect } from "effect"
+import { Array as Arr, Effect } from "effect"
 
-import type { InvalidSearchSpace } from "../Errors/index.js"
+import type { InvalidSearchSpace } from "../../SearchError.js"
+import type { SearchSpace } from "../../SearchSpace.js"
 import { extendSpace } from "./compose/extend.js"
 import { projectByNames } from "./compose/rebuild.js"
 import { resolveOmitProjectionNames, resolvePickProjectionNames } from "./compose/selection.js"
-import type { SearchSpace as SearchSpaceType } from "./model.js"
 
 /**
  * Combines two spaces whose parameter names and schemas are compatible.
@@ -23,8 +23,7 @@ import type { SearchSpace as SearchSpaceType } from "./model.js"
  * @category combinators
  */
 export const extend = Effect.fn("effect-search/SearchSpace.extend")(
-  (left: SearchSpaceType, right: SearchSpaceType): Effect.Effect<SearchSpaceType, InvalidSearchSpace> =>
-    extendSpace(left, right)
+  (left: SearchSpace, right: SearchSpace): Effect.Effect<SearchSpace, InvalidSearchSpace> => extendSpace(left, right)
 )
 
 /**
@@ -41,10 +40,12 @@ export const extend = Effect.fn("effect-search/SearchSpace.extend")(
  * @category combinators
  */
 export const pick = Effect.fn("effect-search/SearchSpace.pick")(
-  (space: SearchSpaceType, names: ReadonlyArray<string>): Effect.Effect<SearchSpaceType, InvalidSearchSpace> =>
-    resolvePickProjectionNames(space, names).pipe(
+  (space: SearchSpace, namesInput: Iterable<string>): Effect.Effect<SearchSpace, InvalidSearchSpace> => {
+    const names = Arr.fromIterable(namesInput)
+    return resolvePickProjectionNames(space, names).pipe(
       Effect.flatMap((projectedNames) => projectByNames("pick", space, projectedNames))
     )
+  }
 )
 
 /**
@@ -60,8 +61,10 @@ export const pick = Effect.fn("effect-search/SearchSpace.pick")(
  * @category combinators
  */
 export const omit = Effect.fn("effect-search/SearchSpace.omit")(
-  (space: SearchSpaceType, names: ReadonlyArray<string>): Effect.Effect<SearchSpaceType, InvalidSearchSpace> =>
-    resolveOmitProjectionNames(space, names).pipe(
+  (space: SearchSpace, namesInput: Iterable<string>): Effect.Effect<SearchSpace, InvalidSearchSpace> => {
+    const names = Arr.fromIterable(namesInput)
+    return resolveOmitProjectionNames(space, names).pipe(
       Effect.flatMap((projectedNames) => projectByNames("omit", space, projectedNames))
     )
+  }
 )

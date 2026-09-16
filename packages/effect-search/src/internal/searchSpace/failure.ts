@@ -5,7 +5,7 @@
  */
 import { Effect, Option } from "effect"
 
-import { InvalidSearchSpace } from "../Errors/index.js"
+import { InvalidSearchSpace } from "../../SearchError.js"
 
 /**
  * Constructs an InvalidSearchSpace error with an optional dimension context for diagnostics.

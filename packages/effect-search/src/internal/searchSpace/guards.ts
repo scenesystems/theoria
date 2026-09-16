@@ -1,24 +1,23 @@
 /**
- * Type guards and validators for ensuring values conform to the PrimitiveChoice schema used by categorical dimensions.
+ * Type guards and validators for ensuring values conform to the Choice schema used by categorical dimensions.
  *
  * @since 0.1.0
  */
 import { Effect, Match, Option, Schema } from "effect"
 
-import type { PrimitiveChoice } from "../contracts/Distribution.js"
-import { PrimitiveChoiceSchema } from "../contracts/Distribution.js"
-import type { InvalidSearchSpace } from "../Errors/index.js"
+import { Choice } from "../../Distribution.js"
+import type { InvalidSearchSpace } from "../../SearchError.js"
 import { expectCondition, invalidSearchSpace } from "./failure.js"
 
-const primitiveChoiceGuard = Schema.is(PrimitiveChoiceSchema)
+const primitiveChoiceGuard = Schema.is(Choice)
 
 /**
- * Validates that a value conforms to the PrimitiveChoice schema (string, number, boolean, or null) with finite-number enforcement.
+ * Validates that a value conforms to the Choice schema (string, number, boolean, or null) with finite-number enforcement.
  *
  * @since 0.1.0
  * @category guards
  */
-export const ensurePrimitiveChoice = (choice: unknown): Effect.Effect<PrimitiveChoice, InvalidSearchSpace> =>
+export const ensureChoice = (choice: unknown): Effect.Effect<Choice, InvalidSearchSpace> =>
   Option.liftPredicate(primitiveChoiceGuard)(choice).pipe(
     Option.match({
       onNone: () =>

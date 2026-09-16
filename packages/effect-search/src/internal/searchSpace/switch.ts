@@ -3,40 +3,39 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Record as Rec, Schema } from "effect"
-import type { NonEmptyReadonlyArray } from "effect/Array"
+import { Array as Arr, Chunk, Record as Rec, Schema } from "effect"
 
-import type { PrimitiveChoice } from "../contracts/Distribution.js"
-import type { SearchSpace } from "./model.js"
-import { Switch, SwitchCase } from "./model.js"
+import type { Choice } from "../../Distribution.js"
+import type { SearchSpace } from "../../SearchSpace.js"
+import { Case, Switch } from "../../SearchSpace.js"
 
 type BranchCaseType<
   Discriminant extends string,
   CaseSchema extends Schema.Schema.AnyNoContext,
-  Choice extends PrimitiveChoice
+  ChoiceValue extends Choice
 > =
   & {
-    readonly [Key in Discriminant]: Choice
+    readonly [Key in Discriminant]: ChoiceValue
   }
   & Schema.Schema.Type<CaseSchema>
 
 type BranchCaseEncoded<
   Discriminant extends string,
   CaseSchema extends Schema.Schema.AnyNoContext,
-  Choice extends PrimitiveChoice
+  ChoiceValue extends Choice
 > =
   & {
-    readonly [Key in Discriminant]: Choice
+    readonly [Key in Discriminant]: ChoiceValue
   }
   & Schema.Schema.Encoded<CaseSchema>
 
 const branchSchema = <
   Discriminant extends string,
   CaseSchema extends Schema.Schema.AnyNoContext,
-  Choice extends PrimitiveChoice
+  ChoiceValue extends Choice
 >(
   discriminant: Discriminant,
-  entry: SwitchCase<CaseSchema, Choice>
+  entry: Case<CaseSchema, ChoiceValue>
 ) => {
   const schema = Schema.extend(
     Schema.Struct(Rec.singleton(discriminant, Schema.Literal(entry.when))),
@@ -44,8 +43,8 @@ const branchSchema = <
   )
 
   return Schema.make<
-    BranchCaseType<Discriminant, CaseSchema, Choice>,
-    BranchCaseEncoded<Discriminant, CaseSchema, Choice>,
+    BranchCaseType<Discriminant, CaseSchema, ChoiceValue>,
+    BranchCaseEncoded<Discriminant, CaseSchema, ChoiceValue>,
     never
   >(schema.ast)
 }
@@ -66,13 +65,13 @@ const branchSchema = <
  * @category constructors
  */
 export const when = <
-  Choice extends PrimitiveChoice,
+  ChoiceValue extends Choice,
   SpaceSchema extends Schema.Schema.AnyNoContext
 >(
-  value: Choice,
+  value: ChoiceValue,
   space: SearchSpace<SpaceSchema>
 ) => {
-  return new SwitchCase<SpaceSchema, Choice>({
+  return new Case<SpaceSchema, ChoiceValue>({
     when: value,
     schema: space.schema,
     params: space.params
@@ -97,34 +96,29 @@ export const when = <
  */
 export const switchOn = <
   Discriminant extends string,
-  const Cases extends NonEmptyReadonlyArray<SwitchCase>
+  const BranchCase extends Case
 >(
   discriminant: Discriminant,
-  cases: Cases
+  cases: Chunk.NonEmptyChunk<BranchCase>
 ) => {
   const runtimeSchema = Arr.reduce(
-    Arr.drop(cases, 1),
-    branchSchema(discriminant, cases[0]),
+    Chunk.drop(cases, 1),
+    branchSchema(discriminant, Chunk.headNonEmpty(cases)),
     (current, entry) => Schema.Union(current, branchSchema(discriminant, entry))
   )
 
   const schema = Schema.make<
-    Cases[number] extends infer Case
-      ? Case extends SwitchCase<infer CaseSchema, infer Choice> ? BranchCaseType<Discriminant, CaseSchema, Choice>
-      : never
+    BranchCase extends Case<infer CaseSchema, infer ChoiceValue> ? BranchCaseType<Discriminant, CaseSchema, ChoiceValue>
       : never,
-    Cases[number] extends infer Case
-      ? Case extends SwitchCase<infer CaseSchema, infer Choice> ? BranchCaseEncoded<Discriminant, CaseSchema, Choice>
-      : never
+    BranchCase extends Case<infer CaseSchema, infer ChoiceValue> ?
+      BranchCaseEncoded<Discriminant, CaseSchema, ChoiceValue>
       : never,
     never
   >(runtimeSchema.ast)
 
-  return new Switch<typeof schema, Cases[number], Discriminant>({
+  return new Switch<typeof schema, BranchCase, Discriminant>({
     discriminant,
     cases,
     schema
   })
 }
-
-export { switchOn as switch }

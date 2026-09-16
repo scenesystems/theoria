@@ -3,24 +3,22 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, HashMap, Option, Record, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, HashMap, Number as Num, Option, Record, Schema } from "effect"
 
-import type { PrimitiveChoice } from "../../contracts/Distribution.js"
-import type { InvalidSearchSpace } from "../../Errors/index.js"
+import type { Categorical } from "../../../Distribution.js"
+import { type Condition, Parameter, type SearchSpace, type Switch } from "../../../SearchSpace.js"
 import { branchCondition } from "../activity.js"
 import { expectCondition, invalidSearchSpace } from "../failure.js"
-import type { ActivationCondition, ParameterMetadata, Switch } from "../model.js"
-import { ParameterMetadata as ParameterMetadataClass } from "../model.js"
 import { ensureDistinctCaseValues, hasChoice } from "../validation.js"
 
 const withPrefixedCondition = (
-  parameter: ParameterMetadata,
-  condition: ActivationCondition
-): ParameterMetadata =>
-  new ParameterMetadataClass({
+  parameter: Parameter,
+  condition: Condition
+): Parameter =>
+  new Parameter({
     name: parameter.name,
     distribution: parameter.distribution,
-    activeWhen: [condition, ...parameter.activeWhen]
+    activeWhen: Arr.prepend(parameter.activeWhen, condition)
   })
 
 /**
@@ -38,17 +36,17 @@ export const compileWithBranch = <
   base: {
     readonly schema: Schema.Struct<Dimensions>
     readonly dimensions: HashMap.HashMap<string, Schema.Struct.Field>
-    readonly params: Array<ParameterMetadata>
-    readonly knownChoices: HashMap.HashMap<string, ReadonlyArray<PrimitiveChoice>>
+    readonly params: SearchSpace["params"]
+    readonly knownChoices: HashMap.HashMap<string, Categorical["choices"]>
   },
   branch: Switch<BranchSchema>
-): Effect.Effect<{
-  readonly schema: Schema.Schema.Any
-  readonly params: Array<ParameterMetadata>
-}, InvalidSearchSpace> =>
+) =>
   Effect.gen(function*() {
-    yield* expectCondition(branch.discriminant.length > 0, "switch discriminant must be a non-empty dimension name")
-    yield* expectCondition(branch.cases.length > 0, "switch requires at least one branch")
+    yield* expectCondition(
+      Num.greaterThan(branch.discriminant.length, 0),
+      "switch discriminant must be a non-empty dimension name"
+    )
+    yield* expectCondition(Num.greaterThan(branch.cases.length, 0), "switch requires at least one branch")
 
     const cases = yield* ensureDistinctCaseValues(branch.discriminant, branch.cases)
     const discriminantChoices = yield* Option.match(HashMap.get(base.knownChoices, branch.discriminant), {
@@ -62,7 +60,7 @@ export const compileWithBranch = <
       onSome: Effect.succeed
     })
 
-    const unreachable = Arr.findFirst(cases, (entry) => !hasChoice(discriminantChoices, entry.when))
+    const unreachable = Arr.findFirst(cases, (entry) => Bool.not(hasChoice(discriminantChoices, entry.when)))
 
     yield* expectCondition(
       Option.isNone(unreachable),
@@ -74,7 +72,7 @@ export const compileWithBranch = <
       branch.discriminant
     )
 
-    const conditionalParams = Arr.flatMap(cases, (entry) => {
+    const conditionalParams = Arr.flatMap(Arr.fromIterable(cases), (entry) => {
       const condition = branchCondition(branch.discriminant, entry.when)
 
       return Arr.map(entry.params, (parameter) => withPrefixedCondition(parameter, condition))
