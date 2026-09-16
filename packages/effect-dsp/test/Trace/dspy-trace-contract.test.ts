@@ -4,7 +4,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Layer, Option, Record, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Option, Schema, String, Tuple } from "effect"
 
 import {
   loadFixture,
@@ -43,19 +43,21 @@ describe("Trace DSPy contracts", () => {
           Effect.provide(singleRunLayer)
         )
       )
-      const singleRunEntry = singleRunTrace[1][0]
+      const singleRunEntry = yield* Arr.head(Tuple.getSecond(singleRunTrace))
 
-      expect(singleRunTrace[1]).toHaveLength(1)
-      expect(Record.keys(singleRunEntry?.input ?? {})).toStrictEqual(entryFixture.payload.inputKeys)
-      expect(Record.keys(singleRunEntry?.output ?? {})).toStrictEqual(entryFixture.payload.predictionKeys)
+      expect(Tuple.getSecond(singleRunTrace)).toHaveLength(1)
+      expect(Tuple.getFirst(singleRunTrace)).toEqual(entryFixture.payload.samplePrediction)
+      expect(singleRunEntry.input).toEqual(entryFixture.payload.sampleInput)
+      expect(singleRunEntry.output).toEqual(entryFixture.payload.samplePrediction)
+      expect(singleRunEntry.moduleName).toBe("qa-trace-dspy-parity")
 
       const scopeRuns = isolationFixture.payload.scopeRuns
-      const answerForPrompt = (prompt: string): string =>
+      const answerForPrompt = (prompt: string) =>
         Option.getOrElse(
-          Arr.findFirst(scopeRuns, (run) => prompt.includes(run.question)).pipe(
+          Arr.findFirst(scopeRuns, (run) => String.includes(run.question)(prompt)).pipe(
             Option.map((run) => run.expectedAnswer)
           ),
-          () => scopeRuns[0]?.expectedAnswer ?? ""
+          () => "unmatched prompt"
         )
 
       const scopedMock = yield* MockLanguageModel.make(
@@ -76,18 +78,33 @@ describe("Trace DSPy contracts", () => {
         { concurrency: "unbounded" }
       )
 
-      expect(isolationFixture.payload.crossScopeTraceLeakDetected).toBe(false)
       yield* Effect.forEach(
         Arr.zip(scopeRuns, scopedTraces),
-        ([run, traced]) =>
-          Effect.sync(() => {
-            const traceEntry = traced[1][0]
-            expect(traced[1]).toHaveLength(run.traceLength)
-            expect(String(traceEntry?.input.question ?? "")).toBe(run.traceInputQuestion)
-            expect(Record.keys(traceEntry?.output ?? {})).toStrictEqual(run.tracePredictionKeys)
-            expect(traced[0].answer).toBe(run.expectedAnswer)
+        (scopeTrace) =>
+          Effect.gen(function*() {
+            const run = Tuple.getFirst(scopeTrace)
+            const traced = Tuple.getSecond(scopeTrace)
+            const entries = Tuple.getSecond(traced)
+            const traceEntry = yield* Arr.head(entries)
+
+            expect(entries).toHaveLength(run.traceLength)
+            expect(traceEntry.input).toEqual({ question: run.traceInputQuestion })
+            expect(traceEntry.output).toEqual({ answer: run.expectedAnswer })
+            expect(Tuple.getFirst(traced)).toEqual({ answer: run.expectedAnswer })
           }),
         { discard: true }
       )
+
+      const observedInputs = Arr.map(
+        scopedTraces,
+        (traced) => Option.map(Arr.head(Tuple.getSecond(traced)), (entry) => entry.input)
+      )
+      const observedOutputs = Arr.map(
+        scopedTraces,
+        (traced) => Option.map(Arr.head(Tuple.getSecond(traced)), (entry) => entry.output)
+      )
+
+      expect(observedInputs).toEqual(Arr.map(scopeRuns, (run) => Option.some({ question: run.question })))
+      expect(observedOutputs).toEqual(Arr.map(scopeRuns, (run) => Option.some({ answer: run.expectedAnswer })))
     }))
 })

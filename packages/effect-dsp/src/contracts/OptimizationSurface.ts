@@ -7,7 +7,7 @@ import { Array as Arr, Option, Schema } from "effect"
 import type { ModuleParams } from "./ModuleParams.js"
 import { OutputStrategySchema } from "./OutputStrategy.js"
 
-export { UsageSample as OptimizationObjectiveUsage } from "./Usage.js"
+export { Usage as OptimizationObjectiveUsage } from "@effect/ai/Response"
 
 export {
   projectTraceObjectiveProjection as projectOptimizationObjective,
@@ -18,73 +18,6 @@ export {
   ModuleGraphProjection as OptimizationModuleGraphSurface,
   projectModuleGraph as projectOptimizationModuleGraph
 } from "./ModuleGraph.js"
-
-/**
- * Records `effect-search` as the source package for three search operations.
- *
- * @remarks
- * Every field accepts only the literal `"effect-search"`; the value carries no
- * service, implementation, or runtime capability.
- *
- * @since 0.1.0
- * @category models
- */
-export class SearchPrimitiveOwnership extends Schema.Class<SearchPrimitiveOwnership>("SearchPrimitiveOwnership")({
-  /** Package marker for traversal operations. */
-  traversal: Schema.Literal("effect-search"),
-  /** Package marker for sampler operations. */
-  sampler: Schema.Literal("effect-search"),
-  /** Package marker for Pareto operations. */
-  pareto: Schema.Literal("effect-search")
-}) {}
-
-/**
- * Preconstructed package markers for generic search operations.
- *
- * @since 0.1.0
- * @category constants
- */
-export const searchPrimitiveOwnership = new SearchPrimitiveOwnership({
-  traversal: "effect-search",
-  sampler: "effect-search",
-  pareto: "effect-search"
-})
-
-/**
- * Records `effect-search` as the source package for DSP search interop operations.
- *
- * @remarks
- * Every field accepts only the literal `"effect-search"`; the value carries no
- * service, implementation, or runtime capability.
- *
- * @since 0.1.0
- * @category models
- */
-export class EffectSearchInteropOwnership extends Schema.Class<EffectSearchInteropOwnership>(
-  "EffectSearchInteropOwnership"
-)({
-  /** Package marker for ask/tell operations. */
-  askTell: Schema.Literal("effect-search"),
-  /** Package marker for Pareto operations. */
-  pareto: Schema.Literal("effect-search"),
-  /** Package marker for acquisition operations. */
-  acquisition: Schema.Literal("effect-search"),
-  /** Package marker for progress streams. */
-  progress: Schema.Literal("effect-search")
-}) {}
-
-/**
- * Preconstructed package markers for DSP search interop operations.
- *
- * @since 0.1.0
- * @category constants
- */
-export const effectSearchInteropOwnership = new EffectSearchInteropOwnership({
-  askTell: "effect-search",
-  pareto: "effect-search",
-  acquisition: "effect-search",
-  progress: "effect-search"
-})
 
 /**
  * Captures module parameters without demonstrations or mutable refs.
@@ -132,10 +65,10 @@ export class OptimizationDimension extends Schema.Class<OptimizationDimension>("
 const optionalDimension = (
   name: string,
   value: Option.Option<number>
-): ReadonlyArray<OptimizationDimension> =>
+) =>
   Option.match(value, {
-    onNone: () => [],
-    onSome: (numberValue) => [new OptimizationDimension({ name, value: numberValue })]
+    onNone: () => Arr.empty<OptimizationDimension>(),
+    onSome: (numberValue) => Arr.make(new OptimizationDimension({ name, value: numberValue }))
   })
 
 /**
@@ -154,8 +87,11 @@ const optionalDimension = (
 export const projectOptimizationParameters = (params: ModuleParams): OptimizationParameterSurface =>
   new OptimizationParameterSurface({
     instructions: params.instructions,
-    demoCount: params.demos.length,
-    outputStrategy: params.outputStrategy ?? "auto",
+    demoCount: Arr.length(params.demos),
+    outputStrategy: Option.match(Option.fromNullable(params.outputStrategy), {
+      onNone: () => "auto",
+      onSome: (outputStrategy) => outputStrategy
+    }),
     temperature: Option.fromNullable(params.temperature),
     maxTokens: Option.fromNullable(params.maxTokens)
   })
@@ -174,7 +110,7 @@ export const projectOptimizationParameters = (params: ModuleParams): Optimizatio
  * @since 0.1.0
  * @category combinators
  */
-export const projectOptimizationDimensions = (params: ModuleParams): ReadonlyArray<OptimizationDimension> => {
+export const projectOptimizationDimensions = (params: ModuleParams) => {
   const projection = projectOptimizationParameters(params)
 
   const required = Arr.make(

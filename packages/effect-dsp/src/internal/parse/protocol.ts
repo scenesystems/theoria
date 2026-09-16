@@ -4,23 +4,13 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr, Option, Record } from "effect"
-import { ParseFieldDiagnostic } from "../../Errors/module.js"
-import { FIELD_MARKER_REGEX, renderFieldMarker } from "../prompt/protocol.js"
+import { Array as Arr, Boolean, Function, Number, Option, Record, Schema, String } from "effect"
+import { ParseFieldDiagnostic, type ParseOutputError } from "../../Errors/module.js"
+import { FIELD_MARKER_REGEX, type FieldNames, renderFieldMarker } from "../prompt/protocol.js"
 
-const markerMatches = (raw: string): ReadonlyArray<RegExpMatchArray> =>
-  Arr.fromIterable(raw.matchAll(FIELD_MARKER_REGEX))
+const markerMatches = (raw: string) => Arr.fromIterable(String.matchAll(FIELD_MARKER_REGEX)(raw))
 
-const markerField = (match: RegExpMatchArray): Option.Option<string> =>
-  Option.map(Option.fromNullable(match[1]), (field) => field.trim())
-
-const markerIndex = (match: RegExpMatchArray): Option.Option<number> => Option.fromNullable(match.index)
-
-const nextMarkerIndex = (
-  matches: ReadonlyArray<RegExpMatchArray>,
-  index: number
-): Option.Option<number> =>
-  Option.flatMap(Arr.get(matches, index + 1), (nextMatch) => Option.fromNullable(nextMatch.index))
+const markerField = (match: RegExpMatchArray): Option.Option<string> => Option.map(Arr.get(match, 1), String.trim)
 
 /**
  * Scans raw LLM text output for `[[ ## fieldName ## ]]` markers and returns
@@ -31,83 +21,88 @@ const nextMarkerIndex = (
  * @category utils
  * @internal
  */
-export const extractMarkedRecord = (raw: string): Readonly<Record<string, unknown>> => {
+export const extractMarkedRecord = (raw: string): Record.ReadonlyRecord<string, string> => {
   const matches = markerMatches(raw)
 
-  return Arr.reduce(matches, Record.empty<string, unknown>(), (acc, match, index) => {
-    const fieldAndIndex = Option.zipWith(markerField(match), markerIndex(match), (field, indexValue) => ({
-      field,
-      markerIndex: indexValue
-    }))
+  return Arr.reduce(matches, Record.empty<string, string>(), (acc, match, index) => {
+    const marker = Option.all({
+      field: markerField(match),
+      index: Option.fromNullable(match.index),
+      text: Arr.head(match)
+    })
 
-    return Option.match(fieldAndIndex, {
+    return Option.match(marker, {
       onNone: () => acc,
-      onSome: ({ field, markerIndex }) => {
-        const markerText = match[0]
-        const contentStart = markerIndex + markerText.length
-        const contentEnd = Option.getOrElse(nextMarkerIndex(matches, index), () => raw.length)
+      onSome: (marker) => {
+        const contentStart = Number.sum(marker.index, String.length(marker.text))
+        const contentEnd = Arr.get(matches, Number.increment(index)).pipe(
+          Option.flatMap((next) => Option.fromNullable(next.index)),
+          Option.getOrElse(() => String.length(raw))
+        )
 
-        return Record.set(acc, field, raw.slice(contentStart, contentEnd).trim())
+        return Record.set(acc, marker.field, String.trim(String.slice(contentStart, contentEnd)(raw)))
       }
     })
   })
 }
 
-const countByField = (fieldNames: ReadonlyArray<string>): Readonly<Record<string, number>> =>
-  Arr.reduce(fieldNames, Record.empty<string, number>(), (counts, fieldName) => {
-    const currentCount = Option.getOrElse(Record.get(counts, fieldName), () => 0)
-
-    return Record.set(counts, fieldName, currentCount + 1)
-  })
-
-const includesField = (fieldNames: ReadonlyArray<string>, fieldName: string): boolean =>
-  Option.isSome(Arr.findFirst(fieldNames, (current) => current === fieldName))
-
-const duplicateFieldDiagnostics = (raw: string): ReadonlyArray<ParseFieldDiagnostic> => {
+const duplicateFieldDiagnostics = (raw: string): ParseOutputError["fieldDiagnostics"] => {
   const fields = Arr.filterMap(markerMatches(raw), markerField)
-  const counts = countByField(fields)
+  const counts = Record.map(Arr.groupBy(fields, Function.identity), Arr.length)
 
   return Arr.filterMap(Record.toEntries(counts), ([field, count]) =>
-    count <= 1
-      ? Option.none<ParseFieldDiagnostic>()
-      : Option.some(
-        new ParseFieldDiagnostic({
-          field,
-          issue: "duplicate-field",
-          message: `Marker ${renderFieldMarker(field)} appeared ${count} times`
-        })
-      ))
+    Boolean.match(Number.greaterThan(count, 1), {
+      onFalse: () => Option.none<ParseFieldDiagnostic>(),
+      onTrue: () =>
+        Option.some(
+          new ParseFieldDiagnostic({
+            field,
+            issue: "duplicate-field",
+            message: Arr.join(
+              Arr.make(
+                "Marker ",
+                renderFieldMarker(field),
+                " appeared ",
+                Schema.encodeSync(Schema.NumberFromString)(count),
+                " times"
+              ),
+              ""
+            )
+          })
+        )
+    }))
 }
 
 const missingFieldDiagnostics = (
-  expectedFields: ReadonlyArray<string>,
-  actualFields: ReadonlyArray<string>
-): ReadonlyArray<ParseFieldDiagnostic> =>
-  Arr.filterMap(expectedFields, (fieldName) =>
-    includesField(actualFields, fieldName)
-      ? Option.none<ParseFieldDiagnostic>()
-      : Option.some(
-        new ParseFieldDiagnostic({
-          field: fieldName,
-          issue: "missing-field",
-          message: `Expected marker ${renderFieldMarker(fieldName)} was not found`
-        })
-      ))
+  expectedFields: typeof FieldNames.Type,
+  actualFields: typeof FieldNames.Type
+): ParseOutputError["fieldDiagnostics"] =>
+  Arr.map(
+    Arr.difference(expectedFields, actualFields),
+    (fieldName) =>
+      new ParseFieldDiagnostic({
+        field: fieldName,
+        issue: "missing-field",
+        message: Arr.join(Arr.make("Expected marker ", renderFieldMarker(fieldName), " was not found"), "")
+      })
+  )
 
 const unexpectedFieldDiagnostics = (
-  expectedFields: ReadonlyArray<string>,
-  actualFields: ReadonlyArray<string>
-): ReadonlyArray<ParseFieldDiagnostic> =>
-  Arr.filterMap(actualFields, (fieldName) =>
-    includesField(expectedFields, fieldName)
-      ? Option.none<ParseFieldDiagnostic>()
-      : Option.some(
-        new ParseFieldDiagnostic({
-          field: fieldName,
-          issue: "unexpected-field",
-          message: `Marker ${renderFieldMarker(fieldName)} is not declared in the output schema`
-        })
-      ))
+  expectedFields: typeof FieldNames.Type,
+  actualFields: typeof FieldNames.Type
+): ParseOutputError["fieldDiagnostics"] =>
+  Arr.map(
+    Arr.difference(actualFields, expectedFields),
+    (fieldName) =>
+      new ParseFieldDiagnostic({
+        field: fieldName,
+        issue: "unexpected-field",
+        message: Arr.join(
+          Arr.make("Marker ", renderFieldMarker(fieldName), " is not declared in the output schema"),
+          ""
+        )
+      })
+  )
 
 /**
  * Compares expected output field names against the markers actually present
@@ -121,9 +116,9 @@ const unexpectedFieldDiagnostics = (
  * @internal
  */
 export const markerDiagnostics = (
-  expectedFields: ReadonlyArray<string>,
+  expectedFields: typeof FieldNames.Type,
   raw: string
-): ReadonlyArray<ParseFieldDiagnostic> => {
+): ParseOutputError["fieldDiagnostics"] => {
   const actualFields = Record.keys(extractMarkedRecord(raw))
 
   return Arr.appendAll(

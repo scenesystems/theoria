@@ -9,7 +9,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, HashMap, Layer, Option, Ref, Schedule, Schema, TestClock } from "effect"
+import { Array as Arr, Effect, Layer, Option, Ref, Schedule, Schema, TestClock } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -23,23 +23,26 @@ const makeQaSignature = () =>
   )
 
 describe("Module.predict", () => {
-  it("exposes deterministic parse policy defaults", () => {
-    const policy = Module.makePredictPolicy()
-
-    expect(policy.parse.maxRetries).toBe(Module.DEFAULT_PARSE_MAX_RETRIES)
-    expect(policy.parse.retrySchedule).toBe(Module.defaultParseRetrySchedule)
-    expect(policy.parse.feedbackTemplate).toBe(Module.defaultParseFeedbackTemplate)
-  })
-
-  it.effect("creates a branded module with forward/ref/signature/name contracts", () =>
+  it.effect("stops after the default three parse retries and carries diagnostic feedback", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("malformed output"))
       const module = yield* Module.predict("qa", qa)
+      yield* Ref.update(module.params, (params) => new ModuleParams({ ...params, outputStrategy: "text" }))
+      const fiber = yield* module.forward({ question: "Capital?" }).pipe(
+        Effect.provideService(LanguageModel.LanguageModel, mock.service),
+        Effect.flip,
+        Effect.fork
+      )
+      yield* TestClock.adjust("2 seconds")
+      const failure = yield* Effect.fromFiber(fiber)
+      const calls = yield* Ref.get(mock.calls)
+      const lastCall = yield* Arr.last(calls)
 
-      expect(module._tag).toBe("Module")
-      expect(module.name).toBe("qa")
-      expect(module.signature).toEqual(qa)
-      expect(HashMap.size(module.subModules)).toBe(0)
+      expect(failure._tag).toBe("ParseOutputError")
+      expect(calls).toHaveLength(4)
+      expect(lastCall.prompt).toContain("Parse error (2)")
+      expect(lastCall.prompt).toContain("Expected marker [[ ## answer ## ]] was not found")
     }))
 
   it.effect("uses structured path when outputStrategy is auto and demos are empty", () =>
@@ -60,7 +63,7 @@ describe("Module.predict", () => {
 
       expect(result).toEqual({ answer: "Paris" })
       expect(calls).toHaveLength(1)
-      expect(calls[0]?.method).toBe("generateObject")
+      expect((yield* Arr.head(calls)).method).toBe("generateObject")
     }))
 
   it.effect("uses text path when outputStrategy is auto and demos are present", () =>
@@ -77,12 +80,12 @@ describe("Module.predict", () => {
           new ModuleParams({
             instructions: params.instructions,
             outputStrategy: "auto",
-            demos: [
+            demos: Arr.make(
               new Demo({
                 input: { question: "What is the capital of France?" },
                 output: { answer: "Paris" }
               })
-            ]
+            )
           })
       )
 
@@ -96,7 +99,7 @@ describe("Module.predict", () => {
 
       expect(result).toEqual({ answer: "Paris" })
       expect(calls).toHaveLength(1)
-      expect(calls[0]?.method).toBe("generateText")
+      expect((yield* Arr.head(calls)).method).toBe("generateText")
     }))
 
   it.effect("records trace entries with prompt and response metadata when tracing is enabled", () =>
@@ -107,42 +110,32 @@ describe("Module.predict", () => {
       )
       const module = yield* Module.predict("qa", qa)
 
-      const traced = yield* Trace.withTracing(
+      const [result, entries] = yield* Trace.withTracing(
         module.forward({ question: "What is the capital of France?" }).pipe(
           Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
         )
       )
-
-      const result = traced[0]
-      const entries = traced[1]
-      const entry = Arr.head(entries)
+      const entry = yield* Arr.head(entries)
 
       expect(result).toEqual({ answer: "Paris" })
       expect(entries).toHaveLength(1)
-
-      yield* Option.match(entry, {
-        onSome: (traceEntry) =>
-          Effect.sync(() => {
-            expect(traceEntry.moduleName).toBe("qa")
-            expect(traceEntry.signatureDescription).toBe("Answer questions with concise facts")
-            expect(traceEntry.prompt.length > 0).toBe(true)
-            expect(traceEntry.rawResponse.length > 0).toBe(true)
-            expect(traceEntry.durationMs >= 0).toBe(true)
-            expect(traceEntry.timestamp >= 0).toBe(true)
-            expect(Option.isNone(traceEntry.score)).toBe(true)
-          }),
-        onNone: () => Effect.die("Expected trace entry")
-      })
+      expect(entry.moduleName).toBe("qa")
+      expect(entry.signatureDescription).toBe("Answer questions with concise facts")
+      expect(entry.prompt).toContain("What is the capital of France?")
+      expect(entry.rawResponse).toBe("{\"answer\":\"Paris\"}")
+      expect(entry.durationMs).toBeGreaterThanOrEqual(0)
+      expect(entry.timestamp).toBeGreaterThanOrEqual(0)
+      expect(entry.score).toEqual(Option.none())
     }))
 
   it.effect("retries parse failures in text mode before succeeding", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           "malformed output",
           "[[ ## answer ## ]]\nParis"
-        ])
+        ))
       )
       const module = yield* Module.predict("qa", qa)
 
@@ -152,12 +145,12 @@ describe("Module.predict", () => {
           new ModuleParams({
             instructions: params.instructions,
             outputStrategy: "auto",
-            demos: [
+            demos: Arr.make(
               new Demo({
                 input: { question: "What is the capital of France?" },
                 output: { answer: "Paris" }
               })
-            ]
+            )
           })
       )
 
@@ -176,18 +169,17 @@ describe("Module.predict", () => {
 
       expect(result).toEqual({ answer: "Paris" })
       expect(calls).toHaveLength(2)
-      expect(calls[0]?.method).toBe("generateText")
-      expect(calls[1]?.method).toBe("generateText")
+      expect(Arr.map(calls, (call) => call.method)).toEqual(Arr.make("generateText", "generateText"))
     }))
 
   it.effect("applies parse policy overrides from predict options", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           "malformed output",
           "[[ ## answer ## ]]\nParis"
-        ])
+        ))
       )
 
       const module = yield* Module.predict("qa", qa, {
@@ -210,12 +202,12 @@ describe("Module.predict", () => {
           new ModuleParams({
             instructions: params.instructions,
             outputStrategy: "auto",
-            demos: [
+            demos: Arr.make(
               new Demo({
                 input: { question: "What is the capital of France?" },
                 output: { answer: "Paris" }
               })
-            ]
+            )
           })
       )
 
@@ -239,6 +231,6 @@ describe("Module.predict", () => {
 
       expect(result).toEqual({ answer: "Paris" })
       expect(callsAfterRetry).toHaveLength(2)
-      expect(callsAfterRetry[1]?.prompt).toContain("CUSTOM_PARSE_FEEDBACK")
+      expect((yield* Arr.get(callsAfterRetry, 1)).prompt).toContain("CUSTOM_PARSE_FEEDBACK")
     }))
 })

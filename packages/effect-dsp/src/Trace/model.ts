@@ -1,18 +1,19 @@
 /**
- * Serializable records captured from module invocations.
+ * Serializable records captured from model invocations.
  *
  * @since 0.1.0
  */
+import * as Response from "@effect/ai/Response"
 import { Option, Schema } from "effect"
 import { FieldRecord } from "../contracts/FieldValue.js"
 
 /**
- * Captures one module invocation for diagnostics and evaluation.
+ * Captures one successful module invocation for diagnostics and evaluation.
  *
  * @remarks
- * Input, output, prompt, and raw response data are retained verbatim. The schema
- * performs no redaction, so callers must treat entries according to the
- * sensitivity of their module data.
+ * Input, output, prompt, and raw response data are retained verbatim. The usage
+ * is the final successful invocation's selected native usage, not a retry total.
+ * Provider observation takes precedence over returned-response usage wholesale.
  *
  * @since 0.1.0
  * @category models
@@ -30,15 +31,36 @@ export class Entry extends Schema.Class<Entry>("TraceEntry")({
   prompt: Schema.String,
   /** Unparsed language-model response text. */
   rawResponse: Schema.String,
-  /** Provider-reported input tokens, absent when the provider omits usage. */
-  inputTokens: Schema.OptionFromSelf(Schema.Number),
-  /** Provider-reported output tokens, absent when the provider omits usage. */
-  outputTokens: Schema.OptionFromSelf(Schema.Number),
+  /** Same selected native usage as the final successful invocation's Call. */
+  usage: Response.Usage,
   /** Invocation duration in milliseconds. */
   durationMs: Schema.Number,
   /** Optional score assigned to this invocation. */
-  score: Schema.OptionFromSelf(Schema.Number),
+  score: Schema.Option(Schema.Number),
   /** Invocation timestamp in Unix epoch milliseconds. */
+  timestamp: Schema.Number
+}) {}
+
+/**
+ * Captures one DSP-visible model call independently of successful trace entries.
+ *
+ * @remarks
+ * Calls intentionally retain no prompt or failure content. One DSP-visible call
+ * is not guaranteed to correspond to one physical provider attempt.
+ *
+ * @since 0.4.0
+ * @category models
+ */
+export class Call extends Schema.Class<Call>("TraceCall")({
+  /** Language-model operation observed by the DSP runtime. */
+  operation: Schema.Literal("generateObject", "generateText"),
+  /** Provider usage when it was observed before the invocation terminated. */
+  usage: Schema.Option(Response.Usage),
+  /** Terminal invocation outcome without failure details. */
+  outcome: Schema.Literal("success", "failure", "interrupted"),
+  /** Invocation duration in milliseconds. */
+  durationMs: Schema.Number,
+  /** Invocation completion time in Unix epoch milliseconds. */
   timestamp: Schema.Number
 }) {}
 
