@@ -1,4 +1,4 @@
-import { Array as Arr, Number as Num, Schema } from "effect"
+import { Array as Arr, Match, Number as Num, Schema } from "effect"
 
 export const RecencyWeightsSchema = Schema.Array(Schema.Number)
 
@@ -15,16 +15,14 @@ const rampWeights = (count: number, total: number): RecencyWeights => {
 }
 
 export const defaultWeights = (nObservations: number): RecencyWeights => {
-  if (Num.lessThanOrEqualTo(nObservations, 0)) {
-    return []
-  }
-
-  if (Num.lessThanOrEqualTo(nObservations, 25)) {
-    return stableWeights(nObservations)
-  }
-
-  const rampCount = nObservations - 25
-  const ramp = rampWeights(rampCount, nObservations)
-
-  return [...ramp, ...stableWeights(25)]
+  return Match.value(nObservations).pipe(
+    Match.when(Num.lessThanOrEqualTo(0), () => Arr.empty<number>()),
+    Match.when(Num.lessThanOrEqualTo(25), stableWeights),
+    Match.orElse((count) =>
+      Arr.appendAll(
+        rampWeights(Num.subtract(count, 25), count),
+        stableWeights(25)
+      )
+    )
+  )
 }

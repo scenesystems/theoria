@@ -1,6 +1,6 @@
 /**
  * Fixture schema-check script — validates every committed fixture JSON
- * against the TypeScript KnownFixtureSchema union.
+ * against the TypeScript KnownFixture union.
  *
  * Catches generator ↔ schema drift that the Python verifier cannot detect.
  *
@@ -12,10 +12,10 @@ import type * as PlatformError from "@effect/platform/Error"
 import { Array as Arr, Console, Data, Effect, Either, Option, Schema } from "effect"
 import type { ParseResult } from "effect"
 
-import { FixtureManifestSchema, KnownFixtureSchema } from "../test/helpers/fixtures/schemas.js"
+import { FixtureManifest, KnownFixture } from "../test/helpers/fixtures/index.js"
 
-const FIXTURE_ROOT = "test/fixtures/optuna"
-const MANIFEST_FILE = "manifest.json"
+const fixtureRoot = "test/fixtures/optuna"
+const manifestFile = "manifest.json"
 
 class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
   readonly name: string
@@ -67,12 +67,12 @@ const program = Effect.gen(function*() {
     Effect.flatMap((url) => path.fromFileUrl(url)),
     Effect.orDie
   )
-  const root = path.join(packageRoot, FIXTURE_ROOT)
+  const root = path.join(packageRoot, fixtureRoot)
 
   // 1. Load and decode manifest
-  const manifestPath = path.join(root, MANIFEST_FILE)
+  const manifestPath = path.join(root, manifestFile)
   const manifestJson = yield* readJsonFile(manifestPath)
-  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestJson).pipe(
+  const manifest = yield* Schema.decodeUnknown(FixtureManifest)(manifestJson).pipe(
     Effect.mapError((error) =>
       new FixtureCheckError({
         name: "manifest",
@@ -86,7 +86,7 @@ const program = Effect.gen(function*() {
   yield* Console.log(`Checking ${manifest.fixtures.length} fixtures from manifest...`)
   yield* Console.log()
 
-  // 2. Validate each fixture file against KnownFixtureSchema
+  // 2. Validate each fixture file against KnownFixture
   const results = yield* Effect.forEach(
     manifest.fixtures,
     (entry) =>
@@ -134,12 +134,12 @@ const program = Effect.gen(function*() {
               })
           )
         )
-        const fixture = yield* Schema.decodeUnknown(KnownFixtureSchema)(json).pipe(
+        const fixture = yield* Schema.decodeUnknown(KnownFixture)(json).pipe(
           Effect.mapError((error) =>
             new FixtureCheckError({
               name: entry.name,
               file: entry.file,
-              reason: "schema decode failed — fixture JSON does not match any KnownFixtureSchema variant",
+              reason: "schema decode failed — fixture JSON does not match any KnownFixture variant",
               cause: Option.some(error)
             })
           )
@@ -162,7 +162,7 @@ const program = Effect.gen(function*() {
   const [scanErrors, discoveredJsonFiles] = Arr.separate(allJsonFiles)
   const orphans = Arr.filter(
     discoveredJsonFiles,
-    (file) => file !== MANIFEST_FILE && !Arr.contains(manifestFiles, file)
+    (file) => file !== manifestFile && !Arr.contains(manifestFiles, file)
   )
   const orphanErrors = Arr.map(
     orphans,

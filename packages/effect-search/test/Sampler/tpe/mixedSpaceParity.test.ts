@@ -1,19 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Data, Effect, Option, Schema } from "effect"
 
-import type { InvalidSamplerConfig } from "../../../src/Errors/index.js"
-import {
-  decodeMixedOptimizerConfig,
-  makeMixedOptimizerSpace
-} from "../../../src/experimental/scenarios/mixedOptimizer.js"
 import * as Float64 from "../../../src/internal/float64.js"
+import { categoricalCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/categorical.js"
+import { floatCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/float.js"
+import { intCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/int.js"
+import { type NamedDimensionScoreTrace, selectBestMixedCandidate } from "../../../src/internal/tpe/mixed.js"
 import { CompletedTrialForSplit, type TrialSplit } from "../../../src/internal/tpe/splitTrials.js"
-import { categoricalCandidateTraceFromRolls } from "../../../src/samplers/Tpe/dimensions/categorical.js"
-import { floatCandidateTraceFromRolls } from "../../../src/samplers/Tpe/dimensions/float.js"
-import { intCandidateTraceFromRolls } from "../../../src/samplers/Tpe/dimensions/int.js"
-import { type NamedDimensionScoreTrace, selectBestMixedCandidate } from "../../../src/samplers/Tpe/mixed.js"
-import type * as SearchSpace from "../../../src/SearchSpace/index.js"
-import { FixtureRegistryLive, loadAllFixtures, MixedSpaceJointTraceFixtureSchema } from "../../helpers/fixtures.js"
+import type { InvalidSamplerConfig } from "../../../src/SearchError.js"
+import type * as SearchSpace from "../../../src/SearchSpace.js"
+import { decodeMixedOptimizerConfig, makeMixedOptimizerSpace } from "../../fixtures/scenarios/mixedOptimizer.js"
+import { FixtureRegistryLive, loadAllFixtures, MixedSpaceJointTraceFixture } from "../../helpers/fixtures/index.js"
 
 const SCORE_TOLERANCE = 1e-9
 
@@ -26,14 +23,14 @@ class UnexpectedDistribution extends Data.TaggedError("UnexpectedDistribution")<
   readonly expected: "categorical" | "float" | "int"
 }> {}
 
-const numberAt = (values: ReadonlyArray<number>, index: number): number =>
-  Option.fromNullable(values[index]).pipe(Option.getOrElse(() => Number.NaN))
+const numberAt = (values: Iterable<number>, index: number): number =>
+  Arr.get(Arr.fromIterable(values), index).pipe(Option.getOrElse(() => Number.NaN))
 
 const parameterByName = (
   space: SearchSpace.SearchSpace,
   name: string
-): Effect.Effect<SearchSpace.ParameterMetadata, MissingParameterMetadata> =>
-  Option.fromNullable(space.params.find((parameter) => parameter.name === name)).pipe(
+): Effect.Effect<SearchSpace.Parameter, MissingParameterMetadata> =>
+  Arr.findFirst(space.params, (parameter) => parameter.name === name).pipe(
     Option.match({
       onNone: () => Effect.fail(new MissingParameterMetadata({ name })),
       onSome: Effect.succeed
@@ -41,8 +38,8 @@ const parameterByName = (
   )
 
 const expectNumericVector = (
-  actual: ReadonlyArray<number>,
-  expected: ReadonlyArray<number>,
+  actual: Iterable<number>,
+  expected: Iterable<number>,
   label: string,
   tolerance: number
 ): Effect.Effect<void> =>
@@ -61,7 +58,7 @@ const expectWithinTolerance = (
 }
 
 const splitFromFixture = (
-  payload: Schema.Schema.Type<typeof MixedSpaceJointTraceFixtureSchema>["payload"]
+  payload: Schema.Schema.Type<typeof MixedSpaceJointTraceFixture>["payload"]
 ): TrialSplit => ({
   below: Arr.map(payload.split.below, (trial) =>
     new CompletedTrialForSplit({
@@ -77,7 +74,7 @@ const splitFromFixture = (
     }))
 })
 
-type MixedSpacePayload = Schema.Schema.Type<typeof MixedSpaceJointTraceFixtureSchema>["payload"]
+type MixedSpacePayload = Schema.Schema.Type<typeof MixedSpaceJointTraceFixture>["payload"]
 type MixedSpaceDimension = MixedSpacePayload["dimensions"][number]
 
 const traceFromDimension = (
@@ -104,7 +101,7 @@ const traceFromDimension = (
       )
 
       yield* Effect.sync(() => {
-        expect(trace.candidates).toEqual(dimension.candidates)
+        expect(Arr.fromIterable(trace.candidates)).toEqual(dimension.candidates)
       })
       yield* expectNumericVector(trace.logL, dimension.logL, `${dimension.name}.logL`, SCORE_TOLERANCE)
       yield* expectNumericVector(trace.logG, dimension.logG, `${dimension.name}.logG`, SCORE_TOLERANCE)
@@ -172,7 +169,7 @@ const traceFromDimension = (
   })
 
 const decodedConfigs = (
-  configs: ReadonlyArray<unknown>
+  configs: Iterable<unknown>
 ) => Effect.forEach(configs, (config) => decodeMixedOptimizerConfig(config))
 
 describe("mixed-space fixture parity", () => {
@@ -181,7 +178,7 @@ describe("mixed-space fixture parity", () => {
       const loaded = yield* loadAllFixtures("mixed-space.").pipe(Effect.provide(FixtureRegistryLive))
       const fixtures = yield* Effect.forEach(
         loaded,
-        (entry) => Schema.decodeUnknown(MixedSpaceJointTraceFixtureSchema)(entry)
+        (entry) => Schema.decodeUnknown(MixedSpaceJointTraceFixture)(entry)
       )
 
       yield* Effect.forEach(

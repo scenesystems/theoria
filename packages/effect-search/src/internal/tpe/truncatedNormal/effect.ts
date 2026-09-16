@@ -1,7 +1,7 @@
-import { Effect } from "effect"
+import { Boolean as Bool, Effect, Number as Num } from "effect"
 
-import type { InvalidMathInput } from "../../../Errors/index.js"
-import type { TruncatedNormalParams } from "./model.js"
+import type { InvalidMathInput } from "../../../SearchError.js"
+import type { TruncatedNormalParams } from "../truncatedNormal.js"
 import { cdf, logPdf, sample } from "./truncated.js"
 import { ensureCommonParams, failWhen } from "./validation.js"
 
@@ -30,8 +30,12 @@ export const cdfEffect = (x: number, params: TruncatedNormalParams): Effect.Effe
 export const sampleEffect = (random: number, params: TruncatedNormalParams): Effect.Effect<number, InvalidMathInput> =>
   Effect.gen(function*() {
     yield* ensureCommonParams("sample", params)
-    yield* failWhen(!Number.isFinite(random), "sample", "quantile must be finite")
-    yield* failWhen(random < 0 || random > 1, "sample", "quantile must be in [0, 1]")
+    yield* failWhen(Bool.not(Number.isFinite(random)), "sample", "quantile must be finite")
+    yield* failWhen(
+      Bool.or(Num.lessThan(random, 0), Num.greaterThan(random, 1)),
+      "sample",
+      "quantile must be in [0, 1]"
+    )
 
     const value = sample(random, params)
 

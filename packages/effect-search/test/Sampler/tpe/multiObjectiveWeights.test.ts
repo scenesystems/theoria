@@ -2,19 +2,19 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Number as Num, Order, Schema } from "effect"
 
 import * as Float64 from "../../../src/internal/float64.js"
-import { hypervolumeContribution2d } from "../../../src/internal/hypervolume.js"
-import { nonDominatedRanks } from "../../../src/internal/pareto.js"
-import { computeMultiObjectiveWeights, computeReferencePoint } from "../../../src/internal/tpe/multiObjectiveWeights.js"
-import { makeSuggestCompletedTrial } from "../../../src/Sampler/index.js"
-import { splitMultiObjective } from "../../../src/samplers/Tpe/split/multiSplit.js"
+import { splitMultiObjective } from "../../../src/internal/tpe/split/multiSplit.js"
+import { hypervolumeContribution2d } from "../../../src/Pareto.js"
+import { nonDominatedRanks } from "../../../src/Pareto.js"
+import { multiObjectiveWeights, referencePoint } from "../../../src/Pareto.js"
+import { observation } from "../../../src/Sampler.js"
 import {
   FixtureRegistryLive,
   loadAllFixtures,
   loadFixture,
-  MotpeReferenceFixtureSchema,
-  MotpeSplitFixtureSchema,
-  MotpeWeightsFixtureSchema
-} from "../../helpers/fixtures.js"
+  MotpeReferenceFixture,
+  MotpeSplitFixture,
+  MotpeWeightsFixture
+} from "../../helpers/fixtures/index.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
   expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
@@ -26,7 +26,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       const loaded = yield* loadAllFixtures("motpe-weights.")
       const fixtures = yield* Effect.forEach(
         loaded,
-        (fixture) => Schema.decodeUnknown(MotpeWeightsFixtureSchema)(fixture)
+        (fixture) => Schema.decodeUnknown(MotpeWeightsFixture)(fixture)
       )
 
       Arr.forEach(fixtures, (fixture) => {
@@ -35,7 +35,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
           fixture.payload.referencePoint,
           fixture.payload.directions
         )
-        const weights = computeMultiObjectiveWeights(
+        const weights = multiObjectiveWeights(
           fixture.payload.points,
           fixture.payload.referencePoint,
           fixture.payload.directions
@@ -57,10 +57,10 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
   it.effect("FM-5: computes fixture-backed reference points including zero-to-epsilon handling", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("motpe-reference.reference-point")
-      const fixture = yield* Schema.decodeUnknown(MotpeReferenceFixtureSchema)(loaded)
+      const fixture = yield* Schema.decodeUnknown(MotpeReferenceFixture)(loaded)
 
       Arr.forEach(fixture.payload.cases, (entry) => {
-        const reference = computeReferencePoint([entry.worstPoint], entry.directions)
+        const reference = referencePoint([entry.worstPoint], entry.directions)
 
         expect(reference).toHaveLength(entry.expectedReferencePoint.length)
 
@@ -74,7 +74,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       expect(zeroCase._tag).toBe("Some")
 
       if (zeroCase._tag === "Some") {
-        const reference = computeReferencePoint([zeroCase.value.worstPoint], zeroCase.value.directions)
+        const reference = referencePoint([zeroCase.value.worstPoint], zeroCase.value.directions)
         expect(reference[0]).toBeGreaterThanOrEqual(fixture.payload.epsilon)
         expect(reference[1]).toBeGreaterThanOrEqual(fixture.payload.epsilon)
       }
@@ -83,7 +83,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
   it.effect("FM-4: preserves rank boundaries and HSSP tie-break membership at split boundaries", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("motpe-split.multi-rank-hssp")
-      const fixture = yield* Schema.decodeUnknown(MotpeSplitFixtureSchema)(loaded)
+      const fixture = yield* Schema.decodeUnknown(MotpeSplitFixture)(loaded)
 
       const points = Arr.map(fixture.payload.trials, (trial) => trial.values)
       const ranks = nonDominatedRanks(points, fixture.payload.directions)
@@ -131,7 +131,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       )
 
       const completed = Arr.map(fixture.payload.trials, (trial) =>
-        makeSuggestCompletedTrial(
+        observation(
           trial.trialNumber,
           { trialNumber: trial.trialNumber, feasible: trial.feasible },
           trial.values

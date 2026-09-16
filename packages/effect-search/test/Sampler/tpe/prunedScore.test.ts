@@ -7,12 +7,7 @@ import {
   prunedTrialOrderKey,
   prunedTrialScore
 } from "../../../src/internal/tpe/prunedScore.js"
-import {
-  FixtureRegistryLive,
-  loadFixture,
-  type PrunedScoreFixture,
-  PrunedScoreFixtureSchema
-} from "../../helpers/fixtures.js"
+import { FixtureRegistryLive, loadFixture, PrunedScoreFixture } from "../../helpers/fixtures/index.js"
 
 type TraceValue = PrunedScoreFixture["payload"]["cases"][number]["intermediateValues"][number]["value"]
 type ExpectedScore = PrunedScoreFixture["payload"]["cases"][number]["expectedScore"]
@@ -41,7 +36,7 @@ describe("pruned-score fixture parity", () => {
   it.effect("replays pruned score traces and deterministic ordering", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("pruned-score.pruned-ordering").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(PrunedScoreFixtureSchema)(loaded)
+      const fixture = yield* Schema.decodeUnknown(PrunedScoreFixture)(loaded)
 
       const scored = fixture.payload.cases.map((fixtureCase) => {
         const intermediateValues = fixtureCase.intermediateValues.map(

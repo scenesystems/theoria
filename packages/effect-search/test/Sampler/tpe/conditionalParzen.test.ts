@@ -1,16 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
 
-import { singleObjectiveSpec } from "../../../src/contracts/index.js"
-import {
-  LinearTreeConditionalConfigSchema,
-  makeLinearTreeConditionalSpace
-} from "../../../src/experimental/scenarios/conditionalLinearTree.js"
+import { numericValuesForParameter, primitiveValuesForParameter } from "../../../src/internal/tpe/dimensions/values.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
-import { SuggestCompletedTrial, SuggestContext } from "../../../src/Sampler/index.js"
-import * as Sampler from "../../../src/Sampler/index.js"
-import { numericValuesForParameter, primitiveValuesForParameter } from "../../../src/samplers/Tpe/dimensions/values.js"
-import type * as SearchSpace from "../../../src/SearchSpace/index.js"
+import { single } from "../../../src/Objective.js"
+import { Context, Observation } from "../../../src/Sampler.js"
+import * as Sampler from "../../../src/Sampler.js"
+import type * as SearchSpace from "../../../src/SearchSpace.js"
+import {
+  LinearTreeConditionalConfig,
+  makeLinearTreeConditionalSpace
+} from "../../fixtures/scenarios/conditionalLinearTree.js"
 
 const conditionalSpace = makeLinearTreeConditionalSpace()
 
@@ -38,22 +38,22 @@ const splitHistory = () => [
 ]
 
 const completedHistory = () => [
-  new SuggestCompletedTrial({
+  new Observation({
     trialNumber: 0,
     config: { model: "linear", learningRate: 0.03, regularization: 0.4 },
     value: 0.5
   }),
-  new SuggestCompletedTrial({
+  new Observation({
     trialNumber: 1,
     config: { model: "linear", learningRate: 0.01, regularization: 0.2 },
     value: 0.2
   }),
-  new SuggestCompletedTrial({
+  new Observation({
     trialNumber: 2,
     config: { model: "tree", maxDepth: 9, minSamplesLeaf: 2 },
     value: 2.8
   }),
-  new SuggestCompletedTrial({
+  new Observation({
     trialNumber: 3,
     config: { model: "tree", maxDepth: 4, minSamplesLeaf: 1 },
     value: 2.1
@@ -92,16 +92,16 @@ describe("TPE conditional branch-aware density behavior", () => {
     Effect.gen(function*() {
       const space = yield* conditionalSpace
       const sampler = Sampler.tpe({ seed: 77, nStartupTrials: 0, nEiCandidates: 40 })
-      const context = new SuggestContext({
+      const context = new Context({
         completed: completedHistory(),
         pending: [],
-        objectiveSpec: singleObjectiveSpec(),
+        objectiveSpec: single(),
         nextTrialNumber: 4,
         epsilon: 0
       })
 
       const suggested = yield* Sampler.suggest(sampler, space, context)
-      const decoded = Schema.decodeUnknownEither(LinearTreeConditionalConfigSchema)(suggested)
+      const decoded = Schema.decodeUnknownEither(LinearTreeConditionalConfig)(suggested)
 
       expect(Either.isRight(decoded)).toBe(true)
 
@@ -128,16 +128,16 @@ describe("TPE conditional branch-aware density behavior", () => {
     Effect.gen(function*() {
       const space = yield* conditionalSpace
       const sampler = Sampler.tpe({ seed: 91, nStartupTrials: 0, nEiCandidates: 32 })
-      const context = new SuggestContext({
+      const context = new Context({
         completed: [
-          new SuggestCompletedTrial({
+          new Observation({
             trialNumber: 0,
             config: { model: "tree", maxDepth: 11, minSamplesLeaf: 1 },
             value: 3.5
           })
         ],
         pending: [],
-        objectiveSpec: singleObjectiveSpec(),
+        objectiveSpec: single(),
         nextTrialNumber: 1,
         epsilon: 0
       })
@@ -149,8 +149,8 @@ describe("TPE conditional branch-aware density behavior", () => {
         context
       )
 
-      expect(Either.isRight(Schema.decodeUnknownEither(LinearTreeConditionalConfigSchema)(left))).toBe(true)
-      expect(Either.isRight(Schema.decodeUnknownEither(LinearTreeConditionalConfigSchema)(right))).toBe(true)
+      expect(Either.isRight(Schema.decodeUnknownEither(LinearTreeConditionalConfig)(left))).toBe(true)
+      expect(Either.isRight(Schema.decodeUnknownEither(LinearTreeConditionalConfig)(right))).toBe(true)
       expect(left).toEqual(right)
     }))
 })

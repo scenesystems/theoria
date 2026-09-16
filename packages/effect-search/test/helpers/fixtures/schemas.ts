@@ -1,16 +1,13 @@
 import { Schema } from "effect"
 
-import { BuiltInAcquisitionNameSchema } from "../../../src/contracts/Acquisition.js"
-import { DirectionSchema } from "../../../src/contracts/Direction.js"
-import { PrimitiveChoiceSchema } from "../../../src/contracts/Distribution.js"
-import { PromptCategoricalConfigSchema } from "../../../src/experimental/scenarios/promptCategorical.js"
-import { CandidateRollPairSchema } from "../../../src/samplers/Tpe/dimensions/trace.js"
-import {
-  PercentilePrunerSettingsSchema,
-  PercentilePrunerTrialStateSchema
-} from "../../../src/Study/runtime/percentilePruning.js"
+import { Name } from "../../../src/Acquisition.js"
+import { Direction } from "../../../src/Direction.js"
+import { Choice } from "../../../src/Distribution.js"
+import { CandidateRollPair } from "../../../src/internal/tpe/dimensions/trace.js"
+import { PercentileOptions, PercentileTrialState } from "../../../src/Pruning.js"
+import { PromptCategoricalConfig } from "../../fixtures/scenarios/promptCategorical.js"
 
-const FixtureMetadataSchema = Schema.Struct({
+const FixtureMetadata = Schema.Struct({
   generatedAt: Schema.String,
   upstream: Schema.Struct({
     name: Schema.Literal("optuna"),
@@ -22,144 +19,144 @@ const FixtureMetadataSchema = Schema.Struct({
   })
 })
 
-const NumericSentinelSchema = Schema.Literal("NaN", "Infinity", "-Infinity")
+const NumericSentinel = Schema.Literal("NaN", "Infinity", "-Infinity")
 
-const NumericTraceValueSchema = Schema.Union(Schema.Number, NumericSentinelSchema)
+const NumericTraceValue = Schema.Union(Schema.Number, NumericSentinel)
 
-const IntermediateValueSchema = Schema.Struct({
+const IntermediateValue = Schema.Struct({
   step: Schema.Number,
-  value: NumericTraceValueSchema
+  value: NumericTraceValue
 })
 
-const PrimitiveConfigSchema = Schema.Record({
+const PrimitiveConfig = Schema.Record({
   key: Schema.String,
-  value: PrimitiveChoiceSchema
+  value: Choice
 })
 
-const ObjectivePointSchema = Schema.Array(Schema.Number)
+const ObjectivePoint = Schema.Array(Schema.Number)
 
-const CategoricalParzenFixtureNameSchema = Schema.Literal(
+const CategoricalParzenFixtureName = Schema.Literal(
   "categorical-parzen.basic",
   "categorical-parzen.distance",
   "categorical-parzen.recency-ramp"
 )
 
-const CategoricalDistanceMetricSchema = Schema.Literal("absolute")
+const CategoricalDistanceMetric = Schema.Literal("absolute")
 
-const CategoricalParzenExpectedSchema = Schema.Struct({
+const CategoricalParzenExpected = Schema.Struct({
   kernelWeights: Schema.Array(Schema.Number),
   probabilities: Schema.Array(Schema.Number),
   kernels: Schema.Array(Schema.Array(Schema.Number)),
   candidateRolls: Schema.Array(Schema.Number),
-  expectedCandidates: Schema.Array(PrimitiveChoiceSchema)
+  expectedCandidates: Schema.Array(Choice)
 })
 
-export const CategoricalParzenFixtureSchema = Schema.Struct({
-  fixture: CategoricalParzenFixtureNameSchema,
-  metadata: FixtureMetadataSchema,
+export const CategoricalParzenFixture = Schema.Struct({
+  fixture: CategoricalParzenFixtureName,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    choices: Schema.Array(PrimitiveChoiceSchema),
-    observations: Schema.Array(PrimitiveChoiceSchema),
-    distanceMetric: Schema.optional(CategoricalDistanceMetricSchema),
-    expected: CategoricalParzenExpectedSchema
+    choices: Schema.Array(Choice),
+    observations: Schema.Array(Choice),
+    distanceMetric: Schema.optional(CategoricalDistanceMetric),
+    expected: CategoricalParzenExpected
   })
 })
 
-export type CategoricalParzenFixture = Schema.Schema.Type<typeof CategoricalParzenFixtureSchema>
+export type CategoricalParzenFixture = Schema.Schema.Type<typeof CategoricalParzenFixture>
 
-const GammaCaseSchema = Schema.Struct({
+const GammaCase = Schema.Struct({
   nTrials: Schema.Number,
   defaultGamma: Schema.Number,
   hyperoptGamma: Schema.Number
 })
 
-export const GammaFixtureSchema = Schema.Struct({
+export const GammaFixture = Schema.Struct({
   fixture: Schema.Literal("gamma.default-gamma"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
     cap: Schema.Number,
-    cases: Schema.Array(GammaCaseSchema)
+    cases: Schema.Array(GammaCase)
   })
 })
 
-export type GammaFixture = Schema.Schema.Type<typeof GammaFixtureSchema>
+export type GammaFixture = Schema.Schema.Type<typeof GammaFixture>
 
-const SplitTrialSchema = Schema.Struct({
+const SplitTrial = Schema.Struct({
   trialNumber: Schema.Number,
   state: Schema.Literal("complete", "pruned", "running"),
-  value: Schema.optional(NumericTraceValueSchema),
-  intermediateValues: Schema.Array(IntermediateValueSchema),
-  liarValue: Schema.optional(NumericTraceValueSchema),
+  value: Schema.optional(NumericTraceValue),
+  intermediateValues: Schema.Array(IntermediateValue),
+  liarValue: Schema.optional(NumericTraceValue),
   isFeasible: Schema.optional(Schema.Boolean)
 })
 
-const SplitTrialsCaseSchema = Schema.Struct({
+const SplitTrialsCase = Schema.Struct({
   id: Schema.String,
-  direction: DirectionSchema,
+  direction: Direction,
   nBelow: Schema.Number,
-  trials: Schema.Array(SplitTrialSchema),
+  trials: Schema.Array(SplitTrial),
   expectedBelow: Schema.Array(Schema.Number),
   expectedAbove: Schema.Array(Schema.Number)
 })
 
-export const SplitTrialsFixtureSchema = Schema.Struct({
+export const SplitTrialsFixture = Schema.Struct({
   fixture: Schema.Literal("split-trials.single-and-liar"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    cases: Schema.Array(SplitTrialsCaseSchema)
+    cases: Schema.Array(SplitTrialsCase)
   })
 })
 
-export type SplitTrialsFixture = Schema.Schema.Type<typeof SplitTrialsFixtureSchema>
+export type SplitTrialsFixture = Schema.Schema.Type<typeof SplitTrialsFixture>
 
-const PrunedScoreCaseSchema = Schema.Struct({
+const PrunedScoreCase = Schema.Struct({
   id: Schema.String,
   trialNumber: Schema.Number,
-  intermediateValues: Schema.Array(IntermediateValueSchema),
+  intermediateValues: Schema.Array(IntermediateValue),
   expectedStep: Schema.Number,
-  expectedScore: NumericTraceValueSchema
+  expectedScore: NumericTraceValue
 })
 
-export const PrunedScoreFixtureSchema = Schema.Struct({
+export const PrunedScoreFixture = Schema.Struct({
   fixture: Schema.Literal("pruned-score.pruned-ordering"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    direction: DirectionSchema,
-    cases: Schema.Array(PrunedScoreCaseSchema),
+    direction: Direction,
+    cases: Schema.Array(PrunedScoreCase),
     expectedOrder: Schema.Array(Schema.Number)
   })
 })
 
-export type PrunedScoreFixture = Schema.Schema.Type<typeof PrunedScoreFixtureSchema>
+export type PrunedScoreFixture = Schema.Schema.Type<typeof PrunedScoreFixture>
 
-const EiFixtureNameSchema = Schema.Literal("ei.basic", "ei.mixed-trace")
+const EiFixtureName = Schema.Literal("ei.basic", "ei.mixed-trace")
 
-const EiScoreTraceSchema = Schema.Struct({
+const EiScoreTrace = Schema.Struct({
   candidate: Schema.String,
   logL: Schema.Number,
   logG: Schema.Number,
   expected: Schema.Number
 })
 
-export const EiCategoricalFixtureSchema = Schema.Struct({
-  fixture: EiFixtureNameSchema,
-  metadata: FixtureMetadataSchema,
+export const EiCategoricalFixture = Schema.Struct({
+  fixture: EiFixtureName,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    scoreTrace: Schema.Array(EiScoreTraceSchema),
+    scoreTrace: Schema.Array(EiScoreTrace),
     scoreVector: Schema.Array(Schema.Number),
     expectedBestIndex: Schema.Number
   })
 })
 
-export type EiCategoricalFixture = Schema.Schema.Type<typeof EiCategoricalFixtureSchema>
+export type EiCategoricalFixture = Schema.Schema.Type<typeof EiCategoricalFixture>
 
-const ContinuousKernelExpectationSchema = Schema.Struct({
+const ContinuousKernelExpectation = Schema.Struct({
   mean: Schema.Number,
   sigma: Schema.Number,
   weight: Schema.Number
 })
 
-const ContinuousKdeFixtureNameSchema = Schema.Literal(
+const ContinuousKdeFixtureName = Schema.Literal(
   "continuous-kde.basic",
   "continuous-kde.bimodal-separated",
   "continuous-kde.boundary-high-skew",
@@ -180,58 +177,58 @@ const ContinuousKdeFixtureNameSchema = Schema.Literal(
   "continuous-kde.wide-negative-range"
 )
 
-const ContinuousLogDensityTraceSchema = Schema.Struct({
+const ContinuousLogDensityTrace = Schema.Struct({
   probe: Schema.Number,
   expected: Schema.Number
 })
 
-const ContinuousExpectedSchema = Schema.Struct({
-  kernels: Schema.Array(ContinuousKernelExpectationSchema),
-  logDensities: Schema.Array(ContinuousLogDensityTraceSchema),
-  candidateRolls: Schema.Array(CandidateRollPairSchema),
+const ContinuousExpected = Schema.Struct({
+  kernels: Schema.Array(ContinuousKernelExpectation),
+  logDensities: Schema.Array(ContinuousLogDensityTrace),
+  candidateRolls: Schema.Array(CandidateRollPair),
   expectedSamples: Schema.Array(Schema.Number)
 })
 
-export const ContinuousKdeFixtureSchema = Schema.Struct({
-  fixture: ContinuousKdeFixtureNameSchema,
-  metadata: FixtureMetadataSchema,
+export const ContinuousKdeFixture = Schema.Struct({
+  fixture: ContinuousKdeFixtureName,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
     observations: Schema.Array(Schema.Number),
     low: Schema.Number,
     high: Schema.Number,
-    expected: ContinuousExpectedSchema
+    expected: ContinuousExpected
   })
 })
 
-export type ContinuousKdeFixture = Schema.Schema.Type<typeof ContinuousKdeFixtureSchema>
+export type ContinuousKdeFixture = Schema.Schema.Type<typeof ContinuousKdeFixture>
 
-const NoiseBandwidthExpectedSchema = Schema.Struct({
+const NoiseBandwidthExpected = Schema.Struct({
   baseSigmas: Schema.Array(Schema.Number),
   normalizedNoise: Schema.Number,
   bandwidthScale: Schema.Number,
   adjustedSigmas: Schema.Array(Schema.Number)
 })
 
-const NoiseBandwidthCaseSchema = Schema.Struct({
+const NoiseBandwidthCase = Schema.Struct({
   id: Schema.String,
   observations: Schema.Array(Schema.Number),
   low: Schema.Number,
   high: Schema.Number,
   alpha: Schema.Number,
-  expected: NoiseBandwidthExpectedSchema
+  expected: NoiseBandwidthExpected
 })
 
-export const NoiseBandwidthFixtureSchema = Schema.Struct({
+export const NoiseBandwidthFixture = Schema.Struct({
   fixture: Schema.Literal("noise-bandwidth.parity"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    cases: Schema.Array(NoiseBandwidthCaseSchema)
+    cases: Schema.Array(NoiseBandwidthCase)
   })
 })
 
-export type NoiseBandwidthFixture = Schema.Schema.Type<typeof NoiseBandwidthFixtureSchema>
+export type NoiseBandwidthFixture = Schema.Schema.Type<typeof NoiseBandwidthFixture>
 
-const MultivariateGaussianDensityCaseSchema = Schema.Struct({
+const MultivariateGaussianDensityCase = Schema.Struct({
   id: Schema.String,
   point: Schema.Array(Schema.Number),
   mean: Schema.Array(Schema.Number),
@@ -239,7 +236,7 @@ const MultivariateGaussianDensityCaseSchema = Schema.Struct({
   expectedLogDensity: Schema.Number
 })
 
-const MultivariateGaussianBandwidthCaseSchema = Schema.Struct({
+const MultivariateGaussianBandwidthCase = Schema.Struct({
   id: Schema.String,
   sampleCount: Schema.Number,
   dimensions: Schema.Number,
@@ -248,7 +245,7 @@ const MultivariateGaussianBandwidthCaseSchema = Schema.Struct({
   expectedBandwidth: Schema.Number
 })
 
-const MultivariateGaussianSamplingCaseSchema = Schema.Struct({
+const MultivariateGaussianSamplingCase = Schema.Struct({
   id: Schema.String,
   mean: Schema.Array(Schema.Number),
   sigmas: Schema.Array(Schema.Number),
@@ -256,7 +253,7 @@ const MultivariateGaussianSamplingCaseSchema = Schema.Struct({
   expectedSample: Schema.Array(Schema.Number)
 })
 
-const MultivariateGaussianMixtureCaseSchema = Schema.Struct({
+const MultivariateGaussianMixtureCase = Schema.Struct({
   means: Schema.Array(Schema.Array(Schema.Number)),
   sigmas: Schema.Array(Schema.Array(Schema.Number)),
   weights: Schema.Array(Schema.Number),
@@ -266,20 +263,20 @@ const MultivariateGaussianMixtureCaseSchema = Schema.Struct({
   expectedLogDensity: Schema.Number
 })
 
-export const MultivariateGaussianFixtureSchema = Schema.Struct({
+export const MultivariateGaussianFixture = Schema.Struct({
   fixture: Schema.Literal("multivariate-gaussian.parity"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    densityCases: Schema.Array(MultivariateGaussianDensityCaseSchema),
-    bandwidthCases: Schema.Array(MultivariateGaussianBandwidthCaseSchema),
-    samplingCases: Schema.Array(MultivariateGaussianSamplingCaseSchema),
-    mixtureCase: MultivariateGaussianMixtureCaseSchema
+    densityCases: Schema.Array(MultivariateGaussianDensityCase),
+    bandwidthCases: Schema.Array(MultivariateGaussianBandwidthCase),
+    samplingCases: Schema.Array(MultivariateGaussianSamplingCase),
+    mixtureCase: MultivariateGaussianMixtureCase
   })
 })
 
-export type MultivariateGaussianFixture = Schema.Schema.Type<typeof MultivariateGaussianFixtureSchema>
+export type MultivariateGaussianFixture = Schema.Schema.Type<typeof MultivariateGaussianFixture>
 
-const TruncatedNormalCaseSchema = Schema.Struct({
+const TruncatedNormalCase = Schema.Struct({
   id: Schema.String,
   params: Schema.Struct({
     mean: Schema.Number,
@@ -295,92 +292,92 @@ const TruncatedNormalCaseSchema = Schema.Struct({
   logPdfExpected: Schema.Array(Schema.Number)
 })
 
-export const TruncatedNormalFixtureSchema = Schema.Struct({
+export const TruncatedNormalFixture = Schema.Struct({
   fixture: Schema.Literal("truncated-normal.edge-cases"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    cases: Schema.Array(TruncatedNormalCaseSchema)
+    cases: Schema.Array(TruncatedNormalCase)
   })
 })
 
-export type TruncatedNormalFixture = Schema.Schema.Type<typeof TruncatedNormalFixtureSchema>
+export type TruncatedNormalFixture = Schema.Schema.Type<typeof TruncatedNormalFixture>
 
-const ReplayConfigSchema = PromptCategoricalConfigSchema
+const ReplayConfig = PromptCategoricalConfig
 
-export type ReplayConfig = Schema.Schema.Type<typeof ReplayConfigSchema>
+export type ReplayConfig = Schema.Schema.Type<typeof ReplayConfig>
 
-const TpeReplaySamplerSchema = Schema.Struct({
+const TpeReplaySampler = Schema.Struct({
   seed: Schema.Number,
   nStartupTrials: Schema.Number,
   nEiCandidates: Schema.Number,
   trials: Schema.Number
 })
 
-export const TpeCategoricalStudyReplayFixtureSchema = Schema.Struct({
+export const TpeCategoricalStudyReplayFixture = Schema.Struct({
   fixture: Schema.Literal("tpe-categorical-study.replay"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    sampler: TpeReplaySamplerSchema,
+    sampler: TpeReplaySampler,
     expected: Schema.Struct({
       bestValue: Schema.Number,
-      configTrace: Schema.Array(ReplayConfigSchema)
+      configTrace: Schema.Array(ReplayConfig)
     })
   })
 })
 
-export type TpeCategoricalStudyReplayFixture = Schema.Schema.Type<typeof TpeCategoricalStudyReplayFixtureSchema>
+export type TpeCategoricalStudyReplayFixture = Schema.Schema.Type<typeof TpeCategoricalStudyReplayFixture>
 
-const MixedSpaceTraceNameSchema = Schema.Literal(
+const MixedSpaceTraceName = Schema.Literal(
   "mixed-space.joint-trace",
   "mixed-space.joint-trace.recency-shift"
 )
 
-const MixedSpaceTrialSchema = Schema.Struct({
+const MixedSpaceTrial = Schema.Struct({
   trialNumber: Schema.Number,
-  config: PrimitiveConfigSchema,
+  config: PrimitiveConfig,
   value: Schema.Number
 })
 
-const MixedSpaceCategoricalDimensionTraceSchema = Schema.Struct({
+const MixedSpaceCategoricalDimensionTrace = Schema.Struct({
   kind: Schema.Literal("categorical"),
   name: Schema.String,
   candidateRolls: Schema.Array(Schema.Number),
-  candidates: Schema.Array(PrimitiveChoiceSchema),
+  candidates: Schema.Array(Choice),
   logL: Schema.Array(Schema.Number),
   logG: Schema.Array(Schema.Number),
   scores: Schema.Array(Schema.Number)
 })
 
-const MixedSpaceFloatDimensionTraceSchema = Schema.Struct({
+const MixedSpaceFloatDimensionTrace = Schema.Struct({
   kind: Schema.Literal("float"),
   name: Schema.String,
-  candidateRolls: Schema.Array(CandidateRollPairSchema),
+  candidateRolls: Schema.Array(CandidateRollPair),
   candidates: Schema.Array(Schema.Number),
   logL: Schema.Array(Schema.Number),
   logG: Schema.Array(Schema.Number),
   scores: Schema.Array(Schema.Number)
 })
 
-const MixedSpaceIntDimensionTraceSchema = Schema.Struct({
+const MixedSpaceIntDimensionTrace = Schema.Struct({
   kind: Schema.Literal("int"),
   name: Schema.String,
-  candidateRolls: Schema.Array(CandidateRollPairSchema),
+  candidateRolls: Schema.Array(CandidateRollPair),
   candidates: Schema.Array(Schema.Number),
   logL: Schema.Array(Schema.Number),
   logG: Schema.Array(Schema.Number),
   scores: Schema.Array(Schema.Number)
 })
 
-const MixedSpaceDimensionTraceSchema = Schema.Union(
-  MixedSpaceCategoricalDimensionTraceSchema,
-  MixedSpaceFloatDimensionTraceSchema,
-  MixedSpaceIntDimensionTraceSchema
+const MixedSpaceDimensionTrace = Schema.Union(
+  MixedSpaceCategoricalDimensionTrace,
+  MixedSpaceFloatDimensionTrace,
+  MixedSpaceIntDimensionTrace
 )
 
-const MixedSpaceSearchSpaceSchema = Schema.Struct({
+const MixedSpaceSearchSpace = Schema.Struct({
   optimizer: Schema.Struct({
     type: Schema.Literal("categorical"),
-    choices: Schema.Array(PrimitiveChoiceSchema)
+    choices: Schema.Array(Choice)
   }),
   lr: Schema.Struct({
     type: Schema.Literal("float"),
@@ -397,114 +394,114 @@ const MixedSpaceSearchSpaceSchema = Schema.Struct({
   })
 })
 
-const MixedSpaceSamplerSchema = Schema.Struct({
+const MixedSpaceSampler = Schema.Struct({
   seed: Schema.Number,
   nStartupTrials: Schema.Number,
   nEiCandidates: Schema.Number,
   nextTrialNumber: Schema.Number
 })
 
-const MixedSpaceExpectedSchema = Schema.Struct({
-  candidateConfigs: Schema.Array(PrimitiveConfigSchema),
+const MixedSpaceExpected = Schema.Struct({
+  candidateConfigs: Schema.Array(PrimitiveConfig),
   jointScores: Schema.Array(Schema.Number),
   expectedBestIndex: Schema.Number,
-  expectedSuggestion: PrimitiveConfigSchema
+  expectedSuggestion: PrimitiveConfig
 })
 
-export const MixedSpaceJointTraceFixtureSchema = Schema.Struct({
-  fixture: MixedSpaceTraceNameSchema,
-  metadata: FixtureMetadataSchema,
+export const MixedSpaceJointTraceFixture = Schema.Struct({
+  fixture: MixedSpaceTraceName,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    space: MixedSpaceSearchSpaceSchema,
-    sampler: MixedSpaceSamplerSchema,
+    space: MixedSpaceSearchSpace,
+    sampler: MixedSpaceSampler,
     split: Schema.Struct({
-      below: Schema.Array(MixedSpaceTrialSchema),
-      above: Schema.Array(MixedSpaceTrialSchema)
+      below: Schema.Array(MixedSpaceTrial),
+      above: Schema.Array(MixedSpaceTrial)
     }),
-    dimensions: Schema.Array(MixedSpaceDimensionTraceSchema),
-    expected: MixedSpaceExpectedSchema
+    dimensions: Schema.Array(MixedSpaceDimensionTrace),
+    expected: MixedSpaceExpected
   })
 })
 
-export type MixedSpaceJointTraceFixture = Schema.Schema.Type<typeof MixedSpaceJointTraceFixtureSchema>
+export type MixedSpaceJointTraceFixture = Schema.Schema.Type<typeof MixedSpaceJointTraceFixture>
 
-const MotpeSplitTrialSchema = Schema.Struct({
+const MotpeSplitTrial = Schema.Struct({
   trialNumber: Schema.Number,
-  values: ObjectivePointSchema,
+  values: ObjectivePoint,
   feasible: Schema.Boolean,
   rank: Schema.Number,
   hsspScore: Schema.Number
 })
 
-export const MotpeSplitFixtureSchema = Schema.Struct({
+export const MotpeSplitFixture = Schema.Struct({
   fixture: Schema.Literal("motpe-split.multi-rank-hssp"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    directions: Schema.Array(DirectionSchema),
+    directions: Schema.Array(Direction),
     nBelow: Schema.Number,
-    trials: Schema.Array(MotpeSplitTrialSchema),
+    trials: Schema.Array(MotpeSplitTrial),
     expectedBelow: Schema.Array(Schema.Number),
     expectedAbove: Schema.Array(Schema.Number)
   })
 })
 
-export type MotpeSplitFixture = Schema.Schema.Type<typeof MotpeSplitFixtureSchema>
+export type MotpeSplitFixture = Schema.Schema.Type<typeof MotpeSplitFixture>
 
-const MotpeReferenceCaseSchema = Schema.Struct({
+const MotpeReferenceCase = Schema.Struct({
   id: Schema.String,
-  directions: Schema.Array(DirectionSchema),
-  worstPoint: ObjectivePointSchema,
-  expectedReferencePoint: ObjectivePointSchema
+  directions: Schema.Array(Direction),
+  worstPoint: ObjectivePoint,
+  expectedReferencePoint: ObjectivePoint
 })
 
-export const MotpeReferenceFixtureSchema = Schema.Struct({
+export const MotpeReferenceFixture = Schema.Struct({
   fixture: Schema.Literal("motpe-reference.reference-point"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
     epsilon: Schema.Number,
-    cases: Schema.Array(MotpeReferenceCaseSchema)
+    cases: Schema.Array(MotpeReferenceCase)
   })
 })
 
-export type MotpeReferenceFixture = Schema.Schema.Type<typeof MotpeReferenceFixtureSchema>
+export type MotpeReferenceFixture = Schema.Schema.Type<typeof MotpeReferenceFixture>
 
-const MotpeWeightsFixtureNameSchema = Schema.Literal(
+const MotpeWeightsFixtureName = Schema.Literal(
   "motpe-weights.2obj",
   "motpe-weights.mixed-directions",
   "motpe-weights.zero-contribution"
 )
 
-export const MotpeWeightsFixtureSchema = Schema.Struct({
-  fixture: MotpeWeightsFixtureNameSchema,
-  metadata: FixtureMetadataSchema,
+export const MotpeWeightsFixture = Schema.Struct({
+  fixture: MotpeWeightsFixtureName,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    directions: Schema.Array(DirectionSchema),
-    points: Schema.Array(ObjectivePointSchema),
-    referencePoint: ObjectivePointSchema,
+    directions: Schema.Array(Direction),
+    points: Schema.Array(ObjectivePoint),
+    referencePoint: ObjectivePoint,
     expectedContributions: Schema.Array(Schema.Number),
     expectedWeights: Schema.Array(Schema.Number)
   })
 })
 
-export type MotpeWeightsFixture = Schema.Schema.Type<typeof MotpeWeightsFixtureSchema>
+export type MotpeWeightsFixture = Schema.Schema.Type<typeof MotpeWeightsFixture>
 
-export const MotpeStudyFixtureSchema = Schema.Struct({
+export const MotpeStudyFixture = Schema.Struct({
   fixture: Schema.Literal("motpe-study.2obj"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    sampler: TpeReplaySamplerSchema,
-    directions: Schema.Array(DirectionSchema),
+    sampler: TpeReplaySampler,
+    directions: Schema.Array(Direction),
     expected: Schema.Struct({
       paretoTrialNumbers: Schema.Array(Schema.Number),
-      paretoValues: Schema.Array(ObjectivePointSchema),
-      configTrace: Schema.Array(ReplayConfigSchema)
+      paretoValues: Schema.Array(ObjectivePoint),
+      configTrace: Schema.Array(ReplayConfig)
     })
   })
 })
 
-export type MotpeStudyFixture = Schema.Schema.Type<typeof MotpeStudyFixtureSchema>
+export type MotpeStudyFixture = Schema.Schema.Type<typeof MotpeStudyFixture>
 
-const ConstrainedDensityCaseSchema = Schema.Struct({
+const ConstrainedDensityCase = Schema.Struct({
   id: Schema.String,
   observations: Schema.Array(Schema.Array(Schema.Number)),
   probes: Schema.Array(Schema.Array(Schema.Number)),
@@ -512,125 +509,125 @@ const ConstrainedDensityCaseSchema = Schema.Struct({
   expectedOrder: Schema.Array(Schema.Number)
 })
 
-const ConstrainedSplitTrialSchema = Schema.Struct({
+const ConstrainedSplitTrial = Schema.Struct({
   trialNumber: Schema.Number,
   value: Schema.Number,
   constraints: Schema.Array(Schema.Number)
 })
 
-const ConstrainedSplitCaseSchema = Schema.Struct({
-  direction: DirectionSchema,
+const ConstrainedSplitCase = Schema.Struct({
+  direction: Direction,
   nBelow: Schema.Number,
-  trials: Schema.Array(ConstrainedSplitTrialSchema),
+  trials: Schema.Array(ConstrainedSplitTrial),
   expectedBelow: Schema.Array(Schema.Number),
   expectedAbove: Schema.Array(Schema.Number)
 })
 
-export const ConstrainedTpeFixtureSchema = Schema.Struct({
+export const ConstrainedTpeFixture = Schema.Struct({
   fixture: Schema.Literal("constrained-tpe.parity"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    densityCases: Schema.Array(ConstrainedDensityCaseSchema),
-    splitCase: ConstrainedSplitCaseSchema
+    densityCases: Schema.Array(ConstrainedDensityCase),
+    splitCase: ConstrainedSplitCase
   })
 })
 
-export type ConstrainedTpeFixture = Schema.Schema.Type<typeof ConstrainedTpeFixtureSchema>
+export type ConstrainedTpeFixture = Schema.Schema.Type<typeof ConstrainedTpeFixture>
 
-const ConditionalFilteringCaseSchema = Schema.Struct({
+const ConditionalFilteringCase = Schema.Struct({
   id: Schema.String,
   requiredParams: Schema.Array(Schema.String),
   trials: Schema.Array(
     Schema.Struct({
       trialNumber: Schema.Number,
-      params: PrimitiveConfigSchema
+      params: PrimitiveConfig
     })
   ),
   expectedIncluded: Schema.Array(Schema.Number),
   expectedExcluded: Schema.Array(Schema.Number)
 })
 
-export const ConditionalFilteringFixtureSchema = Schema.Struct({
+export const ConditionalFilteringFixture = Schema.Struct({
   fixture: Schema.Literal("conditional.filtering"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    cases: Schema.Array(ConditionalFilteringCaseSchema)
+    cases: Schema.Array(ConditionalFilteringCase)
   })
 })
 
-export type ConditionalFilteringFixture = Schema.Schema.Type<typeof ConditionalFilteringFixtureSchema>
+export type ConditionalFilteringFixture = Schema.Schema.Type<typeof ConditionalFilteringFixture>
 
-const ConditionalGroupSchema = Schema.Struct({
+const ConditionalGroup = Schema.Struct({
   key: Schema.String,
   dimensions: Schema.Array(Schema.String)
 })
 
-export const ConditionalGroupDecompositionFixtureSchema = Schema.Struct({
+export const ConditionalGroupDecompositionFixture = Schema.Struct({
   fixture: Schema.Literal("conditional.group-decomposition"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
     dimensions: Schema.Array(Schema.String),
     additions: Schema.Array(Schema.Array(Schema.String)),
-    expectedGroups: Schema.Array(ConditionalGroupSchema)
+    expectedGroups: Schema.Array(ConditionalGroup)
   })
 })
 
 export type ConditionalGroupDecompositionFixture = Schema.Schema.Type<
-  typeof ConditionalGroupDecompositionFixtureSchema
+  typeof ConditionalGroupDecompositionFixture
 >
 
-const PruningReportCaseSchema = Schema.Struct({
+const PruningReportCase = Schema.Struct({
   id: Schema.String,
-  initialReports: Schema.Array(IntermediateValueSchema),
-  reportAttempt: IntermediateValueSchema,
-  expectedReports: Schema.Array(IntermediateValueSchema),
+  initialReports: Schema.Array(IntermediateValue),
+  reportAttempt: IntermediateValue,
+  expectedReports: Schema.Array(IntermediateValue),
   expectedOutcome: Schema.Literal("accepted", "duplicate-ignored", "error"),
   expectedErrorTag: Schema.optional(Schema.Literal("InvalidReportStep", "InvalidReportValue"))
 })
 
-export const PruningReportContractFixtureSchema = Schema.Struct({
+export const PruningReportContractFixture = Schema.Struct({
   fixture: Schema.Literal("pruning.report-contract"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    cases: Schema.Array(PruningReportCaseSchema)
+    cases: Schema.Array(PruningReportCase)
   })
 })
 
-export type PruningReportContractFixture = Schema.Schema.Type<typeof PruningReportContractFixtureSchema>
+export type PruningReportContractFixture = Schema.Schema.Type<typeof PruningReportContractFixture>
 
-const PercentilePrunerCaseSchema = Schema.Struct({
+const PercentilePrunerCase = Schema.Struct({
   id: Schema.String,
-  settings: PercentilePrunerSettingsSchema,
+  settings: PercentileOptions,
   trialNumber: Schema.Number,
   step: Schema.Number,
   currentValue: Schema.Number,
   history: Schema.Array(
     Schema.Struct({
       trialNumber: Schema.Number,
-      state: PercentilePrunerTrialStateSchema,
-      reports: Schema.Array(IntermediateValueSchema)
+      state: PercentileTrialState,
+      reports: Schema.Array(IntermediateValue)
     })
   ),
   expectedShouldPrune: Schema.Boolean
 })
 
-export const PercentilePrunerFixtureSchema = Schema.Struct({
+export const PercentilePrunerFixture = Schema.Struct({
   fixture: Schema.Literal("pruning.percentile-pruner"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    direction: DirectionSchema,
-    cases: Schema.Array(PercentilePrunerCaseSchema)
+    direction: Direction,
+    cases: Schema.Array(PercentilePrunerCase)
   })
 })
 
-export type PercentilePrunerFixture = Schema.Schema.Type<typeof PercentilePrunerFixtureSchema>
+export type PercentilePrunerFixture = Schema.Schema.Type<typeof PercentilePrunerFixture>
 
-const AdvancedSamplerSpaceSchema = Schema.Struct({
+const AdvancedSamplerSpace = Schema.Struct({
   x: Schema.Struct({ low: Schema.Number, high: Schema.Number }),
   y: Schema.Struct({ low: Schema.Number, high: Schema.Number })
 })
 
-const AdvancedSamplerContextSchema = Schema.Struct({
+const AdvancedSamplerContext = Schema.Struct({
   nextTrialNumber: Schema.Number,
   completed: Schema.Array(
     Schema.Struct({
@@ -644,12 +641,12 @@ const AdvancedSamplerContextSchema = Schema.Struct({
   )
 })
 
-export const AdvancedCmaEsFixtureSchema = Schema.Struct({
+export const AdvancedCmaEsFixture = Schema.Struct({
   fixture: Schema.Literal("advanced-samplers.cmaes-parity"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    space: AdvancedSamplerSpaceSchema,
-    context: AdvancedSamplerContextSchema,
+    space: AdvancedSamplerSpace,
+    context: AdvancedSamplerContext,
     sampler: Schema.Struct({
       seed: Schema.Number,
       sigma: Schema.Number,
@@ -662,21 +659,21 @@ export const AdvancedCmaEsFixtureSchema = Schema.Struct({
   })
 })
 
-export type AdvancedCmaEsFixture = Schema.Schema.Type<typeof AdvancedCmaEsFixtureSchema>
+export type AdvancedCmaEsFixture = Schema.Schema.Type<typeof AdvancedCmaEsFixture>
 
-export const AdvancedGpBoFixtureSchema = Schema.Struct({
+export const AdvancedGpBoFixture = Schema.Struct({
   fixture: Schema.Literal("advanced-samplers.gpbo-parity"),
-  metadata: FixtureMetadataSchema,
+  metadata: FixtureMetadata,
   payload: Schema.Struct({
-    space: AdvancedSamplerSpaceSchema,
-    context: AdvancedSamplerContextSchema,
+    space: AdvancedSamplerSpace,
+    context: AdvancedSamplerContext,
     sampler: Schema.Struct({
       seed: Schema.Number,
       nStartupTrials: Schema.Number,
       nCandidates: Schema.Number,
       lengthScale: Schema.Number,
       noise: Schema.Number,
-      acquisition: BuiltInAcquisitionNameSchema
+      acquisition: Name
     }),
     expected: Schema.Struct({
       x: Schema.Number,
@@ -685,9 +682,9 @@ export const AdvancedGpBoFixtureSchema = Schema.Struct({
   })
 })
 
-export type AdvancedGpBoFixture = Schema.Schema.Type<typeof AdvancedGpBoFixtureSchema>
+export type AdvancedGpBoFixture = Schema.Schema.Type<typeof AdvancedGpBoFixture>
 
-export const FixtureNameSchema = Schema.Literal(
+export const FixtureName = Schema.Literal(
   "gamma.default-gamma",
   "split-trials.single-and-liar",
   "pruned-score.pruned-ordering",
@@ -735,9 +732,9 @@ export const FixtureNameSchema = Schema.Literal(
   "advanced-samplers.gpbo-parity"
 )
 
-export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
+export type FixtureName = Schema.Schema.Type<typeof FixtureName>
 
-const FixtureManifestGeneratorSchema = Schema.Struct({
+const FixtureManifestGenerator = Schema.Struct({
   script: Schema.String,
   generatorVersion: Schema.String,
   upstream: Schema.Literal("optuna"),
@@ -746,42 +743,44 @@ const FixtureManifestGeneratorSchema = Schema.Struct({
   generatedAt: Schema.String
 })
 
-export const FixtureManifestEntrySchema = Schema.Struct({
-  name: FixtureNameSchema,
+export const FixtureManifestEntry = Schema.Struct({
+  name: FixtureName,
   file: Schema.String
 })
 
-export const FixtureManifestSchema = Schema.Struct({
+export type FixtureManifestEntry = Schema.Schema.Type<typeof FixtureManifestEntry>
+
+export const FixtureManifest = Schema.Struct({
   schemaVersion: Schema.Literal("1.0.0"),
-  generator: FixtureManifestGeneratorSchema,
-  fixtures: Schema.Array(FixtureManifestEntrySchema)
+  generator: FixtureManifestGenerator,
+  fixtures: Schema.Array(FixtureManifestEntry)
 })
 
-export type FixtureManifest = Schema.Schema.Type<typeof FixtureManifestSchema>
+export type FixtureManifest = Schema.Schema.Type<typeof FixtureManifest>
 
-export const KnownFixtureSchema = Schema.Union(
-  GammaFixtureSchema,
-  SplitTrialsFixtureSchema,
-  PrunedScoreFixtureSchema,
-  MotpeSplitFixtureSchema,
-  MotpeReferenceFixtureSchema,
-  CategoricalParzenFixtureSchema,
-  EiCategoricalFixtureSchema,
-  ContinuousKdeFixtureSchema,
-  NoiseBandwidthFixtureSchema,
-  TruncatedNormalFixtureSchema,
-  MultivariateGaussianFixtureSchema,
-  MixedSpaceJointTraceFixtureSchema,
-  ConditionalFilteringFixtureSchema,
-  ConditionalGroupDecompositionFixtureSchema,
-  PruningReportContractFixtureSchema,
-  PercentilePrunerFixtureSchema,
-  TpeCategoricalStudyReplayFixtureSchema,
-  MotpeWeightsFixtureSchema,
-  MotpeStudyFixtureSchema,
-  ConstrainedTpeFixtureSchema,
-  AdvancedCmaEsFixtureSchema,
-  AdvancedGpBoFixtureSchema
+export const KnownFixture = Schema.Union(
+  GammaFixture,
+  SplitTrialsFixture,
+  PrunedScoreFixture,
+  MotpeSplitFixture,
+  MotpeReferenceFixture,
+  CategoricalParzenFixture,
+  EiCategoricalFixture,
+  ContinuousKdeFixture,
+  NoiseBandwidthFixture,
+  TruncatedNormalFixture,
+  MultivariateGaussianFixture,
+  MixedSpaceJointTraceFixture,
+  ConditionalFilteringFixture,
+  ConditionalGroupDecompositionFixture,
+  PruningReportContractFixture,
+  PercentilePrunerFixture,
+  TpeCategoricalStudyReplayFixture,
+  MotpeWeightsFixture,
+  MotpeStudyFixture,
+  ConstrainedTpeFixture,
+  AdvancedCmaEsFixture,
+  AdvancedGpBoFixture
 )
 
-export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>
+export type KnownFixture = Schema.Schema.Type<typeof KnownFixture>

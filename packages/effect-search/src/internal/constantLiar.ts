@@ -1,19 +1,21 @@
-import { Array as Arr, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Chunk, Match, Number as Num, Option } from "effect"
 
-import { defaultDirection, type Direction } from "../contracts/Direction.js"
-import { matchObjectiveSpec, objectiveDirectionAt, objectiveSpecDimensions } from "../contracts/ObjectiveSpec.js"
-import { normalizeObjectiveVector } from "../contracts/ObjectiveValue.js"
-import { ImputedObservation, PendingImputationPolicy } from "../Sampler/PendingImputationPolicy.js"
-import type { SuggestContext } from "../Sampler/SuggestContext.js"
+import { type Direction, minimize } from "../Direction.js"
+import { dimensions, directionAt, match } from "../Objective.js"
+import { toVector } from "../Objective.js"
+import { type Context, Observation } from "../Sampler.js"
 
-const valueAt = (values: ReadonlyArray<number>, index: number): number =>
-  Arr.get(values, index).pipe(Option.getOrElse(() => 0))
+const valueAt = (valuesInput: Iterable<number>, index: number): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.get(values, index).pipe(Option.getOrElse(() => 0))
+}
 
-const objectiveValuesByDimension = (context: SuggestContext, index: number): Array<number> =>
-  Arr.map(context.completed, (trial) => valueAt(normalizeObjectiveVector(trial.value), index))
+const objectiveValuesByDimension = (context: Context, index: number) =>
+  Arr.map(context.completed, (trial) => valueAt(toVector(trial.value), index))
 
-const worstByDirection = (direction: Direction, values: ReadonlyArray<number>): number =>
-  Arr.head(values).pipe(
+const worstByDirection = (direction: Direction, valuesInput: Iterable<number>): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.head(values).pipe(
     Option.match({
       onNone: () => 0,
       onSome: (first) =>
@@ -34,37 +36,33 @@ const worstByDirection = (direction: Direction, values: ReadonlyArray<number>): 
         )
     })
   )
+}
 
-const objectiveDirection = (context: SuggestContext, index: number): Direction =>
-  objectiveDirectionAt(context.objectiveSpec, index).pipe(Option.getOrElse(defaultDirection))
+const objectiveDirection = (context: Context, index: number): Direction =>
+  directionAt(context.objectiveSpec, index).pipe(Option.getOrElse(() => minimize))
 
-const liarVector = (context: SuggestContext): ReadonlyArray<number> =>
+const liarVector = (context: Context) =>
   Arr.makeBy(
-    objectiveSpecDimensions(context.objectiveSpec),
+    dimensions(context.objectiveSpec),
     (index) => worstByDirection(objectiveDirection(context, index), objectiveValuesByDimension(context, index))
   )
 
-const liarValue = (context: SuggestContext): number | ReadonlyArray<number> => {
+const liarValue = (context: Context) => {
   const vector = liarVector(context)
 
-  return matchObjectiveSpec({
+  return match({
     Single: () => valueAt(vector, 0),
     Multi: () => vector
   })(context.objectiveSpec)
 }
 
-export const constantLiar = (context: SuggestContext): ReadonlyArray<ImputedObservation> =>
-  Arr.map(
+export const constantLiar = (context: Context): Chunk.Chunk<Observation> =>
+  Chunk.fromIterable(Arr.map(
     context.pending,
     (pending) =>
-      new ImputedObservation({
+      new Observation({
         trialNumber: pending.trialNumber,
         config: pending.config,
         value: liarValue(context)
       })
-  )
-
-export const constantLiarPendingImputationPolicy = new PendingImputationPolicy({
-  name: "constant-liar",
-  impute: constantLiar
-})
+  ))

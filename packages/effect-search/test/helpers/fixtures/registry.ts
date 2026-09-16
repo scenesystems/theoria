@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option } from "effect"
+import { Array as Arr, Context, Effect, Layer, Option, String as Str } from "effect"
 
 import { FixtureNotFoundError, type FixtureRegistryError } from "./errors.js"
 import { directoryBeside, findManifestEntry, loadFixtureByEntry, loadManifest } from "./io.js"
@@ -27,7 +27,9 @@ export const makeFixtureRegistry = (
   }
 ): FixtureRegistry["Type"] => {
   const rootDirectory = options.rootDirectory
-  const manifestFileName = options.manifestFileName ?? DEFAULT_MANIFEST_FILE
+  const manifestFileName = Option.fromNullable(options.manifestFileName).pipe(
+    Option.getOrElse(() => DEFAULT_MANIFEST_FILE)
+  )
 
   const load = (name: FixtureName): Effect.Effect<KnownFixture, FixtureRegistryError> =>
     Effect.gen(function*() {
@@ -50,7 +52,7 @@ export const makeFixtureRegistry = (
   ): Effect.Effect<Array<KnownFixture>, FixtureRegistryError> =>
     Effect.gen(function*() {
       const manifest = yield* loadManifest(rootDirectory, manifestFileName)
-      const entries = manifest.fixtures.filter((entry) => entry.name.startsWith(namespace))
+      const entries = Arr.filter(manifest.fixtures, (entry) => Str.startsWith(namespace)(entry.name))
 
       return yield* Effect.forEach(entries, (entry) => loadFixtureByEntry(rootDirectory, entry))
     })

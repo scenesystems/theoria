@@ -1,11 +1,11 @@
 import { Effect } from "effect"
 
-import type { InvalidSamplerConfig } from "../../../Errors/index.js"
+import type { InvalidSamplerConfig } from "../../../SearchError.js"
+import type { ContinuousKernel, ContinuousParzen } from "../continuousParzen.js"
 import { sample as sampleTruncated, sampleEffect as sampleTruncatedEffect } from "../truncatedNormal.js"
 import type { TruncatedNormalParams } from "../truncatedNormal.js"
 import { samplerMathError } from "./errors.js"
 import { chooseKernelIndex, kernelAt } from "./kernels.js"
-import type { ContinuousKernel, ContinuousParzen } from "./model.js"
 
 const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): TruncatedNormalParams => ({
   mean: kernel.mean,

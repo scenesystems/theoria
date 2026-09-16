@@ -1,15 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Option, Schema } from "effect"
 
-import type { Direction } from "../../../src/contracts/Direction.js"
+import type { Direction } from "../../../src/Direction.js"
 import { PrunedIntermediateValue, prunedTrialScore } from "../../../src/internal/tpe/prunedScore.js"
 import { CompletedTrialForSplit, splitTrials } from "../../../src/internal/tpe/splitTrials.js"
-import {
-  FixtureRegistryLive,
-  loadFixture,
-  type SplitTrialsFixture,
-  SplitTrialsFixtureSchema
-} from "../../helpers/fixtures.js"
+import { FixtureRegistryLive, loadFixture, SplitTrialsFixture } from "../../helpers/fixtures/index.js"
 
 type SplitFixtureTrial = SplitTrialsFixture["payload"]["cases"][number]["trials"][number]
 type TraceValue = SplitFixtureTrial["intermediateValues"][number]["value"]
@@ -34,7 +29,7 @@ const directionalScore = (direction: Direction, value: number): number =>
 
 const normalizedIntermediateValues = (
   trial: SplitFixtureTrial
-): Array<PrunedIntermediateValue> =>
+) =>
   trial.intermediateValues.map(
     (entry) =>
       new PrunedIntermediateValue({
@@ -87,9 +82,10 @@ const splitTrialFromFixture = (
 
 const splitTrialsFromFixtureCase = (
   direction: Direction,
-  trials: ReadonlyArray<SplitFixtureTrial>
-): Array<CompletedTrialForSplit> =>
-  trials.flatMap((trial) =>
+  trialsInput: Iterable<SplitFixtureTrial>
+) => {
+  const trials = Arr.fromIterable(trialsInput)
+  return trials.flatMap((trial) =>
     splitTrialFromFixture(direction, trial).pipe(
       Option.match({
         onNone: () => [],
@@ -97,6 +93,7 @@ const splitTrialsFromFixtureCase = (
       })
     )
   )
+}
 
 const makeTrial = (trialNumber: number, value: number) =>
   new CompletedTrialForSplit({
@@ -110,7 +107,7 @@ describe("tpe split trials fixture parity", () => {
   it.effect("replays split-trial fixture cases including pruned and liar-aware membership", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("split-trials.single-and-liar").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(SplitTrialsFixtureSchema)(loaded)
+      const fixture = yield* Schema.decodeUnknown(SplitTrialsFixture)(loaded)
 
       fixture.payload.cases.forEach((fixtureCase) => {
         const trials = splitTrialsFromFixtureCase(fixtureCase.direction, fixtureCase.trials)

@@ -1,8 +1,9 @@
-import { Array as Arr, Data, Match, Number as Num, Option } from "effect"
+import { pow, sqrt } from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option } from "effect"
 
-const NOISE_FLOOR = 1e-12
-const BOOTSTRAP_REPLICATES = 8
-const MAX_BANDWIDTH_SCALE = 5
+const noiseFloor = 1e-12
+const bootstrapReplicates = 8
+const maximumBandwidthScale = 5
 
 export class NoiseEstimate extends Data.Class<{
   readonly observationVariance: number
@@ -20,8 +21,9 @@ export const defaultNoiseBandwidthOptions = new NoiseBandwidthOptions({
   noiseAlpha: 1
 })
 
-const average = (values: ReadonlyArray<number>): number =>
-  Match.value(values.length <= 0).pipe(
+const average = (valuesInput: Iterable<number>): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Match.value(Num.lessThanOrEqualTo(values.length, 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       Num.unsafeDivide(
@@ -30,104 +32,126 @@ const average = (values: ReadonlyArray<number>): number =>
       )
     )
   )
+}
 
 const varianceFromMean = (
-  values: ReadonlyArray<number>,
+  valuesInput: Iterable<number>,
   mean: number
-): number =>
-  Match.value(values.length <= 1).pipe(
+): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Match.value(Num.lessThanOrEqualTo(values.length, 1)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       Num.unsafeDivide(
         Arr.reduce(values, 0, (total, value) => {
-          const centered = value - mean
-          return Num.sum(total, centered * centered)
+          const centered = Num.subtract(value, mean)
+          return Num.sum(total, Num.multiply(centered, centered))
         }),
         values.length
       )
     )
   )
+}
 
-const variance = (values: ReadonlyArray<number>): number => varianceFromMean(values, average(values))
+const variance = (valuesInput: Iterable<number>): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return varianceFromMean(values, average(values))
+}
 
-const minimumSpan = (low: number, high: number): number => Num.max(high - low, NOISE_FLOOR)
+const minimumSpan = (low: number, high: number): number => Num.max(Num.subtract(high, low), noiseFloor)
 
 const bandwidthFromSample = (
-  values: ReadonlyArray<number>,
+  valuesInput: Iterable<number>,
   span: number
-): number =>
-  Match.value(values.length <= 1).pipe(
+): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Match.value(Num.lessThanOrEqualTo(values.length, 1)).pipe(
     Match.when(true, () => span),
     Match.orElse(() => {
-      const stddev = Math.sqrt(variance(values))
-      const scottFactor = Math.pow(values.length, -0.2)
-      return Num.max(stddev * scottFactor, NOISE_FLOOR)
+      const stddev = sqrt(variance(values))
+      const scottFactor = pow(values.length, -0.2)
+      return Num.max(Num.multiply(stddev, scottFactor), noiseFloor)
     })
   )
+}
 
 const bootstrapIndex = (
   observationCount: number,
   replicateIndex: number,
   sampleIndex: number
 ): number =>
-  Match.value(observationCount <= 0).pipe(
+  Match.value(Num.lessThanOrEqualTo(observationCount, 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(
-      () => ((replicateIndex + 1) * 17 + (sampleIndex + 1) * 31) % observationCount
+      () =>
+        Num.remainder(
+          Num.sum(Num.multiply(Num.increment(replicateIndex), 17), Num.multiply(Num.increment(sampleIndex), 31)),
+          observationCount
+        )
     )
   )
 
 const bootstrapSample = (
-  observations: ReadonlyArray<number>,
+  observationsInput: Iterable<number>,
   replicateIndex: number
-): ReadonlyArray<number> =>
-  Arr.makeBy(observations.length, (sampleIndex) =>
-    Option.fromNullable(
-      observations[
-        bootstrapIndex(observations.length, replicateIndex, sampleIndex)
-      ]
-    ).pipe(Option.getOrElse(() => 0)))
+) => {
+  const observations = Arr.fromIterable(observationsInput)
+  return Arr.makeBy(
+    observations.length,
+    (sampleIndex) =>
+      Arr.get(observations, bootstrapIndex(observations.length, replicateIndex, sampleIndex)).pipe(
+        Option.getOrElse(() => 0)
+      )
+  )
+}
 
 const bootstrapBandwidthVariance = (
-  observations: ReadonlyArray<number>,
+  observationsInput: Iterable<number>,
   span: number
-): number =>
-  Match.value(observations.length <= 1).pipe(
+): number => {
+  const observations = Arr.fromIterable(observationsInput)
+  return Match.value(Num.lessThanOrEqualTo(observations.length, 1)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       variance(
         Arr.makeBy(
-          BOOTSTRAP_REPLICATES,
+          bootstrapReplicates,
           (replicateIndex) => bandwidthFromSample(bootstrapSample(observations, replicateIndex), span)
         )
       )
     )
   )
+}
 
-const finiteNonNegative = (value: number): boolean => Number.isFinite(value) && Num.greaterThanOrEqualTo(value, 0)
+const finiteNonNegative = (value: number): boolean =>
+  Bool.and(Number.isFinite(value), Num.greaterThanOrEqualTo(value, 0))
 
 const observationVarianceFromSources = (
-  observations: ReadonlyArray<number>,
+  observationsInput: Iterable<number>,
   empiricalObservationVariance: Option.Option<number>
-): number =>
-  empiricalObservationVariance.pipe(
+): number => {
+  const observations = Arr.fromIterable(observationsInput)
+  return empiricalObservationVariance.pipe(
     Option.filter(finiteNonNegative),
     Option.getOrElse(() => variance(observations))
   )
+}
 
 export const estimateNoise = (
-  observations: ReadonlyArray<number>,
+  observationsInput: Iterable<number>,
   low: number,
   high: number,
   empiricalObservationVariance: Option.Option<number> = Option.none()
 ): NoiseEstimate => {
+  const observations = Arr.fromIterable(observationsInput)
+
   const span = minimumSpan(low, high)
   const observationVariance = observationVarianceFromSources(observations, empiricalObservationVariance)
   const bootstrapVariance = bootstrapBandwidthVariance(observations, span)
   const normalizedNoise = Num.max(
     Num.unsafeDivide(
       Num.sum(observationVariance, bootstrapVariance),
-      span * span
+      Num.multiply(span, span)
     ),
     0
   )
@@ -147,10 +171,10 @@ export const bandwidthScaleFromNoiseEstimate = (
     Match.when(false, () => 1),
     Match.orElse(() =>
       Num.clamp(
-        1 + Num.max(options.noiseAlpha, 0) * estimate.normalizedNoise,
+        Num.sum(1, Num.multiply(Num.max(options.noiseAlpha, 0), estimate.normalizedNoise)),
         {
           minimum: 1,
-          maximum: MAX_BANDWIDTH_SCALE
+          maximum: maximumBandwidthScale
         }
       )
     )
@@ -160,4 +184,4 @@ export const adjustBandwidthForNoise = (
   bandwidth: number,
   estimate: NoiseEstimate,
   options: NoiseBandwidthOptions = defaultNoiseBandwidthOptions
-): number => bandwidth * bandwidthScaleFromNoiseEstimate(estimate, options)
+): number => Num.multiply(bandwidth, bandwidthScaleFromNoiseEstimate(estimate, options))

@@ -1,28 +1,31 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Option, Schema } from "effect"
 
 import {
   buildConstraintDensityModels,
   constraintDensityRatioProduct
 } from "../../../src/internal/tpe/constrainedDensity.js"
-import * as Sampler from "../../../src/Sampler/index.js"
-import { splitMultiObjective } from "../../../src/samplers/Tpe/split/multiSplit.js"
-import { splitSingleObjective } from "../../../src/samplers/Tpe/split/singleSplit.js"
+import { splitMultiObjective } from "../../../src/internal/tpe/split/multiSplit.js"
+import { splitSingleObjective } from "../../../src/internal/tpe/split/singleSplit.js"
+import type { Value } from "../../../src/Objective.js"
+import * as Sampler from "../../../src/Sampler.js"
 
 const completed = (
   trialNumber: number,
-  value: number | ReadonlyArray<number>,
-  constraints?: ReadonlyArray<number>
-): Sampler.SuggestCompletedTrial =>
-  Sampler.makeSuggestCompletedTrial(
+  value: Value,
+  constraintsInput?: Iterable<number>
+): Sampler.Observation => {
+  const constraints = Option.map(Option.fromNullable(constraintsInput), Arr.fromIterable)
+  return Sampler.observation(
     trialNumber,
     { trialNumber },
     value,
-    undefined,
-    undefined,
-    undefined,
-    constraints
+    Option.match(constraints, {
+      onNone: () => ({}),
+      onSome: (resolved) => ({ constraints: resolved })
+    })
   )
+}
 
 describe("constrained tpe", () => {
   it.effect("keeps runtime constraint evaluators out of snapshot metadata", () =>
@@ -31,24 +34,18 @@ describe("constrained tpe", () => {
         seed: 23,
         constraints: [() => Effect.succeed(0)]
       })
-      const decode = Schema.decodeUnknownEither(Sampler.SamplerKindSchema)
+      const decode = Schema.decodeUnknownEither(Sampler.Kind)
       const decoded = decode(sampler.kind)
-      const tpeOptions = Sampler.matchSamplerKind({
-        Random: () => Option.none<Sampler.TpeOptions>(),
-        Grid: () => Option.none<Sampler.TpeOptions>(),
-        Tpe: ({ options }) => Option.some(options),
-        CmaEs: () => Option.none<Sampler.TpeOptions>(),
-        GpBo: () => Option.none<Sampler.TpeOptions>()
+      const constraintsCount = Sampler.matchKind({
+        Random: () => 0,
+        Grid: () => 0,
+        Tpe: ({ options }) => Option.fromNullable(options.constraintsCount).pipe(Option.getOrElse(() => 0)),
+        CmaEs: () => 0,
+        GpBo: () => 0
       })(sampler.kind)
 
       expect(decoded._tag).toBe("Right")
-      expect(Option.isSome(tpeOptions)).toBe(true)
-
-      if (Option.isNone(tpeOptions)) {
-        return
-      }
-
-      expect(tpeOptions.value.constraintsCount).toBe(1)
+      expect(constraintsCount).toBe(1)
     }))
 
   it.effect("prefers feasible history over infeasible objective winners in single-objective split", () =>

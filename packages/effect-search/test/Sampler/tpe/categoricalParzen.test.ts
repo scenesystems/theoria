@@ -1,9 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array as Arr, Effect, Number as Num } from "effect"
 
 import { buildCategoricalParzen } from "../../../src/internal/tpe/categoricalParzen.js"
 
-const probabilitySum = (values: ReadonlyArray<number>) => values.reduce((total, value) => total + value, 0)
+const probabilitySum = (valuesInput: Iterable<number>) => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.reduce(values, 0, Num.sum)
+}
 
 describe("tpe categorical parzen", () => {
   it.effect("returns a normalized positive distribution for observed categories", () =>
