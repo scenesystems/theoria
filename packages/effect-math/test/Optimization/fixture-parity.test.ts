@@ -2,14 +2,14 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Data, Effect, Match, Number, Option, Record, Schema } from "effect"
 
-import * as Numeric from "../../src/Numeric/index.js"
-import { bisect, goldenSection } from "../../src/Optimization/operations.js"
+import * as Numeric from "../../src/Numeric.js"
+import { bisect, goldenSection } from "../../src/Optimization.js"
 import { loadFixture, OptimizationSolverParityFixtureSchema } from "../helpers/fixtures/index.js"
 
-const ABSOLUTE_TOLERANCE = 1e-6
+const absoluteTolerance = 1e-6
 
 const expectParity = (actual: number, expected: number) => {
-  expect(Numeric.abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(ABSOLUTE_TOLERANCE)
+  expect(Numeric.abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(absoluteTolerance)
 }
 
 class UnknownFixtureFunction extends Data.TaggedError("UnknownFixtureFunction")<{ readonly name: string }> {}

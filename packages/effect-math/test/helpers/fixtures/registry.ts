@@ -5,14 +5,14 @@ import { directoryBeside, findManifestEntry, loadFixtureByEntry, loadManifest } 
 import type { FixtureName } from "./schemas.js"
 
 const defaultRootDirectory = directoryBeside(import.meta.url, "../../fixtures/scipy/")
-const DEFAULT_MANIFEST_FILE = "manifest.json"
+const defaultManifestFile = "manifest.json"
 
 export const loadFixture = (
   name: FixtureName
 ) =>
   Effect.gen(function*() {
     const rootDirectory = yield* defaultRootDirectory
-    const manifest = yield* loadManifest(rootDirectory, DEFAULT_MANIFEST_FILE)
+    const manifest = yield* loadManifest(rootDirectory, defaultManifestFile)
     return yield* Option.match(findManifestEntry(manifest, name), {
       onNone: () => Effect.fail(new FixtureNotFoundError({ fixture: name })),
       onSome: (entry) => loadFixtureByEntry(rootDirectory, entry)
@@ -21,6 +21,6 @@ export const loadFixture = (
 
 export const validateFixtureManifest = Effect.gen(function*() {
   const rootDirectory = yield* defaultRootDirectory
-  const manifest = yield* loadManifest(rootDirectory, DEFAULT_MANIFEST_FILE)
+  const manifest = yield* loadManifest(rootDirectory, defaultManifestFile)
   yield* Effect.forEach(manifest.fixtures, (entry) => loadFixtureByEntry(rootDirectory, entry), { discard: true })
 })

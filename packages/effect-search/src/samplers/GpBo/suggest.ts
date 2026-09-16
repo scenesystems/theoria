@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { standardNormalCdf, standardNormalPdf, standardNormalTransform } from "@scenesystems/effect-math/Probability"
+import { standardNormalCdf, standardNormalPdf, standardNormalTransform } from "@scenesystems/effect-math/Distribution"
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Order } from "effect"
 
 import * as Rng from "../../internal/rng.js"

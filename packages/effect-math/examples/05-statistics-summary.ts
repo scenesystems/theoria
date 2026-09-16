@@ -8,7 +8,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Array, Chunk, Console, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
+import * as Policy from "@scenesystems/effect-math/Policy"
 import {
   covariance,
   covarianceValidated,
@@ -49,8 +49,8 @@ const program = Effect.gen(function*() {
   yield* Console.log("summaryStatisticsValidated:", summary)
 
   // Strict precision with diagnostics
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
     backend: "compensated",
     diagnostics: "enabled"

@@ -12,6 +12,7 @@ import { Array, Chunk, Console, Data, Effect, Number, Option, Schema } from "eff
 import {
   adaptiveSimpson,
   adaptiveSimpsonValidated,
+  complexStep,
   derivative,
   derivativeLimit,
   derivativeLimitWithPolicies,
@@ -30,13 +31,9 @@ import {
   trapezoidValidated,
   trapezoidWithPolicies
 } from "@scenesystems/effect-math/Calculus"
-import {
-  AbsoluteTolerance,
-  makeDeterministicRuntimePoliciesLayer,
-  RelativeTolerance,
-  Seed
-} from "@scenesystems/effect-math/contracts"
+import * as Complex from "@scenesystems/effect-math/Complex"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 class UnexpectedZeroDivisor extends Data.TaggedError("UnexpectedZeroDivisor") {}
 
@@ -44,8 +41,8 @@ const coordinateAt = (point: Chunk.Chunk<number>, index: number): number =>
   Option.getOrElse(Chunk.get(point, index), () => 0)
 
 const program = Effect.gen(function*() {
-  const absoluteTolerance = yield* Schema.decode(AbsoluteTolerance)(1e-12)
-  const relativeTolerance = yield* Schema.decode(RelativeTolerance)(1e-12)
+  const absoluteTolerance = yield* Schema.decode(Numeric.AbsoluteTolerance)(1e-12)
+  const relativeTolerance = yield* Schema.decode(Numeric.RelativeTolerance)(1e-12)
 
   // Derivative operators
   const xSquared = (x: number) => Number.multiply(x, x)
@@ -55,6 +52,9 @@ const program = Effect.gen(function*() {
   // Output: d/dx(x²)|₃: ≈ 6
   yield* Console.log("d/dx(sin)|₀:", derivative(Numeric.sin, 0))
   // Output: d/dx(sin)|₀: ≈ 1 (cos(0) = 1)
+
+  yield* Console.log("complexStep d/dx(exp)|₀:", complexStep(Complex.exp, 0))
+  // Output: complexStep d/dx(exp)|₀: 1
 
   const xCubed = (x: number) => Number.multiply(Number.multiply(x, x), x)
   yield* Console.log("d²/dx²(x³)|₂:", secondDerivative(xCubed, 2))
@@ -148,8 +148,8 @@ const program = Effect.gen(function*() {
   yield* Console.log("adaptiveSimpsonValidated (sin over [0, π]):", adaptiveV)
 
   // Strict runtime policy
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
     backend: "scalar",
     diagnostics: "disabled"

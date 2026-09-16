@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { standardNormalTransform } from "@scenesystems/effect-math/Probability"
+import { standardNormalTransform } from "@scenesystems/effect-math/Distribution"
 import { Array as Arr, Effect, Number as Num, Option } from "effect"
 
 import * as Rng from "../../internal/rng.js"

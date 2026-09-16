@@ -25,55 +25,43 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 
 - **`Chunk<number>`** is the sole dense carrier — no `Float64Array`, no `ReadonlyArray` in public API
 - **Effect `Number` module** for all arithmetic — `Number.sum`, `Number.multiply`, `Number.subtract`, not `+`, `-`, `*`
-- **`Schema.TaggedError`** for all errors — no `throw`, no `new Error()`
+- **Tagged errors** — use `Data.TaggedError` when no codec is needed and `Schema.TaggedError` when the error crosses an encoded boundary; no `throw`, no `new Error()`
 - **`Match.exhaustive`** for all dispatch — no `switch`, no `if/else` chains
 - **`Effect.filterOrFail`** for all validation — no `if` statements
 - **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
 - **No implicit math exceptions.** Deterministic IEEE 754 behavior does not authorize `Math.sqrt` or other JavaScript substitutes. Research Effect's public APIs and ecosystem integrations; obtain explicit authorization for any operation that remains unavailable before introducing a non-Effect implementation.
 
-## Domain Architecture
+## Flat Concern Architecture
 
-Eleven domains, each with the same file structure:
+Public APIs are flat concern modules in `src/<Concern>.ts`, available through the matching package subpath and root namespace: `Numeric`, `Algebra`, `Special`, `LinearAlgebra`, `Geometry`, `Statistics`, `Complex`, `Calculus`, `Optimization`, `Probability`, `Distribution`, `Policy`, `Scalar`, `Backend`, `Precision`, `Autodiff`, `Uncertainty`, and `Computation`.
 
-| Domain        | Stability   | Surface                                                                                        |
-| ------------- | ----------- | ---------------------------------------------------------------------------------------------- |
-| Numeric       | provisional | Scalar transforms, safe division, transcendentals                                              |
-| LinearAlgebra | provisional | Dense vector/matrix ops over Chunk carriers                                                    |
-| Geometry      | provisional | Metric distances, midpoint, centroid                                                           |
-| Probability   | provisional | Normal/uniform PDF/CDF, Shannon entropy                                                        |
-| Statistics    | provisional | Mean, variance, stddev, covariance, SummaryStatistics                                          |
-| Algebra       | provisional | Polynomial eval/derivative, GCD, LCM, factorial                                                |
-| Calculus      | provisional | Numerical derivative, trapezoidal, Simpson's rule                                              |
-| Special       | provisional | Gamma, lnGamma, beta, erf/erfc, digamma                                                        |
-| Optimization  | provisional | Bisection root-finding, golden section minimization                                            |
-| Complex       | provisional | Complex arithmetic, polar form, roots of unity                                                 |
-| Distribution  | provisional | Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT, Categorical, Binomial, Poisson |
-
-Each domain owns: `contract.ts`, `model.ts`, `schema.ts`, `errors.ts`, `operations.ts`, `internal/`, `index.ts`.
+There is no required per-concern file template. Keep schemas, models, errors, services, and operations together when that is the clearest cohesive public module; extract private implementation by algorithm or subject under `internal/`. Public contracts and experimental discovery descriptors are not separate surfaces.
 
 ## Naming and Vocabulary
 
 - Use Effect's exact public module names: `Array`, `BigDecimal`, `BigInt`, `Boolean`, `Number`, `Record`, and `String`. Do not abbreviate them or prefix them with `Effect`.
 - Resolve overlapping operations with the owning domain namespace: `Numeric.sqrt` and `Complex.sqrt`, not renamed function imports. Direct imports keep their canonical names when there is no collision.
 - Name internal namespaces for their mathematical subject or algorithm: `Arithmetic`, `Trigonometric`, `Integration`, `Ridder`, `Normal`, and `Beta`. Do not add `Kernel`, `Adapter`, `Bridge`, or compatibility suffixes to disambiguate imports.
-- Pure implementations use their operation name, matching the public spelling, without a redundant `Kernel` suffix. Actual algorithm distinctions such as `gammaLanczos` and contracts such as `KernelExecutionError` retain their meaning.
+- Pure implementations use their operation name, matching the public spelling, without a redundant `Kernel` suffix. Actual algorithm distinctions such as `gammaLanczos` retain their meaning. Public module-local errors use concise names such as `DecodeError`; stable wire tags such as `KernelExecutionError` may remain more specific.
 - Operation forms use the base name, `Validated`, and `WithPolicies`. Precision variants use `Strict` or `Relaxed` only where they name an established policy contract. Distribution suffixes are `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
+- Casing follows semantic role: ordinary exported values remain camelCase, while established mathematical or protocol constants retain their conventional spelling. Do not convert every constant to UPPER_SNAKE mechanically.
 - Keep conventional mathematical symbols for scalar variables and coefficients. These are not module aliases. Models and schemas use PascalCase; operations and values use camelCase; mathematical constants use their established notation or descriptive uppercase names.
 - Apply the same vocabulary to implementation, tests, examples, scripts, and documentation. Upstream Python imports retain canonical names such as `numpy` and `scipy.special`, without shorthand aliases. This naming rule does not authorize a non-Effect implementation.
 - Verify behavior through public APIs. Do not add tests of naming, guidance, inventories, or scaffolding.
 
-## Three-Tier Operation Pattern
+## Consumer Operation Forms
 
-1. **Pure kernel** — synchronous function on `Chunk<number>`, no Effect wrapper
-2. **Effect-wrapped** — Schema decode with `onExcessProperty: "error"`, typed errors
-3. **Policy-aware** — reads `PrecisionPolicyService`/`DiagnosticsPolicyService` via `Context.Tag`
+Numerical concerns expose the forms that their behavior requires, commonly:
 
-## Ownership Boundaries
+1. **Base operation** — a synchronous function for already trusted values.
+2. **`Validated` operation** — decodes `unknown` with excess properties rejected and returns typed failures in `Effect`.
+3. **`WithPolicies` operation** — reads the exact `Policy` services named by its Effect requirement, using payloads shaped as `{ policy: ... }`.
 
-- **Probability** owns distributions and measure-space contracts — Statistics must import, never redeclare
-- **Statistics** owns estimators, inference, and diagnostics that consume Probability contracts
-- **Cross-domain `internal/` imports are forbidden** — blocked by exports map
-- **`contracts/shared/`** holds ownerless cross-cutting primitives (branded scalars, boundary errors, runtime policies)
+`Policy.layerDeterministic`, `Policy.layerNondeterministic`, and `Policy.Seed` provide the standard runtime policy layers. `Probability` owns entropy; normal and uniform density, cumulative, and transform operations belong to `Distribution`. Branded tolerances and execution failures belong to `Numeric`; dimensions and axes belong to `LinearAlgebra`; complex-step differentiation belongs to `Calculus`.
+
+Every cross-concern abstraction must have a semantic owner. Do not create ownerless `shared` or `contracts` directories. Export maps prevent package consumers from importing `internal/*`; they do not prohibit relative internal imports within this package.
+
+Schema is authoritative for encodable data. Abstract generic, callback, Layer, and service relationships may be represented directly with Effect-native TypeScript types or `Data.Class` when no codec is involved.
 
 ## Fixture Testing (SciPy Golden Reference)
 

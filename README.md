@@ -61,7 +61,7 @@ Arrows point from a package to the packages that depend on it.
 └──────┘   └──────┘
 ```
 
-Computation starts with something that can be measured. `effect-math` supplies the numerical operations, either as pure kernels or as validated variants that read runtime policy for precision, backend, and diagnostics.
+Computation starts with something that can be measured. `effect-math` supplies base numerical operations for trusted values, validated Effects for untrusted boundaries, and policy-aware Effects that read precision, backend, diagnostics, and randomness services.
 
 Once an outcome can be measured it can be searched over. `effect-search` turns any Effect objective into a study: it samples a typed search space, records every trial, supports conditional dimensions and competing objectives, and persists its state so a run can be resumed. It uses `effect-math` for its numerical work and `digest` to key caches and identify artifacts.
 
@@ -69,7 +69,7 @@ The same loop drives language model programs. `effect-dsp` replaces prompt strin
 
 `effect-text` prepares text once and lays it out many times as the available width changes. It stands apart from the data pipeline, but its experimental calibration tools use `effect-math` and `effect-search` to fit layout profiles against measured samples.
 
-When a result is kept, `digest` gives its exact content a stable name, `sign` binds it to a key, and `seal` encrypts it. The three cryptography packages share one contract: a single entrypoint, Effect-typed errors that carry no secret material, conformance to published standards, and clear statements of what the application must still provide.
+When a result is kept, `digest` gives its exact content a stable name, `sign` binds it to a key, and `seal` encrypts it. The three cryptography packages share an operating contract: Effect-typed errors that carry no secret material, conformance to published standards, and clear statements of what the application must still provide. Each library chooses public entrypoints from its current consumer concerns.
 
 ## Getting started
 

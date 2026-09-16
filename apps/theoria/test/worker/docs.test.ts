@@ -477,10 +477,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* setViewport(page, { width: 1280, height: 800 })
 
         yield* goto(page, "/docs/effect-math/domains")
-        const contractsLink = page.getByRole("link", { exact: true, name: "@scenesystems/effect-math/contracts" })
-        yield* attribute(contractsLink, "href", "/docs/effect-math/api/contracts")
-        yield* click(contractsLink)
-        yield* visible(page.getByRole("heading", { level: 1, name: "contracts" }))
+        const policyLink = page.getByRole("link", { exact: true, name: "Policy" })
+        yield* attribute(policyLink, "href", "/docs/effect-math/api/Policy")
+        yield* click(policyLink)
+        yield* visible(page.getByRole("heading", { level: 1, name: "Policy" }))
         expect(yield* failures).toEqual([])
       }))
 

@@ -11,8 +11,8 @@ import { Array, Boolean, Chunk, Console, Effect, Either, Inspectable, Match, Opt
 
 import { directoryBeside, loadFixtureByEntry, loadManifest } from "../test/helpers/fixtures/io.js"
 
-const FIXTURE_ROOT = "../test/fixtures/scipy/"
-const MANIFEST_FILE = "manifest.json"
+const fixtureRoot = "../test/fixtures/scipy/"
+const manifestFile = "manifest.json"
 
 class FixtureCheckError extends Schema.TaggedError<FixtureCheckError>()("FixtureCheckError", {
   name: Schema.String,
@@ -115,23 +115,23 @@ const findJsonFiles = (
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const pathService = yield* Path.Path
-  const root = yield* directoryBeside(import.meta.url, FIXTURE_ROOT).pipe(
+  const root = yield* directoryBeside(import.meta.url, fixtureRoot).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureCheckError({
           name: "manifest",
-          file: FIXTURE_ROOT,
+          file: fixtureRoot,
           reason: "could not resolve fixture directory",
           cause: Option.some(cause)
         })
     )
   )
-  const manifest = yield* loadManifest(root, MANIFEST_FILE).pipe(
+  const manifest = yield* loadManifest(root, manifestFile).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureCheckError({
           name: "manifest",
-          file: pathService.join(root, MANIFEST_FILE),
+          file: pathService.join(root, manifestFile),
           reason: Match.value(cause).pipe(
             Match.tag("FixtureManifestReadError", () => "could not read manifest"),
             Match.tag("FixtureMalformedJsonError", () => "malformed manifest JSON"),
@@ -173,7 +173,7 @@ const program = Effect.gen(function*() {
     const normalized = String.replaceAll(pathService.sep, "/")(file)
     const declared = Array.some(manifestFiles, (manifestFile) => String.Equivalence(manifestFile, normalized))
     return Boolean.match(
-      Boolean.and(Boolean.not(String.Equivalence(normalized, MANIFEST_FILE)), Boolean.not(declared)),
+      Boolean.and(Boolean.not(String.Equivalence(normalized, manifestFile)), Boolean.not(declared)),
       {
         onFalse: () => Option.none<FixtureCheckError>(),
         onTrue: () =>
@@ -201,7 +201,7 @@ const program = Effect.gen(function*() {
   yield* Effect.fail(
     new FixtureCheckError({
       name: "summary",
-      file: MANIFEST_FILE,
+      file: manifestFile,
       reason: String.concat(Inspectable.toStringUnknown(Array.length(allErrors), 0), " fixture check failure(s)"),
       cause: Option.none()
     })

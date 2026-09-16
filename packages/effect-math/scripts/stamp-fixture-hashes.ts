@@ -9,7 +9,7 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { digest } from "@scenesystems/digest"
 import { Array, Boolean, Console, Effect, Schema, String } from "effect"
 
-const FIXTURES_DIRECTORY = "test/fixtures"
+const fixturesDirectoryName = "test/fixtures"
 
 const FixtureHashManifestSchema = Schema.Struct({
   version: Schema.Number,
@@ -32,7 +32,7 @@ const program = Effect.gen(function*() {
   const pathService = yield* Path.Path
   const packageUrl = yield* Url.fromString("../", import.meta.url)
   const packageRoot = yield* pathService.fromFileUrl(packageUrl)
-  const fixturesDirectory = pathService.join(packageRoot, FIXTURES_DIRECTORY)
+  const fixturesDirectory = pathService.join(packageRoot, fixturesDirectoryName)
   const entries = yield* fileSystem.readDirectory(fixturesDirectory)
   const manifestFiles = Array.filter(
     entries,

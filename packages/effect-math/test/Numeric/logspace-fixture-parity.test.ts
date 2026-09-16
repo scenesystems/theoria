@@ -2,23 +2,14 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Match, Number, Schema } from "effect"
 
-import {
-  abs,
-  log1mexp,
-  log1pexp,
-  logaddexp,
-  logsubexp,
-  logSumExp,
-  xlog1py,
-  xlogy
-} from "../../src/Numeric/operations.js"
+import { abs, log1mexp, log1pexp, logaddexp, logsubexp, logSumExp, xlog1py, xlogy } from "../../src/Numeric.js"
 import { loadFixture, NumericLogspaceParityFixtureSchema } from "../helpers/fixtures/index.js"
 
-const RELATIVE_TOLERANCE = 1e-12
-const ABSOLUTE_TOLERANCE = 1e-12
+const relativeTolerance = 1e-12
+const absoluteTolerance = 1e-12
 
-const expectParity = (actual: number, expected: number, absoluteTol: number = ABSOLUTE_TOLERANCE) => {
-  const tolerance = Number.max(absoluteTol, Number.multiply(abs(expected), RELATIVE_TOLERANCE))
+const expectParity = (actual: number, expected: number, absoluteTol: number = absoluteTolerance) => {
+  const tolerance = Number.max(absoluteTol, Number.multiply(abs(expected), relativeTolerance))
   expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 

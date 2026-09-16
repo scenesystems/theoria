@@ -19,7 +19,7 @@ Effect-native scientific computing monorepo.
 | @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
 | @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
-The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
+Each library chooses entrypoints according to its public concerns; there is no repository-wide single-entrypoint exemption or requirement. Effect is a required peer dependency. Use Schema as the source of truth for encodable data, while abstract generic, callback, Layer, and service relationships may use Effect-native TypeScript types and `Data.Class`. Packages are published under the `@scenesystems/` scope for cross-ecosystem use. Cryptographic implementations build on the [Noble](https://paulmillr.com/noble/) audited ecosystem (6 audits by Cure53 and Trail of Bits).
 
 ---
 
@@ -86,8 +86,8 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | Banned                                                            | Use Instead                                                                                                                                                              |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                                                               |
-| `throw`, `try/catch`                                              | `Data.TaggedError`, `Schema.TaggedError`                                                                                                                                 |
-| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError`                                                                                                                               |
+| `throw`, `try/catch`                                              | `Data.TaggedError` when no codec is needed; `Schema.TaggedError` at encoded boundaries                                                                                   |
+| `new Error()`                                                     | `Data.TaggedError` when no codec is needed; `Schema.TaggedError` at encoded boundaries                                                                                   |
 | `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                     |
 | `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                            |
 | `for`, `while`, `do...while`                                      | `Array.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                          |
@@ -100,7 +100,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `Array.push`                                                      | `Array.append` / `Array.appendAll`                                                                                                                                       |
 | `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
 | `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                   |
-| TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                       |
+| TypeScript `interface`                                            | `Schema.Class` for encodable data; `Data.Class` / `Data.TaggedClass` for non-encoded relationships                                                                       |
 | `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                           |
 | `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                |
 | `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                         |
@@ -114,21 +114,21 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ## Conventions
 
-- **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
+- **Naming**: PascalCase modules and types, camelCase functions and ordinary values, and conventional mathematical or protocol spelling where semantics call for it. Constant casing follows semantic role rather than a blanket UPPER_SNAKE rule. Match the Effect ecosystem.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
-- **One concern per file**: `internal/` for implementation, public modules for API surface.
+- **One concern per file**: Flat public concern modules are the baseline. Use `internal/` for implementation details; no concern must adopt a `contract/model/schema/errors/operations/index` template.
 - **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
-- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every entrypoint `index.ts` (and every source file that becomes a docs page) opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
+- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every public source file that becomes a docs page opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
 
 ---
 
 ## Governance
 
-- `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
-- Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
+- Package export maps keep `internal/*` unreachable to package consumers. They do not prohibit implementation modules inside the same package from using relative imports to their own internals.
+- Every shared abstraction has a semantic owner and lives with that concern. Do not create an ownerless `shared` or `contracts` home by default.
 - Adding algorithms must not require modifying unrelated internals.
 - Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through `generateEntropy` in `@scenesystems/sign`; `Random` is never a source of secrets.
-- Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
+- Public entrypoints are chosen per library from current consumer concerns rather than inherited package history. Effect remains required; use Schema for values that cross encoded boundaries and Effect-native types for abstract service and generic relationships.
 
 ---
 

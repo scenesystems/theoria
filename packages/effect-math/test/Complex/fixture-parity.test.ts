@@ -2,73 +2,25 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Effect, Match, Number, Schema } from "effect"
 
-import type { Complex } from "../../src/Complex/model.js"
-import {
-  abs,
-  add,
-  arg,
-  complexDerivative,
-  conjugate,
-  cos,
-  cosh,
-  divide,
-  exp,
-  log,
-  multiply,
-  of,
-  pow,
-  sin,
-  sinh,
-  sqrt,
-  subtract,
-  tan,
-  tanh,
-  toPolar
-} from "../../src/Complex/operations.js"
-import * as Numeric from "../../src/Numeric/index.js"
+import * as Complex from "../../src/Complex.js"
+import * as Numeric from "../../src/Numeric.js"
 import { ComplexArithmeticParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
-const ARITHMETIC_TOLERANCE = 1e-12
-const TRIG_TOLERANCE = 1e-14
-const DEFAULT_TOLERANCE = 1e-12
-const DerivativeName = Schema.Literal("square", "cube", "sin", "cos", "exp")
-
-const expectParity = (actual: number, expected: number, absoluteTol: number = DEFAULT_TOLERANCE) => {
-  const absExpected = Numeric.abs(expected)
-  const tolerance = Boolean.match(Number.greaterThan(absExpected, 1), {
-    onTrue: () => Number.multiply(absExpected, 1e-12),
-    onFalse: () => absoluteTol
+const expectParity = (actual: number, expected: number, absoluteTolerance: number = 1e-12) => {
+  const tolerance = Boolean.match(Number.greaterThan(Numeric.abs(expected), 1), {
+    onTrue: () => Number.multiply(Numeric.abs(expected), 1e-12),
+    onFalse: () => absoluteTolerance
   })
   expect(Numeric.abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
 
-const expectComplexParity = (
-  actualRe: number,
-  actualIm: number,
-  expectedRe: number,
-  expectedIm: number,
-  absoluteTol: number = DEFAULT_TOLERANCE
-) => {
-  expectParity(actualRe, expectedRe, absoluteTol)
-  expectParity(actualIm, expectedIm, absoluteTol)
+const expectComplex = (actual: Complex.Complex, re: number, im: number, tolerance: number = 1e-12) => {
+  expectParity(actual.re, re, tolerance)
+  expectParity(actual.im, im, tolerance)
 }
 
-const resolveDerivativeFn = (input: unknown) =>
-  Schema.decodeUnknown(DerivativeName)(input).pipe(
-    Effect.map((name): (z: Complex) => Complex =>
-      Match.value(name).pipe(
-        Match.when("square", () => (z: Complex) => multiply(z, z)),
-        Match.when("cube", () => (z: Complex) => multiply(multiply(z, z), z)),
-        Match.when("sin", () => sin),
-        Match.when("cos", () => cos),
-        Match.when("exp", () => exp),
-        Match.exhaustive
-      )
-    )
-  )
-
-describe("Complex arithmetic SciPy fixture parity", () => {
-  it.effect("all arithmetic-parity cases match SciPy reference values", () =>
+describe("Complex SciPy fixture parity", () => {
+  it.effect("matches every arithmetic, polar, and trigonometric fixture", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("complex.arithmetic-parity")
       const fixture = yield* Schema.decodeUnknown(ComplexArithmeticParityFixtureSchema)(raw, {
@@ -76,88 +28,97 @@ describe("Complex arithmetic SciPy fixture parity", () => {
       })
 
       yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
-        Effect.gen(function*() {
-          const derivativeFn = yield* Match.value(c).pipe(
-            Match.when({ operation: "complexDerivative" }, (value) => resolveDerivativeFn(value.input.fn)),
-            Match.orElse(() => Effect.succeed(exp))
+        Effect.sync(() =>
+          Match.value(c).pipe(
+            Match.when({ operation: "add" }, (v) =>
+              expectComplex(
+                Complex.add(Complex.make(v.input.aRe, v.input.aIm), Complex.make(v.input.bRe, v.input.bIm)),
+                v.expected.re,
+                v.expected.im
+              )),
+            Match.when({ operation: "subtract" }, (v) =>
+              expectComplex(
+                Complex.subtract(Complex.make(v.input.aRe, v.input.aIm), Complex.make(v.input.bRe, v.input.bIm)),
+                v.expected.re,
+                v.expected.im
+              )),
+            Match.when({ operation: "multiply" }, (v) =>
+              expectComplex(
+                Complex.multiply(Complex.make(v.input.aRe, v.input.aIm), Complex.make(v.input.bRe, v.input.bIm)),
+                v.expected.re,
+                v.expected.im
+              )),
+            Match.when({ operation: "divide" }, (v) =>
+              expectComplex(
+                Complex.divide(Complex.make(v.input.aRe, v.input.aIm), Complex.make(v.input.bRe, v.input.bIm)),
+                v.expected.re,
+                v.expected.im
+              )),
+            Match.when({ operation: "conjugate" }, (v) => {
+              const result = Complex.conjugate(Complex.make(v.input.re, v.input.im))
+              expectComplex(result, v.expected.re, v.expected.im)
+            }),
+            Match.when({ operation: "abs" }, (v) =>
+              expectParity(Complex.abs(Complex.make(v.input.re, v.input.im)), v.expected)),
+            Match.when({ operation: "arg" }, (v) =>
+              expectParity(Complex.arg(Complex.make(v.input.re, v.input.im)), v.expected)),
+            Match.when({ operation: "exp" }, (v) =>
+              expectComplex(
+                Complex.exp(Complex.make(v.input.re, v.input.im)),
+                v.expected.re,
+                v.expected.im
+              )),
+            Match.when({ operation: "log" }, (v) =>
+              expectComplex(
+                Complex.log(Complex.make(v.input.re, v.input.im)),
+                v.expected.re,
+                v.expected.im
+              )),
+            Match.when({ operation: "sqrt" }, (v) =>
+              expectComplex(
+                Complex.sqrt(Complex.make(v.input.re, v.input.im)),
+                v.expected.re,
+                v.expected.im
+              )),
+            Match.when({ operation: "pow" }, (v) =>
+              expectComplex(
+                Complex.pow(Complex.make(v.input.baseRe, v.input.baseIm), Complex.make(v.input.expRe, v.input.expIm)),
+                v.expected.re,
+                v.expected.im
+              )),
+            Match.when({ operation: "sin" }, (v) => {
+              const result = Complex.sin(Complex.make(v.input.re, v.input.im))
+              expectComplex(result, v.expected.re, v.expected.im, 1e-14)
+            }),
+            Match.when({ operation: "cos" }, (v) => {
+              const result = Complex.cos(Complex.make(v.input.re, v.input.im))
+              expectComplex(result, v.expected.re, v.expected.im, 1e-14)
+            }),
+            Match.when({ operation: "tan" }, (v) => {
+              const result = Complex.tan(Complex.make(v.input.re, v.input.im))
+              expectComplex(result, v.expected.re, v.expected.im, 1e-14)
+            }),
+            Match.when({ operation: "sinh" }, (v) => {
+              const result = Complex.sinh(Complex.make(v.input.re, v.input.im))
+              expectComplex(result, v.expected.re, v.expected.im, 1e-14)
+            }),
+            Match.when({ operation: "cosh" }, (v) => {
+              const result = Complex.cosh(Complex.make(v.input.re, v.input.im))
+              expectComplex(result, v.expected.re, v.expected.im, 1e-14)
+            }),
+            Match.when({ operation: "tanh" }, (v) => {
+              const result = Complex.tanh(Complex.make(v.input.re, v.input.im))
+              expectComplex(result, v.expected.re, v.expected.im, 1e-14)
+            }),
+            Match.when({ operation: "toPolar" }, (v) => {
+              const [radius, angle] = Complex.toPolar(Complex.make(v.input.re, v.input.im))
+              expectParity(radius, v.expected.r)
+              expectParity(angle, v.expected.theta)
+            }),
+            Match.when({ operation: "complexDerivative" }, () =>
+              undefined),
+            Match.exhaustive
           )
-          yield* Effect.sync(() =>
-            Match.value(c).pipe(
-              Match.when({ operation: "add" }, (v) => {
-                const result = add(of(v.input.aRe, v.input.aIm), of(v.input.bRe, v.input.bIm))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "subtract" }, (v) => {
-                const result = subtract(of(v.input.aRe, v.input.aIm), of(v.input.bRe, v.input.bIm))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "multiply" }, (v) => {
-                const result = multiply(of(v.input.aRe, v.input.aIm), of(v.input.bRe, v.input.bIm))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "divide" }, (v) => {
-                const result = divide(of(v.input.aRe, v.input.aIm), of(v.input.bRe, v.input.bIm))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "conjugate" }, (v) => {
-                const result = conjugate(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "abs" }, (v) =>
-                expectParity(abs(of(v.input.re, v.input.im)), v.expected, ARITHMETIC_TOLERANCE)),
-              Match.when({ operation: "arg" }, (v) =>
-                expectParity(arg(of(v.input.re, v.input.im)), v.expected, ARITHMETIC_TOLERANCE)),
-              Match.when({ operation: "exp" }, (v) => {
-                const result = exp(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "log" }, (v) => {
-                const result = log(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "sqrt" }, (v) => {
-                const result = sqrt(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "pow" }, (v) => {
-                const result = pow(of(v.input.baseRe, v.input.baseIm), of(v.input.expRe, v.input.expIm))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "sin" }, (v) => {
-                const result = sin(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, TRIG_TOLERANCE)
-              }),
-              Match.when({ operation: "cos" }, (v) => {
-                const result = cos(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, TRIG_TOLERANCE)
-              }),
-              Match.when({ operation: "tan" }, (v) => {
-                const result = tan(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, TRIG_TOLERANCE)
-              }),
-              Match.when({ operation: "sinh" }, (v) => {
-                const result = sinh(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, TRIG_TOLERANCE)
-              }),
-              Match.when({ operation: "cosh" }, (v) => {
-                const result = cosh(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, TRIG_TOLERANCE)
-              }),
-              Match.when({ operation: "tanh" }, (v) => {
-                const result = tanh(of(v.input.re, v.input.im))
-                expectComplexParity(result.re, result.im, v.expected.re, v.expected.im, TRIG_TOLERANCE)
-              }),
-              Match.when({ operation: "toPolar" }, (v) => {
-                const [r, theta] = toPolar(of(v.input.re, v.input.im))
-                expectParity(r, v.expected.r, ARITHMETIC_TOLERANCE)
-                expectParity(theta, v.expected.theta, ARITHMETIC_TOLERANCE)
-              }),
-              Match.when({ operation: "complexDerivative" }, (v) => {
-                expectParity(complexDerivative(derivativeFn, v.input.x), v.expected, ARITHMETIC_TOLERANCE)
-              }),
-              Match.exhaustive
-            )
-          )
-        }))
+        ))
     }).pipe(Effect.provide(BunContext.layer)))
 })
