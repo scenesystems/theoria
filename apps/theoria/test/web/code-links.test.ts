@@ -66,14 +66,14 @@ describe("segmentLine", () => {
         const highlighter = yield* makeSyntaxHighlighter
         const lines = highlightCode(
           highlighter,
-          "const envelope = yield* seal(\"xchacha20-poly1305\", key, utf8ToBytes(note)) // seal",
+          "const envelope = yield* Envelope.encrypt(\"xchacha20-poly1305\", key, utf8ToBytes(note)) // Envelope.encrypt",
           "typescript"
         )
         const segments = segmentLine(lines[0] ?? [], [
-          { text: "seal", href: "/seal" },
-          { text: "utf8ToBytes", href: "/utf8" }
+          { text: "Envelope.encrypt", href: "/docs/seal/api/Envelope#api-encrypt" },
+          { text: "utf8ToBytes", href: "/docs/sign/api/encoding#api-utf8ToBytes" }
         ])
-        expect(linked(segments)).toEqual(["seal", "utf8ToBytes"])
+        expect(linked(segments)).toEqual(["Envelope.encrypt", "utf8ToBytes"])
       })
     ))
 })

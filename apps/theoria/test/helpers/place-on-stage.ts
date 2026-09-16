@@ -1,4 +1,5 @@
 import { Registry, Result } from "@effect-atom/atom"
+import { Cipher } from "@scenesystems/seal"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
@@ -48,8 +49,8 @@ const arrangementOf = (rendering: PlaceRendering) => ({
 /** The two builds, with the first build's trial and kept frames and the other build's complete frame. */
 export const onStage = Effect.gen(function*() {
   const [build, otherBuild] = yield* Effect.all([
-    buildPlace(request).pipe(Effect.provide(ParticipantsLive)),
-    buildPlace(otherRequest).pipe(Effect.provide(ParticipantsLive))
+    buildPlace(request).pipe(Effect.provide([ParticipantsLive, Cipher.layer])),
+    buildPlace(otherRequest).pipe(Effect.provide([ParticipantsLive, Cipher.layer]))
   ])
   const kept = yield* render(build.artifact, 660)
   const trial = yield* render(build.artifact, 320)

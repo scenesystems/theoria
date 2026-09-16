@@ -2,6 +2,7 @@ import { Boolean as Bool, Equal, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 
+import { sealSite } from "../../../contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceSearch, ShownGeometry } from "../../atoms/imagined-place-render.js"
@@ -45,7 +46,7 @@ const proposeValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
     ),
     annotation("ed25519Sign(proposer.secretKey", Option.map(neighbor, (record) => signatureLabel(record.signature))),
     annotation(
-      "seal(\"xchacha20-poly1305\"",
+      sealSite.match,
       Option.some(`${String(note.envelopeBytes)} bytes · opened with your key`)
     )
   ])

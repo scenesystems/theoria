@@ -35,14 +35,14 @@ const proposeReferences: ReadonlyArray<PlaceReference> = [
   ref("sign", "algorithms/ed25519", "ed25519Sign", "ed25519Sign"),
   ref("sign", "agreement", "deriveSharedSecret", "deriveSharedSecret"),
   ref("digest", "kdf", "hkdfSha256", "hkdfSha256"),
-  ref("seal", "seal", "seal", "seal"),
-  ref("seal", "utf8", "utf8ToBytes", "utf8ToBytes")
+  ref("seal", "Envelope", "Envelope.encrypt", "encrypt"),
+  ref("sign", "encoding", "utf8ToBytes", "utf8ToBytes")
 ]
 
 const recordReferences: ReadonlyArray<PlaceReference> = [
   ref("digest", "digestSchemaValue", "digestSchemaValue", "digestSchemaValue"),
   ref("sign", "algorithms/ed25519", "ed25519Sign", "ed25519Sign"),
-  ref("seal", "utf8", "utf8ToBytes", "utf8ToBytes")
+  ref("sign", "encoding", "utf8ToBytes", "utf8ToBytes")
 ]
 
 const arrangeReferences: ReadonlyArray<PlaceReference> = [
