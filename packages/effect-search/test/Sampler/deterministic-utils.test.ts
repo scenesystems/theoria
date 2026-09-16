@@ -1,20 +1,22 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Boolean, Effect, Number as Num } from "effect"
+import type { Schema } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 
 const steppedSeeds = (
   seed: number,
   steps: number,
-  acc: ReadonlyArray<number> = Arr.empty<number>()
-): ReadonlyArray<number> =>
-  steps <= 0
-    ? acc
-    : (() => {
+  acc: Schema.Array$<typeof Schema.Number>["Type"] = Arr.empty<number>()
+): Schema.Array$<typeof Schema.Number>["Type"] =>
+  Boolean.match(Num.lessThanOrEqualTo(steps, 0), {
+    onFalse: () => {
       const next = Sampler.nextDeterministicSeed(seed)
 
-      return steppedSeeds(next, steps - 1, Arr.append(acc, next))
-    })()
+      return steppedSeeds(next, Num.decrement(steps), Arr.append(acc, next))
+    },
+    onTrue: () => acc
+  })
 
 describe("Sampler deterministic utilities", () => {
   it.effect("normalizes non-finite and non-positive values to deterministic positive seeds", () =>
@@ -37,7 +39,9 @@ describe("Sampler deterministic utilities", () => {
   it.effect("builds deterministic indices and bounded counts", () =>
     Effect.sync(() => {
       expect(Sampler.buildIndices(5)).toEqual(Arr.make(0, 1, 2, 3, 4))
+      expect(Sampler.buildIndices(3.9)).toEqual(Arr.make(0, 1, 2))
       expect(Sampler.buildIndices(-4)).toEqual([])
+      expect(Sampler.buildIndices(Number.POSITIVE_INFINITY)).toEqual([])
       expect(Sampler.sampleBoundedCount(42, 7)).toBeGreaterThanOrEqual(1)
       expect(Sampler.sampleBoundedCount(42, 7)).toBeLessThanOrEqual(7)
     }))
