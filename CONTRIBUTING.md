@@ -41,6 +41,22 @@ bun run --filter @scenesystems/effect-search check
 bun run --filter @scenesystems/effect-search test
 ```
 
+## Mathematics in documentation
+
+README guides support KaTeX's LaTeX math syntax through `remark-math`. Use `$x^2$` for inline math and put display delimiters on their own lines:
+
+```markdown
+For $\sigma > 0$:
+
+$$
+f(x) = \frac{1}{\sigma\sqrt{2\pi}}\exp\left(-\frac{x^2}{2\sigma^2}\right)
+$$
+```
+
+Code spans and fenced code blocks remain literal. Escape a prose dollar sign as `\$`. Generated guides retain the LaTeX source; the site renders accessible MathML, without permitting TeX commands that inject HTML or load external resources. Invalid expressions appear as escaped source with an error label. This syntax applies to README guides, not TypeDoc API comments, which use a separate conversion pipeline.
+
+Run `bun run docs` to validate examples and regenerate documentation, then inspect the affected guide in the docs application.
+
 ## Fixture Generation
 
 Some packages use [uv](https://docs.astral.sh/uv/) to generate golden test fixtures from reference implementations (Optuna, DSPy). Always use `uv run` — never `python3` directly.

@@ -1,6 +1,7 @@
 import { Array, Boolean, Chunk, Data, Match, Option, Schema, String } from "effect"
 import type { Heading, RootContent } from "mdast"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
 import remarkParse from "remark-parse"
 import { unified } from "unified"
 
@@ -102,10 +103,12 @@ const splitSections = (
               "image",
               "imageReference",
               "inlineCode",
+              "inlineMath",
               "link",
               "linkReference",
               "list",
               "listItem",
+              "math",
               "paragraph",
               "strong",
               "table",
@@ -136,7 +139,7 @@ const blockText = (block: GuideBlock): string =>
     Match.when({ kind: "paragraph" }, ({ parts }) => inlineText(parts)),
     Match.when({ kind: "quote" }, ({ parts }) => inlineText(parts)),
     Match.when({ kind: "list" }, ({ items }) => Option.getOrElse(Option.map(Array.head(items), inlineText), () => "")),
-    Match.when({ kind: Match.is("code", "heading", "table") }, () => ""),
+    Match.when({ kind: Match.is("code", "heading", "math", "table") }, () => ""),
     Match.exhaustive
   )
 
@@ -163,7 +166,7 @@ const includesCode = (blocks: typeof GuidePageSchema.Type.blocks): boolean =>
   Array.some(blocks, (block) =>
     Match.value(block).pipe(
       Match.when({ kind: "code" }, () => true),
-      Match.when({ kind: Match.is("heading", "list", "paragraph", "quote", "table") }, () => false),
+      Match.when({ kind: Match.is("heading", "list", "math", "paragraph", "quote", "table") }, () => false),
       Match.exhaustive
     ))
 
@@ -247,7 +250,7 @@ const makePage = (input: MakePageInput): typeof GuidePageSchema.Type => ({
   anchors: Array.filterMap(input.blocks, (block) =>
     Match.value(block).pipe(
       Match.when({ kind: "heading" }, ({ depth, id, text }) => Option.some({ id, label: text, depth })),
-      Match.when({ kind: Match.is("code", "list", "paragraph", "quote", "table") }, () => Option.none()),
+      Match.when({ kind: Match.is("code", "list", "math", "paragraph", "quote", "table") }, () => Option.none()),
       Match.exhaustive
     ))
 })
@@ -294,8 +297,8 @@ const searchEntry = (
 }
 
 export const buildPackageGuides = (input: BuildPackageGuidesInput): typeof PackageGuideData.Type => {
-  // unified + remark are the source boundary: Effect currently has no native Markdown parser.
-  const root = unified().use(remarkParse).use(remarkGfm).parse(input.markdown)
+  // Authorized Markdown syntax boundary; Effect owns the guide transformations.
+  const root = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(input.markdown)
   const split = splitSections(root.children, input.sourcePackage.directoryName, input.revision)
   const overview = makePage({
     ...input,

@@ -1,5 +1,6 @@
 import { Array, Boolean, Data, Match, Option, pipe, Schema, String } from "effect"
 import type { BlockContent, DefinitionContent, ListItem, PhrasingContent, RootContent } from "mdast"
+import type {} from "mdast-util-math"
 
 import { type GuideBlock, GuideInlineSchema } from "@theoria/docs-model"
 
@@ -70,6 +71,7 @@ const inlinePart = (input: Source<PhrasingContent>): typeof InlineParts.Type =>
     Match.withReturnType<typeof InlineParts.Type>(),
     Match.when({ type: "text" }, (node) => Array.of({ kind: "text", text: node.value })),
     Match.when({ type: "inlineCode" }, (node) => Array.of({ kind: "code", text: node.value })),
+    Match.when({ type: "inlineMath" }, (node) => Array.of({ kind: "math", text: node.value, display: false })),
     Match.when({ type: "break" }, () => Array.of({ kind: "text", text: "\n" })),
     Match.when({ type: "image" }, (node) =>
       Array.of({
@@ -106,7 +108,9 @@ export const inlineText = (parts: typeof InlineParts.Type): string =>
 const itemParts = (item: ListItem, packageSlug: string, revision: string): typeof InlineParts.Type =>
   Array.flatMap(item.children, (child) =>
     Match.value(child).pipe(
+      Match.withReturnType<typeof InlineParts.Type>(),
       Match.when({ type: "paragraph" }, (node) => inlineParts(node.children, packageSlug, revision)),
+      Match.when({ type: "math" }, (node) => Array.of({ kind: "math", text: node.value, display: true })),
       Match.when({ type: "list" }, (node) =>
         Array.flatMap(node.children, (nested) => itemParts(nested, packageSlug, revision))),
       Match.when({
@@ -132,7 +136,9 @@ const blockquoteParts = (
 ): typeof InlineParts.Type =>
   Array.flatMap(Array.fromIterable(children), (child) =>
     Match.value(child).pipe(
+      Match.withReturnType<typeof InlineParts.Type>(),
       Match.when({ type: "paragraph" }, (node) => inlineParts(node.children, packageSlug, revision)),
+      Match.when({ type: "math" }, (node) => Array.of({ kind: "math", text: node.value, display: true })),
       Match.when(
         {
           type: Match.is(
@@ -155,6 +161,7 @@ const blockquoteParts = (
 export const guideBlock = ({ node, packageSlug, revision }: Source<RootContent>): Option.Option<GuideBlock> =>
   Match.value(node).pipe(
     Match.withReturnType<Option.Option<GuideBlock>>(),
+    Match.when({ type: "math" }, (node) => Option.some({ kind: "math", text: node.value, display: true })),
     Match.when(
       { type: "paragraph" },
       (node) => Option.some({ kind: "paragraph", parts: inlineParts(node.children, packageSlug, revision) })
@@ -210,6 +217,7 @@ export const guideBlock = ({ node, packageSlug, revision }: Source<RootContent>)
           "image",
           "imageReference",
           "inlineCode",
+          "inlineMath",
           "link",
           "linkReference",
           "listItem",

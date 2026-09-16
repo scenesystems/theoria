@@ -184,4 +184,86 @@ describe("documentation guide generation", () => {
         Array.make(Option.none(), Option.some("guide"), Option.some("guide"))
       )
     }))
+
+  it.effect("preserves inline and display LaTeX without interpreting code or escaped dollars as math", () =>
+    Effect.gen(function*() {
+      const generated = yield* guidesFor(
+        Array.join(
+          Array.make(
+            "# effect-math",
+            "",
+            "## Mathematics",
+            "",
+            "For $x \\ne 0$, use `\\frac{1}{x}`. The cost is \\$5.",
+            "",
+            "$$",
+            "\\int_0^1 x^2\\,dx = \\frac{1}{3}",
+            "$$",
+            "",
+            "```ts",
+            "const literal = '$x^2$'",
+            "```"
+          ),
+          "\n"
+        ),
+        "effect-math",
+        "@scenesystems/effect-math"
+      )
+      const page = yield* Array.findFirst(
+        generated.pages,
+        (candidate) => String.Equivalence(candidate.title, "Mathematics")
+      )
+
+      expect(page.blocks).toEqual(Array.make(
+        {
+          kind: "paragraph",
+          parts: Array.make(
+            { kind: "text", text: "For " },
+            { kind: "math", text: "x \\ne 0", display: false },
+            { kind: "text", text: ", use " },
+            { kind: "code", text: "\\frac{1}{x}" },
+            { kind: "text", text: ". The cost is $5." }
+          )
+        },
+        { kind: "math", text: "\\int_0^1 x^2\\,dx = \\frac{1}{3}", display: true },
+        { kind: "code", language: "ts", source: "const literal = '$x^2$'" }
+      ))
+      expect(page.summary).toBe("For x \\ne 0, use \\frac{1}{x}. The cost is $5.")
+    }))
+
+  it.effect("keeps inline and display mathematics in lists and quotations, and inline mathematics in GFM tables", () =>
+    Effect.gen(function*() {
+      const generated = yield* guidesFor(
+        "# effect-math\n\n## Mathematics\n\n- $a_1$\n\n  $$\n  \\alpha^3\n  $$\n\n> $b^2$\n>\n> $$\n> \\beta_2\n> $$\n\n| Quantity |\n| --- |\n| $\\sqrt{3}$ |",
+        "effect-math",
+        "@scenesystems/effect-math"
+      )
+      const page = yield* Array.findFirst(
+        generated.pages,
+        (candidate) => String.Equivalence(candidate.title, "Mathematics")
+      )
+
+      expect(page.blocks).toEqual(Array.make(
+        {
+          kind: "list",
+          ordered: false,
+          items: Array.of(Array.make(
+            { kind: "math", text: "a_1", display: false },
+            { kind: "math", text: "\\alpha^3", display: true }
+          ))
+        },
+        {
+          kind: "quote",
+          parts: Array.make(
+            { kind: "math", text: "b^2", display: false },
+            { kind: "math", text: "\\beta_2", display: true }
+          )
+        },
+        {
+          kind: "table",
+          headers: Array.of(Array.of({ kind: "text", text: "Quantity" })),
+          rows: Array.of(Array.of(Array.of({ kind: "math", text: "\\sqrt{3}", display: false })))
+        }
+      ))
+    }))
 })
