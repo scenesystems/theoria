@@ -19,7 +19,7 @@ Effect-native scientific computing monorepo.
 | @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
 | @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
-The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
+The cryptographic authority packages `@scenesystems/digest` and `@scenesystems/sign` have a single entrypoint (`.`). `@scenesystems/seal` exposes `Cipher` and `Envelope` root namespaces and matching subpaths. The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema owns validated and encoded data; Data owns structural values without codecs, Context owns capabilities, and generic relationships may remain type-level. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
 
 ---
 
@@ -114,7 +114,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ## Conventions
 
-- **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
+- **Naming**: PascalCase public concern modules, camelCase private modules and ordinary operations. Constants follow semantic roles (`zero`, `TypeId`, `Order`), not automatic UPPER_SNAKE_CASE. Effect does not impose the older blanket constant-casing rule.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
 - **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
@@ -125,10 +125,10 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 ## Governance
 
 - `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
-- Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
+- Each shared concept has a canonical concern owner; reuse alone does not justify a generic `src/contracts/` directory. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
-- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through `generateEntropy` in `@scenesystems/sign`; `Random` is never a source of secrets.
-- Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
+- Non-cryptographic randomness (sampling, search, fixtures) uses seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through their owning crypto adapter (`generateEntropy` in `@scenesystems/sign`, `Cipher.layer` in `@scenesystems/seal`); Effect `Random` is never a source of secrets.
+- Cryptographic authority packages require Effect. `digest` and `sign` retain single entrypoints; `seal` has governed concern subpaths. Schema is the data/codec authority, not a serialization requirement for services or generic relationships. Scoped effect packages retain their governed public subpaths.
 
 ---
 
