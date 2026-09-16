@@ -4,10 +4,10 @@
  * @since 0.1.0
  */
 import {
-  CacheCorrupt,
-  type CacheError,
+  Corrupt,
   durableFingerprint,
-  type SchemaCacheResult
+  type Error as CacheError,
+  type Result as CacheResult
 } from "@scenesystems/effect-search/Cache"
 import { Data, Effect, FiberRef, Schema, String as Str } from "effect"
 
@@ -101,17 +101,17 @@ export class DspCache extends Effect.Tag("effect-dsp/Cache/DspCache")<
      */
     readonly resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
       request: DspCacheRequest<Input, Params, Output, Failure, Requirement, EncodedOutput>
-    ) => Effect.Effect<SchemaCacheResult<Output>, Failure | CacheError, Requirement>
+    ) => Effect.Effect<CacheResult<Output>, Failure | CacheError, Requirement>
   }
 >() {}
 
 const fingerprintOrCorrupt = <Value>(
   value: Value,
   label: string
-): Effect.Effect<string, CacheCorrupt> =>
+): Effect.Effect<string, Corrupt> =>
   durableFingerprint(value).pipe(
     Effect.mapError((cause) =>
-      new CacheCorrupt({
+      new Corrupt({
         key: DSP_CACHE_NAMESPACE,
         reason: Str.concat(label, Str.concat(" fingerprint: ", cause._tag))
       })
@@ -124,7 +124,7 @@ const fingerprintOrCorrupt = <Value>(
  *
  * @remarks
  * Input and parameter fingerprints are computed concurrently. Unsupported,
- * cyclic, or noncanonical values fail with `CacheCorrupt`; the error reason
+ * cyclic, or noncanonical values fail with `Corrupt`; the error reason
  * identifies which value could not be fingerprinted.
  *
  * @param request - Identities and request values that determine cache equality.
@@ -136,7 +136,7 @@ const fingerprintOrCorrupt = <Value>(
  */
 export const buildDspCacheKey = <Input, Params>(
   request: DspCacheKeyRequest<Input, Params>
-): Effect.Effect<DspCacheKey, CacheCorrupt> =>
+): Effect.Effect<DspCacheKey, Corrupt> =>
   Effect.all({
     inputHash: fingerprintOrCorrupt(request.input, "input"),
     paramsHash: fingerprintOrCorrupt(request.params, "params"),

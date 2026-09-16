@@ -7,23 +7,23 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { sampleStratifiedRoundRobin } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Match } from "effect"
+import { Array as Arr, Chunk, HashMap, Match, Option } from "effect"
 import type { MergeComparison, MergeComparisonBucket } from "../model.js"
 
-type MergeBuckets = Readonly<Record<MergeComparisonBucket, ReadonlyArray<MergeComparison>>>
+type MergeBuckets = HashMap.HashMap<MergeComparisonBucket, Chunk.Chunk<MergeComparison>>
 
 const MERGE_SUBSAMPLE_TARGET_SIZE = 5
 const PARENT_A_BETTER: MergeComparisonBucket = "parent-a-better"
 const PARENT_B_BETTER: MergeComparisonBucket = "parent-b-better"
 const TIE: MergeComparisonBucket = "tie"
 
-const emptyMergeBuckets: MergeBuckets = {
-  [PARENT_A_BETTER]: Arr.empty<MergeComparison>(),
-  [PARENT_B_BETTER]: Arr.empty<MergeComparison>(),
-  [TIE]: Arr.empty<MergeComparison>()
-}
+const emptyMergeBuckets: MergeBuckets = HashMap.fromIterable([
+  [PARENT_A_BETTER, Chunk.empty<MergeComparison>()],
+  [PARENT_B_BETTER, Chunk.empty<MergeComparison>()],
+  [TIE, Chunk.empty<MergeComparison>()]
+])
 
-const bucketOrder: ReadonlyArray<MergeComparisonBucket> = Arr.make(PARENT_A_BETTER, PARENT_B_BETTER, TIE)
+const bucketOrder: Chunk.Chunk<MergeComparisonBucket> = Chunk.make(PARENT_A_BETTER, PARENT_B_BETTER, TIE)
 
 /**
  * Classify one merge comparison into parent-a-better / parent-b-better / tie buckets.
@@ -42,10 +42,14 @@ const partitionMergeComparisons = (comparisons: ReadonlyArray<MergeComparison>):
   Arr.reduce(comparisons, emptyMergeBuckets, (buckets, comparison) => {
     const bucket = classifyMergeComparisonBucket(comparison)
 
-    return {
-      ...buckets,
-      [bucket]: Arr.append(buckets[bucket], comparison)
-    }
+    return HashMap.set(
+      buckets,
+      bucket,
+      HashMap.get(buckets, bucket).pipe(
+        Option.getOrElse(Chunk.empty<MergeComparison>),
+        Chunk.append(comparison)
+      )
+    )
   })
 
 /**
@@ -65,4 +69,4 @@ export const selectBalancedMergeSubsample = (
     bucketOrder,
     targetSize: Numeric.min(MERGE_SUBSAMPLE_TARGET_SIZE, comparisons.length),
     seed
-  })
+  }).pipe(Chunk.toReadonlyArray)

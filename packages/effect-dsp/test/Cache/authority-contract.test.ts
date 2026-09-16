@@ -13,7 +13,7 @@ describe("DspCache authority contract", () => {
 
       const cache = yield* DspCache
 
-      const [result, resolution] = yield* cache.resolve({
+      const { value, resolution } = yield* cache.resolve({
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
@@ -24,7 +24,7 @@ describe("DspCache authority contract", () => {
         )
       })
 
-      expect(result).toEqual({ answer: "4" })
+      expect(value).toEqual({ answer: "4" })
       expect(resolution).toBe("miss")
       expect(yield* Ref.get(computeCount)).toBe(1)
     }).pipe(Effect.provide(DspCacheMemory)))
@@ -47,9 +47,9 @@ describe("DspCache authority contract", () => {
       }
 
       yield* cache.resolve(request)
-      const [result, resolution] = yield* cache.resolve(request)
+      const { value, resolution } = yield* cache.resolve(request)
 
-      expect(result).toEqual({ answer: "4" })
+      expect(value).toEqual({ answer: "4" })
       expect(resolution).toBe("hit")
       expect(yield* Ref.get(computeCount)).toBe(1)
     }).pipe(Effect.provide(DspCacheMemory)))
@@ -71,8 +71,8 @@ describe("DspCache authority contract", () => {
         )
       })
 
-      const [, res1] = yield* cache.resolve(makeRequest("What is 2+2?"))
-      const [, res2] = yield* cache.resolve(makeRequest("What is 3+3?"))
+      const { resolution: res1 } = yield* cache.resolve(makeRequest("What is 2+2?"))
+      const { resolution: res2 } = yield* cache.resolve(makeRequest("What is 3+3?"))
 
       expect(res1).toBe("miss")
       expect(res2).toBe("miss")
@@ -96,8 +96,8 @@ describe("DspCache authority contract", () => {
         )
       })
 
-      const [, res1] = yield* cache.resolve(makeRequest("Answer concisely"))
-      const [, res2] = yield* cache.resolve(makeRequest("Be verbose"))
+      const { resolution: res1 } = yield* cache.resolve(makeRequest("Answer concisely"))
+      const { resolution: res2 } = yield* cache.resolve(makeRequest("Be verbose"))
 
       expect(res1).toBe("miss")
       expect(res2).toBe("miss")
@@ -134,11 +134,11 @@ describe("DspCache authority contract", () => {
       expect(key.rolloutId).toEqual(Option.none())
     }))
 
-  it.effect("delegates to effect-search SchemaCache for storage", () =>
+  it.effect("delegates to effect-search Cache for storage", () =>
     Effect.gen(function*() {
       const cache = yield* DspCache
 
-      const [result, resolution] = yield* cache.resolve({
+      const { value, resolution } = yield* cache.resolve({
         moduleFingerprint: "delegation-test",
         runtimeFingerprint: "v1",
         input: { x: 1 },
@@ -147,10 +147,10 @@ describe("DspCache authority contract", () => {
         compute: Effect.succeed({ y: 42 })
       })
 
-      expect(result).toEqual({ y: 42 })
+      expect(value).toEqual({ y: 42 })
       expect(resolution).toBe("miss")
 
-      const [cached, cachedRes] = yield* cache.resolve({
+      const { value: cached, resolution: cachedRes } = yield* cache.resolve({
         moduleFingerprint: "delegation-test",
         runtimeFingerprint: "v1",
         input: { x: 1 },

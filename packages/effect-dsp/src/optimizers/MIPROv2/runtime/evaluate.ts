@@ -6,7 +6,7 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Study } from "@scenesystems/effect-search"
+import * as Study from "@scenesystems/effect-search/Study"
 import { Array as Arr, Data, Effect, Option, Ref } from "effect"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"

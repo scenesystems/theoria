@@ -6,6 +6,7 @@
  * @internal
  */
 import * as Sampler from "@scenesystems/effect-search/Sampler"
+import type { Chunk } from "effect"
 
 /**
  * Normalizes a seed to a deterministic positive integer suitable for
@@ -35,14 +36,14 @@ export const normalizeCount = (value: number): number => Sampler.normalizePositi
 export const buildIndices = (count: number): ReadonlyArray<number> => Sampler.buildIndices(count)
 
 /**
- * Deterministically shuffles an array using a seeded permutation.
+ * Deterministically shuffles values into a chunk using a seeded permutation.
  * The same seed always yields the same ordering, enabling reproducible
  * candidate generation across phases.
  *
  * @since 0.1.0
  * @category utils
  */
-export const shuffleBySeed = <A>(values: ReadonlyArray<A>, seed: number): ReadonlyArray<A> =>
+export const shuffleBySeed = <A>(values: Iterable<A>, seed: number): Chunk.Chunk<A> =>
   Sampler.shuffleBySeed(values, seed)
 
 /**

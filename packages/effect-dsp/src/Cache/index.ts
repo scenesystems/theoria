@@ -3,7 +3,7 @@
  *
  * @remarks
  * Module execution consumes `DspCache`. Its base Layer requires an effect-search
- * `SchemaCache`; the specialized Layers select in-memory, filesystem, or
+ * `Cache`; the specialized Layers select in-memory, filesystem, or
  * SQLite-compatible storage. `withRollout` partitions otherwise identical calls
  * during repeated sampling.
  *
