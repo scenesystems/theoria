@@ -16,13 +16,14 @@ import type { BestOfNOptions } from "./index.js"
  * Scores one module output in the context of its original input.
  *
  * @remarks
- * The callback cannot add a typed failure or service requirement. It may still
- * use Effect operations, read FiberRefs, be interrupted, or terminate with a
- * defect. `bestOfN` reads the score. `refine` also adds feedback to later
- * attempts.
+ * Checked failures and service requirements remain visible in the composed
+ * module. `bestOfN` reads the score. `refine` also adds feedback to later
+ * attempts. Interruption and defects retain their native Effect behavior.
  *
  * @typeParam I - Input fields decoded before the module call.
  * @typeParam O - Output fields decoded before scoring.
+ * @typeParam E - Expected scoring failure.
+ * @typeParam R - Services required while scoring.
  *
  * @see {@link MetricResult} for the score and optional feedback.
  *
@@ -31,11 +32,13 @@ import type { BestOfNOptions } from "./index.js"
  */
 export type RewardFn<
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 > = (
   input: Schema.Schema.Type<Schema.Struct<I>>,
   output: Schema.Schema.Type<Schema.Struct<O>>
-) => Effect.Effect<MetricResult>
+) => Effect.Effect<MetricResult, E, R>
 
 class ScoredCandidate<O> extends Data.Class<{
   readonly output: O
@@ -58,9 +61,13 @@ const scoredCandidateOrder = <O>(): Order.Order<ScoredCandidate<O>> =>
 export const makeBestOfNForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
-  E,
-  R
->(options: BestOfNOptions<I, O, E, R>): Module<I, O, E, R>["forward"] => {
+  ModuleE,
+  ModuleR,
+  RewardE,
+  RewardR
+>(
+  options: BestOfNOptions<I, O, ModuleE, ModuleR, RewardE, RewardR>
+): Module<I, O, ModuleE | RewardE, ModuleR | RewardR>["forward"] => {
   const rolloutIndices: Arr.NonEmptyArray<number> = Arr.makeBy(options.N, identity)
 
   return Effect.fn(options.name)((input) =>

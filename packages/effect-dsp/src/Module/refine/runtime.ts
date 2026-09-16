@@ -39,13 +39,21 @@ const appendFeedback = (
 export const makeRefineForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
-  E,
-  R
+  ModuleE,
+  ModuleR,
+  RewardE,
+  RewardR
 >(
-  options: RefineOptions<I, O, E, R>,
+  options: RefineOptions<I, O, ModuleE, ModuleR, RewardE, RewardR>,
   forwardLock: Effect.Semaphore
-): Module<I, O, E, R>["forward"] => {
+): Module<I, O, ModuleE | RewardE, ModuleR | RewardR>["forward"] => {
   type Output = Schema.Schema.Type<Schema.Struct<O>>
+
+  const meetsThreshold = (score: number) =>
+    Boolean.match(Boolean.and(Schema.is(Schema.NonNaN)(score), Schema.is(Schema.NonNaN)(options.threshold)), {
+      onTrue: () => Number.greaterThanOrEqualTo(score, options.threshold),
+      onFalse: () => false
+    })
 
   const encodeNumber = (value: number) =>
     Option.getOrElse(
@@ -74,7 +82,7 @@ export const makeRefineForward = <
             encodeNumber(attempt),
             " scored ",
             encodeNumber(result.score),
-            ", below threshold ",
+            "; threshold: ",
             encodeNumber(options.threshold),
             "."
           ),
@@ -89,7 +97,7 @@ export const makeRefineForward = <
         onFalse: () => feedbackText
       })
 
-      yield* Effect.if(Number.lessThan(bestScore, options.threshold), {
+      yield* Effect.if(Boolean.not(meetsThreshold(bestScore)), {
         onTrue: () =>
           Ref.update(
             options.module.params,
@@ -126,7 +134,7 @@ export const makeRefineForward = <
               while: (state) =>
                 Boolean.and(
                   Number.lessThan(state.attempt, options.N),
-                  Number.lessThan(state.bestScore, options.threshold)
+                  Boolean.not(meetsThreshold(state.bestScore))
                 ),
               body: (state) =>
                 Effect.gen(function*() {
@@ -134,7 +142,11 @@ export const makeRefineForward = <
                   const result = yield* options.reward(input, output)
 
                   const newBest = Boolean.match(Schema.is(Schema.NonNaN)(result.score), {
-                    onTrue: () => Number.greaterThan(result.score, state.bestScore),
+                    onTrue: () =>
+                      Boolean.match(Schema.is(Schema.NonNaN)(state.bestScore), {
+                        onTrue: () => Number.greaterThan(result.score, state.bestScore),
+                        onFalse: () => true
+                      }),
                     onFalse: () => false
                   })
                   const nextOutput = Boolean.match(newBest, {

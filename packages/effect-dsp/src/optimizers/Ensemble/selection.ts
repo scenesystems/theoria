@@ -46,9 +46,7 @@ export const resolveSelectionSize = (programCount: number, requested: Option.Opt
         onSome: (size) =>
           Match.value(size).pipe(
             Match.when((value) => Bool.not(Numeric.isFinite(value)), () => 1),
-            Match.when((value) => Num.lessThanOrEqualTo(value, 0), () => 1),
-            Match.when((value) => Num.greaterThanOrEqualTo(value, count), () => count),
-            Match.orElse(Numeric.floor)
+            Match.orElse((value) => Num.clamp(Numeric.floor(value), { minimum: 1, maximum: count }))
           )
       })
     )
