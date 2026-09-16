@@ -6,7 +6,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Match, Number, Option, Schema, String } from "effect"
+import { Array as Arr, Boolean, Match, Number, Option, Schema, String } from "effect"
 import type { MetricResult } from "../../contracts/MetricResult.js"
 import { ReflectiveExample } from "./model.js"
 import type { ReflectiveDatasetSample } from "./model.js"
@@ -22,21 +22,31 @@ const normalizeIteration = (iteration: number): number => {
   return Number.max(0, finiteIteration)
 }
 
-const renderReflectiveExampleSection = (example: ReflectiveExample, index: number): string =>
-  Arr.join(
+const renderReflectiveExampleSection = (example: ReflectiveExample, index: number): string => {
+  const labels = Match.value(example.evidenceScope).pipe(
+    Match.when("predictor-execution", () =>
+      Arr.make(
+        "## Inputs (Actual Target Predictor Execution)",
+        "## Generated Outputs (Actual Target Predictor Execution)"
+      )),
+    Match.orElse(() => Arr.make("## Inputs (Program-level Evidence)", "## Generated Outputs (Program-level Evidence)"))
+  )
+
+  return Arr.join(
     Arr.make(
       String.concat("# Example ", Schema.encodeSync(Schema.NumberFromString)(Number.increment(index))),
-      "## Inputs",
+      Arr.headNonEmpty(labels),
       example.inputs,
-      "## Generated Outputs",
+      Arr.lastNonEmpty(labels),
       example.generatedOutputs,
-      "## Expected Output",
+      "## Expected Output (Program-level; Not a Child Predictor Label)",
       example.expectedOutput,
-      "## Feedback",
+      "## Feedback (Program-level Metric)",
       example.feedback
     ),
     "\n\n"
   )
+}
 
 /**
  * Prefix for explicit parse-failure feedback injected when an LLM response
@@ -87,6 +97,7 @@ export const buildReflectiveExample = (sample: ReflectiveDatasetSample): Reflect
   new ReflectiveExample({
     exampleId: sample.exampleId,
     predictorName: sample.predictorName,
+    evidenceScope: sample.evidenceScope,
     inputs: sample.inputs,
     generatedOutputs: sample.generatedOutputs,
     expectedOutput: sample.expectedOutput,
@@ -103,6 +114,33 @@ export const buildReflectiveExample = (sample: ReflectiveDatasetSample): Reflect
 export const buildReflectiveDataset = (
   samples: Iterable<ReflectiveDatasetSample>
 ) => Arr.map(Arr.fromIterable(samples), buildReflectiveExample)
+
+/**
+ * Select actual executions of the target predictor, falling back to explicitly
+ * labeled program-level evidence when that predictor emitted no trace entries.
+ *
+ * @since 0.4.0
+ * @category combinators
+ */
+export const selectReflectiveSamples = (
+  samples: Iterable<ReflectiveDatasetSample>,
+  predictorName: string
+) => {
+  const materialized = Arr.fromIterable(samples)
+  const predictorExecutions = Arr.filter(
+    materialized,
+    (sample) =>
+      Boolean.and(
+        String.Equivalence(sample.predictorName, predictorName),
+        String.Equivalence(sample.evidenceScope, "predictor-execution")
+      )
+  )
+
+  return Arr.match(predictorExecutions, {
+    onEmpty: () => Arr.filter(materialized, (sample) => String.Equivalence(sample.evidenceScope, "program")),
+    onNonEmpty: (executions) => executions
+  })
+}
 
 /**
  * Select a predictor name using deterministic round-robin cycling across
@@ -150,6 +188,10 @@ export const buildReflectivePrompt = (options: typeof ReflectivePromptOptions.Ty
       "The following are examples of different task inputs provided to the assistant",
       "along with the assistant's response for each of them, and some feedback on",
       "how the assistant's response could be better:",
+      "Evidence marked as an actual target-predictor execution contains that predictor's",
+      "successful runtime input and output. Expected outputs and metric feedback remain",
+      "program-level signals; they are not labels for an intermediate child predictor.",
+      "Program-level evidence is used only when no target-predictor execution is available.",
       Arr.join(Arr.map(options.examples, renderReflectiveExampleSection), "\n\n"),
       "Your task is to write a new instruction for the assistant.",
       "Read the inputs carefully and identify the input format and infer detailed",

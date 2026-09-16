@@ -78,7 +78,7 @@ describe("GEPA reflective mutation", () => {
       const selected = Arr.map(Arr.range(0, 6), (iteration) => selectPredictorRoundRobin(names, iteration))
       expect(selected).toEqual(Arr.map(Arr.make("qa", "judge", "rewrite", "qa", "judge", "rewrite", "qa"), Option.some))
       expect(selectPredictorRoundRobin(Arr.empty<string>(), 0)).toEqual(Option.none())
-      expect(selectPredictorRoundRobin(names, -1)).toEqual(Option.some("qa"))
+      expect(selectPredictorRoundRobin(names, Number.negate(1))).toEqual(Option.some("qa"))
       expect(selectPredictorRoundRobin(names, 4.9)).toEqual(Option.some("judge"))
       const infinity = yield* Schema.decode(Schema.NumberFromString)("Infinity")
       expect(selectPredictorRoundRobin(names, infinity)).toEqual(Option.some("qa"))

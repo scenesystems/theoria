@@ -10,36 +10,17 @@ import {
   sampleWeightedPair,
   type SampleWeightedPairOptions,
   type SelectWeightedIndexOptions,
-  selectWeightedIndexWithPolicy,
-  type WeightedIndex
+  selectWeightedIndexWithPolicy
 } from "@scenesystems/effect-search/Sampler"
 import { Array as Arr } from "effect"
 
-import { type ParentSelectionWeight } from "./model.js"
+import type { CandidateIndices, ParentPairIndices, ParentSelectionWeights } from "./model.js"
 
-const toWeightedIndices = (weights: ReadonlyArray<ParentSelectionWeight>): ReadonlyArray<WeightedIndex> =>
+const toWeightedIndices = (weights: ParentSelectionWeights) =>
   Arr.map(weights, (weight) => ({
     index: weight.candidateIndex,
     weight: weight.weight
   }))
-
-/**
- * Optional controls for single-parent weighted selection — mirrors
- * `SelectWeightedIndexOptions` from effect-search.
- *
- * @since 0.1.0
- * @category models
- */
-export type SelectWeightedParentOptions = SelectWeightedIndexOptions
-
-/**
- * Optional controls for parent-pair sampling — mirrors
- * `SampleWeightedPairOptions` from effect-search.
- *
- * @since 0.1.0
- * @category models
- */
-export type SampleWeightedParentPairOptions = SampleWeightedPairOptions
 
 /**
  * Select one parent index from weighted candidates using seeded deterministic
@@ -49,9 +30,9 @@ export type SampleWeightedParentPairOptions = SampleWeightedPairOptions
  * @category combinators
  */
 export const selectWeightedParent = (
-  weights: ReadonlyArray<ParentSelectionWeight>,
+  weights: ParentSelectionWeights,
   seed: number,
-  options?: SelectWeightedParentOptions
+  options?: SelectWeightedIndexOptions
 ): number => selectWeightedIndexWithPolicy(toWeightedIndices(weights), seed, options)
 
 /**
@@ -62,10 +43,10 @@ export const selectWeightedParent = (
  * @category combinators
  */
 export const sampleWeightedParentPair = (
-  weights: ReadonlyArray<ParentSelectionWeight>,
+  weights: ParentSelectionWeights,
   seed: number,
-  options?: SampleWeightedParentPairOptions
-): readonly [number, number] => sampleWeightedPair(toWeightedIndices(weights), seed, options)
+  options?: SampleWeightedPairOptions
+): ParentPairIndices => sampleWeightedPair(toWeightedIndices(weights), seed, options)
 
 /**
  * Sample multiple parent indices deterministically for distribution analysis
@@ -75,7 +56,7 @@ export const sampleWeightedParentPair = (
  * @category combinators
  */
 export const sampleWeightedParents = (
-  weights: ReadonlyArray<ParentSelectionWeight>,
+  weights: ParentSelectionWeights,
   drawCount: number,
   seed: number
-): ReadonlyArray<number> => sampleWeightedIndices(toWeightedIndices(weights), drawCount, seed)
+): CandidateIndices => sampleWeightedIndices(toWeightedIndices(weights), drawCount, seed)

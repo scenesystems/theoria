@@ -5,9 +5,8 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Option } from "effect"
-import { type CandidateScoreVector, MergeAcceptance, MutationAcceptance } from "./model.js"
+import { Array as Arr, Boolean as Bool, Data, Effect, Number as Num, Option, Schema } from "effect"
+import { CandidateScoreVector, MergeAcceptance, MutationAcceptance } from "./model.js"
 
 /**
  * Inputs for the two-gate mutation acceptance check — previous and mutated
@@ -29,13 +28,25 @@ export class EvaluateMutationAcceptanceOptions<E, R> extends Data.Class<{
  * @since 0.1.0
  * @category models
  */
-export class EvaluateMergeAcceptanceOptions extends Data.Class<{
-  readonly mergedSubsampleScores: CandidateScoreVector
-  readonly parentASubsampleScores: CandidateScoreVector
-  readonly parentBSubsampleScores: CandidateScoreVector
-}> {}
+export const EvaluateMergeAcceptanceOptions = Schema.Struct({
+  mergedSubsampleScores: CandidateScoreVector,
+  parentASubsampleScores: CandidateScoreVector,
+  parentBSubsampleScores: CandidateScoreVector
+})
 
-const sumScores = (scores: CandidateScoreVector): number => Arr.reduce(scores, 0, (total, score) => total + score)
+/**
+ * Inputs for the merge acceptance check — merged and both parent minibatch
+ * scores.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type EvaluateMergeAcceptanceOptions = typeof EvaluateMergeAcceptanceOptions.Type
+
+const sumScores = (scores: CandidateScoreVector): number => Num.sumAll(scores)
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const isOrderedPair = (left: number, right: number): boolean => Bool.and(isNonNaN(left), isNonNaN(right))
 
 /**
  * Evaluate the two-gate mutation acceptance. Gate 1 requires strict minibatch
@@ -51,7 +62,10 @@ export const evaluateMutationAcceptance = <E, R>(
 ): Effect.Effect<MutationAcceptance, E, R> => {
   const previousSubsampleSum = sumScores(options.previousSubsampleScores)
   const mutatedSubsampleSum = sumScores(options.mutatedSubsampleScores)
-  const gate1Passed = mutatedSubsampleSum > previousSubsampleSum
+  const gate1Passed = Bool.match(isOrderedPair(mutatedSubsampleSum, previousSubsampleSum), {
+    onFalse: () => false,
+    onTrue: () => Num.greaterThan(mutatedSubsampleSum, previousSubsampleSum)
+  })
 
   return Effect.if(gate1Passed, {
     onTrue: () =>
@@ -94,11 +108,21 @@ export const evaluateMergeAcceptance = (
   const mergedSubsampleSum = sumScores(options.mergedSubsampleScores)
   const parentASubsampleSum = sumScores(options.parentASubsampleScores)
   const parentBSubsampleSum = sumScores(options.parentBSubsampleScores)
-  const bestParentSubsampleSum = Numeric.max(parentASubsampleSum, parentBSubsampleSum)
+  const bestParentSubsampleSum = Num.max(parentASubsampleSum, parentBSubsampleSum)
 
   return new MergeAcceptance({
     mergedSubsampleSum,
     bestParentSubsampleSum,
-    accepted: mergedSubsampleSum >= bestParentSubsampleSum
+    accepted: Bool.match(
+      Bool.every(Arr.make(
+        isNonNaN(mergedSubsampleSum),
+        isNonNaN(parentASubsampleSum),
+        isNonNaN(parentBSubsampleSum)
+      )),
+      {
+        onFalse: () => false,
+        onTrue: () => Num.greaterThanOrEqualTo(mergedSubsampleSum, bestParentSubsampleSum)
+      }
+    )
   })
 }

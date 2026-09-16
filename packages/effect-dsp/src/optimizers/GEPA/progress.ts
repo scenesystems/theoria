@@ -3,9 +3,11 @@
  *
  * @since 0.1.0
  */
-import { Data, Match, Stream } from "effect"
+import { Array as Arr, Boolean as Bool, Inspectable, Match, Schema, Stream, String as Str } from "effect"
 import type { Effect } from "effect"
-import type { GEPAEvent } from "./events.js"
+import { type GEPAEvent, GEPAEventSchema } from "./events.js"
+
+const GEPAEventTag = Schema.typeSchema(Schema.pluck(GEPAEventSchema, "_tag"))
 
 /**
  * Carries a GEPA tag with progress text that reduces instructions and frontier arrays.
@@ -13,61 +15,113 @@ import type { GEPAEvent } from "./events.js"
  * @since 0.1.0
  * @category models
  */
-export class GEPAProgressLine extends Data.Class<{
+export class GEPAProgressLine extends Schema.Class<GEPAProgressLine>("GEPAProgressLine")({
   /** Original event discriminator. */
-  readonly tag: GEPAEvent["_tag"]
+  tag: GEPAEventTag,
   /** Space-separated key-value fields selected for display. */
-  readonly details: string
+  details: Schema.String,
   /** Event tag followed by `details` when details are present. */
-  readonly text: string
-}> {}
+  text: Schema.String
+}) {}
+
+const renderValue = (label: string, value: unknown): string => Str.concat(label, Inspectable.toStringUnknown(value))
+
+const renderString = (label: string, value: string): string => Str.concat(label, value)
+
+const joinDetails = (details: Iterable<string>): string => Arr.join(Arr.fromIterable(details), " ")
 
 const toProgressLine = (
   tag: GEPAProgressLine["tag"],
   details: string
-): GEPAProgressLine => ({
-  tag,
-  details,
-  text: details.length > 0
-    ? `${tag} ${details}`
-    : tag
-})
+): GEPAProgressLine =>
+  new GEPAProgressLine({
+    tag,
+    details,
+    text: Bool.match(Str.isNonEmpty(details), {
+      onFalse: () => tag,
+      onTrue: () => Str.concat(Str.concat(tag, " "), details)
+    })
+  })
 
 const detailsFromEvent = (event: GEPAEvent): string =>
   Match.value(event).pipe(
     Match.tag(
       "IterationStarted",
-      ({ iteration, frontierSize }) => `iteration=${iteration} frontierSize=${frontierSize}`
+      ({ iteration, frontierSize }) =>
+        joinDetails(Arr.make(renderValue("iteration=", iteration), renderValue("frontierSize=", frontierSize)))
     ),
     Match.tag(
       "MergeChecked",
       ({ iteration, attempted, accepted, mergeBudgetRemaining }) =>
-        `iteration=${iteration} attempted=${attempted} accepted=${accepted} mergeBudgetRemaining=${mergeBudgetRemaining}`
+        joinDetails(
+          Arr.make(
+            renderValue("iteration=", iteration),
+            renderValue("attempted=", attempted),
+            renderValue("accepted=", accepted),
+            renderValue("mergeBudgetRemaining=", mergeBudgetRemaining)
+          )
+        )
     ),
     Match.tag(
       "MutationProposed",
       ({ iteration, parentId, mutatedCandidateId, predictorName, instruction }) =>
-        `iteration=${iteration} parentId=${parentId} mutatedCandidateId=${mutatedCandidateId} predictor=${predictorName} instructionLength=${instruction.length}`
+        joinDetails(
+          Arr.make(
+            renderValue("iteration=", iteration),
+            renderString("parentId=", parentId),
+            renderString("mutatedCandidateId=", mutatedCandidateId),
+            renderString("predictor=", predictorName),
+            renderValue("instructionLength=", Str.length(instruction))
+          )
+        )
     ),
     Match.tag(
       "AcceptanceEvaluated",
       ({ iteration, accepted, gate1Passed, fullValsetEvaluated, previousSubsampleSum, mutatedSubsampleSum }) =>
-        `iteration=${iteration} accepted=${accepted} gate1Passed=${gate1Passed} fullValsetEvaluated=${fullValsetEvaluated} previousSubsampleSum=${previousSubsampleSum} mutatedSubsampleSum=${mutatedSubsampleSum}`
+        joinDetails(
+          Arr.make(
+            renderValue("iteration=", iteration),
+            renderValue("accepted=", accepted),
+            renderValue("gate1Passed=", gate1Passed),
+            renderValue("fullValsetEvaluated=", fullValsetEvaluated),
+            renderValue("previousSubsampleSum=", previousSubsampleSum),
+            renderValue("mutatedSubsampleSum=", mutatedSubsampleSum)
+          )
+        )
     ),
     Match.tag(
       "ParetoUpdated",
       ({ iteration, frontierIndices, dominatedIndices, parentWeights }) =>
-        `iteration=${iteration} frontierCount=${frontierIndices.length} dominatedCount=${dominatedIndices.length} parentWeightCount=${parentWeights.length}`
+        joinDetails(
+          Arr.make(
+            renderValue("iteration=", iteration),
+            renderValue("frontierCount=", Arr.length(frontierIndices)),
+            renderValue("dominatedCount=", Arr.length(dominatedIndices)),
+            renderValue("parentWeightCount=", Arr.length(parentWeights))
+          )
+        )
     ),
     Match.tag(
       "IterationCompleted",
       ({ iteration, acceptedCandidate, frontierSize }) =>
-        `iteration=${iteration} acceptedCandidate=${acceptedCandidate} frontierSize=${frontierSize}`
+        joinDetails(
+          Arr.make(
+            renderValue("iteration=", iteration),
+            renderValue("acceptedCandidate=", acceptedCandidate),
+            renderValue("frontierSize=", frontierSize)
+          )
+        )
     ),
     Match.tag(
       "OptimizationCompleted",
       ({ iterations, bestCandidateId, frontierSize }) =>
-        `iterations=${iterations} bestCandidateId=${bestCandidateId} frontierSize=${frontierSize}`
+        joinDetails(
+          Arr.make(
+            renderValue("iterations=", iterations),
+            renderString("bestCandidateId=", bestCandidateId),
+            renderValue("frontierSize=", frontierSize)
+          )
+        )
     ),
     Match.exhaustive
   )
