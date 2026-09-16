@@ -1,19 +1,27 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Number as N, Schema } from "effect"
+import { Array, Chunk, Effect, Match, Number, Schema, Tuple } from "effect"
 
-import { chebyshevDistance, euclideanDistance, manhattanDistance, midpoint } from "../../src/Geometry/operations.js"
-import { FixtureRegistryLive, GeometryDistanceParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
+import { chebyshevDistance, euclideanDistance, manhattanDistance, midpoint } from "../../src/Geometry.js"
+import { abs } from "../../src/Numeric.js"
+import { GeometryDistanceParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
-const DISTANCE_TOLERANCE = 1e-12
+const distanceTolerance = 1e-12
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(Number.lessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
 
 const expectChunkWithinTolerance = (
   actual: Chunk.Chunk<number>,
-  expected: ReadonlyArray<number>,
+  expected: Chunk.Chunk<number>,
   tolerance: number
-) => Arr.forEach(Chunk.toReadonlyArray(actual), (v, i) => expectWithinTolerance(v, expected[i] ?? 0, tolerance))
+) => {
+  expect(Number.Equivalence(Chunk.size(actual), Chunk.size(expected))).toBe(true)
+  Chunk.forEach(
+    Chunk.zip(actual, expected),
+    (pair) => expectWithinTolerance(Tuple.getFirst(pair), Tuple.getSecond(pair), tolerance)
+  )
+}
 
 describe("Geometry SciPy fixture parity", () => {
   it.effect("all distance-parity cases match SciPy reference values", () =>
@@ -23,7 +31,7 @@ describe("Geometry SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "distance" }, (v) => {
@@ -35,14 +43,14 @@ describe("Geometry SciPy fixture parity", () => {
                 Match.when("chebyshev", () => chebyshevDistance(a, b)),
                 Match.exhaustive
               )
-              expectWithinTolerance(result, v.expected, DISTANCE_TOLERANCE)
+              expectWithinTolerance(result, v.expected, distanceTolerance)
             }),
             Match.when({ operation: "midpoint" }, (v) => {
               const result = midpoint(Chunk.fromIterable(v.input.a), Chunk.fromIterable(v.input.b))
-              expectChunkWithinTolerance(result, v.expected, DISTANCE_TOLERANCE)
+              expectChunkWithinTolerance(result, Chunk.fromIterable(v.expected), distanceTolerance)
             }),
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

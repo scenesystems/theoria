@@ -54,6 +54,7 @@
     "@shikijs/types": "^4.4.3",
     "@theoria/docs-model": "workspace:*",
     "effect": "3.22.1",
+    "katex": "^0.18.7",
     "motion": "^13.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

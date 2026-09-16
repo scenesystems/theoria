@@ -6,6 +6,25 @@ appears in this package.
 
 --------------------------------------------------------------------------------
 
+FDLIBM / OpenLibm — logarithm and exponential rational approximations
+(src/Numeric/internal/transcendental.ts)
+
+Source: https://github.com/JuliaMath/openlibm/blob/master/src/e_log.c
+        https://github.com/JuliaMath/openlibm/blob/master/src/e_exp.c
+
+Copyright (C) 1993, 2004 by Sun Microsystems, Inc. All rights reserved.
+Developed at SunSoft, a Sun Microsystems, Inc. business.
+
+Permission to use, copy, modify, and distribute this software is freely
+granted, provided that this notice is preserved.
+
+The coefficient tables, split logarithm constants, and rational formulas
+are expressed through Effect Number arithmetic. Binary normalization uses
+exact arithmetic rather than storage inspection; extreme exponentials use
+Effect BigDecimal range reduction and rescaling.
+
+--------------------------------------------------------------------------------
+
 Boost.Math — Rational Chebyshev coefficients for erfinv
 (src/Special/internal/erfinv.ts)
 
