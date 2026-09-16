@@ -14,13 +14,15 @@ import { makeLiveResolvedRouteDescriptor } from "../internal/resolvedRoute.js"
 import { RuntimeResolution, RuntimeResolver, RuntimeResolverApi } from "./services.js"
 
 const requireRoute = (descriptor: DesiredRuntimeDescriptor) =>
-  descriptor.route
-    ? Effect.succeed(descriptor.route)
-    : Effect.fail(
-      new UnsupportedRoute({
-        reason: "DesiredRuntimeDescriptor.route is required for live runtime resolution"
-      })
-    )
+  Option.match(Option.fromNullable(descriptor.route), {
+    onSome: Effect.succeed,
+    onNone: () =>
+      Effect.fail(
+        new UnsupportedRoute({
+          reason: "DesiredRuntimeDescriptor.route is required for live runtime resolution"
+        })
+      )
+  })
 
 const runtimeResolverLiveApi = new RuntimeResolverApi({
   resolve: (descriptor) =>

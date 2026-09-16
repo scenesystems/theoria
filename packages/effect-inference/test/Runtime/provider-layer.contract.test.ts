@@ -1,19 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Array as Arr, Effect, Option, Schema } from "effect"
 
 import * as Contracts from "../../src/contracts/index.js"
 import * as Runtime from "../../src/Runtime/index.js"
 
-const providerCase = (options: {
-  readonly name: string
-  readonly desired: Contracts.DesiredRuntimeDescriptor
-  readonly expectedProvider?: string
-  readonly expectedSelectionReason: string
-}) => options
+const ProviderCase = Schema.Struct({
+  name: Schema.String,
+  desired: Contracts.DesiredRuntimeDescriptorSchema,
+  expectedProvider: Schema.optional(Schema.String),
+  expectedSelectionReason: Schema.String
+})
 
 describe("Runtime/provider-layer", () => {
-  it.effect.each([
-    providerCase({
+  it.effect.each(Arr.make(
+    ProviderCase.make({
       name: "OpenAiCompatible dedicated-endpoint",
       desired: {
         artifact: { modelRef: "openai/gpt-4o-mini" },
@@ -28,7 +28,7 @@ describe("Runtime/provider-layer", () => {
       },
       expectedSelectionReason: "openai-compatible-live"
     }),
-    providerCase({
+    ProviderCase.make({
       name: "OpenAiCompatible self-hosted vLLM",
       desired: {
         artifact: { modelRef: "meta-llama/Llama-3.1-8B-Instruct" },
@@ -42,7 +42,7 @@ describe("Runtime/provider-layer", () => {
       },
       expectedSelectionReason: "openai-compatible-live"
     }),
-    providerCase({
+    ProviderCase.make({
       name: "OpenAiCompatible self-hosted TGI",
       desired: {
         artifact: { modelRef: "meta-llama/Llama-3.1-8B-Instruct" },
@@ -56,7 +56,7 @@ describe("Runtime/provider-layer", () => {
       },
       expectedSelectionReason: "openai-compatible-live"
     }),
-    providerCase({
+    ProviderCase.make({
       name: "OpenAiCompatible self-hosted Ollama",
       desired: {
         artifact: { modelRef: "llama3.2" },
@@ -70,7 +70,7 @@ describe("Runtime/provider-layer", () => {
       },
       expectedSelectionReason: "openai-compatible-live"
     }),
-    providerCase({
+    ProviderCase.make({
       name: "OpenAiCompatible self-hosted LM Studio",
       desired: {
         artifact: { modelRef: "meta-llama/Llama-3.1-8B-Instruct" },
@@ -84,7 +84,7 @@ describe("Runtime/provider-layer", () => {
       },
       expectedSelectionReason: "openai-compatible-live"
     }),
-    providerCase({
+    ProviderCase.make({
       name: "OpenAiResponses",
       desired: {
         artifact: { modelRef: "gpt-4o-mini" },
@@ -98,7 +98,7 @@ describe("Runtime/provider-layer", () => {
       expectedProvider: "openai",
       expectedSelectionReason: "openai-responses-direct"
     }),
-    providerCase({
+    ProviderCase.make({
       name: "AnthropicMessages",
       desired: {
         artifact: { modelRef: "claude-3-5-haiku-latest" },
@@ -112,7 +112,7 @@ describe("Runtime/provider-layer", () => {
       expectedProvider: "anthropic",
       expectedSelectionReason: "anthropic-messages-direct"
     }),
-    providerCase({
+    ProviderCase.make({
       name: "HuggingFace routed-provider",
       desired: {
         artifact: { modelRef: "meta-llama/Llama-3.3-70B-Instruct" },
@@ -128,7 +128,7 @@ describe("Runtime/provider-layer", () => {
       expectedProvider: "together",
       expectedSelectionReason: "hugging-face-routed-live"
     })
-  ])(
+  ))(
     "resolves $name routes to package-owned text-model layers",
     ({ desired, expectedProvider, expectedSelectionReason }) =>
       Effect.gen(function*() {

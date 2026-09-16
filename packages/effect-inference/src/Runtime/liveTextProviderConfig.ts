@@ -3,10 +3,31 @@
  *
  * @since 0.1.0
  */
-import { Config, ConfigError, ConfigProvider, Data, Effect, Match, Option, Redacted } from "effect"
+import {
+  Array as Arr,
+  Config,
+  ConfigError,
+  ConfigProvider,
+  Data,
+  Effect,
+  Match,
+  Option,
+  Redacted,
+  Schema,
+  String
+} from "effect"
 
-import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
+import { type DesiredRuntimeDescriptor, DesiredRuntimeDescriptorSchema } from "../contracts/DesiredRuntimeDescriptor.js"
+import { ExecutionRouteSchema } from "../contracts/ExecutionRoute.js"
 import { InvalidRuntimeConfig } from "../Errors/Config.js"
+
+/**
+ * Providers accepted by the config-driven language-model layer.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const LiveTextProviderSchema = Schema.Literal("openai", "anthropic", "openrouter")
 
 /**
  * Providers accepted by the config-driven language-model layer.
@@ -14,7 +35,7 @@ import { InvalidRuntimeConfig } from "../Errors/Config.js"
  * @since 0.1.0
  * @category models
  */
-export type LiveTextProvider = "openai" | "anthropic" | "openrouter"
+export type LiveTextProvider = typeof LiveTextProviderSchema.Type
 
 /**
  * Explicit overrides for hosted text-provider configuration. Present values
@@ -49,42 +70,24 @@ export class LiveTextProviderRuntimeOptions extends Data.Class<{
  * @since 0.1.0
  * @category models
  */
-export class ResolvedLiveTextProviderConfig extends Data.Class<{
+export class ResolvedLiveTextProviderConfig extends Schema.Class<ResolvedLiveTextProviderConfig>(
+  "ResolvedLiveTextProviderConfig"
+)({
   /** Selected provider adapter. */
-  readonly provider: LiveTextProvider
+  provider: LiveTextProviderSchema,
   /** Model identifier passed to the provider client. */
-  readonly model: string
+  model: Schema.String,
   /** Credential passed to the provider client. */
-  readonly apiKey: Redacted.Redacted
+  apiKey: Schema.RedactedFromSelf(Schema.String),
   /** API base URL override, or `None` to use the client default. */
-  readonly apiUrl: Option.Option<string>
+  apiUrl: Schema.OptionFromSelf(Schema.String),
   /** Anthropic API version header, when configured. */
-  readonly anthropicVersion: Option.Option<string>
+  anthropicVersion: Schema.OptionFromSelf(Schema.String),
   /** OpenRouter referrer header, when configured. */
-  readonly openrouterReferrer: Option.Option<string>
+  openrouterReferrer: Schema.OptionFromSelf(Schema.String),
   /** OpenRouter application title header, when configured. */
-  readonly openrouterTitle: Option.Option<string>
-}> {}
-
-class DecodedLiveTextProviderConfig extends Data.Class<{
-  readonly provider: LiveTextProvider
-  readonly model: string
-  readonly apiKey: Option.Option<Redacted.Redacted>
-  readonly apiUrl: Option.Option<string>
-  readonly anthropicVersion: Option.Option<string>
-  readonly openrouterReferrer: Option.Option<string>
-  readonly openrouterTitle: Option.Option<string>
-}> {}
-
-class ProviderOverrides extends Data.Class<{
-  readonly provider: Option.Option<LiveTextProvider>
-  readonly model: Option.Option<string>
-  readonly apiKey: Option.Option<Redacted.Redacted>
-  readonly apiUrl: Option.Option<string>
-  readonly anthropicVersion: Option.Option<string>
-  readonly openrouterReferrer: Option.Option<string>
-  readonly openrouterTitle: Option.Option<string>
-}> {}
+  openrouterTitle: Schema.OptionFromSelf(Schema.String)
+}) {}
 
 const defaultConfigProvider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase)
 
@@ -96,17 +99,15 @@ const defaultModel = (provider: LiveTextProvider): string =>
     Match.exhaustive
   )
 
-const nonEmptyString = (value: string): boolean => value.trim().length > 0
-
 const optionalString = (name: string): Config.Config<Option.Option<string>> =>
   Config.option(Config.string(name)).pipe(
-    Config.map(Option.filter(nonEmptyString)),
-    Config.map(Option.map((value) => value.trim()))
+    Config.map(Option.map(String.trim)),
+    Config.map(Option.filter(String.isNonEmpty))
   )
 
 const optionalRedacted = (name: string): Config.Config<Option.Option<Redacted.Redacted>> =>
   Config.option(Config.redacted(name)).pipe(
-    Config.map(Option.filter((value) => nonEmptyString(Redacted.value(value))))
+    Config.map(Option.filter((value) => String.isNonEmpty(String.trim(Redacted.value(value)))))
   )
 
 const providerModelKey = (provider: LiveTextProvider): string =>
@@ -141,78 +142,86 @@ const providerApiKeyEnvName = (provider: LiveTextProvider): string =>
     Match.exhaustive
   )
 
-const firstDefinedOption = <A>(primary: Option.Option<A>, fallback: Option.Option<A>): Option.Option<A> =>
-  Option.orElse(primary, () => fallback)
-
 const requiredOption = <A>(
   option: Option.Option<A>,
   message: string
 ): Effect.Effect<A, ConfigError.ConfigError> =>
-  Option.match(option, { onNone: () => Effect.fail(ConfigError.MissingData([], message)), onSome: Effect.succeed })
+  Option.match(option, {
+    onNone: () => Effect.fail(ConfigError.MissingData(Arr.empty(), message)),
+    onSome: Effect.succeed
+  })
 
-const providerConfig = Effect.gen(function*() {
-  const provider = yield* Config.withDefault(
-    Config.literal("openai", "anthropic", "openrouter")("dspProvider"),
-    "openai"
-  )
-
-  return {
-    provider,
-    model: Option.match(
-      firstDefinedOption(yield* optionalString(providerModelKey(provider)), yield* optionalString("dspProviderModel")),
-      { onNone: () => defaultModel(provider), onSome: (value) => value }
-    ),
-    apiKey: firstDefinedOption(
-      yield* optionalRedacted(providerApiKeyKey(provider)),
-      yield* optionalRedacted("dspProviderApiKey")
-    ),
-    apiUrl: firstDefinedOption(
-      yield* optionalString(providerApiUrlKey(provider)),
-      yield* optionalString("dspProviderApiUrl")
-    ),
-    anthropicVersion: firstDefinedOption(
-      yield* optionalString("anthropicVersion"),
-      yield* optionalString("dspProviderAnthropicVersion")
-    ),
-    openrouterReferrer: firstDefinedOption(
-      yield* optionalString("openrouterReferrer"),
-      yield* optionalString("dspProviderOpenrouterReferrer")
-    ),
-    openrouterTitle: firstDefinedOption(
-      yield* optionalString("openrouterTitle"),
-      yield* optionalString("dspProviderOpenrouterTitle")
+const providerConfig = (options: LiveTextProviderRuntimeOptions) =>
+  Effect.gen(function*() {
+    const provider = yield* Option.match(Option.fromNullable(options.provider), {
+      onNone: () =>
+        Config.withDefault(
+          Config.literal(...LiveTextProviderSchema.literals)("dspProvider"),
+          "openai"
+        ),
+      onSome: Effect.succeed
+    })
+    const providerModel = yield* optionalString(providerModelKey(provider))
+    const genericModel = yield* optionalString("dspProviderModel")
+    const configuredModel = providerModel.pipe(Option.orElse(() => genericModel))
+    const model = Option.fromNullable(options.model).pipe(
+      Option.map(String.trim),
+      Option.filter(String.isNonEmpty),
+      Option.orElse(() => configuredModel),
+      Option.getOrElse(() => defaultModel(provider))
     )
-  }
-})
+    const providerApiKey = yield* optionalRedacted(providerApiKeyKey(provider))
+    const genericApiKey = yield* optionalRedacted("dspProviderApiKey")
+    const configuredApiKey = providerApiKey.pipe(Option.orElse(() => genericApiKey))
+    const apiKey = yield* requiredOption(
+      Option.fromNullable(options.apiKey).pipe(
+        Option.filter((value) => String.isNonEmpty(String.trim(Redacted.value(value)))),
+        Option.orElse(() => configuredApiKey)
+      ),
+      String.concat(
+        "Missing provider API key. Set DSP_PROVIDER_API_KEY or ",
+        String.concat(providerApiKeyEnvName(provider), ".")
+      )
+    )
+    const providerApiUrl = yield* optionalString(providerApiUrlKey(provider))
+    const genericApiUrl = yield* optionalString("dspProviderApiUrl")
+    const anthropicVersion = yield* optionalString("anthropicVersion")
+    const genericAnthropicVersion = yield* optionalString("dspProviderAnthropicVersion")
+    const openrouterReferrer = yield* optionalString("openrouterReferrer")
+    const genericOpenrouterReferrer = yield* optionalString("dspProviderOpenrouterReferrer")
+    const openrouterTitle = yield* optionalString("openrouterTitle")
+    const genericOpenrouterTitle = yield* optionalString("dspProviderOpenrouterTitle")
 
-const overrideConfig = (options: LiveTextProviderRuntimeOptions): ProviderOverrides => ({
-  provider: Option.fromNullable(options.provider),
-  model: Option.fromNullable(options.model),
-  apiKey: Option.fromNullable(options.apiKey),
-  apiUrl: Option.fromNullable(options.apiUrl),
-  anthropicVersion: Option.fromNullable(options.anthropicVersion),
-  openrouterReferrer: Option.fromNullable(options.openrouterReferrer),
-  openrouterTitle: Option.fromNullable(options.openrouterTitle)
-})
-
-const mergeRequired = <A>(override: Option.Option<A>, base: A): A =>
-  Option.match(override, { onNone: () => base, onSome: (value) => value })
-
-const mergeOptional = <A>(override: Option.Option<A>, base: Option.Option<A>): Option.Option<A> =>
-  Option.match(override, { onNone: () => base, onSome: (value) => Option.some(value) })
-
-const withOverrides = (
-  base: DecodedLiveTextProviderConfig,
-  overrides: ProviderOverrides
-): DecodedLiveTextProviderConfig => ({
-  provider: mergeRequired(overrides.provider, base.provider),
-  model: mergeRequired(overrides.model, base.model),
-  apiKey: mergeOptional(overrides.apiKey, base.apiKey),
-  apiUrl: mergeOptional(overrides.apiUrl, base.apiUrl),
-  anthropicVersion: mergeOptional(overrides.anthropicVersion, base.anthropicVersion),
-  openrouterReferrer: mergeOptional(overrides.openrouterReferrer, base.openrouterReferrer),
-  openrouterTitle: mergeOptional(overrides.openrouterTitle, base.openrouterTitle)
-})
+    return new ResolvedLiveTextProviderConfig({
+      provider,
+      model,
+      apiKey,
+      apiUrl: Option.fromNullable(options.apiUrl).pipe(
+        Option.map(String.trim),
+        Option.filter(String.isNonEmpty),
+        Option.orElse(() => providerApiUrl),
+        Option.orElse(() => genericApiUrl)
+      ),
+      anthropicVersion: Option.fromNullable(options.anthropicVersion).pipe(
+        Option.map(String.trim),
+        Option.filter(String.isNonEmpty),
+        Option.orElse(() => anthropicVersion),
+        Option.orElse(() => genericAnthropicVersion)
+      ),
+      openrouterReferrer: Option.fromNullable(options.openrouterReferrer).pipe(
+        Option.map(String.trim),
+        Option.filter(String.isNonEmpty),
+        Option.orElse(() => openrouterReferrer),
+        Option.orElse(() => genericOpenrouterReferrer)
+      ),
+      openrouterTitle: Option.fromNullable(options.openrouterTitle).pipe(
+        Option.map(String.trim),
+        Option.filter(String.isNonEmpty),
+        Option.orElse(() => openrouterTitle),
+        Option.orElse(() => genericOpenrouterTitle)
+      )
+    })
+  })
 
 /**
  * Maps hosted provider config to caller intent and an explicit execution route.
@@ -226,44 +235,44 @@ export const descriptorForLiveTextProvider = (
 ): DesiredRuntimeDescriptor =>
   Match.value(config.provider).pipe(
     Match.when("openai", () => {
-      const route: NonNullable<DesiredRuntimeDescriptor["route"]> = {
+      const route = ExecutionRouteSchema.make({
         family: "OpenAiResponses",
         serveMode: "hosted-api",
         authMethod: "api-key",
         baseUrl: Option.getOrElse(config.apiUrl, () => "https://api.openai.com/v1")
-      }
+      })
 
-      return {
+      return DesiredRuntimeDescriptorSchema.make({
         artifact: { modelRef: config.model },
         route
-      }
+      })
     }),
     Match.when("anthropic", () => {
-      const route: NonNullable<DesiredRuntimeDescriptor["route"]> = {
+      const route = ExecutionRouteSchema.make({
         family: "AnthropicMessages",
         serveMode: "hosted-api",
         authMethod: "api-key",
         baseUrl: Option.getOrElse(config.apiUrl, () => "https://api.anthropic.com")
-      }
+      })
 
-      return {
+      return DesiredRuntimeDescriptorSchema.make({
         artifact: { modelRef: config.model },
         route
-      }
+      })
     }),
     Match.when("openrouter", () => {
-      const route: NonNullable<DesiredRuntimeDescriptor["route"]> = {
+      const route = ExecutionRouteSchema.make({
         family: "OpenAiCompatible",
         serveMode: "routed-marketplace",
         authMethod: "api-key",
         baseUrl: Option.getOrElse(config.apiUrl, () => "https://openrouter.ai/api/v1"),
         gatewayId: "openrouter"
-      }
+      })
 
-      return {
+      return DesiredRuntimeDescriptorSchema.make({
         artifact: { modelRef: config.model },
         route
-      }
+      })
     }),
     Match.exhaustive
   )
@@ -282,26 +291,11 @@ export const descriptorForLiveTextProvider = (
  * @category constructors
  */
 export const resolveLiveTextProviderConfig = (
-  options: LiveTextProviderRuntimeOptions = {}
+  options: LiveTextProviderRuntimeOptions = new LiveTextProviderRuntimeOptions({})
 ): Effect.Effect<ResolvedLiveTextProviderConfig, InvalidRuntimeConfig> =>
-  providerConfig.pipe(
-    Effect.withConfigProvider(options.configProvider ?? defaultConfigProvider),
-    Effect.map((base) => withOverrides(base, overrideConfig(options))),
-    Effect.flatMap((config) =>
-      requiredOption(
-        config.apiKey,
-        `Missing provider API key. Set DSP_PROVIDER_API_KEY or ${providerApiKeyEnvName(config.provider)}.`
-      ).pipe(
-        Effect.map((apiKey) => ({
-          provider: config.provider,
-          model: config.model,
-          apiKey,
-          apiUrl: config.apiUrl,
-          anthropicVersion: config.anthropicVersion,
-          openrouterReferrer: config.openrouterReferrer,
-          openrouterTitle: config.openrouterTitle
-        }))
-      )
+  providerConfig(options).pipe(
+    Effect.withConfigProvider(
+      Option.getOrElse(Option.fromNullable(options.configProvider), () => defaultConfigProvider)
     ),
-    Effect.mapError((error) => new InvalidRuntimeConfig({ reason: String(error) }))
+    Effect.mapError((error) => new InvalidRuntimeConfig({ reason: error.message }))
   )

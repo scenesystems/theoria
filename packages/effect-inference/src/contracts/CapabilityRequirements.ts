@@ -15,19 +15,19 @@ import { StructuredOutputModeSchema } from "./RuntimeCapabilities.js"
  * @category schemas
  */
 export const CapabilityRequirementsSchema = Schema.Struct({
-  /** Requires or rejects the language-model lane. */
+  /** Requires the language-model lane when true; false adds no constraint. */
   textGeneration: Schema.optional(Schema.Boolean),
-  /** Requires or rejects the embedding-model lane. */
+  /** Requires the embedding-model lane when true; false adds no constraint. */
   embeddings: Schema.optional(Schema.Boolean),
-  /** Requires the route's declared streaming value to match. */
+  /** Requires declared streaming support when true; false adds no constraint. */
   streaming: Schema.optional(Schema.Boolean),
-  /** Requires the route's declared tool-calling value to match. */
+  /** Requires declared tool-calling support when true; false adds no constraint. */
   toolCalling: Schema.optional(Schema.Boolean),
   /** Lowest acceptable structured-output grade. */
   structuredOutput: Schema.optional(StructuredOutputModeSchema),
-  /** Requires the route's declared usage-reporting value to match. */
+  /** Requires declared usage-reporting support when true; false adds no constraint. */
   usageReporting: Schema.optional(Schema.Boolean),
-  /** Requires the route's declared multimodal-input value to match. */
+  /** Requires declared multimodal-input support when true; false adds no constraint. */
   multimodalInput: Schema.optional(Schema.Boolean),
   /** Inclusive lower bound for the declared context window, in tokens. */
   minimumContextTokens: Schema.optional(Schema.Number)
@@ -35,7 +35,7 @@ export const CapabilityRequirementsSchema = Schema.Struct({
 
 /**
  * Caller constraints checked before model layers are exposed. A present
- * boolean requires that exact declared value.
+ * true boolean requires support; false or omission imposes no requirement.
  *
  * @since 0.1.0
  * @category type-level
