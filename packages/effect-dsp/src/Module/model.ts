@@ -52,8 +52,8 @@ export class SavedState extends Schema.Class<SavedState>("ProgramParams")({
  * AI provider error or package-owned `DspError`.
  *
  * Parameters remain mutable through a `Ref`. The child map records owned nodes
- * for composition, discovery, and persistence, but operational wrappers do not
- * necessarily expose the module they invoke as a child.
+ * for composition, discovery, optimization, and persistence. Operational
+ * wrappers include the inner modules whose parameters their execution reads.
  *
  * @typeParam I - Fields defining decoded input and input Schema requirements.
  * @typeParam O - Fields defining decoded output and output Schema requirements.

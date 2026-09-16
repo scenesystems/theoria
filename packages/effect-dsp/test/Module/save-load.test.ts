@@ -7,7 +7,7 @@ import { SaveLoadError } from "@scenesystems/effect-dsp/Errors"
 import { Demo } from "@scenesystems/effect-dsp/Example"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Either, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Order, Ref, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -28,12 +28,12 @@ describe("Module.save / Module.load", () => {
       const expectedParams = new ModuleParams({
         instructions: "Use one-word factual answers.",
         outputStrategy: "text",
-        demos: [
+        demos: Arr.make(
           new Demo({
             input: { question: "What is the capital of France?" },
             output: { answer: "Paris" }
           })
-        ],
+        ),
         temperature: 0.2,
         maxTokens: 12
       })
@@ -46,7 +46,7 @@ describe("Module.save / Module.load", () => {
         module.params,
         new ModuleParams({
           instructions: signature.instructions,
-          demos: []
+          demos: Arr.empty()
         })
       )
 
@@ -55,7 +55,7 @@ describe("Module.save / Module.load", () => {
       const restored = yield* Ref.get(module.params)
 
       expect(saved.modules).toHaveLength(1)
-      expect(saved.modules[0]?.name).toBe("qa")
+      expect((yield* Arr.head(saved.modules)).name).toBe("qa")
       expect(restored).toEqual(expectedParams)
     }))
 
@@ -72,22 +72,22 @@ describe("Module.save / Module.load", () => {
 
       const rootExpected = new ModuleParams({
         instructions: "Root instructions",
-        demos: [
+        demos: Arr.make(
           new Demo({
             input: { question: "Root question" },
             output: { answer: "Root answer" }
           })
-        ],
+        ),
         outputStrategy: "structured"
       })
       const qaExpected = new ModuleParams({
         instructions: "Leaf instructions",
-        demos: [
+        demos: Arr.make(
           new Demo({
             input: { question: "Leaf question" },
             output: { answer: "Leaf answer" }
           })
-        ],
+        ),
         outputStrategy: "text"
       })
 
@@ -100,14 +100,14 @@ describe("Module.save / Module.load", () => {
         root.params,
         new ModuleParams({
           instructions: "mutated-root",
-          demos: []
+          demos: Arr.empty()
         })
       )
       yield* Ref.set(
         qa.params,
         new ModuleParams({
           instructions: "mutated-leaf",
-          demos: []
+          demos: Arr.empty()
         })
       )
 
@@ -116,7 +116,7 @@ describe("Module.save / Module.load", () => {
       const restoredRoot = yield* Ref.get(root.params)
       const restoredQa = yield* Ref.get(qa.params)
 
-      expect(saved.modules.map((entry) => entry.name).sort()).toEqual(["qa", "qa-root"])
+      expect(Arr.sort(Arr.map(saved.modules, (entry) => entry.name), Order.string)).toEqual(Arr.make("qa", "qa-root"))
       expect(restoredRoot).toEqual(rootExpected)
       expect(restoredQa).toEqual(qaExpected)
     }))
@@ -134,33 +134,28 @@ describe("Module.save / Module.load", () => {
 
       const invalid = new Module.SavedState({
         version: 1,
-        modules: [
+        modules: Arr.make(
           {
             name: "qa-root",
             params: new ModuleParams({
               instructions: "root-only",
-              demos: []
+              demos: Arr.empty()
             })
           }
-        ]
+        )
       })
       const originalRootParams = yield* Ref.get(root.params)
 
-      const result = yield* Effect.either(Module.load(root, invalid))
+      const result = yield* Effect.flip(Module.load(root, invalid))
       const rootParamsAfterFailure = yield* Ref.get(root.params)
 
-      expect(Either.isLeft(result)).toBe(true)
+      expect(result).toEqual(
+        new SaveLoadError({
+          message: "Saved state is missing params for module 'qa'",
+          operation: "load"
+        })
+      )
 
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe("SaveLoadError")
-        expect(result.left).toEqual(
-          new SaveLoadError({
-            message: "Saved state is missing params for module 'qa'",
-            operation: "load"
-          })
-        )
-      }
-
-      expect(rootParamsAfterFailure).toEqual(originalRootParams)
+      expect(rootParamsAfterFailure).toBe(originalRootParams)
     }))
 })

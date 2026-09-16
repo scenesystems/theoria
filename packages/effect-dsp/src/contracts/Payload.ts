@@ -4,7 +4,7 @@
  * @since 0.4.0
  * @module
  */
-import { Effect, Either, ParseResult, Schema } from "effect"
+import { Effect, Either, ParseResult, Schema, type SchemaAST } from "effect"
 
 const parseJson = Schema.decodeUnknownEither(Schema.parseJson())
 
@@ -77,11 +77,13 @@ export const encodePayload = <A, I, R>(
  * Restores a document through its domain schema, preserving decoded types,
  * expected parse failures, and schema service requirements. Supply
  * `Schema.encodedSchema(schema)` when inspecting the wire representation.
+ * Native parse options control policies such as rejecting excess fields.
  *
  * @since 0.4.0
  * @category decoding
  */
 export const decodePayload = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
-  document: Payload
-): Effect.Effect<A, ParseResult.ParseError, R> => Schema.decode(Schema.parseJson(schema))(document)
+  document: Payload,
+  options?: SchemaAST.ParseOptions
+): Effect.Effect<A, ParseResult.ParseError, R> => Schema.decode(Schema.parseJson(schema))(document, options)

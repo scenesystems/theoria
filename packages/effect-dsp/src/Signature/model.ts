@@ -4,6 +4,7 @@
  * @since 0.1.0
  */
 import { Data, Schema } from "effect"
+import { type DemoContract, makeDemoContract } from "../contracts/DemoContract.js"
 
 /**
  * Records prompt metadata derived from one input or output field.
@@ -56,7 +57,14 @@ export class Signature<
   readonly outputSchema: Schema.Struct<O>
   /** Input metadata followed by output metadata, preserving field order. */
   readonly fields: Schema.Array$<typeof FieldInfo>["Type"]
-}> {}
+}> {
+  /**
+   * Destination-owned demonstration operations derived from the retained schemas.
+   * Compiled once so projections of this signature retain the same contract.
+   * @since 0.4.0
+   */
+  readonly demoContract: DemoContract = makeDemoContract(this.inputSchema, this.outputSchema)
+}
 
 /**
  * Selects the decoded input represented by a {@link Signature}.

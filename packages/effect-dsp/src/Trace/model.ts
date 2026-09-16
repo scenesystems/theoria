@@ -45,6 +45,8 @@ export class Entry extends Schema.Class<Entry>("TraceEntry")({
   input: Payload,
   /** Schema-encoded answer or intermediate {@link UnparsedOutput} document. */
   output: Payload,
+  /** Intermediate ReAct turns are evidence, not replayable demonstrations. */
+  outcome: Schema.optionalWith(Schema.Literal("completed", "intermediate"), { default: () => "completed" }),
   /** Rendered prompt sent to the language model. */
   prompt: Schema.String,
   /** Unparsed language-model response text. */

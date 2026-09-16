@@ -154,6 +154,7 @@ export const appendReactTraceEntry = <
       signatureDescription: options.signature.description,
       input: options.traceInput,
       output: traceOutput,
+      outcome: Option.match(options.output, { onNone: () => "intermediate", onSome: () => "completed" }),
       prompt: yield* promptToTraceText(options.prompt),
       rawResponse: options.response.text,
       usage: options.usage,

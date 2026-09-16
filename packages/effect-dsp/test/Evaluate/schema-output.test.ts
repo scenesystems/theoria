@@ -61,10 +61,11 @@ describe("schema-derived metric values", () => {
       expect(report.overallScores.metric).toBe(8)
     }))
 
-  it.effect("reports malformed expected values without invoking the scorer or defecting", () =>
+  it.effect("reports malformed expected values before invoking the model or scorer", () =>
     Effect.gen(function*() {
-      const module = yield* makeModule
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("unused"))
+      const signature = yield* Signature.make("Count", { question: Schema.String }, Output.fields)
+      const module = yield* Module.predict("invalid-label", signature)
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ result: { count: "7" } }))
       const calls = yield* Ref.make(0)
       const metric = Metric.fromEffect("count", (_prediction: typeof Output.Type) =>
         Ref.update(calls, Number.increment).pipe(Effect.as(new Metric.Result({ score: 1 }))))
@@ -74,6 +75,7 @@ describe("schema-derived metric values", () => {
         metrics: { metric }
       }).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       expect(yield* Ref.get(calls)).toBe(0)
+      expect(yield* Ref.get(mock.calls)).toEqual(Arr.empty())
       expect(report.failureCount).toBe(1)
       const failure = yield* Arr.head(report.failures)
       expect(failure.tag).toBe("EvaluationFailed")

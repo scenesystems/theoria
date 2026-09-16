@@ -4,8 +4,8 @@
  * @since 0.1.0
  */
 import type { ObjectiveValue as EffectSearchObjectiveValue } from "@scenesystems/effect-search/Contracts"
-import { Array as Arr, Effect, Option, Order, Record, Schema } from "effect"
-import { ExampleFailure, type Report } from "../Evaluate/report.js"
+import { Array as Arr, Effect, Match, Number, Option, Order, Record, Schema } from "effect"
+import { ExampleFailure, Report } from "../Evaluate/report.js"
 
 /**
  * Decodes scalar (`"single"`) and vector (`"multi"`) projection modes.
@@ -78,21 +78,26 @@ export class ObjectiveProjection extends Schema.Class<ObjectiveProjection>("Obje
  */
 export type ObjectiveValue = EffectSearchObjectiveValue
 
-const metricEntryOrder: Order.Order<readonly [string, number]> = Order.mapInput(Order.string, ([name]) => name)
+const MetricEntry = Schema.Tuple(Schema.String, Schema.Number)
+const MetricNames = Schema.Array(Schema.String)
+const metricEntryOrder: Order.Order<typeof MetricEntry.Type> = Order.mapInput(Order.string, ([name]) => name)
 
-const stableMetricEntries = (report: Report): ReadonlyArray<readonly [string, number]> =>
-  Arr.sort(Record.toEntries(report.overallScores), metricEntryOrder)
+const stableMetricEntries = (report: Report) => Arr.sort(Record.toEntries(report.overallScores), metricEntryOrder)
 
-const stableMetricNames = (report: Report): ReadonlyArray<string> =>
-  Arr.map(stableMetricEntries(report), ([name]) => name)
+const stableMetricNames = (report: Report) => Arr.map(stableMetricEntries(report), ([name]) => name)
 
 const metricScore = (report: Report, metricName: string): number =>
   Option.getOrElse(Record.get(report.overallScores, metricName), () => 0)
 
 const averageDuration = (report: Report): number =>
-  report.results.length <= 0
-    ? 0
-    : Arr.reduce(report.results, 0, (sum, result) => sum + result.durationMs) / report.results.length
+  Arr.match(report.results, {
+    onEmpty: () => 0,
+    onNonEmpty: (results) =>
+      Number.unsafeDivide(
+        Arr.reduce(results, 0, (sum, result) => Number.sum(sum, result.durationMs)),
+        Arr.length(results)
+      )
+  })
 
 const objectiveTelemetry = (report: Report): ObjectiveTelemetry =>
   new ObjectiveTelemetry({
@@ -104,7 +109,7 @@ const objectiveTelemetry = (report: Report): ObjectiveTelemetry =>
     averageDurationMs: averageDuration(report)
   })
 
-const validateProjection = (payload: unknown) => Schema.decodeUnknown(ObjectiveProjection)(payload)
+const validateProjection = Schema.decode(ObjectiveProjection)
 
 /**
  * Selects one aggregate metric as a scalar search objective.
@@ -150,7 +155,7 @@ export const projectSingleObjective = (report: Report, metricName: Option.Option
  * @since 0.1.0
  * @category constructors
  */
-export const projectMultiObjective = (report: Report, metricNames?: ReadonlyArray<string>) =>
+export const projectMultiObjective = (report: Report, metricNames?: typeof MetricNames.Type) =>
   Effect.gen(function*() {
     const selectedMetricNames = Option.getOrElse(Option.fromNullable(metricNames), () => stableMetricNames(report))
 
@@ -159,6 +164,12 @@ export const projectMultiObjective = (report: Report, metricNames?: ReadonlyArra
       telemetry: objectiveTelemetry(report)
     })
   })
+
+const ProjectObjectiveOptions = Schema.Struct({
+  report: Report,
+  mode: ObjectiveProjectionMode,
+  metricNames: Schema.optional(MetricNames)
+})
 
 /**
  * Projects an evaluation report according to a scalar or vector mode.
@@ -173,14 +184,13 @@ export const projectMultiObjective = (report: Report, metricNames?: ReadonlyArra
  * @since 0.1.0
  * @category constructors
  */
-export const projectObjective = (options: {
-  readonly report: Report
-  readonly mode: Schema.Schema.Type<typeof ObjectiveProjectionMode>
-  readonly metricNames?: ReadonlyArray<string>
-}) =>
-  options.mode === "single"
-    ? projectSingleObjective(
-      options.report,
-      Option.flatMap(Option.fromNullable(options.metricNames), Arr.head)
-    )
-    : projectMultiObjective(options.report, options.metricNames)
+export const projectObjective = (options: typeof ProjectObjectiveOptions.Type) =>
+  Match.value(options.mode).pipe(
+    Match.when("single", () =>
+      projectSingleObjective(
+        options.report,
+        Option.flatMap(Option.fromNullable(options.metricNames), Arr.head)
+      )),
+    Match.when("multi", () => projectMultiObjective(options.report, options.metricNames)),
+    Match.exhaustive
+  )

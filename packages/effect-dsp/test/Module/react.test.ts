@@ -103,6 +103,7 @@ describe("Module.react", () => {
       expect(output).toEqual({ answer: "Paris" })
       expect(toolCalls).toEqual(Arr.make("What is the capital of France?"))
       expect(Arr.map(lmCalls, (call) => call.method)).toEqual(Arr.make("generateText", "generateText", "generateText"))
+      expect(Arr.map(entries, (entry) => entry.outcome)).toEqual(Arr.make("intermediate", "intermediate", "completed"))
       expect(first.rawResponse).toContain("Thought")
       expect(second.prompt).toContain("Tool observations")
       expect(second.rawResponse).toBe("malformed")

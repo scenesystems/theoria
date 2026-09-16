@@ -4,7 +4,19 @@
  * @since 0.1.0
  */
 import type { Ref } from "effect"
-import { Array as Arr, Boolean, Data, Effect, Equal, Equivalence, FiberRef, HashMap, Option, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Data,
+  Effect,
+  Equal,
+  Equivalence,
+  FiberRef,
+  HashMap,
+  Option,
+  Schema,
+  SynchronizedRef
+} from "effect"
 import type { ModuleGraphNode } from "../../contracts/ModuleGraph.js"
 import { ModuleId } from "../../contracts/ModuleId.js"
 import { makeModuleNodeSignature } from "../../contracts/ModuleNode.js"
@@ -19,19 +31,22 @@ import {
 } from "./model.js"
 
 /**
- * Stores discovery registrations in the current FiberRef lineage.
+ * Stores the optional shared collector for the current discovery lineage.
  *
  * @remarks
- * The default value is empty. Prefer {@link discoverModules},
- * {@link discoverModuleGraph}, or {@link withDiscoveryScope} over changing this
- * ref directly because those combinators restore the enclosing value.
+ * The default is `None`, so no mutable collector is global. Registration
+ * outside an explicit discovery scope lazily installs a collector in the
+ * current fiber; children forked afterward share it. {@link discoverModules},
+ * {@link discoverModuleGraph}, and {@link withDiscoveryScope} each install a
+ * fresh `Some<SynchronizedRef<HashMap<...>>>`, which is the concurrent
+ * discovery boundary and is restored when that scope ends.
  *
  * @since 0.1.0
  * @category refs
  */
 export const ModuleRegistryRef: FiberRef.FiberRef<
-  HashMap.HashMap<ModuleId, ModuleRegistration>
-> = FiberRef.unsafeMake(HashMap.empty())
+  Option.Option<SynchronizedRef.SynchronizedRef<HashMap.HashMap<ModuleId, ModuleRegistration>>>
+> = FiberRef.unsafeMake(Option.none())
 
 const decodeModuleId = (moduleName: string): Effect.Effect<ModuleId, CompositionError> =>
   Schema.decodeUnknown(ModuleId)(moduleName).pipe(
@@ -123,10 +138,24 @@ export const register = (
   registration: ModuleRegistration
 ): Effect.Effect<void, CompositionError> =>
   Effect.gen(function*() {
-    const existing = yield* FiberRef.get(ModuleRegistryRef)
-    const merged = yield* mergeRegistration(existing, registration)
+    const current = yield* FiberRef.get(ModuleRegistryRef)
+    const collector = yield* Option.match(current, {
+      onNone: () =>
+        Effect.gen(function*() {
+          const initialized = yield* SynchronizedRef.make(
+            HashMap.empty<ModuleId, ModuleRegistration>()
+          )
+          yield* FiberRef.set(ModuleRegistryRef, Option.some(initialized))
 
-    return yield* FiberRef.set(ModuleRegistryRef, merged)
+          return initialized
+        }),
+      onSome: Effect.succeed
+    })
+
+    return yield* SynchronizedRef.updateEffect(
+      collector,
+      (registrations) => mergeRegistration(registrations, registration)
+    )
   })
 
 /**
@@ -215,6 +244,10 @@ export const registerModule = <
  * @category combinators
  */
 export const registrySnapshot = FiberRef.get(ModuleRegistryRef).pipe(
+  Effect.flatMap(Option.match({
+    onNone: () => Effect.succeed(HashMap.empty<ModuleId, ModuleRegistration>()),
+    onSome: SynchronizedRef.get
+  })),
   Effect.map(HashMap.values),
   Effect.map(canonicalModuleRegistrations)
 )

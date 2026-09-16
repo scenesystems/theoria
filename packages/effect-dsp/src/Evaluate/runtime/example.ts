@@ -124,7 +124,6 @@ const scoreExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
       onNone: () => evaluateMissingOutput(options.index),
       onSome: (value) => Effect.succeed(value)
     })
-    const prediction = yield* options.module.forward(decodedInput)
     const expectedOutput = yield* Schema.decodeUnknown(options.module.signature.outputSchema)(expected).pipe(
       Effect.mapError(() =>
         new EvaluationFailed({
@@ -133,6 +132,7 @@ const scoreExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
         })
       )
     )
+    const prediction = yield* options.module.forward(decodedInput)
     const scores = yield* Effect.forEach(options.metrics, (entry) =>
       Tuple.getSecond(entry).score(prediction, expectedOutput).pipe(
         Effect.map((result) =>
