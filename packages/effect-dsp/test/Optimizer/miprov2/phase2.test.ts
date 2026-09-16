@@ -358,4 +358,90 @@ describe("MIPROv2 Phase 2", () => {
       expect(failure).toBeInstanceOf(ParseResult.ParseError)
       expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
     }))
+
+  it.effect("rejects misbound, duplicate, and unknown candidate identities before generation or parameter writes", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const child = yield* Module.predict("child", signature)
+      const root = yield* Module.compose({
+        name: "pipeline",
+        signature,
+        subModules: { child },
+        forward: ({ input }) => child.forward(input)
+      })
+      const rootParams = yield* Ref.get(root.params)
+      const childParams = yield* Ref.get(child.params)
+      const generated = yield* Optimizer.generateDemoCandidates({
+        module: root,
+        trainset: trainingSet,
+        numCandidates: 1
+      })
+      const rootSet = yield* requireSome(
+        Arr.findFirst(generated, (set) => String.Equivalence(set.predictorName, root.name)),
+        "missing root candidates"
+      )
+      const childSet = yield* requireSome(
+        Arr.findFirst(generated, (set) => String.Equivalence(set.predictorName, child.name)),
+        "missing child candidates"
+      )
+      const rootBaseline = yield* Arr.head(rootSet.candidates)
+      const rootCandidate = new Optimizer.DemoCandidate({
+        ...rootBaseline,
+        params: new ModuleParams({
+          ...rootBaseline.params,
+          demos: Arr.make(new Demo({ input: { question: "France?" }, output: { answer: "Paris" } }))
+        })
+      })
+      const misboundChildSet = new Optimizer.PredictorDemoCandidates({
+        predictorName: child.name,
+        candidates: Arr.append(childSet.candidates, rootCandidate)
+      })
+      const unknownSet = new Optimizer.PredictorDemoCandidates({
+        predictorName: "unknown",
+        candidates: Arr.make(
+          new Optimizer.DemoCandidate({
+            ...rootCandidate,
+            predictorName: "unknown"
+          })
+        )
+      })
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed("must not be called"))
+
+      yield* Effect.forEach(
+        Arr.make(
+          Arr.make(rootSet, misboundChildSet),
+          Arr.make(rootSet, childSet, rootSet),
+          Arr.make(rootSet, childSet, unknownSet)
+        ),
+        (demoCandidates) =>
+          Effect.gen(function*() {
+            const result = yield* Optimizer.proposeInstructionCandidates({
+              module: root,
+              trainset: trainingSet,
+              demoCandidates,
+              numInstructions: 2
+            }).pipe(
+              Effect.provideService(LanguageModel.LanguageModel, mock.service),
+              Effect.either
+            )
+
+            expect(result).toMatchObject({ left: { _tag: "InstructionProposalFailed" } })
+            expect(yield* Ref.get(mock.calls)).toHaveLength(0)
+            expect(yield* Ref.get(root.params)).toBe(rootParams)
+            expect(yield* Ref.get(child.params)).toBe(childParams)
+          })
+      )
+
+      const proposals = yield* Optimizer.proposeInstructionCandidates({
+        module: root,
+        trainset: trainingSet,
+        demoCandidates: Arr.reverse(generated),
+        numInstructions: 2
+      }).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+
+      expect(Arr.map(proposals, (set) => set.predictorName)).toEqual(Arr.make(root.name, child.name))
+      expect(yield* Ref.get(mock.calls)).toHaveLength(2)
+      expect(yield* Ref.get(root.params)).toBe(rootParams)
+      expect(yield* Ref.get(child.params)).toBe(childParams)
+    }))
 })

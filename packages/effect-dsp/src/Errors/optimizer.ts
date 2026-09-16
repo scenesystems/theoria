@@ -60,8 +60,9 @@ export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>()(
  * Reports that MIPROv2 could not produce a usable instruction proposal.
  *
  * @remarks
- * The predictor index identifies the target within proposal order. Candidate
- * evaluation failures use a different error path after proposals are decoded.
+ * The predictor index identifies the target within proposal order, or is `-1`
+ * when a supplied candidate set names an unknown predictor. Candidate evaluation
+ * failures use a different error path after proposals are decoded.
  *
  * @since 0.1.0
  * @category errors
@@ -71,7 +72,7 @@ export class InstructionProposalFailed extends Schema.TaggedError<InstructionPro
   {
     /** Diagnostic text from proposal generation or decoding. */
     message: Schema.String,
-    /** Zero-based target position in proposal order. */
+    /** Zero-based target position in proposal order, or `-1` for an unknown target. */
     predictorIndex: Schema.Number
   }
 ) {}
