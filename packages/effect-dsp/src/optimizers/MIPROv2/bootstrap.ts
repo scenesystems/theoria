@@ -11,25 +11,21 @@ import { ModuleParams } from "../../contracts/ModuleParams.js"
 import { collectModuleParamRefs } from "../../internal/module-params.js"
 import type { Module as DspModule } from "../../Module/model.js"
 import type { MIPROExamples } from "./index.js"
-import { assemblePredictorCandidates, labeledDemos, sortDemos } from "./runtime/anchors.js"
+import { assemblePredictorCandidates, labeledDemos, Phase1CandidateKind, sortDemos } from "./runtime/anchors.js"
 import { normalizeCount, normalizeSeed } from "./runtime/random.js"
 
 /**
  * Decodes the four demonstration layouts produced by Phase 1.
  *
  * @remarks
- * The two `bootstrap-*` variants use labeled examples in original or seeded
- * order. Phase 1 does not execute a teacher or collect module traces.
+ * The two `bootstrap-*` variants use existing destination demos (including
+ * prior trace bootstrapping) followed by compatible labels, in original or
+ * seeded order. Phase 1 does not execute a teacher or collect traces.
  *
  * @since 0.1.0
  * @category models
  */
-export const DemoCandidateKindSchema = Schema.Literal(
-  "zero-shot",
-  "labels-only",
-  "bootstrap-unshuffled",
-  "bootstrap-shuffled"
-)
+export const DemoCandidateKindSchema = Phase1CandidateKind
 
 /**
  * Identifies the empty, labeled-prefix, original-order, or seeded-order
@@ -126,7 +122,10 @@ export class GenerateDemoCandidatesOptions<
  * order begins with zero-shot, labels-only, and original-order bootstrap
  * layouts, truncated when `numCandidates` is below three. Additional slots use
  * seeded orderings and a seeded demonstration count. Inputs and outputs are
- * copied without Schema decoding. The module parameter refs remain unchanged.
+ * validated against each destination's encoded signature. Incompatible labels
+ * are not candidates for that stage; existing invalid demos fail with a checked
+ * ParseError. Stages with no compatible evidence remain zero-shot. Parameter
+ * refs remain unchanged; run BootstrapFewShot first to collect stage evidence.
  *
  * @param options - Module tree, labeled-example source, candidate count, and limits.
  * @returns Candidate sets in the module tree's parameter-ref order.
@@ -165,10 +164,15 @@ export const generateDemoCandidates = <
     return yield* Effect.forEach(refs, (ref, predictorIndex) =>
       Effect.gen(function*() {
         const params = yield* Ref.get(ref.params)
+        const compatibleLabels = Arr.getSomes(
+          yield* Effect.forEach(allLabeled, (demo) => ref.demoContract.decode(demo).pipe(Effect.option))
+        )
+        const existing = yield* Effect.forEach(params.demos, ref.demoContract.decode)
         const assembledCandidates = assemblePredictorCandidates({
           predictorName: ref.name,
           params,
-          demos: allLabeled,
+          demos: compatibleLabels,
+          bootstrappedDemos: Arr.appendAll(existing, compatibleLabels),
           requestedCandidates,
           maxLabeledDemos,
           maxBootstrappedDemos,

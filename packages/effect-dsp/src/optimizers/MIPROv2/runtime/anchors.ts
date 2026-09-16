@@ -5,11 +5,10 @@
  * @since 0.1.0
  * @internal
  */
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Option, Order, Record } from "effect"
-import type { ModuleParams } from "../../../contracts/ModuleParams.js"
-import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
-import { Demo, type Example } from "../../../Example/index.js"
+import { Array as Arr, Inspectable, Number as Num, Option, Order, Record, Schema } from "effect"
+import { ModuleParams, withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
+import type { Example } from "../../../Example/index.js"
+import { Demo } from "../../../Example/index.js"
 import { buildIndices, normalizeCount, sampleBoundedCount, shuffleBySeed } from "./random.js"
 
 /**
@@ -26,7 +25,15 @@ import { buildIndices, normalizeCount, sampleBoundedCount, shuffleBySeed } from 
  * @since 0.1.0
  * @category models
  */
-export type Phase1CandidateKind = "zero-shot" | "labels-only" | "bootstrap-unshuffled" | "bootstrap-shuffled"
+export const Phase1CandidateKind = Schema.Literal(
+  "zero-shot",
+  "labels-only",
+  "bootstrap-unshuffled",
+  "bootstrap-shuffled"
+)
+
+/** @internal */
+export type Phase1CandidateKind = typeof Phase1CandidateKind.Type
 
 /**
  * A single Phase 1 candidate pairing a candidate kind with the concrete
@@ -36,60 +43,39 @@ export type Phase1CandidateKind = "zero-shot" | "labels-only" | "bootstrap-unshu
  * @category models
  * @see {@link Phase1CandidateKind}
  */
-export class CandidateAssembly extends Data.Class<{
-  readonly kind: Phase1CandidateKind
-  readonly params: ModuleParams
-}> {}
+export class CandidateAssembly extends Schema.Class<CandidateAssembly>("MIPROv2CandidateAssembly")({
+  kind: Phase1CandidateKind,
+  params: ModuleParams
+}) {}
 
 const demoOrder: Order.Order<Demo> = Order.mapInput(
   Order.number,
-  (demo) => Record.keys(demo.input).length + Record.keys(demo.output).length
+  (demo) => Num.sum(Arr.length(Record.keys(demo.input)), Arr.length(Record.keys(demo.output)))
 )
 
 const candidateInstructions = (baseInstructions: string, predictorName: string, marker: string): string =>
-  `${baseInstructions}\n[miprov2-phase1:${predictorName}:${marker}]`
+  Arr.join(Arr.make(baseInstructions, "\n[miprov2-phase1:", predictorName, ":", marker, "]"), "")
 
-const candidateParams = (options: {
-  readonly params: ModuleParams
-  readonly demos: ReadonlyArray<Demo>
-  readonly predictorName: string
-  readonly marker: string
-}): ModuleParams =>
-  withModuleParamsDemosAndInstructions(
-    options.params,
-    options.demos,
-    candidateInstructions(options.params.instructions, options.predictorName, options.marker)
-  )
-
-const candidate = (kind: Phase1CandidateKind, params: ModuleParams): CandidateAssembly => ({
-  kind,
-  params
+/**
+ * Validated destination evidence and limits used to assemble Phase 1 candidates.
+ * Labels and bootstrap evidence remain separate, including when either is empty.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export const AssemblePredictorCandidatesOptions = Schema.Struct({
+  predictorName: Schema.String,
+  params: ModuleParams,
+  demos: ModuleParams.fields.demos,
+  bootstrappedDemos: ModuleParams.fields.demos,
+  requestedCandidates: Schema.Number,
+  maxLabeledDemos: Schema.Number,
+  maxBootstrappedDemos: Schema.Number,
+  seed: Schema.Number
 })
 
-const bootstrapShuffledCandidates = (options: {
-  readonly predictorName: string
-  readonly params: ModuleParams
-  readonly demos: ReadonlyArray<Demo>
-  readonly maxBootstrappedDemos: number
-  readonly required: number
-  readonly seed: number
-}): ReadonlyArray<CandidateAssembly> =>
-  options.required <= 0
-    ? Arr.empty<CandidateAssembly>()
-    : Arr.map(buildIndices(options.required), (index) => {
-      const shuffleSeed = options.seed + index + 1
-      const demoCount = sampleBoundedCount(shuffleSeed, options.maxBootstrappedDemos)
-
-      return {
-        kind: "bootstrap-shuffled",
-        params: candidateParams({
-          params: options.params,
-          demos: Arr.take(shuffleBySeed(options.demos, shuffleSeed), demoCount),
-          predictorName: options.predictorName,
-          marker: `shuffled-${index + 1}-count-${demoCount}`
-        })
-      }
-    })
+/** @internal */
+export type AssemblePredictorCandidatesOptions = typeof AssemblePredictorCandidatesOptions.Type
 
 /**
  * Extracts labeled examples from a training set, converting each into a
@@ -98,7 +84,7 @@ const bootstrapShuffledCandidates = (options: {
  * @since 0.1.0
  * @category constructors
  */
-export const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<Demo> =>
+export const labeledDemos = (trainset: Schema.Array$<typeof Example>["Type"]): ModuleParams["demos"] =>
   Arr.filterMap(
     trainset,
     (example) => Option.map(Option.fromNullable(example.output), (output) => new Demo({ input: example.input, output }))
@@ -111,7 +97,7 @@ export const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<De
  * @since 0.1.0
  * @category utils
  */
-export const sortDemos = (demos: ReadonlyArray<Demo>): ReadonlyArray<Demo> => Arr.sort(demos, demoOrder)
+export const sortDemos = (demos: ModuleParams["demos"]): ModuleParams["demos"] => Arr.sort(demos, demoOrder)
 
 /**
  * Builds the full set of Phase 1 demo candidates for a single predictor.
@@ -128,53 +114,48 @@ export const sortDemos = (demos: ReadonlyArray<Demo>): ReadonlyArray<Demo> => Ar
  * @see {@link Phase1CandidateKind}
  * @see {@link CandidateAssembly}
  */
-export const assemblePredictorCandidates = (options: {
-  readonly predictorName: string
-  readonly params: ModuleParams
-  readonly demos: ReadonlyArray<Demo>
-  readonly requestedCandidates: number
-  readonly maxLabeledDemos: number
-  readonly maxBootstrappedDemos: number
-  readonly seed: number
-}): ReadonlyArray<CandidateAssembly> => {
+export const assemblePredictorCandidates = (
+  options: AssemblePredictorCandidatesOptions
+): Schema.Array$<typeof CandidateAssembly>["Type"] => {
   const normalizedRequested = normalizeCount(options.requestedCandidates)
+  const candidate = (kind: Phase1CandidateKind, demos: ModuleParams["demos"], marker: string) =>
+    new CandidateAssembly({
+      kind,
+      params: withModuleParamsDemosAndInstructions(
+        options.params,
+        demos,
+        candidateInstructions(options.params.instructions, options.predictorName, marker)
+      )
+    })
   const anchors = Arr.make(
-    candidate(
-      "zero-shot",
-      candidateParams({
-        params: options.params,
-        demos: Arr.empty<Demo>(),
-        predictorName: options.predictorName,
-        marker: "zero-shot"
-      })
-    ),
-    candidate(
-      "labels-only",
-      candidateParams({
-        params: options.params,
-        demos: Arr.take(options.demos, options.maxLabeledDemos),
-        predictorName: options.predictorName,
-        marker: "labels-only"
-      })
-    ),
+    candidate("zero-shot", Arr.empty(), "zero-shot"),
+    candidate("labels-only", Arr.take(options.demos, options.maxLabeledDemos), "labels-only"),
     candidate(
       "bootstrap-unshuffled",
-      candidateParams({
-        params: options.params,
-        demos: Arr.take(options.demos, options.maxBootstrappedDemos),
-        predictorName: options.predictorName,
-        marker: "bootstrap-unshuffled"
-      })
+      Arr.take(options.bootstrappedDemos, options.maxBootstrappedDemos),
+      "bootstrap-unshuffled"
     )
   )
-  const shuffled = bootstrapShuffledCandidates({
-    predictorName: options.predictorName,
-    params: options.params,
-    demos: options.demos,
-    maxBootstrappedDemos: options.maxBootstrappedDemos,
-    required: Numeric.max(0, normalizedRequested - anchors.length),
-    seed: options.seed
-  })
+  const shuffled = Arr.map(
+    buildIndices(Num.max(0, Num.subtract(normalizedRequested, Arr.length(anchors)))),
+    (index) => {
+      const shuffleSeed = Num.increment(Num.sum(options.seed, index))
+      const demoCount = sampleBoundedCount(shuffleSeed, options.maxBootstrappedDemos)
+      return candidate(
+        "bootstrap-shuffled",
+        Arr.take(shuffleBySeed(options.bootstrappedDemos, shuffleSeed), demoCount),
+        Arr.join(
+          Arr.make(
+            "shuffled-",
+            Inspectable.toStringUnknown(Num.increment(index)),
+            "-count-",
+            Inspectable.toStringUnknown(demoCount)
+          ),
+          ""
+        )
+      )
+    }
+  )
 
   return Arr.take(Arr.appendAll(anchors, shuffled), normalizedRequested)
 }

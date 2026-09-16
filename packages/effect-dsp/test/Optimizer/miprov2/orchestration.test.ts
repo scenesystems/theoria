@@ -65,7 +65,7 @@ describe("MIPROv2 orchestration", () => {
   it.effect("executes Phase1 -> Phase2 -> Phase3 in canonical order", () =>
     Effect.gen(function*() {
       const module = yield* makeStructuredQaModule
-      const events = yield* Ref.make<ReadonlyArray<string>>(Arr.empty<string>())
+      const events = yield* Ref.make(Arr.empty<string>())
       const mock = yield* makeQaMock
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
@@ -105,7 +105,7 @@ describe("MIPROv2 orchestration", () => {
           path: "phase-3-study",
           detail: "storage unavailable"
         })
-        const events = yield* Ref.make<ReadonlyArray<string>>(Arr.empty<string>())
+        const events = yield* Ref.make(Arr.empty<string>())
         const appendCalls = yield* Ref.make(0)
         const storage = Layer.succeed(
           Study.StudyStorage,

@@ -17,8 +17,10 @@ import type { Phase3Config } from "./runtime/model.js"
  * Records the configured search shape and observed evaluation indexes.
  *
  * @remarks
- * `bestScore` is the maximum recorded baseline, minibatch, or full-set score;
- * it may describe a different configuration from `studyResult.bestTrial`.
+ * `bestScore` is the maximum recorded baseline, minibatch, or full-set score
+ * from successful attempts. An attempt whose full checkpoint fails does not
+ * promote its minibatch score. The maximum may describe a different
+ * configuration from `studyResult.bestTrial`.
  *
  * @since 0.1.0
  * @category models
@@ -44,7 +46,7 @@ export class Phase3Diagnostics extends Schema.Class<Phase3Diagnostics>("MIPROv2P
   priorTrialCount: Schema.Number,
   /** Full validation-set score for the index-zero configuration. */
   baselineObjective: Schema.Number,
-  /** Maximum score observed across baseline, minibatch, and full-set evaluations. */
+  /** Maximum baseline, minibatch, or full-set score from successful attempts. */
   bestScore: Schema.Number
 }) {}
 

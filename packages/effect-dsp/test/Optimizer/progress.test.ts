@@ -39,12 +39,12 @@ const sampleGEPAEvents = Arr.make(
   }),
   Optimizer.GEPAEvent.ParetoUpdated({
     iteration: 1,
-    frontierIndices: [0, 1],
-    dominatedIndices: [2],
-    parentWeights: [
+    frontierIndices: Arr.make(0, 1),
+    dominatedIndices: Arr.of(2),
+    parentWeights: Arr.make(
       { candidateIndex: 0, weight: 0.75 },
       { candidateIndex: 1, weight: 0.25 }
-    ]
+    )
   }),
   Optimizer.GEPAEvent.IterationCompleted({
     iteration: 1,

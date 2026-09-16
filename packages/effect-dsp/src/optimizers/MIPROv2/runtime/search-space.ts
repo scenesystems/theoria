@@ -12,6 +12,7 @@ import {
   Array as Arr,
   Data,
   Effect,
+  HashMap,
   Inspectable,
   Match,
   Number as Num,
@@ -23,10 +24,10 @@ import {
 import type { Schema } from "effect"
 import type { ObjectiveValue } from "../../../contracts/ObjectiveProjection.js"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
-import { collectModuleParamRefs } from "../../../internal/module-params.js"
+import { collectModuleParamRefs, type ModuleParamRef } from "../../../internal/module-params.js"
 import type { Module as DspModule } from "../../../Module/model.js"
-import type { PredictorDemoCandidateSets } from "../bootstrap.js"
-import type { PredictorInstructionCandidateSets } from "../propose.js"
+import type { PredictorDemoCandidates, PredictorDemoCandidateSets } from "../bootstrap.js"
+import type { PredictorInstructionCandidates, PredictorInstructionCandidateSets } from "../propose.js"
 import {
   demoDimensionName,
   instructionDimensionName,
@@ -97,7 +98,7 @@ const categoricalDimension = (count: number): Effect.Effect<Phase3CategoricalSch
  * @category helpers
  */
 export const configIndex = (config: Phase3Config, key: string): Effect.Effect<Phase3DimensionIndex, AllTrialsFailed> =>
-  Option.match(Option.fromNullable(config[key]), {
+  Option.match(Record.get(config, key), {
     onNone: () =>
       Effect.fail(
         new AllTrialsFailed({
@@ -108,12 +109,150 @@ export const configIndex = (config: Phase3Config, key: string): Effect.Effect<Ph
     onSome: (value) => Effect.succeed(value)
   })
 
+const bindingFailure = (message: string): AllTrialsFailed =>
+  new AllTrialsFailed({
+    message,
+    trialCount: 0
+  })
+
+const indexDemoCandidateSets = (candidateSets: PredictorDemoCandidateSets) =>
+  Effect.reduce(
+    candidateSets,
+    HashMap.empty<string, PredictorDemoCandidates>(),
+    (setsByName, candidateSet) =>
+      Effect.if(HashMap.has(setsByName, candidateSet.predictorName), {
+        onTrue: () =>
+          Effect.fail(
+            bindingFailure(
+              Str.concat(
+                Str.concat("Ambiguous phase-3 demo candidates for predictor '", candidateSet.predictorName),
+                "'"
+              )
+            )
+          ),
+        onFalse: () => Effect.succeed(HashMap.set(setsByName, candidateSet.predictorName, candidateSet))
+      })
+  )
+
+const indexInstructionCandidateSets = (candidateSets: PredictorInstructionCandidateSets) =>
+  Effect.reduce(
+    candidateSets,
+    HashMap.empty<string, PredictorInstructionCandidates>(),
+    (setsByName, candidateSet) =>
+      Effect.if(HashMap.has(setsByName, candidateSet.predictorName), {
+        onTrue: () =>
+          Effect.fail(
+            bindingFailure(
+              Str.concat(
+                Str.concat("Ambiguous phase-3 instruction candidates for predictor '", candidateSet.predictorName),
+                "'"
+              )
+            )
+          ),
+        onFalse: () => Effect.succeed(HashMap.set(setsByName, candidateSet.predictorName, candidateSet))
+      })
+  )
+
+const requireDestination = (
+  refsByName: HashMap.HashMap<string, ModuleParamRef>,
+  predictorName: string,
+  candidateKind: string
+) =>
+  Option.match(HashMap.get(refsByName, predictorName), {
+    onNone: () =>
+      Effect.fail(
+        bindingFailure(
+          Str.concat(
+            Str.concat(
+              Str.concat("Unknown phase-3 ", candidateKind),
+              Str.concat(" candidates for predictor '", predictorName)
+            ),
+            "'"
+          )
+        )
+      ),
+    onSome: Effect.succeed
+  })
+
+const validateCandidateIdentity = (
+  candidateKind: string,
+  setPredictorName: string,
+  candidatePredictorName: string
+) =>
+  Effect.if(Str.Equivalence(candidatePredictorName, setPredictorName), {
+    onTrue: () => Effect.void,
+    onFalse: () =>
+      Effect.fail(
+        bindingFailure(
+          Arr.join(
+            Arr.make(
+              "Phase-3 ",
+              candidateKind,
+              " candidate for predictor '",
+              setPredictorName,
+              "' identifies predictor '",
+              candidatePredictorName,
+              "'"
+            ),
+            ""
+          )
+        )
+      )
+  })
+
+const validateDemoCandidateSet = (
+  refsByName: HashMap.HashMap<string, ModuleParamRef>,
+  candidateSet: PredictorDemoCandidates
+) =>
+  Effect.gen(function*() {
+    const destination = yield* requireDestination(refsByName, candidateSet.predictorName, "demo")
+    yield* Effect.forEach(
+      candidateSet.candidates,
+      (candidate) =>
+        validateCandidateIdentity("demo", candidateSet.predictorName, candidate.predictorName).pipe(
+          Effect.zipRight(
+            Effect.forEach(candidate.params.demos, destination.demoContract.decode, { discard: true }).pipe(
+              Effect.mapError(() =>
+                bindingFailure(
+                  Str.concat(
+                    Str.concat(
+                      "Phase-3 demo candidate does not match the destination contract for predictor '",
+                      candidateSet.predictorName
+                    ),
+                    "'"
+                  )
+                )
+              )
+            )
+          )
+        ),
+      { discard: true }
+    )
+  })
+
+const validateInstructionCandidateSet = (
+  refsByName: HashMap.HashMap<string, ModuleParamRef>,
+  candidateSet: PredictorInstructionCandidates
+) =>
+  requireDestination(refsByName, candidateSet.predictorName, "instruction").pipe(
+    Effect.zipRight(
+      Effect.forEach(
+        candidateSet.candidates,
+        (candidate) => validateCandidateIdentity("instruction", candidateSet.predictorName, candidate.predictorName),
+        { discard: true }
+      )
+    )
+  )
+
 /**
  * Pairs each predictor in the module with its demo and instruction
  * candidate sets, producing a `PredictorBinding` per predictor.
  *
- * Fails with `AllTrialsFailed` when any predictor lacks a
- * corresponding entry in either candidate array.
+ * Before producing bindings, every supplied set is matched uniquely to a real
+ * destination. Unknown or duplicate sets and mismatched candidate identities
+ * fail with `AllTrialsFailed`. Every demonstration in every candidate is
+ * validated through the destination's wire-level demo contract. Validation
+ * completes before Phase 3 can write any parameter ref.
  *
  * @since 0.1.0
  * @category constructors
@@ -125,11 +264,30 @@ export const resolveBindings = <
   E,
   R
 >(options: ResolveBindingsOptions<I, O, E, R>) =>
-  Effect.forEach(collectModuleParamRefs(options.module), (ref) =>
-    Effect.gen(function*() {
-      const demos = yield* Option.match(
-        Arr.findFirst(options.demoCandidates, (entry) => Str.Equivalence(entry.predictorName, ref.name)),
-        {
+  Effect.gen(function*() {
+    const refs = collectModuleParamRefs(options.module)
+    const refsByName = Arr.reduce(
+      refs,
+      HashMap.empty<string, ModuleParamRef>(),
+      (byName, ref) => HashMap.set(byName, ref.name, ref)
+    )
+    const demosByName = yield* indexDemoCandidateSets(options.demoCandidates)
+    const instructionsByName = yield* indexInstructionCandidateSets(options.instructionCandidates)
+
+    yield* Effect.forEach(
+      options.demoCandidates,
+      (candidateSet) => validateDemoCandidateSet(refsByName, candidateSet),
+      { discard: true }
+    )
+    yield* Effect.forEach(
+      options.instructionCandidates,
+      (candidateSet) => validateInstructionCandidateSet(refsByName, candidateSet),
+      { discard: true }
+    )
+
+    return yield* Effect.forEach(refs, (ref) =>
+      Effect.gen(function*() {
+        const demos = yield* Option.match(HashMap.get(demosByName, ref.name), {
           onNone: () =>
             Effect.fail(
               new AllTrialsFailed({
@@ -138,11 +296,8 @@ export const resolveBindings = <
               })
             ),
           onSome: (entry) => Effect.succeed(entry)
-        }
-      )
-      const instructions = yield* Option.match(
-        Arr.findFirst(options.instructionCandidates, (entry) => Str.Equivalence(entry.predictorName, ref.name)),
-        {
+        })
+        const instructions = yield* Option.match(HashMap.get(instructionsByName, ref.name), {
           onNone: () =>
             Effect.fail(
               new AllTrialsFailed({
@@ -154,16 +309,16 @@ export const resolveBindings = <
               })
             ),
           onSome: (entry) => Effect.succeed(entry)
-        }
-      )
+        })
 
-      return new PredictorBinding({
-        predictorName: ref.name,
-        paramsRef: ref.params,
-        demos,
-        instructions
-      })
-    }))
+        return new PredictorBinding({
+          predictorName: ref.name,
+          paramsRef: ref.params,
+          demos,
+          instructions
+        })
+      }))
+  })
 
 /**
  * Builds the index-0 baseline configuration — every predictor uses its

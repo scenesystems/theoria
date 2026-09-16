@@ -3,8 +3,8 @@
  *
  * @since 0.1.0
  */
-import { Data } from "effect"
-import type { MIPROv2EventSummary } from "./progress.js"
+import { Boolean as Bool, Number as Num, Schema } from "effect"
+import { MIPROv2EventSummary } from "./progress.js"
 
 /**
  * Compares the best reported search score with a separately evaluated final module.
@@ -17,24 +17,43 @@ import type { MIPROv2EventSummary } from "./progress.js"
  * @since 0.1.0
  * @category models
  */
-export class MIPROv2OptimizationObservability extends Data.Class<{
+export class MIPROv2OptimizationObservability
+  extends Schema.Class<MIPROv2OptimizationObservability>("MIPROv2OptimizationObservability")({
+    /** Reference score supplied by the caller. */
+    baselineScore: Schema.Number,
+    /** Caller-evaluated score for the retained module state. */
+    optimizedScore: Schema.Number,
+    /** Whether the event summary contained any Phase 3 score. */
+    searchBestScoreSeen: Schema.Boolean,
+    /** Best event-derived score, or `optimizedScore` when none was observed. */
+    searchBestScore: Schema.Number,
+    /** `searchBestScore - baselineScore`. */
+    searchGain: Schema.Number,
+    /** `optimizedScore - baselineScore`. */
+    retainedGain: Schema.Number,
+    /** `searchBestScore - optimizedScore`. */
+    retainedVsSearchGap: Schema.Number,
+    /** True when search gain is positive and retained gain is zero or negative. */
+    searchImprovedButRetainedFlat: Schema.Boolean
+  })
+{}
+
+/**
+ * Supplies baseline, retained, and event-derived scores for observability projection.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class MIPROv2OptimizationObservabilityOptions extends Schema.Class<MIPROv2OptimizationObservabilityOptions>(
+  "MIPROv2OptimizationObservabilityOptions"
+)({
   /** Reference score supplied by the caller. */
-  readonly baselineScore: number
+  baselineScore: Schema.Number,
   /** Caller-evaluated score for the retained module state. */
-  readonly optimizedScore: number
-  /** Whether the event summary contained any Phase 3 score. */
-  readonly searchBestScoreSeen: boolean
-  /** Best event-derived score, or `optimizedScore` when none was observed. */
-  readonly searchBestScore: number
-  /** `searchBestScore - baselineScore`. */
-  readonly searchGain: number
-  /** `optimizedScore - baselineScore`. */
-  readonly retainedGain: number
-  /** `searchBestScore - optimizedScore`. */
-  readonly retainedVsSearchGap: number
-  /** True when search gain is positive and retained gain is zero or negative. */
-  readonly searchImprovedButRetainedFlat: boolean
-}> {}
+  optimizedScore: Schema.Number,
+  /** Independently folded MIPROv2 lifecycle events. */
+  eventSummary: MIPROv2EventSummary
+}) {}
 
 /**
  * Computes score differences from event-derived and caller-evaluated values.
@@ -45,19 +64,18 @@ export class MIPROv2OptimizationObservability extends Data.Class<{
  * @since 0.1.0
  * @category constructors
  */
-export const summarizeMIPROv2OptimizationObservability = (options: {
-  readonly baselineScore: number
-  readonly optimizedScore: number
-  readonly eventSummary: MIPROv2EventSummary
-}): MIPROv2OptimizationObservability => {
-  const searchBestScore = options.eventSummary.phase3BestScoreSeen
-    ? options.eventSummary.phase3BestScore
-    : options.optimizedScore
-  const searchGain = searchBestScore - options.baselineScore
-  const retainedGain = options.optimizedScore - options.baselineScore
-  const retainedVsSearchGap = searchBestScore - options.optimizedScore
+export const summarizeMIPROv2OptimizationObservability = (
+  options: MIPROv2OptimizationObservabilityOptions
+): MIPROv2OptimizationObservability => {
+  const searchBestScore = Bool.match(options.eventSummary.phase3BestScoreSeen, {
+    onFalse: () => options.optimizedScore,
+    onTrue: () => options.eventSummary.phase3BestScore
+  })
+  const searchGain = Num.subtract(searchBestScore, options.baselineScore)
+  const retainedGain = Num.subtract(options.optimizedScore, options.baselineScore)
+  const retainedVsSearchGap = Num.subtract(searchBestScore, options.optimizedScore)
 
-  return {
+  return new MIPROv2OptimizationObservability({
     baselineScore: options.baselineScore,
     optimizedScore: options.optimizedScore,
     searchBestScoreSeen: options.eventSummary.phase3BestScoreSeen,
@@ -65,6 +83,9 @@ export const summarizeMIPROv2OptimizationObservability = (options: {
     searchGain,
     retainedGain,
     retainedVsSearchGap,
-    searchImprovedButRetainedFlat: searchGain > 0 && retainedGain <= 0
-  }
+    searchImprovedButRetainedFlat: Bool.and(
+      Num.greaterThan(searchGain, 0),
+      Num.lessThanOrEqualTo(retainedGain, 0)
+    )
+  })
 }

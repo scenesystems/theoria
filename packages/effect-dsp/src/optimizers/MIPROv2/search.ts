@@ -6,9 +6,10 @@
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Array as Arr, Effect, Option, Ref } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { projectSingleObjective } from "../../contracts/ObjectiveProjection.js"
+import { AllTrialsFailed } from "../../Errors/optimizer.js"
 import * as Evaluate from "../../Evaluate/index.js"
 import type { MIPROExamples } from "./index.js"
 import { noPhase3Events, Phase3Diagnostics, Phase3SearchResult, type RunPhase3SearchOptions } from "./phase3-model.js"
@@ -74,6 +75,10 @@ export const phase3TrialBudget = phase3TrialBudgetFormula
  *
  * Missing candidate sets, unsupported dimension sizes, malformed sampled
  * indexes, and an empty winning result fail with `AllTrialsFailed`. Failures
+ * of every example in an evaluation also fail with `AllTrialsFailed`, before
+ * report projection; reports with some successful examples remain scoreable.
+ * A failed baseline aborts search, and failed study trials cannot beat the
+ * successful baseline prior, including when all new trials fail. Failures
  * raised inside the effect-search study retain the study's `SearchError`
  * channel. Baseline evaluation also retains its metric, module, Schema, and
  * language-model error channels.
@@ -166,12 +171,22 @@ export const runPhase3Search = <
           },
           concurrency: 1
         }).pipe(Effect.provide(evaluationContext))
+        yield* Effect.when(
+          Effect.fail(
+            new AllTrialsFailed({
+              message: "MIPROv2 Phase 3 evaluation produced zero successful examples",
+              trialCount: Arr.length(examples)
+            })
+          ),
+          () =>
+            Num.lessThanOrEqualTo(report.successCount, 0)
+        )
         const projection = yield* projectSingleObjective(report, Option.some("miprov2"))
 
         return yield* objectiveScore(projection.objective)
       })
     const baseline = baselineConfig(bindings)
-    const baselineResult = yield* evaluateBaseline(
+    const [baselineObjective, priorTrial] = yield* evaluateBaseline(
       new EvaluateBaselineOptions({
         baselineConfig: baseline,
         valset: options.valset,
@@ -196,7 +211,7 @@ export const runPhase3Search = <
             evaluateOn
           })
         ),
-      priorTrials: Arr.make(baselineResult.priorTrial),
+      priorTrials: Arr.make(priorTrial),
       concurrency: 1
     })
 
@@ -212,7 +227,7 @@ export const runPhase3Search = <
 
     const fullEvalTrialNumbers = yield* Ref.get(refs.fullEvalTrialsRef)
     const minibatchTrialNumbers = yield* Ref.get(refs.minibatchTrialsRef)
-    const bestScore = yield* Ref.get(refs.bestScoreRef)
+    const bestScore = Option.getOrElse(yield* Ref.get(refs.bestScoreRef), () => baselineObjective)
 
     return new Phase3SearchResult<I, O, E, R>({
       module: options.module,
@@ -231,7 +246,7 @@ export const runPhase3Search = <
         fullEvalTrialNumbers,
         minibatchTrialNumbers,
         priorTrialCount: 1,
-        baselineObjective: baselineResult.baselineObjective,
+        baselineObjective,
         bestScore
       })
     })
