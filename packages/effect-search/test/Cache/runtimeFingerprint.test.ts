@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
-import { InvalidUnicode, UnsupportedValue } from "@scenesystems/digest"
+import { UnsupportedValue } from "@scenesystems/digest/CanonicalJson"
+import { InvalidUnicode } from "@scenesystems/digest/Utf8"
 import { Effect, Exit, Schema } from "effect"
 
 import { durableFingerprint, runtimeFingerprint, RuntimeFingerprintError } from "../../src/Cache/index.js"
