@@ -2,14 +2,16 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Number, Option, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
-import { Contracts, Text } from "../../src/index.js"
+import * as MeasurementCache from "../../src/MeasurementCache.js"
+import * as Text from "../../src/Text.js"
+import * as TextMeasurer from "../../src/TextMeasurer.js"
 
 const makeTestLayer = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(
+  Text.layerSegmenter,
+  Text.layerProfile,
+  MeasurementCache.layer.pipe(
     Layer.provide(
-      Layer.succeed(Contracts.TextMeasurer, {
+      Layer.succeed(TextMeasurer.TextMeasurer, {
         measure: (_font, text: string) => Effect.succeed(Number.multiply(String.length(text), 5))
       })
     )
@@ -25,7 +27,7 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })).toEqual(Arr.of(
+      expect(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })).toEqual(Arr.of(
         {
           baseDirection: "rtl",
           index: 0,
@@ -45,7 +47,7 @@ describe("Text bidi visual ordering contracts", () => {
       }).pipe(Effect.provide(makeTestLayer))
 
       expect(
-        Arr.head(Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })).pipe(Option.map((line) => line.text))
+        Arr.head(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })).pipe(Option.map((line) => line.text))
       )
         .toEqual(Option.some("hello (םולש) world"))
     }))
@@ -59,7 +61,7 @@ describe("Text bidi visual ordering contracts", () => {
       }).pipe(Effect.provide(makeTestLayer))
 
       expect(
-        Arr.head(Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })).pipe(Option.map((line) => line.text))
+        Arr.head(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })).pipe(Option.map((line) => line.text))
       )
         .toEqual(Option.some("(םולש)"))
     }))
@@ -72,9 +74,9 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
       const request = { maxWidth: 200, lineHeight: 12 }
-      const lines = Text.layoutLines(prepared, request)
-      const ranges = Text.walkLineRanges(prepared, request)
-      const nextLine = Text.layoutNextLine(prepared, request, Text.initialCursor())
+      const lines = Text.lines(prepared, request)
+      const ranges = Text.ranges(prepared, request)
+      const nextLine = Text.nextLine(prepared, request, Text.start)
 
       expect(Arr.head(lines).pipe(Option.map((line) => line.text))).toEqual(Option.some("hello םולש world"))
       expect(ranges).toEqual(Arr.of(
@@ -113,9 +115,9 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
       const request = { maxWidth: 55, lineHeight: 12 }
-      const summary = Text.layout(prepared, request)
-      const lines = Text.layoutLines(prepared, request)
-      const ranges = Text.walkLineRanges(prepared, request)
+      const summary = Text.summary(prepared, request)
+      const lines = Text.lines(prepared, request)
+      const ranges = Text.ranges(prepared, request)
 
       expect(summary.lineCount).toBe(Arr.length(lines))
       expect(summary.maxLineWidth).toBe(Arr.reduce(lines, 0, (maxWidth, line) => Number.max(maxWidth, line.width)))
@@ -131,7 +133,7 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })).toEqual(Arr.of(
+      expect(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })).toEqual(Arr.of(
         {
           baseDirection: "ltr",
           index: 0,
@@ -150,8 +152,8 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
       const request = { maxWidth: 1000000, lineHeight: 12 }
-      const summary = Text.layout(prepared, request)
-      const lines = Text.layoutLines(prepared, request)
+      const summary = Text.summary(prepared, request)
+      const lines = Text.lines(prepared, request)
 
       expect(summary.lineCount).toBe(1)
       expect(Arr.length(lines)).toBe(1)

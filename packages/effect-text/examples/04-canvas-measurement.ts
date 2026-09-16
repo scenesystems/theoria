@@ -5,45 +5,43 @@
  */
 import { Effect, Layer, Option, Schema } from "effect"
 
-import { Browser, Contracts, Text } from "@scenesystems/effect-text"
+import { CanvasProfile, CanvasTextMeasurer, Hyphenation, MeasurementCache, Text } from "@scenesystems/effect-text"
 
 export class CanvasLayoutOptions extends Schema.Class<CanvasLayoutOptions>("effect-text/CanvasLayoutOptions")({
-  prepare: Text.PrepareInput,
-  request: Text.LayoutRequest,
-  profileId: Schema.OptionFromSelf(Browser.BrowserSupportProfileIdSchema),
-  fontReadinessRevision: Schema.OptionFromSelf(Browser.FontReadinessRevision),
-  emojiCorrection: Schema.OptionFromSelf(Browser.EmojiCorrection)
+  prepare: Text.Input,
+  request: Text.Request,
+  profileId: Schema.OptionFromSelf(CanvasProfile.Id),
+  emojiCorrection: Schema.OptionFromSelf(CanvasTextMeasurer.EmojiCorrection)
 }) {}
 
-export const layoutCanvasText = (context: Browser.CanvasMeasurementContext, options: CanvasLayoutOptions) => {
+export const layoutCanvasText = (context: CanvasTextMeasurer.Context, options: CanvasLayoutOptions) => {
   const profile = Option.match(options.profileId, {
-    onNone: () => Browser.browserSupportProfile(),
-    onSome: Browser.browserSupportProfile
+    onNone: () => CanvasProfile.get(),
+    onSome: CanvasProfile.get
   })
-  const emojiCorrectionOptions = Option.match(options.emojiCorrection, {
+  const correction = Option.match(options.emojiCorrection, {
     onNone: () => ({}),
     onSome: (emojiCorrection) => ({ emojiCorrection })
   })
   const services = Layer.mergeAll(
-    Text.WordSegmenterLive,
-    Text.HyphenationDictionaryLive(),
-    Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
-    Browser.BrowserMeasurementCacheLive({
-      fontReadinessRevision: Option.getOrElse(options.fontReadinessRevision, Browser.initialFontReadinessRevision),
-      profileId: profile.id
-    }).pipe(
+    Text.layerSegmenter,
+    Layer.succeed(Text.CurrentProfile, profile.engineProfile),
+    Hyphenation.layer(),
+    MeasurementCache.layer.pipe(
       Layer.provide(
-        Browser.CanvasTextMeasurerLive({
-          context,
-          ...emojiCorrectionOptions,
-          textBaseline: "alphabetic"
-        })
+        CanvasTextMeasurer.layer(
+          new CanvasTextMeasurer.Options({
+            context,
+            ...correction,
+            textBaseline: "alphabetic"
+          })
+        )
       )
     )
   )
 
   return Text.prepareWithSegments(options.prepare).pipe(
     Effect.provide(services),
-    Effect.map((prepared) => Text.layoutLinesWithSummary(prepared, options.request))
+    Effect.map((prepared) => Text.layout(prepared, options.request))
   )
 }

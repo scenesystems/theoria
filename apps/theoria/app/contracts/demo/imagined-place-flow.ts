@@ -327,7 +327,7 @@ export const drawingOnStage = (stage: Stage, drawing: PlaceDrawing): PlaceDrawin
  */
 export const paperExpected = (
   stage: Stage,
-  prepared: Text.PreparedTextWithSegments,
+  prepared: Text.WithSegments,
   features: PlaceFeatures
 ): number => {
   const column = Num.subtract(stage.stageWidth, Num.multiply(2, stage.padding))
@@ -399,7 +399,7 @@ export const markersBeside = (
 /**
  * The description flows from the top-left and stops short of any marker that
  * intrudes into a line's band, so text wraps around the features. The
- * resolver is what `Text.layoutLinesWith` calls once per line. The geometry
+ * resolver is what `Text.linesWith` calls once per line. The geometry
  * keeps every marker's left edge past the least line and the gap, so the
  * floor is never what sets a line's width for markers it placed; it stands for
  * markers from elsewhere, so the flow still lays out whole words.
@@ -416,13 +416,13 @@ export const lineWidthFor = (stage: Stage, markers: PlaceMarkers) => (lineIndex:
 }
 
 export const flowLines = (
-  prepared: Text.PreparedTextWithSegments,
+  prepared: Text.WithSegments,
   stage: Stage,
   markers: PlaceMarkers
 ): PlaceLines => {
   const widthFor = lineWidthFor(stage, markers)
   return Arr.map(
-    Text.layoutLinesWith(
+    Text.linesWith(
       prepared,
       { maxWidth: Num.subtract(stage.stageWidth, Num.multiply(2, stage.padding)), lineHeight: stage.lineHeight },
       widthFor

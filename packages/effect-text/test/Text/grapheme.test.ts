@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, FastCheck, Schema, String } from "effect"
 
-import { graphemeClusters } from "../../src/Text/internal/grapheme.js"
-import { Graphemes } from "../../src/Text/internal/graphemeSchema.js"
+import { graphemeClusters } from "../../src/internal/grapheme.js"
+import { Graphemes } from "../../src/internal/graphemeSchema.js"
 import vectors from "../fixtures/graphemeBreak17.json" with { type: "json" }
 
 const ConformanceCases = Schema.Array(Schema.Struct({ input: Schema.String, expected: Graphemes }))

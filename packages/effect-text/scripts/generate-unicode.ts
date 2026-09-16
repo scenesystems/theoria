@@ -4,7 +4,7 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { fromUnicodeScalar } from "@scenesystems/digest"
 import { Array as Arr, Boolean, Effect, Layer, Option, Schema, String } from "effect"
 
-import { GraphemeData } from "../src/Text/internal/graphemeSchema.js"
+import { GraphemeData } from "../src/internal/graphemeSchema.js"
 
 const TestCase = Schema.Struct({ input: Schema.String, expected: Schema.Array(Schema.String) })
 const TestCases = Schema.Array(TestCase)
@@ -64,7 +64,7 @@ const program = Effect.gen(function*() {
       ))
   })
   const encodedData = yield* Schema.encode(Schema.parseJson(GraphemeData))(data)
-  yield* fs.writeFileString(path.join(root, "src/Text/internal/graphemeData.json"), String.concat(encodedData, "\n"))
+  yield* fs.writeFileString(path.join(root, "src/internal/graphemeData.json"), String.concat(encodedData, "\n"))
 
   const testText = yield* download("auxiliary/GraphemeBreakTest.txt")
   const vectors = yield* Effect.forEach(bodyLines(testText), (line) =>

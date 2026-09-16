@@ -33,7 +33,7 @@ export const maxWidthClassName = (role: TextRole, variant: SurfaceVariant): stri
   Arr.contains(controlSizedRoles, role) ? "" : `max-w-(${maxWidthCssVar(role, variant)})`
 
 /** How a block wraps before it is measured: the browser's own wrapping, in the text's white-space mode. */
-export const whiteSpaceClassName = (mode: Text.WhiteSpaceModeType): string =>
+export const whiteSpaceClassName = (mode: Text.Whitespace): string =>
   Match.value(mode).pipe(
     Match.when("pre-wrap", () => "whitespace-pre-wrap"),
     Match.when("normal", () => "whitespace-normal"),

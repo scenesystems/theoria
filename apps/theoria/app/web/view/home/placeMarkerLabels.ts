@@ -1,4 +1,4 @@
-import { type Errors, Text } from "@scenesystems/effect-text"
+import { Text, type TextMeasurer } from "@scenesystems/effect-text"
 import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Bool from "effect/Boolean"
@@ -50,11 +50,11 @@ const wrapFractions = Arr.make(1, 0.8, 0.65)
  * overflow instead. A layout only counts when its lines rejoin to the name at
  * word boundaries.
  */
-const breaksAtWords = (lines: Text.LayoutLinesType, name: string): boolean =>
+const breaksAtWords = (lines: Text.Lines, name: string): boolean =>
   Str.Equivalence(Arr.join(Arr.map(lines, (line) => line.text), " "), name)
 
 /** A block of text sits inside a circle when its diagonal is no longer than the diameter. */
-const fitsCircle = (lines: Text.LayoutLinesType, lineHeight: number, maxWidth: number, inner: number) => {
+const fitsCircle = (lines: Text.Lines, lineHeight: number, maxWidth: number, inner: number) => {
   const widest = Arr.reduce(lines, 0, (acc, line) => Num.max(acc, line.width))
   const height = Num.multiply(Arr.length(lines), lineHeight)
   return Bool.and(
@@ -67,7 +67,7 @@ const fitsCircle = (lines: Text.LayoutLinesType, lineHeight: number, maxWidth: n
 }
 
 export const labelWidthFor = (
-  prepared: Text.PreparedTextWithSegments,
+  prepared: Text.WithSegments,
   name: string,
   diameter: number
 ): Option.Option<number> => {
@@ -77,7 +77,7 @@ export const labelWidthFor = (
     onFalse: () =>
       Arr.findFirst(wrapFractions, (fraction) => {
         const maxWidth = Num.multiply(inner, fraction)
-        const lines = Text.layoutLines(prepared, { maxWidth, lineHeight })
+        const lines = Text.lines(prepared, { maxWidth, lineHeight })
         return Bool.match(Bool.and(breaksAtWords(lines, name), fitsCircle(lines, lineHeight, maxWidth, inner)), {
           onFalse: Option.none,
           onTrue: () => Option.some(maxWidth)
@@ -96,7 +96,7 @@ export const labelWidthFor = (
 export const markerLabelWidths = (
   place: PlaceOutline,
   stage: Stage
-): Effect.Effect<MarkerLabelWidths, Errors.MeasurementFailed, BrowserTextLayout> =>
+): Effect.Effect<MarkerLabelWidths, TextMeasurer.Failed, BrowserTextLayout> =>
   Effect.map(
     Effect.forEach(placeFeatures(place), (feature) =>
       Effect.map(

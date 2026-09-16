@@ -30,7 +30,7 @@ describe("Arrange's live values", () => {
         Option.some(showingTrial.search),
         Option.some(shownGeometry(showingTrial))
       )
-      expect(valueOf(values, "Text.layoutLinesWith(")).toEqual(
+      expect(valueOf(values, "Text.linesWith(")).toEqual(
         Option.some(`${String(trial.evidence.lineCount)} lines at ${String(trial.projection.stageWidth)} px`)
       )
       expect(valueOf(values, "Statistics.minimum(")).toEqual(
@@ -53,7 +53,7 @@ describe("Arrange's live values", () => {
         { build: Option.some(build), shown: Option.some(showingTrial) }
       )
       const lines = yield* Option.map(shown, (geometry) => geometry.lineCount)
-      expect(valueOf(values, "Text.layoutLinesWith(")).toEqual(
+      expect(valueOf(values, "Text.linesWith(")).toEqual(
         Option.some(`${String(lines)} lines at ${String(showingTrial.rendering.projection.stageWidth)} px`)
       )
       // The press is answered with a line of that same drawing, out of that same count.

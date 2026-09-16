@@ -3,15 +3,6 @@
   "fontFamily": "system-ui",
   "fontSelection": "browser-default-stack",
   "fontStack": ["system-ui", "sans-serif"],
-  "parityCases": [
-    "white-space-normal",
-    "white-space-pre-wrap",
-    "trailing-whitespace-hard-breaks",
-    "tab-advances",
-    "soft-hyphen",
-    "mixed-inline-punctuation",
-    "fit-paint-divergence"
-  ],
   "cases": [
     {
       "caseId": "white-space-normal",

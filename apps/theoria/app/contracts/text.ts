@@ -267,7 +267,7 @@ export const TextSemantics = Schema.Struct({
   transform: TextTransform,
   wrapAuthority: TextWrapAuthority,
   lineBreaks: LineBreakBehavior,
-  whiteSpace: Text.WhiteSpaceMode,
+  whiteSpace: Text.Whitespace,
   lineHeight: PositiveLineHeight,
   maxWidth: VariantMaxWidth,
   at: ResponsiveMetrics
@@ -281,7 +281,7 @@ type TextSemanticsByRole = typeof TextSemanticsByRole.Type
 
 const TextSemanticsCollection = Schema.Array(TextSemantics)
 
-export const fontDescriptorFor = (semantics: TextSemantics): Text.FontDescriptorType => ({
+export const fontDescriptorFor = (semantics: TextSemantics): Text.Font => ({
   family: fontFamilyCss(semantics.family),
   size: semantics.fontSize,
   weight: fontWeightNumeric(semantics.weight)
@@ -604,13 +604,13 @@ export const lineHeightCss = (leading: LineHeight): string => lengthCss(leading)
 export const maxWidthFor = (role: TextRole, variant: SurfaceVariant): number =>
   textSemanticsByRole[role].maxWidth[variant]
 
-export const prepareInputFor = (role: TextRole, text: string): Text.PrepareInputType => ({
+export const prepareInputFor = (role: TextRole, text: string): Text.Input => ({
   text,
   font: fontDescriptorFor(textSemanticsByRole[role]),
   whiteSpace: textSemanticsByRole[role].whiteSpace
 })
 
-export const layoutRequestFor = (role: TextRole, variant: SurfaceVariant): Text.LayoutRequestType => ({
+export const layoutRequestFor = (role: TextRole, variant: SurfaceVariant): Text.Request => ({
   maxWidth: maxWidthFor(role, variant),
   lineHeight: textSemanticsByRole[role].lineHeight
 })
@@ -627,9 +627,9 @@ export const TextProjection = Schema.Struct({
   role: TextRole,
   variant: SurfaceVariantSchema,
   text: Schema.String,
-  layout: Text.LayoutRequest,
-  summary: Text.LayoutSummary,
-  lines: Schema.Array(Text.LayoutLine)
+  layout: Text.Request,
+  summary: Text.Summary,
+  lines: Text.Lines
 })
 
 export type TextProjection = typeof TextProjection.Type

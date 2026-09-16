@@ -62,7 +62,7 @@ const signed = yield* ed25519Sign(author.secretKey, utf8ToBytes(mergedId))`
 const arrangeCode = `// Drawing happens where the place is shown, with that screen's font metrics.
 // The description flows around the markers, one line width at a time.
 const prepared = yield* Text.prepareWithSegments(descriptionInput(merged))
-const lines = Text.layoutLinesWith(prepared, { maxWidth, lineHeight }, widthBesideMarkers)
+const lines = Text.linesWith(prepared, { maxWidth, lineHeight }, widthBesideMarkers)
 
 // Six numbers describe how the markers meander down the stage. An arrangement
 // costs more when markers crowd or lines get squeezed; lower is better.

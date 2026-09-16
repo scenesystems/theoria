@@ -47,7 +47,7 @@ export const render = (artifact: PlaceArtifact, stageWidth: number): Effect.Effe
       trials: Arr.length(best.trials)
     })
   }).pipe(
-    Effect.provide(Text.TextLayoutLive),
+    Effect.provide(Text.layer),
     Effect.mapError((cause) =>
       Match.value(cause).pipe(
         Match.tag("PlaceBuildError", (failure) => failure),

@@ -3,15 +3,6 @@
   "fontFamily": "Mono",
   "fontSelection": "named-family",
   "fontStack": ["Mono", "monospace"],
-  "parityCases": [
-    "white-space-normal",
-    "white-space-pre-wrap",
-    "trailing-whitespace-hard-breaks",
-    "tab-advances",
-    "soft-hyphen",
-    "mixed-inline-punctuation",
-    "fit-paint-divergence"
-  ],
   "cases": [
     {
       "caseId": "white-space-normal",

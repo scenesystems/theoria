@@ -1,15 +1,15 @@
 import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { TextSegment, WhiteSpaceMode } from "../../src/Text/schema.js"
+import { Segment, Whitespace } from "../../src/Text.js"
 
 class UnicodeSegmentationFixture extends Schema.Class<UnicodeSegmentationFixture>(
   "effect-text-test/UnicodeSegmentationFixture"
 )({
-  expected: Schema.Array(TextSegment),
+  expected: Schema.Array(Segment),
   name: Schema.String,
   text: Schema.String,
-  whiteSpace: WhiteSpaceMode
+  whiteSpace: Whitespace
 }) {}
 
 class UnicodeOverflowFixture extends Schema.Class<UnicodeOverflowFixture>("effect-text-test/UnicodeOverflowFixture")({
@@ -20,7 +20,7 @@ class UnicodeOverflowFixture extends Schema.Class<UnicodeOverflowFixture>("effec
 
 const UnicodeSegmentationFixtures = Schema.Array(UnicodeSegmentationFixture)
 const UnicodeOverflowFixtures = Schema.Array(UnicodeOverflowFixture)
-const textSegment = Schema.decodeSync(TextSegment)
+const textSegment = Schema.decodeSync(Segment)
 
 export const unicodeSegmentationFixtures: typeof UnicodeSegmentationFixtures.Type = Arr.make(
   new UnicodeSegmentationFixture({

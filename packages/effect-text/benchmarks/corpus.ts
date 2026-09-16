@@ -1,8 +1,7 @@
 import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { EffectTextSupportManifest } from "../src/contracts/supportManifest.js"
-import { LayoutRequest, PrepareInput } from "../src/Text/schema.js"
+import { Text } from "@scenesystems/effect-text"
 
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
@@ -12,8 +11,8 @@ const BenchmarkMetricStatusSchema = Schema.Literal("recorded", "missing-api")
 
 export const BenchmarkCorpusCaseSchema = Schema.Struct({
   name: Schema.String,
-  prepare: PrepareInput,
-  request: LayoutRequest
+  prepare: Text.Input,
+  request: Text.Request
 })
 
 export type BenchmarkCorpusCase = typeof BenchmarkCorpusCaseSchema.Type
@@ -57,7 +56,7 @@ export const BenchmarkCaseMetricsSchema = Schema.Struct({
 
 export const BenchmarkCaseReportSchema = Schema.Struct({
   name: Schema.String,
-  request: LayoutRequest,
+  request: Text.Request,
   metrics: BenchmarkCaseMetricsSchema
 })
 
@@ -113,7 +112,7 @@ export const BenchmarkComparisonCaseMetricsSchema = Schema.Struct({
 
 export const BenchmarkComparisonCaseReportSchema = Schema.Struct({
   name: Schema.String,
-  request: LayoutRequest,
+  request: Text.Request,
   metrics: BenchmarkComparisonCaseMetricsSchema
 })
 
@@ -136,7 +135,9 @@ export class MissingBenchmarkBaselineError extends Schema.TaggedError<MissingBen
   }
 ) {}
 
-export const benchmarkIterations = EffectTextSupportManifest.benchmarks.walkerKernel.iterations
+export const benchmarkIterations = 200
+export const calibrationScoringIterations = 5_000
+export const calibrationScoringMaxSlowdownRatio = 1
 
 export const benchmarkCorpus = Schema.decodeUnknownSync(BenchmarkCorpusSchema)(
   Arr.make({

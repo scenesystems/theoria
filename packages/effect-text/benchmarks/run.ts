@@ -1,11 +1,11 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Chunk, Clock, Console, Effect, Match, Option, Schema, Stream } from "effect"
+import { Clock, Console, Effect, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 import * as Str from "effect/String"
 
-import { type Errors, Text } from "../src/index.js"
+import { Text, type TextMeasurer } from "@scenesystems/effect-text"
 import {
   type BenchmarkCaseReportType,
   type BenchmarkComparisonCaseReportType,
@@ -81,16 +81,16 @@ const measurePure = <A>(
   })
 
 const collectCursorLines = (
-  prepared: Text.PreparedTextWithSegments,
+  prepared: Text.WithSegments,
   request: BenchmarkCorpusCase["request"],
-  cursor = Text.initialCursor()
-) => Arr.unfold(cursor, (currentCursor) => Text.layoutNextLine(prepared, request, currentCursor))
+  cursor = Text.start
+) => Arr.unfold(cursor, (currentCursor) => Text.nextLine(prepared, request, currentCursor))
 
 const benchmarkCase = (
   corpusCase: BenchmarkCorpusCase
-): Effect.Effect<BenchmarkCaseReportType, Errors.MeasurementFailed> =>
+): Effect.Effect<BenchmarkCaseReportType, TextMeasurer.Failed> =>
   Effect.gen(function*() {
-    const prepared = yield* Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive))
+    const prepared = yield* Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.layer))
 
     return {
       name: corpusCase.name,
@@ -98,19 +98,19 @@ const benchmarkCase = (
       metrics: {
         prepare: yield* measureEffect(
           benchmarkIterations,
-          () => Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive)),
+          () => Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.layer)),
           (preparedText) => ({
             segmentCount: Arr.length(preparedText.logicalSurface.segments)
           })
         ),
         layout: yield* measurePure(
           benchmarkIterations,
-          () => Text.layout(prepared, corpusCase.request),
+          () => Text.summary(prepared, corpusCase.request),
           (summary) => ({ lineCount: summary.lineCount, maxLineWidth: summary.maxLineWidth })
         ),
         layoutLines: yield* measurePure(
           benchmarkIterations,
-          () => Text.layoutLines(prepared, corpusCase.request),
+          () => Text.lines(prepared, corpusCase.request),
           (lines) => ({ lineCount: Arr.length(lines) })
         ),
         layoutNextLine: yield* measurePure(
@@ -121,15 +121,15 @@ const benchmarkCase = (
         streamLines: yield* measureEffect(
           benchmarkIterations,
           () =>
-            Text.streamLines(prepared, corpusCase.request).pipe(
+            Text.stream(prepared, corpusCase.request).pipe(
               Stream.runCollect,
-              Effect.map(Chunk.toReadonlyArray)
+              Effect.map(Arr.fromIterable)
             ),
           (lines) => ({ lineCount: Arr.length(lines) })
         ),
         walkLineRanges: yield* measurePure(
           benchmarkIterations,
-          () => Text.walkLineRanges(prepared, corpusCase.request),
+          () => Text.ranges(prepared, corpusCase.request),
           (ranges) => ({ lineCount: Arr.length(ranges) })
         )
       }

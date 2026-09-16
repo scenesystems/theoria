@@ -2,9 +2,11 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Number, String } from "effect"
 import * as Arr from "effect/Array"
 
-import { Contracts, Text } from "../../src/index.js"
+import * as MeasurementCache from "../../src/MeasurementCache.js"
+import * as Text from "../../src/Text.js"
+import * as TextMeasurer from "../../src/TextMeasurer.js"
 
-const visualLine = (index: number, text: string, width: number): Text.LayoutLineType => ({
+const visualLine = (index: number, text: string, width: number): Text.Line => ({
   baseDirection: "ltr",
   index,
   order: "visual",
@@ -13,11 +15,11 @@ const visualLine = (index: number, text: string, width: number): Text.LayoutLine
 })
 
 const makeTestLayer = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(
+  Text.layerSegmenter,
+  Text.layerProfile,
+  MeasurementCache.layer.pipe(
     Layer.provide(
-      Layer.succeed(Contracts.TextMeasurer, {
+      Layer.succeed(TextMeasurer.TextMeasurer, {
         measure: (_font, text: string) => Effect.succeed(Number.multiply(String.length(text), 5))
       })
     )
@@ -33,7 +35,7 @@ describe("Text breaking contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 12, lineHeight: 12 })
+      const lines = Text.lines(prepared, { maxWidth: 12, lineHeight: 12 })
 
       expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("al", "ph", "ab", "et"))
       expect(Arr.every(lines, (line) => Number.lessThanOrEqualTo(line.width, 12.01))).toBe(true)
@@ -47,7 +49,7 @@ describe("Text breaking contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
+      expect(Text.lines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
         visualLine(0, "alpha-", 30),
         visualLine(1, "beta", 20)
       ))
@@ -61,7 +63,7 @@ describe("Text breaking contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
+      expect(Text.lines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
         visualLine(0, "alpha", 25),
         visualLine(1, "beta", 20)
       ))
@@ -75,7 +77,7 @@ describe("Text breaking contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Arr.map(Text.layoutLines(prepared, { maxWidth: 20, lineHeight: 12 }), (line) => line.text)).toEqual(
+      expect(Arr.map(Text.lines(prepared, { maxWidth: 20, lineHeight: 12 }), (line) => line.text)).toEqual(
         Arr.make("(hel", "lo)", "worl", "d")
       )
     }))
@@ -88,7 +90,7 @@ describe("Text breaking contracts", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
+      expect(Text.lines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
         visualLine(0, "alphab", 30),
         visualLine(1, "et", 10),
         visualLine(2, "a\tb", 25)
