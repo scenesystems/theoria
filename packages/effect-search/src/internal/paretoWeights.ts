@@ -4,41 +4,50 @@
  * @since 0.1.0
  */
 
-import { Array as Arr, HashSet } from "effect"
+import { Array as Arr, HashSet, Match, Number as Num } from "effect"
 
-import type { Direction } from "../contracts/Direction.js"
-import { nonDominatedIndices, objectiveFrontierHoldings } from "./frontier.js"
-import { FrontierSnapshot, ObjectiveFrontierWeight } from "./model.js"
-import type { ObjectiveFrontierHolding, ObjectiveVector } from "./model.js"
+import { type Direction, maximize } from "../Direction.js"
+import type { Vector } from "../Objective.js"
+import { Frontier, type Holding, HoldingWeight } from "../Pareto.js"
+import { nonDominatedIndices, objectiveFrontierHoldings } from "./paretoFrontier.js"
 
 const buildIndices = (
   count: number
-): ReadonlyArray<number> => count <= 0 ? Arr.empty<number>() : Arr.range(0, count - 1)
+) =>
+  Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+    Match.when(true, () => Arr.empty<number>()),
+    Match.orElse(() => Arr.range(0, Num.decrement(count)))
+  )
 
 const objectiveWeightsFromHoldings = (
   pointCount: number,
-  holdings: ReadonlyArray<ObjectiveFrontierHolding>
-): ReadonlyArray<ObjectiveFrontierWeight> => {
+  holdingsInput: Iterable<Holding>
+) => {
+  const holdings = Arr.fromIterable(holdingsInput)
+
   const holderSets = Arr.map(holdings, (h) => HashSet.fromIterable(h.holders))
 
   return Arr.map(buildIndices(pointCount), (candidateIndex) =>
-    new ObjectiveFrontierWeight({
+    new HoldingWeight({
       candidateIndex,
       weight: Arr.reduce(
         holderSets,
         0,
         (total, holderSet) =>
-          HashSet.has(holderSet, candidateIndex)
-            ? total + 1
-            : total
+          Match.value(HashSet.has(holderSet, candidateIndex)).pipe(
+            Match.when(true, () => Num.increment(total)),
+            Match.orElse(() => total)
+          )
       )
     }))
 }
 
 const dominatedIndicesFromFrontier = (
   pointCount: number,
-  frontier: ReadonlyArray<number>
-): ReadonlyArray<number> => {
+  frontierInput: Iterable<number>
+) => {
+  const frontier = Arr.fromIterable(frontierInput)
+
   const frontierSet = HashSet.fromIterable(frontier)
 
   return Arr.filter(buildIndices(pointCount), (index) => !HashSet.has(frontierSet, index))
@@ -55,8 +64,7 @@ const dominatedIndicesFromFrontier = (
  * @since 0.1.0
  * @category frontier
  */
-export const maximizeDirections = (objectiveCount: number): ReadonlyArray<Direction> =>
-  Arr.map(buildIndices(objectiveCount), () => "maximize")
+export const maximizeDirections = (objectiveCount: number) => Arr.map(buildIndices(objectiveCount), () => maximize)
 
 /**
  * Selects every input index absent from the first non-dominated front.
@@ -69,10 +77,13 @@ export const maximizeDirections = (objectiveCount: number): ReadonlyArray<Direct
  * @category frontier
  */
 export const dominatedIndices = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  pointsInput: Iterable<Vector>,
+  directionsInput: Iterable<Direction> = [],
   epsilon = 0
-): ReadonlyArray<number> => {
+) => {
+  const points = Arr.fromIterable(pointsInput)
+  const directions = Arr.fromIterable(directionsInput)
+
   const frontier = nonDominatedIndices(points, directions, epsilon)
 
   return dominatedIndicesFromFrontier(points.length, frontier)
@@ -89,10 +100,13 @@ export const dominatedIndices = (
  * @category frontier
  */
 export const objectiveFrontierWeights = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  pointsInput: Iterable<Vector>,
+  directionsInput: Iterable<Direction> = [],
   epsilon = 0
-): ReadonlyArray<ObjectiveFrontierWeight> => {
+) => {
+  const points = Arr.fromIterable(pointsInput)
+  const directions = Arr.fromIterable(directionsInput)
+
   const holdings = objectiveFrontierHoldings(points, directions, epsilon)
 
   return objectiveWeightsFromHoldings(points.length, holdings)
@@ -110,14 +124,17 @@ export const objectiveFrontierWeights = (
  * @category frontier
  */
 export const frontierSnapshot = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction> = [],
+  pointsInput: Iterable<Vector>,
+  directionsInput: Iterable<Direction> = [],
   epsilon = 0
-): FrontierSnapshot => {
+): Frontier => {
+  const points = Arr.fromIterable(pointsInput)
+  const directions = Arr.fromIterable(directionsInput)
+
   const frontierIndices = nonDominatedIndices(points, directions, epsilon)
   const objectiveHoldings = objectiveFrontierHoldings(points, directions, epsilon)
 
-  return new FrontierSnapshot({
+  return new Frontier({
     frontierIndices,
     dominatedIndices: dominatedIndicesFromFrontier(points.length, frontierIndices),
     objectiveHoldings,

@@ -6,7 +6,7 @@ import {
   expectedImprovementScore,
   jointExpectedImprovementScore,
   sumLogDensities
-} from "../../../src/internal/tpe/expectedImprovement.js"
+} from "../../src/internal/tpe/expectedImprovement.js"
 
 describe("tpe expected improvement", () => {
   it.effect("computes EI scores as log_l minus log_g", () =>

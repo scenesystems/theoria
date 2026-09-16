@@ -1,8 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option } from "effect"
 
-import { argmax, expectedImprovementScore } from "../../../src/internal/tpe/expectedImprovement.js"
-import { piScore } from "../../../src/samplers/Tpe/acquisition/pi.js"
+import * as Acquisition from "../../src/Acquisition.js"
+import { argmax, expectedImprovementScore } from "../../src/internal/tpe/expectedImprovement.js"
+
+const piScore = (logL: number, logG: number, estimatedCost: Option.Option<number>) =>
+  Acquisition.score(
+    new Acquisition.Context({ logL, logG, estimatedCost, roll: Option.none() }),
+    Acquisition.probabilityOfImprovement
+  )
 
 describe("tpe acquisition PI", () => {
   it.effect("maps equal log densities to neutral 0.5 probability", () =>

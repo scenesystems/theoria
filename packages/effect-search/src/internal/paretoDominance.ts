@@ -4,17 +4,19 @@
  * @since 0.1.0
  */
 
-import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option } from "effect"
 
-import type { Direction } from "../contracts/Direction.js"
-import type { ObjectiveVector } from "./model.js"
+import type { Direction } from "../Direction.js"
+import type { Vector } from "../Objective.js"
 
-const defaultDirection = (): Direction => "minimize"
+const minimize = (): Direction => "minimize"
 
-const directionAt = (directions: ReadonlyArray<Direction>, index: number): Direction =>
-  Arr.get(directions, index).pipe(Option.getOrElse(defaultDirection))
+const directionAt = (directionsInput: Iterable<Direction>, index: number): Direction => {
+  const directions = Arr.fromIterable(directionsInput)
+  return Arr.get(directions, index).pipe(Option.getOrElse(minimize))
+}
 
-const rawValueAt = (vector: ObjectiveVector, index: number): number =>
+const rawValueAt = (vector: Vector, index: number): number =>
   Arr.get(vector, index).pipe(Option.getOrElse(() => Number.POSITIVE_INFINITY))
 
 const finiteOrInfinity = (value: number): number =>
@@ -39,12 +41,14 @@ const normalizeCoordinate = (value: number, direction: Direction): number =>
  * @since 0.1.0
  * @category normalization
  */
-export const normalizePoint = (point: ObjectiveVector, directions: ReadonlyArray<Direction>): ObjectiveVector =>
-  Arr.map(point, (value, index) =>
+export const normalizePoint = (point: Vector, directionsInput: Iterable<Direction>): Vector => {
+  const directions = Arr.fromIterable(directionsInput)
+  return Arr.map(point, (value, index) =>
     normalizeCoordinate(
       finiteOrInfinity(value),
       directionAt(directions, index)
     ))
+}
 
 /**
  * Converts every row to the minimization representation used by Pareto comparison.
@@ -53,9 +57,13 @@ export const normalizePoint = (point: ObjectiveVector, directions: ReadonlyArray
  * @category normalization
  */
 export const normalizeMatrix = (
-  points: ReadonlyArray<ObjectiveVector>,
-  directions: ReadonlyArray<Direction>
-): ReadonlyArray<ObjectiveVector> => Arr.map(points, (point) => normalizePoint(point, directions))
+  pointsInput: Iterable<Vector>,
+  directionsInput: Iterable<Direction>
+) => {
+  const points = Arr.fromIterable(pointsInput)
+  const directions = Arr.fromIterable(directionsInput)
+  return Arr.map(points, (point) => normalizePoint(point, directions))
+}
 
 /**
  * Reports whether every row has the first row's arity. An empty matrix is rectangular.
@@ -63,42 +71,47 @@ export const normalizeMatrix = (
  * @since 0.1.0
  * @category validation
  */
-export const validateRectangular = (points: ReadonlyArray<ObjectiveVector>): boolean =>
-  Arr.match(points, {
+export const validateRectangular = (pointsInput: Iterable<Vector>): boolean => {
+  const points = Arr.fromIterable(pointsInput)
+  return Arr.match(points, {
     onEmpty: () => true,
     onNonEmpty: (nonEmpty) => {
       const expectedLength = Arr.headNonEmpty(nonEmpty).length
       return Arr.every(nonEmpty, (point) => Equal.equals(point.length, expectedLength))
     }
   })
+}
 
 const normalizedEpsilon = (epsilon: number): number =>
-  Match.value(Number.isFinite(epsilon) && Num.greaterThan(epsilon, 0)).pipe(
+  Match.value(Bool.and(Number.isFinite(epsilon), Num.greaterThan(epsilon, 0))).pipe(
     Match.when(true, () => epsilon),
     Match.orElse(() => 0)
   )
 
 const dominatesExactly = (
-  normalizedLeft: ObjectiveVector,
-  normalizedRight: ObjectiveVector
+  normalizedLeft: Vector,
+  normalizedRight: Vector
 ): boolean => {
   const noWorse = Arr.every(
     normalizedLeft,
-    (value, index) => value <= rawValueAt(normalizedRight, index)
+    (value, index) => Num.lessThanOrEqualTo(value, rawValueAt(normalizedRight, index))
   )
-  const strictlyBetter = Arr.some(normalizedLeft, (value, index) => value < rawValueAt(normalizedRight, index))
+  const strictlyBetter = Arr.some(
+    normalizedLeft,
+    (value, index) => Num.lessThan(value, rawValueAt(normalizedRight, index))
+  )
 
-  return noWorse && strictlyBetter
+  return Bool.and(noWorse, strictlyBetter)
 }
 
 const dominatesWithEpsilon = (
-  normalizedLeft: ObjectiveVector,
-  normalizedRight: ObjectiveVector,
+  normalizedLeft: Vector,
+  normalizedRight: Vector,
   epsilon: number
 ): boolean =>
   Arr.every(
     normalizedLeft,
-    (value, index) => Num.greaterThanOrEqualTo(rawValueAt(normalizedRight, index) - value, epsilon)
+    (value, index) => Num.greaterThanOrEqualTo(Num.subtract(rawValueAt(normalizedRight, index), value), epsilon)
   )
 
 /**
@@ -112,8 +125,8 @@ const dominatesWithEpsilon = (
  * @category dominance
  */
 export const dominatesNormalized = (
-  normalizedLeft: ObjectiveVector,
-  normalizedRight: ObjectiveVector,
+  normalizedLeft: Vector,
+  normalizedRight: Vector,
   epsilon = 0
 ): boolean =>
   Match.value(Equal.equals(normalizedLeft.length, normalizedRight.length)).pipe(
@@ -144,34 +157,17 @@ export const dominatesNormalized = (
  * objective values before comparison because negating that sentinel produces
  * negative infinity.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Pareto } from "@scenesystems/effect-search"
- *
- * export const program = Effect.sync(() =>
- *   Pareto.dominates(
- *     [0.2, 0.8],
- *     [0.3, 0.7],
- *     ["minimize", "maximize"]
- *   )
- * ).pipe(
- *   Effect.filterOrFail(
- *     (preferred) => preferred,
- *     () => "ExpectedDominance"
- *   )
- * )
- * ```
- *
  * @since 0.1.0
  * @category dominance
  */
 export const dominates = (
-  left: ObjectiveVector,
-  right: ObjectiveVector,
-  directions: ReadonlyArray<Direction> = [],
+  left: Vector,
+  right: Vector,
+  directionsInput: Iterable<Direction> = [],
   epsilon = 0
 ): boolean => {
+  const directions = Arr.fromIterable(directionsInput)
+
   const normalizedLeft = normalizePoint(left, directions)
   const normalizedRight = normalizePoint(right, directions)
 

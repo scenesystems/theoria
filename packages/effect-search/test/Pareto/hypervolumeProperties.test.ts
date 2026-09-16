@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect } from "effect"
 
 import * as Float64 from "../../src/internal/float64.js"
-import * as Pareto from "../../src/Pareto/index.js"
+import * as Pareto from "../../src/Pareto.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
   expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)

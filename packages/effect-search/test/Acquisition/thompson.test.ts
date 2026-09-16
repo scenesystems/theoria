@@ -1,8 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option } from "effect"
 
-import { argmax } from "../../../src/internal/tpe/expectedImprovement.js"
-import { thompsonScore } from "../../../src/samplers/Tpe/acquisition/thompson.js"
+import * as Acquisition from "../../src/Acquisition.js"
+import { argmax } from "../../src/internal/tpe/expectedImprovement.js"
+
+const thompsonScore = (logL: number, roll: Option.Option<number>, estimatedCost: Option.Option<number>) =>
+  Acquisition.score(
+    new Acquisition.Context({ logL, logG: 0, estimatedCost, roll }),
+    Acquisition.thompson
+  )
 
 describe("tpe acquisition Thompson", () => {
   it.effect("is deterministic for identical log density and roll inputs", () =>

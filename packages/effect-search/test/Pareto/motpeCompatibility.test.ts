@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Schema } from "effect"
 
 import * as Float64 from "../../src/internal/float64.js"
-import * as Pareto from "../../src/Pareto/index.js"
-import { FixtureRegistryLive, loadAllFixtures, MotpeWeightsFixtureSchema } from "../helpers/fixtures.js"
+import * as Pareto from "../../src/Pareto.js"
+import { FixtureRegistryLive, loadAllFixtures, MotpeWeightsFixture } from "../helpers/fixtures/index.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-9): void => {
   expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
@@ -15,7 +15,7 @@ describe("Pareto MOTPE compatibility", () => {
       const loaded = yield* loadAllFixtures("motpe-weights.")
       const fixtures = yield* Effect.forEach(
         loaded,
-        (fixture) => Schema.decodeUnknown(MotpeWeightsFixtureSchema)(fixture)
+        (fixture) => Schema.decodeUnknown(MotpeWeightsFixture)(fixture)
       )
 
       Arr.forEach(fixtures, (fixture) => {
@@ -24,7 +24,7 @@ describe("Pareto MOTPE compatibility", () => {
           fixture.payload.referencePoint,
           fixture.payload.directions
         )
-        const weights = Pareto.computeMultiObjectiveWeights(
+        const weights = Pareto.multiObjectiveWeights(
           fixture.payload.points,
           fixture.payload.referencePoint,
           fixture.payload.directions
