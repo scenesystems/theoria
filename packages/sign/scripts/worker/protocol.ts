@@ -18,6 +18,8 @@ export const Request = Schema.Union(
   })
 )
 
+export const RequestBody = Schema.encodedSchema(Request)
+
 export const Result = Schema.Union(
   Schema.Boolean,
   Identity,

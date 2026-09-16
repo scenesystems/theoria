@@ -1,6 +1,7 @@
 /** A finite, sequential Bun baseline. Run separately from builds and tests. */
 import { Command } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import * as BunContext from "@effect/platform-bun/BunContext"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Bytes, Jwt, Rsa } from "@scenesystems/sign"
 import {
   Array as Arr,
@@ -19,22 +20,17 @@ import {
   TestContext,
   TestServices
 } from "effect"
+import { Sample, UnexpectedVerdict } from "./benchmark.js"
 import { decodeConformanceFixture, RsaOpenSslFixture } from "./fixture-contract.js"
 import { JwtFixture } from "./jwt-fixture-contract.js"
-
-class UnexpectedVerdict extends Schema.TaggedError<UnexpectedVerdict>()("UnexpectedVerdict", {
-  name: Schema.String
-}) {}
+import { Identity } from "./worker/protocol.js"
 
 const Positive = Schema.Number.pipe(Schema.finite(), Schema.positive())
-const Result = Schema.Struct({
-  name: Schema.String,
-  warmups: Schema.Int,
-  samples: Schema.Int,
+const Result = Sample.pipe(Schema.extend(Schema.Struct({
   p50Millis: Positive,
   p95Millis: Positive,
   operationsPerSecond: Positive
-})
+})))
 const Report = Schema.parseJson(
   Schema.Struct({
     runtime: Schema.String,
@@ -90,8 +86,8 @@ const program = Effect.gen(function*() {
   const signature = yield* Encoding.decodeBase64Url(signatureText)
   const changed = yield* Schema.decode(Schema.Uint8Array)(
     Arr.modify(
-      Arr.fromIterable(signature),
-      N.decrement(signature.length),
+      signature,
+      N.decrement(signature.byteLength),
       (byte) => N.remainder(N.increment(byte), 256)
     )
   )
@@ -104,7 +100,7 @@ const program = Effect.gen(function*() {
   const maximumSignature = yield* Encoding.decodeHex(maximum.signature)
   const maximumNonmatch = yield* Encoding.decodeHex(maximum.alteredSignature)
   const policy = new Jwt.Policy({ issuer: "https://team.example", audience: "app", maxLifetimeSeconds: 3600 })
-  const identity = Schema.Struct({ sub: Schema.Literal("user-7"), email: Schema.Literal("reader@example.test") })
+  const identity = Identity.pipe(Schema.extend(Schema.Struct({ sub: Schema.Literal("user-7") })))
   const verifyJwt = (input: string) =>
     Jwt.verifyRs256(Redacted.make(input), { keys: Arr.of(jwt.jwk) }, policy, identity).pipe(
       Effect.as(true),
