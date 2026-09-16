@@ -68,9 +68,10 @@ export const TACIT_USAGE_RULES = [
 
 export const TYPE_MODELING_RULES = [
   {
-    selector: "TSInterfaceDeclaration",
+    selector:
+      "TSInterfaceDeclaration:not([body.body.length=0][extends.length=1]:has(TSInterfaceHeritage > MemberExpression[property.name='Type'][object.object.name='Schema'][object.property.name='Schema']))",
     message:
-      "Do not use TypeScript interfaces. Model runtime contracts with Schema.Class, Schema.TaggedClass, or Data.TaggedClass."
+      "Model runtime data with Schema or Data. Empty interfaces extending Schema.Schema.Type may express recursive schema relationships; do not duplicate data fields."
   },
   {
     selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeLiteral']",

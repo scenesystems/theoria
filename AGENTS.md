@@ -19,7 +19,7 @@ Effect-native scientific computing monorepo.
 | @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
 | @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
-The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
+Effect is a required peer dependency. Schema owns validated and encoded data; Data owns structural values without a codec; Context services own capabilities. Generic type relationships remain type-level. Public concerns use matching PascalCase source files, root namespaces, and package subpaths. Package boundaries and export models follow the concern's semantics, not historical layouts. Published under `@scenesystems/` for cross-ecosystem use. Cryptographic implementations consume the [Noble](https://paulmillr.com/noble/) libraries.
 
 ---
 
@@ -30,6 +30,8 @@ The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal
 3. **YOU OWN ALL ERRORS.** You see it, you own it, you fix it.
 4. **NEVER USE `git stash`.** Ask the user how to proceed.
 5. **RUN CLI COMMANDS.** VS Code diagnostics are insufficient.
+
+After switching branches or integrating changes to dependency manifests or `bun.lock`, run `bun install --frozen-lockfile` from the repository root before checks. An existing `node_modules` directory may belong to the previous checkout. If a declared package cannot resolve, restore the frozen install and retry before reporting a blocker. A restriction on dependency changes does not prohibit installing the committed dependencies; do not edit manifests or the lockfile merely to repair a stale install.
 
 ---
 
@@ -58,7 +60,7 @@ For `apps/theoria` dev work, use the checked-in runbook: `bun run app:theoria:tm
 
 ## Vendored Source Reference
 
-The Effect-TS monorepo source is vendored at `.vendor/effect/` for direct reading. When you need to understand how an Effect API works internally, read the source — don't guess or hallucinate signatures.
+Check whether `.vendor/effect/` is present and version-aligned before using it. Some checkouts contain only the vendor manifest. Otherwise inspect the installed public declarations and a version-aligned authoritative Effect checkout; never assume a missing subtree exists. Research public contracts, representative consumers, tests, and exports before selecting unfamiliar APIs.
 
 ```bash
 bun run vendor:check   # see if versions drifted
@@ -71,7 +73,7 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Framework-required configuration syntax is allowed; application logic and operational orchestration inside configuration must still consume native Effect APIs. Use `it.effect()` in tests.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
@@ -100,7 +102,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                           |
 | `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
 | `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                   |
-| TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                       |
+| Handwritten runtime-data interfaces                               | Schema-owned data or Data structural values. Empty interfaces extending `Schema.Schema.Type` may tie recursive Schema relationships without duplicating fields.          |
 | `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                           |
 | `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                |
 | `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                         |
@@ -114,9 +116,9 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ## Conventions
 
-- **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
+- **Naming**: PascalCase public concerns and constructors; camelCase operations, instances, providers, and private paths. Constants follow their semantic role (`zero`, `layer`, `TypeId`, `Order`), not automatic UPPER_SNAKE casing.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
-- **One concern per file**: `internal/` for implementation, public modules for API surface.
+- **Concern ownership**: `src/Concern.ts`, root namespace `Concern`, and subpath `/Concern` share canonical declarations. Put substantial private mechanics in camelCase `internal/` paths. Do not impose per-concern `model/schema/operations/index` templates or retain forwarding directories.
 - **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
 - **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every entrypoint `index.ts` (and every source file that becomes a docs page) opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
 
@@ -125,10 +127,10 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 ## Governance
 
 - `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
-- Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
+- Each concern owns its models, errors, identifiers, and operations. Import or derive from the canonical owner rather than creating generic `contracts/` buckets, aliases, or bridge types. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
 - Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through `generateEntropy` in `@scenesystems/sign`; `Random` is never a source of secrets.
-- Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
+- Export models are designed with each package's public concerns. Existing single-entrypoint arrangements are not a universal rule or an exemption from a requested redesign.
 
 ---
 
