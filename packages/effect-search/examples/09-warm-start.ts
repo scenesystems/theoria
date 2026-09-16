@@ -5,27 +5,10 @@
  * Run: bun run examples/09-warm-start.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Effect, Iterable, Match } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
-
-const latencyScore = (config: {
-  readonly workerCount: number
-  readonly batchSize: number
-  readonly retryDelayMillis: number
-  readonly strategy: "least-conn" | "round-robin" | "queue-depth"
-}): number => {
-  const workerTerm = 220 / config.workerCount
-  const batchPenalty = Numeric.abs(config.batchSize - 160) * 0.4
-  const retryPenalty = config.retryDelayMillis * 0.2
-  const strategyPenalty = Match.value(config.strategy).pipe(
-    Match.when("least-conn", () => 0),
-    Match.when("queue-depth", () => 4),
-    Match.orElse(() => 8)
-  )
-  return 40 + workerTerm + batchPenalty + retryPenalty + strategyPenalty
-}
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -34,6 +17,17 @@ const program = Effect.gen(function*() {
     retryDelayMillis: SearchSpace.int(20, 160, { step: 20 }),
     strategy: SearchSpace.categorical(["least-conn", "round-robin", "queue-depth"])
   })
+  const latencyScore = (config: SearchSpace.Type<typeof space>): number => {
+    const workerTerm = 220 / config.workerCount
+    const batchPenalty = Numeric.abs(config.batchSize - 160) * 0.4
+    const retryPenalty = config.retryDelayMillis * 0.2
+    const strategyPenalty = Match.value(config.strategy).pipe(
+      Match.when("least-conn", () => 0),
+      Match.when("queue-depth", () => 4),
+      Match.orElse(() => 8)
+    )
+    return 40 + workerTerm + batchPenalty + retryPenalty + strategyPenalty
+  }
   const makePriorTrial = (config: SearchSpace.Type<typeof space>, value: number) =>
     new Study.PriorTrial({ config, value })
 
@@ -58,7 +52,7 @@ const program = Effect.gen(function*() {
           completionReason,
           bestLatency: bestTrial.state.value,
           bestConfig: bestTrial.config,
-          trialsEvaluated: trials.length
+          trialsEvaluated: Iterable.size(trials)
         })
     ),
     Match.tag("MultiObjective", () => Effect.void),

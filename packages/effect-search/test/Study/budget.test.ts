@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Number as Num, Predicate, Schedule, Stream } from "effect"
 
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -28,8 +28,8 @@ describe("budget-aware stopping", () => {
       })
 
       expect(result.completionReason).toBe("budgetExhausted")
-      expect(Arr.length(result.trials)).toBe(2)
-      expect(Arr.map(result.trials, (trial) => trial.cost)).toEqual(Arr.make(3, 3))
+      expect(Arr.length(Arr.fromIterable(result.trials))).toBe(2)
+      expect(Arr.map(Arr.fromIterable(result.trials), (trial) => trial.cost)).toEqual(Arr.make(3, 3))
     }))
 
   it.effect("emits TrialCosted events with cumulative totals", () =>
@@ -51,7 +51,7 @@ describe("budget-aware stopping", () => {
       )
 
       const costed = Chunk.filter(events, (event) => Predicate.isTagged(event, "TrialCosted"))
-      const completed = Chunk.filter(events, (event) => Predicate.isTagged(event, "StudyCompleted"))
+      const completed = Chunk.filter(events, (event) => Predicate.isTagged(event, "Completed"))
 
       expect(Chunk.toReadonlyArray(Chunk.map(costed, (event) => event.cumulativeCost))).toEqual(Arr.make(3, 6))
       expect(Chunk.size(completed)).toBe(1)
@@ -70,7 +70,7 @@ describe("budget-aware stopping", () => {
       })
 
       expect(result.completionReason).toBe("budgetExhausted")
-      expect(Arr.length(result.trials)).toBe(3)
+      expect(Arr.length(Arr.fromIterable(result.trials))).toBe(3)
     }))
 
   it.effect.each(Arr.make(-0.5, Num.unsafeDivide(1, 0), Num.unsafeDivide(0, 0)))(
@@ -100,7 +100,8 @@ describe("budget-aware stopping", () => {
         objective: () => Effect.succeed(new Study.ObjectiveReport({ value: 0.5, cost: 0 }))
       })
 
-      expect(Arr.map(result.trials, (trial) => trial.state._tag)).toEqual(Arr.of("Completed"))
-      expect((yield* Arr.head(result.trials)).cost).toBe(0)
+      const trials = Arr.fromIterable(result.trials)
+      expect(Arr.map(trials, (trial) => trial.state._tag)).toEqual(Arr.of("Completed"))
+      expect((yield* Arr.head(trials)).cost).toBe(0)
     }))
 })

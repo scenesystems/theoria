@@ -5,20 +5,20 @@
  * Run: bun run examples/19-pruning.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Effect, Match, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Stream } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Pruning, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
     x: SearchSpace.float(-2, 2)
   })
-  const pruningPolicy = Study.thresholdPruningPolicy(3.5, "minimize", 2)
+  const pruningPolicy = Pruning.threshold(3.5, "minimize", 2)
 
   const objective = (
     config: SearchSpace.Type<typeof space>,
-    runtime: Study.ObjectiveTrialRuntime
+    runtime: Pruning.Runtime
   ) =>
     Effect.iterate(
       { step: 0, stopped: false, value: 0 },
@@ -53,9 +53,9 @@ const program = Effect.gen(function*() {
     Effect.map(Chunk.toReadonlyArray)
   )
 
-  const prunedTrials = events.filter((event) => event._tag === "TrialPruned").length
-  const completedTrials = events.filter((event) => event._tag === "TrialCompleted").length
-  const reportedSteps = events.filter((event) => event._tag === "TrialReported").length
+  const prunedTrials = Arr.length(Arr.filter(events, (event) => event._tag === "TrialPruned"))
+  const completedTrials = Arr.length(Arr.filter(events, (event) => event._tag === "TrialCompleted"))
+  const reportedSteps = Arr.length(Arr.filter(events, (event) => event._tag === "TrialReported"))
 
   yield* Effect.log("Pruning stream complete", {
     prunedTrials,

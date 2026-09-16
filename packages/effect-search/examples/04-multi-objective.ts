@@ -5,9 +5,9 @@
  * Run: bun run examples/04-multi-objective.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Effect, Match, Option } from "effect"
+import { Array as Arr, Effect, Iterable, Match, Option, Record } from "effect"
 
-import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Objective, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const latencyCost: Readonly<Record<string, number>> = {
   baseline: 0.3,
@@ -52,12 +52,14 @@ const program = Effect.gen(function*() {
     directions: ["minimize", "minimize"],
     trials: 27,
     objective: (config) => {
-      const latency = (latencyCost[config.instruction] ?? 0)
-        + (latencyCost[config.demos] ?? 0)
-        + (latencyCost[config.scoring] ?? 0)
-      const quality = (qualityLoss[config.instruction] ?? 0)
-        + (qualityLoss[config.demos] ?? 0)
-        + (qualityLoss[config.scoring] ?? 0)
+      const valueOrZero = (values: Readonly<Record<string, number>>, key: string) =>
+        Option.getOrElse(Record.get(values, key), () => 0)
+      const latency = valueOrZero(latencyCost, config.instruction)
+        + valueOrZero(latencyCost, config.demos)
+        + valueOrZero(latencyCost, config.scoring)
+      const quality = valueOrZero(qualityLoss, config.instruction)
+        + valueOrZero(qualityLoss, config.demos)
+        + valueOrZero(qualityLoss, config.scoring)
       return Effect.succeed([latency, quality])
     }
   })
@@ -65,11 +67,11 @@ const program = Effect.gen(function*() {
   yield* Match.value(result).pipe(
     Match.tag("MultiObjective", (r) =>
       Effect.gen(function*() {
-        yield* Effect.log("Pareto front discovered", r.paretoFront.length)
+        yield* Effect.log("Pareto front discovered", Iterable.size(r.paretoFront))
 
         yield* Effect.forEach(r.paretoFront, (trial) =>
           Effect.gen(function*() {
-            const values = Contracts.normalizeObjectiveVector(trial.state.value)
+            const values = Objective.toVector(trial.state.value)
             yield* Effect.log("Pareto solution", {
               latency: formatValue(values, 0),
               qualityLoss: formatValue(values, 1),
@@ -77,7 +79,7 @@ const program = Effect.gen(function*() {
             })
           }), { discard: true })
 
-        yield* Effect.log("Evaluation complete", r.trials.length)
+        yield* Effect.log("Evaluation complete", Iterable.size(r.trials))
       })),
     Match.tag("SingleObjective", () => Effect.void),
     Match.exhaustive

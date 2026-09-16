@@ -1,20 +1,20 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Ref } from "effect"
+import { Array as Arr, Effect, Ref } from "effect"
 
-import { pendingAsZeroImputationPolicy, type SuggestContext } from "../../src/Sampler/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import { type Context, pendingAsZeroPolicy } from "../../src/Sampler.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
     x: SearchSpace.float(-1, 1)
   })
 
-const captureSampler = (contextsRef: Ref.Ref<ReadonlyArray<SuggestContext>>): Sampler.Sampler =>
+const captureSampler = (contextsRef: Ref.Ref<ReadonlyArray<Context>>): Sampler.Sampler =>
   new Sampler.Sampler({
     kind: Sampler.Random({ options: { seed: 0 } }),
-    pendingImputationPolicy: pendingAsZeroImputationPolicy,
+    pendingImputationPolicy: pendingAsZeroPolicy,
     checkpoint: Effect.succeed({ _tag: "Random", seed: 0 }),
     restore: () => Effect.void,
     suggest: (_space, context) =>
@@ -24,7 +24,7 @@ const captureSampler = (contextsRef: Ref.Ref<ReadonlyArray<SuggestContext>>): Sa
 describe("warm-starting", () => {
   it.effect("injects prior trials into sampler context and preserves trial-budget semantics", () =>
     Effect.gen(function*() {
-      const capturedContextsRef = yield* Ref.make<ReadonlyArray<SuggestContext>>([])
+      const capturedContextsRef = yield* Ref.make<ReadonlyArray<Context>>([])
       const space = yield* makeSpace()
 
       const result = yield* Study.optimize({
@@ -49,15 +49,16 @@ describe("warm-starting", () => {
         }
       })
 
-      expect(result.trials.length).toBe(4)
+      const trials = Arr.fromIterable(result.trials)
+      expect(Arr.length(trials)).toBe(4)
 
-      const priorTrials = result.trials.filter((trial) => trial.prior === true)
-      const freshTrials = result.trials.filter((trial) => trial.prior !== true)
+      const priorTrials = Arr.filter(trials, (trial) => trial.prior === true)
+      const freshTrials = Arr.filter(trials, (trial) => trial.prior !== true)
 
-      expect(priorTrials.length).toBe(2)
-      expect(priorTrials.map((trial) => trial.trialNumber)).toEqual([-2, -1])
-      expect(freshTrials.length).toBe(2)
-      expect(freshTrials.map((trial) => trial.trialNumber)).toEqual([0, 1])
+      expect(Arr.length(priorTrials)).toBe(2)
+      expect(Arr.map(priorTrials, (trial) => trial.trialNumber)).toEqual([-2, -1])
+      expect(Arr.length(freshTrials)).toBe(2)
+      expect(Arr.map(freshTrials, (trial) => trial.trialNumber)).toEqual([0, 1])
 
       const capturedContexts = yield* Ref.get(capturedContextsRef)
       const firstContext = capturedContexts[0]

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, MutableRef, Schema, Stream, Tracer, Tuple } from "effect"
+import { abs } from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Chunk, Effect, MutableRef, Number as Num, Schema, Stream, Tracer, Tuple } from "effect"
 
-import { emptySuggestContext } from "../../src/Sampler/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import { emptyContext } from "../../src/Sampler.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -12,24 +13,24 @@ const makeSpace = () =>
     depth: SearchSpace.int(1, 3)
   })
 
-const objectiveValue = (space: SearchSpace.SearchSpace) => {
+const objectiveValue = <Space extends SearchSpace.SearchSpace>(space: Space) => {
   const decode = Schema.decodeUnknownSync(space.schema)
 
   return (raw: unknown) => {
     const config = decode(raw)
-    return Effect.succeed(Math.abs(config.x) + config.depth)
+    return Effect.succeed(Num.sum(abs(config.x), config.depth))
   }
 }
 
 const collectSpanNames = <A, E, R>(
   effect: Effect.Effect<A, E, R>
-): Effect.Effect<readonly [A, ReadonlyArray<string>], E, R> =>
+) =>
   Effect.gen(function*() {
-    const spanNamesRef = MutableRef.make<ReadonlyArray<string>>(Arr.empty())
+    const spanNamesRef = MutableRef.make(Chunk.empty<string>())
     const baseTracer = yield* Effect.tracer
     const collectingTracer = Tracer.make({
       span: (name, parent, context, links, startTime, kind, options) => {
-        MutableRef.update(spanNamesRef, (names) => Arr.append(names, name))
+        MutableRef.update(spanNamesRef, (names) => Chunk.append(names, name))
         return baseTracer.span(name, parent, context, links, startTime, kind, options)
       },
       context: (run, fiber) => baseTracer.context(run, fiber)
@@ -39,7 +40,7 @@ const collectSpanNames = <A, E, R>(
       Effect.withTracerEnabled(true)
     )
 
-    return Tuple.make(result, MutableRef.get(spanNamesRef))
+    return Tuple.make(result, Arr.fromIterable(MutableRef.get(spanNamesRef)))
   })
 
 describe("Study and Sampler tracing", () => {
@@ -83,7 +84,7 @@ describe("Study and Sampler tracing", () => {
       expect(spanNames).toContain("effect-search/Study.optimizeStream")
       expect(spanNames).toContain("effect-search/Study.resume")
       expect(spanNames).toContain("effect-search/Study.snapshot")
-      expect(spanNames).toContain("effect-search/Study.restoreSnapshot")
+      expect(spanNames).toContain("effect-search/StudySnapshot.restore")
       expect(spanNames).toContain("effect-search/Study.reserveTrial")
       expect(spanNames).toContain("effect-search/Study.executeReservedTrial")
     }))
@@ -91,7 +92,7 @@ describe("Study and Sampler tracing", () => {
   it.effect("emits tracing span for Sampler.suggest combinator", () =>
     Effect.gen(function*() {
       const captured = yield* collectSpanNames(
-        Sampler.suggest(Sampler.random({ seed: 33 }), yield* makeSpace(), emptySuggestContext())
+        Sampler.suggest(Sampler.random({ seed: 33 }), yield* makeSpace(), emptyContext())
       )
 
       expect(captured[1]).toContain("effect-search/Sampler.suggest")

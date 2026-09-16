@@ -5,16 +5,10 @@
  * Run: bun run examples/25-ask-tell.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Array as Arr, Effect, Iterable, Match } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
-
-const objectiveValue = (config: {
-  readonly x: number
-  readonly y: number
-  readonly depth: number
-}): number => Numeric.pow(config.x - 1.5, 2) + Numeric.pow(config.y + 0.75, 2) + config.depth / 20
 
 const program = Effect.scoped(
   Effect.gen(function*() {
@@ -23,8 +17,10 @@ const program = Effect.scoped(
       y: SearchSpace.float(-4, 4),
       depth: SearchSpace.int(1, 4)
     })
+    const objectiveValue = (config: SearchSpace.Type<typeof space>): number =>
+      Numeric.pow(config.x - 1.5, 2) + Numeric.pow(config.y + 0.75, 2) + config.depth / 20
 
-    const evaluateReservedTrial = (handle: Study.StudyHandle<typeof space>) =>
+    const evaluateReservedTrial = (handle: Study.Study<typeof space>) =>
       Study.ask(handle).pipe(
         Effect.tap((asked) => Study.tell(handle, asked.trialNumber, objectiveValue(asked.config)))
       )
@@ -53,20 +49,20 @@ const program = Effect.scoped(
         ({ bestTrial, completionReason, trials }) =>
           Effect.log("Ask/tell orchestration complete", {
             reservedTrialNumbers: [first.trialNumber, second.trialNumber, third.trialNumber, fourth.trialNumber],
-            checkpointTrialCount: checkpoint.trials.length,
+            checkpointTrialCount: Arr.length(checkpoint.trials),
             checkpointNextTrial: checkpoint.nextTrialNumber,
             completionReason,
             bestValue: bestTrial.state.value,
             bestConfig: bestTrial.config,
-            totalTrials: trials.length
+            totalTrials: Iterable.size(trials)
           })
       ),
       Match.tag("MultiObjective", ({ paretoFront, completionReason }) =>
         Effect.log("Ask/tell orchestration complete", {
-          checkpointTrialCount: checkpoint.trials.length,
+          checkpointTrialCount: Arr.length(checkpoint.trials),
           checkpointNextTrial: checkpoint.nextTrialNumber,
           completionReason,
-          paretoFrontSize: paretoFront.length
+          paretoFrontSize: Iterable.size(paretoFront)
         })),
       Match.exhaustive
     )

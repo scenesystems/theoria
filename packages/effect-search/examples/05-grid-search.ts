@@ -5,25 +5,10 @@
  * Run: bun run examples/05-grid-search.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Effect, Match } from "effect"
+import { Array as Arr, Effect, Iterable, Match } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
-
-const simulatedAccuracy = (config: {
-  readonly optimizer: "adam" | "sgd" | "adamw"
-  readonly batchSize: number
-  readonly useBatchNorm: boolean
-}): number => {
-  const optimizerScore = Match.value(config.optimizer).pipe(
-    Match.when("adamw", () => 0.94),
-    Match.when("adam", () => 0.92),
-    Match.orElse(() => 0.85)
-  )
-  const batchPenalty = Numeric.abs(config.batchSize - 32) * 0.002
-  const normBonus = config.useBatchNorm ? 0.03 : 0
-  return optimizerScore - batchPenalty + normBonus
-}
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -31,6 +16,16 @@ const program = Effect.gen(function*() {
     batchSize: SearchSpace.int(16, 64, { step: 16 }),
     useBatchNorm: SearchSpace.boolean()
   })
+  const simulatedAccuracy = (config: SearchSpace.Type<typeof space>): number => {
+    const optimizerScore = Match.value(config.optimizer).pipe(
+      Match.when("adamw", () => 0.94),
+      Match.when("adam", () => 0.92),
+      Match.orElse(() => 0.85)
+    )
+    const batchPenalty = Numeric.abs(config.batchSize - 32) * 0.002
+    const normBonus = config.useBatchNorm ? 0.03 : 0
+    return optimizerScore - batchPenalty + normBonus
+  }
 
   const result = yield* Study.maximize({
     space,
@@ -45,8 +40,8 @@ const program = Effect.gen(function*() {
       return Effect.log("Grid search results", {
         bestAccuracy: bestTrial.state.value,
         bestConfig: bestTrial.config,
-        evaluated: completed.length,
-        totalGridPoints: trials.length
+        evaluated: Arr.length(completed),
+        totalGridPoints: Iterable.size(trials)
       })
     }),
     Match.tag("MultiObjective", () => Effect.void),

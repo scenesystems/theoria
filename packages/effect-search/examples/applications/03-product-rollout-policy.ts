@@ -6,7 +6,7 @@
  * Run: bun run examples/applications/03-product-rollout-policy.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Either, Match, Schema } from "effect"
+import { Effect, Either, Iterable, Match, Option, Record, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -23,52 +23,6 @@ const ADOPTION_LIFT: Readonly<Record<string, number>> = {
   aggressive: 0.13
 }
 
-const churnRisk = (config: {
-  readonly rolloutPercent: number
-  readonly notificationCadence: "off" | "weekly" | "adaptive"
-  readonly rankingModel: "baseline" | "balanced" | "aggressive"
-  readonly supportAutomation: boolean
-}): number =>
-  0.08
-  + config.rolloutPercent / 540
-  + (config.notificationCadence === "adaptive" ? 0.05 : 0)
-  + (config.rankingModel === "aggressive" ? 0.06 : 0)
-  + (config.supportAutomation ? 0.015 : 0.04)
-
-const p95LatencyMs = (config: {
-  readonly rolloutPercent: number
-  readonly notificationCadence: "off" | "weekly" | "adaptive"
-  readonly rankingModel: "baseline" | "balanced" | "aggressive"
-}): number =>
-  170
-  + (config.rankingModel === "aggressive" ? 95 : config.rankingModel === "balanced" ? 42 : 0)
-  + (config.notificationCadence === "adaptive" ? 24 : 0)
-  + config.rolloutPercent * 0.72
-
-const businessLiftScore = (config: {
-  readonly rolloutPercent: number
-  readonly onboarding: "inline" | "guided" | "cohort"
-  readonly notificationCadence: "off" | "weekly" | "adaptive"
-  readonly rankingModel: "baseline" | "balanced" | "aggressive"
-  readonly supportAutomation: boolean
-}): number => {
-  const onboardingLift = ADOPTION_LIFT[config.onboarding] ?? 0
-  const cadenceLift = ADOPTION_LIFT[config.notificationCadence] ?? 0
-  const rankingLift = ADOPTION_LIFT[config.rankingModel] ?? 0
-
-  const churnViolation = Numeric.max(0, churnRisk(config) - 0.24)
-  const latencyViolation = Numeric.max(0, p95LatencyMs(config) - 260) / 220
-
-  return 0.45
-    + onboardingLift
-    + cadenceLift
-    + rankingLift
-    + (config.supportAutomation ? 0.03 : 0)
-    - Numeric.abs(config.rolloutPercent - 65) / 420
-    - churnViolation * 2.2
-    - latencyViolation
-}
-
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
     rolloutPercent: SearchSpace.int(5, 100, { step: 5 }),
@@ -77,6 +31,34 @@ const program = Effect.gen(function*() {
     rankingModel: SearchSpace.categorical(["baseline", "balanced", "aggressive"]),
     supportAutomation: SearchSpace.boolean()
   })
+  const churnRisk = (config: SearchSpace.Type<typeof space>): number =>
+    0.08
+    + config.rolloutPercent / 540
+    + (config.notificationCadence === "adaptive" ? 0.05 : 0)
+    + (config.rankingModel === "aggressive" ? 0.06 : 0)
+    + (config.supportAutomation ? 0.015 : 0.04)
+  const p95LatencyMs = (config: SearchSpace.Type<typeof space>): number =>
+    170
+    + (config.rankingModel === "aggressive" ? 95 : config.rankingModel === "balanced" ? 42 : 0)
+    + (config.notificationCadence === "adaptive" ? 24 : 0)
+    + config.rolloutPercent * 0.72
+  const businessLiftScore = (config: SearchSpace.Type<typeof space>): number => {
+    const lift = (key: string) => Option.getOrElse(Record.get(ADOPTION_LIFT, key), () => 0)
+    const onboardingLift = lift(config.onboarding)
+    const cadenceLift = lift(config.notificationCadence)
+    const rankingLift = lift(config.rankingModel)
+    const churnViolation = Numeric.max(0, churnRisk(config) - 0.24)
+    const latencyViolation = Numeric.max(0, p95LatencyMs(config) - 260) / 220
+
+    return 0.45
+      + onboardingLift
+      + cadenceLift
+      + rankingLift
+      + (config.supportAutomation ? 0.03 : 0)
+      - Numeric.abs(config.rolloutPercent - 65) / 420
+      - churnViolation * 2.2
+      - latencyViolation
+  }
 
   const decodeConfig = Schema.decodeUnknownEither(space.schema)
 
@@ -118,7 +100,7 @@ const program = Effect.gen(function*() {
       ({ bestTrial, completionReason, trials }) =>
         Effect.log("Product rollout optimization complete", {
           completionReason,
-          trialsEvaluated: trials.length,
+          trialsEvaluated: Iterable.size(trials),
           bestLift: bestTrial.state.value,
           bestConfig: bestTrial.config,
           churnRisk: churnRisk(bestTrial.config),

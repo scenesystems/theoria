@@ -6,10 +6,11 @@
  */
 import { FileSystem } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Effect, Layer, Match, Schema } from "effect"
+import { Effect, Iterable, Layer, Match, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { ArtifactContext, ArtifactSink, Sampler, SearchSpace, Study, StudyStorage } from "@scenesystems/effect-search"
+import * as StudyArtifact from "@scenesystems/effect-study/Artifact"
 
 const objectiveValue = (x: number, y: number): number => Numeric.pow(x - 0.4, 2) + Numeric.pow(y - 1.2, 2)
 
@@ -19,15 +20,22 @@ const program = Effect.scoped(
     const directory = yield* fileSystem.makeTempDirectoryScoped({
       prefix: "effect-search-storage-resume-"
     })
-    const runId = yield* Schema.decode(Contracts.RunId)("01HZ0000000000000000000000")
-    const packageVersion = yield* Schema.decode(Contracts.PackageVersion)("0.1.0")
-    const envelopeContextLayer = Contracts.EnvelopeContextLive({
-      packageVersion,
-      runId,
-      studyId: "example-study"
-    })
-    const artifactSinkLayer = Contracts.fileSystemSink(directory)
-    const studyLayer = Study.StudyStorageLive(Study.studyStorageOptions(directory)).pipe(
+    const runId = yield* Schema.decode(StudyArtifact.RunId)("01HZ0000000000000000000000")
+    const packageVersion = yield* Schema.decode(StudyArtifact.PackageVersion)("0.1.0")
+    const envelopeContextLayer = ArtifactContext.layer(
+      new ArtifactContext.Options({
+        packageVersion,
+        runId,
+        studyId: "example-study"
+      })
+    )
+    const artifactSinkLayer = ArtifactSink.layerFileSystem(directory)
+    const studyLayer = StudyStorage.layer(
+      new StudyStorage.Options({
+        directory,
+        fileName: "envelopes.jsonl"
+      })
+    ).pipe(
       Layer.provideMerge(Layer.merge(artifactSinkLayer, envelopeContextLayer))
     )
 
@@ -60,7 +68,7 @@ const program = Effect.scoped(
           completionReason,
           bestValue: bestTrial.state.value,
           bestConfig: bestTrial.config,
-          totalTrials: trials.length
+          totalTrials: Iterable.size(trials)
         })),
       Match.tag("MultiObjective", () => Effect.void),
       Match.exhaustive

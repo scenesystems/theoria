@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Number as Num, Option, Ref } from "effect"
 
-import type { Direction } from "../../src/contracts/Direction.js"
-import { pendingAsZeroImputationPolicy, type SuggestContext } from "../../src/Sampler/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
-import * as Trial from "../../src/Trial/index.js"
+import type { Direction } from "../../src/Direction.js"
+import { type Context, pendingAsZeroPolicy } from "../../src/Sampler.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
+import * as Trial from "../../src/Trial.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -19,11 +19,11 @@ const objectiveSequence = (counterRef: Ref.Ref<number>) =>
   )
 
 const capturedContextsSampler = (
-  contextsRef: Ref.Ref<Chunk.Chunk<SuggestContext>>
+  contextsRef: Ref.Ref<Chunk.Chunk<Context>>
 ): Sampler.Sampler =>
   new Sampler.Sampler({
     kind: Sampler.Random({ options: { seed: 0 } }),
-    pendingImputationPolicy: pendingAsZeroImputationPolicy,
+    pendingImputationPolicy: pendingAsZeroPolicy,
     checkpoint: Effect.succeed({ _tag: "Random", seed: 0 }),
     restore: () => Effect.void,
     suggest: (_space, context) =>
@@ -50,7 +50,7 @@ describe("re-evaluation averaging + variance threading", () => {
         (trial) => Option.liftPredicate(trial.state, Trial.isState("Completed"))
       )
 
-      expect(Arr.length(result.trials)).toBe(2)
+      expect(Arr.length(Arr.fromIterable(result.trials))).toBe(2)
       expect(yield* Ref.get(callsRef)).toBe(6)
       expect(Arr.map(completed, (state) => state.value)).toEqual(Arr.make(3, 9))
       expect(Arr.map(completed, (state) => state.evaluationCount)).toEqual(Arr.make(3, 3))
@@ -66,10 +66,10 @@ describe("re-evaluation averaging + variance threading", () => {
       )
     }))
 
-  it.effect("threads completed-trial variance into SuggestContext for downstream TPE noise handling", () =>
+  it.effect("threads completed-trial variance into sampler context for downstream TPE noise handling", () =>
     Effect.gen(function*() {
       const callsRef = yield* Ref.make(0)
-      const contextsRef = yield* Ref.make(Chunk.empty<SuggestContext>())
+      const contextsRef = yield* Ref.make(Chunk.empty<Context>())
 
       yield* Study.optimize({
         space: yield* makeSpace(),
@@ -106,7 +106,7 @@ describe("re-evaluation averaging + variance threading", () => {
         evaluationsPerTrial: 3,
         objective: () => Ref.getAndUpdate(index, Num.increment).pipe(Effect.flatMap((i) => Arr.get(reports, i)))
       })
-      const trial = yield* Arr.head(result.trials)
+      const trial = yield* Arr.head(Arr.fromIterable(result.trials))
       const completed = yield* Option.liftPredicate(trial.state, Trial.isState("Completed"))
 
       expect(completed.value).toEqual(Arr.make(4, 17))

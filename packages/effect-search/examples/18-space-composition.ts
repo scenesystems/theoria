@@ -5,7 +5,7 @@
  * Run: bun run examples/18-space-composition.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Array as Arr, Effect, Match } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -42,9 +42,9 @@ const program = Effect.gen(function*() {
     Match.tag("SingleObjective", ({ bestTrial, completionReason }) =>
       Effect.log("Space composition complete", {
         completionReason,
-        fullDimensions: fullSpace.params.map((parameter) => parameter.name),
-        servingDimensions: servingSpace.params.map((parameter) => parameter.name),
-        noDropoutDimensions: noDropoutSpace.params.map((parameter) => parameter.name),
+        fullDimensions: Arr.map(fullSpace.params, (parameter) => parameter.name),
+        servingDimensions: Arr.map(servingSpace.params, (parameter) => parameter.name),
+        noDropoutDimensions: Arr.map(noDropoutSpace.params, (parameter) => parameter.name),
         bestValue: bestTrial.state.value,
         bestConfig: bestTrial.config
       })),

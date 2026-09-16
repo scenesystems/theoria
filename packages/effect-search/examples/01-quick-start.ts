@@ -5,7 +5,7 @@
  * Run: bun run examples/01-quick-start.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Effect, Iterable, Match } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -32,7 +32,7 @@ const program = Effect.gen(function*() {
         bestValue: bestTrial.state.value,
         bestConfig: bestTrial.config,
         completionReason,
-        trialsEvaluated: trials.length
+        trialsEvaluated: Iterable.size(trials)
       })),
     Match.tag("MultiObjective", () => Effect.void),
     Match.exhaustive

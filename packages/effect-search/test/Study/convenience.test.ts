@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array as Arr, Effect } from "effect"
 
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
 const makeScalarSpace = () =>
   SearchSpace.make({
@@ -47,7 +47,7 @@ describe("Study convenience combinators", () => {
       }
 
       expect(minimized.bestTrial.state.value).toBe(optimized.bestTrial.state.value)
-      expect(minimized.trials).toHaveLength(optimized.trials.length)
+      expect(minimized.trials).toHaveLength(Arr.length(Arr.fromIterable(optimized.trials)))
     }))
 
   it.effect("Study.maximize matches Study.optimize with maximize direction", () =>
@@ -78,7 +78,7 @@ describe("Study convenience combinators", () => {
       }
 
       expect(maximized.bestTrial.state.value).toBe(optimized.bestTrial.state.value)
-      expect(maximized.trials).toHaveLength(optimized.trials.length)
+      expect(maximized.trials).toHaveLength(Arr.length(Arr.fromIterable(optimized.trials)))
     }))
 
   it.effect("infers typed objective config for Study.minimize and Study.maximize", () =>

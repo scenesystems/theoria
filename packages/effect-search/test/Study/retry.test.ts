@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Option, Ref, Schedule, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Option, Ref, Schedule, Stream } from "effect"
 
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -71,7 +71,7 @@ describe("Study objective retry", () => {
         return
       }
 
-      const firstTrial = Option.fromNullable(single.value.trials[0])
+      const firstTrial = Arr.head(Arr.fromIterable(single.value.trials))
       expect(Option.isSome(firstTrial)).toBe(true)
 
       if (Option.isNone(firstTrial)) {
@@ -118,7 +118,7 @@ describe("Study objective retry", () => {
         return
       }
 
-      const resumedTrial = Option.fromNullable(resumedSingle.value.trials[0])
+      const resumedTrial = Arr.head(Arr.fromIterable(resumedSingle.value.trials))
       expect(Option.isSome(resumedTrial)).toBe(true)
 
       if (Option.isNone(resumedTrial)) {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Either, Schema, Stream } from "effect"
 
-import { InvalidStudyConfig } from "../../src/Errors/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Sampler from "../../src/Sampler.js"
+import { InvalidStudyConfig } from "../../src/SearchError.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -27,7 +27,7 @@ const objectiveFromSpace = (space: SearchSpace.SearchSpace) => {
   }
 }
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   Arr.findFirst([result], (candidate) => candidate._tag === "SingleObjective")
 
 describe("Study.resumeStream", () => {
@@ -59,8 +59,8 @@ describe("Study.resumeStream", () => {
       const tags = events.map((event) => event._tag)
 
       expect(tags).toContain("TrialStarted")
-      expect(tags).toContain("StudyCompleted")
-      expect(tags[tags.length - 1]).toBe("StudyCompleted")
+      expect(tags).toContain("Completed")
+      expect(tags[tags.length - 1]).toBe("Completed")
     }))
 
   it.effect("preserves resume snapshot validation failures", () =>

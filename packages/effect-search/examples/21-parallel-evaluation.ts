@@ -5,7 +5,7 @@
  * Run: bun run examples/21-parallel-evaluation.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match, Number as Num, Ref } from "effect"
+import { Effect, Iterable, Match, Number as Num, Ref } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -45,7 +45,7 @@ const program = Effect.gen(function*() {
       ({ bestTrial, completionReason, trials }) =>
         Effect.log("Parallel evaluation complete", {
           completionReason,
-          trialsEvaluated: trials.length,
+          trialsEvaluated: Iterable.size(trials),
           maxActive,
           bestValue: bestTrial.state.value,
           bestConfig: bestTrial.config

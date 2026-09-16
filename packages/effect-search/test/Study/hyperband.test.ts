@@ -1,28 +1,29 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Either, Match, Option, Stream } from "effect"
+import { Array as Arr, Effect, Either, Match, Number as Num, Option, Stream } from "effect"
 
-import * as Sampler from "../../src/Sampler/index.js"
-import * as Scheduler from "../../src/Scheduler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import type * as Pruning from "../../src/Pruning.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as Scheduler from "../../src/Scheduler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
-const space = () =>
-  SearchSpace.make({
-    x: SearchSpace.float(-2, 2),
-    budget: SearchSpace.fidelity(1, 9)
-  })
+const space = SearchSpace.make({
+  x: SearchSpace.float(-2, 2),
+  budget: SearchSpace.fidelity(1, 9)
+})
 
 const objective = (
-  config: { readonly x: number; readonly budget: number },
-  runtime: Study.ObjectiveTrialRuntime
+  config: SearchSpace.Type<Effect.Effect.Success<typeof space>>,
+  runtime: Pruning.Runtime
 ): Effect.Effect<number> =>
   Effect.gen(function*() {
     const resource = yield* runtime.resource.pipe(Effect.map(Option.getOrElse(() => 1)))
 
-    return (config.x - 0.4) * (config.x - 0.4) + 1 / resource
+    const distance = Num.subtract(config.x, 0.4)
+    return Num.sum(Num.multiply(distance, distance), Num.unsafeDivide(1, resource))
   })
 
-const bestValue = <Config>(result: Study.StudyResult<Config>): number =>
+const bestValue = <Config>(result: Study.Result<Config>): number =>
   Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial }) => bestTrial.state.value),
     Match.tag("MultiObjective", () => Number.POSITIVE_INFINITY),
@@ -61,11 +62,13 @@ describe("hyperband scheduler", () => {
 
       expect(scheduler.mode).toBe("hyperband")
       expect(Scheduler.totalTrials(scheduler)).toBe(22)
-      expect(scheduler.brackets.map((bracket) => bracket.rounds.map((round) => round.resource))).toEqual([
-        [1, 3, 9],
-        [3, 9],
-        [9]
-      ])
+      expect(Arr.map(Arr.fromIterable(scheduler.brackets), (bracket) =>
+        Arr.map(Arr.fromIterable(bracket.rounds), (round) =>
+          round.resource))).toEqual([
+          [1, 3, 9],
+          [3, 9],
+          [9]
+        ])
     }))
 
   it.effect("runs bracket/round events and attaches scheduler summary to study result", () =>
@@ -76,14 +79,14 @@ describe("hyperband scheduler", () => {
         sampler: Sampler.random({ seed: 21 })
       })
       const events = yield* Study.optimizeStream({
-        space: yield* space(),
+        space: yield* space,
         scheduler,
         direction: "minimize",
         objective
       }).pipe(Stream.runCollect)
-      const tags = Chunk.toReadonlyArray(events).map((event) => event._tag)
+      const tags = Arr.map(Arr.fromIterable(events), (event) => event._tag)
       const result = yield* Study.optimize({
-        space: yield* space(),
+        space: yield* space,
         scheduler,
         direction: "minimize",
         objective
@@ -93,7 +96,7 @@ describe("hyperband scheduler", () => {
       expect(tags).toContain("RoundStarted")
       expect(tags).toContain("RoundCompleted")
       expect(tags).toContain("BracketCompleted")
-      expect(tags[tags.length - 1]).toBe("StudyCompleted")
+      expect(Arr.last(tags)).toEqual(Option.some("Completed"))
       expect(result.trials).toHaveLength(Scheduler.totalTrials(scheduler))
       expect(Option.isSome(Option.fromNullable(result.schedulerSummary))).toBe(true)
       expect(bestValue(result)).toBeLessThan(0.5)

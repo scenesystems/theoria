@@ -6,10 +6,10 @@
  * Run: bun run examples/applications/02-social-dynamics-intervention.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Array as Arr, Effect, Iterable, Match, Option, Record } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Objective, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const CONTACT_LOAD: Readonly<Record<string, number>> = {
   daily: 1.0,
@@ -29,41 +29,8 @@ const FRAMING_REACTANCE: Readonly<Record<string, number>> = {
   "peer-story": 0.15
 }
 
-const conflictRiskScore = (config: {
-  readonly framing: "norms" | "reflective" | "peer-story"
-  readonly escalationThreshold: number
-  readonly peerPairing: boolean
-  readonly sessionMinutes: number
-}): number =>
-  1.1
-  - (FRAMING_TRUST_GAIN[config.framing] ?? 0)
-  + Numeric.abs(config.escalationThreshold - 0.58) * 1.25
-  + (config.peerPairing ? -0.17 : 0.14)
-  + Numeric.abs(config.sessionMinutes - 35) / 90
-
-const disengagementRiskScore = (config: {
-  readonly cadence: "daily" | "twice-weekly" | "weekly"
-  readonly framing: "norms" | "reflective" | "peer-story"
-  readonly peerPairing: boolean
-  readonly sessionMinutes: number
-}): number =>
-  0.3
-  + (FRAMING_REACTANCE[config.framing] ?? 0)
-  + (CONTACT_LOAD[config.cadence] ?? 0) * 0.26
-  + (config.sessionMinutes > 45 ? 0.2 : 0)
-  + (config.peerPairing ? -0.07 : 0.05)
-
-const facilitatorLoadScore = (config: {
-  readonly cadence: "daily" | "twice-weekly" | "weekly"
-  readonly escalationThreshold: number
-  readonly peerPairing: boolean
-  readonly sessionMinutes: number
-}): number =>
-  0.15
-  + (CONTACT_LOAD[config.cadence] ?? 0)
-  + config.sessionMinutes / 38
-  + (config.peerPairing ? 0.22 : 0.36)
-  + (config.escalationThreshold < 0.35 ? 0.24 : 0)
+const valueOrZero = (values: Readonly<Record<string, number>>, key: string): number =>
+  Option.getOrElse(Record.get(values, key), () => 0)
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -73,6 +40,24 @@ const program = Effect.gen(function*() {
     peerPairing: SearchSpace.boolean(),
     sessionMinutes: SearchSpace.int(15, 60, { step: 5 })
   })
+  const conflictRiskScore = (config: SearchSpace.Type<typeof space>): number =>
+    1.1
+    - valueOrZero(FRAMING_TRUST_GAIN, config.framing)
+    + Numeric.abs(config.escalationThreshold - 0.58) * 1.25
+    + (config.peerPairing ? -0.17 : 0.14)
+    + Numeric.abs(config.sessionMinutes - 35) / 90
+  const disengagementRiskScore = (config: SearchSpace.Type<typeof space>): number =>
+    0.3
+    + valueOrZero(FRAMING_REACTANCE, config.framing)
+    + valueOrZero(CONTACT_LOAD, config.cadence) * 0.26
+    + (config.sessionMinutes > 45 ? 0.2 : 0)
+    + (config.peerPairing ? -0.07 : 0.05)
+  const facilitatorLoadScore = (config: SearchSpace.Type<typeof space>): number =>
+    0.15
+    + valueOrZero(CONTACT_LOAD, config.cadence)
+    + config.sessionMinutes / 38
+    + (config.peerPairing ? 0.22 : 0.36)
+    + (config.escalationThreshold < 0.35 ? 0.24 : 0)
 
   const result = yield* Study.optimize({
     space,
@@ -93,17 +78,22 @@ const program = Effect.gen(function*() {
       Effect.gen(function*() {
         yield* Effect.log("Social intervention optimization complete", {
           completionReason,
-          trialsEvaluated: trials.length,
-          paretoFrontSize: paretoFront.length
+          trialsEvaluated: Iterable.size(trials),
+          paretoFrontSize: Iterable.size(paretoFront)
         })
 
-        yield* Effect.forEach(paretoFront.slice(0, 6), (trial) => {
-          const values = Contracts.normalizeObjectiveVector(trial.state.value)
+        yield* Effect.forEach(Arr.take(paretoFront, 6), (trial) => {
+          const values = Objective.toVector(trial.state.value)
+          const formatValue = (index: number) =>
+            Option.match(Arr.get(values, index), {
+              onNone: () => "unavailable",
+              onSome: (value) => value.toFixed(3)
+            })
 
           return Effect.log("Pareto intervention", {
-            conflictRisk: values[0]?.toFixed(3),
-            disengagementRisk: values[1]?.toFixed(3),
-            facilitatorLoad: values[2]?.toFixed(3),
+            conflictRisk: formatValue(0),
+            disengagementRisk: formatValue(1),
+            facilitatorLoad: formatValue(2),
             policy: trial.config
           })
         }, { discard: true })

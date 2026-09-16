@@ -5,7 +5,7 @@
  * Run: bun run examples/applications/04-developer-ci-autotune.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Effect, Iterable, Match, Option, Record } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -22,33 +22,6 @@ const CACHE_FLAKE_FACTOR: Readonly<Record<string, number>> = {
   full: 0.94
 }
 
-const ciQualityScore = (config: {
-  readonly workers: number
-  readonly cacheMode: "none" | "partial" | "full"
-  readonly retries: number
-  readonly shardCount: number
-  readonly timeoutSeconds: number
-}): number => {
-  const cacheSpeed = CACHE_SPEED_FACTOR[config.cacheMode] ?? 1
-  const cacheFlake = CACHE_FLAKE_FACTOR[config.cacheMode] ?? 1
-
-  const baseDurationMinutes = (34 / Numeric.pow(config.workers, 0.64)) * cacheSpeed
-  const shardImbalancePenalty = Numeric.abs(config.shardCount - config.workers / 2.4) / 9
-  const timeoutPenalty = config.timeoutSeconds < 60 ? (60 - config.timeoutSeconds) / 34 : 0
-  const flakeRisk = (0.42 / (config.retries + 1.4)) * cacheFlake + timeoutPenalty
-
-  return baseDurationMinutes + shardImbalancePenalty + flakeRisk * 7.5
-}
-
-const ciInfraCost = (config: {
-  readonly workers: number
-  readonly cacheMode: "none" | "partial" | "full"
-  readonly shardCount: number
-}): number =>
-  config.workers * 0.17
-  + config.shardCount * 0.11
-  + (config.cacheMode === "full" ? 0.24 : config.cacheMode === "partial" ? 0.12 : 0)
-
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
     workers: SearchSpace.int(1, 16),
@@ -57,6 +30,20 @@ const program = Effect.gen(function*() {
     shardCount: SearchSpace.int(1, 8),
     timeoutSeconds: SearchSpace.int(30, 180, { step: 15 })
   })
+  const ciQualityScore = (config: SearchSpace.Type<typeof space>): number => {
+    const cacheSpeed = Option.getOrElse(Record.get(CACHE_SPEED_FACTOR, config.cacheMode), () => 1)
+    const cacheFlake = Option.getOrElse(Record.get(CACHE_FLAKE_FACTOR, config.cacheMode), () => 1)
+    const baseDurationMinutes = (34 / Numeric.pow(config.workers, 0.64)) * cacheSpeed
+    const shardImbalancePenalty = Numeric.abs(config.shardCount - config.workers / 2.4) / 9
+    const timeoutPenalty = config.timeoutSeconds < 60 ? (60 - config.timeoutSeconds) / 34 : 0
+    const flakeRisk = (0.42 / (config.retries + 1.4)) * cacheFlake + timeoutPenalty
+
+    return baseDurationMinutes + shardImbalancePenalty + flakeRisk * 7.5
+  }
+  const ciInfraCost = (config: SearchSpace.Type<typeof space>): number =>
+    config.workers * 0.17
+    + config.shardCount * 0.11
+    + (config.cacheMode === "full" ? 0.24 : config.cacheMode === "partial" ? 0.12 : 0)
 
   const result = yield* Study.minimize({
     space,
@@ -77,7 +64,7 @@ const program = Effect.gen(function*() {
       ({ bestTrial, completionReason, trials }) =>
         Effect.log("Developer CI autotuning complete", {
           completionReason,
-          trialsEvaluated: trials.length,
+          trialsEvaluated: Iterable.size(trials),
           bestObjective: bestTrial.state.value,
           bestConfig: bestTrial.config
         })

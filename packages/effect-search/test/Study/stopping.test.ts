@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array as Arr, Effect } from "effect"
 
-import * as Sampler from "../../src/Sampler/index.js"
-import * as Scheduler from "../../src/Scheduler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as Scheduler from "../../src/Scheduler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -26,7 +26,7 @@ describe("advanced stopping conditions", () => {
       })
 
       expect(result.completionReason).toBe("durationExceeded")
-      expect(result.trials.length).toBeLessThan(100)
+      expect(Arr.length(Arr.fromIterable(result.trials))).toBeLessThan(100)
     }))
 
   it.effect("stops with targetReached once the objective satisfies targetValue", () =>
@@ -41,7 +41,7 @@ describe("advanced stopping conditions", () => {
       })
 
       expect(result.completionReason).toBe("targetReached")
-      expect(result.trials.length).toBe(1)
+      expect(Arr.length(Arr.fromIterable(result.trials))).toBe(1)
     }))
 
   it.effect("stops with noImprovement after the configured non-improving window", () =>
@@ -56,7 +56,7 @@ describe("advanced stopping conditions", () => {
       })
 
       expect(result.completionReason).toBe("noImprovement")
-      expect(result.trials.length).toBe(3)
+      expect(Arr.length(Arr.fromIterable(result.trials))).toBe(3)
     }))
 
   it.effect("applies noImprovement stopping in scheduler studies without running full bracket budgets", () =>
@@ -76,6 +76,6 @@ describe("advanced stopping conditions", () => {
       })
 
       expect(result.completionReason).toBe("noImprovement")
-      expect(result.trials.length).toBeLessThan(Scheduler.totalTrials(scheduler))
+      expect(Arr.length(Arr.fromIterable(result.trials))).toBeLessThan(Scheduler.totalTrials(scheduler))
     }))
 })

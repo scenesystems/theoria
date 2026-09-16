@@ -5,7 +5,7 @@
  * Run: bun run examples/17-trial-timeout-retry.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Data, Effect, Match, Number as Num, Ref, Schedule, Stream } from "effect"
+import { Array as Arr, Chunk, Data, Effect, Match, Number as Num, Option, Ref, Schedule, Stream } from "effect"
 
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
@@ -45,21 +45,21 @@ const program = Effect.gen(function*() {
   )
   const attempts = yield* Ref.get(attemptsRef)
 
-  const retries = events.filter((event) => event._tag === "TrialRetried").length
-  const cancelled = events.filter((event) => event._tag === "TrialCancelled").length
-  const completed = events.filter((event) => event._tag === "TrialCompleted").length
-  const completionReasons = events.flatMap((event) =>
-    event._tag === "StudyCompleted"
-      ? [event.completionReason]
-      : []
-  )
+  const retries = Arr.length(Arr.filter(events, (event) => event._tag === "TrialRetried"))
+  const cancelled = Arr.length(Arr.filter(events, (event) => event._tag === "TrialCancelled"))
+  const completed = Arr.length(Arr.filter(events, (event) => event._tag === "TrialCompleted"))
+  const completionReasons = Arr.flatMap(events, (event) =>
+    Match.value(event).pipe(
+      Match.tag("Completed", ({ completionReason }) => Arr.of(completionReason)),
+      Match.orElse(() => Arr.empty())
+    ))
 
   yield* Effect.log("Timeout + retry stream complete", {
     attempts,
     retries,
     cancelled,
     completed,
-    completionReason: completionReasons[0] ?? "none"
+    completionReason: Option.getOrElse(Arr.head(completionReasons), () => "none")
   })
 })
 

@@ -5,7 +5,7 @@
  * Run: bun run examples/15-constrained-optimization.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Either, Match, Schema } from "effect"
+import { Effect, Either, Iterable, Match, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -47,7 +47,7 @@ const program = Effect.gen(function*() {
       ({ bestTrial, completionReason, trials }) =>
         Effect.log("Constrained optimization complete", {
           completionReason,
-          trialsEvaluated: trials.length,
+          trialsEvaluated: Iterable.size(trials),
           bestValue: bestTrial.state.value,
           bestConfig: bestTrial.config,
           bestConstraintValue: bestTrial.config.x + bestTrial.config.y - 1,

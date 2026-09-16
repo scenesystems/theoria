@@ -5,7 +5,7 @@
  * Run: bun run examples/07-conditional-spaces.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Chunk, Effect, Match } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -29,10 +29,13 @@ const program = Effect.gen(function*() {
 
   const space = yield* SearchSpace.makeConditional(
     { model: SearchSpace.categorical(["linear", "tree"]) },
-    SearchSpace.switch("model", [
-      SearchSpace.when("linear", linearBranch),
-      SearchSpace.when("tree", treeBranch)
-    ])
+    SearchSpace.switchOn(
+      "model",
+      Chunk.make(
+        SearchSpace.when("linear", linearBranch),
+        SearchSpace.when("tree", treeBranch)
+      )
+    )
   )
 
   const result = yield* Study.minimize({

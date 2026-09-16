@@ -2,13 +2,14 @@ import * as KeyValueStore from "@effect/platform/KeyValueStore"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Either, Layer, Number as Num, Option, Schedule, Stream } from "effect"
 
-import * as Cache from "../../src/Cache/index.js"
-import { NoSuccessfulTrials, TrialError } from "../../src/Errors/index.js"
+import * as Cache from "../../src/Cache.js"
 import * as Float64 from "../../src/internal/float64.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
-import * as Trial from "../../src/Trial/index.js"
+import * as ObjectiveCache from "../../src/ObjectiveCache.js"
+import * as Sampler from "../../src/Sampler.js"
+import { NoSuccessfulTrials, TrialError } from "../../src/SearchError.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
+import * as Trial from "../../src/Trial.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -17,8 +18,8 @@ const makeSpace = () =>
     optimizer: SearchSpace.categorical(["adam", "sgd"])
   })
 
-const completedValues = (trials: Array<Trial.Trial<unknown>>): Array<number> =>
-  trials.flatMap((trial) =>
+const completedValues = (trials: Iterable<Trial.Trial<unknown>>): ReadonlyArray<number> =>
+  Arr.flatMap(Arr.fromIterable(trials), (trial) =>
     Trial.matchState({
       Running: () => [],
       Completed: ({ value }) =>
@@ -31,13 +32,12 @@ const completedValues = (trials: Array<Trial.Trial<unknown>>): Array<number> =>
       Pruned: () => [],
       Failed: () => [],
       Cancelled: () => []
-    })(trial.state)
-  )
+    })(trial.state))
 
-const failedCount = (trials: Array<Trial.Trial<unknown>>) =>
-  trials.filter((trial) => Trial.isState("Failed")(trial.state)).length
+const failedCount = (trials: Iterable<Trial.Trial<unknown>>) =>
+  Arr.length(Arr.filter(trials, (trial) => Trial.isState("Failed")(trial.state)))
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 describe("Study.optimize", () => {
@@ -99,7 +99,20 @@ describe("Study.optimize", () => {
       expect(result._tag).toBe("SingleObjective")
       expect(result.completionReason).toBe("budgetExhausted")
       expect(result.trials).toHaveLength(12)
-      expect(result.trials.map((trial) => trial.trialNumber)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+      expect(Arr.map(Arr.fromIterable(result.trials), (trial) => trial.trialNumber)).toEqual([
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ])
 
       const values = completedValues(result.trials)
       expect(values.length).toBeGreaterThan(0)
@@ -231,24 +244,25 @@ describe("Study.optimize", () => {
 
   it.effect("maps cache corruption failures into trial failures in optimize path", () =>
     Effect.gen(function*() {
-      const corruption = new Cache.CacheCorrupt({
+      const corruption = new Cache.Corrupt({
         key: "study:v1:corrupt-optimize-path",
         reason: "forced-corruption"
       })
 
-      const failingSchemaCacheLayer = Layer.scoped(
-        Cache.SchemaCache,
-        Cache.makeSchemaCache().pipe(
-          Effect.map((schemaCache) => ({
-            ...schemaCache,
+      const failingCacheLayer = Layer.scoped(
+        Cache.Cache,
+        Cache.make().pipe(
+          Effect.map((cache) => ({
+            ...cache,
             resolve: () => Effect.fail(corruption)
           }))
         )
       ).pipe(Layer.provide(KeyValueStore.layerMemory))
 
-      const objectiveCacheLayer = Study.StudyObjectiveCacheLive(
-        Study.studyObjectiveCacheOptions("optimize-cache-corrupt")
-      ).pipe(Layer.provide(failingSchemaCacheLayer))
+      const objectiveCacheLayer = Layer.effect(
+        ObjectiveCache.ObjectiveCache,
+        ObjectiveCache.make(new ObjectiveCache.Options({ scope: "optimize-cache-corrupt" }))
+      ).pipe(Layer.provide(failingCacheLayer))
 
       const result = yield* Stream.runCollect(
         Study.optimizeStream({
@@ -282,24 +296,25 @@ describe("Study.optimize", () => {
 
   it.effect("maps cache backend failures into trial failures in optimize path", () =>
     Effect.gen(function*() {
-      const backendFailure = new Cache.CacheBackendError({
+      const backendFailure = new Cache.BackendError({
         operation: "get",
         reason: "forced-backend-failure"
       })
 
-      const failingSchemaCacheLayer = Layer.scoped(
-        Cache.SchemaCache,
-        Cache.makeSchemaCache().pipe(
-          Effect.map((schemaCache) => ({
-            ...schemaCache,
+      const failingCacheLayer = Layer.scoped(
+        Cache.Cache,
+        Cache.make().pipe(
+          Effect.map((cache) => ({
+            ...cache,
             resolve: () => Effect.fail(backendFailure)
           }))
         )
       ).pipe(Layer.provide(KeyValueStore.layerMemory))
 
-      const objectiveCacheLayer = Study.StudyObjectiveCacheLive(
-        Study.studyObjectiveCacheOptions("optimize-cache-backend")
-      ).pipe(Layer.provide(failingSchemaCacheLayer))
+      const objectiveCacheLayer = Layer.effect(
+        ObjectiveCache.ObjectiveCache,
+        ObjectiveCache.make(new ObjectiveCache.Options({ scope: "optimize-cache-backend" }))
+      ).pipe(Layer.provide(failingCacheLayer))
 
       const result = yield* Stream.runCollect(
         Study.optimizeStream({

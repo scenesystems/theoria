@@ -5,7 +5,7 @@
  * Run: bun run examples/20-early-stopping.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Effect, Iterable, Match } from "effect"
 
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
@@ -30,7 +30,7 @@ const program = Effect.gen(function*() {
     Match.tag("SingleObjective", ({ bestTrial, completionReason, trials }) =>
       Effect.log("Early stopping complete", {
         completionReason,
-        trialsEvaluated: trials.length,
+        trialsEvaluated: Iterable.size(trials),
         bestValue: bestTrial.state.value
       })),
     Match.tag("MultiObjective", () => Effect.void),

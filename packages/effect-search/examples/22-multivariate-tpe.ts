@@ -44,7 +44,7 @@ const program = Effect.gen(function*() {
     objective
   })
 
-  const bestValueFrom = (result: Study.StudyResult<SearchSpace.Type<typeof space>>) =>
+  const bestValueFrom = (result: Study.Result<SearchSpace.Type<typeof space>>) =>
     Match.value(result).pipe(
       Match.tag("SingleObjective", ({ bestTrial }) => bestTrial.state.value),
       Match.tag("MultiObjective", () => Number.POSITIVE_INFINITY),

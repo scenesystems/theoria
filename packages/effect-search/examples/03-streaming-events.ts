@@ -5,10 +5,10 @@
  * Run: bun run examples/03-streaming-events.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Effect, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Option, Stream } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Progress, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -31,13 +31,13 @@ const program = Effect.gen(function*() {
     direction: "minimize",
     trials: 12
   }).pipe(
-    Study.tapTerminalProgress(),
+    Progress.tap(),
     Stream.runCollect,
     Effect.map(Chunk.toReadonlyArray)
   )
 
-  const optimizeCompleted = optimizeEvents.filter((event) => event._tag === "TrialCompleted").length
-  const optimizeBestUpdates = optimizeEvents.filter((event) => event._tag === "BestUpdated").length
+  const optimizeCompleted = Arr.length(Arr.filter(optimizeEvents, (event) => event._tag === "TrialCompleted"))
+  const optimizeBestUpdates = Arr.length(Arr.filter(optimizeEvents, (event) => event._tag === "BestUpdated"))
 
   yield* Effect.log("Preparing snapshot for resumeStream terminal progress demo")
 
@@ -57,20 +57,23 @@ const program = Effect.gen(function*() {
     trials: 4,
     objective
   }).pipe(
-    Study.tapTerminalProgress(),
+    Progress.tap(),
     Stream.runCollect,
     Effect.map(Chunk.toReadonlyArray)
   )
 
-  const resumeCompleted = resumeEvents.filter((event) => event._tag === "TrialCompleted").length
-  const resumeLastEvent = resumeEvents[resumeEvents.length - 1]?._tag ?? "none"
+  const resumeCompleted = Arr.length(Arr.filter(resumeEvents, (event) => event._tag === "TrialCompleted"))
+  const resumeLastEvent = Option.match(Arr.last(resumeEvents), {
+    onNone: () => "none",
+    onSome: (event) => event._tag
+  })
 
   yield* Effect.log("Summary", {
     optimizeCompleted,
     optimizeBestUpdates,
-    optimizeTotalEvents: optimizeEvents.length,
+    optimizeTotalEvents: Arr.length(optimizeEvents),
     resumeCompleted,
-    resumeTotalEvents: resumeEvents.length,
+    resumeTotalEvents: Arr.length(resumeEvents),
     resumeLastEvent
   })
 })

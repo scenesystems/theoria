@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Number as Num, Option, Ref } from "effect"
 
-import { makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
 import * as Float64 from "../../src/internal/float64.js"
-import { pendingAsZeroImputationPolicy } from "../../src/Sampler/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import { pendingAsZeroPolicy } from "../../src/Sampler.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import * as Study from "../../src/Study.js"
+import { makeSlotSpace } from "../fixtures/scenarios/slot.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -14,7 +14,7 @@ const makeSpace = () =>
     depth: SearchSpace.int(1, 4)
   })
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 describe("Study concurrency", () => {
@@ -64,7 +64,7 @@ describe("Study concurrency", () => {
 
       const deterministicSampler = new Sampler.Sampler({
         kind: Sampler.Random({ options: {} }),
-        pendingImputationPolicy: pendingAsZeroImputationPolicy,
+        pendingImputationPolicy: pendingAsZeroPolicy,
         checkpoint: Effect.succeed({
           _tag: "Random",
           seed: 0

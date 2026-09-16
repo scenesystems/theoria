@@ -12,21 +12,16 @@ import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const trialCount = 45
 
-const objective = (config: {
-  readonly x: number
-  readonly y: number
-  readonly depth: number
-}): number =>
-  Numeric.pow(config.x - 1.4, 2)
-  + Numeric.pow(config.y + 0.8, 2) * 0.6
-  + Numeric.pow((config.depth - 4) / 4, 2) * 0.1
-
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
     x: SearchSpace.float(-3, 3),
     y: SearchSpace.float(-3, 3),
     depth: SearchSpace.int(1, 8)
   })
+  const objective = (config: SearchSpace.Type<typeof space>): number =>
+    Numeric.pow(config.x - 1.4, 2)
+    + Numeric.pow(config.y + 0.8, 2) * 0.6
+    + Numeric.pow((config.depth - 4) / 4, 2) * 0.1
 
   const runWithAcquisition = (name: "ei" | "pi" | "thompson") =>
     Study.minimize({

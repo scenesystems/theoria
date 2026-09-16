@@ -5,9 +5,9 @@
  * Run: bun run examples/12-trial-cache.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match, Number as Num, Ref } from "effect"
+import { Effect, Iterable, Match, Number as Num, Ref } from "effect"
 
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { ObjectiveCache, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -35,7 +35,9 @@ const program = Effect.gen(function*() {
     })
 
     return { first, second }
-  }).pipe(Effect.provide(Study.StudyObjectiveCacheMemory(Study.studyObjectiveCacheOptions("trial-cache-example"))))
+  }).pipe(
+    Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "trial-cache-example" })))
+  )
 
   const { first, second } = yield* cachedRuns
   const calls = yield* Ref.get(objectiveCalls)
@@ -43,8 +45,8 @@ const program = Effect.gen(function*() {
   yield* Match.value(second).pipe(
     Match.tag("SingleObjective", ({ bestTrial, trials }) =>
       Effect.log("Trial cache complete", {
-        firstRunTrials: first.trials.length,
-        secondRunTrials: trials.length,
+        firstRunTrials: Iterable.size(first.trials),
+        secondRunTrials: Iterable.size(trials),
         objectiveCalls: calls,
         bestValue: bestTrial.state.value
       })),

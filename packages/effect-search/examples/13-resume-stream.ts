@@ -5,7 +5,7 @@
  * Run: bun run examples/13-resume-stream.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Effect, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Option, Stream } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -40,13 +40,16 @@ const program = Effect.gen(function*() {
     Effect.map(Chunk.toReadonlyArray)
   )
 
-  const studyCompletedEvents = events.filter((event) => event._tag === "StudyCompleted")
+  const studyCompletedEvents = Arr.filter(events, (event) => event._tag === "Completed")
 
   yield* Effect.log("Resume stream complete", {
     resumedFromTrial: snapshot.nextTrialNumber,
-    emittedEvents: events.length,
-    studyCompletedEvents: studyCompletedEvents.length,
-    lastEvent: events[events.length - 1]?._tag ?? "none"
+    emittedEvents: Arr.length(events),
+    studyCompletedEvents: Arr.length(studyCompletedEvents),
+    lastEvent: Option.match(Arr.last(events), {
+      onNone: () => "none",
+      onSome: (event) => event._tag
+    })
   })
 })
 

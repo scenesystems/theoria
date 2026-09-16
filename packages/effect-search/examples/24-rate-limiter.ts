@@ -6,7 +6,7 @@
  */
 import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Layer, Match, Number as Num, Ref } from "effect"
+import { Effect, Iterable, Layer, Match, Number as Num, Ref } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
@@ -63,7 +63,7 @@ const program = Effect.gen(function*() {
       ({ bestTrial, completionReason, trials }) =>
         Effect.log("Rate-limited optimization complete", {
           completionReason,
-          trialsEvaluated: trials.length,
+          trialsEvaluated: Iterable.size(trials),
           maxInFlight,
           bestValue: bestTrial.state.value,
           bestConfig: bestTrial.config
