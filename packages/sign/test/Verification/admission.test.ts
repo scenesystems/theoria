@@ -1,6 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Bytes, Ed25519, Entropy, MlDsa, P256, Rsa, Signature, Verification } from "@scenesystems/sign"
-import { Array as Arr, Boolean as B, Effect, Encoding, Match, Number as N, Schema, Tuple } from "effect"
+import {
+  Array as Arr,
+  Boolean as B,
+  Data,
+  Effect,
+  Encoding,
+  identity,
+  Iterable,
+  Match,
+  MutableRef,
+  Number as N,
+  Schema,
+  Tuple
+} from "effect"
 import { Ed25519Fixture, P256Fixture, RsaWycheproofFixture } from "../../scripts/fixture-contract.js"
 import ed25519Corpus from "../fixtures/conformance/ed25519.json" with { type: "json" }
 import p256Corpus from "../fixtures/conformance/p256.json" with { type: "json" }
@@ -33,7 +46,153 @@ const uncopyableBytes = (bytes: Uint8Array, unreadableLength = false) =>
     })
   )
 
+/** Test-only host interception: count actual traversal behind a lying length. */
+const misreportedBytes = (bytes: Uint8Array, length: number, transform: (byte: number) => number = identity) =>
+  Effect.sync(() => {
+    const pulls = MutableRef.make(0)
+    return Data.struct({
+      pulls,
+      bytes: new Proxy(bytes, {
+        get: (target, property) =>
+          Match.value(property).pipe(
+            Match.when("length", () => length),
+            Match.when(Symbol.iterator, () => () =>
+              Iterable.map(target, (byte) => {
+                MutableRef.update(pulls, N.increment)
+                return transform(byte)
+              })[Symbol.iterator]()),
+            Match.orElse(() => Reflect.get(target, property))
+          )
+      })
+    })
+  })
+
 describe("strict direct verification admission", () => {
+  it.effect("rejects fractional iterator values instead of truncating them into authentic bytes", () =>
+    Effect.gen(function*() {
+      const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+      const keys = yield* Ed25519.keyPairFromSeed(seed)
+      const message = Bytes.fromString("a")
+      const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
+      const fractionalMessage = yield* misreportedBytes(message, message.length, N.sum(0.5))
+      expect(yield* Effect.flip(Ed25519.verify(signed.signature, fractionalMessage.bytes, keys.publicKey)))
+        .toEqual(new Verification.InvalidInput({}))
+      const fractionalSeed = yield* misreportedBytes(seed, seed.length, N.sum(0.5))
+      expect(yield* Effect.flip(Ed25519.keyPairFromSeed(fractionalSeed.bytes)))
+        .toEqual(new Ed25519.InvalidSeed({}))
+      const pqKeys = yield* MlDsa.generateKeyPair65()
+      const entropy = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, MlDsa.entropyBytes))
+      const fractionalEntropy = yield* misreportedBytes(entropy, entropy.length, N.sum(0.5))
+      expect(
+        yield* Effect.flip(MlDsa.sign65Hedged(
+          message,
+          pqKeys.secretKey,
+          pqKeys.publicKey,
+          Bytes.fromString(""),
+          fractionalEntropy.bytes
+        ))
+      ).toEqual(new Signature.SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" }))
+    }).pipe(Effect.provide(Entropy.layer)))
+
+  it.effect("bounds traversal and rejects lengths that disagree with the snapshot across strict suites", () =>
+    Effect.gen(function*() {
+      const ed25519 = Arr.headNonEmpty(
+        (yield* Schema.decodeUnknown(Schema.typeSchema(Ed25519Fixture))(ed25519Corpus)).cases
+      )
+      const p256 = Arr.headNonEmpty(
+        (yield* Schema.decodeUnknown(Schema.typeSchema(P256Fixture))(p256Corpus)).cases
+      )
+      const keys = yield* MlDsa.generateKeyPair65()
+      const empty = Bytes.fromString("")
+      const signed = yield* MlDsa.sign65Deterministic(empty, keys.secretKey, keys.publicKey)
+      const overLimit = yield* Schema.decode(Schema.Uint8Array)(
+        Arr.replicate(0x71, N.increment(Verification.maxMessageBytes))
+      )
+      yield* Effect.forEach(
+        Arr.make(
+          Tuple.make(
+            Ed25519.verify,
+            yield* Encoding.decodeHex(ed25519.signature),
+            yield* Encoding.decodeHex(ed25519.publicKey)
+          ),
+          Tuple.make(
+            P256.verify,
+            yield* Encoding.decodeHex(p256.signature),
+            yield* Encoding.decodeHex(p256.publicKey.uncompressed)
+          ),
+          Tuple.make(
+            (signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array) =>
+              MlDsa.verify65(signature, message, publicKey, empty),
+            signed.signature,
+            keys.publicKey
+          )
+        ),
+        ([verify, signature, publicKey]) =>
+          Effect.gen(function*() {
+            const hiddenMessage = yield* misreportedBytes(overLimit, 0)
+            expect(yield* Effect.flip(verify(signature, hiddenMessage.bytes, publicKey)))
+              .toEqual(new Verification.InvalidInput({}))
+            expect(MutableRef.get(hiddenMessage.pulls)).toBe(1)
+
+            const excessSignature = yield* Schema.decode(Schema.Uint8Array)(
+              Arr.append(Arr.fromIterable(signature), 0)
+            )
+            const excessKey = yield* Schema.decode(Schema.Uint8Array)(Arr.append(Arr.fromIterable(publicKey), 0))
+            const honestSignature = yield* misreportedBytes(excessSignature, excessSignature.length)
+            const honestKey = yield* misreportedBytes(excessKey, excessKey.length)
+            expect(yield* Effect.flip(verify(honestSignature.bytes, empty, publicKey)))
+              .toEqual(new Verification.InvalidInput({}))
+            expect(yield* Effect.flip(verify(signature, empty, honestKey.bytes)))
+              .toEqual(new Verification.InvalidInput({}))
+            expect(MutableRef.get(honestSignature.pulls)).toBe(0)
+            expect(MutableRef.get(honestKey.pulls)).toBe(0)
+
+            const hiddenSignature = yield* misreportedBytes(excessSignature, signature.length)
+            const hiddenKey = yield* misreportedBytes(excessKey, publicKey.length)
+            expect(yield* Effect.flip(verify(hiddenSignature.bytes, empty, publicKey)))
+              .toEqual(new Verification.InvalidInput({}))
+            expect(yield* Effect.flip(verify(signature, empty, hiddenKey.bytes)))
+              .toEqual(new Verification.InvalidInput({}))
+          })
+      )
+
+      const rsa = Arr.headNonEmpty(
+        (yield* Schema.decodeUnknown(Schema.typeSchema(RsaWycheproofFixture))(rsaCorpus)).testGroups
+      )
+      const rsaKey = yield* Rsa.publicKeyFromJwk(rsa.keyJwk)
+      const rsaSignature = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, 256))
+      const hiddenMessage = yield* misreportedBytes(overLimit, 0)
+      expect(yield* Effect.flip(Rsa.verify(rsaSignature, hiddenMessage.bytes, rsaKey)))
+        .toEqual(new Verification.InvalidInput({}))
+      expect(MutableRef.get(hiddenMessage.pulls)).toBe(1)
+    }).pipe(Effect.provide(Entropy.layer)))
+
+  it.effect("classifies inconsistent seed, context, and entropy snapshots as invalid input", () =>
+    Effect.gen(function*() {
+      const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+      const hiddenSeed = yield* misreportedBytes(Bytes.fromString("short"), seed.length)
+      expect(yield* Effect.flip(Ed25519.keyPairFromSeed(hiddenSeed.bytes))).toEqual(new Ed25519.InvalidSeed({}))
+      const keys = yield* MlDsa.generateKeyPair65()
+      const empty = Bytes.fromString("")
+      const entropy = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, MlDsa.entropyBytes))
+      const hiddenEntropy = yield* misreportedBytes(Bytes.fromString("short"), MlDsa.entropyBytes)
+      const context = yield* misreportedBytes(Bytes.fromString("not empty"), 0)
+      const signed = yield* MlDsa.sign65Hedged(empty, keys.secretKey, keys.publicKey, empty, entropy)
+      expect(yield* Effect.flip(MlDsa.verify65(signed.signature, empty, keys.publicKey, context.bytes)))
+        .toEqual(new Verification.InvalidInput({}))
+      yield* Effect.forEach(
+        Arr.make(
+          MlDsa.sign65Hedged(empty, keys.secretKey, keys.publicKey, context.bytes, entropy),
+          MlDsa.sign65Hedged(empty, keys.secretKey, keys.publicKey, empty, hiddenEntropy.bytes)
+        ),
+        (signing) =>
+          Effect.gen(function*() {
+            expect(yield* Effect.flip(signing))
+              .toEqual(new Signature.SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" }))
+          })
+      )
+    }).pipe(Effect.provide(Entropy.layer)))
+
   it.effect("rejects one unreadable input in otherwise genuine verification, including detachment after construction", () =>
     Effect.gen(function*() {
       const ed25519 = Arr.headNonEmpty(

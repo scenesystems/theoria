@@ -30,11 +30,7 @@ export const verify = (
   message: Uint8Array,
   publicKey: Uint8Array
 ): Effect.Effect<boolean, Verification.InvalidInput | Verification.Unavailable> =>
-  detachVerificationInputs(signature, message, publicKey).pipe(
-    Effect.filterOrFail(
-      (input) => B.and(N.Equivalence(input.signature.length, 64), N.Equivalence(input.publicKey.length, 65)),
-      () => new Verification.InvalidInput({})
-    ),
+  detachVerificationInputs(signature, message, publicKey, 64, 65).pipe(
     Effect.filterOrFail(
       (input) => Option.containsWith(N.Equivalence)(Arr.head(Arr.fromIterable(input.publicKey)), 0x04),
       () => new Verification.InvalidInput({})

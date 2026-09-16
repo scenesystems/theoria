@@ -106,15 +106,6 @@ export const publicKeyFromJwk = (input: unknown): Effect.Effect<PublicKey, Inval
     })
   }).pipe(Effect.mapError(() => new InvalidPublicKey({})))
 
-const Input = Schema.Struct({
-  signature: Schema.Uint8ArrayFromSelf.pipe(
-    Schema.filter((bytes) => N.between(bytes.length, { minimum: 256, maximum: 512 }))
-  ),
-  message: Schema.Uint8ArrayFromSelf.pipe(
-    Schema.filter((bytes) => N.lessThanOrEqualTo(bytes.length, Verification.maxMessageBytes))
-  )
-})
-
 /**
  * Verifies fixed-profile RS256 over exact message bytes.
  * Hashes once with SHA-256 and requires a modulus-width signature whose integer
@@ -144,27 +135,23 @@ export const verify = (
       Effect.flatMap(identity),
       Effect.mapError(() => new Verification.InvalidInput({}))
     )
-    const input = yield* Effect.try({
-      try: () => Schema.decodeUnknownEither(Input)({ signature, message }),
-      catch: () => new Verification.InvalidInput({})
-    }).pipe(
-      Effect.flatMap(identity),
-      Effect.mapError(() => new Verification.InvalidInput({}))
-    )
-    const detachedSignature = yield* copyBytes(input.signature)
-    const detachedMessage = yield* copyBytes(input.message)
     const bits = bitLen(key.modulus)
     const remainingBits = N.remainder(bits, 8)
     const width = N.sum(
       N.unsafeDivide(N.subtract(bits, remainingBits), 8),
       B.match(N.Equivalence(remainingBits, 0), { onTrue: () => 0, onFalse: () => 1 })
     )
+    const detachedSignature = yield* copyBytes(signature, Schema.Literal(width))
+    const detachedMessage = yield* copyBytes(
+      message,
+      Schema.NonNegativeInt.pipe(Schema.lessThanOrEqualTo(Verification.maxMessageBytes))
+    )
     const representative = yield* Schema.decode(Schema.BigInt)(
       Str.concat("0x", Encoding.encodeHex(detachedSignature))
     ).pipe(Effect.mapError(() => new Verification.InvalidInput({})))
     yield* Effect.succeed(detachedSignature).pipe(
       Effect.filterOrFail(
-        (bytes) => B.and(N.Equivalence(bytes.length, width), BI.lessThan(representative, key.modulus)),
+        () => BI.lessThan(representative, key.modulus),
         () => new Verification.InvalidInput({})
       )
     )

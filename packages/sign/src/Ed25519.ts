@@ -72,7 +72,7 @@ export const keyPairFromSeed = (
     catch: () => new InvalidSeed({})
   }).pipe(
     Effect.flatMap(identity),
-    Effect.flatMap(copyBytes),
+    Effect.flatMap((seed) => copyBytes(seed, Schema.Literal(32))),
     Effect.mapError(() => new InvalidSeed({})),
     Effect.flatMap((secretKey) =>
       Effect.try({
@@ -114,14 +114,14 @@ export const sign = (
   publicKey: Uint8Array
 ): Effect.Effect<Signature.Signature, Signature.SigningFailed> =>
   Effect.gen(function*() {
-    const suppliedPublicKey = yield* copyBytes(publicKey)
+    const suppliedPublicKey = yield* copyBytes(publicKey, Schema.Literal(32))
     const keys = yield* keyPairFromSeed(secretKey).pipe(
       Effect.filterOrFail(
         (pair) => Bytes.equal(pair.publicKey, suppliedPublicKey),
         () => new Verification.InvalidInput({})
       )
     )
-    const protectedMessage = yield* copyBytes(message)
+    const protectedMessage = yield* copyBytes(message, Schema.NonNegativeInt)
     return yield* Effect.try({
       try: () =>
         new Signature.Signature({
@@ -157,11 +157,7 @@ export const verify = (
   message: Uint8Array,
   publicKey: Uint8Array
 ): Effect.Effect<boolean, Verification.InvalidInput | Verification.Unavailable> =>
-  detachVerificationInputs(signature, message, publicKey).pipe(
-    Effect.filterOrFail(
-      (input) => B.and(N.Equivalence(input.signature.length, 64), N.Equivalence(input.publicKey.length, 32)),
-      () => new Verification.InvalidInput({})
-    ),
+  detachVerificationInputs(signature, message, publicKey, 64, 32).pipe(
     Effect.flatMap((input) =>
       Effect.gen(function*() {
         yield* Effect.try({
