@@ -7,12 +7,11 @@
 import { Array as Arr, Boolean, HashSet, Number as Num } from "effect"
 import type { Schema } from "effect"
 
-import type { DirectionSchema } from "../contracts/Direction.js"
+import type { DirectionVector } from "../contracts/Direction.js"
 import { nonDominatedIndices, objectiveFrontierHoldings } from "./frontier.js"
 import { FrontierSnapshot, ObjectiveFrontierWeight } from "./model.js"
 import type { ObjectiveFrontierHolding, ObjectiveVectorSchema } from "./model.js"
 
-type DirectionArray = Schema.Array$<typeof DirectionSchema>["Type"]
 type NumberArray = Schema.Array$<typeof Schema.Number>["Type"]
 type ObjectiveMatrix = Schema.Array$<typeof ObjectiveVectorSchema>["Type"]
 type ObjectiveHoldings = Schema.Array$<typeof ObjectiveFrontierHolding>["Type"]
@@ -65,7 +64,7 @@ const dominatedIndicesFromFrontier = (
  * @since 0.1.0
  * @category frontier
  */
-export const maximizeDirections = (objectiveCount: number): DirectionArray =>
+export const maximizeDirections = (objectiveCount: number): DirectionVector =>
   Arr.map(buildIndices(objectiveCount), () => "maximize")
 
 /**
@@ -80,7 +79,7 @@ export const maximizeDirections = (objectiveCount: number): DirectionArray =>
  */
 export const dominatedIndices = (
   points: ObjectiveMatrix,
-  directions: DirectionArray = Arr.empty(),
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): NumberArray => {
   const frontier = nonDominatedIndices(points, directions, epsilon)
@@ -100,7 +99,7 @@ export const dominatedIndices = (
  */
 export const objectiveFrontierWeights = (
   points: ObjectiveMatrix,
-  directions: DirectionArray = Arr.empty(),
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): ObjectiveWeights => {
   const holdings = objectiveFrontierHoldings(points, directions, epsilon)
@@ -121,7 +120,7 @@ export const objectiveFrontierWeights = (
  */
 export const frontierSnapshot = (
   points: ObjectiveMatrix,
-  directions: DirectionArray = Arr.empty(),
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): FrontierSnapshot => {
   const frontierIndices = nonDominatedIndices(points, directions, epsilon)

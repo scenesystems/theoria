@@ -7,10 +7,10 @@ import { CONSIDER_ENDPOINTS, CONSIDER_MAGIC_CLIP, ContinuousKernel, EPS, PRIOR_W
 
 export const clipSigma = (sigma: number, low: number, high: number, nKernels: number): number => {
   const maxSigma = Num.subtract(high, low)
-  const minSigma = Match.value(CONSIDER_MAGIC_CLIP).pipe(
-    Match.when(true, () => minimumBandwidth(low, high, nKernels)),
-    Match.orElse(() => EPS)
-  )
+  const minSigma = Boolean.match(CONSIDER_MAGIC_CLIP, {
+    onTrue: () => minimumBandwidth(low, high, nKernels),
+    onFalse: () => EPS
+  })
 
   return Num.clamp(sigma, {
     minimum: minSigma,
@@ -23,13 +23,13 @@ export const normalizedKernelWeights = (observationCount: number): ContinuousVal
   const kernelWeights = Arr.append(observationWeights, PRIOR_WEIGHT)
   const totalWeight = sum(kernelWeights)
 
-  return Match.value(Num.lessThanOrEqualTo(totalWeight, 0)).pipe(
-    Match.when(true, () => {
+  return Boolean.match(Num.lessThanOrEqualTo(totalWeight, 0), {
+    onTrue: () => {
       const uniform = Num.unsafeDivide(1, Num.max(Arr.length(kernelWeights), 1))
       return Arr.makeBy(Arr.length(kernelWeights), () => uniform)
-    }),
-    Match.orElse(() => Arr.map(kernelWeights, (weight) => Num.unsafeDivide(weight, totalWeight)))
-  )
+    },
+    onFalse: () => Arr.map(kernelWeights, (weight) => Num.unsafeDivide(weight, totalWeight))
+  })
 }
 
 export const observationSigmas = (
@@ -41,7 +41,7 @@ export const observationSigmas = (
   const meansWithPrior = Arr.append(observations, priorMean)
   const sorted = Arr.sort(
     Arr.map(meansWithPrior, (mean, index) => Tuple.make(index, mean)),
-    Order.mapInput(Num.Order, (entry: readonly [number, number]) => Tuple.getSecond(entry))
+    Order.mapInput(Num.Order, Tuple.getSecond<number, number>)
   )
   const sortedPositionLookup = Arr.reduce(
     sorted,
@@ -58,24 +58,25 @@ export const observationSigmas = (
     return Num.max(Num.subtract(center, left), Num.subtract(right, center))
   })
 
-  const endpointAdjustedSigmas = Match.value(
-    Boolean.and(Boolean.not(CONSIDER_ENDPOINTS), Num.greaterThanOrEqualTo(Arr.length(sortedMeansWithEndpoints), 4))
-  ).pipe(
-    Match.when(true, () =>
-      Arr.map(sortedSigmas, (sigma, index) =>
-        Match.value(index).pipe(
-          Match.when(
-            0,
-            () => Num.subtract(valueAt(sortedMeansWithEndpoints, 2, high), valueAt(sortedMeansWithEndpoints, 1, low))
-          ),
-          Match.when(Num.decrement(Arr.length(sortedSigmas)), () =>
-            Num.subtract(
-              valueAt(sortedMeansWithEndpoints, Num.subtract(Arr.length(sortedMeansWithEndpoints), 2), high),
-              valueAt(sortedMeansWithEndpoints, Num.subtract(Arr.length(sortedMeansWithEndpoints), 3), low)
-            )),
-          Match.orElse(() => sigma)
-        ))),
-    Match.orElse(() => sortedSigmas)
+  const endpointAdjustedSigmas = Boolean.match(
+    Boolean.and(Boolean.not(CONSIDER_ENDPOINTS), Num.greaterThanOrEqualTo(Arr.length(sortedMeansWithEndpoints), 4)),
+    {
+      onTrue: () =>
+        Arr.map(sortedSigmas, (sigma, index) =>
+          Match.value(index).pipe(
+            Match.when(
+              0,
+              () => Num.subtract(valueAt(sortedMeansWithEndpoints, 2, high), valueAt(sortedMeansWithEndpoints, 1, low))
+            ),
+            Match.when(Num.decrement(Arr.length(sortedSigmas)), () =>
+              Num.subtract(
+                valueAt(sortedMeansWithEndpoints, Num.subtract(Arr.length(sortedMeansWithEndpoints), 2), high),
+                valueAt(sortedMeansWithEndpoints, Num.subtract(Arr.length(sortedMeansWithEndpoints), 3), low)
+              )),
+            Match.orElse(() => sigma)
+          )),
+      onFalse: () => sortedSigmas
+    }
   )
 
   return Arr.map(observations, (_unused, observationIndex) => {
@@ -88,16 +89,13 @@ export const observationSigmas = (
 }
 
 const positiveKernelWeight = (kernel: ContinuousKernel): number =>
-  Match.value(Num.greaterThan(kernel.weight, 0)).pipe(
-    Match.when(true, () => kernel.weight),
-    Match.orElse(() => 0)
-  )
+  Boolean.match(Num.greaterThan(kernel.weight, 0), {
+    onTrue: () => kernel.weight,
+    onFalse: () => 0
+  })
 
 const cumulativeKernelWeights = (kernels: ContinuousParzen["kernels"]): ContinuousValues =>
-  Arr.reduce(kernels, Arr.empty<number>(), (acc, kernel) => {
-    const last = valueAt(acc, Num.decrement(Arr.length(acc)), 0)
-    return Arr.append(acc, Num.sum(last, positiveKernelWeight(kernel)))
-  })
+  Arr.tailNonEmpty(Arr.scan(kernels, 0, (total, kernel) => Num.sum(total, positiveKernelWeight(kernel))))
 
 export const chooseKernelIndex = (parzen: ContinuousParzen, roll: number): number => {
   const cumulative = cumulativeKernelWeights(parzen.kernels)
@@ -111,10 +109,10 @@ export const chooseKernelIndex = (parzen: ContinuousParzen, roll: number): numbe
     Option.getOrElse(() => -1)
   )
 
-  return Match.value(Num.lessThan(index, 0)).pipe(
-    Match.when(true, () => Num.max(Num.decrement(Arr.length(parzen.kernels)), 0)),
-    Match.orElse(() => index)
-  )
+  return Boolean.match(Num.lessThan(index, 0), {
+    onTrue: () => Num.max(Num.decrement(Arr.length(parzen.kernels)), 0),
+    onFalse: () => index
+  })
 }
 
 const fallbackKernel = (parzen: ContinuousParzen): ContinuousKernel =>

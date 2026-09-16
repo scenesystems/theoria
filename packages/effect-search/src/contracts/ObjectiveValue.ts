@@ -60,7 +60,8 @@ export const isObjectiveVector = (value: ObjectiveValue): value is ObjectiveVect
 export const objectiveDimensionCount = (value: ObjectiveValue): number =>
   Match.value(value).pipe(
     Match.when(Match.number, () => 1),
-    Match.orElse((vector) => vector.length)
+    Match.when(isObjectiveVector, Arr.length),
+    Match.exhaustive
   )
 
 /**
@@ -72,7 +73,9 @@ export const objectiveDimensionCount = (value: ObjectiveValue): number =>
 export const hasObjectiveDimensions = (value: ObjectiveValue): boolean =>
   Num.greaterThan(objectiveDimensionCount(value), 0)
 
-const finiteObjectiveVector = (value: ObjectiveVector): boolean => value.every((entry) => Number.isFinite(entry))
+const isFinite = Schema.is(Schema.Finite)
+
+const finiteObjectiveVector = (value: ObjectiveVector): boolean => Arr.every(value, isFinite)
 
 /**
  * Reports whether a scalar or every vector coordinate excludes `NaN` and infinities.
@@ -84,8 +87,9 @@ const finiteObjectiveVector = (value: ObjectiveVector): boolean => value.every((
  */
 export const isFiniteObjectiveValue = (value: ObjectiveValue): boolean =>
   Match.value(value).pipe(
-    Match.when(Match.number, (entry) => Number.isFinite(entry)),
-    Match.orElse(finiteObjectiveVector)
+    Match.when(Match.number, isFinite),
+    Match.when(isObjectiveVector, finiteObjectiveVector),
+    Match.exhaustive
   )
 
 /**
@@ -94,8 +98,9 @@ export const isFiniteObjectiveValue = (value: ObjectiveValue): boolean =>
  * @since 0.1.0
  * @category combinators
  */
-export const normalizeObjectiveVector = (value: ObjectiveValue): ReadonlyArray<number> =>
+export const normalizeObjectiveVector = (value: ObjectiveValue): ObjectiveVector =>
   Match.value(value).pipe(
-    Match.when(Match.number, (entry) => [entry]),
-    Match.orElse((entries) => entries)
+    Match.when(Match.number, (entry) => Arr.of(entry)),
+    Match.when(isObjectiveVector, (entries) => entries),
+    Match.exhaustive
   )

@@ -7,12 +7,11 @@
 import { Numeric } from "@scenesystems/effect-math"
 import { Array as Arr, Boolean, Equal, HashSet, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
-import type { Direction, DirectionSchema } from "../contracts/Direction.js"
+import { type Direction, directionOrDefault, type DirectionVector } from "../contracts/Direction.js"
 import { dominatesNormalized, normalizeMatrix, validateRectangular } from "./dominance.js"
 import { ObjectiveFrontierHolding } from "./model.js"
 import type { ObjectiveVector, ObjectiveVectorSchema } from "./model.js"
 
-type DirectionArray = Schema.Array$<typeof DirectionSchema>["Type"]
 type NumberArray = Schema.Array$<typeof Schema.Number>["Type"]
 type NumberMatrix = Schema.Array$<Schema.Array$<typeof Schema.Number>>["Type"]
 type ObjectiveMatrix = Schema.Array$<typeof ObjectiveVectorSchema>["Type"]
@@ -26,10 +25,8 @@ const buildIndices = (count: number): NumberArray =>
     onTrue: () => Arr.empty<number>()
   })
 
-const defaultDirection = (): Direction => "minimize"
-
-const directionAt = (directions: DirectionArray, index: number): Direction =>
-  Arr.get(directions, index).pipe(Option.getOrElse(defaultDirection))
+const directionAt = (directions: DirectionVector, index: number): Direction =>
+  directionOrDefault(Arr.get(directions, index))
 
 const defaultCoordinateValue = (direction: Direction): number =>
   Match.value(direction).pipe(
@@ -75,7 +72,7 @@ const isBetter = (a: number, b: number, d: Direction): boolean =>
  */
 export const nonDominatedIndices = (
   points: ObjectiveMatrix,
-  directions: DirectionArray = Arr.empty(),
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): NumberArray =>
   Boolean.match(validateRectangular(points), {
@@ -104,7 +101,7 @@ export const nonDominatedIndices = (
  */
 export const nonDominatedSort = (
   points: ObjectiveMatrix,
-  directions: DirectionArray = Arr.empty(),
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): NumberMatrix =>
   Boolean.match(validateRectangular(points), {
@@ -189,7 +186,7 @@ export const nonDominatedSort = (
  */
 export const nonDominatedRanks = (
   points: ObjectiveMatrix,
-  directions: DirectionArray = Arr.empty(),
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): NumberArray => {
   const fronts = nonDominatedSort(points, directions, epsilon)
@@ -217,7 +214,7 @@ export const nonDominatedRanks = (
  */
 export const objectiveFrontierHoldings = (
   points: ObjectiveMatrix,
-  directions: DirectionArray = Arr.empty(),
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): ObjectiveHoldings =>
   Boolean.match(validateRectangular(points), {

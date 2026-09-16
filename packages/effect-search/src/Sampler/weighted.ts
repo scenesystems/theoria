@@ -80,7 +80,6 @@ export type SampleWeightedPairOptions = typeof SampleWeightedPairOptions.Type
 
 type WeightedIndices = Schema.Array$<typeof Schema.Number>["Type"]
 type WeightedIndexArray = Schema.Array$<typeof WeightedIndexSchema>["Type"]
-type CumulativeWeight = Schema.Tuple2<typeof Schema.Number, typeof Schema.Number>["Type"]
 type CumulativeWeights = Schema.Array$<Schema.Tuple2<typeof Schema.Number, typeof Schema.Number>>["Type"]
 type WeightedPair = Schema.Tuple2<typeof Schema.Number, typeof Schema.Number>["Type"]
 
@@ -110,19 +109,10 @@ const normalizedPositiveWeights = (weights: WeightedIndexArray): WeightedIndexAr
 }
 
 const cumulativeWeights = (weights: WeightedIndexArray): CumulativeWeights =>
-  Arr.reduce(weights, Arr.empty<CumulativeWeight>(), (acc, weight) => {
-    const previous = Arr.last(acc).pipe(
-      Option.match({
-        onNone: () => 0,
-        onSome: Tuple.getSecond
-      })
-    )
-
-    return Arr.append(
-      acc,
-      Tuple.make(weight.index, Num.sum(previous, weight.weight))
-    )
-  })
+  Arr.tailNonEmpty(
+    Arr.scan(weights, Tuple.make(0, 0), (previous, weight) =>
+      Tuple.make(weight.index, Num.sum(Tuple.getSecond(previous), weight.weight)))
+  )
 
 const fallbackIndex = (weights: WeightedIndexArray): number =>
   Arr.head(sortedWeights(weights)).pipe(

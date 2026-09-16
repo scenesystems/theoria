@@ -1,12 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Boolean, Effect, Number as Num, Option, Schema } from "effect"
 
 import * as Float64 from "../../src/internal/float64.js"
 import * as Pareto from "../../src/Pareto/index.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(Float64.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 }
+
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const numberAt = (values: Pareto.ObjectiveWeights, index: number): number =>
+  Arr.get(values, index).pipe(Option.getOrElse(() => 0))
 
 describe("Pareto hypervolume properties", () => {
   it.effect("is monotonic when adding points under a fixed reference", () =>
@@ -32,9 +37,10 @@ describe("Pareto hypervolume properties", () => {
       const reference = Arr.make(4.4, 4.4)
       const contributions = Pareto.hypervolumeContribution2d(points, reference)
 
-      expect(contributions).toHaveLength(points.length)
-      expect(contributions.every((value) => value >= 0)).toBe(true)
-      expectApprox(contributions[3] ?? 0, 0)
+      expect(contributions).toHaveLength(Arr.length(points))
+      expect(Arr.every(contributions, (value) => Boolean.and(isNonNaN(value), Num.greaterThanOrEqualTo(value, 0))))
+        .toBe(true)
+      expectApprox(numberAt(contributions, 3), 0)
     }))
 
   it.effect("matches leave-one-out contribution identity on the non-dominated front", () =>
@@ -45,10 +51,10 @@ describe("Pareto hypervolume properties", () => {
       const contributions = Pareto.hypervolumeContribution2d(points, reference)
 
       Arr.forEach(points, (_point, index) => {
-        const withoutPoint = Arr.filter(points, (_entry, pointIndex) => pointIndex !== index)
+        const withoutPoint = Arr.filter(points, (_entry, pointIndex) => Boolean.not(Num.Equivalence(pointIndex, index)))
         const leaveOneOut = Pareto.hypervolume2d(withoutPoint, reference)
 
-        expectApprox((contributions[index] ?? 0) + leaveOneOut, total)
+        expectApprox(Num.sum(numberAt(contributions, index), leaveOneOut), total)
       })
     }))
 })

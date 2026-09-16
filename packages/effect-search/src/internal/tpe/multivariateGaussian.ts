@@ -62,17 +62,13 @@ const componentAt = (
   index: number
 ): GaussianVector => Arr.get(components, index).pipe(Option.getOrElse(() => Arr.empty<number>()))
 
-const cumulativeWeights = (weights: GaussianVector): GaussianVector =>
-  Arr.reduce(weights, Arr.empty<number>(), (accumulator, weight) => {
-    const previous = valueAt(accumulator, Num.decrement(Arr.length(accumulator)), 0)
-    return Arr.append(accumulator, Num.sum(previous, weight))
-  })
+const cumulativeWeights = (weights: GaussianVector): GaussianVector => Arr.tailNonEmpty(Arr.scan(weights, 0, Num.sum))
 
 const uniformWeights = (componentCount: number): GaussianVector =>
-  Match.value(Num.lessThanOrEqualTo(componentCount, 0)).pipe(
-    Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount)))
-  )
+  Boolean.match(Num.lessThanOrEqualTo(componentCount, 0), {
+    onTrue: () => Arr.empty<number>(),
+    onFalse: () => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount))
+  })
 
 const normalizeWeights = (
   componentCount: number,
@@ -81,16 +77,16 @@ const normalizeWeights = (
   const clamped = Arr.makeBy(componentCount, (index) => validWeight(valueAt(weights, index, 0)))
   const total = Arr.reduce(clamped, 0, (accumulator, weight) => Num.sum(accumulator, weight))
 
-  return Match.value(Num.greaterThan(total, 0)).pipe(
-    Match.when(true, () => Arr.map(clamped, (weight) => Num.unsafeDivide(weight, total))),
-    Match.orElse(() => uniformWeights(componentCount))
-  )
+  return Boolean.match(Num.greaterThan(total, 0), {
+    onTrue: () => Arr.map(clamped, (weight) => Num.unsafeDivide(weight, total)),
+    onFalse: () => uniformWeights(componentCount)
+  })
 }
 
 const chooseComponentIndex = (weights: GaussianVector, componentRoll: number): number =>
-  Match.value(Num.lessThanOrEqualTo(Arr.length(weights), 0)).pipe(
-    Match.when(true, () => 0),
-    Match.orElse(() => {
+  Boolean.match(Num.lessThanOrEqualTo(Arr.length(weights), 0), {
+    onTrue: () => 0,
+    onFalse: () => {
       const cumulative = cumulativeWeights(weights)
       const index = Arr.findFirstIndex(
         cumulative,
@@ -98,8 +94,8 @@ const chooseComponentIndex = (weights: GaussianVector, componentRoll: number): n
       ).pipe(Option.getOrElse(() => Num.decrement(Arr.length(weights))))
 
       return Num.clamp(index, { minimum: 0, maximum: Num.decrement(Arr.length(weights)) })
-    })
-  )
+    }
+  })
 
 const quantileFromRoll = (roll: number): number => ndtriExp(logStrict(validProbability(roll)))
 
@@ -140,10 +136,10 @@ export const diagonalGaussianMixtureLogDensity = (
     const sigma = componentAt(sigmas, index)
     const weight = valueAt(normalizedWeights, index, 0)
 
-    return Match.value(Num.lessThanOrEqualTo(weight, 0)).pipe(
-      Match.when(true, () => Number.NEGATIVE_INFINITY),
-      Match.orElse(() => Num.sum(logStrict(weight), diagonalGaussianLogDensity(point, mean, sigma)))
-    )
+    return Boolean.match(Num.lessThanOrEqualTo(weight, 0), {
+      onTrue: () => Number.NEGATIVE_INFINITY,
+      onFalse: () => Num.sum(logStrict(weight), diagonalGaussianLogDensity(point, mean, sigma))
+    })
   })
 
   return logSumExp(Chunk.fromIterable(componentLogDensities))
@@ -154,16 +150,15 @@ export const sampleDiagonalGaussian = (
   sigmas: GaussianVector,
   rolls: GaussianVector
 ): GaussianVector =>
-  Match.value(hasMatchingDimensions(mean, mean, sigmas)).pipe(
-    Match.when(false, () => Arr.empty<number>()),
-    Match.orElse(() =>
+  Boolean.match(hasMatchingDimensions(mean, mean, sigmas), {
+    onFalse: () => Arr.empty<number>(),
+    onTrue: () =>
       Arr.map(mean, (currentMean, index) => {
         const sigma = validSigma(valueAt(sigmas, index, EPSILON))
         const quantile = quantileFromRoll(valueAt(rolls, index, 0.5))
         return Num.sum(currentMean, Num.multiply(sigma, quantile))
       })
-    )
-  )
+  })
 
 export const sampleDiagonalGaussianMixture = (
   means: GaussianComponents,

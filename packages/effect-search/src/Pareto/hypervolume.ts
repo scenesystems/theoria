@@ -4,23 +4,27 @@
  * @since 0.1.0
  */
 
-import { Array as Arr, HashSet, Match, Number as Num, Option, Order } from "effect"
+import { Array as Arr, Boolean, HashSet, Number as Num, Option, Order, Tuple } from "effect"
+import type { Schema } from "effect"
 
-import type { Direction } from "../contracts/Direction.js"
+import type { DirectionVector } from "../contracts/Direction.js"
 import { normalizePoint } from "./dominance.js"
 import { nonDominatedIndices } from "./frontier.js"
-import type { ObjectiveVector } from "./model.js"
+import type { ObjectiveVector, ObjectiveVectorSchema } from "./model.js"
+
+type NumberArray = Schema.Array$<typeof Schema.Number>["Type"]
+type ObjectiveMatrix = Schema.Array$<typeof ObjectiveVectorSchema>["Type"]
 
 const valueAt = (vector: ObjectiveVector, index: number): number =>
   Arr.get(vector, index).pipe(Option.getOrElse(() => Number.POSITIVE_INFINITY))
 
-const pointAt = (points: ReadonlyArray<ObjectiveVector>, index: number): ObjectiveVector =>
+const pointAt = (points: ObjectiveMatrix, index: number): ObjectiveVector =>
   Arr.get(points, index).pipe(Option.getOrElse(() => Arr.empty<number>()))
 
 const computeHypervolume2d = (
-  points: ReadonlyArray<ObjectiveVector>,
+  points: ObjectiveMatrix,
   reference: ObjectiveVector,
-  directions: ReadonlyArray<Direction>
+  directions: DirectionVector
 ): number => {
   const normalizedReference = normalizePoint(reference, directions)
   const frontIndices = nonDominatedIndices(points, directions)
@@ -31,28 +35,28 @@ const computeHypervolume2d = (
     Arr.filter(
       Arr.map(frontIndices, (index) => normalizePoint(pointAt(points, index), directions)),
       (point) =>
-        valueAt(point, 0) <= valueAt(normalizedReference, 0) && valueAt(point, 1) <= valueAt(normalizedReference, 1)
+        Boolean.and(
+          Num.lessThanOrEqualTo(valueAt(point, 0), valueAt(normalizedReference, 0)),
+          Num.lessThanOrEqualTo(valueAt(point, 1), valueAt(normalizedReference, 1))
+        )
     )
   )
 
   const folded = Arr.reduce(
     normalizedFront,
-    {
-      prevY: valueAt(normalizedReference, 1),
-      area: 0
-    },
+    Tuple.make(valueAt(normalizedReference, 1), 0),
     (state, point) => {
-      const width = Num.max(valueAt(normalizedReference, 0) - valueAt(point, 0), 0)
-      const height = Num.max(state.prevY - valueAt(point, 1), 0)
+      const width = Num.max(Num.subtract(valueAt(normalizedReference, 0), valueAt(point, 0)), 0)
+      const height = Num.max(Num.subtract(Tuple.getFirst(state), valueAt(point, 1)), 0)
 
-      return {
-        prevY: Num.min(state.prevY, valueAt(point, 1)),
-        area: state.area + width * height
-      }
+      return Tuple.make(
+        Num.min(Tuple.getFirst(state), valueAt(point, 1)),
+        Num.sum(Tuple.getSecond(state), Num.multiply(width, height))
+      )
     }
   )
 
-  return folded.area
+  return Tuple.getSecond(folded)
 }
 
 /**
@@ -65,22 +69,18 @@ const computeHypervolume2d = (
  *
  * @example
  * ```ts
- * import { Effect } from "effect"
+ * import { Array as Arr, Effect, Number as Num } from "effect"
  * import { Numeric } from "@scenesystems/effect-math"
  * import { Pareto } from "@scenesystems/effect-search"
  *
  * export const program = Effect.sync(() =>
  *   Pareto.hypervolume2d(
- *     [
- *       [1, 4],
- *       [2, 2],
- *       [3, 1]
- *     ],
- *     [4.4, 4.4]
+ *     Arr.make(Arr.make(1, 4), Arr.make(2, 2), Arr.make(3, 1)),
+ *     Arr.make(4.4, 4.4)
  *   )
  * ).pipe(
  *   Effect.filterOrFail(
- *     (area) => Numeric.between(Numeric.abs(Numeric.sum([area, -7.56])), { minimum: 0, maximum: 1e-12 }),
+ *     (area) => Numeric.between(Numeric.abs(Num.subtract(area, 7.56)), { minimum: 0, maximum: 1e-12 }),
  *     () => "UnexpectedHypervolume"
  *   )
  * )
@@ -90,15 +90,14 @@ const computeHypervolume2d = (
  * @category hypervolume
  */
 export const hypervolume2d = (
-  points: ReadonlyArray<ObjectiveVector>,
+  points: ObjectiveMatrix,
   reference: ObjectiveVector,
-  directions: ReadonlyArray<Direction> = []
+  directions: DirectionVector = Arr.empty()
 ): number =>
-  Match.value(reference.length === 2).pipe(
-    Match.when(true, () => computeHypervolume2d(points, reference, directions)),
-    Match.when(false, () => 0),
-    Match.exhaustive
-  )
+  Boolean.match(Num.Equivalence(Arr.length(reference), 2), {
+    onFalse: () => 0,
+    onTrue: () => computeHypervolume2d(points, reference, directions)
+  })
 
 /**
  * Measures each candidate's decrease in hypervolume when removed from the input.
@@ -112,23 +111,22 @@ export const hypervolume2d = (
  * @category hypervolume
  */
 export const hypervolumeContribution2d = (
-  points: ReadonlyArray<ObjectiveVector>,
+  points: ObjectiveMatrix,
   reference: ObjectiveVector,
-  directions: ReadonlyArray<Direction> = []
-): ReadonlyArray<number> => {
+  directions: DirectionVector = Arr.empty()
+): NumberArray => {
   const front = nonDominatedIndices(points, directions)
   const frontSet = HashSet.fromIterable(front)
   const total = hypervolume2d(points, reference, directions)
 
   return Arr.map(points, (_point, index) =>
-    Match.value(HashSet.has(frontSet, index)).pipe(
-      Match.when(true, () => {
-        const withoutPoint = Arr.filter(points, (_entry, pointIndex) => pointIndex !== index)
-        const contribution = total - hypervolume2d(withoutPoint, reference, directions)
+    Boolean.match(HashSet.has(frontSet, index), {
+      onFalse: () => 0,
+      onTrue: () => {
+        const withoutPoint = Arr.filter(points, (_entry, pointIndex) => Boolean.not(Num.Equivalence(pointIndex, index)))
+        const contribution = Num.subtract(total, hypervolume2d(withoutPoint, reference, directions))
 
         return Num.max(contribution, 0)
-      }),
-      Match.when(false, () => 0),
-      Match.exhaustive
-    ))
+      }
+    }))
 }

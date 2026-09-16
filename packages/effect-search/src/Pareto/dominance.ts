@@ -7,10 +7,9 @@
 import { Numeric } from "@scenesystems/effect-math"
 import { Array as Arr, Boolean, Equal, Match, Number as Num, Option, Schema } from "effect"
 
-import type { Direction, DirectionSchema } from "../contracts/Direction.js"
+import { type Direction, directionOrDefault, type DirectionVector } from "../contracts/Direction.js"
 import type { ObjectiveVector, ObjectiveVectorSchema } from "./model.js"
 
-type DirectionArray = Schema.Array$<typeof DirectionSchema>["Type"]
 type ObjectiveMatrix = Schema.Array$<typeof ObjectiveVectorSchema>["Type"]
 
 const isNonNaN = Schema.is(Schema.NonNaN)
@@ -33,10 +32,8 @@ const greaterThanOrEqualToWhenOrdered = (left: number, right: number): boolean =
     onTrue: () => Num.greaterThanOrEqualTo(left, right)
   })
 
-const defaultDirection = (): Direction => "minimize"
-
-const directionAt = (directions: DirectionArray, index: number): Direction =>
-  Arr.get(directions, index).pipe(Option.getOrElse(defaultDirection))
+const directionAt = (directions: DirectionVector, index: number): Direction =>
+  directionOrDefault(Arr.get(directions, index))
 
 const rawValueAt = (vector: ObjectiveVector, index: number): number =>
   Arr.get(vector, index).pipe(Option.getOrElse(() => Number.POSITIVE_INFINITY))
@@ -62,7 +59,7 @@ const normalizeCoordinate = (value: number, direction: Direction): number =>
  * @since 0.1.0
  * @category normalization
  */
-export const normalizePoint = (point: ObjectiveVector, directions: DirectionArray): ObjectiveVector =>
+export const normalizePoint = (point: ObjectiveVector, directions: DirectionVector): ObjectiveVector =>
   Arr.map(point, (value, index) =>
     normalizeCoordinate(
       finiteOrInfinity(value),
@@ -77,7 +74,7 @@ export const normalizePoint = (point: ObjectiveVector, directions: DirectionArra
  */
 export const normalizeMatrix = (
   points: ObjectiveMatrix,
-  directions: DirectionArray
+  directions: DirectionVector
 ): ObjectiveMatrix => Arr.map(points, (point) => normalizePoint(point, directions))
 
 /**
@@ -195,7 +192,7 @@ export const dominatesNormalized = (
 export const dominates = (
   left: ObjectiveVector,
   right: ObjectiveVector,
-  directions: DirectionArray = Arr.empty(),
+  directions: DirectionVector = Arr.empty(),
   epsilon = 0
 ): boolean => {
   const normalizedLeft = normalizePoint(left, directions)
