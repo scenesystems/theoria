@@ -3,44 +3,45 @@
  * canvas context. The caller obtains the context from an `HTMLCanvasElement` or
  * `OffscreenCanvas` and owns its lifetime.
  */
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Schema } from "effect"
 
-import { Browser, Contracts, Text } from "@scenesystems/effect-text"
+import { CanvasProfile, CanvasTextMeasurer, Hyphenation, MeasurementCache, Text } from "@scenesystems/effect-text"
 
-export const layoutCanvasText = (options: {
-  readonly context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
-  readonly prepare: Text.PrepareInputType
-  readonly request: Text.LayoutRequestType
-  readonly profileId?: Browser.BrowserSupportProfileIdType
-  readonly fontReadinessRevision?: Browser.FontReadinessRevisionType
-  readonly emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
-}) => {
-  const profile = Browser.browserSupportProfile(options.profileId)
-  const emojiCorrectionOptions = Option.fromNullable(options.emojiCorrection).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (emojiCorrection) => ({ emojiCorrection })
-    })
-  )
+export class CanvasLayoutOptions extends Schema.Class<CanvasLayoutOptions>("effect-text/CanvasLayoutOptions")({
+  prepare: Text.Input,
+  request: Text.Request,
+  profileId: Schema.OptionFromSelf(CanvasProfile.Id),
+  emojiCorrection: Schema.OptionFromSelf(CanvasTextMeasurer.EmojiCorrection)
+}) {}
+
+export const layoutCanvasText = (context: CanvasTextMeasurer.Context, options: CanvasLayoutOptions) => {
+  const profile = Option.match(options.profileId, {
+    onNone: () => CanvasProfile.get(),
+    onSome: CanvasProfile.get
+  })
+  const correction = Option.match(options.emojiCorrection, {
+    onNone: () => ({}),
+    onSome: (emojiCorrection) => ({ emojiCorrection })
+  })
   const services = Layer.mergeAll(
-    Text.WordSegmenterLive,
-    Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
-    Browser.BrowserMeasurementCacheLive({
-      fontReadinessRevision: options.fontReadinessRevision ?? Browser.initialFontReadinessRevision(),
-      profileId: profile.id
-    }).pipe(
+    Text.layerSegmenter,
+    Layer.succeed(Text.CurrentProfile, profile.engineProfile),
+    Hyphenation.layer(),
+    MeasurementCache.layer.pipe(
       Layer.provide(
-        Browser.CanvasTextMeasurerLive({
-          context: options.context,
-          ...emojiCorrectionOptions,
-          textBaseline: "alphabetic"
-        })
+        CanvasTextMeasurer.layer(
+          new CanvasTextMeasurer.Options({
+            context,
+            ...correction,
+            textBaseline: "alphabetic"
+          })
+        )
       )
     )
   )
 
   return Text.prepareWithSegments(options.prepare).pipe(
     Effect.provide(services),
-    Effect.map((prepared) => Text.layoutLinesWithSummary(prepared, options.request))
+    Effect.map((prepared) => Text.layout(prepared, options.request))
   )
 }

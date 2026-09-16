@@ -1,6 +1,6 @@
-import { Effect, Match } from "effect"
+import { Array as Arr, Effect, Inspectable, Match, Schema, String } from "effect"
 
-import { Study } from "@scenesystems/effect-search"
+import { Errors as SearchErrors, Study } from "@scenesystems/effect-search"
 import { Text } from "@scenesystems/effect-text"
 
 import { arrange, descriptionInput, renderingFor } from "../../contracts/demo/imagined-place-arrangement.js"
@@ -33,20 +33,29 @@ export const render = (artifact: PlaceArtifact, stageWidth: number): Effect.Effe
     })
     const best = yield* Match.value(result).pipe(
       Match.tag("SingleObjective", (single) => Effect.succeed(single)),
-      Match.orElse((other) =>
-        Effect.fail(new PlaceBuildError({ stage: "render", message: `unexpected study result ${other._tag}` }))
-      )
+      Match.tag("MultiObjective", (multi) =>
+        Effect.fail(
+          new PlaceBuildError({ stage: "render", message: String.concat("unexpected study result ", multi._tag) })
+        )),
+      Match.exhaustive
     )
 
     return renderingFor({
       arrangement: candidate(best.bestTrial.config),
       bestLoss: best.bestTrial.state.value,
       stage,
-      trials: best.trials.length
+      trials: Arr.length(best.trials)
     })
   }).pipe(
-    Effect.provide(Text.TextLayoutLive),
+    Effect.provide(Text.layer),
     Effect.mapError((cause) =>
-      cause instanceof PlaceBuildError ? cause : new PlaceBuildError({ stage: "render", message: String(cause) })
+      Match.value(cause).pipe(
+        Match.tag("PlaceBuildError", (failure) => failure),
+        Match.tag("MeasurementFailed", (failure) =>
+          new PlaceBuildError({ stage: "render", message: Inspectable.toStringUnknown(failure) })),
+        Match.when(Schema.is(SearchErrors.SearchErrorSchema), (failure) =>
+          new PlaceBuildError({ stage: "render", message: Inspectable.toStringUnknown(failure) })),
+        Match.exhaustive
+      )
     )
   )

@@ -96,9 +96,6 @@ const prebundledWorkspacePackages = [
   "@scenesystems/effect-math/Statistics",
   "@scenesystems/effect-search",
   "@scenesystems/effect-text",
-  "@scenesystems/effect-text/browser",
-  "@scenesystems/effect-text/contracts",
-  "@scenesystems/effect-text/react",
   "@theoria/docs-model"
 ]
 

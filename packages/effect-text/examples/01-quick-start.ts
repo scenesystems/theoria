@@ -4,8 +4,8 @@
  *
  * Run with `bun run packages/effect-text/examples/01-quick-start.ts`.
  */
-import { BunRuntime } from "@effect/platform-bun"
-import { BunContext } from "@effect/platform-bun"
+import * as BunContext from "@effect/platform-bun/BunContext"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Effect, Layer } from "effect"
 
 import { Text } from "@scenesystems/effect-text"
@@ -17,12 +17,12 @@ const program = Effect.gen(function*() {
     whiteSpace: "normal"
   })
 
-  const narrowSummary = Text.layout(prepared, {
+  const narrowSummary = Text.summary(prepared, {
     maxWidth: 120,
     lineHeight: 20
   })
 
-  const wideLines = Text.layoutLines(prepared, {
+  const wideLines = Text.lines(prepared, {
     maxWidth: 220,
     lineHeight: 20
   })
@@ -31,6 +31,6 @@ const program = Effect.gen(function*() {
     narrowSummary,
     wideLines
   })
-}).pipe(Effect.provide(Layer.merge(Text.TextLayoutLive, BunContext.layer)))
+}).pipe(Effect.provide(Layer.merge(Text.layer, BunContext.layer)))
 
 BunRuntime.runMain(program)

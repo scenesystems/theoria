@@ -1,134 +1,89 @@
 import { Schema } from "effect"
+import * as Arr from "effect/Array"
 
-import { EffectTextSupportManifest } from "../src/contracts/supportManifest.js"
-import { LayoutRequest, PrepareInput } from "../src/Text/schema.js"
+import { Text } from "@scenesystems/effect-text"
 
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
-const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-const BenchmarkReportNameSchema = Schema.Literal("effect-text-materialize-baseline", "effect-text-walker-kernel")
-const BenchmarkMetricStatusSchema = Schema.Literal("recorded", "missing-api")
 
-export const BenchmarkCorpusCaseSchema = Schema.Struct({
+export const BenchmarkCorpusCase = Schema.Struct({
   name: Schema.String,
-  prepare: PrepareInput,
-  request: LayoutRequest
+  prepare: Text.Input,
+  request: Text.Request
 })
 
-export type BenchmarkCorpusCase = typeof BenchmarkCorpusCaseSchema.Type
+export type BenchmarkCorpusCase = typeof BenchmarkCorpusCase.Type
 
-export const BenchmarkMetricSampleSchema = Schema.Struct({
-  segmentCount: Schema.optional(NonNegativeInt),
-  lineCount: Schema.optional(NonNegativeInt),
-  maxLineWidth: Schema.optional(NonNegativeFiniteNumber)
+export const BenchmarkCorpus = Schema.Array(BenchmarkCorpusCase)
+
+export type BenchmarkCorpus = typeof BenchmarkCorpus.Type
+
+export const BenchmarkSample = Schema.Struct({
+  naturalWidth: Schema.optional(NonNegativeFiniteNumber),
+  summary: Schema.optional(Text.Summary),
+  lines: Schema.optional(Text.Lines),
+  layout: Schema.optional(Text.Layout),
+  ranges: Schema.optional(Text.LineRanges)
 })
 
-export type BenchmarkMetricSampleType = typeof BenchmarkMetricSampleSchema.Type
+export type BenchmarkSample = typeof BenchmarkSample.Type
 
-export const RecordedBenchmarkMetricSchema = Schema.Struct({
-  status: Schema.Literal("recorded"),
+export const BenchmarkTiming = Schema.Struct({
   iterations: PositiveInt,
-  totalDurationMs: NonNegativeFiniteNumber,
-  meanDurationMs: NonNegativeFiniteNumber,
-  sample: BenchmarkMetricSampleSchema
+  totalDurationNanos: Schema.PositiveBigInt,
+  meanDurationNanos: Schema.PositiveBigInt
 })
 
-export const MissingBenchmarkMetricSchema = Schema.Struct({
-  status: Schema.Literal("missing-api")
+export type BenchmarkTiming = typeof BenchmarkTiming.Type
+
+export const BenchmarkMeasurement = Schema.Struct({
+  ...BenchmarkTiming.fields,
+  sample: BenchmarkSample
 })
 
-export const BenchmarkMetricSchema = Schema.Union(RecordedBenchmarkMetricSchema, MissingBenchmarkMetricSchema)
+export type BenchmarkMeasurement = typeof BenchmarkMeasurement.Type
 
-export type BenchmarkMetricType = typeof BenchmarkMetricSchema.Type
-
-export type BenchmarkMetricStatusType = typeof BenchmarkMetricStatusSchema.Type
-
-export const BenchmarkCaseMetricsSchema = Schema.Struct({
-  prepare: BenchmarkMetricSchema,
-  layout: BenchmarkMetricSchema,
-  layoutLines: BenchmarkMetricSchema,
-  layoutNextLine: BenchmarkMetricSchema,
-  streamLines: BenchmarkMetricSchema,
-  walkLineRanges: BenchmarkMetricSchema
+export const BenchmarkMetrics = Schema.Struct({
+  prepareWithSegments: BenchmarkMeasurement,
+  summary: BenchmarkMeasurement,
+  lines: BenchmarkMeasurement,
+  layout: BenchmarkMeasurement,
+  nextLine: BenchmarkMeasurement,
+  stream: BenchmarkMeasurement,
+  ranges: BenchmarkMeasurement,
+  naturalWidth: BenchmarkMeasurement
 })
 
-export const BenchmarkCaseReportSchema = Schema.Struct({
+export type BenchmarkMetrics = typeof BenchmarkMetrics.Type
+
+export const BenchmarkCaseReport = Schema.Struct({
   name: Schema.String,
-  request: LayoutRequest,
-  metrics: BenchmarkCaseMetricsSchema
+  request: Text.Request,
+  metrics: BenchmarkMetrics
 })
 
-export type BenchmarkCaseReportType = typeof BenchmarkCaseReportSchema.Type
+export type BenchmarkCaseReport = typeof BenchmarkCaseReport.Type
 
-export const BenchmarkReportSchema = Schema.Struct({
-  benchmark: BenchmarkReportNameSchema,
+export const BenchmarkReport = Schema.Struct({
+  benchmark: Schema.Literal("effect-text-public-api"),
+  runtime: Schema.String,
   iterations: PositiveInt,
-  corpus: Schema.Array(BenchmarkCaseReportSchema)
+  clock: Schema.Literal("Clock.currentTimeNanos"),
+  cachePolicy: Schema.Literal("one-live-layer-warm-cache"),
+  effectOverhead: BenchmarkTiming,
+  corpus: Schema.Array(BenchmarkCaseReport)
 })
 
-export type BenchmarkReportType = typeof BenchmarkReportSchema.Type
+export type BenchmarkReport = typeof BenchmarkReport.Type
 
-export const ComparedBenchmarkMetricSchema = Schema.Struct({
-  status: Schema.Literal("compared"),
-  baselineMeanDurationMs: NonNegativeFiniteNumber,
-  walkerMeanDurationMs: NonNegativeFiniteNumber,
-  deltaMeanDurationMs: Schema.Number.pipe(Schema.finite()),
-  baselineTotalDurationMs: NonNegativeFiniteNumber,
-  walkerTotalDurationMs: NonNegativeFiniteNumber
-})
+export const BenchmarkReportJson = Schema.parseJson(BenchmarkReport, { space: 2 })
 
-export const NewSurfaceBenchmarkMetricSchema = Schema.Struct({
-  status: Schema.Literal("new-surface"),
-  baselineStatus: Schema.Literal("missing-api"),
-  walkerMeanDurationMs: NonNegativeFiniteNumber,
-  walkerTotalDurationMs: NonNegativeFiniteNumber,
-  sample: BenchmarkMetricSampleSchema
-})
+export type BenchmarkReportJson = typeof BenchmarkReportJson.Type
 
-export const UnavailableBenchmarkComparisonMetricSchema = Schema.Struct({
-  status: Schema.Literal("unavailable"),
-  baselineStatus: BenchmarkMetricStatusSchema,
-  walkerStatus: BenchmarkMetricStatusSchema
-})
+export const benchmarkIterations = 500
 
-export const BenchmarkComparisonMetricSchema = Schema.Union(
-  ComparedBenchmarkMetricSchema,
-  NewSurfaceBenchmarkMetricSchema,
-  UnavailableBenchmarkComparisonMetricSchema
-)
-
-export type BenchmarkComparisonMetricType = typeof BenchmarkComparisonMetricSchema.Type
-
-export const BenchmarkComparisonCaseMetricsSchema = Schema.Struct({
-  prepare: BenchmarkComparisonMetricSchema,
-  layout: BenchmarkComparisonMetricSchema,
-  layoutLines: BenchmarkComparisonMetricSchema,
-  layoutNextLine: BenchmarkComparisonMetricSchema,
-  streamLines: BenchmarkComparisonMetricSchema,
-  walkLineRanges: BenchmarkComparisonMetricSchema
-})
-
-export const BenchmarkComparisonCaseReportSchema = Schema.Struct({
-  name: Schema.String,
-  request: LayoutRequest,
-  metrics: BenchmarkComparisonCaseMetricsSchema
-})
-
-export type BenchmarkComparisonCaseReportType = typeof BenchmarkComparisonCaseReportSchema.Type
-
-export const BenchmarkComparisonReportSchema = Schema.Struct({
-  baselineBenchmark: Schema.Literal("effect-text-materialize-baseline"),
-  walkerBenchmark: Schema.Literal("effect-text-walker-kernel"),
-  iterations: PositiveInt,
-  corpus: Schema.Array(BenchmarkComparisonCaseReportSchema)
-})
-
-export type BenchmarkComparisonReportType = typeof BenchmarkComparisonReportSchema.Type
-
-export const benchmarkIterations = EffectTextSupportManifest.benchmarks.walkerKernel.iterations
-
-export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
-  {
+export const benchmarkCorpus = Schema.decodeUnknownSync(BenchmarkCorpus)(
+  Arr.make({
     name: "short-prose",
     prepare: {
       text: "Effect keeps preparation effectful and the layout hot path pure.",
@@ -136,8 +91,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "normal"
     },
     request: { maxWidth: 160, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "hard-breaks",
     prepare: {
       text: "Line one\nLine two\nLine three",
@@ -145,8 +99,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "pre-wrap"
     },
     request: { maxWidth: 120, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "tabs",
     prepare: {
       text: "col1\tcol2\tcol3",
@@ -154,8 +107,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "pre-wrap"
     },
     request: { maxWidth: 140, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "bidi",
     prepare: {
       text: "שלום hello עולם world",
@@ -163,8 +115,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "normal"
     },
     request: { maxWidth: 120, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "cjk",
     prepare: {
       text: "東京の空は静かに青く澄んでいる",
@@ -172,8 +123,7 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "normal"
     },
     request: { maxWidth: 80, lineHeight: 18 }
-  },
-  {
+  }, {
     name: "long-token-overflow",
     prepare: {
       text: "supercalifragilisticexpialidocious",
@@ -181,5 +131,5 @@ export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
       whiteSpace: "normal"
     },
     request: { maxWidth: 50, lineHeight: 18 }
-  }
-]
+  })
+)

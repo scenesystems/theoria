@@ -42,7 +42,7 @@ Every TypeScript file in the package (`src/`, `test/`, `examples/`, `scripts/`) 
 
 ## Conventions
 
-- **Naming**: PascalCase modules (`SearchSpace`, `Sampler`), camelCase functions (`make`, `suggest`), UPPER_SNAKE for constants. Match Effect ecosystem conventions exactly.
+- **Naming**: PascalCase public concern modules (`SearchSpace`, `Sampler`); camelCase operations, providers, values, and private modules. Constants are not automatically UPPER_SNAKE_CASE. Preserve established Effect names such as `TypeId`, `Order`, and `Equivalence`.
 - **Single source of truth**: Every type, error, and constant has one canonical definition. Never duplicate — import from the source.
 - **Boundary authorities are allowed**: `effect-search` stays generic optimization infrastructure, but it may depend on Scene-branded cryptographic boundary-authority packages when they are the canonical source for study provenance, audit, transport, verification, or cache identity. Today that includes `@scenesystems/digest`; future use of `@scenesystems/sign` or `@scenesystems/seal` must serve the same boundary-authority role.
 - **No monoliths**: One concern per file. Decompose into `internal/` for implementation details, public modules for API surface. Every file should have a clear, singular responsibility.
@@ -52,7 +52,7 @@ Every TypeScript file in the package (`src/`, `test/`, `examples/`, `scripts/`) 
 ## Governance Enforcement
 
 - **Internal boundary**: Only implementation modules under `src/internal/**`, `src/samplers/**`, `src/Sampler/**`, `src/Study/**`, and `src/experimental/**` may import `internal/*` paths.
-- **Contract promotion rule**: Reusable cross-module abstractions must live in `src/contracts/**`; `internal/*` is private implementation only.
+- **Canonical ownership**: Shared abstractions belong to their owning public concern; reuse does not require a generic `contracts/` directory. Keep private mechanics under `internal/`.
 - **Scene dependency allowlist**: Runtime dependencies on `@scenesystems/*` are allowed only for boundary-authority packages that define cross-system cryptographic or provenance truth. Do not add dependencies on Scene domain, governance, registry, or app packages to `effect-search` runtime code.
 - **Public surface discipline**: Scene-branded authority types may appear in the public API only when they are semantically part of `effect-search`'s contract. Do not re-export Scene packages merely for convenience, and keep implementation-only authority details behind package-owned abstractions.
 - **Experimental surface rule**: New `src/experimental/**` exports require explicit instability docs and fixture-backed deterministic tests.

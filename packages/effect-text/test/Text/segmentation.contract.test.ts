@@ -1,263 +1,93 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect, Number, String } from "effect"
 import * as Arr from "effect/Array"
-import * as Data from "effect/Data"
 
-import { Contracts, Text } from "../../src/index.js"
-import { preparedTextWithSegmentsCore } from "../../src/Text/model.js"
+import * as Text from "../../src/Text.js"
 
-const makeTestLayer = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(
-    Layer.provide(
-      Layer.succeed(Contracts.TextMeasurer, {
-        measure: (_font, text: string) => Effect.succeed(text.length * 5)
-      })
-    )
-  )
-)
-
-const normalCase = (text: string): { readonly text: string; readonly whiteSpace: Text.WhiteSpaceModeType } => ({
-  text,
-  whiteSpace: "normal"
-})
-
-const withIntlSegmenterDisabled = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => {
-      const descriptor = Object.getOwnPropertyDescriptor(Intl, "Segmenter")
-      Object.defineProperty(Intl, "Segmenter", {
-        configurable: true,
-        value: undefined,
-        writable: true
-      })
-      return descriptor
-    }),
-    () => effect,
-    (descriptor) =>
-      Effect.sync(() => {
-        if (descriptor) {
-          Object.defineProperty(Intl, "Segmenter", descriptor)
-        }
-      })
-  )
-
-const prepareSurface = (
-  text: string,
-  whiteSpace: Text.WhiteSpaceModeType,
-  disableIntlSegmenter: boolean
-) => {
-  const preparedEffect = Text.prepareWithSegments({
-    text,
-    font: { family: "Mono", size: 10 },
-    whiteSpace
-  }).pipe(
-    Effect.provide(makeTestLayer),
-    Effect.map((prepared) => {
-      const core = preparedTextWithSegmentsCore(prepared)
-
-      return {
-        breakKinds: core.kernel.runtime.breakKinds,
-        graphemeCounts: Arr.map(core.logicalSurface.segments, (segment) => segment.graphemes.length),
-        segments: Arr.map(core.logicalSurface.segments, (segment) => segment.text)
-      }
-    })
-  )
-
-  return disableIntlSegmenter ? withIntlSegmenterDisabled(preparedEffect) : preparedEffect
-}
+const segment = (text: string, whiteSpace: Text.Whitespace) =>
+  Effect.gen(function*() {
+    const segmenter = yield* Text.Segmenter
+    return yield* segmenter.segment(text, whiteSpace)
+  }).pipe(Effect.provide(Text.layerSegmenter))
 
 describe("Text segmentation contracts", () => {
-  it.effect("segments English whitespace and preserved hard breaks correctly", () =>
+  it.effect("preserves grouped whitespace, tabs, and hard breaks in pre-wrap mode", () =>
     Effect.gen(function*() {
-      const prepared = yield* Text.prepareWithSegments({
-        text: "alpha  beta\n\ngamma\tdelta",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "pre-wrap"
-      }).pipe(Effect.provide(makeTestLayer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-
-      expect(Arr.map(core.logicalSurface.segments, (segment) => Data.tuple(segment.kind, segment.text))).toEqual([
-        ["text", "alpha"],
-        ["space", "  "],
-        ["text", "beta"],
-        ["hard-break", "\n"],
-        ["hard-break", "\n"],
-        ["text", "gamma"],
-        ["tab", "\t"],
-        ["text", "delta"]
-      ])
-      expect(core.kernel.runtime.breakKinds).toEqual([
-        "text",
-        "preserved-space",
-        "text",
-        "hard-break",
-        "hard-break",
-        "text",
-        "tab",
-        "text"
-      ])
+      expect(yield* segment("alpha  beta\n\ngamma\tdelta", "pre-wrap")).toEqual(Arr.make(
+        { kind: "text", text: "alpha" },
+        { kind: "space", text: "  " },
+        { kind: "text", text: "beta" },
+        { kind: "hard-break", text: "\n" },
+        { kind: "hard-break", text: "\n" },
+        { kind: "text", text: "gamma" },
+        { kind: "space", text: "\t" },
+        { kind: "text", text: "delta" }
+      ))
     }))
 
-  it.effect("segments long unbroken text into grapheme-aware fallback units", () =>
+  it.effect("normalizes line breaks and collapses ordinary whitespace in normal mode", () =>
     Effect.gen(function*() {
-      const prepared = yield* Text.prepareWithSegments({
-        text: "supercalifragilistic",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(makeTestLayer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-      const lines = Text.layoutLines(prepared, { maxWidth: 12, lineHeight: 12 })
-
-      expect(core.kernel.runtime.breakableGraphemeWidths[0]?.length).toBeGreaterThan(1)
-      expect(lines.length).toBeGreaterThan(1)
-      expect(Arr.reduce(lines, "", (text, line) => text + line.text)).toBe("supercalifragilistic")
-      expect(Arr.every(lines, (line) => line.width <= 12.01)).toBe(true)
+      expect(yield* segment("  alpha\r\n\tbeta\r  ", "normal")).toEqual(Arr.make(
+        { kind: "text", text: "alpha" },
+        { kind: "space", text: " " },
+        { kind: "text", text: "beta" }
+      ))
     }))
 
-  it.effect("segments CJK text without treating the whole run as one unbreakable token", () =>
+  it.effect("uses explicit Unicode grapheme boundaries for no-space scripts and emoji", () =>
     Effect.gen(function*() {
-      const prepared = yield* Text.prepareWithSegments({
-        text: "你好世界再见",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(makeTestLayer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-      const lines = Text.layoutLines(prepared, { maxWidth: 10, lineHeight: 12 })
-
-      expect(Arr.some(core.kernel.runtime.breakableGraphemeWidths, (widths) => widths.length > 1)).toBe(true)
-      expect(lines.length).toBeGreaterThan(1)
-      expect(Arr.reduce(lines, "", (text, line) => text + line.text)).toBe("你好世界再见")
-      expect(Arr.every(lines, (line) => line.width <= 10.01)).toBe(true)
+      expect(yield* segment("ภาษา", "normal")).toEqual(Arr.make(
+        { kind: "text", text: "ภ" },
+        { kind: "text", text: "า" },
+        { kind: "text", text: "ษ" },
+        { kind: "text", text: "า" }
+      ))
+      expect(yield* segment("A👨‍👩‍👧‍👦B", "normal")).toEqual(Arr.make(
+        { kind: "text", text: "A" },
+        { kind: "text", text: "👨‍👩‍👧‍👦" },
+        { kind: "text", text: "B" }
+      ))
     }))
 
-  it.effect("segments at least one no-space language with deterministic fallback semantics", () =>
-    withIntlSegmenterDisabled(
-      Effect.gen(function*() {
-        const prepared = yield* Text.prepareWithSegments({
-          text: "ภาษาไทยไม่มีช่องว่าง",
-          font: { family: "Mono", size: 10 },
-          whiteSpace: "normal"
-        }).pipe(Effect.provide(makeTestLayer))
-
-        const core = preparedTextWithSegmentsCore(prepared)
-        const lines = Text.layoutLines(prepared, { maxWidth: 15, lineHeight: 12 })
-
-        expect(core.logicalSurface.segments.length).toBeGreaterThan(1)
-        expect(lines.length).toBeGreaterThan(1)
-        expect(Arr.reduce(lines, "", (text, line) => text + line.text)).toBe("ภาษาไทยไม่มีช่องว่าง")
-      })
-    ))
-
-  it.effect("fallback and native analysis expose the same released break surface for representative corpora", () =>
+  it.effect("keeps punctuation and connectors attached to URL-like and numeric runs", () =>
     Effect.gen(function*() {
-      const cases = [
-        normalCase("ภาษาไทยไม่มีช่องว่าง"),
-        normalCase("(hello) world"),
-        normalCase("https://example.com/a-b?x=1,2"),
-        normalCase("no\u00a0break word\u2060join a\u200bb")
-      ]
-
-      const results = yield* Effect.forEach(cases, (item) =>
-        Effect.all({
-          fallback: prepareSurface(item.text, item.whiteSpace, true),
-          native: prepareSurface(item.text, item.whiteSpace, false)
-        }).pipe(
-          Effect.map((result) => ({
-            ...result,
-            text: item.text
-          }))
-        ))
-
-      Arr.forEach(results, (result) => {
-        expect(result.fallback).toEqual(result.native)
-      })
+      expect(yield* segment("(hello) https://example.com/a-b?x=1,2", "normal")).toEqual(Arr.make(
+        { kind: "text", text: "(hello)" },
+        { kind: "space", text: " " },
+        { kind: "text", text: "https://example.com/a-b?x=1,2" }
+      ))
     }))
 
-  it.effect("preserves tabs, hard breaks, soft hyphens, emoji clusters, and glue characters through prepare", () =>
+  it.effect("preserves glue, explicit-break, and soft-hyphen markers with their owners", () =>
     Effect.gen(function*() {
-      const prepared = yield* Text.prepareWithSegments({
-        text: "A\tB\nC\u00adD 👨‍👩‍👧‍👦 no\u00a0break",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "pre-wrap"
-      }).pipe(Effect.provide(makeTestLayer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-
-      expect(Arr.some(core.logicalSurface.segments, (segment) => segment.kind === "tab" && segment.text === "\t")).toBe(
-        true
-      )
-      expect(Arr.some(core.logicalSurface.segments, (segment) => segment.kind === "hard-break")).toBe(true)
-      expect(Arr.some(core.logicalSurface.segments, (segment) => segment.breakOpportunity === "soft-hyphen")).toBe(true)
-      expect(
-        Arr.some(
-          core.logicalSurface.segments,
-          (segment) => segment.kind === "text" && segment.graphemes.includes("👨‍👩‍👧‍👦")
-        )
-      ).toBe(true)
-      expect(Arr.some(core.logicalSurface.segments, (segment) => segment.text.includes("\u00a0"))).toBe(true)
+      expect(yield* segment("alpha\u00adbeta no\u00a0break word\u2060join a\u200bb", "normal")).toEqual(Arr.make(
+        { kind: "text", text: "alpha\u00adbeta" },
+        { kind: "space", text: " " },
+        { kind: "text", text: "no" },
+        { kind: "text", text: "\u00a0" },
+        { kind: "text", text: "break" },
+        { kind: "space", text: " " },
+        { kind: "text", text: "word" },
+        { kind: "text", text: "\u2060" },
+        { kind: "text", text: "join" },
+        { kind: "space", text: " " },
+        { kind: "text", text: "a" },
+        { kind: "text", text: "\u200b" },
+        { kind: "text", text: "b" }
+      ))
     }))
 
-  it.effect("compiles NBSP, WJ, and ZWSP into explicit runtime break kinds instead of hiding them inside generic text runs", () =>
+  it.effect("lays out long runs only at complete grapheme boundaries", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({
-        text: "no\u00a0break word\u2060join a\u200bb",
+        text: "A👨‍👩‍👧‍👦B",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
-      }).pipe(Effect.provide(makeTestLayer))
+      }).pipe(Effect.provide(Text.layer))
+      const lines = Text.lines(prepared, { maxWidth: 7, lineHeight: 12 })
 
-      const core = preparedTextWithSegmentsCore(prepared)
-
-      expect(Arr.map(core.logicalSurface.segments, (segment) => segment.text)).toEqual([
-        "no",
-        "\u00a0",
-        "break",
-        " ",
-        "word",
-        "\u2060",
-        "join",
-        " ",
-        "a",
-        "\u200b",
-        "b"
-      ])
-      expect(core.kernel.runtime.breakKinds).toEqual([
-        "text",
-        "glue",
-        "text",
-        "space",
-        "text",
-        "glue",
-        "text",
-        "space",
-        "text",
-        "zero-width-break",
-        "text"
-      ])
-    }))
-
-  it.effect("stores mixed RTL and LTR metadata that the visual-order layout plane reuses", () =>
-    Effect.gen(function*() {
-      const prepared = yield* Text.prepareWithSegments({
-        text: "שלום hello مرحبا",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(makeTestLayer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-      const lines = Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })
-
-      expect(core.kernel.baseDirection).toBe("rtl")
-      expect(
-        Arr.map(
-          Arr.filter(core.logicalSurface.segments, (segment) => segment.kind === "text"),
-          (segment) => segment.direction
-        )
-      ).toEqual(["rtl", "ltr", "rtl"])
-      expect(lines[0]?.text).toBe("ابحرم hello םולש")
+      expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("A", "👨‍👩‍👧‍👦", "B"))
+      expect(Arr.reduce(lines, "", (text, line) => String.concat(line.text)(text))).toBe("A👨‍👩‍👧‍👦B")
+      expect(Arr.every(lines, (line) => Number.greaterThan(String.length(line.text), 0))).toBe(true)
     }))
 })

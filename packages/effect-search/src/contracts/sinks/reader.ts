@@ -3,22 +3,33 @@
  *
  * @since 0.1.0
  */
+import type { Error as PlatformError } from "@effect/platform"
 import { FileSystem } from "@effect/platform"
-import { Effect, ParseResult, Schema, Stream } from "effect"
+import { Array as Arr, Boolean, Effect, Inspectable, Number, ParseResult, Schema, Stream, String } from "effect"
 
 import { ArtifactStorageError } from "../../Errors/Artifact.js"
 import { type ArtifactEnvelope, ArtifactEnvelopeSchema } from "../ArtifactEnvelope.js"
 
 const ArtifactEnvelopeJsonSchema = Schema.parseJson(ArtifactEnvelopeSchema)
 
-const readFailure = (path: string) => (cause: { readonly message: string }): ArtifactStorageError =>
+const readFailure = (path: string) => (cause: PlatformError.PlatformError): ArtifactStorageError =>
   new ArtifactStorageError({ operation: "read", path, detail: cause.message })
 
 /** Issue paths and messages only; the envelope schema itself is too large to repeat per line. */
 const describeIssues = (error: ParseResult.ParseError): string =>
-  ParseResult.ArrayFormatter.formatErrorSync(error)
-    .map((issue) => issue.path.length === 0 ? issue.message : `${issue.path.join(".")}: ${issue.message}`)
-    .join("; ")
+  Arr.join(
+    Arr.map(ParseResult.ArrayFormatter.formatErrorSync(error), (issue) =>
+      Boolean.match(Arr.isEmptyReadonlyArray(issue.path), {
+        onTrue: () =>
+          issue.message,
+        onFalse: () =>
+          String.concat(
+            String.concat(Arr.join(Arr.map(issue.path, (key) => Inspectable.toStringUnknown(key)), "."), ": "),
+            issue.message
+          )
+      })),
+    "; "
+  )
 
 const corruptLine = (
   path: string,
@@ -64,15 +75,17 @@ export const readEnvelopeLog = (
     Effect.gen(function*() {
       const fs = yield* FileSystem.FileSystem
       const exists = yield* fs.exists(filePath).pipe(Effect.mapError(readFailure(filePath)))
-      return exists
-        ? fs.stream(filePath).pipe(
-          Stream.mapError(readFailure(filePath)),
-          Stream.decodeText("utf8"),
-          Stream.splitLines,
-          Stream.zipWithIndex,
-          Stream.filter(([line]) => line.trim().length > 0),
-          Stream.mapEffect(([line, index]) => decodeLine(filePath, line, index + 1))
-        )
-        : Stream.empty
+      return Boolean.match(exists, {
+        onTrue: () =>
+          fs.stream(filePath).pipe(
+            Stream.mapError(readFailure(filePath)),
+            Stream.decodeText("utf8"),
+            Stream.splitLines,
+            Stream.zipWithIndex,
+            Stream.filter(([line]) => String.isNonEmpty(String.trim(line))),
+            Stream.mapEffect(([line, index]) => decodeLine(filePath, line, Number.increment(index)))
+          ),
+        onFalse: () => Stream.empty
+      })
     })
   )
