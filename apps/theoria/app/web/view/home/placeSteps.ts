@@ -44,18 +44,24 @@ const origin = { brief, composition, accepted: [] }`
 
 const proposeCode = `// Every proposal is content-addressed and signed by whoever offered it,
 // merged or not. The neighbor's note travels sealed to the author alone.
-const proposalId = yield* digestSchemaValue(Proposal, proposal, "blake3-256")
+const proposalId = yield* ContentDigest.fromSchema(Proposal, proposal, "blake3-256").pipe(
+  Effect.map(ContentDigest.toString)
+)
 const signature = yield* ed25519Sign(proposer.secretKey, utf8ToBytes(proposalId))
 
 const shared = yield* deriveSharedSecret("x25519", neighbor.secretKey, author.publicKey)
-const key = yield* hkdfSha256(shared.sharedSecret, Option.none(), context, 32)
+const key = yield* Hkdf.sha256(shared.sharedSecret, Option.none(), context, 32)
 const envelope = yield* seal("xchacha20-poly1305", key, utf8ToBytes(note))`
 
 const recordCode = `// Version 1 is the digest of its content. Version 2 digests version 1's
 // ID as its parent, so the chain cannot be reordered. The author signs each.
-const originId = yield* digestSchemaValue(PlaceArtifact, origin, "blake3-256")
+const originId = yield* ContentDigest.fromSchema(PlaceArtifact, origin, "blake3-256").pipe(
+  Effect.map(ContentDigest.toString)
+)
 const merged = { ...origin, parent: originId, accepted }
-const mergedId = yield* digestSchemaValue(PlaceArtifact, merged, "blake3-256")
+const mergedId = yield* ContentDigest.fromSchema(PlaceArtifact, merged, "blake3-256").pipe(
+  Effect.map(ContentDigest.toString)
+)
 
 const signed = yield* ed25519Sign(author.secretKey, utf8ToBytes(mergedId))`
 

@@ -1,6 +1,7 @@
-import { Context, Effect, Inspectable, Layer, Schema, String as Str } from "effect"
+import { Context, Effect, Encoding, Inspectable, Layer, Schema, String as Str } from "effect"
 
-import { digestBytesHex, digestSchemaValue } from "@scenesystems/digest"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
+import * as Digest from "@scenesystems/digest/Digest"
 import {
   ed25519Keygen,
   ed25519Sign,
@@ -60,13 +61,19 @@ const identityError = (cause: unknown) =>
  * identity that survives being merged into something else.
  */
 export const versionId = (artifact: PlaceArtifact): Effect.Effect<string, PlaceBuildError> =>
-  digestSchemaValue(PlaceArtifactSchema, artifact, "blake3-256").pipe(Effect.mapError(identityError))
+  ContentDigest.fromSchema(PlaceArtifactSchema, artifact, "blake3-256").pipe(
+    Effect.map(ContentDigest.toString),
+    Effect.mapError(identityError)
+  )
 
 export const proposalId = (proposal: Proposal): Effect.Effect<string, PlaceBuildError> =>
-  digestSchemaValue(ProposalSchema, proposal, "blake3-256").pipe(Effect.mapError(identityError))
+  ContentDigest.fromSchema(ProposalSchema, proposal, "blake3-256").pipe(
+    Effect.map(ContentDigest.toString),
+    Effect.mapError(identityError)
+  )
 
-export const fingerprint = (publicKey: Uint8Array): Effect.Effect<string> =>
-  Effect.map(digestBytesHex("blake3-256", publicKey), Str.takeLeft(16))
+export const fingerprint = (publicKey: Uint8Array): string =>
+  Str.takeLeft(Encoding.encodeHex(Digest.hash("blake3-256", publicKey)), 16)
 
 /**
  * Signs a content ID with the participant's session key, then verifies it
@@ -82,7 +89,7 @@ export const signAs = (
     const message = utf8ToBytes(subject)
     const signature = yield* ed25519Sign(message, key.secretKey, key.publicKey)
     const valid = yield* ed25519Verify(signature.signature, message, key.publicKey)
-    const keyFingerprint = yield* fingerprint(key.publicKey)
+    const keyFingerprint = fingerprint(key.publicKey)
     const record: SignatureRecord = {
       signer,
       subject,

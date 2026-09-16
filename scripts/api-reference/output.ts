@@ -1,7 +1,7 @@
 import { FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { digestBytesHex } from "@scenesystems/digest"
-import { Array as Arr, Context, Effect, HashSet, Layer, Ref, Schema } from "effect"
+import * as Digest from "@scenesystems/digest/Digest"
+import { Array as Arr, Context, Effect, Encoding, HashSet, Layer, Ref, Schema } from "effect"
 
 import {
   type ApiPage,
@@ -25,7 +25,7 @@ export const sha256File = (filePath: string) =>
     const fileSystem = yield* FileSystem.FileSystem
     const bytes = yield* fileSystem.readFile(filePath)
 
-    return yield* digestBytesHex("sha256", bytes)
+    return Encoding.encodeHex(Digest.hash("sha256", bytes))
   })
 
 /**

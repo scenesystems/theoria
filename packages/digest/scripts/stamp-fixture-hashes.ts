@@ -6,9 +6,9 @@
  */
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Data, Effect, Option, Schema } from "effect"
+import { Array as Arr, Console, Data, Effect, Encoding, Option, Schema } from "effect"
 
-import { digestBytesHex } from "../src/convenience.js"
+import * as Digest from "@scenesystems/digest/Digest"
 import { EXTERNAL_FIXTURE_ROOT, FixtureManifestSchema, MANIFEST_FILE } from "./fixture-contract.js"
 
 class FixtureStampError extends Data.TaggedError("FixtureStampError")<{
@@ -20,7 +20,8 @@ class FixtureStampError extends Data.TaggedError("FixtureStampError")<{
   }
 }
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => digestBytesHex("sha256", bytes)
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
+  Effect.succeed(Encoding.encodeHex(Digest.hash("sha256", bytes)))
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem

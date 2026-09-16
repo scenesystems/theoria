@@ -40,7 +40,7 @@ const proposeValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
   const note = build.evidence.sealedNote
   return Arr.getSomes([
     annotation(
-      "digestSchemaValue(Proposal,",
+      "ContentDigest.fromSchema(Proposal,",
       Option.map(neighbor, (record) => `neighbor's proposal · ${shortId(record.contentId)}`)
     ),
     annotation("ed25519Sign(proposer.secretKey", Option.map(neighbor, (record) => signatureLabel(record.signature))),
@@ -55,11 +55,11 @@ const recordValues = (build: PlaceBuild): ReadonlyArray<CodeAnnotation> => {
   const lineage = build.evidence.lineage
   return Arr.getSomes([
     annotation(
-      "digestSchemaValue(PlaceArtifact, origin,",
+      "ContentDigest.fromSchema(PlaceArtifact, origin,",
       Option.map(Arr.head(lineage), (version) => `v1 · ${shortId(version.contentId)}`)
     ),
     annotation(
-      "digestSchemaValue(PlaceArtifact, merged,",
+      "ContentDigest.fromSchema(PlaceArtifact, merged,",
       Option.map(Arr.get(lineage, 1), (version) => `v2 · ${shortId(version.contentId)}`)
     ),
     annotation(

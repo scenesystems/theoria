@@ -9,7 +9,7 @@
 
 import { Boolean as B, Either, Encoding, Iterable, Match, Number as N, Option, String as Str } from "effect"
 
-import { InvalidUnicode } from "../schemas/errors.js"
+import { InvalidUnicode } from "../Utf8.js"
 
 const isHighSurrogate = N.between({ minimum: 0xd800, maximum: 0xdbff })
 const isLowSurrogate = N.between({ minimum: 0xdc00, maximum: 0xdfff })

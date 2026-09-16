@@ -31,16 +31,16 @@ const composeReferences: ReadonlyArray<PlaceReference> = [
 ]
 
 const proposeReferences: ReadonlyArray<PlaceReference> = [
-  ref("digest", "digestSchemaValue", "digestSchemaValue", "digestSchemaValue"),
+  ref("digest", "ContentDigest", "ContentDigest.fromSchema", "fromSchema"),
   ref("sign", "algorithms/ed25519", "ed25519Sign", "ed25519Sign"),
   ref("sign", "agreement", "deriveSharedSecret", "deriveSharedSecret"),
-  ref("digest", "kdf", "hkdfSha256", "hkdfSha256"),
+  ref("digest", "Hkdf", "Hkdf.sha256", "sha256"),
   ref("seal", "seal", "seal", "seal"),
   ref("seal", "utf8", "utf8ToBytes", "utf8ToBytes")
 ]
 
 const recordReferences: ReadonlyArray<PlaceReference> = [
-  ref("digest", "digestSchemaValue", "digestSchemaValue", "digestSchemaValue"),
+  ref("digest", "ContentDigest", "ContentDigest.fromSchema", "fromSchema"),
   ref("sign", "algorithms/ed25519", "ed25519Sign", "ed25519Sign"),
   ref("seal", "utf8", "utf8ToBytes", "utf8ToBytes")
 ]

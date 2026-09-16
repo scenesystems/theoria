@@ -63,3 +63,10 @@ export const hmacSha1Vectors = {
     expected: "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79"
   }
 }
+
+/** HMAC-SHA256 webhook example with an independently recorded base64url tag. */
+export const webhookVector = {
+  key: encodeFixtureUtf8("webhook-secret"),
+  message: encodeFixtureUtf8("{\"event\":\"charge.succeeded\"}"),
+  expected: "QKyLcVVtnNlI3gUbfE-hfsyvzPO3yUH0kx-3jKWqkfo"
+}

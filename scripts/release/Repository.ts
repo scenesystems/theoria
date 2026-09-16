@@ -1,6 +1,6 @@
 /** Git identities and version-only review carry-forward. No working-tree mutation. */
 import { Command } from "@effect/platform"
-import { canonicalize } from "@scenesystems/digest"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import { Array, Boolean, Effect, HashSet, Number, Option, Order, Record, Schema, String, Tuple } from "effect"
 import * as Jsonc from "./Jsonc.js"
 import * as Process from "./Process.js"
@@ -89,7 +89,7 @@ const finalize = (before: Manifest, oldVersions: Versions, newVersions: Versions
 
 const requireEqual = <A>(before: A, after: A, path: string) =>
   Effect.gen(function*() {
-    const values = yield* Effect.all(Tuple.make(canonicalize(before), canonicalize(after)))
+    const values = yield* Effect.all(Tuple.make(CanonicalJson.encode(before), CanonicalJson.encode(after)))
     yield* Effect.unless(
       new RepositoryError({
         message: String.concat("Changes beyond version finalization require a fresh review: ", path)

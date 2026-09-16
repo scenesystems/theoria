@@ -15,7 +15,7 @@ import {
   String as Str
 } from "effect"
 
-import { canonicalJsonBytes } from "../src/index.js"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 
 const POINT_COUNT = 65_536
 const WARMUP_SAMPLES = 1
@@ -114,7 +114,7 @@ const observe: Effect.Effect<Sample> = Effect.scoped(
     const timer = Deferred.succeed(timerStarted, undefined).pipe(Effect.zipRight(Effect.forever(tick)))
     yield* Effect.forkScoped(timer)
     yield* Deferred.await(timerStarted)
-    const bytes = yield* Effect.orDie(canonicalJsonBytes(maximumValid))
+    const bytes = yield* Effect.orDie(CanonicalJson.encodeBytes(maximumValid))
     const finished = yield* currentTime
     const final = yield* Ref.get(probe)
     return new Sample({
