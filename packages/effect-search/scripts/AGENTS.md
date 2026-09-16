@@ -21,7 +21,7 @@ Run all commands from `effect-search/`.
 
 ## Structure
 
-- `check-fixtures.ts` — Effect-native TS script; schema-decodes every committed fixture through `KnownFixtureSchema`, detects orphan files
+- `check-fixtures.ts` — Effect-native TS script; schema-decodes every committed fixture through `KnownFixture`, detects orphan files
 - `generate-optuna-fixtures.py` — orchestrator; imports family modules, writes JSON + manifest
 - `verify-optuna-fixtures.py` — re-derives values from live Optuna, asserts committed fixtures match
 - `fixtures/` — one module per FM family, each exports `generate(generated_at: str) -> list[dict]`

@@ -6,7 +6,7 @@ alwaysApply: true
 
 # @scenesystems/effect-search
 
-Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. Peer dependencies: `effect (^3.22.1)`, `@effect/platform (^0.97.1)`, `@effect/experimental (^0.61.1)`, and optional `@effect/sql (>=0.52.1)`. Runtime dependencies: `@scenesystems/digest`, `@scenesystems/effect-math`. This is the optimization engine consumed by `@scenesystems/effect-dsp` for Bayesian search across optimizers (MIPROv2, GEPA, bootstrap, RLM, etc.).
+Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. Peer dependencies: `effect (^3.22.1)`, `@effect/platform (^0.97.1)`, `@effect/experimental (^0.61.1)`, and optional `@effect/sql (>=0.52.1)`. Runtime dependencies: `@scenesystems/digest`, `@scenesystems/effect-math`, `@scenesystems/effect-study`. This is the optimization engine consumed by `@scenesystems/effect-dsp` for Bayesian search across optimizers (MIPROv2, GEPA, bootstrap, RLM, etc.). Reusable evaluation, history, stop controls, event streams, and artifact persistence belong to `effect-study`; search specializes them for optimization.
 
 ## Commands
 
@@ -30,7 +30,7 @@ Fixture generation uses [uv](https://docs.astral.sh/uv/) to run Python scripts w
 
 - **Never use `python3` directly** — always `uv run`
 - Committed fixture JSON in `test/fixtures/optuna/` is the test source of truth
-- `bun run fixtures:check` schema-decodes every committed fixture through the TS `KnownFixtureSchema` union — catches generator ↔ schema drift
+- `bun run fixtures:check` schema-decodes every committed fixture through the TS `KnownFixture` union — catches generator ↔ schema drift
 - `bun run fixtures:generate` regenerates fixtures from the generator script
 - `bun run fixtures:lock` pins exact Python dependency versions (run once after changing PEP 723 deps, commit the `.lock` files)
 - `bun run fixtures:verify` re-derives expected values from live Optuna and asserts committed fixtures still match
@@ -42,17 +42,17 @@ Every TypeScript file in the package (`src/`, `test/`, `examples/`, `scripts/`) 
 
 ## Conventions
 
-- **Naming**: PascalCase modules (`SearchSpace`, `Sampler`), camelCase functions (`make`, `suggest`), UPPER_SNAKE for constants. Match Effect ecosystem conventions exactly.
+- **Naming**: Match the owning module and Effect conventions: PascalCase modules, schemas, and classes (`SearchSpace`, `Sampler`), and camelCase functions and values (`make`, `suggest`). Domain-standard names may retain their established spelling; do not impose one constant style on unrelated work.
 - **Single source of truth**: Every type, error, and constant has one canonical definition. Never duplicate — import from the source.
 - **Boundary authorities are allowed**: `effect-search` stays generic optimization infrastructure, but it may depend on Scene-branded cryptographic boundary-authority packages when they are the canonical source for study provenance, audit, transport, verification, or cache identity. Today that includes `@scenesystems/digest`; future use of `@scenesystems/sign` or `@scenesystems/seal` must serve the same boundary-authority role.
 - **No monoliths**: One concern per file. Decompose into `internal/` for implementation details, public modules for API surface. Every file should have a clear, singular responsibility.
 - **Meaningful tests only**: Every test must assert a real behavioral contract from the spec. No smoke tests that just check "it doesn't throw". Property-based tests for mathematical invariants, golden fixtures for numerical correctness.
-- **Future-proof organization**: New algorithm variants get their own files under `internal/` or `samplers/`. Never grow a file beyond its single responsibility — split early.
+- **Future-proof organization**: Public concerns are flat modules under `src/`; implementation-only algorithm variants get focused files under `internal/`. Never grow a file beyond its single responsibility — split early.
 
 ## Governance Enforcement
 
-- **Internal boundary**: Only implementation modules under `src/internal/**`, `src/samplers/**`, `src/Sampler/**`, `src/Study/**`, and `src/experimental/**` may import `internal/*` paths.
-- **Contract promotion rule**: Reusable cross-module abstractions must live in `src/contracts/**`; `internal/*` is private implementation only.
-- **Scene dependency allowlist**: Runtime dependencies on `@scenesystems/*` are allowed only for boundary-authority packages that define cross-system cryptographic or provenance truth. Do not add dependencies on Scene domain, governance, registry, or app packages to `effect-search` runtime code.
+- **Internal boundary**: `src/internal/**` is private implementation. Public modules may delegate to it, but consumers and examples use root namespaces or canonical concern subpaths.
+- **Concern ownership**: Reusable public abstractions live in flat, concern-named modules such as `Objective`, `Progress`, `Pruning`, `StudySnapshot`, and `StudyStorage`. Do not add catch-all public barrels.
+- **Scene dependency allowlist**: Runtime dependencies on `@scenesystems/*` may provide shared mathematical and study foundations or boundary authorities defining cross-system cryptographic or provenance truth. Do not add dependencies on Scene domain, governance, registry, or app packages to `effect-search` runtime code.
 - **Public surface discipline**: Scene-branded authority types may appear in the public API only when they are semantically part of `effect-search`'s contract. Do not re-export Scene packages merely for convenience, and keep implementation-only authority details behind package-owned abstractions.
-- **Experimental surface rule**: New `src/experimental/**` exports require explicit instability docs and fixture-backed deterministic tests.
+- **Fixture placement**: Scenario fixtures are test support, not an experimental public API. Keep them in test fixtures and do not add public aliases for them.
