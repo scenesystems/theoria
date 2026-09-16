@@ -751,7 +751,6 @@ export const FixtureManifestEntry = Schema.Struct({
 export type FixtureManifestEntry = Schema.Schema.Type<typeof FixtureManifestEntry>
 
 export const FixtureManifest = Schema.Struct({
-  schemaVersion: Schema.Literal("1.0.0"),
   generator: FixtureManifestGenerator,
   fixtures: Schema.Array(FixtureManifestEntry)
 })

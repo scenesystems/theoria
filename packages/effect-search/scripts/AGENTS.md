@@ -8,6 +8,8 @@ alwaysApply: true
 
 Scripts for fixture generation, verification, and schema checking. Python scripts use [uv](https://docs.astral.sh/uv/) with PEP 723 inline metadata — never invoke `python3` directly.
 
+The Python fixture generator and its family modules are the authoritative Optuna reference implementation. The TypeScript/JavaScript Effect mandate applies to TS tooling; it does not require rewriting the Python generator.
+
 ## Commands
 
 | Task              | Command                     |
