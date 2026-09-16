@@ -35,7 +35,21 @@
     "directory": "dist"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./Bytes": "./src/Bytes.ts",
+    "./Ed25519": "./src/Ed25519.ts",
+    "./Entropy": "./src/Entropy.ts",
+    "./Jwt": "./src/Jwt.ts",
+    "./KeyPair": "./src/KeyPair.ts",
+    "./MlDsa": "./src/MlDsa.ts",
+    "./P256": "./src/P256.ts",
+    "./Rsa": "./src/Rsa.ts",
+    "./Secp256k1": "./src/Secp256k1.ts",
+    "./Signature": "./src/Signature.ts",
+    "./SlhDsa": "./src/SlhDsa.ts",
+    "./Verification": "./src/Verification.ts",
+    "./X25519": "./src/X25519.ts",
+    "./XWing": "./src/XWing.ts"
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
@@ -56,7 +70,8 @@
   "dependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
-    "@noble/post-quantum": "0.7.1"
+    "@noble/post-quantum": "0.7.1",
+    "@scenesystems/digest": "workspace:*"
   },
   "peerDependencies": {
     "effect": "^3.22.1"

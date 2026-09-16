@@ -1,4 +1,4 @@
-import { Boolean as Bool, Match, Option, Schema } from "effect"
+import { Boolean as Bool, Inspectable, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -28,12 +28,13 @@ export const tokenText = (value: string): string =>
   Bool.match(Str.isEmpty(value), { onTrue: () => " ", onFalse: () => value })
 
 /** A token's key among its line: its place, then its length, since two tokens may read alike. */
-export const tokenKey = (index: number, value: string): string => `${String(index)}:${String(Str.length(value))}`
+export const tokenKey = (index: number, value: string): string =>
+  `${Inspectable.toStringUnknown(index)}:${Inspectable.toStringUnknown(Str.length(value))}`
 
-const Tokens = ({ tokens }: { readonly tokens: ReadonlyArray<HighlightToken> }) => (
+const Tokens = ({ tokens }: { readonly tokens: Iterable<HighlightToken> }) => (
   <>
     {Arr.map(
-      tokens,
+      Arr.fromIterable(tokens),
       (token, index) => (
         <span className={tokenClassName(token.kind)} key={tokenKey(index, token.value)}>
           {tokenText(token.value)}
@@ -73,19 +74,19 @@ export const CodeAnnotationRow = ({ text }: { readonly text: string }) => (
 )
 
 /** The line's text, as the source has it. */
-export const lineText = (tokens: ReadonlyArray<HighlightToken>): string =>
-  Arr.join(Arr.map(tokens, (token) => token.value), "")
+export const lineText = (tokens: Iterable<HighlightToken>): string =>
+  Arr.join(Arr.map(Arr.fromIterable(tokens), (token) => token.value), "")
 
 export const annotationFor = (
-  tokens: ReadonlyArray<HighlightToken>,
-  annotations: ReadonlyArray<CodeAnnotation>
+  tokens: Iterable<HighlightToken>,
+  annotations: Iterable<CodeAnnotation>
 ): Option.Option<CodeAnnotation> => {
   const text = lineText(tokens)
   return Arr.findFirst(annotations, (annotation) => Str.includes(annotation.match)(text))
 }
 
 /** Whether this line is the one a match names. */
-export const lineMatches = (tokens: ReadonlyArray<HighlightToken>, match: Option.Option<string>): boolean =>
+export const lineMatches = (tokens: Iterable<HighlightToken>, match: Option.Option<string>): boolean =>
   Option.exists(match, (needle) => Str.includes(needle)(lineText(tokens)))
 
 /** One line of a sample: its tokens, with named symbols linked to the API reference. */
@@ -93,13 +94,13 @@ export const CodeLine = ({
   links,
   tokens
 }: {
-  readonly links: ReadonlyArray<CodeLink>
-  readonly tokens: ReadonlyArray<HighlightToken>
+  readonly links: Iterable<CodeLink>
+  readonly tokens: Iterable<HighlightToken>
 }) => (
   <>
     {Arr.map(
       segmentLine(tokens, links),
-      (segment, index) => <Segment key={`${String(index)}:${segment._tag}`} segment={segment} />
+      (segment, index) => <Segment key={`${Inspectable.toStringUnknown(index)}:${segment._tag}`} segment={segment} />
     )}
   </>
 )
