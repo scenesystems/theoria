@@ -2,15 +2,17 @@ import { describe, expect, it } from "@effect/vitest"
 import { Boolean, Effect, Layer, Number, Schema, String } from "effect"
 import * as Arr from "effect/Array"
 
-import { Contracts, Text } from "../../src/index.js"
+import * as MeasurementCache from "../../src/MeasurementCache.js"
+import * as Text from "../../src/Text.js"
+import * as TextMeasurer from "../../src/TextMeasurer.js"
 import { unicodeOverflowFixtures, unicodeSegmentationFixtures } from "../fixtures/unicodeSupport.js"
 
 const makeTestLayer = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(
+  Text.layerSegmenter,
+  Text.layerProfile,
+  MeasurementCache.layer.pipe(
     Layer.provide(
-      Layer.succeed(Contracts.TextMeasurer, {
+      Layer.succeed(TextMeasurer.TextMeasurer, {
         measure: (_font, text: string) => Effect.succeed(Number.multiply(String.length(text), 5))
       })
     )
@@ -22,14 +24,14 @@ const normalizedVisibleText = (text: string): string => String.replace(/ /gu, ""
 const isWideText = Schema.is(Schema.String.pipe(Schema.pattern(/^W+$/u)))
 
 describe("Text unicode support fixtures", () => {
-  it.effect("matches explicit segmentation results through the public WordSegmenter contract", () =>
+  it.effect("matches explicit segmentation results through the public Segmenter contract", () =>
     Effect.forEach(
       unicodeSegmentationFixtures,
       (fixture) =>
         Effect.gen(function*() {
-          const segmenter = yield* Contracts.WordSegmenter
+          const segmenter = yield* Text.Segmenter
           expect(yield* segmenter.segment(fixture.text, fixture.whiteSpace), fixture.name).toEqual(fixture.expected)
-        }).pipe(Effect.provide(Text.WordSegmenterLive)),
+        }).pipe(Effect.provide(Text.layerSegmenter)),
       { discard: true }
     ))
 
@@ -44,7 +46,7 @@ describe("Text unicode support fixtures", () => {
         }).pipe(
           Effect.provide(makeTestLayer),
           Effect.map((prepared) => {
-            const lines = Text.layoutLines(prepared, { maxWidth: fixture.maxWidth, lineHeight: 12 })
+            const lines = Text.lines(prepared, { maxWidth: fixture.maxWidth, lineHeight: 12 })
 
             expect(
               normalizedVisibleText(Arr.reduce(lines, "", (text, line) => String.concat(line.text)(text))),
@@ -62,11 +64,11 @@ describe("Text unicode support fixtures", () => {
   it.effect("only emits overwide lines when a single grapheme itself exceeds maxWidth", () =>
     Effect.gen(function*() {
       const oversizedLayer = Layer.mergeAll(
-        Text.WordSegmenterLive,
-        Text.EngineProfileLive,
-        Text.MeasurementCacheLive.pipe(
+        Text.layerSegmenter,
+        Text.layerProfile,
+        MeasurementCache.layer.pipe(
           Layer.provide(
-            Layer.succeed(Contracts.TextMeasurer, {
+            Layer.succeed(TextMeasurer.TextMeasurer, {
               measure: (_font, text: string) =>
                 Effect.succeed(
                   Number.multiply(
@@ -85,7 +87,7 @@ describe("Text unicode support fixtures", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(oversizedLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 20, lineHeight: 12 })).toEqual(Arr.make(
+      expect(Text.lines(prepared, { maxWidth: 20, lineHeight: 12 })).toEqual(Arr.make(
         { baseDirection: "ltr", index: 0, order: "visual", text: "W", width: 40 },
         { baseDirection: "ltr", index: 1, order: "visual", text: "W", width: 40 }
       ))

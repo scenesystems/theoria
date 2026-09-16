@@ -2,13 +2,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Number, String } from "effect"
 import * as Arr from "effect/Array"
 
-import { Contracts, Text } from "../../src/index.js"
+import * as Text from "../../src/Text.js"
 
-const segment = (text: string, whiteSpace: Text.WhiteSpaceModeType) =>
+const segment = (text: string, whiteSpace: Text.Whitespace) =>
   Effect.gen(function*() {
-    const segmenter = yield* Contracts.WordSegmenter
+    const segmenter = yield* Text.Segmenter
     return yield* segmenter.segment(text, whiteSpace)
-  }).pipe(Effect.provide(Text.WordSegmenterLive))
+  }).pipe(Effect.provide(Text.layerSegmenter))
 
 describe("Text segmentation contracts", () => {
   it.effect("preserves grouped whitespace, tabs, and hard breaks in pre-wrap mode", () =>
@@ -83,8 +83,8 @@ describe("Text segmentation contracts", () => {
         text: "A👨‍👩‍👧‍👦B",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
-      }).pipe(Effect.provide(Text.TextLayoutLive))
-      const lines = Text.layoutLines(prepared, { maxWidth: 7, lineHeight: 12 })
+      }).pipe(Effect.provide(Text.layer))
+      const lines = Text.lines(prepared, { maxWidth: 7, lineHeight: 12 })
 
       expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("A", "👨‍👩‍👧‍👦", "B"))
       expect(Arr.reduce(lines, "", (text, line) => String.concat(line.text)(text))).toBe("A👨‍👩‍👧‍👦B")

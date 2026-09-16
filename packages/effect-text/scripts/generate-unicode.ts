@@ -4,7 +4,7 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { fromUnicodeScalar } from "@scenesystems/digest"
 import { Array as Arr, Boolean, Effect, Layer, Option, Schema, String } from "effect"
 
-import { GraphemeData } from "../src/Text/internal/graphemeSchema.js"
+import { GraphemeData } from "../src/internal/graphemeSchema.js"
 
 const TestCase = Schema.Struct({ input: Schema.String, expected: Schema.Array(Schema.String) })
 const TestCases = Schema.Array(TestCase)
@@ -42,9 +42,18 @@ const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const root = yield* path.fromFileUrl(yield* Url.fromString("../", import.meta.url))
-  const graphemeRows = yield* download("auxiliary/GraphemeBreakProperty.txt").pipe(Effect.flatMap(propertyRows))
-  const conjunctRows = yield* download("DerivedCoreProperties.txt").pipe(Effect.flatMap(propertyRows))
-  const emojiRows = yield* download("emoji/emoji-data.txt").pipe(Effect.flatMap(propertyRows))
+  const sources = yield* Effect.all(
+    {
+      conjunct: download("DerivedCoreProperties.txt"),
+      emoji: download("emoji/emoji-data.txt"),
+      grapheme: download("auxiliary/GraphemeBreakProperty.txt"),
+      tests: download("auxiliary/GraphemeBreakTest.txt")
+    },
+    { concurrency: "unbounded" }
+  )
+  const graphemeRows = yield* propertyRows(sources.grapheme)
+  const conjunctRows = yield* propertyRows(sources.conjunct)
+  const emojiRows = yield* propertyRows(sources.emoji)
   const data = yield* Schema.decodeUnknown(GraphemeData)({
     version: "17.0.0",
     grapheme: yield* Effect.forEach(
@@ -64,10 +73,7 @@ const program = Effect.gen(function*() {
       ))
   })
   const encodedData = yield* Schema.encode(Schema.parseJson(GraphemeData))(data)
-  yield* fs.writeFileString(path.join(root, "src/Text/internal/graphemeData.json"), String.concat(encodedData, "\n"))
-
-  const testText = yield* download("auxiliary/GraphemeBreakTest.txt")
-  const vectors = yield* Effect.forEach(bodyLines(testText), (line) =>
+  const vectors = yield* Effect.forEach(bodyLines(sources.tests), (line) =>
     Effect.gen(function*() {
       const expected = yield* Effect.forEach(
         Arr.filter(Arr.map(String.split("÷")(line), String.trim), String.isNonEmpty),
@@ -80,6 +86,8 @@ const program = Effect.gen(function*() {
       return { input: Arr.join(expected, ""), expected }
     }))
   const encodedVectors = yield* Schema.encode(Schema.parseJson(TestCases))(vectors)
+
+  yield* fs.writeFileString(path.join(root, "src/internal/graphemeData.json"), String.concat(encodedData, "\n"))
   yield* fs.writeFileString(path.join(root, "test/fixtures/graphemeBreak17.json"), String.concat(encodedVectors, "\n"))
   yield* Effect.log("Generated Unicode 17.0.0 grapheme properties and conformance cases", {
     cases: Arr.length(vectors)

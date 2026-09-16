@@ -1,13 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Contracts, Text } from "@scenesystems/effect-text"
+import { CanvasProfile, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 import { Effect, Layer, Number, Option, String } from "effect"
 
 import { labelWidthFor } from "../../app/web/view/home/placeMarkerLabels.js"
 
 const layoutLayer = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(Layer.provide(Layer.succeed(Contracts.TextMeasurer, {
+  Text.layerSegmenter,
+  Layer.succeed(Text.CurrentProfile, CanvasProfile.monospace.engineProfile),
+  MeasurementCache.layer.pipe(Layer.provide(Layer.succeed(TextMeasurer.TextMeasurer, {
     measure: (_font, text) => Effect.succeed(Number.multiply(String.length(text), 48))
   })))
 )

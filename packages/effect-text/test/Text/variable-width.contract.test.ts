@@ -3,9 +3,11 @@ import { Effect, Layer, Match, Number, Ref, String } from "effect"
 import * as Arr from "effect/Array"
 import * as MutableRef from "effect/MutableRef"
 
-import { Contracts, Text } from "../../src/index.js"
+import * as MeasurementCache from "../../src/MeasurementCache.js"
+import * as Text from "../../src/Text.js"
+import * as TextMeasurer from "../../src/TextMeasurer.js"
 
-const maxWidthAtLine = (request: Text.LayoutRequestType, lineIndex: number): number =>
+const maxWidthAtLine = (request: Text.Request, lineIndex: number): number =>
   Match.value(lineIndex).pipe(
     Match.when(0, () => request.maxWidth),
     Match.orElse(() => 40)
@@ -13,7 +15,7 @@ const maxWidthAtLine = (request: Text.LayoutRequestType, lineIndex: number): num
 
 const makeTestContext = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)
-  const measurerLayer = Layer.succeed(Contracts.TextMeasurer, {
+  const measurerLayer = Layer.succeed(TextMeasurer.TextMeasurer, {
     measure: (_font, text: string) =>
       Ref.update(measurements, Number.increment).pipe(Effect.as(Number.multiply(String.length(text), 5)))
   })
@@ -21,15 +23,15 @@ const makeTestContext = Effect.gen(function*() {
   return {
     measurements,
     layer: Layer.mergeAll(
-      Text.WordSegmenterLive,
-      Text.EngineProfileLive,
-      Text.MeasurementCacheLive.pipe(Layer.provide(measurerLayer))
+      Text.layerSegmenter,
+      Text.layerProfile,
+      MeasurementCache.layer.pipe(Layer.provide(measurerLayer))
     )
   }
 })
 
 describe("Text variable-width contracts", () => {
-  it.effect("layoutLinesWith resolves per-line widths without re-preparing text", () =>
+  it.effect("linesWith resolves per-line widths without re-preparing text", () =>
     Effect.gen(function*() {
       const { measurements, layer } = yield* makeTestContext
       const request = { maxWidth: 80, lineHeight: 14 }
@@ -40,11 +42,11 @@ describe("Text variable-width contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
       const afterPrepare = yield* Ref.get(measurements)
-      const projected = Text.layoutLinesWith(prepared, request, (lineIndex) => {
+      const projected = Text.linesWith(prepared, request, (lineIndex) => {
         MutableRef.increment(widthResolutionCount)
         return maxWidthAtLine(request, lineIndex)
       })
-      const uniform = Text.layoutLinesWith(prepared, request, () => request.maxWidth)
+      const uniform = Text.linesWith(prepared, request, () => request.maxWidth)
       const afterProjection = yield* Ref.get(measurements)
 
       expect(afterProjection).toBe(afterPrepare)
@@ -69,8 +71,8 @@ describe("Text variable-width contracts", () => {
       }).pipe(Effect.provide(layer))
       const afterPrepare = yield* Ref.get(measurements)
 
-      const narrow = Text.layoutLinesWith(prepared, request, () => 35)
-      const wide = Text.layoutLinesWith(prepared, request, () => request.maxWidth)
+      const narrow = Text.linesWith(prepared, request, () => 35)
+      const wide = Text.linesWith(prepared, request, () => request.maxWidth)
       const afterProjection = yield* Ref.get(measurements)
 
       expect(afterProjection).toBe(afterPrepare)
@@ -86,7 +88,7 @@ describe("Text variable-width contracts", () => {
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
-      const lines = Text.layoutLinesWith(prepared, { maxWidth: 80, lineHeight: 14 }, () => {
+      const lines = Text.linesWith(prepared, { maxWidth: 80, lineHeight: 14 }, () => {
         MutableRef.increment(widthResolutionCount)
         return 80
       })

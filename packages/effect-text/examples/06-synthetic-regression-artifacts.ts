@@ -1,41 +1,34 @@
 /**
- * Renders the synthetic canvas scenarios used to detect changes in line-walker
- * behavior. These artifacts contain fixed widths and make no browser-accuracy
- * claim.
+ * Renders deterministic synthetic canvas scenarios used to detect changes in
+ * real canvas/Text composition. The fixed widths make no browser-accuracy claim.
  *
  * Run with `bun run packages/effect-text/examples/06-synthetic-regression-artifacts.ts`.
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Effect, Schema } from "effect"
+import { Data, Effect } from "effect"
+import * as Arr from "effect/Array"
 
-import * as Browser from "@scenesystems/effect-text/browser"
+import { CanvasProfile } from "@scenesystems/effect-text"
+import * as CanvasRegression from "./live/canvasRegression.js"
 
-class SyntheticRegressionReport extends Schema.Class<SyntheticRegressionReport>(
-  "effect-text/SyntheticRegressionReport"
-)({
-  artifact: Browser.BrowserParityArtifactSchema,
-  artifactPath: Schema.String,
-  profile: Browser.BrowserSupportProfileSchema
-}) {}
+class Report extends Data.Class<{
+  readonly artifact: CanvasRegression.Artifact
+  readonly profile: CanvasProfile.CanvasProfile
+}> {}
 
-const renderProfileReport = (profile: Browser.BrowserSupportProfileType) =>
-  Browser.renderBrowserParityArtifact(profile).pipe(
+const renderProfile = (profile: CanvasProfile.CanvasProfile) =>
+  CanvasRegression.render(profile).pipe(
     Effect.map((artifact) =>
-      new SyntheticRegressionReport({
+      new Report({
         artifact,
-        artifactPath: Browser.browserParityArtifactRelativePath(profile.id),
         profile
       })
     )
   )
 
 const program = Effect.gen(function*() {
-  const reports = yield* Effect.forEach(Browser.BrowserSupportManifest.profiles, renderProfileReport)
-
-  yield* Effect.log("effect-text synthetic regression artifacts", {
-    defaultProfileId: Browser.BrowserSupportManifest.defaultProfileId,
-    reports
-  })
+  const reports = yield* Effect.forEach(Arr.make(CanvasProfile.monospace, CanvasProfile.systemUi), renderProfile)
+  yield* Effect.log("effect-text synthetic regression results", { reports })
 }).pipe(Effect.provide(BunContext.layer))
 
 BunRuntime.runMain(program)

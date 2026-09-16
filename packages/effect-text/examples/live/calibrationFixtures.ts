@@ -1,19 +1,17 @@
 import { Array as Arr, Layer } from "effect"
 
-import { type Experimental, Text } from "@scenesystems/effect-text"
-
-export const calibrationTextMeasurerLayer = Text.TextMeasurerLive
+import { type Calibration, Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 
 export const calibrationServices = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.HyphenationDictionaryLive(),
-  Text.MeasurementCacheLive.pipe(Layer.provide(calibrationTextMeasurerLayer))
+  Text.layerSegmenter,
+  Text.layerProfile,
+  Hyphenation.layer(),
+  MeasurementCache.layer.pipe(Layer.provide(TextMeasurer.layer))
 )
 
-export const defaultCalibrationProfile: Experimental.Calibration.CalibrationProfileType = {
-  name: "default-engine-profile",
-  engineProfile: {
+export const defaultCalibrationProfile: Calibration.Profile = {
+  name: "default-text-profile",
+  profile: {
     lineFitEpsilon: 0.005,
     tabWidth: 4,
     defaultDirection: "ltr",
@@ -22,7 +20,7 @@ export const defaultCalibrationProfile: Experimental.Calibration.CalibrationProf
   }
 }
 
-const tabAdvances: Experimental.Calibration.CalibrationCaseType = {
+export const canonicalTabAdvancesCase: Calibration.Case = {
   name: "tab-advances",
   prepare: {
     text: "a\tb",
@@ -37,7 +35,7 @@ const tabAdvances: Experimental.Calibration.CalibrationCaseType = {
   }
 }
 
-const softHyphenWrap: Experimental.Calibration.CalibrationCaseType = {
+export const canonicalSoftHyphenWrapCase: Calibration.Case = {
   name: "soft-hyphen-wrap",
   prepare: {
     text: "alpha\u00adbeta",
@@ -55,7 +53,7 @@ const softHyphenWrap: Experimental.Calibration.CalibrationCaseType = {
   }
 }
 
-const longTokenGraphemeFallback: Experimental.Calibration.CalibrationCaseType = {
+export const canonicalLongTokenGraphemeFallbackCase: Calibration.Case = {
   name: "long-token-grapheme-fallback",
   prepare: {
     text: "https://example.com/a-b?x=1,2",
@@ -79,7 +77,7 @@ const longTokenGraphemeFallback: Experimental.Calibration.CalibrationCaseType = 
   }
 }
 
-const cjkNoSpaceLayout: Experimental.Calibration.CalibrationCaseType = {
+export const canonicalCjkNoSpaceLayoutCase: Calibration.Case = {
   name: "cjk-no-space-layout",
   prepare: {
     text: "你好世界你好",
@@ -98,7 +96,7 @@ const cjkNoSpaceLayout: Experimental.Calibration.CalibrationCaseType = {
   }
 }
 
-const mixedDirectionCase: Experimental.Calibration.CalibrationCaseType = {
+export const canonicalMixedDirectionCase: Calibration.Case = {
   name: "mixed-direction-case",
   prepare: {
     text: "(שלום) hello",
@@ -113,7 +111,7 @@ const mixedDirectionCase: Experimental.Calibration.CalibrationCaseType = {
   }
 }
 
-const dictionaryHyphenation: Experimental.Calibration.CalibrationCaseType = {
+export const canonicalDictionaryHyphenationCase: Calibration.Case = {
   name: "dictionary-hyphenation",
   prepare: {
     text: "hyphenation",
@@ -133,19 +131,19 @@ const dictionaryHyphenation: Experimental.Calibration.CalibrationCaseType = {
   }
 }
 
-export const canonicalCalibrationCases: Experimental.Calibration.CalibrationCasesType = Arr.make(
-  tabAdvances,
-  softHyphenWrap,
-  longTokenGraphemeFallback,
-  cjkNoSpaceLayout,
-  mixedDirectionCase,
-  dictionaryHyphenation
+export const canonicalCalibrationCases: Calibration.Cases = Arr.make(
+  canonicalTabAdvancesCase,
+  canonicalSoftHyphenWrapCase,
+  canonicalLongTokenGraphemeFallbackCase,
+  canonicalCjkNoSpaceLayoutCase,
+  canonicalMixedDirectionCase,
+  canonicalDictionaryHyphenationCase
 )
 
-const LTR_DIRECTION: Text.BaseTextDirectionType = "ltr"
-const RTL_DIRECTION: Text.BaseTextDirectionType = "rtl"
+const LTR_DIRECTION: Text.Direction = "ltr"
+const RTL_DIRECTION: Text.Direction = "rtl"
 
-export const defaultSearchDescriptor: Experimental.Calibration.CalibrationSearchDescriptorType = {
+export const fixedSearch: Calibration.Search = {
   lineFitEpsilon: { low: 0.005, high: 0.005, step: 0.001 },
   tabWidth: { low: 4, high: 4, step: 1 },
   defaultDirection: { values: Arr.make(LTR_DIRECTION, RTL_DIRECTION) },
@@ -153,7 +151,7 @@ export const defaultSearchDescriptor: Experimental.Calibration.CalibrationSearch
   preferPrefixWidthsForBreakableRuns: { values: Arr.of(true) }
 }
 
-export const exploratorySearchDescriptor: Experimental.Calibration.CalibrationSearchDescriptorType = {
+export const exploratorySearch: Calibration.Search = {
   lineFitEpsilon: { low: 0.005, high: 0.005, step: 0.001 },
   tabWidth: { low: 2, high: 4, step: 2 },
   defaultDirection: { values: Arr.make(LTR_DIRECTION, RTL_DIRECTION) },

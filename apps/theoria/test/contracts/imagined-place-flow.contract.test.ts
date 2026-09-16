@@ -3,7 +3,7 @@ import { Boolean as Bool, Effect, Equal, Layer, Number as Num, Option, Schema, S
 import * as Arr from "effect/Array"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Contracts, Text } from "@scenesystems/effect-text"
+import { CanvasProfile, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 
 import {
   drawingOnStage,
@@ -51,11 +51,11 @@ const noContributors: OptionalParticipants = Arr.map(features, () => Option.none
 
 /** Text measured at a fixed width per character, so the prose flows the same on every run. */
 const fixedWidthText = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(
+  Text.layerSegmenter,
+  Layer.succeed(Text.CurrentProfile, CanvasProfile.monospace.engineProfile),
+  MeasurementCache.layer.pipe(
     Layer.provide(
-      Layer.succeed(Contracts.TextMeasurer, {
+      Layer.succeed(TextMeasurer.TextMeasurer, {
         measure: (_font, text: string) => Effect.succeed(Num.multiply(Str.length(text), 5))
       })
     )

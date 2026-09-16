@@ -1,6 +1,11 @@
-import { Text } from "@scenesystems/effect-text"
-import * as Browser from "@scenesystems/effect-text/browser"
-import * as Contracts from "@scenesystems/effect-text/contracts"
+import {
+  CanvasProfile,
+  CanvasTextMeasurer,
+  Hyphenation,
+  MeasurementCache,
+  type PreparationKey,
+  Text
+} from "@scenesystems/effect-text"
 import { Boolean, Context, Effect, Layer, type Scope } from "effect"
 import * as Arr from "effect/Array"
 
@@ -8,12 +13,12 @@ import { measuredFont } from "../../contracts/text.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserFonts from "../platform/BrowserFonts.js"
 
-export const browserSupportProfile: Browser.BrowserSupportProfileType = Browser.DefaultBrowserSupportProfile
+export const browserSupportProfile: CanvasProfile.CanvasProfile = CanvasProfile.monospace
 export const browserSupportProfileId = browserSupportProfile.id
 export const browserEngineProfile = browserSupportProfile.engineProfile
 
 /** The text services every measurement and layout in the app runs against. */
-export type BrowserTextLayout = Contracts.WordSegmenter | Contracts.MeasurementCache | Contracts.EngineProfile
+export type BrowserTextLayout = Text.Segmenter | MeasurementCache.MeasurementCache | Text.CurrentProfile
 
 /**
  * What the layout is told of the faces it measures in, by whoever builds it:
@@ -27,7 +32,7 @@ export type BrowserTextLayout = Contracts.WordSegmenter | Contracts.MeasurementC
  */
 export class FontReadiness extends Context.Tag("theoria/FontReadiness")<FontReadiness, {
   /** The generation of the widths this layout's cache keeps; advanced by each arrival told. */
-  readonly revision: Browser.FontReadinessRevisionType
+  readonly revision: PreparationKey.Revision
   /** Told when a served face arrives after this layout was built without it; once for each face that does. */
   readonly facesArrived: Effect.Effect<void>
 }>() {}
@@ -37,28 +42,16 @@ export class FontReadiness extends Context.Tag("theoria/FontReadiness")<FontRead
  * For hosts without a document, headless test documents among them; the
  * app's runtime never falls back to it.
  */
-export const deterministicTextLayoutLive: Layer.Layer<BrowserTextLayout> = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.HyphenationDictionaryLive(),
-  Layer.succeed(Contracts.EngineProfile, browserEngineProfile),
-  Text.TextMeasurerLive,
-  Text.MeasurementCacheLive.pipe(Layer.provide(Text.TextMeasurerLive))
-)
+export const deterministicTextLayoutLive: Layer.Layer<BrowserTextLayout> = Text.layer
 
-const canvasTextLayoutLayer = (
-  context: CanvasRenderingContext2D,
-  fontReadinessRevision: Browser.FontReadinessRevisionType
-): Layer.Layer<BrowserTextLayout> => {
-  const canvasMeasurer = Browser.CanvasTextMeasurerLive({ context })
+const canvasTextLayoutLayer = (context: CanvasRenderingContext2D): Layer.Layer<BrowserTextLayout> => {
+  const canvasMeasurer = CanvasTextMeasurer.layer({ context })
 
   return Layer.mergeAll(
-    Text.WordSegmenterLive,
-    Text.HyphenationDictionaryLive(),
-    Layer.succeed(Contracts.EngineProfile, browserEngineProfile),
-    canvasMeasurer,
-    Browser.BrowserMeasurementCacheLive({ fontReadinessRevision, profileId: browserSupportProfileId }).pipe(
-      Layer.provide(canvasMeasurer)
-    )
+    Text.layerSegmenter,
+    Hyphenation.layer(),
+    Layer.succeed(Text.CurrentProfile, browserEngineProfile),
+    MeasurementCache.layer.pipe(Layer.provide(canvasMeasurer))
   )
 }
 
@@ -138,9 +131,8 @@ export const browserTextLayoutLayer: Layer.Layer<
 > = Layer.unwrapScoped(
   Effect.gen(function*() {
     const context = yield* BrowserDocument.canvasContext2d
-    const readiness = yield* FontReadiness
     yield* servedFacesWatched
-    return canvasTextLayoutLayer(context, readiness.revision)
+    return canvasTextLayoutLayer(context)
   })
 )
 

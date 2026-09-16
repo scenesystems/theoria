@@ -2,8 +2,7 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
-import type { Errors, Text } from "@scenesystems/effect-text"
-import type * as TextReact from "@scenesystems/effect-text/react"
+import type { PreparationKey, Text, TextMeasurer } from "@scenesystems/effect-text"
 import { Data, Effect, Number, Option, Schema } from "effect"
 
 import { maxWidthFor, type TextProjection, TextProjectionRequest } from "../../contracts/text.js"
@@ -39,7 +38,7 @@ class TextPrepareKey extends Schema.Class<TextPrepareKey>("TextPrepareKey")({
 }) {}
 
 /** Why a projection is missing: the text could not be measured, or the document has no canvas to measure on. */
-export type TextProjectionError = Errors.MeasurementFailed | CanvasUnavailable
+export type TextProjectionError = TextMeasurer.Failed | CanvasUnavailable
 
 /**
  * The projection as the atom sees it: initial while the text is being
@@ -54,8 +53,8 @@ export class TextProjectionHandle extends Data.Class<{
 
 export class TextProjectionAuthority extends Data.Class<{
   readonly prepare: (
-    identity: TextReact.PrepareIdentity
-  ) => Effect.Effect<Text.PreparedTextWithSegments, Errors.MeasurementFailed, BrowserTextLayout>
+    identity: PreparationKey.PreparationKey
+  ) => Effect.Effect<Text.WithSegments, TextMeasurer.Failed, BrowserTextLayout>
   readonly project: (options: ProjectPreparedTextOptions) => TextProjection
 }> {}
 
