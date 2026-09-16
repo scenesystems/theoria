@@ -8,7 +8,7 @@
 
 import { Either, Number as N, Option, type ParseResult, Predicate, Schema } from "effect"
 
-import { encodeUtf8Unchecked, unicodeFault } from "./internal/unicode.js"
+import { encodeUtf8Unchecked, unicodeFault } from "./internal/utf8.js"
 
 /**
  * The first unpaired surrogate, with a zero-based UTF-16 code-unit index.

@@ -18,7 +18,7 @@ import {
 
 import { CyclicValue, UnsupportedValue } from "../../CanonicalJson.js"
 import { InvalidUnicode } from "../../Utf8.js"
-import { unicodeFault } from "../unicode.js"
+import { unicodeFault } from "../utf8.js"
 import { Ancestor, emit, fail, Frame, push, type State } from "./state.js"
 
 const encodeScalar = Schema.encodeUnknownEither(

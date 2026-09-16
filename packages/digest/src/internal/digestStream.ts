@@ -4,7 +4,7 @@ import { Boolean as B, Data, Effect, Number as N, Option, Stream, String as Str,
 import type { Algorithm } from "../Digest.js"
 import { InvalidUnicode } from "../Utf8.js"
 import { type Hasher, makeHasher } from "./digest.js"
-import { encodeUtf8Unchecked, unicodeFault } from "./unicode.js"
+import { encodeUtf8Unchecked, unicodeFault } from "./utf8.js"
 
 const isTrailingHighSurrogate = (text: string): boolean =>
   Option.exists(

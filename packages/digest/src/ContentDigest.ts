@@ -12,7 +12,7 @@ import * as CanonicalJson from "./CanonicalJson.js"
 import * as Digest from "./Digest.js"
 import { canonicalizeWithByteLimit, canonicalizeWithByteLimitEither } from "./internal/canonicalJson/traversal.js"
 import { makeHasher } from "./internal/digest.js"
-import { encodeUtf8Unchecked } from "./internal/unicode.js"
+import { encodeUtf8Unchecked } from "./internal/utf8.js"
 
 /**
  * Canonical unpadded base64url encoding of 32 digest bytes. Decoding validates

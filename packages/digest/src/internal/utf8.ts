@@ -1,5 +1,5 @@
 /**
- * Strict Unicode validation and UTF-8 encoding.
+ * Utf8's strict Unicode validation, byte encoding, and byte measurement.
  *
  * This is the package's only scalar-well-formedness implementation. The byte
  * encoder is safe to call only after `unicodeFault` accepts the input.

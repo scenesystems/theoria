@@ -17,7 +17,7 @@ import {
 import { constVoid } from "effect/Function"
 
 import { ByteLimitExceeded, type Error as CanonicalizationError } from "../../CanonicalJson.js"
-import { utf8ByteLengthUnchecked } from "../unicode.js"
+import { utf8ByteLengthUnchecked } from "../utf8.js"
 import { process } from "./serialization.js"
 import { flushPending, Frame, State } from "./state.js"
 
