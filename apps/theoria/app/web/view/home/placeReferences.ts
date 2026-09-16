@@ -1,8 +1,9 @@
 import { Boolean as Bool, Equal, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import { Id as CardId } from "../../../contracts/id.js"
-import type { CodeLink } from "../primitives/code/codeLinks.js"
+import { CodeLink } from "../primitives/code/codeLinks.js"
 
 import type { PlaceStep } from "./placeSteps.js"
 
@@ -17,35 +18,36 @@ export const PlaceReference = Schema.Struct({
 })
 export type PlaceReference = typeof PlaceReference.Type
 
-const ref = (pkg: CardId, page: string, text: string, anchor: string): PlaceReference => ({
-  text,
-  package: pkg,
-  href: `/docs/${pkg}/api/${page}#api-${anchor}`
-})
+const ref = (pkg: CardId, page: string, text: string, anchor: string): PlaceReference =>
+  PlaceReference.make({
+    text,
+    package: pkg,
+    href: `/docs/${pkg}/api/${page}#api-${anchor}`
+  })
 
-const composeReferences: ReadonlyArray<PlaceReference> = [
+const composeReferences = Arr.make(
   ref("effect-dsp", "Signature", "Signature.make", "make"),
   ref("effect-dsp", "Signature", "Signature.describe", "describe"),
   ref("effect-dsp", "Module", "Module.predict", "predict"),
   ref("effect-inference", "Testing", "InferenceTesting.staticLanguageModel", "staticLanguageModel")
-]
+)
 
-const proposeReferences: ReadonlyArray<PlaceReference> = [
+const proposeReferences = Arr.make(
   ref("digest", "digestSchemaValue", "digestSchemaValue", "digestSchemaValue"),
   ref("sign", "Ed25519", "Ed25519.sign", "sign"),
   ref("sign", "X25519", "X25519.deriveSharedSecret", "deriveSharedSecret"),
   ref("digest", "kdf", "hkdfSha256", "hkdfSha256"),
   ref("seal", "seal", "seal", "seal"),
   ref("sign", "Bytes", "Bytes.fromString", "fromString")
-]
+)
 
-const recordReferences: ReadonlyArray<PlaceReference> = [
+const recordReferences = Arr.make(
   ref("digest", "digestSchemaValue", "digestSchemaValue", "digestSchemaValue"),
   ref("sign", "Ed25519", "Ed25519.sign", "sign"),
   ref("sign", "Bytes", "Bytes.fromString", "fromString")
-]
+)
 
-const arrangeReferences: ReadonlyArray<PlaceReference> = [
+const arrangeReferences = Arr.make(
   ref("effect-text", "Text", "Text.prepareWithSegments", "prepareWithSegments"),
   ref("effect-text", "Text", "Text.layoutLinesWith", "layoutLinesWith"),
   ref("effect-search", "SearchSpace", "SearchSpace.make", "make"),
@@ -57,9 +59,9 @@ const arrangeReferences: ReadonlyArray<PlaceReference> = [
   ref("effect-search", "Sampler", "Sampler.tpe", "tpe"),
   ref("effect-search", "Study", "Study.ask", "ask"),
   ref("effect-search", "Study", "Study.tell", "tell")
-]
+)
 
-export const placeReferences = (step: PlaceStep): ReadonlyArray<PlaceReference> =>
+export const placeReferences = (step: PlaceStep) =>
   Match.value(step).pipe(
     Match.when("compose", () => composeReferences),
     Match.when("propose", () => proposeReferences),
@@ -68,30 +70,33 @@ export const placeReferences = (step: PlaceStep): ReadonlyArray<PlaceReference> 
     Match.exhaustive
   )
 
-export const referenceLinks = (step: PlaceStep): ReadonlyArray<CodeLink> =>
-  Arr.map(placeReferences(step), ({ href, text }) => ({ text, href }))
+export const referenceLinks = (step: PlaceStep) =>
+  Arr.map(placeReferences(step), ({ href, text }) => CodeLink.make({ text, href }))
 
 /**
  * The files in this repository that do what the sample shows, as paths from
  * the repository root. The server runs the first three steps; the browser
  * runs the fourth with shared contracts.
  */
-export const placeSourceFiles = (step: PlaceStep): ReadonlyArray<string> =>
+export const placeSourceFiles = (step: PlaceStep) =>
   Match.value(step).pipe(
-    Match.when("compose", () => ["apps/theoria/app/server/imagined-place/compose.ts"]),
-    Match.when("propose", () => [
-      "apps/theoria/app/server/imagined-place/authority.ts",
-      "apps/theoria/app/server/imagined-place/note.ts"
-    ]),
-    Match.when("record", () => [
-      "apps/theoria/app/server/imagined-place/run.ts",
-      "apps/theoria/app/server/imagined-place/authority.ts"
-    ]),
-    Match.when("arrange", () => [
-      "apps/theoria/app/web/atoms/imagined-place-render.ts",
-      "apps/theoria/app/contracts/demo/imagined-place-arrangement.ts",
-      "apps/theoria/app/contracts/demo/imagined-place-flow.ts"
-    ]),
+    Match.when("compose", () => Arr.make("apps/theoria/app/server/imagined-place/compose.ts")),
+    Match.when("propose", () =>
+      Arr.make(
+        "apps/theoria/app/server/imagined-place/authority.ts",
+        "apps/theoria/app/server/imagined-place/note.ts"
+      )),
+    Match.when("record", () =>
+      Arr.make(
+        "apps/theoria/app/server/imagined-place/run.ts",
+        "apps/theoria/app/server/imagined-place/authority.ts"
+      )),
+    Match.when("arrange", () =>
+      Arr.make(
+        "apps/theoria/app/web/atoms/imagined-place-render.ts",
+        "apps/theoria/app/contracts/demo/imagined-place-arrangement.ts",
+        "apps/theoria/app/contracts/demo/imagined-place-flow.ts"
+      )),
     Match.exhaustive
   )
 
@@ -109,4 +114,4 @@ export const sourceUrl = (buildSha: string, path: string): string => `${reposito
 export const commitUrl = (buildSha: string): string => `${repository}/tree/${sourceRef(buildSha)}`
 
 /** The path as a reader of `apps/theoria/app` would say it. */
-export const sourceLabel = (path: string): string => path.replace(/^apps\/theoria\/app\//, "")
+export const sourceLabel = (path: string): string => Str.replace(/^apps\/theoria\/app\//, "")(path)

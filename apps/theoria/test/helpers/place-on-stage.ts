@@ -1,11 +1,12 @@
 import { Registry, Result } from "@effect-atom/atom"
-import { Effect } from "effect"
+import { Data, Effect, Record, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
 
+import { Arrangement } from "../../app/contracts/demo/imagined-place-arrangement.js"
 import { stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
 import type { PlaceBuild, PlaceRendering } from "../../app/contracts/imagined-place-result.js"
-import type { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
+import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
 import { ParticipantsLive } from "../../app/server/imagined-place/authority.js"
 import { render } from "../../app/server/imagined-place/render.js"
 import { buildPlace } from "../../app/server/imagined-place/run.js"
@@ -20,37 +21,38 @@ import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
  * the thing itself, not a sketch of it.
  */
 
-const request: PlaceBuildRequest = {
+const request = PlaceBuildRequest.make({
   scenario: "unfinished-light",
   brief: scenarioById("unfinished-light").brief,
   acceptNeighbor: true,
   acceptProgram: false
-}
+})
 
-const otherRequest: PlaceBuildRequest = {
+const otherRequest = PlaceBuildRequest.make({
   scenario: "lost-market",
   brief: scenarioById("lost-market").brief,
   acceptNeighbor: true,
   acceptProgram: false
-}
-
-const arrangementOf = (rendering: PlaceRendering) => ({
-  markers: rendering.projection.markers,
-  lines: rendering.projection.lines,
-  quality: {
-    loss: rendering.evidence.bestLoss,
-    lineCount: rendering.evidence.lineCount,
-    narrowestLine: rendering.evidence.narrowestLine,
-    raggedness: rendering.evidence.raggedness
-  }
 })
+
+const arrangementOf = (rendering: PlaceRendering) =>
+  Arrangement.make({
+    markers: rendering.projection.markers,
+    lines: rendering.projection.lines,
+    quality: {
+      loss: rendering.evidence.bestLoss,
+      lineCount: rendering.evidence.lineCount,
+      narrowestLine: rendering.evidence.narrowestLine,
+      raggedness: rendering.evidence.raggedness
+    }
+  })
 
 /** The two builds, with the first build's trial and kept frames and the other build's complete frame. */
 export const onStage = Effect.gen(function*() {
-  const [build, otherBuild] = yield* Effect.all([
+  const [build, otherBuild] = yield* Effect.all(Tuple.make(
     buildPlace(request).pipe(Effect.provide(ParticipantsLive)),
     buildPlace(otherRequest).pipe(Effect.provide(ParticipantsLive))
-  ])
+  ))
   const kept = yield* render(build.artifact, 660)
   const trial = yield* render(build.artifact, 320)
   const otherRendering = yield* render(otherBuild.artifact, 660)
@@ -58,11 +60,11 @@ export const onStage = Effect.gen(function*() {
     source: build,
     phase: "complete",
     stage: stageFor(660),
-    tried: [arrangementOf(trial), arrangementOf(kept)],
+    tried: Arr.make(arrangementOf(trial), arrangementOf(kept)),
     bestIndex: 1,
     best: kept,
     prose: Arr.join(Arr.map(kept.projection.lines, (line) => line.text), " "),
-    labels: {},
+    labels: Record.empty(),
     settled: HashSet.empty()
   })
   const showingTrial = new PlaceRenderFrame({ search, trial: 0, rendering: trial, paper: trial.projection.stageHeight })
@@ -71,11 +73,11 @@ export const onStage = Effect.gen(function*() {
     source: otherBuild,
     phase: "complete",
     stage: stageFor(660),
-    tried: [arrangementOf(otherRendering)],
+    tried: Arr.of(arrangementOf(otherRendering)),
     bestIndex: 0,
     best: otherRendering,
     prose: Arr.join(Arr.map(otherRendering.projection.lines, (line) => line.text), " "),
-    labels: {},
+    labels: Record.empty(),
     settled: HashSet.empty()
   })
   const otherShowing = new PlaceRenderFrame({
@@ -84,7 +86,14 @@ export const onStage = Effect.gen(function*() {
     rendering: otherRendering,
     paper: otherRendering.projection.stageHeight
   })
-  return { build, kept, trial, showingTrial, showingKept, other: { build: otherBuild, showing: otherShowing } }
+  return Data.struct({
+    build,
+    kept,
+    trial,
+    showingTrial,
+    showingKept,
+    other: Data.struct({ build: otherBuild, showing: otherShowing })
+  })
 })
 
 /**
@@ -98,10 +107,10 @@ export const onStage = Effect.gen(function*() {
  */
 export const pageShowing = (build: PlaceBuild, shown: PlaceRenderFrame): Registry.Registry => {
   const registry = Registry.make({
-    initialValues: [
-      [placeBuildAtom, Result.success(build)],
-      [placeShownFrameAtom, Result.success(shown)]
-    ],
+    initialValues: Tuple.make(
+      Tuple.make(placeBuildAtom, Result.success(build)),
+      Tuple.make(placeShownFrameAtom, Result.success(shown))
+    ),
     scheduleTask: (task) => {
       task()
     }

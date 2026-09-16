@@ -1,5 +1,6 @@
-import { Schema } from "effect"
+import { Number as Num, Record, Schema, Tuple } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 /**
@@ -29,25 +30,18 @@ export const Meander = Schema.Struct({
 })
 export type Meander = typeof Meander.Type
 
-type Bounds = readonly [low: number, high: number]
+const Bounds = Schema.Record({ key: Schema.keyof(Meander), value: Schema.Tuple(Schema.Number, Schema.Number) })
 
-export const meanderBounds: Record<keyof Meander, Bounds> = {
-  edge: [0.5, 0.9],
-  swing: [0, 0.3],
-  phase: [-Math.PI, Math.PI],
-  turns: [0.5, 2.5],
-  top: [0.04, 0.6],
-  step: [0.03, 0.24]
-}
-
-export const meanderSpace = SearchSpace.make({
-  edge: SearchSpace.float(...meanderBounds.edge),
-  swing: SearchSpace.float(...meanderBounds.swing),
-  phase: SearchSpace.float(...meanderBounds.phase),
-  turns: SearchSpace.float(...meanderBounds.turns),
-  top: SearchSpace.float(...meanderBounds.top),
-  step: SearchSpace.float(...meanderBounds.step)
+export const meanderBounds = Bounds.make({
+  edge: Tuple.make(0.5, 0.9),
+  swing: Tuple.make(0, 0.3),
+  phase: Tuple.make(Num.negate(Numeric.pi), Numeric.pi),
+  turns: Tuple.make(0.5, 2.5),
+  top: Tuple.make(0.04, 0.6),
+  step: Tuple.make(0.03, 0.24)
 })
+
+export const meanderSpace = SearchSpace.make(Record.map(meanderBounds, ([low, high]) => SearchSpace.float(low, high)))
 
 /**
  * Deterministic search settings. The seed is fixed so the same artifact at the
