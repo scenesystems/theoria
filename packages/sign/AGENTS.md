@@ -27,6 +27,16 @@ Effect-native signatures, key agreement, encapsulation, and JWT verification.
 - Research public signatures, tests, usage, and ecosystem integrations against the installed version before selecting an API. Effect internals and lint exclusions do not authorize substitutes. A remaining external operation needs explicit user approval for that exact gap, not a blanket adapter exception.
 - Hashing is owned by `@scenesystems/digest`; sign composes that API rather than importing a second hashing implementation.
 
+### User-approved exceptions
+
+The owner explicitly approved retaining the following existing operations in the [sign review thread](https://ampcode.com/threads/T-01a0a72a-7df6-753f-9893-647538504fdd), after research found no equivalent public Effect v3 APIs preserving their contracts:
+
+1. Noble cryptographic randomness, curve/signature/key-agreement/post-quantum/KEM primitives, and equal-length byte comparison without data-dependent early exit. JavaScript execution is not guaranteed constant-time.
+2. RSA public-integer `bitLen`, modular `pow`, and fixed-width big-endian `numberToBytesBE`. Byte-to-bigint admission continues to use native Encoding and Schema APIs.
+3. Test-only hostile host objects: `ArrayBuffer.transfer`, Proxy/Reflect interception, and throwing property getters used to exercise input-admission failures.
+
+This approval is limited to those operations in this package. It does not exempt surrounding models, control flow, callbacks, error handling, state, or composition, authorize substitutes where Effect supplies the required API, or grant an exception to an entire adapter or dependency. Additional gaps require separate explicit approval.
+
 ## Cryptographic contracts
 
 - Preserve standards, strict admission, canonical encodings, context binding, input snapshots, and error-channel distinctions. The strict verifier's 8,192-byte message bound is Theoria resource policy, not an Effect convention or cryptographic standard.
