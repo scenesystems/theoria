@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
+import numpy
 
 from ._common import metadata
 
@@ -48,11 +48,11 @@ def _dot_case(case_id: str, a: list[float], b: list[float]) -> dict[str, Any]:
         "id": case_id,
         "operation": "dot",
         "input": {"a": a, "b": b},
-        "expected": float(np.dot(a, b)),
+        "expected": float(numpy.dot(a, b)),
     }
 
 
-_NORM_MAP = {"L1": 1, "L2": 2, "Linf": np.inf}
+_NORM_MAP = {"L1": 1, "L2": 2, "Linf": numpy.inf}
 
 
 def _norm_case(case_id: str, values: list[float], kind: str) -> dict[str, Any]:
@@ -60,15 +60,15 @@ def _norm_case(case_id: str, values: list[float], kind: str) -> dict[str, Any]:
         "id": case_id,
         "operation": "norm",
         "input": {"values": values, "kind": kind},
-        "expected": float(np.linalg.norm(values, ord=_NORM_MAP[kind])),
+        "expected": float(numpy.linalg.norm(values, ord=_NORM_MAP[kind])),
     }
 
 
 def _matvec_case(
     case_id: str, data: list[float], rows: int, cols: int, x: list[float]
 ) -> dict[str, Any]:
-    mat = np.array(data, dtype=np.float64).reshape(rows, cols)
-    vec = np.array(x, dtype=np.float64)
+    mat = numpy.array(data, dtype=numpy.float64).reshape(rows, cols)
+    vec = numpy.array(x, dtype=numpy.float64)
     result = mat @ vec
     return {
         "id": case_id,
@@ -81,10 +81,10 @@ def _matvec_case(
 def _frobenius_case(
     case_id: str, data: list[float], rows: int, cols: int
 ) -> dict[str, Any]:
-    mat = np.array(data, dtype=np.float64).reshape(rows, cols)
+    mat = numpy.array(data, dtype=numpy.float64).reshape(rows, cols)
     return {
         "id": case_id,
         "operation": "frobenius",
         "input": {"data": data, "rows": rows, "cols": cols},
-        "expected": float(np.linalg.norm(mat, "fro")),
+        "expected": float(numpy.linalg.norm(mat, "fro")),
     }

@@ -111,13 +111,13 @@ export const program = Text.prepare({
 
 In a browser, measure with the real font. `Browser.CanvasTextMeasurerLive` wraps a 2D canvas context, serializes access to it, and optionally corrects under-reported emoji advances. `Browser.BrowserMeasurementCacheLive` keys its cache by a support-profile id and a font-readiness revision, so measurements taken before a web font loaded are discarded once you bump the revision. `Browser.browserSupportProfile` returns the engine profile tuned for `canvas-monospace` or `canvas-system-ui`.
 
+Pass the measurement Layer created by `Browser.CanvasTextMeasurerLive` into the layout program:
+
 ```ts typecheck
 import { Effect, Layer } from "effect"
 import { Browser, Contracts, Text } from "@scenesystems/effect-text"
 
-type CanvasContext = Parameters<typeof Browser.CanvasTextMeasurerLive>[0]["context"]
-
-export const layoutOnCanvas = (context: CanvasContext, text: string, maxWidth: number) => {
+export const layoutOnCanvas = (measurer: Layer.Layer<Contracts.TextMeasurer>, text: string, maxWidth: number) => {
   const profile = Browser.browserSupportProfile("canvas-system-ui")
   const services = Layer.mergeAll(
     Text.WordSegmenterLive,
@@ -126,7 +126,7 @@ export const layoutOnCanvas = (context: CanvasContext, text: string, maxWidth: n
     Browser.BrowserMeasurementCacheLive({
       profileId: profile.id,
       fontReadinessRevision: Browser.initialFontReadinessRevision()
-    }).pipe(Layer.provide(Browser.CanvasTextMeasurerLive({ context, textBaseline: "alphabetic" })))
+    }).pipe(Layer.provide(measurer))
   )
 
   return Text.prepareWithSegments({ text, font: { family: "system-ui", size: 16 }, whiteSpace: "normal" }).pipe(

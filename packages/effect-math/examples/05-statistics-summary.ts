@@ -6,9 +6,9 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Console, Effect } from "effect"
+import { Array, Chunk, Console, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
+import * as Policy from "@scenesystems/effect-math/Policy"
 import {
   covariance,
   covarianceValidated,
@@ -22,7 +22,7 @@ import {
 } from "@scenesystems/effect-math/Statistics"
 
 const program = Effect.gen(function*() {
-  const data = Chunk.fromIterable([2, 4, 4, 4, 5, 5, 7, 9])
+  const data = Chunk.make(2, 4, 4, 4, 5, 5, 7, 9)
 
   // Direct kernels
   yield* Console.log("mean:", mean(data))
@@ -30,52 +30,36 @@ const program = Effect.gen(function*() {
   yield* Console.log("variance:", variance(data))
   yield* Console.log("standardDeviation:", standardDeviation(data))
 
-  const xs = Chunk.fromIterable([1, 2, 3, 4, 5])
-  const ys = Chunk.fromIterable([2, 4, 5, 4, 5])
+  const xs = Chunk.make(1, 2, 3, 4, 5)
+  const ys = Chunk.make(2, 4, 5, 4, 5)
   yield* Console.log("covariance:", covariance(xs, ys))
   // Output: covariance: 1.5
 
   // Schema-validated boundary
-  const meanV = yield* meanValidated({ values: [10, 20, 30] })
+  const meanV = yield* meanValidated({ values: Array.make(10, 20, 30) })
   yield* Console.log("meanValidated:", meanV)
 
-  const varV = yield* varianceValidated({ values: [2, 4, 4, 4, 5, 5, 7, 9] })
+  const varV = yield* varianceValidated({ values: Array.make(2, 4, 4, 4, 5, 5, 7, 9) })
   yield* Console.log("varianceValidated:", varV)
 
-  const covV = yield* covarianceValidated({ a: [1, 2, 3, 4, 5], b: [2, 4, 5, 4, 5] })
+  const covV = yield* covarianceValidated({ a: Array.make(1, 2, 3, 4, 5), b: Array.make(2, 4, 5, 4, 5) })
   yield* Console.log("covarianceValidated:", covV)
 
-  const summary = yield* summaryStatisticsValidated({ values: [2, 4, 4, 4, 5, 5, 7, 9] })
-  yield* Console.log("summaryStatisticsValidated:", {
-    _tag: summary._tag,
-    mean: summary.mean,
-    variance: summary.variance,
-    standardDeviation: summary.standardDeviation,
-    min: summary.min,
-    max: summary.max,
-    count: summary.count
-  })
+  const summary = yield* summaryStatisticsValidated({ values: Array.make(2, 4, 4, 4, 5, 5, 7, 9) })
+  yield* Console.log("summaryStatisticsValidated:", summary)
 
   // Strict precision with diagnostics
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
-    backend: "typed-array",
+    backend: "compensated",
     diagnostics: "enabled"
   })
 
   const summaryP = yield* summaryStatisticsWithPolicies(data).pipe(
     Effect.provide(policies)
   )
-  yield* Console.log("summaryStatisticsWithPolicies:", {
-    _tag: summaryP._tag,
-    mean: summaryP.mean,
-    variance: summaryP.variance,
-    standardDeviation: summaryP.standardDeviation,
-    min: summaryP.min,
-    max: summaryP.max,
-    count: summaryP.count
-  })
+  yield* Console.log("summaryStatisticsWithPolicies:", summaryP)
 })
 
 BunRuntime.runMain(program)

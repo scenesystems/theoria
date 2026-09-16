@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-import numpy as np
+import numpy
 
 from ._common import metadata
 
@@ -64,7 +64,7 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
 def _poly_eval_case(case_id: str, coeffs: list[float], x: float) -> dict[str, Any]:
     # NumPy polyval expects highest-degree-first, our coeffs are lowest-degree-first
     # So reverse for numpy
-    result = float(np.polyval(list(reversed(coeffs)), x))
+    result = float(numpy.polyval(list(reversed(coeffs)), x))
     return {
         "id": case_id,
         "operation": "polyEval",

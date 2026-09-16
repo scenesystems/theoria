@@ -1,21 +1,22 @@
-import { Array as Arr, Data, Option, Schema } from "effect"
+import { Array, Boolean, Chunk, Data, Match, Option, Schema, String } from "effect"
 import type { Heading, RootContent } from "mdast"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
 import remarkParse from "remark-parse"
 import { unified } from "unified"
 
-import { type DocsGuideSummary, type DocsSearchEntry, type GuideBlock, type GuidePage } from "@theoria/docs-model"
+import { DocsGuideSummarySchema, DocsSearchEntrySchema, type GuideBlock, GuidePageSchema } from "@theoria/docs-model"
 import { guideBlock, guideSlug, inlineParts, inlineText } from "./guide-markdown.js"
-import { type ApiSourcePackage } from "./source.js"
+import type { ApiSourcePackage } from "./source.js"
 
 class MarkdownSection extends Data.Class<{
   readonly title: string
-  readonly nodes: ReadonlyArray<RootContent>
+  readonly nodes: Chunk.Chunk<RootContent>
 }> {}
 
 class SectionAccumulator extends Data.Class<{
-  readonly intro: ReadonlyArray<RootContent>
-  readonly sections: ReadonlyArray<MarkdownSection>
+  readonly intro: Chunk.Chunk<RootContent>
+  readonly sections: Chunk.Chunk<MarkdownSection>
 }> {}
 
 export const PackageGuideExample = Schema.Struct({
@@ -25,105 +26,205 @@ export const PackageGuideExample = Schema.Struct({
 
 export type PackageGuideExample = typeof PackageGuideExample.Type
 
-const headingText = (heading: Heading, packageSlug: string, revision: string): string =>
-  inlineText(inlineParts(heading.children, packageSlug, revision))
-
-const splitSections = (
-  nodes: ReadonlyArray<RootContent>,
-  packageSlug: string,
-  revision: string
-): SectionAccumulator =>
-  Arr.reduce(nodes, new SectionAccumulator({ intro: [], sections: [] }), (acc, node): SectionAccumulator => {
-    if (node.type === "heading" && node.depth === 2) {
-      return new SectionAccumulator({
-        ...acc,
-        sections: Arr.append(
-          acc.sections,
-          new MarkdownSection({
-            title: headingText(node, packageSlug, revision),
-            nodes: []
-          })
-        )
-      })
-    }
-
-    if (node.type === "heading" && node.depth === 1) {
-      return acc
-    }
-
-    const last = Arr.last(acc.sections)
-
-    return Option.match(last, {
-      onNone: () => new SectionAccumulator({ ...acc, intro: Arr.append(acc.intro, node) }),
-      onSome: (section) =>
-        new SectionAccumulator({
-          ...acc,
-          sections: [
-            ...acc.sections.slice(0, -1),
-            new MarkdownSection({ ...section, nodes: Arr.append(section.nodes, node) })
-          ]
-        })
-    })
-  })
-
-const blocksFor = (
-  nodes: ReadonlyArray<RootContent>,
-  packageSlug: string,
-  revision: string
-): ReadonlyArray<GuideBlock> => Arr.getSomes(Arr.map(nodes, (node) => guideBlock({ node, packageSlug, revision })))
-
-const blockText = (block: GuideBlock): string =>
-  block.kind === "paragraph" || block.kind === "quote"
-    ? inlineText(block.parts)
-    : block.kind === "list"
-    ? inlineText(block.items[0] ?? [])
-    : ""
-
-const summaryFor = (blocks: ReadonlyArray<GuideBlock>, fallback: string): string =>
-  Option.getOrElse(
-    Arr.findFirst(Arr.map(blocks, blockText), (text) => text.trim().length > 0),
-    () => fallback
-  )
-
-const excludedGuide = (title: string): boolean =>
-  /^(?:status|contributing(?: and support)?|contribution and support|attribution|license)$/iu.test(title.trim())
-
-const gettingStartedSection = (title: string): boolean =>
-  /^(?:installation|basic use|minimal (?:example|study))$/iu.test(title.trim())
-
-const examplesSection = (title: string): boolean => /^examples(?: and reference)?$/iu.test(title.trim())
-
-const includesCode = (blocks: ReadonlyArray<GuideBlock>): boolean => Arr.some(blocks, (block) => block.kind === "code")
-
-export const enrichGuideBlocks = (
-  title: string,
-  blocks: ReadonlyArray<GuideBlock>,
-  example: Option.Option<PackageGuideExample>
-): ReadonlyArray<GuideBlock> =>
-  examplesSection(title) && !includesCode(blocks)
-    ? Option.match(example, {
-      onNone: () => blocks,
-      onSome: (value): ReadonlyArray<GuideBlock> => [
-        { kind: "heading", depth: 3, id: guideSlug(value.title), text: value.title },
-        { kind: "code", language: "ts", source: value.source },
-        ...blocks
-      ]
-    })
-    : blocks
-
-const guideAsset = (revision: string, packageSlug: string, slug: string): string =>
-  `/docs-data/${revision}/packages/${packageSlug}/guides/${slug.length === 0 ? "overview" : slug}.json`
-
-const guidePath = (packageSlug: string, slug: string): string =>
-  `/docs/${packageSlug}${slug.length === 0 ? "" : `/${slug}`}`
-
-const makePage = (input: {
+class MakePageInput extends Data.Class<{
   readonly sourcePackage: ApiSourcePackage
   readonly revision: string
   readonly title: string
   readonly slug: string
-  readonly blocks: ReadonlyArray<GuideBlock>
-}): GuidePage => ({
+  readonly blocks: typeof GuidePageSchema.Type.blocks
+}> {}
+
+class BuildPackageGuidesInput extends Data.Class<{
+  readonly example: Option.Option<PackageGuideExample>
+  readonly markdown: string
+  readonly revision: string
+  readonly sourcePackage: ApiSourcePackage
+}> {}
+
+const PackageGuideData = Schema.Struct({
+  pages: Schema.Array(GuidePageSchema),
+  overview: DocsGuideSummarySchema,
+  guides: Schema.Array(DocsGuideSummarySchema),
+  searchEntries: Schema.Array(DocsSearchEntrySchema)
+})
+
+const headingText = (heading: Heading, packageSlug: string, revision: string): string =>
+  inlineText(inlineParts(heading.children, packageSlug, revision))
+
+const splitSections = (
+  nodes: Iterable<RootContent>,
+  packageSlug: string,
+  revision: string
+): SectionAccumulator =>
+  Array.reduce(
+    Array.fromIterable(nodes),
+    new SectionAccumulator({ intro: Chunk.empty(), sections: Chunk.empty() }),
+    (accumulator, node): SectionAccumulator => {
+      const appendNode = (): SectionAccumulator =>
+        Option.match(Chunk.last(accumulator.sections), {
+          onNone: () => new SectionAccumulator({ ...accumulator, intro: Chunk.append(accumulator.intro, node) }),
+          onSome: (section) =>
+            new SectionAccumulator({
+              ...accumulator,
+              sections: Chunk.append(
+                Chunk.dropRight(accumulator.sections, 1),
+                new MarkdownSection({ ...section, nodes: Chunk.append(section.nodes, node) })
+              )
+            })
+        })
+
+      return Match.value(node).pipe(
+        Match.withReturnType<SectionAccumulator>(),
+        Match.when({ type: "heading", depth: 1 }, () => accumulator),
+        Match.when({ type: "heading", depth: 2 }, (heading) =>
+          new SectionAccumulator({
+            ...accumulator,
+            sections: Chunk.append(
+              accumulator.sections,
+              new MarkdownSection({
+                title: headingText(heading, packageSlug, revision),
+                nodes: Chunk.empty()
+              })
+            )
+          })),
+        Match.when({ type: "heading", depth: Match.is(3, 4, 5, 6) }, appendNode),
+        Match.when(
+          {
+            type: Match.is(
+              "blockquote",
+              "break",
+              "code",
+              "definition",
+              "delete",
+              "emphasis",
+              "footnoteDefinition",
+              "footnoteReference",
+              "html",
+              "image",
+              "imageReference",
+              "inlineCode",
+              "inlineMath",
+              "link",
+              "linkReference",
+              "list",
+              "listItem",
+              "math",
+              "paragraph",
+              "strong",
+              "table",
+              "tableCell",
+              "tableRow",
+              "text",
+              "thematicBreak",
+              "yaml"
+            )
+          },
+          appendNode
+        ),
+        Match.exhaustive
+      )
+    }
+  )
+
+const blocksFor = (
+  nodes: Iterable<RootContent>,
+  packageSlug: string,
+  revision: string
+): typeof GuidePageSchema.Type.blocks =>
+  Array.getSomes(Array.map(Array.fromIterable(nodes), (node) => guideBlock({ node, packageSlug, revision })))
+
+const blockText = (block: GuideBlock): string =>
+  Match.value(block).pipe(
+    Match.withReturnType<string>(),
+    Match.when({ kind: "paragraph" }, ({ parts }) => inlineText(parts)),
+    Match.when({ kind: "quote" }, ({ parts }) => inlineText(parts)),
+    Match.when({ kind: "list" }, ({ items }) => Option.getOrElse(Option.map(Array.head(items), inlineText), () => "")),
+    Match.when({ kind: Match.is("code", "heading", "math", "table") }, () => ""),
+    Match.exhaustive
+  )
+
+const summaryFor = (blocks: typeof GuidePageSchema.Type.blocks, fallback: string): string =>
+  Option.getOrElse(
+    Array.findFirst(Array.map(blocks, blockText), (text) => String.isNonEmpty(String.trim(text))),
+    () => fallback
+  )
+
+const excludedGuide = (title: string): boolean =>
+  Option.isSome(
+    String.match(/^(?:status|contributing(?: and support)?|contribution and support|attribution|license)$/iu)(
+      String.trim(title)
+    )
+  )
+
+const gettingStartedSection = (title: string): boolean =>
+  Option.isSome(String.match(/^(?:installation|basic use|minimal (?:example|study))$/iu)(String.trim(title)))
+
+const examplesSection = (title: string): boolean =>
+  Option.isSome(String.match(/^examples(?: and reference)?$/iu)(String.trim(title)))
+
+const includesCode = (blocks: typeof GuidePageSchema.Type.blocks): boolean =>
+  Array.some(blocks, (block) =>
+    Match.value(block).pipe(
+      Match.when({ kind: "code" }, () => true),
+      Match.when({ kind: Match.is("heading", "list", "math", "paragraph", "quote", "table") }, () => false),
+      Match.exhaustive
+    ))
+
+export const enrichGuideBlocks = (
+  title: string,
+  blocks: typeof GuidePageSchema.Type.blocks,
+  example: Option.Option<PackageGuideExample>
+): typeof GuidePageSchema.Type.blocks =>
+  Boolean.match(examplesSection(title), {
+    onFalse: () => blocks,
+    onTrue: () =>
+      Boolean.match(includesCode(blocks), {
+        onTrue: () => blocks,
+        onFalse: () => {
+          const withExample = (value: PackageGuideExample): typeof GuidePageSchema.Type.blocks => {
+            const heading: GuideBlock = {
+              kind: "heading",
+              depth: 3,
+              id: guideSlug(value.title),
+              text: value.title
+            }
+            const code: GuideBlock = { kind: "code", language: "ts", source: value.source }
+            return Array.appendAll(Array.make(heading, code), blocks)
+          }
+
+          return Option.match(example, {
+            onNone: () => blocks,
+            onSome: withExample
+          })
+        }
+      })
+  })
+
+const guideAsset = (revision: string, packageSlug: string, slug: string): string =>
+  Array.join(
+    Array.make(
+      "/docs-data/",
+      revision,
+      "/packages/",
+      packageSlug,
+      "/guides/",
+      Boolean.match(String.isEmpty(slug), { onFalse: () => slug, onTrue: () => "overview" }),
+      ".json"
+    ),
+    ""
+  )
+
+const guidePath = (packageSlug: string, slug: string): string =>
+  Array.join(
+    Array.make(
+      "/docs/",
+      packageSlug,
+      Boolean.match(String.isEmpty(slug), { onFalse: () => String.concat("/", slug), onTrue: () => "" })
+    ),
+    ""
+  )
+
+const makePage = (input: MakePageInput): typeof GuidePageSchema.Type => ({
   schemaVersion: 1,
   kind: "guide",
   path: guidePath(input.sourcePackage.directoryName, input.slug),
@@ -135,16 +236,30 @@ const makePage = (input: {
   },
   title: input.title,
   summary: summaryFor(input.blocks, input.sourcePackage.description),
-  sourceUrl:
-    `https://github.com/scenesystems/theoria/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/README.md`,
+  sourceUrl: Array.join(
+    Array.make(
+      "https://github.com/scenesystems/theoria/blob/",
+      input.revision,
+      "/packages/",
+      input.sourcePackage.directoryName,
+      "/README.md"
+    ),
+    ""
+  ),
   blocks: input.blocks,
-  anchors: Arr.filterMap(input.blocks, (block) =>
-    block.kind === "heading"
-      ? Option.some({ id: block.id, label: block.text, depth: block.depth })
-      : Option.none())
+  anchors: Array.filterMap(input.blocks, (block) =>
+    Match.value(block).pipe(
+      Match.when({ kind: "heading" }, ({ depth, id, text }) => Option.some({ id, label: text, depth })),
+      Match.when({ kind: Match.is("code", "list", "math", "paragraph", "quote", "table") }, () => Option.none()),
+      Match.exhaustive
+    ))
 })
 
-const summaryForPage = (revision: string, page: GuidePage, slug: string): DocsGuideSummary => ({
+const summaryForPage = (
+  revision: string,
+  page: typeof GuidePageSchema.Type,
+  slug: string
+): typeof DocsGuideSummarySchema.Type => ({
   slug,
   title: page.title,
   summary: page.summary,
@@ -152,26 +267,38 @@ const summaryForPage = (revision: string, page: GuidePage, slug: string): DocsGu
   asset: guideAsset(revision, page.package.slug, slug)
 })
 
-const searchEntry = (page: GuidePage, slug: string): DocsSearchEntry => ({
-  id: `${page.package.slug}/guide/${slug.length === 0 ? "overview" : slug}`,
-  kind: slug.length === 0 ? "package" : "guide",
-  package: page.package.name,
-  packageSlug: page.package.slug,
-  name: page.title,
-  qualifiedName: slug.length === 0 ? page.package.name : `${page.package.name} / ${page.title}`,
-  category: slug.length === 0 ? Option.none() : Option.some("guide"),
-  summary: page.summary,
-  path: page.path,
-  anchor: Option.none()
-})
+const searchEntry = (
+  page: typeof GuidePageSchema.Type,
+  slug: string
+): typeof DocsSearchEntrySchema.Type => {
+  const isOverview = String.isEmpty(slug)
+  return {
+    id: Array.join(
+      Array.make(
+        page.package.slug,
+        "/guide/",
+        Boolean.match(isOverview, { onFalse: () => slug, onTrue: () => "overview" })
+      ),
+      ""
+    ),
+    kind: Boolean.match(isOverview, { onFalse: () => "guide", onTrue: () => "package" }),
+    package: page.package.name,
+    packageSlug: page.package.slug,
+    name: page.title,
+    qualifiedName: Boolean.match(isOverview, {
+      onFalse: () => Array.join(Array.make(page.package.name, " / ", page.title), ""),
+      onTrue: () => page.package.name
+    }),
+    category: Boolean.match(isOverview, { onFalse: () => Option.some("guide"), onTrue: Option.none }),
+    summary: page.summary,
+    path: page.path,
+    anchor: Option.none()
+  }
+}
 
-export const buildPackageGuides = (input: {
-  readonly example: Option.Option<PackageGuideExample>
-  readonly markdown: string
-  readonly revision: string
-  readonly sourcePackage: ApiSourcePackage
-}) => {
-  const root = unified().use(remarkParse).use(remarkGfm).parse(input.markdown)
+export const buildPackageGuides = (input: BuildPackageGuidesInput): typeof PackageGuideData.Type => {
+  // Authorized Markdown syntax boundary; Effect owns the guide transformations.
+  const root = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(input.markdown)
   const split = splitSections(root.children, input.sourcePackage.directoryName, input.revision)
   const overview = makePage({
     ...input,
@@ -179,20 +306,28 @@ export const buildPackageGuides = (input: {
     slug: "",
     blocks: blocksFor(split.intro, input.sourcePackage.directoryName, input.revision)
   })
-  const publicSections = Arr.filter(split.sections, (section) => !excludedGuide(section.title))
-  const gettingSections = Arr.filter(publicSections, (section) => gettingStartedSection(section.title))
-  const gettingBlocks = Arr.flatMap(gettingSections, (section): ReadonlyArray<GuideBlock> => [
-    { kind: "heading", depth: 2, id: guideSlug(section.title), text: section.title },
-    ...blocksFor(section.nodes, input.sourcePackage.directoryName, input.revision)
-  ])
+  const publicSections = Array.filter(
+    Chunk.toReadonlyArray(split.sections),
+    (section) => Boolean.not(excludedGuide(section.title))
+  )
+  const gettingSections = Array.filter(publicSections, (section) => gettingStartedSection(section.title))
+  const gettingBlocks = Array.flatMap(gettingSections, (section): typeof GuidePageSchema.Type.blocks => {
+    const heading: GuideBlock = {
+      kind: "heading",
+      depth: 2,
+      id: guideSlug(section.title),
+      text: section.title
+    }
+    return Array.prepend(blocksFor(section.nodes, input.sourcePackage.directoryName, input.revision), heading)
+  })
   const gettingStarted = makePage({
     ...input,
     title: "Getting started",
     slug: "getting-started",
     blocks: gettingBlocks
   })
-  const guidePages = Arr.map(
-    Arr.filter(publicSections, (section) => !gettingStartedSection(section.title)),
+  const guidePages = Array.map(
+    Array.filter(publicSections, (section) => Boolean.not(gettingStartedSection(section.title))),
     (section) =>
       makePage({
         ...input,
@@ -205,16 +340,19 @@ export const buildPackageGuides = (input: {
         )
       })
   )
-  const pages = [overview, gettingStarted, ...guidePages]
-  const slugs = ["", "getting-started", ...Arr.map(guidePages, (page) => guideSlug(page.title))]
+  const pages = Array.appendAll(Array.make(overview, gettingStarted), guidePages)
+  const slugs = Array.appendAll(
+    Array.make("", "getting-started"),
+    Array.map(guidePages, (page) => guideSlug(page.title))
+  )
 
   return {
     pages,
     overview: summaryForPage(input.revision, overview, ""),
-    guides: Arr.map(
-      Arr.zip(slugs.slice(1), pages.slice(1)),
+    guides: Array.map(
+      Array.zip(Array.drop(slugs, 1), Array.drop(pages, 1)),
       ([slug, page]) => summaryForPage(input.revision, page, slug)
     ),
-    searchEntries: Arr.map(Arr.zip(slugs, pages), ([slug, page]) => searchEntry(page, slug))
+    searchEntries: Array.map(Array.zip(slugs, pages), ([slug, page]) => searchEntry(page, slug))
   }
 }

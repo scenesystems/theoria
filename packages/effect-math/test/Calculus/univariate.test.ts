@@ -1,0 +1,139 @@
+import { describe, expect, it } from "@effect/vitest"
+import { Effect, Exit, Number, Schema, String } from "effect"
+
+import {
+  derivative,
+  derivativeLimit,
+  derivativeLimitValidated,
+  derivativeLimitWithPolicies,
+  secondDerivative,
+  secondDerivativeLimit,
+  secondDerivativeLimitValidated,
+  secondDerivativeLimitWithPolicies
+} from "../../src/Calculus.js"
+import * as Numeric from "../../src/Numeric.js"
+import * as Policy from "../../src/Policy.js"
+
+const strictPolicies = Policy.layerDeterministic({
+  seed: Policy.Seed.make(42),
+  precision: "strict",
+  backend: "compensated",
+  diagnostics: "enabled"
+})
+
+const relaxedPolicies = Policy.layerDeterministic({
+  seed: Policy.Seed.make(42),
+  precision: "relaxed",
+  backend: "scalar",
+  diagnostics: "disabled"
+})
+
+const expectClose = (actual: number, expected: number, tolerance: number) =>
+  expect(Numeric.abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+
+describe("Calculus / univariate limit operators", () => {
+  it.effect("derivativeLimit returns converged estimate with bounded error", () =>
+    Effect.gen(function*() {
+      const estimate = derivativeLimit(Numeric.sin, Number.unsafeDivide(Numeric.pi, 3))
+
+      expect(estimate.converged).toStrictEqual(true)
+      expect(estimate.iterations).toBeGreaterThanOrEqual(1)
+      expectClose(estimate.value, 0.5, 1e-10)
+      expect(estimate.absoluteError).toBeLessThanOrEqual(1e-8)
+    }))
+
+  it.effect("secondDerivativeLimit converges for exp(x) at x=1", () =>
+    Effect.gen(function*() {
+      const estimate = secondDerivativeLimit(Numeric.exp, 1)
+
+      expect(estimate.converged).toStrictEqual(true)
+      expectClose(estimate.value, Numeric.exp(1), 1e-9)
+      expect(estimate.absoluteError).toBeLessThanOrEqual(1e-7)
+    }))
+
+  it.effect("derivative forwards to the limit-accurate solver", () =>
+    Effect.gen(function*() {
+      expectClose(derivative(Numeric.exp, 0), 1, 1e-10)
+      expectClose(derivative(Numeric.abs, 0), 0, 1e-10)
+    }))
+
+  it.effect("secondDerivative forwards to the limit-accurate solver", () =>
+    Effect.gen(function*() {
+      const cubic = (x: number) => Number.multiply(Number.multiply(x, x), x)
+      expectClose(secondDerivative(cubic, 2), 12, 1e-7)
+    }))
+})
+
+describe("Calculus / univariate validation", () => {
+  it.effect("derivativeLimitValidated decodes strict input", () =>
+    Effect.gen(function*() {
+      const estimate = yield* derivativeLimitValidated(Numeric.sin, {
+        x: Number.unsafeDivide(Numeric.pi, 3),
+        initialStep: 1e-3,
+        maxIterations: 10
+      })
+
+      expect(estimate.converged).toStrictEqual(true)
+      expectClose(estimate.value, 0.5, 1e-10)
+    }))
+
+  it.effect("secondDerivativeLimitValidated rejects excess properties", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.exit(secondDerivativeLimitValidated(Numeric.sin, {
+        x: 1,
+        maxIterations: 6,
+        extra: true
+      }))
+
+      expect(Exit.isFailure(result)).toStrictEqual(true)
+    }))
+
+  it.effect("derivativeLimitValidated maps callback throws to typed kernel errors", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(derivativeLimitValidated(
+        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        { x: 1 }
+      ))
+
+      expect(error._tag).toStrictEqual("KernelExecutionError")
+      expect(error.operation).toStrictEqual("derivativeLimit")
+      expect(String.isNonEmpty(error.message)).toStrictEqual(true)
+    }))
+})
+
+describe("Calculus / univariate policy behavior", () => {
+  it.effect("strict precision rejects non-finite derivative limits", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.exit(derivativeLimitWithPolicies(() => Number.unsafeDivide(1, 0), 1))
+      expect(Exit.isFailure(result)).toStrictEqual(true)
+    }).pipe(Effect.provide(strictPolicies)))
+
+  it.effect("relaxed precision permits non-finite derivative limits", () =>
+    Effect.gen(function*() {
+      const estimate = yield* derivativeLimitWithPolicies(() => Number.unsafeDivide(1, 0), 1)
+
+      expect(Numeric.isFinite(estimate.value)).toStrictEqual(false)
+      expect(estimate.converged).toStrictEqual(false)
+    }).pipe(Effect.provide(relaxedPolicies)))
+
+  it.effect("strict precision keeps converged second derivative estimates", () =>
+    Effect.gen(function*() {
+      const point = Number.unsafeDivide(Numeric.pi, 3)
+      const estimate = yield* secondDerivativeLimitWithPolicies(Numeric.sin, point)
+
+      expect(estimate.converged).toStrictEqual(true)
+      expectClose(estimate.value, Number.negate(Numeric.sin(point)), 1e-9)
+    }).pipe(Effect.provide(strictPolicies)))
+
+  it.effect("policy wrappers map callback throws to typed kernel errors", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(derivativeLimitWithPolicies(
+        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        1
+      ))
+
+      expect(error._tag).toStrictEqual("KernelExecutionError")
+      expect(error.operation).toStrictEqual("derivativeLimitWithPolicies")
+      expect(String.isNonEmpty(error.message)).toStrictEqual(true)
+    }).pipe(Effect.provide(strictPolicies)))
+})
